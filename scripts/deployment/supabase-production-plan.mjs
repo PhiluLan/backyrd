@@ -91,7 +91,7 @@ const productionAuthConfig = (tree) => {
   const path = "supabase/production/auth-config.json";
   if (!tree.files.has(path)) return null;
   const document = JSON.parse(tree.text(path));
-  const allowedKeys = new Set([
+  const baseKeys = [
     "site_url",
     "uri_allow_list",
     "password_min_length",
@@ -99,17 +99,22 @@ const productionAuthConfig = (tree) => {
     "mailer_subjects_recovery",
     "mailer_templates_confirmation_content",
     "mailer_templates_recovery_content",
-  ]);
+  ];
+  const smtpKeys = ["smtp_admin_email", "smtp_host", "smtp_port", "smtp_user", "smtp_sender_name"];
+  const allowedKeys = new Set([...baseKeys, ...smtpKeys]);
   if (document.version !== "backyrd-production-auth-config-v1") throw new Error("unsupported_production_auth_config_version");
   if (document.projectRef !== "hjgcrrzfjchzqoegcywn") throw new Error("production_auth_project_mismatch");
   if (!document.config || Array.isArray(document.config) || typeof document.config !== "object") throw new Error("production_auth_config_object_required");
   for (const key of Object.keys(document.config)) if (!allowedKeys.has(key)) throw new Error(`production_auth_config_key_not_allowed:${key}`);
-  if ([...allowedKeys].some((key) => !(key in document.config))) throw new Error("production_auth_config_required_key_missing");
+  if (baseKeys.some((key) => !(key in document.config))) throw new Error("production_auth_config_required_key_missing");
   if (document.config.site_url !== "https://www.backyrd.ch") throw new Error("production_auth_site_url_invalid");
   if (document.config.uri_allow_list !== "https://www.backyrd.ch/auth/callback**,backyrd://auth/**") throw new Error("production_auth_redirect_scope_invalid");
   if (!Number.isInteger(document.config.password_min_length) || document.config.password_min_length < 8 || document.config.password_min_length > 72) throw new Error("production_auth_password_policy_invalid");
+  if (smtpKeys.some((key) => key in document.config)) {
+    if (document.config.smtp_admin_email !== "konto@auth.backyrd.ch" || document.config.smtp_host !== "smtp.resend.com" || document.config.smtp_port !== "465" || document.config.smtp_user !== "resend" || document.config.smtp_sender_name !== "Backyrd") throw new Error("production_auth_smtp_identity_invalid");
+  }
   for (const key of [...allowedKeys].filter((value) => value !== "password_min_length")) {
-    if (typeof document.config[key] !== "string" || !document.config[key].trim()) throw new Error(`production_auth_config_value_invalid:${key}`);
+    if (key in document.config && (typeof document.config[key] !== "string" || !document.config[key].trim())) throw new Error(`production_auth_config_value_invalid:${key}`);
   }
   return { path, sha256: sha256(tree.read(path)), values: document.config };
 };
