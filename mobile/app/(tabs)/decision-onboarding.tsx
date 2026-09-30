@@ -340,7 +340,9 @@ export default function DecisionOnboardingScreen() {
               Wähle drei Orte, an denen du gerne bist. So finden wir Erlebnisse, die zu dir passen.
             </Text>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.min(selected.length, MIN_SELECTION) / MIN_SELECTION * 100}%` }]} /></View>
-            <Text role="caption" tone="secondary" style={styles.progressLabel}>{selected.length} von {MIN_SELECTION} Lieblingsorten gewählt</Text>
+            <Text role="caption" tone="secondary" style={styles.progressLabel}>
+              {remainingCount > 0 ? `Noch ${remainingCount} ${remainingCount === 1 ? "Ort" : "Orte"} auswählen` : `${selected.length} Lieblingsorte ausgewählt`}
+            </Text>
           </View>
 
           <View style={styles.citySection}>
@@ -460,7 +462,7 @@ export default function DecisionOnboardingScreen() {
             <View style={styles.selectedHeader}>
               <Text role="sectionTitle" style={styles.selectedTitle}>Deine Auswahl</Text>
               <Text role="label" style={[styles.selectedCount, remainingCount <= 0 && styles.selectedCountDone]}>
-                {selected.length} / {MIN_SELECTION}
+                {remainingCount > 0 ? `${selected.length} / ${MIN_SELECTION}` : `${selected.length} gewählt`}
               </Text>
             </View>
 
