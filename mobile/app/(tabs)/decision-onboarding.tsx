@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
+import { AppText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
+import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -67,6 +68,7 @@ export default function DecisionOnboardingScreen() {
   const [results, setResults] = useState<SpotRow[]>([]);
   const [suggestions, setSuggestions] = useState<SpotRow[]>([]);
   const [selected, setSelected] = useState<SpotRow[]>([]);
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
 
   const selectedIds = useMemo(() => new Set(selected.map((spot) => spot.id)), [selected]);
   const canSubmit =
@@ -167,6 +169,7 @@ export default function DecisionOnboardingScreen() {
       setCity(detectedCity);
       setQuery("");
       setResults([]);
+      setShowAllSuggestions(false);
       setLocationStatus("detected");
       loadSuggestions(detectedCity);
     } catch (error) {
@@ -309,18 +312,17 @@ export default function DecisionOnboardingScreen() {
     }
   }, [city, personalizationConsent, personalizationConsentPersisted, router, selected]);
 
-  const visibleSpots = query.trim().length >= 2 ? results : suggestions;
-  const visibleTitle = query.trim().length >= 2 ? "Gefundene Spots" : "Vorschläge in deiner Stadt";
-  const showLoadingList = query.trim().length >= 2 ? searching : loadingSuggestions;
+  const isSearching = query.trim().length >= 2;
+  const visibleSpots = isSearching ? results : showAllSuggestions ? suggestions : suggestions.slice(0, 6);
+  const visibleTitle = isSearching ? "Gefundene Spots" : "Vorschläge in deiner Stadt";
+  const showLoadingList = isSearching ? searching : loadingSuggestions;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <Stack.Screen
         options={{
           title: "Dein Startgeschmack",
-          headerStyle: { backgroundColor: theme.bg },
-          headerTintColor: "#fff",
-          headerShadowVisible: false,
+          headerShown: false,
         }}
       />
 
@@ -331,24 +333,28 @@ export default function DecisionOnboardingScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.hero}>
-            <Text style={styles.kicker}>DECISION</Text>
-            <Text style={styles.title}>Lass uns deinen Geschmack starten.</Text>
-            <Text style={styles.subtitle}>
-              Wähle 3 Orte, die du wirklich magst. Backyrd nutzt sie als erste Ankerpunkte
-              für deine persönlichen Empfehlungen.
+            <View style={styles.brandMark}><Text role="cardTitle" style={styles.brandLetter}>B</Text></View>
+            <Text role="label" tone="pink" style={styles.kicker}>DEIN BACKYRD</Text>
+            <Text role="displayM" style={styles.title}>Was magst du wirklich?</Text>
+            <Text role="body" tone="secondary" style={styles.subtitle}>
+              Wähle drei Orte, an denen du gerne bist. So finden wir Erlebnisse, die zu dir passen.
             </Text>
+            <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.min(selected.length, MIN_SELECTION) / MIN_SELECTION * 100}%` }]} /></View>
+            <Text role="caption" tone="secondary" style={styles.progressLabel}>{selected.length} von {MIN_SELECTION} Lieblingsorten gewählt</Text>
           </View>
 
-          <View style={styles.card}>
+          <View style={styles.citySection}>
+            <Text role="label" style={styles.sectionEyebrow}>WO SUCHST DU?</Text>
             <View style={styles.cityRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Aktuelle Stadt</Text>
                 <TextInput
+                  accessibilityLabel="Stadt"
                   value={city}
                   onChangeText={(text) => {
                     setCity(text);
                     setQuery("");
                     setResults([]);
+                    setShowAllSuggestions(false);
                   }}
                   placeholder="Basel"
                   placeholderTextColor="rgba(255,255,255,0.35)"
@@ -358,14 +364,16 @@ export default function DecisionOnboardingScreen() {
               </View>
 
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Stadt über Standort erkennen"
                 onPress={detectLocation}
                 disabled={detectingLocation}
                 style={({ pressed }) => [styles.detectButton, pressed && styles.pressed]}
               >
                 {detectingLocation ? (
-                  <ActivityIndicator size="small" />
+                  <ActivityIndicator size="small" color={backyrdTheme.color.pink} />
                 ) : (
-                  <Text style={styles.detectButtonText}>Erkennen</Text>
+                  <Ionicons name="locate-outline" size={21} color={backyrdTheme.color.pink} />
                 )}
               </Pressable>
             </View>
@@ -383,27 +391,31 @@ export default function DecisionOnboardingScreen() {
             )}
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.label}>Lieblingsspot suchen</Text>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="z.B. 1777, Café Frühling, Volta Bräu …"
-              placeholderTextColor="rgba(255,255,255,0.35)"
-              autoCorrect={false}
-              style={styles.input}
-            />
+          <View style={styles.searchSection}>
+            <Text role="sectionTitle">Deine Lieblingsorte</Text>
+            <Text role="meta" tone="secondary" style={styles.sectionHint}>Suche nach Orten, die du schon kennst und magst.</Text>
+            <View style={styles.searchInputWrap}>
+              <Ionicons name="search-outline" size={20} color={backyrdTheme.color.textSecondary} />
+              <TextInput
+                accessibilityLabel="Lieblingsort suchen"
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Spot suchen"
+                placeholderTextColor={backyrdTheme.color.textMuted}
+                autoCorrect={false}
+                style={styles.searchInput}
+              />
+            </View>
 
             <View style={styles.listHeader}>
-              <Text style={styles.listTitle}>{visibleTitle}</Text>
-              {showLoadingList ? <ActivityIndicator size="small" /> : null}
+              <Text role="label" style={styles.listTitle}>{visibleTitle}</Text>
+              {showLoadingList ? <ActivityIndicator size="small" color={backyrdTheme.color.pink} /> : null}
             </View>
 
             {visibleSpots.length <= 0 ? (
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyText}>
-                  Keine Spots gefunden. Prüfe die Stadt oder suche nach einem anderen Namen.
-                  Für das Startprofil zählen nur Orte, die bereits in Backyrd existieren.
+                <Text role="meta" tone="secondary" style={styles.emptyText}>
+                  {showLoadingList ? "Orte werden geladen …" : "Hier ist noch kein passender Spot. Versuche einen anderen Namen oder eine andere Stadt."}
                 </Text>
               </View>
             ) : (
@@ -414,6 +426,8 @@ export default function DecisionOnboardingScreen() {
                   return (
                     <Pressable
                       key={spot.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${spot.name} ${isSelected ? "bereits ausgewählt" : "als Lieblingsort hinzufügen"}`}
                       onPress={() => addSelected(spot)}
                       disabled={isSelected}
                       style={({ pressed }) => [
@@ -422,53 +436,55 @@ export default function DecisionOnboardingScreen() {
                         pressed && !isSelected && styles.spotRowPressed,
                       ]}
                     >
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.spotName}>{spot.name}</Text>
-                        <Text style={styles.spotMeta} numberOfLines={1}>
+                      <View style={styles.spotRowCopy}>
+                        <Text role="bodyStrong" style={styles.spotName} numberOfLines={1}>{spot.name}</Text>
+                        <Text role="caption" tone="secondary" style={styles.spotMeta} numberOfLines={1}>
                           {[categoryName(spot), spot.city, spot.address].filter(Boolean).join(" · ")}
                         </Text>
                       </View>
-
-                      <Text style={[styles.addText, isSelected && styles.addTextSelected]}>
-                        {isSelected ? "Drin" : "+"}
-                      </Text>
+                      <View style={[styles.addIcon, isSelected && styles.addIconSelected]}><Ionicons name={isSelected ? "checkmark" : "add"} size={19} color={isSelected ? backyrdTheme.color.background : backyrdTheme.color.pink} /></View>
                     </Pressable>
                   );
                 })}
               </View>
             )}
+            {!isSearching && suggestions.length > 6 && !showAllSuggestions ? (
+              <Pressable accessibilityRole="button" onPress={() => setShowAllSuggestions(true)} style={styles.moreSuggestions}>
+                <Text role="label" tone="pink">Weitere Orte anzeigen</Text>
+                <Ionicons name="chevron-down" size={17} color={backyrdTheme.color.pink} />
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.selectedSection}>
             <View style={styles.selectedHeader}>
-              <Text style={styles.selectedTitle}>Deine 3 Ankerpunkte</Text>
-              <Text style={[styles.selectedCount, remainingCount <= 0 && styles.selectedCountDone]}>
-                {selected.length}/{MIN_SELECTION} Minimum
+              <Text role="sectionTitle" style={styles.selectedTitle}>Deine Auswahl</Text>
+              <Text role="label" style={[styles.selectedCount, remainingCount <= 0 && styles.selectedCountDone]}>
+                {selected.length} / {MIN_SELECTION}
               </Text>
             </View>
 
             {selected.length === 0 ? (
-              <Text style={styles.selectedEmpty}>
-                Noch nichts ausgewählt. Starte mit Orten, bei denen du sofort sagen würdest:
-                „Ja, sowas mag ich.“
+              <Text role="meta" tone="secondary" style={styles.selectedEmpty}>
+                Noch nichts ausgewählt. Welche Orte würdest du Freunden sofort empfehlen?
               </Text>
             ) : (
               <View style={styles.selectedList}>
                 {selected.map((spot, index) => (
                   <View key={spot.id} style={styles.selectedRow}>
                     <View style={styles.selectedNumber}>
-                      <Text style={styles.selectedNumberText}>{index + 1}</Text>
+                      <Text role="caption" style={styles.selectedNumberText}>{index + 1}</Text>
                     </View>
 
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.selectedName}>{spot.name}</Text>
-                      <Text style={styles.selectedMeta}>
+                      <Text role="bodyStrong" style={styles.selectedName}>{spot.name}</Text>
+                      <Text role="caption" tone="secondary" style={styles.selectedMeta}>
                         {[categoryName(spot), spot.city ?? city].filter(Boolean).join(" · ")}
                       </Text>
                     </View>
 
-                    <Pressable onPress={() => removeSelected(spot.id)} style={styles.removeButton}>
-                      <Text style={styles.removeText}>Entfernen</Text>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`${spot.name} entfernen`} onPress={() => removeSelected(spot.id)} style={styles.removeButton}>
+                      <Ionicons name="close" size={20} color={backyrdTheme.color.textSecondary} />
                     </Pressable>
                   </View>
                 ))}
@@ -486,8 +502,8 @@ export default function DecisionOnboardingScreen() {
               <Text style={styles.consentCheckmark}>{personalizationConsent ? "✓" : ""}</Text>
             </View>
             <View style={styles.consentCopy}>
-              <Text style={styles.consentTitle}>Persönliche Empfehlungen aktivieren</Text>
-              <Text style={styles.consentText}>
+              <Text role="bodyStrong" style={styles.consentTitle}>Persönliche Empfehlungen</Text>
+              <Text role="caption" tone="secondary" style={styles.consentText}>
                 Backyrd darf diese Auswahl nutzen, um deinen Start-Geschmack aufzubauen. Du kannst
                 diese Einwilligung jederzeit im Privacy Center widerrufen.
               </Text>
@@ -504,17 +520,14 @@ export default function DecisionOnboardingScreen() {
             ]}
           >
             {submitting ? (
-              <ActivityIndicator />
+              <ActivityIndicator color={backyrdTheme.color.background} />
             ) : (
-              <Text style={[styles.submitText, !canSubmit && styles.submitTextDisabled]}>
-                Meinen Geschmack starten
-              </Text>
+              <View style={styles.submitInner}><Text role="bodyStrong" style={[styles.submitText, !canSubmit && styles.submitTextDisabled]}>Mein Backyrd entdecken</Text><Ionicons name="arrow-forward" size={20} color={canSubmit ? backyrdTheme.color.background : backyrdTheme.color.textMuted} /></View>
             )}
           </Pressable>
 
-          <Text style={styles.footerText}>
-            Diese Auswahl ist nur der Start. Danach lernt Backyrd über Swipes, Öffnen und Speichern
-            weiter, welche Art Orte du wirklich suchst.
+          <Text role="caption" tone="secondary" style={styles.footerText}>
+            Deine Auswahl ist nur der Anfang. Du kannst deinen Geschmack später weiterentwickeln.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -522,321 +535,68 @@ export default function DecisionOnboardingScreen() {
   );
 }
 
-const theme = {
-  bg: "#050506",
-  card: "rgba(255,255,255,0.055)",
-  cardStrong: "rgba(255,255,255,0.085)",
-  border: "rgba(255,255,255,0.115)",
-  borderStrong: "rgba(255,255,255,0.22)",
-  text: "#fff",
-  muted: "rgba(255,255,255,0.68)",
-  faint: "rgba(255,255,255,0.42)",
-  cream: "#F4EBDD",
-  black: "#050506",
-  green: "#BBF7D0",
-};
-
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  content: {
-    paddingHorizontal: backyrdTheme.layout.pageGutter,
-    paddingTop: 10,
-    paddingBottom: 36,
-  },
-  hero: {
-    marginBottom: 18,
-  },
-  kicker: {
-    color: "rgba(255,255,255,0.46)",
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 5,
-    marginBottom: 12,
-  },
-  title: {
-    color: theme.text,
-    ...backyrdTheme.typeScale.screenTitle,
-    fontWeight: "700",
-  },
-  subtitle: {
-    color: theme.muted,
-    marginTop: 10,
-    lineHeight: 21,
-    fontSize: 15,
-  },
-  card: {
-    marginTop: 14,
-    backgroundColor: theme.card,
-    borderColor: theme.border,
-    borderWidth: 1,
-    borderRadius: 24,
-    padding: 14,
-  },
-  cityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  label: {
-    color: theme.muted,
-    fontWeight: "800",
-    marginBottom: 7,
-  },
-  input: {
-    color: "#fff",
-    paddingVertical: 12,
-    paddingHorizontal: 13,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    fontWeight: "800",
-  },
-  detectButton: {
-    marginTop: 24,
-    paddingHorizontal: 13,
-    height: 45,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(244,235,221,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(244,235,221,0.28)",
-  },
-  detectButtonText: {
-    color: theme.cream,
-    fontWeight: "900",
-  },
-  successText: {
-    color: theme.green,
-    marginTop: 9,
-    fontWeight: "800",
-    fontSize: 12,
-  },
-  infoText: {
-    color: theme.faint,
-    marginTop: 9,
-    lineHeight: 18,
-    fontSize: 12,
-  },
-  listHeader: {
-    marginTop: 14,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10,
-  },
-  listTitle: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 15,
-  },
-  emptyBox: {
-    marginTop: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(255,255,255,0.035)",
-    padding: 12,
-  },
-  emptyText: {
-    color: theme.muted,
-    lineHeight: 19,
-  },
-  spotList: {
-    marginTop: 10,
-    gap: 8,
-  },
-  spotRow: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.045)",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  spotRowSelected: {
-    borderColor: "rgba(187,247,208,0.42)",
-    backgroundColor: "rgba(187,247,208,0.10)",
-  },
-  spotRowPressed: {
-    borderColor: theme.borderStrong,
-    backgroundColor: "rgba(255,255,255,0.09)",
-  },
-  spotName: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 15,
-  },
-  spotMeta: {
-    color: theme.muted,
-    marginTop: 3,
-    fontSize: 12,
-  },
-  addText: {
-    color: theme.cream,
-    fontWeight: "900",
-    fontSize: 18,
-  },
-  addTextSelected: {
-    color: theme.green,
-    fontSize: 13,
-  },
-  selectedSection: {
-    marginTop: 16,
-  },
-  selectedHeader: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-  },
-  selectedTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-  selectedCount: {
-    color: theme.faint,
-    fontWeight: "900",
-    fontSize: 12,
-  },
-  selectedCountDone: {
-    color: theme.green,
-  },
-  selectedEmpty: {
-    color: theme.muted,
-    marginTop: 9,
-    lineHeight: 20,
-  },
-  selectedList: {
-    marginTop: 10,
-    gap: 9,
-  },
-  selectedRow: {
-    backgroundColor: theme.cardStrong,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    padding: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12,
-  },
-  selectedNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(244,235,221,0.13)",
-    borderWidth: 1,
-    borderColor: "rgba(244,235,221,0.25)",
-  },
-  selectedNumberText: {
-    color: theme.cream,
-    fontWeight: "900",
-    fontSize: 12,
-  },
-  selectedName: {
-    color: "#fff",
-    fontWeight: "900",
-  },
-  selectedMeta: {
-    color: theme.muted,
-    marginTop: 2,
-    fontSize: 12,
-  },
-  removeButton: {
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-  },
-  removeText: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 12,
-  },
-  consentCard: {
-    marginTop: 18,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.13)",
-    backgroundColor: "rgba(255,255,255,0.045)",
-    padding: 14,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  consentCheckbox: {
-    width: 25,
-    height: 25,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.34)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  consentCheckboxChecked: {
-    backgroundColor: theme.cream,
-    borderColor: theme.cream,
-  },
-  consentCheckmark: {
-    color: theme.black,
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  consentCopy: {
-    flex: 1,
-  },
-  consentTitle: {
-    color: theme.text,
-    fontWeight: "900",
-    fontSize: 15,
-  },
-  consentText: {
-    color: theme.muted,
-    marginTop: 5,
-    lineHeight: 18,
-    fontSize: 12,
-  },
-  submitButton: {
-    marginTop: 18,
-    height: 56,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-  },
-  submitButtonDisabled: {
-    backgroundColor: "rgba(255,255,255,0.14)",
-  },
-  submitText: {
-    color: "#000",
-    fontWeight: "900",
-    fontSize: 16,
-  },
-  submitTextDisabled: {
-    color: "rgba(255,255,255,0.48)",
-  },
-  footerText: {
-    color: theme.faint,
-    marginTop: 11,
-    lineHeight: 18,
-    fontSize: 12,
-  },
-  pressed: {
-    opacity: 0.86,
-    transform: [{ scale: 0.99 }],
-  },
+  safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
+  content: { paddingHorizontal: backyrdTheme.layout.pageGutter, paddingTop: 28, paddingBottom: 80 },
+  hero: { paddingBottom: 32 },
+  brandMark: { width: 42, height: 42, borderRadius: 13, backgroundColor: backyrdTheme.color.pink, alignItems: "center", justifyContent: "center", marginBottom: 34 },
+  brandLetter: { color: backyrdTheme.color.background },
+  kicker: { letterSpacing: 3, marginBottom: 10 },
+  title: { maxWidth: 310 },
+  subtitle: { marginTop: 14, maxWidth: 340 },
+  progressTrack: { height: 3, borderRadius: 2, backgroundColor: backyrdTheme.color.surfaceElevated, overflow: "hidden", marginTop: 28 },
+  progressFill: { height: 3, borderRadius: 2, backgroundColor: backyrdTheme.color.pink },
+  progressLabel: { marginTop: 10 },
+  citySection: { borderTopWidth: 1, borderColor: backyrdTheme.color.border, paddingTop: 24 },
+  sectionEyebrow: { color: backyrdTheme.color.pink, letterSpacing: 2, marginBottom: 14 },
+  cityRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  input: { color: backyrdTheme.color.textPrimary, fontSize: 16, minHeight: 54, paddingHorizontal: 18, borderRadius: backyrdTheme.radius.md, backgroundColor: backyrdTheme.color.surface, borderWidth: 1, borderColor: backyrdTheme.color.border },
+  detectButton: { width: 54, height: 54, borderRadius: backyrdTheme.radius.md, borderWidth: 1, borderColor: backyrdTheme.color.border, backgroundColor: backyrdTheme.color.surface, alignItems: "center", justifyContent: "center" },
+  successText: { color: backyrdTheme.color.success, marginTop: 10 },
+  infoText: { color: backyrdTheme.color.textSecondary, marginTop: 10 },
+  searchSection: { marginTop: 38 },
+  sectionHint: { marginTop: 5 },
+  searchInputWrap: { marginTop: 20, minHeight: 54, paddingHorizontal: 17, borderRadius: backyrdTheme.radius.pill, borderWidth: 1, borderColor: backyrdTheme.color.border, backgroundColor: backyrdTheme.color.surface, flexDirection: "row", alignItems: "center", gap: 11 },
+  searchInput: { flex: 1, minHeight: 52, color: backyrdTheme.color.textPrimary, fontSize: 16 },
+  listHeader: { marginTop: 28, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  listTitle: { color: backyrdTheme.color.textSecondary },
+  emptyBox: { marginTop: 14, paddingVertical: 18 },
+  emptyText: { lineHeight: 21 },
+  spotList: { marginTop: 8 },
+  spotRow: { minHeight: 70, paddingVertical: 13, borderBottomWidth: 1, borderColor: backyrdTheme.color.border, flexDirection: "row", alignItems: "center", gap: 12 },
+  spotRowCopy: { flex: 1, minWidth: 0 },
+  spotRowSelected: { opacity: 0.52 },
+  spotRowPressed: { opacity: 0.7 },
+  spotName: { color: backyrdTheme.color.textPrimary },
+  spotMeta: { marginTop: 3 },
+  addIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,79,145,0.12)" },
+  addIconSelected: { backgroundColor: backyrdTheme.color.pink },
+  moreSuggestions: { minHeight: 50, flexDirection: "row", alignItems: "center", gap: 6 },
+  selectedSection: { marginTop: 40, borderTopWidth: 1, borderColor: backyrdTheme.color.border, paddingTop: 26 },
+  selectedHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  selectedTitle: { flex: 1 },
+  selectedCount: { color: backyrdTheme.color.textSecondary },
+  selectedCountDone: { color: backyrdTheme.color.success },
+  selectedEmpty: { marginTop: 12 },
+  selectedList: { marginTop: 14 },
+  selectedRow: { minHeight: 70, borderBottomWidth: 1, borderColor: backyrdTheme.color.border, flexDirection: "row", alignItems: "center", gap: 12 },
+  selectedNumber: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,79,145,0.13)" },
+  selectedNumberText: { color: backyrdTheme.color.pink },
+  selectedName: { color: backyrdTheme.color.textPrimary },
+  selectedMeta: { marginTop: 2 },
+  removeButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  consentCard: { marginTop: 40, paddingVertical: 20, borderTopWidth: 1, borderBottomWidth: 1, borderColor: backyrdTheme.color.border, flexDirection: "row", alignItems: "flex-start", gap: 14 },
+  consentCheckbox: { width: 26, height: 26, borderRadius: 8, borderWidth: 1, borderColor: backyrdTheme.color.textSecondary, alignItems: "center", justifyContent: "center", marginTop: 1 },
+  consentCheckboxChecked: { backgroundColor: backyrdTheme.color.pink, borderColor: backyrdTheme.color.pink },
+  consentCheckmark: { color: backyrdTheme.color.background, fontSize: 17 },
+  consentCopy: { flex: 1 },
+  consentTitle: { color: backyrdTheme.color.textPrimary },
+  consentText: { marginTop: 6, lineHeight: 19 },
+  submitButton: { marginTop: 24, minHeight: 56, borderRadius: backyrdTheme.radius.pill, alignItems: "center", justifyContent: "center", backgroundColor: backyrdTheme.color.pink },
+  submitButtonDisabled: { backgroundColor: backyrdTheme.color.surfaceElevated },
+  submitInner: { flexDirection: "row", alignItems: "center", gap: 12 },
+  submitText: { color: backyrdTheme.color.background },
+  submitTextDisabled: { color: backyrdTheme.color.textMuted },
+  footerText: { marginTop: 18, textAlign: "center" },
+  pressed: { opacity: 0.86, transform: [{ scale: backyrdTheme.motion.pressScale }] },
 });

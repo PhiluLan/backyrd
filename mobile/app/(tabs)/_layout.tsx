@@ -34,7 +34,7 @@ export default function TabsLayout() {
   const params = useGlobalSearchParams();
   const insets = useSafeAreaInsets();
 
-  const hideTabs = pathname.includes("/decision") && params.hideTabs === "1";
+  const hideTabs = pathname.includes("/decision-onboarding") || (pathname.includes("/decision") && params.hideTabs === "1");
 
   const tabBarStyle = hideTabs
     ? ({ display: "none" } as const)
