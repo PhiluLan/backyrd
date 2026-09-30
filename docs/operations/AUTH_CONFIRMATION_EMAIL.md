@@ -1,6 +1,6 @@
-# Signup confirmation email
+# Auth emails
 
-The canonical hosted email is `supabase/production/auth-config.json`. Changes
+The canonical hosted email configuration is `supabase/production/auth-config.json`. Changes
 are released through the existing SHA-bound Supabase Production workflow, which
 reads the applied Auth settings back after deployment. Do not edit the hosted
 template independently.
@@ -36,9 +36,11 @@ Mail-client link handling can still choose its browser; the fallback must remain
 usable. A screenshot of a browser-rendered template does not prove Gmail or
 Apple Mail delivery behavior.
 
-The template is self-contained HTML with inline styles and no tracking images.
-Production Auth mail uses the separately verified `auth.backyrd.ch` sending
-domain in Resend, with `Backyrd <konto@auth.backyrd.ch>` as its sender. The
+The confirmation and recovery templates are self-contained HTML with inline
+styles and no tracking images. Both use lowercase `backyrd` branding.
+Production Auth mail is configured for the `backyrd.ch` sending domain in
+Resend, with `backyrd <hello@backyrd.ch>` as its sender. Verify that this
+domain is owned and sending-ready in Resend before deploying this config. The
 canonical non-secret SMTP settings are in `auth-config.json`; the Resend SMTP
 API key is supplied only by the Production environment secret
 `BACKYRD_RESEND_AUTH_SMTP_KEY`. It must not appear in Git, the plan, logs, or
