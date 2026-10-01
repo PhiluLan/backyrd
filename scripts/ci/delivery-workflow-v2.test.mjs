@@ -62,6 +62,22 @@ test("Production release is manual-only", () => {
   assert.match(workflow, /product-release-manifest\.mjs verify/);
 });
 
+test("Decision continuity cannot become automated activation or deployment", () => {
+  const policy = read("docs/operations/DELIVERY_WORKFLOW_V2.md");
+  const migration = read("supabase/migrations/20261001202402_decision_continuous_authority_v1.sql");
+  assert.match(policy, /sole runtime-maintenance exception/);
+  assert.match(policy, /manual, exact-release Product activation/);
+  assert.match(migration, /current_user <> 'postgres'/);
+  assert.match(migration, /v_current\.state <> 'ON'/);
+  assert.match(migration, /v_expiry is null or v_expiry <= v_now/);
+  assert.match(migration, /expires_at <= renewed_at \+ interval '24 hours'/);
+  assert.match(migration, /v_authorization\.release_hash is distinct from v_current\.release_hash/);
+  assert.match(migration, /v_authorization\.artifact_hash is distinct from v_current\.artifact_hash/);
+  assert.match(migration, /v_authorization\.source_set_hash is distinct from v_current\.source_set_hash/);
+  assert.doesNotMatch(migration, /cron\.schedule\([^;]*backyrd_decision_vnext_product_activate_v1/s);
+  assert.doesNotMatch(migration, /grant execute on function decision_vnext_private\.renew_product_continuity_v1/);
+});
+
 test("the supply-chain gate pins dependency review and validates lockfile coupling", () => {
   const workflow = read(".github/workflows/risk-gate.yml");
   assert.match(workflow, /actions\/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48/);

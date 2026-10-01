@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20261001-decision-continuity-v1",
+  "previousEvidence": "world-research-automation-review-completion-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "725a300db27263a96adec81e05f4aaee72fc3a20d000e90f5ee4e6ff69efd558",
+    "applicationSchemaSha256": "b00ca5d1f88d8f64fe7da44403c13576b32895b7958ad32f4d65a89d040d4410"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261001202402_decision_continuous_authority_v1.sql",
+      "sha256": "e2492c42d42fe40a1893f5dd90dc41df6417ba62c786184ca5e2ae4bed295ea7"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_continuous_authority_v1.sql",
+      "sha256": "b8b5b3081789f9b91d81c9793e0d0d1a57d689f3926d1d99467e8affc670e1c3"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "725a300db27263a96adec81e05f4aaee72fc3a20d000e90f5ee4e6ff69efd558",
+    "applicationSchemaSha256": "4fc9d56efc1a2de88c476f76a8699f35db2f4e3f01a5aa7f38f4327688cd2147"
+  }
+}
