@@ -39,10 +39,6 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20260930053440_world_research_automation_review_completion_v1.sql",
-        "sha256": "3dd624908ff9dbd2889a0eb79205fa619ba5368f915bf19aad38a48fad108100"
-      },
-      {
         "path": "supabase/migrations/20261001202402_decision_continuous_authority_v1.sql",
         "sha256": "e2492c42d42fe40a1893f5dd90dc41df6417ba62c786184ca5e2ae4bed295ea7"
       }
