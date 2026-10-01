@@ -64,6 +64,10 @@ select pg_temp.expect_state(format(
 ),'42501');
 
 set local role authenticated;
+select pg_temp.expect_state(
+  'select * from decision_vnext_private.product_continuity_authorizations_v1',
+  '42501'
+);
 select pg_temp.expect_state(format(
   'select decision_vnext_private.authorize_product_continuity_v1(%s,%L,%L,%L,%L)',
   1,repeat('a',64),repeat('b',64),repeat('c',64),repeat('e',64)
@@ -118,6 +122,30 @@ select pg_temp.assert(
 select pg_temp.assert(
   (decision_vnext_private.renew_product_continuity_v1()->>'reason')='OFF',
   'scheduler must not reactivate after Emergency-OFF'
+);
+
+-- Even an explicitly seeded authorization cannot restart a release after its
+-- lease expires; a fresh manual OFF -> ON generation is required.
+insert into decision_vnext_private.product_runtime_control_events_v1(
+  generation,state,release_hash,artifact_hash,source_set_hash,reason_code,
+  authority_hash,authority_version,authority_expires_at
+) values (
+  3,'ON',repeat('a',64),repeat('b',64),repeat('c',64),'EXPIRED_TEST',
+  repeat('d',64),'backyrd.decision-vnext.product-activation-authority@1.0',
+  pg_catalog.clock_timestamp()-interval '1 hour'
+);
+insert into decision_vnext_private.product_continuity_authorizations_v1(
+  generation,release_hash,artifact_hash,source_set_hash,authority_hash
+) values (3,repeat('a',64),repeat('b',64),repeat('c',64),repeat('e',64));
+select pg_temp.assert(
+  (decision_vnext_private.renew_product_continuity_v1()->>'reason')='EXPIRED',
+  'expired generation was resurrected by scheduler'
+);
+select pg_temp.assert(
+  not (public.backyrd_decision_vnext_product_control_v1(
+    repeat('a',64),repeat('b',64),repeat('c',64),3
+  )->>'enabled')::boolean,
+  'expired generation must stay denied to service reader'
 );
 
 rollback;

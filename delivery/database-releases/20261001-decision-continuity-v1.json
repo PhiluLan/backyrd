@@ -16,7 +16,7 @@
   "tests": [
     {
       "path": "supabase/tests/decision_continuous_authority_v1.sql",
-      "sha256": "8c423c3adb91bce95ced99f7bc7a215bdef5580bee37f8a7cf6739f4b167f7a7"
+      "sha256": "b8b5b3081789f9b91d81c9793e0d0d1a57d689f3926d1d99467e8affc670e1c3"
     }
   ],
   "fingerprints": {
