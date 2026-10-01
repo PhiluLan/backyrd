@@ -391,7 +391,7 @@ export default function NewReviewScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     onPress={() => {
-                      if (moodA === mood) setMoodA("");
+                      if (moodA === mood) { setMoodA(moodB); setMoodB(""); }
                       else if (moodB === mood) setMoodB("");
                       else if (!moodA.trim()) setMoodA(mood);
                       else setMoodB(mood);
@@ -401,7 +401,7 @@ export default function NewReviewScreen() {
                 })}
               </View>
               <MoodExpressionInput label="Eine andere Stimmung?" placeholder="Eigene Stimmung eingeben" value={moodA} onChangeText={setMoodA} />
-              {moodA.trim() ? <MoodExpressionInput label="Noch eine Stimmung?" placeholder="Optional" value={moodB} onChangeText={setMoodB} /> : null}
+              {moodA.trim() || moodB.trim() ? <MoodExpressionInput label="Noch eine Stimmung?" placeholder="Optional" value={moodB} onChangeText={setMoodB} /> : null}
 
               <Text style={styles.label}>Dein Eindruck · optional</Text>
               <TextInput
