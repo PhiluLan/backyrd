@@ -41,6 +41,17 @@ Manual workflow only. Requires an exact canonical Main SHA, explicit release
 confirmation, recovery readiness, source-aware plan, apply, post-deploy smoke
 and rollback criteria. A push can never trigger it.
 
+Decision vNext continuity is the sole runtime-maintenance exception: after a
+manual, exact-release Product activation and a separate postgres-only
+authorization bound to that generation and its release, artifact and source-set
+hashes, a database scheduler may append short leases for that same generation.
+This is **not** an automated activation or deployment. It cannot authorize a
+new generation, change an artifact, resurrect an expired lease, or override
+Emergency-OFF. Each lease lasts at most 24 hours; missed scheduler runs expire
+closed. A new release requires the normal manual Production process and a new
+continuity authorization. Founder and CTO approved this policy change on
+2026-10-01 for continuous Decision vNext operation.
+
 ### PRODUCT_SYSTEM_RECERTIFICATION
 
 Weekly and manually runnable. Revalidates the current Product-v1 Decision,
