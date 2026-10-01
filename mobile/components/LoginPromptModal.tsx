@@ -11,9 +11,11 @@ import { Button, IconButton } from "./foundation/Button";
 export default function LoginPromptModal({
   visible,
   onClose,
+  message = "Melde dich an oder erstelle ein Konto, um deinen Moment zu teilen.",
 }: {
   visible: boolean;
   onClose: () => void;
+  message?: string;
 }) {
   const router = useRouter();
   const continueTo = (route: "/auth/login" | "/auth/register") => {
@@ -36,7 +38,7 @@ export default function LoginPromptModal({
               <Ionicons name="close" size={22} color={theme.color.textPrimary} />
             </IconButton>
           </View>
-          <AppText tone="secondary" style={styles.message}>Melde dich an oder erstelle ein Konto, um ein Review zu schreiben.</AppText>
+          <AppText tone="secondary" style={styles.message}>{message}</AppText>
           <View style={styles.actions}>
             <Button label="Anmelden" onPress={() => continueTo("/auth/login")} />
             <Button label="Konto erstellen" variant="secondary" onPress={() => continueTo("/auth/register")} />

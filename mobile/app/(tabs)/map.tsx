@@ -26,6 +26,7 @@ import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 import { clusterPolicyFor, resolveMapZoomBucket, type MapZoomBucket } from "../../lib/mapDiscoveryPolicy";
+import { spotMatchesSearch } from "../../lib/spot-search";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
 
@@ -81,7 +82,7 @@ export default function MapScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ spotIds?: string; view?: string; lat?: string; lng?: string }>();
+  const params = useLocalSearchParams<{ spotIds?: string; view?: string; lat?: string; lng?: string; search?: string; mood?: string }>();
   const explicitMapIntent = params.view === "map" || Boolean(params.lat && params.lng);
 
   // Wenn von der Startseite Spot-IDs übergeben wurden → nur diese anzeigen
@@ -128,15 +129,18 @@ export default function MapScreen() {
   const [zoomBucket, setZoomBucket] = useState<MapZoomBucket>("city");
 
   // Auswahl: Mood über Chip
-  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [selectedMood, setSelectedMood] = useState<string | null>(params.mood ?? null);
   const [selectedMoodId, setSelectedMoodId] = useState<string | null>(null);
 
   // Mood, der aus der freien Suche kommt
   const [searchMoodId, setSearchMoodId] = useState<string | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(params.search ?? "");
   const [debouncedSearch] = useDebounce(search, 350);
+
+  useEffect(() => { if (params.search !== undefined) setSearch(params.search); }, [params.search]);
+  useEffect(() => { if (params.mood !== undefined) setSelectedMood(params.mood); }, [params.mood]);
 
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [viewMode, setViewMode] = useState<"map" | "list">(explicitMapIntent ? "map" : "list");
@@ -342,22 +346,6 @@ export default function MapScreen() {
      FILTER LOGIC
   ============================================================= */
 
-  const spotMatchesSearch = React.useCallback((spot: Spot, term: string) => {
-    const t = normalizeText(term);
-    if (!t) return true;
-
-    // Name / Adresse / Stadt
-    if (normalizeText(spot.name).includes(t)) return true;
-    if (normalizeText(spot.address || "").includes(t)) return true;
-    if (normalizeText(spot.city || "").includes(t)) return true;
-
-    // Mood-Token Text (falls User "cozy", "romantisch" etc. schreibt)
-    const moods = (spotMoods[spot.id] || []).map((m) => normalizeText(m));
-    if (moods.some((m) => m.includes(t))) return true;
-
-    return false;
-  }, [spotMoods]);
-
   const spotMatchesMood = React.useCallback((spot: Spot) => {
     const ids = spotMoodIds[spot.id] || [];
 
@@ -386,7 +374,7 @@ export default function MapScreen() {
     return base.filter((s) => {
       if (!spotMatchesMood(s)) return false;
       if (selectedCategory && s.category_id !== selectedCategory) return false;
-      if (debouncedSearch.trim() && !spotMatchesSearch(s, debouncedSearch))
+      if (debouncedSearch.trim() && !spotMatchesSearch(s, debouncedSearch, spotMoods[s.id] ?? []))
         return false;
       return true;
     });
@@ -396,7 +384,7 @@ export default function MapScreen() {
     debouncedSearch,
     initialSpotIdList,
     spotMatchesMood,
-    spotMatchesSearch,
+    spotMoods,
   ]);
 
   useEffect(() => {

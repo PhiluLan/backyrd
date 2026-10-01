@@ -24,6 +24,8 @@ import {
   uploadMomentMedia,
 } from "../../lib/moment-media-upload";
 import { StateView } from "../../components/foundation/StateView";
+import { SpotArtwork } from "../../components/spot/SpotArtwork";
+import { loadDiscoverySpots, type DiscoverySpot } from "../../lib/spot-images";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 type FeedMode = "for_you" | "following";
@@ -376,6 +378,7 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [discoverySpots, setDiscoverySpots] = useState<DiscoverySpot[]>([]);
 
   const [commentsPost, setCommentsPost] = useState<SocialFeedPost | null>(null);
 
@@ -390,6 +393,15 @@ export default function FeedScreen() {
   const [spotSearching, setSpotSearching] = useState(false);
 
   const posts = mode === "for_you" ? forYouPosts : followingPosts;
+
+  useEffect(() => {
+    if (loading || feedError || forYouPosts.length > 0 || discoverySpots.length > 0) return;
+    let active = true;
+    void loadDiscoverySpots("", 6)
+      .then((spots) => { if (active) setDiscoverySpots(spots.slice(0, 3)); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [loading, feedError, forYouPosts.length, discoverySpots.length]);
 
   const hasDraft = useMemo(() => {
     return caption.trim().length > 0 || media.length > 0 || Boolean(selectedSpot);
@@ -841,6 +853,7 @@ export default function FeedScreen() {
   );
 
   const emptyState = (
+    <View>
     <View style={styles.emptyCard}>
       <View style={styles.emptyIcon}>
         <Ionicons
@@ -856,19 +869,35 @@ export default function FeedScreen() {
 
       <Text style={styles.emptyText}>
         {mode === "following"
-          ? "Folge Leuten mit gutem Geschmack. Danach erscheinen hier ihre Bewertungen und Backyrd-Momente."
-          : "Bewerte einen Spot oder teile einen Moment. Daraus entsteht dein persönlicher Stadt-Feed."}
+          ? "Hier erscheinen Momente von Menschen, denen du folgst. Entdecke Menschen mit gutem Geschmack."
+          : "Hier sind noch keine Momente. Entdecke einen echten Ort und teile danach, wie es sich dort angefühlt hat."}
       </Text>
 
       {mode === "following" ? (
-        <Pressable style={styles.emptyButton} onPress={() => setMode("for_you")}>
+        <Pressable style={styles.emptyButton} onPress={() => router.push("/users/search" as never)}>
           <Text style={styles.emptyButtonText}>Leute entdecken</Text>
         </Pressable>
       ) : (
-        <Pressable style={styles.emptyButton} onPress={() => setComposerVisible(true)}>
-          <Text style={styles.emptyButtonText}>Moment teilen</Text>
+        <Pressable style={styles.emptyButton} onPress={() => router.push("/(tabs)/map" as never)}>
+          <Text style={styles.emptyButtonText}>Orte entdecken</Text>
         </Pressable>
       )}
+    </View>
+    {mode === "for_you" && discoverySpots.length > 0 ? (
+      <View style={styles.discoverySection}>
+        <Text style={styles.discoveryTitle}>Vielleicht beginnt es hier</Text>
+        {discoverySpots.map((spot) => (
+          <Pressable key={spot.id} accessibilityRole="button" accessibilityLabel={`${spot.name} ansehen`} onPress={() => router.push(`/spot/${spot.id}` as never)} style={styles.discoverySpot}>
+            <SpotArtwork imageUrl={spot.header_photo_url} spotId={spot.id} spotName={spot.name} style={styles.discoveryImage} />
+            <View style={styles.discoveryCopy}>
+              <Text style={styles.discoveryName} numberOfLines={1}>{spot.name}</Text>
+              <Text style={styles.discoveryMeta} numberOfLines={1}>{[spot.category_name, spot.city].filter(Boolean).join(" · ")}</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={18} color={theme.color.pink} />
+          </Pressable>
+        ))}
+      </View>
+    ) : null}
     </View>
   );
 
@@ -1238,6 +1267,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.type.bodyBold,
     fontSize: 14,
   },
+  discoverySection: { marginTop: theme.spacing.xxl, marginHorizontal: theme.spacing.xl, gap: theme.spacing.sm },
+  discoveryTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, ...theme.typeScale.sectionTitle, marginBottom: theme.spacing.xs },
+  discoverySpot: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: theme.spacing.md, padding: theme.spacing.xs, borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  discoveryImage: { width: 64, height: 64, borderRadius: theme.radius.md },
+  discoveryCopy: { flex: 1, minWidth: 0, gap: 4 },
+  discoveryName: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 16 },
+  discoveryMeta: { color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 13 },
   composerScreen: {
     flex: 1,
     backgroundColor: "#050506",

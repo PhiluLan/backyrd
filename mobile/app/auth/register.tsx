@@ -228,7 +228,7 @@ export default function RegisterScreen() {
       <AuthDivider />
       <View style={authStyles.providerGroup}>
         {Platform.OS === "ios" ? <AuthProviderButton provider="apple" label="Mit Apple registrieren" disabled={loading || socialLoading} onPress={() => void onAppleRegister()} /> : null}
-        <AuthProviderButton provider="google" label="Mit Google registrieren" disabled={loading || socialLoading} onPress={() => void onGoogleRegister()} />
+        {Platform.OS === "android" ? <AuthProviderButton provider="google" label="Mit Google registrieren" disabled={loading || socialLoading} onPress={() => void onGoogleRegister()} /> : null}
       </View>
       <View style={authStyles.footer}>
         <Link href="/auth/login" asChild><Pressable accessibilityRole="link" style={authStyles.footerLink}><AppText role="label" tone="pink">Schon dabei? Einloggen</AppText></Pressable></Link>

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import "./test-spot-search.mjs";
 
 const policySource = fs.readFileSync(path.resolve("lib/mapDiscoveryPolicy.ts"), "utf8");
 const policyModule = { exports: {} };
