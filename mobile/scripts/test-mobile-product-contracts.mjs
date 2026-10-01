@@ -11,6 +11,9 @@ const decision = read("app/(tabs)/wohin.tsx");
 const retiredDecision = read("app/(tabs)/decision.tsx");
 const home = read("app/(tabs)/index.tsx");
 const tabs = read("app/(tabs)/_layout.tsx");
+const entryGate = read("app/gate.tsx");
+const map = read("app/(tabs)/map.tsx");
+const feed = read("app/(tabs)/feed.tsx");
 const profile = read("lib/profile.ts");
 const config = read("app.config.ts");
 const spotImages = read("lib/spot-images.ts");
@@ -73,6 +76,18 @@ assert.match(read("app/(tabs)/feed.tsx"), /updatePostsForMode\(feedMode, \(\) =>
 assert.match(read("app/gate.tsx"), /verifiedUserError\.status !== 401 && verifiedUserError\.status !== 403[\s\S]*throw verifiedUserError/, "a transient identity error must not log out the user");
 assert.match(read("app/(tabs)/profile.tsx"), /await signOutWithPushCleanup\(\)/, "account logout must detach push before ending the session");
 assert.doesNotMatch(read("app/auth/login.tsx") + read("app/auth/register.tsx"), /accounts\.google\.com\/o\/oauth2|exchangeCodeForSession/, "Google sign-in must not exchange a Google code as a Supabase code");
+for (const authScreen of ["app/auth/login.tsx", "app/auth/register.tsx"]) {
+  const source = read(authScreen);
+  assert.match(source, /Platform\.OS === "ios" \? <AuthProviderButton provider="apple"/, `${authScreen} must show Apple sign-in on iOS`);
+  assert.match(source, /Platform\.OS === "android" \? <AuthProviderButton provider="google"/, `${authScreen} must not show Google sign-in on iOS`);
+}
+assert.match(entryGate, /Erst einmal Orte entdecken/, "signed-out users must be able to explore before registration");
+assert.match(tabs, /const isGuest = !user/, "guest navigation must identify signed-out users");
+assert.match(tabs, /href: isGuest \? null : undefined/, "guest navigation must not advertise signed-in tabs");
+assert.match(home, /if \(!user\) \{[\s\S]*search: normalized/, "guest home search must use public catalog rather than Decision");
+assert.match(map, /spotMatchesSearch\(s, debouncedSearch, spotMoods\[s\.id\]/, "map search must include catalog context");
+assert.match(feed, /loadDiscoverySpots\("", 6\)/, "an empty moments feed must offer real spots, not fabricated moments");
+assert.match(feed, /router\.push\("\/users\/search" as never\)/, "following empty state must open people discovery");
 
 function loadP0Module(source, modules) {
   const module = { exports: {} };

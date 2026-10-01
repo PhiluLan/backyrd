@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { trackAnalyticsEvent } from "../../lib/analytics";
+import { useAuth } from "../../hooks/useAuth";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
@@ -33,6 +34,8 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const isGuest = !user;
 
   const hideTabs = pathname.includes("/decision-onboarding") || (pathname.includes("/decision") && params.hideTabs === "1");
 
@@ -73,6 +76,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="wohin"
         options={{
+          href: isGuest ? null : undefined,
           title: "Wohin",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
@@ -89,7 +93,7 @@ export default function TabsLayout() {
         options={{
           title: "",
           tabBarIcon: () => null,
-          tabBarButton: hideTabs
+          tabBarButton: isGuest || hideTabs
             ? () => null
             : () => (
                 <SmartReviewTabButton
@@ -123,6 +127,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="feed"
         options={{
+          href: isGuest ? null : undefined,
           title: "Momente",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons

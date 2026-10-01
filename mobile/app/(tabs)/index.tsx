@@ -145,7 +145,11 @@ export default function HomeScreen() {
 
   function submitDecision(value = query) {
     const normalized = value.trim();
-    if (normalized.length < 3) return;
+    if (normalized.length < (user ? 3 : 2)) return;
+    if (!user) {
+      router.push({ pathname: "/(tabs)/map", params: { view: "list", search: normalized } } as never);
+      return;
+    }
     router.push({ pathname: "/(tabs)/wohin", params: { query: normalized, auto: "1" } });
   }
 
@@ -155,24 +159,28 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => void load(true)} />} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View style={styles.greetingBlock}>
-              <AppText role="displayL" style={styles.greeting}>Hey,</AppText>
-              <AppText role="displayL" ellipsizeMode="tail" numberOfLines={1} style={styles.greetingName}>{firstName ?? ""}</AppText>
+              <AppText role="displayL" style={styles.greeting}>{user ? "Hey," : "Entdecke"}</AppText>
+              {user ? <AppText role="displayL" ellipsizeMode="tail" numberOfLines={1} style={styles.greetingName}>{firstName ?? ""}</AppText> : null}
               <AppText role="meta" tone="secondary">{city}</AppText>
             </View>
             <View style={styles.headerActions}>
-              <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)} style={styles.headerIcon}>
-                <Ionicons color={theme.color.textPrimary} name="notifications-outline" size={21} />
-              </IconButton>
-              <Pressable accessibilityLabel="Profil öffnen" accessibilityRole="button" hitSlop={8} onPress={() => router.push("/(tabs)/profile" as never)}>
-                <Avatar uri={user?.user_metadata?.avatar_url} name={firstName ?? user?.email ?? "Backyrd"} size={42} />
-              </Pressable>
+              {user ? <>
+                <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)} style={styles.headerIcon}>
+                  <Ionicons color={theme.color.textPrimary} name="notifications-outline" size={21} />
+                </IconButton>
+                <Pressable accessibilityLabel="Profil öffnen" accessibilityRole="button" hitSlop={8} onPress={() => router.push("/(tabs)/profile" as never)}>
+                  <Avatar uri={user.user_metadata?.avatar_url} name={firstName ?? user.email ?? "backyrd"} size={42} />
+                </Pressable>
+              </> : <Pressable accessibilityRole="button" accessibilityLabel="Anmelden" onPress={() => router.push("/auth/login" as never)} style={styles.guestLogin}>
+                <AppText role="label" tone="pink">Anmelden</AppText>
+              </Pressable>}
             </View>
           </View>
 
           <View style={styles.searchShell}>
             <Ionicons color={theme.color.textSecondary} name="search-outline" size={20} />
-            <TextInput accessibilityLabel="Was hast du heute vor?" onChangeText={setQuery} onSubmitEditing={() => submitDecision()} placeholder="Was hast du heute vor?" placeholderTextColor={theme.color.textSecondary} returnKeyType="go" style={styles.searchInput} value={query} />
-            <Pressable accessibilityLabel="Decision starten" accessibilityRole="button" disabled={query.trim().length < 3} onPress={() => submitDecision()} style={({ pressed }) => [styles.searchSubmit, query.trim().length < 3 && styles.searchSubmitDisabled, pressed && styles.pressed]}>
+            <TextInput accessibilityLabel={user ? "Was hast du heute vor?" : "Orte suchen"} onChangeText={setQuery} onSubmitEditing={() => submitDecision()} placeholder={user ? "Was hast du heute vor?" : "Ort, Küche oder Stimmung suchen"} placeholderTextColor={theme.color.textSecondary} returnKeyType="go" style={styles.searchInput} value={query} />
+            <Pressable accessibilityLabel={user ? "Decision starten" : "Orte suchen"} accessibilityRole="button" disabled={query.trim().length < (user ? 3 : 2)} onPress={() => submitDecision()} style={({ pressed }) => [styles.searchSubmit, query.trim().length < (user ? 3 : 2) && styles.searchSubmitDisabled, pressed && styles.pressed]}>
               <Ionicons color={theme.color.background} name="arrow-forward" size={21} />
             </Pressable>
           </View>
@@ -182,7 +190,7 @@ export default function HomeScreen() {
               <AppText role="label" tone="secondary" style={[styles.eyebrow, styles.moodSectionTitle]}>BELIEBTE MOODS</AppText>
               <ScrollView horizontal contentContainerStyle={styles.moodRow} showsHorizontalScrollIndicator={false}>
                 {popularMoods.map((mood, index) => (
-                  <Pressable accessibilityHint="Startet Für jetzt mit diesem Mood" accessibilityLabel={`Mood ${mood}`} key={mood} onPress={() => submitDecision(`${mood} in ${city}`)} style={({ pressed }) => [styles.moodLink, pressed && styles.pressed]}>
+                  <Pressable accessibilityHint={user ? "Startet Für jetzt mit diesem Mood" : "Zeigt passende Orte"} accessibilityLabel={`Mood ${mood}`} key={mood} onPress={() => user ? submitDecision(`${mood} in ${city}`) : router.push({ pathname: "/(tabs)/map", params: { view: "list", mood } } as never)} style={({ pressed }) => [styles.moodLink, pressed && styles.pressed]}>
                     <View style={[styles.moodDot, index === 0 && styles.moodDotPrimary]} />
                     <AppText role="meta" numberOfLines={1}>{mood}</AppText>
                   </Pressable>
@@ -193,7 +201,7 @@ export default function HomeScreen() {
 
           <View style={styles.sectionHeader}>
             <View>
-              <AppText role="sectionTitle">Top Spots in deiner Nähe</AppText>
+              <AppText role="sectionTitle">{currentLocation ? "Top Spots in deiner Nähe" : `Orte in ${city} entdecken`}</AppText>
             </View>
             <Pressable accessibilityRole="button" hitSlop={10} onPress={() => router.push({ pathname: "/(tabs)/map", params: { view: "list" } } as never)}>
               <AppText role="label" tone="pink">Alle ansehen</AppText>
@@ -265,6 +273,7 @@ const styles = StyleSheet.create({
   greetingName: { color: theme.color.textPrimary },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   headerIcon: { backgroundColor: "rgba(246,240,232,0.06)", borderWidth: 1, borderColor: theme.color.border },
+  guestLogin: { minHeight: 44, justifyContent: "center", paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border },
   searchShell: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, minHeight: 54, paddingLeft: theme.spacing.md, paddingRight: 6, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill, backgroundColor: "rgba(246,240,232,0.055)" },
   searchInput: { flex: 1, minHeight: 52, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 15, paddingVertical: 10 },
   searchSubmit: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.pink },

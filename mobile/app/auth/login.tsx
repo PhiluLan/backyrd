@@ -174,7 +174,7 @@ export default function LoginScreen() {
       <AuthDivider />
       <View style={authStyles.providerGroup}>
         {Platform.OS === "ios" ? <AuthProviderButton provider="apple" label="Mit Apple anmelden" disabled={loading || socialLoading} onPress={() => void onAppleLogin()} /> : null}
-        <AuthProviderButton provider="google" label="Mit Google anmelden" disabled={loading || socialLoading} onPress={() => void onGoogleLogin()} />
+        {Platform.OS === "android" ? <AuthProviderButton provider="google" label="Mit Google anmelden" disabled={loading || socialLoading} onPress={() => void onGoogleLogin()} /> : null}
       </View>
       <View style={authStyles.footer}>
         <Link href="/auth/register" asChild><Pressable accessibilityRole="link" style={authStyles.footerLink}><AppText role="label" tone="pink">Noch kein Account? Registrieren</AppText></Pressable></Link>

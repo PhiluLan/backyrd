@@ -297,6 +297,7 @@ export default function SpotDetailScreen() {
     });
   }, [decisionOrigin, entrySource, id]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [loginPromptMessage, setLoginPromptMessage] = useState("Melde dich an, um deinen Moment zu teilen.");
 
   const [ownerCtx, setOwnerCtx] = useState<any>(null);
 
@@ -619,7 +620,11 @@ export default function SpotDetailScreen() {
   }
 
   async function requestClaim() {
-    if (!userId) return setShowLoginPrompt(true);
+    if (!userId) {
+      setLoginPromptMessage("Melde dich an, um diesen Spot zu verwalten.");
+      setShowLoginPrompt(true);
+      return;
+    }
     router.push(`/spot/${id}/claim`);
   }
 
@@ -743,7 +748,11 @@ export default function SpotDetailScreen() {
 
             <Pressable
               onPress={async () => {
-                if (!userId) return setShowLoginPrompt(true);
+                if (!userId) {
+                  setLoginPromptMessage("Melde dich an, um diesen Ort für später zu speichern.");
+                  setShowLoginPrompt(true);
+                  return;
+                }
                 try {
                   if (isFav) {
                     await supabase.from("favorites").delete().eq("user_id", userId).eq("spot_id", id);
@@ -866,7 +875,7 @@ export default function SpotDetailScreen() {
             <Pressable onPress={() => {
               if (!decisionOrigin) {
                 void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
-                void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
+                if (userId) void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
               }
               openInAppleMaps(spot.lat, spot.lng, spot.name);
             }} style={styles.primaryAction}>
@@ -875,7 +884,11 @@ export default function SpotDetailScreen() {
             </Pressable>
             <Pressable
               onPress={() => {
-                if (!userId) return setShowLoginPrompt(true);
+                if (!userId) {
+                  setLoginPromptMessage("Melde dich an, um deinen Moment an diesem Ort zu teilen.");
+                  setShowLoginPrompt(true);
+                  return;
+                }
                 if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_review_started", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
                 void openMomentComposerSafely({ router, href: `/review/new?spotId=${spot.id}` });
               }}
@@ -1167,7 +1180,7 @@ export default function SpotDetailScreen() {
           </ScrollView>
         </View>
       </Modal>
-      <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
+      <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} message={loginPromptMessage} />
     </View>
   );
 }

@@ -66,6 +66,11 @@ function LoggedOutGate() {
           <AppText role="bodyStrong">Account erstellen</AppText>
         </Pressable>
 
+        <Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)" as any)} style={({ pressed }) => [styles.guestButton, pressed && styles.pressed]}>
+          <AppText role="bodyStrong" tone="pink">Erst einmal Orte entdecken</AppText>
+          <Ionicons name="arrow-forward" size={18} color={theme.color.pink} />
+        </Pressable>
+
         {__DEV__ ? (
           <View style={styles.previewRow}>
             <Pressable
@@ -268,6 +273,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  guestButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
   previewButton: {
     flex: 1,
     minHeight: 44,

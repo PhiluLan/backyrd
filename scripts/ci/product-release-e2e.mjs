@@ -121,7 +121,9 @@ try {
 
   const appUrl = `http://127.0.0.1:${address.port}`;
   await page.goto(appUrl, { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("Was hast du heute vor?").waitFor({ timeout: 30000 });
+  await page.getByPlaceholder("Was hast du heute vor?").waitFor({ timeout: 30000 }).catch(async (error) => {
+    throw new Error(`Authenticated home did not appear at ${page.url()}: ${(await page.locator("body").innerText()).slice(0, 1200)}`, { cause: error });
+  });
   await page.getByText("Wohin", { exact: true }).last().click();
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).waitFor({ timeout: 30000 });
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("Sonntag gemütlich Kaffee trinken");
@@ -170,7 +172,16 @@ try {
   assert.equal(passwordLogins, 1);
   await loginContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+  const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await guestContext.route(`${endpoint}/**`, remoteFixture);
+  const guestPage = await guestContext.newPage();
+  await guestPage.goto(appUrl, { waitUntil: "domcontentloaded" });
+  await guestPage.getByText("Erst einmal Orte entdecken", { exact: true }).click();
+  await guestPage.getByPlaceholder("Ort, Küche oder Stimmung suchen").waitFor();
+  assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
+  await guestContext.close();
+
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
 } finally {
   await browser.close();
   await new Promise((closed) => server.close(closed));
