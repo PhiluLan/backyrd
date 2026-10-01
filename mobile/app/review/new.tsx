@@ -16,6 +16,7 @@ import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodExpressionInput } from "../../components/MoodExpressionInput";
+import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import {
   ReviewMediaField,
   ReviewSubmissionStatus,
@@ -86,6 +87,7 @@ export default function NewReviewScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
   const mediaReady = photos.length === 0 || photos.every((photo) => Boolean(photo.prepared));
+  const hasContent = Boolean(moodA.trim() || moodB.trim() || text.trim() || photos.length);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -162,6 +164,12 @@ export default function NewReviewScreen() {
 
     if (!user?.id) {
       Alert.alert("Login benötigt", "Bitte melde dich an, um eine Review zu schreiben.");
+      return;
+    }
+    if (!hasContent) {
+      const message = "Wähle eine Stimmung oder ergänze einen Satz oder ein Foto.";
+      setSubmitError(message);
+      AccessibilityInfo.announceForAccessibility(message);
       return;
     }
     if (!mediaReady) {
@@ -348,7 +356,7 @@ export default function NewReviewScreen() {
               >
                 <Ionicons name="chevron-back" size={24} color="#fff" />
               </Pressable>
-              <Text style={styles.headerTitle}>{isDecisionReview ? "Backyrd Treffer bewerten" : "Neue Review"}</Text>
+              <Text style={styles.headerTitle}>{isDecisionReview ? "Deinen Besuch teilen" : "Moment teilen"}</Text>
               <View style={styles.headerBtn} />
             </BlurView>
           </View>
@@ -357,15 +365,13 @@ export default function NewReviewScreen() {
             <View style={styles.hero}>
               <Text style={styles.kicker}>DEINE REVIEW</Text>
               <Text style={styles.title}>Wie war es?</Text>
-              <Text style={styles.subtitle}>
-                Zwei Moods reichen. Ein kurzer Satz oder Bild kann deine Erfahrung ergänzen.
-              </Text>
+              <Text style={styles.subtitle}>Was ist dir von diesem Ort geblieben? Eine Stimmung, ein Satz oder ein Foto genügt.</Text>
             </View>
 
             {isDecisionReview && (
               <View style={styles.decisionCard}>
-                <Text style={styles.decisionKicker}>Gefunden mit Backyrd</Text>
-                <Text style={styles.decisionTitle}>Halte fest, wie der Backyrd Treffer für dich war.</Text>
+                <Text style={styles.decisionKicker}>Gefunden mit backyrd</Text>
+                <Text style={styles.decisionTitle}>Wie hat sich dieser Ort für dich angefühlt?</Text>
                 {!!decisionQuery && (
                   <Text style={styles.decisionText} numberOfLines={2}>
                     “{decisionQuery}”
@@ -375,12 +381,29 @@ export default function NewReviewScreen() {
             )}
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Moods</Text>
-              <Text style={{ color: theme.colors.textSoft }}>Welche zwei Moods beschreiben diesen Ort am besten?</Text>
-              <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
-              <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. authentisch" value={moodB} onChangeText={setMoodB} />
+              <Text style={styles.cardTitle}>So hat es sich angefühlt</Text>
+              <Text style={{ color: theme.colors.textSoft }}>Wähle bis zu zwei Stimmungen.</Text>
+              <View style={styles.moodChoices}>
+                {MOOD_SUGGESTIONS.filter((mood) => !["instagrammable", "laut"].includes(mood)).slice(0, 10).map((mood) => {
+                  const selected = moodA === mood || moodB === mood;
+                  return <Pressable
+                    key={mood}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      if (moodA === mood) setMoodA("");
+                      else if (moodB === mood) setMoodB("");
+                      else if (!moodA.trim()) setMoodA(mood);
+                      else setMoodB(mood);
+                    }}
+                    style={[styles.moodChoice, selected && styles.moodChoiceSelected]}
+                  ><Text style={[styles.moodChoiceText, selected && styles.moodChoiceTextSelected]}>{mood}</Text></Pressable>;
+                })}
+              </View>
+              <MoodExpressionInput label="Eine andere Stimmung?" placeholder="Eigene Stimmung eingeben" value={moodA} onChangeText={setMoodA} />
+              {moodA.trim() ? <MoodExpressionInput label="Noch eine Stimmung?" placeholder="Optional" value={moodB} onChangeText={setMoodB} /> : null}
 
-              <Text style={styles.label}>Text</Text>
+              <Text style={styles.label}>Dein Eindruck · optional</Text>
               <TextInput
                 placeholder="Was sollte man über deine Erfahrung wissen?"
                 placeholderTextColor={theme.colors.textMuted}
@@ -416,20 +439,20 @@ export default function NewReviewScreen() {
             <BlurView intensity={30} tint="dark" style={styles.submitWrap}>
               <LinearGradient
                 colors={[theme.colors.primary, theme.colors.primary]}
-                style={styles.submitGradient}
+                style={[styles.submitGradient, !hasContent && styles.submitDisabled]}
               >
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Review veröffentlichen"
-                  accessibilityState={{ disabled: uploading || !mediaReady, busy: uploading }}
+                  accessibilityLabel="Moment teilen"
+                  accessibilityState={{ disabled: uploading || !mediaReady || !hasContent, busy: uploading }}
                   onPress={submitReview}
                   style={styles.submitBtn}
-                  disabled={uploading || !mediaReady}
+                  disabled={uploading || !mediaReady || !hasContent}
                 >
                   {uploading ? (
                     <ActivityIndicator color={theme.colors.ink} />
                   ) : (
-                    <Text style={styles.submitText}>Review veröffentlichen</Text>
+                    <Text style={styles.submitText}>Moment teilen</Text>
                   )}
                 </Pressable>
               </LinearGradient>
@@ -513,12 +536,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(5,5,6,0.64)",
+    backgroundColor: theme.colors.background,
     borderRadius: theme.radius.xl,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderWidth: 0,
   },
   headerBtn: {
     width: 36,
@@ -531,16 +553,15 @@ const styles = StyleSheet.create({
   headerTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
 
   container: {
-    padding: theme.spacing(2),
+    paddingHorizontal: theme.spacing(3),
+    paddingTop: theme.spacing(2),
     paddingBottom: theme.spacing(12),
   },
   card: {
-    backgroundColor: theme.colors.surfaceElevated,
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing(2),
+    paddingVertical: theme.spacing(2),
     marginBottom: theme.spacing(2),
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
   cardTitle: {
     color: theme.colors.text,
@@ -550,6 +571,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.45,
     marginBottom: 12,
   },
+  moodChoices: { flexDirection: "row", flexWrap: "wrap", gap: 9, marginTop: 16, marginBottom: 6 },
+  moodChoice: { minHeight: 42, justifyContent: "center", paddingHorizontal: 15, borderRadius: 999, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  moodChoiceSelected: { borderColor: theme.colors.primary, backgroundColor: "rgba(255,79,145,0.16)" },
+  moodChoiceText: { color: theme.colors.textSoft, fontSize: 14, fontWeight: "700" },
+  moodChoiceTextSelected: { color: theme.colors.accent },
   cardHint: {
     color: theme.colors.textMuted,
     fontSize: 14,
@@ -623,6 +649,7 @@ const styles = StyleSheet.create({
   submitGradient: {
     borderRadius: theme.radius.pill,
   },
+  submitDisabled: { opacity: 0.4 },
   submitBtn: {
     paddingVertical: 16,
     alignItems: "center",

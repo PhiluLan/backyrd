@@ -6,6 +6,7 @@ import {
   Dimensions,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -597,7 +598,7 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.topActions}>
-          <Text style={styles.topActionsTitle}>Mein Backyrd</Text>
+          <Text style={styles.topActionsTitle}>Mein backyrd</Text>
 
           <Pressable
             accessibilityLabel="Einstellungen öffnen"
@@ -764,7 +765,7 @@ export default function ProfileScreen() {
                   <View style={styles.emptyState}>
                     <Ionicons name="trophy-outline" size={34} color="rgba(255,255,255,0.42)" />
                     <Text style={styles.emptyTitle}>Noch keine Badges</Text>
-                    <Text style={styles.emptyText}>Badges erscheinen, wenn du Backyrd nutzt.</Text>
+                    <Text style={styles.emptyText}>Deine Erfolge erscheinen hier, wenn du backyrd nutzt.</Text>
                   </View>
                 ) : (
                   <View style={styles.badgeGrid}>
@@ -818,7 +819,7 @@ export default function ProfileScreen() {
         )}
       </Animated.ScrollView>
 
-      {showEdit && (
+      <Modal transparent animationType="slide" presentationStyle="overFullScreen" visible={showEdit} onRequestClose={() => setShowEdit(false)}>
         <BlurView intensity={85} tint="dark" style={styles.editOverlay}>
           <KeyboardAvoidingView
             style={styles.editKeyboard}
@@ -869,7 +870,7 @@ export default function ProfileScreen() {
                 <ProfileInput
                   value={profile?.since_date ?? ""}
                   onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), since_date: text }))}
-                  placeholder="Local seit, z. B. 2012-07-01"
+                  placeholder="Seit wann kennst du deine Stadt? (JJJJ-MM-TT)"
                 />
                 <ProfileInput
                   value={profile?.bio ?? ""}
@@ -916,7 +917,7 @@ export default function ProfileScreen() {
             </View>
           </KeyboardAvoidingView>
         </BlurView>
-      )}
+      </Modal>
 
       <CommentsSheet
         visible={Boolean(selectedCommentsPost)}
@@ -1352,8 +1353,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   editOverlay: {
-    position: "absolute",
-    inset: 0,
+    flex: 1,
   },
   editKeyboard: {
     flex: 1,

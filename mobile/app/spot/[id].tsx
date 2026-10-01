@@ -15,7 +15,7 @@ import {
 } from "react-native";
 
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -696,6 +696,10 @@ export default function SpotDetailScreen() {
   const moreInfoKeys = ["context.typical_dayparts", "context.atmosphere", "amenity.features", "accessibility.accessible_toilet", "accessibility.elevator", "accessibility.step_free_entrance", "context.visit_situations", "offering.food_specialities", "rule.pet_access"];
   const moreInfoFields = moreInfoKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item));
   const hasMoreInfo = moreInfoFields.length > 0 || additionalFields.length > 0 || (!canonicalWorldDetail && taxonomyItems.length > 0);
+  const presentableReviews = reviews.filter((review) => Boolean(
+    review.text?.trim() || review.photo_path || review.review_photos?.length ||
+    review.mood_a || review.mood_b || review.moodA?.token || review.moodB?.token,
+  ));
   const showHours = !canonicalWorldDetail || Boolean(field("hours.regular"));
   const trackContact = (kind: "phone" | "website") => {
     if (!decisionOrigin) void trackAnalyticsEvent({ eventName: kind === "phone" ? "spot_phone_clicked" : "spot_website_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
@@ -1004,14 +1008,14 @@ export default function SpotDetailScreen() {
           </View>
 
           <View style={styles.section}>
-              <View style={styles.sectionHeader}><SectionTitle>Momente</SectionTitle>{reviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
-              {reviews.length === 0 ? <Text style={styles.mutedText}>Hier wurden noch keine Momente geteilt.</Text> : null}
-              {reviews.slice(0, 3).map((rev) => {
+              <View style={styles.sectionHeader}><SectionTitle>Momente</SectionTitle>{presentableReviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
+              {presentableReviews.length === 0 ? <Text style={styles.mutedText}>Hier wurden noch keine Momente geteilt.</Text> : null}
+              {presentableReviews.slice(0, 3).map((rev) => {
                 const moods = [
                   presentMoodToken(rev.moodA?.token ?? rev.mood_a),
                   presentMoodToken(rev.moodB?.token ?? rev.mood_b),
                 ].filter((mood): mood is string => Boolean(mood));
-                const name = rev.profiles?.first_name || "User";
+                const name = rev.profiles?.first_name || "Mitglied";
                 const isLocal = rev.profiles?.is_local;
                 const publicReviewPhotoUrl = rev.photo_path
                   ? supabase.storage.from("spot-photos").getPublicUrl(rev.photo_path).data.publicUrl
@@ -1082,7 +1086,7 @@ export default function SpotDetailScreen() {
                       ) : null}
                     </View>
                     {rev.text ? <Text style={styles.reviewText}>{rev.text}</Text> : null}
-                    {moods.length > 0 && (reviewPhotoUrl || rev.text) && (
+                    {moods.length > 0 && (
                       <View style={styles.reviewMoods}>
                         {moods.map((m: string) => <Chip key={m} text={m} />)}
                       </View>
@@ -1091,7 +1095,7 @@ export default function SpotDetailScreen() {
                   </View>
                 );
               })}
-              {reviews.length > 3 ? <Text style={styles.momentsMore}>Weitere Momente findest du im Moments-Feed.</Text> : null}
+              {presentableReviews.length > 3 ? <Text style={styles.momentsMore}>Weitere Momente findest du im Moments-Feed.</Text> : null}
           </View>
 
           <View style={styles.section}>
@@ -1155,8 +1159,8 @@ export default function SpotDetailScreen() {
       </Animated.ScrollView>
 
       <Modal animationType="slide" presentationStyle="fullScreen" visible={moreInfoExpanded} onRequestClose={() => setMoreInfoExpanded(false)}>
-        <View style={styles.moreInfoScreen}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.moreInfoScroll, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 40 }]}>
+        <SafeAreaView style={styles.moreInfoScreen} edges={["top", "bottom"]}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.moreInfoScroll, { paddingTop: 12, paddingBottom: 40 }]}>
             <Pressable accessibilityRole="button" accessibilityLabel="Zurück zum Spot" onPress={() => setMoreInfoExpanded(false)} style={styles.moreInfoBack}>
               <Feather name="chevron-left" size={20} color={theme.colors.text} />
               <Text style={styles.moreInfoBackText}>Zurück zum Spot</Text>
@@ -1178,7 +1182,7 @@ export default function SpotDetailScreen() {
               {!hasMoreInfo ? <Text style={styles.mutedText}>Noch keine weiteren Angaben hinterlegt.</Text> : null}
             </View>
           </ScrollView>
-        </View>
+        </SafeAreaView>
       </Modal>
       <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} message={loginPromptMessage} />
     </View>

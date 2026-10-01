@@ -178,7 +178,7 @@ export default function WohinScreen() {
           ListHeaderComponent={<>
           <AppText role="caption" tone="lime">DEIN NÄCHSTER MOMENT</AppText>
           <AppText role="displayL" style={{ color: color.text, marginTop: 10 }}>Wohin?</AppText>
-          <Text style={{ color: color.muted, marginTop: 10, lineHeight: 22 }}>Sag Backyrd, was du jetzt erleben möchtest. Decision vNext prüft die Orte und begründet ihre Reihenfolge.</Text>
+          <Text style={{ color: color.muted, marginTop: 10, lineHeight: 22 }}>Worauf hast du gerade Lust? Erzähl es uns in deinen Worten – wir zeigen dir passende Orte mit einem nachvollziehbaren Grund.</Text>
 
           <View style={{ marginTop: 32, padding: 20, borderRadius: 28, backgroundColor: color.card, borderWidth: 1, borderColor: color.border }}>
             <Text style={{ color: color.pink, fontSize: 14, fontWeight: "900" }}>Was jetzt?</Text>
@@ -200,22 +200,21 @@ export default function WohinScreen() {
               onPress={() => void run(query)}
               style={{ marginTop: 22, minHeight: 54, borderRadius: 999, backgroundColor: !loading && authenticated && city && query.trim().length >= 3 ? color.pink : "#48484C", alignItems: "center", justifyContent: "center" }}
             >
-              {loading ? <ActivityIndicator color={color.background} /> : <Text style={{ color: color.background, fontWeight: "900", fontSize: 16 }}>Decision starten</Text>}
+              {loading ? <ActivityIndicator color={color.background} /> : <Text style={{ color: color.background, fontWeight: "900", fontSize: 16 }}>Orte finden</Text>}
             </Pressable>
           </View>
 
           {identityError ? <View style={{ marginTop: 20 }}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt((value) => value + 1)}><Text style={{ color: color.pink, marginTop: 12, fontWeight: "800" }}>Erneut prüfen</Text></Pressable></View> : null}
           {identityReady && !identityError && !authenticated ? <Text style={{ color: color.warning, marginTop: 20 }}>Bitte melde dich an, um Wohin zu nutzen.</Text> : null}
-          {identityReady && !identityError && authenticated && !city ? <Text style={{ color: color.warning, marginTop: 20 }}>Dein Profilort fehlt. Ergänze ihn im Profil, damit Decision sichere Orte prüfen kann.</Text> : null}
+          {identityReady && !identityError && authenticated && !city ? <Text style={{ color: color.warning, marginTop: 20 }}>Deine Stadt fehlt noch im Profil. Ergänze sie, damit wir passende Orte in deiner Nähe finden können.</Text> : null}
           {error ? <Text style={{ color: color.warning, marginTop: 20 }}>{error}</Text> : null}
 
           {response ? (
             <View style={{ marginTop: 34 }}>
-              <Text style={{ color: color.text, ...backyrdTheme.typeScale.sectionTitle, fontWeight: "700" }}>Die Antwort von Decision</Text>
+              <Text style={{ color: color.text, ...backyrdTheme.typeScale.sectionTitle, fontWeight: "700" }}>Das könnte zu dir passen</Text>
               <Text style={{ color: color.muted, marginTop: 8 }}>{interpretationLabel(response)}</Text>
-              <Text style={{ color: color.muted, marginTop: 8 }}>{response.personalization.state === "ACTIVE" ? "Deine freigegebene Präferenz kann die Reihenfolge beeinflussen; Learning nur mit gültiger Einwilligung." : "Ohne gültige Einwilligung: neutrale Reihenfolge und kein Learning-Write."}</Text>
-              <Text style={{ color: color.muted, marginTop: 8, lineHeight: 20 }}>Die App zeigt bis zu fünf Plätze der serverseitigen Rangfolge aus dem geprüften Kandidatenfenster. Sie sortiert keine Spots selbst und ergänzt keine unbelegten Gründe. Nicht jeder Katalog-Spot wurde dafür ausgewertet.</Text>
-              {candidates.length < 5 ? <Text style={{ color: color.warning, marginTop: 12 }}>Nur {candidates.length} rangierbare Kandidaten geliefert – fehlende Plätze werden nicht erfunden.</Text> : null}
+              <Text style={{ color: color.muted, marginTop: 8 }}>{response.personalization.state === "ACTIVE" ? "Deine freigegebenen Vorlieben können die Reihenfolge beeinflussen." : "Diese Auswahl ist nicht personalisiert."}</Text>
+              {candidates.length === 0 ? <Text style={{ color: color.warning, marginTop: 12 }}>Für diesen Wunsch haben wir gerade keinen ausreichend passenden Ort gefunden. Probiere eine andere Formulierung.</Text> : null}
             </View>
           ) : null}
           </>}

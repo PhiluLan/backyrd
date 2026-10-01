@@ -19,6 +19,7 @@ const config = read("app.config.ts");
 const spotImages = read("lib/spot-images.ts");
 const spotArtwork = read("components/spot/SpotArtwork.tsx");
 const spotDetail = read("app/spot/[id].tsx");
+const reviewComposer = read("app/review/new.tsx");
 const homeEvents = read("components/events/HomeEventsSection.tsx");
 const eventDiscovery = read("lib/events-v1.ts");
 const spotOpeningStatus = read("lib/spot-opening-status.ts");
@@ -86,6 +87,9 @@ assert.match(tabs, /const isGuest = !user/, "guest navigation must identify sign
 assert.match(tabs, /href: isGuest \? null : undefined/, "guest navigation must not advertise signed-in tabs");
 assert.match(home, /if \(!user\) \{[\s\S]*search: normalized/, "guest home search must use public catalog rather than Decision");
 assert.match(map, /spotMatchesSearch\(s, debouncedSearch, spotMoods\[s\.id\]/, "map search must include catalog context");
+assert.match(map, /viewMode === "map" \? <Animated\.View/, "map preview sheet must not cover the list view");
+assert.match(profileScreen, /<Modal transparent animationType="slide" presentationStyle="overFullScreen" visible=\{showEdit\}/, "profile editor must cover the tab bar");
+assert.match(reviewComposer, /disabled=\{uploading \|\| !mediaReady \|\| !hasContent\}/, "empty moments must not be offered for publication");
 assert.match(feed, /loadDiscoverySpots\("", 6\)/, "an empty moments feed must offer real spots, not fabricated moments");
 assert.match(feed, /router\.push\("\/users\/search" as never\)/, "following empty state must open people discovery");
 
@@ -250,7 +254,9 @@ assert.match(spotDetail, /SPOT_OPENING_STATUS_COPY/, "Spot Detail must use canon
 assert.match(spotDetail, /contactActions\.map\(\(contact\) => <ContactAction/, "all available canonical contact links must remain reachable");
 assert.match(spotDetail, /specialHoursList\[0\]\.date/, "the first confirmed special opening time must be visible before expansion");
 assert.match(spotDetail, /<Modal animationType="slide" presentationStyle="fullScreen" visible=\{moreInfoExpanded\}/, "additional World fields must have a dedicated detail view");
-assert.match(spotDetail, /reviews\.slice\(0, 3\)/, "Spot Detail must keep the Moment preview bounded");
+assert.match(spotDetail, /presentableReviews\.slice\(0, 3\)/, "Spot Detail must keep the meaningful Moment preview bounded");
+assert.match(spotDetail, /presentableReviews = reviews\.filter/, "Spot Detail must not render visually empty Moment cards");
+assert.match(spotDetail, /<SafeAreaView style=\{styles\.moreInfoScreen\} edges=\{\["top", "bottom"\]\}/, "More Infos must respect device safe areas");
 assert.match(spotDetail, /<SectionTitle>Rund um diesen Spot<\/SectionTitle>/, "the existing nearby rail must remain present");
 assert.match(spotDetail, /descriptionExpanded/, "Spot Detail must keep long descriptions collapsed initially");
 assert.match(spotDetail, /hoursExpanded/, "Spot Detail must keep full weekly hours opt-in");

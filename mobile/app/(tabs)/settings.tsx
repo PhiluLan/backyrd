@@ -44,7 +44,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.kicker}>DEIN BACKYRD</Text>
+        <Text style={styles.kicker}>DEIN backyrd</Text>
         <Text style={styles.title}>EINSTELLUNGEN</Text>
         <Text style={styles.subtitle}>Profil, Privatsphäre und deine App.</Text>
 
@@ -64,8 +64,8 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             icon="time-outline"
-            title="Decision-Verlauf"
-            subtitle="Deine bisherigen Entscheidungen"
+            title="Deine Entdeckungen"
+            subtitle="Orte, die du mit Wohin gefunden hast"
             onPress={() => router.push("/profile/history" as any)}
           />
         </View>

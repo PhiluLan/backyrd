@@ -744,10 +744,11 @@ export default function MapScreen() {
                 spotId={item.id}
                 spotName={item.name}
                 style={styles.listCardImage}
+                showFallbackName={false}
               />
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
-                <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || spotMoods[item.id]?.[0] || item.city || "Ort"}</Text>
+                <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
                 <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
               </View>
             </Pressable>
@@ -763,7 +764,7 @@ export default function MapScreen() {
       )}
 
       {/* BOTTOM SHEET */}
-      <Animated.View
+      {viewMode === "map" ? <Animated.View
         style={[
           styles.sheetContainer,
           { height: SHEET_HEIGHT, bottom: theme.control.tabBar + insets.bottom, transform: [{ translateY }] },
@@ -837,7 +838,7 @@ export default function MapScreen() {
             </View>
           )}
         </BlurView>
-      </Animated.View>
+      </Animated.View> : null}
     </SafeAreaView>
   );
 }

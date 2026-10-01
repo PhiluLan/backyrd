@@ -224,7 +224,7 @@ export default function HomeScreen() {
             >
               {topSpots.map((spot, index) => (
                 <Pressable accessibilityLabel={`${spot.name} öffnen`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.heroCard, { width: heroCardWidth, height: heroCardHeight }, pressed && styles.cardPressed]}>
-                  <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} style={StyleSheet.absoluteFill} />
+                  <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill} />
                   <LinearGradient colors={["rgba(5,5,5,0.02)", "rgba(5,5,5,0.18)", "rgba(5,5,5,0.92)"]} locations={[0.2, 0.54, 1]} style={StyleSheet.absoluteFill} />
                   {(() => {
                     const status = spotOpeningStatusNow(spot.hours);
@@ -250,7 +250,7 @@ export default function HomeScreen() {
               <ScrollView horizontal contentContainerStyle={styles.compactCards} showsHorizontalScrollIndicator={false}>
                 {newSpots.map((spot) => (
                   <Pressable key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.compactCard, { width: compactCardWidth }, pressed && styles.cardPressed]}>
-                    <View style={styles.compactImage}><SpotArtwork imageUrl={spot.header_photo_url} spotId={spot.id} spotName={spot.name} style={StyleSheet.absoluteFill} /></View>
+                    <View style={styles.compactImage}><SpotArtwork imageUrl={spot.header_photo_url} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill} /></View>
                     <AppText role="bodyStrong" numberOfLines={2} style={styles.compactTitle}>{spot.name}</AppText>
                     <AppText role="caption" tone="secondary" numberOfLines={1}>{spot.category_name || spot.city || city}</AppText>
                   </Pressable>
