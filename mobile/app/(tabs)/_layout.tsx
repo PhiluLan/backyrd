@@ -91,7 +91,6 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="smart-review"
         options={{
-          href: isGuest ? null : undefined,
           title: "",
           tabBarIcon: () => null,
           tabBarButton: isGuest || hideTabs
