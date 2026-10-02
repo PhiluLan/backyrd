@@ -90,12 +90,16 @@ assert.match(map, /spotMatchesSearch\(s, debouncedSearch, spotMoods\[s\.id\]/, "
 assert.match(map, /viewMode === "map" && selectedSpot \? <Animated\.View/, "map preview sheet must appear only for a selected spot");
 assert.doesNotMatch(map, /Tippe auf einen Marker/, "map must not retain the empty marker instruction");
 assert.match(profileScreen, /<Modal animationType="slide" presentationStyle="fullScreen" visible=\{showEdit\}/, "profile editor must cover the tab bar");
+assert.match(profileScreen, /visible=\{showEdit\}[\s\S]*?<SafeAreaProvider>\s*<SafeAreaView/, "profile modal must measure its own iPhone safe area");
+assert.match(read("app/spot/[id].tsx"), /visible=\{moreInfoExpanded\}[\s\S]*?<SafeAreaProvider>\s*<SafeAreaView/, "spot information modal must measure its own iPhone safe area");
 assert.match(read("app/spot/[id].tsx"), /<View style=\{styles\.moreInfoHeader\}>[\s\S]*?<\/View>\s*<ScrollView/, "spot information header must remain outside scrolling content");
 assert.match(read("app/spot/[id].tsx"), /legacyAddress:?[\s,}]/, "spot address must retain a validated legacy postcode fallback");
 assert.match(reviewComposer, /disabled=\{uploading \|\| !mediaReady \|\| !hasContent\}/, "empty moments must not be offered for publication");
 assert.match(read("app/review/smart.tsx"), /const canSubmit = !!nearest && mediaReady && hasContent/, "smart moments must not publish without content");
 assert.match(feed, /loadDiscoverySpots\("", 6\)/, "an empty moments feed must offer real spots, not fabricated moments");
 assert.match(feed, /router\.push\("\/users\/search" as never\)/, "following empty state must open people discovery");
+assert.match(feed, /const canShareMoment = caption\.trim\(\)\.length > 0 \|\| media\.length > 0/, "free moments require text or a photo");
+assert.match(feed, /disabled=\{creating \|\| !canShareMoment\}/, "empty free moments must not show an enabled share action");
 
 function loadP0Module(source, modules) {
   const module = { exports: {} };
