@@ -61,7 +61,7 @@ const candidate = (spot) => {
     presentation: { contractVersion: "backyrd.decision-vnext.product-presentation@1.0", spotId: spot.spotId, name: spot.name(), locality: "Bern", categoryLabel: "Café", imageUrl: null, sourceHash, presentationHash: hash({ spotId: spot.spotId, sourceHash }) },
     tier: "ELIGIBLE_CONFIRMED", rank: spot.rank, coreIntentCoverage: "CONFIRMED", actualAvailability: "open",
     confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], rankVector: { hardConstraintState: "PASS", userRelevance: { state: "NEUTRAL" }, contextFit: { secondaryIntentConfirmed: false, visitSituationConfirmed: false, atmosphereConfirmed: false, typicalDaypartConfirmed: false, matchedSoftPreferenceCount: 0 }, worldEvidence: { confirmedReasonCount: 1 }, vectorHash: hash({ rank: spot.rank }) },
-    reasons: [{ code: "world-fit", domain: "WORLD", sourceHash, statement: `Bestätigter Café-Fit aus World-Version ${state.worldVersion}.`, confirmed: true }],
+    reasons: [{ code: "core-intent-confirmed", domain: "WORLD", sourceHash, statement: `Bestätigter Café-Fit aus World-Version ${state.worldVersion}.`, confirmed: true }],
     limitations: [], contextualReject: false, candidateHash: hash({ spotId: spot.spotId, sourceHash }),
   };
 };
@@ -134,8 +134,9 @@ try {
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
   assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
-  assert.equal(await page.getByText(/World-Version 1/).count(), 5);
-  assert.equal(await page.getByText("Diese Auswahl ist nicht personalisiert.", { exact: true }).count(), 1);
+  assert.equal(await page.getByText("Die Art des Ortes passt zu deinem Wunsch.", { exact: true }).count(), 5);
+  assert.equal(await page.getByText(/World-Version 1/).count(), 0, "internal evidence stays out of the consumer UI");
+  assert.equal(await page.getByText("Ohne persönliche Vorlieben sortiert", { exact: true }).count(), 1);
   assert.equal(state.decisions.every((item) => item.contractVersion === DECISION_PRODUCT_CONTRACT.request), true);
   assert.equal(state.decisions.length, 1);
 
@@ -144,8 +145,8 @@ try {
   state.worldVersion = 2;
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
-  assert.equal(await page.getByText(/World-Version 2/).count(), 5);
-  assert.equal(await page.getByText("Deine freigegebenen Vorlieben können die Reihenfolge beeinflussen.", { exact: true }).count(), 1);
+  assert.equal(await page.getByText(/World-Version 2/).count(), 0);
+  assert.equal(await page.getByText("Mit deinen freigegebenen Vorlieben sortiert", { exact: true }).count(), 1);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByPlaceholder("Was hast du heute vor?").waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
