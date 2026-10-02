@@ -17,7 +17,7 @@ type NavItem = { href: string; label: string; icon: string; exact?: boolean };
 
 const nav: NavItem[] = [
   { href: "/owner", label: "Übersicht", icon: "◫", exact: true },
-  { href: "/owner/analytics", label: "Einblicke", icon: "↗", exact: true },
+  { href: "/owner/analytics", label: "Einblicke", icon: "◈", exact: true },
   { href: "/owner/analytics/decision", label: "Empfehlungs-Aufrufe", icon: "✦" },
   { href: "/owner/analytics/moments", label: "Momente", icon: "◉" },
   { href: "/owner/spots", label: "Meine Spots", icon: "⌖" },
@@ -30,6 +30,7 @@ export function OwnerShell({ children, title, subtitle, eyebrow = "DEIN OWNER-BE
   const [email, setEmail] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -54,6 +55,22 @@ export function OwnerShell({ children, title, subtitle, eyebrow = "DEIN OWNER-BE
   }, [router]);
 
   const initials = useMemo(() => (email?.[0] ?? "B").toUpperCase(), [email]);
+  const activeNavItem = nav.find((item) => item.exact
+    ? pathname === item.href
+    : pathname === item.href || pathname.startsWith(`${item.href}/`));
+
+  const renderNavItems = (mobile: boolean) => nav.map((item) => {
+    const active = item.exact
+      ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+    return (
+      <Link key={item.href} href={item.href} className={`owner-nav-item ${active ? "is-active" : ""}`}
+        onClick={mobile ? () => setMobileMenuOpen(false) : undefined} aria-current={active ? "page" : undefined}>
+        <span className="owner-nav-icon" aria-hidden="true">{item.icon}</span>
+        <span>{item.label}</span>
+      </Link>
+    );
+  });
 
   async function logout() {
     await supabase.auth.signOut();
@@ -84,19 +101,21 @@ export function OwnerShell({ children, title, subtitle, eyebrow = "DEIN OWNER-BE
             </div>
           </div>
 
-          <nav className="owner-nav" aria-label="Owner Navigation">
-            {nav.map((item) => {
-              const active = item.exact
-                ? pathname === item.href
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link key={item.href} href={item.href} className={`owner-nav-item ${active ? "is-active" : ""}`}>
-                  <span className="owner-nav-icon">{item.icon}</span>
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+          <nav className="owner-nav owner-nav-desktop" aria-label="Owner Navigation">{renderNavItems(false)}</nav>
+          <details className="owner-mobile-menu" open={mobileMenuOpen}
+            onToggle={(event) => setMobileMenuOpen(event.currentTarget.open)}>
+            <summary aria-label={`Menü öffnen, aktuelle Seite: ${activeNavItem?.label ?? "Übersicht"}`}>
+              <span aria-hidden="true" className="owner-mobile-menu-icon">☰</span>
+              <span>{activeNavItem?.label ?? "Menü"}</span>
+            </summary>
+            <div className="owner-mobile-menu-panel">
+              <nav aria-label="Owner Navigation mobil">{renderNavItems(true)}</nav>
+              <div className="owner-mobile-menu-actions">
+                <Link href="/" onClick={() => setMobileMenuOpen(false)}>Website</Link>
+                <button type="button" onClick={logout}>Abmelden</button>
+              </div>
+            </div>
+          </details>
 
           <div className="owner-sidebar-spacer" />
 

@@ -23,7 +23,7 @@ export function OwnerSpotCard({ spot }: { spot: OwnerSpotListItem }) {
       </div>
       <div className="owner-spot-card-footer">
         <span>{available ? "Angaben und Prüfstatus" : "Bearbeitung nach Freigabe verfügbar"}</span>
-        {available && <strong>Spot pflegen ↗</strong>}
+        {available && <strong>Spot pflegen</strong>}
       </div>
     </>
   );

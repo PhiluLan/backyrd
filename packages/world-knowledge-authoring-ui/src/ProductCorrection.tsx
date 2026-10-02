@@ -348,7 +348,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
   const reviewNotices = detail?.openConflicts.length ?? 0;
   const goToStep = (index: number) => {
     setStep(Math.max(0, Math.min(AUTHORING_STEPS.length - 1, index)));
-    document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: surface === "OWNER" ? "auto" : "smooth", block: "start" });
   };
   const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL");
   const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL");
@@ -364,7 +364,8 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
   return <div className="wk-app wk-product-app">
     <header className="wk-header">
       <div><span className="wk-eyebrow">{surface === "OWNER" ? "DEIN SPOT · ANGABEN PFLEGEN" : "WORLD KNOWLEDGE · SPOT-PFLEGE"}</span><h1>{detail?.name ?? "Spots pflegen"}</h1>
-        <p>{detail ? surface === "OWNER" ? `${known} Angaben vorhanden · ${unknown} bewusst offen · ${unresolved} Widersprüche` : `${known} bestätigte Angaben · ${unknown} bewusst unbekannt · ${unresolved} echte Konflikte · ${reviewNotices} Prüfhinweise` : "Wähle einen Spot und pflege seine Angaben Schritt für Schritt."}</p></div>
+        <p>{detail ? surface === "OWNER" ? `${known} Angaben vorhanden · ${unknown} bewusst offen · ${unresolved} Widersprüche` : `${known} bestätigte Angaben · ${unknown} bewusst unbekannt · ${unresolved} echte Konflikte · ${reviewNotices} Prüfhinweise` : "Wähle einen Spot und pflege seine Angaben Schritt für Schritt."}</p>
+        {surface === "OWNER" && detail?.actor.role === "ADMIN" && <p className="wk-admin-access-note">Admin-Zugriff: Alle Bereiche sind für dich freigeschaltet. Für Betreiber:innen gelten die Basis- und Pro-Grenzen.</p>}</div>
       <div className="wk-header-actions"><span className="wk-status">{surface === "OWNER" ? detail?.manifest ? "● Spot-Ansicht aktuell" : "● Spot-Ansicht noch offen" : detail?.manifest ? "● Datenvorschau vorhanden" : "● Noch keine Datenvorschau"}</span></div>
     </header>
     {search && surface === "ADMIN" && <details className="wk-panel wk-catalog-details" aria-label="World-Bestandsabgleich">
@@ -397,6 +398,11 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
         </div>}
       </div> : <div className="wk-product-search"><label>Spot-ID<input className="wk-input" value={spotId} onChange={(event) => setSpotId(event.target.value)} /></label>
         <button type="button" disabled={busy} onClick={() => void selectSpot(spotId)}>Spot laden</button></div>}</div></details>
+      {detail && surface === "OWNER" && <label className="wk-owner-step-picker">Bereich auswählen
+        <select value={step} onChange={(event) => goToStep(Number(event.target.value))}>
+          {AUTHORING_STEPS.map((item, index) => <option key={item.id} value={index}>{index + 1}. {item.id === "objective" ? "Eigenschaften" : item.id === "amenities" ? "Ausstattung" : item.title}</option>)}
+        </select>
+      </label>}
       {detail && <nav aria-label="Bereiche der Spot-Pflege">{AUTHORING_STEPS.map((item, index) => {
         const sectionFields = item.attributeKeys.filter((key) => detail.actor.allowedAttributeKeys.includes(key));
         const completed = sectionFields.filter((key) => detail.answers[key]).length;
@@ -434,7 +440,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
           : <div className="wk-note"><strong>Für diesen Spot keine bearbeitbaren Angaben in diesem Bereich.</strong><p>Du kannst zum nächsten Bereich wechseln.</p></div>}
         <footer className="wk-footer"><button type="button" className="wk-secondary" disabled={step === 0} onClick={() => goToStep(step - 1)}>Zurück</button>
           <span>{surface === "OWNER" ? "Jede Änderung wird einzeln gespeichert und geprüft." : "Jede Änderung wird einzeln gespeichert und danach im World-Reader geprüft."}</span>
-          <button type="button" disabled={step === AUTHORING_STEPS.length - 1} onClick={() => goToStep(step + 1)}>Weiter →</button></footer>
+          <button type="button" disabled={step === AUTHORING_STEPS.length - 1} onClick={() => goToStep(step + 1)}>Weiter</button></footer>
       </section>}</main></div>
     {message && <div className={`wk-toast ${messageIsError ? "error" : "success"}`} role={messageIsError ? "alert" : "status"}>{message}
       <button type="button" aria-label="Meldung schließen" onClick={() => setMessage("")}>×</button></div>}

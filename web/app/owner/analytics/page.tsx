@@ -55,7 +55,7 @@ export default function OwnerInsightsPage() {
           <div className="owner-table-wrap"><table className="owner-table"><thead><tr><th>Spot</th><th>Aufrufe</th><th>Besucher:innen</th><th>Reviews</th><th>Aktionen</th><th /></tr></thead><tbody>{data.spots.map((spot) => <tr key={spot.spot_id}>
             <td><strong>{spot.name}</strong><span>{spot.city}</span></td><td>{spot.views}</td><td>{spot.visitors}</td><td>{spot.reviews}</td>
             <td>{spot.route_clicks + spot.website_clicks + spot.phone_clicks}</td>
-            <td><Link href={`/owner/analytics/spots/${spot.spot_id}`} className="owner-table-link">Details →</Link></td>
+            <td><Link href={`/owner/analytics/spots/${spot.spot_id}`} className="owner-table-link">Details</Link></td>
           </tr>)}</tbody></table></div>}
       </section>
     </>}
