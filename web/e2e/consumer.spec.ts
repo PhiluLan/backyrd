@@ -442,10 +442,13 @@ test("login updates the shell, opens Profile, survives refresh and logout closes
   await expect(page.getByRole("heading", { name: "Web Test" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Profil öffnen" })).toBeVisible();
 
-  // An already saved session must not leave the user stranded on the login
-  // form (for example after reloading a stalled sign-in tab).
+  // A session restored when the login page loads must not start a redirect
+  // loop. Only an explicit sign-in attempt may trigger the auth-event handoff.
   await page.goto("/login?next=%2Fprofile");
-  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByRole("button", { name: "Anmelden" })).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(page).toHaveURL(/\/login\?next=%2Fprofile$/);
+  await page.goto("/profile");
 
   await page.reload();
   await expect(page).toHaveURL(/\/profile$/);
