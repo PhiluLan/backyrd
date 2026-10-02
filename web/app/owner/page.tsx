@@ -51,7 +51,7 @@ export default function OwnerHomePage() {
       eyebrow="DEIN BEREICH"
       title="Dein Ort. Dein Auftritt."
       subtitle="Halte deine Orte aktuell und zeig, was sie besonders macht. Neue Angaben werden mit dem bestehenden Spot-Wissen abgeglichen."
-      actions={<Link href="/owner/spots" className="owner-primary-button">Meine Spots öffnen <span aria-hidden="true">↗</span></Link>}
+      actions={<Link href="/owner/spots" className="owner-primary-button">Meine Spots öffnen</Link>}
     >
       <section className="owner-home-intro">
         <p className="owner-section-kicker">WILLKOMMEN ZURÜCK</p>
@@ -60,13 +60,13 @@ export default function OwnerHomePage() {
       </section>
 
       <section className="owner-home-shortcuts" aria-label="Schnellzugriff">
-        <Link href="/owner/spots"><span>01 / PFLEGEN</span><strong>Meine Spots</strong><small>Orte auswählen und Angaben pflegen</small><b aria-hidden="true">↗</b></Link>
-        <Link href="/owner/world-knowledge"><span>02 / ERGÄNZEN</span><strong>Spot-Angaben</strong><small>Dein Wissen Schritt für Schritt ergänzen</small><b aria-hidden="true">↗</b></Link>
-        <Link href="/owner/analytics"><span>03 / VERSTEHEN</span><strong>Einblicke</strong><small>Erfasste Besuche und Interaktionen</small><b aria-hidden="true">↗</b></Link>
+        <Link href="/owner/spots"><span>01 / PFLEGEN</span><strong>Meine Spots</strong><small>Orte auswählen und Angaben pflegen</small></Link>
+        <Link href="/owner/world-knowledge"><span>02 / ERGÄNZEN</span><strong>Spot-Angaben</strong><small>Dein Wissen Schritt für Schritt ergänzen</small></Link>
+        <Link href="/owner/analytics"><span>03 / VERSTEHEN</span><strong>Einblicke</strong><small>Erfasste Besuche und Interaktionen</small></Link>
       </section>
 
       <section className="owner-home-spots">
-        <div className="owner-home-section-title"><div><p className="owner-section-kicker">DEINE ORTE</p><h2>Meine Spots</h2></div>{spots.length ? <Link href="/owner/spots">Alle anzeigen <span aria-hidden="true">↗</span></Link> : null}</div>
+        <div className="owner-home-section-title"><div><p className="owner-section-kicker">DEINE ORTE</p><h2>Meine Spots</h2></div>{spots.length ? <Link href="/owner/spots">Alle anzeigen</Link> : null}</div>
         {spots.length ? (
           <div className="owner-spot-grid">{spots.slice(0, 6).map((spot) => <OwnerSpotCard key={spot.spot_id} spot={spot} />)}</div>
         ) : (

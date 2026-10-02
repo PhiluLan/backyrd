@@ -35,6 +35,8 @@
 .owner-world .wk-note { background: #211821; border-color: rgba(255, 79, 145, .25); }
 .owner-world .wk-header p,
 .owner-world .wk-panel p { line-height: 1.55; }
+.owner-world .wk-header .wk-admin-access-note { margin-top: 12px; color: #ff9fc2; font-size: 13px; }
+.owner-world .wk-owner-step-picker { display: none; }
 @media (max-width: 1100px) {
   .owner-world .wk-layout { grid-template-columns: 1fr; }
   .owner-world .wk-sidebar { border-right: 0; border-bottom: 1px solid #2b2b34; }
@@ -48,4 +50,12 @@
   .owner-world .wk-main { padding: 16px; }
   .owner-world .wk-footer { flex-wrap: wrap; }
   .owner-world .wk-footer span { order: 3; width: 100%; }
+}
+@media (max-width: 760px) {
+  .owner-world .wk-sidebar nav { display: none; }
+  .owner-world .wk-owner-step-picker { display: grid; gap: 8px; margin-top: 12px; color: #aaa4ab; font-size: 13px; font-weight: 700; }
+  .owner-world .wk-owner-step-picker select { width: 100%; min-height: 48px; padding: 10px 14px; border: 1px solid rgba(246, 240, 232, .2); border-radius: 14px; background: #201d21; color: #f6f0e8; font: inherit; font-size: 15px; }
+  .owner-world .wk-owner-step-picker select:focus-visible { outline: 2px solid #ff76a8; outline-offset: 3px; }
+  .owner-world .wk-main { scroll-margin-top: 82px; }
+  .owner-world .wk-footer { position: static; }
 }

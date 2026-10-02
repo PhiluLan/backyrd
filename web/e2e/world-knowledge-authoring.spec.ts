@@ -9,7 +9,7 @@ const basicKeys = [
 ];
 const proKeys = [...basicKeys, "capacity.seats_total", "amenity.features"];
 
-async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO") {
+async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "VERIFIED_OWNER" | "ADMIN" = "VERIFIED_OWNER") {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expiresAt = Math.floor(Date.now() / 1000) + 3600;
   const user = {
@@ -40,7 +40,7 @@ async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO") {
   const detail = () => ({
     contractVersion: "backyrd.world-knowledge.product-authoring-detail@1.0",
     spotId, name: "Volta Bräu", status: "approved",
-    actor: { role: "VERIFIED_OWNER", entitlement: tier, allowedAttributeKeys: tier === "OWNER_PRO" ? proKeys : basicKeys },
+    actor: { role, entitlement: role === "ADMIN" ? "ADMIN" : tier, allowedAttributeKeys: role === "ADMIN" || tier === "OWNER_PRO" ? proKeys : basicKeys },
     answers, openConflicts: [], manifest,
   });
   await page.route("**/rest/v1/rpc/world_product_authoring_detail_v1", (route) => route.fulfill({
@@ -101,6 +101,14 @@ test("Pro-Owner erhält die vom Server erlaubten Zusatzfelder", async ({ page })
   await expect(page.getByText("Sitzplätze gesamt")).toBeVisible();
 });
 
+test("Admin-Zugriff erklärt die Freigabe der Pro-Bereiche", async ({ page }) => {
+  await mockOwner(page, "OWNER_BASIC", "ADMIN");
+  await page.goto(`/owner/spots/${spotId}`);
+  await expect(page.getByText("Admin-Zugriff: Alle Bereiche sind für dich freigeschaltet.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: /7 Objektive Eigenschaften/ }).click();
+  await expect(page.getByText("Dieser Bereich gehört zu Owner Pro.")).toHaveCount(0);
+});
+
 test("Der alte Bearbeitungslink führt zum aktuellen World-Wissen-Editor", async ({ page }) => {
   await mockOwner(page, "OWNER_BASIC");
   await page.goto(`/owner/spots/${spotId}/edit`);
@@ -127,6 +135,15 @@ test("Die Spot-Pflege bleibt auf dem Smartphone lesbar", async ({ page }, testIn
   await mockOwner(page, "OWNER_BASIC");
   await page.goto(`/owner/spots/${spotId}`);
   await expect(page.getByRole("heading", { name: "Volta Bräu" })).toBeVisible();
+  await expect(page.getByLabel("Bereich auswählen")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Bereiche der Spot-Pflege" })).toBeHidden();
+  await page.getByLabel("Bereich auswählen").selectOption("6");
+  await expect(page.getByRole("heading", { name: "Objektive Eigenschaften und Nutzungsmöglichkeiten" })).toBeVisible();
+  await expect(page.getByText("Dieser Bereich gehört zu Owner Pro.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Weiter", exact: true })).toBeVisible();
+  await page.locator(".owner-mobile-menu summary").click();
+  await expect(page.getByRole("navigation", { name: "Owner Navigation mobil" })).toBeVisible();
+  await page.locator(".owner-mobile-menu summary").click();
   const overflow = await page.evaluate(() => ({
     width: document.documentElement.scrollWidth,
     elements: [...document.querySelectorAll("body *")]

@@ -40,7 +40,7 @@ export default function OwnerSpotActivityPage() {
     actions={<OwnerDateRange value={preset} onChange={(value) => { setData(null); setError(""); setPreset(value); }} />}
   >
     {error ? <div className="owner-error-state">{error}</div> : !data || !summary ? <div className="owner-empty-state">Einblicke werden geladen …</div> : <>
-      <div className="owner-back-row"><Link href="/owner/analytics">← Alle Einblicke</Link><Link href={`/owner/spots/${id}`} className="owner-secondary-button">Spot pflegen</Link></div>
+      <div className="owner-back-row"><Link href="/owner/analytics">Alle Einblicke</Link><Link href={`/owner/spots/${id}`} className="owner-secondary-button">Spot pflegen</Link></div>
       <div className="owner-kpi-grid owner-kpi-grid-4">
         <OwnerMetric label="Spot-Aufrufe" value={summary.views} />
         <OwnerMetric label="Erfasste Besucher:innen" value={summary.visitors} />

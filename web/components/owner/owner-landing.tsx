@@ -13,7 +13,7 @@ export function OwnerLanding() {
         </Link>
         <div className="owner-public-header-actions">
           <Link href="/" className="owner-public-back">Zur Website</Link>
-          <Link href={ownerLogin} className="owner-public-signin">Anmelden <span aria-hidden="true">↗</span></Link>
+          <Link href={ownerLogin} className="owner-public-signin">Anmelden</Link>
         </div>
       </header>
 
@@ -26,7 +26,7 @@ export function OwnerLanding() {
             für Menschen, zu deren Moment er passt.
           </p>
           <div className="owner-public-actions">
-            <Link href={ownerLogin} className="owner-public-primary">Zum Owner-Bereich <span aria-hidden="true">↗</span></Link>
+            <Link href={ownerLogin} className="owner-public-primary">Zum Owner-Bereich</Link>
             <a href={ownerContact} className="owner-public-secondary">Zugang anfragen</a>
           </div>
           <p className="owner-public-hint">Bereits verbunden? Melde dich mit deinem bestehenden backyrd-Konto an.</p>
