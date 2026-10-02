@@ -34,6 +34,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const redirecting = useRef(false);
+  const loginAttempted = useRef(false);
   useEffect(() => {
     if (params.get("status") === "invalid") {
       setError("Der sichere Link ist abgelaufen, wurde bereits verwendet oder ist unvollständig. Fordere bitte einen neuen Link an.");
@@ -43,9 +44,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
     if (mode !== "login") return;
     let active = true;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session || (event !== "SIGNED_IN" && event !== "INITIAL_SESSION")) return;
-      // A session may already be saved while signInWithPassword is still
-      // waiting for auth subscribers. Navigate outside the callback/lock.
+      // Session events also fire when a page loads or regains focus. Only the
+      // sign-in initiated by this form may navigate, or a redirect loop can
+      // form when a private route sends the visitor back to login.
+      if (!loginAttempted.current || !session || event !== "SIGNED_IN") return;
+      // The session can be saved before signInWithPassword returns. Navigate
+      // outside the auth callback/lock so a slow subscriber cannot strand us.
       window.setTimeout(() => {
         if (!active || redirecting.current) return;
         redirecting.current = true;
@@ -88,6 +92,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setBusy(true);
     try {
       if (mode === "login") {
+        loginAttempted.current = true;
         const { data, error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
@@ -129,6 +134,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         window.setTimeout(() => router.replace("/"), 1000);
       }
     } catch (err) {
+      if (mode === "login") loginAttempted.current = false;
       setError(human(err, mode));
     } finally {
       setBusy(false);
