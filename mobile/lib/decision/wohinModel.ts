@@ -77,10 +77,12 @@ export function wohinConsiderations(candidate: DecisionProductCandidate, persona
   return notes;
 }
 
-export function wohinLimitations(limitations: readonly string[]): string[] {
+export function wohinLimitations(limitations: readonly string[], visibleCount: number): string[] {
   const labels: Record<string, string> = {
-    SINGLE_CANDIDATE: "Für diesen Wunsch steht gerade nur ein geprüfter Ort zur Auswahl.",
-    CANDIDATE_WINDOW_LIMITED: "Hier siehst du nur einen Teil der passenden Orte.",
+    SINGLE_CANDIDATE: visibleCount > 0
+      ? "Für diesen Wunsch steht gerade nur ein geprüfter Ort zur Auswahl."
+      : "Für diesen Wunsch wurde nur ein Ort geprüft; er konnte nicht empfohlen werden.",
+    CANDIDATE_WINDOW_LIMITED: "Nicht alle geprüften Orte erfüllen die Voraussetzungen für diesen Wunsch.",
     CORE_INTENT_REQUIRES_CLARIFICATION: "Dein Wunsch konnte nicht eindeutig verstanden werden. Versuche ihn genauer zu beschreiben.",
   };
   return [...new Set(limitations.map((code) => labels[code] ?? "Zu dieser Auswahl liegen weitere Einschränkungen vor. Prüfe wichtige Angaben vor deinem Besuch."))];

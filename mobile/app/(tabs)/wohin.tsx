@@ -219,7 +219,7 @@ export default function WohinScreen() {
     router.push(`/spot/${candidate.spotId}?entrySource=decision` as never);
   };
 
-  const limitations = response ? wohinLimitations(response.limitations) : [];
+  const limitations = response ? wohinLimitations(response.limitations, candidates.length) : [];
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: color.background }} edges={["top", "left", "right"]}>

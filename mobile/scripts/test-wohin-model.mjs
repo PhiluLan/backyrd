@@ -73,7 +73,9 @@ test("unknown conditions and neutral order are disclosed without claiming better
 });
 
 test("response limitations remain visible in plain language", () => {
-  assert.deepEqual(wohinLimitations(["SINGLE_CANDIDATE"]), ["Für diesen Wunsch steht gerade nur ein geprüfter Ort zur Auswahl."]);
-  assert.deepEqual(wohinLimitations(["FUTURE_LIMITATION", "ANOTHER_FUTURE_LIMITATION"]), ["Zu dieser Auswahl liegen weitere Einschränkungen vor. Prüfe wichtige Angaben vor deinem Besuch."]);
-  assert.deepEqual(wohinLimitations([]), []);
+  assert.deepEqual(wohinLimitations(["SINGLE_CANDIDATE"], 1), ["Für diesen Wunsch steht gerade nur ein geprüfter Ort zur Auswahl."]);
+  assert.deepEqual(wohinLimitations(["SINGLE_CANDIDATE"], 0), ["Für diesen Wunsch wurde nur ein Ort geprüft; er konnte nicht empfohlen werden."]);
+  assert.deepEqual(wohinLimitations(["CANDIDATE_WINDOW_LIMITED"], 2), ["Nicht alle geprüften Orte erfüllen die Voraussetzungen für diesen Wunsch."]);
+  assert.deepEqual(wohinLimitations(["FUTURE_LIMITATION", "ANOTHER_FUTURE_LIMITATION"], 1), ["Zu dieser Auswahl liegen weitere Einschränkungen vor. Prüfe wichtige Angaben vor deinem Besuch."]);
+  assert.deepEqual(wohinLimitations([], 0), []);
 });
