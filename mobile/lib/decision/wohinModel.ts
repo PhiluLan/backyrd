@@ -37,37 +37,53 @@ export function visibleWohinCandidates(response: DecisionProductResponse): Decis
   return ranked.slice(0, MAX_VISIBLE_CANDIDATES);
 }
 
-export function wohinEvidenceState(candidate: DecisionProductCandidate): string {
-  if (candidate.tier === "ELIGIBLE_CONFIRMED" && candidate.coreIntentCoverage === "CONFIRMED") return "Kernabsicht bestätigt";
-  if (candidate.coreIntentCoverage === "INCOMPATIBLE" || candidate.coreIntentCoverage === "DISPUTED") return "Nicht passend belegt";
-  return "Passung nicht bestätigt";
+export function wohinFitLabel(candidate: DecisionProductCandidate): string {
+  return candidate.tier === "ELIGIBLE_CONFIRMED" && candidate.coreIntentCoverage === "CONFIRMED"
+    ? "Passend zu deinem Wunsch"
+    : "Passung noch nicht vollständig belegt";
 }
 
-export function wohinRankingEvidence(candidate: DecisionProductCandidate): string[] {
-  // The server response is schema-validated at the Product boundary. The
-  // shared schema currently exposes nested vector fields as unknown in TS.
-  const vector = candidate.rankVector as unknown as {
-    hardConstraintState: "PASS" | "UNKNOWN" | "FAIL";
-    primaryVisitPurposeState: "CONFIRMED" | "UNKNOWN" | "NOT_CONFIGURED" | "INCOMPATIBLE" | "DISPUTED" | "NOT_APPLICABLE";
-    userRelevance: { state: "POSITIVE_DIRECT" | "NEGATIVE_DIRECT" | "POSITIVE_TASTE" | "NEGATIVE_TASTE" | "MIXED_TASTE" | "NEUTRAL" };
-    contextFit: { secondaryIntentConfirmed: boolean; visitSituationConfirmed: boolean; atmosphereConfirmed: boolean; typicalDaypartConfirmed: boolean; matchedSoftPreferenceCount: number };
-    worldEvidence: { confirmedReasonCount: number };
-  };
-  const evidence = [
-    candidate.coreIntentCoverage === "CONFIRMED" ? "Die Hauptabsicht ist durch World Knowledge bestätigt." : "Die Hauptabsicht ist für diesen Spot nicht bestätigt.",
-    vector.hardConstraintState === "PASS" ? "Keine bekannte harte Bedingung ist verletzt." : "Mindestens eine harte Bedingung ist ungeklärt.",
-  ];
-  if (vector.userRelevance.state === "POSITIVE_DIRECT") evidence.push("Eine consentgebundene direkte Nutzerpräferenz beeinflusst die Reihenfolge.");
-  if (vector.userRelevance.state === "NEGATIVE_DIRECT") evidence.push("Eine frühere ausdrückliche Rückmeldung spricht gegen diesen Ort; sie beeinflusst nur die Reihenfolge.");
-  if (vector.userRelevance.state === "POSITIVE_TASTE") evidence.push("Deine consentgebundenen Geschmackssignale passen zu bestätigten Eigenschaften dieses Orts.");
-  if (vector.userRelevance.state === "NEGATIVE_TASTE") evidence.push("Deine consentgebundenen Geschmackssignale sprechen eher gegen bestätigte Eigenschaften dieses Orts.");
-  if (vector.userRelevance.state === "MIXED_TASTE") evidence.push("Deine consentgebundenen Geschmackssignale sind für diesen Ort gemischt und verändern die Reihenfolge nicht.");
-  if (vector.primaryVisitPurposeState === "CONFIRMED") evidence.push("Der bestätigte Hauptzweck unterstützt diese Absicht zusätzlich zur Kernklassifikation.");
-  if (vector.contextFit.secondaryIntentConfirmed || vector.contextFit.visitSituationConfirmed || vector.contextFit.atmosphereConfirmed || vector.contextFit.typicalDaypartConfirmed || vector.contextFit.matchedSoftPreferenceCount > 0) {
-    evidence.push("Bestätigte Kontext- oder Stimmungsmerkmale beeinflussen die Reihenfolge.");
+const reasonLabels: Record<string, string> = {
+  "core-intent-confirmed": "Die Art des Ortes passt zu deinem Wunsch.",
+  "atmosphere-fit": "Die Atmosphäre passt zu dem, was du suchst.",
+  "visit-fit": "Passt zu deiner geplanten Begleitung.",
+  "daypart-fit": "Passt zur gewünschten Tageszeit.",
+  "price-level-fit": "Das Preisniveau passt zum Wunsch nach günstig.",
+  "primary-purpose-confirmed": "Der Ort ist auch auf diese Art von Besuch ausgerichtet.",
+};
+const reasonPriority = ["core-intent-confirmed", "atmosphere-fit", "visit-fit", "daypart-fit", "price-level-fit", "primary-purpose-confirmed"];
+
+export function wohinHighlights(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
+  const confirmed = new Set(candidate.reasons.filter((reason) => reason.confirmed).map((reason) => reason.code));
+  const highlights = reasonPriority
+    .filter((code) => confirmed.has(code) && !(code === "primary-purpose-confirmed" && confirmed.has("core-intent-confirmed")))
+    .map((code) => reasonLabels[code]);
+  if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-positive-"))) {
+    highlights.push("Passt zu deinen freigegebenen Vorlieben.");
   }
-  if (vector.worldEvidence.confirmedReasonCount === 0) evidence.push("Keine zusätzliche bestätigte World-Begründung für diesen Platz vorhanden.");
-  const comparativeReason = candidate.reasons.find((reason) => reason.code === "product-rank-versus-next-v1");
-  if (comparativeReason?.statement.includes("neutralen stabilen Tie-Breakers")) evidence.push("Bei gleichen fachlichen Signalen entscheidet ein neutraler, stabiler Tie-Breaker – keine behauptete bessere Passung.");
-  return evidence;
+  return highlights.slice(0, 2);
+}
+
+export function wohinConsiderations(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
+  const notes: string[] = [];
+  if (candidate.coreIntentCoverage !== "CONFIRMED") notes.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
+  if (candidate.unknownHardConstraints.some((constraint) => constraint !== "OPEN_ON_REQUESTED_DAY")) notes.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
+  if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-negative-"))) {
+    notes.push("Nicht alle deiner Vorlieben sprechen für diesen Ort.");
+  }
+  if (candidate.reasons.some((reason) => reason.code === "product-rank-versus-next-v1" && reason.statement.includes("neutralen stabilen Tie-Breakers"))) {
+    notes.push("Bei ähnlich gut belegten Orten bedeutet die Reihenfolge keine bessere Passung.");
+  }
+  return notes;
+}
+
+export function wohinLimitations(limitations: readonly string[], visibleCount: number): string[] {
+  const labels: Record<string, string> = {
+    SINGLE_CANDIDATE: visibleCount > 0
+      ? "Für diesen Wunsch steht gerade nur ein geprüfter Ort zur Auswahl."
+      : "Für diesen Wunsch wurde nur ein Ort geprüft; er konnte nicht empfohlen werden.",
+    CANDIDATE_WINDOW_LIMITED: "Nicht alle geprüften Orte erfüllen die Voraussetzungen für diesen Wunsch.",
+    CORE_INTENT_REQUIRES_CLARIFICATION: "Dein Wunsch konnte nicht eindeutig verstanden werden. Versuche ihn genauer zu beschreiben.",
+  };
+  return [...new Set(limitations.map((code) => labels[code] ?? "Zu dieser Auswahl liegen weitere Einschränkungen vor. Prüfe wichtige Angaben vor deinem Besuch."))];
 }
