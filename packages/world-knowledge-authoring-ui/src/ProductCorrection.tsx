@@ -338,6 +338,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
     }
   };
   const current = AUTHORING_STEPS[step]!;
+  const proLocked = surface === "OWNER" && detail?.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities");
   const primaryCategory = detail?.answers["classification.primary_category"]?.value;
   const fields = getAuthoringFieldsForContext(current.id, typeof primaryCategory === "string" ? primaryCategory : undefined)
     .filter((field) => detail?.actor.allowedAttributeKeys.includes(field.attributeKey))
@@ -421,7 +422,16 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
         {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch{surface === "ADMIN" ? " im World-Reader" : ""}</strong>
           <p>Die betroffenen Angaben können korrigiert werden; bis zur Klärung werden sie nicht als gesichert ausgegeben.</p></div>}
         {current.id === "basics" && AddressPicker && detail.actor.role === "ADMIN" && <div className="wk-address-assist"><h3>Adresse suchen statt Koordinaten eintippen</h3><p>Nutze die gleiche Adresssuche wie beim Anlegen eines Spots. Erst nach deiner Auswahl und Bestätigung werden Adresse, Ort und Position als World-Angaben gespeichert.</p><AddressPicker disabled={busy} onSelect={setAddressSelection} />{addressSelection && <div className="wk-address-selection"><strong>{addressSelection.addressLine1}, {addressSelection.locality}</strong><span>Position: {addressSelection.latitude.toFixed(6)}, {addressSelection.longitude.toFixed(6)}</span><button type="button" disabled={busy} onClick={() => void saveSelectedAddress()}>{busy ? "Adresse wird geprüft …" : "Adresse und Position speichern"}</button><button type="button" className="wk-secondary" disabled={busy} onClick={() => setAddressSelection(null)}>Auswahl verwerfen</button></div>}</div>}
-        {surface === "OWNER" && detail.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? <div className="wk-note"><strong>Dieser Bereich gehört zu Owner Pro.</strong><p>Mit Pro kannst du zusätzliche, überprüfbare Eigenschaften und Regeln deines Spots pflegen. Das verbessert die Datentiefe, garantiert aber keine Platzierung in Empfehlungen. Deine bisherigen Angaben bleiben sichtbar und erhalten.</p></div>
+        {proLocked ? <section className="wk-pro-preview" aria-labelledby="wk-pro-preview-title">
+          <div className="wk-pro-preview-backdrop" aria-hidden="true"><span>{current.id === "objective" ? "Nutzungsmöglichkeiten" : "Ausstattung"}</span><i /><i /><i /></div>
+          <div className="wk-pro-preview-card"><span className="wk-pro-kicker">backyrd · Owner Pro</span>
+            <h3 id="wk-pro-preview-title">Mehr Tiefe für deinen Spot.</h3>
+            <p>{current.id === "objective" ? "Ergänze, was Gäste hier konkret unternehmen können und welche Möglichkeiten dein Spot bietet." : "Zeige Ausstattung, Zugänglichkeit und Einschränkungen so klar, wie Gäste sie vor dem Besuch brauchen."}</p>
+            <div className="wk-pro-price"><strong>CHF 39.–</strong><span>pro Monat</span></div>
+            <a className="wk-pro-cta" href="mailto:hello@backyrd.ch?subject=Owner%20Pro%20anfragen">Owner Pro anfragen</a>
+            <small>Keine automatische Buchung. Angaben werden weiterhin geprüft; Pro garantiert keine Platzierung in Empfehlungen.</small>
+          </div>
+        </section>
         : current.id === "review" ? <div className="wk-review">
           <article><b>Bestätigt</b><strong>{known}</strong><span>gespeicherte Angaben</span></article>
           <article><b>Bewusst unbekannt</b><strong>{unknown}</strong><span>weder Ja noch Nein</span></article>
