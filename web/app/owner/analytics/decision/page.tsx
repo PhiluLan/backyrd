@@ -1,7 +1,52 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { OwnerShell } from "@/components/owner/owner-shell";
 import { OwnerDateRange } from "@/components/owner/owner-date-range";
 import { OwnerMetric } from "@/components/owner/owner-metric";
 import { getOwnerDecision, rangeForPreset, type DatePreset } from "@/lib/owner-intelligence";
-export default function Page(){const[p,setP]=useState<DatePreset>("month"),[d,setD]=useState<any>(null),[e,setE]=useState("");useEffect(()=>{const r=rangeForPreset(p);setE("");getOwnerDecision(r.from,r.to).then(setD).catch(x=>setE(x.message))},[p]);const s=d?.summary??{};return <OwnerShell eyebrow="DECISION INTELLIGENCE" title="Decision" subtitle="Wie deine Spots ausgespielt, bewertet und geöffnet werden." actions={<OwnerDateRange value={p} onChange={setP}/>}>{e?<div className="owner-error-state">{e}</div>:!d?<div className="owner-empty-state">Lädt…</div>:<><div className="owner-kpi-grid owner-kpi-grid-3"><OwnerMetric label="Impressions" value={s.impressions??0}/><OwnerMetric label="Spot Opens" value={s.opens??0}/><OwnerMetric label="CTR" value={`${s.ctr??0}%`} accent/><OwnerMetric label="Likes" value={s.likes??0}/><OwnerMetric label="Dislikes" value={s.dislikes??0}/><OwnerMetric label="Positive Rate" value={`${s.positive_rate??0}%`}/></div><section className="owner-panel owner-section-panel"><div className="owner-section-heading"><div><div className="owner-section-kicker">PER SPOT</div><h2>Recommendation Funnel</h2></div></div><div className="owner-performance-list">{(d.spots??[]).map((x:any)=><div key={x.spot_id} className="owner-performance-row"><div className="owner-performance-name"><strong>{x.spot_name}</strong><span>{x.impressions} Impressions</span></div><div><span>Opens</span><strong>{x.opens}</strong></div><div><span>Likes</span><strong>{x.likes}</strong></div><div><span>CTR</span><strong>{x.ctr}%</strong></div></div>)}</div></section></>}</OwnerShell>}
+
+type DecisionActivity = {
+  summary: { impressions: number; opens: number };
+  spots: { spot_id: string; spot_name: string; impressions: number; opens: number }[];
+};
+
+export default function OwnerRecommendationActivityPage() {
+  const [preset, setPreset] = useState<DatePreset>("month");
+  const [data, setData] = useState<DecisionActivity | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const range = rangeForPreset(preset);
+    getOwnerDecision(range.from, range.to)
+      .then((result: DecisionActivity) => { if (active) setData(result); })
+      .catch((cause: unknown) => {
+        if (active) setError(cause instanceof Error ? cause.message : "Die Einblicke konnten nicht geladen werden.");
+      });
+    return () => { active = false; };
+  }, [preset]);
+
+  return <OwnerShell
+    eyebrow="EMPFEHLUNGS-AKTIONEN"
+    title="Aus Empfehlungen entdeckt"
+    subtitle="Erfasste Anzeigen und Öffnungen deiner Spots aus Empfehlungen. Diese Ereignisse erklären weder die vNext-Reihenfolge noch beeinflussen sie das Ranking."
+    actions={<OwnerDateRange value={preset} onChange={(value) => { setData(null); setError(""); setPreset(value); }} />}
+  >
+    {error ? <div className="owner-error-state">{error}</div> : !data ? <div className="owner-empty-state">Einblicke werden geladen …</div> : <>
+      <div className="owner-kpi-grid owner-kpi-grid-3">
+        <OwnerMetric label="Erfasste Anzeigen" value={data.summary.impressions} />
+        <OwnerMetric label="Erfasste Spot-Öffnungen" value={data.summary.opens} accent />
+      </div>
+      <section className="owner-panel owner-section-panel">
+        <div className="owner-section-heading"><div><div className="owner-section-kicker">PRO SPOT</div><h2>Beobachtete Interaktionen</h2></div></div>
+        {data.spots.length === 0 ? <p className="owner-empty-state">In diesem Zeitraum wurden keine entsprechenden Ereignisse erfasst.</p> :
+          <div className="owner-performance-list">{data.spots.map((spot) => <div key={spot.spot_id} className="owner-performance-row">
+            <div className="owner-performance-name"><strong>{spot.spot_name}</strong></div>
+            <div><span>Anzeigen</span><strong>{spot.impressions}</strong></div>
+            <div><span>Öffnungen</span><strong>{spot.opens}</strong></div>
+          </div>)}</div>}
+      </section>
+    </>}
+  </OwnerShell>;
+}

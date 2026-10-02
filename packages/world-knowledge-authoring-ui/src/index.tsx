@@ -245,7 +245,7 @@ function FieldInput({ field, answer, candidate, applicability, referenceValue, o
   const shownOptions = field.allowedValues.filter((option) => !optionSearch || `${option.label} ${option.group ?? ""}`.toLocaleLowerCase("de-CH").includes(optionSearch.toLocaleLowerCase("de-CH")));
   const optionGroups = [...new Set(shownOptions.map((option) => option.group ?? "Auswahl"))];
   return <fieldset id={`field-${field.attributeKey}`} className="wk-field" disabled={disabled || saving}>
-    <legend>{field.label}</legend><span className={`wk-requirement ${field.requirementClass.toLocaleLowerCase("en")}`}>{field.requirementClass === "REQUIRED" ? "Für die Evaluation erforderlich" : field.requirementClass === "CONDITIONALLY_REQUIRED" ? "Je nach Einordnung erforderlich" : "Optional"}</span><p>{field.help}</p>
+    <legend>{field.label}</legend><span className={`wk-requirement ${field.requirementClass.toLocaleLowerCase("en")}`}>{field.requirementClass === "REQUIRED" ? "Für das Spot-Profil nötig" : field.requirementClass === "CONDITIONALLY_REQUIRED" ? "Je nach Einordnung erforderlich" : "Optional"}</span><p>{field.help}</p>
     {field.control === "YES_NO" ? <div className="wk-segmented">
       <button type="button" className={answer?.knowledgeState === "KNOWN_TRUE" ? "selected" : ""} onClick={() => save("KNOWN_TRUE", true)}>Ja</button>
       <button type="button" className={answer?.knowledgeState === "KNOWN_FALSE" ? "selected" : ""} onClick={() => save("KNOWN_FALSE", false)}>Nein</button>

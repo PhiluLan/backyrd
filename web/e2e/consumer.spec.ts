@@ -450,6 +450,16 @@ test("login updates the shell, opens Profile, survives refresh and logout closes
   await expect(page).toHaveURL(/\/login\?next=%2Fprofile$/);
   await page.goto("/profile");
 
+  await page.route("**/rest/v1/rpc/get_owner_spots_v1", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  );
+  // The Owner entry is different: a visitor who is already authenticated
+  // must land in the dashboard rather than remain on the sign-in form.
+  await page.goto("/login?next=%2Fowner");
+  await expect(page).toHaveURL(/\/owner$/);
+  await expect(page.getByRole("navigation", { name: "Owner Navigation" })).toBeVisible();
+  await page.goto("/profile");
+
   await page.reload();
   await expect(page).toHaveURL(/\/profile$/);
   await expect(page.getByRole("heading", { name: "Web Test" })).toBeVisible();

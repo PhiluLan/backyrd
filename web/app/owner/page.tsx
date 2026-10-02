@@ -50,7 +50,7 @@ export default function OwnerHomePage() {
     <OwnerShell
       eyebrow="DEIN BEREICH"
       title="Dein Ort. Dein Auftritt."
-      subtitle="Halte deine Orte aktuell und zeig, was sie besonders macht. Neue Angaben werden geprüft, bevor sie öffentlich erscheinen."
+      subtitle="Halte deine Orte aktuell und zeig, was sie besonders macht. Neue Angaben werden mit dem bestehenden Spot-Wissen abgeglichen."
       actions={<Link href="/owner/spots" className="owner-primary-button">Meine Spots öffnen <span aria-hidden="true">↗</span></Link>}
     >
       <section className="owner-home-intro">
@@ -60,9 +60,9 @@ export default function OwnerHomePage() {
       </section>
 
       <section className="owner-home-shortcuts" aria-label="Schnellzugriff">
-        <Link href="/owner/spots"><span>01 / PFLEGEN</span><strong>Meine Spots</strong><small>Details und Kontaktdaten ansehen</small><b aria-hidden="true">↗</b></Link>
-        <Link href="/owner/world-knowledge"><span>02 / ERGÄNZEN</span><strong>Spot-Wissen</strong><small>Besonderheiten zur Prüfung einreichen</small><b aria-hidden="true">↗</b></Link>
-        <Link href="/owner/analytics"><span>03 / VERSTEHEN</span><strong>Einblicke</strong><small>Verfügbare Signale zu deinen Orten</small><b aria-hidden="true">↗</b></Link>
+        <Link href="/owner/spots"><span>01 / PFLEGEN</span><strong>Meine Spots</strong><small>Orte auswählen und Angaben pflegen</small><b aria-hidden="true">↗</b></Link>
+        <Link href="/owner/world-knowledge"><span>02 / ERGÄNZEN</span><strong>Spot-Angaben</strong><small>Dein Wissen Schritt für Schritt ergänzen</small><b aria-hidden="true">↗</b></Link>
+        <Link href="/owner/analytics"><span>03 / VERSTEHEN</span><strong>Einblicke</strong><small>Erfasste Besuche und Interaktionen</small><b aria-hidden="true">↗</b></Link>
       </section>
 
       <section className="owner-home-spots">

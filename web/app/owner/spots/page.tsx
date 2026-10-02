@@ -43,7 +43,7 @@ export default function OwnerSpotsPage() {
   return (
     <OwnerShell
       title="Meine Spots"
-      subtitle="Hier findest du die Orte, die mit deinem Konto verbunden sind. Prüfe ihre Angaben und reiche Änderungen zur Prüfung ein."
+      subtitle="Wähle einen deiner Orte. Du kannst seine Angaben Schritt für Schritt pflegen – ohne technische Spot-ID."
     >
       {loading ? (
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-white/55">

@@ -12,7 +12,7 @@
 input,select,textarea{color:#fff;background:#111113;border:1px solid var(--border);border-radius:12px;outline:none}input:focus,select:focus,textarea:focus{border-color:rgba(255,79,145,.55);box-shadow:0 0 0 4px rgba(255,79,145,.08)}
 *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.16) transparent}
 @media(max-width:1100px){.owner-kpi-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}.owner-kpi-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}.owner-spot-grid,.owner-moment-grid{grid-template-columns:1fr}}
-@media(max-width:820px){.owner-app-shell{grid-template-columns:1fr}.owner-sidebar{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--border)}.owner-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.owner-sidebar-spacer,.owner-account-card,.owner-sidebar-actions,.owner-live{display:none}.owner-main{padding:28px 20px 48px}.owner-page-header{align-items:flex-start;flex-direction:column}.owner-page-copy h1{font-size:38px}.owner-page-actions{width:100%}.owner-date-range{justify-content:flex-start}.owner-briefing-card{align-items:flex-start;flex-direction:column}.owner-kpi-grid-3,.owner-kpi-grid-4{grid-template-columns:1fr}.owner-performance-row{grid-template-columns:1fr 1fr}.owner-performance-name{grid-column:1/-1}}
+@media(max-width:820px){.owner-app-shell{grid-template-columns:minmax(0,1fr)}.owner-sidebar{position:relative;height:auto;min-width:0;border-right:0;border-bottom:1px solid var(--border)}.owner-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.owner-sidebar-spacer,.owner-account-card,.owner-sidebar-actions,.owner-live{display:none}.owner-main{padding:28px 20px 48px}.owner-page-header{align-items:flex-start;flex-direction:column}.owner-page-copy h1{font-size:38px}.owner-page-actions{width:100%}.owner-date-range{justify-content:flex-start}.owner-briefing-card{align-items:flex-start;flex-direction:column}.owner-kpi-grid-3,.owner-kpi-grid-4{grid-template-columns:1fr}.owner-performance-row{grid-template-columns:1fr 1fr}.owner-performance-name{grid-column:1/-1}}
 
 /* Owner entry and home — shared backyrd typography, with a public path before sign-in. */
 .owner-public,.owner-private,.owner-entry-loading,.owner-entry-error{font-family:var(--font-libre-franklin),Arial,sans-serif}
@@ -88,6 +88,8 @@ input,select,textarea{color:#fff;background:#111113;border:1px solid var(--borde
 .owner-home-empty p{max-width:550px;margin:0;color:#a9a3a9;font-size:13px;line-height:1.55}
 .owner-home-empty .owner-secondary-button{margin-left:auto;white-space:nowrap;border-radius:999px}
 .owner-private .owner-spot-card{background:#111113;border-color:rgba(246,240,232,.13)}
+.owner-private .owner-spot-card-unavailable{opacity:.75}
+.owner-private .owner-spot-card-unavailable:hover{transform:none;border-color:rgba(246,240,232,.13)}
 .owner-private .owner-spot-card:hover{border-color:rgba(255,79,145,.46)}
 .owner-private .owner-spot-card-footer{padding-top:15px;border-top:1px solid rgba(246,240,232,.12)}
 @media(max-width:1100px){.owner-home-shortcuts{grid-template-columns:1fr}.owner-home-shortcuts a{min-height:135px}.owner-home-shortcuts strong{margin-top:14px}}
