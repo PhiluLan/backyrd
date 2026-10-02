@@ -86,9 +86,13 @@ test("Basis-Owner kann 1–6 pflegen, während 7–8 sichtbar gesperrt bleiben",
   await expect.poll(() => owner.submissions.length).toBe(1);
   expect(owner.submissions[0].p_attribute_key).toBe("operation.price_level");
   await page.getByRole("button", { name: /7 Objektive Eigenschaften/ }).click();
-  await expect(page.getByText("Dieser Bereich gehört zu Owner Pro.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
+  await expect(page.getByText("CHF 39.–")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Owner Pro anfragen" })).toHaveAttribute("href", /mailto:hello@backyrd\.ch/);
+  await expect(page.getByText("Sitzplätze gesamt")).toHaveCount(0);
   await page.getByRole("button", { name: /8 Ausstattung und Einschränkungen/ }).click();
-  await expect(page.getByText("Dieser Bereich gehört zu Owner Pro.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
+  await expect(page.getByText("CHF 39.–")).toBeVisible();
   await expect(page.getByText("Spot-ID")).toHaveCount(0);
 });
 
@@ -96,7 +100,7 @@ test("Pro-Owner erhält die vom Server erlaubten Zusatzfelder", async ({ page })
   await mockOwner(page, "OWNER_PRO");
   await page.goto(`/owner/spots/${spotId}`);
   await page.getByRole("button", { name: /7 Objektive Eigenschaften/ }).click();
-  await expect(page.getByText("Dieser Bereich gehört zu Owner Pro.")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toHaveCount(0);
   await page.getByText("Weitere Angaben").click();
   await expect(page.getByText("Sitzplätze gesamt")).toBeVisible();
 });
@@ -106,7 +110,7 @@ test("Admin-Zugriff erklärt die Freigabe der Pro-Bereiche", async ({ page }) =>
   await page.goto(`/owner/spots/${spotId}`);
   await expect(page.getByText("Admin-Zugriff: Alle Bereiche sind für dich freigeschaltet.", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: /7 Objektive Eigenschaften/ }).click();
-  await expect(page.getByText("Dieser Bereich gehört zu Owner Pro.")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toHaveCount(0);
 });
 
 test("Der alte Bearbeitungslink führt zum aktuellen World-Wissen-Editor", async ({ page }) => {
@@ -139,7 +143,7 @@ test("Die Spot-Pflege bleibt auf dem Smartphone lesbar", async ({ page }, testIn
   await expect(page.getByRole("navigation", { name: "Bereiche der Spot-Pflege" })).toBeHidden();
   await page.getByLabel("Bereich auswählen").selectOption("6");
   await expect(page.getByRole("heading", { name: "Objektive Eigenschaften und Nutzungsmöglichkeiten" })).toBeVisible();
-  await expect(page.getByText("Dieser Bereich gehört zu Owner Pro.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Weiter", exact: true })).toBeVisible();
   await page.locator(".owner-mobile-menu summary").click();
   await expect(page.getByRole("navigation", { name: "Owner Navigation mobil" })).toBeVisible();
