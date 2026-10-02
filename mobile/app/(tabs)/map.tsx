@@ -764,18 +764,17 @@ export default function MapScreen() {
       )}
 
       {/* BOTTOM SHEET */}
-      {viewMode === "map" ? <Animated.View
+      {viewMode === "map" && selectedSpot ? <Animated.View
         style={[
           styles.sheetContainer,
           { height: SHEET_HEIGHT, bottom: theme.control.tabBar + insets.bottom, transform: [{ translateY }] },
         ]}
-        pointerEvents={selectedSpot ? "box-none" : "none"}
+        pointerEvents="box-none"
         {...panResponder.panHandlers}
       >
         <BlurView intensity={34} tint="dark" style={styles.sheetBlur}>
           <View style={styles.sheetHandle} />
 
-          {selectedSpot ? (
             <View style={{ paddingHorizontal: 16, paddingBottom: 30 }}>
               <Pressable
                 onPress={() => {
@@ -790,6 +789,7 @@ export default function MapScreen() {
                     priority="high"
                     spotId={selectedSpot.id}
                     spotName={selectedSpot.name}
+                    showFallbackName={false}
                     style={styles.cardImg}
                   />
 
@@ -832,11 +832,6 @@ export default function MapScreen() {
                 <Text style={styles.sheetCtaPrimaryText}>Spot ansehen</Text>
               </Pressable>
             </View>
-          ) : (
-            <View style={{ alignItems: "center", paddingTop: 18 }}>
-              <Text style={styles.emptySheetText}>Tippe auf einen Marker</Text>
-            </View>
-          )}
         </BlurView>
       </Animated.View> : null}
     </SafeAreaView>
@@ -890,7 +885,6 @@ const styles = StyleSheet.create({
   badgeGhostText: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 12 },
   sheetCtaPrimary: { backgroundColor: theme.color.pink, paddingVertical: 15, borderRadius: theme.radius.pill, alignItems: "center", marginTop: theme.spacing.sm },
   sheetCtaPrimaryText: { fontFamily: theme.type.bodyBold, color: theme.color.background, fontSize: 15 },
-  emptySheetText: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14 },
   filterBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.54)" },
   filterSheet: { maxHeight: "82%", backgroundColor: theme.color.surfaceElevated, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: theme.color.border, paddingHorizontal: theme.spacing.xl },
   filterSheetHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.md },

@@ -69,7 +69,7 @@ for (const path of ["app/(tabs)/feed.tsx", "app/(tabs)/profile.tsx", "app/user/[
   await assert.rejects(checkSafetyFilter("safety_visible_social_post_ids_v1"), /safety_visibility_unavailable/, `${path} must hide posts on a post-safety failure`);
   await assert.rejects(checkSafetyFilter("review"), /safety_visibility_unavailable/, `${path} must hide reviews on a review-safety failure`);
   const masked = await checkSafetyFilter("profile");
-  assert.equal(masked[0].display_name, "Backyrd User", `${path} must mask unverified authors`);
+  assert.equal(masked[0].display_name, "Mitglied", `${path} must mask unverified authors`);
   const withoutCounts = await checkSafetyFilter("safety_visible_comment_counts_v1");
   assert.equal(withoutCounts[0].comment_count, 0, `${path} must suppress unverified counts`);
 }
@@ -87,9 +87,13 @@ assert.match(tabs, /const isGuest = !user/, "guest navigation must identify sign
 assert.match(tabs, /href: isGuest \? null : undefined/, "guest navigation must not advertise signed-in tabs");
 assert.match(home, /if \(!user\) \{[\s\S]*search: normalized/, "guest home search must use public catalog rather than Decision");
 assert.match(map, /spotMatchesSearch\(s, debouncedSearch, spotMoods\[s\.id\]/, "map search must include catalog context");
-assert.match(map, /viewMode === "map" \? <Animated\.View/, "map preview sheet must not cover the list view");
-assert.match(profileScreen, /<Modal transparent animationType="slide" presentationStyle="overFullScreen" visible=\{showEdit\}/, "profile editor must cover the tab bar");
+assert.match(map, /viewMode === "map" && selectedSpot \? <Animated\.View/, "map preview sheet must appear only for a selected spot");
+assert.doesNotMatch(map, /Tippe auf einen Marker/, "map must not retain the empty marker instruction");
+assert.match(profileScreen, /<Modal animationType="slide" presentationStyle="fullScreen" visible=\{showEdit\}/, "profile editor must cover the tab bar");
+assert.match(read("app/spot/[id].tsx"), /<View style=\{styles\.moreInfoHeader\}>[\s\S]*?<\/View>\s*<ScrollView/, "spot information header must remain outside scrolling content");
+assert.match(read("app/spot/[id].tsx"), /legacyAddress:?[\s,}]/, "spot address must retain a validated legacy postcode fallback");
 assert.match(reviewComposer, /disabled=\{uploading \|\| !mediaReady \|\| !hasContent\}/, "empty moments must not be offered for publication");
+assert.match(read("app/review/smart.tsx"), /const canSubmit = !!nearest && mediaReady && hasContent/, "smart moments must not publish without content");
 assert.match(feed, /loadDiscoverySpots\("", 6\)/, "an empty moments feed must offer real spots, not fabricated moments");
 assert.match(feed, /router\.push\("\/users\/search" as never\)/, "following empty state must open people discovery");
 

@@ -149,7 +149,7 @@ async function filterSafetyVisiblePosts(
         ...post,
         display_name: authorProfileVisible
           ? post.display_name
-          : "Backyrd User",
+          : "Mitglied",
         username: authorProfileVisible
           ? post.username
           : null,
@@ -274,7 +274,7 @@ export default function UserProfileScreen() {
                 ...profileRow,
                 display_name: isProfileVisible
                   ? profileRow.display_name
-                  : "Backyrd User",
+                  : "Mitglied",
                 username: isProfileVisible
                   ? profileRow.username
                   : null,

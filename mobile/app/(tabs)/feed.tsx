@@ -257,7 +257,7 @@ async function filterSafetyVisiblePosts(
         ...post,
         display_name: authorProfileVisible
           ? post.display_name
-          : "Backyrd User",
+          : "Mitglied",
         username: authorProfileVisible
           ? post.username
           : null,
@@ -888,7 +888,7 @@ export default function FeedScreen() {
         <Text style={styles.discoveryTitle}>Vielleicht beginnt es hier</Text>
         {discoverySpots.map((spot) => (
           <Pressable key={spot.id} accessibilityRole="button" accessibilityLabel={`${spot.name} ansehen`} onPress={() => router.push(`/spot/${spot.id}` as never)} style={styles.discoverySpot}>
-            <SpotArtwork imageUrl={spot.header_photo_url} spotId={spot.id} spotName={spot.name} style={styles.discoveryImage} />
+            <SpotArtwork imageUrl={spot.header_photo_url} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={styles.discoveryImage} />
             <View style={styles.discoveryCopy}>
               <Text style={styles.discoveryName} numberOfLines={1}>{spot.name}</Text>
               <Text style={styles.discoveryMeta} numberOfLines={1}>{[spot.category_name, spot.city].filter(Boolean).join(" · ")}</Text>

@@ -13,7 +13,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { BlurView } from "expo-blur";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -182,7 +182,7 @@ async function filterSafetyVisiblePosts(
         ...post,
         display_name: authorProfileVisible
           ? post.display_name
-          : "Backyrd User",
+          : "Mitglied",
         username: authorProfileVisible
           ? post.username
           : null,
@@ -744,7 +744,7 @@ export default function ProfileScreen() {
                         router.push(`/spot/${item.spot_id}` as any);
                       }}
                     >
-                      <SpotArtwork imageUrl={getSpotPhoto(item)} spotId={item.spot_id} spotName={item.spots?.name ?? "Spot"} style={styles.favoriteImage} />
+                      <SpotArtwork imageUrl={getSpotPhoto(item)} spotId={item.spot_id} spotName={item.spots?.name ?? "Spot"} showFallbackName={false} style={styles.favoriteImage} />
                       <LinearGradient
                         colors={["transparent", "rgba(0,0,0,0.88)"]}
                         style={StyleSheet.absoluteFill}
@@ -819,17 +819,21 @@ export default function ProfileScreen() {
         )}
       </Animated.ScrollView>
 
-      <Modal transparent animationType="slide" presentationStyle="overFullScreen" visible={showEdit} onRequestClose={() => setShowEdit(false)}>
-        <BlurView intensity={85} tint="dark" style={styles.editOverlay}>
+      <Modal animationType="slide" presentationStyle="fullScreen" visible={showEdit} onRequestClose={() => setShowEdit(false)}>
+        <SafeAreaView style={styles.editOverlay} edges={["top", "bottom"]}>
           <KeyboardAvoidingView
             style={styles.editKeyboard}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
             <View style={styles.editSheet}>
-              <View style={styles.sheetHandle} />
+              <View style={styles.editHeader}>
+                <Text style={styles.editTitle}>Profil bearbeiten</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Profilbearbeitung schließen" onPress={() => setShowEdit(false)} style={styles.editClose}>
+                  <Ionicons name="close" size={23} color={theme.color.textPrimary} />
+                </Pressable>
+              </View>
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.editContent}>
-                <Text style={styles.editTitle}>Profil bearbeiten</Text>
 
                 <Pressable onPress={pickImageAndUploadAvatar} style={styles.editAvatarWrap}>
                   <Avatar uri={avatarImage} name={displayName} size={110} />
@@ -916,7 +920,7 @@ export default function ProfileScreen() {
               </ScrollView>
             </View>
           </KeyboardAvoidingView>
-        </BlurView>
+        </SafeAreaView>
       </Modal>
 
       <CommentsSheet
@@ -1354,39 +1358,30 @@ const styles = StyleSheet.create({
   },
   editOverlay: {
     flex: 1,
+    backgroundColor: theme.color.background,
   },
   editKeyboard: {
     flex: 1,
     justifyContent: "flex-end",
   },
   editSheet: {
-    height: "91%",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    backgroundColor: theme.color.surfaceElevated,
-    borderWidth: 1,
-    borderColor: theme.color.border,
+    flex: 1,
+    backgroundColor: theme.color.background,
     paddingTop: 8,
   },
-  sheetHandle: {
-    alignSelf: "center",
-    width: 42,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.24)",
-    marginBottom: 14,
-  },
+  editHeader: { minHeight: 60, paddingHorizontal: theme.layout.pageGutter, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.color.border },
+  editClose: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   editContent: {
     paddingHorizontal: theme.layout.pageGutter,
-    paddingBottom: 120,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   editTitle: {
     color: theme.color.textPrimary,
     fontFamily: theme.type.bodyBold,
     fontSize: 24,
     fontWeight: "900",
-    textAlign: "center",
-    marginBottom: 18,
+    textAlign: "left",
   },
   editAvatarWrap: {
     alignSelf: "center",

@@ -77,6 +77,7 @@ export default function NewReviewScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
+  const [showCustomMood, setShowCustomMood] = useState(false);
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<ReviewMediaAsset[]>([]);
   const pendingMediaReviewId = useRef<string | null>(null);
@@ -363,8 +364,8 @@ export default function NewReviewScreen() {
 
           <ScrollView contentContainerStyle={styles.container}>
             <View style={styles.hero}>
-              <Text style={styles.kicker}>DEINE REVIEW</Text>
-              <Text style={styles.title}>Wie war es?</Text>
+              <Text style={styles.kicker}>DEIN MOMENT</Text>
+              <Text style={styles.title}>Was bleibt dir in Erinnerung?</Text>
               <Text style={styles.subtitle}>Was ist dir von diesem Ort geblieben? Eine Stimmung, ein Satz oder ein Foto genügt.</Text>
             </View>
 
@@ -400,8 +401,13 @@ export default function NewReviewScreen() {
                   ><Text style={[styles.moodChoiceText, selected && styles.moodChoiceTextSelected]}>{mood}</Text></Pressable>;
                 })}
               </View>
-              <MoodExpressionInput label="Eine andere Stimmung?" placeholder="Eigene Stimmung eingeben" value={moodA} onChangeText={setMoodA} />
-              {moodA.trim() || moodB.trim() ? <MoodExpressionInput label="Noch eine Stimmung?" placeholder="Optional" value={moodB} onChangeText={setMoodB} /> : null}
+              {!showCustomMood ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: false }} onPress={() => setShowCustomMood(true)} style={{ paddingVertical: 14, alignSelf: "flex-start" }}>
+                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Andere Stimmung hinzufügen</Text>
+              </Pressable> : null}
+              {showCustomMood ? <>
+                <MoodExpressionInput label="Deine Stimmung" placeholder="Eigene Stimmung eingeben" value={moodA} onChangeText={setMoodA} />
+                <MoodExpressionInput label="Zweite Stimmung · optional" placeholder="Noch eine Stimmung" value={moodB} onChangeText={setMoodB} />
+              </> : null}
 
               <Text style={styles.label}>Dein Eindruck · optional</Text>
               <TextInput

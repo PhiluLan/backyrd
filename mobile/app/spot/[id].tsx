@@ -264,6 +264,7 @@ export default function SpotDetailScreen() {
   });
 
   const [spot, setSpot] = useState<any>(null);
+  const [legacyAddress, setLegacyAddress] = useState<string | null>(null);
   const [photos, setPhotos] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
@@ -490,6 +491,7 @@ export default function SpotDetailScreen() {
         }
         : spotRow;
       setSpot(canonicalSpot);
+      setLegacyAddress(spotRow?.address ?? null);
       setPhotos(canonicalPhotos);
 
       const rawReviews = revRows || [];
@@ -685,6 +687,7 @@ export default function SpotDetailScreen() {
     locality: spot.city,
     neighborhood: neighborhoodField?.knowledgeState === "KNOWN_VALUE" && typeof neighborhoodField.value === "string" ? neighborhoodField.value : null,
     country: canonicalWorldDetail ? productProfile?.spot.countryCode : spot.country,
+    legacyAddress,
   });
   const contactKeys = ["contact.website", "contact.phone", "contact.public_email", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok"];
   const contacts = canonicalWorldDetail ? contactKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item)) : [];
@@ -1118,6 +1121,7 @@ export default function SpotDetailScreen() {
                         imageUrl={selectSpotImageUrl({ headerPhotoPath: item.headerPhotoPath })}
                         spotId={String(item.id)}
                         spotName={item.name}
+                        showFallbackName={false}
                         style={styles.nearbyPhoto}
                       />
                       <LinearGradient colors={["transparent", "rgba(0,0,0,0.62)"]} style={styles.nearbyGradient} />
@@ -1160,13 +1164,15 @@ export default function SpotDetailScreen() {
 
       <Modal animationType="slide" presentationStyle="fullScreen" visible={moreInfoExpanded} onRequestClose={() => setMoreInfoExpanded(false)}>
         <SafeAreaView style={styles.moreInfoScreen} edges={["top", "bottom"]}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.moreInfoScroll, { paddingTop: 12, paddingBottom: 40 }]}>
+          <View style={styles.moreInfoHeader}>
             <Pressable accessibilityRole="button" accessibilityLabel="Zurück zum Spot" onPress={() => setMoreInfoExpanded(false)} style={styles.moreInfoBack}>
               <Feather name="chevron-left" size={20} color={theme.colors.text} />
               <Text style={styles.moreInfoBackText}>Zurück zum Spot</Text>
             </Pressable>
             <Text style={styles.moreInfoPageTitle}>Mehr Infos</Text>
             <Text style={styles.moreInfoPageSubtitle}>Alle weiteren Angaben zu {spot.name} auf einen Blick.</Text>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.moreInfoScroll, { paddingTop: 8, paddingBottom: 40 }]}>
             <View style={styles.moreInfoFacts}>
               {moreInfoFields.filter((detail) => ["context.typical_dayparts", "context.atmosphere", "amenity.features"].includes(detail.attributeKey)).map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
               {moreInfoFields.some((detail) => detail.attributeKey.startsWith("accessibility.")) ? <View style={styles.accessibilityGroup}>
@@ -1567,6 +1573,7 @@ const styles = StyleSheet.create({
   },
   moreInfoSubtitle: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18, paddingBottom: 17 },
   moreInfoScreen: { flex: 1, backgroundColor: theme.colors.background },
+  moreInfoHeader: { paddingHorizontal: 24, backgroundColor: theme.colors.background, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border },
   moreInfoScroll: { paddingHorizontal: 24 },
   moreInfoBack: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" },
   moreInfoBackText: { color: theme.colors.text, fontSize: 14, fontWeight: "600" },
