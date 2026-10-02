@@ -406,6 +406,7 @@ export default function FeedScreen() {
   const hasDraft = useMemo(() => {
     return caption.trim().length > 0 || media.length > 0 || Boolean(selectedSpot);
   }, [caption, media.length, selectedSpot]);
+  const canShareMoment = caption.trim().length > 0 || media.length > 0;
 
   const updatePostsForMode = useCallback((feedMode: FeedMode, updater: (posts: SocialFeedPost[]) => SocialFeedPost[]) => {
     if (feedMode === "for_you") {
@@ -969,15 +970,15 @@ export default function FeedScreen() {
                 <Ionicons accessibilityElementsHidden name="close" size={24} color="#FFFFFF" />
               </Pressable>
 
-              <Text style={styles.composerTitle}>Moment teilen</Text>
+              <Text style={styles.composerTitle}>Neuer Moment</Text>
 
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Moment teilen"
-                accessibilityState={{ disabled: creating, busy: creating }}
-                style={[styles.composerPostButton, creating && styles.composerPostButtonDisabled]}
+                accessibilityState={{ disabled: creating || !canShareMoment, busy: creating }}
+                style={[styles.composerPostButton, (creating || !canShareMoment) && styles.composerPostButtonDisabled]}
                 onPress={createPost}
-                disabled={creating}
+                disabled={creating || !canShareMoment}
               >
                 {creating ? (
                   <ActivityIndicator size="small" color="#050506" />
@@ -994,10 +995,10 @@ export default function FeedScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.composerIntro}>
-                <Text style={styles.composerIntroKicker}>Backyrd Moment</Text>
-                <Text style={styles.composerIntroTitle}>Was soll dein Kreis wissen?</Text>
+                <Text style={styles.composerIntroKicker}>DEIN MOMENT</Text>
+                <Text style={styles.composerIntroTitle}>Was bleibt dir in Erinnerung?</Text>
                 <Text style={styles.composerIntroText}>
-                  Für echte Bewertungen nutzt du am besten eine Review. Hier kannst du einen freien Moment teilen.
+                  Ein Gedanke oder Foto genügt. Du kannst einen Ort hinzufügen, musst aber nicht.
                 </Text>
               </View>
 
@@ -1006,7 +1007,7 @@ export default function FeedScreen() {
                   accessibilityLabel="Moment beschreiben"
                   value={caption}
                   onChangeText={setCaption}
-                  placeholder="Was ist der Moment?"
+                  placeholder="Erzähl von deinem Moment …"
                   placeholderTextColor="#77777F"
                   multiline
                   maxLength={500}
@@ -1047,9 +1048,9 @@ export default function FeedScreen() {
               <View style={styles.spotCard}>
                 <View style={styles.spotCardHeader}>
                   <View>
-                    <Text style={styles.spotCardKicker}>Spot</Text>
+                    <Text style={styles.spotCardKicker}>ORT · OPTIONAL</Text>
                     <Text style={styles.spotCardTitle}>
-                      {selectedSpot ? selectedSpot.name : "Optional verknüpfen"}
+                      {selectedSpot ? selectedSpot.name : "Wo warst du?"}
                     </Text>
                   </View>
 
@@ -1326,16 +1327,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   composerContent: {
-    padding: 14,
-    paddingBottom: 120,
-    gap: 14,
+    paddingHorizontal: theme.layout.pageGutter,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: 96,
+    gap: theme.spacing.lg,
   },
   composerIntro: {
-    borderRadius: 30,
-    backgroundColor: "#111113",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
-    padding: 16,
+    paddingHorizontal: 2,
+    gap: 6,
   },
   composerIntroKicker: {
     color: "#8E8E95",
@@ -1345,21 +1344,18 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   composerIntroTitle: {
-    marginTop: 5,
     color: "#FFFFFF",
     ...theme.typeScale.sectionTitle,
     fontWeight: "900",
     letterSpacing: -0.6,
   },
   composerIntroText: {
-    marginTop: 8,
     color: "#8E8E95",
     fontSize: 15,
-    lineHeight: 21,
-    fontWeight: "600",
+    lineHeight: 23,
   },
   composerCard: {
-    borderRadius: 30,
+    borderRadius: theme.radius.lg,
     backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
@@ -1422,11 +1418,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   spotCard: {
-    borderRadius: 30,
-    backgroundColor: "#111113",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
-    padding: 14,
+    paddingHorizontal: 2,
   },
   spotCardHeader: {
     flexDirection: "row",
@@ -1443,8 +1435,8 @@ const styles = StyleSheet.create({
   spotCardTitle: {
     marginTop: 4,
     color: "#FFFFFF",
-    fontSize: 22,
-    lineHeight: 27,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: "900",
     letterSpacing: -0.5,
   },

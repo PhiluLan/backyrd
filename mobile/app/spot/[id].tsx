@@ -15,7 +15,7 @@ import {
 } from "react-native";
 
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -1163,6 +1163,7 @@ export default function SpotDetailScreen() {
       </Animated.ScrollView>
 
       <Modal animationType="slide" presentationStyle="fullScreen" visible={moreInfoExpanded} onRequestClose={() => setMoreInfoExpanded(false)}>
+        <SafeAreaProvider>
         <SafeAreaView style={styles.moreInfoScreen} edges={["top", "bottom"]}>
           <View style={styles.moreInfoHeader}>
             <Pressable accessibilityRole="button" accessibilityLabel="Zurück zum Spot" onPress={() => setMoreInfoExpanded(false)} style={styles.moreInfoBack}>
@@ -1189,6 +1190,7 @@ export default function SpotDetailScreen() {
             </View>
           </ScrollView>
         </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
       <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} message={loginPromptMessage} />
     </View>

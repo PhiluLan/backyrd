@@ -13,7 +13,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -820,6 +820,7 @@ export default function ProfileScreen() {
       </Animated.ScrollView>
 
       <Modal animationType="slide" presentationStyle="fullScreen" visible={showEdit} onRequestClose={() => setShowEdit(false)}>
+        <SafeAreaProvider>
         <SafeAreaView style={styles.editOverlay} edges={["top", "bottom"]}>
           <KeyboardAvoidingView
             style={styles.editKeyboard}
@@ -921,6 +922,7 @@ export default function ProfileScreen() {
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
 
       <CommentsSheet
