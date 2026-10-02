@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "./ui";
@@ -30,13 +30,41 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const redirecting = useRef(false);
   useEffect(() => {
     if (params.get("status") === "invalid") {
       setError("Der sichere Link ist abgelaufen, wurde bereits verwendet oder ist unvollständig. Fordere bitte einen neuen Link an.");
     }
   }, [params]);
+  useEffect(() => {
+    if (mode !== "login") return;
+    let active = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session || (event !== "SIGNED_IN" && event !== "INITIAL_SESSION")) return;
+      // A session may already be saved while signInWithPassword is still
+      // waiting for auth subscribers. Navigate outside the callback/lock.
+      window.setTimeout(() => {
+        if (!active || redirecting.current) return;
+        redirecting.current = true;
+        window.location.replace(next);
+      }, 0);
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [mode, next]);
+  useEffect(() => {
+    if (!busy) {
+      setSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSlow(true), 12000);
+    return () => window.clearTimeout(timer);
+  }, [busy]);
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -68,7 +96,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
         if (!data.session) throw new Error("auth_session_missing");
         // A full navigation makes the newly written Supabase cookie visible to
         // Server Components, middleware and the client shell in one request.
-        window.location.replace(next);
+        if (!redirecting.current) {
+          redirecting.current = true;
+          window.location.replace(next);
+        }
       } else if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email: cleanEmail,
@@ -188,6 +219,14 @@ export function AuthForm({ mode }: { mode: Mode }) {
               <p style={{ color: "var(--green)" }} role="status">
                 {success}
               </p>
+            ) : null}
+            {slow ? (
+              <div role="status">
+                <p className="b-muted">Die Anmeldung dauert länger als üblich. Prüfe deine Verbindung und lade die Seite neu.</p>
+                <Button variant="secondary" onClick={() => window.location.reload()}>
+                  Seite neu laden
+                </Button>
+              </div>
             ) : null}
             <Button type="submit" disabled={busy}>
               {busy

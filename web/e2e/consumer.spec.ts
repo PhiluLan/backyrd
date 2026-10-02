@@ -322,6 +322,16 @@ test("auth validation is human and redirect input is fail-closed", async ({ page
   await expect(page.locator(".b-field-error")).toContainText("stimmen nicht überein");
 });
 
+test("slow login offers a clear recovery action", async ({ page }) => {
+  await page.route("**/auth/v1/token?grant_type=password", () => new Promise<void>(() => {}));
+  await page.goto("/login?next=%2Fowner");
+  await page.getByLabel("E-Mail").fill("slow-login@backyrd.test");
+  await page.getByLabel("Passwort").fill("test-password-123");
+  await page.getByRole("button", { name: "Anmelden" }).click();
+  await expect(page.getByRole("status")).toContainText("dauert länger als üblich", { timeout: 15000 });
+  await expect(page.getByRole("button", { name: "Seite neu laden" })).toBeVisible();
+});
+
 test("login updates the shell, opens Profile, survives refresh and logout closes the session", async ({ page }) => {
   const userId = "93c53f55-5d0f-4af2-9d1f-a6650dd44b18";
   const email = "web-auth-regression@backyrd.test";
@@ -431,6 +441,11 @@ test("login updates the shell, opens Profile, survives refresh and logout closes
   ).toBe(true);
   await expect(page.getByRole("heading", { name: "Web Test" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Profil öffnen" })).toBeVisible();
+
+  // An already saved session must not leave the user stranded on the login
+  // form (for example after reloading a stalled sign-in tab).
+  await page.goto("/login?next=%2Fprofile");
+  await expect(page).toHaveURL(/\/profile$/);
 
   await page.reload();
   await expect(page).toHaveURL(/\/profile$/);
