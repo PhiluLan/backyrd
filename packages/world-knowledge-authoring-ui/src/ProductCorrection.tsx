@@ -20,7 +20,7 @@ type Detail = {
   spotId: string;
   name: string;
   status: string;
-  actor: { role: "ADMIN" | "VERIFIED_OWNER"; allowedAttributeKeys: string[] };
+  actor: { role: "ADMIN" | "VERIFIED_OWNER"; entitlement?: "ADMIN" | "OWNER_BASIC" | "OWNER_PRO"; allowedAttributeKeys: string[] };
   answers: Record<string, Answer>;
   openConflicts: Array<{ class: string; attributeKey: string; reasonCodes: string[] }>;
   manifest: null | { manifestHash: string; worldSnapshot: unknown };
@@ -53,6 +53,7 @@ export type ProductCorrectionProps = {
   search?: (query: string) => Promise<ProductAdminSpotSearch>;
   addressPicker?: ComponentType<{ disabled: boolean; onSelect(value: ProductAddressSelection | null): void }>;
   initialSpotId?: string;
+  surface?: "ADMIN" | "OWNER";
 };
 export type ProductAddressSelection = { addressLine1: string; locality: string; countryCode: string; latitude: number; longitude: number };
 export type ProductAdminSpotSearch = {
@@ -87,7 +88,7 @@ const messageOf = (error: unknown) => {
   if (code.includes("world_product_authoring_authority_off") || code.includes("world_product_admin_authoring_off")) return "Die Spot-Pflege ist derzeit ausgeschaltet. Deine Eingaben bleiben erhalten.";
   if (code === "WORLD_ADMIN_FORBIDDEN" || code === "admin_required") return "Du bist für diesen Spot nicht berechtigt.";
   if (code === "WORLD_SERVICE_UNAVAILABLE" || code.startsWith("world_product_reader_")) return "World Knowledge ist derzeit nicht erreichbar. Deine Eingaben bleiben erhalten.";
-  return code.startsWith("Bitte ") || code.startsWith("Der ") || code.startsWith("Die ") || code.startsWith("Für ") || code.startsWith("World ")
+  return code.startsWith("Bitte ") || code.startsWith("Der ") || code.startsWith("Die ") || code.startsWith("Du ") || code.startsWith("Für ") || code.startsWith("World ")
     ? code : "Die Aktion konnte nicht abgeschlossen werden. Deine Eingaben bleiben erhalten.";
 };
 const backendMissing = (error: { code?: string; message?: string } | null) =>
@@ -117,7 +118,7 @@ const valueLabel = (field: AuthoringField, value: unknown): string => {
 
 /** Product authoring uses the same typed editors as the local Founder workflow,
  * but only server-authorized keys and the Product append-only RPCs. */
-export function WorldProductCorrection({ client, rebuild, search, addressPicker: AddressPicker, initialSpotId, FieldEditor }: ProductCorrectionProps & {
+export function WorldProductCorrection({ client, rebuild, search, addressPicker: AddressPicker, initialSpotId, surface = "ADMIN", FieldEditor }: ProductCorrectionProps & {
   FieldEditor: ComponentType<ProductFieldInputProps>;
 }) {
   const [spotId, setSpotId] = useState("");
@@ -167,7 +168,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
   }, [findSpots, query, search]);
 
   const refreshCoverage = useCallback(async () => {
-    if (!search) return;
+    if (!search || surface === "OWNER") return;
     const { data, error } = await client.rpc<CatalogCoverage>("world_product_admin_catalog_coverage_v1");
     if (error || !data || data.contractVersion !== "backyrd.world-knowledge.approved-catalog-coverage@1.0") {
       setCatalogError(error ? safeRpcMessage(error) : "Der Bestandsstatus konnte nicht geprüft werden.");
@@ -175,16 +176,17 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
     }
     setCoverage(data);
     setCatalogError("");
-  }, [client, search]);
+  }, [client, search, surface]);
   useEffect(() => { void refreshCoverage(); }, [refreshCoverage]);
   useEffect(() => {
     let active = true;
+    if (surface === "OWNER") return;
     void client.rpc<{fields:PresentationUse[]}>("admin_spot_presentation_policy_v1").then(({data,error}) => {
       if (!active || error || !data || !Array.isArray(data.fields)) return;
       setPresentationUse(Object.fromEntries(data.fields.map((field) => [field.attributeKey,field])));
     });
     return () => { active = false; };
-  }, [client]);
+  }, [client, surface]);
 
   const bootstrapCatalog = async () => {
     if (!coverage?.authoringActive || catalogBusy) return;
@@ -295,8 +297,12 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
     const blocking = snapshotConflicts(refreshed).some((conflict) =>
       conflict.severity === "BLOCKING" && conflict.attributeKeys?.includes(field.attributeKey));
     setMessage(blocking
-      ? "Angabe gespeichert. Der World-Reader zeigt für dieses Feld weiterhin einen echten Widerspruch; bitte prüfe die Belege."
-      : "Angabe gespeichert, für Decision vNext bestätigt und in das App-Lesemodell übernommen.");
+      ? surface === "OWNER"
+        ? "Angabe gespeichert. Es gibt noch einen Widerspruch; bitte prüfe die Angaben und Belege."
+        : "Angabe gespeichert. Der World-Reader zeigt für dieses Feld weiterhin einen echten Widerspruch; bitte prüfe die Belege."
+      : surface === "OWNER"
+        ? "Deine Angabe wurde gespeichert und mit dem aktuellen Spot-Wissen abgeglichen."
+        : "Angabe gespeichert, für Decision vNext bestätigt und in das App-Lesemodell übernommen.");
     setMessageIsError(blocking);
   };
   const saveSelectedAddress = async () => {
@@ -348,7 +354,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
   const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL");
   const renderFieldGroups = (items: AuthoringField[]) => [...new Set(items.map((field) => field.group))].map((group) =>
     <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) =>
-      <div className="wk-field-with-usage" key={`${detail?.spotId}:${field.attributeKey}`}><div className="wk-field-usage" aria-label="Verwendung dieser Angabe"><span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span><span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span><span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span></div><FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
+      <div className="wk-field-with-usage" key={`${detail?.spotId}:${field.attributeKey}`}>{surface === "ADMIN" && <div className="wk-field-usage" aria-label="Verwendung dieser Angabe"><span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span><span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span><span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span></div>}<FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
         referenceValue={field.attributeKey === "hours.kitchen" ? detail?.answers["hours.regular"]?.value : undefined}
         disabled={busy}
         disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
@@ -357,11 +363,11 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
 
   return <div className="wk-app wk-product-app">
     <header className="wk-header">
-      <div><span className="wk-eyebrow">WORLD KNOWLEDGE · SPOT-PFLEGE</span><h1>{detail?.name ?? "Spots pflegen"}</h1>
-        <p>{detail ? `${known} bestätigte Angaben · ${unknown} bewusst unbekannt · ${unresolved} echte Konflikte · ${reviewNotices} Prüfhinweise` : "Wähle einen Spot und pflege seine Angaben Schritt für Schritt."}</p></div>
-      <div className="wk-header-actions"><span className="wk-status">{detail?.manifest ? "● Datenvorschau vorhanden" : "● Noch keine Datenvorschau"}</span></div>
+      <div><span className="wk-eyebrow">{surface === "OWNER" ? "DEIN SPOT · ANGABEN PFLEGEN" : "WORLD KNOWLEDGE · SPOT-PFLEGE"}</span><h1>{detail?.name ?? "Spots pflegen"}</h1>
+        <p>{detail ? surface === "OWNER" ? `${known} Angaben vorhanden · ${unknown} bewusst offen · ${unresolved} Widersprüche` : `${known} bestätigte Angaben · ${unknown} bewusst unbekannt · ${unresolved} echte Konflikte · ${reviewNotices} Prüfhinweise` : "Wähle einen Spot und pflege seine Angaben Schritt für Schritt."}</p></div>
+      <div className="wk-header-actions"><span className="wk-status">{surface === "OWNER" ? detail?.manifest ? "● Spot-Ansicht aktuell" : "● Spot-Ansicht noch offen" : detail?.manifest ? "● Datenvorschau vorhanden" : "● Noch keine Datenvorschau"}</span></div>
     </header>
-    {search && <details className="wk-panel wk-catalog-details" aria-label="World-Bestandsabgleich">
+    {search && surface === "ADMIN" && <details className="wk-panel wk-catalog-details" aria-label="World-Bestandsabgleich">
       <summary><strong>Bestand im Wissensspeicher</strong><span>{coverage ? `${coverage.withClaims} von ${coverage.approved} Spots mit Claims · ${coverage.withSnapshots} Datenvorschauen` : "Bestandsstatus prüfen"}</span></summary>
       {coverage && <p>{coverage.withClaims} von {coverage.approved} freigegebenen Spots haben Claims; {coverage.withSnapshots} haben eine geprüfte Datenvorschau.</p>}
       <p>Der Erstabgleich übernimmt Namen und vorhandene Orte aus dem freigegebenen Spot-Bestand. Fehlende Orte sowie Hauptzweck und Kategorie bleiben ausdrücklich unbekannt. Bestehende Angaben werden nicht überschrieben; die übernommenen Angaben solltest du anschließend prüfen.</p>
@@ -394,38 +400,40 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
       {detail && <nav aria-label="Bereiche der Spot-Pflege">{AUTHORING_STEPS.map((item, index) => {
         const sectionFields = item.attributeKeys.filter((key) => detail.actor.allowedAttributeKeys.includes(key));
         const completed = sectionFields.filter((key) => detail.answers[key]).length;
+        const proLocked = surface === "OWNER" && detail.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (item.id === "objective" || item.id === "amenities");
         return <button type="button" className={step === index ? "selected" : ""} key={item.id} onClick={() => goToStep(index)}>
-          <b>{index + 1}</b><span>{item.title}<small>{item.id === "review" ? "Zusammenfassung" : `${completed} von ${sectionFields.length} Angaben erfasst`}</small></span>
+          <b>{index + 1}</b><span>{item.title}<small>{proLocked ? "Mit Owner Pro verfügbar" : item.id === "review" ? "Zusammenfassung" : `${completed} von ${sectionFields.length} Angaben erfasst`}</small></span>
         </button>;
       })}</nav>}
     </aside>
-    <main className="wk-main">{!detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen.</p></section>
-      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${AUTHORING_STEPS.length}`}><span style={{ width: `${((step + 1) / AUTHORING_STEPS.length) * 100}%` }} /></div><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length} · {fields.filter((field) => detail.answers[field.attributeKey]).length} von {fields.length} Angaben gespeichert</span><h2>{current.title}</h2><p>{current.explanation}</p>
+    <main className="wk-main">{!detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>{surface === "OWNER" ? "Suche deinen freigegebenen Spot nach Namen. Danach kannst du seine Angaben Schritt für Schritt ergänzen." : "Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen."}</p></section>
+      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${AUTHORING_STEPS.length}`}><span style={{ width: `${((step + 1) / AUTHORING_STEPS.length) * 100}%` }} /></div><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length} · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : `${fields.filter((field) => detail.answers[field.attributeKey]).length} von ${fields.length} Angaben gespeichert`}</span><h2>{current.title}</h2><p>{current.explanation}</p>
         {detail.actor.role === "ADMIN" && <p>Ein übernommenes Basisprofil ersetzt keine fachliche Prüfung. Ergänze insbesondere Hauptzweck, Kategorie, Besuchssituation, Öffnung und Zugänglichkeit nur mit belegten Angaben.</p>}</div>
         {reviewNotices > 0 && <div className="wk-note"><strong>{reviewNotices} offene {reviewNotices === 1 ? "Prüfnotiz" : "Prüfnotizen"}</strong>
-          <p>Diese Notizen stammen aus der Claim-Prüfung und sperren die Spot-Pflege nicht. Du kannst eine Angabe korrigieren; maßgeblich ist der aktuelle World-Reader.</p>
+          <p>{surface === "OWNER" ? "Diese Hinweise sperren deine Spot-Pflege nicht. Du kannst eine Angabe korrigieren; die öffentlich bestätigte Fassung bleibt nachvollziehbar." : "Diese Notizen stammen aus der Claim-Prüfung und sperren die Spot-Pflege nicht. Du kannst eine Angabe korrigieren; maßgeblich ist der aktuelle World-Reader."}</p>
           <ul>{detail.openConflicts.map((conflict, index) => <li key={index}>{fieldLabel(conflict.attributeKey)}</li>)}</ul></div>}
-        {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} echte {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch im World-Reader</strong>
+        {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch{surface === "ADMIN" ? " im World-Reader" : ""}</strong>
           <p>Die betroffenen Angaben können korrigiert werden; bis zur Klärung werden sie nicht als gesichert ausgegeben.</p></div>}
         {current.id === "basics" && AddressPicker && detail.actor.role === "ADMIN" && <div className="wk-address-assist"><h3>Adresse suchen statt Koordinaten eintippen</h3><p>Nutze die gleiche Adresssuche wie beim Anlegen eines Spots. Erst nach deiner Auswahl und Bestätigung werden Adresse, Ort und Position als World-Angaben gespeichert.</p><AddressPicker disabled={busy} onSelect={setAddressSelection} />{addressSelection && <div className="wk-address-selection"><strong>{addressSelection.addressLine1}, {addressSelection.locality}</strong><span>Position: {addressSelection.latitude.toFixed(6)}, {addressSelection.longitude.toFixed(6)}</span><button type="button" disabled={busy} onClick={() => void saveSelectedAddress()}>{busy ? "Adresse wird geprüft …" : "Adresse und Position speichern"}</button><button type="button" className="wk-secondary" disabled={busy} onClick={() => setAddressSelection(null)}>Auswahl verwerfen</button></div>}</div>}
-        {current.id === "review" ? <div className="wk-review">
+        {surface === "OWNER" && detail.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? <div className="wk-note"><strong>Dieser Bereich gehört zu Owner Pro.</strong><p>Mit Pro kannst du zusätzliche, überprüfbare Eigenschaften und Regeln deines Spots pflegen. Das verbessert die Datentiefe, garantiert aber keine Platzierung in Empfehlungen. Deine bisherigen Angaben bleiben sichtbar und erhalten.</p></div>
+        : current.id === "review" ? <div className="wk-review">
           <article><b>Bestätigt</b><strong>{known}</strong><span>gespeicherte Angaben</span></article>
           <article><b>Bewusst unbekannt</b><strong>{unknown}</strong><span>weder Ja noch Nein</span></article>
-          <article><b>Reader-Konflikte</b><strong>{unresolved}</strong><span>fachlich zu prüfen</span></article>
+          <article><b>{surface === "OWNER" ? "Widersprüche" : "Reader-Konflikte"}</b><strong>{unresolved}</strong><span>fachlich zu prüfen</span></article>
           <article><b>Prüfnotizen</b><strong>{reviewNotices}</strong><span>blockieren die Bearbeitung nicht</span></article>
-          <article><b>Datenvorschau</b><strong>{detail.manifest ? "✓" : "—"}</strong><span>{detail.manifest ? "kanonisch vorhanden" : "noch nicht bestätigt"}</span></article>
+          <article><b>{surface === "OWNER" ? "Spot-Ansicht" : "Datenvorschau"}</b><strong>{detail.manifest ? "✓" : "—"}</strong><span>{detail.manifest ? "aktuell" : "noch nicht bestätigt"}</span></article>
           <section className="wk-preview"><span className="wk-eyebrow">SPOT-PROFIL</span><h2>{detail.name}</h2>
             <p>{typeof detail.answers["description.highlight"]?.value === "string" ? String(detail.answers["description.highlight"].value) : "Noch keine öffentliche Beschreibung."}</p>
             <div className="wk-preview-grid">{["classification.primary_category", "purpose.primary_visit", "operation.price_level"].map((key) => {
               const field = AUTHORING_FIELDS.find((item) => item.attributeKey === key);
               return field ? <div key={key}><small>{field.label}</small><b>{detail.answers[key] ? valueLabel(field, detail.answers[key].value) : "Noch offen"}</b></div> : null;
             })}</div></section>
-          <section className="wk-note"><strong>{detail.manifest ? "Datenvorschau vorhanden" : "Noch keine Datenvorschau"}</strong>
-            <p>{detail.manifest ? "Gespeicherte Änderungen werden nach jedem Speichern über den kanonischen Reader geprüft." : "Speichere eine Angabe. Danach wird der Spot automatisch neu aufgebaut und geprüft."}</p></section>
+          <section className="wk-note"><strong>{detail.manifest ? "Spot-Ansicht aktuell" : "Spot-Ansicht noch nicht aktualisiert"}</strong>
+            <p>{detail.manifest ? "Jede gespeicherte Änderung wird mit dem aktuellen Spot-Wissen abgeglichen." : "Speichere eine Angabe. Danach wird die Spot-Ansicht geprüft."}</p></section>
         </div> : fields.length ? <div className="wk-fields">{renderFieldGroups(priorityFields)}{optionalFields.length > 0 && <details className="wk-optional-fields"><summary><span><strong>Weitere Angaben</strong><small>{optionalFields.filter((field) => detail.answers[field.attributeKey]).length} von {optionalFields.length} optionalen Angaben gespeichert</small></span><b>{optionalFields.length}</b></summary><div>{renderFieldGroups(optionalFields)}</div></details>}</div>
           : <div className="wk-note"><strong>Für diesen Spot keine bearbeitbaren Angaben in diesem Bereich.</strong><p>Du kannst zum nächsten Bereich wechseln.</p></div>}
         <footer className="wk-footer"><button type="button" className="wk-secondary" disabled={step === 0} onClick={() => goToStep(step - 1)}>Zurück</button>
-          <span>Jede Änderung wird einzeln gespeichert und danach im World-Reader geprüft.</span>
+          <span>{surface === "OWNER" ? "Jede Änderung wird einzeln gespeichert und geprüft." : "Jede Änderung wird einzeln gespeichert und danach im World-Reader geprüft."}</span>
           <button type="button" disabled={step === AUTHORING_STEPS.length - 1} onClick={() => goToStep(step + 1)}>Weiter →</button></footer>
       </section>}</main></div>
     {message && <div className={`wk-toast ${messageIsError ? "error" : "success"}`} role={messageIsError ? "alert" : "status"}>{message}

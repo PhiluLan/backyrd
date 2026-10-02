@@ -4,6 +4,8 @@ import "./globals.css";
 import "./owner-intelligence.css";
 import "./landing-logo-moments.css";
 import "./consumer.css";
+import "@backyrd/world-knowledge-authoring-ui/styles.css";
+import "@/components/owner/owner-world-editor.css";
 import { ConsumerShell } from "@/components/consumer/consumer-shell";
 
 const libreFranklin = Libre_Franklin({

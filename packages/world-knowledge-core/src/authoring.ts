@@ -51,7 +51,7 @@ export const AUTHORING_STEPS: readonly AuthoringStep[] = Object.freeze([
   { id: "hours", order: 6, title: "Öffnungszeiten", explanation: "Reguläre Zeiten, Sondertage, Küchenzeiten und kurzfristige Zustände werden getrennt erfasst.", primaryAction: "Zeiten übernehmen", attributeKeys: ["hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "state.current"] },
   { id: "objective", order: 7, title: "Objektive Eigenschaften und Nutzungsmöglichkeiten", explanation: "Erfasse konkrete Kapazitäten und Regeln statt pauschaler Aussagen.", primaryAction: "Nutzungsangaben übernehmen", attributeKeys: ["capacity.seats_indoor", "capacity.seats_outdoor", "capacity.seats_total", "capacity.group_size_supported", "rule.reservation", "operation.laptop_policy", "operation.stay_policy"] },
   { id: "amenities", order: 8, title: "Ausstattung und Einschränkungen", explanation: "Ausstattung, Zugang und Regeln werden einzeln und überprüfbar beschrieben.", primaryAction: "Ausstattung übernehmen", attributeKeys: ["amenity.features", "accessibility.step_free_entrance", "accessibility.wheelchair_paths", "accessibility.accessible_seating", "accessibility.accessible_toilet", "accessibility.elevator", "accessibility.accessible_indoor", "accessibility.accessible_outdoor", "rule.pet_access", "rule.age_access_conditions", "rule.external_food", "rule.external_drink"] },
-  { id: "review", order: 9, title: "Prüfen und Datenvorschau", explanation: "Prüfe bekannte, offene und nicht freigegebene Angaben, vorsichtige Ableitungen und den bereinigten Test-Snapshot.", primaryAction: "Datenvorschau aktualisieren", attributeKeys: [] },
+  { id: "review", order: 9, title: "Prüfen und Datenvorschau", explanation: "Prüfe bekannte, offene und widersprüchliche Angaben in der aktuellen Spot-Ansicht.", primaryAction: "Datenvorschau aktualisieren", attributeKeys: [] },
 ]);
 
 const germanValues: Readonly<Record<string, string>> = Object.freeze({
@@ -72,7 +72,7 @@ const germanValues: Readonly<Record<string, string>> = Object.freeze({
 });
 
 const help: Readonly<Record<string, string>> = Object.freeze({
-  "identity.name": "Der öffentliche Name, unter dem der Spot im lokalen Testkatalog gefunden wird.",
+  "identity.name": "Der öffentliche Name, unter dem Menschen diesen Spot finden.",
   "classification.primary_category": "Genau eine Hauptkategorie. Danach zeigt Backyrd nur fachlich passende Arten des Ortes.",
   "classification.place_types": "Die Auswahl hängt von der Hauptkategorie ab. Bestehende unpassende Werte bleiben als Konflikt sichtbar, bis du sie bewusst korrigierst.",
   "offering.cuisines": "Pizza und Burger sind Spezialitäten, keine Küchenrichtungen.",
@@ -124,7 +124,7 @@ export const AUTHORING_FIELDS: readonly AuthoringField[] = Object.freeze(AUTHORI
     roles,
     optional: true as const,
     requirementClass: attributeKey === "identity.name" || attributeKey === "classification.primary_category" ? "REQUIRED" as const : attributeKey === "classification.place_types" ? "CONDITIONALLY_REQUIRED" as const : "OPTIONAL" as const,
-    requirementReason: attributeKey === "identity.name" ? "Der Spot benötigt eine erkennbare Identität." : attributeKey === "classification.primary_category" ? "Die Evaluation benötigt genau eine Hauptkategorie." : attributeKey === "classification.place_types" ? "Sobald eine Hauptkategorie gewählt ist, braucht die Einordnung mindestens eine passende Art des Ortes." : "Diese Angabe verbessert den Wissensstand, blockiert die lokale Evaluation aber nicht.",
+    requirementReason: attributeKey === "identity.name" ? "Der Spot benötigt einen erkennbaren Namen." : attributeKey === "classification.primary_category" ? "Der Spot braucht genau eine Hauptkategorie." : attributeKey === "classification.place_types" ? "Sobald eine Hauptkategorie gewählt ist, braucht die Einordnung mindestens eine passende Art des Ortes." : "Diese Angabe verbessert das Spot-Wissen und kann bewusst offen bleiben.",
     explanationOnly: definition.engineAuthorization === "EXPLANATION_ONLY",
   };
 })));

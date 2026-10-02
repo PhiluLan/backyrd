@@ -18,10 +18,10 @@ type NavItem = { href: string; label: string; icon: string; exact?: boolean };
 const nav: NavItem[] = [
   { href: "/owner", label: "Übersicht", icon: "◫", exact: true },
   { href: "/owner/analytics", label: "Einblicke", icon: "↗", exact: true },
-  { href: "/owner/analytics/decision", label: "Empfehlungen", icon: "✦" },
+  { href: "/owner/analytics/decision", label: "Empfehlungs-Aufrufe", icon: "✦" },
   { href: "/owner/analytics/moments", label: "Momente", icon: "◉" },
   { href: "/owner/spots", label: "Meine Spots", icon: "⌖" },
-  { href: "/owner/world-knowledge", label: "Spot-Wissen", icon: "◎" },
+  { href: "/owner/world-knowledge", label: "Spot-Angaben", icon: "◎" },
 ];
 
 export function OwnerShell({ children, title, subtitle, eyebrow = "DEIN OWNER-BEREICH", actions }: Props) {

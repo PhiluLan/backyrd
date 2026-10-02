@@ -41,6 +41,18 @@ export function AuthForm({ mode }: { mode: Mode }) {
     }
   }, [params]);
   useEffect(() => {
+    if (mode !== "login" || next !== "/owner") return;
+    let active = true;
+    // Owner entry can open the login route with a session that is already
+    // stored in the browser. That is not a new SIGNED_IN event.
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active || error || !data.session || redirecting.current) return;
+      redirecting.current = true;
+      window.location.replace("/owner");
+    });
+    return () => { active = false; };
+  }, [mode, next]);
+  useEffect(() => {
     if (mode !== "login") return;
     let active = true;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
