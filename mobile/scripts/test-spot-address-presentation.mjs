@@ -12,4 +12,6 @@ assert.deepEqual(Array.from(exports.spotAddressLines({ street: "Klybeckstrasse 6
 assert.deepEqual(Array.from(exports.spotAddressLines({ street: "Volta strasse 30", postalCode: "4056", locality: "Basel", neighborhood: "St. Johann", country: "CH" })), ["Volta strasse 30", "4056 Basel", "St. Johann · Schweiz"]);
 assert.deepEqual(Array.from(exports.spotAddressLines({ street: null, locality: null, country: null })), []);
 assert.deepEqual(Array.from(exports.spotAddressLines({ street: "  Marktgasse 1 ", locality: " Bern ", country: "Schweiz" })), ["Marktgasse 1", "Bern", "Schweiz"]);
+assert.deepEqual(Array.from(exports.spotAddressLines({ street: "Voltastrasse 30", legacyAddress: "Voltastrasse 30, 4056 Basel", locality: "Basel", country: "CH" })), ["Voltastrasse 30", "4056 Basel", "Schweiz"]);
+assert.deepEqual(Array.from(exports.spotAddressLines({ street: "Voltastrasse 30", legacyAddress: "Voltastrasse 30, 4056 Bern", locality: "Basel", country: "CH" })), ["Voltastrasse 30", "Basel", "Schweiz"]);
 console.log("Spot address presentation: PASS");

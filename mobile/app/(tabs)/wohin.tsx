@@ -220,7 +220,7 @@ export default function WohinScreen() {
           </>}
           renderItem={({ item: candidate }) => (
                 <View style={{ marginTop: 18, borderRadius: 24, overflow: "hidden", backgroundColor: color.card, borderWidth: 1, borderColor: color.border }}>
-                  <SpotArtwork spotId={candidate.spotId} spotName={candidate.presentation.name} style={{ height: 140 }} />
+                  <SpotArtwork spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} style={{ height: 140 }} />
                   <View style={{ padding: 18 }}>
                     <Text style={{ color: color.pink, fontSize: 12, fontWeight: "900" }}>PLATZ {candidate.rank} · {wohinEvidenceState(candidate)}</Text>
                     <Text style={{ color: color.text, fontSize: 23, fontWeight: "900", marginTop: 5 }}>{candidate.presentation.name}</Text>

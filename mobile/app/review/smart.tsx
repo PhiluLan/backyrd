@@ -19,6 +19,7 @@ import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodExpressionInput } from "../../components/MoodExpressionInput";
+import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import {
   ReviewMediaField,
   ReviewSubmissionStatus,
@@ -181,12 +182,14 @@ export default function SmartReviewScreen() {
 
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
+  const [showCustomMood, setShowCustomMood] = useState(false);
   const [text, setText] = useState("");
 
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
   const mediaReady = !photo || Boolean(photo.prepared);
-  const canSubmit = !!nearest && mediaReady;
+  const hasContent = Boolean(moodA.trim() || moodB.trim() || text.trim() || photo);
+  const canSubmit = !!nearest && mediaReady && hasContent;
 
   useEffect(() => {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: source ?? "smart" } });
@@ -350,6 +353,10 @@ export default function SmartReviewScreen() {
   async function submitSmartReviewOnce() {
     if (!nearest?.id) {
       Alert.alert("Kein Spot", "Es wurde kein passender Spot erkannt.");
+      return;
+    }
+    if (!hasContent) {
+      setSubmitError("Wähle eine Stimmung, schreibe einen Satz oder füge ein Foto hinzu.");
       return;
     }
     if (!mediaReady) {
@@ -663,8 +670,8 @@ export default function SmartReviewScreen() {
 
         <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.hero}>
-            <Text style={styles.kicker}>SMART REVIEW</Text>
-            <Text style={styles.heroTitle}>Deine Erfahrung</Text>
+            <Text style={styles.kicker}>DEIN MOMENT</Text>
+            <Text style={styles.heroTitle}>Was bleibt dir in Erinnerung?</Text>
             <Text style={styles.heroText}>Backyrd erkennt den passenden Spot über deinen aktuellen Standort. Ein Bild ist optional.</Text>
           </View>
 
@@ -680,8 +687,22 @@ export default function SmartReviewScreen() {
                 <Text style={styles.spotName}>{nearest.name}</Text>
                 {!!nearest.address && <Text style={styles.address}>{nearest.address}</Text>}
 
-                <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
-                <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. lebhaft" value={moodB} onChangeText={setMoodB} />
+                <Text style={styles.label}>So hat es sich angefühlt</Text>
+                <View style={styles.moodChoices}>
+                  {MOOD_SUGGESTIONS.filter((mood) => !["instagrammable", "laut"].includes(mood)).slice(0, 10).map((mood) => {
+                    const selected = moodA === mood || moodB === mood;
+                    return <Pressable key={mood} accessibilityRole="button" accessibilityState={{ selected }} onPress={() => {
+                      if (moodA === mood) { setMoodA(moodB); setMoodB(""); }
+                      else if (moodB === mood) setMoodB("");
+                      else if (!moodA.trim()) setMoodA(mood);
+                      else setMoodB(mood);
+                    }} style={[styles.moodChoice, selected && styles.moodChoiceSelected]}><Text style={styles.moodChoiceText}>{mood}</Text></Pressable>;
+                  })}
+                </View>
+                {!showCustomMood ? <Pressable accessibilityRole="button" onPress={() => setShowCustomMood(true)} style={{ paddingVertical: 14, alignSelf: "flex-start" }}><Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Andere Stimmung hinzufügen</Text></Pressable> : <>
+                  <MoodExpressionInput label="Deine Stimmung" placeholder="Eigene Stimmung eingeben" value={moodA} onChangeText={setMoodA} />
+                  <MoodExpressionInput label="Zweite Stimmung · optional" placeholder="Noch eine Stimmung" value={moodB} onChangeText={setMoodB} />
+                </>}
 
                 <Text style={styles.label}>Text</Text>
                 <TextInput
@@ -728,7 +749,7 @@ export default function SmartReviewScreen() {
                   {saving ? (
                     <ActivityIndicator color={theme.colors.ink} />
                   ) : (
-                    <Text style={styles.btnPrimaryText}>Review veröffentlichen</Text>
+                    <Text style={styles.btnPrimaryText}>Moment teilen</Text>
                   )}
                 </Pressable>
 
@@ -742,9 +763,6 @@ export default function SmartReviewScreen() {
                 <Text style={styles.muted}>
                   Wir haben in ca. 120 m Umkreis nichts Passendes gefunden.
                 </Text>
-
-                <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
-                <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. lebhaft" value={moodB} onChangeText={setMoodB} />
 
                 <Pressable accessibilityRole="button" accessibilityLabel="Neuen Spot einreichen" onPress={onConfirmCreate} style={[styles.btn, styles.btnPrimary]}>
                   <Text style={styles.btnPrimaryText}>Neuen Spot anlegen / einreichen</Text>
@@ -938,6 +956,10 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     marginLeft: 2,
   },
+  moodChoices: { flexDirection: "row", flexWrap: "wrap", gap: 9, marginTop: 6 },
+  moodChoice: { minHeight: 42, justifyContent: "center", paddingHorizontal: 15, borderRadius: 999, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
+  moodChoiceSelected: { backgroundColor: "rgba(255,79,145,0.15)", borderColor: theme.colors.primary },
+  moodChoiceText: { color: theme.colors.text, fontWeight: "700" },
   input: {
     borderWidth: 1,
     borderColor: theme.colors.border,

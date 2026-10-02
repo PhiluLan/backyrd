@@ -125,7 +125,7 @@ export default function SocialPostCard({
   ]);
 
   const displayName =
-    post.display_name?.trim() || post.username?.trim() || "Backyrd User";
+    post.display_name?.trim() || post.username?.trim() || "Mitglied";
   const handle = post.username?.trim() ? `@${post.username.trim()}` : null;
   const images = useMemo(() => mediaUrls(post), [post]);
   const imageUrl = images[0] ?? null;
@@ -375,7 +375,7 @@ export default function SocialPostCard({
         </View>
       ) : null}
 
-      {!hasImage && (Boolean(post.caption) || tagPreview.visible.length > 0) ? (
+      {!hasImage ? (
         <View style={styles.textMoment}>
           <View style={styles.textMomentAccent} />
           <Ionicons
@@ -385,6 +385,8 @@ export default function SocialPostCard({
           />
           {post.caption ? (
             <Text style={styles.captionWithoutImage}>{post.caption}</Text>
+          ) : tagPreview.visible.length === 0 ? (
+            <Text style={styles.captionWithoutImage}>{post.spot_name ? `Ein Moment bei ${post.spot_name}` : "Für diesen Moment ist gerade kein Inhalt verfügbar."}</Text>
           ) : null}
 
           {tagPreview.visible.length > 0 ? (

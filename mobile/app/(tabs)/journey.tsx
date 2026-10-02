@@ -502,7 +502,7 @@ export default function JourneyScreen() {
             <View style={{ marginTop: 16 }}>
               {steps.map((s) => (
                 <View key={`${s.step}-${s.spotId}`} style={styles.card}>
-                  <SpotArtwork imageUrl={s.spot.photo} spotId={s.spot.id} spotName={s.spot.name} style={styles.cardImage} />
+                  <SpotArtwork imageUrl={s.spot.photo} spotId={s.spot.id} spotName={s.spot.name} showFallbackName={false} style={styles.cardImage} />
 
                   <Text style={styles.cardStep}>Schritt {s.step}</Text>
                   <Text style={styles.cardTitle}>{s.title}</Text>
