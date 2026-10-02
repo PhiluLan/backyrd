@@ -237,6 +237,16 @@ export function HomeExperience() {
           </div>
         </div>
       </section>
+      <section className="b-owner-invite">
+        <div className="b-container b-owner-invite-inner">
+          <div>
+            <p className="b-kicker">FÜR GASTGEBER:INNEN</p>
+            <h2>Dein Ort gehört zu backyrd?</h2>
+            <p>Pflege seine Geschichte und die Angaben, die Menschen bei ihrer Entscheidung helfen.</p>
+          </div>
+          <Link href="/owner" className="b-owner-invite-link">Zum Owner-Bereich <ArrowIcon /></Link>
+        </div>
+      </section>
     </>
   );
 }

@@ -2,61 +2,80 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { OwnerLanding } from "@/components/owner/owner-landing";
 import { OwnerShell } from "@/components/owner/owner-shell";
 import { OwnerSpotCard } from "@/components/owner/owner-spot-card";
 import { getOwnerSpots, requireOwnerSession, type OwnerSpotListItem } from "@/lib/owner-api";
 
+type EntryState = "loading" | "guest" | "signed-in" | "error";
+const ownerContact = "mailto:hello@backyrd.ch?subject=Owner-Zugang%20f%C3%BCr%20meinen%20Spot";
+
 export default function OwnerHomePage() {
   const [spots, setSpots] = useState<OwnerSpotListItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<EntryState>("loading");
   const [message, setMessage] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
-    (async () => {
+    async function load() {
       try {
-        setLoading(true);
         const session = await requireOwnerSession();
-        if (!session) return;
-        const data = await getOwnerSpots(6);
-        if (active) setSpots(data);
-      } catch (error) {
-        if (active) setMessage(error instanceof Error ? error.message : "Owner Dashboard konnte nicht geladen werden.");
-      } finally {
-        if (active) setLoading(false);
+        if (!active) return;
+        if (!session) {
+          setState("guest");
+          return;
+        }
+        const data = await getOwnerSpots(100);
+        if (active) {
+          setSpots(data);
+          setState("signed-in");
+        }
+      } catch {
+        if (active) {
+          setState("error");
+          setMessage("Dein Owner-Bereich konnte gerade nicht geladen werden.");
+        }
       }
-    })();
+    }
+    void load();
     return () => { active = false; };
-  }, []);
+  }, [attempt]);
+
+  if (state === "loading") return <main className="owner-entry-loading"><div className="owner-loader" aria-label="Owner-Bereich lädt" /></main>;
+  if (state === "guest") return <OwnerLanding />;
+  if (state === "error") return <main className="owner-entry-error"><p>{message}</p><button type="button" onClick={() => { setState("loading"); setAttempt((value) => value + 1); }}>Erneut versuchen</button><Link href="/">Zur Website</Link></main>;
 
   return (
     <OwnerShell
-      eyebrow="OWNER COCKPIT"
-      title="Owner Dashboard"
-      subtitle="Pflege deine Spots, verstehe ihre Performance und verbessere, wann Backyrd sie empfiehlt."
-      actions={<Link href="/owner/analytics" className="owner-primary-button">Performance öffnen</Link>}
+      eyebrow="DEIN BEREICH"
+      title="Dein Ort. Dein Auftritt."
+      subtitle="Halte deine Orte aktuell und zeig, was sie besonders macht. Neue Angaben werden geprüft, bevor sie öffentlich erscheinen."
+      actions={<Link href="/owner/spots" className="owner-primary-button">Meine Spots öffnen <span aria-hidden="true">↗</span></Link>}
     >
-      <section className="owner-briefing-card">
-        <div>
-          <div className="owner-briefing-label">DEIN OWNER BRIEFING</div>
-          <h2>{spots.length} verbundene {spots.length === 1 ? "Location" : "Locations"}.</h2>
-          <p>Dein nächster Hebel: Spot-Qualität erhöhen und echte Business-Intent-Signale beobachten.</p>
-        </div>
-        <div className="owner-online"><span className="owner-live-dot" /> Intelligence online</div>
+      <section className="owner-home-intro">
+        <p className="owner-section-kicker">WILLKOMMEN ZURÜCK</p>
+        <h2>{spots.length ? `${spots.length} ${spots.length === 1 ? "Ort" : "Orte"} mit dir verbunden.` : "Hier beginnt dein Owner-Bereich."}</h2>
+        <p>{spots.length ? "Wähle einen Spot aus, um seine Angaben und seinen Auftritt zu prüfen." : "Sobald dein Ort zugeordnet ist, kannst du ihn hier pflegen und die verfügbaren Einblicke ansehen."}</p>
       </section>
 
-      <section className="owner-kpi-grid owner-kpi-grid-3">
-        <div className="owner-kpi-card"><div className="owner-kpi-label">Verbundene Spots</div><div className="owner-kpi-value">{spots.length}</div><div className="owner-kpi-detail">offiziell deinem Account zugeordnet</div></div>
-        <div className="owner-kpi-card"><div className="owner-kpi-label">Nächster Fokus</div><div className="owner-kpi-value owner-kpi-value-text">Spot Qualität</div><div className="owner-kpi-detail">bessere Daten → passendere Empfehlungen</div></div>
-        <div className="owner-kpi-card"><div className="owner-kpi-label">Relevanz-Prinzip</div><div className="owner-kpi-value owner-kpi-value-text">Earned, not paid</div><div className="owner-kpi-detail">Paid kann Reichweite kaufen, nicht Relevanz</div></div>
+      <section className="owner-home-shortcuts" aria-label="Schnellzugriff">
+        <Link href="/owner/spots"><span>01 / PFLEGEN</span><strong>Meine Spots</strong><small>Details und Kontaktdaten ansehen</small><b aria-hidden="true">↗</b></Link>
+        <Link href="/owner/world-knowledge"><span>02 / ERGÄNZEN</span><strong>Spot-Wissen</strong><small>Besonderheiten zur Prüfung einreichen</small><b aria-hidden="true">↗</b></Link>
+        <Link href="/owner/analytics"><span>03 / VERSTEHEN</span><strong>Einblicke</strong><small>Verfügbare Signale zu deinen Orten</small><b aria-hidden="true">↗</b></Link>
       </section>
 
-      <section className="owner-panel owner-section-panel">
-        <div className="owner-section-heading">
-          <div><div className="owner-section-kicker">SPOT MANAGEMENT</div><h2>Meine Spots</h2><p>Pflege Qualität, Content und Kontext deiner Locations.</p></div>
-          <Link href="/owner/spots" className="owner-secondary-button">Alle Spots</Link>
-        </div>
-        {loading ? <div className="owner-empty-state">Lädt…</div> : message ? <div className="owner-error-state">{message}</div> : spots.length === 0 ? <div className="owner-empty-state">Noch keine Spots verbunden.</div> : <div className="owner-spot-grid">{spots.map((spot) => <OwnerSpotCard key={spot.spot_id} spot={spot} />)}</div>}
+      <section className="owner-home-spots">
+        <div className="owner-home-section-title"><div><p className="owner-section-kicker">DEINE ORTE</p><h2>Meine Spots</h2></div>{spots.length ? <Link href="/owner/spots">Alle anzeigen <span aria-hidden="true">↗</span></Link> : null}</div>
+        {spots.length ? (
+          <div className="owner-spot-grid">{spots.slice(0, 6).map((spot) => <OwnerSpotCard key={spot.spot_id} spot={spot} />)}</div>
+        ) : (
+          <div className="owner-home-empty">
+            <div className="owner-home-empty-icon" aria-hidden="true">⌖</div>
+            <div><h3>Noch kein Spot verbunden.</h3><p>Du betreibst einen Ort, der auf backyrd erscheinen soll? Schreib uns – wir prüfen die Zuordnung persönlich.</p></div>
+            <a href={ownerContact} className="owner-secondary-button">Zugang anfragen</a>
+          </div>
+        )}
       </section>
     </OwnerShell>
   );
