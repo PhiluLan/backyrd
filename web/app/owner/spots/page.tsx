@@ -43,7 +43,7 @@ export default function OwnerSpotsPage() {
   return (
     <OwnerShell
       title="Meine Spots"
-      subtitle="Bearbeite Basisdaten und Backyrd Intelligence. Je besser die Daten, desto besser kann Backyrd deinen Spot passend empfehlen."
+      subtitle="Hier findest du die Orte, die mit deinem Konto verbunden sind. Prüfe ihre Angaben und reiche Änderungen zur Prüfung ein."
     >
       {loading ? (
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-white/55">
@@ -54,16 +54,13 @@ export default function OwnerSpotsPage() {
           {message}
         </div>
       ) : spots.length === 0 ? (
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8">
-          <h2 className="text-2xl font-semibold">Noch keine Spots verbunden</h2>
-          <p className="mt-3 max-w-2xl leading-7 text-white/55">
-            Für Sprint 1A ist die Ownership simpel: Ein Spot erscheint hier, wenn
-            <code className="mx-1 text-white/80">spots.owner_id</code>
-            deiner Supabase User-ID entspricht. Claim Flow und Teamrollen bauen wir später.
-          </p>
+        <div className="owner-home-empty">
+          <div className="owner-home-empty-icon" aria-hidden="true">⌖</div>
+          <div><h2>Noch kein Spot verbunden.</h2><p>Du betreibst einen Ort auf backyrd? Schreib uns – wir prüfen die Zuordnung persönlich.</p></div>
+          <a className="owner-secondary-button" href="mailto:hello@backyrd.ch?subject=Owner-Zugang%20f%C3%BCr%20meinen%20Spot">Zugang anfragen</a>
         </div>
       ) : (
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="owner-spot-grid">
           {spots.map((spot) => (
             <OwnerSpotCard key={spot.spot_id} spot={spot} />
           ))}

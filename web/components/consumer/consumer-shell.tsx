@@ -112,6 +112,7 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <div className="b-header-actions">
+            <Link href="/owner" className="b-owner-entry">Für Betreiber:innen</Link>
             <Link
               href="/search"
               className="b-button b-button-tertiary b-icon-button"

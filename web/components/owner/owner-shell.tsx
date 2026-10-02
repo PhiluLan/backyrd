@@ -17,29 +17,36 @@ type NavItem = { href: string; label: string; icon: string; exact?: boolean };
 
 const nav: NavItem[] = [
   { href: "/owner", label: "Übersicht", icon: "◫", exact: true },
-  { href: "/owner/analytics", label: "Performance", icon: "↗" },
-  { href: "/owner/analytics/decision", label: "Decision", icon: "✦" },
-  { href: "/owner/analytics/moments", label: "Moments", icon: "◉" },
+  { href: "/owner/analytics", label: "Einblicke", icon: "↗", exact: true },
+  { href: "/owner/analytics/decision", label: "Empfehlungen", icon: "✦" },
+  { href: "/owner/analytics/moments", label: "Momente", icon: "◉" },
   { href: "/owner/spots", label: "Meine Spots", icon: "⌖" },
   { href: "/owner/world-knowledge", label: "Spot-Wissen", icon: "◎" },
 ];
 
-export function OwnerShell({ children, title, subtitle, eyebrow = "OWNER INTELLIGENCE", actions }: Props) {
+export function OwnerShell({ children, title, subtitle, eyebrow = "DEIN OWNER-BEREICH", actions }: Props) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
+      if (error) {
+        setLoadError(true);
+        return;
+      }
       if (!data.session) {
         router.replace("/login?next=/owner");
         return;
       }
       setEmail(data.session.user.email ?? null);
       setReady(true);
+    }).catch(() => {
+      if (active) setLoadError(true);
     });
     return () => {
       active = false;
@@ -53,23 +60,27 @@ export function OwnerShell({ children, title, subtitle, eyebrow = "OWNER INTELLI
     router.replace("/login?next=/owner");
   }
 
+  if (loadError) {
+    return <main className="owner-entry-error"><p>Dein Owner-Bereich konnte gerade nicht geladen werden.</p><button type="button" onClick={() => window.location.reload()}>Erneut versuchen</button></main>;
+  }
+
   if (!ready) {
     return (
-      <main className="min-h-screen bg-[#070708] text-white grid place-items-center">
+      <main className="owner-entry-loading">
         <div className="owner-loader" aria-label="Lädt" />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#070708] text-white">
+    <main className="owner-private">
       <div className="owner-app-shell">
         <aside className="owner-sidebar">
           <div className="owner-brand-row">
-            <div className="owner-brand-mark">B</div>
+            <div className="owner-brand-mark">b</div>
             <div>
-              <div className="owner-brand-title">Backyrd</div>
-              <div className="owner-brand-subtitle">Owner Intelligence</div>
+              <div className="owner-brand-title">backyrd</div>
+              <div className="owner-brand-subtitle">für Betreiber:innen</div>
             </div>
           </div>
 
@@ -92,17 +103,15 @@ export function OwnerShell({ children, title, subtitle, eyebrow = "OWNER INTELLI
           <div className="owner-account-card">
             <div className="owner-avatar">{initials}</div>
             <div className="owner-account-copy">
-              <strong>Spot Owner</strong>
-              <span title={email ?? undefined}>{email ?? "Owner Dashboard"}</span>
+              <strong>Dein Konto</strong>
+              <span title={email ?? undefined}>{email ?? "Owner-Bereich"}</span>
             </div>
           </div>
 
           <div className="owner-sidebar-actions">
-            <Link href="/" className="owner-sidebar-button">Web ansehen</Link>
-            <button type="button" onClick={logout} className="owner-sidebar-button owner-sidebar-button-muted">Logout</button>
+            <Link href="/" className="owner-sidebar-button">Website</Link>
+            <button type="button" onClick={logout} className="owner-sidebar-button owner-sidebar-button-muted">Abmelden</button>
           </div>
-
-          <div className="owner-live"><span className="owner-live-dot" /> Live data</div>
         </aside>
 
         <section className="owner-main">
