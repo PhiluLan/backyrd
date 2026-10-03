@@ -407,11 +407,13 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         : parsedRequest;
       const withoutInterpretedFields = (explicit: DecisionProductRequest["explicit"]): Record<string, unknown> =>
         Object.fromEntries(Object.entries(explicit).filter(([key]) =>
-          !["primaryIntent", "secondaryIntent", "softPreferences", "hardConstraints"].includes(key)));
+          !["primaryIntent", "secondaryIntent", "softPreferences", "hardConstraints", "unresolvedTerms"].includes(key)));
       const originalSoft = new Set(parsedRequest.explicit.softPreferences ?? []);
       const interpretedSoft = new Set(productRequest.explicit.softPreferences ?? []);
       const originalHard = new Set(parsedRequest.explicit.hardConstraints ?? []);
       const interpretedHard = new Set(productRequest.explicit.hardConstraints ?? []);
+      const originalUnresolved = new Set(parsedRequest.explicit.unresolvedTerms ?? []);
+      const interpretedUnresolved = new Set(productRequest.explicit.unresolvedTerms ?? []);
       if (productRequest.requestId !== parsedRequest.requestId || productRequest.idempotencyKey !== parsedRequest.idempotencyKey
         || productRequest.naturalLanguage !== parsedRequest.naturalLanguage
         || canonicalJson(productRequest.alternativeRequested) !== canonicalJson(parsedRequest.alternativeRequested)
@@ -423,7 +425,8 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         || [...originalSoft].some((value) => !interpretedSoft.has(value))
         || [...interpretedSoft].some((value) => !originalSoft.has(value) && decodeWorldPreference(value) === null)
         || [...originalHard].some((value) => !interpretedHard.has(value))
-        || [...interpretedHard].some((value) => !originalHard.has(value) && value !== PRODUCT_INDOOR_CONSTRAINT && decodeWorldQueryConstraint(value) === null)) {
+        || [...interpretedHard].some((value) => !originalHard.has(value) && value !== PRODUCT_INDOOR_CONSTRAINT && decodeWorldQueryConstraint(value) === null)
+        || [...originalUnresolved].some((value) => !interpretedUnresolved.has(value))) {
         throw new Error("product_ai_intent_request_boundary_invalid");
       }
       const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal));
