@@ -128,6 +128,14 @@ test("AI core facets respect the intent ontology and broad activity alternatives
     "WK_REQUIRED:CORE:classification.primary_category:ENTERTAINMENT",
   ]);
 
+  const openEnded = interpreter(async () => modelResponse(semantics({ facets: [
+    facet("classification.primary_category", "ACTIVITIES_PLAY", "etwas unternehmen"),
+    facet("classification.primary_category", "CULTURE_ARTS", "etwas unternehmen"),
+  ] })), rpc);
+  const openOutput = await openEnded(request("Ich möchte irgendetwas unternehmen"), actor, new AbortController().signal);
+  assert.deepEqual(openOutput.explicit.hardConstraints, []);
+  assert.ok(openOutput.explicit.softPreferences.includes("WK:classification.primary_category:ACTIVITIES_PLAY"));
+
   const museum = interpreter(async () => modelResponse(semantics({ facets: [
     facet("classification.primary_category", "CULTURE_ARTS", "Museum", "REQUIRED", "G1"),
   ] })), rpc);

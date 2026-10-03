@@ -94,9 +94,11 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     // The primary-intent ontology is authoritative for core venue eligibility.
     // A model may suggest a narrower category, but a single broad category
     // must not contradict the accepted siblings (NIGHTLIFE also includes bars).
-    // Several proposed categories for the broad activity intent are a genuine
-    // alternative set: they distinguish a family outing from any indoor gym.
-    const activityAlternatives = primaryIntent === "ACTIVITY_EXPERIENCE" && proposedCategories.length >= 2;
+    // With an interpreted company/situation, several proposed activity
+    // categories form a concrete alternative set. An open-ended "something to
+    // do" remains exploratory; model guesses must not narrow it needlessly.
+    const situatedActivity = facets.some((facet) => facet.key === "context.visit_situations" && facet.role !== "EXCLUDED");
+    const activityAlternatives = primaryIntent === "ACTIVITY_EXPERIENCE" && situatedActivity && proposedCategories.length >= 2;
     const enforceCategories = !requiredPlaceType && (requiredCategories.length > 0 || activityAlternatives);
     const categoryGroup = requiredCategories[0]?.group ?? "CORE";
     const excludedCategories = new Set(facets.filter((facet) => facet.key === "classification.primary_category" && facet.role === "EXCLUDED").map((facet) => facet.value));
