@@ -22,6 +22,7 @@ const nav: NavItem[] = [
   { href: "/owner/analytics/moments", label: "Momente", icon: "◉" },
   { href: "/owner/spots", label: "Meine Spots", icon: "⌖" },
   { href: "/owner/world-knowledge", label: "Spot-Angaben", icon: "◎" },
+  { href: "/owner/billing", label: "Owner Pro & Abrechnung", icon: "✳" },
 ];
 
 export function OwnerShell({ children, title, subtitle, eyebrow = "DEIN OWNER-BEREICH", actions }: Props) {

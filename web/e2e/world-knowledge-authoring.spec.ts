@@ -88,7 +88,7 @@ test("Basis-Owner kann 1–6 pflegen, während 7–8 sichtbar gesperrt bleiben",
   await page.getByRole("button", { name: /7 Objektive Eigenschaften/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
   await expect(page.getByText("CHF 39.–")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Owner Pro anfragen" })).toHaveAttribute("href", /mailto:hello@backyrd\.ch/);
+  await expect(page.getByRole("link", { name: "Owner Pro entdecken" })).toHaveAttribute("href", `/owner/billing?spot=${spotId}`);
   await expect(page.getByText("Sitzplätze gesamt")).toHaveCount(0);
   await page.getByRole("button", { name: /8 Ausstattung und Einschränkungen/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
