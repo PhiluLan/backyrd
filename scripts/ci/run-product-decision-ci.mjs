@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 
 const root = resolve(new URL("../..", import.meta.url).pathname);
 const productTests = [
+  "packages/decision-vnext-core/test/product-ai-interpretation.test.mjs",
   "packages/decision-vnext-core/test/product-decision-single-route.test.mjs",
   "packages/decision-vnext-core/test/product-decision-production-adapter.test.mjs",
   "packages/decision-vnext-core/test/product-runtime-composition.test.mjs",

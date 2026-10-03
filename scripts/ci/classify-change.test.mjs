@@ -152,6 +152,19 @@ test("only the exact authority-hashed Product consent/expiry migration clears th
   assert.equal(isAuthorizedBoundedMigration(path, migration, { ...authority, authorizedBoundedMigrations: authority.authorizedBoundedMigrations.map((entry) => ({ ...entry, sha256: "0".repeat(64) })) }), false);
 });
 
+test("only the approved, byte-identical private AI cache expiry migration clears its deletion blocker", () => {
+  const path = "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql";
+  const migration = readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+  const authority = JSON.parse(readFileSync(new URL("../../delivery/product-authority-v1.json", import.meta.url), "utf8"));
+  assert.equal(isDestructiveMigration(migration), true);
+  assert.equal(isAuthorizedBoundedMigration(path, migration, authority), true);
+  assert.equal(isAuthorizedBoundedMigration(path, `${migration}\n-- additional SQL`, authority), false);
+  assert.equal(isAuthorizedBoundedMigration("supabase/migrations/other.sql", migration, authority), false);
+  const altered = { ...authority, authorizedBoundedMigrations: authority.authorizedBoundedMigrations.map((entry) =>
+    entry.path === path ? { ...entry, scope: "BROAD_DELETE" } : entry) };
+  assert.equal(isAuthorizedBoundedMigration(path, migration, altered), false);
+});
+
 test("the AI cache deletion scope cannot authorize another path, hash or broader operation", () => {
   const path = "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql";
   const sql = "delete from decision_vnext_private.product_intent_cache_v1 where expires_at < now();\n";

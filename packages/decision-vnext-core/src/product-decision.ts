@@ -198,7 +198,9 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   // window. The durable, byte-identical idempotency record is capped at 64 KiB;
   // a city-sized cohort must not turn an otherwise valid request into a 503.
   const ranked = candidateRows(evaluation, projection, input.presentations);
-  const available = ranked.filter(rankable);
+  // An unresolved core intent cannot authorize a ranked recommendation. In
+  // particular, a broad family outing must not silently become a food list.
+  const available = evaluation.interpretation.primaryIntent === null ? [] : ranked.filter(rankable);
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
@@ -316,12 +318,13 @@ export function validateDecisionProductExecution(input: DecisionProductBuildInpu
   return expected;
 }
 
-export type DecisionProductRuntimeBoundary = "REQUEST_START" | "AUTH" | "RATE_LIMIT" | "BODY_PARSE" | "INTERACTION_AUTHORITY" | "EVALUATION" | "IDEMPOTENCY" | "LEARNING" | "FINAL_OUTPUT";
+export type DecisionProductRuntimeBoundary = "REQUEST_START" | "AUTH" | "RATE_LIMIT" | "BODY_PARSE" | "INTERACTION_AUTHORITY" | "INTERPRETATION" | "EVALUATION" | "IDEMPOTENCY" | "LEARNING" | "FINAL_OUTPUT";
 export interface DecisionProductAuthenticatedActor { readonly userId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly sessionId: string }
 export interface DecisionProductRuntimePorts {
   readonly auth: { authenticate(token: string, signal: AbortSignal): Promise<DecisionProductAuthenticatedActor | null> };
   readonly rateLimit: { consume(subjectBindingHash: string, signal: AbortSignal): Promise<boolean> };
   readonly control: { assertBoundary(boundary: DecisionProductRuntimeBoundary, signal: AbortSignal): Promise<void> | void; readonly timeoutMilliseconds: number; readonly maxRequestBytes: number };
+  readonly interpret?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<DecisionProductRequest>;
   readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
   readonly idempotency: { commit(input: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal): Promise<{ status: "CREATED" } | { status: "REPLAYED"; execution: unknown } | { status: "CONFLICT" | "EXPIRED" }> };
   readonly interaction: { resolve(input: { request: DecisionProductInteractionRequest; actor: DecisionProductAuthenticatedActor }, signal: AbortSignal): Promise<
@@ -398,10 +401,24 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         });
         return new Response(JSON.stringify(response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
       }
-      const evaluated = await at("EVALUATION", (signal) => ports.evaluate(parsedRequest, actor, signal));
+      const productRequest = ports.interpret
+        ? DecisionProductRequestSchema.parse(await at("INTERPRETATION", (signal) => ports.interpret!(parsedRequest, actor, signal)))
+        : parsedRequest;
+      const withoutPrimaryIntent = (explicit: DecisionProductRequest["explicit"]): Record<string, unknown> =>
+        Object.fromEntries(Object.entries(explicit).filter(([key]) => key !== "primaryIntent"));
+      if (productRequest.requestId !== parsedRequest.requestId || productRequest.idempotencyKey !== parsedRequest.idempotencyKey
+        || productRequest.naturalLanguage !== parsedRequest.naturalLanguage
+        || canonicalJson(productRequest.alternativeRequested) !== canonicalJson(parsedRequest.alternativeRequested)
+        || canonicalJson(productRequest.previouslyPresentedCandidateIds) !== canonicalJson(parsedRequest.previouslyPresentedCandidateIds)
+        || canonicalJson(productRequest.rejectedCandidateIds) !== canonicalJson(parsedRequest.rejectedCandidateIds)
+        || canonicalJson(withoutPrimaryIntent(productRequest.explicit)) !== canonicalJson(withoutPrimaryIntent(parsedRequest.explicit))
+        || Object.hasOwn(parsedRequest.explicit, "primaryIntent") && productRequest.explicit.primaryIntent !== parsedRequest.explicit.primaryIntent) {
+        throw new Error("product_ai_intent_request_boundary_invalid");
+      }
+      const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal));
       stage = "RESPONSE_BUILD";
-      const expectedInput = { request: parsedRequest, actor, ...evaluated }; const execution = buildDecisionProductExecution(expectedInput);
-      const committed = await at("IDEMPOTENCY", (signal) => ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: parsedRequest.idempotencyKey, payloadHash: contentHash(parsedRequest), execution }, signal));
+      const expectedInput = { request: productRequest, actor, ...evaluated }; const execution = buildDecisionProductExecution(expectedInput);
+      const committed = await at("IDEMPOTENCY", (signal) => ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: productRequest.idempotencyKey, payloadHash: contentHash(productRequest), execution }, signal));
       if (committed.status === "CONFLICT" || committed.status === "EXPIRED") throw new DecisionProductError("IDEMPOTENCY_CONFLICT", 409, "Diese Anfrage-ID wurde bereits mit anderen Eingaben verwendet oder ist abgelaufen.");
       const resolved = committed.status === "REPLAYED" ? validateDecisionProductExecution(expectedInput, committed.execution) : execution;
       await at("LEARNING", async (signal) => {

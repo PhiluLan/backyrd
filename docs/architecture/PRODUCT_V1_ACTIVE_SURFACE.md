@@ -28,6 +28,7 @@ Decision hosts are forbidden.
 - `product-v1-contracts.ts`
 - `product-v1-authority.ts`
 - `product-v1-evaluator.ts`
+- `product-ai-interpretation.ts` — optional, server-only, request-bound intent interpretation; World and ranking remain authoritative
 - `product-decision.ts`
 - `product-decision-production-adapter.ts`
 

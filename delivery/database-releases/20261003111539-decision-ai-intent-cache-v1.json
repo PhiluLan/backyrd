@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20261003111539-decision-ai-intent-cache-v1",
+  "previousEvidence": "20261002202705-owner-pro-stripe-billing-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "695c650ed4f7e609b5c9e1d9dcefdf5a3a42456151cf75d31d75659fdd82c76c",
+    "applicationSchemaSha256": "267728c29c4172f56efb25dc0c7871b37b2abe771f6538f6ca32c26cac5b3403"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql",
+      "sha256": "bb7f64fe1dfe2c99c920bae57eb3c50d1b6ccefddc63952b8560f310836c95b2"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_ai_intent_cache_v1.sql",
+      "sha256": "4cff5758ce3d3f55fffbe9b7b57a93a3db519b88acdb0fec2643c4bf65513df3"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "69561427f8713061efc499402d4db80ca42ee4e8dac9cb6020e93dca4a9c5f79",
+    "applicationSchemaSha256": "5e8e0bde9da04b910fc54c81de0ad544c8d007c3df85b28bb185ed1e45e7857e"
+  }
+}

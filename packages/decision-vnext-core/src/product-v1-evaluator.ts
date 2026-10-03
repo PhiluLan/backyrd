@@ -35,14 +35,14 @@ function requestedLocalDate(text: string, serverTime: string): string {
 
 /** A server-derived catalog hint, never eligibility or ranking authority. */
 export function productRetrievalIntent(request: DecisionProductRequest): ProductV1Intent | null {
-  const intent = request.explicit.primaryIntent ?? inferProductV1Intent(request.naturalLanguage);
+  const intent = Object.hasOwn(request.explicit, "primaryIntent") ? request.explicit.primaryIntent : inferProductV1Intent(request.naturalLanguage);
   return PRODUCT_V1_INTENT_MAPPINGS.find((mapping) => mapping.intentId === intent)?.intentId ?? null;
 }
 
 export function resolveDecisionProductContext(requestValue: unknown, authority: { readonly authorizedCity: string; readonly serverTime: string }): DecisionProductContext {
   const request = DecisionProductRequestSchema.parse(requestValue); const text = normalize(request.naturalLanguage); const explicit = request.explicit;
   const textCity = cityIn(text); const requestedCity = explicit.targetCity ?? textCity; if (requestedCity && requestedCity !== authority.authorizedCity) throw new Error("product_context_location_authority_mismatch");
-  const primaryIntent = explicit.primaryIntent ?? inferProductV1Intent(request.naturalLanguage);
+  const primaryIntent = Object.hasOwn(explicit, "primaryIntent") ? explicit.primaryIntent ?? null : inferProductV1Intent(request.naturalLanguage);
   const hard = new Set(explicit.hardConstraints ?? []); const soft = new Set(explicit.softPreferences ?? []);
   if (includes(text, ["rollstuhl", "stufenfrei"])) hard.add("ACCESSIBILITY_STEP_FREE");
   if (includes(text, ["geöffnet", "offen", "jetzt"])) hard.add("OPEN_NOW");
