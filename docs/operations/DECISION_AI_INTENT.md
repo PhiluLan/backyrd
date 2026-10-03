@@ -34,6 +34,14 @@ not apply it manually or bypass the recovery-risk gate. Deploy the certified
 `decision-v13` artifact with `BACKYRD_DECISION_AI_INTENT_ENABLED` absent or
 `false` first. Keep `OPENAI_API_KEY` server-side only.
 
+On 2026-10-03 the Founder explicitly accepted the untested database-recovery
+risk for migration `20261003111539_decision_ai_intent_cache_v1.sql` at SHA-256
+`bb7f64fe1dfe2c99c920bae57eb3c50d1b6ccefddc63952b8560f310836c95b2`.
+The Founder and CTO separately approved only its bounded deletion of expired
+rows from the newly introduced private intent cache. This is not authority to
+delete existing Product data or to execute the migration outside the manual
+Production release.
+
 Before activation, verify the exact model named in
 `BACKYRD_DECISION_AI_INTENT_MODEL` is available to the Production project and
 supports strict Structured Outputs on Responses with `store: false`; confirm
