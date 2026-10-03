@@ -77,6 +77,8 @@ test("Web Decision uses the strict vNext single-route Product contract", async (
   assert.match(source, /productOutputAuthorized !== true/);
   assert.match(source, /legacyEngineUsed !== false/);
   assert.match(source, /fallbackUsed !== false/);
+  assert.match(source, /item\.decisionId !== expectedDecisionId/);
+  assert.doesNotMatch(source, /item\.requestHash !== await contentHash\(request\)/);
   assert.match(experience, /current\.presentation\.name/);
   assert.match(experience, /current\.actualAvailability/);
   assert.match(experience, /current\.reasons/);

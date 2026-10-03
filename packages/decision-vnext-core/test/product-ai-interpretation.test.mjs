@@ -78,6 +78,22 @@ test("one query plan separates essential alternatives, optional taste and explic
   assert.deepEqual(output.explicit.softPreferences, ["WK:context.atmosphere:QUIET"]);
 });
 
+test("sparse company and evening context cannot become mandatory World facts", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "NIGHTLIFE", facets: [
+    facet("classification.primary_category", "NIGHTLIFE", "einen drauf machen", "REQUIRED", "G1"),
+    facet("context.visit_situations", "FRIENDS_GROUP", "homies", "REQUIRED", "G2"),
+    facet("context.typical_dayparts", "EVENING", "heute Abend", "REQUIRED", "G3"),
+    facet("context.atmosphere", "LIVELY", "einen drauf machen", "REQUIRED", "G4"),
+  ] })), { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("Mit den homies heute Abend einen drauf machen"), actor, new AbortController().signal);
+  assert.deepEqual(output.explicit.hardConstraints, ["WK_REQUIRED:G1:classification.primary_category:NIGHTLIFE"]);
+  assert.deepEqual(output.explicit.softPreferences, [
+    "WK:context.atmosphere:LIVELY", "WK:context.typical_dayparts:EVENING", "WK:context.visit_situations:FRIENDS_GROUP",
+  ]);
+});
+
 test("an unambiguous rain phrase remains an indoor requirement if the model misses it", async () => {
   const run = interpreter(async () => modelResponse(semantics()), {
     async rpc(_name, parameters) { return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; },
