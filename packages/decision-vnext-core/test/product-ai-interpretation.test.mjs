@@ -88,9 +88,44 @@ test("sparse company and evening context cannot become mandatory World facts", a
     return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
   } });
   const output = await run(request("Mit den homies heute Abend einen drauf machen"), actor, new AbortController().signal);
-  assert.deepEqual(output.explicit.hardConstraints, ["WK_REQUIRED:G1:classification.primary_category:NIGHTLIFE"]);
+  assert.deepEqual(output.explicit.hardConstraints, [
+    "WK_REQUIRED:G1:classification.primary_category:DRINKS",
+    "WK_REQUIRED:G1:classification.primary_category:NIGHTLIFE",
+  ]);
   assert.deepEqual(output.explicit.softPreferences, [
     "WK:context.atmosphere:LIVELY", "WK:context.typical_dayparts:EVENING", "WK:context.visit_situations:FRIENDS_GROUP",
+  ]);
+});
+
+test("AI core facets respect the intent ontology and broad activity alternatives", async () => {
+  const rpc = { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } };
+  const night = interpreter(async () => modelResponse(semantics({ primaryIntent: "NIGHTLIFE", facets: [
+    facet("classification.primary_category", "NIGHTLIFE", "ausgehen", "REQUIRED", "G1"),
+    facet("purpose.primary_visit", "COMMUNITY_SOCIAL", "homies", "REQUIRED", "G2"),
+    facet("context.visit_situations", "FRIENDS_GROUP", "homies", "REQUIRED", "G3"),
+  ] })), rpc);
+  const nightOutput = await night(request("Mit den homies heute Abend einen drauf machen"), actor, new AbortController().signal);
+  assert.deepEqual(nightOutput.explicit.hardConstraints, [
+    "WK_REQUIRED:G1:classification.primary_category:DRINKS",
+    "WK_REQUIRED:G1:classification.primary_category:NIGHTLIFE",
+  ]);
+  assert.ok(nightOutput.explicit.softPreferences.includes("WK:purpose.primary_visit:COMMUNITY_SOCIAL"));
+  assert.ok(nightOutput.explicit.softPreferences.includes("WK:context.visit_situations:FRIENDS_GROUP"));
+
+  const family = interpreter(async () => modelResponse(semantics({ facets: [
+    facet("classification.primary_category", "ACTIVITIES_PLAY", "Ausflug"),
+    facet("classification.primary_category", "CULTURE_ARTS", "Ausflug"),
+    facet("classification.primary_category", "ENTERTAINMENT", "Ausflug"),
+    facet("context.visit_situations", "FAMILY", "Tochter"),
+  ] })), rpc);
+  const familyOutput = await family(request("Ausflug mit meiner 4-jährigen Tochter bei Regen"), actor, new AbortController().signal);
+  assert.deepEqual(familyOutput.explicit.hardConstraints, [
+    "INDOOR_REQUIRED",
+    "WK_REQUIRED:CORE:classification.primary_category:ACTIVITIES_PLAY",
+    "WK_REQUIRED:CORE:classification.primary_category:CULTURE_ARTS",
+    "WK_REQUIRED:CORE:classification.primary_category:ENTERTAINMENT",
   ]);
 });
 

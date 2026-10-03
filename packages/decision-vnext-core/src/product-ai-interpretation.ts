@@ -5,7 +5,7 @@ import { DecisionProductRequestSchema, type DecisionProductRequest } from "./pro
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_INDOOR_CONSTRAINT, PRODUCT_QUERY_CATALOG, PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.2" as const;
+export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.3" as const;
 export const PRODUCT_AI_INTENT_CACHE_RPC = "backyrd_decision_vnext_product_query_cache_v1" as const;
 
 const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
@@ -84,7 +84,38 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
       facetsByValue.set(key, { key: facet.key, value: facet.value, role, group });
     }
   }
-  return { primaryIntent, secondaryIntent, facets: [...facetsByValue.values()], indoorRequired: row.indoorRequired || text !== undefined && explicitRain(text) };
+  const facets = [...facetsByValue.values()];
+  const mapping = PRODUCT_V1_INTENT_MAPPINGS.find((item) => item.intentId === primaryIntent);
+  if (mapping) {
+    const requiredPlaceType = facets.some((facet) => facet.key === "classification.place_types" && facet.role === "REQUIRED");
+    const proposedCategories = facets.filter((facet) => facet.key === "classification.primary_category"
+      && facet.role !== "EXCLUDED" && mapping.acceptedPrimaryCategories.includes(facet.value as typeof mapping.acceptedPrimaryCategories[number]));
+    const requiredCategories = proposedCategories.filter((facet) => facet.role === "REQUIRED");
+    // The primary-intent ontology is authoritative for core venue eligibility.
+    // A model may suggest a narrower category, but a single broad category
+    // must not contradict the accepted siblings (NIGHTLIFE also includes bars).
+    // Several proposed categories for the broad activity intent are a genuine
+    // alternative set: they distinguish a family outing from any indoor gym.
+    const activityAlternatives = primaryIntent === "ACTIVITY_EXPERIENCE" && proposedCategories.length >= 2;
+    const enforceCategories = !requiredPlaceType && (requiredCategories.length > 0 || activityAlternatives);
+    const categoryGroup = requiredCategories[0]?.group ?? "CORE";
+    const allowedCategories: readonly string[] = enforceCategories && requiredCategories.length === 1 && !activityAlternatives
+      ? mapping.acceptedPrimaryCategories : proposedCategories.map((facet) => facet.value);
+    const normalized = facets.map((facet): Facet => {
+      if (facet.key === "purpose.primary_visit" && facet.role === "REQUIRED") return { ...facet, role: "PREFERRED", group: null };
+      if (facet.key === "classification.primary_category" && facet.role === "REQUIRED"
+        && !mapping.acceptedPrimaryCategories.includes(facet.value as typeof mapping.acceptedPrimaryCategories[number])) return { ...facet, role: "PREFERRED", group: null };
+      if (enforceCategories && facet.key === "classification.primary_category" && allowedCategories.includes(facet.value))
+        return { ...facet, role: "REQUIRED", group: categoryGroup };
+      return facet;
+    });
+    if (enforceCategories) for (const category of allowedCategories) {
+      if (!normalized.some((facet) => facet.key === "classification.primary_category" && facet.value === category))
+        normalized.push({ key: "classification.primary_category", value: category, role: "REQUIRED", group: categoryGroup });
+    }
+    return { primaryIntent, secondaryIntent, facets: normalized, indoorRequired: row.indoorRequired || text !== undefined && explicitRain(text) };
+  }
+  return { primaryIntent, secondaryIntent, facets, indoorRequired: row.indoorRequired || text !== undefined && explicitRain(text) };
 }
 
 function parseCacheResult(value: unknown): CacheResult {
