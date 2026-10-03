@@ -43,22 +43,25 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   const request = DecisionProductRequestSchema.parse(requestValue); const text = normalize(request.naturalLanguage); const explicit = request.explicit;
   const textCity = cityIn(text); const requestedCity = explicit.targetCity ?? textCity; if (requestedCity && requestedCity !== authority.authorizedCity) throw new Error("product_context_location_authority_mismatch");
   const primaryIntent = Object.hasOwn(explicit, "primaryIntent") ? explicit.primaryIntent ?? null : inferProductV1Intent(request.naturalLanguage);
-  const hard = new Set(explicit.hardConstraints ?? []); const soft = new Set(explicit.softPreferences ?? []);
+  // Age is a contextual ranking signal, not a demand that every family spot
+  // publish an explicit "no minimum age" rule. Known access restrictions are
+  // still enforced against a stated age when assessing each candidate.
+  const hard = new Set((explicit.hardConstraints ?? []).filter((constraint) => constraint !== "AGE_OR_LEGAL")); const soft = new Set(explicit.softPreferences ?? []);
   if (includes(text, ["rollstuhl", "stufenfrei"])) hard.add("ACCESSIBILITY_STEP_FREE");
   if (includes(text, ["geöffnet", "offen", "jetzt"])) hard.add("OPEN_NOW");
   if (requestedWeekday(text) >= 0 || explicit.dateTime?.localDate) hard.add("OPEN_ON_REQUESTED_DAY");
-  if (/\b(?:\d{1,2})[- ]?(?:jährig|jaehrig)/.test(text) || includes(text, ["tochter", "sohn", "kind"])) hard.add("AGE_OR_LEGAL");
   if (/\b(?:höchstens|maximal|bis)\s+\d{1,4}\s*(?:chf|franken)/.test(text)) hard.add("BUDGET_MAXIMUM");
   if (requestedCity) hard.add("TARGET_LOCATION");
   if (includes(text, ["ruhig", "gemütlich"])) soft.add("ATMOSPHERE_QUIET");
   if (includes(text, ["günstig", "preiswert"])) soft.add("PRICE_LEVEL_LOW");
+  const mentionedAge = Number(text.match(/\b(\d{1,2})[- ]?(?:jährig|jaehrig)/)?.[1] ?? NaN);
   const body = {
     contractVersion: PRODUCT_DECISION_VERSIONS.context, resolverVersion: "decision-vnext-product-context-resolver-v1", inputHash: contentHash({ request, authority }),
     primaryIntent, secondaryIntent: explicit.secondaryIntent ?? (includes(text, ["date", "in ruhe reden"]) ? "QUIET_CONVERSATION" : null),
     intentCompatibility: primaryIntent ? "COMPATIBLE" as const : "UNKNOWN" as const, occasion: explicit.occasion ?? (text.includes("date") ? "DATE" : null),
     moods: explicit.moods ?? (includes(text, ["ruhig", "gemütlich"]) ? ["CALM"] : []), targetCity: authority.authorizedCity,
     dateTime: explicit.dateTime ?? { state: "KNOWN" as const, localDate: requestedLocalDate(text, authority.serverTime), dayPhase: includes(text, ["morgen", "frühstück"]) ? "MORNING" : includes(text, ["mittag"]) ? "MIDDAY" : includes(text, ["nachmittag"]) ? "AFTERNOON" : includes(text, ["abend"]) ? "EVENING" : includes(text, ["nacht"]) ? "NIGHT" : null, timeZone: "Europe/Zurich" },
-    group: explicit.group ?? { size: includes(text, ["tochter", "sohn", "kind", "familie"]) ? 2 : null, minimumAge: Number(text.match(/\b(\d{1,2})[- ]?(?:jährig|jaehrig)/)?.[1] ?? NaN) || null, adultPresent: includes(text, ["mich und", "mit erwachsenen", "familie"]), companionType: includes(text, ["tochter", "sohn", "kind", "familie"]) ? "FAMILY" : null },
+    group: explicit.group ?? { size: includes(text, ["tochter", "sohn", "kind", "familie"]) ? 2 : null, minimumAge: Number.isFinite(mentionedAge) ? mentionedAge : null, adultPresent: includes(text, ["mich und", "mit erwachsenen", "familie"]) || /\bmit\s+(?:meiner?|meinen|unserer?|unseren)\s+(?:\d{1,2}[- ]?(?:jährig\w*|jaehrig\w*)\s+)?(?:tochter|sohn|kindern?|familie)\b/u.test(text), companionType: includes(text, ["tochter", "sohn", "kind", "familie"]) ? "FAMILY" : null },
     budget: explicit.budget ?? (() => { const amount = Number(text.match(/(?:höchstens|maximal|bis)\s+(\d{1,4})\s*(?:chf|franken)/)?.[1] ?? NaN); return Number.isFinite(amount) ? { state: "KNOWN" as const, amount, currency: "CHF" as const, perPerson: includes(text, ["pro person", "p.p."]), calibrationLabel: null } : { state: "UNKNOWN" as const, amount: null, currency: null, perPerson: false, calibrationLabel: null }; })(),
     stayDuration: explicit.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: primaryIntent ? [] : ["CORE_INTENT"],
     locationAuthority: { explicitTargetWins: true as const, authorizedCity: authority.authorizedCity, deviceCityUsed: false, state: "KNOWN" as const },
@@ -232,7 +235,16 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, pro
   if (context.hardConstraints.includes("TARGET_LOCATION")) (snapshot.spot.location.locality === context.targetCity ? confirmed : failed).push("TARGET_LOCATION");
   if (context.hardConstraints.includes("ACCESSIBILITY_STEP_FREE")) { const row = entry(snapshot, "accessibility.step_free_entrance"); row?.resolution === "KNOWN_TRUE" ? confirmed.push("ACCESSIBILITY_STEP_FREE") : row?.resolution === "KNOWN_FALSE" ? failed.push("ACCESSIBILITY_STEP_FREE") : unknownHard.push("ACCESSIBILITY_STEP_FREE"); }
   if (context.hardConstraints.includes("BUDGET_MAXIMUM")) { const row = entry(snapshot, "operation.price_range"); const value = row?.value; const maximum = value && typeof value === "object" && !Array.isArray(value) && "max" in value ? Number(value.max) : null; maximum === null || context.budget.amount === null ? unknownHard.push("BUDGET_MAXIMUM") : maximum <= context.budget.amount ? confirmed.push("BUDGET_MAXIMUM") : failed.push("BUDGET_MAXIMUM"); }
-  if (context.hardConstraints.includes("AGE_OR_LEGAL")) { const row = entry(snapshot, "rule.age_access_conditions"); const value = row?.value; const age = context.group.minimumAge; if (!value || typeof value !== "object" || Array.isArray(value) || !("rules" in value) || age === null) unknownHard.push("AGE_OR_LEGAL"); else { const rules = Array.isArray(value.rules) ? value.rules : []; const allowed = rules.some((rule) => rule && typeof rule === "object" && ((rule.mode === "NO_MINIMUM") || (typeof rule.minimumAge === "number" && (age >= rule.minimumAge || (rule.mode === "UNACCOMPANIED_MINIMUM" && context.group.adultPresent))))); (allowed ? confirmed : failed).push("AGE_OR_LEGAL"); } }
+  const ageEntry = entry(snapshot, "rule.age_access_conditions");
+  const ageValue = ageEntry?.value;
+  const ageRules = ageValue && typeof ageValue === "object" && !Array.isArray(ageValue) && "rules" in ageValue && Array.isArray(ageValue.rules) ? ageValue.rules : [];
+  // A rule scoped to a time, day, area or event cannot be applied to the
+  // entire venue without knowing that the user's visit matches its scope.
+  const universalAgeRules = ageRules.length > 0 && ageRules.every((rule) => rule && typeof rule === "object" && rule.appliesFromTime === null && (!Array.isArray(rule.days) || rule.days.length === 0) && rule.area === null && rule.event === null);
+  const age = context.group.minimumAge;
+  const knownAgeSuitability = age !== null && universalAgeRules;
+  const ageAllowed = knownAgeSuitability && ageRules.some((rule) => rule && typeof rule === "object" && ((rule.mode === "NO_MINIMUM") || (typeof rule.minimumAge === "number" && (age >= rule.minimumAge || (rule.mode === "UNACCOMPANIED_MINIMUM" && context.group.adultPresent)))));
+  if (knownAgeSuitability && !ageAllowed) failed.push("AGE_OR_LEGAL");
   const requestedDay = context.hardConstraints.includes("OPEN_ON_REQUESTED_DAY") && context.dateTime.localDate ? evaluateOpeningDay(snapshot, context.dateTime.localDate, productOpeningPolicy) : null;
   const confirmedRequestedClosure = context.hardConstraints.includes("OPEN_ON_REQUESTED_DAY") && confirmedClosureForRequestedDate(snapshot, context, evaluationAt);
   const openingStatus: DecisionProductCandidateAssessment["actualAvailability"]["status"] = context.hardConstraints.includes("OPEN_NOW")
@@ -250,7 +262,7 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, pro
   const matchingDaypart = matchedRows(daypartEntry?.value, context).filter((row) => context.dateTime.dayPhase !== null && row.daypart === context.dateTime.dayPhase);
   const priceLevel = entry(snapshot, "operation.price_level")?.value;
   const matchingPrice = context.softPreferences.includes("PRICE_LEVEL_LOW") && ["VERY_LOW", "LOW"].includes(String(priceLevel));
-  const matchedSoft = [...(matchingAtmosphere.length ? ["ATMOSPHERE_QUIET"] : []), ...(matchingVisit.length ? ["VISIT_SITUATION"] : []), ...(matchingDaypart.length ? ["TYPICAL_DAYPART"] : []), ...(matchingPrice ? ["PRICE_LEVEL_LOW"] : [])];
+  const matchedSoft = [...(matchingAtmosphere.length ? ["ATMOSPHERE_QUIET"] : []), ...(matchingVisit.length ? ["VISIT_SITUATION"] : []), ...(matchingDaypart.length ? ["TYPICAL_DAYPART"] : []), ...(matchingPrice ? ["PRICE_LEVEL_LOW"] : []), ...(ageAllowed ? ["AGE_COMPATIBLE"] : [])];
   const tasteMatches = userTasteMatches(snapshot, context, projection);
   const worldReasons = [
     reason(`core-intent-${core.state.toLowerCase()}`, "WORLD", core.evidenceSourceHash, core.state === "CONFIRMED" ? "Die bestätigte Kernklassifikation passt zur Absicht." : core.state === "INCOMPATIBLE" ? "Die bestätigte Kernklassifikation passt nicht zur Absicht; Zusatzangebote ersetzen sie nicht." : "Die Kernabsicht ist durch World Knowledge nicht bestätigt.", core.state === "CONFIRMED"),
@@ -273,6 +285,8 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, pro
   if (matchingVisit.length) worldReasons.push(reason("visit-fit", "CONTEXT", contentHash(visitEntry), "Die bestätigte Besuchssituation passt.", true));
   if (matchingDaypart.length) worldReasons.push(reason("daypart-fit", "CONTEXT", contentHash(daypartEntry), "Die bestätigte Tageszeit passt.", true));
   if (matchingPrice) worldReasons.push(reason("price-level-fit", "CONTEXT", contentHash({ priceLevel, snapshotHash: snapshot.snapshotHash }), "Das bestätigte Preislevel passt zum Wunsch nach günstig.", true));
+  if (ageAllowed) worldReasons.push(reason("age-access-fit", "CONTEXT", contentHash(ageEntry), "Die bestätigte Altersregel ist mit dem angegebenen Alter vereinbar.", true));
+  if (knownAgeSuitability && !ageAllowed) worldReasons.push(reason("age-access-restriction", "WORLD", contentHash(ageEntry), "Die bestätigte Zutrittsregel lässt den Besuch mit dem angegebenen Alter nicht zu.", true));
   for (const match of tasteMatches.slice(0, 4)) {
     const label = USER_CONCEPT_LABELS[match.conceptId] ?? "dieses Ortsmerkmal";
     worldReasons.push(reason(

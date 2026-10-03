@@ -122,3 +122,38 @@ test("Consum Weinbar's verified date, quiet atmosphere and evening context affec
   assert.deepEqual(assessed.matchedSoftPreferences, ["ATMOSPHERE_QUIET", "TYPICAL_DAYPART", "VISIT_SITUATION"]);
   assert.ok(assessed.reasons.some((row) => row.reasonCode === "daypart-fit" && row.confirmed));
 });
+
+test("family requests rank places without an age declaration but respect verified universal access rules", () => {
+  const base = [fact("purpose.primary_visit", "CULTURE_ARTS"), fact("classification.primary_category", "CULTURE_ARTS"), fact("classification.place_types", ["MUSEUM"])];
+  const ageRule = (mode, minimumAge, accompaniment = "NONE") => fact("rule.age_access_conditions", {
+    rules: [{ mode, minimumAge, accompaniment, appliesFromTime: null, days: [], area: null, event: null }], notes: null,
+  });
+  const worlds = [
+    read(binding("11111111-1111-4111-a111-111111111111", base)),
+    read(binding("22222222-2222-4222-a222-222222222222", [...base, ageRule("NO_MINIMUM", null)])),
+    read(binding("33333333-3333-4333-a333-333333333333", [...base, ageRule("GENERAL_MINIMUM", 12)])),
+    read(binding("44444444-4444-4444-a444-444444444444", [...base, ageRule("UNACCOMPANIED_MINIMUM", 12, "ADULT")])),
+    read(binding("55555555-5555-4555-a555-555555555555", [...base, fact("rule.age_access_conditions", {
+      rules: [{ mode: "GENERAL_MINIMUM", minimumAge: 12, accompaniment: "NONE", appliesFromTime: null, days: [], area: "VR exhibit", event: null }], notes: null,
+    })])),
+  ];
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "family-age-request", idempotencyKey: "family-age-key", naturalLanguage: "Museum mit meiner 4-jährigen Tochter in Basel", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
+  assert.equal(result.evaluation.interpretation.group.minimumAge, 4);
+  assert.equal(result.evaluation.interpretation.group.adultPresent, true);
+  assert.ok(!result.evaluation.interpretation.hardConstraints.includes("AGE_OR_LEGAL"));
+  const [unspecified, allAges, restricted, accompanied, scoped] = result.evaluation.candidates;
+  assert.equal(unspecified.tier, "ELIGIBLE_CONFIRMED");
+  assert.ok(!unspecified.unknownHardConstraints.includes("AGE_OR_LEGAL"));
+  assert.equal(allAges.tier, "ELIGIBLE_CONFIRMED");
+  assert.ok(allAges.matchedSoftPreferences.includes("AGE_COMPATIBLE"));
+  assert.equal(restricted.tier, "INELIGIBLE");
+  assert.ok(restricted.failedHardConstraints.includes("AGE_OR_LEGAL"));
+  assert.equal(accompanied.tier, "ELIGIBLE_CONFIRMED");
+  assert.equal(scoped.tier, "ELIGIBLE_CONFIRMED", "an exhibit-only restriction cannot be applied to the entire museum");
+  assert.ok(!scoped.matchedSoftPreferences.includes("AGE_COMPATIBLE"));
+  const unspecifiedAge = { ...request, requestId: "family-unspecified-age", idempotencyKey: "family-unspecified-key", naturalLanguage: "Museum mit den Kindern in Basel" };
+  const withoutAge = evaluateProductWorldViews(unspecifiedAge, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
+  assert.equal(withoutAge.evaluation.interpretation.group.minimumAge, null);
+  assert.ok(withoutAge.evaluation.candidates.every((candidate) => !candidate.unknownHardConstraints.includes("AGE_OR_LEGAL")));
+});
