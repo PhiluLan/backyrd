@@ -5,7 +5,7 @@ import { DecisionProductRequestSchema, type DecisionProductRequest } from "./pro
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_INDOOR_CONSTRAINT, PRODUCT_QUERY_CATALOG, PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.1" as const;
+export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.2" as const;
 export const PRODUCT_AI_INTENT_CACHE_RPC = "backyrd_decision_vnext_product_query_cache_v1" as const;
 
 const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
@@ -59,7 +59,11 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     // as "family outing" may legitimately come from "my four-year-old child".
     // Only canonical field/value pairs can influence the evaluator; the model
     // never supplies facts about a particular Spot.
-    const role = facet.role as Facet["role"];
+    // Context observations are too sparse to establish universal absence.
+    // Time and availability have their own deterministic checks; a model must
+    // not turn an unfilled mood, company or daypart into an empty result set.
+    const role = facet.role === "REQUIRED" && facet.key.startsWith("context.")
+      ? "PREFERRED" : facet.role as Facet["role"];
     let group: string | null = null;
     if (role === "REQUIRED") {
       const proposed = typeof facet.group === "string" ? facet.group.toUpperCase() : "";
@@ -164,7 +168,7 @@ export function createDecisionProductAiIntentInterpreter(input: {
             "Jedes Merkmal hat eine Rolle: REQUIRED, wenn der Ort ohne diese Eigenschaft den Kernwunsch verfehlt; PREFERRED für zusätzlich passende, aber nicht gesichert notwendige Eigenschaften; EXCLUDED nur bei ausdrücklich abgelehnter Eigenschaft. Kernwünsche wie 'gemütlich', 'Kuchen' oder 'Craft Beer' dürfen nicht bloß zu optionalen Ranking-Signalen werden.",
             "Gib REQUIRED-Merkmalen kurze Gruppen G1, G2 usw. Verschiedene Gruppen müssen alle passen; echte Alternativen wie 'Museum oder Kino' bekommen dieselbe Gruppe. Für PREFERRED und EXCLUDED ist group null. Leite aus einem Wunsch keine erfundenen Spot-Fakten oder Zutrittsregeln ab.",
             "Beispiel für die Logik, nicht für eine feste Phrasenliste: Ein Familienausflug hat ACTIVITY_EXPERIENCE als Hauptzweck. Die G1-Alternativen können geeignete Erlebnis-Kategorien wie ACTIVITIES_PLAY, CULTURE_ARTS oder ENTERTAINMENT sein; bestätigte FAMILY/FAMILY_FRIENDLY-Merkmale sind zusätzliche positive Evidenz. Bloßes SPORT_MOVEMENT ohne Familien- oder Kindereignung ist kein Familienausflug. Regen wird separat als Indoor-Bedingung verarbeitet. Kaffee und Kuchen hat COFFEE als Hauptzweck und verlangt zusätzlich DESSERTS als G1, nicht bloß irgendein Café. Bei 'Date Night' gehören Paar-Kontext und der konkrete Abend zur Anfrage, aber 'Nacht' allein beweist weder Alkohol noch Clubbing.",
-            "Die effektive Uhrzeit, Öffnung, Stadt, Distanz und Alters-/Zutrittsregeln werden später von der Engine geprüft. Setze dafür keine erfundenen World-Facets. Unterscheide Kategorie/Ortsart vom eigentlichen Erlebnis; ein allgemeiner Ort derselben Kategorie genügt nicht, wenn ein Kernmerkmal ausdrücklich genannt ist.",
+            "Die effektive Uhrzeit, Öffnung, Stadt, Distanz und Alters-/Zutrittsregeln werden später von der Engine geprüft. Setze dafür keine erfundenen World-Facets. Kontextfelder für Stimmung, Begleitung und typische Tageszeit sind zusätzliche Evidenz, niemals REQUIRED; fehlende Kontextdaten beweisen keine Ungeeignetheit. Unterscheide Kategorie/Ortsart vom eigentlichen Erlebnis; ein allgemeiner Ort derselben Kategorie genügt nicht, wenn ein Kernmerkmal ausdrücklich genannt ist.",
             "Bei Regen oder ausdrücklichem Wunsch nach drinnen ist indoorRequired wahr. Museum und Indoor-Kletterhalle sind Indoor-Ortsarten; Zoo und Park sind nicht automatisch regentauglich.",
             "Ausgehen oder 'einen drauf machen' mit Freund:innen kann NIGHTLIFE, lebhaft und gesellig bedeuten; es beweist weder Alkoholkonsum noch Tanzfläche. Craft Beer ohne Ausgehkontext ist DRINKS.",
             `Zulässige Felder und Werte: ${JSON.stringify(catalogForModel)}.`,

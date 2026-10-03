@@ -380,7 +380,11 @@ async function validateResponse(value: unknown, request: DecisionProductRequest)
   exactKeys(item, ["contractVersion", "status", "decisionId", "requestHash", "envelopeHash", "rankingPolicyVersion", "rankingPolicyHash", "interpretation", "primaryCandidateId", "candidates", "limitations", "alternative", "reject", "personalization", "learning", "productOutputAuthorized", "legacyEngineUsed", "fallbackUsed", "resultHash"]);
   if (item.contractVersion !== RESPONSE_VERSION || item.status !== "AVAILABLE" || !identifier(item.decisionId) || !hash(item.envelopeHash) || item.rankingPolicyVersion !== RANKING_POLICY_VERSION || !hash(item.rankingPolicyHash)) throw unavailable();
   if (item.productOutputAuthorized !== true || item.legacyEngineUsed !== false || item.fallbackUsed !== false) throw unavailable();
-  if (item.requestHash !== await contentHash(request) || !strings(item.limitations, 60)) throw unavailable();
+  // The canonical interpreter may enrich the request with validated World
+  // facets before hashing it. Bind this response to the original request's
+  // stable idempotency identity; the server validates the enriched hash.
+  const expectedDecisionId = `decision-${(await contentHash({ requestId: request.requestId, idempotencyKey: request.idempotencyKey })).slice(0, 32)}`;
+  if (item.decisionId !== expectedDecisionId || !hash(item.requestHash) || !strings(item.limitations, 60)) throw unavailable();
   await validateInterpretation(item.interpretation);
   const candidates = Array.isArray(item.candidates) ? item.candidates : (() => { throw unavailable(); })();
   if (candidates.length > 40) throw unavailable();
