@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDecisionProductAiIntentInterpreter, PRODUCT_AI_INTENT_CACHE_RPC, PRODUCT_DECISION_VERSIONS } from "../dist/index.js";
+import { createDecisionProductAiIntentInterpreter, parseDecisionProductAiIntentAllowlist, PRODUCT_AI_INTENT_CACHE_RPC, PRODUCT_DECISION_VERSIONS } from "../dist/index.js";
 
 const identity = { releaseHash: "a".repeat(64), artifactHash: "b".repeat(64), sourceSetHash: "c".repeat(64), controlGeneration: 4 };
 const actor = { userId: "11111111-1111-4111-8111-111111111111", subjectBindingHash: "d".repeat(64), authenticationContextHash: "e".repeat(64), sessionBindingHash: "f".repeat(64), sessionId: "22222222-2222-4222-8222-222222222222" };
@@ -11,7 +11,7 @@ test("AI resolves an everyday compound once and the durable cache makes retries 
   let stored;
   let fetches = 0;
   const interpreter = createDecisionProductAiIntentInterpreter({
-    identity, apiKey: "test-only-key", model: "test-model",
+    identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
     rpc: { async rpc(name, parameters) {
       assert.equal(name, PRODUCT_AI_INTENT_CACHE_RPC);
       calls.push(parameters);
@@ -41,7 +41,7 @@ test("AI resolves an everyday compound once and the durable cache makes retries 
 });
 
 test("explicit user intent is not replaced by AI", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model",
+  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
     rpc: { async rpc() { throw new Error("should not be called"); } },
     async fetchImpl() { throw new Error("should not be called"); } });
   const input = request("Irgendwo hin", { primaryIntent: "CULTURE_ART" });
@@ -49,7 +49,7 @@ test("explicit user intent is not replaced by AI", async () => {
 });
 
 test("clear everyday requests keep the deterministic path without provider or cache cost", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model",
+  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
     rpc: { async rpc() { throw new Error("should not be called"); } },
     async fetchImpl() { throw new Error("should not be called"); } });
   const input = request("Kaffee in Basel");
@@ -57,22 +57,39 @@ test("clear everyday requests keep the deterministic path without provider or ca
 });
 
 test("provider failure does not silently fall back to fabricated recommendations", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model",
+  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
     rpc: { async rpc() { return { data: { status: "MISS" }, error: null }; } },
     async fetchImpl() { return { ok: false }; } });
   await assert.rejects(interpreter(request("Familienausflug in Basel"), actor, new AbortController().signal), /product_ai_intent_provider_unavailable/);
 });
 
 test("invalid model intent is rejected before reaching Product ranking", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model",
+  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
     rpc: { async rpc() { return { data: { status: "MISS" }, error: null }; } },
     async fetchImpl() { return { ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: '{"primaryIntent":"RESTAURANT_ONLY"}' }] }] }; } }; } });
   await assert.rejects(interpreter(request("Familienausflug in Basel"), actor, new AbortController().signal), /product_ai_intent_result_invalid/);
 });
 
 test("model cannot attach a spot claim or instruction to its intent", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model",
+  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
     rpc: { async rpc() { return { data: { status: "MISS" }, error: null }; } },
     async fetchImpl() { return { ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: '{"primaryIntent":"ACTIVITY_EXPERIENCE","spotId":"unverified"}' }] }] }; } }; } });
   await assert.rejects(interpreter(request("Familienausflug in Basel"), actor, new AbortController().signal), /product_ai_intent_result_invalid/);
+});
+
+test("pilot allowlist is exact and fails closed for malformed configuration", async () => {
+  assert.deepEqual(parseDecisionProductAiIntentAllowlist(""), []);
+  assert.deepEqual(parseDecisionProductAiIntentAllowlist(` ${actor.userId.toUpperCase()} `), [actor.userId]);
+  assert.equal(parseDecisionProductAiIntentAllowlist("*"), "*");
+  assert.throws(() => parseDecisionProductAiIntentAllowlist("*,"), /allowlist_invalid/);
+  assert.throws(() => parseDecisionProductAiIntentAllowlist(`${actor.userId},${actor.userId}`), /allowlist_invalid/);
+  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [],
+    rpc: { async rpc() { throw new Error("cache must not be called"); } },
+    async fetchImpl() { throw new Error("provider must not be called"); } });
+  const input = request("Familienausflug in Basel");
+  assert.deepEqual(await interpreter(input, actor, new AbortController().signal), input);
+  const oneAccountInterpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
+    rpc: { async rpc() { throw new Error("cache must not be called for another account"); } },
+    async fetchImpl() { throw new Error("provider must not be called for another account"); } });
+  assert.deepEqual(await oneAccountInterpreter(input, { ...actor, userId: "33333333-3333-4333-8333-333333333333" }, new AbortController().signal), input);
 });

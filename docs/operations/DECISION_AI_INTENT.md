@@ -52,8 +52,12 @@ ordinary requests including "Familienausflug in Basel", "Regentag mit meiner
 sealed interpretation and whether any shown spot has verified core intent and
 hard-constraint evidence. Do not equate an AI label with age suitability.
 
-Only after the pilot is accepted, set `BACKYRD_DECISION_AI_INTENT_ENABLED=true`
-through the normal Production change. If a provider or quality failure occurs,
+For the controlled pilot, set `BACKYRD_DECISION_AI_INTENT_ENABLED=true` only
+alongside `BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST` containing the exact test
+account UUID. An absent or empty list permits no AI calls. The explicit value
+`*` permits all authenticated accounts and requires a separate
+general-availability approval after the privacy notice is published. Malformed
+lists fail closed. If a provider or quality failure occurs,
 set it back to `false`; the deterministic Product path remains, with unknown
 intents showing no unrelated ranked list. No model key or raw user wish should
 appear in logs or release evidence.
