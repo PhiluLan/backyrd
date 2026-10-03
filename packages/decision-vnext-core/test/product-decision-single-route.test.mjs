@@ -66,6 +66,30 @@ test("the Product intent lexicon respects negation and does not invent a winner 
   assert.equal(inferProductV1Intent("Das ist wunderbar"), null);
 });
 
+test("an explicit unresolved model intent is not replaced by a lexical guess", () => {
+  const request = productRequest("Kaffee und etwas erleben in Basel", "model-unsure", { explicit: { primaryIntent: null } });
+  assert.equal(productRetrievalIntent(request), null);
+  const context = resolveDecisionProductContext(request, { authorizedCity: "Basel", serverTime: SERVER_TIME });
+  assert.equal(context.primaryIntent, null);
+  assert.deepEqual(context.limitations, ["CORE_INTENT_REQUIRES_CLARIFICATION"]);
+});
+
+test("an unresolved main wish never turns a random catalog slice into recommendations", async () => {
+  const input = await fixture(productRequest("Familienausflug in Basel", "unresolved-family"), "NO_CONSENT");
+  const { interpretationHash: _interpretationHash, ...interpretationBody } = input.evaluation.interpretation;
+  const interpretation = DecisionProductContextSchema.parse(withContentHash({
+    ...interpretationBody, primaryIntent: null, intentCompatibility: "UNKNOWN",
+    unresolvedTerms: ["CORE_INTENT"], limitations: ["CORE_INTENT_REQUIRES_CLARIFICATION"],
+  }, "interpretationHash"));
+  const { evaluationHash: _evaluationHash, ...evaluationBody } = input.evaluation;
+  const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({
+    ...evaluationBody, interpretation,
+  }, "evaluationHash"));
+  const built = buildDecisionProductExecution({ ...input, evaluation });
+  assert.equal(built.response.primaryCandidateId, null);
+  assert.equal(built.response.candidates.filter((candidate) => candidate.rank !== null).length, 0);
+});
+
 test("every released Product-v1 lexicon term resolves to its declared broad intent", () => {
   for (const [intent, signals] of Object.entries(PRODUCT_INTENT_LEXICON)) {
     for (const { term } of signals) assert.equal(inferProductV1Intent(term), intent, `${term} -> ${intent}`);

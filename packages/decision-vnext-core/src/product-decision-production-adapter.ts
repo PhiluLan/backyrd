@@ -200,6 +200,7 @@ export function createDecisionProductProductionPorts(input: {
   readonly evaluationProvider: DecisionProductCanonicalEvaluationProvider;
   readonly interactionAuthority: DecisionProductInteractionAuthorityProvider;
   readonly learningPort: DecisionProductCanonicalLearningPort;
+  readonly interpreter?: NonNullable<DecisionProductRuntimePorts["interpret"]>;
   readonly configuration: DecisionProductProductionConfiguration;
   readonly now?: () => Date;
 }): DecisionProductRuntimePorts {
@@ -244,6 +245,10 @@ export function createDecisionProductProductionPorts(input: {
         throw new Error("product_rate_limit_result_invalid");
       },
     },
+    ...(input.interpreter ? { interpret: async (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => {
+      if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_interpretation_actor_unbound");
+      return input.interpreter!(request, actor, signal);
+    } } : {}),
     async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_evaluation_actor_unbound");
       return input.evaluationProvider.evaluate({ request, actor, identity, signal });

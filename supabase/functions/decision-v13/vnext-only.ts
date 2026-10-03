@@ -9,6 +9,7 @@ import {
   type DecisionProductRpcClient,
 } from "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js";
 import { createDecisionProductHttpHandler } from "../../../packages/decision-vnext-core/dist/product-decision.js";
+import { createDecisionProductAiIntentInterpreter } from "../../../packages/decision-vnext-core/dist/product-ai-interpretation.js";
 
 export const DECISION_V13_VNEXT_ONLY_ENTRYPOINT = "backyrd.decision-vnext.single-route@1.0" as const;
 
@@ -52,7 +53,7 @@ function configuration(): DecisionProductProductionConfiguration {
     subjectDayLimit: positiveInteger("BACKYRD_DECISION_VNEXT_SUBJECT_DAY_LIMIT", 500),
     globalMinuteLimit: positiveInteger("BACKYRD_DECISION_VNEXT_GLOBAL_MINUTE_LIMIT", 300),
     globalDayLimit: positiveInteger("BACKYRD_DECISION_VNEXT_GLOBAL_DAY_LIMIT", 20_000),
-    timeoutMilliseconds: positiveInteger("BACKYRD_DECISION_VNEXT_TIMEOUT_MS", 5_000),
+    timeoutMilliseconds: positiveInteger("BACKYRD_DECISION_VNEXT_TIMEOUT_MS", 12_000),
     maxRequestBytes: positiveInteger("BACKYRD_DECISION_VNEXT_MAX_REQUEST_BYTES", 16_384),
     idempotencyTtlSeconds: positiveInteger("BACKYRD_DECISION_VNEXT_IDEMPOTENCY_TTL_SECONDS", 86_400),
   };
@@ -120,12 +121,18 @@ Deno.serve(async (request: Request) => {
     // Fresh ports per request: the authenticated actor is request-local and
     // can never leak across concurrent Edge requests.
     const config = configuration();
+    const aiEnabled = Deno.env.get("BACKYRD_DECISION_AI_INTENT_ENABLED") === "true";
+    const interpreter = aiEnabled ? createDecisionProductAiIntentInterpreter({
+      rpc, identity: config.identity, apiKey: required("OPENAI_API_KEY"),
+      model: required("BACKYRD_DECISION_AI_INTENT_MODEL"),
+    }) : undefined;
     const ports = createDecisionProductProductionPorts({
       rpc,
       authClient: authClient(service),
       evaluationProvider: createDecisionProductRpcEvaluationProvider(rpc),
       interactionAuthority: createDecisionProductRpcInteractionAuthorityProvider(rpc),
       learningPort: createDecisionProductRpcLearningPort(rpc, config.identity),
+      ...(interpreter ? { interpreter } : {}),
       configuration: config,
     });
     return withCors(await createDecisionProductHttpHandler({

@@ -53,6 +53,7 @@
       "mobile/app/(tabs)/wohin.tsx",
       "mobile/lib/decision/wohinModel.ts",
       "mobile/lib/decision/productDecision.ts",
+      "packages/decision-vnext-core/src/product-ai-interpretation.ts",
       "packages/decision-vnext-core/src/product-decision.ts",
       "packages/decision-vnext-core/src/product-decision-production-adapter.ts",
       "packages/decision-vnext-core/src/product-v1-authority.ts",
