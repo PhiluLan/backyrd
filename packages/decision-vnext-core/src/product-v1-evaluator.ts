@@ -17,7 +17,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.8" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.9" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -250,6 +250,26 @@ function hasConfirmedWorldAttribute(snapshot: ProductWorldView, key: string): bo
   return row?.resolution === "KNOWN_VALUE" && !snapshot.conflicts.some((conflict) => conflict.attributeKeys.includes(key));
 }
 
+type WorldQueryPlan = {
+  readonly requiredGroups: readonly (readonly [string, readonly WorldQueryConstraint[]])[];
+  readonly excluded: readonly WorldQueryConstraint[];
+};
+function worldQueryPlan(context: DecisionProductContext): WorldQueryPlan {
+  const requiredGroups = new Map<string, WorldQueryConstraint[]>();
+  const excluded: WorldQueryConstraint[] = [];
+  for (const value of context.hardConstraints) {
+    const constraint = decodeWorldQueryConstraint(value);
+    if (!constraint) continue;
+    if (constraint.role === "EXCLUDED") excluded.push(constraint);
+    else {
+      const group = requiredGroups.get(constraint.group) ?? [];
+      group.push(constraint);
+      requiredGroups.set(constraint.group, group);
+    }
+  }
+  return { requiredGroups: [...requiredGroups], excluded };
+}
+
 const germanWeekday = (localDate: string): string => new Intl.DateTimeFormat("de-CH", { weekday: "long", timeZone: "Europe/Zurich" }).format(new Date(`${localDate}T12:00:00.000Z`));
 const openingIntervals = (rows: readonly { readonly start: string; readonly end: string }[]): string => rows.map((row) => `${row.start}–${row.end}`).join(", ");
 const daypartWindows: Readonly<Record<string, readonly (readonly [number, number])[]>> = {
@@ -266,7 +286,7 @@ function intervalsMeetDaypart(intervals: readonly { readonly start: string; read
   });
 }
 
-function assess(snapshot: ProductWorldView, context: DecisionProductContext, projection: RelevantUserProjection, rejected: readonly string[], evaluationAt: string): DecisionProductCandidateAssessment {
+function assess(snapshot: ProductWorldView, context: DecisionProductContext, queryPlan: WorldQueryPlan, projection: RelevantUserProjection, rejected: readonly string[], evaluationAt: string): DecisionProductCandidateAssessment {
   const core = intentCoverage(snapshot, context.primaryIntent); const secondary = intentCoverage(snapshot, context.secondaryIntent); const purposeCoverage = primaryPurposeCoverage(snapshot, context.primaryIntent);
   const confirmed: string[] = []; const unknownHard: string[] = []; const failed: string[] = [];
   if (context.hardConstraints.includes("TARGET_LOCATION")) (snapshot.spot.location.locality === context.targetCity ? confirmed : failed).push("TARGET_LOCATION");
@@ -295,33 +315,23 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, pro
   if (openingStatus === "closed") failed.push("ACTUAL_AVAILABILITY");
   if (context.hardConstraints.includes("OPEN_NOW")) { openingStatus === "open" ? confirmed.push("OPEN_NOW") : openingStatus === "closed" ? failed.push("OPEN_NOW") : unknownHard.push("OPEN_NOW"); }
   if (context.hardConstraints.includes("OPEN_ON_REQUESTED_DAY")) { openingStatus === "open" ? confirmed.push("OPEN_ON_REQUESTED_DAY") : openingStatus === "closed" ? failed.push("OPEN_ON_REQUESTED_DAY") : unknownHard.push("OPEN_ON_REQUESTED_DAY"); }
-  const queryConstraints = context.hardConstraints.flatMap((value) => {
-    const constraint = decodeWorldQueryConstraint(value);
-    return constraint ? [constraint] : [];
-  });
-  const requiredGroups = new Map<string, WorldQueryConstraint[]>();
   const semanticReasons: ReturnType<typeof reason>[] = [];
-  for (const constraint of queryConstraints) if (constraint.role === "REQUIRED") {
-    const group = requiredGroups.get(constraint.group) ?? [];
-    group.push(constraint); requiredGroups.set(constraint.group, group);
-  }
-  for (const [group, alternatives] of requiredGroups) {
+  for (const [group, alternatives] of queryPlan.requiredGroups) {
     const code = `QUERY_REQUIRED_${group}`;
     const matches = alternatives.some(({ key, value }) => matchesWorldPreference(snapshot, context, key, value));
     const unknownEvidence = alternatives.some(({ key }) => !hasConfirmedWorldAttribute(snapshot, key));
     (matches ? confirmed : unknownEvidence ? unknownHard : failed).push(code);
-    semanticReasons.push(reason(`query-required-${group.toLowerCase()}`, matches ? "WORLD" : "LIMITATION", contentHash({ snapshotHash: snapshot.snapshotHash, alternatives }), matches
-      ? "Ein für diesen Wunsch erforderliches Ortsmerkmal ist bestätigt."
-      : "Ein für diesen Wunsch erforderliches Ortsmerkmal ist nicht bestätigt.", matches));
   }
-  for (const [index, constraint] of queryConstraints.filter((value) => value.role === "EXCLUDED").entries()) {
+  for (const [index, constraint] of queryPlan.excluded.entries()) {
     const code = `QUERY_EXCLUDED_${index + 1}`;
     const excluded = matchesWorldPreference(snapshot, context, constraint.key, constraint.value);
     const known = hasConfirmedWorldAttribute(snapshot, constraint.key);
     (excluded ? failed : known ? confirmed : unknownHard).push(code);
-    semanticReasons.push(reason(`query-excluded-${index + 1}`, excluded ? "WORLD" : "LIMITATION", contentHash({ snapshotHash: snapshot.snapshotHash, constraint }), excluded
-      ? "Der Ort besitzt eine für diesen Wunsch ausdrücklich ausgeschlossene Eigenschaft."
-      : known ? "Die ausgeschlossene Eigenschaft ist für diesen Ort nicht belegt." : "Ob dieser Ort eine ausgeschlossene Eigenschaft besitzt, ist nicht geklärt.", excluded || known));
+  }
+  if (queryPlan.requiredGroups.length || queryPlan.excluded.length) {
+    const fullyConfirmed = ![...failed, ...unknownHard].some((code) => code.startsWith("QUERY_"));
+    semanticReasons.push(reason("query-relevance", fullyConfirmed ? "WORLD" : "LIMITATION", snapshot.snapshotHash,
+      fullyConfirmed ? "Die bestätigten Eigenschaften passen zu deinem konkreten Wunsch." : "Ein für deinen Wunsch wichtiges Merkmal ist nicht bestätigt.", fullyConfirmed));
   }
   const contextualReject = rejected.includes(snapshot.spot.spotId); const incompatible = ["INCOMPATIBLE", "DISPUTED"].includes(core.state); const notConfigured = core.state === "NOT_CONFIGURED";
   const tierValue = contextualReject || failed.length || incompatible ? "INELIGIBLE" : notConfigured ? "NOT_CONFIGURED" : core.state === "CONFIRMED" && !unknownHard.length ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK";
@@ -410,12 +420,13 @@ export function createDecisionProductEvaluator(input: { readonly world: WorldKno
 /** Shared deterministic Product assessment for the typed TS reader and the manifest-validated SQL resolver. */
 export function evaluateProductWorldViews(requestValue: unknown, authority: { readonly authorizedCity: string; readonly serverTime: string }, projection: RelevantUserProjection, snapshotsValue: readonly ProductWorldView[], candidateSetHash: string): { evaluation: DecisionProductEvaluation; presentations: readonly DecisionProductPresentation[] } {
     const request = DecisionProductRequestSchema.parse(requestValue); const context = resolveDecisionProductContext(request, authority);
+    const queryPlan = worldQueryPlan(context);
     const snapshots = [...snapshotsValue];
     const ids = snapshots.map((item) => item.spot.spotId).sort();
     if (!ids.length || ids.length > 1000 || new Set(ids).size !== ids.length || contentHash(ids) !== candidateSetHash) throw new Error("product_world_candidate_set_invalid");
     const bindings = snapshots.map((row) => ({ spotId: row.spot.spotId, snapshotHash: row.snapshotHash })).sort((a, b) => a.spotId.localeCompare(b.spotId));
     const cohort = DecisionProductWorldCohortSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.cohort, cohortId: `product-world-${candidateSetHash.slice(0, 24)}`, source: "CANONICAL_WORLD_KNOWLEDGE_READER", generatedAt: authority.serverTime, authorizedCity: authority.authorizedCity, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH, sourcePolicyVersion: ACCEPTED_SOURCE_POLICY.policyVersion, sourcePolicyHash: ACCEPTED_SOURCE_POLICY.policyHash, spotBindings: bindings, candidateSetHash, limitations: snapshots.length === 1 ? ["SINGLE_CANDIDATE"] : [], commercialSignalsPresent: false, fixtureSourceUsed: false }, "cohortHash"));
-    const candidates = snapshots.map((row) => assess(row, context, projection, request.rejectedCandidateIds, authority.serverTime)).sort((a, b) => a.candidateId.localeCompare(b.candidateId));
+    const candidates = snapshots.map((row) => assess(row, context, queryPlan, projection, request.rejectedCandidateIds, authority.serverTime)).sort((a, b) => a.candidateId.localeCompare(b.candidateId));
     const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.evaluation, evaluationId: `product-evaluation-${contentHash({ requestId: request.requestId, cohortHash: cohort.cohortHash }).slice(0, 24)}`, createdAt: authority.serverTime, requestHash: contentHash(request), interpretation: context, worldCohort: cohort, userProjectionHash: projection.projectionHash, candidates, limitations: cohort.limitations, evaluatorVersion: PRODUCT_V1_EVALUATOR_VERSION, evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash, evaluationReleaseHash: DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash, intentPolicyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash, sourceKind: "CANONICAL_PRODUCT_PORTS", productSemanticsApproved: true, productRankingAuthorized: true, fixtureSourceUsed: false }, "evaluationHash"));
     const presentations = snapshots.map((row) => DecisionProductPresentationSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: row.spot.spotId, name: row.spot.identity.name ?? "Unbenannter Ort", locality: row.spot.location.locality, categoryLabel: row.spot.classification.primaryCategory, imageUrl: null, sourceHash: row.snapshotHash }, "presentationHash")));
     return deepFreeze({ evaluation, presentations });
