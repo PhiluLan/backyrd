@@ -10,7 +10,7 @@ const identity = { releaseHash: "a".repeat(64), artifactHash: "b".repeat(64), so
 const actor = { userId: "11111111-1111-4111-8111-111111111111", subjectBindingHash: "d".repeat(64), authenticationContextHash: "e".repeat(64), sessionBindingHash: "f".repeat(64), sessionId: "22222222-2222-4222-8222-222222222222" };
 const request = (naturalLanguage, explicit = {}) => ({ contractVersion: PRODUCT_DECISION_VERSIONS.request, requestId: "request-family", idempotencyKey: "idem-family", naturalLanguage, explicit, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] });
 const modelResponse = (value) => ({ ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(value) }] }] }; } });
-const semantics = (overrides = {}) => ({ primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: null, facets: [], indoorRequired: false, indoorEvidence: null, ...overrides });
+const semantics = (overrides = {}) => ({ primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: null, facets: [], indoorRequired: false, indoorEvidence: null, unresolvedNeedCodes: [], ...overrides });
 const facet = (key, value, evidence, role = "PREFERRED", group = null) => ({ key, value, evidence, role, group });
 const interpreter = (fetchImpl, rpc, allowedUserIds = [actor.userId]) => createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "gpt-6-luna", allowedUserIds, rpc, fetchImpl });
 
@@ -99,6 +99,15 @@ test("asking for music does not require a verified music club", async () => {
   const output = await run(request("Cocktails und Musik nach 22 Uhr"), actor, new AbortController().signal);
   assert.deepEqual(output.explicit.hardConstraints, ["WK_REQUIRED:G2:offering.groups:COCKTAILS"]);
   assert.ok(output.explicit.softPreferences.includes("WK:classification.place_types:MUSIC_CLUB"));
+  assert.deepEqual(output.explicit.unresolvedTerms, ["MUSIC_AT_VISIT_UNVERIFIED", "PRECISE_TIME_UNVERIFIED"]);
+});
+
+test("the model cannot silently drop a core need that the catalog cannot verify", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "ACTIVITY_EXPERIENCE", unresolvedNeedCodes: ["OTHER_CORE_NEED_UNMAPPED"] })), {
+    async rpc(_name, parameters) { return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; },
+  });
+  const output = await run(request("Ein besonderes Erlebnis mit einer Vorführung"), actor, new AbortController().signal);
+  assert.deepEqual(output.explicit.unresolvedTerms, ["OTHER_CORE_NEED_UNMAPPED"]);
 });
 
 test("a model cannot turn venue kind and requested offering into one OR gate", async () => {

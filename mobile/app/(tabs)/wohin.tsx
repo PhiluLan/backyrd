@@ -94,13 +94,13 @@ function DecisionResultCard({ candidate, personalizationActive, onOpen }: {
               <AppText role="body" style={styles.reasonText}>{reason}</AppText>
             </View>
           )) : <AppText role="body" tone="secondary">Zur genauen Passung fehlen noch Angaben.</AppText>}
-          {candidate.tier !== "ELIGIBLE_CONFIRMED" && considerations.length ? <AppText role="meta" tone="secondary" style={styles.detailNote}>{considerations[0]}</AppText> : null}
+          {candidate.tier !== "ELIGIBLE_CONFIRMED" ? considerations.slice(0, 2).map((note) => <AppText key={note} role="meta" tone="secondary" style={styles.detailNote}>{note}</AppText>) : null}
           {considerations.length ? <>
             <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }} onPress={() => setDetailsOpen((open) => !open)} style={styles.detailsToggle}>
               <AppText role="meta" tone="pink">Was du noch wissen solltest</AppText>
               <Ionicons name={detailsOpen ? "chevron-up" : "chevron-down"} size={16} color={color.pink} />
             </Pressable>
-            {detailsOpen ? considerations.slice(candidate.tier !== "ELIGIBLE_CONFIRMED" ? 1 : 0).map((note) => <AppText key={note} role="meta" tone="secondary" style={styles.detailNote}>{note}</AppText>) : null}
+            {detailsOpen ? considerations.slice(candidate.tier !== "ELIGIBLE_CONFIRMED" ? 2 : 0).map((note) => <AppText key={note} role="meta" tone="secondary" style={styles.detailNote}>{note}</AppText>) : null}
           </> : null}
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} ansehen`} onPress={onOpen} style={styles.openSpotButton}>

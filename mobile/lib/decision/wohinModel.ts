@@ -69,6 +69,9 @@ export function wohinConsiderations(candidate: DecisionProductCandidate, persona
   if (candidate.coreIntentCoverage !== "CONFIRMED") notes.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
   if (candidate.reasons.some((reason) => reason.code === "visit-unconfirmed")) notes.push("Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.");
   if (candidate.reasons.some((reason) => reason.code === "price-level-unconfirmed")) notes.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
+  if (candidate.reasons.some((reason) => reason.code === "music-at-visit-unverified")) notes.push("Ob bei deinem Besuch Musik läuft, ist für diesen Ort nicht bestätigt.");
+  if (candidate.reasons.some((reason) => reason.code === "precise-time-unverified")) notes.push("Die konkrete gewünschte Uhrzeit wurde für diesen Ort nicht geprüft.");
+  if (candidate.reasons.some((reason) => reason.code === "core-need-unmapped")) notes.push("Ein weiterer Teil deines Wunsches konnte noch nicht mit Spot-Wissen abgeglichen werden.");
   if (candidate.unknownHardConstraints.some((constraint) => constraint !== "OPEN_ON_REQUESTED_DAY")) notes.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
   if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-negative-"))) {
     notes.push("Nicht alle deiner Vorlieben sprechen für diesen Ort.");

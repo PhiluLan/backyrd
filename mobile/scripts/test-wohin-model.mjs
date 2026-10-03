@@ -88,6 +88,21 @@ test("unknown companion and low-price claims stay visible as uncertainty", () =>
   ]);
 });
 
+test("unverified music and precise time are not presented as a full match", () => {
+  const candidate = {
+    tier: "UNCONFIRMED_FALLBACK", coreIntentCoverage: "CONFIRMED", unknownHardConstraints: [],
+    reasons: [
+      { code: "music-at-visit-unverified", confirmed: false, statement: "Musik nicht bestätigt." },
+      { code: "precise-time-unverified", confirmed: false, statement: "Uhrzeit nicht geprüft." },
+    ],
+  };
+  assert.equal(wohinFitLabel(candidate), "Passung noch nicht vollständig belegt");
+  assert.deepEqual(wohinConsiderations(candidate, false), [
+    "Ob bei deinem Besuch Musik läuft, ist für diesen Ort nicht bestätigt.",
+    "Die konkrete gewünschte Uhrzeit wurde für diesen Ort nicht geprüft.",
+  ]);
+});
+
 test("response limitations remain visible in plain language", () => {
   assert.deepEqual(wohinLimitations(["SINGLE_CANDIDATE"], 1), ["Für diesen Wunsch steht gerade nur ein geprüfter Ort zur Auswahl."]);
   assert.deepEqual(wohinLimitations(["SINGLE_CANDIDATE"], 0), ["Für diesen Wunsch wurde nur ein Ort geprüft; er konnte nicht empfohlen werden."]);
