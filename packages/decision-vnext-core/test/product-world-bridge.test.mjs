@@ -157,3 +157,26 @@ test("family requests rank places without an age declaration but respect verifie
   assert.equal(withoutAge.evaluation.interpretation.group.minimumAge, null);
   assert.ok(withoutAge.evaluation.candidates.every((candidate) => !candidate.unknownHardConstraints.includes("AGE_OR_LEGAL")));
 });
+
+test("rainy family outings admit museums and climbing gyms by verified type, never zoos or parks", () => {
+  const venues = [
+    ["11111111-1111-4111-a111-111111111111", "CULTURE_ARTS", "CULTURE_ARTS", "MUSEUM"],
+    ["22222222-2222-4222-a222-222222222222", "SPORT_MOVEMENT", "SPORT_MOVEMENT", "CLIMBING_GYM"],
+    ["33333333-3333-4333-a333-333333333333", "NATURE_ANIMAL_EXPERIENCE", "OUTDOOR_NATURE", "ZOO"],
+    ["44444444-4444-4444-a444-444444444444", "NATURE_ANIMAL_EXPERIENCE", "OUTDOOR_NATURE", "PARK"],
+  ];
+  const worlds = venues.map(([id, purpose, category, type]) => read(binding(id, [
+    fact("purpose.primary_visit", purpose), fact("classification.primary_category", category), fact("classification.place_types", [type]),
+  ])));
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "rain-family-request", idempotencyKey: "rain-family-key", naturalLanguage: "Ausflug mit meiner 4 jährigen Tochter bei Regen", explicit: { primaryIntent: "ACTIVITY_EXPERIENCE", hardConstraints: ["INDOOR_REQUIRED"], softPreferences: ["WK:context.visit_situations:FAMILY"] }, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
+  const byId = new Map(result.evaluation.candidates.map((candidate) => [candidate.candidateId, candidate]));
+  for (const [id] of venues.slice(0, 2)) {
+    assert.equal(byId.get(id).tier, "ELIGIBLE_CONFIRMED");
+    assert.ok(byId.get(id).confirmedHardConstraints.includes("INDOOR_REQUIRED"));
+  }
+  for (const [id] of venues.slice(2)) {
+    assert.equal(byId.get(id).tier, "INELIGIBLE");
+    assert.ok(byId.get(id).failedHardConstraints.includes("INDOOR_REQUIRED"));
+  }
+});

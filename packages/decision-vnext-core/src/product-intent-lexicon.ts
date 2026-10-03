@@ -1,6 +1,6 @@
 import type { ProductV1Intent } from "./product-v1-authority.js";
 
-export const PRODUCT_INTENT_LEXICON_VERSION = "decision-vnext-product-intent-lexicon@3.0" as const;
+export const PRODUCT_INTENT_LEXICON_VERSION = "decision-vnext-product-intent-lexicon@4.0" as const;
 export type ProductIntentConcept = Readonly<{ id: string; domain: string; intent: ProductV1Intent; aliases: readonly string[]; weight: number }>;
 type Signal = Readonly<{ term: string; weight: number; conceptId: string; domain: string }>;
 
@@ -35,7 +35,7 @@ export const PRODUCT_INTENT_ONTOLOGY: readonly ProductIntentConcept[] = Object.f
   concept("DRINKS", "SPIRITS", "spirits", "spirituosen|schnaps|gin|gin tonic|whisky|whiskey|rum|tequila|mezcal|vodka|cognac|brandy|digestif"),
   concept("DRINKS", "NON_ALCOHOLIC", "mocktails", "mocktail|mocktails|alkoholfreier cocktail|virgin cocktail|alkoholfrei trinken|limonade|hausgemachte limo|kombucha"),
   concept("DRINKS", "BAR_NIGHTLIFE", "bar", "bar|pub|kneipe|beiz|stammbeiz|taverne|lounge|drink|drinks|etwas trinken|trinken gehen"),
-  concept("DRINKS", "BAR_NIGHTLIFE", "nightlife", "nachtleben|nightlife|ausgehen|club|nachtclub|disco|diskothek|tanzen gehen|party|rave"),
+  concept("NIGHTLIFE", "NIGHTLIFE", "nightlife", "nachtleben|nightlife|ausgehen|club|nachtclub|disco|diskothek|tanzen gehen|party|rave"),
   concept("DRINKS", "CIDER", "cider", "cider|cidre|most|saurer most|apfelwein"),
 
   concept("EAT", "FOOD_GENERAL", "eat-general", "essen|etwas essen|essen gehen|food|hunger|hungrig|mahlzeit|restaurant|lokal|gasthaus|gaststätte|gaststaette"),
@@ -132,7 +132,7 @@ export const PRODUCT_INTENT_LEXICON: Readonly<Record<ProductV1Intent, readonly S
   PRODUCT_INTENT_ONTOLOGY.reduce((result, row) => {
     result[row.intent].push(...row.aliases.map((term) => Object.freeze({ term, weight: row.weight, conceptId: row.id, domain: row.domain })));
     return result;
-  }, { EAT: [], COFFEE: [], DRINKS: [], SPORT_MOVEMENT: [], NATURE_ANIMAL_EXPERIENCE: [], CULTURE_ART: [], ACTIVITY_EXPERIENCE: [] } as Record<ProductV1Intent, Signal[]>),
+  }, { EAT: [], COFFEE: [], DRINKS: [], NIGHTLIFE: [], SPORT_MOVEMENT: [], NATURE_ANIMAL_EXPERIENCE: [], CULTURE_ART: [], ACTIVITY_EXPERIENCE: [] } as Record<ProductV1Intent, Signal[]>),
 );
 
 const fold = (value: string): string => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("de-CH").replaceAll("ß", "ss").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");

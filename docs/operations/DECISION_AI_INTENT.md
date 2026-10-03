@@ -1,5 +1,31 @@
 # Decision Product intent interpretation
 
+## Proposed query semantics v2 (not yet released)
+
+The next Product release replaces the one-field intent classifier on the same
+`decision-v13` route. Every AI-enabled request receives a compact, version-bound
+projection of the canonical World Knowledge registry. The model returns one
+primary and optionally one secondary purpose, up to 20 supported field/value
+preferences with exact excerpts from the request, and whether the user needs
+an indoor visit. The server validates all keys and values against that registry
+projection. Only the enum selections are retained in a new service-only,
+24-hour request-bound cache; copied excerpts and raw text are not stored.
+
+`INDOOR_REQUIRED` is a query constraint, not a model-authored spot fact.
+The Product evaluator derives indoor suitability only from verified place
+types. Museum and indoor climbing gym are indoor; park and zoo are outdoor;
+mixed or unspecified types remain unknown and cannot satisfy the constraint.
+Verified opening intervals must overlap an explicitly requested daypart.
+The candidate RPC v5 evaluates the complete verified city cohort (bounded at
+1,000), avoiding the previous category-first 48-spot truncation. The Product
+ranking policy v3 puts request-context fit ahead of consented personal taste.
+The new `NIGHTLIFE` intent is distinct from craft-beer or other drink searches.
+
+These are source changes only until the Product, Database, mobile/web contract,
+security and end-to-end gates pass and a manual exact-SHA Production release
+is approved. The historical pilot and rollback evidence below remains valid
+for the previously shipped v1 classifier, not proof of v2 live operation.
+
 Status: opt-in Product release component; OFF by default. This is part of the
 single `decision-v13` Product route, not a second Decision engine.
 
