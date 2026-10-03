@@ -2,6 +2,8 @@
 
 Status: prepared in code; **checkout remains off until a separately verified Stripe activation**. Owner Pro is CHF 39 per month **per spot, including applicable VAT**. Billing never changes organic ranking, Decision eligibility, or canonical World Knowledge.
 
+Founder accepted the untested database-recovery risk on 2026-10-03 for exactly `supabase/migrations/20261002202705_owner_pro_stripe_billing_v1.sql` (SHA-256 `7aa7abc64b9965c6767364c840f3f27dffd8ad6fedf4efbbcab97488a18b58f6`). This is not a tested or guaranteed rollback and does not itself authorize activating payments. The ordinary manual Production release checks still apply.
+
 ## Ownership and payment boundary
 
 - Only a logged-in, verified Owner can start Checkout for an approved spot. The server checks ownership again; the browser never supplies a price or entitlement.
