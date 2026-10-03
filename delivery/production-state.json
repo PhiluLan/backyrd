@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "09661065fe5f2d17ca881393a51a2a6e270fc759",
+    "shippedSourceSha": "eba2361775103ea01cd820d46bcd9625e1e5d8ba",
     "migrationTip": "20261003160310_decision_product_context_full_city_v5",
     "migrationCount": 177,
-    "deploymentRunId": 37139249224,
+    "deploymentRunId": 37142799720,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
