@@ -6,6 +6,8 @@ Founder accepted the untested database-recovery risk on 2026-10-03 for exactly `
 
 Production ledger reconciliation: the read-only remote migration list on 2026-10-03 showed 172 applied versions ending at `20261001202402`. The official 2026-10-01 Supabase Production Deployment audit (run `36925522017`, source SHA `ff436474e6b55bb3c41265012a36b9ad7cd5730c`) records that exact Decision migration as applied and `PASS`. `delivery/production-state.json` was advanced to this attested state; no remote migration-history row was edited.
 
+Production shipment on 2026-10-03: Main `fe1535bf1c0f17426953f806c7da0b93cc8c15a1` passed the post-merge gates in run `37112141216`. The manual Supabase Production Deployment run `37112438717` returned `PASS` with plan hash `049f9ef11d74b49ee7163117739809d60e7c19f428e7f27f7c0ad26f937f29fa`; it applied only the approved Owner Pro migration and redeployed the source-bound `decision-v13` artifact (active version 167). A fresh read-only remote migration list confirmed version `20261002202705` on both sides. The Production web deployment for that Main SHA succeeded. This ledger follow-up records the technically shipped state, not payment activation or an authenticated Owner acceptance test.
+
 ## Ownership and payment boundary
 
 - Only a logged-in, verified Owner can start Checkout for an approved spot. The server checks ownership again; the browser never supplies a price or entitlement.
