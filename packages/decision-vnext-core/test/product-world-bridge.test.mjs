@@ -180,3 +180,65 @@ test("rainy family outings admit museums and climbing gyms by verified type, nev
     assert.ok(byId.get(id).failedHardConstraints.includes("INDOOR_REQUIRED"));
   }
 });
+
+test("query requirements apply across family, cafe, craft-beer, date, alternatives and exclusions", () => {
+  const conditions = { dayparts: [], days: [], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: null };
+  const venues = [
+    ["11111111-1111-4111-a111-111111111111", "Play room", "ACTIVITY_PLAY", "ACTIVITIES_PLAY", "ARCADE", [fact("context.visit_situations", [{ situation: "FAMILY", conditions }])]],
+    ["22222222-2222-4222-a222-222222222222", "Generic gym", "SPORT_MOVEMENT", "SPORT_MOVEMENT", "GYM", []],
+    ["33333333-3333-4333-a333-333333333333", "Family museum", "CULTURE_ARTS", "CULTURE_ARTS", "MUSEUM", [fact("context.visit_situations", [{ situation: "FAMILY", conditions }])]],
+    ["44444444-4444-4444-a444-444444444444", "Cozy cafe", "EAT_DRINK", "COFFEE_DAYTIME", "CAFE", [fact("context.atmosphere", [{ atmosphere: "COZY", conditions }]), fact("offering.food_specialities", ["DESSERTS"])]],
+    ["55555555-5555-4555-a555-555555555555", "Lively cafe", "EAT_DRINK", "COFFEE_DAYTIME", "CAFE", [fact("context.atmosphere", [{ atmosphere: "LIVELY", conditions }])]],
+    ["66666666-6666-4666-a666-666666666666", "Craft taproom", "EAT_DRINK", "DRINKS", "TAPROOM", [fact("offering.groups", ["CRAFT_BEER"])]],
+    ["77777777-7777-4777-a777-777777777777", "Ordinary bar", "EAT_DRINK", "DRINKS", "BAR", [fact("offering.groups", ["BEER"]), fact("context.visit_situations", [{ situation: "FRIENDS_GROUP", conditions }])]],
+    ["88888888-8888-4888-a888-888888888888", "Date bar", "EAT_DRINK", "DRINKS", "BAR", [fact("context.visit_situations", [{ situation: "DATE_PAIR", conditions }])]],
+    ["99999999-9999-4999-a999-999999999999", "Mixed restaurant bar", "EAT_DRINK", "EAT", "BAR", []],
+    ["aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", "Cinema", "ENTERTAINMENT", "ENTERTAINMENT", "CINEMA", []],
+  ];
+  const worlds = venues.map(([id, _name, purpose, category, type, extras]) => read(binding(id, [
+    fact("purpose.primary_visit", purpose), fact("classification.primary_category", category), fact("classification.place_types", [type]), ...extras,
+  ])));
+  const assessPlan = (text, intent, hardConstraints, softPreferences = []) => {
+    const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: `query-${contentHash(text).slice(0, 12)}`, idempotencyKey: `idem-${contentHash(text).slice(0, 12)}`, naturalLanguage: text,
+      explicit: { primaryIntent: intent, hardConstraints, softPreferences }, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+    const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
+    return new Map(result.evaluation.candidates.map((candidate) => [candidate.candidateId, candidate]));
+  };
+  const tier = (rows, index) => rows.get(venues[index][0]).tier;
+  const family = assessPlan("Ausflug mit meiner 4-jährigen Tochter bei Regen", "ACTIVITY_EXPERIENCE", ["INDOOR_REQUIRED", "WK_REQUIRED:G1:context.visit_situations:FAMILY"]);
+  assert.equal(tier(family, 0), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(family, 2), "ELIGIBLE_CONFIRMED", "a family-confirmed museum remains available without a specific age declaration");
+  assert.notEqual(tier(family, 1), "ELIGIBLE_CONFIRMED", "an indoor gym without family evidence must not be recommended");
+  assert.ok(family.get(venues[1][0]).unknownHardConstraints.includes("QUERY_REQUIRED_G1"));
+  const familyByExperience = assessPlan("Ausflug mit meiner 4-jährigen Tochter bei Regen", "ACTIVITY_EXPERIENCE", [
+    "INDOOR_REQUIRED",
+    "WK_REQUIRED:G1:classification.primary_category:ACTIVITIES_PLAY",
+    "WK_REQUIRED:G1:classification.primary_category:CULTURE_ARTS",
+    "WK_REQUIRED:G1:classification.primary_category:ENTERTAINMENT",
+  ], ["WK:context.visit_situations:FAMILY"]);
+  assert.equal(tier(familyByExperience, 0), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(familyByExperience, 2), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(familyByExperience, 1), "INELIGIBLE", "a generic gym must not enter a family outing just because it is indoors");
+
+  const cozy = assessPlan("Gemütliches Café", "COFFEE", ["WK_REQUIRED:G1:context.atmosphere:COZY"]);
+  assert.equal(tier(cozy, 3), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(cozy, 4), "INELIGIBLE");
+  const cake = assessPlan("Kaffee und Kuchen", "COFFEE", ["WK_REQUIRED:G1:offering.food_specialities:DESSERTS"]);
+  assert.equal(tier(cake, 3), "ELIGIBLE_CONFIRMED");
+  assert.notEqual(tier(cake, 4), "ELIGIBLE_CONFIRMED");
+  const craft = assessPlan("Craft Beer trinken", "DRINKS", ["WK_REQUIRED:G1:offering.groups:CRAFT_BEER"]);
+  assert.equal(tier(craft, 5), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(craft, 6), "INELIGIBLE");
+  const date = assessPlan("Date Night in einer Bar", "NIGHTLIFE", ["WK_REQUIRED:G1:context.visit_situations:DATE_PAIR"]);
+  assert.equal(tier(date, 7), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(date, 6), "INELIGIBLE");
+  const alternatives = assessPlan("Museum oder Kino", "ACTIVITY_EXPERIENCE", ["WK_REQUIRED:G1:classification.place_types:MUSEUM", "WK_REQUIRED:G1:classification.place_types:CINEMA"]);
+  assert.equal(tier(alternatives, 2), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(alternatives, 9), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(alternatives, 1), "INELIGIBLE");
+  const noRestaurant = assessPlan("Drinks, aber kein Restaurant", "DRINKS", ["WK_EXCLUDED:X:classification.primary_category:EAT"]);
+  assert.equal(tier(noRestaurant, 5), "ELIGIBLE_CONFIRMED");
+  assert.equal(tier(noRestaurant, 8), "INELIGIBLE");
+  const merelyPreferred = assessPlan("Bar, gerne lebhaft", "DRINKS", [], ["WK:context.atmosphere:LIVELY"]);
+  assert.equal(tier(merelyPreferred, 6), "ELIGIBLE_CONFIRMED", "optional attributes may not silently become eligibility requirements");
+});

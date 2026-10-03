@@ -19,7 +19,7 @@ import {
   type DecisionProductResponse,
 } from "./product-v1-contracts.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, DECISION_PRODUCT_RANKING_POLICY } from "./product-v1-authority.js";
-import { decodeWorldPreference, PRODUCT_INDOOR_CONSTRAINT } from "./product-query-semantics.js";
+import { decodeWorldPreference, decodeWorldQueryConstraint, PRODUCT_INDOOR_CONSTRAINT } from "./product-query-semantics.js";
 
 const tierScore = { ELIGIBLE_CONFIRMED: 3, UNCONFIRMED_FALLBACK: 2, NOT_CONFIGURED: 1, INELIGIBLE: 0 } as const;
 const coreScore = { CONFIRMED: 5, UNKNOWN: 3, NOT_CONFIGURED: 2, NOT_APPLICABLE: 1, DISPUTED: 0, INCOMPATIBLE: -1 } as const;
@@ -423,7 +423,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         || [...originalSoft].some((value) => !interpretedSoft.has(value))
         || [...interpretedSoft].some((value) => !originalSoft.has(value) && decodeWorldPreference(value) === null)
         || [...originalHard].some((value) => !interpretedHard.has(value))
-        || [...interpretedHard].some((value) => !originalHard.has(value) && value !== PRODUCT_INDOOR_CONSTRAINT)) {
+        || [...interpretedHard].some((value) => !originalHard.has(value) && value !== PRODUCT_INDOOR_CONSTRAINT && decodeWorldQueryConstraint(value) === null)) {
         throw new Error("product_ai_intent_request_boundary_invalid");
       }
       const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal));

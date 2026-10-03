@@ -15,9 +15,9 @@ import {
 } from "./product-v1-contracts.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
-import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, inferredIndoorSuitability } from "./product-query-semantics.js";
+import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.7" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.8" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -57,7 +57,10 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   if (requestedCity) hard.add("TARGET_LOCATION");
   if (includes(text, ["ruhig", "gemütlich"])) soft.add("ATMOSPHERE_QUIET");
   if (includes(text, ["günstig", "preiswert"])) soft.add("PRICE_LEVEL_LOW");
-  const semanticValue = (key: string): string | null => [...soft].map(decodeWorldPreference).find((facet) => facet?.key === key)?.value ?? null;
+  const semanticValue = (key: string): string | null => [
+    ...[...hard].map(decodeWorldQueryConstraint).filter((facet) => facet?.role === "REQUIRED"),
+    ...[...soft].map(decodeWorldPreference),
+  ].find((facet) => facet?.key === key)?.value ?? null;
   const semanticSituation = semanticValue("context.visit_situations");
   const semanticDaypart = semanticValue("context.typical_dayparts");
   const mentionedAge = Number(text.match(/\b(\d{1,2})[- ]?(?:jährig|jaehrig)/)?.[1] ?? NaN);
@@ -242,6 +245,11 @@ function matchesWorldPreference(snapshot: ProductWorldView, context: DecisionPro
   return actual === value || Array.isArray(actual) && actual.includes(value);
 }
 
+function hasConfirmedWorldAttribute(snapshot: ProductWorldView, key: string): boolean {
+  const row = entry(snapshot, key);
+  return row?.resolution === "KNOWN_VALUE" && !snapshot.conflicts.some((conflict) => conflict.attributeKeys.includes(key));
+}
+
 const germanWeekday = (localDate: string): string => new Intl.DateTimeFormat("de-CH", { weekday: "long", timeZone: "Europe/Zurich" }).format(new Date(`${localDate}T12:00:00.000Z`));
 const openingIntervals = (rows: readonly { readonly start: string; readonly end: string }[]): string => rows.map((row) => `${row.start}–${row.end}`).join(", ");
 const daypartWindows: Readonly<Record<string, readonly (readonly [number, number])[]>> = {
@@ -287,6 +295,34 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, pro
   if (openingStatus === "closed") failed.push("ACTUAL_AVAILABILITY");
   if (context.hardConstraints.includes("OPEN_NOW")) { openingStatus === "open" ? confirmed.push("OPEN_NOW") : openingStatus === "closed" ? failed.push("OPEN_NOW") : unknownHard.push("OPEN_NOW"); }
   if (context.hardConstraints.includes("OPEN_ON_REQUESTED_DAY")) { openingStatus === "open" ? confirmed.push("OPEN_ON_REQUESTED_DAY") : openingStatus === "closed" ? failed.push("OPEN_ON_REQUESTED_DAY") : unknownHard.push("OPEN_ON_REQUESTED_DAY"); }
+  const queryConstraints = context.hardConstraints.flatMap((value) => {
+    const constraint = decodeWorldQueryConstraint(value);
+    return constraint ? [constraint] : [];
+  });
+  const requiredGroups = new Map<string, WorldQueryConstraint[]>();
+  const semanticReasons: ReturnType<typeof reason>[] = [];
+  for (const constraint of queryConstraints) if (constraint.role === "REQUIRED") {
+    const group = requiredGroups.get(constraint.group) ?? [];
+    group.push(constraint); requiredGroups.set(constraint.group, group);
+  }
+  for (const [group, alternatives] of requiredGroups) {
+    const code = `QUERY_REQUIRED_${group}`;
+    const matches = alternatives.some(({ key, value }) => matchesWorldPreference(snapshot, context, key, value));
+    const unknownEvidence = alternatives.some(({ key }) => !hasConfirmedWorldAttribute(snapshot, key));
+    (matches ? confirmed : unknownEvidence ? unknownHard : failed).push(code);
+    semanticReasons.push(reason(`query-required-${group.toLowerCase()}`, matches ? "WORLD" : "LIMITATION", contentHash({ snapshotHash: snapshot.snapshotHash, alternatives }), matches
+      ? "Ein für diesen Wunsch erforderliches Ortsmerkmal ist bestätigt."
+      : "Ein für diesen Wunsch erforderliches Ortsmerkmal ist nicht bestätigt.", matches));
+  }
+  for (const [index, constraint] of queryConstraints.filter((value) => value.role === "EXCLUDED").entries()) {
+    const code = `QUERY_EXCLUDED_${index + 1}`;
+    const excluded = matchesWorldPreference(snapshot, context, constraint.key, constraint.value);
+    const known = hasConfirmedWorldAttribute(snapshot, constraint.key);
+    (excluded ? failed : known ? confirmed : unknownHard).push(code);
+    semanticReasons.push(reason(`query-excluded-${index + 1}`, excluded ? "WORLD" : "LIMITATION", contentHash({ snapshotHash: snapshot.snapshotHash, constraint }), excluded
+      ? "Der Ort besitzt eine für diesen Wunsch ausdrücklich ausgeschlossene Eigenschaft."
+      : known ? "Die ausgeschlossene Eigenschaft ist für diesen Ort nicht belegt." : "Ob dieser Ort eine ausgeschlossene Eigenschaft besitzt, ist nicht geklärt.", excluded || known));
+  }
   const contextualReject = rejected.includes(snapshot.spot.spotId); const incompatible = ["INCOMPATIBLE", "DISPUTED"].includes(core.state); const notConfigured = core.state === "NOT_CONFIGURED";
   const tierValue = contextualReject || failed.length || incompatible ? "INELIGIBLE" : notConfigured ? "NOT_CONFIGURED" : core.state === "CONFIRMED" && !unknownHard.length ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK";
   const purposeEntry = entry(snapshot, "purpose.primary_visit"); const onsiteEntry = entry(snapshot, "offering.onsite"); const onsite = Array.isArray(onsiteEntry?.value) ? onsiteEntry.value as readonly { kind: string; relationship: "PART_OF_SPOT" | "EMBEDDED_FACILITY" }[] : [];
@@ -305,6 +341,7 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, pro
   const worldReasons = [
     reason(`core-intent-${core.state.toLowerCase()}`, "WORLD", core.evidenceSourceHash, core.state === "CONFIRMED" ? "Die bestätigte Kernklassifikation passt zur Absicht." : core.state === "INCOMPATIBLE" ? "Die bestätigte Kernklassifikation passt nicht zur Absicht; Zusatzangebote ersetzen sie nicht." : "Die Kernabsicht ist durch World Knowledge nicht bestätigt.", core.state === "CONFIRMED"),
     reason(`primary-purpose-${purposeCoverage.state.toLowerCase()}`, "WORLD", purposeCoverage.evidenceSourceHash, purposeCoverage.state === "CONFIRMED" ? "Der bestätigte Hauptzweck unterstützt die Absicht zusätzlich." : purposeCoverage.state === "INCOMPATIBLE" ? "Der bestätigte Hauptzweck unterstützt diese Absicht nicht." : "Der Hauptzweck ist für diese Absicht nicht bestätigt.", purposeCoverage.state === "CONFIRMED"),
+    ...semanticReasons,
   ];
   if (openingStatus === "closed") worldReasons.push(reason("currently-closed", "WORLD", contentHash({ snapshotHash: snapshot.snapshotHash, openingStatus }), requestedDay?.status === "open" && context.dateTime.dayPhase && !intervalsMeetDaypart(requestedDay.intervals, context.dateTime.dayPhase) ? "Der Ort ist zur gewünschten Tageszeit laut bestätigten Öffnungszeiten nicht geöffnet." : "Der Ort ist laut gültigem World Knowledge geschlossen.", true));
   if (context.hardConstraints.includes(PRODUCT_INDOOR_CONSTRAINT)) {

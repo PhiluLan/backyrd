@@ -55,6 +55,14 @@ test("semantic request context keeps the Swiss day, evening and family signals s
   assert.equal(tomorrow.dateTime.localDate, "2026-10-04");
   assert.equal(tomorrow.dateTime.dayPhase, "EVENING");
   assert.equal(tomorrow.group.companionType, "FRIENDS_GROUP");
+  const requiredContext = resolveDecisionProductContext(productRequest("Date in einer Bar", "required-context", {
+    explicit: { primaryIntent: "DRINKS", hardConstraints: [
+      "WK_REQUIRED:G1:context.visit_situations:DATE_PAIR",
+      "WK_REQUIRED:G2:context.typical_dayparts:EVENING",
+    ] },
+  }), { authorizedCity: "Basel", serverTime: "2026-10-03T12:00:00.000Z" });
+  assert.equal(requiredContext.group.companionType, "DATE_PAIR");
+  assert.equal(requiredContext.dateTime.dayPhase, "EVENING");
 });
 
 test("the Product intent lexicon recognizes concrete food, drink, sport, culture, nature and activity requests", () => {
@@ -509,7 +517,10 @@ test("AI World-query additions cross the HTTP boundary while unrelated or unsafe
   const request = productRequest("Ausflug mit meiner Tochter bei Regen", "ai-boundary");
   const interpreted = { ...request, explicit: {
     ...request.explicit, primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: "SPORT_MOVEMENT",
-    softPreferences: ["WK:context.visit_situations:FAMILY"], hardConstraints: ["INDOOR_REQUIRED"],
+    softPreferences: ["WK:context.visit_situations:FAMILY"], hardConstraints: [
+      "INDOOR_REQUIRED", "WK_REQUIRED:G1:context.visit_situations:FAMILY",
+      "WK_EXCLUDED:X:classification.primary_category:STAY",
+    ],
   } };
   const probe = async (output, original = request) => {
     const failures = [];
@@ -535,6 +546,8 @@ test("AI World-query additions cross the HTTP boundary while unrelated or unsafe
     { ...interpreted, explicit: { ...interpreted.explicit, targetCity: "Zurich" } },
     { ...interpreted, explicit: { ...interpreted.explicit, softPreferences: ["UNVERIFIED"] } },
     { ...interpreted, explicit: { ...interpreted.explicit, hardConstraints: ["UNVERIFIED"] } },
+    { ...interpreted, explicit: { ...interpreted.explicit, hardConstraints: ["WK_REQUIRED:G1:context.visit_situations:IMAGINARY"] } },
+    { ...interpreted, explicit: { ...interpreted.explicit, hardConstraints: ["WK_EXCLUDED:X:identity.name:STAY"] } },
   ]) {
     assert.deepEqual(await probe(output), { stage: "INTERPRETATION", code: "product_ai_intent_request_boundary_invalid" });
   }
