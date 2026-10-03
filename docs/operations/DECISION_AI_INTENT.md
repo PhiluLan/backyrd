@@ -42,6 +42,14 @@ rows from the newly introduced private intent cache. This is not authority to
 delete existing Product data or to execute the migration outside the manual
 Production release.
 
+The manual Production deployment run `37121530704` completed with `PASS` for
+canonical Main `67296a000e7d82d15860b5e3a4d69bce8bce6c1c`; its immutable
+audit lists only the migration above and `decision-v13`. Fresh read-only
+Production inspection then found 174 migrations ending at that migration and
+active `decision-v13` version 168. The shipped-source ledger was reconciled
+from this evidence without editing Production migration history. The AI
+feature remained OFF.
+
 Before activation, verify the exact model named in
 `BACKYRD_DECISION_AI_INTENT_MODEL` is available to the Production project and
 supports strict Structured Outputs on Responses with `store: false`; confirm
