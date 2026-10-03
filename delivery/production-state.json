@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "fe1535bf1c0f17426953f806c7da0b93cc8c15a1",
-    "migrationTip": "20261002202705_owner_pro_stripe_billing_v1",
-    "migrationCount": 173,
-    "deploymentRunId": 37112438717,
+    "shippedSourceSha": "67296a000e7d82d15860b5e3a4d69bce8bce6c1c",
+    "migrationTip": "20261003111539_decision_ai_intent_cache_v1",
+    "migrationCount": 174,
+    "deploymentRunId": 37121530704,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
