@@ -44,7 +44,19 @@ jobs:
       - name: Require a recent green deep recertification
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
-          latest="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deep-recertification.yml --branch main --limit 1 --json conclusion,status,createdAt,databaseId)"
+          # GitHub's Actions API occasionally returns transient 503/504 errors.
+          # Retry only the read; every release invariant below remains mandatory.
+          latest=""
+          for attempt in 1 2 3 4; do
+            if latest="$(GH_HTTP_TIMEOUT=15 gh run list --repo "$GITHUB_REPOSITORY" --workflow deep-recertification.yml --branch main --limit 1 --json conclusion,status,createdAt,databaseId)"; then
+              break
+            fi
+            if test "$attempt" -eq 4; then
+              echo "Deep recertification status could not be verified" >&2
+              exit 1
+            fi
+            sleep 5
+          done
           test "$(jq 'length' <<<"$latest")" -eq 1
           test "$(jq -r '.[0].status' <<<"$latest")" = completed
           test "$(jq -r '.[0].conclusion' <<<"$latest")" = success
