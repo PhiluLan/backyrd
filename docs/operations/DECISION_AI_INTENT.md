@@ -73,3 +73,14 @@ lists fail closed. If a provider or quality failure occurs,
 set it back to `false`; the deterministic Product path remains, with unknown
 intents showing no unrelated ranked list. No model key or raw user wish should
 appear in logs or release evidence.
+
+The first Production pilot is controlled by the manual
+`decision-ai-pilot-production.yml` workflow. It requires the exact current Main
+SHA, the successful audited `decision-v13` deployment run, and literal mode
+confirmation. The workflow verifies the deployed bundle and existing server-side
+OpenAI key before setting `gpt-6-luna`, the one approved user UUID, and only
+then the enable flag. `EMERGENCY_OFF` is a separate manual mode that sets the
+flag false without waiting for model checks. The workflow reports
+`PILOT_CONFIGURED_ONE_ACCOUNT_PROVIDER_NOT_YET_VERIFIED`, not pilot success;
+the authenticated one-account request, provider result, costs, and ranking
+evidence must still be checked before any broader activation.
