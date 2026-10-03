@@ -1,5 +1,3 @@
-import { supabase } from "@/lib/supabase/client";
-
 export type DecisionInputMode = "guided" | "free";
 export type DecisionOption = {
   key: string;
@@ -264,14 +262,21 @@ export function buildCanonicalDecisionRequest(
   };
 }
 
-async function sessionToken() {
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session?.access_token)
-    throw new Error("Bitte melde dich an, um Für jetzt zu nutzen.");
-  return data.session.access_token;
-}
-
 const unavailable = () => new Error("Die aktuelle Decision ist gerade nicht verfügbar.");
+async function invokeDecision(body: unknown): Promise<unknown> {
+  const response = await fetch("/api/decision", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    if (response.status === 401) throw new Error("Bitte melde dich an, um Für jetzt zu nutzen.");
+    throw unavailable();
+  }
+  return response.json() as Promise<unknown>;
+}
 const record = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw unavailable();
   return value as Record<string, unknown>;
@@ -406,13 +411,8 @@ async function validateResponse(value: unknown, request: DecisionProductRequest)
 }
 
 export async function runWebDecision(input: DecisionRequest, action?: DecisionAction): Promise<DecisionRun> {
-  const token = await sessionToken();
   const request = buildCanonicalDecisionRequest(input, action);
-  const { data, error } = await supabase.functions.invoke<unknown>("decision-v13", {
-    body: request,
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (error || !data) throw unavailable();
+  const data = await invokeDecision(request);
   const response = await validateResponse(data, request);
   const results = response.candidates.filter((candidate) => candidate.rank !== null && !candidate.contextualReject);
   return {
@@ -433,7 +433,6 @@ export async function recordDecisionInteraction(
   eventType: "candidate_impression" | "candidate_opened",
 ) {
   if (!identifier(decisionId) || !identifier(candidateId)) throw unavailable();
-  const token = await sessionToken();
   const actionId = crypto.randomUUID();
   const request = {
     contractVersion: INTERACTION_REQUEST_VERSION,
@@ -443,11 +442,7 @@ export async function recordDecisionInteraction(
     eventType,
     candidateId,
   };
-  const { data, error } = await supabase.functions.invoke<unknown>("decision-v13", {
-    body: request,
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (error || !data) throw unavailable();
+  const data = await invokeDecision(request);
   const response = record(data);
   exactKeys(response, ["contractVersion", "status", "decisionId", "candidateId", "eventType", "legacyWriteUsed", "fallbackUsed"]);
   if (response.contractVersion !== INTERACTION_RESPONSE_VERSION || response.status !== "ACKNOWLEDGED" || response.decisionId !== decisionId || response.candidateId !== candidateId || response.eventType !== eventType || response.legacyWriteUsed !== false || response.fallbackUsed !== false) throw unavailable();
