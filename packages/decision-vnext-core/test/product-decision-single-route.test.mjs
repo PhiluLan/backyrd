@@ -520,7 +520,7 @@ test("AI World-query additions cross the HTTP boundary while unrelated or unsafe
     softPreferences: ["WK:context.visit_situations:FAMILY"], hardConstraints: [
       "INDOOR_REQUIRED", "WK_REQUIRED:G1:context.visit_situations:FAMILY",
       "WK_EXCLUDED:X:classification.primary_category:STAY",
-    ],
+    ], unresolvedTerms: ["PRECISE_TIME_UNVERIFIED"],
   } };
   const probe = async (output, original = request) => {
     const failures = [];
@@ -542,6 +542,11 @@ test("AI World-query additions cross the HTTP boundary while unrelated or unsafe
     return failures[0];
   };
   assert.deepEqual(await probe(interpreted), { stage: "EVALUATION", code: "product_evaluation_probe" });
+  assert.deepEqual(await probe({ ...interpreted, explicit: { ...interpreted.explicit, unresolvedTerms: ["NOT_A_REAL_CODE"] } }),
+    { stage: "INTERPRETATION", code: "DECISION_UNAVAILABLE" });
+  const withOriginalUnresolved = productRequest("Cocktails und Musik nach 22 Uhr", "ai-unresolved", { explicit: { unresolvedTerms: ["MUSIC_AT_VISIT_UNVERIFIED"] } });
+  assert.deepEqual(await probe({ ...withOriginalUnresolved, explicit: { ...withOriginalUnresolved.explicit, unresolvedTerms: [] } }, withOriginalUnresolved),
+    { stage: "INTERPRETATION", code: "product_ai_intent_request_boundary_invalid" });
   for (const output of [
     { ...interpreted, explicit: { ...interpreted.explicit, targetCity: "Zurich" } },
     { ...interpreted, explicit: { ...interpreted.explicit, softPreferences: ["UNVERIFIED"] } },
