@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -149,6 +150,17 @@ test("only the exact authority-hashed Product consent/expiry migration clears th
   assert.equal(isAuthorizedBoundedMigration("supabase/migrations/other.sql", migration, authority), false);
   assert.equal(isAuthorizedBoundedMigration(path, migration, { ...authority, authorizedBoundedMigrations: authority.authorizedBoundedMigrations.map((entry) => ({ ...entry, scope: "BROAD_DELETE" })) }), false);
   assert.equal(isAuthorizedBoundedMigration(path, migration, { ...authority, authorizedBoundedMigrations: authority.authorizedBoundedMigrations.map((entry) => ({ ...entry, sha256: "0".repeat(64) })) }), false);
+});
+
+test("the AI cache deletion scope cannot authorize another path, hash or broader operation", () => {
+  const path = "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql";
+  const sql = "delete from decision_vnext_private.product_intent_cache_v1 where expires_at < now();\n";
+  const entry = { path, sha256: createHash("sha256").update(sql).digest("hex"), scope: "EXPIRED_PRIVATE_AI_INTENT_CACHE_ONLY" };
+  const anchor = { authorizedBoundedMigrations: [entry] };
+  assert.equal(isAuthorizedBoundedMigration(path, sql, anchor), true);
+  assert.equal(isAuthorizedBoundedMigration(path, `${sql}delete from public.spots;`, anchor), false);
+  assert.equal(isAuthorizedBoundedMigration("supabase/migrations/other.sql", sql, anchor), false);
+  assert.equal(isAuthorizedBoundedMigration(path, sql, { authorizedBoundedMigrations: [{ ...entry, scope: "BROAD_DELETE" }] }), false);
 });
 
 test("protected source changes select Decision recertification while evaluator-only changes do not", () => {
