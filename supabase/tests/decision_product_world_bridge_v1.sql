@@ -17,6 +17,30 @@ select pg_temp.assert(
   and not has_function_privilege('service_role','world_knowledge_private.product_decision_projection_v1(jsonb)','execute'),
   'private projection must not be directly callable by clients or service_role'
 );
+select pg_temp.assert(
+  not has_function_privilege('anon','world_knowledge_private.product_intent_category_priority_v1(text,jsonb)','execute')
+  and not has_function_privilege('authenticated','world_knowledge_private.product_intent_category_priority_v1(text,jsonb)','execute')
+  and not has_function_privilege('service_role','world_knowledge_private.product_intent_category_priority_v1(text,jsonb)','execute'),
+  'catalog priority must not be callable outside the Product context'
+);
+with samples(category,expected) as (values
+  ('ACTIVITIES_PLAY',0),('CULTURE_ARTS',0),('OUTDOOR_NATURE',0),
+  ('STAY',1),('EAT',1)
+)
+select pg_temp.assert(bool_and(
+  world_knowledge_private.product_intent_category_priority_v1(
+    'ACTIVITY_EXPERIENCE',jsonb_build_object('facts',jsonb_build_array(
+      jsonb_build_object('key','classification.primary_category','value',category,
+        'resolution','KNOWN_VALUE','trust','VERIFIED','freshness','CURRENT'))))=expected
+), 'canonical activity categories must outrank unrelated categories, including hotels')
+from samples;
+select pg_temp.assert(
+  world_knowledge_private.product_intent_category_priority_v1(
+    'ACTIVITY_EXPERIENCE',jsonb_build_object('facts',jsonb_build_array(
+      jsonb_build_object('key','classification.primary_category','value','ACTIVITIES_PLAY',
+        'resolution','KNOWN_VALUE','trust','UNVERIFIED','freshness','CURRENT'))))=1,
+  'unverified category must never gain catalog priority'
+);
 
 with snapshot as (
   select jsonb_build_object(

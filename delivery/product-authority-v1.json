@@ -45,8 +45,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql",
-        "sha256": "bb7f64fe1dfe2c99c920bae57eb3c50d1b6ccefddc63952b8560f310836c95b2"
+        "path": "supabase/migrations/20261003130322_align_decision_product_world_taxonomy.sql",
+        "sha256": "6ece7fa6f72fe5e970c8f19b242d539afa26f13efa51d0af00f43c5af9cd401a"
       }
     ],
     "executionAuthorized": false,
