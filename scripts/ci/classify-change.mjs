@@ -117,8 +117,11 @@ export function isAuthorizedBoundedMigration(path, text, trustAnchor) {
   const entries = trustAnchor.authorizedBoundedMigrations;
   if (!Array.isArray(entries)) return false;
   const match = entries.find((entry) => entry?.path === path);
+  const acceptedScope = match?.scope === "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
+    || (match?.scope === "EXPIRED_PRIVATE_AI_INTENT_CACHE_ONLY"
+      && path === "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql");
   if (!match || typeof match.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(match.sha256)
-    || match.scope !== "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY") return false;
+    || !acceptedScope) return false;
   return createHash("sha256").update(text, "utf8").digest("hex") === match.sha256;
 }
 
