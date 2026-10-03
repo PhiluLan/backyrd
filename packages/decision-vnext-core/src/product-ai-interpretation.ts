@@ -106,6 +106,8 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
       .filter((category) => !excludedCategories.has(category));
     const normalized = facets.map((facet): Facet => {
       if (facet.key === "purpose.primary_visit" && facet.role === "REQUIRED") return { ...facet, role: "PREFERRED", group: null };
+      if (requiredPlaceType && facet.key === "classification.primary_category" && facet.role === "REQUIRED")
+        return { ...facet, role: "PREFERRED", group: null };
       if (facet.key === "classification.primary_category" && facet.role === "REQUIRED"
         && !mapping.acceptedPrimaryCategories.includes(facet.value as typeof mapping.acceptedPrimaryCategories[number])) return { ...facet, role: "PREFERRED", group: null };
       if (enforceCategories && facet.key === "classification.primary_category" && allowedCategories.includes(facet.value))

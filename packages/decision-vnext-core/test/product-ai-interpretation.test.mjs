@@ -143,6 +143,14 @@ test("AI core facets respect the intent ontology and broad activity alternatives
     "WK_EXCLUDED:X:classification.primary_category:DRINKS",
     "WK_REQUIRED:G1:classification.primary_category:NIGHTLIFE",
   ]);
+
+  const concreteVenue = interpreter(async () => modelResponse(semantics({ primaryIntent: "NIGHTLIFE", facets: [
+    facet("classification.place_types", "BAR", "Bar", "REQUIRED", "G1"),
+    facet("classification.primary_category", "NIGHTLIFE", "ausgehen", "REQUIRED", "G2"),
+  ] })), rpc);
+  const concreteOutput = await concreteVenue(request("Abends in eine Bar gehen"), actor, new AbortController().signal);
+  assert.deepEqual(concreteOutput.explicit.hardConstraints, ["WK_REQUIRED:G1:classification.place_types:BAR"]);
+  assert.ok(concreteOutput.explicit.softPreferences.includes("WK:classification.primary_category:NIGHTLIFE"));
 });
 
 test("an unambiguous rain phrase remains an indoor requirement if the model misses it", async () => {
