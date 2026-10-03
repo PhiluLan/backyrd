@@ -12,7 +12,7 @@ runtime, release or gate authority.
   route redirects here; it does not evaluate or display a second Product path)
 - Mobile contract: `mobile/packages/product-decision-contract/`
 - Mobile transport: `mobile/lib/decision/productDecision.ts`
-- Web transport: `web/lib/decision-web-api.ts`
+- Web transport: `web/lib/decision-web-api.ts` through the authenticated, same-origin `web/app/api/decision/route.ts` proxy to the single `decision-v13` function.
 - Edge entrypoint: `supabase/functions/decision-v13/index.deploy.ts`
 - Edge implementation: `supabase/functions/decision-v13/vnext-only.ts`
 
