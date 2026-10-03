@@ -1,5 +1,5 @@
 import {
-  ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION, parseWorldKnowledgeSnapshot,
+  ACCEPTED_SOURCE_POLICY, PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, REGISTRY_HASH, REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION, parseWorldKnowledgeSnapshot,
   type WorldKnowledgeReaderPort,
 } from "@backyrd/world-knowledge-core";
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
@@ -16,7 +16,7 @@ import {
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.6" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.7" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -113,7 +113,7 @@ function candidateTasteConcepts(snapshot: ProductWorldView, context: DecisionPro
   if (category === "DRINKS" || [...placeTypes].some((value) => ["PUB", "WINE_BAR", "BAR", "BREWERY", "TAPROOM", "COCKTAIL_BAR", "LOUNGE"].includes(value))) concepts.add("place_type.bar");
   if (category === "NIGHTLIFE") concepts.add("place_type.nightlife");
   if (category === "CULTURE_ARTS" || placeTypes.has("MUSEUM")) concepts.add("place_type.culture");
-  if (category === "ACTIVITIES_PLAY" || placeTypes.has("ACTIVITY_VENUE")) { concepts.add("place_type.activity"); concepts.add("place_type.experience"); }
+  if (category === "ACTIVITIES_PLAY" || [...placeTypes].some((value) => ["ARCADE", "ESCAPE_ROOM", "BOWLING_ALLEY", "MINI_GOLF", "WORKSHOP_STUDIO", "AMUSEMENT_PARK"].includes(value))) { concepts.add("place_type.activity"); concepts.add("place_type.experience"); }
   if (category === "OUTDOOR_NATURE" || [...placeTypes].some((value) => ["PARK", "NATURE_RESERVE", "ZOO", "AQUARIUM"].includes(value))) { concepts.add("place_type.outing"); concepts.add("environment.outdoor"); }
   if (placeTypes.has("HOTEL")) concepts.add("place_type.hotel");
 
@@ -182,9 +182,25 @@ export function evaluateProductV1IntentClassification(input: { readonly intent: 
   if (!input.intent) return { intentId: null, state: "NOT_APPLICABLE" as const, mappingIds: [], worldFactKeys: [], evidenceSourceHash: input.evidenceSourceHash };
   const mapping = PRODUCT_V1_INTENT_MAPPINGS.find((row) => row.intentId === input.intent); if (!mapping) return { intentId: input.intent, state: "NOT_CONFIGURED" as const, mappingIds: [], worldFactKeys: [], evidenceSourceHash: input.evidenceSourceHash };
   const { purpose, category, placeTypes } = input;
-  const specificConfirm = mapping.acceptedPrimaryCategories.includes(category ?? "") || placeTypes.some((value) => mapping.acceptedPlaceTypes.includes(value));
-  const specificIncompatible = (purpose !== null && mapping.incompatiblePrimaryPurposes.includes(purpose)) || (category !== null && mapping.incompatiblePrimaryCategories.includes(category)) || placeTypes.some((value) => mapping.incompatiblePlaceTypes.includes(value));
-  const state = input.disputed ? "DISPUTED" as const : specificConfirm ? "CONFIRMED" as const : specificIncompatible ? "INCOMPATIBLE" as const : "UNKNOWN" as const;
+  if (purpose !== null && !(PRIMARY_VISIT_PURPOSES as readonly string[]).includes(purpose)
+    || category !== null && !(PRIMARY_CATEGORIES as readonly string[]).includes(category)
+    || placeTypes.some((value) => !(PLACE_TYPES as readonly string[]).includes(value))) {
+    return { intentId: input.intent, state: "NOT_CONFIGURED" as const, mappingIds: [], worldFactKeys: [], evidenceSourceHash: input.evidenceSourceHash };
+  }
+  const purposeIncompatible = purpose !== null && (mapping.incompatiblePrimaryPurposes as readonly string[]).includes(purpose);
+  const purposeConfirmed = purpose !== null && (mapping.acceptedPrimaryPurposes as readonly string[]).includes(purpose);
+  const categoryIncompatible = category !== null && (mapping.incompatiblePrimaryCategories as readonly string[]).includes(category);
+  const categoryConfirmed = (mapping.acceptedPrimaryCategories as readonly string[]).includes(category ?? "");
+  const placeConfirmed = placeTypes.some((value) => (mapping.acceptedPlaceTypes as readonly string[]).includes(value));
+  const placeIncompatible = placeTypes.some((value) => (mapping.incompatiblePlaceTypes as readonly string[]).includes(value));
+  // A mixed venue can be confirmed by its actual place type only when its
+  // verified primary purpose also supports the intent (e.g. a pub classified
+  // under EAT). A hotel remains incompatible even if it has an onsite café.
+  const mixedVenueConfirmed = categoryIncompatible && purposeConfirmed && placeConfirmed;
+  const state = input.disputed ? "DISPUTED" as const
+    : purposeIncompatible || categoryIncompatible && !mixedVenueConfirmed ? "INCOMPATIBLE" as const
+    : categoryConfirmed || placeConfirmed ? "CONFIRMED" as const
+    : placeIncompatible ? "INCOMPATIBLE" as const : "UNKNOWN" as const;
   return { intentId: input.intent, state, mappingIds: [`product-intent-${input.intent.toLowerCase()}`], worldFactKeys: ["purpose.primary_visit", "classification.primary_category", "classification.place_types"], evidenceSourceHash: contentHash({ evidenceSourceHash: input.evidenceSourceHash, purpose, category, placeTypes, policyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash }) };
 }
 
@@ -202,8 +218,8 @@ function primaryPurposeCoverage(snapshot: ProductWorldView, intent: string | nul
   if (!mapping) return contextual("NOT_CONFIGURED", { snapshotHash: snapshot.snapshotHash, purpose, intent });
   if (snapshot.conflicts.some((row) => row.attributeKeys.includes("purpose.primary_visit"))) return contextual("DISPUTED", purposeEntry ?? snapshot.snapshotHash, [`product-purpose-${intent.toLowerCase()}`]);
   if (purpose === null) return contextual(unknown(snapshot, "purpose.primary_visit") ? "UNKNOWN" : "NOT_CONFIGURED", purposeEntry ?? snapshot.snapshotHash, [`product-purpose-${intent.toLowerCase()}`]);
-  if (mapping.acceptedPrimaryPurposes.includes(purpose)) return contextual("CONFIRMED", purposeEntry, [`product-purpose-${intent.toLowerCase()}`]);
-  if (mapping.incompatiblePrimaryPurposes.includes(purpose)) return contextual("INCOMPATIBLE", purposeEntry, [`product-purpose-${intent.toLowerCase()}`]);
+  if ((mapping.acceptedPrimaryPurposes as readonly string[]).includes(purpose)) return contextual("CONFIRMED", purposeEntry, [`product-purpose-${intent.toLowerCase()}`]);
+  if ((mapping.incompatiblePrimaryPurposes as readonly string[]).includes(purpose)) return contextual("INCOMPATIBLE", purposeEntry, [`product-purpose-${intent.toLowerCase()}`]);
   return contextual("UNKNOWN", purposeEntry, [`product-purpose-${intent.toLowerCase()}`]);
 }
 

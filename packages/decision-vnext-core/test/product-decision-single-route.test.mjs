@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { ACCEPTED_SOURCE_POLICY, WORLD_KNOWLEDGE_PORT_VERSION, buildWorldKnowledgeSnapshot, parseBuildWorldKnowledgeInput, resolutionRequest, resolveWorldKnowledge } from "@backyrd/world-knowledge-core";
+import { ACCEPTED_SOURCE_POLICY, PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, WORLD_KNOWLEDGE_PORT_VERSION, buildWorldKnowledgeSnapshot, parseBuildWorldKnowledgeInput, resolutionRequest, resolveWorldKnowledge } from "@backyrd/world-knowledge-core";
 import { canonicalBytes as userCanonicalBytes, contentHash as userContentHash, parseRelevantUserProjection, projectionHashBody } from "@backyrd/user-intelligence-vnext-core";
 import {
-  DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, DECISION_PRODUCT_RANKING_POLICY,
+  DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, DECISION_PRODUCT_RANKING_POLICY, PRODUCT_V1_INTENT_MAPPINGS,
   DecisionProductCandidateAssessmentSchema, DecisionProductContextSchema, DecisionProductEvaluationSchema, DecisionProductRequestSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS,
   buildDecisionInteractionLearningEvent, buildDecisionProductExecution,
   canonicalJson, contentHash, createDecisionProductHttpHandler,
@@ -210,14 +210,40 @@ test("closed Product-v1 intent matrix is specific, evidence-only and never rescu
   assert.equal(evaluate("COFFEE", "EAT_DRINK", "EAT", ["PUB"]), "INCOMPATIBLE");
   assert.equal(evaluate("COFFEE", "EAT_DRINK", "DRINKS", ["WINE_BAR"]), "INCOMPATIBLE");
   assert.equal(evaluate("COFFEE", "SPORT_MOVEMENT", "SPORT_MOVEMENT", ["CLIMBING_GYM"]), "INCOMPATIBLE");
-  assert.equal(evaluate("COFFEE", "NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", ["PARK"]), "INCOMPATIBLE");
+  assert.equal(evaluate("COFFEE", "NATURE_ANIMAL_EXPERIENCE", "OUTDOOR_NATURE", ["PARK"]), "INCOMPATIBLE");
   assert.equal(evaluate("COFFEE", "EAT_DRINK", null, []), "UNKNOWN");
   assert.equal(evaluate("EAT", "EAT_DRINK", null, []), "UNKNOWN", "purpose alone is weaker than category/place type and cannot establish core eligibility");
   assert.equal(evaluate("EAT", "EAT_DRINK", "EAT", []), "CONFIRMED");
   assert.equal(evaluate("SPORT_MOVEMENT", "SPORT_MOVEMENT", "SPORT_MOVEMENT", ["CLIMBING_GYM"]), "CONFIRMED");
-  assert.equal(evaluate("NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", ["ZOO"]), "CONFIRMED");
+  assert.equal(evaluate("NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", "OUTDOOR_NATURE", ["ZOO"]), "CONFIRMED");
   assert.equal(evaluateProductV1IntentClassification({ intent: "COFFEE", purpose: "EAT_DRINK", category: "COFFEE_DAYTIME", placeTypes: ["CAFE"], disputed: true, evidenceSourceHash: "8".repeat(64) }).state, "DISPUTED");
   assert.equal(DECISION_PRODUCT_INTENT_POLICY.embeddedOfferingsConfirmPrimaryIntent, false);
+});
+
+test("Product intent policy covers canonical World values and rejects hotels for family activities", () => {
+  for (const mapping of DECISION_PRODUCT_INTENT_POLICY.mappings) {
+    for (const value of PRIMARY_VISIT_PURPOSES) assert.ok(mapping.acceptedPrimaryPurposes.includes(value) || mapping.incompatiblePrimaryPurposes.includes(value) || ["OTHER", "TEMPORARY_EVENT"].includes(value), `${mapping.intentId}: purpose ${value}`);
+    for (const value of PRIMARY_CATEGORIES) assert.ok(mapping.acceptedPrimaryCategories.includes(value) || mapping.incompatiblePrimaryCategories.includes(value) || ["OTHER", "TEMPORARY_PLACES"].includes(value), `${mapping.intentId}: category ${value}`);
+    for (const value of PLACE_TYPES) assert.ok(mapping.acceptedPlaceTypes.includes(value) || mapping.incompatiblePlaceTypes.includes(value) || ["OTHER_PLACE", "POP_UP", "EVENT_VENUE", "FESTIVAL_SITE", "SEASONAL_MARKET"].includes(value), `${mapping.intentId}: place type ${value}`);
+  }
+  const evaluate = (purpose, category, placeTypes) => evaluateProductV1IntentClassification({ intent: "ACTIVITY_EXPERIENCE", purpose, category, placeTypes, disputed: false, evidenceSourceHash: "8".repeat(64) }).state;
+  assert.equal(evaluate("ACTIVITY_PLAY", "ACTIVITIES_PLAY", []), "CONFIRMED", "Robi Bachgraben's canonical activity classification is eligible even without a place type");
+  assert.equal(evaluate("OVERNIGHT_STAY", "STAY", ["HOTEL"]), "INCOMPATIBLE", "a hotel is not a family outing");
+  assert.equal(evaluate("OVERNIGHT_STAY", "STAY", ["HOTEL", "MUSEUM"]), "INCOMPATIBLE", "an ancillary place type cannot rescue a hotel");
+  assert.equal(evaluate("ACTIVITY_PLAY", "ACTIVITY_EXPERIENCE", []), "NOT_CONFIGURED", "noncanonical World values fail closed");
+});
+
+test("the bounded SQL catalog priority uses exactly the same canonical categories as Decision", async () => {
+  const sql = await readFile(new URL("../../../supabase/migrations/20261003130322_align_decision_product_world_taxonomy.sql", import.meta.url), "utf8");
+  const priority = sql.split("create function world_knowledge_private.product_intent_category_priority_v1(")[1]?.split("revoke all on function")[0];
+  assert.ok(priority, "the migration must install the live catalog priority");
+  for (const mapping of PRODUCT_V1_INTENT_MAPPINGS) {
+    const match = priority.match(new RegExp(`when '${mapping.intentId}' then array\\[([^\\]]+)\\]`));
+    assert.ok(match, `missing SQL category priority for ${mapping.intentId}`);
+    const categories = [...match[1].matchAll(/'([A-Z_]+)'/g)].map((item) => item[1]);
+    assert.deepEqual(categories, mapping.acceptedPrimaryCategories, `${mapping.intentId} category drift`);
+  }
+  assert.match(sql, /order by world_knowledge_private\.product_intent_category_priority_v1\(p_primary_intent,m\.world_snapshot\)/);
 });
 
 test("confirmed primary purpose ranks after core classification but before the neutral tie-breaker", async () => {

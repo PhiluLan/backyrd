@@ -84,3 +84,16 @@ flag false without waiting for model checks. The workflow reports
 `PILOT_CONFIGURED_ONE_ACCOUNT_PROVIDER_NOT_YET_VERIFIED`, not pilot success;
 the authenticated one-account request, provider result, costs, and ranking
 evidence must still be checked before any broader activation.
+
+## 2026-10-03 pilot finding
+
+The account-only request "Familienausflug in Basel" proved that the provider
+returned the bounded `ACTIVITY_EXPERIENCE` intent. The resulting Product
+Decision nevertheless ranked two canonical `STAY` / `OVERNIGHT_STAY` hotels
+among eight unconfirmed candidates, while `ACTIVITIES_PLAY` / `ACTIVITY_PLAY`
+for Robi Bachgraben was not recognized as confirmed. This is a Decision-to-World
+taxonomy mismatch, not missing researched facts or a model interpretation
+error. In accordance with the pilot quality rollback rule, the manual
+`EMERGENCY_OFF` run `37125040938` succeeded. The AI pilot remains OFF until a
+new exact Product/Database release has passed canonical-value and live-account
+verification. No all-account activation is authorized.

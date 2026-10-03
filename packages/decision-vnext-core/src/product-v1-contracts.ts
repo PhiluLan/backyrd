@@ -35,8 +35,8 @@ export const DecisionProductWorldCohortSchema = schema.object({ contractVersion:
 export type DecisionProductWorldCohort = Infer<typeof DecisionProductWorldCohortSchema>;
 export const DecisionProductIntentPolicySchema = schema.object({
   contractVersion: version(PRODUCT_DECISION_VERSIONS.intentPolicy), policyId: identifier, scope: schema.literal("PRODUCT_V1"),
-  mappings: schema.array(schema.object({ intentId: identifier, acceptedPrimaryPurposes: schema.array(identifier, { max: 20 }), acceptedPrimaryCategories: schema.array(identifier, { max: 20 }), acceptedPlaceTypes: schema.array(identifier, { max: 30 }), incompatiblePrimaryPurposes: schema.array(identifier, { max: 30 }), incompatiblePrimaryCategories: schema.array(identifier, { max: 30 }), incompatiblePlaceTypes: schema.array(identifier, { max: 50 }) }), { min: 7, max: 9 }),
-  precedence: schema.literal("SPECIFIC_CONFIRM_THEN_SPECIFIC_INCOMPATIBLE_THEN_UNKNOWN"), embeddedOfferingsConfirmPrimaryIntent: schema.literal(false),
+  mappings: schema.array(schema.object({ intentId: identifier, acceptedPrimaryPurposes: schema.array(identifier, { max: 20 }), acceptedPrimaryCategories: schema.array(identifier, { max: 20 }), acceptedPlaceTypes: schema.array(identifier, { max: 30 }), incompatiblePrimaryPurposes: schema.array(identifier, { max: 30 }), incompatiblePrimaryCategories: schema.array(identifier, { max: 30 }), incompatiblePlaceTypes: schema.array(identifier, { max: 100 }) }), { min: 7, max: 9 }),
+  precedence: schema.literal("PURPOSE_AND_CATEGORY_BEFORE_PLACE_TYPE_WITH_MIXED_VENUES"), embeddedOfferingsConfirmPrimaryIntent: schema.literal(false),
   generalEatDrinkConfirmsSpecificIntent: schema.literal(false), commercialSignalsForbidden: schema.literal(true), policyHash: sha256,
 });
 const reason = schema.object({ reasonCode: identifier, domain: schema.enum(["WORLD", "USER", "CONTEXT", "LIMITATION"] as const), sourceHash: sha256, statementDe: schema.string({ min: 1, max: 500 }), confirmed: schema.boolean() });
