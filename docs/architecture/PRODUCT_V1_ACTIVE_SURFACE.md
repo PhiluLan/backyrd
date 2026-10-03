@@ -52,6 +52,14 @@ hard exclusion. Query explanations describe only the verified criteria; they
 must not imply that every part of the person's request was verified. A request
 for a low price similarly remains a fallback when no low price level is
 verified; even a verified low level is not a promise of a particular CHF price.
+The AI interpreter also accounts for material request parts that the current
+catalog cannot verify. Canonical, non-raw codes for music during the visit,
+a precise clock time, or another unmapped core need travel with the interpreted
+request. They make candidates provisional and produce explicit user-facing
+limitations; they do not assert Spot facts or discard otherwise useful places.
+The current opening evaluation is day/daypart based, so it must not claim that
+an exact requested hour was checked. These limitations remain until matching
+versioned World evidence and evaluation support are shipped.
 
 ## Required gates
 

@@ -309,3 +309,24 @@ test("query requirements apply across family, cafe, craft-beer, date, alternativ
   const merelyPreferred = assessPlan("Bar, gerne lebhaft", "DRINKS", [], ["WK:context.atmosphere:LIVELY"]);
   assert.equal(tier(merelyPreferred, 6), "ELIGIBLE_CONFIRMED", "optional attributes may not silently become eligibility requirements");
 });
+
+test("unmapped music and precise-time needs cannot become a fully confirmed recommendation", () => {
+  const world = read(binding(voltaId, [
+    fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "DRINKS"),
+    fact("classification.place_types", ["COCKTAIL_BAR"]), fact("offering.groups", ["COCKTAILS"]),
+  ]));
+  const request = {
+    contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "music-and-time", idempotencyKey: "music-and-time-key",
+    naturalLanguage: "Cocktails und Musik nach 22 Uhr", explicit: {
+      primaryIntent: "DRINKS", hardConstraints: ["WK_REQUIRED:G1:offering.groups:COCKTAILS"],
+      unresolvedTerms: ["MUSIC_AT_VISIT_UNVERIFIED", "PRECISE_TIME_UNVERIFIED"],
+    }, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [],
+  };
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
+  const candidate = result.evaluation.candidates[0];
+  assert.equal(candidate.tier, "UNCONFIRMED_FALLBACK");
+  assert.ok(candidate.limitations.includes("MUSIC_AT_VISIT_UNVERIFIED"));
+  assert.ok(candidate.limitations.includes("PRECISE_TIME_UNVERIFIED"));
+  assert.ok(candidate.reasons.some((row) => row.reasonCode === "music-at-visit-unverified" && !row.confirmed));
+  assert.ok(candidate.reasons.some((row) => row.reasonCode === "precise-time-unverified" && !row.confirmed));
+});

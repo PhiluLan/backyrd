@@ -5,7 +5,7 @@ import { DecisionProductRequestSchema, type DecisionProductRequest } from "./pro
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_INDOOR_CONSTRAINT, PRODUCT_QUERY_CATALOG, PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.5" as const;
+export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.6" as const;
 export const PRODUCT_AI_INTENT_CACHE_RPC = "backyrd_decision_vnext_product_query_cache_v1" as const;
 
 const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
@@ -23,7 +23,8 @@ export function parseDecisionProductAiIntentAllowlist(raw: string): readonly str
 }
 
 type Facet = { readonly key: string; readonly value: string; readonly role: "REQUIRED" | "PREFERRED" | "EXCLUDED"; readonly group: string | null };
-type QuerySemantics = { readonly primaryIntent: ProductV1Intent | null; readonly secondaryIntent: ProductV1Intent | null; readonly facets: readonly Facet[]; readonly indoorRequired: boolean };
+type UnresolvedNeed = "MUSIC_AT_VISIT_UNVERIFIED" | "PRECISE_TIME_UNVERIFIED" | "OTHER_CORE_NEED_UNMAPPED";
+type QuerySemantics = { readonly primaryIntent: ProductV1Intent | null; readonly secondaryIntent: ProductV1Intent | null; readonly facets: readonly Facet[]; readonly indoorRequired: boolean; readonly unresolvedNeedCodes: readonly UnresolvedNeed[] };
 type CacheResult = { readonly status: "HIT"; readonly semantics: QuerySemantics } | { readonly status: "MISS" };
 const object = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("product_ai_intent_result_invalid");
@@ -38,6 +39,8 @@ const intent = (value: unknown): ProductV1Intent | null => {
 const explicitRain = (text: string): boolean => /\b(?:bei regen|regentag|es regnet)\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
 const explicitNegation = (text: string): boolean => /\b(?:kein(?:e|en|em|er|es)?|nicht|ohne|ausser|außer|statt)\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
 const explicitMusicClub = (text: string): boolean => /\b(?:musikclub|music.?club|konzertclub|nachtclub|club|disco|diskothek)\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
+const explicitMusicNeed = (text: string): boolean => /\bmusik\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH")) && !/\b(?:ohne|keine?)\s+musik\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
+const explicitPreciseTime = (text: string): boolean => /\b(?:nach|ab|um)\s*(?:[01]?\d|2[0-3])(?:(?::[0-5]\d)?\s*uhr\b|:[0-5]\d\b)/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
 const invalid = (reason: string) => new Error(`product_ai_intent_result_invalid_${reason}`);
 
 function separateRequirementDomains(facets: readonly Facet[]): readonly Facet[] {
@@ -59,12 +62,17 @@ function separateRequirementDomains(facets: readonly Facet[]): readonly Facet[] 
 
 function parseSemantics(value: unknown, text?: string): QuerySemantics {
   const row = object(value); const fromModel = text !== undefined;
-  if (!exactKeys(row, fromModel ? ["primaryIntent", "secondaryIntent", "facets", "indoorRequired", "indoorEvidence"] : ["primaryIntent", "secondaryIntent", "facets", "indoorRequired"])) throw invalid("shape");
+  if (!exactKeys(row, fromModel ? ["primaryIntent", "secondaryIntent", "facets", "indoorRequired", "indoorEvidence", "unresolvedNeedCodes"] : ["primaryIntent", "secondaryIntent", "facets", "indoorRequired", "unresolvedNeedCodes"])) throw invalid("shape");
   const primaryIntent = intent(row.primaryIntent);
   const proposedSecondary = intent(row.secondaryIntent);
   const secondaryIntent = proposedSecondary === primaryIntent ? null : proposedSecondary;
+  const allowedUnresolved = new Set<UnresolvedNeed>(["MUSIC_AT_VISIT_UNVERIFIED", "PRECISE_TIME_UNVERIFIED", "OTHER_CORE_NEED_UNMAPPED"]);
   if (typeof row.indoorRequired !== "boolean" || !Array.isArray(row.facets) || row.facets.length > 20
+    || !Array.isArray(row.unresolvedNeedCodes) || row.unresolvedNeedCodes.length > 3 || row.unresolvedNeedCodes.some((code) => typeof code !== "string" || !allowedUnresolved.has(code as UnresolvedNeed))
     || fromModel && row.indoorEvidence !== null && (typeof row.indoorEvidence !== "string" || row.indoorEvidence.length > 120)) throw invalid("bounds");
+  const unresolvedNeedCodes = new Set<UnresolvedNeed>(row.unresolvedNeedCodes as UnresolvedNeed[]);
+  if (text && explicitMusicNeed(text)) unresolvedNeedCodes.add("MUSIC_AT_VISIT_UNVERIFIED");
+  if (text && explicitPreciseTime(text)) unresolvedNeedCodes.add("PRECISE_TIME_UNVERIFIED");
   const fallbackGroups = new Map<string, string>();
   const facetsByValue = new Map<string, Facet>();
   const conflictingValues = new Set<string>();
@@ -151,9 +159,9 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
       if (!normalized.some((facet) => facet.key === "classification.primary_category" && facet.value === category))
         normalized.push({ key: "classification.primary_category", value: category, role: "REQUIRED", group: categoryGroup });
     }
-    return { primaryIntent, secondaryIntent, facets: separateRequirementDomains(normalized), indoorRequired: row.indoorRequired || text !== undefined && explicitRain(text) };
+    return { primaryIntent, secondaryIntent, facets: separateRequirementDomains(normalized), indoorRequired: row.indoorRequired || text !== undefined && explicitRain(text), unresolvedNeedCodes: [...unresolvedNeedCodes].sort() };
   }
-  return { primaryIntent, secondaryIntent, facets: separateRequirementDomains(facets), indoorRequired: row.indoorRequired || text !== undefined && explicitRain(text) };
+  return { primaryIntent, secondaryIntent, facets: separateRequirementDomains(facets), indoorRequired: row.indoorRequired || text !== undefined && explicitRain(text), unresolvedNeedCodes: [...unresolvedNeedCodes].sort() };
 }
 
 function parseCacheResult(value: unknown): CacheResult {
@@ -191,7 +199,7 @@ const facetProperties = (key: string, values: readonly string[]) => ({
 });
 const modelSchema = {
   type: "object", additionalProperties: false,
-  required: ["primaryIntent", "secondaryIntent", "facets", "indoorRequired", "indoorEvidence"],
+  required: ["primaryIntent", "secondaryIntent", "facets", "indoorRequired", "indoorEvidence", "unresolvedNeedCodes"],
   properties: {
     primaryIntent: { type: ["string", "null"], enum: [...intents, null] },
     secondaryIntent: { type: ["string", "null"], enum: [...intents, null] },
@@ -200,6 +208,7 @@ const modelSchema = {
       properties: facetProperties(field.key, field.values),
     })) } },
     indoorRequired: { type: "boolean" }, indoorEvidence: { type: ["string", "null"] },
+    unresolvedNeedCodes: { type: "array", items: { type: "string", enum: ["MUSIC_AT_VISIT_UNVERIFIED", "PRECISE_TIME_UNVERIFIED", "OTHER_CORE_NEED_UNMAPPED"] } },
   },
 };
 
@@ -241,6 +250,7 @@ export function createDecisionProductAiIntentInterpreter(input: {
             "Ein qualitatives Preiswort wie 'günstig' ist eine Präferenz, kein exakter Preisdeckel. Preislevel dürfen nie REQUIRED sein; konkrete Beträge prüft die Engine getrennt anhand bestätigter CHF-Spannen.",
             "Bei Regen oder ausdrücklichem Wunsch nach drinnen ist indoorRequired wahr. Museum und Indoor-Kletterhalle sind Indoor-Ortsarten; Zoo und Park sind nicht automatisch regentauglich.",
             "Ausgehen oder 'einen drauf machen' mit Freund:innen kann NIGHTLIFE, lebhaft und gesellig bedeuten; es beweist weder Alkoholkonsum noch Tanzfläche. Craft Beer ohne Ausgehkontext ist DRINKS. 'Musik' verlangt nicht automatisch einen MUSIC_CLUB; diese Ortsart ist nur dann REQUIRED, wenn ein Club als Ort gemeint ist. Decke jeden eigenständigen Kernbestandteil des Wunsches ab, insbesondere Tätigkeit und Gesellschaft, ohne konkrete Spot-Fakten zu erfinden.",
+            "Prüfe jeden eigenständigen Kernbestandteil gegen die ausgewählten Felder. Trage in unresolvedNeedCodes MUSIC_AT_VISIT_UNVERIFIED ein, wenn Musik zum Besuch gewünscht ist, PRECISE_TIME_UNVERIFIED für eine konkrete Uhrzeit und OTHER_CORE_NEED_UNMAPPED, wenn ein anderer wichtiger Bestandteil im Katalog nicht abgebildet oder anhand von Spot-Wissen nicht verifiziert werden kann. Die Liste darf nur dann leer sein, wenn wirklich alles abgedeckt ist. Diese Codes sind Ehrlichkeitsgrenzen, keine erfundenen Spot-Fakten.",
             `Zulässige Felder und Werte: ${JSON.stringify(catalogForModel)}.`,
           ].join(" "), input: parsed.naturalLanguage,
           text: { format: { type: "json_schema", name: "backyrd_decision_query_v2", strict: true, schema: modelSchema } },
@@ -281,6 +291,7 @@ export function createDecisionProductAiIntentInterpreter(input: {
       primaryIntent: parsed.explicit.primaryIntent ?? semantics.primaryIntent,
       secondaryIntent: parsed.explicit.secondaryIntent ?? semantics.secondaryIntent,
       softPreferences: [...softPreferences].sort(), hardConstraints: [...hardConstraints].sort(),
+      unresolvedTerms: [...new Set([...(parsed.explicit.unresolvedTerms ?? []), ...semantics.unresolvedNeedCodes])].sort(),
     } });
   };
 }

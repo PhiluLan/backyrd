@@ -50,6 +50,9 @@ function resultCopy(spot: DecisionResult): { highlights: string[]; consideration
   if (spot.coreIntentCoverage !== "CONFIRMED") considerations.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
   if (spot.reasons.some((reason) => reason.code === "visit-unconfirmed")) considerations.push("Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.");
   if (spot.reasons.some((reason) => reason.code === "price-level-unconfirmed")) considerations.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
+  if (spot.reasons.some((reason) => reason.code === "music-at-visit-unverified")) considerations.push("Ob bei deinem Besuch Musik läuft, ist für diesen Ort nicht bestätigt.");
+  if (spot.reasons.some((reason) => reason.code === "precise-time-unverified")) considerations.push("Die konkrete gewünschte Uhrzeit wurde für diesen Ort nicht geprüft.");
+  if (spot.reasons.some((reason) => reason.code === "core-need-unmapped")) considerations.push("Ein weiterer Teil deines Wunsches konnte noch nicht mit Spot-Wissen abgeglichen werden.");
   if (spot.unknownHardConstraints.length > 0) considerations.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
   if (spot.limitations.includes("PRICE_LEVEL_NOT_A_CHF_AMOUNT")) considerations.push("Ein Preisniveau ist kein bestätigter Betrag in Franken.");
   return { highlights, considerations };
