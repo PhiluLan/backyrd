@@ -50,7 +50,13 @@ candidate remains a visible `UNCONFIRMED_FALLBACK`, not `ELIGIBLE_CONFIRMED`.
 This is a ranking and disclosure distinction, not an age restriction or a new
 hard exclusion. Query explanations describe only the verified criteria; they
 must not imply that every part of the person's request was verified. A request
-for a low price similarly remains a fallback when no low price level is
+for an open-ended activity with company must not be narrowed to the handful
+of categories suggested by the model. Those category suggestions are ranking
+preferences; the closed Product intent ontology determines the eligible
+experience types. A named, specific venue type remains a requirement. This
+preserves discovery of genuinely suitable activities outside the model's first
+guesses while leaving family suitability and other unverified context visible.
+A request for a low price similarly remains a fallback when no low price level is
 verified; even a verified low level is not a promise of a particular CHF price.
 The AI interpreter also accounts for material request parts that the current
 catalog cannot verify. Canonical, non-raw codes for music during the visit,

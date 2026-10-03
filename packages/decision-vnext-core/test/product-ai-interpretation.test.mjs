@@ -45,7 +45,9 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
   assert.deepEqual(first, second); assert.equal(fetches, 1); assert.equal(calls.length, 3);
   assert.equal(first.explicit.primaryIntent, "ACTIVITY_EXPERIENCE");
   assert.ok(first.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
-  assert.ok(first.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.primary_category:ACTIVITIES_PLAY"));
+  assert.equal(first.explicit.hardConstraints.some((item) => item.includes("classification.primary_category")), false);
+  assert.ok(first.explicit.softPreferences.includes("WK:classification.primary_category:ACTIVITIES_PLAY"));
+  assert.ok(first.explicit.softPreferences.includes("WK:classification.primary_category:CULTURE_ARTS"));
   assert.ok(first.explicit.softPreferences.includes("WK:context.visit_situations:FAMILY"));
   assert.equal(JSON.stringify(stored).includes("Tochter"), false);
   assert.equal(JSON.stringify(stored).includes("Regen"), false);
@@ -193,12 +195,9 @@ test("AI core facets respect the intent ontology and broad activity alternatives
     facet("context.visit_situations", "FAMILY", "Tochter"),
   ] })), rpc);
   const familyOutput = await family(request("Ausflug mit meiner 4-jährigen Tochter bei Regen"), actor, new AbortController().signal);
-  assert.deepEqual(familyOutput.explicit.hardConstraints, [
-    "INDOOR_REQUIRED",
-    "WK_REQUIRED:CORE:classification.primary_category:ACTIVITIES_PLAY",
-    "WK_REQUIRED:CORE:classification.primary_category:CULTURE_ARTS",
-    "WK_REQUIRED:CORE:classification.primary_category:ENTERTAINMENT",
-  ]);
+  assert.deepEqual(familyOutput.explicit.hardConstraints, ["INDOOR_REQUIRED"]);
+  assert.ok(familyOutput.explicit.softPreferences.includes("WK:classification.primary_category:CULTURE_ARTS"));
+  assert.ok(familyOutput.explicit.softPreferences.includes("WK:classification.primary_category:ENTERTAINMENT"));
 
   const openEnded = interpreter(async () => modelResponse(semantics({ facets: [
     facet("classification.primary_category", "ACTIVITIES_PLAY", "etwas unternehmen"),
@@ -254,8 +253,9 @@ test("ordinary model paraphrases and group formatting do not abort the Decision"
   } });
   const output = await run(request("Ausflug mit meiner 4-jährigen Tochter bei Regen"), actor, new AbortController().signal);
   assert.equal(output.explicit.secondaryIntent, null);
-  assert.ok(output.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.primary_category:ACTIVITIES_PLAY"));
-  assert.ok(output.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.primary_category:CULTURE_ARTS"));
+  assert.equal(output.explicit.hardConstraints.some((item) => item.includes("classification.primary_category")), false);
+  assert.ok(output.explicit.softPreferences.includes("WK:classification.primary_category:ACTIVITIES_PLAY"));
+  assert.ok(output.explicit.softPreferences.includes("WK:classification.primary_category:CULTURE_ARTS"));
   assert.ok(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
   assert.ok(output.explicit.softPreferences.includes("WK:context.visit_situations:FAMILY"));
 });

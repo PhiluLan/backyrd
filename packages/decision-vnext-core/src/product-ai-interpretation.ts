@@ -133,12 +133,12 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     // The primary-intent ontology is authoritative for core venue eligibility.
     // A model may suggest a narrower category, but a single broad category
     // must not contradict the accepted siblings (NIGHTLIFE also includes bars).
-    // With an interpreted company/situation, several proposed activity
-    // categories form a concrete alternative set. An open-ended "something to
-    // do" remains exploratory; model guesses must not narrow it needlessly.
+    // Several proposed categories for a situated activity express exploration,
+    // not evidence that every other accepted experience type is wrong. Keep
+    // those guesses as preferences unless the request names a venue type.
     const situatedActivity = facets.some((facet) => facet.key === "context.visit_situations" && facet.role !== "EXCLUDED");
     const activityAlternatives = primaryIntent === "ACTIVITY_EXPERIENCE" && situatedActivity && proposedCategories.length >= 2;
-    const enforceCategories = !requiredPlaceType && (requiredCategories.length > 0 || activityAlternatives);
+    const enforceCategories = !requiredPlaceType && requiredCategories.length > 0 && !activityAlternatives;
     const categoryGroup = requiredCategories[0]?.group ?? "CORE";
     const excludedCategories = new Set(facets.filter((facet) => facet.key === "classification.primary_category" && facet.role === "EXCLUDED").map((facet) => facet.value));
     const allowedCategories: readonly string[] = (enforceCategories && requiredCategories.length === 1
@@ -148,6 +148,8 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     const normalized = facets.map((facet): Facet => {
       if (facet.key === "purpose.primary_visit" && facet.role === "REQUIRED") return { ...facet, role: "PREFERRED", group: null };
       if (requiredPlaceType && facet.key === "classification.primary_category" && facet.role === "REQUIRED")
+        return { ...facet, role: "PREFERRED", group: null };
+      if (activityAlternatives && facet.key === "classification.primary_category" && facet.role === "REQUIRED")
         return { ...facet, role: "PREFERRED", group: null };
       if (facet.key === "classification.primary_category" && facet.role === "REQUIRED"
         && !mapping.acceptedPrimaryCategories.includes(facet.value as typeof mapping.acceptedPrimaryCategories[number])) return { ...facet, role: "PREFERRED", group: null };
