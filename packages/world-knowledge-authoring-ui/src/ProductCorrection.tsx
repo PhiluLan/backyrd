@@ -427,9 +427,9 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
           <div className="wk-pro-preview-card"><span className="wk-pro-kicker">backyrd · Owner Pro</span>
             <h3 id="wk-pro-preview-title">Mehr Tiefe für deinen Spot.</h3>
             <p>{current.id === "objective" ? "Ergänze, was Gäste hier konkret unternehmen können und welche Möglichkeiten dein Spot bietet." : "Zeige Ausstattung, Zugänglichkeit und Einschränkungen so klar, wie Gäste sie vor dem Besuch brauchen."}</p>
-            <div className="wk-pro-price"><strong>CHF 39.–</strong><span>pro Monat</span></div>
-            <a className="wk-pro-cta" href="mailto:hello@backyrd.ch?subject=Owner%20Pro%20anfragen">Owner Pro anfragen</a>
-            <small>Keine automatische Buchung. Angaben werden weiterhin geprüft; Pro garantiert keine Platzierung in Empfehlungen.</small>
+            <div className="wk-pro-price"><strong>CHF 39.–</strong><span>pro Monat · pro Spot · inkl. MWST</span></div>
+            <a className="wk-pro-cta" href={`/owner/billing?spot=${encodeURIComponent(detail.spotId)}`}>Owner Pro entdecken</a>
+            <small>Angaben werden weiterhin geprüft. Pro garantiert keine Platzierung in Empfehlungen.</small>
           </div>
         </section>
         : current.id === "review" ? <div className="wk-review">

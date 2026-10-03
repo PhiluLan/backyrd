@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Serif_Display, Geist, Libre_Franklin } from "next/font/google";
 import "./globals.css";
 import "./owner-intelligence.css";
+import "./owner-billing.css";
 import "./landing-logo-moments.css";
 import "./consumer.css";
 import "@backyrd/world-knowledge-authoring-ui/styles.css";
