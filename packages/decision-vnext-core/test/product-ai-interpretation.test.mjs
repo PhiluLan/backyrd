@@ -127,6 +127,12 @@ test("AI core facets respect the intent ontology and broad activity alternatives
     "WK_REQUIRED:CORE:classification.primary_category:CULTURE_ARTS",
     "WK_REQUIRED:CORE:classification.primary_category:ENTERTAINMENT",
   ]);
+
+  const museum = interpreter(async () => modelResponse(semantics({ facets: [
+    facet("classification.primary_category", "CULTURE_ARTS", "Museum", "REQUIRED", "G1"),
+  ] })), rpc);
+  const museumOutput = await museum(request("Museum besuchen"), actor, new AbortController().signal);
+  assert.deepEqual(museumOutput.explicit.hardConstraints, ["WK_REQUIRED:G1:classification.primary_category:CULTURE_ARTS"]);
 });
 
 test("an unambiguous rain phrase remains an indoor requirement if the model misses it", async () => {
