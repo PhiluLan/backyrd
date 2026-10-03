@@ -11,6 +11,7 @@ const actor = { userId: "11111111-1111-4111-8111-111111111111", subjectBindingHa
 const request = (naturalLanguage, explicit = {}) => ({ contractVersion: PRODUCT_DECISION_VERSIONS.request, requestId: "request-family", idempotencyKey: "idem-family", naturalLanguage, explicit, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] });
 const modelResponse = (value) => ({ ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(value) }] }] }; } });
 const semantics = (overrides = {}) => ({ primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: null, facets: [], indoorRequired: false, indoorEvidence: null, ...overrides });
+const facet = (key, value, evidence, role = "PREFERRED", group = null) => ({ key, value, evidence, role, group });
 const interpreter = (fetchImpl, rpc, allowedUserIds = [actor.userId]) => createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "gpt-6-luna", allowedUserIds, rpc, fetchImpl });
 
 test("AI interprets a normal request even when the old lexicon recognizes its category; cache is byte-stable", async () => {
@@ -19,8 +20,20 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
     fetches += 1; const body = JSON.parse(options.body);
     assert.equal(body.store, false); assert.equal(body.text.format.strict, true);
     assert.ok(body.instructions.includes("context.visit_situations"));
+    const variants = body.text.format.schema.properties.facets.items.anyOf;
+    assert.equal(variants.length, PRODUCT_QUERY_CATALOG.length);
+    for (const variant of variants) {
+      const field = PRODUCT_QUERY_CATALOG.find((entry) => entry.key === variant.properties.key.const);
+      assert.ok(field);
+      assert.deepEqual(variant.properties.value.enum, field.values);
+    }
     assert.equal(body.input, "Ausflug mit meiner 4 jährigen Tochter bei Regen");
-    return modelResponse(semantics({ facets: [{ key: "context.visit_situations", value: "FAMILY", evidence: "Tochter" }], indoorRequired: true, indoorEvidence: "Regen" }));
+    return modelResponse(semantics({ facets: [
+      facet("classification.primary_category", "ACTIVITIES_PLAY", "Ausflug", "REQUIRED", "G1"),
+      facet("classification.primary_category", "CULTURE_ARTS", "Ausflug", "REQUIRED", "G1"),
+      facet("classification.primary_category", "ENTERTAINMENT", "Ausflug", "REQUIRED", "G1"),
+      facet("context.visit_situations", "FAMILY", "Tochter"),
+    ], indoorRequired: true, indoorEvidence: "Regen" }));
   }, { async rpc(name, parameters) {
     assert.equal(name, PRODUCT_AI_INTENT_CACHE_RPC); calls.push(parameters);
     if (parameters.p_write) stored ??= parameters.p_semantics;
@@ -32,18 +45,37 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
   assert.deepEqual(first, second); assert.equal(fetches, 1); assert.equal(calls.length, 3);
   assert.equal(first.explicit.primaryIntent, "ACTIVITY_EXPERIENCE");
   assert.ok(first.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
+  assert.ok(first.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.primary_category:ACTIVITIES_PLAY"));
   assert.ok(first.explicit.softPreferences.includes("WK:context.visit_situations:FAMILY"));
   assert.equal(JSON.stringify(stored).includes("Tochter"), false);
   assert.equal(JSON.stringify(stored).includes("Regen"), false);
 });
 
 test("explicit user intent wins while AI still interprets the other dimensions", async () => {
-  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "DRINKS", facets: [{ key: "context.atmosphere", value: "LIVELY", evidence: "lebhaft" }] })), {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "DRINKS", facets: [facet("context.atmosphere", "LIVELY", "lebhaft")] })), {
     async rpc(_name, parameters) { return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; },
   });
   const output = await run(request("lebhaft", { primaryIntent: "EAT" }), actor, new AbortController().signal);
   assert.equal(output.explicit.primaryIntent, "EAT");
   assert.ok(output.explicit.softPreferences.includes("WK:context.atmosphere:LIVELY"));
+});
+
+test("one query plan separates essential alternatives, optional taste and explicit exclusions", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ facets: [
+    facet("classification.place_types", "MUSEUM", "Museum", "REQUIRED", "G1"),
+    facet("classification.place_types", "CINEMA", "Kino", "REQUIRED", "G1"),
+    facet("context.atmosphere", "QUIET", "ruhig"),
+    facet("classification.primary_category", "EAT", "kein Restaurant", "EXCLUDED"),
+  ] })), { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("Museum oder Kino, ruhig, kein Restaurant"), actor, new AbortController().signal);
+  assert.deepEqual(output.explicit.hardConstraints, [
+    "WK_EXCLUDED:X:classification.primary_category:EAT",
+    "WK_REQUIRED:G1:classification.place_types:CINEMA",
+    "WK_REQUIRED:G1:classification.place_types:MUSEUM",
+  ]);
+  assert.deepEqual(output.explicit.softPreferences, ["WK:context.atmosphere:QUIET"]);
 });
 
 test("an unambiguous rain phrase remains an indoor requirement if the model misses it", async () => {
@@ -56,7 +88,9 @@ test("an unambiguous rain phrase remains an indoor requirement if the model miss
 
 test("unknown values, invented spots and unsupported evidence fail before ranking", async () => {
   for (const invalid of [
-    semantics({ facets: [{ key: "context.atmosphere", value: "PARTY_HARD", evidence: "homies" }] }),
+    semantics({ facets: [facet("context.atmosphere", "PARTY_HARD", "homies")] }),
+    semantics({ facets: [facet("context.atmosphere", "LIVELY", "homies", "REQUIRED")] }),
+    semantics({ facets: [facet("context.atmosphere", "LIVELY", "homies", "EXCLUDED", "G1")] }),
     { ...semantics(), spotId: "unverified" },
     semantics({ indoorRequired: true, indoorEvidence: "Regen" }),
   ]) {
