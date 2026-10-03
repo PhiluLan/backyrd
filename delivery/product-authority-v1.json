@@ -38,6 +38,12 @@
       "sha256": "bb7f64fe1dfe2c99c920bae57eb3c50d1b6ccefddc63952b8560f310836c95b2",
       "scope": "EXPIRED_PRIVATE_AI_INTENT_CACHE_ONLY",
       "source": "Founder and CTO exact-scope approval, 2026-10-03"
+    },
+    {
+      "path": "supabase/migrations/20261003160222_decision_ai_query_cache_v1.sql",
+      "sha256": "02b6a2541629fde1ec767fe9851d353fa8bd4f08c6a90bbef72033d12cf45d3b",
+      "scope": "EXPIRED_PRIVATE_AI_QUERY_CACHE_ONLY",
+      "source": "Founder and CTO exact-scope approval, 2026-10-03"
     }
   ],
   "additiveProductMigrationScope": {
@@ -45,8 +51,12 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261003130322_align_decision_product_world_taxonomy.sql",
-        "sha256": "6ece7fa6f72fe5e970c8f19b242d539afa26f13efa51d0af00f43c5af9cd401a"
+        "path": "supabase/migrations/20261003160222_decision_ai_query_cache_v1.sql",
+        "sha256": "02b6a2541629fde1ec767fe9851d353fa8bd4f08c6a90bbef72033d12cf45d3b"
+      },
+      {
+        "path": "supabase/migrations/20261003160310_decision_product_context_full_city_v5.sql",
+        "sha256": "52eef471fc0ee28e6958ef00aaa037afdfb2cf1279162734166cf3692c93b403"
       }
     ],
     "executionAuthorized": false,

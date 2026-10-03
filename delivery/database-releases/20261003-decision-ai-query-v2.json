@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20261003-decision-ai-query-v2",
+  "previousEvidence": "20261003130322-decision-world-taxonomy-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "69561427f8713061efc499402d4db80ca42ee4e8dac9cb6020e93dca4a9c5f79",
+    "applicationSchemaSha256": "b478d9e052175946a2c0f4f2c01d54b1aa0a5a2a233f3b192089a2c94a305f21"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261003160222_decision_ai_query_cache_v1.sql",
+      "sha256": "02b6a2541629fde1ec767fe9851d353fa8bd4f08c6a90bbef72033d12cf45d3b"
+    },
+    {
+      "path": "supabase/migrations/20261003160310_decision_product_context_full_city_v5.sql",
+      "sha256": "52eef471fc0ee28e6958ef00aaa037afdfb2cf1279162734166cf3692c93b403"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_ai_query_cache_v1.sql",
+      "sha256": "5b55d822732af1ef28bcc464155bceb0851d2c80cffe55fc8711f7229fe014b3"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "9944f9ad2dcb708c597cbf87bc9398abf06705d03afadbef85e51de612e48229",
+    "applicationSchemaSha256": "768137b4f05cadf98455a7a2e2e5db5672236302964fd70f9f195e75f997b655"
+  }
+}

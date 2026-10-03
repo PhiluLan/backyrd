@@ -95,13 +95,13 @@ function rankingChecks(left: RankableCandidate, right: RankableCandidate): reado
     [compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]), "der besser belegten Hauptabsicht"],
     [compareNumber(coreScore[a.primaryVisitPurposeState], coreScore[b.primaryVisitPurposeState]), "des zusätzlich bestätigten Hauptzwecks"],
     [compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]), "der besser belegten Verfügbarkeit"],
-    [compareNumber(userRelevanceScore(a.userRelevance.state), userRelevanceScore(b.userRelevance.state)), "der consentgebundenen persönlichen Passung"],
-    [compareNumber(a.userRelevance.confidence, b.userRelevance.confidence), "der Stärke der consentgebundenen persönlichen Evidenz"],
     [compareBoolean(a.contextFit.secondaryIntentConfirmed, b.contextFit.secondaryIntentConfirmed), "einer bestätigten Nebenabsicht"],
     [compareBoolean(a.contextFit.visitSituationConfirmed, b.contextFit.visitSituationConfirmed), "der bestätigten Besuchssituation"],
     [compareNumber(a.contextFit.matchedSoftPreferenceCount, b.contextFit.matchedSoftPreferenceCount), "weiterer bestätigter Kontextmerkmale"],
     [compareBoolean(a.contextFit.atmosphereConfirmed, b.contextFit.atmosphereConfirmed), "der bestätigten Atmosphäre"],
     [compareBoolean(a.contextFit.typicalDaypartConfirmed, b.contextFit.typicalDaypartConfirmed), "der bestätigten Tageszeit"],
+    [compareNumber(userRelevanceScore(a.userRelevance.state), userRelevanceScore(b.userRelevance.state)), "der consentgebundenen persönlichen Passung"],
+    [compareNumber(a.userRelevance.confidence, b.userRelevance.confidence), "der Stärke der consentgebundenen persönlichen Evidenz"],
     [compareBoolean(a.worldEvidence.conflictFree, b.worldEvidence.conflictFree), "weniger widersprüchlicher World-Angaben"],
     [compareNumber(a.worldEvidence.confirmedReasonCount, b.worldEvidence.confirmedReasonCount), "zusätzlicher bestätigter World-Gründe"],
     [a.neutralIdentity.localeCompare(b.neutralIdentity), "eines neutralen stabilen Tie-Breakers, nicht wegen einer besser belegten Passung"],
@@ -139,7 +139,7 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
     const rankVector = vector(candidate, projection);
     const reasons: ProductReason[] = [
       ...candidate.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-      { code: "product-ranking-policy-v2", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Die Reihenfolge folgt der freigegebenen lexikografischen Decision-vNext-Policy; persönliche Signale wirken nur nach harten Bedingungen und fachlicher Eignung.", confirmed: true },
+      { code: "product-ranking-policy-v3", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ];
     const body = {
       spotId: candidate.candidateId, presentation, tier: candidate.tier, rank: null,

@@ -124,7 +124,7 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
     idempotencyKey: "key-1", naturalLanguage: "Café in Basel", explicit: { targetCity: "Basel" },
     alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
   const evaluate = (data, incoming = request) => createDecisionProductRpcEvaluationProvider({ async rpc(name, parameters) {
-    assert.equal(name, "backyrd_decision_vnext_product_context_v4");
+    assert.equal(name, "backyrd_decision_vnext_product_context_v5");
     assert.equal(parameters.p_primary_intent, incoming === request ? "COFFEE" : null);
     assert.equal(Object.hasOwn(parameters, "naturalLanguage"), false);
     return { data, error: null };

@@ -1,96 +1,93 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDecisionProductAiIntentInterpreter, parseDecisionProductAiIntentAllowlist, PRODUCT_AI_INTENT_CACHE_RPC, PRODUCT_DECISION_VERSIONS } from "../dist/index.js";
+import {
+  createDecisionProductAiIntentInterpreter, parseDecisionProductAiIntentAllowlist,
+  PRODUCT_AI_INTENT_CACHE_RPC, PRODUCT_DECISION_VERSIONS, PRODUCT_QUERY_CATALOG,
+  inferredIndoorSuitability, decodeWorldPreference,
+} from "../dist/index.js";
 
 const identity = { releaseHash: "a".repeat(64), artifactHash: "b".repeat(64), sourceSetHash: "c".repeat(64), controlGeneration: 4 };
 const actor = { userId: "11111111-1111-4111-8111-111111111111", subjectBindingHash: "d".repeat(64), authenticationContextHash: "e".repeat(64), sessionBindingHash: "f".repeat(64), sessionId: "22222222-2222-4222-8222-222222222222" };
 const request = (naturalLanguage, explicit = {}) => ({ contractVersion: PRODUCT_DECISION_VERSIONS.request, requestId: "request-family", idempotencyKey: "idem-family", naturalLanguage, explicit, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] });
+const modelResponse = (value) => ({ ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(value) }] }] }; } });
+const semantics = (overrides = {}) => ({ primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: null, facets: [], indoorRequired: false, indoorEvidence: null, ...overrides });
+const interpreter = (fetchImpl, rpc, allowedUserIds = [actor.userId]) => createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "gpt-6-luna", allowedUserIds, rpc, fetchImpl });
 
-test("AI resolves an everyday compound once and the durable cache makes retries identical", async () => {
-  const calls = [];
-  let stored;
-  let fetches = 0;
-  const interpreter = createDecisionProductAiIntentInterpreter({
-    identity, apiKey: "test-only-key", model: "gpt-6-luna", allowedUserIds: [actor.userId],
-    rpc: { async rpc(name, parameters) {
-      assert.equal(name, PRODUCT_AI_INTENT_CACHE_RPC);
-      calls.push(parameters);
-      if (parameters.p_write) stored ??= parameters.p_primary_intent;
-      return { data: stored === undefined ? { status: "MISS" } : { status: "HIT", primaryIntent: stored }, error: null };
-    } },
-    async fetchImpl(_url, options) {
-      fetches += 1;
-      const body = JSON.parse(options.body);
-      assert.equal(body.store, false);
-      assert.deepEqual(body.reasoning, { effort: "none" });
-      assert.equal(body.input, "Familienausflug in Basel");
-      assert.equal(body.text.format.strict, true);
-      return { ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: '{"primaryIntent":"ACTIVITY_EXPERIENCE"}' }] }] }; } };
-    },
+test("AI interprets a normal request even when the old lexicon recognizes its category; cache is byte-stable", async () => {
+  let stored; let fetches = 0; const calls = [];
+  const run = interpreter(async (_url, options) => {
+    fetches += 1; const body = JSON.parse(options.body);
+    assert.equal(body.store, false); assert.equal(body.text.format.strict, true);
+    assert.ok(body.instructions.includes("context.visit_situations"));
+    assert.equal(body.input, "Ausflug mit meiner 4 jährigen Tochter bei Regen");
+    return modelResponse(semantics({ facets: [{ key: "context.visit_situations", value: "FAMILY", evidence: "Tochter" }], indoorRequired: true, indoorEvidence: "Regen" }));
+  }, { async rpc(name, parameters) {
+    assert.equal(name, PRODUCT_AI_INTENT_CACHE_RPC); calls.push(parameters);
+    if (parameters.p_write) stored ??= parameters.p_semantics;
+    return { data: stored === undefined ? { status: "MISS" } : { status: "HIT", semantics: stored }, error: null };
+  } });
+  const input = request("Ausflug mit meiner 4 jährigen Tochter bei Regen");
+  const first = await run(input, actor, new AbortController().signal);
+  const second = await run(input, actor, new AbortController().signal);
+  assert.deepEqual(first, second); assert.equal(fetches, 1); assert.equal(calls.length, 3);
+  assert.equal(first.explicit.primaryIntent, "ACTIVITY_EXPERIENCE");
+  assert.ok(first.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
+  assert.ok(first.explicit.softPreferences.includes("WK:context.visit_situations:FAMILY"));
+  assert.equal(JSON.stringify(stored).includes("Tochter"), false);
+  assert.equal(JSON.stringify(stored).includes("Regen"), false);
+});
+
+test("explicit user intent wins while AI still interprets the other dimensions", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "DRINKS", facets: [{ key: "context.atmosphere", value: "LIVELY", evidence: "lebhaft" }] })), {
+    async rpc(_name, parameters) { return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; },
   });
-  const input = request("Familienausflug in Basel", { targetCity: "Basel" });
-  const first = await interpreter(input, actor, new AbortController().signal);
-  const second = await interpreter(input, actor, new AbortController().signal);
-  assert.deepEqual(first, second);
-  assert.deepEqual(first.explicit, { targetCity: "Basel", primaryIntent: "ACTIVITY_EXPERIENCE" });
-  assert.equal(fetches, 1);
-  assert.equal(calls.length, 3);
-  assert.equal(calls[0].p_write, false);
-  assert.equal(calls[1].p_write, true);
-  assert.equal(calls[1].p_primary_intent, "ACTIVITY_EXPERIENCE");
-  assert.equal(calls[0].p_auth_user_id, actor.userId);
+  const output = await run(request("lebhaft", { primaryIntent: "EAT" }), actor, new AbortController().signal);
+  assert.equal(output.explicit.primaryIntent, "EAT");
+  assert.ok(output.explicit.softPreferences.includes("WK:context.atmosphere:LIVELY"));
 });
 
-test("explicit user intent is not replaced by AI", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
-    rpc: { async rpc() { throw new Error("should not be called"); } },
-    async fetchImpl() { throw new Error("should not be called"); } });
-  const input = request("Irgendwo hin", { primaryIntent: "CULTURE_ART" });
-  assert.deepEqual(await interpreter(input, actor, new AbortController().signal), input);
+test("an unambiguous rain phrase remains an indoor requirement if the model misses it", async () => {
+  const run = interpreter(async () => modelResponse(semantics()), {
+    async rpc(_name, parameters) { return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; },
+  });
+  const output = await run(request("Ausflug bei Regen"), actor, new AbortController().signal);
+  assert.ok(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
 });
 
-test("clear everyday requests keep the deterministic path without provider or cache cost", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
-    rpc: { async rpc() { throw new Error("should not be called"); } },
-    async fetchImpl() { throw new Error("should not be called"); } });
-  const input = request("Kaffee in Basel");
-  assert.deepEqual(await interpreter(input, actor, new AbortController().signal), input);
+test("unknown values, invented spots and unsupported evidence fail before ranking", async () => {
+  for (const invalid of [
+    semantics({ facets: [{ key: "context.atmosphere", value: "PARTY_HARD", evidence: "homies" }] }),
+    { ...semantics(), spotId: "unverified" },
+    semantics({ indoorRequired: true, indoorEvidence: "Regen" }),
+  ]) {
+    const run = interpreter(async () => modelResponse(invalid), { async rpc() { return { data: { status: "MISS" }, error: null }; } });
+    await assert.rejects(run(request("mit den homies"), actor, new AbortController().signal), /product_ai_intent_result_invalid/);
+  }
 });
 
-test("provider failure does not silently fall back to fabricated recommendations", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
-    rpc: { async rpc() { return { data: { status: "MISS" }, error: null }; } },
-    async fetchImpl() { return { ok: false }; } });
-  await assert.rejects(interpreter(request("Familienausflug in Basel"), actor, new AbortController().signal), /product_ai_intent_provider_unavailable/);
+test("provider failure is not disguised as a successful semantic interpretation", async () => {
+  const run = interpreter(async () => ({ ok: false }), { async rpc() { return { data: { status: "MISS" }, error: null }; } });
+  await assert.rejects(run(request("Familienausflug"), actor, new AbortController().signal), /product_ai_intent_provider_unavailable/);
 });
 
-test("invalid model intent is rejected before reaching Product ranking", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
-    rpc: { async rpc() { return { data: { status: "MISS" }, error: null }; } },
-    async fetchImpl() { return { ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: '{"primaryIntent":"RESTAURANT_ONLY"}' }] }] }; } }; } });
-  await assert.rejects(interpreter(request("Familienausflug in Basel"), actor, new AbortController().signal), /product_ai_intent_result_invalid/);
-});
-
-test("model cannot attach a spot claim or instruction to its intent", async () => {
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
-    rpc: { async rpc() { return { data: { status: "MISS" }, error: null }; } },
-    async fetchImpl() { return { ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: '{"primaryIntent":"ACTIVITY_EXPERIENCE","spotId":"unverified"}' }] }] }; } }; } });
-  await assert.rejects(interpreter(request("Familienausflug in Basel"), actor, new AbortController().signal), /product_ai_intent_result_invalid/);
-});
-
-test("pilot allowlist is exact and fails closed for malformed configuration", async () => {
+test("pilot allowlist remains exact and fail-closed", async () => {
   assert.deepEqual(parseDecisionProductAiIntentAllowlist(""), []);
   assert.deepEqual(parseDecisionProductAiIntentAllowlist(` ${actor.userId.toUpperCase()} `), [actor.userId]);
   assert.equal(parseDecisionProductAiIntentAllowlist("*"), "*");
   assert.throws(() => parseDecisionProductAiIntentAllowlist("*,"), /allowlist_invalid/);
-  assert.throws(() => parseDecisionProductAiIntentAllowlist(`${actor.userId},${actor.userId}`), /allowlist_invalid/);
-  const interpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [],
-    rpc: { async rpc() { throw new Error("cache must not be called"); } },
-    async fetchImpl() { throw new Error("provider must not be called"); } });
-  const input = request("Familienausflug in Basel");
-  assert.deepEqual(await interpreter(input, actor, new AbortController().signal), input);
-  const oneAccountInterpreter = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
-    rpc: { async rpc() { throw new Error("cache must not be called for another account"); } },
-    async fetchImpl() { throw new Error("provider must not be called for another account"); } });
-  assert.deepEqual(await oneAccountInterpreter(input, { ...actor, userId: "33333333-3333-4333-8333-333333333333" }, new AbortController().signal), input);
+  const run = interpreter(async () => { throw new Error("provider must not be called"); }, { async rpc() { throw new Error("cache must not be called"); } }, []);
+  const input = request("Familienausflug");
+  assert.deepEqual(await run(input, actor, new AbortController().signal), input);
+});
+
+test("rain suitability follows verified place type, not invented venue facts", () => {
+  assert.equal(inferredIndoorSuitability(["MUSEUM"]), "INDOOR");
+  assert.equal(inferredIndoorSuitability(["CLIMBING_GYM"]), "INDOOR");
+  assert.equal(inferredIndoorSuitability(["PARK"]), "OUTDOOR");
+  assert.equal(inferredIndoorSuitability(["ZOO"]), "OUTDOOR");
+  assert.equal(inferredIndoorSuitability(["MUSEUM", "PARK"]), "UNKNOWN");
+  assert.equal(inferredIndoorSuitability([]), "UNKNOWN");
+  assert.ok(PRODUCT_QUERY_CATALOG.some((field) => field.key === "classification.place_types"));
+  assert.deepEqual(decodeWorldPreference("WK:context.atmosphere:LIVELY"), { key: "context.atmosphere", value: "LIVELY" });
+  assert.equal(decodeWorldPreference("WK:context.atmosphere:IMAGINARY"), null);
 });

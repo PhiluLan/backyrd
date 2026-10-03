@@ -38,6 +38,25 @@ test("free-text Sunday coffee resolves the next Zurich Sunday without guided int
   assert.equal(localMidnight.dateTime.localDate, "2026-09-20");
 });
 
+test("semantic request context keeps the Swiss day, evening and family signals separate", () => {
+  const rainy = productRequest("Ausflug mit meiner 4 jährigen Tochter bei Regen heute Abend", "rainy-family", {
+    explicit: { primaryIntent: "ACTIVITY_EXPERIENCE", hardConstraints: ["INDOOR_REQUIRED"], softPreferences: ["WK:context.visit_situations:FAMILY"] },
+  });
+  const context = resolveDecisionProductContext(rainy, { authorizedCity: "Basel", serverTime: "2026-10-03T12:00:00.000Z" });
+  assert.equal(context.dateTime.localDate, "2026-10-03");
+  assert.equal(context.dateTime.dayPhase, "EVENING");
+  assert.equal(context.group.minimumAge, 4);
+  assert.equal(context.group.companionType, "FAMILY");
+  assert.ok(context.hardConstraints.includes("OPEN_ON_REQUESTED_DAY"));
+  assert.ok(context.hardConstraints.includes("INDOOR_REQUIRED"));
+  const tomorrow = resolveDecisionProductContext(productRequest("morgen Abend mit den homies", "tomorrow-friends", {
+    explicit: { primaryIntent: "DRINKS", softPreferences: ["WK:context.visit_situations:FRIENDS_GROUP"] },
+  }), { authorizedCity: "Basel", serverTime: "2026-10-03T12:00:00.000Z" });
+  assert.equal(tomorrow.dateTime.localDate, "2026-10-04");
+  assert.equal(tomorrow.dateTime.dayPhase, "EVENING");
+  assert.equal(tomorrow.group.companionType, "FRIENDS_GROUP");
+});
+
 test("the Product intent lexicon recognizes concrete food, drink, sport, culture, nature and activity requests", () => {
   const examples = [
     ["Bier trinken in Basel", "DRINKS"],
@@ -194,7 +213,7 @@ async function fixture(request, mode = "NO_CONSENT", options = {}) {
 }
 
 test("single-route product contract rejects client authority and has one transparent ranking policy", () => {
-  assert.deepEqual(DECISION_PRODUCT_RANKING_POLICY.precedence, ["HARD_CONSTRAINTS", "ELIGIBILITY_TIER", "CORE_INTENT_COVERAGE", "PRIMARY_VISIT_PURPOSE", "ACTUAL_AVAILABILITY", "CONSENTED_USER_RELEVANCE", "SITUATIONAL_CONTEXT_FIT", "WORLD_EVIDENCE", "NEUTRAL_IDENTITY"]);
+  assert.deepEqual(DECISION_PRODUCT_RANKING_POLICY.precedence, ["HARD_CONSTRAINTS", "ELIGIBILITY_TIER", "CORE_INTENT_COVERAGE", "PRIMARY_VISIT_PURPOSE", "ACTUAL_AVAILABILITY", "SITUATIONAL_CONTEXT_FIT", "CONSENTED_USER_RELEVANCE", "WORLD_EVIDENCE", "NEUTRAL_IDENTITY"]);
   assert.throws(() => DecisionProductRequestSchema.parse({ ...productRequest("Café in Zürich"), userId: "attacker" }), /unknown field/);
   assert.equal(DECISION_PRODUCT_RANKING_POLICY.commercialSignalsForbidden, true);
   assert.equal(DECISION_PRODUCT_RANKING_POLICY.fixtureOrderForbidden, true);
@@ -215,6 +234,8 @@ test("closed Product-v1 intent matrix is specific, evidence-only and never rescu
   assert.equal(evaluate("EAT", "EAT_DRINK", null, []), "UNKNOWN", "purpose alone is weaker than category/place type and cannot establish core eligibility");
   assert.equal(evaluate("EAT", "EAT_DRINK", "EAT", []), "CONFIRMED");
   assert.equal(evaluate("SPORT_MOVEMENT", "SPORT_MOVEMENT", "SPORT_MOVEMENT", ["CLIMBING_GYM"]), "CONFIRMED");
+  assert.equal(evaluate("NIGHTLIFE", "ENTERTAINMENT", "NIGHTLIFE", ["NIGHTCLUB"]), "CONFIRMED");
+  assert.equal(evaluate("NIGHTLIFE", "OVERNIGHT_STAY", "STAY", ["HOTEL"]), "INCOMPATIBLE");
   assert.equal(evaluate("NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", "OUTDOOR_NATURE", ["ZOO"]), "CONFIRMED");
   assert.equal(evaluateProductV1IntentClassification({ intent: "COFFEE", purpose: "EAT_DRINK", category: "COFFEE_DAYTIME", placeTypes: ["CAFE"], disputed: true, evidenceSourceHash: "8".repeat(64) }).state, "DISPUTED");
   assert.equal(DECISION_PRODUCT_INTENT_POLICY.embeddedOfferingsConfirmPrimaryIntent, false);
@@ -233,17 +254,21 @@ test("Product intent policy covers canonical World values and rejects hotels for
   assert.equal(evaluate("ACTIVITY_PLAY", "ACTIVITY_EXPERIENCE", []), "NOT_CONFIGURED", "noncanonical World values fail closed");
 });
 
-test("the bounded SQL catalog priority uses exactly the same canonical categories as Decision", async () => {
+test("historical SQL categories remain sealed and v5 retrieves the full verified city cohort", async () => {
   const sql = await readFile(new URL("../../../supabase/migrations/20261003130322_align_decision_product_world_taxonomy.sql", import.meta.url), "utf8");
   const priority = sql.split("create function world_knowledge_private.product_intent_category_priority_v1(")[1]?.split("revoke all on function")[0];
   assert.ok(priority, "the migration must install the live catalog priority");
-  for (const mapping of PRODUCT_V1_INTENT_MAPPINGS) {
+  for (const mapping of PRODUCT_V1_INTENT_MAPPINGS.filter((item) => item.intentId !== "NIGHTLIFE")) {
     const match = priority.match(new RegExp(`when '${mapping.intentId}' then array\\[([^\\]]+)\\]`));
     assert.ok(match, `missing SQL category priority for ${mapping.intentId}`);
     const categories = [...match[1].matchAll(/'([A-Z_]+)'/g)].map((item) => item[1]);
     assert.deepEqual(categories, mapping.acceptedPrimaryCategories, `${mapping.intentId} category drift`);
   }
   assert.match(sql, /order by world_knowledge_private\.product_intent_category_priority_v1\(p_primary_intent,m\.world_snapshot\)/);
+  const v5 = await readFile(new URL("../../../supabase/migrations/20261003160310_decision_product_context_full_city_v5.sql", import.meta.url), "utf8");
+  assert.match(v5, /case when p_primary_intent='NIGHTLIFE' then 'DRINKS'/);
+  assert.match(v5, /limit 1001/);
+  assert.match(v5, /v_count=0 or v_count>1000/);
 });
 
 test("confirmed primary purpose ranks after core classification but before the neutral tie-breaker", async () => {
