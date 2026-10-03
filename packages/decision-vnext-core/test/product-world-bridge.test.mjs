@@ -50,6 +50,29 @@ test("Volta's current AREA_CLOSED blocks even a core-matching drinks request", (
   assert.ok(result.evaluation.candidates[0].reasons.some((row) => row.reasonCode === "currently-closed"));
 });
 
+test("a broad accessibility request rejects known barriers before ranking", () => {
+  const common = [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "COFFEE_DAYTIME"), fact("classification.place_types", ["CAFE"])];
+  const trueFact = (key) => fact(key, true, { resolution: "KNOWN_TRUE" });
+  const accessible = read(binding("a1111111-1111-4111-a111-111111111111", [...common,
+    trueFact("accessibility.step_free_entrance"), trueFact("accessibility.wheelchair_paths"), trueFact("accessibility.accessible_seating"),
+  ]));
+  const barred = read(binding("b2222222-2222-4222-a222-222222222222", [...common,
+    fact("accessibility.step_free_entrance", false, { resolution: "KNOWN_FALSE" }),
+    trueFact("accessibility.wheelchair_paths"), trueFact("accessibility.accessible_seating"),
+  ]));
+  const unknown = read(binding("c3333333-3333-4333-a333-333333333333", [...common,
+    trueFact("accessibility.step_free_entrance"), trueFact("accessibility.accessible_seating"),
+  ], ["accessibility.wheelchair_paths"]));
+  const worlds = [accessible, barred, unknown];
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "accessible-coffee", idempotencyKey: "accessible-coffee-key", naturalLanguage: "barrierefreier Ort für Kaffee", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
+  const byId = new Map(result.evaluation.candidates.map((candidate) => [candidate.candidateId, candidate]));
+  assert.ok(byId.get(accessible.spot.spotId).confirmedHardConstraints.includes("ACCESSIBILITY_BASIC"));
+  assert.ok(byId.get(barred.spot.spotId).failedHardConstraints.includes("ACCESSIBILITY_BASIC"));
+  assert.equal(byId.get(barred.spot.spotId).tier, "INELIGIBLE");
+  assert.ok(byId.get(unknown.spot.spotId).unknownHardConstraints.includes("ACCESSIBILITY_BASIC"));
+});
+
 test("a closure expiring tonight cannot close a requested future Sunday", () => {
   const world = read(binding(voltaId, [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "DRINKS"), fact("state.current", { kind: "AREA_CLOSED", scope: "VENUE" }, { validityVerified: true, validFrom: null, validUntil: "2026-09-19T22:00:00.000Z" })]));
   const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "future-request", idempotencyKey: "future-key", naturalLanguage: "Sonntag einen Drink in Basel", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };

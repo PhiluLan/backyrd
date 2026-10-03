@@ -17,7 +17,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.9" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.0" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -50,7 +50,11 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   // publish an explicit "no minimum age" rule. Known access restrictions are
   // still enforced against a stated age when assessing each candidate.
   const hard = new Set((explicit.hardConstraints ?? []).filter((constraint) => constraint !== "AGE_OR_LEGAL")); const soft = new Set(explicit.softPreferences ?? []);
-  if (includes(text, ["rollstuhl", "stufenfrei"])) hard.add("ACCESSIBILITY_STEP_FREE");
+  // A broad accessibility request must not recommend a venue with a verified
+  // inaccessible entrance or route. A request specifically about steps only
+  // requires the entrance; "barrierefrei" requires the basic visit path too.
+  if (includes(text, ["barrierefrei", "hindernisfrei", "rollstuhlgängig", "rollstuhlgaengig", "wheelchair accessible"])) hard.add("ACCESSIBILITY_BASIC");
+  else if (includes(text, ["rollstuhl", "stufenfrei", "stufenlos", "ohne stufen"])) hard.add("ACCESSIBILITY_STEP_FREE");
   if (includes(text, ["geöffnet", "offen", "jetzt"])) hard.add("OPEN_NOW");
   if (requestedWeekday(text) >= 0 || includes(text, ["heute", "morgen", "übermorgen"]) || explicit.dateTime?.localDate) hard.add("OPEN_ON_REQUESTED_DAY");
   if (/\b(?:höchstens|maximal|bis)\s+\d{1,4}\s*(?:chf|franken)/.test(text)) hard.add("BUDGET_MAXIMUM");
@@ -291,6 +295,11 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   const confirmed: string[] = []; const unknownHard: string[] = []; const failed: string[] = [];
   if (context.hardConstraints.includes("TARGET_LOCATION")) (snapshot.spot.location.locality === context.targetCity ? confirmed : failed).push("TARGET_LOCATION");
   if (context.hardConstraints.includes("ACCESSIBILITY_STEP_FREE")) { const row = entry(snapshot, "accessibility.step_free_entrance"); row?.resolution === "KNOWN_TRUE" ? confirmed.push("ACCESSIBILITY_STEP_FREE") : row?.resolution === "KNOWN_FALSE" ? failed.push("ACCESSIBILITY_STEP_FREE") : unknownHard.push("ACCESSIBILITY_STEP_FREE"); }
+  if (context.hardConstraints.includes("ACCESSIBILITY_BASIC")) {
+    const states = ["accessibility.step_free_entrance", "accessibility.wheelchair_paths", "accessibility.accessible_seating"]
+      .map((key) => entry(snapshot, key)?.resolution);
+    (states.includes("KNOWN_FALSE") ? failed : states.every((state) => state === "KNOWN_TRUE") ? confirmed : unknownHard).push("ACCESSIBILITY_BASIC");
+  }
   if (context.hardConstraints.includes("BUDGET_MAXIMUM")) { const row = entry(snapshot, "operation.price_range"); const value = row?.value; const maximum = value && typeof value === "object" && !Array.isArray(value) && "max" in value ? Number(value.max) : null; maximum === null || context.budget.amount === null ? unknownHard.push("BUDGET_MAXIMUM") : maximum <= context.budget.amount ? confirmed.push("BUDGET_MAXIMUM") : failed.push("BUDGET_MAXIMUM"); }
   const indoorSuitability = inferredIndoorSuitability(snapshot.spot.classification.placeTypes ?? []);
   if (context.hardConstraints.includes(PRODUCT_INDOOR_CONSTRAINT)) {

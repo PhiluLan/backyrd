@@ -78,6 +78,57 @@ test("one query plan separates essential alternatives, optional taste and explic
   assert.deepEqual(output.explicit.softPreferences, ["WK:context.atmosphere:QUIET"]);
 });
 
+test("an invented amenity exclusion cannot invert an outdoor request", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "NATURE_ANIMAL_EXPERIENCE", facets: [
+    facet("classification.primary_category", "OUTDOOR_NATURE", "draußen", "REQUIRED", "G1"),
+    facet("amenity.features", "OUTDOOR_SEATING", "draußen", "EXCLUDED"),
+  ] })), { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("draußen spazieren und Tiere sehen"), actor, new AbortController().signal);
+  assert.equal(output.explicit.hardConstraints.some((item) => item.includes("OUTDOOR_SEATING")), false);
+});
+
+test("asking for music does not require a verified music club", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "NIGHTLIFE", facets: [
+    facet("classification.place_types", "MUSIC_CLUB", "Musik", "REQUIRED", "G1"),
+    facet("offering.groups", "COCKTAILS", "Cocktails", "REQUIRED", "G2"),
+  ] })), { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("Cocktails und Musik nach 22 Uhr"), actor, new AbortController().signal);
+  assert.deepEqual(output.explicit.hardConstraints, ["WK_REQUIRED:G2:offering.groups:COCKTAILS"]);
+  assert.ok(output.explicit.softPreferences.includes("WK:classification.place_types:MUSIC_CLUB"));
+});
+
+test("a model cannot turn venue kind and requested offering into one OR gate", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "EAT", facets: [
+    facet("classification.primary_category", "EAT", "Lunch", "REQUIRED", "G1"),
+    facet("offering.groups", "LUNCH", "Lunch", "REQUIRED", "G1"),
+  ] })), { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("Lunch in Basel"), actor, new AbortController().signal);
+  assert.deepEqual(output.explicit.hardConstraints, [
+    "WK_REQUIRED:G1:classification.primary_category:EAT",
+    "WK_REQUIRED:Q1:offering.groups:LUNCH",
+  ]);
+});
+
+test("one incomplete model response is retried within a fixed bound", async () => {
+  let fetches = 0;
+  const run = interpreter(async () => {
+    fetches++;
+    return fetches === 1 ? { ok: true, async json() { return { status: "incomplete", output: [] }; } }
+      : modelResponse(semantics({ primaryIntent: "SPORT_MOVEMENT", facets: [facet("classification.place_types", "CLIMBING_GYM", "Klettern", "REQUIRED", "G1")] }));
+  }, { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("Indoor Klettern mit Freunden"), actor, new AbortController().signal);
+  assert.equal(fetches, 2);
+  assert.ok(output.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.place_types:CLIMBING_GYM"));
+});
+
 test("sparse company and evening context cannot become mandatory World facts", async () => {
   const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "NIGHTLIFE", facets: [
     facet("classification.primary_category", "NIGHTLIFE", "einen drauf machen", "REQUIRED", "G1"),
