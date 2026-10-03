@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20261002202705-owner-pro-stripe-billing-v1",
+  "previousEvidence": "20261001-decision-continuity-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "725a300db27263a96adec81e05f4aaee72fc3a20d000e90f5ee4e6ff69efd558",
+    "applicationSchemaSha256": "4fc9d56efc1a2de88c476f76a8699f35db2f4e3f01a5aa7f38f4327688cd2147"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261002202705_owner_pro_stripe_billing_v1.sql",
+      "sha256": "7aa7abc64b9965c6767364c840f3f27dffd8ad6fedf4efbbcab97488a18b58f6"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/owner_pro_stripe_billing_v1.sql",
+      "sha256": "c110163bfd7fc806d46624e27ca262572241a738af17f6f67fe6a1b1b2928eb0"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "695c650ed4f7e609b5c9e1d9dcefdf5a3a42456151cf75d31d75659fdd82c76c",
+    "applicationSchemaSha256": "267728c29c4172f56efb25dc0c7871b37b2abe771f6538f6ca32c26cac5b3403"
+  }
+}
