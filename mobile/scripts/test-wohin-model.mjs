@@ -72,6 +72,22 @@ test("unknown conditions and neutral order are disclosed without claiming better
   ]);
 });
 
+test("unknown companion and low-price claims stay visible as uncertainty", () => {
+  const candidate = {
+    tier: "UNCONFIRMED_FALLBACK", coreIntentCoverage: "CONFIRMED", unknownHardConstraints: [],
+    reasons: [
+      { code: "visit-unconfirmed", confirmed: false, statement: "Ob dieser Ort für deine Begleitung geeignet ist, ist nicht bestätigt." },
+      { code: "price-level-unconfirmed", confirmed: false, statement: "Niedriges Preisniveau nicht bestätigt." },
+    ],
+  };
+  assert.equal(wohinFitLabel(candidate), "Passung noch nicht vollständig belegt");
+  assert.deepEqual(wohinHighlights(candidate, false), []);
+  assert.deepEqual(wohinConsiderations(candidate, false), [
+    "Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.",
+    "Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.",
+  ]);
+});
+
 test("response limitations remain visible in plain language", () => {
   assert.deepEqual(wohinLimitations(["SINGLE_CANDIDATE"], 1), ["Für diesen Wunsch steht gerade nur ein geprüfter Ort zur Auswahl."]);
   assert.deepEqual(wohinLimitations(["SINGLE_CANDIDATE"], 0), ["Für diesen Wunsch wurde nur ein Ort geprüft; er konnte nicht empfohlen werden."]);

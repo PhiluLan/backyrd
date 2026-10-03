@@ -48,7 +48,7 @@ const reasonLabels: Record<string, string> = {
   "atmosphere-fit": "Die Atmosphäre passt zu dem, was du suchst.",
   "visit-fit": "Passt zu deiner geplanten Begleitung.",
   "daypart-fit": "Passt zur gewünschten Tageszeit.",
-  "price-level-fit": "Das Preisniveau passt zum Wunsch nach günstig.",
+  "price-level-fit": "Ein niedriges Preisniveau ist für diesen Ort bestätigt. Konkrete Preise können abweichen.",
   "primary-purpose-confirmed": "Der Ort ist auch auf diese Art von Besuch ausgerichtet.",
 };
 const reasonPriority = ["core-intent-confirmed", "atmosphere-fit", "visit-fit", "daypart-fit", "price-level-fit", "primary-purpose-confirmed"];
@@ -67,6 +67,8 @@ export function wohinHighlights(candidate: DecisionProductCandidate, personaliza
 export function wohinConsiderations(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
   const notes: string[] = [];
   if (candidate.coreIntentCoverage !== "CONFIRMED") notes.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
+  if (candidate.reasons.some((reason) => reason.code === "visit-unconfirmed")) notes.push("Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.");
+  if (candidate.reasons.some((reason) => reason.code === "price-level-unconfirmed")) notes.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
   if (candidate.unknownHardConstraints.some((constraint) => constraint !== "OPEN_ON_REQUESTED_DAY")) notes.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
   if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-negative-"))) {
     notes.push("Nicht alle deiner Vorlieben sprechen für diesen Ort.");

@@ -94,12 +94,13 @@ function DecisionResultCard({ candidate, personalizationActive, onOpen }: {
               <AppText role="body" style={styles.reasonText}>{reason}</AppText>
             </View>
           )) : <AppText role="body" tone="secondary">Zur genauen Passung fehlen noch Angaben.</AppText>}
+          {candidate.tier !== "ELIGIBLE_CONFIRMED" && considerations.length ? <AppText role="meta" tone="secondary" style={styles.detailNote}>{considerations[0]}</AppText> : null}
           {considerations.length ? <>
             <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }} onPress={() => setDetailsOpen((open) => !open)} style={styles.detailsToggle}>
               <AppText role="meta" tone="pink">Was du noch wissen solltest</AppText>
               <Ionicons name={detailsOpen ? "chevron-up" : "chevron-down"} size={16} color={color.pink} />
             </Pressable>
-            {detailsOpen ? considerations.map((note) => <AppText key={note} role="meta" tone="secondary" style={styles.detailNote}>{note}</AppText>) : null}
+            {detailsOpen ? considerations.slice(candidate.tier !== "ELIGIBLE_CONFIRMED" ? 1 : 0).map((note) => <AppText key={note} role="meta" tone="secondary" style={styles.detailNote}>{note}</AppText>) : null}
           </> : null}
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} ansehen`} onPress={onOpen} style={styles.openSpotButton}>
@@ -272,7 +273,7 @@ export default function WohinScreen() {
               <AppText role="sectionTitle" style={{ marginTop: 8 }}>Orte für deinen Wunsch</AppText>
               <AppText role="meta" tone="secondary" style={{ marginTop: 8 }}>{interpretationLabel(response)}</AppText>
               <AppText role="caption" tone="muted" style={{ marginTop: 10 }}>{response.personalization.state === "ACTIVE" ? "Mit deinen freigegebenen Vorlieben sortiert" : "Ohne persönliche Vorlieben sortiert"}</AppText>
-              {candidates.length === 0 ? <Text style={{ color: color.warning, marginTop: 12 }}>Für diesen Wunsch haben wir gerade keinen ausreichend passenden Ort gefunden. Probiere eine andere Formulierung.</Text> : null}
+              {candidates.length === 0 ? <Text style={{ color: color.warning, marginTop: 12 }}>Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Wenn dir einzelne Bedingungen wichtig sind, streiche sie nicht nur für einen Treffer.</Text> : null}
             </View>
           ) : null}
           </>}

@@ -81,8 +81,9 @@ test("Web Decision uses the strict vNext single-route Product contract", async (
   assert.doesNotMatch(source, /item\.requestHash !== await contentHash\(request\)/);
   assert.match(experience, /current\.presentation\.name/);
   assert.match(experience, /current\.actualAvailability/);
-  assert.match(experience, /current\.reasons/);
-  assert.match(experience, /run\.limitations/);
+  assert.match(experience, /spot\.reasons/);
+  assert.match(experience, /resultCopy\(current\)\.considerations/);
+  assert.doesNotMatch(experience, /Grenzen:.*join/);
   assert.match(experience, /IntersectionObserver/);
   assert.match(experience, /candidate_impression/);
   assert.match(experience, /candidate_opened/);

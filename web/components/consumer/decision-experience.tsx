@@ -33,6 +33,27 @@ function category(spot: DecisionResult) {
 function maps(spot: DecisionResult) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([spot.presentation.name, spot.presentation.locality].filter(Boolean).join(", "))}`;
 }
+const visibleReasonCopy: Record<string, string> = {
+  "core-intent-confirmed": "Die Art des Ortes passt zu deinem Wunsch.",
+  "atmosphere-fit": "Die Atmosphäre passt zu dem, was du suchst.",
+  "visit-fit": "Der Ort passt zu deiner geplanten Begleitung.",
+  "daypart-fit": "Der Ort passt zur gewünschten Tageszeit.",
+  "price-level-fit": "Ein niedriges Preisniveau ist bestätigt. Konkrete Preise können abweichen.",
+  "primary-purpose-confirmed": "Der Ort ist auch auf diese Art von Besuch ausgerichtet.",
+};
+function resultCopy(spot: DecisionResult): { highlights: string[]; considerations: string[] } {
+  const confirmed = new Set(spot.reasons.filter((reason) => reason.confirmed).map((reason) => reason.code));
+  const highlights = Object.entries(visibleReasonCopy)
+    .filter(([code]) => confirmed.has(code) && !(code === "primary-purpose-confirmed" && confirmed.has("core-intent-confirmed")))
+    .map(([, label]) => label).slice(0, 2);
+  const considerations: string[] = [];
+  if (spot.coreIntentCoverage !== "CONFIRMED") considerations.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
+  if (spot.reasons.some((reason) => reason.code === "visit-unconfirmed")) considerations.push("Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.");
+  if (spot.reasons.some((reason) => reason.code === "price-level-unconfirmed")) considerations.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
+  if (spot.unknownHardConstraints.length > 0) considerations.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
+  if (spot.limitations.includes("PRICE_LEVEL_NOT_A_CHF_AMOUNT")) considerations.push("Ein Preisniveau ist kein bestätigter Betrag in Franken.");
+  return { highlights, considerations };
+}
 export function DecisionExperience() {
   const router = useRouter();
   const params = useSearchParams();
@@ -335,7 +356,7 @@ export function DecisionExperience() {
         ) : status === "empty" ? (
           <StateView
             title="Noch kein passender Treffer"
-            message="Formuliere deinen Moment etwas offener oder ändere eine Auswahl."
+            message="Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Streiche wichtige Bedingungen nicht nur für einen Treffer."
             actionLabel="Auswahl anpassen"
             onAction={() => setStatus("input")}
           />
@@ -354,6 +375,11 @@ export function DecisionExperience() {
               <div className="b-progress">
                 Treffer {index + 1} von {run.results.length}
               </div>
+              <p className="b-label" style={{ marginTop: 12 }}>
+                {current.tier === "ELIGIBLE_CONFIRMED" && current.coreIntentCoverage === "CONFIRMED"
+                  ? "Passend zu deinem Wunsch"
+                  : "Passung noch nicht vollständig belegt"}
+              </p>
               <h2 className="b-display b-page-title" style={{ marginTop: 16 }}>
                 {current.presentation.name}
               </h2>
@@ -367,17 +393,9 @@ export function DecisionExperience() {
               <div style={{ marginTop: 30 }}>
                 <p className="b-label">Warum dieser Treffer?</p>
                 <p className="b-body" style={{ fontSize: 18 }}>
-                  {current.reasons
-                    .filter((reason) => reason.confirmed)
-                    .map((reason) => reason.statement)
-                    .slice(0, 3)
-                    .join(" ") || "Für diesen Treffer liegt noch keine bestätigte Begründung vor."}
+                  {resultCopy(current).highlights.join(" ") || "Zur genauen Passung fehlen noch bestätigte Angaben."}
                 </p>
-                {[...current.limitations, ...run.limitations].length ? (
-                  <p className="b-meta" style={{ marginTop: 14 }}>
-                    Grenzen: {Array.from(new Set([...current.limitations, ...run.limitations])).join(" · ")}
-                  </p>
-                ) : null}
+                {resultCopy(current).considerations.map((note) => <p key={note} className="b-meta" style={{ marginTop: 14 }}>{note}</p>)}
               </div>
               <div className="b-decision-actions">
                 <div className="b-form-actions">
