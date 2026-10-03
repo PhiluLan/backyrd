@@ -84,7 +84,7 @@ export async function invokeDecisionProduct({
       const { data, error } = await withinDecisionDeadline(supabase.functions.invoke<unknown>(
         DECISION_PRODUCT_RELEASE_BINDING.transportFunction,
         { body: request, headers: { Authorization: `Bearer ${accessToken}` }, signal: abort.signal },
-      ) as Promise<InvokeResult<unknown>>, 15_000, "decision_request_transport_timeout", () => abort.abort());
+      ) as Promise<InvokeResult<unknown>>, 23_000, "decision_request_transport_timeout", () => abort.abort());
       if (error || !data) throw error ?? new Error("decision_single_route_empty_response");
       return data;
     },
