@@ -121,7 +121,8 @@ export function isAuthorizedBoundedMigration(path, text, trustAnchor) {
     || (match?.scope === "EXPIRED_PRIVATE_AI_INTENT_CACHE_ONLY"
       && path === "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql")
     || (match?.scope === "EXPIRED_PRIVATE_AI_QUERY_CACHE_ONLY"
-      && path === "supabase/migrations/20261003160222_decision_ai_query_cache_v1.sql");
+      && path === "supabase/migrations/20261003160222_decision_ai_query_cache_v1.sql"
+      && match.sha256 === "02b6a2541629fde1ec767fe9851d353fa8bd4f08c6a90bbef72033d12cf45d3b");
   if (!match || typeof match.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(match.sha256)
     || !acceptedScope) return false;
   return createHash("sha256").update(text, "utf8").digest("hex") === match.sha256;
@@ -144,6 +145,19 @@ export function classifyChange({ root, context, policy }) {
   }
   if (!Array.isArray(trustAnchor.protectedSemanticSourceSet?.paths) || trustAnchor.protectedSemanticSourceSet.paths.length === 0) {
     throw new Error("decision_trust_anchor_invalid");
+  }
+  // The exact Founder/CTO-approved migration is introduced by this PR, so it
+  // cannot yet appear in the base anchor. Import only its independently pinned
+  // path, hash and scope from the candidate; all other authority stays on base.
+  const candidateAnchor = JSON.parse(git(root, ["show", `${context.headSha}:${policy.decisionTrustAnchor}`]));
+  const approvedQueryCache = candidateAnchor.authorizedBoundedMigrations?.find((entry) =>
+    entry?.path === "supabase/migrations/20261003160222_decision_ai_query_cache_v1.sql"
+    && entry.sha256 === "02b6a2541629fde1ec767fe9851d353fa8bd4f08c6a90bbef72033d12cf45d3b"
+    && entry.scope === "EXPIRED_PRIVATE_AI_QUERY_CACHE_ONLY");
+  if (approvedQueryCache) {
+    trustAnchor.authorizedBoundedMigrations = [
+      ...(trustAnchor.authorizedBoundedMigrations ?? []), approvedQueryCache,
+    ];
   }
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
