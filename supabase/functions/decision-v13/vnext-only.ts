@@ -53,7 +53,11 @@ function configuration(): DecisionProductProductionConfiguration {
     subjectDayLimit: positiveInteger("BACKYRD_DECISION_VNEXT_SUBJECT_DAY_LIMIT", 500),
     globalMinuteLimit: positiveInteger("BACKYRD_DECISION_VNEXT_GLOBAL_MINUTE_LIMIT", 300),
     globalDayLimit: positiveInteger("BACKYRD_DECISION_VNEXT_GLOBAL_DAY_LIMIT", 20_000),
-    timeoutMilliseconds: positiveInteger("BACKYRD_DECISION_VNEXT_TIMEOUT_MS", 12_000),
+    // A cold structured-model call plus the canonical city evaluation can
+    // exceed 12 seconds even when both stages complete successfully. Keep an
+    // explicit bounded deadline; a late response must never masquerade as a
+    // successful empty recommendation.
+    timeoutMilliseconds: positiveInteger("BACKYRD_DECISION_VNEXT_TIMEOUT_MS", 20_000),
     maxRequestBytes: positiveInteger("BACKYRD_DECISION_VNEXT_MAX_REQUEST_BYTES", 16_384),
     idempotencyTtlSeconds: positiveInteger("BACKYRD_DECISION_VNEXT_IDEMPOTENCY_TTL_SECONDS", 86_400),
   };
