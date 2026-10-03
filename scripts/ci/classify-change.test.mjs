@@ -176,6 +176,19 @@ test("the AI cache deletion scope cannot authorize another path, hash or broader
   assert.equal(isAuthorizedBoundedMigration(path, sql, { authorizedBoundedMigrations: [{ ...entry, scope: "BROAD_DELETE" }] }), false);
 });
 
+test("only the approved, byte-identical private AI query cache expiry migration is authorized", () => {
+  const path = "supabase/migrations/20261003160222_decision_ai_query_cache_v1.sql";
+  const migration = readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+  const authority = JSON.parse(readFileSync(new URL("../../delivery/product-authority-v1.json", import.meta.url), "utf8"));
+  assert.equal(isDestructiveMigration(migration), true);
+  assert.equal(isAuthorizedBoundedMigration(path, migration, authority), true);
+  assert.equal(isAuthorizedBoundedMigration(path, `${migration}\ndelete from public.spots;`, authority), false);
+  assert.equal(isAuthorizedBoundedMigration("supabase/migrations/other.sql", migration, authority), false);
+  const altered = { ...authority, authorizedBoundedMigrations: authority.authorizedBoundedMigrations.map((entry) =>
+    entry.path === path ? { ...entry, scope: "BROAD_DELETE" } : entry) };
+  assert.equal(isAuthorizedBoundedMigration(path, migration, altered), false);
+});
+
 test("protected source changes select Decision recertification while evaluator-only changes do not", () => {
   const source = plan({ files: { "mobile/lib/protected-decision.ts": "export const semantic = 2;\n" } });
   assert.equal(source.flags.decisionSemantics, true);
