@@ -51,6 +51,10 @@ ordinary requests including "Familienausflug in Basel", "Regentag mit meiner
 4-jährigen Tochter", plain food/coffee, and mixed/ambiguous wishes. Check the
 sealed interpretation and whether any shown spot has verified core intent and
 hard-constraint evidence. Do not equate an AI label with age suitability.
+For the first pilot, `gpt-6-luna` is the intended low-cost classification
+candidate; its request explicitly uses no reasoning effort to keep the 120-token
+output bound suitable for a one-field result. Verify actual account access and
+response timing before enabling even the pilot.
 
 For the controlled pilot, set `BACKYRD_DECISION_AI_INTENT_ENABLED=true` only
 alongside `BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST` containing the exact test

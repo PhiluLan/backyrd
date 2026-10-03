@@ -11,7 +11,7 @@ test("AI resolves an everyday compound once and the durable cache makes retries 
   let stored;
   let fetches = 0;
   const interpreter = createDecisionProductAiIntentInterpreter({
-    identity, apiKey: "test-only-key", model: "test-model", allowedUserIds: [actor.userId],
+    identity, apiKey: "test-only-key", model: "gpt-6-luna", allowedUserIds: [actor.userId],
     rpc: { async rpc(name, parameters) {
       assert.equal(name, PRODUCT_AI_INTENT_CACHE_RPC);
       calls.push(parameters);
@@ -22,6 +22,7 @@ test("AI resolves an everyday compound once and the durable cache makes retries 
       fetches += 1;
       const body = JSON.parse(options.body);
       assert.equal(body.store, false);
+      assert.deepEqual(body.reasoning, { effort: "none" });
       assert.equal(body.input, "Familienausflug in Basel");
       assert.equal(body.text.format.strict, true);
       return { ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: '{"primaryIntent":"ACTIVITY_EXPERIENCE"}' }] }] }; } };
