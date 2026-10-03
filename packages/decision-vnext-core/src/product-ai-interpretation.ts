@@ -99,9 +99,11 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     const activityAlternatives = primaryIntent === "ACTIVITY_EXPERIENCE" && proposedCategories.length >= 2;
     const enforceCategories = !requiredPlaceType && (requiredCategories.length > 0 || activityAlternatives);
     const categoryGroup = requiredCategories[0]?.group ?? "CORE";
-    const allowedCategories: readonly string[] = enforceCategories && requiredCategories.length === 1
+    const excludedCategories = new Set(facets.filter((facet) => facet.key === "classification.primary_category" && facet.role === "EXCLUDED").map((facet) => facet.value));
+    const allowedCategories: readonly string[] = (enforceCategories && requiredCategories.length === 1
       && mapping.acceptedPrimaryCategories.length <= 2 && !activityAlternatives
-      ? mapping.acceptedPrimaryCategories : proposedCategories.map((facet) => facet.value);
+      ? mapping.acceptedPrimaryCategories : proposedCategories.map((facet) => facet.value))
+      .filter((category) => !excludedCategories.has(category));
     const normalized = facets.map((facet): Facet => {
       if (facet.key === "purpose.primary_visit" && facet.role === "REQUIRED") return { ...facet, role: "PREFERRED", group: null };
       if (facet.key === "classification.primary_category" && facet.role === "REQUIRED"
