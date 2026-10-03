@@ -17,7 +17,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.0" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.1" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -95,7 +95,14 @@ function contextApplies(row: ContextRow, context: DecisionProductContext): boole
   const day = context.dateTime.localDate ? ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"][new Date(`${context.dateTime.localDate}T12:00:00Z`).getUTCDay()] : null;
   if (c.days?.length && (!day || !c.days.includes(day))) return false;
   if (c.dayparts?.length && (!context.dateTime.dayPhase || !c.dayparts.includes(context.dateTime.dayPhase))) return false;
-  if (c.occasion && c.occasion !== context.occasion || c.area || c.ageContext || c.accompaniment || c.eventMode && c.eventMode !== "NORMAL_OPERATION") return false;
+  if (c.occasion && c.occasion !== context.occasion || c.area || c.eventMode && c.eventMode !== "NORMAL_OPERATION") return false;
+  // A scoped World statement may count only if the request positively proves
+  // its scope. In particular, "my four-year-old daughter" plus adult present
+  // proves mixed ages; it does not prove legal guardianship or an area/event.
+  if (c.ageContext && (c.ageContext !== "MIXED_AGES" || context.group.minimumAge === null || !context.group.adultPresent)) return false;
+  if (c.accompaniment && !(c.accompaniment === "ADULT" && context.group.adultPresent
+    || c.accompaniment === "GROUP" && context.group.size !== null && context.group.size >= 2
+    || c.accompaniment === "ALONE" && context.group.size === 1)) return false;
   if (c.groupSize && (context.group.size === null || c.groupSize.min !== undefined && context.group.size < c.groupSize.min || c.groupSize.max !== undefined && context.group.size > c.groupSize.max)) return false;
   return true;
 }
@@ -340,17 +347,27 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   if (queryPlan.requiredGroups.length || queryPlan.excluded.length) {
     const fullyConfirmed = ![...failed, ...unknownHard].some((code) => code.startsWith("QUERY_"));
     semanticReasons.push(reason("query-relevance", fullyConfirmed ? "WORLD" : "LIMITATION", snapshot.snapshotHash,
-      fullyConfirmed ? "Die bestätigten Eigenschaften passen zu deinem konkreten Wunsch." : "Ein für deinen Wunsch wichtiges Merkmal ist nicht bestätigt.", fullyConfirmed));
+      fullyConfirmed ? "Die geprüften Kernmerkmale passen. Weitere Teile deines Wunsches sind damit nicht automatisch bestätigt." : "Ein für deinen Wunsch wichtiges Merkmal ist nicht bestätigt.", fullyConfirmed));
   }
   const contextualReject = rejected.includes(snapshot.spot.spotId); const incompatible = ["INCOMPATIBLE", "DISPUTED"].includes(core.state); const notConfigured = core.state === "NOT_CONFIGURED";
-  const tierValue = contextualReject || failed.length || incompatible ? "INELIGIBLE" : notConfigured ? "NOT_CONFIGURED" : core.state === "CONFIRMED" && !unknownHard.length ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK";
+  // An activity category does not prove suitability for the requested company.
+  // Keep an unverified companion match visible as a fallback, but never label
+  // it fully confirmed or let it outrank an otherwise equal verified match.
+  const companionSituationUnconfirmed = context.group.companionType !== null
+    && !matchesWorldPreference(snapshot, context, "context.visit_situations", context.group.companionType);
+  const dateSituationUnconfirmed = context.occasion === "DATE"
+    && !matchesWorldPreference(snapshot, context, "context.visit_situations", "DATE_PAIR");
+  const situationUnconfirmed = companionSituationUnconfirmed || dateSituationUnconfirmed;
+  const priceLevel = entry(snapshot, "operation.price_level")?.value;
+  const lowPriceConfirmed = hasConfirmedWorldAttribute(snapshot, "operation.price_level") && ["VERY_LOW", "LOW"].includes(String(priceLevel));
+  const lowPriceUnconfirmed = context.softPreferences.includes("PRICE_LEVEL_LOW") && !lowPriceConfirmed;
+  const tierValue = contextualReject || failed.length || incompatible ? "INELIGIBLE" : notConfigured ? "NOT_CONFIGURED" : core.state === "CONFIRMED" && !unknownHard.length && !situationUnconfirmed && !lowPriceUnconfirmed ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK";
   const purposeEntry = entry(snapshot, "purpose.primary_visit"); const onsiteEntry = entry(snapshot, "offering.onsite"); const onsite = Array.isArray(onsiteEntry?.value) ? onsiteEntry.value as readonly { kind: string; relationship: "PART_OF_SPOT" | "EMBEDDED_FACILITY" }[] : [];
   const atmosphereEntry = entry(snapshot, "context.atmosphere"); const visitEntry = entry(snapshot, "context.visit_situations"); const daypartEntry = entry(snapshot, "context.typical_dayparts");
   const matchingAtmosphere = matchedRows(atmosphereEntry?.value, context).filter((row) => context.softPreferences.includes("ATMOSPHERE_QUIET") && ["QUIET", "COZY", "RELAXED"].includes(row.atmosphere ?? ""));
   const matchingVisit = matchedRows(visitEntry?.value, context).filter((row) => context.group.companionType !== null && row.situation === context.group.companionType || context.occasion === "DATE" && row.situation === "DATE_PAIR");
   const matchingDaypart = matchedRows(daypartEntry?.value, context).filter((row) => context.dateTime.dayPhase !== null && row.daypart === context.dateTime.dayPhase);
-  const priceLevel = entry(snapshot, "operation.price_level")?.value;
-  const matchingPrice = context.softPreferences.includes("PRICE_LEVEL_LOW") && ["VERY_LOW", "LOW"].includes(String(priceLevel));
+  const matchingPrice = context.softPreferences.includes("PRICE_LEVEL_LOW") && lowPriceConfirmed;
   const matchedWorldPreferences = context.softPreferences.filter((preference) => {
     const facet = decodeWorldPreference(preference);
     return facet !== null && matchesWorldPreference(snapshot, context, facet.key, facet.value);
@@ -380,8 +397,10 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   if (contextualReject) worldReasons.push(reason("situational-reject", "CONTEXT", context.interpretationHash, "Dieser Spot wurde nur für diese Anfrage abgewählt.", false));
   if (matchingAtmosphere.length) worldReasons.push(reason("atmosphere-fit", "CONTEXT", contentHash(atmosphereEntry), "Die bestätigte Atmosphäre passt zu deinem Wunsch.", true));
   if (matchingVisit.length) worldReasons.push(reason("visit-fit", "CONTEXT", contentHash(visitEntry), "Die bestätigte Besuchssituation passt.", true));
+  else if (situationUnconfirmed) worldReasons.push(reason("visit-unconfirmed", "LIMITATION", contentHash({ snapshotHash: snapshot.snapshotHash, companionType: context.group.companionType, occasion: context.occasion }), "Ob dieser Ort für deine Begleitung und Situation geeignet ist, ist nicht bestätigt.", false));
   if (matchingDaypart.length) worldReasons.push(reason("daypart-fit", "CONTEXT", contentHash(daypartEntry), "Die bestätigte Tageszeit passt.", true));
-  if (matchingPrice) worldReasons.push(reason("price-level-fit", "CONTEXT", contentHash({ priceLevel, snapshotHash: snapshot.snapshotHash }), "Das bestätigte Preislevel passt zum Wunsch nach günstig.", true));
+  if (matchingPrice) worldReasons.push(reason("price-level-fit", "CONTEXT", contentHash({ priceLevel, snapshotHash: snapshot.snapshotHash }), "Das bestätigte Preislevel ist niedrig; konkrete Preise können abweichen.", true));
+  else if (lowPriceUnconfirmed) worldReasons.push(reason("price-level-unconfirmed", "LIMITATION", contentHash({ priceLevel: priceLevel ?? null, snapshotHash: snapshot.snapshotHash }), "Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.", false));
   for (const preference of matchedWorldPreferences) {
     const facet = decodeWorldPreference(preference)!;
     const matchedEntry = entry(snapshot, facet.key);
@@ -409,7 +428,7 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
     typicalDaypart: contextual(matchingDaypart.length ? "CONFIRMED" : daypartEntry || unknown(snapshot, "context.typical_dayparts") ? "UNKNOWN" : "NOT_CONFIGURED", daypartEntry ?? snapshot.snapshotHash),
     actualAvailability: { status: openingStatus, evidenceSourceHash: contentHash({ snapshotHash: snapshot.snapshotHash, status: openingStatus }) },
     confirmedHardConstraints: confirmed.sort(), unknownHardConstraints: unknownHard.sort(), failedHardConstraints: failed.sort(), matchedSoftPreferences: matchedSoft.sort(), userTasteMatches: tasteMatches,
-    conflicts: snapshot.conflicts.map((row) => row.code).sort(), reasons: worldReasons, limitations: [...(unknownHard.length ? ["HARD_CONSTRAINT_EVIDENCE_UNKNOWN"] : []), ...(context.hardConstraints.includes("BUDGET_MAXIMUM") && unknownHard.includes("BUDGET_MAXIMUM") && priceLevel ? ["PRICE_LEVEL_NOT_A_CHF_AMOUNT"] : []), ...(core.state === "UNKNOWN" ? ["CORE_INTENT_EVIDENCE_UNKNOWN"] : [])],
+    conflicts: snapshot.conflicts.map((row) => row.code).sort(), reasons: worldReasons, limitations: [...(unknownHard.length ? ["HARD_CONSTRAINT_EVIDENCE_UNKNOWN"] : []), ...(situationUnconfirmed ? ["VISIT_SITUATION_EVIDENCE_UNKNOWN"] : []), ...(lowPriceUnconfirmed ? ["PRICE_LEVEL_EVIDENCE_NOT_LOW"] : []), ...(context.hardConstraints.includes("BUDGET_MAXIMUM") && unknownHard.includes("BUDGET_MAXIMUM") && priceLevel ? ["PRICE_LEVEL_NOT_A_CHF_AMOUNT"] : []), ...(core.state === "UNKNOWN" ? ["CORE_INTENT_EVIDENCE_UNKNOWN"] : [])],
     rejectionClass: contextualReject ? "SITUATIONAL_REJECT" as const : "NONE" as const, userIntelligenceInvolved: tasteMatches.length > 0, userIntelligenceAffectsEligibility: false as const,
     neutralTieBreakerHash: contentHash({ spotId: snapshot.spot.spotId, snapshotHash: snapshot.snapshotHash }),
   };

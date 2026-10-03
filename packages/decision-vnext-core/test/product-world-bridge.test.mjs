@@ -131,6 +131,25 @@ test("confirmed context changes ranking evidence; missing data and numeric budge
   assert.equal(assessed.tier, "UNCONFIRMED_FALLBACK");
 });
 
+test("a qualitative cheap request does not certify an unpriced or medium-priced meal", () => {
+  const base = [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "EAT"), fact("classification.place_types", ["RESTAURANT"])];
+  const worlds = [
+    read(binding("a1111111-1111-4111-a111-111111111111", [...base, fact("operation.price_level", "LOW")])),
+    read(binding("b2222222-2222-4222-a222-222222222222", [...base, fact("operation.price_level", "MEDIUM")])),
+    read(binding("c3333333-3333-4333-a333-333333333333", base, ["operation.price_level"])),
+  ];
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "cheap-lunch-request", idempotencyKey: "cheap-lunch-key", naturalLanguage: "Günstig Mittag essen", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
+  const [cheap, medium, unknownPrice] = result.evaluation.candidates;
+  assert.equal(cheap.tier, "ELIGIBLE_CONFIRMED");
+  assert.ok(cheap.reasons.some((row) => row.reasonCode === "price-level-fit" && row.confirmed));
+  for (const candidate of [medium, unknownPrice]) {
+    assert.equal(candidate.tier, "UNCONFIRMED_FALLBACK");
+    assert.ok(candidate.limitations.includes("PRICE_LEVEL_EVIDENCE_NOT_LOW"));
+    assert.ok(candidate.reasons.some((row) => row.reasonCode === "price-level-unconfirmed" && !row.confirmed));
+  }
+});
+
 test("Consum Weinbar's verified date, quiet atmosphere and evening context affect Product reasons", () => {
   const conditions = { dayparts: [], days: [], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: null };
   const world = read(binding("ff90b2f4-0c51-4423-adb5-e9a0ad22213e", [
@@ -166,14 +185,16 @@ test("family requests rank places without an age declaration but respect verifie
   assert.equal(result.evaluation.interpretation.group.adultPresent, true);
   assert.ok(!result.evaluation.interpretation.hardConstraints.includes("AGE_OR_LEGAL"));
   const [unspecified, allAges, restricted, accompanied, scoped] = result.evaluation.candidates;
-  assert.equal(unspecified.tier, "ELIGIBLE_CONFIRMED");
+  assert.equal(unspecified.tier, "UNCONFIRMED_FALLBACK");
+  assert.ok(unspecified.limitations.includes("VISIT_SITUATION_EVIDENCE_UNKNOWN"));
+  assert.ok(unspecified.reasons.some((row) => row.reasonCode === "visit-unconfirmed" && !row.confirmed));
   assert.ok(!unspecified.unknownHardConstraints.includes("AGE_OR_LEGAL"));
-  assert.equal(allAges.tier, "ELIGIBLE_CONFIRMED");
+  assert.equal(allAges.tier, "UNCONFIRMED_FALLBACK", "age access alone does not prove a family experience");
   assert.ok(allAges.matchedSoftPreferences.includes("AGE_COMPATIBLE"));
   assert.equal(restricted.tier, "INELIGIBLE");
   assert.ok(restricted.failedHardConstraints.includes("AGE_OR_LEGAL"));
-  assert.equal(accompanied.tier, "ELIGIBLE_CONFIRMED");
-  assert.equal(scoped.tier, "ELIGIBLE_CONFIRMED", "an exhibit-only restriction cannot be applied to the entire museum");
+  assert.equal(accompanied.tier, "UNCONFIRMED_FALLBACK");
+  assert.equal(scoped.tier, "UNCONFIRMED_FALLBACK", "an exhibit-only restriction cannot be applied to the entire museum");
   assert.ok(!scoped.matchedSoftPreferences.includes("AGE_COMPATIBLE"));
   const unspecifiedAge = { ...request, requestId: "family-unspecified-age", idempotencyKey: "family-unspecified-key", naturalLanguage: "Museum mit den Kindern in Basel" };
   const withoutAge = evaluateProductWorldViews(unspecifiedAge, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
@@ -195,13 +216,33 @@ test("rainy family outings admit museums and climbing gyms by verified type, nev
   const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
   const byId = new Map(result.evaluation.candidates.map((candidate) => [candidate.candidateId, candidate]));
   for (const [id] of venues.slice(0, 2)) {
-    assert.equal(byId.get(id).tier, "ELIGIBLE_CONFIRMED");
+    assert.equal(byId.get(id).tier, "UNCONFIRMED_FALLBACK", "indoor venue type alone does not confirm suitability for a child");
     assert.ok(byId.get(id).confirmedHardConstraints.includes("INDOOR_REQUIRED"));
+    assert.ok(byId.get(id).reasons.some((row) => row.reasonCode === "visit-unconfirmed"));
   }
   for (const [id] of venues.slice(2)) {
     assert.equal(byId.get(id).tier, "INELIGIBLE");
     assert.ok(byId.get(id).failedHardConstraints.includes("INDOOR_REQUIRED"));
   }
+});
+
+test("scoped family evidence counts only when the request proves its age and accompaniment scope", () => {
+  const base = [fact("purpose.primary_visit", "CULTURE_ARTS"), fact("classification.primary_category", "CULTURE_ARTS"), fact("classification.place_types", ["MUSEUM"])];
+  const conditions = { dayparts: [], days: [], area: null, occasion: null, groupSize: null, ageContext: "MIXED_AGES", accompaniment: "ADULT", eventMode: null };
+  const scoped = read(binding("a1111111-1111-4111-a111-111111111111", [...base, fact("context.visit_situations", [{ situation: "FAMILY", conditions }])]));
+  const areaOnly = read(binding("b2222222-2222-4222-a222-222222222222", [...base, fact("context.visit_situations", [{ situation: "FAMILY", conditions: { ...conditions, area: "Kinderatelier" } }])]));
+  const worlds = [scoped, areaOnly];
+  const evaluate = (text, suffix) => {
+    const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: `family-scope-${suffix}`, idempotencyKey: `family-scope-key-${suffix}`, naturalLanguage: text,
+      explicit: { primaryIntent: "ACTIVITY_EXPERIENCE" }, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+    return evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort())).evaluation.candidates;
+  };
+  const withAdult = evaluate("Museum mit meiner 4-jährigen Tochter in Basel", "adult");
+  assert.equal(withAdult[0].visitSituation.state, "CONFIRMED");
+  assert.equal(withAdult[0].tier, "ELIGIBLE_CONFIRMED");
+  assert.equal(withAdult[1].tier, "UNCONFIRMED_FALLBACK", "an area-only claim must not confirm the whole museum");
+  const ageUnknown = evaluate("Familienausflug ins Museum in Basel", "unknown-age");
+  assert.equal(ageUnknown[0].tier, "UNCONFIRMED_FALLBACK", "mixed-age scope is not proven without a child's age");
 });
 
 test("query requirements apply across family, cafe, craft-beer, date, alternatives and exclusions", () => {
@@ -242,6 +283,9 @@ test("query requirements apply across family, cafe, craft-beer, date, alternativ
   assert.equal(tier(familyByExperience, 0), "ELIGIBLE_CONFIRMED");
   assert.equal(tier(familyByExperience, 2), "ELIGIBLE_CONFIRMED");
   assert.equal(tier(familyByExperience, 1), "INELIGIBLE", "a generic gym must not enter a family outing just because it is indoors");
+  const confirmedScope = familyByExperience.get(venues[2][0]).reasons.find((row) => row.reasonCode === "query-relevance");
+  assert.match(confirmedScope.statementDe, /geprüften Kernmerkmale/);
+  assert.doesNotMatch(confirmedScope.statementDe, /konkreten Wunsch/);
 
   const cozy = assessPlan("Gemütliches Café", "COFFEE", ["WK_REQUIRED:G1:context.atmosphere:COZY"]);
   assert.equal(tier(cozy, 3), "ELIGIBLE_CONFIRMED");
