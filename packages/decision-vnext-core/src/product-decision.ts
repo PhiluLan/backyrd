@@ -19,6 +19,7 @@ import {
   type DecisionProductResponse,
 } from "./product-v1-contracts.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, DECISION_PRODUCT_RANKING_POLICY } from "./product-v1-authority.js";
+import { decodeWorldPreference, PRODUCT_INDOOR_CONSTRAINT } from "./product-query-semantics.js";
 
 const tierScore = { ELIGIBLE_CONFIRMED: 3, UNCONFIRMED_FALLBACK: 2, NOT_CONFIGURED: 1, INELIGIBLE: 0 } as const;
 const coreScore = { CONFIRMED: 5, UNKNOWN: 3, NOT_CONFIGURED: 2, NOT_APPLICABLE: 1, DISPUTED: 0, INCOMPATIBLE: -1 } as const;
@@ -404,15 +405,25 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       const productRequest = ports.interpret
         ? DecisionProductRequestSchema.parse(await at("INTERPRETATION", (signal) => ports.interpret!(parsedRequest, actor, signal)))
         : parsedRequest;
-      const withoutPrimaryIntent = (explicit: DecisionProductRequest["explicit"]): Record<string, unknown> =>
-        Object.fromEntries(Object.entries(explicit).filter(([key]) => key !== "primaryIntent"));
+      const withoutInterpretedFields = (explicit: DecisionProductRequest["explicit"]): Record<string, unknown> =>
+        Object.fromEntries(Object.entries(explicit).filter(([key]) =>
+          !["primaryIntent", "secondaryIntent", "softPreferences", "hardConstraints"].includes(key)));
+      const originalSoft = new Set(parsedRequest.explicit.softPreferences ?? []);
+      const interpretedSoft = new Set(productRequest.explicit.softPreferences ?? []);
+      const originalHard = new Set(parsedRequest.explicit.hardConstraints ?? []);
+      const interpretedHard = new Set(productRequest.explicit.hardConstraints ?? []);
       if (productRequest.requestId !== parsedRequest.requestId || productRequest.idempotencyKey !== parsedRequest.idempotencyKey
         || productRequest.naturalLanguage !== parsedRequest.naturalLanguage
         || canonicalJson(productRequest.alternativeRequested) !== canonicalJson(parsedRequest.alternativeRequested)
         || canonicalJson(productRequest.previouslyPresentedCandidateIds) !== canonicalJson(parsedRequest.previouslyPresentedCandidateIds)
         || canonicalJson(productRequest.rejectedCandidateIds) !== canonicalJson(parsedRequest.rejectedCandidateIds)
-        || canonicalJson(withoutPrimaryIntent(productRequest.explicit)) !== canonicalJson(withoutPrimaryIntent(parsedRequest.explicit))
-        || Object.hasOwn(parsedRequest.explicit, "primaryIntent") && productRequest.explicit.primaryIntent !== parsedRequest.explicit.primaryIntent) {
+        || canonicalJson(withoutInterpretedFields(productRequest.explicit)) !== canonicalJson(withoutInterpretedFields(parsedRequest.explicit))
+        || Object.hasOwn(parsedRequest.explicit, "primaryIntent") && productRequest.explicit.primaryIntent !== parsedRequest.explicit.primaryIntent
+        || Object.hasOwn(parsedRequest.explicit, "secondaryIntent") && productRequest.explicit.secondaryIntent !== parsedRequest.explicit.secondaryIntent
+        || [...originalSoft].some((value) => !interpretedSoft.has(value))
+        || [...interpretedSoft].some((value) => !originalSoft.has(value) && decodeWorldPreference(value) === null)
+        || [...originalHard].some((value) => !interpretedHard.has(value))
+        || [...interpretedHard].some((value) => !originalHard.has(value) && value !== PRODUCT_INDOOR_CONSTRAINT)) {
         throw new Error("product_ai_intent_request_boundary_invalid");
       }
       const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal));

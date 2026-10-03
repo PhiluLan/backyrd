@@ -505,6 +505,51 @@ test("failure diagnostics expose only a stage and static code while response rem
   assert.doesNotMatch(body, /runtime_context|synthetic-token/);
 });
 
+test("AI World-query additions cross the HTTP boundary while unrelated or unsafe rewrites fail closed", async () => {
+  const request = productRequest("Ausflug mit meiner Tochter bei Regen", "ai-boundary");
+  const interpreted = { ...request, explicit: {
+    ...request.explicit, primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: "SPORT_MOVEMENT",
+    softPreferences: ["WK:context.visit_situations:FAMILY"], hardConstraints: ["INDOOR_REQUIRED"],
+  } };
+  const probe = async (output, original = request) => {
+    const failures = [];
+    const handler = createDecisionProductHttpHandler({
+      auth: { async authenticate() { return ACTOR; } },
+      rateLimit: { async consume() { return true; } },
+      control: { timeoutMilliseconds: 2_000, maxRequestBytes: 16_384, async assertBoundary() {} },
+      async interpret() { return output; },
+      async evaluate() { throw new Error("product_evaluation_probe"); },
+      idempotency: { async commit() { throw new Error("must_not_commit"); } },
+      interaction: { async resolve() { throw new Error("must_not_resolve"); } },
+      learning: { contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0", async record() { throw new Error("must_not_write"); } },
+      diagnostics: { reportFailure(stage, code) { failures.push({ stage, code }); } },
+    });
+    const response = await handler(new Request("https://example.invalid/decision-v13", {
+      method: "POST", headers: { authorization: "Bearer synthetic-token" }, body: JSON.stringify(original),
+    }));
+    assert.equal(response.status, 503);
+    return failures[0];
+  };
+  assert.deepEqual(await probe(interpreted), { stage: "EVALUATION", code: "product_evaluation_probe" });
+  for (const output of [
+    { ...interpreted, explicit: { ...interpreted.explicit, targetCity: "Zurich" } },
+    { ...interpreted, explicit: { ...interpreted.explicit, softPreferences: ["UNVERIFIED"] } },
+    { ...interpreted, explicit: { ...interpreted.explicit, hardConstraints: ["UNVERIFIED"] } },
+  ]) {
+    assert.deepEqual(await probe(output), { stage: "INTERPRETATION", code: "product_ai_intent_request_boundary_invalid" });
+  }
+  const explicit = productRequest("Date bei Regen", "ai-preserve", { explicit: {
+    secondaryIntent: "EAT", softPreferences: ["ATMOSPHERE_QUIET"], hardConstraints: ["WHEELCHAIR_ACCESS"],
+  } });
+  const augmented = { ...explicit, explicit: { ...explicit.explicit,
+    primaryIntent: "ACTIVITY_EXPERIENCE", softPreferences: ["ATMOSPHERE_QUIET", "WK:context.visit_situations:FAMILY"],
+    hardConstraints: ["WHEELCHAIR_ACCESS", "INDOOR_REQUIRED"],
+  } };
+  assert.deepEqual(await probe(augmented, explicit), { stage: "EVALUATION", code: "product_evaluation_probe" });
+  assert.deepEqual(await probe({ ...augmented, explicit: { ...augmented.explicit, secondaryIntent: "DRINKS" } }, explicit),
+    { stage: "INTERPRETATION", code: "product_ai_intent_request_boundary_invalid" });
+});
+
 test("HTTP boundary accepts any authenticated account, replays byte-identically, and visibly fails closed", async () => {
   const request = productRequest("Ruhiges Café in Zürich", "http"); const evaluated = await fixture(request, "NO_CONSENT");
   let evaluatedCount = 0; let learningCount = 0;
