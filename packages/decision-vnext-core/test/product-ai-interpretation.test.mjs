@@ -46,6 +46,14 @@ test("explicit user intent wins while AI still interprets the other dimensions",
   assert.ok(output.explicit.softPreferences.includes("WK:context.atmosphere:LIVELY"));
 });
 
+test("an unambiguous rain phrase remains an indoor requirement if the model misses it", async () => {
+  const run = interpreter(async () => modelResponse(semantics()), {
+    async rpc(_name, parameters) { return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; },
+  });
+  const output = await run(request("Ausflug bei Regen"), actor, new AbortController().signal);
+  assert.ok(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
+});
+
 test("unknown values, invented spots and unsupported evidence fail before ranking", async () => {
   for (const invalid of [
     semantics({ facets: [{ key: "context.atmosphere", value: "PARTY_HARD", evidence: "homies" }] }),

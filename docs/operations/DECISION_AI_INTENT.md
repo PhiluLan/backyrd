@@ -12,6 +12,9 @@ projection. Only the enum selections are retained in a new service-only,
 24-hour request-bound cache; copied excerpts and raw text are not stored.
 
 `INDOOR_REQUIRED` is a query constraint, not a model-authored spot fact.
+An unambiguous rain phrase in the request is also a deterministic lower bound
+if the model overlooks it; indirect weather language remains for the model to
+interpret.
 The Product evaluator derives indoor suitability only from verified place
 types. Museum and indoor climbing gym are indoor; park and zoo are outdoor;
 mixed or unspecified types remain unknown and cannot satisfy the constraint.

@@ -37,6 +37,7 @@ const intent = (value: unknown): ProductV1Intent | null => {
 };
 const contained = (text: string, excerpt: unknown): boolean => typeof excerpt === "string" && excerpt.length > 0
   && excerpt.length <= 120 && text.normalize("NFKC").toLocaleLowerCase("de-CH").includes(excerpt.normalize("NFKC").toLocaleLowerCase("de-CH"));
+const explicitRain = (text: string): boolean => /\b(?:bei regen|regentag|es regnet)\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
 
 function parseSemantics(value: unknown, text?: string): QuerySemantics {
   const row = object(value); const fromModel = text !== undefined;
@@ -54,7 +55,7 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     if (seen.has(key)) throw new Error("product_ai_intent_result_invalid");
     seen.add(key); return { key: facet.key, value: facet.value };
   });
-  return { primaryIntent, secondaryIntent, facets, indoorRequired: row.indoorRequired };
+  return { primaryIntent, secondaryIntent, facets, indoorRequired: row.indoorRequired || text !== undefined && explicitRain(text) };
 }
 
 function parseCacheResult(value: unknown): CacheResult {
