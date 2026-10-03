@@ -43,6 +43,16 @@ Dark/Shadow and Founder modules are retired history and must not be imported.
 - Product control, Auth, rate limit, idempotency and learning authority remain
   server-side and fail closed.
 
+Decision evidence calibration: a confirmed category or indoor venue type does
+not by itself confirm the requested company or occasion. Where the request
+names a companion or date and matching visit-situation evidence is absent, the
+candidate remains a visible `UNCONFIRMED_FALLBACK`, not `ELIGIBLE_CONFIRMED`.
+This is a ranking and disclosure distinction, not an age restriction or a new
+hard exclusion. Query explanations describe only the verified criteria; they
+must not imply that every part of the person's request was verified. A request
+for a low price similarly remains a fallback when no low price level is
+verified; even a verified low level is not a promise of a particular CHF price.
+
 ## Required gates
 
 Every change runs repository/security baseline and the fail-closed change
