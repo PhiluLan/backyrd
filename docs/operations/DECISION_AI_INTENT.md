@@ -91,6 +91,15 @@ only the previously approved account. The current Main may contain later
 non-deployment ledger or workflow changes; its shipped source must remain an
 ancestor and the exact audited Function must still be live.
 
+For the 20-query natural-language evaluation, the same manual, source-bound
+workflow also supports `ENABLE_EVAL_COHORT`. It adds only the previously
+approved test account `6b31c2d2-6b2b-45bb-a7e0-ffbd0cdbea6f` to the original
+pilot account. It does not open the feature to other accounts. The evaluation
+must inspect the actual model-backed interpretation, ranked results, reasons,
+rate/cost behavior and fail-closed paths. General availability is a separate
+decision after this evidence and a published privacy notice; the eight current
+`de-CH` legal documents remain drafts and do not satisfy that prerequisite.
+
 ## 2026-10-03 pilot finding
 
 The account-only request "Familienausflug in Basel" proved that the provider

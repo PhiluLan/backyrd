@@ -1,14 +1,15 @@
-name: Decision AI One-Account Production Control
+name: Decision AI Evaluation Production Control
 
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: ENABLE_ONE_ACCOUNT or EMERGENCY_OFF
+        description: ENABLE_ONE_ACCOUNT, ENABLE_EVAL_COHORT or EMERGENCY_OFF
         required: true
         type: choice
         options:
           - ENABLE_ONE_ACCOUNT
+          - ENABLE_EVAL_COHORT
           - EMERGENCY_OFF
       canonical_main_sha:
         description: Exact current Main SHA for enablement
@@ -33,7 +34,7 @@ concurrency:
 
 jobs:
   control:
-    name: Bound one-account pilot or emergency off
+    name: Bound evaluation cohort or emergency off
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: Production
@@ -52,7 +53,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/main
           test "$CONFIRMATION" = "$MODE"
           test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
-          if test "$MODE" = ENABLE_ONE_ACCOUNT; then
+          if test "$MODE" = ENABLE_ONE_ACCOUNT || test "$MODE" = ENABLE_EVAL_COHORT; then
             git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
             test "$(git rev-parse refs/remotes/origin/main)" = "$REQUESTED_SHA"
           else
@@ -62,7 +63,7 @@ jobs:
         with:
           version: 2.98.2
       - name: Bind current Main to the audited shipped source
-        if: inputs.mode == 'ENABLE_ONE_ACCOUNT'
+        if: inputs.mode == 'ENABLE_ONE_ACCOUNT' || inputs.mode == 'ENABLE_EVAL_COHORT'
         id: shipped
         env:
           DEPLOYMENT_RUN_ID: ${{ inputs.deployment_run_id }}
@@ -73,7 +74,7 @@ jobs:
           test "$DEPLOYMENT_RUN_ID" = "$expected_run"
           echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
       - name: Download exact Production deployment audit
-        if: inputs.mode == 'ENABLE_ONE_ACCOUNT'
+        if: inputs.mode == 'ENABLE_ONE_ACCOUNT' || inputs.mode == 'ENABLE_EVAL_COHORT'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: supabase-production-${{ steps.shipped.outputs.source_sha }}
@@ -82,7 +83,7 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ inputs.deployment_run_id }}
       - name: Verify deployed source, model key and exact pilot scope
-        if: inputs.mode == 'ENABLE_ONE_ACCOUNT'
+        if: inputs.mode == 'ENABLE_ONE_ACCOUNT' || inputs.mode == 'ENABLE_EVAL_COHORT'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           AUDIT_DIR: ${{ runner.temp }}/deployment-audit
@@ -97,20 +98,25 @@ jobs:
           jq -e --arg digest "$expected_bundle" '.[] | select(.slug == "decision-v13" and .status == "ACTIVE" and .verify_jwt == true and .ezbr_sha256 == $digest)' "$RUNNER_TEMP/functions-live.json" >/dev/null
           supabase secrets list --project-ref hjgcrrzfjchzqoegcywn --output json > "$RUNNER_TEMP/secret-names.json"
           jq -e 'any(.[]; .name == "OPENAI_API_KEY")' "$RUNNER_TEMP/secret-names.json" >/dev/null
-      - name: Enable only the verified pilot account
-        if: inputs.mode == 'ENABLE_ONE_ACCOUNT'
+      - name: Enable only the verified evaluation accounts
+        if: inputs.mode == 'ENABLE_ONE_ACCOUNT' || inputs.mode == 'ENABLE_EVAL_COHORT'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          MODE: ${{ inputs.mode }}
         run: |
           set -euo pipefail
+          allowlist=97062df5-f2ba-40b1-b170-015669a09713
+          if test "$MODE" = ENABLE_EVAL_COHORT; then
+            allowlist="$allowlist,6b31c2d2-6b2b-45bb-a7e0-ffbd0cdbea6f"
+          fi
           supabase secrets set --project-ref hjgcrrzfjchzqoegcywn \
             BACKYRD_DECISION_AI_INTENT_MODEL=gpt-6-luna \
-            BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST=97062df5-f2ba-40b1-b170-015669a09713
+            BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST="$allowlist"
           if ! supabase secrets set --project-ref hjgcrrzfjchzqoegcywn BACKYRD_DECISION_AI_INTENT_ENABLED=true; then
             supabase secrets set --project-ref hjgcrrzfjchzqoegcywn BACKYRD_DECISION_AI_INTENT_ENABLED=false || true
             exit 1
           fi
-          echo 'PILOT_CONFIGURED_ONE_ACCOUNT_PROVIDER_NOT_YET_VERIFIED' >> "$GITHUB_STEP_SUMMARY"
+          echo "EVALUATION_CONFIGURED_${MODE}_PROVIDER_NOT_YET_VERIFIED" >> "$GITHUB_STEP_SUMMARY"
       - name: Emergency off
         if: inputs.mode == 'EMERGENCY_OFF'
         env:

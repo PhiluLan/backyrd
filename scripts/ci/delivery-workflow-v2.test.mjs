@@ -62,7 +62,7 @@ test("Production release is manual-only", () => {
   assert.match(workflow, /product-release-manifest\.mjs verify/);
 });
 
-test("Decision AI pilot rebinds only to the audited shipped Function and one account", () => {
+test("Decision AI evaluation rebinds only to the audited shipped Function and two named accounts", () => {
   const workflow = read(".github/workflows/decision-ai-pilot-production.yml");
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /validate-production-state\.mjs/);
@@ -72,7 +72,10 @@ test("Decision AI pilot rebinds only to the audited shipped Function and one acc
   assert.match(workflow, /supabase-production-\$\{\{ steps\.shipped\.outputs\.source_sha \}\}/);
   assert.match(workflow, /\.canonicalMainSha == \$sha/);
   assert.match(workflow, /\.ezbr_sha256 == \$digest/);
-  assert.match(workflow, /BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST=97062df5-f2ba-40b1-b170-015669a09713/);
+  assert.match(workflow, /if test "\$MODE" = ENABLE_EVAL_COHORT/);
+  assert.match(workflow, /allowlist=97062df5-f2ba-40b1-b170-015669a09713/);
+  assert.match(workflow, /6b31c2d2-6b2b-45bb-a7e0-ffbd0cdbea6f/);
+  assert.match(workflow, /BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST="\$allowlist"/);
   assert.match(workflow, /BACKYRD_DECISION_AI_INTENT_ENABLED=false/);
   assert.doesNotMatch(workflow, /BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST=\*/);
 });
