@@ -46,11 +46,17 @@ test("Web keeps its guided option labels while Mobile uses the single Wohin vNex
 });
 
 test("Web Decision uses the strict vNext single-route Product contract", async () => {
-  const [source, experience] = await Promise.all([
+  const [source, experience, route] = await Promise.all([
     read("web/lib/decision-web-api.ts"),
     read("web/components/consumer/decision-experience.tsx"),
+    read("web/app/api/decision/route.ts"),
   ]);
-  assert.match(source, /functions\.invoke<unknown>\(["']decision-v13["']/);
+  assert.match(source, /fetch\("\/api\/decision"/);
+  assert.match(route, /client\.auth\.getUser\(\)/);
+  assert.match(route, /sessionData\.session\.user\.id !== verified\.user\.id/);
+  assert.match(route, /functions\.invoke<unknown>\("decision-v13"/);
+  assert.match(route, /Bearer \$\{sessionData\.session\.access_token\}/);
+  assert.doesNotMatch(route, /SERVICE_ROLE|serviceClient/);
   for (const field of [
     "contractVersion",
     "requestId",
