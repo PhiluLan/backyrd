@@ -385,9 +385,9 @@ export function DecisionExperience() {
               </h2>
               <p className="b-kicker" style={{ marginTop: 18 }}>
                 {current.actualAvailability === "open"
-                  ? "Jetzt geöffnet"
+                  ? "Laut Angaben geöffnet"
                   : current.actualAvailability === "closed"
-                    ? "Aktuell geschlossen"
+                    ? "Laut Angaben geschlossen"
                     : current.presentation.locality || "Öffnungsstatus nicht bestätigt"}
               </p>
               <div style={{ marginTop: 30 }}>
