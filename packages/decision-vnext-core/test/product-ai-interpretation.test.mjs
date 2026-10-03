@@ -115,6 +115,18 @@ test("a model cannot turn venue kind and requested offering into one OR gate", a
   ]);
 });
 
+test("a qualitative price level never becomes a hard budget ceiling", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "EAT", facets: [
+    facet("classification.primary_category", "EAT", "Mittag essen", "REQUIRED", "G1"),
+    facet("operation.price_level", "LOW", "günstig", "REQUIRED", "G2"),
+  ] })), { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("Günstig Mittag essen"), actor, new AbortController().signal);
+  assert.deepEqual(output.explicit.hardConstraints, ["WK_REQUIRED:G1:classification.primary_category:EAT"]);
+  assert.ok(output.explicit.softPreferences.includes("WK:operation.price_level:LOW"));
+});
+
 test("one incomplete model response is retried within a fixed bound", async () => {
   let fetches = 0;
   const run = interpreter(async () => {

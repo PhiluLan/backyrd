@@ -5,7 +5,7 @@ import { DecisionProductRequestSchema, type DecisionProductRequest } from "./pro
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_INDOOR_CONSTRAINT, PRODUCT_QUERY_CATALOG, PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.4" as const;
+export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.5" as const;
 export const PRODUCT_AI_INTENT_CACHE_RPC = "backyrd_decision_vnext_product_query_cache_v1" as const;
 
 const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
@@ -90,7 +90,10 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     // MUSIC_CLUB. Preserve this venue-type requirement only when named.
     const proposedRole = facet.role === "REQUIRED" && fromModel && facet.key === "classification.place_types"
       && facet.value === "MUSIC_CLUB" && text && !explicitMusicClub(text) ? "PREFERRED" : facet.role;
-    const role = proposedRole === "REQUIRED" && facet.key.startsWith("context.")
+    // Price levels are coarse descriptions, not an amount or a verified
+    // promise that a meal fits the person's budget. Only the independently
+    // parsed CHF ceiling may be a hard budget constraint.
+    const role = proposedRole === "REQUIRED" && (facet.key.startsWith("context.") || facet.key === "operation.price_level")
       ? "PREFERRED" : proposedRole as Facet["role"];
     let group: string | null = null;
     if (role === "REQUIRED") {
@@ -235,6 +238,7 @@ export function createDecisionProductAiIntentInterpreter(input: {
             "Gib REQUIRED-Merkmalen kurze Gruppen G1, G2 usw. Verschiedene Gruppen müssen alle passen; echte Alternativen wie 'Museum oder Kino' bekommen dieselbe Gruppe. Für PREFERRED und EXCLUDED ist group null. Leite aus einem Wunsch keine erfundenen Spot-Fakten oder Zutrittsregeln ab.",
             "Beispiel für die Logik, nicht für eine feste Phrasenliste: Ein Familienausflug hat ACTIVITY_EXPERIENCE als Hauptzweck. Die G1-Alternativen können geeignete Erlebnis-Kategorien wie ACTIVITIES_PLAY, CULTURE_ARTS oder ENTERTAINMENT sein; bestätigte FAMILY/FAMILY_FRIENDLY-Merkmale sind zusätzliche positive Evidenz. Bloßes SPORT_MOVEMENT ohne Familien- oder Kindereignung ist kein Familienausflug. Regen wird separat als Indoor-Bedingung verarbeitet. Kaffee und Kuchen hat COFFEE als Hauptzweck und verlangt zusätzlich DESSERTS als G1, nicht bloß irgendein Café. Bei 'Date Night' gehören Paar-Kontext und der konkrete Abend zur Anfrage, aber 'Nacht' allein beweist weder Alkohol noch Clubbing.",
             "Die effektive Uhrzeit, Öffnung, Stadt, Distanz und Alters-/Zutrittsregeln werden später von der Engine geprüft. Setze dafür keine erfundenen World-Facets. Kontextfelder für Stimmung, Begleitung und typische Tageszeit sind zusätzliche Evidenz, niemals REQUIRED; fehlende Kontextdaten beweisen keine Ungeeignetheit. Unterscheide Kategorie/Ortsart vom eigentlichen Erlebnis; ein allgemeiner Ort derselben Kategorie genügt nicht, wenn ein Kernmerkmal ausdrücklich genannt ist.",
+            "Ein qualitatives Preiswort wie 'günstig' ist eine Präferenz, kein exakter Preisdeckel. Preislevel dürfen nie REQUIRED sein; konkrete Beträge prüft die Engine getrennt anhand bestätigter CHF-Spannen.",
             "Bei Regen oder ausdrücklichem Wunsch nach drinnen ist indoorRequired wahr. Museum und Indoor-Kletterhalle sind Indoor-Ortsarten; Zoo und Park sind nicht automatisch regentauglich.",
             "Ausgehen oder 'einen drauf machen' mit Freund:innen kann NIGHTLIFE, lebhaft und gesellig bedeuten; es beweist weder Alkoholkonsum noch Tanzfläche. Craft Beer ohne Ausgehkontext ist DRINKS. 'Musik' verlangt nicht automatisch einen MUSIC_CLUB; diese Ortsart ist nur dann REQUIRED, wenn ein Club als Ort gemeint ist. Decke jeden eigenständigen Kernbestandteil des Wunsches ab, insbesondere Tätigkeit und Gesellschaft, ohne konkrete Spot-Fakten zu erfinden.",
             `Zulässige Felder und Werte: ${JSON.stringify(catalogForModel)}.`,
