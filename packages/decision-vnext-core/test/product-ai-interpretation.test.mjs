@@ -86,13 +86,31 @@ test("an unambiguous rain phrase remains an indoor requirement if the model miss
   assert.ok(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
 });
 
-test("unknown values, invented spots and unsupported evidence fail before ranking", async () => {
+test("ordinary model paraphrases and group formatting do not abort the Decision", async () => {
+  const run = interpreter(async () => modelResponse(semantics({
+    primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: "ACTIVITY_EXPERIENCE",
+    facets: [
+      facet("classification.primary_category", "ACTIVITIES_PLAY", "family outing", "REQUIRED"),
+      facet("classification.primary_category", "CULTURE_ARTS", "family outing", "REQUIRED", "g1"),
+      facet("context.visit_situations", "FAMILY", "four-year-old daughter", "PREFERRED", "G9"),
+    ], indoorRequired: true, indoorEvidence: "rainy weather",
+  })), { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("Ausflug mit meiner 4-jährigen Tochter bei Regen"), actor, new AbortController().signal);
+  assert.equal(output.explicit.secondaryIntent, null);
+  assert.ok(output.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.primary_category:ACTIVITIES_PLAY"));
+  assert.ok(output.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.primary_category:CULTURE_ARTS"));
+  assert.ok(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
+  assert.ok(output.explicit.softPreferences.includes("WK:context.visit_situations:FAMILY"));
+});
+
+test("unknown values and invented Spot fields still fail before ranking", async () => {
   for (const invalid of [
     semantics({ facets: [facet("context.atmosphere", "PARTY_HARD", "homies")] }),
-    semantics({ facets: [facet("context.atmosphere", "LIVELY", "homies", "REQUIRED")] }),
-    semantics({ facets: [facet("context.atmosphere", "LIVELY", "homies", "EXCLUDED", "G1")] }),
+    semantics({ facets: [facet("imaginary.place", "ANY", "homies")] }),
     { ...semantics(), spotId: "unverified" },
-    semantics({ indoorRequired: true, indoorEvidence: "Regen" }),
+    semantics({ facets: [facet("context.atmosphere", "LIVELY", "x".repeat(121))] }),
   ]) {
     const run = interpreter(async () => modelResponse(invalid), { async rpc() { return { data: { status: "MISS" }, error: null }; } });
     await assert.rejects(run(request("mit den homies"), actor, new AbortController().signal), /product_ai_intent_result_invalid/);
