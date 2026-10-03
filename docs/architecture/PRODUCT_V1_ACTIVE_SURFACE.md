@@ -50,8 +50,9 @@ candidate remains a visible `UNCONFIRMED_FALLBACK`, not `ELIGIBLE_CONFIRMED`.
 This is a ranking and disclosure distinction, not an age restriction or a new
 hard exclusion. Query explanations describe only the verified criteria; they
 must not imply that every part of the person's request was verified. A request
-for an open-ended activity with company must not be narrowed to the handful
-of categories suggested by the model. Those category suggestions are ranking
+for an open-ended activity with company must not be narrowed to a category
+guessed by the model, even if it suggests just one. Those category suggestions
+are ranking
 preferences; the closed Product intent ontology determines the eligible
 experience types. A named, specific venue type remains a requirement. This
 preserves discovery of genuinely suitable activities outside the model's first
@@ -64,7 +65,10 @@ a precise clock time, or another unmapped core need travel with the interpreted
 request. They make candidates provisional and produce explicit user-facing
 limitations; they do not assert Spot facts or discard otherwise useful places.
 The current opening evaluation is day/daypart based, so it must not claim that
-an exact requested hour was checked. These limitations remain until matching
+an exact requested hour was checked. Conversely, the model may not label a
+daypart such as "heute Abend" as an unverified precise clock time; that code is
+grounded in the raw request even when an interpretation came from cache. These
+limitations remain until matching
 versioned World evidence and evaluation support are shipped.
 
 ## Required gates

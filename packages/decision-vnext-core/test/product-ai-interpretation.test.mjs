@@ -104,6 +104,46 @@ test("asking for music does not require a verified music club", async () => {
   assert.deepEqual(output.explicit.unresolvedTerms, ["MUSIC_AT_VISIT_UNVERIFIED", "PRECISE_TIME_UNVERIFIED"]);
 });
 
+test("a model cannot invent a precise-hour limitation for a daypart, including a cached interpretation", async () => {
+  let stored;
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "DRINKS", unresolvedNeedCodes: ["PRECISE_TIME_UNVERIFIED"] })), {
+    async rpc(_name, parameters) {
+      if (parameters.p_write) stored ??= parameters.p_semantics;
+      return { data: stored ? { status: "HIT", semantics: stored } : { status: "MISS" }, error: null };
+    },
+  });
+  const requestWithDaypart = request("Mit Freunden heute Abend Craft Beer trinken");
+  const first = await run(requestWithDaypart, actor, new AbortController().signal);
+  const cached = await run(requestWithDaypart, actor, new AbortController().signal);
+  assert.deepEqual(first.explicit.unresolvedTerms, []);
+  assert.deepEqual(cached.explicit.unresolvedTerms, []);
+  const oldCache = interpreter(async () => { throw new Error("cache hit must not call the provider"); }, {
+    async rpc() {
+      return { data: { status: "HIT", semantics: {
+        primaryIntent: "DRINKS", secondaryIntent: null, facets: [], indoorRequired: false,
+        unresolvedNeedCodes: ["PRECISE_TIME_UNVERIFIED"],
+      } }, error: null };
+    },
+  });
+  const oldCached = await oldCache(requestWithDaypart, actor, new AbortController().signal);
+  assert.deepEqual(oldCached.explicit.unresolvedTerms, []);
+});
+
+test("one guessed category cannot narrow an open-ended family activity", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "ACTIVITY_EXPERIENCE", facets: [
+    facet("classification.primary_category", "ACTIVITIES_PLAY", "etwas erleben", "REQUIRED", "G1"),
+    facet("context.visit_situations", "FAMILY", "Familie"),
+  ], indoorRequired: true, indoorEvidence: "Regen" })), {
+    async rpc(_name, parameters) {
+      return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+    },
+  });
+  const output = await run(request("Mit der Familie bei Regen etwas erleben"), actor, new AbortController().signal);
+  assert.ok(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
+  assert.equal(output.explicit.hardConstraints.some((item) => item.includes("classification.primary_category")), false);
+  assert.ok(output.explicit.softPreferences.includes("WK:classification.primary_category:ACTIVITIES_PLAY"));
+});
+
 test("the model cannot silently drop a core need that the catalog cannot verify", async () => {
   const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "ACTIVITY_EXPERIENCE", unresolvedNeedCodes: ["OTHER_CORE_NEED_UNMAPPED"] })), {
     async rpc(_name, parameters) { return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; },

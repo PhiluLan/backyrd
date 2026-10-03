@@ -70,7 +70,11 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
   if (typeof row.indoorRequired !== "boolean" || !Array.isArray(row.facets) || row.facets.length > 20
     || !Array.isArray(row.unresolvedNeedCodes) || row.unresolvedNeedCodes.length > 3 || row.unresolvedNeedCodes.some((code) => typeof code !== "string" || !allowedUnresolved.has(code as UnresolvedNeed))
     || fromModel && row.indoorEvidence !== null && (typeof row.indoorEvidence !== "string" || row.indoorEvidence.length > 120)) throw invalid("bounds");
-  const unresolvedNeedCodes = new Set<UnresolvedNeed>(row.unresolvedNeedCodes as UnresolvedNeed[]);
+  // The provider can confuse a daypart ("heute Abend") with an exact hour.
+  // A precise-time limitation must be grounded in the request itself, including
+  // when an older interpretation is served from the query cache below.
+  const unresolvedNeedCodes = new Set<UnresolvedNeed>((row.unresolvedNeedCodes as UnresolvedNeed[])
+    .filter((code) => code !== "PRECISE_TIME_UNVERIFIED" || text === undefined || explicitPreciseTime(text)));
   if (text && explicitMusicNeed(text)) unresolvedNeedCodes.add("MUSIC_AT_VISIT_UNVERIFIED");
   if (text && explicitPreciseTime(text)) unresolvedNeedCodes.add("PRECISE_TIME_UNVERIFIED");
   const fallbackGroups = new Map<string, string>();
@@ -133,11 +137,12 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     // The primary-intent ontology is authoritative for core venue eligibility.
     // A model may suggest a narrower category, but a single broad category
     // must not contradict the accepted siblings (NIGHTLIFE also includes bars).
-    // Several proposed categories for a situated activity express exploration,
-    // not evidence that every other accepted experience type is wrong. Keep
-    // those guesses as preferences unless the request names a venue type.
+    // A category guessed for a situated, open-ended activity is exploration,
+    // not evidence that every other accepted experience type is wrong. This
+    // holds even if the model happened to propose only one category. A named
+    // venue kind is still an explicit requirement and remains hard.
     const situatedActivity = facets.some((facet) => facet.key === "context.visit_situations" && facet.role !== "EXCLUDED");
-    const activityAlternatives = primaryIntent === "ACTIVITY_EXPERIENCE" && situatedActivity && proposedCategories.length >= 2;
+    const activityAlternatives = primaryIntent === "ACTIVITY_EXPERIENCE" && situatedActivity && proposedCategories.length > 0 && !requiredPlaceType;
     const enforceCategories = !requiredPlaceType && requiredCategories.length > 0 && !activityAlternatives;
     const categoryGroup = requiredCategories[0]?.group ?? "CORE";
     const excludedCategories = new Set(facets.filter((facet) => facet.key === "classification.primary_category" && facet.role === "EXCLUDED").map((facet) => facet.value));
@@ -281,6 +286,8 @@ export function createDecisionProductAiIntentInterpreter(input: {
       if (result.status !== "HIT") throw new Error("product_ai_intent_cache_invalid");
     }
     const semantics = result.semantics;
+    const unresolvedNeedCodes = semantics.unresolvedNeedCodes.filter((code) =>
+      code !== "PRECISE_TIME_UNVERIFIED" || explicitPreciseTime(parsed.naturalLanguage));
     const softPreferences = new Set(parsed.explicit.softPreferences ?? []);
     for (const facet of semantics.facets) if (facet.role === "PREFERRED") softPreferences.add(encodeWorldPreference(facet.key, facet.value));
     const hardConstraints = new Set(parsed.explicit.hardConstraints ?? []);
@@ -293,7 +300,7 @@ export function createDecisionProductAiIntentInterpreter(input: {
       primaryIntent: parsed.explicit.primaryIntent ?? semantics.primaryIntent,
       secondaryIntent: parsed.explicit.secondaryIntent ?? semantics.secondaryIntent,
       softPreferences: [...softPreferences].sort(), hardConstraints: [...hardConstraints].sort(),
-      unresolvedTerms: [...new Set([...(parsed.explicit.unresolvedTerms ?? []), ...semantics.unresolvedNeedCodes])].sort(),
+      unresolvedTerms: [...new Set([...(parsed.explicit.unresolvedTerms ?? []), ...unresolvedNeedCodes])].sort(),
     } });
   };
 }
