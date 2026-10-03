@@ -62,6 +62,21 @@ test("Production release is manual-only", () => {
   assert.match(workflow, /product-release-manifest\.mjs verify/);
 });
 
+test("Decision AI pilot rebinds only to the audited shipped Function and one account", () => {
+  const workflow = read(".github/workflows/decision-ai-pilot-production.yml");
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /validate-production-state\.mjs/);
+  assert.match(workflow, /\.supabase\.shippedSourceSha/);
+  assert.match(workflow, /\.supabase\.deploymentRunId/);
+  assert.match(workflow, /test "\$DEPLOYMENT_RUN_ID" = "\$expected_run"/);
+  assert.match(workflow, /supabase-production-\$\{\{ steps\.shipped\.outputs\.source_sha \}\}/);
+  assert.match(workflow, /\.canonicalMainSha == \$sha/);
+  assert.match(workflow, /\.ezbr_sha256 == \$digest/);
+  assert.match(workflow, /BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST=97062df5-f2ba-40b1-b170-015669a09713/);
+  assert.match(workflow, /BACKYRD_DECISION_AI_INTENT_ENABLED=false/);
+  assert.doesNotMatch(workflow, /BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST=\*/);
+});
+
 test("Decision continuity cannot become automated activation or deployment", () => {
   const policy = read("docs/operations/DELIVERY_WORKFLOW_V2.md");
   const migration = read("supabase/migrations/20261001202402_decision_continuous_authority_v1.sql");

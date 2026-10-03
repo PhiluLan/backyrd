@@ -84,6 +84,12 @@ flag false without waiting for model checks. The workflow reports
 `PILOT_CONFIGURED_ONE_ACCOUNT_PROVIDER_NOT_YET_VERIFIED`, not pilot success;
 the authenticated one-account request, provider result, costs, and ranking
 evidence must still be checked before any broader activation.
+After the taxonomy correction, the pilot workflow binds the requested
+deployment run to the shipped Production ledger, downloads that exact audit,
+and verifies the live `decision-v13` bundle digest before it can re-enable
+only the previously approved account. The current Main may contain later
+non-deployment ledger or workflow changes; its shipped source must remain an
+ancestor and the exact audited Function must still be live.
 
 ## 2026-10-03 pilot finding
 
