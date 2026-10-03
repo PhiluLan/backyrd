@@ -4,6 +4,8 @@ Status: prepared in code; **checkout remains off until a separately verified Str
 
 Founder accepted the untested database-recovery risk on 2026-10-03 for exactly `supabase/migrations/20261002202705_owner_pro_stripe_billing_v1.sql` (SHA-256 `7aa7abc64b9965c6767364c840f3f27dffd8ad6fedf4efbbcab97488a18b58f6`). This is not a tested or guaranteed rollback and does not itself authorize activating payments. The ordinary manual Production release checks still apply.
 
+Production ledger reconciliation: the read-only remote migration list on 2026-10-03 showed 172 applied versions ending at `20261001202402`. The official 2026-10-01 Supabase Production Deployment audit (run `36925522017`, source SHA `ff436474e6b55bb3c41265012a36b9ad7cd5730c`) records that exact Decision migration as applied and `PASS`. `delivery/production-state.json` was advanced to this attested state; no remote migration-history row was edited.
+
 ## Ownership and payment boundary
 
 - Only a logged-in, verified Owner can start Checkout for an approved spot. The server checks ownership again; the browser never supplies a price or entitlement.
