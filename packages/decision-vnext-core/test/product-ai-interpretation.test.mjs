@@ -19,7 +19,9 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
   const run = interpreter(async (_url, options) => {
     fetches += 1; const body = JSON.parse(options.body);
     assert.equal(body.store, false); assert.equal(body.text.format.strict, true);
+    assert.equal(body.text.format.name, "backyrd_decision_query_v3");
     assert.ok(body.instructions.includes("context.visit_situations"));
+    assert.ok(body.instructions.includes("Ein Spaziergang passt etwa zu PARK"));
     const variants = body.text.format.schema.properties.facets.items.anyOf;
     assert.equal(variants.length, PRODUCT_QUERY_CATALOG.length);
     for (const variant of variants) {
@@ -51,6 +53,28 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
   assert.ok(first.explicit.softPreferences.includes("WK:context.visit_situations:FAMILY"));
   assert.equal(JSON.stringify(stored).includes("Tochter"), false);
   assert.equal(JSON.stringify(stored).includes("Regen"), false);
+});
+
+test("a concrete outdoor activity keeps its venue-type alternatives without treating every attraction as a walk", async () => {
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "NATURE_ANIMAL_EXPERIENCE", facets: [
+    facet("classification.primary_category", "OUTDOOR_NATURE", "Spaziergang", "REQUIRED", "G1"),
+    facet("classification.place_types", "PARK", "Spaziergang", "REQUIRED", "G2"),
+    facet("classification.place_types", "TRAIL", "Spaziergang", "REQUIRED", "G2"),
+    facet("classification.place_types", "WATERFRONT", "Spaziergang", "REQUIRED", "G2"),
+    facet("classification.place_types", "BOTANICAL_GARDEN", "Spaziergang", "REQUIRED", "G2"),
+    facet("context.atmosphere", "ROMANTIC", "romantisch"),
+  ] })), { async rpc(_name, parameters) {
+    return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null };
+  } });
+  const output = await run(request("Romantischer Spaziergang bei Sonne"), actor, new AbortController().signal);
+  assert.deepEqual(output.explicit.hardConstraints.filter((value) => value.includes("classification.place_types")), [
+    "WK_REQUIRED:G2:classification.place_types:BOTANICAL_GARDEN",
+    "WK_REQUIRED:G2:classification.place_types:PARK",
+    "WK_REQUIRED:G2:classification.place_types:TRAIL",
+    "WK_REQUIRED:G2:classification.place_types:WATERFRONT",
+  ]);
+  assert.ok(output.explicit.softPreferences.includes("WK:context.atmosphere:ROMANTIC"));
+  assert.equal(output.explicit.hardConstraints.some((value) => value.includes("classification.primary_category")), false);
 });
 
 test("explicit user intent wins while AI still interprets the other dimensions", async () => {
