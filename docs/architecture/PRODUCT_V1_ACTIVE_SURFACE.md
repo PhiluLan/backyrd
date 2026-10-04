@@ -126,7 +126,10 @@ Knowledge. The venue-name guard is a catalog-level safety rule, not a list of
 user phrases.
 
 The server-side AI query cache is keyed by the sentence and explicit request
-context, plus its existing authenticated-user, model, catalog and exact release
-bindings. Fresh transport IDs and alternative-page IDs do not change the
+context, plus its authenticated-user, provider-model, interpreter-policy,
+catalog and release bindings. The database model-version key includes a short
+hash of the interpreter version so a new policy cannot replay a previous
+policy's hard constraints even when the provider model and release control
+identity stay unchanged. Fresh transport IDs and alternative-page IDs do not change the
 semantics and therefore do not trigger a new provider call. The cache stores
 only the validated structured interpretation, never the raw sentence.

@@ -5,7 +5,7 @@ import { DecisionProductRequestSchema, type DecisionProductRequest } from "./pro
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_INDOOR_CONSTRAINT, PRODUCT_QUERY_CATALOG, PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.7" as const;
+export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.8" as const;
 export const PRODUCT_AI_INTENT_CACHE_RPC = "backyrd_decision_vnext_product_query_cache_v1" as const;
 
 const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
@@ -257,7 +257,10 @@ export function createDecisionProductAiIntentInterpreter(input: {
       // can never become another person's or survive a material prompt change.
       p_auth_user_id: actor.userId,
       p_request_hash: contentHash({ naturalLanguage: parsed.naturalLanguage, explicit: parsed.explicit }),
-      p_model_version: input.model,
+      // The database cache key must change with the interpreter policy, not
+      // just with the provider model. A new deploy can otherwise replay old
+      // REQUIRED facets that the current boundary would reject.
+      p_model_version: `${input.model.slice(0, 50)}.${contentHash({ model: input.model, interpreter: PRODUCT_AI_INTENT_INTERPRETER_VERSION }).slice(0, 16)}`,
       p_catalog_hash: PRODUCT_QUERY_CATALOG_HASH, p_release_hash: input.identity.releaseHash,
       p_artifact_hash: input.identity.artifactHash, p_source_set_hash: input.identity.sourceSetHash,
       p_generation: input.identity.controlGeneration,
