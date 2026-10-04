@@ -112,3 +112,10 @@ boundary (control check before, operation, control check after). These timings
 contain no user text, actor identity, Spot identity, credentials, or model
 payload; they are operational evidence for latency work and cannot affect a
 Decision response.
+
+AI query prompt v3 distinguishes a concrete activity from its broad category:
+when the activity entails specific canonical place types, the interpreter
+requests those as alternatives in one hard query group. A broad wish does not
+gain such a gate. This changes query interpretation, not Spot facts; subjective
+atmosphere and companionship remain unverified unless World evidence confirms
+them for the Spot.
