@@ -19,7 +19,7 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
   const run = interpreter(async (_url, options) => {
     fetches += 1; const body = JSON.parse(options.body);
     assert.equal(body.store, false); assert.equal(body.text.format.strict, true);
-    assert.equal(body.text.format.name, "backyrd_decision_query_v3");
+    assert.equal(body.text.format.name, "backyrd_decision_query_v4");
     assert.ok(body.instructions.includes("context.visit_situations"));
     assert.ok(body.instructions.includes("Ein Spaziergang passt etwa zu PARK"));
     const variants = body.text.format.schema.properties.facets.items.anyOf;
@@ -310,6 +310,25 @@ test("an unambiguous rain phrase remains an indoor requirement if the model miss
   });
   const output = await run(request("Ausflug bei Regen"), actor, new AbortController().signal);
   assert.ok(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
+});
+
+test("an offering does not force a venue type unless the person names it", async () => {
+  const rpc = { async rpc(_name, parameters) { return { data: parameters.p_write
+    ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; } };
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "DRINKS", facets: [
+    facet("classification.place_types", "BREWERY", "Craft Beer", "REQUIRED", "G1"),
+    facet("classification.place_types", "TAPROOM", "Craft Beer", "REQUIRED", "G1"),
+    facet("offering.groups", "CRAFT_BEER", "Craft Beer", "REQUIRED", "G2"),
+  ] })), rpc);
+  const drink = await run(request("Mit Freunden Craft Beer trinken"), actor, new AbortController().signal);
+  assert.deepEqual(drink.explicit.hardConstraints, ["WK_REQUIRED:G2:offering.groups:CRAFT_BEER"]);
+  assert.ok(drink.explicit.softPreferences.includes("WK:classification.place_types:BREWERY"));
+  assert.ok(drink.explicit.softPreferences.includes("WK:classification.place_types:TAPROOM"));
+
+  const brewery = await run(request("Mit Freunden Craft Beer in einer Brauerei trinken"), actor, new AbortController().signal);
+  assert.ok(brewery.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.place_types:BREWERY"));
+  assert.equal(brewery.explicit.hardConstraints.includes("WK_REQUIRED:G1:classification.place_types:TAPROOM"), false);
+  assert.ok(brewery.explicit.softPreferences.includes("WK:classification.place_types:TAPROOM"));
 });
 
 test("ordinary model paraphrases and group formatting do not abort the Decision", async () => {
