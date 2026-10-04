@@ -106,3 +106,9 @@ activation paths, synthetic shadow runtimes and their evidence have no current
 authority. Their root commands are removed. Their repository paths are
 read-only and fail closed on modification; deletion is allowed in a dedicated
 cleanup change after remaining references are eliminated. Git is the archive.
+
+Decision-v13 emits fixed-shape duration diagnostics for each canonical runtime
+boundary (control check before, operation, control check after). These timings
+contain no user text, actor identity, Spot identity, credentials, or model
+payload; they are operational evidence for latency work and cannot affect a
+Decision response.

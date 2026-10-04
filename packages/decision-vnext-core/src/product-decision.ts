@@ -334,6 +334,12 @@ export function validateDecisionProductExecution(input: DecisionProductBuildInpu
 }
 
 export type DecisionProductRuntimeBoundary = "REQUEST_START" | "AUTH" | "RATE_LIMIT" | "BODY_PARSE" | "INTERACTION_AUTHORITY" | "INTERPRETATION" | "EVALUATION" | "IDEMPOTENCY" | "LEARNING" | "FINAL_OUTPUT";
+export interface DecisionProductRuntimeTiming {
+  readonly stage: DecisionProductRuntimeBoundary;
+  readonly controlBeforeMs: number;
+  readonly operationMs: number;
+  readonly controlAfterMs: number;
+}
 export interface DecisionProductAuthenticatedActor { readonly userId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly sessionId: string }
 export interface DecisionProductRuntimePorts {
   readonly auth: { authenticate(token: string, signal: AbortSignal): Promise<DecisionProductAuthenticatedActor | null> };
@@ -350,7 +356,10 @@ export interface DecisionProductRuntimePorts {
     readonly contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0";
     record(event: ProductDecisionLearningInput, signal: AbortSignal): Promise<unknown>;
   };
-  readonly diagnostics?: { reportFailure(stage: string, code: string): void };
+  readonly diagnostics?: {
+    reportFailure(stage: string, code: string): void;
+    reportTimings?(outcome: "SUCCESS" | "ERROR", stages: readonly DecisionProductRuntimeTiming[]): void;
+  };
 }
 
 export class DecisionProductError extends Error {
@@ -363,6 +372,10 @@ const errorResponse = (error: DecisionProductError) => new Response(JSON.stringi
 export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePorts): (request: Request) => Promise<Response> {
   return async (request) => {
     const abort = new AbortController();
+    const timings: DecisionProductRuntimeTiming[] = [];
+    const reportTimings = (outcome: "SUCCESS" | "ERROR") => {
+      try { ports.diagnostics?.reportTimings?.(outcome, timings); } catch { /* Diagnostics may never affect a Decision. */ }
+    };
     let stage: string = "REQUEST_START";
     const timeoutError = new DecisionProductError("REQUEST_TIMEOUT", 504, "Die sichere Auswertung hat zu lange gedauert.");
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -372,12 +385,20 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
     const race = <T>(operation: Promise<T>): Promise<T> => Promise.race([operation, deadline]);
     const at = async <T>(boundary: DecisionProductRuntimeBoundary, operation: (signal: AbortSignal) => Promise<T>): Promise<T> => {
       stage = boundary;
-      await race(Promise.resolve(ports.control.assertBoundary(boundary, abort.signal)));
-      const result = await race(operation(abort.signal));
-      // A control transition during an awaited operation must suppress its
-      // result, including a response assembled from already-read data.
-      await race(Promise.resolve(ports.control.assertBoundary(boundary, abort.signal)));
-      return result;
+      const elapsed = { stage: boundary, controlBeforeMs: 0, operationMs: 0, controlAfterMs: 0 };
+      const measure = async <V>(key: "controlBeforeMs" | "operationMs" | "controlAfterMs", call: () => Promise<V> | V): Promise<V> => {
+        const started = performance.now();
+        try { return await race(Promise.resolve(call())); }
+        finally { elapsed[key] = Math.round(performance.now() - started); }
+      };
+      try {
+        await measure("controlBeforeMs", () => ports.control.assertBoundary(boundary, abort.signal));
+        const result = await measure("operationMs", () => operation(abort.signal));
+        // A control transition during an awaited operation must suppress its
+        // result, including a response assembled from already-read data.
+        await measure("controlAfterMs", () => ports.control.assertBoundary(boundary, abort.signal));
+        return result;
+      } finally { timings.push(elapsed); }
     };
     try {
       await at("REQUEST_START", async () => undefined);
@@ -414,6 +435,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
           legacyWriteUsed: false,
           fallbackUsed: false,
         });
+        reportTimings("SUCCESS");
         return new Response(JSON.stringify(response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
       }
       const productRequest = ports.interpret
@@ -457,11 +479,13 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         }
       });
       await at("FINAL_OUTPUT", async () => undefined);
+      reportTimings("SUCCESS");
       return new Response(JSON.stringify(resolved.response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
     } catch (error) {
       const known = error instanceof DecisionProductError ? error : new DecisionProductError("DECISION_UNAVAILABLE", 503, "Decision ist momentan nicht verfügbar. Bitte versuche es später erneut.");
       const internalCode = error instanceof Error && /^product_[a-z0-9_]{1,75}$/.test(error.message) ? error.message : known.code;
       try { ports.diagnostics?.reportFailure(stage, internalCode); } catch { /* Diagnostics may never change the fail-closed response. */ }
+      reportTimings("ERROR");
       return errorResponse(known);
     } finally { if (timeout) clearTimeout(timeout); }
   };
