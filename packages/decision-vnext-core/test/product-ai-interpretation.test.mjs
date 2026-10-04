@@ -63,6 +63,31 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
   assert.equal(JSON.stringify([...stored.values()]).includes("Regen"), false);
 });
 
+test("a changed interpreter policy cannot replay a stale provider-only cache entry", async () => {
+  const oldSemantics = { primaryIntent: "DRINKS", secondaryIntent: null, indoorRequired: false,
+    unresolvedNeedCodes: [], facets: [{ key: "classification.place_types", value: "BREWERY", role: "REQUIRED", group: "G1" }] };
+  const stored = new Map([["gpt-6-luna", oldSemantics]]); let fetches = 0;
+  const run = interpreter(async () => {
+    fetches += 1;
+    return modelResponse(semantics({ primaryIntent: "DRINKS", facets: [
+      facet("classification.place_types", "BREWERY", "Craft Beer", "REQUIRED", "G1"),
+      facet("offering.groups", "CRAFT_BEER", "Craft Beer", "REQUIRED", "G2"),
+    ] }));
+  }, { async rpc(_name, parameters) {
+    assert.match(parameters.p_model_version, /^gpt-6-luna\.[a-f0-9]{16}$/);
+    if (parameters.p_write) stored.set(parameters.p_model_version, parameters.p_semantics);
+    return { data: stored.has(parameters.p_model_version)
+      ? { status: "HIT", semantics: stored.get(parameters.p_model_version) } : { status: "MISS" }, error: null };
+  } });
+  const input = request("Mit Freunden Craft Beer trinken");
+  const first = await run(input, actor, new AbortController().signal);
+  const second = await run({ ...input, requestId: "repeat", idempotencyKey: "repeat" }, actor, new AbortController().signal);
+  assert.equal(fetches, 1);
+  assert.deepEqual(first.explicit, second.explicit);
+  assert.deepEqual(first.explicit.hardConstraints, ["WK_REQUIRED:G2:offering.groups:CRAFT_BEER"]);
+  assert.ok(first.explicit.softPreferences.includes("WK:classification.place_types:BREWERY"));
+});
+
 test("a concrete outdoor activity keeps its venue-type alternatives without treating every attraction as a walk", async () => {
   const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "NATURE_ANIMAL_EXPERIENCE", facets: [
     facet("classification.primary_category", "OUTDOOR_NATURE", "Spaziergang", "REQUIRED", "G1"),
