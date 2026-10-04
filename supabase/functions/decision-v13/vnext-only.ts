@@ -145,6 +145,10 @@ Deno.serve(async (request: Request) => {
       diagnostics: { reportFailure(stage, code) {
         // Fixed-shape operational signal only: no token, actor, query text, or SQL error detail.
         console.error(JSON.stringify({ event: "decision_vnext_failure", stage, code }));
+      }, reportTimings(outcome, stages) {
+        // Latency diagnostics contain only fixed stage names and rounded durations.
+        // They never include a user, prompt, spot, credential, or model payload.
+        console.info(JSON.stringify({ event: "decision_vnext_timing", outcome, stages }));
       } },
     })(request), origin);
   } catch {

@@ -528,6 +528,7 @@ test("city-sized canonical cohort fits the durable 64 KiB replay record without 
 
 test("failure diagnostics expose only a stage and static code while response remains unavailable", async () => {
   const failures = [];
+  const timingReports = [];
   const handler = createDecisionProductHttpHandler({
     auth: { async authenticate() { return ACTOR; } },
     rateLimit: { async consume() { return true; } },
@@ -536,7 +537,10 @@ test("failure diagnostics expose only a stage and static code while response rem
     idempotency: { async commit() { throw new Error("should_not_commit"); } },
     interaction: { async resolve() { throw new Error("should_not_resolve"); } },
     learning: { contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0", async record() { throw new Error("should_not_write"); } },
-    diagnostics: { reportFailure(stage, code) { failures.push({ stage, code }); } },
+    diagnostics: {
+      reportFailure(stage, code) { failures.push({ stage, code }); },
+      reportTimings(outcome, stages) { timingReports.push({ outcome, stages }); },
+    },
   });
   const response = await handler(new Request("https://example.invalid/decision-v13", {
     method: "POST", headers: { authorization: "Bearer synthetic-token" },
@@ -544,6 +548,14 @@ test("failure diagnostics expose only a stage and static code while response rem
   }));
   assert.equal(response.status, 503);
   assert.deepEqual(failures, [{ stage: "EVALUATION", code: "product_runtime_context_unavailable" }]);
+  assert.equal(timingReports.length, 1);
+  assert.equal(timingReports[0].outcome, "ERROR");
+  assert.deepEqual(timingReports[0].stages.map((item) => item.stage), ["REQUEST_START", "AUTH", "RATE_LIMIT", "BODY_PARSE", "EVALUATION"]);
+  for (const item of timingReports[0].stages) {
+    assert.deepEqual(Object.keys(item).sort(), ["controlAfterMs", "controlBeforeMs", "operationMs", "stage"]);
+    for (const key of ["controlBeforeMs", "operationMs", "controlAfterMs"]) assert.ok(Number.isInteger(item[key]) && item[key] >= 0);
+  }
+  assert.doesNotMatch(JSON.stringify(timingReports), /Café|Zürich|synthetic-token/);
   const body = await response.text();
   assert.doesNotMatch(body, /runtime_context|synthetic-token/);
 });
