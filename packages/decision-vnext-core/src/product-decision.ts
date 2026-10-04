@@ -12,7 +12,7 @@ import {
   DecisionProductCandidateSchema,
   DecisionProductEvaluationSchema, DecisionProductExecutionEnvelopeSchema, DecisionProductExecutionSchema,
   DecisionProductInteractionRequestSchema, DecisionProductInteractionResponseSchema,
-  DecisionProductPresentationSchema, DecisionProductRequestSchema,
+  DecisionProductPresentationSchema, DecisionProductRankVectorSchema, DecisionProductRequestSchema,
   DecisionProductResponseSchema, PRODUCT_DECISION_VERSIONS,
   type DecisionProductCandidateAssessment, type DecisionProductEvaluation, type DecisionProductExecution,
   type DecisionProductInteractionRequest, type DecisionProductPresentation, type DecisionProductRequest,
@@ -34,6 +34,13 @@ const situationalExperienceCategories = new Set([
 
 type RankableCandidate = DecisionProductResponse["candidates"][number];
 type ProductReason = RankableCandidate["reasons"][number];
+type CandidateForRanking = Pick<RankableCandidate, "spotId" | "tier" | "coreIntentCoverage" | "actualAvailability" | "unknownHardConstraints" | "contextualReject" | "rankVector">;
+type RankedCandidate = CandidateForRanking & {
+  readonly assessment: DecisionProductCandidateAssessment;
+  readonly presentation: DecisionProductPresentation;
+  readonly rank: number | null;
+  readonly comparativeReason: ProductReason | null;
+};
 
 const reasonDomain = (domain: DecisionProductCandidateAssessment["reasons"][number]["domain"]): ProductReason["domain"] =>
   domain === "LIMITATION" ? "LIMITATION" : domain;
@@ -85,13 +92,13 @@ function vector(candidate: DecisionProductCandidateAssessment, projection: Relev
     },
     neutralIdentity: candidate.neutralTieBreakerHash,
   };
-  return deepFreeze(withContentHash(body, "vectorHash"));
+  return deepFreeze(DecisionProductRankVectorSchema.parse({ ...body, vectorHash: contentHash(body) }));
 }
 
 function compareBoolean(left: boolean, right: boolean): number { return Number(right) - Number(left); }
 function compareNumber(left: number, right: number): number { return right - left; }
 
-function rankingChecks(left: RankableCandidate, right: RankableCandidate): readonly (readonly [number, string])[] {
+function rankingChecks(left: CandidateForRanking, right: CandidateForRanking): readonly (readonly [number, string])[] {
   const a = left.rankVector; const b = right.rankVector;
   const hard = compareNumber(a.hardConstraintState === "PASS" ? 2 : a.hardConstraintState === "UNKNOWN" ? 1 : 0, b.hardConstraintState === "PASS" ? 2 : b.hardConstraintState === "UNKNOWN" ? 1 : 0);
   return [
@@ -113,11 +120,11 @@ function rankingChecks(left: RankableCandidate, right: RankableCandidate): reado
   ];
 }
 
-function compareCandidates(left: RankableCandidate, right: RankableCandidate): number {
+function compareCandidates(left: CandidateForRanking, right: CandidateForRanking): number {
   return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[0] ?? 0;
 }
 
-function rankable(candidate: RankableCandidate, situationalIds: ReadonlySet<string> | null = null): boolean {
+function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null): boolean {
   const onlyRequestedDayOpeningUnknown = candidate.unknownHardConstraints.length > 0
     && candidate.unknownHardConstraints.every((constraint) => constraint === "OPEN_ON_REQUESTED_DAY")
     && ["unknown", "not_authorized", "expired", "disputed"].includes(candidate.actualAvailability);
@@ -138,34 +145,46 @@ function presentationsById(candidates: readonly DecisionProductCandidateAssessme
   return byId;
 }
 
-function candidateRows(evaluation: DecisionProductEvaluation, projection: RelevantUserProjection, presentations: readonly unknown[], situationalIds: ReadonlySet<string> | null): readonly RankableCandidate[] {
+function candidateRows(evaluation: DecisionProductEvaluation, projection: RelevantUserProjection, presentations: readonly unknown[], situationalIds: ReadonlySet<string> | null): readonly RankedCandidate[] {
   const byId = presentationsById(evaluation.candidates, presentations);
+  // Validate every rank vector, but build the large hashed presentation only
+  // for the final window. A city cohort may contain hundreds of candidates.
   const rows = evaluation.candidates.map((candidate) => {
     const presentation = byId.get(candidate.candidateId); if (!presentation) throw new Error("product_decision_presentation_missing");
     const rankVector = vector(candidate, projection);
-    const reasons: ProductReason[] = [
-      ...candidate.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-      { code: "product-ranking-policy-v3", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
-    ];
-    const body = {
-      spotId: candidate.candidateId, presentation, tier: candidate.tier, rank: null,
+    return {
+      assessment: candidate, spotId: candidate.candidateId, presentation, tier: candidate.tier, rank: null,
       coreIntentCoverage: candidate.coreIntentCoverage.state, actualAvailability: candidate.actualAvailability.status,
-      confirmedHardConstraints: candidate.confirmedHardConstraints, unknownHardConstraints: candidate.unknownHardConstraints,
-      failedHardConstraints: candidate.failedHardConstraints, rankVector, reasons, limitations: candidate.limitations,
-      contextualReject: candidate.rejectionClass === "SITUATIONAL_REJECT",
+      unknownHardConstraints: candidate.unknownHardConstraints, rankVector,
+      contextualReject: candidate.rejectionClass === "SITUATIONAL_REJECT", comparativeReason: null,
     };
-    return DecisionProductCandidateSchema.parse(withContentHash(body, "candidateHash"));
   }).sort(compareCandidates);
   let position = 0;
   const rankedRows = rows.filter((candidate) => rankable(candidate, situationalIds));
   return deepFreeze(rows.map((candidate) => {
-    const { candidateHash: _candidateHash, ...body } = candidate;
     const ranked = rankable(candidate, situationalIds); if (ranked) position += 1;
     const next = ranked ? rankedRows[position] : undefined;
     const decidingFactor = next ? rankingChecks(candidate, next).find(([difference]) => difference < 0)?.[1] : undefined;
-    const comparativeReason: ProductReason[] = decidingFactor ? [{ code: "product-rank-versus-next-v1", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: `Vor dem nächsten Platz wegen ${decidingFactor}.`, confirmed: true }] : [];
-    return DecisionProductCandidateSchema.parse(withContentHash({ ...body, rank: ranked ? position : null, reasons: [...body.reasons, ...comparativeReason] }, "candidateHash"));
+    const comparativeReason: ProductReason | null = decidingFactor
+      ? { code: "product-rank-versus-next-v1", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: `Vor dem nächsten Platz wegen ${decidingFactor}.`, confirmed: true } : null;
+    return { ...candidate, rank: ranked ? position : null, comparativeReason };
   }));
+}
+
+function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
+  const assessment = candidate.assessment;
+  const reasons: ProductReason[] = [
+    ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
+    { code: "product-ranking-policy-v3", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
+  ];
+  return DecisionProductCandidateSchema.parse(withContentHash({
+    spotId: candidate.spotId, presentation: candidate.presentation, tier: candidate.tier, rank: candidate.rank,
+    coreIntentCoverage: candidate.coreIntentCoverage, actualAvailability: candidate.actualAvailability,
+    confirmedHardConstraints: assessment.confirmedHardConstraints, unknownHardConstraints: assessment.unknownHardConstraints,
+    failedHardConstraints: assessment.failedHardConstraints, rankVector: candidate.rankVector, reasons,
+    limitations: assessment.limitations, contextualReject: candidate.contextualReject,
+  }, "candidateHash"));
 }
 
 export interface DecisionProductBuildInput {
@@ -220,9 +239,10 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
   for (let windowSize = maxWindowSize; windowSize >= (maxWindowSize === 0 ? 0 : 1); windowSize -= 1) {
-    const candidates = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds)).slice(0, PRODUCT_PRESENTATION_WINDOW)
+    const selected = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds)).slice(0, PRODUCT_PRESENTATION_WINDOW)
       : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize ? ranked
         : available.slice(firstUnseenIndex, firstUnseenIndex + windowSize);
+    const candidates = selected.map(materializeCandidate);
     const primary = firstUnseenIndex < 0 ? null : available[firstUnseenIndex];
     const responseBody = {
       contractVersion: PRODUCT_DECISION_VERSIONS.response, status: "AVAILABLE" as const, decisionId, requestHash, envelopeHash: envelope.envelopeHash,
