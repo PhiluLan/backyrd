@@ -231,7 +231,13 @@ export function createDecisionProductAiIntentInterpreter(input: {
     if (input.allowedUserIds !== "*" && !input.allowedUserIds.includes(actor.userId.toLowerCase())) return parsed;
     if (signal.aborted) throw signal.reason ?? new Error("product_ai_intent_aborted");
     const cacheParameters = {
-      p_auth_user_id: actor.userId, p_request_hash: contentHash(parsed), p_model_version: input.model,
+      // The interpretation depends on the sentence and explicit context, not
+      // on a fresh transport/idempotency ID or alternative pagination. Keep
+      // the user, catalog and release bindings below so one person's result
+      // can never become another person's or survive a material prompt change.
+      p_auth_user_id: actor.userId,
+      p_request_hash: contentHash({ naturalLanguage: parsed.naturalLanguage, explicit: parsed.explicit }),
+      p_model_version: input.model,
       p_catalog_hash: PRODUCT_QUERY_CATALOG_HASH, p_release_hash: input.identity.releaseHash,
       p_artifact_hash: input.identity.artifactHash, p_source_set_hash: input.identity.sourceSetHash,
       p_generation: input.identity.controlGeneration,

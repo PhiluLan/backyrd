@@ -15,7 +15,7 @@ const facet = (key, value, evidence, role = "PREFERRED", group = null) => ({ key
 const interpreter = (fetchImpl, rpc, allowedUserIds = [actor.userId]) => createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "gpt-6-luna", allowedUserIds, rpc, fetchImpl });
 
 test("AI interprets a normal request even when the old lexicon recognizes its category; cache is byte-stable", async () => {
-  let stored; let fetches = 0; const calls = [];
+  const stored = new Map(); let fetches = 0; const calls = [];
   const run = interpreter(async (_url, options) => {
     fetches += 1; const body = JSON.parse(options.body);
     assert.equal(body.store, false); assert.equal(body.text.format.strict, true);
@@ -38,21 +38,29 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
     ], indoorRequired: true, indoorEvidence: "Regen" }));
   }, { async rpc(name, parameters) {
     assert.equal(name, PRODUCT_AI_INTENT_CACHE_RPC); calls.push(parameters);
-    if (parameters.p_write) stored ??= parameters.p_semantics;
-    return { data: stored === undefined ? { status: "MISS" } : { status: "HIT", semantics: stored }, error: null };
+    if (parameters.p_write) stored.set(parameters.p_request_hash, parameters.p_semantics);
+    return { data: stored.has(parameters.p_request_hash)
+      ? { status: "HIT", semantics: stored.get(parameters.p_request_hash) } : { status: "MISS" }, error: null };
   } });
   const input = request("Ausflug mit meiner 4 jährigen Tochter bei Regen");
   const first = await run(input, actor, new AbortController().signal);
-  const second = await run(input, actor, new AbortController().signal);
-  assert.deepEqual(first, second); assert.equal(fetches, 1); assert.equal(calls.length, 3);
+  const second = await run({ ...input, requestId: "request-family-repeat", idempotencyKey: "idem-family-repeat" }, actor, new AbortController().signal);
+  assert.deepEqual(first.explicit, second.explicit);
+  assert.equal(second.requestId, "request-family-repeat");
+  assert.equal(fetches, 1); assert.equal(calls.length, 3);
+  assert.equal(calls[0].p_request_hash, calls[2].p_request_hash);
+  await run({ ...input, requestId: "request-family-context", idempotencyKey: "idem-family-context",
+    explicit: { primaryIntent: "ACTIVITY_EXPERIENCE" } }, actor, new AbortController().signal);
+  assert.equal(fetches, 2); assert.equal(calls.length, 5);
+  assert.notEqual(calls[0].p_request_hash, calls[3].p_request_hash);
   assert.equal(first.explicit.primaryIntent, "ACTIVITY_EXPERIENCE");
   assert.ok(first.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
   assert.equal(first.explicit.hardConstraints.some((item) => item.includes("classification.primary_category")), false);
   assert.ok(first.explicit.softPreferences.includes("WK:classification.primary_category:ACTIVITIES_PLAY"));
   assert.ok(first.explicit.softPreferences.includes("WK:classification.primary_category:CULTURE_ARTS"));
   assert.ok(first.explicit.softPreferences.includes("WK:context.visit_situations:FAMILY"));
-  assert.equal(JSON.stringify(stored).includes("Tochter"), false);
-  assert.equal(JSON.stringify(stored).includes("Regen"), false);
+  assert.equal(JSON.stringify([...stored.values()]).includes("Tochter"), false);
+  assert.equal(JSON.stringify([...stored.values()]).includes("Regen"), false);
 });
 
 test("a concrete outdoor activity keeps its venue-type alternatives without treating every attraction as a walk", async () => {
