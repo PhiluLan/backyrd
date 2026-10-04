@@ -519,6 +519,9 @@ test("city-sized canonical cohort fits the durable 64 KiB replay record without 
   const two = buildDecisionProductExecution(largeInput);
   assert.ok(Buffer.byteLength(canonicalJson(one), "utf8") <= 65_536);
   assert.ok(one.response.candidates.length > 0 && one.response.candidates.length <= 8);
+  assert.deepEqual(one.response.candidates.map((candidate) => candidate.rank),
+    Array.from({ length: one.response.candidates.length }, (_, index) => index + 1));
+  assert.equal(one.response.primaryCandidateId, one.response.candidates[0]?.spotId);
   assert.ok(one.response.limitations.includes("CANDIDATE_WINDOW_LIMITED"));
   assert.equal(canonicalJson(one), canonicalJson(two));
   assert.equal(validateDecisionProductExecution(largeInput, one).response.resultHash, one.response.resultHash);
