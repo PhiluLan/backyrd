@@ -119,3 +119,9 @@ requests those as alternatives in one hard query group. A broad wish does not
 gain such a gate. This changes query interpretation, not Spot facts; subjective
 atmosphere and companionship remain unverified unless World evidence confirms
 them for the Spot.
+
+The server-side AI query cache is keyed by the sentence and explicit request
+context, plus its existing authenticated-user, model, catalog and exact release
+bindings. Fresh transport IDs and alternative-page IDs do not change the
+semantics and therefore do not trigger a new provider call. The cache stores
+only the validated structured interpretation, never the raw sentence.
