@@ -117,6 +117,41 @@ test("an unresolved main wish never turns a random catalog slice into recommenda
   assert.equal(built.response.candidates.filter((candidate) => candidate.rank !== null).length, 0);
 });
 
+test("an open-ended social wish ranks only verified situation matches, never a hotel or an unverified venue", async () => {
+  const input = await fixture(productRequest("Ein schöner Ort für unser erstes Date", "situation-only"), "NO_CONSENT");
+  const { interpretationHash: _interpretationHash, ...context } = input.evaluation.interpretation;
+  const interpretation = DecisionProductContextSchema.parse(withContentHash({
+    ...context, primaryIntent: null, intentCompatibility: "UNKNOWN", occasion: "DATE",
+    group: { ...context.group, companionType: "DATE_PAIR" },
+    softPreferences: ["WK:context.visit_situations:DATE_PAIR"],
+    unresolvedTerms: ["CORE_INTENT"], limitations: ["CORE_INTENT_REQUIRES_CLARIFICATION"],
+  }, "interpretationHash"));
+  const candidates = input.evaluation.candidates.map((candidate) => {
+    const { assessmentHash: _assessmentHash, ...body } = candidate;
+    return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
+      ...body, tier: "UNCONFIRMED_FALLBACK",
+      coreIntentCoverage: { ...body.coreIntentCoverage, intentId: null, state: "NOT_APPLICABLE" },
+      visitSituation: { ...body.visitSituation, state: candidate.candidateId === "product-spot-cafe" || candidate.candidateId === "product-spot-bar" ? "CONFIRMED" : "UNKNOWN" },
+      worldClassification: candidate.candidateId === "product-spot-bar"
+        ? { ...body.worldClassification, primaryCategory: "STAY", placeTypes: ["HOTEL"] }
+        : body.worldClassification,
+    }, "assessmentHash"));
+  });
+  const { evaluationHash: _evaluationHash, ...evaluationBody } = input.evaluation;
+  const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({ ...evaluationBody, interpretation, candidates }, "evaluationHash"));
+  const built = buildDecisionProductExecution({ ...input, evaluation });
+  assert.equal(built.response.primaryCandidateId, "product-spot-cafe");
+  assert.deepEqual(built.response.candidates.filter((candidate) => candidate.rank !== null).map((candidate) => candidate.spotId), ["product-spot-cafe"]);
+  assert.equal(built.response.candidates.find((candidate) => candidate.spotId === "product-spot-cafe")?.tier, "UNCONFIRMED_FALLBACK");
+  const noSituation = DecisionProductContextSchema.parse(withContentHash({ ...context,
+    primaryIntent: null, intentCompatibility: "UNKNOWN", occasion: "DATE",
+    group: { ...context.group, companionType: "DATE_PAIR" },
+    unresolvedTerms: ["CORE_INTENT"], limitations: ["CORE_INTENT_REQUIRES_CLARIFICATION"],
+  }, "interpretationHash"));
+  const noSituationEvaluation = DecisionProductEvaluationSchema.parse(withContentHash({ ...evaluationBody, interpretation: noSituation, candidates }, "evaluationHash"));
+  assert.equal(buildDecisionProductExecution({ ...input, evaluation: noSituationEvaluation }).response.primaryCandidateId, null);
+});
+
 test("every released Product-v1 lexicon term resolves to its declared broad intent", () => {
   for (const [intent, signals] of Object.entries(PRODUCT_INTENT_LEXICON)) {
     for (const { term } of signals) assert.equal(inferProductV1Intent(term), intent, `${term} -> ${intent}`);

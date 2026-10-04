@@ -59,6 +59,12 @@ preserves discovery of genuinely suitable activities outside the model's first
 guesses while leaving family suitability and other unverified context visible.
 A request for a low price similarly remains a fallback when no low price level is
 verified; even a verified low level is not a promise of a particular CHF price.
+For an open-ended social wish without a stated activity, a null primary intent
+is not automatically an empty result. A provisional result is allowed only
+when the request names a canonical visit situation and the specific Spot has
+matching, scoped, verified World evidence for it. Hotels and non-experience
+categories cannot fill the gap; unknown or disputed situation evidence cannot
+rank. The UI must disclose that the concrete activity was not established.
 The AI interpreter also accounts for material request parts that the current
 catalog cannot verify. Canonical, non-raw codes for music during the visit,
 a precise clock time, or another unmapped core need travel with the interpreted

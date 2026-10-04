@@ -27,6 +27,10 @@ const availabilityScore = { open: 6, not_requested: 5, unknown: 4, not_authorize
 const positiveDirectStates = new Set(["SAVED", "REPEATEDLY_SELECTED", "VISITED"]);
 const negativeDirectStates = new Set(["EXCLUDED"]);
 const PRODUCT_PRESENTATION_WINDOW = 8;
+const situationalExperienceCategories = new Set([
+  "EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "CULTURE_ARTS",
+  "ENTERTAINMENT", "ACTIVITIES_PLAY", "OUTDOOR_NATURE", "ATTRACTIONS_LANDMARKS",
+]);
 
 type RankableCandidate = DecisionProductResponse["candidates"][number];
 type ProductReason = RankableCandidate["reasons"][number];
@@ -113,11 +117,12 @@ function compareCandidates(left: RankableCandidate, right: RankableCandidate): n
   return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[0] ?? 0;
 }
 
-function rankable(candidate: RankableCandidate): boolean {
+function rankable(candidate: RankableCandidate, situationalIds: ReadonlySet<string> | null = null): boolean {
   const onlyRequestedDayOpeningUnknown = candidate.unknownHardConstraints.length > 0
     && candidate.unknownHardConstraints.every((constraint) => constraint === "OPEN_ON_REQUESTED_DAY")
     && ["unknown", "not_authorized", "expired", "disputed"].includes(candidate.actualAvailability);
-  return candidate.tier !== "INELIGIBLE"
+  return (situationalIds === null || situationalIds.has(candidate.spotId))
+    && candidate.tier !== "INELIGIBLE"
     && (candidate.rankVector.hardConstraintState === "PASS" || onlyRequestedDayOpeningUnknown)
     && candidate.coreIntentCoverage !== "INCOMPATIBLE"
     && candidate.coreIntentCoverage !== "DISPUTED"
@@ -133,7 +138,7 @@ function presentationsById(candidates: readonly DecisionProductCandidateAssessme
   return byId;
 }
 
-function candidateRows(evaluation: DecisionProductEvaluation, projection: RelevantUserProjection, presentations: readonly unknown[]): readonly RankableCandidate[] {
+function candidateRows(evaluation: DecisionProductEvaluation, projection: RelevantUserProjection, presentations: readonly unknown[], situationalIds: ReadonlySet<string> | null): readonly RankableCandidate[] {
   const byId = presentationsById(evaluation.candidates, presentations);
   const rows = evaluation.candidates.map((candidate) => {
     const presentation = byId.get(candidate.candidateId); if (!presentation) throw new Error("product_decision_presentation_missing");
@@ -152,10 +157,10 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
     return DecisionProductCandidateSchema.parse(withContentHash(body, "candidateHash"));
   }).sort(compareCandidates);
   let position = 0;
-  const rankedRows = rows.filter(rankable);
+  const rankedRows = rows.filter((candidate) => rankable(candidate, situationalIds));
   return deepFreeze(rows.map((candidate) => {
     const { candidateHash: _candidateHash, ...body } = candidate;
-    const ranked = rankable(candidate); if (ranked) position += 1;
+    const ranked = rankable(candidate, situationalIds); if (ranked) position += 1;
     const next = ranked ? rankedRows[position] : undefined;
     const decidingFactor = next ? rankingChecks(candidate, next).find(([difference]) => difference < 0)?.[1] : undefined;
     const comparativeReason: ProductReason[] = decidingFactor ? [{ code: "product-rank-versus-next-v1", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: `Vor dem nächsten Platz wegen ${decidingFactor}.`, confirmed: true }] : [];
@@ -198,15 +203,24 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   // Rank the complete canonical World cohort before choosing a presentation
   // window. The durable, byte-identical idempotency record is capped at 64 KiB;
   // a city-sized cohort must not turn an otherwise valid request into a 503.
-  const ranked = candidateRows(evaluation, projection, input.presentations);
-  // An unresolved core intent cannot authorize a ranked recommendation. In
-  // particular, a broad family outing must not silently become a food list.
-  const available = evaluation.interpretation.primaryIntent === null ? [] : ranked.filter(rankable);
+  // An unspecified activity is not a license to invent a restaurant/bar
+  // intent. It can, however, support a provisional situation-first choice
+  // when canonical World evidence explicitly confirms that company/context.
+  // Hotels, gyms and other non-visit categories are not generic substitutes.
+  const situation = evaluation.interpretation.group.companionType;
+  const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
+    && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
+  const situationalIds = evaluation.interpretation.primaryIntent !== null ? null : new Set(
+    situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
+      && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
+  );
+  const ranked = candidateRows(evaluation, projection, input.presentations, situationalIds);
+  const available = ranked.filter((candidate) => rankable(candidate, situationalIds));
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
   for (let windowSize = maxWindowSize; windowSize >= (maxWindowSize === 0 ? 0 : 1); windowSize -= 1) {
-    const candidates = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate)).slice(0, PRODUCT_PRESENTATION_WINDOW)
+    const candidates = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds)).slice(0, PRODUCT_PRESENTATION_WINDOW)
       : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize ? ranked
         : available.slice(firstUnseenIndex, firstUnseenIndex + windowSize);
     const primary = firstUnseenIndex < 0 ? null : available[firstUnseenIndex];
@@ -214,7 +228,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
       contractVersion: PRODUCT_DECISION_VERSIONS.response, status: "AVAILABLE" as const, decisionId, requestHash, envelopeHash: envelope.envelopeHash,
       rankingPolicyVersion: PRODUCT_DECISION_VERSIONS.rankingPolicy, rankingPolicyHash: DECISION_PRODUCT_RANKING_POLICY.policyHash,
       interpretation: evaluation.interpretation, primaryCandidateId: primary?.spotId ?? null, candidates,
-      limitations: candidates.filter(rankable).length < available.length ? [...evaluation.limitations, "CANDIDATE_WINDOW_LIMITED"] : evaluation.limitations,
+      limitations: candidates.filter((candidate) => rankable(candidate, situationalIds)).length < available.length ? [...evaluation.limitations, "CANDIDATE_WINDOW_LIMITED"] : evaluation.limitations,
       alternative: { requested: request.alternativeRequested, selectedCandidateId: request.alternativeRequested ? primary?.spotId ?? null : null, negativeSignalProduced: false as const },
       reject: { candidateIds: request.rejectedCandidateIds, contextualOnly: true as const, worldFactProduced: false as const },
       personalization: { state: projection.status, neutralReason: projection.neutralReason, projectionHash: projection.projectionHash },
