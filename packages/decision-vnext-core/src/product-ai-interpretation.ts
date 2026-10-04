@@ -5,7 +5,7 @@ import { DecisionProductRequestSchema, type DecisionProductRequest } from "./pro
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_INDOOR_CONSTRAINT, PRODUCT_QUERY_CATALOG, PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.6" as const;
+export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.7" as const;
 export const PRODUCT_AI_INTENT_CACHE_RPC = "backyrd_decision_vnext_product_query_cache_v1" as const;
 
 const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
@@ -41,6 +41,22 @@ const explicitNegation = (text: string): boolean => /\b(?:kein(?:e|en|em|er|es)?
 const explicitMusicClub = (text: string): boolean => /\b(?:musikclub|music.?club|konzertclub|nachtclub|club|disco|diskothek)\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
 const explicitMusicNeed = (text: string): boolean => /\bmusik\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH")) && !/\b(?:ohne|keine?)\s+musik\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
 const explicitPreciseTime = (text: string): boolean => /\b(?:nach|ab|um)\s*(?:[01]?\d|2[0-3])(?:(?::[0-5]\d)?\s*uhr\b|:[0-5]\d\b)/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
+const consumptionIntents = new Set<ProductV1Intent>(["EAT", "COFFEE", "DRINKS", "NIGHTLIFE"]);
+const germanVenueAliases: Readonly<Record<string, readonly string[]>> = {
+  BAKERY: ["bäckerei"], BREWERY: ["brauerei"], FOOD_HALL: ["markthalle"],
+  GYM: ["fitnessstudio"], MUSIC_CLUB: ["musikclub"], NIGHTCLUB: ["nachtclub"],
+  WINE_BAR: ["weinbar"],
+};
+const normalizeVenueText = (value: string): string => value.normalize("NFKD").replace(/\p{M}/gu, "").toLocaleLowerCase("de-CH");
+function namesVenueType(text: string, placeType: string): boolean {
+  const normalized = normalizeVenueText(text);
+  const canonical = placeType.toLowerCase().replaceAll("_", " ");
+  const aliases = [canonical, canonical.replaceAll(" ", ""), ...(germanVenueAliases[placeType] ?? [])];
+  return aliases.some((alias) => {
+    const escaped = normalizeVenueText(alias).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?:^|[^\\p{L}])${escaped}(?:$|[^\\p{L}])`, "u").test(normalized);
+  });
+}
 const invalid = (reason: string) => new Error(`product_ai_intent_result_invalid_${reason}`);
 
 function separateRequirementDomains(facets: readonly Facet[]): readonly Facet[] {
@@ -98,10 +114,14 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     // Only an explicitly negated venue kind may exclude a whole candidate.
     if (facet.role === "EXCLUDED" && fromModel && (!text || !explicitNegation(text)
       || !["classification.primary_category", "classification.place_types"].includes(facet.key))) continue;
-    // "Music" is an experience/offer, not proof that the user demands a
-    // MUSIC_CLUB. Preserve this venue-type requirement only when named.
+    // An offering does not imply the venue where it must be consumed. Craft
+    // beer can be served at a bar, and dinner does not require a restaurant.
+    // For consumption intents, a venue kind is hard only when the person
+    // actually names that kind. Activity intents may instead require a venue
+    // kind implied by the activity itself (e.g. a walkable outdoor place).
     const proposedRole = facet.role === "REQUIRED" && fromModel && facet.key === "classification.place_types"
-      && facet.value === "MUSIC_CLUB" && text && !explicitMusicClub(text) ? "PREFERRED" : facet.role;
+      && text && ((primaryIntent !== null && consumptionIntents.has(primaryIntent) && !namesVenueType(text, facet.value))
+        || facet.value === "MUSIC_CLUB" && !explicitMusicClub(text)) ? "PREFERRED" : facet.role;
     // Price levels are coarse descriptions, not an amount or a verified
     // promise that a meal fits the person's budget. Only the independently
     // parsed CHF ceiling may be a hard budget constraint.
@@ -260,14 +280,14 @@ export function createDecisionProductAiIntentInterpreter(input: {
             "Gib REQUIRED-Merkmalen kurze Gruppen G1, G2 usw. Verschiedene Gruppen müssen alle passen; echte Alternativen wie 'Museum oder Kino' bekommen dieselbe Gruppe. Für PREFERRED und EXCLUDED ist group null. Leite aus einem Wunsch keine erfundenen Spot-Fakten oder Zutrittsregeln ab.",
             "Beispiel für die Logik, nicht für eine feste Phrasenliste: Ein Familienausflug hat ACTIVITY_EXPERIENCE als Hauptzweck. Die G1-Alternativen können geeignete Erlebnis-Kategorien wie ACTIVITIES_PLAY, CULTURE_ARTS oder ENTERTAINMENT sein; bestätigte FAMILY/FAMILY_FRIENDLY-Merkmale sind zusätzliche positive Evidenz. Bloßes SPORT_MOVEMENT ohne Familien- oder Kindereignung ist kein Familienausflug. Regen wird separat als Indoor-Bedingung verarbeitet. Kaffee und Kuchen hat COFFEE als Hauptzweck und verlangt zusätzlich DESSERTS als G1, nicht bloß irgendein Café. Bei 'Date Night' gehören Paar-Kontext und der konkrete Abend zur Anfrage, aber 'Nacht' allein beweist weder Alkohol noch Clubbing.",
             "Die effektive Uhrzeit, Öffnung, Stadt, Distanz und Alters-/Zutrittsregeln werden später von der Engine geprüft. Setze dafür keine erfundenen World-Facets. Kontextfelder für Stimmung, Begleitung und typische Tageszeit sind zusätzliche Evidenz, niemals REQUIRED; fehlende Kontextdaten beweisen keine Ungeeignetheit. Unterscheide Kategorie/Ortsart vom eigentlichen Erlebnis; ein allgemeiner Ort derselben Kategorie genügt nicht, wenn ein Kernmerkmal ausdrücklich genannt ist.",
-            "Wenn eine konkrete Tätigkeit eine engere, objektiv passende Ortsart voraussetzt, verwende passende classification.place_types als REQUIRED-Alternativen derselben Gruppe statt nur eine breite Kategorie. Ein Spaziergang passt etwa zu PARK, TRAIL, WATERFRONT oder BOTANICAL_GARDEN; nicht jede Attraktion oder jeder ZOO ist deshalb ein Spazierziel. Bei einem offenen Wunsch wie 'etwas erleben' erzwinge dagegen keine einzelne Ortsart. Ortsarten sind keine Behauptung über romantische Stimmung, Barrierefreiheit oder andere unbelegte Eigenschaften.",
+            "Wenn eine konkrete Tätigkeit eine engere, objektiv passende Ortsart voraussetzt, verwende passende classification.place_types als REQUIRED-Alternativen derselben Gruppe statt nur eine breite Kategorie. Ein Spaziergang passt etwa zu PARK, TRAIL, WATERFRONT oder BOTANICAL_GARDEN; nicht jede Attraktion oder jeder ZOO ist deshalb ein Spazierziel. Ein gewünschtes Getränk oder Gericht setzt dagegen keine Brauerei, keinen Taproom und kein Restaurant voraus: diese Ortsarten sind nur REQUIRED, wenn der Mensch die Ortsart selbst verlangt. Bei einem offenen Wunsch wie 'etwas erleben' erzwinge keine einzelne Ortsart. Ortsarten sind keine Behauptung über romantische Stimmung, Barrierefreiheit oder andere unbelegte Eigenschaften.",
             "Ein qualitatives Preiswort wie 'günstig' ist eine Präferenz, kein exakter Preisdeckel. Preislevel dürfen nie REQUIRED sein; konkrete Beträge prüft die Engine getrennt anhand bestätigter CHF-Spannen.",
             "Bei Regen oder ausdrücklichem Wunsch nach drinnen ist indoorRequired wahr. Museum und Indoor-Kletterhalle sind Indoor-Ortsarten; Zoo und Park sind nicht automatisch regentauglich.",
             "Ausgehen oder 'einen drauf machen' mit Freund:innen kann NIGHTLIFE, lebhaft und gesellig bedeuten; es beweist weder Alkoholkonsum noch Tanzfläche. Craft Beer ohne Ausgehkontext ist DRINKS. 'Musik' verlangt nicht automatisch einen MUSIC_CLUB; diese Ortsart ist nur dann REQUIRED, wenn ein Club als Ort gemeint ist. Decke jeden eigenständigen Kernbestandteil des Wunsches ab, insbesondere Tätigkeit und Gesellschaft, ohne konkrete Spot-Fakten zu erfinden.",
             "Prüfe jeden eigenständigen Kernbestandteil gegen die ausgewählten Felder. Trage in unresolvedNeedCodes MUSIC_AT_VISIT_UNVERIFIED ein, wenn Musik zum Besuch gewünscht ist, PRECISE_TIME_UNVERIFIED für eine konkrete Uhrzeit und OTHER_CORE_NEED_UNMAPPED, wenn ein anderer wichtiger Bestandteil im Katalog nicht abgebildet oder anhand von Spot-Wissen nicht verifiziert werden kann. Die Liste darf nur dann leer sein, wenn wirklich alles abgedeckt ist. Diese Codes sind Ehrlichkeitsgrenzen, keine erfundenen Spot-Fakten.",
             `Zulässige Felder und Werte: ${JSON.stringify(catalogForModel)}.`,
           ].join(" "), input: parsed.naturalLanguage,
-          text: { format: { type: "json_schema", name: "backyrd_decision_query_v3", strict: true, schema: modelSchema } },
+          text: { format: { type: "json_schema", name: "backyrd_decision_query_v4", strict: true, schema: modelSchema } },
         }),
       };
       let semantics: QuerySemantics | null = null;

@@ -113,12 +113,17 @@ contain no user text, actor identity, Spot identity, credentials, or model
 payload; they are operational evidence for latency work and cannot affect a
 Decision response.
 
-AI query prompt v3 distinguishes a concrete activity from its broad category:
+AI query prompt v4 distinguishes a concrete activity from its broad category:
 when the activity entails specific canonical place types, the interpreter
 requests those as alternatives in one hard query group. A broad wish does not
 gain such a gate. This changes query interpretation, not Spot facts; subjective
 atmosphere and companionship remain unverified unless World evidence confirms
-them for the Spot.
+them for the Spot. A requested drink or dish is not proof that the person
+requires a brewery, taproom or restaurant. For eating, coffee, drinks and
+nightlife, model-proposed venue types are hard only if the user actually names
+that type; the requested offering remains independently testable against World
+Knowledge. The venue-name guard is a catalog-level safety rule, not a list of
+user phrases.
 
 The server-side AI query cache is keyed by the sentence and explicit request
 context, plus its existing authenticated-user, model, catalog and exact release
