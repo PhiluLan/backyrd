@@ -1,6 +1,6 @@
 # Request understanding v1 — first work package
 
-Status: **structured model contract integrated; live-model accuracy not yet evaluated** (2026-10-10).
+Status: **implementation integrated; live development evaluation running; independent acceptance pending** (2026-10-11).
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
@@ -48,13 +48,17 @@ city; automatic source-aware redirection and clarification UI are still pending.
 The previous bounded lexical fallback remains available when AI is disabled or
 omits a supported field; its 160-case diagnostic is separate from model quality.
 Provider failure does not silently fall back to an invented successful AI result.
+Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
+their optional strength. A group containing only one requirement normalizes to
+no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.0`; understanding contract `@1.0`; understanding
-policy `request-understanding-policy-v1`; AI context resolver v3; lexical resolver
+Versions: interpreter `ai-query@4.4`; understanding contract `@1.0`; understanding
+policy `request-understanding-policy-v3`; AI context resolver v3; lexical resolver
 v2; evaluator `@2.3`. Model output cap is 3600 tokens (previously 2400), with the
 existing maximum of one malformed/incomplete-output retry. Existing server
 allowlist, authentication, rate limits, deadline and release controls remain.
-Latency and cost of the richer prompt require live-model measurement.
+Latency and cost are measured by the development runner below; independent
+quality acceptance is still required.
 
 ## Minimized persistence review
 
@@ -299,3 +303,148 @@ checks and clarification UX remain separate work.
 The Responses schema follows the [official Structured Outputs constraints](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses):
 closed objects, required properties, explicit null alternatives and bounded
 untrusted output. Schema validity is not evidence of semantic accuracy.
+
+
+## Live development evaluation (2026-10-11)
+
+The active interpreter can now be measured directly with
+`test/request-understanding/run-model-evaluation.mjs`. This is a test adapter to
+the canonical interpreter, not another runtime, Product route or historical lab.
+It uses a new in-memory cache per case, synthetic authentication/release bindings,
+and only the official Responses endpoint. No Supabase connection, real user or
+Spot data is used. Request-local cache replay is covered separately by integration
+tests; live latency measures cold application-cache interpretation, including any
+bounded malformed-output retry. OpenAI prompt caching may still apply and is
+reported separately.
+
+Two development suites have different purposes:
+
+- `context`: the unchanged 160 phrasings / 40 families, evaluating the public
+  resolved context. Its original agent-authored expectations still need Product
+  review and do not cover all supported structured semantics.
+- `requirements`: 24 new phrasings / 12 families with a separate typed oracle.
+  Measures missing/unexpected requirements, exact values, importance, exclusions
+  and OR partition preservation, alongside context checks. Observed requirements
+  form a multiset: one match cannot cover two needs. Group labels may differ;
+  their relationships may not. Unexpected means unmatched by this oracle, not
+  automatically a proven invented user need.
+
+Both suites remain `PROPOSED_REQUIRES_HUMAN_REVIEW` and
+`DEVELOPMENT_NOT_HOLDOUT`. Passing them is not a launch verdict. The independent
+holdout in the acceptance plan has not been replaced by these visible cases.
+
+### Running and bounded cost
+
+After `npm run decision-vnext:build`, a command without `--live` is a network-free
+preflight. Supply `OPENAI_API_KEY` only through the server process environment;
+never through command-line arguments, a client variable, repository fixture or
+report. Set `BACKYRD_DECISION_AI_INTENT_MODEL=gpt-6-luna` for this evaluation.
+The runner currently permits this model only because its cost estimate has an
+explicit dated price source; it never silently substitutes another model.
+
+```sh
+node packages/decision-vnext-core/test/request-understanding/run-model-evaluation.mjs --suite requirements
+node packages/decision-vnext-core/test/request-understanding/run-model-evaluation.mjs --live --suite requirements --max-calls 48 --max-estimated-usd 1
+node packages/decision-vnext-core/test/request-understanding/run-model-evaluation.mjs --live --suite context --max-calls 320 --max-estimated-usd 1
+```
+
+Defaults: eight provider calls, 20 seconds per case including retry, 3600 output
+tokens per call, 100000 request bytes, one USD estimated spend guard. Hard maxima
+are 400 calls and a 60-second case deadline. A conservative reservation for
+128000 input tokens at the highest applicable short-context input rate plus
+3600 output tokens precedes each call. Measured token bounds or missing usage
+stop further calls. This estimate is not an account-level billing guarantee;
+account limits, taxes, processing tier and later price changes are outside this
+runner. The [dated model pricing](https://developers.openai.com/api/docs/models/gpt-6-luna)
+is recorded in every priced report. Usage includes retries, cache reads and
+cache writes; the [Responses token guidance](https://developers.openai.com/api/docs/guides/token-counting)
+explains why output usage includes more than visible text alone.
+
+Authentication, rate-limit, model-availability and incompatible-request errors
+stop the run. Cases not executed remain NOT_RUN, rather than passing or failing
+semantic quality. Exit 0 means all declared checks executed and passed; exit 1
+means semantic mismatches; exit 2 means configuration, technical failure or
+incomplete execution. No exit code grants release authority. A missing or
+unmeasured charge produces null cost, never a fabricated zero.
+
+Reports bind Git/dirty state, source/build hashes, harness, corpus, oracle,
+prompt, model, interpreter, catalog and understanding policy; they report family
+outcomes and case latency p50/p95. Ordinary reports omit raw requests, model
+output and provider errors. `--family <id>` supports a localized reproducer.
+`--progress` emits case IDs and counters to stderr.
+`--diagnostics` adds only validated normalized requirements for failures in the
+bundled synthetic suite; it does not expose source quotes, provider payloads,
+credentials or real users. Fixture transports are labelled FIXTURE, never LIVE.
+
+### Findings and oracle changes
+
+The first eight-call pilot used seven cases (one retry): six passed, one
+mismatched, no technical failures. The first complete requirements run on policy
+4.0 had 14 passes, eight mismatches and two technical errors. Those are development
+observations on the original oracle, not an acceptance score.
+
+Policy 4.1 removed a conflicting instruction that let requested atmosphere and
+exclusions disappear behind legacy facets; it explicitly requires optional needs
+to survive in the typed list. A subsequent run had 17 passes, five mismatches and
+two errors. Policy 4.2 clarifies optional numeric ceilings, explicit OR versus
+ambiguous interpretation, redundant primary intent and non-contextual injection
+instructions. Safe requirement-validator codes survive the existing bounded
+retry without exposing source content. These are measured development iterations,
+not an independent test. Policy 4.3 / understanding policy v2 derives
+dimension-specific provider schemas from the canonical catalog, preventing
+cross-dimension values and arbitrary facet keys. Its 24-case development run
+had 23 passes, one mismatch, zero technical errors and zero retries. Policy
+4.4 / understanding policy v3 additionally normalizes explicit essential
+exclusions to mandatory vetoes and removes singleton OR labels. Optional
+exclusions remain optional. Final measurements follow below.
+
+Two oracle corrections are recorded separately from model changes:
+
+1. 15:30 may legitimately carry AFTERNOON or leave daypart null. MORNING or a
+   changed exact clock value still fails. The original expectation was too narrow.
+2. An ESSENTIAL, explicit canonical representation of the already requested coffee
+   purpose/offering may occur once without constituting an invented extra need.
+   Hardening it, duplicating it or inventing budget/age/context still fails.
+
+Original reports retain their original oracle hashes and results. No earlier
+result is relabelled as a pass. New scores must identify the revised oracle and
+cannot isolate a prompt-only gain across that oracle change.
+
+### Work-package acceptance still required
+
+| Criterion | Evidence / status |
+| --- | --- |
+| Canonical typed interpretation and evaluator integration | Implemented; active integration tests |
+| Boundary, cache, privacy and failure behavior | Implemented; active tests, explicit cache persistence limits above |
+| Executable real-model diagnostic and integrity tests | Implemented; live development runs performed |
+| Reviewed expectations and representative coverage | Proposed; Product review pending |
+| Independent untouched holdout on a frozen candidate | Pending; development cases cannot substitute |
+| Actual quality, latency and cost against reviewed acceptance criteria | Development measurements only; not yet accepted |
+| Exact-head Product certification | Required on the final candidate |
+
+Exact money evaluation, scoped age/guardianship rules, location-source handling,
+precise visit intervals, route computation and clarification UI are subsequent
+capabilities, as noted before this evaluation. Unsupported behavior must remain
+explicit in this work package. Its overall status must not be marked COMPLETE
+while independent acceptance is pending.
+
+
+### Current measured candidate (policy 4.4 / understanding policy v3)
+
+The first complete current requirements run passed 24/24 cases using 24 provider
+calls, zero retries and zero technical errors. Cold interpretation latency was
+p50 2678 ms, p95 3339 ms, maximum 3521 ms; token-based standard-rate cost estimate
+was USD 0.00494253. This is interpreter latency, not end-to-end Decision latency.
+A repeated run and the broad current-context run are still being collected.
+
+For comparison only, the completed broad context run on **policy 4.0** had 85
+passes, 24 mismatches and 51 technical errors across 160 cases, using 230 provider
+calls. Three errors were timeouts, 44 were rejected model output and four were
+other interpretation failures. p95 was 18186 ms. Some billed usage could not be
+measured, so total cost is null. This is the initial live baseline, not a score
+for policy 4.4, and not comparable to the 99/160 lexical-only diagnostic as a
+claim of overall recommendation quality.
+
+Current local validation: 146 active Decision tests, 33 Product release contract
+tests, Decision TypeScript, single-route, client-secret boundary and canonical
+secret scan passed. Exact-head CI and independent acceptance remain pending.

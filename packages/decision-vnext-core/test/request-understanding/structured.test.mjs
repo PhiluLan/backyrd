@@ -291,3 +291,30 @@ test('explicit null intent fields retain their public boundary meaning', async (
   assert.equal(result.request.explicit.primaryIntent, null);
   assert.equal(result.request.explicit.secondaryIntent, null);
 });
+
+
+test('invalid model source evidence retains a safe diagnostic code after the bounded retry', async () => {
+  const h = harness([req('AGE', { kind: 'AGE', ages: [3] }, 'invented source quote')]);
+  await assert.rejects(h.run(request('Coffee')), { message: 'product_understanding_evidence_invalid' });
+  assert.equal(h.fetches(), 2);
+  assert.equal(h.calls.some(call => call.p_write), false);
+});
+
+
+test('singleton OR labels normalize away but genuine alternative groups survive', () => {
+  const quiet = req('ATMOSPHERE', { kind: 'FACET', key: 'context.atmosphere', value: 'QUIET' }, 'quiet', { group: 'R1' });
+  assert.equal(parseModelRequirements([quiet], 'quiet')[0].group, null);
+  const cozy = req('ATMOSPHERE', { kind: 'FACET', key: 'context.atmosphere', value: 'COZY' }, 'cozy', { group: 'R1' });
+  assert.deepEqual(parseModelRequirements([quiet, cozy], 'quiet or cozy').map(r => r.group), ['R1', 'R1']);
+});
+
+
+test('explicit essential exclusions are vetoes while optional exclusions remain optional', async () => {
+  const value = { kind: 'FACET', key: 'context.atmosphere', value: 'QUIET' };
+  const essential = await interpretedContext('Coffee, not quiet', [req('ATMOSPHERE', value, 'not quiet', { operator: 'EXCLUDE' })]);
+  assert.equal(essential.understanding.requirements[0].importance, 'HARD');
+  assert.ok(assess(essential).candidates[0].unknownHardConstraints.some(code => code.startsWith('UNDERSTANDING_REQUIREMENT_')));
+  const optional = await interpretedContext('Coffee, preferably not quiet', [req('ATMOSPHERE', value, 'preferably not quiet', { operator: 'EXCLUDE', importance: 'PREFERRED' })]);
+  assert.equal(optional.understanding.requirements[0].importance, 'PREFERRED');
+  assert.equal(assess(optional).candidates[0].unknownHardConstraints.length, 0);
+});

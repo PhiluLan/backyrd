@@ -1,10 +1,10 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { schema, type Infer } from "./schema.js";
 import type { DecisionProductRequest } from "./product-v1-contracts.js";
-import { validWorldPreference } from "./product-query-semantics.js";
+import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.0" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v1" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v3" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
@@ -55,7 +55,7 @@ function validateRequirement(input: unknown): ProductRequirement {
  * provenance, not semantic correctness; model accuracy still requires evals. */
 export function parseModelRequirements(value: unknown, text: string): readonly ProductRequirement[] {
   if (!Array.isArray(value) || value.length > 12) throw new Error("product_understanding_bounds_invalid");
-  return deepFreeze(value.map(input => {
+  const parsed = value.map(input => {
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("product_understanding_requirement_invalid");
     const { evidence, ...body } = input as Record<string, unknown>;
     if (typeof evidence !== "string" || evidence.trim().length < 1 || evidence.length > 240 || !text.includes(evidence)) throw new Error("product_understanding_evidence_invalid");
@@ -71,7 +71,14 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
     body.value = minimizeValue(body.value);
     if (Array.isArray(body.alternatives)) body.alternatives = body.alternatives.map(minimizeValue);
     return validateRequirement(body);
-  }));
+  });
+  // An explicit essential exclusion is a veto, not a positive wish whose
+  // absence of evidence can merely reduce confidence. Optional exclusions stay
+  // optional; inferred exclusions were already rejected above.
+  const normalized = parsed.map(row => row.origin === "EXPLICIT" && row.operator === "EXCLUDE" && row.importance === "ESSENTIAL"
+    ? { ...row, importance: "HARD" as const } : row);
+  return deepFreeze(normalized.map(row => row.group !== null && normalized.filter(other => other.group === row.group).length === 1
+    ? { ...row, group: null } : row));
 }
 
 /** Compact positional encoding only at the private cache boundary. */
@@ -111,15 +118,27 @@ const modelValues = [
   typed("TIME", { openNow: { type: "boolean" }, localDate: nullableJson({ type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }), relativeDays: nullableJson(intJson(0, 366)), weekday: nullableJson(intJson(0, 6)), dayPhase: nullableJson(enumJson(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"])), clockTime: nullableJson({ type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$" }) }),
   typed("LOCATION", { city: enumJson(["Basel", "Zurich", "UNSUPPORTED_CITY"]) }),
   typed("MOBILITY", { maximumMeters: nullableJson(intJson(1, 1_000_000)), maximumMinutes: nullableJson(intJson(1, 1440)), mode: enumJson(["WALK", "BIKE", "TRANSIT", "CAR", "UNSPECIFIED"]) }),
-  typed("FACET", { key: { type: "string", maxLength: 80 }, value: { type: "string", maxLength: 80 } }),
 ];
-export const PRODUCT_MODEL_REQUIREMENTS_SCHEMA = { type: "array", maxItems: 12, items: objectJson({
-  dimension: enumJson(["EXPERIENCE", "ATMOSPHERE", "COMPANY", "AGE", "TIME", "LOCATION", "MOBILITY", "BUDGET", "ACCESS", "OFFERING", "OTHER"]),
-  importance: enumJson(["HARD", "ESSENTIAL", "PREFERRED"]), operator: enumJson(["REQUIRE", "EXCLUDE"]), origin: enumJson(["EXPLICIT", "INFERRED"]),
-  interpretationState: enumJson(["UNDERSTOOD", "AMBIGUOUS", "UNSUPPORTED"]), value: { anyOf: [...modelValues, { type: "null" }] },
-  alternatives: { type: "array", maxItems: 3, items: { anyOf: modelValues } },
-  group: nullableJson({ type: "string", pattern: "^R[1-9][0-9]?$" }), evidence: { type: "string", minLength: 1, maxLength: 240 },
-}) };
+const dimensionValues: Readonly<Record<string, readonly object[]>> = {
+  AGE: [modelValues[0]!], COMPANY: [modelValues[1]!], BUDGET: [modelValues[2]!],
+  TIME: [modelValues[3]!], LOCATION: [modelValues[4]!], MOBILITY: [modelValues[5]!],
+  ...Object.fromEntries(Object.entries(facetDimensions).map(([dimension, prefixes]) => [dimension,
+    PRODUCT_QUERY_CATALOG.filter(field => prefixes.some(prefix => field.key.startsWith(prefix))).map(field =>
+      typed("FACET", { key: { type: "string", const: field.key }, value: enumJson(field.values) })),
+  ])), ACCESS: [], OTHER: [],
+};
+// Discriminate by dimension in the provider schema too. Arbitrary facet keys,
+// values or a company-shaped value in an atmosphere requirement are impossible
+// in schema-conforming output; the runtime still revalidates every boundary.
+export const PRODUCT_MODEL_REQUIREMENTS_SCHEMA = { type: "array", maxItems: 12, items: { anyOf:
+  Object.entries(dimensionValues).map(([dimension, values]) => objectJson({
+    dimension: { type: "string", const: dimension },
+    importance: enumJson(["HARD", "ESSENTIAL", "PREFERRED"]), operator: enumJson(["REQUIRE", "EXCLUDE"]), origin: enumJson(["EXPLICIT", "INFERRED"]),
+    interpretationState: enumJson(["UNDERSTOOD", "AMBIGUOUS", "UNSUPPORTED"]), value: { anyOf: [...values, { type: "null" }] },
+    alternatives: values.length ? { type: "array", maxItems: 3, items: { anyOf: values } } : { type: "array", maxItems: 0, items: { type: "null" } },
+    group: nullableJson({ type: "string", pattern: "^R[1-9][0-9]?$" }), evidence: { type: "string", minLength: 1, maxLength: 240 },
+  })),
+} };
 
 /** Project only supported context into the stable public v1 shape. Rich values
  * remain typed internally; an unrepresentable value is never rounded or erased

@@ -1,3 +1,4 @@
+import './request-understanding/model-evaluation.test.mjs';
 import './request-understanding/structured.test.mjs';
 import './request-understanding/context.test.mjs';
 import "./request-understanding/acceptance.test.mjs";
