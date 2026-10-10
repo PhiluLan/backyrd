@@ -1,3 +1,7 @@
+import './request-understanding/model-evaluation.test.mjs';
+import './request-understanding/structured.test.mjs';
+import './request-understanding/context.test.mjs';
+import "./request-understanding/acceptance.test.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -10,16 +14,19 @@ const identity = { releaseHash: "a".repeat(64), artifactHash: "b".repeat(64), so
 const actor = { userId: "11111111-1111-4111-8111-111111111111", subjectBindingHash: "d".repeat(64), authenticationContextHash: "e".repeat(64), sessionBindingHash: "f".repeat(64), sessionId: "22222222-2222-4222-8222-222222222222" };
 const request = (naturalLanguage, explicit = {}) => ({ contractVersion: PRODUCT_DECISION_VERSIONS.request, requestId: "request-family", idempotencyKey: "idem-family", naturalLanguage, explicit, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] });
 const modelResponse = (value) => ({ ok: true, async json() { return { status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(value) }] }] }; } });
-const semantics = (overrides = {}) => ({ primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: null, facets: [], indoorRequired: false, indoorEvidence: null, unresolvedNeedCodes: [], ...overrides });
+const semantics = (overrides = {}) => ({ primaryIntent: "ACTIVITY_EXPERIENCE", secondaryIntent: null, facets: [], indoorRequired: false, indoorEvidence: null, unresolvedNeedCodes: [], requirements: [], ...overrides });
 const facet = (key, value, evidence, role = "PREFERRED", group = null) => ({ key, value, evidence, role, group });
-const interpreter = (fetchImpl, rpc, allowedUserIds = [actor.userId]) => createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "gpt-6-luna", allowedUserIds, rpc, fetchImpl });
+const interpreter = (fetchImpl, rpc, allowedUserIds = [actor.userId]) => {
+  const run = createDecisionProductAiIntentInterpreter({ identity, apiKey: "test-only-key", model: "gpt-6-luna", allowedUserIds, rpc, fetchImpl });
+  return async (...args) => (await run(...args)).request;
+};
 
 test("AI interprets a normal request even when the old lexicon recognizes its category; cache is byte-stable", async () => {
   const stored = new Map(); let fetches = 0; const calls = [];
   const run = interpreter(async (_url, options) => {
     fetches += 1; const body = JSON.parse(options.body);
     assert.equal(body.store, false); assert.equal(body.text.format.strict, true);
-    assert.equal(body.text.format.name, "backyrd_decision_query_v4");
+    assert.equal(body.text.format.name, "backyrd_decision_query_v5");
     assert.ok(body.instructions.includes("context.visit_situations"));
     assert.ok(body.instructions.includes("Ein Spaziergang passt etwa zu PARK"));
     const variants = body.text.format.schema.properties.facets.items.anyOf;
@@ -178,7 +185,7 @@ test("a model cannot invent a precise-hour limitation for a daypart, including a
     async rpc() {
       return { data: { status: "HIT", semantics: {
         primaryIntent: "DRINKS", secondaryIntent: null, facets: [], indoorRequired: false,
-        unresolvedNeedCodes: ["PRECISE_TIME_UNVERIFIED"],
+        unresolvedNeedCodes: ["PRECISE_TIME_UNVERIFIED"], requirements: [],
       } }, error: null };
     },
   });
@@ -413,4 +420,36 @@ test("rain suitability follows verified place type, not invented venue facts", (
   assert.ok(PRODUCT_QUERY_CATALOG.some((field) => field.key === "classification.place_types"));
   assert.deepEqual(decodeWorldPreference("WK:context.atmosphere:LIVELY"), { key: "context.atmosphere", value: "LIVELY" });
   assert.equal(decodeWorldPreference("WK:context.atmosphere:IMAGINARY"), null);
+});
+
+
+test("contradictory model facets retain an unresolved core requirement across cache replay", async () => {
+  let saved;
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "COFFEE", facets: [
+    facet("classification.place_types", "CAFE", "Café", "REQUIRED", "G1"),
+    facet("classification.place_types", "CAFE", "kein Café", "EXCLUDED"),
+  ] })), { async rpc(_name, parameters) {
+    if (parameters.p_write) saved = parameters.p_semantics;
+    return { data: saved ? { status: "HIT", semantics: saved } : { status: "MISS" }, error: null };
+  } });
+  const input = request("Café oder doch kein Café");
+  const first = await run(input, actor, new AbortController().signal);
+  const replay = await run(input, actor, new AbortController().signal);
+  assert.ok(first.explicit.unresolvedTerms.includes("OTHER_CORE_NEED_UNMAPPED"));
+  assert.deepEqual(replay.explicit, first.explicit);
+});
+
+test("English exact time has the same limitation in model and cached interpretations", async () => {
+  let saved;
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "COFFEE" })), { async rpc(_name, parameters) {
+    if (parameters.p_write) saved = parameters.p_semantics;
+    return { data: saved ? { status: "HIT", semantics: saved } : { status: "MISS" }, error: null };
+  } });
+  const input = request("Coffee tomorrow at 10:30 with my four-year-old daughter");
+  const first = await run(input, actor, new AbortController().signal);
+  const replay = await run(input, actor, new AbortController().signal);
+  assert.ok(first.explicit.unresolvedTerms.includes("PRECISE_TIME_UNVERIFIED"));
+  assert.deepEqual(replay.explicit, first.explicit);
+  assert.equal(Object.hasOwn(saved, "group"), false);
+  assert.equal(Object.hasOwn(saved, "naturalLanguage"), false);
 });

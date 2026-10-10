@@ -28,6 +28,8 @@ Decision hosts are forbidden.
 - `product-v1-contracts.ts`
 - `product-v1-authority.ts`
 - `product-v1-evaluator.ts`
+- `product-request-context.ts` — bounded request-local context extraction and shared exact-time detection
+- `product-request-understanding.ts` — validated model requirements, minimized private-cache representation, request/policy binding and supported-context projection
 - `product-ai-interpretation.ts` — optional, server-only, request-bound intent interpretation; World and ranking remain authoritative
 - `product-decision.ts`
 - `product-decision-production-adapter.ts`

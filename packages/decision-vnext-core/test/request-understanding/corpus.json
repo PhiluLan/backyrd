@@ -1,0 +1,826 @@
+{
+  "contractVersion": "backyrd.request-understanding-corpus@1.0",
+  "reviewStatus": "PROPOSED_REQUIRES_HUMAN_REVIEW",
+  "scope": "DEVELOPMENT_NOT_HOLDOUT",
+  "reference": {
+    "serverTime": "2026-10-10T12:00:00.000Z",
+    "profileCity": "Basel"
+  },
+  "families": [
+    {
+      "id": "budget-upper-bound",
+      "dimension": "BUDGET",
+      "queries": [
+        "Essen für maximal 30 CHF",
+        "Ein Mittagessen für höchstens 30 Franken",
+        "Abendessen bis 30 CHF",
+        "Höchstens 30 CHF fürs Essen"
+      ],
+      "expected": [
+        {
+          "path": "budget.amount",
+          "op": "equals",
+          "value": 30
+        },
+        {
+          "path": "budget.currency",
+          "op": "equals",
+          "value": "CHF"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "BUDGET_MAXIMUM"
+        }
+      ]
+    },
+    {
+      "id": "budget-under",
+      "dimension": "BUDGET",
+      "queries": [
+        "Abendessen für unter 30 CHF",
+        "Lunch für weniger als 30 Franken",
+        "Essen unter CHF 30",
+        "Fürs Mittagessen weniger als CHF 30"
+      ],
+      "expected": [
+        {
+          "path": "budget.amount",
+          "op": "equals",
+          "value": 30
+        },
+        {
+          "path": "budget.currency",
+          "op": "equals",
+          "value": "CHF"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "BUDGET_MAXIMUM"
+        }
+      ]
+    },
+    {
+      "id": "budget-per-person",
+      "dimension": "BUDGET",
+      "queries": [
+        "Essen für maximal 30 CHF pro Person",
+        "Höchstens 30 Franken pro Person fürs Mittagessen",
+        "Dinner under CHF 30 per person",
+        "Essen bis 30 CHF p.p."
+      ],
+      "expected": [
+        {
+          "path": "budget.amount",
+          "op": "equals",
+          "value": 30
+        },
+        {
+          "path": "budget.perPerson",
+          "op": "equals",
+          "value": true
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "BUDGET_MAXIMUM"
+        }
+      ]
+    },
+    {
+      "id": "budget-total",
+      "dimension": "BUDGET",
+      "queries": [
+        "Essen für vier Personen, insgesamt maximal 80 CHF",
+        "Für uns vier zusammen höchstens 80 Franken essen",
+        "Dinner for four, total budget CHF 80 maximum",
+        "Zu viert essen, maximal 80 CHF insgesamt"
+      ],
+      "expected": [
+        {
+          "path": "budget.amount",
+          "op": "equals",
+          "value": 80
+        },
+        {
+          "path": "budget.perPerson",
+          "op": "equals",
+          "value": false
+        },
+        {
+          "path": "group.size",
+          "op": "equals",
+          "value": 4
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "BUDGET_MAXIMUM"
+        }
+      ]
+    },
+    {
+      "id": "budget-qualitative",
+      "dimension": "BUDGET",
+      "queries": [
+        "Günstig Mittag essen",
+        "Preiswert Abendessen gehen",
+        "Ein preiswertes Restaurant",
+        "Ein günstiges Mittagessen"
+      ],
+      "expected": [
+        {
+          "path": "budget.amount",
+          "op": "equals",
+          "value": null
+        },
+        {
+          "path": "hardConstraints",
+          "op": "excludes",
+          "value": "BUDGET_MAXIMUM"
+        },
+        {
+          "path": "softPreferences",
+          "op": "contains",
+          "value": "PRICE_LEVEL_LOW"
+        }
+      ]
+    },
+    {
+      "id": "budget-no-invented-ceiling",
+      "dimension": "BUDGET",
+      "queries": [
+        "Ich möchte fein essen",
+        "Ein Restaurant zum Mittagessen",
+        "Wir möchten essen gehen",
+        "Etwas Besonderes zum Abendessen"
+      ],
+      "expected": [
+        {
+          "path": "budget.amount",
+          "op": "equals",
+          "value": null
+        },
+        {
+          "path": "hardConstraints",
+          "op": "excludes",
+          "value": "BUDGET_MAXIMUM"
+        }
+      ]
+    },
+    {
+      "id": "budget-english",
+      "dimension": "BUDGET",
+      "queries": [
+        "Dinner for at most CHF 25",
+        "Lunch with a maximum budget of 25 Swiss francs",
+        "I can spend up to CHF 25 on dinner",
+        "A meal for no more than 25 CHF"
+      ],
+      "expected": [
+        {
+          "path": "budget.amount",
+          "op": "equals",
+          "value": 25
+        },
+        {
+          "path": "budget.currency",
+          "op": "equals",
+          "value": "CHF"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "BUDGET_MAXIMUM"
+        }
+      ]
+    },
+    {
+      "id": "budget-decimals",
+      "dimension": "BUDGET",
+      "queries": [
+        "Essen für maximal 25.50 CHF",
+        "Lunch für höchstens 25,50 Franken",
+        "Ein Essen bis CHF 25.50",
+        "Dinner for at most CHF 25.50"
+      ],
+      "expected": [
+        {
+          "path": "budget.amount",
+          "op": "equals",
+          "value": 25.5
+        },
+        {
+          "path": "budget.currency",
+          "op": "equals",
+          "value": "CHF"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "BUDGET_MAXIMUM"
+        }
+      ]
+    },
+    {
+      "id": "age-numeric",
+      "dimension": "GROUP",
+      "queries": [
+        "Museum mit meiner 4-jährigen Tochter",
+        "Mit meinem 4 jährigen Sohn ins Museum",
+        "Mit meinem 4-jährigen Kind ins Museum",
+        "Museumsbesuch mit meiner 4 jährigen Tochter"
+      ],
+      "expected": [
+        {
+          "path": "group.minimumAge",
+          "op": "equals",
+          "value": 4
+        },
+        {
+          "path": "group.companionType",
+          "op": "equals",
+          "value": "FAMILY"
+        }
+      ]
+    },
+    {
+      "id": "age-written",
+      "dimension": "GROUP",
+      "queries": [
+        "Museum mit meiner vierjährigen Tochter",
+        "Mit meinem vierjährigen Sohn ins Museum",
+        "Mit meinem vier Jahre alten Kind ins Museum",
+        "Meine Tochter ist vier Jahre alt, wir möchten ins Museum"
+      ],
+      "expected": [
+        {
+          "path": "group.minimumAge",
+          "op": "equals",
+          "value": 4
+        },
+        {
+          "path": "group.companionType",
+          "op": "equals",
+          "value": "FAMILY"
+        }
+      ]
+    },
+    {
+      "id": "age-english",
+      "dimension": "GROUP",
+      "queries": [
+        "Museum with my 4-year-old daughter",
+        "An activity with my four-year-old son",
+        "My child is four years old; we want a museum",
+        "A museum for me and my four year old child"
+      ],
+      "expected": [
+        {
+          "path": "group.minimumAge",
+          "op": "equals",
+          "value": 4
+        },
+        {
+          "path": "group.companionType",
+          "op": "equals",
+          "value": "FAMILY"
+        }
+      ]
+    },
+    {
+      "id": "age-youngest",
+      "dimension": "GROUP",
+      "queries": [
+        "Museum mit meinem 12-jährigen Sohn und meiner 4-jährigen Tochter",
+        "Mit Kindern im Alter von 12 und 4 Jahren ins Museum",
+        "Meine Kinder sind zwölf und vier, wir suchen ein Museum",
+        "Museum with my children aged twelve and four"
+      ],
+      "expected": [
+        {
+          "path": "group.minimumAge",
+          "op": "equals",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "id": "age-not-inferred",
+      "dimension": "GROUP",
+      "queries": [
+        "Museum mit meiner Tochter",
+        "Mit meinem Sohn ins Museum",
+        "Ein Museum für mich und mein Kind",
+        "Ein Familienausflug ins Museum"
+      ],
+      "expected": [
+        {
+          "path": "group.minimumAge",
+          "op": "equals",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "group-explicit-size",
+      "dimension": "GROUP",
+      "queries": [
+        "Wir sind zu viert und möchten essen",
+        "Essen für vier Personen",
+        "Ein Restaurant für eine Gruppe von 4 Personen",
+        "Dinner for four people"
+      ],
+      "expected": [
+        {
+          "path": "group.size",
+          "op": "equals",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "id": "group-no-invented-size",
+      "dimension": "GROUP",
+      "queries": [
+        "Mit der Familie ins Museum",
+        "Ein Ausflug mit Kindern",
+        "Museum mit Freunden",
+        "Mit meiner Familie etwas unternehmen"
+      ],
+      "expected": [
+        {
+          "path": "group.size",
+          "op": "equals",
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "group-alone",
+      "dimension": "GROUP",
+      "queries": [
+        "Allein Kaffee trinken",
+        "Ich möchte alleine ins Café",
+        "Ein Café für mich allein",
+        "Coffee on my own"
+      ],
+      "expected": [
+        {
+          "path": "group.size",
+          "op": "equals",
+          "value": 1
+        },
+        {
+          "path": "group.companionType",
+          "op": "equals",
+          "value": "ALONE"
+        }
+      ]
+    },
+    {
+      "id": "date-tomorrow",
+      "dimension": "TIME",
+      "queries": [
+        "Morgen Kaffee trinken",
+        "Kaffee trinken morgen",
+        "Morgen möchte ich ins Café",
+        "Ein Café für morgen"
+      ],
+      "expected": [
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-11"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "OPEN_ON_REQUESTED_DAY"
+        }
+      ]
+    },
+    {
+      "id": "date-tomorrow-morning",
+      "dimension": "TIME",
+      "queries": [
+        "Morgen früh Kaffee trinken",
+        "Morgen am Morgen ins Café",
+        "Kaffee morgen früh",
+        "Morgen Vormittag einen Kaffee"
+      ],
+      "expected": [
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-11"
+        },
+        {
+          "path": "dateTime.dayPhase",
+          "op": "equals",
+          "value": "MORNING"
+        }
+      ]
+    },
+    {
+      "id": "date-english-tomorrow",
+      "dimension": "TIME",
+      "queries": [
+        "Coffee tomorrow",
+        "Tomorrow I want a coffee",
+        "A café for tomorrow",
+        "Where can I have coffee tomorrow?"
+      ],
+      "expected": [
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-11"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "OPEN_ON_REQUESTED_DAY"
+        }
+      ]
+    },
+    {
+      "id": "date-explicit",
+      "dimension": "TIME",
+      "queries": [
+        "Kaffee am 15. Oktober 2026",
+        "Ein Café für den 15.10.2026",
+        "Coffee on October 15, 2026",
+        "Kaffee am 2026-10-15"
+      ],
+      "expected": [
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-15"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "OPEN_ON_REQUESTED_DAY"
+        }
+      ]
+    },
+    {
+      "id": "date-evening",
+      "dimension": "TIME",
+      "queries": [
+        "Heute Abend essen",
+        "Heute am Abend ins Restaurant",
+        "Abendessen heute",
+        "Heute Abend etwas essen gehen"
+      ],
+      "expected": [
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-10"
+        },
+        {
+          "path": "dateTime.dayPhase",
+          "op": "equals",
+          "value": "EVENING"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "OPEN_ON_REQUESTED_DAY"
+        }
+      ]
+    },
+    {
+      "id": "precise-time-disclosed",
+      "dimension": "TIME",
+      "queries": [
+        "Heute um 20 Uhr essen",
+        "Essen heute ab 20:00",
+        "Dinner today at 8 pm",
+        "Heute um acht Uhr abends essen"
+      ],
+      "expected": [
+        {
+          "path": "unresolvedTerms",
+          "op": "contains",
+          "value": "PRECISE_TIME_UNVERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "daypart-not-precise-hour",
+      "dimension": "TIME",
+      "queries": [
+        "Heute Abend Kaffee trinken",
+        "Heute Nachmittag ins Café",
+        "Morgen am Morgen Kaffee trinken",
+        "Sonntag am Nachmittag einen Kaffee"
+      ],
+      "expected": [
+        {
+          "path": "unresolvedTerms",
+          "op": "excludes",
+          "value": "PRECISE_TIME_UNVERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "date-negation",
+      "dimension": "TIME",
+      "queries": [
+        "Nicht morgen, heute Kaffee trinken",
+        "Kaffee heute statt morgen",
+        "Heute Kaffee, nicht morgen",
+        "Coffee today, not tomorrow"
+      ],
+      "expected": [
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-10"
+        }
+      ]
+    },
+    {
+      "id": "destination-over-profile",
+      "dimension": "LOCATION",
+      "queries": [
+        "Kaffee in Zürich",
+        "Ein Café in Zurich",
+        "In Zürich möchte ich Kaffee trinken",
+        "Coffee in Zurich"
+      ],
+      "expected": [
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Zurich"
+        }
+      ]
+    },
+    {
+      "id": "destination-basel",
+      "dimension": "LOCATION",
+      "queries": [
+        "Kaffee in Basel",
+        "Ein Café in Basel finden",
+        "In Basel Kaffee trinken",
+        "Coffee in Basel"
+      ],
+      "expected": [
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Basel"
+        }
+      ]
+    },
+    {
+      "id": "distance-unverified",
+      "dimension": "LOCATION",
+      "queries": [
+        "Ein Café maximal zehn Minuten zu Fuss entfernt",
+        "Kaffee in höchstens 500 Metern Entfernung",
+        "Coffee within a ten minute walk",
+        "Ein Café in höchstens zwei Kilometern Entfernung"
+      ],
+      "expected": [
+        {
+          "path": "unresolvedTerms",
+          "op": "contains",
+          "value": "DISTANCE_UNVERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "destination-other-city",
+      "dimension": "LOCATION",
+      "queries": [
+        "Kaffee in Bern",
+        "Ein Café in Bern finden",
+        "In Bern möchte ich Kaffee trinken",
+        "Coffee in Bern"
+      ],
+      "expected": [
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Bern"
+        }
+      ]
+    },
+    {
+      "id": "access-step-free",
+      "dimension": "ACCESS",
+      "queries": [
+        "Ein stufenfreies Café",
+        "Kaffee ohne Stufen am Eingang",
+        "Ein Café mit stufenlosem Eingang",
+        "Stufenfrei ins Café"
+      ],
+      "expected": [
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "ACCESSIBILITY_STEP_FREE"
+        }
+      ]
+    },
+    {
+      "id": "access-broad",
+      "dimension": "ACCESS",
+      "queries": [
+        "Ein barrierefreies Café",
+        "Ein hindernisfreies Café",
+        "Ein rollstuhlgängiges Café",
+        "Ein wheelchair accessible café"
+      ],
+      "expected": [
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "ACCESSIBILITY_BASIC"
+        }
+      ]
+    },
+    {
+      "id": "access-english",
+      "dimension": "ACCESS",
+      "queries": [
+        "A café with a step-free entrance",
+        "A step-free café entrance",
+        "Coffee somewhere without entrance steps",
+        "I need step-free entrance access to a café"
+      ],
+      "expected": [
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "ACCESSIBILITY_STEP_FREE"
+        }
+      ]
+    },
+    {
+      "id": "access-negated",
+      "dimension": "ACCESS",
+      "queries": [
+        "Das Café muss nicht barrierefrei sein",
+        "Barrierefreiheit ist nicht nötig, ich suche Kaffee",
+        "Ich brauche keinen stufenfreien Eingang im Café",
+        "No wheelchair access needed, just coffee"
+      ],
+      "expected": [
+        {
+          "path": "hardConstraints",
+          "op": "excludes",
+          "value": "ACCESSIBILITY_BASIC"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "excludes",
+          "value": "ACCESSIBILITY_STEP_FREE"
+        }
+      ]
+    },
+    {
+      "id": "intent-coffee",
+      "dimension": "INTENT",
+      "queries": [
+        "Einen Kaffee trinken",
+        "Ich hätte Lust auf einen Cappuccino",
+        "Ein Café suchen",
+        "Einen Espresso trinken gehen"
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        }
+      ]
+    },
+    {
+      "id": "intent-food",
+      "dimension": "INTENT",
+      "queries": [
+        "Sushi essen",
+        "Ein Restaurant für Ramen",
+        "Tacos essen gehen",
+        "Heute Pizza essen"
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "EAT"
+        }
+      ]
+    },
+    {
+      "id": "intent-drinks",
+      "dimension": "INTENT",
+      "queries": [
+        "Craft Beer trinken",
+        "Ein Bier trinken gehen",
+        "Cocktails trinken",
+        "Ein Glas Wein trinken"
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "DRINKS"
+        }
+      ]
+    },
+    {
+      "id": "intent-negation",
+      "dimension": "INTENT",
+      "queries": [
+        "Kein Bier, sondern Kaffee",
+        "Nicht essen, sondern Kaffee trinken",
+        "Kein Restaurant, lieber ein Café",
+        "Nicht ins Museum, sondern einen Kaffee trinken"
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        }
+      ]
+    },
+    {
+      "id": "quiet-essential",
+      "dimension": "ATMOSPHERE",
+      "queries": [
+        "Ruhig Kaffee trinken",
+        "Ein ruhiges Café",
+        "Kaffee trinken und in Ruhe reden",
+        "Kaffee an einem ruhigen Ort"
+      ],
+      "expected": [
+        {
+          "path": "softPreferences",
+          "op": "contains",
+          "value": "ATMOSPHERE_QUIET"
+        }
+      ]
+    },
+    {
+      "id": "quiet-negated",
+      "dimension": "ATMOSPHERE",
+      "queries": [
+        "Kein ruhiges Café, ich will Trubel",
+        "Nicht ruhig, sondern lebhaft Kaffee trinken",
+        "Es soll im Café nicht ruhig sein",
+        "Ein Café, ruhig muss es nicht sein"
+      ],
+      "expected": [
+        {
+          "path": "softPreferences",
+          "op": "excludes",
+          "value": "ATMOSPHERE_QUIET"
+        }
+      ]
+    },
+    {
+      "id": "music-unverified",
+      "dimension": "UNCERTAINTY",
+      "queries": [
+        "Kaffee mit Musik",
+        "Ein Café, in dem Musik läuft",
+        "Coffee with music playing",
+        "Kaffee und Musik hören"
+      ],
+      "expected": [
+        {
+          "path": "unresolvedTerms",
+          "op": "contains",
+          "value": "MUSIC_AT_VISIT_UNVERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "no-fabricated-intent",
+      "dimension": "UNCERTAINTY",
+      "queries": [
+        "Ich weiss noch nicht, was ich machen möchte",
+        "I do not know what I want to do",
+        "Noch keine Idee für eine Unternehmung",
+        "Ich suche irgendetwas"
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": null
+        }
+      ]
+    }
+  ]
+}

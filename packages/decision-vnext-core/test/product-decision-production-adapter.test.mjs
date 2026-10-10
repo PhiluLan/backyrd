@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  bindProductUnderstanding,
   DECISION_PRODUCT_PRODUCTION_RPCS,
   DECISION_PRODUCT_RUNTIME_CONTROL_VERSION,
   createDecisionProductProductionPorts,
@@ -51,7 +52,7 @@ function harness(overrides = {}) {
   const ports = createDecisionProductProductionPorts({
     rpc,
     authClient: { async getUser() { return { user: { id: userId, role: "authenticated", is_anonymous: false }, error: null }; } },
-    evaluationProvider: { contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0", async evaluate() { throw new Error("not_used"); } },
+    evaluationProvider: overrides.evaluationProvider ?? { contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0", async evaluate() { throw new Error("not_used"); } },
     interactionAuthority: { contractVersion: "backyrd.decision-vnext.product-interaction-authority-provider@1.0", async resolve() { return { status: "SUPPRESSED_NO_CONSENT" }; } },
     learningPort: { contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0", async record() { throw new Error("not_used"); } },
     configuration,
@@ -110,4 +111,21 @@ test("configuration rejects missing identities and weak server keys", () => {
   });
   assert.throws(() => make({ ...configuration, identity: { ...identity, releaseHash: "bad" } }), /release_hash_invalid/);
   assert.throws(() => make({ ...configuration, idempotencyKey: "short" }), /idempotency_key_invalid/);
+});
+
+
+test("production ports forward request-bound understanding only for the authenticated actor", async () => {
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "understanding", idempotencyKey: "understanding", naturalLanguage: "Coffee", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const understanding = bindProductUnderstanding(request, []);
+  let observed = 0;
+  const { ports } = harness({ evaluationProvider: {
+    contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0",
+    async evaluate(input) { observed++; assert.deepEqual(input.understanding, understanding); assert.deepEqual(input.identity, identity); throw new Error("forwarding_probe"); },
+  } });
+  const signal = new AbortController().signal;
+  const actor = await ports.auth.authenticate(token, signal);
+  assert.ok(actor);
+  await assert.rejects(ports.evaluate(request, actor, signal, understanding), /forwarding_probe/);
+  await assert.rejects(ports.evaluate(request, { ...actor, userId: "different-user" }, signal, understanding), /actor_unbound/);
+  assert.equal(observed, 1);
 });

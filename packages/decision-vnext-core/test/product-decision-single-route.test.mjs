@@ -578,7 +578,7 @@ test("AI World-query additions cross the HTTP boundary while unrelated or unsafe
       auth: { async authenticate() { return ACTOR; } },
       rateLimit: { async consume() { return true; } },
       control: { timeoutMilliseconds: 2_000, maxRequestBytes: 16_384, async assertBoundary() {} },
-      async interpret() { return output; },
+      async interpret() { return { request: output, understanding: null }; },
       async evaluate() { throw new Error("product_evaluation_probe"); },
       idempotency: { async commit() { throw new Error("must_not_commit"); } },
       interaction: { async resolve() { throw new Error("must_not_resolve"); } },

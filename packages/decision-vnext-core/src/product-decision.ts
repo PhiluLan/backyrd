@@ -1,3 +1,4 @@
+import { validateProductUnderstanding, type ProductInterpretation, type ProductUnderstanding } from "./product-request-understanding.js";
 import { Buffer } from "node:buffer";
 import {
   CONTRACT_VERSIONS,
@@ -365,8 +366,8 @@ export interface DecisionProductRuntimePorts {
   readonly auth: { authenticate(token: string, signal: AbortSignal): Promise<DecisionProductAuthenticatedActor | null> };
   readonly rateLimit: { consume(subjectBindingHash: string, signal: AbortSignal): Promise<boolean> };
   readonly control: { assertBoundary(boundary: DecisionProductRuntimeBoundary, signal: AbortSignal): Promise<void> | void; readonly timeoutMilliseconds: number; readonly maxRequestBytes: number };
-  readonly interpret?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<DecisionProductRequest>;
-  readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
+  readonly interpret?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<ProductInterpretation>;
+  readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal, understanding?: ProductUnderstanding | null) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
   readonly idempotency: { commit(input: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal): Promise<{ status: "CREATED" } | { status: "REPLAYED"; execution: unknown } | { status: "CONFLICT" | "EXPIRED" }> };
   readonly interaction: { resolve(input: { request: DecisionProductInteractionRequest; actor: DecisionProductAuthenticatedActor }, signal: AbortSignal): Promise<
     { status: "AUTHORIZED"; sessionId: string; spotId: string; contextBindingHash: string; occurredAt: string }
@@ -458,9 +459,12 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         reportTimings("SUCCESS");
         return new Response(JSON.stringify(response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
       }
-      const productRequest = ports.interpret
-        ? DecisionProductRequestSchema.parse(await at("INTERPRETATION", (signal) => ports.interpret!(parsedRequest, actor, signal)))
-        : parsedRequest;
+      const interpreted = ports.interpret
+        ? await at("INTERPRETATION", (signal) => ports.interpret!(parsedRequest, actor, signal))
+        : { request: parsedRequest, understanding: null };
+      if (!interpreted || Object.keys(interpreted).sort().join() !== "request,understanding") throw new Error("product_ai_intent_request_boundary_invalid");
+      const productRequest = DecisionProductRequestSchema.parse(interpreted.request);
+      const understanding = interpreted.understanding === null ? null : validateProductUnderstanding(interpreted.understanding, productRequest);
       const withoutInterpretedFields = (explicit: DecisionProductRequest["explicit"]): Record<string, unknown> =>
         Object.fromEntries(Object.entries(explicit).filter(([key]) =>
           !["primaryIntent", "secondaryIntent", "softPreferences", "hardConstraints", "unresolvedTerms"].includes(key)));
@@ -485,7 +489,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         || [...originalUnresolved].some((value) => !interpretedUnresolved.has(value))) {
         throw new Error("product_ai_intent_request_boundary_invalid");
       }
-      const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal));
+      const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal, understanding));
       stage = "RESPONSE_BUILD";
       const expectedInput = { request: productRequest, actor, ...evaluated }; const execution = buildDecisionProductExecution(expectedInput);
       const committed = await at("IDEMPOTENCY", (signal) => ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: productRequest.idempotencyKey, payloadHash: contentHash(productRequest), execution }, signal));
