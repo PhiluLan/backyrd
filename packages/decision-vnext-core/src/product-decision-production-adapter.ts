@@ -1,3 +1,4 @@
+import type { ProductUnderstanding } from "./product-request-understanding.js";
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -89,6 +90,7 @@ export interface DecisionProductCanonicalEvaluationProvider {
   readonly contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0";
   evaluate(input: {
     readonly request: DecisionProductRequest;
+    readonly understanding?: ProductUnderstanding | null;
     readonly actor: DecisionProductAuthenticatedActor;
     readonly identity: DecisionProductProductionIdentity;
     readonly signal: AbortSignal;
@@ -249,9 +251,9 @@ export function createDecisionProductProductionPorts(input: {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_interpretation_actor_unbound");
       return input.interpreter!(request, actor, signal);
     } } : {}),
-    async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) {
+    async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal, understanding?: ProductUnderstanding | null) {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_evaluation_actor_unbound");
-      return input.evaluationProvider.evaluate({ request, actor, identity, signal });
+      return input.evaluationProvider.evaluate({ request, actor, identity, signal, understanding: understanding ?? null });
     },
     idempotency: {
       async commit(commitInput: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal) {
@@ -447,7 +449,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       const candidateIds = [...snapshots.keys()].sort();
       if (!candidateIds.length || candidateIds.length > 1000) throw new Error("product_world_candidate_set_invalid");
       const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
-      const evaluated = productEvaluationStage("ranking", () => evaluateProductWorldViews(input.request, { authorizedCity: targetCity, serverTime }, projection, [...snapshots.values()], contentHash(candidateIds)));
+      const evaluated = productEvaluationStage("ranking", () => evaluateProductWorldViews(input.request, { authorizedCity: targetCity, serverTime }, projection, [...snapshots.values()], contentHash(candidateIds), input.understanding));
       return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: contentHash(candidateIds) }) }, evaluatorContractVersion: PRODUCT_V1_EVALUATOR_VERSION };
     },
   });

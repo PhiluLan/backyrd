@@ -11,7 +11,7 @@ const root = fileURLToPath(new URL('../../../../', import.meta.url));
 const corpusBytes = readFileSync(new URL('./corpus.json', import.meta.url));
 const corpus = JSON.parse(corpusBytes.toString('utf8'));
 const sha = value => createHash('sha256').update(value).digest('hex');
-const resolverModules = ['product-v1-evaluator', 'product-request-context', 'product-intent-lexicon', 'product-query-semantics'];
+const resolverModules = ['product-v1-evaluator', 'product-request-context', 'product-request-understanding', 'product-intent-lexicon', 'product-query-semantics'];
 const source = JSON.stringify(resolverModules.map(name => [name, sha(readFileSync(new URL(`../../src/${name}.ts`, import.meta.url)))]));
 const compiled = JSON.stringify(resolverModules.map(name => [name, sha(readFileSync(new URL(`../../dist/${name}.js`, import.meta.url)))]));
 const report = await evaluateUnderstandingCorpus(corpus, (text, reference) => resolveDecisionProductContext({

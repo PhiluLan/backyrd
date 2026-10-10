@@ -1,47 +1,93 @@
 # Request understanding v1 — first work package
 
-Status: **design proposal, executable baseline and first integrated context safeguards** (2026-10-10).
-Owner: Decision Product. Work class: PRODUCT_RELEASE (runtime changes).
-The full typed model contract below remains a proposal. The first implementation
-extends the canonical interpreter/evaluator; it does not introduce a second
-engine or a new CI gate. Production activation is a separate, explicit release.
+Status: **structured model contract integrated; live-model accuracy not yet evaluated** (2026-10-10).
+Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
+in the canonical Decision route. This is not a Production activation.
 
-### Implemented slice
+## Implemented path
 
-- `product-request-context.ts` supplies a bounded German/English fallback for
-  stated ages, CHF ceilings and exact-time detection. The evaluator uses it on
-  both AI and non-AI paths; the interpreter shares exact-time detection on cache
-  misses and hits. This is not general multilingual model comprehension.
-- The youngest recognized age reaches the existing age assessment. Family words
-  no longer invent a group size or independently prove an adult is present.
-  Explicit structured group input retains precedence. Existing German parental
-  wording still supplies an accompaniment inference; it does not prove guardianship.
-- Integer inclusive CHF ceilings explicitly stated per person can be checked
-  against verified World ranges in CHF. Other currencies cannot be compared.
-  Strict bounds, fractions, ambiguous amounts and total/unspecified scope remain
-  `BUDGET_SEMANTICS_UNVERIFIED`; amounts are never rounded. They cannot produce
-  confirmed budget eligibility. Because budget is a hard constraint, this may
-  leave no rankable results. The response-level limitation survives that case;
-  current clients can show their generic limitation fallback.
-- English relative days/weekdays use authoritative Swiss server time. Exact
-  clock time stays `PRECISE_TIME_UNVERIFIED`, including without AI. This does not
-  implement visit-time availability or resolve conflicting calendar phrases.
-- Contradictory required/excluded model facets retain an unresolved core need
-  instead of disappearing into a fully confirmed recommendation.
-- Interpreter policy is `ai-query@3.9`, context resolver is
-  `decision-vnext-product-context-resolver-v2`, evaluator is `@2.2`.
+`product-ai-interpretation.ts` requests structured semantic facets and up to
+12 typed requirements in the same provider call. Each requirement retains its
+dimension, importance, operator, origin, interpretation state, typed value,
+alternatives and optional OR group. Literal evidence must occur in the source
+sentence; it is discarded before persistence. This proves source provenance,
+not correctness of the model's normalized meaning.
 
-Privacy: no new raw text, age list, evidence spans or context fields enter the
-query cache, learning events or diagnostics. The existing response/idempotency
-record already includes minimum age and budget; extraction now populates those
-existing fields for more recognized inputs. This is not zero retention. No
-migration, consent rule, authorization boundary or transport shape changes.
+`product-request-understanding.ts` validates and minimizes that output, binds
+it to the complete interpreted request and a versioned policy, and projects the
+supported context into the existing public shape. The internal HTTP port carries
+`{ request, understanding }`; clients cannot submit that envelope or override
+server understanding. The production adapter passes it to the canonical World
+evaluator without sending it to World/User context RPCs or learning.
 
-Remaining work includes the typed model requirements contract, exact money and
-scope representation, request corrections/negation, source-aware location,
-all stated ages beyond the bounded fallback, scoped access-rule handling,
-precise time/distance verification, and dedicated clarification UI. None of
-those should be considered completed by the safeguards above.
+Supported context includes the youngest explicitly stated age, group size and
+explicit adult presence, integer inclusive CHF budgets per person, and an
+absolute/relative/weekday visit date with daypart. Relative dates resolve only
+against authoritative Swiss server time. A parsed future date suppresses stale
+lexical OPEN_NOW inference (for example, "not now, tomorrow"). Structured UI
+values remain authoritative; conflicts with the sentence remain visible.
+
+Essential canonical atmosphere/offering/experience requirements have an
+independent World-evidence check, even if the older facet normalizer marks them
+optional. Same-dimension, same-policy groups are OR; independent groups are AND.
+Scoped evidence must apply to the visit. Known explicit exclusions reject a
+candidate. Unknown hard requirements cannot rank; unconfirmed essential needs
+cannot produce ELIGIBLE_CONFIRMED. Canonical positive preferences still enter
+ranking without becoming hard eligibility. Preferred exclusions are retained
+but do not yet have a separate negative ranking contribution.
+
+Unsupported conditions remain honest: fractional/strict/total/foreign-currency
+budgets retain their exact internal representation but are not confirmed by the
+public v1 money evaluator. Exact clock time, travel limits and group capacity remain unverified.
+ACCESS has no typed model value in the current enum catalog and is retained as
+UNSUPPORTED; existing deterministic accessibility checks still apply. Unsupported
+hard conditions block ranking, including mandatory age suitability without evidence.
+A destination conflicting with the authorized city blocks candidates from that
+city; automatic source-aware redirection and clarification UI are still pending.
+
+The previous bounded lexical fallback remains available when AI is disabled or
+omits a supported field; its 160-case diagnostic is separate from model quality.
+Provider failure does not silently fall back to an invented successful AI result.
+
+Versions: interpreter `ai-query@4.0`; understanding contract `@1.0`; understanding
+policy `request-understanding-policy-v1`; AI context resolver v3; lexical resolver
+v2; evaluator `@2.3`. Model output cap is 3600 tokens (previously 2400), with the
+existing maximum of one malformed/incomplete-output retry. Existing server
+allowlist, authentication, rate limits, deadline and release controls remain.
+Latency and cost of the richer prompt require live-model measurement.
+
+## Minimized persistence review
+
+Purpose: stable interpretation of retries/alternatives for one actor and exact
+request, avoiding repeated provider calls and nondeterministic replay. This is
+operational processing of a submitted search, not personalization consent or a
+new profile/learning signal. The existing private cache now contains a compact,
+validated requirement representation in addition to canonical facets:
+
+- Only canonical enums, bounded numbers, dates/times, group identifiers and typed
+  alternatives. Location is restricted to Basel, Zurich or UNSUPPORTED_CITY;
+  arbitrary place names, addresses or text cannot be stored in that field.
+- At most one AGE requirement. Provider-only participant age lists reduce to the
+  youngest age before the cache; ambiguous age alternatives retain only each
+  possible minimum. No full age list, person name, source quote or offset is
+  stored. Minimum age is personal context: this is not anonymous or zero-retention.
+- Cache key remains actor/request/model/catalog/release/artifact/source/generation
+  bound; it additionally includes the understanding policy in the model-policy
+  hash. Old policy entries cannot supply the new shape. Existing service-only
+  RPCs, RLS/revocations and account-deletion cascade are unchanged.
+- Existing validity is at most 24 hours. Expired rows are removed through bounded
+  existing cleanup; expiry is **not** a guarantee of physical deletion at hour 24.
+  This distinction must remain in the release/privacy review.
+- Keep the existing 4096-byte PostgreSQL JSONB-text limit. Oversize interpretations
+  fail before persistence, without truncating requirements or retrying a write.
+  Compact positional cache encoding is confined to this boundary and revalidated
+  on reads; application code uses named typed properties.
+- The full internal understanding is not added to the public response, decision
+  learning events or diagnostics. Existing response/idempotency context fields
+  can contain the recognized minimum age, group and representable budget. Their
+  existing storage policy still applies.
+
+No schema migration or Production write is part of this change.
 
 ## User outcome
 
@@ -58,39 +104,40 @@ human product review. No real user data was used. No holdout has been created
 or inspected by the implementation team. Commission an independent holdout after
 review; do not relabel this visible corpus as blind evaluation.
 
-## Proposed shared understanding contract
+## Understanding contract and remaining design targets
 
 Contract identity: `backyrd.decision-vnext.request-understanding@1.0`.
-This is a proposed **server-internal** successor to fragmented interpretation,
-not a newly accepted client field and not authority to change the current API.
+This is an implemented **server-internal** contract, not a client request field
+and not authority to change authentication, World facts or the public API.
 
-An understanding is bound to the source request hash and interpretation policy.
-The request-local interpretation can refer to text offsets for review; raw text,
-quoted evidence, offsets that reconstruct text, and child-specific context must
-not automatically enter the semantic cache, learning records or telemetry.
-Minimized persistence requires a separate explicit review of purpose, retention
-and consent; do not reuse the current cache just because its JSON permits it.
+An understanding is bound to the full interpreted request hash and versioned policy.
+The model supplies literal evidence only for request-local validation. The
+explicit persistence review above defines the minimized cache representation.
+The original richer design targets below are retained where they are not yet
+implemented; they are not a claim that the model always extracts every need.
 
 Each requirement has:
 
 | Field | Meaning |
 | --- | --- |
-| `id` | Request-local stable identifier, not a user identity |
+| identity | Stable array position within the request-bound understanding; no model-controlled identity |
 | `dimension` | EXPERIENCE, ATMOSPHERE, COMPANY, AGE, TIME, LOCATION, MOBILITY, BUDGET, ACCESS, OFFERING, or OTHER |
 | `importance` | HARD, ESSENTIAL, or PREFERRED; this classifies the person's need, not Spot truth |
 | `operator` | REQUIRE or EXCLUDE |
-| `origin` | EXPLICIT, INFERRED, or DEFAULT |
+| `origin` | EXPLICIT or INFERRED; DEFAULT provenance for profile/UI location remains a future client contract change |
 | `interpretationState` | UNDERSTOOD, AMBIGUOUS, or UNSUPPORTED |
 | `value` | A dimension-specific normalized value, or null when not resolved |
 | `alternatives` | Bounded alternative normalized meanings for AMBIGUOUS only |
-| `evidenceSpans` | Bounded request-local start/end offsets; not persisted by default |
-| `worldCheck` | SUPPORTED or NOT_IMPLEMENTED; understanding and ability to verify are distinct |
+| source evidence | Exact request-local quote, discarded before cache; offset-based inspection remains a design target |
+| World check | Derived by the evaluator, never accepted from the model; unsupported requirements stay disclosed |
 
 Requirements compose as an AND of bounded alternative groups (OR). Do not turn
 "Museum or cinema" into two simultaneous demands. "Coffee and cake" preserves
 both requirements. Contradictions are retained as unresolved conflicts; a
 normalizer must not silently delete one side or turn both into preferences.
-No implicit widening of requested alternatives is allowed.
+No implicit widening of requested alternatives is allowed. Context alternatives
+remain ambiguous rather than being resolved by guessing. Non-facet OR groups
+are retained but are not yet executable context alternatives.
 
 Inferred preferences may affect discovery but cannot invent an exclusion,
 legal restriction, exact number, age, alcohol intent, or guardianship. Explicit
@@ -98,7 +145,7 @@ venue type, requested offering, visit purpose and desired atmosphere remain
 independent. Any promotion of an inference to a hard constraint must have a
 separately versioned deterministic rule and counterexamples.
 
-### Dimension-specific values
+### Dimension-specific targets (implementation limits above apply)
 
 - **Experience/offering/atmosphere:** canonical identifiers when available;
   unsupported needs remain explicit OTHER requirements. The current World
@@ -153,6 +200,9 @@ Files live with the current Product tests in
 - `evaluate.mjs`: independent comparison of declared expectations and observed
   fields; distinguishes missing fields, wrong values and technical errors.
 - `acceptance.test.mjs`: negative and positive tests for evaluation integrity.
+- `structured.test.mjs`: provider-output fixtures through cache, HTTP and canonical
+  World evaluation, including invalid output, source binding and privacy cases.
+  These are integration tests, not a live-model quality measurement.
 - `baseline.mjs`: reads the existing Product context resolver with the same
   profile-city default as Mobile. No model, RPC, Production or stored-user read.
 
@@ -177,7 +227,8 @@ It omits raw requests, model output and raw exceptions. Never use the report's
 pass count as a complete-understanding or recommendation-success percentage:
 only the declared checks are scored. For example, the budget corpus records
 amounts through the current context shape, which cannot yet express LT vs LTE;
-that distinction belongs to the proposed contract and future adapter tests.
+that distinction is covered by the internal contract and adapter fixtures,
+not by this lexical-only score.
 
 The corpus's `DISTANCE_UNVERIFIED` is a proposed expectation, not an accepted
 Product code. An adapter must map unsupported mobility to the eventual versioned
@@ -207,9 +258,10 @@ contract and UI; it must not inject a new code into the current API unchecked.
 6. Run the affected Product, Mobile/Web, authority and privacy gates before a
    release candidate. Production deployment remains a separate exact-SHA action.
 
-This first commit establishes the starting measurement and proposed contract.
-It does **not** complete the interpretation migration or repair the currently
-reproduced Product defects. Launch remains unassessed.
+The initial commit established the starting measurement and proposed contract.
+Steps 2 and 3 now have an integrated first implementation described above;
+reviewed semantic accuracy and the listed evaluator gaps remain open. Launch
+readiness has not been established.
 
 ## Validation of the first integrated safeguards (2026-10-10)
 
@@ -226,3 +278,24 @@ modules, so helper changes are included in its source/build identity.
 
 CI must certify the exact PR head, including the selected browser journey and
 real Mobile bundle, before review can treat this as a certified Product change.
+
+
+## Structured-contract validation (2026-10-10)
+
+The active Decision suite passes 131/131 tests, including 25 new contract and
+integration tests. The existing lexical-only diagnostic remains 99/160 with
+zero errors and no regressions; it does not exercise the new provider prompt.
+Product release contracts, TypeScript, single-route and security checks run
+against this implementation; exact-head CI certification is required as usual.
+
+A read-only PostgreSQL calculation using synthetic normalized requirements
+confirmed the JSONB byte accounting (404 bytes on both sides); it queried no
+user/Spot rows and wrote nothing. No live provider evaluation was run: the local
+test process had no OpenAI API key. The new fixtures cannot substitute for that
+measurement or an independently reviewed holdout. Exact budget verification,
+scoped age-rule improvements, location provenance/redirection, travel/exact-time
+checks and clarification UX remain separate work.
+
+The Responses schema follows the [official Structured Outputs constraints](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses):
+closed objects, required properties, explicit null alternatives and bounded
+untrusted output. Schema validity is not evidence of semantic accuracy.
