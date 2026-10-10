@@ -32,7 +32,7 @@ test('explicit group stays authoritative over inferred request context', () => {
 });
 
 test('CHF ceiling variants retain amount and scope without implying unsupported comparisons', () => {
-  for (const text of ['Kaffee maximal 30 CHF pro Person', 'Coffee at most CHF 30 per person', 'Kaffee Budget: 30 Franken pro Person']) {
+  for (const text of ['Kaffee maximal 30 CHF pro Person', 'Coffee at most CHF 30 per person', 'Kaffee Budget: 30 Franken pro Person', 'Pro Person maximal 30 CHF.', 'Coffee at most CHF 30, per person']) {
     const context = resolve(text);
     assert.equal(context.budget.amount, 30);
     assert.equal(context.budget.perPerson, true);

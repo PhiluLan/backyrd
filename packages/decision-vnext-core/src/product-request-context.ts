@@ -38,7 +38,7 @@ export type RequestBudget = {
 };
 export function requestBudget(input: string): RequestBudget {
   const text = normalize(input);
-  const moneyPattern = /(?<![\d.,])(?:chf\s*(\d{1,5}(?:[.,]\d{1,2})?)|(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:chf|franken)\b)(?![\d.,])/gu;
+  const moneyPattern = /(?<![\p{L}\d.,])(?:chf\s*(\d{1,5}(?:[.,]\d{1,2})?)|(\d{1,5}(?:[.,]\d{1,2})?)\s*(?:chf|franken)\b)(?![\p{L}\d]|[.,]\d)/gu;
   const mentions = [...text.matchAll(moneyPattern)];
   const amounts = mentions.map((match) => Number((match[1] ?? match[2]!).replace(",", ".")));
   const ceilingBeforeAmount = /\b(?:höchstens|maximal|max\.?|bis|unter|weniger als|at most|up to|under|less than|budget)\s*:?\s*$/u;
