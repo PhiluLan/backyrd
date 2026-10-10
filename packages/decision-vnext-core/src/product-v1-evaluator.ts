@@ -27,6 +27,9 @@ const weekdays = ["sonntag|sunday", "montag|monday", "dienstag|tuesday", "mittwo
 const requestedWeekday = (text: string): number => weekdays.findIndex((day) => new RegExp(`\\b(?:${day})\\b`, "u").test(text));
 
 function requestedLocalDate(text: string, serverTime: string): string {
+  // Remove directly negated/replaced calendar references before resolving a
+  // positive day. This is intentionally local; it is not general negation NLP.
+  text = text.replace(/(?<!\p{L})(?:nicht|not|statt|instead of|rather than)\s+(?:(?:am|on)\s+)?(?:day after tomorrow|übermorgen|morgen|tomorrow|heute|today|sonntag|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sunday|monday|tuesday|wednesday|thursday|friday|saturday)(?!\p{L})/gu, " ");
   const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Zurich", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(serverTime));
   const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
   const current = new Date(Date.UTC(value("year"), value("month") - 1, value("day")));

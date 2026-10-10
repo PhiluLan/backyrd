@@ -23,10 +23,10 @@ export function requestGroup(input: string) {
   const text = normalize(input);
   const ages = [...text.matchAll(agePattern)].map((match) => numberWords[match[1]!] ?? Number(match[1]))
     .filter((age) => Number.isInteger(age) && age >= 0 && age <= 120);
-  const family = /\b(?:tochter|sohn|kinder?n?|familie|familien\p{L}*|daughter|son|children|child|family)\b/u.test(text);
+  const family = /\b(?:tochter|sohn|kind(?:er|ern)?|familie|familien\p{L}*|daughter|son|children|child|family)\b/u.test(text);
   // "Family" alone proves neither head count nor adult accompaniment.
   const adultPresent = /\b(?:mit erwachsenen|with an adult|with adults)\b/u.test(text)
-    || new RegExp(`\\bmit\\s+(?:meiner?|meinen|unserer?|unseren)\\s+(?:${ageToken}[ -]?(?:jährig\\p{L}*|jaehrig\\p{L}*)\\s+)?(?:tochter|sohn|kindern?)\\b`, "u").test(text);
+    || new RegExp(`\\bmit\\s+(?:meiner?|meinen|unserer?|unseren)\\s+(?:${ageToken}[ -]?(?:jährig\\p{L}*|jaehrig\\p{L}*)\\s+)?(?:tochter|sohn|kind(?:er|ern)?)\\b`, "u").test(text);
   return { size: null, minimumAge: ages.length ? Math.min(...ages) : null, adultPresent, companionType: family ? "FAMILY" : null };
 }
 

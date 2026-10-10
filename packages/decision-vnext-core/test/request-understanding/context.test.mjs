@@ -9,7 +9,7 @@ const resolve = (naturalLanguage, explicit = {}, serverTime = '2026-10-10T12:00:
 
 test('stated ages survive German words, English and multiple people without fabricating group size', () => {
   for (const [text, age] of [
-    ['Museum mit meiner vierjährigen Tochter', 4], ['Museum with my four-year-old daughter', 4],
+    ['Museum mit meiner vierjährigen Tochter', 4], ['Mit meinem 4-jährigen Kind ins Museum', 4], ['Museum with my four-year-old daughter', 4],
     ['Museum mit meinem 12-jährigen Sohn und meiner 4-jährigen Tochter', 4],
     ['Museum mit meiner vierjährigen Tochter und meinem achtjährigen Sohn', 4],
     ['Museum with a 4 year old child', 4], ['Museum mit meiner 104-jährigen Oma', 104],
@@ -67,5 +67,12 @@ test('exact time remains unverified with or without the optional AI interpreter'
   }
   for (const text of ['Coffee tomorrow evening', 'Kaffee heute Abend', 'Museum mit 10 Kindern', 'Kaffee für 10 CHF']) {
     assert.equal(hasPreciseRequestedTime(text), false, text);
+  }
+});
+
+
+test('directly negated calendar references cannot override the requested day', () => {
+  for (const text of ['Nicht morgen, heute Kaffee trinken', 'Kaffee heute statt morgen', 'Heute Kaffee, nicht morgen', 'Coffee today, not tomorrow', 'Coffee today instead of tomorrow', 'Kaffee nicht am Sonntag, sondern am Montag']) {
+    assert.equal(resolve(text).dateTime.localDate, text.includes('Montag') ? '2026-10-12' : '2026-10-10', text);
   }
 });

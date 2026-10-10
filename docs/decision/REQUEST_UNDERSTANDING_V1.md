@@ -213,13 +213,13 @@ reproduced Product defects. Launch remains unassessed.
 
 ## Validation of the first integrated safeguards (2026-10-10)
 
-Local canonical build and Decision tests: 105/105; Product release contract
+Local canonical build and Decision tests: 106/106; Product release contract
 suite: 33/33; Decision TypeScript, single-route invariant, client secret boundary
 and canonical secret scan passed. Tests use synthetic inputs and World evidence;
 no provider call or Production write was made.
 
-The unchanged development corpus reports 94/160 passing cases, 66 mismatches,
-zero errors, compared with the original 72/160 baseline. This measures only
+The unchanged development corpus reports 99/160 passing cases, 61 mismatches,
+zero errors and no previously passing case regressed, compared with the original 72/160 baseline. This measures only
 its declared assertions and is neither a holdout result nor a launch verdict.
 The diagnostic now hashes the resolver and its extracted context/lexicon/query
 modules, so helper changes are included in its source/build identity.
