@@ -52,9 +52,8 @@ Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
 their optional strength. A group containing only one requirement normalizes to
 no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.4`; understanding contract `@1.0`; understanding
-policy `request-understanding-policy-v3`; AI context resolver v3; lexical resolver
-v2; evaluator `@2.3`. Model output cap is 3600 tokens (previously 2400), with the
+Versions: interpreter `ai-query@4.6`; understanding contract `@1.0`; understanding
+policy `request-understanding-policy-v7`; AI and lexical context resolver v3; evaluator `@2.3`. Model output cap is 3600 tokens (previously 2400), with the
 existing maximum of one malformed/incomplete-output retry. Existing server
 allowlist, authentication, rate limits, deadline and release controls remain.
 Latency and cost are measured by the development runner below; independent
@@ -429,13 +428,24 @@ explicit in this work package. Its overall status must not be marked COMPLETE
 while independent acceptance is pending.
 
 
-### Current measured candidate (policy 4.4 / understanding policy v3)
+### Earlier measured candidate (interpreter 4.4 / understanding policy v3)
 
 The first complete current requirements run passed 24/24 cases using 24 provider
 calls, zero retries and zero technical errors. Cold interpretation latency was
 p50 2678 ms, p95 3339 ms, maximum 3521 ms; token-based standard-rate cost estimate
 was USD 0.00494253. This is interpreter latency, not end-to-end Decision latency.
-A repeated run and the broad current-context run are still being collected.
+An unchanged repeated run also passed the same 24 cases with 24 calls and no
+retries/errors: p50 2871 ms, p95 3337 ms, maximum 3347 ms, estimated USD
+0.00500503. These are repeated observations on 24 cases, not 48 independent cases.
+
+The completed broad run for this candidate had 125 passes, 29 mismatches and six
+technical errors across 160 cases, using 179 calls. p50 was 3028 ms and p95
+7053 ms. One case timed out; four destination cases violated the normalized
+state/value contract; one access case failed literal-evidence validation.
+Unmeasured usage makes total cost unavailable. Public-shape mismatches include
+unsupported decimal money, location-source ambiguity and proposed mobility
+codes, alongside real extraction gaps. Do not equate this pass count with
+complete model comprehension.
 
 For comparison only, the completed broad context run on **policy 4.0** had 85
 passes, 24 mismatches and 51 technical errors across 160 cases, using 230 provider
@@ -445,6 +455,39 @@ measured, so total cost is null. This is the initial live baseline, not a score
 for policy 4.4, and not comparable to the 99/160 lexical-only diagnostic as a
 claim of overall recommendation quality.
 
-Current local validation: 146 active Decision tests, 33 Product release contract
+Local validation at interpreter 4.4: 146 active Decision tests, 33 Product release contract
 tests, Decision TypeScript, single-route, client-secret boundary and canonical
 secret scan passed. Exact-head CI and independent acceptance remain pending.
+
+
+### Final normalization safeguards (interpreter 4.6 / understanding policy v7)
+
+Understanding policy v4 distinguishes explicit adult absence from unknown adult
+presence and compares financial fields without treating a display-label change
+as a budget conflict. Interpreter 4.5 / policy v5 makes provider schemas specific
+to both dimension and interpretation state: UNDERSTOOD requires a typed value;
+AMBIGUOUS requires alternatives; UNSUPPORTED cannot smuggle a resolved value.
+Missing World evidence does not by itself mean the sentence was misunderstood.
+
+Interpreter 4.6 / policy v6 projects explicit ALONE to one person without
+inventing a family headcount, and recognizes bounded German/English access
+need disclaimers. Policy v7 further restricts removal of a model ACCESS row to
+an evidence quote consisting entirely of a recognized disclaimer. A broader
+quote, an unknown facility (such as a hearing loop), another positive access
+clause and explicit UI constraints are retained. Absence of an access need never
+means exclusion of accessible venues. Evidence validation precedes normalization.
+
+The interpreter-4.6/policy-v6 focused live run passed 24/24 with 24 calls,
+zero retries/errors, p50 3071 ms, p95 3717 ms and estimated USD 0.005912965.
+A localized four-case destination run had zero technical errors, but all four
+still mismatched the proposed target-city expectation: public v1 treats the
+profile city as explicit authority. That contract boundary remains unresolved.
+Final policy-v7 affected-case checks and the broad v6 diagnostic are in progress.
+
+Current local canonical Decision build/tests: 153/153 passed. The 33 Product
+release contracts, Decision TypeScript, single-route, client-secret boundary
+and canonical secret scan passed before the final narrow access-row correction;
+exact-head CI must certify the final candidate. The unchanged lexical diagnostic
+now has 102 passes, 58 mismatches and zero errors. This is a fallback diagnostic,
+not live model accuracy. Reviewed expectations, independent holdout and Product
+acceptance remain outstanding.

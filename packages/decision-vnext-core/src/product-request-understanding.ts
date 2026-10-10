@@ -1,10 +1,11 @@
+import { accessibilityRequestScope } from "./product-request-context.js";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { schema, type Infer } from "./schema.js";
 import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.0" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v3" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v7" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
@@ -70,12 +71,16 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
     };
     body.value = minimizeValue(body.value);
     if (Array.isArray(body.alternatives)) body.alternatives = body.alternatives.map(minimizeValue);
-    return validateRequirement(body);
+    const row = validateRequirement(body);
+    const scope = accessibilityRequestScope(evidence);
+    // Discard only a requirement whose entire evidence is a recognized access
+    // disclaimer. Other access needs, including unknown facilities, survive.
+    return row.dimension === "ACCESS" && scope.explicitlyDisclaimed && /^[\s.,;:!?]*$/u.test(scope.text) ? null : row;
   });
   // An explicit essential exclusion is a veto, not a positive wish whose
   // absence of evidence can merely reduce confidence. Optional exclusions stay
   // optional; inferred exclusions were already rejected above.
-  const normalized = parsed.map(row => row.origin === "EXPLICIT" && row.operator === "EXCLUDE" && row.importance === "ESSENTIAL"
+  const normalized = parsed.filter((row): row is ProductRequirement => row !== null).map(row => row.origin === "EXPLICIT" && row.operator === "EXCLUDE" && row.importance === "ESSENTIAL"
     ? { ...row, importance: "HARD" as const } : row);
   return deepFreeze(normalized.map(row => row.group !== null && normalized.filter(other => other.group === row.group).length === 1
     ? { ...row, group: null } : row));
@@ -131,13 +136,22 @@ const dimensionValues: Readonly<Record<string, readonly object[]>> = {
 // values or a company-shaped value in an atmosphere requirement are impossible
 // in schema-conforming output; the runtime still revalidates every boundary.
 export const PRODUCT_MODEL_REQUIREMENTS_SCHEMA = { type: "array", maxItems: 12, items: { anyOf:
-  Object.entries(dimensionValues).map(([dimension, values]) => objectJson({
-    dimension: { type: "string", const: dimension },
-    importance: enumJson(["HARD", "ESSENTIAL", "PREFERRED"]), operator: enumJson(["REQUIRE", "EXCLUDE"]), origin: enumJson(["EXPLICIT", "INFERRED"]),
-    interpretationState: enumJson(["UNDERSTOOD", "AMBIGUOUS", "UNSUPPORTED"]), value: { anyOf: [...values, { type: "null" }] },
-    alternatives: values.length ? { type: "array", maxItems: 3, items: { anyOf: values } } : { type: "array", maxItems: 0, items: { type: "null" } },
-    group: nullableJson({ type: "string", pattern: "^R[1-9][0-9]?$" }), evidence: { type: "string", minLength: 1, maxLength: 240 },
-  })),
+  Object.entries(dimensionValues).flatMap(([dimension, values]) => {
+    const states = [
+      ...(values.length ? [
+        { state: "UNDERSTOOD", value: { anyOf: values }, alternatives: { type: "array", maxItems: 0, items: { anyOf: values } } },
+        { state: "AMBIGUOUS", value: { type: "null" }, alternatives: { type: "array", minItems: 2, maxItems: 3, items: { anyOf: values } } },
+      ] : []),
+      { state: "UNSUPPORTED", value: { type: "null" }, alternatives: { type: "array", maxItems: 0, items: { type: "null" } } },
+    ];
+    return states.map(state => objectJson({
+      dimension: { type: "string", const: dimension },
+      importance: enumJson(["HARD", "ESSENTIAL", "PREFERRED"]), operator: enumJson(["REQUIRE", "EXCLUDE"]),
+      origin: Object.hasOwn(facetDimensions, dimension) ? enumJson(["EXPLICIT", "INFERRED"]) : { type: "string", const: "EXPLICIT" },
+      interpretationState: { type: "string", const: state.state }, value: state.value, alternatives: state.alternatives,
+      group: nullableJson({ type: "string", pattern: "^R[1-9][0-9]?$" }), evidence: { type: "string", minLength: 1, maxLength: 240 },
+    }));
+  }),
 } };
 
 /** Project only supported context into the stable public v1 shape. Rich values
@@ -159,7 +173,7 @@ export function projectProductUnderstanding(understanding: ProductUnderstanding 
   const age = single("AGE"); const company = single("COMPANY"); const money = single("BUDGET"); const time = single("TIME");
   const group = age !== undefined || company !== undefined ? {
     ...(age !== undefined ? { minimumAge: age?.kind === "AGE" ? age.minimumAge : null } : {}),
-    ...(company !== undefined ? { size: company?.kind === "COMPANY" ? company.size : null,
+    ...(company !== undefined ? { size: company?.kind === "COMPANY" ? company.size ?? (company.companionType === "ALONE" ? 1 : null) : null,
       adultPresent: company?.kind === "COMPANY" ? company.adultPresent === true : false,
       companionType: company?.kind === "COMPANY" ? company.companionType : null } : {}),
   } : undefined;
@@ -188,8 +202,10 @@ export function projectProductUnderstanding(understanding: ProductUnderstanding 
     if (requirement.importance === "PREFERRED") continue;
     if (["MOBILITY", "OTHER"].includes(requirement.dimension) || requirement.interpretationState !== "UNDERSTOOD") unresolved.add(`${requirement.dimension}_REQUEST_UNRESOLVED`);
   }
-  if (group && request.explicit.group && Object.entries(group).some(([key, value]) => value !== null && value !== false && request.explicit.group![key as keyof typeof group] !== value)) unresolved.add("GROUP_CONTEXT_CONFLICT");
-  if (budget && request.explicit.budget && contentHash(budget) !== contentHash(request.explicit.budget)) unresolved.add("BUDGET_CONTEXT_CONFLICT");
+  if (group && request.explicit.group && Object.entries(group).some(([key, value]) => value !== null
+    && (key !== "adultPresent" || company?.kind === "COMPANY" && company.adultPresent !== null)
+    && request.explicit.group![key as keyof typeof group] !== value)) unresolved.add("GROUP_CONTEXT_CONFLICT");
+  if (budget && request.explicit.budget && Object.entries(budget).some(([key, value]) => key !== "calibrationLabel" && request.explicit.budget![key as keyof typeof budget] !== value)) unresolved.add("BUDGET_CONTEXT_CONFLICT");
   if (dateTime && request.explicit.dateTime && contentHash(dateTime) !== contentHash(request.explicit.dateTime)) unresolved.add("TIME_CONTEXT_CONFLICT");
   return { requirements, group, budget, dateTime, openNow: time?.kind === "TIME" && time.openNow, budgetMentioned: forDimension("BUDGET").length > 0, timeMentioned: forDimension("TIME").length > 0, unresolvedTerms: [...unresolved].sort() };
 }

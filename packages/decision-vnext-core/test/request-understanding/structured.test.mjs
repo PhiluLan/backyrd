@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION } from '@backyrd/world-knowledge-core';
 import {
-  bindProductUnderstanding, parseModelRequirements, encodeRequirementCache, decodeRequirementCache, validateProductUnderstanding,
+  PRODUCT_MODEL_REQUIREMENTS_SCHEMA, bindProductUnderstanding, parseModelRequirements, encodeRequirementCache, decodeRequirementCache, validateProductUnderstanding,
   createDecisionProductAiIntentInterpreter, createDecisionProductHttpHandler, createDecisionProductRpcEvaluationProvider, contentHash, resolveDecisionProductContext,
 } from '../../dist/index.js';
 import { evaluateProductWorldViews } from '../../dist/product-v1-evaluator.js';
@@ -317,4 +317,73 @@ test('explicit essential exclusions are vetoes while optional exclusions remain 
   const optional = await interpretedContext('Coffee, preferably not quiet', [req('ATMOSPHERE', value, 'preferably not quiet', { operator: 'EXCLUDE', importance: 'PREFERRED' })]);
   assert.equal(optional.understanding.requirements[0].importance, 'PREFERRED');
   assert.equal(assess(optional).candidates[0].unknownHardConstraints.length, 0);
+});
+
+
+test('an explicitly absent adult conflicts with a selected adult, but unknown adult presence does not', async () => {
+  const explicit = { group: { size: 3, minimumAge: 12, adultPresent: true, companionType: 'FRIENDS_GROUP' } };
+  const value = { kind: 'COMPANY', size: 3, adultPresent: false, companionType: 'FRIENDS_GROUP' };
+  const absent = await interpretedContext('Coffee for three friends, no adult present', [req('COMPANY', value, 'three friends, no adult present')], explicit);
+  assert.ok(absent.context.unresolvedTerms.includes('GROUP_CONTEXT_CONFLICT'));
+  assert.equal(absent.context.group.adultPresent, true, 'the explicit UI remains authoritative while the conflict is disclosed');
+  const unknown = await interpretedContext('Coffee for three friends', [req('COMPANY', { ...value, adultPresent: null }, 'three friends')], explicit);
+  assert.equal(unknown.context.unresolvedTerms.includes('GROUP_CONTEXT_CONFLICT'), false);
+});
+
+test('a budget display label does not create a financial conflict when all semantic fields agree', async () => {
+  const result = await interpretedContext('Coffee at most CHF 30 per person', [req('BUDGET', money(), 'at most CHF 30 per person')], {
+    budget: { state: 'KNOWN', amount: 30, currency: 'CHF', perPerson: true, calibrationLabel: 'budget-up-to-chf-30' },
+  });
+  assert.equal(result.context.unresolvedTerms.includes('BUDGET_CONTEXT_CONFLICT'), false);
+});
+
+
+test('provider schema excludes contradictory states and cross-dimensional values before runtime validation', () => {
+  const variants = PRODUCT_MODEL_REQUIREMENTS_SCHEMA.items.anyOf;
+  const city = variants.filter(v => v.properties.dimension.const === 'LOCATION');
+  assert.equal(city.length, 3);
+  const unsupported = city.find(v => v.properties.interpretationState.const === 'UNSUPPORTED');
+  assert.deepEqual(unsupported.properties.value, { type: 'null' });
+  assert.equal(unsupported.properties.alternatives.maxItems, 0);
+  const understood = city.find(v => v.properties.interpretationState.const === 'UNDERSTOOD');
+  assert.equal(understood.properties.value.anyOf.some(v => v.type === 'null'), false);
+  assert.ok(understood.properties.value.anyOf.every(v => v.properties.kind.const === 'LOCATION'));
+  assert.equal(understood.properties.origin.const, 'EXPLICIT');
+  const ambiguous = city.find(v => v.properties.interpretationState.const === 'AMBIGUOUS');
+  assert.equal(ambiguous.properties.alternatives.minItems, 2);
+});
+
+
+test('alone implies one person without inventing a family headcount', async () => {
+  const solo = await interpretedContext('Coffee on my own', [req('COMPANY', { kind: 'COMPANY', size: null, adultPresent: null, companionType: 'ALONE' }, 'on my own')]);
+  assert.equal(solo.context.group.size, 1);
+  const family = await interpretedContext('Coffee with family', [req('COMPANY', { kind: 'COMPANY', size: null, adultPresent: null, companionType: 'FAMILY' }, 'with family')]);
+  assert.equal(family.context.group.size, null);
+});
+
+test('a disclaimed access need does not become a mandatory venue constraint or an exclusion', async () => {
+  for (const [text, evidence] of [['Das Café muss nicht barrierefrei sein', 'muss nicht barrierefrei sein'], ['Barrierefreiheit ist nicht nötig, ich suche Kaffee', 'Barrierefreiheit ist nicht nötig'], ['Ich brauche keinen stufenfreien Eingang im Café', 'brauche keinen stufenfreien Eingang'], ['No wheelchair access needed, just coffee', 'No wheelchair access needed']]) {
+    const input = request(text, { primaryIntent: 'COFFEE' });
+    const lexical = context(input, null);
+    assert.equal(lexical.hardConstraints.some(c => c.startsWith('ACCESSIBILITY_')), false, text);
+    const result = await interpretedContext(text, [req('ACCESS', null, evidence, { interpretationState: 'UNSUPPORTED', importance: 'HARD' })]);
+    assert.equal(result.understanding.requirements.length, 0);
+    assert.equal(result.context.unresolvedTerms.includes('ACCESS_REQUEST_UNRESOLVED'), false);
+  }
+  const explicit = context(request('No wheelchair access needed, just coffee', { primaryIntent: 'COFFEE', hardConstraints: ['ACCESSIBILITY_BASIC'] }), null);
+  assert.ok(explicit.hardConstraints.includes('ACCESSIBILITY_BASIC'), 'the text helper cannot erase explicit UI constraints');
+  const mixed = context(request('Barrierefreiheit ist nicht nötig, aber ein stufenfreier Eingang muss sein', { primaryIntent: 'COFFEE' }), null);
+  assert.ok(mixed.hardConstraints.includes('ACCESSIBILITY_STEP_FREE'));
+  assert.ok(context(request('Das Café muss nicht nur barrierefrei sein', { primaryIntent: 'COFFEE' }), null).hardConstraints.includes('ACCESSIBILITY_BASIC'));
+});
+
+
+test('an access disclaimer cannot delete a different or broadly quoted access requirement', async () => {
+  const text = 'No wheelchair access needed, but a hearing loop is required for coffee';
+  for (const evidence of ['a hearing loop is required', text]) {
+    const result = await interpretedContext(text, [req('ACCESS', null, evidence, { interpretationState: 'UNSUPPORTED', importance: 'HARD' })]);
+    assert.equal(result.understanding.requirements.length, 1);
+    assert.ok(result.context.unresolvedTerms.includes('ACCESS_REQUEST_UNRESOLVED'));
+    assert.ok(assess(result).candidates[0].unknownHardConstraints.length > 0);
+  }
 });

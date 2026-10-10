@@ -1,3 +1,4 @@
+import { accessibilityRequestScope } from "./product-request-context.js";
 import { projectProductUnderstanding, type ProductUnderstanding, type ProductRequirement } from "./product-request-understanding.js";
 import {
   ACCEPTED_SOURCE_POLICY, PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, REGISTRY_HASH, REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION, parseWorldKnowledgeSnapshot,
@@ -60,8 +61,9 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   // A broad accessibility request must not recommend a venue with a verified
   // inaccessible entrance or route. A request specifically about steps only
   // requires the entrance; "barrierefrei" requires the basic visit path too.
-  if (includes(text, ["barrierefrei", "hindernisfrei", "rollstuhlgängig", "rollstuhlgaengig", "wheelchair accessible"])) hard.add("ACCESSIBILITY_BASIC");
-  else if (includes(text, ["rollstuhl", "stufenfrei", "stufenlos", "ohne stufen"])) hard.add("ACCESSIBILITY_STEP_FREE");
+  const accessText = accessibilityRequestScope(request.naturalLanguage).text;
+  if (includes(accessText, ["barrierefrei", "hindernisfrei", "rollstuhlgängig", "rollstuhlgaengig", "wheelchair accessible"])) hard.add("ACCESSIBILITY_BASIC");
+  else if (includes(accessText, ["rollstuhl", "stufenfrei", "stufenlos", "ohne stufen"])) hard.add("ACCESSIBILITY_STEP_FREE");
   if (understood.openNow || !understood.timeMentioned && includes(text, ["geöffnet", "offen", "jetzt"])) hard.add("OPEN_NOW");
   if (!understood.timeMentioned && (requestedWeekday(text) >= 0 || includes(text, ["heute", "morgen", "übermorgen", "today", "tomorrow"])) || explicit.dateTime?.localDate) hard.add("OPEN_ON_REQUESTED_DAY");
   if (understood.budget || !understood.budgetMentioned && parsedBudget.requested || explicit.budget?.state === "KNOWN" && explicit.budget.amount !== null) hard.add("BUDGET_MAXIMUM");

@@ -110,3 +110,11 @@ test('a bounded explicit primary coffee requirement is redundant, while invented
   assert.equal(scoreRequirements([], [{ ...optional[0], importance: 'HARD' }], optional).outcome, 'FAIL');
   assert.equal(scoreRequirements([], oracle.families['exact-decimal-total'][0].variants, optional).outcome, 'FAIL');
 });
+
+
+test('unknown billing after a transport failure stops later cases as well as nulling the cost', async () => {
+  let calls = 0;
+  const report = await runModelEvaluation({ ...config, corpus: one(2), fetchImpl: async () => { calls++; throw new Error('transport failed'); } });
+  assert.equal(calls, 1); assert.equal(report.errors, 1); assert.equal(report.notRun, 1);
+  assert.equal(report.stopReason, 'USAGE_UNAVAILABLE'); assert.equal(report.costUsd, null);
+});

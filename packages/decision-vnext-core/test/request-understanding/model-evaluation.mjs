@@ -86,9 +86,10 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
         : message === 'product_ai_intent_cache_budget_exceeded' ? 'CACHE_BUDGET_EXCEEDED'
         : message.startsWith('product_ai_intent_result_invalid') || message === 'product_ai_intent_response_invalid' ? 'MODEL_OUTPUT_INVALID' : 'INTERPRETATION_ERROR';
       result = calls === before && stopReason ? { outcome: 'NOT_RUN', reason: stopReason }
-        : { outcome: 'ERROR', reason: controller.signal.aborted ? 'TIMEOUT' : failureCode ?? category, checks: [] };
+        : { outcome: 'ERROR', reason: controller.signal.aborted ? 'TIMEOUT' : failureCode ?? category, checks: [], ...( /^product_understanding_[a-z_]{1,60}$/.test(message) ? { diagnosticCode: message } : {}) };
     }
     finally { clearTimeout(timer); cache.clear(); }
+    if (usage.unmeasuredCalls > 0) stopReason ??= 'USAGE_UNAVAILABLE';
     cases.push({ caseId, familyId: family.id, dimension: family.dimension, ...result, providerCalls: calls - before, latencyMs: Math.round(performance.now() - start) });
     onProgress?.({ completed: cases.length, caseId, outcome: result.outcome, providerCalls: calls });
   }
