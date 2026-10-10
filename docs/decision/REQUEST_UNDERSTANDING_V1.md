@@ -1,10 +1,47 @@
 # Request understanding v1 — first work package
 
-Status: **design proposal and executable development baseline** (2026-10-10).
-Owner: Decision Product. Work class: FAST_PR, evaluation and documentation only.
-This package does not change the active interpreter, Product transport, ranking,
-World facts, consent, database, or deployment. Its tests extend the existing
-Product AI test entrypoint; there is no new CI gate or parallel Decision engine.
+Status: **design proposal, executable baseline and first integrated context safeguards** (2026-10-10).
+Owner: Decision Product. Work class: PRODUCT_RELEASE (runtime changes).
+The full typed model contract below remains a proposal. The first implementation
+extends the canonical interpreter/evaluator; it does not introduce a second
+engine or a new CI gate. Production activation is a separate, explicit release.
+
+### Implemented slice
+
+- `product-request-context.ts` supplies a bounded German/English fallback for
+  stated ages, CHF ceilings and exact-time detection. The evaluator uses it on
+  both AI and non-AI paths; the interpreter shares exact-time detection on cache
+  misses and hits. This is not general multilingual model comprehension.
+- The youngest recognized age reaches the existing age assessment. Family words
+  no longer invent a group size or independently prove an adult is present.
+  Explicit structured group input retains precedence. Existing German parental
+  wording still supplies an accompaniment inference; it does not prove guardianship.
+- Integer inclusive CHF ceilings explicitly stated per person can be checked
+  against verified World ranges in CHF. Other currencies cannot be compared.
+  Strict bounds, fractions, ambiguous amounts and total/unspecified scope remain
+  `BUDGET_SEMANTICS_UNVERIFIED`; amounts are never rounded. They cannot produce
+  confirmed budget eligibility. Because budget is a hard constraint, this may
+  leave no rankable results. The response-level limitation survives that case;
+  current clients can show their generic limitation fallback.
+- English relative days/weekdays use authoritative Swiss server time. Exact
+  clock time stays `PRECISE_TIME_UNVERIFIED`, including without AI. This does not
+  implement visit-time availability or resolve conflicting calendar phrases.
+- Contradictory required/excluded model facets retain an unresolved core need
+  instead of disappearing into a fully confirmed recommendation.
+- Interpreter policy is `ai-query@3.9`, context resolver is
+  `decision-vnext-product-context-resolver-v2`, evaluator is `@2.2`.
+
+Privacy: no new raw text, age list, evidence spans or context fields enter the
+query cache, learning events or diagnostics. The existing response/idempotency
+record already includes minimum age and budget; extraction now populates those
+existing fields for more recognized inputs. This is not zero retention. No
+migration, consent rule, authorization boundary or transport shape changes.
+
+Remaining work includes the typed model requirements contract, exact money and
+scope representation, request corrections/negation, source-aware location,
+all stated ages beyond the bounded fallback, scoped access-rule handling,
+precise time/distance verification, and dedicated clarification UI. None of
+those should be considered completed by the safeguards above.
 
 ## User outcome
 
@@ -173,3 +210,19 @@ contract and UI; it must not inject a new code into the current API unchecked.
 This first commit establishes the starting measurement and proposed contract.
 It does **not** complete the interpretation migration or repair the currently
 reproduced Product defects. Launch remains unassessed.
+
+## Validation of the first integrated safeguards (2026-10-10)
+
+Local canonical build and Decision tests: 105/105; Product release contract
+suite: 33/33; Decision TypeScript, single-route invariant, client secret boundary
+and canonical secret scan passed. Tests use synthetic inputs and World evidence;
+no provider call or Production write was made.
+
+The unchanged development corpus reports 94/160 passing cases, 66 mismatches,
+zero errors, compared with the original 72/160 baseline. This measures only
+its declared assertions and is neither a holdout result nor a launch verdict.
+The diagnostic now hashes the resolver and its extracted context/lexicon/query
+modules, so helper changes are included in its source/build identity.
+
+CI must certify the exact PR head, including the selected browser journey and
+real Mobile bundle, before review can treat this as a certified Product change.

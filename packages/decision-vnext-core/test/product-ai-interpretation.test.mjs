@@ -1,3 +1,4 @@
+import './request-understanding/context.test.mjs';
 import "./request-understanding/acceptance.test.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -414,4 +415,36 @@ test("rain suitability follows verified place type, not invented venue facts", (
   assert.ok(PRODUCT_QUERY_CATALOG.some((field) => field.key === "classification.place_types"));
   assert.deepEqual(decodeWorldPreference("WK:context.atmosphere:LIVELY"), { key: "context.atmosphere", value: "LIVELY" });
   assert.equal(decodeWorldPreference("WK:context.atmosphere:IMAGINARY"), null);
+});
+
+
+test("contradictory model facets retain an unresolved core requirement across cache replay", async () => {
+  let saved;
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "COFFEE", facets: [
+    facet("classification.place_types", "CAFE", "Café", "REQUIRED", "G1"),
+    facet("classification.place_types", "CAFE", "kein Café", "EXCLUDED"),
+  ] })), { async rpc(_name, parameters) {
+    if (parameters.p_write) saved = parameters.p_semantics;
+    return { data: saved ? { status: "HIT", semantics: saved } : { status: "MISS" }, error: null };
+  } });
+  const input = request("Café oder doch kein Café");
+  const first = await run(input, actor, new AbortController().signal);
+  const replay = await run(input, actor, new AbortController().signal);
+  assert.ok(first.explicit.unresolvedTerms.includes("OTHER_CORE_NEED_UNMAPPED"));
+  assert.deepEqual(replay.explicit, first.explicit);
+});
+
+test("English exact time has the same limitation in model and cached interpretations", async () => {
+  let saved;
+  const run = interpreter(async () => modelResponse(semantics({ primaryIntent: "COFFEE" })), { async rpc(_name, parameters) {
+    if (parameters.p_write) saved = parameters.p_semantics;
+    return { data: saved ? { status: "HIT", semantics: saved } : { status: "MISS" }, error: null };
+  } });
+  const input = request("Coffee tomorrow at 10:30 with my four-year-old daughter");
+  const first = await run(input, actor, new AbortController().signal);
+  const replay = await run(input, actor, new AbortController().signal);
+  assert.ok(first.explicit.unresolvedTerms.includes("PRECISE_TIME_UNVERIFIED"));
+  assert.deepEqual(replay.explicit, first.explicit);
+  assert.equal(Object.hasOwn(saved, "group"), false);
+  assert.equal(Object.hasOwn(saved, "naturalLanguage"), false);
 });

@@ -330,3 +330,24 @@ test("unmapped music and precise-time needs cannot become a fully confirmed reco
   assert.ok(candidate.reasons.some((row) => row.reasonCode === "music-at-visit-unverified" && !row.confirmed));
   assert.ok(candidate.reasons.some((row) => row.reasonCode === "precise-time-unverified" && !row.confirmed));
 });
+
+
+test("budget eligibility requires comparable CHF per-person ceilings and never confirms unknown scope", () => {
+  const base = [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "COFFEE_DAYTIME"), fact("classification.place_types", ["CAFE"])];
+  const assessBudget = (naturalLanguage, currency = "CHF", explicit = {}) => {
+    const world = read(binding(cafeId, [...base, fact("operation.price_range", { currency, min: 10, max: 30 })]));
+    const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "budget-check", idempotencyKey: "budget-check", naturalLanguage, explicit, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+    return evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId])).evaluation.candidates[0];
+  };
+  assert.ok(assessBudget("Kaffee maximal 30 CHF pro Person").confirmedHardConstraints.includes("BUDGET_MAXIMUM"));
+  assert.ok(assessBudget("Kaffee maximal 20 CHF pro Person").failedHardConstraints.includes("BUDGET_MAXIMUM"));
+  for (const text of ["Kaffee unter 30 CHF pro Person", "Kaffee maximal 30 CHF insgesamt", "Kaffee maximal 30 CHF", "Kaffee maximal 29,50 CHF pro Person"]) {
+    const candidate = assessBudget(text);
+    assert.ok(candidate.unknownHardConstraints.includes("BUDGET_MAXIMUM"), text);
+    assert.notEqual(candidate.tier, "ELIGIBLE_CONFIRMED", text);
+    assert.ok(candidate.reasons.some((reason) => reason.reasonCode === "budget-semantics-unverified" && !reason.confirmed), text);
+  }
+  assert.ok(assessBudget("Kaffee maximal 30 CHF pro Person", "EUR").unknownHardConstraints.includes("BUDGET_MAXIMUM"));
+  const explicit = { budget: { state: "KNOWN", amount: 20, currency: "CHF", perPerson: true, calibrationLabel: null } };
+  assert.ok(assessBudget("Kaffee", "CHF", explicit).failedHardConstraints.includes("BUDGET_MAXIMUM"));
+});

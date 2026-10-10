@@ -1,3 +1,4 @@
+import { hasPreciseRequestedTime } from "./product-request-context.js";
 import { contentHash } from "./canonical.js";
 import type { DecisionProductAuthenticatedActor } from "./product-decision.js";
 import type { DecisionProductProductionIdentity, DecisionProductRpcClient } from "./product-decision-production-adapter.js";
@@ -5,7 +6,7 @@ import { DecisionProductRequestSchema, type DecisionProductRequest } from "./pro
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_INDOOR_CONSTRAINT, PRODUCT_QUERY_CATALOG, PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.8" as const;
+export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@3.9" as const;
 export const PRODUCT_AI_INTENT_CACHE_RPC = "backyrd_decision_vnext_product_query_cache_v1" as const;
 
 const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
@@ -40,7 +41,7 @@ const explicitRain = (text: string): boolean => /\b(?:bei regen|regentag|es regn
 const explicitNegation = (text: string): boolean => /\b(?:kein(?:e|en|em|er|es)?|nicht|ohne|ausser|außer|statt)\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
 const explicitMusicClub = (text: string): boolean => /\b(?:musikclub|music.?club|konzertclub|nachtclub|club|disco|diskothek)\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
 const explicitMusicNeed = (text: string): boolean => /\bmusik\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH")) && !/\b(?:ohne|keine?)\s+musik\b/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
-const explicitPreciseTime = (text: string): boolean => /\b(?:nach|ab|um)\s*(?:[01]?\d|2[0-3])(?:(?::[0-5]\d)?\s*uhr\b|:[0-5]\d\b)/u.test(text.normalize("NFKC").toLocaleLowerCase("de-CH"));
+const explicitPreciseTime = hasPreciseRequestedTime;
 const consumptionIntents = new Set<ProductV1Intent>(["EAT", "COFFEE", "DRINKS", "NIGHTLIFE"]);
 const germanVenueAliases: Readonly<Record<string, readonly string[]>> = {
   BAKERY: ["bäckerei"], BREWERY: ["brauerei"], FOOD_HALL: ["markthalle"],
@@ -141,7 +142,7 @@ function parseSemantics(value: unknown, text?: string): QuerySemantics {
     const existing = facetsByValue.get(key);
     if (existing && (existing.role === "EXCLUDED" || role === "EXCLUDED") && existing.role !== role) {
       // A contradictory requirement/exclusion must not become a hard filter.
-      facetsByValue.delete(key); conflictingValues.add(key); continue;
+      facetsByValue.delete(key); conflictingValues.add(key); unresolvedNeedCodes.add("OTHER_CORE_NEED_UNMAPPED"); continue;
     }
     if (!existing || role === "REQUIRED" && existing.role !== "REQUIRED") {
       facetsByValue.set(key, { key: facet.key, value: facet.value, role, group });
