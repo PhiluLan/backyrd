@@ -1,6 +1,6 @@
 # Request understanding v1 — first work package
 
-Status: **implementation integrated; live development evaluation running; independent acceptance pending** (2026-10-11).
+Status: **implementation integrated; development evaluation complete; quality gaps and independent acceptance open** (2026-10-11).
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
@@ -482,7 +482,14 @@ zero retries/errors, p50 3071 ms, p95 3717 ms and estimated USD 0.005912965.
 A localized four-case destination run had zero technical errors, but all four
 still mismatched the proposed target-city expectation: public v1 treats the
 profile city as explicit authority. That contract boundary remains unresolved.
-Final policy-v7 affected-case checks and the broad v6 diagnostic are in progress.
+The subsequent policy-v7 focused run also passed 24/24 with 24 calls and no
+errors; p50 2997 ms, p95 5364 ms, estimated USD 0.00594937. These are development
+observations on the same visible cases. The broad v6 run later stopped after
+117 attempted cases: 97 passes, 17 mismatches, three technical errors, 43 NOT_RUN.
+Its errors were a nonliteral age/company quote, rejected model output for an
+exact time and a timeout. The timeout left one call without measurable usage;
+the runner stopped further requests as designed. Total cost is unavailable,
+not zero. This incomplete run must not be reported as a 160-case result.
 
 Current local canonical Decision build/tests: 153/153 passed. The 33 Product
 release contracts, Decision TypeScript, single-route, client-secret boundary
@@ -508,7 +515,70 @@ No evidence validator was loosened.
 Targeted current live runs passed 4/4 access-negation and 4/4 written-age cases,
 with one provider call per case and no technical errors. Access p95 was 3315 ms;
 written-age p95 was 4340 ms. Estimated costs were USD 0.00072739 and 0.00126264.
-The focused 24-case suite is still running. Earlier run failures remain recorded.
+The current 24-case suite returned 22 passes and two mismatches, no technical
+errors, using 24 calls (p50 3279 ms, p95 4208 ms; estimated USD 0.00756223).
+Both mismatches retained the expected typed requirement but added two unmatched
+requirements. Their raw normalized contents were not retained in that run, so
+whether they were harmless redundant context or unjustified constraints remains
+unresolved. Targeted reruns of the two affected families passed 2/2 each; this
+non-reproduction does not erase the original failures or prove stable behavior.
+The oracle was not widened to accept the extra requirements. Earlier failures
+remain recorded. A final broad diagnostic uses a 30-second test deadline rather
+than 20 seconds; the Production deadline is unchanged, and latency/failure rates
+across these different test deadlines are not directly comparable.
 The active canonical Decision build/test suite again passed 153/153 after the
 prompt change. Final exact-head CI is required; none of these development results
 replace independent acceptance.
+
+
+### CI certification
+
+Source candidate `c5fa0f5509c0da959d669e17702804dc98d3c798` passed every selected
+CI gate: Decision focused checks, repository/security, full Product release
+certification and the final Risk-based merge gate. Product certification includes
+the Mobile export/browser journey, iOS OTA input and deployable Edge artifact.
+Evidence: [CI run 38092893769](https://github.com/PhiluLan/backyrd/actions/runs/38092893769).
+The later evidence-only documentation update must retain this input-bound receipt
+and pass its own selected exact-head gates. PR 468 remains draft. No merge or
+Production activation has occurred.
+
+
+### Final broad diagnostic (interpreter 4.7 / understanding policy v7)
+
+All 160 cases executed on clean source commit
+`c5fa0f5509c0da959d669e17702804dc98d3c798`: **130 PASS, 28 FAIL, 2 ERROR,
+0 NOT_RUN**, using 169 provider calls. Cold application-cache interpretation
+latency was p50 3653 ms, p95 6498 ms, maximum 10333 ms. Estimated standard-rate
+cost was USD 0.04695487, with usage measured for every call. The test deadline
+was 30 seconds; this does not change or certify the Production deadline. These
+are developer-authored public-context assertions, not end-to-end recommendation
+success or independent comprehension accuracy.
+
+| Observed mismatch | Cases | Interpretation / remaining action |
+| --- | ---: | --- |
+| Decimal budget amount | 4 | Exact internal money exists; public v1 amount cannot express the expected decimal. Money contract/evaluation remains subsequent work. |
+| Destination over profile or other city | 8 | Client passes profile city as explicit authority. Source-aware destination contract and all affected consumers must migrate before safe redirection. |
+| Mobility unresolved code | 4 | Corpus expects proposed DISTANCE_UNVERIFIED; current Product uses MOBILITY_REQUEST_UNRESOLVED. Product must review the versioned contract expectation. |
+| English accessibility hard constraints | 4 | Specific public access flags were absent. Unsupported hard access remains blocked; language-to-access mapping needs improvement. |
+| Negated visit date | 1 | date-negation-3 disagreed with the proposed date. This is an unresolved interpretation case. |
+| Quiet preference presence/negation | 5 | One essential-quiet and four negated-quiet public preference checks disagreed. Typed needs and World vetoes are separately checked; context preference consistency still requires review. |
+| No fabricated primary intent | 2 | Two proposed no-intent cases received a different intent. Product labels and clarification behavior require review; do not assume the model is correct. |
+
+The two technical failures were precise-time-disclosed-1 and -4: model output
+was rejected after the bounded retry. A later four-case diagnostic did not
+reproduce them (all passed once, completed responses below 1100 characters).
+The cause is not established, and that rerun does not replace the failed broad
+observations. No source-evidence or eligibility check was weakened.
+
+Report bindings for this final broad observation:
+
+- source: `6545d67cda15779a590883ea5af9d877e68c0ba9a0212d66eb555f81029f9570`
+- build: `6184165925032aac95ed7c90a53bfefe83a5354a4bb598f19f2a17130114aa1b`
+- harness: `043294d8e4487f87ff5d93cd5fd6f09ac1e59801040b8e4104ee44f3d49397b1`
+- prompt: `8672fd5669dd9ca13f33c3699747c44f8d4938a7c3e605c01989e4d263fa8ec8`
+
+The candidate is technically CI-certified, but the work-package acceptance
+remains OPEN. Resolve or explicitly review the above semantic discrepancies,
+measure stability on the frozen candidate, review corpus labels with Product,
+and obtain the independently authored holdout before claiming completion. No
+release approval follows from CI, a prior 24/24 run, or a successful reproducer.
