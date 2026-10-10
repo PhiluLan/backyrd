@@ -52,7 +52,7 @@ Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
 their optional strength. A group containing only one requirement normalizes to
 no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.6`; understanding contract `@1.0`; understanding
+Versions: interpreter `ai-query@4.7`; understanding contract `@1.0`; understanding
 policy `request-understanding-policy-v7`; AI and lexical context resolver v3; evaluator `@2.3`. Model output cap is 3600 tokens (previously 2400), with the
 existing maximum of one malformed/incomplete-output retry. Existing server
 allowlist, authentication, rate limits, deadline and release controls remain.
@@ -491,3 +491,24 @@ exact-head CI must certify the final candidate. The unchanged lexical diagnostic
 now has 102 passes, 58 mismatches and zero errors. This is a fallback diagnostic,
 not live model accuracy. Reviewed expectations, independent holdout and Product
 acceptance remain outstanding.
+
+
+### Literal-evidence correction (interpreter 4.7 / understanding policy v7)
+
+The policy-v7 access reproducer on interpreter 4.6 passed three cases and rejected
+one source quote after two attempts. A bounded synthetic diagnostic identified
+actual nonliteral quotes: inserted ellipses in a company quote and an added
+sentence-final period in an access quote. The prompt still had an older, softer
+instruction about evidence. Interpreter 4.7 makes all evidence rules consistent:
+contiguous exact quotations, no ellipses, added punctuation, translation or case
+changes; semantic normalization belongs only in the typed value. An explicitly
+unneeded access property produces no ACCESS requirement; other access needs stay.
+No evidence validator was loosened.
+
+Targeted current live runs passed 4/4 access-negation and 4/4 written-age cases,
+with one provider call per case and no technical errors. Access p95 was 3315 ms;
+written-age p95 was 4340 ms. Estimated costs were USD 0.00072739 and 0.00126264.
+The focused 24-case suite is still running. Earlier run failures remain recorded.
+The active canonical Decision build/test suite again passed 153/153 after the
+prompt change. Final exact-head CI is required; none of these development results
+replace independent acceptance.
