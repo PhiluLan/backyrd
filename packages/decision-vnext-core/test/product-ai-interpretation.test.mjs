@@ -25,6 +25,7 @@ test("AI interprets a normal request even when the old lexicon recognizes its ca
   const stored = new Map(); let fetches = 0; const calls = [];
   const run = interpreter(async (_url, options) => {
     fetches += 1; const body = JSON.parse(options.body);
+    assert.equal(body.model, "gpt-6-luna"); assert.deepEqual(body.reasoning, { effort: "low" });
     assert.equal(body.store, false); assert.equal(body.text.format.strict, true);
     assert.equal(body.text.format.name, "backyrd_decision_query_v5");
     assert.ok(body.instructions.includes("context.visit_situations"));

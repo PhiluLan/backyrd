@@ -52,12 +52,14 @@ Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
 their optional strength. A group containing only one requirement normalizes to
 no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.11`; understanding contract `@1.1`; understanding
+Versions: interpreter `ai-query@4.12`; understanding contract `@1.1`; understanding
 policy `request-understanding-policy-v10`; AI and lexical context resolver v5; evaluator `@2.6`. Model output cap is 3600 tokens (previously 2400), with the
 existing maximum of one malformed/incomplete-output retry. Existing server
 allowlist, authentication, rate limits, deadline and release controls remain.
-Latency and cost are measured by the development runner below; independent
-quality acceptance is still required.
+GPT-6 Luna now uses `reasoning.effort: low` by explicit user decision; prompt,
+schema and token/deadline bounds are unchanged from 4.11. The interpreter version
+invalidates prior cache identities. Latency and cost are measured below;
+independent quality acceptance is still required.
 
 ## Minimized persistence review
 
@@ -895,8 +897,8 @@ was a live experiment, not a runtime setting change or release certification.
 Result: **23 PASS, 1 FAIL, 0 ERROR**, 24 calls; p50 **4918 ms**, p95 **6632 ms**,
 maximum **6966 ms**; estimated USD **0.009190835**. One explicit conditional must-be-quiet obligation was marked ESSENTIAL instead
 of HARD and still failed. One small run cannot establish a stable improvement or broader
-quality. Runtime effort remains `none` pending repeated and broader comparison
-against an agreed latency budget.
+quality. At that stage runtime effort remained `none` pending a broader comparison.
+The subsequent user-authorized 4.12 low run is documented below.
 
 Actual low-effort request-template hash:
 `9c3099740969ce88677f7cd6b0e4eadea068d64f38ef447ccaa73e66fc672468`.
@@ -1020,3 +1022,95 @@ Final role-run bindings (same harness aggregate as above):
 - source aggregate: `4ef2ae4a6f98adbcc02e771ad4ba2f472ffa63614dbaa96c559170ac736de712`
 - build aggregate: `35f3c2f4f85afebcabb0de96530827b0fe37a2af804f0946ee38d57a5f36582e`
 - provider request template: `54c07ab98c809602eea422948d683a56ef52d78dbfc9802ed47e888784ba7428`
+
+
+### User-authorized Luna low rerun (4.12, 2026-10-11)
+
+The user explicitly selected GPT-6 Luna with reasoning effort `low` and requested
+repeat evaluation. The only runtime changes from 4.11 are `none` → `low` and
+interpreter/cache version 4.12. Model, prompt, schema, requirement policy v10,
+context v5, evaluator 2.6, 3600-token cap and bounded retry are unchanged. An
+existing provider-request test now asserts both the model and low effort.
+No production activation, schema migration or real-user data access is included.
+
+The same frozen 160 context cases, 24 role cases, 24 requirement cases and 20
+previously disclosed independent cases were rerun. No oracle or rubric was
+changed, no failed case was silently replaced. All inputs are synthetic;
+`store:false`, 30-second per-call deadline, at most two calls per case, and
+USD 1 estimated ceiling per suite remain. Runs used the canonical interpreter,
+not the earlier experimental fetch wrapper.
+
+| Suite | PASS | FAIL | ERROR | Calls | p50 / p95 ms | Estimated USD |
+|---|---:|---:|---:|---:|---|---:|
+| Broad context, 160 | 140 | 20 | 0 | 160 | 5834 / 7841 | 0.056904000 |
+| Context roles, 24 | 24 | 0 | 0 | 24 | 5055 / 6010 | 0.007182950 |
+| Requirements, 24 | 24 | 0 | 0 | 24 | 4745 / 5996 | 0.009123825 |
+
+Role baseline 4.11 none: 19/5/0, p50 4023 ms, p95 5587 ms. Low therefore passes
+all 24 in this run, including both birthday cases, with p50 about one second
+higher. Requirement baseline 4.10 none: 23/1/0. The role comparison holds prompt
+and schema fixed; older context/requirement/independent baselines were on 4.10,
+which also predates the 4.11 scope corrections and rain-prompt correction.
+Do not attribute all differences against 4.10 solely to reasoning effort.
+Single runs do not establish production accuracy or statistical certainty.
+Token costs are standard-rate estimates, not invoices; different cache-hit
+rates mean a cheaper observed run does not prove low generally costs less.
+
+Current bindings:
+
+- source aggregate: `5c8584b56295ed2266e0df018ca98785b5fc8b7c6e33c3319245e87b7856a2ed`
+- build aggregate: `871e374a406636cc0221646e0a937286cea8945b7438740a0bb94071d16785d6`
+- actual provider request template: `cda7eb65445da60305858899ab730d53ed2e3e3de0213771bd97312db039f42e`
+- development harness aggregate: `784e9d945867f8834dd2a7f36f55f3577c7c43ba267d67c02319ec42df575d6f`
+
+Independent semantic regression: **1 PASS, 5 PARTIAL, 14 FAIL, 0 ERROR**, versus
+0/4/12/4 previously. All 20 responses now normalize in 20 calls; p50 8071 ms,
+p95 9851 ms, maximum 10825 ms, estimated USD 0.010170875. Previously errored
+case 08 now passes; 03/12/19 are now assessable but semantically fail. Case 17
+improves from FAIL to PARTIAL by preserving 07:30/19:30 ambiguity. The increase
+in FAIL count therefore does not represent additional regressions among the
+previously assessable cases. Other case grades are unchanged.
+
+Further observed improvements: no invented CONVERSATION for siblings, explicit
+start/end time relations, the café request stays essential, and halal is no
+longer equated with MIDDLE_EASTERN. Yet concrete requested cities, POI anchors,
+tip/material inclusion, workshop duration and specific dietary/access conditions
+still disappear into generic unsupported markers. Some reviewer findings also
+concern public context defaults; these grades assess observed end-to-end meaning,
+not isolated model intelligence. Basel retrieval authority remains a distinct
+permission boundary; do not remove it to improve a score.
+
+This is independent agent review of disclosed regression cases, not a fresh
+holdout or human acceptance. Frozen input/rubric hashes are unchanged from
+round 2. Review JSON SHA-256:
+`290e0a4f22c062f10fbffeb753553193d3b1dd948c75aeb94eb0e61c1c6c3a46`;
+review Markdown SHA-256:
+`980f2f3dd017c38edf2e906b653c51981fb78e0b0843be25784118f1a199944a`.
+
+Local final validation: **175/175 Decision tests**, **33/33 Product contracts**,
+TypeScript, single-route validation, client-secret boundary, canonical SQL secret
+scan and diff checks pass. Technical checks do not close semantic acceptance.
+
+
+Broad run detail: **140 PASS, 20 FAIL, 0 ERROR, 0 NOT_RUN**, 160 calls with no
+retries; maximum 9315 ms. Previous 4.10 none: 136 PASS, 17 FAIL, 7 ERROR in
+175 calls (p50 4265, p95 10673 ms). Six previous ERROR cases now PASS, the
+remaining mobility ERROR now fails its semantic assertion; one previously failed
+open-intent case passes. Three formerly passing cases now fail: upper-budget
+basis becomes ambiguous and loses the public amount; evening is absent from the
+TIME row for “Abendessen heute”; and “Kein Restaurant, lieber ein Café” preserves
+venue requirements but leaves primaryIntent null. These regressions remain in
+the score. One open-intent case still invents ACTIVITY_EXPERIENCE.
+
+The full 20-failure breakdown is four fractional-budget public-contract cases,
+eight destination/authority cases, four mobility-disclosure cases, and the four
+individual budget/time/intent cases above. Recognized typed content and public
+projection are assessed separately: the budget example really does omit
+per-person versus total basis, while the fixed oracle still expects the known
+30 CHF amount. No oracle was changed to excuse that mismatch.
+
+All **228 synthetic requests** across the four suites produced normalized
+responses with **228 calls and zero technical errors**. This is transport and
+validation reliability, not 228 semantic passes. Total estimated standard-rate
+cost: **USD 0.083381650**, affected by high prompt-cache reuse. Launch/semantic
+acceptance remains OPEN despite improved reliability and 48/48 targeted passes.
