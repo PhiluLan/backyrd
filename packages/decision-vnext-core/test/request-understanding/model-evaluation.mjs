@@ -90,7 +90,7 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
       onInterpretation?.(caseId, interpreted.understanding?.requirements ?? [], context);
       result = evaluateUnderstandingCase(family.expected, context);
       if (requirementOracle) {
-        const requirements = scoreRequirements(requirementOracle.families[family.id], interpreted.understanding?.requirements ?? [], requirementOracle.optionalPrimaryRequirements ?? []);
+        const requirements = scoreRequirements(requirementOracle.families[family.id], interpreted.understanding?.requirements ?? [], [...(requirementOracle.optionalPrimaryRequirements ?? []), ...(requirementOracle.optionalRequirementsByFamily?.[family.id] ?? [])]);
         result = { ...result, contextOutcome: result.outcome, requirements, outcome: result.outcome === 'PASS' && requirements.outcome === 'PASS' ? 'PASS' : 'FAIL' };
       }
       if (result.outcome === 'FAIL' && onObservation) onObservation(caseId, interpreted.understanding?.requirements ?? [], context);
@@ -110,7 +110,7 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
   }
   const latencies = cases.filter(c => c.outcome !== 'NOT_RUN').map(c => c.latencyMs);
   return {
-    contractVersion: 'backyrd.request-understanding-model-evaluation@1.2', transport: fetchImpl ? 'FIXTURE' : 'LIVE_OPENAI',
+    contractVersion: 'backyrd.request-understanding-model-evaluation@1.3', transport: fetchImpl ? 'FIXTURE' : 'LIVE_OPENAI',
     scope: corpus.scope, reviewStatus: corpus.reviewStatus, launchVerdict: 'NOT_EVALUATED', productionRead: false, productionWritten: false,
     model, responseModels: [...responseModels].sort(), promptHash, interpreterVersion: PRODUCT_AI_INTENT_INTERPRETER_VERSION,
     understandingVersion: PRODUCT_UNDERSTANDING_VERSION, policyVersion: PRODUCT_UNDERSTANDING_POLICY, catalogHash: PRODUCT_QUERY_CATALOG_HASH,
@@ -154,11 +154,18 @@ export function scoreRequirements(expected, actual, optional = []) {
   return { outcome: !missing && !unexpected && !groupingErrors ? 'PASS' : 'FAIL', expected: expected.length, observed: actual.length, matched, optionalPrimary: used.size - matched, missing, unexpected, groupingErrors };
 }
 export function validateRequirementOracle(corpus, oracle) {
-  if (!oracle || oracle.contractVersion !== 'backyrd.requirement-oracle@1.0' || oracle.reviewStatus !== 'PROPOSED_REQUIRES_HUMAN_REVIEW'
+  if (!oracle || !['backyrd.requirement-oracle@1.0', 'backyrd.requirement-oracle@1.1'].includes(oracle.contractVersion) || oracle.reviewStatus !== 'PROPOSED_REQUIRES_HUMAN_REVIEW'
     || oracle.scope !== 'DEVELOPMENT_NOT_HOLDOUT' || !oracle.families || Object.keys(oracle.families).sort().join() !== corpus.families.map(f => f.id).sort().join()) throw new Error('requirement_oracle_invalid');
   if (oracle.optionalPrimaryRequirements !== undefined) {
     if (!Array.isArray(oracle.optionalPrimaryRequirements) || oracle.optionalPrimaryRequirements.length > 4) throw new Error('requirement_oracle_invalid');
     for (const variant of oracle.optionalPrimaryRequirements) bindProductUnderstanding({}, [variant]);
+  }
+  if (oracle.optionalRequirementsByFamily !== undefined) {
+    if (oracle.contractVersion !== 'backyrd.requirement-oracle@1.1' || !oracle.optionalRequirementsByFamily || typeof oracle.optionalRequirementsByFamily !== 'object' || Array.isArray(oracle.optionalRequirementsByFamily)) throw new Error('requirement_oracle_invalid');
+    for (const [family, rows] of Object.entries(oracle.optionalRequirementsByFamily)) {
+      if (!Object.hasOwn(oracle.families, family) || !Array.isArray(rows) || rows.length > 4) throw new Error('requirement_oracle_invalid');
+      for (const row of rows) bindProductUnderstanding({}, [row]);
+    }
   }
   for (const rows of Object.values(oracle.families)) {
     if (!Array.isArray(rows) || rows.length > 12) throw new Error('requirement_oracle_invalid');

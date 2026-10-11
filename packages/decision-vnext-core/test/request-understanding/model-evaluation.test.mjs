@@ -195,3 +195,29 @@ test('profile fallback is not an explicit UI selection and cannot overrule a req
   const report = await runModelEvaluation({ ...config, corpus: c, fetchImpl: async () => response(payload(JSON.stringify({ ...semantics, requirements: [row] }))) });
   assert.equal(report.passed, 1); assert.equal(report.errors, 0);
 });
+
+test('semantic boundary corpus and frozen oracle include multilingual setting/access counterexamples', () => {
+  const boundaryCorpus = JSON.parse(readFileSync(new URL('./semantic-boundaries-corpus.json', import.meta.url), 'utf8'));
+  const boundaryOracle = JSON.parse(readFileSync(new URL('./semantic-boundaries-oracle.json', import.meta.url), 'utf8'));
+  validateRequirementOracle(boundaryCorpus, boundaryOracle);
+  assert.equal(boundaryCorpus.families.reduce((n, f) => n + f.queries.length, 0), 15);
+  const rows = boundaryOracle.families['dry-outdoor'].flatMap(r => r.variants);
+  assert.ok(rows.some(r => r.dimension === 'SETTING' && r.value.environment === 'OUTDOOR' && r.condition === 'DRY'));
+  assert.equal(scoreRequirements(boundaryOracle.families['dry-outdoor'], rows.map(r => r.value?.environment === 'OUTDOOR'
+    ? { ...r, dimension: 'OTHER', value: { kind: 'NEED', code: 'STEP_FREE_ENTRANCE', scope: 'UNSPECIFIED' } } : r)).outcome, 'FAIL');
+});
+
+test('family-specific redundant representations do not permit invented lunch or time in unrelated requests', () => {
+  const c = JSON.parse(readFileSync(new URL('./semantic-boundaries-corpus.json', import.meta.url), 'utf8'));
+  const o = JSON.parse(readFileSync(new URL('./semantic-boundaries-oracle.json', import.meta.url), 'utf8'));
+  validateRequirementOracle(c, o);
+  const midday = o.optionalRequirementsByFamily['dry-outdoor'].find(r => r.dimension === 'TIME');
+  const weather = o.families['dry-outdoor'].map(r => r.variants[0]);
+  assert.equal(scoreRequirements(o.families['dry-outdoor'], [...weather, midday], o.optionalRequirementsByFamily['dry-outdoor']).outcome, 'PASS');
+  const coffee = o.families['real-access-only'].map(r => r.variants[0]);
+  for (const extra of o.optionalRequirementsByFamily['dry-outdoor']) {
+    assert.equal(scoreRequirements(o.families['real-access-only'], [...coffee, extra], o.optionalRequirementsByFamily['real-access-only'] ?? []).outcome, 'FAIL');
+  }
+  assert.throws(() => validateRequirementOracle(c, { ...o, contractVersion: 'backyrd.requirement-oracle@1.0' }), /oracle_invalid/);
+  assert.throws(() => validateRequirementOracle(c, { ...o, optionalRequirementsByFamily: { unknown: [midday] } }), /oracle_invalid/);
+});

@@ -1,0 +1,449 @@
+{
+  "contractVersion": "backyrd.requirement-oracle@1.1",
+  "reviewStatus": "PROPOSED_REQUIRES_HUMAN_REVIEW",
+  "scope": "DEVELOPMENT_NOT_HOLDOUT",
+  "families": {
+    "dry-outdoor": [
+      {
+        "variants": [
+          {
+            "dimension": "LOCATION",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "SETTING",
+            "importance": "PREFERRED",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "OUTDOOR"
+            },
+            "alternatives": [],
+            "group": null,
+            "condition": "DRY"
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "SETTING",
+            "importance": "PREFERRED",
+            "operator": "ALLOW",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "INDOOR"
+            },
+            "alternatives": [],
+            "group": null,
+            "condition": "RAIN"
+          },
+          {
+            "dimension": "SETTING",
+            "importance": "PREFERRED",
+            "operator": "ALLOW",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "INDOOR"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "access-independent": [
+      {
+        "variants": [
+          {
+            "dimension": "LOCATION",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "ACCESS",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "NEED",
+              "code": "STEP_FREE_ENTRANCE",
+              "scope": "UNSPECIFIED"
+            },
+            "alternatives": [],
+            "group": null
+          },
+          {
+            "dimension": "ACCESS",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "NEED",
+              "code": "STEP_FREE_ENTRANCE",
+              "scope": "GROUP"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "SETTING",
+            "importance": "PREFERRED",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "OUTDOOR"
+            },
+            "alternatives": [],
+            "group": null,
+            "condition": "DRY"
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "SETTING",
+            "importance": "PREFERRED",
+            "operator": "ALLOW",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "INDOOR"
+            },
+            "alternatives": [],
+            "group": null,
+            "condition": "RAIN"
+          },
+          {
+            "dimension": "SETTING",
+            "importance": "PREFERRED",
+            "operator": "ALLOW",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "INDOOR"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "indoor-rain-required": [
+      {
+        "variants": [
+          {
+            "dimension": "LOCATION",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "SETTING",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "INDOOR"
+            },
+            "alternatives": [],
+            "group": null,
+            "condition": "RAIN"
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "SETTING",
+            "importance": "PREFERRED",
+            "operator": "ALLOW",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "OUTDOOR"
+            },
+            "alternatives": [],
+            "group": null,
+            "condition": "DRY"
+          }
+        ],
+        "group": null
+      }
+    ],
+    "covered-outdoor": [
+      {
+        "variants": [
+          {
+            "dimension": "LOCATION",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "SETTING",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "COVERED_OUTDOOR"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "no-access-inference": [
+      {
+        "variants": [
+          {
+            "dimension": "LOCATION",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "SETTING",
+            "importance": "PREFERRED",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "SETTING",
+              "environment": "OUTDOOR"
+            },
+            "alternatives": [],
+            "group": null,
+            "condition": "DRY"
+          }
+        ],
+        "group": null
+      }
+    ],
+    "real-access-only": [
+      {
+        "variants": [
+          {
+            "dimension": "LOCATION",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "ACCESS",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "NEED",
+              "code": "STEP_FREE_ENTRANCE",
+              "scope": "UNSPECIFIED"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "short-preference": [
+      {
+        "variants": [
+          {
+            "dimension": "LOCATION",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      },
+      {
+        "variants": [
+          {
+            "dimension": "DURATION",
+            "importance": "PREFERRED",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "DURATION",
+              "minutes": null,
+              "length": "SHORT"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ]
+  },
+  "optionalRequirementsByFamily": {
+    "dry-outdoor": [
+      {
+        "dimension": "OFFERING",
+        "importance": "ESSENTIAL",
+        "operator": "REQUIRE",
+        "origin": "EXPLICIT",
+        "interpretationState": "UNDERSTOOD",
+        "value": {
+          "kind": "FACET",
+          "key": "offering.groups",
+          "value": "LUNCH"
+        },
+        "alternatives": [],
+        "group": null
+      },
+      {
+        "dimension": "TIME",
+        "importance": "ESSENTIAL",
+        "operator": "REQUIRE",
+        "origin": "EXPLICIT",
+        "interpretationState": "UNDERSTOOD",
+        "value": {
+          "kind": "TIME",
+          "openNow": false,
+          "localDate": null,
+          "relativeDays": null,
+          "weekday": null,
+          "dayPhase": "MIDDAY",
+          "clockTime": null
+        },
+        "alternatives": [],
+        "group": null
+      },
+      {
+        "dimension": "TIME",
+        "importance": "PREFERRED",
+        "operator": "REQUIRE",
+        "origin": "EXPLICIT",
+        "interpretationState": "UNDERSTOOD",
+        "value": {
+          "kind": "TIME",
+          "openNow": false,
+          "localDate": null,
+          "relativeDays": null,
+          "weekday": null,
+          "dayPhase": "MIDDAY",
+          "clockTime": null
+        },
+        "alternatives": [],
+        "group": null
+      }
+    ]
+  }
+}

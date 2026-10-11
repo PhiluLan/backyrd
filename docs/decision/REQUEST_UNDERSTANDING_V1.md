@@ -59,8 +59,8 @@ Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
 their optional strength. A group containing only one requirement normalizes to
 no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.14`; understanding contract `@1.2`; understanding
-policy `request-understanding-policy-v12`; public context `@1.1`; context resolver
+Versions: interpreter `ai-query@4.16`; understanding contract `@1.2`; understanding
+policy `request-understanding-policy-v13`; public context `@1.1`; context resolver
 v6; evaluator `@2.7`. GPT-6 Luna stays at `reasoning.effort: low`. The provider
 schema/prompt now exposes the additional meanings; the model has not changed.
 The cap remains 3600 output tokens with at most one malformed-output retry.
@@ -1271,3 +1271,45 @@ now permits at most four retries of that exact gateway message; a persistent
 502 or any wrong product response still fails. Six closure/readiness tests
 verify successful startup and failure boundaries. This is a CI startup fix,
 not a relaxation of production eligibility or a deployment approval.
+
+
+## 2026-10-11 — semantic boundaries and conditional preferences
+
+The previous independent regression confused outdoor seating in dry weather with
+a step-free entrance under OTHER. The provider contract had allowed every NEED
+code in ACCESS, OFFERING, EXPERIENCE and OTHER. Policy v13 now assigns each code
+to exactly one owning dimension in the provider schema, runtime validation and
+cache decoder. OTHER remains available as UNSUPPORTED/null; it cannot substitute
+an unrelated known need. Old policy cache entries cannot replay into this policy.
+This prevents a concrete invalid category combination, not every possible
+semantic hallucination within a valid category.
+
+Interpreter 4.16 asks for the source evidence before the normalized requirement
+value. It separates the setting from access needs and the weather predicate from
+importance. The prompt distinguishes preferred outdoor seating from a required
+step-free entrance, “even if it rains” from “only if it rains”, optional short
+visits from obligations, and evening from an unrequested night preference.
+Explicit destinations receive a completeness check and retain their own role.
+Luna/low, the 3600-token output cap, one malformed-output retry, existing
+privacy minimization, authority and eligibility rules remain unchanged.
+No new public field, client rollout or database migration is required beyond the
+previous context-1.1 compatibility plan. World verification is still separate.
+
+The development suite `semantic-boundaries` contains 15 fixed queries across
+seven families, with German/English and a French version of the original case.
+It includes real mandatory access, disclaimed access, mandatory indoor seating
+in rain, covered outdoor seating despite rain and optional short duration.
+The live runner accepts `--suite semantic-boundaries`; all inputs are synthetic.
+The expected semantics were written before the first baseline run. Local tests
+reject cross-dimensional NEEDs on both cold input and cache replay, and check
+that weather preferences cannot replace a separate unconditional access need.
+
+Independent review found the new diagnostic oracle too strict for an explicit
+lunch request: a redundant TIME/MIDDAY representation is legitimate. Oracle 1.1
+allows that only for the lunch family; the previous global optional LUNCH is
+removed so coffee-only families reject invented lunch. An explicitly plural
+access request also accepts GROUP or UNSPECIFIED scope. The original 24-case
+oracles and the independent 20-case rubric remain unchanged. Harness 1.3 adds
+bounded family-specific optional representations; negative tests prevent them
+from leaking into unrelated families. Original reports are retained and old/new
+observations are rescored under the same corrected rubric, without provider calls.

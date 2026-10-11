@@ -539,7 +539,8 @@ test('known needs, duration, references and price components survive cold cache,
   const { validateDecisionProductRequirements } = await import('../../../../mobile/packages/product-decision-contract/src/index.mjs');
   for (const code of needs) {
     const value = { kind: 'NEED', code, scope: 'ONE_PERSON', ...(code === 'DOG_ACCESS' ? { accessArea: 'OUTDOOR_ONLY_ACCEPTABLE' } : {}) };
-    const rows = [req('OTHER', value, code, { importance: 'HARD', operator: ['GUIDED_TOUR', 'BOAT_RIDE'].includes(code) ? 'EXCLUDE' : 'REQUIRE' })];
+    const dimension = ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE'].includes(code) ? 'OFFERING' : ['GUIDED_TOUR', 'BOAT_RIDE', 'POTTERY'].includes(code) ? 'EXPERIENCE' : 'ACCESS';
+    const rows = [req(dimension, value, code, { importance: 'HARD', operator: ['GUIDED_TOUR', 'BOAT_RIDE'].includes(code) ? 'EXCLUDE' : 'REQUIRE' })];
     const input = request(`Coffee ${code}`); const h = harness(rows); const cold = await h.run(input); const warm = await h.run(input);
     assert.deepEqual(cold, warm); assert.equal(h.fetches(), 1);
     const projected = context(cold.request, cold.understanding);
@@ -668,4 +669,43 @@ test('free city slots cannot bypass place privacy; unsupported municipalities re
   const { isPublicMunicipality } = await import('../../dist/product-public-municipalities.js');
   for (const city of ['Basel', 'Zürich', 'Genève', 'Geneva', 'Luzern', 'St. Gallen', 'Biel/Bienne', 'Aarau', 'Thun', 'Baden', 'Solothurn', 'Zug', 'Chur']) assert.equal(isPublicMunicipality(city), true, city);
   for (const privateText of ['Musterstrasse 17', 'Jane Doe', 'Coffee with my daughter in Basel']) assert.equal(isPublicMunicipality(privateText), false);
+});
+
+test('concrete needs have one owning dimension in provider output, validation and cache replay', () => {
+  const ownership = { ACCESS: ['DOG_ACCESS', 'STEP_FREE_ENTRANCE', 'STEP_FREE_ROUTE', 'CHANGING_TABLE'], OFFERING: ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE', 'VEGAN', 'VEGETARIAN', 'ALCOHOL_FREE'], EXPERIENCE: ['GUIDED_TOUR', 'BOAT_RIDE', 'RIVERSIDE_WALK', 'POTTERY'] };
+  const variants = PRODUCT_MODEL_REQUIREMENTS_SCHEMA.items.anyOf;
+  assert.deepEqual(variants.filter(v => v.properties.dimension.const === 'OTHER').map(v => v.properties.interpretationState.const), ['UNSUPPORTED']);
+  for (const [dimension, codes] of Object.entries(ownership)) {
+    const branch = variants.find(v => v.properties.dimension.const === dimension && v.properties.interpretationState.const === 'UNDERSTOOD');
+    const need = branch.properties.value.anyOf.find(v => v.properties.kind.const === 'NEED');
+    assert.deepEqual([...need.properties.code.enum].sort(), [...codes].sort());
+    for (const code of codes) {
+      const value = { kind: 'NEED', code, scope: 'UNSPECIFIED' };
+      const good = parseModelRequirements([req(dimension, value, 'synthetic requirement')], 'synthetic requirement');
+      assert.deepEqual(decodeRequirementCache(encodeRequirementCache(good)), good);
+      for (const wrong of ['OTHER', ...Object.keys(ownership).filter(d => d !== dimension)]) {
+        assert.throws(() => parseModelRequirements([req(wrong, value, 'synthetic requirement')], 'synthetic requirement'), /need_dimension_invalid/);
+        assert.throws(() => decodeRequirementCache([[wrong, 'ESSENTIAL', 'REQUIRE', 'EXPLICIT', 'UNDERSTOOD', value, [], null]]), /need_dimension_invalid/);
+      }
+    }
+  }
+});
+
+test('conditional outdoor preference and independent step-free need retain different meaning through cold and warm cache', async () => {
+  const text = 'A step-free entrance is essential. Outdoors if dry would be nice; otherwise indoors is fine.';
+  const rows = [
+    req('ACCESS', { kind: 'NEED', code: 'STEP_FREE_ENTRANCE', scope: 'UNSPECIFIED' }, 'A step-free entrance is essential.', { importance: 'HARD' }),
+    req('SETTING', { kind: 'SETTING', environment: 'OUTDOOR' }, 'Outdoors if dry would be nice', { importance: 'PREFERRED', condition: 'DRY' }),
+    req('SETTING', { kind: 'SETTING', environment: 'INDOOR' }, 'otherwise indoors is fine', { importance: 'PREFERRED', operator: 'ALLOW', condition: 'RAIN' }),
+  ];
+  const h = harness(rows); const input = request(text);
+  const cold = await h.run(input); const warm = await h.run(input);
+  assert.deepEqual(warm, cold); assert.equal(h.fetches(), 1);
+  const projected = context(warm.request, warm.understanding);
+  assert.deepEqual(projected.requirements, cold.understanding.requirements);
+  assert.equal(projected.requirements[0].condition, undefined);
+  assert.equal(projected.requirements[1].value.environment, 'OUTDOOR');
+  assert.equal(projected.hardConstraints.includes('INDOOR_REQUIRED'), false);
+  const invalid = req('OTHER', { kind: 'NEED', code: 'STEP_FREE_ENTRANCE', scope: 'UNSPECIFIED' }, 'Outdoors if dry would be nice', { importance: 'PREFERRED', condition: 'DRY' });
+  assert.throws(() => parseModelRequirements([invalid], text), /need_dimension_invalid/);
 });

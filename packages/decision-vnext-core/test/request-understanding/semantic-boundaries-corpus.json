@@ -1,0 +1,152 @@
+{
+  "contractVersion": "backyrd.request-understanding-corpus@1.0",
+  "reviewStatus": "PROPOSED_REQUIRES_HUMAN_REVIEW",
+  "scope": "DEVELOPMENT_NOT_HOLDOUT",
+  "reference": {
+    "serverTime": "2026-10-10T12:00:00.000Z",
+    "profileCity": "Basel"
+  },
+  "families": [
+    {
+      "id": "dry-outdoor",
+      "dimension": "ACCESS",
+      "queries": [
+        "We would enjoy outdoor seating if it stays dry, otherwise an indoor table is completely fine. Lunch in Thun.",
+        "Mittagessen in Thun: Bei trockenem Wetter sitzen wir gern draußen; sonst ist drinnen völlig okay.",
+        "Déjeuner à Thun : nous préférons une table dehors s’il ne pleut pas ; sinon à l’intérieur, ça va aussi."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "EAT"
+        },
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Thun"
+        }
+      ]
+    },
+    {
+      "id": "access-independent",
+      "dimension": "ACCESS",
+      "queries": [
+        "Coffee in Thun. A step-free entrance is essential in any weather. We prefer outdoor seating if it stays dry; otherwise indoors is fine.",
+        "Kaffee in Thun. Stufenloser Zugang ist bei jedem Wetter zwingend. Bei Trockenheit gern draußen, sonst geht auch drinnen."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Thun"
+        }
+      ]
+    },
+    {
+      "id": "indoor-rain-required",
+      "dimension": "ACCESS",
+      "queries": [
+        "Coffee in Thun: if it rains, we must sit indoors. If it stays dry, outside is also okay.",
+        "Kaffee in Thun: Bei Regen müssen wir drinnen sitzen. Bei trockenem Wetter geht auch draußen."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Thun"
+        }
+      ]
+    },
+    {
+      "id": "covered-outdoor",
+      "dimension": "ACCESS",
+      "queries": [
+        "Coffee in Thun, please outdoors under a roof, even if it rains.",
+        "Kaffee in Thun, bitte draußen unter einem Dach, auch bei Regen."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Thun"
+        }
+      ]
+    },
+    {
+      "id": "no-access-inference",
+      "dimension": "ACCESS",
+      "queries": [
+        "Coffee in Thun. No step-free entrance needed. We would prefer outdoor seating if it stays dry.",
+        "Kaffee in Thun. Ein stufenloser Eingang ist nicht nötig. Bei trockenem Wetter würden wir gern draußen sitzen."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Thun"
+        }
+      ]
+    },
+    {
+      "id": "real-access-only",
+      "dimension": "ACCESS",
+      "queries": [
+        "Coffee in Thun, a step-free entrance is required. Seating inside or outside doesn't matter.",
+        "Kaffee in Thun, der Eingang muss stufenlos sein. Ob drinnen oder draußen ist egal."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Thun"
+        }
+      ]
+    },
+    {
+      "id": "short-preference",
+      "dimension": "ACCESS",
+      "queries": [
+        "Coffee in Thun, preferably a short visit.",
+        "Kaffee in Thun, am liebsten nur ein kurzer Aufenthalt."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "targetCity",
+          "op": "equals",
+          "value": "Thun"
+        }
+      ]
+    }
+  ]
+}

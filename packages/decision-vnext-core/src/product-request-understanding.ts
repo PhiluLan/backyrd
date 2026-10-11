@@ -6,11 +6,17 @@ import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.2" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v12" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v13" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
 export const REQUEST_NEED_CODES = ["HALAL", "DAIRY_FREE", "LACTOSE_FREE", "VEGAN", "VEGETARIAN", "ALCOHOL_FREE", "DOG_ACCESS", "STEP_FREE_ENTRANCE", "STEP_FREE_ROUTE", "CHANGING_TABLE", "GUIDED_TOUR", "BOAT_RIDE", "RIVERSIDE_WALK", "POTTERY"] as const;
+// One meaning has one owning dimension at both provider and cache boundaries.
+const needDimension: Readonly<Record<(typeof REQUEST_NEED_CODES)[number], "ACCESS" | "OFFERING" | "EXPERIENCE">> = {
+  HALAL: "OFFERING", DAIRY_FREE: "OFFERING", LACTOSE_FREE: "OFFERING", VEGAN: "OFFERING", VEGETARIAN: "OFFERING", ALCOHOL_FREE: "OFFERING",
+  DOG_ACCESS: "ACCESS", STEP_FREE_ENTRANCE: "ACCESS", STEP_FREE_ROUTE: "ACCESS", CHANGING_TABLE: "ACCESS",
+  GUIDED_TOUR: "EXPERIENCE", BOAT_RIDE: "EXPERIENCE", RIVERSIDE_WALK: "EXPERIENCE", POTTERY: "EXPERIENCE",
+};
 const priceComponents = ["TIP", "MATERIALS", "TRANSPORT", "ADMISSION", "FOOD", "DRINKS"] as const;
 const eventNames = ["CHECK_IN", "WORK_END", "FILM_START", "MEAL_END"] as const;
 export const requestedPlaceName = schema.string({ min: 1, max: 80, pattern: /^[\p{L}\p{N}][\p{L}\p{M}\p{N} .’'()&/\-]*$/u });
@@ -54,7 +60,7 @@ function validateRequirement(input: unknown): ProductRequirement {
       if (!facetDimensions[row.dimension]?.some(prefix => value.key.startsWith(prefix)) || !validWorldPreference(value.key, value.value)) throw new Error("product_understanding_facet_invalid");
     } else if (value.kind === "NEED") {
       if (value.accessArea && value.code !== "DOG_ACCESS") throw new Error("product_understanding_access_area_invalid");
-      if (!["ACCESS", "OFFERING", "EXPERIENCE", "OTHER"].includes(row.dimension)) throw new Error("product_understanding_need_dimension_invalid");
+      if (needDimension[value.code] !== row.dimension) throw new Error("product_understanding_need_dimension_invalid");
     } else if (value.kind !== row.dimension) throw new Error("product_understanding_dimension_invalid");
     if (value.kind === "MOBILITY" && value.maximumMeters === null && value.maximumMinutes === null && value.mode === "UNSPECIFIED") throw new Error("product_understanding_mobility_empty");
     if (value.kind === "DURATION" && (value.minutes === null) === (value.length === null)) throw new Error("product_understanding_duration_invalid");
@@ -182,7 +188,7 @@ const intJson = (minimum: number, maximum: number) => ({ type: "integer", minimu
 const objectJson = (properties: Record<string, object>) => ({ type: "object", additionalProperties: false, required: Object.keys(properties), properties });
 const typed = (kind: string, properties: Record<string, object>) => objectJson({ kind: { type: "string", const: kind }, ...properties });
 const placeJson = objectJson({ name: { type: "string", minLength: 1, maxLength: 80 }, city: nullableJson({ type: "string", minLength: 1, maxLength: 80 }), relation: enumJson(["NEAR", "RETURN_TO", "AT"]) });
-const needJson = typed("NEED", { code: enumJson(REQUEST_NEED_CODES), scope: enumJson(["ONE_PERSON", "GROUP", "UNSPECIFIED"]), accessArea: nullableJson(enumJson(["OUTDOOR_ONLY_ACCEPTABLE"])) });
+const needJson = (dimension: string) => typed("NEED", { code: enumJson(REQUEST_NEED_CODES.filter(code => needDimension[code] === dimension)), scope: enumJson(["ONE_PERSON", "GROUP", "UNSPECIFIED"]), accessArea: nullableJson(enumJson(["OUTDOOR_ONLY_ACCEPTABLE"])) });
 const modelValues = [
   typed("AGE", { ages: { type: "array", minItems: 1, maxItems: 16, items: intJson(0, 120) } }),
   typed("COMPANY", { size: nullableJson(intJson(1, 100)), adultPresent: nullableJson({ type: "boolean" }), companionType: nullableJson(enumJson(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"])) }),
@@ -196,8 +202,8 @@ const dimensionValues: Readonly<Record<string, readonly object[]>> = {
   TIME: [modelValues[3]!], LOCATION: [modelValues[4]!], MOBILITY: [modelValues[5]!],
   ...Object.fromEntries(Object.entries(facetDimensions).map(([dimension, prefixes]) => [dimension,
     [...PRODUCT_QUERY_CATALOG.filter(field => prefixes.some(prefix => field.key.startsWith(prefix))).map(field =>
-      typed("FACET", { key: { type: "string", const: field.key }, value: enumJson(field.values) })), ...(["EXPERIENCE", "OFFERING"].includes(dimension) ? [needJson] : [])],
-  ])), ACCESS: [needJson], OTHER: [needJson],
+      typed("FACET", { key: { type: "string", const: field.key }, value: enumJson(field.values) })), ...(["EXPERIENCE", "OFFERING"].includes(dimension) ? [needJson(dimension)] : [])],
+  ])), ACCESS: [needJson("ACCESS")], OTHER: [],
   DURATION: [typed("DURATION", { minutes: nullableJson(intJson(1, 1440)), length: nullableJson(enumJson(["SHORT", "MEDIUM", "LONG"])) })],
   WAITING: [typed("WAITING", { maximumMinutes: intJson(0, 1440), comparison: enumJson(["LT", "LTE"]) })],
   SETTING: [typed("SETTING", { environment: enumJson(["INDOOR", "OUTDOOR", "COVERED_OUTDOOR"]) })],
@@ -215,11 +221,12 @@ export const PRODUCT_MODEL_REQUIREMENTS_SCHEMA = { type: "array", maxItems: 12, 
       { state: "UNSUPPORTED", value: { type: "null" }, alternatives: { type: "array", maxItems: 0, items: { type: "null" } } },
     ];
     return states.map(state => objectJson({
+      evidence: { type: "string", minLength: 1, maxLength: 240 },
       dimension: { type: "string", const: dimension },
       importance: enumJson(["HARD", "ESSENTIAL", "PREFERRED"]), operator: enumJson(["REQUIRE", "EXCLUDE", "ALLOW"]),
       origin: Object.hasOwn(facetDimensions, dimension) ? enumJson(["EXPLICIT", "INFERRED"]) : { type: "string", const: "EXPLICIT" },
       interpretationState: { type: "string", const: state.state }, value: state.value, alternatives: state.alternatives,
-      group: nullableJson({ type: "string", pattern: "^R[1-9][0-9]?$" }), condition: nullableJson(enumJson(["RAIN", "DRY"])), evidence: { type: "string", minLength: 1, maxLength: 240 },
+      group: nullableJson({ type: "string", pattern: "^R[1-9][0-9]?$" }), condition: nullableJson(enumJson(["RAIN", "DRY"])),
     }));
   }),
 } };
