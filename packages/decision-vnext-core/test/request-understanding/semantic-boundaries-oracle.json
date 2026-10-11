@@ -18,6 +18,19 @@
             },
             "alternatives": [],
             "group": null
+          },
+          {
+            "dimension": "LOCATION",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
           }
         ],
         "group": null
@@ -80,6 +93,19 @@
           {
             "dimension": "LOCATION",
             "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          },
+          {
+            "dimension": "LOCATION",
+            "importance": "ESSENTIAL",
             "operator": "REQUIRE",
             "origin": "EXPLICIT",
             "interpretationState": "UNDERSTOOD",
@@ -193,6 +219,19 @@
             },
             "alternatives": [],
             "group": null
+          },
+          {
+            "dimension": "LOCATION",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
           }
         ],
         "group": null
@@ -251,6 +290,19 @@
             },
             "alternatives": [],
             "group": null
+          },
+          {
+            "dimension": "LOCATION",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
           }
         ],
         "group": null
@@ -280,6 +332,19 @@
           {
             "dimension": "LOCATION",
             "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          },
+          {
+            "dimension": "LOCATION",
+            "importance": "ESSENTIAL",
             "operator": "REQUIRE",
             "origin": "EXPLICIT",
             "interpretationState": "UNDERSTOOD",
@@ -328,6 +393,19 @@
             },
             "alternatives": [],
             "group": null
+          },
+          {
+            "dimension": "LOCATION",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
           }
         ],
         "group": null
@@ -358,6 +436,19 @@
           {
             "dimension": "LOCATION",
             "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "LOCATION",
+              "city": "Thun"
+            },
+            "alternatives": [],
+            "group": null
+          },
+          {
+            "dimension": "LOCATION",
+            "importance": "ESSENTIAL",
             "operator": "REQUIRE",
             "origin": "EXPLICIT",
             "interpretationState": "UNDERSTOOD",

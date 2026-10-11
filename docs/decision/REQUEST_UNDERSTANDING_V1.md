@@ -59,9 +59,9 @@ Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
 their optional strength. A group containing only one requirement normalizes to
 no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.16`; understanding contract `@1.2`; understanding
-policy `request-understanding-policy-v13`; public context `@1.1`; context resolver
-v6; evaluator `@2.7`. GPT-6 Luna stays at `reasoning.effort: low`. The provider
+Versions: interpreter `ai-query@4.19`; understanding contract `@1.2`; understanding
+policy `request-understanding-policy-v15`; public context `@1.1`; context resolver
+v7; evaluator `@2.8`. GPT-6 Luna stays at `reasoning.effort: low`. The provider
 schema/prompt now exposes the additional meanings; the model has not changed.
 The cap remains 3600 output tokens with at most one malformed-output retry.
 Existing Auth, rate limits, actor binding, deadlines and release controls remain.
@@ -1277,39 +1277,69 @@ not a relaxation of production eligibility or a deployment approval.
 
 The previous independent regression confused outdoor seating in dry weather with
 a step-free entrance under OTHER. The provider contract had allowed every NEED
-code in ACCESS, OFFERING, EXPERIENCE and OTHER. Policy v13 now assigns each code
-to exactly one owning dimension in the provider schema, runtime validation and
-cache decoder. OTHER remains available as UNSUPPORTED/null; it cannot substitute
-an unrelated known need. Old policy cache entries cannot replay into this policy.
-This prevents a concrete invalid category combination, not every possible
-semantic hallucination within a valid category.
+code in ACCESS, OFFERING, EXPERIENCE and OTHER. The revised schema assigns each
+code to exactly one owning dimension at provider, runtime and cache boundaries.
+OTHER remains UNSUPPORTED/null; it cannot substitute an unrelated known need.
+This prevents a concrete invalid category combination, not all possible semantic
+hallucinations within a valid category.
 
-Interpreter 4.16 asks for the source evidence before the normalized requirement
-value. It separates the setting from access needs and the weather predicate from
-importance. The prompt distinguishes preferred outdoor seating from a required
-step-free entrance, “even if it rains” from “only if it rains”, optional short
-visits from obligations, and evening from an unrequested night preference.
-Explicit destinations receive a completeness check and retain their own role.
-Luna/low, the 3600-token output cap, one malformed-output retry, existing
-privacy minimization, authority and eligibility rules remain unchanged.
-No new public field, client rollout or database migration is required beyond the
-previous context-1.1 compatibility plan. World verification is still separate.
+Interpreter 4.19 keeps the established 4.14 prompt and property order with one
+short addition separating seating from access and “even if it rains” from a
+rain-only condition. Broader 4.16/4.17 prompt candidates are not retained. Their
+known-case regressions demonstrated that adding instructions was not a reliable
+substitute for fixing concrete software contradictions. Luna/low, the 3600-token
+output cap, one malformed-output retry and request-size limit are unchanged.
 
-The development suite `semantic-boundaries` contains 15 fixed queries across
-seven families, with German/English and a French version of the original case.
-It includes real mandatory access, disclaimed access, mandatory indoor seating
-in rain, covered outdoor seating despite rain and optional short duration.
-The live runner accepts `--suite semantic-boundaries`; all inputs are synthetic.
-The expected semantics were written before the first baseline run. Local tests
-reject cross-dimensional NEEDs on both cold input and cache replay, and check
-that weather preferences cannot replace a separate unconditional access need.
+The independent review also found three deterministic projection gaps, now fixed:
 
-Independent review found the new diagnostic oracle too strict for an explicit
-lunch request: a redundant TIME/MIDDAY representation is legitimate. Oracle 1.1
-allows that only for the lunch family; the previous global optional LUNCH is
-removed so coffee-only families reject invented lunch. An explicitly plural
-access request also accepts GROUP or UNSPECIFIED scope. The original 24-case
-oracles and the independent 20-case rubric remain unchanged. Harness 1.3 adds
-bounded family-specific optional representations; negative tests prevent them
-from leaking into unrelated families. Original reports are retained and old/new
-observations are rescored under the same corrected rubric, without provider calls.
+- “Ein stufenloser Eingang ist nicht nötig” no longer becomes a step-free hard
+  constraint through lexical fallback. The same scoped disclaimer is removed
+  from a model ACCESS requirement. Separate positive access requests and UI
+  constraints survive; this is a bounded disclaimer rule, not general negation AI.
+- A weather-scoped outdoor SETTING cannot re-enter unconditional retrieval or
+  ranking as TERRACE/GARDEN/OUTDOOR_SEATING/COVERED_OUTDOOR/HEATED_OUTDOOR in the
+  parallel facet output. A separate explicitly desired garden survives when its literal source span is independent of the seating condition. Unseparated REQUIRED amenities remain honestly unverified; no raw evidence persists. An unconditional UI preference remains authoritative.
+- A PREFERRED typical-daypart facet does not set the user's requested visit time.
+  Explicit UI time, required UI daypart, typed TIME and literal temporal wording
+  retain their authority. Typical venue context is not a supplied visit date.
+
+Policy v15 invalidates old cache namespaces. Context resolver v7 and evaluator
+2.8 version the changed projection. No new public field, schema migration or
+production activation is introduced. The earlier client-first context-1.1
+rollout requirement still applies; World verification remains separate.
+
+### Diagnostic protocol and rejected candidates
+
+The `semantic-boundaries` suite has 15 queries across seven families, German and
+English plus a French version of the original case. It covers preferred outside
+seating, real mandatory access, access disclaimers, mandatory indoor seating in
+rain, covered outdoor seating despite rain and optional short duration. Run the
+existing live CLI with `--suite semantic-boundaries`. All inputs are synthetic.
+
+Independent review corrected the new oracle, without altering the old 24-case
+oracles or the independent 20-case rubric: a redundant TIME/MIDDAY is legitimate
+for an explicit lunch request, but not for coffee-only requests; explicit plural
+access accepts GROUP or UNSPECIFIED; a nonoptional city can be HARD or ESSENTIAL
+where both preserve the same mandatory retrieval boundary. No phantom ACCESS
+requirement is allowed. Oracle 1.1/harness 1.3 support bounded family-specific
+optional representations with positive and negative tests. The global optional
+LUNCH was removed from this new suite so unrelated coffee cases reject it.
+
+Original reports are retained. Under the first reviewed requirement-only oracle,
+the same stored baseline/4.15/4.16 observations rescore to 10/15,12/15,15/15;
+original strict scores were9/15,11/15,14/15. The later stronger public-context
+checks additionally reject phantom hard access, unconditional outdoor amenity
+leaks and invented coffee dayparts. The old partial observations do not establish
+scores under this stronger context rubric, so those historical numbers are not
+claimed as directly comparable to the final suite.
+
+4.16 passed 159/160 broad context, 23/24 requirements, 24/24 roles and 9/9 additional
+weather-case repeats, but the unchanged independent 20 rubric found 12 PASS,
+5 PARTIAL,3 FAIL: return intent/location, ambiguous clock and dancing meaning.
+4.17 scored 14/3/3/0 on the same 20, with lost destination/outing and an overcertain
+clock. Neither intermediate result is evidence of final-candidate quality.
+A 4.16 request preflight also exceeded the unchanged byte limit before any call;
+repeated per-branch descriptions were removed instead of raising the limit.
+
+The independent review is an agent review of disclosed regression cases, not a
+new blind holdout, stability guarantee, human approval or launch acceptance.

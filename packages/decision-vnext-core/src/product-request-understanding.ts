@@ -6,7 +6,7 @@ import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.2" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v13" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v15" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
@@ -221,12 +221,11 @@ export const PRODUCT_MODEL_REQUIREMENTS_SCHEMA = { type: "array", maxItems: 12, 
       { state: "UNSUPPORTED", value: { type: "null" }, alternatives: { type: "array", maxItems: 0, items: { type: "null" } } },
     ];
     return states.map(state => objectJson({
-      evidence: { type: "string", minLength: 1, maxLength: 240 },
       dimension: { type: "string", const: dimension },
       importance: enumJson(["HARD", "ESSENTIAL", "PREFERRED"]), operator: enumJson(["REQUIRE", "EXCLUDE", "ALLOW"]),
       origin: Object.hasOwn(facetDimensions, dimension) ? enumJson(["EXPLICIT", "INFERRED"]) : { type: "string", const: "EXPLICIT" },
       interpretationState: { type: "string", const: state.state }, value: state.value, alternatives: state.alternatives,
-      group: nullableJson({ type: "string", pattern: "^R[1-9][0-9]?$" }), condition: nullableJson(enumJson(["RAIN", "DRY"])),
+      group: nullableJson({ type: "string", pattern: "^R[1-9][0-9]?$" }), condition: nullableJson(enumJson(["RAIN", "DRY"])), evidence: { type: "string", minLength: 1, maxLength: 240 },
     }));
   }),
 } };

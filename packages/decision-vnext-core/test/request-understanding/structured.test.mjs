@@ -709,3 +709,22 @@ test('conditional outdoor preference and independent step-free need retain diffe
   const invalid = req('OTHER', { kind: 'NEED', code: 'STEP_FREE_ENTRANCE', scope: 'UNSPECIFIED' }, 'Outdoors if dry would be nice', { importance: 'PREFERRED', condition: 'DRY' });
   assert.throws(() => parseModelRequirements([invalid], text), /need_dimension_invalid/);
 });
+
+test('not needing a step-free entrance cannot become a hard constraint, while separate positive requests and UI values survive', async () => {
+  const disclaimer = 'Ein stufenloser Eingang ist nicht nötig';
+  const result = await interpretedContext(`Kaffee in Thun. ${disclaimer}.`, [req('ACCESS', null, disclaimer, { importance: 'PREFERRED', operator: 'EXCLUDE', interpretationState: 'UNSUPPORTED' })]);
+  assert.equal(result.understanding.requirements.length, 0);
+  assert.equal(result.context.hardConstraints.includes('ACCESSIBILITY_STEP_FREE'), false);
+  assert.equal(result.context.hardConstraints.includes('ACCESSIBILITY_BASIC'), false);
+  const mixed = context(request(`${disclaimer}, aber ein stufenloser Hintereingang ist Pflicht.`), null);
+  assert.ok(mixed.hardConstraints.includes('ACCESSIBILITY_STEP_FREE'));
+  const explicit = context(request(disclaimer, { hardConstraints: ['ACCESSIBILITY_STEP_FREE'] }), null);
+  assert.ok(explicit.hardConstraints.includes('ACCESSIBILITY_STEP_FREE'));
+});
+
+test('a typical-daypart preference cannot manufacture a requested visit time', () => {
+  const inferred = context(request('Kaffee in Thun', { softPreferences: ['WK:context.typical_dayparts:MORNING'] }), null);
+  assert.equal(inferred.dateTime.dayPhase, null);
+  const literal = context(request('Kaffee heute Abend', { softPreferences: ['WK:context.typical_dayparts:MORNING'] }), null);
+  assert.equal(literal.dateTime.dayPhase, 'EVENING');
+});

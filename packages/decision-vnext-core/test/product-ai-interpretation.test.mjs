@@ -488,3 +488,42 @@ test('conditional requirements override conflicting unconditional model facets a
   assert.ok(ui.explicit.hardConstraints.includes('INDOOR_REQUIRED'));
   assert.ok(ui.explicit.softPreferences.includes('WK:context.atmosphere:QUIET'));
 });
+
+test('weather-scoped outdoor seating does not leak through unconditional amenity facets', async () => {
+  const input = 'Coffee outside if dry; otherwise indoors is fine';
+  const base = { dimension: 'SETTING', importance: 'PREFERRED', operator: 'REQUIRE', origin: 'EXPLICIT', interpretationState: 'UNDERSTOOD', alternatives: [], group: null };
+  for (const amenity of ['OUTDOOR_SEATING', 'TERRACE', 'GARDEN', 'COVERED_OUTDOOR', 'HEATED_OUTDOOR']) {
+    const response = semantics({ primaryIntent: 'COFFEE', facets: [facet('amenity.features', amenity, 'outside if dry')], requirements: [
+      { ...base, value: { kind: 'SETTING', environment: 'OUTDOOR' }, condition: 'DRY', evidence: 'outside if dry' },
+      { ...base, operator: 'ALLOW', value: { kind: 'SETTING', environment: 'INDOOR' }, condition: 'RAIN', evidence: 'otherwise indoors is fine' },
+    ] });
+    const run = interpreter(async () => modelResponse(response), { async rpc(_name, args) { return { data: args.p_write ? { status: 'HIT', semantics: args.p_semantics } : { status: 'MISS' }, error: null }; } });
+    const result = await run(request(input), actor, new AbortController().signal);
+    assert.equal(result.explicit.softPreferences.includes(`WK:amenity.features:${amenity}`), false);
+    const ui = await run(request(input, { softPreferences: [`WK:amenity.features:${amenity}`] }), actor, new AbortController().signal);
+    assert.ok(ui.explicit.softPreferences.includes(`WK:amenity.features:${amenity}`));
+    response.facets[0].role = 'REQUIRED'; response.facets[0].group = 'G1';
+    const unresolved = await run(request(input), actor, new AbortController().signal);
+    assert.ok(unresolved.explicit.unresolvedTerms.includes('OTHER_CORE_NEED_UNMAPPED'));
+    response.facets[0].role = 'PREFERRED'; response.facets[0].group = null;
+    response.requirements[0].condition = null;
+    const unconditional = await run(request(input), actor, new AbortController().signal);
+    assert.ok(unconditional.explicit.softPreferences.includes(`WK:amenity.features:${amenity}`));
+  }
+});
+
+test('an independent garden request survives a conditional seating wish through cold and warm cache', async () => {
+  const text = 'Ein Café mit Garten ist uns wichtig. Draußen sitzen möchten wir nur bei trockenem Wetter.';
+  const stored = new Map(); let fetches = 0;
+  const run = interpreter(async () => { fetches++; return modelResponse(semantics({ primaryIntent: 'COFFEE', facets: [facet('amenity.features', 'GARDEN', 'Ein Café mit Garten ist uns wichtig.', 'REQUIRED', 'G1')], requirements: [
+    { dimension: 'SETTING', importance: 'PREFERRED', operator: 'REQUIRE', origin: 'EXPLICIT', interpretationState: 'UNDERSTOOD', value: { kind: 'SETTING', environment: 'OUTDOOR' }, alternatives: [], group: null, condition: 'DRY', evidence: 'Draußen sitzen möchten wir nur bei trockenem Wetter.' },
+  ] })); }, { async rpc(_name, args) {
+    if (args.p_write) stored.set(args.p_request_hash, args.p_semantics);
+    return { data: stored.has(args.p_request_hash) ? { status: 'HIT', semantics: stored.get(args.p_request_hash) } : { status: 'MISS' }, error: null };
+  } });
+  const cold = await run(request(text), actor, new AbortController().signal);
+  const warm = await run(request(text), actor, new AbortController().signal);
+  assert.equal(fetches, 1); assert.deepEqual(cold, warm);
+  assert.ok(warm.explicit.hardConstraints.includes('WK_REQUIRED:G1:amenity.features:GARDEN'));
+  assert.equal(JSON.stringify([...stored.values()]).includes('Garten ist uns wichtig'), false);
+});

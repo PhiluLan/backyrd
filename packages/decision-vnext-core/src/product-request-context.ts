@@ -2,7 +2,7 @@
  * This bounded fallback complements the semantic interpreter; it is not a claim
  * of general language understanding. Unsupported budget semantics stay visible.
  */
-export const PRODUCT_REQUEST_CONTEXT_VERSION = "decision-vnext-product-context-resolver-v6" as const;
+export const PRODUCT_REQUEST_CONTEXT_VERSION = "decision-vnext-product-context-resolver-v7" as const;
 const normalize = (text: string): string => text.normalize("NFKC").toLocaleLowerCase("de-CH");
 
 export function hasPreciseRequestedTime(input: string): boolean {
@@ -61,9 +61,10 @@ export function requestBudget(input: string): RequestBudget {
 export function accessibilityRequestScope(input: string) {
   const text = normalize(input);
   const stripped = text
-    .replace(/\b(?:muss|muessen|müssen)\s+nicht\s+(?:barrierefrei|hindernisfrei|stufenfrei|rollstuhlgängig|rollstuhlgaengig)(?:\s+sein)?\b/gu, "")
+    .replace(/\b(?:muss|muessen|müssen)\s+nicht\s+(?:barrierefrei|hindernisfrei|stufenfrei|stufenlos|rollstuhlgängig|rollstuhlgaengig)(?:\s+sein)?\b/gu, "")
     .replace(/\b(?:barrierefreiheit|barrierefreier zugang|rollstuhlzugang)\s+(?:ist\s+)?nicht\s+(?:nötig|noetig|notwendig|erforderlich)\b/gu, "")
-    .replace(/\b(?:brauche|benötige|benoetige)\s+keinen?\s+(?:stufenfreien|barrierefreien)\s+(?:eingang|zugang)\b/gu, "")
+    .replace(/\b(?:brauche|benötige|benoetige)\s+keinen?\s+(?:stufenfreien|stufenlosen|barrierefreien)\s+(?:eingang|zugang)\b/gu, "")
+    .replace(/\b(?:(?:ein|der)\s+)?(?:stufenloser|stufenfreier|barrierefreier)\s+(?:eingang|zugang)\s+(?:ist\s+)?nicht\s+(?:nötig|noetig|notwendig|erforderlich)\b/gu, "")
     .replace(/\bno\s+(?:wheelchair\s+access|step[- ]free\s+(?:access|entrance))\s+(?:needed|required)\b/gu, "");
   const remainingMention = /barrierefrei|hindernisfrei|rollstuhl|stufenfrei|stufenlos|ohne stufen|wheelchair|step[- ]free/u.test(stripped);
   return { text: stripped, explicitlyDisclaimed: stripped !== text && !remainingMention };
