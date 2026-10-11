@@ -18,9 +18,9 @@ import {
 } from "./product-v1-contracts.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
-import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
+import { PRODUCT_INDOOR_CONSTRAINT, calibrateChfMealCeiling, encodeWorldPreference, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.12" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.13" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -92,14 +92,30 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   const fallbackDate = calendarMentioned && !understood.timeMentioned ? requestedLocalDate(text, authority.serverTime) : null;
   const dateContext = explicit.dateTime ?? (understood.dateTime ? { ...understood.dateTime, dayPhase: understood.dateTime.dayPhase ?? literalPhase } : { state: fallbackDate ? "KNOWN" as const : "UNKNOWN" as const, localDate: fallbackDate, dayPhase: literalPhase, timeZone: "Europe/Zurich" });
   if (requestedCity && canonicalRequestedCity(requestedCity).toLowerCase() !== canonicalRequestedCity(authority.authorizedCity).toLowerCase()) contextUnresolved.add("LOCATION_REQUEST_UNVERIFIED");
+  const requestedBudget = explicit.budget ?? understood.budget ?? { state: parsedBudget.amount !== null ? "KNOWN" as const : "UNKNOWN" as const, amount: parsedBudget.amount, currency: parsedBudget.requested ? "CHF" as const : null, perPerson: parsedBudget.perPerson, calibrationLabel: null };
+  const secondaryIntent = explicit.secondaryIntent ?? (includes(text, ["date", "in ruhe reden"]) ? "QUIET_CONVERSATION" : null);
+  const budgetRows = understood.requirements.filter(row => row.dimension === "BUDGET");
+  const soleBudget = budgetRows.length === 1 ? budgetRows[0] : undefined;
+  const simpleTypedBudget = soleBudget?.value?.kind === "BUDGET" && soleBudget.operator === "REQUIRE"
+    && soleBudget.importance !== "PREFERRED" && !soleBudget.group && !soleBudget.condition && !soleBudget.value.includes?.length;
+  const canCalibrate = primaryIntent === "EAT" && secondaryIntent === null && requestedBudget.state === "KNOWN"
+    && requestedBudget.currency === "CHF" && requestedBudget.perPerson === true && requestedBudget.amount !== null
+    && ![...contextUnresolved].some(code => code.startsWith("BUDGET_"))
+    && (!budgetRows.length || simpleTypedBudget)
+    && !understood.requirements.some(row => ["EXPERIENCE", "OFFERING"].includes(row.dimension) && (row.group || row.condition));
+  const calibration = canCalibrate ? calibrateChfMealCeiling(Math.round(requestedBudget.amount! * 100),
+    simpleTypedBudget && soleBudget.value?.kind === "BUDGET" ? soleBudget.value.comparison : "LTE") : null;
+  const priceHints = calibration?.levels.map(level => encodeWorldPreference("operation.price_level", level)) ?? [];
+  // Derived hints must not crowd out explicit preferences or overflow the public contract.
+  if (new Set([...soft, ...priceHints]).size <= 30) for (const hint of priceHints) soft.add(hint);
   const body = {
     contractVersion: PRODUCT_DECISION_VERSIONS.context, resolverVersion: PRODUCT_REQUEST_CONTEXT_VERSION, inputHash: contentHash({ request, authority, ...(understanding ? { understandingHash: understanding.understandingHash } : {}) }),
-    primaryIntent, secondaryIntent: explicit.secondaryIntent ?? (includes(text, ["date", "in ruhe reden"]) ? "QUIET_CONVERSATION" : null),
+    primaryIntent, secondaryIntent,
     intentCompatibility: primaryIntent ? "COMPATIBLE" as const : "UNKNOWN" as const, occasion: explicit.occasion ?? (text.includes("date") ? "DATE" : null),
     moods: explicit.moods ?? (positiveQuiet ? ["CALM"] : []), targetCity: requestedCity ?? authority.authorizedCity, requirements: understood.requirements,
     dateTime: dateContext,
     group: explicit.group ?? { ...parsedGroup, adultPresent: parsedGroup.adultPresent || (parsedGroup.minimumAge !== null && parsedGroup.minimumAge >= 18) || null, companionType: parsedGroup.companionType ?? semanticSituation, ...understood.group },
-    budget: explicit.budget ?? understood.budget ?? { state: parsedBudget.amount !== null ? "KNOWN" as const : "UNKNOWN" as const, amount: parsedBudget.amount, currency: parsedBudget.requested ? "CHF" as const : null, perPerson: parsedBudget.perPerson, calibrationLabel: null },
+    budget: { ...requestedBudget, calibrationLabel: calibration ? `${calibration.policy}:${calibration.level}` : requestedBudget.calibrationLabel },
     stayDuration: explicit.stayDuration ?? understood.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: [...new Set([...contextUnresolved, ...(!primaryIntent ? ["CORE_INTENT"] : [])])].sort(),
     locationAuthority: { explicitTargetWins: true as const, authorizedCity: authority.authorizedCity, deviceCityUsed: false, state: contextUnresolved.has("LOCATION_REQUEST_UNVERIFIED") ? "UNKNOWN" as const : "KNOWN" as const },
     limitations: primaryIntent ? [] : ["CORE_INTENT_REQUIRES_CLARIFICATION"], rawTextPersisted: false as const,

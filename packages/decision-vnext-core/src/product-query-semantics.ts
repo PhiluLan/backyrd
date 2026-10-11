@@ -1,4 +1,4 @@
-import { ATTRIBUTE_DEFINITIONS, REGISTRY_HASH } from "@backyrd/world-knowledge-core";
+import { ATTRIBUTE_DEFINITIONS, REGISTRY_HASH, type PriceLevel } from "@backyrd/world-knowledge-core";
 
 // The prompt and validator are projections of the canonical World registry,
 // never an independently maintained list of spot facts.
@@ -68,4 +68,27 @@ export function inferredIndoorSuitability(placeTypes: readonly string[]): "INDOO
   if (indoor && !outdoor) return "INDOOR";
   if (outdoor && !indoor) return "OUTDOOR";
   return "UNKNOWN";
+}
+
+
+/** Founder-approved CHF meal-per-person calibration. Only the ordinal hint
+ * floors whole francs; the original monetary constraint remains cent-exact.
+ * Existing World labels are not a verified monetary price for any venue. */
+export const PRODUCT_CHF_MEAL_PRICE_POLICY = "chf-meal-per-person-v1" as const;
+export const PRODUCT_CHF_MEAL_PRICE_BANDS: readonly { readonly level: PriceLevel; readonly ordinal: number; readonly maximumWholeFrancs: number | null }[] = Object.freeze([
+  Object.freeze({ level: "VERY_LOW", ordinal: 1, maximumWholeFrancs: 10 }),
+  Object.freeze({ level: "LOW", ordinal: 2, maximumWholeFrancs: 19 }),
+  Object.freeze({ level: "MEDIUM", ordinal: 3, maximumWholeFrancs: 30 }),
+  Object.freeze({ level: "HIGH", ordinal: 4, maximumWholeFrancs: 60 }),
+  Object.freeze({ level: "PREMIUM", ordinal: 5, maximumWholeFrancs: null }),
+]);
+
+export function calibrateChfMealCeiling(amountMinor: number, comparison: "LT" | "LTE") {
+  if (!Number.isSafeInteger(amountMinor) || amountMinor < 0 || amountMinor > 10_000_000) return null;
+  // Strict ceilings exclude the boundary cent before ordinal classification.
+  const wholeFrancs = Math.floor((amountMinor - (comparison === "LT" ? 1 : 0)) / 100);
+  if (wholeFrancs < 1) return null; // Free/sub-franc budgets have no approved band.
+  const band = PRODUCT_CHF_MEAL_PRICE_BANDS.find(row => row.maximumWholeFrancs === null || wholeFrancs <= row.maximumWholeFrancs)!;
+  return Object.freeze({ policy: PRODUCT_CHF_MEAL_PRICE_POLICY, level: band.level, ordinal: band.ordinal,
+    levels: Object.freeze(PRODUCT_CHF_MEAL_PRICE_BANDS.filter(row => row.ordinal <= band.ordinal).map(row => row.level)) });
 }

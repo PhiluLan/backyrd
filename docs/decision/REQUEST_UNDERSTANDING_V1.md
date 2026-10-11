@@ -1815,3 +1815,131 @@ Manifest SHA-256: `e76790a4be60c809ccfa2d3a88a7ab1e1bc4d15f7eada9958edd86dc03f13
 Measurement summary SHA-256: `20b106d98137fb557202994b0b624eb0dec0c0543cb089d32a0d0dfc27ad2839`.
 
 Independent comparison SHA-256: `220cd2e01043852176cd67a469625e1f0ec9e9175d20f711a4e4d0f600c8238a`.
+
+
+## Polite core requests — interpreter 4.42 (2026-10-11)
+
+Task class: PRODUCT_RELEASE for the interpreter policy; development change only,
+no production activation. Owned changes: canonical interpreter prompt, structured
+projection regression, eight development examples and this evidence record.
+Public contracts, World facts, schemas and provider effort (Luna low) are unchanged.
+The interpreter version invalidates cached interpretations from the old prompt.
+
+A polite full visit wish must retain its core experience and attached visit date
+as ESSENTIAL. “Ein Konzert am Samstag wäre schön” is a concert on Saturday, not
+a generic culture search with dispensable concert and date hints. Explicitly
+optional additions stay PREFERRED: “möglichst am Samstag”, “am liebsten mit
+Terrasse”, or “ein Konzert danach ist optional”. Numeric mandatory maxima remain
+HARD even in a polite sentence. The prompt now makes the distinction by the
+role of the requested detail, rather than the presence of “wäre schön” alone.
+No blanket postprocessing upgrade of PREFERRED values was introduced.
+
+Validation: 216 canonical Decision tests, 33 release-contract tests, TypeScript
+and the single-route repository check passed locally. The projection regression
+checks both a core visit date and a genuinely preferred date. Eight new, known
+synthetic development cases (German, English, French; five core-wish cases and
+three optional-detail controls) ran twice on Luna low. All 16 final observations
+satisfied the declared importance/value checks. Core dates reached the public
+context; preferred dates remained open; optional concerts did not add a mandatory
+secondary intent. This is targeted development evidence, not a holdout, broad
+regression/stability result or production acceptance.
+
+There were 17 provider calls for 16 requests: in the first “nicht 18” attempt,
+the model invented age 17. The existing age-source validator rejected it and
+the bounded automatic repair left age unknown. Both raw attempts are retained;
+the final 16/16 result must not be described as 16 flawless first responses.
+Estimated total cost: USD 0.01575707. Each request retained the 20-second total
+limit and at most two provider calls. No old answer was supplied to the model.
+Raw request/response diagnostics contain synthetic text only and remain outside
+Git at `/private/tmp/backyrd-politeness-live`; application production logging is
+unchanged. Corpus: `packages/decision-vnext-core/test/request-understanding/politeness-cases.json`.
+
+Evidence bindings:
+
+- sourceHash: `4392ad853de3249d47bd2b2424ff9a0c0c20696c425155202855e058c57650f8`
+- buildHash: `9c9f5c0b8a72e6f18cd505cc7176e4d0d89c377ca764145fffba40d43fa7791c`
+- caseHash: `1e59b1b52fe6e1710afef5e274f233f0367d0597ec49c3cf57c2c79066f9c649`
+
+- round-1.json SHA-256: `e54318497d5187260498887df891d3155233324aff7e1454440811c40ce62ce1`
+- round-2.json SHA-256: `163faae6946d2f647bd38c843702da611092b587f9185b7ed54747b4de7fff8c`
+
+### Price-level feasibility, not an enabled calibration
+
+The five World levels VERY_LOW/LOW/MEDIUM/HIGH/PREMIUM are category-relative
+(see `docs/world-knowledge/slice-3b/ENTITLEMENT_AND_PRICE.md`). An ordinal 1–5
+mapping does not itself define CHF amounts. A future amount-to-level policy
+needs versioned bounds by offering/experience, currency/market and price basis
+(per person/per visit/per night), including the treatment of included items.
+There is no approved numeric threshold table in this change.
+
+A numeric ceiling must remain a BUDGET requirement. A derived level can guide
+retrieval/ranking, including cheaper levels, but cannot establish that an
+individual venue meets the ceiling. Verified comparable monetary facts are
+required for that claim; unknown basis or missing price evidence remains
+unverified. The registry's existing operation.price_range exists but is not
+writable through the current 3B authoring entitlement. Therefore price evidence
+acquisition/authoring is part of a subsequent pricing change, not something a
+new lookup table alone fixes. No invented CHF ranges or historical laboratory
+calibrations were activated.
+
+
+## Approved meal price bands and explicit alternatives — interpreter 4.43
+
+Founder approved on 2026-10-11: meal prices per person in CHF are classified by
+whole francs rounded DOWN: 1–10 VERY_LOW (ordinal 1), 11–19 LOW (2), 20–30 MEDIUM
+(3), 31–60 HIGH (4), 61+ PREMIUM (5). Thus 10.99 remains VERY_LOW, 19.50 is LOW,
+30.90 MEDIUM and 60.99 HIGH. Free/sub-franc budgets have no approved band. This
+supersedes the previous subsection's missing price-threshold decision.
+
+Implementation: `calibrateChfMealCeiling` in the existing product query semantics
+module, policy `chf-meal-per-person-v1`; context resolver v10 and evaluator 2.13.
+The original money requirement and amount are not rounded. For a strict ceiling
+one cent is subtracted only for classifying the highest permitted price: under
+20 CHF reaches LOW, at most 20 CHF reaches MEDIUM. The derived ceiling band and
+all cheaper bands become ranking preferences; no new hard price-level filter
+is added. `budget.calibrationLabel` records the versioned ceiling classification.
+A full preference list is preserved; derived hints cannot overflow its limit.
+
+Calibration is limited to a single EAT purpose, known CHF per-person budget,
+no unresolved budget semantics or conflict, no grouped/conditional budget, no
+extra included components, and no grouped/conditional experience/offerings.
+Other currencies, unknown/total basis, coffee/overnight/combined experiences
+are not silently assigned this meal scale. This does not alter World records,
+World registry semantics, authoring entitlements or public contract shapes.
+Verified monetary price evidence still decides hard budget eligibility. A low
+ordinal label alone cannot prove compliance; an actual price above the ceiling
+still fails, while a higher ordinal label cannot veto a verified affordable price.
+
+Interpreter 4.43 also distinguishes explicit alternatives (either/or, entweder/
+oder, soit/soit) from independent AND wishes and from genuinely optional detail.
+Date and dayphase remain together in each TIME branch. A temporal OR does not
+scope the activity intent; shared gallery/no-tour conditions remain ungrouped.
+“Works”, “passt” or “wäre schön” does not downgrade a required choice set.
+Two date alternatives are preserved through cache and context, with no invented
+single date. Their availability is still unresolved; this change does not claim
+that the candidate evaluator now verifies all temporal alternatives.
+
+Validation: 220 canonical Decision tests, 33 release-contract tests, TypeScript,
+single-route and diff checks passed. Boundary tests cover all bands and cent
+transitions, strict/inclusive maxima, budget scope and non-CHF exclusions, public
+preference capacity and actual monetary eligibility despite ordinal labels.
+Eight synthetic alternatives cases ran twice on Luna low: 16/16 declared group,
+importance and branch checks passed, 16 provider calls, zero retries/errors.
+Manual inspection also confirmed the preserved independent meal and optional
+weekend group. German, English and French temporal alternatives, activity/venue
+alternatives, an AND counterexample and an optional OR were included. This is
+targeted development evidence, not broad production acceptance. AP1 remains open.
+Estimated cost USD 0.01805558. Prompt is bound below; the later preference-capacity
+change does not alter interpreter prompt or these no-budget inputs. No production
+rollout, production data access or schema mutation was performed.
+
+Evidence remains outside Git at `/private/tmp/backyrd-alternatives-live` with
+full synthetic requests/responses and two reports. The durable input corpus is
+`packages/decision-vnext-core/test/request-understanding/alternatives-cases.json`.
+
+- sourceHash: `4a02d309d9cd695aa0f29dbf2bb9942a7402bb0275169d578b98ee19ec58db8f`
+- buildHash: `3641c48f33cdb6d81fcb68a686a3dd4940545512af950dc3aaa2406c9ce0860d`
+- caseHash: `94efa66d2dbfa0f9525c7275a0c10c92c073f937b704cb4168234bc93e0eda57`
+
+- round-1.json SHA-256: `2e2884e8fa44ba5060c0c1be70a1ea39b238a518395dd21346c1fa37fc02642c`
+- round-2.json SHA-256: `52ade847efcee18cff28d6b2a8493f38aed5bfe486207b052d645f7124edf7be`

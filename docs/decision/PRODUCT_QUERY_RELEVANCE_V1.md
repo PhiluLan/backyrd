@@ -29,3 +29,21 @@ The same Production pilot found real coverage and modeling gaps that this guardr
 Quality evaluation must separately inspect (1) interpretation, including required/preferred/excluded roles, (2) candidate eligibility and World evidence, (3) ranking and diversity, and (4) user-facing reasons. Synthetic World tests prove the deterministic evaluator, not model comprehension or Production result quality. Before calling a release a relevance success, run representative everyday, multilingual, ambiguous and negative requests through the real model and current Production World in an authorized, read-only pilot. Record empty-result rate, false-positive categories, inappropriate age/access claims, provider errors and concrete user-visible candidates. An unverified or empty result is not a successful recommendation.
 
 The 12 requestable enum fields are a deliberate projection of the larger World registry, not a claim that every user constraint is understood. Some constraints (e.g. opening, location, access) have separate deterministic paths; other requests may require extending the canonical query contract and World coverage. Do not compensate for a missing field or evidence by inventing a match.
+
+
+## CHF meal-budget hints (2026-10-11)
+
+The Founder-approved `chf-meal-per-person-v1` policy classifies a CHF per-person
+meal ceiling using floored whole francs: 1–10 VERY_LOW, 11–19 LOW, 20–30 MEDIUM,
+31–60 HIGH, 61+ PREMIUM. Decimal budget amounts remain exact; strict ceilings
+exclude the boundary cent before ordinal classification. Zero/sub-franc amounts
+are not mapped. `calibrateChfMealCeiling` is the single implementation in
+`product-query-semantics.ts`.
+
+For a comparable, independent EAT budget, the context records the versioned
+calibration label and adds the ceiling band plus cheaper bands as World price
+preferences. Unknown/total price basis, another currency, additional included
+items, budget alternatives/conditions or combined purposes are not calibrated.
+No existing World label is reinterpreted as a verified CHF price. The monetary
+maximum remains an independent hard constraint against verified comparable
+prices; a price-level hint cannot approve an unknown or over-budget venue.

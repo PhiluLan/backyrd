@@ -2,7 +2,7 @@
  * This bounded fallback complements the semantic interpreter; it is not a claim
  * of general language understanding. Unsupported budget semantics stay visible.
  */
-export const PRODUCT_REQUEST_CONTEXT_VERSION = "decision-vnext-product-context-resolver-v9" as const;
+export const PRODUCT_REQUEST_CONTEXT_VERSION = "decision-vnext-product-context-resolver-v10" as const;
 const normalize = (text: string): string => text.normalize("NFKC").toLocaleLowerCase("de-CH");
 
 export function hasPreciseRequestedTime(input: string): boolean {

@@ -352,3 +352,24 @@ test("budget eligibility requires comparable CHF per-person ceilings and never c
   const explicit = { budget: { state: "KNOWN", amount: 20, currency: "CHF", perPerson: true, calibrationLabel: null } };
   assert.ok(assessBudget("Kaffee", "CHF", explicit).failedHardConstraints.includes("BUDGET_MAXIMUM"));
 });
+
+
+test('numeric meal price hints never certify a ceiling from an ordinal label', () => {
+  const base=[fact('purpose.primary_visit','EAT_DRINK'),fact('classification.primary_category','EAT'),fact('classification.place_types',['RESTAURANT'])];
+  const worlds=[
+    read(binding('a1111111-1111-4111-a111-111111111111',[...base,fact('operation.price_level','LOW')])),
+    read(binding('b2222222-2222-4222-a222-222222222222',[...base,fact('operation.price_level','LOW'),fact('operation.price_range',{min:10,max:25,currency:'CHF'})])),
+    read(binding('c3333333-3333-4333-a333-333333333333',[...base,fact('operation.price_level','HIGH'),fact('operation.price_range',{min:10,max:18,currency:'CHF'})])),
+  ];
+  const request={contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'meal-calibration',idempotencyKey:'meal-calibration',naturalLanguage:'Essen maximal 20 CHF pro Person',explicit:{primaryIntent:'EAT'},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
+  const r=evaluateProductWorldViews(request,{authorizedCity:'Basel',serverTime:at},{status:'NEUTRAL',projectionHash:contentHash('neutral')},worlds,contentHash(worlds.map(w=>w.spot.spotId)));
+  const byId=new Map(r.evaluation.candidates.map(c=>[c.candidateId,c]));
+  const [unknown,over,within]=worlds.map(w=>byId.get(w.spot.spotId));
+  assert.ok(unknown.unknownHardConstraints.includes('BUDGET_MAXIMUM'));
+  assert.ok(unknown.matchedSoftPreferences.includes('WK:operation.price_level:LOW'));
+  assert.notEqual(unknown.tier,'ELIGIBLE_CONFIRMED');
+  assert.ok(over.failedHardConstraints.includes('BUDGET_MAXIMUM'));
+  assert.equal(over.tier,'INELIGIBLE');
+  assert.ok(within.confirmedHardConstraints.includes('BUDGET_MAXIMUM'));
+  assert.equal(within.failedHardConstraints.includes('BUDGET_MAXIMUM'),false);
+});

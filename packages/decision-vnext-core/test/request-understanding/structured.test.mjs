@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION } from '@backyrd/world-knowledge-core';
 import {
-  PRODUCT_MODEL_REQUIREMENTS_SCHEMA, bindProductUnderstanding, parseModelRequirements, encodeRequirementCache, decodeRequirementCache, validateProductUnderstanding,
+  calibrateChfMealCeiling, PRODUCT_MODEL_REQUIREMENTS_SCHEMA, bindProductUnderstanding, parseModelRequirements, encodeRequirementCache, decodeRequirementCache, validateProductUnderstanding,
   createDecisionProductAiIntentInterpreter, createDecisionProductHttpHandler, createDecisionProductRpcEvaluationProvider, contentHash, resolveDecisionProductContext,
 } from '../../dist/index.js';
 import { evaluateProductWorldViews } from '../../dist/product-v1-evaluator.js';
@@ -1218,4 +1218,81 @@ test('explicit unconditional dancing keeps a canonical club unverified under a b
   assert.equal(evaluate(minor, restricted).tier, 'INELIGIBLE');
   assert.ok(evaluate(minor, restricted).failedHardConstraints.includes('AGE_OR_LEGAL'));
 
+});
+
+
+test('core visit date projects while genuinely preferred dates and extras stay optional', async () => {
+  const concert = req('EXPERIENCE', { kind: 'FACET', key: 'classification.place_types', value: 'CONCERT_VENUE' }, 'Ein Konzert am Samstag wäre schön');
+  const visit = req('TIME', time({ weekday: 6 }), 'Ein Konzert am Samstag wäre schön');
+  const core = await interpretedContext('Ein Konzert am Samstag wäre schön', [concert, visit]);
+  assert.equal(core.context.dateTime.localDate, '2026-10-10');
+  assert.ok(core.context.hardConstraints.includes('OPEN_ON_REQUESTED_DAY'));
+  assert.ok(core.context.hardConstraints.some(c => c.endsWith(':classification.place_types:CONCERT_VENUE')));
+  const optional = await interpretedContext('Ein Konzert, möglichst am Samstag', [
+    { ...concert, evidence: 'Ein Konzert' }, { ...visit, evidence: 'möglichst am Samstag', importance: 'PREFERRED' },
+  ]);
+  assert.equal(optional.context.dateTime.localDate, null);
+  assert.equal(optional.context.hardConstraints.includes('OPEN_ON_REQUESTED_DAY'), false);
+  assert.equal(optional.context.requirements.find(r => r.dimension === 'TIME').importance, 'PREFERRED');
+});
+
+
+test('CHF meal bands floor whole francs while strict ceilings exclude the boundary cent', () => {
+  for (const [minor, level, ordinal] of [[100,'VERY_LOW',1],[1099,'VERY_LOW',1],[1100,'LOW',2],[1950,'LOW',2],[1999,'LOW',2],[2000,'MEDIUM',3],[3099,'MEDIUM',3],[3100,'HIGH',4],[6099,'HIGH',4],[6100,'PREMIUM',5]]) {
+    const actual = calibrateChfMealCeiling(minor, 'LTE');
+    assert.equal(actual.level, level); assert.equal(actual.ordinal, ordinal);
+    assert.equal(actual.levels.length, ordinal);
+  }
+  assert.equal(calibrateChfMealCeiling(2000, 'LT').level, 'LOW');
+  assert.equal(calibrateChfMealCeiling(3100, 'LT').level, 'MEDIUM');
+  assert.equal(calibrateChfMealCeiling(6100, 'LT').level, 'HIGH');
+  for (const value of [0,99,-1,NaN,Infinity,100.5,10000001]) assert.equal(calibrateChfMealCeiling(value, 'LTE'), null);
+});
+
+test('meal calibration adds cheaper price hints without weakening money or extending scope', async () => {
+  const text = 'Essen maximal 19.50 CHF pro Person';
+  const budget = req('BUDGET', money({amountMinor:1950}), 'maximal 19.50 CHF pro Person', {importance:'HARD'});
+  const result = await harness([budget], {primaryIntent:'EAT'}).run(request(text));
+  const c = context(result.request, result.understanding);
+  assert.equal(c.budget.amount,19.5);
+  assert.equal(c.requirements[0].value.amountMinor,1950);
+  assert.equal(c.budget.calibrationLabel,'chf-meal-per-person-v1:LOW');
+  assert.ok(c.hardConstraints.includes('BUDGET_MAXIMUM'));
+  assert.deepEqual(c.softPreferences.filter(p=>p.startsWith('WK:operation.price_level:')).sort(), ['WK:operation.price_level:LOW','WK:operation.price_level:VERY_LOW']);
+  for (const [primaryIntent,secondaryIntent,value] of [
+    ['COFFEE',null,budget.value],['EAT','CULTURE_ART',budget.value],
+    ['EAT',null,{...budget.value,basis:'TOTAL'}],['EAT',null,{...budget.value,basis:'UNSPECIFIED'}],
+    ['EAT',null,{...budget.value,currency:'EUR'}],['EAT',null,{...budget.value,includes:['DRINKS']}],
+  ]) {
+    const r = await harness([{...budget,value}], {primaryIntent,secondaryIntent}).run(request(text));
+    const cc=context(r.request,r.understanding);
+    assert.equal(cc.budget.calibrationLabel,null);
+    assert.equal(cc.softPreferences.some(p=>p.startsWith('WK:operation.price_level:')),false);
+  }
+  const full = await harness([budget], {primaryIntent:'EAT'}).run(request(text, {softPreferences:Array.from({length:30},(_,i)=>`EXPLICIT_${i}`)}));
+  assert.equal(context(full.request,full.understanding).softPreferences.length,30);
+  assert.equal(context(full.request,full.understanding).budget.amount,19.5);
+  const strict=await harness([{...budget,evidence:'unter 20 CHF pro Person',value:{...budget.value,amountMinor:2000,comparison:'LT'}}],{primaryIntent:'EAT'}).run(request('Essen unter 20 CHF pro Person'));
+  assert.equal(context(strict.request,strict.understanding).budget.calibrationLabel,'chf-meal-per-person-v1:LOW');
+});
+
+test('either time branch survives cache without becoming an AND or a single invented date', async () => {
+  const text='A gallery either this afternoon or Tuesday morning works; no guided tour, please.';
+  const rows=[
+    req('EXPERIENCE',{kind:'FACET',key:'classification.place_types',value:'GALLERY'},'gallery'),
+    req('TIME',time({relativeDays:0,dayPhase:'AFTERNOON'}),'this afternoon',{group:'R1'}),
+    req('TIME',time({weekday:2,dayPhase:'MORNING'}),'Tuesday morning',{group:'R1'}),
+    req('EXPERIENCE',{kind:'NEED',code:'GUIDED_TOUR',scope:'UNSPECIFIED'},'no guided tour',{operator:'EXCLUDE',importance:'HARD'}),
+  ];
+  const h=harness(rows,{primaryIntent:'CULTURE_ART'});const input=request(text);
+  const cold=await h.run(input), warm=await h.run(input);
+  assert.deepEqual(warm,cold);assert.equal(h.fetches(),1);
+  const c=context(cold.request,cold.understanding);
+  const times=c.requirements.filter(r=>r.dimension==='TIME');
+  assert.equal(times.length,2);
+  assert.ok(times.every(r=>r.group==='R1'&&r.importance==='ESSENTIAL'&&r.operator==='REQUIRE'));
+  assert.equal(c.dateTime.localDate,null);
+  assert.ok(c.unresolvedTerms.includes('TIME_REQUEST_UNRESOLVED'));
+  assert.ok(!c.hardConstraints.includes('OPEN_ON_REQUESTED_DAY'));
+  assert.equal(c.requirements.find(r=>r.value?.code==='GUIDED_TOUR').group,null);
 });
