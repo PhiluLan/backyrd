@@ -1,6 +1,6 @@
 # Request understanding v1 — first work package
 
-Status: **step 1 catalog-independent meaning COMPLETE; full AP1 production acceptance OPEN** (2026-10-11).
+Status: **step 1 COMPLETE; step 2 mapping foundation IMPLEMENTED, semantic/execution acceptance OPEN; full AP1 production acceptance OPEN** (2026-10-12).
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
@@ -28,7 +28,7 @@ numeric-shape validation must therefore be supplemented by semantic evaluation.
 This contract contains personal descriptions and is **ephemeral**: do not send it
 to public context, analytics, learning, logs, or the existing query cache. Source
 IDs are request-bound. The old cache and public contracts remain unchanged.
-No production composition consumes this stage yet. Step 2 must map every active
+At step-1 closure no production composition consumed this stage. The step-2 source integration below replaces the interpreter behind the existing AI gate, without deployment. Step 2 must map every active
 meaning item explicitly to supported search semantics or an observable unresolved
 need, respect structured UI choices, compute dates/units and preserve privacy.
 It must replace the existing interpretation in the canonical route, not create a
@@ -51,6 +51,105 @@ reports VALID_CONTRACT separately from semantic review. The original expectation
 are not sent to the model. Every live semantic assessment must inspect all meaning
 items, their modalities and references; a correct summary or valid JSON is not a
 semantic PASS. The separately authored inputs are preserved in `meaning-additional-corpus.json`; run them with `--corpus packages/decision-vnext-core/test/request-understanding/meaning-additional-corpus.json`. These became development cases after their first v8 evaluation.
+
+## Step 2 — meaning-to-search mapping foundation (2026-10-12)
+
+The canonical interpreter now composes the catalog-independent meaning stage
+with `meaning-mapping@1.0`, policy v2, on Luna low. The immutable meaning graph
+retains descriptions, participants, quantities, modalities, OR, order and
+conditions. A request/catalog/hash-bound private search plan accounts for every
+node as MAPPED, UNSUPPORTED or CONTEXT_ONLY. The normalization model supplies
+only source IDs, canonical intent and typed targets with source-owned evidence.
+The server assigns modality, operator and scopes; the model cannot rewrite these.
+Unknown concepts must remain unsupported rather than acquiring an invented
+specialization. MAPPED is a proposal, not proof of complete semantic coverage.
+
+Exact numeric budget limits, cent precision, comparison, currency, person/total
+basis and positively included components are checked against the meaning node.
+The existing CHF calibration bands still use whole-franc floor; an ordinal price
+label never proves an actual maximum. Known current ages stay associated with
+participants in the private plan. A partial set of known ages cannot establish
+an age minimum for the whole party; a known underage visitor still fails a
+verified universal minimum. Missing age rules are not automatically a hard
+failure, and universal NO_MINIMUM works with unknown-age companions. Birthday
+ages of future/unknown timing do not become current access facts. Participant
+node count does not prove party size or a solo visit.
+
+The adapter executes supported simple visits and same-purpose place-type OR,
+including a locally preferred branch. All OR members are projected together or
+left unresolved; capacity never truncates half a choice. Shared location, time
+and budget survive otherwise unresolved multi-visit/optional plans. Scoped
+conditions, replacements and sequences do not become global filters. Mandatory
+World facets use the existing canonical query projection, not a second ranking
+implementation. Explicit UI values remain authoritative. Raw text fallback
+parsers are disabled for meaning-backed requests so background phrases cannot
+silently reappear as search requirements.
+
+Mobile now marks automatic profile location with optional request field
+`targetCitySource: PROFILE_DEFAULT`. A unique unconditional requested destination
+can replace that fallback for retrieval without mutating the original explicit
+request. USER_SELECTED and legacy requests without provenance retain deliberate
+city authority. Web's selected-city path keeps that authority; its type accepts
+the additive field. Old backends reject unknown keys: release the compatible
+backend before this Mobile request shape. No SQL migration or production change
+was performed. The source Edge entrypoint uses the new interpreter behind the
+existing feature flag/actor allowlist. The historical 4.43 factory remains for
+development comparison fixtures only; it is not a runtime fallback and its query
+cache is not used by this pipeline.
+
+The entire composition shares one 20-second deadline: normally two meaning calls
+(including critique) and one normalization call; malformed normalization may
+receive one repair, never partial successful output. Provider output is bounded
+(3600 meaning / 6000 mapping tokens), store:false, with sanitized errors. Private
+plans, descriptions and participant roles never enter public context, analytics,
+learning or cache. Public limitations retain unresolved needs; a generic
+unresolved flag does not provide a complete per-node public explanation.
+
+### Evidence and remaining acceptance work
+
+All fixtures below are known development cases, not blind holdout or production
+acceptance. The 16 normalization-only cases reuse the frozen step-1 v13 graphs;
+no expectations or prior mapping output were sent to the model.
+
+- Initial mapping-v2 captured run: 17 calls, estimated USD 0.01109133. Independent
+  review: 6 PASS / 7 PARTIAL / 3 FAIL on mapping semantics. Failures were lake to
+  riverside and invented gallery/pottery/zoo-plus-aquarium specializations.
+  An evaluation-runner city mismatch was replayed locally, not hidden by new
+  model calls. Original files and grades remain unchanged.
+- Revised mapping-v3/policy-v2: 16 valid contracts, 16 calls, estimated USD
+  0.01027363. Independent review of every output: **6 PASS / 10 PARTIAL / 0 FAIL /
+  0 ERROR**. Search cities correct. A waterfront facet alone does not completely
+  represent a lakeside walk; unsupported concepts still require catalog work.
+- Earlier full 8-case pipeline-v1: 24 calls, estimated USD 0.01163067. Independent
+  review: P1 8 PASS; mapping 3 PASS / 5 PARTIAL. Historical kernel city losses
+  were subsequently corrected in source; old results were not rewritten.
+- Canonical CI: 308 Decision tests (including 45 mapping regressions), 33 release
+  contracts, type checks, single route and synthetic
+  real-app release E2E. Additional Mobile/Wohin (8), Web consumer (17) and World bridge
+  (17) checks pass; evaluation-runner checks 4/4. Regression tests cover source/hash binding, budget preservation,
+  actor age uncertainty, manual/profile city priority and actual candidate OR.
+
+Evidence is ignored local synthetic material under
+`/private/tmp/backyrd-meaning-stage/{mapping-live-v2,mapping-live-v3,mapping-pipeline-v1}`,
+including source/input hashes and captured provider output. Reproduce complete
+pipeline evaluation using the existing runner with an already configured
+server-process OPENAI_API_KEY (never print or pass the secret in command text):
+
+```sh
+node packages/decision-vnext-core/test/request-understanding/run-meaning-evaluation.mjs --live --pipeline --corpus packages/decision-vnext-core/test/request-understanding/meaning-alternatives-corpus.json --output /private/tmp/backyrd-meaning-pipeline-report.json
+```
+
+**Step 2 remains OPEN.** The current single-visit kernel cannot execute general
+conditional or multi-intent branches, visit sequences or their local facilities.
+It preserves temporal OR but cannot yet apply the local Sunday preference or
+verify all alternative opening schedules. Generic outings, tea rooms, small
+exhibitions, lakeside walking, nature observation and craft activities need
+faithful concepts, not guessed subtypes. Participant quantities/membership and
+many person-specific scopes are private-plan data with unresolved execution.
+These are distinct catalog, normalization-completeness and kernel gaps; they
+must not all be attributed to missing World data. A materially unrepresented
+need must never be advertised as fully verified fit. No merge, deployment or
+production activation is included in this work.
 
 ## Step 1 closure — founder clarification and OR repair
 

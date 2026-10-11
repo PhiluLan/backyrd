@@ -12,7 +12,7 @@ test("Wohin sends only the new free text and profile city", () => {
   const request = createWohinRequest({ query: "  Sonntag   gemütlich Kaffee trinken  ", city: "Basel", requestId: "test-request-1" });
   validateDecisionProductRequest(request);
   assert.equal(request.naturalLanguage, "Sonntag gemütlich Kaffee trinken");
-  assert.deepEqual(request.explicit, { targetCity: "Basel" });
+  assert.deepEqual(request.explicit, { targetCity: "Basel", targetCitySource: "PROFILE_DEFAULT" });
   assert.equal(request.alternativeRequested, false);
   assert.deepEqual(request.previouslyPresentedCandidateIds, []);
   assert.deepEqual(request.rejectedCandidateIds, []);

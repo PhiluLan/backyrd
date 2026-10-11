@@ -9,6 +9,7 @@ export type DecisionProductRequest = {
     occasion?: string | null;
     moods?: string[];
     targetCity?: string | null;
+    targetCitySource?: "USER_SELECTED" | "PROFILE_DEFAULT";
     hardConstraints?: string[];
     softPreferences?: string[];
   };

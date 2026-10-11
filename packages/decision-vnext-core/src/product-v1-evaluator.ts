@@ -20,7 +20,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { PRODUCT_INDOOR_CONSTRAINT, calibrateChfMealCeiling, encodeWorldPreference, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.13" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.14" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -49,11 +49,14 @@ export function productRetrievalIntent(request: DecisionProductRequest): Product
 }
 
 export function resolveDecisionProductContext(requestValue: unknown, authority: { readonly authorizedCity: string; readonly serverTime: string }, understanding?: ProductUnderstanding | null): DecisionProductContext {
-  const request = DecisionProductRequestSchema.parse(requestValue); const text = normalize(request.naturalLanguage); const explicit = request.explicit;
+  const request = DecisionProductRequestSchema.parse(requestValue);
+  // Meaning-backed requests must never be interpreted again by raw-text fallbacks.
+  const contextText = understanding?.interpretationSource === "MEANING_PLAN" ? "" : request.naturalLanguage;
+  const text = normalize(contextText); const explicit = request.explicit;
   const understood = projectProductUnderstanding(understanding, request, requestedLocalDate("", authority.serverTime), authority.authorizedCity);
-  const parsedBudget = requestBudget(request.naturalLanguage); const parsedGroup = requestGroup(request.naturalLanguage);
-  const textCity = understanding?.requirements.some(r => r.dimension === "LOCATION") ? null : cityIn(text); const requestedCity = requestedProductCity(understanding, request) ?? textCity; if (explicit.targetCity && canonicalRequestedCity(explicit.targetCity).toLowerCase() !== canonicalRequestedCity(authority.authorizedCity).toLowerCase()) throw new Error("product_context_location_authority_mismatch");
-  const primaryIntent = Object.hasOwn(explicit, "primaryIntent") ? explicit.primaryIntent ?? null : inferProductV1Intent(request.naturalLanguage);
+  const parsedBudget = requestBudget(contextText); const parsedGroup = requestGroup(contextText);
+  const textCity = understanding?.requirements.some(r => r.dimension === "LOCATION") ? null : cityIn(text); const requestedCity = requestedProductCity(understanding, request) ?? textCity; if ((explicit.targetCity || understanding?.interpretationSource === "MEANING_PLAN") && requestedCity && canonicalRequestedCity(requestedCity).toLowerCase() !== canonicalRequestedCity(authority.authorizedCity).toLowerCase()) throw new Error("product_context_location_authority_mismatch");
+  const primaryIntent = Object.hasOwn(explicit, "primaryIntent") ? explicit.primaryIntent ?? null : inferProductV1Intent(contextText);
   // Age is a contextual ranking signal, not a demand that every family spot
   // publish an explicit "no minimum age" rule. Known access restrictions are
   // still enforced against a stated age when assessing each candidate.
@@ -61,7 +64,7 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   // A broad accessibility request must not recommend a venue with a verified
   // inaccessible entrance or route. A request specifically about steps only
   // requires the entrance; "barrierefrei" requires the basic visit path too.
-  const accessText = accessibilityRequestScope(request.naturalLanguage).text
+  const accessText = accessibilityRequestScope(contextText).text
     .replace(/\b(?:not|no)\s+(?:be\s+)?(?:step[- ]free|wheelchair accessible)\b/gu, "");
   if (includes(accessText, ["barrierefrei", "hindernisfrei", "rollstuhlgängig", "rollstuhlgaengig", "wheelchair accessible"])) hard.add("ACCESSIBILITY_BASIC");
   else if (includes(accessText, ["rollstuhl", "stufenfrei", "stufenlos", "ohne stufen", "step-free", "step free", "without entrance steps"])) hard.add("ACCESSIBILITY_STEP_FREE");
@@ -81,7 +84,7 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   ].find((facet) => facet?.key === key)?.value ?? null;
   const semanticSituation = semanticValue("context.visit_situations");
   const contextUnresolved = new Set<string>([...(explicit.unresolvedTerms ?? []), ...understood.unresolvedTerms]);
-  if (hasPreciseRequestedTime(request.naturalLanguage)) contextUnresolved.add("PRECISE_TIME_UNVERIFIED");
+  if (hasPreciseRequestedTime(contextText)) contextUnresolved.add("PRECISE_TIME_UNVERIFIED");
   if (explicit.budget ? explicit.budget.state === "KNOWN" && !explicit.budget.perPerson
     : !understood.budgetMentioned && parsedBudget.requested && !parsedBudget.representable) contextUnresolved.add("BUDGET_SEMANTICS_UNVERIFIED");
   const typedPhase = understood.requirements.some(r => [r.value, ...r.alternatives].some(v => v?.kind === "TIME" && (v.dayPhase !== null || v.event !== undefined)));
@@ -91,7 +94,7 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   const calendarMentioned = requestedWeekday(text) >= 0 || /(?<!\p{L})(?:heute|morgen|übermorgen|today|tomorrow|jetzt|now)(?!\p{L})/u.test(text);
   const fallbackDate = calendarMentioned && !understood.timeMentioned ? requestedLocalDate(text, authority.serverTime) : null;
   const dateContext = explicit.dateTime ?? (understood.dateTime ? { ...understood.dateTime, dayPhase: understood.dateTime.dayPhase ?? literalPhase } : { state: fallbackDate ? "KNOWN" as const : "UNKNOWN" as const, localDate: fallbackDate, dayPhase: literalPhase, timeZone: "Europe/Zurich" });
-  if (requestedCity && canonicalRequestedCity(requestedCity).toLowerCase() !== canonicalRequestedCity(authority.authorizedCity).toLowerCase()) contextUnresolved.add("LOCATION_REQUEST_UNVERIFIED");
+  if ((explicit.targetCity || understanding?.interpretationSource === "MEANING_PLAN") && requestedCity && canonicalRequestedCity(requestedCity).toLowerCase() !== canonicalRequestedCity(authority.authorizedCity).toLowerCase()) contextUnresolved.add("LOCATION_REQUEST_UNVERIFIED");
   const requestedBudget = explicit.budget ?? understood.budget ?? { state: parsedBudget.amount !== null ? "KNOWN" as const : "UNKNOWN" as const, amount: parsedBudget.amount, currency: parsedBudget.requested ? "CHF" as const : null, perPerson: parsedBudget.perPerson, calibrationLabel: null };
   const secondaryIntent = explicit.secondaryIntent ?? (includes(text, ["date", "in ruhe reden"]) ? "QUIET_CONVERSATION" : null);
   const budgetRows = understood.requirements.filter(row => row.dimension === "BUDGET");
@@ -114,11 +117,12 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
     intentCompatibility: primaryIntent ? "COMPATIBLE" as const : "UNKNOWN" as const, occasion: explicit.occasion ?? (text.includes("date") ? "DATE" : null),
     moods: explicit.moods ?? (positiveQuiet ? ["CALM"] : []), targetCity: requestedCity ?? authority.authorizedCity, requirements: understood.requirements,
     dateTime: dateContext,
-    group: explicit.group ?? { ...parsedGroup, adultPresent: parsedGroup.adultPresent || (parsedGroup.minimumAge !== null && parsedGroup.minimumAge >= 18) || null, companionType: parsedGroup.companionType ?? semanticSituation, ...understood.group },
+    group: { ...(explicit.group ?? { ...parsedGroup, adultPresent: parsedGroup.adultPresent || (parsedGroup.minimumAge !== null && parsedGroup.minimumAge >= 18) || null, companionType: parsedGroup.companionType ?? semanticSituation, ...understood.group }),
+      ...(understanding?.knownAgesPartial && explicit.group?.minimumAge == null ? { minimumAge: null } : {}) },
     budget: { ...requestedBudget, calibrationLabel: calibration ? `${calibration.policy}:${calibration.level}` : requestedBudget.calibrationLabel },
     stayDuration: explicit.stayDuration ?? understood.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: [...new Set([...contextUnresolved, ...(!primaryIntent ? ["CORE_INTENT"] : [])])].sort(),
     locationAuthority: { explicitTargetWins: true as const, authorizedCity: authority.authorizedCity, deviceCityUsed: false, state: contextUnresolved.has("LOCATION_REQUEST_UNVERIFIED") ? "UNKNOWN" as const : "KNOWN" as const },
-    limitations: primaryIntent ? [] : ["CORE_INTENT_REQUIRES_CLARIFICATION"], rawTextPersisted: false as const,
+    limitations: [...(primaryIntent ? [] : ["CORE_INTENT_REQUIRES_CLARIFICATION"]), ...(understanding?.knownAgesPartial ? ["PARTICIPANT_AGE_CONTEXT_PARTIAL"] : [])], rawTextPersisted: false as const,
   };
   return deepFreeze(DecisionProductContextSchema.parse(withContentHash(body, "interpretationHash")));
 }
@@ -139,7 +143,7 @@ function contextApplies(row: ContextRow, context: DecisionProductContext): boole
   // A scoped World statement may count only if the request positively proves
   // its scope. In particular, "my four-year-old daughter" plus adult present
   // proves mixed ages; it does not prove legal guardianship or an area/event.
-  if (c.ageContext && (c.ageContext !== "MIXED_AGES" || context.group.minimumAge === null || !context.group.adultPresent)) return false;
+  if (c.ageContext && (c.ageContext !== "MIXED_AGES" || context.group.minimumAge === null || context.group.minimumAge >= 18 || !context.group.adultPresent)) return false;
   if (c.accompaniment && !(c.accompaniment === "ADULT" && context.group.adultPresent
     || c.accompaniment === "GROUP" && context.group.size !== null && context.group.size >= 2
     || c.accompaniment === "ALONE" && context.group.size === 1)) return false;
@@ -398,8 +402,15 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   // entire venue without knowing that the user's visit matches its scope.
   const universalAgeRules = ageRules.length > 0 && ageRules.every((rule) => rule && typeof rule === "object" && rule.appliesFromTime === null && (!Array.isArray(rule.days) || rule.days.length === 0) && rule.area === null && rule.event === null);
   const age = context.group.minimumAge;
-  const knownAgeSuitability = age !== null && universalAgeRules;
-  const ageAllowed = knownAgeSuitability && ageRules.some((rule) => rule && typeof rule === "object" && ((rule.mode === "NO_MINIMUM") || (typeof rule.minimumAge === "number" && (age >= rule.minimumAge || (rule.mode === "UNACCOMPANIED_MINIMUM" && context.group.adultPresent)))));
+  const partialAge = context.limitations.includes("PARTICIPANT_AGE_CONTEXT_PARTIAL");
+  const knownMinimum = requirements.flatMap(row => row.value?.kind === "AGE" ? [row.value.minimumAge] : []);
+  const knownTooYoung = partialAge && knownMinimum.length > 0 && universalAgeRules && !ageRules.some(rule => rule && typeof rule === "object"
+    && (rule.mode === "NO_MINIMUM" || typeof rule.minimumAge === "number" && (Math.min(...knownMinimum) >= rule.minimumAge || rule.mode === "UNACCOMPANIED_MINIMUM" && context.group.adultPresent)));
+  if (knownTooYoung) failed.push("AGE_OR_LEGAL");
+  else if (partialAge && universalAgeRules && !ageRules.some(rule => rule && typeof rule === "object" && rule.mode === "NO_MINIMUM")) unknownHard.push("AGE_OR_LEGAL");
+  const noMinimum = universalAgeRules && ageRules.some(rule => rule && typeof rule === "object" && rule.mode === "NO_MINIMUM");
+  const knownAgeSuitability = noMinimum || age !== null && universalAgeRules;
+  const ageAllowed = knownAgeSuitability && ageRules.some((rule) => rule && typeof rule === "object" && ((rule.mode === "NO_MINIMUM") || (typeof rule.minimumAge === "number" && (age !== null && age >= rule.minimumAge || (rule.mode === "UNACCOMPANIED_MINIMUM" && context.group.adultPresent)))));
   if (knownAgeSuitability && !ageAllowed) failed.push("AGE_OR_LEGAL");
   for (const [index, requirement] of requirements.entries()) {
     if (requirement.importance !== "HARD") continue;

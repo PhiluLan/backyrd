@@ -103,7 +103,7 @@ type DecisionProductRequest = {
   requestId: string;
   idempotencyKey: string;
   naturalLanguage: string;
-  explicit: { targetCity?: string | null; moods?: string[] };
+  explicit: { targetCity?: string | null; targetCitySource?: "USER_SELECTED" | "PROFILE_DEFAULT"; moods?: string[] };
   alternativeRequested: boolean;
   previouslyPresentedCandidateIds: string[];
   rejectedCandidateIds: string[];

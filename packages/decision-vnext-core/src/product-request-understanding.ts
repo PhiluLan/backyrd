@@ -48,7 +48,7 @@ export type ProductBudgetRequirement = Infer<typeof budgetValue>;
 export type ProductTimeRequirement = Infer<typeof timeValue>;
 export type ProductUnderstanding = {
   readonly contractVersion: typeof PRODUCT_UNDERSTANDING_VERSION; readonly policyVersion: typeof PRODUCT_UNDERSTANDING_POLICY;
-  readonly requestHash: string; readonly requirements: readonly ProductRequirement[]; readonly understandingHash: string;
+  readonly requestHash: string; readonly requirements: readonly ProductRequirement[]; readonly understandingHash: string; readonly interpretationSource?: "MEANING_PLAN"; readonly knownAgesPartial?: true;
 };
 export type ProductInterpretation = { readonly request: DecisionProductRequest; readonly understanding: ProductUnderstanding | null };
 const facetDimensions: Readonly<Record<string, readonly string[]>> = {
@@ -144,13 +144,14 @@ function statedAgeNumbers(source: string): ReadonlySet<number> {
   return new Set([...grounded.matchAll(ageNumberLexicon.pattern)].map(match => ageNumberLexicon!.values.get(match[0])!).filter(number => number <= 120));
 }
 
-export function parseModelRequirements(value: unknown, text: string): readonly ProductRequirement[] {
+export function parseModelRequirements(value: unknown, text: string, maximumEvidenceLength: 240 | 2000 = 240): readonly ProductRequirement[] {
+  if (![240, 2000].includes(maximumEvidenceLength)) throw new Error("product_understanding_evidence_limit_invalid");
   if (!Array.isArray(value) || value.length > 12) throw new Error("product_understanding_bounds_invalid");
   let sourceAgeNumbers: ReadonlySet<number> | null = null;
   const parsed = value.map(input => {
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("product_understanding_requirement_invalid");
     const { evidence, ...body } = input as Record<string, unknown>;
-    if (typeof evidence !== "string" || evidence.trim().length < 1 || evidence.length > 240 || !text.includes(evidence)) throw new Error("product_understanding_evidence_invalid");
+    if (typeof evidence !== "string" || evidence.trim().length < 1 || evidence.length > maximumEvidenceLength || !text.includes(evidence)) throw new Error("product_understanding_evidence_invalid");
     // Provider-only age lists are minimized before cache or transport. No age
     // list, source quote or evidence offset crosses that persistence boundary.
     const minimizeValue = (rawValue: unknown): unknown => {
@@ -256,15 +257,19 @@ export function decodeRequirementCache(value: unknown): readonly ProductRequirem
     return validateRequirement({ dimension: row[0], importance: row[1], operator: row[2], origin: row[3], interpretationState: row[4], value: row[5], alternatives: row[6], group: row[7], ...(row.length === 9 ? { condition: row[8] } : {}) });
   }));
 }
-export function bindProductUnderstanding(request: DecisionProductRequest, requirements: readonly ProductRequirement[]): ProductUnderstanding {
+export function bindProductUnderstanding(request: DecisionProductRequest, requirements: readonly ProductRequirement[], interpretationSource?: "MEANING_PLAN", knownAgesPartial?: true): ProductUnderstanding {
   if (requirements.length > 12 || requirements.filter(r => r.dimension === "AGE").length > 1) throw new Error("product_understanding_bounds_invalid");
-  const body = { contractVersion: PRODUCT_UNDERSTANDING_VERSION, policyVersion: PRODUCT_UNDERSTANDING_POLICY, requestHash: contentHash(request), requirements: requirements.map(validateRequirement) };
+  if (interpretationSource !== undefined && interpretationSource !== "MEANING_PLAN") throw new Error("product_understanding_source_invalid");
+  if (knownAgesPartial !== undefined && (knownAgesPartial !== true || interpretationSource !== "MEANING_PLAN")) throw new Error("product_understanding_source_invalid");
+  const body = { contractVersion: PRODUCT_UNDERSTANDING_VERSION, policyVersion: PRODUCT_UNDERSTANDING_POLICY, requestHash: contentHash(request), requirements: requirements.map(validateRequirement), ...(interpretationSource ? { interpretationSource } : {}), ...(knownAgesPartial ? { knownAgesPartial } : {}) };
   return deepFreeze({ ...body, understandingHash: contentHash(body) });
 }
 export function validateProductUnderstanding(value: ProductUnderstanding, request: DecisionProductRequest): ProductUnderstanding {
   if (!value || value.contractVersion !== PRODUCT_UNDERSTANDING_VERSION || value.policyVersion !== PRODUCT_UNDERSTANDING_POLICY || !Array.isArray(value.requirements) || value.requirements.length > 12
-    || Object.keys(value).sort().join() !== ["contractVersion", "policyVersion", "requestHash", "requirements", "understandingHash"].sort().join()) throw new Error("product_understanding_binding_invalid");
-  const expected = bindProductUnderstanding(request, value.requirements);
+    || Object.keys(value).sort().join() !== ["contractVersion", "policyVersion", "requestHash", "requirements", "understandingHash", ...(Object.hasOwn(value, "interpretationSource") ? ["interpretationSource"] : []), ...(Object.hasOwn(value, "knownAgesPartial") ? ["knownAgesPartial"] : [])].sort().join()) throw new Error("product_understanding_binding_invalid");
+  if (Object.hasOwn(value, "interpretationSource") && value.interpretationSource !== "MEANING_PLAN") throw new Error("product_understanding_source_invalid");
+  if (Object.hasOwn(value, "knownAgesPartial") && value.knownAgesPartial !== true) throw new Error("product_understanding_source_invalid");
+  const expected = bindProductUnderstanding(request, value.requirements, value.interpretationSource, value.knownAgesPartial);
   if (expected.requestHash !== value.requestHash || expected.understandingHash !== value.understandingHash) throw new Error("product_understanding_binding_invalid");
   return expected;
 }
@@ -300,6 +305,14 @@ const dimensionValues: Readonly<Record<string, readonly object[]>> = {
   WAITING: [typed("WAITING", { maximumMinutes: intJson(0, 1440), comparison: enumJson(["LT", "LTE"]) })],
   SETTING: [typed("SETTING", { environment: enumJson(["INDOOR", "OUTDOOR", "COVERED_OUTDOOR"]) })],
 };
+/** Mapping chooses only canonical values. Modality, scope and relationships
+ * belong to the immutable meaning graph and are assigned by the server. */
+export const PRODUCT_MODEL_MEANING_TARGET_SCHEMA = { anyOf: Object.entries(dimensionValues)
+  .filter(([dimension]) => dimension !== "AGE" && dimension !== "COMPANY")
+  .flatMap(([dimension, values]) => values.map(value => objectJson({
+    dimension: { type: "string", const: dimension }, value,
+  }))) };
+
 // Discriminate by dimension in the provider schema too. Arbitrary facet keys,
 // values or a company-shaped value in an atmosphere requirement are impossible
 // in schema-conforming output; the runtime still revalidates every boundary.
@@ -360,11 +373,13 @@ export function canonicalRequestedCity(city: string): string {
 /** Requested destination is distinct from the subsequently authorized retrieval area.
  * Explicit UI selection keeps precedence; origin/reference cities never redirect it. */
 export function requestedProductCity(understanding: ProductUnderstanding | null | undefined, request: DecisionProductRequest): string | null {
-  if (request.explicit.targetCity) return canonicalRequestedCity(request.explicit.targetCity);
+  const fallback = request.explicit.targetCity ? canonicalRequestedCity(request.explicit.targetCity) : null;
+  if (fallback && (request.explicit.targetCitySource !== "PROFILE_DEFAULT" || understanding?.interpretationSource !== "MEANING_PLAN")) return fallback;
   const rows = understanding ? validateProductUnderstanding(understanding, request).requirements.filter(r => r.dimension === "LOCATION"
     && r.operator === "REQUIRE" && !r.condition && r.importance !== "PREFERRED"
     && !(r.value?.kind === "LOCATION" && r.value.role && r.value.role !== "DESTINATION")) : [];
-  if (!rows.length || rows.some(r => r.group || r.interpretationState !== "UNDERSTOOD" || r.value?.kind !== "LOCATION" || !r.value.city)) return null;
+  if (!rows.length) return fallback;
+  if (rows.some(r => r.group || r.interpretationState !== "UNDERSTOOD" || r.value?.kind !== "LOCATION" || !r.value.city)) return null;
   const cities = [...new Set(rows.map(r => canonicalRequestedCity((r.value as Infer<typeof locationValue>).city!)))];
   return cities.length === 1 ? cities[0]! : null;
 }
@@ -455,6 +470,7 @@ export function projectProductUnderstanding(understanding: ProductUnderstanding 
   }
   const duration = single("DURATION");
   if (group && request.explicit.group && Object.entries(group).some(([key, value]) => value !== null
+    && !(key === "minimumAge" && understanding?.knownAgesPartial && typeof value === "number" && typeof request.explicit.group!.minimumAge === "number" && request.explicit.group!.minimumAge <= value)
     && (key !== "adultPresent" || company?.kind === "COMPANY" && company.adultPresent !== null || adultFromAge)
     && request.explicit.group![key as keyof typeof group] !== value)) unresolved.add("GROUP_CONTEXT_CONFLICT");
   if (budget && request.explicit.budget && Object.entries(budget).some(([key, value]) => key !== "calibrationLabel" && request.explicit.budget![key as keyof typeof budget] !== value)) unresolved.add("BUDGET_CONTEXT_CONFLICT");

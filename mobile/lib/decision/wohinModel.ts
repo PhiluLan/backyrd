@@ -13,9 +13,9 @@ export function createWohinRequest(input: { query: string; city: string; request
     requestId: input.requestId,
     idempotencyKey: input.requestId,
     naturalLanguage,
-    // The profile city is location authority, never an inferred preference.
+    // The profile city is a fallback, not a deliberate destination choice.
     // No guided choices or client-side intent interpretation enter this request.
-    explicit: { targetCity },
+    explicit: { targetCity, targetCitySource: "PROFILE_DEFAULT" },
     alternativeRequested: false,
     previouslyPresentedCandidateIds: [],
     rejectedCandidateIds: [],

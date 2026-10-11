@@ -316,6 +316,7 @@ function productTargetCity(request: DecisionProductRequest, understanding?: Prod
   const destination = requestedProductCity(understanding, request);
   if (destination) return destination;
   if (understanding?.requirements.some(r => r.dimension === "LOCATION" && r.importance !== "PREFERRED")) throw new Error("product_target_area_requires_clarification");
+  if (understanding?.interpretationSource === "MEANING_PLAN") throw new Error("product_target_area_required");
   const normalized = request.naturalLanguage.normalize("NFKC").toLocaleLowerCase("de-CH");
   if (normalized.includes("zürich") || normalized.includes("zurich")) return "Zurich";
   if (normalized.includes("basel")) return "Basel";

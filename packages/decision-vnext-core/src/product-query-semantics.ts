@@ -1,3 +1,5 @@
+import { contentHash } from "./canonical.js";
+import type { ProductRequirement } from "./product-request-understanding.js";
 import { ATTRIBUTE_DEFINITIONS, REGISTRY_HASH, type PriceLevel } from "@backyrd/world-knowledge-core";
 
 // The prompt and validator are projections of the canonical World registry,
@@ -91,4 +93,31 @@ export function calibrateChfMealCeiling(amountMinor: number, comparison: "LT" | 
   const band = PRODUCT_CHF_MEAL_PRICE_BANDS.find(row => row.maximumWholeFrancs === null || wholeFrancs <= row.maximumWholeFrancs)!;
   return Object.freeze({ policy: PRODUCT_CHF_MEAL_PRICE_POLICY, level: band.level, ordinal: band.ordinal,
     levels: Object.freeze(PRODUCT_CHF_MEAL_PRICE_BANDS.filter(row => row.ordinal <= band.ordinal).map(row => row.level)) });
+}
+
+export type ProductRequirementFacet = { readonly key: string; readonly value: string; readonly role: "REQUIRED" | "PREFERRED" | "EXCLUDED"; readonly group: string | null };
+export function projectRequirementFacets(requirements: readonly ProductRequirement[]): readonly ProductRequirementFacet[] {
+  const facets = new Map<string, ProductRequirementFacet>();
+  const add = (facet: ProductRequirementFacet) => facets.set(contentHash(facet), facet);
+  for (const [index, requirement] of requirements.entries()) {
+    if (requirement.condition || requirement.operator === "ALLOW" || requirement.interpretationState !== "UNDERSTOOD") continue;
+    const value = requirement.value;
+    if (value?.kind === "FACET") {
+      const branches = requirement.group ? requirements.filter(other => other.group === requirement.group) : [requirement];
+      const completeGroup = branches.every(other => !other.condition && other.interpretationState === "UNDERSTOOD"
+        && other.operator === requirement.operator && other.importance === requirement.importance && other.dimension === requirement.dimension
+        && other.value?.kind === "FACET" && other.value.key.split(".")[0] === value.key.split(".")[0]);
+      const role = requirement.operator === "EXCLUDE" ? "EXCLUDED"
+        : requirement.importance === "PREFERRED" || !completeGroup || value.key.startsWith("context.") || value.key === "operation.price_level" ? "PREFERRED" : "REQUIRED";
+      if (role === "EXCLUDED" && !value.key.startsWith("classification.")) continue;
+      // Keep group in the identity: the same value can satisfy several ORs.
+      add({ key: value.key, value: value.value, role, group: role === "REQUIRED" ? requirement.group ?? `G${index + 1}` : null });
+    } else if (requirement.operator === "REQUIRE" && !requirement.group) {
+      if (value?.kind === "COMPANY" && value.companionType && validWorldPreference("context.visit_situations", value.companionType))
+        add({ key: "context.visit_situations", value: value.companionType, role: "PREFERRED", group: null });
+      if (value?.kind === "TIME" && value.dayPhase)
+        add({ key: "context.typical_dayparts", value: value.dayPhase, role: "PREFERRED", group: null });
+    }
+  }
+  return [...facets.values()];
 }
