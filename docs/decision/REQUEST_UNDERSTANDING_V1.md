@@ -1194,3 +1194,80 @@ Intermediate 4.13 and final 4.14 runs are reported separately below. Source/buil
 fingerprints identify each run; final privacy changes cannot be represented as if
 an earlier live run had executed them. All live inputs are synthetic; store:false,
 call/token/deadline/cost bounds and the existing authorized key handling remain.
+
+### Bound results and remaining errors
+
+| Tested candidate and suite | PASS | PARTIAL | FAIL | ERROR | Calls | p50 / p95 ms | Estimated USD |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4.13, broad context (160) | 157 | — | 3 | 0 | 162 | 6069 / 8650 | 0.068608820 |
+| 4.13, typed requirements (24) | 23 | — | 1 | 0 | 24 | 5227 / 7383 | 0.009099505 |
+| 4.13, roles (24) | 24 | — | 0 | 0 | 24 | 5089 / 6548 | 0.008878130 |
+| 4.13, repeated independent cases (20) | 14 | 3 | 1 | 2 | 22 | see local bound transport report | 0.012179645 |
+| **4.14 final, repeated independent cases (20)** | **15** | **4** | **1** | **0** | **20** | **7084 / 9572** | **0.010873230** |
+
+4.13 precedes reference-label minimization and the public municipality boundary.
+Its broad score improves from the previous 140/160 to 157/160, including the
+harness authority correction; do not attribute those 17 extra passes to Luna.
+The three remaining failures are a completely omitted destination, missing
+COFFEE intent in “Kein Restaurant, lieber ein Café”, and an invented activity
+intent for “Noch keine Idee für eine Unternehmung”. The requirement failure is
+an accessibility request emitted as OTHER UNSUPPORTED instead of ACCESS. Its
+hard unknown remains safely unconfirmed; the frozen oracle still fails it.
+
+The final 4.14 independent regression compares with 4.12's 1 PASS / 5 PARTIAL /
+14 FAIL / 0 ERROR on exactly the same 20 inputs and rubric. The final 15/4/1/0
+score is an independent agent assessment after case disclosure, not a new blind
+holdout or human acceptance. The reviewer had also examined implementation
+changes. Final remaining discrepancies:
+
+- round2-03: short duration is ESSENTIAL rather than the rubric's preference;
+- round2-07: group-level OR semantics cannot be established with confidence;
+- round2-10: outdoor seats in dry weather become a step-free entrance in dry
+  weather (FAIL: wrong meaning, not a missing storage field);
+- round2-17: ambiguous “16” remains OTHER/null and an experience type is added;
+- round2-19: an unrequested NIGHT preference is added to an EVENING request.
+
+The four named-reference fingerprints were checked against the source names.
+Identity is retained, but route/POI resolution is still unverified. The final
+run had 20 provider calls, no retries and no technical errors. Intermediate
+4.13's two independent errors were a conflicting date shape and source evidence
+not occurring literally; they were not silently counted as semantic failures.
+Total across the five live runs: 248 synthetic cases, 252 calls, estimated
+USD 0.109639330. Rates are standard-token estimates affected by cache reuse,
+not invoices or evidence of stable production latency.
+
+Bindings (module aggregates use the existing six-module evaluation convention):
+
+- 4.13 source: `0fca0057764c61e57b666721228430ce69ce7186b9b8396f5da0c56aeadbdfd7`
+- 4.13 build: `1b67a1f9d628fc17481d70fb420989ea652bf52a7a9fec584d0312711d7a5592`
+- 4.13 harness aggregate: `69170629b8144716574e5b1c095a21e09550703374329ae668ff750080aedc44`
+- provider prompt/schema: `2b3cfb35353f92b245b7b50952b832ef5aa5689a948b5104227f4ee8acf3af3c`
+- 4.14 source: `b7f3fbbdc6c3a36b9d122cd1e66afd9fbdf5c21ff2fcc302a002d9150bc1227d`
+- 4.14 build: `75c389ba319b87fe0abcdf3a847cafa39a252908456dd91fa990af72907b2d95`
+- 4.14 model-evaluation harness: `1dcdd9d1151101ba14b54d75278743f1f28053c7989601f9af2552e551a2eeab`
+- 4.14 independent adapter: `73d9c8884eea5fef3e1ec650a835aa8fe02326b4bb4461034174ad0c4ecd34d9`
+- municipality source module: `ff6cf878f7d973e097c8fe3c24e2dd85bd09b0f4b8407e6f3f7c9cc236490064`
+- original independent inputs: `d583dface3c73af0a3fe97e7946a89b8b65f17d2c23ca91e67399b5a93737f5a`
+- original independent rubric: `a75c0e23109857273ad1c3e968666bd98ab58e4cefa10bfb43c229ada6d77e78`
+- final reviewer JSON: `99f5ac57f504ccf4af73baa7e6cb01ca43f11caa388ff97b7a1b215079f0aa23`
+- final reviewer Markdown: `7cc094c5302e5904194a5d3f8202414f4c52eac0a63ee230e408f85baff13779`
+
+Runs started from the dirty worktree based on c2d4361; final source/build hashes
+were checked against the committed implementation bb4dc82. Local private reports
+are in `/private/tmp/backyrd-lossless/`, final independent observations/review
+in its `final/` subdirectory. No key or provider raw response is committed.
+Local validation: 184 Decision tests, 33 Product contracts, 17 focused Web
+contracts, Decision and affected Web TypeScript, single-route validation,
+client-secret boundary, canonical secret scan and diff checks pass. The broader
+local Web suite lacked an unrelated installed map dependency; the full Web gate
+passed in CI with locked dependencies on bb4dc82. Semantic acceptance remains OPEN.
+
+The bb4dc82 CI run (38128834470) passed Decision, Mobile, Web and repository
+checks. Product certification reached its final Edge Runtime probe after the
+real Mobile export, browser journey, iOS OTA input and artifact sealing passed,
+then received the local gateway's startup 502. An isolated bundle using Edge
+Runtime v1.73.13 returned the required safe 503 response. The readiness probe
+now permits at most four retries of that exact gateway message; a persistent
+502 or any wrong product response still fails. Six closure/readiness tests
+verify successful startup and failure boundaries. This is a CI startup fix,
+not a relaxation of production eligibility or a deployment approval.
