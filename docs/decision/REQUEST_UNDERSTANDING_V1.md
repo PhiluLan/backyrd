@@ -1365,7 +1365,9 @@ Final Luna/low live results, using synthetic inputs:
 The 15-case failure adds ALLOW INDOOR and ALLOW OUTDOOR to an explicit
 “inside/outside does not matter”; its public context introduces no seating
 constraint or preference. The repeat failure adds a redundant EAT_DRINK
-requirement to the French lunch request. Both strict failures remain reported;
+requirement to the French lunch request. Independent review also found that this
+repeat loses the explicit lunch/midday meaning: generic EAT_DRINK alone is not a
+complete interpretation. Both strict failures remain reported;
 the oracle was not changed again to improve these scores. The original English
 outdoor/access confusion did not recur in the final suite or repeats. This is
 bounded regression evidence, not a guarantee against future hallucinations.
@@ -1400,3 +1402,5 @@ Intermediate 4.18, before the independent-garden correction, scored 155 PASS /
 Its independent review scored 9/8/2/1. These runs have a different source/build
 binding and are not final-4.19 broad regression results. No final 160-case
 rerun or launch-quality certification is claimed.
+
+Final independent review SHA256: JSON `c5fb7157263788398316b4bd227b5cee87615a3eabca49537316aa33930119d7`; Markdown `06bbc0da4905262aa6b151730a9933deead21ebac62d825a328661d0878d80ca`.
