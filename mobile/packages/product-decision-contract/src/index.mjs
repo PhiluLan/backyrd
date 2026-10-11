@@ -37,6 +37,57 @@ export const DECISION_PRODUCT_CONTRACT = Object.freeze({
   transportFunction: "decision-v13",
 });
 
+/** Bounded transport validation only; semantic eligibility remains server-side. */
+export function validateDecisionProductRequirements(rows) {
+  const fail = "decision_requirements_invalid";
+  const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
+  const keys = (value, required, optional = []) => {
+    requireValue(object(value) && required.every(key => Object.hasOwn(value, key)) && Object.keys(value).every(key => [...required, ...optional].includes(key)), fail);
+  };
+  const choice = (value, values) => requireValue(values.includes(value), fail);
+  const integer = (value, min, max) => requireValue(Number.isInteger(value) && value >= min && value <= max, fail);
+  const nullable = (value, check) => { if (value !== null) check(value); };
+  const place = value => requireValue(isDecisionPlaceName(value), fail);
+  const reference = value => { keys(value, ["referenceHash", "kind", "city", "relation"]); requireValue(typeof value.referenceHash === "string" && HASH.test(value.referenceHash), fail); choice(value.kind, ["RAIL_STATION", "CINEMA", "UNRESOLVED_PLACE"]); nullable(value.city, place); choice(value.relation, ["NEAR", "AT", "RETURN_TO"]); };
+  const checkValue = value => {
+    requireValue(object(value), fail);
+    switch (value.kind) {
+      case "AGE": keys(value, ["kind", "minimumAge"]); integer(value.minimumAge, 0, 120); break;
+      case "COMPANY": keys(value, ["kind", "size", "adultPresent", "companionType"]); nullable(value.size, v => integer(v, 1, 100)); choice(value.adultPresent, [null, true, false]); choice(value.companionType, [null, "ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"]); break;
+      case "BUDGET":
+        keys(value, ["kind", "amountMinor", "currency", "comparison", "basis"], ["includes"]); integer(value.amountMinor, 0, 10000000); choice(value.currency, ["CHF", "EUR", "USD", "GBP", "UNSPECIFIED"]); choice(value.comparison, ["LT", "LTE"]); choice(value.basis, ["PER_PERSON", "TOTAL", "UNSPECIFIED"]);
+        if (value.includes !== undefined) { requireValue(Array.isArray(value.includes) && value.includes.length <= 6, fail); value.includes.forEach(v => choice(v, ["TIP", "MATERIALS", "TRANSPORT", "ADMISSION", "FOOD", "DRINKS"])); } break;
+      case "LOCATION": keys(value, ["kind", "city"], ["role", "reference", "cityHash"]); nullable(value.city, place); if (value.cityHash !== undefined) requireValue(typeof value.cityHash === "string" && HASH.test(value.cityHash), fail); if (value.role !== undefined) choice(value.role, ["DESTINATION", "ORIGIN", "REFERENCE"]); if (value.reference !== undefined) reference(value.reference); break;
+      case "MOBILITY": keys(value, ["kind", "maximumMeters", "maximumMinutes", "mode"], ["reference"]); nullable(value.maximumMeters, v => integer(v, 1, 1000000)); nullable(value.maximumMinutes, v => integer(v, 1, 1440)); choice(value.mode, ["WALK", "BIKE", "TRANSIT", "CAR", "UNSPECIFIED"]); if (value.reference !== undefined) reference(value.reference); break;
+      case "TIME":
+        keys(value, ["kind", "openNow", "localDate", "relativeDays", "weekday", "dayPhase", "clockTime"], ["monthDay", "clockRelation", "event", "reference"]); choice(value.openNow, [true, false]); nullable(value.localDate, v => requireValue(typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v), fail)); nullable(value.relativeDays, v => integer(v, 0, 366)); nullable(value.weekday, v => integer(v, 0, 6)); choice(value.dayPhase, [null, "MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"]); nullable(value.clockTime, v => requireValue(typeof v === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v), fail));
+        if (value.monthDay !== undefined) requireValue(typeof value.monthDay === "string" && /^\d{2}-\d{2}$/.test(value.monthDay), fail);
+        if (value.clockRelation !== undefined) choice(value.clockRelation, ["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"]);
+        if (value.event !== undefined) { keys(value.event, ["event", "relation"]); choice(value.event.event, ["CHECK_IN", "WORK_END", "FILM_START", "MEAL_END"]); choice(value.event.relation, ["AFTER", "BEFORE"]); }
+        if (value.reference !== undefined) reference(value.reference); break;
+      case "NEED": keys(value, ["kind", "code", "scope"], ["accessArea"]); choice(value.code, ["HALAL", "DAIRY_FREE", "LACTOSE_FREE", "VEGAN", "VEGETARIAN", "ALCOHOL_FREE", "DOG_ACCESS", "STEP_FREE_ENTRANCE", "STEP_FREE_ROUTE", "CHANGING_TABLE", "GUIDED_TOUR", "BOAT_RIDE", "RIVERSIDE_WALK", "POTTERY"]); choice(value.scope, ["ONE_PERSON", "GROUP", "UNSPECIFIED"]); if (value.accessArea !== undefined) { choice(value.accessArea, ["OUTDOOR_ONLY_ACCEPTABLE"]); choice(value.code, ["DOG_ACCESS"]); } break;
+      case "DURATION": keys(value, ["kind", "minutes", "length"]); nullable(value.minutes, v => integer(v, 1, 1440)); choice(value.length, [null, "SHORT", "MEDIUM", "LONG"]); requireValue((value.minutes === null) !== (value.length === null), fail); break;
+      case "SETTING": keys(value, ["kind", "environment"]); choice(value.environment, ["INDOOR", "OUTDOOR", "COVERED_OUTDOOR"]); break;
+      case "WAITING": keys(value, ["kind", "maximumMinutes", "comparison"]); integer(value.maximumMinutes, 0, 1440); choice(value.comparison, ["LT", "LTE"]); break;
+      case "FACET": keys(value, ["kind", "key", "value"]); requireValue(typeof value.key === "string" && value.key.length <= 80 && ID.test(value.key) && typeof value.value === "string" && value.value.length <= 80 && ID.test(value.value), fail); break;
+      default: throw new DecisionProductUnavailableError(fail);
+    }
+  };
+  requireValue(Array.isArray(rows) && rows.length <= 12, fail);
+  for (const row of rows) {
+    keys(row, ["dimension", "importance", "operator", "origin", "interpretationState", "value", "alternatives", "group"], ["condition"]);
+    choice(row.dimension, ["EXPERIENCE", "ATMOSPHERE", "COMPANY", "AGE", "TIME", "LOCATION", "MOBILITY", "BUDGET", "ACCESS", "OFFERING", "OTHER", "WAITING", "SETTING", "DURATION"]); choice(row.importance, ["HARD", "ESSENTIAL", "PREFERRED"]); choice(row.operator, ["REQUIRE", "EXCLUDE", "ALLOW"]); choice(row.origin, ["EXPLICIT", "INFERRED"]); choice(row.interpretationState, ["UNDERSTOOD", "AMBIGUOUS", "UNSUPPORTED"]);
+    requireValue(row.group === null || typeof row.group === "string" && /^R[1-9][0-9]?$/.test(row.group), fail); if (row.condition !== undefined) choice(row.condition, ["RAIN", "DRY"]);
+    requireValue(Array.isArray(row.alternatives) && row.alternatives.length <= 3, fail);
+    requireValue(row.interpretationState === "UNDERSTOOD" ? row.value !== null && row.alternatives.length === 0 : row.value === null && (row.interpretationState === "AMBIGUOUS" ? row.alternatives.length >= 2 : row.alternatives.length === 0), fail);
+    nullable(row.value, checkValue); row.alternatives.forEach(checkValue);
+  }
+}
+
+export function isDecisionPlaceName(value) {
+  return typeof value === "string" && value.length >= 1 && value.length <= 80 && /^[\p{L}\p{N}][\p{L}\p{M}\p{N} .’'()&/\-]*$/u.test(value);
+}
+
 export function validateDecisionProductRequest(value) {
   exactKeys(value, ["contractVersion", "requestId", "idempotencyKey", "naturalLanguage", "explicit", "alternativeRequested", "previouslyPresentedCandidateIds", "rejectedCandidateIds"], "decision_request_shape_invalid");
   requireValue(value.contractVersion === REQUEST_VERSION, "decision_request_version_unknown");
@@ -45,7 +96,8 @@ export function validateDecisionProductRequest(value) {
   requireValue(value.explicit && typeof value.explicit === "object" && !Array.isArray(value.explicit), "decision_explicit_invalid");
   const allowedExplicit = new Set(["primaryIntent", "secondaryIntent", "occasion", "moods", "targetCity", "hardConstraints", "softPreferences"]);
   requireValue(Object.keys(value.explicit).every((key) => allowedExplicit.has(key)), "decision_explicit_authority_invalid");
-  for (const key of ["primaryIntent", "secondaryIntent", "occasion", "targetCity"]) if (key in value.explicit) requireValue(value.explicit[key] === null || ID.test(value.explicit[key]), `decision_explicit_${key}_invalid`);
+  for (const key of ["primaryIntent", "secondaryIntent", "occasion"]) if (key in value.explicit) requireValue(value.explicit[key] === null || ID.test(value.explicit[key]), `decision_explicit_${key}_invalid`);
+  if ("targetCity" in value.explicit) requireValue(value.explicit.targetCity === null || isDecisionPlaceName(value.explicit.targetCity), "decision_explicit_targetCity_invalid");
   for (const key of ["moods", "hardConstraints", "softPreferences"]) if (key in value.explicit) stringArray(value.explicit[key], key === "moods" ? 12 : 30, `decision_explicit_${key}_invalid`);
   requireValue(typeof value.alternativeRequested === "boolean", "decision_alternative_invalid");
   stringArray(value.previouslyPresentedCandidateIds, 50, "decision_previous_candidates_invalid");
@@ -57,7 +109,7 @@ function validatePresentation(value, spotId) {
   exactKeys(value, ["contractVersion", "spotId", "name", "locality", "categoryLabel", "imageUrl", "sourceHash", "presentationHash"], "decision_presentation_shape_invalid");
   requireValue(value.contractVersion === PRESENTATION_VERSION && value.spotId === spotId, "decision_presentation_binding_invalid");
   requireValue(typeof value.name === "string" && value.name.trim().length > 0 && value.name.length <= 160, "decision_presentation_name_invalid");
-  requireValue(value.locality === null || ID.test(value.locality), "decision_presentation_locality_invalid");
+  requireValue(value.locality === null || isDecisionPlaceName(value.locality), "decision_presentation_locality_invalid");
   requireValue(value.categoryLabel === null || typeof value.categoryLabel === "string", "decision_presentation_category_invalid");
   requireValue(value.imageUrl === null || (typeof value.imageUrl === "string" && value.imageUrl.startsWith("https://")), "decision_presentation_image_invalid");
   requireValue(HASH.test(value.sourceHash) && HASH.test(value.presentationHash), "decision_presentation_hash_invalid");
@@ -91,6 +143,7 @@ export function validateDecisionProductResponse(value, request) {
   requireValue(ID.test(value.decisionId) && HASH.test(value.requestHash) && HASH.test(value.envelopeHash) && HASH.test(value.resultHash), "decision_response_identity_invalid");
   requireValue(value.rankingPolicyVersion === RANKING_VERSION && HASH.test(value.rankingPolicyHash), "decision_ranking_authority_invalid");
   requireValue(value.interpretation && typeof value.interpretation === "object" && HASH.test(value.interpretation.interpretationHash), "decision_interpretation_invalid");
+  if (value.interpretation.contractVersion === "backyrd.decision-vnext.product-context@1.1") validateDecisionProductRequirements(value.interpretation.requirements);
   requireValue(Array.isArray(value.candidates) && value.candidates.length <= 40, "decision_candidates_invalid");
   const seen = new Set(); value.candidates.forEach((candidate) => validateCandidate(candidate, seen));
   requireValue(value.primaryCandidateId === null || (ID.test(value.primaryCandidateId) && seen.has(value.primaryCandidateId)), "decision_primary_candidate_invalid");

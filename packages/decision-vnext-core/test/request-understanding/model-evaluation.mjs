@@ -1,5 +1,5 @@
 import { performance } from 'node:perf_hooks';
-import { contentHash, bindProductUnderstanding, createDecisionProductAiIntentInterpreter, resolveDecisionProductContext, PRODUCT_AI_INTENT_INTERPRETER_VERSION, PRODUCT_UNDERSTANDING_VERSION, PRODUCT_UNDERSTANDING_POLICY } from '../../dist/index.js';
+import { contentHash, bindProductUnderstanding, requestedProductCity, createDecisionProductAiIntentInterpreter, resolveDecisionProductContext, PRODUCT_AI_INTENT_INTERPRETER_VERSION, PRODUCT_UNDERSTANDING_VERSION, PRODUCT_UNDERSTANDING_POLICY } from '../../dist/index.js';
 import { PRODUCT_QUERY_CATALOG_HASH } from '../../dist/product-query-semantics.js';
 import { validateCorpus, evaluateUnderstandingCase } from './evaluate.mjs';
 
@@ -84,9 +84,9 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
     let result;
     try {
       const request = { contractVersion: 'backyrd.decision-vnext.product-request@1.0', requestId: caseId, idempotencyKey: caseId, naturalLanguage: text,
-        explicit: { targetCity: corpus.reference.profileCity }, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+        explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
       const interpreted = await run(request, actor, controller.signal);
-      const context = resolveDecisionProductContext(interpreted.request, { authorizedCity: corpus.reference.profileCity, serverTime: corpus.reference.serverTime }, interpreted.understanding);
+      const context = resolveDecisionProductContext(interpreted.request, { authorizedCity: requestedProductCity(interpreted.understanding, interpreted.request) ?? corpus.reference.profileCity, serverTime: corpus.reference.serverTime }, interpreted.understanding);
       onInterpretation?.(caseId, interpreted.understanding?.requirements ?? [], context);
       result = evaluateUnderstandingCase(family.expected, context);
       if (requirementOracle) {
@@ -110,7 +110,7 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
   }
   const latencies = cases.filter(c => c.outcome !== 'NOT_RUN').map(c => c.latencyMs);
   return {
-    contractVersion: 'backyrd.request-understanding-model-evaluation@1.1', transport: fetchImpl ? 'FIXTURE' : 'LIVE_OPENAI',
+    contractVersion: 'backyrd.request-understanding-model-evaluation@1.2', transport: fetchImpl ? 'FIXTURE' : 'LIVE_OPENAI',
     scope: corpus.scope, reviewStatus: corpus.reviewStatus, launchVerdict: 'NOT_EVALUATED', productionRead: false, productionWritten: false,
     model, responseModels: [...responseModels].sort(), promptHash, interpreterVersion: PRODUCT_AI_INTENT_INTERPRETER_VERSION,
     understandingVersion: PRODUCT_UNDERSTANDING_VERSION, policyVersion: PRODUCT_UNDERSTANDING_POLICY, catalogHash: PRODUCT_QUERY_CATALOG_HASH,

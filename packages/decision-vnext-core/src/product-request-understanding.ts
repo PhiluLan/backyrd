@@ -1,30 +1,39 @@
+import { isPublicMunicipality } from "./product-public-municipalities.js";
 import { accessibilityRequestScope } from "./product-request-context.js";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { schema, type Infer } from "./schema.js";
 import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.1" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v10" as const;
+export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.2" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v12" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
-const budgetValue = schema.object({ kind: schema.literal("BUDGET"), amountMinor: schema.number({ integer: true, min: 0, max: 10_000_000 }), currency: schema.enum(["CHF", "EUR", "USD", "GBP", "UNSPECIFIED"] as const), comparison: schema.enum(["LT", "LTE"] as const), basis: schema.enum(["PER_PERSON", "TOTAL", "UNSPECIFIED"] as const) });
-const timeValue = schema.object({ kind: schema.literal("TIME"), openNow: schema.boolean(), localDate: nullable(schema.string({ pattern: /^\d{4}-\d{2}-\d{2}$/ })), relativeDays: nullable(schema.number({ integer: true, min: 0, max: 366 })), weekday: nullable(schema.number({ integer: true, min: 0, max: 6 })), dayPhase: nullable(schema.enum(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const)), clockTime: nullable(schema.string({ pattern: /^(?:[01]\d|2[0-3]):[0-5]\d$/ })), monthDay: schema.optional(schema.string({ pattern: /^\d{2}-\d{2}$/ })), clockRelation: schema.optional(schema.enum(["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"] as const)) });
-const locationValue = schema.object({ kind: schema.literal("LOCATION"), city: schema.enum(["Basel", "Zurich", "UNSUPPORTED_CITY"] as const) });
-const mobilityValue = schema.object({ kind: schema.literal("MOBILITY"), maximumMeters: nullable(schema.number({ integer: true, min: 1, max: 1_000_000 })), maximumMinutes: nullable(schema.number({ integer: true, min: 1, max: 1440 })), mode: schema.enum(["WALK", "BIKE", "TRANSIT", "CAR", "UNSPECIFIED"] as const) });
+export const REQUEST_NEED_CODES = ["HALAL", "DAIRY_FREE", "LACTOSE_FREE", "VEGAN", "VEGETARIAN", "ALCOHOL_FREE", "DOG_ACCESS", "STEP_FREE_ENTRANCE", "STEP_FREE_ROUTE", "CHANGING_TABLE", "GUIDED_TOUR", "BOAT_RIDE", "RIVERSIDE_WALK", "POTTERY"] as const;
+const priceComponents = ["TIP", "MATERIALS", "TRANSPORT", "ADMISSION", "FOOD", "DRINKS"] as const;
+const eventNames = ["CHECK_IN", "WORK_END", "FILM_START", "MEAL_END"] as const;
+export const requestedPlaceName = schema.string({ min: 1, max: 80, pattern: /^[\p{L}\p{N}][\p{L}\p{M}\p{N} .’'()&/\-]*$/u });
+const placeReference = schema.object({ referenceHash: schema.string({ pattern: /^[0-9a-f]{64}$/ }), kind: schema.enum(["RAIL_STATION", "CINEMA", "UNRESOLVED_PLACE"] as const), city: nullable(requestedPlaceName), relation: schema.enum(["NEAR", "RETURN_TO", "AT"] as const) });
+const eventReference = schema.object({ event: schema.enum(eventNames), relation: schema.enum(["AFTER", "BEFORE"] as const) });
+const needValue = schema.object({ kind: schema.literal("NEED"), code: schema.enum(REQUEST_NEED_CODES), scope: schema.enum(["ONE_PERSON", "GROUP", "UNSPECIFIED"] as const), accessArea: schema.optional(schema.enum(["OUTDOOR_ONLY_ACCEPTABLE"] as const)) });
+const durationValue = schema.object({ kind: schema.literal("DURATION"), minutes: nullable(schema.number({ integer: true, min: 1, max: 1440 })), length: nullable(schema.enum(["SHORT", "MEDIUM", "LONG"] as const)) });
+const budgetValue = schema.object({ kind: schema.literal("BUDGET"), amountMinor: schema.number({ integer: true, min: 0, max: 10_000_000 }), currency: schema.enum(["CHF", "EUR", "USD", "GBP", "UNSPECIFIED"] as const), comparison: schema.enum(["LT", "LTE"] as const), basis: schema.enum(["PER_PERSON", "TOTAL", "UNSPECIFIED"] as const), includes: schema.optional(schema.array(schema.enum(priceComponents), { max: 6 })) });
+const timeValue = schema.object({ kind: schema.literal("TIME"), openNow: schema.boolean(), localDate: nullable(schema.string({ pattern: /^\d{4}-\d{2}-\d{2}$/ })), relativeDays: nullable(schema.number({ integer: true, min: 0, max: 366 })), weekday: nullable(schema.number({ integer: true, min: 0, max: 6 })), dayPhase: nullable(schema.enum(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const)), clockTime: nullable(schema.string({ pattern: /^(?:[01]\d|2[0-3]):[0-5]\d$/ })), monthDay: schema.optional(schema.string({ pattern: /^\d{2}-\d{2}$/ })), clockRelation: schema.optional(schema.enum(["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"] as const)), event: schema.optional(eventReference), reference: schema.optional(placeReference) });
+const locationValue = schema.object({ kind: schema.literal("LOCATION"), city: nullable(requestedPlaceName), role: schema.optional(schema.enum(["DESTINATION", "ORIGIN", "REFERENCE"] as const)), cityHash: schema.optional(schema.string({ pattern: /^[0-9a-f]{64}$/ })), reference: schema.optional(placeReference) });
+const mobilityValue = schema.object({ kind: schema.literal("MOBILITY"), maximumMeters: nullable(schema.number({ integer: true, min: 1, max: 1_000_000 })), maximumMinutes: nullable(schema.number({ integer: true, min: 1, max: 1440 })), mode: schema.enum(["WALK", "BIKE", "TRANSIT", "CAR", "UNSPECIFIED"] as const), reference: schema.optional(placeReference) });
 const facetValue = schema.object({ kind: schema.literal("FACET"), key: schema.string({ min: 1, max: 80 }), value: schema.string({ min: 1, max: 80 }) });
 const waitingValue = schema.object({ kind: schema.literal("WAITING"), maximumMinutes: schema.number({ integer: true, min: 0, max: 1440 }), comparison: schema.enum(["LT", "LTE"] as const) });
 const settingValue = schema.object({ kind: schema.literal("SETTING"), environment: schema.enum(["INDOOR", "OUTDOOR", "COVERED_OUTDOOR"] as const) });
-const valueSchema = schema.union([ageValue, companyValue, budgetValue, timeValue, locationValue, mobilityValue, facetValue, waitingValue, settingValue] as const);
-const requirementSchema = schema.object({
-  dimension: schema.enum(["EXPERIENCE", "ATMOSPHERE", "COMPANY", "AGE", "TIME", "LOCATION", "MOBILITY", "BUDGET", "ACCESS", "OFFERING", "OTHER", "WAITING", "SETTING"] as const),
+const valueSchema = schema.union([ageValue, companyValue, budgetValue, timeValue, locationValue, mobilityValue, facetValue, waitingValue, settingValue, needValue, durationValue] as const);
+export const productRequirementSchema = schema.object({
+  dimension: schema.enum(["EXPERIENCE", "ATMOSPHERE", "COMPANY", "AGE", "TIME", "LOCATION", "MOBILITY", "BUDGET", "ACCESS", "OFFERING", "OTHER", "WAITING", "SETTING", "DURATION"] as const),
   importance: schema.enum(["HARD", "ESSENTIAL", "PREFERRED"] as const), operator: schema.enum(["REQUIRE", "EXCLUDE", "ALLOW"] as const),
   origin: schema.enum(["EXPLICIT", "INFERRED"] as const), interpretationState: schema.enum(["UNDERSTOOD", "AMBIGUOUS", "UNSUPPORTED"] as const),
   value: nullable(valueSchema), alternatives: schema.array(valueSchema, { max: 3 }),
   group: nullable(schema.string({ pattern: /^R[1-9][0-9]?$/ })), condition: schema.optional(schema.enum(["RAIN", "DRY"] as const)),
 });
-export type ProductRequirement = Infer<typeof requirementSchema>;
+export type ProductRequirement = Infer<typeof productRequirementSchema>;
 export type ProductBudgetRequirement = Infer<typeof budgetValue>;
 export type ProductTimeRequirement = Infer<typeof timeValue>;
 export type ProductUnderstanding = {
@@ -36,20 +45,27 @@ const facetDimensions: Readonly<Record<string, readonly string[]>> = {
   EXPERIENCE: ["classification.", "purpose."], ATMOSPHERE: ["context.atmosphere"], OFFERING: ["offering."],
 };
 function validateRequirement(input: unknown): ProductRequirement {
-  const row = requirementSchema.parse(input);
+  const row = productRequirementSchema.parse(input);
   if (row.interpretationState === "UNDERSTOOD" ? row.value === null || row.alternatives.length > 0
     : row.value !== null || (row.interpretationState === "AMBIGUOUS" ? row.alternatives.length < 2 : row.alternatives.length > 0)) throw new Error("product_understanding_state_invalid");
   if (row.operator === "ALLOW" && row.importance !== "PREFERRED") throw new Error("product_understanding_allow_strength_invalid");
   for (const value of [...(row.value ? [row.value] : []), ...row.alternatives]) {
     if (value.kind === "FACET") {
       if (!facetDimensions[row.dimension]?.some(prefix => value.key.startsWith(prefix)) || !validWorldPreference(value.key, value.value)) throw new Error("product_understanding_facet_invalid");
+    } else if (value.kind === "NEED") {
+      if (value.accessArea && value.code !== "DOG_ACCESS") throw new Error("product_understanding_access_area_invalid");
+      if (!["ACCESS", "OFFERING", "EXPERIENCE", "OTHER"].includes(row.dimension)) throw new Error("product_understanding_need_dimension_invalid");
     } else if (value.kind !== row.dimension) throw new Error("product_understanding_dimension_invalid");
     if (value.kind === "MOBILITY" && value.maximumMeters === null && value.maximumMinutes === null && value.mode === "UNSPECIFIED") throw new Error("product_understanding_mobility_empty");
+    if (value.kind === "DURATION" && (value.minutes === null) === (value.length === null)) throw new Error("product_understanding_duration_invalid");
+    if (value.kind === "LOCATION" && (value.city === "UNSUPPORTED_CITY" || !value.city && !value.cityHash && !value.reference)) throw new Error("product_understanding_location_empty");
+    if (value.kind === "LOCATION" && value.city !== null && !isPublicMunicipality(value.city)) throw new Error("product_understanding_city_not_public");
+    if ("reference" in value && value.reference?.city !== null && value.reference?.city !== undefined && !isPublicMunicipality(value.reference.city)) throw new Error("product_understanding_city_not_public");
     if (value.kind === "TIME") {
-      if (!value.openNow && [value.localDate, value.relativeDays, value.weekday, value.dayPhase, value.clockTime, value.monthDay ?? null].every(v => v === null)) throw new Error("product_understanding_time_empty");
+      if (!value.openNow && [value.localDate, value.relativeDays, value.weekday, value.dayPhase, value.clockTime, value.monthDay ?? null, value.event ?? null].every(v => v === null)) throw new Error("product_understanding_time_empty");
       if (value.clockRelation && value.clockTime === null) throw new Error("product_understanding_clock_relation_invalid");
       if (value.monthDay && (!Number.isFinite(Date.parse(`2000-${value.monthDay}T12:00:00Z`)) || new Date(`2000-${value.monthDay}T12:00:00Z`).toISOString().slice(5, 10) !== value.monthDay)) throw new Error("product_understanding_month_day_invalid");
-      if (value.openNow && (value.localDate !== null || value.relativeDays !== null && value.relativeDays !== 0 || value.weekday !== null || value.monthDay !== undefined || value.dayPhase !== null || value.clockTime !== null)) throw new Error("product_understanding_date_conflict");
+      if (value.openNow && (value.localDate !== null || value.relativeDays !== null && value.relativeDays !== 0 || value.weekday !== null || value.monthDay !== undefined || value.dayPhase !== null || value.clockTime !== null || value.event !== undefined)) throw new Error("product_understanding_date_conflict");
       if ([value.localDate, value.relativeDays, value.weekday, value.monthDay ?? null].filter(v => v !== null).length > 1) throw new Error("product_understanding_date_conflict");
       if (value.localDate && (!Number.isFinite(Date.parse(`${value.localDate}T12:00:00Z`)) || new Date(`${value.localDate}T12:00:00Z`).toISOString().slice(0, 10) !== value.localDate)) throw new Error("product_understanding_date_invalid");
     }
@@ -81,6 +97,31 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
       const minimized = minimizeValue(value);
       if (!minimized || typeof minimized !== "object" || Array.isArray(minimized)) return minimized;
       const row = { ...minimized } as Record<string, unknown>;
+      for (const key of ["role", "reference", "event", "accessArea"]) if (row[key] === null) delete row[key];
+      if (Array.isArray(row.includes) && row.includes.length === 0) delete row.includes;
+      const groundedName = (name: unknown) => {
+        if (typeof name !== "string") return;
+        const canonical = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
+        if (!canonical(evidence).includes(canonical(name))) throw new Error("product_understanding_place_not_grounded");
+      };
+      if (row.kind === "LOCATION") {
+        groundedName(row.city);
+        if (typeof row.city === "string" && !isPublicMunicipality(row.city)) {
+          row.cityHash = contentHash({ text, name: row.city }); row.city = null;
+        }
+        if (row.role === "DESTINATION") delete row.role;
+      }
+      if (row.reference && typeof row.reference === "object") {
+        const ref = schema.object({ name: requestedPlaceName, city: nullable(requestedPlaceName), relation: schema.enum(["NEAR", "RETURN_TO", "AT"] as const) }).parse(row.reference);
+        groundedName(ref.name); groundedName(ref.city);
+        // Grounding proves source attribution, not that a name is public. No
+        // arbitrary label/address crosses the cache or public-context boundary.
+        // The request-bound fingerprint preserves identity for a future verified
+        // Places resolver; it is pseudonymous, not proof of anonymization.
+        row.reference = { referenceHash: contentHash({ text, name: ref.name }),
+          kind: /bahnhof|railway station|train station/iu.test(ref.name) ? "RAIL_STATION" : /kino|cinema/iu.test(ref.name) ? "CINEMA" : "UNRESOLVED_PLACE",
+          city: ref.city !== null && isPublicMunicipality(ref.city) ? ref.city : null, relation: ref.relation };
+      }
       if (row.kind === "TIME") {
         if (row.monthDay === null) delete row.monthDay;
         if (row.clockRelation === null || row.clockRelation === "AT") delete row.clockRelation;
@@ -140,21 +181,24 @@ const nullableJson = (value: object) => ({ anyOf: [value, { type: "null" }] });
 const intJson = (minimum: number, maximum: number) => ({ type: "integer", minimum, maximum });
 const objectJson = (properties: Record<string, object>) => ({ type: "object", additionalProperties: false, required: Object.keys(properties), properties });
 const typed = (kind: string, properties: Record<string, object>) => objectJson({ kind: { type: "string", const: kind }, ...properties });
+const placeJson = objectJson({ name: { type: "string", minLength: 1, maxLength: 80 }, city: nullableJson({ type: "string", minLength: 1, maxLength: 80 }), relation: enumJson(["NEAR", "RETURN_TO", "AT"]) });
+const needJson = typed("NEED", { code: enumJson(REQUEST_NEED_CODES), scope: enumJson(["ONE_PERSON", "GROUP", "UNSPECIFIED"]), accessArea: nullableJson(enumJson(["OUTDOOR_ONLY_ACCEPTABLE"])) });
 const modelValues = [
   typed("AGE", { ages: { type: "array", minItems: 1, maxItems: 16, items: intJson(0, 120) } }),
   typed("COMPANY", { size: nullableJson(intJson(1, 100)), adultPresent: nullableJson({ type: "boolean" }), companionType: nullableJson(enumJson(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"])) }),
-  typed("BUDGET", { amountMinor: intJson(0, 10_000_000), currency: enumJson(["CHF", "EUR", "USD", "GBP", "UNSPECIFIED"]), comparison: enumJson(["LT", "LTE"]), basis: enumJson(["PER_PERSON", "TOTAL", "UNSPECIFIED"]) }),
-  typed("TIME", { openNow: { type: "boolean" }, localDate: nullableJson({ type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }), relativeDays: nullableJson(intJson(0, 366)), weekday: nullableJson(intJson(0, 6)), dayPhase: nullableJson(enumJson(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"])), clockTime: nullableJson({ type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$" }), monthDay: nullableJson({ type: "string", pattern: "^\\d{2}-\\d{2}$" }), clockRelation: nullableJson(enumJson(["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"])) }),
-  typed("LOCATION", { city: enumJson(["Basel", "Zurich", "UNSUPPORTED_CITY"]) }),
-  typed("MOBILITY", { maximumMeters: nullableJson(intJson(1, 1_000_000)), maximumMinutes: nullableJson(intJson(1, 1440)), mode: enumJson(["WALK", "BIKE", "TRANSIT", "CAR", "UNSPECIFIED"]) }),
+  typed("BUDGET", { amountMinor: intJson(0, 10_000_000), currency: enumJson(["CHF", "EUR", "USD", "GBP", "UNSPECIFIED"]), comparison: enumJson(["LT", "LTE"]), basis: enumJson(["PER_PERSON", "TOTAL", "UNSPECIFIED"]), includes: { type: "array", maxItems: 6, items: enumJson(priceComponents) } }),
+  typed("TIME", { openNow: { type: "boolean" }, localDate: nullableJson({ type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }), relativeDays: nullableJson(intJson(0, 366)), weekday: nullableJson(intJson(0, 6)), dayPhase: nullableJson(enumJson(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"])), clockTime: nullableJson({ type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$" }), monthDay: nullableJson({ type: "string", pattern: "^\\d{2}-\\d{2}$" }), clockRelation: nullableJson(enumJson(["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"])), event: nullableJson(objectJson({ event: enumJson(eventNames), relation: enumJson(["AFTER", "BEFORE"]) })), reference: nullableJson(placeJson) }),
+  typed("LOCATION", { city: nullableJson({ type: "string", minLength: 1, maxLength: 80 }), role: nullableJson(enumJson(["DESTINATION", "ORIGIN", "REFERENCE"])), reference: nullableJson(placeJson) }),
+  typed("MOBILITY", { maximumMeters: nullableJson(intJson(1, 1_000_000)), maximumMinutes: nullableJson(intJson(1, 1440)), mode: enumJson(["WALK", "BIKE", "TRANSIT", "CAR", "UNSPECIFIED"]), reference: nullableJson(placeJson) }),
 ];
 const dimensionValues: Readonly<Record<string, readonly object[]>> = {
   AGE: [modelValues[0]!], COMPANY: [modelValues[1]!], BUDGET: [modelValues[2]!],
   TIME: [modelValues[3]!], LOCATION: [modelValues[4]!], MOBILITY: [modelValues[5]!],
   ...Object.fromEntries(Object.entries(facetDimensions).map(([dimension, prefixes]) => [dimension,
-    PRODUCT_QUERY_CATALOG.filter(field => prefixes.some(prefix => field.key.startsWith(prefix))).map(field =>
-      typed("FACET", { key: { type: "string", const: field.key }, value: enumJson(field.values) })),
-  ])), ACCESS: [], OTHER: [],
+    [...PRODUCT_QUERY_CATALOG.filter(field => prefixes.some(prefix => field.key.startsWith(prefix))).map(field =>
+      typed("FACET", { key: { type: "string", const: field.key }, value: enumJson(field.values) })), ...(["EXPERIENCE", "OFFERING"].includes(dimension) ? [needJson] : [])],
+  ])), ACCESS: [needJson], OTHER: [needJson],
+  DURATION: [typed("DURATION", { minutes: nullableJson(intJson(1, 1440)), length: nullableJson(enumJson(["SHORT", "MEDIUM", "LONG"])) })],
   WAITING: [typed("WAITING", { maximumMinutes: intJson(0, 1440), comparison: enumJson(["LT", "LTE"]) })],
   SETTING: [typed("SETTING", { environment: enumJson(["INDOOR", "OUTDOOR", "COVERED_OUTDOOR"]) })],
 };
@@ -204,14 +248,31 @@ export function calendarExclusionSatisfied(requirement: ProductRequirement, sele
   const value = requirement.value;
   if (!selectedDate || requirement.condition || requirement.dimension !== "TIME" || requirement.operator !== "EXCLUDE"
     || requirement.interpretationState !== "UNDERSTOOD" || requirement.group !== null || value?.kind !== "TIME"
-    || value.openNow || value.clockTime !== null || value.dayPhase !== null) return false;
+    || value.openNow || value.clockTime !== null || value.dayPhase !== null || value.event || value.reference) return false;
   const excluded = explicitCalendarDate(value, localToday);
   return excluded !== null && excluded !== selectedDate;
 }
 
-/** Project only supported context into the stable public v1 shape. Rich values
- * remain typed internally; an unrepresentable value is never rounded or erased
- * into a claim of complete understanding. World eligibility is separate. */
+/** Normalize known city aliases without converting arbitrary places to a catalog city. */
+export function canonicalRequestedCity(city: string): string {
+  const normalized = city.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().trim();
+  return ({ zurich: "Zurich", basel: "Basel", genf: "Geneva", geneve: "Geneva", geneva: "Geneva" } as Readonly<Record<string, string>>)[normalized] ?? city.trim();
+}
+
+/** Requested destination is distinct from the subsequently authorized retrieval area.
+ * Explicit UI selection keeps precedence; origin/reference cities never redirect it. */
+export function requestedProductCity(understanding: ProductUnderstanding | null | undefined, request: DecisionProductRequest): string | null {
+  if (request.explicit.targetCity) return canonicalRequestedCity(request.explicit.targetCity);
+  const rows = understanding ? validateProductUnderstanding(understanding, request).requirements.filter(r => r.dimension === "LOCATION"
+    && r.operator === "REQUIRE" && !r.condition && r.importance !== "PREFERRED"
+    && !(r.value?.kind === "LOCATION" && r.value.role && r.value.role !== "DESTINATION")) : [];
+  if (!rows.length || rows.some(r => r.group || r.interpretationState !== "UNDERSTOOD" || r.value?.kind !== "LOCATION" || !r.value.city)) return null;
+  const cities = [...new Set(rows.map(r => canonicalRequestedCity((r.value as Infer<typeof locationValue>).city!)))];
+  return cities.length === 1 ? cities[0]! : null;
+}
+
+/** Project representable fields without discarding the full typed requirements.
+ * Interpretation and World verification are deliberately separate. */
 export function projectProductUnderstanding(understanding: ProductUnderstanding | null | undefined, request: DecisionProductRequest, localToday: string, authorizedCity: string) {
   const requirements = understanding ? validateProductUnderstanding(understanding, request).requirements : [];
   const unresolved = new Set<string>();
@@ -235,43 +296,71 @@ export function projectProductUnderstanding(understanding: ProductUnderstanding 
     }
     return rows[0]!.value;
   };
-  const age = single("AGE"); const company = single("COMPANY"); const money = single("BUDGET"); const time = single("TIME");
+  const age = single("AGE"); const company = single("COMPANY"); let money = single("BUDGET"); let time = single("TIME");
+  // An unspecified price basis does not erase a shared known amount/currency.
+  // Keep the alternatives and unresolved flag; it is still not comparable to a venue price.
+  if (money === null) {
+    const rows = forDimension("BUDGET").filter(r => r.importance !== "PREFERRED" && r.operator === "REQUIRE" && !r.condition && !r.group);
+    const alternatives = rows.length === 1 ? rows[0]!.alternatives : [];
+    if (alternatives.length >= 2 && alternatives.every(v => v.kind === "BUDGET")) {
+      const values = alternatives as ProductBudgetRequirement[]; const first = values[0]!;
+      if (values.every(v => v.amountMinor === first.amountMinor && v.currency === first.currency && v.comparison === first.comparison && contentHash(v.includes ?? []) === contentHash(first.includes ?? []))) money = { ...first, basis: "UNSPECIFIED" };
+    }
+  }
+  // Several bounds of the same visit can share a date without one overwriting
+  // the other. Full start/end bounds remain in requirements, never flattened away.
+  const times = forDimension("TIME").filter(r => r.importance !== "PREFERRED");
+  if (time === null && times.length && times.every(r => !r.condition && !r.group && r.operator === "REQUIRE" && r.interpretationState === "UNDERSTOOD" && r.value?.kind === "TIME")) {
+    const values = times.map(r => r.value as ProductTimeRequirement);
+    const dates = [...new Set(values.map(v => explicitCalendarDate(v, localToday)).filter(v => v !== null))];
+    const phases = [...new Set(values.map(v => v.dayPhase).filter(v => v !== null))];
+    if (dates.length <= 1 && phases.length <= 1 && !values.some(v => v.openNow)) {
+      time = { ...(values.find(v => explicitCalendarDate(v, localToday)) ?? values[0]!), dayPhase: phases[0] ?? null };
+      unresolved.delete("TIME_REQUEST_UNRESOLVED");
+    }
+  }
+  const adultFromAge = age?.kind === "AGE" && age.minimumAge >= 18;
   const group = age !== undefined || company !== undefined ? {
     ...(age !== undefined ? { minimumAge: age?.kind === "AGE" ? age.minimumAge : null } : {}),
     ...(company !== undefined ? { size: company?.kind === "COMPANY" ? company.size ?? (company.companionType === "ALONE" ? 1 : null) : null,
-      adultPresent: company?.kind === "COMPANY" ? company.adultPresent === true : false,
-      companionType: company?.kind === "COMPANY" ? company.companionType : null } : {}),
+      adultPresent: adultFromAge ? true : company?.kind === "COMPANY" ? company.adultPresent : null,
+      companionType: company?.kind === "COMPANY" ? company.companionType : null } : adultFromAge ? { adultPresent: true } : {}),
   } : undefined;
   if (company?.kind === "COMPANY" && company.size !== null) unresolved.add("GROUP_CAPACITY_UNVERIFIED");
   const budget = money !== undefined ? {
-    state: money?.kind === "BUDGET" && money.currency === "CHF" && money.amountMinor % 100 === 0 ? "KNOWN" as const : "UNKNOWN" as const,
-    amount: money?.kind === "BUDGET" && money.amountMinor % 100 === 0 ? money.amountMinor / 100 : null,
-    currency: money?.kind === "BUDGET" && money.currency === "CHF" ? "CHF" as const : null,
-    perPerson: money?.kind === "BUDGET" && money.basis === "PER_PERSON", calibrationLabel: null,
+    state: money?.kind === "BUDGET" && money.currency !== "UNSPECIFIED" ? "KNOWN" as const : "UNKNOWN" as const,
+    amount: money?.kind === "BUDGET" ? money.amountMinor / 100 : null,
+    currency: money?.kind === "BUDGET" && money.currency !== "UNSPECIFIED" ? money.currency : null,
+    perPerson: money?.kind === "BUDGET" && money.basis !== "UNSPECIFIED" ? money.basis === "PER_PERSON" : null, calibrationLabel: null,
   } : undefined;
-  if (money !== undefined && !(money?.kind === "BUDGET" && money.currency === "CHF" && money.amountMinor % 100 === 0 && money.comparison === "LTE" && money.basis === "PER_PERSON")) unresolved.add("BUDGET_SEMANTICS_UNVERIFIED");
+  if (money !== undefined && !(money?.kind === "BUDGET" && money.currency === "CHF" && money.basis === "PER_PERSON" && !(money.includes?.length))) unresolved.add("BUDGET_SEMANTICS_UNVERIFIED");
   let dateTime: DecisionProductRequest["explicit"]["dateTime"];
   if (time !== undefined) {
-    const date = new Date(`${localToday}T12:00:00Z`);
-    if (time?.kind === "TIME") {
-      if (time.relativeDays !== null) date.setUTCDate(date.getUTCDate() + time.relativeDays);
-      if (time.weekday !== null) date.setUTCDate(date.getUTCDate() + (time.weekday - date.getUTCDay() + 7) % 7);
-      dateTime = { state: "KNOWN", localDate: explicitCalendarDate(time, localToday) ?? date.toISOString().slice(0, 10), dayPhase: time.dayPhase, timeZone: "Europe/Zurich" };
-      if (time.clockTime !== null) unresolved.add("PRECISE_TIME_UNVERIFIED");
-    } else dateTime = { state: "UNKNOWN", localDate: null, dayPhase: null, timeZone: "Europe/Zurich" };
+    const localDate = time?.kind === "TIME" ? explicitCalendarDate(time, localToday) ?? (time.openNow ? localToday : null) : null;
+    dateTime = { state: localDate ? "KNOWN" : "UNKNOWN", localDate, dayPhase: time?.kind === "TIME" ? time.dayPhase : null, timeZone: "Europe/Zurich" };
   }
-  const location = single("LOCATION");
-  const normalizeCity = (city: string) => city.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
-  if (location !== undefined && !(location?.kind === "LOCATION" && normalizeCity(location.city) === normalizeCity(authorizedCity))) unresolved.add("LOCATION_REQUEST_UNVERIFIED");
+  if (times.some(r => [r.value, ...r.alternatives].some(v => v?.kind === "TIME" && (v.clockTime !== null || v.event)))) unresolved.add("PRECISE_TIME_UNVERIFIED");
+  const locations = forDimension("LOCATION").filter(r => r.importance !== "PREFERRED" && !(r.value?.kind === "LOCATION" && r.value.role === "ORIGIN"));
+  for (const r of locations) {
+    const value = r.value;
+    if (r.condition || r.group || r.operator !== "REQUIRE" || r.interpretationState !== "UNDERSTOOD" || value?.kind !== "LOCATION"
+      || !value.city || canonicalRequestedCity(value.city).toLowerCase() !== canonicalRequestedCity(authorizedCity).toLowerCase() || value.reference) unresolved.add("LOCATION_REQUEST_UNVERIFIED");
+  }
   for (const requirement of requirements) {
     if (requirement.importance === "PREFERRED") continue;
-    if (requirement.condition || ["MOBILITY", "OTHER", "WAITING"].includes(requirement.dimension)
-      || requirement.dimension === "SETTING" && !(requirement.group === null && requirement.operator === "REQUIRE" && requirement.value?.kind === "SETTING" && requirement.value.environment === "INDOOR") || requirement.interpretationState !== "UNDERSTOOD") unresolved.add(`${requirement.dimension}_REQUEST_UNRESOLVED`);
+    const value = requirement.value;
+    if (requirement.dimension === "MOBILITY") unresolved.add("DISTANCE_UNVERIFIED");
+    if (value?.kind === "NEED" && !(value.code === "STEP_FREE_ENTRANCE" && requirement.operator === "REQUIRE" && !requirement.group && !requirement.condition)) unresolved.add(`NEED_${value.code}_UNVERIFIED`);
+    if (requirement.condition || ["MOBILITY", "OTHER", "WAITING", "DURATION"].includes(requirement.dimension)
+      || value?.kind === "TIME" && value.reference
+      || requirement.dimension === "SETTING" && !(requirement.group === null && requirement.operator === "REQUIRE" && value?.kind === "SETTING" && value.environment === "INDOOR") || requirement.interpretationState !== "UNDERSTOOD") unresolved.add(`${requirement.dimension}_REQUEST_UNRESOLVED`);
   }
+  const duration = single("DURATION");
   if (group && request.explicit.group && Object.entries(group).some(([key, value]) => value !== null
-    && (key !== "adultPresent" || company?.kind === "COMPANY" && company.adultPresent !== null)
+    && (key !== "adultPresent" || company?.kind === "COMPANY" && company.adultPresent !== null || adultFromAge)
     && request.explicit.group![key as keyof typeof group] !== value)) unresolved.add("GROUP_CONTEXT_CONFLICT");
   if (budget && request.explicit.budget && Object.entries(budget).some(([key, value]) => key !== "calibrationLabel" && request.explicit.budget![key as keyof typeof budget] !== value)) unresolved.add("BUDGET_CONTEXT_CONFLICT");
   if (dateTime && request.explicit.dateTime && contentHash(dateTime) !== contentHash(request.explicit.dateTime)) unresolved.add("TIME_CONTEXT_CONFLICT");
-  return { requirements, group, budget, dateTime, openNow: time?.kind === "TIME" && time.openNow, budgetMentioned: forDimension("BUDGET").length > 0, timeMentioned: forDimension("TIME").length > 0, unresolvedTerms: [...unresolved].sort() };
+  return { requirements, group, budget, dateTime, stayDuration: duration?.kind === "DURATION" ? duration.length : undefined,
+    openNow: time?.kind === "TIME" && time.openNow, budgetMentioned: forDimension("BUDGET").length > 0, timeMentioned: forDimension("TIME").length > 0, unresolvedTerms: [...unresolved].sort() };
 }

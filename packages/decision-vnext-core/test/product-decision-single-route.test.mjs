@@ -35,7 +35,8 @@ test("free-text Sunday coffee resolves the next Zurich Sunday without guided int
   assert.equal(context.dateTime.localDate, "2026-09-20");
   assert.deepEqual(context.softPreferences, ["ATMOSPHERE_QUIET"]);
   const localMidnight = resolveDecisionProductContext(productRequest("Kaffee trinken", "local-midnight"), { authorizedCity: "Basel", serverTime: "2026-09-19T22:30:00.000Z" });
-  assert.equal(localMidnight.dateTime.localDate, "2026-09-20");
+  assert.equal(localMidnight.dateTime.localDate, null);
+  assert.equal(localMidnight.dateTime.state, "UNKNOWN");
 });
 
 test("semantic request context keeps the Swiss day, evening and family signals separate", () => {

@@ -1,5 +1,5 @@
 import { accessibilityRequestScope, hasPositiveQuietRequest } from "./product-request-context.js";
-import { calendarExclusionSatisfied, projectProductUnderstanding, type ProductUnderstanding, type ProductRequirement } from "./product-request-understanding.js";
+import { calendarExclusionSatisfied, canonicalRequestedCity, requestedProductCity, projectProductUnderstanding, type ProductUnderstanding, type ProductRequirement } from "./product-request-understanding.js";
 import {
   ACCEPTED_SOURCE_POLICY, PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, REGISTRY_HASH, REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION, parseWorldKnowledgeSnapshot,
   type WorldKnowledgeReaderPort,
@@ -20,7 +20,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.6" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.7" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -52,7 +52,7 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   const request = DecisionProductRequestSchema.parse(requestValue); const text = normalize(request.naturalLanguage); const explicit = request.explicit;
   const understood = projectProductUnderstanding(understanding, request, requestedLocalDate("", authority.serverTime), authority.authorizedCity);
   const parsedBudget = requestBudget(request.naturalLanguage); const parsedGroup = requestGroup(request.naturalLanguage);
-  const textCity = cityIn(text); const requestedCity = explicit.targetCity ?? textCity; if (requestedCity && requestedCity !== authority.authorizedCity) throw new Error("product_context_location_authority_mismatch");
+  const textCity = understanding?.requirements.some(r => r.dimension === "LOCATION") ? null : cityIn(text); const requestedCity = requestedProductCity(understanding, request) ?? textCity; if (explicit.targetCity && canonicalRequestedCity(explicit.targetCity).toLowerCase() !== canonicalRequestedCity(authority.authorizedCity).toLowerCase()) throw new Error("product_context_location_authority_mismatch");
   const primaryIntent = Object.hasOwn(explicit, "primaryIntent") ? explicit.primaryIntent ?? null : inferProductV1Intent(request.naturalLanguage);
   // Age is a contextual ranking signal, not a demand that every family spot
   // publish an explicit "no minimum age" rule. Known access restrictions are
@@ -68,7 +68,8 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   if (understood.openNow || !understood.timeMentioned && includes(text, ["geöffnet", "offen", "jetzt"])) hard.add("OPEN_NOW");
   if (!understood.timeMentioned && (requestedWeekday(text) >= 0 || includes(text, ["heute", "morgen", "übermorgen", "today", "tomorrow"])) || explicit.dateTime?.localDate) hard.add("OPEN_ON_REQUESTED_DAY");
   if (understood.budget || !understood.budgetMentioned && parsedBudget.requested || explicit.budget?.state === "KNOWN" && explicit.budget.amount !== null) hard.add("BUDGET_MAXIMUM");
-  if (understood.dateTime) hard.add("OPEN_ON_REQUESTED_DAY");
+  if (understood.dateTime?.localDate) hard.add("OPEN_ON_REQUESTED_DAY");
+  for (const r of understood.requirements) if (!r.condition && !r.group && r.operator === "REQUIRE" && r.importance !== "PREFERRED" && r.value?.kind === "NEED" && r.value.code === "STEP_FREE_ENTRANCE") hard.add("ACCESSIBILITY_STEP_FREE");
   if (requestedCity) hard.add("TARGET_LOCATION");
   const quietRequirements = understood.requirements.filter(row => row.value?.kind === "FACET" && row.value.key === "context.atmosphere" && row.value.value === "QUIET");
   const positiveQuiet = quietRequirements.length ? quietRequirements.some(row => !row.condition && row.operator === "REQUIRE") && !quietRequirements.some(row => !row.condition && row.operator === "EXCLUDE") : hasPositiveQuietRequest(text);
@@ -84,16 +85,22 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   if (hasPreciseRequestedTime(request.naturalLanguage)) contextUnresolved.add("PRECISE_TIME_UNVERIFIED");
   if (explicit.budget ? explicit.budget.state === "KNOWN" && !explicit.budget.perPerson
     : !understood.budgetMentioned && parsedBudget.requested && !parsedBudget.representable) contextUnresolved.add("BUDGET_SEMANTICS_UNVERIFIED");
+  const typedPhase = understood.requirements.some(r => [r.value, ...r.alternatives].some(v => v?.kind === "TIME" && v.dayPhase !== null));
+  const literalPhase = typedPhase ? null : (["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const).find(phase => phase === semanticDaypart) ?? (includes(text, ["abend", "evening", "dinner"]) ? "EVENING" : includes(text, ["nacht", "tonight", "night"]) ? "NIGHT" : includes(text, ["nachmittag", "afternoon"]) ? "AFTERNOON" : includes(text, ["mittag", "midday", "lunch"]) ? "MIDDAY" : includes(text, ["frühstück", "am morgen", "morgens", "morning"]) ? "MORNING" : null);
+  const calendarMentioned = requestedWeekday(text) >= 0 || /(?<!\p{L})(?:heute|morgen|übermorgen|today|tomorrow|jetzt|now)(?!\p{L})/u.test(text);
+  const fallbackDate = calendarMentioned && !understood.timeMentioned ? requestedLocalDate(text, authority.serverTime) : null;
+  const dateContext = explicit.dateTime ?? (understood.dateTime ? { ...understood.dateTime, dayPhase: understood.dateTime.dayPhase ?? literalPhase } : { state: fallbackDate ? "KNOWN" as const : "UNKNOWN" as const, localDate: fallbackDate, dayPhase: literalPhase, timeZone: "Europe/Zurich" });
+  if (requestedCity && canonicalRequestedCity(requestedCity).toLowerCase() !== canonicalRequestedCity(authority.authorizedCity).toLowerCase()) contextUnresolved.add("LOCATION_REQUEST_UNVERIFIED");
   const body = {
     contractVersion: PRODUCT_DECISION_VERSIONS.context, resolverVersion: PRODUCT_REQUEST_CONTEXT_VERSION, inputHash: contentHash({ request, authority, ...(understanding ? { understandingHash: understanding.understandingHash } : {}) }),
     primaryIntent, secondaryIntent: explicit.secondaryIntent ?? (includes(text, ["date", "in ruhe reden"]) ? "QUIET_CONVERSATION" : null),
     intentCompatibility: primaryIntent ? "COMPATIBLE" as const : "UNKNOWN" as const, occasion: explicit.occasion ?? (text.includes("date") ? "DATE" : null),
-    moods: explicit.moods ?? (positiveQuiet ? ["CALM"] : []), targetCity: authority.authorizedCity,
-    dateTime: explicit.dateTime ?? understood.dateTime ?? { state: "KNOWN" as const, localDate: requestedLocalDate(text, authority.serverTime), dayPhase: includes(text, ["abend", "evening"]) ? "EVENING" : includes(text, ["nacht", "tonight", "night"]) ? "NIGHT" : includes(text, ["nachmittag", "afternoon"]) ? "AFTERNOON" : includes(text, ["mittag", "midday"]) ? "MIDDAY" : includes(text, ["frühstück", "am morgen", "morgens", "morning"]) ? "MORNING" : semanticDaypart, timeZone: "Europe/Zurich" },
-    group: explicit.group ?? { ...parsedGroup, companionType: parsedGroup.companionType ?? semanticSituation, ...understood.group },
+    moods: explicit.moods ?? (positiveQuiet ? ["CALM"] : []), targetCity: requestedCity ?? authority.authorizedCity, requirements: understood.requirements,
+    dateTime: dateContext,
+    group: explicit.group ?? { ...parsedGroup, adultPresent: parsedGroup.adultPresent || (parsedGroup.minimumAge !== null && parsedGroup.minimumAge >= 18) || null, companionType: parsedGroup.companionType ?? semanticSituation, ...understood.group },
     budget: explicit.budget ?? understood.budget ?? { state: parsedBudget.amount !== null ? "KNOWN" as const : "UNKNOWN" as const, amount: parsedBudget.amount, currency: parsedBudget.requested ? "CHF" as const : null, perPerson: parsedBudget.perPerson, calibrationLabel: null },
-    stayDuration: explicit.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: [...new Set([...contextUnresolved, ...(!primaryIntent ? ["CORE_INTENT"] : [])])].sort(),
-    locationAuthority: { explicitTargetWins: true as const, authorizedCity: authority.authorizedCity, deviceCityUsed: false, state: "KNOWN" as const },
+    stayDuration: explicit.stayDuration ?? understood.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: [...new Set([...contextUnresolved, ...(!primaryIntent ? ["CORE_INTENT"] : [])])].sort(),
+    locationAuthority: { explicitTargetWins: true as const, authorizedCity: authority.authorizedCity, deviceCityUsed: false, state: contextUnresolved.has("LOCATION_REQUEST_UNVERIFIED") ? "UNKNOWN" as const : "KNOWN" as const },
     limitations: primaryIntent ? [] : ["CORE_INTENT_REQUIRES_CLARIFICATION"], rawTextPersisted: false as const,
   };
   return deepFreeze(DecisionProductContextSchema.parse(withContentHash(body, "interpretationHash")));
@@ -203,16 +210,16 @@ function userTasteMatches(snapshot: ProductWorldView, context: DecisionProductCo
 }
 function confirmedClosureForRequestedDate(snapshot: ProductWorldView, context: DecisionProductContext, evaluationAt: string): boolean {
   const state = snapshot.currentStates.find((row) => row.key === "state.current" && row.value && typeof row.value === "object" && !Array.isArray(row.value) && "scope" in row.value && ["SPOT", "VENUE"].includes(String(row.value.scope)));
-  if (!state || snapshot.conflicts.some((row) => row.attributeKeys.includes("state.current")) || !state.validUntil || !context.dateTime.localDate) return false;
+  if (!state || snapshot.conflicts.some((row) => row.attributeKeys.includes("state.current")) || !state.validUntil) return false;
   const value = state.value as { readonly kind?: string };
   if (!["CLOSED", "TEMPORARILY_CLOSED", "AREA_CLOSED"].includes(value.kind ?? "")) return false;
-  const start = Date.parse(`${context.dateTime.localDate}T00:00:00Z`);
+  const start = Date.parse(`${context.dateTime.localDate ?? requestedLocalDate("", evaluationAt)}T00:00:00Z`);
   const from = state.validFrom ? Date.parse(state.validFrom) : Number.NEGATIVE_INFINITY;
   const until = Date.parse(state.validUntil);
   // Without an exact requested hour, only a claim covering the full local day
   // may suppress a future recommendation. A 24h UTC margin is conservative
   // across Swiss daylight-saving changes, never an invented opening time.
-  if (context.dateTime.localDate !== requestedLocalDate("", evaluationAt) || context.dateTime.dayPhase) return from <= start - 86_400_000 && until >= start + 172_800_000;
+  if (context.dateTime.localDate && context.dateTime.localDate !== requestedLocalDate("", evaluationAt) || context.dateTime.dayPhase) return from <= start - 86_400_000 && until >= start + 172_800_000;
   const now = Date.parse(evaluationAt);
   return from <= now && now < until;
 }
@@ -316,7 +323,7 @@ function intervalsMeetDaypart(intervals: readonly { readonly start: string; read
 function assess(snapshot: ProductWorldView, context: DecisionProductContext, queryPlan: WorldQueryPlan, projection: RelevantUserProjection, rejected: readonly string[], evaluationAt: string, requirements: readonly ProductRequirement[] = []): DecisionProductCandidateAssessment {
   const core = intentCoverage(snapshot, context.primaryIntent); const secondary = intentCoverage(snapshot, context.secondaryIntent); const purposeCoverage = primaryPurposeCoverage(snapshot, context.primaryIntent);
   const confirmed: string[] = []; const unknownHard: string[] = []; const failed: string[] = [];
-  if (context.hardConstraints.includes("TARGET_LOCATION")) (snapshot.spot.location.locality === context.targetCity ? confirmed : failed).push("TARGET_LOCATION");
+  if (context.hardConstraints.includes("TARGET_LOCATION")) (snapshot.spot.location.locality !== null && context.targetCity !== null && canonicalRequestedCity(snapshot.spot.location.locality).toLowerCase() === canonicalRequestedCity(context.targetCity).toLowerCase() ? confirmed : failed).push("TARGET_LOCATION");
   if (context.hardConstraints.includes("ACCESSIBILITY_STEP_FREE")) { const row = entry(snapshot, "accessibility.step_free_entrance"); row?.resolution === "KNOWN_TRUE" ? confirmed.push("ACCESSIBILITY_STEP_FREE") : row?.resolution === "KNOWN_FALSE" ? failed.push("ACCESSIBILITY_STEP_FREE") : unknownHard.push("ACCESSIBILITY_STEP_FREE"); }
   if (context.hardConstraints.includes("ACCESSIBILITY_BASIC")) {
     const states = ["accessibility.step_free_entrance", "accessibility.wheelchair_paths", "accessibility.accessible_seating"]
@@ -330,7 +337,11 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
     const comparable = context.budget.state === "KNOWN" && context.budget.perPerson && context.budget.currency === "CHF"
       && range?.currency === context.budget.currency && !context.unresolvedTerms.includes("BUDGET_SEMANTICS_UNVERIFIED");
     maximum === null || context.budget.amount === null || !comparable ? unknownHard.push("BUDGET_MAXIMUM")
-      : maximum <= context.budget.amount ? confirmed.push("BUDGET_MAXIMUM") : failed.push("BUDGET_MAXIMUM");
+      : (() => {
+        const strict = requirements.some(r => r.importance !== "PREFERRED" && !r.condition && !r.group && r.operator === "REQUIRE" && r.value?.kind === "BUDGET" && r.value.comparison === "LT");
+        const fits = strict ? Math.round(maximum * 100) < Math.round(context.budget.amount! * 100) : Math.round(maximum * 100) <= Math.round(context.budget.amount! * 100);
+        (fits ? confirmed : failed).push("BUDGET_MAXIMUM");
+      })();
   }
   if (context.unresolvedTerms.includes("LOCATION_REQUEST_UNVERIFIED")) unknownHard.push("TARGET_LOCATION");
   const indoorSuitability = inferredIndoorSuitability(snapshot.spot.classification.placeTypes ?? []);
@@ -339,7 +350,8 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
       (indoorSuitability === "INDOOR" ? confirmed : indoorSuitability === "OUTDOOR" ? failed : unknownHard).push(`UNDERSTANDING_SETTING_${index + 1}`);
     }
     if (requirement.importance === "HARD" && (requirement.interpretationState !== "UNDERSTOOD"
-      || requirement.condition !== undefined || ["MOBILITY", "OTHER", "WAITING"].includes(requirement.dimension)
+      || requirement.condition !== undefined || ["MOBILITY", "OTHER", "WAITING", "DURATION"].includes(requirement.dimension)
+      || requirement.value?.kind === "NEED" && !(requirement.value.code === "STEP_FREE_ENTRANCE" && requirement.operator === "REQUIRE" && !requirement.group)
       || requirement.dimension === "SETTING" && !(requirement.group === null && requirement.operator === "REQUIRE" && requirement.value?.kind === "SETTING" && requirement.value.environment === "INDOOR") || requirement.value?.kind !== "FACET" && (requirement.group !== null || requirement.operator === "EXCLUDE" && !calendarExclusionSatisfied(requirement, context.dateTime.localDate, requestedLocalDate("", evaluationAt)))
       || requirement.dimension === "BUDGET" && context.unresolvedTerms.includes("BUDGET_CONTEXT_CONFLICT")
       || requirement.dimension === "TIME" && context.unresolvedTerms.some(code => ["TIME_REQUEST_UNRESOLVED", "TIME_CONTEXT_CONFLICT", "PRECISE_TIME_UNVERIFIED"].includes(code))

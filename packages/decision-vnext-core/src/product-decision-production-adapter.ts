@@ -1,4 +1,4 @@
-import type { ProductUnderstanding } from "./product-request-understanding.js";
+import { requestedProductCity, type ProductUnderstanding } from "./product-request-understanding.js";
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -312,8 +312,10 @@ const productProjectionManifest = Object.freeze({
   manifestHash: contentHash({ authority: "CANONICAL_USER_CARD", version: 1 }),
 });
 
-function productTargetCity(request: DecisionProductRequest): string {
-  if (request.explicit.targetCity) return request.explicit.targetCity;
+function productTargetCity(request: DecisionProductRequest, understanding?: ProductUnderstanding | null): string {
+  const destination = requestedProductCity(understanding, request);
+  if (destination) return destination;
+  if (understanding?.requirements.some(r => r.dimension === "LOCATION" && r.importance !== "PREFERRED")) throw new Error("product_target_area_requires_clarification");
   const normalized = request.naturalLanguage.normalize("NFKC").toLocaleLowerCase("de-CH");
   if (normalized.includes("zürich") || normalized.includes("zurich")) return "Zurich";
   if (normalized.includes("basel")) return "Basel";
@@ -427,7 +429,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
   return Object.freeze({
     contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0" as const,
     async evaluate(input: Parameters<DecisionProductCanonicalEvaluationProvider["evaluate"]>[0]) {
-      const targetCity = productTargetCity(input.request);
+      const targetCity = productTargetCity(input.request, input.understanding);
       const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
         p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
         p_target_city: targetCity, p_primary_intent: productRetrievalIntent(input.request),

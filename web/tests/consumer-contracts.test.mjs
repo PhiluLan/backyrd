@@ -276,3 +276,19 @@ test("Event consumer surfaces share localized presentation and never render inte
   assert.doesNotMatch(consumer, /event\.source\.toUpperCase|Mindestalter:|Familiengeeignet:/);
   assert.doesNotMatch(consumer, /Weitere \/ kommende Events/);
 });
+
+test("Web accepts both context versions and preserves bounded typed requirements with fractional money", async () => {
+  const { default: ts } = await import('typescript');
+  const { createHash } = await import('node:crypto');
+  const source = (await read('web/lib/decision-web-api.ts')).replace('"../../mobile/packages/product-decision-contract/src/index.mjs"', JSON.stringify(new URL('mobile/packages/product-decision-contract/src/index.mjs', root).href));
+  const js = ts.transpileModule(`${source}\nexport { validateInterpretation };`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
+  const { validateInterpretation, buildCanonicalDecisionRequest } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+  const canonical = value => Array.isArray(value) ? value.map(canonical) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical(value[k])])) : value;
+  const bind = value => ({ ...value, interpretationHash: createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex') });
+  const body = { contractVersion: 'backyrd.decision-vnext.product-context@1.1', resolverVersion: 'request-context-v6', inputHash: 'a'.repeat(64), primaryIntent: 'COFFEE', secondaryIntent: null, intentCompatibility: 'COMPATIBLE', occasion: null, moods: [], targetCity: 'St. Gallen', dateTime: { state: 'UNKNOWN', localDate: null, dayPhase: null, timeZone: 'Europe/Zurich' }, group: { size: null, minimumAge: null, adultPresent: null, companionType: null }, budget: { state: 'KNOWN', amount: 29.5, currency: 'CHF', perPerson: null, calibrationLabel: null }, stayDuration: null, hardConstraints: [], softPreferences: [], unresolvedTerms: [], locationAuthority: { explicitTargetWins: true, authorizedCity: 'St. Gallen', deviceCityUsed: false, state: 'KNOWN' }, limitations: [], rawTextPersisted: false, requirements: [{ dimension: 'DURATION', importance: 'ESSENTIAL', operator: 'REQUIRE', origin: 'EXPLICIT', interpretationState: 'UNDERSTOOD', value: { kind: 'DURATION', minutes: 90, length: null }, alternatives: [], group: null }] };
+  assert.equal((await validateInterpretation(bind(body))).budget.amount, 29.5);
+  const { requirements, ...old } = body;
+  assert.ok(await validateInterpretation(bind({ ...old, contractVersion: 'backyrd.decision-vnext.product-context@1.0', group: { ...old.group, adultPresent: false }, budget: { ...old.budget, amount: 30, perPerson: true } })));
+  for (const change of [{ contractVersion: 'unknown' }, { requirements: [{ ...requirements[0], evidence: 'private raw text' }] }, { requirements: [{ ...requirements[0], value: { kind: 'DURATION', minutes: '90', length: null } }] }, { targetCity: 'Basel\nprivate' }]) await assert.rejects(validateInterpretation(bind({ ...body, ...change })));
+  assert.equal(buildCanonicalDecisionRequest({ inputMode: 'free', rawFreeText: 'Coffee', city: 'St. Gallen', directions: [], audiences: [], moods: [] }).explicit.targetCity, 'St. Gallen');
+});

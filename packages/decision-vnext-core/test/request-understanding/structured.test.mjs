@@ -59,12 +59,12 @@ test('model ages and group count reach the context on cold and warm cache withou
   assert.equal(h.fetches(), 1, 'normalized cache is rebound to each complete request');
 });
 
-test('decimal strict total budget remains exact internally and explicitly unsupported in public v1', async () => {
+test('decimal strict total budget remains exact publicly while venue comparison stays unverified', async () => {
   const text = 'Coffee under CHF 29.50 in total';
   const result = await interpretedContext(text, [req('BUDGET', money({ amountMinor: 2950, comparison: 'LT', basis: 'TOTAL' }), 'under CHF 29.50 in total', { importance: 'HARD' })]);
   assert.equal(result.understanding.requirements[0].value.amountMinor, 2950);
   assert.equal(result.understanding.requirements[0].value.comparison, 'LT');
-  assert.equal(result.context.budget.amount, null);
+  assert.equal(result.context.budget.amount, 29.5);
   assert.ok(result.context.unresolvedTerms.includes('BUDGET_SEMANTICS_UNVERIFIED'));
   assert.ok(result.context.hardConstraints.includes('BUDGET_MAXIMUM'));
 });
@@ -532,4 +532,140 @@ test('conditional exclusions cannot suppress an independent unconditional positi
   ]);
   assert.ok(result.request.explicit.softPreferences.includes('WK:context.atmosphere:QUIET'));
   assert.ok(assess(result).candidates[0].unknownHardConstraints.some(v => v.startsWith('UNDERSTANDING_UNRESOLVED_')));
+});
+
+test('known needs, duration, references and price components survive cold cache, warm cache and public transport', async () => {
+  const needs = ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE', 'DOG_ACCESS', 'STEP_FREE_ROUTE', 'CHANGING_TABLE', 'GUIDED_TOUR', 'BOAT_RIDE', 'POTTERY'];
+  const { validateDecisionProductRequirements } = await import('../../../../mobile/packages/product-decision-contract/src/index.mjs');
+  for (const code of needs) {
+    const value = { kind: 'NEED', code, scope: 'ONE_PERSON', ...(code === 'DOG_ACCESS' ? { accessArea: 'OUTDOOR_ONLY_ACCEPTABLE' } : {}) };
+    const rows = [req('OTHER', value, code, { importance: 'HARD', operator: ['GUIDED_TOUR', 'BOAT_RIDE'].includes(code) ? 'EXCLUDE' : 'REQUIRE' })];
+    const input = request(`Coffee ${code}`); const h = harness(rows); const cold = await h.run(input); const warm = await h.run(input);
+    assert.deepEqual(cold, warm); assert.equal(h.fetches(), 1);
+    const projected = context(cold.request, cold.understanding);
+    assert.deepEqual(projected.requirements[0].value, value);
+    validateDecisionProductRequirements(projected.requirements);
+    assert.notEqual(assess(cold).candidates[0].tier, 'ELIGIBLE_CONFIRMED');
+    assert.ok(assess(cold).candidates[0].unknownHardConstraints.length > 0);
+  }
+  const rows = [req('DURATION', { kind: 'DURATION', minutes: 90, length: null }, '90 Minuten'), req('BUDGET', money({ amountMinor: 4550, basis: 'TOTAL', includes: ['MATERIALS', 'TIP'] }), '45.50 CHF insgesamt mit Material und Trinkgeld'), req('TIME', time({ clockTime: '18:30', clockRelation: 'END_NOT_AFTER', reference: { name: 'Bahnhof Luzern', city: 'Luzern', relation: 'RETURN_TO' } }), '18:30 zurück am Bahnhof Luzern')];
+  const text = '90 Minuten, 45.50 CHF insgesamt mit Material und Trinkgeld, 18:30 zurück am Bahnhof Luzern';
+  const h = harness(rows); const cold = await h.run(request(text)); assert.deepEqual(await h.run(request(text)), cold);
+  const projected = context(cold.request, cold.understanding);
+  assert.equal(projected.budget.amount, 45.5); assert.equal(projected.budget.perPerson, false);
+  assert.equal(projected.requirements[0].value.minutes, 90);
+  assert.deepEqual(projected.requirements[1].value.includes, ['MATERIALS', 'TIP']);
+  assert.equal(projected.requirements[2].value.reference.kind, 'RAIL_STATION');
+  assert.equal(projected.requirements[2].value.reference.referenceHash, contentHash({ text, name: 'Bahnhof Luzern' }));
+  assert.equal(Object.hasOwn(projected.requirements[2].value.reference, 'name'), false);
+  assert.equal(projected.dateTime.localDate, null);
+  validateDecisionProductRequirements(projected.requirements);
+  assert.notEqual(assess(cold).candidates[0].tier, 'ELIGIBLE_CONFIRMED');
+  const cached = JSON.stringify([...h.records.values()]); assert.ok(!cached.includes(text)); assert.ok(!cached.includes('evidence'));
+  assert.throws(() => validateDecisionProductRequirements([{ ...projected.requirements[0], evidence: text }]));
+});
+
+test('requested destinations support public city names while origins and POIs do not redirect retrieval', async () => {
+  const { requestedProductCity } = await import('../../dist/index.js');
+  for (const city of ['Aarau', 'Zug', 'Thun', 'Baden', 'Chur', 'Solothurn', 'St. Gallen', 'Genève', 'Albula/Alvra']) {
+    const input = request(`Coffee in ${city}`); const u = bindProductUnderstanding(input, parseModelRequirements([req('LOCATION', { kind: 'LOCATION', city }, city)], input.naturalLanguage));
+    const destination = requestedProductCity(u, input);
+    const projected = resolveDecisionProductContext(input, { authorizedCity: destination, serverTime: at }, u);
+    assert.equal(projected.targetCity, destination); assert.equal(projected.locationAuthority.state, 'KNOWN');
+    assert.equal(projected.requirements[0].value.city, city);
+  }
+  const input = request('Von Basel nach Zürich, beim Riffraff');
+  const u = bindProductUnderstanding(input, parseModelRequirements([
+    req('LOCATION', { kind: 'LOCATION', city: 'Basel', role: 'ORIGIN' }, 'Von Basel'),
+    req('LOCATION', { kind: 'LOCATION', city: 'Zürich', reference: { name: 'Riffraff', city: null, relation: 'NEAR' } }, 'Zürich, beim Riffraff'),
+  ], input.naturalLanguage));
+  assert.equal(requestedProductCity(u, input), 'Zurich');
+  const projected = resolveDecisionProductContext(input, { authorizedCity: 'Zurich', serverTime: at }, u);
+  assert.ok(projected.unresolvedTerms.includes('LOCATION_REQUEST_UNVERIFIED'));
+  const ui = { ...input, explicit: { targetCity: 'Basel' } };
+  assert.equal(requestedProductCity(bindProductUnderstanding(ui, u.requirements), ui), 'Basel');
+});
+
+test('same-visit time bounds preserve the calendar and event while conflicting now and tomorrow cannot merge', async () => {
+  const result = await interpretedContext('Coffee morgen ab 18 Uhr nach Check-in bis 20 Uhr', [
+    req('TIME', time({ relativeDays: 1, clockTime: '18:00', clockRelation: 'START_NOT_BEFORE', event: { event: 'CHECK_IN', relation: 'AFTER' } }), 'morgen ab 18 Uhr nach Check-in', { importance: 'HARD' }),
+    req('TIME', time({ clockTime: '20:00', clockRelation: 'END_NOT_AFTER' }), 'bis 20 Uhr', { importance: 'HARD' }),
+  ]);
+  assert.equal(result.context.dateTime.localDate, '2026-10-11');
+  assert.equal(result.context.requirements[0].value.event.event, 'CHECK_IN');
+  assert.equal(result.context.requirements[1].value.clockRelation, 'END_NOT_AFTER');
+  assert.ok(result.context.unresolvedTerms.includes('PRECISE_TIME_UNVERIFIED'));
+  const conflict = await interpretedContext('Coffee jetzt und morgen', [req('TIME', time({ openNow: true }), 'jetzt', { importance: 'HARD' }), req('TIME', time({ relativeDays: 1 }), 'morgen', { importance: 'HARD' })]);
+  assert.ok(conflict.context.unresolvedTerms.includes('TIME_REQUEST_UNRESOLVED'));
+  assert.ok(assess(conflict).candidates[0].unknownHardConstraints.length > 0);
+});
+
+test('negative time phases never reappear through literal fallback; unknown adults and dates remain unknown', async () => {
+  const result = await interpretedContext('Coffee morgen, aber nicht am Abend', [req('TIME', time({ relativeDays: 1 }), 'morgen'), req('TIME', time({ dayPhase: 'EVENING' }), 'nicht am Abend', { operator: 'EXCLUDE' })]);
+  assert.equal(result.context.dateTime.dayPhase, null);
+  const unspecified = await interpretedContext('Coffee mit Freunden', [req('COMPANY', { kind: 'COMPANY', size: null, adultPresent: null, companionType: 'FRIENDS_GROUP' }, 'mit Freunden')]);
+  assert.equal(unspecified.context.group.adultPresent, null); assert.equal(unspecified.context.dateTime.state, 'UNKNOWN');
+  const adults = await interpretedContext('Coffee, alle 30 Jahre alt', [req('AGE', { kind: 'AGE', ages: [30] }, 'alle 30 Jahre alt')]);
+  assert.equal(adults.context.group.adultPresent, true);
+});
+
+test('strict fractional ceilings and ambiguous basis preserve meaning without false price confirmation', async () => {
+  const price = [fact('operation.price_range', { currency: 'CHF', min: 10, max: 29.5 })];
+  for (const comparison of ['LT', 'LTE']) {
+    const result = await interpretedContext('Coffee 29.50 CHF pro Person', [req('BUDGET', money({ amountMinor: 2950, comparison }), '29.50 CHF pro Person', { importance: 'HARD' })]);
+    const candidate = assess(result, price).candidates[0];
+    assert.equal(result.context.budget.amount, 29.5);
+    assert.ok((comparison === 'LT' ? candidate.failedHardConstraints : candidate.confirmedHardConstraints).includes('BUDGET_MAXIMUM'));
+  }
+  const ambiguous = await interpretedContext('Coffee höchstens 30 CHF', [req('BUDGET', null, 'höchstens 30 CHF', { interpretationState: 'AMBIGUOUS', alternatives: [money(), money({ basis: 'TOTAL' })] })]);
+  assert.equal(ambiguous.context.budget.amount, 30); assert.equal(ambiguous.context.budget.perPerson, null);
+  assert.ok(assess(ambiguous, price).candidates[0].unknownHardConstraints.includes('BUDGET_MAXIMUM'));
+});
+
+test('production retrieval requests the understood destination and still rejects mismatched scoped World data', async () => {
+  const result = await interpretedContext('Coffee in St. Gallen', [req('LOCATION', { kind: 'LOCATION', city: 'St. Gallen' }, 'St. Gallen')]);
+  let calls = 0;
+  const provider = createDecisionProductRpcEvaluationProvider({ async rpc(_name, parameters) {
+    calls++; assert.equal(parameters.p_target_city, 'St. Gallen');
+    const binding = structuredClone(worldBinding());
+    binding.decisionProjection.facts.find(f => f.key === 'location.locality').value = 'St. Gallen';
+    return { data: { contractVersion: 'backyrd.decision-vnext.product-runtime-context@1.0', authorizedCity: 'St. Gallen', serverTime: at, worldSnapshots: [binding], status: 'NO_CONSENT', consent: null, snapshot: null }, error: null };
+  } });
+  const evaluated = await provider.evaluate({ request: result.request, understanding: result.understanding, actor, identity, signal: new AbortController().signal });
+  assert.equal(evaluated.evaluation.interpretation.targetCity, 'St. Gallen');
+  assert.equal(evaluated.presentations[0].locality, 'St. Gallen'); assert.equal(calls, 1);
+  assert.throws(() => parseProductWorldResolverBinding(worldBinding(), 'St. Gallen'), /locality_invalid/);
+});
+
+test('unverified place labels including private addresses never cross cache or public requirements as plaintext', async () => {
+  const text = 'Coffee nahe meiner Wohnung an der Musterstrasse 17 in Basel';
+  const rows = [req('LOCATION', { kind: 'LOCATION', city: 'Basel', reference: { name: 'Musterstrasse 17', city: 'Basel', relation: 'NEAR' } }, text)];
+  const h = harness(rows); const result = await h.run(request(text));
+  assert.deepEqual(await h.run(request(text)), result);
+  const projected = context(result.request, result.understanding);
+  const ref = projected.requirements[0].value.reference;
+  assert.equal(ref.kind, 'UNRESOLVED_PLACE'); assert.equal(ref.referenceHash, contentHash({ text, name: 'Musterstrasse 17' }));
+  assert.doesNotMatch(JSON.stringify([...h.records.values()]), /Musterstrasse|Wohnung|evidence/);
+  assert.doesNotMatch(JSON.stringify(projected), /Musterstrasse|Wohnung|evidence/);
+  const { validateDecisionProductRequirements } = await import('../../../../mobile/packages/product-decision-contract/src/index.mjs');
+  validateDecisionProductRequirements(projected.requirements);
+  const forged = structuredClone(projected.requirements); forged[0].value.reference.name = 'Musterstrasse 17';
+  assert.throws(() => validateDecisionProductRequirements(forged));
+  assert.throws(() => decodeRequirementCache(encodeRequirementCache(forged)));
+  assert.notEqual(assess(result).candidates[0].tier, 'ELIGIBLE_CONFIRMED');
+});
+
+test('free city slots cannot bypass place privacy; unsupported municipalities remain explicitly unresolved', async () => {
+  const text = 'Coffee bei Musterstrasse 17';
+  const result = await interpretedContext(text, [req('LOCATION', { kind: 'LOCATION', city: 'Musterstrasse 17', reference: { name: 'Musterstrasse 17', city: 'Musterstrasse 17', relation: 'NEAR' } }, text)]);
+  const value = result.context.requirements[0].value;
+  assert.equal(value.city, null); assert.equal(value.reference.city, null);
+  assert.equal(value.cityHash, contentHash({ text, name: 'Musterstrasse 17' }));
+  assert.doesNotMatch(JSON.stringify(encodeRequirementCache(result.understanding.requirements)), /Musterstrasse/);
+  assert.ok(result.context.unresolvedTerms.includes('LOCATION_REQUEST_UNVERIFIED'));
+  const forged = structuredClone(result.understanding.requirements); forged[0].value.reference.city = 'Musterstrasse 17';
+  assert.throws(() => decodeRequirementCache(encodeRequirementCache(forged)), /city_not_public/);
+  const { isPublicMunicipality } = await import('../../dist/product-public-municipalities.js');
+  for (const city of ['Basel', 'Zürich', 'Genève', 'Geneva', 'Luzern', 'St. Gallen', 'Biel/Bienne', 'Aarau', 'Thun', 'Baden', 'Solothurn', 'Zug', 'Chur']) assert.equal(isPublicMunicipality(city), true, city);
+  for (const privateText of ['Musterstrasse 17', 'Jane Doe', 'Coffee with my daughter in Basel']) assert.equal(isPublicMunicipality(privateText), false);
 });

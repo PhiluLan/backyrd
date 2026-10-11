@@ -2,7 +2,7 @@
  * This bounded fallback complements the semantic interpreter; it is not a claim
  * of general language understanding. Unsupported budget semantics stay visible.
  */
-export const PRODUCT_REQUEST_CONTEXT_VERSION = "decision-vnext-product-context-resolver-v5" as const;
+export const PRODUCT_REQUEST_CONTEXT_VERSION = "decision-vnext-product-context-resolver-v6" as const;
 const normalize = (text: string): string => text.normalize("NFKC").toLocaleLowerCase("de-CH");
 
 export function hasPreciseRequestedTime(input: string): boolean {
@@ -44,12 +44,11 @@ export function requestBudget(input: string): RequestBudget {
   const ceilingBeforeAmount = /\b(?:höchstens|maximal|max\.?|bis|unter|weniger als|at most|up to|under|less than|budget)\s*:?\s*$/u;
   const requested = mentions.some((match) => ceilingBeforeAmount.test(text.slice(0, match.index)));
   const unique = [...new Set(amounts)];
-  const amount = requested && unique.length === 1 && Number.isInteger(unique[0]) ? unique[0]! : null;
+  const amount = requested && unique.length === 1 && Number.isFinite(unique[0]) ? unique[0]! : null;
   const perPerson = /\b(?:pro person|je person|per person|each)\b|\bp\.p\./u.test(text);
   const strict = /\b(?:unter|weniger als|under|less than)\b/u.test(text);
-  // The public v1 contract has integer CHF and a boolean perPerson. Do not
-  // silently round decimals, turn < into <=, or compare a group total with a
-  // World price range per person. Those need a versioned richer contract.
+  // The bounded fallback retains decimals but cannot prove strict or total price
+  // semantics. Never compare a group total to a venue price per person.
   const representable = requested && amount !== null && !strict && perPerson
     && !/\b(?:insgesamt|gesamt|zusammen|total|altogether|nicht|not|mindestens|at least)\b/u.test(text);
   return { amount, perPerson, requested, representable };

@@ -341,7 +341,8 @@ test("budget eligibility requires comparable CHF per-person ceilings and never c
   };
   assert.ok(assessBudget("Kaffee maximal 30 CHF pro Person").confirmedHardConstraints.includes("BUDGET_MAXIMUM"));
   assert.ok(assessBudget("Kaffee maximal 20 CHF pro Person").failedHardConstraints.includes("BUDGET_MAXIMUM"));
-  for (const text of ["Kaffee unter 30 CHF pro Person", "Kaffee maximal 30 CHF insgesamt", "Kaffee maximal 30 CHF", "Kaffee maximal 29,50 CHF pro Person"]) {
+  assert.ok(assessBudget("Kaffee maximal 29,50 CHF pro Person").failedHardConstraints.includes("BUDGET_MAXIMUM"));
+  for (const text of ["Kaffee unter 30 CHF pro Person", "Kaffee maximal 30 CHF insgesamt", "Kaffee maximal 30 CHF"]) {
     const candidate = assessBudget(text);
     assert.ok(candidate.unknownHardConstraints.includes("BUDGET_MAXIMUM"), text);
     assert.notEqual(candidate.tier, "ELIGIBLE_CONFIRMED", text);

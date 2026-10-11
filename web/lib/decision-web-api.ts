@@ -1,3 +1,5 @@
+import { isDecisionPlaceName, validateDecisionProductRequirements } from "../../mobile/packages/product-decision-contract/src/index.mjs";
+
 export type DecisionInputMode = "guided" | "free";
 export type DecisionOption = {
   key: string;
@@ -249,7 +251,7 @@ export function buildCanonicalDecisionRequest(
   const explicit: DecisionProductRequest["explicit"] = {
     moods: uniqueIdentifiers(input.moods),
   };
-  if (IDENTIFIER.test(city)) explicit.targetCity = city;
+  if (isDecisionPlaceName(city)) explicit.targetCity = city;
   return {
     contractVersion: REQUEST_VERSION,
     requestId,
@@ -319,9 +321,9 @@ async function assertContentHash(value: Record<string, unknown>, field: string) 
 
 async function validateInterpretation(value: unknown) {
   const item = record(value);
-  exactKeys(item, ["contractVersion", "resolverVersion", "inputHash", "primaryIntent", "secondaryIntent", "intentCompatibility", "occasion", "moods", "targetCity", "dateTime", "group", "budget", "stayDuration", "hardConstraints", "softPreferences", "unresolvedTerms", "locationAuthority", "limitations", "rawTextPersisted", "interpretationHash"]);
-  if (item.contractVersion !== INTERPRETATION_VERSION || !identifier(item.resolverVersion) || !hash(item.inputHash) || !hash(item.interpretationHash) || item.rawTextPersisted !== false) throw unavailable();
-  if (!nullableIdentifier(item.primaryIntent) || !nullableIdentifier(item.secondaryIntent) || !nullableIdentifier(item.occasion) || !nullableIdentifier(item.targetCity) || (item.stayDuration !== null && !enumValue(item.stayDuration, ["SHORT", "MEDIUM", "LONG"]))) throw unavailable();
+  exactKeys(item, ["contractVersion", "resolverVersion", "inputHash", "primaryIntent", "secondaryIntent", "intentCompatibility", "occasion", "moods", "targetCity", "dateTime", "group", "budget", "stayDuration", "hardConstraints", "softPreferences", "unresolvedTerms", "locationAuthority", "limitations", "rawTextPersisted", "interpretationHash", ...(item.contractVersion === "backyrd.decision-vnext.product-context@1.1" ? ["requirements"] : [])]);
+  if (![INTERPRETATION_VERSION, "backyrd.decision-vnext.product-context@1.1"].includes(String(item.contractVersion)) || !identifier(item.resolverVersion) || !hash(item.inputHash) || !hash(item.interpretationHash) || item.rawTextPersisted !== false) throw unavailable();
+  if (!nullableIdentifier(item.primaryIntent) || !nullableIdentifier(item.secondaryIntent) || !nullableIdentifier(item.occasion) || !(item.targetCity === null || isDecisionPlaceName(item.targetCity)) || (item.stayDuration !== null && !enumValue(item.stayDuration, ["SHORT", "MEDIUM", "LONG"]))) throw unavailable();
   if (!enumValue(item.intentCompatibility, ["COMPATIBLE", "INCOMPATIBLE", "NOT_APPLICABLE", "UNKNOWN"])) throw unavailable();
   if (!strings(item.moods, 12) || !strings(item.hardConstraints, 30) || !strings(item.softPreferences, 30) || !Array.isArray(item.unresolvedTerms) || item.unresolvedTerms.length > 30 || !item.unresolvedTerms.every((term) => typeof term === "string" && term.length > 0 && term.length <= 120) || !strings(item.limitations, 30)) throw unavailable();
   const knowledge = ["KNOWN", "UNKNOWN", "NOT_CONFIGURED", "NOT_AVAILABLE", "DENIED"] as const;
@@ -330,13 +332,14 @@ async function validateInterpretation(value: unknown) {
   if (!enumValue(dateTime.state, knowledge) || (dateTime.localDate !== null && (typeof dateTime.localDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateTime.localDate))) || !nullableIdentifier(dateTime.dayPhase) || (dateTime.timeZone !== null && typeof dateTime.timeZone !== "string")) throw unavailable();
   const group = record(item.group);
   exactKeys(group, ["size", "minimumAge", "adultPresent", "companionType"]);
-  if ((group.size !== null && (!Number.isInteger(group.size) || (group.size as number) < 0)) || (group.minimumAge !== null && (!Number.isInteger(group.minimumAge) || (group.minimumAge as number) < 0)) || typeof group.adultPresent !== "boolean" || !nullableIdentifier(group.companionType)) throw unavailable();
+  if ((group.size !== null && (!Number.isInteger(group.size) || (group.size as number) < 0)) || (group.minimumAge !== null && (!Number.isInteger(group.minimumAge) || (group.minimumAge as number) < 0)) || (group.adultPresent !== null && typeof group.adultPresent !== "boolean") || !nullableIdentifier(group.companionType)) throw unavailable();
   const budget = record(item.budget);
   exactKeys(budget, ["state", "amount", "currency", "perPerson", "calibrationLabel"]);
-  if (!enumValue(budget.state, knowledge) || (budget.amount !== null && (!Number.isInteger(budget.amount) || (budget.amount as number) < 0)) || !["CHF", null].includes(budget.currency as "CHF" | null) || typeof budget.perPerson !== "boolean" || !nullableIdentifier(budget.calibrationLabel)) throw unavailable();
+  if (!enumValue(budget.state, knowledge) || (budget.amount !== null && ((typeof budget.amount !== "number" || !Number.isFinite(budget.amount)) || (budget.amount as number) < 0)) || !["CHF", "EUR", "USD", "GBP", null].includes(budget.currency as string | null) || (budget.perPerson !== null && typeof budget.perPerson !== "boolean") || !nullableIdentifier(budget.calibrationLabel)) throw unavailable();
   const locationAuthority = record(item.locationAuthority);
   exactKeys(locationAuthority, ["explicitTargetWins", "authorizedCity", "deviceCityUsed", "state"]);
-  if (locationAuthority.explicitTargetWins !== true || !nullableIdentifier(locationAuthority.authorizedCity) || typeof locationAuthority.deviceCityUsed !== "boolean" || !enumValue(locationAuthority.state, knowledge)) throw unavailable();
+  if (locationAuthority.explicitTargetWins !== true || !(locationAuthority.authorizedCity === null || isDecisionPlaceName(locationAuthority.authorizedCity)) || typeof locationAuthority.deviceCityUsed !== "boolean" || !enumValue(locationAuthority.state, knowledge)) throw unavailable();
+  if (item.contractVersion === "backyrd.decision-vnext.product-context@1.1") validateDecisionProductRequirements(item.requirements);
   await assertContentHash(item, "interpretationHash");
   return item as DecisionProductResponse["interpretation"];
 }
@@ -349,7 +352,7 @@ async function validateCandidate(value: unknown, expectedRank: number | null): P
   for (const key of ["confirmedHardConstraints", "unknownHardConstraints", "failedHardConstraints", "limitations"] as const) if (!strings(item[key], 40)) throw unavailable();
   const presentation = record(item.presentation);
   exactKeys(presentation, ["contractVersion", "spotId", "name", "locality", "categoryLabel", "imageUrl", "sourceHash", "presentationHash"]);
-  if (presentation.contractVersion !== PRESENTATION_VERSION || presentation.spotId !== item.spotId || typeof presentation.name !== "string" || presentation.name.length < 1 || presentation.name.length > 160 || (presentation.locality !== null && !identifier(presentation.locality)) || (presentation.categoryLabel !== null && typeof presentation.categoryLabel !== "string") || (presentation.imageUrl !== null && (typeof presentation.imageUrl !== "string" || !presentation.imageUrl.startsWith("https://"))) || !hash(presentation.sourceHash)) throw unavailable();
+  if (presentation.contractVersion !== PRESENTATION_VERSION || presentation.spotId !== item.spotId || typeof presentation.name !== "string" || presentation.name.length < 1 || presentation.name.length > 160 || (presentation.locality !== null && !isDecisionPlaceName(presentation.locality)) || (presentation.categoryLabel !== null && typeof presentation.categoryLabel !== "string") || (presentation.imageUrl !== null && (typeof presentation.imageUrl !== "string" || !presentation.imageUrl.startsWith("https://"))) || !hash(presentation.sourceHash)) throw unavailable();
   await assertContentHash(presentation, "presentationHash");
   const rankVector = record(item.rankVector);
   exactKeys(rankVector, ["hardConstraintState", "eligibilityTier", "coreIntentState", "primaryVisitPurposeState", "actualAvailability", "userRelevance", "contextFit", "worldEvidence", "neutralIdentity", "vectorHash"]);

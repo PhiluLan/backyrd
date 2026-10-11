@@ -188,3 +188,10 @@ test('context-role evaluation freezes explicit semantic expectations, including 
   const deadline = expectations.families['finish-deadline'][0].variants[0];
   assert.equal(scoreRequirements(expectations.families['finish-deadline'], [{ ...deadline, value: { ...deadline.value, clockRelation: 'AT' } }]).outcome, 'FAIL');
 });
+
+test('profile fallback is not an explicit UI selection and cannot overrule a requested destination', async () => {
+  const c = { ...one(1), families: [{ id: 'destination', dimension: 'LOCATION', queries: ['Coffee in St. Gallen'], expected: [{ path: 'targetCity', op: 'equals', value: 'St. Gallen' }] }] };
+  const row = { dimension: 'LOCATION', importance: 'ESSENTIAL', operator: 'REQUIRE', origin: 'EXPLICIT', interpretationState: 'UNDERSTOOD', value: { kind: 'LOCATION', city: 'St. Gallen' }, alternatives: [], group: null, evidence: 'St. Gallen' };
+  const report = await runModelEvaluation({ ...config, corpus: c, fetchImpl: async () => response(payload(JSON.stringify({ ...semantics, requirements: [row] }))) });
+  assert.equal(report.passed, 1); assert.equal(report.errors, 0);
+});

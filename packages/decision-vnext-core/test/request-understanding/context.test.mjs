@@ -21,7 +21,7 @@ test('stated ages survive German words, English and multiple people without fabr
   const family = resolve('Familienausflug ins Museum');
   assert.equal(family.group.minimumAge, null);
   assert.equal(family.group.size, null);
-  assert.equal(family.group.adultPresent, false);
+  assert.equal(family.group.adultPresent, null);
   assert.equal(family.group.companionType, 'FAMILY');
   assert.equal(resolve('Kindergartenmuseum').group.companionType, null);
 });
@@ -39,12 +39,12 @@ test('CHF ceiling variants retain amount and scope without implying unsupported 
     assert.ok(context.hardConstraints.includes('BUDGET_MAXIMUM'));
     assert.ok(!context.unresolvedTerms.includes('BUDGET_SEMANTICS_UNVERIFIED'));
   }
-  for (const text of ['Kaffee unter 30 CHF pro Person', 'Coffee under CHF 30 per person', 'Kaffee maximal 30 CHF insgesamt', 'Kaffee maximal 30 CHF', 'Kaffee maximal 29,50 CHF pro Person', 'Kaffee maximal 30 CHF oder maximal 40 CHF pro Person']) {
+  for (const text of ['Kaffee unter 30 CHF pro Person', 'Coffee under CHF 30 per person', 'Kaffee maximal 30 CHF insgesamt', 'Kaffee maximal 30 CHF', 'Kaffee maximal 30 CHF oder maximal 40 CHF pro Person']) {
     const context = resolve(text);
     assert.ok(context.hardConstraints.includes('BUDGET_MAXIMUM'), text);
     assert.ok(context.unresolvedTerms.includes('BUDGET_SEMANTICS_UNVERIFIED'), text);
   }
-  assert.equal(resolve('Kaffee maximal 29,50 CHF pro Person').budget.amount, null, 'do not round fractional ceilings');
+  assert.equal(resolve('Kaffee maximal 29,50 CHF pro Person').budget.amount, 29.5, 'do not round fractional ceilings');
   assert.equal(requestBudget('Maximal vier Personen, Kaffee kostet 30 CHF').requested, false);
   assert.equal(requestBudget('Kaffee für 30 CHF').requested, false);
 });

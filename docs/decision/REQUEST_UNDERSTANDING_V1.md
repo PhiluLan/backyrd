@@ -15,13 +15,13 @@ not correctness of the model's normalized meaning.
 
 `product-request-understanding.ts` validates and minimizes that output, binds
 it to the complete interpreted request and a versioned policy, and projects the
-supported context into the existing public shape. The internal HTTP port carries
+supported context into the versioned public context @1.1, including minimized typed requirements. The internal HTTP port carries
 `{ request, understanding }`; clients cannot submit that envelope or override
 server understanding. The production adapter passes it to the canonical World
 evaluator without sending it to World/User context RPCs or learning.
 
 Supported context includes the youngest explicitly stated age, group size and
-explicit adult presence, integer inclusive CHF budgets per person, and an
+explicit adult presence (unknown remains null), exact fractional money amounts, and an
 absolute/relative/weekday visit date with daypart. Relative dates resolve only
 against authoritative Swiss server time. A parsed future date suppresses stale
 lexical OPEN_NOW inference (for example, "not now, tomorrow"). Structured UI
@@ -36,14 +36,21 @@ cannot produce ELIGIBLE_CONFIRMED. Canonical positive preferences still enter
 ranking without becoming hard eligibility. Preferred exclusions are retained
 but do not yet have a separate negative ranking contribution.
 
-Unsupported conditions remain honest: fractional/strict/total/foreign-currency
-budgets retain their exact internal representation but are not confirmed by the
-public v1 money evaluator. Exact clock time, travel limits and group capacity remain unverified.
-ACCESS has no typed model value in the current enum catalog and is retained as
-UNSUPPORTED; existing deterministic accessibility checks still apply. Unsupported
-hard conditions block ranking, including mandatory age suitability without evidence.
-A destination conflicting with the authorized city blocks candidates from that
-city; automatic source-aware redirection and clarification UI are still pending.
+Exact money, comparison, currency, per-person/total basis and included components
+are retained. Only a comparable verified CHF per-person ceiling can confirm
+price eligibility; strict LT and inclusive LTE differ at equality. Total prices,
+foreign currencies and component inclusions stay unverified without matching
+World evidence. Exact clock time, event-relative bounds, travel limits and group
+capacity likewise remain unverified. New closed NEED and DURATION values preserve
+specific requests independently of World catalog coverage. Unknown hard needs
+cannot rank and unknown essential needs cannot become confirmed.
+
+A source-grounded destination is used for the existing scoped World RPC unless
+an explicit UI city overrides it. Origin and reference cities cannot redirect
+retrieval. Municipality names are checked against the public BFS directory;
+unlisted cities remain opaque, unresolved references. A valid city name grants
+no World coverage or release authority. Reference-point geocoding and a useful
+clarification UI remain separate, unfinished capabilities.
 
 The previous bounded lexical fallback remains available when AI is disabled or
 omits a supported field; its 160-case diagnostic is separate from model quality.
@@ -52,14 +59,13 @@ Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
 their optional strength. A group containing only one requirement normalizes to
 no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.12`; understanding contract `@1.1`; understanding
-policy `request-understanding-policy-v10`; AI and lexical context resolver v5; evaluator `@2.6`. Model output cap is 3600 tokens (previously 2400), with the
-existing maximum of one malformed/incomplete-output retry. Existing server
-allowlist, authentication, rate limits, deadline and release controls remain.
-GPT-6 Luna now uses `reasoning.effort: low` by explicit user decision; prompt,
-schema and token/deadline bounds are unchanged from 4.11. The interpreter version
-invalidates prior cache identities. Latency and cost are measured below;
-independent quality acceptance is still required.
+Versions: interpreter `ai-query@4.14`; understanding contract `@1.2`; understanding
+policy `request-understanding-policy-v12`; public context `@1.1`; context resolver
+v6; evaluator `@2.7`. GPT-6 Luna stays at `reasoning.effort: low`. The provider
+schema/prompt now exposes the additional meanings; the model has not changed.
+The cap remains 3600 output tokens with at most one malformed-output retry.
+Existing Auth, rate limits, actor binding, deadlines and release controls remain.
+Interpreter/policy changes invalidate previous cache identities.
 
 ## Minimized persistence review
 
@@ -69,9 +75,15 @@ operational processing of a submitted search, not personalization consent or a
 new profile/learning signal. The existing private cache now contains a compact,
 validated requirement representation in addition to canonical facets:
 
-- Only canonical enums, bounded numbers, dates/times, group identifiers and typed
-  alternatives. Location is restricted to Basel, Zurich or UNSUPPORTED_CITY;
-  arbitrary place names, addresses or text cannot be stored in that field.
+- Canonical enums, bounded numbers, dates/times, group identifiers and typed
+  alternatives; public municipality names validated against 2110 BFS names
+  (2026-01-01 snapshot) plus documented language aliases. Names outside that
+  directory become request-bound city hashes and require clarification.
+- Arbitrary POI names are model-only input to minimization. Stored references
+  contain a request-bound fingerprint, kind, public municipality/null and relation,
+  never an unverified name or street address. Grounding alone is not public-place
+  evidence. Fingerprints are pseudonymous, not anonymous; no global address hash
+  or geographic coordinates are created. No Places lookup is implied.
 - At most one AGE requirement. Provider-only participant age lists reduce to the
   youngest age before the cache; ambiguous age alternatives retain only each
   possible minimum. No full age list, person name, source quote or offset is
@@ -87,10 +99,12 @@ validated requirement representation in addition to canonical facets:
   fail before persistence, without truncating requirements or retrying a write.
   Compact positional cache encoding is confined to this boundary and revalidated
   on reads; application code uses named typed properties.
-- The full internal understanding is not added to the public response, decision
-  learning events or diagnostics. Existing response/idempotency context fields
-  can contain the recognized minimum age, group and representable budget. Their
-  existing storage policy still applies.
+- Public context @1.1 includes minimized requirements so downstream consumers do
+  not lose known wishes. It excludes evidence, age lists and raw reference names;
+  actor/request/policy binding stays internal. Existing response/idempotency
+  storage policy applies to these new fields. No new learning signal is emitted.
+  `rawTextPersisted:false` means no original sentence/quotes, not zero personal
+  context retention. Diet, age and group context remain protected personal data.
 
 No schema migration or Production write is part of this change.
 
@@ -1114,3 +1128,69 @@ responses with **228 calls and zero technical errors**. This is transport and
 validation reliability, not 228 semantic passes. Total estimated standard-rate
 cost: **USD 0.083381650**, affected by high prompt-cache reuse. Launch/semantic
 acceptance remains OPEN despite improved reliability and 48/48 targeted passes.
+
+
+## 2026-10-11 — deterministic representation and integration closure
+
+This change addresses software-side losses before another model decision.
+The current model remains Luna/low. New typed values cover dietary needs
+(including dairy-free versus lactose-free versus vegan and halal), dog access
+with an acceptable outdoor-only restriction, access facilities, excluded guided
+tours/boat trips, riverside walks and pottery. Duration, included price components,
+event-relative time and return-point relationships retain their own meaning.
+They do not assert that any venue actually satisfies the request.
+
+Several compatible time bounds preserve their shared calendar date; conflicting
+open-now/future conditions remain unresolved. Negated dayparts cannot reappear
+through the text fallback. Missing visit dates and adult accompaniment remain
+unknown. A currently closed venue remains blocked even without a specified date.
+
+### Location privacy and authority
+
+The canonical municipal-name boundary vendors only the public Name column of
+the [BFS official municipality snapshot](https://www.agvchapp.bfs.admin.ch/api/communes/snapshot?date=01-01-2026),
+Level 3, 2110 rows. Source bytes and snapshot date are recorded in
+`product-public-municipalities.ts`; updates require review of another dated
+snapshot. The public-name check is not a geocoder, coverage list, or authorization
+allowlist. Existing approved World snapshots and release/actor scoping still
+control retrieval. No database change or production access was required.
+
+Independent code review reproduced a private address entering `reference.name`
+and subsequently `reference.city`. Both persistence routes are closed: unknown
+reference labels are fingerprinted and city strings require the public directory.
+Tests cover cold/warm cache, public projection and forged cache fields. A private
+address cannot be accepted merely because the model calls it a city.
+
+**Remaining reference limitation:** fingerprints preserve the identified relation
+without retaining arbitrary labels. They are not canonical Place IDs. Named POI
+resolution, routes, measured travel times and visit-specific availability still
+need verified data and a Places resolver. This is explicitly not a claim of
+complete end-to-end place matching or launch readiness.
+
+### Consumer compatibility and rollout
+
+Request/response envelopes stay @1.0; nested public context becomes @1.1. Money
+amounts can be fractional, currency can be CHF/EUR/USD/GBP, and unknown adult
+presence or price basis can be null. Web accepts both old and new context versions;
+Mobile and Web reuse the bounded requirements transport validator. The backend
+retains stricter semantic validation and alone determines eligibility.
+
+Ship compatible clients before activating a backend that emits @1.1; older Web
+parsers reject this new context. This PR performs no activation, deployment or
+migration. Private cache namespace changes make old interpretations ineligible.
+Local Next documentation was unavailable; only plain TypeScript boundary code
+changed, with official TypeScript integration guidance consulted as fallback.
+
+### Evaluation protocol correction
+
+Harness @1.2 no longer turns `profileCity` into an explicit UI target. It leaves
+explicit selection empty, derives the requested destination through the same
+canonical helper as production, and uses profile city only as synthetic fallback
+authority. The old harness prevented text destinations from winning despite the
+corpus expecting exactly that. Expected assertions and the independent rubric
+were not weakened. Gains from this correction are **not** model improvements.
+
+Intermediate 4.13 and final 4.14 runs are reported separately below. Source/build
+fingerprints identify each run; final privacy changes cannot be represented as if
+an earlier live run had executed them. All live inputs are synthetic; store:false,
+call/token/deadline/cost bounds and the existing authorized key handling remain.
