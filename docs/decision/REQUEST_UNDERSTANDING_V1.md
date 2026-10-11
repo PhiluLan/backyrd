@@ -1739,3 +1739,79 @@ error. Repeated prompt edits shifted failures rather than demonstrating stable
 production quality. Held32 remains closed; no 255-case acceptance block started.
 
 Latest combined local candidate: 215/215 canonical Decision tests and 33/33 Product release contracts pass; strict Decision TypeScript and `git diff --check` pass. The new age-restriction and classification-dispute counterexamples retain INELIGIBLE despite the narrow dance fallback. These checks are distinct from the failed live semantic gate.
+
+## 2026-10-11 — authorized Luna low versus medium comparison
+
+**No production reasoning change. AP1 acceptance remains OPEN.** The user
+explicitly authorized a comparison under the same 20-second overall deadline
+and USD 1 test budget, without changing the product configuration. Commit
+`7136f5836a3ec802b59b429898cdf19bec119d02` was copied into isolated temporary
+variants. Their source and compiled interpreter differ only in the literal
+`reasoning.effort` (`low` versus `medium`); prompts, schemas, projection,
+evaluator, corpus and semantic rubrics were unchanged. Runtime dependencies
+were shared from the same built worktree. The product remains Luna low.
+
+Each variant attempted the same 18 completeness + 20 independent-authored
+known regressions + 15 boundary cases once. The reviewer knew the variant labels;
+this is independent agent review, not blinded or human approval. No prompt tuning
+or replacement of failed outputs occurred. Each case used an empty ephemeral
+cache; warm replay then had to match without another provider call. No database
+or production user data was accessed. Held32 remains unopened.
+
+### Results
+
+| Variant | Completeness 18: P/PARTIAL/F/E | Known 20 | Boundary 15 semantic | Total fully correct | p50 | p95 | Maximum | Calls | Estimated USD |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| low | 18/0/0/0 | 17/0/3/0 | 15/0/0/0 | 50/53 | 4.835 s | 11.969 s | 14.336 s | 54 | 0.058038 |
+| medium | 16/1/1/0 | 19/1/0/0 | 15/0/0/0 | 50/53 | 7.917 s | 14.544 s | 18.663 s | 53 | 0.064596 |
+
+All 106 attempted cases returned technically valid results; each variant verified
+53 warm replays. Technical validity is not semantic correctness. Low used one
+bounded parser retry. Total estimated cost was USD 0.122634, below the authorized
+budget. These are standard-rate estimates from measured token usage, not an
+invoice. Cache effects and a single run limit cost/latency generalization.
+Rates were checked against the [official Luna model page](https://developers.openai.com/api/docs/models/gpt-6-luna)
+on 2026-10-11; cached writes add the premium over input already counted.
+
+Medium fixed three low failures in this paired observation: lost time OR,
+invented restaurant restriction and invented guided tour. It worsened three
+other cases: lost today's date from tonight (PARTIAL), invented family
+relationship (PARTIAL), and lost concert plus invented FULL_MEALS duty (FAIL).
+The latter request was “Ich bin nicht 18. Ein Konzert am Samstag wäre schön.”
+Negated age remained unknown, but the concrete desired experience changed.
+
+Medium had fewer FAIL labels, but the same count of fully correct requests and
+about 64% higher median latency. Neither meets the frozen zero-FAIL criterion.
+This supports **no automatic switch** based on this experiment; it does not prove
+low is generally better, medium useless, or either variant stable. More reasoning
+alone did not resolve the observed completeness/invention failure classes. The
+remaining design question is how concrete requirements and broad intent should
+be structurally linked and independently checked against user meaning; another
+set of wording exceptions is not established as a reliable fix.
+
+### Execution provenance and limits
+
+The standalone adapter first passed extra reference metadata to a strict corpus
+validator. This failed before provider invocation for the 18/20 suites; the
+adapter was corrected to the unchanged canonical serverTime/profileCity. Logs
+are retained. Boundary batches mistakenly reserved calls using seven families
+rather than fifteen queries; each original report contains 14 attempted cases
+and one NOT_RUN. Only that never-attempted final case was executed separately
+for each variant. No previously attempted case was replayed or substituted;
+original NOT_RUN reports remain unchanged. The completed 15-case coverage is
+therefore a documented 14+1 execution, not a relabeled contiguous acceptance run.
+The supplement budget reused unused allocations; the conservative remaining
+combined estimate stayed below USD 0.90. No 255-case acceptance block started.
+
+Local evidence directory: `/private/tmp/backyrd-production-understanding/effort-comparison-7136f58/`.
+Each variant has complete normalized observations, original and supplemental
+reports, and independent per-suite JSON/Markdown reviews. The source/build
+manifest verifies that only the effort literal differs. Temporary variants are
+experimental artifacts; they are not deployable release candidates and do not
+change the production cache identity or configuration.
+
+Manifest SHA-256: `e76790a4be60c809ccfa2d3a88a7ab1e1bc4d15f7eada9958edd86dc03f13577`.
+
+Measurement summary SHA-256: `20b106d98137fb557202994b0b624eb0dec0c0543cb089d32a0d0dfc27ad2839`.
+
+Independent comparison SHA-256: `220cd2e01043852176cd67a469625e1f0ec9e9175d20f711a4e4d0f600c8238a`.
