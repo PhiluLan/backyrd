@@ -4,7 +4,151 @@ Status: **implementation integrated; candidate evaluated; independent agent revi
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
-## Implemented path
+## Catalog-independent meaning stage — step 1 (2026-10-11)
+
+`product-request-meaning.ts` defines `request-meaning@1.0` and a bounded, strict
+JSON grammar with open descriptions. Activities preserve REQUESTED, OPTIONAL,
+EXCLUDED, NOT_REQUIRED, BACKGROUND and SUPERSEDED separately. Participants
+preserve relationships, confirmed/possible/background participation, quantities
+and current/future/past ages plus event-referenced ages of unknown timing. A birthday age without a proven relation to now is UNKNOWN with an explicit ageTimeReference; it cannot become current eligibility or a visit date. entityType distinguishes PERSON, GROUP and ANIMAL. Constraints retain their activity/participant
+scope, exact numeric value/comparison/unit/basis and open descriptions of time,
+location, needs and other conditions. Shared alternative groups preserve OR;
+activity references preserve explicit visit order and conditional replacement. Preferred replacement is OPTIONAL and never a veto of the original activity; required conditional replacement supersedes that visit only under its condition. Participant membership can preserve overlap between a named individual and a counted group; unknown membership is not proof of an additional person. Unknown concepts remain
+meaningful descriptions, not a guessed catalog entry. Empty scope arrays mean
+the whole request. `uncertainties` is semantic uncertainty, not missing venue data.
+
+`createDecisionProductMeaningStage` in the canonical AI module is the server-only
+stage for evaluating this contract. It uses Luna low, bounded evidence IDs (E1 always covers the full original request), at most two
+provider calls within one 20-second deadline, 3600 output tokens/call, `store:false`
+and the existing request boundary/actor allowlist. A valid initial extraction receives a second critical review against the original request and its own draft, under the same schema. An invalid extraction gets structural repair instead; there is no third call or silent fallback to the first draft. No expected answer, earlier case output or World catalog is supplied. The second pass is not independent evidence of correctness. No key, provider payload or
+personal descriptions enter error messages. Evidence IDs prove source attribution,
+not that the interpretation is semantically correct. Graph integrity, status and
+numeric-shape validation must therefore be supplemented by semantic evaluation.
+
+This contract contains personal descriptions and is **ephemeral**: do not send it
+to public context, analytics, learning, logs, or the existing query cache. Source
+IDs are request-bound. The old cache and public contracts remain unchanged.
+No production composition consumes this stage yet. Step 2 must map every active
+meaning item explicitly to supported search semantics or an observable unresolved
+need, respect structured UI choices, compute dates/units and preserve privacy.
+It must replace the existing interpretation in the canonical route, not create a
+second recommendation route. Step 1 alone does not assert spot eligibility.
+
+Acceptance tests are imported by the existing Decision test entry. The new
+`request-understanding/meaning-corpus.json` freezes 20 previous + 20 new cases and
+human-readable expectations for reproducible development evaluation. These cases
+are not blind holdout evidence or production acceptance. Domain invariants are
+not proved by matching JSON shape. Live outputs remain ignored local artifacts. Reproduce after building the package:
+
+```sh
+node packages/decision-vnext-core/test/request-understanding/run-meaning-evaluation.mjs --live --output /private/tmp/backyrd-meaning-evaluation.json
+```
+
+The provider key must already be in `OPENAI_API_KEY` in the server process
+environment; never pass it on the command line or commit local reports. The
+runner bounds calls/cost, verifies usage, stops on provider/account errors and
+reports VALID_CONTRACT separately from semantic review. The original expectations
+are not sent to the model. Every live semantic assessment must inspect all meaning
+items, their modalities and references; a correct summary or valid JSON is not a
+semantic PASS. The separately authored inputs are preserved in `meaning-additional-corpus.json`; run them with `--corpus packages/decision-vnext-core/test/request-understanding/meaning-additional-corpus.json`. These became development cases after their first v8 evaluation.
+
+## Meaning-stage evaluation evidence — step 1
+
+All cases below are synthetic, Luna low, with expectations withheld from both
+provider calls. Each semantic grade inspects the activities, participants,
+constraints and graph, not only the summary. Independent review was explicitly
+authorized. The same 40 cases were used to develop policies v1–v8; these are not
+holdout success rates. PASS/PARTIAL/FAIL counts respectively: v1 33/5/2,
+v2 37/1/2, v3 35/3/2, v4 37/2/1, v5 38/1/1, v6 38/2/0, v7 38/1/1,
+v8 40/0/0. This is an iteration history, not a randomized comparison proving
+that the second pass caused the improvement.
+
+Policy v8 was then frozen before testing 20 independently authored cases without
+implementation or previous-output access, alongside a repeat of the previous 40:
+
+| First additional-case validation | PASS | PARTIAL | FAIL | ERROR |
+| --- | ---: | ---: | ---: | ---: |
+| Previous 40 repeated | 40 | 0 | 0 | 0 |
+| Additional 20, first exposure | 16 | 3 | 1 | 0 |
+
+The failure was an unqualified total budget represented as EQ rather than a
+ceiling. Partial results concerned weather branch conditions stored only on
+properties rather than activities; shared city scope/preference on a rain
+replacement; and an event age assigned FUTURE without a proven relation to now,
+with a preferred atmosphere promoted to REQUESTED. All 60 had valid JSON contracts:
+that structural result did not override these semantic findings. This run used
+120 provider calls, estimated USD 0.0488284. These cases are now development
+regressions, not an untouched holdout for later policies.
+
+Policy v9 permits a numbered age with UNKNOWN timing only when an explicit
+ageTimeReference is retained; an unreferenced UNKNOWN number is rejected. It also
+clarifies implicit budget ceilings, activity-level weather conditions, shared
+location/time on replacements and locally optional preferences. The corrected
+four cases must never be presented as a new blind acceptance. Step 1 remains an
+evaluated foundation, not a production activation or final AP1 acceptance.
+
+Bindings for the v8 first-exposure run (raw responses remain outside Git):
+
+- `validation-v8/binding.json` SHA-256: `70bfb17a0ee85d322b583c8db51327702a012bb48e59d7181c016c1c9e032e39`
+- `validation-v8/results.json` SHA-256: `2e811f966a539458b6d81f51872f58ac68b10b6eb419068a5a3d1a8b437e126b`
+- `validation-v8/review.json` SHA-256: `1fa065426780be6448993973e51fe418df7d77c664dbd7fcaa82094a12ec743e`
+
+### v9 development regression and technical checks
+
+After correcting the v8 findings, the same 60 requests were evaluated again.
+These are development regression results, including the formerly new 20:
+
+| v9 development subset | PASS | PARTIAL | FAIL | ERROR |
+| --- | ---: | ---: | ---: | ---: |
+| Previous 40 | 38 | 1 | 1 | 0 |
+| Additional 20 | 18 | 1 | 0 | 1 |
+
+Total: 56 PASS, 2 PARTIAL, 1 FAIL, 1 ERROR; 59 valid contracts. Fresh05 now correctly
+conditions the activities, Fresh14 retains an LTE total budget, and Fresh19
+retains UNKNOWN birthday timing and locally OPTIONAL preferences. Remaining
+issues are tracked explicitly:
+
+- `meaning-new-14`: city scope is incorrectly extended to staying home; searching
+  for an outing in Aarau does not establish where home is (FAIL).
+- `meaning-new-19`: the desired city remains only in a BACKGROUND weather fact,
+  without a search location constraint (PARTIAL).
+- `fresh-meaning-19`: “ohne festes Programm” becomes NOT_REQUIRED rather than
+  an explicitly programme-free wish (PARTIAL).
+- `fresh-meaning-17`: the second response combines REQUESTED and OPTIONAL in
+  one R-group, violating the contract. Validation rejects it; no successful
+  first draft is returned as a fallback (ERROR).
+
+The run used 120 calls, estimated USD 0.05729453, median 9666.5 ms, nearest-rank
+p95 = 13368 ms and maximum 15653 ms at three concurrent cases. Two serial provider
+calls have a material latency tradeoff; these measurements are not a launch
+latency target or causal proof of benefit. No production requests or data writes
+were used. The final code passed 256 Decision contract/runtime/isolation tests,
+33 Mobile/Web release contract tests, strict TypeScript, the single-route check
+and the synthetic end-to-end test through the existing Web app. The isolated
+meaning/evaluation suite passed 53 tests. Diff and changed-file credential-literal
+checks passed. The live CLI refuses execution without explicit --live, output
+and server key; both versioned corpora validate as synthetic inputs.
+
+Step 1 has an implemented, evaluated contract/stage; semantic acceptance is OPEN.
+Do not activate it before scope/modality regressions are addressed and Step 2
+maps every relevant meaning item safely. No DB, World registry, Admin/Owner or
+public client contract was changed by this stage. Full AP1 and production
+acceptance remain OPEN. The PR remains a draft, without merge or deployment.
+
+Final evidence bindings (SHA-256; local raw data remains outside Git):
+
+- `validation-v9/binding.json`: `87ce883ea9b15bbfc64543b3e9bad6d7da857f27c1f77fad956018ed3a228bf0`
+- `validation-v9/results.json`: `b7c5b644a5cece2a34a6289774a32072618944aeb0167c790f7bdf7be3c63f77`
+- `validation-v9/review.json`: `8a299d741b5b1871c2b260d634578190cb8c2415eaeb94d7eb44018c751b5b78`
+- `validation-v9/code-review.json`: `f5a22c885b71b2f461b0bc6d5fc62f3e9cf900e47d6960fd06ebaf72b5b58f0b`
+- `ci-v9-final.log`: `e2dec2431a78e5a3d60f9bb46ab7d8d33fea15da0a308273c50ccb668b3eaf30`
+- `meaning-tests-v9.log`: `18ac573984e4ca20be18017b0aeacaba56b1da6d0f028da81993ae48cbf68ae0`
+- `packages/decision-vnext-core/src/product-request-meaning.ts`: `74188a3b2024c912ce13240c2b62ee99f34bbec3e8b83915dc36e904d405544e`
+- `packages/decision-vnext-core/src/product-ai-interpretation.ts`: `dcb296162ce9dc799376bba7a1a775257285607b400df6287382f2f33209fe19`
+- `packages/decision-vnext-core/test/request-understanding/meaning-corpus.json`: `d225fc726a9cfc1e21e39ed5e3cea11f9a183fc494436506ce71d8e648a3f4e9`
+- `packages/decision-vnext-core/test/request-understanding/meaning-additional-corpus.json`: `04f47997929f595f94c77acfb3fab411fc226c24ccd11c9c69fe8197af3fcf30`
+
+## Implemented production-compatible path
 
 `product-ai-interpretation.ts` requests up to 12 typed requirements and primary/secondary intent in one provider call. Scoped visit intents and requirements jointly retain meaning; requirements are the sole source of additional retrieval facets, projected deterministically. A bounded `requestMeaning` restatement precedes normalization and is discarded: it is neither authority nor persisted context. Each requirement retains its
 dimension, importance, operator, origin, interpretation state, typed value,

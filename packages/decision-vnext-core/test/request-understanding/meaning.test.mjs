@@ -1,0 +1,71 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parseProductRequestMeaning,productRequestMeaningModelSchema,createDecisionProductMeaningStage,PRODUCT_REQUEST_MEANING_VERSION,productRequestMeaningEvidenceOptions} from '../../dist/index.js';
+const text='Mit meiner Tochter Tiere beobachten, aber kein Zoo. Nach der Schule. Maximal 20 CHF pro Person.';
+const sources={E1:text,E2:'Nach der Schule.'};
+const activity=(id='A1',extra={})=>({id,description:'Tiere beobachten',status:'REQUESTED',alternativeGroup:null,condition:null,afterActivityId:null,replacesActivityId:null,evidence:['E1'],...extra});
+const constraint=(extra={})=>({id:'C1',aspect:'TIME',description:'Nach der Schule',status:'REQUESTED',activityIds:['A1'],participantIds:[],comparison:null,numericValue:null,unit:null,basis:null,alternativeGroup:null,condition:null,evidence:['E2'],...extra});
+const output=()=>({summary:'Tiererlebnis mit Tochter ohne Zoo nach der Schule.',activities:[activity()],participants:[{id:'P1',role:'Tochter',entityType:'PERSON',participation:'CONFIRMED',quantity:null,age:null,ageTiming:'UNKNOWN',ageTimeReference:null,memberOfParticipantId:null,evidence:['E1']}],constraints:[constraint()],uncertainties:[]});
+const actor={userId:'11111111-1111-4111-8111-111111111111'};
+const request={contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'meaning-test',idempotencyKey:'meaning-test',naturalLanguage:text,explicit:{},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
+const response=o=>({ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(o)}]}]})});
+const stage=fetchImpl=>createDecisionProductMeaningStage({apiKey:'fixture-only',model:'gpt-6-luna',allowedUserIds:'*',fetchImpl});
+test('open concepts and personal relationships survive without World taxonomy',()=>{const p=parseProductRequestMeaning(output(),text,sources);assert.equal(p.contractVersion,PRODUCT_REQUEST_MEANING_VERSION);assert.equal(p.activities[0].description,'Tiere beobachten');assert.equal(p.constraints[0].description,'Nach der Schule');assert.equal(p.participants[0].role,'Tochter');assert.equal(p.participants[0].age,null);assert.ok(Object.isFrozen(p.constraints));});
+test('separate nonrequirements, corrections, weather alternatives and ordering',()=>{const o=output();o.activities=[activity('A1',{description:'Bootsfahrt'}),activity('A2',{description:'Museum',status:'OPTIONAL',condition:'Falls es regnet'}),activity('A3',{description:'Kaffee danach',afterActivityId:'A2'}),activity('A4',{description:'Führung',status:'NOT_REQUIRED'})];o.constraints.push(constraint({id:'C2',description:'Samstag geht nicht mehr',status:'SUPERSEDED',evidence:['E1']}));assert.equal(parseProductRequestMeaning(o,text,sources).activities[3].status,'NOT_REQUIRED');});
+test('retain explicit alternatives without converting them to AND',()=>{const o=output();o.activities=[activity('A1',{alternativeGroup:'R1'}),activity('A2',{description:'Museum',alternativeGroup:'R1'})];assert.equal(parseProductRequestMeaning(o,text,sources).activities[1].alternativeGroup,'R1');});
+test('future participant age remains future, not current eligibility',()=>{const o=output();o.participants[0]={...o.participants[0],age:10,ageTiming:'FUTURE'};assert.equal(parseProductRequestMeaning(o,text,sources).participants[0].ageTiming,'FUTURE');});
+test('retain cent precision, comparator, unit and budget scope',()=>{const o=output();o.constraints=[constraint({aspect:'BUDGET',description:'Maximal 19.50 CHF pro Person',comparison:'LTE',numericValue:19.5,unit:'CHF',basis:'pro Person',evidence:['E1']})];const c=parseProductRequestMeaning(o,text,sources).constraints[0];assert.equal(c.numericValue,19.5);assert.equal(c.comparison,'LTE');});
+for(const [name,mutate,pattern] of [
+ ['unknown source',o=>o.activities[0].evidence=['E99'],/evidence_invalid/],
+ ['foreign quote',o=>{},/evidence_invalid/],
+ ['duplicate IDs',o=>o.activities.push(activity()),/duplicate_id/],
+ ['dangling scope',o=>o.constraints[0].activityIds=['A9'],/scope_invalid/],
+ ['dangling participant',o=>o.constraints[0].participantIds=['P9'],/scope_invalid/],
+ ['sequence cycle',o=>{o.activities=[activity('A1',{afterActivityId:'A2'}),activity('A2',{afterActivityId:'A1'})]},/sequence_invalid/],
+ ['OR branches ordered directly',o=>{o.activities=[activity('A1',{alternativeGroup:'R1'}),activity('A2',{alternativeGroup:'R1',afterActivityId:'A1'})]},/sequence_invalid/],
+ ['OR branches ordered transitively',o=>{o.activities=[activity('A1',{alternativeGroup:'R1'}),activity('A2',{afterActivityId:'A1'}),activity('A3',{alternativeGroup:'R1',afterActivityId:'A2'})]},/sequence_invalid/],
+ ['sequence after a nonrequired visit',o=>{o.activities=[activity('A1',{status:'NOT_REQUIRED'}),activity('A2',{afterActivityId:'A1'})]},/sequence_invalid/],
+ ['participant membership cycle',o=>{o.participants.push({...o.participants[0],id:'P2',memberOfParticipantId:'P1'});o.participants[0].memberOfParticipantId='P2'},/membership_invalid/],
+ ['dangling participant membership',o=>o.participants[0].memberOfParticipantId='P99',/membership_invalid/],
+ ['dangling replacement',o=>o.activities[0].replacesActivityId='A99',/replacement_invalid/],
+ ['replacement cycle',o=>{o.activities=[activity('A1',{replacesActivityId:'A2'}),activity('A2',{replacesActivityId:'A1'})]},/dependency_cycle/],
+ ['mixed order and replacement cycle',o=>{o.activities=[activity('A1',{afterActivityId:'A2'}),activity('A2',{replacesActivityId:'A1'})]},/dependency_cycle/],
+ ['blank understood activity',o=>o.activities[0].description='  ',/invalid format/],
+ ['replacement also requires replaced visit directly',o=>{o.activities=[activity('A1'),activity('A2',{afterActivityId:'A1',replacesActivityId:'A1'})]},/replacement_invalid/],
+ ['replacement also requires replaced visit transitively',o=>{o.activities=[activity('A1'),activity('A2',{afterActivityId:'A1'}),activity('A3',{afterActivityId:'A2',replacesActivityId:'A1'})]},/replacement_invalid/],
+ ['OR mixes activity alternatives and shared constraints',o=>{o.activities=[activity('A1',{alternativeGroup:'R1'}),activity('A2',{alternativeGroup:'R1'})];o.constraints[0].alternativeGroup='R1'},/alternatives_invalid/],
+ ['membership refers to individual parent',o=>{o.participants.push({...o.participants[0],id:'P2',role:'Elternteil'});o.participants[0].memberOfParticipantId='P2'},/membership_invalid/],
+ ['single person has group quantity',o=>o.participants[0].quantity=2,/participant_invalid/],
+ ['singleton OR',o=>o.activities[0].alternativeGroup='R1',/alternatives_invalid/],
+ ['OR mixes desired and excluded',o=>{o.activities=[activity('A1',{alternativeGroup:'R1'}),activity('A2',{alternativeGroup:'R1',status:'EXCLUDED'})]},/alternatives_invalid/],
+ ['numeric limit without unit',o=>o.constraints[0].numericValue=20,/quantity_invalid/],
+ ['null age marked current',o=>o.participants[0].ageTiming='CURRENT',/age_timing_invalid/],
+ ['unexpected field',o=>o.ranking=100,/unknown field/],
+])test('reject '+name,()=>{const o=output();mutate(o);assert.throws(()=>parseProductRequestMeaning(o,text,name==='foreign quote'?{...sources,E1:'foreign'}:sources),pattern);});
+test('provider schema is small, closed in shape and open in concepts',()=>{const s=productRequestMeaningModelSchema(['E1']);assert.equal(s.additionalProperties,false);assert.ok(JSON.stringify(s).length<7000);assert.ok(!JSON.stringify(s).includes('GUIDED_TOUR'));assert.throws(()=>productRequestMeaningModelSchema(['E1','E1']),/sources_invalid/);});
+test('Luna low receives no catalog and produces ephemeral meaning',async()=>{let captured;const run=stage(async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/responses');captured=JSON.parse(options.body);return response(output());});const p=await run(request,actor,new AbortController().signal);assert.equal(p.activities[0].description,'Tiere beobachten');assert.equal(captured.store,false);assert.equal(captured.reasoning.effort,'low');assert.equal(captured.max_output_tokens,3600);assert.ok(!captured.instructions.includes('Zulässige Felder'));assert.equal(captured.text.format.strict,true);assert.ok(!Object.hasOwn(p,'hardConstraints'));});
+test('allowlist denial calls no provider',async()=>{const run=createDecisionProductMeaningStage({apiKey:'fixture',model:'gpt-6-luna',allowedUserIds:[],fetchImpl:async()=>{throw Error('must not call')}});assert.equal(await run(request,actor,new AbortController().signal),null);});
+test('cancelled request calls no provider',async()=>{const controller=new AbortController();controller.abort();await assert.rejects(stage(async()=>{throw Error('must not call')})(request,actor,controller.signal),/aborted/);});
+test('structural repair is bounded to two calls, failures expose no payload',async()=>{let calls=0;await assert.rejects(stage(async()=>{calls++;return response({summary:'sensitive fixture'})})(request,actor,new AbortController().signal),/^Error: product_request_meaning_output_invalid$/);assert.equal(calls,2);});
+test('provider failure is not reported as understood and not retried',async()=>{let calls=0;await assert.rejects(stage(async()=>{calls++;return {ok:false,status:429}})(request,actor,new AbortController().signal),/provider_unavailable/);assert.equal(calls,1);});
+test('cancellation during response prevents late successful output',async()=>{const controller=new AbortController();const run=stage(async()=>{controller.abort();return response(output());});await assert.rejects(run(request,actor,controller.signal),/aborted/);});
+
+test('long request keeps all terms groundable within the evidence budget',async()=>{const long='Ich suche '+Array.from({length:125},(_,i)=>'Wunsch'+i).join(' ');const sources=productRequestMeaningEvidenceOptions(long);assert.ok(Object.keys(sources).length<=120);assert.equal(sources.E1,long);let called=0;const o=output();o.activities[0].evidence=['E1'];o.participants[0].evidence=['E1'];o.constraints[0].evidence=['E1'];await stage(async()=>{called++;return response(o)})({...request,naturalLanguage:long},actor,new AbortController().signal);assert.equal(called,2);});
+
+test('named child can belong to a counted group without an extra group member',()=>{const o=output();o.participants.push({...o.participants[0],id:'P2',role:'Kinder',entityType:'GROUP',quantity:8});o.participants[0].memberOfParticipantId='P2';const p=parseProductRequestMeaning(o,text,sources);assert.equal(p.participants[0].memberOfParticipantId,'P2');});
+
+test('upstream exceptions cannot leak personal text or provider secrets',async()=>{await assert.rejects(stage(async()=>{throw Error('sensitive payload and fixture secret')})(request,actor,new AbortController().signal),/^Error: product_request_meaning_provider_unavailable$/);});
+test('malformed JSON is repaired with a bounded generic error',async()=>{let calls=0;await assert.rejects(stage(async()=>{calls++;return{ok:true,json:async()=>{throw SyntaxError('sensitive provider response')}}})(request,actor,new AbortController().signal),/^Error: product_request_meaning_output_invalid$/);assert.equal(calls,2);});
+test('one deadline covers repair as well as initial call',async t=>{t.mock.timers.enable({apis:['setTimeout']});let calls=0;const run=stage(async(url,options)=>{calls++;if(calls===1)return response({});return new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Error('private upstream timeout')),{once:true}));});const promise=run(request,actor,new AbortController().signal);await new Promise(setImmediate);assert.equal(calls,2);t.mock.timers.tick(20_000);await assert.rejects(promise,/product_request_meaning_aborted/);});
+
+test('preferred weather replacement preserves the original activity without excluding it',()=>{const o=output();o.activities=[activity('A1',{description:'Bootsfahrt'}),activity('A2',{description:'Museum',status:'OPTIONAL',condition:'Falls es regnet',replacesActivityId:'A1'})];const p=parseProductRequestMeaning(o,text,sources);assert.equal(p.activities[0].status,'REQUESTED');assert.equal(p.activities[1].replacesActivityId,'A1');});
+test('required conditional replacement can express staying home in a thunderstorm',()=>{const o=output();o.activities=[activity('A1',{description:'Draussen unterwegs sein'}),activity('A2',{description:'Zuhause bleiben',condition:'Bei Gewitter',replacesActivityId:'A1'})];assert.equal(parseProductRequestMeaning(o,text,sources).activities[1].condition,'Bei Gewitter');});
+
+test('future age keeps its original time reference without becoming a visit date',()=>{const o=output();o.participants[0]={...o.participants[0],age:11,ageTiming:'FUTURE',ageTimeReference:'nächste Woche'};const p=parseProductRequestMeaning(o,text,sources);assert.equal(p.participants[0].ageTimeReference,'nächste Woche');assert.equal(p.participants[0].ageTiming,'FUTURE');assert.equal(p.constraints.length,1);});
+
+test('second pass reviews only own draft and source, with no stale answers or oracle',async()=>{let calls=0;const run=stage(async(url,options)=>{const b=JSON.parse(options.body),data=JSON.parse(b.input);calls++;if(calls===1)assert.ok(!Object.hasOwn(data,'draft'));else{assert.equal(data.request,text);assert.deepEqual(data.draft,output());assert.ok(b.instructions.includes('kritisch'));}return response(output());});await run(request,actor,new AbortController().signal);assert.equal(calls,2);});
+test('a failed second pass never silently returns a successful first draft',async()=>{let calls=0;const run=stage(async()=>{calls++;return calls===1?response(output()):response({});});await assert.rejects(run(request,actor,new AbortController().signal),/output_invalid/);assert.equal(calls,2);});
+
+
+test('event age can retain unknown timing without guessing future or current age',()=>{const o=output();o.participants[0]={...o.participants[0],age:40,ageTiming:'UNKNOWN',ageTimeReference:'40. Geburtstag'};o.uncertainties=['Zeitlage des Geburtstags relativ zu jetzt unbekannt'];const p=parseProductRequestMeaning(o,text,sources);assert.equal(p.participants[0].age,40);assert.equal(p.participants[0].ageTiming,'UNKNOWN');});
+test('unknown timing on a numbered age requires an explicit event reference',()=>{const o=output();o.participants[0].age=40;assert.throws(()=>parseProductRequestMeaning(o,text,sources),/age_timing_invalid/);});

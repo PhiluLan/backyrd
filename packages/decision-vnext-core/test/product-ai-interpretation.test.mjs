@@ -1,3 +1,5 @@
+import './request-understanding/meaning-evaluation.test.mjs';
+import './request-understanding/meaning.test.mjs';
 import './request-understanding/model-evaluation.test.mjs';
 import './request-understanding/structured.test.mjs';
 import './request-understanding/context.test.mjs';
