@@ -4,10 +4,10 @@ import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds = 90_000, slug = "decision-v13" } = {}) {
+export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds = 90_000, slug = "decision-v13", spawnImpl = spawn, fetchImpl = fetch } = {}) {
   const root = resolve(bundleRoot);
   if (!["decision-v13", "decision-engine-worker"].includes(slug)) throw new Error("edge_function_slug_invalid");
-  const child = spawn("supabase", ["--workdir", root, "functions", "serve", slug, "--no-verify-jwt"], {
+  const child = spawnImpl("supabase", ["--workdir", root, "functions", "serve", slug, "--no-verify-jwt"], {
     stdio: ["ignore", "pipe", "pipe"],
   });
   let logs = "";
@@ -15,12 +15,14 @@ export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds 
   child.stdout.on("data", record);
   child.stderr.on("data", record);
   const deadline = Date.now() + timeoutMilliseconds;
+  let gatewayRetries = 0;
   try {
     while (Date.now() < deadline) {
       if (child.exitCode !== null) throw new Error(`edge_runtime_exited:${logs}`);
       if (logs.includes("Serving functions on")) {
-        const response = await fetch(`http://127.0.0.1:54321/functions/v1/${slug}`, {
+        const response = await fetchImpl(`http://127.0.0.1:54321/functions/v1/${slug}`, {
           method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+          signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
         }).catch(() => null);
         if (response) {
           const body = await response.json().catch(() => null);
@@ -29,6 +31,13 @@ export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds 
           }
           if (slug === "decision-engine-worker" && response.status === 503 && body?.error === "server_configuration_missing") {
             return { status: "PASS", slug, httpStatus: 503, workerStatus: body.error };
+          }
+          // The CLI announces its listener before the local gateway's upstream is ready.
+          // Retry only that exact startup response, at most four times; never accept it.
+          if (response.status === 502 && body?.message === "An invalid response was received from the upstream server" && gatewayRetries < 4) {
+            gatewayRetries += 1;
+            await new Promise((done) => setTimeout(done, 500));
+            continue;
           }
           throw new Error(`edge_runtime_unexpected_response:${response.status}:${JSON.stringify(body).slice(0, 400)}`);
         }

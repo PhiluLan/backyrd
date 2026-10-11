@@ -1,4 +1,6 @@
 import test from "node:test";
+import { EventEmitter } from "node:events";
+import { verifyEdgeRuntimeBundle } from "./verify-edge-runtime-bundle.mjs";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -41,4 +43,47 @@ test("worker entrypoint and its research dependency are sealed, with no checkout
   assert.equal(verifyEdgeDeployClosure(root, "decision-engine-worker").status, "PASS");
   put(root, "packages/spot-research-runtime/src/world-knowledge-worker.mjs", 'import "./missing.mjs";\n');
   assert.throws(() => verifyEdgeDeployClosure(root, "decision-engine-worker"), /edge_import_unresolved/);
+});
+
+const runtimeProbe = (responses) => {
+  const child = { stdout: new EventEmitter(), stderr: new EventEmitter(), exitCode: null, kill: () => { killed = true; } };
+  let killed = false;
+  let calls = 0;
+  const run = () => verifyEdgeRuntimeBundle("/tmp/synthetic-edge-bundle", {
+    spawnImpl: () => {
+      queueMicrotask(() => child.stdout.emit("data", "Serving functions on"));
+      return child;
+    },
+    fetchImpl: async (_url, options) => {
+      assert.ok(options.signal instanceof AbortSignal);
+      const [status, body] = responses[Math.min(calls++, responses.length - 1)];
+      return new Response(JSON.stringify(body), { status });
+    },
+  });
+  return { run, calls: () => calls, killed: () => killed };
+};
+const gatewayStarting = [502, { message: "An invalid response was received from the upstream server" }];
+const safeUnavailable = [503, { status: "UNAVAILABLE", legacyFallbackUsed: false }];
+
+test("runtime readiness tolerates a transient gateway startup response but still requires the safe product response", async () => {
+  const probe = runtimeProbe([gatewayStarting, safeUnavailable]);
+  assert.equal((await probe.run()).status, "PASS");
+  assert.equal(probe.calls(), 2);
+  assert.equal(probe.killed(), true);
+});
+
+test("a permanent gateway failure exhausts four retries and fails closed", async () => {
+  const probe = runtimeProbe([gatewayStarting]);
+  await assert.rejects(probe.run(), /edge_runtime_unexpected_response:502/);
+  assert.equal(probe.calls(), 5);
+  assert.equal(probe.killed(), true);
+});
+
+test("runtime readiness never retries or accepts a wrong product response", async () => {
+  for (const response of [[200, { status: "OK" }], [503, { status: "UNAVAILABLE", legacyFallbackUsed: true }], [502, { message: "different failure" }]]) {
+    const probe = runtimeProbe([response, safeUnavailable]);
+    await assert.rejects(probe.run(), /edge_runtime_unexpected_response/);
+    assert.equal(probe.calls(), 1);
+    assert.equal(probe.killed(), true);
+  }
 });
