@@ -15,7 +15,7 @@ const req = (dimension, value, evidence, rest = {}) => ({ dimension, importance:
 const time = (rest = {}) => ({ kind: 'TIME', openNow: false, localDate: null, relativeDays: null, weekday: null, dayPhase: null, clockTime: null, ...rest });
 const money = (rest = {}) => ({ kind: 'BUDGET', amountMinor: 3000, currency: 'CHF', comparison: 'LTE', basis: 'PER_PERSON', ...rest });
 const semantics = requirements => ({ primaryIntent: 'COFFEE', secondaryIntent: null, facets: [], indoorRequired: false, indoorEvidence: null, unresolvedNeedCodes: [], requirements });
-function harness(requirements) {
+function harness(requirements, overrides = {}) {
   const records = new Map(); const calls = []; let fetches = 0;
   const run = createDecisionProductAiIntentInterpreter({ identity, apiKey: 'synthetic', model: 'gpt-6-luna', allowedUserIds: '*',
     rpc: { async rpc(_name, args) {
@@ -30,7 +30,7 @@ function harness(requirements) {
       assert.equal(body.store, false);
       assert.ok(body.text.format.schema.required.includes('requirements'));
       assert.equal(body.text.format.schema.properties.requirements.maxItems, 12);
-      return { ok: true, async json() { return { status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify(semantics(requirements)) }] }] }; } };
+      return { ok: true, async json() { return { status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({ ...semantics(requirements), ...overrides }) }] }] }; } };
     },
   });
   return { run: input => run(input, actor, new AbortController().signal), records, calls, fetches: () => fetches };
@@ -535,11 +535,11 @@ test('conditional exclusions cannot suppress an independent unconditional positi
 });
 
 test('known needs, duration, references and price components survive cold cache, warm cache and public transport', async () => {
-  const needs = ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE', 'DOG_ACCESS', 'STEP_FREE_ROUTE', 'CHANGING_TABLE', 'GUIDED_TOUR', 'BOAT_RIDE', 'POTTERY'];
+  const needs = ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE', 'DOG_ACCESS', 'STEP_FREE_ROUTE', 'CHANGING_TABLE', 'GUIDED_TOUR', 'BOAT_RIDE', 'POTTERY', 'DANCING'];
   const { validateDecisionProductRequirements } = await import('../../../../mobile/packages/product-decision-contract/src/index.mjs');
   for (const code of needs) {
     const value = { kind: 'NEED', code, scope: 'ONE_PERSON', ...(code === 'DOG_ACCESS' ? { accessArea: 'OUTDOOR_ONLY_ACCEPTABLE' } : {}) };
-    const dimension = ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE'].includes(code) ? 'OFFERING' : ['GUIDED_TOUR', 'BOAT_RIDE', 'POTTERY'].includes(code) ? 'EXPERIENCE' : 'ACCESS';
+    const dimension = ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE'].includes(code) ? 'OFFERING' : ['GUIDED_TOUR', 'BOAT_RIDE', 'POTTERY', 'DANCING'].includes(code) ? 'EXPERIENCE' : 'ACCESS';
     const rows = [req(dimension, value, code, { importance: 'HARD', operator: ['GUIDED_TOUR', 'BOAT_RIDE'].includes(code) ? 'EXCLUDE' : 'REQUIRE' })];
     const input = request(`Coffee ${code}`); const h = harness(rows); const cold = await h.run(input); const warm = await h.run(input);
     assert.deepEqual(cold, warm); assert.equal(h.fetches(), 1);
@@ -672,7 +672,7 @@ test('free city slots cannot bypass place privacy; unsupported municipalities re
 });
 
 test('concrete needs have one owning dimension in provider output, validation and cache replay', () => {
-  const ownership = { ACCESS: ['DOG_ACCESS', 'STEP_FREE_ENTRANCE', 'STEP_FREE_ROUTE', 'CHANGING_TABLE'], OFFERING: ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE', 'VEGAN', 'VEGETARIAN', 'ALCOHOL_FREE'], EXPERIENCE: ['GUIDED_TOUR', 'BOAT_RIDE', 'RIVERSIDE_WALK', 'POTTERY'] };
+  const ownership = { ACCESS: ['DOG_ACCESS', 'STEP_FREE_ENTRANCE', 'STEP_FREE_ROUTE', 'CHANGING_TABLE'], OFFERING: ['HALAL', 'DAIRY_FREE', 'LACTOSE_FREE', 'VEGAN', 'VEGETARIAN', 'ALCOHOL_FREE'], EXPERIENCE: ['GUIDED_TOUR', 'BOAT_RIDE', 'RIVERSIDE_WALK', 'POTTERY', 'DANCING'] };
   const variants = PRODUCT_MODEL_REQUIREMENTS_SCHEMA.items.anyOf;
   assert.deepEqual(variants.filter(v => v.properties.dimension.const === 'OTHER').map(v => v.properties.interpretationState.const), ['UNSUPPORTED']);
   for (const [dimension, codes] of Object.entries(ownership)) {
@@ -727,4 +727,84 @@ test('a typical-daypart preference cannot manufacture a requested visit time', (
   assert.equal(inferred.dateTime.dayPhase, null);
   const literal = context(request('Kaffee heute Abend', { softPreferences: ['WK:context.typical_dayparts:MORNING'] }), null);
   assert.equal(literal.dateTime.dayPhase, 'EVENING');
+});
+
+
+test('current age remains valid beside a birthday while bare birthday numbers remain rejected', async () => {
+  for (const text of ['Ich bin 17, mein Geburtstag ist nächste Woche.', "I am 17, my birthday is next week.", 'Mein Geburtstag ist nächste Woche, bin jetzt noch 17.']) {
+    const h = harness([req('AGE', { kind: 'AGE', ages: [17] }, text, { importance: 'HARD' })]);
+    const cold = await h.run(request(text)); const warm = await h.run(request(text));
+    assert.deepEqual(warm, cold); assert.equal(h.fetches(), 1);
+    assert.equal(context(cold.request, cold.understanding).group.minimumAge, 17);
+    assert.equal(JSON.stringify([...h.records.values()]).includes(text), false);
+  }
+  for (const text of ['Ich werde 17 an meinem Geburtstag.', 'Ich war 17 an meinem Geburtstag.', 'Ich bin nicht 17, mein Geburtstag ist nächste Woche.', 'Ich bin 17 Minuten entfernt, heute ist mein Geburtstag.', 'Ich bin 18, mein 17. Geburtstag war letztes Jahr.']) {
+    assert.throws(() => parseModelRequirements([req('AGE', { kind: 'AGE', ages: [17] }, text)], text), /birthday_not_group_age/);
+  }
+});
+
+test('specific meals survive generic intent, cold/warm cache and public validation', async () => {
+  const { validateDecisionProductRequirements } = await import('../../../../mobile/packages/product-decision-contract/src/index.mjs');
+  const text = 'Déjeuner à Thun';
+  const row = req('OFFERING', { kind: 'FACET', key: 'offering.groups', value: 'LUNCH' }, 'Déjeuner');
+  const h = harness([row]); const cold = await h.run(request(text)); const warm = await h.run(request(text));
+  assert.deepEqual(cold, warm); assert.equal(h.fetches(), 1);
+  const projected = context(cold.request, cold.understanding);
+  assert.equal(projected.requirements[0].value.value, 'LUNCH');
+  validateDecisionProductRequirements(projected.requirements);
+});
+
+
+test('a nightclub name never invents a requested night, while literal night remains supported', async () => {
+  for (const text of ['Wir wollen tanzen, ein Nachtclub ist dafür nicht nötig.', 'A nightclub with somewhere to sit.', 'Ein Nachtclub in Thun.']) {
+    const result = await interpretedContext(text, []);
+    assert.equal(result.context.dateTime.dayPhase, null);
+  }
+  for (const text of ['Heute Nacht tanzen.', 'Nachts tanzen.', 'Dancing tonight.', 'Dancing at night.', 'Dancing at nighttime.']) {
+    const result = await interpretedContext(text, []);
+    assert.equal(result.context.dateTime.dayPhase, 'NIGHT');
+  }
+  const explicit = { dateTime: { state: 'UNKNOWN', localDate: null, dayPhase: 'AFTERNOON', timeZone: 'Europe/Zurich' } };
+  assert.equal((await interpretedContext('A nightclub.', [], explicit)).context.dateTime.dayPhase, 'AFTERNOON');
+});
+
+
+test('a mixed typed OR never makes its concert branch mandatory in retrieval or eligibility', async () => {
+  const text = 'Am Abend entweder tanzen oder ein Konzert besuchen.';
+  const concert = { kind: 'FACET', key: 'classification.place_types', value: 'CONCERT_VENUE' };
+  const overrides = { primaryIntent: 'ACTIVITY_EXPERIENCE', facets: [
+    { key: 'classification.place_types', value: 'CONCERT_VENUE', role: 'REQUIRED', group: 'G1', evidence: 'ein Konzert besuchen' },
+    { key: 'classification.primary_category', value: 'CULTURE_ARTS', role: 'REQUIRED', group: 'G2', evidence: 'ein Konzert besuchen' },
+  ] };
+  for (const importance of ['HARD', 'ESSENTIAL']) {
+    const rows = [
+      req('EXPERIENCE', { kind: 'NEED', code: 'DANCING', scope: 'UNSPECIFIED' }, 'tanzen', { group: 'R1', importance }),
+      req('EXPERIENCE', concert, 'ein Konzert besuchen', { group: 'R1', importance }),
+    ];
+    const h = harness(rows, overrides); const cold = await h.run(request(text)); const warm = await h.run(request(text));
+    assert.deepEqual(cold, warm); assert.equal(h.fetches(), 1);
+    assert.deepEqual(cold.request.explicit.hardConstraints, []);
+    assert.ok(cold.request.explicit.unresolvedTerms.includes('OTHER_CORE_NEED_UNMAPPED'));
+    assert.deepEqual(cold.understanding.requirements.map(r => r.group), ['R1', 'R1']);
+    const candidate = assess(cold).candidates[0];
+    assert.equal(candidate.failedHardConstraints.some(c => c.startsWith('UNDERSTANDING_REQUIREMENT_')), false);
+    assert.notEqual(candidate.tier, 'ELIGIBLE_CONFIRMED');
+    const preferred = await harness([...rows, req('EXPERIENCE', concert, 'ein Konzert besuchen', { importance: 'PREFERRED' })], overrides).run(request(text));
+    assert.deepEqual(preferred.request.explicit.hardConstraints, [], 'preferring one alternative does not require it');
+    const independent = await harness([...rows, req('EXPERIENCE', concert, 'ein Konzert besuchen', { importance: 'HARD' })], overrides).run(request(text));
+    assert.ok(independent.request.explicit.hardConstraints.some(c => c.includes('classification.place_types:CONCERT_VENUE')));
+    const ui = await h.run(request(text, { hardConstraints: ['WK_REQUIRED:UI:classification.place_types:CONCERT_VENUE'] }));
+    assert.ok(ui.request.explicit.hardConstraints.includes('WK_REQUIRED:UI:classification.place_types:CONCERT_VENUE'));
+  }
+});
+
+
+test('mixed alternatives do not weaken a known explicit exclusion', async () => {
+  const text = 'Neither dancing nor a cafe.';
+  const rows = [
+    req('EXPERIENCE', { kind: 'NEED', code: 'DANCING', scope: 'UNSPECIFIED' }, 'dancing', { group: 'R1', operator: 'EXCLUDE', importance: 'HARD' }),
+    req('EXPERIENCE', { kind: 'FACET', key: 'classification.place_types', value: 'CAFE' }, 'a cafe', { group: 'R1', operator: 'EXCLUDE', importance: 'HARD' }),
+  ];
+  const result = await interpretedContext(text, rows);
+  assert.ok(assess(result).candidates[0].failedHardConstraints.some(c => c.startsWith('UNDERSTANDING_REQUIREMENT_')));
 });

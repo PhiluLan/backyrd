@@ -20,7 +20,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.8" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.9" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -87,7 +87,7 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   const typedPhase = understood.requirements.some(r => [r.value, ...r.alternatives].some(v => v?.kind === "TIME" && v.dayPhase !== null));
   const explicitDaypart = [...hard].map(decodeWorldQueryConstraint).find(facet => facet?.role === "REQUIRED" && facet.key === "context.typical_dayparts")?.value;
   // Typical venue hours inferred as a ranking facet are not a requested visit time.
-  const literalPhase = typedPhase ? null : (["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const).find(phase => phase === explicitDaypart) ?? (includes(text, ["abend", "evening", "dinner"]) ? "EVENING" : includes(text, ["nacht", "tonight", "night"]) ? "NIGHT" : includes(text, ["nachmittag", "afternoon"]) ? "AFTERNOON" : includes(text, ["mittag", "midday", "lunch"]) ? "MIDDAY" : includes(text, ["frühstück", "am morgen", "morgens", "morning"]) ? "MORNING" : null);
+  const literalPhase = typedPhase ? null : (["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const).find(phase => phase === explicitDaypart) ?? (includes(text, ["abend", "evening", "dinner"]) ? "EVENING" : /(?<!\p{L})(?:nachts?|tonight|night(?:time)?)(?!\p{L})/u.test(text) ? "NIGHT" : includes(text, ["nachmittag", "afternoon"]) ? "AFTERNOON" : includes(text, ["mittag", "midday", "lunch"]) ? "MIDDAY" : includes(text, ["frühstück", "am morgen", "morgens", "morning"]) ? "MORNING" : null);
   const calendarMentioned = requestedWeekday(text) >= 0 || /(?<!\p{L})(?:heute|morgen|übermorgen|today|tomorrow|jetzt|now)(?!\p{L})/u.test(text);
   const fallbackDate = calendarMentioned && !understood.timeMentioned ? requestedLocalDate(text, authority.serverTime) : null;
   const dateContext = explicit.dateTime ?? (understood.dateTime ? { ...understood.dateTime, dayPhase: understood.dateTime.dayPhase ?? literalPhase } : { state: fallbackDate ? "KNOWN" as const : "UNKNOWN" as const, localDate: fallbackDate, dayPhase: literalPhase, timeZone: "Europe/Zurich" });
@@ -410,12 +410,19 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   // cannot become a fully confirmed fit merely because their ranking facet is
   // optional. A group is OR only for the same requirement policy and dimension.
   const requirementGroups = new Map<string, ProductRequirement[]>();
+  let essentialUnverified = false;
   for (const [index, requirement] of requirements.entries()) {
     if (requirement.condition || requirement.operator === "ALLOW" || requirement.value?.kind !== "FACET" || requirement.importance === "PREFERRED") continue;
+    if (requirement.operator === "REQUIRE" && requirement.group !== null && requirements.some(other => other.group === requirement.group && other.dimension === requirement.dimension && other.importance === requirement.importance && other.operator === requirement.operator && other.value?.kind !== "FACET")) {
+      // The non-facet branch is not verifiable here. Never evaluate the known
+      // branch alone as a mandatory AND condition or as a proven complete OR.
+      essentialUnverified = true;
+      if (requirement.importance === "HARD") unknownHard.push(`UNDERSTANDING_ALTERNATIVE_${index + 1}`);
+      continue;
+    }
     const key = `${requirement.dimension}:${requirement.importance}:${requirement.operator}:${requirement.group ?? index}`;
     requirementGroups.set(key, [...(requirementGroups.get(key) ?? []), requirement]);
   }
-  let essentialUnverified = false;
   for (const [index, alternatives] of [...requirementGroups.values()].entries()) {
     const first = alternatives[0]!;
     const matches = alternatives.map(r => r.value?.kind === "FACET" && matchesWorldPreference(snapshot, context, r.value.key, r.value.value));

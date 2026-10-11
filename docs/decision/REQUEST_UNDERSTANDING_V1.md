@@ -59,9 +59,9 @@ Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
 their optional strength. A group containing only one requirement normalizes to
 no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.19`; understanding contract `@1.2`; understanding
-policy `request-understanding-policy-v15`; public context `@1.1`; context resolver
-v7; evaluator `@2.8`. GPT-6 Luna stays at `reasoning.effort: low`. The provider
+Versions: interpreter `ai-query@4.22`; understanding contract `@1.2`; understanding
+policy `request-understanding-policy-v17`; public context `@1.1`; context resolver
+v8; evaluator `@2.9`. GPT-6 Luna stays at `reasoning.effort: low`. The provider
 schema/prompt now exposes the additional meanings; the model has not changed.
 The cap remains 3600 output tokens with at most one malformed-output retry.
 Existing Auth, rate limits, actor binding, deadlines and release controls remain.
@@ -1404,3 +1404,135 @@ binding and are not final-4.19 broad regression results. No final 160-case
 rerun or launch-quality certification is claimed.
 
 Final independent review SHA256: JSON `c5fb7157263788398316b4bd227b5cee87615a3eabca49537316aa33930119d7`; Markdown `06bbc0da4905262aa6b151730a9933deead21ebac62d825a328661d0878d80ca`.
+
+
+## 2026-10-11 — retaining specific activities, current ages and meals
+
+Work class: PRODUCT_RELEASE. Owned paths are the canonical Decision interpreter,
+understanding validator, context projection, their evaluation/tests, and the
+shared Mobile/Web Product validator. No database, privileged access, learning,
+model choice or production activation changes. Luna remains on reasoning low.
+
+Interpreter 4.22 retains the narrower 4.21 prompt clarification of the existing
+duplicate-suppression rule: a broad
+primary intent does not replace a concrete activity or meal. NIGHTLIFE must not
+swallow dancing; EAT must not swallow lunch/breakfast/dinner. A meal mentioned
+only as a temporal reference is not a requested offering. Current participant
+ages remain distinct from future birthdays, past ages and corrected numbers.
+The longer 4.20 clarification was rejected after a real weather regression;
+4.21 retains a narrower change to the established wording.
+
+DANCING is now an EXPERIENCE NEED, independently preserved through normalization,
+private cache, public requirements and the shared Mobile/Web validator. A club
+or dance floor is not proof of an available dancing experience. The existing
+unknown-need eligibility path keeps it unverified until authoritative venue
+capability evidence is implemented. No venue facts are synthesized. Policy v17
+invalidates older cached interpretations. Public context remains the pending
+1.1 contract from this draft PR; compatible Mobile/Web clients must ship before
+backend activation because older validators reject the new enum value.
+
+The birthday guard previously rejected a valid current self-age when its
+literal evidence also mentioned a birthday. A bounded German/English
+present-tense exception now accepts the exact age (including “bin jetzt noch
+17”). Birthday-only, future/past, negated and unit-confused examples remain
+rejected by this exception. This is not a general age grounder or detector of
+omitted ages: semantic extraction still needs independent evaluation. Raw
+quotes and participant age lists are still discarded before persistence.
+
+Resolver v8/evaluator 2.9 fix a separate literal fallback error: Nachtclub and
+nightclub no longer imply a requested NIGHT. Explicit Nacht/nachts/night/
+nighttime/tonight remain supported. Typed time and explicit UI time keep their
+authority. The fix does not claim general temporal-negation understanding.
+
+### Evaluation protocol
+
+`completeness-cases.json` and `completeness-rubric.json` preserve 18 independently
+authored development cases frozen before any model observation. They cover
+birthday/current/past/corrected/negated ages, dancing versus clubs and seating,
+activity alternatives, pottery, French breakfast/lunch and meals as time
+references. Their SHA256 values are fixed in an automated test. They are known
+regression cases after disclosure, not a blind holdout or launch acceptance.
+
+The existing CLI accepts `--suite completeness --diagnostics`; it returns all
+normalized synthetic observations for review with that frozen rubric. Its
+`semanticScoring:false` and `TRANSPORT_ONLY_REQUIRES_FROZEN_RUBRIC_REVIEW` marker
+explicitly distinguish a technically usable result from semantic success.
+It uses the same canonical interpreter, bounded calls, timeout and estimated
+cost limits. No real-user or production data is read or written.
+
+Local validation: 196 canonical Decision tests and TypeScript passed; 33 Product
+checks and 17 focused Web contracts passed. After preserving the existing
+“nachts/nighttime” fallback vocabulary, all 61 structured understanding tests
+passed. Source, catalog and response-size bounds remain unchanged except the
+new typed enum and versioned policies; the 100000-byte cap, 3600 output tokens
+and one malformed-response retry are not relaxed.
+
+
+The final independent review exposed a deterministic mixed-alternative loss:
+DANCING OR CONCERT_VENUE survived in requirements, but the parallel facet made
+CONCERT_VENUE mandatory. Interpreter 4.22 now prevents a partial facet projection
+of a mixed positive OR group from becoming a hard retrieval constraint. Its
+unknown branch remains explicit and unverified. The evaluator likewise cannot
+reject a candidate merely for missing the individually projected known branch.
+A separately requested requirement, authoritative UI constraint or known explicit
+exclusion still applies; cold/warm cache and positive/negative eligibility tests
+cover those boundaries. This does not supply missing venue evidence or implement
+fully verified mixed-activity routing. The provider prompt is unchanged from
+4.21; only deterministic processing and cache policy change in 4.22.
+
+
+### Measured semantic results and scope of the final repair
+
+The independent 18-case baseline (4.19) scored 10 PASS / 4 PARTIAL / 3 FAIL /
+1 ERROR. Intermediate 4.20 scored 11/5/0/2 and was not retained because the
+separate weather regression also found a real loss. The narrower 4.21 with the
+nightclub fix scored **13 PASS / 2 PARTIAL / 1 FAIL / 2 ERROR** on the same frozen
+18 cases. Its independent existing 20-case regression scored **12 PASS /
+5 PARTIAL / 1 FAIL / 2 ERROR**. These are measured single runs, not a stability
+claim or evidence of an aggregate improvement across every suite.
+
+The 18-case failure was the mixed dancing/concert projection corrected
+subsequently in 4.22. The 20-case failure still inferred a certain 19:30 from
+ambiguous “halb acht” and lost the Altstadt reference. The 18-case errors concern
+an ungrounded station reference and an invalid literal evidence quote; the
+20-case errors concern conflicting date fields and invalid evidence. They remain
+ERROR, not successful interpretations with omitted details. The corrected
+original current-age/dancing case retained age 17, dancing, alcohol-free intent,
+St. Gallen and today evening in this run.
+
+The unchanged 15-case weather/access suite scored 13 PASS / 2 FAIL / 0 ERROR.
+Both strict failures add redundant ALLOW indoor/outdoor rows for explicit
+indifference; no phantom access or outdoor-condition context error was observed
+in that run. The strict score is not rounded to 15/15.
+
+Three subsequent 4.22 live repeats retained DANCING OR CONCERT_VENUE without
+an unconditional concert requirement. They demonstrate this scoped correction,
+not three fully correct interpretations: repeat 1 marks the stated evening as
+PREFERRED and public dayPhase is null. Full 18/20/15 scores above precede the OR
+repair and are deliberately not relabeled as final-4.22 full-suite results.
+The final independent review also caught the preferred-alternative variant:
+“concert would be nicer” must not restore a concert obligation. The guard now
+requires an independent nonoptional requirement to preserve such a hard facet;
+fixture tests cover soft preference, true independent duty and explicit UI duty.
+
+The final local canonical gate passes 198 tests. Prompt/configuration is the
+narrow 4.21 candidate; 4.22 changes deterministic OR projection and cache binding.
+Public field shapes remain unchanged apart from the already documented new NEED
+value. Semantic and launch acceptance remain OPEN; no merge or deployment.
+
+Development evidence is local under `/private/tmp/backyrd-completeness/`, not a
+permanent provider-response archive. Independent JSON report SHA256 values:
+
+- Baseline 18: `fcf8ef8a911c6d03eac6452c8f1dbfca9a7820b1d60dc151bfa87627cf5fe8c7`.
+- Reviewed 4.21 18: `a0b360b2bec958e096eadc81bc38e3c1dbd0944cade886acca35e61eb6304f7b`.
+- Reviewed 4.21 20: `deb501035a3cc0a76330212d7db472d3931e67efed02c86e387323be32c0b260`.
+
+The 53-case source binding was
+`013bb1ebc3521252a9945ce2745582b242f3734644897eb500f61bad4b58763c`, build
+`d140a632ef423b31ce25c2e38cdfeb07fac2b02b7750bb82967e5cd38c9ce19f`.
+The later explicit nachts/nighttime synonym addition was independently verified
+to leave the night predicate identical for all 53 source sentences, with source
+and build reconstruction hashes checked. The subsequent 4.22 OR repair is a
+separate tested change; that synonym proof does not cover the OR repair.
+
+Final 4.22 source SHA256: `3cab587ba152cb2057ba9fc0d378d46c2c43564f5fb4dd80e0b3c955e028d331`; build SHA256: `6813616c20d7569ac0a1a80d0edc87d2185c508b16379fe2dc684abeb2e294bd`. A no-network capture verified provider-request hash `29fc6b1c7ec6a7994de5132dc78aadc8bf3555d006d899c31dde906fb22fa721` is identical to the measured 4.21 configuration.

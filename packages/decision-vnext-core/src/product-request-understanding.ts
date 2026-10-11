@@ -6,16 +6,16 @@ import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.2" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v15" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v17" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
-export const REQUEST_NEED_CODES = ["HALAL", "DAIRY_FREE", "LACTOSE_FREE", "VEGAN", "VEGETARIAN", "ALCOHOL_FREE", "DOG_ACCESS", "STEP_FREE_ENTRANCE", "STEP_FREE_ROUTE", "CHANGING_TABLE", "GUIDED_TOUR", "BOAT_RIDE", "RIVERSIDE_WALK", "POTTERY"] as const;
+export const REQUEST_NEED_CODES = ["HALAL", "DAIRY_FREE", "LACTOSE_FREE", "VEGAN", "VEGETARIAN", "ALCOHOL_FREE", "DOG_ACCESS", "STEP_FREE_ENTRANCE", "STEP_FREE_ROUTE", "CHANGING_TABLE", "GUIDED_TOUR", "BOAT_RIDE", "RIVERSIDE_WALK", "POTTERY", "DANCING"] as const;
 // One meaning has one owning dimension at both provider and cache boundaries.
 const needDimension: Readonly<Record<(typeof REQUEST_NEED_CODES)[number], "ACCESS" | "OFFERING" | "EXPERIENCE">> = {
   HALAL: "OFFERING", DAIRY_FREE: "OFFERING", LACTOSE_FREE: "OFFERING", VEGAN: "OFFERING", VEGETARIAN: "OFFERING", ALCOHOL_FREE: "OFFERING",
   DOG_ACCESS: "ACCESS", STEP_FREE_ENTRANCE: "ACCESS", STEP_FREE_ROUTE: "ACCESS", CHANGING_TABLE: "ACCESS",
-  GUIDED_TOUR: "EXPERIENCE", BOAT_RIDE: "EXPERIENCE", RIVERSIDE_WALK: "EXPERIENCE", POTTERY: "EXPERIENCE",
+  GUIDED_TOUR: "EXPERIENCE", BOAT_RIDE: "EXPERIENCE", RIVERSIDE_WALK: "EXPERIENCE", POTTERY: "EXPERIENCE", DANCING: "EXPERIENCE",
 };
 const priceComponents = ["TIP", "MATERIALS", "TRANSPORT", "ADMISSION", "FOOD", "DRINKS"] as const;
 const eventNames = ["CHECK_IN", "WORK_END", "FILM_START", "MEAL_END"] as const;
@@ -83,6 +83,14 @@ function validateRequirement(input: unknown): ProductRequirement {
 
 /** Validate source evidence before discarding it. A literal quote establishes
  * provenance, not semantic correctness; model accuracy still requires evals. */
+function hasCurrentSelfAge(evidence: string, age: number): boolean {
+  // Narrow exception to the birthday guard, not a general age extractor.
+  // Present-tense self statements must name this exact age. Negation, units,
+  // future/past tense and a bare anniversary number do not match.
+  const text = evidence.normalize("NFKC").toLocaleLowerCase("de-CH");
+  return new RegExp(`(?:^|[.,;!?])\\s*(?:(?:aber|but)\\s+)?(?:ich\\s+bin|bin|i\\s+am|i['’]m)\\s+(?:(?:jetzt|derzeit|noch|currently|still)\\s+)*${age}(?=\\s*(?:[,;.!?]|$|jahre?\\s+alt\\b|years?\\s+old\\b|und\\b|and\\b))`, "u").test(text);
+}
+
 export function parseModelRequirements(value: unknown, text: string): readonly ProductRequirement[] {
   if (!Array.isArray(value) || value.length > 12) throw new Error("product_understanding_bounds_invalid");
   const parsed = value.map(input => {
@@ -135,6 +143,7 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
         if (typeof row.localDate === "string" && !evidence.match(/\b\d{4}\b/gu)?.includes(row.localDate.slice(0, 4))) throw new Error("product_understanding_date_year_not_grounded");
       }
       if (row.kind === "AGE" && /geburtstag|birthday|anniversaire/iu.test(evidence)
+        && !hasCurrentSelfAge(evidence, Number(row.minimumAge))
         && !/\b(?:jahre? alt|years? old|aged|jährig|jaehrig)\b/iu.test(evidence)) throw new Error("product_understanding_birthday_not_group_age");
       if (row.kind === "MOBILITY" && /warte|warten|wartezeit|wait|queue/iu.test(evidence)
         && !/anreise|fahrt|fahrzeit|weg|travel|journey|walk|drive|transit/iu.test(evidence)) throw new Error("product_understanding_waiting_not_mobility");

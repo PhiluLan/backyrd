@@ -221,3 +221,18 @@ test('family-specific redundant representations do not permit invented lunch or 
   assert.throws(() => validateRequirementOracle(c, { ...o, contractVersion: 'backyrd.requirement-oracle@1.0' }), /oracle_invalid/);
   assert.throws(() => validateRequirementOracle(c, { ...o, optionalRequirementsByFamily: { unknown: [midday] } }), /oracle_invalid/);
 });
+
+
+test('completeness CLI distinguishes transport success from independent semantic review', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const { createHash } = await import('node:crypto');
+  const report = JSON.parse(execFileSync(process.execPath, [fileURLToPath(new URL('./run-model-evaluation.mjs', import.meta.url)), '--suite', 'completeness'], { encoding: 'utf8' }));
+  assert.equal(report.providerCalled, false);
+  assert.equal(report.caseCount, 18);
+  assert.equal(report.semanticScoring, false);
+  assert.equal(report.metric, 'TRANSPORT_ONLY_REQUIRES_FROZEN_RUBRIC_REVIEW');
+  for (const [name, hash] of [['cases', 'd251de0f480348558539fbed105f3a37a5f3dc2bb52153b23535a606234bae53'], ['rubric', 'b595e99c4ff00b97eb277ee9136399c162e0d4a3dc42549218b6e79f9ec256c1']]) {
+    assert.equal(createHash('sha256').update(readFileSync(new URL(`./completeness-${name}.json`, import.meta.url))).digest('hex'), hash, 'pre-observation cases and semantic rubric stay frozen');
+  }
+});
