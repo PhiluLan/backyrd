@@ -11,7 +11,7 @@ const percentile = (values, p) => values.length ? [...values].sort((a, b) => a -
 
 /** Cold interpretation per case. Only the canonical interpreter's retry uses
  * the same ephemeral cache. Never reads a database or a persisted answer. */
-export async function runModelEvaluation({ corpus: input, model, apiKey, maxCalls = 8, timeoutMs = 20000, maxEstimatedCostUsd = 1, fetchImpl, requirementOracle = null, onObservation = null, onProgress = null }) {
+export async function runModelEvaluation({ corpus: input, model, apiKey, maxCalls = 8, timeoutMs = 20000, maxEstimatedCostUsd = 1, fetchImpl, requirementOracle = null, onObservation = null, onProgress = null, onInterpretation = null }) {
   const corpus = validateCorpus(input);
   if (!Number.isFinite(maxEstimatedCostUsd) || maxEstimatedCostUsd <= 0 || maxEstimatedCostUsd > 5 || model !== 'gpt-6-luna' || typeof apiKey !== 'string' || !apiKey.trim() || typeof model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,79}$/.test(model)
     || !Number.isSafeInteger(maxCalls) || maxCalls < 1 || maxCalls > 400
@@ -31,7 +31,7 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
     const cache = new Map(); const before = calls; const start = performance.now();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(new Error('model_evaluation_timeout')), timeoutMs);
-    let failureCode = null;
+    let failureCode = null; const attempts = [];
     const run = createDecisionProductAiIntentInterpreter({ model, apiKey, identity, allowedUserIds: '*', rpc: {
       async rpc(name, args) {
         if (name !== 'backyrd_decision_vnext_product_query_cache_v1') throw new Error('model_evaluation_rpc_forbidden');
@@ -56,6 +56,20 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
         return response;
       }
       const payload = await response.json();
+      // Bounded response-shape metadata only. Never retain provider text, IDs,
+      // refusal messages, arbitrary fields or exception contents.
+      const texts = Array.isArray(payload.output) ? payload.output.flatMap(item => Array.isArray(item?.content) ? item.content : []).filter(item => item?.type === 'output_text' && typeof item.text === 'string').map(item => item.text) : [];
+      let parsed = null; let combined = null;
+      try { if (texts[0]?.length <= 16384) parsed = JSON.parse(texts[0]); } catch {}
+      try { if (texts.reduce((n, text) => n + text.length, 0) <= 16384) combined = JSON.parse(texts.join('')); } catch {}
+      attempts.push({ status: ['completed', 'incomplete', 'failed'].includes(payload.status) ? payload.status : 'UNKNOWN',
+        incompleteReason: ['max_output_tokens', 'content_filter'].includes(payload.incomplete_details?.reason) ? payload.incomplete_details.reason : null,
+        outputTextCount: Math.min(texts.length, 100), outputCharacters: Math.min(texts.reduce((n, text) => n + text.length, 0), 1000000),
+        combinedJsonObject: combined !== null && typeof combined === 'object' && !Array.isArray(combined),
+        jsonObject: parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed),
+        facets: Array.isArray(parsed?.facets) ? Math.min(parsed.facets.length, 100) : null,
+        requirements: Array.isArray(parsed?.requirements) ? Math.min(parsed.requirements.length, 100) : null,
+        unresolvedCodes: Array.isArray(parsed?.unresolvedNeedCodes) ? Math.min(parsed.unresolvedNeedCodes.length, 100) : null });
       const u = payload.usage;
       if (u && counter(u.input_tokens) && counter(u.output_tokens) && counter(u.input_tokens_details?.cached_tokens) && u.input_tokens_details.cached_tokens <= u.input_tokens
         && (u.input_tokens_details.cache_write_tokens === undefined || counter(u.input_tokens_details.cache_write_tokens) && u.input_tokens_details.cache_write_tokens <= u.input_tokens - u.input_tokens_details.cached_tokens)) {
@@ -73,29 +87,30 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
         explicit: { targetCity: corpus.reference.profileCity }, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
       const interpreted = await run(request, actor, controller.signal);
       const context = resolveDecisionProductContext(interpreted.request, { authorizedCity: corpus.reference.profileCity, serverTime: corpus.reference.serverTime }, interpreted.understanding);
+      onInterpretation?.(caseId, interpreted.understanding?.requirements ?? [], context);
       result = evaluateUnderstandingCase(family.expected, context);
       if (requirementOracle) {
         const requirements = scoreRequirements(requirementOracle.families[family.id], interpreted.understanding?.requirements ?? [], requirementOracle.optionalPrimaryRequirements ?? []);
         result = { ...result, contextOutcome: result.outcome, requirements, outcome: result.outcome === 'PASS' && requirements.outcome === 'PASS' ? 'PASS' : 'FAIL' };
-        if (result.outcome === 'FAIL' && onObservation) onObservation(caseId, interpreted.understanding?.requirements ?? []);
       }
+      if (result.outcome === 'FAIL' && onObservation) onObservation(caseId, interpreted.understanding?.requirements ?? [], context);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       const category = message.startsWith('product_understanding_evidence_') ? 'SOURCE_EVIDENCE_INVALID'
         : message.startsWith('product_understanding_') ? 'REQUIREMENT_INVALID'
         : message === 'product_ai_intent_cache_budget_exceeded' ? 'CACHE_BUDGET_EXCEEDED'
-        : message.startsWith('product_ai_intent_result_invalid') || message === 'product_ai_intent_response_invalid' ? 'MODEL_OUTPUT_INVALID' : 'INTERPRETATION_ERROR';
+        : message.startsWith('product_ai_intent_result_invalid') || message.startsWith('product_ai_intent_response_') ? 'MODEL_OUTPUT_INVALID' : 'INTERPRETATION_ERROR';
       result = calls === before && stopReason ? { outcome: 'NOT_RUN', reason: stopReason }
-        : { outcome: 'ERROR', reason: controller.signal.aborted ? 'TIMEOUT' : failureCode ?? category, checks: [], ...( /^product_understanding_[a-z_]{1,60}$/.test(message) ? { diagnosticCode: message } : {}) };
+        : { outcome: 'ERROR', reason: controller.signal.aborted ? 'TIMEOUT' : failureCode ?? category, checks: [], ...( /^(?:product_understanding_[a-z_]{1,60}|product_ai_intent_(?:result_invalid(?:_shape|_bounds|_facet)?|response_invalid(?:_json)?|response_incomplete|response_refused|response_too_large|response_missing_text))$/.test(message) ? { diagnosticCode: message } : {}) };
     }
     finally { clearTimeout(timer); cache.clear(); }
     if (usage.unmeasuredCalls > 0) stopReason ??= 'USAGE_UNAVAILABLE';
-    cases.push({ caseId, familyId: family.id, dimension: family.dimension, ...result, providerCalls: calls - before, latencyMs: Math.round(performance.now() - start) });
+    cases.push({ caseId, familyId: family.id, dimension: family.dimension, ...result, attempts, providerCalls: calls - before, latencyMs: Math.round(performance.now() - start) });
     onProgress?.({ completed: cases.length, caseId, outcome: result.outcome, providerCalls: calls });
   }
   const latencies = cases.filter(c => c.outcome !== 'NOT_RUN').map(c => c.latencyMs);
   return {
-    contractVersion: 'backyrd.request-understanding-model-evaluation@1.0', transport: fetchImpl ? 'FIXTURE' : 'LIVE_OPENAI',
+    contractVersion: 'backyrd.request-understanding-model-evaluation@1.1', transport: fetchImpl ? 'FIXTURE' : 'LIVE_OPENAI',
     scope: corpus.scope, reviewStatus: corpus.reviewStatus, launchVerdict: 'NOT_EVALUATED', productionRead: false, productionWritten: false,
     model, responseModels: [...responseModels].sort(), promptHash, interpreterVersion: PRODUCT_AI_INTENT_INTERPRETER_VERSION,
     understandingVersion: PRODUCT_UNDERSTANDING_VERSION, policyVersion: PRODUCT_UNDERSTANDING_POLICY, catalogHash: PRODUCT_QUERY_CATALOG_HASH,

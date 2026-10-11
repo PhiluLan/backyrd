@@ -27,7 +27,7 @@ try {
     if (oracle) oracle = { ...oracle, families: { [family.id]: oracle.families[family.id] } };
   }
   const observations = [];
-  const onObservation = options.has('--diagnostics') ? (caseId, requirements) => observations.push({ caseId, requirements }) : null;
+  const onObservation = options.has('--diagnostics') ? (caseId, requirements, context) => observations.push({ caseId, requirements, context }) : null;
   const modules = ['product-ai-interpretation', 'product-v1-evaluator', 'product-request-understanding', 'product-request-context', 'product-query-semantics', 'product-intent-lexicon'];
   const binding = {
     sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),

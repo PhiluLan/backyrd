@@ -453,3 +453,19 @@ test("English exact time has the same limitation in model and cached interpretat
   assert.equal(Object.hasOwn(saved, "group"), false);
   assert.equal(Object.hasOwn(saved, "naturalLanguage"), false);
 });
+
+
+test('an explicit requirement veto removes contradictory model preferences but preserves selected UI preferences', async () => {
+  const value = semantics({ primaryIntent: 'COFFEE', facets: [facet('context.atmosphere', 'QUIET', 'quiet'), facet('context.atmosphere', 'COZY', 'cozy')], requirements: [{
+    dimension: 'ATMOSPHERE', importance: 'HARD', operator: 'EXCLUDE', origin: 'EXPLICIT', interpretationState: 'UNDERSTOOD',
+    value: { kind: 'FACET', key: 'context.atmosphere', value: 'QUIET' }, alternatives: [], group: null, evidence: 'not quiet',
+  }] });
+  const run = interpreter(async () => modelResponse(value), { async rpc(_name, args) {
+    return { data: args.p_write ? { status: 'HIT', semantics: args.p_semantics } : { status: 'MISS' }, error: null };
+  } });
+  const automatic = await run(request('Cozy coffee, not quiet'), actor, new AbortController().signal);
+  assert.equal(automatic.explicit.softPreferences.includes('WK:context.atmosphere:QUIET'), false);
+  assert.ok(automatic.explicit.softPreferences.includes('WK:context.atmosphere:COZY'));
+  const explicit = await run(request('Cozy coffee, not quiet', { softPreferences: ['WK:context.atmosphere:QUIET'] }), actor, new AbortController().signal);
+  assert.ok(explicit.explicit.softPreferences.includes('WK:context.atmosphere:QUIET'));
+});

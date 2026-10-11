@@ -76,3 +76,30 @@ test('directly negated calendar references cannot override the requested day', (
     assert.equal(resolve(text).dateTime.localDate, text.includes('Montag') ? '2026-10-12' : '2026-10-10', text);
   }
 });
+
+
+test('negated quiet and optional quiet disclaimers do not create positive mood or preferences', () => {
+  for (const text of ['Kein ruhiges Café, ich will Trubel', 'Nicht ruhig, sondern lebhaft Kaffee trinken', 'Es soll im Café nicht ruhig sein', 'Ein Café, ruhig muss es nicht sein', 'Coffee, not quiet please', 'No need for quiet coffee']) {
+    const result = resolve(text);
+    assert.equal(result.softPreferences.includes('ATMOSPHERE_QUIET'), false, text);
+    assert.equal(result.moods.includes('CALM'), false, text);
+  }
+  for (const text of ['Kaffee trinken und in Ruhe reden', 'Quiet coffee', 'Das Café soll nicht nur ruhig sein', 'Not only quiet coffee', 'Nicht ruhig draussen, aber ruhig drinnen Kaffee trinken']) {
+    assert.ok(resolve(text).softPreferences.includes('ATMOSPHERE_QUIET'), text);
+  }
+  const explicit = resolve('Nicht ruhig Kaffee trinken', { softPreferences: ['ATMOSPHERE_QUIET'], moods: ['CALM'] });
+  assert.ok(explicit.softPreferences.includes('ATMOSPHERE_QUIET'));
+  assert.ok(explicit.moods.includes('CALM'));
+});
+
+test('English step-free requests preserve entrance scope and do not become broad accessibility', () => {
+  for (const text of ['A café with a step-free entrance', 'A step-free café entrance', 'Coffee somewhere without entrance steps', 'I need step-free entrance access to a café']) {
+    const result = resolve(text);
+    assert.ok(result.hardConstraints.includes('ACCESSIBILITY_STEP_FREE'), text);
+    assert.equal(result.hardConstraints.includes('ACCESSIBILITY_BASIC'), false, text);
+  }
+  for (const text of ['No step-free entrance needed, coffee please', 'Coffee, it need not be step-free']) {
+    assert.equal(resolve(text).hardConstraints.includes('ACCESSIBILITY_STEP_FREE'), false, text);
+  }
+  assert.ok(resolve('Not only step-free entrance access, coffee please').hardConstraints.includes('ACCESSIBILITY_STEP_FREE'));
+});

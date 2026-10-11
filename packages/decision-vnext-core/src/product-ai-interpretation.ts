@@ -7,7 +7,7 @@ import { DecisionProductRequestSchema, type DecisionProductRequest } from "./pro
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_INDOOR_CONSTRAINT, PRODUCT_QUERY_CATALOG, PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, validWorldPreference } from "./product-query-semantics.js";
 
-export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@4.7" as const;
+export const PRODUCT_AI_INTENT_INTERPRETER_VERSION = "backyrd.decision-vnext.ai-query@4.8" as const;
 export const PRODUCT_AI_INTENT_CACHE_RPC = "backyrd_decision_vnext_product_query_cache_v1" as const;
 
 const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
@@ -215,9 +215,20 @@ function responseText(value: unknown): string {
     const content = (item as Record<string, unknown>).content;
     return Array.isArray(content) ? content : [];
   });
-  const output = parts.find((part) => part && typeof part === "object" && !Array.isArray(part) && (part as Record<string, unknown>).type === "output_text");
-  const text = output && (output as Record<string, unknown>).text;
-  if (typeof text !== "string" || text.length > 16_384) throw new Error("product_ai_intent_response_invalid");
+  let text = ""; let count = 0;
+  for (const part of parts) {
+    if (!part || typeof part !== "object" || Array.isArray(part)) continue;
+    const item = part as Record<string, unknown>;
+    if (item.type === "refusal") throw new Error("product_ai_intent_response_refused");
+    if (item.type !== "output_text") continue;
+    if (typeof item.text !== "string") throw new Error("product_ai_intent_response_invalid");
+    text += item.text; count++;
+    if (text.length > 16_384) throw new Error("product_ai_intent_response_too_large");
+  }
+  if (!count) throw new Error("product_ai_intent_response_missing_text");
+  // Responses can split text over output items. Parse the complete ordered
+  // text once: never silently accept the first fragment or pick one of two
+  // conflicting JSON documents. The same aggregate size bound still applies.
   return text;
 }
 
@@ -310,7 +321,11 @@ export function createDecisionProductAiIntentInterpreter(input: {
         if (!response.ok) throw new Error("product_ai_intent_provider_unavailable");
         try {
           const modelResponse: unknown = await response.json();
-          semantics = parseSemantics(JSON.parse(responseText(modelResponse)), parsed.naturalLanguage);
+          const text = responseText(modelResponse);
+          let value: unknown;
+          try { value = JSON.parse(text); }
+          catch { throw new Error("product_ai_intent_response_invalid_json"); }
+          semantics = parseSemantics(value, parsed.naturalLanguage);
           break;
         } catch (error) {
           const failure = error instanceof Error && /^(?:product_ai_intent_(?:response|result)_|product_understanding_)/.test(error.message)
@@ -334,8 +349,12 @@ export function createDecisionProductAiIntentInterpreter(input: {
     const unresolvedNeedCodes = semantics.unresolvedNeedCodes.filter((code) =>
       code !== "PRECISE_TIME_UNVERIFIED" || explicitPreciseTime(parsed.naturalLanguage));
     const softPreferences = new Set(parsed.explicit.softPreferences ?? []);
-    for (const facet of semantics.facets) if (facet.role === "PREFERRED") softPreferences.add(encodeWorldPreference(facet.key, facet.value));
-    for (const requirement of semantics.requirements) if (requirement.operator === "REQUIRE" && requirement.value?.kind === "FACET") {
+    const excluded = (key: string, value: string) => semantics.requirements.some(row => row.operator === "EXCLUDE" && row.importance !== "PREFERRED"
+      && row.value?.kind === "FACET" && row.value.key === key && row.value.value === value);
+    // Never recreate an explicit veto as a positive model preference. Existing
+    // user-selected UI preferences remain authoritative and are not deleted.
+    for (const facet of semantics.facets) if (facet.role === "PREFERRED" && !excluded(facet.key, facet.value)) softPreferences.add(encodeWorldPreference(facet.key, facet.value));
+    for (const requirement of semantics.requirements) if (requirement.operator === "REQUIRE" && requirement.value?.kind === "FACET" && !excluded(requirement.value.key, requirement.value.value)) {
       softPreferences.add(encodeWorldPreference(requirement.value.key, requirement.value.value));
     }
     const hardConstraints = new Set(parsed.explicit.hardConstraints ?? []);

@@ -118,3 +118,61 @@ test('unknown billing after a transport failure stops later cases as well as nul
   assert.equal(calls, 1); assert.equal(report.errors, 1); assert.equal(report.notRun, 1);
   assert.equal(report.stopReason, 'USAGE_UNAVAILABLE'); assert.equal(report.costUsd, null);
 });
+
+
+test('rejected responses retain a bounded validation reason and safe shape metadata, never provider text', async () => {
+  const bad = { ...semantics, privateField: 'DO_NOT_RETAIN_PROVIDER_TEXT' };
+  const report = await runModelEvaluation({ ...config, fetchImpl: async () => response(payload(JSON.stringify(bad))) });
+  assert.equal(report.cases[0].diagnosticCode, 'product_ai_intent_result_invalid_shape');
+  assert.equal(report.cases[0].attempts.length, 2);
+  assert.equal(report.cases[0].attempts[0].jsonObject, true);
+  assert.equal(report.cases[0].attempts[0].requirements, 0);
+  assert.doesNotMatch(JSON.stringify(report), /DO_NOT_RETAIN_PROVIDER_TEXT|privateField/);
+  const incomplete = await runModelEvaluation({ ...config, fetchImpl: async () => response({ ...payload(), status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } }) });
+  assert.equal(incomplete.cases[0].diagnosticCode, 'product_ai_intent_response_incomplete');
+  assert.equal(incomplete.cases[0].attempts[0].incompleteReason, 'max_output_tokens');
+});
+
+test('a failed context check can retain validated synthetic context and requirements for diagnosis', async () => {
+  const observed = [];
+  const report = await runModelEvaluation({ ...config, corpus: { ...one(1), families: [{ ...one(1).families[0], expected: [{ path: 'primaryIntent', op: 'equals', value: 'DINING' }] }] }, onObservation: (...args) => observed.push(args) });
+  assert.equal(report.failed, 1); assert.equal(observed.length, 1);
+  assert.deepEqual(observed[0][1], []);
+  assert.equal(observed[0][2].primaryIntent, 'COFFEE');
+  assert.equal(Object.hasOwn(observed[0][2], 'naturalLanguage'), false);
+});
+
+
+test('Responses text fragments are assembled once and validated as a whole', async () => {
+  const json = JSON.stringify(semantics); const split = json.indexOf('COFFEE') + 3;
+  const fragmented = { ...payload(), output: [
+    { type: 'reasoning', summary: [] },
+    { type: 'message', content: [{ type: 'output_text', text: json.slice(0, split) }] },
+    { type: 'message', content: [{ type: 'output_text', text: json.slice(split) }] },
+  ] };
+  const report = await runModelEvaluation({ ...config, fetchImpl: async () => response(fragmented) });
+  assert.equal(report.passed, 1); assert.equal(report.providerCalls, 1);
+  assert.equal(report.cases[0].attempts[0].outputTextCount, 2);
+  assert.equal(report.cases[0].attempts[0].jsonObject, false);
+  assert.equal(report.cases[0].attempts[0].combinedJsonObject, true);
+  for (const [parts, code] of [
+    [[{ type: 'output_text', text: json }, { type: 'output_text', text: json }], 'product_ai_intent_response_invalid_json'],
+    [[{ type: 'output_text', text: json }, { type: 'refusal', refusal: 'PRIVATE_REFUSAL' }], 'product_ai_intent_response_refused'],
+    [[{ type: 'output_text', text: json }, { type: 'output_text', text: ' '.repeat(16384) }], 'product_ai_intent_response_too_large'],
+  ]) {
+    const rejected = await runModelEvaluation({ ...config, fetchImpl: async () => response({ ...payload(), output: [{ content: parts }] }) });
+    assert.equal(rejected.errors, 1); assert.equal(rejected.providerCalls, 2);
+    assert.equal(rejected.cases[0].diagnosticCode, code);
+    assert.doesNotMatch(JSON.stringify(rejected), /PRIVATE_REFUSAL/);
+  }
+});
+
+
+test('an external evaluator can observe all normalized interpretations without changing built-in scoring', async () => {
+  const values = [];
+  const report = await runModelEvaluation({ ...config, onInterpretation: (...args) => values.push(args) });
+  assert.equal(report.passed, 1); assert.equal(values.length, 1);
+  assert.equal(values[0][0], 'coffee-1'); assert.deepEqual(values[0][1], []);
+  assert.equal(values[0][2].primaryIntent, 'COFFEE');
+  assert.doesNotMatch(JSON.stringify(values), /Coffee 0|synthetic-test|naturalLanguage|Bearer/);
+});

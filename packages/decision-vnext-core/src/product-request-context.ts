@@ -2,7 +2,7 @@
  * This bounded fallback complements the semantic interpreter; it is not a claim
  * of general language understanding. Unsupported budget semantics stay visible.
  */
-export const PRODUCT_REQUEST_CONTEXT_VERSION = "decision-vnext-product-context-resolver-v3" as const;
+export const PRODUCT_REQUEST_CONTEXT_VERSION = "decision-vnext-product-context-resolver-v4" as const;
 const normalize = (text: string): string => text.normalize("NFKC").toLocaleLowerCase("de-CH");
 
 export function hasPreciseRequestedTime(input: string): boolean {
@@ -68,4 +68,15 @@ export function accessibilityRequestScope(input: string) {
     .replace(/\bno\s+(?:wheelchair\s+access|step[- ]free\s+(?:access|entrance))\s+(?:needed|required)\b/gu, "");
   const remainingMention = /barrierefrei|hindernisfrei|rollstuhl|stufenfrei|stufenlos|ohne stufen|wheelchair|step[- ]free/u.test(stripped);
   return { text: stripped, explicitlyDisclaimed: stripped !== text && !remainingMention };
+}
+
+
+/** Bounded positive atmosphere fallback. Negation and disclaimers cannot turn
+ * into a positive quiet preference; separate positive clauses still count. */
+export function hasPositiveQuietRequest(input: string): boolean {
+  const text = normalize(input)
+    .replace(/\b(?:nicht|kein(?:e|en|em|er|es)?|ohne|not|no)\s+(?:(?:besonders|wirklich|sehr|particularly|really|very|too)\s+)?(?:ruhig\p{L}*|gemütlich\p{L}*|quiet|peaceful|calm|cozy)\b/gu, "")
+    .replace(/\b(?:ruhig\p{L}*|gemütlich\p{L}*|quiet|peaceful|calm|cozy)\s+(?:muss|braucht)\s+(?:es\s+)?nicht\s+(?:zu\s+)?sein\b/gu, "")
+    .replace(/\b(?:no need for|don't need|do not need)\s+(?:a\s+)?(?:quiet|peaceful|calm|cozy)\b/gu, "");
+  return /\b(?:ruhig\p{L}*|gemütlich\p{L}*|in ruhe|quiet|peaceful|calm|cozy)\b/u.test(text);
 }

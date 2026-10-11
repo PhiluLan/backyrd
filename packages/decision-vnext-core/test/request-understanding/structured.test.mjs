@@ -387,3 +387,41 @@ test('an access disclaimer cannot delete a different or broadly quoted access re
     assert.ok(assess(result).candidates[0].unknownHardConstraints.length > 0);
   }
 });
+
+
+test('a different excluded day preserves the requested date without losing the exclusion', async () => {
+  const result = await interpretedContext('Heute Kaffee, nicht morgen', [
+    req('TIME', time({ relativeDays: 0 }), 'Heute', { importance: 'HARD' }),
+    req('TIME', time({ relativeDays: 1 }), 'nicht morgen', { importance: 'HARD', operator: 'EXCLUDE' }),
+  ]);
+  assert.equal(result.context.dateTime.localDate, '2026-10-10');
+  assert.equal(result.context.unresolvedTerms.includes('TIME_REQUEST_UNRESOLVED'), false);
+  assert.equal(result.understanding.requirements.length, 2);
+  assert.equal(assess(result).candidates[0].unknownHardConstraints.some(c => c.startsWith('UNDERSTANDING_')), false);
+});
+
+test('contradictory or incomplete calendar exclusions remain unresolved and block ranking', async () => {
+  for (const rows of [
+    [req('TIME', time({ relativeDays: 0 }), 'today', { importance: 'HARD' }), req('TIME', time({ relativeDays: 0 }), 'not today', { operator: 'EXCLUDE', importance: 'HARD' })],
+    [req('TIME', time({ relativeDays: 1 }), 'not tomorrow', { operator: 'EXCLUDE', importance: 'HARD' })],
+    [req('TIME', time({ relativeDays: 0 }), 'today', { importance: 'HARD' }), req('TIME', time({ relativeDays: 1, clockTime: '15:00' }), 'not tomorrow at 15:00', { operator: 'EXCLUDE', importance: 'HARD' })],
+  ]) {
+    const result = await interpretedContext('Coffee today, not today, not tomorrow at 15:00', rows);
+    assert.ok(result.context.unresolvedTerms.includes('TIME_REQUEST_UNRESOLVED'));
+    assert.ok(assess(result).candidates[0].unknownHardConstraints.some(c => c.startsWith('UNDERSTANDING_')));
+  }
+  const ui = await interpretedContext('Coffee today, not tomorrow', [
+    req('TIME', time({ relativeDays: 0 }), 'today', { importance: 'HARD' }),
+    req('TIME', time({ relativeDays: 1 }), 'not tomorrow', { importance: 'HARD', operator: 'EXCLUDE' }),
+  ], { dateTime: { state: 'KNOWN', localDate: '2026-10-11', dayPhase: null, timeZone: 'Europe/Zurich' } });
+  assert.equal(ui.context.dateTime.localDate, '2026-10-11');
+  assert.ok(ui.context.unresolvedTerms.includes('TIME_CONTEXT_CONFLICT'));
+  assert.ok(assess(ui).candidates[0].unknownHardConstraints.some(c => c.startsWith('UNDERSTANDING_')));
+});
+
+test('structured quiet exclusion cannot recreate positive quiet mood through text fallback', async () => {
+  const result = await interpretedContext('Kaffee, ruhig passt mir heute gar nicht', [req('ATMOSPHERE', { kind: 'FACET', key: 'context.atmosphere', value: 'QUIET' }, 'ruhig passt mir heute gar nicht', { operator: 'EXCLUDE' })]);
+  assert.equal(result.context.softPreferences.includes('ATMOSPHERE_QUIET'), false);
+  assert.equal(result.context.moods.includes('CALM'), false);
+  assert.equal(assess(result, [fact('context.atmosphere', [{ atmosphere: 'QUIET', conditions }])]).candidates[0].tier, 'INELIGIBLE');
+});

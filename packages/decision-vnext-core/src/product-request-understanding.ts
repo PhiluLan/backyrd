@@ -5,7 +5,7 @@ import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.0" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v7" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v8" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
@@ -154,6 +154,27 @@ export const PRODUCT_MODEL_REQUIREMENTS_SCHEMA = { type: "array", maxItems: 12, 
   }),
 } };
 
+/** Resolve only an explicit calendar reference, never an implicit "today". */
+function explicitCalendarDate(value: ProductTimeRequirement, localToday: string): string | null {
+  if (value.localDate !== null) return value.localDate;
+  if (value.relativeDays === null && value.weekday === null) return null;
+  const date = new Date(`${localToday}T12:00:00Z`);
+  if (value.relativeDays !== null) date.setUTCDate(date.getUTCDate() + value.relativeDays);
+  else if (value.weekday !== null) date.setUTCDate(date.getUTCDate() + (value.weekday - date.getUTCDay() + 7) % 7);
+  return date.toISOString().slice(0, 10);
+}
+
+/** A different explicitly excluded calendar day is satisfied by the selected
+ * date. Clock/daypart exclusions and OR groups need richer interval semantics. */
+export function calendarExclusionSatisfied(requirement: ProductRequirement, selectedDate: string | null, localToday: string): boolean {
+  const value = requirement.value;
+  if (!selectedDate || requirement.dimension !== "TIME" || requirement.operator !== "EXCLUDE"
+    || requirement.interpretationState !== "UNDERSTOOD" || requirement.group !== null || value?.kind !== "TIME"
+    || value.openNow || value.clockTime !== null || value.dayPhase !== null) return false;
+  const excluded = explicitCalendarDate(value, localToday);
+  return excluded !== null && excluded !== selectedDate;
+}
+
 /** Project only supported context into the stable public v1 shape. Rich values
  * remain typed internally; an unrepresentable value is never rounded or erased
  * into a claim of complete understanding. World eligibility is separate. */
@@ -162,7 +183,15 @@ export function projectProductUnderstanding(understanding: ProductUnderstanding 
   const unresolved = new Set<string>();
   const forDimension = (dimension: ProductRequirement["dimension"]) => requirements.filter(r => r.dimension === dimension);
   const single = (dimension: ProductRequirement["dimension"]) => {
-    const rows = forDimension(dimension).filter(r => r.importance !== "PREFERRED");
+    let rows = forDimension(dimension).filter(r => r.importance !== "PREFERRED");
+    if (dimension === "TIME") {
+      const positive = rows.filter(row => row.operator === "REQUIRE");
+      const excluded = rows.filter(row => row.operator === "EXCLUDE");
+      const chosen = positive[0];
+      const chosenDate = chosen?.value?.kind === "TIME" ? explicitCalendarDate(chosen.value, localToday) : null;
+      if (positive.length === 1 && chosen?.interpretationState === "UNDERSTOOD" && chosen.group === null && chosen.value?.kind === "TIME"
+        && excluded.every(row => calendarExclusionSatisfied(row, chosenDate, localToday))) rows = positive;
+    }
     if (!rows.length) return undefined;
     const signatures = new Set(rows.map(r => contentHash(r)));
     if (signatures.size !== 1 || rows[0]!.interpretationState !== "UNDERSTOOD" || rows[0]!.operator !== "REQUIRE" || rows[0]!.group !== null) {
