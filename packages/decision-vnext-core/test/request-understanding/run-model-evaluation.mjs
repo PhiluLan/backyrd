@@ -16,9 +16,9 @@ try {
     options.set(key, ['--live', '--diagnostics', '--progress'].includes(key) ? true : argv[++i]);
   }
   const suite = options.get('--suite') ?? 'context';
-  if (!['context', 'requirements'].includes(suite)) throw new Error('invalid_suite');
-  let corpus = validateCorpus(JSON.parse(readFileSync(new URL(suite === 'context' ? './corpus.json' : './model-corpus.json', import.meta.url), 'utf8')));
-  let oracle = suite === 'requirements' ? JSON.parse(readFileSync(new URL('./requirement-oracle.json', import.meta.url), 'utf8')) : null;
+  if (!['context', 'requirements', 'roles'].includes(suite)) throw new Error('invalid_suite');
+  let corpus = validateCorpus(JSON.parse(readFileSync(new URL(suite === 'context' ? './corpus.json' : suite === 'roles' ? './context-roles-corpus.json' : './model-corpus.json', import.meta.url), 'utf8')));
+  let oracle = suite !== 'context' ? JSON.parse(readFileSync(new URL(suite === 'roles' ? './context-roles-oracle.json' : './requirement-oracle.json', import.meta.url), 'utf8')) : null;
   if (oracle) validateRequirementOracle(corpus, oracle);
   if (options.has('--family')) {
     const family = corpus.families.find(f => f.id === options.get('--family'));

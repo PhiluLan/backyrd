@@ -20,7 +20,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.4" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.6" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -71,7 +71,7 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   if (understood.dateTime) hard.add("OPEN_ON_REQUESTED_DAY");
   if (requestedCity) hard.add("TARGET_LOCATION");
   const quietRequirements = understood.requirements.filter(row => row.value?.kind === "FACET" && row.value.key === "context.atmosphere" && row.value.value === "QUIET");
-  const positiveQuiet = quietRequirements.length ? quietRequirements.some(row => row.operator === "REQUIRE") && !quietRequirements.some(row => row.operator === "EXCLUDE") : hasPositiveQuietRequest(text);
+  const positiveQuiet = quietRequirements.length ? quietRequirements.some(row => !row.condition && row.operator === "REQUIRE") && !quietRequirements.some(row => !row.condition && row.operator === "EXCLUDE") : hasPositiveQuietRequest(text);
   if (positiveQuiet) soft.add("ATMOSPHERE_QUIET");
   if (includes(text, ["günstig", "preiswert"])) soft.add("PRICE_LEVEL_LOW");
   const semanticValue = (key: string): string | null => [
@@ -333,14 +333,18 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
       : maximum <= context.budget.amount ? confirmed.push("BUDGET_MAXIMUM") : failed.push("BUDGET_MAXIMUM");
   }
   if (context.unresolvedTerms.includes("LOCATION_REQUEST_UNVERIFIED")) unknownHard.push("TARGET_LOCATION");
+  const indoorSuitability = inferredIndoorSuitability(snapshot.spot.classification.placeTypes ?? []);
   for (const [index, requirement] of requirements.entries()) {
+    if (!requirement.condition && requirement.group === null && requirement.importance !== "PREFERRED" && requirement.operator === "REQUIRE" && requirement.value?.kind === "SETTING" && requirement.value.environment === "INDOOR") {
+      (indoorSuitability === "INDOOR" ? confirmed : indoorSuitability === "OUTDOOR" ? failed : unknownHard).push(`UNDERSTANDING_SETTING_${index + 1}`);
+    }
     if (requirement.importance === "HARD" && (requirement.interpretationState !== "UNDERSTOOD"
-      || ["MOBILITY", "OTHER"].includes(requirement.dimension) || requirement.value?.kind !== "FACET" && (requirement.group !== null || requirement.operator === "EXCLUDE" && !calendarExclusionSatisfied(requirement, context.dateTime.localDate, requestedLocalDate("", evaluationAt)))
+      || requirement.condition !== undefined || ["MOBILITY", "OTHER", "WAITING"].includes(requirement.dimension)
+      || requirement.dimension === "SETTING" && !(requirement.group === null && requirement.operator === "REQUIRE" && requirement.value?.kind === "SETTING" && requirement.value.environment === "INDOOR") || requirement.value?.kind !== "FACET" && (requirement.group !== null || requirement.operator === "EXCLUDE" && !calendarExclusionSatisfied(requirement, context.dateTime.localDate, requestedLocalDate("", evaluationAt)))
       || requirement.dimension === "BUDGET" && context.unresolvedTerms.includes("BUDGET_CONTEXT_CONFLICT")
       || requirement.dimension === "TIME" && context.unresolvedTerms.some(code => ["TIME_REQUEST_UNRESOLVED", "TIME_CONTEXT_CONFLICT", "PRECISE_TIME_UNVERIFIED"].includes(code))
       || ["AGE", "COMPANY"].includes(requirement.dimension) && context.unresolvedTerms.includes("GROUP_CONTEXT_CONFLICT"))) unknownHard.push(`UNDERSTANDING_UNRESOLVED_${index + 1}`);
   }
-  const indoorSuitability = inferredIndoorSuitability(snapshot.spot.classification.placeTypes ?? []);
   if (context.hardConstraints.includes(PRODUCT_INDOOR_CONSTRAINT)) {
     (indoorSuitability === "INDOOR" ? confirmed : indoorSuitability === "OUTDOOR" ? failed : unknownHard).push(PRODUCT_INDOOR_CONSTRAINT);
   }
@@ -394,7 +398,7 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   // optional. A group is OR only for the same requirement policy and dimension.
   const requirementGroups = new Map<string, ProductRequirement[]>();
   for (const [index, requirement] of requirements.entries()) {
-    if (requirement.value?.kind !== "FACET" || requirement.importance === "PREFERRED") continue;
+    if (requirement.condition || requirement.operator === "ALLOW" || requirement.value?.kind !== "FACET" || requirement.importance === "PREFERRED") continue;
     const key = `${requirement.dimension}:${requirement.importance}:${requirement.operator}:${requirement.group ?? index}`;
     requirementGroups.set(key, [...(requirementGroups.get(key) ?? []), requirement]);
   }

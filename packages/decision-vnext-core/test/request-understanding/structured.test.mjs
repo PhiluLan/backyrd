@@ -202,7 +202,7 @@ test('unsupported hard mobility remains an eligibility constraint, not just expl
 });
 
 test('over-budget cache payloads fail before persistence without truncating requirements', async () => {
-  const evidence = 'Coffee on a date';
+  const evidence = 'Coffee on a date in 2026';
   const h = harness(Array.from({ length: 12 }, () => req('TIME', null, evidence, { interpretationState: 'AMBIGUOUS', alternatives: [time({ localDate: '2026-10-11' }), time({ localDate: '2026-10-12' }), time({ localDate: '2026-10-13' })] })));
   await assert.rejects(h.run(request(evidence)), /cache_budget_exceeded/);
   assert.equal(h.calls.some(call => call.p_write), false);
@@ -424,4 +424,112 @@ test('structured quiet exclusion cannot recreate positive quiet mood through tex
   assert.equal(result.context.softPreferences.includes('ATMOSPHERE_QUIET'), false);
   assert.equal(result.context.moods.includes('CALM'), false);
   assert.equal(assess(result, [fact('context.atmosphere', [{ atmosphere: 'QUIET', conditions }])]).candidates[0].tier, 'INELIGIBLE');
+});
+
+test('waiting time stays distinct from travel, survives cold/warm cache, and cannot rank as verified', async () => {
+  const text = 'Coffee, I cannot wait more than ten minutes';
+  const rows = [req('WAITING', { kind: 'WAITING', maximumMinutes: 10, comparison: 'LTE' }, 'cannot wait more than ten minutes', { importance: 'HARD' })];
+  const h = harness(rows); const cold = await h.run(request(text)); const warm = await h.run(request(text));
+  assert.deepEqual(cold, warm); assert.equal(h.fetches(), 1);
+  assert.equal(cold.understanding.requirements[0].dimension, 'WAITING');
+  assert.deepEqual(decodeRequirementCache(encodeRequirementCache(cold.understanding.requirements)), cold.understanding.requirements);
+  const result = { ...cold, context: context(cold.request, cold.understanding) };
+  assert.ok(result.context.unresolvedTerms.includes('WAITING_REQUEST_UNRESOLVED'));
+  assert.ok(assess(result).candidates[0].unknownHardConstraints.some(v => v.startsWith('UNDERSTANDING_')));
+  assert.equal(result.context.unresolvedTerms.includes('MOBILITY_REQUEST_UNRESOLVED'), false);
+  assert.throws(() => parseModelRequirements([req('MOBILITY', { kind: 'MOBILITY', maximumMeters: null, maximumMinutes: 10, mode: 'UNSPECIFIED' }, 'cannot wait more than ten minutes')], text), /waiting_not_mobility/);
+  assert.doesNotThrow(() => parseModelRequirements([req('MOBILITY', { kind: 'MOBILITY', maximumMeters: null, maximumMinutes: 10, mode: 'WALK' }, 'walk ten minutes')], 'I can walk ten minutes'));
+});
+
+test('a birthday is not a group minimum age; actual participant ages remain accepted', () => {
+  assert.throws(() => parseModelRequirements([req('AGE', { kind: 'AGE', ages: [40] }, '40. Geburtstag')], 'Wir feiern einen 40. Geburtstag'), /birthday_not_group_age/);
+  assert.throws(() => parseModelRequirements([req('AGE', { kind: 'AGE', ages: [40] }, '40th birthday')], 'A 40th birthday dinner'), /birthday_not_group_age/);
+  const rows = parseModelRequirements([req('AGE', { kind: 'AGE', ages: [15] }, 'I am 15')], 'I am 15, looking for a sauna');
+  assert.equal(rows[0].value.minimumAge, 15);
+});
+
+test('empty time and mobility values and invented years are rejected before persistence', () => {
+  assert.throws(() => parseModelRequirements([req('TIME', time(), 'not now')], 'Coffee tomorrow, not now'), /time_empty/);
+  assert.throws(() => parseModelRequirements([req('TIME', time({ localDate: '2025-02-11' }), 'today')], 'Lunch today'), /date_year_not_grounded/);
+  assert.throws(() => parseModelRequirements([req('MOBILITY', { kind: 'MOBILITY', maximumMeters: null, maximumMinutes: null, mode: 'UNSPECIFIED' }, 'nearby')], 'Coffee nearby'), /mobility_empty/);
+  assert.doesNotThrow(() => parseModelRequirements([req('TIME', time({ localDate: '2026-10-17' }), '17 October 2026')], 'Coffee on 17 October 2026'));
+  assert.throws(() => parseModelRequirements([req('TIME', time({ monthDay: '02-30' }), '30 February')], 'Coffee 30 February'), /month_day_invalid/);
+});
+
+test('yearless dates resolve against server time, preserving leap days and exact stated month/day', async () => {
+  for (const [text, monthDay, expected] of [['Coffee 17 October', '10-17', '2026-10-17'], ['Coffee 3 January', '01-03', '2027-01-03'], ['Coffee 29 February', '02-29', '2028-02-29']]) {
+    const result = await interpretedContext(text, [req('TIME', time({ monthDay }), text, { importance: 'HARD' })]);
+    assert.equal(result.context.dateTime.localDate, expected);
+    assert.equal(result.understanding.requirements[0].value.monthDay, monthDay);
+    assert.equal(result.understanding.requirements[0].value.localDate, null);
+  }
+  const today = await interpretedContext('Lunch today', [req('TIME', time({ relativeDays: 0 }), 'today')]);
+  assert.equal(today.context.dateTime.localDate, '2026-10-10');
+});
+
+test('clock relations survive persistence without claiming exact-time eligibility', async () => {
+  for (const [phrase, relation] of [['after 18:00', 'AFTER'], ['finished by 18:00', 'END_NOT_AFTER'], ['start no earlier than 18:00', 'START_NOT_BEFORE']]) {
+    const result = await interpretedContext(`Coffee ${phrase}`, [req('TIME', time({ clockTime: '18:00', clockRelation: relation }), phrase, { importance: 'HARD' })]);
+    assert.equal(result.understanding.requirements[0].value.clockRelation, relation);
+    assert.deepEqual(decodeRequirementCache(encodeRequirementCache(result.understanding.requirements)), result.understanding.requirements);
+    assert.ok(result.context.unresolvedTerms.includes('PRECISE_TIME_UNVERIFIED'));
+    assert.ok(assess(result).candidates[0].unknownHardConstraints.some(v => v.startsWith('UNDERSTANDING_')));
+  }
+});
+
+test('conditional permission is retained without requiring indoors, including on cache hits', async () => {
+  const text = 'Eine Terrasse wäre schön. Bei Regen geht auch drinnen.';
+  const rows = [req('SETTING', { kind: 'SETTING', environment: 'INDOOR' }, 'Bei Regen geht auch drinnen', { condition: 'RAIN', operator: 'ALLOW', importance: 'PREFERRED' })];
+  const h = harness(rows); const cold = await h.run(request(text)); const warm = await h.run(request(text));
+  assert.deepEqual(cold, warm); assert.equal(h.fetches(), 1);
+  assert.equal(cold.request.explicit.hardConstraints.includes('INDOOR_REQUIRED'), false);
+  assert.equal(cold.understanding.requirements[0].condition, 'RAIN');
+  assert.equal(cold.understanding.requirements[0].operator, 'ALLOW');
+  assert.deepEqual(decodeRequirementCache(encodeRequirementCache(cold.understanding.requirements)), cold.understanding.requirements);
+  assert.throws(() => parseModelRequirements([{ ...rows[0], importance: 'HARD' }], text), /allow_strength_invalid/);
+  const ui = await interpretedContext(text, rows, { hardConstraints: ['INDOOR_REQUIRED'] });
+  assert.ok(ui.request.explicit.hardConstraints.includes('INDOOR_REQUIRED'));
+});
+
+test('conditional hard wishes stay unverified and cannot leak as unconditional quiet preferences', async () => {
+  const text = 'If it rains, it must be quiet';
+  const result = await interpretedContext(text, [req('ATMOSPHERE', { kind: 'FACET', key: 'context.atmosphere', value: 'QUIET' }, text, { condition: 'RAIN', importance: 'HARD' })]);
+  assert.equal(result.context.softPreferences.some(v => v.includes('QUIET')), false);
+  assert.equal(result.context.moods.includes('CALM'), false);
+  assert.ok(assess(result).candidates[0].unknownHardConstraints.some(v => v.startsWith('UNDERSTANDING_')));
+});
+
+test('unconditional indoor requirements use verified venue evidence without blocking all known indoor places', async () => {
+  const result = await interpretedContext('Coffee, must be indoors', [req('SETTING', { kind: 'SETTING', environment: 'INDOOR' }, 'must be indoors', { importance: 'HARD' })]);
+  assert.ok(result.request.explicit.hardConstraints.includes('INDOOR_REQUIRED'));
+  assert.equal(result.context.unresolvedTerms.includes('SETTING_REQUEST_UNRESOLVED'), false);
+  const candidate = assess(result).candidates[0];
+  assert.equal(candidate.unknownHardConstraints.some(v => v.startsWith('UNDERSTANDING_SETTING_') || v.startsWith('UNDERSTANDING_UNRESOLVED_')), false);
+});
+
+
+test('indoor/outdoor alternatives stay grouped without inventing an unconditional indoor restriction', async () => {
+  for (const importance of ['HARD', 'ESSENTIAL']) {
+    const result = await interpretedContext('Coffee either indoors or outdoors', [
+      req('SETTING', { kind: 'SETTING', environment: 'INDOOR' }, 'indoors', { importance, group: 'R1' }),
+      req('SETTING', { kind: 'SETTING', environment: 'OUTDOOR' }, 'outdoors', { importance, group: 'R1' }),
+    ]);
+    assert.equal(result.request.explicit.hardConstraints.includes('INDOOR_REQUIRED'), false);
+    assert.ok(result.context.unresolvedTerms.includes('SETTING_REQUEST_UNRESOLVED'));
+    assert.deepEqual(result.understanding.requirements.map(r => r.group), ['R1', 'R1']);
+    const candidate = assess(result).candidates[0];
+    assert.equal(candidate.confirmedHardConstraints.some(v => v.startsWith('UNDERSTANDING_SETTING_')), false);
+    assert.equal(candidate.failedHardConstraints.some(v => v.startsWith('UNDERSTANDING_SETTING_')), false);
+    if (importance === 'HARD') assert.ok(candidate.unknownHardConstraints.some(v => v.startsWith('UNDERSTANDING_UNRESOLVED_')));
+    assert.notEqual(candidate.tier, 'ELIGIBLE_CONFIRMED');
+  }
+});
+
+test('conditional exclusions cannot suppress an independent unconditional positive preference', async () => {
+  const result = await interpretedContext('Usually quiet, but not quiet if it rains', [
+    req('ATMOSPHERE', { kind: 'FACET', key: 'context.atmosphere', value: 'QUIET' }, 'Usually quiet', { importance: 'PREFERRED' }),
+    req('ATMOSPHERE', { kind: 'FACET', key: 'context.atmosphere', value: 'QUIET' }, 'not quiet if it rains', { importance: 'HARD', operator: 'EXCLUDE', condition: 'RAIN' }),
+  ]);
+  assert.ok(result.request.explicit.softPreferences.includes('WK:context.atmosphere:QUIET'));
+  assert.ok(assess(result).candidates[0].unknownHardConstraints.some(v => v.startsWith('UNDERSTANDING_UNRESOLVED_')));
 });

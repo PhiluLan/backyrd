@@ -176,3 +176,15 @@ test('an external evaluator can observe all normalized interpretations without c
   assert.equal(values[0][2].primaryIntent, 'COFFEE');
   assert.doesNotMatch(JSON.stringify(values), /Coffee 0|synthetic-test|naturalLanguage|Bearer/);
 });
+
+test('context-role evaluation freezes explicit semantic expectations, including conditions and timing relations', () => {
+  const roles = JSON.parse(readFileSync(new URL('./context-roles-corpus.json', import.meta.url), 'utf8'));
+  const expectations = JSON.parse(readFileSync(new URL('./context-roles-oracle.json', import.meta.url), 'utf8'));
+  validateRequirementOracle(roles, expectations);
+  assert.equal(roles.families.flatMap(f => f.queries).length, 24);
+  const permitted = expectations.families['conditional-permission'][0].variants[0];
+  assert.equal(scoreRequirements(expectations.families['conditional-permission'], [{ ...permitted, condition: 'DRY' }]).outcome, 'FAIL');
+  assert.equal(scoreRequirements(expectations.families['conditional-permission'], [{ ...permitted, operator: 'REQUIRE' }]).outcome, 'FAIL');
+  const deadline = expectations.families['finish-deadline'][0].variants[0];
+  assert.equal(scoreRequirements(expectations.families['finish-deadline'], [{ ...deadline, value: { ...deadline.value, clockRelation: 'AT' } }]).outcome, 'FAIL');
+});

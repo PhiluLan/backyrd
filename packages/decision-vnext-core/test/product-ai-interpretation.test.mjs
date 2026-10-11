@@ -299,7 +299,7 @@ test("AI core facets respect the intent ontology and broad activity alternatives
     facet("context.visit_situations", "FAMILY", "Tochter"),
   ] })), rpc);
   const familyOutput = await family(request("Ausflug mit meiner 4-jährigen Tochter bei Regen"), actor, new AbortController().signal);
-  assert.deepEqual(familyOutput.explicit.hardConstraints, ["INDOOR_REQUIRED"]);
+  assert.deepEqual(familyOutput.explicit.hardConstraints, [], "rain alone cannot invent an unconditional indoor restriction");
   assert.ok(familyOutput.explicit.softPreferences.includes("WK:classification.primary_category:CULTURE_ARTS"));
   assert.ok(familyOutput.explicit.softPreferences.includes("WK:classification.primary_category:ENTERTAINMENT"));
 
@@ -336,12 +336,12 @@ test("AI core facets respect the intent ontology and broad activity alternatives
   assert.ok(concreteOutput.explicit.softPreferences.includes("WK:classification.primary_category:NIGHTLIFE"));
 });
 
-test("an unambiguous rain phrase remains an indoor requirement if the model misses it", async () => {
+test("rain alone cannot turn into an unconditional indoor requirement", async () => {
   const run = interpreter(async () => modelResponse(semantics()), {
     async rpc(_name, parameters) { return { data: parameters.p_write ? { status: "HIT", semantics: parameters.p_semantics } : { status: "MISS" }, error: null }; },
   });
   const output = await run(request("Ausflug bei Regen"), actor, new AbortController().signal);
-  assert.ok(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"));
+  assert.equal(output.explicit.hardConstraints.includes("INDOOR_REQUIRED"), false);
 });
 
 test("an offering does not force a venue type unless the person names it", async () => {
@@ -468,4 +468,21 @@ test('an explicit requirement veto removes contradictory model preferences but p
   assert.ok(automatic.explicit.softPreferences.includes('WK:context.atmosphere:COZY'));
   const explicit = await run(request('Cozy coffee, not quiet', { softPreferences: ['WK:context.atmosphere:QUIET'] }), actor, new AbortController().signal);
   assert.ok(explicit.explicit.softPreferences.includes('WK:context.atmosphere:QUIET'));
+});
+
+test('conditional requirements override conflicting unconditional model facets and indoor flag', async () => {
+  const value = semantics({ primaryIntent: 'COFFEE', indoorRequired: true, indoorEvidence: 'if it rains', facets: [facet('context.atmosphere', 'QUIET', 'quiet')], requirements: [
+    { dimension: 'SETTING', importance: 'PREFERRED', operator: 'ALLOW', origin: 'EXPLICIT', interpretationState: 'UNDERSTOOD', value: { kind: 'SETTING', environment: 'INDOOR' }, alternatives: [], group: null, condition: 'RAIN', evidence: 'if it rains, indoors is fine' },
+    { dimension: 'ATMOSPHERE', importance: 'HARD', operator: 'REQUIRE', origin: 'EXPLICIT', interpretationState: 'UNDERSTOOD', value: { kind: 'FACET', key: 'context.atmosphere', value: 'QUIET' }, alternatives: [], group: null, condition: 'RAIN', evidence: 'if it rains, quiet is required' },
+  ] });
+  const run = interpreter(async () => modelResponse(value), { async rpc(_name, args) {
+    return { data: args.p_write ? { status: 'HIT', semantics: args.p_semantics } : { status: 'MISS' }, error: null };
+  } });
+  const input = 'Coffee; if it rains, indoors is fine; if it rains, quiet is required';
+  const output = await run(request(input), actor, new AbortController().signal);
+  assert.equal(output.explicit.hardConstraints.includes('INDOOR_REQUIRED'), false);
+  assert.equal(output.explicit.softPreferences.includes('WK:context.atmosphere:QUIET'), false);
+  const ui = await run(request(input, { hardConstraints: ['INDOOR_REQUIRED'], softPreferences: ['WK:context.atmosphere:QUIET'] }), actor, new AbortController().signal);
+  assert.ok(ui.explicit.hardConstraints.includes('INDOOR_REQUIRED'));
+  assert.ok(ui.explicit.softPreferences.includes('WK:context.atmosphere:QUIET'));
 });
