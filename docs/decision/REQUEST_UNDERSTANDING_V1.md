@@ -6,11 +6,9 @@ in the canonical Decision route. This is not a Production activation.
 
 ## Implemented path
 
-`product-ai-interpretation.ts` requests structured semantic facets and up to
-12 typed requirements in the same provider call. Each requirement retains its
+`product-ai-interpretation.ts` requests up to 12 typed requirements and primary/secondary intent in one provider call. Scoped visit intents and requirements jointly retain meaning; requirements are the sole source of additional retrieval facets, projected deterministically. A bounded `requestMeaning` restatement precedes normalization and is discarded: it is neither authority nor persisted context. Each requirement retains its
 dimension, importance, operator, origin, interpretation state, typed value,
-alternatives and optional OR group. Literal evidence must occur in the source
-sentence; it is discarded before persistence. This proves source provenance,
+alternatives and optional OR group. The provider selects evidence IDs from bounded literal source spans supplied as request data. IDs are expanded and source-grounded before validation; evidence is discarded before persistence. Source text never enters the provider schema enum. This proves source provenance,
 not correctness of the model's normalized meaning.
 
 `product-request-understanding.ts` validates and minimizes that output, binds
@@ -30,8 +28,7 @@ values remain authoritative; conflicts with the sentence remain visible.
 Essential canonical atmosphere/offering/experience requirements have an
 independent World-evidence check, even if the older facet normalizer marks them
 optional. Same-dimension, same-policy groups are OR; independent groups are AND.
-Scoped evidence must apply to the visit. Known explicit exclusions reject a
-candidate. Unknown hard requirements cannot rank; unconfirmed essential needs
+Scoped evidence must apply to the visit. Known explicit venue/atmosphere exclusions reject a candidate. Declining an offering does not reject a venue merely because that optional offering is available; the unverified consumption-level requirement stays visible. Unknown hard requirements cannot rank; unconfirmed essential needs
 cannot produce ELIGIBLE_CONFIRMED. Canonical positive preferences still enter
 ranking without becoming hard eligibility. Preferred exclusions are retained
 but do not yet have a separate negative ranking contribution.
@@ -59,9 +56,9 @@ Explicit ESSENTIAL exclusions normalize to HARD vetoes; optional exclusions keep
 their optional strength. A group containing only one requirement normalizes to
 no group without changing its meaning.
 
-Versions: interpreter `ai-query@4.22`; understanding contract `@1.2`; understanding
-policy `request-understanding-policy-v17`; public context `@1.1`; context resolver
-v8; evaluator `@2.9`. GPT-6 Luna stays at `reasoning.effort: low`. The provider
+Versions: interpreter `ai-query@4.41`; understanding contract `@1.2`; understanding
+policy `request-understanding-policy-v25`; public context `@1.1`; context resolver
+v9; evaluator `@2.12`; intent policy v4. GPT-6 Luna stays at `reasoning.effort: low`. The provider
 schema/prompt now exposes the additional meanings; the model has not changed.
 The cap remains 3600 output tokens with at most one malformed-output retry.
 Existing Auth, rate limits, actor binding, deadlines and release controls remain.
@@ -126,7 +123,7 @@ regression material; independent agent review does not replace human acceptance.
 
 ## Understanding contract and remaining design targets
 
-Contract identity: `backyrd.decision-vnext.request-understanding@1.0`.
+Contract identity: `backyrd.decision-vnext.request-understanding@1.2`.
 This is an implemented **server-internal** contract, not a client request field
 and not authority to change authentication, World facts or the public API.
 
@@ -141,14 +138,14 @@ Each requirement has:
 | Field | Meaning |
 | --- | --- |
 | identity | Stable array position within the request-bound understanding; no model-controlled identity |
-| `dimension` | EXPERIENCE, ATMOSPHERE, COMPANY, AGE, TIME, LOCATION, MOBILITY, BUDGET, ACCESS, OFFERING, or OTHER |
+| `dimension` | EXPERIENCE, ATMOSPHERE, COMPANY, AGE, TIME, LOCATION, MOBILITY, BUDGET, ACCESS, OFFERING, AMENITY, WAITING, SETTING, DURATION, or OTHER |
 | `importance` | HARD, ESSENTIAL, or PREFERRED; this classifies the person's need, not Spot truth |
-| `operator` | REQUIRE or EXCLUDE |
+| `operator` | REQUIRE, EXCLUDE, or ALLOW (PREFERRED only) |
 | `origin` | EXPLICIT or INFERRED; DEFAULT provenance for profile/UI location remains a future client contract change |
 | `interpretationState` | UNDERSTOOD, AMBIGUOUS, or UNSUPPORTED |
 | `value` | A dimension-specific normalized value, or null when not resolved |
 | `alternatives` | Bounded alternative normalized meanings for AMBIGUOUS only |
-| source evidence | Exact request-local quote, discarded before cache; offset-based inspection remains a design target |
+| source evidence | Request-local evidence ID, expanded to an exact quote for validation, then discarded before cache |
 | World check | Derived by the evaluator, never accepted from the model; unsupported requirements stay disclosed |
 
 Requirements compose as an AND of bounded alternative groups (OR). Do not turn
@@ -1536,3 +1533,209 @@ and build reconstruction hashes checked. The subsequent 4.22 OR repair is a
 separate tested change; that synonym proof does not cover the OR repair.
 
 Final 4.22 source SHA256: `3cab587ba152cb2057ba9fc0d378d46c2c43564f5fb4dd80e0b3c955e028d331`; build SHA256: `6813616c20d7569ac0a1a80d0edc87d2185c508b16379fe2dc684abeb2e294bd`. A no-network capture verified provider-request hash `29fc6b1c7ec6a7994de5132dc78aadc8bf3555d006d899c31dde906fb22fa721` is identical to the measured 4.21 configuration.
+
+
+## 2026-10-11 — one semantic source and production-quality work in progress
+
+Quality acceptance remains **OPEN**. All live results below are synthetic
+known-case development observations, not independent real-user success rates.
+No production database access, merge, deployment, model switch, or deadline
+increase was performed. Luna remains at low reasoning. The 20-second overall
+request deadline, 3600 output-token cap, two-call maximum, 100000-byte request
+limit and 4096-byte minimized-cache limit remain enforced.
+
+### Implemented structural corrections
+
+- The provider no longer independently writes both requirements and retrieval
+  facets. Explicit venue kinds, concrete activities, meals, amenities, qualitative
+  price preferences and their actual strength belong in requirements. Company
+  and visit daypart can yield soft context facets; conditional/allowed wishes
+  cannot yield unconditional filters. Partial or mixed OR groups cannot make
+  their one representable branch mandatory. Facet identity includes its group,
+  preserving the same predicate in several independent OR groups.
+- Cache reads recompute the projection from validated requirements and reject
+  disagreement. Actor/request/model/policy/catalog/release/source/generation
+  bindings remain. Source spans and the transient model restatement never enter
+  cache/public context. Dynamic schema enums contain only source IDs; identical
+  static schema subtrees are shared using `$defs`, with an expansion-equivalence
+  regression proving that factoring changes no allowed values.
+- New SEATING, AMENITY and qualitative BUDGET/FACET representations retain
+  information without inventing step-free access or exact prices. Visit TIME
+  can retain EARLY/LATE, and `TIME.event` independently retains its own clockTime,
+  dayPhase and phasePosition. A film starting at 20:15 is not an AT restaurant
+  visit, and an early dinner before dancing is not an early-evening dance visit.
+  Event-time details remain unverified for venue eligibility.
+- Relative-to-meal timing suppresses stale lexical meal-daypart inference while
+  preserving explicit UI daypart authority. Known reference municipalities may
+  be grounded elsewhere in the same request; whole-name boundaries prevent
+  Bern being extracted from Bernhard. This proves text presence, not geographical
+  association. Names remain minimized to request-bound fingerprints.
+- Static allowlisted repair hints address validation failures. Optional/allowed
+  values cannot masquerade as known participant ages: they trigger repair rather
+  than silently disappearing or being promoted to a fact. OPEN_NOW grounding
+  rejects today-only and explicit not-now cases; it is a bounded language guard,
+  not a complete proof that every occurrence of now describes the visit.
+- Offering exclusions no longer veto an entire venue just because it also offers
+  the declined item. Unverified hard needs remain unverified, never confirmed.
+
+The interpreter policy changed materially and invalidates old cache identities.
+Pending public context @1.1 remains the draft PR's client-first rollout: older
+validators reject new enum/field shapes. Deploy compatible Mobile/Web contracts
+before any backend activation. No database migration is needed.
+
+### Removed behavior and test responsibility
+
+The old parallel-facet path guessed corrections from venue aliases, selected
+categories and overlapping quotes. It also introduced confirmed defects: an
+optional riverside walk could weaken independently requested bowling, and a
+shared museum predicate could disappear from one OR group. This path is removed,
+not kept as a fallback. Scoped intents and requirements now jointly carry meaning; requirements are the sole authority for additional facets.
+
+This is **not** equivalent protection against every semantically wrong model
+answer. Previous tests injected false BREWERY/MUSIC_CLUB facet obligations and
+checked heuristic demotion; rejecting obsolete parallel fields and testing
+correct typed requests does not prove that a model cannot make the same mistake
+inside a valid requirement. Literal evidence proves provenance, not meaning.
+Those failures must be measured by unchanged semantic/adversarial evaluation,
+and remain release-blocking when material. No success claim rests on fixture
+migration alone.
+
+Technical migration preserves positive/negative source, schema, retry, privacy,
+allowlist, UI-authority, cache-consistency, weather and OR boundaries. On 4.38, 214 canonical Decision tests and 33 Product release checks pass.
+Web contracts pass 20/20; the real exported-app browser journey passes against synthetic intercepted responses. The iOS production export and public-config verifier pass with the configured public Supabase URL/anon credential and a clean Metro cache (5,046,111 bytes). No private provider credential is included. A prior placeholder-config artifact was correctly rejected; a subsequent non-cleared cache also retained that placeholder, and the clean rebuild passed. These integration gates do not establish semantic acceptance.
+
+### Development measurements and frozen acceptance
+
+Counts are PASS / PARTIAL / FAIL / ERROR; each row is one full known-case run,
+not a selected successful replay. Historical reports remain unchanged.
+
+| Interpreter | Known 18 | Known 20 | Interpretation |
+| --- | --- | --- | --- |
+| 4.27 | 15 / 2 / 1 / 0 | 14 / 4 / 1 / 1 | Source literals improved; semantic losses remained |
+| 4.29 | 12 / 5 / 1 / 0 | 16 / 3 / 1 / 0 | Compact schema/coherent prompt; factual modality and date errors |
+| 4.30 | 14 / 3 / 1 / 0 | 16 / 4 / 0 / 0 | Age repair improved; dual-representation OR defect persisted |
+| 4.31 | 15 / 3 / 0 / 0 | 15 / 3 / 1 / 1 | Single semantic source introduced; wording/reference errors remained |
+| 4.32 | 17 / 1 / 0 / 0 | 16 / 3 / 1 / 0 | OR projection fixed; French date and event-time scope still incomplete |
+| 4.33 | 12 / 2 / 4 / 0 | 17 / 0 / 3 / 0 | Independent recheck exposed material category narrowing previously treated as redundancy |
+| 4.34 | 11 / 1 / 6 / 0 | 16 / 1 / 3 / 0 | Prompt-only fixes remained unstable; invented age from negation |
+| 4.35 | 15 / 0 / 3 / 0 | 18 / 0 / 2 / 0 | Provider internal category boundary added; invented concrete venue types remained |
+| 4.36 | 18 / 0 / 0 / 0 | 15 / 1 / 2 / 2 | OR main-intent clearing passed the 18, but independent adversarial review found loss of an independent meal |
+| 4.38 | 16 / 1 / 1 / 0 | 17 / 1 / 2 / 0 | Invented restaurant duty, inverted alcohol-free requirement and weakened time alternative remained |
+| 4.39 | 17 / 0 / 1 / 0 | 18 / 1 / 1 / 0 | Concrete concert omitted, additional late-food OR branch invented; late-lunch qualifier lost |
+| 4.40 | 17 / 0 / 1 / 0 | 18 / 2 / 0 / 0 | Concrete dancing omitted; family relationship invented and late-lunch importance weakened |
+| 4.41 | 17 / 0 / 1 / 0 | 18 / 2 / 0 / 0 | Actual output order corrected; concrete café venue invented from coffee beverage, time-alternative and late-lunch strength weakened |
+
+Rows through 4.32 retain their historical judgments, but are **not comparable
+full semantic passes under the newly demonstrated integration finding**: exact
+primary-category constraints can reject compatible mixed venues. Historical
+reports were not silently changed. 4.33 onward explicitly treats those invented
+constraints as material errors. A single 18/18 run on 4.36 did not pass acceptance:
+the 20/15 suites and the separate adversarial code finding still blocked it.
+
+Boundary semantic results (raw oracle unchanged): 4.35 = 12 PASS / 3 FAIL;
+4.36 = 13 PASS / 1 PARTIAL / 1 FAIL; 4.38 and 4.39 each = 15 semantic PASS (raw respectively 6/9 and 9/6 PASS/FAIL); 4.40 = 15 semantic PASS; 4.41 = 13 PASS / 2 PARTIAL (indoor allowance misconditioned and outdoor preference strengthened). From 4.35 the diagnostic runner stores
+**every** normalized synthetic boundary interpretation, including raw PASS cases;
+previous failure-only observations could not independently certify the full set.
+
+4.37 was interrupted by provider HTTP 429, with a minimal diagnostic confirming
+`insufficient_quota`. Known20: 2 PASS, 1 ERROR, 17 NOT_RUN; known18: 3 PASS,
+1 ERROR, 14 NOT_RUN; boundaries: 3 semantically reviewed PASS, 1 ERROR,
+11 NOT_RUN. The raw boundary oracle remained 1 PASS / 2 FAIL for those three.
+The user replenished the account; 4.38 and subsequent candidates completed fresh runs, without
+relabeling or resuming 4.37 as a successful run.
+
+### Additional boundaries in 4.38 (awaiting full live acceptance)
+
+- The natural-language provider cannot express internal `purpose.primary_visit`,
+  `classification.primary_category`, or `classification.place_types=OTHER_PLACE`
+  as user requirements. The model schema and parser reject them, including
+  exclusions and ambiguity alternatives. No row or OR branch is silently
+  discarded. Explicit user-selected UI filters and the public catalog remain
+  unchanged. Specific, actually requested venue kinds still use place types.
+  This prevents a whole class of exclusive internal-category filters; it does
+  not prove that a model never invents a concrete `RESTAURANT` or `CAFE` wish.
+- Provider format v8 assigns optional `primaryIntentGroup` and
+  `secondaryIntentGroup` explicitly. A non-null group must contain at least two
+  REQUIRE branches, and every member must be EXPERIENCE/OFFERING. Time/budget
+  alternatives cannot erase an independent main purpose. A model intent that
+  summarizes only part of an experience OR cannot veto another branch; it is
+  withheld from unconditional intent filtering while the whole OR remains
+  unverified. Independent purposes such as eating before an activity choice
+  survive. Explicit UI intents retain authority. Scope correctness is still a
+  semantic model responsibility, not proved merely by valid group IDs.
+- AGE numbers must occur as numeric or supported DE/EN/FR cardinal forms in the
+  **whole original request**. Maximal number matches prevent `dix-huit` from
+  proving 8 or `one hundred and seventeen` from proving 17. All stated
+  participant numbers are checked before minimizing to the youngest. One quote
+  need not contain participants mentioned in distant clauses. This proves
+  number presence only, not participant role, current tense or non-negation.
+- Public municipality targets use whole-name source grounding in the complete
+  original request, as reference municipalities already did. `Bernhard` cannot
+  prove `Bern`; an unknown/private name still needs local source attribution
+  and is minimized. Full-source presence does not prove destination/origin role
+  or a geographical relationship.
+
+Independent code review found and reproduced the 4.36 independent-meal loss and
+4.37 time-group binding defect; both have cold/warm regression coverage in 4.38.
+The independently reproduced ACTIVITY_EXPERIENCE versus dancing/nightlife
+classification gap has a narrow deterministic correction in evaluator @2.12,
+intent policy v4. An understood, mandatory, positive, unconditional, ungrouped
+DANCING need can turn the generic ACTIVITY classification conflict into UNKNOWN
+only for canonical NIGHTLIFE + NIGHTCLUB/MUSIC_CLUB with EAT_DRINK/ENTERTAINMENT
+purpose. It cannot confirm dancing; NEED_DANCING_UNVERIFIED remains. Optional,
+excluded, allowed, conditional or alternative dance needs do not trigger it.
+DISPUTED classifications and independent UI, venue exclusion, access and age
+vetos remain effective. Source/build evaluation bindings now include authority.
+This correction follows the 4.41 live runs: those observations are not relabeled
+as a final combined-candidate acceptance. No launch conclusion follows.
+
+
+Earlier experiments 4.23–4.25 and the rejected 4.26 unconditional second-pass
+verifier are retained locally under `/private/tmp/backyrd-production-understanding/`.
+The verifier did not reliably repair source errors and introduced a timeout;
+it is not part of the runtime. Early retry experiments had an evaluation-harness
+prompt-hash defect, so they are not a clean retry-effect comparison. Source-ID
+and compact-schema normalization in the harness now validates the dynamic
+request-specific portion and hashes all remaining schema/instructions, including
+allowlisted repair variants. `--verify-warm-cache` compares complete cold/warm
+outputs and checks that warm replay makes no provider call.
+
+An independent reviewer froze criteria and 32 additional synthetic cases before
+new observations. The author knows source behavior: these are held from the
+implementer, not a blind representative sample. They remain unopened until a
+candidate is ready. Proposed bounded AP1 technical acceptance: three complete
+cold blocks of 18+20+32+15 cases, no tuning between blocks, identical candidate
+bindings; each block requires 18/18 PASS, at least 19/20 and 31/32 PASS with at
+most one noncritical PARTIAL each, no FAIL/ERROR, and no material boundary-suite
+failure. Raw boundary scores remain unchanged even where redundant output is
+semantically harmless. Every observed invented/lost duty, incorrect age/number
+role, OR/condition loss or privacy/authority violation blocks acceptance.
+
+Warm equality, measured calls/cost/latency/errors, full normalized synthetic
+observations, source/build/prompt/schema/corpus/rubric bindings and independent
+review accompany that protocol. Passing it would be bounded synthetic AP1
+acceptance, not proof for arbitrary language, a real-user success percentage,
+or authorization for production activation. Reference geocoding, World coverage
+and useful clarification UX remain distinct product capabilities.
+
+Frozen held-input SHA256: `a9b668c95afe5877b3dbc333f88985ff786a7e39d44e667971ed4299c33aff59`;
+rubric `ea44d10e7c85880b2fb58fdd29e417f9f26d14c3bd77a6b9ee5a259315b5418f`;
+criteria `b1dc2f1e0a91d28259b325e4db71b4065fafb145e487294357979979c1170e48`.
+
+### Latest structural experiment and unresolved quality boundary
+
+4.39 clarified that broad intents plus concrete requirements jointly retain
+meaning; requirements alone supply additional facets. 4.40 sharpened two-way
+coverage instructions without changing the rubric. Neither eliminated semantic
+failures. 4.41 corrects the actual provider schema property order: restatement,
+requirements, broad intents, then intent-group references. Previously group
+references preceded the restatement despite the prompt requesting it first.
+A regression asserts the serialized schema order. This is a structural
+correction, not evidence of better overall language quality: the unchanged
+known suites still fail acceptance. The model can still omit a concrete wish,
+invent a venue-kind restriction or change a qualifier's importance while
+returning structurally valid data. Source grounding does not detect every such
+error. Repeated prompt edits shifted failures rather than demonstrating stable
+production quality. Held32 remains closed; no 255-case acceptance block started.
+
+Latest combined local candidate: 215/215 canonical Decision tests and 33/33 Product release contracts pass; strict Decision TypeScript and `git diff --check` pass. The new age-restriction and classification-dispute counterexamples retain INELIGIBLE despite the narrow dance fallback. These checks are distinct from the failed live semantic gate.

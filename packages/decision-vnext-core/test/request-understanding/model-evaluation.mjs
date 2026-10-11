@@ -1,5 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import { contentHash, bindProductUnderstanding, requestedProductCity, createDecisionProductAiIntentInterpreter, resolveDecisionProductContext, PRODUCT_AI_INTENT_INTERPRETER_VERSION, PRODUCT_UNDERSTANDING_VERSION, PRODUCT_UNDERSTANDING_POLICY } from '../../dist/index.js';
+import { PRODUCT_AI_INTENT_REPAIR_INSTRUCTIONS, PRODUCT_AI_INTENT_GENERIC_REPAIR, productEvidenceOptions } from '../../dist/product-ai-interpretation.js';
 import { PRODUCT_QUERY_CATALOG_HASH } from '../../dist/product-query-semantics.js';
 import { validateCorpus, evaluateUnderstandingCase } from './evaluate.mjs';
 
@@ -11,20 +12,20 @@ const percentile = (values, p) => values.length ? [...values].sort((a, b) => a -
 
 /** Cold interpretation per case. Only the canonical interpreter's retry uses
  * the same ephemeral cache. Never reads a database or a persisted answer. */
-export async function runModelEvaluation({ corpus: input, model, apiKey, maxCalls = 8, timeoutMs = 20000, maxEstimatedCostUsd = 1, fetchImpl, requirementOracle = null, onObservation = null, onProgress = null, onInterpretation = null }) {
+export async function runModelEvaluation({ corpus: input, model, apiKey, maxCalls = 8, timeoutMs = 20000, maxEstimatedCostUsd = 1, fetchImpl, requirementOracle = null, onObservation = null, onProgress = null, onInterpretation = null, verifyWarmCache = false }) {
   const corpus = validateCorpus(input);
-  if (!Number.isFinite(maxEstimatedCostUsd) || maxEstimatedCostUsd <= 0 || maxEstimatedCostUsd > 5 || model !== 'gpt-6-luna' || typeof apiKey !== 'string' || !apiKey.trim() || typeof model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,79}$/.test(model)
+  if (typeof verifyWarmCache !== 'boolean' || !Number.isFinite(maxEstimatedCostUsd) || maxEstimatedCostUsd <= 0 || maxEstimatedCostUsd > 5 || model !== 'gpt-6-luna' || typeof apiKey !== 'string' || !apiKey.trim() || typeof model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,79}$/.test(model)
     || !Number.isSafeInteger(maxCalls) || maxCalls < 1 || maxCalls > 400
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw new Error('model_evaluation_configuration_invalid');
   if (requirementOracle) validateRequirementOracle(corpus, requirementOracle);
   const transport = fetchImpl ?? fetch;
-  let calls = 0; let stopReason = null; let promptHash = null;
+  let calls = 0; let stopReason = null; let promptHash = null; let baseInstructions = null; const repairPromptHashes = new Set();
   const usage = { inputTokens: 0, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 0, measuredCalls: 0, unmeasuredCalls: 0 };
   const costEstimate = () => ((usage.inputTokens - usage.cachedInputTokens) * .10 + usage.cachedInputTokens * .01 + usage.cacheWriteTokens * .025 + usage.outputTokens * .50) / 1e6;
   // A conservative reservation, not an invoice guarantee. Byte/token/call
   // limits are independent; missing accounting stops all further calls.
   const reservePerCallUsd = (128000 * .125 + 3600 * .50) / 1e6;
-  const responseModels = new Set(); const cases = [];
+  const responseModels = new Set(); const cases = []; let warmVerifiedCases = 0;
   for (const family of corpus.families) for (const [index, text] of family.queries.entries()) {
     const caseId = `${family.id}-${index + 1}`;
     if (stopReason || calls >= maxCalls) { stopReason ??= 'CALL_LIMIT'; cases.push({ caseId, familyId: family.id, dimension: family.dimension, outcome: 'NOT_RUN', reason: stopReason }); continue; }
@@ -46,9 +47,20 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
       if (calls >= maxCalls) { failureCode = stopReason = 'CALL_LIMIT'; throw new Error('model_evaluation_call_limit'); }
       const body = JSON.parse(options.body);
       if (body.store !== false || body.model !== model || body.max_output_tokens > 3600 || Buffer.byteLength(options.body) > 100000) throw new Error('model_evaluation_request_invalid');
-      const hash = sha({ ...body, input: null });
-      if (promptHash && promptHash !== hash) throw new Error('model_evaluation_prompt_changed');
-      promptHash = hash; calls++; usage.unmeasuredCalls++;
+      if (body.input !== JSON.stringify({ request: text, evidenceSpans: productEvidenceOptions(text) })) throw new Error('model_evaluation_evidence_input_changed');
+      const expectedDefs = { facetEvidence: { type: 'string', enum: Object.keys(productEvidenceOptions(text)) }, requirementEvidence: { type: 'string', enum: Object.keys(productEvidenceOptions(text)) } };
+      if (Object.entries(expectedDefs).some(([key, value]) => sha(body.text?.format?.schema?.$defs?.[key]) !== sha(value))) throw new Error('model_evaluation_evidence_schema_changed');
+      const stableBody = { ...body, input: null, text: { ...body.text, format: { ...body.text.format, schema: { ...body.text.format.schema, $defs: { ...body.text.format.schema.$defs, facetEvidence: 'REQUEST_BOUND_EVIDENCE_IDS', requirementEvidence: 'REQUEST_BOUND_EVIDENCE_IDS' } } } } };
+      const hash = sha(stableBody);
+      if (promptHash && promptHash !== hash) {
+        const allowedRepair = calls === before + 1 && baseInstructions !== null
+          && [...Object.values(PRODUCT_AI_INTENT_REPAIR_INSTRUCTIONS), PRODUCT_AI_INTENT_GENERIC_REPAIR]
+            .some(hint => body.instructions === `${baseInstructions} ${hint}`)
+          && sha({ ...stableBody, instructions: baseInstructions }) === promptHash;
+        if (!allowedRepair) throw new Error('model_evaluation_prompt_changed');
+        repairPromptHashes.add(hash);
+      } else { promptHash = hash; baseInstructions = body.instructions; }
+       calls++; usage.unmeasuredCalls++;
       const response = await transport(url, { ...options, redirect: 'error' });
       if (!response.ok) {
         failureCode = `HTTP_${response.status}`;
@@ -87,6 +99,13 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
         explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
       const interpreted = await run(request, actor, controller.signal);
       const context = resolveDecisionProductContext(interpreted.request, { authorizedCity: requestedProductCity(interpreted.understanding, interpreted.request) ?? corpus.reference.profileCity, serverTime: corpus.reference.serverTime }, interpreted.understanding);
+      if (verifyWarmCache) {
+        const callsBeforeWarm = calls;
+        const warm = await run(request, actor, controller.signal);
+        const warmContext = resolveDecisionProductContext(warm.request, { authorizedCity: requestedProductCity(warm.understanding, warm.request) ?? corpus.reference.profileCity, serverTime: corpus.reference.serverTime }, warm.understanding);
+        if (calls !== callsBeforeWarm || sha(warm) !== sha(interpreted) || sha(warmContext) !== sha(context)) throw new Error('model_evaluation_warm_cache_mismatch');
+        warmVerifiedCases++;
+      }
       onInterpretation?.(caseId, interpreted.understanding?.requirements ?? [], context);
       result = evaluateUnderstandingCase(family.expected, context);
       if (requirementOracle) {
@@ -112,11 +131,11 @@ export async function runModelEvaluation({ corpus: input, model, apiKey, maxCall
   return {
     contractVersion: 'backyrd.request-understanding-model-evaluation@1.3', transport: fetchImpl ? 'FIXTURE' : 'LIVE_OPENAI',
     scope: corpus.scope, reviewStatus: corpus.reviewStatus, launchVerdict: 'NOT_EVALUATED', productionRead: false, productionWritten: false,
-    model, responseModels: [...responseModels].sort(), promptHash, interpreterVersion: PRODUCT_AI_INTENT_INTERPRETER_VERSION,
+    model, responseModels: [...responseModels].sort(), promptHash, repairPromptHashes: [...repairPromptHashes].sort(), interpreterVersion: PRODUCT_AI_INTENT_INTERPRETER_VERSION,
     understandingVersion: PRODUCT_UNDERSTANDING_VERSION, policyVersion: PRODUCT_UNDERSTANDING_POLICY, catalogHash: PRODUCT_QUERY_CATALOG_HASH,
     corpusHash: sha(corpus), oracleHash: requirementOracle ? sha(requirementOracle) : null,
     limits: { maxCalls, timeoutMs, maxOutputTokensPerCall: 3600, maxRequestBytes: 100000, maxEstimatedCostUsd, reservePerCallUsd },
-    providerCalls: calls, stopReason, usage, costUsd: model === 'gpt-6-luna' && usage.unmeasuredCalls === 0 ? costEstimate() : null,
+    providerCalls: calls, warmCache: { requested: verifyWarmCache, verifiedCases: warmVerifiedCases }, stopReason, usage, costUsd: model === 'gpt-6-luna' && usage.unmeasuredCalls === 0 ? costEstimate() : null,
     costStatus: model === 'gpt-6-luna' && usage.unmeasuredCalls === 0 ? 'STANDARD_RATE_ESTIMATE_NOT_INVOICE' : 'UNAVAILABLE',
     pricing: model === 'gpt-6-luna' ? { source: 'https://developers.openai.com/api/docs/models/gpt-6-luna', checkedAt: '2026-10-11', inputPerMillion: .10, cachedInputPerMillion: .01, cacheWritePerMillion: .125, outputPerMillion: .50 } : null,
     latencyMs: { p50: percentile(latencies, .5), p95: percentile(latencies, .95), maximum: latencies.length ? Math.max(...latencies) : null },

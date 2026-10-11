@@ -5,7 +5,7 @@ import { runModelEvaluation, scoreRequirements, validateRequirementOracle } from
 const corpus = JSON.parse(readFileSync(new URL('./model-corpus.json', import.meta.url), 'utf8'));
 const oracle = JSON.parse(readFileSync(new URL('./requirement-oracle.json', import.meta.url), 'utf8'));
 const one = count => ({ ...corpus, families: [{ id: 'coffee', dimension: 'INTENT', queries: Array.from({ length: count }, (_, i) => `Coffee ${i}`), expected: [{ path: 'primaryIntent', op: 'equals', value: 'COFFEE' }] }] });
-const semantics = { primaryIntent: 'COFFEE', secondaryIntent: null, facets: [], indoorRequired: false, indoorEvidence: null, unresolvedNeedCodes: [], requirements: [] };
+const semantics = { primaryIntentGroup: null, secondaryIntentGroup: null, requestMeaning: 'Synthetic request meaning, discarded before persistence.', primaryIntent: 'COFFEE', secondaryIntent: null, requirements: [] };
 const payload = (text = JSON.stringify(semantics)) => ({ model: 'gpt-6-luna', status: 'completed', usage: { input_tokens: 1000, input_tokens_details: { cached_tokens: 200, cache_write_tokens: 0 }, output_tokens: 100 }, output: [{ content: [{ type: 'output_text', text }] }] });
 const response = value => ({ ok: true, async json() { return value; } });
 const config = { corpus: one(1), model: 'gpt-6-luna', apiKey: 'synthetic-test', maxCalls: 8, fetchImpl: async () => response(payload()) };
@@ -40,7 +40,7 @@ test('OR identifiers and array order are irrelevant, but losing alternative grou
 test('runner calls canonical interpreter, enforces network destination and records measured usage without raw text', async () => {
   const report = await runModelEvaluation({ ...config, fetchImpl: async (url, options) => {
     assert.equal(url, 'https://api.openai.com/v1/responses'); assert.equal(options.redirect, 'error');
-    const body = JSON.parse(options.body); assert.equal(body.store, false); assert.equal(body.text.format.name, 'backyrd_decision_query_v5');
+    const body = JSON.parse(options.body); assert.equal(body.store, false); assert.equal(body.text.format.name, 'backyrd_decision_query_v8');
     return response(payload());
   } });
   assert.equal(report.transport, 'FIXTURE'); assert.equal(report.providerCalls, 1); assert.equal(report.passed, 1);
@@ -235,4 +235,28 @@ test('completeness CLI distinguishes transport success from independent semantic
   for (const [name, hash] of [['cases', 'd251de0f480348558539fbed105f3a37a5f3dc2bb52153b23535a606234bae53'], ['rubric', 'b595e99c4ff00b97eb277ee9136399c162e0d4a3dc42549218b6e79f9ec256c1']]) {
     assert.equal(createHash('sha256').update(readFileSync(new URL(`./completeness-${name}.json`, import.meta.url))).digest('hex'), hash, 'pre-observation cases and semantic rubric stay frozen');
   }
+});
+
+
+test('canonical repair prompts remain measurable and bounded, with each prompt variant recorded', async () => {
+  const requests = [];
+  const report = await runModelEvaluation({ ...config, corpus: one(2), fetchImpl: async (_url, options) => {
+    const body = JSON.parse(options.body); requests.push(body);
+    return response(payload(requests.length === 1 ? '{' : JSON.stringify(semantics)));
+  } });
+  assert.equal(report.errors, 0); assert.equal(report.passed, 2);
+  assert.equal(report.providerCalls, 3);
+  assert.equal(report.repairPromptHashes.length, 1);
+  assert.notEqual(report.repairPromptHashes[0], report.promptHash);
+  assert.equal(requests[0].instructions, requests[2].instructions);
+  assert.ok(requests[1].instructions.startsWith(requests[0].instructions));
+  assert.equal(report.usage.measuredCalls, 3);
+});
+
+
+test('live runner can verify every successful cold result against a no-provider warm replay', async () => {
+  const report = await runModelEvaluation({ ...config, corpus: one(2), verifyWarmCache: true });
+  assert.equal(report.passed, 2);
+  assert.equal(report.providerCalls, 2);
+  assert.deepEqual(report.warmCache, { requested: true, verifiedCases: 2 });
 });

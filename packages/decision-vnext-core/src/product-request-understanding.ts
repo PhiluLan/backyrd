@@ -6,26 +6,30 @@ import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.2" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v17" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v25" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
-export const REQUEST_NEED_CODES = ["HALAL", "DAIRY_FREE", "LACTOSE_FREE", "VEGAN", "VEGETARIAN", "ALCOHOL_FREE", "DOG_ACCESS", "STEP_FREE_ENTRANCE", "STEP_FREE_ROUTE", "CHANGING_TABLE", "GUIDED_TOUR", "BOAT_RIDE", "RIVERSIDE_WALK", "POTTERY", "DANCING"] as const;
+export const REQUEST_NEED_CODES = ["HALAL", "DAIRY_FREE", "LACTOSE_FREE", "VEGAN", "VEGETARIAN", "ALCOHOL_FREE", "DOG_ACCESS", "STEP_FREE_ENTRANCE", "STEP_FREE_ROUTE", "CHANGING_TABLE", "GUIDED_TOUR", "BOAT_RIDE", "RIVERSIDE_WALK", "POTTERY", "DANCING", "SEATING"] as const;
 // One meaning has one owning dimension at both provider and cache boundaries.
 const needDimension: Readonly<Record<(typeof REQUEST_NEED_CODES)[number], "ACCESS" | "OFFERING" | "EXPERIENCE">> = {
   HALAL: "OFFERING", DAIRY_FREE: "OFFERING", LACTOSE_FREE: "OFFERING", VEGAN: "OFFERING", VEGETARIAN: "OFFERING", ALCOHOL_FREE: "OFFERING",
-  DOG_ACCESS: "ACCESS", STEP_FREE_ENTRANCE: "ACCESS", STEP_FREE_ROUTE: "ACCESS", CHANGING_TABLE: "ACCESS",
+  DOG_ACCESS: "ACCESS", STEP_FREE_ENTRANCE: "ACCESS", STEP_FREE_ROUTE: "ACCESS", CHANGING_TABLE: "ACCESS", SEATING: "ACCESS",
   GUIDED_TOUR: "EXPERIENCE", BOAT_RIDE: "EXPERIENCE", RIVERSIDE_WALK: "EXPERIENCE", POTTERY: "EXPERIENCE", DANCING: "EXPERIENCE",
 };
 const priceComponents = ["TIP", "MATERIALS", "TRANSPORT", "ADMISSION", "FOOD", "DRINKS"] as const;
 const eventNames = ["CHECK_IN", "WORK_END", "FILM_START", "MEAL_END"] as const;
 export const requestedPlaceName = schema.string({ min: 1, max: 80, pattern: /^[\p{L}\p{N}][\p{L}\p{M}\p{N} .’'()&/\-]*$/u });
 const placeReference = schema.object({ referenceHash: schema.string({ pattern: /^[0-9a-f]{64}$/ }), kind: schema.enum(["RAIL_STATION", "CINEMA", "UNRESOLVED_PLACE"] as const), city: nullable(requestedPlaceName), relation: schema.enum(["NEAR", "RETURN_TO", "AT"] as const) });
-const eventReference = schema.object({ event: schema.enum(eventNames), relation: schema.enum(["AFTER", "BEFORE"] as const) });
+const eventReference = schema.object({ event: schema.enum(eventNames), relation: schema.enum(["AFTER", "BEFORE"] as const),
+  clockTime: schema.optional(schema.string({ pattern: /^(?:[01]\d|2[0-3]):[0-5]\d$/ })),
+  dayPhase: schema.optional(schema.enum(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const)),
+  phasePosition: schema.optional(schema.enum(["EARLY", "LATE"] as const)),
+});
 const needValue = schema.object({ kind: schema.literal("NEED"), code: schema.enum(REQUEST_NEED_CODES), scope: schema.enum(["ONE_PERSON", "GROUP", "UNSPECIFIED"] as const), accessArea: schema.optional(schema.enum(["OUTDOOR_ONLY_ACCEPTABLE"] as const)) });
 const durationValue = schema.object({ kind: schema.literal("DURATION"), minutes: nullable(schema.number({ integer: true, min: 1, max: 1440 })), length: nullable(schema.enum(["SHORT", "MEDIUM", "LONG"] as const)) });
 const budgetValue = schema.object({ kind: schema.literal("BUDGET"), amountMinor: schema.number({ integer: true, min: 0, max: 10_000_000 }), currency: schema.enum(["CHF", "EUR", "USD", "GBP", "UNSPECIFIED"] as const), comparison: schema.enum(["LT", "LTE"] as const), basis: schema.enum(["PER_PERSON", "TOTAL", "UNSPECIFIED"] as const), includes: schema.optional(schema.array(schema.enum(priceComponents), { max: 6 })) });
-const timeValue = schema.object({ kind: schema.literal("TIME"), openNow: schema.boolean(), localDate: nullable(schema.string({ pattern: /^\d{4}-\d{2}-\d{2}$/ })), relativeDays: nullable(schema.number({ integer: true, min: 0, max: 366 })), weekday: nullable(schema.number({ integer: true, min: 0, max: 6 })), dayPhase: nullable(schema.enum(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const)), clockTime: nullable(schema.string({ pattern: /^(?:[01]\d|2[0-3]):[0-5]\d$/ })), monthDay: schema.optional(schema.string({ pattern: /^\d{2}-\d{2}$/ })), clockRelation: schema.optional(schema.enum(["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"] as const)), event: schema.optional(eventReference), reference: schema.optional(placeReference) });
+const timeValue = schema.object({ kind: schema.literal("TIME"), openNow: schema.boolean(), localDate: nullable(schema.string({ pattern: /^\d{4}-\d{2}-\d{2}$/ })), relativeDays: nullable(schema.number({ integer: true, min: 0, max: 366 })), weekday: nullable(schema.number({ integer: true, min: 0, max: 6 })), dayPhase: nullable(schema.enum(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const)), clockTime: nullable(schema.string({ pattern: /^(?:[01]\d|2[0-3]):[0-5]\d$/ })), monthDay: schema.optional(schema.string({ pattern: /^\d{2}-\d{2}$/ })), clockRelation: schema.optional(schema.enum(["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"] as const)), event: schema.optional(eventReference), reference: schema.optional(placeReference), phasePosition: schema.optional(schema.enum(["EARLY", "LATE"] as const)) });
 const locationValue = schema.object({ kind: schema.literal("LOCATION"), city: nullable(requestedPlaceName), role: schema.optional(schema.enum(["DESTINATION", "ORIGIN", "REFERENCE"] as const)), cityHash: schema.optional(schema.string({ pattern: /^[0-9a-f]{64}$/ })), reference: schema.optional(placeReference) });
 const mobilityValue = schema.object({ kind: schema.literal("MOBILITY"), maximumMeters: nullable(schema.number({ integer: true, min: 1, max: 1_000_000 })), maximumMinutes: nullable(schema.number({ integer: true, min: 1, max: 1440 })), mode: schema.enum(["WALK", "BIKE", "TRANSIT", "CAR", "UNSPECIFIED"] as const), reference: schema.optional(placeReference) });
 const facetValue = schema.object({ kind: schema.literal("FACET"), key: schema.string({ min: 1, max: 80 }), value: schema.string({ min: 1, max: 80 }) });
@@ -33,7 +37,7 @@ const waitingValue = schema.object({ kind: schema.literal("WAITING"), maximumMin
 const settingValue = schema.object({ kind: schema.literal("SETTING"), environment: schema.enum(["INDOOR", "OUTDOOR", "COVERED_OUTDOOR"] as const) });
 const valueSchema = schema.union([ageValue, companyValue, budgetValue, timeValue, locationValue, mobilityValue, facetValue, waitingValue, settingValue, needValue, durationValue] as const);
 export const productRequirementSchema = schema.object({
-  dimension: schema.enum(["EXPERIENCE", "ATMOSPHERE", "COMPANY", "AGE", "TIME", "LOCATION", "MOBILITY", "BUDGET", "ACCESS", "OFFERING", "OTHER", "WAITING", "SETTING", "DURATION"] as const),
+  dimension: schema.enum(["EXPERIENCE", "ATMOSPHERE", "COMPANY", "AGE", "TIME", "LOCATION", "MOBILITY", "BUDGET", "ACCESS", "OFFERING", "OTHER", "WAITING", "SETTING", "DURATION", "AMENITY"] as const),
   importance: schema.enum(["HARD", "ESSENTIAL", "PREFERRED"] as const), operator: schema.enum(["REQUIRE", "EXCLUDE", "ALLOW"] as const),
   origin: schema.enum(["EXPLICIT", "INFERRED"] as const), interpretationState: schema.enum(["UNDERSTOOD", "AMBIGUOUS", "UNSUPPORTED"] as const),
   value: nullable(valueSchema), alternatives: schema.array(valueSchema, { max: 3 }),
@@ -48,7 +52,7 @@ export type ProductUnderstanding = {
 };
 export type ProductInterpretation = { readonly request: DecisionProductRequest; readonly understanding: ProductUnderstanding | null };
 const facetDimensions: Readonly<Record<string, readonly string[]>> = {
-  EXPERIENCE: ["classification.", "purpose."], ATMOSPHERE: ["context.atmosphere"], OFFERING: ["offering."],
+  EXPERIENCE: ["classification.", "purpose."], ATMOSPHERE: ["context.atmosphere"], OFFERING: ["offering."], AMENITY: ["amenity."], BUDGET: ["operation.price_level"],
 };
 function validateRequirement(input: unknown): ProductRequirement {
   const row = productRequirementSchema.parse(input);
@@ -69,6 +73,8 @@ function validateRequirement(input: unknown): ProductRequirement {
     if ("reference" in value && value.reference?.city !== null && value.reference?.city !== undefined && !isPublicMunicipality(value.reference.city)) throw new Error("product_understanding_city_not_public");
     if (value.kind === "TIME") {
       if (!value.openNow && [value.localDate, value.relativeDays, value.weekday, value.dayPhase, value.clockTime, value.monthDay ?? null, value.event ?? null].every(v => v === null)) throw new Error("product_understanding_time_empty");
+      if (value.event?.phasePosition && !value.event.dayPhase) throw new Error("product_understanding_event_phase_position_invalid");
+      if (value.phasePosition && value.dayPhase === null) throw new Error("product_understanding_phase_position_invalid");
       if (value.clockRelation && value.clockTime === null) throw new Error("product_understanding_clock_relation_invalid");
       if (value.monthDay && (!Number.isFinite(Date.parse(`2000-${value.monthDay}T12:00:00Z`)) || new Date(`2000-${value.monthDay}T12:00:00Z`).toISOString().slice(5, 10) !== value.monthDay)) throw new Error("product_understanding_month_day_invalid");
       if (value.openNow && (value.localDate !== null || value.relativeDays !== null && value.relativeDays !== 0 || value.weekday !== null || value.monthDay !== undefined || value.dayPhase !== null || value.clockTime !== null || value.event !== undefined)) throw new Error("product_understanding_date_conflict");
@@ -91,8 +97,56 @@ function hasCurrentSelfAge(evidence: string, age: number): boolean {
   return new RegExp(`(?:^|[.,;!?])\\s*(?:(?:aber|but)\\s+)?(?:ich\\s+bin|bin|i\\s+am|i['’]m)\\s+(?:(?:jetzt|derzeit|noch|currently|still)\\s+)*${age}(?=\\s*(?:[,;.!?]|$|jahre?\\s+alt\\b|years?\\s+old\\b|und\\b|and\\b))`, "u").test(text);
 }
 
+// Source grounding is deliberately narrower than age interpretation: it
+// prevents invented numbers, but does not prove whose age a stated number is.
+// Cardinal spellings cover the supported DE/EN/FR evaluation languages.
+const normalizeNumberText = (value: string) => value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replaceAll("ß", "ss").replace(/[\s‐‑–-]+/gu, " ");
+let ageNumberLexicon: { readonly pattern: RegExp; readonly values: ReadonlyMap<string, number> } | null = null;
+function statedAgeNumbers(source: string): ReadonlySet<number> {
+  if (!ageNumberLexicon) {
+    const de = ["null", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf", "dreizehn", "vierzehn", "fünfzehn", "sechzehn", "siebzehn", "achtzehn", "neunzehn"];
+    const en = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+    const fr = ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix sept", "dix huit", "dix neuf"];
+    const german = (n: number): string => n < 20 ? de[n]! : n >= 100 ? `${n < 200 ? "" : german(Math.floor(n / 100))}hundert${n % 100 === 0 ? "" : german(n % 100)}`
+      : `${n % 10 ? (n % 10 === 1 ? "ein" : de[n % 10]) + "und" : ""}${["", "", "zwanzig", "dreißig", "vierzig", "fünfzig", "sechzig", "siebzig", "achtzig", "neunzig"][Math.floor(n / 10)]}`;
+    const english = (n: number): string => n < 20 ? en[n]! : n >= 100 ? `${english(Math.floor(n / 100))} hundred${n % 100 === 0 ? "" : ` ${english(n % 100)}`}`
+      : `${["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"][Math.floor(n / 10)]}${n % 10 ? ` ${en[n % 10]}` : ""}`;
+    const french = (n: number): string => n < 20 ? fr[n]! : n >= 100 ? `${n < 200 ? "" : `${french(Math.floor(n / 100))} `}cent${n % 100 === 0 ? (n >= 200 ? "s" : "") : ` ${french(n % 100)}`}`
+      : n >= 80 ? `quatre vingt${n === 80 ? "s" : ` ${french(n - 80)}`}`
+      : n >= 70 ? `soixante${n === 71 ? " et" : ""} ${french(n - 60)}`
+      : `${["", "", "vingt", "trente", "quarante", "cinquante", "soixante"][Math.floor(n / 10)]}${n % 10 ? `${n % 10 === 1 ? " et" : ""} ${fr[n % 10]}` : ""}`;
+    const values = new Map<string, number>();
+    // Include larger cardinals while matching, so 121 cannot supply 120 or 1.
+    // Match maximal spans, then retain only values valid for participant ages.
+    for (let number = 0; number <= 999; number++) {
+      const forms = [String(number), german(number), english(number), french(number)];
+      if (number >= 100) {
+        if (number < 200) forms.push(`ein${german(number)}`, english(number).replace("one hundred", "a hundred"), english(number).replace("one hundred", "hundred"));
+        forms.push(...forms.filter(form => form.includes("hundred ")).map(form => form.replace("hundred ", "hundred and ")));
+      }
+      if (number === 1) forms.push("ein", "eine", "une");
+      if (number >= 70 && number < 100) {
+        const decade = ["septante", "huitante", "nonante"][Math.floor(number / 10) - 7]!;
+        forms.push(`${decade}${number % 10 ? `${number % 10 === 1 ? " et" : ""} ${fr[number % 10]}` : ""}`);
+      }
+      if (number <= 120) {
+        for (const base of [String(number), number === 1 ? "ein" : german(number)]) {
+          for (const ending of ["", "e", "en", "er", "es", "em"]) forms.push(`${base}jährig${ending}`);
+        }
+      }
+      forms.push(...forms.map(form => form.replaceAll("ä", "ae").replaceAll("ö", "oe").replaceAll("ü", "ue")));
+      for (const form of forms) values.set(normalizeNumberText(form), number);
+    }
+    const alternatives = [...values.keys()].sort((a, b) => b.length - a.length).join("|");
+    ageNumberLexicon = { values, pattern: new RegExp(`(?<![\\p{L}\\p{N}]|[0-9][.,])(?:${alternatives})(?![\\p{L}\\p{N}]|[.,][0-9])`, "gu") };
+  }
+  const grounded = normalizeNumberText(source);
+  return new Set([...grounded.matchAll(ageNumberLexicon.pattern)].map(match => ageNumberLexicon!.values.get(match[0])!).filter(number => number <= 120));
+}
+
 export function parseModelRequirements(value: unknown, text: string): readonly ProductRequirement[] {
   if (!Array.isArray(value) || value.length > 12) throw new Error("product_understanding_bounds_invalid");
+  let sourceAgeNumbers: ReadonlySet<number> | null = null;
   const parsed = value.map(input => {
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("product_understanding_requirement_invalid");
     const { evidence, ...body } = input as Record<string, unknown>;
@@ -102,6 +156,11 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
     const minimizeValue = (rawValue: unknown): unknown => {
       if (rawValue && typeof rawValue === "object" && !Array.isArray(rawValue) && (rawValue as Record<string, unknown>).kind === "AGE") {
         const age = schema.object({ kind: schema.literal("AGE"), ages: schema.array(schema.number({ integer: true, min: 0, max: 120 }), { min: 1, max: 16 }) }).parse(rawValue);
+        // One AGE row may combine participants stated in separate source
+        // clauses. Require every number in the original request, not within
+        // the single bounded evidence excerpt. Role correctness remains semantic.
+        const stated = sourceAgeNumbers ??= statedAgeNumbers(text);
+        if (!age.ages.every(number => stated.has(number))) throw new Error("product_understanding_age_not_grounded");
         return { kind: "AGE", minimumAge: Math.min(...age.ages) };
       }
       return rawValue;
@@ -111,15 +170,21 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
       const minimized = minimizeValue(value);
       if (!minimized || typeof minimized !== "object" || Array.isArray(minimized)) return minimized;
       const row = { ...minimized } as Record<string, unknown>;
-      for (const key of ["role", "reference", "event", "accessArea"]) if (row[key] === null) delete row[key];
+      if (row.kind === "FACET" && (row.key === "classification.primary_category" || row.key === "purpose.primary_visit" || row.key === "classification.place_types" && row.value === "OTHER_PLACE")) {
+        throw new Error("product_understanding_internal_classification");
+      }
+      for (const key of ["role", "reference", "event", "accessArea", "phasePosition"]) if (row[key] === null) delete row[key];
       if (Array.isArray(row.includes) && row.includes.length === 0) delete row.includes;
-      const groundedName = (name: unknown) => {
+      const groundedName = (name: unknown, source = evidence, wholeName = false) => {
         if (typeof name !== "string") return;
         const canonical = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
-        if (!canonical(evidence).includes(canonical(name))) throw new Error("product_understanding_place_not_grounded");
+        const escaped = canonical(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const grounded = !wholeName ? canonical(source).includes(canonical(name))
+          : new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "u").test(canonical(source));
+        if (!grounded) throw new Error("product_understanding_place_not_grounded");
       };
       if (row.kind === "LOCATION") {
-        groundedName(row.city);
+        groundedName(row.city, typeof row.city === "string" && isPublicMunicipality(row.city) ? text : evidence, typeof row.city === "string" && isPublicMunicipality(row.city));
         if (typeof row.city === "string" && !isPublicMunicipality(row.city)) {
           row.cityHash = contentHash({ text, name: row.city }); row.city = null;
         }
@@ -127,7 +192,11 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
       }
       if (row.reference && typeof row.reference === "object") {
         const ref = schema.object({ name: requestedPlaceName, city: nullable(requestedPlaceName), relation: schema.enum(["NEAR", "RETURN_TO", "AT"] as const) }).parse(row.reference);
-        groundedName(ref.name); groundedName(ref.city);
+        groundedName(ref.name);
+        // A reference can inherit a city stated elsewhere in this same request.
+        // Only allowlisted public municipalities use that wider source scope;
+        // source presence does not prove the geographical relationship.
+        groundedName(ref.city, ref.city !== null && isPublicMunicipality(ref.city) ? text : evidence, ref.city !== null && isPublicMunicipality(ref.city));
         // Grounding proves source attribution, not that a name is public. No
         // arbitrary label/address crosses the cache or public-context boundary.
         // The request-bound fingerprint preserves identity for a future verified
@@ -137,6 +206,11 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
           city: ref.city !== null && isPublicMunicipality(ref.city) ? ref.city : null, relation: ref.relation };
       }
       if (row.kind === "TIME") {
+        if (row.event && typeof row.event === "object" && !Array.isArray(row.event)) {
+          row.event = Object.fromEntries(Object.entries(row.event).filter(([, value]) => value !== null));
+        }
+        if (row.openNow === true && (!/\b(?:jetzt|gerade|sofort|now|currently|immediately|maintenant|actuellement|immédiatement|tout de suite|right away|at the moment)\b/iu.test(evidence)
+          || /\b(?:nicht\s+jetzt|not\s+now|pas\s+maintenant)\b/iu.test(text))) throw new Error("product_understanding_open_now_not_grounded");
         if (row.monthDay === null) delete row.monthDay;
         if (row.clockRelation === null || row.clockRelation === "AT") delete row.clockRelation;
         // Absolute years must come from source, not the model's remembered date.
@@ -149,6 +223,10 @@ export function parseModelRequirements(value: unknown, text: string): readonly P
         && !/anreise|fahrt|fahrzeit|weg|travel|journey|walk|drive|transit/iu.test(evidence)) throw new Error("product_understanding_waiting_not_mobility");
       return row;
     };
+    // A concrete participant age is factual context, never an optional venue
+    // preference. Do not upgrade model guesses into a fact: request repair.
+    if (body.dimension === "AGE" && body.interpretationState === "UNDERSTOOD"
+      && (body.importance === "PREFERRED" || body.operator === "ALLOW")) throw new Error("product_understanding_participant_age_optional");
     body.value = normalizeModelValue(body.value);
     if (Array.isArray(body.alternatives)) body.alternatives = body.alternatives.map(normalizeModelValue);
     const row = validateRequirement(body);
@@ -202,15 +280,20 @@ const modelValues = [
   typed("AGE", { ages: { type: "array", minItems: 1, maxItems: 16, items: intJson(0, 120) } }),
   typed("COMPANY", { size: nullableJson(intJson(1, 100)), adultPresent: nullableJson({ type: "boolean" }), companionType: nullableJson(enumJson(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"])) }),
   typed("BUDGET", { amountMinor: intJson(0, 10_000_000), currency: enumJson(["CHF", "EUR", "USD", "GBP", "UNSPECIFIED"]), comparison: enumJson(["LT", "LTE"]), basis: enumJson(["PER_PERSON", "TOTAL", "UNSPECIFIED"]), includes: { type: "array", maxItems: 6, items: enumJson(priceComponents) } }),
-  typed("TIME", { openNow: { type: "boolean" }, localDate: nullableJson({ type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }), relativeDays: nullableJson(intJson(0, 366)), weekday: nullableJson(intJson(0, 6)), dayPhase: nullableJson(enumJson(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"])), clockTime: nullableJson({ type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$" }), monthDay: nullableJson({ type: "string", pattern: "^\\d{2}-\\d{2}$" }), clockRelation: nullableJson(enumJson(["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"])), event: nullableJson(objectJson({ event: enumJson(eventNames), relation: enumJson(["AFTER", "BEFORE"]) })), reference: nullableJson(placeJson) }),
+  typed("TIME", { openNow: { type: "boolean" }, localDate: nullableJson({ type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" }), relativeDays: nullableJson(intJson(0, 366)), weekday: nullableJson(intJson(0, 6)), dayPhase: nullableJson(enumJson(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"])), clockTime: nullableJson({ type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$" }), monthDay: nullableJson({ type: "string", pattern: "^\\d{2}-\\d{2}$" }), clockRelation: nullableJson(enumJson(["AT", "AFTER", "BEFORE", "START_NOT_BEFORE", "END_NOT_AFTER"])), event: nullableJson(objectJson({ event: enumJson(eventNames), relation: enumJson(["AFTER", "BEFORE"]), clockTime: nullableJson({ type: "string", pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$" }), dayPhase: nullableJson(enumJson(["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"])), phasePosition: nullableJson(enumJson(["EARLY", "LATE"])) })), reference: nullableJson(placeJson), phasePosition: nullableJson(enumJson(["EARLY", "LATE"])) }),
   typed("LOCATION", { city: nullableJson({ type: "string", minLength: 1, maxLength: 80 }), role: nullableJson(enumJson(["DESTINATION", "ORIGIN", "REFERENCE"])), reference: nullableJson(placeJson) }),
   typed("MOBILITY", { maximumMeters: nullableJson(intJson(1, 1_000_000)), maximumMinutes: nullableJson(intJson(1, 1440)), mode: enumJson(["WALK", "BIKE", "TRANSIT", "CAR", "UNSPECIFIED"]), reference: nullableJson(placeJson) }),
 ];
+// Internal primary classifications describe venues, not a user's exclusive
+// requirement. Explicit place types and visit intents express that distinction.
+export const PRODUCT_MODEL_QUERY_CATALOG = PRODUCT_QUERY_CATALOG.filter(field =>
+  field.key !== "classification.primary_category" && field.key !== "purpose.primary_visit")
+  .map(field => ({ ...field, values: field.values.filter(value => field.key !== "classification.place_types" || value !== "OTHER_PLACE") }));
 const dimensionValues: Readonly<Record<string, readonly object[]>> = {
   AGE: [modelValues[0]!], COMPANY: [modelValues[1]!], BUDGET: [modelValues[2]!],
   TIME: [modelValues[3]!], LOCATION: [modelValues[4]!], MOBILITY: [modelValues[5]!],
   ...Object.fromEntries(Object.entries(facetDimensions).map(([dimension, prefixes]) => [dimension,
-    [...PRODUCT_QUERY_CATALOG.filter(field => prefixes.some(prefix => field.key.startsWith(prefix))).map(field =>
+    [...(dimension === "BUDGET" ? [modelValues[2]!] : []), ...PRODUCT_MODEL_QUERY_CATALOG.filter(field => prefixes.some(prefix => field.key.startsWith(prefix))).map(field =>
       typed("FACET", { key: { type: "string", const: field.key }, value: enumJson(field.values) })), ...(["EXPERIENCE", "OFFERING"].includes(dimension) ? [needJson(dimension)] : [])],
   ])), ACCESS: [needJson("ACCESS")], OTHER: [],
   DURATION: [typed("DURATION", { minutes: nullableJson(intJson(1, 1440)), length: nullableJson(enumJson(["SHORT", "MEDIUM", "LONG"])) })],
@@ -354,7 +437,7 @@ export function projectProductUnderstanding(understanding: ProductUnderstanding 
     const localDate = time?.kind === "TIME" ? explicitCalendarDate(time, localToday) ?? (time.openNow ? localToday : null) : null;
     dateTime = { state: localDate ? "KNOWN" : "UNKNOWN", localDate, dayPhase: time?.kind === "TIME" ? time.dayPhase : null, timeZone: "Europe/Zurich" };
   }
-  if (times.some(r => [r.value, ...r.alternatives].some(v => v?.kind === "TIME" && (v.clockTime !== null || v.event)))) unresolved.add("PRECISE_TIME_UNVERIFIED");
+  if (times.some(r => [r.value, ...r.alternatives].some(v => v?.kind === "TIME" && (v.clockTime !== null || v.event || v.phasePosition)))) unresolved.add("PRECISE_TIME_UNVERIFIED");
   const locations = forDimension("LOCATION").filter(r => r.importance !== "PREFERRED" && !(r.value?.kind === "LOCATION" && r.value.role === "ORIGIN"));
   for (const r of locations) {
     const value = r.value;

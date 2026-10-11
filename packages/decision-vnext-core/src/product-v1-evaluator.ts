@@ -20,7 +20,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { PRODUCT_INDOOR_CONSTRAINT, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.9" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.12" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -84,10 +84,10 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   if (hasPreciseRequestedTime(request.naturalLanguage)) contextUnresolved.add("PRECISE_TIME_UNVERIFIED");
   if (explicit.budget ? explicit.budget.state === "KNOWN" && !explicit.budget.perPerson
     : !understood.budgetMentioned && parsedBudget.requested && !parsedBudget.representable) contextUnresolved.add("BUDGET_SEMANTICS_UNVERIFIED");
-  const typedPhase = understood.requirements.some(r => [r.value, ...r.alternatives].some(v => v?.kind === "TIME" && v.dayPhase !== null));
+  const typedPhase = understood.requirements.some(r => [r.value, ...r.alternatives].some(v => v?.kind === "TIME" && (v.dayPhase !== null || v.event !== undefined)));
   const explicitDaypart = [...hard].map(decodeWorldQueryConstraint).find(facet => facet?.role === "REQUIRED" && facet.key === "context.typical_dayparts")?.value;
   // Typical venue hours inferred as a ranking facet are not a requested visit time.
-  const literalPhase = typedPhase ? null : (["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const).find(phase => phase === explicitDaypart) ?? (includes(text, ["abend", "evening", "dinner"]) ? "EVENING" : /(?<!\p{L})(?:nachts?|tonight|night(?:time)?)(?!\p{L})/u.test(text) ? "NIGHT" : includes(text, ["nachmittag", "afternoon"]) ? "AFTERNOON" : includes(text, ["mittag", "midday", "lunch"]) ? "MIDDAY" : includes(text, ["frühstück", "am morgen", "morgens", "morning"]) ? "MORNING" : null);
+  const literalPhase = (["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const).find(phase => phase === explicitDaypart) ?? (typedPhase ? null : (includes(text, ["abend", "evening", "dinner"]) ? "EVENING" : /(?<!\p{L})(?:nachts?|tonight|night(?:time)?)(?!\p{L})/u.test(text) ? "NIGHT" : includes(text, ["nachmittag", "afternoon"]) ? "AFTERNOON" : includes(text, ["mittag", "midday", "lunch"]) ? "MIDDAY" : includes(text, ["frühstück", "am morgen", "morgens", "morning"]) ? "MORNING" : null));
   const calendarMentioned = requestedWeekday(text) >= 0 || /(?<!\p{L})(?:heute|morgen|übermorgen|today|tomorrow|jetzt|now)(?!\p{L})/u.test(text);
   const fallbackDate = calendarMentioned && !understood.timeMentioned ? requestedLocalDate(text, authority.serverTime) : null;
   const dateContext = explicit.dateTime ?? (understood.dateTime ? { ...understood.dateTime, dayPhase: understood.dateTime.dayPhase ?? literalPhase } : { state: fallbackDate ? "KNOWN" as const : "UNKNOWN" as const, localDate: fallbackDate, dayPhase: literalPhase, timeZone: "Europe/Zurich" });
@@ -251,10 +251,24 @@ export function evaluateProductV1IntentClassification(input: { readonly intent: 
   return { intentId: input.intent, state, mappingIds: [`product-intent-${input.intent.toLowerCase()}`], worldFactKeys: ["purpose.primary_visit", "classification.primary_category", "classification.place_types"], evidenceSourceHash: contentHash({ evidenceSourceHash: input.evidenceSourceHash, purpose, category, placeTypes, policyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash }) };
 }
 
-function intentCoverage(snapshot: ProductWorldView, intent: string | null) {
+function intentCoverage(snapshot: ProductWorldView, intent: string | null, requirements: readonly ProductRequirement[] = []) {
   const purposeEntry = entry(snapshot, "purpose.primary_visit"); const purpose = typeof purposeEntry?.value === "string" ? purposeEntry.value : null;
   const category = snapshot.spot.classification.primaryCategory; const placeTypes = snapshot.spot.classification.placeTypes ?? [];
-  return evaluateProductV1IntentClassification({ intent, purpose, category, placeTypes, disputed: snapshot.conflicts.some((row) => row.attributeKeys.some((key) => ["purpose.primary_visit", "classification.primary_category", "classification.place_types"].includes(key))), evidenceSourceHash: snapshot.snapshotHash });
+  const coverage = evaluateProductV1IntentClassification({ intent, purpose, category, placeTypes, disputed: snapshot.conflicts.some((row) => row.attributeKeys.some((key) => ["purpose.primary_visit", "classification.primary_category", "classification.place_types"].includes(key))), evidenceSourceHash: snapshot.snapshotHash });
+  // A broad activity summary must not veto an explicitly requested dance visit
+  // solely because a canonical club is classified as nightlife. This does not
+  // establish a dance offering: the concrete need remains unverified below.
+  const dance = requirements.find(row => row.dimension === "EXPERIENCE" && row.interpretationState === "UNDERSTOOD"
+    && row.operator === "REQUIRE" && row.importance !== "PREFERRED" && row.group === null && !row.condition
+    && row.value?.kind === "NEED" && row.value.code === "DANCING");
+  if (intent === "ACTIVITY_EXPERIENCE" && coverage.state === "INCOMPATIBLE" && dance
+    && category === "NIGHTLIFE" && (purpose === "ENTERTAINMENT" || purpose === "EAT_DRINK")
+    && placeTypes.some(value => value === "NIGHTCLUB" || value === "MUSIC_CLUB")) {
+    return { ...coverage, state: "UNKNOWN" as const,
+      mappingIds: [...coverage.mappingIds, "product-intent-activity-dancing-unverified"],
+      evidenceSourceHash: contentHash({ classification: coverage.evidenceSourceHash, requirement: dance, policyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash }) };
+  }
+  return coverage;
 }
 
 function primaryPurposeCoverage(snapshot: ProductWorldView, intent: string | null) {
@@ -322,7 +336,7 @@ function intervalsMeetDaypart(intervals: readonly { readonly start: string; read
 }
 
 function assess(snapshot: ProductWorldView, context: DecisionProductContext, queryPlan: WorldQueryPlan, projection: RelevantUserProjection, rejected: readonly string[], evaluationAt: string, requirements: readonly ProductRequirement[] = []): DecisionProductCandidateAssessment {
-  const core = intentCoverage(snapshot, context.primaryIntent); const secondary = intentCoverage(snapshot, context.secondaryIntent); const purposeCoverage = primaryPurposeCoverage(snapshot, context.primaryIntent);
+  const core = intentCoverage(snapshot, context.primaryIntent, requirements); const secondary = intentCoverage(snapshot, context.secondaryIntent, requirements); const purposeCoverage = primaryPurposeCoverage(snapshot, context.primaryIntent);
   const confirmed: string[] = []; const unknownHard: string[] = []; const failed: string[] = [];
   if (context.hardConstraints.includes("TARGET_LOCATION")) (snapshot.spot.location.locality !== null && context.targetCity !== null && canonicalRequestedCity(snapshot.spot.location.locality).toLowerCase() === canonicalRequestedCity(context.targetCity).toLowerCase() ? confirmed : failed).push("TARGET_LOCATION");
   if (context.hardConstraints.includes("ACCESSIBILITY_STEP_FREE")) { const row = entry(snapshot, "accessibility.step_free_entrance"); row?.resolution === "KNOWN_TRUE" ? confirmed.push("ACCESSIBILITY_STEP_FREE") : row?.resolution === "KNOWN_FALSE" ? failed.push("ACCESSIBILITY_STEP_FREE") : unknownHard.push("ACCESSIBILITY_STEP_FREE"); }
@@ -431,7 +445,10 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
     if (!satisfied) {
       essentialUnverified = true;
       if (first.importance === "HARD" || first.operator === "EXCLUDE" && matches.some(Boolean)) {
-        const incompatible = first.operator === "EXCLUDE" ? matches.some(Boolean) : alternatives.every(r => r.value?.kind === "FACET" && r.value.key.startsWith("classification.") && hasConfirmedWorldAttribute(snapshot, r.value.key));
+        // An optional offering at a venue does not force the visitor to consume
+        // it. Excluding lunch/beer must not reject a café merely for serving it.
+        // Keep the requested exclusion unverified; place/atmosphere vetoes stand.
+        const incompatible = first.operator === "EXCLUDE" ? first.dimension !== "OFFERING" && matches.some(Boolean) : alternatives.every(r => r.value?.kind === "FACET" && r.value.key.startsWith("classification.") && hasConfirmedWorldAttribute(snapshot, r.value.key));
         (incompatible ? failed : unknownHard).push(`UNDERSTANDING_REQUIREMENT_${index + 1}`);
       }
     }
