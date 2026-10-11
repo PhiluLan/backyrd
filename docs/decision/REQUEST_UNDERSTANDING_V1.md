@@ -1,6 +1,6 @@
 # Request understanding v1 — first work package
 
-Status: **implementation integrated; candidate evaluated; independent agent review complete; quality acceptance OPEN** (2026-10-11).
+Status: **step 1 catalog-independent meaning COMPLETE; full AP1 production acceptance OPEN** (2026-10-11).
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
@@ -13,7 +13,7 @@ preserve relationships, confirmed/possible/background participation, quantities
 and current/future/past ages plus event-referenced ages of unknown timing. A birthday age without a proven relation to now is UNKNOWN with an explicit ageTimeReference; it cannot become current eligibility or a visit date. entityType distinguishes PERSON, GROUP and ANIMAL. Constraints retain their activity/participant
 scope, exact numeric value/comparison/unit/basis and open descriptions of time,
 location, needs and other conditions. Shared alternative groups preserve OR;
-activity references preserve explicit visit order and conditional replacement. Preferred replacement is OPTIONAL and never a veto of the original activity; required conditional replacement supersedes that visit only under its condition. Participant membership can preserve overlap between a named individual and a counted group; unknown membership is not proof of an additional person. Unknown concepts remain
+activity references preserve explicit visit order and conditional replacement. Positive OR groups may contain REQUESTED and OPTIONAL branches with local conditions. Any REQUESTED branch makes this a requested choice of one applicable option, not a requirement to visit every REQUESTED branch; OPTIONAL is an acceptable preferred option. All-OPTIONAL groups remain additional preferences. Excluded/non-required/background/superseded nodes cannot become positive choice branches. Alternative visit times for the same activity are TIME-constraint branches on one activity, with date/dayphase together. Preferred replacement is OPTIONAL and never a veto of the original activity; required conditional replacement supersedes that visit only under its condition. Participant membership can preserve overlap between a named individual and a counted group; unknown membership is not proof of an additional person. Unknown concepts remain
 meaningful descriptions, not a guessed catalog entry. Empty scope arrays mean
 the whole request. `uncertainties` is semantic uncertainty, not missing venue data.
 
@@ -51,6 +51,76 @@ reports VALID_CONTRACT separately from semantic review. The original expectation
 are not sent to the model. Every live semantic assessment must inspect all meaning
 items, their modalities and references; a correct summary or valid JSON is not a
 semantic PASS. The separately authored inputs are preserved in `meaning-additional-corpus.json`; run them with `--corpus packages/decision-vnext-core/test/request-understanding/meaning-additional-corpus.json`. These became development cases after their first v8 evaluation.
+
+## Step 1 closure — founder clarification and OR repair
+
+The founder clarified the product interpretation of three historical v9 cases:
+
+- `meaning-new-14`: Aarau is the outing's search city; staying home during a
+  thunderstorm cancels that outing and requires no separate spot search. The
+  shared city reference is not treated as a failure of understanding or proof
+  of the user's home address.
+- `meaning-new-19`: rain in Luzern may remain BACKGROUND. It does not have to
+  become a mandatory search location from an indirect statement.
+- `fresh-meaning-19`: “ohne festes Programm” may mean NOT_REQUIRED in this
+  relaxed-evening context; no exclusion of all programmed experiences is required.
+
+These are explicit product clarifications, not model improvements or a new blind
+assessment. Original v8/v9 outputs and grades are preserved unchanged. The final
+independent review records these three interpretations as acceptable. The old
+fresh17 second output is successfully replayed through the corrected parser;
+that is offline regression evidence, not a replacement of its original live ERROR.
+
+Policy v13 removes the equality-of-status restriction from positive OR groups.
+REQUESTED and OPTIONAL can coexist without promoting a preferred alternative to
+an obligation or requiring both visits. Mixed activity/constraint groups,
+singleton groups, excluded/non-required/background/superseded positive branches,
+dangling references, cycles and contradictory visit order remain invalid. Pure
+time alternatives use one activity with grouped TIME branches. Local preference
+between equally OPTIONAL choices must also be retained on the relevant branch,
+not only in summary; the second-pass review explicitly checks that completeness.
+Non-participating companions remain BACKGROUND, distinct from explicit wishes
+about other visitors or venue characteristics; no children accompanying the user
+does not exclude child-friendly places.
+
+Focused development evaluation uses eight frozen synthetic inputs twice on Luna
+low: the original weather replacement, activity/time choices with local
+preference, an all-OPTIONAL choice, German/English/French wording, AND sequencing
+and explicit exclusion controls. Expectations are not supplied to the provider.
+Policy v10: 15 PASS / 1 PARTIAL (loose preferred time); v11: 15 PASS / 1 PARTIAL
+(local preference only in summary); v12: 15 PASS / 1 PARTIAL (negative absence
+description with EXCLUDED); final unchanged v13: **16 PASS / 0 PARTIAL /
+0 FAIL / 0 ERROR**, 32 provider calls, estimated USD 0.01512543000, median
+8286.0 ms. All 16 complete outputs were independently reviewed.
+This is a targeted development regression, not a fresh 60-case run or production
+success rate. Input corpus: `meaning-alternatives-corpus.json`; reproduce with
+`--corpus packages/decision-vnext-core/test/request-understanding/meaning-alternatives-corpus.json`.
+
+Final v13 checks: 263 canonical Decision contract/runtime/isolation tests,
+33 Mobile/Web release-contract tests, strict TypeScript, single-route invariant
+and existing-Web synthetic E2E PASS; isolated meaning/evaluation tests 60 PASS.
+
+**Step 1 is complete within the approved scope: catalog-independent meaning
+contract, server-side extraction/review stage, boundary validation and evaluated
+product interpretations.** Step 2 mapping into supported search semantics,
+World/Owner/Admin authoring extensions and production activation are separate
+work. Full AP1 production acceptance remains OPEN. No production composition
+consumes this stage, and no deployment, merge, DB migration or live-data mutation
+was performed.
+
+Evidence SHA-256 (raw synthetic API artifacts remain outside Git at
+`/private/tmp/backyrd-meaning-stage/alternatives-v13/`):
+
+- `binding.json`: `a797bc04205c51d4af7402cd244a31f20487fcbb9988bce0c477d962f9bc2d02`
+- `results.json`: `79969b8140bf11f2ebe1de44d0219dac679efe3248f551f1ed419eeca263fb04`
+- `review.json`: `27f41f9fc1d34fa56ff7acc2c658e89e992bac13236c01564ffc96d7af646787`
+- `review-meta.json`: `b98b82ceb06f82a7ba86bf242ac32b5b9c5f37bc6710325f3c17c712732a7fb4`
+- `code-review.json`: `3a4353a754c51c579a9cee6b60ba60be955047c7a2f7feddf4e57506af0e2cd2`
+- `ci-v13-final.log`: `c904cfc77b522c0004ef11377d9d70a80bd4b45e1b9a3b3d4d5d09a14ba7a874`
+- `meaning-tests-v13.log`: `1d779e7f49681484237b0aa29a38abaacc8f107f4de7d8225b425d6335c3e1c6`
+- `product-request-meaning.ts`: `681655b28653f8cc7bffb57c50601ed9420dfbfacf932c0388b894f02373179a`
+- `product-ai-interpretation.ts`: `5cea39fa7c6c6aef23e2594d5a629209a6ad1eb160e9ef4dbcec8ab748dc2394`
+- `meaning-alternatives-corpus.json`: `04718f48d127150e20dc8de86f7defb72cec20d66d121cd8db190a83bc94832a`
 
 ## Meaning-stage evaluation evidence — step 1
 
@@ -129,8 +199,8 @@ meaning/evaluation suite passed 53 tests. Diff and changed-file credential-liter
 checks passed. The live CLI refuses execution without explicit --live, output
 and server key; both versioned corpora validate as synthetic inputs.
 
-Step 1 has an implemented, evaluated contract/stage; semantic acceptance is OPEN.
-Do not activate it before scope/modality regressions are addressed and Step 2
+At the v9 review, step 1 had an implemented, evaluated contract/stage with semantic acceptance OPEN.
+The v9 reviewer advised not to activate it before scope/modality concerns were resolved and Step 2
 maps every relevant meaning item safely. No DB, World registry, Admin/Owner or
 public client contract was changed by this stage. Full AP1 and production
 acceptance remain OPEN. The PR remains a draft, without merge or deployment.

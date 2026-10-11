@@ -1,0 +1,85 @@
+{
+  "scope": "FOCUSED_DEVELOPMENT_8_CASES_TWO_REPEATS_NOT_HOLDOUT",
+  "cases": [
+    {
+      "id": "alternative-v10-01-r1",
+      "text": "Wenn es morgen trocken bleibt, möchte ich in Neuchâtel gemütlich am See spazieren. Bei Regen lieber eine kleine Ausstellung. Meine Schwester kommt mit, Kinder sind diesmal nicht dabei.",
+      "expected": "Morgen Neuchâtel mit Schwester, ohne Kinder; See bei Trockenheit, bevorzugter Ausstellungsersatz bei Regen; lokale Bedingungen und bevorzugter Zweig erhalten."
+    },
+    {
+      "id": "alternative-v10-02-r1",
+      "text": "Am Samstag in Bern möchte ich entweder ein Museum besuchen oder lieber ins Kino gehen. Meine Tochter ist sechs und kommt mit.",
+      "expected": "Bern Samstag mit Tochter6; Museum ODER bevorzugtes Kino, keinUND."
+    },
+    {
+      "id": "alternative-v10-03-r1",
+      "text": "I'd like either a quiet cafe or preferably a small tea room in Basel tomorrow. I'm going with my sister.",
+      "expected": "Basel tomorrow sister; quiet cafe OR preferred small tearoom, preference local."
+    },
+    {
+      "id": "alternative-v10-04-r1",
+      "text": "Dimanche à Lausanne, soit un musée, soit de préférence une petite exposition. Avec ma fille de six ans.",
+      "expected": "Lausanne dimanche fille6; musée OR exposition préférée, pasAND."
+    },
+    {
+      "id": "alternative-v10-05-r1",
+      "text": "Wir suchen am Sonntag eine gemeinsame Unternehmung in Zug. Optional könnten wir zusätzlich entweder Minigolf spielen oder lieber eine Runde Bowling.",
+      "expected": "Zug Sonntag gemeinsamerAusflug; zusätzlicheAuswahlMinigolfORBowlingOPTIONAL, Bowling bevorzugt; keinebeidenPflichtbesuche."
+    },
+    {
+      "id": "alternative-v10-06-r1",
+      "text": "Entweder Samstagvormittag oder lieber Sonntagnachmittag ins Museum in Zürich. Keine Führung nötig.",
+      "expected": "Museum Zürich; SamstagvormittagORbevorzugtSonntagnachmittag; FührungNOT_REQUIRED."
+    },
+    {
+      "id": "alternative-v10-07-r1",
+      "text": "Am Samstag in Bern zuerst ins Museum und danach Kaffee trinken. Beim Café am liebsten mit Terrasse.",
+      "expected": "MuseumdanachKaffee AND mitReihenfolge BernSamstag; TerrasseOPTIONAL, keineORGruppe."
+    },
+    {
+      "id": "alternative-v10-08-r1",
+      "text": "Morgen in Luzern mit meiner Tochter entweder Tiere beobachten oder etwas basteln. Keine Führung und kein Kino.",
+      "expected": "Luzern morgen Tochter; TiereORBasteln; Führung undKinoEXCLUDED außerhalbpositiverOR."
+    },
+    {
+      "id": "alternative-v10-01-r2",
+      "text": "Wenn es morgen trocken bleibt, möchte ich in Neuchâtel gemütlich am See spazieren. Bei Regen lieber eine kleine Ausstellung. Meine Schwester kommt mit, Kinder sind diesmal nicht dabei.",
+      "expected": "Morgen Neuchâtel mit Schwester, ohne Kinder; See bei Trockenheit, bevorzugter Ausstellungsersatz bei Regen; lokale Bedingungen und bevorzugter Zweig erhalten."
+    },
+    {
+      "id": "alternative-v10-02-r2",
+      "text": "Am Samstag in Bern möchte ich entweder ein Museum besuchen oder lieber ins Kino gehen. Meine Tochter ist sechs und kommt mit.",
+      "expected": "Bern Samstag mit Tochter6; Museum ODER bevorzugtes Kino, keinUND."
+    },
+    {
+      "id": "alternative-v10-03-r2",
+      "text": "I'd like either a quiet cafe or preferably a small tea room in Basel tomorrow. I'm going with my sister.",
+      "expected": "Basel tomorrow sister; quiet cafe OR preferred small tearoom, preference local."
+    },
+    {
+      "id": "alternative-v10-04-r2",
+      "text": "Dimanche à Lausanne, soit un musée, soit de préférence une petite exposition. Avec ma fille de six ans.",
+      "expected": "Lausanne dimanche fille6; musée OR exposition préférée, pasAND."
+    },
+    {
+      "id": "alternative-v10-05-r2",
+      "text": "Wir suchen am Sonntag eine gemeinsame Unternehmung in Zug. Optional könnten wir zusätzlich entweder Minigolf spielen oder lieber eine Runde Bowling.",
+      "expected": "Zug Sonntag gemeinsamerAusflug; zusätzlicheAuswahlMinigolfORBowlingOPTIONAL, Bowling bevorzugt; keinebeidenPflichtbesuche."
+    },
+    {
+      "id": "alternative-v10-06-r2",
+      "text": "Entweder Samstagvormittag oder lieber Sonntagnachmittag ins Museum in Zürich. Keine Führung nötig.",
+      "expected": "Museum Zürich; SamstagvormittagORbevorzugtSonntagnachmittag; FührungNOT_REQUIRED."
+    },
+    {
+      "id": "alternative-v10-07-r2",
+      "text": "Am Samstag in Bern zuerst ins Museum und danach Kaffee trinken. Beim Café am liebsten mit Terrasse.",
+      "expected": "MuseumdanachKaffee AND mitReihenfolge BernSamstag; TerrasseOPTIONAL, keineORGruppe."
+    },
+    {
+      "id": "alternative-v10-08-r2",
+      "text": "Morgen in Luzern mit meiner Tochter entweder Tiere beobachten oder etwas basteln. Keine Führung und kein Kino.",
+      "expected": "Luzern morgen Tochter; TiereORBasteln; Führung undKinoEXCLUDED außerhalbpositiverOR."
+    }
+  ]
+}
