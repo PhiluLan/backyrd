@@ -1343,3 +1343,60 @@ repeated per-branch descriptions were removed instead of raising the limit.
 
 The independent review is an agent review of disclosed regression cases, not a
 new blind holdout, stability guarantee, human approval or launch acceptance.
+
+
+### Final 4.19 validation and remaining acceptance gaps
+
+Implementation commit `3fd16c5f3e9717b635c962c94628556ff113ce61` passes
+192 canonical Decision/integration tests and TypeScript. CI run
+[38137247324](https://github.com/PhiluLan/backyrd/actions/runs/38137247324)
+passed the affected Decision, repository/secret, Product certification and final
+risk gates; unchanged gates use the frozen input-bound reuse policy. No merge
+or production deployment was performed.
+
+Final Luna/low live results, using synthetic inputs:
+
+| Evaluation | PASS | PARTIAL | FAIL | ERROR |
+| --- | ---: | ---: | ---: | ---: |
+| Stronger 15-case semantic-boundaries suite | 14 | — | 1 | 0 |
+| Additional three-language weather repeats | 8 | — | 1 | 0 |
+| Independent unchanged 20-case rubric | 13 | 6 | 1 | 0 |
+
+The 15-case failure adds ALLOW INDOOR and ALLOW OUTDOOR to an explicit
+“inside/outside does not matter”; its public context introduces no seating
+constraint or preference. The repeat failure adds a redundant EAT_DRINK
+requirement to the French lunch request. Both strict failures remain reported;
+the oracle was not changed again to improve these scores. The original English
+outdoor/access confusion did not recur in the final suite or repeats. This is
+bounded regression evidence, not a guarantee against future hallucinations.
+
+The independent review still identifies a material failure in round2-19: the
+explicit current age 17 disappears and dancing becomes only broad nightlife
+context. Six partial interpretations also remain. The earlier 4.14 result was
+15 PASS / 4 PARTIAL / 1 FAIL / 0 ERROR on these same disclosed cases: the final
+run therefore does not demonstrate a general understanding improvement over
+that baseline. Semantic and launch acceptance remain OPEN. Structural guards
+and projection fixes are covered deterministically; one successful model run
+cannot substitute for completeness or stability evidence.
+
+For provenance, the final runs began before committing, recording base 4745853
+and a dirty worktree. A post-commit comparison verified all six bound source
+modules against `git show 3fd16c5`; source and built-module hashes match the
+original reports exactly. Original report metadata was not rewritten:
+
+- Source SHA256: `a5cfa7902c2a03671f48cd166a0eb1de5d5ffa70833a8a6000bd6238154db709`.
+- Build SHA256: `9e94854bada8bbe98e7dadec38996d875933604a501c797afcfabe72b4609dcd`.
+- Prompt SHA256: `aa39744300711724fb46a4a4ffc30c1906f3c3f0c1d1442da0f0d7e7aa887e28`.
+- Final corpus SHA256: `0f5419d20653a850150c1f12dd4a2fc4b1c0fa87ab3da51d6afa41a42893a7b7`.
+- Final oracle SHA256: `ceaa264505b680c8bc3149914693e33d5a5312fd37fdfee38c92bb3a71555970`.
+
+Detailed local development reports reside under
+`/private/tmp/backyrd-semantics/final419/`; they are not committed provider
+responses or durable production telemetry. This document preserves the result
+and source binding; local temporary reports are not a permanent artifact store.
+
+Intermediate 4.18, before the independent-garden correction, scored 155 PASS /
+4 FAIL / 1 ERROR across 160 context cases, 22/24 requirements and 24/24 roles.
+Its independent review scored 9/8/2/1. These runs have a different source/build
+binding and are not final-4.19 broad regression results. No final 160-case
+rerun or launch-quality certification is claimed.
