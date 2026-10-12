@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-supabase_cli="$repo_root/node_modules/.bin/supabase"
+supabase_cli="${BACKYRD_SUPABASE_CLI:-$repo_root/node_modules/.bin/supabase}"
 if test ! -x "$supabase_cli"; then supabase_cli="$(command -v supabase || true)"; fi
 test -x "$supabase_cli" || { printf 'Supabase CLI is missing.\n' >&2; exit 1; }
 test "$($supabase_cli --version)" = "2.80.0" || { printf 'Expected Supabase CLI 2.80.0 for verified ACL denial runtime.\n' >&2; exit 1; }

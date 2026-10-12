@@ -1,0 +1,152 @@
+{
+  "scope": "DEVELOPMENT_NOT_HOLDOUT",
+  "reference": {
+    "serverTime": "2026-10-10T12:00:00.000Z",
+    "profileCity": "Basel"
+  },
+  "cases": [
+    {
+      "id": "polite-concert-age",
+      "text": "Ich bin nicht 18. Ein Konzert am Samstag wäre schön.",
+      "expectedRequirements": [
+        {
+          "dimension": "EXPERIENCE",
+          "value": "CONCERT_VENUE",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "TIME",
+          "value": 6,
+          "importance": "ESSENTIAL"
+        }
+      ]
+    },
+    {
+      "id": "polite-concert",
+      "text": "Ein Konzert am Samstag wäre schön.",
+      "expectedRequirements": [
+        {
+          "dimension": "EXPERIENCE",
+          "value": "CONCERT_VENUE",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "TIME",
+          "value": 6,
+          "importance": "ESSENTIAL"
+        }
+      ]
+    },
+    {
+      "id": "polite-english",
+      "text": "It would be lovely to visit a gallery on Tuesday morning.",
+      "expectedRequirements": [
+        {
+          "dimension": "EXPERIENCE",
+          "value": "GALLERY",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "TIME",
+          "value": 2,
+          "importance": "ESSENTIAL"
+        }
+      ]
+    },
+    {
+      "id": "polite-french",
+      "text": "Ce serait bien de visiter un musée dimanche.",
+      "expectedRequirements": [
+        {
+          "dimension": "EXPERIENCE",
+          "value": "MUSEUM",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "TIME",
+          "value": 0,
+          "importance": "ESSENTIAL"
+        }
+      ]
+    },
+    {
+      "id": "polite-budget",
+      "text": "Ein Café morgen für maximal 20 CHF pro Person wäre schön.",
+      "expectedRequirements": [
+        {
+          "dimension": "EXPERIENCE",
+          "value": "CAFE",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "TIME",
+          "value": "tomorrow",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "BUDGET",
+          "value": 2000,
+          "importance": "HARD"
+        }
+      ]
+    },
+    {
+      "id": "optional-date",
+      "text": "Ich suche ein Café, möglichst am Samstag.",
+      "expectedRequirements": [
+        {
+          "dimension": "EXPERIENCE",
+          "value": "CAFE",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "TIME",
+          "value": 6,
+          "importance": "PREFERRED"
+        }
+      ]
+    },
+    {
+      "id": "optional-terrace",
+      "text": "Ein Café morgen wäre schön, am liebsten mit Terrasse.",
+      "expectedRequirements": [
+        {
+          "dimension": "EXPERIENCE",
+          "value": "CAFE",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "TIME",
+          "value": "tomorrow",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "AMENITY",
+          "value": "TERRACE",
+          "importance": "PREFERRED"
+        }
+      ]
+    },
+    {
+      "id": "optional-extra",
+      "text": "Ich suche ein Café am Samstag; ein Konzert danach ist optional.",
+      "expectedRequirements": [
+        {
+          "dimension": "EXPERIENCE",
+          "value": "CAFE",
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "TIME",
+          "value": 6,
+          "importance": "ESSENTIAL"
+        },
+        {
+          "dimension": "EXPERIENCE",
+          "value": "CONCERT_VENUE",
+          "importance": "PREFERRED"
+        }
+      ]
+    }
+  ]
+}

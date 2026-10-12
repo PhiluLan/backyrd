@@ -9,6 +9,7 @@ export type DecisionProductRequest = {
     occasion?: string | null;
     moods?: string[];
     targetCity?: string | null;
+    targetCitySource?: "USER_SELECTED" | "PROFILE_DEFAULT";
     hardConstraints?: string[];
     softPreferences?: string[];
   };
@@ -105,3 +106,6 @@ export function validateDecisionProductRequest<T extends DecisionProductRequest>
 export function validateDecisionProductResponse(value: unknown, request: DecisionProductRequest): DecisionProductResponse;
 export function executeDecisionProductSingleRoute(input: { binding: DecisionProductReleaseBinding; request: DecisionProductRequest; invoke: (request: DecisionProductRequest) => Promise<unknown> }): Promise<Readonly<DecisionProductResponse>>;
 export function executeDecisionProductInteraction(input: { binding: DecisionProductReleaseBinding; request: DecisionProductInteractionRequest; invoke: (request: DecisionProductInteractionRequest) => Promise<unknown> }): Promise<Readonly<DecisionProductInteractionResponse>>;
+
+export function validateDecisionProductRequirements(value: unknown): void;
+export function isDecisionPlaceName(value: unknown): value is string;

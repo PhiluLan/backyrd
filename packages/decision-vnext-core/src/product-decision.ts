@@ -1,3 +1,4 @@
+import { validateProductUnderstanding, type ProductInterpretation, type ProductUnderstanding } from "./product-request-understanding.js";
 import { Buffer } from "node:buffer";
 import {
   CONTRACT_VERSIONS,
@@ -80,6 +81,7 @@ function vector(candidate: DecisionProductCandidateAssessment, projection: Relev
     actualAvailability: candidate.actualAvailability.status,
     userRelevance: userRelevance(candidate, projection),
     contextFit: {
+      ...(candidate.reasons.some(row => row.reasonCode === "single-visit-alternative-confirmed") ? { preferredAlternativeConfirmed: candidate.reasons.some(row => row.reasonCode === "preferred-visit-alternative" && row.confirmed) } : {}),
       secondaryIntentConfirmed: candidate.secondaryIntentCoverage.state === "CONFIRMED",
       visitSituationConfirmed: candidate.visitSituation.state === "CONFIRMED",
       matchedSoftPreferenceCount: candidate.matchedSoftPreferences.length,
@@ -107,6 +109,7 @@ function rankingChecks(left: CandidateForRanking, right: CandidateForRanking): r
     [compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]), "der besser belegten Hauptabsicht"],
     [compareNumber(coreScore[a.primaryVisitPurposeState], coreScore[b.primaryVisitPurposeState]), "des zusätzlich bestätigten Hauptzwecks"],
     [compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]), "der besser belegten Verfügbarkeit"],
+    [compareBoolean(a.contextFit.preferredAlternativeConfirmed ?? false, b.contextFit.preferredAlternativeConfirmed ?? false), "der ausdrücklich bevorzugten passenden Alternative"],
     [compareBoolean(a.contextFit.secondaryIntentConfirmed, b.contextFit.secondaryIntentConfirmed), "einer bestätigten Nebenabsicht"],
     [compareBoolean(a.contextFit.visitSituationConfirmed, b.contextFit.visitSituationConfirmed), "der bestätigten Besuchssituation"],
     [compareNumber(a.contextFit.matchedSoftPreferenceCount, b.contextFit.matchedSoftPreferenceCount), "weiterer bestätigter Kontextmerkmale"],
@@ -122,6 +125,12 @@ function rankingChecks(left: CandidateForRanking, right: CandidateForRanking): r
 
 function compareCandidates(left: CandidateForRanking, right: CandidateForRanking): number {
   return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[0] ?? 0;
+}
+
+export function compareProductCandidateAssessments(left: DecisionProductCandidateAssessment, right: DecisionProductCandidateAssessment, projection: RelevantUserProjection): number {
+  const row = (candidate: DecisionProductCandidateAssessment): CandidateForRanking => ({ spotId: candidate.candidateId, tier: candidate.tier, coreIntentCoverage: candidate.coreIntentCoverage.state,
+    actualAvailability: candidate.actualAvailability.status, unknownHardConstraints: candidate.unknownHardConstraints, contextualReject: candidate.rejectionClass === "SITUATIONAL_REJECT", rankVector: vector(candidate, projection) });
+  return compareCandidates(row(left), row(right));
 }
 
 function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null): boolean {
@@ -175,7 +184,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
   const assessment = candidate.assessment;
   const reasons: ProductReason[] = [
     ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-    { code: "product-ranking-policy-v3", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    { code: "product-ranking-policy-v4", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
   ];
   return DecisionProductCandidateSchema.parse(withContentHash({
@@ -230,7 +239,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
     && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
   const situationalIds = evaluation.interpretation.primaryIntent !== null ? null : new Set(
-    situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
+    evaluation.interpretation.visitAlternatives?.length ? evaluation.candidates.filter(candidate => candidate.reasons.some(row => row.reasonCode === "single-visit-alternative-confirmed" && row.confirmed)).map(candidate => candidate.candidateId) : situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );
   const ranked = candidateRows(evaluation, projection, input.presentations, situationalIds);
@@ -365,8 +374,8 @@ export interface DecisionProductRuntimePorts {
   readonly auth: { authenticate(token: string, signal: AbortSignal): Promise<DecisionProductAuthenticatedActor | null> };
   readonly rateLimit: { consume(subjectBindingHash: string, signal: AbortSignal): Promise<boolean> };
   readonly control: { assertBoundary(boundary: DecisionProductRuntimeBoundary, signal: AbortSignal): Promise<void> | void; readonly timeoutMilliseconds: number; readonly maxRequestBytes: number };
-  readonly interpret?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<DecisionProductRequest>;
-  readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
+  readonly interpret?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<ProductInterpretation>;
+  readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal, understanding?: ProductUnderstanding | null) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
   readonly idempotency: { commit(input: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal): Promise<{ status: "CREATED" } | { status: "REPLAYED"; execution: unknown } | { status: "CONFLICT" | "EXPIRED" }> };
   readonly interaction: { resolve(input: { request: DecisionProductInteractionRequest; actor: DecisionProductAuthenticatedActor }, signal: AbortSignal): Promise<
     { status: "AUTHORIZED"; sessionId: string; spotId: string; contextBindingHash: string; occurredAt: string }
@@ -402,23 +411,25 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
     const deadline = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => { abort.abort(timeoutError); reject(timeoutError); }, ports.control.timeoutMilliseconds);
     });
-    const race = <T>(operation: Promise<T>): Promise<T> => Promise.race([operation, deadline]);
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      abort.signal.addEventListener("abort", () => reject(abort.signal.reason ?? timeoutError), { once: true });
+    });
+    const race = <T>(operation: Promise<T>): Promise<T> => Promise.race([operation, deadline, cancelled]);
     const at = async <T>(boundary: DecisionProductRuntimeBoundary, operation: (signal: AbortSignal) => Promise<T>): Promise<T> => {
       stage = boundary;
       const elapsed = { stage: boundary, controlBeforeMs: 0, operationMs: 0, controlAfterMs: 0 };
+      timings.push(elapsed);
       const measure = async <V>(key: "controlBeforeMs" | "operationMs" | "controlAfterMs", call: () => Promise<V> | V): Promise<V> => {
         const started = performance.now();
         try { return await race(Promise.resolve(call())); }
         finally { elapsed[key] = Math.round(performance.now() - started); }
       };
-      try {
-        await measure("controlBeforeMs", () => ports.control.assertBoundary(boundary, abort.signal));
-        const result = await measure("operationMs", () => operation(abort.signal));
-        // A control transition during an awaited operation must suppress its
-        // result, including a response assembled from already-read data.
-        await measure("controlAfterMs", () => ports.control.assertBoundary(boundary, abort.signal));
-        return result;
-      } finally { timings.push(elapsed); }
+      await measure("controlBeforeMs", () => ports.control.assertBoundary(boundary, abort.signal));
+      const result = await measure("operationMs", () => operation(abort.signal));
+      // A control transition during an awaited operation must suppress its
+      // result, including a response assembled from already-read data.
+      await measure("controlAfterMs", () => ports.control.assertBoundary(boundary, abort.signal));
+      return result;
     };
     try {
       await at("REQUEST_START", async () => undefined);
@@ -427,15 +438,33 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       if (!token) throw new DecisionProductError("UNAUTHENTICATED", 401, "Bitte melde dich an.");
       const actor = await at("AUTH", (signal) => ports.auth.authenticate(token, signal));
       if (!actor) throw new DecisionProductError("UNAUTHENTICATED", 401, "Die Anmeldung ist ungültig oder abgelaufen.");
-      if (!await at("RATE_LIMIT", (signal) => ports.rateLimit.consume(actor.subjectBindingHash, signal))) throw new DecisionProductError("RATE_LIMITED", 429, "Zu viele Anfragen. Bitte versuche es später erneut.");
-      const parsedRequest = await at("BODY_PARSE", async () => {
+      // Body decoding and the cost gate are independent after authentication.
+      // Await both before any provider/data evaluation; preserve the historical
+      // rate-limit error precedence and every before/after control check.
+      const limitJob = at("RATE_LIMIT", (signal) => ports.rateLimit.consume(actor.subjectBindingHash, signal));
+      const bodyJob =
+        at("BODY_PARSE", async () => {
         const text = await request.text(); if (new TextEncoder().encode(text).length > ports.control.maxRequestBytes) throw new DecisionProductError("REQUEST_TOO_LARGE", 413, "Die Anfrage ist zu groß.");
         let raw: unknown; try { raw = JSON.parse(text); } catch { throw new DecisionProductError("INVALID_JSON", 400, "Die Anfrage enthält kein gültiges JSON."); }
         const version = raw && typeof raw === "object" && "contractVersion" in raw ? (raw as { contractVersion?: unknown }).contractVersion : null;
         return version === PRODUCT_DECISION_VERSIONS.interactionRequest
           ? DecisionProductInteractionRequestSchema.parse(raw)
           : DecisionProductRequestSchema.parse(raw);
-      });
+        });
+      const settled = Promise.allSettled([limitJob, bodyJob]);
+      let allowed: boolean;
+      try { allowed = await limitJob; }
+      catch (error) { stage = "RATE_LIMIT"; abort.abort(error); await settled; throw error; }
+      stage = "RATE_LIMIT";
+      if (!allowed) {
+        const error = new DecisionProductError("RATE_LIMITED", 429, "Zu viele Anfragen. Bitte versuche es später erneut.");
+        abort.abort(error); await settled; throw error;
+      }
+      const preflight = await settled;
+      stage = "BODY_PARSE";
+      const decoded = preflight[1];
+      if (decoded.status === "rejected") throw decoded.reason;
+      const parsedRequest = decoded.value;
       if (parsedRequest.contractVersion === PRODUCT_DECISION_VERSIONS.interactionRequest) {
         const authority = await at("INTERACTION_AUTHORITY", (signal) => ports.interaction.resolve({ request: parsedRequest, actor }, signal));
         if (authority.status === "AUTHORIZED") {
@@ -458,9 +487,12 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         reportTimings("SUCCESS");
         return new Response(JSON.stringify(response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
       }
-      const productRequest = ports.interpret
-        ? DecisionProductRequestSchema.parse(await at("INTERPRETATION", (signal) => ports.interpret!(parsedRequest, actor, signal)))
-        : parsedRequest;
+      const interpreted = ports.interpret
+        ? await at("INTERPRETATION", (signal) => ports.interpret!(parsedRequest, actor, signal))
+        : { request: parsedRequest, understanding: null };
+      if (!interpreted || Object.keys(interpreted).sort().join() !== "request,understanding") throw new Error("product_ai_intent_request_boundary_invalid");
+      const productRequest = DecisionProductRequestSchema.parse(interpreted.request);
+      const understanding = interpreted.understanding === null ? null : validateProductUnderstanding(interpreted.understanding, productRequest);
       const withoutInterpretedFields = (explicit: DecisionProductRequest["explicit"]): Record<string, unknown> =>
         Object.fromEntries(Object.entries(explicit).filter(([key]) =>
           !["primaryIntent", "secondaryIntent", "softPreferences", "hardConstraints", "unresolvedTerms"].includes(key)));
@@ -485,7 +517,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         || [...originalUnresolved].some((value) => !interpretedUnresolved.has(value))) {
         throw new Error("product_ai_intent_request_boundary_invalid");
       }
-      const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal));
+      const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal, understanding));
       stage = "RESPONSE_BUILD";
       const expectedInput = { request: productRequest, actor, ...evaluated }; const execution = buildDecisionProductExecution(expectedInput);
       const committed = await at("IDEMPOTENCY", (signal) => ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: productRequest.idempotencyKey, payloadHash: contentHash(productRequest), execution }, signal));
@@ -507,6 +539,6 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       try { ports.diagnostics?.reportFailure(stage, internalCode); } catch { /* Diagnostics may never change the fail-closed response. */ }
       reportTimings("ERROR");
       return errorResponse(known);
-    } finally { if (timeout) clearTimeout(timeout); }
+    } finally { if (timeout) clearTimeout(timeout); abort.abort(); }
   };
 }

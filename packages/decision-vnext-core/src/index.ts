@@ -9,3 +9,8 @@ export * from "./product-query-semantics.js";
 export * from "./product-v1-evaluator.js";
 export * from "./product-decision.js";
 export * from "./product-decision-production-adapter.js";
+export * from "./product-request-understanding.js";
+
+export * from "./product-request-meaning.js";
+
+export * from "./product-meaning-mapping.js";

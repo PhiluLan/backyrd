@@ -1,0 +1,85 @@
+{
+  "scope": "NEW_SIMPLE_DEVELOPMENT_CASES_NOT_PRODUCTION_ACCEPTANCE",
+  "cases": [
+    {
+      "id": "simple-01",
+      "text": "Etwas trinken mit Freunden.",
+      "expected": [
+        "Getränkebesuch mit Freunden; kein Essen-, Tanz- oder Alkoholzwang.",
+        "Keine ausdrücklich genannte Stadt oder Zeit erfinden."
+      ]
+    },
+    {
+      "id": "simple-02",
+      "text": "Gemütliches Café in Basel.",
+      "expected": [
+        "Café in Basel mit gemütlicher Atmosphäre.",
+        "Kein verpflichtender Speisenkauf oder erfundene Zeit."
+      ]
+    },
+    {
+      "id": "simple-03",
+      "text": "Schick essen gehen.",
+      "expected": [
+        "Essen in schicker/eleganter Atmosphäre.",
+        "Schick ist kein konkretes Budget und beweist nicht automatisch Premiumpreise."
+      ]
+    },
+    {
+      "id": "simple-04",
+      "text": "Heute Abend Pizza in Zürich.",
+      "expected": [
+        "Pizza zum Essen, Zürich, heute Abend.",
+        "Datum und Tagesphase erhalten; keine erfundene Ernährungsbedingung."
+      ]
+    },
+    {
+      "id": "simple-05",
+      "text": "Ein ruhiger Ort zum Spazieren in Bern.",
+      "expected": [
+        "Spaziergang in Bern mit ruhigem Charakter.",
+        "Keine Führung oder konkreter Naturort hinzuerfinden."
+      ]
+    },
+    {
+      "id": "simple-06",
+      "text": "Morgen mit meiner Tochter auf einen Spielplatz in Aarau.",
+      "expected": [
+        "Spielplatz in Aarau morgen, Tochter als Teilnehmerin.",
+        "Keine Alterszahl oder Budgetgrenze erfinden."
+      ]
+    },
+    {
+      "id": "simple-07",
+      "text": "Einen Kaffee am See trinken.",
+      "expected": [
+        "Kaffee trinken am See.",
+        "See nicht zu Fluss, konkrete Stadt oder See erfinden."
+      ]
+    },
+    {
+      "id": "simple-08",
+      "text": "Günstig Mittagessen in Luzern.",
+      "expected": [
+        "Mittagessen in Luzern, qualitativ günstig.",
+        "Keine Frankenobergrenze oder heutiges Datum erfinden."
+      ]
+    },
+    {
+      "id": "simple-09",
+      "text": "Bowling mit Kollegen in Winterthur.",
+      "expected": [
+        "Bowling in Winterthur mit Kollegen.",
+        "Keine Partygröße, Kinder oder Getränkekauf erfinden."
+      ]
+    },
+    {
+      "id": "simple-10",
+      "text": "Ein Restaurant in Basel, maximal 20 CHF pro Person.",
+      "expected": [
+        "Restaurant und Essen in Basel; inklusive Obergrenze 20 CHF pro Person.",
+        "Keine Gleichheit, andere Grenze oder zusätzliche Angebote daraus machen."
+      ]
+    }
+  ]
+}

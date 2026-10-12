@@ -1,7 +1,7 @@
 "use client";
 
 import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { AUTHORING_FIELDS, AUTHORING_STEPS, AUTHORING_TAXONOMY_VERSION, evaluateAuthoringReadiness, getAuthoringFieldsForContext, getPlaceTypeConflict, validateAuthoringSubmission, type AuthoringField, type AuthoringReadinessReport, type AuthoringRole, type AuthoringSectionState } from "@backyrd/world-knowledge-core";
+import { AUTHORING_FIELDS, AUTHORING_STEPS, PRICE_PURPOSE_LABELS, formatPriceOptionsSummary, AUTHORING_TAXONOMY_VERSION, evaluateAuthoringReadiness, getAuthoringFieldsForContext, getPlaceTypeConflict, validateAuthoringSubmission, type AuthoringField, type AuthoringReadinessReport, type AuthoringRole, type AuthoringSectionState } from "@backyrd/world-knowledge-core";
 import type { WorldAuthoringClient } from "./session";
 import { WorldProductCorrection as ProductCorrection, type ProductCorrectionProps, type ProductFieldInputProps } from "./ProductCorrection";
 import { isUnconditionalContextConditions } from "./context-choice";
@@ -62,6 +62,7 @@ const derivedLabels: Readonly<Record<string, string>> = Object.freeze({ "capabil
 function humanValue(attributeKey: string | null, value: unknown): string {
   if (value === null || value === undefined || value === "") return "Kein sicher übernehmbarer Wert";
   const field = fieldFor(attributeKey);
+  if (attributeKey === "operation.price_options") return formatPriceOptionsSummary(value);
   if (typeof value === "boolean") return value ? "Ja" : "Nein";
   if (typeof value === "string") return field?.allowedValues.find((option) => option.value === value)?.label ?? value;
   if (typeof value === "number") return new Intl.NumberFormat("de-CH", { maximumFractionDigits: 6 }).format(value);
@@ -200,6 +201,36 @@ function ContextConditionsInput({ value, includeDayparts, onChange }: { value: u
   </div></details>;
 }
 
+/** Shared by Admin and Owner. Empty amounts remain empty until entered. */
+export function PriceOptionsInput({ value, onChange }: { value: unknown; onChange(value: unknown): void }) {
+  const rows = Array.isArray(value) ? value.map(objectValue) : [];
+  const update = (index: number, patch: Record<string, unknown>) => onChange(rows.map((row, i) => i === index ? { ...row, ...patch } : row));
+  const numberValue = (raw: string) => raw === "" ? null : Number(raw);
+  const purposes = Object.entries(PRICE_PURPOSE_LABELS);
+  return <div className="wk-price-options">
+    <p>Gib pro Preis an, welche Leistung und Berechnungsbasis er umfasst. Unbekannte Pflichtgebühren verhindern eine bestätigte Budgetpassung.</p>
+    {rows.map((row, index) => <section className="wk-context-row" key={index} aria-label={`Preis ${index + 1}`}>
+      <div className="wk-structured">
+        <fieldset><legend>Welche Leistungen sind enthalten?</legend><div className="wk-choices">{purposes.map(([id, label]) => {
+          const selected = Array.isArray(row.purposes) ? row.purposes as string[] : [];
+          return <button type="button" key={id} aria-pressed={selected.includes(id)} className={selected.includes(id) ? "selected" : ""} onClick={() => update(index, { purposes: selected.includes(id) ? selected.filter(value => value !== id) : [...selected, id] })}>{label}</button>;
+        })}</div></fieldset>
+        <label>Berechnung<select className="wk-input" value={String(row.basis ?? "")} onChange={event => update(index, { basis: event.target.value })}><option value="PER_PERSON">Pro Person</option><option value="PER_GROUP">Pro Gruppe</option><option value="PER_PERSON_PER_NIGHT">Pro Person und Nacht</option></select></label>
+        <label>Währung<select className="wk-input" value={String(row.currency ?? "CHF")} onChange={event => update(index, { currency: event.target.value })}>{["CHF", "EUR", "USD", "GBP"].map(currency => <option key={currency} value={currency}>{currency}</option>)}</select></label>
+        <label>Von<input aria-label={`Preis ${index + 1} Von`} className="wk-input" type="number" min="0" max="100000" step="0.01" value={row.min == null ? "" : String(row.min)} onChange={event => update(index, { min: numberValue(event.target.value) })} /></label>
+        <label>Bis<input aria-label={`Preis ${index + 1} Bis`} className="wk-input" type="number" min="0" max="100000" step="0.01" value={row.max == null ? "" : String(row.max)} onChange={event => update(index, { max: numberValue(event.target.value) })} /></label>
+        <label>Ab Alter (optional)<input aria-label={`Preis ${index + 1} Ab Alter`} className="wk-input" type="number" min="0" max="120" step="1" value={row.minimumAge == null ? "" : String(row.minimumAge)} onChange={event => update(index, { minimumAge: numberValue(event.target.value) })} /></label>
+        <label>Bis Alter (optional)<input aria-label={`Preis ${index + 1} Bis Alter`} className="wk-input" type="number" min="0" max="120" step="1" value={row.maximumAge == null ? "" : String(row.maximumAge)} onChange={event => update(index, { maximumAge: numberValue(event.target.value) })} /></label>
+      </div>
+      <label><input type="checkbox" checked={row.allOfferingsCovered === true} onChange={event => update(index, { allOfferingsCovered: event.target.checked })} /> Der Preisbereich deckt alle Angebote der ausgewählten Leistungen ab.</label>
+      <label><input type="checkbox" checked={row.mandatoryFeesIncluded === true} onChange={event => update(index, { mandatoryFeesIncluded: event.target.checked })} /> Der Höchstbetrag enthält alle verpflichtenden Gebühren dieser Leistung.</label>
+      <ContextConditionsInput value={row.conditions} includeDayparts={true} onChange={conditions => update(index, { conditions })} />
+      <button type="button" className="wk-secondary" onClick={() => onChange(rows.filter((_, i) => i !== index))}>Preis entfernen</button>
+    </section>)}
+    <button type="button" className="wk-secondary" disabled={rows.length >= 30} onClick={() => onChange([...rows, { purposes: [], allOfferingsCovered: false, basis: "PER_PERSON", currency: "CHF", min: null, max: null, minimumAge: null, maximumAge: null, mandatoryFeesIncluded: false, conditions: blankContextConditions() }])}>+ Preis hinzufügen</button>
+  </div>;
+}
+
 function ContextualInput({ field, value, onChange }: { field: AuthoringField; value: unknown; onChange(value: unknown): void }) {
   const rows = Array.isArray(value) ? value.map(objectValue) : [];
   const update = (index: number, row: Record<string, unknown>) => onChange(rows.map((item, rowIndex) => rowIndex === index ? row : item));
@@ -260,6 +291,7 @@ function FieldInput({ field, answer, candidate, applicability, referenceValue, o
     : field.control === "WEEKLY_SCHEDULE" ? <><WeeklyScheduleInput value={value} onChange={setValue} /><button type="button" onClick={() => save("KNOWN_VALUE")}>Zeiten übernehmen</button></>
     : field.control === "SPECIAL_HOURS" ? <><SpecialHoursInput value={value} onChange={setValue} /><div className="wk-inline"><button type="button" disabled={!Array.isArray(value) || value.length === 0} onClick={() => save("KNOWN_VALUE")}>Sondertage übernehmen</button><button type="button" className="wk-secondary" onClick={() => save("KNOWN_VALUE", [])}>Keine besonderen Zeiten vorhanden</button></div><p className="wk-field-hint">„Keine besonderen Zeiten“ ist eine bestätigte leere Liste – nicht „unbekannt“. Reguläre Öffnungs- und Küchenzeiten bleiben unverändert.</p></>
     : ["RESERVATION_RULE", "CONSUMPTION_RULE", "PET_ACCESS_RULE", "AGE_ACCESS_RULE", "AGE_ACCESS_RULE_V2"].includes(field.control) ? <><RuleInput control={field.control} value={value} onChange={setValue} /><button type="button" onClick={() => save("KNOWN_VALUE")}>Regel übernehmen</button></>
+    : field.control === "PRICE_OPTIONS" ? <><PriceOptionsInput value={value} onChange={setValue} /><button type="button" disabled={!Array.isArray(value) || value.length === 0} onClick={() => save("KNOWN_VALUE")}>Preise übernehmen</button></>
     : field.valueType === "COUNTRY_CODE" ? <div className="wk-inline"><select aria-label={field.label} className="wk-input" value={String(value ?? "")} onChange={(event) => setValue(event.target.value)}><option value="">Bitte auswählen</option><option value="CH">Schweiz</option><option value="DE">Deutschland</option><option value="AT">Österreich</option><option value="FR">Frankreich</option><option value="IT">Italien</option><option value="LI">Liechtenstein</option></select><button type="button" onClick={() => save("KNOWN_VALUE")}>Übernehmen</button></div>
     : field.valueType === "IANA_TIMEZONE" ? <div className="wk-inline"><select aria-label={field.label} className="wk-input" value={String(value ?? "")} onChange={(event) => setValue(event.target.value)}><option value="">Bitte auswählen</option><option value="Europe/Zurich">Europe/Zurich</option><option value="Europe/Berlin">Europe/Berlin</option><option value="Europe/Vienna">Europe/Vienna</option><option value="Europe/Paris">Europe/Paris</option><option value="Europe/Rome">Europe/Rome</option></select><button type="button" onClick={() => save("KNOWN_VALUE")}>Übernehmen</button></div>
     : field.control === "TEXTAREA" ? <div className="wk-stack"><textarea aria-label={field.label} className="wk-input wk-textarea" value={String(value ?? "")} maxLength={800} onChange={(event) => setValue(event.target.value)} /><span>{String(value ?? "").length}/800 Zeichen</span><button type="button" onClick={() => save("KNOWN_VALUE")}>Übernehmen</button></div>

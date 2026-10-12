@@ -1,3 +1,4 @@
+import { validateProductUnderstanding, requestedProductCity, type ProductUnderstanding } from "./product-request-understanding.js";
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -89,6 +90,7 @@ export interface DecisionProductCanonicalEvaluationProvider {
   readonly contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0";
   evaluate(input: {
     readonly request: DecisionProductRequest;
+    readonly understanding?: ProductUnderstanding | null;
     readonly actor: DecisionProductAuthenticatedActor;
     readonly identity: DecisionProductProductionIdentity;
     readonly signal: AbortSignal;
@@ -249,9 +251,9 @@ export function createDecisionProductProductionPorts(input: {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_interpretation_actor_unbound");
       return input.interpreter!(request, actor, signal);
     } } : {}),
-    async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) {
+    async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal, understanding?: ProductUnderstanding | null) {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_evaluation_actor_unbound");
-      return input.evaluationProvider.evaluate({ request, actor, identity, signal });
+      return input.evaluationProvider.evaluate({ request, actor, identity, signal, understanding: understanding ?? null });
     },
     idempotency: {
       async commit(commitInput: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal) {
@@ -310,8 +312,11 @@ const productProjectionManifest = Object.freeze({
   manifestHash: contentHash({ authority: "CANONICAL_USER_CARD", version: 1 }),
 });
 
-function productTargetCity(request: DecisionProductRequest): string {
-  if (request.explicit.targetCity) return request.explicit.targetCity;
+function productTargetCity(request: DecisionProductRequest, understanding?: ProductUnderstanding | null): string {
+  const destination = requestedProductCity(understanding, request);
+  if (destination) return destination;
+  if (understanding?.requirements.some(r => r.dimension === "LOCATION" && r.importance !== "PREFERRED")) throw new Error("product_target_area_requires_clarification");
+  if (understanding?.interpretationSource === "MEANING_PLAN") throw new Error("product_target_area_required");
   const normalized = request.naturalLanguage.normalize("NFKC").toLocaleLowerCase("de-CH");
   if (normalized.includes("zürich") || normalized.includes("zurich")) return "Zurich";
   if (normalized.includes("basel")) return "Basel";
@@ -425,7 +430,10 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
   return Object.freeze({
     contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0" as const,
     async evaluate(input: Parameters<DecisionProductCanonicalEvaluationProvider["evaluate"]>[0]) {
-      const targetCity = productTargetCity(input.request);
+      if (input.understanding) validateProductUnderstanding(input.understanding, input.request);
+      // Context v5 already returns the entire verified city cohort, including
+      // every alternative. No repeated per-intent retrieval is necessary.
+      const targetCity = productTargetCity(input.request, input.understanding);
       const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
         p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
         p_target_city: targetCity, p_primary_intent: productRetrievalIntent(input.request),
@@ -447,7 +455,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       const candidateIds = [...snapshots.keys()].sort();
       if (!candidateIds.length || candidateIds.length > 1000) throw new Error("product_world_candidate_set_invalid");
       const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
-      const evaluated = productEvaluationStage("ranking", () => evaluateProductWorldViews(input.request, { authorizedCity: targetCity, serverTime }, projection, [...snapshots.values()], contentHash(candidateIds)));
+      const evaluated = productEvaluationStage("ranking", () => evaluateProductWorldViews(input.request, { authorizedCity: targetCity, serverTime }, projection, [...snapshots.values()], contentHash(candidateIds), input.understanding));
       return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: contentHash(candidateIds) }) }, evaluatorContractVersion: PRODUCT_V1_EVALUATOR_VERSION };
     },
   });

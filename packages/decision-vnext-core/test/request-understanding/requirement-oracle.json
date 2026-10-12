@@ -1,0 +1,349 @@
+{
+  "contractVersion": "backyrd.requirement-oracle@1.0",
+  "reviewStatus": "PROPOSED_REQUIRES_HUMAN_REVIEW",
+  "scope": "DEVELOPMENT_NOT_HOLDOUT",
+  "families": {
+    "exact-decimal-total": [
+      {
+        "variants": [
+          {
+            "dimension": "BUDGET",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "BUDGET",
+              "amountMinor": 2950,
+              "currency": "CHF",
+              "comparison": "LT",
+              "basis": "TOTAL"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "preferred-budget": [
+      {
+        "variants": [
+          {
+            "dimension": "BUDGET",
+            "importance": "PREFERRED",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "BUDGET",
+              "amountMinor": 2000,
+              "currency": "CHF",
+              "comparison": "LTE",
+              "basis": "PER_PERSON"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "future-not-now": [
+      {
+        "variants": [
+          {
+            "dimension": "TIME",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "TIME",
+              "openNow": false,
+              "localDate": null,
+              "relativeDays": 1,
+              "weekday": null,
+              "dayPhase": "MORNING",
+              "clockTime": null
+            },
+            "alternatives": [],
+            "group": null
+          },
+          {
+            "dimension": "TIME",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "TIME",
+              "openNow": false,
+              "localDate": null,
+              "relativeDays": 1,
+              "weekday": null,
+              "dayPhase": "MORNING",
+              "clockTime": null
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "precise-clock": [
+      {
+        "variants": [
+          {
+            "dimension": "TIME",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "TIME",
+              "openNow": false,
+              "localDate": null,
+              "relativeDays": 1,
+              "weekday": null,
+              "dayPhase": null,
+              "clockTime": "15:30"
+            },
+            "alternatives": [],
+            "group": null
+          },
+          {
+            "dimension": "TIME",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "TIME",
+              "openNow": false,
+              "localDate": null,
+              "relativeDays": 1,
+              "weekday": null,
+              "dayPhase": null,
+              "clockTime": "15:30"
+            },
+            "alternatives": [],
+            "group": null
+          },
+          {
+            "dimension": "TIME",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "TIME",
+              "openNow": false,
+              "localDate": null,
+              "relativeDays": 1,
+              "weekday": null,
+              "dayPhase": "AFTERNOON",
+              "clockTime": "15:30"
+            },
+            "alternatives": [],
+            "group": null
+          },
+          {
+            "dimension": "TIME",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "TIME",
+              "openNow": false,
+              "localDate": null,
+              "relativeDays": 1,
+              "weekday": null,
+              "dayPhase": "AFTERNOON",
+              "clockTime": "15:30"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "hard-access": [
+      {
+        "variants": [
+          {
+            "dimension": "ACCESS",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNSUPPORTED",
+            "value": null,
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "hard-walking": [
+      {
+        "variants": [
+          {
+            "dimension": "MOBILITY",
+            "importance": "HARD",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "MOBILITY",
+              "maximumMeters": null,
+              "maximumMinutes": 5,
+              "mode": "WALK"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "essential-quiet": [
+      {
+        "variants": [
+          {
+            "dimension": "ATMOSPHERE",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "FACET",
+              "key": "context.atmosphere",
+              "value": "QUIET"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "preferred-quiet": [
+      {
+        "variants": [
+          {
+            "dimension": "ATMOSPHERE",
+            "importance": "PREFERRED",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "FACET",
+              "key": "context.atmosphere",
+              "value": "QUIET"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "exclude-quiet": [
+      {
+        "variants": [
+          {
+            "dimension": "ATMOSPHERE",
+            "importance": "HARD",
+            "operator": "EXCLUDE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "FACET",
+              "key": "context.atmosphere",
+              "value": "QUIET"
+            },
+            "alternatives": [],
+            "group": null
+          }
+        ],
+        "group": null
+      }
+    ],
+    "or-atmosphere": [
+      {
+        "variants": [
+          {
+            "dimension": "ATMOSPHERE",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "FACET",
+              "key": "context.atmosphere",
+              "value": "QUIET"
+            },
+            "alternatives": [],
+            "group": "R1"
+          }
+        ],
+        "group": "R1"
+      },
+      {
+        "variants": [
+          {
+            "dimension": "ATMOSPHERE",
+            "importance": "ESSENTIAL",
+            "operator": "REQUIRE",
+            "origin": "EXPLICIT",
+            "interpretationState": "UNDERSTOOD",
+            "value": {
+              "kind": "FACET",
+              "key": "context.atmosphere",
+              "value": "COZY"
+            },
+            "alternatives": [],
+            "group": "R1"
+          }
+        ],
+        "group": "R1"
+      }
+    ],
+    "no-age-invention": [],
+    "request-injection": []
+  },
+  "optionalPrimaryRequirements": [
+    {
+      "dimension": "EXPERIENCE",
+      "importance": "ESSENTIAL",
+      "operator": "REQUIRE",
+      "origin": "EXPLICIT",
+      "interpretationState": "UNDERSTOOD",
+      "value": {
+        "kind": "FACET",
+        "key": "classification.primary_category",
+        "value": "COFFEE_DAYTIME"
+      },
+      "alternatives": [],
+      "group": null
+    },
+    {
+      "dimension": "OFFERING",
+      "importance": "ESSENTIAL",
+      "operator": "REQUIRE",
+      "origin": "EXPLICIT",
+      "interpretationState": "UNDERSTOOD",
+      "value": {
+        "kind": "FACET",
+        "key": "offering.groups",
+        "value": "COFFEE"
+      },
+      "alternatives": [],
+      "group": null
+    }
+  ]
+}

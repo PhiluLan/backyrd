@@ -1,0 +1,19 @@
+{
+  "frozenAt": "2026-10-11T12:43:30.365580+00:00",
+  "statuses": {
+    "PASS": "AllewesentlichenBedeutungen erhalten; keine materielleErfindung.",
+    "PARTIAL": "RelevanterAspekt fehlt, abgeschwächt oder nicht sicher lesbar.",
+    "FAIL": "ZentraleBedeutung verloren/falsch oder materielle erfundeneVorgabe.",
+    "ERROR": "KeineverwertbareAusgabe/technischerFehler."
+  },
+  "rules": [
+    "KeinAnspruch auf konkrete interneEnumdarstellung; semantisch gleichwertige Form akzeptieren.",
+    "Minimales aktuelles explizitesTeilnehmeralter genügt; keineErwartung alleAlterszahlen zu speichern.",
+    "Mahlzeit als gesuchteLeistung von Mahlzeit als Zeitreferenz unterscheiden; keine genaueUhrzeit aus unbestimmterRelation erfinden.",
+    "Geburtstagszahl allein ist kein Mindestalter allerTeilnehmer.",
+    "Unbekanntes aktuellesAlter nicht durch Zahl aus Negation,Vergangenheit,Budget oder Zukunft ersetzen.",
+    "Keine tatsächlicheVenue-Eignung oder World-Prüfung bewerten.",
+    "ReineRedundanz ohne zusätzlicheBedingung nicht als materiellenFehler zählen.",
+    "Diese Fälle nicht nach Beobachtung ändern; keine API-Ausführung erfolgt."
+  ]
+}

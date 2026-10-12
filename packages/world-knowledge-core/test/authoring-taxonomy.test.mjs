@@ -20,7 +20,7 @@ import {
 test("all 16 primary categories have a versioned category/place-type/section contract", () => {
   assert.equal(Object.keys(CATEGORY_AUTHORING_MATRIX).length, 16);
   assert.deepEqual(Object.keys(CATEGORY_AUTHORING_MATRIX).sort(), [...PRIMARY_CATEGORIES].sort());
-  assert.match(AUTHORING_TAXONOMY_VERSION, /@4a\.2$/);
+  assert.match(AUTHORING_TAXONOMY_VERSION, /@4c\.1$/);
   assert.match(AUTHORING_TAXONOMY_HASH, /^[a-f0-9]{64}$/);
   assert.match(AUTHORING_GUIDANCE_VERSION, /@1\.0$/);
   assert.match(AUTHORING_GUIDANCE_HASH, /^[a-f0-9]{64}$/);

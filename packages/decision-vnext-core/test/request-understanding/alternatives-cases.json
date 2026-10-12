@@ -1,0 +1,57 @@
+{
+  "scope": "DEVELOPMENT_NOT_HOLDOUT",
+  "reference": {
+    "serverTime": "2026-10-10T12:00:00.000Z",
+    "profileCity": "Basel"
+  },
+  "cases": [
+    {
+      "id": "time-en",
+      "text": "A gallery either this afternoon or Tuesday morning works; no guided tour, please.",
+      "groupDimension": "TIME",
+      "importance": "ESSENTIAL"
+    },
+    {
+      "id": "time-de",
+      "text": "Eine Galerie entweder heute Nachmittag oder Dienstagvormittag wäre schön, bitte ohne Führung.",
+      "groupDimension": "TIME",
+      "importance": "ESSENTIAL"
+    },
+    {
+      "id": "time-fr",
+      "text": "Une galerie soit cet après-midi soit mardi matin, sans visite guidée.",
+      "groupDimension": "TIME",
+      "importance": "ESSENTIAL"
+    },
+    {
+      "id": "place-or",
+      "text": "Ein Museum oder eine Galerie am Samstag wäre schön.",
+      "groupDimension": "EXPERIENCE",
+      "importance": "ESSENTIAL"
+    },
+    {
+      "id": "place-and",
+      "text": "Ein Museum und danach eine Galerie am Samstag.",
+      "groupDimension": "AND",
+      "importance": "ESSENTIAL"
+    },
+    {
+      "id": "optional-or",
+      "text": "Ich suche ein Café, idealerweise entweder am Samstag oder am Sonntag.",
+      "groupDimension": "TIME",
+      "importance": "PREFERRED"
+    },
+    {
+      "id": "activity-or",
+      "text": "Am Abend entweder tanzen oder ein Konzert besuchen.",
+      "groupDimension": "EXPERIENCE",
+      "importance": "ESSENTIAL"
+    },
+    {
+      "id": "meal-before-or",
+      "text": "Wir wollen essen und danach entweder tanzen oder ein Konzert besuchen.",
+      "groupDimension": "EXPERIENCE",
+      "importance": "ESSENTIAL"
+    }
+  ]
+}

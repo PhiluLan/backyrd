@@ -13,9 +13,9 @@ export function createWohinRequest(input: { query: string; city: string; request
     requestId: input.requestId,
     idempotencyKey: input.requestId,
     naturalLanguage,
-    // The profile city is location authority, never an inferred preference.
+    // The profile city is a fallback, not a deliberate destination choice.
     // No guided choices or client-side intent interpretation enter this request.
-    explicit: { targetCity },
+    explicit: { targetCity, targetCitySource: "PROFILE_DEFAULT" },
     alternativeRequested: false,
     previouslyPresentedCandidateIds: [],
     rejectedCandidateIds: [],
@@ -61,6 +61,8 @@ export function wohinHighlights(candidate: DecisionProductCandidate, personaliza
   if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-positive-"))) {
     highlights.push("Passt zu deinen freigegebenen Vorlieben.");
   }
+  const time = candidate.reasons.find(reason => reason.code === "visit-time-alternative-confirmed" && reason.confirmed);
+  if (time) highlights.splice(Math.min(1, highlights.length), 0, time.statement);
   return highlights.slice(0, 2);
 }
 
@@ -71,6 +73,7 @@ export function wohinConsiderations(candidate: DecisionProductCandidate, persona
   if (candidate.reasons.some((reason) => reason.code === "price-level-unconfirmed")) notes.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
   if (candidate.reasons.some((reason) => reason.code === "music-at-visit-unverified")) notes.push("Ob bei deinem Besuch Musik läuft, ist für diesen Ort nicht bestätigt.");
   if (candidate.reasons.some((reason) => reason.code === "precise-time-unverified")) notes.push("Die konkrete gewünschte Uhrzeit wurde für diesen Ort nicht geprüft.");
+  if (candidate.reasons.some((reason) => reason.code === "visit-alternative-unmapped")) notes.push("Eine andere gewünschte Alternative konnte noch nicht geprüft werden.");
   if (candidate.reasons.some((reason) => reason.code === "core-need-unmapped")) notes.push("Ein weiterer Teil deines Wunsches konnte noch nicht mit Spot-Wissen abgeglichen werden.");
   if (candidate.unknownHardConstraints.some((constraint) => constraint !== "OPEN_ON_REQUESTED_DAY")) notes.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
   if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-negative-"))) {

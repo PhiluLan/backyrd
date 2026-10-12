@@ -1,0 +1,225 @@
+{
+  "scope": "20 independently authored without implementation or previous outputs; first evaluated at v8, then used for v9 development; no longer holdout",
+  "cases": [
+    {
+      "id": "fresh-meaning-01",
+      "text": "Ich möchte am Samstag in Luzern etwas mit meiner Tochter unternehmen. Sie wird nächste Woche 8, wir mögen Tiere. Eintritt zusammen höchstens 35 Franken.",
+      "expected": "{\"category\": \"parent_child\", \"location\": \"Luzern\", \"visitTime\": \"Samstag\", \"participants\": \"Elternteil und Tochter\", \"activity\": \"Tiere erleben; passende Unternehmung offen\", \"budget\": {\"maxCHF\": 35, \"basis\": \"Eintritt für beide zusammen\", \"inclusive\": true}, \"ageContext\": \"8 ist ihr bevorstehendes Geburtstagsalter, kein gesichertes aktuelles Alter\"}",
+      "mustNot": [
+        "Tochter als aktuell 8-jährig festlegen",
+        "Geburtstag als Besuchsdatum einsetzen",
+        "35 CHF pro Person erlauben",
+        "Restaurant als alleinige Hauptabsicht behandeln"
+      ]
+    },
+    {
+      "id": "fresh-meaning-02",
+      "text": "Hesch öppis rund um Winterthur für mich und mini zwei Chind, 4 und 7? Am liebste öppis zum selber mache. Drusse isch nöd nötig.",
+      "expected": "{\"category\": \"parent_child\", \"language\": \"Schweizerdeutsch\", \"location\": \"Umgebung Winterthur\", \"participants\": \"Elternteil und zwei Kinder, 4 und 7 Jahre\", \"activity\": \"Mitmachangebot bevorzugt\", \"outdoor\": \"Nicht erforderlich; drinnen und draussen möglich\"}",
+      "mustNot": [
+        "Outdoor-Angebote ausschliessen",
+        "Outdoor-Angebote zwingend verlangen",
+        "Nur ein Kind berücksichtigen",
+        "Selber machen als reine Eigenorganisation ohne geeigneten Ort auslegen"
+      ]
+    },
+    {
+      "id": "fresh-meaning-03",
+      "text": "Für Bern suche ich entweder einen Spielplatz mit einem Café direkt daneben oder ein Museum, in dem mein sechsjähriger Sohn etwas ausprobieren kann. Wir gehen als Familie.",
+      "expected": "{\"category\": \"parent_child\", \"location\": \"Bern\", \"participants\": \"Familie mit sechsjährigem Sohn\", \"alternatives\": [{\"activity\": \"Spielplatz\", \"requiredCompanionFeature\": \"Café direkt daneben\"}, {\"activity\": \"Museum\", \"requiredFeature\": \"Kind kann etwas ausprobieren\"}]}",
+      "mustNot": [
+        "Beliebigen Spielplatz ohne nahes Café als ersten Zweig werten",
+        "Beliebiges Museum ohne Mitmachmöglichkeit als zweiten Zweig werten",
+        "Café und Museum zwingend gleichzeitig verlangen",
+        "Familienkontext verwerfen"
+      ]
+    },
+    {
+      "id": "fresh-meaning-04",
+      "text": "Am Sonntag wollen wir erst mit den Kindern schwimmen und danach eine Pizza essen, möglichst beides in Baden. Fürs Schwimmbad sind maximal 50 CHF für uns vier drin, das Essen kommt extra.",
+      "expected": "{\"category\": \"parent_child\", \"location\": \"Baden bevorzugt für beide Stationen\", \"participants\": \"Vier Personen einschliesslich Eltern und Kindern; genaue Alterswerte unbekannt\", \"visitTime\": \"Sonntag\", \"sequence\": [\"Schwimmen\", \"Pizza essen\"], \"budget\": {\"maxCHF\": 50, \"basis\": \"Schwimmbadeintritt für alle vier zusammen\", \"inclusive\": true, \"foodIncluded\": false}}",
+      "mustNot": [
+        "Pizza vor Schwimmen planen",
+        "50 CHF als Gesamtbudget inklusive Essen behandeln",
+        "50 CHF pro Person behandeln",
+        "Kinderalter erfinden"
+      ]
+    },
+    {
+      "id": "fresh-meaning-05",
+      "text": "Une idée à Lausanne pour moi et ma fille de 5 ans mercredi après-midi ? S'il pleut, une activité à l'intérieur; sinon on aimerait un petit parcours dans la nature.",
+      "expected": "{\"category\": \"parent_child\", \"language\": \"Französisch\", \"location\": \"Lausanne\", \"participants\": \"Elternteil und fünfjährige Tochter\", \"visitTime\": \"Mittwochnachmittag\", \"conditions\": [{\"if\": \"Regen\", \"activity\": \"Aktivität drinnen\"}, {\"if\": \"Kein Regen\", \"activity\": \"Kurzer Naturparcours gewünscht\"}]}",
+      "mustNot": [
+        "Aktuelles Wetter ohne Grundlage behaupten",
+        "Beide Aktivitäten unabhängig vom Wetter zwingend kombinieren",
+        "Langen oder anspruchsvollen Naturweg bevorzugen",
+        "Tochteralter als Elternalter interpretieren"
+      ]
+    },
+    {
+      "id": "fresh-meaning-06",
+      "text": "Wir sind zwei befreundete Eltern mit unseren Kindern und suchen in Zug einen entspannten Nachmittag am Wasser. Ein Spielplatz wäre schön, ist aber kein Muss.",
+      "expected": "{\"category\": \"parent_child\", \"location\": \"Zug\", \"participants\": \"Zwei befreundete Eltern und deren Kinder\", \"activity\": \"Entspannter Nachmittag am Wasser\", \"familyContext\": true, \"playground\": \"Optionaler Wunsch\"}",
+      "mustNot": [
+        "Freunde als ausschliesslich kinderlose Erwachsenengruppe behandeln",
+        "Familiäre Angebote ausschliessen",
+        "Spielplatz zur Pflicht machen",
+        "Spielplatz ausschliessen, weil nicht erforderlich"
+      ]
+    },
+    {
+      "id": "fresh-meaning-07",
+      "text": "I need something fun in Basel for me and my 10-year-old nephew this afternoon. Actually, not Basel city—near Liestal. No more than CHF 20 per person for admission.",
+      "expected": "{\"category\": \"parent_child\", \"language\": \"Englisch\", \"location\": \"Nähe Liestal; korrigiert Basel-Stadt\", \"participants\": \"Erwachsene Person und zehnjähriger Neffe\", \"visitTime\": \"Heute Nachmittag\", \"activity\": \"Spassige Unternehmung offen\", \"budget\": {\"maxCHF\": 20, \"basis\": \"Eintritt pro Person\", \"inclusive\": true}}",
+      "mustNot": [
+        "Basel-Stadt als weiterhin geforderten Ort behandeln",
+        "Verwandtschaft in Elternschaft umdeuten",
+        "20 CHF als Gesamtbudget für beide behandeln",
+        "Eintritte über 20 CHF pro Person erlauben"
+      ]
+    },
+    {
+      "id": "fresh-meaning-08",
+      "text": "Ich suche in St. Gallen etwas für mich und meinen Sohn, 9. Seine kleine Schwester kommt vielleicht mit. Eine leichte Wanderung oder eine kreative Werkstatt wäre beides gut.",
+      "expected": "{\"category\": \"parent_child\", \"location\": \"St. Gallen\", \"participants\": {\"confirmed\": \"Erwachsene Person und neunjähriger Sohn\", \"possible\": \"Kleine Schwester; Alter unbekannt\"}, \"alternatives\": [\"Leichte Wanderung\", \"Kreative Werkstatt\"]}",
+      "mustNot": [
+        "Schwester als sichere Teilnehmerin festlegen",
+        "Alter der Schwester erfinden",
+        "Wanderung und Werkstatt zwingend kombinieren",
+        "Anspruchsvolle Wanderung als gleichwertig behandeln"
+      ]
+    },
+    {
+      "id": "fresh-meaning-09",
+      "text": "Heute Abend in Zürich: entweder richtig gute vegane Ramen oder eine Pizzeria mit veganem Käse. Ich bin allein, Hauptgericht unter 25 CHF.",
+      "expected": "{\"category\": \"gastronomy\", \"location\": \"Zürich\", \"visitTime\": \"Heute Abend\", \"participants\": \"Eine Person allein\", \"alternatives\": [{\"food\": \"Vegane Ramen\"}, {\"venue\": \"Pizzeria\", \"requiredFeature\": \"Veganer Käse\"}], \"budget\": {\"maxExclusiveCHF\": 25, \"basis\": \"Ein Hauptgericht\"}}",
+      "mustNot": [
+        "Ramen ohne vegane Eignung akzeptieren",
+        "Pizzeria ohne veganen Käse als zweiten Zweig werten",
+        "25 CHF als zulässigen Preis behandeln",
+        "25 CHF als Budget inklusive Getränke festlegen"
+      ]
+    },
+    {
+      "id": "fresh-meaning-10",
+      "text": "Mir wänd z zweit in Chur fein z Nacht esse, eher bündnerisch. Nöd mehr als 90 Stutz zäme, mit je eim alkoholfreie Getränk.",
+      "expected": "{\"category\": \"gastronomy\", \"language\": \"Schweizerdeutsch\", \"location\": \"Chur\", \"participants\": \"Zwei Personen\", \"meal\": \"Abendessen\", \"cuisine\": \"Bündner Küche bevorzugt\", \"budget\": {\"maxCHF\": 90, \"basis\": \"Essen für beide zusammen inklusive je eines alkoholfreien Getränks\", \"inclusive\": true}}",
+      "mustNot": [
+        "90 CHF pro Person behandeln",
+        "Getränke aus dem Budget herausnehmen",
+        "Alkoholische Getränke verlangen",
+        "Bündner Küche als zwingende Ausschlussregel für alle anderen Küchen behandeln"
+      ]
+    },
+    {
+      "id": "fresh-meaning-11",
+      "text": "Ein Frühstück in Fribourg, gern mit gutem Kaffee und etwas Süssem. Meine Freundin ist sicher dabei, ihr Kind eventuell auch. Kinderstuhl ist nicht erforderlich.",
+      "expected": "{\"category\": \"gastronomy\", \"location\": \"Fribourg\", \"meal\": \"Frühstück\", \"preferences\": [\"Guter Kaffee\", \"Etwas Süsses\"], \"participants\": {\"confirmed\": \"Suchende Person und Freundin\", \"possible\": \"Kind der Freundin\"}, \"highChair\": \"Nicht erforderlich\"}",
+      "mustNot": [
+        "Kind als sicher anwesend behandeln",
+        "Kinderfreundliche Orte ausschliessen",
+        "Orte mit Kinderstuhl ausschliessen",
+        "Kinderstuhl verlangen"
+      ]
+    },
+    {
+      "id": "fresh-meaning-12",
+      "text": "À Genève, je cherche un restaurant pour dîner avec mon père. Il faut une option sans gluten; une terrasse serait agréable, mais on peut très bien manger dedans.",
+      "expected": "{\"category\": \"gastronomy\", \"language\": \"Französisch\", \"location\": \"Genève\", \"participants\": \"Suchende Person und Vater\", \"meal\": \"Abendessen\", \"requiredFeature\": \"Glutenfreie Option\", \"terrace\": \"Bevorzugt, Innenbereich ebenfalls akzeptabel\"}",
+      "mustNot": [
+        "Glutenfreie Option als bloss optional behandeln",
+        "Terrasse zur Pflicht machen",
+        "Innenrestaurants ausschliessen",
+        "Zöliakie oder Allergieschwere ohne Angabe erfinden"
+      ]
+    },
+    {
+      "id": "fresh-meaning-13",
+      "text": "Ich hätte Lust auf Sushi in Thun. Korrektur: lieber koreanisch, Sushi war nur mein erster Gedanke. Für das Essen rechne ich mit 30 bis 40 Franken pro Person, Getränke separat.",
+      "expected": "{\"category\": \"gastronomy\", \"location\": \"Thun\", \"cuisine\": \"Koreanisch nach Korrektur\", \"budget\": {\"minCHF\": 30, \"maxCHF\": 40, \"basis\": \"Essen pro Person\", \"inclusive\": true, \"drinksIncluded\": false}, \"participants\": \"Anzahl nicht angegeben\"}",
+      "mustNot": [
+        "Sushi als weiterhin gleichwertige Alternative erhalten",
+        "40 CHF als Budget inklusive Getränke behandeln",
+        "40 CHF für die ganze Gruppe behandeln",
+        "Teilnehmerzahl erfinden"
+      ]
+    },
+    {
+      "id": "fresh-meaning-14",
+      "text": "We'd like an early dinner in Montreux before a concert, somewhere within a short walk of the station. A quiet table matters more than the cuisine. CHF 120 total for the two of us, including drinks.",
+      "expected": "{\"category\": \"gastronomy\", \"language\": \"Englisch\", \"location\": \"Montreux, kurzer Fussweg zum Bahnhof\", \"participants\": \"Zwei Personen\", \"sequence\": [\"Frühes Abendessen\", \"Konzert\"], \"priority\": \"Ruhiger Tisch wichtiger als bestimmte Küche\", \"budget\": {\"maxCHF\": 120, \"basis\": \"Gesamtes Abendessen für beide inklusive Getränke\", \"inclusive\": true}}",
+      "mustNot": [
+        "Bahnhofsnähe durch Nähe zu einem erfundenen Konzertort ersetzen",
+        "Essen nach dem Konzert planen",
+        "120 CHF pro Person behandeln",
+        "Bestimmte Küche erfinden"
+      ]
+    },
+    {
+      "id": "fresh-meaning-15",
+      "text": "Ich brauche morgen in Solothurn einen ruhigen Ort zum Lesen, am liebsten gemütlich und mit einem Kaffee. Ich gehe allein; ein Café ist okay, muss aber nicht sein.",
+      "expected": "{\"category\": \"quiet_cozy\", \"location\": \"Solothurn\", \"visitTime\": \"Morgen\", \"participants\": \"Allein\", \"activity\": \"In Ruhe lesen\", \"preferences\": [\"Gemütlich\", \"Kaffee verfügbar bevorzugt\"], \"venue\": \"Café möglich; andere passende Orte ebenfalls möglich\"}",
+      "mustNot": [
+        "Nur Cafés zulassen",
+        "Kaffee zur zwingenden Voraussetzung machen",
+        "Geselliges Gruppenangebot bevorzugen",
+        "Lesen als Suche nach Buchladen ohne Aufenthaltsmöglichkeit reduzieren"
+      ]
+    },
+    {
+      "id": "fresh-meaning-16",
+      "text": "In Aarau möcht i mit mim Partner öppis Ruhigs mache: entweder e chliine Spaziergang am Fluss oder es gemütlichs Café, wo mer nöd grad vo Musik übertönt wird.",
+      "expected": "{\"category\": \"quiet_cozy\", \"language\": \"Schweizerdeutsch\", \"location\": \"Aarau\", \"participants\": \"Suchende Person und Partner\", \"alternatives\": [{\"activity\": \"Kurzer Spaziergang am Fluss\"}, {\"venue\": \"Gemütliches Café\", \"requiredFeature\": \"Keine übertönende Musik\"}], \"mood\": \"Ruhig\"}",
+      "mustNot": [
+        "Flusslage zwingend für das Café verlangen",
+        "Café und Spaziergang zwingend kombinieren",
+        "Lauten Musikort empfehlen",
+        "Lange Wanderung als kurzen Spaziergang behandeln"
+      ]
+    },
+    {
+      "id": "fresh-meaning-17",
+      "text": "Wenn es morgen trocken bleibt, möchte ich in Neuchâtel gemütlich am See spazieren. Bei Regen lieber eine kleine Ausstellung. Meine Schwester kommt mit, Kinder sind diesmal nicht dabei.",
+      "expected": "{\"category\": \"quiet_cozy\", \"location\": \"Neuchâtel\", \"visitTime\": \"Morgen\", \"participants\": \"Suchende Person und Schwester; keine Kinder\", \"conditions\": [{\"if\": \"Trocken\", \"activity\": \"Gemütlicher Spaziergang am See\"}, {\"if\": \"Regen\", \"activity\": \"Kleine Ausstellung\"}]}",
+      "mustNot": [
+        "Kinder als Begleitung ergänzen",
+        "Kinderfreundliche Orte allein wegen ihrer Eignung ausschliessen",
+        "Aktuelles oder morgiges Wetter ohne Grundlage festlegen",
+        "Beide Zweige zwingend aneinanderreihen"
+      ]
+    },
+    {
+      "id": "fresh-meaning-18",
+      "text": "Für einen freien Nachmittag in Schaffhausen suche ich erst einen stillen Garten zum Abschalten und danach eine gemütliche Teestube. Eintritt in den Garten maximal 10 CHF, Tee bezahle ich zusätzlich.",
+      "expected": "{\"category\": \"quiet_cozy\", \"location\": \"Schaffhausen\", \"visitTime\": \"Freier Nachmittag; Datum offen\", \"sequence\": [\"Stiller Garten zum Abschalten\", \"Gemütliche Teestube\"], \"budget\": {\"maxCHF\": 10, \"basis\": \"Garteneintritt\", \"inclusive\": true, \"teaIncluded\": false}, \"participants\": \"Nicht angegeben\"}",
+      "mustNot": [
+        "Teestube vor Garten planen",
+        "10 CHF als Gesamtbudget inklusive Tee behandeln",
+        "Teilnehmerzahl erfinden",
+        "Konkretes Datum aus freiem Nachmittag ableiten"
+      ]
+    },
+    {
+      "id": "fresh-meaning-19",
+      "text": "In Locarno suche ich etwas Gemütliches für meinen 40. Geburtstag. Wir gehen aber erst einen Monat später, zu dritt mit zwei Freunden. Am liebsten ein ruhiger Abend mit Aussicht, ohne festes Programm.",
+      "expected": "{\"category\": \"quiet_cozy\", \"location\": \"Locarno\", \"occasion\": \"40. Geburtstag\", \"visitTime\": \"Einen Monat nach dem Geburtstag; konkretes Datum unbekannt\", \"participants\": \"Drei Personen: suchende Person und zwei Freunde\", \"activity\": \"Ruhiger Abend mit Aussicht, offen und ohne festes Programm\", \"ageContext\": \"40 ist die Geburtstagszahl; kein gesichertes aktuelles Alter aller Beteiligten\"}",
+      "mustNot": [
+        "Besuch am Geburtstag festlegen",
+        "Alle Teilnehmer als 40-jährig behandeln",
+        "Aktuelles Alter der suchenden Person als sicher 40 festlegen",
+        "Organisiertes Pflichtprogramm verlangen"
+      ]
+    },
+    {
+      "id": "fresh-meaning-20",
+      "text": "Ein gemütlicher Ausflug rund um Olten wäre schön, vielleicht ein ruhiger Waldweg oder eine kleine Bibliothek mit Sitzplätzen. Barrierefrei muss es nicht sein, und mein Nachbar kommt möglicherweise mit.",
+      "expected": "{\"category\": \"quiet_cozy\", \"location\": \"Umgebung Olten\", \"participants\": {\"confirmed\": \"Suchende Person\", \"possible\": \"Nachbar\"}, \"alternatives\": [\"Ruhiger Waldweg\", \"Kleine Bibliothek mit Sitzplätzen\"], \"accessibility\": \"Barrierefreiheit nicht erforderlich\"}",
+      "mustNot": [
+        "Barrierefreie Orte ausschliessen",
+        "Barrierefreiheit verlangen",
+        "Nachbar als sicheren Teilnehmer behandeln",
+        "Bibliothek ohne Sitzmöglichkeit als passenden zweiten Zweig behandeln"
+      ]
+    }
+  ]
+}

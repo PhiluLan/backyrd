@@ -5,7 +5,7 @@ const ownerId = "41000000-0000-4000-8000-000000000099";
 const basicKeys = [
   "identity.name", "location.address_line1", "location.locality", "contact.public_email",
   "classification.primary_category", "classification.place_types", "offering.cuisines",
-  "purpose.primary_visit", "operation.price_level", "hours.regular",
+  "purpose.primary_visit", "operation.price_level", "operation.price_options", "hours.regular",
 ];
 const proKeys = [...basicKeys, "capacity.seats_total", "amenity.features"];
 
@@ -173,4 +173,23 @@ test("Owner-Einblicke versprechen keine vNext-Platzierung", async ({ page }) => 
   await expect(page.getByText("Diese Zahlen zeigen keine Platzierung oder Bewertung durch Decision vNext.")).toBeVisible();
   await expect(page.getByText("Decision CTR")).toHaveCount(0);
   await expect(page.getByText("Volta Bräu")).toBeVisible();
+});
+
+for (const mobile of [false,true]) test(`Konkrete Owner-Preise bleiben vollständig und bearbeitbar (${mobile?'mobil':'desktop'})`,async({page},testInfo)=>{
+ if(mobile)await page.setViewportSize({width:390,height:844});
+ const owner=await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);
+ if(mobile)await page.getByLabel('Bereich auswählen').selectOption('4');else await page.getByRole('button',{name:/5 Preise und Bezahlung/}).click();
+ const field=page.locator('[id="field-operation.price_options"]');
+ await field.getByRole('button',{name:'+ Preis hinzufügen',exact:true}).click();
+ await expect(field.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('');
+ await field.getByRole('button',{name:'Getränk',exact:true}).click();await field.getByRole('button',{name:'Snack / Kuchen',exact:true}).click();
+ await field.getByLabel('Preis 1 Von',{exact:true}).fill('8.5');await field.getByLabel('Preis 1 Bis',{exact:true}).fill('12.5');
+ await expect(field.getByRole('checkbox').nth(0)).not.toBeChecked();await expect(field.getByRole('checkbox').nth(1)).not.toBeChecked();
+ await field.getByRole('checkbox').nth(0).check();await field.getByRole('checkbox').nth(1).check();
+ await field.getByRole('button',{name:'Preise übernehmen',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_attribute_key).toBe('operation.price_options');expect(owner.submissions[0].p_value).toMatchObject([{purposes:['DRINK','SNACK'],min:8.5,max:12.5,basis:'PER_PERSON',minimumAge:null,maximumAge:null,allOfferingsCovered:true,mandatoryFeesIncluded:true}]);
+ await page.reload();if(mobile)await page.getByLabel('Bereich auswählen').selectOption('4');else await page.getByRole('button',{name:/5 Preise und Bezahlung/}).click();
+ await expect(field.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('8.5');await expect(field.getByLabel('Preis 1 Bis',{exact:true})).toHaveValue('12.5');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(mobile?390:1280);
+ await page.screenshot({path:testInfo.outputPath(`comparable-prices-${mobile?'mobile':'desktop'}.png`),fullPage:true});
 });

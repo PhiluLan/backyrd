@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import {
-  AUTHORING_FIELDS, AUTHORING_STEPS, getAuthoringFieldsForContext,
+  AUTHORING_FIELDS, formatPriceOptionsSummary, AUTHORING_STEPS, getAuthoringFieldsForContext,
   validateAuthoringSubmission, type AuthoringField,
 } from "@backyrd/world-knowledge-core";
 import type { RpcResult, WorldAuthoringClient } from "./session";
@@ -108,6 +108,7 @@ const searchFailure = (error: unknown): SearchState => {
 const fieldLabel = (key: string) => AUTHORING_FIELDS.find((field) => field.attributeKey === key)?.label ?? "Betroffene Angabe";
 const valueLabel = (field: AuthoringField, value: unknown): string => {
   if (value === null || value === undefined) return "Noch keine Angabe";
+  if (field.attributeKey === "operation.price_options") return formatPriceOptionsSummary(value);
   if (typeof value === "boolean") return value ? "Ja" : "Nein";
   if (typeof value === "string") return field.allowedValues.find((option) => option.value === value)?.label ?? value;
   if (typeof value === "number") return new Intl.NumberFormat("de-CH").format(value);
@@ -351,8 +352,8 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
     setStep(Math.max(0, Math.min(AUTHORING_STEPS.length - 1, index)));
     document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: surface === "OWNER" ? "auto" : "smooth", block: "start" });
   };
-  const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL");
-  const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL");
+  const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL" || field.control === "PRICE_OPTIONS");
+  const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL" && field.control !== "PRICE_OPTIONS");
   const renderFieldGroups = (items: AuthoringField[]) => [...new Set(items.map((field) => field.group))].map((group) =>
     <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) =>
       <div className="wk-field-with-usage" key={`${detail?.spotId}:${field.attributeKey}`}>{surface === "ADMIN" && <div className="wk-field-usage" aria-label="Verwendung dieser Angabe"><span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span><span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span><span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span></div>}<FieldEditor field={field} answer={detail?.answers[field.attributeKey]}

@@ -9,7 +9,7 @@ import {
   type DecisionProductRpcClient,
 } from "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js";
 import { createDecisionProductHttpHandler } from "../../../packages/decision-vnext-core/dist/product-decision.js";
-import { createDecisionProductAiIntentInterpreter, parseDecisionProductAiIntentAllowlist } from "../../../packages/decision-vnext-core/dist/product-ai-interpretation.js";
+import { createDecisionProductMeaningInterpreter, parseDecisionProductAiIntentAllowlist } from "../../../packages/decision-vnext-core/dist/product-ai-interpretation.js";
 
 export const DECISION_V13_VNEXT_ONLY_ENTRYPOINT = "backyrd.decision-vnext.single-route@1.0" as const;
 
@@ -126,8 +126,8 @@ Deno.serve(async (request: Request) => {
     // can never leak across concurrent Edge requests.
     const config = configuration();
     const aiEnabled = Deno.env.get("BACKYRD_DECISION_AI_INTENT_ENABLED") === "true";
-    const interpreter = aiEnabled ? createDecisionProductAiIntentInterpreter({
-      rpc, identity: config.identity, apiKey: required("OPENAI_API_KEY"),
+    const interpreter = aiEnabled ? createDecisionProductMeaningInterpreter({
+      apiKey: required("OPENAI_API_KEY"),
       model: required("BACKYRD_DECISION_AI_INTENT_MODEL"),
       allowedUserIds: parseDecisionProductAiIntentAllowlist(Deno.env.get("BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST") ?? ""),
     }) : undefined;

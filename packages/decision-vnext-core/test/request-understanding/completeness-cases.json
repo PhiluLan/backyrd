@@ -1,0 +1,283 @@
+{
+  "authorship": "Unabhängig agentenautorierte neue Entwicklungsgegenbeispiele; nicht blind zur Implementierung, nicht repräsentativ, kein neuer Holdout und keine menschlicheAbnahme",
+  "frozenAt": "2026-10-11T12:43:30.365580+00:00",
+  "reference": {
+    "serverTime": "2026-10-10T12:00:00.000Z",
+    "timeZone": "Europe/Zurich",
+    "profileCity": "Basel"
+  },
+  "cases": [
+    {
+      "id": "age-current-birthday",
+      "text": "Ich bin 17, mein Geburtstag ist nächste Woche. Heute möchte ich tanzen.",
+      "expected": {
+        "must_preserve": [
+          "Aktuelles Alter17",
+          "Heute",
+          "Konkreter Tanzwunsch"
+        ],
+        "must_not_infer": [
+          "Geburtstag als Besuchstermin",
+          "18 als aktuelles Alter",
+          "Alter wegen Geburtstagshinweis verwerfen"
+        ]
+      }
+    },
+    {
+      "id": "age-birthday-only",
+      "text": "Für den 40. Geburtstag suchen wir ein Café für sechs.",
+      "expected": {
+        "must_preserve": [
+          "Feieranlass",
+          "Sechs Personen",
+          "Café"
+        ],
+        "must_not_infer": [
+          "40 als Mindestalter allerTeilnehmer",
+          "Teilnehmeralter als bekannt"
+        ]
+      }
+    },
+    {
+      "id": "age-separate-celebrant",
+      "text": "Zum 50. Geburtstag meiner Mutter kommen wir zu fünft; ich bin 16.",
+      "expected": {
+        "must_preserve": [
+          "Fünf Personen",
+          "Aktuelles explizites Teilnehmeralter16",
+          "Geburtstagsfeier"
+        ],
+        "must_not_infer": [
+          "50 als Mindestalter",
+          "AlleTeilnehmer erwachsen"
+        ]
+      }
+    },
+    {
+      "id": "age-correction",
+      "text": "Ich bin nicht 17, sondern 21. Ich möchte tanzen gehen.",
+      "expected": {
+        "must_preserve": [
+          "Aktuelles Alter21",
+          "Konkretes Tanzen"
+        ],
+        "must_not_infer": [
+          "17 als aktuelles Mindestalter",
+          "17 und21 als zweiTeilnehmer"
+        ]
+      }
+    },
+    {
+      "id": "age-past-current",
+      "text": "Last year I was 16; I am 17 now. A café today.",
+      "expected": {
+        "must_preserve": [
+          "Aktuelles Alter17",
+          "Café heute"
+        ],
+        "must_not_infer": [
+          "16 als aktuellesAlter",
+          "Gruppengröße16oder17"
+        ]
+      }
+    },
+    {
+      "id": "age-future-current",
+      "text": "I turn 18 next month and am 17 today. Find somewhere to dance tonight.",
+      "expected": {
+        "must_preserve": [
+          "Aktuelles Alter17",
+          "HeuteAbend/Nacht",
+          "Konkretes Tanzen"
+        ],
+        "must_not_infer": [
+          "18 als aktuellesAlter",
+          "Geburtstag als Besuchsdatum"
+        ]
+      }
+    },
+    {
+      "id": "age-negated-only",
+      "text": "Ich bin nicht 18. Ein Konzert am Samstag wäre schön.",
+      "expected": {
+        "must_preserve": [
+          "Konzertwunsch",
+          "Samstag",
+          "Aktuelles Alter bleibt unbekannt"
+        ],
+        "must_not_infer": [
+          "18 oder ein anderes exaktes Alter erfinden"
+        ]
+      }
+    },
+    {
+      "id": "age-money-only",
+      "text": "Maximal 17 Franken für Kaffee, zum Geburtstag.",
+      "expected": {
+        "must_preserve": [
+          "Budget17CHF maximal mit offenerBasis",
+          "Kaffee",
+          "Feieranlass"
+        ],
+        "must_not_infer": [
+          "17 als Alter",
+          "Budget als proPerson ohne Angabe"
+        ]
+      }
+    },
+    {
+      "id": "dance-no-club",
+      "text": "Wir wollen tanzen, ein Nachtclub ist dafür nicht nötig.",
+      "expected": {
+        "must_preserve": [
+          "Konkretes Tanzen",
+          "Kein zwingender Nachtclub"
+        ],
+        "must_not_infer": [
+          "Nachtclub verpflichtend",
+          "Nachtclub ausschließen",
+          "Tanzen zu generischem Ausgehen verflachen"
+        ]
+      }
+    },
+    {
+      "id": "club-no-dance",
+      "text": "A nightclub with somewhere to sit; we do not want to dance.",
+      "expected": {
+        "must_preserve": [
+          "Nachtclub",
+          "Sitzmöglichkeit",
+          "Kein Tanzwunsch"
+        ],
+        "must_not_infer": [
+          "Tanzen oder Tanzfläche als gewünschte Pflicht",
+          "JedenClub mit Tanzfläche ausschließen"
+        ]
+      }
+    },
+    {
+      "id": "dance-or-concert",
+      "text": "Am Abend entweder tanzen oder ein Konzert besuchen.",
+      "expected": {
+        "must_preserve": [
+          "Abend",
+          "Alternative:TanzenODERKonzert"
+        ],
+        "must_not_infer": [
+          "Beides gleichzeitig zwingend",
+          "EineAlternative verlieren",
+          "Nur generisches NIGHTLIFE"
+        ]
+      }
+    },
+    {
+      "id": "pottery-specific",
+      "text": "We want a pottery class, not just any creative workshop.",
+      "expected": {
+        "must_preserve": [
+          "Konkreter Töpferkurs"
+        ],
+        "must_not_infer": [
+          "BeliebigerKreativworkshop als gleichwertig",
+          "AlleanderenAngebote am selbenOrt ausschließen"
+        ]
+      }
+    },
+    {
+      "id": "lunch-explicit-noon",
+      "text": "Déjeuner à midi à Thun, pour deux.",
+      "expected": {
+        "must_preserve": [
+          "Mittagsmahlzeit",
+          "Mittagszeit",
+          "Thun",
+          "ZweiPersonen"
+        ],
+        "must_not_infer": [
+          "Frühstück",
+          "Mahlzeit nur generischEAT ohneMittagsbezug"
+        ]
+      }
+    },
+    {
+      "id": "breakfast-french",
+      "text": "Petit-déjeuner demain matin à Thun.",
+      "expected": {
+        "must_preserve": [
+          "Frühstück",
+          "MorgenVormittag",
+          "Thun"
+        ],
+        "must_not_infer": [
+          "Mittagessen aus Teilwort déjeuner",
+          "Besuch heute"
+        ]
+      }
+    },
+    {
+      "id": "after-lunch-french",
+      "text": "Après le déjeuner, nous aimerions nous promener au bord du fleuve.",
+      "expected": {
+        "must_preserve": [
+          "SpaziergangamFluss",
+          "Zeitrelation:nachdemMittagessen",
+          "KeinegenaueUhrzeit"
+        ],
+        "must_not_infer": [
+          "Mittagessen als gesuchteErfahrung",
+          "Lunch-Angebot amSpazierort verlangen"
+        ]
+      }
+    },
+    {
+      "id": "after-lunch-german",
+      "text": "Nach dem Mittagessen einen Kaffee in Baden, höchstens 20 Minuten zu Fuß vom Bahnhof.",
+      "expected": {
+        "must_preserve": [
+          "Kaffee",
+          "Baden",
+          "NachMittagessen",
+          "Maximal20Gehminuten vomBahnhof"
+        ],
+        "must_not_infer": [
+          "Mittagessen als gewünschtesAngebot",
+          "20Minuten Aufenthaltsdauer",
+          "12Uhr erfinden"
+        ]
+      }
+    },
+    {
+      "id": "meal-negated",
+      "text": "Pas de déjeuner, juste un café cet après-midi à Thun.",
+      "expected": {
+        "must_preserve": [
+          "Kaffee",
+          "HeuteNachmittag",
+          "Thun",
+          "KeinMittagessenwunsch"
+        ],
+        "must_not_infer": [
+          "LUNCH alspositivesAngebot",
+          "JedenCaféOrtmitLunch ausschließen"
+        ]
+      }
+    },
+    {
+      "id": "combined-age-meal-event",
+      "text": "Ich bin 17. Nach einem frühen Abendessen möchte ich tanzen; das Essen ist bereits organisiert.",
+      "expected": {
+        "must_preserve": [
+          "AktuellesAlter17",
+          "KonkretesTanzen",
+          "Zeitrelation:nachAbendessen",
+          "KeinRestaurantgesuch"
+        ],
+        "must_not_infer": [
+          "DinneralsgesuchtesAngebot",
+          "AlterwegenandererZahlenrollenverlieren",
+          "BestimmteTanzuhrzeit erfinden"
+        ]
+      }
+    }
+  ]
+}

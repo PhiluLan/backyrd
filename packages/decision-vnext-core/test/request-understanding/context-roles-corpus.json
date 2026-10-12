@@ -1,0 +1,256 @@
+{
+  "contractVersion": "backyrd.request-understanding-corpus@1.0",
+  "reviewStatus": "PROPOSED_REQUIRES_HUMAN_REVIEW",
+  "scope": "DEVELOPMENT_NOT_HOLDOUT",
+  "reference": {
+    "serverTime": "2026-10-10T12:00:00.000Z",
+    "profileCity": "Basel"
+  },
+  "families": [
+    {
+      "id": "waiting-limit",
+      "dimension": "TIME",
+      "queries": [
+        "Kaffee, höchstens zehn Minuten Wartezeit.",
+        "Coffee, I cannot wait more than ten minutes."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "unresolvedTerms",
+          "op": "contains",
+          "value": "WAITING_REQUEST_UNRESOLVED"
+        }
+      ]
+    },
+    {
+      "id": "travel-limit",
+      "dimension": "LOCATION",
+      "queries": [
+        "Kaffee, maximal zehn Minuten zu Fuss entfernt.",
+        "Coffee, at most ten minutes walking distance."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "unresolvedTerms",
+          "op": "contains",
+          "value": "MOBILITY_REQUEST_UNRESOLVED"
+        }
+      ]
+    },
+    {
+      "id": "birthday-role",
+      "dimension": "GROUP",
+      "queries": [
+        "Kaffee für acht Personen zum 40. Geburtstag.",
+        "Coffee for eight people to celebrate a 40th birthday."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "group.minimumAge",
+          "op": "equals",
+          "value": null
+        },
+        {
+          "path": "group.size",
+          "op": "equals",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "id": "participant-age",
+      "dimension": "GROUP",
+      "queries": [
+        "Ich bin 15 Jahre alt und möchte Kaffee.",
+        "I am 15 years old and want coffee."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "group.minimumAge",
+          "op": "equals",
+          "value": 15
+        }
+      ]
+    },
+    {
+      "id": "relative-today",
+      "dimension": "TIME",
+      "queries": [
+        "Heute Kaffee.",
+        "Coffee today."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-10"
+        }
+      ]
+    },
+    {
+      "id": "corrected-tomorrow",
+      "dimension": "TIME",
+      "queries": [
+        "Nicht jetzt, sondern morgen Kaffee.",
+        "Coffee tomorrow, not now."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-11"
+        }
+      ]
+    },
+    {
+      "id": "yearless-date",
+      "dimension": "TIME",
+      "queries": [
+        "Kaffee am 17. Oktober.",
+        "Coffee on October 17."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "dateTime.localDate",
+          "op": "equals",
+          "value": "2026-10-17"
+        }
+      ]
+    },
+    {
+      "id": "clock-after",
+      "dimension": "TIME",
+      "queries": [
+        "Kaffee nach 18 Uhr.",
+        "Coffee after 6 pm."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "unresolvedTerms",
+          "op": "contains",
+          "value": "PRECISE_TIME_UNVERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "finish-deadline",
+      "dimension": "TIME",
+      "queries": [
+        "Kaffee, spätestens um 16 Uhr muss ich fertig sein.",
+        "Coffee, I must be finished by 4 pm."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "unresolvedTerms",
+          "op": "contains",
+          "value": "PRECISE_TIME_UNVERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "conditional-permission",
+      "dimension": "UNCERTAINTY",
+      "queries": [
+        "Kaffee. Bei Regen geht auch drinnen.",
+        "Coffee. If it rains, indoors is fine too."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "excludes",
+          "value": "INDOOR_REQUIRED"
+        }
+      ]
+    },
+    {
+      "id": "unconditional-indoors",
+      "dimension": "UNCERTAINTY",
+      "queries": [
+        "Kaffee, zwingend drinnen.",
+        "Coffee, it must be indoors."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "hardConstraints",
+          "op": "contains",
+          "value": "INDOOR_REQUIRED"
+        }
+      ]
+    },
+    {
+      "id": "conditional-quiet",
+      "dimension": "ATMOSPHERE",
+      "queries": [
+        "Kaffee. Falls es regnet, muss es ruhig sein.",
+        "Coffee. If it rains, it must be quiet."
+      ],
+      "expected": [
+        {
+          "path": "primaryIntent",
+          "op": "equals",
+          "value": "COFFEE"
+        },
+        {
+          "path": "softPreferences",
+          "op": "excludes",
+          "value": "ATMOSPHERE_QUIET"
+        }
+      ]
+    }
+  ]
+}

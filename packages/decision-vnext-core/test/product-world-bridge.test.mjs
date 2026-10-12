@@ -7,7 +7,8 @@ import { evaluateOpeningState } from "../dist/opening-state.js";
 import { evaluateProductV1IntentClassification, evaluateProductWorldViews } from "../dist/product-v1-evaluator.js";
 
 const at = "2026-09-20T12:00:00.000Z";
-const fact = (key, value, extras = {}) => ({ key, value, scope: "SPOT", resolution: "KNOWN_VALUE", freshness: "CURRENT", trust: "VERIFIED", basisClaimHashes: [contentHash(key)], ...extras });
+const fact = (key, value, extras = {}) => ({ key, value, scope: "SPOT", resolution: "KNOWN_VALUE", freshness: "CURRENT", trust: "VERIFIED", basisClaimHashes: [contentHash(key)], ...(key === "context.atmosphere" ? {hardConstraintAuthorized:true,validityVerified:true,validFrom:null,validUntil:null}:{}), ...extras });
+const comparablePrice = (purpose, amount, currency='CHF') => fact('operation.price_options',[{purposes:[purpose],allOfferingsCovered:true,basis:'PER_PERSON',currency,min:amount,max:amount,minimumAge:null,maximumAge:null,mandatoryFeesIncluded:true,conditions:{dayparts:[],days:[],area:null,occasion:null,groupSize:null,ageContext:null,accompaniment:null,eventMode:null}}],{validityVerified:true,validFrom:null,validUntil:null});
 const binding = (spotId, rows, unknowns = []) => ({
   contractVersion: "backyrd.world-knowledge.product-resolver-binding@1.0",
   manifestHash: contentHash({ spotId, rows, unknowns }), registryHash: REGISTRY_HASH, resolvedAt: at,
@@ -112,9 +113,12 @@ test("a verified overnight interval counts on the requested following day", () =
     fact("hours.regular", [{ day: "SATURDAY", intervals: [{ start: "22:00", end: "02:00" }] }, { day: "SUNDAY", intervals: [] }]),
   ]));
   const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "overnight-request", idempotencyKey: "overnight-key", naturalLanguage: "Sonntag Kaffee trinken", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
-  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: "2026-12-26T12:00:00.000Z" }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
   assert.equal(result.evaluation.candidates[0].actualAvailability.status, "open");
   assert.equal(result.evaluation.candidates[0].reasons.find((reason) => reason.reasonCode === "requested-day-opening-hours")?.statementDe, "Öffnungszeiten am gefragten Sonntag: 00:00–02:00.");
+  const passed = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: "2026-12-27T12:00:00.000Z" }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
+  assert.equal(passed.evaluation.candidates[0].tier, "INELIGIBLE");
+  assert.ok(passed.evaluation.candidates[0].failedHardConstraints.includes("VISIT_TIME_PAST"));
 });
 
 test("confirmed context changes ranking evidence; missing data and numeric budget remain unknown", () => {
@@ -289,7 +293,8 @@ test("query requirements apply across family, cafe, craft-beer, date, alternativ
 
   const cozy = assessPlan("Gemütliches Café", "COFFEE", ["WK_REQUIRED:G1:context.atmosphere:COZY"]);
   assert.equal(tier(cozy, 3), "ELIGIBLE_CONFIRMED");
-  assert.equal(tier(cozy, 4), "INELIGIBLE");
+  assert.notEqual(tier(cozy, 4), "ELIGIBLE_CONFIRMED");
+  assert.ok(cozy.get(venues[4][0]).unknownHardConstraints.includes("QUERY_REQUIRED_G1"), "lively is not proof of an explicit no-cozy statement");
   const cake = assessPlan("Kaffee und Kuchen", "COFFEE", ["WK_REQUIRED:G1:offering.food_specialities:DESSERTS"]);
   assert.equal(tier(cake, 3), "ELIGIBLE_CONFIRMED");
   assert.notEqual(tier(cake, 4), "ELIGIBLE_CONFIRMED");
@@ -298,7 +303,8 @@ test("query requirements apply across family, cafe, craft-beer, date, alternativ
   assert.equal(tier(craft, 6), "INELIGIBLE");
   const date = assessPlan("Date Night in einer Bar", "NIGHTLIFE", ["WK_REQUIRED:G1:context.visit_situations:DATE_PAIR"]);
   assert.equal(tier(date, 7), "ELIGIBLE_CONFIRMED");
-  assert.equal(tier(date, 6), "INELIGIBLE");
+  assert.notEqual(tier(date, 6), "ELIGIBLE_CONFIRMED");
+  assert.ok(date.get(venues[6][0]).unknownHardConstraints.includes("QUERY_REQUIRED_G1"), "friends evidence does not disprove a date visit");
   const alternatives = assessPlan("Museum oder Kino", "ACTIVITY_EXPERIENCE", ["WK_REQUIRED:G1:classification.place_types:MUSEUM", "WK_REQUIRED:G1:classification.place_types:CINEMA"]);
   assert.equal(tier(alternatives, 2), "ELIGIBLE_CONFIRMED");
   assert.equal(tier(alternatives, 9), "ELIGIBLE_CONFIRMED");
@@ -329,4 +335,47 @@ test("unmapped music and precise-time needs cannot become a fully confirmed reco
   assert.ok(candidate.limitations.includes("PRECISE_TIME_UNVERIFIED"));
   assert.ok(candidate.reasons.some((row) => row.reasonCode === "music-at-visit-unverified" && !row.confirmed));
   assert.ok(candidate.reasons.some((row) => row.reasonCode === "precise-time-unverified" && !row.confirmed));
+});
+
+
+test("budget eligibility requires comparable CHF per-person ceilings and never confirms unknown scope", () => {
+  const base = [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "COFFEE_DAYTIME"), fact("classification.place_types", ["CAFE"])];
+  const assessBudget = (naturalLanguage, currency = "CHF", explicit = {}) => {
+    const world = read(binding(cafeId, [...base, comparablePrice("DRINK",30,currency)]));
+    const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "budget-check", idempotencyKey: "budget-check", naturalLanguage, explicit, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+    return evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId])).evaluation.candidates[0];
+  };
+  assert.ok(assessBudget("Kaffee maximal 30 CHF pro Person").confirmedHardConstraints.includes("BUDGET_MAXIMUM"));
+  assert.ok(assessBudget("Kaffee maximal 20 CHF pro Person").failedHardConstraints.includes("BUDGET_MAXIMUM"));
+  assert.ok(assessBudget("Kaffee maximal 29,50 CHF pro Person").failedHardConstraints.includes("BUDGET_MAXIMUM"));
+  for (const text of ["Kaffee unter 30 CHF pro Person", "Kaffee maximal 30 CHF insgesamt", "Kaffee maximal 30 CHF"]) {
+    const candidate = assessBudget(text);
+    assert.ok(candidate.unknownHardConstraints.includes("BUDGET_MAXIMUM"), text);
+    assert.notEqual(candidate.tier, "ELIGIBLE_CONFIRMED", text);
+    assert.ok(candidate.reasons.some((reason) => reason.reasonCode === "budget-semantics-unverified" && !reason.confirmed), text);
+  }
+  assert.ok(assessBudget("Kaffee maximal 30 CHF pro Person", "EUR").unknownHardConstraints.includes("BUDGET_MAXIMUM"));
+  const explicit = { budget: { state: "KNOWN", amount: 20, currency: "CHF", perPerson: true, calibrationLabel: null } };
+  assert.ok(assessBudget("Kaffee", "CHF", explicit).failedHardConstraints.includes("BUDGET_MAXIMUM"));
+});
+
+
+test('numeric meal price hints never certify a ceiling from an ordinal label', () => {
+  const base=[fact('purpose.primary_visit','EAT_DRINK'),fact('classification.primary_category','EAT'),fact('classification.place_types',['RESTAURANT'])];
+  const worlds=[
+    read(binding('a1111111-1111-4111-a111-111111111111',[...base,fact('operation.price_level','LOW')])),
+    read(binding('b2222222-2222-4222-a222-222222222222',[...base,fact('operation.price_level','LOW'),comparablePrice('MEAL',25)])),
+    read(binding('c3333333-3333-4333-a333-333333333333',[...base,fact('operation.price_level','HIGH'),comparablePrice('MEAL',18)])),
+  ];
+  const request={contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'meal-calibration',idempotencyKey:'meal-calibration',naturalLanguage:'Essen maximal 20 CHF pro Person',explicit:{primaryIntent:'EAT'},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
+  const r=evaluateProductWorldViews(request,{authorizedCity:'Basel',serverTime:at},{status:'NEUTRAL',projectionHash:contentHash('neutral')},worlds,contentHash(worlds.map(w=>w.spot.spotId)));
+  const byId=new Map(r.evaluation.candidates.map(c=>[c.candidateId,c]));
+  const [unknown,over,within]=worlds.map(w=>byId.get(w.spot.spotId));
+  assert.ok(unknown.unknownHardConstraints.includes('BUDGET_MAXIMUM'));
+  assert.ok(unknown.matchedSoftPreferences.includes('WK:operation.price_level:LOW'));
+  assert.notEqual(unknown.tier,'ELIGIBLE_CONFIRMED');
+  assert.ok(over.failedHardConstraints.includes('BUDGET_MAXIMUM'));
+  assert.equal(over.tier,'INELIGIBLE');
+  assert.ok(within.confirmedHardConstraints.includes('BUDGET_MAXIMUM'));
+  assert.equal(within.failedHardConstraints.includes('BUDGET_MAXIMUM'),false);
 });

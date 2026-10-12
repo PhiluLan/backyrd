@@ -1,0 +1,45 @@
+{
+  "scope": "FRESH_KNOWLEDGE_MAPPING_DEVELOPMENT_NOT_HOLDOUT",
+  "cases": [
+    {
+      "id": "knowledge-live-01",
+      "text": "Tim hier: Ich möchte am Sonntagvormittag in Zürich ein wirklich ruhiges Café mit Kuchen. Für Kaffee und Kuchen zusammen maximal 12 CHF pro Person.",
+      "expected": "Konkretes ruhiges Café; CAKE; Kaffee+Kuchen; Sonntag MORNING Zürich; CHF12proPerson für beide, kein Teilpreisnachweis."
+    },
+    {
+      "id": "knowledge-live-02",
+      "text": "Tobi: Restaurant in Basel mit veganem Essen. Ich würde gerne höchstens 30 CHF pro Person für die Mahlzeit ausgeben.",
+      "expected": "Konkreter Restaurantwunsch bleibt erforderlich; VEGAN_DISHES; Basel; MEAL capCHF30 proPerson."
+    },
+    {
+      "id": "knowledge-live-03",
+      "text": "Philipp möchte mit seiner achtjährigen Tochter in Zürich ein Museum besuchen. Der Eintritt darf maximal 20 CHF pro Person kosten.",
+      "expected": "Museum Zürich; Familie; bekannte Tochter8, keine erfundene Erwachsenen-/Gruppenaltersgrenze; ADMISSION20CHFproPerson."
+    },
+    {
+      "id": "knowledge-live-04",
+      "text": "Un café avec du gâteau à Bâle, pas une boulangerie.",
+      "expected": "CAFE mit CAKE inBasel; BAKERYalsOrtsart ausgeschlossen; keine BACKED_GOODS-Substitution."
+    },
+    {
+      "id": "knowledge-live-05",
+      "text": "I need a quiet cafe in Zurich on Sunday morning. Coffee and cake together must cost no more than CHF 12 per person.",
+      "expected": "RequiredquietCAFE+CAKE+coffee; ZurichSundayMorning; bundledFOOD/DRINKS ceilingCHF12 perperson."
+    },
+    {
+      "id": "knowledge-live-06",
+      "text": "Café in Zürich: Kaffee und Kuchen, beides zusammen für höchstens 10 CHF pro Person. Kaffee allein reicht mir nicht.",
+      "expected": "Beide gewünschten Angebote erhalten; gemeinsamen capCHF10 nicht durch Einzelpreis bestätigen."
+    },
+    {
+      "id": "knowledge-live-07",
+      "text": "Ich suche in Zürich ein Café mit Kuchen. Für den Kuchen habe ich 15 CHF pro Person; ich will kein Getränk bestellen.",
+      "expected": "CAFE+CAKE; cap15CHFfürKuchen/FOOD, kein zusätzlicher Getränkekauf erfunden; individuelles Nichtbestellen ist keine Venueart-Ablehnung."
+    },
+    {
+      "id": "knowledge-live-08",
+      "text": "In Zürich entweder ein Restaurant mit veganem Essen oder ein Café mit Kuchen. Beide sollen ruhig sein. Maximal 20 CHF pro Person für das Essen, egal welchen Ort ich auswähle.",
+      "expected": "Ein Besuch OR; VEGAN nurRestaurant, CAKE nurCafé; QUIET undFOOD cap20 global; eigene Leistungs-/Eignungsprüfung jeZweig."
+    }
+  ]
+}
