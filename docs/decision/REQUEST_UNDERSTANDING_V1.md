@@ -4,6 +4,62 @@ Status: **step 1 COMPLETE; step 2 mapping foundation IMPLEMENTED, semantic/execu
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
+## Fresh 30-request test: acceptance NOT achieved (2026-10-12)
+
+The founder requested the first live run of the frozen30 on candidate
+`c16e95112ed50726830d49e3eaa64557fdc672c5`. Corpus SHA256 remains
+`cc046b7b4ff39d2aa96939b71ebf90c8ac711e6445d0de24704974eb300af1f2`.
+No prompt, implementation, input or expectation changed during the run. Luna
+low, store=false, fixed resolver clock2026-10-12T12:00:00.000Z, sequential cases,
+shared20s deadline. No actual Spot candidates or production data were used.
+
+All30 attempted, none skipped;60 provider calls,27 VALID_CONTRACT,3 ERROR.
+Independent semantic review: **6 PASS,13 PARTIAL,8 FAIL,3 ERROR**. PASS confirms
+only this output's meaning/mapping/projection. PARTIAL means a correctly retained
+wish is marked unsupported/unmapped or cannot be projected; missing venue
+proof or unspecified age/budget basis alone was not counted against the result.
+FAIL identifies a changed/lost meaning, even if other limitations are visible.
+
+| Persona | PASS | PARTIAL | FAIL | ERROR |
+|---|---:|---:|---:|---:|
+| Philipp |1|4|4|1|
+| Tobi |3|4|2|1|
+| Tim |2|5|2|1|
+
+FAIL cases: Philipp01 after school becomes mandatory AFTERNOON; Philipp05 this
+afternoon loses today; Philipp08 Aarau/today exist in plan but projection uses
+profile Zurich/no date (the overall conditional choice is visibly unresolved,
+not falsely claimed fulfilled); Philipp09 exhibition becomes required MUSEUM;
+Tobi06 cake eaten on premises loses the on-premises condition; Tobi10 vegan
+pizza becomes independent PIZZA and VEGAN_DISHES without the same-dish relation;
+Tim03 ce soir loses today; Tim06 generic appointment becomes CHECK_IN. The
+numbered first-issue stages are P2_MAPPING for18 non-PASS results, PROJECTION2,
+P1_MEANING3 technical errors and UNSUPPORTED_EXECUTION1. These stage labels
+identify where the observed result first fails, not exclusive fault ownership.
+
+ERRORs: Philipp10 P1 initially uses PERSONAL_CONSUMPTION/NOT_REQUIRED, rejected
+by current validator; repaired P1 is valid, but P2 exceeds remaining shared
+budget. Tobi09 P1 reaches20s without a response. Tim08 approximately90min is
+understood in both P1 outputs but comparison=null violates numeric validation;
+no P2 reached and no timeout. Original calls19/20/55/56 were replayed locally
+without additional provider requests to verify these diagnoses. Calls21/38
+have no response file and logged deadline transport aborts; no quota failure
+was observed. Observed valid responses7.929–15.878s (median11.096s); all-case
+median11.476s and nearest-rank p9520.004s. Usage-based cost estimate USD0.031174435,
+not an invoice. These timings do not establish production reliability.
+
+Approved synthetic raw run, corpus, original requests/responses and review:
+`/private/tmp/backyrd-final-30-c16e951-run1/`.
+Report SHA256 `ced35023d300ff36477ac8043387bbb810a5b3d1526eed5548acd4923710184e`;
+independent review SHA256
+`db2340ffc6e322749b369c09eb7d0182a381908807a1728d9cd77e0a67f93339`.
+Case IDs, totals, source hashes and report binding were cross-checked. Secrets
+and raw fixture traces remain outside Git. This tested corpus is now exposed
+and becomes regression evidence; it cannot be reused as a fresh acceptance
+holdout after fixing these failures. **Full AP1 production acceptance remains
+OPEN.** No implementation fix, deployment, merge or activation happened as part
+of this test. The preceding8 development passes did not generalize sufficiently.
+
 ## Final-test candidate: personal consumption and latency (2026-10-12)
 
 Candidate ready for independent acceptance testing, **not production approval**.
@@ -41,7 +97,7 @@ The independent reviewer created30 fresh realistic requests,10 each Philipp,
 Tobi and Tim, across German/English/French, before examining this implementation.
 Frozen durable corpus: `test/request-understanding/meaning-final-acceptance-corpus.json`.
 SHA256 `cc046b7b4ff39d2aa96939b71ebf90c8ac711e6445d0de24704974eb300af1f2`.
-**These30 have not been sent to the provider.** Rubric arrays are accepted by the
+**At this candidate-freeze checkpoint these30 had not been sent to the provider; the first run is recorded above.** Rubric arrays are accepted by the
 existing evaluation harness, never serialized into provider inputs. The harness
 and existing CLI now record an explicit fixed server clock, separating today's
 meaning from actual wall-clock timing. No competing runtime/evaluation path added.
