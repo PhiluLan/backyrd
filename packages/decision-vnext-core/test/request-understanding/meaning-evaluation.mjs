@@ -29,8 +29,9 @@ export async function evaluateMeaningCorpus({ corpus, apiKey, fetchImpl = fetch,
       }
       const body = JSON.parse(options.body);
       if (url !== 'https://api.openai.com/v1/responses' || body.store !== false || body.model !== 'gpt-6-luna'
-        || body.reasoning?.effort !== 'low' || ![3600, ...(pipeline ? [6000] : [])].includes(body.max_output_tokens)
-        || JSON.parse(body.input).request !== c.text) throw Error('meaning_evaluation_request_invalid');
+        || body.reasoning?.effort !== 'low' || body.max_output_tokens !== 3600
+        || body.text?.format?.name !== "backyrd_compact_meaning_v1"
+        || Object.keys(JSON.parse(body.input)).join() !== "request" || JSON.parse(body.input).request !== c.text) throw Error('meaning_evaluation_request_invalid');
       calls++;
       const response = await fetchImpl(url, options);
       if (!response.ok) {

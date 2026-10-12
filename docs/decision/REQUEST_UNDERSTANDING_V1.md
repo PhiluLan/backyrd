@@ -4,12 +4,92 @@ Status: **step 1 COMPLETE; step 2 mapping foundation IMPLEMENTED, semantic/execu
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
+## Compact understanding and deterministic compilation (2026-10-12)
+
+The founder authorized three latency changes. The canonical private interpreter
+now requests one sparse, free-meaning result (`request-meaning@1.3`, policy-v18),
+then compiles the validated graph locally (`meaning-mapping@1.1`, policy-v12).
+`createDecisionProductMeaningMappingStage` was removed; interpreter is@2.0.
+Luna with reasoning low remains unchanged. The provider sees only the original
+request, a static semantic grammar and instructions: no World catalogue, test
+expectations, profile, prior answers or server resolver clock. IDs, request-bound
+source evidence and structural defaults are generated locally. No redundant
+model summary or fully nullable private graph is emitted over the network.
+
+The local compiler maps exact atomic meanings and known aliases through the
+existing registry and grounding guards. It does not choose a nearest catalogue
+substitute. Unknown compounds, events, modifiers and scope remain in the private
+graph, with UNSUPPORTED/PARTIAL limitations. Vegan pizza cannot become independent
+pizza plus vegan-food proof; exhibition cannot become museum; after school is
+not afternoon, and an appointment is not check-in. Known dates survive an unknown
+event in the same node. Current/future ages remain on the same person. Personal
+consumption declarations stay private context and never become venue exclusions
+or proof of permission to stay without purchase. Group counts are retained but
+cannot establish total party size without explicit total-party semantics.
+Duration bounds and approximate values remain unsupported when the current
+execution contract cannot express their comparison. Unknown details in one OR
+branch do not block a complete alternative; genuinely shared limitations still
+apply to every branch. This is conservative compilation, not universal language
+or catalogue coverage, and does not complete full AP1 production acceptance.
+
+After authentication, body decoding and the cost gate overlap. Both retain their
+before/after control checks; no provider, cohort or evaluation runs until both
+pass. Rate-limit rejection keeps precedence and cancels slow body preparation.
+Profile/World reads were already bundled; cohorts are not speculatively loaded
+before the validated destination and consent context are known. This change does
+not claim measurable downstream savings from that small overlap alone.
+
+One structural repair remains bounded by the existing20s deadline. A valid normal
+request needs one model call, not two. Repair and provider timeout can still be
+slow. Canonical builds, TypeScript,416 runtime/isolation tests,33 release contracts,
+single-route checks and the existing-app synthetic E2E pass;398 focused tests
+passed after the source corrections. No production activation, schema change,
+production data read/write or model change occurred.
+
+Development smoke3:7 reused requests,7 provider calls,7 valid graphs,0 errors.
+Independent semantics:3 PASS,4 PARTIAL,0 FAIL/ERROR. Measured interpretation plus
+compilation spans4.165–8.857s; these are not full app response times. Evidence:
+`/private/tmp/backyrd-compact-server-smoke3/`. The first30-case development run
+was26 valid/4 ERROR/33 calls: unnecessary graph restrictions rejected date+event,
+standalone place reference and negative personal declarations; these restrictions
+were corrected. Tobi05 reached the provider deadline. Immutable evidence remains
+at `/private/tmp/backyrd-compact-server-regression30/`. The second complete Build14 run attempted all30:29 valid contracts,1 ERROR,
+34 calls, all-case median5.437s (baseline11.476s,52.6% lower), valid-only median
+5.368s (baseline11.096s), p9512.864s and maximum13.258s. Estimated returned-token
+cost USD0.00883033, not an invoice. One invalid event was filed under OTHER; the
+later decoder accepts that explicit typed event as TIME. Both unchanged original
+responses replay valid locally, without changing the historical ERROR. A focused
+live follow-up still errored: its first reply validly ordered exhibition after
+BACKGROUND lunch (then unnecessarily rejected), and its repair added an invalid
+self-loop. The private parser now preserves valid background-event relations;
+the original first reply replays valid while the self-loop remains rejected.
+This grants no execution support for sequences. These targeted post-run changes
+are not a successful repeat of all30 and cannot erase that run's error. Original
+traces: `/private/tmp/backyrd-compact-server-regression30-run2/`, with Build14
+source/build hashes in run.json, and `/private/tmp/backyrd-compact-server-focus-exhibition15/`.
+Independent Build14 semantic review: **5 PASS,20 PARTIAL,4 FAIL,1 ERROR**.
+The original baseline was6 PASS,13 PARTIAL,8 FAIL,3 ERROR. Changed meanings and
+aborts decreased, but fully executable understanding coverage did not increase.
+FAILs: Philipp08 loses the preferred rain replacement; Tobi01 loses explicit
+restaurant and keeps only eat/EAT; Tim07 reverses café/bar preference; Tim09
+turns the tea budget ceiling into EQ. ERROR is Philipp09's typed EVENT under
+OTHER, not a timeout. Later local corrections do not alter these grades.
+Review SHA256 `46eb5fa5972a0d4e418875c7d59c328b9337ec17fd5ebadfa08e5169cc0f3765`.
+An independent focused Source check confirmed the later background relation is
+accepted and self-reference still rejected; no additional material blocker was
+identified in that focused diff. Historical focus15 remains ERROR.
+Neither exposed regression set is a fresh holdout. Full app latency,2–3s target,
+meaning quality and broader execution/coverage acceptance remain OPEN. This is
+a draft implementation with measured development savings, not launch readiness.
+
+## Historical latency probes before compact compilation
+
 ## Priority: preserve information and reduce real latency (2026-10-12)
 
 Founder prioritizes information loss/substitution and real app latency; about11s
 is too slow. Both remain acceptance requirements, not interchangeable metrics.
 Two exploratory one-call probes on5 known regression inputs plus1 synthetic
-simple drinks request are **not activated**, and have not changed the canonical
+simple drinks request are **not activated**, and did not change the then-canonical
 two-call Luna-low provider pipeline. No expectations reached the provider.
 
 A combined full meaning+mapping reply uses one request but still emits both

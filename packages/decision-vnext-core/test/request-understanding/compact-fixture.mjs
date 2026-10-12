@@ -1,0 +1,7 @@
+// Existing full-graph fixtures expressed in the new sparse provider grammar.
+export function compactFixture(output) {
+  if(!Array.isArray(output.activities)||!Array.isArray(output.participants)||!Array.isArray(output.constraints))return output;
+  const ai=id=>output.activities.findIndex(x=>x.id===id),pi=id=>output.participants.findIndex(x=>x.id===id);
+  const links=n=>[...(n.alternativeGroup?[{kind:'ALTERNATIVE',group:n.alternativeGroup}]:[]),...(n.condition?[{kind:'CONDITION',text:n.condition}]:[]),...(n.afterActivityId?[{kind:'AFTER',visit:ai(n.afterActivityId)}]:[]),...(n.replacesActivityId?[{kind:'REPLACES',visit:ai(n.replacesActivityId)}]:[])];
+  return {activities:output.activities.map(n=>({concepts:n.concepts??[n.description],status:n.status,links:links(n)})),participants:output.participants.map(n=>({role:n.role,type:n.entityType,participation:n.participation,details:[...(n.age!==null?[{kind:'AGE',value:n.age,timing:n.ageTiming,reference:n.ageTimeReference}]:[]),...(n.quantity!==null?[{kind:'COUNT',value:n.quantity}]:[]),...(n.memberOfParticipantId?[{kind:'MEMBER',group:pi(n.memberOfParticipantId)}]:[])]})),constraints:output.constraints.map(n=>({aspect:n.aspect,concept:n.description,status:n.status,appliesTo:n.activityIds.map(ai),links:links(n),details:[...(n.numericValue!==null?[{kind:'NUMBER',value:n.numericValue,comparison:n.comparison,unit:n.unit,basis:n.basis,components:n.costComponents}]:[]),...(n.participantIds.length?[{kind:'PERSON_SCOPE',people:n.participantIds.map(pi)}]:[])]})),uncertainties:output.uncertainties};
+}

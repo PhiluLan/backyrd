@@ -411,23 +411,25 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
     const deadline = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => { abort.abort(timeoutError); reject(timeoutError); }, ports.control.timeoutMilliseconds);
     });
-    const race = <T>(operation: Promise<T>): Promise<T> => Promise.race([operation, deadline]);
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      abort.signal.addEventListener("abort", () => reject(abort.signal.reason ?? timeoutError), { once: true });
+    });
+    const race = <T>(operation: Promise<T>): Promise<T> => Promise.race([operation, deadline, cancelled]);
     const at = async <T>(boundary: DecisionProductRuntimeBoundary, operation: (signal: AbortSignal) => Promise<T>): Promise<T> => {
       stage = boundary;
       const elapsed = { stage: boundary, controlBeforeMs: 0, operationMs: 0, controlAfterMs: 0 };
+      timings.push(elapsed);
       const measure = async <V>(key: "controlBeforeMs" | "operationMs" | "controlAfterMs", call: () => Promise<V> | V): Promise<V> => {
         const started = performance.now();
         try { return await race(Promise.resolve(call())); }
         finally { elapsed[key] = Math.round(performance.now() - started); }
       };
-      try {
-        await measure("controlBeforeMs", () => ports.control.assertBoundary(boundary, abort.signal));
-        const result = await measure("operationMs", () => operation(abort.signal));
-        // A control transition during an awaited operation must suppress its
-        // result, including a response assembled from already-read data.
-        await measure("controlAfterMs", () => ports.control.assertBoundary(boundary, abort.signal));
-        return result;
-      } finally { timings.push(elapsed); }
+      await measure("controlBeforeMs", () => ports.control.assertBoundary(boundary, abort.signal));
+      const result = await measure("operationMs", () => operation(abort.signal));
+      // A control transition during an awaited operation must suppress its
+      // result, including a response assembled from already-read data.
+      await measure("controlAfterMs", () => ports.control.assertBoundary(boundary, abort.signal));
+      return result;
     };
     try {
       await at("REQUEST_START", async () => undefined);
@@ -436,15 +438,33 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       if (!token) throw new DecisionProductError("UNAUTHENTICATED", 401, "Bitte melde dich an.");
       const actor = await at("AUTH", (signal) => ports.auth.authenticate(token, signal));
       if (!actor) throw new DecisionProductError("UNAUTHENTICATED", 401, "Die Anmeldung ist ungültig oder abgelaufen.");
-      if (!await at("RATE_LIMIT", (signal) => ports.rateLimit.consume(actor.subjectBindingHash, signal))) throw new DecisionProductError("RATE_LIMITED", 429, "Zu viele Anfragen. Bitte versuche es später erneut.");
-      const parsedRequest = await at("BODY_PARSE", async () => {
+      // Body decoding and the cost gate are independent after authentication.
+      // Await both before any provider/data evaluation; preserve the historical
+      // rate-limit error precedence and every before/after control check.
+      const limitJob = at("RATE_LIMIT", (signal) => ports.rateLimit.consume(actor.subjectBindingHash, signal));
+      const bodyJob =
+        at("BODY_PARSE", async () => {
         const text = await request.text(); if (new TextEncoder().encode(text).length > ports.control.maxRequestBytes) throw new DecisionProductError("REQUEST_TOO_LARGE", 413, "Die Anfrage ist zu groß.");
         let raw: unknown; try { raw = JSON.parse(text); } catch { throw new DecisionProductError("INVALID_JSON", 400, "Die Anfrage enthält kein gültiges JSON."); }
         const version = raw && typeof raw === "object" && "contractVersion" in raw ? (raw as { contractVersion?: unknown }).contractVersion : null;
         return version === PRODUCT_DECISION_VERSIONS.interactionRequest
           ? DecisionProductInteractionRequestSchema.parse(raw)
           : DecisionProductRequestSchema.parse(raw);
-      });
+        });
+      const settled = Promise.allSettled([limitJob, bodyJob]);
+      let allowed: boolean;
+      try { allowed = await limitJob; }
+      catch (error) { stage = "RATE_LIMIT"; abort.abort(error); await settled; throw error; }
+      stage = "RATE_LIMIT";
+      if (!allowed) {
+        const error = new DecisionProductError("RATE_LIMITED", 429, "Zu viele Anfragen. Bitte versuche es später erneut.");
+        abort.abort(error); await settled; throw error;
+      }
+      const preflight = await settled;
+      stage = "BODY_PARSE";
+      const decoded = preflight[1];
+      if (decoded.status === "rejected") throw decoded.reason;
+      const parsedRequest = decoded.value;
       if (parsedRequest.contractVersion === PRODUCT_DECISION_VERSIONS.interactionRequest) {
         const authority = await at("INTERACTION_AUTHORITY", (signal) => ports.interaction.resolve({ request: parsedRequest, actor }, signal));
         if (authority.status === "AUTHORIZED") {
@@ -519,6 +539,6 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       try { ports.diagnostics?.reportFailure(stage, internalCode); } catch { /* Diagnostics may never change the fail-closed response. */ }
       reportTimings("ERROR");
       return errorResponse(known);
-    } finally { if (timeout) clearTimeout(timeout); }
+    } finally { if (timeout) clearTimeout(timeout); abort.abort(); }
   };
 }

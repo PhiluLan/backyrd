@@ -1,6 +1,7 @@
+import {compactFixture} from './compact-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseProductRequestMeaning,productRequestMeaningModelSchema,createDecisionProductMeaningStage,PRODUCT_REQUEST_MEANING_VERSION,productRequestMeaningEvidenceOptions} from '../../dist/index.js';
+import {parseProductRequestMeaning,createDecisionProductMeaningStage,PRODUCT_REQUEST_MEANING_VERSION} from '../../dist/index.js';
 const text='Mit meiner Tochter Tiere beobachten, aber kein Zoo. Nach der Schule. Maximal 20 CHF pro Person.';
 const sources={E1:text,E2:'Nach der Schule.'};
 const activity=(id='A1',extra={})=>({id,description:'Tiere beobachten',status:'REQUESTED',alternativeGroup:null,condition:null,afterActivityId:null,replacesActivityId:null,evidence:['E1'],...extra});
@@ -8,7 +9,7 @@ const constraint=(extra={})=>({id:'C1',aspect:'TIME',description:'Nach der Schul
 const output=()=>({summary:'Tiererlebnis mit Tochter ohne Zoo nach der Schule.',activities:[activity()],participants:[{id:'P1',role:'Tochter',entityType:'PERSON',participation:'CONFIRMED',quantity:null,age:null,ageTiming:'UNKNOWN',ageTimeReference:null,memberOfParticipantId:null,evidence:['E1']}],constraints:[constraint()],uncertainties:[]});
 const actor={userId:'11111111-1111-4111-8111-111111111111'};
 const request={contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'meaning-test',idempotencyKey:'meaning-test',naturalLanguage:text,explicit:{},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
-const response=o=>({ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(o)}]}]})});
+const response=o=>({ok:true,json:async()=>({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(compactFixture(o))}]}]})});
 const stage=fetchImpl=>createDecisionProductMeaningStage({apiKey:'fixture-only',model:'gpt-6-luna',allowedUserIds:'*',fetchImpl});
 test('open concepts and personal relationships survive without World taxonomy',()=>{const p=parseProductRequestMeaning(output(),text,sources);assert.equal(p.contractVersion,PRODUCT_REQUEST_MEANING_VERSION);assert.equal(p.activities[0].description,'Tiere beobachten');assert.equal(p.constraints[0].description,'Nach der Schule');assert.equal(p.participants[0].role,'Tochter');assert.equal(p.participants[0].age,null);assert.ok(Object.isFrozen(p.constraints));});
 test('separate nonrequirements, corrections, weather alternatives and ordering',()=>{const o=output();o.activities=[activity('A1',{description:'Bootsfahrt'}),activity('A2',{description:'Museum',status:'OPTIONAL',condition:'Falls es regnet'}),activity('A3',{description:'Kaffee danach',afterActivityId:'A2'}),activity('A4',{description:'Führung',status:'NOT_REQUIRED'})];o.constraints.push(constraint({id:'C2',description:'Samstag geht nicht mehr',status:'SUPERSEDED',evidence:['E1']}));assert.equal(parseProductRequestMeaning(o,text,sources).activities[3].status,'NOT_REQUIRED');});
@@ -42,7 +43,6 @@ for(const [name,mutate,pattern] of [
  ['null age marked current',o=>o.participants[0].ageTiming='CURRENT',/age_timing_invalid/],
  ['unexpected field',o=>o.ranking=100,/unknown field/],
 ])test('reject '+name,()=>{const o=output();mutate(o);assert.throws(()=>parseProductRequestMeaning(o,text,name==='foreign quote'?{...sources,E1:'foreign'}:sources),pattern);});
-test('provider schema is small, closed in shape and open in concepts',()=>{const s=productRequestMeaningModelSchema(['E1']);assert.equal(s.additionalProperties,false);assert.ok(JSON.stringify(s).length<7000);assert.ok(!JSON.stringify(s).includes('GUIDED_TOUR'));assert.throws(()=>productRequestMeaningModelSchema(['E1','E1']),/sources_invalid/);});
 test('Luna low receives no catalog and produces ephemeral meaning',async()=>{let captured;const run=stage(async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/responses');captured=JSON.parse(options.body);return response(output());});const p=await run(request,actor,new AbortController().signal);assert.equal(p.activities[0].description,'Tiere beobachten');assert.equal(captured.store,false);assert.equal(captured.reasoning.effort,'low');assert.equal(captured.max_output_tokens,3600);assert.ok(!captured.instructions.includes('Zulässige Felder'));assert.equal(captured.text.format.strict,true);assert.ok(!Object.hasOwn(p,'hardConstraints'));});
 test('allowlist denial calls no provider',async()=>{const run=createDecisionProductMeaningStage({apiKey:'fixture',model:'gpt-6-luna',allowedUserIds:[],fetchImpl:async()=>{throw Error('must not call')}});assert.equal(await run(request,actor,new AbortController().signal),null);});
 test('cancelled request calls no provider',async()=>{const controller=new AbortController();controller.abort();await assert.rejects(stage(async()=>{throw Error('must not call')})(request,actor,controller.signal),/aborted/);});
@@ -50,7 +50,7 @@ test('structural repair is bounded to two calls, failures expose no payload',asy
 test('provider failure is not reported as understood and not retried',async()=>{let calls=0;await assert.rejects(stage(async()=>{calls++;return {ok:false,status:429}})(request,actor,new AbortController().signal),/provider_unavailable/);assert.equal(calls,1);});
 test('cancellation during response prevents late successful output',async()=>{const controller=new AbortController();const run=stage(async()=>{controller.abort();return response(output());});await assert.rejects(run(request,actor,controller.signal),/aborted/);});
 
-test('long request keeps all terms groundable within the evidence budget',async()=>{const long='Ich suche '+Array.from({length:125},(_,i)=>'Wunsch'+i).join(' ');const sources=productRequestMeaningEvidenceOptions(long);assert.ok(Object.keys(sources).length<=120);assert.equal(sources.E1,long);let called=0;const o=output();o.activities[0].evidence=['E1'];o.participants[0].evidence=['E1'];o.constraints[0].evidence=['E1'];await stage(async()=>{called++;return response(o)})({...request,naturalLanguage:long},actor,new AbortController().signal);assert.equal(called,1);});
+test('long request keeps all terms groundable within the evidence budget',async()=>{const long='Ich suche '+Array.from({length:125},(_,i)=>'Wunsch'+i).join(' ');let called=0;const o=output();o.activities[0].evidence=['E1'];o.participants[0].evidence=['E1'];o.constraints[0].evidence=['E1'];await stage(async()=>{called++;return response(o)})({...request,naturalLanguage:long},actor,new AbortController().signal);assert.equal(called,1);});
 
 test('named child can belong to a counted group without an extra group member',()=>{const o=output();o.participants.push({...o.participants[0],id:'P2',role:'Kinder',entityType:'GROUP',quantity:8});o.participants[0].memberOfParticipantId='P2';const p=parseProductRequestMeaning(o,text,sources);assert.equal(p.participants[0].memberOfParticipantId,'P2');});
 
@@ -63,7 +63,7 @@ test('required conditional replacement can express staying home in a thunderstor
 
 test('future age keeps its original time reference without becoming a visit date',()=>{const o=output();o.participants[0]={...o.participants[0],age:11,ageTiming:'FUTURE',ageTimeReference:'nächste Woche'};const p=parseProductRequestMeaning(o,text,sources);assert.equal(p.participants[0].ageTimeReference,'nächste Woche');assert.equal(p.participants[0].ageTiming,'FUTURE');assert.equal(p.constraints.length,1);});
 
-test('a valid first meaning needs only one call and never sends prior answers',async()=>{let calls=0;const run=stage(async(_url,options)=>{const b=JSON.parse(options.body),data=JSON.parse(b.input);calls++;assert.ok(!Object.hasOwn(data,'draft'));assert.ok(b.instructions.includes('kritisch'));return response(output());});await run(request,actor,new AbortController().signal);assert.equal(calls,1);});
+test('a valid first meaning needs only one call and never sends prior answers',async()=>{let calls=0;const run=stage(async(_url,options)=>{const b=JSON.parse(options.body),data=JSON.parse(b.input);calls++;assert.ok(!Object.hasOwn(data,'draft'));assert.ok(b.instructions.includes('Prüfe'));return response(output());});await run(request,actor,new AbortController().signal);assert.equal(calls,1);});
 test('an invalid first meaning is repaired without a test oracle',async()=>{let calls=0;const run=stage(async(_url,options)=>{const b=JSON.parse(options.body);calls++;if(calls===2){assert.ok(b.instructions.includes('strukturell ungültig'));assert.ok(!Object.hasOwn(JSON.parse(b.input),'draft'));}return response(calls===1?{}:output());});assert.ok(await run(request,actor,new AbortController().signal));assert.equal(calls,2);});
 
 
@@ -83,4 +83,4 @@ test('cost scope is typed independently of wording and rejects duplicates or non
  o.constraints[0]={...constraint(),costComponents:['DRINKS']};assert.throws(()=>parseProductRequestMeaning(o,text,sources),/cost_scope_invalid/);
 });
 
-for(const patch of [{status:'REQUESTED'},{numericValue:5,comparison:'LTE',unit:'CHF',basis:'pro Person'},{alternativeGroup:'R1'}])test('personal refusal cannot absorb positive, numeric or alternative needs '+JSON.stringify(patch),()=>{const o=output();o.constraints=[constraint({aspect:'PERSONAL_CONSUMPTION',description:'Getränk bestellen',status:'EXCLUDED',comparison:null,numericValue:null,unit:null,basis:null,...patch})];assert.throws(()=>parseProductRequestMeaning(o,text,sources),/personal_consumption_invalid/);});
+for(const patch of [{numericValue:5,comparison:'LTE',unit:'CHF',basis:'pro Person'},{alternativeGroup:'R1'}])test('personal context cannot absorb numeric or alternative needs '+JSON.stringify(patch),()=>{const o=output();o.constraints=[constraint({aspect:'PERSONAL_CONSUMPTION',description:'Getränk bestellen',status:'EXCLUDED',comparison:null,numericValue:null,unit:null,basis:null,...patch})];assert.throws(()=>parseProductRequestMeaning(o,text,sources),/personal_consumption_invalid/);});

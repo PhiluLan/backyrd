@@ -779,3 +779,14 @@ test("active product module has no legacy, founder allowlist, dual-run or fallba
   const evaluator = await readFile(new URL("../src/product-v1-evaluator.ts", import.meta.url), "utf8");
   assert.doesNotMatch(contracts + evaluator, /FounderLab|FOUNDER_WORLD_COHORT|SYNTHETIC_FALLBACK|decision-learning-event@1\.0|DecisionLearningEventSchema/);
 });
+
+test('body preparation overlaps authenticated cost gate without starting AI before authorization', async()=>{
+ let releaseLimit;let bodyStarted=false;let interpreted=false;
+ const handler=createDecisionProductHttpHandler({auth:{async authenticate(){return ACTOR;}},rateLimit:{consume(){return new Promise(resolve=>{releaseLimit=resolve;});}},control:{timeoutMilliseconds:2000,maxRequestBytes:16384,async assertBoundary(){}},async interpret(){interpreted=true;throw Error('stop after authorized preparation');},async evaluate(){throw Error('must not evaluate');},idempotency:{async commit(){throw Error('must not commit');}},learning:{contractVersion:'backyrd.user-intelligence.product-decision-learning-port@1.0',async record(){throw Error('must not learn');}}});
+ const req=new Request('https://example.test/decision',{method:'POST',headers:{authorization:'Bearer fixture'},body:JSON.stringify(productRequest('Café in Zürich','parallel-body'))});const originalText=req.text.bind(req);req.text=async()=>{bodyStarted=true;return originalText();};
+ const response=handler(req);await new Promise(setImmediate);assert.equal(bodyStarted,true);assert.equal(interpreted,false);releaseLimit(true);assert.equal((await response).status,503);assert.equal(interpreted,true);
+});
+test('denied cost gate cancels slow body preparation and retains rate-limit precedence',async()=>{
+ let interpreted=false;const handler=createDecisionProductHttpHandler({auth:{async authenticate(){return ACTOR;}},rateLimit:{async consume(){return false;}},control:{timeoutMilliseconds:2000,maxRequestBytes:16384,async assertBoundary(){}},async interpret(){interpreted=true;throw Error('must not invoke AI');},async evaluate(){throw Error('must not evaluate');},idempotency:{async commit(){throw Error('must not commit');}},learning:{contractVersion:'backyrd.user-intelligence.product-decision-learning-port@1.0',async record(){throw Error('must not learn');}}});
+ const req=new Request('https://example.test/decision',{method:'POST',headers:{authorization:'Bearer fixture'},body:'not JSON'});req.text=()=>new Promise(()=>{});const response=await handler(req);assert.equal(response.status,429);assert.equal(interpreted,false);
+});
