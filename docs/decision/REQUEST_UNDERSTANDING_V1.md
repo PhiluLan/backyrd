@@ -82,6 +82,40 @@ Neither exposed regression set is a fresh holdout. Full app latency,2–3s targe
 meaning quality and broader execution/coverage acceptance remain OPEN. This is
 a draft implementation with measured development savings, not launch readiness.
 
+## Ten simple requests: unchanged compact runtime (2026-10-12)
+
+At the founder's request, ten new short German requests ran once each through
+the unchanged runtime19209a2, Luna low, fixed resolver clock2026-10-12T12:00Z.
+Input corpus: `test/request-understanding/meaning-simple-10-corpus.json` in the
+Decision core package. It includes drinks with friends, cozy café Basel, upscale
+dining, tonight's pizza Zürich, quiet walking Bern, tomorrow's playground Aarau
+with a daughter, coffee by a lake, affordable lunch Luzern, bowling Winterthur
+with colleagues, and Restaurant Basel at most20CHF per person. Original strings
+and expectations were frozen before calls; expectations never reached OpenAI.
+The test harness explicitly supplies Zurich as PROFILE_DEFAULT when no city is
+requested; this is not a model-inferred destination. No runtime changes occurred.
+
+All10 valid contracts,10 calls,0 technical errors. Independent semantics:
+**4 PASS,6 PARTIAL,0 FAIL,0 ERROR**. PASS01/02/04/09. No changed/lost meanings
+identified in these outputs; this small development sample is not production
+acceptance. PARTIAL03/05/06/08: upscale, walking, playground and low-cost retained
+but not compiled;07: lake retained as unresolved location reference;10: correct
+20CHF/LTE/PER_PERSON retained but unnecessarily flagged PARTIAL and globally
+OTHER_CORE_NEED_UNMAPPED. That flag is our compilation limitation, not a model
+number error or missing Spot-price evidence. No exact price ceiling was invented
+for the qualitative cheap request; no upscale-price obligation was added.
+
+Interpretation+compilation median3.3525s, mean4.0799s, range2.914–9.629s. The
+slow walking case also used exactly one provider call: no repair caused its
+latency. These are not full app timings or comparable same-input measurements
+against the earlier complex30. Returned-token cost estimateUSD0.00157309, not
+an invoice. No Spot candidates, actual prices or opening hours were evaluated.
+Raw request/response bodies and independent review are outside Git:
+`/private/tmp/backyrd-simple10-19209a2/`. Corpus SHA256
+`e379c8efd2290dde865d743e1ede532216c830f1ce48055a7ff731a23c8ac66a`,
+report SHA256 `94e8bc55959ec6ebfd1f92593cb53148795c4c3d9ade20654e864052df8b9579`,
+review SHA256 `3350034a14d41228c14900052437a8021d83709da60819236ef00b7aecccc0df`.
+
 ## Historical latency probes before compact compilation
 
 ## Priority: preserve information and reduce real latency (2026-10-12)
