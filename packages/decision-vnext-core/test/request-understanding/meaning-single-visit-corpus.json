@@ -1,0 +1,45 @@
+{
+  "scope": "SINGLE_VISIT_DEVELOPMENT_8_CASES_NOT_HOLDOUT",
+  "cases": [
+    {
+      "id": "single-visit-live-01",
+      "text": "Ich möchte heute in Zürich entweder in ein ruhiges Café oder in ein Museum. Das Museum muss nicht ruhig sein.",
+      "expected": "Ruhe nur Café; Museum eigenerZweig; heuteZürich"
+    },
+    {
+      "id": "single-visit-live-02",
+      "text": "Morgen in Basel ein Museum oder lieber ein Kino — Hauptsache, eines davon.",
+      "expected": "EinBesuch; MuseumODERbevorzugtesKino; morgenBasel"
+    },
+    {
+      "id": "single-visit-live-03",
+      "text": "Heute Nachmittag in Bern: Café mit Terrasse oder Museum. Die Terrasse brauche ich nur beim Café.",
+      "expected": "Terrasse nurCafé; Museum eigenerZweig; BernHeuteNachmittag"
+    },
+    {
+      "id": "single-visit-live-04",
+      "text": "Am Samstag in Luzern ein Restaurant mit veganem Essen oder ein Café mit Kuchen.",
+      "expected": "Vegan nurRestaurant; Kuchen nurCafé; LuzernSamstag"
+    },
+    {
+      "id": "single-visit-live-05",
+      "text": "In Zürich entweder ein Café für maximal 15 CHF pro Person oder ein Museum; für das Museum gilt die Preisgrenze nicht.",
+      "expected": "15CHFproPersonnurCafé; keinePreisgrenzeMuseum"
+    },
+    {
+      "id": "single-visit-live-06",
+      "text": "Museum oder Kino in Basel, bitte beide nur mit stufenlosem Eingang.",
+      "expected": "Globalstufenlosfürbeide; keineZweigaufweichung"
+    },
+    {
+      "id": "single-visit-live-07",
+      "text": "In Bern möchte ich ins Café oder in ein Museum, lieber ins Café. Bitte keine Bar als Ersatz.",
+      "expected": "Cafébevorzugt; MuseumAlternative; BarglobalkeinErsatz"
+    },
+    {
+      "id": "single-visit-live-08",
+      "text": "Entweder ein ruhiges Café oder lieber ein Museum in Zürich. Ich will einen Ort auswählen, nicht beides nacheinander besuchen.",
+      "expected": "EchterEinzelbesuch; RuheCafé; bevorzugtesMuseum; keineSequenz"
+    }
+  ]
+}

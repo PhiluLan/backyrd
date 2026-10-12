@@ -81,6 +81,7 @@ function vector(candidate: DecisionProductCandidateAssessment, projection: Relev
     actualAvailability: candidate.actualAvailability.status,
     userRelevance: userRelevance(candidate, projection),
     contextFit: {
+      ...(candidate.reasons.some(row => row.reasonCode === "single-visit-alternative-confirmed") ? { preferredAlternativeConfirmed: candidate.reasons.some(row => row.reasonCode === "preferred-visit-alternative" && row.confirmed) } : {}),
       secondaryIntentConfirmed: candidate.secondaryIntentCoverage.state === "CONFIRMED",
       visitSituationConfirmed: candidate.visitSituation.state === "CONFIRMED",
       matchedSoftPreferenceCount: candidate.matchedSoftPreferences.length,
@@ -108,6 +109,7 @@ function rankingChecks(left: CandidateForRanking, right: CandidateForRanking): r
     [compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]), "der besser belegten Hauptabsicht"],
     [compareNumber(coreScore[a.primaryVisitPurposeState], coreScore[b.primaryVisitPurposeState]), "des zusätzlich bestätigten Hauptzwecks"],
     [compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]), "der besser belegten Verfügbarkeit"],
+    [compareBoolean(a.contextFit.preferredAlternativeConfirmed ?? false, b.contextFit.preferredAlternativeConfirmed ?? false), "der ausdrücklich bevorzugten passenden Alternative"],
     [compareBoolean(a.contextFit.secondaryIntentConfirmed, b.contextFit.secondaryIntentConfirmed), "einer bestätigten Nebenabsicht"],
     [compareBoolean(a.contextFit.visitSituationConfirmed, b.contextFit.visitSituationConfirmed), "der bestätigten Besuchssituation"],
     [compareNumber(a.contextFit.matchedSoftPreferenceCount, b.contextFit.matchedSoftPreferenceCount), "weiterer bestätigter Kontextmerkmale"],
@@ -123,6 +125,12 @@ function rankingChecks(left: CandidateForRanking, right: CandidateForRanking): r
 
 function compareCandidates(left: CandidateForRanking, right: CandidateForRanking): number {
   return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[0] ?? 0;
+}
+
+export function compareProductCandidateAssessments(left: DecisionProductCandidateAssessment, right: DecisionProductCandidateAssessment, projection: RelevantUserProjection): number {
+  const row = (candidate: DecisionProductCandidateAssessment): CandidateForRanking => ({ spotId: candidate.candidateId, tier: candidate.tier, coreIntentCoverage: candidate.coreIntentCoverage.state,
+    actualAvailability: candidate.actualAvailability.status, unknownHardConstraints: candidate.unknownHardConstraints, contextualReject: candidate.rejectionClass === "SITUATIONAL_REJECT", rankVector: vector(candidate, projection) });
+  return compareCandidates(row(left), row(right));
 }
 
 function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null): boolean {
@@ -176,7 +184,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
   const assessment = candidate.assessment;
   const reasons: ProductReason[] = [
     ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-    { code: "product-ranking-policy-v3", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    { code: "product-ranking-policy-v4", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
   ];
   return DecisionProductCandidateSchema.parse(withContentHash({
@@ -231,7 +239,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
     && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
   const situationalIds = evaluation.interpretation.primaryIntent !== null ? null : new Set(
-    situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
+    evaluation.interpretation.visitAlternatives?.length ? evaluation.candidates.filter(candidate => candidate.reasons.some(row => row.reasonCode === "single-visit-alternative-confirmed" && row.confirmed)).map(candidate => candidate.candidateId) : situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );
   const ranked = candidateRows(evaluation, projection, input.presentations, situationalIds);

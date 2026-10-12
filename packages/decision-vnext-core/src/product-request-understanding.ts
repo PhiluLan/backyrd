@@ -1,3 +1,4 @@
+import { PRODUCT_V1_INTENT_IDS, type ProductV1Intent } from "./product-intent-ids.js";
 import { isPublicMunicipality } from "./product-public-municipalities.js";
 import { accessibilityRequestScope } from "./product-request-context.js";
 import { contentHash, deepFreeze } from "./canonical.js";
@@ -46,9 +47,10 @@ export const productRequirementSchema = schema.object({
 export type ProductRequirement = Infer<typeof productRequirementSchema>;
 export type ProductBudgetRequirement = Infer<typeof budgetValue>;
 export type ProductTimeRequirement = Infer<typeof timeValue>;
+export type ProductVisitAlternative = { readonly id: string; readonly intent: ProductV1Intent; readonly preferred: boolean; readonly requirements: readonly ProductRequirement[]; readonly unresolved: boolean };
 export type ProductUnderstanding = {
   readonly contractVersion: typeof PRODUCT_UNDERSTANDING_VERSION; readonly policyVersion: typeof PRODUCT_UNDERSTANDING_POLICY;
-  readonly requestHash: string; readonly requirements: readonly ProductRequirement[]; readonly understandingHash: string; readonly interpretationSource?: "MEANING_PLAN"; readonly knownAgesPartial?: true;
+  readonly requestHash: string; readonly requirements: readonly ProductRequirement[]; readonly understandingHash: string; readonly interpretationSource?: "MEANING_PLAN"; readonly knownAgesPartial?: true; readonly visitAlternatives?: readonly ProductVisitAlternative[];
 };
 export type ProductInterpretation = { readonly request: DecisionProductRequest; readonly understanding: ProductUnderstanding | null };
 const facetDimensions: Readonly<Record<string, readonly string[]>> = {
@@ -257,19 +259,28 @@ export function decodeRequirementCache(value: unknown): readonly ProductRequirem
     return validateRequirement({ dimension: row[0], importance: row[1], operator: row[2], origin: row[3], interpretationState: row[4], value: row[5], alternatives: row[6], group: row[7], ...(row.length === 9 ? { condition: row[8] } : {}) });
   }));
 }
-export function bindProductUnderstanding(request: DecisionProductRequest, requirements: readonly ProductRequirement[], interpretationSource?: "MEANING_PLAN", knownAgesPartial?: true): ProductUnderstanding {
+export function bindProductUnderstanding(request: DecisionProductRequest, requirements: readonly ProductRequirement[], interpretationSource?: "MEANING_PLAN", knownAgesPartial?: true, visitAlternatives?: readonly ProductVisitAlternative[]): ProductUnderstanding {
   if (requirements.length > 12 || requirements.filter(r => r.dimension === "AGE").length > 1) throw new Error("product_understanding_bounds_invalid");
   if (interpretationSource !== undefined && interpretationSource !== "MEANING_PLAN") throw new Error("product_understanding_source_invalid");
   if (knownAgesPartial !== undefined && (knownAgesPartial !== true || interpretationSource !== "MEANING_PLAN")) throw new Error("product_understanding_source_invalid");
-  const body = { contractVersion: PRODUCT_UNDERSTANDING_VERSION, policyVersion: PRODUCT_UNDERSTANDING_POLICY, requestHash: contentHash(request), requirements: requirements.map(validateRequirement), ...(interpretationSource ? { interpretationSource } : {}), ...(knownAgesPartial ? { knownAgesPartial } : {}) };
+  if (visitAlternatives !== undefined && (interpretationSource !== "MEANING_PLAN" || !visitAlternatives.length || visitAlternatives.length > 4
+    || new Set(visitAlternatives.map(branch => branch.id)).size !== visitAlternatives.length
+    || requirements.length + visitAlternatives.reduce((sum, branch) => sum + branch.requirements.length, 0) > 24)) throw new Error("product_visit_alternatives_invalid");
+  const branches = visitAlternatives?.map(branch => {
+    if (Object.keys(branch).sort().join() !== "id,intent,preferred,requirements,unresolved" || !/^A[1-9][0-9]?$/.test(branch.id)
+      || !(PRODUCT_V1_INTENT_IDS as readonly string[]).includes(branch.intent) || typeof branch.preferred !== "boolean" || typeof branch.unresolved !== "boolean"
+      || !Array.isArray(branch.requirements) || branch.requirements.length + requirements.length > 12) throw new Error("product_visit_alternatives_invalid");
+    return { ...branch, requirements: branch.requirements.map(validateRequirement) };
+  });
+  const body = { contractVersion: PRODUCT_UNDERSTANDING_VERSION, policyVersion: PRODUCT_UNDERSTANDING_POLICY, requestHash: contentHash(request), requirements: requirements.map(validateRequirement), ...(interpretationSource ? { interpretationSource } : {}), ...(knownAgesPartial ? { knownAgesPartial } : {}), ...(branches ? { visitAlternatives: branches } : {}) };
   return deepFreeze({ ...body, understandingHash: contentHash(body) });
 }
 export function validateProductUnderstanding(value: ProductUnderstanding, request: DecisionProductRequest): ProductUnderstanding {
   if (!value || value.contractVersion !== PRODUCT_UNDERSTANDING_VERSION || value.policyVersion !== PRODUCT_UNDERSTANDING_POLICY || !Array.isArray(value.requirements) || value.requirements.length > 12
-    || Object.keys(value).sort().join() !== ["contractVersion", "policyVersion", "requestHash", "requirements", "understandingHash", ...(Object.hasOwn(value, "interpretationSource") ? ["interpretationSource"] : []), ...(Object.hasOwn(value, "knownAgesPartial") ? ["knownAgesPartial"] : [])].sort().join()) throw new Error("product_understanding_binding_invalid");
+    || Object.keys(value).sort().join() !== ["contractVersion", "policyVersion", "requestHash", "requirements", "understandingHash", ...(Object.hasOwn(value, "interpretationSource") ? ["interpretationSource"] : []), ...(Object.hasOwn(value, "knownAgesPartial") ? ["knownAgesPartial"] : []), ...(Object.hasOwn(value, "visitAlternatives") ? ["visitAlternatives"] : [])].sort().join()) throw new Error("product_understanding_binding_invalid");
   if (Object.hasOwn(value, "interpretationSource") && value.interpretationSource !== "MEANING_PLAN") throw new Error("product_understanding_source_invalid");
   if (Object.hasOwn(value, "knownAgesPartial") && value.knownAgesPartial !== true) throw new Error("product_understanding_source_invalid");
-  const expected = bindProductUnderstanding(request, value.requirements, value.interpretationSource, value.knownAgesPartial);
+  const expected = bindProductUnderstanding(request, value.requirements, value.interpretationSource, value.knownAgesPartial, value.visitAlternatives);
   if (expected.requestHash !== value.requestHash || expected.understandingHash !== value.understandingHash) throw new Error("product_understanding_binding_invalid");
   return expected;
 }

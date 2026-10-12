@@ -52,6 +52,94 @@ are not sent to the model. Every live semantic assessment must inspect all meani
 items, their modalities and references; a correct summary or valid JSON is not a
 semantic PASS. The separately authored inputs are preserved in `meaning-additional-corpus.json`; run them with `--corpus packages/decision-vnext-core/test/request-understanding/meaning-additional-corpus.json`. These became development cases after their first v8 evaluation.
 
+## Single-visit alternatives — implementation (2026-10-12)
+
+Founder scope: visit sequences/itineraries are a separate, larger product project
+and are excluded from this work package. This increment supports up to four
+unconditional alternatives for **one visit in one authorized search city**;
+weather activation, multi-area discovery and temporal OR execution are not part
+of its acceptance. Full AP1 production acceptance remains OPEN.
+
+The immutable search plan projects typed private `visitAlternatives` into the
+existing understanding port. Each branch carries its canonical intent, local
+requirements, preference and unresolved status; shared requirements remain
+separate. One complete branch suffices (OR), but its requested conditions must
+all be checked (AND). Requested branch properties are assessed as eligibility
+requirements; unknown evidence does not become a match. The existing canonical
+assessment/ranking code is reused for every branch, not a second recommendation
+engine. A spot matching several branches produces one assessment/result, using
+the best eligible branch; no combination of partial matches across branches.
+
+Explicit UI intent, access, budget and exclusions remain authoritative. Generated
+local filter-group IDs cannot collide with global explicit groups and widen them
+into OR. A confirmed preferred branch is considered within situational ranking,
+after eligibility/core/purpose/availability; a closed or unknown preferred option
+cannot displace an otherwise confirmed valid option. Unsupported alternatives
+use `VISIT_ALTERNATIVE_UNMAPPED`: the whole choice remains partial, without
+unconfirming a supported complete branch or erasing its preference. The client
+shows that a different alternative remains unchecked. Other unresolved required
+needs continue to affect the relevant fit.
+
+Targets-only activities receive an intent only from their exact canonical place
+types; conflicting intent/place-type mappings are rejected. An identical proven
+destination present inside every supported branch is promoted before retrieval;
+PROFILE_DEFAULT does not override it. No raw description guessing is involved.
+The existing context-v5 RPC already reads the full verified city cohort, so one
+existing authenticated query covers all intents. Auth, RLS, release control and
+World admission are unchanged; no SQL migration or production query/mutation.
+
+Public context 1.1 has optional branch summaries (id/intent/preferred/requirements
+hash only); private descriptions/roles never enter them. Rank-vector contextFit
+has optional preferredAlternativeConfirmed. Mobile/Web validators accept and
+validate these additions while retaining older response compatibility. Enable
+only with compatible clients and backend in the controlled Product release;
+this is not a deploy instruction. Versioned candidate: meaning policy v14,
+mapping policy v4, context resolver v12, evaluator 2.15, ranking policy v4,
+evaluation release v10. The historical 4.43 development factory remains inactive
+in the runtime composition.
+
+The fresh eight-case development corpus is `meaning-single-visit-corpus.json`.
+Its oracle is never sent to Luna. First full run (v13 meaning): 8 valid contracts,
+24 calls, USD 0.017550075 estimated; independent semantic **4 PASS / 2 PARTIAL /
+2 FAIL**. Failures: first-mentioned Café preference inverted in P1, and valid
+place targets without an intent discarded by projection. Other partials: broad
+Backwaren for specific Kuchen and a redundant unsupported one-visit constraint.
+Original reports remain unchanged.
+
+Second full run (meaning v14/mapping v4): 8 valid contracts, 24 calls, estimated
+USD 0.01753720, observed 10.2–15.3 seconds. Independent review: P1 **8 PASS**,
+normalization **7 PASS / 1 PARTIAL**; initial full projection **6 PASS / 1 PARTIAL /
+1 FAIL**, because a common Basel destination lived only inside both branches.
+That deterministic projection defect was repaired. Offline reprojection of all
+eight **unchanged captured plans** is independently **7 PASS / 1 PARTIAL / 0 FAIL**,
+not another successful model measurement. The exact Basel case also passes a
+synthetic World assessment with verified step-free museum entrance. Remaining
+PARTIAL: Kuchen has no faithful current catalog concept; it stays UNSUPPORTED
+rather than proving cake from bread/backwaren. A supported vegan restaurant
+branch remains usable.
+
+Final canonical CI: **324 Decision tests** (including 16 single-visit regressions),
+33 release contracts, strict TypeScript, single route and synthetic existing-app
+E2E PASS. Mobile 8/8, Web consumer 17/17 and World bridge 17/17 also pass.
+Independent read-only review found no remaining material error in these tested
+scope fixes. A local synthetic upper-bound check evaluated 1000 candidates with
+four branches in 1701 ms; this is not production end-to-end latency evidence.
+
+Captured evidence stays outside Git at
+`/private/tmp/backyrd-single-visit-live-v1` and `...-v2`, with input/source hashes,
+provider requests/responses without auth headers, original reports and separate
+`replay-final.json`. Reproduce after the canonical build using the existing
+approved-fixture runner and a server-process key already configured:
+
+```sh
+node packages/decision-vnext-core/test/request-understanding/run-meaning-evaluation.mjs --live --pipeline --corpus packages/decision-vnext-core/test/request-understanding/meaning-single-visit-corpus.json --output /private/tmp/backyrd-single-visit-report.json
+```
+
+These inputs became known development regressions after their first run. No
+production acceptance rate, general model perfection or production activation
+is claimed. Next scoped work: preferred time alternatives and verified opening
+schedules, then faithful missing concepts and their Admin/Owner authoring.
+
 ## Step 2 — meaning-to-search mapping foundation (2026-10-12)
 
 The canonical interpreter now composes the catalog-independent meaning stage

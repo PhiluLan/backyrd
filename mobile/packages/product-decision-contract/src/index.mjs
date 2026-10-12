@@ -149,6 +149,12 @@ export function validateDecisionProductResponse(value, request) {
   requireValue(value.rankingPolicyVersion === RANKING_VERSION && HASH.test(value.rankingPolicyHash), "decision_ranking_authority_invalid");
   requireValue(value.interpretation && typeof value.interpretation === "object" && HASH.test(value.interpretation.interpretationHash), "decision_interpretation_invalid");
   if (value.interpretation.contractVersion === "backyrd.decision-vnext.product-context@1.1") validateDecisionProductRequirements(value.interpretation.requirements);
+  if ("visitAlternatives" in value.interpretation) {
+    const alternatives = value.interpretation.visitAlternatives;
+    requireValue(Array.isArray(alternatives) && alternatives.length >= 1 && alternatives.length <= 4, "decision_visit_alternatives_invalid");
+    for (const branch of alternatives) { exactKeys(branch, ["id", "intent", "preferred", "requirementsHash"], "decision_visit_alternatives_invalid");
+      requireValue(ID.test(branch.id) && ID.test(branch.intent) && typeof branch.preferred === "boolean" && HASH.test(branch.requirementsHash), "decision_visit_alternatives_invalid"); }
+  }
   requireValue(Array.isArray(value.candidates) && value.candidates.length <= 40, "decision_candidates_invalid");
   const seen = new Set(); value.candidates.forEach((candidate) => validateCandidate(candidate, seen));
   requireValue(value.primaryCandidateId === null || (ID.test(value.primaryCandidateId) && seen.has(value.primaryCandidateId)), "decision_primary_candidate_invalid");

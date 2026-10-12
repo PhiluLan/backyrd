@@ -1,12 +1,12 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { PRODUCT_QUERY_CATALOG_HASH, encodeWorldPreference, encodeWorldQueryConstraint, projectRequirementFacets } from "./product-query-semantics.js";
-import { bindProductUnderstanding, parseModelRequirements, type ProductRequirement, type ProductInterpretation } from "./product-request-understanding.js";
+import { canonicalRequestedCity, bindProductUnderstanding, parseModelRequirements, type ProductRequirement, type ProductInterpretation, type ProductVisitAlternative } from "./product-request-understanding.js";
 import { PRODUCT_REQUEST_MEANING_VERSION, PRODUCT_REQUEST_MEANING_POLICY, parseProductRequestMeaning, type ProductRequestMeaning } from "./product-request-meaning.js";
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 
 export const PRODUCT_MEANING_MAPPING_VERSION = "backyrd.decision-vnext.meaning-mapping@1.0" as const;
-export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v2" as const;
+export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v4" as const;
 const object = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("product_meaning_mapping_shape_invalid");
   return value as Record<string, unknown>;
@@ -107,7 +107,13 @@ export function bindProductMeaningSearchPlan(request: DecisionProductRequest, me
       return parsed;
     });
     if (row.state === "MAPPED" && row.intent === null && !requirements.length) throw new Error("product_meaning_mapping_empty_target");
-    rows.set(source.id, { sourceId: source.id, state: row.state as "MAPPED" | "UNSUPPORTED", intent: row.intent as ProductV1Intent | null, requirements });
+    const placeTypes = requirements.flatMap(requirement => requirement.value?.kind === "FACET" && requirement.value.key === "classification.place_types" && requirement.operator === "REQUIRE" ? [requirement.value.value] : []);
+    const intent = row.intent === null && !("aspect" in source) && source.status !== "EXCLUDED" && placeTypes.length
+      ? PRODUCT_V1_INTENT_MAPPINGS.find(mapping => placeTypes.every(type => (mapping.acceptedPlaceTypes as readonly string[]).includes(type)))?.intentId ?? null
+      : row.intent as ProductV1Intent | null;
+    if (intent && placeTypes.some(type => !(PRODUCT_V1_INTENT_MAPPINGS.find(mapping => mapping.intentId === intent)!.acceptedPlaceTypes as readonly string[]).includes(type)))
+      throw new Error("product_meaning_mapping_intent_conflict");
+    rows.set(source.id, { sourceId: source.id, state: row.state as "MAPPED" | "UNSUPPORTED", intent, requirements });
   }
   if (rows.size !== nodes.length || nodes.some(node => !rows.has(node.id))) throw new Error("product_meaning_mapping_coverage_invalid");
   const all = [...meaning.activities, ...meaning.participants, ...meaning.constraints];
@@ -143,17 +149,18 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
     && visits[0]!.afterActivityId === null && visits[0]!.replacesActivityId === null ? visits[0]! : null;
   const choices = meaning.activities.filter(row => ["REQUESTED", "OPTIONAL"].includes(row.status));
   const choiceMappings = choices.map(source => plan.mappings.find(row => row.sourceId === source.id)!);
-  const choiceTypes = choiceMappings.flatMap(row => row.requirements.flatMap(requirement => requirement.value?.kind === "FACET" && requirement.value.key === "classification.place_types" ? [requirement.value.value] : []));
-  const commonIntent = PRODUCT_V1_INTENT_MAPPINGS.find(mapping => choiceTypes.length === choices.length
-    && choiceTypes.every(type => (mapping.acceptedPlaceTypes as readonly string[]).includes(type)))?.intentId ?? null;
-  const simpleChoice = !primary && choices.length >= 2 && choices.some(row => row.status === "REQUESTED")
+  const singleVisitChoice = !primary && choices.length >= 2 && choices.length <= 4 && choices.some(row => row.status === "REQUESTED")
     && choices.every(row => row.alternativeGroup !== null && row.alternativeGroup === choices[0]!.alternativeGroup
-      && row.condition === null && row.afterActivityId === null && row.replacesActivityId === null)
-    && commonIntent !== null && choiceMappings.every(row => row.state === "MAPPED" && row.requirements.length === 1
-      && row.requirements[0]!.value?.kind === "FACET" && row.requirements[0]!.dimension === "EXPERIENCE");
-  const visitIds = primary ? [primary.id] : simpleChoice ? choices.map(row => row.id) : visits.map(row => row.id);
+      && row.condition === null && row.afterActivityId === null && row.replacesActivityId === null);
+  const branches: (Omit<ProductVisitAlternative, "requirements"> & { requirements: ProductRequirement[] })[] = singleVisitChoice ? choices.flatMap((source, index) => {
+    const mapping = choiceMappings[index]!;
+    return mapping.state === "MAPPED" && mapping.intent !== null ? [{ id: source.id, intent: mapping.intent, preferred: source.status === "OPTIONAL",
+      requirements: mapping.requirements.map(row => ({ ...row, importance: row.importance === "PREFERRED" ? "ESSENTIAL" as const : row.importance })), unresolved: false }] : [];
+  }) : [];
+  const branchUnresolved = new Set<string>();
+  const visitIds = primary ? [primary.id] : singleVisitChoice ? choices.map(row => row.id) : visits.map(row => row.id);
   const requirements: ProductRequirement[] = []; let unresolved = meaning.uncertainties.length > 0;
-  const preferredChoices = new Set<string>();
+  const alternativeUnmapped = singleVisitChoice && branches.length !== choices.length;
   for (const source of [...meaning.activities, ...meaning.constraints]) {
     if (!active(source.status)) continue;
     const mapping = plan.mappings.find(row => row.sourceId === source.id)!;
@@ -167,10 +174,14 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
       && mapping.requirements.length > 0 && mapping.requirements.every(row => row.value?.kind === "NEED" && row.value.scope === "ONE_PERSON");
     const scoped = "activityIds" in source && (!global && !commonContext || source.participantIds.length > 0 && !personCapability);
     const relation = "afterActivityId" in source && (source.afterActivityId !== null || source.replacesActivityId !== null || source.status === "OPTIONAL");
-    if (simpleChoice && "afterActivityId" in source && choices.some(choice => choice.id === source.id)) {
-      const leaf = mapping.requirements[0]!;
-      requirements.push({ ...leaf, importance: "ESSENTIAL", group: source.alternativeGroup });
-      if (source.status === "OPTIONAL" && leaf.value?.kind === "FACET") preferredChoices.add(encodeWorldPreference(leaf.value.key, leaf.value.value));
+    if (singleVisitChoice && "afterActivityId" in source && choices.some(choice => choice.id === source.id)) continue;
+    if (singleVisitChoice && "activityIds" in source && source.activityIds.length > 0 && !global && !commonContext) {
+      const owners = branches.filter(branch => source.activityIds.includes(branch.id));
+      if (mapping.state !== "MAPPED" || source.condition !== null || source.alternativeGroup !== null || source.participantIds.length > 0) {
+        for (const owner of owners) branchUnresolved.add(owner.id);
+      } else {
+        for (const owner of owners) owner.requirements.push(...mapping.requirements);
+      }
       continue;
     }
     const timeChoice = "aspect" in source && source.aspect === "TIME" && source.alternativeGroup !== null && primary !== null
@@ -185,10 +196,21 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
       // dates and a limitation, rather than choose one or revive raw parsing.
       unresolved = true; continue;
     }
-    if (mapping.state !== "MAPPED" || source.condition !== null || source.alternativeGroup !== null || scoped || relation || !primary && !simpleChoice && !commonContext) {
+    if (mapping.state !== "MAPPED" || source.condition !== null || source.alternativeGroup !== null || scoped || relation || !primary && !singleVisitChoice && !commonContext) {
       unresolved = true; continue;
     }
     requirements.push(...mapping.requirements);
+  }
+  // The model may keep a common destination on every activity rather than
+  // emit a separate constraint. Promote only an identical proven destination.
+  const branchLocations = branches.map(branch => branch.requirements.filter(row => row.dimension === "LOCATION" && row.operator === "REQUIRE"
+    && !row.group && !row.condition && row.value?.kind === "LOCATION" && row.value.city && !row.value.reference
+    && (!row.value.role || row.value.role === "DESTINATION")));
+  const locationCities = branchLocations.map(rows => [...new Set(rows.flatMap(row => row.value?.kind === "LOCATION" && row.value.city ? [canonicalRequestedCity(row.value.city)] : []))]);
+  if (branches.length && locationCities.every(cities => cities.length === 1 && cities[0] === locationCities[0]![0])
+    && !requirements.some(row => row.dimension === "LOCATION")) {
+    requirements.push(branchLocations[0]![0]!);
+    for (const branch of branches) branch.requirements = branch.requirements.filter(row => !branchLocations[branches.indexOf(branch)]!.includes(row));
   }
   const ages = plan.mappings.flatMap(row => row.requirements.flatMap(requirement => requirement.value?.kind === "AGE" ? [requirement.value.minimumAge] : []));
   if (meaning.participants.some(person => plan.mappings.find(row => row.sourceId === person.id)?.state === "UNSUPPORTED")) unresolved = true;
@@ -221,9 +243,6 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
     const hint = encodeWorldPreference(row.value.key, row.value.value);
     if (soft.has(hint) || soft.size < 30) soft.add(hint); else unresolved = true;
   }
-  for (const hint of preferredChoices) {
-    if (soft.has(hint) || soft.size < 30) soft.add(hint); else unresolved = true;
-  }
   const hardFilters = new Set(request.explicit.hardConstraints ?? []);
   for (const facet of projectRequirementFacets(bounded)) {
     if (facet.role === "REQUIRED" || facet.role === "EXCLUDED") {
@@ -232,7 +251,7 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
       else throw new Error("product_meaning_mapping_capacity_unavailable");
     }
   }
-  const mappedIntent = simpleChoice ? commonIntent : primary ? plan.mappings.find(row => row.sourceId === primary.id)?.intent ?? null : null;
+  const mappedIntent = primary ? plan.mappings.find(row => row.sourceId === primary.id)?.intent ?? null : null;
   const agePeople = meaning.participants.filter(row => ["CONFIRMED", "POSSIBLE"].includes(row.participation) && row.entityType !== "ANIMAL");
   const agePartial = ages.length > 0 && (agePeople.some(person => !plan.mappings.find(row => row.sourceId === person.id)?.requirements.some(row => row.value?.kind === "AGE"))
     || agePeople.length === 1 && !/^(?:anfragende person|requesting person|user)$/u.test(normalize(agePeople[0]!.role)));
@@ -240,7 +259,7 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
     primaryIntent: Object.hasOwn(request.explicit, "primaryIntent") ? request.explicit.primaryIntent : mappedIntent,
     secondaryIntent: Object.hasOwn(request.explicit, "secondaryIntent") ? request.explicit.secondaryIntent : null,
     softPreferences: [...soft].sort(), hardConstraints: [...hardFilters].sort(),
-    unresolvedTerms: [...new Set([...(request.explicit.unresolvedTerms ?? []), ...(unresolved ? ["OTHER_CORE_NEED_UNMAPPED" as const] : [])])],
+    unresolvedTerms: [...new Set([...(request.explicit.unresolvedTerms ?? []), ...(unresolved ? ["OTHER_CORE_NEED_UNMAPPED" as const] : []), ...(alternativeUnmapped ? ["VISIT_ALTERNATIVE_UNMAPPED" as const] : [])])],
   } });
-  return { request: interpreted, understanding: bindProductUnderstanding(interpreted, bounded, "MEANING_PLAN", agePartial ? true : undefined) };
+  return { request: interpreted, understanding: bindProductUnderstanding(interpreted, bounded, "MEANING_PLAN", agePartial ? true : undefined, branches.length ? branches.map(branch => ({ ...branch, unresolved: branchUnresolved.has(branch.id) })) : undefined) };
 }

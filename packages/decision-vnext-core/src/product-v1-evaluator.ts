@@ -1,11 +1,12 @@
 import { accessibilityRequestScope, hasPositiveQuietRequest } from "./product-request-context.js";
-import { calendarExclusionSatisfied, canonicalRequestedCity, requestedProductCity, projectProductUnderstanding, type ProductUnderstanding, type ProductRequirement } from "./product-request-understanding.js";
+import { bindProductUnderstanding, calendarExclusionSatisfied, canonicalRequestedCity, requestedProductCity, projectProductUnderstanding, type ProductUnderstanding, type ProductRequirement } from "./product-request-understanding.js";
 import {
   ACCEPTED_SOURCE_POLICY, PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, REGISTRY_HASH, REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION, parseWorldKnowledgeSnapshot,
   type WorldKnowledgeReaderPort,
 } from "@backyrd/world-knowledge-core";
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
 import { PRODUCT_REQUEST_CONTEXT_VERSION, hasPreciseRequestedTime, requestBudget, requestGroup } from "./product-request-context.js";
+import { compareProductCandidateAssessments } from "./product-decision.js";
 import { contentHash, deepFreeze, withContentHash } from "./canonical.js";
 import { evaluateOpeningDay, evaluateOpeningState, type OpeningSourcePolicy } from "./opening-state.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
@@ -18,9 +19,9 @@ import {
 } from "./product-v1-contracts.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
-import { PRODUCT_INDOOR_CONSTRAINT, calibrateChfMealCeiling, encodeWorldPreference, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
+import { projectRequirementFacets, encodeWorldQueryConstraint, PRODUCT_INDOOR_CONSTRAINT, calibrateChfMealCeiling, encodeWorldPreference, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.14" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.15" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -115,14 +116,14 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
     contractVersion: PRODUCT_DECISION_VERSIONS.context, resolverVersion: PRODUCT_REQUEST_CONTEXT_VERSION, inputHash: contentHash({ request, authority, ...(understanding ? { understandingHash: understanding.understandingHash } : {}) }),
     primaryIntent, secondaryIntent,
     intentCompatibility: primaryIntent ? "COMPATIBLE" as const : "UNKNOWN" as const, occasion: explicit.occasion ?? (text.includes("date") ? "DATE" : null),
-    moods: explicit.moods ?? (positiveQuiet ? ["CALM"] : []), targetCity: requestedCity ?? authority.authorizedCity, requirements: understood.requirements,
+    moods: explicit.moods ?? (positiveQuiet ? ["CALM"] : []), targetCity: requestedCity ?? authority.authorizedCity, ...(understanding?.visitAlternatives ? { visitAlternatives: understanding.visitAlternatives.map(branch => ({ id: branch.id, intent: branch.intent, preferred: branch.preferred, requirementsHash: contentHash(branch.requirements) })) } : {}), requirements: understood.requirements,
     dateTime: dateContext,
     group: { ...(explicit.group ?? { ...parsedGroup, adultPresent: parsedGroup.adultPresent || (parsedGroup.minimumAge !== null && parsedGroup.minimumAge >= 18) || null, companionType: parsedGroup.companionType ?? semanticSituation, ...understood.group }),
       ...(understanding?.knownAgesPartial && explicit.group?.minimumAge == null ? { minimumAge: null } : {}) },
     budget: { ...requestedBudget, calibrationLabel: calibration ? `${calibration.policy}:${calibration.level}` : requestedBudget.calibrationLabel },
-    stayDuration: explicit.stayDuration ?? understood.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: [...new Set([...contextUnresolved, ...(!primaryIntent ? ["CORE_INTENT"] : [])])].sort(),
+    stayDuration: explicit.stayDuration ?? understood.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: [...new Set([...contextUnresolved, ...(!primaryIntent && !understanding?.visitAlternatives?.length ? ["CORE_INTENT"] : [])])].sort(),
     locationAuthority: { explicitTargetWins: true as const, authorizedCity: authority.authorizedCity, deviceCityUsed: false, state: contextUnresolved.has("LOCATION_REQUEST_UNVERIFIED") ? "UNKNOWN" as const : "KNOWN" as const },
-    limitations: [...(primaryIntent ? [] : ["CORE_INTENT_REQUIRES_CLARIFICATION"]), ...(understanding?.knownAgesPartial ? ["PARTICIPANT_AGE_CONTEXT_PARTIAL"] : [])], rawTextPersisted: false as const,
+    limitations: [...(primaryIntent || understanding?.visitAlternatives?.length ? [] : ["CORE_INTENT_REQUIRES_CLARIFICATION"]), ...(understanding?.knownAgesPartial ? ["PARTICIPANT_AGE_CONTEXT_PARTIAL"] : [])], rawTextPersisted: false as const,
   };
   return deepFreeze(DecisionProductContextSchema.parse(withContentHash(body, "interpretationHash")));
 }
@@ -493,7 +494,7 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   const priceLevel = entry(snapshot, "operation.price_level")?.value;
   const lowPriceConfirmed = hasConfirmedWorldAttribute(snapshot, "operation.price_level") && ["VERY_LOW", "LOW"].includes(String(priceLevel));
   const lowPriceUnconfirmed = context.softPreferences.includes("PRICE_LEVEL_LOW") && !lowPriceConfirmed;
-  const tierValue = contextualReject || failed.length || incompatible ? "INELIGIBLE" : notConfigured ? "NOT_CONFIGURED" : core.state === "CONFIRMED" && !unknownHard.length && !situationUnconfirmed && !lowPriceUnconfirmed && !essentialUnverified && !context.unresolvedTerms.length ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK";
+  const tierValue = contextualReject || failed.length || incompatible ? "INELIGIBLE" : notConfigured ? "NOT_CONFIGURED" : core.state === "CONFIRMED" && !unknownHard.length && !situationUnconfirmed && !lowPriceUnconfirmed && !essentialUnverified && !context.unresolvedTerms.some(code => code !== "VISIT_ALTERNATIVE_UNMAPPED") ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK";
   const purposeEntry = entry(snapshot, "purpose.primary_visit"); const onsiteEntry = entry(snapshot, "offering.onsite"); const onsite = Array.isArray(onsiteEntry?.value) ? onsiteEntry.value as readonly { kind: string; relationship: "PART_OF_SPOT" | "EMBEDDED_FACILITY" }[] : [];
   const atmosphereEntry = entry(snapshot, "context.atmosphere"); const visitEntry = entry(snapshot, "context.visit_situations"); const daypartEntry = entry(snapshot, "context.typical_dayparts");
   const matchingAtmosphere = matchedRows(atmosphereEntry?.value, context).filter((row) => context.softPreferences.includes("ATMOSPHERE_QUIET") && ["QUIET", "COZY", "RELAXED"].includes(row.atmosphere ?? ""));
@@ -536,6 +537,7 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   if (context.unresolvedTerms.includes("MUSIC_AT_VISIT_UNVERIFIED")) worldReasons.push(reason("music-at-visit-unverified", "LIMITATION", context.interpretationHash, "Ob zum gewünschten Besuch Musik läuft, ist für diesen Ort nicht bestätigt.", false));
   if (context.unresolvedTerms.includes("PRECISE_TIME_UNVERIFIED")) worldReasons.push(reason("precise-time-unverified", "LIMITATION", context.interpretationHash, "Die konkrete gewünschte Uhrzeit wurde für diesen Ort nicht geprüft.", false));
   if (context.unresolvedTerms.includes("BUDGET_SEMANTICS_UNVERIFIED")) worldReasons.push(reason("budget-semantics-unverified", "LIMITATION", context.interpretationHash, "Die Budgetgrenze oder ihr Bezug pro Person konnte noch nicht eindeutig geprüft werden.", false));
+  if (context.unresolvedTerms.includes("VISIT_ALTERNATIVE_UNMAPPED")) worldReasons.push(reason("visit-alternative-unmapped", "LIMITATION", context.interpretationHash, "Eine weitere Alternative konnte noch nicht mit Spot-Wissen abgeglichen werden; die hier geprüfte Möglichkeit bleibt davon getrennt.", false));
   if (context.unresolvedTerms.includes("OTHER_CORE_NEED_UNMAPPED")) worldReasons.push(reason("core-need-unmapped", "LIMITATION", context.interpretationHash, "Ein weiterer Teil deines Wunsches konnte noch nicht mit Spot-Wissen abgeglichen werden.", false));
   for (const preference of matchedWorldPreferences) {
     const facet = decodeWorldPreference(preference)!;
@@ -581,6 +583,58 @@ export function createDecisionProductEvaluator(input: { readonly world: WorldKno
   };
 }
 
+/** Evaluate each complete alternative with the existing eligibility rules.
+ * Choosing one branch is OR; requirements inside it remain AND. */
+function assessVisitAlternatives(snapshot: ProductWorldView, request: DecisionProductRequest, context: DecisionProductContext,
+  authority: { readonly authorizedCity: string; readonly serverTime: string }, projection: RelevantUserProjection, understanding: ProductUnderstanding): DecisionProductCandidateAssessment {
+  const assessments = understanding.visitAlternatives!.map(branch => {
+    const requirements = [...understanding.requirements, ...branch.requirements].map(row => row.importance === "ESSENTIAL" && !["AGE", "COMPANY"].includes(row.dimension) ? { ...row, importance: "HARD" as const } : row);
+    const filters = new Set(request.explicit.hardConstraints ?? []);
+    // Group IDs are allocated over the combined requirements, avoiding collisions
+    // between shared filters and local facets on different keys.
+    const occupied = new Set([...filters].flatMap(filter => { const row = decodeWorldQueryConstraint(filter); return row ? [row.group] : []; }));
+    const groups = new Map<string, string>();
+    for (const facet of projectRequirementFacets(requirements)) if (facet.role !== "PREFERRED") {
+      const original = facet.group ?? "X";
+      if (!groups.has(original)) {
+        let next = 1; while (occupied.has(`V${next}`)) next++;
+        groups.set(original, `V${next}`); occupied.add(`V${next}`);
+      }
+      filters.add(encodeWorldQueryConstraint(facet.role, groups.get(original)!, facet.key, facet.value));
+    }
+    if (filters.size > 30) throw new Error("product_visit_alternative_capacity_unavailable");
+    const branchRequest = DecisionProductRequestSchema.parse({ ...request, explicit: { ...request.explicit,
+      primaryIntent: branch.intent, hardConstraints: [...filters],
+      unresolvedTerms: [...new Set([...(request.explicit.unresolvedTerms ?? []), ...(branch.unresolved ? ["OTHER_CORE_NEED_UNMAPPED" as const] : [])])],
+    } });
+    const branchUnderstanding = bindProductUnderstanding(branchRequest, requirements, "MEANING_PLAN", understanding.knownAgesPartial);
+    const branchContext = resolveDecisionProductContext(branchRequest, authority, branchUnderstanding);
+    let assessment = assess(snapshot, branchContext, worldQueryPlan(branchContext), projection, request.rejectedCandidateIds, authority.serverTime, requirements);
+    // A branch cannot override a deliberately selected primary intent.
+    if (context.primaryIntent !== null && context.primaryIntent !== branch.intent) {
+      const explicitCore = intentCoverage(snapshot, context.primaryIntent, requirements);
+      if (explicitCore.state !== "CONFIRMED") {
+        const { assessmentHash: _hash, ...body } = assessment;
+        const incompatible = ["INCOMPATIBLE", "DISPUTED"].includes(explicitCore.state);
+        assessment = DecisionProductCandidateAssessmentSchema.parse(withContentHash({ ...body,
+          tier: incompatible ? "INELIGIBLE" : "UNCONFIRMED_FALLBACK",
+          failedHardConstraints: [...body.failedHardConstraints, ...(incompatible ? ["EXPLICIT_PRIMARY_INTENT"] : [])],
+          unknownHardConstraints: [...body.unknownHardConstraints, ...(!incompatible ? ["EXPLICIT_PRIMARY_INTENT"] : [])],
+        }, "assessmentHash"));
+      }
+    }
+    const { assessmentHash: _hash, ...body } = assessment;
+    const branchConfirmed = assessment.coreIntentCoverage.state === "CONFIRMED" && assessment.tier !== "INELIGIBLE";
+    const preferredConfirmed = branch.preferred && branchConfirmed && assessment.tier === "ELIGIBLE_CONFIRMED" && !assessment.unknownHardConstraints.length;
+    return DecisionProductCandidateAssessmentSchema.parse(withContentHash({ ...body, reasons: [...body.reasons,
+      reason("single-visit-alternative-confirmed", "CONTEXT", contentHash(branch), `Dieser Ort wurde für die Alternative ${branch.intent} mit deren eigenen Bedingungen geprüft.`, branchConfirmed),
+      ...(branch.preferred ? [reason("preferred-visit-alternative", "CONTEXT", contentHash(branch), "Dieser Ort erfüllt die ausdrücklich bevorzugte Alternative.", preferredConfirmed)] : []),
+    ] }, "assessmentHash"));
+  });
+  // One spot, one result. Never combine partial evidence from separate branches.
+  return assessments.sort((left, right) => compareProductCandidateAssessments(left, right, projection))[0]!;
+}
+
 /** Shared deterministic Product assessment for the typed TS reader and the manifest-validated SQL resolver. */
 export function evaluateProductWorldViews(requestValue: unknown, authority: { readonly authorizedCity: string; readonly serverTime: string }, projection: RelevantUserProjection, snapshotsValue: readonly ProductWorldView[], candidateSetHash: string, understanding?: ProductUnderstanding | null): { evaluation: DecisionProductEvaluation; presentations: readonly DecisionProductPresentation[] } {
     const request = DecisionProductRequestSchema.parse(requestValue); const context = resolveDecisionProductContext(request, authority, understanding);
@@ -590,7 +644,7 @@ export function evaluateProductWorldViews(requestValue: unknown, authority: { re
     if (!ids.length || ids.length > 1000 || new Set(ids).size !== ids.length || contentHash(ids) !== candidateSetHash) throw new Error("product_world_candidate_set_invalid");
     const bindings = snapshots.map((row) => ({ spotId: row.spot.spotId, snapshotHash: row.snapshotHash })).sort((a, b) => a.spotId.localeCompare(b.spotId));
     const cohort = DecisionProductWorldCohortSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.cohort, cohortId: `product-world-${candidateSetHash.slice(0, 24)}`, source: "CANONICAL_WORLD_KNOWLEDGE_READER", generatedAt: authority.serverTime, authorizedCity: authority.authorizedCity, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH, sourcePolicyVersion: ACCEPTED_SOURCE_POLICY.policyVersion, sourcePolicyHash: ACCEPTED_SOURCE_POLICY.policyHash, spotBindings: bindings, candidateSetHash, limitations: snapshots.length === 1 ? ["SINGLE_CANDIDATE"] : [], commercialSignalsPresent: false, fixtureSourceUsed: false }, "cohortHash"));
-    const candidates = snapshots.map((row) => assess(row, context, queryPlan, projection, request.rejectedCandidateIds, authority.serverTime, understanding?.requirements)).sort((a, b) => a.candidateId.localeCompare(b.candidateId));
+    const candidates = snapshots.map((row) => understanding?.visitAlternatives?.length ? assessVisitAlternatives(row, request, context, authority, projection, understanding) : assess(row, context, queryPlan, projection, request.rejectedCandidateIds, authority.serverTime, understanding?.requirements)).sort((a, b) => a.candidateId.localeCompare(b.candidateId));
     const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.evaluation, evaluationId: `product-evaluation-${contentHash({ requestId: request.requestId, cohortHash: cohort.cohortHash }).slice(0, 24)}`, createdAt: authority.serverTime, requestHash: contentHash(request), interpretation: context, worldCohort: cohort, userProjectionHash: projection.projectionHash, candidates, limitations: [...new Set([...cohort.limitations, ...context.unresolvedTerms, ...(candidates.every(candidate => candidate.limitations.includes("ESSENTIAL_REQUIREMENT_UNVERIFIED")) ? ["ESSENTIAL_REQUIREMENT_UNVERIFIED"] : [])])].sort(), evaluatorVersion: PRODUCT_V1_EVALUATOR_VERSION, evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash, evaluationReleaseHash: DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash, intentPolicyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash, sourceKind: "CANONICAL_PRODUCT_PORTS", productSemanticsApproved: true, productRankingAuthorized: true, fixtureSourceUsed: false }, "evaluationHash"));
     const presentations = snapshots.map((row) => DecisionProductPresentationSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: row.spot.spotId, name: row.spot.identity.name ?? "Unbenannter Ort", locality: row.spot.location.locality, categoryLabel: row.spot.classification.primaryCategory, imageUrl: null, sourceHash: row.snapshotHash }, "presentationHash")));
     return deepFreeze({ evaluation, presentations });

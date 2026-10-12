@@ -1,3 +1,4 @@
+import './request-understanding/visit-alternatives.test.mjs';
 import './request-understanding/meaning-mapping.test.mjs';
 import './request-understanding/meaning-evaluation.test.mjs';
 import './request-understanding/meaning.test.mjs';

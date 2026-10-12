@@ -47,3 +47,25 @@ items, budget alternatives/conditions or combined purposes are not calibrated.
 No existing World label is reinterpreted as a verified CHF price. The monetary
 maximum remains an independent hard constraint against verified comparable
 prices; a price-level hint cannot approve an unknown or over-budget venue.
+
+## Single-visit choice projection (2026-10-12)
+
+The meaning-backed canonical route supports up to four unconditional single-visit
+alternatives in one search city. Each branch is assessed with its own intent and
+AND requirements; alternatives form OR. Shared UI and meaning requirements remain
+global. A spot needs a complete supported branch; partial evidence from different
+branches is never combined. A confirmed preferred branch contributes before other
+context hints within ranking v4, after eligibility/core/purpose/availability.
+Closed and unverified preferred choices cannot outrank a confirmed valid choice.
+Unmapped alternatives are explicit whole-choice limitations, separate from missing
+requirements of the selected branch. Global facet-group IDs cannot be widened by
+local branch-group collisions. Context-v5 already reads the complete verified city
+cohort, so no additional retrieval route or database migration is needed.
+
+Meaning policy v14, mapping policy v4, context resolver v12, evaluator 2.15,
+ranking policy v4 and evaluation release v10 are an undeployed draft candidate.
+Compatible Mobile/Web response parsers are required for the optional public branch
+summaries and preference flag. Detailed fixtures, independent grades, original
+failures, offline repair evidence and bounds are documented in
+`REQUEST_UNDERSTANDING_V1.md`. Temporal OR and weather activation remain open;
+visit sequences are explicitly excluded as a separate product project.

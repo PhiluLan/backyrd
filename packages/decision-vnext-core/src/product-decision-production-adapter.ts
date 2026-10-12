@@ -1,4 +1,4 @@
-import { requestedProductCity, type ProductUnderstanding } from "./product-request-understanding.js";
+import { validateProductUnderstanding, requestedProductCity, type ProductUnderstanding } from "./product-request-understanding.js";
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -430,6 +430,9 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
   return Object.freeze({
     contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0" as const,
     async evaluate(input: Parameters<DecisionProductCanonicalEvaluationProvider["evaluate"]>[0]) {
+      if (input.understanding) validateProductUnderstanding(input.understanding, input.request);
+      // Context v5 already returns the entire verified city cohort, including
+      // every alternative. No repeated per-intent retrieval is necessary.
       const targetCity = productTargetCity(input.request, input.understanding);
       const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
         p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
