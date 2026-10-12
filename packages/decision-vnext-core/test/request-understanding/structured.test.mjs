@@ -129,7 +129,7 @@ test('understanding hashes bind request and policy and cached payloads cannot in
 });
 
 const conditions = { dayparts: [], days: [], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: null };
-const fact = (key, value) => ({ key, value, scope: 'SPOT', resolution: 'KNOWN_VALUE', freshness: 'CURRENT', trust: 'VERIFIED', basisClaimHashes: [contentHash(key)] });
+const fact = (key, value) => ({ key, value, scope: 'SPOT', resolution: 'KNOWN_VALUE', freshness: 'CURRENT', trust: 'VERIFIED', basisClaimHashes: [contentHash(key)], ...(['context.atmosphere','operation.price_options','operation.price_range'].includes(key) ? {validityVerified:true,validFrom:null,validUntil:null}:{}), ...(key==='context.atmosphere'?{hardConstraintAuthorized:true}:{}) });
 const worldBinding = (extra = []) => ({
   contractVersion: 'backyrd.world-knowledge.product-resolver-binding@1.0', manifestHash: contentHash(extra), registryHash: REGISTRY_HASH, resolvedAt: at,
   decisionProjection: { contractVersion: 'backyrd.world-knowledge.product-decision-projection@1.0', registryVersion: REGISTRY_VERSION, policyVersion: ACCEPTED_SOURCE_POLICY.policyVersion,
@@ -639,7 +639,7 @@ test('negative time phases never reappear through literal fallback; unknown adul
 });
 
 test('strict fractional ceilings and ambiguous basis preserve meaning without false price confirmation', async () => {
-  const price = [fact('operation.price_range', { currency: 'CHF', min: 10, max: 29.5 })];
+  const price = [fact('operation.price_options', [{ purposes:['DRINK'],allOfferingsCovered:true,currency:'CHF',min:29.5,max:29.5,basis:'PER_PERSON',minimumAge:null,maximumAge:null,mandatoryFeesIncluded:true,conditions:{dayparts:[],days:[],area:null,occasion:null,groupSize:null,ageContext:null,accompaniment:null,eventMode:null} }])];
   for (const comparison of ['LT', 'LTE']) {
     const result = await interpretedContext('Coffee 29.50 CHF pro Person', [req('BUDGET', money({ amountMinor: 2950, comparison }), '29.50 CHF pro Person', { importance: 'HARD' })]);
     const candidate = assess(result, price).candidates[0];

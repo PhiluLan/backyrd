@@ -6,7 +6,7 @@ import { PRODUCT_REQUEST_MEANING_VERSION, PRODUCT_REQUEST_MEANING_POLICY, parseP
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 
 export const PRODUCT_MEANING_MAPPING_VERSION = "backyrd.decision-vnext.meaning-mapping@1.0" as const;
-export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v5" as const;
+export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v8" as const;
 const object = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("product_meaning_mapping_shape_invalid");
   return value as Record<string, unknown>;
@@ -37,10 +37,6 @@ const basis = (value: string | null): "PER_PERSON" | "TOTAL" | "UNSPECIFIED" => 
   return /(?:pro|per|par) (?:person|personne|kopf)|je person/u.test(text) ? "PER_PERSON"
     : /gesamt|total|insgesamt|zusammen|together|pour (?:nous|les|tous)|fur (?:alle|beide|uns)/u.test(text) ? "TOTAL" : "UNSPECIFIED";
 };
-const inclusionWords: Readonly<Record<string, RegExp>> = {
-  TIP: /trinkgeld|tip|pourboire/u, MATERIALS: /material|fournitures/u, TRANSPORT: /\b(?:transport|anreise|fahrt|tram|bus|zugfahrt|zugticket)\b/u,
-  ADMISSION: /eintritt|admission|entree/u, FOOD: /essen|food|meal|repas|plat|hauptgericht/u, DRINKS: /getrank|drink|boisson/u,
-};
 const active = (status: string) => ["REQUESTED", "OPTIONAL", "EXCLUDED"].includes(status);
 export function productMeaningMappingNodes(meaning: ProductRequestMeaning) {
   return [...meaning.activities, ...meaning.constraints].filter(row => active(row.status));
@@ -57,7 +53,7 @@ export function validateProductMeaningMappingSource(request: DecisionProductRequ
   }
 }
 export function bindProductMeaningSearchPlan(request: DecisionProductRequest, meaning: ProductRequestMeaning,
-  proposal: unknown, sources: Readonly<Record<string, string>>): ProductMeaningSearchPlan {
+  proposal: unknown, sources: Readonly<Record<string, string>>, targetEvidence: "PROPOSAL" | "SOURCE_NODE" = "PROPOSAL"): ProductMeaningSearchPlan {
   DecisionProductRequestSchema.parse(request); validateProductMeaningMappingSource(request, meaning, sources);
   const root = object(proposal);
   if (!exact(root, ["mappings"]) || !Array.isArray(root.mappings)) throw new Error("product_meaning_mapping_shape_invalid");
@@ -73,14 +69,31 @@ export function bindProductMeaningSearchPlan(request: DecisionProductRequest, me
       throw new Error("product_meaning_mapping_state_invalid");
     const requirements = row.targets.flatMap(input => {
       const target = object(input);
-      if (!exact(target, ["dimension", "value", "evidence"]) || typeof target.evidence !== "string"
-        || !source.evidence.includes(target.evidence) || !Object.hasOwn(sources, target.evidence)
+      const deriveEvidence = targetEvidence === "SOURCE_NODE";
+      if (!exact(target, deriveEvidence ? ["dimension", "value"] : ["dimension", "value", "evidence"])
+        || !deriveEvidence && (typeof target.evidence !== "string" || !source.evidence.includes(target.evidence) || !Object.hasOwn(sources, target.evidence))
         || target.dimension === "AGE" || target.dimension === "COMPANY") throw new Error("product_meaning_mapping_target_invalid");
-      const parsed = parseModelRequirements([{ dimension: target.dimension, value: target.value, evidence: sources[target.evidence],
-        importance: source.status === "OPTIONAL" ? "PREFERRED" : source.status === "EXCLUDED" || "numericValue" in source && source.numericValue !== null ? "HARD" : "ESSENTIAL",
-        operator: source.status === "EXCLUDED" ? "EXCLUDE" : "REQUIRE", origin: "EXPLICIT", interpretationState: "UNDERSTOOD",
-        alternatives: [], group: null, condition: null }], request.naturalLanguage, 2000);
+      // P1 already owns the literal source quotes. P2 has no authority to choose
+      // a different quote. Find a valid original node quote deterministically;
+      // all existing grounding/type checks still apply.
+      const parsed = (() => {
+        let lastError: unknown = new Error("product_meaning_mapping_target_invalid");
+        for (const id of deriveEvidence ? source.evidence : [target.evidence as string]) {
+          try {
+            return parseModelRequirements([{ dimension: target.dimension, value: target.value, evidence: sources[id],
+              importance: source.status === "OPTIONAL" ? "PREFERRED" : source.status === "EXCLUDED" || "numericValue" in source && source.numericValue !== null ? "HARD" : "ESSENTIAL",
+              operator: source.status === "EXCLUDED" ? "EXCLUDE" : "REQUIRE", origin: "EXPLICIT", interpretationState: "UNDERSTOOD",
+              alternatives: [], group: null, condition: null }], request.naturalLanguage, 2000);
+          } catch (error) { lastError = error; }
+        }
+        throw lastError;
+      })();
       for (const item of parsed) {
+        // ALCOHOL_FREE is a positive property. Neither refusing a purchase nor
+        // excluding alcohol itself may be rewritten as excluding alcohol-free.
+        if (item.value?.kind === "NEED" && item.value.code === "ALCOHOL_FREE"
+          && !/alkoholfrei|alcohol[ -]?free|non[ -]?alcoholic|sans alcool|senza alcol|nuchtern|sober|teetotal/u.test(normalize(source.description)))
+          throw new Error("product_meaning_mapping_need_polarity_invalid");
         if (item.value?.kind === "BUDGET" && (!("aspect" in source) || source.aspect !== "BUDGET" || source.numericValue === null))
           throw new Error("product_meaning_mapping_budget_changed");
         if ("aspect" in source && source.aspect === "BUDGET" && source.numericValue !== null) {
@@ -89,17 +102,10 @@ export function bindProductMeaningSearchPlan(request: DecisionProductRequest, me
             || item.value.amountMinor !== Math.round(source.numericValue * 100) || item.value.comparison !== source.comparison
             || item.value.currency !== currency(source.unit) || item.value.basis !== basis(source.basis))
             throw new Error("product_meaning_mapping_budget_changed");
-          const description = normalize(`${source.description} ${source.basis ?? ""}`);
           const includes = item.value.includes ?? [];
-          // Only positively included components qualify. Merely mentioning
-          // drinks in "ohne Getränke" must never turn them into included costs.
-          const inclusionText = description
-            .replace(/\b(?:nicht|not|pas)\s+(?:inkl(?:usive)?|included|including|compris)\b[^,.;]*/gu, "")
-            .replace(/\bund\s+[^,.;]*\b(?:extra|separat)\b[^,.;]*/gu, "")
-            .split(",").filter(clause => !/\b(?:extra|separat|excluded)\b/u.test(clause)).join(",");
-          const positive = [...inclusionText.matchAll(/\b(?:inkl(?:usive)?\.?|einschliesslich|including|included|incl\.?|avec|compris)\b\s*([^.;]*)/gu)]
-            .map(match => match[1]!.split(/\b(?:ohne|sans|excluding|excluded|extra|separat|aber|but|jedoch)\b/u)[0]).join(" ");
-          const expected = Object.entries(inclusionWords).filter(([, words]) => words.test(positive)).map(([component]) => component);
+          // Scope is understood once, before World taxonomy is introduced.
+          // Mapping must preserve that semantic result, not reparse its words.
+          const expected = source.costComponents;
           if (includes.some(component => !expected.includes(component)) || expected.some(component => !includes.includes(component as (typeof includes)[number])))
             throw new Error("product_meaning_mapping_budget_includes_changed");
         }
@@ -179,15 +185,16 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
       && source.activityIds.length === visitIds.length && visitIds.every(id => source.activityIds.includes(id)));
     const commonContext = "aspect" in source && ["LOCATION", "TIME", "BUDGET"].includes(source.aspect) && source.participantIds.length === 0
       && (source.activityIds.length === 0 || choices.length > 0 && choices.every(visit => source.activityIds.includes(visit.id))
-        && source.activityIds.every(id => choices.some(visit => visit.id === id)));
+        && source.activityIds.every(id => meaning.activities.some(visit => visit.id === id && ["REQUESTED", "OPTIONAL", "EXCLUDED", "NOT_REQUIRED"].includes(visit.status))));
     const personCapability = "participantIds" in source && source.participantIds.length === 1
       && meaning.participants.some(person => person.id === source.participantIds[0] && person.participation === "CONFIRMED")
       && mapping.requirements.length > 0 && mapping.requirements.every(row => row.value?.kind === "NEED" && row.value.scope === "ONE_PERSON");
-    const solePersonBudget = "aspect" in source && source.aspect === "BUDGET" && source.participantIds.length === 1
-      && meaning.participants.filter(row => row.participation === "CONFIRMED").length === 1
-      && meaning.participants.some(row => row.id === source.participantIds[0] && row.entityType === "PERSON" && row.participation === "CONFIRMED")
+    const sharedPersonBudget = "aspect" in source && source.aspect === "BUDGET" && source.participantIds.length > 0
+      && !meaning.participants.some(row => row.participation === "POSSIBLE" && row.entityType !== "ANIMAL")
+      && meaning.participants.filter(row => row.participation === "CONFIRMED").every(row => row.entityType === "PERSON" && source.participantIds.includes(row.id))
+      && source.participantIds.every(id => meaning.participants.some(row => row.id === id && row.entityType === "PERSON" && row.participation === "CONFIRMED"))
       && mapping.requirements.length > 0 && mapping.requirements.every(row => row.value?.kind === "BUDGET" && row.value.basis === "PER_PERSON");
-    const scoped = "activityIds" in source && (!global && !commonContext || source.participantIds.length > 0 && !personCapability && !solePersonBudget);
+    const scoped = "activityIds" in source && (!global && !commonContext || source.participantIds.length > 0 && !personCapability && !sharedPersonBudget);
     const relation = "afterActivityId" in source && (source.afterActivityId !== null || source.replacesActivityId !== null || source.status === "OPTIONAL");
     if (singleVisitChoice && "afterActivityId" in source && choices.some(choice => choice.id === source.id)) continue;
     if (singleVisitChoice && "activityIds" in source && source.activityIds.length > 0 && !global && !commonContext) {
@@ -229,7 +236,7 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
   // Do not sum overlapping or unnamed groups, infer adulthood, or turn possible
   // participants/future birthday ages into present access facts.
   const confirmed = meaning.participants.filter(row => row.participation === "CONFIRMED" && row.entityType !== "ANIMAL");
-  if (meaning.participants.some(row => row.participation !== "BACKGROUND" && (row.participation === "POSSIBLE" || row.entityType === "ANIMAL" || row.entityType === "GROUP")) || confirmed.length > 1) unresolved = true;
+  if (meaning.participants.some(row => row.participation !== "BACKGROUND" && (row.participation === "POSSIBLE" || row.entityType === "ANIMAL" || row.entityType === "GROUP"))) unresolved = true;
   // A participant list may describe companions without an explicit self node.
   // Its length is not a total party size and cannot prove a solo visit.
   const family = confirmed.some(row => /(?<!\p{L})(?:tochter|sohn|kinder?|daughter|son|child(?:ren)?|kids?|fille|fils|enfants?)(?!\p{L})/u.test(normalize(row.role)));

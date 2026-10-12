@@ -1,6 +1,6 @@
 # World Knowledge Slice 4B — Contextual Spot Semantics
 
-Status: Draft-PR, lokale Founder-Umgebung, keine Production-Aktivierung und keine Decision-vNext-Anbindung.
+Status dieses historischen 4B-Slices: Draft-PR, lokale Founder-Umgebung, keine Production-Aktivierung und keine Decision-vNext-Anbindung. Die additive 2.2/4c-Weiterentwicklung und ihre neue Product-Anbindung sind im aktuellen [Request-understanding-Handoff](../../decision/REQUEST_UNDERSTANDING_V1.md#comparable-spot-knowledge-and-faithful-handoff-2026-10-12) beschrieben; 2.1/4b-Identitäten bleiben unverändert.
 
 ## Fachliche Grenze
 

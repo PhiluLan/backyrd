@@ -1,5 +1,5 @@
 import { WEEKDAYS } from "./contracts.js";
-import { getAttributeDefinition, DAYPARTS, ONSITE_OFFERING_RELATIONSHIPS, RESERVATION_MODES, CONSUMPTION_POLICIES, PET_ACCESS_STATES } from "./registry.js";
+import { getAttributeDefinition, DAYPARTS, ONSITE_OFFERING_RELATIONSHIPS, RESERVATION_MODES, CONSUMPTION_POLICIES, PET_ACCESS_STATES, PRICE_PURPOSES, PRICE_BASES } from "./registry.js";
 
 type Schema = Record<string, unknown>;
 const text = (maxLength = 160): Schema => ({ type: "string", minLength: 1, maxLength });
@@ -40,6 +40,7 @@ export function researchValueContract(attributeKey: string): { valueSchema: Sche
     case "ENUM": schema = enumeration(allowed); break;
     case "ENUM_SET": schema = { ...list(enumeration(allowed), allowed.length), uniqueItems: true }; break;
     case "MONEY_RANGE": schema = record({ currency: { type: "string", pattern: "^[A-Z]{3}$" }, min: { type: "number", ...numeric }, max: { type: "number", ...numeric } }); rules.push("min <= max; keine erfundenen Preise."); break;
+    case "PRICE_OPTIONS": schema = { ...list(record({ purposes: { ...list(enumeration(PRICE_PURPOSES), 6), minItems: 1, uniqueItems: true }, allOfferingsCovered: { type: "boolean" }, basis: enumeration(PRICE_BASES), currency: { type: "string", pattern: "^[A-Z]{3}$" }, min: { type: "number", minimum: 0, maximum: 100000, multipleOf: .01 }, max: { type: "number", minimum: 0, maximum: 100000, multipleOf: .01 }, minimumAge: nullable({ type: "integer", minimum: 0, maximum: 120 }), maximumAge: nullable({ type: "integer", minimum: 0, maximum: 120 }), mandatoryFeesIncluded: { type: "boolean" }, conditions: conditions(true) }), 30), uniqueItems: true }; rules.push("Preiszweck und Berechnungsbasis ausdrücklich belegen. Pflichtgebühren nur bei belegter vollständiger Summe als enthalten markieren. Altersgrenzen nur aus Quelle. Keine alten pauschalen Preise umdeuten."); break;
     case "INTEGER_RANGE": schema = record({ min: { type: "integer", ...numeric }, max: { type: "integer", ...numeric } }); rules.push("min <= max."); break;
     case "WEEKLY_SCHEDULE":
       schema = list(record({ day: enumeration(WEEKDAYS), intervals: list(interval, 8) }), 7);

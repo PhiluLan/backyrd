@@ -1,3 +1,4 @@
+import './request-understanding/knowledge-matching.test.mjs';
 import './request-understanding/time-alternatives.test.mjs';
 import './request-understanding/visit-alternatives.test.mjs';
 import './request-understanding/meaning-mapping.test.mjs';

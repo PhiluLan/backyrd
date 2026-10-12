@@ -4,6 +4,92 @@ Status: **step 1 COMPLETE; step 2 mapping foundation IMPLEMENTED, semantic/execu
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
+## Comparable Spot knowledge and faithful handoff (2026-10-12)
+
+Implementation draft; production acceptance remains OPEN. Registry2.2 adds
+`offering.food_specialities=CAKE` and `operation.price_options`. Existing 2.1
+claims and immutable registry/release hashes are retained. No bakery/dessert
+claim is silently upgraded into cake, and no generic historical price becomes a
+meal, drink or admission price. The compatible reader accepts only the exact
+2.1/4b.1 or 2.2/4c.1 identity pair.
+
+The catalog-independent meaning contract is now1.1/policyv15. A budget's typed
+`costComponents` preserves FOOD/DRINKS/ADMISSION/TIP/MATERIALS/TRANSPORT once, in
+P1. Mappingv8 must retain those components exactly; it no longer reparses budget
+scope with inclusion-word regexes. P2 selects catalog targets, while the server
+binds them to the literal evidence already validated for their originating P1
+node. P2 cannot choose new quotes. Participant counts and missing ages remain
+unknown. A per-person cap scoped to all confirmed individual persons is shared;
+individual subsets, group totals and uncertain participants remain unverified.
+A city shared with an explicitly excluded venue still governs the requested
+visit. Personal refusal to order a drink cannot become EXCLUDE ALCOHOL_FREE.
+
+Concrete prices carry service(s), unit, currency, min/max, optional age bounds,
+context conditions, full offering coverage and mandatory-fee coverage. The
+existing shared Admin/Owner editor exposes these records directly under prices,
+with blank amounts and unchecked assurances by default, readable controls on
+390px screens, typed validation and save/reload through the existing gated RPCs.
+Owner Basic receives only the new price capability; unrelated Pro capabilities,
+ownership checks, verification and commercial/ranking separation are preserved.
+
+Budget confirmation needs a verified, currently valid CHF PER_PERSON price
+covering the exact requested cost scope and mandatory fees. Coffee plus cake
+cannot be confirmed from coffee alone. A cake-only budget ignores separately
+paid coffee. Overlapping ranges, incomplete fees, unknown ages or unsupported
+units/currencies remain unknown; a possibly cheaper unresolved option prevents
+an unsupported expensive-price veto. Cent ceilings remain exact. Founder price
+bands still use full-franc flooring:1–10/11–19/20–30/31–60/61+, with free separate.
+
+An explicit essential atmosphere requirement is eligibility; a preference stays
+ranking evidence. Positive atmosphere does not prove absence of another
+atmosphere. Hard positive/negative atmosphere checks require source-policy
+permission from the actual basis claims and validity covering the requested
+visit. Merely rebuilding an old4b claim into a2.2 manifest never grants that
+claim hard-constraint authority.
+
+Migration `20261012063312_world_knowledge_comparable_prices_and_cake_v2_2.sql`
+adds versioned definitions/policies and private v4 validation/write/input helpers;
+public authenticated writer names and gates remain unchanged. Historical inputs
+and manifests remain verifiable. No pointer backfill is executed. Rollout must
+first publish compatible server/client readers and authoring, then explicitly
+rebuild selected spots. Do not bulk relabel old data. PRICE_OPTIONS have matching
+TS/research-schema/SQL boundaries and immutable claims/verification/manifests.
+
+Validation:394 runtime/World-bridge tests,377 canonical Decision CI tests,
+33 Mobile/Web release contracts,107 World contracts,102 Admin/Web surface
+contracts and10 Owner browser tests passed. Web/Admin type checks and production
+builds passed; the changed browser test passes ESLint. The isolated schema-only
+Postgres rehearsal applied the migration atomically, then passed real Basic
+Owner/Admin writes, foreign-owner/anonymous/private-ledger denials, manifest
+validation, price validity, and old/new atmosphere-source authority checks.
+Fixtures are synthetic and transactional; no production data was read or written.
+
+The first31-call development run had2 valid contracts and6 errors; independent
+review reproduced our lexical cost-scope guard failures and some model-selected
+cross-node quote errors. These original failures are retained in the original
+report. The final v15/v8 run reused the same eight requests:24 attempted calls,
+estimated USD0.00980026 from returned usage (not an invoice),6 valid contracts
+and2 deadline errors. Independent semantic grades were5 PASS,1 PARTIAL,0 FAIL,
+2 ERROR. Valid results took12.709–15.718 seconds. Cases01 and05 had correct P1
+meaning but no first P2 response before the shared20-second deadline; both ended
+at about20.004 seconds without a demonstrated validation/retry error. Case07
+preserves the cake-only budget, but the personal refusal to order a drink remains
+UNSUPPORTED with an honest unmapped limitation. There is no remaining erroneous
+ALCOHOL_FREE statement in that captured run. The measured2/8 timeout rate blocks
+production stability acceptance. These traces demonstrate meaning handoff, not
+real-spot availability or a production-priced visit.
+
+Latest raw diagnostics: `/private/tmp/backyrd-knowledge-live-final-v8/`.
+Original report: `/private/tmp/backyrd-knowledge-live-original-report.json`.
+Full20s pipeline timeout, retries, model Luna low and production gates remain
+unchanged. Do not claim these repeated development inputs as independent holdout
+success or close AP1 from local contract tests.
+Durable input: `test/request-understanding/meaning-knowledge-corpus.json`.
+Synthetic raw provider diagnostics stay outside Git. Repeated development runs
+of these eight inputs are not a holdout or a production-quality acceptance.
+Sequences remain out of scope; full AP1 closure also needs representative quality
+and latency acceptance on an independent corpus and controlled rollout evidence.
+
 ## Single-visit time choices — implementation and evidence (2026-10-12)
 
 The canonical route now evaluates one requested TIME group with two to four

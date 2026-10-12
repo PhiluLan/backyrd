@@ -1,20 +1,20 @@
 import { canonicalSort, hashBody } from "./canonical.js";
-import { parseAttributeValue, WORLD_KNOWLEDGE_PORT_VERSION, type ClaimValue, type KnowledgeState } from "./contracts.js";
+import { parseAttributeValue, WORLD_KNOWLEDGE_PORT_VERSION, type ClaimValue, type PriceOption, type KnowledgeState } from "./contracts.js";
 import { ACCEPTED_ENTITLEMENT_POLICY } from "./slice3b.js";
-import { ATMOSPHERE_VALUES, ATTRIBUTE_DEFINITIONS, DAYPARTS, ONSITE_OFFERING_KINDS, PRICE_LEVEL_LABELS, PRIMARY_CATEGORIES, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, VISIT_SITUATIONS, type ValueType } from "./registry.js";
+import { ATMOSPHERE_VALUES, ATTRIBUTE_DEFINITIONS, DAYPARTS, ONSITE_OFFERING_KINDS, PRICE_LEVEL_LABELS, PRICE_PURPOSE_LABELS, PRICE_BASIS_LABELS, PRIMARY_CATEGORIES, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, VISIT_SITUATIONS, type ValueType } from "./registry.js";
 import { parseWorldKnowledgeSnapshot, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "./port.js";
 import { ACCEPTED_SOURCE_POLICY } from "./slice3b.js";
 import { AMENITY_AUTHORING_OPTIONS, CATEGORY_AUTHORING_MATRIX, CUISINE_AUTHORING_OPTIONS, FOOD_SPECIALITY_AUTHORING_OPTIONS, OFFERING_AUTHORING_OPTIONS, PLACE_TYPE_AUTHORING_OPTIONS, assessPlaceTypeCompatibility, getCategoryPlaceTypes, isAuthoringAttributeRelevant, type AuthoringGuidanceContext, type AuthoringTaxonomyState } from "./authoring-taxonomy.js";
 import { createWorldKnowledgeContextHandoff, type WorldKnowledgeContextHandoff } from "./contextual.js";
 
 export const FOUNDER_EVALUATION_SCOPE = "FOUNDER_EVALUATION_ONLY" as const;
-export const AUTHORING_CATALOG_VERSION = "backyrd.world-knowledge.authoring-catalog@4b.1" as const;
+export const AUTHORING_CATALOG_VERSION = "backyrd.world-knowledge.authoring-catalog@4c.1" as const;
 export const FOUNDER_EXPORT_VERSION = "backyrd.world-knowledge.founder-export@2.0" as const;
 export const FOUNDER_COHORT_VERSION = "backyrd.world-knowledge.founder-cohort@2.0" as const;
 export const FOUNDER_READER_VERSION = "backyrd.world-knowledge.reader-port@1.0" as const;
 
 export type AuthoringRole = "OWNER_BASIC" | "OWNER_PRO" | "ADMIN";
-export type AuthoringControl = "TEXT" | "TEXTAREA" | "EMAIL" | "URL" | "PHONE" | "NUMBER" | "SINGLE_SELECT" | "MULTI_SELECT" | "YES_NO" | "INTEGER_RANGE" | "WEEKLY_SCHEDULE" | "KITCHEN_HOURS" | "SPECIAL_HOURS" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "AGE_ACCESS_RULE_V2" | "CURRENT_STATE" | "ONSITE_OFFERINGS" | "VISIT_SITUATIONS" | "ATMOSPHERE_CONTEXTS" | "DAYPART_CONTEXTS";
+export type AuthoringControl = "TEXT" | "TEXTAREA" | "EMAIL" | "URL" | "PHONE" | "NUMBER" | "SINGLE_SELECT" | "MULTI_SELECT" | "YES_NO" | "INTEGER_RANGE" | "PRICE_OPTIONS" | "WEEKLY_SCHEDULE" | "KITCHEN_HOURS" | "SPECIAL_HOURS" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "AGE_ACCESS_RULE_V2" | "CURRENT_STATE" | "ONSITE_OFFERINGS" | "VISIT_SITUATIONS" | "ATMOSPHERE_CONTEXTS" | "DAYPART_CONTEXTS";
 export type AuthoringRequirementClass = "REQUIRED" | "CONDITIONALLY_REQUIRED" | "OPTIONAL" | "NOT_RELEVANT";
 
 export interface AuthoringStep {
@@ -47,7 +47,7 @@ export const AUTHORING_STEPS: readonly AuthoringStep[] = Object.freeze([
   { id: "classification", order: 2, title: "Einordnung", explanation: "Wähle genau eine Hauptkategorie und nur die Ortstypen, die wirklich zutreffen.", primaryAction: "Einordnung übernehmen", attributeKeys: ["classification.primary_category", "classification.place_types"] },
   { id: "offering", order: 3, title: "Küche und Angebot", explanation: "Küchenrichtungen, Spezialitäten und konkrete Angebotsgruppen bleiben fachlich getrennt.", primaryAction: "Angebot übernehmen", attributeKeys: ["offering.cuisines", "offering.food_specialities", "offering.groups", "operation.service_model", "operation.service_format", "operation.takeaway"] },
   { id: "context", order: 4, title: "Besuch und Atmosphäre", explanation: "Trenne den Hauptgrund für den Besuch von zusätzlichen Angeboten und beschreibe Situationen nur mit ihrem tatsächlichen Kontext.", primaryAction: "Besuchskontext übernehmen", attributeKeys: ["purpose.primary_visit", "offering.onsite", "context.visit_situations", "context.atmosphere", "context.typical_dayparts"] },
-  { id: "price", order: 5, title: "Preise und Bezahlung", explanation: "Das Preislevel ist kategoriebezogen; es wird nicht in einen erfundenen Preis pro Person umgerechnet.", primaryAction: "Preisangaben übernehmen", attributeKeys: ["operation.price_level", "operation.payment_methods"] },
+  { id: "price", order: 5, title: "Preise und Bezahlung", explanation: "Erfasse konkrete Preise mit Zweck, Altersgrenze und Pflichtgebühren. Das Preislevel allein bestätigt kein Budget.", primaryAction: "Preisangaben übernehmen", attributeKeys: ["operation.price_options", "operation.price_level", "operation.payment_methods"] },
   { id: "hours", order: 6, title: "Öffnungszeiten", explanation: "Reguläre Zeiten, Sondertage, Küchenzeiten und kurzfristige Zustände werden getrennt erfasst.", primaryAction: "Zeiten übernehmen", attributeKeys: ["hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "state.current"] },
   { id: "objective", order: 7, title: "Objektive Eigenschaften und Nutzungsmöglichkeiten", explanation: "Erfasse konkrete Kapazitäten und Regeln statt pauschaler Aussagen.", primaryAction: "Nutzungsangaben übernehmen", attributeKeys: ["capacity.seats_indoor", "capacity.seats_outdoor", "capacity.seats_total", "capacity.group_size_supported", "rule.reservation", "operation.laptop_policy", "operation.stay_policy"] },
   { id: "amenities", order: 8, title: "Ausstattung und Einschränkungen", explanation: "Ausstattung, Zugang und Regeln werden einzeln und überprüfbar beschrieben.", primaryAction: "Ausstattung übernehmen", attributeKeys: ["amenity.features", "accessibility.step_free_entrance", "accessibility.wheelchair_paths", "accessibility.accessible_seating", "accessibility.accessible_toilet", "accessibility.elevator", "accessibility.accessible_indoor", "accessibility.accessible_outdoor", "rule.pet_access", "rule.age_access_conditions", "rule.external_food", "rule.external_drink"] },
@@ -88,12 +88,13 @@ const help: Readonly<Record<string, string>> = Object.freeze({
   "purpose.primary_visit": "Der Hauptgrund, weshalb Menschen diesen Spot besuchen. Genau ein Primärzweck – Zusatzangebote ändern ihn nicht.",
   "offering.onsite": "Zusätzliche Angebote innerhalb des Spots. Ein Restaurant oder Café vor Ort macht den gesamten Spot nicht automatisch zu einem Restaurant- oder Café-Spot.",
   "context.visit_situations": "Typische Besuchssituationen gelten nur unter den angegebenen Bedingungen und sind keine universelle Eignungsaussage.",
+  "operation.price_options": "Pro Preis angeben, wofür und für wen er gilt. Der Höchstbetrag muss alle verpflichtenden Gebühren enthalten, damit ein Nutzerbudget bestätigt werden kann. Nicht bekannte Gebühren bleiben ausdrücklich offen.",
   "context.atmosphere": "Atmosphäre kann sich je Tageszeit, Wochentag, Bereich oder Veranstaltung unterscheiden.",
   "context.typical_dayparts": "Beschreibt typische Nutzungszeiten. Ob der Spot tatsächlich geöffnet ist, bestimmen ausschließlich die Öffnungszeiten.",
 });
 
 const groupFor = (key: string): string => key === "purpose.primary_visit" ? "Hauptgrund" : key === "offering.onsite" ? "Zusätzliche Angebote" : key.startsWith("context.") ? "Situativer Kontext" : key.startsWith("contact.") ? "Öffentliche Kontakte" : key.startsWith("location.") ? "Standort" : key.startsWith("offering.") ? "Angebot" : key.startsWith("capacity.") ? "Kapazität" : key.startsWith("accessibility.") ? "Zugänglichkeit" : key.startsWith("hours.") ? "Zeiten" : key.startsWith("rule.") ? "Regeln" : key.startsWith("amenity.") ? "Ausstattung" : "Allgemein";
-const controlFor = (valueType: string): AuthoringControl => ({ TEXT: "TEXT", EMAIL: "EMAIL", URL: "URL", PHONE: "PHONE", COUNTRY_CODE: "TEXT", IANA_TIMEZONE: "TEXT", DECIMAL: "NUMBER", INTEGER: "NUMBER", BOOLEAN: "YES_NO", ENUM: "SINGLE_SELECT", ENUM_SET: "MULTI_SELECT", INTEGER_RANGE: "INTEGER_RANGE", WEEKLY_SCHEDULE: "WEEKLY_SCHEDULE", SPECIAL_HOURS: "SPECIAL_HOURS", RESERVATION_RULE: "RESERVATION_RULE", CONSUMPTION_RULE: "CONSUMPTION_RULE", PET_ACCESS_RULE: "PET_ACCESS_RULE", AGE_ACCESS_RULE: "AGE_ACCESS_RULE", AGE_ACCESS_RULE_V2: "AGE_ACCESS_RULE_V2", CURRENT_STATE: "CURRENT_STATE", ONSITE_OFFERINGS: "ONSITE_OFFERINGS", VISIT_SITUATIONS: "VISIT_SITUATIONS", ATMOSPHERE_CONTEXTS: "ATMOSPHERE_CONTEXTS", DAYPART_CONTEXTS: "DAYPART_CONTEXTS" } as Partial<Record<string, AuthoringControl>>)[valueType] ?? "TEXT";
+const controlFor = (valueType: string): AuthoringControl => ({ TEXT: "TEXT", EMAIL: "EMAIL", URL: "URL", PHONE: "PHONE", COUNTRY_CODE: "TEXT", IANA_TIMEZONE: "TEXT", DECIMAL: "NUMBER", INTEGER: "NUMBER", BOOLEAN: "YES_NO", ENUM: "SINGLE_SELECT", ENUM_SET: "MULTI_SELECT", INTEGER_RANGE: "INTEGER_RANGE", PRICE_OPTIONS: "PRICE_OPTIONS", WEEKLY_SCHEDULE: "WEEKLY_SCHEDULE", SPECIAL_HOURS: "SPECIAL_HOURS", RESERVATION_RULE: "RESERVATION_RULE", CONSUMPTION_RULE: "CONSUMPTION_RULE", PET_ACCESS_RULE: "PET_ACCESS_RULE", AGE_ACCESS_RULE: "AGE_ACCESS_RULE", AGE_ACCESS_RULE_V2: "AGE_ACCESS_RULE_V2", CURRENT_STATE: "CURRENT_STATE", ONSITE_OFFERINGS: "ONSITE_OFFERINGS", VISIT_SITUATIONS: "VISIT_SITUATIONS", ATMOSPHERE_CONTEXTS: "ATMOSPHERE_CONTEXTS", DAYPART_CONTEXTS: "DAYPART_CONTEXTS" } as Partial<Record<string, AuthoringControl>>)[valueType] ?? "TEXT";
 
 export const AUTHORING_FIELDS: readonly AuthoringField[] = Object.freeze(AUTHORING_STEPS.flatMap((step) => step.attributeKeys.map((attributeKey) => {
   const definition = ATTRIBUTE_DEFINITIONS.find((item) => item.key === attributeKey);
@@ -213,6 +214,7 @@ const correctionFor = (valueType: ValueType): string => ({
   ENUM: "Bitte wähle einen der angebotenen Werte.",
   ENUM_SET: "Bitte wähle nur Werte aus der angebotenen Liste.",
   MONEY_RANGE: "Bitte gib einen vollständigen gültigen Preisbereich ein.",
+  PRICE_OPTIONS: "Bitte prüfe Preiszweck, Basis, Währung, Von/Bis, Altersgrenzen und Bedingungen. Beträge haben höchstens zwei Nachkommastellen.",
   INTEGER_RANGE: "Bitte gib eine kleinste und größte ganze Zahl ein; Von darf Bis nicht überschreiten.",
   RESERVATION_RULE: "Bitte vervollständige die Reservationsregel. Ein Zeitfenster benötigt Von und Bis.",
   CONSUMPTION_RULE: "Bitte wähle eine Regel; Ausnahmen dürfen nicht leer sein.",
@@ -245,6 +247,21 @@ export function validateAuthoringSubmission(attributeKey: unknown, knowledgeStat
   } catch {
     return { ok: false, code: `INVALID_${field.valueType}`, message: `${field.label}: ${correctionFor(field.valueType)}` };
   }
+}
+
+/** Human-readable saved value shared by both authoring surfaces. */
+export function formatPriceOptionsSummary(value: unknown): string {
+  if (value === null || value === undefined) return "Preisangaben noch unbekannt";
+  let prices: readonly PriceOption[];
+  try { prices = parseAttributeValue("operation.price_options", value) as readonly PriceOption[]; }
+  catch { return "Preisangaben noch nicht vollständig"; }
+  if (!prices.length) return "Keine konkreten Preise angegeben";
+  return prices.map(row => {
+    const amount = new Intl.NumberFormat("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const age = row.minimumAge !== null || row.maximumAge !== null ? ` · Alter ${row.minimumAge ?? 0}–${row.maximumAge ?? "offen"}` : "";
+    const conditional = Object.values(row.conditions).some(value => Array.isArray(value) ? value.length > 0 : value !== null);
+    return `${row.purposes.map(purpose => PRICE_PURPOSE_LABELS[purpose]).join(" + ")}: ${row.currency} ${amount.format(row.min)}–${amount.format(row.max)} ${PRICE_BASIS_LABELS[row.basis]}${age}${conditional ? " · mit Bedingungen" : ""}${!row.mandatoryFeesIncluded ? " · Pflichtgebühren offen" : ""}${!row.allOfferingsCovered ? " · Angebotsumfang offen" : ""}`;
+  }).join("; ");
 }
 
 export const AUTHORING_CATALOG_HASH = hashBody({ version: AUTHORING_CATALOG_VERSION, steps: AUTHORING_STEPS, fields: AUTHORING_FIELDS }, []);

@@ -7,7 +7,7 @@ import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.2" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v26" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v27" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
@@ -458,7 +458,7 @@ export function projectProductUnderstanding(understanding: ProductUnderstanding 
     currency: money?.kind === "BUDGET" && money.currency !== "UNSPECIFIED" ? money.currency : null,
     perPerson: money?.kind === "BUDGET" && money.basis !== "UNSPECIFIED" ? money.basis === "PER_PERSON" : null, calibrationLabel: null,
   } : undefined;
-  if (money !== undefined && !(money?.kind === "BUDGET" && money.currency === "CHF" && money.basis === "PER_PERSON" && !(money.includes?.length))) unresolved.add("BUDGET_SEMANTICS_UNVERIFIED");
+  if (money !== undefined && !(money?.kind === "BUDGET" && money.currency === "CHF" && money.basis === "PER_PERSON" && !money.includes?.some(component => !["FOOD", "DRINKS", "ADMISSION"].includes(component)))) unresolved.add("BUDGET_SEMANTICS_UNVERIFIED");
   let dateTime: DecisionProductRequest["explicit"]["dateTime"];
   if (time !== undefined) {
     const localDate = time?.kind === "TIME" ? explicitCalendarDate(time, localToday) ?? (time.openNow ? localToday : null) : null;

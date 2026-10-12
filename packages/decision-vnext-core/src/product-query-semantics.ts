@@ -108,7 +108,7 @@ export function projectRequirementFacets(requirements: readonly ProductRequireme
         && other.operator === requirement.operator && other.importance === requirement.importance && other.dimension === requirement.dimension
         && other.value?.kind === "FACET" && other.value.key.split(".")[0] === value.key.split(".")[0]);
       const role = requirement.operator === "EXCLUDE" ? "EXCLUDED"
-        : requirement.importance === "PREFERRED" || !completeGroup || value.key.startsWith("context.") || value.key === "operation.price_level" ? "PREFERRED" : "REQUIRED";
+        : requirement.importance === "PREFERRED" || !completeGroup || value.key === "context.typical_dayparts" || value.key === "context.visit_situations" || requirement.origin === "INFERRED" || value.key === "operation.price_level" ? "PREFERRED" : "REQUIRED";
       if (role === "EXCLUDED" && !value.key.startsWith("classification.")) continue;
       // Keep group in the identity: the same value can satisfy several ORs.
       add({ key: value.key, value: value.value, role, group: role === "REQUIRED" ? requirement.group ?? `G${index + 1}` : null });

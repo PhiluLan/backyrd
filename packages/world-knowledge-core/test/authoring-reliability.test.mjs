@@ -14,6 +14,7 @@ const samples = {
   BOOLEAN: true,
   ENUM: null,
   ENUM_SET: null,
+  PRICE_OPTIONS: [{ purposes: ["MEAL"], allOfferingsCovered: true, basis: "PER_PERSON", currency: "CHF", min: 10, max: 20, minimumAge: null, maximumAge: null, mandatoryFeesIncluded: true, conditions: { dayparts: [], days: [], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: null } }],
   INTEGER_RANGE: { min: 1, max: 12 },
   WEEKLY_SCHEDULE: [{ day: "TUESDAY", intervals: [{ start: "17:00", end: "23:00" }, { start: "23:30", end: "02:00" }] }],
   SPECIAL_HOURS: [{ date: "2026-12-24", status: "OPEN", intervals: [{ start: "11:00", end: "15:00" }] }, { date: "2026-12-25", status: "CLOSED", intervals: [] }],

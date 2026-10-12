@@ -7,7 +7,8 @@ import { evaluateOpeningState } from "../dist/opening-state.js";
 import { evaluateProductV1IntentClassification, evaluateProductWorldViews } from "../dist/product-v1-evaluator.js";
 
 const at = "2026-09-20T12:00:00.000Z";
-const fact = (key, value, extras = {}) => ({ key, value, scope: "SPOT", resolution: "KNOWN_VALUE", freshness: "CURRENT", trust: "VERIFIED", basisClaimHashes: [contentHash(key)], ...extras });
+const fact = (key, value, extras = {}) => ({ key, value, scope: "SPOT", resolution: "KNOWN_VALUE", freshness: "CURRENT", trust: "VERIFIED", basisClaimHashes: [contentHash(key)], ...(key === "context.atmosphere" ? {hardConstraintAuthorized:true,validityVerified:true,validFrom:null,validUntil:null}:{}), ...extras });
+const comparablePrice = (purpose, amount, currency='CHF') => fact('operation.price_options',[{purposes:[purpose],allOfferingsCovered:true,basis:'PER_PERSON',currency,min:amount,max:amount,minimumAge:null,maximumAge:null,mandatoryFeesIncluded:true,conditions:{dayparts:[],days:[],area:null,occasion:null,groupSize:null,ageContext:null,accompaniment:null,eventMode:null}}],{validityVerified:true,validFrom:null,validUntil:null});
 const binding = (spotId, rows, unknowns = []) => ({
   contractVersion: "backyrd.world-knowledge.product-resolver-binding@1.0",
   manifestHash: contentHash({ spotId, rows, unknowns }), registryHash: REGISTRY_HASH, resolvedAt: at,
@@ -292,7 +293,8 @@ test("query requirements apply across family, cafe, craft-beer, date, alternativ
 
   const cozy = assessPlan("Gemütliches Café", "COFFEE", ["WK_REQUIRED:G1:context.atmosphere:COZY"]);
   assert.equal(tier(cozy, 3), "ELIGIBLE_CONFIRMED");
-  assert.equal(tier(cozy, 4), "INELIGIBLE");
+  assert.notEqual(tier(cozy, 4), "ELIGIBLE_CONFIRMED");
+  assert.ok(cozy.get(venues[4][0]).unknownHardConstraints.includes("QUERY_REQUIRED_G1"), "lively is not proof of an explicit no-cozy statement");
   const cake = assessPlan("Kaffee und Kuchen", "COFFEE", ["WK_REQUIRED:G1:offering.food_specialities:DESSERTS"]);
   assert.equal(tier(cake, 3), "ELIGIBLE_CONFIRMED");
   assert.notEqual(tier(cake, 4), "ELIGIBLE_CONFIRMED");
@@ -301,7 +303,8 @@ test("query requirements apply across family, cafe, craft-beer, date, alternativ
   assert.equal(tier(craft, 6), "INELIGIBLE");
   const date = assessPlan("Date Night in einer Bar", "NIGHTLIFE", ["WK_REQUIRED:G1:context.visit_situations:DATE_PAIR"]);
   assert.equal(tier(date, 7), "ELIGIBLE_CONFIRMED");
-  assert.equal(tier(date, 6), "INELIGIBLE");
+  assert.notEqual(tier(date, 6), "ELIGIBLE_CONFIRMED");
+  assert.ok(date.get(venues[6][0]).unknownHardConstraints.includes("QUERY_REQUIRED_G1"), "friends evidence does not disprove a date visit");
   const alternatives = assessPlan("Museum oder Kino", "ACTIVITY_EXPERIENCE", ["WK_REQUIRED:G1:classification.place_types:MUSEUM", "WK_REQUIRED:G1:classification.place_types:CINEMA"]);
   assert.equal(tier(alternatives, 2), "ELIGIBLE_CONFIRMED");
   assert.equal(tier(alternatives, 9), "ELIGIBLE_CONFIRMED");
@@ -338,7 +341,7 @@ test("unmapped music and precise-time needs cannot become a fully confirmed reco
 test("budget eligibility requires comparable CHF per-person ceilings and never confirms unknown scope", () => {
   const base = [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "COFFEE_DAYTIME"), fact("classification.place_types", ["CAFE"])];
   const assessBudget = (naturalLanguage, currency = "CHF", explicit = {}) => {
-    const world = read(binding(cafeId, [...base, fact("operation.price_range", { currency, min: 10, max: 30 })]));
+    const world = read(binding(cafeId, [...base, comparablePrice("DRINK",30,currency)]));
     const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "budget-check", idempotencyKey: "budget-check", naturalLanguage, explicit, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
     return evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId])).evaluation.candidates[0];
   };
@@ -361,8 +364,8 @@ test('numeric meal price hints never certify a ceiling from an ordinal label', (
   const base=[fact('purpose.primary_visit','EAT_DRINK'),fact('classification.primary_category','EAT'),fact('classification.place_types',['RESTAURANT'])];
   const worlds=[
     read(binding('a1111111-1111-4111-a111-111111111111',[...base,fact('operation.price_level','LOW')])),
-    read(binding('b2222222-2222-4222-a222-222222222222',[...base,fact('operation.price_level','LOW'),fact('operation.price_range',{min:10,max:25,currency:'CHF'})])),
-    read(binding('c3333333-3333-4333-a333-333333333333',[...base,fact('operation.price_level','HIGH'),fact('operation.price_range',{min:10,max:18,currency:'CHF'})])),
+    read(binding('b2222222-2222-4222-a222-222222222222',[...base,fact('operation.price_level','LOW'),comparablePrice('MEAL',25)])),
+    read(binding('c3333333-3333-4333-a333-333333333333',[...base,fact('operation.price_level','HIGH'),comparablePrice('MEAL',18)])),
   ];
   const request={contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'meal-calibration',idempotencyKey:'meal-calibration',naturalLanguage:'Essen maximal 20 CHF pro Person',explicit:{primaryIntent:'EAT'},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
   const r=evaluateProductWorldViews(request,{authorizedCity:'Basel',serverTime:at},{status:'NEUTRAL',projectionHash:contentHash('neutral')},worlds,contentHash(worlds.map(w=>w.spot.spotId)));
