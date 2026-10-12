@@ -7,7 +7,7 @@ import type { DecisionProductRequest } from "./product-v1-contracts.js";
 import { PRODUCT_QUERY_CATALOG, validWorldPreference } from "./product-query-semantics.js";
 
 export const PRODUCT_UNDERSTANDING_VERSION = "backyrd.decision-vnext.request-understanding@1.2" as const;
-export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v25" as const;
+export const PRODUCT_UNDERSTANDING_POLICY = "request-understanding-policy-v26" as const;
 const nullable = <T>(value: import("./schema.js").Schema<T>) => schema.union([value, schema.literal(null)] as const);
 const ageValue = schema.object({ kind: schema.literal("AGE"), minimumAge: schema.number({ integer: true, min: 0, max: 120 }) });
 const companyValue = schema.object({ kind: schema.literal("COMPANY"), size: nullable(schema.number({ integer: true, min: 1, max: 100 })), adultPresent: nullable(schema.boolean()), companionType: nullable(schema.enum(["ALONE", "FRIENDS_GROUP", "FAMILY", "DATE_PAIR", "BUSINESS", "CELEBRATION", "CONVERSATION"] as const)) });
@@ -47,7 +47,7 @@ export const productRequirementSchema = schema.object({
 export type ProductRequirement = Infer<typeof productRequirementSchema>;
 export type ProductBudgetRequirement = Infer<typeof budgetValue>;
 export type ProductTimeRequirement = Infer<typeof timeValue>;
-export type ProductVisitAlternative = { readonly id: string; readonly intent: ProductV1Intent; readonly preferred: boolean; readonly requirements: readonly ProductRequirement[]; readonly unresolved: boolean };
+export type ProductVisitAlternative = { readonly id: string; readonly intent: ProductV1Intent; readonly preferred: boolean; readonly requirements: readonly ProductRequirement[]; readonly unresolved: boolean; readonly timeAlternative?: true };
 export type ProductUnderstanding = {
   readonly contractVersion: typeof PRODUCT_UNDERSTANDING_VERSION; readonly policyVersion: typeof PRODUCT_UNDERSTANDING_POLICY;
   readonly requestHash: string; readonly requirements: readonly ProductRequirement[]; readonly understandingHash: string; readonly interpretationSource?: "MEANING_PLAN"; readonly knownAgesPartial?: true; readonly visitAlternatives?: readonly ProductVisitAlternative[];
@@ -267,8 +267,9 @@ export function bindProductUnderstanding(request: DecisionProductRequest, requir
     || new Set(visitAlternatives.map(branch => branch.id)).size !== visitAlternatives.length
     || requirements.length + visitAlternatives.reduce((sum, branch) => sum + branch.requirements.length, 0) > 24)) throw new Error("product_visit_alternatives_invalid");
   const branches = visitAlternatives?.map(branch => {
-    if (Object.keys(branch).sort().join() !== "id,intent,preferred,requirements,unresolved" || !/^A[1-9][0-9]?$/.test(branch.id)
+    if (Object.keys(branch).sort().join() !== ["id", "intent", "preferred", "requirements", "unresolved", ...(Object.hasOwn(branch, "timeAlternative") ? ["timeAlternative"] : [])].sort().join() || !/^[AC][1-9][0-9]?$/.test(branch.id)
       || !(PRODUCT_V1_INTENT_IDS as readonly string[]).includes(branch.intent) || typeof branch.preferred !== "boolean" || typeof branch.unresolved !== "boolean"
+      || Object.hasOwn(branch, "timeAlternative") && branch.timeAlternative !== true
       || !Array.isArray(branch.requirements) || branch.requirements.length + requirements.length > 12) throw new Error("product_visit_alternatives_invalid");
     return { ...branch, requirements: branch.requirements.map(validateRequirement) };
   });
@@ -378,7 +379,7 @@ export function calendarExclusionSatisfied(requirement: ProductRequirement, sele
 /** Normalize known city aliases without converting arbitrary places to a catalog city. */
 export function canonicalRequestedCity(city: string): string {
   const normalized = city.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().trim();
-  return ({ zurich: "Zurich", basel: "Basel", genf: "Geneva", geneve: "Geneva", geneva: "Geneva" } as Readonly<Record<string, string>>)[normalized] ?? city.trim();
+  return ({ zurich: "Zurich", basel: "Basel", bale: "Basel", genf: "Geneva", geneve: "Geneva", geneva: "Geneva" } as Readonly<Record<string, string>>)[normalized] ?? city.trim();
 }
 
 /** Requested destination is distinct from the subsequently authorized retrieval area.

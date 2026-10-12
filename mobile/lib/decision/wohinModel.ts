@@ -61,6 +61,8 @@ export function wohinHighlights(candidate: DecisionProductCandidate, personaliza
   if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-positive-"))) {
     highlights.push("Passt zu deinen freigegebenen Vorlieben.");
   }
+  const time = candidate.reasons.find(reason => reason.code === "visit-time-alternative-confirmed" && reason.confirmed);
+  if (time) highlights.splice(Math.min(1, highlights.length), 0, time.statement);
   return highlights.slice(0, 2);
 }
 

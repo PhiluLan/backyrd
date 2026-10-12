@@ -112,9 +112,12 @@ test("a verified overnight interval counts on the requested following day", () =
     fact("hours.regular", [{ day: "SATURDAY", intervals: [{ start: "22:00", end: "02:00" }] }, { day: "SUNDAY", intervals: [] }]),
   ]));
   const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "overnight-request", idempotencyKey: "overnight-key", naturalLanguage: "Sonntag Kaffee trinken", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
-  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: "2026-12-26T12:00:00.000Z" }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
   assert.equal(result.evaluation.candidates[0].actualAvailability.status, "open");
   assert.equal(result.evaluation.candidates[0].reasons.find((reason) => reason.reasonCode === "requested-day-opening-hours")?.statementDe, "Öffnungszeiten am gefragten Sonntag: 00:00–02:00.");
+  const passed = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: "2026-12-27T12:00:00.000Z" }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
+  assert.equal(passed.evaluation.candidates[0].tier, "INELIGIBLE");
+  assert.ok(passed.evaluation.candidates[0].failedHardConstraints.includes("VISIT_TIME_PAST"));
 });
 
 test("confirmed context changes ranking evidence; missing data and numeric budget remain unknown", () => {

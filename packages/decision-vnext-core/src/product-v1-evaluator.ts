@@ -21,7 +21,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { inferProductV1Intent } from "./product-intent-lexicon.js";
 import { projectRequirementFacets, encodeWorldQueryConstraint, PRODUCT_INDOOR_CONSTRAINT, calibrateChfMealCeiling, encodeWorldPreference, decodeWorldPreference, decodeWorldQueryConstraint, inferredIndoorSuitability, type WorldQueryConstraint } from "./product-query-semantics.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.15" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@2.16" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -356,7 +356,36 @@ function intervalsMeetDaypart(intervals: readonly { readonly start: string; read
   });
 }
 
-function assess(snapshot: ProductWorldView, context: DecisionProductContext, queryPlan: WorldQueryPlan, projection: RelevantUserProjection, rejected: readonly string[], evaluationAt: string, requirements: readonly ProductRequirement[] = []): DecisionProductCandidateAssessment {
+/** Same-day intervals are half-open. Carry-over segments come from evaluateOpeningDay. */
+function intervalsContainClock(intervals: readonly { readonly start: string; readonly end: string }[], clock: string): boolean {
+  const minute = Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+  return intervals.some(({ start, end }) => {
+    const from = Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5));
+    const to = Number(end.slice(0, 2)) * 60 + Number(end.slice(3, 5));
+    return from < to ? from <= minute && minute < to : from > to && from <= minute;
+  });
+}
+
+function visitWindowIsPast(context: DecisionProductContext, at: string, intervals: readonly { readonly start: string; readonly end: string }[], clock?: string, currentOpen = false): boolean {
+  const date = context.dateTime.localDate; if (!date) return false;
+  const format = new Intl.DateTimeFormat("en-CA", { timeZone: context.dateTime.timeZone ?? "Europe/Zurich", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const parts = format.formatToParts(new Date(at)); const get = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value ?? "";
+  const today = `${get("year")}-${get("month")}-${get("day")}`;
+  if (date !== today) return date < today;
+  if (clock) { const instant = visitTimeInstant(date, clock); return instant !== null && Math.floor(Date.parse(instant) / 60_000) < Math.floor(Date.parse(at) / 60_000); }
+  const now = Number(get("hour")) * 60 + Number(get("minute"));
+  const windows = daypartWindows[context.dateTime.dayPhase ?? ""] ?? [[0, 1440]];
+  if (windows.every(([, end]) => end <= now)) return true;
+  if (currentOpen && windows.some(([from, until]) => from <= now && now < until)) return false;
+  if (!intervals.length) return false;
+  return !intervals.some(({ start, end }) => {
+    const from = Number(start.slice(0, 2)) * 60 + Number(start.slice(3, 5)); const rawEnd = Number(end.slice(0, 2)) * 60 + Number(end.slice(3, 5));
+    const until = rawEnd <= from ? 1440 : rawEnd;
+    return windows.some(([a, b]) => Math.max(from, a, now) < Math.min(until, b));
+  });
+}
+
+function assess(snapshot: ProductWorldView, context: DecisionProductContext, queryPlan: WorldQueryPlan, projection: RelevantUserProjection, rejected: readonly string[], evaluationAt: string, requirements: readonly ProductRequirement[] = [], preciseTime?: string): DecisionProductCandidateAssessment {
   const core = intentCoverage(snapshot, context.primaryIntent, requirements); const secondary = intentCoverage(snapshot, context.secondaryIntent, requirements); const purposeCoverage = primaryPurposeCoverage(snapshot, context.primaryIntent);
   const confirmed: string[] = []; const unknownHard: string[] = []; const failed: string[] = [];
   if (context.hardConstraints.includes("TARGET_LOCATION")) (snapshot.spot.location.locality !== null && context.targetCity !== null && canonicalRequestedCity(snapshot.spot.location.locality).toLowerCase() === canonicalRequestedCity(context.targetCity).toLowerCase() ? confirmed : failed).push("TARGET_LOCATION");
@@ -423,11 +452,13 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
   }
   const requestedDay = context.hardConstraints.includes("OPEN_ON_REQUESTED_DAY") && context.dateTime.localDate ? evaluateOpeningDay(snapshot, context.dateTime.localDate, productOpeningPolicy) : null;
   const confirmedRequestedClosure = context.hardConstraints.includes("OPEN_ON_REQUESTED_DAY") && confirmedClosureForRequestedDate(snapshot, context, evaluationAt);
-  const openingStatus: DecisionProductCandidateAssessment["actualAvailability"]["status"] = context.hardConstraints.includes("OPEN_NOW")
+  let openingStatus: DecisionProductCandidateAssessment["actualAvailability"]["status"] = context.hardConstraints.includes("OPEN_NOW")
     ? evaluateOpeningState(snapshot, evaluationAt, productOpeningPolicy).status
-    : confirmedRequestedClosure ? "closed" : requestedDay?.status === "open" && !intervalsMeetDaypart(requestedDay.intervals, context.dateTime.dayPhase)
+    : confirmedRequestedClosure ? "closed" : requestedDay?.status === "open" && (!intervalsMeetDaypart(requestedDay.intervals, context.dateTime.dayPhase) || preciseTime !== undefined && !intervalsContainClock(requestedDay.intervals, preciseTime))
       ? "closed" : requestedDay?.status ?? (confirmedClosureForRequestedDate(snapshot, context, evaluationAt) ? "closed" : "not_requested");
   if (openingStatus === "closed") failed.push("ACTUAL_AVAILABILITY");
+  const pastWindow = visitWindowIsPast(context, evaluationAt, requestedDay?.intervals ?? [], preciseTime, context.hardConstraints.includes("OPEN_NOW") && openingStatus === "open");
+  if (pastWindow) { failed.push("VISIT_TIME_PAST"); openingStatus = "unknown"; }
   if (context.hardConstraints.includes("OPEN_NOW")) { openingStatus === "open" ? confirmed.push("OPEN_NOW") : openingStatus === "closed" ? failed.push("OPEN_NOW") : unknownHard.push("OPEN_NOW"); }
   if (context.hardConstraints.includes("OPEN_ON_REQUESTED_DAY")) { openingStatus === "open" ? confirmed.push("OPEN_ON_REQUESTED_DAY") : openingStatus === "closed" ? failed.push("OPEN_ON_REQUESTED_DAY") : unknownHard.push("OPEN_ON_REQUESTED_DAY"); }
   const semanticReasons: ReturnType<typeof reason>[] = [];
@@ -512,6 +543,7 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, que
     reason(`primary-purpose-${purposeCoverage.state.toLowerCase()}`, "WORLD", purposeCoverage.evidenceSourceHash, purposeCoverage.state === "CONFIRMED" ? "Der bestätigte Hauptzweck unterstützt die Absicht zusätzlich." : purposeCoverage.state === "INCOMPATIBLE" ? "Der bestätigte Hauptzweck unterstützt diese Absicht nicht." : "Der Hauptzweck ist für diese Absicht nicht bestätigt.", purposeCoverage.state === "CONFIRMED"),
     ...semanticReasons,
   ];
+  if (pastWindow) worldReasons.push(reason("visit-time-past", "CONTEXT", contentHash({ context: context.interpretationHash, evaluationAt }), "Das gewünschte Besuchszeitfenster ist bereits vorbei.", true));
   if (openingStatus === "closed") worldReasons.push(reason("currently-closed", "WORLD", contentHash({ snapshotHash: snapshot.snapshotHash, openingStatus }), requestedDay?.status === "open" && context.dateTime.dayPhase && !intervalsMeetDaypart(requestedDay.intervals, context.dateTime.dayPhase) ? "Der Ort ist zur gewünschten Tageszeit laut bestätigten Öffnungszeiten nicht geöffnet." : "Der Ort ist laut gültigem World Knowledge geschlossen.", true));
   if (context.hardConstraints.includes(PRODUCT_INDOOR_CONSTRAINT)) {
     worldReasons.push(reason(`indoor-${indoorSuitability.toLowerCase()}`, indoorSuitability === "UNKNOWN" ? "LIMITATION" : "WORLD", contentHash({ snapshotHash: snapshot.snapshotHash, placeTypes: snapshot.spot.classification.placeTypes, indoorSuitability }), indoorSuitability === "INDOOR" ? "Diese bestätigte Ortsart ist grundsätzlich drinnen; die aktuelle Öffnung wird separat geprüft." : indoorSuitability === "OUTDOOR" ? "Diese bestätigte Ortsart ist überwiegend draußen und passt nicht zum Regenwunsch." : "Ob dieser Ort für einen Besuch bei Regen drinnen geeignet ist, ist nicht zuverlässig geklärt.", indoorSuitability !== "UNKNOWN"));
@@ -583,6 +615,46 @@ export function createDecisionProductEvaluator(input: { readonly world: WorldKno
   };
 }
 
+/** Resolve a unique Swiss civil time; skipped/repeated DST hours stay unverified. */
+function visitTimeInstant(date: string, clock: string): string | null {
+  const format = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Zurich", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const nominal = Date.parse(`${date}T${clock}:00Z`); const matches: string[] = [];
+  for (const offset of [1, 2]) {
+    const instant = new Date(nominal - offset * 3_600_000); const parts = format.formatToParts(instant);
+    const get = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value ?? "";
+    if (`${get("year")}-${get("month")}-${get("day")}` === date && `${get("hour")}:${get("minute")}` === clock) matches.push(instant.toISOString());
+  }
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function timeWindowClosure(snapshot: ProductWorldView, context: DecisionProductContext, clock?: string): "closed" | "unknown" | null {
+  // Conservative exception guard: a scoped closure or disputed current state
+  // cannot be erased by a regular schedule. Partial windows remain unverified.
+  if (snapshot.conflicts.some(row => row.severity === "BLOCKING" && row.attributeKeys.includes("state.current"))) return "unknown";
+  if (!context.dateTime.localDate) return null;
+  const windows = clock ? [[clock, clock] as const] : (daypartWindows[context.dateTime.dayPhase ?? ""] ?? [[0, 1440]])
+    .map(([from, to]) => [String(Math.floor(from / 60)).padStart(2, "0") + ":" + String(from % 60).padStart(2, "0"), to === 1440 ? "24:00" : String(Math.floor(to / 60)).padStart(2, "0") + ":" + String(to % 60).padStart(2, "0")] as const);
+  let partial = false;
+  for (const row of snapshot.currentStates) {
+    const value = row.value as { readonly kind?: string; readonly scope?: string } | null;
+    if (!value || !["SPOT", "VENUE"].includes(value.scope ?? "") || !["CLOSED", "TEMPORARILY_CLOSED", "AREA_CLOSED"].includes(value.kind ?? "")
+      || row.trust !== "VERIFIED" || row.freshness !== "CURRENT" || !row.validUntil) continue;
+    const from = row.validFrom ? Date.parse(row.validFrom) : Number.NEGATIVE_INFINITY; const until = Date.parse(row.validUntil);
+    const coverage = windows.map(([start, end]) => {
+      const date = context.dateTime.localDate!;
+      const next = new Date(`${date}T12:00:00Z`); next.setUTCDate(next.getUTCDate() + 1);
+      const begin = visitTimeInstant(date, start); const finish = end === "24:00" ? visitTimeInstant(next.toISOString().slice(0, 10), "00:00") : visitTimeInstant(date, end);
+      if (!begin || !finish) return "unknown";
+      const a = Date.parse(begin), b = Date.parse(finish);
+      const overlaps = clock ? from <= a && a < until : from < b && until > a;
+      return overlaps ? clock || from <= a && until >= b ? "closed" : "unknown" : null;
+    });
+    if (coverage.every(value => value === "closed")) return "closed";
+    partial ||= coverage.some(value => value !== null);
+  }
+  return partial ? "unknown" : null;
+}
+
 /** Evaluate each complete alternative with the existing eligibility rules.
  * Choosing one branch is OR; requirements inside it remain AND. */
 function assessVisitAlternatives(snapshot: ProductWorldView, request: DecisionProductRequest, context: DecisionProductContext,
@@ -608,8 +680,35 @@ function assessVisitAlternatives(snapshot: ProductWorldView, request: DecisionPr
       unresolvedTerms: [...new Set([...(request.explicit.unresolvedTerms ?? []), ...(branch.unresolved ? ["OTHER_CORE_NEED_UNMAPPED" as const] : [])])],
     } });
     const branchUnderstanding = bindProductUnderstanding(branchRequest, requirements, "MEANING_PLAN", understanding.knownAgesPartial);
-    const branchContext = resolveDecisionProductContext(branchRequest, authority, branchUnderstanding);
-    let assessment = assess(snapshot, branchContext, worldQueryPlan(branchContext), projection, request.rejectedCandidateIds, authority.serverTime, requirements);
+    let branchContext = resolveDecisionProductContext(branchRequest, authority, branchUnderstanding);
+    const timeValues = requirements.flatMap(row => row.dimension === "TIME" && row.operator === "REQUIRE" && row.importance !== "PREFERRED" && row.value?.kind === "TIME" ? [row.value] : []);
+    const clocks = [...new Set(timeValues.flatMap(value => value.clockTime ? [value.clockTime] : []))];
+    const pointInstant = branchContext.dateTime.localDate && clocks[0] ? visitTimeInstant(branchContext.dateTime.localDate, clocks[0]) : null;
+    const hasTime = branch.timeAlternative || timeValues.length > 0 || branchContext.dateTime.localDate !== null;
+    const supportedTime = hasTime && branchContext.dateTime.localDate !== null && clocks.length <= 1
+      && (clocks.length === 0 || pointInstant !== null)
+      && timeValues.every(value => !value.event && !value.reference && !value.phasePosition && (!value.clockRelation || value.clockRelation === "AT"));
+    if (supportedTime) {
+      const { interpretationHash: _hash, ...body } = branchContext;
+      branchContext = DecisionProductContextSchema.parse(withContentHash({ ...body, unresolvedTerms: body.unresolvedTerms.filter(code => code !== "PRECISE_TIME_UNVERIFIED") }, "interpretationHash"));
+    }
+    let assessment = assess(snapshot, branchContext, worldQueryPlan(branchContext), projection, request.rejectedCandidateIds, authority.serverTime, requirements,
+      supportedTime && clocks.length === 1 ? clocks[0] : undefined);
+    const closure = hasTime ? timeWindowClosure(snapshot, branchContext, clocks[0]) : null;
+    if (hasTime && (!supportedTime || closure
+      || snapshot.spot.location.timezone !== branchContext.dateTime.timeZone)) {
+      const { assessmentHash: _hash, ...body } = assessment;
+      assessment = DecisionProductCandidateAssessmentSchema.parse(withContentHash({ ...body,
+        tier: closure === "closed" ? "INELIGIBLE" : body.tier === "INELIGIBLE" ? body.tier : "UNCONFIRMED_FALLBACK",
+        actualAvailability: { status: closure === "closed" ? "closed" : "unknown", evidenceSourceHash: contentHash({ snapshotHash: snapshot.snapshotHash, branchContext: branchContext.interpretationHash }) },
+        confirmedHardConstraints: body.confirmedHardConstraints.filter(code => code !== "OPEN_ON_REQUESTED_DAY"),
+        failedHardConstraints: [...new Set([...body.failedHardConstraints, ...(closure === "closed" ? ["ACTUAL_AVAILABILITY"] : [])])],
+        unknownHardConstraints: closure === "closed" ? body.unknownHardConstraints.filter(code => code !== "OPEN_ON_REQUESTED_DAY") : [...new Set([...body.unknownHardConstraints, "VISIT_TIME_UNVERIFIED"])],
+        reasons: [...body.reasons, closure === "closed"
+          ? reason("visit-time-alternative-closed", "WORLD", snapshot.snapshotHash, "Für das gewünschte Besuchszeitfenster ist eine Schließung bestätigt.", true)
+          : reason("visit-time-alternative-unverified", "LIMITATION", branchContext.interpretationHash, "Dieses Besuchszeitfenster konnte nicht vollständig gegen die gültigen Zeitangaben geprüft werden.", false)],
+      }, "assessmentHash"));
+    }
     // A branch cannot override a deliberately selected primary intent.
     if (context.primaryIntent !== null && context.primaryIntent !== branch.intent) {
       const explicitCore = intentCoverage(snapshot, context.primaryIntent, requirements);
@@ -628,6 +727,8 @@ function assessVisitAlternatives(snapshot: ProductWorldView, request: DecisionPr
     const preferredConfirmed = branch.preferred && branchConfirmed && assessment.tier === "ELIGIBLE_CONFIRMED" && !assessment.unknownHardConstraints.length;
     return DecisionProductCandidateAssessmentSchema.parse(withContentHash({ ...body, reasons: [...body.reasons,
       reason("single-visit-alternative-confirmed", "CONTEXT", contentHash(branch), `Dieser Ort wurde für die Alternative ${branch.intent} mit deren eigenen Bedingungen geprüft.`, branchConfirmed),
+      ...(branch.timeAlternative ? [reason("visit-time-alternative-confirmed", "CONTEXT", contentHash({ branch, context: branchContext.interpretationHash }),
+        `Geprüfte Besuchszeit: ${branchContext.dateTime.localDate ?? "Datum offen"}${clocks[0] ? ` um ${clocks[0]} Uhr` : branchContext.dateTime.dayPhase ? ` ${({ MORNING: "vormittags", MIDDAY: "mittags", AFTERNOON: "nachmittags", EVENING: "abends", NIGHT: "nachts" } as const)[branchContext.dateTime.dayPhase]}` : ""}.`, branchConfirmed && assessment.actualAvailability.status === "open")] : []),
       ...(branch.preferred ? [reason("preferred-visit-alternative", "CONTEXT", contentHash(branch), "Dieser Ort erfüllt die ausdrücklich bevorzugte Alternative.", preferredConfirmed)] : []),
     ] }, "assessmentHash"));
   });

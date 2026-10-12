@@ -6,7 +6,7 @@ import { PRODUCT_REQUEST_MEANING_VERSION, PRODUCT_REQUEST_MEANING_POLICY, parseP
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 
 export const PRODUCT_MEANING_MAPPING_VERSION = "backyrd.decision-vnext.meaning-mapping@1.0" as const;
-export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v4" as const;
+export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v5" as const;
 const object = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("product_meaning_mapping_shape_invalid");
   return value as Record<string, unknown>;
@@ -157,6 +157,17 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
     return mapping.state === "MAPPED" && mapping.intent !== null ? [{ id: source.id, intent: mapping.intent, preferred: source.status === "OPTIONAL",
       requirements: mapping.requirements.map(row => ({ ...row, importance: row.importance === "PREFERRED" ? "ESSENTIAL" as const : row.importance })), unresolved: false }] : [];
   }) : [];
+  const timeGroups = [...new Set(meaning.constraints.filter(row => active(row.status) && row.aspect === "TIME" && row.alternativeGroup).map(row => row.alternativeGroup!))];
+  const timeNodes = timeGroups.length === 1 ? meaning.constraints.filter(row => row.alternativeGroup === timeGroups[0]) : [];
+  const timeIntent = primary ? plan.mappings.find(row => row.sourceId === primary.id)?.intent ?? null : null;
+  const timeChoice = primary !== null && timeIntent !== null && timeNodes.length >= 2 && timeNodes.length <= 4
+    && timeNodes.some(row => row.status === "REQUESTED") && timeNodes.every(row => ["REQUESTED", "OPTIONAL"].includes(row.status) && row.aspect === "TIME"
+      && row.condition === null && row.participantIds.length === 0 && (row.activityIds.length === 0 || row.activityIds.length === 1 && row.activityIds[0] === primary.id)
+      && plan.mappings.find(mapped => mapped.sourceId === row.id)?.state === "MAPPED"
+      && plan.mappings.find(mapped => mapped.sourceId === row.id)?.requirements.length === 1
+      && plan.mappings.find(mapped => mapped.sourceId === row.id)?.requirements[0]?.value?.kind === "TIME");
+  if (timeChoice) for (const source of timeNodes) branches.push({ id: source.id, intent: timeIntent!, preferred: source.status === "OPTIONAL", timeAlternative: true,
+    requirements: plan.mappings.find(row => row.sourceId === source.id)!.requirements.map(row => ({ ...row, importance: "HARD" as const, group: null })), unresolved: false });
   const branchUnresolved = new Set<string>();
   const visitIds = primary ? [primary.id] : singleVisitChoice ? choices.map(row => row.id) : visits.map(row => row.id);
   const requirements: ProductRequirement[] = []; let unresolved = meaning.uncertainties.length > 0;
@@ -172,7 +183,11 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
     const personCapability = "participantIds" in source && source.participantIds.length === 1
       && meaning.participants.some(person => person.id === source.participantIds[0] && person.participation === "CONFIRMED")
       && mapping.requirements.length > 0 && mapping.requirements.every(row => row.value?.kind === "NEED" && row.value.scope === "ONE_PERSON");
-    const scoped = "activityIds" in source && (!global && !commonContext || source.participantIds.length > 0 && !personCapability);
+    const solePersonBudget = "aspect" in source && source.aspect === "BUDGET" && source.participantIds.length === 1
+      && meaning.participants.filter(row => row.participation === "CONFIRMED").length === 1
+      && meaning.participants.some(row => row.id === source.participantIds[0] && row.entityType === "PERSON" && row.participation === "CONFIRMED")
+      && mapping.requirements.length > 0 && mapping.requirements.every(row => row.value?.kind === "BUDGET" && row.value.basis === "PER_PERSON");
+    const scoped = "activityIds" in source && (!global && !commonContext || source.participantIds.length > 0 && !personCapability && !solePersonBudget);
     const relation = "afterActivityId" in source && (source.afterActivityId !== null || source.replacesActivityId !== null || source.status === "OPTIONAL");
     if (singleVisitChoice && "afterActivityId" in source && choices.some(choice => choice.id === source.id)) continue;
     if (singleVisitChoice && "activityIds" in source && source.activityIds.length > 0 && !global && !commonContext) {
@@ -184,17 +199,13 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
       }
       continue;
     }
-    const timeChoice = "aspect" in source && source.aspect === "TIME" && source.alternativeGroup !== null && primary !== null
-      && meaning.constraints.filter(row => row.alternativeGroup === source.alternativeGroup).every(row => row.aspect === "TIME"
-        && row.condition === null && row.participantIds.length === 0 && (row.activityIds.length === 0 || row.activityIds.length === 1 && row.activityIds[0] === primary.id)
-        && plan.mappings.find(mapped => mapped.sourceId === row.id)?.requirements.length === 1
-        && plan.mappings.find(mapped => mapped.sourceId === row.id)?.requirements[0]?.value?.kind === "TIME");
-    if (timeChoice && mapping.state === "MAPPED") {
-      const groupRequired = meaning.constraints.some(row => row.alternativeGroup === source.alternativeGroup && row.status === "REQUESTED");
-      requirements.push(...mapping.requirements.map(row => ({ ...row, group: source.alternativeGroup, importance: groupRequired ? "ESSENTIAL" as const : "PREFERRED" as const })));
-      // The legacy kernel cannot verify alternative schedules yet; keep both
-      // dates and a limitation, rather than choose one or revive raw parsing.
-      unresolved = true; continue;
+    if (timeChoice && "aspect" in source && timeNodes.some(row => row.id === source.id)) continue;
+    // Optional timing remains private preference data, never a mandatory visit
+    // window or an unmapped core need. This version does not score it.
+    if (primary && "aspect" in source && source.aspect === "TIME" && source.status === "OPTIONAL"
+      && source.alternativeGroup !== null && source.condition === null && !scoped && mapping.state === "MAPPED"
+      && meaning.constraints.filter(row => row.alternativeGroup === source.alternativeGroup).every(row => row.aspect === "TIME" && row.status === "OPTIONAL")) {
+      requirements.push(...mapping.requirements); continue;
     }
     if (mapping.state !== "MAPPED" || source.condition !== null || source.alternativeGroup !== null || scoped || relation || !primary && !singleVisitChoice && !commonContext) {
       unresolved = true; continue;

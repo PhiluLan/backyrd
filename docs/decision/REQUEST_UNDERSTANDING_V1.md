@@ -4,6 +4,77 @@ Status: **step 1 COMPLETE; step 2 mapping foundation IMPLEMENTED, semantic/execu
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
+## Single-visit time choices — implementation and evidence (2026-10-12)
+
+The canonical route now evaluates one requested TIME group with two to four
+unconditional alternatives on one supported activity. At least one branch must
+be REQUESTED; OPTIONAL in that requested choice marks a preferred acceptable
+alternative. Date and dayphase/clock stay paired. Shared requirements, explicit
+UI filters and exact monetary limits apply in every branch. Only a complete
+branch may confirm a match; one spot produces one result. The preferred branch
+contributes after eligibility, core/purpose and verified availability.
+
+Dates are resolved from server authority in Europe/Zurich. Verified regular and
+special schedules are checked for the requested phase, or an exact AT clock.
+Special closures/openings override regular hours; overnight carry-over belongs
+to the following calendar day and closing endpoints are excluded. Dayphase proof
+means a nonempty opening overlap, not that the entire phase or an unspecified
+visit duration is available. Past dates, passed phases and already ended same-day
+opening windows cannot confirm a future visit. A currently verified OPEN
+exception remains authoritative for an explicitly requested visit now. An exact
+point or full phase covered by a verified global closure is INELIGIBLE; a partial
+closure overlap stays unverified rather than inventing a safe arrival time.
+Missing/disagreeing timezones and ambiguous/nonexistent DST clocks remain
+unverified. Confirmed chosen date/phase/clock is a deterministic candidate reason
+and appears in the existing Mobile highlights.
+
+All-OPTIONAL time groups stay private PREFERRED requirements, without a hard
+visit-window obligation or an unmapped-core veto. This version does not yet score
+those optional-only windows. BEFORE/AFTER bounds, event-relative times, undated
+slots, multiple independent TIME groups and activity-OR × time-OR combinations
+are not executed as confirmed time choices. Visit sequences remain explicitly
+outside this product scope. Participant/age uncertainty and missing World facts
+must not be described as a fully confirmed family experience.
+
+Two live-discovered normalization defects were corrected: an explicit PER_PERSON
+budget scoped to the sole confirmed PERSON remains a shared budget; broader
+individual/group budget scopes remain unverified. The source-grounded public
+municipality alias Bâle canonicalizes to Basel instead of falling back to the
+profile city. Arbitrary place names remain opaque. No new registry category,
+spot fact, SQL/RLS migration, retrieval route, rollout or production action.
+
+Current draft: meaning policy v14, mapping policy v5, understanding policy v26,
+context resolver v13, evaluator 2.16, ranking policy v4, evaluation release v11.
+Private understanding contract 1.2 and public context 1.1 remain compatible.
+
+Validation: strict build/type boundary, 347 Decision tests (including 23 time
+regressions), 33 Mobile/Web release contracts, single-route check and existing-app
+synthetic E2E passed. Additional Mobile highlights 9/9 and World bridge 17/17
+passed. The overnight bridge fixture now evaluates before the requested visit
+and separately asserts rejection after the same interval has passed. Independent
+read-only review reproduced and verified the current-OPEN and closure-state fixes.
+
+Eight new approved synthetic German/English/French requests ran through the
+unchanged Luna-low pipeline, not a holdout or production quality acceptance:
+24 calls, estimated USD 0.017439365, no transport/contract errors. Independent
+review graded P1 8 PASS and initial P2 7 PASS / 1 FAIL (Bâle). Original complete
+projection: 5 PASS, 1 PARTIAL (optional-only time incorrectly blocked core),
+2 FAIL (person-scoped CHF30 lost; Bâle lost). Those original grades remain.
+The same captured raw provider outputs were rebound/reprojected offline after
+repair, with a separate 2026-10-16T10:00:00Z server anchor; the original harness
+anchor was 2026-10-11T12:00:00Z. Reviewer confirmed budget, city and optional-time
+repairs, not a new model success or production availability proof. Family case02
+retains explicit age/participant limitations; optional-only case08 is preserved
+but its preference score is still open. Full Point2/AP1 production acceptance
+remains OPEN.
+
+Durable input: `test/request-understanding/meaning-time-alternatives-corpus.json`.
+Synthetic diagnostics: `/private/tmp/backyrd-time-live/{report,replay-final}.json`
+and numbered request/response files; they remain outside Git. The original
+runner command is the same `run-meaning-evaluation.mjs --live --pipeline` with
+that corpus. Model inputs contain no rubric/expected answer; store:false and
+existing actor, rate, cost, retry and deadline controls remain unchanged.
+
 ## Catalog-independent meaning stage — step 1 (2026-10-11)
 
 `product-request-meaning.ts` defines `request-meaning@1.0` and a bounded, strict

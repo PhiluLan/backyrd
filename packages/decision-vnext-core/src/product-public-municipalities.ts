@@ -362,6 +362,6 @@ const names: readonly string[] = [
 const normalize = (value: string) => value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().trim();
 const allowed = new Set(names.map(normalize));
 // Existing Product spelling and common language aliases; public names only.
-for (const alias of ["Geneva", "Genf", "Lucerne", "Biel", "Bienne"]) allowed.add(normalize(alias));
+for (const alias of ["Geneva", "Genf", "Lucerne", "Biel", "Bienne", "Bâle"]) allowed.add(normalize(alias));
 export const PUBLIC_MUNICIPALITY_DIRECTORY_VERSION = "bfs-swiss-municipalities-2026-01-01";
 export function isPublicMunicipality(value: string): boolean { return allowed.has(normalize(value)); }

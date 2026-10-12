@@ -1,0 +1,45 @@
+{
+  "scope": "TIME_ALTERNATIVES_DEVELOPMENT_NOT_HOLDOUT",
+  "cases": [
+    {
+      "id": "time-live-01",
+      "text": "Museum in Zürich entweder Samstagvormittag oder lieber Sonntagnachmittag.",
+      "expected": "Ein Museumsbesuch; Samstag MORNING oder bevorzugt Sonntag AFTERNOON; Zürich."
+    },
+    {
+      "id": "time-live-02",
+      "text": "Philipp hier: Mit meiner achtjährigen Tochter möchte ich am Samstagmorgen oder am Sonntagnachmittag ein Museum in Basel besuchen.",
+      "expected": "Museum; Vater und achtjährige Tochter; Basel; Samstag MORNING oder Sonntag AFTERNOON gleichwertig."
+    },
+    {
+      "id": "time-live-03",
+      "text": "Hey, Tobi hier. Restaurant in Bern, Freitag um 19 Uhr oder Samstag um 20 Uhr. Maximal 30 CHF pro Person, egal welcher Termin.",
+      "expected": "Ein Restaurant; Bern; Freitag AT19 oder Samstag AT20; CHF30 pro Person gilt für beide."
+    },
+    {
+      "id": "time-live-04",
+      "text": "Ich würde gerne ein ruhiges Café in Luzern besuchen, entweder morgen Vormittag oder übermorgen Nachmittag.",
+      "expected": "Konkreter Caféwunsch; ruhig; Luzern; morgen MORNING oder übermorgen AFTERNOON."
+    },
+    {
+      "id": "time-live-05",
+      "text": "A museum in Zurich on Saturday morning or, preferably, Sunday afternoon. The entrance must be step-free either way.",
+      "expected": "Museum Zurich; Saturday MORNING or preferred Sunday AFTERNOON; step-free both."
+    },
+    {
+      "id": "time-live-06",
+      "text": "Un musée à Bâle samedi matin ou dimanche après-midi, de préférence dimanche.",
+      "expected": "Museum Basel; Saturday MORNING or preferred Sunday AFTERNOON."
+    },
+    {
+      "id": "time-live-07",
+      "text": "Museum in Zürich: Samstag um 23:30 oder lieber Sonntag um 00:30. Nur einen Besuch.",
+      "expected": "Ein Museum; Zürich; Samstag AT23:30 oder bevorzugt Sonntag AT00:30; kein Besuchsablauf."
+    },
+    {
+      "id": "time-live-08",
+      "text": "Ich suche ein Museum in Zürich. Am liebsten Samstagvormittag oder Sonntagnachmittag, aber andere Zeiten gehen auch.",
+      "expected": "Museum erforderlich; beide Zeitfenster optional, andere Zeiten ausdrücklich erlaubt; kein harter Zeitveto."
+    }
+  ]
+}

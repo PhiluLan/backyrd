@@ -110,3 +110,10 @@ test("response limitations remain visible in plain language", () => {
   assert.deepEqual(wohinLimitations(["FUTURE_LIMITATION", "ANOTHER_FUTURE_LIMITATION"], 1), ["Zu dieser Auswahl liegen weitere Einschränkungen vor. Prüfe wichtige Angaben vor deinem Besuch."]);
   assert.deepEqual(wohinLimitations([], 0), []);
 });
+
+test("Wohin shows the confirmed chosen date and hides an unverified slot", () => {
+  const reason={code:"visit-time-alternative-confirmed",confirmed:true,statement:"Geprüfte Besuchszeit: 2026-10-18 nachmittags."};
+  const candidate={tier:"ELIGIBLE_CONFIRMED",coreIntentCoverage:"CONFIRMED",unknownHardConstraints:[],reasons:[reason]};
+  assert.ok(wohinHighlights(candidate,false).includes(reason.statement));
+  assert.equal(wohinHighlights({...candidate,reasons:[{...reason,confirmed:false}]},false).includes(reason.statement),false);
+});

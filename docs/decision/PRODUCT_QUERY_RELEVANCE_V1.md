@@ -67,5 +67,29 @@ ranking policy v4 and evaluation release v10 are an undeployed draft candidate.
 Compatible Mobile/Web response parsers are required for the optional public branch
 summaries and preference flag. Detailed fixtures, independent grades, original
 failures, offline repair evidence and bounds are documented in
-`REQUEST_UNDERSTANDING_V1.md`. Temporal OR and weather activation remain open;
+`REQUEST_UNDERSTANDING_V1.md`. The requested single-activity temporal OR implementation is described below; weather activation remains open;
 visit sequences are explicitly excluded as a separate product project.
+
+
+## Single-activity time choices (2026-10-12)
+
+Mapping policy v5/context resolver v13/evaluator2.16 evaluates two to four dated
+TIME alternatives on one activity using the same eligibility and ranking route.
+The selected date/phase or exact AT clock is shown in a confirmed candidate
+reason. Verified opening/special schedules, overnight boundaries, past-window
+checks and scoped negative exceptions precede preference ranking. Unknown,
+partially closed, undated or DST-ambiguous windows cannot receive a confirmed
+preference bonus. A dayphase means opening overlap, not full-phase availability.
+A current verified OPEN exception remains valid for an explicitly requested
+visit now. Fully covered verified closures reject the visit.
+
+Shared hard budget and access filters remain mandatory in every option. A
+PER_PERSON budget scoped to the sole confirmed person is retained globally;
+Bâle is a public source-grounded alias for Basel. Optional-only time groups remain
+preferred data and cannot block the required activity; scoring these preferences
+is still open. Activity/time Cartesian choices, event or clock bounds, multiple
+TIME groups, participant-specific budget semantics and weather activation retain
+explicit limitations. Sequences remain excluded. Understanding policyv26 and
+evaluation releasev11 are undeployed draft versions. Independent original-live
+and offline-repair evidence and open acceptance bounds are recorded in
+`REQUEST_UNDERSTANDING_V1.md`; no production quality or rollout is claimed.
