@@ -4,6 +4,68 @@ Status: **step 1 COMPLETE; step 2 mapping foundation IMPLEMENTED, semantic/execu
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
+## Final-test candidate: personal consumption and latency (2026-10-12)
+
+Candidate ready for independent acceptance testing, **not production approval**.
+Current meaning is contract1.2/policyv17; mapping policyv10; interpreter1.1.
+Model remains Luna low, strict structured output, store=false. Valid meaning now
+needs one provider call followed by catalog mapping. The formerly unconditional
+full second meaning pass was removed; its source-completeness checklist is in
+the first prompt. Invalid outputs may still have one bounded structural repair.
+The shared20-second deadline and honest failure behavior are unchanged.
+
+PERSONAL_CONSUMPTION is only an EXCLUDED personal purchase/consumption choice,
+without numeric limits or OR groups. It stays in the private meaning graph as
+CONTEXT_ONLY, never creates a venue exclusion or ALCOHOL_FREE assertion, and
+never proves that a venue allows visits without purchase. Explicit venue rules
+such as no mandatory drink purchase remain actual ACCESS/OFFERING requirements;
+unsupported rules remain visible limitations. No new Spot policy is invented.
+
+The v16/v9 development observation had8 valid contracts/no timeouts but the
+independent reviewer found1 semantic failure: coffee/cake existed only in a
+compound budget description and CAKE vanished from search requirements. In
+v17/v10, P1 keeps concrete priced offerings independently of cost components;
+P2 can also preserve grounded offering facets on a compound budget node. Such
+nodes still require exactly one faithful numeric BUDGET target; arbitrary
+location/time additions, changed amounts and dropped cost components are
+rejected. Shared per-person scope is preserved for the complete confirmed group.
+
+The final repeated8 development observations are independently **8 PASS,
+0 PARTIAL,0 FAIL,0 ERROR** for meaning and mapping,17 provider calls, observed
+latency7.542–16.668 seconds (median9.833s), estimated USD0.012438645 from returned
+usage, not an invoice. Raw approved synthetic diagnostics:
+`/private/tmp/backyrd-knowledge-live-v17-v10/`. These known inputs are not a
+holdout, actual Spot/price availability proof, or a reliability guarantee.
+
+The independent reviewer created30 fresh realistic requests,10 each Philipp,
+Tobi and Tim, across German/English/French, before examining this implementation.
+Frozen durable corpus: `test/request-understanding/meaning-final-acceptance-corpus.json`.
+SHA256 `cc046b7b4ff39d2aa96939b71ebf90c8ac711e6445d0de24704974eb300af1f2`.
+**These30 have not been sent to the provider.** Rubric arrays are accepted by the
+existing evaluation harness, never serialized into provider inputs. The harness
+and existing CLI now record an explicit fixed server clock, separating today's
+meaning from actual wall-clock timing. No competing runtime/evaluation path added.
+
+Final candidate checks:388 canonical Decision runtime/isolation tests plus17
+World-bridge tests,33 Mobile/Web release contracts, TypeScript, canonical builds,
+single-route invariant and the existing-app synthetic E2E all pass. The336
+understanding tests are included in those counts. Database/authoring behavior
+is unchanged from the preceding fully tested World Knowledge checkpoint.
+
+Final-test protocol: freeze the candidate commit and this corpus; use the
+existing run-meaning-evaluation CLI with --live --pipeline, the corpus path,
+--server-time 2026-10-12T12:00:00.000Z and a fresh ignored-local --output file.
+Use the approved provider key only in server-process environment. Run and keep
+all results, including errors/unsupported requirements, without changing
+expectations. Independently grade original request -> P1 meaning -> P2 mapping
+-> resolved context. VALID_CONTRACT is never semantic PASS; correct but
+unsupported execution is PARTIAL, silent losses/inventions FAIL and timeout/
+invalid output ERROR. Inspect scoped Spot evidence separately before claiming
+recommendation suitability. If fixes follow, the exposed corpus becomes a
+regression set and a fresh corpus is needed for independent acceptance. Full
+AP1 production acceptance remains OPEN until representative quality, latency
+and controlled rollout evidence exist. Visits in sequence remain out of scope.
+
 ## Comparable Spot knowledge and faithful handoff (2026-10-12)
 
 Implementation draft; production acceptance remains OPEN. Registry2.2 adds
@@ -13,9 +75,9 @@ claim is silently upgraded into cake, and no generic historical price becomes a
 meal, drink or admission price. The compatible reader accepts only the exact
 2.1/4b.1 or 2.2/4c.1 identity pair.
 
-The catalog-independent meaning contract is now1.1/policyv15. A budget's typed
+At the preceding checkpoint the catalog-independent meaning contract was1.1/policyv15. A budget's typed
 `costComponents` preserves FOOD/DRINKS/ADMISSION/TIP/MATERIALS/TRANSPORT once, in
-P1. Mappingv8 must retain those components exactly; it no longer reparses budget
+P1. That checkpoint’s Mappingv8 must retain those components exactly; it no longer reparses budget
 scope with inclusion-word regexes. P2 selects catalog targets, while the server
 binds them to the literal evidence already validated for their originating P1
 node. P2 cannot choose new quotes. Participant counts and missing ages remain

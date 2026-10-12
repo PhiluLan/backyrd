@@ -3,15 +3,16 @@ import { createDecisionProductMeaningStage, createDecisionProductMeaningPipeline
 /** Development evaluation only; VALID_CONTRACT is never semantic PASS.
  * Returned personal meaning is only suitable for explicitly approved fixtures,
  * never production logging or analytics. Expectations do not reach the provider. */
-export async function evaluateMeaningCorpus({ corpus, apiKey, fetchImpl = fetch, maxCalls = 80, maxEstimatedCostUsd = 2, pipeline = false }) {
-  if (typeof pipeline !== "boolean" || !Array.isArray(corpus?.cases) || corpus.cases.length < 1 || corpus.cases.length > 60
+export async function evaluateMeaningCorpus({ corpus, apiKey, fetchImpl = fetch, maxCalls = 80, maxEstimatedCostUsd = 2, pipeline = false, serverTime = "2026-10-11T12:00:00.000Z" }) {
+  if (typeof serverTime !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(serverTime) || !Number.isFinite(Date.parse(serverTime))
+    || typeof pipeline !== "boolean" || !Array.isArray(corpus?.cases) || corpus.cases.length < 1 || corpus.cases.length > 60
     || !Number.isSafeInteger(maxCalls) || maxCalls < 1 || maxCalls > 120
     || !Number.isFinite(maxEstimatedCostUsd) || maxEstimatedCostUsd <= 0 || maxEstimatedCostUsd > 5)
     throw Error('meaning_evaluation_configuration_invalid');
   const ids = new Set();
   for (const c of corpus.cases) {
     if (typeof c.id !== 'string' || !/^[a-zA-Z0-9._-]{1,100}$/.test(c.id) || ids.has(c.id)
-      || typeof c.text !== 'string' || c.text.length < 3 || c.text.length > 2000 || typeof c.expected !== 'string')
+      || typeof c.text !== 'string' || c.text.length < 3 || c.text.length > 2000 || !(typeof c.expected === 'string' || Array.isArray(c.expected) && c.expected.length >= 1 && c.expected.length <= 32 && c.expected.every(item => typeof item === 'string' && item.length >= 1 && item.length <= 2000)))
       throw Error('meaning_evaluation_corpus_invalid');
     ids.add(c.id);
   }
@@ -54,7 +55,7 @@ export async function evaluateMeaningCorpus({ corpus, apiKey, fetchImpl = fetch,
       const mapped = pipeline ? { request, plan: output.plan, interpretation: output.interpretation,
         context: resolveDecisionProductContext(output.interpretation.request, {
           authorizedCity: requestedProductCity(output.interpretation.understanding, output.interpretation.request) ?? "Zurich",
-          serverTime: "2026-10-11T12:00:00.000Z",
+          serverTime,
         }, output.interpretation.understanding) } : {};
       results.push({ id: c.id, status: 'VALID_CONTRACT', meaning, ...mapped, providerCalls: calls - callsBefore, latencyMs: Math.round(performance.now() - started) });
     } catch {
@@ -63,6 +64,6 @@ export async function evaluateMeaningCorpus({ corpus, apiKey, fetchImpl = fetch,
     }
   }
   return { scope: 'DEVELOPMENT_NOT_HOLDOUT', semanticReview: 'NOT_REVIEWED', productionRead: false, productionWritten: false,
-    model: 'gpt-6-luna', reasoning: 'low', policy: PRODUCT_REQUEST_MEANING_POLICY, ...(pipeline ? { mappingPolicy: PRODUCT_MEANING_MAPPING_POLICY } : {}), corpusHash: contentHash(corpus),
+    evaluationServerTime: serverTime, model: 'gpt-6-luna', reasoning: 'low', policy: PRODUCT_REQUEST_MEANING_POLICY, ...(pipeline ? { mappingPolicy: PRODUCT_MEANING_MAPPING_POLICY } : {}), corpusHash: contentHash(corpus),
     costStatus: 'ESTIMATE_NOT_INVOICE', estimatedCostUsd, providerCalls: calls, stopReason, results };
 }

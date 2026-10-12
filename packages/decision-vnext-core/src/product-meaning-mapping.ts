@@ -6,7 +6,7 @@ import { PRODUCT_REQUEST_MEANING_VERSION, PRODUCT_REQUEST_MEANING_POLICY, parseP
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 
 export const PRODUCT_MEANING_MAPPING_VERSION = "backyrd.decision-vnext.meaning-mapping@1.0" as const;
-export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v8" as const;
+export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v10" as const;
 const object = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("product_meaning_mapping_shape_invalid");
   return value as Record<string, unknown>;
@@ -39,7 +39,7 @@ const basis = (value: string | null): "PER_PERSON" | "TOTAL" | "UNSPECIFIED" => 
 };
 const active = (status: string) => ["REQUESTED", "OPTIONAL", "EXCLUDED"].includes(status);
 export function productMeaningMappingNodes(meaning: ProductRequestMeaning) {
-  return [...meaning.activities, ...meaning.constraints].filter(row => active(row.status));
+  return [...meaning.activities, ...meaning.constraints].filter(row => active(row.status) && !("aspect" in row && row.aspect === "PERSONAL_CONSUMPTION"));
 }
 export function validateProductMeaningMappingSource(request: DecisionProductRequest, meaning: ProductRequestMeaning, sources?: Readonly<Record<string, string>>): void {
   const { meaningHash, ...body } = meaning;
@@ -96,8 +96,8 @@ export function bindProductMeaningSearchPlan(request: DecisionProductRequest, me
           throw new Error("product_meaning_mapping_need_polarity_invalid");
         if (item.value?.kind === "BUDGET" && (!("aspect" in source) || source.aspect !== "BUDGET" || source.numericValue === null))
           throw new Error("product_meaning_mapping_budget_changed");
-        if ("aspect" in source && source.aspect === "BUDGET" && source.numericValue !== null) {
-          if (item.value?.kind !== "BUDGET" || !["LT", "LTE"].includes(source.comparison ?? "")
+        if ("aspect" in source && source.aspect === "BUDGET" && source.numericValue !== null && item.value?.kind === "BUDGET") {
+          if (!["LT", "LTE"].includes(source.comparison ?? "")
             || Math.abs(source.numericValue * 100 - Math.round(source.numericValue * 100)) > 0.000001
             || item.value.amountMinor !== Math.round(source.numericValue * 100) || item.value.comparison !== source.comparison
             || item.value.currency !== currency(source.unit) || item.value.basis !== basis(source.basis))
@@ -110,8 +110,14 @@ export function bindProductMeaningSearchPlan(request: DecisionProductRequest, me
             throw new Error("product_meaning_mapping_budget_includes_changed");
         }
       }
+      if ("aspect" in source && source.aspect === "BUDGET" && parsed.some(item => item.value?.kind !== "BUDGET"
+        && !(item.value?.kind === "FACET" && item.value.key.startsWith("offering."))))
+        throw new Error("product_meaning_mapping_budget_changed");
       return parsed;
     });
+    if (row.state === "MAPPED" && "aspect" in source && source.aspect === "BUDGET" && source.numericValue !== null
+      && requirements.filter(item => item.value?.kind === "BUDGET").length !== 1)
+      throw new Error("product_meaning_mapping_budget_changed");
     if (row.state === "MAPPED" && row.intent === null && !requirements.length) throw new Error("product_meaning_mapping_empty_target");
     const placeTypes = requirements.flatMap(requirement => requirement.value?.kind === "FACET" && requirement.value.key === "classification.place_types" && requirement.operator === "REQUIRE" ? [requirement.value.value] : []);
     const intent = row.intent === null && !("aspect" in source) && source.status !== "EXCLUDED" && placeTypes.length
@@ -179,7 +185,9 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
   const requirements: ProductRequirement[] = []; let unresolved = meaning.uncertainties.length > 0;
   const alternativeUnmapped = singleVisitChoice && branches.length !== choices.length;
   for (const source of [...meaning.activities, ...meaning.constraints]) {
-    if (!active(source.status)) continue;
+    // Personal purchasing choices stay in the private graph. They are neither
+    // Spot exclusions nor proof that a venue allows a visit without purchase.
+    if (!active(source.status) || "aspect" in source && source.aspect === "PERSONAL_CONSUMPTION") continue;
     const mapping = plan.mappings.find(row => row.sourceId === source.id)!;
     const global = "activityIds" in source && (source.activityIds.length === 0 || visitIds.length > 0
       && source.activityIds.length === visitIds.length && visitIds.every(id => source.activityIds.includes(id)));
@@ -193,7 +201,9 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
       && !meaning.participants.some(row => row.participation === "POSSIBLE" && row.entityType !== "ANIMAL")
       && meaning.participants.filter(row => row.participation === "CONFIRMED").every(row => row.entityType === "PERSON" && source.participantIds.includes(row.id))
       && source.participantIds.every(id => meaning.participants.some(row => row.id === id && row.entityType === "PERSON" && row.participation === "CONFIRMED"))
-      && mapping.requirements.length > 0 && mapping.requirements.every(row => row.value?.kind === "BUDGET" && row.value.basis === "PER_PERSON");
+      && mapping.requirements.some(row => row.value?.kind === "BUDGET" && row.value.basis === "PER_PERSON")
+      && mapping.requirements.every(row => row.value?.kind === "BUDGET" && row.value.basis === "PER_PERSON"
+        || row.value?.kind === "FACET" && row.value.key.startsWith("offering."));
     const scoped = "activityIds" in source && (!global && !commonContext || source.participantIds.length > 0 && !personCapability && !sharedPersonBudget);
     const relation = "afterActivityId" in source && (source.afterActivityId !== null || source.replacesActivityId !== null || source.status === "OPTIONAL");
     if (singleVisitChoice && "afterActivityId" in source && choices.some(choice => choice.id === source.id)) continue;

@@ -1,0 +1,305 @@
+{
+  "scope": "FRESH_FINAL_ACCEPTANCE",
+  "cases": [
+    {
+      "id": "philipp-01",
+      "text": "Meine Tochter ist sieben. Wir möchten heute nach der Schule in Winterthur etwas töpfern; höchstens 25 Franken für uns beide, Material eingeschlossen.",
+      "expected": [
+        "Tochter aktuell 7; gemeinsamer Besuch, keine erfundene Erwachsenenalterszahl.",
+        "Töpfern konkret erhalten; Winterthur als Ziel.",
+        "Heute nach Schulschluss ist zeitlicher Bezug, keine erfundene Uhrzeit.",
+        "Budget höchstens CHF25 TOTAL für beide, Material eingeschlossen; kein Pro-Person-Budget."
+      ]
+    },
+    {
+      "id": "philipp-02",
+      "text": "My daughter is eleven and I would like to go swimming in Baden tomorrow. A shallow pool would be nice, but we do need changing rooms.",
+      "expected": [
+        "Tochter aktuell 11; zwei ausdrücklich beschriebene Teilnehmende.",
+        "Schwimmen in Baden morgen; höflicher Hauptwunsch erforderlich.",
+        "Flaches Becken optional; Umkleiden erforderlich.",
+        "Keine erfundene Eintrittsgrenze oder Begleitregel."
+      ]
+    },
+    {
+      "id": "philipp-03",
+      "text": "Avec ma fille de six ans, je cherche une bibliothèque à Lausanne pour samedi matin ou dimanche après-midi. Une seule sortie, les deux créneaux nous conviennent.",
+      "expected": [
+        "Tochter aktuell 6 und anfragende Person.",
+        "Bibliothek Lausanne, genau ein Besuch.",
+        "Samstagvormittag ODER Sonntagnachmittag als gekoppelte Zeitoptionen; keine Präferenz.",
+        "Keine zwei Besuche oder gemischter Samstag-Nachmittag-Termin."
+      ]
+    },
+    {
+      "id": "philipp-04",
+      "text": "Ich gehe mit meiner neunjährigen Tochter nach Solothurn. Wir würden gern Tiere beobachten, brauchen aber keine Führung. Eintritt und Bus zusammen dürfen pro Person höchstens 18 CHF kosten.",
+      "expected": [
+        "Tochter aktuell 9; Solothurn Ziel.",
+        "Tiere beobachten als konkreter Wunsch; keine geführte Tour erfinden.",
+        "Führung nicht erforderlich, kein Ausschluss aller Orte mit Führungen.",
+        "CHF18 pro Person höchstens; Eintritt UND Bus/Transport im gemeinsamen Umfang."
+      ]
+    },
+    {
+      "id": "philipp-05",
+      "text": "My daughter turns ten next month; she is nine now. For this afternoon in Zug, we want either mini golf or bowling, preferably bowling.",
+      "expected": [
+        "Aktuelles Tochteralter9; zukünftiges10 nächsten Monat separat, kein Besuchsdatum nächsten Monat.",
+        "Heute Nachmittag Zug.",
+        "Ein Besuch: Minigolf ODER Bowling; Bowling bevorzugt, Minigolf weiterhin zulässig.",
+        "Keine zusätzliche Pflicht für beide Aktivitäten."
+      ]
+    },
+    {
+      "id": "philipp-06",
+      "text": "Ma fille a huit ans. À Fribourg, nous aimerions fabriquer quelque chose ensemble, mais pas forcément dans un atelier organisé. Il nous faut des toilettes sur place.",
+      "expected": [
+        "Tochter aktuell8; gemeinsam etwas herstellen/basteln als konkreter Wunsch.",
+        "Fribourg Ziel; organisierter Workshop nicht erforderlich, nicht ausgeschlossen.",
+        "Toiletten vor Ort zwingend.",
+        "Keine Spezialisierung auf Töpfern, Malen oder eine bestimmte Werkstatt erfinden."
+      ]
+    },
+    {
+      "id": "philipp-07",
+      "text": "Mit meiner zwölfjährigen Tochter möchte ich am Freitagabend in Chur einen Film schauen. Es muss kein Kinderfilm sein; auf Horror haben wir beide keine Lust.",
+      "expected": [
+        "Tochter aktuell12; gemeinsamer Filmbesuch Chur Freitagabend.",
+        "Kinderfilm nicht erforderlich; Horror ausgeschlossen.",
+        "Keine allgemeine Ablehnung kinderfreundlicher Kinos.",
+        "Keine Altersfreigabe oder konkrete Filmverfügbarkeit behaupten."
+      ]
+    },
+    {
+      "id": "philipp-08",
+      "text": "My daughter is five. We would like a playground in Aarau today; if it rains, we would rather visit an indoor play area instead. A nearby bakery is optional.",
+      "expected": [
+        "Tochter aktuell5; Aarau heute.",
+        "Spielplatz Hauptwunsch; bei Regen bevorzugte Ersatzalternative Indoor-Spielbereich.",
+        "Keine unbedingte Indoor-Pflicht für den Spielplatz; Wetter nicht als bekannt behaupten.",
+        "Bäckerei in der Nähe optional, kein zweiter Pflichtbesuch."
+      ]
+    },
+    {
+      "id": "philipp-09",
+      "text": "Avec ma fille de treize ans, je voudrais voir une exposition à Genève après notre déjeuner. Nous avons une heure pour la visite, pas pour manger.",
+      "expected": [
+        "Tochter aktuell13; Ausstellung Genf erforderlich.",
+        "Nach eigenem Mittagessen als Ereignisfolge; Mittagessen kein gesuchtes Angebot, keine feste Mittagsphase ableiten.",
+        "Eine Stunde für Ausstellungsbesuch; keine Essensdauer.",
+        "Kein Restaurant als zusätzliche Pflicht."
+      ]
+    },
+    {
+      "id": "philipp-10",
+      "text": "Meine Tochter ist vier, und ich bin heute allein mit ihr unterwegs. In Schaffhausen suchen wir ein Café mit Spielecke. Ich bestelle einen Kaffee, sie muss nichts kaufen.",
+      "expected": [
+        "Tochter aktuell4, anfragende Person plus Tochter; allein mit ihr bedeutet nicht Gruppengröße1/ALONE.",
+        "Café Schaffhausen heute; Spielecke erforderlich.",
+        "Kaffee für anfragende Person; Tochter ohne eigene Kaufpflicht.",
+        "Kein Verbot eines Getränkeangebots und keine Behauptung, Konsumregeln seien erfüllt."
+      ]
+    },
+    {
+      "id": "tobi-01",
+      "text": "Ich hätte heute Abend in St. Gallen gern ein Restaurant mit glutenfreien Gerichten. Bis 40 CHF pro Person fürs Essen; Getränke zahle ich separat.",
+      "expected": [
+        "Restaurant St.Gallen heute Abend; höflicher Wunsch erforderlich.",
+        "Glutenfreie Gerichte erforderlich, keine Zöliakie oder Allergenfreiheit erfinden.",
+        "CHF40 pro Person höchstens nur Essen; Getränke ausdrücklich separat.",
+        "Keine gesamte Restaurantkarte als glutenfrei voraussetzen."
+      ]
+    },
+    {
+      "id": "tobi-02",
+      "text": "Could you find me a place for breakfast in Neuchâtel tomorrow? I need a seat, but step-free access is not necessary for me.",
+      "expected": [
+        "Frühstück Neuchâtel morgen erforderlich; kein bloßer Kaffeeersatz.",
+        "Sitzmöglichkeit erforderlich.",
+        "Stufenloser Zugang nicht erforderlich, kein Ausschluss barrierefreier Orte.",
+        "Keine erfundene Uhrzeit oder Restaurant-Ortsartpflicht."
+      ]
+    },
+    {
+      "id": "tobi-03",
+      "text": "À Montreux, je voudrais soit des sushis, soit des ramen, avec une préférence pour les ramen. Maximum 35 CHF par personne pour le repas, pour les deux options.",
+      "expected": [
+        "Montreux Ziel; Sushi ODER Ramen ein Besuch, Ramen bevorzugt.",
+        "CHF35 pro Person Mahlzeitenobergrenze für beide Alternativen.",
+        "Kein Ort muss beide Gerichte anbieten.",
+        "Keine zusätzlichen Getränke im Budget."
+      ]
+    },
+    {
+      "id": "tobi-04",
+      "text": "In Luzern möchte ich morgen Mittag essen. Vegetarisch wäre schön, ist aber kein Muss. Eine Terrasse brauche ich nicht.",
+      "expected": [
+        "Essen Luzern morgen Mittag erforderlich.",
+        "Vegetarisch nur Präferenz; keine zwingende vegetarische Speisenauswahl.",
+        "Terrasse nicht erforderlich, nicht ausgeschlossen.",
+        "Keine automatische Indoor-Pflicht."
+      ]
+    },
+    {
+      "id": "tobi-05",
+      "text": "We are four colleagues looking for lunch in Bern on Tuesday. The bill for all four meals must stay under CHF 120; tips are extra.",
+      "expected": [
+        "Vier Kolleginnen/Kollegen, keine Familie/Date erfinden.",
+        "Mittagessen Bern Dienstag.",
+        "Strikte Obergrenze unter CHF120 TOTAL für vier Mahlzeiten; nicht <=120 und nicht120 proPerson.",
+        "Trinkgeld nicht im Budget."
+      ]
+    },
+    {
+      "id": "tobi-06",
+      "text": "Je cherche une pâtisserie à Sion pour manger une part de gâteau sur place. Je ne prendrai pas de boisson; je peux payer jusqu’à 9 CHF pour le gâteau.",
+      "expected": [
+        "Pâtisserie Sion, Kuchenstück vor Ort essen; konkretes Kuchenangebot.",
+        "Keine Getränkebestellung gewünscht; kein Verbot von Cafés oder Getränkeangeboten.",
+        "Bis CHF9 nur Kuchen; keine Getränkekosten hinzufügen.",
+        "Vor-Ort-Verzehr erhalten, nicht nur Takeaway."
+      ]
+    },
+    {
+      "id": "tobi-07",
+      "text": "Ich möchte am Samstag in Basel zu Abend essen. Unter der Woche ging auch ein Imbiss, diesmal wünsche ich mir aber Bedienung am Tisch.",
+      "expected": [
+        "Abendessen Basel Samstag.",
+        "Tischbedienung diesmal erforderlich.",
+        "Imbiss unter der Woche Hintergrund, keine aktuelle Alternative oder zusätzliche Ortsart.",
+        "Keine Spezialisierung auf Fine Dining oder gehobene Preise."
+      ]
+    },
+    {
+      "id": "tobi-08",
+      "text": "A bakery with sandwiches in Thun today, please. Takeaway is fine, and I do not need a table. I have CHF 14 for a sandwich and a soft drink together.",
+      "expected": [
+        "Bäckerei Thun heute mit Sandwiches.",
+        "Takeaway akzeptiert; Tisch nicht erforderlich, keine Pflicht zum Vor-Ort-Essen.",
+        "Gemeinsamer Budgetumfang Sandwich/Essen plus alkoholfreies Getränk, CHF14.",
+        "Keine Alkoholbestellung und keine reine Getränkepreisprüfung; keine unbelegte Gesamtgruppengröße."
+      ]
+    },
+    {
+      "id": "tobi-09",
+      "text": "Nous cherchons un restaurant à Nyon pour vendredi ou samedi soir, de préférence vendredi. Il faut pouvoir réserver pour six personnes.",
+      "expected": [
+        "Restaurant Nyon für sechs Personen.",
+        "Freitagabend ODER Samstagabend, Freitag bevorzugt; ein Besuch.",
+        "Reservierbarkeit für sechs erforderlich; nicht behaupten, Reservierung bereits verfügbar oder gebucht.",
+        "Keine zwei Reservierungen oder Besuche."
+      ]
+    },
+    {
+      "id": "tobi-10",
+      "text": "In Zürich hätte ich gern heute eine vegane Pizza, nicht einfach irgendein veganes Gericht. Eine glutenfreie Variante ist mir egal.",
+      "expected": [
+        "Vegane Pizza als kombinierter konkreter Pflichtwunsch; generisch vegan allein reicht nicht.",
+        "Zürich heute.",
+        "Glutenfreiheit nicht erforderlich und nicht ausgeschlossen.",
+        "Keine erfundene vegane Gesamtküche oder reine Pizzeria-Ortsartpflicht."
+      ]
+    },
+    {
+      "id": "tim-01",
+      "text": "Ich suche heute in Biel ein ruhiges Café zum Lesen. Eine Steckdose wäre praktisch, aber ohne WLAN komme ich aus.",
+      "expected": [
+        "Café Biel heute, ruhige Umgebung zum Lesen erforderlich.",
+        "Steckdose optional.",
+        "WLAN nicht erforderlich; kein Ausschluss von WLAN-Orten.",
+        "Keine Pflicht zu Laptoparbeit oder Geschäftstreffen."
+      ]
+    },
+    {
+      "id": "tim-02",
+      "text": "I would like a cosy tea room in Vevey tomorrow afternoon. Cake is optional; tea is the reason for going.",
+      "expected": [
+        "Gemütlicher Teeraum Vevey morgen Nachmittag.",
+        "Tee konkret erforderlich; Kuchen optional.",
+        "Kein Kaffee als Ersatz des Teewunschs, keine Pflicht für Kuchen.",
+        "Keine erfundene Budgetgrenze."
+      ]
+    },
+    {
+      "id": "tim-03",
+      "text": "À Delémont, je cherche un endroit calme pour discuter avec un ami ce soir. Un bar sans musique forte ou un café nous conviendrait.",
+      "expected": [
+        "Delémont heute Abend, Gespräch mit einem Freund; keine ALONE- oder DATE-Annahme.",
+        "Ein Besuch: Bar ohne laute Musik ODER Café.",
+        "Ruhige Gesprächsumgebung für beide Optionen erforderlich; Musikbedingung der Bar erhalten.",
+        "Keine globale alkoholfreie Pflicht."
+      ]
+    },
+    {
+      "id": "tim-04",
+      "text": "Für morgen in Baden wünsche ich mir ein gemütliches Café. Draußen sitzen wäre nur bei trockenem Wetter schön; drinnen muss es auf jeden Fall Sitzplätze geben.",
+      "expected": [
+        "Gemütliches Café Baden morgen.",
+        "Indoor-Sitzplätze erforderlich.",
+        "Outdoor-Sitzen nur optionale Präferenz bei trockenem Wetter.",
+        "Keine unbedingte Terrasse/Outdoor-Pflicht oder behauptetes Wetter."
+      ]
+    },
+    {
+      "id": "tim-05",
+      "text": "A quiet museum in Lausanne on Sunday morning or Monday afternoon would suit me. I prefer Monday, but either slot is fine.",
+      "expected": [
+        "Ruhiges Museum Lausanne; höflicher Hauptwunsch erforderlich.",
+        "Ein Besuch: Sonntagvormittag ODER Montagnachmittag; Montag bevorzugt.",
+        "Datum und Tagesphase je Zweig zusammen erhalten.",
+        "Keine zwei Besuche, kein Montagvormittag erfinden."
+      ]
+    },
+    {
+      "id": "tim-06",
+      "text": "Je voudrais un café confortable à Genève après mon rendez-vous de 16 heures. Je ne sais pas encore combien de temps le rendez-vous durera.",
+      "expected": [
+        "Gemütliches Café Genf nach einem Termin.",
+        "16Uhr gehört zum vorherigen Termin, nicht gesicherte Besuchszeit.",
+        "Termindauer unbekannt; keine Ankunftsuhrzeit oder feste Tagesphase erfinden.",
+        "Kein heutiges Datum ohne weitere Angabe erzwingen."
+      ]
+    },
+    {
+      "id": "tim-07",
+      "text": "Heute in Zug lieber ein ruhiges Café als eine Bar. Falls nur eine Bar infrage kommt, sollte sie ebenfalls ruhig sein. Ich möchte genau einen Ort besuchen.",
+      "expected": [
+        "Zug heute, genau ein Ort.",
+        "Ruhiges Café bevorzugt; ruhige Bar akzeptierte nachrangige Alternative.",
+        "Ruhe in beiden Zweigen erhalten; Bar nicht ausgeschlossen.",
+        "Keine Besuchsfolge Café dann Bar."
+      ]
+    },
+    {
+      "id": "tim-08",
+      "text": "I want a calm cafe in Fribourg this evening, with somewhere to sit for about ninety minutes. I may buy a second drink, but that is not a requirement.",
+      "expected": [
+        "Ruhiges Café Fribourg heute Abend.",
+        "Sitzmöglichkeit und ungefähr90Minuten Aufenthalt erhalten; keine Wartezeit.",
+        "Zweites Getränk optional; keine Bestellpflicht daraus.",
+        "Keine behauptete Erlaubnis langen Sitzens ohne World-Nachweis."
+      ]
+    },
+    {
+      "id": "tim-09",
+      "text": "À Yverdon-les-Bains, un salon de thé calme pour lire me plairait. Pour le thé seulement, mon budget est de 6 CHF; je paierai une éventuelle pâtisserie à part.",
+      "expected": [
+        "Ruhiger Teeraum Yverdon-les-Bains zum Lesen als Wunsch.",
+        "Tee erforderlich, Gebäck nur eventuell/optional.",
+        "CHF6 Budget nur Tee/Getränk; Gebäck separat und nicht in der Preisgrenze.",
+        "Keine Budgetgrenze für gesamten Besuch erfinden."
+      ]
+    },
+    {
+      "id": "tim-10",
+      "text": "Ich möchte morgen in Winterthur ruhig frühstücken. Kinderfreundlich darf der Ort gern sein; ich komme aber ohne Kinder. Wichtig ist ein Platz ohne laute Musik.",
+      "expected": [
+        "Frühstück Winterthur morgen erforderlich.",
+        "Ruhiger Sitzplatz ohne laute Musik erforderlich.",
+        "Keine Kinder dabei ist Begleitungskontext; kein Ausschluss kinderfreundlicher Orte.",
+        "Kinderfreundlichkeit ausdrücklich zulässig, keine mitreisenden Kinder oder Familiengruppe erfinden."
+      ]
+    }
+  ]
+}
