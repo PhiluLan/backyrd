@@ -4,6 +4,52 @@ Status: **step 1 COMPLETE; step 2 mapping foundation IMPLEMENTED, semantic/execu
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
+## Priority: preserve information and reduce real latency (2026-10-12)
+
+Founder prioritizes information loss/substitution and real app latency; about11s
+is too slow. Both remain acceptance requirements, not interchangeable metrics.
+Two exploratory one-call probes on5 known regression inputs plus1 synthetic
+simple drinks request are **not activated**, and have not changed the canonical
+two-call Luna-low provider pipeline. No expectations reached the provider.
+
+A combined full meaning+mapping reply uses one request but still emits both
+representations. Independent grades4 PARTIAL/2 FAIL/0 ERROR. On the matched5
+inputs its median10.251s versus baseline10.641s is not a meaningful established
+speed improvement;3 cases became slower. The simple request took4.667s. Today
+and generic appointment handling improved in individual outputs, but ce soir,
+vegan-pizza binding and a previously mapped café still fail or remain unmapped.
+A second probe used bijective compact field aliases with local round-trip checks;
+semantic grades1 PARTIAL/3 FAIL/2 ERROR, with an additional lost today on the
+simple request. Its simple request took6.320s. It provides neither quality nor
+speed acceptance. Neither temporary probe is a new production route.
+Diagnostics remain outside Git at `/private/tmp/backyrd-one-call-probe-20261012/`
+and `/private/tmp/backyrd-one-call-compact-probe-20261012/`.
+
+Mapping policyv11 fixes one confirmed projection error separately: shared
+LOCATION/TIME scope covers required visits and their genuine OR/replacement
+branches. An independent optional add-on no longer erases those shared
+coordinates. Branch-specific cities remain local; Budget scope intentionally
+keeps its previous coverage rules. The unsupported weather/auxiliary visit does
+not become an executable itinerary or a falsely confirmed match.
+Offline replay of the unchanged original Philipp08 P1/P2 responses now yields
+Aarau/2026-10-12 instead of profileZurich/no date, while retaining CORE_INTENT
+and OTHER_CORE_NEED_UNMAPPED. Replay made zero provider calls; original first-run
+review remains immutable and does not automatically become a passing30-run.
+The independent reviewer found no new material issue in this focused diff.
+Validation:390 canonical runtime/isolation tests plus17 World-bridge tests,
+33 release contracts, TypeScript/build, single-route and existing-app synthetic
+E2E pass. Two tests cover the repaired scope and the negative control: an
+optional genuine OR branch cannot inherit the required branch's city.
+
+Further latency work requires a smaller semantically explicit result grammar,
+not merely shorter keys or removal of a request. Retain exact source meaning,
+relationships, time/location, amount/scope and unsupported wishes; avoid
+repeated prose and unnecessary nullable fields. An integrated provider reply
+must not constrain free understanding into unsupported catalogue guesses.
+Measure actual input-to-usable-results time, including downstream processing;
+none of these probes established a production latency improvement. Full AP1
+production acceptance remains OPEN and no model/reasoning choice changed.
+
 ## Fresh 30-request test: acceptance NOT achieved (2026-10-12)
 
 The founder requested the first live run of the frozen30 on candidate

@@ -6,7 +6,7 @@ import { PRODUCT_REQUEST_MEANING_VERSION, PRODUCT_REQUEST_MEANING_POLICY, parseP
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 
 export const PRODUCT_MEANING_MAPPING_VERSION = "backyrd.decision-vnext.meaning-mapping@1.0" as const;
-export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v10" as const;
+export const PRODUCT_MEANING_MAPPING_POLICY = "meaning-mapping-policy-v11" as const;
 const object = (value: unknown): Record<string, unknown> => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("product_meaning_mapping_shape_invalid");
   return value as Record<string, unknown>;
@@ -182,6 +182,15 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
     requirements: plan.mappings.find(row => row.sourceId === source.id)!.requirements.map(row => ({ ...row, importance: "HARD" as const, group: null })), unresolved: false });
   const branchUnresolved = new Set<string>();
   const visitIds = primary ? [primary.id] : singleVisitChoice ? choices.map(row => row.id) : visits.map(row => row.id);
+  // Shared destination/time belong to the required visit and its genuine
+  // alternatives/replacements. An independent optional add-on must not erase
+  // those coordinates merely because it has no matching scope reference.
+  const contextVisitIds = new Set(visits.map(row => row.id));
+  const requiredGroups = new Set(visits.flatMap(row => row.alternativeGroup ? [row.alternativeGroup] : []));
+  for (const choice of choices) if (choice.alternativeGroup && requiredGroups.has(choice.alternativeGroup)) contextVisitIds.add(choice.id);
+  for (let pass = 0; pass < choices.length; pass++) for (const choice of choices)
+    if (choice.replacesActivityId && contextVisitIds.has(choice.replacesActivityId)) contextVisitIds.add(choice.id);
+  const contextChoices = visits.length ? choices.filter(row => contextVisitIds.has(row.id)) : choices;
   const requirements: ProductRequirement[] = []; let unresolved = meaning.uncertainties.length > 0;
   const alternativeUnmapped = singleVisitChoice && branches.length !== choices.length;
   for (const source of [...meaning.activities, ...meaning.constraints]) {
@@ -191,8 +200,9 @@ export function projectProductMeaningSearchPlan(request: DecisionProductRequest,
     const mapping = plan.mappings.find(row => row.sourceId === source.id)!;
     const global = "activityIds" in source && (source.activityIds.length === 0 || visitIds.length > 0
       && source.activityIds.length === visitIds.length && visitIds.every(id => source.activityIds.includes(id)));
+    const scopedContextChoices = "aspect" in source && source.aspect !== "BUDGET" ? contextChoices : choices;
     const commonContext = "aspect" in source && ["LOCATION", "TIME", "BUDGET"].includes(source.aspect) && source.participantIds.length === 0
-      && (source.activityIds.length === 0 || choices.length > 0 && choices.every(visit => source.activityIds.includes(visit.id))
+      && (source.activityIds.length === 0 || scopedContextChoices.length > 0 && scopedContextChoices.every(visit => source.activityIds.includes(visit.id))
         && source.activityIds.every(id => meaning.activities.some(visit => visit.id === id && ["REQUESTED", "OPTIONAL", "EXCLUDED", "NOT_REQUIRED"].includes(visit.status))));
     const personCapability = "participantIds" in source && source.participantIds.length === 1
       && meaning.participants.some(person => person.id === source.participantIds[0] && person.participation === "CONFIRMED")

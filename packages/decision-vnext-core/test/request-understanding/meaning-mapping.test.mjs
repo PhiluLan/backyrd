@@ -124,3 +124,18 @@ test('compound budget descriptions preserve concrete coffee and cake alongside t
   assert.throws(()=>bindProductMeaningSearchPlan(r,m,{mappings:[proposal.mappings[0],{...proposal.mappings[1],targets:invalid}]},src),/budget_changed/);
  }
 });
+
+test('an optional separate add-on cannot erase the shared destination and today of a weather choice',()=>{
+ const t='Heute in Aarau ein Spielplatz; falls es regnet lieber ein Indoor-Spielbereich stattdessen. Eine nahe Bäckerei ist optional.';
+ const r={...request,naturalLanguage:t,explicit:{targetCity:'Zurich',targetCitySource:'PROFILE_DEFAULT'}};const src={E1:t};
+ const m=parseProductRequestMeaning(output({participants:[],activities:[activity({description:'Spielplatz',alternativeGroup:'R1'}),activity({id:'A2',description:'Indoor-Spielbereich',status:'OPTIONAL',alternativeGroup:'R1',condition:'Falls es regnet',replacesActivityId:'A1'}),activity({id:'A3',description:'Nahe Bäckerei',status:'OPTIONAL'})],constraints:[constraint({aspect:'LOCATION',description:'Aarau',activityIds:['A1','A2'],comparison:null,numericValue:null,unit:null,basis:null}),constraint({id:'C2',aspect:'TIME',description:'Heute',activityIds:['A1','A2'],comparison:null,numericValue:null,unit:null,basis:null})]}),t,src);
+ const p=bindProductMeaningSearchPlan(r,m,{mappings:[...['A1','A2','A3'].map(sourceId=>({sourceId,state:'UNSUPPORTED',intent:null,targets:[]})),{sourceId:'C1',state:'MAPPED',intent:null,targets:[{dimension:'LOCATION',value:{kind:'LOCATION',city:'Aarau',role:'DESTINATION',reference:null},evidence:'E1'}]},{sourceId:'C2',state:'MAPPED',intent:null,targets:[{dimension:'TIME',value:{kind:'TIME',openNow:false,localDate:null,relativeDays:0,weekday:null,dayPhase:null,clockTime:null},evidence:'E1'}]}]},src);
+ const i=projectProductMeaningSearchPlan(r,p);const c=resolveDecisionProductContext(i.request,{authorizedCity:requestedProductCity(i.understanding,i.request),serverTime:'2026-10-12T12:00:00.000Z'},i.understanding);
+ assert.equal(c.targetCity,'Aarau');assert.equal(c.dateTime.localDate,'2026-10-12');assert.ok(c.unresolvedTerms.includes('OTHER_CORE_NEED_UNMAPPED'));assert.ok(!i.understanding.visitAlternatives?.length);
+});
+test('an optional genuine OR branch keeps its own city instead of inheriting the required branch city',()=>{
+ const t='Entweder Café in Zürich oder lieber ein Museum in Basel.';const r={...request,naturalLanguage:t};const src={E1:t};
+ const m=parseProductRequestMeaning(output({participants:[],activities:[activity({description:'Café',alternativeGroup:'R1'}),activity({id:'A2',description:'Museum',status:'OPTIONAL',alternativeGroup:'R1'})],constraints:[constraint({aspect:'LOCATION',description:'Zürich',activityIds:['A1'],comparison:null,numericValue:null,unit:null,basis:null}),constraint({id:'C2',aspect:'LOCATION',description:'Basel',activityIds:['A2'],comparison:null,numericValue:null,unit:null,basis:null})]}),t,src);
+ const p=bindProductMeaningSearchPlan(r,m,{mappings:[{sourceId:'A1',state:'MAPPED',intent:'COFFEE',targets:[]},{sourceId:'A2',state:'MAPPED',intent:'CULTURE_ART',targets:[]},...['Zurich','Basel'].map((city,index)=>({sourceId:'C'+(index+1),state:'MAPPED',intent:null,targets:[{dimension:'LOCATION',value:{kind:'LOCATION',city,role:'DESTINATION',reference:null},evidence:'E1'}]}))]},src);
+ const i=projectProductMeaningSearchPlan(r,p);assert.ok(!i.understanding.requirements.some(row=>row.dimension==='LOCATION'));assert.equal(i.understanding.visitAlternatives[0].requirements[0].value.city,'Zurich');assert.equal(i.understanding.visitAlternatives[1].requirements[0].value.city,'Basel');
+});
