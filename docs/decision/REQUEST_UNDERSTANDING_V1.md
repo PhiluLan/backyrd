@@ -1,6 +1,6 @@
 # Request understanding v1 — first work package
 
-Status: **step 1 COMPLETE; step 2 mapping foundation IMPLEMENTED, semantic/execution acceptance OPEN; full AP1 production acceptance OPEN** (2026-10-12).
+Status: **step 1 foundation IMPLEMENTED; current compact interpreter semantic acceptance OPEN; step 2 mapping foundation IMPLEMENTED, execution acceptance OPEN; full AP1 production acceptance OPEN** (2026-10-12).
 Owner: Decision Product. Work class: PRODUCT_RELEASE. Active implementation stays
 in the canonical Decision route. This is not a Production activation.
 
