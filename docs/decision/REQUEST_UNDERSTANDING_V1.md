@@ -63,6 +63,15 @@ Postgres rehearsal applied the migration atomically, then passed real Basic
 Owner/Admin writes, foreign-owner/anonymous/private-ledger denials, manifest
 validation, price validity, and old/new atmosphere-source authority checks.
 Fixtures are synthetic and transactional; no production data was read or written.
+The full canonical Clean Boot additionally executed178 migrations and the SQL/
+authorization/lint/race suites with pinned CLI2.80.0. Its immutable input-bound
+receipt generated `delivery/database-releases/20261012-world-knowledge-comparable-prices-v2-2.json`.
+The public ACL fingerprint is unchanged. The additive Product scope now pins the
+exact new migration bytes with `executionAuthorized:false`; the historical
+13-migration recovery-risk acceptance is unchanged. A local
+`BACKYRD_SUPABASE_CLI` path override selects the same pinned2.80.0 runtime without
+changing shared workspace dependencies or relaxing the version guard. The
+compile-only World reader fixture follows the current registry constant.
 
 The first31-call development run had2 valid contracts and6 errors; independent
 review reproduced our lexical cost-scope guard failures and some model-selected
