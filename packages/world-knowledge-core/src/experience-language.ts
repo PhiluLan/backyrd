@@ -6,6 +6,12 @@ export type LibrarianConcept = {
     readonly labels: readonly string[];
 };
 const concepts: readonly LibrarianConcept[] = [
+    { id: "bouldering", labels: ["bouldern", "bouldering"] },
+    { id: "climbing", labels: ["klettern", "climbing"] },
+    { id: "training", labels: ["training", "trainieren", "freies training"] },
+    { id: "course", labels: ["kurs", "einführungskurs", "course"] },
+    { id: "movement_play", labels: ["bewegungsspiel", "bewegungslandschaft"] },
+    { id: "children_course", labels: ["kinderkurs", "children_course"] },
     { id: "snacks", labels: ["snacks", "snack", "kleinigkeit essen"] },
     { id: "entry", labels: ["eintritt", "entry", "admission"] },
     { id: "meal", labels: ["essen", "essen gehen", "etwas essen", "vollständige mahlzeit", "vollstaendige mahlzeit", "full_meals", "full_meal"] },
@@ -57,9 +63,10 @@ for (const concept of concepts)
     }
 export const librarianConcept = (text: string): string | null => byTerm.get(librarianTerm(text)) ?? null;
 export const sameLibrarianText = (a: string, b: string): boolean => librarianTerm(a) === librarianTerm(b) || (librarianConcept(a) !== null && librarianConcept(a) === librarianConcept(b));
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@1" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@1.1" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 export const OFFER_CONCEPTS: Readonly<Record<string, readonly string[]>> = {
+    BOULDERING:["bouldering"], CLIMBING:["climbing"], TRAINING:["training"], COURSE:["course"], CHILDREN_COURSE:["children_course"], MOVEMENT_PLAY:["movement_play"],
     LUNCH: ["lunch", "meal", "restaurant"], DINNER: ["dinner", "meal", "restaurant"], BREAKFAST: ["breakfast", "meal", "restaurant"],
     APERITIF: ["aperitif"], DRINKS: ["drinks", "bar"], FULL_MEAL: ["meal"], CAFE: ["coffee"], GASTRONOMY: ["meal"],
     GUIDED_TOUR: ["guided"], WORKSHOP: ["workshop"], ANIMAL_OBSERVATION: ["animals"],

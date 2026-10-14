@@ -30,3 +30,65 @@ test('registry 2.3 remains verifiable and upgrades additively with founder autho
  assert.equal(w.REGISTRY_V2_3_SHAPE.definitions.some(d=>d.key==='experience.profile'),false);
  assert.doesNotThrow(()=>w.validateRegistryTransition(w.REGISTRY_V2_3_SHAPE,w.CURRENT_REGISTRY_SHAPE,w.SLICE4E_REGISTRY_RELEASE,{acceptedApprovalAuthorities:[w.SLICE4E_REGISTRY_APPROVAL_AUTHORITY],acceptedApprovalRecords:[w.SLICE4E_REGISTRY_APPROVAL_RECORD],history:[]}));
 });
+
+test('category guidance uses confirmed types and never infers a restaurant from missing classification',async()=>{
+ const {experienceCategoryFromAnswers}=await import('../dist/index.js');
+ const known=value=>({knowledgeState:'KNOWN_VALUE',value});
+ assert.equal(experienceCategoryFromAnswers({}),null);
+ assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['WINE_BAR'])}),'BAR');
+ assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['ZOO','PARK'])}),'ZOO');
+ assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['CLIMBING_GYM'])}),'SPORT');
+ assert.equal(experienceCategoryFromAnswers({'classification.primary_category':known('SPORT_MOVEMENT'),'classification.place_types':known(['SWIMMING_POOL'])}),null);
+ assert.equal(experienceCategoryFromAnswers({'classification.place_types':{knowledgeState:'UNKNOWN',value:['ZOO']}}),null);
+});
+test('wine bar aperitif never asks for guiding, skills, entry tickets or recommended ages',()=>{
+ const keys=getExperienceQuestions('BAR','OFFER','APERITIF').map(q=>q.key);
+ for(const key of ['participation.format','participation.language','participation.prerequisite','participation.entry_mode','participation.age_suitability','route.length','sport.equipment','offer.capacity'])assert.ok(!keys.includes(key),key);
+ for(const key of ['food.drink','food.dish','food.meal_extent','participation.booking'])assert.ok(keys.includes(key),key);
+});
+test('zoo visit, guided tour and zoo restaurant have different question sets',()=>{
+ const keys=kind=>getExperienceQuestions('ZOO','OFFER',kind).map(q=>q.key);
+ assert.ok(keys('VISIT').includes('participation.entry_mode'));
+ assert.ok(!keys('VISIT').includes('participation.format'));
+ assert.ok(keys('GUIDED_TOUR').includes('participation.language'));
+ assert.ok(keys('GASTRONOMY').includes('food.cuisine'));
+ assert.ok(!keys('GASTRONOMY').includes('participation.format'));
+ assert.ok(!keys('GASTRONOMY').includes('route.length'));
+});
+test('bouldering and its cafe have separate equipment and food questions',()=>{
+ const boulder=getExperienceQuestions('SPORT','OFFER','BOULDERING').map(q=>q.key);
+ for(const key of ['sport.level','sport.equipment','sport.rental','sport.induction','sport.registration','participation.minimum_age'])assert.ok(boulder.includes(key),key);
+ for(const key of ['food.drink','food.dish','participation.format','participation.language'])assert.ok(!boulder.includes(key),key);
+ const cafe=getExperienceQuestions('SPORT','OFFER','CAFE').map(q=>q.key);
+ assert.ok(cafe.includes('food.drink'));
+ assert.ok(!cafe.includes('sport.equipment'));
+});
+test('indoor area does not ask for shade or rain cover; terrace does',()=>{
+ const keys=kind=>getExperienceQuestions('BAR','AREA',undefined,kind).map(q=>q.key);
+ assert.ok(!keys('INDOOR').includes('condition.weather_protection'));
+ assert.ok(!keys('INDOOR').includes('offer.shade'));
+ assert.ok(keys('TERRACE').includes('offer.shade'));
+ assert.ok(getExperienceQuestions('SPORT','AREA',undefined,'CHANGING_ROOM').some(q=>q.key==='amenity.shower'));
+ assert.ok(!getExperienceQuestions('SPORT','AREA',undefined,'BOULDER_AREA').some(q=>q.key==='amenity.shower'));
+});
+test('hidden historical questions remain parseable and are not silently reclassified',()=>{
+ const legacy={...restaurant,offers:[{...offer,kind:'APERITIF',properties:[property('participation.format','Selbstständig')]}]};
+ assert.deepEqual(parseExperienceProfile(legacy),legacy);
+});
+
+test('the forward SQL validator uses exactly the current scoped JSON schema',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {EXPERIENCE_PROFILE_SCHEMA}=await import('../dist/index.js');
+ const source=readFileSync(new URL('../../../supabase/migrations/20261014211339_scoped_sport_authoring_catalog_v1_1.sql',import.meta.url),'utf8');
+ const schema=source.match(/experience_json_schema_matches_v1\('(.*?)'::jsonb/s)?.[1];
+ assert.ok(schema);
+ assert.deepEqual(JSON.parse(schema),EXPERIENCE_PROFILE_SCHEMA);
+});
+
+test('embedded cafes retain their own admission question without imposing it on normal bars',()=>{
+ for(const category of ['ZOO','MUSEUM','SPORT']){
+  assert.ok(getExperienceQuestions(category,'OFFER',category==='ZOO'?'GASTRONOMY':'CAFE').some(q=>q.key==='participation.entry_mode'));
+  assert.ok(getExperienceQuestions(category,'AREA',undefined,'CAFE').some(q=>q.key==='participation.entry_mode'));
+ }
+ assert.ok(!getExperienceQuestions('BAR','OFFER','APERITIF').some(q=>q.key==='participation.entry_mode'));
+});

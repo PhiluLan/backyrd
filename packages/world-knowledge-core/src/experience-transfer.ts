@@ -29,7 +29,7 @@ export function experienceReuseSuggestions(answers:Readonly<Record<string,unknow
 export function reuseExperienceProperty(profile:ExperienceProfile,suggestion:ExperienceReuseSuggestion,target:{readonly scope:ExperienceScope;readonly id:string|null}):ExperienceProfile{
  const offer=profile.offers.find(o=>o.id===target.id);
  if(target.scope==="OFFER"&&!offer||target.scope==="AREA"&&!profile.areas.some(a=>a.id===target.id))throw new Error("experience_reuse_target_invalid");
- if(!getExperienceQuestions(profile.category,target.scope,offer?.kind).some(q=>q.key===suggestion.property.key))throw new Error("experience_reuse_scope_invalid");
+ if(!getExperienceQuestions(profile.category,target.scope,offer?.kind,profile.areas.find(a=>a.id===target.id)?.kind).some(q=>q.key===suggestion.property.key))throw new Error("experience_reuse_scope_invalid");
  const append=(values:readonly ExperienceProperty[])=>values.some(v=>JSON.stringify(v)===JSON.stringify(suggestion.property))?values:[...values,suggestion.property];
  return {...profile,reviewed:false,properties:target.scope==="SPOT"?append(profile.properties):profile.properties,areas:profile.areas.map(a=>target.scope==="AREA"&&a.id===target.id?{...a,properties:append(a.properties)}:a),offers:profile.offers.map(o=>target.scope==="OFFER"&&o.id===target.id?{...o,properties:append(o.properties)}:o)};
 }

@@ -37,6 +37,7 @@ async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "V
     body: JSON.stringify([{ spot_id: spotId, name: "Volta Bräu", city: "Basel", address: "Voltastrasse 30", status: "approved" }]),
   }));
   const answers: Record<string, unknown> = {
+    "classification.primary_category": {claimId:"classification-default",knowledgeState:"KNOWN_VALUE",value:"EAT"},
     ...seedAnswers,
     "identity.name": { claimId: "41000000-0000-4000-8000-000000000010", knowledgeState: "KNOWN_VALUE", value: "Volta Bräu" },
   };
@@ -465,8 +466,99 @@ test('Jedes Textfeld hat eine bewusste Antwortart und Aktivitäten verwenden bek
     if(spec?.kind==='CHOICES'){expect(spec.choices.length).toBeGreaterThan(0);expect(new Set(spec.choices).size).toBe(spec.choices.length);}
     if(spec?.kind==='NAME'){expect(spec.placeholder.length).toBeGreaterThan(0);expect(spec.help.length).toBeGreaterThan(0);}
   }
-  for(const category of ['RESTAURANT','ZOO','MUSEUM','BAR'] as const)for(const offer of EXPERIENCE_TEMPLATES[category].offers){
+  for(const category of ['RESTAURANT','ZOO','MUSEUM','BAR','SPORT'] as const)for(const offer of EXPERIENCE_TEMPLATES[category].offers){
     const spec=experienceAnswerGuidance('experience.activity',category,offer.kind);
     if(spec?.kind==='CHOICES')for(const value of spec.choices)expect(librarianConcept(value),`${category}:${offer.kind}:${value}`).not.toBeNull();
   }
+});
+
+for(const scenario of [
+ {name:'Weinbar',category:'BAR',types:['WINE_BAR'],offer:'Apéro / Snacks',kind:'APERITIF'},
+ {name:'Zoo',category:'ZOO',types:['ZOO'],offer:'Zoobesuch',kind:'VISIT'},
+ {name:'Boulderhalle',category:'SPORT',types:['CLIMBING_GYM'],offer:'Bouldern',kind:'BOULDERING'},
+] as const)test(`Passende Pflege: ${scenario.name} ohne Restaurant-Vorbelegung`,async({page},testInfo)=>{
+ await page.setViewportSize({width:390,height:844});
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{
+  'classification.primary_category':{claimId:'category',knowledgeState:'KNOWN_VALUE',value:scenario.category==='BAR'?'DRINKS':scenario.category==='SPORT'?'SPORT_MOVEMENT':'ATTRACTIONS_LANDMARKS'},
+  'classification.place_types':{claimId:'types',knowledgeState:'KNOWN_VALUE',value:scenario.types},
+ });
+ await page.goto(`/owner/spots/${spotId}`);
+ await expect(page.getByLabel('Art des Spots')).toHaveValue(scenario.category);
+ await page.getByRole('button',{name:`+ ${scenario.offer}`,exact:true}).click();
+ const card=page.locator('.wk-experience-card').filter({has:page.getByLabel('Name des Angebots')});
+ await expect(card.getByRole('button',{name:'+ Selbstständig, geführt oder betreut?',exact:true})).toHaveCount(0);
+ await expect(card.getByRole('button',{name:'+ Verfügbare Sprachen',exact:true})).toHaveCount(0);
+ if(scenario.category==='BAR'){
+  await card.getByText('Besuchsregeln',{exact:true}).click();
+  await card.getByRole('button',{name:'+ Reservation erforderlich?',exact:true}).click();
+  await card.getByRole('button',{name:'Keine Reservation möglich',exact:true}).click();
+  await expect(card.getByRole('button',{name:'+ Eintrittsticket erforderlich?',exact:true})).toHaveCount(0);
+ }else if(scenario.category==='SPORT'){
+  await card.getByText('Sport',{exact:true}).click();
+  await card.getByRole('button',{name:'+ Benötigte Ausrüstung',exact:true}).click();
+  await expect(card.getByRole('button',{name:'Klettergurt',exact:true})).toHaveCount(0);
+  await card.getByRole('button',{name:'Kletterschuhe',exact:true}).click();
+  await card.getByRole('button',{name:'+ Ausrüstung vor Ort ausleihbar?',exact:true}).click();
+  const rental=card.locator('.wk-experience-property').filter({hasText:'Ausrüstung vor Ort ausleihbar?'});
+  await rental.getByRole('button',{name:'Ja',exact:true}).click();
+ }else{
+  await card.getByText('Besuchsregeln',{exact:true}).click();
+  await card.getByRole('button',{name:'+ Eintrittsticket erforderlich?',exact:true}).click();
+  await card.getByRole('button',{name:'Ticket erforderlich',exact:true}).click();
+ }
+ await page.screenshot({path:testInfo.outputPath(`category-${scenario.category.toLowerCase()}-mobile.png`),fullPage:false});
+ await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+ await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+ await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_value).toMatchObject({category:scenario.category,offers:[{kind:scenario.kind}],reviewed:true});
+ await page.reload();
+ await expect(page.getByLabel('Art des Spots')).toHaveValue(scenario.category);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('Unbekannte Pflegeart benötigt Auswahl und errät kein Restaurant',async({page})=>{
+ await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'classification.primary_category':{claimId:'unknown',knowledgeState:'UNKNOWN',value:null}});
+ await page.goto(`/owner/spots/${spotId}`);
+ await expect(page.getByLabel('Art des Spots')).toHaveValue('');
+ await expect(page.getByRole('button',{name:'+ Mittagessen',exact:true})).toHaveCount(0);
+});
+
+test('Gespeicherte kompatible Pflegeart lässt sich ohne Datenverlust berichtigen',async({page})=>{
+ const saved={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',category:'RESTAURANT',reviewed:true,properties:[],areas:[{id:'inside',kind:'INDOOR',name:'Gastraum',properties:[]}],offers:[{id:'apero',kind:'APERITIF',name:'Apéro',areaIds:['inside'],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}]};
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'profile',knowledgeState:'KNOWN_VALUE',value:saved}});
+ await page.goto(`/owner/spots/${spotId}`);
+ await page.getByLabel('Art des Spots').selectOption('BAR');
+ await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+ await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+ await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_value).toEqual({...saved,category:'BAR'});
+});
+
+test('Unlesbares Angebotsprofil wird sichtbar gesperrt statt leer überschrieben',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'broken',knowledgeState:'KNOWN_VALUE',value:{category:'INVALID'}}});
+ await page.goto(`/owner/spots/${spotId}`);
+ await expect(page.getByRole('alert').filter({hasText:'Das gespeicherte Angebotsprofil konnte nicht sicher geladen werden.'})).toBeVisible();
+ await expect(page.getByLabel('Art des Spots')).toBeDisabled();
+ expect(owner.submissions).toHaveLength(0);
+});
+
+
+test('Ein neuer Angebotspreis ist nicht automatisch gratis',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');
+ await page.goto(`/owner/spots/${spotId}`);
+ await page.getByRole('button',{name:'+ Apéro',exact:true}).click();
+ const card=page.locator('.wk-experience-card').filter({has:page.getByLabel('Name des Angebots')});
+ await card.getByText('Preise (0)',{exact:true}).click();
+ await card.getByRole('button',{name:'+ Preis hinzufügen',exact:true}).click();
+ await expect(card.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('');
+ await card.getByLabel('Preisbezeichnung',{exact:true}).fill('Apéro');
+ await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+ await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+ expect(owner.submissions).toHaveLength(0);
+ await expect(page.getByRole('alert').filter({hasText:/Bitte prüfe Namen/})).toBeVisible();
+ await card.getByLabel('Preis 1 Von',{exact:true}).fill('0');
+ await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+ await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+ await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_value).toMatchObject({offers:[{prices:[{min:0,max:null}]}]});
 });
