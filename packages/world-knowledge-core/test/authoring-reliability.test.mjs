@@ -3,6 +3,8 @@ import test from "node:test";
 import { AUTHORING_FIELDS, evaluateAuthoringReadiness, validateAuthoringSubmission } from "../dist/index.js";
 
 const samples = {
+  EXPERIENCE_PROFILE: {contractVersion:"backyrd.world-knowledge.experience-profile@1.0",category:"RESTAURANT",properties:[],areas:[],offers:[],reviewed:true},
+  DISCOVERY_PROFILE: {contractVersion:"backyrd.world-knowledge.discovery-profile@1.0",description:"Synthetic source",offerings:[],assertions:[],reviewed:true},
   TEXT: "Volta Bräu",
   EMAIL: "kontakt@volta.example",
   URL: "https://volta.example",
@@ -14,6 +16,7 @@ const samples = {
   BOOLEAN: true,
   ENUM: null,
   ENUM_SET: null,
+  PRICE_OPTIONS: [{ purposes: ["MEAL"], allOfferingsCovered: true, basis: "PER_PERSON", currency: "CHF", min: 10, max: 20, minimumAge: null, maximumAge: null, mandatoryFeesIncluded: true, conditions: { dayparts: [], days: [], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: null } }],
   INTEGER_RANGE: { min: 1, max: 12 },
   WEEKLY_SCHEDULE: [{ day: "TUESDAY", intervals: [{ start: "17:00", end: "23:00" }, { start: "23:30", end: "02:00" }] }],
   SPECIAL_HOURS: [{ date: "2026-12-24", status: "OPEN", intervals: [{ start: "11:00", end: "15:00" }] }, { date: "2026-12-25", status: "CLOSED", intervals: [] }],

@@ -5,7 +5,7 @@ import {
   OWNER_BASIC_KEYS, OWNER_PRO_ONLY_KEYS, PRICE_LEVELS, REGISTRY_HASH, REGISTRY_VERSION,
   RETENTION_POLICY, RETENTION_POLICY_HASH, createConfirmationRecord, createEntitlementPolicyRelease,
   createHolidayReminder, createIdentityEvent, createServerVerifiedClaim, parseEntitlementPolicyRelease,
-  CURRENT_REGISTRY_SHAPE, FOUNDATION_REGISTRY_SHAPE, SLICE4B_REGISTRY_APPROVAL_AUTHORITY,
+  CURRENT_REGISTRY_SHAPE, REGISTRY_V2_2_SHAPE, FOUNDATION_REGISTRY_SHAPE, SLICE4B_REGISTRY_APPROVAL_AUTHORITY, SLICE4C_REGISTRY_APPROVAL_AUTHORITY, SLICE4C_REGISTRY_APPROVAL_RECORD, SLICE4C_REGISTRY_RELEASE,
   SLICE4B_REGISTRY_APPROVAL_RECORD, SLICE4B_REGISTRY_RELEASE, validateRegistryTransition,
 } from "../dist/index.js";
 
@@ -29,10 +29,11 @@ test("accepted entitlement is key-based, hash-bound and excludes subjective trut
   assert.throws(() => createEntitlementPolicyRelease({ ...ACCEPTED_ENTITLEMENT_POLICY, policyHash: undefined, proKeys: [...ACCEPTED_ENTITLEMENT_POLICY.proKeys, "unknown.key"] }), /unknown field|unknown attribute/);
 });
 
-test("registry 2.1 is an accepted additive transition over retained 2.0 history", () => {
-  assert.equal(SLICE4B_REGISTRY_RELEASE.predecessorVersion, FOUNDATION_REGISTRY_SHAPE.version);
-  assert.equal(SLICE4B_REGISTRY_RELEASE.registryVersion, CURRENT_REGISTRY_SHAPE.version);
-  assert.doesNotThrow(() => validateRegistryTransition(FOUNDATION_REGISTRY_SHAPE, CURRENT_REGISTRY_SHAPE, SLICE4B_REGISTRY_RELEASE, { acceptedApprovalAuthorities: [SLICE4B_REGISTRY_APPROVAL_AUTHORITY], acceptedApprovalRecords: [SLICE4B_REGISTRY_APPROVAL_RECORD], history: [] }));
+test("registry 2.2 is a strict additive extension; historical 2.1 release is unchanged", () => {
+  assert.equal(SLICE4B_REGISTRY_RELEASE.predecessorVersion, "backyrd.world-knowledge.registry@2.0");
+  assert.equal(SLICE4B_REGISTRY_RELEASE.registryVersion, "backyrd.world-knowledge.registry@2.1");
+  assert.equal(SLICE4B_REGISTRY_RELEASE.registryHash, "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3");
+  assert.doesNotThrow(() => validateRegistryTransition(FOUNDATION_REGISTRY_SHAPE, REGISTRY_V2_2_SHAPE, SLICE4C_REGISTRY_RELEASE, { acceptedApprovalAuthorities: [SLICE4C_REGISTRY_APPROVAL_AUTHORITY], acceptedApprovalRecords: [SLICE4C_REGISTRY_APPROVAL_RECORD], history: [] }));
 });
 
 test("owner/admin authority is injected server-side and entitlement fails closed", () => {
@@ -88,5 +89,5 @@ test("retention inventory is hash-bound and deliberately awaits Legal activation
   assert.match(RETENTION_POLICY_HASH, /^[a-f0-9]{64}$/);
   assert.equal(RETENTION_POLICY.state, "REQUIRES_CTO_LEGAL_ACTIVATION");
   assert.ok(RETENTION_POLICY.classes.every((entry) => entry.duration === null));
-  assert.deepEqual({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH }, { registryVersion: "backyrd.world-knowledge.registry@2.1", registryHash: "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3" });
+  assert.deepEqual({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH }, { registryVersion: "backyrd.world-knowledge.registry@2.4", registryHash: "c1364bbe5620ecdf3531c3943c85eeb553df317785dcb5189c5c11e208e2e851" });
 });

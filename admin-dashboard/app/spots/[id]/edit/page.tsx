@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Spot } from "@/types/spots";
 import { SpotForm } from "../../SpotForm";
-import { sessionRecoveringAuthoringClient, WorldProductCorrection } from "@backyrd/world-knowledge-authoring-ui";
+import { sessionRecoveringAuthoringClient, WorldProductCorrection, preparePublicDiscovery } from "@backyrd/world-knowledge-authoring-ui";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
 import "@backyrd/world-knowledge-authoring-ui/styles.css";
 import { authorizedWorldKnowledgePost, authorizedWorldKnowledgeSpotSearch } from "@/lib/worldKnowledgeSession";
@@ -181,6 +181,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         <WorldProductCorrection
           initialSpotId={spotId}
           client={worldAuthoringClient}
+          prepareDiscovery={async(id,text)=>{const {data}=await supabase.auth.getSession();if(!data.session?.access_token)throw new Error("authentication_required");return preparePublicDiscovery(worldAuthoringClient,data.session.access_token,id,text,(spotId,idempotencyKey)=>authorizedWorldKnowledgePost({auth:supabase.auth,body:{action:"product-rebuild",spotId,idempotencyKey}}));}}
           search={(query) => authorizedWorldKnowledgeSpotSearch({ auth: supabase.auth, query }) as Promise<ProductAdminSpotSearch>}
           addressPicker={WorldAddressPicker}
           rebuild={(id, idempotencyKey) => authorizedWorldKnowledgePost({ auth: supabase.auth, body: { action: "product-rebuild", spotId: id, idempotencyKey } })}

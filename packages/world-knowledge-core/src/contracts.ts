@@ -1,8 +1,10 @@
+import { parseExperienceProfile, type ExperienceProfile } from "./experience-profile.js";
+import { parseDiscoveryProfile, type DiscoveryProfile } from "./discovery.js";
 import { canonicalJson, hashBody } from "./canonical.js";
 import {
   ATMOSPHERE_VALUES, CONSUMPTION_POLICIES, CURRENT_STATE_KINDS, DAYPARTS, getAttributeDefinition,
   ONSITE_OFFERING_KINDS, ONSITE_OFFERING_RELATIONSHIPS, PET_ACCESS_STATES,
-  REGISTRY_VERSION, RESERVATION_MODES, VISIT_SITUATIONS,
+  REGISTRY_VERSION, RESERVATION_MODES, VISIT_SITUATIONS, PRICE_PURPOSES, PRICE_BASES,
 } from "./registry.js";
 import { array, boolean, ContractValidationError, date, enumValue, hash, identifier, number, object, required, string, timestamp } from "./schema.js";
 
@@ -36,6 +38,11 @@ export interface TimeInterval { readonly start: string; readonly end: string }
 export interface WeeklyScheduleDay { readonly day: Weekday; readonly intervals: readonly TimeInterval[] }
 export interface SpecialHoursDay { readonly date: string; readonly status: "OPEN" | "CLOSED"; readonly intervals: readonly TimeInterval[] }
 export interface MoneyRange { readonly currency: string; readonly min: number; readonly max: number }
+export interface PriceOption extends MoneyRange {
+  readonly purposes: readonly typeof PRICE_PURPOSES[number][]; readonly allOfferingsCovered: boolean; readonly basis: typeof PRICE_BASES[number];
+  readonly minimumAge: number | null; readonly maximumAge: number | null;
+  readonly mandatoryFeesIncluded: boolean; readonly conditions: ContextConditions;
+}
 export interface IntegerRange { readonly min: number; readonly max: number }
 export interface ReservationRule { readonly mode: typeof RESERVATION_MODES[number]; readonly minimumPartySize: number | null; readonly days: readonly Weekday[]; readonly fromTime: string | null; readonly toTime: string | null }
 export interface ConsumptionRule { readonly policy: typeof CONSUMPTION_POLICIES[number]; readonly exceptions: readonly string[] }
@@ -49,7 +56,7 @@ export interface OnsiteOffering { readonly kind: typeof ONSITE_OFFERING_KINDS[nu
 export interface VisitSituationContext { readonly situation: typeof VISIT_SITUATIONS[number]; readonly conditions: ContextConditions }
 export interface AtmosphereContext { readonly atmosphere: typeof ATMOSPHERE_VALUES[number]; readonly conditions: ContextConditions }
 export interface DaypartContext { readonly daypart: typeof DAYPARTS[number]; readonly conditions: Omit<ContextConditions, "dayparts"> }
-export type ClaimValue = string | number | boolean | null | readonly string[] | MoneyRange | IntegerRange | ReservationRule | ConsumptionRule | PetAccessRule | AgeAccessRule | AgeAccessRuleV2 | readonly WeeklyScheduleDay[] | readonly SpecialHoursDay[] | CurrentStateValue | readonly OnsiteOffering[] | readonly VisitSituationContext[] | readonly AtmosphereContext[] | readonly DaypartContext[];
+export type ClaimValue = ExperienceProfile | DiscoveryProfile | string | number | boolean | null | readonly string[] | MoneyRange | IntegerRange | ReservationRule | ConsumptionRule | PetAccessRule | AgeAccessRule | AgeAccessRuleV2 | readonly WeeklyScheduleDay[] | readonly SpecialHoursDay[] | CurrentStateValue | readonly OnsiteOffering[] | readonly VisitSituationContext[] | readonly AtmosphereContext[] | readonly DaypartContext[] | readonly PriceOption[];
 
 export interface WorldKnowledgeClaim {
   readonly contractVersion: typeof CLAIM_CONTRACT_VERSION;
@@ -187,6 +194,33 @@ export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, 
       const result = { currency: string(required(input, "currency", path), `${path}.currency`, { pattern: /^[A-Z]{3}$/ }), min: number(required(input, "min", path), `${path}.min`, numericBounds), max: number(required(input, "max", path), `${path}.max`, numericBounds) };
       if (result.min > result.max) throw new ContractValidationError(path, "min exceeds max"); return result;
     }
+    case "EXPERIENCE_PROFILE": return parseExperienceProfile(value);
+    case "DISCOVERY_PROFILE": return parseDiscoveryProfile(value);
+    case "PRICE_OPTIONS": {
+      const entries = array(value, path, { max: 30 }).map((row, index): PriceOption => {
+        const here = `${path}[${index}]`;
+        const input = object(row, here, ["purposes", "allOfferingsCovered", "currency", "min", "max", "basis", "minimumAge", "maximumAge", "mandatoryFeesIncluded", "conditions"]);
+        const nullableAge = (key: string) => required(input, key, here) === null ? null : number(required(input, key, here), `${here}.${key}`, { min: 0, max: 120, integer: true });
+        const entry: PriceOption = {
+          purposes: sortedUnique(array(required(input, "purposes", here), `${here}.purposes`, { min: 1, max: 6 }).map((value, i) => enumValue(value, PRICE_PURPOSES, `${here}.purposes[${i}]`))) as PriceOption["purposes"],
+          allOfferingsCovered: boolean(required(input, "allOfferingsCovered", here), `${here}.allOfferingsCovered`),
+          basis: enumValue(required(input, "basis", here), PRICE_BASES, `${here}.basis`),
+          currency: string(required(input, "currency", here), `${here}.currency`, { pattern: /^[A-Z]{3}$/ }),
+          min: number(required(input, "min", here), `${here}.min`, numericBounds), max: number(required(input, "max", here), `${here}.max`, numericBounds),
+          minimumAge: nullableAge("minimumAge"), maximumAge: nullableAge("maximumAge"),
+          mandatoryFeesIncluded: boolean(required(input, "mandatoryFeesIncluded", here), `${here}.mandatoryFeesIncluded`),
+          conditions: parseContextConditions(required(input, "conditions", here), `${here}.conditions`, true) as ContextConditions,
+        };
+        if (entry.purposes.length !== (input.purposes as readonly unknown[]).length) throw new ContractValidationError(here, "duplicate price purpose");
+        if (entry.min > entry.max || entry.minimumAge !== null && entry.maximumAge !== null && entry.minimumAge > entry.maximumAge)
+          throw new ContractValidationError(here, "invalid price or age range");
+        if (![entry.min, entry.max].every(amount => Math.abs(amount * 100 - Math.round(amount * 100)) < 1e-7))
+          throw new ContractValidationError(here, "money requires whole minor units");
+        return entry;
+      });
+      if (new Set(entries.map(canonicalJson)).size !== entries.length) throw new ContractValidationError(path, "duplicate price option");
+      return entries;
+    }
     case "INTEGER_RANGE": {
       const input = object(value, path, ["min", "max"]); const result = { min: number(required(input, "min", path), `${path}.min`, { ...numericBounds, integer: true }), max: number(required(input, "max", path), `${path}.max`, { ...numericBounds, integer: true }) };
       if (result.min > result.max) throw new ContractValidationError(path, "min exceeds max"); return result;
@@ -252,7 +286,7 @@ export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, 
     }
     case "VISIT_SITUATIONS": return parseContextRows(value, path, "situation") as readonly VisitSituationContext[];
     case "ATMOSPHERE_CONTEXTS": return parseContextRows(value, path, "atmosphere") as readonly AtmosphereContext[];
-    case "DAYPART_CONTEXTS": return parseContextRows(value, path, "daypart") as readonly DaypartContext[];
+    case "DAYPART_CONTEXTS": return parseContextRows(value, path, "daypart") as readonly DaypartContext[] | readonly PriceOption[];
     case "CURRENT_STATE": {
       const input = object(value, path, ["kind", "scope"]);
       return { kind: enumValue(required(input, "kind", path), CURRENT_STATE_KINDS, `${path}.kind`), scope: identifier(required(input, "scope", path), `${path}.scope`) };

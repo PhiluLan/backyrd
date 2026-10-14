@@ -22,7 +22,7 @@ test("Philipps Casa proves the Founder and trust boundaries", () => {
 
 test("Philipps Casa resolution and snapshot identities are golden SHA-256 values", () => {
   const resolution = resolveWorldKnowledge(resolutionRequest(PHILIPPS_CASA_CLAIMS)); const snapshot = buildWorldKnowledgeSnapshot(snapshotInput("synthetic-spot-philipps-casa", resolution));
-  assert.equal(resolution.resultHash, "0c23cd82d30593d4bac294c8dc43e935890526e1faa3e5722165da7f10efb023"); assert.equal(snapshot.snapshotHash, "50113c7d714d3d2ab886d6c231bcda7e58de907b18dfaa6ad08c88a7ddb868f0");
+  assert.equal(resolution.resultHash, "5fc9877bc6936bca3d28cefe8663127a1174c32d8c9f3ff23cae47a3099ebea8"); assert.equal(snapshot.snapshotHash, "66ff3eace99cfa5399c5e9fe8e9de30e9f1c21eddcd0b38312ac8bdec0f48f2b");
 });
 
 test("unknown spot stays empty and minimal spot never fabricates false", () => {

@@ -22,3 +22,16 @@ export * from "./slice3b.js";
 export * from "./source-policy.js";
 export * from "./temporal.js";
 export * from "./verification.js";
+
+export * from "./discovery.js";
+export * from "./experience-profile.js";
+
+export * from "./discovery-preparation.js";
+
+export * from "./discovery-http.js";
+
+export * from "./experience-schema.js";
+
+export * from "./experience-transfer.js";
+
+export * from "./experience-language.js";

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  preparePublicDiscovery,
   sessionRecoveringAuthoringClient,
   WorldProductCorrection,
   type ProductAdminSpotSearch,
@@ -60,6 +61,7 @@ export function OwnerWorldEditor({ spotId }: { spotId?: string }) {
       surface="OWNER"
       client={authoringClient}
       search={searchOwnedSpots}
+      prepareDiscovery={async (id,text)=>{const {data}=await supabase.auth.getSession();if(!data.session?.access_token)throw new Error("authentication_required");return preparePublicDiscovery(authoringClient,data.session.access_token,id,text,rebuildOwnedSpot);}}
       rebuild={rebuildOwnedSpot}
       initialSpotId={spotId}
     />

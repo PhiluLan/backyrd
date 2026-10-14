@@ -1,13 +1,13 @@
 import { canonicalJson, hashBody } from "./canonical.js";
 import { createClaim, parseAttributeValue, type ActorType, type ClaimValue, type WorldKnowledgeClaim } from "./contracts.js";
 import { createRegistryApprovalAuthority, createRegistryApprovalRecord, createRegistryRelease } from "./governance.js";
-import { ATTRIBUTE_DEFINITIONS, PREVIOUS_REGISTRY_VERSION, REGISTRY_HASH, REGISTRY_V2_0_HASH, REGISTRY_V2_0_VERSION, REGISTRY_VERSION } from "./registry.js";
+import { ATTRIBUTE_DEFINITIONS, PREVIOUS_REGISTRY_VERSION, REGISTRY_HASH, REGISTRY_V2_3_HASH, REGISTRY_V2_3_VERSION, REGISTRY_V2_2_HASH, REGISTRY_V2_2_VERSION, REGISTRY_V2_1_HASH, REGISTRY_V2_1_VERSION, REGISTRY_V2_0_HASH, REGISTRY_V2_0_VERSION, REGISTRY_VERSION } from "./registry.js";
 import { ContractValidationError, array, enumValue, hash, identifier, object, required, string, timestamp } from "./schema.js";
 import { SOURCE_USE_CASES, createSourcePolicy, type SourcePolicy, type SourceUseCase } from "./source-policy.js";
 
-export const ACCEPTED_POLICY_VERSION = "backyrd.world-knowledge.source-policy@4b.1" as const;
+export const ACCEPTED_POLICY_VERSION = "backyrd.world-knowledge.source-policy@4e.1" as const;
 export const ENTITLEMENT_POLICY_CONTRACT_VERSION = "backyrd.world-knowledge.entitlement-policy@1.0" as const;
-export const ENTITLEMENT_POLICY_VERSION = "backyrd.world-knowledge.entitlement-policy@4b.1" as const;
+export const ENTITLEMENT_POLICY_VERSION = "backyrd.world-knowledge.entitlement-policy@4e.1" as const;
 export const SERVER_WRITE_CONTRACT_VERSION = "backyrd.world-knowledge.server-write@1.0" as const;
 export const CONFIRMATION_RECORD_CONTRACT_VERSION = "backyrd.world-knowledge.confirmation-record@1.1" as const;
 export const REVIEW_WORK_ITEM_CONTRACT_VERSION = "backyrd.world-knowledge.review-work-item@1.0" as const;
@@ -16,8 +16,18 @@ export const HOLIDAY_REMINDER_CONTRACT_VERSION = "backyrd.world-knowledge.holida
 export const RETENTION_POLICY_CONTRACT_VERSION = "backyrd.world-knowledge.retention-policy@1.0" as const;
 
 export const SLICE4B_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:slice-4b-contextual-semantics", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["ADDITIVE_DEFINITION"], semanticEquivalenceApproval: false, validFrom: "2026-09-15T07:59:00.000Z", validUntil: "2026-09-15T08:01:00.000Z" });
-export const SLICE4B_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:slice-4b-contextual-semantics", authorityId: SLICE4B_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4B_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, changeClass: "ADDITIVE_DEFINITION", approvedAt: "2026-09-15T08:00:00.000Z" }, SLICE4B_REGISTRY_APPROVAL_AUTHORITY);
-export const SLICE4B_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, predecessorVersion: PREVIOUS_REGISTRY_VERSION, changeClass: "ADDITIVE_DEFINITION", createdAt: "2026-09-15T08:00:00.000Z", approval: { recordId: SLICE4B_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4B_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4B_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4B_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4B_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4B_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Add primary visit purpose", "Add on-site offering relationships", "Add evidence-bound visit, atmosphere and daypart context"], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });
+export const SLICE4B_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:slice-4b-contextual-semantics", authorityId: SLICE4B_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4B_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_V2_1_VERSION, registryHash: REGISTRY_V2_1_HASH, changeClass: "ADDITIVE_DEFINITION", approvedAt: "2026-09-15T08:00:00.000Z" }, SLICE4B_REGISTRY_APPROVAL_AUTHORITY);
+export const SLICE4B_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_V2_1_VERSION, registryHash: REGISTRY_V2_1_HASH, predecessorVersion: REGISTRY_V2_0_VERSION, changeClass: "ADDITIVE_DEFINITION", createdAt: "2026-09-15T08:00:00.000Z", approval: { recordId: SLICE4B_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4B_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4B_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4B_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4B_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4B_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Add primary visit purpose", "Add on-site offering relationships", "Add evidence-bound visit, atmosphere and daypart context"], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });
+
+/** Founder expressly authorized the additive Knowledge expansion on 2026-10-12.
+ * This records design authority; it does not authorize production activation. */
+export const SLICE4C_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:founder-directed-knowledge-expansion-2026-10-12", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["ADDITIVE_EXTENSION"], semanticEquivalenceApproval: false, validFrom: "2026-10-12T00:00:00.000Z", validUntil: "2026-10-13T00:00:00.000Z" });
+export const SLICE4C_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:founder-directed-comparable-prices-and-cake", authorityId: SLICE4C_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4C_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_V2_2_VERSION, registryHash: REGISTRY_V2_2_HASH, changeClass: "ADDITIVE_EXTENSION", approvedAt: "2026-10-12T06:36:38.000Z" }, SLICE4C_REGISTRY_APPROVAL_AUTHORITY);
+export const SLICE4C_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_V2_2_VERSION, registryHash: REGISTRY_V2_2_HASH, predecessorVersion: PREVIOUS_REGISTRY_VERSION, changeClass: "ADDITIVE_EXTENSION", createdAt: "2026-10-12T06:36:38.000Z", approval: { recordId: SLICE4C_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4C_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4C_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4C_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4C_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4C_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Add comparable scoped price options without reinterpreting legacy prices", "Add precise cake speciality without upgrading baked-goods claims"], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });
+
+export const SLICE4D_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:founder-directed-open-discovery-2026-10-12", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["ADDITIVE_EXTENSION"], semanticEquivalenceApproval: false, validFrom: "2026-10-12T00:00:00.000Z", validUntil: "2026-10-13T00:00:00.000Z" });
+export const SLICE4D_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:founder-directed-open-discovery", authorityId: SLICE4D_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4D_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_V2_3_VERSION, registryHash: REGISTRY_V2_3_HASH, changeClass: "ADDITIVE_EXTENSION", approvedAt: "2026-10-12T15:22:28.000Z" }, SLICE4D_REGISTRY_APPROVAL_AUTHORITY);
+export const SLICE4D_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_V2_3_VERSION, registryHash: REGISTRY_V2_3_HASH, predecessorVersion: REGISTRY_V2_2_VERSION, changeClass: "ADDITIVE_EXTENSION", createdAt: "2026-10-12T15:22:28.000Z", approval: { recordId: SLICE4D_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4D_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4D_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4D_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4D_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4D_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Open source-bound discovery profiles and offering records", "Public-source preparation with human confirmation"], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });
 
 /** Historical Slice 4A identity stays independently auditable. */
 export const SLICE4A_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:slice-4a-founder-authoring-readiness", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["SEMANTIC_CHANGE"], semanticEquivalenceApproval: false, validFrom: "2026-09-12T09:59:00.000Z", validUntil: "2026-09-12T10:01:00.000Z" });
@@ -34,7 +44,7 @@ export const SLICE3B_REGISTRY_RELEASE = SLICE4A_REGISTRY_RELEASE;
 export const OWNER_BASIC_KEYS = Object.freeze([
   "identity.name", "location.address_line1", "location.locality", "location.neighborhood", "location.country_code", "location.latitude", "location.longitude", "location.timezone",
   "classification.primary_category", "classification.place_types", "contact.public_email", "contact.website", "contact.phone", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok",
-  "description.highlight", "operation.price_level", "operation.payment_methods", "operation.takeaway", "operation.service_model", "operation.service_format",
+  "experience.profile", "description.discovery_source", "discovery.profile", "description.highlight", "operation.price_options", "operation.price_level", "operation.payment_methods", "operation.takeaway", "operation.service_model", "operation.service_format",
   "offering.cuisines", "offering.food_specialities", "offering.groups", "purpose.primary_visit", "offering.onsite", "hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "state.current",
 ] as const);
 
@@ -90,13 +100,16 @@ export function parseEntitlementPolicyRelease(value: unknown): EntitlementPolicy
 export const ACCEPTED_ENTITLEMENT_POLICY = createEntitlementPolicyRelease({ policyVersion: ENTITLEMENT_POLICY_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, basicKeys: OWNER_BASIC_KEYS, proKeys: OWNER_PRO_KEYS, adminKeys: OWNER_PRO_KEYS, excludedObjectiveKeys: SUBJECTIVE_OBJECTIVE_EXCLUSIONS, commercialInfluence: "AUTHORING_SCOPE_ONLY" });
 
 const usesFor = (key: string): readonly SourceUseCase[] => {
+  if (key === "experience.profile") return ["GENERAL_WORLD", "DISCOVERY", "HARD_CONSTRAINTS", "EXPLANATION", "RESEARCH"];
+  if (key === "discovery.profile") return ["GENERAL_WORLD", "DISCOVERY", "HARD_CONSTRAINTS", "EXPLANATION", "RESEARCH"];
   if (key.startsWith("contact.")) return ["GENERAL_WORLD", "EXPLANATION", "RESEARCH"];
   if (key.startsWith("hours.") || key === "state.current") return ["GENERAL_WORLD", "OPENING_HOURS_ELIGIBILITY", "RESEARCH"];
-  if (["operation.price_level", "operation.price_range"].includes(key)) return ["GENERAL_WORLD", "PRICE", "RESEARCH"];
+  if (["operation.price_level", "operation.price_range", "operation.price_options"].includes(key)) return ["GENERAL_WORLD", "PRICE", "RESEARCH"];
   if (key.startsWith("accessibility.")) return ["GENERAL_WORLD", "ACCESSIBILITY", "HARD_CONSTRAINTS", "RESEARCH"];
   if (["operation.takeaway", "rule.reservation", "rule.external_food", "rule.external_drink", "rule.age_access", "rule.age_access_conditions", "rule.pet_access"].includes(key)) return ["GENERAL_WORLD", "HARD_CONSTRAINTS", "RESEARCH"];
-  if (key === "description.highlight" || key === "research.subjective_fits") return ["EXPLANATION", "RESEARCH"];
-  if (["context.visit_situations", "context.atmosphere", "context.typical_dayparts"].includes(key)) return ["GENERAL_WORLD", "EXPLANATION", "RESEARCH"];
+  if (key === "description.discovery_source" || key === "description.highlight" || key === "research.subjective_fits") return ["EXPLANATION", "RESEARCH"];
+  if (key === "context.atmosphere") return ["GENERAL_WORLD", "DISCOVERY", "HARD_CONSTRAINTS", "EXPLANATION", "RESEARCH"];
+  if (["context.visit_situations", "context.typical_dayparts"].includes(key)) return ["GENERAL_WORLD", "EXPLANATION", "RESEARCH"];
   return ["GENERAL_WORLD", "DISCOVERY", "RESEARCH"];
 };
 
@@ -107,7 +120,7 @@ const freshnessFor = (key: string): SourcePolicy["entries"][number]["freshness"]
   : { policyRef: "freshness:durable-until-contradicted", mode: "PERMANENT_UNTIL_CONTRADICTED" };
 
 export const ACCEPTED_SOURCE_POLICY = createSourcePolicy({
-  policyVersion: ACCEPTED_POLICY_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, createdAt: "2026-09-10T18:00:00.000Z",
+  policyVersion: ACCEPTED_POLICY_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, createdAt: "2026-10-14T07:24:00.000Z",
   entries: ATTRIBUTE_DEFINITIONS.map((definition) => {
     const subjective = definition.engineAuthorization === "EXPLANATION_ONLY" && definition.key === "research.subjective_fits"; const allowed = usesFor(definition.key);
     return {
@@ -160,3 +173,8 @@ export function createHolidayReminder(inputValue: unknown) { const input = objec
 
 export const RETENTION_POLICY = Object.freeze({ contractVersion: RETENTION_POLICY_CONTRACT_VERSION, policyVersion: "backyrd.world-knowledge.retention-policy@3b.1", state: "REQUIRES_CTO_LEGAL_ACTIVATION", classes: RETENTION_DATA_CLASSES.map((dataClass) => ({ dataClass, duration: null, rule: ["PUBLIC_SPOT_FACT", "FACTUAL_CLAIM_HISTORY", "NON_PERSONAL_AUDIT_HASH"].includes(dataClass) ? "LONG_TERM_SUBJECT_TO_LEGAL_REVIEW" : dataClass === "REBUILDABLE_CACHE" ? "REBUILDABLE_DELETE_ANYTIME" : "PURPOSE_LIMITED_NOT_CONFIGURED" })), actorDeletion: "DETACH_AND_ROTATE_OPAQUE_PSEUDONYM_WHERE_LAWFUL", privacyClassification: "PSEUDONYMIZED_MAY_REMAIN_PERSONAL_NOT_ANONYMOUS", supports: ["EXPORT", "DELETION", "CORRECTION", "REBUILD"] });
 export const RETENTION_POLICY_HASH = hashBody(RETENTION_POLICY, []);
+
+/** Founder authorized implementation; production activation remains separate. */
+export const SLICE4E_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:founder-directed-scoped-spot-knowledge-2026-10-14", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["ADDITIVE_DEFINITION"], semanticEquivalenceApproval: false, validFrom: "2026-10-14T00:00:00.000Z", validUntil: "2026-10-15T00:00:00.000Z" });
+export const SLICE4E_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:founder-directed-scoped-spot-knowledge", authorityId: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, changeClass: "ADDITIVE_DEFINITION", approvedAt: "2026-10-14T07:24:00.000Z" }, SLICE4E_REGISTRY_APPROVAL_AUTHORITY);
+export const SLICE4E_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, predecessorVersion: REGISTRY_V2_3_VERSION, changeClass: "ADDITIVE_DEFINITION", createdAt: "2026-10-14T07:24:00.000Z", approval: { recordId: SLICE4E_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4E_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4E_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4E_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Add human-authored offering and area cards with exact scope"], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });
