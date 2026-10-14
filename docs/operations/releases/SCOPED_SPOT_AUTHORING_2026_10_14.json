@@ -1,0 +1,45 @@
+{
+  "status": "SHIPPED",
+  "sourceSha": "b7228bcc1c3e327347eed53a3239cbce4a2486b8",
+  "deploymentRunId": 38624114200,
+  "certificationRunId": 38623413427,
+  "manifestHash": "96bda61211639b5c78e6fb5fc1a76eead32ff7a68168e4765c0f026ca3d6cca4",
+  "auditHash": "540d8f206f22af56c1f248f8dd47f8a5c9792231b3a1d61bd58c2f61af30c4cb",
+  "planHash": "cee04149b93ce5b4779fd0797b1103daf249f2fcd097f82bbe08600182e6c7db",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261012063312_world_knowledge_comparable_prices_and_cake_v2_2.sql",
+      "sha256": "ba5bfec59e6b087e52804c5231d4ea03bf6ce7012579158101383298dab681ae"
+    },
+    {
+      "path": "supabase/migrations/20261012152228_world_knowledge_open_discovery_v2_3.sql",
+      "sha256": "79032ec9dc2ba5b1827772cd7f98f4a3f6a24cd4511d11a1e1f9a6548b6ee0d4"
+    },
+    {
+      "path": "supabase/migrations/20261014072400_world_knowledge_scoped_experience_cards_v2_4.sql",
+      "sha256": "52aa079748137e3edefa0dd6cac3f840ca75fa2d3f2272a5704b069fca5eb639"
+    }
+  ],
+  "deployFunctions": [
+    "decision-v13"
+  ],
+  "adminDeploymentId": 7075146865,
+  "ownerWebDeploymentId": 7075105473,
+  "liveVerification": {
+    "migrationCount": 180,
+    "registryVersion": "backyrd.world-knowledge.registry@2.4",
+    "experienceAttributeDefined": true,
+    "claimCountBefore": 7501,
+    "claimCountAfter": 7501,
+    "privateCounterRls": true,
+    "anonCounterSelect": false,
+    "authenticatedCounterSelect": false,
+    "unauthenticatedAdminImportStatus": 401,
+    "authenticatedProductionEditPerformed": false
+  },
+  "limits": [
+    "No authenticated Admin session available for real Spot edit; isolated authoring save/reload and authorization tests passed.",
+    "No restore drill performed; Founder separately accepted exact migration recovery risk.",
+    "Experimental Luna/Bibliothekar runtime and Mobile activation excluded."
+  ]
+}
