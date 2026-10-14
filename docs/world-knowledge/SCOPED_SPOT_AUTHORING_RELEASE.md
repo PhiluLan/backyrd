@@ -55,3 +55,13 @@ them requires an explicit answer selection. Price packages retain one total
 price and an explicit purpose rather than invented component prices.
 This is an authoring UI change using the existing schema and RPCs; it adds no
 model interpretation, semantic links, server-side restrictions or migrations.
+
+The Founder approved ("Alles freigegeben", 2026-10-14) the single additive
+scoped Sport catalog migration 20261014211339, including the remaining
+untested database-recovery risk, and the subsequent category-specific forms.
+The current release scope pins only that migration's immutable bytes. The
+already shipped three-migration approval remains in Git history. The same
+successful backup evidence remains available; no restore drill is claimed.
+The Founder also approved storing the explicitly reviewed Zoo structure.
+Deploy the private validator before exposing new Sport authoring. Deploy the
+shared parsing code to the consuming runtime before publishing Sport profiles.
