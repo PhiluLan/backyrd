@@ -61,7 +61,6 @@ export function experienceAnswerGuidance(key: string, category: ExperienceCatego
   const existing = EXPERIENCE_VALUE_CHOICES[key];
   return existing ? choice(existing) : guidance[key] ?? null;
 }
-export const EXPERIENCE_PRICE_INCLUDES = ["Essen", "Getränke", "Kaffee", "Eintritt", "Snacks", "Apéro"] as const;
 
 export function experiencePriceIncludes(category: ExperienceCategory, offerKind: string): readonly string[] {
   if (["LUNCH", "DINNER", "BREAKFAST", "GASTRONOMY", "FULL_MEAL", "CAFE", "APERITIF", "DRINKS", "PRIVATE_CELEBRATION"].includes(offerKind)) return offerKind === "DRINKS" ? ["Getränke"] : offerKind === "APERITIF" ? ["Apéro", "Snacks", "Getränke"] : ["Essen", "Getränke", "Kaffee", "Snacks"];

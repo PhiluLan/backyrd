@@ -541,3 +541,24 @@ test('Unlesbares Angebotsprofil wird sichtbar gesperrt statt leer überschrieben
  await expect(page.getByLabel('Art des Spots')).toBeDisabled();
  expect(owner.submissions).toHaveLength(0);
 });
+
+
+test('Ein neuer Angebotspreis ist nicht automatisch gratis',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');
+ await page.goto(`/owner/spots/${spotId}`);
+ await page.getByRole('button',{name:'+ Apéro',exact:true}).click();
+ const card=page.locator('.wk-experience-card').filter({has:page.getByLabel('Name des Angebots')});
+ await card.getByText('Preise (0)',{exact:true}).click();
+ await card.getByRole('button',{name:'+ Preis hinzufügen',exact:true}).click();
+ await expect(card.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('');
+ await card.getByLabel('Preisbezeichnung',{exact:true}).fill('Apéro');
+ await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+ await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+ expect(owner.submissions).toHaveLength(0);
+ await expect(page.getByRole('alert').filter({hasText:/Bitte prüfe Namen/})).toBeVisible();
+ await card.getByLabel('Preis 1 Von',{exact:true}).fill('0');
+ await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+ await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+ await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_value).toMatchObject({offers:[{prices:[{min:0,max:null}]}]});
+});

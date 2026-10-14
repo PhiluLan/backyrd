@@ -4,13 +4,14 @@ import test from "node:test";
 
 const source = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-test("Product spot care reuses the complete typed nine-step World editor, not JSON authoring", async () => {
+test("Product spot care reuses the typed category-relevant World editor, not JSON authoring", async () => {
   const [product, editor] = await Promise.all([
     source("../../packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx"),
     source("../../packages/world-knowledge-authoring-ui/src/index.tsx"),
   ]);
   assert.match(product, /className="wk-app wk-product-app"/);
-  assert.match(product, /AUTHORING_STEPS\.map/);
+  assert.match(product, /visibleSteps = AUTHORING_STEPS\.filter/);
+  assert.match(product, /visibleSteps\.map/);
   assert.match(product, /getAuthoringFieldsForContext/);
   assert.match(product, /<FieldEditor/);
   assert.match(editor, /FieldEditor=\{FieldInput\}/);
