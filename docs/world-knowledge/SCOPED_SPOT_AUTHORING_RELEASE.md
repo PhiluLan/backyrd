@@ -27,3 +27,18 @@ the remaining untested recovery risk on 2026-10-14. Backup workflow run
 38529360391 successfully exported, encrypted and verified the Production
 snapshot. This is backup evidence, not a restore drill or a guaranteed rollback.
 The additive release scope pins all three immutable migration hashes.
+
+Mobile authoring keeps the current spot fixed on its edit route, uses a named
+section selector, and starts with offers before areas and optional shared facts.
+Owners and Admins can create and explicitly link an area inside an offer.
+Technical usage hints and public-source preparation are collapsed by default.
+Unknown answers do not show empty condition forms; existing conditional values
+remain editable. Review and save remain explicit and use the unchanged RPCs.
+Mobile regression coverage includes 320/390 px input geometry, prices, schedules,
+conditional properties, direct area creation and save/reload. The actual Admin
+edit wrapper was also exercised locally with synthetic, intercepted responses.
+
+The authenticated Production UI was inspected at 390 px on Consum Weinbar
+without modifying Spot data. Its previous nested search control measured
+240 px wide. The obsolete edit-page link to a missing source section is removed;
+source preparation remains available inside the authoring editor.

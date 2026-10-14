@@ -202,7 +202,9 @@ for(const mobile of [false,true])test(`Spotwissen Consent Review Reload ${mobile
  const source='Gäste bauen selbst Moosterrarien.';
  await page.route('**/rest/v1/rpc/world_product_discovery_publish_source_v1',async route=>{published++;expect(JSON.parse(route.request().postData()??'{}').p_source_text).toBe(source);await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({sourceHash:'a'.repeat(64)})});});
  await page.route('**/api/world-knowledge/discovery',async route=>{prepared++;const input=JSON.parse(route.request().postData()??'{}');expect(Object.keys(input).sort()).toEqual(['consentToOpenAI','sourceHash','spotId']);await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({requiresHumanReview:true,draft:{contractVersion:'backyrd.world-knowledge.discovery-profile@1.0',description:source,reviewed:false,offerings:[],assertions:[{id:'build',kind:'VISIT',concepts:['build moss terrariums'],offeringId:null,state:'PRESENT',evidence:source,conditions:null,validFrom:null,validUntil:null}]}})});});
- await page.goto(`/owner/spots/${spotId}`);const field=page.locator('[id="field-discovery.profile"]');
+ await page.goto(`/owner/spots/${spotId}`);
+ await page.getByText("Angaben aus öffentlichem Text vorbereiten (optional)",{exact:true}).click();
+ const field=page.locator('[id="field-discovery.profile"]');
  await field.getByLabel('Öffentlicher Beschreibungstext',{exact:true}).fill(source);
  await expect(field.getByRole('button',{name:'Vorschläge vorbereiten',exact:true})).toBeDisabled();
  await field.getByRole('checkbox').first().check();await field.getByRole('button',{name:'Vorschläge vorbereiten',exact:true}).click();
@@ -210,7 +212,7 @@ for(const mobile of [false,true])test(`Spotwissen Consent Review Reload ${mobile
  await expect(field.getByRole('button',{name:'Geprüftes Wissen übernehmen',exact:true})).toBeDisabled();
  await field.getByRole('checkbox').last().check();await field.getByRole('button',{name:'Geprüftes Wissen übernehmen',exact:true}).click();
  await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toMatchObject({reviewed:true,description:source});
- await page.reload();await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
+ await page.reload();await page.getByText("Angaben aus öffentlichem Text vorbereiten (optional)",{exact:true}).click();await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(mobile?390:1280);
 });
 
@@ -222,7 +224,7 @@ for (const scenario of [
 ]) test(`Angebote und Bereiche: ${scenario.category} wird gespeichert und zurückgelesen`, async ({page},testInfo)=>{
   const owner=await mockOwner(page,"OWNER_BASIC");
   await page.goto(`/owner/spots/${spotId}`);
-  await page.getByLabel("Pflegevorlage").selectOption(scenario.category);
+  await page.getByLabel("Art des Spots").selectOption(scenario.category);
   await page.getByRole("button",{name:`+ ${scenario.area}`,exact:true}).click();
   await page.getByRole("button",{name:`+ ${scenario.offer}`,exact:true}).click();
   await page.getByRole("checkbox",{name:scenario.area,exact:true}).check();
@@ -314,4 +316,67 @@ test('Gemeinsame Atmosphäre-Vorlage wird im richtigen Bereich gespeichert',asyn
  await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
  await expect.poll(()=>owner.submissions.length).toBe(1);
  expect(owner.submissions[0].p_value).toMatchObject({properties:[],areas:[{kind:'TERRACE',properties:[{key:'atmosphere.character',value:'entspannt'}]}]});
+});
+
+for (const width of [320,390]) test(`Mobile Spotpflege: breiter Arbeitsbereich und vollständiges Angebot bei ${width}px`,async({page},testInfo)=>{
+  await page.setViewportSize({width,height:844});
+  const owner=await mockOwner(page,"OWNER_BASIC");
+  await page.goto(`/owner/spots/${spotId}`);
+  await expect(page.getByLabel("Bereich auswählen")).toBeVisible();
+  await expect(page.locator(".wk-experience-guide")).toContainText("Angebot anlegen");
+  await page.getByRole("button",{name:"+ Abendessen",exact:true}).click();
+  const offer=page.locator('.wk-experience-card').filter({has:page.getByLabel("Name des Angebots")}).first();
+  await offer.getByLabel("Name des Angebots").fill("Romantisches Abendessen");
+  await offer.getByText("Preise (0)",{exact:true}).click();
+  await offer.getByRole("button",{name:"+ Preis hinzufügen",exact:true}).click();
+  await offer.getByLabel("Preisbezeichnung",{exact:true}).fill("Menü");
+  await offer.getByLabel("Preis 1 Von",{exact:true}).fill("30");
+  await offer.getByLabel("Preis 1 Bis",{exact:true}).fill("30");
+  await offer.getByText("Angebotszeiten und Gültigkeit",{exact:true}).click();
+  await offer.getByRole("button",{name:"+ Angebotszeit",exact:true}).click();
+  await page.getByRole("combobox",{name:"Wochentag",exact:true}).selectOption("6");
+  await offer.getByLabel("Angebotszeit 1 Beginn",{exact:true}).fill("18:00");
+  await offer.getByLabel("Angebotszeit 1 Ende",{exact:true}).fill("22:00");
+  await page.getByRole("button",{name:"+ Terrasse",exact:true}).click();
+  const area=page.locator('.wk-experience-card').filter({has:page.getByLabel("Name des Bereichs")}).first();
+  await area.getByText("Atmosphäre",{exact:true}).click();
+  await area.getByRole("button",{name:"+ Atmosphäre",exact:true}).click();
+  const property=area.locator('.wk-experience-property').first();
+  await expect(property.getByText("Zeiten oder Ausnahmen (optional)",{exact:true})).toHaveCount(0);
+  await property.getByRole("combobox").first().selectOption("KNOWN");
+  await property.getByRole("button",{name:"entspannt",exact:true}).click();
+  await property.getByText("Zeiten oder Ausnahmen (optional)",{exact:true}).click();
+  await property.getByRole("checkbox",{name:"Samstag",exact:true}).check();
+  await property.getByLabel("Gültig ab",{exact:true}).fill("2026-10-17");
+  await property.getByLabel("Gültig bis einschließlich",{exact:true}).fill("2026-12-31");
+  const geometry=await property.locator('input:not([type=checkbox]),select,textarea').evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {width:r.width,left:r.left,right:r.right};}));
+  for(const field of geometry){expect(field.width).toBeGreaterThan(width*.65);expect(field.left).toBeGreaterThanOrEqual(0);expect(field.right).toBeLessThanOrEqual(width);}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  await property.scrollIntoViewIfNeeded();
+  await page.screenshot({path:testInfo.outputPath(`mobile-detail-${width}.png`)});
+  await offer.getByRole("checkbox",{name:"Terrasse",exact:true}).check();
+  await page.getByRole("checkbox",{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+  await page.getByRole("button",{name:"Angebote und Bereiche speichern",exact:true}).click();
+  await expect.poll(()=>owner.submissions.length).toBe(1);
+  expect(owner.submissions[0].p_value).toMatchObject({reviewed:true,areas:[{properties:[{key:"atmosphere.character",value:"entspannt",conditions:{weekdays:[6],validFrom:"2026-10-17",validUntil:"2026-12-31"}}]}],offers:[{name:"Romantisches Abendessen",prices:[{min:30,max:30}],schedule:[{weekday:6,start:"18:00",end:"22:00"}]}]});
+  await page.reload();
+  await page.getByLabel("Angebot Romantisches Abendessen bearbeiten",{exact:true}).click();
+  await expect(page.getByLabel("Name des Angebots")).toHaveValue("Romantisches Abendessen");
+});
+
+test('Bereich lässt sich mobil direkt im Angebot anlegen und zuordnen',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const owner=await mockOwner(page,'OWNER_BASIC');
+  await page.goto(`/owner/spots/${spotId}`);
+  await page.getByRole('button',{name:'+ Abendessen',exact:true}).click();
+  const offer=page.locator('.wk-experience-card').filter({has:page.getByLabel('Name des Angebots')}).first();
+  await offer.getByText('Neuen Bereich hier anlegen',{exact:true}).click();
+  await offer.getByRole('button',{name:'Bereich anlegen: Terrasse',exact:true}).click();
+  await expect(offer.getByRole('checkbox',{name:'Terrasse',exact:true})).toBeChecked();
+  await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+  await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+  await expect.poll(()=>owner.submissions.length).toBe(1);
+  const profile=owner.submissions[0].p_value as {areas:Array<{id:string;name:string}>;offers:Array<{areaIds:string[]}>};
+  expect(profile.areas).toHaveLength(1);expect(profile.areas[0].name).toBe('Terrasse');
+  expect(profile.offers[0].areaIds).toEqual([profile.areas[0].id]);
 });

@@ -166,13 +166,13 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     }
   }, [search]);
   useEffect(() => {
-    if (!search) return;
+    if (!search || initialSpotId) return;
     const timer = window.setTimeout(() => { void findSpots(query.trim()); }, query.trim() ? 300 : 0);
     return () => { window.clearTimeout(timer); searchSequence.current += 1; };
-  }, [findSpots, query, search]);
+  }, [findSpots, query, search, initialSpotId]);
 
   const refreshCoverage = useCallback(async () => {
-    if (!search || surface === "OWNER") return;
+    if (!search || initialSpotId || surface === "OWNER") return;
     const { data, error } = await client.rpc<CatalogCoverage>("world_product_admin_catalog_coverage_v1");
     if (error || !data || data.contractVersion !== "backyrd.world-knowledge.approved-catalog-coverage@1.0") {
       setCatalogError(error ? safeRpcMessage(error) : "Der Bestandsstatus konnte nicht geprüft werden.");
@@ -180,7 +180,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     }
     setCoverage(data);
     setCatalogError("");
-  }, [client, search, surface]);
+  }, [client, search, surface, initialSpotId]);
   useEffect(() => { void refreshCoverage(); }, [refreshCoverage]);
   useEffect(() => {
     let active = true;
@@ -358,15 +358,25 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
   const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL" || ["PRICE_OPTIONS","DISCOVERY_PROFILE","EXPERIENCE_PROFILE"].includes(field.control));
   const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL" && !["PRICE_OPTIONS","DISCOVERY_PROFILE","EXPERIENCE_PROFILE"].includes(field.control));
   const renderFieldGroups = (items: AuthoringField[]) => [...new Set(items.map((field) => field.group))].map((group) =>
-    <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) =>
-      <div className="wk-field-with-usage" key={`${detail?.spotId}:${field.attributeKey}`}>{surface === "ADMIN" && <div className="wk-field-usage" aria-label="Verwendung dieser Angabe"><span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span><span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span><span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span></div>}<FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
+    <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) => {
+      const editor = <FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
         existingAnswers={detail?.answers}
         referenceValue={field.attributeKey === "hours.kitchen" ? detail?.answers["hours.regular"]?.value : undefined}
         disabled={busy}
         disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
-        onPrepareDiscovery={prepareDiscovery && detail ? (sourceText)=>prepareDiscovery(detail.spotId,sourceText).then(draft=>parseDiscoveryProfile(draft,false)) : undefined}
+        onPrepareDiscovery={prepareDiscovery && detail ? (sourceText) => prepareDiscovery(detail.spotId, sourceText).then(draft => parseDiscoveryProfile(draft, false)) : undefined}
         onSave={(state, value, until) => saveField(field, state, value, until)}
-        onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} /></div>)}</section>);
+        onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} />;
+      return <div className="wk-field-with-usage" key={`${detail?.spotId}:${field.attributeKey}`}>
+        {surface === "ADMIN" && <details className="wk-field-usage-details"><summary>Verwendung in Backyrd</summary><div className="wk-field-usage" aria-label="Verwendung dieser Angabe">
+          <span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span>
+          <span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span>
+          <span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span>
+        </div></details>}
+        {field.control === "DISCOVERY_PROFILE" ? <details className="wk-source-preparation"><summary>Angaben aus öffentlichem Text vorbereiten (optional)</summary>{editor}</details> : editor}
+      </div>;
+    })}</section>);
+
 
   return <div className="wk-app wk-product-app">
     <header className="wk-header">
@@ -375,7 +385,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         {surface === "OWNER" && detail?.actor.role === "ADMIN" && <p className="wk-admin-access-note">Admin-Zugriff: Alle Bereiche sind für dich freigeschaltet. Für Betreiber:innen gelten die Basis- und Pro-Grenzen.</p>}</div>
       <div className="wk-header-actions"><span className="wk-status">{surface === "OWNER" ? detail?.manifest ? "● Spot-Ansicht aktuell" : "● Spot-Ansicht noch offen" : detail?.manifest ? "● Datenvorschau vorhanden" : "● Noch keine Datenvorschau"}</span></div>
     </header>
-    {search && surface === "ADMIN" && <details className="wk-panel wk-catalog-details" aria-label="World-Bestandsabgleich">
+    {search && !initialSpotId && surface === "ADMIN" && <details className="wk-panel wk-catalog-details" aria-label="World-Bestandsabgleich">
       <summary><strong>Bestand im Wissensspeicher</strong><span>{coverage ? `${coverage.withClaims} von ${coverage.approved} Spots mit Claims · ${coverage.withSnapshots} Datenvorschauen` : "Bestandsstatus prüfen"}</span></summary>
       {coverage && <p>{coverage.withClaims} von {coverage.approved} freigegebenen Spots haben Claims; {coverage.withSnapshots} haben eine geprüfte Datenvorschau.</p>}
       <p>Der Erstabgleich übernimmt Namen und vorhandene Orte aus dem freigegebenen Spot-Bestand. Fehlende Orte sowie Hauptzweck und Kategorie bleiben ausdrücklich unbekannt. Bestehende Angaben werden nicht überschrieben; die übernommenen Angaben solltest du anschließend prüfen.</p>
@@ -386,7 +396,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
       {catalogError && <p role="alert">{catalogError}</p>}
     </details>}
     <div className="wk-layout"><aside className="wk-sidebar">
-      <details className="wk-spot-picker" open={spotPickerOpen} onToggle={(event) => setSpotPickerOpen(event.currentTarget.open)}><summary><span>Spot auswählen</span><strong>{detail?.name ?? "Suche öffnen"}</strong></summary><div className="wk-spot-picker-content">
+      {!initialSpotId && <details className="wk-spot-picker" open={spotPickerOpen} onToggle={(event) => setSpotPickerOpen(event.currentTarget.open)}><summary><span>Spot auswählen</span><strong>{detail?.name ?? "Suche öffnen"}</strong></summary><div className="wk-spot-picker-content">
       {search ? <div className="wk-product-search">
         <form onSubmit={(event) => { event.preventDefault(); void findSpots(query); }}>
           <label>Spot nach Namen suchen<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name oder Ort" aria-label="Spot nach Namen suchen" autoComplete="off" /></label>
@@ -404,8 +414,8 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
           {hasMore && <p>Weitere Spots vorhanden – bitte die Suche verfeinern.</p>}
         </div>}
       </div> : <div className="wk-product-search"><label>Spot-ID<input className="wk-input" value={spotId} onChange={(event) => setSpotId(event.target.value)} /></label>
-        <button type="button" disabled={busy} onClick={() => void selectSpot(spotId)}>Spot laden</button></div>}</div></details>
-      {detail && surface === "OWNER" && <label className="wk-owner-step-picker">Bereich auswählen
+        <button type="button" disabled={busy} onClick={() => void selectSpot(spotId)}>Spot laden</button></div>}</div></details>}
+      {detail && <label className="wk-owner-step-picker">Bereich auswählen
         <select value={step} onChange={(event) => goToStep(Number(event.target.value))}>
           {AUTHORING_STEPS.map((item, index) => <option key={item.id} value={index}>{index + 1}. {item.id === "objective" ? "Eigenschaften" : item.id === "amenities" ? "Ausstattung" : item.title}</option>)}
         </select>
@@ -421,7 +431,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     </aside>
     <main className="wk-main">{!detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>{surface === "OWNER" ? "Suche deinen freigegebenen Spot nach Namen. Danach kannst du seine Angaben Schritt für Schritt ergänzen." : "Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen."}</p></section>
       : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${AUTHORING_STEPS.length}`}><span style={{ width: `${((step + 1) / AUTHORING_STEPS.length) * 100}%` }} /></div><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length} · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : `${fields.filter((field) => detail.answers[field.attributeKey]).length} von ${fields.length} Angaben gespeichert`}</span><h2>{current.title}</h2><p>{current.explanation}</p>
-        {detail.actor.role === "ADMIN" && <p>Ein übernommenes Basisprofil ersetzt keine fachliche Prüfung. Ergänze insbesondere Hauptzweck, Kategorie, Besuchssituation, Öffnung und Zugänglichkeit nur mit belegten Angaben.</p>}</div>
+        {detail.actor.role === "ADMIN" && current.id === "basics" && <p>Ein übernommenes Basisprofil ersetzt keine fachliche Prüfung. Ergänze insbesondere Hauptzweck, Kategorie, Besuchssituation, Öffnung und Zugänglichkeit nur mit belegten Angaben.</p>}</div>
         {reviewNotices > 0 && <div className="wk-note"><strong>{reviewNotices} offene {reviewNotices === 1 ? "Prüfnotiz" : "Prüfnotizen"}</strong>
           <p>{surface === "OWNER" ? "Diese Hinweise sperren deine Spot-Pflege nicht. Du kannst eine Angabe korrigieren; die öffentlich bestätigte Fassung bleibt nachvollziehbar." : "Diese Notizen stammen aus der Claim-Prüfung und sperren die Spot-Pflege nicht. Du kannst eine Angabe korrigieren; maßgeblich ist der aktuelle World-Reader."}</p>
           <ul>{detail.openConflicts.map((conflict, index) => <li key={index}>{fieldLabel(conflict.attributeKey)}</li>)}</ul></div>}

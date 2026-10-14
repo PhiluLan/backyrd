@@ -75,3 +75,9 @@
   .owner-world .wk-main { scroll-margin-top: 82px; }
   .owner-world .wk-footer { position: static; }
 }
+
+@media(max-width:760px){
+  .owner-world .wk-product-app .wk-main{padding:.75rem 0}
+  .owner-world .wk-owner-step-picker select{font-size:16px}
+}
+@media(max-width:760px){.owner-world .wk-product-app .wk-panel{padding:.6rem}}

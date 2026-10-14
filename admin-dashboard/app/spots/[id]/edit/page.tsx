@@ -156,7 +156,6 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         <a href="#spot-understanding">Spot-Wissen pflegen</a>
         <a href="#spot-information">Betrieb & Medien</a>
         <Link href="/spots/presentation">Detail-Darstellung</Link>
-        <a href="#human-sources">Quellen & Prüfung</a>
         <Link href={`/spots/${spotId}`}>Übersicht</Link>
         <Link href={`/spots/${spotId}/owner`}>Owner</Link>
       </nav>
