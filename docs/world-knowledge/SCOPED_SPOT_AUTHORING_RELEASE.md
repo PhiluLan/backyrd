@@ -15,3 +15,9 @@ Production publication requires the repository's clean database bootstrap,
 authorization tests, Admin/Web builds, risk gate and source-bound release artifact.
 Migration activation is separate from UI build success. No synthetic data is
 written to production for verification.
+
+The Founder explicitly approved publication ("Freigegeben", 2026-10-14) of
+the actor-scoped discovery-preparation counters cleanup older than two days in
+the 2.3 and 2.4 migrations. The authority record and release classifier bind
+this approval to their exact paths and SHA-256 contents. Modified migrations,
+other deletions and new migration paths are not covered by this approval.
