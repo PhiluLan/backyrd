@@ -71,3 +71,13 @@ preserves every card; incompatible conversions are disabled. Invalid stored
 profiles fail visibly and cannot be overwritten by an empty profile.
 The private SQL validator must accept catalog 1.1 before the new UI is shipped.
 No authorization, RLS, moderation or registry-authority change is introduced.
+
+The Founder approved ("Alles freigegeben", 2026-10-14) the single additive
+scoped Sport catalog migration 20261014211339, including the remaining
+untested database-recovery risk, and the subsequent category-specific forms.
+The current release scope pins only that migration's immutable bytes. The
+already shipped three-migration approval remains in Git history. The same
+successful backup evidence remains available; no restore drill is claimed.
+The Founder also approved storing the explicitly reviewed Zoo structure.
+Deploy the private validator before exposing new Sport authoring. Deploy the
+shared parsing code to the consuming runtime before publishing Sport profiles.
