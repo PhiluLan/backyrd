@@ -12,7 +12,7 @@ const conditions=record({weekdays:{...list({type:"integer",minimum:1,maximum:7},
 const property = (scope: string) => ({...record({key:enumeration([...EXPERIENCE_QUESTIONS.filter(q=>q.scopes.includes(scope as "SPOT"|"OFFER"|"AREA")).map(q=>q.key),"custom.detail"]),label:nullable(text(160)),state:enumeration(["KNOWN","UNKNOWN","NOT_APPLICABLE"]),value:{anyOf:[text(),integer(),{type:"boolean"},{type:"null"}]},conditions}),allOf:[
  {if:{properties:{state:{enum:["UNKNOWN","NOT_APPLICABLE"]}}},then:{properties:{value:{type:"null"}}}},
  {if:{properties:{key:{const:"custom.detail"}}},then:{properties:{label:text(160)}}},
- ...EXPERIENCE_QUESTIONS.map(q=>({if:{properties:{state:{const:"KNOWN"},key:{const:q.key}}},then:{properties:{value:q.control==="NUMBER"?integer():q.control==="YES_NO"?{type:"boolean"}:text()}}})),
+ ...EXPERIENCE_QUESTIONS.map(q=>({if:{properties:{state:{const:"KNOWN"},key:{const:q.key}}},then:{properties:{value:q.control==="NUMBER"?integer(q.unit==="Jahre"?130:100000):q.control==="YES_NO"?{type:"boolean"}:text()}}})),
  {if:{properties:{state:{const:"KNOWN"},key:{const:"custom.detail"}}},then:{properties:{value:text()}}},
 ]});
 const price=record({label:text(160),currency:{type:"string",pattern:"^[A-Z]{3}$"},min:{type:"number",minimum:0,maximum:100000,multipleOf:0.01},max:nullable({type:"number",minimum:0,maximum:100000,multipleOf:0.01}),basis:enumeration(["PER_PERSON","PER_GROUP","PER_ITEM"]),minimumAge:nullable(integer(130)),maximumAge:nullable(integer(130)),mandatoryFeesIncluded:nullable({type:"boolean"}),includes:{type:"string",maxLength:1000},conditions});

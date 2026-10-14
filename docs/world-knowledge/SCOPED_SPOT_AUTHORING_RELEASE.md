@@ -55,3 +55,19 @@ them requires an explicit answer selection. Price packages retain one total
 price and an explicit purpose rather than invented component prices.
 This is an authoring UI change using the existing schema and RPCs; it adds no
 model interpretation, semantic links, server-side restrictions or migrations.
+
+The category-specific authoring catalog 1.1 removes irrelevant new-entry
+questions by actual offer and area kind. Normal gastronomy does not ask for a
+guide, language, skill prerequisites, entry ticket or recommended age. Zoo
+visits, guided tours and embedded restaurants have distinct question sets.
+SPORT is an additive stored profile category with bouldering, climbing,
+training, courses, children's movement play and optional cafe offers. Equipment,
+rental, registration and induction belong to their exact sport offer; cafe
+facts are separate. Price purposes and examples follow the actual offer.
+Confirmed classification initializes a new profile; an unsupported or missing
+classification requires explicit selection. Existing profiles and saved
+out-of-selection properties are retained. A compatible care-category change
+preserves every card; incompatible conversions are disabled. Invalid stored
+profiles fail visibly and cannot be overwritten by an empty profile.
+The private SQL validator must accept catalog 1.1 before the new UI is shipped.
+No authorization, RLS, moderation or registry-authority change is introduced.

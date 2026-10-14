@@ -341,10 +341,13 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
       setBusy(false);
     }
   };
-  const current = AUTHORING_STEPS[step]!;
-  const proLocked = surface === "OWNER" && detail?.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities");
   const primaryCategory = detail?.answers["classification.primary_category"]?.value;
-  const fields = getAuthoringFieldsForContext(current.id, typeof primaryCategory === "string" ? primaryCategory : undefined)
+  const guidance = {placeTypes: detail?.answers["classification.place_types"]?.value, onsiteOfferings: detail?.answers["context.onsite_offerings"]?.value};
+  const fieldsForStep = (id: string) => getAuthoringFieldsForContext(id, typeof primaryCategory === "string" ? primaryCategory : undefined, guidance);
+  const visibleSteps = AUTHORING_STEPS.filter(item=>["review","objective","amenities"].includes(item.id)||!detail||fieldsForStep(item.id).length>0);
+  const current = visibleSteps[Math.min(step,visibleSteps.length-1)]!;
+  const proLocked = surface === "OWNER" && detail?.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities");
+  const fields = fieldsForStep(current.id)
     .filter((field) => detail?.actor.allowedAttributeKeys.includes(field.attributeKey))
     .map((field) => ({ ...field, allowedValues: field.allowedValues.filter((option) => option.state !== "NOT_CONFIGURED") }));
   const known = Object.values(detail?.answers ?? {}).filter((answer) => answer.knowledgeState !== "UNKNOWN").length;
@@ -352,7 +355,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
   const unresolved = snapshotConflicts(detail).filter((conflict) => conflict.severity === "BLOCKING").length;
   const reviewNotices = detail?.openConflicts.length ?? 0;
   const goToStep = (index: number) => {
-    setStep(Math.max(0, Math.min(AUTHORING_STEPS.length - 1, index)));
+    setStep(Math.max(0, Math.min(visibleSteps.length - 1, index)));
     document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: surface === "OWNER" ? "auto" : "smooth", block: "start" });
   };
   const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL" || ["PRICE_OPTIONS","DISCOVERY_PROFILE","EXPERIENCE_PROFILE"].includes(field.control));
@@ -417,11 +420,11 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         <button type="button" disabled={busy} onClick={() => void selectSpot(spotId)}>Spot laden</button></div>}</div></details>}
       {detail && <label className="wk-owner-step-picker">Bereich auswählen
         <select value={step} onChange={(event) => goToStep(Number(event.target.value))}>
-          {AUTHORING_STEPS.map((item, index) => <option key={item.id} value={index}>{index + 1}. {item.id === "objective" ? "Eigenschaften" : item.id === "amenities" ? "Ausstattung" : item.title}</option>)}
+          {visibleSteps.map((item, index) => <option key={item.id} value={index}>{index + 1}. {item.id === "objective" ? "Eigenschaften" : item.id === "amenities" ? "Ausstattung" : item.title}</option>)}
         </select>
       </label>}
-      {detail && <nav aria-label="Bereiche der Spot-Pflege">{AUTHORING_STEPS.map((item, index) => {
-        const sectionFields = item.attributeKeys.filter((key) => detail.actor.allowedAttributeKeys.includes(key));
+      {detail && <nav aria-label="Bereiche der Spot-Pflege">{visibleSteps.map((item, index) => {
+        const sectionFields = fieldsForStep(item.id).map(field=>field.attributeKey).filter((key) => detail.actor.allowedAttributeKeys.includes(key));
         const completed = sectionFields.filter((key) => detail.answers[key]).length;
         const proLocked = surface === "OWNER" && detail.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (item.id === "objective" || item.id === "amenities");
         return <button type="button" className={step === index ? "selected" : ""} key={item.id} onClick={() => goToStep(index)}>
@@ -430,7 +433,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
       })}</nav>}
     </aside>
     <main className="wk-main">{!detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>{surface === "OWNER" ? "Suche deinen freigegebenen Spot nach Namen. Danach kannst du seine Angaben Schritt für Schritt ergänzen." : "Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen."}</p></section>
-      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${AUTHORING_STEPS.length}`}><span style={{ width: `${((step + 1) / AUTHORING_STEPS.length) * 100}%` }} /></div><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length} · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : `${fields.filter((field) => detail.answers[field.attributeKey]).length} von ${fields.length} Angaben gespeichert`}</span><h2>{current.title}</h2><p>{current.explanation}</p>
+      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${visibleSteps.length}`}><span style={{ width: `${((step + 1) / visibleSteps.length) * 100}%` }} /></div><div className="wk-step-title"><span>Bereich {step + 1} von {visibleSteps.length} · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : `${fields.filter((field) => detail.answers[field.attributeKey]).length} von ${fields.length} Angaben gespeichert`}</span><h2>{current.title}</h2><p>{current.explanation}</p>
         {detail.actor.role === "ADMIN" && current.id === "basics" && <p>Ein übernommenes Basisprofil ersetzt keine fachliche Prüfung. Ergänze insbesondere Hauptzweck, Kategorie, Besuchssituation, Öffnung und Zugänglichkeit nur mit belegten Angaben.</p>}</div>
         {reviewNotices > 0 && <div className="wk-note"><strong>{reviewNotices} offene {reviewNotices === 1 ? "Prüfnotiz" : "Prüfnotizen"}</strong>
           <p>{surface === "OWNER" ? "Diese Hinweise sperren deine Spot-Pflege nicht. Du kannst eine Angabe korrigieren; die öffentlich bestätigte Fassung bleibt nachvollziehbar." : "Diese Notizen stammen aus der Claim-Prüfung und sperren die Spot-Pflege nicht. Du kannst eine Angabe korrigieren; maßgeblich ist der aktuelle World-Reader."}</p>
@@ -466,7 +469,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
           : <div className="wk-note"><strong>Für diesen Spot keine bearbeitbaren Angaben in diesem Bereich.</strong><p>Du kannst zum nächsten Bereich wechseln.</p></div>}
         <footer className="wk-footer"><button type="button" className="wk-secondary" disabled={step === 0} onClick={() => goToStep(step - 1)}>Zurück</button>
           <span>{surface === "OWNER" ? "Jede Änderung wird einzeln gespeichert und geprüft." : "Jede Änderung wird einzeln gespeichert und danach im World-Reader geprüft."}</span>
-          <button type="button" disabled={step === AUTHORING_STEPS.length - 1} onClick={() => goToStep(step + 1)}>Weiter</button></footer>
+          <button type="button" disabled={step >= visibleSteps.length - 1} onClick={() => goToStep(step + 1)}>Weiter</button></footer>
       </section>}</main></div>
     {message && <div className={`wk-toast ${messageIsError ? "error" : "success"}`} role={messageIsError ? "alert" : "status"}>{message}
       <button type="button" aria-label="Meldung schließen" onClick={() => setMessage("")}>×</button></div>}

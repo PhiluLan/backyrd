@@ -2,8 +2,8 @@ import { array, boolean, date, enumValue, number, object, required, string } fro
 import { hashBody } from "./canonical.js";
 
 export const EXPERIENCE_PROFILE_VERSION = "backyrd.world-knowledge.experience-profile@1.0" as const;
-export const EXPERIENCE_CATALOG_VERSION = "backyrd.world-knowledge.experience-catalog@1.0" as const;
-export const EXPERIENCE_CATEGORIES = ["RESTAURANT", "ZOO", "MUSEUM", "BAR"] as const;
+export const EXPERIENCE_CATALOG_VERSION = "backyrd.world-knowledge.experience-catalog@1.1" as const;
+export const EXPERIENCE_CATEGORIES = ["RESTAURANT", "ZOO", "MUSEUM", "BAR", "SPORT"] as const;
 export type ExperienceCategory = typeof EXPERIENCE_CATEGORIES[number];
 export type ExperienceScope = "SPOT" | "OFFER" | "AREA";
 export type ExperienceQuestion = { readonly key: string; readonly label: string; readonly group: string; readonly control: "TEXT" | "YES_NO" | "NUMBER"; readonly unit: string | null; readonly scopes: readonly ExperienceScope[]; readonly categories: readonly ExperienceCategory[]; readonly offerKinds: readonly string[] };
@@ -35,6 +35,13 @@ export const EXPERIENCE_QUESTIONS: readonly ExperienceQuestion[] = Object.freeze
   q("time.duration", "Typische Dauer", "Zeiten", "NUMBER", ["OFFER"], all, "Minuten"),
   q("route.length", "Weglänge", "Wege", "NUMBER", ["OFFER", "AREA"], ["ZOO", "MUSEUM"], "Meter"),
   q("condition.terrain", "Wegbeschaffenheit und Steigungen", "Wege", "TEXT", ["OFFER", "AREA"], ["ZOO", "MUSEUM"]),
+  q("sport.level", "Für welche Erfahrungsstufen geeignet?", "Sport", "TEXT", ["OFFER"], ["SPORT"], null, ["BOULDERING", "CLIMBING", "TRAINING", "COURSE", "CHILDREN_COURSE"]),
+  q("sport.equipment", "Benötigte Ausrüstung", "Sport", "TEXT", ["OFFER"], ["SPORT"], null, ["BOULDERING", "CLIMBING", "TRAINING", "COURSE", "CHILDREN_COURSE"]),
+  q("sport.rental", "Ausrüstung vor Ort ausleihbar?", "Sport", "YES_NO", ["OFFER"], ["SPORT"], null, ["BOULDERING", "CLIMBING", "TRAINING", "COURSE", "CHILDREN_COURSE"]),
+  q("sport.registration", "Erstregistrierung erforderlich?", "Besuchsregeln", "YES_NO", ["OFFER"], ["SPORT"], null, ["BOULDERING", "CLIMBING", "TRAINING", "MOVEMENT_PLAY", "COURSE", "CHILDREN_COURSE"]),
+  q("sport.induction", "Sicherheitseinweisung erforderlich?", "Sport", "YES_NO", ["OFFER"], ["SPORT"], null, ["BOULDERING", "CLIMBING", "TRAINING", "COURSE", "CHILDREN_COURSE"]),
+  q("participation.minimum_age", "Mindestalter für dieses Angebot", "Besuchsregeln", "NUMBER", ["OFFER"], all, "Jahre"),
+  q("amenity.shower", "Duschen vorhanden?", "Ausstattung", "YES_NO", ["SPOT", "AREA"], ["SPORT"]),
   q("participation.accessibility", "Zugänglichkeit und Einschränkungen", "Zugang", "TEXT", ["SPOT", "OFFER", "AREA"]),
   q("location.setting", "Lage und Umgebung", "Lage", "TEXT", ["SPOT", "AREA"]),
   q("location.view", "Was sieht man tatsächlich von hier?", "Lage", "TEXT", ["AREA"]),
@@ -63,9 +70,74 @@ export const EXPERIENCE_TEMPLATES: Readonly<Record<ExperienceCategory, { readonl
   RESTAURANT: { offers: [{kind:"LUNCH",label:"Mittagessen"},{kind:"DINNER",label:"Abendessen"},{kind:"APERITIF",label:"Apéro"},{kind:"BREAKFAST",label:"Frühstück"},{kind:"PRIVATE_CELEBRATION",label:"Private Feier"}], areas: [{kind:"INDOOR",label:"Gastraum"},{kind:"TERRACE",label:"Terrasse"},{kind:"PRIVATE_ROOM",label:"Privater Raum"}] },
   ZOO: { offers: [{kind:"VISIT",label:"Zoobesuch"},{kind:"GUIDED_TOUR",label:"Führung"},{kind:"ANIMAL_OBSERVATION",label:"Tierbeobachtung"},{kind:"EVENT",label:"Veranstaltung"},{kind:"GASTRONOMY",label:"Gastronomie"}], areas: [{kind:"OUTDOOR",label:"Außengelände"},{kind:"INDOOR",label:"Tierhaus"},{kind:"PLAYGROUND",label:"Spielplatz"},{kind:"REST_AREA",label:"Ruhebereich"},{kind:"CAFE",label:"Gastronomiebereich"}] },
   MUSEUM: { offers: [{kind:"PERMANENT_EXHIBITION",label:"Dauerausstellung"},{kind:"SPECIAL_EXHIBITION",label:"Sonderausstellung"},{kind:"GUIDED_TOUR",label:"Führung"},{kind:"WORKSHOP",label:"Workshop"},{kind:"SELF_GUIDED_VISIT",label:"Besuch ohne Führung"},{kind:"CAFE",label:"Café"}], areas: [{kind:"EXHIBITION",label:"Ausstellungsraum"},{kind:"WORKSHOP",label:"Workshopraum"},{kind:"OUTDOOR",label:"Außenbereich"},{kind:"CAFE",label:"Cafébereich"}] },
+  SPORT: { offers: [{kind:"BOULDERING",label:"Bouldern"},{kind:"CLIMBING",label:"Klettern"},{kind:"TRAINING",label:"Freies Training"},{kind:"COURSE",label:"Kurs / Einführung"},{kind:"CHILDREN_COURSE",label:"Kinderkurs"},{kind:"MOVEMENT_PLAY",label:"Bewegungslandschaft für Kinder"},{kind:"CAFE",label:"Café / Bistro"}], areas: [{kind:"BOULDER_AREA",label:"Boulderbereich"},{kind:"CLIMBING_AREA",label:"Kletterbereich"},{kind:"TRAINING_AREA",label:"Trainingsbereich"},{kind:"CHILDREN_AREA",label:"Kinderbereich"},{kind:"CHANGING_ROOM",label:"Garderobe"},{kind:"CAFE",label:"Cafébereich"},{kind:"OUTDOOR",label:"Aussenbereich"}] },
   BAR: { offers: [{kind:"DRINKS",label:"Getränke"},{kind:"APERITIF",label:"Apéro / Snacks"},{kind:"FULL_MEAL",label:"Vollständige Mahlzeiten"},{kind:"MUSIC_EVENT",label:"Musikveranstaltung"},{kind:"PRIVATE_CELEBRATION",label:"Private Feier"}], areas: [{kind:"INDOOR",label:"Barraum"},{kind:"TERRACE",label:"Terrasse"},{kind:"LOUNGE",label:"Lounge"},{kind:"EVENT_AREA",label:"Veranstaltungsbereich"}] },
 });
-export const getExperienceQuestions = (category: ExperienceCategory, scope: ExperienceScope, offerKind?: string) => EXPERIENCE_QUESTIONS.filter(q => q.categories.includes(category) && q.scopes.includes(scope) && (!q.offerKinds.length || !!offerKind && q.offerKinds.includes(offerKind)));
+const mealOffers = ["LUNCH", "DINNER", "BREAKFAST", "FULL_MEAL", "GASTRONOMY", "CAFE", "APERITIF", "DRINKS", "PRIVATE_CELEBRATION"];
+const instructedOffers = ["GUIDED_TOUR", "WORKSHOP", "COURSE", "CHILDREN_COURSE"];
+const sportOffers = ["BOULDERING", "CLIMBING", "TRAINING", "MOVEMENT_PLAY", "COURSE", "CHILDREN_COURSE"];
+/** Presentation relevance only. Existing stored properties remain valid and are never deleted. */
+export function getExperienceQuestions(category: ExperienceCategory, scope: ExperienceScope, offerKind?: string, areaKind?: string): readonly ExperienceQuestion[] {
+  return EXPERIENCE_QUESTIONS.filter(question => {
+    const key = question.key;
+    const meal = !!offerKind && mealOffers.includes(offerKind);
+    const instructed = !!offerKind && instructedOffers.includes(offerKind);
+    const sport = category === "SPORT" && !!offerKind && sportOffers.includes(offerKind);
+    if (!question.categories.includes(category) || !question.scopes.includes(scope) || question.offerKinds.length && (!offerKind || !question.offerKinds.includes(offerKind))) return false;
+    if (scope === "OFFER") {
+      if (["participation.format", "participation.language"].includes(key) && !instructed) return false;
+      if (key === "participation.age_suitability" && (meal || offerKind === "MUSIC_EVENT" || offerKind === "PRIVATE_CELEBRATION")) return false;
+      if (key === "participation.prerequisite" && !instructed && !sport) return false;
+      if (key === "participation.permission") return false; // actual rules are explicit age/access facts, never an unexplained allowed/denied flag
+      if (key === "participation.entry_mode" && meal) return false;
+      if (key === "participation.minimum_age" && !sport && !instructed && !["MUSIC_EVENT", "EVENT"].includes(offerKind ?? "")) return false;
+      if (key === "condition.children" && !instructed && !meal && offerKind !== "CHILDREN_COURSE") return false;
+      if (["route.length", "condition.terrain"].includes(key) && (meal || instructed || !["VISIT", "SELF_GUIDED_VISIT", "ANIMAL_OBSERVATION"].includes(offerKind ?? ""))) return false;
+      if (key === "atmosphere.music" && !meal && !["MUSIC_EVENT", "EVENT", "TRAINING"].includes(offerKind ?? "")) return false;
+      if (key === "time.duration" && meal && offerKind !== "PRIVATE_CELEBRATION") return false;
+      if (key === "offer.capacity" && !instructed && !["PRIVATE_CELEBRATION", "EVENT", "MUSIC_EVENT"].includes(offerKind ?? "")) return false;
+    }
+    if (scope !== "OFFER" && key === "participation.permission") return false;
+    if (scope === "AREA") {
+      const dining = ["INDOOR", "TERRACE", "PRIVATE_ROOM", "LOUNGE", "CAFE", "EVENT_AREA"].includes(areaKind ?? "") && (category === "RESTAURANT" || category === "BAR" || areaKind === "CAFE");
+      const outside = ["TERRACE", "OUTDOOR", "PLAYGROUND", "REST_AREA"].includes(areaKind ?? "");
+      if (["offer.shade", "condition.weather_protection", "location.waterbody"].includes(key) && !outside) return false;
+      if (["route.length", "condition.terrain"].includes(key) && (dining || !["OUTDOOR", "EXHIBITION", "INDOOR"].includes(areaKind ?? ""))) return false;
+      if (key === "participation.entry_mode" && dining) return false;
+      if (key === "amenity.high_chair" && !dining) return false;
+      if (["atmosphere.conversation", "atmosphere.privacy", "offer.usage"].includes(key) && ["CHANGING_ROOM", "BOULDER_AREA", "CLIMBING_AREA", "TRAINING_AREA", "CHILDREN_AREA"].includes(areaKind ?? "")) return false;
+      if (key === "amenity.shower" && areaKind !== "CHANGING_ROOM") return false;
+      if (key === "condition.children" && !["CHILDREN_AREA", "PLAYGROUND", "CAFE"].includes(areaKind ?? "")) return false;
+    }
+    return true;
+  }).map(question => {
+    const labels: Record<string, string> = {
+      "participation.booking": mealOffers.includes(offerKind ?? "") ? "Reservation erforderlich?" : "Anmeldung oder Buchung erforderlich?",
+      "participation.entry_mode": "Eintrittsticket erforderlich?",
+      "condition.children": mealOffers.includes(offerKind ?? "") || areaKind === "CAFE" ? "Angebote für Kinder beim Essen" : "Angebote für Kinder",
+      "offer.capacity": scope === "AREA" ? "Anzahl Plätze in diesem Bereich" : "Maximale Gruppengrösse",
+    };
+    return {...question, label:labels[question.key] ?? question.label, group:question.group === "Teilnahme" ? "Besuchsregeln" : question.group};
+  });
+}
+/** Uses confirmed explicit classification only; names/descriptions are not guessed. */
+export function experienceCategoryFromAnswers(answers: Readonly<Record<string, unknown>>): ExperienceCategory | null {
+  const value = (key: string): unknown => {
+    const raw = answers[key];
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const answer = raw as Record<string, unknown>;
+    return answer.knowledgeState === "KNOWN_VALUE" ? answer.value : null;
+  };
+  const types = value("classification.place_types");
+  const selected = Array.isArray(types) ? types.filter((v): v is string => typeof v === "string") : [];
+  if (selected.includes("ZOO") || selected.includes("AQUARIUM")) return "ZOO";
+  if (selected.includes("CLIMBING_GYM") || value("classification.primary_category") === "SPORT_MOVEMENT") return "SPORT";
+  if (selected.includes("MUSEUM") || selected.includes("GALLERY")) return "MUSEUM";
+  if (selected.some(v => ["WINE_BAR", "COCKTAIL_BAR", "BAR", "PUB", "BREWERY", "TAPROOM", "LOUNGE"].includes(v))) return "BAR";
+  if (["EAT", "COFFEE_DAYTIME"].includes(String(value("classification.primary_category")))) return "RESTAURANT";
+  if (["DRINKS", "NIGHTLIFE"].includes(String(value("classification.primary_category")))) return "BAR";
+  return null;
+}
 export type ExperienceConditions = { readonly weekdays: readonly number[]; readonly dayparts: readonly string[]; readonly event: string | null; readonly validFrom: string | null; readonly validUntil: string | null };
 export type ExperienceProperty = { readonly key: string; readonly label: string | null; readonly state: "KNOWN" | "UNKNOWN" | "NOT_APPLICABLE"; readonly value: string | number | boolean | null; readonly conditions: ExperienceConditions };
 export type ExperienceArea = { readonly id: string; readonly kind: string; readonly name: string; readonly properties: readonly ExperienceProperty[] };
@@ -96,7 +168,7 @@ function parseProperties(v: unknown,p: string,scope: ExperienceScope): readonly 
     const state=enumValue(r.state,["KNOWN","UNKNOWN","NOT_APPLICABLE"] as const,p);
     let value: ExperienceProperty["value"] = null;
     if(state!=="KNOWN"){if(r.value!==null)throw new Error("experience_unknown_value_must_be_null");}
-    else if(question?.control==="NUMBER")value=number(r.value,p,{min:0,max:100000,integer:true});
+    else if(question?.control==="NUMBER")value=number(r.value,p,{min:0,max:question.unit==="Jahre"?130:100000,integer:true});
     else if(question?.control==="YES_NO")value=boolean(r.value,p);
     else value=text(r.value,p,1000);
     return {key,label,state,value,conditions:parseConditions(r.conditions,p)};
