@@ -81,3 +81,29 @@ successful backup evidence remains available; no restore drill is claimed.
 The Founder also approved storing the explicitly reviewed Zoo structure.
 Deploy the private validator before exposing new Sport authoring. Deploy the
 shared parsing code to the consuming runtime before publishing Sport profiles.
+
+Production verification on 2026-10-15 (Europe/Zurich): the scoped Sport validator
+was applied by workflow 38644107783. Canonical Main 85fdf7deffccdd263733b877f66f5c536d1128e1
+passed exact post-merge certification 38645701911 (manifest
+4d702acf504ce1ba6c1bc8adfdadabea174d9b085037f6b7b5508fc8f4fee0b3).
+Workflow 38646336306 successfully deployed only decision-v13 with the shared
+profile parser; there were no pending migrations in that second deployment.
+Admin and Owner Production deployments also succeeded for that canonical SHA.
+No Mobile OTA was published.
+
+Authenticated Admin verification used real, explicitly approved profiles at
+390 px. Consum now stores the compatible BAR care category while preserving
+its two areas and Apéro offer. Activity, wine, named platter and the confirmed
+no-reservation rule are separate scoped properties. Zoo stores visit, guided
+tour and gastronomy offers with explicitly linked outdoor, animal-house and
+gastronomy areas. The tour route remains unconfirmed. ELYS stores bouldering,
+children's movement play and cafe offers with three separate areas. Bouldering
+booking is not required; the movement-play arrival window requires booking.
+The child's typical duration is 120 minutes; it is not a hard maximum. Equipment,
+rental and first-registration facts are scoped to the sport offers, not the
+cafe. Saved category, links and representative properties were verified after
+reload. Unknown prices, ambiguous age exceptions and unverified area qualities
+were not fabricated. Production profiles are not synthetic test fixtures.
+Zoo visit hides guiding and languages; its guided tour exposes them; its
+embedded gastronomy retains the entry-ticket question. ELYS cafe has no sport
+equipment question. The ELYS page has no horizontal overflow at 390 px.
