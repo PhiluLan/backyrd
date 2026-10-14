@@ -21,3 +21,9 @@ the actor-scoped discovery-preparation counters cleanup older than two days in
 the 2.3 and 2.4 migrations. The authority record and release classifier bind
 this approval to their exact paths and SHA-256 contents. Modified migrations,
 other deletions and new migration paths are not covered by this approval.
+
+The Founder separately approved exactly the three 2.2–2.4 migrations with
+the remaining untested recovery risk on 2026-10-14. Backup workflow run
+38529360391 successfully exported, encrypted and verified the Production
+snapshot. This is backup evidence, not a restore drill or a guaranteed rollback.
+The additive release scope pins all three immutable migration hashes.
