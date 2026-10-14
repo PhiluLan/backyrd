@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { experienceAnswerGuidance, experiencePriceIncludes } from "./experience-answer-guidance";
 import { EXPERIENCE_CATEGORIES, experienceCategoryFromAnswers, sameLibrarianText, EXPERIENCE_QUESTIONS, EXPERIENCE_TEMPLATES, emptyExperienceConditions, emptyExperienceProfile, experienceReuseSuggestions, reuseExperienceProperty, getExperienceQuestions, parseExperienceProfile, type ExperienceCategory, type ExperienceConditions, type ExperienceProfile, type ExperienceProperty, type ExperienceQuestion, type ExperienceScope, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
-const labels: Record<ExperienceCategory,string> = {RESTAURANT:"Restaurant",ZOO:"Zoo",MUSEUM:"Museum",BAR:"Bar / Weinbar",SPORT:"Sport / Bewegung"};
+const labels: Record<ExperienceCategory,string> = {RESTAURANT:"Restaurant",ZOO:"Zoo",MUSEUM:"Museum",BAR:"Bar / Weinbar",SPORT:"Bouldern / Klettern"};
 const weekdays=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const dayparts=[["MORNING","Vormittag"],["MIDDAY","Mittag"],["AFTERNOON","Nachmittag"],["EVENING","Abend"],["NIGHT","Nacht"]];
 const nullableNumber=(value:string)=>value===""?null:Number(value);

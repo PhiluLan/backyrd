@@ -38,6 +38,7 @@ test('category guidance uses confirmed types and never infers a restaurant from 
  assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['WINE_BAR'])}),'BAR');
  assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['ZOO','PARK'])}),'ZOO');
  assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['CLIMBING_GYM'])}),'SPORT');
+ assert.equal(experienceCategoryFromAnswers({'classification.primary_category':known('SPORT_MOVEMENT'),'classification.place_types':known(['SWIMMING_POOL'])}),null);
  assert.equal(experienceCategoryFromAnswers({'classification.place_types':{knowledgeState:'UNKNOWN',value:['ZOO']}}),null);
 });
 test('wine bar aperitif never asks for guiding, skills, entry tickets or recommended ages',()=>{

@@ -476,7 +476,7 @@ for(const scenario of [
  {name:'Weinbar',category:'BAR',types:['WINE_BAR'],offer:'Apéro / Snacks',kind:'APERITIF'},
  {name:'Zoo',category:'ZOO',types:['ZOO'],offer:'Zoobesuch',kind:'VISIT'},
  {name:'Boulderhalle',category:'SPORT',types:['CLIMBING_GYM'],offer:'Bouldern',kind:'BOULDERING'},
-] as const)test(`Passende Pflege: ${scenario.name} ohne Restaurant-Vorbelegung`,async({page})=>{
+] as const)test(`Passende Pflege: ${scenario.name} ohne Restaurant-Vorbelegung`,async({page},testInfo)=>{
  await page.setViewportSize({width:390,height:844});
  const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{
   'classification.primary_category':{claimId:'category',knowledgeState:'KNOWN_VALUE',value:scenario.category==='BAR'?'DRINKS':scenario.category==='SPORT'?'SPORT_MOVEMENT':'ATTRACTIONS_LANDMARKS'},
@@ -506,6 +506,7 @@ for(const scenario of [
   await card.getByRole('button',{name:'+ Eintrittsticket erforderlich?',exact:true}).click();
   await card.getByRole('button',{name:'Ticket erforderlich',exact:true}).click();
  }
+ await page.screenshot({path:testInfo.outputPath(`category-${scenario.category.toLowerCase()}-mobile.png`),fullPage:false});
  await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
  await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
  await expect.poll(()=>owner.submissions.length).toBe(1);

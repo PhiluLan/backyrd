@@ -131,7 +131,7 @@ export function experienceCategoryFromAnswers(answers: Readonly<Record<string, u
   const types = value("classification.place_types");
   const selected = Array.isArray(types) ? types.filter((v): v is string => typeof v === "string") : [];
   if (selected.includes("ZOO") || selected.includes("AQUARIUM")) return "ZOO";
-  if (selected.includes("CLIMBING_GYM") || value("classification.primary_category") === "SPORT_MOVEMENT") return "SPORT";
+  if (selected.includes("CLIMBING_GYM")) return "SPORT";
   if (selected.includes("MUSEUM") || selected.includes("GALLERY")) return "MUSEUM";
   if (selected.some(v => ["WINE_BAR", "COCKTAIL_BAR", "BAR", "PUB", "BREWERY", "TAPROOM", "LOUNGE"].includes(v))) return "BAR";
   if (["EAT", "COFFEE_DAYTIME"].includes(String(value("classification.primary_category")))) return "RESTAURANT";
