@@ -42,3 +42,16 @@ The authenticated Production UI was inspected at 390 px on Consum Weinbar
 without modifying Spot data. Its previous nested search control measured
 240 px wide. The obsolete edit-page link to a missing source section is removed;
 source preparation remains available inside the authoring editor.
+
+Scoped answer controls use explicit choices for activity, atmosphere, drinks,
+cuisine, participation rules and other categorical facts. Activity choices are
+filtered by category/offer kind and use the existing finite product concepts.
+Named themes, dishes and waterbodies keep a single-name input with examples.
+Search is explicitly a UI filter; it searches choice labels as well as fields.
+Additional answers are separate properties, retaining their own conditions.
+No new arbitrary catch-all property entry is offered. Existing free or custom
+values remain visible and are preserved through unrelated saves; replacing
+them requires an explicit answer selection. Price packages retain one total
+price and an explicit purpose rather than invented component prices.
+This is an authoring UI change using the existing schema and RPCs; it adds no
+model interpretation, semantic links, server-side restrictions or migrations.

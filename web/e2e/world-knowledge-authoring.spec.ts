@@ -1,3 +1,5 @@
+import { EXPERIENCE_QUESTIONS, EXPERIENCE_TEMPLATES, librarianConcept } from "@backyrd/world-knowledge-core";
+import { experienceAnswerGuidance } from "../../packages/world-knowledge-authoring-ui/src/experience-answer-guidance";
 import { expect, test, type Page } from "@playwright/test";
 
 const spotId = "41000000-0000-4000-8000-000000000001";
@@ -298,7 +300,8 @@ test('Vorhandene Küche wird gezielt übernommen und nach dem Speichern erhalten
  await editor.screenshot({path:testInfo.outputPath('spot-knowledge-compact-mobile.png')});
  await card.locator(':scope > summary').click();
  await card.getByText('Essen und Trinken',{exact:true}).click();
- await expect(card.getByLabel('Küche Wert',{exact:true})).toHaveValue('Italienisch');
+ await expect(card.getByRole('button',{name:'Italienisch',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(card.getByLabel('Küche Wert',{exact:true})).toHaveCount(0);
 });
 
 test('Gemeinsame Atmosphäre-Vorlage wird im richtigen Bereich gespeichert',async({page})=>{
@@ -311,7 +314,8 @@ test('Gemeinsame Atmosphäre-Vorlage wird im richtigen Bereich gespeichert',asyn
  const property=area.locator('.wk-experience-property').first();
  await property.getByRole('combobox').first().selectOption('KNOWN');
  await property.getByRole('button',{name:'entspannt',exact:true}).click();
- await expect(property.getByLabel('Atmosphäre Wert',{exact:true})).toHaveValue('entspannt');
+ await expect(property.getByRole('button',{name:'entspannt',exact:true})).toHaveAttribute('aria-pressed','true');
+ await expect(property.getByLabel('Atmosphäre Wert',{exact:true})).toHaveCount(0);
  await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
  await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
  await expect.poll(()=>owner.submissions.length).toBe(1);
@@ -379,4 +383,90 @@ test('Bereich lässt sich mobil direkt im Angebot anlegen und zuordnen',async({p
   const profile=owner.submissions[0].p_value as {areas:Array<{id:string;name:string}>;offers:Array<{areaIds:string[]}>};
   expect(profile.areas).toHaveLength(1);expect(profile.areas[0].name).toBe('Terrasse');
   expect(profile.offers[0].areaIds).toEqual([profile.areas[0].id]);
+});
+
+test('Apéro hat passende Antworten und bewahrt einen alten Sammeltext unverändert',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const oldText='Apeeoplättli, Wein, gute Qualität';
+  const conditions={weekdays:[],dayparts:[],event:null,validFrom:null,validUntil:null};
+  const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{knowledgeState:'KNOWN_VALUE',value:{contractVersion:'backyrd.world-knowledge.experience-profile@1.0',category:'RESTAURANT',reviewed:true,properties:[],areas:[],offers:[{id:'apero',kind:'APERITIF',name:'Apéro',areaIds:[],properties:[{key:'experience.activity',label:null,state:'KNOWN',value:oldText,conditions}],prices:[],schedule:[],validFrom:null,validUntil:null}]}}});
+  await page.goto(`/owner/spots/${spotId}`);
+  await page.getByLabel('Angebot Apéro bearbeiten',{exact:true}).click();
+  const offer=page.locator('.wk-experience-card').filter({has:page.getByLabel('Name des Angebots')}).first();
+  await offer.getByText('Erlebnis',{exact:true}).click();
+  const property=offer.locator('.wk-experience-property').first();
+  await expect(property.locator('textarea')).toHaveCount(0);
+  await expect(property.getByRole('button',{name:'etwas trinken',exact:true})).toBeVisible();
+  await expect(property.getByRole('button',{name:'Zoo besuchen',exact:true})).toHaveCount(0);
+  await expect(property.getByText(oldText,{exact:true})).toBeVisible();
+  await page.getByLabel('Name des Angebots').fill('Apéro am Abend');
+  await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+  await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+  await expect.poll(()=>owner.submissions.length).toBe(1);
+  expect(owner.submissions[0].p_value).toMatchObject({offers:[{properties:[{key:'experience.activity',value:oldText}]}]});
+  await property.getByRole('button',{name:'etwas trinken',exact:true}).click();
+  await expect(property.getByRole('button',{name:'etwas trinken',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+  await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+  await expect.poll(()=>owner.submissions.length).toBe(2);
+  expect(owner.submissions[1].p_value).toMatchObject({offers:[{properties:[{key:'experience.activity',value:'etwas trinken',state:'KNOWN'}]}]});
+  const profile=owner.submissions[1].p_value as {offers:Array<{properties:unknown[]}>};
+  expect(profile.offers[0].properties).toHaveLength(1);
+});
+
+test('Wein ist eine eigene Auswahl und ein Gericht hat eine klare Texteingabe',async({page})=>{
+  const owner=await mockOwner(page,'OWNER_BASIC');
+  await page.goto(`/owner/spots/${spotId}`);
+  await page.getByRole('button',{name:'+ Apéro',exact:true}).click();
+  const offer=page.locator('.wk-experience-card').filter({has:page.getByLabel('Name des Angebots')}).first();
+  await offer.getByText('Essen und Trinken',{exact:true}).click();
+  await offer.getByRole('button',{name:'+ Getränke einschließlich alkoholfreier Auswahl',exact:true}).click();
+  await offer.getByRole('button',{name:'Wein',exact:true}).click();
+  await expect(offer.getByRole('button',{name:'Wein',exact:true})).toHaveAttribute('aria-pressed','true');
+  await offer.getByRole('button',{name:'+ Weitere Antwort: Getränke einschließlich alkoholfreier Auswahl',exact:true}).click();
+  const drinks=offer.locator('.wk-experience-property').filter({has:page.getByRole('combobox',{name:'Getränke einschließlich alkoholfreier Auswahl',exact:true})});
+  await drinks.nth(1).getByRole('button',{name:'Bier',exact:true}).click();
+  await expect(drinks.nth(0).getByRole('button',{name:'Wein',exact:true})).toHaveAttribute('aria-pressed','true');
+  await offer.getByRole('button',{name:'+ Gerichte und Spezialitäten',exact:true}).click();
+  const dish=offer.locator('.wk-experience-property').filter({has:page.getByRole('combobox',{name:'Gerichte und Spezialitäten',exact:true})});
+  await dish.getByRole('combobox').selectOption('KNOWN');
+  await expect(dish.getByRole('textbox')).toHaveAttribute('placeholder','Zum Beispiel Apéroplättli');
+  await dish.getByRole('textbox').fill('Apéroplättli');
+  await expect(offer.getByRole('button',{name:'+ Eigene Besonderheit',exact:true})).toHaveCount(0);
+  await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+  await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+  await expect.poll(()=>owner.submissions.length).toBe(1);
+  expect(owner.submissions[0].p_value).toMatchObject({offers:[{properties:[{key:'food.drink',state:'KNOWN',value:'Wein'},{key:'food.drink',state:'KNOWN',value:'Bier'},{key:'food.dish',state:'KNOWN',value:'Apéroplättli'}]}]});
+});
+
+test('Ja und Nein speichern explizite Fakten ohne Freitext und ohne unbekannt zu verwechseln',async({page})=>{
+  const owner=await mockOwner(page,'OWNER_BASIC');
+  await page.goto(`/owner/spots/${spotId}`);
+  await page.getByRole('button',{name:'+ Terrasse',exact:true}).click();
+  const area=page.locator('.wk-experience-card').filter({has:page.getByLabel('Name des Bereichs')}).first();
+  await area.getByText('Ausstattung',{exact:true}).click();
+  await area.getByRole('button',{name:'+ WC vorhanden?',exact:true}).click();
+  const property=area.locator('.wk-experience-property').first();
+  await expect(property.getByRole('combobox')).toHaveValue('UNKNOWN');
+  await property.getByRole('button',{name:'Nein',exact:true}).click();
+  await expect(property.getByRole('combobox')).toHaveValue('KNOWN');
+  await expect(property.locator('textarea')).toHaveCount(0);
+  await page.getByRole('checkbox',{name:/Ich habe Angebote, Bereiche, Preise/}).check();
+  await page.getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();
+  await expect.poll(()=>owner.submissions.length).toBe(1);
+  expect(owner.submissions[0].p_value).toMatchObject({areas:[{properties:[{key:'amenity.toilet',state:'KNOWN',value:false}]}]});
+});
+
+
+test('Jedes Textfeld hat eine bewusste Antwortart und Aktivitäten verwenden bekannte Begriffe',()=>{
+  for(const question of EXPERIENCE_QUESTIONS.filter(q=>q.control==='TEXT'))for(const category of question.categories){
+    const spec=experienceAnswerGuidance(question.key,category);
+    expect(spec,`${category}:${question.key}`).not.toBeNull();
+    if(spec?.kind==='CHOICES'){expect(spec.choices.length).toBeGreaterThan(0);expect(new Set(spec.choices).size).toBe(spec.choices.length);}
+    if(spec?.kind==='NAME'){expect(spec.placeholder.length).toBeGreaterThan(0);expect(spec.help.length).toBeGreaterThan(0);}
+  }
+  for(const category of ['RESTAURANT','ZOO','MUSEUM','BAR'] as const)for(const offer of EXPERIENCE_TEMPLATES[category].offers){
+    const spec=experienceAnswerGuidance('experience.activity',category,offer.kind);
+    if(spec?.kind==='CHOICES')for(const value of spec.choices)expect(librarianConcept(value),`${category}:${offer.kind}:${value}`).not.toBeNull();
+  }
 });

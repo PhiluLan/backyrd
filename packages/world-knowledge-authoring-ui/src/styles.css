@@ -203,3 +203,7 @@
 .wk-source-preparation{border:1px solid var(--line);border-radius:14px;padding:.8rem;background:#121217}
 .wk-source-preparation>summary{min-height:44px;cursor:pointer;font-weight:650;line-height:1.5}
 .wk-source-preparation[open]>summary{margin-bottom:.8rem}
+.wk-answer-help{font-size:.88rem;line-height:1.5}
+.wk-answer-history{padding:.8rem;border:1px solid #756343;border-radius:12px;background:#211c14;min-width:0}
+.wk-answer-history blockquote{margin:.5rem 0;white-space:pre-wrap;overflow-wrap:anywhere;color:#f5e8d3}
+.wk-answer-history p{font-size:.85rem}
