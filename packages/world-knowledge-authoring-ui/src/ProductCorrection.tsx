@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import {
-  AUTHORING_FIELDS, AUTHORING_STEPS, getAuthoringFieldsForContext,
-  validateAuthoringSubmission, type AuthoringField,
+  AUTHORING_FIELDS, formatPriceOptionsSummary, AUTHORING_STEPS, getAuthoringFieldsForContext,
+  validateAuthoringSubmission, parseDiscoveryProfile, type DiscoveryProfile, type AuthoringField,
 } from "@backyrd/world-knowledge-core";
 import type { RpcResult, WorldAuthoringClient } from "./session";
 
@@ -39,6 +39,8 @@ export type ProductFieldInputProps = {
   candidate?: { candidateId: string; value: unknown };
   applicability?: string;
   referenceValue?: unknown;
+  existingAnswers?: Readonly<Record<string,unknown>>;
+  onPrepareDiscovery?(sourceText:string):Promise<DiscoveryProfile>;
   onSave(state: string, value: unknown, validUntil?: string): Promise<void>;
   onSaveCandidate?(value: readonly string[]): Promise<void>;
   onApplicability?(value: "NOT_APPLICABLE" | "APPLICABLE"): Promise<void>;
@@ -49,6 +51,7 @@ export type ProductFieldInputProps = {
 };
 export type ProductCorrectionProps = {
   client: WorldAuthoringClient;
+  prepareDiscovery?(spotId:string,sourceText:string):Promise<DiscoveryProfile>;
   rebuild(spotId: string, idempotencyKey: string): Promise<unknown>;
   search?: (query: string) => Promise<ProductAdminSpotSearch>;
   addressPicker?: ComponentType<{ disabled: boolean; onSelect(value: ProductAddressSelection | null): void }>;
@@ -108,6 +111,7 @@ const searchFailure = (error: unknown): SearchState => {
 const fieldLabel = (key: string) => AUTHORING_FIELDS.find((field) => field.attributeKey === key)?.label ?? "Betroffene Angabe";
 const valueLabel = (field: AuthoringField, value: unknown): string => {
   if (value === null || value === undefined) return "Noch keine Angabe";
+  if (field.attributeKey === "operation.price_options") return formatPriceOptionsSummary(value);
   if (typeof value === "boolean") return value ? "Ja" : "Nein";
   if (typeof value === "string") return field.allowedValues.find((option) => option.value === value)?.label ?? value;
   if (typeof value === "number") return new Intl.NumberFormat("de-CH").format(value);
@@ -118,7 +122,7 @@ const valueLabel = (field: AuthoringField, value: unknown): string => {
 
 /** Product authoring uses the same typed editors as the local Founder workflow,
  * but only server-authorized keys and the Product append-only RPCs. */
-export function WorldProductCorrection({ client, rebuild, search, addressPicker: AddressPicker, initialSpotId, surface = "ADMIN", FieldEditor }: ProductCorrectionProps & {
+export function WorldProductCorrection({ client, rebuild, prepareDiscovery, search, addressPicker: AddressPicker, initialSpotId, surface = "ADMIN", FieldEditor }: ProductCorrectionProps & {
   FieldEditor: ComponentType<ProductFieldInputProps>;
 }) {
   const [spotId, setSpotId] = useState("");
@@ -351,14 +355,16 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
     setStep(Math.max(0, Math.min(AUTHORING_STEPS.length - 1, index)));
     document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: surface === "OWNER" ? "auto" : "smooth", block: "start" });
   };
-  const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL");
-  const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL");
+  const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL" || ["PRICE_OPTIONS","DISCOVERY_PROFILE","EXPERIENCE_PROFILE"].includes(field.control));
+  const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL" && !["PRICE_OPTIONS","DISCOVERY_PROFILE","EXPERIENCE_PROFILE"].includes(field.control));
   const renderFieldGroups = (items: AuthoringField[]) => [...new Set(items.map((field) => field.group))].map((group) =>
     <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) =>
       <div className="wk-field-with-usage" key={`${detail?.spotId}:${field.attributeKey}`}>{surface === "ADMIN" && <div className="wk-field-usage" aria-label="Verwendung dieser Angabe"><span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span><span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span><span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span></div>}<FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
+        existingAnswers={detail?.answers}
         referenceValue={field.attributeKey === "hours.kitchen" ? detail?.answers["hours.regular"]?.value : undefined}
         disabled={busy}
         disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
+        onPrepareDiscovery={prepareDiscovery && detail ? (sourceText)=>prepareDiscovery(detail.spotId,sourceText).then(draft=>parseDiscoveryProfile(draft,false)) : undefined}
         onSave={(state, value, until) => saveField(field, state, value, until)}
         onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} /></div>)}</section>);
 

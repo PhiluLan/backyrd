@@ -1,7 +1,7 @@
-import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, getAttributeDefinition, parseAttributeValue, type PortKnowledgeEntry, type WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
+import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, REGISTRY_V2_3_HASH, REGISTRY_V2_3_VERSION, REGISTRY_V2_2_HASH, REGISTRY_V2_2_VERSION, REGISTRY_V2_1_HASH, REGISTRY_V2_1_VERSION, getAttributeDefinition, parseAttributeValue, type SourceUseCase, type PortKnowledgeEntry, type WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 
-type Entry = Pick<PortKnowledgeEntry, "key" | "value" | "resolution" | "freshness" | "trust" | "entryHash"> & { readonly validFrom?: string | null; readonly validUntil?: string | null };
+type Entry = Pick<PortKnowledgeEntry, "key" | "value" | "resolution" | "freshness" | "trust" | "entryHash"> & { readonly validFrom?: string | null; readonly validUntil?: string | null; readonly authorizedUseCases?: readonly SourceUseCase[] };
 export type ProductWorldView = Pick<WorldKnowledgeSnapshot, "spot" | "explicitUnknowns" | "exclusions" | "snapshotHash"> & {
   readonly facts: readonly Entry[];
   readonly operationalRules: readonly Entry[];
@@ -19,8 +19,10 @@ const rows = (value: unknown, max: number): readonly unknown[] => {
   if (!Array.isArray(value) || value.length > max) throw new Error("product_world_binding_rows_invalid");
   return value;
 };
-const factKey = (value: unknown): string => {
+const factKey = (value: unknown, previous = false, supportsExperience = true): string => {
   if (typeof value !== "string") throw new Error("product_world_fact_key_invalid");
+  if (previous && value === "operation.price_options") throw new Error("product_world_previous_registry_value_invalid");
+  if (!supportsExperience && value === "experience.profile") throw new Error("product_world_previous_registry_value_invalid");
   const definition = getAttributeDefinition(value);
   if (definition.engineAuthorization !== "AUTHORIZED") throw new Error("product_world_fact_not_authorized");
   return value;
@@ -33,11 +35,17 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
   const binding = object(value);
   if (binding.contractVersion !== "backyrd.world-knowledge.product-resolver-binding@1.0" || typeof binding.manifestHash !== "string" || !HASH.test(binding.manifestHash)) throw new Error("product_world_manifest_binding_invalid");
   const raw = object(binding.decisionProjection);
-  if (raw.contractVersion !== "backyrd.world-knowledge.product-decision-projection@1.0" || raw.registryVersion !== REGISTRY_VERSION || binding.registryHash !== REGISTRY_HASH || raw.policyVersion !== ACCEPTED_SOURCE_POLICY.policyVersion || typeof raw.spotId !== "string" || !ID.test(raw.spotId)) throw new Error("product_world_resolver_identity_invalid");
+  const current = raw.registryVersion === REGISTRY_VERSION && binding.registryHash === REGISTRY_HASH && raw.policyVersion === ACCEPTED_SOURCE_POLICY.policyVersion;
+  const previous23 = raw.registryVersion === REGISTRY_V2_3_VERSION && binding.registryHash === REGISTRY_V2_3_HASH && raw.policyVersion === "backyrd.world-knowledge.source-policy@4d.1";
+  const previous22 = raw.registryVersion === REGISTRY_V2_2_VERSION && binding.registryHash === REGISTRY_V2_2_HASH && raw.policyVersion === "backyrd.world-knowledge.source-policy@4c.1";
+  const previous = raw.registryVersion === REGISTRY_V2_1_VERSION && binding.registryHash === REGISTRY_V2_1_HASH && raw.policyVersion === "backyrd.world-knowledge.source-policy@4b.1";
+  if (raw.contractVersion !== "backyrd.world-knowledge.product-decision-projection@1.0" || !current && !previous && !previous22 && !previous23 || typeof raw.spotId !== "string" || !ID.test(raw.spotId)) throw new Error("product_world_resolver_identity_invalid");
   if (typeof binding.resolvedAt !== "string" || !Number.isFinite(Date.parse(binding.resolvedAt))) throw new Error("product_world_resolver_time_invalid");
   const seen = new Map<string, string>();
   const parsed = rows(raw.facts, 200).flatMap((item): (Entry & { kind: string })[] => {
-    const row = object(item); const key = factKey(row.key);
+    const row = object(item); const key = factKey(row.key, previous, current);
+    if ((previous || previous22) && key === "discovery.profile") throw new Error("product_world_previous_registry_value_invalid");
+    if (previous && (key === "operation.price_options" || key === "offering.food_specialities" && Array.isArray(row.value) && row.value.includes("CAKE"))) throw new Error("product_world_previous_registry_value_invalid");
     if (!decisionRelevant(key)) return [];
     if (row.scope !== "SPOT" || seen.has(key)) throw new Error("product_world_fact_scope_or_duplicate");
     seen.set(key, String(row.resolution));
@@ -51,14 +59,22 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
     const validated = parseAttributeValue(key, row.value, `product_world.${key}`);
     if (row.resolution === "KNOWN_TRUE" && validated !== true || row.resolution === "KNOWN_FALSE" && validated !== false) throw new Error("product_world_fact_resolution_mismatch");
     if (key === "state.current" && (row.validityVerified !== true || (row.validFrom !== null && (typeof row.validFrom !== "string" || !Number.isFinite(Date.parse(row.validFrom)))) || typeof row.validUntil !== "string" || !Number.isFinite(Date.parse(row.validUntil)))) throw new Error("product_world_current_state_validity_unverified");
-    return [{ key, value: validated, resolution: row.resolution as Entry["resolution"], freshness: "CURRENT", trust: "VERIFIED", entryHash: contentHash({ manifestHash: binding.manifestHash, fact: row }), ...(key === "state.current" ? { validFrom: row.validFrom as string | null, validUntil: row.validUntil as string | null } : {}), kind: getAttributeDefinition(key).kind }];
+    if (Object.hasOwn(row, "hardConstraintAuthorized") && typeof row.hardConstraintAuthorized !== "boolean") throw new Error("product_world_use_case_authorization_invalid");
+    const scopedValidity = ["experience.profile", "discovery.profile", "context.atmosphere", "operation.price_options", "operation.price_range"].includes(key);
+    if (scopedValidity && row.validityVerified === true && [row.validFrom, row.validUntil].some(value => value !== null && (typeof value !== "string" || !Number.isFinite(Date.parse(value))))) throw new Error("product_world_fact_validity_invalid");
+    // SQL derives this flag from every actual basis claim's policy, not from
+    // the manifest's new registry version. Historical context stays soft.
+    const policyEntry = ACCEPTED_SOURCE_POLICY.entries.find(item => item.attributeKey === key)!;
+    const authorizedUseCases = Object.entries(policyEntry.useCases).flatMap(([useCase, state]) => state === "ALLOWED"
+      && !(["context.atmosphere", "discovery.profile", "experience.profile"].includes(key) && ["HARD_CONSTRAINTS", "DISCOVERY"].includes(useCase) && (!current && !previous22 && !previous23 || row.hardConstraintAuthorized !== true)) ? [useCase as SourceUseCase] : []);
+    return [{ key, authorizedUseCases, value: validated, resolution: row.resolution as Entry["resolution"], freshness: "CURRENT", trust: "VERIFIED", entryHash: contentHash({ manifestHash: binding.manifestHash, fact: row }), ...(key === "state.current" || scopedValidity && row.validityVerified === true ? { validFrom: row.validFrom as string | null, validUntil: row.validUntil as string | null } : {}), kind: getAttributeDefinition(key).kind }];
   });
   const byKey = (key: string): unknown => parsed.find((item) => item.key === key)?.value ?? null;
   const locality = byKey("location.locality");
   if (typeof locality !== "string" || city(locality) !== city(targetCity)) throw new Error("product_world_locality_invalid");
   if (typeof byKey("identity.name") !== "string") throw new Error("product_world_identity_name_unavailable");
-  const conflictRows = rows(raw.conflicts, 100).flatMap((item) => { const row = object(item); const key = factKey(row.key); if (!decisionRelevant(key)) return []; if (row.scope !== "SPOT" || seen.get(key) !== "DISPUTED" || !Array.isArray(row.claimHashes) || row.claimHashes.length < 2) throw new Error("product_world_conflict_invalid"); return [{ code: "OVERLAPPING_CONTRADICTORY_CLAIMS", severity: "BLOCKING" as const, attributeKeys: [key] }]; });
-  const unknownRows = rows(raw.explicitUnknowns, 200).flatMap((item) => { const row = object(item); const key = factKey(row.key); if (!decisionRelevant(key)) return []; if (row.scope !== "SPOT" || seen.get(key) !== "UNKNOWN") throw new Error("product_world_unknown_invalid"); return [{ key, scope: "SPOT" }]; });
+  const conflictRows = rows(raw.conflicts, 100).flatMap((item) => { const row = object(item); const key = factKey(row.key, previous, current); if (!decisionRelevant(key)) return []; if (row.scope !== "SPOT" || seen.get(key) !== "DISPUTED" || !Array.isArray(row.claimHashes) || row.claimHashes.length < 2) throw new Error("product_world_conflict_invalid"); return [{ code: "OVERLAPPING_CONTRADICTORY_CLAIMS", severity: "BLOCKING" as const, attributeKeys: [key] }]; });
+  const unknownRows = rows(raw.explicitUnknowns, 200).flatMap((item) => { const row = object(item); const key = factKey(row.key, previous, current); if (!decisionRelevant(key)) return []; if (row.scope !== "SPOT" || seen.get(key) !== "UNKNOWN") throw new Error("product_world_unknown_invalid"); return [{ key, scope: "SPOT" }]; });
   if ([...seen].some(([key, resolution]) => resolution === "DISPUTED" && !conflictRows.some((item) => item.attributeKeys[0] === key) || resolution === "UNKNOWN" && !unknownRows.some((item) => item.key === key))) throw new Error("product_world_nonknowledge_unbound");
   const facts = parsed.filter((item) => item.kind === "FACT");
   const operationalRules = parsed.filter((item) => item.kind === "OPERATIONAL_RULE");

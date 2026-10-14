@@ -1,3 +1,4 @@
+import { isExactProductAdditiveSet } from "./product-additive-migration-scope.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -101,6 +102,9 @@ for (const migrationPath of [
   "supabase/migrations/20261001202402_decision_continuous_authority_v1.sql",
   "supabase/migrations/20261002202705_owner_pro_stripe_billing_v1.sql",
   "supabase/migrations/20261003130322_align_decision_product_world_taxonomy.sql",
+  "supabase/migrations/20261012063312_world_knowledge_comparable_prices_and_cake_v2_2.sql",
+  "supabase/migrations/20261012152228_world_knowledge_open_discovery_v2_3.sql",
+  "supabase/migrations/20261014072400_world_knowledge_scoped_experience_cards_v2_4.sql",
 ]) test(`separately bound additive migration seals without inheriting Founder authority: ${migrationPath}`, () => {
   const { root, base } = fixture();
   put(root, "supabase/production/preapplied-product-migrations-v1.json", `${JSON.stringify({
@@ -239,4 +243,15 @@ test("a different release identity cannot replay the artifact", () => {
   assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: "0".repeat(64), expectedSourceSha: head }), /release_manifest_hash_mismatch/);
   assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: "0".repeat(40) }), /release_manifest_source_mismatch/);
   assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, expectedMode: "POST_MERGE_MAIN" }), /release_manifest_mode_mismatch/);
+});
+
+test("scoped World authoring migrations are an exact contiguous set, not an open SQL allowance", () => {
+  const migrations = [{"path": "supabase/migrations/20261012063312_world_knowledge_comparable_prices_and_cake_v2_2.sql", "sha256": "ba5bfec59e6b087e52804c5231d4ea03bf6ce7012579158101383298dab681ae"}, {"path": "supabase/migrations/20261012152228_world_knowledge_open_discovery_v2_3.sql", "sha256": "79032ec9dc2ba5b1827772cd7f98f4a3f6a24cd4511d11a1e1f9a6548b6ee0d4"}, {"path": "supabase/migrations/20261014072400_world_knowledge_scoped_experience_cards_v2_4.sql", "sha256": "52aa079748137e3edefa0dd6cac3f840ca75fa2d3f2272a5704b069fca5eb639"}];
+  assert.equal(isExactProductAdditiveSet(migrations), true);
+  assert.equal(isExactProductAdditiveSet([...migrations].reverse()), false);
+  assert.equal(isExactProductAdditiveSet([migrations[0], migrations[2]]), false);
+  assert.equal(isExactProductAdditiveSet([...migrations, { path: "supabase/migrations/future.sql", sha256: "0".repeat(64) }]), false);
+  for (let index = 0; index < migrations.length; index += 1) {
+    assert.equal(isExactProductAdditiveSet(migrations.map((entry, at) => at === index ? { ...entry, sha256: "0".repeat(64) } : entry)), false);
+  }
 });

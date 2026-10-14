@@ -113,11 +113,21 @@ export function isDestructiveMigration(text) {
   return false;
 }
 
+const approvedDiscoveryCounterMigrations = new Map([["supabase/migrations/20261012152228_world_knowledge_open_discovery_v2_3.sql", "79032ec9dc2ba5b1827772cd7f98f4a3f6a24cd4511d11a1e1f9a6548b6ee0d4"], ["supabase/migrations/20261014072400_world_knowledge_scoped_experience_cards_v2_4.sql", "52aa079748137e3edefa0dd6cac3f840ca75fa2d3f2272a5704b069fca5eb639"]]);
+const discoveryCounterScope = "EXPIRED_ACTOR_SCOPED_DISCOVERY_PREPARATION_COUNTERS_ONLY";
+
+function isApprovedDiscoveryCounterEntry(entry) {
+  return entry?.scope === discoveryCounterScope
+    && approvedDiscoveryCounterMigrations.has(entry.path)
+    && approvedDiscoveryCounterMigrations.get(entry.path) === entry.sha256;
+}
+
 export function isAuthorizedBoundedMigration(path, text, trustAnchor) {
   const entries = trustAnchor.authorizedBoundedMigrations;
   if (!Array.isArray(entries)) return false;
   const match = entries.find((entry) => entry?.path === path);
-  const acceptedScope = match?.scope === "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
+  const acceptedScope = isApprovedDiscoveryCounterEntry(match)
+    || match?.scope === "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
     || (match?.scope === "EXPIRED_PRIVATE_AI_INTENT_CACHE_ONLY"
       && path === "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql")
     || (match?.scope === "EXPIRED_PRIVATE_AI_QUERY_CACHE_ONLY"
@@ -159,6 +169,12 @@ export function classifyChange({ root, context, policy }) {
       ...(trustAnchor.authorizedBoundedMigrations ?? []), approvedQueryCache,
     ];
   }
+  // Import only the two exact, separately authorized counter-cleanup files.
+  const approvedDiscoveryCounters = (candidateAnchor.authorizedBoundedMigrations ?? [])
+    .filter(isApprovedDiscoveryCounterEntry);
+  trustAnchor.authorizedBoundedMigrations = [
+    ...(trustAnchor.authorizedBoundedMigrations ?? []), ...approvedDiscoveryCounters,
+  ];
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));

@@ -410,3 +410,26 @@ test("an unpaired or differently named constraint drop remains fail-closed", () 
     assert.ok(result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
   }
 });
+
+for (const path of ["supabase/migrations/20261012152228_world_knowledge_open_discovery_v2_3.sql", "supabase/migrations/20261014072400_world_knowledge_scoped_experience_cards_v2_4.sql"]) {
+  test(`actor counter approval is bound to exact bytes and path: ${path}`, () => {
+    const migration = readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+    const authority = JSON.parse(readFileSync(new URL("../../delivery/product-authority-v1.json", import.meta.url), "utf8"));
+    const entry = authority.authorizedBoundedMigrations.find((item) => item.path === path);
+    assert.equal(isDestructiveMigration(migration), true);
+    assert.equal(isAuthorizedBoundedMigration(path, migration, authority), true);
+    const result = plan({ files: { [path]: migration, "decision-lab/config/anchor.json": JSON.stringify({ ...authority, protectedSemanticSourceSet: { paths: ["mobile/lib/protected-decision.ts"] } }) } });
+    assert.equal(result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"), false);
+    const rejected = plan({ files: { [path]: `${migration}\n-- changed`, "decision-lab/config/anchor.json": JSON.stringify({ ...authority, protectedSemanticSourceSet: { paths: ["mobile/lib/protected-decision.ts"] } }) } });
+    assert.equal(rejected.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"), true);
+    assert.equal(isAuthorizedBoundedMigration(path, `${migration}\ndelete from public.spots;`, authority), false);
+    assert.equal(isAuthorizedBoundedMigration(path, migration, { authorizedBoundedMigrations: [] }), false);
+    for (const change of [{ path: "supabase/migrations/future.sql" }, { sha256: "0".repeat(64) }, { scope: "BROAD_DELETE" }]) {
+      const altered = { ...entry, ...change };
+      assert.equal(isAuthorizedBoundedMigration(altered.path, migration, { authorizedBoundedMigrations: [altered] }), false);
+    }
+    const modified = `${migration}\n-- changed bytes`;
+    const replacedHash = createHash("sha256").update(modified).digest("hex");
+    assert.equal(isAuthorizedBoundedMigration(path, modified, { authorizedBoundedMigrations: [{ ...entry, sha256: replacedHash }] }), false);
+  });
+}
