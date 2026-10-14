@@ -84,3 +84,11 @@ test('the forward SQL validator uses exactly the current scoped JSON schema',asy
  assert.ok(schema);
  assert.deepEqual(JSON.parse(schema),EXPERIENCE_PROFILE_SCHEMA);
 });
+
+test('embedded cafes retain their own admission question without imposing it on normal bars',()=>{
+ for(const category of ['ZOO','MUSEUM','SPORT']){
+  assert.ok(getExperienceQuestions(category,'OFFER',category==='ZOO'?'GASTRONOMY':'CAFE').some(q=>q.key==='participation.entry_mode'));
+  assert.ok(getExperienceQuestions(category,'AREA',undefined,'CAFE').some(q=>q.key==='participation.entry_mode'));
+ }
+ assert.ok(!getExperienceQuestions('BAR','OFFER','APERITIF').some(q=>q.key==='participation.entry_mode'));
+});

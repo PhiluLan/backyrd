@@ -89,7 +89,7 @@ export function getExperienceQuestions(category: ExperienceCategory, scope: Expe
       if (key === "participation.age_suitability" && (meal || offerKind === "MUSIC_EVENT" || offerKind === "PRIVATE_CELEBRATION")) return false;
       if (key === "participation.prerequisite" && !instructed && !sport) return false;
       if (key === "participation.permission") return false; // actual rules are explicit age/access facts, never an unexplained allowed/denied flag
-      if (key === "participation.entry_mode" && meal) return false;
+      if (key === "participation.entry_mode" && meal && ["RESTAURANT", "BAR"].includes(category)) return false;
       if (key === "participation.minimum_age" && !sport && !instructed && !["MUSIC_EVENT", "EVENT"].includes(offerKind ?? "")) return false;
       if (key === "condition.children" && !instructed && !meal && offerKind !== "CHILDREN_COURSE") return false;
       if (["route.length", "condition.terrain"].includes(key) && (meal || instructed || !["VISIT", "SELF_GUIDED_VISIT", "ANIMAL_OBSERVATION"].includes(offerKind ?? ""))) return false;
@@ -103,7 +103,7 @@ export function getExperienceQuestions(category: ExperienceCategory, scope: Expe
       const outside = ["TERRACE", "OUTDOOR", "PLAYGROUND", "REST_AREA"].includes(areaKind ?? "");
       if (["offer.shade", "condition.weather_protection", "location.waterbody"].includes(key) && !outside) return false;
       if (["route.length", "condition.terrain"].includes(key) && (dining || !["OUTDOOR", "EXHIBITION", "INDOOR"].includes(areaKind ?? ""))) return false;
-      if (key === "participation.entry_mode" && dining) return false;
+      if (key === "participation.entry_mode" && dining && ["RESTAURANT", "BAR"].includes(category)) return false;
       if (key === "amenity.high_chair" && !dining) return false;
       if (["atmosphere.conversation", "atmosphere.privacy", "offer.usage"].includes(key) && ["CHANGING_ROOM", "BOULDER_AREA", "CLIMBING_AREA", "TRAINING_AREA", "CHILDREN_AREA"].includes(areaKind ?? "")) return false;
       if (key === "amenity.shower" && areaKind !== "CHANGING_ROOM") return false;
