@@ -105,6 +105,7 @@ for (const migrationPath of [
   "supabase/migrations/20261012063312_world_knowledge_comparable_prices_and_cake_v2_2.sql",
   "supabase/migrations/20261012152228_world_knowledge_open_discovery_v2_3.sql",
   "supabase/migrations/20261014072400_world_knowledge_scoped_experience_cards_v2_4.sql",
+  "supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql",
 ]) test(`separately bound additive migration seals without inheriting Founder authority: ${migrationPath}`, () => {
   const { root, base } = fixture();
   put(root, "supabase/production/preapplied-product-migrations-v1.json", `${JSON.stringify({
