@@ -27,10 +27,15 @@ for(const width of [390,1280])test(`Admin bearbeitet Profil und Medien getrennt 
  await expect(page.locator('#spot-information')).toBeHidden();
  await expect(page.getByText('Veröffentlicht',{exact:true})).toBeVisible();
  await page.screenshot({path:testInfo.outputPath(`admin-home-${width}.png`),fullPage:true});
+ await expect(page.getByRole('button',{name:/04 Räume & Bereiche/})).toBeVisible();
+ await expect(page.getByRole('button',{name:/05 Gemeinsame Ausstattung & Anreise/})).toBeVisible();
  await page.getByRole('button',{name:/03 Angebote/}).click();
  await page.getByRole('button',{name:'Weiteres Angebot hinzufügen',exact:true}).click();
  await page.getByLabel('Weiteres Angebot hinzufügen',{exact:true}).selectOption('OVERNIGHT_STAY');
  await page.getByLabel('Name des Angebots',{exact:true}).fill('Übernachten im Doppelzimmer');
+ await expect(page.getByRole('heading',{name:'Preise (0)',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Zeiten dieses Angebots',exact:true})).toBeVisible();
+ await expect(page.getByRole('navigation',{name:'Abschnitt des Angebots'})).toHaveCount(0);
  await page.getByRole('button',{name:'Bilder & Verwaltung',exact:true}).click();
  await expect(page.locator('#spot-understanding')).toBeHidden();
  await expect(page.locator('#spot-information')).toBeVisible();

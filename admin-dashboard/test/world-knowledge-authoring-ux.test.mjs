@@ -102,10 +102,10 @@ test("Product World authoring is compact on mobile without hiding rules or optio
   assert.match(product, /open=\{spotPickerOpen\}/);
   assert.match(product, /setSpotPickerOpen\(event\.currentTarget\.open\)/);
   assert.match(product, /wk-step-progress/);
-  assert.match(product, /Weitere Angaben/);
-  assert.match(product, /renderFieldGroups\(optionalFields\)/);
+  assert.doesNotMatch(product, /wk-optional-fields/);
+  assert.match(product, /renderFieldGroups\(fields\)/);
   assert.match(styles, /wk-spot-picker:not\(\[open\]\) \.wk-spot-picker-content/);
-  assert.match(styles, /wk-optional-fields/);
+  assert.match(styles, /wk-knowledge-buttons/);
   assert.match(editor, /Zeiten und Ausnahmen \(optional\)/);
 });
 
