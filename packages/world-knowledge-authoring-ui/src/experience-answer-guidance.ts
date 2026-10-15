@@ -62,7 +62,7 @@ export function experienceAnswerGuidance(key: string, category: ExperienceCatego
   if (key === "experience.theme") return named(category === "ZOO" || offerKind === "ANIMAL_OBSERVATION" ? "Zum Beispiel Pinguine" : "Zum Beispiel Naturgeschichte", category === "ZOO" || offerKind === "ANIMAL_OBSERVATION" ? "Eine Tierart oder ein Thema dieses Angebots. Weitere Tierarten getrennt ergänzen." : "Ein Thema oder eine Sammlung dieser Ausstellung. Weitere Themen getrennt ergänzen.");
   if(key==="experience.activity"){
     const item=OFFER_CATALOG.find(o=>o.kind===offerKind);
-    const activities=hasOfferModule(offerKind??"","sport")||hasOfferModule(offerKind??"","movement") ? OFFER_CATALOG.filter(o=>o.modules.some(m=>m==="sport"||m==="movement")).flatMap(o=>o.activities) : item?.activities ?? activitiesByCategory[category] ?? [];
+    const activities=offerKind === "EVENT" ? ["Veranstaltung besuchen", "Tanzen"] : hasOfferModule(offerKind??"","sport")||hasOfferModule(offerKind??"","movement") ? OFFER_CATALOG.filter(o=>o.modules.some(m=>m==="sport"||m==="movement")).flatMap(o=>o.activities) : item?.activities ?? activitiesByCategory[category] ?? [];
     return choice([...new Set([...(item?.activities??[]), ...activities])],"Wähle alle Tätigkeiten, die in diesem konkreten Angebot tatsächlich möglich sind. Tätigkeiten mit anderen Altersgrenzen, Preisen oder Bedingungen gehören in ein separates Angebot.");
   }
   const existing = EXPERIENCE_VALUE_CHOICES[key];

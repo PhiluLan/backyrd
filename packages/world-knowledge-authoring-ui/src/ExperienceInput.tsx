@@ -1,10 +1,11 @@
 "use client";
 import { useRef, useState } from "react";
+import { clubActivity, clubOfferChoice, offerHelp, offerLabel, selectableOffers } from "./experience-offer-guidance";
 import { ExperienceReferences } from "./ExperienceReferences";
 import { getExperienceAuthoringQuestions, type ExperienceWorkspace } from "./experience-authoring";
 import { Conditions, Properties } from "./ExperienceProperties";
 import { experiencePriceIncludes } from "./experience-answer-guidance";
-import { SPOT_TYPE_CATALOG, SPOT_GROUPS, OFFER_CATALOG, AREA_CATALOG, EXPERIENCE_QUESTIONS, experienceCategoryFromAnswers, EXPERIENCE_TEMPLATES, emptyExperienceProfile, emptyExperienceConditions, parseAttributeValue, WEEKDAYS, type WeeklyScheduleDay, experienceReuseSuggestions, reuseExperienceProperty, parseExperienceProfile, type ExperienceCategory, type ExperienceProfile, type ExperienceProperty, type ExperienceScope, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
+import { SPOT_TYPE_CATALOG, SPOT_GROUPS, AREA_CATALOG, EXPERIENCE_QUESTIONS, experienceCategoryFromAnswers, EXPERIENCE_TEMPLATES, emptyExperienceProfile, emptyExperienceConditions, parseAttributeValue, WEEKDAYS, type WeeklyScheduleDay, experienceReuseSuggestions, reuseExperienceProperty, parseExperienceProfile, type ExperienceCategory, type ExperienceProfile, type ExperienceProperty, type ExperienceScope, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
 const weekdays=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const nullableNumber=(v:string)=>v===""?null:Number(v);
 const displayValue=(v:unknown)=>v===true?"Ja":v===false?"Nein":String(v);
@@ -58,7 +59,7 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
   return [...questions.map(question=>question.label),...(values.some(value=>!questions.some(question=>question.key===value.key))?["Bisherige Angaben"]:[])];
  };
  const addArea=(kind:string,name:string,offerId?:string)=>{const id=crypto.randomUUID();change({...profile,areas:[...profile.areas,{id,kind,name,properties:[]}],offers:profile.offers.map(offer=>offer.id===offerId?{...offer,areaIds:[...offer.areaIds,id]}:offer)});setAdding(false);if(!offerId){setEditor({scope:"AREA",id});focus();}};
- const addOffer=(kind:string,name:string)=>{const id=crypto.randomUUID();change({...profile,offers:[...profile.offers,{id,kind,name,areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}]});setAdding(false);setEditor({scope:"OFFER",id});focus();};
+ const addOffer=(kind:string,name:string,properties:readonly ExperienceProperty[]=[])=>{const id=crypto.randomUUID();change({...profile,offers:[...profile.offers,{id,kind,name,areaIds:[],properties,prices:[],schedule:[],validFrom:null,validUntil:null}]});setAdding(false);setEditor({scope:"OFFER",id});focus();};
  const edit=(scope:"OFFER"|"AREA",id:string)=>{setEditor({scope,id});setAdding(false);focus();};
  const save=async():Promise<boolean>=>{
   if(saving.current)return false;
@@ -67,8 +68,8 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
   try{if(initial.invalid)throw Error("invalid_existing_profile");checked=parseExperienceProfile({...profile,reviewed:true});}
   catch{setError("Bitte prüfe Namen, Werte, Preisgrenzen und Verknüpfungen. Deine Eingaben bleiben erhalten.");return false;}
   saving.current=true;setBusy(true);setError(null);
-  try{await onSave(checked);setProfile(checked);setBaseline(checked);setDirty(false);onDirtyChange?.(false);setSaved(true);return true;}
-  catch{setError("Speichern fehlgeschlagen. Deine Eingaben bleiben erhalten; bitte versuche es erneut.");return false;}
+  try{await onSave(checked);setProfile(checked);onChange(checked);setBaseline(checked);setDirty(false);onDirtyChange?.(false);setSaved(true);return true;}
+  catch(cause){setError(cause instanceof Error ? `Speichern fehlgeschlagen: ${cause.message} Deine Eingaben bleiben als Entwurf erhalten.` : "Speichern fehlgeschlagen. Deine Eingaben bleiben erhalten; bitte versuche es erneut.");return false;}
   finally{saving.current=false;setBusy(false);}
  };
  const continueNext=async()=>{if(await save())onContinue?.();};
@@ -99,6 +100,7 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
     <h3 aria-label={`${selectedOffer?"Angebot":"Bereich"} ${selectedOffer?.name??selectedArea?.name} bearbeiten`}>{selectedOffer?.name??selectedArea?.name}</h3>
     <p className="wk-editor-context">{selectedOffer?"Angebot":"Raum / Bereich"} bearbeiten · Alle passenden Fragen stehen untereinander.</p>
     {selectedOffer&&<>
+     <p>{offerHelp(selectedOffer.kind)}</p>
      <label>Name des Angebots<input aria-label="Name des Angebots" className="wk-input" maxLength={160} value={selectedOffer.name} onChange={e=>updateOffer(selectedOffer.id,{name:e.target.value})}/></label>
      <fieldset><legend>In diesen Bereichen verfügbar</legend>{profile.areas.map(a=><label key={a.id}><input type="checkbox" checked={selectedOffer.areaIds.includes(a.id)} onChange={e=>updateOffer(selectedOffer.id,{areaIds:e.target.checked?[...selectedOffer.areaIds,a.id]:selectedOffer.areaIds.filter(id=>id!==a.id)})}/>{a.name}</label>)}{!profile.areas.length&&<p>Noch kein Raum zugeordnet. Lege ihn direkt hier an oder später unter „Räume & Bereiche“.</p>}</fieldset>
      <h4>Bereich direkt anlegen und zuordnen</h4><div className="wk-choices">{[...templates.areas,{kind:"OTHER",label:"Eigener Bereich"}].map(t=><button type="button" className="wk-secondary" key={t.kind} disabled={profile.areas.length>=30} onClick={()=>addArea(t.kind,t.label,selectedOffer.id)}>Bereich anlegen: {t.label}</button>)}</div>
@@ -120,13 +122,14 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
    </section>:<>
     <h3 className="wk-workspace-heading">{headings[workspace]}</h3>
     {workspace==="OFFERS"&&<p className="wk-spot-type-context">Spottyp: <strong>{(()=>{const raw=existingAnswers["classification.place_types"];return raw&&typeof raw==="object"&&"knowledgeState" in raw&&raw.knowledgeState==="KNOWN_VALUE"&&"value" in raw&&Array.isArray(raw.value)?raw.value.map(kind=>SPOT_TYPE_CATALOG.find(type=>type.kind===kind)?.label??String(kind)).join(", "):"Noch nicht festgelegt";})()}</strong></p>}
-    <p>{workspace==="OFFERS"?"Eine Karte pro Leistung: zum Beispiel Übernachten, Abendessen oder Apéro. Preise und Bedingungen gehören zur jeweiligen Leistung.":workspace==="AREAS"?"Ein Raum oder Aussenbereich wird einmal beschrieben. Seine Angaben stehen bei allen zugeordneten Angeboten als Referenz bereit.":"Nur Angaben, die du einmal für den gesamten Spot erfasst. Zugang und Atmosphäre einzelner Räume pflegst du bei den Räumen."}</p>
+    <p>{workspace==="OFFERS"?"Mit dem Hinzufügen bestätigst du zunächst die Leistung. Details kannst du bei der jeweiligen Karte ergänzen; leere Angaben bleiben unbekannt. Preise, Zeiten und Besuchsregeln gehören zur jeweiligen Leistung. Räume und Ausstattung pflegst du einmal und ordnest sie zu.":workspace==="AREAS"?"Ein Raum oder Aussenbereich wird einmal beschrieben. Seine Angaben stehen bei allen zugeordneten Angeboten als Referenz bereit.":"Nur Angaben, die du einmal für den gesamten Spot erfasst. Zugang und Atmosphäre einzelner Räume pflegst du bei den Räumen."}</p>
     {workspace==="OFFERS"&&<>
      {!profile.offers.length&&<div className="wk-authoring-empty"><strong>Noch kein Angebot erfasst</strong><p>Beginne mit einer tatsächlich vorhandenen Leistung. Weitere kannst du jederzeit ergänzen.</p></div>}
-     {profile.offers.map(offer=><article className="wk-experience-card wk-overview-card" key={offer.id}><strong>{offer.name}</strong><p>Leistung, Preise, Zeiten und Bedingungen</p><small>{offer.areaIds.length} zugeordnete Bereiche · {offer.prices.length} Preise</small><button type="button" aria-label={`Angebot ${offer.name} bearbeiten`} onClick={()=>edit("OFFER",offer.id)}>{offer.name} bearbeiten</button></article>)}
+     {profile.offers.map(offer=><article className="wk-experience-card wk-overview-card" key={offer.id}><strong>{offer.name}</strong><p>{offer.properties.length || offer.prices.length || offer.schedule.length ? "Details ergänzt · bei Bedarf weiter bearbeiten" : "Leistung erfasst · Preise, Zeiten und Bedingungen noch offen"}</p><small>{offer.areaIds.length} zugeordnete Bereiche · {offer.prices.length} Preise</small><button type="button" aria-label={`Angebot ${offer.name} bearbeiten`} onClick={()=>edit("OFFER",offer.id)}>{offer.name} bearbeiten</button></article>)}
      {!adding&&<button type="button" className="wk-add-offer" disabled={profile.offers.length>=30} onClick={()=>setAdding(true)}>Weiteres Angebot hinzufügen</button>}
-     {adding&&<section className="wk-add-panel" aria-label="Angebot hinzufügen"><h4>Welche Leistung möchtest du hinzufügen?</h4><div className="wk-choices">{[...templates.offers,{kind:"OTHER",label:"Eigenes Angebot"}].map(template=><button type="button" className="wk-secondary" key={template.kind} disabled={profile.offers.length>=30} onClick={()=>addOffer(template.kind,template.label)}>+ {template.label}</button>)}</div>
-      <label>Weiteres Angebot hinzufügen<select className="wk-input" aria-label="Weiteres Angebot hinzufügen" value="" onChange={event=>{const item=OFFER_CATALOG.find(offer=>offer.kind===event.target.value);if(item)addOffer(item.kind,item.label);}} disabled={profile.offers.length>=30}><option value="">Im gesamten Angebotskatalog auswählen</option>{SPOT_GROUPS.map(group=><optgroup key={group.id} label={group.label}>{OFFER_CATALOG.filter(offer=>offer.group===group.id).map(offer=><option key={offer.kind} value={offer.kind}>{offer.label}</option>)}</optgroup>)}</select></label><button type="button" className="wk-secondary" onClick={()=>setAdding(false)}>Abbrechen</button>
+     {adding&&<section className="wk-add-panel" aria-label="Angebot hinzufügen"><h4>Welche Leistung möchtest du hinzufügen?</h4><div className="wk-choices">{[...templates.offers.filter(t=>t.kind!=="GASTRONOMY").map(t=>({...t,label:offerLabel(t.kind,t.label)})),{kind:"OTHER",label:"Eigenes Angebot"}].map(template=><button type="button" className="wk-secondary" key={template.kind} disabled={profile.offers.length>=30} onClick={()=>addOffer(template.kind,template.label)}>+ {template.label}</button>)}</div>
+      <p>Mittagessen und Abendessen sind konkrete Mahlzeiten. „Essen (ohne Trennung nach Mahlzeit)“ ist die Alternative dazu. Lege dieselbe Leistung nicht zusätzlich unter einem allgemeinen Begriff an.</p><p>„Eigenes Angebot“ ist für eine im Katalog fehlende Leistung. Der Name allein erzeugt keine automatisch erkannten Eigenschaften.</p>
+      <label>Weiteres Angebot hinzufügen<select className="wk-input" aria-label="Weiteres Angebot hinzufügen" value="" onChange={event=>{if(event.target.value===clubOfferChoice.choiceId){addOffer(clubOfferChoice.kind,clubOfferChoice.label,[clubActivity()]);return;}const item=selectableOffers.find(offer=>offer.kind===event.target.value);if(item)addOffer(item.kind,offerLabel(item.kind,item.label));}} disabled={profile.offers.length>=30}><option value="">Im gesamten Angebotskatalog auswählen</option>{SPOT_GROUPS.map(group=><optgroup key={group.id} label={group.label}>{selectableOffers.filter(offer=>offer.group===group.id).map(offer=><option key={offer.kind} value={offer.kind}>{offerLabel(offer.kind,offer.label)}</option>)}{group.id==="NIGHTLIFE"&&<option value={clubOfferChoice.choiceId}>{clubOfferChoice.label}</option>}</optgroup>)}</select></label><button type="button" className="wk-secondary" onClick={()=>setAdding(false)}>Abbrechen</button>
      </section>}
     </>}
     {workspace==="AREAS"&&<>

@@ -6,3 +6,5 @@ test('common concepts retain their meaning and unknown prose stays unknown',()=>
 test('typed drink groups do not imply meals or bars',()=>{for(const token of ['BEER','WINE','COFFEE']){assert.ok(OFFERING_GROUPS.includes(token));assert.ok(WORLD_OFFER_CONCEPTS[token].includes('drinks'));assert.equal(WORLD_OFFER_CONCEPTS[token].includes('meal'),false);assert.equal(WORLD_OFFER_CONCEPTS[token].includes('bar'),false);}});
 
 test('typed tokens and their readable labels are the same values, not neighbouring meanings',()=>{assert.ok(sameLibrarianText('ITALIAN','Italienisch'));assert.ok(sameLibrarianText('SEAFOOD','Meeresfrüchte'));assert.ok(sameLibrarianText('WINE','Wein'));assert.equal(sameLibrarianText('WINE','Bier'),false);assert.equal(sameLibrarianText('COFFEE','Wein'),false);});
+
+test('Club dancing remains distinct from music events and private celebrations',()=>{assert.equal(librarianConcept('Tanzen'),'dancing');assert.ok(sameLibrarianText('Clubabend / Tanzen','tanzen gehen'));assert.equal(sameLibrarianText('Tanzen','Musikveranstaltung'),false);assert.equal(sameLibrarianText('Clubabend','private Feier'),false);});

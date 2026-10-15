@@ -411,3 +411,32 @@ Offer hours describe availability of that particular service, such as lunch
 hours can be copied only by an explicit action, with existing offer rows protected
 against replacement. Empty schedules remain unknown. Seasonal validity dates are
 labelled separately. No shared data contract, schema, access or ranking changes.
+
+### Save feedback and offering clarity (2026-10-15)
+
+Successful save toasts dismiss after two seconds, restarting for repeated saves.
+Errors and navigation guards remain actionable. Experience-profile saves check
+both the rebuilt manifest and the exact returned profile contents before showing
+success. The child draft and its parent value adopt the same confirmed baseline.
+A failed or mismatched read-back retains the draft and reports the concrete cause.
+The reported Basso screenshot could not be reproduced as a lost write: the live
+claim and a fresh authenticated editor both contained all five offerings. This
+change must not be represented as proof of the original screenshot's cause.
+
+Offer cards explicitly distinguish an existing service from unknown details.
+Adding a service does not require every detail to be filled; prices, hours and
+rules remain scoped to that service, and shared rooms are described once.
+For new selections the redundant GASTRONOMY choice is hidden; stored claims are
+preserved. FULL_MEAL is labelled “Essen (ohne Trennung nach Mahlzeit)” as an
+alternative to specific meal cards. OTHER remains a missing-service fallback;
+its name alone does not infer structured properties.
+
+“Clubabend / Tanzen” is an explicit authoring preset over the existing EVENT
+storage kind with a KNOWN experience.activity=Tanzen property. It is available
+in the universal NIGHTLIFE offer group, regardless of a spot's primary category.
+It is not MUSIC_EVENT or PRIVATE_CELEBRATION. The shared language version 5
+normalizes Clubabend and Tanzen to dancing, separate from music_event and party.
+EVENT alone never implies dancing; only the confirmed scoped property does.
+Venue classification (e.g. NIGHTCLUB) remains a separate, explicit fact. No stored
+Basso facts or other production claims are rewritten, and no database schema,
+consent, permissions, or Owner tier boundaries change.
