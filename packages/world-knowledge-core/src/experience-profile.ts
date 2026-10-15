@@ -1,9 +1,10 @@
+import { SPOT_GROUPS, SPOT_TYPE_CATALOG, OFFER_CATALOG, AREA_CATALOG, hasOfferModule, hasAreaModule } from "./spot-catalog.js";
 import { array, boolean, date, enumValue, number, object, required, string } from "./schema.js";
 import { hashBody } from "./canonical.js";
 
 export const EXPERIENCE_PROFILE_VERSION = "backyrd.world-knowledge.experience-profile@1.0" as const;
-export const EXPERIENCE_CATALOG_VERSION = "backyrd.world-knowledge.experience-catalog@1.1" as const;
-export const EXPERIENCE_CATEGORIES = ["RESTAURANT", "ZOO", "MUSEUM", "BAR", "SPORT"] as const;
+export const EXPERIENCE_CATALOG_VERSION = "backyrd.world-knowledge.experience-catalog@2.0" as const;
+export const EXPERIENCE_CATEGORIES = [...SPOT_GROUPS.map(g=>g.id), "RESTAURANT", "ZOO", "MUSEUM", "BAR", "SPORT"] as const;
 export type ExperienceCategory = typeof EXPERIENCE_CATEGORIES[number];
 export type ExperienceScope = "SPOT" | "OFFER" | "AREA";
 export type ExperienceQuestion = { readonly key: string; readonly label: string; readonly group: string; readonly control: "TEXT" | "YES_NO" | "NUMBER"; readonly unit: string | null; readonly scopes: readonly ExperienceScope[]; readonly categories: readonly ExperienceCategory[]; readonly offerKinds: readonly string[] };
@@ -13,6 +14,14 @@ const q = (key: string, label: string, group: string, control: ExperienceQuestio
 /** Questions use the frozen request-language families where the meaning is shared.
  * Spot measurements are facts, never user requests, inferred suitability or ranking weights. */
 export const EXPERIENCE_QUESTIONS: readonly ExperienceQuestion[] = Object.freeze([
+  q("stay.check_in", "Check-in ab", "Übernachtung", "TEXT", ["OFFER"]),
+  q("stay.check_out", "Check-out bis", "Übernachtung", "TEXT", ["OFFER"]),
+  q("stay.minimum_booking_age", "Mindestalter der buchenden Person", "Übernachtung", "NUMBER", ["OFFER"], all, "Jahre"),
+  q("stay.minimum_nights", "Mindestaufenthalt", "Übernachtung", "NUMBER", ["OFFER"], all, "Nächte"),
+  q("stay.maximum_occupancy", "Maximale Belegung", "Übernachtung", "NUMBER", ["OFFER", "AREA"], all, "Personen"),
+  q("stay.room_type", "Zimmer- oder Unterkunftsart", "Übernachtung", "TEXT", ["OFFER", "AREA"]),
+  q("stay.meal_inclusion", "Enthaltene Verpflegung", "Übernachtung", "TEXT", ["OFFER"]),
+  q("participation.audience", "Wer kann dieses Angebot nutzen?", "Besuchsregeln", "TEXT", ["OFFER"]),
   q("experience.activity", "Was kann man hier machen?", "Erlebnis", "TEXT", ["OFFER"]),
   q("experience.theme", "Themen, Tiere oder Sammlungen", "Erlebnis", "TEXT", ["OFFER"], ["ZOO", "MUSEUM"]),
   q("participation.format", "Selbstständig, geführt oder betreut?", "Teilnahme", "TEXT", ["OFFER"]),
@@ -66,59 +75,46 @@ export const EXPERIENCE_QUESTIONS: readonly ExperienceQuestion[] = Object.freeze
   q("amenity.parking", "Parkplätze vorhanden?", "Anreise", "YES_NO", ["SPOT"]),
   q("travel.mode", "Anreise, Eingang und Treffpunkt", "Anreise", "TEXT", ["SPOT"]),
 ]);
-export const EXPERIENCE_TEMPLATES: Readonly<Record<ExperienceCategory, { readonly offers: readonly { readonly kind: string; readonly label: string }[]; readonly areas: readonly { readonly kind: string; readonly label: string }[] }>> = Object.freeze({
+const LEGACY_TEMPLATES: Readonly<Partial<Record<ExperienceCategory, { readonly offers: readonly { readonly kind: string; readonly label: string }[]; readonly areas: readonly { readonly kind: string; readonly label: string }[] }>>> = Object.freeze({
   RESTAURANT: { offers: [{kind:"LUNCH",label:"Mittagessen"},{kind:"DINNER",label:"Abendessen"},{kind:"APERITIF",label:"Apéro"},{kind:"BREAKFAST",label:"Frühstück"},{kind:"PRIVATE_CELEBRATION",label:"Private Feier"}], areas: [{kind:"INDOOR",label:"Gastraum"},{kind:"TERRACE",label:"Terrasse"},{kind:"PRIVATE_ROOM",label:"Privater Raum"}] },
   ZOO: { offers: [{kind:"VISIT",label:"Zoobesuch"},{kind:"GUIDED_TOUR",label:"Führung"},{kind:"ANIMAL_OBSERVATION",label:"Tierbeobachtung"},{kind:"EVENT",label:"Veranstaltung"},{kind:"GASTRONOMY",label:"Gastronomie"}], areas: [{kind:"OUTDOOR",label:"Außengelände"},{kind:"INDOOR",label:"Tierhaus"},{kind:"PLAYGROUND",label:"Spielplatz"},{kind:"REST_AREA",label:"Ruhebereich"},{kind:"CAFE",label:"Gastronomiebereich"}] },
   MUSEUM: { offers: [{kind:"PERMANENT_EXHIBITION",label:"Dauerausstellung"},{kind:"SPECIAL_EXHIBITION",label:"Sonderausstellung"},{kind:"GUIDED_TOUR",label:"Führung"},{kind:"WORKSHOP",label:"Workshop"},{kind:"SELF_GUIDED_VISIT",label:"Besuch ohne Führung"},{kind:"CAFE",label:"Café"}], areas: [{kind:"EXHIBITION",label:"Ausstellungsraum"},{kind:"WORKSHOP",label:"Workshopraum"},{kind:"OUTDOOR",label:"Außenbereich"},{kind:"CAFE",label:"Cafébereich"}] },
   SPORT: { offers: [{kind:"BOULDERING",label:"Bouldern"},{kind:"CLIMBING",label:"Klettern"},{kind:"TRAINING",label:"Freies Training"},{kind:"COURSE",label:"Kurs / Einführung"},{kind:"CHILDREN_COURSE",label:"Kinderkurs"},{kind:"MOVEMENT_PLAY",label:"Bewegungslandschaft für Kinder"},{kind:"CAFE",label:"Café / Bistro"}], areas: [{kind:"BOULDER_AREA",label:"Boulderbereich"},{kind:"CLIMBING_AREA",label:"Kletterbereich"},{kind:"TRAINING_AREA",label:"Trainingsbereich"},{kind:"CHILDREN_AREA",label:"Kinderbereich"},{kind:"CHANGING_ROOM",label:"Garderobe"},{kind:"CAFE",label:"Cafébereich"},{kind:"OUTDOOR",label:"Aussenbereich"}] },
   BAR: { offers: [{kind:"DRINKS",label:"Getränke"},{kind:"APERITIF",label:"Apéro / Snacks"},{kind:"FULL_MEAL",label:"Vollständige Mahlzeiten"},{kind:"MUSIC_EVENT",label:"Musikveranstaltung"},{kind:"PRIVATE_CELEBRATION",label:"Private Feier"}], areas: [{kind:"INDOOR",label:"Barraum"},{kind:"TERRACE",label:"Terrasse"},{kind:"LOUNGE",label:"Lounge"},{kind:"EVENT_AREA",label:"Veranstaltungsbereich"}] },
 });
-const mealOffers = ["LUNCH", "DINNER", "BREAKFAST", "FULL_MEAL", "GASTRONOMY", "CAFE", "APERITIF", "DRINKS", "PRIVATE_CELEBRATION"];
-const instructedOffers = ["GUIDED_TOUR", "WORKSHOP", "COURSE", "CHILDREN_COURSE"];
-const sportOffers = ["BOULDERING", "CLIMBING", "TRAINING", "MOVEMENT_PLAY", "COURSE", "CHILDREN_COURSE"];
+export const EXPERIENCE_TEMPLATES: Readonly<Record<ExperienceCategory, { readonly offers: readonly {readonly kind:string;readonly label:string}[]; readonly areas: readonly {readonly kind:string;readonly label:string}[] }>> = Object.fromEntries(EXPERIENCE_CATEGORIES.map(category=>[category, LEGACY_TEMPLATES[category] ?? {
+  offers: OFFER_CATALOG.filter(o=>o.group===category),
+  areas: AREA_CATALOG.filter(a=>a.group===category || a.kind==="INDOOR" || a.kind==="OUTDOOR"),
+}])) as Record<ExperienceCategory, {offers:readonly {kind:string;label:string}[];areas:readonly {kind:string;label:string}[]}>;
 /** Presentation relevance only. Existing stored properties remain valid and are never deleted. */
-export function getExperienceQuestions(category: ExperienceCategory, scope: ExperienceScope, offerKind?: string, areaKind?: string): readonly ExperienceQuestion[] {
-  return EXPERIENCE_QUESTIONS.filter(question => {
-    const key = question.key;
-    const meal = !!offerKind && mealOffers.includes(offerKind);
-    const instructed = !!offerKind && instructedOffers.includes(offerKind);
-    const sport = category === "SPORT" && !!offerKind && sportOffers.includes(offerKind);
-    if (!question.categories.includes(category) || !question.scopes.includes(scope) || question.offerKinds.length && (!offerKind || !question.offerKinds.includes(offerKind))) return false;
-    if (scope === "OFFER") {
-      if (["participation.format", "participation.language"].includes(key) && !instructed) return false;
-      if (key === "participation.age_suitability" && (meal || offerKind === "MUSIC_EVENT" || offerKind === "PRIVATE_CELEBRATION")) return false;
-      if (key === "participation.prerequisite" && !instructed && !sport) return false;
-      if (key === "participation.permission") return false; // actual rules are explicit age/access facts, never an unexplained allowed/denied flag
-      if (key === "participation.entry_mode" && meal && ["RESTAURANT", "BAR"].includes(category)) return false;
-      if (key === "participation.minimum_age" && !sport && !instructed && !["MUSIC_EVENT", "EVENT"].includes(offerKind ?? "")) return false;
-      if (key === "condition.children" && !instructed && !meal && offerKind !== "CHILDREN_COURSE") return false;
-      if (["route.length", "condition.terrain"].includes(key) && (meal || instructed || !["VISIT", "SELF_GUIDED_VISIT", "ANIMAL_OBSERVATION"].includes(offerKind ?? ""))) return false;
-      if (key === "atmosphere.music" && !meal && !["MUSIC_EVENT", "EVENT", "TRAINING"].includes(offerKind ?? "")) return false;
-      if (key === "time.duration" && meal && offerKind !== "PRIVATE_CELEBRATION") return false;
-      if (key === "offer.capacity" && !instructed && !["PRIVATE_CELEBRATION", "EVENT", "MUSIC_EVENT"].includes(offerKind ?? "")) return false;
-    }
-    if (scope !== "OFFER" && key === "participation.permission") return false;
-    if (scope === "AREA") {
-      const dining = ["INDOOR", "TERRACE", "PRIVATE_ROOM", "LOUNGE", "CAFE", "EVENT_AREA"].includes(areaKind ?? "") && (category === "RESTAURANT" || category === "BAR" || areaKind === "CAFE");
-      const outside = ["TERRACE", "OUTDOOR", "PLAYGROUND", "REST_AREA"].includes(areaKind ?? "");
-      if (["offer.shade", "condition.weather_protection", "location.waterbody"].includes(key) && !outside) return false;
-      if (["route.length", "condition.terrain"].includes(key) && (dining || !["OUTDOOR", "EXHIBITION", "INDOOR"].includes(areaKind ?? ""))) return false;
-      if (key === "participation.entry_mode" && dining && ["RESTAURANT", "BAR"].includes(category)) return false;
-      if (key === "amenity.high_chair" && !dining) return false;
-      if (["atmosphere.conversation", "atmosphere.privacy", "offer.usage"].includes(key) && ["CHANGING_ROOM", "BOULDER_AREA", "CLIMBING_AREA", "TRAINING_AREA", "CHILDREN_AREA"].includes(areaKind ?? "")) return false;
-      if (key === "amenity.shower" && areaKind !== "CHANGING_ROOM") return false;
-      if (key === "condition.children" && !["CHILDREN_AREA", "PLAYGROUND", "CAFE"].includes(areaKind ?? "")) return false;
-    }
-    return true;
-  }).map(question => {
-    const labels: Record<string, string> = {
-      "participation.booking": mealOffers.includes(offerKind ?? "") ? "Reservation erforderlich?" : "Anmeldung oder Buchung erforderlich?",
-      "participation.entry_mode": "Eintrittsticket erforderlich?",
-      "condition.children": mealOffers.includes(offerKind ?? "") || areaKind === "CAFE" ? "Angebote für Kinder beim Essen" : "Angebote für Kinder",
-      "offer.capacity": scope === "AREA" ? "Anzahl Plätze in diesem Bereich" : "Maximale Gruppengrösse",
-    };
-    return {...question, label:labels[question.key] ?? question.label, group:question.group === "Teilnahme" ? "Besuchsregeln" : question.group};
-  });
+export function getExperienceQuestions(_category: ExperienceCategory, scope: ExperienceScope, offerKind?:string, areaKind?:string):readonly ExperienceQuestion[]{
+ const food = hasOfferModule(offerKind??"", "food"), instructed=hasOfferModule(offerKind??"", "instructed");
+ const sport=hasOfferModule(offerKind??"", "sport") || hasOfferModule(offerKind??"", "movement");
+ const stay=hasOfferModule(offerKind??"", "stay"), route=hasOfferModule(offerKind??"", "route");
+ const event=hasOfferModule(offerKind??"", "event"), dining=hasAreaModule(areaKind??"", "dining");
+ return EXPERIENCE_QUESTIONS.filter(q=>{
+  const k=q.key;if(!q.scopes.includes(scope))return false;
+  if(k==="experience.theme")return hasOfferModule(offerKind??"","visit") || instructed || route;
+  if(k.startsWith("food.") || k==="offer.service" || k==="participation.consumption_obligation")return scope==="OFFER" && food;
+  if(k.startsWith("stay."))return scope==="OFFER"?stay:hasAreaModule(areaKind??"","stay");
+  if(k.startsWith("sport."))return sport && offerKind!=="MOVEMENT_PLAY" || k==="sport.registration" && offerKind==="MOVEMENT_PLAY";
+  if(k==="participation.format" || k==="participation.language")return instructed;
+  if(k==="participation.age_suitability")return !food && !event && !stay;
+  if(k==="participation.prerequisite")return sport || instructed || hasOfferModule(offerKind??"","wellness");
+  if(k==="participation.permission")return false;
+  if(k==="participation.entry_mode")return scope==="OFFER"?!food&&!stay:!dining;
+  if(k==="participation.minimum_age")return !food && !stay;
+  if(k==="condition.children")return scope==="OFFER"?food||instructed||sport:hasAreaModule(areaKind??"","children")||dining;
+  if(k==="route.length" || k==="condition.terrain")return scope==="OFFER"?route:hasAreaModule(areaKind??"","route");
+  if(k==="offer.capacity")return scope==="AREA"?!hasAreaModule(areaKind??"","stay"):instructed||event||hasOfferModule(offerKind??"","play")||hasOfferModule(offerKind??"","work");
+  if(k==="time.duration")return !stay && (!food || event);
+  if(k==="atmosphere.music" && scope==="OFFER")return food||event||sport;
+  if(k==="amenity.high_chair")return dining;
+  if(k==="amenity.shower")return areaKind==="CHANGING_ROOM" || hasAreaModule(areaKind??"","stay") || hasAreaModule(areaKind??"","wellness");
+  if(scope==="AREA" && ["offer.shade","condition.weather_protection"].includes(k))return hasAreaModule(areaKind??"","outside");
+  if(scope==="AREA" && ["atmosphere.conversation","atmosphere.privacy","offer.usage"].includes(k))return !hasAreaModule(areaKind??"","sport") && !hasAreaModule(areaKind??"","children") && areaKind!=="CHANGING_ROOM";
+  return true;
+ }).sort((a,b)=>Number(b.key==="experience.activity")-Number(a.key==="experience.activity")).map(q=>({...q,label: q.key==="participation.booking"?(food?"Reservation erforderlich?":"Anmeldung oder Buchung erforderlich?"):q.key==="participation.entry_mode"?"Eintrittsticket erforderlich?":q.key==="offer.capacity"?(scope==="AREA"?"Anzahl Plätze in diesem Bereich":"Maximale Gruppengrösse"):q.key==="condition.children"?(food||dining?"Angebote für Kinder beim Essen":"Angebote für Kinder"):q.label,group:q.group==="Teilnahme"?"Besuchsregeln":q.group}));
 }
 /** Uses confirmed explicit classification only; names/descriptions are not guessed. */
 export function experienceCategoryFromAnswers(answers: Readonly<Record<string, unknown>>): ExperienceCategory | null {
@@ -129,19 +125,25 @@ export function experienceCategoryFromAnswers(answers: Readonly<Record<string, u
     return answer.knowledgeState === "KNOWN_VALUE" ? answer.value : null;
   };
   const types = value("classification.place_types");
-  const selected = Array.isArray(types) ? types.filter((v): v is string => typeof v === "string") : [];
-  if (selected.includes("ZOO") || selected.includes("AQUARIUM")) return "ZOO";
-  if (selected.includes("CLIMBING_GYM")) return "SPORT";
-  if (selected.includes("MUSEUM") || selected.includes("GALLERY")) return "MUSEUM";
-  if (selected.some(v => ["WINE_BAR", "COCKTAIL_BAR", "BAR", "PUB", "BREWERY", "TAPROOM", "LOUNGE"].includes(v))) return "BAR";
-  if (["EAT", "COFFEE_DAYTIME"].includes(String(value("classification.primary_category")))) return "RESTAURANT";
-  if (["DRINKS", "NIGHTLIFE"].includes(String(value("classification.primary_category")))) return "BAR";
+  const candidates = Array.isArray(types) ? types.filter((v): v is string => typeof v === "string") : [];
+  const primary=value("classification.primary_category");
+  const preferred=candidates.filter(kind=>SPOT_TYPE_CATALOG.some(t=>t.kind===kind && t.group===primary));
+  const selected=preferred.length?preferred:candidates;
+  // Legacy specific presets stay compatible; all other places use their canonical group.
+  if(selected.includes("ZOO")||selected.includes("AQUARIUM"))return "ZOO";
+  if(selected.includes("MUSEUM")||selected.includes("GALLERY"))return "MUSEUM";
+  if(selected.includes("CLIMBING_GYM"))return "SPORT";
+  if(selected.some(v=>["BAR","WINE_BAR","COCKTAIL_BAR","PUB","BREWERY","TAPROOM","LOUNGE"].includes(v)))return "BAR";
+  const type=selected.map(kind=>SPOT_TYPE_CATALOG.find(t=>t.kind===kind)).find(t=>t!==undefined);
+  if(type)return type.group;
+  const group=value("classification.primary_category");
+  if(SPOT_GROUPS.some(g=>g.id===group))return group as ExperienceCategory;
   return null;
 }
 export type ExperienceConditions = { readonly weekdays: readonly number[]; readonly dayparts: readonly string[]; readonly event: string | null; readonly validFrom: string | null; readonly validUntil: string | null };
 export type ExperienceProperty = { readonly key: string; readonly label: string | null; readonly state: "KNOWN" | "UNKNOWN" | "NOT_APPLICABLE"; readonly value: string | number | boolean | null; readonly conditions: ExperienceConditions };
 export type ExperienceArea = { readonly id: string; readonly kind: string; readonly name: string; readonly properties: readonly ExperienceProperty[] };
-export type ExperiencePrice = { readonly label: string; readonly currency: string; readonly min: number; readonly max: number | null; readonly basis: "PER_PERSON" | "PER_GROUP" | "PER_ITEM"; readonly minimumAge: number | null; readonly maximumAge: number | null; readonly mandatoryFeesIncluded: boolean | null; readonly includes: string; readonly conditions: ExperienceConditions };
+export type ExperiencePrice = { readonly label: string; readonly currency: string; readonly min: number; readonly max: number | null; readonly basis: "PER_PERSON" | "PER_GROUP" | "PER_ITEM" | "PER_ROOM_NIGHT" | "PER_PERSON_NIGHT" | "PER_SITE_NIGHT"; readonly minimumAge: number | null; readonly maximumAge: number | null; readonly mandatoryFeesIncluded: boolean | null; readonly includes: string; readonly conditions: ExperienceConditions };
 export type ExperienceSchedule = { readonly weekday: number; readonly start: string; readonly end: string };
 export type ExperienceOffer = { readonly id: string; readonly kind: string; readonly name: string; readonly areaIds: readonly string[]; readonly properties: readonly ExperienceProperty[]; readonly prices: readonly ExperiencePrice[]; readonly schedule: readonly ExperienceSchedule[]; readonly validFrom: string | null; readonly validUntil: string | null };
 export type ExperienceProfile = { readonly contractVersion: typeof EXPERIENCE_PROFILE_VERSION; readonly category: ExperienceCategory; readonly properties: readonly ExperienceProperty[]; readonly areas: readonly ExperienceArea[]; readonly offers: readonly ExperienceOffer[]; readonly reviewed: boolean };
@@ -171,6 +173,7 @@ function parseProperties(v: unknown,p: string,scope: ExperienceScope): readonly 
     else if(question?.control==="NUMBER")value=number(r.value,p,{min:0,max:question.unit==="Jahre"?130:100000,integer:true});
     else if(question?.control==="YES_NO")value=boolean(r.value,p);
     else value=text(r.value,p,1000);
+    if(state==="KNOWN" && ["stay.check_in","stay.check_out"].includes(key) && (typeof value!=="string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)))throw new Error("experience_clock_invalid");
     return {key,label,state,value,conditions:parseConditions(r.conditions,p)};
   });
 }
@@ -182,7 +185,7 @@ export function parseExperienceProfile(v: unknown,requireReviewed=true): Experie
   if(requireReviewed&&!reviewed)throw new Error("experience_review_required");
   const areas=array(r.areas,"experience.areas",{max:30}).map((v,i):ExperienceArea=>{
     const p=`experience.areas[${i}]`,a=object(v,p,["id","kind","name","properties"]);
-    return{id:id(a.id,p),kind:enumValue(a.kind,[...EXPERIENCE_TEMPLATES[category].areas.map(a=>a.kind),"OTHER"],p),name:text(a.name,p,160),properties:parseProperties(a.properties,p,"AREA")};
+    return{id:id(a.id,p),kind:enumValue(a.kind,[...AREA_CATALOG.map(a=>a.kind),"OTHER"],p),name:text(a.name,p,160),properties:parseProperties(a.properties,p,"AREA")};
   });unique(areas.map(a=>a.id),"experience.areas");
   const offers=array(r.offers,"experience.offers",{max:30}).map((v,i):ExperienceOffer=>{
     const p=`experience.offers[${i}]`,o=object(v,p,["id","kind","name","areaIds","properties","prices","schedule","validFrom","validUntil"]);
@@ -193,11 +196,11 @@ export function parseExperienceProfile(v: unknown,requireReviewed=true): Experie
       const min=money(r.min),max=r.max===null?null:money(r.max);if(max!==null&&min>max)throw new Error("experience_price_order");
       const age=(v:unknown)=>v===null?null:number(v,p,{min:0,max:130,integer:true});const minimumAge=age(r.minimumAge),maximumAge=age(r.maximumAge);
       if(minimumAge!==null&&maximumAge!==null&&minimumAge>maximumAge)throw new Error("experience_age_order");
-      return {label:text(r.label,p,160),currency:string(r.currency,p,{pattern:/^[A-Z]{3}$/}),min,max,basis:enumValue(r.basis,["PER_PERSON","PER_GROUP","PER_ITEM"] as const,p),minimumAge,maximumAge,mandatoryFeesIncluded:r.mandatoryFeesIncluded===null?null:boolean(r.mandatoryFeesIncluded,p),includes:string(r.includes,p,{max:1000}),conditions:parseConditions(r.conditions,p)};
+      return {label:text(r.label,p,160),currency:string(r.currency,p,{pattern:/^[A-Z]{3}$/}),min,max,basis:enumValue(r.basis,["PER_PERSON","PER_GROUP","PER_ITEM","PER_ROOM_NIGHT","PER_PERSON_NIGHT","PER_SITE_NIGHT"] as const,p),minimumAge,maximumAge,mandatoryFeesIncluded:r.mandatoryFeesIncluded===null?null:boolean(r.mandatoryFeesIncluded,p),includes:string(r.includes,p,{max:1000}),conditions:parseConditions(r.conditions,p)};
     });
     const schedule=array(o.schedule,p,{max:56}).map((v):ExperienceSchedule=>{const s=object(v,p,["weekday","start","end"]);const start=string(s.start,p,{pattern:/^(?:[01]\d|2[0-3]):[0-5]\d$/}),end=string(s.end,p,{pattern:/^(?:[01]\d|2[0-3]):[0-5]\d$/});if(start===end)throw new Error("experience_schedule_empty");return{weekday:number(s.weekday,p,{min:1,max:7,integer:true}),start,end};});
     const validFrom=nullableDate(o.validFrom,p),validUntil=nullableDate(o.validUntil,p);window(validFrom,validUntil);
-    return {id:id(o.id,p),kind:enumValue(o.kind,[...EXPERIENCE_TEMPLATES[category].offers.map(o=>o.kind),"OTHER"],p),name:text(o.name,p,160),areaIds,properties:parseProperties(o.properties,p,"OFFER"),prices,schedule,validFrom,validUntil};
+    return {id:id(o.id,p),kind:enumValue(o.kind,[...OFFER_CATALOG.map(o=>o.kind),"OTHER"],p),name:text(o.name,p,160),areaIds,properties:parseProperties(o.properties,p,"OFFER"),prices,schedule,validFrom,validUntil};
   });unique(offers.map(o=>o.id),"experience.offers");
   return {contractVersion:EXPERIENCE_PROFILE_VERSION,category,properties:parseProperties(required(r,"properties"),"experience.properties","SPOT"),areas,offers,reviewed};
 }

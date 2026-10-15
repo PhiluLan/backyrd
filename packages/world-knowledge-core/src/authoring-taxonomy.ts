@@ -1,7 +1,8 @@
+import { SPOT_TYPE_CATALOG, SPOT_GROUPS } from "./spot-catalog.js";
 import { hashBody } from "./canonical.js";
 import { AMENITY_FEATURES, CUISINES, FOOD_SPECIALITIES, OFFERING_GROUPS, PLACE_TYPES, PRIMARY_CATEGORIES, type PrimaryCategory } from "./registry.js";
 
-export const AUTHORING_TAXONOMY_VERSION = "backyrd.world-knowledge.authoring-taxonomy@4c.1" as const;
+export const AUTHORING_TAXONOMY_VERSION = "backyrd.world-knowledge.authoring-taxonomy@5.0" as const;
 export const AUTHORING_GUIDANCE_VERSION = "backyrd.world-knowledge.authoring-guidance@1.0" as const;
 export type AuthoringTaxonomyState = "CANONICAL" | "NOT_CONFIGURED";
 export interface AuthoringTaxonomyOption {
@@ -14,20 +15,7 @@ export interface AuthoringTaxonomyOption {
 const canonical = (values: readonly string[]) => new Set(values);
 const option = (value: string, label: string, group: string, approved: ReadonlySet<string>): AuthoringTaxonomyOption => Object.freeze({ value, label, group, state: approved.has(value) ? "CANONICAL" : "NOT_CONFIGURED" });
 
-const placeTypeLabels: Readonly<Record<string, readonly [string, string]>> = Object.freeze({
-  RESTAURANT: ["Restaurant", "Gastronomie"], BRASSERIE: ["Brasserie", "Gastronomie"], BISTRO: ["Bistro", "Gastronomie"], CAFE: ["Café", "Gastronomie"], BAR: ["Bar", "Getränke & Nachtleben"], PUB: ["Pub", "Getränke & Nachtleben"], SNACK_BAR: ["Imbiss", "Gastronomie"], TAKEAWAY: ["Take-away", "Gastronomie"], FAST_FOOD: ["Fast Food", "Gastronomie"],
-  BAKERY: ["Bäckerei", "Gastronomie"], PATISSERIE: ["Patisserie", "Gastronomie"], FOOD_HALL: ["Food Hall", "Gastronomie"], BREWERY: ["Brauerei", "Getränke & Nachtleben"], TAPROOM: ["Taproom", "Getränke & Nachtleben"], WINE_BAR: ["Weinbar", "Getränke & Nachtleben"], COCKTAIL_BAR: ["Cocktailbar", "Getränke & Nachtleben"], NIGHTCLUB: ["Nachtclub", "Getränke & Nachtleben"], MUSIC_CLUB: ["Musikclub", "Getränke & Nachtleben"], LOUNGE: ["Lounge", "Getränke & Nachtleben"],
-  MUSEUM: ["Museum", "Kultur"], GALLERY: ["Galerie", "Kultur"], THEATRE: ["Theater", "Kultur & Unterhaltung"], CINEMA: ["Kino", "Kultur & Unterhaltung"], CONCERT_VENUE: ["Konzertort", "Kultur & Unterhaltung"], CULTURAL_CENTRE: ["Kulturzentrum", "Kultur"], LIBRARY: ["Bibliothek", "Kultur"], COMEDY_CLUB: ["Comedy-Club", "Unterhaltung"],
-  ARCADE: ["Spielhalle / Arcade", "Aktivitäten & Spiel"], ESCAPE_ROOM: ["Escape Room", "Aktivitäten & Spiel"], BOWLING_ALLEY: ["Bowling", "Aktivitäten & Spiel"], MINI_GOLF: ["Minigolf", "Aktivitäten & Spiel"], WORKSHOP_STUDIO: ["Workshop-Atelier", "Aktivitäten & Spiel"], AMUSEMENT_PARK: ["Freizeitpark", "Aktivitäten & Spiel"],
-  GYM: ["Fitnessstudio", "Sport & Bewegung"], SPORTS_CENTRE: ["Sportzentrum", "Sport & Bewegung"], CLIMBING_GYM: ["Kletterhalle", "Sport & Bewegung"], SWIMMING_POOL: ["Schwimmbad", "Sport & Bewegung"], ICE_RINK: ["Eisbahn", "Sport & Bewegung"], SPORTS_COURT: ["Sportplatz", "Sport & Bewegung"], STADIUM: ["Stadion", "Sport & Bewegung"],
-  PARK: ["Park", "Draußen & Natur"], TRAIL: ["Wander- oder Spazierweg", "Draußen & Natur"], VIEWPOINT: ["Aussichtspunkt", "Draußen & Natur"], WATERFRONT: ["Seeufer / Flussufer", "Draußen & Natur"], BOTANICAL_GARDEN: ["Botanischer Garten", "Draußen & Natur"], NATURE_RESERVE: ["Naturschutzgebiet", "Draußen & Natur"],
-  SPA: ["Spa", "Wellness"], SAUNA: ["Sauna", "Wellness"], THERMAL_BATH: ["Thermalbad", "Wellness"], MASSAGE_STUDIO: ["Massage-Studio", "Wellness"], YOGA_STUDIO: ["Yoga-Studio", "Wellness"],
-  SHOP: ["Geschäft", "Shopping & Märkte"], MARKET: ["Markt", "Shopping & Märkte"], SHOPPING_CENTRE: ["Einkaufszentrum", "Shopping & Märkte"], CONCEPT_STORE: ["Concept Store", "Shopping & Märkte"],
-  HOTEL: ["Hotel", "Übernachten"], HOSTEL: ["Hostel", "Übernachten"], GUESTHOUSE: ["Pension / Gästehaus", "Übernachten"], CAMPGROUND: ["Campingplatz", "Übernachten"], HOLIDAY_APARTMENT: ["Ferienwohnung", "Übernachten"],
-  COMMUNITY_CENTRE: ["Gemeinschaftszentrum", "Community"], COWORKING_SPACE: ["Coworking Space", "Community"], CLUBHOUSE: ["Vereinslokal", "Community"], YOUTH_CENTRE: ["Jugendzentrum", "Community"],
-  LANDMARK: ["Wahrzeichen", "Attraktionen"], ZOO: ["Zoo", "Attraktionen"], AQUARIUM: ["Aquarium", "Attraktionen"], VISITOR_CENTRE: ["Besucherzentrum", "Attraktionen"],
-  EVENT_VENUE: ["Veranstaltungsort", "Temporäre Orte"], POP_UP: ["Pop-up", "Temporäre Orte"], FESTIVAL_SITE: ["Festivalgelände", "Temporäre Orte"], SEASONAL_MARKET: ["Saisonaler Markt", "Temporäre Orte"], OTHER_PLACE: ["Andere Art des Ortes", "Sonstiges"],
-});
+const placeTypeLabels: Readonly<Record<string, readonly [string, string]>> = Object.fromEntries(SPOT_TYPE_CATALOG.map(t=>[t.kind,[t.label,SPOT_GROUPS.find(g=>g.id===t.group)!.label]]));
 
 const categoryPlaces: Readonly<Record<PrimaryCategory, readonly string[] | "NOT_CONFIGURED">> = Object.freeze({
   EAT: ["RESTAURANT", "BRASSERIE", "BISTRO", "BAR", "PUB", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD", "BAKERY", "PATISSERIE", "FOOD_HALL"],
@@ -68,7 +56,7 @@ export interface AuthoringGuidanceContext {
 }
 
 const selectedPlaceTypes = (context?: AuthoringGuidanceContext): readonly string[] => Array.isArray(context?.placeTypes)
-  ? context.placeTypes.filter((value): value is string => typeof value === "string")
+  ? [...new Set(context.placeTypes.filter((value): value is string => typeof value === "string").flatMap(kind=>{const values=[kind];let parent=SPOT_TYPE_CATALOG.find(t=>t.kind===kind)?.parent;while(parent){values.push(parent);parent=SPOT_TYPE_CATALOG.find(t=>t.kind===parent)?.parent;}return values;}))]
   : [];
 const hasAnyType = (selected: readonly string[], allowed: readonly string[]): boolean => selected.some((value) => allowed.includes(value));
 
@@ -91,7 +79,7 @@ const gastronomic = ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TE
 const always = ["discovery","basics", "classification", "context", "price", "hours", "objective", "amenities", "review"] as const;
 export const CATEGORY_AUTHORING_MATRIX = Object.freeze(Object.fromEntries(PRIMARY_CATEGORIES.map((category) => [category, Object.freeze({
   category,
-  placeTypes: categoryPlaces[category],
+  placeTypes: [...new Set([...(categoryPlaces[category] === "NOT_CONFIGURED" ? [] : categoryPlaces[category]), ...SPOT_TYPE_CATALOG.filter(t=>t.group===category).map(t=>t.kind)])],
   relevantSteps: category === "OTHER" ? [...always] : gastronomic.includes(category as typeof gastronomic[number]) ? [...always, "offering"] : [...always],
   relevantAttributeKeys: category === "OTHER" ? "NOT_CONFIGURED" : gastronomic.includes(category as typeof gastronomic[number])
     ? ["offering.cuisines", "offering.food_specialities", "offering.groups", "operation.service_model", "operation.service_format", "operation.takeaway", "hours.kitchen", "hours.kitchen_special"]
@@ -119,7 +107,7 @@ export const getCategoryPlaceTypes = (category: PrimaryCategory | null | undefin
   if (!category) return [];
   const allowed = CATEGORY_AUTHORING_MATRIX[category].placeTypes;
   if (allowed === "NOT_CONFIGURED") return [];
-  const guided = new Set([...allowed, ...(categoryPlaceTypeExtensions[category] ?? [])]);
+  const guided = new Set(PLACE_TYPE_AUTHORING_OPTIONS.map(o=>o.value));
   return PLACE_TYPE_AUTHORING_OPTIONS.filter((entry) => guided.has(entry.value));
 };
 

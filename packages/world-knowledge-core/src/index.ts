@@ -35,3 +35,5 @@ export * from "./experience-schema.js";
 export * from "./experience-transfer.js";
 
 export * from "./experience-language.js";
+
+export * from "./spot-catalog.js";

@@ -89,5 +89,5 @@ test("retention inventory is hash-bound and deliberately awaits Legal activation
   assert.match(RETENTION_POLICY_HASH, /^[a-f0-9]{64}$/);
   assert.equal(RETENTION_POLICY.state, "REQUIRES_CTO_LEGAL_ACTIVATION");
   assert.ok(RETENTION_POLICY.classes.every((entry) => entry.duration === null));
-  assert.deepEqual({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH }, { registryVersion: "backyrd.world-knowledge.registry@2.4", registryHash: "c1364bbe5620ecdf3531c3943c85eeb553df317785dcb5189c5c11e208e2e851" });
+  assert.deepEqual({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH }, { registryVersion: "backyrd.world-knowledge.registry@2.5", registryHash: "c1c33e5c10d3b419d6192ba85fc798d9f30ed4d3c8999decbb322b747c6d19c1" });
 });

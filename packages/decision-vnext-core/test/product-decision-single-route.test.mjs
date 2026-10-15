@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { ACCEPTED_SOURCE_POLICY, PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, WORLD_KNOWLEDGE_PORT_VERSION, buildWorldKnowledgeSnapshot, parseBuildWorldKnowledgeInput, resolutionRequest, resolveWorldKnowledge } from "@backyrd/world-knowledge-core";
+import { ACCEPTED_SOURCE_POLICY, REGISTRY_V2_4_PLACE_TYPES as PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, WORLD_KNOWLEDGE_PORT_VERSION, buildWorldKnowledgeSnapshot, parseBuildWorldKnowledgeInput, resolutionRequest, resolveWorldKnowledge } from "@backyrd/world-knowledge-core";
 import { canonicalBytes as userCanonicalBytes, contentHash as userContentHash, parseRelevantUserProjection, projectionHashBody } from "@backyrd/user-intelligence-vnext-core";
 import {
   DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, DECISION_PRODUCT_RANKING_POLICY, PRODUCT_V1_INTENT_MAPPINGS,
@@ -284,7 +284,7 @@ test("closed Product-v1 intent matrix is specific, evidence-only and never rescu
   assert.equal(DECISION_PRODUCT_INTENT_POLICY.embeddedOfferingsConfirmPrimaryIntent, false);
 });
 
-test("Product intent policy covers canonical World values and rejects hotels for family activities", () => {
+test("Legacy intent policy retains its accepted type universe and rejects hotels for family activities", () => {
   for (const mapping of DECISION_PRODUCT_INTENT_POLICY.mappings) {
     for (const value of PRIMARY_VISIT_PURPOSES) assert.ok(mapping.acceptedPrimaryPurposes.includes(value) || mapping.incompatiblePrimaryPurposes.includes(value) || ["OTHER", "TEMPORARY_EVENT"].includes(value), `${mapping.intentId}: purpose ${value}`);
     for (const value of PRIMARY_CATEGORIES) assert.ok(mapping.acceptedPrimaryCategories.includes(value) || mapping.incompatiblePrimaryCategories.includes(value) || ["OTHER", "TEMPORARY_PLACES"].includes(value), `${mapping.intentId}: category ${value}`);

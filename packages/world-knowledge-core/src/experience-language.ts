@@ -1,3 +1,4 @@
+import { SPOT_TYPE_CATALOG, OFFER_CATALOG, AREA_CATALOG } from "./spot-catalog.js";
 /** Finite product concepts, not a German-language parser. Exact labels only;
  * whole prose, substring similarity and model confidence are never truth. */
 export const librarianTerm = (text: string): string => text.normalize("NFKC").trim().toLocaleLowerCase("de-CH").replace(/\s+/gu, " ");
@@ -26,7 +27,7 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "bar", labels: ["bar", "barbesuch"] },
     { id: "guided", labels: ["führung", "geführt", "guided_tour"] },
     { id: "workshop", labels: ["workshop", "kreativworkshop"] },
-    { id: "animals", labels: ["tiere beobachten", "tierbeobachtung", "animal_observation"] },
+    { id: "animals", labels: ["tiere anschauen", "tiere ansehen", "tiere beobachten", "tierbeobachtung", "animal_observation"] },
     { id: "exhibition", labels: ["ausstellung", "ausstellung besuchen"] },
     { id: "party", labels: ["private feier", "private feiern", "private_celebration"] },
     { id: "music_event", labels: ["musikveranstaltung", "music_event"] },
@@ -40,6 +41,7 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "music", labels: ["musik", "music"] }, { id: "no_music", labels: ["keine musik", "ohne musik"] },
     { id: "live_music", labels: ["live-musik", "livemusik", "live musik"] },
     { id: "background_music", labels: ["hintergrundmusik", "background music"] },
+    { id: "movement", labels: ["bewegen", "sich bewegen", "bewegung"] },
     { id: "indoor", labels: ["drinnen", "innen", "innenraum", "indoor"] },
     { id: "outdoor", labels: ["draußen", "draussen", "außen", "outdoor"] },
     { id: "terrace", labels: ["terrasse", "terrace"] },
@@ -54,6 +56,8 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "parking", labels: ["parkplatz", "parkplätze", "parking"] },
 ];
 const byTerm = new Map<string, string>();
+// Canonical offer and activity terms are shared data, not additional prose parsing.
+
 for (const concept of concepts)
     for (const label of concept.labels) {
         const term = librarianTerm(label);
@@ -61,11 +65,26 @@ for (const concept of concepts)
             throw new Error("librarian_language_duplicate_term");
         byTerm.set(term, concept.id);
     }
+for(const offer of OFFER_CATALOG) for(const label of [offer.kind, offer.label, ...offer.activities]){
+ const term=librarianTerm(label); if(!byTerm.has(term))byTerm.set(term,offer.concept);
+}
 export const librarianConcept = (text: string): string | null => byTerm.get(librarianTerm(text)) ?? null;
 export const sameLibrarianText = (a: string, b: string): boolean => librarianTerm(a) === librarianTerm(b) || (librarianConcept(a) !== null && librarianConcept(a) === librarianConcept(b));
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@1.1" as const;
+/** Directed product knowledge: an offered visit can support an activity.
+ * This is not synonym equivalence and never infers venue identity backwards. */
+export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
+    Object.freeze({ offered: "zoo", requested: "animals" }),
+    Object.freeze({ offered: "bouldering", requested: "climbing" }),
+    Object.freeze({ offered: "bouldering", requested: "movement" }),
+    Object.freeze({ offered: "climbing", requested: "movement" }),
+    Object.freeze({ offered: "movement_play", requested: "movement" }),
+]);
+export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
+    || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@4" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
-export const OFFER_CONCEPTS: Readonly<Record<string, readonly string[]>> = {
+const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
+    ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),
     BOULDERING:["bouldering"], CLIMBING:["climbing"], TRAINING:["training"], COURSE:["course"], CHILDREN_COURSE:["children_course"], MOVEMENT_PLAY:["movement_play"],
     LUNCH: ["lunch", "meal", "restaurant"], DINNER: ["dinner", "meal", "restaurant"], BREAKFAST: ["breakfast", "meal", "restaurant"],
     APERITIF: ["aperitif"], DRINKS: ["drinks", "bar"], FULL_MEAL: ["meal"], CAFE: ["coffee"], GASTRONOMY: ["meal"],
@@ -73,7 +92,8 @@ export const OFFER_CONCEPTS: Readonly<Record<string, readonly string[]>> = {
     PERMANENT_EXHIBITION: ["exhibition", "museum"], SPECIAL_EXHIBITION: ["exhibition", "museum"], SELF_GUIDED_VISIT: ["museum"],
     PRIVATE_CELEBRATION: ["party"], MUSIC_EVENT: ["music_event"],
 };
-export const AREA_CONCEPTS: Readonly<Record<string, readonly string[]>> = { INDOOR: ["indoor"], TERRACE: ["terrace", "outdoor"], OUTDOOR: ["outdoor"], PRIVATE_ROOM: ["indoor"], EXHIBITION: ["indoor"], LOUNGE: ["indoor"], CAFE: ["indoor"] };
+export const OFFER_CONCEPTS: Readonly<Record<string,readonly string[]>> = Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[...new Set([...(legacyOfferConcepts[o.kind]??[]),o.concept,...o.activities.map(a=>librarianConcept(a)).filter((v):v is string=>v!==null)])]]));
+export const AREA_CONCEPTS: Readonly<Record<string, readonly string[]>> = { ...Object.fromEntries(AREA_CATALOG.map(a=>[a.kind,a.setting?[a.setting]:[]])), INDOOR: ["indoor"], TERRACE: ["terrace", "outdoor"], OUTDOOR: ["outdoor"], PRIVATE_ROOM: ["indoor"], EXHIBITION: ["indoor"], LOUNGE: ["indoor"], CAFE: ["indoor"] };
 export const BOOLEAN_CONCEPTS: Readonly<Record<string, string>> = { "amenity.playground": "playground", "amenity.toilet": "toilet", "amenity.changing_table": "changing_table", "amenity.high_chair": "high_chair", "amenity.step_free": "step_free", "amenity.stroller": "stroller", "amenity.parking": "parking", "condition.weather_protection": "covered", "offer.shade": "shade" };
 export const EXPERIENCE_VALUE_CHOICES: Readonly<Record<string, readonly string[]>> = {
     "atmosphere.character": ["ruhig", "entspannt", "romantisch", "gemütlich", "lebhaft", "gesellig", "elegant", "lässig", "kreativ", "familienfreundlich"],
@@ -109,4 +129,4 @@ for (const values of Object.values(WORLD_OFFER_CONCEPTS))
     Object.freeze(values);
 Object.freeze(WORLD_VALUE_LABELS);
 Object.freeze(WORLD_OFFER_CONCEPTS);
-export const EXPERIENCE_LANGUAGE_DATA = Object.freeze({ version: EXPERIENCE_LANGUAGE_VERSION, concepts, worldValueLabels: WORLD_VALUE_LABELS, worldOfferConcepts: WORLD_OFFER_CONCEPTS, offeringConcepts:OFFER_CONCEPTS, areaConcepts:AREA_CONCEPTS, booleanConcepts:BOOLEAN_CONCEPTS });
+export const EXPERIENCE_LANGUAGE_DATA = Object.freeze({ version: EXPERIENCE_LANGUAGE_VERSION, catalogue: {places:SPOT_TYPE_CATALOG,offers:OFFER_CATALOG,areas:AREA_CATALOG}, concepts, worldValueLabels: WORLD_VALUE_LABELS, worldOfferConcepts: WORLD_OFFER_CONCEPTS, activityRelations: EXPERIENCE_ACTIVITY_RELATIONS, offeringConcepts:OFFER_CONCEPTS, areaConcepts:AREA_CONCEPTS, booleanConcepts:BOOLEAN_CONCEPTS });

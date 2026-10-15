@@ -74,7 +74,7 @@ test("review readiness counts each actionable problem once and never accepts unk
   const answers = {
     "identity.name": { knowledgeState: "UNKNOWN", value: null },
     "classification.primary_category": { knowledgeState: "KNOWN_VALUE", value: "DRINKS" },
-    "classification.place_types": { knowledgeState: "KNOWN_VALUE", value: ["RESTAURANT"] },
+    "classification.place_types": { knowledgeState: "KNOWN_VALUE", value: ["RESTAURANT", "UNREGISTERED_PLACE"] },
   };
   const report = evaluateAuthoringReadiness({ answers, reviewedSteps: ["basics", "classification", "offering"] });
   assert.equal(report.readiness, "NOT_READY");

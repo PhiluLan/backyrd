@@ -151,3 +151,95 @@ Mobile checks cover 320/390 px geometry, more than two simultaneous selections,
 serialized save/reload, one disclosure level, failure/retry, deliberate reuse,
 old conditional/free values and latest-baseline discard. No production Spot data
 was modified by these tests.
+
+
+### Pending follow-up: prerequisites and physical setting (2026-10-15)
+
+The shared Admin/Owner prerequisite selector treats “Keine Vorkenntnisse” and
+“Vorkenntnisse erforderlich” as mutually exclusive. “Begleitung erforderlich”
+remains independently selectable. Existing conflicting unconditional answers
+are shown with an explicit warning; saved claims are never silently rewritten.
+Conditional and historical answers remain intact. This is an authoring guard,
+not a new server-side invariant or database migration.
+
+Area `location.setting` now permits explicit “drinnen” / “draussen” independently
+of area purpose (boulder area, children's area, café). Existing area types are
+not automatically assigned indoor status. The librarian consumes these values
+only when linked to the actual requested activity. Deployment is pending.
+
+
+Sport activity follow-up: sports offer kinds now prioritize their default
+activity but allow selecting multiple supported sports activities on the same
+offer. A movement-play offer may explicitly include climbing without creating
+a second offer or copying the adult bouldering offer's minimum age. No activity
+is selected automatically. The café retains its own activity choices. Each
+selected activity is stored as a separate scoped experience.activity property;
+existing prices, ages, schedules, IDs and conditional facts are retained.
+
+
+## Universal catalogue 2.0 / registry 2.5 (implementation, not activated)
+
+The canonical `packages/world-knowledge-core/src/spot-catalog.ts` contains 16
+groups (15 domain groups and Other), 111 place types, 57 independently composable
+offers and 29 independently composable areas. Existing type keys, profile IDs,
+properties and conditional values remain valid. Place types describe identity;
+they never assert an offer or amenity. Directed subtypes have explicit parents
+and curated aliases; neither parent membership nor classification can fabricate
+a facility. Catalogue and profile-schema hashes are bound to the 2.5 registry
+release. Registry 2.4 and its source policy remain supported for reading.
+
+Admin and Owner use confirmed classification for recommendations, without a
+second “Pflegeart” selector. The complete offer/area catalogues remain available
+independently of that recommendation. Relevant questions derive from offer/area
+modules, not a closed venue category. Existing draft protection, explicit review,
+source consent, moderation, authorised RPCs and RLS are preserved.
+
+Stay offers support check-in/out, booking-person minimum age, minimum nights,
+occupancy, room type, included meals and correct room/person/site-night price
+units. These are offer/area facts, not whole-spot assertions. A booking age must
+never become a minimum age for every guest. The librarian conservatively reports
+unresolved booking-person age or overnight price quantity/scope; no reservation
+availability, room count or cost conversion is invented. Room type can directly
+support a scoped `offer.kind` wish. Guest/member-only offers remain qualified
+until the requested access is proven.
+
+Migration: `20261015110000_universal_spot_catalog_v2_5.sql`, generated reproducibly
+with `npm run world-knowledge:build` and
+`node scripts/world-knowledge/generate-universal-catalog-migration.mjs`.
+The migration adds accepted 2.5 registry/policies, a versioned validator, and
+compatible authoring/resolver dispatch. The old validator and immutable history
+remain intact. Category-first authoring is retained; 2.5 permits real combinations
+such as Hotel + Restaurant + Wine Bar. No production content backfill occurs.
+
+Rollout order: validate migration in an isolated database, establish the required
+production backup/recovery evidence and release approval, apply the migration,
+then deploy both Admin and Owner. Do not deploy the new form before the database
+accepts the new catalogue. No production deployment or data rewrite was performed
+as part of this implementation. The new librarian integration remains in its
+existing development branch and is not an activation of the App's older path.
+
+
+The signed legacy v1 intent policy remains pinned to its previously accepted
+2.4 place-type universe. Adding catalogue types must not silently change its
+incompatibility lists, policy hash, or active control-plane release. The new
+librarian reads the full canonical catalogue independently; activating it is
+still a separate rollout.
+
+
+Validation for the universal catalogue (2026-10-15): 368 World Knowledge tests,
+94 existing-engine/format compatibility tests and 142 Luna/Bibliothekar matching
+checks passed. The latter ran in the existing Bibliothekar development worktree;
+this catalogue PR does not publish or activate that runtime. All 51 shared
+Admin/Owner browser scenarios passed, including all 16 catalogue groups, hotel
+composition, type search, multiple selections, mobile geometry and save/reload.
+Admin and Owner production builds and strict TypeScript checks passed.
+The exact generated migration applied successfully to a fresh isolated clone
+of the accepted 2.4 database (plus its Sport prerequisite); SQL tests covered
+every new type/offer/area and actual Admin/Owner positive and negative access.
+All fixtures rolled back. Production was not modified.
+
+Targeted lint reports no new issues. The shared editor has a pre-existing
+set-state-in-effect lint error and exhaustive-deps warning on unchanged lines;
+the scoped lint check disables only the former rule and still reports the
+existing warning. These are recorded baseline findings, not a claim of a clean
+repository-wide lint run.

@@ -1,13 +1,18 @@
-import { EXPERIENCE_VALUE_CHOICES, WORLD_VALUE_LABELS, type ExperienceCategory } from "@backyrd/world-knowledge-core";
+import { OFFER_CATALOG, hasOfferModule, EXPERIENCE_VALUE_CHOICES, WORLD_VALUE_LABELS, type ExperienceCategory } from "@backyrd/world-knowledge-core";
 
 export type ExperienceAnswerGuidance =
-  | { readonly kind: "CHOICES"; readonly choices: readonly string[]; readonly help: string; readonly multiple?: boolean }
+  | { readonly kind: "CHOICES"; readonly choices: readonly string[]; readonly help: string; readonly multiple?: boolean; readonly exclusiveGroups?: readonly (readonly string[])[] }
   | { readonly kind: "NAME"; readonly placeholder: string; readonly help: string };
-const choice = (choices: readonly string[], help = "Wähle eine zutreffende Antwort. Weitere Angaben kannst du getrennt hinzufügen."): ExperienceAnswerGuidance => ({ kind: "CHOICES", choices, help, multiple: true });
+const choice = (choices: readonly string[], help = "Wähle eine zutreffende Antwort. Weitere Angaben kannst du getrennt hinzufügen."): Extract<ExperienceAnswerGuidance, { kind: "CHOICES" }> => ({ kind: "CHOICES", choices, help, multiple: true });
 const named = (placeholder: string, help: string): ExperienceAnswerGuidance => ({ kind: "NAME", placeholder, help });
 const labels = (keys: readonly string[]) => keys.map(key => WORLD_VALUE_LABELS[key]).filter((value): value is string => typeof value === "string");
 const cuisineKeys = ["ITALIAN","INDIAN","SWISS","FRENCH","JAPANESE","MEDITERRANEAN","ASIAN","GERMAN","AUSTRIAN","SPANISH","PORTUGUESE","GREEK","TURKISH","LEVANTINE","MIDDLE_EASTERN","CHINESE","THAI","VIETNAMESE","KOREAN","INDONESIAN","MALAYSIAN","MEXICAN","LATIN_AMERICAN","AMERICAN","AFRICAN","ETHIOPIAN","MOROCCAN","INTERNATIONAL","FUSION"];
 const guidance: Readonly<Record<string, ExperienceAnswerGuidance>> = {
+  "stay.check_in": named("Zum Beispiel 15:00", "Früheste reguläre Check-in-Zeit im Format HH:MM. Abweichungen getrennt mit ihren Bedingungen erfassen."),
+  "stay.check_out": named("Zum Beispiel 11:00", "Späteste reguläre Check-out-Zeit im Format HH:MM."),
+  "stay.room_type": choice(["Einzelzimmer", "Doppelzimmer", "Familienzimmer", "Mehrbettzimmer", "Suite", "Apartment", "Stellplatz", "Zeltunterkunft", "Hütte"]),
+  "stay.meal_inclusion": choice(["Ohne Verpflegung", "Frühstück inklusive", "Halbpension", "Vollpension", "All inclusive"]),
+  "participation.audience": choice(["Öffentlich zugänglich", "Nur für Hotelgäste", "Nur für Mitglieder", "Nur mit separater Buchung"], "Wähle, wer dieses konkrete Angebot nutzen darf. Ein Restaurant im Hotel ist nicht automatisch nur für Hotelgäste."),
   "sport.level": choice(["Anfänger", "Fortgeschrittene", "Alle Erfahrungsstufen"]),
   "sport.equipment": choice(["Kletterschuhe", "Sportkleidung", "Klettergurt", "Sicherungsgerät", "Eigene Ausrüstung erforderlich"], "Wähle nur die Ausrüstung, die für dieses konkrete Angebot benötigt wird. Leihmaterial und dessen Preis pflegst du separat."),
   "participation.format": choice(["Selbstständig", "Geführt", "Betreut"]),
@@ -25,7 +30,7 @@ const guidance: Readonly<Record<string, ExperienceAnswerGuidance>> = {
   "offer.service": choice(["Bedienung am Tisch", "Selbstbedienung"]),
   "condition.terrain": choice(["Ebener Weg", "Steigung", "Treppen", "Unebener Weg"]),
   "participation.accessibility": choice(["stufenfrei", "mit Kinderwagen zugänglich", "Zugang mit Stufen"]),
-  "location.setting": choice(["Innenstadt", "Park", "Wald", "Ländlich", "Am Wasser"]),
+  "location.setting": choice(["drinnen", "draussen", "Innenstadt", "Park", "Wald", "Ländlich", "Am Wasser"]),
   "location.view": choice(["Wasserblick", "Stadtblick", "Parkblick", "Bergblick", "Waldblick"], "Wähle die tatsächlich sichtbare Aussicht. Die Nähe zu Wasser allein ist kein Wasserblick."),
   "atmosphere.privacy": choice(["Öffentlich", "Separater Bereich", "Privat buchbar"]),
   "atmosphere.conversation": choice(["Unterhaltung gut möglich", "Unterhaltung eingeschränkt"]),
@@ -37,35 +42,33 @@ const guidance: Readonly<Record<string, ExperienceAnswerGuidance>> = {
   "food.dish": named("Zum Beispiel Apéroplättli", "Benenne ein einzelnes Gericht oder eine Spezialität. Getränke und Qualitätsbeschreibungen gehören nicht in dieses Feld."),
   "location.waterbody": named("Zum Beispiel Rhein", "Trage nur den Namen des Gewässers ein. Eine Aussicht oder Entfernung wird damit nicht bestätigt."),
 };
-const activitiesByCategory: Readonly<Record<ExperienceCategory, readonly string[]>> = {
+const activitiesByCategory: Readonly<Partial<Record<ExperienceCategory, readonly string[]>>> = {
   RESTAURANT: ["essen gehen", "etwas trinken", "Kaffee", "Apéro", "private Feier"],
   BAR: ["etwas trinken", "Apéro", "essen gehen", "Musikveranstaltung", "private Feier"],
   ZOO: ["Zoo besuchen", "Tiere beobachten", "Führung", "essen gehen", "Kaffee"],
   SPORT: ["Bouldern", "Klettern", "Freies Training", "Kurs", "Kinderkurs", "Kaffee"],
   MUSEUM: ["Ausstellung besuchen", "Museum besuchen", "Führung", "Workshop", "Kaffee"],
 };
-const activitiesByOffer: Readonly<Record<string, readonly string[]>> = {
-  BOULDERING:["Bouldern"], CLIMBING:["Klettern"], TRAINING:["Freies Training"], COURSE:["Kurs"], CHILDREN_COURSE:["Kinderkurs"], MOVEMENT_PLAY:["Bewegungsspiel"],
-  LUNCH:["essen gehen"], DINNER:["essen gehen"], BREAKFAST:["essen gehen"], FULL_MEAL:["essen gehen"], GASTRONOMY:["essen gehen","etwas trinken","Kaffee"],
-  APERITIF:["Apéro","etwas trinken"], DRINKS:["etwas trinken"], CAFE:["Kaffee","etwas trinken"],
-  GUIDED_TOUR:["Führung"], WORKSHOP:["Workshop"], ANIMAL_OBSERVATION:["Tiere beobachten"],
-  PERMANENT_EXHIBITION:["Ausstellung besuchen"], SPECIAL_EXHIBITION:["Ausstellung besuchen"], SELF_GUIDED_VISIT:["Museum besuchen"],
-  PRIVATE_CELEBRATION:["private Feier"], MUSIC_EVENT:["Musikveranstaltung"],
-};
 export function experienceAnswerGuidance(key: string, category: ExperienceCategory, offerKind?: string, areaKind?: string): ExperienceAnswerGuidance | null {
+  if (key === "participation.prerequisite") return { ...choice(["Keine Vorkenntnisse", "Vorkenntnisse erforderlich", "Begleitung erforderlich"]), kind: "CHOICES", multiple: true, exclusiveGroups: [["Keine Vorkenntnisse", "Vorkenntnisse erforderlich"]] };
   if (key === "sport.equipment" && offerKind === "BOULDERING") return choice(["Kletterschuhe", "Sportkleidung", "Eigene Ausrüstung erforderlich"], "Für das Bouldern benötigte Ausrüstung auswählen. Leihschuhe und ihren Preis pflegst du separat.");
   if (key === "condition.children") return choice(["LUNCH","DINNER","BREAKFAST","GASTRONOMY","FULL_MEAL","CAFE","APERITIF","DRINKS","PRIVATE_CELEBRATION"].includes(offerKind ?? "") || areaKind === "CAFE" ? ["Kindermenü", "Kinderportionen"] : ["Kinderangebote", "Kinderbetreuung"], "Nur bestätigte Angebote für Kinder auswählen. Die Auswahl bestätigt keine Zutritts- oder Altersregel.");
   if (key === "offer.feature") return choice(category === "SPORT" ? ["Schliessfächer", "Garderobe", "Umkleide", "Trainingsgeräte", "WLAN", "Steckdosen"] : category === "ZOO" ? ["Schliessfächer", "Garderobe", "WLAN", "Spielbereich"] : category === "MUSEUM" ? ["Schliessfächer", "Garderobe", "Audioguide", "WLAN", "Steckdosen"] : ["WLAN", "Steckdosen", "Garderobe", "Spielbereich", "Billardtisch", "Dartscheibe"]);
-  if (key === "experience.theme") return named(category === "ZOO" ? "Zum Beispiel Pinguine" : "Zum Beispiel Design", category === "ZOO" ? "Eine Tierart oder ein Thema dieses Angebots. Weitere Tierarten getrennt ergänzen." : "Ein Thema oder eine Sammlung dieser Ausstellung. Weitere Themen getrennt ergänzen.");
-  if (key === "experience.activity") return choice(offerKind === "VISIT" && category === "ZOO" ? ["Zoo besuchen"] : (offerKind && activitiesByOffer[offerKind]) || activitiesByCategory[category], "Wähle eine Tätigkeit für dieses Angebot. Speisen und Getränke erfasst du in ihren eigenen Angaben.");
+  if (key === "experience.theme") return named(category === "ZOO" || offerKind === "ANIMAL_OBSERVATION" ? "Zum Beispiel Pinguine" : "Zum Beispiel Naturgeschichte", category === "ZOO" || offerKind === "ANIMAL_OBSERVATION" ? "Eine Tierart oder ein Thema dieses Angebots. Weitere Tierarten getrennt ergänzen." : "Ein Thema oder eine Sammlung dieser Ausstellung. Weitere Themen getrennt ergänzen.");
+  if(key==="experience.activity"){
+    const item=OFFER_CATALOG.find(o=>o.kind===offerKind);
+    const activities=hasOfferModule(offerKind??"","sport")||hasOfferModule(offerKind??"","movement") ? OFFER_CATALOG.filter(o=>o.modules.some(m=>m==="sport"||m==="movement")).flatMap(o=>o.activities) : item?.activities ?? activitiesByCategory[category] ?? [];
+    return choice([...new Set([...(item?.activities??[]), ...activities])],"Wähle alle Tätigkeiten, die in diesem konkreten Angebot tatsächlich möglich sind. Tätigkeiten mit anderen Altersgrenzen, Preisen oder Bedingungen gehören in ein separates Angebot.");
+  }
   const existing = EXPERIENCE_VALUE_CHOICES[key];
   const spec = existing ? choice(existing) : guidance[key] ?? null;
-  const single = ["participation.booking", "participation.permission", "participation.entry_mode", "participation.consumption_obligation", "food.meal_extent", "atmosphere.noise", "atmosphere.conversation", "atmosphere.privacy", "sport.level"];
+  const single = ["participation.booking", "participation.permission", "participation.entry_mode", "participation.consumption_obligation", "food.meal_extent", "atmosphere.noise", "atmosphere.conversation", "atmosphere.privacy", "sport.level", "participation.audience", "stay.meal_inclusion"];
   return spec?.kind === "CHOICES" ? { ...spec, multiple: !single.includes(key), help: single.includes(key) ? spec.help : "Mehrfachauswahl möglich. Wähle alle zutreffenden Antworten." } : spec;
 }
 
 export function experiencePriceIncludes(category: ExperienceCategory, offerKind: string): readonly string[] {
   if (["LUNCH", "DINNER", "BREAKFAST", "GASTRONOMY", "FULL_MEAL", "CAFE", "APERITIF", "DRINKS", "PRIVATE_CELEBRATION"].includes(offerKind)) return offerKind === "DRINKS" ? ["Getränke"] : offerKind === "APERITIF" ? ["Apéro", "Snacks", "Getränke"] : ["Essen", "Getränke", "Kaffee", "Snacks"];
-  if (category === "SPORT") return ["Eintritt", "Kurs", "Leihmaterial"];
+  if (hasOfferModule(offerKind,"stay")) return ["Übernachtung", "Übernachtung mit Frühstück", "Tageszimmer", "Stellplatz"];
+  if (category === "SPORT" || hasOfferModule(offerKind,"sport")) return ["Eintritt", "Kurs", "Leihmaterial"];
   return ["Eintritt", "Führung", "Workshop", "Veranstaltung"];
 }

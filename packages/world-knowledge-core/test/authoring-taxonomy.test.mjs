@@ -20,7 +20,7 @@ import {
 test("all 16 primary categories have a versioned category/place-type/section contract", () => {
   assert.equal(Object.keys(CATEGORY_AUTHORING_MATRIX).length, 16);
   assert.deepEqual(Object.keys(CATEGORY_AUTHORING_MATRIX).sort(), [...PRIMARY_CATEGORIES].sort());
-  assert.match(AUTHORING_TAXONOMY_VERSION, /@4c\.1$/);
+  assert.match(AUTHORING_TAXONOMY_VERSION, /@5\.0$/);
   assert.match(AUTHORING_TAXONOMY_HASH, /^[a-f0-9]{64}$/);
   assert.match(AUTHORING_GUIDANCE_VERSION, /@1\.0$/);
   assert.match(AUTHORING_GUIDANCE_HASH, /^[a-f0-9]{64}$/);
@@ -33,12 +33,12 @@ test("all 16 primary categories have a versioned category/place-type/section con
 test("place types update by category and existing incompatible values remain explicit conflicts", () => {
   assert.ok(getCategoryPlaceTypes("EAT").some((entry) => entry.value === "RESTAURANT"));
   assert.ok(getCategoryPlaceTypes("EAT").some((entry) => entry.value === "PUB"));
-  assert.ok(!getCategoryPlaceTypes("ACTIVITIES_PLAY").some((entry) => entry.value === "RESTAURANT"));
+  assert.ok(getCategoryPlaceTypes("ACTIVITIES_PLAY").some((entry) => entry.value === "RESTAURANT"));
   assert.ok(getCategoryPlaceTypes("ACTIVITIES_PLAY").some((entry) => entry.value === "ESCAPE_ROOM" && entry.state === "CANONICAL"));
-  assert.deepEqual(assessPlaceTypeCompatibility("ACTIVITIES_PLAY", ["RESTAURANT"]), { compatible: [], incompatible: ["RESTAURANT"], state: "CONFLICT" });
+  assert.deepEqual(assessPlaceTypeCompatibility("ACTIVITIES_PLAY", ["RESTAURANT"]), { compatible: ["RESTAURANT"], incompatible: [], state: "COMPATIBLE" });
   assert.ok(getCategoryPlaceTypes("OTHER").some((entry) => entry.value === "OTHER_PLACE" && entry.state === "CANONICAL"));
   assert.equal(assessPlaceTypeCompatibility("OTHER", ["OTHER_PLACE"]).state, "COMPATIBLE");
-  assert.equal(assessPlaceTypeCompatibility("OTHER", ["PUB"]).state, "CONFLICT");
+  assert.equal(assessPlaceTypeCompatibility("OTHER", ["PUB"]).state, "COMPATIBLE");
 });
 
 test("audited wider taxonomy is grouped and bound to the new registry release", () => {
