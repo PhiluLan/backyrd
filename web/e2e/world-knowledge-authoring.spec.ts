@@ -215,16 +215,16 @@ for(const mobile of [false,true])test(`Spotwissen Consent Review Reload ${mobile
  await page.route('**/rest/v1/rpc/world_product_discovery_publish_source_v1',async route=>{published++;expect(JSON.parse(route.request().postData()??'{}').p_source_text).toBe(source);await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({sourceHash:'a'.repeat(64)})});});
  await page.route('**/api/world-knowledge/discovery',async route=>{prepared++;const input=JSON.parse(route.request().postData()??'{}');expect(Object.keys(input).sort()).toEqual(['consentToOpenAI','sourceHash','spotId']);await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({requiresHumanReview:true,draft:{contractVersion:'backyrd.world-knowledge.discovery-profile@1.0',description:source,reviewed:false,offerings:[],assertions:[{id:'build',kind:'VISIT',concepts:['build moss terrariums'],offeringId:null,state:'PRESENT',evidence:source,conditions:null,validFrom:null,validUntil:null}]}})});});
  await openEditor(page);
- await page.getByText("Angaben aus öffentlichem Text vorbereiten (optional)",{exact:true}).click();
+ await expect(page.getByRole("heading",{name:"Mit KI aus vorhandenen Texten ausfüllen",exact:true})).toBeVisible();
  const field=page.locator('[id="field-discovery.profile"]');
  await field.getByLabel('Öffentlicher Beschreibungstext',{exact:true}).fill(source);
  await expect(field.getByRole('button',{name:'Vorschläge vorbereiten',exact:true})).toBeDisabled();
  await field.getByRole('checkbox').first().check();await field.getByRole('button',{name:'Vorschläge vorbereiten',exact:true}).click();
- await expect(field.getByText('Bedeutung: build moss terrariums')).toBeVisible();expect(published).toBe(1);expect(prepared).toBe(1);expect(owner.submissions).toHaveLength(0);
+ await expect(field.getByText('Bedeutung: build moss terrariums')).toBeVisible();await expect(field.getByLabel('Suchbegriffe build',{exact:true})).toBeVisible();await expect(field.locator('summary')).toHaveCount(0);expect(published).toBe(1);expect(prepared).toBe(1);expect(owner.submissions).toHaveLength(0);
  await expect(field.getByRole('button',{name:'Geprüftes Wissen übernehmen',exact:true})).toBeDisabled();
  await field.getByRole('checkbox').last().check();await field.getByRole('button',{name:'Geprüftes Wissen übernehmen',exact:true}).click();
  await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toMatchObject({reviewed:true,description:source});
- await reloadEditor(page);await page.getByText("Angaben aus öffentlichem Text vorbereiten (optional)",{exact:true}).click();await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
+ await reloadEditor(page);await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(mobile?390:1280);
 });
 
@@ -246,7 +246,7 @@ const addFromCatalogue=async(page:Page,label:string)=>{
  await guided(page).getByLabel('Weiteren Bereich hinzufügen',{exact:true}).selectOption({label});
 };
 const mainStep=async(page:Page,step:number)=>{
- if(step===3){await guided(page).getByText('Bestehende Küchenangaben gezielt übernehmen',{exact:true}).click();return;}
+ if(step===3){await expect(guided(page).getByRole('heading',{name:'Vorhandene Küchenangaben einem Angebot zuordnen',exact:true})).toBeVisible();return;}
  if(step===4)return;
  const workspace=['OFFERS','AREAS','SPOT'][step];
  if(await guided(page).getAttribute('data-workspace')===workspace)return;
@@ -339,7 +339,7 @@ test('Mehrfachauswahl erhält vorhandene bedingte und freie Angaben',async({page
 });
 
 test('Bisherige Küche wird nur dem ausdrücklich ausgewählten Angebot zugeordnet',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'offering.cuisines':{claimId:'cuisine',knowledgeState:'KNOWN_VALUE',value:['ITALIAN']}});await openEditor(page);await addFromCatalogue(page,'Mittagessen');await overview(page);await mainStep(page,3);await guided(page).getByLabel('Zuordnen zu',{exact:true}).selectOption({label:'Angebot: Mittagessen'});await guided(page).getByRole('button',{name:'In Entwurf übernehmen',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const p=owner.submissions[0].p_value as {properties:unknown[];offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.properties).toEqual([]);expect(p.offers[0].properties).toEqual(expect.arrayContaining([expect.objectContaining({key:'food.cuisine',value:'Italienisch'})]));
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'offering.cuisines':{claimId:'cuisine',knowledgeState:'KNOWN_VALUE',value:['ITALIAN']}});await openEditor(page);await addFromCatalogue(page,'Mittagessen');await overview(page);await mainStep(page,3);await guided(page).getByLabel('Für welches Angebot gelten die Angaben?',{exact:true}).selectOption({label:'Angebot: Mittagessen'});await guided(page).getByRole('button',{name:'Zum Angebot hinzufügen',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const p=owner.submissions[0].p_value as {properties:unknown[];offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.properties).toEqual([]);expect(p.offers[0].properties).toEqual(expect.arrayContaining([expect.objectContaining({key:'food.cuisine',value:'Italienisch'})]));
 });
 
 test('Vorkenntnisse schliessen sich aus, Begleitung bleibt unabhängig',async({page})=>{
@@ -708,4 +708,20 @@ for(const width of [390,1280])test(`Neuer Einstieg zeigt eine klare Aktion und f
  await expect(page.locator('.wk-task-card.featured')).toHaveCount(0);await expect(page.getByRole('heading',{name:'Was ist noch offen?',exact:true})).toBeHidden();
  await page.getByRole('button',{name:'Profil einrichten',exact:false}).click();
  await expect(page.locator('.wk-field-with-usage:focus')).toHaveCount(1);await expect(page.locator('.wk-studio-home')).toHaveCount(0);
+});
+
+
+for(const width of [390,1280])test(`Abschnittsstatus zeigt Pflichtangaben, Bezug und konkrete optionale Lücken bei ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:900});await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'location.address_line1':{knowledgeState:'KNOWN_VALUE',value:'Beispielstrasse 1'},'location.locality':{knowledgeState:'KNOWN_VALUE',value:'Basel'},...(width===1280?{'contact.public_email':{knowledgeState:'UNKNOWN',value:null}}:{})});
+ await page.goto(`/owner/spots/${spotId}`);const row=page.locator('.wk-task-card').filter({hasText:'Grunddaten & Kontakt'});
+ await expect(row).toContainText('Pflichtangaben vorhanden');await expect(row).toContainText('3 von 4 Feldern ausgefüllt');await expect(row).toContainText(width===1280?'1 bewusst unbekannt':'1 optional offen');
+ await row.click();const status=page.getByRole('region',{name:'Stand dieses Abschnitts',exact:true});await expect(status).toContainText(width===1280?'Bewusst unbekannt:':'Optional ergänzbar:');await status.getByRole('button',{name:'Öffentliche Spot-E-Mail',exact:true}).click();await expect(page.locator('[id="wk-editor-contact.public_email"]')).toBeFocused();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
+
+test('Küchenangaben sind beim Angebot offen sichtbar, nur im Entwurf und ohne doppelte Übernahme',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'offering.cuisines':{knowledgeState:'KNOWN_VALUE',value:['ITALIAN']}});await openEditor(page);await addFromCatalogue(page,'Mittagessen');
+ const reuse=page.getByRole('region',{name:'Vorhandene Küchenangaben zuordnen',exact:true});await expect(reuse).toBeVisible();await expect(reuse).toContainText('Gilt für: Mittagessen');await expect(reuse.locator('summary')).toHaveCount(0);
+ await reuse.getByRole('button',{name:'Zum Angebot hinzufügen',exact:true}).click();expect(owner.submissions).toHaveLength(0);await expect(reuse.getByRole('button',{name:'Bereits zugeordnet',exact:true})).toBeDisabled();
+ await saveProfile(page);expect(owner.submissions).toHaveLength(1);const p=owner.submissions[0].p_value as {offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.offers[0].properties.filter(x=>x.key==='food.cuisine'&&x.value==='Italienisch')).toHaveLength(1);
 });

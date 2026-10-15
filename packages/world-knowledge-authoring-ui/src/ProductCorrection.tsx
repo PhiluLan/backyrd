@@ -5,6 +5,7 @@ import {
   AUTHORING_FIELDS, formatPriceOptionsSummary, AUTHORING_STEPS, getAuthoringFieldsForContext,
   validateAuthoringSubmission, parseDiscoveryProfile, parseExperienceProfile, evaluateAuthoringReadiness, type DiscoveryProfile, type AuthoringField,
 } from "@backyrd/world-knowledge-core";
+import { sectionStatus } from "./section-status";
 import type { ExperienceWorkspace } from "./experience-authoring";
 import type { RpcResult, WorldAuthoringClient } from "./session";
 
@@ -504,7 +505,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
           <span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span>
           <span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span>
         </div></details>}
-        {field.control === "DISCOVERY_PROFILE" ? <details className="wk-source-preparation"><summary>Angaben aus öffentlichem Text vorbereiten (optional)</summary>{editor}</details> : editor}
+        {field.control === "DISCOVERY_PROFILE" ? <section className="wk-source-preparation" aria-label="KI-Ausfüllhilfe">{editor}</section> : editor}
       </div>;
     })}</section>);
 
@@ -554,10 +555,10 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
       {detail && <nav aria-label="Bereiche der Spot-Pflege">{[...visibleSteps].sort((a,b)=>Number(sectionCopy[a.id]?.icon)-Number(sectionCopy[b.id]?.icon)).map((item) => {
         const index=visibleSteps.indexOf(item);
         const sectionFields = fieldsForStep(item.id).map(field=>field.attributeKey).filter((key) => detail.actor.allowedAttributeKeys.includes(key));
-        const completed = sectionFields.filter((key) => detail.answers[key]).length;
+        const status=sectionStatus(fieldsForStep(item.id).filter(field=>sectionFields.includes(field.attributeKey)),detail.answers,primaryCategory);
         const proLocked = surface === "OWNER" && detail.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (item.id === "objective" || item.id === "amenities");
         return <button type="button" className={!overview && step === index ? "selected" : ""} aria-current={!overview && step===index?"page":undefined} key={item.id} onClick={() => goToStep(index)}>
-          <b>{sectionCopy[item.id]?.icon}</b><span>{sectionCopy[item.id]?.title??item.title}<small>{proLocked ? "Mit Owner Pro verfügbar" : item.id === "review" ? "Zusammenfassung" : profileSummary(item.id) ?? `${completed} von ${sectionFields.length} Angaben erfasst`}</small></span>
+          <b>{sectionCopy[item.id]?.icon}</b><span>{sectionCopy[item.id]?.title??item.title}<small>{proLocked ? "Mit Owner Pro verfügbar" : item.id === "review" ? "Zusammenfassung" : profileSummary(item.id) ?? `${status.primary} · ${status.secondary}`}</small></span>
         </button>;
       })}</nav>}
     </aside>
@@ -585,17 +586,25 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
       <div className="wk-section-heading"><h3>Alle Profilbereiche</h3><p>Öffne einen Abschnitt oder nutze den geführten Ablauf oben.</p></div>
       <div className="wk-task-grid">{visibleSteps.map(item=>{
         const keys=fieldsForStep(item.id).filter(f=>detail.actor.allowedAttributeKeys.includes(f.attributeKey));
-        const count=keys.filter(f=>detail.answers[f.attributeKey] && detail.answers[f.attributeKey].knowledgeState!=="UNKNOWN").length;
+        const status=sectionStatus(keys,detail.answers,primaryCategory);
         const copy=sectionCopy[item.id];
         const locked=surface==="OWNER"&&detail.actor.role==="VERIFIED_OWNER"&&detail.actor.entitlement==="OWNER_BASIC"&&["objective","amenities"].includes(item.id);
         return <button type="button" className="wk-task-card" key={item.id} onClick={()=>goToStep(visibleSteps.indexOf(item))}>
-          <span className="wk-task-number">{copy?.icon}</span><span className="wk-task-content"><strong>{copy?.title??item.title}</strong><span>{copy?.description??item.explanation}</span></span><small className="wk-task-status">{locked?"Owner Pro":item.id==="review"?"Zusammenfassung":profileSummary(item.id)??`${count} ${count===1?"Angabe":"Angaben"}`}</small><span className="wk-task-arrow" aria-hidden="true">→</span>
+          <span className="wk-task-number">{copy?.icon}</span><span className="wk-task-content"><strong>{copy?.title??item.title}</strong><span>{copy?.description??item.explanation}</span></span><small className="wk-task-status">{locked?"Owner Pro":item.id==="review"?"Zusammenfassung":profileSummary(item.id)??<>{status.primary}<span>{status.secondary}</span></>}</small><span className="wk-task-arrow" aria-hidden="true">→</span>
         </button>;
       })}</div>
       <details className="wk-entry-audit"><summary>Alle Prüfhinweise{reviewNotices>0?` · ${reviewNotices} separate Prüfnotizen`:""}</summary><ProfileStatus detail={detail} onOpen={openField}/></details>
     </section> : !detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>{surface === "OWNER" ? "Suche deinen freigegebenen Spot nach Namen. Danach kannst du seine Angaben Schritt für Schritt ergänzen." : "Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen."}</p></section>
-      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${visibleSteps.length}`}><span style={{ width: `${((step + 1) / visibleSteps.length) * 100}%` }} /></div><div className="wk-step-title"><span>Spotprofil bearbeiten · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : profileSummary(current.id) ?? `${fields.filter((field) => detail.answers[field.attributeKey]).length} von ${fields.length} Angaben gespeichert`}</span><h2>{sectionCopy[current.id]?.title??current.title}</h2><p>{sectionCopy[current.id]?.description??current.explanation}</p>
+      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${visibleSteps.length}`}><span style={{ width: `${((step + 1) / visibleSteps.length) * 100}%` }} /></div><div className="wk-step-title"><span>Spotprofil bearbeiten · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : profileSummary(current.id) ?? sectionStatus(fields,detail.answers,primaryCategory).primary}</span><h2>{sectionCopy[current.id]?.title??current.title}</h2><p>{sectionCopy[current.id]?.description??current.explanation}</p>
         </div>
+        {current.id!=="review" && !proLocked && !["discovery","areas","shared"].includes(current.id) && (()=>{
+          const status=sectionStatus(fields,detail.answers,primaryCategory);
+          return <section className="wk-section-status" aria-label="Stand dieses Abschnitts"><p><strong>{status.primary}</strong> · {status.secondary}</p>
+            {status.issues.length>0&&<div><span>Bitte ergänzen oder prüfen:</span>{status.issues.map(issue=><button type="button" className="wk-secondary" key={issue.id} onClick={()=>openField(issue.attributeKey)}>{issue.label}</button>)}</div>}
+            {status.optionalOpen.length>0&&<div><span>Optional ergänzbar:</span>{status.optionalOpen.map(field=><button type="button" className="wk-secondary" key={field.attributeKey} onClick={()=>openField(field.attributeKey)}>{field.label}</button>)}</div>}
+            {status.unknown.length>0&&<div><span>Bewusst unbekannt:</span>{status.unknown.map(field=><button type="button" className="wk-secondary" key={field.attributeKey} onClick={()=>openField(field.attributeKey)}>{field.label}</button>)}</div>}
+          </section>;
+        })()}
         {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch{surface === "ADMIN" ? " im World-Reader" : ""}</strong>
           <p>Die betroffenen Angaben können korrigiert werden; bis zur Klärung werden sie nicht als gesichert ausgegeben.</p></div>}
         {current.id === "basics" && AddressPicker && detail.actor.role === "ADMIN" && <div className="wk-address-assist"><h3>Adresse suchen statt Koordinaten eintippen</h3><p>Nutze die gleiche Adresssuche wie beim Anlegen eines Spots. Erst nach deiner Auswahl und Bestätigung werden Adresse, Ort und Position als World-Angaben gespeichert.</p><AddressPicker disabled={busy} onSelect={setAddressSelection} />{addressSelection && <div className="wk-address-selection"><strong>{addressSelection.addressLine1}, {addressSelection.locality}</strong><span>Position: {addressSelection.latitude.toFixed(6)}, {addressSelection.longitude.toFixed(6)}</span><button type="button" disabled={busy} onClick={() => void saveSelectedAddress()}>{busy ? "Adresse wird geprüft …" : "Adresse und Position speichern"}</button><button type="button" className="wk-secondary" disabled={busy} onClick={() => setAddressSelection(null)}>Auswahl verwerfen</button></div>}</div>}
