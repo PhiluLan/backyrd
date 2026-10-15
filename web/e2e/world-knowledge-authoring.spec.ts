@@ -13,7 +13,7 @@ const basicKeys = [
 ];
 const proKeys = [...basicKeys, "capacity.seats_total", "amenity.features"];
 
-async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "VERIFIED_OWNER" | "ADMIN" = "VERIFIED_OWNER", seedAnswers:Record<string,unknown>={}) {
+async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "VERIFIED_OWNER" | "ADMIN" = "VERIFIED_OWNER", seedAnswers:Record<string,unknown>={}, reviewState?: {notes: Array<{class:string;attributeKey:string;reasonCodes:string[]}>; conflicts: Array<{severity:string;attributeKeys:string[]}>}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expiresAt = Math.floor(Date.now() / 1000) + 3600;
   const user = {
@@ -42,12 +42,12 @@ async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "V
     ...seedAnswers,
     "identity.name": { claimId: "41000000-0000-4000-8000-000000000010", knowledgeState: "KNOWN_VALUE", value: "Volta Bräu" },
   };
-  let manifest: null | { manifestHash: string; worldSnapshot: { spotId: string; conflicts: never[] } } = null;
+  let manifest: null | { manifestHash: string; worldSnapshot: { spotId: string; conflicts: Array<{severity:string;attributeKeys:string[]}> } } = reviewState ? {manifestHash:"a".repeat(64),worldSnapshot:{spotId,conflicts:reviewState.conflicts}} : null;
   const detail = () => ({
     contractVersion: "backyrd.world-knowledge.product-authoring-detail@1.0",
     spotId, name: "Volta Bräu", status: "approved",
     actor: { role, entitlement: role === "ADMIN" ? "ADMIN" : tier, allowedAttributeKeys: role === "ADMIN" || tier === "OWNER_PRO" ? proKeys : basicKeys },
-    answers, openConflicts: [], manifest,
+    answers, openConflicts: reviewState?.notes ?? [], manifest,
   });
   await page.route("**/rest/v1/rpc/world_product_authoring_detail_v1", (route) => route.fulfill({
     status: 200, contentType: "application/json", body: JSON.stringify(detail()),
@@ -118,7 +118,7 @@ test("Pro-Owner erhält die vom Server erlaubten Zusatzfelder", async ({ page })
   await page.getByRole("button", { name: /08 Platz & Reservierung/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toHaveCount(0);
   await page.getByText("Weitere Angaben").click();
-  await expect(page.getByText("Sitzplätze gesamt")).toBeVisible();
+  await expect(page.getByText("Sitzplätze gesamt", {exact:true})).toBeVisible();
 });
 
 test("Admin-Zugriff erklärt die Freigabe der Pro-Bereiche", async ({ page }) => {
@@ -497,4 +497,44 @@ test('Räume und gemeinsame Angaben haben eigene Einstiege auf der Startübersic
  await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
  await page.getByRole('button',{name:/03c Gemeinsame Ausstattung/}).click();
  await expect(guided(page)).toHaveAttribute('data-workspace','SPOT');
+});
+
+for (const width of [390, 1280]) test(`Prüfnotizen erklären alte Speicherfassungen und öffnen die Angabe bei ${width}px`, async ({page}, testInfo) => {
+  await page.setViewportSize({width,height:900});
+  const note={class:"AUTHORITY_CONFLICT",attributeKey:"experience.profile",reasonCodes:["CONCURRENT_AUTHORITATIVE_CONFLICT"]};
+  const owner=await mockOwner(page,"OWNER_PRO","ADMIN",{}, {notes:[note,note],conflicts:[]});
+  await page.goto(`/owner/spots/${spotId}`);
+  const status=page.getByRole("region",{name:"Profilstatus und offene Angaben"});
+  await expect(status.getByText("Die aktuelle Datenansicht enthält keine Widersprüche.",{exact:false})).toBeVisible();
+  await expect(status.getByText("2 separate Prüfnotizen zu 1 Angabe")).toBeVisible();
+  await expect(status.getByText(/innerhalb von fünf Minuten/)).toHaveCount(1);
+  await expect(status.getByText(/kein Hinweis auf ein leeres Feld/)).toBeVisible();
+  await status.getByRole("button",{name:"Angabe prüfen: Angebote und Bereiche",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Weiteres Angebot hinzufügen",exact:true})).toBeVisible();
+  await expect(page.locator('[id="wk-editor-experience.profile"]')).toBeFocused();
+  expect(owner.submissions).toHaveLength(0);
+  await page.screenshot({path:testInfo.outputPath(`profile-review-${width}.png`),fullPage:true});
+});
+
+test("Profilstatus öffnet optionale Felder gezielt und schützt einen vorhandenen Entwurf", async ({page}) => {
+  await mockOwner(page,"OWNER_PRO","ADMIN");
+  await page.goto(`/owner/spots/${spotId}`);
+  const status=page.getByRole("region",{name:"Profilstatus und offene Angaben"});
+  await status.locator("details").first().locator("summary").click();
+  await status.getByRole("button",{name:"Öffnen: Öffentliche Spot-E-Mail",exact:true}).click();
+  const field=page.locator('[id="wk-editor-contact.public_email"]');
+  await expect(field).toBeFocused();
+  await field.locator('input[type="email"]').fill("new@backyrd.test");
+  await status.getByRole("button",{name:"Angabe prüfen: Art des Ortes",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:/Entwurf ist noch nicht gespeichert/})).toBeVisible();
+  await expect(field.locator('input[type="email"]')).toHaveValue("new@backyrd.test");
+});
+
+test("Prüfnotizen werden bei aktuellem Widerspruch nicht als konfliktfrei dargestellt", async ({page}) => {
+  await mockOwner(page,"OWNER_PRO","ADMIN",{}, {notes:[{class:"USER_REPORT",attributeKey:"experience.profile",reasonCodes:["FUTURE_CODE"]}],conflicts:[{severity:"BLOCKING",attributeKeys:["experience.profile"]}]});
+  await page.goto(`/owner/spots/${spotId}`);
+  const status=page.getByRole("region",{name:"Profilstatus und offene Angaben"});
+  await expect(status.getByText(/1 Widerspruch in der aktuellen Datenansicht/)).toBeVisible();
+  await expect(status.getByText(/genaue Ursache ist hier nicht verfügbar/)).toBeVisible();
+  await expect(status.getByText(/enthält keine Widersprüche/)).toHaveCount(0);
 });
