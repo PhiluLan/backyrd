@@ -68,7 +68,7 @@ async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "V
       manifestHash: manifest.manifestHash, readerSnapshot: manifest.worldSnapshot,
     }) });
   });
-  return { submissions };
+  return { submissions, detail };
 }
 
 async function openEditor(page:Page) {
@@ -658,4 +658,42 @@ test('Bisherige Hotelgäste-Angaben bleiben bei einer anderen Korrektur erhalten
  await expect(guided(page).locator('blockquote').filter({hasText:'Nur für Hotelgäste'})).toBeVisible();
  await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittagsmenü');await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
  expect(owner.submissions[0].p_value).toMatchObject({offers:[{properties:[property]}]});
+});
+
+
+test('Mehrere Leistungen bleiben nach wiederholtem Speichern und Neuladen gespeichert',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);
+ for(const label of ['Mittagessen','Abendessen','Brunch','Getränke','Musikveranstaltung']) {await addFromCatalogue(page,label);await overview(page);}
+ await saveProfile(page);
+ await expect(guided(page).getByRole('button',{name:'Änderungen speichern',exact:true})).toBeDisabled();
+ await expect(guided(page).getByText('Ungespeicherte Änderungen',{exact:true})).toHaveCount(0);
+ await guided(page).getByRole('button',{name:'Angebot Abendessen bearbeiten',exact:true}).click();await page.getByLabel('Name des Angebots',{exact:true}).fill('Abendkarte');await saveProfile(page);
+ await expect(guided(page).getByRole('button',{name:'Änderungen speichern',exact:true})).toBeDisabled();
+ await reloadEditor(page);await expect(guided(page).getByRole('button',{name:'Angebot Abendkarte bearbeiten',exact:true})).toBeVisible();
+ expect(owner.submissions).toHaveLength(2);expect((owner.submissions[1].p_value as {offers:unknown[]}).offers).toHaveLength(5);
+});
+
+test('Erfolgsmeldungen verschwinden nach zwei Sekunden, Fehler bleiben sichtbar',async({page})=>{
+ await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await saveProfile(page);
+ const toast=page.locator('.wk-toast');await expect(toast).toBeVisible();await expect(toast).toHaveCount(0,{timeout:3500});
+ await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittagskarte');await saveProfile(page);await expect(toast).toBeVisible();await expect(toast).toHaveCount(0,{timeout:3500});
+ await page.route('**/rest/v1/rpc/world_product_owner_submit_claim_v1',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})}));
+ await page.getByLabel('Name des Angebots',{exact:true}).fill('Fehlerentwurf');await saveProfile(page);await expect(guided(page).getByRole('alert')).toContainText('Speichern fehlgeschlagen');await expect(guided(page).getByRole('button',{name:'Änderungen speichern',exact:true})).toBeEnabled();
+});
+
+test('Abweichender zurückgelesener Inhalt meldet keinen Speichererfolg',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');
+ await page.route('**/rest/v1/rpc/world_product_authoring_detail_v1',async route=>{const data=structuredClone(owner.detail());delete data.answers['experience.profile'];await route.fulfill({json:data});});
+ await saveProfile(page);await expect(guided(page).getByRole('alert')).toContainText('nicht vollständig zurückgelesen');
+ await expect(guided(page).getByRole('button',{name:'Änderungen speichern',exact:true})).toBeEnabled();await expect(page.locator('.wk-toast.success')).toHaveCount(0);
+});
+
+test('Angebotsauswahl trennt Clubabend von Musikereignis und entfernt Gastronomie-Doppelung',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await guided(page).getByRole('button',{name:'Weiteres Angebot hinzufügen',exact:true}).click();
+ const select=guided(page).getByLabel('Weiteres Angebot hinzufügen',{exact:true});
+ await expect(select.locator('option[value="GASTRONOMY"]')).toHaveCount(0);await expect(select.locator('option[value="FULL_MEAL"]')).toHaveText('Essen (ohne Trennung nach Mahlzeit)');
+ await select.selectOption('CLUB_NIGHT');await expect(guided(page).getByRole('button',{name:'Tanzen',exact:true})).toHaveAttribute('aria-pressed','true');await saveProfile(page);
+ const profile=owner.submissions[0].p_value as {offers:Array<{kind:string;name:string;properties:Array<{key:string;value:unknown}>}>};
+ expect(profile.offers[0]).toMatchObject({kind:'EVENT',name:'Clubabend / Tanzen',properties:[{key:'experience.activity',value:'Tanzen'}]});
+ await reloadEditor(page);await expect(guided(page).getByRole('button',{name:'Angebot Clubabend / Tanzen bearbeiten',exact:true})).toBeVisible();
 });

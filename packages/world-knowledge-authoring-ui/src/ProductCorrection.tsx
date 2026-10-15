@@ -206,6 +206,13 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
   }, []);
   const [message, setMessage] = useState("");
   const [messageIsError, setMessageIsError] = useState(false);
+  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (successTimer.current) clearTimeout(successTimer.current); }, []);
+  const showSaveSuccess = (text: string) => {
+    if (successTimer.current) clearTimeout(successTimer.current);
+    setMessage(text); setMessageIsError(false);
+    successTimer.current = setTimeout(() => { setMessage(current => current === text ? "" : current); }, 2000);
+  };
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [matches, setMatches] = useState<ProductAdminSpotSearch["spots"]>([]);
@@ -378,17 +385,24 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     if (!result?.manifestHash || !result.readerSnapshot) throw new Error("Die Angabe wurde gespeichert, aber der World-Reader hat die Datenvorschau nicht bestätigt. Bitte lade den Spot neu.");
     const refreshed = await readDetail(detail.spotId);
     if (refreshed.manifest?.manifestHash !== result.manifestHash) throw new Error("Die Angabe wurde gespeichert, aber Datenvorschau und Spot-Ansicht stimmen nicht überein. Bitte lade den Spot neu.");
+    if (field.attributeKey === "experience.profile") {
+      const persisted = refreshed.answers[field.attributeKey];
+      const stable = (input: unknown) => JSON.stringify(input, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+      if (persisted?.knowledgeState !== knowledgeState || stable(persisted.value) !== stable(validated.value)) {
+        throw new Error("Die gespeicherten Angebote konnten nicht vollständig zurückgelesen werden. Dein Entwurf bleibt erhalten. Bitte lade den Spot vor einem erneuten Versuch neu.");
+      }
+    }
     setDetail(refreshed);
     const blocking = snapshotConflicts(refreshed).some((conflict) =>
       conflict.severity === "BLOCKING" && conflict.attributeKeys?.includes(field.attributeKey));
-    setMessage(blocking
+    const saveMessage = blocking
       ? surface === "OWNER"
         ? "Angabe gespeichert. Es gibt noch einen Widerspruch; bitte prüfe die Angaben und Belege."
         : "Angabe gespeichert. Der World-Reader zeigt für dieses Feld weiterhin einen echten Widerspruch; bitte prüfe die Belege."
       : surface === "OWNER"
         ? "Deine Angabe wurde gespeichert und mit dem aktuellen Spot-Wissen abgeglichen."
-        : "Gespeichert. Das Spotprofil wurde aktualisiert.");
-    setMessageIsError(blocking);
+        : "Gespeichert. Das Spotprofil wurde aktualisiert.";
+    if (blocking) { setMessage(saveMessage); setMessageIsError(true); } else showSaveSuccess(saveMessage);
   };
   const saveSelectedAddress = async () => {
     if (!detail || !addressSelection) return;
@@ -413,8 +427,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         await saveField(field, "KNOWN_VALUE", value);
       }
       setAddressSelection(null);
-      setMessage("Adresse und Koordinaten gespeichert und im World-Reader geprüft.");
-      setMessageIsError(false);
+      showSaveSuccess("Adresse und Koordinaten gespeichert und im World-Reader geprüft.");
     } catch (error) {
       setMessage(`${messageOf(error)} Bereits gespeicherte Ortsangaben bleiben erhalten; bitte den Spot neu laden und prüfen.`);
       setMessageIsError(true);
