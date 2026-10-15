@@ -309,3 +309,9 @@
  .wk-studio .wk-overview-card{grid-template-columns:minmax(0,1fr)}.wk-studio .wk-overview-card>button{grid-column:1;grid-row:auto;max-width:none;justify-self:stretch;min-height:44px;margin-top:8px}
  .wk-studio .wk-workspace-links button{flex:1 1 140px}
 }
+
+.wk-profile-status{border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:24px;background:var(--panel)}
+.wk-profile-status h2{font-size:20px;margin:0 0 12px}.wk-profile-status p{font-size:14px;line-height:1.6;color:#b4bac3}
+.wk-profile-status details{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}.wk-profile-status summary{cursor:pointer;line-height:1.5}
+.wk-profile-status ul{padding-left:20px}.wk-profile-status li{margin:16px 0;line-height:1.6;overflow-wrap:anywhere}.wk-profile-status li button{display:block;margin-top:8px;min-height:44px;max-width:100%;white-space:normal;text-align:left}
+.wk-field-with-usage{scroll-margin-top:24px}.wk-field-with-usage:focus{outline:2px solid var(--pink);outline-offset:6px;border-radius:8px}

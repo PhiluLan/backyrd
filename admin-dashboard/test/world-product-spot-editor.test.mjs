@@ -26,8 +26,8 @@ test("Product edits remain append-only, role-scoped and reader-verified", async 
   assert.match(product, /actor\.allowedAttributeKeys\.includes\(field\.attributeKey\)/);
   assert.match(product, /snapshotConflicts\(refreshed\)/);
   assert.match(product, /conflict\.severity === "BLOCKING"/);
-  assert.doesNotMatch(product, /openConflicts\.some/);
-  assert.match(product, /Prüfnotizen.*blockieren die Bearbeitung nicht/);
+  assert.doesNotMatch(product, /openConflicts\.some\([^)]*BLOCKING/);
+  assert.match(product, /Prüfnotizen sind keine Liste fehlender Antworten und verhindern das Speichern nicht/);
   assert.match(product, /validateAuthoringSubmission/);
   assert.match(product, /world_product_admin_submit_claim_v1/);
   assert.match(product, /world_product_owner_submit_claim_v1/);

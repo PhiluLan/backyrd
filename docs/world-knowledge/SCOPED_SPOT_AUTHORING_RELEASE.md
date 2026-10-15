@@ -343,3 +343,22 @@ consent and RLS remain unchanged; no database migration is required.
 Regression coverage includes all catalogued offer kinds, 320/390/1280 px layouts,
 source provenance, conditional negative access, unlinked area exclusion, direct
 save/retry, old values at all scopes and original payload preservation.
+
+## Profile status and separate review notices
+
+The shared Admin/Owner editor distinguishes required-field readiness, missing
+optional answers, explicitly unknown answers, current snapshot conflicts and
+separate open review work items. It deliberately does not calculate a blanket
+completion percentage or imply that every offer detail was reviewed. The existing
+readiness evaluator determines required field issues; actor-visible contextual
+fields determine the optional list. Optional discovery text preparation is not
+a completion requirement.
+
+Review notices are grouped by attribute, class and reason codes without changing
+or resolving their underlying work items. Concurrent-authority notices explain
+that different verified versions within five minutes create a review task, even
+during incremental editing. A conflict-free snapshot does not close that task.
+Unknown reasons retain an honest generic explanation. Field buttons navigate to
+the actual editor, expand optional groups and focus the target. Unsaved drafts
+block that navigation. No production Spot facts, review decisions, RPC contracts,
+schema or permissions are changed by this UI release.
