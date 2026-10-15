@@ -22,7 +22,7 @@ async function mockAdmin(page:Page){
 for(const width of [390,1280])test(`Admin bearbeitet Profil und Medien getrennt bei ${width}px`,async({page},testInfo)=>{
  await page.setViewportSize({width,height:900});await mockAdmin(page);
  await page.goto(`/spots/${spotId}/edit`);
- await expect(page.getByRole('heading',{name:'Was möchtest du bearbeiten?'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Dein Spotprofil'})).toBeVisible();
  await expect(page.getByRole('heading',{name:'Beispielhotel',exact:true})).toHaveCount(1);
  await expect(page.locator('#spot-information')).toBeHidden();
  await expect(page.getByText('Veröffentlicht',{exact:true})).toBeVisible();
@@ -43,4 +43,30 @@ for(const width of [390,1280])test(`Admin bearbeitet Profil und Medien getrennt 
  await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Übernachten im Doppelzimmer');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
  await page.screenshot({path:testInfo.outputPath(`admin-offer-${width}.png`),fullPage:true});
+});
+
+test('Spotliste nutzt aktuelle Profilangaben statt Gold-Prozenten und aktualisiert nach Änderungen',async({page})=>{
+ await mockAdmin(page);let complete=false,legacyReads=0,unavailable=false;
+ const reply=(value:unknown)=>({status:200,contentType:'application/json',body:JSON.stringify(value)});
+ await page.route('**/rest/v1/rpc/admin_spots_intelligence_v1',route=>route.fulfill(reply({summary:{spots:1,viewed:0,partner_spots:0,views:0},spots:[{spot_id:spotId,name:'Beispielhotel',city:'Zürich',status:'approved',views:0,ctr:0,reviews:0}]})));
+ await page.route('**/rest/v1/rpc/admin_spot_readiness_worklist_v1',route=>{legacyReads++;return route.fulfill(reply([{spot_id:spotId,coverage:58,gap_count:5}]));});
+ await page.route('**/rest/v1/rpc/world_product_authoring_detail_v1',route=>unavailable?route.fulfill({status:503,json:{message:'unavailable'}}):route.fulfill(reply({contractVersion:'backyrd.world-knowledge.product-authoring-detail@1.0',spotId,actor:{allowedAttributeKeys:['identity.name','classification.primary_category','classification.place_types']},answers:{'identity.name':{knowledgeState:'KNOWN_VALUE',value:'Beispielhotel'},'classification.primary_category':{knowledgeState:'KNOWN_VALUE',value:'STAY'},...(complete?{'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:['HOTEL']}}:{})},manifest:null})));
+ await page.goto('/spots');await expect(page.getByRole('columnheader',{name:'Profilstand'})).toBeVisible();
+ await expect(page.locator('.admin-desktopTable .admin-profileStatus')).toContainText('1 Pflichtangabe prüfen');
+ await expect(page.getByText('58%',{exact:true})).toHaveCount(0);await expect(page.getByText('5 offene Punkte',{exact:true})).toHaveCount(0);expect(legacyReads).toBe(0);
+ complete=true;await page.getByRole('button',{name:'Profilstatus aktualisieren',exact:true}).click();
+ await expect(page.locator('.admin-desktopTable .admin-profileStatus')).toContainText('Grunddaten vorhanden');await expect(page.locator('.admin-desktopTable .admin-profileStatus')).toContainText('Noch keine Angebote erfasst');
+ unavailable=true;await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await expect(page.locator('.admin-desktopTable .admin-profileStatus')).toContainText('Status nicht verfügbar');
+});
+
+
+test('Profilstand lädt nur die sichtbare Seite und begrenzt parallele Abfragen',async({page})=>{
+ await mockAdmin(page);const ids=Array.from({length:26},(_,i)=>`41000000-0000-4000-8000-${String(i+100).padStart(12,'0')}`);const requests:string[]=[];let concurrent=0,maximum=0;
+ await page.route('**/rest/v1/rpc/admin_spots_intelligence_v1',route=>route.fulfill({json:{summary:{spots:26,viewed:0,partner_spots:0,views:0},spots:ids.map((id,i)=>({spot_id:id,name:`Spot ${i+1}`,city:'Basel',status:'approved',views:0,ctr:0,reviews:0}))}}));
+ await page.route('**/rest/v1/rpc/world_product_authoring_detail_v1',async route=>{
+  const id=route.request().postDataJSON().p_spot_id as string;requests.push(id);concurrent++;maximum=Math.max(maximum,concurrent);
+  await new Promise(resolve=>setTimeout(resolve,20));await route.fulfill({json:{contractVersion:'backyrd.world-knowledge.product-authoring-detail@1.0',spotId:id,actor:{allowedAttributeKeys:['identity.name']},answers:{'identity.name':{knowledgeState:'KNOWN_VALUE',value:'Beispiel'}},manifest:null}});concurrent--;
+ });
+ await page.goto('/spots');await expect(page.locator('.admin-desktopTable .admin-profileStatus').filter({hasText:'Grunddaten vorhanden'})).toHaveCount(25);expect(requests).toHaveLength(25);expect(maximum).toBeLessThanOrEqual(4);
+ await page.getByRole('button',{name:'Weiter',exact:true}).click();await expect(page.locator('.admin-desktopTable .admin-profileStatus').filter({hasText:'Grunddaten vorhanden'})).toHaveCount(1);expect(requests).toHaveLength(26);
 });

@@ -163,18 +163,18 @@ const valueLabel = (field: AuthoringField, value: unknown): string => {
 };
 
 const sectionCopy: Record<string, {title:string;description:string;icon:string}> = {
-    basics:{title:"Name, Adresse & Kontakt",description:"So finden und erreichen Gäste deinen Spot.",icon:"01"},
-    classification:{title:"Was für ein Ort ist das?",description:"Spottyp und Hauptkategorie festlegen.",icon:"02"},
-    discovery:{title:"Angebote",description:"Was Gäste buchen oder erleben können. Preise, Zeiten und Bedingungen pro Leistung.",icon:"03"},
-    areas:{title:"Räume & Bereiche",description:"Innenraum, Terrasse und weitere Bereiche: Zugang, Atmosphäre und Ausstattung pro Raum.",icon:"04"},
-    shared:{title:"Gemeinsame Ausstattung & Anreise",description:"WC, Wickeltisch, Parkplätze und Anreise einmal für den gesamten Spot pflegen.",icon:"05"},
-    hours:{title:"Wann ist geöffnet?",description:"Öffnungszeiten, Küche und besondere Tage.",icon:"06"},
-    offering:{title:"Küche & Service",description:"Küchenrichtungen und allgemeiner Service.",icon:"07"},
-    context:{title:"Atmosphäre & Besuch",description:"Wie sich der Ort anfühlt und für wen er passt.",icon:"08"},
-    price:{title:"Allgemeine Preise & Zahlung",description:"Zahlungsmittel und Preise für den gesamten Spot.",icon:"09"},
-    objective:{title:"Platz & Reservierung",description:"Kapazität, Gruppen und Reservierungsregeln.",icon:"10"},
-    amenities:{title:"Ausstattung & Zugang",description:"Barrierefreiheit, Ausstattung und Hausregeln.",icon:"11"},
-    review:{title:"Gespeichertes Profil prüfen",description:"Überblick über vorhandene Angaben und offene Widersprüche.",icon:"12"},
+    basics:{title:"Grunddaten & Kontakt",description:"Name, Adresse, Website und öffentliche Kontaktangaben.",icon:"01"},
+    classification:{title:"Spottyp & Kategorie",description:"Restaurant, Hotel, Zoo oder mehrere passende Ortstypen auswählen.",icon:"02"},
+    discovery:{title:"Angebote",description:"Leistungen wie Essen, Übernachten oder Aktivitäten – mit eigenen Preisen und Zeiten.",icon:"03"},
+    areas:{title:"Räume & Bereiche",description:"Innenräume und Aussenflächen beschreiben und den Angeboten zuordnen.",icon:"04"},
+    shared:{title:"Gemeinsame Ausstattung & Anreise",description:"Anreise, Parkplätze und Einrichtungen, die für den gesamten Spot gelten.",icon:"05"},
+    hours:{title:"Öffnungszeiten",description:"Reguläre Öffnung, Feiertage und abweichende Küchenzeiten.",icon:"06"},
+    offering:{title:"Küche & Service",description:"Küchenrichtungen, Spezialitäten, Bedienung und Take-away.",icon:"07"},
+    context:{title:"Atmosphäre & Besuch",description:"Stimmung des Spots, Besuchsanlässe und typische Tageszeiten.",icon:"08"},
+    price:{title:"Allgemeine Preise & Zahlung",description:"Akzeptierte Zahlungsmittel und allgemeine Preisangaben.",icon:"09"},
+    objective:{title:"Platz & Reservierung",description:"Sitzplätze, Gruppengrössen, Reservierungen und Aufenthaltsregeln.",icon:"10"},
+    amenities:{title:"Ausstattung & Zugang",description:"Stufenloser Zugang, barrierefreie Einrichtungen, Haustiere und Altersregeln.",icon:"11"},
+    review:{title:"Gespeichertes Profil prüfen",description:"Gespeicherte Angaben ansehen und konkrete Prüfhinweise bearbeiten.",icon:"12"},
   };
 
 /** Product authoring uses the same typed editors as the local Founder workflow,
@@ -393,6 +393,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
       }
     }
     setDetail(refreshed);
+    window.dispatchEvent(new Event("backyrd:spot-profile-updated"));
     const blocking = snapshotConflicts(refreshed).some((conflict) =>
       conflict.severity === "BLOCKING" && conflict.attributeKeys?.includes(field.attributeKey));
     const saveMessage = blocking
@@ -440,7 +441,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
   const profileSummary = (id:string):string|null => {
     if (!["discovery","areas","shared"].includes(id)) return null;
     const saved=detail?.answers["experience.profile"];
-    if (!saved || saved.knowledgeState === "UNKNOWN") return "Noch keine geprüften Angaben gespeichert";
+    if (!saved || saved.knowledgeState === "UNKNOWN") return "Noch nicht erfasst";
     try {
       const profile=parseExperienceProfile(saved.value,false);
       if(id === "discovery")return `${profile.offers.length} ${profile.offers.length === 1 ? "Angebot" : "Angebote"} gespeichert`;
@@ -555,21 +556,43 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         const sectionFields = fieldsForStep(item.id).map(field=>field.attributeKey).filter((key) => detail.actor.allowedAttributeKeys.includes(key));
         const completed = sectionFields.filter((key) => detail.answers[key]).length;
         const proLocked = surface === "OWNER" && detail.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (item.id === "objective" || item.id === "amenities");
-        return <button type="button" className={step === index ? "selected" : ""} aria-current={!overview && step===index?"page":undefined} key={item.id} onClick={() => goToStep(index)}>
+        return <button type="button" className={!overview && step === index ? "selected" : ""} aria-current={!overview && step===index?"page":undefined} key={item.id} onClick={() => goToStep(index)}>
           <b>{sectionCopy[item.id]?.icon}</b><span>{sectionCopy[item.id]?.title??item.title}<small>{proLocked ? "Mit Owner Pro verfügbar" : item.id === "review" ? "Zusammenfassung" : profileSummary(item.id) ?? `${completed} von ${sectionFields.length} Angaben erfasst`}</small></span>
         </button>;
       })}</nav>}
     </aside>
-    <main className="wk-main">{detail && (overview || current.id === "review" ? <ProfileStatus detail={detail} onOpen={openField} /> : <details className="wk-profile-status-toggle"><summary>Profilstatus ansehen{reviewNotices > 0 ? ` · ${reviewNotices} separate Prüfnotizen` : ""}</summary><ProfileStatus detail={detail} onOpen={openField} /></details>)}{detail && overview ? <section className="wk-studio-home">
-      <div className="wk-studio-intro"><span className="wk-eyebrow">DEIN SPOT, KLAR BESCHRIEBEN</span><h2>Was möchtest du bearbeiten?</h2><p>Wähle einen Bereich. Du musst nicht alles auf einmal ausfüllen. Vorhandene Angaben bleiben erhalten.</p></div>
-      <div className="wk-task-grid">{[...visibleSteps].sort((a,b)=>Number(sectionCopy[a.id]?.icon)-Number(sectionCopy[b.id]?.icon)).map(item=>{
+    <main className="wk-main">{detail && !overview && (current.id === "review" ? <ProfileStatus detail={detail} onOpen={openField} /> : <details className="wk-profile-status-toggle"><summary>Profilstatus ansehen{reviewNotices > 0 ? ` · ${reviewNotices} separate Prüfnotizen` : ""}</summary><ProfileStatus detail={detail} onOpen={openField} /></details>)}{detail && overview ? <section className="wk-studio-home">
+      {(() => {
+        const required=evaluateAuthoringReadiness({answers:detail.answers}).blocking.filter(issue=>detail.actor.allowedAttributeKeys.includes(issue.attributeKey)).sort((a,b)=>visibleSteps.findIndex(item=>item.id===a.stepId)-visibleSteps.findIndex(item=>item.id===b.stepId));
+        let profile=null, profileInvalid=false;
+        if(detail.answers["experience.profile"]?.knowledgeState==="KNOWN_VALUE"){try{profile=parseExperienceProfile(detail.answers["experience.profile"].value,false);}catch{profileInvalid=true;}}
+        const offers=profile?.offers.length??0, areas=profile?.areas.length??0;
+        const first=required[0];
+        const taskLabel=(label:string)=>label==="Art des Ortes"?"Spottyp":label;
+        const next=()=>first?openField(first.attributeKey):goToStep(Math.max(0,visibleSteps.findIndex(item=>item.id==="discovery")));
+        const started=offers>0 || required.length===0;
+        return <>
+          <section className="wk-entry-lead" aria-labelledby="wk-entry-title">
+            <div><span className="wk-entry-kicker">SPOTPROFIL</span><h2 id="wk-entry-title">Dein Spotprofil</h2>
+            <p>{first?`Als Nächstes: ${taskLabel(first.label)} ergänzen oder prüfen.`:profileInvalid?"Das gespeicherte Angebotsprofil konnte nicht gelesen werden. Öffne die Angebote zur Prüfung.":offers?"Deine Angebote sind gespeichert. Ergänze als Nächstes die passenden Details zu Preisen, Zeiten und Besuchsregeln.":"Beginne mit deinen Angeboten. Lege fest, was Gäste bei dir erleben oder nutzen können."}</p>
+            <button type="button" className="wk-entry-primary" onClick={next}>{started?"Profil weiterbearbeiten":"Profil einrichten"}<span aria-hidden="true"> →</span></button></div>
+            <dl className="wk-entry-facts"><div><dt>Grundprofil</dt><dd>{required.length?`${required.length} ${required.length===1?"Angabe":"Angaben"} prüfen`:"Pflichtangaben vorhanden"}</dd></div><div><dt>Angebote</dt><dd>{profileInvalid?"Bitte prüfen":offers?`${offers} erfasst`:"Noch keine erfasst"}</dd></div><div><dt>Räume & Bereiche</dt><dd>{areas?`${areas} erfasst`:"Noch keine erfasst"}</dd></div></dl>
+          </section>
+          {required.length>0&&<section className="wk-entry-tasks" aria-label="Nächste Aufgaben"><h3>Nächste Aufgaben</h3>{required.slice(0,3).map(issue=><button type="button" className="wk-secondary" key={issue.id} onClick={()=>openField(issue.attributeKey)}>{taskLabel(issue.label)}<span aria-hidden="true"> →</span></button>)}{required.length>3&&<p>Weitere Hinweise findest du unter „Gespeichertes Profil prüfen“.</p>}</section>}
+          {unresolved>0&&<p className="wk-entry-warning" role="status">{unresolved} {unresolved===1?"Widerspruch muss":"Widersprüche müssen"} geprüft werden. <button type="button" className="wk-secondary" onClick={()=>goToStep(visibleSteps.findIndex(item=>item.id==="review"))}>Hinweise öffnen</button></p>}
+        </>;
+      })()}
+      <div className="wk-section-heading"><h3>Alle Profilbereiche</h3><p>Öffne einen Abschnitt oder nutze den geführten Ablauf oben.</p></div>
+      <div className="wk-task-grid">{visibleSteps.map(item=>{
         const keys=fieldsForStep(item.id).filter(f=>detail.actor.allowedAttributeKeys.includes(f.attributeKey));
         const count=keys.filter(f=>detail.answers[f.attributeKey] && detail.answers[f.attributeKey].knowledgeState!=="UNKNOWN").length;
         const copy=sectionCopy[item.id];
-        return <button type="button" className={`wk-task-card ${["discovery","areas","shared"].includes(item.id)?"featured":""}`} key={item.id} onClick={()=>goToStep(visibleSteps.indexOf(item))}>
-          <span className="wk-task-number">{copy?.icon}</span><span className="wk-task-content"><strong>{copy?.title??item.title}</strong><span>{copy?.description??item.explanation}</span><small>{item.id==="review"?"Profil ansehen":profileSummary(item.id)??`${count} ${count===1?"Angabe":"Angaben"} vorhanden`}</small></span><span aria-hidden="true">↗</span>
+        const locked=surface==="OWNER"&&detail.actor.role==="VERIFIED_OWNER"&&detail.actor.entitlement==="OWNER_BASIC"&&["objective","amenities"].includes(item.id);
+        return <button type="button" className="wk-task-card" key={item.id} onClick={()=>goToStep(visibleSteps.indexOf(item))}>
+          <span className="wk-task-number">{copy?.icon}</span><span className="wk-task-content"><strong>{copy?.title??item.title}</strong><span>{copy?.description??item.explanation}</span></span><small className="wk-task-status">{locked?"Owner Pro":item.id==="review"?"Zusammenfassung":profileSummary(item.id)??`${count} ${count===1?"Angabe":"Angaben"}`}</small><span className="wk-task-arrow" aria-hidden="true">→</span>
         </button>;
-      })}</div><p className="wk-studio-help">Gut zu wissen: Ein Angebot ist eine Leistung, z. B. Abendessen oder Übernachtung. Ein Bereich ist ein Ort im Spot, z. B. Terrasse oder Gästezimmer.</p>
+      })}</div>
+      <details className="wk-entry-audit"><summary>Alle Prüfhinweise{reviewNotices>0?` · ${reviewNotices} separate Prüfnotizen`:""}</summary><ProfileStatus detail={detail} onOpen={openField}/></details>
     </section> : !detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>{surface === "OWNER" ? "Suche deinen freigegebenen Spot nach Namen. Danach kannst du seine Angaben Schritt für Schritt ergänzen." : "Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen."}</p></section>
       : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${visibleSteps.length}`}><span style={{ width: `${((step + 1) / visibleSteps.length) * 100}%` }} /></div><div className="wk-step-title"><span>Spotprofil bearbeiten · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : profileSummary(current.id) ?? `${fields.filter((field) => detail.answers[field.attributeKey]).length} von ${fields.length} Angaben gespeichert`}</span><h2>{sectionCopy[current.id]?.title??current.title}</h2><p>{sectionCopy[current.id]?.description??current.explanation}</p>
         </div>

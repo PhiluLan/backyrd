@@ -89,7 +89,7 @@ test("Owner wählt seinen Spot nach Namen statt per ID", async ({ page }, testIn
   await expect(page.getByText("Spot-ID")).toHaveCount(0);
   await page.getByRole("button", { name: /Volta Bräu Basel/ }).click();
   await expect(page.getByRole("heading", { name: "Volta Bräu" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Was möchtest du bearbeiten?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dein Spotprofil" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("owner-spot-editor-desktop.png"), fullPage: true });
 });
 
@@ -397,7 +397,7 @@ test('Spottypen zeigen passende Vorschläge, suchen global und behalten zusätzl
 for(const width of [320,390,1280])test(`Spot Studio startet mit verständlicher Aufgabenübersicht bei ${width}px`,async({page},testInfo)=>{
  await page.setViewportSize({width,height:900});await mockOwner(page,'OWNER_BASIC');
  await page.goto(`/owner/spots/${spotId}`);
- await expect(page.getByRole('heading',{name:'Was möchtest du bearbeiten?'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Dein Spotprofil'})).toBeVisible();
  await expect(guided(page)).toHaveCount(0);
  await expect(page.getByRole('button',{name:/03 Angebote/})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -409,10 +409,10 @@ for(const width of [320,390,1280])test(`Spot Studio startet mit verständlicher 
  await guided(page).getByRole('button',{name:'essen gehen',exact:true}).click();
  await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
  await expect(page.getByRole('status').filter({hasText:'Dein Entwurf ist noch nicht gespeichert'})).toBeVisible();
- await expect(page.getByRole('heading',{name:'Was möchtest du bearbeiten?'})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'Dein Spotprofil'})).toHaveCount(0);
  await page.screenshot({path:testInfo.outputPath(`studio-offer-${width}.png`),fullPage:true});
  await saveProfile(page);await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Was möchtest du bearbeiten?'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Dein Spotprofil'})).toBeVisible();
 });
 
 test('Normale Profilfelder schützen ungespeicherte Eingaben und lassen sie bewusst verwerfen',async({page})=>{
@@ -511,6 +511,7 @@ for (const width of [390, 1280]) test(`Prüfnotizen erklären alte Speicherfassu
   const note={class:"AUTHORITY_CONFLICT",attributeKey:"experience.profile",reasonCodes:["CONCURRENT_AUTHORITATIVE_CONFLICT"]};
   const owner=await mockOwner(page,"OWNER_PRO","ADMIN",{}, {notes:[note,note],conflicts:[]});
   await page.goto(`/owner/spots/${spotId}`);
+  await page.locator(".wk-entry-audit > summary").click();
   const status=page.getByRole("region",{name:"Profilstatus und offene Angaben"});
   await expect(status.getByText("Die aktuelle Datenansicht enthält keine Widersprüche.",{exact:false})).toBeVisible();
   await expect(status.getByText("2 separate Prüfnotizen zu 1 Angabe")).toBeVisible();
@@ -528,6 +529,7 @@ for (const width of [390, 1280]) test(`Prüfnotizen erklären alte Speicherfassu
 test("Profilstatus öffnet optionale Felder gezielt und schützt einen vorhandenen Entwurf", async ({page}) => {
   await mockOwner(page,"OWNER_PRO","ADMIN");
   await page.goto(`/owner/spots/${spotId}`);
+  await page.locator(".wk-entry-audit > summary").click();
   const status=page.getByRole("region",{name:"Profilstatus und offene Angaben"});
   await status.locator("details").first().locator("summary").click();
   await status.getByRole("button",{name:"Öffnen: Öffentliche Spot-E-Mail",exact:true}).click();
@@ -543,6 +545,7 @@ test("Profilstatus öffnet optionale Felder gezielt und schützt einen vorhanden
 test("Prüfnotizen werden bei aktuellem Widerspruch nicht als konfliktfrei dargestellt", async ({page}) => {
   await mockOwner(page,"OWNER_PRO","ADMIN",{}, {notes:[{class:"USER_REPORT",attributeKey:"experience.profile",reasonCodes:["FUTURE_CODE"]}],conflicts:[{severity:"BLOCKING",attributeKeys:["experience.profile"]}]});
   await page.goto(`/owner/spots/${spotId}`);
+  await page.locator(".wk-entry-audit > summary").click();
   const status=page.getByRole("region",{name:"Profilstatus und offene Angaben"});
   await expect(status.getByText(/1 Widerspruch in der aktuellen Datenansicht/)).toBeVisible();
   await expect(status.getByText(/genaue Ursache ist hier nicht verfügbar/)).toBeVisible();
@@ -696,4 +699,13 @@ test('Angebotsauswahl trennt Clubabend von Musikereignis und entfernt Gastronomi
  const profile=owner.submissions[0].p_value as {offers:Array<{kind:string;name:string;properties:Array<{key:string;value:unknown}>}>};
  expect(profile.offers[0]).toMatchObject({kind:'EVENT',name:'Clubabend / Tanzen',properties:[{key:'experience.activity',value:'Tanzen'}]});
  await reloadEditor(page);await expect(guided(page).getByRole('button',{name:'Angebot Clubabend / Tanzen bearbeiten',exact:true})).toBeVisible();
+});
+
+for(const width of [390,1280])test(`Neuer Einstieg zeigt eine klare Aktion und führt zur fehlenden Pflichtangabe bei ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:900});await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);
+ await expect(page.getByRole('heading',{name:'Dein Spotprofil',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Profil einrichten',exact:false})).toBeVisible();
+ await expect(page.locator('.wk-task-card.featured')).toHaveCount(0);await expect(page.getByRole('heading',{name:'Was ist noch offen?',exact:true})).toBeHidden();
+ await page.getByRole('button',{name:'Profil einrichten',exact:false}).click();
+ await expect(page.locator('.wk-field-with-usage:focus')).toHaveCount(1);await expect(page.locator('.wk-studio-home')).toHaveCount(0);
 });

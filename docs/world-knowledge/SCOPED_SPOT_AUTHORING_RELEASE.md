@@ -364,7 +364,7 @@ the actual editor and focus the target. Normal optional fields are openly listed
 block that navigation. No production Spot facts, review decisions, RPC contracts,
 schema or permissions are changed by this UI release.
 
-The status explanation stays expanded on the task overview and review screen.
+The status explanation stays expanded on the review screen; the entry overview keeps it behind “Alle Prüfhinweise”.
 During field editing it is collapsed behind “Profilstatus ansehen”, preserving
 mobile space for the actual form while keeping notice counts discoverable.
 
@@ -440,3 +440,35 @@ EVENT alone never implies dancing; only the confirmed scoped property does.
 Venue classification (e.g. NIGHTCLUB) remains a separate, explicit fact. No stored
 Basso facts or other production claims are rewritten, and no database schema,
 consent, permissions, or Owner tier boundaries change.
+
+
+### Guided profile entry and current worklist status (2026-10-15)
+
+The shared entry opens with one primary action, “Profil einrichten” or “Profil
+weiterbearbeiten”. The next required actor-visible issue is selected in section
+order and opens its field directly. With no required issue, the action opens
+Offers. Counts describe stored offers and areas, not completeness. An unreadable
+stored profile is labelled for review rather than represented as empty.
+
+The entry uses a neutral, compact section list with numbered rows. There are no
+permanently highlighted offers/areas/shared rows and no selected sidebar item
+while viewing the overview. Technical audit details and optional global gaps are
+available under “Alle Prüfhinweise” and on the review screen. Existing precise
+correction links, review tasks, draft guards, Owner entitlements and source
+consent remain intact. Introductory text and section descriptions name editable
+content rather than backend concepts.
+
+The Admin spot list no longer calls admin_spot_readiness_worklist_v1 or displays
+legacy Gold coverage percentages and gaps. It reads the existing authenticated
+world_product_authoring_detail_v1 and applies the same core required-field
+readiness evaluator as the editor. It distinguishes missing required facts,
+current snapshot conflicts, unreadable offerings, and unavailable status.
+“Grunddaten vorhanden” does not claim a complete or verified experience profile;
+the adjacent offer count or absence states what is actually stored.
+
+Only 25 visible spots are evaluated per page, with four workers per page load.
+Responses from an obsolete search/page/refresh are ignored. Focus, return to a
+visible tab, a same-window confirmed editor save, or the refresh button reload
+status. Failed reads replace the current batch with an honest unavailable state;
+old scores are never used as fallback. This uses existing RPCs and permissions,
+with no database migration or production fact mutations.
