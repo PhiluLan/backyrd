@@ -259,3 +259,21 @@ and preserved Consum's saved offering. Full IDs and remaining limitations are
 recorded in `docs/operations/releases/UNIVERSAL_SPOT_CATALOG_2026_10_15.json`.
 The earlier statements about non-production implementation/test work above
 remain historical context; this paragraph records the subsequent publication.
+
+
+## Clock-order verification correction (2026-10-15, pending publication)
+
+Production 25hours authoring failed with verification_binding_invalid. A
+synthetic +1 second device clock reproduces the same rejection: the authoritative
+writer permits observed_at up to 60 seconds ahead, but the verification trigger
+previously rejected any checked_at before observed_at. The forward correction
+uses claim.created_at as the server receipt ordering boundary, while preserving
+the existing 60-second observation tolerance and the verification future limit.
+Original timestamps, content/result hashes, idempotency, actor ownership/admin
+checks, source policies, private ACLs and RLS remain unchanged. Verification
+before server receipt remains forbidden. No existing claims are rewritten.
+
+Regression coverage exercises the actual Product Admin RPC, Owner writes,
+unchanged request replay, excessive future timestamps, foreign Owner/non-admin
+denial, anonymous/private ACLs and an explicitly forged pre-receipt verification.
+A server-side-only fix lets an open failed form retry without discarding its draft.
