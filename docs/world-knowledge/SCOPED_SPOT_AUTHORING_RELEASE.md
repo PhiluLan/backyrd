@@ -107,3 +107,47 @@ were not fabricated. Production profiles are not synthetic test fixtures.
 Zoo visit hides guiding and languages; its guided tour exposes them; its
 embedded gastronomy retains the entry-ticket question. ELYS cafe has no sport
 equipment question. The ELYS page has no horizontal overflow at 390 px.
+
+## Guided authoring pages (2026-10-15)
+
+The shared Admin/Owner experience editor now has separate overview pages for
+offers, areas, shared visit rules, deliberate reuse and review/save. Only one
+offer or area is edited at a time. Each property has its own page, with Next/Back
+and a direct topic selector; prices and offer schedules have their own pages.
+No nested offer/group/answer accordions remain. Optional answer conditions use
+one disclosure level. Viewing or skipping a question does not create an answer.
+The same whole-profile review and authorized submission RPC remain authoritative.
+
+Categorical multi-value questions expose directly selectable answers. Four drinks
+and three atmosphere values can coexist and survive reload. Each value is still
+stored as its own scoped property; there is no new schema or lossy comma-list.
+Single-value choices such as booking or entry mode replace the previous general
+selection. Conditional variants, historical free values and unrelated properties
+remain intact. The friendly atmosphere label “lebendig” retains the existing
+stored value “lebhaft”. Missing knowledge remains distinct from false or not
+applicable. Initial blank prices remain blank; explicit zero remains allowed.
+
+Drafts survive internal page and topic changes. The outer Spot section selector
+and Admin Spot switch refuse to discard a dirty profile silently. Save failure
+keeps the draft and does not announce success. Explicit discard restores the
+latest successfully saved baseline, including saves earlier in the same session.
+An invalid persisted profile is still blocked instead of overwritten as empty.
+No source import, actor permission, Owner entitlement or moderation rule changes.
+
+The older global authoring fields cannot be deleted in this UI release: the
+currently deployed product evaluator still reads context.atmosphere, legacy
+cuisine/offering fields, access rules and other global facts. Their existing
+pages therefore stay editable and show a clear “Allgemeines Spotprofil” notice.
+Scoped offer/area facts are not automatically flattened into that global profile.
+Deliberate reuse creates only a target-specific draft and preserves its source.
+Retiring these global writers requires a separate consumer migration; a UI-only
+hide/delete would leave the current App without maintainable inputs.
+
+Validation: 29 Chromium authoring browser cases, four iPhone/WebKit cases,
+82 Admin and 19 Web contract tests, Admin/Web production builds and strict types
+passed with synthetic local configuration. Targeted source lint passed (the
+shared-code run emits the existing Next pages-directory configuration notice).
+Mobile checks cover 320/390 px geometry, more than two simultaneous selections,
+serialized save/reload, one disclosure level, failure/retry, deliberate reuse,
+old conditional/free values and latest-baseline discard. No production Spot data
+was modified by these tests.

@@ -257,7 +257,7 @@ function ContextualInput({ field, value, onChange }: { field: AuthoringField; va
   </div>;
 }
 
-function FieldInput({ field, answer, candidate, applicability, referenceValue, existingAnswers, onPrepareDiscovery, onSave, onSaveCandidate, onApplicability, onConfirm, onError, disabled, disabledReason }: ProductFieldInputProps) {
+function FieldInput({ field, answer, candidate, applicability, referenceValue, existingAnswers, onDraftChange, onContinue, onPrepareDiscovery, onSave, onSaveCandidate, onApplicability, onConfirm, onError, disabled, disabledReason }: ProductFieldInputProps) {
   const initialValue = answer?.value ?? candidate?.value ?? emptyFieldValue(field.control);
   const [value, setValue] = useState<unknown>(initialValue);
   const [saving, setSaving] = useState(false);
@@ -293,7 +293,7 @@ function FieldInput({ field, answer, candidate, applicability, referenceValue, e
     : field.control === "WEEKLY_SCHEDULE" ? <><WeeklyScheduleInput value={value} onChange={setValue} /><button type="button" onClick={() => save("KNOWN_VALUE")}>Zeiten übernehmen</button></>
     : field.control === "SPECIAL_HOURS" ? <><SpecialHoursInput value={value} onChange={setValue} /><div className="wk-inline"><button type="button" disabled={!Array.isArray(value) || value.length === 0} onClick={() => save("KNOWN_VALUE")}>Sondertage übernehmen</button><button type="button" className="wk-secondary" onClick={() => save("KNOWN_VALUE", [])}>Keine besonderen Zeiten vorhanden</button></div><p className="wk-field-hint">„Keine besonderen Zeiten“ ist eine bestätigte leere Liste – nicht „unbekannt“. Reguläre Öffnungs- und Küchenzeiten bleiben unverändert.</p></>
     : ["RESERVATION_RULE", "CONSUMPTION_RULE", "PET_ACCESS_RULE", "AGE_ACCESS_RULE", "AGE_ACCESS_RULE_V2"].includes(field.control) ? <><RuleInput control={field.control} value={value} onChange={setValue} /><button type="button" onClick={() => save("KNOWN_VALUE")}>Regel übernehmen</button></>
-    : field.control === "EXPERIENCE_PROFILE" ? <ExperienceInput existingAnswers={existingAnswers} value={value} onChange={setValue} onSave={(profile)=>onSave("KNOWN_VALUE",profile)} disabled={disabled||saving} />
+    : field.control === "EXPERIENCE_PROFILE" ? <ExperienceInput onDirtyChange={onDraftChange} onContinue={onContinue} existingAnswers={existingAnswers} value={value} onChange={setValue} onSave={(profile)=>onSave("KNOWN_VALUE",profile)} disabled={disabled||saving} />
     : field.control === "DISCOVERY_PROFILE" ? <DiscoveryInput value={value} onChange={setValue} onPrepare={onPrepareDiscovery} onSave={(profile)=>onSave("KNOWN_VALUE",profile)} disabled={disabled||saving} />
     : field.control === "PRICE_OPTIONS" ? <><PriceOptionsInput value={value} onChange={setValue} /><button type="button" disabled={!Array.isArray(value) || value.length === 0} onClick={() => save("KNOWN_VALUE")}>Preise übernehmen</button></>
     : field.valueType === "COUNTRY_CODE" ? <div className="wk-inline"><select aria-label={field.label} className="wk-input" value={String(value ?? "")} onChange={(event) => setValue(event.target.value)}><option value="">Bitte auswählen</option><option value="CH">Schweiz</option><option value="DE">Deutschland</option><option value="AT">Österreich</option><option value="FR">Frankreich</option><option value="IT">Italien</option><option value="LI">Liechtenstein</option></select><button type="button" onClick={() => save("KNOWN_VALUE")}>Übernehmen</button></div>
