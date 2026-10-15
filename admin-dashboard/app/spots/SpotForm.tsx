@@ -1291,11 +1291,10 @@ export function SpotForm({
 
         {canonicalKnowledgeManaged ? (
           <div className="by-panel by-section" style={{ padding: 18 }}>
-            <div className="by-h3">Betrieb & Medien</div>
+            <div className="by-h3">Bilder & Verwaltung</div>
             <div className="by-muted by-small" style={{ marginTop: 6 }}>
-              Name, Standort, Kategorie, Preis, Kontakte, Beschreibung und Öffnungszeiten
-              werden einmalig im Bereich „Spot-Wissen pflegen“ bearbeitet. Von dort
-              gelangen sie geprüft zu Decision vNext und in die bestehenden App-Leser.
+              Hier verwaltest du Bilder und den Veröffentlichungsstatus. Angaben zum Spot
+              bearbeitest du unter „Profil & Angebote“.
             </div>
             <div style={{ height: 14 }} />
             <Field label="Spot-Status">

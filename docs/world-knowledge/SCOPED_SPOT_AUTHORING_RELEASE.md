@@ -280,3 +280,33 @@ A server-side-only fix lets an open failed form retry without discarding its dra
 
 
 The clock-order correction was published from Main source `f8af68d58e4569b456044e4b3c62f3df1dbf9686` through certified production run 38736379377. Read-only checks confirmed migration 20261015122708 and the new server-receipt ordering guard, with private validator ACLs retained. Existing phone drafts can retry against the corrected backend without a frontend reload. Full release identities are recorded in `docs/operations/releases/WORLD_VERIFICATION_CLOCK_FIX_2026_10_15.json`.
+
+
+## Spot Studio interface redesign (2026-10-15)
+
+The edit route now opens with a task overview: identity/contact, place type,
+linked offers and spaces, hours, service, atmosphere, general prices,
+reservation/capacity, equipment/access and profile review. Admin and Owner use
+one shared layout. Selecting a task opens its editing workspace; mobile uses
+“All areas” to return to the overview instead of a second permanent selector.
+Offer/area editing shows one question at a time with a topic strip and Back/Next.
+Unknown/not applicable remains separate from negative answers and is a secondary
+action. Public-text preparation still requires the existing consent and review.
+
+Admin media/status editing is a separate workspace. Both workspaces stay mounted
+so changing between them retains unsaved offer and field drafts. Navigating away
+from unsaved authoring is blocked within the editor, and browser unload requests
+confirmation. Ordinary field drafts can be explicitly discarded. This is browser
+memory protection, not persistent draft storage or a guarantee against tab crashes.
+Existing claims, scoped values, links, RPCs, permissions and schema are unchanged.
+
+Validation commands (synthetic fixtures, no production writes):
+
+- `cd web && npx playwright test e2e/world-knowledge-authoring.spec.ts --workers=1`
+- `cd web && npx playwright test --config playwright.admin.config.ts`
+- `npm --prefix admin-dashboard run test:contracts`
+- strict TypeScript and production builds for Web and Admin.
+
+The dedicated Admin Playwright configuration starts its own local server with
+synthetic credentials. Screenshots cover 390/1280 px; shared authoring also covers
+320 px. UI build success does not itself claim publication to production.

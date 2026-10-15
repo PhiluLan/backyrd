@@ -70,6 +70,16 @@ async function mockOwner(page: Page, tier: "OWNER_BASIC" | "OWNER_PRO", role: "V
   return { submissions };
 }
 
+async function openEditor(page:Page) {
+ await page.goto(`/owner/spots/${spotId}`);
+ await page.getByRole('button',{name:/03 Angebote & Räume/}).click();
+}
+async function reloadEditor(page:Page) {
+ await page.reload();
+ const entry=page.getByRole('button',{name:/03 Angebote & Räume/});
+ await entry.waitFor({state:'visible'});await entry.click();
+}
+
 test("Owner wählt seinen Spot nach Namen statt per ID", async ({ page }, testInfo) => {
   await mockOwner(page, "OWNER_BASIC");
   await page.goto("/owner/world-knowledge");
@@ -78,24 +88,24 @@ test("Owner wählt seinen Spot nach Namen statt per ID", async ({ page }, testIn
   await expect(page.getByText("Spot-ID")).toHaveCount(0);
   await page.getByRole("button", { name: /Volta Bräu Basel/ }).click();
   await expect(page.getByRole("heading", { name: "Volta Bräu" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /2 Grundinformationen/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Was möchtest du bearbeiten?" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("owner-spot-editor-desktop.png"), fullPage: true });
 });
 
 test("Basis-Owner kann 1–6 pflegen, während 7–8 sichtbar gesperrt bleiben", async ({ page }) => {
   const owner = await mockOwner(page, "OWNER_BASIC");
-  await page.goto(`/owner/spots/${spotId}`);
-  await page.getByRole("button", { name: /6 Preise und Bezahlung/ }).click();
+  await openEditor(page);
+  await page.getByRole("button", { name: /07 Allgemeine Preise & Zahlung/ }).click();
   await page.getByText("Weitere Angaben").click();
   await page.getByLabel("Preislevel").selectOption("MEDIUM");
   await expect.poll(() => owner.submissions.length).toBe(1);
   expect(owner.submissions[0].p_attribute_key).toBe("operation.price_level");
-  await page.getByRole("button", { name: /8 Objektive Eigenschaften/ }).click();
+  await page.getByRole("button", { name: /08 Platz & Reservierung/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
   await expect(page.getByText("CHF 39.–")).toBeVisible();
   await expect(page.getByRole("link", { name: "Owner Pro entdecken" })).toHaveAttribute("href", `/owner/billing?spot=${spotId}`);
   await expect(page.getByText("Sitzplätze gesamt")).toHaveCount(0);
-  await page.getByRole("button", { name: /9 Ausstattung und Einschränkungen/ }).click();
+  await page.getByRole("button", { name: /09 Ausstattung & Zugang/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
   await expect(page.getByText("CHF 39.–")).toBeVisible();
   await expect(page.getByText("Spot-ID")).toHaveCount(0);
@@ -103,8 +113,8 @@ test("Basis-Owner kann 1–6 pflegen, während 7–8 sichtbar gesperrt bleiben",
 
 test("Pro-Owner erhält die vom Server erlaubten Zusatzfelder", async ({ page }) => {
   await mockOwner(page, "OWNER_PRO");
-  await page.goto(`/owner/spots/${spotId}`);
-  await page.getByRole("button", { name: /8 Objektive Eigenschaften/ }).click();
+  await openEditor(page);
+  await page.getByRole("button", { name: /08 Platz & Reservierung/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toHaveCount(0);
   await page.getByText("Weitere Angaben").click();
   await expect(page.getByText("Sitzplätze gesamt")).toBeVisible();
@@ -112,9 +122,9 @@ test("Pro-Owner erhält die vom Server erlaubten Zusatzfelder", async ({ page })
 
 test("Admin-Zugriff erklärt die Freigabe der Pro-Bereiche", async ({ page }) => {
   await mockOwner(page, "OWNER_BASIC", "ADMIN");
-  await page.goto(`/owner/spots/${spotId}`);
+  await openEditor(page);
   await expect(page.getByText("Admin-Zugriff: Alle Bereiche sind für dich freigeschaltet.", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: /8 Objektive Eigenschaften/ }).click();
+  await page.getByRole("button", { name: /08 Platz & Reservierung/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toHaveCount(0);
 });
 
@@ -142,12 +152,12 @@ test("Ein fremder Spot bleibt trotz direkter URL gesperrt", async ({ page }) => 
 test("Die Spot-Pflege bleibt auf dem Smartphone lesbar", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockOwner(page, "OWNER_BASIC");
-  await page.goto(`/owner/spots/${spotId}`);
+  await openEditor(page);
   await expect(page.getByRole("heading", { name: "Volta Bräu" })).toBeVisible();
-  await expect(page.getByLabel("Bereich auswählen")).toBeVisible();
+  await expect(page.getByRole("button",{name:"Alle Bereiche",exact:true})).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Bereiche der Spot-Pflege" })).toBeHidden();
-  await page.getByLabel("Bereich auswählen").selectOption({label:"8. Eigenschaften"});
-  await expect(page.getByRole("heading", { name: "Objektive Eigenschaften und Nutzungsmöglichkeiten" })).toBeVisible();
+  await outerStep(page,7);
+  await expect(page.getByRole("heading", { name: "Platz & Reservierung" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Weiter", exact: true })).toBeVisible();
   await page.locator(".owner-mobile-menu summary").click();
@@ -182,8 +192,8 @@ test("Owner-Einblicke versprechen keine vNext-Platzierung", async ({ page }) => 
 
 for (const mobile of [false,true]) test(`Konkrete Owner-Preise bleiben vollständig und bearbeitbar (${mobile?'mobil':'desktop'})`,async({page},testInfo)=>{
  if(mobile)await page.setViewportSize({width:390,height:844});
- const owner=await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);
- if(mobile)await page.getByLabel('Bereich auswählen').selectOption('5');else await page.getByRole('button',{name:/6 Preise und Bezahlung/}).click();
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);
+ await outerStep(page,5);
  const field=page.locator('[id="field-operation.price_options"]');
  await field.getByRole('button',{name:'+ Preis hinzufügen',exact:true}).click();
  await expect(field.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('');
@@ -193,7 +203,7 @@ for (const mobile of [false,true]) test(`Konkrete Owner-Preise bleiben vollstän
  await field.getByRole('checkbox').nth(0).check();await field.getByRole('checkbox').nth(1).check();
  await field.getByRole('button',{name:'Preise übernehmen',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(1);
  expect(owner.submissions[0].p_attribute_key).toBe('operation.price_options');expect(owner.submissions[0].p_value).toMatchObject([{purposes:['DRINK','SNACK'],min:8.5,max:12.5,basis:'PER_PERSON',minimumAge:null,maximumAge:null,allOfferingsCovered:true,mandatoryFeesIncluded:true}]);
- await page.reload();if(mobile)await page.getByLabel('Bereich auswählen').selectOption('5');else await page.getByRole('button',{name:/6 Preise und Bezahlung/}).click();
+ await reloadEditor(page);await outerStep(page,5);
  await expect(field.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('8.5');await expect(field.getByLabel('Preis 1 Bis',{exact:true})).toHaveValue('12.5');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(mobile?390:1280);
  await page.screenshot({path:testInfo.outputPath(`comparable-prices-${mobile?'mobile':'desktop'}.png`),fullPage:true});
@@ -205,7 +215,7 @@ for(const mobile of [false,true])test(`Spotwissen Consent Review Reload ${mobile
  const source='Gäste bauen selbst Moosterrarien.';
  await page.route('**/rest/v1/rpc/world_product_discovery_publish_source_v1',async route=>{published++;expect(JSON.parse(route.request().postData()??'{}').p_source_text).toBe(source);await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({sourceHash:'a'.repeat(64)})});});
  await page.route('**/api/world-knowledge/discovery',async route=>{prepared++;const input=JSON.parse(route.request().postData()??'{}');expect(Object.keys(input).sort()).toEqual(['consentToOpenAI','sourceHash','spotId']);await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({requiresHumanReview:true,draft:{contractVersion:'backyrd.world-knowledge.discovery-profile@1.0',description:source,reviewed:false,offerings:[],assertions:[{id:'build',kind:'VISIT',concepts:['build moss terrariums'],offeringId:null,state:'PRESENT',evidence:source,conditions:null,validFrom:null,validUntil:null}]}})});});
- await page.goto(`/owner/spots/${spotId}`);
+ await openEditor(page);
  await page.getByText("Angaben aus öffentlichem Text vorbereiten (optional)",{exact:true}).click();
  const field=page.locator('[id="field-discovery.profile"]');
  await field.getByLabel('Öffentlicher Beschreibungstext',{exact:true}).fill(source);
@@ -215,12 +225,19 @@ for(const mobile of [false,true])test(`Spotwissen Consent Review Reload ${mobile
  await expect(field.getByRole('button',{name:'Geprüftes Wissen übernehmen',exact:true})).toBeDisabled();
  await field.getByRole('checkbox').last().check();await field.getByRole('button',{name:'Geprüftes Wissen übernehmen',exact:true}).click();
  await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toMatchObject({reviewed:true,description:source});
- await page.reload();await page.getByText("Angaben aus öffentlichem Text vorbereiten (optional)",{exact:true}).click();await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
+ await reloadEditor(page);await page.getByText("Angaben aus öffentlichem Text vorbereiten (optional)",{exact:true}).click();await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(mobile?390:1280);
 });
 
 
-const outerStep=async(page:Page,index:number)=>{if((page.viewportSize()?.width??1280)<=760)await page.getByLabel('Bereich auswählen').selectOption(String(index));else await page.getByRole('navigation',{name:'Bereiche der Spot-Pflege'}).getByRole('button').nth(index).click();};
+const outerStep=async(page:Page,index:number)=>{
+ const labels=['03 Angebote & Räume','01 Name, Adresse & Kontakt','02 Was für ein Ort ist das?','05 Küche & Service','06 Atmosphäre & Besuch','07 Allgemeine Preise & Zahlung','04 Wann ist geöffnet?','08 Platz & Reservierung','09 Ausstattung & Zugang','10 Gespeichertes Profil prüfen'];
+ const name=new RegExp(labels[index].replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+ if((page.viewportSize()?.width??1280)<=760){
+  await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
+  const target=page.getByRole('button',{name});if(await target.count())await target.click();
+ }else await page.getByRole('navigation',{name:'Bereiche der Spot-Pflege'}).getByRole('button',{name}).click();
+};
 const guided=(page:Page)=>page.locator('.wk-guided-authoring');
 const addFromCatalogue=async(page:Page,label:string)=>{
  await expect(guided(page).getByRole('group',{name:'Angebote und Bereiche pflegen',exact:true})).toBeVisible();
@@ -228,11 +245,8 @@ const addFromCatalogue=async(page:Page,label:string)=>{
  const select=guided(page).getByLabel('Weiteres Angebot hinzufügen',{exact:true});if(await select.count()){await select.selectOption({label});return;}
  await guided(page).getByLabel('Weiteren Bereich hinzufügen',{exact:true}).selectOption({label});
 };
-const mainStep=async(page:Page,step:number)=>guided(page).getByLabel('Schritt der Angebote und Bereiche').selectOption(String(step));
-const part=async(page:Page,name:string)=>{
- const select=guided(page).getByLabel(/Abschnitt des (Angebots|Bereichs)/);
- const labels=await select.locator('option').allTextContents();const label=labels.find(label=>label.slice(label.indexOf('.')+2)===name);if(!label)throw new Error(`Missing topic: ${name}`);await select.selectOption({label});
-};
+const mainStep=async(page:Page,step:number)=>guided(page).getByRole('navigation',{name:'Schritt der Angebote und Bereiche'}).getByRole('button').nth(step).click();
+const part=async(page:Page,name:string)=>guided(page).getByRole('navigation',{name:/Abschnitt des (Angebots|Bereichs)/}).getByRole('button',{name,exact:true}).click();
 const overview=async(page:Page)=>guided(page).getByRole('button',{name:'← Zur Übersicht',exact:true}).click();
 const saveProfile=async(page:Page)=>{if(await guided(page).getByRole('button',{name:'← Zur Übersicht',exact:true}).count())await overview(page);await mainStep(page,4);await guided(page).getByRole('checkbox',{name:/Ich habe Angebote, Bereiche/}).check();await guided(page).getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();};
 
@@ -243,15 +257,15 @@ for(const scenario of [
  {category:'MUSEUM',area:'Cafébereich',offer:'Café'},
  {category:'SPORT',area:'Boulderbereich',offer:'Bouldern'},
 ])test(`Geführte Pflege speichert ${scenario.category} und erhält Verknüpfungen`,async({page})=>{
- const type={RESTAURANT:'RESTAURANT',BAR:'WINE_BAR',ZOO:'ZOO',MUSEUM:'MUSEUM',SPORT:'CLIMBING_GYM'}[scenario.category];const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:[type]}});await page.goto(`/owner/spots/${spotId}`);
+ const type={RESTAURANT:'RESTAURANT',BAR:'WINE_BAR',ZOO:'ZOO',MUSEUM:'MUSEUM',SPORT:'CLIMBING_GYM'}[scenario.category];const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:[type]}});await openEditor(page);
  await mainStep(page,1);await addFromCatalogue(page,scenario.area);await overview(page);
  await mainStep(page,0);await addFromCatalogue(page,scenario.offer);await guided(page).getByRole('checkbox',{name:scenario.area,exact:true}).check();
  await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const p=owner.submissions[0].p_value as {category:string;areas:Array<{id:string}>;offers:Array<{areaIds:string[]}>};expect(p.category).toBe(scenario.category==='RESTAURANT'?'EAT':scenario.category);expect(p.offers[0].areaIds).toEqual([p.areas[0].id]);
- await page.reload();await guided(page).getByLabel(`Angebot ${scenario.offer} bearbeiten`,{exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue(scenario.offer);await expect(guided(page).getByRole('checkbox',{name:scenario.area,exact:true})).toBeChecked();
+ await reloadEditor(page);await guided(page).getByLabel(`Angebot ${scenario.offer} bearbeiten`,{exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue(scenario.offer);await expect(guided(page).getByRole('checkbox',{name:scenario.area,exact:true})).toBeChecked();
 });
 
 for(const width of [320,390])test(`Mehrfachauswahl und flache Themenseiten bei ${width}px`,async({page},testInfo)=>{
- await page.setViewportSize({width,height:844});const owner=await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);
+ await page.setViewportSize({width,height:844});const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);
  await addFromCatalogue(page,'Getränke');await part(page,'Getränke einschließlich alkoholfreier Auswahl');
  const drinks=guided(page).getByRole('region',{name:'Getränke einschließlich alkoholfreier Auswahl',exact:true});
  for(const label of ['Wein','Bier','Kaffee','alkoholfreie Getränke'])await drinks.getByRole('button',{name:label,exact:true}).click();
@@ -262,57 +276,57 @@ for(const width of [320,390])test(`Mehrfachauswahl und flache Themenseiten bei $
  await expect(guided(page).getByRole('heading',{name:'Preise (0)'})).toHaveCount(0);expect(await guided(page).locator('details details').count()).toBe(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
  await page.screenshot({path:testInfo.outputPath(`guided-atmosphere-${width}.png`),fullPage:true});await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
  const p=owner.submissions[0].p_value as {areas:Array<{properties:Array<{key:string;value:unknown}>}>;offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.areas[0].properties.filter(x=>x.key==='atmosphere.character').map(x=>x.value)).toEqual(['gemütlich','lebhaft','gesellig']);expect(p.offers[0].properties.filter(x=>x.key==='food.drink')).toHaveLength(4);
- await page.reload();await mainStep(page,1);await guided(page).getByLabel('Bereich Terrasse bearbeiten',{exact:true}).click();await part(page,'Atmosphäre');for(const label of ['gemütlich','lebendig','gesellig'])await expect(guided(page).getByRole('button',{name:label,exact:true})).toHaveAttribute('aria-pressed','true');
+ await reloadEditor(page);await mainStep(page,1);await guided(page).getByLabel('Bereich Terrasse bearbeiten',{exact:true}).click();await part(page,'Atmosphäre');for(const label of ['gemütlich','lebendig','gesellig'])await expect(guided(page).getByRole('button',{name:label,exact:true})).toHaveAttribute('aria-pressed','true');
  await guided(page).getByRole('button',{name:'gemütlich',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(2);const p2=owner.submissions[1].p_value as typeof p;expect(p2.areas[0].properties.map(x=>x.value)).toContain('lebhaft');expect(p2.areas[0].properties.map(x=>x.value)).not.toContain('gemütlich');
 });
 
 test('Weiter und Zurück zeigen genau eine Themenseite und behalten den Entwurf',async({page})=>{
- await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittag am Rhein');await guided(page).getByRole('button',{name:'Weiter',exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveCount(0);await expect(guided(page).getByRole('heading',{name:'Was kann man hier machen?',exact:true})).toBeVisible();await guided(page).getByRole('button',{name:'Zurück',exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Mittag am Rhein');
- await outerStep(page,1);await expect(page.getByRole('status').filter({hasText:/noch nicht gespeichert/})).toBeVisible();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Mittag am Rhein');
+ await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittag am Rhein');await guided(page).getByRole('button',{name:'Weiter',exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveCount(0);await expect(guided(page).getByRole('heading',{name:'Was kann man hier machen?',exact:true})).toBeVisible();await guided(page).getByRole('button',{name:'Zurück',exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Mittag am Rhein');
+ await outerStep(page,1);await expect(page.getByRole('status').filter({hasText:/ungespeicherte Änderungen/})).toBeVisible();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Mittag am Rhein');
 });
 
 test('Einzelantworten ersetzen sich ohne andere Wünsche zu löschen',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);await addFromCatalogue(page,'Mittagessen');await part(page,'Reservation erforderlich?');const booking=guided(page).getByRole('region',{name:'Reservation erforderlich?',exact:true});await booking.getByRole('button',{name:'Erforderlich',exact:true}).click();await booking.getByRole('button',{name:'Nicht erforderlich',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const p=owner.submissions[0].p_value as {offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.offers[0].properties.filter(x=>x.key==='participation.booking').map(x=>x.value)).toEqual(['Nicht erforderlich']);
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await part(page,'Reservation erforderlich?');const booking=guided(page).getByRole('region',{name:'Reservation erforderlich?',exact:true});await booking.getByRole('button',{name:'Erforderlich',exact:true}).click();await booking.getByRole('button',{name:'Nicht erforderlich',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const p=owner.submissions[0].p_value as {offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.offers[0].properties.filter(x=>x.key==='participation.booking').map(x=>x.value)).toEqual(['Nicht erforderlich']);
 });
 
 test('Leere und ungültige Preise werden nicht gespeichert und der Entwurf bleibt erhalten',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);await addFromCatalogue(page,'Mittagessen');await part(page,'Preise');await addFromCatalogue(page,'Preis hinzufügen');await expect(page.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('');await saveProfile(page);await expect(page.getByRole('alert').filter({hasText:/Bitte prüfe Namen/})).toBeVisible();expect(owner.submissions).toHaveLength(0);
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await part(page,'Preise');await addFromCatalogue(page,'Preis hinzufügen');await expect(page.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('');await saveProfile(page);await expect(page.getByRole('alert').filter({hasText:/Bitte prüfe Namen/})).toBeVisible();expect(owner.submissions).toHaveLength(0);
  await guided(page).getByRole('button',{name:'Angebot Mittagessen prüfen',exact:true}).click();await part(page,'Preise');await page.getByLabel('Preisbezeichnung',{exact:true}).fill('Menü');await page.getByLabel('Preis 1 Von',{exact:true}).fill('30');await page.getByLabel('Preis 1 Bis',{exact:true}).fill('20');await saveProfile(page);expect(owner.submissions).toHaveLength(0);await guided(page).getByRole('button',{name:'Angebot Mittagessen prüfen',exact:true}).click();await part(page,'Preise');await expect(page.getByLabel('Preis 1 Bis',{exact:true})).toHaveValue('20');
  await page.getByLabel('Preis 1 Von',{exact:true}).fill('0');await page.getByLabel('Preis 1 Bis',{exact:true}).fill('0');await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
 });
 
 test('Verknüpfte Bereiche bleiben vor versehentlichem Entfernen geschützt',async({page})=>{
- await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);await addFromCatalogue(page,'Mittagessen');await guided(page).getByRole('button',{name:'Bereich anlegen: Terrasse',exact:true}).click();await overview(page);await mainStep(page,1);await guided(page).getByLabel('Bereich Terrasse bearbeiten',{exact:true}).click();await expect(guided(page).getByRole('button',{name:'Bereich entfernen',exact:true})).toBeDisabled();
+ await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await guided(page).getByRole('button',{name:'Bereich anlegen: Terrasse',exact:true}).click();await overview(page);await mainStep(page,1);await guided(page).getByLabel('Bereich Terrasse bearbeiten',{exact:true}).click();await expect(guided(page).getByRole('button',{name:'Bereich entfernen',exact:true})).toBeDisabled();
 });
 
 test('Speicherfehler meldet keinen Erfolg und kann mit unverändertem Entwurf wiederholt werden',async({page})=>{
  const owner=await mockOwner(page,'OWNER_BASIC');let fail=true;await page.route('**/rest/v1/rpc/world_product_owner_submit_claim_v1',async(route)=>{if(fail){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})});}else await route.fallback();});
- await page.goto(`/owner/spots/${spotId}`);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mein Mittag');await saveProfile(page);await expect(guided(page).getByRole('alert')).toContainText('Speichern fehlgeschlagen');expect(owner.submissions).toHaveLength(0);fail=false;await guided(page).getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(1);
+ await openEditor(page);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mein Mittag');await saveProfile(page);await expect(guided(page).getByRole('alert')).toContainText('Speichern fehlgeschlagen');expect(owner.submissions).toHaveLength(0);fail=false;await guided(page).getByRole('button',{name:'Angebote und Bereiche speichern',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(1);
 });
 
 test('Gespeicherter Stand bleibt nach späterem Verwerfen erhalten',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Gespeichert');await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);await mainStep(page,0);await guided(page).getByLabel('Angebot Gespeichert bearbeiten',{exact:true}).click();await page.getByLabel('Name des Angebots',{exact:true}).fill('Ungespeichert');await guided(page).getByRole('button',{name:'Ungespeicherten Entwurf verwerfen',exact:true}).click();await mainStep(page,0);await guided(page).getByLabel('Angebot Gespeichert bearbeiten',{exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Gespeichert');
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Gespeichert');await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);await mainStep(page,0);await guided(page).getByLabel('Angebot Gespeichert bearbeiten',{exact:true}).click();await page.getByLabel('Name des Angebots',{exact:true}).fill('Ungespeichert');await guided(page).getByRole('button',{name:'Ungespeicherten Entwurf verwerfen',exact:true}).click();await mainStep(page,0);await guided(page).getByLabel('Angebot Gespeichert bearbeiten',{exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Gespeichert');
 });
 
 test('Bisherige allgemeine Angaben werden weiterhin bearbeitet und eindeutig erklärt',async({page})=>{
- await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);await outerStep(page,5);await expect(page.getByText('Allgemeines Spotprofil · gesamter Spot',{exact:true})).toBeVisible();await expect(page.locator('[id="field-operation.price_options"]')).toBeVisible();
+ await mockOwner(page,'OWNER_BASIC');await openEditor(page);await outerStep(page,5);await expect(page.getByText('Diese Angaben gelten für den gesamten Spot',{exact:true})).toBeVisible();await expect(page.locator('[id="field-operation.price_options"]')).toBeVisible();
 });
 
 test('Ungültiges gespeichertes Profil wird nicht leer überschrieben',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'broken',knowledgeState:'KNOWN_VALUE',value:{category:'BROKEN'}}});await page.goto(`/owner/spots/${spotId}`);await expect(guided(page).getByRole('alert')).toContainText('nicht sicher geladen');await expect(guided(page).getByLabel('Weiteres Angebot hinzufügen')).toBeDisabled();expect(owner.submissions).toHaveLength(0);
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'broken',knowledgeState:'KNOWN_VALUE',value:{category:'BROKEN'}}});await openEditor(page);await expect(guided(page).getByRole('alert')).toContainText('nicht sicher geladen');await expect(guided(page).getByLabel('Weiteres Angebot hinzufügen')).toBeDisabled();expect(owner.submissions).toHaveLength(0);
 });
 
 test('Mehrfachauswahl erhält vorhandene bedingte und freie Angaben',async({page})=>{
  const p={...emptyExperienceProfile('BAR'),reviewed:true,offers:[{id:'drinks',kind:'DRINKS',name:'Getränke',areaIds:[],prices:[],schedule:[],validFrom:null,validUntil:null,properties:[{key:'food.drink',label:null,state:'KNOWN',value:'Wein',conditions:{...emptyExperienceConditions(),weekdays:[6]}},{key:'experience.activity',label:null,state:'KNOWN',value:'Bisheriger Sammeltext',conditions:emptyExperienceConditions()}]}]};
- const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'seed-profile',knowledgeState:'KNOWN_VALUE',value:p}});await page.goto(`/owner/spots/${spotId}`);await guided(page).getByLabel('Angebot Getränke bearbeiten',{exact:true}).click();await part(page,'Getränke einschließlich alkoholfreier Auswahl');await guided(page).getByRole('button',{name:'Bier',exact:true}).click();await part(page,'Was kann man hier machen?');await expect(guided(page).locator('blockquote').filter({hasText:'Bisheriger Sammeltext'})).toBeVisible();await guided(page).getByRole('button',{name:'etwas trinken',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const saved=owner.submissions[0].p_value as typeof p;expect(saved.offers[0].properties).toEqual(expect.arrayContaining(p.offers[0].properties));expect(saved.offers[0].properties.map(v=>v.value)).toEqual(expect.arrayContaining(['Wein','Bier','Bisheriger Sammeltext','etwas trinken']));
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'seed-profile',knowledgeState:'KNOWN_VALUE',value:p}});await openEditor(page);await guided(page).getByLabel('Angebot Getränke bearbeiten',{exact:true}).click();await part(page,'Getränke einschließlich alkoholfreier Auswahl');await guided(page).getByRole('button',{name:'Bier',exact:true}).click();await part(page,'Was kann man hier machen?');await expect(guided(page).locator('blockquote').filter({hasText:'Bisheriger Sammeltext'})).toBeVisible();await guided(page).getByRole('button',{name:'etwas trinken',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const saved=owner.submissions[0].p_value as typeof p;expect(saved.offers[0].properties).toEqual(expect.arrayContaining(p.offers[0].properties));expect(saved.offers[0].properties.map(v=>v.value)).toEqual(expect.arrayContaining(['Wein','Bier','Bisheriger Sammeltext','etwas trinken']));
 });
 
 test('Bisherige Küche wird nur dem ausdrücklich ausgewählten Angebot zugeordnet',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'offering.cuisines':{claimId:'cuisine',knowledgeState:'KNOWN_VALUE',value:['ITALIAN']}});await page.goto(`/owner/spots/${spotId}`);await addFromCatalogue(page,'Mittagessen');await overview(page);await mainStep(page,3);await guided(page).getByLabel('Zuordnen zu',{exact:true}).selectOption({label:'Angebot: Mittagessen'});await guided(page).getByRole('button',{name:'In Entwurf übernehmen',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const p=owner.submissions[0].p_value as {properties:unknown[];offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.properties).toEqual([]);expect(p.offers[0].properties).toEqual(expect.arrayContaining([expect.objectContaining({key:'food.cuisine',value:'Italienisch'})]));
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'offering.cuisines':{claimId:'cuisine',knowledgeState:'KNOWN_VALUE',value:['ITALIAN']}});await openEditor(page);await addFromCatalogue(page,'Mittagessen');await overview(page);await mainStep(page,3);await guided(page).getByLabel('Zuordnen zu',{exact:true}).selectOption({label:'Angebot: Mittagessen'});await guided(page).getByRole('button',{name:'In Entwurf übernehmen',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const p=owner.submissions[0].p_value as {properties:unknown[];offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.properties).toEqual([]);expect(p.offers[0].properties).toEqual(expect.arrayContaining([expect.objectContaining({key:'food.cuisine',value:'Italienisch'})]));
 });
 
 test('Vorkenntnisse schliessen sich aus, Begleitung bleibt unabhängig',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);
  await addFromCatalogue(page,'Bouldern');await part(page,'Voraussetzungen und nötige Begleitung');
  const q=guided(page).getByRole('region',{name:'Voraussetzungen und nötige Begleitung',exact:true});
  await q.getByRole('button',{name:'Keine Vorkenntnisse',exact:true}).click();await q.getByRole('button',{name:'Begleitung erforderlich',exact:true}).click();await q.getByRole('button',{name:'Vorkenntnisse erforderlich',exact:true}).click();
@@ -326,11 +340,11 @@ test('Bewegungslandschaft speichert Bewegungsspiel und Klettern am selben Angebo
  await page.setViewportSize({width:390,height:844});
  const p={...emptyExperienceProfile('SPORT'),reviewed:true,offers:[{id:'kids-play',kind:'MOVEMENT_PLAY',name:'Bewegungslandschaft für Kinder',areaIds:[],prices:[],schedule:[],validFrom:null,validUntil:null,properties:[{key:'experience.activity',label:null,state:'KNOWN',value:'Bewegungsspiel',conditions:emptyExperienceConditions()},{key:'participation.minimum_age',label:null,state:'KNOWN',value:1,conditions:emptyExperienceConditions()}]}]};
  const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'seed-sport',knowledgeState:'KNOWN_VALUE',value:p}});
- await page.goto(`/owner/spots/${spotId}`);await guided(page).getByLabel('Angebot Bewegungslandschaft für Kinder bearbeiten',{exact:true}).click();await part(page,'Was kann man hier machen?');
+ await openEditor(page);await guided(page).getByLabel('Angebot Bewegungslandschaft für Kinder bearbeiten',{exact:true}).click();await part(page,'Was kann man hier machen?');
  const q=guided(page).getByRole('region',{name:'Was kann man hier machen?',exact:true});await expect(q.getByRole('button',{name:'Bewegungsspiel',exact:true})).toHaveAttribute('aria-pressed','true');await expect(q.getByRole('button',{name:'Klettern',exact:true})).toHaveAttribute('aria-pressed','false');
  await q.getByRole('button',{name:'Klettern',exact:true}).click();await expect(q.getByRole('button',{name:'Bewegungsspiel',exact:true})).toHaveAttribute('aria-pressed','true');await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
  const saved=owner.submissions[0].p_value as typeof p;expect(saved.offers).toHaveLength(1);expect(saved.offers[0].id).toBe('kids-play');expect(saved.offers[0].properties).toEqual(expect.arrayContaining([...p.offers[0].properties,expect.objectContaining({key:'experience.activity',value:'Klettern'})]));
- await page.reload();await guided(page).getByLabel('Angebot Bewegungslandschaft für Kinder bearbeiten',{exact:true}).click();await part(page,'Was kann man hier machen?');for(const name of ['Bewegungsspiel','Klettern'])await expect(guided(page).getByRole('button',{name,exact:true})).toHaveAttribute('aria-pressed','true');
+ await reloadEditor(page);await guided(page).getByLabel('Angebot Bewegungslandschaft für Kinder bearbeiten',{exact:true}).click();await part(page,'Was kann man hier machen?');for(const name of ['Bewegungsspiel','Klettern'])await expect(guided(page).getByRole('button',{name,exact:true})).toHaveAttribute('aria-pressed','true');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 test('Sportangebotstyp beschränkt Tätigkeiten nicht auf sein eigenes Label',()=>{
@@ -340,25 +354,55 @@ test('Sportangebotstyp beschränkt Tätigkeiten nicht auf sein eigenes Label',()
 
 test('Hotel übernimmt den Spottyp und kombiniert Übernachtung mit Bar ohne Pflegeart',async({page})=>{
  await page.setViewportSize({width:390,height:844});const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'classification.primary_category':{knowledgeState:'KNOWN_VALUE',value:'STAY'},'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:['HOTEL']}});
- await page.goto(`/owner/spots/${spotId}`);await expect(guided(page).getByText('Hotel',{exact:true})).toBeVisible();await expect(page.getByLabel('Art des Spots')).toHaveCount(0);
+ await openEditor(page);await expect(guided(page).getByText('Hotel',{exact:true})).toBeVisible();await expect(page.getByLabel('Art des Spots')).toHaveCount(0);
  await addFromCatalogue(page,'Übernachtung');await part(page,'Check-in ab');await guided(page).getByLabel('Check-in ab Wert').fill('15:00');await part(page,'Preise');await guided(page).getByRole('button',{name:'+ Preis hinzufügen',exact:true}).click();await guided(page).getByLabel('Preisbezeichnung').fill('Zimmer pro Nacht');await guided(page).getByLabel('Berechnung').selectOption('PER_ROOM_NIGHT');
  await guided(page).getByLabel('Preis 1 Von',{exact:true}).fill('160');await guided(page).getByLabel('Preis 1 Bis',{exact:true}).fill('160');await overview(page);
  await guided(page).getByLabel('Weiteres Angebot hinzufügen').selectOption('DRINKS');await part(page,'Getränke einschließlich alkoholfreier Auswahl');await guided(page).getByRole('button',{name:'Wein',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
  const p=owner.submissions[0].p_value as {category:string;properties:unknown[];offers:Array<{kind:string;properties:Array<{key:string;value:unknown}>;prices:Array<{basis:string}>}>};expect(p.category).toBe('STAY');expect(p.properties).toEqual([]);expect(p.offers.map(o=>o.kind)).toEqual(['OVERNIGHT_STAY','DRINKS']);expect(p.offers[0].prices[0].basis).toBe('PER_ROOM_NIGHT');expect(p.offers[0].properties).toEqual(expect.arrayContaining([expect.objectContaining({key:'stay.check_in',value:'15:00'})]));expect(p.offers[1].properties).toEqual(expect.arrayContaining([expect.objectContaining({key:'food.drink',value:'Wein'})]));
- await page.reload();await guided(page).getByLabel('Angebot Übernachtung bearbeiten',{exact:true}).click();await part(page,'Check-in ab');await expect(guided(page).getByLabel('Check-in ab Wert')).toHaveValue('15:00');
+ await reloadEditor(page);await guided(page).getByLabel('Angebot Übernachtung bearbeiten',{exact:true}).click();await part(page,'Check-in ab');await expect(guided(page).getByLabel('Check-in ab Wert')).toHaveValue('15:00');
 });
 
 for(const group of SPOT_GROUPS)test(`Universelle Pflege ${group.id}: Vorschlag und Speicherung`,async({page})=>{
  const type=SPOT_TYPE_CATALOG.find(t=>t.group===group.id)!;const item=OFFER_CATALOG.find(o=>o.group===group.id);
  const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'classification.primary_category':{knowledgeState:'KNOWN_VALUE',value:group.id},'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:[type.kind]}});
- await page.goto(`/owner/spots/${spotId}`);await expect(guided(page).getByText(type.label,{exact:true})).toBeVisible();await expect(guided(page).getByLabel('Weiteres Angebot hinzufügen')).toBeVisible();
+ await openEditor(page);await expect(guided(page).getByText(type.label,{exact:true})).toBeVisible();await expect(guided(page).getByLabel('Weiteres Angebot hinzufügen')).toBeVisible();
  if(item)await guided(page).getByLabel('Weiteres Angebot hinzufügen').selectOption(item.kind);else await addFromCatalogue(page,'Eigenes Angebot');
  await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);const p=owner.submissions[0].p_value as {offers:Array<{kind:string}>};expect(p.offers[0].kind).toBe(item?.kind??'OTHER');
 });
 
 test('Spottypen zeigen passende Vorschläge, suchen global und behalten zusätzliche Auswahl',async({page})=>{
  await page.setViewportSize({width:390,height:844});const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'classification.primary_category':{knowledgeState:'KNOWN_VALUE',value:'STAY'},'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:['HOTEL']}});
- await page.goto(`/owner/spots/${spotId}`);await outerStep(page,2);const field=page.locator('[id="field-classification.place_types"]');await expect(field.getByRole('button',{name:'Hotel',exact:true})).toHaveAttribute('aria-pressed','true');await expect(field.getByRole('button',{name:'Weinbar',exact:true})).toHaveCount(0);
+ await openEditor(page);await outerStep(page,2);const field=page.locator('[id="field-classification.place_types"]');await expect(field.getByRole('button',{name:'Hotel',exact:true})).toHaveAttribute('aria-pressed','true');await expect(field.getByRole('button',{name:'Weinbar',exact:true})).toHaveCount(0);
  await field.getByLabel('Auswahl durchsuchen').fill('Weinbar');await field.getByRole('button',{name:'Weinbar',exact:true}).click();await field.getByLabel('Auswahl durchsuchen').fill('');await expect(field.getByRole('button',{name:'Hotel',exact:true})).toHaveAttribute('aria-pressed','true');await expect(field.getByRole('button',{name:'Weinbar',exact:true})).toHaveAttribute('aria-pressed','true');
- await field.getByRole('button',{name:'Auswahl übernehmen',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toEqual(['HOTEL','WINE_BAR']);await page.reload();await outerStep(page,2);for(const name of ['Hotel','Weinbar'])await expect(field.getByRole('button',{name,exact:true})).toHaveAttribute('aria-pressed','true');
+ await field.getByRole('button',{name:'Auswahl übernehmen',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toEqual(['HOTEL','WINE_BAR']);await reloadEditor(page);await outerStep(page,2);for(const name of ['Hotel','Weinbar'])await expect(field.getByRole('button',{name,exact:true})).toHaveAttribute('aria-pressed','true');
+});
+
+for(const width of [320,390,1280])test(`Spot Studio startet mit verständlicher Aufgabenübersicht bei ${width}px`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:900});await mockOwner(page,'OWNER_BASIC');
+ await page.goto(`/owner/spots/${spotId}`);
+ await expect(page.getByRole('heading',{name:'Was möchtest du bearbeiten?'})).toBeVisible();
+ await expect(guided(page)).toHaveCount(0);
+ await expect(page.getByRole('button',{name:/03 Angebote & Räume/})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ await page.screenshot({path:testInfo.outputPath(`studio-home-${width}.png`),fullPage:true});
+ await page.getByRole('button',{name:/03 Angebote & Räume/}).click();
+ await addFromCatalogue(page,'Mittagessen');await part(page,'Was kann man hier machen?');
+ await expect(guided(page).getByRole('navigation',{name:'Abschnitt des Angebots'})).toBeVisible();
+ await guided(page).getByRole('button',{name:'essen gehen',exact:true}).click();
+ await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
+ await expect(page.getByRole('status').filter({hasText:'Dein Entwurf ist noch nicht gespeichert'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Was möchtest du bearbeiten?'})).toHaveCount(0);
+ await page.screenshot({path:testInfo.outputPath(`studio-offer-${width}.png`),fullPage:true});
+ await saveProfile(page);await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Was möchtest du bearbeiten?'})).toBeVisible();
+});
+
+test('Normale Profilfelder schützen ungespeicherte Eingaben und lassen sie bewusst verwerfen',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await outerStep(page,1);
+ const field=page.locator('[id="field-identity.name"]');const input=field.getByRole('textbox');
+ await input.fill('Neuer Spotname');await outerStep(page,2);
+ await expect(input).toHaveValue('Neuer Spotname');await expect(field.getByText('Noch nicht gespeichert',{exact:true})).toBeVisible();
+ await field.getByRole('button',{name:'Änderungen verwerfen',exact:true}).click();await expect(input).toHaveValue('Volta Bräu');
+ await outerStep(page,2);await expect(page.getByRole('heading',{name:'Was für ein Ort ist das?',exact:true})).toBeVisible();
+ expect(owner.submissions).toHaveLength(0);
 });

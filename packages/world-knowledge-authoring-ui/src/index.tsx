@@ -266,10 +266,16 @@ function FieldInput({ field, answer, candidate, applicability, referenceValue, e
   const [error, setError] = useState("");
   const [optionSearch, setOptionSearch] = useState("");
   const [allPlaceTypes,setAllPlaceTypes] = useState(false);
+  const [resetVersion,setResetVersion] = useState(0);
   useEffect(() => {
     setValue(answer?.value ?? candidate?.value ?? emptyFieldValue(field.control));
     setValidUntil(answer?.validUntil ?? "");
   }, [answer?.claimId, candidate?.candidateId, field.control]);
+  const currentDraft = JSON.stringify([value,validUntil]);
+  const savedDraft = JSON.stringify([initialValue,answer?.validUntil??""]);
+  useEffect(() => {
+    if(field.control!=="EXPERIENCE_PROFILE")onDraftChange?.(currentDraft!==savedDraft);
+  }, [currentDraft,savedDraft,field.control,onDraftChange]);
   const save = async (state: string, next: unknown = value, validUntilValue?: string) => { setSaving(true); setError(""); onError(null); try { await onSave(state, next, validUntilValue); } catch (cause) { const message = translateAuthoringError(cause, field.label); setError(message); onError(message); } finally { setSaving(false); } };
   const safeSecondaryAction = async (action: () => Promise<void>) => { setSaving(true); setError(""); onError(null); try { await action(); } catch (cause) { const message = translateAuthoringError(cause, field.label); setError(message); onError(message); } finally { setSaving(false); } };
   const selected = Array.isArray(value) ? value as string[] : [];
@@ -285,7 +291,7 @@ function FieldInput({ field, answer, candidate, applicability, referenceValue, e
     return !typedPicker || allPlaceTypes || selected.includes(option.value) || SPOT_TYPE_CATALOG.some(t=>t.kind===option.value && t.group===mainCategory);
   });
   const optionGroups = [...new Set(shownOptions.map((option) => option.group ?? "Auswahl"))];
-  return <fieldset id={`field-${field.attributeKey}`} className={`wk-field${field.control === "EXPERIENCE_PROFILE" ? " wk-field-experience" : ""}`} disabled={disabled || saving}>
+  return <fieldset key={resetVersion} id={`field-${field.attributeKey}`} className={`wk-field${field.control === "EXPERIENCE_PROFILE" ? " wk-field-experience" : ""}`} disabled={disabled || saving}>
     {field.control !== "EXPERIENCE_PROFILE" && <><legend>{field.label}</legend><span className={`wk-requirement ${field.requirementClass.toLocaleLowerCase("en")}`}>{field.requirementClass === "REQUIRED" ? "Für das Spot-Profil nötig" : field.requirementClass === "CONDITIONALLY_REQUIRED" ? "Je nach Einordnung erforderlich" : "Optional"}</span><p>{field.help}</p></>}
     {field.control === "YES_NO" ? <div className="wk-segmented">
       <button type="button" className={answer?.knowledgeState === "KNOWN_TRUE" ? "selected" : ""} onClick={() => save("KNOWN_TRUE", true)}>Ja</button>
@@ -309,6 +315,7 @@ function FieldInput({ field, answer, candidate, applicability, referenceValue, e
     : field.control === "TEXTAREA" ? <div className="wk-stack"><textarea aria-label={field.label} className="wk-input wk-textarea" value={String(value ?? "")} maxLength={800} onChange={(event) => setValue(event.target.value)} /><span>{String(value ?? "").length}/800 Zeichen</span><button type="button" onClick={() => save("KNOWN_VALUE")}>Übernehmen</button></div>
     : <div className="wk-inline"><input aria-label={field.label} className="wk-input" type={field.control === "EMAIL" ? "email" : field.control === "URL" ? "url" : field.control === "NUMBER" ? "number" : field.control === "PHONE" ? "tel" : "text"} placeholder={field.control === "PHONE" ? "+41781234567" : field.control === "URL" ? "https://…" : undefined} value={String(value ?? "")} onChange={(event) => setValue(field.control === "NUMBER" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void save("KNOWN_VALUE"); }} /><button type="button" onClick={() => save("KNOWN_VALUE")}>Übernehmen</button></div>}
     {field.requirementClass === "OPTIONAL" && !(["YES_NO", "MULTI_SELECT", "KITCHEN_HOURS", "EXPERIENCE_PROFILE"] as string[]).includes(field.control) && <div className="wk-knowledge-actions"><span>Du kannst die Angabe auch bewusst offen lassen:</span><button type="button" className="wk-secondary" onClick={() => save("UNKNOWN", null)}>Noch unbekannt</button>{onApplicability && <button type="button" className="wk-secondary" onClick={() => void safeSecondaryAction(() => onApplicability("NOT_APPLICABLE"))}>Nicht relevant</button>}</div>}
+    {field.control!=="EXPERIENCE_PROFILE"&&currentDraft!==savedDraft&&<div className="wk-field-draft" role="status"><span>Noch nicht gespeichert</span><button type="button" className="wk-secondary" onClick={()=>{setValue(initialValue);setValidUntil(answer?.validUntil??"");setError("");onError(null);setResetVersion(version=>version+1);}}>Änderungen verwerfen</button></div>}
     {answer && <div className="wk-saved">{answer.knowledgeState === "UNKNOWN" ? "Bewusst als unbekannt gespeichert" : "Bestätigt"}{answer.observedAt ? ` · ${new Date(answer.observedAt).toLocaleDateString("de-CH")}` : ""} {onConfirm && answer.confirmationDueAt && new Date(answer.confirmationDueAt) <= new Date() ? <button type="button" className="wk-secondary" onClick={() => void safeSecondaryAction(onConfirm)}>Weiterhin aktuell</button> : null}</div>}
     {error && <div className="wk-field-error" role="alert">{error}</div>}
     {disabled && <span className="wk-locked">{disabledReason ?? "Diese objektive Zusatzangabe ist im Owner-Pro-Umfang verfügbar. Ein Admin kann sie ebenfalls pflegen."}</span>}

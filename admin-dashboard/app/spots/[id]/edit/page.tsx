@@ -32,6 +32,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
   const router = useRouter();
   const { id: spotId } = React.use(params);
 
+  const [editorView,setEditorView]=useState<"profile"|"media">("profile");
   const [spot, setSpot] = useState<Spot | null>(null);
   const [openingHours, setOpeningHours] = useState<OpeningHourRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,9 +125,9 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
     <div className="spot-editor-page">
       <header className="spot-editor-hero">
         <div>
-          <div className="spot-editor-eyebrow">Spot Management</div>
+          <div className="spot-editor-eyebrow">Spot bearbeiten</div>
           <h1>{spot.name || "Spot bearbeiten"}</h1>
-          <p>Stammdaten und das vollständige World Knowledge an einem Ort pflegen.</p>
+
         </div>
 
         <div className="spot-editor-actions">
@@ -137,6 +138,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           <button
             type="button"
             className="spot-editor-delete"
+            hidden={editorView!=="media"}
             onClick={() => setArchiveConfirmation(true)}
             disabled={deleting}
           >
@@ -147,17 +149,15 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
 
       <div className="spot-editor-meta">
         <span className={`spot-status spot-status-${spot.status ?? "pending"}`}>
-          {spot.status ?? "pending"}
+          {({approved:"Veröffentlicht",pending:"In Prüfung",rejected:"Abgelehnt",hidden:"Ausgeblendet",archived:"Archiviert"} as Record<string,string>)[spot.status??"pending"]??spot.status}
         </span>
-        <code>{spotId}</code>
+
       </div>
 
       <nav className="spot-editor-tabs" aria-label="Spot-Bereiche">
-        <a href="#spot-understanding">Spot-Wissen pflegen</a>
-        <a href="#spot-information">Betrieb & Medien</a>
-        <Link href="/spots/presentation">Detail-Darstellung</Link>
-        <Link href={`/spots/${spotId}`}>Übersicht</Link>
-        <Link href={`/spots/${spotId}/owner`}>Owner</Link>
+        <button type="button" aria-pressed={editorView==="profile"} onClick={()=>setEditorView("profile")}>Profil & Angebote</button>
+        <button type="button" aria-pressed={editorView==="media"} onClick={()=>setEditorView("media")}>Bilder & Verwaltung</button>
+        <details className="spot-editor-more"><summary>Weitere Aktionen</summary><div><Link href="/spots/presentation">App-Darstellung verwalten</Link><Link href={`/spots/${spotId}`}>Spot-Übersicht öffnen</Link><Link href={`/spots/${spotId}/owner`}>Owner-Zugang verwalten</Link></div></details>
       </nav>
 
       {error ? <div className="by-alert by-alertError">{error}</div> : null}
@@ -176,7 +176,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         </div>
       ) : null}
 
-      <div id="spot-understanding" className="spot-editor-anchor">
+      <div id="spot-understanding" className="spot-editor-anchor" hidden={editorView!=="profile"}>
         <WorldProductCorrection
           initialSpotId={spotId}
           client={worldAuthoringClient}
@@ -186,7 +186,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           rebuild={(id, idempotencyKey) => authorizedWorldKnowledgePost({ auth: supabase.auth, body: { action: "product-rebuild", spotId: id, idempotencyKey } })}
         />
       </div>
-      <div id="spot-information" className="spot-editor-anchor"><SpotForm
+      <div id="spot-information" className="spot-editor-anchor" hidden={editorView!=="media"}><SpotForm
         mode="edit"
         spotId={spotId}
         initialValues={{
