@@ -1,5 +1,5 @@
 import { canonicalJson, hashBody, sha256 } from "./canonical.js";
-import { REGISTRY_V2_3_DEFINITIONS, REGISTRY_V2_3_HASH, REGISTRY_V2_3_VERSION, REGISTRY_V2_2_DEFINITIONS, REGISTRY_V2_2_HASH, REGISTRY_V2_2_VERSION, ATTRIBUTE_DEFINITIONS, FOUNDATION_AREAS, PREVIOUS_REGISTRY_DEFINITIONS, PREVIOUS_REGISTRY_HASH, PREVIOUS_REGISTRY_VERSION, PRIMARY_CATEGORIES, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, type AttributeDefinition } from "./registry.js";
+import { REGISTRY_V2_4_DEFINITIONS, REGISTRY_V2_4_HASH, REGISTRY_V2_4_VERSION, REGISTRY_V2_3_DEFINITIONS, REGISTRY_V2_3_HASH, REGISTRY_V2_3_VERSION, REGISTRY_V2_2_DEFINITIONS, REGISTRY_V2_2_HASH, REGISTRY_V2_2_VERSION, ATTRIBUTE_DEFINITIONS, FOUNDATION_AREAS, PREVIOUS_REGISTRY_DEFINITIONS, PREVIOUS_REGISTRY_HASH, PREVIOUS_REGISTRY_VERSION, PRIMARY_CATEGORIES, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, type AttributeDefinition } from "./registry.js";
 import { array, boolean, ContractValidationError, enumValue, hash, identifier, number, object, required, string, timestamp } from "./schema.js";
 
 export const REGISTRY_GOVERNANCE_VERSION = "backyrd.world-knowledge.registry-governance@1.0" as const;
@@ -71,6 +71,7 @@ function parseDefinition(value: unknown, path: string): AttributeDefinition {
 function expectedShapeHash(shape: Omit<RegistryShape, "hash">): string {
   if (shape.version === REGISTRY_VERSION && canonicalJson(shape.definitions) === canonicalJson(ATTRIBUTE_DEFINITIONS) && canonicalJson(shape.categoryLabels) === canonicalJson(PRIMARY_CATEGORY_LABELS)) return REGISTRY_HASH;
   if (shape.version === PREVIOUS_REGISTRY_VERSION && canonicalJson(shape.definitions) === canonicalJson(PREVIOUS_REGISTRY_DEFINITIONS) && canonicalJson(shape.categoryLabels) === canonicalJson(PRIMARY_CATEGORY_LABELS)) return PREVIOUS_REGISTRY_HASH;
+  if (shape.version === REGISTRY_V2_4_VERSION && canonicalJson(shape.definitions) === canonicalJson(REGISTRY_V2_4_DEFINITIONS) && canonicalJson(shape.categoryLabels) === canonicalJson(PRIMARY_CATEGORY_LABELS)) return REGISTRY_V2_4_HASH;
   if (shape.version === REGISTRY_V2_3_VERSION && canonicalJson(shape.definitions) === canonicalJson(REGISTRY_V2_3_DEFINITIONS) && canonicalJson(shape.categoryLabels) === canonicalJson(PRIMARY_CATEGORY_LABELS)) return REGISTRY_V2_3_HASH;
   if (shape.version === REGISTRY_V2_2_VERSION && canonicalJson(shape.definitions) === canonicalJson(REGISTRY_V2_2_DEFINITIONS) && canonicalJson(shape.categoryLabels) === canonicalJson(PRIMARY_CATEGORY_LABELS)) return REGISTRY_V2_2_HASH;
   return sha256({ version: shape.version, definitions: shape.definitions, categoryLabels: shape.categoryLabels });

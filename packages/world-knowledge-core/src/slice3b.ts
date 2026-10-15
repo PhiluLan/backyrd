@@ -1,13 +1,15 @@
+import { SPOT_CATALOG_HASH } from "./spot-catalog.js";
+import { EXPERIENCE_PROFILE_SCHEMA_HASH } from "./experience-schema.js";
 import { canonicalJson, hashBody } from "./canonical.js";
 import { createClaim, parseAttributeValue, type ActorType, type ClaimValue, type WorldKnowledgeClaim } from "./contracts.js";
 import { createRegistryApprovalAuthority, createRegistryApprovalRecord, createRegistryRelease } from "./governance.js";
-import { ATTRIBUTE_DEFINITIONS, PREVIOUS_REGISTRY_VERSION, REGISTRY_HASH, REGISTRY_V2_3_HASH, REGISTRY_V2_3_VERSION, REGISTRY_V2_2_HASH, REGISTRY_V2_2_VERSION, REGISTRY_V2_1_HASH, REGISTRY_V2_1_VERSION, REGISTRY_V2_0_HASH, REGISTRY_V2_0_VERSION, REGISTRY_VERSION } from "./registry.js";
+import { REGISTRY_V2_4_VERSION, REGISTRY_V2_4_HASH, ATTRIBUTE_DEFINITIONS, PREVIOUS_REGISTRY_VERSION, REGISTRY_HASH, REGISTRY_V2_3_HASH, REGISTRY_V2_3_VERSION, REGISTRY_V2_2_HASH, REGISTRY_V2_2_VERSION, REGISTRY_V2_1_HASH, REGISTRY_V2_1_VERSION, REGISTRY_V2_0_HASH, REGISTRY_V2_0_VERSION, REGISTRY_VERSION } from "./registry.js";
 import { ContractValidationError, array, enumValue, hash, identifier, object, required, string, timestamp } from "./schema.js";
 import { SOURCE_USE_CASES, createSourcePolicy, type SourcePolicy, type SourceUseCase } from "./source-policy.js";
 
-export const ACCEPTED_POLICY_VERSION = "backyrd.world-knowledge.source-policy@4e.1" as const;
+export const ACCEPTED_POLICY_VERSION = "backyrd.world-knowledge.source-policy@4f.1" as const;
 export const ENTITLEMENT_POLICY_CONTRACT_VERSION = "backyrd.world-knowledge.entitlement-policy@1.0" as const;
-export const ENTITLEMENT_POLICY_VERSION = "backyrd.world-knowledge.entitlement-policy@4e.1" as const;
+export const ENTITLEMENT_POLICY_VERSION = "backyrd.world-knowledge.entitlement-policy@4f.1" as const;
 export const SERVER_WRITE_CONTRACT_VERSION = "backyrd.world-knowledge.server-write@1.0" as const;
 export const CONFIRMATION_RECORD_CONTRACT_VERSION = "backyrd.world-knowledge.confirmation-record@1.1" as const;
 export const REVIEW_WORK_ITEM_CONTRACT_VERSION = "backyrd.world-knowledge.review-work-item@1.0" as const;
@@ -120,7 +122,7 @@ const freshnessFor = (key: string): SourcePolicy["entries"][number]["freshness"]
   : { policyRef: "freshness:durable-until-contradicted", mode: "PERMANENT_UNTIL_CONTRADICTED" };
 
 export const ACCEPTED_SOURCE_POLICY = createSourcePolicy({
-  policyVersion: ACCEPTED_POLICY_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, createdAt: "2026-10-14T07:24:00.000Z",
+  policyVersion: ACCEPTED_POLICY_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, createdAt: "2026-10-15T11:15:14.000Z",
   entries: ATTRIBUTE_DEFINITIONS.map((definition) => {
     const subjective = definition.engineAuthorization === "EXPLANATION_ONLY" && definition.key === "research.subjective_fits"; const allowed = usesFor(definition.key);
     return {
@@ -176,5 +178,9 @@ export const RETENTION_POLICY_HASH = hashBody(RETENTION_POLICY, []);
 
 /** Founder authorized implementation; production activation remains separate. */
 export const SLICE4E_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:founder-directed-scoped-spot-knowledge-2026-10-14", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["ADDITIVE_DEFINITION"], semanticEquivalenceApproval: false, validFrom: "2026-10-14T00:00:00.000Z", validUntil: "2026-10-15T00:00:00.000Z" });
-export const SLICE4E_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:founder-directed-scoped-spot-knowledge", authorityId: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, changeClass: "ADDITIVE_DEFINITION", approvedAt: "2026-10-14T07:24:00.000Z" }, SLICE4E_REGISTRY_APPROVAL_AUTHORITY);
-export const SLICE4E_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, predecessorVersion: REGISTRY_V2_3_VERSION, changeClass: "ADDITIVE_DEFINITION", createdAt: "2026-10-14T07:24:00.000Z", approval: { recordId: SLICE4E_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4E_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4E_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4E_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Add human-authored offering and area cards with exact scope"], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });
+export const SLICE4E_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:founder-directed-scoped-spot-knowledge", authorityId: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_V2_4_VERSION, registryHash: REGISTRY_V2_4_HASH, changeClass: "ADDITIVE_DEFINITION", approvedAt: "2026-10-14T07:24:00.000Z" }, SLICE4E_REGISTRY_APPROVAL_AUTHORITY);
+export const SLICE4E_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_V2_4_VERSION, registryHash: REGISTRY_V2_4_HASH, predecessorVersion: REGISTRY_V2_3_VERSION, changeClass: "ADDITIVE_DEFINITION", createdAt: "2026-10-14T07:24:00.000Z", approval: { recordId: SLICE4E_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4E_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4E_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4E_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4E_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Add human-authored offering and area cards with exact scope"], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });
+
+export const SLICE4F_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:founder-directed-universal-spot-catalog-2026-10-15", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["ADDITIVE_ALLOWED_VALUE"], semanticEquivalenceApproval: false, validFrom: "2026-10-15T00:00:00.000Z", validUntil: "2026-10-16T00:00:00.000Z" });
+export const SLICE4F_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:founder-directed-universal-spot-catalog", authorityId: SLICE4F_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4F_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, changeClass: "ADDITIVE_ALLOWED_VALUE", approvedAt: "2026-10-15T11:15:14.000Z" }, SLICE4F_REGISTRY_APPROVAL_AUTHORITY);
+export const SLICE4F_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, predecessorVersion: REGISTRY_V2_4_VERSION, changeClass: "ADDITIVE_ALLOWED_VALUE", createdAt: "2026-10-15T11:15:14.000Z", approval: { recordId: SLICE4F_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4F_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4F_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4F_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4F_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4F_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Add complete place taxonomy and independently composable offer and area catalogue", `Catalogue sha256:${SPOT_CATALOG_HASH}`, `Scoped schema sha256:${EXPERIENCE_PROFILE_SCHEMA_HASH}`], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });

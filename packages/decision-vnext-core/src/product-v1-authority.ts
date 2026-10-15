@@ -1,5 +1,6 @@
 import { deepFreeze, withContentHash } from "./canonical.js";
-import { PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, type PlaceType, type PrimaryCategory } from "@backyrd/world-knowledge-core";
+// Keep the signed v1 intent policy stable. Catalogue growth is not a ranking-policy release.
+import { REGISTRY_V2_4_PLACE_TYPES as PLACE_TYPES, PRIMARY_CATEGORIES, PRIMARY_VISIT_PURPOSES, type PlaceType, type PrimaryCategory } from "@backyrd/world-knowledge-core";
 import { DecisionProductEvaluationPolicySchema, DecisionProductEvaluationReleaseSchema, DecisionProductIntentPolicySchema, DecisionProductRankingPolicySchema, PRODUCT_DECISION_VERSIONS } from "./product-v1-contracts.js";
 
 export type ProductV1Intent = "EAT" | "COFFEE" | "DRINKS" | "NIGHTLIFE" | "SPORT_MOVEMENT" | "NATURE_ANIMAL_EXPERIENCE" | "CULTURE_ART" | "ACTIVITY_EXPERIENCE";

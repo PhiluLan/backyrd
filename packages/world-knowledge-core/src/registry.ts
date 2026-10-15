@@ -1,6 +1,9 @@
+import { SPOT_TYPE_KEYS } from "./spot-catalog.js";
 import { canonicalJson, sha256 } from "./canonical.js";
 
-export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@2.4" as const;
+export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@2.5" as const;
+export const REGISTRY_V2_4_VERSION = "backyrd.world-knowledge.registry@2.4" as const;
+export const REGISTRY_V2_4_HASH = "c1364bbe5620ecdf3531c3943c85eeb553df317785dcb5189c5c11e208e2e851" as const;
 export const REGISTRY_V2_3_VERSION = "backyrd.world-knowledge.registry@2.3" as const;
 export const REGISTRY_V2_3_HASH = "c3016e37bc0bb178c390a01a55cf69fa8d8f748593e1a794d2b2f9d84e513cc3" as const;
 export const REGISTRY_V2_2_VERSION = "backyrd.world-knowledge.registry@2.2" as const;
@@ -38,7 +41,8 @@ export const FOUNDATION_AREAS = [
 ] as const;
 export type FoundationArea = typeof FOUNDATION_AREAS[number];
 
-export const PLACE_TYPES = ["RESTAURANT", "BRASSERIE", "BISTRO", "CAFE", "BAR", "PUB", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD", "BAKERY", "PATISSERIE", "FOOD_HALL", "BREWERY", "TAPROOM", "WINE_BAR", "COCKTAIL_BAR", "NIGHTCLUB", "MUSIC_CLUB", "LOUNGE", "MUSEUM", "GALLERY", "THEATRE", "CINEMA", "CONCERT_VENUE", "CULTURAL_CENTRE", "LIBRARY", "COMEDY_CLUB", "ARCADE", "ESCAPE_ROOM", "BOWLING_ALLEY", "MINI_GOLF", "WORKSHOP_STUDIO", "AMUSEMENT_PARK", "GYM", "SPORTS_CENTRE", "CLIMBING_GYM", "SWIMMING_POOL", "ICE_RINK", "SPORTS_COURT", "STADIUM", "PARK", "TRAIL", "VIEWPOINT", "WATERFRONT", "BOTANICAL_GARDEN", "NATURE_RESERVE", "SPA", "SAUNA", "THERMAL_BATH", "MASSAGE_STUDIO", "YOGA_STUDIO", "SHOP", "MARKET", "SHOPPING_CENTRE", "CONCEPT_STORE", "HOTEL", "HOSTEL", "GUESTHOUSE", "CAMPGROUND", "HOLIDAY_APARTMENT", "COMMUNITY_CENTRE", "COWORKING_SPACE", "CLUBHOUSE", "YOUTH_CENTRE", "LANDMARK", "ZOO", "AQUARIUM", "VISITOR_CENTRE", "EVENT_VENUE", "POP_UP", "FESTIVAL_SITE", "SEASONAL_MARKET", "OTHER_PLACE"] as const;
+export const REGISTRY_V2_4_PLACE_TYPES = ["RESTAURANT", "BRASSERIE", "BISTRO", "CAFE", "BAR", "PUB", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD", "BAKERY", "PATISSERIE", "FOOD_HALL", "BREWERY", "TAPROOM", "WINE_BAR", "COCKTAIL_BAR", "NIGHTCLUB", "MUSIC_CLUB", "LOUNGE", "MUSEUM", "GALLERY", "THEATRE", "CINEMA", "CONCERT_VENUE", "CULTURAL_CENTRE", "LIBRARY", "COMEDY_CLUB", "ARCADE", "ESCAPE_ROOM", "BOWLING_ALLEY", "MINI_GOLF", "WORKSHOP_STUDIO", "AMUSEMENT_PARK", "GYM", "SPORTS_CENTRE", "CLIMBING_GYM", "SWIMMING_POOL", "ICE_RINK", "SPORTS_COURT", "STADIUM", "PARK", "TRAIL", "VIEWPOINT", "WATERFRONT", "BOTANICAL_GARDEN", "NATURE_RESERVE", "SPA", "SAUNA", "THERMAL_BATH", "MASSAGE_STUDIO", "YOGA_STUDIO", "SHOP", "MARKET", "SHOPPING_CENTRE", "CONCEPT_STORE", "HOTEL", "HOSTEL", "GUESTHOUSE", "CAMPGROUND", "HOLIDAY_APARTMENT", "COMMUNITY_CENTRE", "COWORKING_SPACE", "CLUBHOUSE", "YOUTH_CENTRE", "LANDMARK", "ZOO", "AQUARIUM", "VISITOR_CENTRE", "EVENT_VENUE", "POP_UP", "FESTIVAL_SITE", "SEASONAL_MARKET", "OTHER_PLACE"] as const;
+export const PLACE_TYPES = SPOT_TYPE_KEYS;
 export type PlaceType = typeof PLACE_TYPES[number];
 export const CUISINES = ["ITALIAN", "INDIAN", "SWISS", "FRENCH", "JAPANESE", "MEDITERRANEAN", "ASIAN", "GERMAN", "AUSTRIAN", "SPANISH", "PORTUGUESE", "GREEK", "TURKISH", "LEVANTINE", "MIDDLE_EASTERN", "CHINESE", "THAI", "VIETNAMESE", "KOREAN", "INDONESIAN", "MALAYSIAN", "MEXICAN", "LATIN_AMERICAN", "AMERICAN", "AFRICAN", "ETHIOPIAN", "MOROCCAN", "INTERNATIONAL", "FUSION", "VEGETARIAN", "VEGAN"] as const;
 export const FOOD_SPECIALITIES = ["PIZZA", "BURGER", "SUSHI", "PASTA", "STEAK", "SEAFOOD", "RAMEN", "CURRY", "TACOS", "KEBAB", "FALAFEL", "SANDWICHES", "SALADS", "SOUPS", "BREAKFAST_DISHES", "BRUNCH_DISHES", "BAKED_GOODS", "CAKE", "DESSERTS", "ICE_CREAM", "CHEESE", "FONDUE", "RACLETTE", "TAPAS", "DUMPLINGS", "FRIED_CHICKEN", "VEGETARIAN_DISHES", "VEGAN_DISHES"] as const;
@@ -176,7 +180,9 @@ const LEGACY_CUISINES = ["ITALIAN", "INDIAN", "SWISS", "FRENCH", "JAPANESE", "ME
 const LEGACY_SPECIALITIES = ["PIZZA", "BURGER", "SUSHI"] as const;
 const LEGACY_OFFERINGS = ["BEER", "WINE", "COCKTAILS", "NON_ALCOHOLIC_DRINKS", "COFFEE", "SNACKS", "FULL_MEALS", "BREAKFAST", "BRUNCH", "LUNCH", "DINNER", "TAKEAWAY_MEALS"] as const;
 const LEGACY_AMENITIES = ["WIFI", "POWER_OUTLETS", "TOILET", "HIGH_CHAIR", "STROLLER_SPACE", "TERRACE", "GARDEN", "OUTDOOR_SEATING", "WATER_BOWL", "WORK_TABLES"] as const;
-export const PREVIOUS_REGISTRY_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter(row => row.key !== "experience.profile" && row.key !== "operation.price_options" && row.key !== "discovery.profile" && row.key !== "description.discovery_source").map(row => row.key === "offering.food_specialities" ? Object.freeze({ ...row, allowedValues: row.allowedValues!.filter(value => value !== "CAKE") }) : row));
+const legacyDefinition = (row: AttributeDefinition):AttributeDefinition => row.key === "classification.place_types" ? {...row, allowedValues: REGISTRY_V2_4_PLACE_TYPES} : row;
+export const REGISTRY_V2_4_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.map(legacyDefinition));
+export const PREVIOUS_REGISTRY_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.map(legacyDefinition).filter(row => row.key !== "experience.profile" && row.key !== "operation.price_options" && row.key !== "discovery.profile" && row.key !== "description.discovery_source").map(row => row.key === "offering.food_specialities" ? Object.freeze({ ...row, allowedValues: row.allowedValues!.filter(value => value !== "CAKE") }) : row));
 export const REGISTRY_V1_1_HASH = "e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be" as const;
 export const REGISTRY_V2_0_HASH = "e93a7399c41535f7da2987c46343fbe82d1e3c07bca345b076d604f8d39f5a72" as const;
 export const PREVIOUS_REGISTRY_HASH = REGISTRY_V2_1_HASH;
@@ -189,6 +195,6 @@ export function getAttributeDefinition(keyValue: unknown): AttributeDefinition {
   return definitionValue;
 }
 
-export const REGISTRY_V2_2_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter(item => !["experience.profile", "discovery.profile", "description.discovery_source"].includes(item.key)));
+export const REGISTRY_V2_2_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.map(legacyDefinition).filter(item => !["experience.profile", "discovery.profile", "description.discovery_source"].includes(item.key)));
 
-export const REGISTRY_V2_3_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter(item => item.key !== "experience.profile"));
+export const REGISTRY_V2_3_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.map(legacyDefinition).filter(item => item.key !== "experience.profile"));

@@ -113,8 +113,8 @@ test("UNKNOWN category needs explicit review; dependent place types wait without
   assert.equal(plan(claims, values, { "classification.primary_category": "stale" }).accepted.length, 0);
 });
 
-test("incompatible place types stay blocked even after category confirmation", () => {
-  assert.equal(plan([claim("classification.primary_category", "DRINKS"), claim("classification.place_types", ["RESTAURANT"])]).blocked.length, 1);
+test("unregistered place types stay blocked even after category confirmation", () => {
+  assert.equal(plan([claim("classification.primary_category", "DRINKS"), claim("classification.place_types", ["UNREGISTERED_PLACE"])]).blocked.length, 1);
 });
 
 test("timezone derives only from confirmed CH; unknown and conflicting values require review", () => {

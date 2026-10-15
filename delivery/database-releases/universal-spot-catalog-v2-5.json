@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "universal-spot-catalog-v2-5",
+  "previousEvidence": "scoped-sport-authoring-catalog-v1-1",
+  "previousFingerprints": {
+    "publicAclSha256": "6a098d01a9a9d356a6c3acc9c8a35e36a0dc45a526a1297ba9b89461d139f850",
+    "applicationSchemaSha256": "a650afa8ef92b85235295bcd282112fda8fa3148c7da03f490678a2bc11bbafd"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql",
+      "sha256": "8bab754d297ee8f41f95d6922ca7db98790179a188712aded034465215409bda"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_knowledge_universal_catalog_v2_5.sql",
+      "sha256": "351523adbeee0fa9be0ac7127876f052c83306a0ec8ca52677fd6d0f29157163"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "6a098d01a9a9d356a6c3acc9c8a35e36a0dc45a526a1297ba9b89461d139f850",
+    "applicationSchemaSha256": "9704ecd0b5ee4e81fc3ad06573943f36fc03c54ad0d7229ec2a5b1aeb9a76501"
+  }
+}

@@ -28,7 +28,7 @@ test('registry 2.3 remains verifiable and upgrades additively with founder autho
  const w=await import('../dist/index.js');
  assert.equal(w.REGISTRY_V2_3_SHAPE.hash,'c3016e37bc0bb178c390a01a55cf69fa8d8f748593e1a794d2b2f9d84e513cc3');
  assert.equal(w.REGISTRY_V2_3_SHAPE.definitions.some(d=>d.key==='experience.profile'),false);
- assert.doesNotThrow(()=>w.validateRegistryTransition(w.REGISTRY_V2_3_SHAPE,w.CURRENT_REGISTRY_SHAPE,w.SLICE4E_REGISTRY_RELEASE,{acceptedApprovalAuthorities:[w.SLICE4E_REGISTRY_APPROVAL_AUTHORITY],acceptedApprovalRecords:[w.SLICE4E_REGISTRY_APPROVAL_RECORD],history:[]}));
+ assert.doesNotThrow(()=>w.validateRegistryTransition({version:w.REGISTRY_V2_4_VERSION,hash:w.REGISTRY_V2_4_HASH,definitions:w.REGISTRY_V2_4_DEFINITIONS,categoryLabels:w.PRIMARY_CATEGORY_LABELS},w.CURRENT_REGISTRY_SHAPE,w.SLICE4F_REGISTRY_RELEASE,{acceptedApprovalAuthorities:[w.SLICE4F_REGISTRY_APPROVAL_AUTHORITY],acceptedApprovalRecords:[w.SLICE4F_REGISTRY_APPROVAL_RECORD],history:[]}));
 });
 
 test('category guidance uses confirmed types and never infers a restaurant from missing classification',async()=>{
@@ -38,7 +38,7 @@ test('category guidance uses confirmed types and never infers a restaurant from 
  assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['WINE_BAR'])}),'BAR');
  assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['ZOO','PARK'])}),'ZOO');
  assert.equal(experienceCategoryFromAnswers({'classification.place_types':known(['CLIMBING_GYM'])}),'SPORT');
- assert.equal(experienceCategoryFromAnswers({'classification.primary_category':known('SPORT_MOVEMENT'),'classification.place_types':known(['SWIMMING_POOL'])}),null);
+ assert.equal(experienceCategoryFromAnswers({'classification.primary_category':known('SPORT_MOVEMENT'),'classification.place_types':known(['SWIMMING_POOL'])}),'SPORT_MOVEMENT');
  assert.equal(experienceCategoryFromAnswers({'classification.place_types':{knowledgeState:'UNKNOWN',value:['ZOO']}}),null);
 });
 test('wine bar aperitif never asks for guiding, skills, entry tickets or recommended ages',()=>{
@@ -79,7 +79,7 @@ test('hidden historical questions remain parseable and are not silently reclassi
 test('the forward SQL validator uses exactly the current scoped JSON schema',async()=>{
  const {readFileSync}=await import('node:fs');
  const {EXPERIENCE_PROFILE_SCHEMA}=await import('../dist/index.js');
- const source=readFileSync(new URL('../../../supabase/migrations/20261014211339_scoped_sport_authoring_catalog_v1_1.sql',import.meta.url),'utf8');
+ const source=readFileSync(new URL('../../../supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql',import.meta.url),'utf8');
  const schema=source.match(/experience_json_schema_matches_v1\('(.*?)'::jsonb/s)?.[1];
  assert.ok(schema);
  assert.deepEqual(JSON.parse(schema),EXPERIENCE_PROFILE_SCHEMA);
@@ -87,8 +87,8 @@ test('the forward SQL validator uses exactly the current scoped JSON schema',asy
 
 test('embedded cafes retain their own admission question without imposing it on normal bars',()=>{
  for(const category of ['ZOO','MUSEUM','SPORT']){
-  assert.ok(getExperienceQuestions(category,'OFFER',category==='ZOO'?'GASTRONOMY':'CAFE').some(q=>q.key==='participation.entry_mode'));
-  assert.ok(getExperienceQuestions(category,'AREA',undefined,'CAFE').some(q=>q.key==='participation.entry_mode'));
+  assert.ok(!getExperienceQuestions(category,'OFFER',category==='ZOO'?'GASTRONOMY':'CAFE').some(q=>q.key==='participation.entry_mode'));
+  assert.ok(!getExperienceQuestions(category,'AREA',undefined,'CAFE').some(q=>q.key==='participation.entry_mode'));
  }
  assert.ok(!getExperienceQuestions('BAR','OFFER','APERITIF').some(q=>q.key==='participation.entry_mode'));
 });

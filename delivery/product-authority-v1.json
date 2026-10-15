@@ -63,18 +63,20 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261014211339_scoped_sport_authoring_catalog_v1_1.sql",
-        "sha256": "bff9a78382927f3b99cbf92baa69f3e2b5031d8a6b33c815f2cd810ee3b1b30e"
+        "path": "supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql",
+        "sha256": "8bab754d297ee8f41f95d6922ca7db98790179a188712aded034465215409bda"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved the exact scoped Sport migration, remaining untested recovery risk and subsequent form publication with Alles freigegeben in the release conversation, 2026-10-14. Previous three-migration approval remains immutable Git history.",
+    "source": "Founder explicitly approved publication and this exact universal catalogue migration with remaining untested recovery risk in the release conversation on 2026-10-15: Ja, diese Migration mit dem beschriebenen Risiko freigeben. Historical approvals remain immutable in Git.",
     "backupEvidence": {
-      "runId": 38529360391,
+      "runId": 38729513498,
       "result": "SUCCESS",
-      "restoreDrillPerformed": false
+      "databaseIncluded": true,
+      "restoreDrillPerformed": false,
+      "note": "Weekly encrypted off-provider database and Storage export completed successfully on 2026-10-15. Backup evidence is not a restore drill."
     }
   },
   "protectedSemanticSourceSet": {
