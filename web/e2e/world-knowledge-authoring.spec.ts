@@ -512,6 +512,8 @@ for (const width of [390, 1280]) test(`Prüfnotizen erklären alte Speicherfassu
   await status.getByRole("button",{name:"Angabe prüfen: Angebote und Bereiche",exact:true}).click();
   await expect(page.getByRole("button",{name:"Weiteres Angebot hinzufügen",exact:true})).toBeVisible();
   await expect(page.locator('[id="wk-editor-experience.profile"]')).toBeFocused();
+  await expect(page.getByRole("heading",{name:"Was ist noch offen?",exact:true})).toBeHidden();
+  await expect(page.locator(".wk-profile-status-toggle > summary")).toBeVisible();
   expect(owner.submissions).toHaveLength(0);
   await page.screenshot({path:testInfo.outputPath(`profile-review-${width}.png`),fullPage:true});
 });
@@ -525,6 +527,7 @@ test("Profilstatus öffnet optionale Felder gezielt und schützt einen vorhanden
   const field=page.locator('[id="wk-editor-contact.public_email"]');
   await expect(field).toBeFocused();
   await field.locator('input[type="email"]').fill("new@backyrd.test");
+  await page.locator(".wk-profile-status-toggle > summary").click();
   await status.getByRole("button",{name:"Angabe prüfen: Art des Ortes",exact:true}).click();
   await expect(page.getByRole("status").filter({hasText:/Entwurf ist noch nicht gespeichert/})).toBeVisible();
   await expect(field.locator('input[type="email"]')).toHaveValue("new@backyrd.test");

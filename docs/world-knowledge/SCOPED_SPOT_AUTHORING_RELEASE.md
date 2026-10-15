@@ -362,3 +362,7 @@ Unknown reasons retain an honest generic explanation. Field buttons navigate to
 the actual editor, expand optional groups and focus the target. Unsaved drafts
 block that navigation. No production Spot facts, review decisions, RPC contracts,
 schema or permissions are changed by this UI release.
+
+The status explanation stays expanded on the task overview and review screen.
+During field editing it is collapsed behind “Profilstatus ansehen”, preserving
+mobile space for the actual form while keeping notice counts discoverable.

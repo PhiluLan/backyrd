@@ -315,3 +315,5 @@
 .wk-profile-status details{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}.wk-profile-status summary{cursor:pointer;line-height:1.5}
 .wk-profile-status ul{padding-left:20px}.wk-profile-status li{margin:16px 0;line-height:1.6;overflow-wrap:anywhere}.wk-profile-status li button{display:block;margin-top:8px;min-height:44px;max-width:100%;white-space:normal;text-align:left}
 .wk-field-with-usage{scroll-margin-top:24px}.wk-field-with-usage:focus{outline:2px solid var(--pink);outline-offset:6px;border-radius:8px}
+
+.wk-profile-status-toggle{margin-bottom:20px}.wk-profile-status-toggle>summary{cursor:pointer;font-size:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;line-height:1.5}.wk-profile-status-toggle>.wk-profile-status{margin-top:12px}

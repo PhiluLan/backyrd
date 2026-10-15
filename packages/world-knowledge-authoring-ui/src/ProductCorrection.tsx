@@ -534,7 +534,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         </button>;
       })}</nav>}
     </aside>
-    <main className="wk-main">{detail && <ProfileStatus detail={detail} onOpen={openField} />}{detail && overview ? <section className="wk-studio-home">
+    <main className="wk-main">{detail && (overview || current.id === "review" ? <ProfileStatus detail={detail} onOpen={openField} /> : <details className="wk-profile-status-toggle"><summary>Profilstatus ansehen{reviewNotices > 0 ? ` · ${reviewNotices} separate Prüfnotizen` : ""}</summary><ProfileStatus detail={detail} onOpen={openField} /></details>)}{detail && overview ? <section className="wk-studio-home">
       <div className="wk-studio-intro"><span className="wk-eyebrow">DEIN SPOT, KLAR BESCHRIEBEN</span><h2>Was möchtest du bearbeiten?</h2><p>Wähle einen Bereich. Du musst nicht alles auf einmal ausfüllen. Vorhandene Angaben bleiben erhalten.</p></div>
       <div className="wk-task-grid">{[...visibleSteps].sort((a,b)=>Number(sectionCopy[a.id]?.icon)-Number(sectionCopy[b.id]?.icon)).map(item=>{
         const keys=fieldsForStep(item.id).filter(f=>detail.actor.allowedAttributeKeys.includes(f.attributeKey));
