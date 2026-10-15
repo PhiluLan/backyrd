@@ -63,14 +63,14 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql",
-        "sha256": "8bab754d297ee8f41f95d6922ca7db98790179a188712aded034465215409bda"
+        "path": "supabase/migrations/20261015122708_world_verification_clock_skew_guard.sql",
+        "sha256": "0f487e493f21f47e1e001a2971bc803819b7cad17763b586880415f8c0e0982c"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved publication and this exact universal catalogue migration with remaining untested recovery risk in the release conversation on 2026-10-15: Ja, diese Migration mit dem beschriebenen Risiko freigeben. Historical approvals remain immutable in Git.",
+    "source": "Founder explicitly approved this exact clock-order corrective migration and remaining untested database recovery risk in the release conversation on 2026-10-15: Ja, Korrekturmigration mit diesem Risiko ver\u00f6ffentlichen. Previous approvals remain immutable in Git.",
     "backupEvidence": {
       "runId": 38729513498,
       "result": "SUCCESS",
