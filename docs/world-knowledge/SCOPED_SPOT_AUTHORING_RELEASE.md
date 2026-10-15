@@ -318,8 +318,8 @@ synthetic credentials. Screenshots cover 390/1280 px; shared authoring also cove
 The shared product editor now opens offers, physical spaces and shared facilities
 through separate numbered main sections. The former five inner workspace tabs are
 removed. Offers have named edit actions; adding a new offer/space is explicit.
-A directly reachable save bar confirms and submits the whole existing scoped
-profile, including edits in other workspaces. Workspace switching preserves the
+A directly reachable save bar submits the whole existing scoped
+profile through an explicit save action, including edits in other workspaces. Workspace switching preserves the
 same draft. Validation, failed saves and explicit discard retain their previous
 semantics. Public source preparation retains its consent and review flow.
 
@@ -384,3 +384,30 @@ its three main sections; only other field drafts or leaving the profile block
 navigation until saved or deliberately discarded. Save submits the same reviewed
 whole-profile contract. No schema, access, entitlement, moderation or ranking
 changes are introduced.
+
+## Contextual guidance and direct saving (2026-10-15)
+
+Ordinary manual Spot editing uses the explicit Save or Save & Next action as
+the review assertion; there is no repeated confirmation checkbox. Local profile
+validation, reviewed=true submission, actor authorization and reader verification
+remain mandatory. Optional AI source preparation retains its separate consent
+and review controls unchanged.
+
+Save & Next validates and awaits successful saving before advancing. Validation,
+network or reader-confirmation failures preserve the draft and prevent advancement.
+An unchanged profile advances without another write. Draft comparison ignores the
+review marker and object-key insertion order; restoring a field to its saved value
+clears the false dirty state. Repeated saving is guarded during the in-flight call.
+The experience profile uses its own status bar rather than an old generic
+“Bestätigt” badge that could incorrectly appear beside a newer unsaved draft.
+
+Hotel-guest audience choices require an explicit stay category, stay offer module
+or confirmed stay place type. Historical answers remain preserved if no longer
+in the contextual choices. Named dishes remain single food.dish values, not
+automatically interpreted descriptions. The field explains this distinction.
+
+Offer hours describe availability of that particular service, such as lunch
+11:00–14:00 within restaurant opening hours of 11:00–23:00. Known weekly Spot
+hours can be copied only by an explicit action, with existing offer rows protected
+against replacement. Empty schedules remain unknown. Seasonal validity dates are
+labelled separately. No shared data contract, schema, access or ranking changes.

@@ -34,7 +34,7 @@ for(const width of [390,1280])test(`Admin bearbeitet Profil und Medien getrennt 
  await page.getByLabel('Weiteres Angebot hinzufügen',{exact:true}).selectOption('OVERNIGHT_STAY');
  await page.getByLabel('Name des Angebots',{exact:true}).fill('Übernachten im Doppelzimmer');
  await expect(page.getByRole('heading',{name:'Preise (0)',exact:true})).toBeVisible();
- await expect(page.getByRole('heading',{name:'Zeiten dieses Angebots',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Wann ist dieses Angebot erhältlich?',exact:true})).toBeVisible();
  await expect(page.getByRole('navigation',{name:'Abschnitt des Angebots'})).toHaveCount(0);
  await page.getByRole('button',{name:'Bilder & Verwaltung',exact:true}).click();
  await expect(page.locator('#spot-understanding')).toBeHidden();
