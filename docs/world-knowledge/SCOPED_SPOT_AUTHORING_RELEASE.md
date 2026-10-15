@@ -111,9 +111,9 @@ equipment question. The ELYS page has no horizontal overflow at 390 px.
 ## Guided authoring pages (2026-10-15)
 
 The shared Admin/Owner experience editor now has separate overview pages for
-offers, areas, shared visit rules, deliberate reuse and review/save. Only one
-offer or area is edited at a time. Each property has its own page, with Next/Back
-and a direct topic selector; prices and offer schedules have their own pages.
+offers, areas and shared facilities, with deliberate reuse and review/save. One
+offer or area is edited at a time. All applicable questions, prices and offer
+schedules appear openly beneath each other on that subject’s editing page.
 No nested offer/group/answer accordions remain. Optional answer conditions use
 one disclosure level. Viewing or skipping a question does not create an answer.
 The same whole-profile review and authorized submission RPC remain authoritative.
@@ -127,8 +127,8 @@ remain intact. The friendly atmosphere label “lebendig” retains the existing
 stored value “lebhaft”. Missing knowledge remains distinct from false or not
 applicable. Initial blank prices remain blank; explicit zero remains allowed.
 
-Drafts survive internal page and topic changes. The outer Spot section selector
-and Admin Spot switch refuse to discard a dirty profile silently. Save failure
+Drafts survive changes between the three scoped profile sections. Leaving that
+shared profile for other Spot sections or another Spot never discards a draft silently. Save failure
 keeps the draft and does not announce success. Explicit discard restores the
 latest successfully saved baseline, including saves earlier in the same session.
 An invalid persisted profile is still blocked instead of overwritten as empty.
@@ -287,11 +287,12 @@ The clock-order correction was published from Main source `f8af68d58e4569b456044
 The edit route now opens with a task overview: identity/contact, place type,
 linked offers and spaces, hours, service, atmosphere, general prices,
 reservation/capacity, equipment/access and profile review. Admin and Owner use
-one shared layout. Selecting a task opens its editing workspace; mobile uses
-“All areas” to return to the overview instead of a second permanent selector.
-Offer/area editing shows one question at a time with a topic strip and Back/Next.
-Unknown/not applicable remains separate from negative answers and is a secondary
-action. Public-text preparation still requires the existing consent and review.
+one shared layout. Offers, rooms/areas and shared facilities each have an equally
+visible numbered main section in the overview, desktop navigation and mobile
+section selector. “All areas” also returns to the overview. Offer/area editing
+shows all matching questions in one open list. Unknown and not applicable are
+directly selectable and remain distinct from negative answers or unanswered
+questions. Public-text preparation still requires the existing consent and review.
 
 Admin media/status editing is a separate workspace. Both workspaces stay mounted
 so changing between them retains unsaved offer and field drafts. Navigating away
@@ -315,7 +316,7 @@ synthetic credentials. Screenshots cover 390/1280 px; shared authoring also cove
 ## One authoring location per fact (2026-10-15)
 
 The shared product editor now opens offers, physical spaces and shared facilities
-through separate overview entries. The former five inner workspace tabs are
+through separate numbered main sections. The former five inner workspace tabs are
 removed. Offers have named edit actions; adding a new offer/space is explicit.
 A directly reachable save bar confirms and submits the whole existing scoped
 profile, including edits in other workspaces. Workspace switching preserves the
@@ -328,7 +329,7 @@ access); the former catch-all `participation.accessibility` is not offered at
 three scopes. Offer participation conditions remain on the offer. Shared WC and
 changing-table questions are not repeated when an explicit positive facility is
 already present in the general profile. Existing claims at other scopes remain
-in their original locations and can be inspected through their historical topic.
+in their original locations and can be inspected in the open historical-answers section.
 No historical property, condition, price or link is automatically migrated,
 re-scoped, removed or inferred.
 
@@ -359,10 +360,27 @@ or resolving their underlying work items. Concurrent-authority notices explain
 that different verified versions within five minutes create a review task, even
 during incremental editing. A conflict-free snapshot does not close that task.
 Unknown reasons retain an honest generic explanation. Field buttons navigate to
-the actual editor, expand optional groups and focus the target. Unsaved drafts
+the actual editor and focus the target. Normal optional fields are openly listed. Unsaved drafts
 block that navigation. No production Spot facts, review decisions, RPC contracts,
 schema or permissions are changed by this UI release.
 
 The status explanation stays expanded on the task overview and review screen.
 During field editing it is collapsed behind “Profilstatus ansehen”, preserving
 mobile space for the actual form while keeping notice counts discoverable.
+
+## Open question lists and complete section navigation (2026-10-15)
+
+The main editing sequence contains three peer sections for offers, rooms/areas
+and shared facilities. Next advances through them in order. The two subordinate
+workspace shortcuts are removed. Mobile has the same complete section selector
+as desktop navigation. All category-relevant ordinary fields are rendered openly
+within their section, including optional general fields. Opening or scrolling
+through an unanswered question creates no answer. Only special conditions,
+read-only provenance, technical diagnostics and optional source import remain
+progressively disclosed.
+
+A single mounted experience editor retains the shared profile draft across
+its three main sections; only other field drafts or leaving the profile block
+navigation until saved or deliberately discarded. Save submits the same reviewed
+whole-profile contract. No schema, access, entitlement, moderation or ranking
+changes are introduced.

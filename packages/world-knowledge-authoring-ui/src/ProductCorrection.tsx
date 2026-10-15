@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import {
   AUTHORING_FIELDS, formatPriceOptionsSummary, AUTHORING_STEPS, getAuthoringFieldsForContext,
-  validateAuthoringSubmission, parseDiscoveryProfile, evaluateAuthoringReadiness, type DiscoveryProfile, type AuthoringField,
+  validateAuthoringSubmission, parseDiscoveryProfile, parseExperienceProfile, evaluateAuthoringReadiness, type DiscoveryProfile, type AuthoringField,
 } from "@backyrd/world-knowledge-core";
 import type { ExperienceWorkspace } from "./experience-authoring";
 import type { RpcResult, WorldAuthoringClient } from "./session";
@@ -166,13 +166,15 @@ const sectionCopy: Record<string, {title:string;description:string;icon:string}>
     basics:{title:"Name, Adresse & Kontakt",description:"So finden und erreichen Gäste deinen Spot.",icon:"01"},
     classification:{title:"Was für ein Ort ist das?",description:"Spottyp und Hauptkategorie festlegen.",icon:"02"},
     discovery:{title:"Angebote",description:"Was Gäste buchen oder erleben können. Preise, Zeiten und Bedingungen pro Leistung.",icon:"03"},
-    hours:{title:"Wann ist geöffnet?",description:"Öffnungszeiten, Küche und besondere Tage.",icon:"04"},
-    offering:{title:"Küche & Service",description:"Küchenrichtungen und allgemeiner Service.",icon:"05"},
-    context:{title:"Atmosphäre & Besuch",description:"Wie sich der Ort anfühlt und für wen er passt.",icon:"06"},
-    price:{title:"Allgemeine Preise & Zahlung",description:"Zahlungsmittel und Preise für den gesamten Spot.",icon:"07"},
-    objective:{title:"Platz & Reservierung",description:"Kapazität, Gruppen und Reservierungsregeln.",icon:"08"},
-    amenities:{title:"Ausstattung & Zugang",description:"Barrierefreiheit, Ausstattung und Hausregeln.",icon:"09"},
-    review:{title:"Gespeichertes Profil prüfen",description:"Überblick über vorhandene Angaben und offene Widersprüche.",icon:"10"},
+    areas:{title:"Räume & Bereiche",description:"Innenraum, Terrasse und weitere Bereiche: Zugang, Atmosphäre und Ausstattung pro Raum.",icon:"04"},
+    shared:{title:"Gemeinsame Ausstattung & Anreise",description:"WC, Wickeltisch, Parkplätze und Anreise einmal für den gesamten Spot pflegen.",icon:"05"},
+    hours:{title:"Wann ist geöffnet?",description:"Öffnungszeiten, Küche und besondere Tage.",icon:"06"},
+    offering:{title:"Küche & Service",description:"Küchenrichtungen und allgemeiner Service.",icon:"07"},
+    context:{title:"Atmosphäre & Besuch",description:"Wie sich der Ort anfühlt und für wen er passt.",icon:"08"},
+    price:{title:"Allgemeine Preise & Zahlung",description:"Zahlungsmittel und Preise für den gesamten Spot.",icon:"09"},
+    objective:{title:"Platz & Reservierung",description:"Kapazität, Gruppen und Reservierungsregeln.",icon:"10"},
+    amenities:{title:"Ausstattung & Zugang",description:"Barrierefreiheit, Ausstattung und Hausregeln.",icon:"11"},
+    review:{title:"Gespeichertes Profil prüfen",description:"Überblick über vorhandene Angaben und offene Widersprüche.",icon:"12"},
   };
 
 /** Product authoring uses the same typed editors as the local Founder workflow,
@@ -195,7 +197,6 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     element.focus({preventScroll:true});
     element.scrollIntoView({block:"start"});
   }, [fieldTarget,overview,step]);
-  const [experienceWorkspace,setExperienceWorkspace]=useState<ExperienceWorkspace>("OFFERS");
   const scopedDraftDirty = useRef(false);
   const fieldDrafts = useRef<Record<string,boolean>>({});
   useEffect(() => {
@@ -423,10 +424,23 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
   };
   const primaryCategory = detail?.answers["classification.primary_category"]?.value;
   const guidance = {placeTypes: detail?.answers["classification.place_types"]?.value, onsiteOfferings: detail?.answers["context.onsite_offerings"]?.value};
-  const fieldsForStep = (id: string) => getAuthoringFieldsForContext(id, typeof primaryCategory === "string" ? primaryCategory : undefined, guidance);
+  const profileSummary = (id:string):string|null => {
+    if (!["discovery","areas","shared"].includes(id)) return null;
+    const saved=detail?.answers["experience.profile"];
+    if (!saved || saved.knowledgeState === "UNKNOWN") return "Noch keine geprüften Angaben gespeichert";
+    try {
+      const profile=parseExperienceProfile(saved.value,false);
+      if(id === "discovery")return `${profile.offers.length} ${profile.offers.length === 1 ? "Angebot" : "Angebote"} gespeichert`;
+      if(id === "areas")return `${profile.areas.length} ${profile.areas.length === 1 ? "Raum / Bereich" : "Räume / Bereiche"} gespeichert`;
+      return `${new Set(profile.properties.map(property=>property.key)).size} gemeinsame Angaben gespeichert`;
+    } catch { return "Gespeichertes Profil prüfen"; }
+  };
+  const fieldsForStep = (id: string) => getAuthoringFieldsForContext(id === "areas" || id === "shared" ? "discovery" : id, typeof primaryCategory === "string" ? primaryCategory : undefined, guidance).filter(field => !["areas","shared"].includes(id) || field.attributeKey === "experience.profile");
   const visibleSteps = AUTHORING_STEPS.filter(item=>["review","objective","amenities"].includes(item.id)||!detail||fieldsForStep(item.id).length>0)
+    .flatMap(item => item.id === "discovery" ? [item, {...item,id:"areas",attributeKeys:["experience.profile"]}, {...item,id:"shared",attributeKeys:["experience.profile"]}] : [item])
     .sort((a,b)=>Number(sectionCopy[a.id]?.icon)-Number(sectionCopy[b.id]?.icon));
   const current = visibleSteps[Math.min(step,visibleSteps.length-1)]!;
+  const experienceWorkspace:ExperienceWorkspace = current.id === "areas" ? "AREAS" : current.id === "shared" ? "SPOT" : "OFFERS";
   const proLocked = surface === "OWNER" && detail?.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities");
   const fields = fieldsForStep(current.id)
     .filter((field) => detail?.actor.allowedAttributeKeys.includes(field.attributeKey))
@@ -435,10 +449,11 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
   const unknown = Object.values(detail?.answers ?? {}).filter((answer) => answer.knowledgeState === "UNKNOWN").length;
   const unresolved = snapshotConflicts(detail).filter((conflict) => conflict.severity === "BLOCKING").length;
   const reviewNotices = detail?.openConflicts.length ?? 0;
-  const goToStep = (index: number, workspace:ExperienceWorkspace="OFFERS") => {
-    if(scopedDraftDirty.current){setMessage("Du hast noch ungespeicherte Änderungen. Speichere die bearbeitete Angabe zuerst. Nutze im Angebotsbereich „Änderungen speichern“.");setMessageIsError(false);return;}
+  const goToStep = (index: number) => {
+    const sameProfile = ["discovery","areas","shared"].includes(current.id) && ["discovery","areas","shared"].includes(visibleSteps[index]?.id ?? "");
+    const onlyProfileDraft = Object.entries(fieldDrafts.current).every(([key,dirty]) => !dirty || key === "experience.profile");
+    if(scopedDraftDirty.current && !(sameProfile && onlyProfileDraft)){setMessage("Du hast noch ungespeicherte Änderungen. Speichere die bearbeitete Angabe zuerst. Nutze im Angebotsbereich „Änderungen speichern“.");setMessageIsError(false);return;}
     setFieldTarget(null);
-    if(visibleSteps[index]?.id==="discovery")setExperienceWorkspace(workspace);
     setOverview(false);
     setStep(Math.max(0, Math.min(visibleSteps.length - 1, index)));
     document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: surface === "OWNER" ? "auto" : "smooth", block: "start" });
@@ -455,8 +470,6 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     setOverview(true);
     document.querySelector(".wk-product-app")?.scrollIntoView({block:"start"});
   };
-  const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL" || ["PRICE_OPTIONS","DISCOVERY_PROFILE","EXPERIENCE_PROFILE"].includes(field.control));
-  const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL" && !["PRICE_OPTIONS","DISCOVERY_PROFILE","EXPERIENCE_PROFILE"].includes(field.control));
   const renderFieldGroups = (items: AuthoringField[]) => [...new Set(items.map((field) => field.group))].map((group) =>
     <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) => {
       const editor = <FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
@@ -471,7 +484,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         onSave={(state, value, until) => saveField(field, state, value, until)}
         onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} />;
       if(field.control==="DISCOVERY_PROFILE" && experienceWorkspace!=="OFFERS")return null;
-      return <div className="wk-field-with-usage" id={`wk-editor-${field.attributeKey}`} tabIndex={-1} key={`${detail?.spotId}:${field.attributeKey}:${field.control==="EXPERIENCE_PROFILE"?experienceWorkspace:"field"}`}>
+      return <div className="wk-field-with-usage" id={`wk-editor-${field.attributeKey}`} tabIndex={-1} key={`${detail?.spotId}:${field.attributeKey}`}>
         {surface === "ADMIN" && <details className="wk-field-usage-details"><summary>Verwendung in Backyrd</summary><div className="wk-field-usage" aria-label="Verwendung dieser Angabe">
           <span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span>
           <span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span>
@@ -520,8 +533,8 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
       </div> : <div className="wk-product-search"><label>Spot-ID<input className="wk-input" value={spotId} onChange={(event) => setSpotId(event.target.value)} /></label>
         <button type="button" disabled={busy} onClick={() => void selectSpot(spotId)}>Spot laden</button></div>}</div></details>}
       {detail && <label className="wk-owner-step-picker">Bereich auswählen
-        <select value={step} onChange={(event) => goToStep(Number(event.target.value))}>
-          {visibleSteps.map((item, index) => <option key={item.id} value={index}>{sectionCopy[item.id]?.title??item.title}</option>)}
+        <select aria-label="Bereich auswählen" value={step} onChange={(event) => goToStep(Number(event.target.value))}>
+          {visibleSteps.map((item, index) => <option key={item.id} value={index}>{sectionCopy[item.id]?.icon} {sectionCopy[item.id]?.title??item.title}</option>)}
         </select>
       </label>}
       {detail && <nav aria-label="Bereiche der Spot-Pflege">{[...visibleSteps].sort((a,b)=>Number(sectionCopy[a.id]?.icon)-Number(sectionCopy[b.id]?.icon)).map((item) => {
@@ -530,7 +543,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         const completed = sectionFields.filter((key) => detail.answers[key]).length;
         const proLocked = surface === "OWNER" && detail.actor.role === "VERIFIED_OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (item.id === "objective" || item.id === "amenities");
         return <button type="button" className={step === index ? "selected" : ""} aria-current={!overview && step===index?"page":undefined} key={item.id} onClick={() => goToStep(index)}>
-          <b>{sectionCopy[item.id]?.icon}</b><span>{sectionCopy[item.id]?.title??item.title}<small>{proLocked ? "Mit Owner Pro verfügbar" : item.id === "review" ? "Zusammenfassung" : `${completed} von ${sectionFields.length} Angaben erfasst`}</small></span>
+          <b>{sectionCopy[item.id]?.icon}</b><span>{sectionCopy[item.id]?.title??item.title}<small>{proLocked ? "Mit Owner Pro verfügbar" : item.id === "review" ? "Zusammenfassung" : profileSummary(item.id) ?? `${completed} von ${sectionFields.length} Angaben erfasst`}</small></span>
         </button>;
       })}</nav>}
     </aside>
@@ -540,15 +553,12 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         const keys=fieldsForStep(item.id).filter(f=>detail.actor.allowedAttributeKeys.includes(f.attributeKey));
         const count=keys.filter(f=>detail.answers[f.attributeKey] && detail.answers[f.attributeKey].knowledgeState!=="UNKNOWN").length;
         const copy=sectionCopy[item.id];
-        return <Fragment key={item.id}><button type="button" className={`wk-task-card ${item.id==="discovery"?"featured":""}`} key={item.id} onClick={()=>goToStep(visibleSteps.indexOf(item))}>
-          <span className="wk-task-number">{copy?.icon}</span><span className="wk-task-content"><strong>{copy?.title??item.title}</strong><span>{copy?.description??item.explanation}</span><small>{item.id==="review"?"Profil ansehen":`${count} ${count===1?"Angabe":"Angaben"} vorhanden`}</small></span><span aria-hidden="true">↗</span>
-        </button>{item.id==="discovery"&&<>
-          <button type="button" className="wk-task-card" onClick={()=>goToStep(visibleSteps.indexOf(item),"AREAS")}><span className="wk-task-number">03b</span><span className="wk-task-content"><strong>Räume & Bereiche</strong><span>Zugang, Atmosphäre und Ausstattung einmal pro Raum beschreiben.</span><small>Innenraum, Terrasse, Gästezimmer und mehr</small></span><span aria-hidden="true">↗</span></button>
-          <button type="button" className="wk-task-card" onClick={()=>goToStep(visibleSteps.indexOf(item),"SPOT")}><span className="wk-task-number">03c</span><span className="wk-task-content"><strong>Gemeinsame Ausstattung & Anreise</strong><span>Zum Beispiel WC, Wickeltisch oder Parkplätze am Spot.</span><small>Einmal für den gesamten Spot</small></span><span aria-hidden="true">↗</span></button>
-        </>}</Fragment>;
+        return <button type="button" className={`wk-task-card ${["discovery","areas","shared"].includes(item.id)?"featured":""}`} key={item.id} onClick={()=>goToStep(visibleSteps.indexOf(item))}>
+          <span className="wk-task-number">{copy?.icon}</span><span className="wk-task-content"><strong>{copy?.title??item.title}</strong><span>{copy?.description??item.explanation}</span><small>{item.id==="review"?"Profil ansehen":profileSummary(item.id)??`${count} ${count===1?"Angabe":"Angaben"} vorhanden`}</small></span><span aria-hidden="true">↗</span>
+        </button>;
       })}</div><p className="wk-studio-help">Gut zu wissen: Ein Angebot ist eine Leistung, z. B. Abendessen oder Übernachtung. Ein Bereich ist ein Ort im Spot, z. B. Terrasse oder Gästezimmer.</p>
     </section> : !detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>{surface === "OWNER" ? "Suche deinen freigegebenen Spot nach Namen. Danach kannst du seine Angaben Schritt für Schritt ergänzen." : "Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen."}</p></section>
-      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${visibleSteps.length}`}><span style={{ width: `${((step + 1) / visibleSteps.length) * 100}%` }} /></div><div className="wk-step-title"><span>Spotprofil bearbeiten · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : `${fields.filter((field) => detail.answers[field.attributeKey]).length} von ${fields.length} Angaben gespeichert`}</span><h2>{sectionCopy[current.id]?.title??current.title}</h2><p>{sectionCopy[current.id]?.description??current.explanation}</p>
+      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${visibleSteps.length}`}><span style={{ width: `${((step + 1) / visibleSteps.length) * 100}%` }} /></div><div className="wk-step-title"><span>Spotprofil bearbeiten · {surface === "OWNER" && detail.actor.entitlement === "OWNER_BASIC" && (current.id === "objective" || current.id === "amenities") ? "Owner Pro" : profileSummary(current.id) ?? `${fields.filter((field) => detail.answers[field.attributeKey]).length} von ${fields.length} Angaben gespeichert`}</span><h2>{sectionCopy[current.id]?.title??current.title}</h2><p>{sectionCopy[current.id]?.description??current.explanation}</p>
         </div>
         {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch{surface === "ADMIN" ? " im World-Reader" : ""}</strong>
           <p>Die betroffenen Angaben können korrigiert werden; bis zur Klärung werden sie nicht als gesichert ausgegeben.</p></div>}
@@ -577,7 +587,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
             })}</div></section>
           <section className="wk-note"><strong>{detail.manifest ? "Spot-Ansicht aktuell" : "Spot-Ansicht noch nicht aktualisiert"}</strong>
             <p>{detail.manifest ? "Jede gespeicherte Änderung wird mit dem aktuellen Spot-Wissen abgeglichen." : "Speichere eine Angabe. Danach wird die Spot-Ansicht geprüft."}</p></section>
-        </div> : fields.length ? <div className="wk-fields">{["offering","context","price","objective","amenities"].includes(current.id)&&<aside className="wk-scope-notice"><strong>Diese Angaben gelten für den gesamten Spot</strong><p>Gilt etwas nur für eine bestimmte Leistung oder einen Raum? Pflege es unter „Angebote“ oder „Räume & Bereiche“. Hier bleiben deine allgemeinen Angaben erhalten.</p></aside>}{renderFieldGroups(priorityFields)}{optionalFields.length > 0 && <details className="wk-optional-fields"><summary><span><strong>Weitere Angaben</strong><small>{optionalFields.filter((field) => detail.answers[field.attributeKey]).length} von {optionalFields.length} optionalen Angaben gespeichert</small></span><b>{optionalFields.length}</b></summary><div>{renderFieldGroups(optionalFields)}</div></details>}</div>
+        </div> : fields.length ? <div className="wk-fields">{["offering","context","price","objective","amenities"].includes(current.id)&&<aside className="wk-scope-notice"><strong>Diese Angaben gelten für den gesamten Spot</strong><p>Gilt etwas nur für eine bestimmte Leistung oder einen Raum? Pflege es unter „Angebote“ oder „Räume & Bereiche“. Hier bleiben deine allgemeinen Angaben erhalten.</p></aside>}{renderFieldGroups(fields)}</div>
           : <div className="wk-note"><strong>Für diesen Spot keine bearbeitbaren Angaben in diesem Bereich.</strong><p>Du kannst zum nächsten Bereich wechseln.</p></div>}
         {!fields.some(field=>field.control==="EXPERIENCE_PROFILE")&&<footer className="wk-footer"><button type="button" className="wk-secondary" disabled={step === 0} onClick={() => goToStep(step - 1)}>Zurück</button>
           <span>{surface === "OWNER" ? "Jede Änderung wird einzeln gespeichert und geprüft." : "Jede Änderung wird einzeln gespeichert und danach im World-Reader geprüft."}</span>

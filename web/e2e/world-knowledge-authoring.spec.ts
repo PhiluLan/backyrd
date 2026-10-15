@@ -93,20 +93,19 @@ test("Owner wählt seinen Spot nach Namen statt per ID", async ({ page }, testIn
   await page.screenshot({ path: testInfo.outputPath("owner-spot-editor-desktop.png"), fullPage: true });
 });
 
-test("Basis-Owner kann 1–6 pflegen, während 7–8 sichtbar gesperrt bleiben", async ({ page }) => {
+test("Basis-Owner pflegt freigegebene Bereiche, während Pro-Bereiche sichtbar gesperrt bleiben", async ({ page }) => {
   const owner = await mockOwner(page, "OWNER_BASIC");
   await openEditor(page);
-  await page.getByRole("button", { name: /07 Allgemeine Preise & Zahlung/ }).click();
-  await page.getByText("Weitere Angaben").click();
+  await page.getByRole("button", { name: /09 Allgemeine Preise & Zahlung/ }).click();
   await page.getByLabel("Preislevel").selectOption("MEDIUM");
   await expect.poll(() => owner.submissions.length).toBe(1);
   expect(owner.submissions[0].p_attribute_key).toBe("operation.price_level");
-  await page.getByRole("button", { name: /08 Platz & Reservierung/ }).click();
+  await page.getByRole("button", { name: /10 Platz & Reservierung/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
   await expect(page.getByText("CHF 39.–")).toBeVisible();
   await expect(page.getByRole("link", { name: "Owner Pro entdecken" })).toHaveAttribute("href", `/owner/billing?spot=${spotId}`);
   await expect(page.getByText("Sitzplätze gesamt")).toHaveCount(0);
-  await page.getByRole("button", { name: /09 Ausstattung & Zugang/ }).click();
+  await page.getByRole("button", { name: /11 Ausstattung & Zugang/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toBeVisible();
   await expect(page.getByText("CHF 39.–")).toBeVisible();
   await expect(page.getByText("Spot-ID")).toHaveCount(0);
@@ -115,9 +114,8 @@ test("Basis-Owner kann 1–6 pflegen, während 7–8 sichtbar gesperrt bleiben",
 test("Pro-Owner erhält die vom Server erlaubten Zusatzfelder", async ({ page }) => {
   await mockOwner(page, "OWNER_PRO");
   await openEditor(page);
-  await page.getByRole("button", { name: /08 Platz & Reservierung/ }).click();
+  await page.getByRole("button", { name: /10 Platz & Reservierung/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toHaveCount(0);
-  await page.getByText("Weitere Angaben").click();
   await expect(page.getByText("Sitzplätze gesamt", {exact:true})).toBeVisible();
 });
 
@@ -125,7 +123,7 @@ test("Admin-Zugriff erklärt die Freigabe der Pro-Bereiche", async ({ page }) =>
   await mockOwner(page, "OWNER_BASIC", "ADMIN");
   await openEditor(page);
   await expect(page.getByText("Admin-Zugriff: Alle Bereiche sind für dich freigeschaltet.", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: /08 Platz & Reservierung/ }).click();
+  await page.getByRole("button", { name: /10 Platz & Reservierung/ }).click();
   await expect(page.getByRole("heading", { name: "Mehr Tiefe für deinen Spot." })).toHaveCount(0);
 });
 
@@ -232,7 +230,7 @@ for(const mobile of [false,true])test(`Spotwissen Consent Review Reload ${mobile
 
 
 const outerStep=async(page:Page,index:number)=>{
- const labels=['03 Angebote','01 Name, Adresse & Kontakt','02 Was für ein Ort ist das?','05 Küche & Service','06 Atmosphäre & Besuch','07 Allgemeine Preise & Zahlung','04 Wann ist geöffnet?','08 Platz & Reservierung','09 Ausstattung & Zugang','10 Gespeichertes Profil prüfen'];
+ const labels=['03 Angebote','01 Name, Adresse & Kontakt','02 Was für ein Ort ist das?','07 Küche & Service','08 Atmosphäre & Besuch','09 Allgemeine Preise & Zahlung','06 Wann ist geöffnet?','10 Platz & Reservierung','11 Ausstattung & Zugang','12 Gespeichertes Profil prüfen'];
  const name=new RegExp(labels[index].replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
  if((page.viewportSize()?.width??1280)<=760){
   await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
@@ -252,9 +250,14 @@ const mainStep=async(page:Page,step:number)=>{
  if(step===4)return;
  const workspace=['OFFERS','AREAS','SPOT'][step];
  if(await guided(page).getAttribute('data-workspace')===workspace)return;
- await guided(page).getByRole('button',{name:['Angebote öffnen','Räume & Bereiche öffnen','Gemeinsame Ausstattung öffnen'][step],exact:true}).click();
+ const label=['03 Angebote','04 Räume & Bereiche','05 Gemeinsame Ausstattung & Anreise'][step]!;
+ if((page.viewportSize()?.width??1280)<=760)await page.getByRole('combobox',{name:'Bereich auswählen',exact:true}).selectOption({label});
+ else await page.getByRole('navigation',{name:'Bereiche der Spot-Pflege'}).getByRole('button',{name:new RegExp(label)}).click();
 };
-const part=async(page:Page,name:string)=>guided(page).getByRole('navigation',{name:/Abschnitt des (Angebots|Bereichs)/}).getByRole('button',{name,exact:true}).click();
+const part=async(page:Page,name:string)=>{
+ const heading=name==='Preise'?guided(page).getByRole('heading',{name:/^Preise \(\d+\)$/}):guided(page).getByRole('heading',{name:name==='Angebotszeiten'?'Zeiten dieses Angebots':name,exact:true});
+ await heading.scrollIntoViewIfNeeded();
+};
 const overview=async(page:Page)=>guided(page).getByRole('button',{name:'← Zur Übersicht',exact:true}).click();
 const saveProfile=async(page:Page)=>{
  await guided(page).getByRole('checkbox',{name:'Ich habe die Änderungen geprüft.',exact:true}).check();
@@ -275,7 +278,7 @@ for(const scenario of [
  await reloadEditor(page);await guided(page).getByLabel(`Angebot ${scenario.offer} bearbeiten`,{exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue(scenario.offer);await expect(guided(page).getByRole('checkbox',{name:scenario.area,exact:true})).toBeChecked();
 });
 
-for(const width of [320,390])test(`Mehrfachauswahl und flache Themenseiten bei ${width}px`,async({page},testInfo)=>{
+for(const width of [320,390])test(`Mehrfachauswahl in offenen Fragebereichen bei ${width}px`,async({page},testInfo)=>{
  await page.setViewportSize({width,height:844});const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);
  await addFromCatalogue(page,'Getränke');await part(page,'Getränke einschließlich alkoholfreier Auswahl');
  const drinks=guided(page).getByRole('region',{name:'Getränke einschließlich alkoholfreier Auswahl',exact:true});
@@ -291,8 +294,12 @@ for(const width of [320,390])test(`Mehrfachauswahl und flache Themenseiten bei $
  await guided(page).getByRole('button',{name:'gemütlich',exact:true}).click();await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(2);const p2=owner.submissions[1].p_value as typeof p;expect(p2.areas[0].properties.map(x=>x.value)).toContain('lebhaft');expect(p2.areas[0].properties.map(x=>x.value)).not.toContain('gemütlich');
 });
 
-test('Weiter und Zurück zeigen genau eine Themenseite und behalten den Entwurf',async({page})=>{
- await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittag am Rhein');await guided(page).getByRole('button',{name:'Weiter',exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveCount(0);await expect(guided(page).getByRole('heading',{name:'Was kann man hier machen?',exact:true})).toBeVisible();await guided(page).getByRole('button',{name:'Zurück',exact:true}).click();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Mittag am Rhein');
+test('Offene Fragen erhalten den Entwurf und schützen den Wechsel zu anderen Angaben',async({page})=>{
+ await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittag am Rhein');
+ await expect(guided(page).getByRole('heading',{name:'Was kann man hier machen?',exact:true})).toBeVisible();
+ await expect(guided(page).getByRole('heading',{name:'Preise (0)',exact:true})).toBeVisible();
+ await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Mittag am Rhein');
+ await expect(guided(page).getByRole('navigation',{name:'Abschnitt des Angebots'})).toHaveCount(0);
  await outerStep(page,1);await expect(page.locator('.wk-toast[role="status"]').filter({hasText:/ungespeicherte Änderungen/i})).toBeVisible();await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Mittag am Rhein');
 });
 
@@ -398,7 +405,8 @@ for(const width of [320,390,1280])test(`Spot Studio startet mit verständlicher 
  await page.screenshot({path:testInfo.outputPath(`studio-home-${width}.png`),fullPage:true});
  await page.getByRole('button',{name:/03 Angebote/}).click();
  await addFromCatalogue(page,'Mittagessen');await part(page,'Was kann man hier machen?');
- await expect(guided(page).getByRole('navigation',{name:'Abschnitt des Angebots'})).toBeVisible();
+ await expect(guided(page).getByRole('navigation',{name:'Abschnitt des Angebots'})).toHaveCount(0);
+ await expect(guided(page).getByRole('heading',{name:'Preise (0)',exact:true})).toBeVisible();
  await guided(page).getByRole('button',{name:'essen gehen',exact:true}).click();
  await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
  await expect(page.getByRole('status').filter({hasText:'Dein Entwurf ist noch nicht gespeichert'})).toBeVisible();
@@ -490,12 +498,12 @@ test('Ein neuer Bereich speichert seinen Zugang ohne Aussage über Spot oder Ang
 
 test('Räume und gemeinsame Angaben haben eigene Einstiege auf der Startübersicht',async({page})=>{
  await mockOwner(page,'OWNER_BASIC');await page.goto(`/owner/spots/${spotId}`);
- await page.getByRole('button',{name:/03b Räume & Bereiche/}).click();
+ await page.getByRole('button',{name:/04 Räume & Bereiche/}).click();
  await expect(guided(page)).toHaveAttribute('data-workspace','AREAS');
  await expect(guided(page).getByRole('button',{name:'Raum oder Bereich hinzufügen',exact:true})).toBeVisible();
  await expect(guided(page).getByRole('button',{name:'Weiteres Angebot hinzufügen',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Alle Bereiche',exact:true}).click();
- await page.getByRole('button',{name:/03c Gemeinsame Ausstattung/}).click();
+ await page.getByRole('button',{name:/05 Gemeinsame Ausstattung/}).click();
  await expect(guided(page)).toHaveAttribute('data-workspace','SPOT');
 });
 
@@ -540,4 +548,50 @@ test("Prüfnotizen werden bei aktuellem Widerspruch nicht als konfliktfrei darge
   await expect(status.getByText(/1 Widerspruch in der aktuellen Datenansicht/)).toBeVisible();
   await expect(status.getByText(/genaue Ursache ist hier nicht verfügbar/)).toBeVisible();
   await expect(status.getByText(/enthält keine Widersprüche/)).toHaveCount(0);
+});
+
+for(const width of [390,1280])test(`Gleichwertige Hauptbereiche behalten einen gemeinsamen Entwurf bei ${width}px`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:900});const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);
+ await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittagsmenü');
+ await mainStep(page,1);await addFromCatalogue(page,'Terrasse');
+ const access=guided(page).getByRole('region',{name:'Ist dieser Bereich stufenlos erreichbar?',exact:true});
+ await expect(access.getByRole('button',{name:'Ja',exact:true})).toBeVisible();await access.getByRole('button',{name:'Ja',exact:true}).click();
+ await expect(guided(page).getByRole('region',{name:'Atmosphäre',exact:true})).toBeVisible();
+ await mainStep(page,2);
+ const toilet=guided(page).getByRole('region',{name:'Gibt es ein WC am Spot?',exact:true});await expect(toilet.getByRole('button',{name:'Ja',exact:true})).toBeVisible();await toilet.getByRole('button',{name:'Ja',exact:true}).click();
+ await expect(guided(page).getByRole('button',{name:'Gemeinsame Ausstattung öffnen',exact:true})).toHaveCount(0);
+ await mainStep(page,0);if(await guided(page).getByRole('button',{name:'Angebot Mittagsmenü bearbeiten',exact:true}).count())await guided(page).getByRole('button',{name:'Angebot Mittagsmenü bearbeiten',exact:true}).click();
+ await guided(page).getByRole('checkbox',{name:'Terrasse',exact:true}).check();
+ await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_value).toMatchObject({offers:[{name:'Mittagsmenü',areaIds:[expect.any(String)]}],areas:[{name:'Terrasse',properties:expect.arrayContaining([expect.objectContaining({key:'amenity.step_free',value:true})])}],properties:expect.arrayContaining([expect.objectContaining({key:'amenity.toilet',value:true})])});
+ await reloadEditor(page);await mainStep(page,2);await expect(guided(page).getByRole('region',{name:'Gibt es ein WC am Spot?',exact:true}).getByRole('button',{name:'Ja',exact:true})).toHaveAttribute('aria-pressed','true');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ await page.screenshot({path:testInfo.outputPath(`open-shared-${width}.png`),fullPage:true});
+ await page.screenshot({path:testInfo.outputPath(`open-shared-viewport-${width}.png`),fullPage:false});
+});
+
+test('Offene Wissensantworten speichern weder Nein noch einen Standardwert unbeabsichtigt',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');
+ const booking=guided(page).getByRole('region',{name:'Reservation erforderlich?',exact:true});
+ const state=booking.getByRole('group',{name:'Reservation erforderlich? Wissensstand',exact:true});
+ await expect(state.getByRole('button',{name:'Noch unbekannt',exact:true})).toHaveAttribute('aria-pressed','false');
+ await state.getByRole('button',{name:'Nicht relevant',exact:true}).click();
+ await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
+ const profile=owner.submissions[0].p_value as {offers:Array<{properties:Array<{key:string;state:string;value:unknown}>}>};
+ expect(profile.offers[0].properties).toEqual([{key:'participation.booking',label:null,state:'NOT_APPLICABLE',value:null,conditions:emptyExperienceConditions()}]);
+});
+
+test('Weiter führt über Räume und gemeinsame Ausstattung, ohne Antworten zu erfinden',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);
+ await guided(page).getByRole('button',{name:'Zum nächsten Bereich',exact:true}).click();
+ await expect(guided(page).getByRole('heading',{name:'Räume & Bereiche',exact:true})).toBeVisible();
+ await guided(page).getByRole('button',{name:'Zum nächsten Bereich',exact:true}).click();
+ await expect(guided(page).getByRole('heading',{name:'Gemeinsame Ausstattung & Anreise',exact:true})).toBeVisible();
+ await expect(guided(page).getByRole('region',{name:'Gibt es ein WC am Spot?',exact:true})).toBeVisible();
+ await guided(page).getByRole('button',{name:'Zum nächsten Bereich',exact:true}).click();
+ await expect(page.locator('.wk-step-title').getByRole('heading',{name:'Wann ist geöffnet?',exact:true})).toBeVisible();
+ expect(owner.submissions).toHaveLength(0);
+ await outerStep(page,1);const email=page.getByLabel('Öffentliche Spot-E-Mail',{exact:true});
+ await expect(email).toBeVisible();expect(await email.evaluate(element=>Boolean(element.closest('details')))).toBe(false);
+ await expect(page.getByText('Weitere Angaben',{exact:true})).toHaveCount(0);
 });
