@@ -376,7 +376,7 @@ workspace shortcuts are removed. Mobile has the same complete section selector
 as desktop navigation. All category-relevant ordinary fields are rendered openly
 within their section, including optional general fields. Opening or scrolling
 through an unanswered question creates no answer. Only special conditions,
-read-only provenance, technical diagnostics and optional source import remain
+read-only provenance and technical diagnostics remain
 progressively disclosed.
 
 A single mounted experience editor retains the shared profile draft across
@@ -472,3 +472,31 @@ visible tab, a same-window confirmed editor save, or the refresh button reload
 status. Failed reads replace the current batch with an honest unavailable state;
 old scores are never used as fallback. This uses existing RPCs and permissions,
 with no database migration or production fact mutations.
+
+
+### Understandable section status and visible helpers (2026-10-15)
+
+General sections show required-field state separately from known saved fields,
+optional fields without answers, and explicitly unknown answers. Counts use only
+actor-visible contextual fields. The open section lists named correction targets
+for required issues, optional additions and unknown values. A filled field count
+never claims a semantic quality review; scoped offers/areas retain their own
+counts rather than being treated as one completed global field.
+
+The source-preparation helper is an open section titled “Mit KI aus vorhandenen
+Texten ausfüllen”. It explains that existing public website/menu/offer text may
+be copied, a URL alone is insufficient, and no new prose is required. A textarea
+example and three visible steps explain source entry, OpenAI consent, and human
+review/save. Generic field legends and unknown/not-applicable actions no longer
+make the optional tool appear to be an additional required Spot question. Consent,
+source publication, moderation, review and explicit save remain unchanged. The
+proposal search-term correction input is openly visible as well.
+
+Cuisine/dish reuse is an open section in Offers, directly beside the selected
+offer's name and before its detailed questions. The selected offer is the explicit
+target; the overview offers a target selector and an explanation when no offer
+exists. The action is labelled “Zum Angebot hinzufügen”, explains draft-only
+behavior, and shows “Bereits zugeordnet” for an identical property. Incompatible
+targets are explained. Shared/area pages do not display an unrelated cuisine
+assignment tool. The original global claim is retained; no automatic assignment
+to other offers, inference from prose, production writes, or schema changes occur.

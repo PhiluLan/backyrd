@@ -87,6 +87,18 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
  const topics=editor?groupsFor(editor.scope,selectedOffer?.kind??selectedArea?.kind,selectedOffer?.properties??selectedArea?.properties):[];
  const sharedGroups=groupsFor("SPOT",undefined,profile.properties);
  const headings={OFFERS:"Was können Gäste hier machen?",AREAS:"Räume & Bereiche",SPOT:"Gemeinsame Ausstattung & Anreise"};
+ const reusePanel=workspace==="OFFERS"&&suggestions.length>0&&<section className="wk-reuse-details" aria-label="Vorhandene Küchenangaben zuordnen"><h3>Vorhandene Küchenangaben einem Angebot zuordnen</h3>
+    <p>Diese Angaben sind bereits allgemein beim Spot gespeichert. Wähle das Angebot, für das sie tatsächlich gelten. Beispiel: Eine vegetarische Auswahl beim Mittagessen bestätigt noch keine vegetarische Auswahl beim Abendessen.</p>
+    <p>Mit „Zum Angebot hinzufügen“ ergänzt du den Entwurf. Erst „Änderungen speichern“ speichert die Zuordnung.</p>
+    {selectedOffer?<p>Gilt für: <strong>{selectedOffer.name}</strong></p>:targets.length?<label>Für welches Angebot gelten die Angaben?<select aria-label="Für welches Angebot gelten die Angaben?" className="wk-input" value={reuseTarget} onChange={event=>setReuseTarget(event.target.value)}><option value="">Angebot auswählen</option>{targets.map(target=><option key={target.value} value={target.value}>{target.label}</option>)}</select></label>:<p>Lege zuerst ein Angebot an. Danach kannst du passende Angaben zuordnen.</p>}
+    {suggestions.map(suggestion=>{
+      const id=selectedOffer?.id??reuseTarget.split(":")[1];
+      const offer=profile.offers.find(offer=>offer.id===id);
+      const allowed=!!offer&&getExperienceAuthoringQuestions(profile.category,"OFFER",offer.kind).some(question=>question.key===suggestion.property.key);
+      const included=offer?.properties.some(value=>JSON.stringify(value)===JSON.stringify(suggestion.property));
+      return <div className="wk-reuse-row" key={suggestion.id}><span>{EXPERIENCE_QUESTIONS.find(question=>question.key===suggestion.property.key)?.label??"Vorhandene Angabe"}: {displayValue(suggestion.property.value)}</span><button type="button" disabled={!allowed||included} onClick={()=>{try{change(reuseExperienceProperty(profile,suggestion,{scope:"OFFER",id:id??null}));}catch{setError("Diese Angabe passt nicht zum ausgewählten Angebot.");}}}>{included?"Bereits zugeordnet":"Zum Angebot hinzufügen"}</button>{offer&&!allowed&&<small>Diese Angabe passt nicht zu diesem Angebotstyp.</small>}</div>;
+    })}
+   </section>;
  return <div ref={top} tabIndex={-1} className="wk-guided-authoring" data-workspace={workspace}>
   {initial.invalid&&<p role="alert">Das gespeicherte Angebotsprofil konnte nicht sicher geladen werden. Es wird nicht durch ein leeres Profil ersetzt.</p>}
   <fieldset disabled={disabled||busy||initial.invalid} className="wk-experience-editor"><legend>Angebote und Bereiche pflegen</legend>
@@ -102,6 +114,7 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
     {selectedOffer&&<>
      <p>{offerHelp(selectedOffer.kind)}</p>
      <label>Name des Angebots<input aria-label="Name des Angebots" className="wk-input" maxLength={160} value={selectedOffer.name} onChange={e=>updateOffer(selectedOffer.id,{name:e.target.value})}/></label>
+     {reusePanel}
      <fieldset><legend>In diesen Bereichen verfügbar</legend>{profile.areas.map(a=><label key={a.id}><input type="checkbox" checked={selectedOffer.areaIds.includes(a.id)} onChange={e=>updateOffer(selectedOffer.id,{areaIds:e.target.checked?[...selectedOffer.areaIds,a.id]:selectedOffer.areaIds.filter(id=>id!==a.id)})}/>{a.name}</label>)}{!profile.areas.length&&<p>Noch kein Raum zugeordnet. Lege ihn direkt hier an oder später unter „Räume & Bereiche“.</p>}</fieldset>
      <h4>Bereich direkt anlegen und zuordnen</h4><div className="wk-choices">{[...templates.areas,{kind:"OTHER",label:"Eigener Bereich"}].map(t=><button type="button" className="wk-secondary" key={t.kind} disabled={profile.areas.length>=30} onClick={()=>addArea(t.kind,t.label,selectedOffer.id)}>Bereich anlegen: {t.label}</button>)}</div>
      <label>Anderen Bereich anlegen und zuordnen<select aria-label="Anderen Bereich anlegen und zuordnen" className="wk-input" value="" onChange={e=>{const item=AREA_CATALOG.find(a=>a.kind===e.target.value);if(item)addArea(item.kind,item.label,selectedOffer.id);}}><option value="">Bereich auswählen</option>{AREA_CATALOG.map(a=><option key={a.kind} value={a.kind}>{a.label}</option>)}</select></label>
@@ -132,6 +145,7 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
       <label>Weiteres Angebot hinzufügen<select className="wk-input" aria-label="Weiteres Angebot hinzufügen" value="" onChange={event=>{if(event.target.value===clubOfferChoice.choiceId){addOffer(clubOfferChoice.kind,clubOfferChoice.label,[clubActivity()]);return;}const item=selectableOffers.find(offer=>offer.kind===event.target.value);if(item)addOffer(item.kind,offerLabel(item.kind,item.label));}} disabled={profile.offers.length>=30}><option value="">Im gesamten Angebotskatalog auswählen</option>{SPOT_GROUPS.map(group=><optgroup key={group.id} label={group.label}>{selectableOffers.filter(offer=>offer.group===group.id).map(offer=><option key={offer.kind} value={offer.kind}>{offerLabel(offer.kind,offer.label)}</option>)}{group.id==="NIGHTLIFE"&&<option value={clubOfferChoice.choiceId}>{clubOfferChoice.label}</option>}</optgroup>)}</select></label><button type="button" className="wk-secondary" onClick={()=>setAdding(false)}>Abbrechen</button>
      </section>}
     </>}
+    {workspace==="OFFERS"&&reusePanel}
     {workspace==="AREAS"&&<>
      {!profile.areas.length&&<div className="wk-authoring-empty"><strong>Noch kein Raum oder Bereich erfasst</strong><p>Zum Beispiel Terrasse, Innenraum oder Gästezimmer. Lege nur tatsächlich vorhandene Bereiche an.</p></div>}
      {profile.areas.map(area=><article className="wk-experience-card wk-overview-card" key={area.id}><strong>{area.name}</strong><p>Zugang, Atmosphäre und Ausstattung dieses Bereichs</p><small>{profile.offers.filter(offer=>offer.areaIds.includes(area.id)).length} verknüpfte Angebote</small><button type="button" aria-label={`Bereich ${area.name} bearbeiten`} onClick={()=>edit("AREA",area.id)}>{area.name} bearbeiten</button></article>)}
@@ -144,10 +158,6 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
      {sharedGroups.length>0?sharedGroups.map(name=><Properties key={name} existingAnswers={existingAnswers} category={profile.category} scope="SPOT" group={name} values={profile.properties} onChange={properties=>change({...profile,properties})}/>):<p>Die gemeinsamen Angaben sind bereits im Spotprofil erfasst.</p>}
     </>}
 
-    {suggestions.length>0&&<details className="wk-reuse-details"><summary>Bestehende Küchenangaben gezielt übernehmen</summary><p>Nur übernehmen, wenn die Angabe tatsächlich für dieses Angebot gilt. Die ursprüngliche Angabe bleibt unverändert.</p>
-     <label>Zuordnen zu<select aria-label="Zuordnen zu" className="wk-input" value={reuseTarget} onChange={event=>setReuseTarget(event.target.value)}><option value="">Bitte auswählen</option>{targets.map(target=><option key={target.value} value={target.value}>{target.label}</option>)}</select></label>
-     {suggestions.map(suggestion=>{const [scope,id]=reuseTarget.split(":");const allowed=getExperienceAuthoringQuestions(profile.category,scope as ExperienceScope,profile.offers.find(offer=>offer.id===id)?.kind).some(question=>question.key===suggestion.property.key);return <div className="wk-reuse-row" key={suggestion.id}><span>{EXPERIENCE_QUESTIONS.find(question=>question.key===suggestion.property.key)?.label??"Vorhandene Angabe"}: {displayValue(suggestion.property.value)}</span><button type="button" disabled={!reuseTarget||!allowed} onClick={()=>{try{change(reuseExperienceProperty(profile,suggestion,{scope:scope as ExperienceScope,id:id||null}));}catch{setError("Diese Angabe passt nicht zur ausgewählten Zuordnung.");}}}>In Entwurf übernehmen</button></div>;})}
-    </details>}
     {onContinue&&<button type="button" className="wk-secondary" onClick={()=>void continueNext()}>{dirty?"Speichern & weiter":"Zum nächsten Bereich"}</button>}
    </>}
    {dirty&&<button type="button" className="wk-secondary" onClick={()=>{setProfile(baseline);onChange(baseline);setDirty(false);onDirtyChange?.(false);setEditor(null);setSaved(false);setError(null);}}>Ungespeicherten Entwurf verwerfen</button>}
