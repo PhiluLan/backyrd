@@ -72,11 +72,11 @@
     "guaranteedDatabaseRollback": false,
     "source": "Founder explicitly approved publication and this exact universal catalogue migration with remaining untested recovery risk in the release conversation on 2026-10-15: Ja, diese Migration mit dem beschriebenen Risiko freigeben. Historical approvals remain immutable in Git.",
     "backupEvidence": {
-      "runId": 38729037723,
+      "runId": 38729513498,
       "result": "SUCCESS",
-      "databaseIncluded": false,
+      "databaseIncluded": true,
       "restoreDrillPerformed": false,
-      "note": "Daily encrypted Storage export; separate weekly database export requested in run 38729513498. No restore-success claim."
+      "note": "Weekly encrypted off-provider database and Storage export completed successfully on 2026-10-15. Backup evidence is not a restore drill."
     }
   },
   "protectedSemanticSourceSet": {
