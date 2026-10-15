@@ -261,7 +261,7 @@ The earlier statements about non-production implementation/test work above
 remain historical context; this paragraph records the subsequent publication.
 
 
-## Clock-order verification correction (2026-10-15, pending publication)
+## Clock-order verification correction (shipped 2026-10-15)
 
 Production 25hours authoring failed with verification_binding_invalid. A
 synthetic +1 second device clock reproduces the same rejection: the authoritative
@@ -277,3 +277,6 @@ Regression coverage exercises the actual Product Admin RPC, Owner writes,
 unchanged request replay, excessive future timestamps, foreign Owner/non-admin
 denial, anonymous/private ACLs and an explicitly forged pre-receipt verification.
 A server-side-only fix lets an open failed form retry without discarding its draft.
+
+
+The clock-order correction was published from Main source `f8af68d58e4569b456044e4b3c62f3df1dbf9686` through certified production run 38736379377. Read-only checks confirmed migration 20261015122708 and the new server-receipt ordering guard, with private validator ACLs retained. Existing phone drafts can retry against the corrected backend without a frontend reload. Full release identities are recorded in `docs/operations/releases/WORLD_VERIFICATION_CLOCK_FIX_2026_10_15.json`.
