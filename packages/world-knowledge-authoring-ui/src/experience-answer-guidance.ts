@@ -1,9 +1,9 @@
 import { EXPERIENCE_VALUE_CHOICES, WORLD_VALUE_LABELS, type ExperienceCategory } from "@backyrd/world-knowledge-core";
 
 export type ExperienceAnswerGuidance =
-  | { readonly kind: "CHOICES"; readonly choices: readonly string[]; readonly help: string }
+  | { readonly kind: "CHOICES"; readonly choices: readonly string[]; readonly help: string; readonly multiple?: boolean }
   | { readonly kind: "NAME"; readonly placeholder: string; readonly help: string };
-const choice = (choices: readonly string[], help = "Wähle eine zutreffende Antwort. Weitere Angaben kannst du getrennt hinzufügen."): ExperienceAnswerGuidance => ({ kind: "CHOICES", choices, help });
+const choice = (choices: readonly string[], help = "Wähle eine zutreffende Antwort. Weitere Angaben kannst du getrennt hinzufügen."): ExperienceAnswerGuidance => ({ kind: "CHOICES", choices, help, multiple: true });
 const named = (placeholder: string, help: string): ExperienceAnswerGuidance => ({ kind: "NAME", placeholder, help });
 const labels = (keys: readonly string[]) => keys.map(key => WORLD_VALUE_LABELS[key]).filter((value): value is string => typeof value === "string");
 const cuisineKeys = ["ITALIAN","INDIAN","SWISS","FRENCH","JAPANESE","MEDITERRANEAN","ASIAN","GERMAN","AUSTRIAN","SPANISH","PORTUGUESE","GREEK","TURKISH","LEVANTINE","MIDDLE_EASTERN","CHINESE","THAI","VIETNAMESE","KOREAN","INDONESIAN","MALAYSIAN","MEXICAN","LATIN_AMERICAN","AMERICAN","AFRICAN","ETHIOPIAN","MOROCCAN","INTERNATIONAL","FUSION"];
@@ -59,7 +59,9 @@ export function experienceAnswerGuidance(key: string, category: ExperienceCatego
   if (key === "experience.theme") return named(category === "ZOO" ? "Zum Beispiel Pinguine" : "Zum Beispiel Design", category === "ZOO" ? "Eine Tierart oder ein Thema dieses Angebots. Weitere Tierarten getrennt ergänzen." : "Ein Thema oder eine Sammlung dieser Ausstellung. Weitere Themen getrennt ergänzen.");
   if (key === "experience.activity") return choice(offerKind === "VISIT" && category === "ZOO" ? ["Zoo besuchen"] : (offerKind && activitiesByOffer[offerKind]) || activitiesByCategory[category], "Wähle eine Tätigkeit für dieses Angebot. Speisen und Getränke erfasst du in ihren eigenen Angaben.");
   const existing = EXPERIENCE_VALUE_CHOICES[key];
-  return existing ? choice(existing) : guidance[key] ?? null;
+  const spec = existing ? choice(existing) : guidance[key] ?? null;
+  const single = ["participation.booking", "participation.permission", "participation.entry_mode", "participation.consumption_obligation", "food.meal_extent", "atmosphere.noise", "atmosphere.conversation", "atmosphere.privacy", "sport.level"];
+  return spec?.kind === "CHOICES" ? { ...spec, multiple: !single.includes(key), help: single.includes(key) ? spec.help : "Mehrfachauswahl möglich. Wähle alle zutreffenden Antworten." } : spec;
 }
 
 export function experiencePriceIncludes(category: ExperienceCategory, offerKind: string): readonly string[] {

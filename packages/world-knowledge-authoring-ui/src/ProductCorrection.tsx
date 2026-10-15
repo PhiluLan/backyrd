@@ -40,6 +40,8 @@ export type ProductFieldInputProps = {
   applicability?: string;
   referenceValue?: unknown;
   existingAnswers?: Readonly<Record<string,unknown>>;
+  onDraftChange?(dirty:boolean):void;
+  onContinue?():void;
   onPrepareDiscovery?(sourceText:string):Promise<DiscoveryProfile>;
   onSave(state: string, value: unknown, validUntil?: string): Promise<void>;
   onSaveCandidate?(value: readonly string[]): Promise<void>;
@@ -128,6 +130,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
   const [spotId, setSpotId] = useState("");
   const [detail, setDetail] = useState<Detail | null>(null);
   const [step, setStep] = useState(0);
+  const scopedDraftDirty = useRef(false);
   const [message, setMessage] = useState("");
   const [messageIsError, setMessageIsError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -240,6 +243,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     return data;
   };
   const selectSpot = async (id: string) => {
+    if(scopedDraftDirty.current){setMessage("Bitte speichere den Angebotsentwurf oder verwirf ihn bewusst, bevor du den Spot wechselst.");setMessageIsError(false);return;}
     const sequence = ++loadSequence.current;
     setBusy(true);
     setMessage("");
@@ -355,6 +359,7 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
   const unresolved = snapshotConflicts(detail).filter((conflict) => conflict.severity === "BLOCKING").length;
   const reviewNotices = detail?.openConflicts.length ?? 0;
   const goToStep = (index: number) => {
+    if(scopedDraftDirty.current){setMessage("Dein Angebotsentwurf ist noch nicht gespeichert. Gehe zu Prüfen und speichern oder verwirf den Entwurf bewusst.");setMessageIsError(false);return;}
     setStep(Math.max(0, Math.min(visibleSteps.length - 1, index)));
     document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: surface === "OWNER" ? "auto" : "smooth", block: "start" });
   };
@@ -364,6 +369,8 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) => {
       const editor = <FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
         existingAnswers={detail?.answers}
+        onDraftChange={dirty=>{scopedDraftDirty.current=dirty;}}
+        onContinue={()=>goToStep(step+1)}
         referenceValue={field.attributeKey === "hours.kitchen" ? detail?.answers["hours.regular"]?.value : undefined}
         disabled={busy}
         disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
@@ -465,11 +472,11 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
             })}</div></section>
           <section className="wk-note"><strong>{detail.manifest ? "Spot-Ansicht aktuell" : "Spot-Ansicht noch nicht aktualisiert"}</strong>
             <p>{detail.manifest ? "Jede gespeicherte Änderung wird mit dem aktuellen Spot-Wissen abgeglichen." : "Speichere eine Angabe. Danach wird die Spot-Ansicht geprüft."}</p></section>
-        </div> : fields.length ? <div className="wk-fields">{renderFieldGroups(priorityFields)}{optionalFields.length > 0 && <details className="wk-optional-fields"><summary><span><strong>Weitere Angaben</strong><small>{optionalFields.filter((field) => detail.answers[field.attributeKey]).length} von {optionalFields.length} optionalen Angaben gespeichert</small></span><b>{optionalFields.length}</b></summary><div>{renderFieldGroups(optionalFields)}</div></details>}</div>
+        </div> : fields.length ? <div className="wk-fields">{["offering","context","price","objective","amenities"].includes(current.id)&&<aside className="wk-scope-notice"><strong>Allgemeines Spotprofil · gesamter Spot</strong><p>Diese bisherigen Angaben werden von der aktuellen App genutzt und bleiben erhalten. Sie sind keine Aussage über jedes einzelne Angebot oder jeden Bereich. Deren Details pflegst du unter „Erlebnisse und Angebote“; es erfolgt keine automatische Übertragung.</p></aside>}{renderFieldGroups(priorityFields)}{optionalFields.length > 0 && <details className="wk-optional-fields"><summary><span><strong>Weitere Angaben</strong><small>{optionalFields.filter((field) => detail.answers[field.attributeKey]).length} von {optionalFields.length} optionalen Angaben gespeichert</small></span><b>{optionalFields.length}</b></summary><div>{renderFieldGroups(optionalFields)}</div></details>}</div>
           : <div className="wk-note"><strong>Für diesen Spot keine bearbeitbaren Angaben in diesem Bereich.</strong><p>Du kannst zum nächsten Bereich wechseln.</p></div>}
-        <footer className="wk-footer"><button type="button" className="wk-secondary" disabled={step === 0} onClick={() => goToStep(step - 1)}>Zurück</button>
+        {!fields.some(field=>field.control==="EXPERIENCE_PROFILE")&&<footer className="wk-footer"><button type="button" className="wk-secondary" disabled={step === 0} onClick={() => goToStep(step - 1)}>Zurück</button>
           <span>{surface === "OWNER" ? "Jede Änderung wird einzeln gespeichert und geprüft." : "Jede Änderung wird einzeln gespeichert und danach im World-Reader geprüft."}</span>
-          <button type="button" disabled={step >= visibleSteps.length - 1} onClick={() => goToStep(step + 1)}>Weiter</button></footer>
+          <button type="button" disabled={step >= visibleSteps.length - 1} onClick={() => goToStep(step + 1)}>Weiter</button></footer>}
       </section>}</main></div>
     {message && <div className={`wk-toast ${messageIsError ? "error" : "success"}`} role={messageIsError ? "alert" : "status"}>{message}
       <button type="button" aria-label="Meldung schließen" onClick={() => setMessage("")}>×</button></div>}
