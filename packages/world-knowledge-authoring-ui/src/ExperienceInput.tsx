@@ -4,7 +4,7 @@ import { ExperienceReferences } from "./ExperienceReferences";
 import { getExperienceAuthoringQuestions, type ExperienceWorkspace } from "./experience-authoring";
 import { Conditions, Properties } from "./ExperienceProperties";
 import { experiencePriceIncludes } from "./experience-answer-guidance";
-import { SPOT_TYPE_CATALOG, SPOT_GROUPS, OFFER_CATALOG, AREA_CATALOG, EXPERIENCE_QUESTIONS, experienceCategoryFromAnswers, EXPERIENCE_TEMPLATES, emptyExperienceProfile, emptyExperienceConditions, experienceReuseSuggestions, reuseExperienceProperty, parseExperienceProfile, type ExperienceCategory, type ExperienceProfile, type ExperienceProperty, type ExperienceScope, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
+import { SPOT_TYPE_CATALOG, SPOT_GROUPS, OFFER_CATALOG, AREA_CATALOG, EXPERIENCE_QUESTIONS, experienceCategoryFromAnswers, EXPERIENCE_TEMPLATES, emptyExperienceProfile, emptyExperienceConditions, parseAttributeValue, WEEKDAYS, type WeeklyScheduleDay, experienceReuseSuggestions, reuseExperienceProperty, parseExperienceProfile, type ExperienceCategory, type ExperienceProfile, type ExperienceProperty, type ExperienceScope, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
 const weekdays=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const nullableNumber=(v:string)=>v===""?null:Number(v);
 const displayValue=(v:unknown)=>v===true?"Ja":v===false?"Nein":String(v);
@@ -20,6 +20,10 @@ function Prices({category,offerKind,values,onChange}:{category:ExperienceCategor
     <label>Preis gilt für<select className="wk-input" value={p.includes} onChange={e=>update(i,{includes:e.target.value})}><option value="">Noch nicht zugeordnet</option>{purposes.map(v=><option key={v}>{v}</option>)}{p.includes&&!((purposes as readonly string[]).includes(p.includes))&&<option value={p.includes}>{p.includes} (bisherige Angabe)</option>}</select></label><p>Wähle den Zweck dieses Preises, für ein Paket zum Beispiel Apéro. In der Preisbezeichnung kannst du das Paket benennen. Ein Gesamtpreis bleibt ein Gesamtpreis.</p><Conditions value={p.conditions} onChange={conditions=>update(i,{conditions})}/><button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,j)=>j!==i))}>Preis entfernen</button>
   </section>)}<button type="button" className="wk-secondary" disabled={values.length>=30} onClick={()=>onChange([...values,{label:"",currency:"CHF",min:Number.NaN,max:null,basis:"PER_PERSON",minimumAge:null,maximumAge:null,mandatoryFeesIncluded:null,includes:"",conditions:emptyExperienceConditions()}])}>+ Preis hinzufügen</button></section>;
 }
+
+// Compare draft contents, not the review marker or object-key insertion order.
+const profileFingerprint=(profile:ExperienceProfile)=>JSON.stringify({...profile,reviewed:false},(_key,value:unknown)=>
+ typeof value === "number" && !Number.isFinite(value) ? {$draftNumber:String(value)} : value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))) : value);
 
 type Editor = {scope:"OFFER"|"AREA";id:string};
 type Props = {
@@ -40,12 +44,13 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
  const [addingWorkspace,setAddingWorkspace]=useState<ExperienceWorkspace|null>(null);
  const adding=addingWorkspace===workspace;
  const setAdding=(next:boolean)=>setAddingWorkspace(next?workspace:null);
- const [confirmed,setConfirmed]=useState(false),[busy,setBusy]=useState(false);
+ const [busy,setBusy]=useState(false);
+ const saving=useRef(false);
  const [error,setError]=useState<string|null>(null),[saved,setSaved]=useState(false),[dirty,setDirty]=useState(false);
  const [reuseTarget,setReuseTarget]=useState("");
  const top=useRef<HTMLDivElement>(null);
  const focus=()=>requestAnimationFrame(()=>{top.current?.scrollIntoView({block:"start",behavior:"instant"});top.current?.focus({preventScroll:true});});
- const change=(next:ExperienceProfile)=>{setProfile({...next,reviewed:false});onChange({...next,reviewed:false});setConfirmed(false);setSaved(false);setError(null);setDirty(true);onDirtyChange?.(true);};
+ const change=(next:ExperienceProfile)=>{const changed=profileFingerprint(next)!==profileFingerprint(baseline);const draft=changed?{...next,reviewed:false}:baseline;setProfile(draft);onChange(draft);setSaved(false);setError(null);setDirty(changed);onDirtyChange?.(changed);};
  const templates=EXPERIENCE_TEMPLATES[experienceCategoryFromAnswers(existingAnswers)??profile.category];
  const updateOffer=(id:string,patch:Partial<ExperienceOffer>)=>change({...profile,offers:profile.offers.map(offer=>offer.id===id?{...offer,...patch}:offer)});
  const groupsFor=(scope:ExperienceScope,kind?:string,values:readonly ExperienceProperty[]=[])=>{
@@ -55,16 +60,23 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
  const addArea=(kind:string,name:string,offerId?:string)=>{const id=crypto.randomUUID();change({...profile,areas:[...profile.areas,{id,kind,name,properties:[]}],offers:profile.offers.map(offer=>offer.id===offerId?{...offer,areaIds:[...offer.areaIds,id]}:offer)});setAdding(false);if(!offerId){setEditor({scope:"AREA",id});focus();}};
  const addOffer=(kind:string,name:string)=>{const id=crypto.randomUUID();change({...profile,offers:[...profile.offers,{id,kind,name,areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}]});setAdding(false);setEditor({scope:"OFFER",id});focus();};
  const edit=(scope:"OFFER"|"AREA",id:string)=>{setEditor({scope,id});setAdding(false);focus();};
- const save=async()=>{
-  if(!confirmed||!dirty)return;
+ const save=async():Promise<boolean>=>{
+  if(saving.current)return false;
+  if(!dirty)return !initial.invalid;
   let checked:ExperienceProfile;
   try{if(initial.invalid)throw Error("invalid_existing_profile");checked=parseExperienceProfile({...profile,reviewed:true});}
-  catch{setError("Bitte prüfe Namen, Werte, Preisgrenzen und Verknüpfungen. Deine Eingaben bleiben erhalten.");return;}
-  setBusy(true);setError(null);
-  try{await onSave(checked);setProfile(checked);setBaseline(checked);setConfirmed(false);setDirty(false);onDirtyChange?.(false);setSaved(true);}
-  catch{setError("Speichern fehlgeschlagen. Deine Eingaben bleiben erhalten; bitte versuche es erneut.");}
-  finally{setBusy(false);}
+  catch{setError("Bitte prüfe Namen, Werte, Preisgrenzen und Verknüpfungen. Deine Eingaben bleiben erhalten.");return false;}
+  saving.current=true;setBusy(true);setError(null);
+  try{await onSave(checked);setProfile(checked);setBaseline(checked);setDirty(false);onDirtyChange?.(false);setSaved(true);return true;}
+  catch{setError("Speichern fehlgeschlagen. Deine Eingaben bleiben erhalten; bitte versuche es erneut.");return false;}
+  finally{saving.current=false;setBusy(false);}
  };
+ const continueNext=async()=>{if(await save())onContinue?.();};
+ const regularOfferSchedule=(()=>{
+  const stored=existingAnswers["hours.regular"];
+  if(!stored || typeof stored!=="object" || !("knowledgeState" in stored) || stored.knowledgeState!=="KNOWN_VALUE" || !("value" in stored))return [];
+  try {const days=parseAttributeValue("hours.regular",stored.value) as readonly WeeklyScheduleDay[];return days.flatMap(day=>day.intervals.map(interval=>({weekday:WEEKDAYS.indexOf(day.day)+1,start:interval.start,end:interval.end})));}catch{return [];}
+ })();
  // A main entrance or a global facility does not prove access to an individual
  // room. Keep those source claims as references, never as copy suggestions.
  const suggestions=experienceReuseSuggestions(existingAnswers,new Date().toISOString()).filter(suggestion=>suggestion.sourceKey.startsWith("offering."));
@@ -79,8 +91,7 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
   <fieldset disabled={disabled||busy||initial.invalid} className="wk-experience-editor"><legend>Angebote und Bereiche pflegen</legend>
    <div className="wk-profile-savebar">
     <p className="wk-draft-state" role="status">{dirty?"Ungespeicherte Änderungen":saved?"Angebote und Bereiche gespeichert.":"Gespeicherter Stand"}</p>
-    {dirty&&<label className="wk-save-confirm"><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)}/>Ich habe die Änderungen geprüft.</label>}
-    <button type="button" disabled={!confirmed||!dirty} onClick={()=>void save()}>{busy?"Wird gespeichert …":"Änderungen speichern"}</button>
+    <button type="button" disabled={!dirty} onClick={()=>void save()}>{busy?"Wird gespeichert …":"Änderungen speichern"}</button>
     {dirty&&<small>Speichert alle bearbeiteten Angebote, Räume und gemeinsamen Angaben.</small>}
    </div>
    {editor&&(selectedOffer||selectedArea)?<section className="wk-experience-card wk-guided-page">
@@ -103,9 +114,9 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
     </>}
     {topics.map(topic => <div className="wk-open-topic" key={topic}>{selectedOffer ? <Properties existingAnswers={existingAnswers} category={profile.category} scope="OFFER" offerKind={selectedOffer.kind} group={topic} values={selectedOffer.properties} onChange={properties=>updateOffer(selectedOffer.id,{properties})}/> : selectedArea ? <Properties existingAnswers={existingAnswers} category={profile.category} scope="AREA" areaKind={selectedArea.kind} group={topic} values={selectedArea.properties} onChange={properties=>change({...profile,areas:profile.areas.map(a=>a.id===selectedArea.id?{...a,properties}:a)})}/> : null}</div>)}
     {selectedOffer&&<Prices category={profile.category} offerKind={selectedOffer.kind} values={selectedOffer.prices} onChange={prices=>updateOffer(selectedOffer.id,{prices})}/>}
-    {selectedOffer&&<section className="wk-stack"><h4>Zeiten dieses Angebots</h4><p>Keine Einträge bedeutet: noch unbekannt. Die Zeiten ersetzen keine Öffnungszeiten und bestätigen keine freien Plätze.</p>{selectedOffer.schedule.map((s,i)=><div className="wk-grid" key={i}><label>Wochentag<select className="wk-input" value={s.weekday} onChange={e=>updateOffer(selectedOffer.id,{schedule:selectedOffer.schedule.map((v,j)=>i===j?{...v,weekday:Number(e.target.value)}:v)})}>{weekdays.map((d,j)=><option key={d} value={j+1}>{d}</option>)}</select></label><label>Beginn<input aria-label={`Angebotszeit ${i+1} Beginn`} className="wk-input" type="time" value={s.start} onChange={e=>updateOffer(selectedOffer.id,{schedule:selectedOffer.schedule.map((v,j)=>i===j?{...v,start:e.target.value}:v)})}/></label><label>Ende<input aria-label={`Angebotszeit ${i+1} Ende`} className="wk-input" type="time" value={s.end} onChange={e=>updateOffer(selectedOffer.id,{schedule:selectedOffer.schedule.map((v,j)=>i===j?{...v,end:e.target.value}:v)})}/></label><button type="button" className="wk-secondary" onClick={()=>updateOffer(selectedOffer.id,{schedule:selectedOffer.schedule.filter((_,j)=>j!==i)})}>Zeit entfernen</button></div>)}<button type="button" disabled={selectedOffer.schedule.length>=56} onClick={()=>updateOffer(selectedOffer.id,{schedule:[...selectedOffer.schedule,{weekday:1,start:"",end:""}]})}>+ Angebotszeit</button><label>Verfügbar ab<input className="wk-input" type="date" value={selectedOffer.validFrom??""} onChange={e=>updateOffer(selectedOffer.id,{validFrom:e.target.value||null})}/></label><label>Verfügbar bis einschließlich<input className="wk-input" type="date" value={selectedOffer.validUntil??""} onChange={e=>updateOffer(selectedOffer.id,{validUntil:e.target.value||null})}/></label></section>}
+    {selectedOffer&&<section className="wk-stack"><h4>Wann ist dieses Angebot erhältlich?</h4><p>Die Öffnungszeiten gelten für den gesamten Spot. Hier trägst du ein, wann genau diese Leistung erhältlich ist: Ein Restaurant kann zum Beispiel von 11 bis 23 Uhr geöffnet sein, Mittagessen aber nur von 11 bis 14 Uhr anbieten.</p><p>Trage bestätigte Angebotszeiten ein oder übernimm die Öffnungszeiten, wenn diese Leistung tatsächlich während der gesamten Öffnungszeit erhältlich ist. Ohne Eintrag bleiben die Angebotszeiten unbekannt.</p>{regularOfferSchedule.length>0&&<button type="button" className="wk-secondary" disabled={selectedOffer.schedule.length>0} onClick={()=>updateOffer(selectedOffer.id,{schedule:regularOfferSchedule})}>Öffnungszeiten für dieses Angebot übernehmen</button>}{selectedOffer.schedule.length>0&&regularOfferSchedule.length>0&&<p>Bereits eingetragene Angebotszeiten bleiben erhalten. Bearbeite sie direkt in der Liste.</p>}{selectedOffer.schedule.map((s,i)=><div className="wk-grid" key={i}><label>Wochentag<select className="wk-input" value={s.weekday} onChange={e=>updateOffer(selectedOffer.id,{schedule:selectedOffer.schedule.map((v,j)=>i===j?{...v,weekday:Number(e.target.value)}:v)})}>{weekdays.map((d,j)=><option key={d} value={j+1}>{d}</option>)}</select></label><label>Beginn<input aria-label={`Angebotszeit ${i+1} Beginn`} className="wk-input" type="time" value={s.start} onChange={e=>updateOffer(selectedOffer.id,{schedule:selectedOffer.schedule.map((v,j)=>i===j?{...v,start:e.target.value}:v)})}/></label><label>Ende<input aria-label={`Angebotszeit ${i+1} Ende`} className="wk-input" type="time" value={s.end} onChange={e=>updateOffer(selectedOffer.id,{schedule:selectedOffer.schedule.map((v,j)=>i===j?{...v,end:e.target.value}:v)})}/></label><button type="button" className="wk-secondary" onClick={()=>updateOffer(selectedOffer.id,{schedule:selectedOffer.schedule.filter((_,j)=>j!==i)})}>Zeit entfernen</button></div>)}<button type="button" disabled={selectedOffer.schedule.length>=56} onClick={()=>updateOffer(selectedOffer.id,{schedule:[...selectedOffer.schedule,{weekday:1,start:"",end:""}]})}>+ Angebotszeit</button><label>Nur bei befristeten Angeboten: erster Tag<input className="wk-input" type="date" value={selectedOffer.validFrom??""} onChange={e=>updateOffer(selectedOffer.id,{validFrom:e.target.value||null})}/></label><label>Nur bei befristeten Angeboten: letzter Tag<input className="wk-input" type="date" value={selectedOffer.validUntil??""} onChange={e=>updateOffer(selectedOffer.id,{validUntil:e.target.value||null})}/></label></section>}
 
-    <footer className="wk-guided-footer"><button type="button" className="wk-secondary" onClick={()=>{setEditor(null);focus();}}>Zur Übersicht</button>{onContinue&&<button type="button" disabled={dirty} onClick={onContinue}>Zum nächsten Bereich</button>}</footer>
+    <footer className="wk-guided-footer"><button type="button" className="wk-secondary" onClick={()=>{setEditor(null);focus();}}>Zur Übersicht</button>{onContinue&&<button type="button" onClick={()=>void continueNext()}>{dirty?"Speichern & weiter":"Zum nächsten Bereich"}</button>}</footer>
    </section>:<>
     <h3 className="wk-workspace-heading">{headings[workspace]}</h3>
     {workspace==="OFFERS"&&<p className="wk-spot-type-context">Spottyp: <strong>{(()=>{const raw=existingAnswers["classification.place_types"];return raw&&typeof raw==="object"&&"knowledgeState" in raw&&raw.knowledgeState==="KNOWN_VALUE"&&"value" in raw&&Array.isArray(raw.value)?raw.value.map(kind=>SPOT_TYPE_CATALOG.find(type=>type.kind===kind)?.label??String(kind)).join(", "):"Noch nicht festgelegt";})()}</strong></p>}
@@ -134,9 +145,9 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
      <label>Zuordnen zu<select aria-label="Zuordnen zu" className="wk-input" value={reuseTarget} onChange={event=>setReuseTarget(event.target.value)}><option value="">Bitte auswählen</option>{targets.map(target=><option key={target.value} value={target.value}>{target.label}</option>)}</select></label>
      {suggestions.map(suggestion=>{const [scope,id]=reuseTarget.split(":");const allowed=getExperienceAuthoringQuestions(profile.category,scope as ExperienceScope,profile.offers.find(offer=>offer.id===id)?.kind).some(question=>question.key===suggestion.property.key);return <div className="wk-reuse-row" key={suggestion.id}><span>{EXPERIENCE_QUESTIONS.find(question=>question.key===suggestion.property.key)?.label??"Vorhandene Angabe"}: {displayValue(suggestion.property.value)}</span><button type="button" disabled={!reuseTarget||!allowed} onClick={()=>{try{change(reuseExperienceProperty(profile,suggestion,{scope:scope as ExperienceScope,id:id||null}));}catch{setError("Diese Angabe passt nicht zur ausgewählten Zuordnung.");}}}>In Entwurf übernehmen</button></div>;})}
     </details>}
-    {onContinue&&<button type="button" className="wk-secondary" disabled={dirty} onClick={onContinue}>Zum nächsten Bereich</button>}
+    {onContinue&&<button type="button" className="wk-secondary" onClick={()=>void continueNext()}>{dirty?"Speichern & weiter":"Zum nächsten Bereich"}</button>}
    </>}
-   {dirty&&<button type="button" className="wk-secondary" onClick={()=>{setProfile(baseline);onChange(baseline);setDirty(false);onDirtyChange?.(false);setEditor(null);setConfirmed(false);setSaved(false);setError(null);}}>Ungespeicherten Entwurf verwerfen</button>}
+   {dirty&&<button type="button" className="wk-secondary" onClick={()=>{setProfile(baseline);onChange(baseline);setDirty(false);onDirtyChange?.(false);setEditor(null);setSaved(false);setError(null);}}>Ungespeicherten Entwurf verwerfen</button>}
    {error&&<p role="alert">{error}</p>}{saved&&<p role="status">Angebote und Bereiche gespeichert.</p>}
   </fieldset>
  </div>;

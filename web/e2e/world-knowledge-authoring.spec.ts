@@ -255,12 +255,11 @@ const mainStep=async(page:Page,step:number)=>{
  else await page.getByRole('navigation',{name:'Bereiche der Spot-Pflege'}).getByRole('button',{name:new RegExp(label)}).click();
 };
 const part=async(page:Page,name:string)=>{
- const heading=name==='Preise'?guided(page).getByRole('heading',{name:/^Preise \(\d+\)$/}):guided(page).getByRole('heading',{name:name==='Angebotszeiten'?'Zeiten dieses Angebots':name,exact:true});
+ const heading=name==='Preise'?guided(page).getByRole('heading',{name:/^Preise \(\d+\)$/}):guided(page).getByRole('heading',{name:name==='Angebotszeiten'?'Wann ist dieses Angebot erhältlich?':name,exact:true});
  await heading.scrollIntoViewIfNeeded();
 };
 const overview=async(page:Page)=>guided(page).getByRole('button',{name:'← Zur Übersicht',exact:true}).click();
 const saveProfile=async(page:Page)=>{
- await guided(page).getByRole('checkbox',{name:'Ich habe die Änderungen geprüft.',exact:true}).check();
  await guided(page).getByRole('button',{name:'Änderungen speichern',exact:true}).click();
 };
 
@@ -308,7 +307,7 @@ test('Einzelantworten ersetzen sich ohne andere Wünsche zu löschen',async({pag
 });
 
 test('Leere und ungültige Preise werden nicht gespeichert und der Entwurf bleibt erhalten',async({page})=>{
- const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await part(page,'Preise');await addFromCatalogue(page,'Preis hinzufügen');await expect(page.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('');await saveProfile(page);await expect(page.getByRole('alert').filter({hasText:/Bitte prüfe Namen/})).toBeVisible();expect(owner.submissions).toHaveLength(0);
+ const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');await part(page,'Preise');await addFromCatalogue(page,'Preis hinzufügen');await expect(page.getByLabel('Preis 1 Von',{exact:true})).toHaveValue('');await saveProfile(page);await expect(page.getByRole('alert').filter({hasText:/Bitte prüfe Namen/})).toBeVisible();expect(owner.submissions).toHaveLength(0);await guided(page).getByRole('button',{name:'Speichern & weiter',exact:true}).click();await expect(guided(page)).toHaveAttribute('data-workspace','OFFERS');expect(owner.submissions).toHaveLength(0);
  await part(page,'Preise');await page.getByLabel('Preisbezeichnung',{exact:true}).fill('Menü');await page.getByLabel('Preis 1 Von',{exact:true}).fill('30');await page.getByLabel('Preis 1 Bis',{exact:true}).fill('20');await saveProfile(page);expect(owner.submissions).toHaveLength(0);await part(page,'Preise');await expect(page.getByLabel('Preis 1 Bis',{exact:true})).toHaveValue('20');
  await page.getByLabel('Preis 1 Von',{exact:true}).fill('0');await page.getByLabel('Preis 1 Bis',{exact:true}).fill('0');await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
 });
@@ -594,4 +593,69 @@ test('Weiter führt über Räume und gemeinsame Ausstattung, ohne Antworten zu e
  await outerStep(page,1);const email=page.getByLabel('Öffentliche Spot-E-Mail',{exact:true});
  await expect(email).toBeVisible();expect(await email.evaluate(element=>Boolean(element.closest('details')))).toBe(false);
  await expect(page.getByText('Weitere Angaben',{exact:true})).toHaveCount(0);
+});
+
+
+test('Hotelgäste werden nur bei belegtem Übernachtungskontext angeboten',()=>{
+ const restaurant=experienceAnswerGuidance('participation.audience','EAT','LUNCH');
+ const hotel=experienceAnswerGuidance('participation.audience','STAY','LUNCH');
+ const mixed=experienceAnswerGuidance('participation.audience','EAT','LUNCH',undefined,{'classification.place_types':{knowledgeState:'KNOWN_VALUE',value:['RESTAURANT','HOTEL']}});
+ expect(restaurant?.kind==='CHOICES'&&restaurant.choices).not.toContain('Nur für Hotelgäste');
+ for(const spec of [hotel,mixed])expect(spec?.kind==='CHOICES'&&spec.choices).toContain('Nur für Hotelgäste');
+});
+
+for(const width of [390,1280])test(`Speichern ohne Prüfhaken und anschließend weiter bei ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:900});const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);await addFromCatalogue(page,'Mittagessen');
+ await expect(guided(page).getByRole('checkbox',{name:'Ich habe die Änderungen geprüft.',exact:true})).toHaveCount(0);
+ await expect(guided(page).getByRole('button',{name:'Nur für Hotelgäste',exact:true})).toHaveCount(0);
+ await expect(guided(page).getByRole('button',{name:'Änderungen speichern',exact:true})).toBeEnabled();
+ await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_value).toMatchObject({reviewed:true});
+ await expect(guided(page).getByRole('button',{name:'Zum nächsten Bereich',exact:true})).toBeEnabled();
+ await guided(page).getByRole('button',{name:'Zum nächsten Bereich',exact:true}).click();
+ await expect(guided(page)).toHaveAttribute('data-workspace','AREAS');expect(owner.submissions).toHaveLength(1);
+});
+
+test('Speichern und weiter speichert zuerst, bleibt bei Fehlern am Entwurf und erlaubt Wiederholung',async({page})=>{
+ const owner=await mockOwner(page,'OWNER_BASIC');let fail=true;
+ await page.route('**/rest/v1/rpc/world_product_owner_submit_claim_v1',async route=>fail?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'test unavailable'})}):route.fallback());
+ await openEditor(page);await addFromCatalogue(page,'Mittagessen');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mein Mittag');
+ await guided(page).getByRole('button',{name:'Speichern & weiter',exact:true}).click();
+ await expect(guided(page).getByRole('alert')).toContainText('Speichern fehlgeschlagen');await expect(guided(page)).toHaveAttribute('data-workspace','OFFERS');expect(owner.submissions).toHaveLength(0);
+ await expect(page.getByLabel('Name des Angebots',{exact:true})).toHaveValue('Mein Mittag');fail=false;
+ await guided(page).getByRole('button',{name:'Speichern & weiter',exact:true}).click();
+ await expect(guided(page)).toHaveAttribute('data-workspace','AREAS');expect(owner.submissions).toHaveLength(1);expect(owner.submissions[0].p_value).toMatchObject({offers:[{name:'Mein Mittag'}]});
+});
+
+test('Zurückgeänderte Namen erzeugen keinen scheinbar offenen Entwurf',async({page})=>{
+ const profile={...emptyExperienceProfile('EAT'),reviewed:true,offers:[{id:'saved-lunch',kind:'LUNCH',name:'Mittagessen',areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}]};
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'existing',knowledgeState:'KNOWN_VALUE',value:profile}});await openEditor(page);await guided(page).getByRole('button',{name:'Angebot Mittagessen bearbeiten',exact:true}).click();
+ await page.getByLabel('Name des Angebots',{exact:true}).fill('Neu');await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittagessen');
+ await expect(guided(page).getByRole('button',{name:'Änderungen speichern',exact:true})).toBeDisabled();
+ await guided(page).getByRole('button',{name:'Zum nächsten Bereich',exact:true}).click();await expect(guided(page)).toHaveAttribute('data-workspace','AREAS');expect(owner.submissions).toHaveLength(0);
+});
+
+test('Angebotszeiten werden nur ausdrücklich übernommen und Gerichtsnamen bleiben einzelne Werte',async({page})=>{
+ const hours=[{day:'MONDAY',intervals:[{start:'11:00',end:'23:00'}]},{day:'TUESDAY',intervals:[]}];
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'hours.regular':{claimId:'hours',knowledgeState:'KNOWN_VALUE',value:hours}});await openEditor(page);await addFromCatalogue(page,'Mittagessen');
+ await expect(guided(page).getByText(/längere Beschreibungen werden hier nicht automatisch/)).toBeVisible();
+ await guided(page).getByRole('textbox',{name:'Gerichte und Spezialitäten Wert',exact:true}).fill('Pad Thai');
+ await expect(guided(page).getByLabel('Angebotszeit 1 Beginn',{exact:true})).toHaveCount(0);
+ await guided(page).getByRole('button',{name:'Öffnungszeiten für dieses Angebot übernehmen',exact:true}).click();
+ await expect(guided(page).getByLabel('Angebotszeit 1 Beginn',{exact:true})).toHaveValue('11:00');
+ await guided(page).getByLabel('Angebotszeit 1 Ende',{exact:true}).fill('14:00');
+ await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_attribute_key).toBe('experience.profile');
+ expect(owner.submissions[0].p_value).toMatchObject({offers:[{schedule:[{weekday:1,start:'11:00',end:'14:00'}],properties:expect.arrayContaining([expect.objectContaining({key:'food.dish',value:'Pad Thai'})])}]});
+ await expect(guided(page).getByRole('button',{name:'Öffnungszeiten für dieses Angebot übernehmen',exact:true})).toBeDisabled();
+});
+
+test('Bisherige Hotelgäste-Angaben bleiben bei einer anderen Korrektur erhalten',async({page})=>{
+ const property={key:'participation.audience',label:null,state:'KNOWN',value:'Nur für Hotelgäste',conditions:emptyExperienceConditions()};
+ const profile={...emptyExperienceProfile('EAT'),reviewed:true,offers:[{id:'existing-lunch',kind:'LUNCH',name:'Mittagessen',areaIds:[],properties:[property],prices:[],schedule:[],validFrom:null,validUntil:null}]};
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'experience.profile':{claimId:'existing',knowledgeState:'KNOWN_VALUE',value:profile}});await openEditor(page);await guided(page).getByRole('button',{name:'Angebot Mittagessen bearbeiten',exact:true}).click();
+ await expect(guided(page).getByRole('button',{name:'Nur für Hotelgäste',exact:true})).toHaveCount(0);
+ await expect(guided(page).locator('blockquote').filter({hasText:'Nur für Hotelgäste'})).toBeVisible();
+ await page.getByLabel('Name des Angebots',{exact:true}).fill('Mittagsmenü');await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
+ expect(owner.submissions[0].p_value).toMatchObject({offers:[{properties:[property]}]});
 });

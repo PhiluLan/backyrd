@@ -23,7 +23,7 @@ export function Properties({category,scope,offerKind,areaKind,group,values,onCha
  const questions=getExperienceAuthoringQuestions(category,scope,offerKind,areaKind,existingAnswers);
  const update=(index:number,patch:Partial<ExperienceProperty>,key:string)=>onChange(index<0?[...values,{key,label:null,state:"UNKNOWN",value:null,conditions:emptyExperienceConditions(),...patch}]:values.map((v,i)=>i===index?{...v,...patch}:v));
  const row=(p:ExperienceProperty,index:number,q?:ExperienceQuestion)=>{
-  const spec=q?experienceAnswerGuidance(p.key,category,offerKind,areaKind):null;
+  const spec=q?experienceAnswerGuidance(p.key,category,offerKind,areaKind,existingAnswers):null;
   return <section className="wk-experience-property" key={index} aria-label={q?.label??p.label??"Bisherige Angabe"}>
    <h4>{q?.label??p.label??"Bisherige Angabe"}</h4>
    {spec&&<p>{spec.help}</p>}
@@ -37,7 +37,7 @@ export function Properties({category,scope,offerKind,areaKind,group,values,onCha
  };
  if(group==="Bisherige Angaben")return <div className="wk-stack"><p>Diese Angaben gehören nicht zur aktuellen Fragenauswahl. Sie bleiben erhalten, bis du sie bewusst entfernst.</p>{values.map((v,i)=>({v,i})).filter(({v})=>!questions.some(q=>q.key===v.key)).map(({v,i})=>row(v,i,EXPERIENCE_QUESTIONS.find(q=>q.key===v.key)))}</div>;
  return <div className="wk-stack">{questions.filter(q=>q.label===group).map(q=>{
-  const spec=experienceAnswerGuidance(q.key,category,offerKind,areaKind);
+  const spec=experienceAnswerGuidance(q.key,category,offerKind,areaKind,existingAnswers);
   const entries=values.map((v,i)=>({v,i})).filter(({v})=>v.key===q.key);
   const blank:ExperienceProperty={key:q.key,label:null,state:"UNKNOWN",value:null,conditions:emptyExperienceConditions()};
   if(spec?.kind!=="CHOICES")return <div key={q.key}>{(entries.length?entries:[{v:blank,i:-1}]).map(({v,i})=>row(v,i,q))}{spec?.kind==="NAME"&&entries.length>0&&<button type="button" className="wk-secondary" disabled={values.length>=100} onClick={()=>onChange([...values,blank])}>+ Weitere Antwort: {q.label}</button>}</div>;
@@ -54,7 +54,7 @@ export function Properties({category,scope,offerKind,areaKind,group,values,onCha
    <h4>{q.label}</h4>{q.key==="participation.prerequisite"&&selected("Keine Vorkenntnisse")&&selected("Vorkenntnisse erforderlich")&&<p role="alert">Widerspruch: Wähle entweder keine Vorkenntnisse oder Vorkenntnisse erforderlich. Begleitung kannst du zusätzlich auswählen.</p>}<p className="wk-answer-help">{q.key==="experience.activity"?spec.help:spec.multiple?"Mehrfachauswahl möglich. Wähle alle zutreffenden Antworten.":"Wähle eine passende Antwort."}</p>
    <div className="wk-choices" aria-label={`${q.label} Antworten`}>{spec.choices.map(c=><button type="button" key={c} aria-pressed={selected(c)} className={selected(c)?"selected":"wk-secondary"} disabled={!selected(c)&&values.length>=100} onClick={()=>toggle(c)}>{c==="lebhaft"?"lebendig":c}</button>)}</div>
    <KnowledgeButtons label={q.label} state={direct.some(({v})=>v.state==="KNOWN")?"KNOWN":direct[0]?.v.state} onChange={state=>onChange([...values.filter((_,i)=>!direct.some(entry=>entry.i===i)),{...blank,state}])}/>
-   {historical.map(({v,i})=><aside className="wk-answer-history" key={i}><strong>Bisherige freie Angabe</strong><blockquote>{String(v.value)}</blockquote><p>Bleibt zusätzlich erhalten. Neue Antworten überschreiben diesen Text nicht.</p><button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,j)=>j!==i))}>Bisherige Angabe entfernen</button></aside>)}
+   {historical.map(({v,i})=><aside className="wk-answer-history" key={i}><strong>Bisherige gespeicherte Angabe</strong><blockquote>{String(v.value)}</blockquote><p>Bleibt zusätzlich erhalten. Neue Antworten überschreiben diesen Text nicht.</p><button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,j)=>j!==i))}>Bisherige Angabe entfernen</button></aside>)}
    {entries.some(({v})=>v.state==="KNOWN")&&<details className="wk-answer-conditions"><summary>Zeiten oder Ausnahmen ({entries.filter(({v})=>!unconditional(v)).length})</summary>{entries.filter(({v})=>v.state==="KNOWN").map(({v,i})=><section key={i}><h5>{v.value===true?"Ja":v.value===false?"Nein":String(v.value)}{!unconditional(v)?" · eingeschränkt gültig":""}</h5><Conditions inline value={v.conditions} onChange={conditions=>update(i,{conditions},q.key)}/>{!unconditional(v)&&<button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,j)=>j!==i))}>Bedingte Antwort entfernen</button>}</section>)}</details>}
   </section>;
  })}</div>;
