@@ -177,7 +177,7 @@ selected activity is stored as a separate scoped experience.activity property;
 existing prices, ages, schedules, IDs and conditional facts are retained.
 
 
-## Universal catalogue 2.0 / registry 2.5 (implementation, not activated)
+## Universal catalogue 2.0 / registry 2.5 (shipped 2026-10-15)
 
 The canonical `packages/world-knowledge-core/src/spot-catalog.ts` contains 16
 groups (15 domain groups and Other), 111 place types, 57 independently composable
@@ -243,3 +243,19 @@ set-state-in-effect lint error and exhaustive-deps warning on unchanged lines;
 the scoped lint check disables only the former rule and still reports the
 existing warning. These are recorded baseline findings, not a claim of a clean
 repository-wide lint run.
+
+
+Production publication completed after the Founder explicitly accepted the exact
+migration's untested recovery risk on 2026-10-15. Main PR #478, source
+`abffaf73635bb227e304c6c16facc1120d2fe9f4`, passed all required gates. The sealed
+Main artifact was deployed by run 38731727824; only migration 20261015110000 and
+the existing decision-v13 backend were applied. Admin and Owner were held on
+their previous domains until database success, then promoted to the matching
+Main deployments; their original automatic domain assignment was restored.
+The full encrypted database/Storage export succeeded in run 38729513498.
+Live read-only checks confirmed registry 2.5, 182 migrations and unchanged
+7,508 claims. The authenticated Admin form showed the new universal catalogue
+and preserved Consum's saved offering. Full IDs and remaining limitations are
+recorded in `docs/operations/releases/UNIVERSAL_SPOT_CATALOG_2026_10_15.json`.
+The earlier statements about non-production implementation/test work above
+remain historical context; this paragraph records the subsequent publication.

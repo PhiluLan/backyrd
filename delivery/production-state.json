@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "85fdf7deffccdd263733b877f66f5c536d1128e1",
-    "migrationTip": "20261014211339_scoped_sport_authoring_catalog_v1_1",
-    "migrationCount": 181,
-    "deploymentRunId": 38646336306,
+    "shippedSourceSha": "abffaf73635bb227e304c6c16facc1120d2fe9f4",
+    "migrationTip": "20261015110000_universal_spot_catalog_v2_5",
+    "migrationCount": 182,
+    "deploymentRunId": 38731727824,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {

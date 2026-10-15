@@ -1,0 +1,49 @@
+{
+  "status": "SHIPPED",
+  "sourceSha": "abffaf73635bb227e304c6c16facc1120d2fe9f4",
+  "pullRequest": 478,
+  "deploymentRunId": 38731727824,
+  "certificationRunId": 38731047703,
+  "manifestHash": "4bf16608de17af5300c2857f72ac3f2dae763692a9d50efa9849d27ac9875887",
+  "auditHash": "fa3d4c29fae6fb31cc34459e3d4b38e43e121051ae61c47e251ed15e9162672b",
+  "planHash": "8fed47e0fb81e623a3236c0250350ea61d7ced699a8b4fdf3c75fe21e14d5bda",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql",
+      "sha256": "8bab754d297ee8f41f95d6922ca7db98790179a188712aded034465215409bda"
+    }
+  ],
+  "deployFunctions": [
+    "decision-v13"
+  ],
+  "registryVersion": "backyrd.world-knowledge.registry@2.5",
+  "catalogue": {
+    "groups": 16,
+    "spotTypes": 111,
+    "offers": 57,
+    "areas": 29
+  },
+  "backupEvidence": {
+    "runId": 38729513498,
+    "result": "SUCCESS",
+    "databaseIncluded": true,
+    "storageFiles": 132,
+    "restoreDrillPerformed": false
+  },
+  "adminDeploymentId": "dpl_9X3ZVU4HxRAQCtw2VRgdrC2SKAym",
+  "ownerWebDeploymentId": "dpl_A4Gcx9LCgUtMGRr7jZn5nfhr7uPq",
+  "liveVerification": {
+    "migrationCount": 182,
+    "migrationTip": "20261015110000",
+    "claimCountBefore": 7508,
+    "claimCountAfter": 7508,
+    "boutiqueHotelAvailable": true,
+    "authenticatedAdminForm": "Consum Weinbar shows ground-profile Weinbar, saved Ap\u00e9ro and complete grouped offer catalogue; obsolete Pflegeart selector absent. No Spot edit submitted.",
+    "vercelAutomaticDomainAssignmentRestored": true
+  },
+  "limits": [
+    "No restore drill performed; Founder explicitly accepted exact migration recovery risk.",
+    "No production Spot data edited for verification.",
+    "New experimental Bibliothekar runtime is not activated by this catalogue release."
+  ]
+}
