@@ -546,28 +546,6 @@ begin
 end;
 $$;
 
-create or replace function public.world_product_discovery_prepare_context_v1(p_spot_id uuid,p_source_hash text)
-returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor uuid:=auth.uid(); detail jsonb; source world_knowledge_private.claims%rowtype; digest text; minute_key text; day_key text; used_count integer;
-begin
- if actor is null or not world_knowledge_private.product_authoring_active_v1() then raise exception 'world_product_authoring_authority_off' using errcode='42501'; end if;
- detail:=public.world_product_authoring_detail_v1(p_spot_id);
- if not(detail->'actor'->'allowedAttributeKeys' ? 'discovery.profile') then raise exception 'attribute_entitlement_denied' using errcode='42501'; end if;
- select * into source from world_knowledge_private.claims where spot_id=p_spot_id and attribute_key='description.discovery_source' order by last_changed_at desc,id desc limit 1;
- if not found or source.visibility<>'PUBLIC' or source.knowledge_state<>'KNOWN_VALUE' or jsonb_typeof(source.value)<>'string' or source.stance<>'SUPPORTS' or source.source_type not in ('OWNER_ASSERTION','ADMIN_OBSERVATION','OFFICIAL_SOURCE') or source.valid_from>pg_catalog.clock_timestamp() or source.valid_until<=pg_catalog.clock_timestamp()
- or coalesce((select v.result='VERIFIED' from world_knowledge_private.verification_records v where v.claim_id=source.id and v.claim_hash=source.content_hash order by v.checked_at desc,v.created_at desc,v.id desc limit 1),false)=false then raise exception 'confirmed_public_source_required' using errcode='42501'; end if;
- digest:=encode(extensions.digest(pg_catalog.convert_to(source.value#>>'{}','UTF8'),'sha256'),'hex');
- if p_source_hash is null or digest<>p_source_hash then raise exception 'source_changed' using errcode='22023'; end if;
- perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('discovery-budget:'||actor::text,0));
- minute_key:=to_char(pg_catalog.clock_timestamp() at time zone 'UTC','YYYYMMDDHH24MI');day_key:=to_char(pg_catalog.clock_timestamp() at time zone 'UTC','YYYYMMDD');
- for minute_key in select unnest(array[minute_key,day_key]) loop
-   insert into world_knowledge_private.discovery_preparation_budgets(actor_id,period,used) values(actor,minute_key,1) on conflict(actor_id,period) do update set used=discovery_preparation_budgets.used+1 returning used into used_count;
-   if used_count>(case when length(minute_key)=8 then 100 when detail->'actor'->>'role'='ADMIN' then 50 else 10 end) then raise exception 'discovery_preparation_rate_limited' using errcode='PT429';end if;
- end loop;
- delete from world_knowledge_private.discovery_preparation_budgets where actor_id=actor and period<to_char((pg_catalog.clock_timestamp()-interval '2 days') at time zone 'UTC','YYYYMMDD');
- return jsonb_build_object('sourceText',source.value#>>'{}','sourceHash',digest,'visibility','PUBLIC');
-end $$;
-
 create or replace function world_knowledge_private.validate_resolution_manifest_v1(p_manifest_id uuid)
 returns jsonb language plpgsql stable security definer set search_path='' as $$
 declare m world_knowledge_private.resolution_manifests%rowtype; expected_components jsonb; expected_input_hash text; expected_resolution_hash text; expected_manifest_hash text; expected_decision jsonb; entry_facts jsonb; entry_unknowns jsonb; entry_conflicts jsonb; entries_valid boolean;
