@@ -1751,3 +1751,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .spot-editor-anchor .wk-main{scroll-margin-top:82px}
   .spot-editor-anchor .wk-toast{bottom:calc(82px + env(safe-area-inset-bottom));z-index:80}
 }
+
+/* The profile and media forms are separate workspaces; hiding preserves drafts. */
+.spot-editor-anchor[hidden]{display:none!important}
+.spot-editor-page .spot-editor-tabs{position:static;display:flex;flex-wrap:wrap;background:transparent;border:0;padding:0;border-bottom:1px solid var(--line);border-radius:0;padding-bottom:16px;gap:8px}
+.spot-editor-tabs button{min-height:44px;padding:10px 18px;border:1px solid var(--line);border-radius:10px;background:#1b1d22;color:#bdc1ca;font:inherit;font-size:13px;cursor:pointer}
+.spot-editor-tabs button[aria-pressed=true]{background:#f3eee9;color:#1a1c20;border-color:#f3eee9}
+.spot-editor-page:has(.wk-studio) .spot-editor-hero{margin-bottom:16px}.spot-editor-page:has(.wk-studio) .spot-editor-hero h1{font-size:32px}.spot-editor-page:has(.wk-studio) .spot-editor-meta{margin:0 0 20px}
+.spot-editor-page .wk-studio .wk-header h1{font-size:18px}.spot-editor-page .wk-studio .wk-header{padding-bottom:0}
+@media(max-width:700px){.spot-editor-page{padding:20px 12px 100px}.spot-editor-page .spot-editor-tabs a{font-size:12px;min-height:44px}.spot-editor-page .spot-editor-tabs button{flex:1}.spot-editor-page .wk-studio .wk-header h1{font-size:18px}}
+.spot-editor-delete[hidden]{display:none}
+.spot-editor-more{position:relative;margin-left:auto;align-self:center;font-size:12px;color:#b6bdc9}
+.spot-editor-more summary{min-height:44px;display:flex;align-items:center;cursor:pointer;padding:10px}
+.spot-editor-more>div{position:absolute;right:0;z-index:42;min-width:230px;background:#202329;border:1px solid #434954;border-radius:12px;padding:8px;box-shadow:0 12px 32px #0008}
+.spot-editor-more a{display:flex!important;min-height:44px!important;font-size:13px!important}
+@media(max-width:700px){
+ .spot-editor-page .spot-editor-hero{flex-direction:row;align-items:center;gap:12px}.spot-editor-page:has(.wk-studio) .spot-editor-hero h1{font-size:25px;margin:0}.spot-editor-page .spot-editor-back{font-size:11px;padding:8px;min-height:40px}.spot-editor-page .spot-editor-meta{margin-bottom:14px}.spot-editor-page .spot-editor-tabs{gap:6px}.spot-editor-more{width:100%;margin:0}.spot-editor-more summary{padding:6px 2px;min-height:36px}.spot-editor-more>div{left:0;right:auto}
+ .bi-shell:has(.spot-editor-page) .bi-mobileQuickNav{display:none}
+}

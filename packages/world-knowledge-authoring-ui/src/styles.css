@@ -226,3 +226,66 @@
 .wk-scope-notice p{margin:.5rem 0 0;font-size:.95rem;line-height:1.6}
 .wk-guided-authoring .wk-choices button[aria-pressed=true]{background:#442334;border-color:var(--pink);color:#fff}
 @media(max-width:760px){.wk-guided-authoring .wk-experience-card{padding:.8rem}.wk-guided-footer{gap:.5rem}.wk-guided-footer>button{min-width:0;flex:1}.wk-overview-card{grid-template-columns:minmax(0,1fr)}.wk-overview-card>button{grid-column:1;grid-row:auto}.wk-guided-authoring .wk-experience-property{padding:.75rem}.wk-guided-authoring select{width:100%;max-width:100%;text-overflow:ellipsis}}
+
+/* Spot Studio: task overview, a quiet editing canvas and one navigation per level. */
+.wk-studio.wk-app{--panel:#17191d;--line:#32353a;--pink:#ff609b;min-height:0;background:#101215;color:#f4f3ef;border-radius:24px;overflow:clip}
+.wk-studio .wk-header{position:static;background:transparent;border:0;padding:28px 32px 12px;align-items:center}
+.wk-studio .wk-header h1{font-size:26px;letter-spacing:-.04em}.wk-studio .wk-header p{font-size:13px;line-height:1.5}
+.wk-studio .wk-layout{grid-template-columns:220px minmax(0,1fr)}
+.wk-studio.is-overview .wk-layout{grid-template-columns:1fr}.wk-studio.is-overview .wk-sidebar:has(nav):not(:has(.wk-spot-picker)){display:none}.wk-studio.is-overview .wk-sidebar nav,.wk-studio.is-overview .wk-owner-step-picker{display:none}
+.wk-studio .wk-sidebar{position:static;height:auto;padding:24px 12px;border-color:var(--line)}
+.wk-studio .wk-sidebar nav button{border-radius:10px;align-items:flex-start;font-size:12px;min-width:0;line-height:1.4}
+.wk-studio .wk-sidebar nav b{flex:0 0 24px}.wk-studio .wk-sidebar nav small{display:block;font-size:10px;line-height:1.5;margin-top:4px;color:#a8adb6}
+.wk-studio .wk-main{padding:24px;max-width:none;min-width:0;scroll-margin-top:24px}
+.wk-studio .wk-panel{border:0;border-radius:16px;padding:24px;background:var(--panel)}
+.wk-studio .wk-step-progress{display:none}.wk-studio .wk-step-title{padding-bottom:20px;margin-bottom:24px}.wk-studio .wk-step-title>span{font-size:11px;color:#b1b6bf;font-weight:500}
+.wk-studio .wk-step-title h2{font-size:30px;letter-spacing:-.04em;line-height:1.15}.wk-studio .wk-panel p{font-size:14px;line-height:1.65;color:#b4bac3}
+.wk-studio .wk-studio-intro{margin:8px 0 28px;max-width:620px}.wk-studio-intro h2{font-size:clamp(26px,4vw,38px);letter-spacing:-.055em;line-height:1.1;margin:14px 0}.wk-studio-intro p{color:#b4bac3;line-height:1.65;font-size:14px}
+.wk-studio .wk-task-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.wk-studio button.wk-task-card{display:flex;align-items:flex-start;gap:16px;text-align:left;min-height:154px;padding:22px;background:#1a1d22;color:#f4f3ef;border:1px solid #32363d;border-radius:16px;font-weight:400;transition:background .15s,border-color .15s}
+.wk-studio button.wk-task-card:hover{background:#23262d;border-color:#8b6474}.wk-studio button.wk-task-card.featured{background:#2a1c25;border-color:#714359}
+.wk-task-number{font-size:11px;color:#ff91b9;padding-top:4px}.wk-task-content{display:grid;gap:8px;flex:1}.wk-task-content strong{font-size:17px;letter-spacing:-.025em}.wk-task-content>span{font-size:13px;line-height:1.5;color:#b4bac3}.wk-task-content small{font-size:11px;color:#b8b7b3;margin-top:8px}
+.wk-studio-help{font-size:13px;line-height:1.65;color:#a8adb6;max-width:720px;margin:24px 0 8px}
+.wk-studio .wk-field{border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 0 28px;margin:0 0 12px;min-width:0}.wk-studio .wk-field legend{padding:0;font-size:16px}.wk-studio .wk-field-experience{border:0;padding:0}
+.wk-studio .wk-group>h3{font-size:11px;letter-spacing:.12em;color:#b2b7c1;margin:0 0 18px}.wk-studio .wk-field-usage-details{margin:0 0 8px;font-size:11px;color:#9199a6}.wk-studio .wk-field-with-usage{min-width:0}
+.wk-studio .wk-experience-editor{padding:0;border:0;min-width:0}.wk-studio .wk-experience-editor>legend{display:none}
+.wk-studio .wk-draft-state{padding:12px 14px;border-radius:10px;background:#24272d;font-size:12px;color:#d0d4db;margin-bottom:20px}
+.wk-studio .wk-workspace-tabs{display:flex;gap:4px;overflow-x:auto;padding:0 0 12px;border-bottom:1px solid var(--line);margin-bottom:24px}
+.wk-studio .wk-workspace-tabs button{flex-shrink:0;padding:10px 12px;min-height:44px;border-radius:9px;background:transparent;color:#bbc1cc;font-size:12px}
+.wk-studio .wk-workspace-tabs button[aria-current]{background:#f3eee9;color:#1a1c20}
+.wk-studio .wk-overview-card{display:grid;grid-template-columns:1fr auto;gap:8px 20px;padding:20px;background:#202329;border:1px solid #3c4149;border-radius:12px;margin:12px 0}.wk-studio .wk-overview-card strong{font-size:18px}.wk-studio .wk-overview-card p{grid-column:1;font-size:12px;margin:0}.wk-studio .wk-overview-card button{grid-column:2;grid-row:1/3;align-self:center}
+.wk-studio .wk-guided-page{padding:0;border:0;background:transparent}.wk-studio .wk-guided-page>h3{font-size:28px;letter-spacing:-.04em;margin:24px 0 4px}
+.wk-studio .wk-editor-context{font-size:12px;margin-bottom:18px}.wk-studio .wk-topic-nav{display:flex;overflow-x:auto;gap:6px;padding-bottom:14px;margin:12px 0 24px;border-bottom:1px solid var(--line)}
+.wk-studio .wk-topic-nav button{flex-shrink:0;max-width:220px;text-align:left;white-space:normal;font-size:12px;padding:10px 14px;min-height:44px;background:#242830;color:#bbc1cc;border-radius:9px}
+.wk-studio .wk-topic-nav button[aria-current]{background:#f3eee9;color:#1a1c20}.wk-studio .wk-experience-property{border:0;padding:0;background:transparent}.wk-studio .wk-experience-property>h4{font-size:21px;line-height:1.3;margin:18px 0}
+.wk-studio .wk-choices{gap:8px;margin:18px 0}.wk-studio .wk-choices button{min-height:46px;padding:12px 16px;border-radius:10px;background:#24272d!important;color:#e0e3e8!important;border-color:#41464f!important;font-weight:550;font-size:14px}
+.wk-studio .wk-choices button.selected{background:#462738!important;color:#fff!important;border-color:#ff75ab!important;box-shadow:inset 0 0 0 1px #ff75ab}
+.wk-studio .wk-input{border-radius:10px;background:#101318;border-color:#434954;min-height:48px;font-size:16px;line-height:1.4}.wk-studio label{line-height:1.5}.wk-studio button:focus-visible,.wk-studio select:focus-visible,.wk-studio input:focus-visible,.wk-studio summary:focus-visible{outline:3px solid #ff9fc5;outline-offset:3px}
+.wk-studio .wk-guided-footer,.wk-studio .wk-footer{position:static;border-top:1px solid var(--line);padding-top:20px;margin-top:28px;gap:12px}.wk-studio .wk-guided-footer button,.wk-studio .wk-footer button{min-height:48px;border-radius:10px}.wk-studio .wk-scope-notice{border:0;border-left:2px solid #777c86;border-radius:0;background:transparent;padding:0 0 0 14px}.wk-studio .wk-scope-notice p{font-size:12px}
+.wk-studio .wk-toast{pointer-events:auto;max-width:min(520px,calc(100vw - 32px));line-height:1.5;bottom:100px}
+@media(max-width:760px){
+ .wk-studio.wk-app{border-radius:16px}.wk-studio .wk-header{padding:20px 16px 8px;gap:10px;display:flex;flex-wrap:wrap}.wk-studio .wk-header h1{font-size:22px}.wk-studio .wk-header-actions{margin:0}.wk-studio .wk-layout{display:block}
+ .wk-studio .wk-main{padding:16px!important}.wk-studio .wk-panel{padding:0!important;background:transparent;border:0}.wk-studio .wk-sidebar{padding:12px 16px}.wk-studio .wk-sidebar nav{display:none}.wk-studio .wk-owner-step-picker{display:grid;margin:0;gap:6px;font-size:12px}.wk-studio .wk-owner-step-picker select{min-height:48px;width:100%;font-size:16px;background:#24272d;color:#f4f3ef;border:1px solid #434954;border-radius:10px;padding:10px}
+ .wk-studio .wk-task-grid{grid-template-columns:1fr}.wk-studio button.wk-task-card{min-height:122px;padding:18px;gap:12px}.wk-studio .wk-studio-intro{margin-top:4px}.wk-studio .wk-task-content strong{font-size:17px}.wk-studio .wk-step-title h2{font-size:27px}.wk-studio .wk-review{grid-template-columns:1fr 1fr}
+ .wk-studio .wk-overview-card{padding:16px;gap:8px}.wk-studio .wk-overview-card button{font-size:12px;padding:10px}.wk-studio .wk-choices{display:flex}.wk-studio .wk-choices button{flex:1 1 130px}.wk-studio .wk-grid{grid-template-columns:1fr}.wk-studio .wk-guided-footer{display:flex;justify-content:space-between}.wk-studio .wk-guided-footer button{flex:1}
+ .wk-studio.is-overview .wk-sidebar:has(nav):not(:has(.wk-spot-picker)){display:none}.wk-studio.is-overview .wk-sidebar nav,.wk-studio.is-overview .wk-owner-step-picker{display:none}.wk-studio .wk-toast{right:16px;bottom:100px}
+}
+@media(prefers-reduced-motion:reduce){.wk-studio *{scroll-behavior:auto!important;transition:none!important}}
+.wk-studio .wk-fields{grid-template-columns:minmax(0,1fr)}
+.wk-studio .wk-group,.wk-studio .wk-guided-page,.wk-studio .wk-stack,.wk-studio .wk-experience-property,.wk-studio .wk-experience-editor,.wk-studio .wk-topic-nav,.wk-studio .wk-workspace-tabs{min-width:0;max-width:100%;width:100%}
+.wk-studio .wk-guided-page>button:first-child{align-self:flex-start}
+.wk-studio .wk-draft-state,.wk-studio h3,.wk-studio h4{white-space:normal;overflow-wrap:anywhere}
+.spot-editor-page .wk-studio .wk-header>div:first-child,.spot-editor-page .wk-studio .wk-status{display:none}
+.spot-editor-page .wk-studio.is-overview .wk-header{display:none}
+.wk-studio:not(.is-overview) .wk-header>div:first-child{display:none}
+.wk-studio .wk-panel:has(.wk-guided-page)>.wk-step-title{display:none}
+.wk-studio .wk-answer-state{font-size:12px;margin:20px 0;color:#aab2bf}
+.wk-studio .wk-answer-state summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+.wk-studio .wk-answer-state label{display:grid;gap:8px}
+@media(max-width:760px){.wk-studio:not(.is-overview) .wk-sidebar:not(:has(.wk-spot-picker)){display:none}.wk-studio .wk-header{padding-bottom:0}.wk-studio .wk-guided-page{gap:12px}}
+.owner-world .wk-studio:not(.is-overview) .wk-header>div:first-child{display:block}
+.owner-world .wk-studio:not(.is-overview) .wk-header h1{font-size:16px;margin:0}
+.owner-world .wk-studio:not(.is-overview) .wk-header .wk-eyebrow,.owner-world .wk-studio:not(.is-overview) .wk-header p:not(.wk-admin-access-note){display:none}
+.wk-studio .wk-header .wk-admin-access-note{font-size:11px;max-width:320px}
+.wk-studio .wk-field-draft{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;color:#ffd3a3;font-size:12px}
+.wk-studio .wk-field-draft button{font-size:12px;min-height:44px}

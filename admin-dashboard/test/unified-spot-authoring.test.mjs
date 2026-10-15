@@ -11,7 +11,7 @@ const [page, form, route, migration] = await Promise.all([
 
 test("approved spot editing presents World Knowledge before non-semantic operations", () => {
   assert.ok(page.indexOf('id="spot-understanding"') < page.indexOf('id="spot-information"'));
-  assert.match(page, /Spot-Wissen pflegen/);
+  assert.match(page, /Profil & Angebote/);
   assert.match(page, /canonicalKnowledgeManaged/);
 });
 
@@ -20,7 +20,7 @@ test("compatibility mode cannot write a second copy of semantic facts", () => {
   assert.match(form, /if \(!canonicalKnowledgeManaged\) \{\s*await upsertAdminContent/);
   assert.match(form, /if \(!canonicalKnowledgeManaged\) await refreshSpotMl/);
   assert.match(form, /hidden=\{canonicalKnowledgeManaged\}/);
-  assert.match(form, /Von dort\s+gelangen sie geprüft zu Decision vNext und in die bestehenden App-Leser/);
+  assert.match(form, /Hier verwaltest du Bilder und den Veröffentlichungsstatus/);
 });
 
 test("Mobile and Browser read canonical identity and hours without mutating legacy rows", () => {
