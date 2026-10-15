@@ -310,3 +310,36 @@ Validation commands (synthetic fixtures, no production writes):
 The dedicated Admin Playwright configuration starts its own local server with
 synthetic credentials. Screenshots cover 390/1280 px; shared authoring also covers
 320 px. UI build success does not itself claim publication to production.
+
+
+## One authoring location per fact (2026-10-15)
+
+The shared product editor now opens offers, physical spaces and shared facilities
+through separate overview entries. The former five inner workspace tabs are
+removed. Offers have named edit actions; adding a new offer/space is explicit.
+A directly reachable save bar confirms and submits the whole existing scoped
+profile, including edits in other workspaces. Workspace switching preserves the
+same draft. Validation, failed saves and explicit discard retain their previous
+semantics. Public source preparation retains its consent and review flow.
+
+`experience-authoring.ts` determines where NEW answers are presented. Physical
+access is authored with precise area questions (step-free access and stroller
+access); the former catch-all `participation.accessibility` is not offered at
+three scopes. Offer participation conditions remain on the offer. Shared WC and
+changing-table questions are not repeated when an explicit positive facility is
+already present in the general profile. Existing claims at other scopes remain
+in their original locations and can be inspected through their historical topic.
+No historical property, condition, price or link is automatically migrated,
+re-scoped, removed or inferred.
+
+Read-only references show source scope, linked area names, negative and unknown
+values and recorded temporal conditions. Only explicitly linked areas appear at
+an offer. A step-free entrance never confirms a step-free path to every room.
+Facility/entrance claims are no longer offered as copy suggestions into a room;
+intentional cuisine/dish reuse remains available. References do not change engine
+evidence or matching behavior. Stored schema, registry hashes, RPCs, permissions,
+consent and RLS remain unchanged; no database migration is required.
+
+Regression coverage includes all catalogued offer kinds, 320/390/1280 px layouts,
+source provenance, conditional negative access, unlinked area exclusion, direct
+save/retry, old values at all scopes and original payload preservation.

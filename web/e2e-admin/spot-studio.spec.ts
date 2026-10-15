@@ -27,7 +27,8 @@ for(const width of [390,1280])test(`Admin bearbeitet Profil und Medien getrennt 
  await expect(page.locator('#spot-information')).toBeHidden();
  await expect(page.getByText('Veröffentlicht',{exact:true})).toBeVisible();
  await page.screenshot({path:testInfo.outputPath(`admin-home-${width}.png`),fullPage:true});
- await page.getByRole('button',{name:/03 Angebote & Räume/}).click();
+ await page.getByRole('button',{name:/03 Angebote/}).click();
+ await page.getByRole('button',{name:'Weiteres Angebot hinzufügen',exact:true}).click();
  await page.getByLabel('Weiteres Angebot hinzufügen',{exact:true}).selectOption('OVERNIGHT_STAY');
  await page.getByLabel('Name des Angebots',{exact:true}).fill('Übernachten im Doppelzimmer');
  await page.getByRole('button',{name:'Bilder & Verwaltung',exact:true}).click();

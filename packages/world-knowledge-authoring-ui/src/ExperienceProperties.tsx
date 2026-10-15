@@ -1,6 +1,7 @@
 "use client";
+import { getExperienceAuthoringQuestions } from "./experience-authoring";
 import { experienceAnswerGuidance } from "./experience-answer-guidance";
-import { emptyExperienceConditions, getExperienceQuestions, EXPERIENCE_QUESTIONS, sameLibrarianText, type ExperienceCategory, type ExperienceConditions, type ExperienceProperty, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core";
+import { emptyExperienceConditions, EXPERIENCE_QUESTIONS, sameLibrarianText, type ExperienceCategory, type ExperienceConditions, type ExperienceProperty, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core";
 const weekdays=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const dayparts=[["MORNING","Vormittag"],["MIDDAY","Mittag"],["AFTERNOON","Nachmittag"],["EVENING","Abend"],["NIGHT","Nacht"]];
 export function Conditions({value,onChange,inline=false}:{value:ExperienceConditions;onChange:(value:ExperienceConditions)=>void;inline?:boolean}){
@@ -15,18 +16,19 @@ export function Conditions({value,onChange,inline=false}:{value:ExperienceCondit
 }
 
 const unconditional=(p:ExperienceProperty)=>!p.conditions.weekdays.length&&!p.conditions.dayparts.length&&!p.conditions.event&&!p.conditions.validFrom&&!p.conditions.validUntil;
-export function Properties({category,scope,offerKind,areaKind,group,values,onChange}:{category:ExperienceCategory;scope:ExperienceScope;offerKind?:string;areaKind?:string;group:string;values:readonly ExperienceProperty[];onChange:(value:readonly ExperienceProperty[])=>void}){
- const questions=getExperienceQuestions(category,scope,offerKind,areaKind);
+export function Properties({category,scope,offerKind,areaKind,group,values,onChange,existingAnswers={}}:{existingAnswers?:Readonly<Record<string,unknown>>;category:ExperienceCategory;scope:ExperienceScope;offerKind?:string;areaKind?:string;group:string;values:readonly ExperienceProperty[];onChange:(value:readonly ExperienceProperty[])=>void}){
+ const questions=getExperienceAuthoringQuestions(category,scope,offerKind,areaKind,existingAnswers);
  const update=(index:number,patch:Partial<ExperienceProperty>,key:string)=>onChange(index<0?[...values,{key,label:null,state:"UNKNOWN",value:null,conditions:emptyExperienceConditions(),...patch}]:values.map((v,i)=>i===index?{...v,...patch}:v));
  const row=(p:ExperienceProperty,index:number,q?:ExperienceQuestion)=>{
   const spec=q?experienceAnswerGuidance(p.key,category,offerKind,areaKind):null;
-  return <section className="wk-experience-property" key={index}>
-   <label>{q?.label??p.label??"Bisherige Angabe"}<select className="wk-input" value={p.state} onChange={e=>update(index,{state:e.target.value as ExperienceProperty["state"],value:null},p.key)}><option value="KNOWN">Bekannt</option><option value="UNKNOWN">Noch unbekannt</option><option value="NOT_APPLICABLE">Nicht relevant</option></select></label>
+  return <section className="wk-experience-property" key={index} aria-label={q?.label??p.label??"Bisherige Angabe"}>
+   <h4>{q?.label??p.label??"Bisherige Angabe"}</h4>
    {spec&&<p>{spec.help}</p>}
    {q?.control==="YES_NO"&&<div className="wk-choices" aria-label={`${q.label} Antworten`}>{[true,false].map(v=><button type="button" key={String(v)} aria-pressed={p.state==="KNOWN"&&p.value===v} className={p.state==="KNOWN"&&p.value===v?"selected":"wk-secondary"} onClick={()=>update(index,{state:"KNOWN",value:v},p.key)}>{v?"Ja":"Nein"}</button>)}</div>}
    {q?.control==="NUMBER"&&<label>{q.unit}<input aria-label={`${q.label} Wert`} className="wk-input" type="number" min={0} max={q.unit==="Jahre"?130:100000} placeholder={q.unit==="Minuten"?"Zum Beispiel 60":q.unit==="Jahre"?"Zum Beispiel 6":"Zum Beispiel 20"} value={typeof p.value==="number"?p.value:""} onChange={e=>update(index,{state:e.target.value?"KNOWN":"UNKNOWN",value:e.target.value===""?null:Number(e.target.value)},p.key)}/></label>}
    {spec?.kind==="NAME"&&<input aria-label={`${q?.label} Wert`} className="wk-input" maxLength={1000} placeholder={spec.placeholder} value={typeof p.value==="string"?p.value:""} onChange={e=>update(index,{state:e.target.value?"KNOWN":"UNKNOWN",value:e.target.value||null},p.key)}/>}
-   {!spec&&typeof p.value==="string"&&<blockquote>{p.value}</blockquote>}
+   {typeof p.value==="string"&&<blockquote>{p.value}</blockquote>}
+   <details className="wk-answer-state"><summary>Unbekannt oder nicht relevant?</summary><label>Wissensstand: {q?.label??p.label??"Bisherige Angabe"}<select className="wk-input" value={p.state} onChange={e=>update(index,{state:e.target.value as ExperienceProperty["state"],value:null},p.key)}><option value="KNOWN" disabled>Antwort erfasst</option><option value="UNKNOWN">Noch unbekannt</option><option value="NOT_APPLICABLE">Nicht relevant</option></select></label></details>
    {index>=0&&<><Conditions value={p.conditions} onChange={conditions=>update(index,{conditions},p.key)}/><button type="button" className="wk-secondary" onClick={()=>onChange(values.filter((_,i)=>i!==index))}>Angabe entfernen</button></>}
   </section>;
  };
