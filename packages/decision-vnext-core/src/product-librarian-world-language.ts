@@ -3,7 +3,7 @@ import { contentHash, deepFreeze } from "./canonical.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { librarianConditions, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
-export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@3" as const;
+export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@5" as const;
 export type LegacyLanguageAssessment = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -26,7 +26,10 @@ export function requestedLibrarianPlaceType(fact: LibrarianFact): string | null 
     const concept = librarianConcept(fact.value.text);
     return concept && ["restaurant", "bar", "zoo", "museum"].includes(concept) ? concept.toUpperCase() : null;
 }
-/** Classification is venue evidence, not proof of a drink, meal, facility or
+/** Finding a verified venue type is the authorized DISCOVERY use case, even
+ * when the user requires that type. It never proves admission, prices or law.
+ * Hard exclusions retain their separate authorization.
+ * Classification is venue evidence, not proof of a drink, meal, facility or
  * service schedule. Missing positive labels cannot establish absence. */
 export function assessLibrarianPlaceType(fact: LibrarianFact, world: ProductWorldView): LegacyLanguageAssessment | null {
     const desired = requestedLibrarianPlaceType(fact);
@@ -36,8 +39,8 @@ export function assessLibrarianPlaceType(fact: LibrarianFact, world: ProductWorl
         && Array.isArray(row.value) && row.value.some(token => typeof token === "string" && (placeTypeChildren[desired] ?? [desired]).includes(token));
     if (!supported || !row) return { state: "UNKNOWN", reason: "REQUESTED_SPOT_TYPE_NOT_PROVEN", hashes: [] };
     const hashes = [row.entryHash, contentHash({ version: LIBRARIAN_WORLD_LANGUAGE_VERSION, desired, types: row.value })];
-    const authorized = row.authorizedUseCases?.includes(fact.modality === "PREFERRED" ? "DISCOVERY" : "HARD_CONSTRAINTS") === true;
-    if (!authorized) return { state: "UNKNOWN", reason: fact.modality !== "EXCLUDED" && row.authorizedUseCases?.includes("DISCOVERY") ? "SPOT_TYPE_DISCOVERY_SUPPORT" : "SPOT_TYPE_USE_NOT_AUTHORIZED", hashes };
+    const authorized = row.authorizedUseCases?.includes(fact.modality === "EXCLUDED" ? "HARD_CONSTRAINTS" : "DISCOVERY") === true;
+    if (!authorized) return { state: "UNKNOWN", reason: "SPOT_TYPE_USE_NOT_AUTHORIZED", hashes };
     return { state: fact.modality === "EXCLUDED" ? "FAILED" : "MET", reason: fact.modality === "EXCLUDED" ? "EXCLUDED_SPOT_TYPE_PRESENT" : "VERIFIED_SPOT_TYPE", hashes };
 }
 const amenityConcepts: Readonly<Record<string, string>> = { TOILET: "toilet", HIGH_CHAIR: "high_chair", CHANGING_TABLE: "changing_table", PARKING: "parking", PLAY_AREA: "playground", COVERED_OUTDOOR: "covered", TERRACE: "terrace", STROLLER_SPACE: "stroller" };
@@ -127,4 +130,32 @@ export function assessLegacyLibrarianFact(fact: LibrarianFact, world: ProductWor
     if (active.some(e => e.conditions === "MET" && e.discovery))
         return unknown("LEGACY_TYPED_DISCOVERY_SUPPORT", hashes);
     return unknown(active.some(e => e.conditions !== "MET") ? "LEGACY_CONDITIONS_OR_AREA_UNRESOLVED" : "LEGACY_SOURCE_USE_NOT_AUTHORIZED", hashes);
+}
+
+/** Canonical boolean access facts, including negative evidence. Generic
+ * wheelchair access is not equivalent to one accessible seat or terrace. */
+export function assessLibrarianAccessibility(fact: LibrarianFact, world: ProductWorldView): LegacyLanguageAssessment | null {
+    if (fact.key !== "participation.accessibility" || fact.value.kind !== "TEXT") return null;
+    const term = librarianTerm(fact.value.text);
+    const specific = new Map([
+        ["stufenlos", "accessibility.step_free_entrance"], ["stufenfrei", "accessibility.step_free_entrance"], ["step_free", "accessibility.step_free_entrance"],
+        ["rollstuhlgängiges WC", "accessibility.accessible_toilet"], ["rollstuhlgerechtes WC", "accessibility.accessible_toilet"], ["accessible_toilet", "accessibility.accessible_toilet"],
+    ].map(([label, key]) => [librarianTerm(label!), key!]));
+    const key = specific.get(term);
+    const generic = ["rollstuhlgängig", "rollstuhlgerecht", "barrierefrei", "wheelchair", "wheelchair_accessible"].some(label => librarianTerm(label) === term);
+    if (!key && !generic) return null;
+    const rows = world.facts.filter(row => row.freshness === "CURRENT" && row.trust === "VERIFIED"
+        && ["KNOWN_TRUE", "KNOWN_FALSE"].includes(row.resolution) && typeof row.value === "boolean"
+        && row.authorizedUseCases?.includes("HARD_CONSTRAINTS") && row.authorizedUseCases.includes("ACCESSIBILITY") && (key ? row.key === key : row.key.startsWith("accessibility.")));
+    const value = (name: string) => rows.find(row => row.key === name)?.value;
+    let state: MatchTruth = "UNKNOWN";
+    if (key && rows.length) state = rows[0]!.value === true ? "MET" : "FAILED";
+    if (generic) {
+        const inside = value("accessibility.accessible_indoor"), outside = value("accessibility.accessible_outdoor");
+        const seats = value("accessibility.accessible_seating"), entrance = value("accessibility.step_free_entrance"), paths = value("accessibility.wheelchair_paths");
+        if (inside === false && outside === false || seats === false) state = "FAILED";
+        else if ((inside === true || outside === true) && seats === true && entrance === true && paths === true) state = "MET";
+    }
+    if (fact.modality === "EXCLUDED") state = state === "MET" ? "FAILED" : state === "FAILED" ? "MET" : "UNKNOWN";
+    return { state, reason: generic ? "DOCUMENTED_WHEELCHAIR_ACCESS_DETAILS" : "DOCUMENTED_ACCESS_REQUIREMENT", hashes: rows.map(row => row.entryHash) };
 }

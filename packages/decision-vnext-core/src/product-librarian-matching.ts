@@ -1,4 +1,5 @@
-import { assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
+import { librarianRankingOnlyFamily } from "./product-librarian-language.js";
+import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
 import { spotTypeSupports, experienceActivitySupports, parseExperienceProfile, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
@@ -126,7 +127,7 @@ function collectFacts(node: LunaExpression): readonly string[] {
         return sorted([...collectFacts(node.then), ...(node.else ? collectFacts(node.else) : [])]);
     return sorted((node.kind === "FALLBACK" ? node.options : node.children).flatMap(collectFacts));
 }
-const semanticPropertyKeys: Readonly<Record<string, readonly string[]>> = { "experience.character": ["atmosphere.character"], "offer.facility": ["offer.feature"], "offer.kind": ["offer.kind", "stay.room_type"], "offer.area": ["offer.area", "location.setting"], "participation.accessibility": ["participation.accessibility", "amenity.step_free", "amenity.stroller"], "offer.feature": ["offer.feature", ...Object.keys(BOOLEAN_CONCEPTS)] };
+const semanticPropertyKeys: Readonly<Record<string, readonly string[]>> = { "experience.activity": ["experience.activity", "food.drink"], "experience.character": ["atmosphere.character"], "offer.facility": ["offer.feature"], "offer.kind": ["offer.kind", "stay.room_type"], "offer.area": ["offer.area", "location.setting"], "participation.accessibility": ["participation.accessibility", "amenity.step_free", "amenity.stroller"], "offer.feature": ["offer.feature", ...Object.keys(BOOLEAN_CONCEPTS)] };
 /** Catalogued offer duties may arrive in a domain family. Preserve the
  * emitted family; only establish which typed offer can witness it. Specific
  * drinks (wine, beer, etc.) still need their own property evidence. */
@@ -180,6 +181,10 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
         return "UNKNOWN";
     if (fact.value.kind === "TEXT") {
         const desired = librarianConcept(fact.value.text);
+        // A documented consumable coffee proves coffee drinking in that same
+        // offer. This does not turn a beverage into a venue, workshop or meal.
+        if (fact.key === "experience.activity" && property.key === "food.drink")
+            return desired === "coffee" && typeof property.value === "string" && librarianConcept(property.value) === "coffee" ? "MET" : "UNKNOWN";
         if (typeof property.value === "boolean") {
             const concept = BOOLEAN_CONCEPTS[property.key];
             return concept && desired === concept ? (property.value ? "MET" : "FAILED") : "UNKNOWN";
@@ -235,6 +240,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         const equal = locationTerm(row.value) === locationTerm(fact.value.text), state = equal ? "MET" : "FAILED";
         return report(fact.modality === "EXCLUDED" ? (equal ? "FAILED" : "MET") : state, "VERIFIED_LOCATION", [{ evidenceHashes: [row.entryHash], offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: false, chargeable: false }]);
     }
+    const accessibility = assessLibrarianAccessibility(fact, world);
+    if (accessibility) return report(accessibility.state, accessibility.reason, accessibility.hashes.length ? [{ evidenceHashes: accessibility.hashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: accessibility.state === "UNKNOWN", chargeable: false }] : []);
     if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE")
         return report("UNKNOWN", "DEFERRED_TO_JOINT_VISIT_EVALUATION");
     // Overlapping words such as Café can denote an actual embedded offer.
@@ -250,7 +257,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     }
     // A global spatial requirement applies to the requested activities, not
     // an unrelated cafe or facility elsewhere at the same spot.
-    const spatialActivities = fact.key === "offer.area" && (!fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP")))
+    const physicalArea = fact.key === "offer.area" || fact.key === "location.setting" && ["indoor", "outdoor", "terrace"].includes(concept ?? "");
+    const spatialActivities = physicalArea && (!fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP")))
         ? request.facts.filter(f => offerDuty(f) && ["REQUIRED"].includes(f.modality)
             && collectFacts(request.logic).includes(f.id))
             .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability)) : [];
@@ -266,7 +274,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 || spatialActivities.some(a => a.report.state !== "MET" || !supportsArea(a))) return;
         }
         const availability = offer ? offerAvailability(offer, world, visit) : { state: "MET" as const, hashes: [], reason: "AREA_FACT" };
-        const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional || availability.state === "UNKNOWN", chargeable: fact.key !== "offer.facility" };
+        const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional || availability.state === "UNKNOWN" && !visit.complete, chargeable: fact.key !== "offer.facility" };
         if (fact.modality === "EXCLUDED" && availability.state !== "MET")
             uncertain.push(witness);
         else if (availability.state === "FAILED")
@@ -295,7 +303,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             }
         }
     }
-    if (fact.key === "offer.area" && desired) {
+    if (["offer.area", "location.setting"].includes(fact.key) && desired && ["indoor", "outdoor", "terrace"].includes(desired)) {
         for (const area of profile.areas)
             if ((AREA_CONCEPTS[area.kind] ?? []).includes(desired)) {
                 const offers = profile.offers.filter(o => o.areaIds.includes(area.id));
@@ -354,8 +362,9 @@ function countPeople(facts: readonly LibrarianFact[], request: LibrarianRequest)
     }
     if (counts.length > 1)
         return null;
-    const groups = request.entities.filter(e => e.kind === "GROUP" && facts.some(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.subjectIds.includes(e.id)) && e.members.length && e.members.every(id => request.entities.find(e => e.id === id)?.kind === "PERSON"));
-    return groups.length === 1 ? groups[0]!.members.length : null;
+    // Named members need not enumerate the full party. Only a count fact is
+    // authority for quantities, prices and capacity.
+    return null;
 }
 function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], request: LibrarianRequest, profile: ExperienceProfile | null, state: State, visit: VisitWindow): LibrarianFactAssessment {
     const money = fact.value;
@@ -430,8 +439,8 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
                 return result("UNKNOWN", "GROUP_ALLOCATION_NOT_DOCUMENTED", hashes);
             const roundShare = (value: number) => ["GTE", "GT"].includes(money.operator) ? Math.floor((value + 1e-9) * 100) / 100 : Math.ceil((value - 1e-9) * 100) / 100;
             min += groupPerPerson ? roundShare(c.price.min * c.factor) : c.price.min * c.factor;
-            if (c.price.max === null || c.price.mandatoryFeesIncluded !== true)
-                return result(compare(min, money.amount, money.operator) === false && ["LTE", "LT"].includes(money.operator) ? "FAILED" : "UNKNOWN", "PRICE_MAXIMUM_OR_MANDATORY_COSTS_UNKNOWN", hashes);
+            if (c.price.max === null)
+                return result(compare(min, money.amount, money.operator) === false && ["LTE", "LT"].includes(money.operator) ? "FAILED" : "UNKNOWN", "PRICE_MAXIMUM_UNKNOWN", hashes);
             max += groupPerPerson ? roundShare(c.price.max * c.factor) : c.price.max * c.factor;
             hashes.push(contentHash(c.price));
         }
@@ -439,19 +448,23 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
     const pass = compare(max, money.amount, money.operator), minimumPass = compare(min, money.amount, money.operator);
     let truth: MatchTruth;
     if (money.operator === "EQ")
-        truth = min === max && min === money.amount ? "MET" : money.amount < min || max < money.amount ? "FAILED" : "UNKNOWN";
+        truth = money.amount >= min && money.amount <= max ? "MET" : "FAILED";
     else if (money.operator === "NEQ")
         truth = money.amount < min || max < money.amount ? "MET" : min === max && min === money.amount ? "FAILED" : "UNKNOWN";
     else if (["GTE", "GT"].includes(money.operator))
-        truth = minimumPass === true ? "MET" : pass === false ? "FAILED" : "UNKNOWN";
+        truth = pass === null ? "UNKNOWN" : pass ? "MET" : "FAILED";
     else
-        truth = pass === null ? "UNKNOWN" : pass ? "MET" : minimumPass === false ? "FAILED" : "UNKNOWN";
-    return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth, truth === "MET" ? "SCOPED_COMPLETE_PRICE_CONFIRMED" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
+        truth = minimumPass === null ? "UNKNOWN" : minimumPass ? "MET" : "FAILED";
+    return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth, truth === "MET" ? "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
 }
 function assessScenario(request: LibrarianRequest, world: ProductWorldView, scenario: Scenario, preferenceIds: ReadonlySet<string>, now: string, semantics: LibrarianSemanticIndex | null): Omit<LibrarianCandidate, "candidateHash"> {
     const referenced = new Set(collectFacts(request.logic));
     const branchEntities = new Set(request.facts.filter(f => scenario.ids.includes(f.id)).flatMap(f => f.subjectIds));
     const selected = request.facts.filter(f => scenario.ids.includes(f.id) || f.modality === "CONTEXT" && !referenced.has(f.id) && (!f.subjectIds.some(id => ["ACTIVITY", "OFFER", "AREA"].includes(request.entities.find(e => e.id === id)?.kind ?? "")) || f.subjectIds.some(id => branchEntities.has(id))));
+    const rankingOnly = (report: Pick<LibrarianFactAssessment, "factId" | "family" | "modality">) => {
+        const source = request.facts.find(f => f.id === report.factId);
+        return librarianRankingOnlyFamily(report.family, report.modality, source ? requestedLibrarianPlaceType(source) !== null : false);
+    };
     const activeRequest = { ...request, facts: selected.map(f => preferenceIds.has(f.id) ? { ...f, modality: "PREFERRED" as const } : f) };
     const visit = createLibrarianVisitWindow(selected.filter(f => f.modality !== "PREFERRED" && !preferenceIds.has(f.id)), world.spot.location.timezone);
     const source = profileFor(world, visit, now), profile = source?.profile ?? null;
@@ -481,7 +494,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         allAtoms.push(a);
         reports.push(a.report);
         const deferred = LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL";
-        if (!neutral(fact) && fact.modality !== "PREFERRED" && !preferenceIds.has(fact.id) && !deferred && a.report.state === "MET") {
+        if (!neutral(fact) && fact.modality !== "PREFERRED" && !preferenceIds.has(fact.id) && !deferred && !librarianRankingOnlyFamily(fact.key, fact.modality, requestedLibrarianPlaceType(fact) !== null) && a.report.state === "MET") {
             // Retain exactly the same traversal prefix, but stop constructing
             // discarded Cartesian combinations as soon as overflow is proven.
             const joined: State[] = [];
@@ -509,15 +522,25 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
                 return { ...jointPrice(fact, selected, request, profile, state, visit), modality: r.modality };
             if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL") {
                 const temporalVisit = temporalVisits.get(fact.id)!;
+                if (temporalVisit.undatedDayPhase)
+                    return { ...r, state: "CONTEXT" as const, reason: "UNDATED_DAYPART_NO_OPENING_CLAIM", evidenceHashes: [], offerIds: state.offerIds, areaIds: state.areaIds };
                 const availability = state.offerIds.map(id => offerAvailability(profile!.offers.find(o => o.id === id)!, world, temporalVisit));
                 // A venue-only request uses venue hours. It must not invent an
                 // offer schedule merely because a scoped profile exists.
-                if (!state.offerIds.length && !allAtoms.some(atom => ["experience.activity", "offer.kind"].includes(atom.report.family) && atom.report.offerIds.length > 0)) availability.push(librarianVenueAvailability(world, temporalVisit));
+                if (!state.offerIds.length && !allAtoms.some(atom => selected.some(f => f.id === atom.report.factId && offerDuty(f)) && atom.report.offerIds.length > 0)) availability.push(librarianVenueAvailability(world, temporalVisit));
                 const stateValue: MatchTruth = !temporalVisit.complete || !availability.length ? "UNKNOWN" : availability.some(a => a.state === "FAILED") ? "FAILED" : availability.some(a => a.state === "UNKNOWN") ? "UNKNOWN" : "MET";
+                if (stateValue === "UNKNOWN" && temporalVisit.complete)
+                    return { ...r, state: "CONTEXT" as const, reason: "VISIT_TIME_UNCONFIRMED", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
                 return { ...r, state: stateValue, reason: stateValue === "MET" ? "JOINT_VISIT_TIME_CONFIRMED" : "VISIT_TIME_OR_AVAILABILITY_NOT_PROVEN", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
             }
             const sourceAtom = allAtoms.find(a => a.report.factId === r.factId);
             if (sourceAtom && r.state === "MET") {
+                if (librarianRankingOnlyFamily(fact.key, fact.modality, requestedLibrarianPlaceType(fact) !== null)) {
+                    const compatible = sourceAtom.witnesses.filter(w => join(state, w) !== null);
+                    if (!compatible.length && sourceAtom.witnesses.length)
+                        return { ...r, state: "UNKNOWN" as const, reason: "RANKING_DETAIL_NOT_PROVEN_FOR_SELECTED_OFFER", evidenceHashes: [], offerIds: [], areaIds: [] };
+                    return { ...r, evidenceHashes: sorted(compatible.flatMap(w => w.evidenceHashes)), offerIds: sorted(compatible.flatMap(w => w.offerIds)), areaIds: sorted(compatible.flatMap(w => w.areaIds)) };
+                }
                 const witnesses = sourceAtom.witnesses.filter(w => w.offerIds.every(id => state.offerIds.includes(id)) && w.areaIds.every(id => state.areaIds.includes(id)) && Object.entries(w.assignments).every(([key, value]) => state.assignments[key] === undefined || state.assignments[key] === value));
                 return { ...r, evidenceHashes: sorted(witnesses.flatMap(w => w.evidenceHashes)), offerIds: sorted(witnesses.flatMap(w => w.offerIds)), areaIds: sorted(witnesses.flatMap(w => w.areaIds)) };
             }
@@ -540,12 +563,12 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             if (b.kind !== "SAME_PLACE")
                 next.push({ factId: `binding:${contentHash(b).slice(0, 12)}`, family: "binding", modality: "REQUIRED", state: "UNKNOWN", reason: b.kind === "SEQUENCE" ? "MULTI_VISIT_SEQUENCE_NOT_SUPPORTED" : "SIMULTANEOUS_CAPACITY_NOT_PROVEN", evidenceHashes: [], offerIds: state.offerIds, areaIds: state.areaIds });
         const hard = next.filter(r => !["CONTEXT", "NOT_REQUIRED", "PREFERRED"].includes(r.state) && r.modality !== "PREFERRED");
-        const failures = hard.filter(r => r.state === "FAILED"), unknown = hard.filter(r => r.state === "UNKNOWN");
+        const failures = hard.filter(r => r.state === "FAILED" && !rankingOnly(r)), unknown = hard.filter(r => r.state === "UNKNOWN");
         const preferenceMatches = next.filter(r => r.modality === "PREFERRED" && r.state === "MET" && (!allAtoms.find(a => a.report.factId === r.factId)?.witnesses.length || allAtoms.find(a => a.report.factId === r.factId)!.witnesses.some(w => join(state, w) !== null))).map(r => r.factId);
         return { state, next, failures, unknown, preferences: preferenceMatches, tieBreaker: contentHash(state) };
     }).sort((a, b) => a.failures.length - b.failures.length || a.unknown.length - b.unknown.length || b.preferences.length - a.preferences.length || a.tieBreaker.localeCompare(b.tieBreaker));
     const best = scored[0], facts = (best?.next ?? reports).map(r => limited && r.state === "FAILED" && !["LOCATION", "eligibility"].includes(r.family) ? { ...r, state: "UNKNOWN" as const, reason: "WITNESS_SEARCH_LIMIT" } : r);
-    const failed = facts.filter(r => r.modality !== "PREFERRED" && r.state === "FAILED").map(r => r.factId), unknown = facts.filter(r => r.modality !== "PREFERRED" && r.state === "UNKNOWN").map(r => r.factId);
+    const failed = facts.filter(r => r.modality !== "PREFERRED" && r.state === "FAILED" && !rankingOnly(r)).map(r => r.factId), unknown = facts.filter(r => r.modality !== "PREFERRED" && (r.state === "UNKNOWN" || r.state === "FAILED" && rankingOnly(r))).map(r => r.factId);
     const unresolved = request.diagnostics.filter(d => d.code !== "UNUSED_ENTITY" && (d.code === "CROSS_BRANCH_BINDING" ? d.relatedIds.every(id => scenario.ids.includes(id)) : d.relatedIds.some(id => scenario.ids.includes(id))));
     const core = selected.some(f => !neutral(f) && !["PRICE", "TEMPORAL", "LOCATION"].includes(LIBRARIAN_FAMILY_STRATEGIES[f.key]));
     const status = failed.length ? "INELIGIBLE" : unknown.length || limited || unresolved.length || !core || best?.state.uncertain ? "PARTIAL" : "CONFIRMED";
@@ -638,11 +661,15 @@ function runLibrarianCatalogSearch(input: {
         // mood or unrelated activity cannot substitute for a requested type.
         const venue = facts.filter(assessment => {
             const fact = request.facts.find(fact => fact.id === assessment.factId);
-            return fact && requestedLibrarianPlaceType(fact) !== null && !["PREFERRED", "CONTEXT", "NOT_REQUIRED"].includes(assessment.modality);
+            return fact && requestedLibrarianPlaceType(fact) !== null && assessment.modality === "REQUIRED";
         });
-        if (venue.some(fact => fact.state !== "MET" && !(fact.modality !== "EXCLUDED" && fact.reason === "SPOT_TYPE_DISCOVERY_SUPPORT" && fact.evidenceHashes.length > 0))) return false;
+        if (venue.some(fact => fact.state !== "MET")) return false;
+        // Keep the existing source-use authorization gate for an excluded
+        // type. Missing labels are not proof of absence; an unapproved
+        // exclusion comparison cannot become a positive recommendation.
+        if (facts.some(f => f.modality === "EXCLUDED" && f.reason === "SPOT_TYPE_USE_NOT_AUTHORIZED")) return false;
         const activity = facts.filter(f => ["experience.activity", "offer.kind"].includes(f.family) && f.modality !== "PREFERRED" && f.modality !== "EXCLUDED" && !["CONTEXT", "NOT_REQUIRED"].includes(f.state));
-        const positive = (f: LibrarianFactAssessment) => f.state === "MET" || f.state === "UNKNOWN" && (f.reason === "SPOT_TYPE_DISCOVERY_SUPPORT" || f.reason === "LEGACY_TYPED_DISCOVERY_SUPPORT" || f.reason === "CONDITIONS_OR_AVAILABILITY_UNKNOWN" && f.offerIds.length > 0);
+        const positive = (f: LibrarianFactAssessment) => f.state === "MET" || f.state === "UNKNOWN" && (f.reason === "LEGACY_TYPED_DISCOVERY_SUPPORT" || f.reason === "CONDITIONS_OR_AVAILABILITY_UNKNOWN" && f.offerIds.length > 0);
         return activity.length ? activity.some(positive) : facts.some(f => positive(f) && !["LOCATION", "TEMPORAL", "PRICE", "CONTEXT"].includes(LIBRARIAN_FAMILY_STRATEGIES[f.family as keyof typeof LIBRARIAN_FAMILY_STRATEGIES] ?? "CONTEXT"));
     };
     const hasVisitEvidence = (c: LibrarianCandidate) => c.conditionalPlans.length

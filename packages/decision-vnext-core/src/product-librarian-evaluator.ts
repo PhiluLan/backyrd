@@ -58,9 +58,12 @@ function contextFor(request: DecisionProductRequest, meaning: LibrarianRequest, 
 const familyLabels: Readonly<Record<string, string>> = {
   "experience.activity": "die gewünschte Aktivität", "offer.kind": "die gewünschte Art des Angebots",
   "food.meal": "die Essensmöglichkeit", "food.drink": "die Getränkeauswahl", "food.diet": "die gewünschte Ernährung",
+  "offer.feature": "die gewünschte Ausstattung", "offer.facility": "die gewünschte Einrichtung",
+  "time.duration": "die gewünschte Aktivitätsdauer", "route.length": "die gewünschte Weglänge",
   "food.dish": "die gewünschte Speise", "food.cuisine": "die Küche", "offer.area": "der gewünschte Bereich",
   "atmosphere.character": "die gewünschte Atmosphäre", "atmosphere.music": "die gewünschte Musiksituation",
   "atmosphere.noise": "der gewünschte Geräuschpegel", "location.destination": "der gewünschte Ort",
+  "participation.accessibility": "die gewünschte Zugänglichkeit",
   "eligibility": "die Besuchsbedingungen", "binding": "die Kombination deiner Wünsche",
 };
 const duty = (f: LibrarianFactAssessment) => !["PREFERRED", "CONTEXT", "NOT_REQUIRED"].includes(f.modality) && !["CONTEXT", "NOT_REQUIRED"].includes(f.state);
@@ -72,7 +75,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   const rejected = request.rejectedCandidateIds.includes(candidate.spotId);
   const codeForId = (id: string) => {
     const fact = candidate.facts.find(f => f.factId === id);
-    return fact?.reason === "SPOT_TYPE_DISCOVERY_SUPPORT" ? "DISCOVERY_ONLY_SPOT_TYPE" : fact ? factCode(fact) : `LBR:${contentHash(id).slice(0,24)}`;
+    return fact ? factCode(fact) : `LBR:${contentHash(id).slice(0,24)}`;
   };
   const confirmed = hard.filter(f => f.state === "MET" && !candidate.unknownFactIds.includes(f.factId) && !candidate.failedFactIds.includes(f.factId)).map(factCode);
   const unknown = [...new Set(candidate.unknownFactIds.map(codeForId))];
@@ -87,10 +90,25 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state)).slice(0, 50).map(f => {
     const proven = f.state === "MET";
     const label = familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
-    return { reasonCode: factCode(f), domain: proven && candidate.status === "CONFIRMED" ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
-      statementDe: proven ? candidate.status === "CONFIRMED" ? `Bestätigt für das ausgewählte Angebot: ${label}.` : "Für einen Teil deines Wunsches liegen passende Angaben vor." : f.state === "FAILED" ? `Nicht passend: ${label}.` : `Noch nicht bestätigt: ${label}.`,
-      confirmed: proven && candidate.status === "CONFIRMED" };
+    return { reasonCode: factCode(f), domain: proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
+      statementDe: proven ? f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : `Noch nicht bestätigt: ${label}.`,
+      confirmed: proven };
   });
+  if (candidate.facts.some(f => f.reason === "DOCUMENTED_WHEELCHAIR_ACCESS_DETAILS")) {
+    const labels: Readonly<Record<string, string>> = {
+      "accessibility.accessible_indoor": "Innenbereich", "accessibility.accessible_outdoor": "Aussenbereich",
+      "accessibility.accessible_seating": "Sitzplätze", "accessibility.accessible_toilet": "WC",
+      "accessibility.step_free_entrance": "stufenloser Eingang", "accessibility.wheelchair_paths": "rollstuhlgängige Wege",
+    };
+    // This is the deterministic public accessibility assessment, using the
+    // dedicated ACCESSIBILITY permission, not unrestricted generated copy.
+    const rows = world.facts.filter(f => labels[f.key] && typeof f.value === "boolean"
+      && f.authorizedUseCases?.includes("ACCESSIBILITY") && f.authorizedUseCases.includes("GENERAL_WORLD"));
+    const yes = rows.filter(f => f.value === true).map(f => labels[f.key]);
+    const no = rows.filter(f => f.value === false).map(f => labels[f.key]);
+    if (rows.length) reasons.push({ reasonCode: "librarian-access-details", domain: "LIMITATION", sourceHash: contentHash(rows.map(f => f.entryHash)),
+      statementDe: [yes.length ? `Als zugänglich erfasst: ${yes.join(", ")}.` : "", no.length ? `Als nicht vorhanden oder nicht zugänglich erfasst: ${no.join(", ")}.` : ""].filter(Boolean).join(" ").slice(0,500), confirmed: false });
+  }
   const profileEntry = world.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"));
   if (profileEntry && candidate.offerIds.length) {
     const offers = parseExperienceProfile(profileEntry.value).offers.filter(o => candidate.offerIds.includes(o.id));
@@ -99,8 +117,10 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       statementDe: `${conditional ? "Mögliche Angebote" : "Passende Angebote"}: ${offers.map(o => o.name).join(", ")}`.slice(0,500), confirmed: !conditional });
   }
   if (!reasons.length) reasons.push({ reasonCode: "librarian-no-visit-evidence", domain: "LIMITATION", sourceHash: candidate.candidateHash, statementDe: "Für diesen Wunsch fehlen bestätigte Angaben zum passenden Angebot.", confirmed: false });
-  const temporal = hard.filter(f => f.family.startsWith("time."));
-  const availability = temporal.length ? candidate.status === "CONFIRMED" && temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";
+  const temporal = candidate.facts.filter(f => f.family.startsWith("time.") && !["CONTEXT", "PREFERRED", "NOT_REQUIRED"].includes(f.modality)
+    && f.reason !== "UNDATED_DAYPART_NO_OPENING_CLAIM" && f.reason !== "RETAINED_AS_REQUEST_CONTEXT");
+  const availability = temporal.length ? temporal.some(f => f.state === "FAILED") ? "closed" : temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";
+  if (temporal.some(f => f.reason === "VISIT_TIME_UNCONFIRMED")) reasons.push({reasonCode:"librarian-visit-time-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,statementDe:"Der Spot passt zu deinem Wunsch. Öffnungs- und Angebotszeiten für den gewünschten Besuch sind noch nicht bestätigt.",confirmed:false});
   const tastes = userTasteMatches(world, context, projection);
   return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: candidate.spotId, snapshotHash: candidate.snapshotHash,
@@ -157,7 +177,16 @@ export function evaluateLibrarianProduct(input: {
     const scopedBudgetRetained = uiBudget?.state === "KNOWN" && requiredInEveryAlternative(meaning.logic, meaning, f =>
       f.key === "budget.maximum" && f.value.kind === "MONEY" && ["LTE", "EQ"].includes(f.value.operator)
       && f.value.amount === uiBudget.amount && f.value.currency === uiBudget.currency);
-    const guardRequest = { ...input.request, naturalLanguage: " ", explicit };
+    // Older clients may call a ranking preference a hard constraint. The
+    // current policy keeps equipment, atmosphere and excluded content soft.
+    const guardExplicit = { ...explicit, hardConstraints: explicit.hardConstraints?.filter(code =>
+      code !== "INDOOR_REQUIRED" && (() => {
+        const constraint = decodeWorldQueryConstraint(code);
+        if (!constraint) return true;
+        if (["context.atmosphere", "amenity.features"].includes(constraint.key)) return false;
+        return constraint.role !== "EXCLUDED" || ["classification.place_types", "classification.primary_category"].includes(constraint.key);
+      })()) };
+    const guardRequest = { ...input.request, naturalLanguage: " ", explicit: guardExplicit };
     const guards = evaluateProductWorldViews(guardRequest, input.authority, input.projection, worlds, candidateSetHash).evaluation.candidates;
     candidates = candidates.map(c => {
       const guard = guards.find(g => g.candidateId === c.candidateId)!;
@@ -165,7 +194,7 @@ export function evaluateLibrarianProduct(input: {
       // This guard may not apply its implicit "today" to a future Luna visit.
       // Time eligibility belongs to Luna unless an older UI explicitly sets it.
       const uiRequestsTime = !!explicit.dateTime || explicit.hardConstraints?.some(code => ["OPEN_NOW", "OPEN_ON_REQUESTED_DAY"].includes(code));
-      const applicableGuard = (code: string) => (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime)
+      const applicableGuard = (code: string) => (code !== "INDOOR_REQUIRED") && (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime)
         && (code !== "BUDGET_MAXIMUM" || !scopedBudgetRetained);
       const failed = [...c.failedHardConstraints, ...guard.failedHardConstraints.filter(applicableGuard)];
       const unknown = [...c.unknownHardConstraints, ...guard.unknownHardConstraints.filter(applicableGuard)];

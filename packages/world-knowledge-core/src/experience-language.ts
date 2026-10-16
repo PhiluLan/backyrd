@@ -17,7 +17,7 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "entry", labels: ["eintritt", "entry", "admission"] },
     { id: "meal", labels: ["essen", "essen gehen", "etwas essen", "vollständige mahlzeit", "vollstaendige mahlzeit", "full_meals", "full_meal"] },
     { id: "drinks", labels: ["trinken", "etwas trinken", "etwas trinken gehen", "trinken gehen", "getränke", "drinks"] },
-    { id: "coffee", labels: ["café", "cafe", "kaffee", "coffee"] },
+    { id: "coffee", labels: ["café", "cafe", "kaffee", "coffee", "Kaffee trinken"] },
     { id: "aperitif", labels: ["apéro", "apero", "aperitif"] },
     { id: "lunch", labels: ["mittagessen", "lunch"] }, { id: "dinner", labels: ["abendessen", "dinner"] },
     { id: "breakfast", labels: ["frühstück", "breakfast"] },
@@ -60,13 +60,13 @@ const byTerm = new Map<string, string>();
 // Canonical offer and activity terms are shared data, not additional prose parsing.
 
 for (const concept of concepts)
-    for (const label of concept.labels) {
+    for (const label of [concept.id, ...concept.labels]) {
         const term = librarianTerm(label);
-        if (byTerm.has(term))
+        if (byTerm.has(term) && byTerm.get(term) !== concept.id)
             throw new Error("librarian_language_duplicate_term");
         byTerm.set(term, concept.id);
     }
-for(const offer of OFFER_CATALOG) for(const label of [offer.kind, offer.label, ...offer.activities]){
+for(const offer of OFFER_CATALOG) for(const label of [offer.concept, offer.kind, offer.label, ...offer.activities]){
  const term=librarianTerm(label); if(!byTerm.has(term))byTerm.set(term,offer.concept);
 }
 export const librarianConcept = (text: string): string | null => byTerm.get(librarianTerm(text)) ?? null;
@@ -82,7 +82,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@5" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@6" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),

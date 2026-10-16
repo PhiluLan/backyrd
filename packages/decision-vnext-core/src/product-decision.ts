@@ -107,6 +107,7 @@ function rankingChecks(left: CandidateForRanking, right: CandidateForRanking): r
     [compareNumber(tierScore[a.eligibilityTier], tierScore[b.eligibilityTier]), "der besser belegten Eignungsklasse"],
     [compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]), "der besser belegten Hauptabsicht"],
     [compareNumber(coreScore[a.primaryVisitPurposeState], coreScore[b.primaryVisitPurposeState]), "des zusätzlich bestätigten Hauptzwecks"],
+    [compareNumber(right.unknownHardConstraints.length, left.unknownHardConstraints.length), "weniger offener Angaben zu deinem Wunsch"],
     [compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]), "der besser belegten Verfügbarkeit"],
     [compareBoolean(a.contextFit.secondaryIntentConfirmed, b.contextFit.secondaryIntentConfirmed), "einer bestätigten Nebenabsicht"],
     [compareBoolean(a.contextFit.visitSituationConfirmed, b.contextFit.visitSituationConfirmed), "der bestätigten Besuchssituation"],
@@ -125,19 +126,14 @@ function compareCandidates(left: CandidateForRanking, right: CandidateForRanking
   return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[0] ?? 0;
 }
 
-function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null, discoverySelectionAuthorized = false): boolean {
-  const onlyRequestedDayOpeningUnknown = candidate.unknownHardConstraints.length > 0
-    && candidate.unknownHardConstraints.every((constraint) => constraint === "OPEN_ON_REQUESTED_DAY")
-    && ["unknown", "not_authorized", "expired", "disputed"].includes(candidate.actualAvailability);
-  // Classification authorized for DISCOVERY can select a provisional venue.
-  // It does not authorize any unmet price, legal, access or time requirement.
-  const discoveryOnlyTypeUnknown = discoverySelectionAuthorized && candidate.tier === "UNCONFIRMED_FALLBACK"
-    && candidate.coreIntentCoverage === "CONFIRMED"
-    && candidate.unknownHardConstraints.length > 0
-    && candidate.unknownHardConstraints.every(code => code === "DISCOVERY_ONLY_SPOT_TYPE");
+function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null): boolean {
+  // A supported visit with incomplete details is a real fallback. Typed UI
+  // guards and unproven core activities retain their separate gates.
+  const supportedUnknown = candidate.coreIntentCoverage === "CONFIRMED"
+    && candidate.unknownHardConstraints.every(code => code.startsWith("LBR:") || code === "LIBRARIAN_VISIT_NOT_FULLY_PROVEN" || code === "OPEN_ON_REQUESTED_DAY");
   return (situationalIds === null || situationalIds.has(candidate.spotId))
     && candidate.tier !== "INELIGIBLE"
-    && (candidate.rankVector.hardConstraintState === "PASS" || onlyRequestedDayOpeningUnknown || discoveryOnlyTypeUnknown)
+    && (candidate.rankVector.hardConstraintState === "PASS" || supportedUnknown)
     && candidate.coreIntentCoverage !== "INCOMPATIBLE"
     && candidate.coreIntentCoverage !== "DISPUTED"
     && !candidate.contextualReject;
@@ -167,9 +163,9 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
     };
   }).sort(compareCandidates);
   let position = 0;
-  const rankedRows = rows.filter((candidate) => rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1"));
+  const rankedRows = rows.filter((candidate) => rankable(candidate, situationalIds));
   return deepFreeze(rows.map((candidate) => {
-    const ranked = rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1"); if (ranked) position += 1;
+    const ranked = rankable(candidate, situationalIds); if (ranked) position += 1;
     const next = ranked ? rankedRows[position] : undefined;
     const decidingFactor = next ? rankingChecks(candidate, next).find(([difference]) => difference < 0)?.[1] : undefined;
     const comparativeReason: ProductReason | null = decidingFactor
@@ -182,7 +178,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
   const assessment = candidate.assessment;
   const reasons: ProductReason[] = [
     ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-    { code: "product-ranking-policy-v4", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    { code: "product-ranking-policy-v6", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
   ];
   return DecisionProductCandidateSchema.parse(withContentHash({
@@ -241,12 +237,12 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );
   const ranked = candidateRows(evaluation, projection, input.presentations, situationalIds);
-  const available = ranked.filter((candidate) => rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1"));
+  const available = ranked.filter((candidate) => rankable(candidate, situationalIds));
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
   for (let windowSize = maxWindowSize; windowSize >= (maxWindowSize === 0 ? 0 : 1); windowSize -= 1) {
-    const selected = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1")).slice(0, PRODUCT_PRESENTATION_WINDOW)
+    const selected = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds)).slice(0, PRODUCT_PRESENTATION_WINDOW)
       : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize ? ranked
         : available.slice(firstUnseenIndex, firstUnseenIndex + windowSize);
     const candidates = selected.map(materializeCandidate);
@@ -255,7 +251,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
       contractVersion: PRODUCT_DECISION_VERSIONS.response, status: "AVAILABLE" as const, decisionId, requestHash, envelopeHash: envelope.envelopeHash,
       rankingPolicyVersion: PRODUCT_DECISION_VERSIONS.rankingPolicy, rankingPolicyHash: DECISION_PRODUCT_RANKING_POLICY.policyHash,
       interpretation: evaluation.interpretation, primaryCandidateId: primary?.spotId ?? null, candidates,
-      limitations: candidates.filter((candidate) => rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1")).length < available.length ? [...evaluation.limitations, "CANDIDATE_WINDOW_LIMITED"] : evaluation.limitations,
+      limitations: candidates.filter((candidate) => rankable(candidate, situationalIds)).length < available.length ? [...evaluation.limitations, "CANDIDATE_WINDOW_LIMITED"] : evaluation.limitations,
       alternative: { requested: request.alternativeRequested, selectedCandidateId: request.alternativeRequested ? primary?.spotId ?? null : null, negativeSignalProduced: false as const },
       reject: { candidateIds: request.rejectedCandidateIds, contextualOnly: true as const, worldFactProduced: false as const },
       personalization: { state: projection.status, neutralReason: projection.neutralReason, projectionHash: projection.projectionHash },

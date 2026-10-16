@@ -22,7 +22,11 @@ for(const scenario of scenarios)test(`single active HTTP chain: ${scenario.name}
   assert.equal(result.status,200,JSON.stringify(result.diagnostics));
   assert.equal(result.calls,1);assert.equal(result.reads,1);
   assert.equal(result.body.primaryCandidateId,binding(1,scenario.good).decisionProjection.spotId,JSON.stringify(result.body));
-  assert.equal(result.body.candidates.find(c=>c.spotId===binding(2,scenario.bad).decisionProjection.spotId)?.rank??null,null);
+  const weaker=result.body.candidates.find(c=>c.spotId===binding(2,scenario.bad).decisionProjection.spotId);
+  if (['relaxed drinks use their actual linked room','vegan dinner cannot borrow a vegan lunch','explicit indoor requirement uses the selected activity area','music exclusion needs documented absence in the selected area','an actual river area cannot be borrowed across unlinked rooms'].includes(scenario.name)) {
+    assert.equal(weaker?.rank,2);assert.equal(weaker.tier,'UNCONFIRMED_FALLBACK');
+    assert.ok(weaker.reasons.some(r=>r.domain==='LIMITATION'&&!r.confirmed));
+  } else assert.equal(weaker?.rank??null,null);
   assert.equal(result.body.personalization.state,'NEUTRAL');
   assert.equal(JSON.stringify(result.stored).includes(text),false);
   assert.equal(result.body.interpretation.resolverVersion,'decision-vnext-librarian-context-v1');
@@ -41,12 +45,14 @@ test('a requested venue type can support discovery without upgrading classificat
  b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['WINE_BAR'];
  const r=await exercise({text:'Eine Weinbar in Basel',meaning:plan([fact('type','offer.kind','Weinbar')]),catalog:[b]});
  assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
- const c=r.body.candidates[0];assert.equal(c.tier,'UNCONFIRMED_FALLBACK');assert.deepEqual(c.unknownHardConstraints,['DISCOVERY_ONLY_SPOT_TYPE']);
+ const c=r.body.candidates[0];assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.deepEqual(c.unknownHardConstraints,[]);
 });
-test('discovery rights never override an unknown mandatory visit condition',async()=>{
+test('verified venue discovery with an unknown extra feature is an honest fallback',async()=>{
  const b=binding(1,profile([offer('bar','DRINKS')],[area()],'BAR'));b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['WINE_BAR'];
  const r=await exercise({text:'Weinbar mit bestätigtem Spezialangebot',meaning:plan([fact('type','offer.kind','Weinbar'),fact('special','offer.feature','Unbekanntes Spezialangebot')]),catalog:[b]});
- assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
+ assert.equal(r.body.candidates[0].tier,'UNCONFIRMED_FALLBACK');
+ assert.ok(r.body.candidates[0].reasons.some(reason=>!reason.confirmed));
 });
 test('explicit numeric UI budget remains binding even if Luna omits it',async()=>{
  const r=await exercise({text:'Abendessen in Basel',meaning:plan([meal()]),understandOverride:async()=>{const {prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION}=await import('../dist/index.js');return prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,output:plan([meal()]).raw,sourceText:'Abendessen in Basel',reference});},catalog:[binding(1,profile())],explicit:{targetCity:'Basel',hardConstraints:['BUDGET_MAXIMUM'],budget:{state:'KNOWN',amount:10,currency:'CHF',perPerson:true,calibrationLabel:null}}});
@@ -114,4 +120,123 @@ test('overlapped city preparation preserves complete responses for all ten domai
   assert.equal(parallel.calls,1);assert.equal(parallel.reads,1);
   assert.deepEqual(parallel.body,sequential.body);
  }
+});
+
+test('a dated dinner with missing offer time is recommended with unknown availability, never an open claim',async()=>{
+ const b=binding(810,profile([{...offer(),schedule:[]}]));
+ const r=await exercise({text:'Morgen Abend essen in Basel',meaning:plan([meal(),date(),evening()]),catalog:[b]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
+ const c=r.body.candidates[0];assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.equal(c.actualAvailability,'unknown');
+ assert.deepEqual(c.unknownHardConstraints,[]);
+ assert.ok(c.reasons.some(reason=>reason.code==='librarian-visit-time-unconfirmed'&&!reason.confirmed));
+});
+test('without user time, closed regular hours and the current day never filter a fitting offer',async()=>{
+ const b=binding(811,profile([{...offer(),schedule:[{weekday:7,start:'10:00',end:'11:00'}]}]));
+ b.decisionProjection.facts=b.decisionProjection.facts.map(f=>f.key==='hours.regular'?worldFact(f.key,[{day:'WEDNESDAY',intervals:[]},{day:'THURSDAY',intervals:[]}]):f);
+ const r=await exercise({text:'Essen in Basel',meaning:plan([meal()]),catalog:[b]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
+ assert.equal(r.body.candidates[0].actualAvailability,'not_requested');
+});
+test('a verified winebar identity cannot override its documented adult-only admission',async()=>{
+ const b=binding(812,profile([offer('bar','DRINKS')],[area()],'BAR'),[worldFact('rule.age_access',{policy:'MINIMUM_AGE',minimumAge:18,appliesFromTime:null})]);
+ b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['WINE_BAR'];
+ const r=await exercise({text:'Weinbar mit einem Kind in Basel',meaning:plan([fact('venue','offer.kind','Weinbar'),fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2'])]),catalog:[b]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);
+ assert.equal(r.body.candidates[0].tier,'INELIGIBLE');
+});
+test('known closure at the requested date is still an exclusion',async()=>{
+ const b=binding(813,profile());
+ b.decisionProjection.facts=b.decisionProjection.facts.map(f=>f.key==='hours.regular'?worldFact(f.key,[{day:'THURSDAY',intervals:[]}]):f);
+ const r=await exercise({text:'Morgen Abend essen in Basel',meaning:plan([meal(),date(),evening()]),catalog:[b]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);assert.equal(r.body.candidates[0].tier,'INELIGIBLE');
+});
+
+test('unknown child admission never suppresses a proven activity, documented age exclusion still does',async()=>{
+ const child=profile([offer('visit','VISIT',['inside'],[prop('experience.activity','Tiere beobachten')])],[area()],'ZOO');
+ const unknown=binding(820,child),barred=binding(821,child,[worldFact('rule.age_access',{policy:'MINIMUM_AGE',minimumAge:18,appliesFromTime:null})]);
+ const r=await exercise({text:'Tiere beobachten mit vierjährigem Kind',meaning:plan([fact('animals','experience.activity','Tiere beobachten'),fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2'])]),catalog:[unknown,barred]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,unknown.decisionProjection.spotId);
+ assert.equal(r.body.candidates.find(c=>c.spotId===unknown.decisionProjection.spotId).tier,'UNCONFIRMED_FALLBACK');
+ assert.equal(r.body.candidates.find(c=>c.spotId===barred.decisionProjection.spotId).rank,null);
+});
+test('overlapping meal prices confirm budget without a price warning; known excess stays excluded',async()=>{
+ const b=(id,min,max)=>binding(id,profile([offer('dinner','DINNER',['inside'],[],[price(min,{max})])]));
+ const good=b(822,11,19),overlap=b(823,11,26),expensive=b(824,21,26);
+ const r=await exercise({text:'Essen bis zwanzig Franken pro Person',meaning:plan([meal(),...budget(20)]),catalog:[overlap,expensive,good]});
+ assert.equal(r.status,200);assert.notEqual(r.body.primaryCandidateId,null);
+ const c=r.body.candidates.find(c=>c.spotId===overlap.decisionProjection.spotId);
+ assert.ok(c.rank!==null);assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.ok(c.reasons.some(r=>r.confirmed&&r.statement.includes('Budget passt')));assert.ok(!c.reasons.some(r=>r.domain==='LIMITATION'&&r.statement.includes('Preis')));
+ assert.equal(r.body.candidates.find(c=>c.spotId===expensive.decisionProjection.spotId).rank,null);
+});
+test('an indoor cafe cannot confirm an indoor child activity, nor prevent a clearly marked fallback',async()=>{
+ const p=profile([offer('play','MOVEMENT_PLAY',['kids'],[prop('experience.activity','Bewegungsspiel'),prop('participation.minimum_age',1)]),offer('cafe','CAFE',['inside'])],[{...area('kids'),kind:'CHILDREN_AREA'},area()],'SPORT');
+ const b=binding(825,p);b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['CLIMBING_GYM'];
+ const r=await exercise({text:'Indoor Bewegungsspiel mit Kind',meaning:plan([fact('play','experience.activity','Bewegungsspiel'),fact('in','offer.area','drinnen'),fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2'])]),catalog:[b]});
+ assert.equal(r.status,200);assert.notEqual(r.body.primaryCandidateId,null);assert.equal(r.body.candidates[0].tier,'UNCONFIRMED_FALLBACK');
+ assert.ok(r.body.candidates[0].reasons.some(r=>r.statement.includes('Noch nicht bestätigt: der gewünschte Bereich')&&!r.confirmed));
+});
+test('partial wheelchair access is explained; a specifically disproven step-free entrance remains excluded',async()=>{
+ const b=binding(826,profile(),[
+  worldFact('accessibility.accessible_outdoor',true,{resolution:'KNOWN_TRUE'}),worldFact('accessibility.accessible_indoor',false,{resolution:'KNOWN_FALSE'}),
+  worldFact('accessibility.accessible_seating',true,{resolution:'KNOWN_TRUE'}),worldFact('accessibility.step_free_entrance',false,{resolution:'KNOWN_FALSE'}),worldFact('accessibility.accessible_toilet',false,{resolution:'KNOWN_FALSE'})]);
+ const generic=await exercise({text:'Rollstuhlgängig essen',meaning:plan([meal(),fact('wheel','participation.accessibility','rollstuhlgängig')]),catalog:[b]});
+ assert.equal(generic.status,200);assert.equal(generic.body.primaryCandidateId,b.decisionProjection.spotId);assert.equal(generic.body.candidates[0].tier,'UNCONFIRMED_FALLBACK');
+ const note=generic.body.candidates[0].reasons.find(r=>r.code==='librarian-access-details');assert.ok(note.statement.includes('Aussenbereich'));assert.ok(note.statement.includes('WC'));assert.equal(note.confirmed,false);
+ const specific=await exercise({text:'Stufenlos essen',meaning:plan([meal(),fact('step','participation.accessibility','stufenlos')]),catalog:[b]});
+ assert.equal(specific.status,200);assert.equal(specific.body.primaryCandidateId,null);
+});
+
+test('otherwise equivalent supported fallbacks with fewer missing details rank first',async()=>{
+ const more=binding(827,profile()),less=binding(828,profile([offer('dinner','DINNER',['inside'],[prop('food.diet','vegan')])]));
+ const r=await exercise({text:'Vegan essen mit besonderer Aussicht',meaning:plan([meal(),fact('diet','food.diet','vegan'),fact('view','offer.feature','besondere Aussicht')]),catalog:[more,less]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,less.decisionProjection.spotId);
+ const ranked=r.body.candidates.filter(c=>c.rank!==null);assert.equal(ranked.length,2);
+ assert.equal(ranked[0].tier,'UNCONFIRMED_FALLBACK');assert.ok(ranked[0].unknownHardConstraints.length<ranked[1].unknownHardConstraints.length);
+});
+test('legacy typed indoor filters cannot restore an exclusion for the softened area preference',async()=>{
+ const b=binding(829,profile([offer('visit','VISIT',['terrace'],[prop('experience.activity','Tiere beobachten')])],[area('terrace')],'ZOO'));
+ b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['ZOO'];
+ const r=await exercise({text:'Tiere drinnen anschauen',meaning:plan([fact('animals','experience.activity','Tiere beobachten'),fact('inside','offer.area','drinnen')]),catalog:[b],explicit:{targetCity:'Basel',hardConstraints:['INDOOR_REQUIRED']}});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);assert.equal(r.body.candidates[0].tier,'UNCONFIRMED_FALLBACK');
+});
+
+test('known missing equipment ranks below a confirmed feature instead of excluding',async()=>{
+ const make=(id,value)=>binding(id,profile([offer('dinner','DINNER',['inside'])],[area('inside',[prop('amenity.playground',value)])]));
+ const missing=make(840,false),present=make(841,true);
+ const r=await exercise({text:'Essen mit Spielplatz',meaning:plan([meal(),fact('play','offer.feature','Spielplatz')]),catalog:[missing,present]});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,present.decisionProjection.spotId);
+ const c=r.body.candidates.find(c=>c.spotId===missing.decisionProjection.spotId);assert.equal(c.rank,2);assert.equal(c.tier,'UNCONFIRMED_FALLBACK');assert.deepEqual(c.failedHardConstraints,[]);
+ assert.ok(c.reasons.some(r=>r.statement.startsWith('Nicht passend:')&&!r.confirmed));
+});
+test('activity duration mismatch ranks; a documented route-length excess excludes',async()=>{
+ const duration=plan([meal(),fact('duration','time.duration',{amount:120,operator:'LTE',unit:'MINUTES',measurementScope:'ACTIVITY',includes:['ACTIVITY']})]);
+ const long=binding(842,profile([offer('dinner','DINNER',['inside'],[prop('time.duration',180)])]));
+ const r=await exercise({text:'Aktivität höchstens zwei Stunden',meaning:duration,catalog:[long]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,long.decisionProjection.spotId);assert.equal(r.body.candidates[0].tier,'UNCONFIRMED_FALLBACK');
+ const route=plan([meal(),fact('length','route.length',{amount:3000,operator:'LTE',unit:'METERS',referenceEntityId:null})]);
+ const tooLong=binding(843,profile([offer('dinner','DINNER',['inside'],[prop('route.length',5000)])]));
+ const blocked=await exercise({text:'Weg höchstens drei Kilometer',meaning:route,catalog:[tooLong]});
+ assert.equal(blocked.status,200);assert.equal(blocked.body.primaryCandidateId,null);assert.equal(blocked.body.candidates[0].tier,'INELIGIBLE');
+});
+test('excluded food, drinks, activities and participation content stay visible as qualified suggestions',async()=>{
+ for(const [key,value] of [['food.dish','Pizza'],['food.drink','Bier'],['experience.activity','Tanzen'],['participation.language','Deutsch'],['participation.format','geführt']]) {
+  const b=binding(844,profile([offer('dinner','DINNER',['inside'],[prop(key,value)])]));
+  const r=await exercise({text:`Essen ohne ${value}`,meaning:plan([meal(),fact('excluded',key,value,'EXCLUDED')]),catalog:[b]});
+  assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId,key);
+  assert.equal(r.body.candidates[0].tier,'UNCONFIRMED_FALLBACK',key);assert.deepEqual(r.body.candidates[0].failedHardConstraints,[],key);
+  assert.ok(r.body.candidates[0].reasons.some(reason=>reason.statement.includes('ausgeschlossener Inhalt')&&!reason.confirmed),key);
+ }
+});
+test('excluded venue types still exclude, without treating unknown excluded types as mandatory positive identities',async()=>{
+ const zoo=binding(845,profile()),restaurant=binding(846,profile());
+ zoo.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['ZOO'];
+ const r=await exercise({text:'Essen, aber kein Zoo',meaning:plan([meal(),fact('nozoo','offer.kind','Zoo','EXCLUDED')]),catalog:[zoo,restaurant]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,restaurant.decisionProjection.spotId);
+ assert.equal(r.body.candidates.find(c=>c.spotId===zoo.decisionProjection.spotId).rank,null);
+ assert.ok(r.body.candidates.find(c=>c.spotId===zoo.decisionProjection.spotId).unknownHardConstraints.length>0); // source exclusion rights stay unmodified
+});
+test('legacy UI equipment and non-category exclusions cannot restore hard blocking',async()=>{
+ const b=binding(847,profile([offer('dinner','DINNER',['inside'],[prop('food.drink','Bier')])],[area('inside',[prop('amenity.playground',false)])]),[worldFact('amenity.features',['TOILET']),worldFact('offering.groups',['BEER'])]);
+ const r=await exercise({text:'Essen mit Spielplatz ohne Bier',meaning:plan([meal(),fact('play','offer.feature','Spielplatz'),fact('beer','food.drink','Bier','EXCLUDED')]),catalog:[b],explicit:{targetCity:'Basel',hardConstraints:['WK_REQUIRED:P1:amenity.features:PLAY_AREA','WK_EXCLUDED:B1:offering.groups:BEER']}});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);assert.deepEqual(r.body.candidates[0].failedHardConstraints,[]);
 });

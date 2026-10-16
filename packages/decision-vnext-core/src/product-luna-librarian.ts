@@ -1,3 +1,4 @@
+import { EXPERIENCE_LANGUAGE_CONCEPTS, SPOT_TYPE_CATALOG, WORLD_VALUE_LABELS } from "@backyrd/world-knowledge-core";
 import { createHash } from "node:crypto";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { ContractValidationError, schema, type Infer, type Schema } from "./schema.js";
@@ -203,10 +204,20 @@ export function parseLunaMeaningOutput(input: unknown): Readonly<LunaMeaningOutp
   return deepFreeze(output);
 }
 
-/** Revision 2 keeps the accepted schema/catalog/model and the original prompt
- * intact. Only semantic atomization is clarified; no second provider call. */
-export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@2" as const;
-const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARE TÄTIGKEITEN: Jede eigenständig prüfbare Tätigkeit als eigenes experience.activity-Faktum ausgeben, mit kurzem positivem Tätigkeitswert, nicht mehrere Tätigkeiten in einem Textwert bündeln. Gemeinsame Pflichten bleiben gemeinsam REQUIRED; echtes entweder/oder bleibt ANY. Eigenschaften wie drinnen dem betroffenen gemeinsamen Besuch oder der jeweiligen Tätigkeit zuordnen. Keine Tätigkeit durch eine ähnliche ersetzen und keine zusätzliche Tätigkeit erfinden. Oberbegriffe dürfen neben einer ausdrücklich genannten konkreten Tätigkeit erhalten bleiben; der Host interpretiert oder zerlegt keine Textwerte.";
+/** Versioned clarification of executable duties versus visit context. The
+ * frozen schema, catalog, model and original prompt remain intact. */
+export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@4" as const;
+const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARER AUFTRAG:\n"
+  + "Eigenständig prüfbare Tätigkeiten getrennt als experience.activity ausgeben. Echte gemeinsame Pflichten bleiben REQUIRED, Alternativen ANY. Ein gewünschtes Erleben oder allgemeiner Besuchszweck ist keine zusätzliche Leistung: bloßes Geniessen, Zeit verbringen oder einen schönen Abend haben als experience.purpose CONTEXT erhalten. Konkrete Eigenschaften wie romantisch, ruhig oder am Rhein bleiben eigenständige verbindliche Fakten; keine davon abschwächen. Konkrete Tätigkeiten wie Tanzen, Klettern oder Lernen bleiben prüfbar und dürfen nicht in CONTEXT verschwinden. Eine reine Zweckanfrage ohne konkrete Tätigkeit nicht durch eine erfundene Aktivität ersetzen.\n"
+  + "Begleitung ausschließlich people.relationship CONTEXT, Alter einer mitkommenden Person immer als people.age CONTEXT mit genau ihrem PERSON-Bezug, niemals EXCLUDED, PREFERRED oder NOT_REQUIRED; ein Ausschlusswort für Angebote gilt nicht für ihr Alter. Auch Kinderalter ist Besuchskontext, kein Ausschluss dieser Person. participation.partner bezeichnet eine Anforderung an die Durchführungsform (z.B. ohne eigenen Spielpartner teilnehmen), niemals mitgebrachte Freunde, Kinder oder Ehepartner. Keine Personengruppe mit unvollständiger Mitgliederliste als vollständige Gruppe darstellen: bei nur einer benannten Begleitperson genügt ihre PERSON-Entity, Beziehung global. Gruppenmitglieder sind keine automatisch vollständige Personenzahl. Tätigkeits-Entities sind keine Personen; Alters- und Tätigkeitsfakten über subjectIds gezielt zuordnen, wenn unterschiedliche Personen unterschiedliche Leistungen nutzen.\n"
+  + "Innen-/Außen-Nutzung unter offer.area. Einen benannten Fluss oder See nur unter location.waterbody, Aussicht separat unter location.view, eine andere Lageart unter location.setting. Dieselbe räumliche Bedeutung nicht zusätzlich als freie Lagephrase wiederholen; am Rhein verlangt das Gewässer Rhein, keine weitere gleichbedeutende Angebotsleistung. Tagesphase bleibt ohne Datum offen; aus einer Mahlzeit niemals einen Kalendertag ableiten. food.meal und experience.activity müssen dieselbe Mahlzeit bezeichnen. Für bekannte Begriffe die nachstehenden gemeinsamen text-Werte verwenden, sofern bedeutungsgleich; unbekannte Inhalte frei erhalten, niemals auf einen ähnlichen bekannten Begriff zwingen. Keine Tätigkeit, Eigenschaft, Uhrzeit oder Zahl ergänzen.\nGEMEINSAME BEGRIFFE (Wert=Bedeutung): "
+  + EXPERIENCE_LANGUAGE_CONCEPTS.map(concept => `${concept.id}=${concept.labels[0]}`).join("; ")
+  + "\nORTSTYPEN (offer.kind; spezifischen gewünschten Typ erhalten, keinen Obertyp zusätzlich verlangen): "
+  + SPOT_TYPE_CATALOG.map(type => `${type.kind}=${type.label}`).join("; ")
+  + "\nSPEISEN/GETRÄNKE (food.dish/food.drink, nur den benannten Gegenstand als text): "
+  + Object.entries(WORLD_VALUE_LABELS).map(([token, label]) => `${token}=${label}`).join("; ")
+  + "\nÜBERGABE: Bei bekannten Katalogbegriffen ist text exakt die angegebene ID (linke Seite), auch bei anderssprachiger Eingabe; etwa WINE_BAR statt Weinbar/wine bar, WINE statt Wein. Nur nicht vorhandene Begriffe frei erhalten. Konsumhandlung und Gegenstand trennen: Wein trinken / ein Glas Wein => experience.activity text=drinks und food.drink text=WINE; Bier trinken => drinks und BEER. Mengen nur bei ausdrücklich numerischer Vorgabe separat erhalten. Daraus keinen gewünschten Ortstyp erfinden. Ein ausdrücklich benannter Ortstyp ist dagegen offer.kind, keine zusätzliche unprüfbare Besuchstätigkeit: Weinbar besuchen => offer.kind text=WINE_BAR, nicht bar, nicht experience.activity Weinbar besuchen. Diese Regel gilt für sämtliche spezifischen Ortstypen. Keine Speise oder Getränkesorte nur aus dem Ortstyp ergänzen.\n"
+  + "KALENDER: calendar wird serverseitig aus reference.now in reference.timezone berechnet. today und tomorrow sind lokale Kalendertage, niemals das UTC-Datum abschneiden. Relative Tage und eindeutig bevorstehende Wochentage als time.date normalisieren; calendar.days enthält heute und die folgenden 13 lokalen Tage. Bei heute passender künftiger Tagesphase bleibt der Wochentag heute. Ohne Datumswunsch kein Datum ergänzen. Beispiele sind Übersetzungsmuster, keine zusätzlichen Wünsche.\nABSCHLIESSENDE PRÄZISION: Spezifische Mahlzeiten niemals zu meal verallgemeinern: Mittagessen => lunch, Abendessen => dinner, Frühstück => breakfast (jeweils experience.activity und food.meal, soweit beide ausgegeben werden). Ein Mahlzeitname allein erzeugt keine zusätzliche Tagesphase, kein Datum und keine Uhrzeit. Ein ausdrücklich verlangter Zielort (in Basel, in Zürich) bleibt location.destination REQUIRED, niemals CONTEXT. Kanonische Werte dürfen weder Genauigkeit noch Verbindlichkeit reduzieren oder einen allgemeineren Wunsch verengen: Klettern => climbing, nur ausdrücklich Bouldern => bouldering. Die gerichtete Beziehung Bouldern erfüllt Klettern wird erst beim Spotabgleich geprüft; sie ist keine Synonymie. Atmosphäre (etwa romantisch => romantic) gehört ausschließlich unter atmosphere.character, nicht experience.character.";
 export const LUNA_LIBRARIAN_CONFIGURATION = deepFreeze({
   contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, model: LUNA_LIBRARIAN_MODEL,
   reasoningEffort: LUNA_LIBRARIAN_REASONING, store: false, maxOutputTokens: 7500,
@@ -215,11 +226,23 @@ export const LUNA_LIBRARIAN_CONFIGURATION = deepFreeze({
 });
 /** Body only: credentials, transport, authentication and rate limits belong to
  * the existing server orchestration. No client SDK or second model call. */
-export function buildLunaLibrarianModelRequest(input: { readonly sourceText: string; readonly reference: LibrarianReference }) {
-  const parsed = source(input);
+function localCalendar(reference: LibrarianReference) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: reference.timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(reference.now));
+  const part = (name: string) => parts.find(p => p.type === name)!.value;
+  const today = `${part("year")}-${part("month")}-${part("day")}`;
+  // Advance calendar dates at UTC noon, not elapsed local hours across DST.
+  const days = Array.from({ length: 14 }, (_, offset) => {
+    const date = new Date(`${today}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + offset);
+    return { date: date.toISOString().slice(0, 10), weekday: new Intl.DateTimeFormat("de-CH", { timeZone: "UTC", weekday: "long" }).format(date) };
+  });
+  return { today, tomorrow: days[1]!.date, localTime: `${part("hour")}:${part("minute")}`, days };
+}
+export function buildLunaLibrarianModelRequest(input: { readonly sourceText: string; readonly reference: LibrarianReference; readonly explicitContext?: unknown }) {
+  const parsed = source({ sourceText: input.sourceText, reference: input.reference });
   return deepFreeze({ model: LUNA_LIBRARIAN_MODEL, reasoning: { effort: LUNA_LIBRARIAN_REASONING }, store: false,
     max_output_tokens: 7500, instructions: activePrompt,
-    input: JSON.stringify({ request: parsed.sourceText, reference: parsed.reference }),
+    input: JSON.stringify({ request: parsed.sourceText, reference: parsed.reference, calendar: localCalendar(parsed.reference), ...(input.explicitContext === undefined ? {} : { explicitContext: input.explicitContext }) }),
     text: { format: { type: "json_schema", name: "backyrd_luna_meaning_v7", strict: true, schema: LUNA_LIBRARIAN_MODEL_SCHEMA } },
   });
 }
