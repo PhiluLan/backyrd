@@ -3,7 +3,7 @@ import { contentHash, deepFreeze } from "./canonical.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { librarianConditions, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
-export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@3" as const;
+export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@4" as const;
 export type LegacyLanguageAssessment = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -26,7 +26,10 @@ export function requestedLibrarianPlaceType(fact: LibrarianFact): string | null 
     const concept = librarianConcept(fact.value.text);
     return concept && ["restaurant", "bar", "zoo", "museum"].includes(concept) ? concept.toUpperCase() : null;
 }
-/** Classification is venue evidence, not proof of a drink, meal, facility or
+/** Finding a verified venue type is the authorized DISCOVERY use case, even
+ * when the user requires that type. It never proves admission, prices or law.
+ * Hard exclusions retain their separate authorization.
+ * Classification is venue evidence, not proof of a drink, meal, facility or
  * service schedule. Missing positive labels cannot establish absence. */
 export function assessLibrarianPlaceType(fact: LibrarianFact, world: ProductWorldView): LegacyLanguageAssessment | null {
     const desired = requestedLibrarianPlaceType(fact);
@@ -36,8 +39,8 @@ export function assessLibrarianPlaceType(fact: LibrarianFact, world: ProductWorl
         && Array.isArray(row.value) && row.value.some(token => typeof token === "string" && (placeTypeChildren[desired] ?? [desired]).includes(token));
     if (!supported || !row) return { state: "UNKNOWN", reason: "REQUESTED_SPOT_TYPE_NOT_PROVEN", hashes: [] };
     const hashes = [row.entryHash, contentHash({ version: LIBRARIAN_WORLD_LANGUAGE_VERSION, desired, types: row.value })];
-    const authorized = row.authorizedUseCases?.includes(fact.modality === "PREFERRED" ? "DISCOVERY" : "HARD_CONSTRAINTS") === true;
-    if (!authorized) return { state: "UNKNOWN", reason: fact.modality !== "EXCLUDED" && row.authorizedUseCases?.includes("DISCOVERY") ? "SPOT_TYPE_DISCOVERY_SUPPORT" : "SPOT_TYPE_USE_NOT_AUTHORIZED", hashes };
+    const authorized = row.authorizedUseCases?.includes(fact.modality === "EXCLUDED" ? "HARD_CONSTRAINTS" : "DISCOVERY") === true;
+    if (!authorized) return { state: "UNKNOWN", reason: "SPOT_TYPE_USE_NOT_AUTHORIZED", hashes };
     return { state: fact.modality === "EXCLUDED" ? "FAILED" : "MET", reason: fact.modality === "EXCLUDED" ? "EXCLUDED_SPOT_TYPE_PRESENT" : "VERIFIED_SPOT_TYPE", hashes };
 }
 const amenityConcepts: Readonly<Record<string, string>> = { TOILET: "toilet", HIGH_CHAIR: "high_chair", CHANGING_TABLE: "changing_table", PARKING: "parking", PLAY_AREA: "playground", COVERED_OUTDOOR: "covered", TERRACE: "terrace", STROLLER_SPACE: "stroller" };

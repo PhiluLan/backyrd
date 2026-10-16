@@ -31,15 +31,9 @@ export function librarianGlobalEligibility(input: {
 }): readonly LibrarianEligibility[] {
     const { facts, world, visit, request } = input;
     const results: LibrarianEligibility[] = [];
-    const current = world.currentStates.find(r => r.key === "state.current");
-    if ((!visit.requested || visit.undatedDayPhase) && current && current.freshness === "CURRENT" && current.trust === "VERIFIED" && current.value !== null && typeof current.value === "object" && !Array.isArray(current.value) && "scope" in current.value && "kind" in current.value) {
-        const value = current.value as {
-            readonly kind: string;
-            readonly scope: string;
-        };
-        if (["VENUE", "SPOT"].includes(value.scope) && ["CLOSED", "TEMPORARILY_CLOSED", "AREA_CLOSED", "FULL"].includes(value.kind) && (!current.validFrom || Date.parse(current.validFrom) <= Date.parse(input.now)) && current.validUntil && Date.parse(input.now) < Date.parse(current.validUntil))
-            results.push({ state: "FAILED", reason: "VERIFIED_CURRENT_VENUE_UNAVAILABLE", hashes: [current.entryHash] });
-    }
+    // No requested date/time means discovery, not a visit now. Current opening
+    // states must not invent a present-time constraint. Dated availability is
+    // checked independently against the requested window by the time evaluator.
     const rows = world.operationalRules.filter(r => ["rule.age_access_conditions", "rule.age_access"].includes(r.key));
     const activeGroups = request.entities.filter(e => e.kind === "GROUP" && facts.some(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.subjectIds.includes(e.id)));
     // A partial GROUP must never hide an explicitly mentioned participant's age.

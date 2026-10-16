@@ -72,7 +72,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   const rejected = request.rejectedCandidateIds.includes(candidate.spotId);
   const codeForId = (id: string) => {
     const fact = candidate.facts.find(f => f.factId === id);
-    return fact?.reason === "SPOT_TYPE_DISCOVERY_SUPPORT" ? "DISCOVERY_ONLY_SPOT_TYPE" : fact ? factCode(fact) : `LBR:${contentHash(id).slice(0,24)}`;
+    return fact ? factCode(fact) : `LBR:${contentHash(id).slice(0,24)}`;
   };
   const confirmed = hard.filter(f => f.state === "MET" && !candidate.unknownFactIds.includes(f.factId) && !candidate.failedFactIds.includes(f.factId)).map(factCode);
   const unknown = [...new Set(candidate.unknownFactIds.map(codeForId))];
@@ -99,8 +99,10 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       statementDe: `${conditional ? "Mögliche Angebote" : "Passende Angebote"}: ${offers.map(o => o.name).join(", ")}`.slice(0,500), confirmed: !conditional });
   }
   if (!reasons.length) reasons.push({ reasonCode: "librarian-no-visit-evidence", domain: "LIMITATION", sourceHash: candidate.candidateHash, statementDe: "Für diesen Wunsch fehlen bestätigte Angaben zum passenden Angebot.", confirmed: false });
-  const temporal = hard.filter(f => f.family.startsWith("time."));
-  const availability = temporal.length ? candidate.status === "CONFIRMED" && temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";
+  const temporal = candidate.facts.filter(f => f.family.startsWith("time.") && !["CONTEXT", "PREFERRED", "NOT_REQUIRED"].includes(f.modality)
+    && f.reason !== "UNDATED_DAYPART_NO_OPENING_CLAIM" && f.reason !== "RETAINED_AS_REQUEST_CONTEXT");
+  const availability = temporal.length ? temporal.some(f => f.state === "FAILED") ? "closed" : temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";
+  if (temporal.some(f => f.reason === "VISIT_TIME_UNCONFIRMED")) reasons.push({reasonCode:"librarian-visit-time-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,statementDe:"Der Spot passt zu deinem Wunsch. Öffnungs- und Angebotszeiten für den gewünschten Besuch sind noch nicht bestätigt.",confirmed:false});
   const tastes = userTasteMatches(world, context, projection);
   return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: candidate.spotId, snapshotHash: candidate.snapshotHash,

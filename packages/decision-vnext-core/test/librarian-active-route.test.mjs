@@ -41,7 +41,7 @@ test('a requested venue type can support discovery without upgrading classificat
  b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['WINE_BAR'];
  const r=await exercise({text:'Eine Weinbar in Basel',meaning:plan([fact('type','offer.kind','Weinbar')]),catalog:[b]});
  assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
- const c=r.body.candidates[0];assert.equal(c.tier,'UNCONFIRMED_FALLBACK');assert.deepEqual(c.unknownHardConstraints,['DISCOVERY_ONLY_SPOT_TYPE']);
+ const c=r.body.candidates[0];assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.deepEqual(c.unknownHardConstraints,[]);
 });
 test('discovery rights never override an unknown mandatory visit condition',async()=>{
  const b=binding(1,profile([offer('bar','DRINKS')],[area()],'BAR'));b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['WINE_BAR'];
@@ -114,4 +114,33 @@ test('overlapped city preparation preserves complete responses for all ten domai
   assert.equal(parallel.calls,1);assert.equal(parallel.reads,1);
   assert.deepEqual(parallel.body,sequential.body);
  }
+});
+
+test('a dated dinner with missing offer time is recommended with unknown availability, never an open claim',async()=>{
+ const b=binding(810,profile([{...offer(),schedule:[]}]));
+ const r=await exercise({text:'Morgen Abend essen in Basel',meaning:plan([meal(),date(),evening()]),catalog:[b]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
+ const c=r.body.candidates[0];assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.equal(c.actualAvailability,'unknown');
+ assert.deepEqual(c.unknownHardConstraints,[]);
+ assert.ok(c.reasons.some(reason=>reason.code==='librarian-visit-time-unconfirmed'&&!reason.confirmed));
+});
+test('without user time, closed regular hours and the current day never filter a fitting offer',async()=>{
+ const b=binding(811,profile([{...offer(),schedule:[{weekday:7,start:'10:00',end:'11:00'}]}]));
+ b.decisionProjection.facts=b.decisionProjection.facts.map(f=>f.key==='hours.regular'?worldFact(f.key,[{day:'WEDNESDAY',intervals:[]},{day:'THURSDAY',intervals:[]}]):f);
+ const r=await exercise({text:'Essen in Basel',meaning:plan([meal()]),catalog:[b]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
+ assert.equal(r.body.candidates[0].actualAvailability,'not_requested');
+});
+test('a verified winebar identity cannot override its documented adult-only admission',async()=>{
+ const b=binding(812,profile([offer('bar','DRINKS')],[area()],'BAR'),[worldFact('rule.age_access',{policy:'MINIMUM_AGE',minimumAge:18,appliesFromTime:null})]);
+ b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['WINE_BAR'];
+ const r=await exercise({text:'Weinbar mit einem Kind in Basel',meaning:plan([fact('venue','offer.kind','Weinbar'),fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2'])]),catalog:[b]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);
+ assert.equal(r.body.candidates[0].tier,'INELIGIBLE');
+});
+test('known closure at the requested date is still an exclusion',async()=>{
+ const b=binding(813,profile());
+ b.decisionProjection.facts=b.decisionProjection.facts.map(f=>f.key==='hours.regular'?worldFact(f.key,[{day:'THURSDAY',intervals:[]}]):f);
+ const r=await exercise({text:'Morgen Abend essen in Basel',meaning:plan([meal(),date(),evening()]),catalog:[b]});
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);assert.equal(r.body.candidates[0].tier,'INELIGIBLE');
 });

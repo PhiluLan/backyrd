@@ -161,14 +161,16 @@ canonical IDs from the same finite World vocabulary as matching; unknown terms
 remain free values and never fall back to a similar known category. Named water,
 view and area requirements remain separate, without duplicating a waterbody as
 an additional free-text location duty. There is still one provider call and no
-repair model call. Keep prompt, matching (`@9`) and shared World language (`@6`)
+repair model call. Keep prompt, matching (`@10`) and shared World language (`@6`)
 hashes bound to the certified release.
 
 Undated dayparts describe a generic meal/experience window. They preserve the
 original fact, respect any documented offer schedule and remain explicit context
-in the assessment, without a dated opening or booking claim. Actual dates,
-weekdays, clocks, exclusions, closures and unknown selected-offer schedules
-continue to require the existing calendar proof. A meal must not fall back to
+in the assessment, without a dated opening or booking claim. Actual dates, weekdays, clocks and exclusions remain explicit. A known
+contradiction at the requested time still excludes a candidate. A valid visit
+window with unknown venue/offer hours preserves factual fit and reports unknown
+availability; it does not claim that the offer is open. Unresolved or
+contradictory requested time expressions remain unresolved. A meal must not fall back to
 venue opening alone. Product availability remains `not_requested` when no
 calendar availability is being claimed.
 
@@ -191,3 +193,20 @@ canonical Spot snapshot with a neutral synthetic actor, plus deterministic
 positive/negative regressions and the active handler contract tests. Real model
 captures stay outside Git. Such local replay is not a production HTTP/auth test,
 a general language accuracy estimate, or proof of on-device availability.
+
+### Confirmed identity and independent availability
+
+Verified, current venue identity uses its existing DISCOVERY authorization for
+positive category matching, including a required category. This is not a new
+HARD_CONSTRAINTS grant: a Wine Bar identity cannot prove admission, meal, price,
+accessibility or any other service. Exclusions retain their separate source
+use-case check. Missing, conflicting, stale or unauthorized category evidence
+stays unconfirmed. The former provisional-category ranking exception is removed.
+
+Without a time wish, the evaluator does not infer a visit now from the system
+clock, current opening state or weekday. A spot's publication/safety and actual
+entry restrictions remain independent. With a valid requested window, unknown
+hours are a nonblocking availability notice. Attributes retain their factual
+witnesses; unavailable slots that are actually documented remain exclusions.
+The response distinguishes confirmed fit from `actualAvailability: unknown` and
+includes a readable unconfirmed-time notice. No opening claim is synthesized.

@@ -271,7 +271,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 || spatialActivities.some(a => a.report.state !== "MET" || !supportsArea(a))) return;
         }
         const availability = offer ? offerAvailability(offer, world, visit) : { state: "MET" as const, hashes: [], reason: "AREA_FACT" };
-        const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional || availability.state === "UNKNOWN", chargeable: fact.key !== "offer.facility" };
+        const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional || availability.state === "UNKNOWN" && !visit.complete, chargeable: fact.key !== "offer.facility" };
         if (fact.modality === "EXCLUDED" && availability.state !== "MET")
             uncertain.push(witness);
         else if (availability.state === "FAILED")
@@ -522,6 +522,8 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
                 // offer schedule merely because a scoped profile exists.
                 if (!state.offerIds.length && !allAtoms.some(atom => selected.some(f => f.id === atom.report.factId && offerDuty(f)) && atom.report.offerIds.length > 0)) availability.push(librarianVenueAvailability(world, temporalVisit));
                 const stateValue: MatchTruth = !temporalVisit.complete || !availability.length ? "UNKNOWN" : availability.some(a => a.state === "FAILED") ? "FAILED" : availability.some(a => a.state === "UNKNOWN") ? "UNKNOWN" : "MET";
+                if (stateValue === "UNKNOWN" && temporalVisit.complete)
+                    return { ...r, state: "CONTEXT" as const, reason: "VISIT_TIME_UNCONFIRMED", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
                 return { ...r, state: stateValue, reason: stateValue === "MET" ? "JOINT_VISIT_TIME_CONFIRMED" : "VISIT_TIME_OR_AVAILABILITY_NOT_PROVEN", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
             }
             const sourceAtom = allAtoms.find(a => a.report.factId === r.factId);
@@ -648,9 +650,9 @@ function runLibrarianCatalogSearch(input: {
             const fact = request.facts.find(fact => fact.id === assessment.factId);
             return fact && requestedLibrarianPlaceType(fact) !== null && !["PREFERRED", "CONTEXT", "NOT_REQUIRED"].includes(assessment.modality);
         });
-        if (venue.some(fact => fact.state !== "MET" && !(fact.modality !== "EXCLUDED" && fact.reason === "SPOT_TYPE_DISCOVERY_SUPPORT" && fact.evidenceHashes.length > 0))) return false;
+        if (venue.some(fact => fact.state !== "MET")) return false;
         const activity = facts.filter(f => ["experience.activity", "offer.kind"].includes(f.family) && f.modality !== "PREFERRED" && f.modality !== "EXCLUDED" && !["CONTEXT", "NOT_REQUIRED"].includes(f.state));
-        const positive = (f: LibrarianFactAssessment) => f.state === "MET" || f.state === "UNKNOWN" && (f.reason === "SPOT_TYPE_DISCOVERY_SUPPORT" || f.reason === "LEGACY_TYPED_DISCOVERY_SUPPORT" || f.reason === "CONDITIONS_OR_AVAILABILITY_UNKNOWN" && f.offerIds.length > 0);
+        const positive = (f: LibrarianFactAssessment) => f.state === "MET" || f.state === "UNKNOWN" && (f.reason === "LEGACY_TYPED_DISCOVERY_SUPPORT" || f.reason === "CONDITIONS_OR_AVAILABILITY_UNKNOWN" && f.offerIds.length > 0);
         return activity.length ? activity.some(positive) : facts.some(f => positive(f) && !["LOCATION", "TEMPORAL", "PRICE", "CONTEXT"].includes(LIBRARIAN_FAMILY_STRATEGIES[f.family as keyof typeof LIBRARIAN_FAMILY_STRATEGIES] ?? "CONTEXT"));
     };
     const hasVisitEvidence = (c: LibrarianCandidate) => c.conditionalPlans.length

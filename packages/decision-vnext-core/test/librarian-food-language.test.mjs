@@ -108,11 +108,11 @@ test('a documented morning-only offer cannot serve an undated evening wish',()=>
  const r=search(request([fact('meal','food.meal','dinner'),phase()]),[binding(701,p)]);
  assert.equal(r.excluded[0]?.status,'INELIGIBLE');
 });
-test('a real date still requires the selected offer schedule',()=>{
+test('a real date with no offer schedule preserves fit without claiming opening',()=>{
  const p=profile([{...offer(),schedule:[]}]);
  const r=search(request([fact('meal','food.meal','dinner'),phase(),fact('date','time.date',{date:'2026-10-15',operator:'EQ',timezone:'Europe/Zurich'},'REQUIRED',[])]),[binding(701,p)]);
- assert.equal(r.ranked[0]?.status,'PARTIAL');
- assert.ok(r.ranked[0].unknownFactIds.includes('date'));
+ assert.equal(r.ranked[0]?.status,'CONFIRMED');
+ assert.equal(r.ranked[0].facts.find(f=>f.factId==='date').reason,'VISIT_TIME_UNCONFIRMED');
 });
 test('an undated clock or weekday is not silently converted to a generic daypart',()=>{
  for(const f of [fact('clock','time.clock',{time:'19:00',operator:'EQ',timezone:'Europe/Zurich'},'REQUIRED',[]),fact('weekday','time.weekday','Donnerstag','REQUIRED',[])]) {
@@ -178,9 +178,16 @@ test('undated night includes the post-midnight part of an overnight offer',()=>{
  assert.equal(r.ranked[0].facts.find(f=>f.factId==='phase').state,'CONTEXT');
 });
 
-test('a generic daypart cannot bypass an active verified venue closure',()=>{
+test('an undated generic daypart does not invent a visit during the current opening state',()=>{
  const closed=worldFact('state.current',{kind:'CLOSED',scope:'VENUE'},{validityVerified:true,validFrom:'2026-10-14T07:00:00Z',validUntil:'2026-10-15T12:00:00Z'});
  const r=search(request([fact('meal','food.meal','dinner'),phase()]),[binding(701,profile(),[closed])]);
- assert.equal(r.excluded[0]?.status,'INELIGIBLE');
- assert.ok(r.excluded[0].facts.some(f=>f.reason==='VERIFIED_CURRENT_VENUE_UNAVAILABLE'));
+ assert.equal(r.ranked[0]?.status,'CONFIRMED');
+ assert.equal(r.ranked[0].facts.find(f=>f.factId==='phase').reason,'UNDATED_DAYPART_NO_OPENING_CLAIM');
+});
+test('classification without discovery authority cannot prove a venue match',async()=>{
+ const {assessLibrarianPlaceType}=await import('../dist/product-librarian-world-language.js');
+ const f=request([fact('venue','offer.kind','Weinbar')]).facts[0];
+ const world={facts:[{key:'classification.place_types',value:['WINE_BAR'],freshness:'CURRENT',trust:'VERIFIED',resolution:'KNOWN_VALUE',authorizedUseCases:[],entryHash:'a'.repeat(64)}]};
+ assert.equal(assessLibrarianPlaceType(f,world).state,'UNKNOWN');
+ assert.equal(assessLibrarianPlaceType(f,world).reason,'SPOT_TYPE_USE_NOT_AUTHORIZED');
 });
