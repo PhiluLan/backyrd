@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { createDecisionProductHttpHandler, createDecisionProductLunaProvider, createDecisionProductRpcEvaluationProvider, contentHash } from "../dist/index.js";
+import { createDecisionProductHttpHandler } from "../dist/product-decision.js";
+import { createDecisionProductLunaProvider } from "../dist/product-luna-provider.js";
+import { createDecisionProductRpcEvaluationProvider } from "../dist/product-decision-production-adapter.js";
+import { contentHash } from "../dist/canonical.js";
 import { reference, authority } from "./librarian-matching-fixtures.mjs";
 const actor = {userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
 const identity = {releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};

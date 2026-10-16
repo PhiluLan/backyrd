@@ -26,6 +26,12 @@ export function verifyEdgeDeployClosure(bundleRoot, slug = "decision-v13") {
     requireValue(path && path !== ".." && !path.startsWith(`..${sep}`), `edge_import_outside_artifact:${path}`);
     requireValue(existsSync(file), `edge_import_unresolved:${path}`);
     if (visited.has(path)) continue;
+    if (slug === "decision-v13") {
+      // Production may use the canonical implementations, never initialize
+      // the historical package barrels or synthetic evaluation modules.
+      requireValue(!/^packages\/(?:world-knowledge-core|user-intelligence-vnext-core)\/dist\/index\.js$/.test(path)
+        && !/(?:^|\/)(?:fixtures|calibration-fixtures|research-batch|legacy-rehearsal|phase3d-lab|founder-handoff)\.js$/.test(path), `edge_non_runtime_module:${path}`);
+    }
     visited.add(path);
     const source = readFileSync(file, "utf8");
     requireValue(!/\bimport\s*\(\s*(?!["'`])/.test(source), `edge_dynamic_import_unbounded:${path}`);
@@ -42,8 +48,8 @@ export function verifyEdgeDeployClosure(bundleRoot, slug = "decision-v13") {
     "supabase/functions/decision-v13/vnext-only.ts",
     "packages/decision-vnext-core/dist/product-decision-production-adapter.js",
     "packages/decision-vnext-core/dist/product-decision.js",
-    "packages/user-intelligence-vnext-core/dist/index.js",
-    "packages/world-knowledge-core/dist/index.js",
+    "packages/user-intelligence-vnext-core/dist/server-runtime.js",
+    "packages/world-knowledge-core/dist/server-runtime.js",
   ] : [
     "packages/spot-research-runtime/src/world-knowledge-worker.mjs",
     "packages/spot-research-runtime/src/supabase-repository.mjs",
