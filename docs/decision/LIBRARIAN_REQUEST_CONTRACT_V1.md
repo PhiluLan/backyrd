@@ -145,3 +145,12 @@ through the existing manual release controls, then execute fresh authenticated
 live requests using the server-held provider key. Verify real model responses,
 actual current Spot knowledge, visible explanations, latency and token usage.
 A green local/CI suite is not evidence of a deployed or accepted live model run.
+
+
+### Identical World projection entries
+
+The SQL Product projection can repeat a fully identical, provenance-bound fact
+through compatibility branches. The reader treats an identical complete row as
+idempotent and validates it once. Duplicate keys with any difference in value,
+scope, trust, resolution, validity or provenance still fail closed. This does
+not merge competing evidence or overwrite Owner data.

@@ -43,6 +43,7 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
   if (raw.contractVersion !== "backyrd.world-knowledge.product-decision-projection@1.0" || !current && !previous && !previous22 && !previous23 && !previous24 || typeof raw.spotId !== "string" || !ID.test(raw.spotId)) throw new Error("product_world_resolver_identity_invalid");
   if (typeof binding.resolvedAt !== "string" || !Number.isFinite(Date.parse(binding.resolvedAt))) throw new Error("product_world_resolver_time_invalid");
   const seen = new Map<string, string>();
+  const seenEntries = new Map<string, string>();
   const parsed = rows(raw.facts, 200).flatMap((item): (Entry & { kind: string })[] => {
     const row = object(item); const key = factKey(row.key, previous, current || previous24);
     if(!current && key==="classification.place_types" && Array.isArray(row.value)
@@ -61,8 +62,17 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
     if ((previous || previous22) && key === "discovery.profile") throw new Error("product_world_previous_registry_value_invalid");
     if (previous && (key === "operation.price_options" || key === "offering.food_specialities" && Array.isArray(row.value) && row.value.includes("CAKE"))) throw new Error("product_world_previous_registry_value_invalid");
     if (!decisionRelevant(key)) return [];
-    if (row.scope !== "SPOT" || seen.has(key)) throw new Error("product_world_fact_scope_or_duplicate");
+    if (row.scope !== "SPOT") throw new Error("product_world_fact_scope_or_duplicate");
+    // The SQL projection can emit the same provenance-bound price entry from
+    // both its base and compatibility branches. Only a fully identical row
+    // is idempotent; changed value, validity, trust or provenance still fails.
+    const entryIdentity = contentHash(row);
+    if (seen.has(key)) {
+      if (seenEntries.get(key) === entryIdentity) return [];
+      throw new Error("product_world_fact_scope_or_duplicate");
+    }
     seen.set(key, String(row.resolution));
+    seenEntries.set(key, entryIdentity);
     if (row.freshness !== "CURRENT") throw new Error("product_world_fact_not_current_verified");
     if (!Array.isArray(row.basisClaimHashes) || !row.basisClaimHashes.length || row.basisClaimHashes.some((hash) => typeof hash !== "string" || !HASH.test(hash))) throw new Error("product_world_fact_provenance_invalid");
     if (row.resolution === "UNKNOWN" || row.resolution === "DISPUTED") {
