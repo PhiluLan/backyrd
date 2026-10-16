@@ -111,3 +111,55 @@ test("configuration rejects missing identities and weak server keys", () => {
   assert.throws(() => make({ ...configuration, identity: { ...identity, releaseHash: "bad" } }), /release_hash_invalid/);
   assert.throws(() => make({ ...configuration, idempotencyKey: "short" }), /idempotency_key_invalid/);
 });
+
+
+const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
+
+test("authenticated understanding and its one bound context read start concurrently", async () => {
+  const model = deferred(), catalog = deferred(), started = [];
+  const ports = createDecisionProductProductionPorts({
+    rpc: { async rpc() { throw new Error("unexpected RPC"); } },
+    authClient: { async getUser() { return { user: { id: userId, role: "authenticated", is_anonymous: false }, error: null }; } },
+    understandingProvider: async () => { started.push("model"); return model.promise; },
+    evaluationProvider: { contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0", async prefetch() { started.push("catalog"); await catalog.promise; }, async evaluate() { throw new Error("not_used"); } },
+    interactionAuthority: { contractVersion: "backyrd.decision-vnext.product-interaction-authority-provider@1.0", async resolve() { return { status: "SUPPRESSED_NO_CONSENT" }; } },
+    learningPort: { contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0", async record() { throw new Error("not_used"); } }, configuration, now: () => new Date(now),
+  });
+  const signal = new AbortController().signal;
+  await assert.rejects(ports.understand({}, { userId }, signal), /actor_unbound/);
+  assert.deepEqual(started, []);
+  const actor = await ports.auth.authenticate(token, signal);
+  const pending = ports.understand({}, actor, signal);
+  assert.deepEqual(started, ["model", "catalog"]);
+  model.resolve("meaning"); catalog.resolve();
+  assert.equal(await pending, "meaning");
+});
+
+test("prepared catalog reuse remains bound to actor, session, release, city and abort signal", async () => {
+  const { createDecisionProductRpcEvaluationProvider, contentHash } = await import('../dist/index.js');
+  const { request: plan, meal, binding, profile, authority } = await import('./librarian-matching-fixtures.mjs');
+  const actor = {userId, sessionId, subjectBindingHash:hash('d'), sessionBindingHash:hash('e'), authenticationContextHash:hash('f')};
+  const request = {contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'prefetch-test',idempotencyKey:'prefetch-test',naturalLanguage:'Synthetischer Wunsch, wird nicht als Suchtext interpretiert.',explicit:{targetCity:'Basel'},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
+  for (const mutation of [null, 'actor', 'session', 'release', 'request', 'abort']) {
+    let reads=0;
+    const evaluator = createDecisionProductRpcEvaluationProvider({async rpc(){reads++;return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',serverTime:authority.now,worldSnapshots:[binding(1,profile())]}};}},{meaningRequired:true});
+    const q=structuredClone(request),abort=new AbortController(),input={request:q,actor:{...actor},identity:{...identity},signal:abort.signal,meaning:plan([meal()])};
+    await evaluator.prefetch(input);
+    assert.equal(reads,1);
+    if(mutation==='actor') input.actor.userId='33333333-3333-4333-8333-333333333333';
+    if(mutation==='session') input.actor.sessionBindingHash=contentHash('different-session');
+    if(mutation==='release') input.identity.artifactHash=contentHash('different-artifact');
+    if(mutation==='request') q.explicit.occasion='different-occasion';
+    if(mutation==='abort') abort.abort();
+    if(mutation) await assert.rejects(evaluator.evaluate(input), /prefetch_binding_invalid|context_aborted/);
+    else { const result=await evaluator.evaluate(input);assert.equal(result.authority.authorizedCity,'Basel'); }
+    assert.equal(reads,1);
+  }
+});
+
+test("without a typed city the provider never speculates from request prose", async()=>{
+  const {createDecisionProductRpcEvaluationProvider}=await import('../dist/index.js');
+  let reads=0;const evaluator=createDecisionProductRpcEvaluationProvider({async rpc(){reads++;throw new Error('not called');}},{meaningRequired:true});
+  await evaluator.prefetch({request:{naturalLanguage:'in Basel',explicit:{}},actor:{},identity,signal:new AbortController().signal});
+  assert.equal(reads,0);
+});

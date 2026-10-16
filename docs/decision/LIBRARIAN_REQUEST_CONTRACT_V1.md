@@ -154,3 +154,41 @@ through compatibility branches. The reader treats an identical complete row as
 idempotent and validates it once. Duplicate keys with any difference in value,
 scope, trust, resolution, validity or provenance still fail closed. This does
 not merge competing evidence or overwrite Owner data.
+
+
+### Runtime performance and regional transport
+
+The Decision route is database-heavy. Both Web forwarding and Mobile invoke the
+same `decision-v13` function with `x-region: eu-central-2`, matching the production
+database in Zürich. The SDK's older enum does not include this region; the
+supported HTTP header avoids changing dependencies. Browser preflight permits
+that transport header only within the existing configured-origin boundary.
+Explicit region routing does not provide automatic cross-region failover; an
+outage remains an honest unavailable state.
+
+After authentication, rate limiting and request parsing, Luna understanding and
+the service-only context read may overlap when a typed target city exists. The
+prepared context is request-local, single-use and bound to the complete request,
+actor/session, release identity and abort signal. The full Luna city/meaning
+validation still runs before evaluation, and every existing before/after control
+check remains. No prose-derived prefetch, shared response cache or second model
+call is added. All outstanding operations are aborted when the handler finishes.
+`INTERPRETATION.operationMs` now measures the overlapping preparation window,
+not Luna alone. Context authority time remains the time of its verified read.
+
+Matching retains the exact existing first 256 compatible witness states and the
+existing overflow/unknown behavior, but stops allocating combinations that would
+be discarded. Sort tie hashes are calculated once per state. Availability proofs
+are reused only within one immutable world/scenario/visit window. Product reuses
+the snapshots already validated by that same search instead of parsing them again.
+These changes preserve selection, evidence and hash results; they do not weaken
+eligibility, change source rights or raise the 20-second deadline.
+
+Local synthetic comparison (100 spots, each with 10 offers and 6 areas, three
+samples, model/database mocked): published matcher median 3,176 ms elapsed /
+4,691 ms process CPU; optimized 559 ms / 706 ms, with identical complete results.
+Fourteen additional comparisons against the published implementation and ten
+full-response sequential/parallel comparisons passed. These are local measurements,
+not production latency or a guarantee for the hosted 2-second CPU limit. Actual
+production acceptance must repeat the previously CPU-terminated child/climbing
+case and the Saturday-evening timeout case.

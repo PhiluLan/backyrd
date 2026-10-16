@@ -102,3 +102,16 @@ test('a typed total budget cannot become a per-person budget in Luna output',asy
  const r=await exercise({text:'Zusammen höchstens 30 CHF ausgeben',meaning:q,catalog:[],explicit:{targetCity:'Basel',budget:{state:'KNOWN',amount:30,currency:'CHF',perPerson:false,calibrationLabel:null}}});
  assert.equal(r.status,503);assert.equal(r.calls,1);assert.equal(r.reads,0);
 });
+
+
+test('overlapped city preparation preserves complete responses for all ten domain cases',async()=>{
+ for(const scenario of scenarios){
+  const text=`Synthetischer Wunsch: ${scenario.name}`;
+  const catalog=[scenario.good,scenario.bad].map((p,i)=>{const b=binding(i+1,p);if(p.category==='SPORT')b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['CLIMBING_GYM'];return b;});
+  const sequential=await exercise({text,meaning:plan(scenario.facts),catalog});
+  const parallel=await exercise({text,meaning:plan(scenario.facts),catalog,prefetch:true});
+  assert.equal(parallel.status,200,JSON.stringify(parallel.diagnostics));
+  assert.equal(parallel.calls,1);assert.equal(parallel.reads,1);
+  assert.deepEqual(parallel.body,sequential.body);
+ }
+});

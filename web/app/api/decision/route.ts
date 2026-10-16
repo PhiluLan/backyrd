@@ -42,9 +42,10 @@ export async function POST(request: Request) {
 
     // Forward only the verified user's token. The canonical function owns
     // authorization, rate limits, request validation and all Decision rules.
+    // Keep the database-heavy Decision beside the production database in Zürich.
     const { data, error } = await client.functions.invoke<unknown>("decision-v13", {
       body,
-      headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+      headers: { Authorization: `Bearer ${sessionData.session.access_token}`, "x-region": "eu-central-2" },
     });
     if (error || !data) {
       console.error("decision_web_upstream_failed", {
