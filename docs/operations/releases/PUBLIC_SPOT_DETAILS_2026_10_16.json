@@ -1,0 +1,48 @@
+{
+  "status": "SHIPPED",
+  "sourceSha": "4e5325b1662e4782d4fc97baaafae1863784c4f1",
+  "pullRequest": 494,
+  "deploymentRunId": 38902007241,
+  "certificationRunId": 38901455832,
+  "manifestHash": "78097f0c2c7b866ba10692350abe3c1d9ae3b55d687df3cd98df7846bfcaf2fe",
+  "auditHash": "238c44e1beac3c06121166325f6992e2ddcb05ad657541eb6764c6682c3f59fc",
+  "planHash": "7fa1ed3807bb601394448964aa60c53213fe78687c6541f6b867192d6ccf246a",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261016120624_public_spot_knowledge_presentation_v2_5.sql",
+      "sha256": "b826c2bcd5bc4d41e20d95e2f79b2e022e27bfe156b3c2b0e2674f7c107fcc8c"
+    }
+  ],
+  "liveVerification": {
+    "basso": {
+      "webFields": 25,
+      "mobileFields": 25,
+      "offers": 5,
+      "areas": 3,
+      "reviewedDescriptionCharacters": 1333,
+      "publicBrowserObserved": true,
+      "responsiveWidth390Observed": true
+    },
+    "voltaBraeu": {
+      "fieldsBefore": 24,
+      "fieldsAfter": 24
+    },
+    "productionMigrationCount": 184,
+    "sourceSpotDataModified": false
+  },
+  "mobile": {
+    "sourceSha": "4e5325b1662e4782d4fc97baaafae1863784c4f1",
+    "runtimeVersion": "1.1.0",
+    "channel": "production",
+    "otaGroupId": "ba4ce651-8c66-41c8-af91-2d16f4a56046",
+    "iosUpdateId": "01a144bc-20eb-7349-b047-429dbd00d058",
+    "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
+    "installedDeviceVerified": false,
+    "note": "Existing top-level Mobile verification and review-media evidence describe the earlier observed release. This update is published and bundle/config verified, but its installation on the user device has not been observed."
+  },
+  "limits": [
+    "No database restore drill claimed; exact migration recovery risk accepted by Founder.",
+    "No installed iPhone smoke claimed. Expo Production channel/config and uploaded launch-asset SHA256 match the certified artifact.",
+    "Direct public update-permalink retrieval returned HTTP403; publication was independently checked through authenticated EAS channel metadata."
+  ]
+}
