@@ -5,8 +5,8 @@ import {
   type PublicSpotFact,
 } from "../../../packages/shared/src/presentation/spot-experience";
 
-function VisitorDetails({ facts }: { facts: PublicSpotFact[] }) {
-  return <>{spotExperienceDetailGroups(facts).map(group => (
+function VisitorDetails({ facts, offerKind = "" }: { facts: PublicSpotFact[]; offerKind?: string }) {
+  return <>{spotExperienceDetailGroups(facts, offerKind).map(group => (
     <div className="b-experience-group" key={group.title}>
       <h4>{group.title}</h4>
       <p>{group.items.join(" ")}</p>
@@ -26,7 +26,7 @@ function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: bo
       <div className="b-experience-content">
         {card.prices.length > 0 && <div className="b-experience-group"><h4>Preise</h4><ul>{card.prices.map((price, index) => <li key={index}>{price}</li>)}</ul></div>}
         {card.times.length > 0 && <div className="b-experience-group"><h4>Wann?</h4><p>{card.times.join(" · ")}</p></div>}
-        <VisitorDetails facts={card.facts} />
+        <VisitorDetails facts={card.facts} offerKind={area ? "" : card.kind} />
         {card.places.length > 0 && <div className="b-experience-group"><h4>{area ? "Hier möglich" : "Wo?"}</h4><p>{card.places.join(" · ")}</p></div>}
       </div>
     </details>

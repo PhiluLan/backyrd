@@ -1,6 +1,6 @@
 /** Public display adapter only: no eligibility, inference or raw-object rendering. */
 export type PublicSpotFact = { key: string; label: string; value: string; condition: string | null };
-export type PublicSpotCard = { id: string; name: string; prices: string[]; facts: PublicSpotFact[]; places: string[]; times: string[] };
+export type PublicSpotCard = { id: string; kind: string; name: string; prices: string[]; facts: PublicSpotFact[]; places: string[]; times: string[] };
 export type PublicSpotExperience = { offers: PublicSpotCard[]; areas: PublicSpotCard[]; shared: PublicSpotFact[] };
 // Public presentation copy is separate from matching rules and catalogue codes.
 const labels: Readonly<Record<string,string>> = {
@@ -115,8 +115,8 @@ export function presentSpotExperience(input: unknown): PublicSpotExperience {
  const offers=list(profile.offers,30).map(row).filter(o=>text(o.id,100)&&text(o.name,160));
  const areas=list(profile.areas,30).map(row).filter(a=>text(a.id,100)&&text(a.name,160));
  return {
-  offers:offers.map(o=>({id:text(o.id,100),name:text(o.name,160),prices:list(o.prices,30).flatMap(p=>{const label=price(p);return label?[label]:[];}),facts:facts(o.properties),places:areas.filter(a=>list(o.areaIds,30).includes(a.id)).map(a=>text(a.name,160)),times:[...times(o.schedule),...([conditions({validFrom:o.validFrom,validUntil:o.validUntil})].filter((value): value is string => value !== null))]})),
-  areas:areas.map(a=>({id:text(a.id,100),name:text(a.name,160),prices:[],facts:facts(a.properties),places:offers.filter(o=>list(o.areaIds,30).includes(a.id)).map(o=>text(o.name,160)),times:[]})),
+  offers:offers.map(o=>({id:text(o.id,100),kind:text(o.kind,100),name:text(o.name,160),prices:list(o.prices,30).flatMap(p=>{const label=price(p);return label?[label]:[];}),facts:facts(o.properties),places:areas.filter(a=>list(o.areaIds,30).includes(a.id)).map(a=>text(a.name,160)),times:[...times(o.schedule),...([conditions({validFrom:o.validFrom,validUntil:o.validUntil})].filter((value): value is string => value !== null))]})),
+  areas:areas.map(a=>({id:text(a.id,100),kind:text(a.kind,100),name:text(a.name,160),prices:[],facts:facts(a.properties),places:offers.filter(o=>list(o.areaIds,30).includes(a.id)).map(o=>text(o.name,160)),times:[]})),
   shared:facts(profile.properties),
  };
 }
@@ -156,10 +156,13 @@ const booleanCopy: Readonly<Record<string, readonly [string, string]>> = {
 };
 
 /** Visitor copy only. Never infer suitability or move facts between scopes. */
-export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[]): PublicSpotDetailGroup[] {
+export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[], offerKind = ""): PublicSpotDetailGroup[] {
  const grouped = new Map<string, Set<string>>();
  for (const fact of facts) {
   const key = fact.key;
+  const meal = ["LUNCH","DINNER","BREAKFAST","BRUNCH","FULL_MEAL"].includes(offerKind);
+  if (!fact.condition && meal && ((key === "experience.activity" && fact.value === "essen gehen") || (key === "food.meal_extent" && fact.value === "Essen"))) continue;
+  if (!fact.condition && offerKind === "DRINKS" && key === "experience.activity" && fact.value === "etwas trinken") continue;
   let title = "Dein Besuch";
   if (key.startsWith("food.") || key === "condition.children") title = "Essen & Trinken";
   else if (key.startsWith("location.")) title = "Lage & Aussicht";
@@ -174,9 +177,19 @@ export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[]): Pu
    value = value.split(" · ").filter(item => !cuisine.includes(item.toLocaleLowerCase("de-CH"))).join(" · ");
    if (!value) continue;
   }
+  if (key === "food.dish") {
+   const diets = facts.filter(item => ["food.cuisine","food.diet"].includes(item.key) && item.condition === fact.condition).flatMap(item => item.value.split(" · ")).map(item => item.toLocaleLowerCase("de-CH"));
+   value = value.split(" · ").filter(item => !(item.toLocaleLowerCase("de-CH") === "vegane gerichte" && diets.includes("vegan")) && !(item.toLocaleLowerCase("de-CH") === "vegetarische gerichte" && diets.includes("vegetarisch"))).join(" · ");
+   if (!value) continue;
+  }
   const bool = booleanCopy[key];
   let sentence = bool && ["Ja","Nein"].includes(value) ? bool[value === "Ja" ? 0 : 1] : `${visitorLabels[key] ?? fact.label}: ${value}`;
   if (key === "participation.booking") sentence = ({"Nicht erforderlich":"Keine Reservation nötig","Empfohlen":"Reservation empfohlen","Erforderlich":"Reservation erforderlich"} as Record<string,string>)[value] ?? sentence;
+  if (key === "participation.consumption_obligation" && value === "Bestellpflicht") sentence = "Eine Bestellung ist erforderlich";
+  if (key === "offer.service") sentence = ({"Bedienung am Tisch":"Bedienung am Tisch","Selbstbedienung":"Selbstbedienung"} as Record<string,string>)[value] ?? sentence;
+  if (key === "food.dish") sentence = `Auf der Karte: ${value}`;
+  if (key === "food.drink") sentence = `Zu trinken gibt es ${value}`;
+  if (key === "atmosphere.character") sentence = value;
   if (key === "participation.audience" && value === "Öffentlich zugänglich") sentence = "Für alle Gäste zugänglich";
   if (key === "participation.minimum_age") sentence = `Ab ${value.replace(/ Jahre$/, " Jahren")}`;
   if (fact.condition) sentence += ` (${fact.condition})`;

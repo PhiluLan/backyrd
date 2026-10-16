@@ -8,8 +8,8 @@ import {
 } from "../../../packages/shared/src/presentation/spot-experience";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
-function VisitorDetails({ facts }: { facts: PublicSpotFact[] }) {
-  return <>{spotExperienceDetailGroups(facts).map(group => <View key={group.title} style={styles.group}><Text style={styles.label}>{group.title}</Text><Text style={styles.body}>{group.items.join(" ")}</Text></View>)}</>;
+function VisitorDetails({ facts, offerKind = "" }: { facts: PublicSpotFact[]; offerKind?: string }) {
+  return <>{spotExperienceDetailGroups(facts, offerKind).map(group => <View key={group.title} style={styles.group}><Text style={styles.label}>{group.title}</Text><Text style={styles.body}>{group.items.join(" ")}</Text></View>)}</>;
 }
 
 function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: boolean }) {
@@ -24,7 +24,7 @@ function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: bo
     {expanded && <View style={styles.content}>
       {card.prices.length > 0 && <View style={styles.group}><Text style={styles.label}>Preise</Text>{card.prices.map((price, index) => <Text key={index} style={[styles.body, styles.price]}>{price}</Text>)}</View>}
       {card.times.length > 0 && <View style={styles.group}><Text style={styles.label}>Wann?</Text><Text style={styles.body}>{card.times.join(" · ")}</Text></View>}
-      <VisitorDetails facts={card.facts} />
+      <VisitorDetails facts={card.facts} offerKind={area ? "" : card.kind} />
       {card.places.length > 0 && <View style={styles.group}><Text style={styles.label}>{area ? "Hier möglich" : "Wo?"}</Text><Text style={styles.body}>{card.places.join(" · ")}</Text></View>}
     </View>}
   </View>;
