@@ -1,11 +1,22 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { readFile } from "node:fs/promises";
+import test, { after } from "node:test";
+import { readFile, mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
+const directory=await mkdtemp(join(tmpdir(),"discovery-client-test-"));
+after(()=>rm(directory,{recursive:true,force:true}));
+await writeFile(join(directory,"package.json"),'{"type":"module"}',{mode:0o600});
+for(const name of ["canonical","schema","discovery"]){
+  const source=await readFile(new URL(`../../packages/world-knowledge-core/src/${name}.ts`,import.meta.url),"utf8");
+  const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText;
+  await writeFile(join(directory,`${name}.js`),output,{mode:0o600});
+}
 async function load(relative) {
   const path = new URL(relative, import.meta.url);
-  const core = new URL("../../packages/world-knowledge-core/dist/index.js", import.meta.url).href;
+  const core = pathToFileURL(join(directory,"discovery.js")).href;
   const source = (await readFile(path, "utf8")).replace('from "@backyrd/world-knowledge-core"', `from ${JSON.stringify(core)}`);
   const compiled = ts.transpileModule(source, {compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
