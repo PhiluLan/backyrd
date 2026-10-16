@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDecisionProductHttpHandler, createDecisionProductLunaProvider, createDecisionProductRpcEvaluationProvider, contentHash } from '../dist/index.js';
-import { request as plan, fact, meal, profile, offer, area, prop, price, binding, budget, date, evening, reference, authority } from './librarian-matching-fixtures.mjs';
+import { request as plan, fact, meal, profile, offer, area, prop, price, binding, worldFact, budget, date, evening, reference, authority } from './librarian-matching-fixtures.mjs';
 import { exercise } from "./librarian-active-route-fixtures.mjs";
 
 const scenarios=[
@@ -83,4 +83,10 @@ test('whole-city evaluation does not discard later valid candidates before conte
 test('typed UI participant age cannot silently disappear in the provider response',async()=>{
  const r=await exercise({text:'Ein Ausflug in Basel',meaning:plan([meal()]),catalog:[],explicit:{targetCity:'Basel',group:{size:2,minimumAge:4,adultPresent:true,companionType:'FAMILY'}}});
  assert.equal(r.status,503);assert.equal(r.calls,1);assert.equal(r.reads,0);
+});
+
+test('a typed location filter does not apply today closure to tomorrow meaning',async()=>{
+ const closed=worldFact('state.current',{kind:'CLOSED',scope:'VENUE'},{validityVerified:true,validFrom:'2026-10-14T07:00:00Z',validUntil:'2026-10-14T12:00:00Z'});
+ const r=await exercise({text:'Morgen essen in Basel',meaning:plan([meal(),date()]),catalog:[binding(1,profile(),[closed])],explicit:{targetCity:'Basel',hardConstraints:['TARGET_LOCATION']}});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.notEqual(r.body.primaryCandidateId,null);
 });

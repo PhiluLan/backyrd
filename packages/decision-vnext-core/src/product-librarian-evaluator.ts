@@ -147,7 +147,10 @@ export function evaluateLibrarianProduct(input: {
     candidates = candidates.map(c => {
       const guard = guards.find(g => g.candidateId === c.candidateId)!;
       const { assessmentHash: _hash, ...body } = c;
-      const failed = [...c.failedHardConstraints, ...guard.failedHardConstraints];
+      // This guard may not apply its implicit "today" to a future Luna visit.
+      // Time eligibility belongs to Luna unless an older UI explicitly sets it.
+      const uiRequestsTime = !!explicit.dateTime || explicit.hardConstraints?.some(code => ["OPEN_NOW", "OPEN_ON_REQUESTED_DAY"].includes(code));
+      const failed = [...c.failedHardConstraints, ...guard.failedHardConstraints.filter(code => code !== "ACTUAL_AVAILABILITY" || uiRequestsTime)];
       const unknown = [...c.unknownHardConstraints, ...guard.unknownHardConstraints];
       if (explicit.primaryIntent && ["INCOMPATIBLE", "DISPUTED"].includes(guard.coreIntentCoverage.state)) failed.push("EXPLICIT_INTENT_CONTRADICTED");
       else if (explicit.primaryIntent && guard.coreIntentCoverage.state !== "CONFIRMED") unknown.push("EXPLICIT_INTENT_NOT_PROVEN");
