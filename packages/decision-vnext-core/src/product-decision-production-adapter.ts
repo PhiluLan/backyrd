@@ -1,3 +1,4 @@
+import { evaluateLibrarianProduct, librarianTargetCity, PRODUCT_LIBRARIAN_EVALUATOR_VERSION } from "./product-librarian-evaluator.js";
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -30,6 +31,9 @@ import type {
 } from "./product-decision.js";
 import { evaluateProductWorldViews, productRetrievalIntent, PRODUCT_V1_EVALUATOR_VERSION } from "./product-v1-evaluator.js";
 import { parseProductWorldResolverBinding } from "./product-world-resolver-binding.js";
+
+import { createLibrarianCatalogMatcher, searchLibrarianCatalog, type LibrarianSearchResult } from "./product-librarian-matching.js";
+import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
 
 const HASH = /^[0-9a-f]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -92,6 +96,7 @@ export interface DecisionProductCanonicalEvaluationProvider {
     readonly actor: DecisionProductAuthenticatedActor;
     readonly identity: DecisionProductProductionIdentity;
     readonly signal: AbortSignal;
+    readonly meaning?: LibrarianRequest;
   }): Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
 }
 
@@ -200,6 +205,7 @@ export function createDecisionProductProductionPorts(input: {
   readonly evaluationProvider: DecisionProductCanonicalEvaluationProvider;
   readonly interactionAuthority: DecisionProductInteractionAuthorityProvider;
   readonly learningPort: DecisionProductCanonicalLearningPort;
+  readonly understandingProvider?: NonNullable<DecisionProductRuntimePorts["understand"]>;
   readonly interpreter?: NonNullable<DecisionProductRuntimePorts["interpret"]>;
   readonly configuration: DecisionProductProductionConfiguration;
   readonly now?: () => Date;
@@ -245,13 +251,17 @@ export function createDecisionProductProductionPorts(input: {
         throw new Error("product_rate_limit_result_invalid");
       },
     },
+    ...(input.understandingProvider ? { understand: async (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => {
+      if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_ai_intent_actor_unbound");
+      return input.understandingProvider!(request, actor, signal);
+    } } : {}),
     ...(input.interpreter ? { interpret: async (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_interpretation_actor_unbound");
       return input.interpreter!(request, actor, signal);
     } } : {}),
-    async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) {
+    async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal, meaning?: LibrarianRequest) {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_evaluation_actor_unbound");
-      return input.evaluationProvider.evaluate({ request, actor, identity, signal });
+      return input.evaluationProvider.evaluate({ request, actor, identity, signal, ...(meaning ? { meaning } : {}) });
     },
     idempotency: {
       async commit(commitInput: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal) {
@@ -326,7 +336,7 @@ function canonicalConsentTimestamp(value: unknown): unknown {
   return Number.isFinite(time) ? new Date(time).toISOString() : value;
 }
 
-function productProjection(input: {
+export function productProjection(input: {
   readonly request: DecisionProductRequest;
   readonly actor: DecisionProductAuthenticatedActor;
   readonly serverTime: string;
@@ -420,23 +430,89 @@ function productEvaluationStage<T>(stage: "world_binding" | "user_projection" | 
   }
 }
 
+/** One service-only catalog read. Actor and release authority remain request-local. */
+async function readDecisionProductRuntimeContext(rpc: DecisionProductRpcClient, input: {
+  readonly actor: DecisionProductAuthenticatedActor;
+  readonly identity: DecisionProductProductionIdentity;
+  readonly targetCity: string;
+  readonly retrievalHint: string | null;
+  readonly signal: AbortSignal;
+}) {
+  if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
+  const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
+    p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
+    p_target_city: input.targetCity, p_primary_intent: input.retrievalHint,
+    p_release_hash: input.identity.releaseHash, p_artifact_hash: input.identity.artifactHash,
+    p_source_set_hash: input.identity.sourceSetHash, p_generation: input.identity.controlGeneration,
+  }, input.signal).catch(() => { throw new Error("product_runtime_context_transport_failed"); });
+  if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
+  if (result.error) throw new Error("product_runtime_context_unavailable");
+  const context = row(result.data, "product_runtime_context_invalid");
+  if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0"
+    || context.authorizedCity !== input.targetCity || typeof context.serverTime !== "string"
+    || !Number.isFinite(Date.parse(context.serverTime))) throw new Error("product_runtime_context_invalid");
+  return { context, serverTime: new Date(context.serverTime).toISOString() };
+}
+
+/** Lossless matching boundary, not an HTTP route or release activation. The
+ * existing authentication, rate limits and release checks must precede it. */
+export function createDecisionProductLibrarianRpcEvaluationProvider(
+  rpc: DecisionProductRpcClient,
+  identityValue: DecisionProductProductionIdentity,
+  configuration?: { readonly meaningRegistry: unknown; readonly acceptedRegistryHashes: readonly string[] },
+) {
+  if (![identityValue.releaseHash, identityValue.artifactHash, identityValue.sourceSetHash].every(value => HASH.test(value))
+    || !Number.isSafeInteger(identityValue.controlGeneration) || identityValue.controlGeneration < 0) {
+    throw new Error("librarian_provider_identity_invalid");
+  }
+  const identity = deepFreeze({ ...identityValue });
+  const matcher = configuration ? createLibrarianCatalogMatcher(configuration) : searchLibrarianCatalog;
+  return Object.freeze({
+    contractVersion: "backyrd.decision-vnext.librarian-rpc-evaluator@1" as const,
+    async evaluate(input: {
+      readonly request: LibrarianRequest;
+      readonly actor: DecisionProductAuthenticatedActor;
+      readonly authorizedCity: string;
+      readonly signal: AbortSignal;
+    }): Promise<Readonly<LibrarianSearchResult>> {
+      if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
+      if (!UUID.test(input.actor.userId)
+        || ![input.actor.subjectBindingHash, input.actor.authenticationContextHash, input.actor.sessionBindingHash].every(value => HASH.test(value))
+        || !UUID.test(input.actor.sessionId) || !input.authorizedCity.trim()) throw new Error("librarian_provider_authority_invalid");
+      const request = prepareLibrarianRequest({
+        contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.request.raw,
+        sourceText: input.request.source.sourceText, reference: input.request.source.reference,
+      });
+      if (request.requestHash !== input.request.requestHash) throw new Error("librarian_matching_request_hash_mismatch");
+      // Context v5 returns the full city cohort. EAT satisfies its legacy
+      // required transport argument; it never becomes a request or match fact.
+      const { context, serverTime } = await readDecisionProductRuntimeContext(rpc, {
+        actor: input.actor, identity, targetCity: input.authorizedCity,
+        retrievalHint: "EAT", signal: input.signal,
+      });
+      if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
+      return matcher({ request, catalog: context.worldSnapshots, authority: { city: input.authorizedCity, now: serverTime } });
+    },
+  });
+}
+
 /** Canonical Product composition over service-only World/User RPCs. */
-export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient): DecisionProductCanonicalEvaluationProvider {
+export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient, options: { readonly meaningRequired: boolean } = { meaningRequired: false }): DecisionProductCanonicalEvaluationProvider {
   return Object.freeze({
     contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0" as const,
     async evaluate(input: Parameters<DecisionProductCanonicalEvaluationProvider["evaluate"]>[0]) {
-      const targetCity = productTargetCity(input.request);
-      const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
-        p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
-        p_target_city: targetCity, p_primary_intent: productRetrievalIntent(input.request),
-        p_release_hash: input.identity.releaseHash,
-        p_artifact_hash: input.identity.artifactHash, p_source_set_hash: input.identity.sourceSetHash,
-        p_generation: input.identity.controlGeneration,
-      }, input.signal).catch(() => { throw new Error("product_runtime_context_transport_failed"); });
-      if (result.error) throw new Error("product_runtime_context_unavailable");
-      const context = row(result.data, "product_runtime_context_invalid");
-      if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0" || context.authorizedCity !== targetCity || typeof context.serverTime !== "string" || !Number.isFinite(Date.parse(context.serverTime))) throw new Error("product_runtime_context_invalid");
-      const serverTime = new Date(context.serverTime).toISOString();
+      if (options.meaningRequired && !input.meaning) throw new Error("product_librarian_meaning_required");
+      const targetCity = input.meaning ? librarianTargetCity(input.request, input.meaning) : productTargetCity(input.request);
+      const { context, serverTime } = await readDecisionProductRuntimeContext(rpc, {
+        actor: input.actor, identity: input.identity, targetCity,
+        retrievalHint: input.meaning ? "EAT" : productRetrievalIntent(input.request), signal: input.signal,
+      });
+      if (input.meaning) {
+        if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
+        const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
+        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], authority: { authorizedCity: targetCity, serverTime }, projection }));
+        return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: evaluated.evaluation.worldCohort.candidateSetHash }) }, evaluatorContractVersion: PRODUCT_LIBRARIAN_EVALUATOR_VERSION };
+      }
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];
       const snapshots = new Map<string, ReturnType<typeof parseProductWorldResolverBinding>>();
       for (const raw of rawSnapshots) {

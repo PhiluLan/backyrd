@@ -27,8 +27,10 @@ Decision hosts are forbidden.
 - `opening-state.ts`
 - `product-v1-contracts.ts`
 - `product-v1-authority.ts`
-- `product-v1-evaluator.ts`
-- `product-ai-interpretation.ts` — optional, server-only, request-bound intent interpretation; World and ranking remain authoritative
+- `product-v1-evaluator.ts` — typed legacy UI guards and consent-bound taste evidence
+- `product-luna-provider.ts` — one bounded server-side model call
+- `product-luna-librarian.ts` and `product-luna-librarian-assets.ts` — frozen meaning contract
+- `product-librarian-{language,world-language,semantics,time,eligibility,matching,evaluator}.ts` — scoped deterministic matching and Product assessment
 - `product-decision.ts`
 - `product-decision-production-adapter.ts`
 
@@ -43,39 +45,68 @@ Dark/Shadow and Founder modules are retired history and must not be imported.
 - Product control, Auth, rate limit, idempotency and learning authority remain
   server-side and fail closed.
 
-Decision evidence calibration: a confirmed category or indoor venue type does
-not by itself confirm the requested company or occasion. Where the request
-names a companion or date and matching visit-situation evidence is absent, the
-candidate remains a visible `UNCONFIRMED_FALLBACK`, not `ELIGIBLE_CONFIRMED`.
-This is a ranking and disclosure distinction, not an age restriction or a new
-hard exclusion. Query explanations describe only the verified criteria; they
-must not imply that every part of the person's request was verified. A request
-for an open-ended activity with company must not be narrowed to a category
-guessed by the model, even if it suggests just one. Those category suggestions
-are ranking
-preferences; the closed Product intent ontology determines the eligible
-experience types. A named, specific venue type remains a requirement. This
-preserves discovery of genuinely suitable activities outside the model's first
-guesses while leaving family suitability and other unverified context visible.
-A request for a low price similarly remains a fallback when no low price level is
-verified; even a verified low level is not a promise of a particular CHF price.
-For an open-ended social wish without a stated activity, a null primary intent
-is not automatically an empty result. A provisional result is allowed only
-when the request names a canonical visit situation and the specific Spot has
-matching, scoped, verified World evidence for it. Hotels and non-experience
-categories cannot fill the gap; unknown or disputed situation evidence cannot
-rank. The UI must disclose that the concrete activity was not established.
-The AI interpreter also accounts for material request parts that the current
-catalog cannot verify. Canonical, non-raw codes for music during the visit,
-a precise clock time, or another unmapped core need travel with the interpreted
-request. They make candidates provisional and produce explicit user-facing
-limitations; they do not assert Spot facts or discard otherwise useful places.
-The current opening evaluation is day/daypart based, so it must not claim that
-an exact requested hour was checked. Conversely, the model may not label a
-daypart such as "heute Abend" as an unverified precise clock time; that code is
-grounded in the raw request even when an interpretation came from cache. These
-limitations remain until matching
-versioned World evidence and evaluation support are shipped.
+## Lossless Luna composition
+
+The 2026-10-16 implementation candidate connects the existing single handler
+to the frozen Luna contract and scoped Bibliothekar. Production activation is
+tracked separately by the certified artifact and production state; a source
+change is not evidence of a successful live deployment.
+
+Authentication, rate limiting and release checks precede the one model call.
+The provider keeps the tested model, prompt revision and schema, supplies a
+trusted Europe/Zurich reference once, and sends only the wish plus explicit
+UI context. Request identifiers, account identifiers and Spot inventory are
+not sent to the model. Incomplete, refused, invalid or omitted typed mandatory
+context fails honestly; there is no repair model call or old interpreter fallback.
+
+The complete, original-bound plan travels through a server-only `understand`
+port into canonical evaluation. It is never projected through the old intent/
+facet vocabulary. The public context is a bounded display/learning summary,
+identified as such; it does not drive matching. Raw source, participant labels
+and provider output are neither public response fields nor durable decision
+records. The old `product-ai-interpretation.ts` remains compatibility/test
+coverage only and is not imported by the installed Edge composition.
+
+The existing context v5 RPC supplies one authorized, manifest-bound full-city
+cohort and the consent-bound User projection. The Bibliothekar preserves offers,
+linked areas, participant scope, alternatives, conditions, price coverage and
+source-use permission. Unsupported knowledge remains unknown. Known hard
+contradictions exclude before ranking. The whole cohort (up to 1,000) is assessed
+before rejected candidates, personalization and the final presentation window.
+
+Classification-only evidence authorized for DISCOVERY can select a provisional
+venue of the requested type. This never upgrades it to a confirmed hard fact.
+The narrowly version-bound exception accepts only `DISCOVERY_ONLY_SPOT_TYPE`;
+any unknown mandatory price, age, access, weather or time duty still prevents a
+primary recommendation. Legal/price/opening permissions are unchanged. Known
+venue identity is independently required: a drink does not turn an arbitrary
+bar into a wine bar or prove a hotel has a restaurant.
+
+Visitor explanations use fixed family wording and actual selected offer names
+only where World permits EXPLANATION. Conditional or partial evidence is not
+worded as an unconditional confirmation. No minimum age is inferred from an
+unrelated offering. Confirmed diet, area and budget must form one coherent
+visit. UI controls from older clients remain binding; their compatibility guard
+reads typed explicit fields only, never the original prose.
+
+The deployed composition requires `BACKYRD_DECISION_AI_INTENT_ENABLED=true`
+and the existing actor enablement configuration. Disabled/unavailable Luna fails
+closed; interaction events still use the same authenticated route. The model
+is pinned by the frozen configuration, not the former AI_INTENT_MODEL setting.
+There is no broad-plan cache yet: the narrower legacy cache cannot safely store
+this different contract or omit reference-date/participant bindings. Existing
+sealed idempotency and consent-bound learning controls remain enforced.
+
+Limitations: the authorized context currently handles one city per request;
+a cross-city alternative is not silently reduced to its first city. Unobserved
+weather, unsupported bindings and missing scoped facts remain unresolved.
+Exact-hour confirmation requires joint verified venue and offer schedules.
+Matching never asserts booking availability.
+
+Evaluation release v10 and ranking policy v4 bind this material composition and
+the classification-only provisional selection rule. Public request/response
+contract versions remain compatible. No schema or owner-authored Spot edits are
+part of this change.
 
 ## Required gates
 
@@ -113,23 +144,6 @@ contain no user text, actor identity, Spot identity, credentials, or model
 payload; they are operational evidence for latency work and cannot affect a
 Decision response.
 
-AI query prompt v4 distinguishes a concrete activity from its broad category:
-when the activity entails specific canonical place types, the interpreter
-requests those as alternatives in one hard query group. A broad wish does not
-gain such a gate. This changes query interpretation, not Spot facts; subjective
-atmosphere and companionship remain unverified unless World evidence confirms
-them for the Spot. A requested drink or dish is not proof that the person
-requires a brewery, taproom or restaurant. For eating, coffee, drinks and
-nightlife, model-proposed venue types are hard only if the user actually names
-that type; the requested offering remains independently testable against World
-Knowledge. The venue-name guard is a catalog-level safety rule, not a list of
-user phrases.
-
-The server-side AI query cache is keyed by the sentence and explicit request
-context, plus its authenticated-user, provider-model, interpreter-policy,
-catalog and release bindings. The database model-version key includes a short
-hash of the interpreter version so a new policy cannot replay a previous
-policy's hard constraints even when the provider model and release control
-identity stay unchanged. Fresh transport IDs and alternative-page IDs do not change the
-semantics and therefore do not trigger a new provider call. The cache stores
-only the validated structured interpretation, never the raw sentence.
+The fixed timing stages distinguish interpretation from canonical evaluation.
+CPU-only integration benchmarks use synthetic catalogs and explicit model/DB
+test doubles; they are not end-to-end live latency or price measurements.
