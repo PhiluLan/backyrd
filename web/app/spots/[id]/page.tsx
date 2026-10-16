@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SpotExperience } from "@/components/consumer/spot-experience";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CanonicalSpotImage } from "@/components/canonical-spot-image";
@@ -86,6 +87,7 @@ export default async function SpotDetailPage({
   const canonicalWorldDetail = Boolean(data.world_profile?.worldManifestHash);
   const publicCategory = data.world_profile?.fields.find((field)=>field.attributeKey==="classification.primary_category");
   const fields = data.world_profile?.fields ?? [];
+  const publicDescription = typeof data.world_profile?.publicDescription === "string" ? data.world_profile.publicDescription : null;
   const field = (key: string) => fields.find((item) => item.attributeKey === key);
   const additionalFields = fields.filter((item) => !shownKeys.has(item.attributeKey));
   const jsonLd = {
@@ -194,14 +196,15 @@ export default async function SpotDetailPage({
                 </dl>
               </section>
             ) : null}
-            {(field("description.highlight") || (!canonicalWorldDetail && spot.description)) ? (
+            {(field("description.highlight") || publicDescription || (!canonicalWorldDetail && spot.description)) ? (
               <section className="b-detail-section" aria-label="Über diesen Ort">
                 <h2 className="b-section-title">Was dich hier erwartet.</h2>
                 <p className="b-body" style={{ marginTop: 18, whiteSpace: "pre-line" }}>
-                  {typeof field("description.highlight")?.value === "string" ? field("description.highlight")?.value as string : spot.description}
+                  {typeof field("description.highlight")?.value === "string" ? field("description.highlight")?.value as string : publicDescription ?? spot.description}
                 </p>
               </section>
             ) : null}
+            <SpotExperience profile={data.world_profile?.experienceProfile}/>
             {field("hours.special") ? (
               <section className="b-detail-section" aria-label="Sonderöffnungszeiten">
                 <h2 className="b-section-title">Sonderöffnungszeiten</h2>

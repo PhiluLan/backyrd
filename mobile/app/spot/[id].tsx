@@ -33,6 +33,7 @@ import {
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
 import { normalizeSpotGallery, type SpotGalleryPhoto } from "../../lib/spot-gallery";
 import { selectSpotImageUrl } from "../../lib/spot-images";
+import { SpotExperience } from "../../components/spot/SpotExperience";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
 import { AppText, ProductText as Text } from "../../components/foundation/AppText";
@@ -722,7 +723,7 @@ export default function SpotDetailScreen() {
   const contactKeys = ["contact.website", "contact.phone", "contact.public_email", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok"];
   const contacts = canonicalWorldDetail ? contactKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item)) : [];
   const descriptionField = canonicalWorldDetail ? field("description.highlight") : undefined;
-  const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? null : effectiveDesc;
+  const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? (typeof productProfile?.publicDescription === "string" ? productProfile.publicDescription : null) : effectiveDesc;
   const specialHoursField = field("hours.special");
   const specialHoursList = specialHoursField ? specialHours(specialHoursField.value) : [];
   const additionalFields = spotProductAdditionalFields(productProfile);
@@ -982,6 +983,8 @@ export default function SpotDetailScreen() {
               </>
             ) : <Text style={styles.mutedText}>Für diesen Spot ist noch keine Beschreibung hinterlegt.</Text>}
           </View>
+
+          <SpotExperience profile={productProfile?.experienceProfile}/>
 
           {showHours ? (
             <View style={styles.detailLineGroup}>
