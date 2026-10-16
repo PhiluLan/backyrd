@@ -744,3 +744,27 @@ for(const fieldKey of ['rule.external_food','rule.external_drink'])test(`Mitbrin
  await reloadEditor(page);await outerStep(page,8);await expect(field.getByRole('combobox',{name:'Regel',exact:true})).toHaveValue('NOT_ALLOWED');await field.getByRole('combobox',{name:'Regel',exact:true}).selectOption('ALLOWED');await field.getByRole('button',{name:'Regel übernehmen',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(2);expect(owner.submissions[1].p_value).toEqual({policy:'ALLOWED',exceptions:[]});
  await reloadEditor(page);await outerStep(page,8);await expect(field.getByRole('combobox',{name:'Regel',exact:true})).toHaveValue('ALLOWED');
 });
+
+test('KI-Ausfüllhilfe erklärt fehlende Serverkonfiguration, behält die Quelle und erlaubt erneute Vorbereitung',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ const source='Gäste bauen selbst Moosterrarien.';
+ const owner=await mockOwner(page,'OWNER_BASIC','VERIFIED_OWNER',{'description.discovery_source':{claimId:'source',knowledgeState:'KNOWN_VALUE',visibility:'PUBLIC',value:source}});
+ let prepared=0;
+ await page.route('**/rest/v1/rpc/world_product_discovery_publish_source_v1',route=>route.fulfill({json:{visibility:'PUBLIC',sourceHash:'a'.repeat(64)}}));
+ await page.route('**/api/world-knowledge/discovery',route=>{
+  prepared++;
+  return prepared===1?route.fulfill({status:503,json:{error:'preparation_unavailable'}}):route.fulfill({json:{draft:{contractVersion:'backyrd.world-knowledge.discovery-profile@1.0',description:source,reviewed:false,offerings:[],assertions:[{id:'build',kind:'VISIT',concepts:['build moss terrariums'],offeringId:null,state:'PRESENT',evidence:source,conditions:null,validFrom:null,validUntil:null}]}}});
+ });
+ await openEditor(page);const field=page.locator('[id="field-discovery.profile"]');
+ await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
+ await expect(field.getByText(/Deine gespeicherte Textquelle wurde geladen/)).toBeVisible();
+ await field.getByRole('checkbox').first().check();await field.getByRole('button',{name:'Vorschläge vorbereiten',exact:true}).click();
+ await expect(field.getByRole('alert')).toContainText('serverseitig noch nicht eingerichtet');
+ await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);expect(owner.submissions).toHaveLength(0);
+ await field.getByRole('button',{name:'Vorschläge vorbereiten',exact:true}).click();
+ await expect(field.getByText('Bedeutung: build moss terrariums')).toBeVisible();await expect(field.getByRole('alert')).toHaveCount(0);
+ await expect(field.getByRole('button',{name:'Geprüftes Wissen übernehmen',exact:true})).toBeDisabled();
+ await field.getByRole('checkbox').last().check();await field.getByRole('button',{name:'Geprüftes Wissen übernehmen',exact:true}).click();
+ await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toMatchObject({reviewed:true,description:source});
+ await reloadEditor(page);await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
+});
