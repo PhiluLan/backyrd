@@ -1,12 +1,43 @@
-import { presentSpotExperience, type PublicSpotFact } from "../../../packages/shared/src/presentation/spot-experience";
-function Facts({facts}:{facts:PublicSpotFact[]}){
- return <dl className="b-detail-facts">{facts.map((fact,index)=><div key={index}><dt>{fact.label}</dt><dd>{fact.value}{fact.condition&&<small style={{display:"block",opacity:.7}}>{fact.condition}</small>}</dd></div>)}</dl>;
+import {
+  presentSpotExperience,
+  spotExperienceDetailGroups,
+  type PublicSpotCard,
+  type PublicSpotFact,
+} from "../../../packages/shared/src/presentation/spot-experience";
+
+function VisitorDetails({ facts }: { facts: PublicSpotFact[] }) {
+  return <>{spotExperienceDetailGroups(facts).map(group => (
+    <div className="b-experience-group" key={group.title}>
+      <h4>{group.title}</h4>
+      <p>{group.items.join(" ")}</p>
+    </div>
+  ))}</>;
 }
-export function SpotExperience({profile}:{profile:unknown}){
- const experience=presentSpotExperience(profile);
- return <>
-  {experience.offers.length>0&&<section className="b-detail-section" aria-label="Angebote und Preise"><h2 className="b-section-title">Angebote & Preise</h2>{experience.offers.map(offer=><article key={offer.id} style={{marginTop:24,padding:20,border:"1px solid var(--border, #303237)",borderRadius:16}}><h3>{offer.name}</h3>{offer.prices.length>0&&<ul style={{paddingLeft:20,marginTop:12}}>{offer.prices.map((price,index)=><li key={index} style={{marginBottom:8}}>{price}</li>)}</ul>}{offer.places.length>0&&<p style={{marginTop:12}}>Verfügbar: {offer.places.join(" · ")}</p>}{offer.times.map((time,index)=><p key={index}>{time}</p>)}<Facts facts={offer.facts}/></article>)}</section>}
-  {experience.areas.length>0&&<section className="b-detail-section" aria-label="Räume und Bereiche"><h2 className="b-section-title">Räume & Bereiche</h2>{experience.areas.map(area=><article key={area.id} style={{marginTop:24}}><h3>{area.name}</h3><Facts facts={area.facts}/>{area.places.length>0&&<p>Angebote: {area.places.join(" · ")}</p>}</article>)}</section>}
-  {experience.shared.length>0&&<section className="b-detail-section" aria-label="Gemeinsame Ausstattung und Anreise"><h2 className="b-section-title">Ausstattung & Anreise</h2><Facts facts={experience.shared}/></section>}
- </>;
+
+function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: boolean }) {
+  const hasDetails = card.prices.length + card.times.length + card.facts.length + card.places.length > 0;
+  if (!hasDetails) return <div className="b-experience-row b-experience-static"><span className="b-experience-name">{card.name}</span></div>;
+  return (
+    <details className="b-experience-row">
+      <summary aria-label={`${card.name}: mehr Informationen`}>
+        <span className="b-experience-name">{card.name}</span>
+        <span className="b-experience-toggle"><span className="b-experience-closed">Mehr erfahren</span><span className="b-experience-open">Weniger anzeigen</span><span className="b-experience-chevron" aria-hidden="true">⌄</span></span>
+      </summary>
+      <div className="b-experience-content">
+        {card.prices.length > 0 && <div className="b-experience-group"><h4>Preise</h4><ul>{card.prices.map((price, index) => <li key={index}>{price}</li>)}</ul></div>}
+        {card.times.length > 0 && <div className="b-experience-group"><h4>Wann?</h4><p>{card.times.join(" · ")}</p></div>}
+        <VisitorDetails facts={card.facts} />
+        {card.places.length > 0 && <div className="b-experience-group"><h4>{area ? "Hier möglich" : "Wo?"}</h4><p>{card.places.join(" · ")}</p></div>}
+      </div>
+    </details>
+  );
+}
+
+export function SpotExperience({ profile }: { profile: unknown }) {
+  const experience = presentSpotExperience(profile);
+  return <>
+    {experience.offers.length > 0 && <section className="b-detail-section" aria-label="Angebote"><h2 className="b-section-title">Das kannst du hier erleben</h2><div className="b-experience-list">{experience.offers.map(offer => <ExperienceRow key={offer.id} card={offer} />)}</div></section>}
+    {experience.areas.length > 0 && <section className="b-detail-section" aria-label="Räume und Bereiche"><h2 className="b-section-title">Räume & Bereiche</h2><div className="b-experience-list">{experience.areas.map(area => <ExperienceRow key={area.id} card={area} area />)}</div></section>}
+    {experience.shared.length > 0 && <section className="b-detail-section" aria-label="Ausstattung und Anreise"><h2 className="b-section-title">Gut zu wissen</h2><VisitorDetails facts={experience.shared} /></section>}
+  </>;
 }

@@ -9,3 +9,9 @@ Both clients use the pure shared presentation adapter. Prices, ages, schedules a
 The new Mobile cards require a compatible certified App/Expo update. Database deployment alone restores ordinary detail fields to existing installed clients. Do not report the new cards live on an installed device without validating its runtime and update.
 
 Validation: isolated canonical database clean boot and legacy/new-registry public-reader regression; unauthenticated public access and private-policy denial; surface visibility; unreviewed, stale, unverified and unapproved negatives; shared adapter and actual Web rendering tests; both client type checks, Mobile contracts, Web production build. Fixtures are synthetic and transactionally rolled back.
+
+## Compact visitor presentation
+
+Offers and areas start collapsed on Web and Mobile. Opening a named row reveals prices, times, visitor-oriented copy and linked places. Web uses native keyboard-accessible details/summary; Mobile uses independent Pressable disclosure rows with an expanded accessibility state. Shared presentation copy groups facts into short paragraphs and removes only identical cuisine/diet terms under identical conditions. It does not infer new facts, remove conditional qualifiers or move age restrictions between scopes.
+
+Verification includes closed SSR markup, scoped copy/conditions regression, both client type checks and contracts, Web build/lint, plus an actual-component browser fixture at 390px: all rows initially closed, click to open, Enter to close, no horizontal overflow. Installed iPhone observation remains separate from export/publication verification.
