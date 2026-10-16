@@ -1,4 +1,5 @@
-import { assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
+import { librarianRankingOnlyFamily } from "./product-librarian-language.js";
+import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
 import { spotTypeSupports, experienceActivitySupports, parseExperienceProfile, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
@@ -239,6 +240,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         const equal = locationTerm(row.value) === locationTerm(fact.value.text), state = equal ? "MET" : "FAILED";
         return report(fact.modality === "EXCLUDED" ? (equal ? "FAILED" : "MET") : state, "VERIFIED_LOCATION", [{ evidenceHashes: [row.entryHash], offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: false, chargeable: false }]);
     }
+    const accessibility = assessLibrarianAccessibility(fact, world);
+    if (accessibility) return report(accessibility.state, accessibility.reason, accessibility.hashes.length ? [{ evidenceHashes: accessibility.hashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: accessibility.state === "UNKNOWN", chargeable: false }] : []);
     if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE")
         return report("UNKNOWN", "DEFERRED_TO_JOINT_VISIT_EVALUATION");
     // Overlapping words such as Café can denote an actual embedded offer.
@@ -452,7 +455,7 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
         truth = minimumPass === true ? "MET" : pass === false ? "FAILED" : "UNKNOWN";
     else
         truth = pass === null ? "UNKNOWN" : pass ? "MET" : minimumPass === false ? "FAILED" : "UNKNOWN";
-    return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth, truth === "MET" ? "SCOPED_COMPLETE_PRICE_CONFIRMED" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
+    return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth, truth === "MET" ? "SCOPED_COMPLETE_PRICE_CONFIRMED" : truth === "UNKNOWN" && ["LTE", "LT"].includes(money.operator) && minimumPass === true && pass === false ? "SCOPED_PRICE_RANGE_OVERLAPS_BUDGET" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
 }
 function assessScenario(request: LibrarianRequest, world: ProductWorldView, scenario: Scenario, preferenceIds: ReadonlySet<string>, now: string, semantics: LibrarianSemanticIndex | null): Omit<LibrarianCandidate, "candidateHash"> {
     const referenced = new Set(collectFacts(request.logic));
@@ -487,7 +490,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         allAtoms.push(a);
         reports.push(a.report);
         const deferred = LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL";
-        if (!neutral(fact) && fact.modality !== "PREFERRED" && !preferenceIds.has(fact.id) && !deferred && a.report.state === "MET") {
+        if (!neutral(fact) && fact.modality !== "PREFERRED" && !preferenceIds.has(fact.id) && !deferred && !librarianRankingOnlyFamily(fact.key) && a.report.state === "MET") {
             // Retain exactly the same traversal prefix, but stop constructing
             // discarded Cartesian combinations as soon as overflow is proven.
             const joined: State[] = [];
@@ -528,6 +531,12 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             }
             const sourceAtom = allAtoms.find(a => a.report.factId === r.factId);
             if (sourceAtom && r.state === "MET") {
+                if (librarianRankingOnlyFamily(fact.key)) {
+                    const compatible = sourceAtom.witnesses.filter(w => join(state, w) !== null);
+                    if (!compatible.length && sourceAtom.witnesses.length)
+                        return { ...r, state: "UNKNOWN" as const, reason: "RANKING_DETAIL_NOT_PROVEN_FOR_SELECTED_OFFER", evidenceHashes: [], offerIds: [], areaIds: [] };
+                    return { ...r, evidenceHashes: sorted(compatible.flatMap(w => w.evidenceHashes)), offerIds: sorted(compatible.flatMap(w => w.offerIds)), areaIds: sorted(compatible.flatMap(w => w.areaIds)) };
+                }
                 const witnesses = sourceAtom.witnesses.filter(w => w.offerIds.every(id => state.offerIds.includes(id)) && w.areaIds.every(id => state.areaIds.includes(id)) && Object.entries(w.assignments).every(([key, value]) => state.assignments[key] === undefined || state.assignments[key] === value));
                 return { ...r, evidenceHashes: sorted(witnesses.flatMap(w => w.evidenceHashes)), offerIds: sorted(witnesses.flatMap(w => w.offerIds)), areaIds: sorted(witnesses.flatMap(w => w.areaIds)) };
             }
@@ -550,12 +559,12 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             if (b.kind !== "SAME_PLACE")
                 next.push({ factId: `binding:${contentHash(b).slice(0, 12)}`, family: "binding", modality: "REQUIRED", state: "UNKNOWN", reason: b.kind === "SEQUENCE" ? "MULTI_VISIT_SEQUENCE_NOT_SUPPORTED" : "SIMULTANEOUS_CAPACITY_NOT_PROVEN", evidenceHashes: [], offerIds: state.offerIds, areaIds: state.areaIds });
         const hard = next.filter(r => !["CONTEXT", "NOT_REQUIRED", "PREFERRED"].includes(r.state) && r.modality !== "PREFERRED");
-        const failures = hard.filter(r => r.state === "FAILED"), unknown = hard.filter(r => r.state === "UNKNOWN");
+        const failures = hard.filter(r => r.state === "FAILED" && !librarianRankingOnlyFamily(r.family)), unknown = hard.filter(r => r.state === "UNKNOWN");
         const preferenceMatches = next.filter(r => r.modality === "PREFERRED" && r.state === "MET" && (!allAtoms.find(a => a.report.factId === r.factId)?.witnesses.length || allAtoms.find(a => a.report.factId === r.factId)!.witnesses.some(w => join(state, w) !== null))).map(r => r.factId);
         return { state, next, failures, unknown, preferences: preferenceMatches, tieBreaker: contentHash(state) };
     }).sort((a, b) => a.failures.length - b.failures.length || a.unknown.length - b.unknown.length || b.preferences.length - a.preferences.length || a.tieBreaker.localeCompare(b.tieBreaker));
     const best = scored[0], facts = (best?.next ?? reports).map(r => limited && r.state === "FAILED" && !["LOCATION", "eligibility"].includes(r.family) ? { ...r, state: "UNKNOWN" as const, reason: "WITNESS_SEARCH_LIMIT" } : r);
-    const failed = facts.filter(r => r.modality !== "PREFERRED" && r.state === "FAILED").map(r => r.factId), unknown = facts.filter(r => r.modality !== "PREFERRED" && r.state === "UNKNOWN").map(r => r.factId);
+    const failed = facts.filter(r => r.modality !== "PREFERRED" && r.state === "FAILED" && !librarianRankingOnlyFamily(r.family)).map(r => r.factId), unknown = facts.filter(r => r.modality !== "PREFERRED" && (r.state === "UNKNOWN" || r.state === "FAILED" && librarianRankingOnlyFamily(r.family))).map(r => r.factId);
     const unresolved = request.diagnostics.filter(d => d.code !== "UNUSED_ENTITY" && (d.code === "CROSS_BRANCH_BINDING" ? d.relatedIds.every(id => scenario.ids.includes(id)) : d.relatedIds.some(id => scenario.ids.includes(id))));
     const core = selected.some(f => !neutral(f) && !["PRICE", "TEMPORAL", "LOCATION"].includes(LIBRARIAN_FAMILY_STRATEGIES[f.key]));
     const status = failed.length ? "INELIGIBLE" : unknown.length || limited || unresolved.length || !core || best?.state.uncertain ? "PARTIAL" : "CONFIRMED";

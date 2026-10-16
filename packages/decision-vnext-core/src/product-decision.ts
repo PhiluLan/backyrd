@@ -107,6 +107,7 @@ function rankingChecks(left: CandidateForRanking, right: CandidateForRanking): r
     [compareNumber(tierScore[a.eligibilityTier], tierScore[b.eligibilityTier]), "der besser belegten Eignungsklasse"],
     [compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]), "der besser belegten Hauptabsicht"],
     [compareNumber(coreScore[a.primaryVisitPurposeState], coreScore[b.primaryVisitPurposeState]), "des zusätzlich bestätigten Hauptzwecks"],
+    [compareNumber(right.unknownHardConstraints.length, left.unknownHardConstraints.length), "weniger offener Angaben zu deinem Wunsch"],
     [compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]), "der besser belegten Verfügbarkeit"],
     [compareBoolean(a.contextFit.secondaryIntentConfirmed, b.contextFit.secondaryIntentConfirmed), "einer bestätigten Nebenabsicht"],
     [compareBoolean(a.contextFit.visitSituationConfirmed, b.contextFit.visitSituationConfirmed), "der bestätigten Besuchssituation"],
@@ -126,12 +127,13 @@ function compareCandidates(left: CandidateForRanking, right: CandidateForRanking
 }
 
 function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null): boolean {
-  const onlyRequestedDayOpeningUnknown = candidate.unknownHardConstraints.length > 0
-    && candidate.unknownHardConstraints.every((constraint) => constraint === "OPEN_ON_REQUESTED_DAY")
-    && ["unknown", "not_authorized", "expired", "disputed"].includes(candidate.actualAvailability);
+  // A supported visit with incomplete details is a real fallback. Typed UI
+  // guards and unproven core activities retain their separate gates.
+  const supportedUnknown = candidate.coreIntentCoverage === "CONFIRMED"
+    && candidate.unknownHardConstraints.every(code => code.startsWith("LBR:") || code === "LIBRARIAN_VISIT_NOT_FULLY_PROVEN" || code === "OPEN_ON_REQUESTED_DAY");
   return (situationalIds === null || situationalIds.has(candidate.spotId))
     && candidate.tier !== "INELIGIBLE"
-    && (candidate.rankVector.hardConstraintState === "PASS" || onlyRequestedDayOpeningUnknown)
+    && (candidate.rankVector.hardConstraintState === "PASS" || supportedUnknown)
     && candidate.coreIntentCoverage !== "INCOMPATIBLE"
     && candidate.coreIntentCoverage !== "DISPUTED"
     && !candidate.contextualReject;
@@ -176,7 +178,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
   const assessment = candidate.assessment;
   const reasons: ProductReason[] = [
     ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-    { code: "product-ranking-policy-v4", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    { code: "product-ranking-policy-v5", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
   ];
   return DecisionProductCandidateSchema.parse(withContentHash({

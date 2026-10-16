@@ -61,6 +61,7 @@ const familyLabels: Readonly<Record<string, string>> = {
   "food.dish": "die gewünschte Speise", "food.cuisine": "die Küche", "offer.area": "der gewünschte Bereich",
   "atmosphere.character": "die gewünschte Atmosphäre", "atmosphere.music": "die gewünschte Musiksituation",
   "atmosphere.noise": "der gewünschte Geräuschpegel", "location.destination": "der gewünschte Ort",
+  "participation.accessibility": "die gewünschte Zugänglichkeit",
   "eligibility": "die Besuchsbedingungen", "binding": "die Kombination deiner Wünsche",
 };
 const duty = (f: LibrarianFactAssessment) => !["PREFERRED", "CONTEXT", "NOT_REQUIRED"].includes(f.modality) && !["CONTEXT", "NOT_REQUIRED"].includes(f.state);
@@ -87,10 +88,25 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state)).slice(0, 50).map(f => {
     const proven = f.state === "MET";
     const label = familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
-    return { reasonCode: factCode(f), domain: proven && candidate.status === "CONFIRMED" ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
-      statementDe: proven ? candidate.status === "CONFIRMED" ? `Bestätigt für das ausgewählte Angebot: ${label}.` : "Für einen Teil deines Wunsches liegen passende Angaben vor." : f.state === "FAILED" ? `Nicht passend: ${label}.` : `Noch nicht bestätigt: ${label}.`,
-      confirmed: proven && candidate.status === "CONFIRMED" };
+    return { reasonCode: factCode(f), domain: proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
+      statementDe: proven ? `Bestätigt: ${label}.` : f.reason === "SCOPED_PRICE_RANGE_OVERLAPS_BUDGET" ? "Der Preisrahmen enthält günstigere und teurere Optionen als dein Budget. Nicht jede Auswahl liegt innerhalb deiner Preisgrenze." : f.state === "FAILED" ? `Nicht passend: ${label}.` : `Noch nicht bestätigt: ${label}.`,
+      confirmed: proven };
   });
+  if (candidate.facts.some(f => f.reason === "DOCUMENTED_WHEELCHAIR_ACCESS_DETAILS")) {
+    const labels: Readonly<Record<string, string>> = {
+      "accessibility.accessible_indoor": "Innenbereich", "accessibility.accessible_outdoor": "Aussenbereich",
+      "accessibility.accessible_seating": "Sitzplätze", "accessibility.accessible_toilet": "WC",
+      "accessibility.step_free_entrance": "stufenloser Eingang", "accessibility.wheelchair_paths": "rollstuhlgängige Wege",
+    };
+    // This is the deterministic public accessibility assessment, using the
+    // dedicated ACCESSIBILITY permission, not unrestricted generated copy.
+    const rows = world.facts.filter(f => labels[f.key] && typeof f.value === "boolean"
+      && f.authorizedUseCases?.includes("ACCESSIBILITY") && f.authorizedUseCases.includes("GENERAL_WORLD"));
+    const yes = rows.filter(f => f.value === true).map(f => labels[f.key]);
+    const no = rows.filter(f => f.value === false).map(f => labels[f.key]);
+    if (rows.length) reasons.push({ reasonCode: "librarian-access-details", domain: "LIMITATION", sourceHash: contentHash(rows.map(f => f.entryHash)),
+      statementDe: [yes.length ? `Als zugänglich erfasst: ${yes.join(", ")}.` : "", no.length ? `Als nicht vorhanden oder nicht zugänglich erfasst: ${no.join(", ")}.` : ""].filter(Boolean).join(" ").slice(0,500), confirmed: false });
+  }
   const profileEntry = world.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"));
   if (profileEntry && candidate.offerIds.length) {
     const offers = parseExperienceProfile(profileEntry.value).offers.filter(o => candidate.offerIds.includes(o.id));
@@ -159,7 +175,11 @@ export function evaluateLibrarianProduct(input: {
     const scopedBudgetRetained = uiBudget?.state === "KNOWN" && requiredInEveryAlternative(meaning.logic, meaning, f =>
       f.key === "budget.maximum" && f.value.kind === "MONEY" && ["LTE", "EQ"].includes(f.value.operator)
       && f.value.amount === uiBudget.amount && f.value.currency === uiBudget.currency);
-    const guardRequest = { ...input.request, naturalLanguage: " ", explicit };
+    // Older clients may call a ranking preference a hard constraint. The
+    // current product policy still keeps atmosphere and indoor/outdoor soft.
+    const guardExplicit = { ...explicit, hardConstraints: explicit.hardConstraints?.filter(code =>
+      code !== "INDOOR_REQUIRED" && decodeWorldQueryConstraint(code)?.key !== "context.atmosphere") };
+    const guardRequest = { ...input.request, naturalLanguage: " ", explicit: guardExplicit };
     const guards = evaluateProductWorldViews(guardRequest, input.authority, input.projection, worlds, candidateSetHash).evaluation.candidates;
     candidates = candidates.map(c => {
       const guard = guards.find(g => g.candidateId === c.candidateId)!;
@@ -167,7 +187,7 @@ export function evaluateLibrarianProduct(input: {
       // This guard may not apply its implicit "today" to a future Luna visit.
       // Time eligibility belongs to Luna unless an older UI explicitly sets it.
       const uiRequestsTime = !!explicit.dateTime || explicit.hardConstraints?.some(code => ["OPEN_NOW", "OPEN_ON_REQUESTED_DAY"].includes(code));
-      const applicableGuard = (code: string) => (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime)
+      const applicableGuard = (code: string) => (code !== "INDOOR_REQUIRED") && (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime)
         && (code !== "BUDGET_MAXIMUM" || !scopedBudgetRetained);
       const failed = [...c.failedHardConstraints, ...guard.failedHardConstraints.filter(applicableGuard)];
       const unknown = [...c.unknownHardConstraints, ...guard.unknownHardConstraints.filter(applicableGuard)];
