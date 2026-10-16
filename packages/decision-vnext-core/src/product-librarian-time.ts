@@ -186,8 +186,9 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
         // Respect a documented recurring restriction without inventing a day,
         // current opening or availability. No schedule means no calendar claim.
         const compatible = !offer.schedule.length || offer.schedule.some(slot => {
-            const start = minute(slot.start), end = minute(slot.end) <= start ? 1440 : minute(slot.end);
-            return Math.max(start, visit.start) < Math.min(end, visit.end);
+            const start = minute(slot.start), end = minute(slot.end);
+            const intervals = end <= start ? [[start, 1440], [0, end]] as const : [[start, end]] as const;
+            return intervals.some(([from, to]) => Math.max(from, visit.start) < Math.min(to, visit.end));
         });
         return { state: compatible ? "MET" : "FAILED", hashes: [], reason: compatible ? "UNDATED_OFFER_DAYPART_COMPATIBLE" : "OFFER_OUTSIDE_REQUESTED_DAYPART" };
     }

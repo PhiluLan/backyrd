@@ -171,3 +171,9 @@ test('venue-wide geographic setting is not mistaken for an activity room require
  const r=search(request([fact('meal','food.meal','dinner'),fact('green','location.setting','im Grünen','REQUIRED',[])]),[binding(701,p)]);
  assert.equal(r.ranked[0]?.status,'CONFIRMED');
 });
+test('undated night includes the post-midnight part of an overnight offer',()=>{
+ const p=profile([{...offer('dance','EVENT',['inside'],[prop('experience.activity','dancing')]),schedule:[{weekday:4,start:'21:00',end:'02:00'}]}]);
+ const r=search(request([fact('dance','experience.activity','dancing'),phase('NIGHT')]),[binding(701,p)]);
+ assert.equal(r.ranked[0]?.status,'CONFIRMED');
+ assert.equal(r.ranked[0].facts.find(f=>f.factId==='phase').state,'CONTEXT');
+});
