@@ -2,8 +2,8 @@ import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, librarianConce
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
 import { contentHash, deepFreeze, withContentHash } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LibrarianFact, type LunaExpression } from "./product-luna-librarian.js";
-import { searchLibrarianCatalog, type LibrarianCandidate, type LibrarianFactAssessment } from "./product-librarian-matching.js";
-import { parseProductWorldResolverBinding, type ProductWorldView } from "./product-world-resolver-binding.js";
+import { searchLibrarianCatalogWithWorlds, type LibrarianCandidate, type LibrarianFactAssessment } from "./product-librarian-matching.js";
+import { type ProductWorldView } from "./product-world-resolver-binding.js";
 import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
 import { evaluateProductWorldViews, userTasteMatches } from "./product-v1-evaluator.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY } from "./product-v1-authority.js";
@@ -11,6 +11,12 @@ import { DecisionProductContextSchema, DecisionProductCandidateAssessmentSchema,
 
 export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@1" as const;
 const cityKey = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").trim().toLowerCase();
+
+export function canonicalLibrarianCity(city: string): string {
+  const canonical = cityKey(city) === "zurich" ? "Zurich" : city;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(canonical)) throw new Error("product_target_area_invalid");
+  return canonical;
+}
 
 /** A typed destination, never a second reading of the original sentence. */
 export function librarianTargetCity(request: DecisionProductRequest, meaning: LibrarianRequest): string {
@@ -23,9 +29,7 @@ export function librarianTargetCity(request: DecisionProductRequest, meaning: Li
   const city = request.explicit.targetCity ?? choices[0];
   if (!city) throw new Error("product_target_area_required");
   if (choices.length && cityKey(city) !== cityKey(choices[0]!)) throw new Error("product_librarian_explicit_city_mismatch");
-  const canonical = cityKey(city) === "zurich" ? "Zurich" : city;
-  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(canonical)) throw new Error("product_target_area_invalid");
-  return canonical;
+  return canonicalLibrarianCity(city);
 }
 
 /** Display/learning context only. Matching below receives the entire plan;
@@ -131,8 +135,7 @@ export function evaluateLibrarianProduct(input: {
   const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.meaning.raw, sourceText: input.meaning.source.sourceText, reference: input.meaning.source.reference });
   if (meaning.source.sourceText !== input.request.naturalLanguage || meaning.requestHash !== input.meaning.requestHash) throw new Error("product_librarian_source_binding_invalid");
   if (librarianTargetCity(input.request, meaning) !== input.authority.authorizedCity) throw new Error("product_librarian_city_binding_invalid");
-  const result = searchLibrarianCatalog({ request: meaning, catalog: input.catalog, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime }, limit: 1000 });
-  const worlds = input.catalog.map(raw => parseProductWorldResolverBinding(raw, input.authority.authorizedCity));
+  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime }, limit: 1000 });
   const byId = new Map(worlds.map(w => [w.spot.spotId, w]));
   const ids = [...byId.keys()].sort();
   if (!ids.length) throw new Error("product_world_candidate_set_invalid");

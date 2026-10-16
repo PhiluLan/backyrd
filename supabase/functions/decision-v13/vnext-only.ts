@@ -108,7 +108,7 @@ function withCors(response: Response, origin: string | null): Response {
   const headers = new Headers(response.headers);
   headers.set("access-control-allow-origin", origin);
   headers.set("vary", "origin");
-  headers.set("access-control-allow-headers", "authorization, content-type");
+  headers.set("access-control-allow-headers", "authorization, content-type, x-region");
   headers.set("access-control-allow-methods", "POST, OPTIONS");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }

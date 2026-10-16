@@ -525,6 +525,6 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       try { ports.diagnostics?.reportFailure(stage, internalCode); } catch { /* Diagnostics may never change the fail-closed response. */ }
       reportTimings("ERROR");
       return errorResponse(known);
-    } finally { if (timeout) clearTimeout(timeout); }
+    } finally { if (timeout) clearTimeout(timeout); abort.abort(); }
   };
 }

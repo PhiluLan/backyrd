@@ -3,7 +3,7 @@ import { createDecisionProductHttpHandler, createDecisionProductLunaProvider, cr
 import { reference, authority } from "./librarian-matching-fixtures.mjs";
 const actor = {userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
 const identity = {releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};
-export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel'},fetchImpl,auth=true,understandOverride,requestOverride}) {
+export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false}) {
   let calls=0,reads=0,stored,diagnostics=[];
   const provider=createDecisionProductLunaProvider({apiKey:'synthetic-key',allowedUserIds:'*',now:()=>new Date(reference.now),fetchImpl:fetchImpl??(async(_url,options)=>{
     calls++; const body=JSON.parse(options.body); assert.equal(body.store,false);
@@ -16,7 +16,9 @@ export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel
   const evaluation=createDecisionProductRpcEvaluationProvider(rpc,{meaningRequired:true});
   const handler=createDecisionProductHttpHandler({
     auth:{async authenticate(){return auth?actor:null;}},rateLimit:{async consume(){return true;}},control:{timeoutMilliseconds:2000,maxRequestBytes:16384,async assertBoundary(){}},
-    understand:understandOverride??provider,
+    understand:understandOverride??(prefetch ? async(request,actor,signal)=>{
+      const [meaning]=await Promise.all([provider(request,actor,signal),evaluation.prefetch({request,actor,identity,signal})]);return meaning;
+    }:provider),
     evaluate(request,actor,signal,meaning){return evaluation.evaluate({request,actor,signal,meaning,identity});},
     idempotency:{async commit(input){stored=input.execution;return {status:'CREATED'};}},
     interaction:{async resolve(){throw Error('unexpected interaction');}},

@@ -57,10 +57,11 @@ export async function recordDecisionProductInteraction({
     binding: DECISION_PRODUCT_RELEASE_BINDING,
     request,
     invoke: async () => {
+      // The canonical Decision uses the same Zürich database region as Web.
       const abort = new AbortController();
       const { data, error } = await withinDecisionDeadline(supabase.functions.invoke<unknown>(
         DECISION_PRODUCT_RELEASE_BINDING.transportFunction,
-        { body: request, headers: { Authorization: `Bearer ${accessToken}` }, signal: abort.signal },
+        { body: request, headers: { Authorization: `Bearer ${accessToken}`, "x-region": "eu-central-2" }, signal: abort.signal },
       ) as Promise<InvokeResult<unknown>>, 15_000, "decision_interaction_transport_timeout", () => abort.abort());
       if (error || !data) throw error ?? new Error("decision_interaction_empty_response");
       return data;
@@ -80,10 +81,11 @@ export async function invokeDecisionProduct({
     binding: DECISION_PRODUCT_RELEASE_BINDING,
     request,
     invoke: async () => {
+      // The canonical Decision uses the same Zürich database region as Web.
       const abort = new AbortController();
       const { data, error } = await withinDecisionDeadline(supabase.functions.invoke<unknown>(
         DECISION_PRODUCT_RELEASE_BINDING.transportFunction,
-        { body: request, headers: { Authorization: `Bearer ${accessToken}` }, signal: abort.signal },
+        { body: request, headers: { Authorization: `Bearer ${accessToken}`, "x-region": "eu-central-2" }, signal: abort.signal },
       ) as Promise<InvokeResult<unknown>>, 23_000, "decision_request_transport_timeout", () => abort.abort());
       if (error || !data) throw error ?? new Error("decision_single_route_empty_response");
       return data;
