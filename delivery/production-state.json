@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "f8af68d58e4569b456044e4b3c62f3df1dbf9686",
-    "migrationTip": "20261015122708_world_verification_clock_skew_guard",
-    "migrationCount": 183,
-    "deploymentRunId": 38736379377,
+    "shippedSourceSha": "4e5325b1662e4782d4fc97baaafae1863784c4f1",
+    "migrationTip": "20261016120624_public_spot_knowledge_presentation_v2_5",
+    "migrationCount": 184,
+    "deploymentRunId": 38902007241,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
@@ -19,7 +19,17 @@
     "iosObservation": "Installed iPhone 16 App Status matched EAS production group and gitCommitHash on 2026-09-20; Android update identity below remains historical",
     "androidUpdateId": "01a085bf-9f8b-71f0-b5ff-8e8ab1784226",
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
-    "productionVerified": true
+    "productionVerified": true,
+    "latestPublishedIos": {
+      "sourceSha": "4e5325b1662e4782d4fc97baaafae1863784c4f1",
+      "runtimeVersion": "1.1.0",
+      "channel": "production",
+      "otaGroupId": "ba4ce651-8c66-41c8-af91-2d16f4a56046",
+      "iosUpdateId": "01a144bc-20eb-7349-b047-429dbd00d058",
+      "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
+      "installedDeviceVerified": false,
+      "note": "Existing top-level Mobile verification and review-media evidence describe the earlier observed release. This update is published and bundle/config verified, but its installation on the user device has not been observed."
+    }
   },
   "reviewMediaIncident": {
     "id": "review-media-founder-iphone-failure-2026-09-09",
