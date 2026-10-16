@@ -25,11 +25,17 @@ test('unreviewed or missing profiles produce no public cards',()=>{
 });
 
 test('all offers and areas start collapsed with accessible native disclosure controls',()=>{
- const card={name:'Angebot',prices:[],schedule:[],properties:[],areaIds:[]};
+ const card={name:'Angebot',prices:[],schedule:[],properties:[{key:'participation.booking',state:'KNOWN',value:'Empfohlen',conditions:{}}],areaIds:['room']};
  const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{...card,id:'a'},{...card,id:'b',name:'Ein anderes Angebot'}],areas:[{id:'room',name:'Garten',properties:[]}],properties:[]};
  const html=renderToStaticMarkup(createElement(SpotExperience,{profile}));
  assert.equal((html.match(/<details/g)??[]).length,3);
  assert.doesNotMatch(html,/<details[^>]*\sopen(?:[=>\s])/);
  assert.match(html,/aria-label="Angebot: mehr Informationen"/);
  assert.doesNotMatch(html,/<dl|Was kann man hier machen|Wer kann dieses Angebot/);
+});
+
+test('a name-only offer remains a simple row without an empty disclosure',()=>{
+ const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'a',name:'Degustation',prices:[],schedule:[],properties:[],areaIds:[]}],areas:[],properties:[]};
+ const html=renderToStaticMarkup(createElement(SpotExperience,{profile}));
+ assert.match(html,/Degustation/);assert.doesNotMatch(html,/<details|Mehr erfahren/);
 });

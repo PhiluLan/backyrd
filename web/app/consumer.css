@@ -1775,3 +1775,5 @@
   .b-experience-name { font-size: 17px; }
   .b-experience-toggle { gap: 8px; font-size: 12px; }
 }
+
+.b-experience-static { display: flex; align-items: center; min-height: 72px; padding: 18px 0; }

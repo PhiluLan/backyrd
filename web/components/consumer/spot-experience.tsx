@@ -15,6 +15,8 @@ function VisitorDetails({ facts }: { facts: PublicSpotFact[] }) {
 }
 
 function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: boolean }) {
+  const hasDetails = card.prices.length + card.times.length + card.facts.length + card.places.length > 0;
+  if (!hasDetails) return <div className="b-experience-row b-experience-static"><span className="b-experience-name">{card.name}</span></div>;
   return (
     <details className="b-experience-row">
       <summary aria-label={`${card.name}: mehr Informationen`}>
