@@ -330,3 +330,25 @@ test("unmapped music and precise-time needs cannot become a fully confirmed reco
   assert.ok(candidate.reasons.some((row) => row.reasonCode === "music-at-visit-unverified" && !row.confirmed));
   assert.ok(candidate.reasons.some((row) => row.reasonCode === "precise-time-unverified" && !row.confirmed));
 });
+
+
+test("identical resolver rows are idempotent; divergent provenance, validity and values remain rejected", () => {
+  const entry = fact("operation.price_level", "LOW");
+  const single = binding(cafeId, [entry]);
+  const repeated = structuredClone(single);
+  repeated.decisionProjection.facts.push(structuredClone(entry));
+  const parsed = read(repeated);
+  assert.equal(parsed.facts.filter(row => row.key === entry.key).length, 1);
+  assert.deepEqual(parsed.facts, read(single).facts);
+  for (const mutation of [
+    { value: "HIGH" }, { basisClaimHashes: [contentHash("other-source")] },
+    { validUntil: "2026-09-21T12:00:00.000Z" }, { trust: "UNVERIFIED" }, { scope: "AREA" },
+  ]) {
+    const changed = structuredClone(repeated);
+    Object.assign(changed.decisionProjection.facts.at(-1), mutation);
+    assert.throws(() => read(changed), /product_world_fact_scope_or_duplicate/);
+  }
+  const invalid = binding(cafeId, [fact("operation.price_level", "NOT_A_PRICE_LEVEL")]);
+  invalid.decisionProjection.facts.push(structuredClone(invalid.decisionProjection.facts.at(-1)));
+  assert.throws(() => read(invalid));
+});
