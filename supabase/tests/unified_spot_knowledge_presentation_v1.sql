@@ -120,4 +120,58 @@ select pg_temp.assert(
 );
 select pg_temp.expect_state(format('select public.spot_detail_product_profile_v1(%L,''OTHER'')',pg_temp.id('presentation-spot')),'22023');
 
+
+-- Additive registries must keep the same public inventory as legacy spots.
+select pg_temp.assert(not exists (
+ select 1 from world_knowledge_private.attribute_definitions d
+ left join world_knowledge_private.spot_detail_presentation_policy_v1 p
+ on p.registry_version=d.registry_version and p.attribute_key=d.attribute_key
+ where d.registry_version in ('backyrd.world-knowledge.registry@2.2','backyrd.world-knowledge.registry@2.3','backyrd.world-knowledge.registry@2.4','backyrd.world-knowledge.registry@2.5') and p.attribute_key is null
+), 'additive registry presentation inventory incomplete');
+insert into world_knowledge_private.resolution_manifests
+select (jsonb_populate_record(null::world_knowledge_private.resolution_manifests,
+ to_jsonb(m)||jsonb_build_object('id',pg_temp.id('presentation-v25'),'registry_version','backyrd.world-knowledge.registry@2.5','policy_version','backyrd.world-knowledge.source-policy@4f.1',
+ 'registry_release_hash',(select registry_hash from world_knowledge_private.registry_releases where registry_version='backyrd.world-knowledge.registry@2.5'),
+ 'policy_release_hash',(select policy_hash from world_knowledge_private.source_policy_releases where policy_version='backyrd.world-knowledge.source-policy@4f.1'),
+ 'manifest_hash',pg_temp.hash('presentation-v25')))).*
+from world_knowledge_private.resolution_manifests m where m.id=pg_temp.id('presentation-manifest');
+insert into world_knowledge_private.resolution_entries
+select (jsonb_populate_record(null::world_knowledge_private.resolution_entries,to_jsonb(e)||jsonb_build_object('manifest_id',pg_temp.id('presentation-v25')))).*
+from world_knowledge_private.resolution_entries e where e.manifest_id=pg_temp.id('presentation-manifest');
+update world_knowledge_private.current_projection_pointers set manifest_id=pg_temp.id('presentation-v25'),manifest_hash=pg_temp.hash('presentation-v25'),registry_version='backyrd.world-knowledge.registry@2.5',policy_version='backyrd.world-knowledge.source-policy@4f.1' where spot_id=pg_temp.id('presentation-spot');
+insert into world_knowledge_private.resolution_entries(manifest_id,attribute_key,scope,resolution,value,trust,freshness,basis_claim_hashes,entry_hash)
+values
+(pg_temp.id('presentation-v25'),'experience.profile','SPOT','KNOWN_VALUE','{"contractVersion":"backyrd.world-knowledge.experience-profile@1.0","reviewed":true,"offers":[{"id":"dinner","name":"Abendessen"}],"areas":[],"properties":[]}', 'VERIFIED','CURRENT',array[pg_temp.hash('profile-claim')],pg_temp.hash('profile-entry')),
+(pg_temp.id('presentation-v25'),'discovery.profile','SPOT','KNOWN_VALUE','{"reviewed":true,"description":"Public confirmed description"}', 'VERIFIED','CURRENT',array[pg_temp.hash('discovery-claim')],pg_temp.hash('discovery-entry'));
+set local role anon;
+select pg_temp.assert(
+ jsonb_array_length(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'WEB')->'fields')>0
+ and public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'WEB')->'experienceProfile'->'offers'->0->>'name'='Abendessen'
+ and public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->>'publicDescription'='Public confirmed description',
+ 'new registry loses public fields or scoped profiles');
+select pg_temp.assert(not exists(select 1 from jsonb_array_elements(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'WEB')->'fields') f where f->>'attributeKey' in ('experience.profile','discovery.profile','description.discovery_source')), 'raw profile escaped into legacy fields');
+select pg_temp.expect_state('select * from world_knowledge_private.spot_detail_presentation_policy_v1','42501');
+reset role;
+update world_knowledge_private.spot_detail_presentation_policy_v1 set web_visible=false where registry_version='backyrd.world-knowledge.registry@2.5' and attribute_key='experience.profile';
+select pg_temp.assert(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'WEB')->'experienceProfile'='null'::jsonb and public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'experienceProfile'<>'null'::jsonb,'surface policy ignored');
+-- Immutable manifests/entries: each negative fixture is a new sealed snapshot.
+create function pg_temp.profile_variant(p_variant text,p_reviewed boolean,p_freshness text,p_trust text) returns void language plpgsql as $$
+begin
+ insert into world_knowledge_private.resolution_manifests
+ select (jsonb_populate_record(null::world_knowledge_private.resolution_manifests,to_jsonb(m)||jsonb_build_object('id',pg_temp.id(p_variant),'manifest_hash',pg_temp.hash(p_variant),'input_hash',pg_temp.hash(p_variant||'-input')))).*
+ from world_knowledge_private.resolution_manifests m where m.id=pg_temp.id('presentation-v25');
+ insert into world_knowledge_private.resolution_entries
+ select (jsonb_populate_record(null::world_knowledge_private.resolution_entries,to_jsonb(e)||jsonb_build_object('manifest_id',pg_temp.id(p_variant))||case when e.attribute_key='experience.profile' then jsonb_build_object('value',jsonb_set(e.value,'{reviewed}',to_jsonb(p_reviewed)),'freshness',p_freshness,'trust',p_trust) else '{}'::jsonb end)).*
+ from world_knowledge_private.resolution_entries e where e.manifest_id=pg_temp.id('presentation-v25');
+ update world_knowledge_private.current_projection_pointers set manifest_id=pg_temp.id(p_variant),manifest_hash=pg_temp.hash(p_variant) where spot_id=pg_temp.id('presentation-spot');
+end $$;
+select pg_temp.profile_variant('unreviewed',false,'CURRENT','VERIFIED');
+select pg_temp.assert(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'experienceProfile'='null'::jsonb,'unreviewed profile exposed');
+select pg_temp.profile_variant('stale',true,'STALE','VERIFIED');
+select pg_temp.assert(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'experienceProfile'='null'::jsonb,'stale profile exposed');
+select pg_temp.profile_variant('asserted',true,'CURRENT','ASSERTED');
+select pg_temp.assert(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'experienceProfile'='null'::jsonb,'unverified profile exposed');
+update public.spots set status='pending' where id=pg_temp.id('presentation-spot');
+select pg_temp.expect_state(format('select public.spot_detail_product_profile_v1(%L,''WEB'')',pg_temp.id('presentation-spot')),'P0002');
+
 rollback;

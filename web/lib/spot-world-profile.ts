@@ -2,6 +2,8 @@ export type PublicWorldSpotProfile = {
   contractVersion: "backyrd.spot-detail-product-profile@1.0";
   surface: "WEB";
   worldManifestHash: string | null;
+  experienceProfile?: unknown;
+  publicDescription?: string | null;
   spot: {
     spotId: string;
     name: string;

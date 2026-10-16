@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "public-spot-knowledge-presentation-v2-5",
+  "previousEvidence": "world-verification-clock-skew-guard",
+  "previousFingerprints": {
+    "publicAclSha256": "6a098d01a9a9d356a6c3acc9c8a35e36a0dc45a526a1297ba9b89461d139f850",
+    "applicationSchemaSha256": "9704ecd0b5ee4e81fc3ad06573943f36fc03c54ad0d7229ec2a5b1aeb9a76501"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261016120624_public_spot_knowledge_presentation_v2_5.sql",
+      "sha256": "60be5d7687adf38a31a19bf604bc20e720395dbcbdd6bdbc116496a47ee1b098"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/unified_spot_knowledge_presentation_v1.sql",
+      "sha256": "870746a5844d9a02a8d2e55b4cf2183be632f649aef5e1a148d0d3e29be5f529"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "6a098d01a9a9d356a6c3acc9c8a35e36a0dc45a526a1297ba9b89461d139f850",
+    "applicationSchemaSha256": "42f7bd44c0fb6f046ab9269b79d5b062208b4cc7b0acf384282d07fdfa49ad95"
+  }
+}
