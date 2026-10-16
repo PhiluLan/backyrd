@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { uploadSpotPhoto, validateSpotPhoto } from "@/lib/spotMediaUpload";
 import { supabase } from "@/lib/supabaseClient";
 import type { Spot, SpotStatus } from "@/types/spots";
 
@@ -63,7 +64,7 @@ interface OpeningHourSlot {
 type OpeningHoursByDay = Record<string, OpeningHourSlot[]>;
 
 interface SpotPhoto {
-  id: string;
+  id: number | string;
   url: string;
 }
 
@@ -240,10 +241,16 @@ export function SpotForm({
     useState<SpotIntelligenceFormState>(EMPTY_INTELLIGENCE);
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<number | string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!success) return;
+    const timer = window.setTimeout(() => setSuccess(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [success]);
 
   const addressInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -461,14 +468,16 @@ export function SpotForm({
   function handleHeaderFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setHeaderFile(file);
+    try { validateSpotPhoto(file); } catch(cause) {setError(cause instanceof Error ? cause.message : "Ungültiges Bild.");return;}
+    setError(null); setSuccess(null); setHeaderFile(file);
     setPhotoPreviewUrl(URL.createObjectURL(file));
   }
 
   function handleGalleryFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    setGalleryFiles((prev) => [...prev, ...files]);
+    try {files.forEach(validateSpotPhoto);} catch(cause) {setError(cause instanceof Error ? cause.message : "Ungültiges Bild.");return;}
+    setError(null);setSuccess(null);setGalleryFiles((prev) => [...prev, ...files]);
   }
 
   function removeGalleryFile(index: number) {
@@ -512,51 +521,6 @@ export function SpotForm({
       setError(err instanceof Error ? err.message : "Fehler beim Löschen des Fotos.");
     } finally {
       setDeletingPhotoId(null);
-    }
-  }
-
-  async function uploadHeaderPhoto(file: File, spotId: string) {
-    const ext = file.name.split(".").pop();
-    const filename = `header-${spotId}-${Date.now()}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("spot-photos")
-      .upload(filename, file);
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage
-      .from("spot-photos")
-      .getPublicUrl(filename);
-    const url = data.publicUrl;
-
-    await supabase
-      .from("spots")
-      .update({ header_photo_path: url })
-      .eq("id", spotId);
-    await supabase.from("spot_photos").insert({ spot_id: spotId, url });
-
-    return url;
-  }
-
-  async function uploadGalleryPhotos(files: File[], spotId: string) {
-    for (const file of files) {
-      const ext = file.name.split(".").pop();
-      const filename = `gallery-${spotId}-${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}.${ext}`;
-
-      const { error } = await supabase.storage
-        .from("spot-photos")
-        .upload(filename, file);
-      if (error) throw error;
-
-      const { data } = supabase.storage
-        .from("spot-photos")
-        .getPublicUrl(filename);
-      const url = data.publicUrl;
-
-      await supabase.from("spot_photos").insert({ spot_id: spotId, url });
     }
   }
 
@@ -700,6 +664,7 @@ export function SpotForm({
 
     let savedSpotId = spotId ?? null;
 
+    const newPhotoCount=(headerFile?1:0)+galleryFiles.length;
     const normalized = normalizeSpotFormValues(values);
     const payload: Partial<SpotFormValues> = canonicalKnowledgeManaged
       ? {
@@ -747,20 +712,27 @@ export function SpotForm({
 
       if (headerFile) {
         setUploadingPhoto(true);
-        await uploadHeaderPhoto(headerFile, savedSpotId);
+        const photo=await uploadSpotPhoto(supabase,headerFile,savedSpotId,true);
+        setValues(previous=>({...previous,header_photo_path:photo.url}));
+        setPhotoPreviewUrl(photo.url);
+        setExistingGallery(previous=>[...previous.filter(item=>item.id!==photo.id),photo]);
         setHeaderFile(null);
         setUploadingPhoto(false);
       }
 
       if (galleryFiles.length > 0) {
         setUploadingPhoto(true);
-        await uploadGalleryPhotos(galleryFiles, savedSpotId);
+        for(const file of galleryFiles){
+          const photo=await uploadSpotPhoto(supabase,file,savedSpotId,false);
+          setExistingGallery(previous=>[...previous.filter(item=>item.id!==photo.id),photo]);
+          setGalleryFiles(previous=>previous.filter(item=>item!==file));
+        }
         setUploadingPhoto(false);
       }
 
       if (!canonicalKnowledgeManaged) await refreshSpotMl(savedSpotId);
 
-      setSuccess(canonicalKnowledgeManaged ? "Betrieb & Medien gespeichert" : "Gespeichert");
+      setSuccess(canonicalKnowledgeManaged ? newPhotoCount ? `${newPhotoCount} ${newPhotoCount===1?"Bild":"Bilder"} und Verwaltungsangaben gespeichert.` : "Verwaltungsangaben gespeichert. Es waren keine neuen Bilder ausgewählt." : "Gespeichert");
       onSaved?.();
     } catch (err: unknown) {
       const failure = err && typeof err === "object" ? err as Record<string, unknown> : {};
@@ -773,14 +745,14 @@ export function SpotForm({
       });
       setError(spotSaveErrorMessage(failure));
     } finally {
-      setSaving(false);
+      setSaving(false);setUploadingPhoto(false);
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="by-form">
-      {error ? <div className="by-alert by-alertError">{error}</div> : null}
-      {success ? <div className="by-alert by-alertOk">{success}</div> : null}
+      {error ? <div role="alert" className="by-alert by-alertError">{error}</div> : null}
+      {success ? <div role="status" className="by-alert by-alertOk">{success}</div> : null}
 
       <div className="by-formGrid1">
         <div
@@ -1312,20 +1284,22 @@ export function SpotForm({
         ) : null}
 
         <div className="by-panel by-section" style={{ padding: 14 }}>
-          <div className="by-h3">Header Foto</div>
+          <div className="by-h3">Titelbild</div>
           <div className="by-muted by-small">
-            Upload in Storage + Eintrag in spot_photos.
+            Das Titelbild erscheint auf der Spotkarte und oben auf der Detailseite. Wähle ein Bild und klicke anschließend auf Speichern.
           </div>
 
           <div style={{ height: 10 }} />
 
           <input
             type="file"
-            accept="image/*"
-            onChange={handleHeaderFileChange}
-            className="by-file"
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Titelbild auswählen" onChange={handleHeaderFileChange}
+            className="by-file" disabled={saving}
           />
 
+          {headerFile&&<p className="by-muted by-small">{headerFile.name} ausgewählt · noch nicht gespeichert</p>}
+          <p className="by-muted by-small">JPEG, PNG oder WebP · maximal 15 MB pro Bild</p>
           {uploadingPhoto ? (
             <div className="by-muted by-small" style={{ marginTop: 8 }}>
               Foto wird hochgeladen…
@@ -1344,17 +1318,17 @@ export function SpotForm({
         <div className="by-panel by-section" style={{ padding: 14 }}>
           <div className="by-h3">Galerie-Fotos</div>
           <div className="by-muted by-small">
-            Mehrere Bilder, werden zu spot_photos hinzugefügt.
+            Zusätzliche Bilder für die Galerie des Spots. Wähle ein oder mehrere Bilder und speichere deine Auswahl.
           </div>
 
           <div style={{ height: 10 }} />
 
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp"
             multiple
-            onChange={handleGalleryFilesChange}
-            className="by-file"
+            aria-label="Galeriebilder auswählen" onChange={handleGalleryFilesChange}
+            className="by-file" disabled={saving}
           />
 
           <div className="by-gallery">
@@ -1404,9 +1378,6 @@ export function SpotForm({
                 : "Speichern"}
           </button>
 
-          {success ? (
-            <span className="by-muted by-small">{success}</span>
-          ) : null}
         </div>
       </div>
     </form>

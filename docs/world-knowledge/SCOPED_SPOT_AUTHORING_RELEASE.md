@@ -500,3 +500,31 @@ behavior, and shows “Bereits zugeordnet” for an identical property. Incompat
 targets are explained. Shared/area pages do not display an unrelated cuisine
 assignment tool. The original global claim is retained; no automatic assignment
 to other offers, inference from prose, production writes, or schema changes occur.
+
+
+### Age, consumption and media save repairs (2026-10-16)
+
+Age-access edits preserve notes and send `notes: null` when absent, as required
+by the existing PostgreSQL validator. No-minimum and minimum-age rules share the
+same complete contract. A read-only production validation confirmed that the
+previous missing-notes payload was invalid while the complete payload is valid.
+Consumption controls initialize the displayed policy as the actual draft value;
+allowed and forbidden policies accept an empty exceptions array. Exceptions are
+explicitly optional. Shared controls apply to both Admin and Owner.
+
+Admin media uploads validate JPEG/PNG/WebP and the bucket's 15 MiB limit, check
+storage and `spot_photos` responses, and use the existing authorized basics RPC
+to confirm the explicit header. The former direct Spot UPDATE had no matching
+RLS policy and its error was ignored. Successful uploads update the current
+header state and leave the upload queue, so a later save cannot restore the old
+header or upload the same queued images again. Partial failures remain errors;
+no success is inferred from a blob upload alone. No policies or migrations change.
+Success feedback disappears after two seconds. Unsupported HEIC requires JPEG
+export; automatic HEIC conversion is not included.
+
+The mobile detail implementation adds a separate secondary gallery, validates
+own-bucket URLs, and refreshes media on focus. Gallery images never become a
+fallback cover. This code requires a compatible certified mobile release; a web
+release alone does not deliver it to installed apps. Synthetic browser fixtures
+cover rule save/reload, cover and gallery persistence, repeated save and denied
+associations/header confirmation. Production Spot data is not used as a fixture.

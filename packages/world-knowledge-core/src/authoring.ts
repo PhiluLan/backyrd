@@ -221,7 +221,7 @@ const correctionFor = (valueType: ValueType): string => ({
   PRICE_OPTIONS: "Bitte prüfe Preiszweck, Basis, Währung, Von/Bis, Altersgrenzen und Bedingungen. Beträge haben höchstens zwei Nachkommastellen.",
   INTEGER_RANGE: "Bitte gib eine kleinste und größte ganze Zahl ein; Von darf Bis nicht überschreiten.",
   RESERVATION_RULE: "Bitte vervollständige die Reservationsregel. Ein Zeitfenster benötigt Von und Bis.",
-  CONSUMPTION_RULE: "Bitte wähle eine Regel; Ausnahmen dürfen nicht leer sein.",
+  CONSUMPTION_RULE: "Bitte wähle eine gültige Regel. Ausnahmen sind optional; entferne leere Einträge.",
   PET_ACCESS_RULE: "Bitte beantworte Innen, Außen und Assistenztiere mit den angebotenen Werten.",
   AGE_ACCESS_RULE: "Bitte gib bei Mindestalter auch ein Alter zwischen 0 und 120 an.",
   AGE_ACCESS_RULE_V2: "Bitte vervollständige jede Altersregel. Eine Grenze benötigt Alter; Begleitausnahmen benötigen eine erlaubte Begleitperson.",

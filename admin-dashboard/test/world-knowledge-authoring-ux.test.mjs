@@ -111,7 +111,7 @@ test("Product World authoring is compact on mobile without hiding rules or optio
 
 test("an empty minimum-age field saves the explicit no-restriction contract", async () => {
   const editor = await read("packages/world-knowledge-authoring-ui/src/index.tsx");
-  assert.match(editor, /control === "AGE_ACCESS_RULE_V2"[\s\S]*?\{ rules: \[blankAgeRule\(\)\] \}/);
+  assert.match(editor, /control === "AGE_ACCESS_RULE_V2"[\s\S]*?\{ rules: \[blankAgeRule\(\)\], notes: null \}/);
   assert.match(editor, /control === "AGE_ACCESS_RULE"[\s\S]*?\{ policy: "ALL_AGES", minimumAge: null, appliesFromTime: null \}/);
   assert.match(editor, /Keine Altersbeschränkung/);
   assert.match(editor, /Diese Auswahl wird ausdrücklich als „keine Mindestalter-Regel“ gespeichert/);

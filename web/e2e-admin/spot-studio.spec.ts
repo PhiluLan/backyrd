@@ -70,3 +70,31 @@ test('Profilstand lädt nur die sichtbare Seite und begrenzt parallele Abfragen'
  await page.goto('/spots');await expect(page.locator('.admin-desktopTable .admin-profileStatus').filter({hasText:'Grunddaten vorhanden'})).toHaveCount(25);expect(requests).toHaveLength(25);expect(maximum).toBeLessThanOrEqual(4);
  await page.getByRole('button',{name:'Weiter',exact:true}).click();await expect(page.locator('.admin-desktopTable .admin-profileStatus').filter({hasText:'Grunddaten vorhanden'})).toHaveCount(1);expect(requests).toHaveLength(26);
 });
+
+for(const failure of ['none','gallery','header'] as const)test(`Medienupload bestätigt Titelbild und Galerie oder meldet Fehler: ${failure}`,async({page})=>{
+ await page.setViewportSize({width:390,height:844});await mockAdmin(page);let header:string|null=null,sequence=0,uploads=0;const photos:Array<{id:number;spot_id:string;url:string}>=[];const patches:Array<Record<string,unknown>>=[];
+ const bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=','base64');
+ await page.route('**/rest/v1/rpc/backyrd_admin_save_spot_basics_v1',route=>{
+  const patch=route.request().postDataJSON().p_patch as Record<string,unknown>;patches.push(patch);
+  if(failure==='header'&&typeof patch.header_photo_path==='string'&&patch.header_photo_path) return route.fulfill({status:403,json:{message:'forbidden'}});
+  if('header_photo_path' in patch)header=typeof patch.header_photo_path==='string'&&patch.header_photo_path.trim()?patch.header_photo_path:null;
+  return route.fulfill({json:{spot:{id:spotId,name:'Beispielhotel',city:'Zürich',status:'approved',header_photo_path:header}}});
+ });
+ await page.route('**/storage/v1/object/spot-photos/**',route=>{uploads++;return route.fulfill({json:{Key:'spot-photos/test-image.png'}});});
+ await page.route('**/rest/v1/spot_photos?**',route=>{
+  if(route.request().method()==='GET')return route.fulfill({json:photos});
+  if(failure==='gallery')return route.fulfill({status:403,json:{message:'RLS denied'}});
+  const body=route.request().postDataJSON();const row={...body,id:++sequence};photos.push(row);return route.fulfill({json:row});
+ });
+ await page.goto(`/spots/${spotId}/edit`);await page.getByRole('button',{name:'Bilder & Verwaltung',exact:true}).click();
+ await page.getByLabel('Titelbild auswählen',{exact:true}).setInputFiles({name:'cover.png',mimeType:'image/png',buffer:bytes});
+ await page.getByLabel('Galeriebilder auswählen',{exact:true}).setInputFiles({name:'gallery.png',mimeType:'image/png',buffer:bytes});
+ await page.locator('#spot-information').getByRole('button',{name:'Speichern',exact:true}).click();
+ if(failure==='none'){
+  await expect(page.getByText('2 Bilder und Verwaltungsangaben gespeichert.',{exact:true})).toBeVisible();expect(uploads).toBe(2);expect(photos).toHaveLength(2);expect(header).toContain('/storage/v1/object/public/spot-photos/header-');
+  const committed=header;await page.locator('#spot-information').getByRole('button',{name:'Speichern',exact:true}).click();await expect(page.getByText('Verwaltungsangaben gespeichert. Es waren keine neuen Bilder ausgewählt.',{exact:true})).toBeVisible();expect(uploads).toBe(2);expect(header).toBe(committed);
+ }else{
+  await expect(page.locator('.by-alert').getByText(failure==='gallery'?'Das Bild wurde hochgeladen, konnte aber nicht dem Spot zugeordnet werden. Es wird noch kein Erfolg bestätigt.':'Das Foto ist in der Galerie gespeichert, konnte aber nicht als Titelbild bestätigt werden. Bitte versuche die Auswahl erneut.',{exact:true})).toBeVisible();await expect(page.getByText(/Bilder und Verwaltungsangaben gespeichert/)).toHaveCount(0);expect(header).toBeNull();
+ }
+ expect(patches.some(patch=>typeof patch.header_photo_path==='string'&&!!patch.header_photo_path)).toBe(failure!=='gallery');
+});
