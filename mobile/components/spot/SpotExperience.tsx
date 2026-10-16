@@ -14,7 +14,7 @@ function VisitorDetails({ facts, offerKind = "" }: { facts: PublicSpotFact[]; of
 
 function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const hasDetails = card.prices.length + card.times.length + card.facts.length + card.places.length > 0;
+  const hasDetails = card.prices.length + card.times.length + spotExperienceDetailGroups(card.facts, area ? "" : card.kind).length + card.places.length > 0;
   if (!hasDetails) return <View style={styles.row}><View style={styles.summary}><Text style={styles.name}>{card.name}</Text></View></View>;
   return <View style={styles.row}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${card.name}: ${expanded ? "weniger" : "mehr"} Informationen`} accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={({ pressed }) => [styles.summary, pressed && styles.pressed]}>

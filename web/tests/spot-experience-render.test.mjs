@@ -39,3 +39,8 @@ test('a name-only offer remains a simple row without an empty disclosure',()=>{
  const html=renderToStaticMarkup(createElement(SpotExperience,{profile}));
  assert.match(html,/Degustation/);assert.doesNotMatch(html,/<details|Mehr erfahren/);
 });
+
+test('a meal with only repeated defaults does not expose an empty details panel',()=>{
+ const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'a',kind:'LUNCH',name:'Mittagessen',prices:[],schedule:[],properties:[{key:'experience.activity',state:'KNOWN',value:'essen gehen',conditions:{}},{key:'food.meal_extent',state:'KNOWN',value:'Essen',conditions:{}}],areaIds:[]}],areas:[],properties:[]};
+ const html=renderToStaticMarkup(createElement(SpotExperience,{profile}));assert.match(html,/Mittagessen/);assert.doesNotMatch(html,/<details|Mehr erfahren/);
+});
