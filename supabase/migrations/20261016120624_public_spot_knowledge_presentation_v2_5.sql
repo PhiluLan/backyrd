@@ -113,6 +113,14 @@ begin
     and policy.public_allowed
     and entry.attribute_key not in ('experience.profile','discovery.profile','description.discovery_source')
     and case when p_surface = 'MOBILE' then policy.mobile_visible else policy.web_visible end
+    -- Existing Admin controls remain authoritative for shared legacy fields.
+    and not exists (
+      select 1 from world_knowledge_private.spot_detail_presentation_policy_v1 inherited
+      where inherited.registry_version='backyrd.world-knowledge.registry@2.1'
+        and inherited.attribute_key=policy.attribute_key
+        and (not inherited.public_allowed
+          or not case when p_surface='MOBILE' then inherited.mobile_visible else inherited.web_visible end)
+    )
     and (entry.resolution in ('KNOWN_TRUE','KNOWN_FALSE','KNOWN_VALUE')
       or (entry.resolution = 'UNKNOWN' and policy.unknown_behavior = 'SHOW_UNKNOWN'));
 
@@ -180,6 +188,14 @@ begin
       and claim.knowledge_state = 'KNOWN_VALUE'
       and policy.public_allowed
       and case when p_surface = 'MOBILE' then policy.mobile_visible else policy.web_visible end
+    -- Existing Admin controls remain authoritative for shared legacy fields.
+    and not exists (
+      select 1 from world_knowledge_private.spot_detail_presentation_policy_v1 inherited
+      where inherited.registry_version='backyrd.world-knowledge.registry@2.1'
+        and inherited.attribute_key=policy.attribute_key
+        and (not inherited.public_allowed
+          or not case when p_surface='MOBILE' then inherited.mobile_visible else inherited.web_visible end)
+    )
     order by claim.last_changed_at desc, claim.id desc
     limit 1;
 

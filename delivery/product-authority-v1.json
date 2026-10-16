@@ -64,7 +64,7 @@
     "migrations": [
       {
         "path": "supabase/migrations/20261016120624_public_spot_knowledge_presentation_v2_5.sql",
-        "sha256": "60be5d7687adf38a31a19bf604bc20e720395dbcbdd6bdbc116496a47ee1b098"
+        "sha256": "b826c2bcd5bc4d41e20d95e2f79b2e022e27bfe156b3c2b0e2674f7c107fcc8c"
       }
     ],
     "executionAuthorized": false,

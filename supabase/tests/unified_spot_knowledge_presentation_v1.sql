@@ -154,6 +154,9 @@ select pg_temp.expect_state('select * from world_knowledge_private.spot_detail_p
 reset role;
 update world_knowledge_private.spot_detail_presentation_policy_v1 set web_visible=false where registry_version='backyrd.world-knowledge.registry@2.5' and attribute_key='experience.profile';
 select pg_temp.assert(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'WEB')->'experienceProfile'='null'::jsonb and public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'experienceProfile'<>'null'::jsonb,'surface policy ignored');
+-- Later changes through existing Admin controls must also hide current-registry fields.
+update world_knowledge_private.spot_detail_presentation_policy_v1 set mobile_visible=false where registry_version='backyrd.world-knowledge.registry@2.1' and attribute_key='contact.public_email';
+select pg_temp.assert(not exists(select 1 from jsonb_array_elements(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'fields') f where f->>'attributeKey'='contact.public_email'), 'legacy Admin visibility bypassed by current registry');
 -- Immutable manifests/entries: each negative fixture is a new sealed snapshot.
 create function pg_temp.profile_variant(p_variant text,p_reviewed boolean,p_freshness text,p_trust text) returns void language plpgsql as $$
 begin

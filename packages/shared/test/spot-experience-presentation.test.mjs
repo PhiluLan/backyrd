@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {readFile} from "node:fs/promises";
-import ts from "../../../node_modules/typescript/lib/typescript.js";
+import {createRequire} from "node:module";
+import {resolve} from "node:path";
+const ts=createRequire(resolve(process.cwd(),"package.json"))("typescript");
 const source=await readFile(new URL('../src/presentation/spot-experience.ts',import.meta.url),'utf8');
 const output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText;
 const {presentSpotExperience}=await import(`data:text/javascript;base64,${Buffer.from(output).toString('base64')}`);
