@@ -32,7 +32,7 @@ export function librarianGlobalEligibility(input: {
     const { facts, world, visit, request } = input;
     const results: LibrarianEligibility[] = [];
     const current = world.currentStates.find(r => r.key === "state.current");
-    if (!visit.requested && current && current.freshness === "CURRENT" && current.trust === "VERIFIED" && current.value !== null && typeof current.value === "object" && !Array.isArray(current.value) && "scope" in current.value && "kind" in current.value) {
+    if ((!visit.requested || visit.undatedDayPhase) && current && current.freshness === "CURRENT" && current.trust === "VERIFIED" && current.value !== null && typeof current.value === "object" && !Array.isArray(current.value) && "scope" in current.value && "kind" in current.value) {
         const value = current.value as {
             readonly kind: string;
             readonly scope: string;

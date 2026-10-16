@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fact, request, profile, offer, area, prop, price, binding, search, budget } from './librarian-matching-fixtures.mjs';
+import { fact, request, profile, offer, area, prop, price, binding, search, budget, worldFact } from './librarian-matching-fixtures.mjs';
 
 // Expected outcomes describe product duties, independently of the matching implementation.
 // The source sentence is not interpreted by this deterministic stage.
@@ -176,4 +176,11 @@ test('undated night includes the post-midnight part of an overnight offer',()=>{
  const r=search(request([fact('dance','experience.activity','dancing'),phase('NIGHT')]),[binding(701,p)]);
  assert.equal(r.ranked[0]?.status,'CONFIRMED');
  assert.equal(r.ranked[0].facts.find(f=>f.factId==='phase').state,'CONTEXT');
+});
+
+test('a generic daypart cannot bypass an active verified venue closure',()=>{
+ const closed=worldFact('state.current',{kind:'CLOSED',scope:'VENUE'},{validityVerified:true,validFrom:'2026-10-14T07:00:00Z',validUntil:'2026-10-15T12:00:00Z'});
+ const r=search(request([fact('meal','food.meal','dinner'),phase()]),[binding(701,profile(),[closed])]);
+ assert.equal(r.excluded[0]?.status,'INELIGIBLE');
+ assert.ok(r.excluded[0].facts.some(f=>f.reason==='VERIFIED_CURRENT_VENUE_UNAVAILABLE'));
 });
