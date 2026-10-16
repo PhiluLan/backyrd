@@ -31,6 +31,9 @@ import type {
 import { evaluateProductWorldViews, productRetrievalIntent, PRODUCT_V1_EVALUATOR_VERSION } from "./product-v1-evaluator.js";
 import { parseProductWorldResolverBinding } from "./product-world-resolver-binding.js";
 
+import { createLibrarianCatalogMatcher, searchLibrarianCatalog, type LibrarianSearchResult } from "./product-librarian-matching.js";
+import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
+
 const HASH = /^[0-9a-f]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TOKEN = /^[a-z0-9][a-z0-9._:-]{1,79}$/;
@@ -420,23 +423,82 @@ function productEvaluationStage<T>(stage: "world_binding" | "user_projection" | 
   }
 }
 
+/** One service-only catalog read. Actor and release authority remain request-local. */
+async function readDecisionProductRuntimeContext(rpc: DecisionProductRpcClient, input: {
+  readonly actor: DecisionProductAuthenticatedActor;
+  readonly identity: DecisionProductProductionIdentity;
+  readonly targetCity: string;
+  readonly retrievalHint: string | null;
+  readonly signal: AbortSignal;
+}) {
+  if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
+  const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
+    p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
+    p_target_city: input.targetCity, p_primary_intent: input.retrievalHint,
+    p_release_hash: input.identity.releaseHash, p_artifact_hash: input.identity.artifactHash,
+    p_source_set_hash: input.identity.sourceSetHash, p_generation: input.identity.controlGeneration,
+  }, input.signal).catch(() => { throw new Error("product_runtime_context_transport_failed"); });
+  if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
+  if (result.error) throw new Error("product_runtime_context_unavailable");
+  const context = row(result.data, "product_runtime_context_invalid");
+  if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0"
+    || context.authorizedCity !== input.targetCity || typeof context.serverTime !== "string"
+    || !Number.isFinite(Date.parse(context.serverTime))) throw new Error("product_runtime_context_invalid");
+  return { context, serverTime: new Date(context.serverTime).toISOString() };
+}
+
+/** Lossless matching boundary, not an HTTP route or release activation. The
+ * existing authentication, rate limits and release checks must precede it. */
+export function createDecisionProductLibrarianRpcEvaluationProvider(
+  rpc: DecisionProductRpcClient,
+  identityValue: DecisionProductProductionIdentity,
+  configuration?: { readonly meaningRegistry: unknown; readonly acceptedRegistryHashes: readonly string[] },
+) {
+  if (![identityValue.releaseHash, identityValue.artifactHash, identityValue.sourceSetHash].every(value => HASH.test(value))
+    || !Number.isSafeInteger(identityValue.controlGeneration) || identityValue.controlGeneration < 0) {
+    throw new Error("librarian_provider_identity_invalid");
+  }
+  const identity = deepFreeze({ ...identityValue });
+  const matcher = configuration ? createLibrarianCatalogMatcher(configuration) : searchLibrarianCatalog;
+  return Object.freeze({
+    contractVersion: "backyrd.decision-vnext.librarian-rpc-evaluator@1" as const,
+    async evaluate(input: {
+      readonly request: LibrarianRequest;
+      readonly actor: DecisionProductAuthenticatedActor;
+      readonly authorizedCity: string;
+      readonly signal: AbortSignal;
+    }): Promise<Readonly<LibrarianSearchResult>> {
+      if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
+      if (!UUID.test(input.actor.userId)
+        || ![input.actor.subjectBindingHash, input.actor.authenticationContextHash, input.actor.sessionBindingHash].every(value => HASH.test(value))
+        || !UUID.test(input.actor.sessionId) || !input.authorizedCity.trim()) throw new Error("librarian_provider_authority_invalid");
+      const request = prepareLibrarianRequest({
+        contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.request.raw,
+        sourceText: input.request.source.sourceText, reference: input.request.source.reference,
+      });
+      if (request.requestHash !== input.request.requestHash) throw new Error("librarian_matching_request_hash_mismatch");
+      // Context v5 returns the full city cohort. EAT satisfies its legacy
+      // required transport argument; it never becomes a request or match fact.
+      const { context, serverTime } = await readDecisionProductRuntimeContext(rpc, {
+        actor: input.actor, identity, targetCity: input.authorizedCity,
+        retrievalHint: "EAT", signal: input.signal,
+      });
+      if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
+      return matcher({ request, catalog: context.worldSnapshots, authority: { city: input.authorizedCity, now: serverTime } });
+    },
+  });
+}
+
 /** Canonical Product composition over service-only World/User RPCs. */
 export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient): DecisionProductCanonicalEvaluationProvider {
   return Object.freeze({
     contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0" as const,
     async evaluate(input: Parameters<DecisionProductCanonicalEvaluationProvider["evaluate"]>[0]) {
       const targetCity = productTargetCity(input.request);
-      const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
-        p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
-        p_target_city: targetCity, p_primary_intent: productRetrievalIntent(input.request),
-        p_release_hash: input.identity.releaseHash,
-        p_artifact_hash: input.identity.artifactHash, p_source_set_hash: input.identity.sourceSetHash,
-        p_generation: input.identity.controlGeneration,
-      }, input.signal).catch(() => { throw new Error("product_runtime_context_transport_failed"); });
-      if (result.error) throw new Error("product_runtime_context_unavailable");
-      const context = row(result.data, "product_runtime_context_invalid");
-      if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0" || context.authorizedCity !== targetCity || typeof context.serverTime !== "string" || !Number.isFinite(Date.parse(context.serverTime))) throw new Error("product_runtime_context_invalid");
-      const serverTime = new Date(context.serverTime).toISOString();
+      const { context, serverTime } = await readDecisionProductRuntimeContext(rpc, {
+        actor: input.actor, identity: input.identity, targetCity,
+        retrievalHint: productRetrievalIntent(input.request), signal: input.signal,
+      });
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];
       const snapshots = new Map<string, ReturnType<typeof parseProductWorldResolverBinding>>();
       for (const raw of rawSnapshots) {

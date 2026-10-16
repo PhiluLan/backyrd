@@ -1,0 +1,1732 @@
+[
+  {
+    "id": "LUNA-01",
+    "request": "Heute Abend in Baden etwas trinken mit Freunden, bitte gemütlich.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "g1",
+          "kind": "GROUP",
+          "label": "Freunde",
+          "members": []
+        },
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "etwas trinken",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "etwas trinken"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [],
+          "key": "location.destination",
+          "value": {
+            "text": "Baden"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-14",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [],
+          "key": "time.day_phase",
+          "value": {
+            "phase": "EVENING",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "people.relationship",
+          "value": {
+            "text": "Freunde"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "atmosphere.character",
+          "value": {
+            "text": "gemütlich"
+          }
+        }
+      ],
+      "logic": null,
+      "bindings": [],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  },
+  {
+    "id": "LUNA-02",
+    "request": "Ich suche in Burgdorf ein ruhiges Café zum Lesen. Keine Musik. Ein Stück Apfelkuchen wäre ein Plus.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "Lesen im Café",
+          "members": []
+        },
+        {
+          "id": "p1",
+          "kind": "PLACE",
+          "label": "Burgdorf",
+          "members": []
+        },
+        {
+          "id": "o1",
+          "kind": "OFFER",
+          "label": "Café",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "lesen"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "p1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Burgdorf"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "offer.kind",
+          "value": {
+            "text": "Café"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "atmosphere.character",
+          "value": {
+            "text": "ruhig"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "EXCLUDED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "atmosphere.music",
+          "value": {
+            "text": "Musik"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "PREFERRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "food.dish",
+          "value": {
+            "text": "ein Stück Apfelkuchen"
+          }
+        }
+      ],
+      "logic": null,
+      "bindings": [
+        {
+          "kind": "SAME_PLACE",
+          "factIds": [
+            "f1",
+            "f3"
+          ]
+        }
+      ],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  },
+  {
+    "id": "LUNA-03",
+    "request": "Morgen mit meiner Frau in Biel essen gehen. Vegane Gerichte müssen möglich sein, gern etwas schicker. Höchstens 60 CHF pro Person fürs Essen; Getränke zusätzlich.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "g1",
+          "kind": "GROUP",
+          "label": "meine Frau und ich",
+          "members": [
+            "p1",
+            "p2"
+          ]
+        },
+        {
+          "id": "p1",
+          "kind": "PERSON",
+          "label": "ich",
+          "members": []
+        },
+        {
+          "id": "p2",
+          "kind": "PERSON",
+          "label": "meine Frau",
+          "members": []
+        },
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "essen gehen",
+          "members": []
+        },
+        {
+          "id": "l1",
+          "kind": "PLACE",
+          "label": "Biel",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "essen gehen"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Biel"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "INFERRED",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "people.count",
+          "value": {
+            "amount": 2,
+            "operator": "EQ",
+            "unit": "PEOPLE"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "people.relationship",
+          "value": {
+            "text": "Ehepaar: ich und meine Frau"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-15",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.original",
+          "value": {
+            "text": "Morgen"
+          }
+        },
+        {
+          "id": "f7",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "food.diet",
+          "value": {
+            "text": "vegane Gerichte müssen möglich sein"
+          }
+        },
+        {
+          "id": "f8",
+          "modality": "PREFERRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.character",
+          "value": {
+            "text": "etwas schicker"
+          }
+        },
+        {
+          "id": "f9",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1",
+            "g1"
+          ],
+          "key": "budget.maximum",
+          "value": {
+            "amount": 60,
+            "operator": "LTE",
+            "currency": "CHF"
+          }
+        },
+        {
+          "id": "f10",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1",
+            "g1"
+          ],
+          "key": "budget.scope",
+          "value": {
+            "scope": "PER_PERSON"
+          }
+        },
+        {
+          "id": "f11",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1",
+            "g1"
+          ],
+          "key": "budget.coverage",
+          "value": {
+            "text": "Essen; Getränke nicht inbegriffen"
+          }
+        },
+        {
+          "id": "f12",
+          "modality": "CONTEXT",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1",
+            "g1"
+          ],
+          "key": "budget.cost_treatment",
+          "value": {
+            "text": "Getränke zusätzlich"
+          }
+        },
+        {
+          "id": "f13",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "food.meal",
+          "value": {
+            "text": "Essen"
+          }
+        },
+        {
+          "id": "f14",
+          "modality": "REQUIRED",
+          "basis": "INFERRED",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "offer.kind",
+          "value": {
+            "text": "Restaurant"
+          }
+        }
+      ],
+      "logic": null,
+      "bindings": [
+        {
+          "kind": "SIMULTANEOUS",
+          "factIds": [
+            "f1",
+            "f2",
+            "f5"
+          ]
+        }
+      ],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  },
+  {
+    "id": "LUNA-04",
+    "request": "Am Samstag in Sarnen mit meiner neunjährigen Tochter ins Museum. Ein Café im gleichen Gebäude wäre schön, das Museum ist aber der Hauptwunsch.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "p1",
+          "kind": "PERSON",
+          "label": "Tochter",
+          "members": []
+        },
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "Museum besuchen",
+          "members": []
+        },
+        {
+          "id": "o1",
+          "kind": "OFFER",
+          "label": "Museum",
+          "members": []
+        },
+        {
+          "id": "o2",
+          "kind": "OFFER",
+          "label": "Café",
+          "members": []
+        },
+        {
+          "id": "l1",
+          "kind": "PLACE",
+          "label": "Sarnen",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "Museum besuchen"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Sarnen"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.weekday",
+          "value": {
+            "text": "Samstag"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "REQUIRED",
+          "basis": "INFERRED",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-17",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "p1"
+          ],
+          "key": "people.age",
+          "value": {
+            "amount": 9,
+            "operator": "EQ",
+            "unit": "YEARS"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "p1"
+          ],
+          "key": "people.relationship",
+          "value": {
+            "text": "Tochter"
+          }
+        },
+        {
+          "id": "f7",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "offer.kind",
+          "value": {
+            "text": "Museum"
+          }
+        },
+        {
+          "id": "f8",
+          "modality": "PREFERRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o2"
+          ],
+          "key": "offer.kind",
+          "value": {
+            "text": "Café"
+          }
+        },
+        {
+          "id": "f9",
+          "modality": "PREFERRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o2"
+          ],
+          "key": "location.setting",
+          "value": {
+            "text": "im gleichen Gebäude wie das Museum"
+          }
+        }
+      ],
+      "logic": null,
+      "bindings": [
+        {
+          "kind": "SAME_PLACE",
+          "factIds": [
+            "f7",
+            "f8"
+          ]
+        }
+      ],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  },
+  {
+    "id": "LUNA-05",
+    "request": "Am Sonntag in Kreuzlingen am Wasser spazieren, höchstens 2,2 Kilometer. Vom Bahnhof bis zum Start maximal 300 Meter.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "Spazieren",
+          "members": []
+        },
+        {
+          "id": "p1",
+          "kind": "PLACE",
+          "label": "Kreuzlingen",
+          "members": []
+        },
+        {
+          "id": "s1",
+          "kind": "PLACE",
+          "label": "Bahnhof",
+          "members": []
+        },
+        {
+          "id": "st1",
+          "kind": "PLACE",
+          "label": "Startpunkt",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "spazieren"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Kreuzlingen"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "location.setting",
+          "value": {
+            "text": "am Wasser"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.weekday",
+          "value": {
+            "text": "Sonntag"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "REQUIRED",
+          "basis": "INFERRED",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-18",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "route.length",
+          "value": {
+            "amount": 2200,
+            "operator": "LTE",
+            "unit": "METERS",
+            "referenceEntityId": "a1"
+          }
+        },
+        {
+          "id": "f7",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "st1"
+          ],
+          "key": "location.distance",
+          "value": {
+            "amount": 300,
+            "operator": "LTE",
+            "unit": "METERS",
+            "referenceEntityId": "s1"
+          }
+        }
+      ],
+      "logic": null,
+      "bindings": [],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  },
+  {
+    "id": "LUNA-06",
+    "request": "Morgen in Zofingen mit meinem siebenjährigen Sohn: Bei Regen drinnen gemeinsam basteln, bei trockenem Wetter draußen Tiere anschauen. Insgesamt maximal 45 CHF.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "p1",
+          "kind": "PERSON",
+          "label": "Sohn",
+          "members": []
+        },
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "drinnen gemeinsam basteln",
+          "members": []
+        },
+        {
+          "id": "a2",
+          "kind": "ACTIVITY",
+          "label": "draußen Tiere anschauen",
+          "members": []
+        },
+        {
+          "id": "l1",
+          "kind": "PLACE",
+          "label": "Zofingen",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "l1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Zofingen"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "INFERRED",
+          "subjectIds": [],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-15",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "CONTEXT",
+          "basis": "EXPLICIT",
+          "subjectIds": [],
+          "key": "time.original",
+          "value": {
+            "text": "Morgen"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "CONTEXT",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "p1"
+          ],
+          "key": "people.relationship",
+          "value": {
+            "text": "Sohn"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "CONTEXT",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "p1"
+          ],
+          "key": "people.age",
+          "value": {
+            "amount": 7,
+            "operator": "EQ",
+            "unit": "YEARS"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "gemeinsam basteln"
+          }
+        },
+        {
+          "id": "f7",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "offer.area",
+          "value": {
+            "text": "drinnen"
+          }
+        },
+        {
+          "id": "f8",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a2"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "Tiere anschauen"
+          }
+        },
+        {
+          "id": "f9",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a2"
+          ],
+          "key": "offer.area",
+          "value": {
+            "text": "draußen"
+          }
+        },
+        {
+          "id": "f10",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [],
+          "key": "budget.maximum",
+          "value": {
+            "amount": 45,
+            "operator": "LTE",
+            "currency": "CHF"
+          }
+        },
+        {
+          "id": "f11",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [],
+          "key": "budget.scope",
+          "value": {
+            "scope": "GROUP_TOTAL"
+          }
+        },
+        {
+          "id": "f12",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [],
+          "key": "budget.coverage",
+          "value": {
+            "text": "gesamter Besuch"
+          }
+        }
+      ],
+      "logic": {
+        "kind": "ALL",
+        "children": [
+          {
+            "kind": "IF",
+            "conditionFactId": "c1",
+            "then": {
+              "kind": "ALL",
+              "children": [
+                {
+                  "kind": "FACT",
+                  "factId": "f6"
+                },
+                {
+                  "kind": "FACT",
+                  "factId": "f7"
+                }
+              ]
+            },
+            "else": null
+          },
+          {
+            "kind": "IF",
+            "conditionFactId": "c2",
+            "then": {
+              "kind": "ALL",
+              "children": [
+                {
+                  "kind": "FACT",
+                  "factId": "f8"
+                },
+                {
+                  "kind": "FACT",
+                  "factId": "f9"
+                }
+              ]
+            },
+            "else": null
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "kind": "SAME_PLACE",
+          "factIds": [
+            "f1",
+            "f6",
+            "f7",
+            "f8",
+            "f9"
+          ]
+        },
+        {
+          "kind": "SIMULTANEOUS",
+          "factIds": [
+            "f6",
+            "f7"
+          ]
+        },
+        {
+          "kind": "SIMULTANEOUS",
+          "factIds": [
+            "f8",
+            "f9"
+          ]
+        }
+      ],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": [
+        {
+          "id": "c1",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "state": "RAIN",
+          "detail": "Regen"
+        },
+        {
+          "id": "c2",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a2"
+          ],
+          "state": "DRY",
+          "detail": "trockenes Wetter"
+        }
+      ]
+    }
+  },
+  {
+    "id": "LUNA-07",
+    "request": "Freitag in Yverdon eine warme Liege zum Ausruhen, bis 50 CHF. Ein Dampfbad ist nicht nötig, darf aber vorhanden sein.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "p1",
+          "kind": "PERSON",
+          "label": "Nutzergruppe",
+          "members": []
+        },
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "Ausruhen",
+          "members": []
+        },
+        {
+          "id": "o1",
+          "kind": "OFFER",
+          "label": "warme Liege",
+          "members": []
+        },
+        {
+          "id": "loc1",
+          "kind": "PLACE",
+          "label": "Yverdon",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "Ausruhen"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "offer.feature",
+          "value": {
+            "text": "warme Liege"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "loc1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Yverdon"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-16",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.weekday",
+          "value": {
+            "text": "Freitag"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "p1"
+          ],
+          "key": "budget.maximum",
+          "value": {
+            "amount": 50,
+            "operator": "LTE",
+            "currency": "CHF"
+          }
+        },
+        {
+          "id": "f7",
+          "modality": "CONTEXT",
+          "basis": "INFERRED",
+          "subjectIds": [
+            "p1"
+          ],
+          "key": "budget.scope",
+          "value": {
+            "scope": "UNSPECIFIED"
+          }
+        },
+        {
+          "id": "f8",
+          "modality": "NOT_REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "offer.kind",
+          "value": {
+            "text": "Dampfbad"
+          }
+        }
+      ],
+      "logic": null,
+      "bindings": [
+        {
+          "kind": "SAME_PLACE",
+          "factIds": [
+            "f1",
+            "f2",
+            "f3"
+          ]
+        }
+      ],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  },
+  {
+    "id": "LUNA-08",
+    "request": "Könnt ihr uns bitte für Samstag in Vevey ein Restaurant suchen, dessen Terrasse direkt am See liegt? Das muss sein. Vegetarische Gerichte wären nett.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "g1",
+          "kind": "GROUP",
+          "label": "uns",
+          "members": []
+        },
+        {
+          "id": "o1",
+          "kind": "OFFER",
+          "label": "Restaurant",
+          "members": []
+        },
+        {
+          "id": "p1",
+          "kind": "PLACE",
+          "label": "Vevey",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Vevey"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "time.weekday",
+          "value": {
+            "text": "Samstag"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "INFERRED",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-17",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "CONTEXT",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "time.original",
+          "value": {
+            "text": "Samstag"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "offer.kind",
+          "value": {
+            "text": "Restaurant"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "offer.area",
+          "value": {
+            "text": "Terrasse"
+          }
+        },
+        {
+          "id": "f7",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "location.setting",
+          "value": {
+            "text": "direkt am See"
+          }
+        },
+        {
+          "id": "f8",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "location.waterbody",
+          "value": {
+            "text": "See"
+          }
+        },
+        {
+          "id": "f9",
+          "modality": "PREFERRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "o1"
+          ],
+          "key": "food.diet",
+          "value": {
+            "text": "vegetarische Gerichte"
+          }
+        }
+      ],
+      "logic": null,
+      "bindings": [],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  },
+  {
+    "id": "LUNA-09",
+    "request": "Kommenden Dienstag in Locarno entweder Bowling oder Minigolf mit drei Kollegen. Wir sind vier Personen, haben insgesamt 110 Minuten und höchstens 140 CHF zusammen.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "g1",
+          "kind": "GROUP",
+          "label": "vier Personen",
+          "members": []
+        },
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "Bowling",
+          "members": []
+        },
+        {
+          "id": "a2",
+          "kind": "ACTIVITY",
+          "label": "Minigolf",
+          "members": []
+        },
+        {
+          "id": "p1",
+          "kind": "PERSON",
+          "label": "Kollegen",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "people.count",
+          "value": {
+            "amount": 4,
+            "operator": "EQ",
+            "unit": "PEOPLE"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "CONTEXT",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "people.relationship",
+          "value": {
+            "text": "Kollegen"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Locarno"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-20",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "CONTEXT",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "time.original",
+          "value": {
+            "text": "Kommenden Dienstag"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "time.duration",
+          "value": {
+            "amount": 110,
+            "operator": "EQ",
+            "unit": "MINUTES",
+            "measurementScope": "AVAILABLE_TOTAL",
+            "includes": [
+              "UNSPECIFIED"
+            ]
+          }
+        },
+        {
+          "id": "f7",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "budget.maximum",
+          "value": {
+            "amount": 140,
+            "operator": "LTE",
+            "currency": "CHF"
+          }
+        },
+        {
+          "id": "f8",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "budget.scope",
+          "value": {
+            "scope": "GROUP_TOTAL"
+          }
+        },
+        {
+          "id": "f9",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1",
+            "g1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "Bowling"
+          }
+        },
+        {
+          "id": "f10",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a2",
+            "g1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "Minigolf"
+          }
+        }
+      ],
+      "logic": {
+        "kind": "ANY",
+        "strength": "REQUIRED",
+        "children": [
+          {
+            "kind": "FACT",
+            "factId": "f9"
+          },
+          {
+            "kind": "FACT",
+            "factId": "f10"
+          }
+        ]
+      },
+      "bindings": [],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  },
+  {
+    "id": "LUNA-10",
+    "request": "Am Samstag in Sursee mit meiner Partnerin einen kurzen Töpferkurs besuchen. Danach optional einen Kaffee trinken. Maximal 80 CHF pro Person für den Kurs.",
+    "reference": {
+      "now": "2026-10-14T10:00:00+02:00",
+      "timezone": "Europe/Zurich"
+    },
+    "output": {
+      "entities": [
+        {
+          "id": "g1",
+          "kind": "GROUP",
+          "label": "Besuchsgruppe",
+          "members": [
+            "p1",
+            "p2"
+          ]
+        },
+        {
+          "id": "p1",
+          "kind": "PERSON",
+          "label": "Anfragende Person",
+          "members": []
+        },
+        {
+          "id": "p2",
+          "kind": "PERSON",
+          "label": "Partnerin",
+          "members": []
+        },
+        {
+          "id": "a1",
+          "kind": "ACTIVITY",
+          "label": "Töpferkurs",
+          "members": []
+        },
+        {
+          "id": "a2",
+          "kind": "ACTIVITY",
+          "label": "Kaffee trinken",
+          "members": []
+        },
+        {
+          "id": "place1",
+          "kind": "PLACE",
+          "label": "Sursee",
+          "members": []
+        }
+      ],
+      "facts": [
+        {
+          "id": "f1",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "Töpferkurs"
+          }
+        },
+        {
+          "id": "f2",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Sursee"
+          }
+        },
+        {
+          "id": "f3",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.weekday",
+          "value": {
+            "text": "Samstag"
+          }
+        },
+        {
+          "id": "f4",
+          "modality": "REQUIRED",
+          "basis": "INFERRED",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.date",
+          "value": {
+            "date": "2026-10-17",
+            "operator": "EQ",
+            "timezone": "Europe/Zurich"
+          }
+        },
+        {
+          "id": "f5",
+          "modality": "CONTEXT",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "g1"
+          ],
+          "key": "time.original",
+          "value": {
+            "text": "Am Samstag"
+          }
+        },
+        {
+          "id": "f6",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "p2"
+          ],
+          "key": "people.relationship",
+          "value": {
+            "text": "Partnerin"
+          }
+        },
+        {
+          "id": "f7",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "time.duration_quality",
+          "value": {
+            "text": "kurz"
+          }
+        },
+        {
+          "id": "f8",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "budget.maximum",
+          "value": {
+            "amount": 80,
+            "operator": "LTE",
+            "currency": "CHF"
+          }
+        },
+        {
+          "id": "f9",
+          "modality": "REQUIRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a1"
+          ],
+          "key": "budget.scope",
+          "value": {
+            "scope": "PER_PERSON"
+          }
+        },
+        {
+          "id": "f10",
+          "modality": "PREFERRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a2"
+          ],
+          "key": "experience.activity",
+          "value": {
+            "text": "Kaffee trinken"
+          }
+        },
+        {
+          "id": "f11",
+          "modality": "PREFERRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a2"
+          ],
+          "key": "food.drink",
+          "value": {
+            "text": "Kaffee"
+          }
+        },
+        {
+          "id": "f12",
+          "modality": "PREFERRED",
+          "basis": "EXPLICIT",
+          "subjectIds": [
+            "a2"
+          ],
+          "key": "location.destination",
+          "value": {
+            "text": "Sursee"
+          }
+        }
+      ],
+      "logic": null,
+      "bindings": [
+        {
+          "kind": "SEQUENCE",
+          "factIds": [
+            "f1",
+            "f10"
+          ]
+        }
+      ],
+      "extensions": [],
+      "uncertainties": [],
+      "weatherConditions": []
+    }
+  }
+]
