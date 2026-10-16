@@ -254,7 +254,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     }
     // A global spatial requirement applies to the requested activities, not
     // an unrelated cafe or facility elsewhere at the same spot.
-    const spatialActivities = ["offer.area", "location.setting"].includes(fact.key) && (!fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP")))
+    const physicalArea = fact.key === "offer.area" || fact.key === "location.setting" && ["indoor", "outdoor", "terrace"].includes(concept ?? "");
+    const spatialActivities = physicalArea && (!fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP")))
         ? request.facts.filter(f => offerDuty(f) && ["REQUIRED"].includes(f.modality)
             && collectFacts(request.logic).includes(f.id))
             .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability)) : [];

@@ -166,3 +166,8 @@ test('excluding a date does not disappear into undated daypart context',()=>{
  const r=search(q,[binding(701,profile())]);
  assert.notEqual(r.ranked[0]?.status,'CONFIRMED');
 });
+test('venue-wide geographic setting is not mistaken for an activity room requirement',()=>{
+ const p=profile();p.properties=[prop('location.setting','im Grünen')];
+ const r=search(request([fact('meal','food.meal','dinner'),fact('green','location.setting','im Grünen','REQUIRED',[])]),[binding(701,p)]);
+ assert.equal(r.ranked[0]?.status,'CONFIRMED');
+});
