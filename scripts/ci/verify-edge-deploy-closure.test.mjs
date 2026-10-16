@@ -10,11 +10,11 @@ const fixture = () => {
   const root = mkdtempSync(join(tmpdir(), "backyrd-edge-deploy-"));
   put(root, "supabase/functions/decision-v13/index.deploy.ts", 'import "./vnext-only.ts";\n');
   put(root, "supabase/functions/decision-v13/vnext-only.ts", 'import "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js"; import "../../../packages/decision-vnext-core/dist/product-decision.js";\n');
-  put(root, "supabase/functions/decision-v13/deno.json", JSON.stringify({ imports: { "@backyrd/user-intelligence-vnext-core": "../../../packages/user-intelligence-vnext-core/dist/index.js", "@backyrd/world-knowledge-core": "../../../packages/world-knowledge-core/dist/index.js" } }));
+  put(root, "supabase/functions/decision-v13/deno.json", JSON.stringify({ imports: { "@backyrd/user-intelligence-vnext-core": "../../../packages/user-intelligence-vnext-core/dist/server-runtime.js", "@backyrd/world-knowledge-core": "../../../packages/world-knowledge-core/dist/server-runtime.js" } }));
   put(root, "packages/decision-vnext-core/dist/product-decision-production-adapter.js", 'import "@backyrd/user-intelligence-vnext-core"; import "@backyrd/world-knowledge-core";\n');
   put(root, "packages/decision-vnext-core/dist/product-decision.js", 'export const route = "vnext";\n');
-  put(root, "packages/user-intelligence-vnext-core/dist/index.js", 'export const user = true;\n');
-  put(root, "packages/world-knowledge-core/dist/index.js", 'export const world = true;\n');
+  put(root, "packages/user-intelligence-vnext-core/dist/server-runtime.js", 'export const user = true;\n');
+  put(root, "packages/world-knowledge-core/dist/server-runtime.js", 'export const world = true;\n');
   return root;
 };
 
@@ -41,4 +41,13 @@ test("worker entrypoint and its research dependency are sealed, with no checkout
   assert.equal(verifyEdgeDeployClosure(root, "decision-engine-worker").status, "PASS");
   put(root, "packages/spot-research-runtime/src/world-knowledge-worker.mjs", 'import "./missing.mjs";\n');
   assert.throws(() => verifyEdgeDeployClosure(root, "decision-engine-worker"), /edge_import_unresolved/);
+});
+
+test("production cannot reintroduce broad barrels or synthetic initialization", () => {
+  for (const module of ["index", "fixtures", "calibration-fixtures", "research-batch"]) {
+    const root = fixture();
+    put(root, "packages/world-knowledge-core/dist/" + module + ".js", "export const unused = true;\n");
+    put(root, "packages/world-knowledge-core/dist/server-runtime.js", 'export * from "./' + module + '.js";\n');
+    assert.throws(() => verifyEdgeDeployClosure(root), /edge_non_runtime_module/);
+  }
 });

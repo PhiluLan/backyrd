@@ -192,3 +192,26 @@ full-response sequential/parallel comparisons passed. These are local measuremen
 not production latency or a guarantee for the hosted 2-second CPU limit. Actual
 production acceptance must repeat the previously CPU-terminated child/climbing
 case and the Saturday-evening timeout case.
+
+
+### Hosted CPU follow-up: production-only module entrypoints
+
+The first regional/parallel release (f60bccf, Function 210) completed 13 of
+14 authenticated acceptance requests, but the last wine-bar repeat still
+exceeded the hosted 2-second CPU budget. This is not a passed reliability gate.
+The remaining startup closure imported the complete World/User package barrels,
+including synthetic calibration fixtures and historical research initialization.
+
+Decision's Deno import map now targets `server-runtime.js` entrypoints in those
+two packages. They only re-export the existing canonical implementations used
+by the Product route. The ordinary package entrypoints, policy/registry hashes,
+Luna contract, matching, consent, authorization and 20-second deadline are
+unchanged. The deploy-closure verifier requires these entrypoints and rejects
+historical barrels/synthetic initialization in Decision's reachable graph.
+
+Ten synthetic full HTTP responses match byte-for-byte through the old and new
+import maps, with one model call and one catalog read per request. In five local
+cold-import samples, median process CPU was 291 ms through the full barrels and
+51 ms through the production entrypoints (Node measurement, not hosted CPU).
+Hosted acceptance must be repeated after deployment. The production-state file
+records only the already verified f60bccf deployment/OTA, not this pending fix.

@@ -10,6 +10,7 @@ const productTests = [
   "packages/decision-vnext-core/test/product-decision-production-adapter.test.mjs",
   "packages/decision-vnext-core/test/product-runtime-composition.test.mjs",
   "packages/decision-vnext-core/test/isolation.test.mjs",
+  "packages/decision-vnext-core/test/librarian-runtime-imports.test.mjs",
 ];
 
 function run(label, command, args) {

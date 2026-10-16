@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "61e96a8118047bb03bffc4b3a3e6e6ec0524d756",
+    "shippedSourceSha": "f60bccfcbaee40fdc5e7909068666da6309cd9a6",
     "migrationTip": "20261016120624_public_spot_knowledge_presentation_v2_5",
     "migrationCount": 184,
-    "deploymentRunId": 38923309272,
+    "deploymentRunId": 38931215673,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
@@ -21,11 +21,11 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "4e5325b1662e4782d4fc97baaafae1863784c4f1",
+      "sourceSha": "f60bccfcbaee40fdc5e7909068666da6309cd9a6",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "ba4ce651-8c66-41c8-af91-2d16f4a56046",
-      "iosUpdateId": "01a144bc-20eb-7349-b047-429dbd00d058",
+      "otaGroupId": "a137b990-4b6a-4e89-8b5d-0b01a59beaaf",
+      "iosUpdateId": "01a14586-af64-7b8d-ac4b-e7ea185a595d",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
       "note": "Existing top-level Mobile verification and review-media evidence describe the earlier observed release. This update is published and bundle/config verified, but its installation on the user device has not been observed."
