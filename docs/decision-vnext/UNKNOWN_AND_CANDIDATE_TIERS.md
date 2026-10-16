@@ -58,3 +58,25 @@ The older Phase 3B draft is historical:
 [PHASE3B_UNKNOWN_AND_CONSTRAINT_POLICY.md](./PHASE3B_UNKNOWN_AND_CONSTRAINT_POLICY.md).
 Its `EXCLUDE_IF_UNKNOWN` time policy and proposed clarification dialogue do not
 specify the current active Luna path.
+
+## Luna executable vocabulary and calendar (prompt @4)
+
+The active prompt uses the existing shared concept, venue-type and food/drink
+catalogues. It separates consumption (`drinks` plus `WINE`) from requested venue
+identity (`WINE_BAR`); consumption alone must not invent a venue requirement.
+Specific meals retain `lunch`, `dinner` or `breakfast`. Unknown concepts remain
+free text; the catalogue does not constrain the range of wishes.
+
+The server supplies a local calendar derived from the trusted reference instant
+in Europe/Zurich, including today, tomorrow and fourteen dated weekdays. Date
+advancement uses calendar dates, not elapsed 24-hour intervals across DST.
+The provider and diagnostic request builder share this input construction;
+explicit typed context must not replace or discard the calendar. Luna still
+resolves the user's language. The librarian does not reparse or repair prose.
+Participant ages retain PERSON scope and CONTEXT modality; negation of an offer
+must never become exclusion of the accompanying child's age.
+
+The base prompt/schema and 127-family contract remain frozen; the active prompt
+revision and hash identify this reversible change. The model remains
+`gpt-5.6-luna`, reasoning low, one bounded call, `store:false`. No fine-tuning,
+extra model call, database migration or source-policy change is introduced.

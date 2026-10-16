@@ -58,10 +58,10 @@ export function createDecisionProductLunaProvider(input: {
     if (input.allowedUserIds !== "*" && !input.allowedUserIds.includes(actor.userId.toLowerCase())) throw new Error("product_luna_not_enabled_for_actor");
     if (signal.aborted) throw new Error("product_luna_aborted");
     const reference = { now: (input.now?.() ?? new Date()).toISOString(), timezone: "Europe/Zurich" as const };
-    const body = buildLunaLibrarianModelRequest({ sourceText: request.naturalLanguage, reference });
+    const body = buildLunaLibrarianModelRequest({ sourceText: request.naturalLanguage, reference, explicitContext: request.explicit });
     const response = await fetchImpl("https://api.openai.com/v1/responses", {
       method: "POST", signal, headers: { authorization: `Bearer ${input.apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ ...body, input: JSON.stringify({ request: request.naturalLanguage, reference, explicitContext: request.explicit }) }),
+      body: JSON.stringify(body),
     });
     if (signal.aborted) throw new Error("product_luna_aborted");
     if (!response.ok) throw new Error("product_luna_provider_unavailable");
