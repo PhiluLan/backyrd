@@ -1,7 +1,7 @@
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, librarianConcept, parseExperienceProfile } from "@backyrd/world-knowledge-core";
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
 import { contentHash, deepFreeze, withContentHash } from "./canonical.js";
-import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
+import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LibrarianFact, type LunaExpression } from "./product-luna-librarian.js";
 import { searchLibrarianCatalog, type LibrarianCandidate, type LibrarianFactAssessment } from "./product-librarian-matching.js";
 import { parseProductWorldResolverBinding, type ProductWorldView } from "./product-world-resolver-binding.js";
 import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
@@ -115,6 +115,14 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   }, "assessmentHash"));
 }
 
+function requiredInEveryAlternative(node: LunaExpression, meaning: LibrarianRequest, predicate: (fact: LibrarianFact) => boolean): boolean {
+  if (node.kind === "FACT") return meaning.facts.some(f => f.id === node.factId && f.modality === "REQUIRED" && predicate(f));
+  if (node.kind === "ALL") return node.children.some(child => requiredInEveryAlternative(child, meaning, predicate));
+  if (node.kind === "IF") return node.else !== null && requiredInEveryAlternative(node.then, meaning, predicate) && requiredInEveryAlternative(node.else, meaning, predicate);
+  if (node.kind === "ANY" && node.strength === "PREFERRED") return false;
+  return (node.kind === "FALLBACK" ? node.options : node.children).every(child => requiredInEveryAlternative(child, meaning, predicate));
+}
+
 export function evaluateLibrarianProduct(input: {
   readonly request: DecisionProductRequest; readonly meaning: LibrarianRequest;
   readonly catalog: readonly unknown[]; readonly authority: { readonly authorizedCity: string; readonly serverTime: string };
@@ -142,6 +150,10 @@ export function evaluateLibrarianProduct(input: {
   // plan with the old facet language. Missing legacy evidence fails closed.
   const explicit = input.request.explicit;
   if (explicit.hardConstraints?.length || explicit.primaryIntent || explicit.dateTime || explicit.budget || explicit.group) {
+    const uiBudget = explicit.budget;
+    const scopedBudgetRetained = uiBudget?.state === "KNOWN" && requiredInEveryAlternative(meaning.logic, meaning, f =>
+      f.key === "budget.maximum" && f.value.kind === "MONEY" && ["LTE", "EQ"].includes(f.value.operator)
+      && f.value.amount === uiBudget.amount && f.value.currency === uiBudget.currency);
     const guardRequest = { ...input.request, naturalLanguage: " ", explicit };
     const guards = evaluateProductWorldViews(guardRequest, input.authority, input.projection, worlds, candidateSetHash).evaluation.candidates;
     candidates = candidates.map(c => {
@@ -150,8 +162,10 @@ export function evaluateLibrarianProduct(input: {
       // This guard may not apply its implicit "today" to a future Luna visit.
       // Time eligibility belongs to Luna unless an older UI explicitly sets it.
       const uiRequestsTime = !!explicit.dateTime || explicit.hardConstraints?.some(code => ["OPEN_NOW", "OPEN_ON_REQUESTED_DAY"].includes(code));
-      const failed = [...c.failedHardConstraints, ...guard.failedHardConstraints.filter(code => code !== "ACTUAL_AVAILABILITY" || uiRequestsTime)];
-      const unknown = [...c.unknownHardConstraints, ...guard.unknownHardConstraints];
+      const applicableGuard = (code: string) => (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime)
+        && (code !== "BUDGET_MAXIMUM" || !scopedBudgetRetained);
+      const failed = [...c.failedHardConstraints, ...guard.failedHardConstraints.filter(applicableGuard)];
+      const unknown = [...c.unknownHardConstraints, ...guard.unknownHardConstraints.filter(applicableGuard)];
       if (explicit.primaryIntent && ["INCOMPATIBLE", "DISPUTED"].includes(guard.coreIntentCoverage.state)) failed.push("EXPLICIT_INTENT_CONTRADICTED");
       else if (explicit.primaryIntent && guard.coreIntentCoverage.state !== "CONFIRMED") unknown.push("EXPLICIT_INTENT_NOT_PROVEN");
       const supported = new Set(["BUDGET_MAXIMUM", "ACCESSIBILITY_BASIC", "ACCESSIBILITY_STEP_FREE", "OPEN_NOW", "OPEN_ON_REQUESTED_DAY", "TARGET_LOCATION", "INDOOR_REQUIRED"]);

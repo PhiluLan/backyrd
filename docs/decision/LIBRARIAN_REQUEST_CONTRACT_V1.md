@@ -114,17 +114,19 @@ limits never discard a matching duty. Unsupported older typed hard filters stay
 unconfirmed rather than disappearing. Numeric UI age/count/date/budget inputs
 must survive model interpretation; omission fails before any catalog query.
 
-The new active-route suite contains 22 cases, including ten independent
+The new active-route suite contains 24 cases, including ten independent
 wish/catalog scenarios: linked atmosphere, vegan dinner versus vegan lunch,
 food.meal, scoped numeric and group budgets, indoor area, excluded music,
 river-area linkage, evening service and child/adult climbing separation. It
 also covers auth, source rebinding, truncation without retry, OR, discovery
 versus hard permissions, legacy UI guards, both actual client validators and
 80 candidates with the first 50 rejected. A temporal regression verifies that
-an older location-only UI filter cannot apply today’s closure to tomorrow’s visit. The provider is controlled in these
+an older location-only UI filter cannot apply today’s closure to tomorrow’s visit.
+A separate budget regression proves that an unconditionally retained, scoped
+meal budget cannot be overridden by an old venue-wide price range. The provider is controlled in these
 tests: they verify composition, not new live language-understanding accuracy.
 
-Local current Decision scope: 269/269 tests pass. Product/Mobile release contract
+Local current Decision scope: 271/271 tests pass. Product/Mobile release contract
 scope: 39/39 pass. Strict types and single-route checks pass. A CPU integration
 benchmark with mocked model/database/auth/control measured medians of
 7/43/402 ms for 10/100/1,000 spots (five warm samples). Each request made one

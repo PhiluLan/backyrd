@@ -39,7 +39,7 @@ function assertExplicitContext(request: DecisionProductRequest, meaning: Librari
   const budget = explicit.budget;
   if (budget?.state === "KNOWN" && budget.amount !== null) {
     if (!facts.some(f => f.value.kind === "MONEY" && f.value.amount === budget.amount && f.value.currency === budget.currency)) throw new Error("product_luna_explicit_budget_not_retained");
-    if (budget.perPerson && !facts.some(f => f.value.kind === "BUDGET_SCOPE" && f.value.scope === "PER_PERSON")) throw new Error("product_luna_explicit_budget_scope_not_retained");
+    if (!facts.some(f => f.value.kind === "BUDGET_SCOPE" && f.value.scope === (budget.perPerson ? "PER_PERSON" : "GROUP_TOTAL"))) throw new Error("product_luna_explicit_budget_scope_not_retained");
   }
 }
 

@@ -90,3 +90,15 @@ test('a typed location filter does not apply today closure to tomorrow meaning',
  const r=await exercise({text:'Morgen essen in Basel',meaning:plan([meal(),date()]),catalog:[binding(1,profile(),[closed])],explicit:{targetCity:'Basel',hardConstraints:['TARGET_LOCATION']}});
  assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.notEqual(r.body.primaryCandidateId,null);
 });
+
+test('an older venue-wide price cannot override a proven scoped meal budget',async()=>{
+ const oldPrice=worldFact('operation.price_range',{currency:'CHF',min:60,max:120});
+ const r=await exercise({text:'Abendessen bis 40 CHF pro Person in Basel',meaning:plan([meal(),...budget(40)]),catalog:[binding(1,profile([offer('dinner','DINNER',['inside'],[],[price(30)])]),[oldPrice])],explicit:{targetCity:'Basel',hardConstraints:['BUDGET_MAXIMUM'],budget:{state:'KNOWN',amount:40,currency:'CHF',perPerson:true,calibrationLabel:null}}});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.notEqual(r.body.primaryCandidateId,null);
+});
+
+test('a typed total budget cannot become a per-person budget in Luna output',async()=>{
+ const q=plan([meal(),...budget(30),fact('count','people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},'CONTEXT',['g1'])]);
+ const r=await exercise({text:'Zusammen höchstens 30 CHF ausgeben',meaning:q,catalog:[],explicit:{targetCity:'Basel',budget:{state:'KNOWN',amount:30,currency:'CHF',perPerson:false,calibrationLabel:null}}});
+ assert.equal(r.status,503);assert.equal(r.calls,1);assert.equal(r.reads,0);
+});
