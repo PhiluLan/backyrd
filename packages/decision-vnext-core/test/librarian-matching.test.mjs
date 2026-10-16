@@ -258,8 +258,8 @@ test('derived animal activity preserves its original weekday conditions',()=>{
 test('animal activity derivation cannot reopen an unavailable zoo offering',()=>{
  const b=animalZoo(408);b.decisionProjection.facts.find(f=>f.key==='experience.profile').value.offers[0].schedule=[{weekday:4,start:'08:00',end:'12:00'}];const r=search(request([fact('animals','experience.activity','Tiere anschauen'),date(),evening()]),[b]);assert.equal(r.ranked.length,0);assert.equal(r.excluded.length,1);
 });
-test('excluding animal viewing is contradicted by the actual zoo visit',()=>{
- const r=search(request([fact('animals','experience.activity','Tiere anschauen','EXCLUDED')]),[animalZoo(409)]);assert.equal(r.excluded.length,1);assert.ok(r.excluded[0].failedFactIds.includes('animals'));
+test('excluded animal viewing is a ranking mismatch, not a hard venue-type exclusion',()=>{
+ const r=search(request([fact('animals','experience.activity','Tiere anschauen','EXCLUDED')]),[animalZoo(409)]);assert.equal(r.excluded.length,0);assert.ok(r.unresolved[0].unknownFactIds.includes('animals'));assert.ok(r.unresolved[0].facts.some(f=>f.factId==='animals'&&f.state==='FAILED'));
 });
 test('only Zoo classification supports discovery, not a fabricated scoped animal offer',()=>{
  const b=animalZoo(410);b.decisionProjection.facts=b.decisionProjection.facts.filter(f=>f.key!=='experience.profile');const r=search(request([fact('animals','experience.activity','Tiere anschauen')]),[b]);assert.equal(r.ranked.length,1);assert.equal(r.ranked[0].status,'PARTIAL');assert.deepEqual(r.ranked[0].offerIds,[]);

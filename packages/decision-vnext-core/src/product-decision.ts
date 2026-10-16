@@ -178,7 +178,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
   const assessment = candidate.assessment;
   const reasons: ProductReason[] = [
     ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-    { code: "product-ranking-policy-v5", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    { code: "product-ranking-policy-v6", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
   ];
   return DecisionProductCandidateSchema.parse(withContentHash({

@@ -1,6 +1,6 @@
 # Unknown and Candidate Tiers
 
-## Active Luna / librarian path (matching @12, ranking v5)
+## Active Luna / librarian path (matching @13, ranking v6)
 
 The active path preserves `MET`, `UNKNOWN` and `FAILED` separately. A candidate
 with a proven requested venue type or activity can be recommended as
@@ -11,9 +11,17 @@ produce a relevant recommendation merely because its city matches.
 
 - Unknown admission, including undocumented child entry, does not exclude.
   A documented applicable minimum age or other access prohibition still does.
-- Atmosphere and requested areas/settings affect ranking, never admission,
+- Equipment/facilities, activity duration, atmosphere and requested areas/settings affect ranking, never admission,
   including when older clients label indoor or atmosphere as a hard filter.
   A mismatch is disclosed. An indoor cafe never proves an indoor play area.
+- Excluded foods, drinks, activities and other content affect ranking, never
+  admission. A matching excluded item must be disclosed as a mismatch; another
+  offer may still fit. An explicitly excluded venue type remains a hard
+  exclusion when that type is documented. A missing type label does not prove
+  absence, and an unknown excluded type does not suppress a proven activity.
+- A documented route length outside an explicitly requested numeric limit
+  remains a hard contradiction. The separate activity-duration measurement is
+  a ranking detail; it does not exclude, including for a numeric mismatch.
 - Missing visit or offer times allow a suggestion with unknown availability.
   Without a requested time, current day and opening hours are irrelevant.
   Documented closure during the requested visit remains an exclusion.
@@ -43,8 +51,8 @@ rejections and authorization/validation gates remain binding.
 
 Luna's frozen contract, prompt and model are unchanged by this policy. There is
 no extra model call and no user clarification dialogue. Existing typed controls
-keep their compatibility guards except for the explicitly softened indoor and
-atmosphere dimensions.
+keep their compatibility guards except for the explicitly softened indoor, atmosphere, equipment and
+non-category content-exclusion dimensions.
 
 The older Phase 3B draft is historical:
 [PHASE3B_UNKNOWN_AND_CONSTRAINT_POLICY.md](./PHASE3B_UNKNOWN_AND_CONSTRAINT_POLICY.md).

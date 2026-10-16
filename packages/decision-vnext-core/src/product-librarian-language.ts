@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@12" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@13" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 export const LIBRARIAN_LANGUAGE = deepFreeze({ version: LIBRARIAN_MATCHING_VERSION, concepts: EXPERIENCE_LANGUAGE_CONCEPTS, hash: contentHash(EXPERIENCE_LANGUAGE_DATA) });
@@ -14,5 +14,7 @@ export const LIBRARIAN_FAMILY_STRATEGIES: Readonly<Record<LunaFactKey, Librarian
 
 /** These wishes affect ordering, never admission. Their evidence still stays
  * scoped to the requested offer and is never relabelled as confirmed. */
-export const librarianRankingOnlyFamily = (family: string): boolean =>
-    family.startsWith("atmosphere.") || ["experience.character", "offer.area", "location.setting"].includes(family);
+export const librarianRankingOnlyFamily = (family: string, modality?: string, venueType = false): boolean =>
+    modality === "EXCLUDED" && !venueType
+    || family.startsWith("atmosphere.") || family.startsWith("amenity.")
+    || ["experience.character", "offer.area", "location.setting", "offer.feature", "offer.facility", "offer.shade", "condition.weather_protection", "time.duration"].includes(family);
