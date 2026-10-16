@@ -1,6 +1,6 @@
 /** Synthetic CPU benchmark. No model, network or production data. Build first. */
 import { performance } from 'node:perf_hooks';
-import { request, meal, fact, budget, profile, offer, area, prop, binding, search } from '../../packages/decision-vnext-core/test/librarian-matching-fixtures.mjs';
+import { request, meal, fact, budget, profile, offer, area, prop, binding, search } from './librarian-matching-fixtures.mjs';
 const q=request([meal(),fact('romance','atmosphere.character','romantisch'),fact('water','location.waterbody','Rhein'),...budget(40)]);
 const p=profile([offer('dinner','DINNER',['terrace'])],[area('terrace',[prop('atmosphere.character','romantisch'),prop('location.waterbody','Rhein')])]);
 for(const size of [10,100,1000]){

@@ -69,7 +69,7 @@ Run:
 npm test --workspace @backyrd/decision-vnext-core
 npm run typecheck --workspace @backyrd/decision-vnext-core
 npm run decision-vnext:single-route
-node scripts/decision/benchmark-librarian-matching.mjs
+node packages/decision-vnext-core/test/benchmark-librarian-matching.mjs
 ```
 
 On the initial import, 139/142 contract and matching tests passed. Three failed
