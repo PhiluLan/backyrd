@@ -42,3 +42,11 @@ test('visitor details preserve scope and conditions without form questions or du
  assert.equal(spotExperienceDetailGroups(shown.areas[0].facts).flatMap(g=>g.items).some(t=>t.includes('18')),false);
  assert.match(spotExperienceDetailGroups(shown.shared).flatMap(g=>g.items).join(' '),/Kein Wickeltisch/);
 });
+
+test('meal copy omits only unconditional repeated defaults and retains dishes and conditional activities',()=>{
+ const input={...profile,offers:[{...profile.offers[0],kind:'LUNCH',properties:[known('food.cuisine','vegan'),known('food.dish','vegane Gerichte'),known('food.dish','Ramen'),known('experience.activity','essen gehen'),known('food.meal_extent','Essen'),known('experience.activity','essen gehen',{conditions:{...conditions,weekdays:[7]}}),known('participation.consumption_obligation','Bestellpflicht')]}]};
+ const card=presentSpotExperience(input).offers[0];const copy=spotExperienceDetailGroups(card.facts,card.kind).flatMap(group=>group.items).join(' ');
+ assert.match(copy,/Ramen/);assert.match(copy,/Sonntag/);assert.match(copy,/Eine Bestellung ist erforderlich/);
+ assert.equal((copy.match(/essen gehen/g)??[]).length,1);assert.doesNotMatch(copy,/vegane Gerichte|Speisen: Essen/);
+ assert.match(spotExperienceDetailGroups(card.facts,'OTHER').flatMap(g=>g.items).join(' '),/Speisen: Essen/);
+});

@@ -8,13 +8,13 @@ import {
 } from "../../../packages/shared/src/presentation/spot-experience";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
-function VisitorDetails({ facts }: { facts: PublicSpotFact[] }) {
-  return <>{spotExperienceDetailGroups(facts).map(group => <View key={group.title} style={styles.group}><Text style={styles.label}>{group.title}</Text><Text style={styles.body}>{group.items.join(" ")}</Text></View>)}</>;
+function VisitorDetails({ facts, offerKind = "" }: { facts: PublicSpotFact[]; offerKind?: string }) {
+  return <>{spotExperienceDetailGroups(facts, offerKind).map(group => <View key={group.title} style={styles.group}><Text style={styles.label}>{group.title}</Text><Text style={styles.body}>{group.items.join(" ")}</Text></View>)}</>;
 }
 
 function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const hasDetails = card.prices.length + card.times.length + card.facts.length + card.places.length > 0;
+  const hasDetails = card.prices.length + card.times.length + spotExperienceDetailGroups(card.facts, area ? "" : card.kind).length + card.places.length > 0;
   if (!hasDetails) return <View style={styles.row}><View style={styles.summary}><Text style={styles.name}>{card.name}</Text></View></View>;
   return <View style={styles.row}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${card.name}: ${expanded ? "weniger" : "mehr"} Informationen`} accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={({ pressed }) => [styles.summary, pressed && styles.pressed]}>
@@ -24,7 +24,7 @@ function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: bo
     {expanded && <View style={styles.content}>
       {card.prices.length > 0 && <View style={styles.group}><Text style={styles.label}>Preise</Text>{card.prices.map((price, index) => <Text key={index} style={[styles.body, styles.price]}>{price}</Text>)}</View>}
       {card.times.length > 0 && <View style={styles.group}><Text style={styles.label}>Wann?</Text><Text style={styles.body}>{card.times.join(" · ")}</Text></View>}
-      <VisitorDetails facts={card.facts} />
+      <VisitorDetails facts={card.facts} offerKind={area ? "" : card.kind} />
       {card.places.length > 0 && <View style={styles.group}><Text style={styles.label}>{area ? "Hier möglich" : "Wo?"}</Text><Text style={styles.body}>{card.places.join(" · ")}</Text></View>}
     </View>}
   </View>;
