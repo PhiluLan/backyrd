@@ -14,10 +14,10 @@ const simple=()=>({entities:[],facts:[{id:'f1',modality:'REQUIRED',basis:'EXPLIC
 const fact=(id,key,value,modality='REQUIRED',subjectIds=[])=>({id,key,value,modality,subjectIds,basis:'EXPLICIT'});
 const flatten=node=>node.kind==='FACT'?[node.factId]:node.kind==='IF'?[node.conditionFactId,...flatten(node.then),...(node.else?flatten(node.else):[])]:node.kind==='FALLBACK'?node.options.flatMap(flatten):node.children.flatMap(flatten);
 
-test('revision 2 retains the frozen base, schema, catalog, model and reasoning',()=>{
+test('revision 3 retains the frozen base, schema, catalog, model and reasoning',()=>{
  const cfg=LUNA_LIBRARIAN_CONFIGURATION;
  assert.equal(cfg.model,'gpt-5.6-luna');assert.equal(cfg.reasoningEffort,'low');assert.equal(cfg.store,false);
- assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@2');
+ assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@3');
  assert.equal(cfg.schemaHash,'9261d8d2b0605e203e928af92de83697d3df33539e2621424b5cf6cbf45ea8cc');
  assert.equal(cfg.catalogHash,'7216d0011879d1e6b78e6186146305755111ceea87fa0992ee051b2b613e927c');
  const body=buildLunaLibrarianModelRequest({sourceText:'Heute Abend etwas trinken',reference:ref});
@@ -117,4 +117,13 @@ test('source is byte-preserved, reference is trusted input and hashes include th
 });
 test('boundary error messages never include private labels or user text',()=>{
  const d=simple();d.facts[0].subjectIds=['private-person'];assert.throws(()=>prepare(d,'sensitive user text'),error=>!error.message.includes('private-person')&&!error.message.includes('sensitive user text'));
+});
+
+test('revision 3 names the shared vocabulary and separates purpose, companion and geographic scope',()=>{
+ const body=buildLunaLibrarianModelRequest({sourceText:'Synthetischer Wunsch',reference:ref});
+ assert.match(body.instructions,/coffee=café/);
+ assert.match(body.instructions,/experience.purpose CONTEXT/);
+ assert.match(body.instructions,/people.relationship CONTEXT/);
+ assert.match(body.instructions,/participation.partner bezeichnet eine Anforderung/);
+ assert.match(body.instructions,/Dieselbe räumliche Bedeutung nicht zusätzlich/);
 });

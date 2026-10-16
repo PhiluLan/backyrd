@@ -10,6 +10,8 @@ export type VisitWindow = {
     readonly exact: boolean;
     readonly requested: boolean;
     readonly complete: boolean;
+    /** A generic daypart describes the experience, not a dated opening claim. */
+    readonly undatedDayPhase: boolean;
     readonly timezone: string | null;
     readonly excludedMinutes: readonly number[];
 };
@@ -99,7 +101,10 @@ export function createLibrarianVisitWindow(facts: readonly LibrarianFact[], time
         complete = false;
     if (end <= start)
         complete = false;
-    return { dates: days, start, end, exact, requested: temporal.length > 0 || originalWithoutCalendar, complete: (!temporal.length && !originalWithoutCalendar) || complete, timezone, excludedMinutes };
+    const undatedDayPhase = phases.length > 0 && temporal.length === phases.length
+        && !facts.some(f => f.modality === "EXCLUDED" && ["DAY_PHASE", "DATE"].includes(f.value.kind))
+        && phases.every(f => f.value.kind === "DAY_PHASE" && f.value.timezone === timezone) && end > start;
+    return { dates: days, start, end, exact, requested: temporal.length > 0 || originalWithoutCalendar, complete: (!temporal.length && !originalWithoutCalendar) || complete, undatedDayPhase, timezone, excludedMinutes };
 }
 export function librarianConditions(conditions: ExperienceConditions, visit: VisitWindow, event: string | null = null): MatchTruth {
     if (conditions.event !== null && conditions.event !== event)
@@ -139,6 +144,8 @@ export type LibrarianVenueAvailability = {
 export function librarianVenueAvailability(world: ProductWorldView, visit: VisitWindow): LibrarianVenueAvailability {
     if (!visit.requested)
         return { intervals: [], state: "MET", hashes: [], reason: "NO_TIME_REQUIREMENT" };
+    if (visit.undatedDayPhase)
+        return { intervals: [], state: "MET", hashes: [], reason: "NO_CALENDAR_AVAILABILITY_CLAIM" };
     if (!visit.complete || visit.dates.length !== 1 || !world.spot.location.timezone)
         return { intervals: [], state: "UNKNOWN", hashes: [], reason: "VISIT_TIME_UNRESOLVED" };
     const day = visit.dates[0]!;
@@ -175,6 +182,15 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
 } {
     if (!visit.requested)
         return { state: "MET", hashes: [], reason: "NO_TIME_REQUIREMENT" };
+    if (visit.undatedDayPhase) {
+        // Respect a documented recurring restriction without inventing a day,
+        // current opening or availability. No schedule means no calendar claim.
+        const compatible = !offer.schedule.length || offer.schedule.some(slot => {
+            const start = minute(slot.start), end = minute(slot.end) <= start ? 1440 : minute(slot.end);
+            return Math.max(start, visit.start) < Math.min(end, visit.end);
+        });
+        return { state: compatible ? "MET" : "FAILED", hashes: [], reason: compatible ? "UNDATED_OFFER_DAYPART_COMPATIBLE" : "OFFER_OUTSIDE_REQUESTED_DAYPART" };
+    }
     const venue = librarianVenueAvailability(world, visit);
     if (venue.state !== "MET")
         return venue;

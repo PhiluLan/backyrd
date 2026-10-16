@@ -1,3 +1,4 @@
+import { EXPERIENCE_LANGUAGE_CONCEPTS } from "@backyrd/world-knowledge-core";
 import { createHash } from "node:crypto";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { ContractValidationError, schema, type Infer, type Schema } from "./schema.js";
@@ -203,10 +204,14 @@ export function parseLunaMeaningOutput(input: unknown): Readonly<LunaMeaningOutp
   return deepFreeze(output);
 }
 
-/** Revision 2 keeps the accepted schema/catalog/model and the original prompt
- * intact. Only semantic atomization is clarified; no second provider call. */
-export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@2" as const;
-const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARE TÄTIGKEITEN: Jede eigenständig prüfbare Tätigkeit als eigenes experience.activity-Faktum ausgeben, mit kurzem positivem Tätigkeitswert, nicht mehrere Tätigkeiten in einem Textwert bündeln. Gemeinsame Pflichten bleiben gemeinsam REQUIRED; echtes entweder/oder bleibt ANY. Eigenschaften wie drinnen dem betroffenen gemeinsamen Besuch oder der jeweiligen Tätigkeit zuordnen. Keine Tätigkeit durch eine ähnliche ersetzen und keine zusätzliche Tätigkeit erfinden. Oberbegriffe dürfen neben einer ausdrücklich genannten konkreten Tätigkeit erhalten bleiben; der Host interpretiert oder zerlegt keine Textwerte.";
+/** Versioned clarification of executable duties versus visit context. The
+ * frozen schema, catalog, model and original prompt remain intact. */
+export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@3" as const;
+const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARER AUFTRAG:\n"
+  + "Eigenständig prüfbare Tätigkeiten getrennt als experience.activity ausgeben. Echte gemeinsame Pflichten bleiben REQUIRED, Alternativen ANY. Ein gewünschtes Erleben oder allgemeiner Besuchszweck ist keine zusätzliche Leistung: bloßes Geniessen, Zeit verbringen oder einen schönen Abend haben als experience.purpose CONTEXT erhalten. Konkrete Eigenschaften wie romantisch, ruhig oder am Rhein bleiben eigenständige verbindliche Fakten; keine davon abschwächen. Konkrete Tätigkeiten wie Tanzen, Klettern oder Lernen bleiben prüfbar und dürfen nicht in CONTEXT verschwinden. Eine reine Zweckanfrage ohne konkrete Tätigkeit nicht durch eine erfundene Aktivität ersetzen.\n"
+  + "Begleitung ausschließlich people.relationship CONTEXT, Alter als people.age mit PERSON-Bezug. participation.partner bezeichnet eine Anforderung an die Durchführungsform (z.B. ohne eigenen Spielpartner teilnehmen), niemals mitgebrachte Freunde, Kinder oder Ehepartner. Keine Personengruppe mit unvollständiger Mitgliederliste als vollständige Gruppe darstellen: bei nur einer benannten Begleitperson genügt ihre PERSON-Entity, Beziehung global. Gruppenmitglieder sind keine automatisch vollständige Personenzahl. Tätigkeits-Entities sind keine Personen; Alters- und Tätigkeitsfakten über subjectIds gezielt zuordnen, wenn unterschiedliche Personen unterschiedliche Leistungen nutzen.\n"
+  + "Innen-/Außen-Nutzung unter offer.area. Einen benannten Fluss oder See nur unter location.waterbody, Aussicht separat unter location.view, eine andere Lageart unter location.setting. Dieselbe räumliche Bedeutung nicht zusätzlich als freie Lagephrase wiederholen; am Rhein verlangt das Gewässer Rhein, keine weitere gleichbedeutende Angebotsleistung. Tagesphase bleibt ohne Datum offen; aus einer Mahlzeit niemals einen Kalendertag ableiten. food.meal und experience.activity müssen dieselbe Mahlzeit bezeichnen. Für bekannte Begriffe die nachstehenden gemeinsamen text-Werte verwenden, sofern bedeutungsgleich; unbekannte Inhalte frei erhalten, niemals auf einen ähnlichen bekannten Begriff zwingen. Keine Tätigkeit, Eigenschaft, Uhrzeit oder Zahl ergänzen.\nGEMEINSAME BEGRIFFE (Wert=Bedeutung): "
+  + EXPERIENCE_LANGUAGE_CONCEPTS.map(concept => `${concept.id}=${concept.labels[0]}`).join("; ");
 export const LUNA_LIBRARIAN_CONFIGURATION = deepFreeze({
   contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, model: LUNA_LIBRARIAN_MODEL,
   reasoningEffort: LUNA_LIBRARIAN_REASONING, store: false, maxOutputTokens: 7500,

@@ -147,3 +147,47 @@ Decision response.
 The fixed timing stages distinguish interpretation from canonical evaluation.
 CPU-only integration benchmarks use synthetic catalogs and explicit model/DB
 test doubles; they are not end-to-end live latency or price measurements.
+
+## Semantic alignment revision 3 (implementation candidate)
+
+Task class: PRODUCT_RELEASE. Production still requires the exact certified Main
+artifact and explicit release authorization. No schema migration, permission,
+consent, rate limit, model or reasoning-effort change is part of this correction.
+
+Luna prompt revision `backyrd.luna-prompt@3` preserves the original frozen prompt,
+schema and 127 meaning families. The appended instruction distinguishes actual
+offer duties from general experiential purpose and companion context. It uses
+canonical IDs from the same finite World vocabulary as matching; unknown terms
+remain free values and never fall back to a similar known category. Named water,
+view and area requirements remain separate, without duplicating a waterbody as
+an additional free-text location duty. There is still one provider call and no
+repair model call. Keep prompt, matching (`@9`) and shared World language (`@6`)
+hashes bound to the certified release.
+
+Undated dayparts describe a generic meal/experience window. They preserve the
+original fact, respect any documented offer schedule and remain explicit context
+in the assessment, without a dated opening or booking claim. Actual dates,
+weekdays, clocks, exclusions, closures and unknown selected-offer schedules
+continue to require the existing calendar proof. A meal must not fall back to
+venue opening alone. Product availability remains `not_requested` when no
+calendar availability is being claimed.
+
+A documented consumable coffee can witness coffee drinking on that same offer;
+it cannot establish a venue type, meal or workshop. Indoor/outdoor requirements
+under either `offer.area` or `location.setting` use the linked activity area,
+never an unrelated cafe. The engine does not re-read source prose or downgrade
+unknown activity values to preferences/context.
+
+All explicitly supplied participant ages remain visible even if a model group
+lists only some people. A partial member list is not authority for headcount,
+capacity or a total-price calculation. Per-offer minimum ages remain scoped to
+the actual participants, global entry restrictions still apply, and missing child
+entry documentation still remains unknown rather than claiming unrestricted
+admission. A companion relationship is context; a genuine partner requirement
+continues to need supporting offer evidence.
+
+Acceptance covers the ten diagnostic wishes on a fixed, previously authorized
+canonical Spot snapshot with a neutral synthetic actor, plus deterministic
+positive/negative regressions and the active handler contract tests. Real model
+captures stay outside Git. Such local replay is not a production HTTP/auth test,
+a general language accuracy estimate, or proof of on-device availability.

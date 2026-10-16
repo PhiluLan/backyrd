@@ -126,7 +126,7 @@ function collectFacts(node: LunaExpression): readonly string[] {
         return sorted([...collectFacts(node.then), ...(node.else ? collectFacts(node.else) : [])]);
     return sorted((node.kind === "FALLBACK" ? node.options : node.children).flatMap(collectFacts));
 }
-const semanticPropertyKeys: Readonly<Record<string, readonly string[]>> = { "experience.character": ["atmosphere.character"], "offer.facility": ["offer.feature"], "offer.kind": ["offer.kind", "stay.room_type"], "offer.area": ["offer.area", "location.setting"], "participation.accessibility": ["participation.accessibility", "amenity.step_free", "amenity.stroller"], "offer.feature": ["offer.feature", ...Object.keys(BOOLEAN_CONCEPTS)] };
+const semanticPropertyKeys: Readonly<Record<string, readonly string[]>> = { "experience.activity": ["experience.activity", "food.drink"], "experience.character": ["atmosphere.character"], "offer.facility": ["offer.feature"], "offer.kind": ["offer.kind", "stay.room_type"], "offer.area": ["offer.area", "location.setting"], "participation.accessibility": ["participation.accessibility", "amenity.step_free", "amenity.stroller"], "offer.feature": ["offer.feature", ...Object.keys(BOOLEAN_CONCEPTS)] };
 /** Catalogued offer duties may arrive in a domain family. Preserve the
  * emitted family; only establish which typed offer can witness it. Specific
  * drinks (wine, beer, etc.) still need their own property evidence. */
@@ -180,6 +180,10 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
         return "UNKNOWN";
     if (fact.value.kind === "TEXT") {
         const desired = librarianConcept(fact.value.text);
+        // A documented consumable coffee proves coffee drinking in that same
+        // offer. This does not turn a beverage into a venue, workshop or meal.
+        if (fact.key === "experience.activity" && property.key === "food.drink")
+            return desired === "coffee" && typeof property.value === "string" && librarianConcept(property.value) === "coffee" ? "MET" : "UNKNOWN";
         if (typeof property.value === "boolean") {
             const concept = BOOLEAN_CONCEPTS[property.key];
             return concept && desired === concept ? (property.value ? "MET" : "FAILED") : "UNKNOWN";
@@ -250,7 +254,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     }
     // A global spatial requirement applies to the requested activities, not
     // an unrelated cafe or facility elsewhere at the same spot.
-    const spatialActivities = fact.key === "offer.area" && (!fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP")))
+    const spatialActivities = ["offer.area", "location.setting"].includes(fact.key) && (!fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP")))
         ? request.facts.filter(f => offerDuty(f) && ["REQUIRED"].includes(f.modality)
             && collectFacts(request.logic).includes(f.id))
             .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability)) : [];
@@ -295,7 +299,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             }
         }
     }
-    if (fact.key === "offer.area" && desired) {
+    if (["offer.area", "location.setting"].includes(fact.key) && desired && ["indoor", "outdoor", "terrace"].includes(desired)) {
         for (const area of profile.areas)
             if ((AREA_CONCEPTS[area.kind] ?? []).includes(desired)) {
                 const offers = profile.offers.filter(o => o.areaIds.includes(area.id));
@@ -354,8 +358,9 @@ function countPeople(facts: readonly LibrarianFact[], request: LibrarianRequest)
     }
     if (counts.length > 1)
         return null;
-    const groups = request.entities.filter(e => e.kind === "GROUP" && facts.some(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.subjectIds.includes(e.id)) && e.members.length && e.members.every(id => request.entities.find(e => e.id === id)?.kind === "PERSON"));
-    return groups.length === 1 ? groups[0]!.members.length : null;
+    // Named members need not enumerate the full party. Only a count fact is
+    // authority for quantities, prices and capacity.
+    return null;
 }
 function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], request: LibrarianRequest, profile: ExperienceProfile | null, state: State, visit: VisitWindow): LibrarianFactAssessment {
     const money = fact.value;
@@ -509,10 +514,12 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
                 return { ...jointPrice(fact, selected, request, profile, state, visit), modality: r.modality };
             if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL") {
                 const temporalVisit = temporalVisits.get(fact.id)!;
+                if (temporalVisit.undatedDayPhase)
+                    return { ...r, state: "CONTEXT" as const, reason: "UNDATED_DAYPART_NO_OPENING_CLAIM", evidenceHashes: [], offerIds: state.offerIds, areaIds: state.areaIds };
                 const availability = state.offerIds.map(id => offerAvailability(profile!.offers.find(o => o.id === id)!, world, temporalVisit));
                 // A venue-only request uses venue hours. It must not invent an
                 // offer schedule merely because a scoped profile exists.
-                if (!state.offerIds.length && !allAtoms.some(atom => ["experience.activity", "offer.kind"].includes(atom.report.family) && atom.report.offerIds.length > 0)) availability.push(librarianVenueAvailability(world, temporalVisit));
+                if (!state.offerIds.length && !allAtoms.some(atom => selected.some(f => f.id === atom.report.factId && offerDuty(f)) && atom.report.offerIds.length > 0)) availability.push(librarianVenueAvailability(world, temporalVisit));
                 const stateValue: MatchTruth = !temporalVisit.complete || !availability.length ? "UNKNOWN" : availability.some(a => a.state === "FAILED") ? "FAILED" : availability.some(a => a.state === "UNKNOWN") ? "UNKNOWN" : "MET";
                 return { ...r, state: stateValue, reason: stateValue === "MET" ? "JOINT_VISIT_TIME_CONFIRMED" : "VISIT_TIME_OR_AVAILABILITY_NOT_PROVEN", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
             }
