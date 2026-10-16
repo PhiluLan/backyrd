@@ -1,3 +1,4 @@
+import { evaluateLibrarianProduct, librarianTargetCity, PRODUCT_LIBRARIAN_EVALUATOR_VERSION } from "./product-librarian-evaluator.js";
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -95,6 +96,7 @@ export interface DecisionProductCanonicalEvaluationProvider {
     readonly actor: DecisionProductAuthenticatedActor;
     readonly identity: DecisionProductProductionIdentity;
     readonly signal: AbortSignal;
+    readonly meaning?: LibrarianRequest;
   }): Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
 }
 
@@ -203,6 +205,7 @@ export function createDecisionProductProductionPorts(input: {
   readonly evaluationProvider: DecisionProductCanonicalEvaluationProvider;
   readonly interactionAuthority: DecisionProductInteractionAuthorityProvider;
   readonly learningPort: DecisionProductCanonicalLearningPort;
+  readonly understandingProvider?: NonNullable<DecisionProductRuntimePorts["understand"]>;
   readonly interpreter?: NonNullable<DecisionProductRuntimePorts["interpret"]>;
   readonly configuration: DecisionProductProductionConfiguration;
   readonly now?: () => Date;
@@ -248,13 +251,17 @@ export function createDecisionProductProductionPorts(input: {
         throw new Error("product_rate_limit_result_invalid");
       },
     },
+    ...(input.understandingProvider ? { understand: async (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => {
+      if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_ai_intent_actor_unbound");
+      return input.understandingProvider!(request, actor, signal);
+    } } : {}),
     ...(input.interpreter ? { interpret: async (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_interpretation_actor_unbound");
       return input.interpreter!(request, actor, signal);
     } } : {}),
-    async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) {
+    async evaluate(request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal, meaning?: LibrarianRequest) {
       if (!currentActor.value || canonicalJson(currentActor.value) !== canonicalJson(actor) || signal.aborted) throw new Error("product_evaluation_actor_unbound");
-      return input.evaluationProvider.evaluate({ request, actor, identity, signal });
+      return input.evaluationProvider.evaluate({ request, actor, identity, signal, ...(meaning ? { meaning } : {}) });
     },
     idempotency: {
       async commit(commitInput: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal) {
@@ -329,7 +336,7 @@ function canonicalConsentTimestamp(value: unknown): unknown {
   return Number.isFinite(time) ? new Date(time).toISOString() : value;
 }
 
-function productProjection(input: {
+export function productProjection(input: {
   readonly request: DecisionProductRequest;
   readonly actor: DecisionProductAuthenticatedActor;
   readonly serverTime: string;
@@ -490,15 +497,22 @@ export function createDecisionProductLibrarianRpcEvaluationProvider(
 }
 
 /** Canonical Product composition over service-only World/User RPCs. */
-export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient): DecisionProductCanonicalEvaluationProvider {
+export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient, options: { readonly meaningRequired: boolean } = { meaningRequired: false }): DecisionProductCanonicalEvaluationProvider {
   return Object.freeze({
     contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0" as const,
     async evaluate(input: Parameters<DecisionProductCanonicalEvaluationProvider["evaluate"]>[0]) {
-      const targetCity = productTargetCity(input.request);
+      if (options.meaningRequired && !input.meaning) throw new Error("product_librarian_meaning_required");
+      const targetCity = input.meaning ? librarianTargetCity(input.request, input.meaning) : productTargetCity(input.request);
       const { context, serverTime } = await readDecisionProductRuntimeContext(rpc, {
         actor: input.actor, identity: input.identity, targetCity,
-        retrievalHint: productRetrievalIntent(input.request), signal: input.signal,
+        retrievalHint: input.meaning ? "EAT" : productRetrievalIntent(input.request), signal: input.signal,
       });
+      if (input.meaning) {
+        if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
+        const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
+        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], authority: { authorizedCity: targetCity, serverTime }, projection }));
+        return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: evaluated.evaluation.worldCohort.candidateSetHash }) }, evaluatorContractVersion: PRODUCT_LIBRARIAN_EVALUATOR_VERSION };
+      }
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];
       const snapshots = new Map<string, ReturnType<typeof parseProductWorldResolverBinding>>();
       for (const raw of rawSnapshots) {

@@ -229,7 +229,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         const key = fact.key === "location.destination" ? "location.locality" : "location.country_code", row = world.facts.find(r => r.key === key);
         if (!row || typeof row.value !== "string" || fact.value.kind !== "TEXT")
             return report("UNKNOWN", "LOCATION_EVIDENCE_MISSING");
-        const equal = librarianTerm(row.value) === librarianTerm(fact.value.text), state = equal ? "MET" : "FAILED";
+        const locationTerm = (text: string) => librarianTerm(text).normalize("NFKD").replace(/\p{M}/gu, "");
+        const equal = locationTerm(row.value) === locationTerm(fact.value.text), state = equal ? "MET" : "FAILED";
         return report(fact.modality === "EXCLUDED" ? (equal ? "FAILED" : "MET") : state, "VERIFIED_LOCATION", [{ evidenceHashes: [row.entryHash], offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: false, chargeable: false }]);
     }
     if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE")
@@ -550,7 +551,7 @@ function runLibrarianCatalogSearch(input: {
     if (input.catalog.length > 1000)
         failure("catalog_limit");
     const limit = input.limit ?? 6;
-    if (!Number.isInteger(limit) || limit < 1 || limit > 40)
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000)
         failure("result_limit");
     const worlds = input.catalog.map(binding => parseProductWorldResolverBinding(binding, input.authority.city));
     if (new Set(worlds.map(w => w.spot.spotId)).size !== worlds.length)

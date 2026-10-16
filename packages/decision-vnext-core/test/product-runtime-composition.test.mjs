@@ -30,7 +30,7 @@ test("Product projection canonicalization works without a global Node Buffer in 
 const actor = { userId: "11111111-1111-4111-a111-111111111111", subjectBindingHash: hash("subject"), authenticationContextHash: hash("auth"), sessionBindingHash: hash("session-binding"), sessionId: "22222222-2222-4222-a222-222222222222" };
 
 test("decision-v13 composes canonical Product providers without unavailable, Founder or legacy fallbacks", () => {
-  assert.match(edge, /createDecisionProductRpcEvaluationProvider\(rpc\)/);
+  assert.match(edge, /createDecisionProductRpcEvaluationProvider\(rpc, \{ meaningRequired: true \}\)/);
   assert.match(edge, /createDecisionProductRpcLearningPort\(rpc, config\.identity\)/);
   assert.doesNotMatch(edge, /unavailableEvaluationProvider|unavailableLearningPort|from .*founder|from .*legacy/i);
 });

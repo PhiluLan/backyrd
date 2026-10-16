@@ -1,3 +1,4 @@
+import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
 import { Buffer } from "node:buffer";
 import {
   CONTRACT_VERSIONS,
@@ -124,13 +125,19 @@ function compareCandidates(left: CandidateForRanking, right: CandidateForRanking
   return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[0] ?? 0;
 }
 
-function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null): boolean {
+function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null, discoverySelectionAuthorized = false): boolean {
   const onlyRequestedDayOpeningUnknown = candidate.unknownHardConstraints.length > 0
     && candidate.unknownHardConstraints.every((constraint) => constraint === "OPEN_ON_REQUESTED_DAY")
     && ["unknown", "not_authorized", "expired", "disputed"].includes(candidate.actualAvailability);
+  // Classification authorized for DISCOVERY can select a provisional venue.
+  // It does not authorize any unmet price, legal, access or time requirement.
+  const discoveryOnlyTypeUnknown = discoverySelectionAuthorized && candidate.tier === "UNCONFIRMED_FALLBACK"
+    && candidate.coreIntentCoverage === "CONFIRMED"
+    && candidate.unknownHardConstraints.length > 0
+    && candidate.unknownHardConstraints.every(code => code === "DISCOVERY_ONLY_SPOT_TYPE");
   return (situationalIds === null || situationalIds.has(candidate.spotId))
     && candidate.tier !== "INELIGIBLE"
-    && (candidate.rankVector.hardConstraintState === "PASS" || onlyRequestedDayOpeningUnknown)
+    && (candidate.rankVector.hardConstraintState === "PASS" || onlyRequestedDayOpeningUnknown || discoveryOnlyTypeUnknown)
     && candidate.coreIntentCoverage !== "INCOMPATIBLE"
     && candidate.coreIntentCoverage !== "DISPUTED"
     && !candidate.contextualReject;
@@ -160,9 +167,9 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
     };
   }).sort(compareCandidates);
   let position = 0;
-  const rankedRows = rows.filter((candidate) => rankable(candidate, situationalIds));
+  const rankedRows = rows.filter((candidate) => rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1"));
   return deepFreeze(rows.map((candidate) => {
-    const ranked = rankable(candidate, situationalIds); if (ranked) position += 1;
+    const ranked = rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1"); if (ranked) position += 1;
     const next = ranked ? rankedRows[position] : undefined;
     const decidingFactor = next ? rankingChecks(candidate, next).find(([difference]) => difference < 0)?.[1] : undefined;
     const comparativeReason: ProductReason | null = decidingFactor
@@ -175,7 +182,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
   const assessment = candidate.assessment;
   const reasons: ProductReason[] = [
     ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-    { code: "product-ranking-policy-v3", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    { code: "product-ranking-policy-v4", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
   ];
   return DecisionProductCandidateSchema.parse(withContentHash({
@@ -229,17 +236,17 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const situation = evaluation.interpretation.group.companionType;
   const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
     && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
-  const situationalIds = evaluation.interpretation.primaryIntent !== null ? null : new Set(
+  const situationalIds = evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1" || evaluation.interpretation.primaryIntent !== null ? null : new Set(
     situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );
   const ranked = candidateRows(evaluation, projection, input.presentations, situationalIds);
-  const available = ranked.filter((candidate) => rankable(candidate, situationalIds));
+  const available = ranked.filter((candidate) => rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1"));
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
   for (let windowSize = maxWindowSize; windowSize >= (maxWindowSize === 0 ? 0 : 1); windowSize -= 1) {
-    const selected = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds)).slice(0, PRODUCT_PRESENTATION_WINDOW)
+    const selected = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1")).slice(0, PRODUCT_PRESENTATION_WINDOW)
       : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize ? ranked
         : available.slice(firstUnseenIndex, firstUnseenIndex + windowSize);
     const candidates = selected.map(materializeCandidate);
@@ -248,7 +255,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
       contractVersion: PRODUCT_DECISION_VERSIONS.response, status: "AVAILABLE" as const, decisionId, requestHash, envelopeHash: envelope.envelopeHash,
       rankingPolicyVersion: PRODUCT_DECISION_VERSIONS.rankingPolicy, rankingPolicyHash: DECISION_PRODUCT_RANKING_POLICY.policyHash,
       interpretation: evaluation.interpretation, primaryCandidateId: primary?.spotId ?? null, candidates,
-      limitations: candidates.filter((candidate) => rankable(candidate, situationalIds)).length < available.length ? [...evaluation.limitations, "CANDIDATE_WINDOW_LIMITED"] : evaluation.limitations,
+      limitations: candidates.filter((candidate) => rankable(candidate, situationalIds, evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1")).length < available.length ? [...evaluation.limitations, "CANDIDATE_WINDOW_LIMITED"] : evaluation.limitations,
       alternative: { requested: request.alternativeRequested, selectedCandidateId: request.alternativeRequested ? primary?.spotId ?? null : null, negativeSignalProduced: false as const },
       reject: { candidateIds: request.rejectedCandidateIds, contextualOnly: true as const, worldFactProduced: false as const },
       personalization: { state: projection.status, neutralReason: projection.neutralReason, projectionHash: projection.projectionHash },
@@ -365,8 +372,9 @@ export interface DecisionProductRuntimePorts {
   readonly auth: { authenticate(token: string, signal: AbortSignal): Promise<DecisionProductAuthenticatedActor | null> };
   readonly rateLimit: { consume(subjectBindingHash: string, signal: AbortSignal): Promise<boolean> };
   readonly control: { assertBoundary(boundary: DecisionProductRuntimeBoundary, signal: AbortSignal): Promise<void> | void; readonly timeoutMilliseconds: number; readonly maxRequestBytes: number };
+  readonly understand?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<LibrarianRequest>;
   readonly interpret?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<DecisionProductRequest>;
-  readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
+  readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal, meaning?: LibrarianRequest) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
   readonly idempotency: { commit(input: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal): Promise<{ status: "CREATED" } | { status: "REPLAYED"; execution: unknown } | { status: "CONFLICT" | "EXPIRED" }> };
   readonly interaction: { resolve(input: { request: DecisionProductInteractionRequest; actor: DecisionProductAuthenticatedActor }, signal: AbortSignal): Promise<
     { status: "AUTHORIZED"; sessionId: string; spotId: string; contextBindingHash: string; occurredAt: string }
@@ -458,6 +466,16 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         reportTimings("SUCCESS");
         return new Response(JSON.stringify(response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
       }
+      if (ports.understand && ports.interpret) throw new Error("product_interpretation_composition_ambiguous");
+      const meaningValue = ports.understand
+        ? await at("INTERPRETATION", signal => ports.understand!(parsedRequest, actor, signal)) : undefined;
+      const meaning = meaningValue ? prepareLibrarianRequest({
+        contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: meaningValue.raw,
+        sourceText: meaningValue.source.sourceText, reference: meaningValue.source.reference,
+      }) : undefined;
+      if (meaning && (meaning.source.sourceText !== parsedRequest.naturalLanguage || meaning.requestHash !== meaningValue!.requestHash)) {
+        throw new Error("product_librarian_source_binding_invalid");
+      }
       const productRequest = ports.interpret
         ? DecisionProductRequestSchema.parse(await at("INTERPRETATION", (signal) => ports.interpret!(parsedRequest, actor, signal)))
         : parsedRequest;
@@ -485,7 +503,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         || [...originalUnresolved].some((value) => !interpretedUnresolved.has(value))) {
         throw new Error("product_ai_intent_request_boundary_invalid");
       }
-      const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal));
+      const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal, meaning));
       stage = "RESPONSE_BUILD";
       const expectedInput = { request: productRequest, actor, ...evaluated }; const execution = buildDecisionProductExecution(expectedInput);
       const committed = await at("IDEMPOTENCY", (signal) => ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: productRequest.idempotencyKey, payloadHash: contentHash(productRequest), execution }, signal));

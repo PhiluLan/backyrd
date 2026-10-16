@@ -178,7 +178,7 @@ function tasteScopeApplies(scope: RelevantUserProjection["taste"][number]["scope
   return ([context.primaryIntent, context.secondaryIntent, context.occasion, context.dateTime.dayPhase].filter(Boolean) as string[]).includes(reference);
 }
 
-function userTasteMatches(snapshot: ProductWorldView, context: DecisionProductContext, projection: RelevantUserProjection) {
+export function userTasteMatches(snapshot: ProductWorldView, context: DecisionProductContext, projection: RelevantUserProjection) {
   if (projection.status !== "ACTIVE") return [];
   const supported = candidateTasteConcepts(snapshot, context);
   return projection.taste.filter((item) => supported.has(item.concept.conceptId) && tasteScopeApplies(item.scope, snapshot, context))

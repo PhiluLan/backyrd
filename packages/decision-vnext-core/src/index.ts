@@ -14,3 +14,6 @@ export * from "./product-luna-librarian.js";
 export * from "./product-librarian-language.js";
 export * from "./product-librarian-matching.js";
 export * from "./product-librarian-semantics.js";
+
+export * from "./product-luna-provider.js";
+export * from "./product-librarian-evaluator.js";

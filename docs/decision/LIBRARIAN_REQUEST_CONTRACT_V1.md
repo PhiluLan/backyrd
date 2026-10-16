@@ -1,6 +1,6 @@
 # Lossless Luna and Spot matching boundary
 
-Status (2026-10-16): canonical library integration, not production activation.
+Status (2026-10-16): single-route implementation candidate; production activation pending.
 Task class: PRODUCT_RELEASE because the existing production adapter shares its
 catalog read with the new library boundary.
 
@@ -49,7 +49,7 @@ unresolved duties. Positive feature lists never prove the absence of a feature.
   meaning links are accepted by server-configured content hash only. Owners
   cannot approve their own new equivalences.
 
-Matching revision 7 closes a domain-family mismatch: a recognized meal request
+Matching revision 7 closed a domain-family mismatch: a recognized meal request
 emitted as `food.meal` can use the same real meal offer as an activity request.
 A generic `food.drink` request can use a drinks offer. The original family,
 modality, subject IDs and values do not change. Wine still requires wine
@@ -92,18 +92,53 @@ medians were 3/18/154 ms; these samples do not establish a speed improvement.
 They exclude model, database, network and UI time. Matching makes zero model
 calls. No production spot content was changed.
 
-## Remaining activation work — do not confuse library tests with live behavior
+## Single-route runtime integration (matching v8)
 
-The installed `decision-v13` handler still composes the narrower ai-query@3.8
-interpreter and existing Product assessment/presentation contracts. This PR does
-not switch that composition. It must not be deployed as though it activated all
-127 families.
+The existing Edge handler now composes `createDecisionProductLunaProvider` and
+requires its lossless result in `createDecisionProductRpcEvaluationProvider`.
+The HTTP boundary revalidates both the exact original and plan hash. No raw
+meaning is added to the public request or response shape. The legacy interpreter
+is not an active fallback. Disabled Luna returns unavailable.
 
-The next release must carry the lossless plan request-locally from the one Luna
-call into this matcher, bind its assessments to the existing release-controlled
-ranking and visitor explanations, and retain consent-bound learning and replay
-semantics. Do not project the plan back through the narrow intent/facet shape.
-Validate the single authenticated route and both client transports with fresh
-end-to-end requests, report actual model/database/total latency and costs, then
-consume a certified exact Main artifact for production activation. No new chat
-route, parallel Decision host or plaintext request persistence is authorized.
+`product-librarian-evaluator.ts` adapts all assessments to the existing Product
+ranking/presentation contracts, independently of its display context summary.
+Classification has DISCOVERY rights, not hard eligibility rights. An explicitly
+matching type can therefore be a disclosed provisional selection; any other
+unknown hard duty still blocks primary selection. This rule is bound to the new
+evaluator version, evaluation release v10 and ranking policy v4. No World source
+policy rights were expanded.
+
+The matcher can assess all 1,000 city candidates before final selection. Prices,
+scopes and logical alternatives are evaluated before UI summary limits. Those
+limits never discard a matching duty. Unsupported older typed hard filters stay
+unconfirmed rather than disappearing. Numeric UI age/count/date/budget inputs
+must survive model interpretation; omission fails before any catalog query.
+
+The new active-route suite contains 21 cases, including ten independent
+wish/catalog scenarios: linked atmosphere, vegan dinner versus vegan lunch,
+food.meal, scoped numeric and group budgets, indoor area, excluded music,
+river-area linkage, evening service and child/adult climbing separation. It
+also covers auth, source rebinding, truncation without retry, OR, discovery
+versus hard permissions, legacy UI guards, both actual client validators and
+80 candidates with the first 50 rejected. The provider is controlled in these
+tests: they verify composition, not new live language-understanding accuracy.
+
+Local current Decision scope: 268/268 tests pass. Product/Mobile release contract
+scope: 39/39 pass. Strict types and single-route checks pass. A CPU integration
+benchmark with mocked model/database/auth/control measured medians of
+7/43/402 ms for 10/100/1,000 spots (five warm samples). Each request made one
+mock model call and one mock catalog read. No paid API calls or production
+writes occurred. Actual model, database and full-client latency/cost remain
+unmeasured for this candidate: no OpenAI key is present in the local runtime.
+
+Reproduce the integration benchmark:
+
+```sh
+node packages/decision-vnext-core/test/benchmark-librarian-http.mjs
+```
+
+Remaining operational acceptance: certify the exact release artifact, publish
+through the existing manual release controls, then execute fresh authenticated
+live requests using the server-held provider key. Verify real model responses,
+actual current Spot knowledge, visible explanations, latency and token usage.
+A green local/CI suite is not evidence of a deployed or accepted live model run.
