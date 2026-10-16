@@ -9,3 +9,10 @@ test('HTTP rejects missing auth, consent, raw browser text and denied source bef
 test('provider requires explicit consent and bounds secrets and source size before network',async()=>{let sent=0;const provider=createDiscoveryPreparationProvider({apiKey:'synthetic',fetchImpl:async()=>{sent++;throw Error('must_not_send');}});for(const input of [{description:'public',publicMaterial:false,consentToOpenAI:true},{description:'public',publicMaterial:true,consentToOpenAI:false},{description:'x'.repeat(12001),publicMaterial:true,consentToOpenAI:true},{description:'sk-'+'a'.repeat(40),publicMaterial:true,consentToOpenAI:true}])await assert.rejects(provider(input,new AbortController().signal));assert.equal(sent,0);});
 
 test('unknown mandatory fees survive without fabricated yes or no',()=>{const unknown={...profile,offerings:[{...profile.offerings[0],price:{...profile.offerings[0].price,mandatoryFeesIncluded:null}}]};assert.equal(parseDiscoveryProfile(unknown).offerings[0].price.mandatoryFeesIncluded,null);});
+
+test('HTTP reports missing server configuration without invoking the provider',async()=>{
+ let sent=0;
+ const handler=createDiscoveryPreparationHttpHandler({loadPublicMaterial:async()=> 'Public synthetic source',fetchImpl:async()=>{sent++;throw Error('must_not_send');}});
+ const response=await handler(new Request('https://synthetic.invalid/api',{method:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({spotId:'00000000-0000-4000-8000-000000000001',sourceHash:'a'.repeat(64),consentToOpenAI:true})}));
+ assert.equal(response.status,503);assert.deepEqual(await response.json(),{error:'preparation_unavailable'});assert.equal(sent,0);
+});

@@ -1,11 +1,12 @@
 "use client";
 import { useState } from "react";
+import { discoveryPreparationErrorMessage } from "./discovery-errors";
 import { DISCOVERY_PROFILE_VERSION, parseDiscoveryProfile, type DiscoveryProfile } from "@backyrd/world-knowledge-core";
-export function DiscoveryInput({value,onChange,onPrepare,onSave,disabled}:{value:unknown;onChange:(value:DiscoveryProfile)=>void;onPrepare?:((sourceText:string)=>Promise<DiscoveryProfile>)|undefined;onSave:(value:DiscoveryProfile)=>Promise<void>;disabled:boolean}){
+export function DiscoveryInput({value,onChange,onPrepare,onSave,disabled,savedSource}:{savedSource?:string;value:unknown;onChange:(value:DiscoveryProfile)=>void;onPrepare?:((sourceText:string)=>Promise<DiscoveryProfile>)|undefined;onSave:(value:DiscoveryProfile)=>Promise<void>;disabled:boolean}){
   let profile:DiscoveryProfile|null=null;try{profile=parseDiscoveryProfile(value,false);}catch{ /* Empty form has no prepared facts. */ }
-  const [source,setSource]=useState(profile?.description??""),[consent,setConsent]=useState(false),[reviewed,setReviewed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
+  const [source,setSource]=useState(profile?.description??savedSource??""),[consent,setConsent]=useState(false),[reviewed,setReviewed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
   const editSource=(text:string)=>{setSource(text);setReviewed(false);onChange({contractVersion:DISCOVERY_PROFILE_VERSION,description:text,offerings:[],assertions:[],reviewed:false});};
-  const prepare=async()=>{if(!onPrepare||!consent)return;setBusy(true);setError(null);try{const draft=await onPrepare(source);onChange(parseDiscoveryProfile(draft,false));setReviewed(false);}catch(error){if(error instanceof Error && error.message==="discovery_source_review_required")setError("Der Text benötigt zuerst eine Moderationsprüfung. Er wurde noch nicht zur KI-Vorbereitung übermittelt.");else setError("Der Vorschlag konnte nicht erstellt werden. Dein Text bleibt erhalten. Bitte prüfe die Verbindung und versuche es erneut.");}finally{setBusy(false);}};
+  const prepare=async()=>{if(!onPrepare||!consent)return;setBusy(true);setError(null);try{const draft=await onPrepare(source);onChange(parseDiscoveryProfile(draft,false));setReviewed(false);}catch(error){setError(discoveryPreparationErrorMessage(error));}finally{setBusy(false);}};
   const save=async()=>{if(!profile||!reviewed)return;setBusy(true);setError(null);try{await onSave(parseDiscoveryProfile({...profile,reviewed:true}));setReviewed(false);}catch{setError("Die Angaben konnten nicht gespeichert werden. Bitte prüfe sie und versuche es erneut.");}finally{setBusy(false);}};
   return <div className="wk-stack">
     <h3>Mit KI aus vorhandenen Texten ausfüllen</h3><span className="wk-helper-optional">Optionale Ausfüllhilfe</span>
@@ -13,6 +14,7 @@ export function DiscoveryInput({value,onChange,onPrepare,onSave,disabled}:{value
     <ol className="wk-helper-steps"><li><strong>Text einfügen.</strong> Den Inhalt kopieren, nicht nur einen Link zur Website.</li><li><strong>Übermittlung freigeben.</strong> Mit deiner Zustimmung erstellt OpenAI Vorschläge aus diesem Text.</li><li><strong>Vorschläge prüfen und speichern.</strong> Unzutreffende Angaben entfernen und die übrigen ausdrücklich bestätigen.</li></ol>
     <label>Öffentlicher Beschreibungstext<textarea className="wk-input wk-textarea" aria-label="Öffentlicher Beschreibungstext" maxLength={12000} placeholder="Hier den Text deiner öffentlichen Website, Speisekarte oder Angebotsbeschreibung einfügen. Zum Beispiel: Mittags bieten wir Bowls und Suppen an. Samstags gibt es Brunch von 10 bis 14 Uhr." value={source} disabled={disabled||busy} onChange={e=>editSource(e.target.value)}/></label>
     <span>{source.length}/12000 Zeichen</span>
+    {!profile&&savedSource&&<p>Deine gespeicherte Textquelle wurde geladen. Daraus wurde noch kein geprüftes KI-Wissen übernommen.</p>}
     <label><input type="checkbox" checked={consent} disabled={disabled||busy} onChange={e=>setConsent(e.target.checked)}/>Dieser Text darf öffentlich beim Spot gespeichert und zur Vorbereitung an OpenAI übermittelt werden. Er enthält keine privaten Notizen oder Kundendaten.</label>
     <button type="button" disabled={disabled||busy||!consent||!source.trim()||!onPrepare} onClick={()=>void prepare()}>{busy?"Wird bearbeitet …":"Vorschläge vorbereiten"}</button>
     {!onPrepare&&<p>Die Vorbereitung ist in dieser Umgebung noch nicht eingerichtet.</p>}

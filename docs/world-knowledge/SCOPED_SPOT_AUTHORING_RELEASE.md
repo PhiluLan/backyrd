@@ -528,3 +528,26 @@ fallback cover. This code requires a compatible certified mobile release; a web
 release alone does not deliver it to installed apps. Synthetic browser fixtures
 cover rule save/reload, cover and gallery persistence, repeated save and denied
 associations/header confirmation. Production Spot data is not used as a fixture.
+
+
+### Production source-preparation configuration and recovery (2026-10-16)
+
+Admin and Owner's `/api/world-knowledge/discovery` require a server-only
+`OPENAI_API_KEY` (or the existing `DECISION_PRODUCT_OPENAI_API_KEY` fallback).
+Neither production project had either variable configured, so the handler
+returned `preparation_unavailable` after the public source had already been
+stored. The existing authorized credential is now configured as a sensitive
+production-only variable for both Vercel projects; a new deployment must consume
+it. Never add a public-prefixed provider key to these surfaces.
+
+The client preserves allowlisted preparation errors and distinguishes source
+publication, snapshot preparation, missing server setup, limits and timeouts.
+Unknown upstream bodies are never displayed. An already saved PUBLIC source is
+loaded back into an otherwise empty helper after reopening, without inheriting
+consent or marking AI output reviewed. Human review, explicit save, moderation,
+source scope/hash checks and preparation budgets remain mandatory.
+
+Verification includes a real Luna preparation using synthetic text (one offering,
+four assertions, reviewed=false), missing-key no-egress coverage, client error
+boundaries and browser success/reload plus setup-failure/retry/review/save flows.
+No database migration or permission changes are required.
