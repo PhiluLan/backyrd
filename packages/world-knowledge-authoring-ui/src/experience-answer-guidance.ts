@@ -72,7 +72,11 @@ export function experienceAnswerGuidance(key: string, category: ExperienceCatego
 }
 
 export function experiencePriceIncludes(category: ExperienceCategory, offerKind: string): readonly string[] {
-  if (["LUNCH", "DINNER", "BREAKFAST", "GASTRONOMY", "FULL_MEAL", "CAFE", "APERITIF", "DRINKS", "PRIVATE_CELEBRATION"].includes(offerKind)) return offerKind === "DRINKS" ? ["Getränke"] : offerKind === "APERITIF" ? ["Apéro", "Snacks", "Getränke"] : ["Essen", "Getränke", "Kaffee", "Snacks"];
+  if (offerKind === "DRINKS") return ["Getränke"];
+  if (offerKind === "APERITIF") return ["Apéro", "Snacks", "Getränke"];
+  // Use the shared catalogue module so every food offer, including brunch and
+  // tastings, has food price purposes regardless of the enclosing Spot type.
+  if (hasOfferModule(offerKind, "food") || offerKind === "PRIVATE_CELEBRATION") return ["Essen", "Getränke", "Kaffee", "Snacks"];
   if (hasOfferModule(offerKind,"stay")) return ["Übernachtung", "Übernachtung mit Frühstück", "Tageszimmer", "Stellplatz"];
   if (category === "SPORT" || hasOfferModule(offerKind,"sport")) return ["Eintritt", "Kurs", "Leihmaterial"];
   return ["Eintritt", "Führung", "Workshop", "Veranstaltung"];

@@ -768,3 +768,14 @@ test('KI-Ausfüllhilfe erklärt fehlende Serverkonfiguration, behält die Quelle
  await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toMatchObject({reviewed:true,description:source});
  await reloadEditor(page);await expect(field.getByLabel('Öffentlicher Beschreibungstext',{exact:true})).toHaveValue(source);
 });
+
+for(const offer of [{kind:'BRUNCH',label:'Brunch'},{kind:'TASTING',label:'Degustation'}])test(`Gastronomischer Preiszweck ${offer.kind} bleibt nach Speichern und Neuladen erhalten`,async({page})=>{
+ await page.setViewportSize({width:390,height:844});const owner=await mockOwner(page,'OWNER_BASIC');await openEditor(page);
+ await addFromCatalogue(page,offer.label);await part(page,'Preise');await guided(page).getByRole('button',{name:'+ Preis hinzufügen',exact:true}).click();
+ await guided(page).getByLabel('Preisbezeichnung',{exact:true}).fill('Essen pro Person');await guided(page).getByLabel('Preis 1 Von',{exact:true}).fill('42');
+ const purpose=guided(page).getByRole('combobox',{name:'Preis gilt für',exact:true});
+ await expect(purpose.locator('option')).toHaveText(['Noch nicht zugeordnet','Essen','Getränke','Kaffee','Snacks']);await purpose.selectOption({label:'Essen'});
+ await saveProfile(page);await expect.poll(()=>owner.submissions.length).toBe(1);
+ const saved=owner.submissions[0].p_value as {offers:Array<{kind:string;prices:Array<{includes:string}>}>};expect(saved.offers.find(o=>o.kind===offer.kind)?.prices[0].includes).toBe('Essen');
+ await reloadEditor(page);await guided(page).getByRole('button',{name:`Angebot ${offer.label} bearbeiten`,exact:true}).click();await part(page,'Preise');await expect(guided(page).getByRole('combobox',{name:'Preis gilt für',exact:true})).toHaveValue('Essen');
+});

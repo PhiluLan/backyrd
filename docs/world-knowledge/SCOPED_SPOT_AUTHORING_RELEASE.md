@@ -551,3 +551,15 @@ Verification includes a real Luna preparation using synthetic text (one offering
 four assertions, reviewed=false), missing-key no-egress coverage, client error
 boundaries and browser success/reload plus setup-failure/retry/review/save flows.
 No database migration or permission changes are required.
+
+
+### Food offer price purpose (2026-10-16)
+
+Price-purpose choices derive from the shared offer catalogue's `food` module,
+not a second manually maintained list of gastronomic offer kinds. This fixes
+Brunch and Tasting falling through to admission/tour/workshop choices, including
+food offers inside non-restaurant Spots. Drinks and aperitif retain their
+specific choices; existing stored price purposes remain visible and are never
+silently rewritten. Admin and Owner share the correction. Mobile-width browser
+tests cover selecting Essen, saving and reloading both Brunch and Tasting.
+No migration or production Spot data edits are involved.
