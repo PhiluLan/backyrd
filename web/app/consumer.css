@@ -1751,3 +1751,27 @@
   .b-owner-invite { padding-bottom: 140px; }
   .b-owner-invite-link { width: 100%; }
 }
+
+/* Spot offers: compact overview, visitor copy on demand. */
+.b-experience-list { margin-top: 16px; }
+.b-experience-row { border-bottom: 1px solid var(--border); }
+.b-experience-row summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; padding: 18px 0; cursor: pointer; list-style: none; }
+.b-experience-row summary::-webkit-details-marker { display: none; }
+.b-experience-row summary:focus-visible { outline: 2px solid var(--pink); outline-offset: 4px; border-radius: 8px; }
+.b-experience-name { min-width: 0; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.b-experience-toggle { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; flex-shrink: 0; }
+.b-experience-chevron { font-size: 20px; line-height: 1; }
+.b-experience-open { display: none; }
+.b-experience-row[open] .b-experience-open { display: inline; }
+.b-experience-row[open] .b-experience-closed { display: none; }
+.b-experience-row[open] .b-experience-chevron { transform: rotate(180deg); }
+.b-experience-content { padding: 0 0 24px; overflow-wrap: anywhere; }
+.b-experience-group { margin-top: 20px; }
+.b-experience-group h4 { margin: 0 0 6px; color: var(--muted); font-size: 13px; line-height: 20px; font-weight: 600; }
+.b-experience-group p, .b-experience-group li { margin: 0; font-size: 15px; line-height: 25px; font-weight: 400; }
+.b-experience-group ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+@media (max-width: 480px) {
+  .b-experience-row summary { min-height: 68px; gap: 12px; }
+  .b-experience-name { font-size: 17px; }
+  .b-experience-toggle { gap: 8px; font-size: 12px; }
+}

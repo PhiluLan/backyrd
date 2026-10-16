@@ -1,5 +1,5 @@
 /** Public display adapter only: no eligibility, inference or raw-object rendering. */
-export type PublicSpotFact = { label: string; value: string; condition: string | null };
+export type PublicSpotFact = { key: string; label: string; value: string; condition: string | null };
 export type PublicSpotCard = { id: string; name: string; prices: string[]; facts: PublicSpotFact[]; places: string[]; times: string[] };
 export type PublicSpotExperience = { offers: PublicSpotCard[]; areas: PublicSpotCard[]; shared: PublicSpotFact[] };
 // Public presentation copy is separate from matching rules and catalogue codes.
@@ -90,7 +90,7 @@ function facts(input: unknown): PublicSpotFact[] {
   const value=typeof p.value==="boolean"?(p.value?"Ja":"Nein"):numeric(p.value)?`${money(p.value)}${units[key]?` ${units[key]}`:""}`:text(p.value);
   if(!value)continue;
   const condition=conditions(p.conditions),id=JSON.stringify([key,label,condition]),prior=grouped.get(id);
-  if(prior){if(!prior.value.split(" · ").includes(value))prior.value+=` · ${value}`;}else grouped.set(id,{label,value,condition});
+  if(prior){if(!prior.value.split(" · ").includes(value))prior.value+=` · ${value}`;}else grouped.set(id,{key,label,value,condition});
  }
  return [...grouped.values()];
 }
@@ -119,4 +119,71 @@ export function presentSpotExperience(input: unknown): PublicSpotExperience {
   areas:areas.map(a=>({id:text(a.id,100),name:text(a.name,160),prices:[],facts:facts(a.properties),places:offers.filter(o=>list(o.areaIds,30).includes(a.id)).map(o=>text(o.name,160)),times:[]})),
   shared:facts(profile.properties),
  };
+}
+
+
+export type PublicSpotDetailGroup = { title: string; items: string[] };
+const visitorLabels: Readonly<Record<string, string>> = {
+ "experience.activity":"Erlebnis", "experience.theme":"Themen", "participation.audience":"Zugang",
+ "participation.format":"Teilnahme", "participation.language":"Sprachen", "participation.age_suitability":"Altersempfehlung",
+ "participation.prerequisite":"Voraussetzungen", "participation.permission":"Zutritt", "participation.entry_mode":"Eintritt",
+ "participation.booking":"Reservation", "participation.consumption_obligation":"Konsumation", "participation.accessibility":"Zugänglichkeit",
+ "food.cuisine":"Küche", "food.dish":"Spezialitäten", "food.diet":"Ernährungsangebot", "food.option":"Ernährung & Allergene",
+ "food.meal_extent":"Speisen", "food.drink":"Getränke", "condition.children":"Für Kinder", "offer.service":"Service",
+ "offer.capacity":"Kapazität", "time.duration":"Dauer", "route.length":"Strecke", "condition.terrain":"Unterwegs",
+ "sport.level":"Erfahrungsstufe", "sport.equipment":"Ausrüstung", "sport.rental":"Verleih", "sport.registration":"Registrierung",
+ "sport.induction":"Einweisung", "participation.minimum_age":"Mindestalter", "location.setting":"Umgebung",
+ "location.view":"Aussicht", "location.waterbody":"Gewässer", "atmosphere.character":"Atmosphäre", "atmosphere.noise":"Lautstärke",
+ "atmosphere.music":"Musik", "atmosphere.privacy":"Privatsphäre", "atmosphere.conversation":"Gespräche",
+ "offer.shade":"Schatten", "condition.weather_protection":"Wetterschutz", "offer.temperature":"Temperatur",
+ "offer.feature":"Ausstattung", "offer.usage":"Sitz- und Stehplätze", "travel.mode":"Anreise",
+ "stay.check_in":"Check-in", "stay.check_out":"Check-out", "stay.minimum_booking_age":"Buchungsalter",
+ "stay.minimum_nights":"Mindestaufenthalt", "stay.maximum_occupancy":"Belegung", "stay.room_type":"Unterkunft", "stay.meal_inclusion":"Verpflegung"
+};
+const booleanCopy: Readonly<Record<string, readonly [string, string]>> = {
+ "amenity.toilet":["WC vorhanden","Kein WC"],
+ "amenity.changing_table":["Wickeltisch vorhanden","Kein Wickeltisch"],
+ "amenity.high_chair":["Kinderhochstühle vorhanden","Keine Kinderhochstühle"],
+ "amenity.playground":["Mit Spielplatz","Kein Spielplatz"],
+ "amenity.rest_seating":["Sitz- und Ruhemöglichkeiten vorhanden","Keine Sitz- und Ruhemöglichkeiten"],
+ "amenity.stroller":["Mit Kinderwagen zugänglich","Nicht mit Kinderwagen zugänglich"],
+ "amenity.step_free":["Stufenlos zugänglich","Nicht stufenlos zugänglich"],
+ "amenity.parking":["Parkplätze vorhanden","Keine Parkplätze"],
+ "amenity.shower":["Duschen vorhanden","Keine Duschen"],
+ "sport.rental":["Ausrüstung vor Ort ausleihbar","Kein Ausrüstungsverleih"],
+ "offer.shade":["Schattenplätze vorhanden","Keine Schattenplätze"],
+ "condition.weather_protection":["Vor Regen geschützt","Nicht vor Regen geschützt"]
+};
+
+/** Visitor copy only. Never infer suitability or move facts between scopes. */
+export function spotExperienceDetailGroups(facts: readonly PublicSpotFact[]): PublicSpotDetailGroup[] {
+ const grouped = new Map<string, Set<string>>();
+ for (const fact of facts) {
+  const key = fact.key;
+  let title = "Dein Besuch";
+  if (key.startsWith("food.") || key === "condition.children") title = "Essen & Trinken";
+  else if (key.startsWith("location.")) title = "Lage & Aussicht";
+  else if (key.startsWith("atmosphere.")) title = "Atmosphäre";
+  else if (key.startsWith("amenity.") || ["offer.shade","offer.temperature","offer.feature","offer.usage","condition.weather_protection"].includes(key)) title = "Vor Ort";
+  else if (key.startsWith("stay.")) title = "Dein Aufenthalt";
+  else if (key === "travel.mode") title = "Anreise";
+  // Identical diet terms already in the cuisine sentence need no second sentence.
+  let value = fact.value;
+  if (key === "food.diet") {
+   const cuisine = facts.filter(item => item.key === "food.cuisine" && item.condition === fact.condition).flatMap(item => item.value.split(" · ")).map(item => item.toLocaleLowerCase("de-CH"));
+   value = value.split(" · ").filter(item => !cuisine.includes(item.toLocaleLowerCase("de-CH"))).join(" · ");
+   if (!value) continue;
+  }
+  const bool = booleanCopy[key];
+  let sentence = bool && ["Ja","Nein"].includes(value) ? bool[value === "Ja" ? 0 : 1] : `${visitorLabels[key] ?? fact.label}: ${value}`;
+  if (key === "participation.booking") sentence = ({"Nicht erforderlich":"Keine Reservation nötig","Empfohlen":"Reservation empfohlen","Erforderlich":"Reservation erforderlich"} as Record<string,string>)[value] ?? sentence;
+  if (key === "participation.audience" && value === "Öffentlich zugänglich") sentence = "Für alle Gäste zugänglich";
+  if (key === "participation.minimum_age") sentence = `Ab ${value.replace(/ Jahre$/, " Jahren")}`;
+  if (fact.condition) sentence += ` (${fact.condition})`;
+  if (!/[.!?]$/.test(sentence)) sentence += ".";
+  const items = grouped.get(title) ?? new Set<string>();
+  items.add(sentence);
+  grouped.set(title, items);
+ }
+ return [...grouped].map(([title, items]) => ({title, items:[...items]}));
 }

@@ -1,15 +1,55 @@
-import { StyleSheet, Text, View } from "react-native";
-import { presentSpotExperience, type PublicSpotFact } from "../../../packages/shared/src/presentation/spot-experience";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  presentSpotExperience,
+  spotExperienceDetailGroups,
+  type PublicSpotCard,
+  type PublicSpotFact,
+} from "../../../packages/shared/src/presentation/spot-experience";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-function Facts({facts}:{facts:PublicSpotFact[]}){
- return <View>{facts.map((fact,index)=><View key={index} style={styles.fact}><Text style={styles.label}>{fact.label}</Text><Text style={styles.value}>{fact.value}</Text>{fact.condition&&<Text style={styles.label}>{fact.condition}</Text>}</View>)}</View>;
+
+function VisitorDetails({ facts }: { facts: PublicSpotFact[] }) {
+  return <>{spotExperienceDetailGroups(facts).map(group => <View key={group.title} style={styles.group}><Text style={styles.label}>{group.title}</Text><Text style={styles.body}>{group.items.join(" ")}</Text></View>)}</>;
 }
-export function SpotExperience({profile}:{profile:unknown}){
- const experience=presentSpotExperience(profile);
- return <View>
-  {experience.offers.length>0&&<View style={styles.section}><Text style={styles.heading}>Angebote & Preise</Text>{experience.offers.map(offer=><View key={offer.id} style={styles.card}><Text style={styles.title}>{offer.name}</Text>{offer.prices.map((price,index)=><Text key={index} style={styles.price}>{price}</Text>)}{offer.places.length>0&&<Text style={styles.label}>Verfügbar: {offer.places.join(" · ")}</Text>}{offer.times.map((time,index)=><Text key={index} style={styles.value}>{time}</Text>)}<Facts facts={offer.facts}/></View>)}</View>}
-  {experience.areas.length>0&&<View style={styles.section}><Text style={styles.heading}>Räume & Bereiche</Text>{experience.areas.map(area=><View key={area.id} style={styles.card}><Text style={styles.title}>{area.name}</Text><Facts facts={area.facts}/>{area.places.length>0&&<Text style={styles.label}>Angebote: {area.places.join(" · ")}</Text>}</View>)}</View>}
-  {experience.shared.length>0&&<View style={styles.section}><Text style={styles.heading}>Ausstattung & Anreise</Text><Facts facts={experience.shared}/></View>}
- </View>;
+
+function ExperienceRow({ card, area = false }: { card: PublicSpotCard; area?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  return <View style={styles.row}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${card.name}: mehr Informationen`} accessibilityState={{ expanded }} onPress={() => setExpanded(value => !value)} style={({ pressed }) => [styles.summary, pressed && styles.pressed]}>
+      <Text style={styles.name}>{card.name}</Text>
+      <View style={styles.toggle}><Text style={styles.hint}>{expanded ? "Weniger anzeigen" : "Mehr erfahren"}</Text><Text accessible={false} style={styles.chevron}>{expanded ? "⌃" : "⌄"}</Text></View>
+    </Pressable>
+    {expanded && <View style={styles.content}>
+      {card.prices.length > 0 && <View style={styles.group}><Text style={styles.label}>Preise</Text>{card.prices.map((price, index) => <Text key={index} style={[styles.body, styles.price]}>{price}</Text>)}</View>}
+      {card.times.length > 0 && <View style={styles.group}><Text style={styles.label}>Wann?</Text><Text style={styles.body}>{card.times.join(" · ")}</Text></View>}
+      <VisitorDetails facts={card.facts} />
+      {card.places.length > 0 && <View style={styles.group}><Text style={styles.label}>{area ? "Hier möglich" : "Wo?"}</Text><Text style={styles.body}>{card.places.join(" · ")}</Text></View>}
+    </View>}
+  </View>;
 }
-const styles=StyleSheet.create({section:{marginBottom:32},heading:{color:theme.color.textPrimary,fontSize:22,marginBottom:16},card:{padding:18,borderWidth:1,borderColor:theme.color.border,borderRadius:16,marginBottom:16},title:{color:theme.color.textPrimary,fontSize:18,fontWeight:"700",marginBottom:12},price:{color:theme.color.textPrimary,fontSize:15,lineHeight:23,marginBottom:10},fact:{marginTop:12},label:{color:theme.color.textSecondary,fontSize:13,lineHeight:20},value:{color:theme.color.textPrimary,fontSize:15,lineHeight:23}});
+
+export function SpotExperience({ profile }: { profile: unknown }) {
+  const experience = presentSpotExperience(profile);
+  return <View>
+    {experience.offers.length > 0 && <View style={styles.section}><Text style={styles.heading}>Das kannst du hier erleben</Text>{experience.offers.map(offer => <ExperienceRow key={offer.id} card={offer} />)}</View>}
+    {experience.areas.length > 0 && <View style={styles.section}><Text style={styles.heading}>Räume & Bereiche</Text>{experience.areas.map(area => <ExperienceRow key={area.id} card={area} area />)}</View>}
+    {experience.shared.length > 0 && <View style={styles.section}><Text style={styles.heading}>Gut zu wissen</Text><VisitorDetails facts={experience.shared} /></View>}
+  </View>;
+}
+
+const styles = StyleSheet.create({
+  section: { marginBottom: theme.spacing.xxl },
+  heading: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 22, lineHeight: 29, marginBottom: 12 },
+  row: { borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  summary: { minHeight: 68, paddingVertical: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  pressed: { opacity: 0.65 },
+  name: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 17, lineHeight: 24 },
+  toggle: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1, maxWidth: "45%" },
+  hint: { flexShrink: 1, color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 12, lineHeight: 18 },
+  chevron: { color: theme.color.textSecondary, fontSize: 20 },
+  content: { paddingBottom: 24 },
+  group: { marginTop: 18 },
+  label: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 13, lineHeight: 20, marginBottom: 5 },
+  body: { color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 15, lineHeight: 25 },
+  price: { marginBottom: 8 },
+});
