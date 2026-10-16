@@ -165,3 +165,13 @@ await googleResolverAfterRestart.getGooglePlacePhotoFallback("spot-b", { accessT
 assert.equal(googleInvokeCount, 2, "a failed resolver request must be negatively cached briefly instead of retrying on every remount");
 
 console.log("Canonical Spot image resolver and cross-surface identity tests passed.");
+
+// Gallery remains secondary and accepts only validated images from our public bucket.
+const galleryModule = { exports: {} };
+new Function("exports", "module", ts.transpileModule(fs.readFileSync(path.resolve("lib/spot-gallery.ts"), "utf8"), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText)(galleryModule.exports,galleryModule);
+const {normalizeSpotGallery}=galleryModule.exports;
+const bucket="https://project.supabase.co/storage/v1/object/public/spot-photos/";
+assert.deepEqual(normalizeSpotGallery([{id:1,url:"gallery.png"},{id:2,url:bucket+"gallery.png"},{id:3,url:"https://other.example/image.png"},{id:4,url:"../private.png"},{id:5,url:"https://user:pass@project.supabase.co/storage/v1/object/public/spot-photos/x.png"},{id:"6",url:"x.png"},null],bucket),[{id:1,url:bucket+"gallery.png"}]);
+assert.deepEqual(normalizeSpotGallery(null,bucket),[]);
+assert.equal(normalizeSpotGallery(Array.from({length:40},(_,i)=>({id:i+1,url:`${i}.png`})),bucket).length,30);
+console.log("Secondary spot gallery validation passed.");

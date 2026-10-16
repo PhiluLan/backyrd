@@ -9,7 +9,7 @@ const basicKeys = [
   "experience.profile", "description.discovery_source", "discovery.profile",
   "identity.name", "location.address_line1", "location.locality", "contact.public_email",
   "classification.primary_category", "classification.place_types", "offering.cuisines",
-  "purpose.primary_visit", "operation.price_level", "operation.price_options", "hours.regular",
+  "purpose.primary_visit", "operation.price_level", "operation.price_options", "hours.regular", "rule.age_access_conditions", "rule.external_food", "rule.external_drink",
 ];
 const proKeys = [...basicKeys, "capacity.seats_total", "amenity.features"];
 
@@ -724,4 +724,23 @@ test('Küchenangaben sind beim Angebot offen sichtbar, nur im Entwurf und ohne d
  const reuse=page.getByRole('region',{name:'Vorhandene Küchenangaben zuordnen',exact:true});await expect(reuse).toBeVisible();await expect(reuse).toContainText('Gilt für: Mittagessen');await expect(reuse.locator('summary')).toHaveCount(0);
  await reuse.getByRole('button',{name:'Zum Angebot hinzufügen',exact:true}).click();expect(owner.submissions).toHaveLength(0);await expect(reuse.getByRole('button',{name:'Bereits zugeordnet',exact:true})).toBeDisabled();
  await saveProfile(page);expect(owner.submissions).toHaveLength(1);const p=owner.submissions[0].p_value as {offers:Array<{properties:Array<{key:string;value:unknown}>}>};expect(p.offers[0].properties.filter(x=>x.key==='food.cuisine'&&x.value==='Italienisch')).toHaveLength(1);
+});
+
+
+test('Altersregel sendet den vollständigen Datenbankvertrag und bleibt nach Neuladen erhalten',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ const owner=await mockOwner(page,'OWNER_PRO');await openEditor(page);await outerStep(page,8);const age=page.locator('[id="field-rule.age_access_conditions"]');
+ await age.getByRole('button',{name:'Keine Altersbeschränkung',exact:true}).click();await age.getByRole('button',{name:'Regel übernehmen',exact:true}).click();
+ await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toMatchObject({notes:null,rules:[{mode:'NO_MINIMUM',minimumAge:null,accompaniment:'NONE'}]});
+ await reloadEditor(page);await outerStep(page,8);await expect(age.getByRole('button',{name:'Keine Altersbeschränkung',exact:true})).toHaveAttribute('aria-pressed','true');
+ await age.getByRole('button',{name:'Altersregel erfassen',exact:true}).click();await age.getByLabel('Mindestalter',{exact:true}).fill('18');await age.getByRole('button',{name:'Regel übernehmen',exact:true}).click();
+ await expect.poll(()=>owner.submissions.length).toBe(2);expect(owner.submissions[1].p_value).toMatchObject({notes:null,rules:[{mode:'GENERAL_MINIMUM',minimumAge:18}]});
+});
+
+for(const fieldKey of ['rule.external_food','rule.external_drink'])test(`Mitbringen-Regel ${fieldKey} speichert ohne erzwungene Ausnahme`,async({page})=>{
+ const owner=await mockOwner(page,'OWNER_PRO');await openEditor(page);await outerStep(page,8);const field=page.locator(`[id="field-${fieldKey}"]`);
+ await expect(field.getByLabel('Ausnahmen (optional)',{exact:true})).toHaveValue('');await field.getByRole('button',{name:'Regel übernehmen',exact:true}).click();
+ await expect.poll(()=>owner.submissions.length).toBe(1);expect(owner.submissions[0].p_value).toEqual({policy:'NOT_ALLOWED',exceptions:[]});
+ await reloadEditor(page);await outerStep(page,8);await expect(field.getByRole('combobox',{name:'Regel',exact:true})).toHaveValue('NOT_ALLOWED');await field.getByRole('combobox',{name:'Regel',exact:true}).selectOption('ALLOWED');await field.getByRole('button',{name:'Regel übernehmen',exact:true}).click();await expect.poll(()=>owner.submissions.length).toBe(2);expect(owner.submissions[1].p_value).toEqual({policy:'ALLOWED',exceptions:[]});
+ await reloadEditor(page);await outerStep(page,8);await expect(field.getByRole('combobox',{name:'Regel',exact:true})).toHaveValue('ALLOWED');
 });

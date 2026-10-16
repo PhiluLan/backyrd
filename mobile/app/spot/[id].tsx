@@ -31,6 +31,7 @@ import {
   SpotTaxonomyDetails,
 } from "../../components/spot/SpotTaxonomyHighlights";
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
+import { normalizeSpotGallery, type SpotGalleryPhoto } from "../../lib/spot-gallery";
 import { selectSpotImageUrl } from "../../lib/spot-images";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
@@ -266,6 +267,10 @@ export default function SpotDetailScreen() {
   const [spot, setSpot] = useState<any>(null);
   const [legacyAddress, setLegacyAddress] = useState<string | null>(null);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [galleryPhotos,setGalleryPhotos]=useState<SpotGalleryPhoto[]>([]);
+  const [galleryFailed,setGalleryFailed]=useState(false);
+  const [galleryImage,setGalleryImage]=useState<string|null>(null);
+  const [mediaRevision,setMediaRevision]=useState(0);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
   const [moodSummary, setMoodSummary] = useState<SpotMoodProfileItem[]>([]);
@@ -411,6 +416,31 @@ export default function SpotDetailScreen() {
       void refreshVisibleReviews();
     }, [loadOwnerCtx, refreshVisibleReviews])
   );
+
+  useFocusEffect(useCallback(()=>{
+    let active=true;
+    if(!id)return;
+    void (async()=>{
+      try {
+      const [header,gallery]=await Promise.all([
+        supabase.from("spots").select("header_photo_path").eq("id",id).single(),
+        supabase.from("spot_photos").select("id,url").eq("spot_id",id).order("created_at",{ascending:true}).limit(30),
+      ]);
+      if(!active)return;
+      if(!header.error&&header.data){
+        const path=header.data.header_photo_path as string|null;
+        const url=selectSpotImageUrl({headerPhotoPath:path});
+        setPhotos(url?[{id:`header:${id}`,url,created_at:null}]:[]);
+        setSpot((previous:typeof spot)=>previous?{...previous,header_photo_path:path}:previous);
+      }
+      setGalleryFailed(!!gallery.error);
+      setGalleryPhotos(gallery.error?[]:normalizeSpotGallery(gallery.data,supabase.storage.from("spot-photos").getPublicUrl("").data.publicUrl));
+      } catch { if(active){setGalleryFailed(true);setGalleryPhotos([]);} }
+    })();
+    return ()=>{active=false;};
+  // Retry revision deliberately reruns the focused media request after a load failure.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[id,mediaRevision]));
 
   useEffect(() => {
     (async () => {
@@ -917,6 +947,13 @@ export default function SpotDetailScreen() {
 
           <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
 
+          {galleryPhotos.length>0||galleryFailed?<View style={styles.section}>
+            <SectionTitle>Fotos vom Spot</SectionTitle>
+            {galleryFailed?<View><Text style={styles.mutedText}>Die Fotos konnten nicht geladen werden.</Text><Pressable accessibilityRole="button" onPress={()=>setMediaRevision(value=>value+1)} style={styles.textAction}><Text style={styles.textActionLabel}>Erneut laden</Text></Pressable></View>:<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingVertical:12}}>
+              {galleryPhotos.map((photo,i)=><Pressable key={photo.id} accessibilityRole="button" accessibilityLabel={`Spotfoto ${i+1} vergrössern`} onPress={()=>setGalleryImage(photo.url)}><SpotArtwork imageUrl={photo.url} spotId={String(spot.id)} spotName={spot.name} showFallbackName={false} style={{width:220,height:160,borderRadius:16}}/></Pressable>)}
+            </ScrollView>}
+          </View>:null}
+
           {contactActions.length > 0 ? <View style={styles.section}>
             <SectionTitle>Kontakt</SectionTitle>
             <View style={styles.contactGrid}>
@@ -1192,6 +1229,7 @@ export default function SpotDetailScreen() {
         </SafeAreaView>
         </SafeAreaProvider>
       </Modal>
+      <Modal visible={!!galleryImage} transparent animationType="fade" onRequestClose={()=>setGalleryImage(null)}><SafeAreaView style={{flex:1,backgroundColor:"rgba(0,0,0,.96)",justifyContent:"center"}}><Pressable accessibilityRole="button" accessibilityLabel="Foto schliessen" onPress={()=>setGalleryImage(null)} style={{alignSelf:"flex-end",padding:20}}><Feather name="x" size={26} color="white"/></Pressable>{galleryImage&&<Image source={{uri:galleryImage}} resizeMode="contain" accessibilityLabel="Vergrössertes Spotfoto" style={{width:"100%",height:"80%"}}/>}</SafeAreaView></Modal>
       <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} message={loginPromptMessage} />
     </View>
   );
