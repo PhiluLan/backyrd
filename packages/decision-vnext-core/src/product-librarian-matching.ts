@@ -439,8 +439,8 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
                 return result("UNKNOWN", "GROUP_ALLOCATION_NOT_DOCUMENTED", hashes);
             const roundShare = (value: number) => ["GTE", "GT"].includes(money.operator) ? Math.floor((value + 1e-9) * 100) / 100 : Math.ceil((value - 1e-9) * 100) / 100;
             min += groupPerPerson ? roundShare(c.price.min * c.factor) : c.price.min * c.factor;
-            if (c.price.max === null || c.price.mandatoryFeesIncluded !== true)
-                return result(compare(min, money.amount, money.operator) === false && ["LTE", "LT"].includes(money.operator) ? "FAILED" : "UNKNOWN", "PRICE_MAXIMUM_OR_MANDATORY_COSTS_UNKNOWN", hashes);
+            if (c.price.max === null)
+                return result(compare(min, money.amount, money.operator) === false && ["LTE", "LT"].includes(money.operator) ? "FAILED" : "UNKNOWN", "PRICE_MAXIMUM_UNKNOWN", hashes);
             max += groupPerPerson ? roundShare(c.price.max * c.factor) : c.price.max * c.factor;
             hashes.push(contentHash(c.price));
         }
@@ -448,14 +448,14 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
     const pass = compare(max, money.amount, money.operator), minimumPass = compare(min, money.amount, money.operator);
     let truth: MatchTruth;
     if (money.operator === "EQ")
-        truth = min === max && min === money.amount ? "MET" : money.amount < min || max < money.amount ? "FAILED" : "UNKNOWN";
+        truth = money.amount >= min && money.amount <= max ? "MET" : "FAILED";
     else if (money.operator === "NEQ")
         truth = money.amount < min || max < money.amount ? "MET" : min === max && min === money.amount ? "FAILED" : "UNKNOWN";
     else if (["GTE", "GT"].includes(money.operator))
-        truth = minimumPass === true ? "MET" : pass === false ? "FAILED" : "UNKNOWN";
+        truth = pass === null ? "UNKNOWN" : pass ? "MET" : "FAILED";
     else
-        truth = pass === null ? "UNKNOWN" : pass ? "MET" : minimumPass === false ? "FAILED" : "UNKNOWN";
-    return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth, truth === "MET" ? "SCOPED_COMPLETE_PRICE_CONFIRMED" : truth === "UNKNOWN" && ["LTE", "LT"].includes(money.operator) && minimumPass === true && pass === false ? "SCOPED_PRICE_RANGE_OVERLAPS_BUDGET" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
+        truth = minimumPass === null ? "UNKNOWN" : minimumPass ? "MET" : "FAILED";
+    return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth, truth === "MET" ? "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
 }
 function assessScenario(request: LibrarianRequest, world: ProductWorldView, scenario: Scenario, preferenceIds: ReadonlySet<string>, now: string, semantics: LibrarianSemanticIndex | null): Omit<LibrarianCandidate, "candidateHash"> {
     const referenced = new Set(collectFacts(request.logic));

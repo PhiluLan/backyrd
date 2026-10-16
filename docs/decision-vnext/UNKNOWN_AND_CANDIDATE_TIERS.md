@@ -1,6 +1,6 @@
 # Unknown and Candidate Tiers
 
-## Active Luna / librarian path (matching @11, ranking v5)
+## Active Luna / librarian path (matching @12, ranking v5)
 
 The active path preserves `MET`, `UNKNOWN` and `FAILED` separately. A candidate
 with a proven requested venue type or activity can be recommended as
@@ -17,10 +17,15 @@ produce a relevant recommendation merely because its city matches.
 - Missing visit or offer times allow a suggestion with unknown availability.
   Without a requested time, current day and opening hours are irrelevant.
   Documented closure during the requested visit remains an exclusion.
-- Price bounds wholly within the requested cap are confirmed. A range spanning
-  the cap remains uncertain and recommendable with a clear price warning;
-  a documented minimum above the cap remains an exclusion. No cheap drink can
-  prove a dinner budget, and unknown fees or group scope remain unconfirmed.
+- A price wish within the stored range confirms budget, irrespective of whether
+  that range describes selectable prices or an uncertain total, and irrespective
+  of the fee-completeness flag. A maximum budget uses the stored minimum: a cap
+  of CHF20 confirms CHF11–26 (and CHF11–19), without an overlap warning. A stored
+  minimum above that cap excludes. Strict operators retain their boundaries;
+  an exact amount inside a range also confirms. This is discovery budget fit,
+  not a claim that every possible order or every final invoice meets the cap.
+  Missing price bounds, currency, quantities and explicit coverage remain
+  unconfirmed; a cheap drink cannot confirm the requested dinner budget.
 - Accessibility is component-specific. A documented accessible terrace does
   not prove the interior, toilet or a step-free entrance. Mixed generic
   wheelchair evidence permits an explicitly qualified fallback. A specifically

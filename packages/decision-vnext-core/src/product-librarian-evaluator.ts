@@ -89,7 +89,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     const proven = f.state === "MET";
     const label = familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
     return { reasonCode: factCode(f), domain: proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
-      statementDe: proven ? `Bestätigt: ${label}.` : f.reason === "SCOPED_PRICE_RANGE_OVERLAPS_BUDGET" ? "Der Preisrahmen enthält günstigere und teurere Optionen als dein Budget. Nicht jede Auswahl liegt innerhalb deiner Preisgrenze." : f.state === "FAILED" ? `Nicht passend: ${label}.` : `Noch nicht bestätigt: ${label}.`,
+      statementDe: proven ? f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? `Nicht passend: ${label}.` : `Noch nicht bestätigt: ${label}.`,
       confirmed: proven };
   });
   if (candidate.facts.some(f => f.reason === "DOCUMENTED_WHEELCHAIR_ACCESS_DETAILS")) {

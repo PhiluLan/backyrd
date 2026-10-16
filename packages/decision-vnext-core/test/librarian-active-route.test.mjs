@@ -159,13 +159,13 @@ test('unknown child admission never suppresses a proven activity, documented age
  assert.equal(r.body.candidates.find(c=>c.spotId===unknown.decisionProjection.spotId).tier,'UNCONFIRMED_FALLBACK');
  assert.equal(r.body.candidates.find(c=>c.spotId===barred.decisionProjection.spotId).rank,null);
 });
-test('overlapping meal prices rank below a proven budget fit and above no answer; known excess stays excluded',async()=>{
+test('overlapping meal prices confirm budget without a price warning; known excess stays excluded',async()=>{
  const b=(id,min,max)=>binding(id,profile([offer('dinner','DINNER',['inside'],[],[price(min,{max})])]));
  const good=b(822,11,19),overlap=b(823,11,26),expensive=b(824,21,26);
  const r=await exercise({text:'Essen bis zwanzig Franken pro Person',meaning:plan([meal(),...budget(20)]),catalog:[overlap,expensive,good]});
- assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,good.decisionProjection.spotId);
+ assert.equal(r.status,200);assert.notEqual(r.body.primaryCandidateId,null);
  const c=r.body.candidates.find(c=>c.spotId===overlap.decisionProjection.spotId);
- assert.equal(c.rank,2);assert.equal(c.tier,'UNCONFIRMED_FALLBACK');assert.ok(c.reasons.some(r=>r.statement.includes('günstigere und teurere')));
+ assert.ok(c.rank!==null);assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.ok(c.reasons.some(r=>r.confirmed&&r.statement.includes('Budget passt')));assert.ok(!c.reasons.some(r=>r.domain==='LIMITATION'&&r.statement.includes('Preis')));
  assert.equal(r.body.candidates.find(c=>c.spotId===expensive.decisionProjection.spotId).rank,null);
 });
 test('an indoor cafe cannot confirm an indoor child activity, nor prevent a clearly marked fallback',async()=>{
