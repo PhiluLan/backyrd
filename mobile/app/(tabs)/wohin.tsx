@@ -44,12 +44,12 @@ function availabilityLabel(candidate: DecisionProductCandidate): { text: string;
   const requestedDay = candidate.reasons.find((reason) => ["requested-day-opening-hours", "requested-day-closed", "requested-day-opening-unknown"].includes(reason.code));
   if (requestedDay?.code === "requested-day-opening-hours") return { text: requestedDay.statement, color: backyrdTheme.color.openGreen };
   if (requestedDay?.code === "requested-day-closed") return { text: "Am gewünschten Tag geschlossen", color: backyrdTheme.color.warning };
-  if (requestedDay?.code === "requested-day-opening-unknown") return { text: "Öffnungszeiten für den gewünschten Tag nicht bestätigt", color: color.muted };
+  if (requestedDay?.code === "requested-day-opening-unknown") return { text: "Für deinen geplanten Tag fehlen uns noch die Öffnungszeiten", color: color.muted };
   const value = candidate.actualAvailability;
   if (value === "open") return { text: "Laut Angaben geöffnet", color: backyrdTheme.color.openGreen };
   if (value === "closed") return { text: "Laut Angaben geschlossen", color: backyrdTheme.color.warning };
   if (value === "not_requested") return { text: "Öffnungszeiten vor Besuch prüfen", color: color.muted };
-  return { text: "Öffnungszeiten nicht bestätigt", color: color.muted };
+  return { text: "Die Öffnungszeiten kennen wir noch nicht", color: color.muted };
 }
 
 function DecisionResultCard({ candidate, personalizationActive, compact, onOpen, onDetails }: {
@@ -320,7 +320,7 @@ export default function WohinScreen() {
                 {wohinConsiderations(current, personal).map(note => <AppText key={note} role="body" tone="secondary">{note}</AppText>)}
               </> : null}
               {limitations.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
-              <AppText role="caption" tone="muted">{personal ? "Mit deinen freigegebenen Vorlieben sortiert" : "Ohne persönliche Vorlieben sortiert"}</AppText>
+              <AppText role="caption" tone="muted">{personal ? "Nach deinen Vorlieben ausgewählt" : "Auswahl ohne persönliche Vorlieben"}</AppText>
             </ScrollView>
           </SafeAreaView>
         </View>

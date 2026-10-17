@@ -164,7 +164,7 @@ try {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-320.png`});
   const compactBounds=await compactAction.boundingBox();
   assert.ok(compactBounds && compactBounds.x>=0 && compactBounds.x+compactBounds.width<=320 && compactBounds.y+compactBounds.height<480,`small-screen action remains above tabs: ${JSON.stringify(compactBounds)}`);
-  const compactReason=await page.getByText("Die Art des Ortes passt zu deinem Wunsch.",{exact:true}).first().boundingBox();
+  const compactReason=await page.getByText("Eine passende Idee für dich.",{exact:true}).first().boundingBox();
   const compactDetails=await page.getByText("Details & Hinweise",{exact:true}).first().boundingBox();
   assert.ok(compactReason && compactDetails && compactReason.y+compactReason.height<=compactDetails.y,"compact reason is readable above the details action");
   // Real touch swipe, not a rejection action or another model call.
@@ -178,12 +178,12 @@ try {
   await page.getByText("1 / 5",{exact:true}).waitFor();
   await page.setViewportSize({width:390,height:844});
   await page.getByText("Details & Hinweise",{exact:true}).first().click();
-  await page.getByText("Ohne persönliche Vorlieben sortiert",{exact:true}).waitFor();
+  await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
   assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
-  assert.ok(await page.getByText("Die Art des Ortes passt zu deinem Wunsch.", { exact: true }).count() >= 1);
+  assert.ok(await page.getByText("Eine passende Idee für dich.", { exact: true }).count() >= 1);
   assert.equal(await page.getByText(/World-Version 1/).count(), 0, "internal evidence stays out of the consumer UI");
 
   assert.equal(state.decisions.every((item) => item.contractVersion === DECISION_PRODUCT_CONTRACT.request), true);
@@ -197,7 +197,7 @@ try {
   await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
   assert.equal(await page.getByText(/World-Version 2/).count(), 0);
   await page.getByText("Details & Hinweise",{exact:true}).first().click();
-  await page.getByText("Mit deinen freigegebenen Vorlieben sortiert",{exact:true}).waitFor();
+  await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByPlaceholder("Was hast du heute vor?").waitFor();
