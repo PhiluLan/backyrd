@@ -58,7 +58,7 @@ const candidate = (spot) => {
   const sourceHash = hash({ spotId: spot.spotId, worldVersion: state.worldVersion });
   return {
     spotId: spot.spotId,
-    presentation: { contractVersion: "backyrd.decision-vnext.product-presentation@1.0", spotId: spot.spotId, name: spot.name(), locality: "Bern", categoryLabel: "Café", imageUrl: null, sourceHash, presentationHash: hash({ spotId: spot.spotId, sourceHash }) },
+    presentation: { contractVersion: "backyrd.decision-vnext.product-presentation@1.0", spotId: spot.spotId, name: spot.name(), locality: "Bern", categoryLabel: "Café", imageUrl: spot.rank === 2 ? `${endpoint}/fixture-spot-photo.jpg` : null, sourceHash, presentationHash: hash({ spotId: spot.spotId, sourceHash }) },
     tier: "ELIGIBLE_CONFIRMED", rank: spot.rank, coreIntentCoverage: "CONFIRMED", actualAvailability: "open",
     confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], rankVector: { hardConstraintState: "PASS", userRelevance: { state: "NEUTRAL" }, contextFit: { secondaryIntentConfirmed: false, visitSituationConfirmed: false, atmosphereConfirmed: false, typicalDaypartConfirmed: false, matchedSoftPreferenceCount: 0 }, worldEvidence: { confirmedReasonCount: 1 }, vectorHash: hash({ rank: spot.rank }) },
     reasons: [{ code: "core-intent-confirmed", domain: "WORLD", sourceHash, statement: `Bestätigter Café-Fit aus World-Version ${state.worldVersion}.`, confirmed: true }],
@@ -83,15 +83,18 @@ const responseFor = (request) => {
 
 const browser = await chromium.launch({ headless: true });
 try {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
   await context.addInitScript((injected) => window.localStorage.setItem("sb-example-auth-token", JSON.stringify(injected)), session);
   const page = await context.newPage();
+  page.setDefaultTimeout(15000);
   page.on("pageerror", (error) => process.stderr.write(`browser page error: ${error.message}\n`));
   let passwordLogins = 0;
+  let fixturePhotoRequests = 0;
   const remoteFixture = async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+    if (path === "/fixture-spot-photo.jpg") { fixturePhotoRequests++; return route.fulfill({status:200,contentType:"image/jpeg",path:resolve(root,"mobile/assets/headers/bern_day.jpg")}); }
     if (path === "/auth/v1/token" && url.searchParams.get("grant_type") === "password") {
       passwordLogins += 1;
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(session) });
@@ -130,23 +133,72 @@ try {
   await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText("Café Vorher", { exact: true }).first().waitFor();
-  for (const spot of spots) assert.ok(await page.getByText(spot.name(), { exact: true }).count() >= 1, "five server-ranked spots are presented");
+  await page.getByText("1 / 5", { exact: true }).waitFor();
+  await page.waitForTimeout(400);
+  assert.deepEqual([...new Set(state.interactions.filter(row => row.eventType === "candidate_impression").map(row => row.candidateId))], [spots[0].spotId], "offscreen pages must not record impressions");
+  const cardBounds=await page.getByTestId("wohin-result-card").first().boundingBox();
+  assert.ok(cardBounds && cardBounds.height>400 && cardBounds.y>40 && cardBounds.y+cardBounds.height<740,"one full-height card occupies the available viewport");
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-390.png` });
+  for (let i=1;i<spots.length;i++) {
+    await page.getByRole("button", {name:"Nächster Vorschlag",exact:true}).click();
+    await page.getByText(`${i+1} / 5`, {exact:true}).waitFor();
+    if (i === 1) assert.ok(fixturePhotoRequests>0,"the supplied cover image is requested through the canonical artwork component");
+    if (i === 1 && process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
+      await page.waitForTimeout(300);
+      await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-photo-390.png`});
+    }
+    const bounds=await page.getByRole("button",{name:`${spots[i].name()} entdecken`,exact:true}).boundingBox();
+    assert.ok(bounds && bounds.x>=0 && bounds.x+bounds.width<=390 && bounds.y+bounds.height<740,"current Spot action fits above tab navigation");
+  }
+  assert.equal(state.decisions.length,1,"browsing never invokes the model again");
+  assert.equal(state.interactions.some(row=>row.eventType==="candidate_rejected"),false,"swiping is browsing, not rejection");
+  for (let i=3;i>=0;i--) {
+    await page.getByRole("button",{name:"Vorheriger Vorschlag",exact:true}).click();
+    await page.getByText(`${i+1} / 5`,{exact:true}).waitFor();
+  }
+  await page.setViewportSize({width:320,height:568});
+  await page.getByText("1 / 5",{exact:true}).waitFor();
+  const compactAction=page.getByRole("button",{name:"Café Vorher entdecken",exact:true});
+  await compactAction.waitFor();
+  await page.waitForTimeout(300);
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-320.png`});
+  const compactBounds=await compactAction.boundingBox();
+  assert.ok(compactBounds && compactBounds.x>=0 && compactBounds.x+compactBounds.width<=320 && compactBounds.y+compactBounds.height<480,`small-screen action remains above tabs: ${JSON.stringify(compactBounds)}`);
+  const compactReason=await page.getByText("Eine passende Idee für dich.",{exact:true}).first().boundingBox();
+  const compactDetails=await page.getByText("Details & Hinweise",{exact:true}).first().boundingBox();
+  assert.ok(compactReason && compactDetails && compactReason.y+compactReason.height<=compactDetails.y,"compact reason is readable above the details action");
+  // Real touch swipe, not a rejection action or another model call.
+  const cdp=await context.newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:270,y:110}]});
+  await page.waitForTimeout(50);
+  for(const x of [230,180,130,80,30]) { await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[{x,y:110}]}); await page.waitForTimeout(50); }
+  await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
+  await page.getByText("2 / 5",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Vorheriger Vorschlag",exact:true}).click();
+  await page.getByText("1 / 5",{exact:true}).waitFor();
+  await page.setViewportSize({width:390,height:844});
+  await page.getByText("Details & Hinweise",{exact:true}).first().click();
+  await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
   assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
-  assert.equal(await page.getByText("Die Art des Ortes passt zu deinem Wunsch.", { exact: true }).count(), 5);
+  assert.ok(await page.getByText("Eine passende Idee für dich.", { exact: true }).count() >= 1);
   assert.equal(await page.getByText(/World-Version 1/).count(), 0, "internal evidence stays out of the consumer UI");
-  assert.equal(await page.getByText("Ohne persönliche Vorlieben sortiert", { exact: true }).count(), 1);
+
   assert.equal(state.decisions.every((item) => item.contractVersion === DECISION_PRODUCT_CONTRACT.request), true);
   assert.equal(state.decisions.length, 1);
 
   state.consent = true;
   state.worldName = "Café Aktualisiert";
   state.worldVersion = 2;
+  await page.getByRole("button",{name:"Suche ändern",exact:true}).click();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
   assert.equal(await page.getByText(/World-Version 2/).count(), 0);
-  assert.equal(await page.getByText("Mit deinen freigegebenen Vorlieben sortiert", { exact: true }).count(), 1);
+  await page.getByText("Details & Hinweise",{exact:true}).first().click();
+  await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByPlaceholder("Was hast du heute vor?").waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
@@ -155,6 +207,7 @@ try {
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
   state.unavailable = true;
+  await page.getByRole("button",{name:"Suche ändern",exact:true}).click();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText(/Wohin kann gerade keine verlässlichen Vorschläge zeigen|Vorschläge nicht verfügbar/).waitFor();
   assert.equal(await page.getByText("Café Aktualisiert", { exact: true }).count(), 0);
@@ -182,7 +235,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
 } finally {
   await browser.close();
   await new Promise((closed) => server.close(closed));

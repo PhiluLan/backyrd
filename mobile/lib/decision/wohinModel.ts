@@ -40,55 +40,103 @@ export function visibleWohinCandidates(response: DecisionProductResponse): Decis
 export function wohinFitLabel(candidate: DecisionProductCandidate): string {
   return candidate.tier === "ELIGIBLE_CONFIRMED" && candidate.coreIntentCoverage === "CONFIRMED"
     ? "Passend zu deinem Wunsch"
-    : "Passung noch nicht vollständig belegt";
+    : "Mit offenen Angaben";
 }
 
 const reasonLabels: Record<string, string> = {
-  "core-intent-confirmed": "Die Art des Ortes passt zu deinem Wunsch.",
-  "atmosphere-fit": "Die Atmosphäre passt zu dem, was du suchst.",
-  "visit-fit": "Passt zu deiner geplanten Begleitung.",
-  "daypart-fit": "Passt zur gewünschten Tageszeit.",
-  "price-level-fit": "Ein niedriges Preisniveau ist für diesen Ort bestätigt. Konkrete Preise können abweichen.",
-  "primary-purpose-confirmed": "Der Ort ist auch auf diese Art von Besuch ausgerichtet.",
+  "core-intent-confirmed": "Eine passende Idee für dich.",
+  "atmosphere-fit": "Die Stimmung passt zu dem, was du suchst.",
+  "visit-fit": "Passt für dich und deine Begleitung.",
+  "daypart-fit": "Passt zu deiner geplanten Tageszeit.",
+  "price-level-fit": "Die Preise liegen im günstigen Bereich. Einzelne Angebote können mehr kosten.",
+  "primary-purpose-confirmed": "Passt zu dem, was du vorhast.",
 };
 const reasonPriority = ["core-intent-confirmed", "atmosphere-fit", "visit-fit", "daypart-fit", "price-level-fit", "primary-purpose-confirmed"];
 
-export function wohinHighlights(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
-  const confirmed = new Set(candidate.reasons.filter((reason) => reason.confirmed).map((reason) => reason.code));
-  const highlights = reasonPriority
-    .filter((code) => confirmed.has(code) && !(code === "primary-purpose-confirmed" && confirmed.has("core-intent-confirmed")))
-    .map((code) => reasonLabels[code]);
-  if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-positive-"))) {
-    highlights.push("Passt zu deinen freigegebenen Vorlieben.");
-  }
-  return highlights.slice(0, 2);
+const librarianHighlights: Record<string, string> = {
+  "Bestätigt: die gewünschte Aktivität.": "Das kannst du hier unternehmen.",
+  "Bestätigt: die gewünschte Art des Angebots.": "Hier gibt es, wonach du suchst.",
+  "Bestätigt: die Essensmöglichkeit.": "Hier kannst du wie gewünscht essen.",
+  "Bestätigt: die Getränkeauswahl.": "Dein Wunschgetränk gibt es hier.",
+  "Bestätigt: die gewünschte Ernährung.": "Hier gibt es etwas Passendes für deine Ernährung.",
+  "Bestätigt: die gewünschte Atmosphäre.": "Die Stimmung passt zu deinem Wunsch.",
+  "Bestätigt: der gewünschte Bereich.": "Hier findest du den gewünschten Platz drinnen oder draussen.",
+  "Dein Budget passt zur hinterlegten Preisspanne.": "Passt zu deinem Budget.",
+};
+
+export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
+  const groups: Record<string, string> = { EAT: "Essen & Trinken", DRINKS: "Bar", COFFEE_DAYTIME: "Café", NIGHTLIFE: "Nachtleben", CULTURE_ARTS: "Kultur", ENTERTAINMENT: "Unterhaltung", ACTIVITIES_PLAY: "Aktivitäten & Spiel", SPORT_MOVEMENT: "Sport & Bewegung", OUTDOOR_NATURE: "Natur & draussen", WELLNESS_RELAXATION: "Wellness", SHOPPING_MARKETS: "Shopping", STAY: "Übernachten", COMMUNITY_SOCIAL: "Gemeinschaft", ATTRACTIONS_LANDMARKS: "Ausflugsziel", TEMPORARY_PLACES: "Veranstaltungsort" };
+  const raw = candidate.presentation.categoryLabel;
+  const category = groups[raw ?? ""] ?? (raw && !/^[A-Z_]+$/.test(raw) ? raw : null);
+  return [category, candidate.presentation.locality].filter(Boolean).join(" · ");
 }
 
+export function wohinHighlights(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
+  const confirmed = new Set(candidate.reasons.filter((reason) => reason.confirmed).map((reason) => reason.code));
+  const currentReasons = candidate.reasons.filter(reason => reason.confirmed && reason.domain === "WORLD");
+  const highlights = currentReasons.flatMap(reason => {
+    if (reason.code === "librarian-selected-offers" && reason.statement.startsWith("Passende Angebote: ")) return [`Das gibt es hier: ${reason.statement.slice("Passende Angebote: ".length)}`];
+    return reason.code.startsWith("LBR:") && librarianHighlights[reason.statement] ? [librarianHighlights[reason.statement]] : [];
+  });
+  highlights.push(...reasonPriority
+    .filter((code) => confirmed.has(code) && !(code === "primary-purpose-confirmed" && confirmed.has("core-intent-confirmed")))
+    .map((code) => reasonLabels[code]));
+  if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-positive-"))) {
+    highlights.push("Passt zu deinen Vorlieben.");
+  }
+  return [...new Set(highlights)].slice(0, 2);
+}
+
+const librarianNotes: Record<string, string> = {
+  "Noch nicht bestätigt: die gewünschte Aktivität.": "Zu deinem Vorhaben fehlen uns noch Infos.",
+  "Noch nicht bestätigt: die gewünschte Art des Angebots.": "Ob es das gesuchte Angebot hier gibt, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die Essensmöglichkeit.": "Ob du hier wie gewünscht essen kannst, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die Getränkeauswahl.": "Ob es dein Wunschgetränk hier gibt, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die gewünschte Ernährung.": "Ob es etwas Passendes für deine Ernährung gibt, wissen wir noch nicht.",
+  "Noch nicht bestätigt: der gewünschte Bereich.": "Ob du hier wie gewünscht drinnen oder draussen sein kannst, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die gewünschte Atmosphäre.": "Ob die Stimmung vor Ort zu deinem Wunsch passt, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die gewünschte Einrichtung.": "Ob die gewünschte Einrichtung vorhanden ist, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die gewünschte Ausstattung.": "Ob die gewünschte Ausstattung vorhanden ist, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die gewünschte Zugänglichkeit.": "Ob der Zugang für dich geeignet ist, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die Besuchsbedingungen.": "Zu den Zutrittsregeln fehlen uns noch Infos.",
+  "Noch nicht bestätigt: die Kombination deiner Wünsche.": "Ob sich deine Wünsche hier kombinieren lassen, wissen wir noch nicht.",
+  "Noch nicht bestätigt: dein Budget.": "Ob die Preise zu deinem Budget passen, wissen wir noch nicht.",
+  "Noch nicht bestätigt: die gewünschte Besuchszeit.": "Ob du zur gewünschten Zeit kommen kannst, wissen wir noch nicht.",
+  "Noch nicht bestätigt: dieser Teil deines Wunsches.": "Zu einem Teil deines Wunsches fehlen uns noch Infos.",
+  "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden.": "Etwas, das du nicht möchtest, wird hier ebenfalls angeboten.",
+};
+
 export function wohinConsiderations(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
-  const notes: string[] = [];
-  if (candidate.coreIntentCoverage !== "CONFIRMED") notes.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
-  if (candidate.reasons.some((reason) => reason.code === "visit-unconfirmed")) notes.push("Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.");
-  if (candidate.reasons.some((reason) => reason.code === "price-level-unconfirmed")) notes.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
-  if (candidate.reasons.some((reason) => reason.code === "music-at-visit-unverified")) notes.push("Ob bei deinem Besuch Musik läuft, ist für diesen Ort nicht bestätigt.");
-  if (candidate.reasons.some((reason) => reason.code === "precise-time-unverified")) notes.push("Die konkrete gewünschte Uhrzeit wurde für diesen Ort nicht geprüft.");
-  if (candidate.reasons.some((reason) => reason.code === "core-need-unmapped")) notes.push("Ein weiterer Teil deines Wunsches konnte noch nicht mit Spot-Wissen abgeglichen werden.");
-  if (candidate.unknownHardConstraints.some((constraint) => constraint !== "OPEN_ON_REQUESTED_DAY")) notes.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
+  const notes: string[] = candidate.reasons.flatMap(reason => {
+    if (reason.confirmed || reason.domain !== "LIMITATION") return [];
+    if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt)/.test(reason.statement)) return [librarianNotes[reason.statement] ?? reason.statement];
+    if (["librarian-access-details", "librarian-visit-time-unconfirmed"].includes(reason.code)) return [librarianNotes[reason.statement] ?? reason.statement];
+    return [];
+  });
+  const hasDetailedNotes = notes.length > 0;
+  if (candidate.coreIntentCoverage !== "CONFIRMED") notes.push("Ob du hier genau das Richtige findest, wissen wir noch nicht.");
+  if (candidate.reasons.some((reason) => reason.code === "visit-unconfirmed")) notes.push("Ob es für dich und deine Begleitung passt, wissen wir noch nicht.");
+  if (candidate.reasons.some((reason) => reason.code === "price-level-unconfirmed")) notes.push("Ob die Preise günstig sind, wissen wir noch nicht.");
+  if (candidate.reasons.some((reason) => reason.code === "music-at-visit-unverified")) notes.push("Ob bei deinem Besuch Musik läuft, wissen wir noch nicht.");
+  if (candidate.reasons.some((reason) => reason.code === "precise-time-unverified")) notes.push("Ob dein Besuch zur gewünschten Uhrzeit möglich ist, wissen wir noch nicht.");
+  if (candidate.reasons.some((reason) => reason.code === "core-need-unmapped")) notes.push("Zu einem Teil deines Wunsches fehlen uns noch Infos.");
+  if (!hasDetailedNotes && candidate.unknownHardConstraints.some((constraint) => constraint !== "OPEN_ON_REQUESTED_DAY")) notes.push("Manche Details zu deinem Wunsch sind noch offen.");
   if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-negative-"))) {
-    notes.push("Nicht alle deiner Vorlieben sprechen für diesen Ort.");
+    notes.push("Der Ort passt nicht zu allen deinen Vorlieben.");
   }
   if (candidate.reasons.some((reason) => reason.code === "product-rank-versus-next-v1" && reason.statement.includes("neutralen stabilen Tie-Breakers"))) {
-    notes.push("Bei ähnlich gut belegten Orten bedeutet die Reihenfolge keine bessere Passung.");
+    notes.push("Bei ähnlich passenden Orten bedeutet ein früherer Platz keine bessere Empfehlung.");
   }
-  return notes;
+  return [...new Set(notes)];
 }
 
 export function wohinLimitations(limitations: readonly string[], visibleCount: number): string[] {
   const labels: Record<string, string> = {
     SINGLE_CANDIDATE: visibleCount > 0
-      ? "Für diesen Wunsch steht gerade nur ein geprüfter Ort zur Auswahl."
-      : "Für diesen Wunsch wurde nur ein Ort geprüft; er konnte nicht empfohlen werden.",
-    CANDIDATE_WINDOW_LIMITED: "Nicht alle geprüften Orte erfüllen die Voraussetzungen für diesen Wunsch.",
-    CORE_INTENT_REQUIRES_CLARIFICATION: "Dein Wunsch konnte nicht eindeutig verstanden werden. Versuche ihn genauer zu beschreiben.",
+      ? "Für deinen Wunsch haben wir gerade einen Vorschlag."
+      : "Der bisher gefundene Ort passt leider nicht zu deinem Wunsch.",
+    CANDIDATE_WINDOW_LIMITED: "Einige Orte passen nicht zu deinem Wunsch und werden deshalb nicht gezeigt.",
+    CORE_INTENT_REQUIRES_CLARIFICATION: "Wir haben deinen Wunsch noch nicht ganz verstanden. Beschreibe kurz, was du machen möchtest.",
   };
-  return [...new Set(limitations.map((code) => labels[code] ?? "Zu dieser Auswahl liegen weitere Einschränkungen vor. Prüfe wichtige Angaben vor deinem Besuch."))];
+  return [...new Set(limitations.map((code) => labels[code] ?? "Bei dieser Auswahl gibt es noch offene Fragen. Prüfe wichtige Details vor deinem Besuch."))];
 }

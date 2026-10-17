@@ -11,9 +11,9 @@ import { SPOT_PHOTO_POLICY } from "../../lib/spot-photo-policy";
 import { imageDiagnosticContext, resolveCanonicalSpotImage, type CanonicalSpotImageProvenance } from "../../lib/spot-images";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
-type Props = { spotId: string; spotName: string; imageUrl?: string | null; style?: StyleProp<ViewStyle>; accessibilityLabel?: string; priority?: "low" | "normal" | "high"; showFallbackName?: boolean; onResolvedImage?: (image: { provenance: CanonicalSpotImageProvenance; identity: string }) => void };
+type Props = { spotId: string; spotName: string; imageUrl?: string | null; style?: StyleProp<ViewStyle>; accessibilityLabel?: string; priority?: "low" | "normal" | "high"; showFallbackName?: boolean; attributionPosition?: "top" | "bottom"; onResolvedImage?: (image: { provenance: CanonicalSpotImageProvenance; identity: string }) => void };
 
-export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLabel, priority = "normal", showFallbackName = true, onResolvedImage }: Props) {
+export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLabel, priority = "normal", showFallbackName = true, attributionPosition = "bottom", onResolvedImage }: Props) {
   const { session, user } = useAuth();
   const ownerImage = useMemo(() => resolveCanonicalSpotImage({ headerPhotoUrl: imageUrl }), [imageUrl]);
   const [googleImage, setGoogleImage] = useState<GooglePlacePhotoResult | null>(null);
@@ -110,7 +110,7 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
         <Pressable
           accessibilityLabel="Fotoquelle bei Google Maps öffnen"
           onPress={() => { if (googleImage?.googleMapsUri) void Linking.openURL(googleImage.googleMapsUri); }}
-          style={styles.googleAttribution}
+          style={[styles.googleAttribution, attributionPosition === "top" && { top: 12, bottom: undefined }]}
         >
           <Text numberOfLines={1} style={styles.googleAttributionText}>
             {googleImage?.authorAttributions?.[0]?.displayName ? `Foto: ${googleImage.authorAttributions[0].displayName} · Google Maps` : "Foto · Google Maps"}
