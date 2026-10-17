@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { readLastDecisionFailure, type DecisionFailure } from "../../lib/decision/productDecisionDiagnostics";
 import { useAuth } from "../../hooks/useAuth";
 import { isInternalMobileUser } from "../../lib/internalAccess";
 import { backyrdTheme as theme } from "../../theme/backyrd";
@@ -18,6 +19,10 @@ function safe(value: unknown) {
 export default function ReleaseDiagnosticsScreen() {
   const { user } = useAuth();
   const internal = __DEV__ || isInternalMobileUser(user);
+  const [lastDecisionFailure, setLastDecisionFailure] = useState<DecisionFailure | null>(null);
+  useEffect(() => {
+    if (internal) void readLastDecisionFailure().then(setLastDecisionFailure);
+  }, [internal]);
   const [lastUpdateError, setLastUpdateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,6 +55,12 @@ export default function ReleaseDiagnosticsScreen() {
     ["Update erstellt", Updates.createdAt?.toISOString()],
     ["Startdauer", Updates.launchDuration === null ? null : `${Updates.launchDuration} ms`],
     ["Letzter Update-Fehler", lastUpdateError],
+    ["Letzter Wohin-Fehler", lastDecisionFailure?.code],
+    ["Wohin-Phase", lastDecisionFailure?.phase],
+    ["Wohin-HTTP-Status", lastDecisionFailure?.httpStatus],
+    ["Wohin-Fehlerklasse", lastDecisionFailure?.errorName],
+    ["Wohin-Fehlerzeit", lastDecisionFailure?.occurredAt],
+    ["Wohin-Update", lastDecisionFailure?.updateId],
   ];
 
   return (
