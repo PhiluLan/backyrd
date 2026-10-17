@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { QUALITY_CASES, qualityScenario } from './decision-quality-catalog.mjs';
-import { prepareQualityMeaning, traceQualityCase, checkUnderstanding, captureMatchesCase } from '../../../../scripts/decision/decision-quality.mjs';
+import { prepareQualityMeaning, traceQualityCase, checkUnderstanding, captureMatchesCase } from '../../../../scripts/product/decision-quality.mjs';
 import { binding, profile, offer, price } from '../librarian-matching-fixtures.mjs';
 
 test('fixed acceptance corpus contains 40 unique wishes across 12 groups', () => {

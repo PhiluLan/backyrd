@@ -43,7 +43,7 @@
     "validate:spot-intelligence-machine-acl": "bash scripts/ci/validate-spot-intelligence-machine-acceptance-acl.sh",
     "validate:canonical-product-mood": "node scripts/ci/validate-canonical-product-mood-v1.mjs",
     "decision-product:ci": "node scripts/ci/run-product-decision-ci.mjs",
-    "decision:quality": "npm run decision-vnext:build && node scripts/decision/run-decision-quality.mjs"
+    "decision:quality": "npm run decision-vnext:build && node scripts/product/run-decision-quality.mjs"
   },
   "repository": {
     "type": "git",

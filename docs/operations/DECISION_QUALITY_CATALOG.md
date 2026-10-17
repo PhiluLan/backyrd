@@ -65,7 +65,7 @@ at least one understanding assertion, chain assertion or execution failed.
 
 ## Read a missing-candidate diagnosis
 
-`scripts/decision/decision-quality.mjs` invokes the same canonical matcher,
+`scripts/product/decision-quality.mjs` invokes the same canonical matcher,
 Product evaluator and Product execution builder. It does not implement its own
 eligibility or ranking comparator. The actual Mobile `visibleWohinCandidates`
 helper determines the visible set, including its order validation.
