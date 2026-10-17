@@ -11,6 +11,7 @@ import { AppText, ProductText as Text, ProductTextInput as TextInput } from "@/c
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
 import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
+import { recordDecisionFailure, type DecisionFailurePhase } from "@/lib/decision/productDecisionDiagnostics";
 import { loadCanonicalSpotHeaders } from "@/lib/spot-images";
 import { supabase } from "@/lib/supabase";
 import { userFacingError } from "@/lib/userFacingError";
@@ -185,15 +186,19 @@ export default function WohinScreen() {
     responseRef.current = null;
     setResponse(null);
     setCandidates([]);
+    let failurePhase: DecisionFailurePhase = "REQUEST";
     try {
       const request = createWohinRequest({ query: text, city, requestId: Crypto.randomUUID() });
+      failurePhase = "LOAD";
       const result = await invokeDecisionProduct({ supabase, request });
+      failurePhase = "DISPLAY";
       const visible = visibleWohinCandidates(result);
       if (generation !== requestGeneration.current) return;
       responseRef.current = result;
       setResponse(result);
       setCandidates(visible);
     } catch (cause) {
+      void recordDecisionFailure(cause, failurePhase).catch(() => undefined);
       if (generation === requestGeneration.current) setError(userFacingError(cause, "Wohin kann gerade keine verlässlichen Vorschläge zeigen."));
     } finally {
       setLoading(false);

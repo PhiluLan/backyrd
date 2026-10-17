@@ -214,10 +214,16 @@ try {
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
   state.unavailable = true;
+  const failureReport = page.waitForRequest(request => request.url().includes("/rpc/analytics_report_error_v1") && JSON.parse(request.postData() ?? "{}").p_error_type === "wohin_request_failed", {timeout:15000});
   await page.getByRole("button",{name:"Suche ändern",exact:true}).click();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText(/Wohin kann gerade keine verlässlichen Vorschläge zeigen|Vorschläge nicht verfügbar/).waitFor();
   assert.equal(await page.getByText("Café Aktualisiert", { exact: true }).count(), 0);
+  const diagnostic = JSON.parse((await failureReport).postData());
+  assert.equal(diagnostic.p_context.phase,"LOAD");
+  assert.equal(diagnostic.p_context.http_status,503);
+  assert.equal(diagnostic.p_message,"decision_transport_http_failure");
+  assert.equal(JSON.stringify(diagnostic).includes("ruhiges Café nach Reload"),false,"handled diagnostics never send the search text");
   assert.equal(state.unexpectedRemote.length, 0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.equal(overflow, 0);
