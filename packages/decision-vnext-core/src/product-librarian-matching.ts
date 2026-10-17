@@ -7,7 +7,7 @@ import { contentHash, deepFreeze } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianFact, type LibrarianRequest, type LunaExpression } from "./product-luna-librarian.js";
 import { parseProductWorldResolverBinding, type ProductWorldView } from "./product-world-resolver-binding.js";
 import { LIBRARIAN_MATCHING_VERSION, LIBRARIAN_LANGUAGE, LIBRARIAN_FAMILY_STRATEGIES, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS, librarianConcept, sameLibrarianText, librarianTerm } from "./product-librarian-language.js";
-import { createLibrarianVisitWindow, librarianVenueAvailability, librarianConditions, librarianOfferAvailability, librarianLocalDate, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
+import { createLibrarianVisitWindow, librarianMealVisitWindow, librarianVenueAvailability, librarianConditions, librarianOfferAvailability, librarianLocalDate, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
 export { LIBRARIAN_MATCHING_VERSION } from "./product-librarian-language.js";
 export type LibrarianFactAssessment = {
     readonly factId: string;
@@ -202,7 +202,8 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
             return actual === "no_music" ? "FAILED" : ["music", "live_music", "background_music", "music_event"].includes(actual ?? "") ? "MET" : "UNKNOWN";
         if (fact.key === "atmosphere.music" && desired === "no_music")
             return actual === "no_music" ? "MET" : ["music", "live_music", "background_music"].includes(actual ?? "") ? "FAILED" : "UNKNOWN";
-        if (fact.key === "atmosphere.noise" && ["quiet", "loud"].includes(desired ?? "") && ["quiet", "loud"].includes(actual ?? ""))
+        if (["atmosphere.noise", "atmosphere.bustle"].includes(fact.key) && property.key === "atmosphere.noise"
+            && ["quiet", "loud"].includes(desired ?? "") && ["quiet", "loud"].includes(actual ?? ""))
             return "FAILED";
         return "UNKNOWN"; // Open positive lists are not complete absence evidence.
     }
@@ -247,6 +248,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     // Overlapping words such as Café can denote an actual embedded offer.
     // Its real scoped witness takes precedence over whole-venue classification.
     const concept = fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null;
+    const offerVisit = librarianMealVisitWindow(fact, visit);
     const scopedKind = profile && concept && offerDuty(fact)
         && profile.offers.some(offer => concept === "zoo" && offer.kind === "VISIT" || (OFFER_CONCEPTS[offer.kind] ?? []).includes(concept));
     const placeType = !scopedKind ? assessLibrarianPlaceType(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world) : null;
@@ -273,7 +275,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             if (!offer || !spatialActivities.some(a => a.witnesses.some(w => w.offerIds.includes(offer.id)))
                 || spatialActivities.some(a => a.report.state !== "MET" || !supportsArea(a))) return;
         }
-        const availability = offer ? offerAvailability(offer, world, visit) : { state: "MET" as const, hashes: [], reason: "AREA_FACT" };
+        const availability = offer ? offerAvailability(offer, world, offerVisit) : { state: "MET" as const, hashes: [], reason: "AREA_FACT" };
         const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional || availability.state === "UNKNOWN" && !visit.complete, chargeable: fact.key !== "offer.facility" };
         if (fact.modality === "EXCLUDED" && availability.state !== "MET")
             uncertain.push(witness);
@@ -311,7 +313,11 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                     add("MET", offer, area.id, area, offer.kind === "VISIT" && offer.areaIds.length > 1);
             }
     }
-    const keys = sorted([...(semanticPropertyKeys[fact.key] ?? [fact.key]), ...(semantics?.sourceKeys(fact) ?? [])]);
+    // Luna's frozen bustle family includes general loudness; Owner stores the
+    // actual level as noise. Bridge only the shared quiet/loud concepts, never
+    // infer noise from crowding, liveliness or disturbance/program requests.
+    const noiseKeys = fact.key === "atmosphere.bustle" && ["quiet", "loud"].includes(desired ?? "") ? ["atmosphere.noise"] : [];
+    const keys = sorted([...(semanticPropertyKeys[fact.key] ?? [fact.key]), ...noiseKeys, ...(semantics?.sourceKeys(fact) ?? [])]);
     const inspect = (properties: readonly ExperienceProperty[], offer: ExperienceOffer | null, areaId: string | null, areaScoped = false) => {
         for (const property of properties.filter(p => keys.includes(p.key))) {
             const condition = librarianConditions(property.conditions, visit);
