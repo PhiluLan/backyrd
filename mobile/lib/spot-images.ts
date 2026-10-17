@@ -80,6 +80,23 @@ export function selectSpotImageUrl(input: CanonicalSpotImageInput) {
   return resolveCanonicalSpotImage(input).imageUrl;
 }
 
+/** Reuse the public, visibility-checked Owner/Admin cover source across surfaces. */
+export async function loadCanonicalSpotHeaders(spotIds: readonly string[], signal?: AbortSignal): Promise<Map<string, string | null>> {
+  const ids = [...new Set(spotIds)].slice(0, 200);
+  if (!ids.length) return new Map();
+  const request = supabase.rpc("backyrd_web_canonical_spot_image_headers_v1", { p_spot_ids: ids });
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
+  if (error) throw error;
+  const headers = new Map<string, string | null>();
+  for (const row of (Array.isArray(data) ? data : []) as unknown[]) {
+    if (!row || typeof row !== "object" || !("spot_id" in row) || !("header_photo_path" in row)) continue;
+    if (typeof row.spot_id !== "string" || !ids.includes(row.spot_id)) continue;
+    if (row.header_photo_path !== null && typeof row.header_photo_path !== "string") continue;
+    headers.set(row.spot_id, selectSpotImageUrl({ headerPhotoPath: row.header_photo_path }));
+  }
+  return headers;
+}
+
 export async function loadDiscoverySpots(city: string, limit = 120) {
   const { data, error } = await supabase.rpc("distribution_trust_spot_catalog_v1", {
     p_query: null,
@@ -90,15 +107,11 @@ export async function loadDiscoverySpots(city: string, limit = 120) {
   if (error) throw error;
   const spots = (data ?? []) as DiscoverySpot[];
   const ids = spots.map((spot) => spot.id).filter(Boolean);
-  const [{ data: headers, error: headersError }, { data: locationRows }, { data: hoursRows }] = await Promise.all([
-    supabase.rpc("backyrd_web_canonical_spot_image_headers_v1", { p_spot_ids: ids }),
+  const [headerBySpotId, { data: locationRows }, { data: hoursRows }] = await Promise.all([
+    loadCanonicalSpotHeaders(ids),
     supabase.from("spots").select("id,lat,lng").in("id", ids),
     supabase.from("spot_hours").select("spot_id,day_of_week,open_time,close_time").in("spot_id", ids),
   ]);
-  if (headersError) throw headersError;
-  const headerBySpotId = new Map<string, string | null>(
-    (headers ?? []).map((row: { spot_id: string; header_photo_path: string | null }) => [row.spot_id, row.header_photo_path]),
-  );
   const locationBySpotId = new Map<string, { lat: number | null; lng: number | null }>(
     (locationRows ?? []).map((row: { id: string; lat: number | null; lng: number | null }) => [row.id, { lat: Number.isFinite(Number(row.lat)) ? Number(row.lat) : null, lng: Number.isFinite(Number(row.lng)) ? Number(row.lng) : null }]),
   );
@@ -110,7 +123,7 @@ export async function loadDiscoverySpots(city: string, limit = 120) {
   }
   return spots.map((spot) => ({
     ...spot,
-    header_photo_url: selectSpotImageUrl({ headerPhotoPath: headerBySpotId.get(spot.id) ?? null }),
+    header_photo_url: headerBySpotId.get(spot.id) ?? null,
     lat: locationBySpotId.get(spot.id)?.lat ?? null,
     lng: locationBySpotId.get(spot.id)?.lng ?? null,
     hours: hoursBySpotId.get(spot.id) ?? [],

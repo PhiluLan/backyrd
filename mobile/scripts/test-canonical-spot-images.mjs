@@ -17,6 +17,9 @@ const sharedSurfaceSources = [
   "app/(tabs)/journey.tsx", // additional Spot cards
   "app/spot/[id].tsx", // Spot Detail + Nearby rail
 ].map((file) => ({ file, source: fs.readFileSync(path.resolve(file), "utf8") }));
+let headerRows = [];
+let headerError = null;
+const headerRequests = [];
 const module = { exports: {} };
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
@@ -24,7 +27,13 @@ const compiled = ts.transpileModule(source, {
 
 new Function("exports", "require", "module", compiled)(module.exports, (specifier) => {
   if (specifier === "./supabase") {
-    return { supabase: { storage: { from: () => ({ getPublicUrl: (value) => ({ data: { publicUrl: `https://storage.example/${value}` } }) }) } } };
+    return { supabase: { rpc: (name, args) => {
+      assert.equal(name, "backyrd_web_canonical_spot_image_headers_v1");
+      const record = { ids: args.p_spot_ids, signal: null }; headerRequests.push(record);
+      const result = Promise.resolve({ data: headerRows, error: headerError });
+      result.abortSignal = signal => { record.signal = signal; return result; };
+      return result;
+    }, storage: { from: () => ({ getPublicUrl: (value) => ({ data: { publicUrl: `https://storage.example/${value}` } }) }) } } };
   }
   throw new Error(`Unexpected dependency: ${specifier}`);
 }, module);
@@ -175,3 +184,23 @@ assert.deepEqual(normalizeSpotGallery([{id:1,url:"gallery.png"},{id:2,url:bucket
 assert.deepEqual(normalizeSpotGallery(null,bucket),[]);
 assert.equal(normalizeSpotGallery(Array.from({length:40},(_,i)=>({id:i+1,url:`${i}.png`})),bucket).length,30);
 console.log("Secondary spot gallery validation passed.");
+
+// The search presentation may have no photo even though the public header exists.
+const { loadCanonicalSpotHeaders } = module.exports;
+headerRows = [
+ {spot_id:"spot-a",header_photo_path:"owner/header.jpg"},
+ {spot_id:"spot-b",header_photo_path:null},
+ {spot_id:"unrequested",header_photo_path:"owner/other.jpg"},
+ {spot_id:"spot-a",header_photo_path:42}, null,
+];
+const abort = new AbortController();
+const covers = await loadCanonicalSpotHeaders(["spot-a","spot-a","spot-b"], abort.signal);
+assert.deepEqual([...covers], [["spot-a","https://storage.example/owner/header.jpg"],["spot-b",null]]);
+assert.deepEqual(headerRequests.at(-1).ids,["spot-a","spot-b"]);
+assert.equal(headerRequests.at(-1).signal,abort.signal);
+const count = headerRequests.length;
+assert.equal((await loadCanonicalSpotHeaders([])).size,0);
+assert.equal(headerRequests.length,count,"empty results perform no image request");
+headerError = new Error("header service unavailable");
+await assert.rejects(loadCanonicalSpotHeaders(["spot-a"]),/header service unavailable/);
+console.log("Canonical search cover batch: PASS");

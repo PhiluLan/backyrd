@@ -10,7 +10,8 @@ import type { DecisionProductCandidate, DecisionProductResponse } from "@backyrd
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
-import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinFitLabel, wohinHighlights, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
+import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
+import { loadCanonicalSpotHeaders } from "@/lib/spot-images";
 import { supabase } from "@/lib/supabase";
 import { userFacingError } from "@/lib/userFacingError";
 import { backyrdTheme } from "@/theme/backyrd";
@@ -45,6 +46,7 @@ function availabilityLabel(candidate: DecisionProductCandidate): { text: string;
   if (requestedDay?.code === "requested-day-opening-hours") return { text: requestedDay.statement, color: backyrdTheme.color.openGreen };
   if (requestedDay?.code === "requested-day-closed") return { text: "Am gewünschten Tag geschlossen", color: backyrdTheme.color.warning };
   if (requestedDay?.code === "requested-day-opening-unknown") return { text: "Für deinen geplanten Tag fehlen uns noch die Öffnungszeiten", color: color.muted };
+  if (candidate.reasons.some(reason => reason.code === "librarian-visit-time-unconfirmed")) return { text: "Ob du zur gewünschten Zeit vorbeikommen und das Angebot nutzen kannst, ist noch offen.", color: color.muted };
   const value = candidate.actualAvailability;
   if (value === "open") return { text: "Laut Angaben geöffnet", color: backyrdTheme.color.openGreen };
   if (value === "closed") return { text: "Laut Angaben geschlossen", color: backyrdTheme.color.warning };
@@ -52,31 +54,25 @@ function availabilityLabel(candidate: DecisionProductCandidate): { text: string;
   return { text: "Die Öffnungszeiten kennen wir noch nicht", color: color.muted };
 }
 
-function DecisionResultCard({ candidate, personalizationActive, compact, onOpen, onDetails }: {
+function DecisionResultCard({ candidate, imageUrl, compact, onOpen, onDetails }: {
   candidate: DecisionProductCandidate;
-  personalizationActive: boolean;
+  imageUrl: string | null;
   compact: boolean;
   onOpen: () => void;
   onDetails: () => void;
 }) {
-  const highlights = wohinHighlights(candidate, personalizationActive);
   return (
     <View style={styles.resultCard} testID="wohin-result-card">
-      <SpotArtwork imageUrl={candidate.presentation.imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />
+      <SpotArtwork imageUrl={imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />
       <LinearGradient pointerEvents="none" colors={["transparent", "rgba(5,5,6,0.45)", "rgba(5,5,6,0.97)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
       <View style={[styles.cardBottom, compact && styles.compactBottom]}>
         <ScrollView style={styles.cardSummary} contentContainerStyle={styles.cardSummaryContent}>
-          <AppText role="caption" style={[styles.fitLabel, candidate.tier !== "ELIGIBLE_CONFIRMED" && { color: color.warning }]}>{wohinFitLabel(candidate)}</AppText>
           <AppText role="screenTitle" numberOfLines={2} style={styles.resultTitle}>{candidate.presentation.name}</AppText>
           <AppText role="meta" numberOfLines={1} style={styles.resultMeta}>{wohinPlaceMeta(candidate)}</AppText>
-          {highlights.slice(0, compact ? 1 : 2).map((reason) => <View key={reason} style={styles.reasonRow}>
-            <Ionicons name="checkmark" size={17} color={color.lime} />
-            <AppText role="meta" numberOfLines={2} style={styles.reasonText}>{reason}</AppText>
-          </View>)}
         </ScrollView>
         <Pressable accessibilityRole="button" onPress={onDetails} style={styles.detailsToggle}>
           <AppText role="meta" style={styles.detailsText}>Details & Hinweise</AppText>
-          <Ionicons name="information-circle-outline" size={19} color={color.text} />
+          <Ionicons name="add" size={19} color={color.pink} />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={styles.openSpotButton}>
           <AppText role="label" style={styles.openSpotText}>Spot entdecken</AppText>
@@ -107,6 +103,7 @@ export default function WohinScreen() {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<DecisionProductResponse | null>(null);
   const [candidates, setCandidates] = useState<DecisionProductCandidate[]>([]);
+  const [coverImages, setCoverImages] = useState<Map<string, string | null>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const autoRunKey = useRef<string | null>(null);
   const seenImpressions = useRef(new Set<string>());
@@ -161,6 +158,19 @@ export default function WohinScreen() {
   useEffect(() => {
     if (typeof params.query === "string") setQuery(params.query);
   }, [params.query]);
+
+  useEffect(() => {
+    setCoverImages(new Map());
+    if (!candidates.length) return;
+    let active = true;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8_000);
+    void loadCanonicalSpotHeaders(candidates.map(candidate => candidate.spotId), controller.signal)
+      .then(headers => { if (active) setCoverImages(headers); })
+      .catch(() => undefined) // Keep the sealed presentation/fallback when the cover service is unavailable.
+      .finally(() => clearTimeout(timer));
+    return () => { active = false; controller.abort(); clearTimeout(timer); };
+  }, [candidates]);
 
   const run = useCallback(async (text: string) => {
     if (!identityReady || identityError || !authenticated || !city || loading) return;
@@ -226,13 +236,13 @@ export default function WohinScreen() {
         <View style={styles.resultHeader}>
           <View style={styles.querySummary}>
             <AppText role="caption" tone="pink">DEIN MOMENT</AppText>
-            <AppText role="meta" numberOfLines={1} style={styles.queryText}>{submittedQuery}</AppText>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={() => setEditing(true)} style={styles.editSearch}>
             <Ionicons name="options-outline" size={19} color={color.text} />
             <AppText role="meta">Ändern</AppText>
           </Pressable>
         </View>
+        <AppText role="sectionTitle" numberOfLines={3} style={styles.queryText}>{submittedQuery}</AppText>
         <View style={styles.deck} onLayout={(event) => { setPageWidth(event.nativeEvent.layout.width); setPageHeight(event.nativeEvent.layout.height); }}>
           {pageWidth > 0 && pageHeight > 0 ? <FlatList
             key={`${response!.decisionId}:${pageWidth}:${pageHeight}`}
@@ -245,10 +255,10 @@ export default function WohinScreen() {
             getItemLayout={(_, index) => ({ length: pageWidth, offset: pageWidth * index, index })}
             viewabilityConfig={viewabilityConfig}
             onViewableItemsChanged={onViewableItemsChanged}
-            extraData={personal}
+            extraData={coverImages}
             keyExtractor={(candidate) => candidate.spotId}
             renderItem={({ item: candidate }) => <View style={[styles.cardPage, { width: pageWidth, height: pageHeight }]}>
-              <DecisionResultCard candidate={candidate} personalizationActive={personal} compact={pageHeight < 440} onOpen={() => openSpot(candidate)} onDetails={() => setDetailsOpen(true)} />
+              <DecisionResultCard candidate={candidate} imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : candidate.presentation.imageUrl} compact={pageHeight < 440} onOpen={() => openSpot(candidate)} onDetails={() => setDetailsOpen(true)} />
             </View>}
           /> : null}
         </View>
@@ -315,11 +325,10 @@ export default function WohinScreen() {
               {current ? <>
                 <AppText role="screenTitle">{current.presentation.name}</AppText>
                 <AppText role="meta" tone="secondary">{wohinPlaceMeta(current)}</AppText>
-                {wohinHighlights(current, personal).map(note => <AppText key={note} role="body">{note}</AppText>)}
-                <AppText role="body" tone="secondary">{availabilityLabel(current).text}</AppText>
+                <AppText role="body" style={styles.recommendation}>{wohinRecommendation(current)}</AppText>
+                {current.actualAvailability !== "not_requested" ? <AppText role="body" tone="secondary">{availabilityLabel(current).text}</AppText> : null}
                 {wohinConsiderations(current, personal).map(note => <AppText key={note} role="body" tone="secondary">{note}</AppText>)}
               </> : null}
-              {limitations.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
               <AppText role="caption" tone="muted">{personal ? "Nach deinen Vorlieben ausgewählt" : "Auswahl ohne persönliche Vorlieben"}</AppText>
             </ScrollView>
           </SafeAreaView>
@@ -334,7 +343,7 @@ const styles = StyleSheet.create({
   resultScreen: { flex: 1 },
   resultHeader: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12 },
   querySummary: { flex: 1, gap: 5 },
-  queryText: { color: color.text },
+  queryText: { color: color.text, fontSize: 24, lineHeight: 30, paddingHorizontal: 20, paddingBottom: 16 },
   editSearch: { flexDirection: "row", gap: 6, alignItems: "center", minHeight: 44, paddingHorizontal: 10 },
   deck: { flex: 1, minHeight: 0 },
   cardPage: { flex: 1, paddingHorizontal: 16 },
@@ -343,13 +352,11 @@ const styles = StyleSheet.create({
   compactBottom: { maxHeight: "92%", padding: 16 },
   cardSummary: { flexShrink: 1 },
   cardSummaryContent: { gap: 10 },
-  fitLabel: { color: color.lime },
-  resultTitle: { color: color.text, fontSize: 30, lineHeight: 34 },
+  resultTitle: { color: color.text, fontSize: 36, lineHeight: 40 },
   resultMeta: { color: "#D1CDD1", marginBottom: 4 },
-  reasonRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  reasonText: { flex: 1, color: "#F4F1F3" },
-  detailsToggle: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-start", marginTop: 4 },
-  detailsText: { color: color.text },
+  detailsToggle: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7, justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#FFFFFF40", marginTop: 14, marginBottom: 10 },
+  detailsText: { color: color.pink },
+  recommendation: { fontSize: 22, lineHeight: 31, color: "#F7F2F5" },
   openSpotButton: { minHeight: 52, paddingVertical: 12, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
   openSpotText: { color: color.background },
   pager: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 10, gap: 12 },
