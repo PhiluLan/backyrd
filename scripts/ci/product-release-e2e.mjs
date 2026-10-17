@@ -58,7 +58,7 @@ const candidate = (spot) => {
   const sourceHash = hash({ spotId: spot.spotId, worldVersion: state.worldVersion });
   return {
     spotId: spot.spotId,
-    presentation: { contractVersion: "backyrd.decision-vnext.product-presentation@1.0", spotId: spot.spotId, name: spot.name(), locality: "Bern", categoryLabel: "Café", imageUrl: spot.rank === 2 ? `${endpoint}/fixture-spot-photo.jpg` : null, sourceHash, presentationHash: hash({ spotId: spot.spotId, sourceHash }) },
+    presentation: { contractVersion: "backyrd.decision-vnext.product-presentation@1.0", spotId: spot.spotId, name: spot.name(), locality: "Bern", categoryLabel: "Café", imageUrl: null, sourceHash, presentationHash: hash({ spotId: spot.spotId, sourceHash }) },
     tier: "ELIGIBLE_CONFIRMED", rank: spot.rank, coreIntentCoverage: "CONFIRMED", actualAvailability: "open",
     confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], rankVector: { hardConstraintState: "PASS", userRelevance: { state: "NEUTRAL" }, contextFit: { secondaryIntentConfirmed: false, visitSituationConfirmed: false, atmosphereConfirmed: false, typicalDaypartConfirmed: false, matchedSoftPreferenceCount: 0 }, worldEvidence: { confirmedReasonCount: 1 }, vectorHash: hash({ rank: spot.rank }) },
     reasons: [{ code: "core-intent-confirmed", domain: "WORLD", sourceHash, statement: `Bestätigter Café-Fit aus World-Version ${state.worldVersion}.`, confirmed: true }],
@@ -95,6 +95,11 @@ try {
     const url = new URL(request.url());
     const path = url.pathname;
     if (path === "/fixture-spot-photo.jpg") { fixturePhotoRequests++; return route.fulfill({status:200,contentType:"image/jpeg",path:resolve(root,"mobile/assets/headers/bern_day.jpg")}); }
+    if (path === "/rest/v1/rpc/backyrd_web_canonical_spot_image_headers_v1") {
+      const {p_spot_ids: ids} = JSON.parse(request.postData() ?? "{}");
+      assert.ok(Array.isArray(ids) && ids.length <= 5, "covers are a bounded batch for visible candidates");
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(ids.map(id=>({spot_id:id,header_photo_path:id === spots[1].spotId ? `${endpoint}/fixture-spot-photo.jpg` : null})))});
+    }
     if (path === "/auth/v1/token" && url.searchParams.get("grant_type") === "password") {
       passwordLogins += 1;
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(session) });
@@ -164,14 +169,15 @@ try {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-320.png`});
   const compactBounds=await compactAction.boundingBox();
   assert.ok(compactBounds && compactBounds.x>=0 && compactBounds.x+compactBounds.width<=320 && compactBounds.y+compactBounds.height<480,`small-screen action remains above tabs: ${JSON.stringify(compactBounds)}`);
-  const compactReason=await page.getByText("Eine passende Idee für dich.",{exact:true}).first().boundingBox();
+  const compactName=await page.getByText("Café Vorher",{exact:true}).first().boundingBox();
   const compactDetails=await page.getByText("Details & Hinweise",{exact:true}).first().boundingBox();
-  assert.ok(compactReason && compactDetails && compactReason.y+compactReason.height<=compactDetails.y,"compact reason is readable above the details action");
+  assert.ok(compactName && compactDetails && compactName.y+compactName.height<=compactDetails.y,"Spot name and details action remain readable on small screens");
+  assert.equal(await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).count(),0,"recommendation prose stays off the photo");
   // Real touch swipe, not a rejection action or another model call.
   const cdp=await context.newCDPSession(page);
-  await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:270,y:110}]});
+  await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:270,y:170}]});
   await page.waitForTimeout(50);
-  for(const x of [230,180,130,80,30]) { await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[{x,y:110}]}); await page.waitForTimeout(50); }
+  for(const x of [230,180,130,80,30]) { await cdp.send("Input.dispatchTouchEvent",{type:"touchMove",touchPoints:[{x,y:170}]}); await page.waitForTimeout(50); }
   await cdp.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
   await page.getByText("2 / 5",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Vorheriger Vorschlag",exact:true}).click();
@@ -179,11 +185,12 @@ try {
   await page.setViewportSize({width:390,height:844});
   await page.getByText("Details & Hinweise",{exact:true}).first().click();
   await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).waitFor();
+  await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
   assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
-  assert.ok(await page.getByText("Eine passende Idee für dich.", { exact: true }).count() >= 1);
+  await page.getByText("Eine passende Idee für das, was du gerade vorhast.", { exact: true }).waitFor({state:"hidden"});
   assert.equal(await page.getByText(/World-Version 1/).count(), 0, "internal evidence stays out of the consumer UI");
 
   assert.equal(state.decisions.every((item) => item.contractVersion === DECISION_PRODUCT_CONTRACT.request), true);
