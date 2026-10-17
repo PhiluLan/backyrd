@@ -5,6 +5,7 @@ import { request as plan, fact, meal, profile, offer, area, prop, price, binding
 import { exercise } from "./librarian-active-route-fixtures.mjs";
 
 const scenarios=[
+  {name:'dated dinner without a synthetic day phase rejects midday-only service',facts:[fact('dinner','experience.activity','dinner'),date()],good:profile([{...offer('dinner','DINNER'),schedule:[{weekday:4,start:'18:00',end:'22:00'}]}]),bad:profile([{...offer('dinner','DINNER'),schedule:[{weekday:4,start:'11:00',end:'14:00'}]}])},
   {name:'relaxed drinks use their actual linked room',facts:[fact('drink','experience.activity','etwas trinken'),fact('relaxed','atmosphere.character','entspannt')],good:profile([offer('bar','DRINKS')],[area('inside',[prop('atmosphere.character','entspannt')])],'BAR'),bad:profile([offer('bar','DRINKS')],[area('inside',[prop('atmosphere.character','laut')])],'BAR')},
   {name:'vegan dinner cannot borrow a vegan lunch',facts:[fact('dinner','experience.activity','Abendessen'),fact('diet','food.diet','vegan')],good:profile([offer('dinner','DINNER',['inside'],[prop('food.diet','vegan')])]),bad:profile([offer('dinner','DINNER'),offer('lunch','LUNCH',['inside'],[prop('food.diet','vegan')])])},
   {name:'meal family uses the dinner offer',facts:[fact('food','food.meal','essen gehen')],good:profile(),bad:profile([offer('bar','DRINKS')])},

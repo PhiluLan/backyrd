@@ -1,7 +1,7 @@
 // Fixed synthetic wishes, reviewed independently of model responses. Never production seed data.
 import { fact, meal, budget, date, evening, profile, offer, area, prop, price, binding, worldFact, reference } from '../librarian-matching-fixtures.mjs';
 
-export const QUALITY_CATALOG_VERSION = 'backyrd.decision-quality-catalog@1';
+export const QUALITY_CATALOG_VERSION = 'backyrd.decision-quality-catalog@2';
 export const QUALITY_REFERENCE = reference;
 const groups = [
   ['pub', ['Pub Abend in Basel', 'Ich suche einen Pub in Basel.', 'Heute Abend in Basel in einen Pub.', 'A pub in Basel tonight, please.']],
@@ -67,15 +67,20 @@ export function qualityScenario(group, query) {
       if (/gemütlich/i.test(query)) facts.push(fact('soft', 'atmosphere.character', 'gemütlich'));
       if (/draussen|Terrasse/.test(query)) facts.push(fact('soft', 'offer.area', /Terrasse/.test(query) ? 'Terrasse' : 'draussen', 'PREFERRED'));
       if (/ruhig/.test(query)) facts.push(fact('soft', 'atmosphere.noise', 'ruhig', 'PREFERRED'));
-      if (/laut/.test(query)) facts.push(fact('soft', 'atmosphere.noise', 'laut', 'EXCLUDED'));
+      if (/laut/.test(query)) facts.push(fact('soft', 'atmosphere.bustle', 'laut', 'EXCLUDED'));
       if (/rollstuhl/.test(query)) facts.push(fact('soft', 'participation.accessibility', 'rollstuhlgerecht', 'PREFERRED'));
       if (/WC/.test(query)) facts.push(fact('soft', 'offer.facility', 'WC'));
       if (/Cocktails/.test(query)) facts.push(fact('soft', 'food.drink', 'COCKTAILS', 'EXCLUDED'));
       if (/Musik/.test(query)) facts.push(fact('soft', 'atmosphere.music', 'Musik', 'EXCLUDED'));
       if (/Quantenlounge/.test(query)) extra.extensions = [{id: 'x1', modality: 'PREFERRED', basis: 'EXPLICIT', subjectIds: [], description: 'Quantenlounge'}];
+      if (group === 'access' && /laut/.test(query)) {
+        const noiseBar = level => profile([offer('drinks', 'DRINKS')], [area('inside', [prop('atmosphere.noise', level)])], 'BAR');
+        catalog = [venue(1, 'BAR', noiseBar('quiet')), venue(2, 'BAR', noiseBar('loud'))];
+        expectedIncluded = [1, 2]; expectedFirst = 1;
+      }
       break;
     case 'dated':
-      facts = [/Abendessen/.test(query) ? fact('meal', 'experience.activity', 'Abendessen') : meal(), date(), evening()];
+      facts = [/Abendessen/.test(query) ? fact('meal', 'experience.activity', 'Abendessen') : meal(), date(), ...(/Abendessen/.test(query) ? [] : [evening()])];
       catalog = [venue(1, 'RESTAURANT', profile()), venue(2, 'RESTAURANT', profile([{...offer(), schedule: [{weekday: 4, start: '11:00', end: '14:00'}]}]))];
       expectedExcluded = [2]; break;
     case 'undated': facts = [/Abendessen|Dinner/.test(query) ? fact('meal', 'experience.activity', 'Abendessen') : meal()]; catalog = [venue(1, 'RESTAURANT', profile([{...offer(), schedule: []}]))]; break;
@@ -89,7 +94,7 @@ export function qualityScenario(group, query) {
   facts.push(cityFact(city));
   const raw = {entities: [{id: 'a1', kind: 'ACTIVITY', label: 'Erlebnis', members: []}, {id: 'p2', kind: 'PERSON', label: 'Kind', members: []}], facts, logic: null, bindings: [], extensions: [], uncertainties: [], weatherConditions: [], ...extra};
   const id = n => binding(n, profile()).decisionProjection.spotId;
-  return {city, raw, catalog, expected: {included: expectedIncluded.map(id), excluded: expectedExcluded.map(id), unconfirmed: expectedUnconfirmed.map(id), first: expectedFirst}};
+  return {city, raw, catalog, expected: {included: expectedIncluded.map(id), excluded: expectedExcluded.map(id), unconfirmed: expectedUnconfirmed.map(id), first: expectedFirst === null ? null : id(expectedFirst)}};
 }
 
 export const QUALITY_CASES = groups.flatMap(([group, queries]) => queries.map((query, index) => ({id: `${group}-${index + 1}`, group, query})));

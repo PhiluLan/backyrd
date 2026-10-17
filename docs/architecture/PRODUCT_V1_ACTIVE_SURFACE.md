@@ -210,3 +210,24 @@ hours are a nonblocking availability notice. Attributes retain their factual
 witnesses; unavailable slots that are actually documented remain exclusions.
 The response distinguishes confirmed fit from `actualAvailability: unknown` and
 includes a readable unconfirmed-time notice. No opening claim is synthesized.
+
+### Dated meal service, matching revision 14
+
+The frozen Luna prompt correctly preserves a meal name without adding a
+separate day-phase fact. For a dated breakfast, lunch or dinner with no explicit
+clock/daypart, the matcher applies the existing MORNING, MIDDAY or EVENING
+range to that meal's own offering witness. This prevents documented midday-only
+service from confirming a dated dinner. Explicit time windows override this
+default. Undated or generic meal wishes gain no additional time restriction;
+unknown schedules remain nonblocking. A meal's derived service window cannot
+constrain a separate hotel stay or another alternative. Original Luna facts
+and the public time summary remain unchanged. This is evaluation release 14;
+ranking policy and Luna prompt revision 4 are unchanged.
+
+Quality corpus revision 2 follows the frozen definitions: general loudness may
+use `atmosphere.bustle`; disturbance/program noise uses `atmosphere.noise`.
+This corrects a test-oracle error, not the model or its vocabulary. See
+`docs/operations/DECISION_QUALITY_CATALOG.md` for evidence and limitations.
+The matcher additionally connects only Luna's quiet/loud bustle concepts to
+the Owner noise-level field. It preserves evidence scope and unknowns, does
+not infer noise from crowding/liveliness, and retains ranking-only treatment.

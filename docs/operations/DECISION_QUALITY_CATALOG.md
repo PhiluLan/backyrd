@@ -1,7 +1,9 @@
 # Decision quality: fixed wishes and candidate diagnostics
 
-Task class: FAST_PR. This extends the existing Product Decision tests. It does
-not change matching, ranking, prompts, production telemetry or database state.
+Task class: PRODUCT_RELEASE. The fixed tests and diagnostics now also cover a
+scoped correction to dated meal-service matching. Ranking, prompts, production
+telemetry, consent and database state are unchanged. Production activation
+requires the normal certified release; source changes are not a deployment.
 
 ## What is measured
 
@@ -24,6 +26,11 @@ World fixtures, and expected candidate outcomes. In particular:
   factual visit match. Their absence must not become a positive confirmation.
 - Without a calendar wish, missing hours do not invent a dated closure.
 - Documented incompatible offer hours for an actual requested visit exclude.
+  A specific dated breakfast, lunch or dinner uses the existing morning,
+  midday or evening matching range for that meal's offering only, when no
+  explicit clock or daypart is supplied. Generic meals and undated wishes do
+  not gain an invented time duty. Explicit times win; missing hours do not
+  become a closure. Other offers and alternative branches retain their scope.
 - Hotel, dinner and restaurant identity are distinct; overnight stays need
   an overnight offering when explicitly requested.
 - Coffee OR tea must remain an alternative rather than two mandatory drinks.
@@ -140,21 +147,46 @@ the same forty captured answers used zero additional model calls. The initial
 report's 15 understanding flags and two chain flags are not an engine error
 rate: they included those oracle/fixture defects.
 
-After review, `/tmp/backyrd-quality-replay-final.json` reports 38/40 cases with
-no tested assertion failure. Two cases remain deliberately flagged:
+The initial v1 review, before checking the full frozen family definitions,
+reported 38/40 without an assertion failure and flagged these two cases:
 
 | Case | Observed issue | Consequence in this fixture |
 | --- | --- | --- |
-| `dated-2`: Donnerstag in Basel zum Abendessen | Date and dinner survive, but the expected evening window is absent. | The midday-only dinner offer is admitted; both the understanding and chain checks fail. |
-| `access-3`: Eine Bar in Basel, bitte nicht zu laut | `loud` is excluded under `atmosphere.bustle`, not `atmosphere.noise`. | Understanding check fails. Candidate admission is unchanged because this is a ranking criterion. |
+| `dated-2`: Donnerstag in Basel zum Abendessen | Date and dinner survive without a separate day-phase fact. | The midday-only dinner offer was admitted. The v1 understanding check also incorrectly required an invented phase. |
+| `access-3`: Eine Bar in Basel, bitte nicht zu laut | `loud` is excluded under `atmosphere.bustle`. | The v1 oracle incorrectly expected `atmosphere.noise`. Admission was unchanged. |
 
-This is a partial-oracle result on one response per wish, not a 95% general
-language accuracy claim. The intended evening interpretation and distinct
-noise/bustle families remain explicit review points for the next semantic
-change. Neither issue was hidden by changing runtime policy in this PR.
+Full contract review then established that Luna prompt revision 4 explicitly
+forbids creating a separate phase from a meal name alone. The frozen catalog
+also defines `atmosphere.bustle` as including general loudness, while
+`atmosphere.noise` covers disturbance/program noise. Those model answers are
+therefore valid under the existing contract. Corpus revision 2 corrects both
+oracle errors rather than changing the model or its frozen vocabulary.
 
-The golden chain passes all forty independently provided meanings. The
-diagnostic regression tests also deliberately inject the two observed defects
-and verify that they remain detectable. Full provider outputs and captured
-meanings are not committed. Local report paths are operational evidence and
-may disappear when temporary files are cleaned.
+Matching revision 14 / evaluation release 14 fixes the actual dated-meal
+service defect: service hours are checked against the meal's conventional
+range at its own scoped witness. It does not synthesize a Luna fact, modify
+the original meaning, infer a date or constrain unrelated activities.
+
+The same revision bridges Luna's valid quiet/loud `atmosphere.bustle` meanings
+to the Owner's documented `atmosphere.noise` field. The bridge accepts only
+the shared quiet/loud concepts; it does not translate crowding/liveliness into
+noise or collapse distinct disturbance meanings. Opposite documented levels
+are evidence of a mismatch, unknown values remain unknown, and every such
+assessment remains ranking-only. Corpus case `access-3` now requires the quiet
+bar to rank first while both quiet and loud bars remain admitted.
+
+Replaying the same forty captured answers against corpus revision 2 and the
+corrected matcher passes all tested understanding and chain assertions; report:
+`/tmp/backyrd-quality-meal-replay.json`. This is zero new model calls, not an
+independent language sample, production test or general accuracy claim. Golden
+cases and explicit regressions additionally cover dated breakfast/lunch/dinner,
+explicit clocks, absent dates/hours and independent alternatives/stays. An
+active HTTP-chain regression checks the dinner defect through the existing
+handler with isolated provider/World doubles.
+
+Two additional fresh provider calls for `dated-2` and `access-3` also passed
+the tested understanding and chain assertions. These are targeted spot checks,
+not another independent forty-query run. Provider model and prompt are unchanged.
+
+Full provider outputs and captured meanings are not committed. Local report
+paths are operational evidence and may disappear when temporary files are cleaned.

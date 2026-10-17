@@ -1,4 +1,4 @@
-import { ACCEPTED_SOURCE_POLICY, type ExperienceConditions, type ExperienceOffer } from "@backyrd/world-knowledge-core";
+import { ACCEPTED_SOURCE_POLICY, librarianConcept, type ExperienceConditions, type ExperienceOffer } from "@backyrd/world-knowledge-core";
 import { evaluateOpeningDay } from "./opening-state.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
@@ -16,6 +16,9 @@ export type VisitWindow = {
     readonly excludedMinutes: readonly number[];
 };
 const minute = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+const phaseRanges: Readonly<Record<string, readonly [number, number]>> = {
+    MORNING: [360, 720], MIDDAY: [660, 900], AFTERNOON: [720, 1080], EVENING: [1020, 1440], NIGHT: [0, 360],
+};
 export const visitWeekday = (day: string) => ((new Date(day + "T12:00:00Z").getUTCDay() + 6) % 7) + 1;
 export function createLibrarianVisitWindow(facts: readonly LibrarianFact[], timezone: string | null): VisitWindow {
     const dates = facts.filter(f => f.modality !== "EXCLUDED" && f.modality !== "NOT_REQUIRED" && f.value.kind === "DATE");
@@ -36,14 +39,10 @@ export function createLibrarianVisitWindow(facts: readonly LibrarianFact[], time
     const excluded = facts.filter(f => f.modality === "EXCLUDED" && f.value.kind === "DATE" && f.value.operator === "EQ").map(f => f.value.kind === "DATE" ? f.value.date : "");
     days = days.filter(day => !excluded.includes(day));
     const phases = facts.filter(f => f.modality !== "EXCLUDED" && f.modality !== "NOT_REQUIRED" && f.value.kind === "DAY_PHASE");
-    const phaseRange: Readonly<Record<string, readonly [
-        number,
-        number
-    ]>> = { MORNING: [360, 720], MIDDAY: [660, 900], AFTERNOON: [720, 1080], EVENING: [1020, 1440], NIGHT: [0, 360] };
     let start = 0, end = 1440, exact = false;
     for (const fact of phases)
         if (fact.value.kind === "DAY_PHASE") {
-            const range = phaseRange[fact.value.phase]!;
+            const range = phaseRanges[fact.value.phase]!;
             if (fact.value.phase === "NIGHT")
                 complete = false;
             start = Math.max(start, range[0]);
@@ -106,6 +105,22 @@ export function createLibrarianVisitWindow(facts: readonly LibrarianFact[], time
         && phases.every(f => f.value.kind === "DAY_PHASE" && f.value.timezone === timezone) && end > start;
     return { dates: days, start, end, exact, requested: temporal.length > 0 || originalWithoutCalendar, complete: (!temporal.length && !originalWithoutCalendar) || complete, undatedDayPhase, timezone, excludedMinutes };
 }
+/** A dated meal has a conventional service window even when Luna correctly
+ * preserves the meal without inventing a time.day_phase fact. Apply this only
+ * to that meal's offering witness, never to another activity in the visit.
+ * Explicit clocks/dayparts win; undated wishes make no hours claim. */
+export function librarianMealVisitWindow(fact: LibrarianFact, visit: VisitWindow): VisitWindow {
+    if (!visit.requested || !visit.complete || visit.dates.length !== 1 || visit.exact
+        || visit.start !== 0 || visit.end !== 1440
+        || ["EXCLUDED", "NOT_REQUIRED", "CONTEXT"].includes(fact.modality)
+        || !["experience.activity", "food.meal", "offer.kind"].includes(fact.key)
+        || fact.value.kind !== "TEXT") return visit;
+    const concept = librarianConcept(fact.value.text);
+    // Reuse the existing MORNING, MIDDAY and EVENING matching ranges. These
+    // are evaluation windows, not claimed exact arrival/opening/booking times.
+    const range = concept === "breakfast" ? phaseRanges.MORNING : concept === "lunch" ? phaseRanges.MIDDAY : concept === "dinner" ? phaseRanges.EVENING : null;
+    return range ? { ...visit, start: range[0]!, end: range[1]! } : visit;
+}
 export function librarianConditions(conditions: ExperienceConditions, visit: VisitWindow, event: string | null = null): MatchTruth {
     if (conditions.event !== null && conditions.event !== event)
         return "UNKNOWN";
@@ -121,11 +136,7 @@ export function librarianConditions(conditions: ExperienceConditions, visit: Vis
     if (conditions.dayparts.length) {
         if (!visit.requested)
             return "UNKNOWN";
-        const ranges: Readonly<Record<string, readonly [
-            number,
-            number
-        ]>> = { MORNING: [360, 720], MIDDAY: [660, 900], AFTERNOON: [720, 1080], EVENING: [1020, 1440], NIGHT: [0, 360] };
-        const fits = conditions.dayparts.some(phase => { const r = ranges[phase]!; return r[0] <= visit.start && visit.end <= r[1]; });
+        const fits = conditions.dayparts.some(phase => { const r = phaseRanges[phase]!; return r[0] <= visit.start && visit.end <= r[1]; });
         if (!fits)
             return "UNKNOWN"; // overlap with only part of an imprecise phase proves nothing universal
     }
