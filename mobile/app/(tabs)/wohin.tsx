@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Crypto from "expo-crypto";
 import type { DecisionProductCandidate, DecisionProductResponse } from "@backyrd/product-decision-contract";
 
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
-import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinFitLabel, wohinHighlights, wohinLimitations } from "@/lib/decision/wohinModel";
+import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinFitLabel, wohinHighlights, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
 import { supabase } from "@/lib/supabase";
 import { userFacingError } from "@/lib/userFacingError";
 import { backyrdTheme } from "@/theme/backyrd";
@@ -51,61 +52,35 @@ function availabilityLabel(candidate: DecisionProductCandidate): { text: string;
   return { text: "Öffnungszeiten nicht bestätigt", color: color.muted };
 }
 
-function interpretationLabel(response: DecisionProductResponse): string {
-  const intent = response.interpretation.primaryIntent;
-  const intentLabel = intent === "COFFEE" ? "Kaffee" : intent === "EAT" ? "Essen" : intent === "DRINKS" ? "Drinks" : null;
-  const dateTime = response.interpretation.dateTime;
-  const localDate = dateTime && typeof dateTime === "object" && "localDate" in dateTime && typeof dateTime.localDate === "string" ? dateTime.localDate : null;
-  const date = localDate && /^\d{4}-\d{2}-\d{2}$/.test(localDate)
-    ? new Intl.DateTimeFormat("de-CH", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Zurich" }).format(new Date(`${localDate}T12:00:00Z`))
-    : null;
-  return [intentLabel ?? "Dein Wunsch", response.interpretation.targetCity, date].filter(Boolean).join(" · ");
-}
-
-function DecisionResultCard({ candidate, personalizationActive, onOpen }: {
+function DecisionResultCard({ candidate, personalizationActive, compact, onOpen, onDetails }: {
   candidate: DecisionProductCandidate;
   personalizationActive: boolean;
+  compact: boolean;
   onOpen: () => void;
+  onDetails: () => void;
 }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const highlights = wohinHighlights(candidate, personalizationActive);
-  const considerations = wohinConsiderations(candidate, personalizationActive);
-  const availability = availabilityLabel(candidate);
-  const placeMeta = [candidate.presentation.categoryLabel, candidate.presentation.locality].filter(Boolean).join(" · ");
-
   return (
-    <View style={styles.resultCard}>
-      <View style={styles.resultImageWrap}>
-        <SpotArtwork imageUrl={candidate.presentation.imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} style={styles.resultImage} />
-      </View>
-      <View style={styles.resultContent}>
-        <AppText role="label" tone={candidate.coreIntentCoverage === "CONFIRMED" ? "pink" : "secondary"}>{wohinFitLabel(candidate)}</AppText>
-        <AppText role="screenTitle" style={styles.resultTitle}>{candidate.presentation.name}</AppText>
-        {placeMeta ? <AppText role="meta" tone="secondary" style={styles.resultMeta}>{placeMeta}</AppText> : null}
-        <View style={styles.availabilityRow}>
-          <Ionicons name="time-outline" size={16} color={availability.color} />
-          <AppText role="meta" style={{ color: availability.color, flex: 1 }}>{availability.text}</AppText>
-        </View>
-        <View style={styles.reasonSection}>
-          <AppText role="label" style={styles.reasonHeading}>Warum dieser Ort?</AppText>
-          {highlights.length ? highlights.map((reason) => (
-            <View key={reason} style={styles.reasonRow}>
-              <View style={styles.reasonDot} />
-              <AppText role="body" style={styles.reasonText}>{reason}</AppText>
-            </View>
-          )) : <AppText role="body" tone="secondary">Zur genauen Passung fehlen noch Angaben.</AppText>}
-          {candidate.tier !== "ELIGIBLE_CONFIRMED" ? considerations.slice(0, 2).map((note) => <AppText key={note} role="meta" tone="secondary" style={styles.detailNote}>{note}</AppText>) : null}
-          {considerations.length ? <>
-            <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }} onPress={() => setDetailsOpen((open) => !open)} style={styles.detailsToggle}>
-              <AppText role="meta" tone="pink">Was du noch wissen solltest</AppText>
-              <Ionicons name={detailsOpen ? "chevron-up" : "chevron-down"} size={16} color={color.pink} />
-            </Pressable>
-            {detailsOpen ? considerations.slice(candidate.tier !== "ELIGIBLE_CONFIRMED" ? 2 : 0).map((note) => <AppText key={note} role="meta" tone="secondary" style={styles.detailNote}>{note}</AppText>) : null}
-          </> : null}
-        </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} ansehen`} onPress={onOpen} style={styles.openSpotButton}>
-          <AppText role="label" style={styles.openSpotText}>Spot ansehen</AppText>
-          <Ionicons name="arrow-forward" size={18} color={color.background} />
+    <View style={styles.resultCard} testID="wohin-result-card">
+      <SpotArtwork imageUrl={candidate.presentation.imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />
+      <LinearGradient pointerEvents="none" colors={["transparent", "rgba(5,5,6,0.45)", "rgba(5,5,6,0.97)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
+      <View style={[styles.cardBottom, compact && styles.compactBottom]}>
+        <ScrollView style={styles.cardSummary} contentContainerStyle={styles.cardSummaryContent}>
+          <AppText role="caption" style={[styles.fitLabel, candidate.tier !== "ELIGIBLE_CONFIRMED" && { color: color.warning }]}>{wohinFitLabel(candidate)}</AppText>
+          <AppText role="screenTitle" numberOfLines={2} style={styles.resultTitle}>{candidate.presentation.name}</AppText>
+          <AppText role="meta" numberOfLines={1} style={styles.resultMeta}>{wohinPlaceMeta(candidate)}</AppText>
+          {highlights.slice(0, compact ? 1 : 2).map((reason) => <View key={reason} style={styles.reasonRow}>
+            <Ionicons name="checkmark" size={17} color={color.lime} />
+            <AppText role="meta" numberOfLines={2} style={styles.reasonText}>{reason}</AppText>
+          </View>)}
+        </ScrollView>
+        <Pressable accessibilityRole="button" onPress={onDetails} style={styles.detailsToggle}>
+          <AppText role="meta" style={styles.detailsText}>Details & Hinweise</AppText>
+          <Ionicons name="information-circle-outline" size={19} color={color.text} />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={styles.openSpotButton}>
+          <AppText role="label" style={styles.openSpotText}>Spot entdecken</AppText>
+          <Ionicons name="arrow-forward" size={20} color={color.background} />
         </Pressable>
       </View>
     </View>
@@ -114,8 +89,16 @@ function DecisionResultCard({ candidate, personalizationActive, onOpen }: {
 
 export default function WohinScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [editing, setEditing] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [pageWidth, setPageWidth] = useState(0);
+  const [pageHeight, setPageHeight] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const listRef = useRef<FlatList<DecisionProductCandidate>>(null);
   const params = useLocalSearchParams<{ query?: string; auto?: string }>();
   const [query, setQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
   const [city, setCity] = useState<string | null>(null);
   const [identityReady, setIdentityReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -129,10 +112,12 @@ export default function WohinScreen() {
   const seenImpressions = useRef(new Set<string>());
   const responseRef = useRef<DecisionProductResponse | null>(null);
   const requestGeneration = useRef(0);
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: { item: DecisionProductCandidate; isViewable: boolean }[] }) => {
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 70, minimumViewTime: 250 }).current;
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: { item: DecisionProductCandidate; isViewable: boolean; index: number | null }[] }) => {
     const current = responseRef.current;
     if (!current) return;
+    const visible = viewableItems.find((entry) => entry.isViewable && entry.index !== null);
+    if (visible) setActiveIndex(visible.index!);
     for (const { item, isViewable } of viewableItems) {
       if (!isViewable) continue;
       const key = `${current.decisionId}:${item.spotId}`;
@@ -180,6 +165,11 @@ export default function WohinScreen() {
   const run = useCallback(async (text: string) => {
     if (!identityReady || identityError || !authenticated || !city || loading) return;
     const generation = ++requestGeneration.current;
+    setSubmittedQuery(text.trim());
+    Keyboard.dismiss();
+    setEditing(false);
+    setDetailsOpen(false);
+    setActiveIndex(0);
     setLoading(true);
     setError(null);
     responseRef.current = null;
@@ -222,18 +212,57 @@ export default function WohinScreen() {
 
   const limitations = response ? wohinLimitations(response.limitations, candidates.length) : [];
 
+  const showingResults = Boolean(response && candidates.length && !editing);
+  const current = candidates[activeIndex];
+  const goTo = (index: number) => {
+    if (index < 0 || index >= candidates.length || !pageWidth) return;
+    listRef.current?.scrollToOffset({ offset: index * pageWidth, animated: true });
+  };
+  const personal = response?.personalization.state === "ACTIVE";
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: color.background }} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
       <Stack.Screen options={{ title: "Wohin", headerShown: false }} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <FlatList
-          data={candidates}
-          keyExtractor={(candidate) => candidate.spotId}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 28, paddingBottom: 130 }}
-          viewabilityConfig={viewabilityConfig}
-          onViewableItemsChanged={onViewableItemsChanged}
-          ListHeaderComponent={<>
+      {showingResults ? <View style={[styles.resultScreen, { paddingBottom: Math.max(8, insets.bottom - 2) + backyrdTheme.control.tabBarVisual + 10 }]}>
+        <View style={styles.resultHeader}>
+          <View style={styles.querySummary}>
+            <AppText role="caption" tone="pink">DEIN MOMENT</AppText>
+            <AppText role="meta" numberOfLines={1} style={styles.queryText}>{submittedQuery}</AppText>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={() => setEditing(true)} style={styles.editSearch}>
+            <Ionicons name="options-outline" size={19} color={color.text} />
+            <AppText role="meta">Ändern</AppText>
+          </Pressable>
+        </View>
+        <View style={styles.deck} onLayout={(event) => { setPageWidth(event.nativeEvent.layout.width); setPageHeight(event.nativeEvent.layout.height); }}>
+          {pageWidth > 0 && pageHeight > 0 ? <FlatList
+            key={`${response!.decisionId}:${pageWidth}:${pageHeight}`}
+            ref={listRef}
+            data={candidates}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            initialScrollIndex={Math.min(activeIndex, candidates.length - 1)}
+            getItemLayout={(_, index) => ({ length: pageWidth, offset: pageWidth * index, index })}
+            viewabilityConfig={viewabilityConfig}
+            onViewableItemsChanged={onViewableItemsChanged}
+            extraData={personal}
+            keyExtractor={(candidate) => candidate.spotId}
+            renderItem={({ item: candidate }) => <View style={[styles.cardPage, { width: pageWidth, height: pageHeight }]}>
+              <DecisionResultCard candidate={candidate} personalizationActive={personal} compact={pageHeight < 440} onOpen={() => openSpot(candidate)} onDetails={() => setDetailsOpen(true)} />
+            </View>}
+          /> : null}
+        </View>
+        <View style={styles.pager}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Vorheriger Vorschlag" disabled={activeIndex === 0} onPress={() => goTo(activeIndex - 1)} style={[styles.pagerButton, activeIndex === 0 && styles.disabled]}><Ionicons name="arrow-back" size={23} color={color.text} /></Pressable>
+          <View style={styles.pagerLabel}>
+            <AppText role="label" accessibilityLiveRegion="polite">{activeIndex + 1} / {candidates.length}</AppText>
+            <AppText role="caption" tone="muted">{candidates.length === 1 ? "Dein Vorschlag" : "Wischen zum Entdecken"}</AppText>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Nächster Vorschlag" disabled={activeIndex === candidates.length - 1} onPress={() => goTo(activeIndex + 1)} style={[styles.pagerButton, activeIndex === candidates.length - 1 && styles.disabled]}><Ionicons name="arrow-forward" size={23} color={color.text} /></Pressable>
+        </View>
+      </View> : <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 28, paddingBottom: 130 }}>
+          {response && candidates.length ? <Pressable accessibilityRole="button" onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.backToResults}><AppText role="label" tone="pink">Zurück zu deinen Vorschlägen</AppText></Pressable> : null}
           <AppText role="caption" tone="lime">DEIN NÄCHSTER MOMENT</AppText>
           <AppText role="displayL" style={{ color: color.text, marginTop: 10 }}>Wohin?</AppText>
           <Text style={{ color: color.muted, marginTop: 10, lineHeight: 22 }}>Worauf hast du gerade Lust? Erzähl es uns in deinen Worten – wir zeigen dir passende Orte mit einem nachvollziehbaren Grund.</Text>
@@ -245,7 +274,7 @@ export default function WohinScreen() {
               autoCapitalize="sentences"
               multiline
               maxLength={2000}
-              onChangeText={(value) => { requestGeneration.current += 1; responseRef.current = null; setQuery(value); setResponse(null); setCandidates([]); setError(null); }}
+              onChangeText={(value) => { setQuery(value); setError(null); }}
               placeholder="z. B. Sonntag gemütlich Kaffee trinken"
               placeholderTextColor="#77777C"
               style={{ color: color.text, fontSize: 21, minHeight: 110, marginTop: 16, textAlignVertical: "top", lineHeight: 29 }}
@@ -267,41 +296,70 @@ export default function WohinScreen() {
           {identityReady && !identityError && authenticated && !city ? <Text style={{ color: color.warning, marginTop: 20 }}>Deine Stadt fehlt noch im Profil. Ergänze sie, damit wir passende Orte in deiner Nähe finden können.</Text> : null}
           {error ? <Text style={{ color: color.warning, marginTop: 20 }}>{error}</Text> : null}
 
-          {response ? (
-            <View style={{ marginTop: 34 }}>
-              <AppText role="caption" tone="pink">FÜR DEINEN MOMENT</AppText>
-              <AppText role="sectionTitle" style={{ marginTop: 8 }}>Orte für deinen Wunsch</AppText>
-              <AppText role="meta" tone="secondary" style={{ marginTop: 8 }}>{interpretationLabel(response)}</AppText>
-              <AppText role="caption" tone="muted" style={{ marginTop: 10 }}>{response.personalization.state === "ACTIVE" ? "Mit deinen freigegebenen Vorlieben sortiert" : "Ohne persönliche Vorlieben sortiert"}</AppText>
-              {candidates.length === 0 ? <Text style={{ color: color.warning, marginTop: 12 }}>Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Wenn dir einzelne Bedingungen wichtig sind, streiche sie nicht nur für einen Treffer.</Text> : null}
+
+          {response && !candidates.length ? <View style={styles.emptyState}>
+            <AppText role="sectionTitle">Gerade kein passender Vorschlag</AppText>
+            <AppText role="body" tone="secondary">Für diesen Wunsch haben wir noch keinen ausreichend belegten Ort. Du kannst deine Suche ändern.</AppText>
+            {limitations.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
+          </View> : null}
+        </ScrollView>
+      </KeyboardAvoidingView>}
+      <Modal visible={detailsOpen && showingResults} transparent animationType="slide" onRequestClose={() => setDetailsOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <SafeAreaView style={styles.detailSheet} edges={["top", "bottom"]} accessibilityViewIsModal>
+            <View style={styles.sheetHeader}>
+              <AppText role="sectionTitle" style={{ flex: 1 }}>Details & Hinweise</AppText>
+              <Pressable accessibilityRole="button" accessibilityLabel="Hinweise schließen" onPress={() => setDetailsOpen(false)} style={styles.pagerButton}><Ionicons name="close" size={24} color={color.text} /></Pressable>
             </View>
-          ) : null}
-          </>}
-          renderItem={({ item: candidate }) => <DecisionResultCard candidate={candidate} personalizationActive={response?.personalization.state === "ACTIVE"} onOpen={() => openSpot(candidate)} />}
-          ListFooterComponent={limitations.length ? <View style={styles.resultFooter}>{limitations.map((note) => <AppText key={note} role="meta" tone="secondary" style={styles.limitationNote}>{note}</AppText>)}</View> : null}
-        />
-      </KeyboardAvoidingView>
+            <ScrollView contentContainerStyle={styles.sheetContent}>
+              {current ? <>
+                <AppText role="screenTitle">{current.presentation.name}</AppText>
+                <AppText role="meta" tone="secondary">{wohinPlaceMeta(current)}</AppText>
+                {wohinHighlights(current, personal).map(note => <AppText key={note} role="body">{note}</AppText>)}
+                <AppText role="body" tone="secondary">{availabilityLabel(current).text}</AppText>
+                {wohinConsiderations(current, personal).map(note => <AppText key={note} role="body" tone="secondary">{note}</AppText>)}
+              </> : null}
+              {limitations.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
+              <AppText role="caption" tone="muted">{personal ? "Mit deinen freigegebenen Vorlieben sortiert" : "Ohne persönliche Vorlieben sortiert"}</AppText>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  resultCard: { marginTop: backyrdTheme.spacing.lg, borderRadius: backyrdTheme.radius.lg, overflow: "hidden", backgroundColor: backyrdTheme.color.surfaceElevated },
-  resultImageWrap: { position: "relative" },
-  resultImage: { height: 160 },
-  resultContent: { padding: backyrdTheme.spacing.lg },
-  resultTitle: { marginTop: 6 },
-  resultMeta: { marginTop: 4 },
-  availabilityRow: { marginTop: backyrdTheme.spacing.md, flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  reasonSection: { marginTop: backyrdTheme.spacing.lg, paddingTop: backyrdTheme.spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: backyrdTheme.color.border, gap: 10 },
-  reasonHeading: { marginBottom: 2 },
-  reasonRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  reasonDot: { width: 6, height: 6, marginTop: 9, borderRadius: 3, backgroundColor: backyrdTheme.color.pink },
-  reasonText: { flex: 1 },
-  detailsToggle: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start" },
-  detailNote: { paddingLeft: 16 },
-  openSpotButton: { marginTop: backyrdTheme.spacing.lg, minHeight: backyrdTheme.control.standard, borderRadius: backyrdTheme.radius.pill, backgroundColor: backyrdTheme.color.pink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  openSpotText: { color: backyrdTheme.color.background },
-  resultFooter: { paddingTop: backyrdTheme.spacing.lg, paddingBottom: backyrdTheme.spacing.md },
-  limitationNote: { marginBottom: backyrdTheme.spacing.sm },
+  screen: { flex: 1, backgroundColor: color.background },
+  resultScreen: { flex: 1 },
+  resultHeader: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12 },
+  querySummary: { flex: 1, gap: 5 },
+  queryText: { color: color.text },
+  editSearch: { flexDirection: "row", gap: 6, alignItems: "center", minHeight: 44, paddingHorizontal: 10 },
+  deck: { flex: 1, minHeight: 0 },
+  cardPage: { flex: 1, paddingHorizontal: 16 },
+  resultCard: { flex: 1, borderRadius: 30, overflow: "hidden", backgroundColor: color.card, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border },
+  cardBottom: { position: "absolute", bottom: 0, left: 0, right: 0, maxHeight: "75%", padding: 20 },
+  compactBottom: { maxHeight: "92%", padding: 16 },
+  cardSummary: { flexShrink: 1 },
+  cardSummaryContent: { gap: 10 },
+  fitLabel: { color: color.lime },
+  resultTitle: { color: color.text, fontSize: 30, lineHeight: 34 },
+  resultMeta: { color: "#D1CDD1", marginBottom: 4 },
+  reasonRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  reasonText: { flex: 1, color: "#F4F1F3" },
+  detailsToggle: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-start", marginTop: 4 },
+  detailsText: { color: color.text },
+  openSpotButton: { minHeight: 52, paddingVertical: 12, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  openSpotText: { color: color.background },
+  pager: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 10, gap: 12 },
+  pagerButton: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.card },
+  disabled: { opacity: 0.3 },
+  pagerLabel: { alignItems: "center", gap: 2, flex: 1 },
+  backToResults: { minHeight: 44, justifyContent: "center", marginBottom: 16 },
+  emptyState: { marginTop: 28, gap: 12 },
+  modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" },
+  detailSheet: { maxHeight: "88%", backgroundColor: color.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 20 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", gap: 16 },
+  sheetContent: { gap: 16, paddingTop: 18, paddingBottom: 24 },
 });

@@ -40,7 +40,7 @@ export function visibleWohinCandidates(response: DecisionProductResponse): Decis
 export function wohinFitLabel(candidate: DecisionProductCandidate): string {
   return candidate.tier === "ELIGIBLE_CONFIRMED" && candidate.coreIntentCoverage === "CONFIRMED"
     ? "Passend zu deinem Wunsch"
-    : "Passung noch nicht vollständig belegt";
+    : "Mit offenen Angaben";
 }
 
 const reasonLabels: Record<string, string> = {
@@ -53,33 +53,62 @@ const reasonLabels: Record<string, string> = {
 };
 const reasonPriority = ["core-intent-confirmed", "atmosphere-fit", "visit-fit", "daypart-fit", "price-level-fit", "primary-purpose-confirmed"];
 
+const librarianHighlights: Record<string, string> = {
+  "Bestätigt: die gewünschte Aktivität.": "Deine gewünschte Aktivität ist hier möglich.",
+  "Bestätigt: die gewünschte Art des Angebots.": "Hier findest du die gesuchte Art von Angebot.",
+  "Bestätigt: die Essensmöglichkeit.": "Du kannst hier wie gewünscht essen.",
+  "Bestätigt: die Getränkeauswahl.": "Dein gewünschtes Getränk wird hier angeboten.",
+  "Bestätigt: die gewünschte Ernährung.": "Passende Optionen für deine Ernährung sind vorhanden.",
+  "Bestätigt: die gewünschte Atmosphäre.": "Die Atmosphäre passt zu deinem Wunsch.",
+  "Bestätigt: der gewünschte Bereich.": "Der gewünschte Innen- oder Aussenbereich ist vorhanden.",
+  "Dein Budget passt zur hinterlegten Preisspanne.": "Die hinterlegten Preise passen zu deinem Budget.",
+};
+
+export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
+  const groups: Record<string, string> = { EAT: "Essen & Trinken", DRINKS: "Bar", COFFEE_DAYTIME: "Café", NIGHTLIFE: "Nachtleben", CULTURE_ARTS: "Kultur", ENTERTAINMENT: "Unterhaltung", ACTIVITIES_PLAY: "Aktivitäten & Spiel", SPORT_MOVEMENT: "Sport & Bewegung", OUTDOOR_NATURE: "Natur & draussen", WELLNESS_RELAXATION: "Wellness", SHOPPING_MARKETS: "Shopping", STAY: "Übernachten", COMMUNITY_SOCIAL: "Gemeinschaft", ATTRACTIONS_LANDMARKS: "Ausflugsziel", TEMPORARY_PLACES: "Veranstaltungsort" };
+  const raw = candidate.presentation.categoryLabel;
+  const category = groups[raw ?? ""] ?? (raw && !/^[A-Z_]+$/.test(raw) ? raw : null);
+  return [category, candidate.presentation.locality].filter(Boolean).join(" · ");
+}
+
 export function wohinHighlights(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
   const confirmed = new Set(candidate.reasons.filter((reason) => reason.confirmed).map((reason) => reason.code));
-  const highlights = reasonPriority
+  const currentReasons = candidate.reasons.filter(reason => reason.confirmed && reason.domain === "WORLD");
+  const highlights = currentReasons.flatMap(reason => {
+    if (reason.code === "librarian-selected-offers" && reason.statement.startsWith("Passende Angebote: ")) return [`Hier möglich: ${reason.statement.slice("Passende Angebote: ".length)}`];
+    return reason.code.startsWith("LBR:") && librarianHighlights[reason.statement] ? [librarianHighlights[reason.statement]] : [];
+  });
+  highlights.push(...reasonPriority
     .filter((code) => confirmed.has(code) && !(code === "primary-purpose-confirmed" && confirmed.has("core-intent-confirmed")))
-    .map((code) => reasonLabels[code]);
+    .map((code) => reasonLabels[code]));
   if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-positive-"))) {
     highlights.push("Passt zu deinen freigegebenen Vorlieben.");
   }
-  return highlights.slice(0, 2);
+  return [...new Set(highlights)].slice(0, 2);
 }
 
 export function wohinConsiderations(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
-  const notes: string[] = [];
+  const notes: string[] = candidate.reasons.flatMap(reason => {
+    if (reason.confirmed || reason.domain !== "LIMITATION") return [];
+    if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt)/.test(reason.statement)) return [reason.statement];
+    if (["librarian-access-details", "librarian-visit-time-unconfirmed"].includes(reason.code)) return [reason.statement];
+    return [];
+  });
+  const hasDetailedNotes = notes.length > 0;
   if (candidate.coreIntentCoverage !== "CONFIRMED") notes.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
   if (candidate.reasons.some((reason) => reason.code === "visit-unconfirmed")) notes.push("Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.");
   if (candidate.reasons.some((reason) => reason.code === "price-level-unconfirmed")) notes.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
   if (candidate.reasons.some((reason) => reason.code === "music-at-visit-unverified")) notes.push("Ob bei deinem Besuch Musik läuft, ist für diesen Ort nicht bestätigt.");
   if (candidate.reasons.some((reason) => reason.code === "precise-time-unverified")) notes.push("Die konkrete gewünschte Uhrzeit wurde für diesen Ort nicht geprüft.");
   if (candidate.reasons.some((reason) => reason.code === "core-need-unmapped")) notes.push("Ein weiterer Teil deines Wunsches konnte noch nicht mit Spot-Wissen abgeglichen werden.");
-  if (candidate.unknownHardConstraints.some((constraint) => constraint !== "OPEN_ON_REQUESTED_DAY")) notes.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
+  if (!hasDetailedNotes && candidate.unknownHardConstraints.some((constraint) => constraint !== "OPEN_ON_REQUESTED_DAY")) notes.push("Eine angefragte Bedingung konnte noch nicht bestätigt werden.");
   if (personalizationActive && candidate.reasons.some((reason) => reason.confirmed && reason.code.startsWith("user-taste-negative-"))) {
     notes.push("Nicht alle deiner Vorlieben sprechen für diesen Ort.");
   }
   if (candidate.reasons.some((reason) => reason.code === "product-rank-versus-next-v1" && reason.statement.includes("neutralen stabilen Tie-Breakers"))) {
     notes.push("Bei ähnlich gut belegten Orten bedeutet die Reihenfolge keine bessere Passung.");
   }
-  return notes;
+  return [...new Set(notes)];
 }
 
 export function wohinLimitations(limitations: readonly string[], visibleCount: number): string[] {

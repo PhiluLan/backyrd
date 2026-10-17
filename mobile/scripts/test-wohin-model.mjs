@@ -6,7 +6,7 @@ import { validateDecisionProductRequest } from "@backyrd/product-decision-contra
 
 const source = fs.readFileSync(new URL("../lib/decision/wohinModel.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { createWohinRequest, visibleWohinCandidates, wohinFitLabel, wohinHighlights, wohinConsiderations, wohinLimitations } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
+const { createWohinRequest, visibleWohinCandidates, wohinFitLabel, wohinHighlights, wohinConsiderations, wohinLimitations, wohinPlaceMeta } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
 
 test("Wohin sends only the new free text and profile city", () => {
   const request = createWohinRequest({ query: "  Sonntag   gemütlich Kaffee trinken  ", city: "Basel", requestId: "test-request-1" });
@@ -31,8 +31,8 @@ test("Wohin shows the first five in server order and never manufactures missing 
 
 test("Unconfirmed evidence is never presented as a confirmed match", () => {
   assert.equal(wohinFitLabel({ tier: "ELIGIBLE_CONFIRMED", coreIntentCoverage: "CONFIRMED" }), "Passend zu deinem Wunsch");
-  assert.equal(wohinFitLabel({ tier: "NOT_CONFIGURED", coreIntentCoverage: "NOT_CONFIGURED" }), "Passung noch nicht vollständig belegt");
-  assert.equal(wohinFitLabel({ tier: "UNCONFIRMED_FALLBACK", coreIntentCoverage: "UNKNOWN" }), "Passung noch nicht vollständig belegt");
+  assert.equal(wohinFitLabel({ tier: "NOT_CONFIGURED", coreIntentCoverage: "NOT_CONFIGURED" }), "Mit offenen Angaben");
+  assert.equal(wohinFitLabel({ tier: "UNCONFIRMED_FALLBACK", coreIntentCoverage: "UNKNOWN" }), "Mit offenen Angaben");
 });
 
 test("Wohin shows at most two distinct, confirmed user-facing reasons", () => {
@@ -80,7 +80,7 @@ test("unknown companion and low-price claims stay visible as uncertainty", () =>
       { code: "price-level-unconfirmed", confirmed: false, statement: "Niedriges Preisniveau nicht bestätigt." },
     ],
   };
-  assert.equal(wohinFitLabel(candidate), "Passung noch nicht vollständig belegt");
+  assert.equal(wohinFitLabel(candidate), "Mit offenen Angaben");
   assert.deepEqual(wohinHighlights(candidate, false), []);
   assert.deepEqual(wohinConsiderations(candidate, false), [
     "Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.",
@@ -96,7 +96,7 @@ test("unverified music and precise time are not presented as a full match", () =
       { code: "precise-time-unverified", confirmed: false, statement: "Uhrzeit nicht geprüft." },
     ],
   };
-  assert.equal(wohinFitLabel(candidate), "Passung noch nicht vollständig belegt");
+  assert.equal(wohinFitLabel(candidate), "Mit offenen Angaben");
   assert.deepEqual(wohinConsiderations(candidate, false), [
     "Ob bei deinem Besuch Musik läuft, ist für diesen Ort nicht bestätigt.",
     "Die konkrete gewünschte Uhrzeit wurde für diesen Ort nicht geprüft.",
@@ -109,4 +109,17 @@ test("response limitations remain visible in plain language", () => {
   assert.deepEqual(wohinLimitations(["CANDIDATE_WINDOW_LIMITED"], 2), ["Nicht alle geprüften Orte erfüllen die Voraussetzungen für diesen Wunsch."]);
   assert.deepEqual(wohinLimitations(["FUTURE_LIMITATION", "ANOTHER_FUTURE_LIMITATION"], 1), ["Zu dieser Auswahl liegen weitere Einschränkungen vor. Prüfe wichtige Angaben vor deinem Besuch."]);
   assert.deepEqual(wohinLimitations([], 0), []);
+});
+
+test("current librarian facts produce useful copy without exposing policy or promoting uncertainty", () => {
+ const candidate={presentation:{categoryLabel:"SPORT_MOVEMENT",locality:"Basel"},coreIntentCoverage:"CONFIRMED",unknownHardConstraints:["LBR:missing"],reasons:[
+  {code:"LBR:activity",domain:"WORLD",confirmed:true,statement:"Bestätigt: die gewünschte Aktivität."},
+  {code:"LBR:area",domain:"LIMITATION",confirmed:false,statement:"Noch nicht bestätigt: der gewünschte Bereich."},
+  {code:"product-ranking-policy-v6",domain:"RANKING",confirmed:true,statement:"technical ranking"},
+ ]};
+ assert.deepEqual(wohinHighlights(candidate,false),["Deine gewünschte Aktivität ist hier möglich."]);
+ assert.deepEqual(wohinConsiderations(candidate,false),["Noch nicht bestätigt: der gewünschte Bereich."]);
+ assert.equal(wohinPlaceMeta(candidate),"Sport & Bewegung · Basel");
+ assert.equal(wohinPlaceMeta({...candidate,presentation:{categoryLabel:"FUTURE_INTERNAL_TYPE",locality:"Basel"}}),"Basel");
+ assert.deepEqual(wohinHighlights({...candidate,reasons:[{code:"librarian-selected-offers",domain:"LIMITATION",confirmed:false,statement:"Mögliche Angebote: Kinderbereich"}]},false),[]);
 });
