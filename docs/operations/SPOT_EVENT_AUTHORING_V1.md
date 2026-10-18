@@ -23,7 +23,7 @@ Der Spot ist als Veranstaltungsort fest verbunden. Das Formular erfasst Titel, B
 
 Owner speichern Entwürfe oder reichen zur Prüfung ein. Nur Admins dürfen veröffentlichen. Die Admin-Eventliste zeigt eingereichte Events als „Zur Prüfung“ und führt zum zugehörigen Spot. Änderungen eines Owners ziehen ein veröffentlichtes Event bis zur erneuten Freigabe zurück; Absagen betreffen die gesamte Serie. Das kompakte Formular pflegt jeweils die ganze Serie. Die bestehende separate Eventverwaltung behält ihre Einzeltermin-Ausnahmen und Bildfunktionen für dort angelegte Events. Bestehende dort angelegte Events bleiben über diese Verwaltung bearbeitbar, damit deren umfangreichere Wiederholungsregeln nicht durch das kompakte Formular überschrieben werden.
 
-Die neue Quelle `manual_owner` bleibt erkennbar und gelangt erst nach Admin-Veröffentlichung über den vorhandenen öffentlichen Reader in die Engine. Source-Evidenz und Aktivitäten bleiben getrennt von Venue-Fakten. Die App und die öffentliche Spotseite zeigen eine kompakte Liste der nächsten Veranstaltungen, eine nächste gültige Durchführung je Serie, mit Link zum genauen Termin.
+Die neue Quelle `manual_owner` bleibt erkennbar und gelangt erst nach Admin-Veröffentlichung über den vorhandenen öffentlichen Reader in die Engine. Source-Evidenz und Aktivitäten bleiben getrennt von Venue-Fakten. Die App und die öffentliche Spotseite zeigen die nächsten Veranstaltungen als dieselben Karten wie auf der Startseite, unter den Infos und vor den Momenten bzw. Reviews, eine nächste gültige Durchführung je Serie, mit Link zum genauen Termin.
 
 ## Berechtigungen und Integrität
 
@@ -39,3 +39,13 @@ Die neue Quelle `manual_owner` bleibt erkennbar und gelangt erst nach Admin-Ver�
 `supabase/tests/spot_event_authoring_v1.sql` prüft mit isolierten Fixtures Owner/Admin, Fremdzugriff, Publikationssperre, atomaren Fehlerfall, Quelle, wiederkehrende Nachttermine, öffentliche App-View, echten Service-Reader, Konflikte, Entzug der Ownership und erneute Freigabe. Die bestehenden Event-Reader-Tests bleiben aktiv. Ergänzend: Core-Matching für `manual_owner`, gemeinsame Präsentationstests gegen Duplikate/abgesagte Termine sowie Browserprüfung des Editors mit synthetischem RPC bei 390px.
 
 Die Migration ist additiv und führt keinen Produktions-Backfill aus. Die Veröffentlichung erfolgte nach dem regulären Datenbank-/Produktrelease mit der separaten Freigabe der exakten Migration. Dieser Nachweis erteilt keine Freigabe für spätere Migrationen.
+
+
+## Kartenlayout veröffentlicht am 18.10.2026
+
+- Main `d4027a75764bf47002713addf0c9175ee5cff648` (PR #516); Main-Risk-Gate `39112648780` und exakte manuelle Artefaktzertifizierung `39112689822` erfolgreich.
+- Manifest `357e4ca77c234e0ed9ec6d15784f79032dbc6a6d26fa5be3cab7a5a8869de485`.
+- Web: Vercel-Main-Auslieferung erfolgreich. Live Volta-Pong-Seite zeigt Open Court mit echtem Eventbild und pinkem Datum unter „Mehr Infos“, vor den Reviews; Link enthält die richtige Durchführung.
+- iOS Production / Runtime `1.1.0`: Gruppe `83ee591c-6f0a-4084-a208-323a3a839583`, Update `01a14e34-1c51-708a-b305-d40e2e4946e5`. Aus dem zertifizierten Artefakt ohne erneuten Build veröffentlicht; öffentlicher Manifest und Launch-Asset-Hash stimmen überein. Installation auf dem iPhone nicht beobachtet.
+- Mobile: ein Event in voller Inhaltsbreite, mehrere als manuell wischbare Reihe. Datum und Badge nutzen Backyrd-Pink. Webkarten verwenden den vorhandenen Bild-Helper und zeigen nur Bilder mit bestätigten Rechten; App behält dieselbe Rechteprüfung im Reader.
+- Keine Datenbank-, Rechte- oder Engine-Änderung in diesem Release.
