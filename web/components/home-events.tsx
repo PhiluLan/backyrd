@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { events, type EventRow } from "@/lib/events-public";
+import { events, imageUrl, type EventRow } from "@/lib/events-public";
 import styles from "./home-events.module.css";
 
 type State = "loading" | "ready" | "error";
@@ -54,30 +54,34 @@ export function HomeEvents() {
 
 export function EventCards({ rows }: { rows: EventRow[] }) {
   return (
-  <div
-    aria-label="Kommende Events"
-    className={`${styles.carousel} ${rows.length === 1 ? styles.single : ""}`}
-  >
-    {rows.map((event) => (
-      <Link
-        className={styles.card}
-        key={event.occurrence_id}
-        href={`/events/${event.event_id}?occurrence=${event.occurrence_id}`}
-      >
-        <small className={styles.date}>
-          {new Date(event.start_at).toLocaleDateString("de-CH", {
-            timeZone: "Europe/Zurich",
-            weekday: "short",
-            day: "2-digit",
-            month: "short",
-          })}
-        </small>
-        <h3>{event.title}</h3>
-        <span className={styles.venue}>
-          {event.venue_name ?? "Venue noch nicht bestätigt"}
-        </span>
-      </Link>
-    ))}
-  </div>
+    <div
+      aria-label="Kommende Events"
+      className={`${styles.carousel} ${rows.length === 1 ? styles.single : ""}`}
+    >
+      {rows.map((event) => {
+        const image = imageUrl(event.image_storage_path, event.image_rights_verified);
+        return (
+          <Link
+            className={styles.card}
+            key={event.occurrence_id}
+            href={`/events/${event.event_id}?occurrence=${event.occurrence_id}`}
+            style={image ? { backgroundImage: `linear-gradient(transparent, rgba(5,5,6,.92)), url(${image})` } : undefined}
+          >
+            <small className={styles.date}>
+              {new Date(event.start_at).toLocaleDateString("de-CH", {
+                timeZone: "Europe/Zurich",
+                weekday: "short",
+                day: "2-digit",
+                month: "short",
+              })}
+            </small>
+            <h3>{event.title}</h3>
+            <span className={styles.venue}>
+              {event.venue_name ?? "Venue noch nicht bestätigt"}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
   );
 }
