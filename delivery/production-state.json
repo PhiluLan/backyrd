@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "af51fb0dd788809fa23c4b96b72c7abc029aa7fd",
+      "sourceSha": "d4027a75764bf47002713addf0c9175ee5cff648",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "e8a620df-cb67-4af7-aac6-7f5f67a21930",
-      "iosUpdateId": "01a14e07-2c1a-7399-9f8f-67423d74d1a2",
+      "otaGroupId": "83ee591c-6f0a-4084-a208-323a3a839583",
+      "iosUpdateId": "01a14e34-1c51-708a-b305-d40e2e4946e5",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Spot-linked Owner/Admin event authoring and compact upcoming events shipped from the exact certified iOS artifact. Public production manifest and launch-asset bytes match. Browser Spot detail shows Open Court Volta Pong with its next occurrence. Native Admin browser inspection was blocked by the locked Mac; installed iPhone identity has not been observed."
+      "note": "Spot events now appear below information and before Moments as shared homepage cards with verified event images and Backyrd pink. Public production manifest launch-asset hash matches the exact certified artifact. Live Web Spot page verified; installation on the user iPhone not observed."
     }
   },
   "reviewMediaIncident": {
