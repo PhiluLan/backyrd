@@ -88,3 +88,12 @@ Spot portraits describe guest impressions without percentage labels or strength 
 An explicit browsing Mood filter shows catalog spots with that public Community impression. It does not silently disable itself when there are no matching profiles. Clear/reset returns spots without Mood evidence as well. Search aliases use the existing deterministic resolver; free place/name search remains available. App catalog profiles refresh on focus. Profile reads are bounded to the visible catalog IDs, paginated and time-limited; failures are separate from a genuine empty filter. No new votes, owner-generated community evidence or production test Reviews are created.
 
 Validation includes selection-limit/removal/free-expression checks, public-row parsing and pagination/failure tests, existing Mobile/Web contracts, typechecks, lint, Web production build, anonymous read-only canonical autocomplete probes, and isolated browser interaction with the actual Mobile/Web components. Physical iPhone acceptance and production delivery remain separate release steps.
+
+
+### Mood experience refresh — production receipt, 18 October 2026
+
+- Main `5ec0a4cf431886b9b57fc440c52cd4389619c15d` (PR #518); Main Risk Gate `39121824037` and exact artifact certification `39121838418` passed.
+- Certified manifest `11616f61c6ea694aa9b0290c654f3a4d873e35c569f996db4943c6a0b2fcb5b5`.
+- Vercel Main Web/Admin statuses successful. Read-only live Web check verified the Gemütlich Places filter, the Bohemia portrait with early-evidence wording, no percentages, and Mood links back to Places. No production Review was submitted.
+- iOS Production, runtime `1.1.0`: group `55a2bf9c-5bd2-4b84-84ee-4320a066e591`, update `01a14eb5-2492-75b7-9299-78815898a870`. Published with skip-bundler from the verified CI input. Public manifest and actual launch-bundle bytes downloaded with Expo's manifest-supplied asset request headers match the certified artifact. An unauthenticated direct asset download requires those normal Expo headers; the normal authorized asset download passed.
+- No database migration, backend deployment, Decision/ranking change or learning-policy change in this release. Physical iPhone installation not observed; published identity and bytes are verified, not installed-device acceptance.

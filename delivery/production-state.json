@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "d4027a75764bf47002713addf0c9175ee5cff648",
+      "sourceSha": "5ec0a4cf431886b9b57fc440c52cd4389619c15d",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "83ee591c-6f0a-4084-a208-323a3a839583",
-      "iosUpdateId": "01a14e34-1c51-708a-b305-d40e2e4946e5",
+      "otaGroupId": "55a2bf9c-5bd2-4b84-84ee-4320a066e591",
+      "iosUpdateId": "01a14eb5-2492-75b7-9299-78815898a870",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Spot events now appear below information and before Moments as shared homepage cards with verified event images and Backyrd pink. Public production manifest launch-asset hash matches the exact certified artifact. Live Web Spot page verified; installation on the user iPhone not observed."
+      "note": "Mood capture, guest portraits and explicit catalog browsing shipped from the exact certified artifact. Public production manifest and downloaded launch-bundle bytes match. Live Web Mood filter and Bohemia portrait verified. No Decision or database deployment; installation on the user iPhone not observed."
     }
   },
   "reviewMediaIncident": {
