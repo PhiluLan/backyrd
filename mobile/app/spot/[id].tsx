@@ -1,3 +1,6 @@
+import { MoodSignature } from "../../components/spot/MoodSignature";
+import { rankMoodSupport } from "../../../packages/shared/src/presentation/mood";
+import { useSpotMoodCounts } from "../../lib/mood-catalog";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
@@ -277,6 +280,7 @@ export default function SpotDetailScreen() {
   const [hours, setHours] = useState<Record<string, any[]>>({});
   const [moodProfileFailed, setMoodProfileFailed] = useState(false);
   const [moodProfileLoading, setMoodProfileLoading] = useState(true);
+  const moodCounts = useSpotMoodCounts(id ? [String(id)] : []);
   const [moodSummary, setMoodSummary] = useState<SpotMoodProfileItem[]>([]);
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
@@ -903,13 +907,16 @@ export default function SpotDetailScreen() {
                 </View>
                 {!canonicalWorldDetail && spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
-
               <AppText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={4} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
+              <View style={{ marginTop: 10 }}><MoodSignature labels={moodProfileFailed || moodProfileLoading ? [] : rankMoodSupport(moodSummary).map(mood => mood.label)} moodCount={moodCounts[String(id)]} /></View>
             </View>
           </Animated.View>
         </Animated.View>
 
         <View style={styles.content}>
+          <View style={{ marginBottom: 24 }}>
+            {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
+          </View>
           {addressLines.length ? <View style={styles.addressBlock}>
             <Feather name="map-pin" size={18} color={theme.colors.pink} style={styles.addressIcon} />
             <View style={styles.addressLines}>{addressLines.map((line, index) => (
@@ -944,14 +951,6 @@ export default function SpotDetailScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
-            {moodProfileLoading ? <Text style={styles.moodEmptyCopy}>Eindrücke werden geladen …</Text> : moodProfileFailed ? <View><Text style={styles.moodEmptyCopy}>Die Eindrücke konnten gerade nicht geladen werden.</Text><Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={styles.textAction}><Text style={styles.textActionLabel}>Erneut laden</Text></Pressable></View> : moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <View style={styles.moodEmpty}>
-              <Feather name="sun" size={22} color={theme.colors.textMuted} />
-              <Text style={styles.moodEmptyTitle}>Noch keine Eindrücke</Text>
-              <Text style={styles.moodEmptyCopy}>Beschreibe nach deinem Besuch, wie sich der Ort angefühlt hat.</Text>
-            </View>}
-          </View>
 
           <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
 
@@ -1467,14 +1466,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: "700",
   },
-  moodEmpty: {
-    minHeight: 124,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  moodEmptyTitle: { color: theme.colors.text, fontSize: 15, fontWeight: "700" },
-  moodEmptyCopy: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: "center" },
   showMoreText: {
     color: theme.colors.pinkSoft,
     fontSize: 13,

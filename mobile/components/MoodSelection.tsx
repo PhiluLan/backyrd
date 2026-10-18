@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { MoodSignature } from "./spot/MoodSignature";
 import { AppText, ProductTextInput as TextInput } from "./foundation/AppText";
 import { backyrdTheme as theme } from "../theme/backyrd";
 import { useMoodCatalog } from "../lib/mood-catalog";
@@ -17,9 +18,9 @@ export function MoodSelection({ values, onChange }: { values: readonly string[];
     if (!next.full) { onChange(next.values); setQuery(""); }
   }
   return <View style={styles.root}>
-    <View style={styles.heading}><AppText role="cardTitle" style={styles.title}>Wie fühlt sich der Ort an?</AppText><AppText role="meta" tone="pink">{selected.length}/2</AppText></View>
-    <AppText role="meta" tone="secondary">Beschreibe die Atmosphäre bei deinem Besuch. Bis zu zwei Eindrücke, ganz ohne Pflicht.</AppText>
-    {selected.length > 0 ? <View style={styles.chips}>{selected.map(value => <Pressable key={value} accessibilityRole="button" accessibilityLabel={`${value} entfernen`} onPress={() => choose(value)} style={[styles.chip, styles.selected]}><AppText role="label">{value}  ×</AppText></Pressable>)}</View> : null}
+    <View style={styles.heading}><AppText role="cardTitle" style={styles.title}>Deine Moods für diesen Ort</AppText><AppText role="meta" tone="pink">{selected.length}/2</AppText></View>
+    <AppText role="meta" tone="secondary">Wähle bis zu zwei Begriffe, die deinen Besuch beschreiben.</AppText>
+    {selected.length > 0 ? <MoodSignature labels={selected} onRemove={choose} /> : null}
     <TextInput accessibilityLabel="Mood suchen oder eigenen Eindruck eingeben" placeholder="Mood suchen oder selbst beschreiben" placeholderTextColor={theme.color.textMuted} value={query} onChangeText={setQuery} maxLength={40} style={styles.input} autoCorrect={false} />
     {state === "loading" ? <ActivityIndicator accessibilityLabel="Moods werden geladen" color={theme.color.pink} /> : null}
     {state === "error" ? <View style={styles.error}><AppText role="meta" tone="secondary">Die Vorschläge sind gerade nicht verfügbar. Deine Auswahl bleibt erhalten.</AppText><Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><AppText tone="pink">Erneut laden</AppText></Pressable></View> : null}

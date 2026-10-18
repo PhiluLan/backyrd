@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { loadSpotBrowseMoods } from "@/lib/mood-catalog";
+import { loadSpotBrowseMoods, loadSpotMoodCounts } from "@/lib/mood-catalog";
 import { moodExpressionKey, type BrowseMood } from "../../../packages/shared/src/presentation/mood";
+import { MoodSignature } from "./mood-signature";
 import moodStyles from "./mood-experience.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CanonicalSpotImage } from "@/components/canonical-spot-image";
@@ -14,6 +15,7 @@ import { ConsumerSpotCard } from "./spot-card";
 import { MapCanvas } from "./map-canvas";
 
 export function PlacesExperience() {
+  const [moodCounts, setMoodCounts] = useState<Record<string, number>>({});
   const [mood, setMood] = useState<string | null>(null);
   const [moodRows, setMoodRows] = useState<BrowseMood[]>([]);
   const [moodLoading, setMoodLoading] = useState(true);
@@ -65,13 +67,15 @@ export function PlacesExperience() {
     let active = true;
     setMoodFailed(false);
     setMoodLoading(true);
+    setMoodCounts({});
+    void loadSpotMoodCounts(spots.map(spot => spot.id)).then(rows => { if (active) setMoodCounts(rows); }).catch(() => {});
     void loadSpotBrowseMoods(spots.map(spot => spot.id)).then(rows => { if (active) setMoodRows(rows); }).catch(() => { if (active) setMoodFailed(true); }).finally(() => { if (active) setMoodLoading(false); });
     return () => { active = false; };
   }, [spots, moodRevision]);
   const moodOptions = useMemo(() => [...new Set(moodRows.map(row => row.label))].sort((a, b) => a.localeCompare(b, "de")), [moodRows]);
   const moodLabels = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const row of [...moodRows].sort((a, b) => a.rank - b.rank)) map.set(row.spot_id, [...(map.get(row.spot_id) ?? []), row.label]);
+    for (const row of moodRows) map.set(row.spot_id, [...(map.get(row.spot_id) ?? []), row.label]);
     return map;
   }, [moodRows]);
   const categories = useMemo(
@@ -237,6 +241,7 @@ export function PlacesExperience() {
                   category: spot.category_name,
                   image: spot.header_photo_url,
                   moods: moodLabels.get(spot.id),
+                  moodCount: moodCounts[spot.id],
                 }}
               />
             ))}
@@ -267,12 +272,11 @@ export function PlacesExperience() {
               spotName={activeSelected.name}
             />
             <div className="b-map-preview-body">
-              <p className="b-kicker">
-                {activeSelected.category_name || "Backyrd Spot"}
-              </p>
               <h2 className="b-card-title" style={{ marginTop: 7 }}>
                 {activeSelected.name}
               </h2>
+              <MoodSignature labels={moodLabels.get(activeSelected.id) ?? []} moodCount={moodCounts[activeSelected.id]} compact />
+              <p className="b-kicker">{activeSelected.category_name || "Backyrd Spot"}</p>
               <p className="b-meta" style={{ marginTop: 7 }}>
                 {activeSelected.address || "Basel"}
               </p>

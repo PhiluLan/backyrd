@@ -1,3 +1,5 @@
+import { MoodSignature } from "@/components/consumer/mood-signature";
+import { rankMoodSupport } from "../../../../packages/shared/src/presentation/mood";
 import { SpotMoodProfile } from "@/components/consumer/spot-mood-profile";
 import { EventCards } from "@/components/home-events";
 import { spotEvents } from "@/lib/events-public";
@@ -119,43 +121,32 @@ export default async function SpotDetailPage({
           spotId={spot.id}
           spotName={spot.name}
         >
-          <div
-            style={{
-              minHeight: "min(76vh,820px)",
-              display: "flex",
-              alignItems: "end",
-              padding: "clamp(26px,6vw,96px)",
-              background:
-                "linear-gradient(180deg,rgba(5,5,6,.06),rgba(5,5,6,.9))",
-            }}
-          >
+          <div style={{ minHeight: "min(58vh,620px)", display: "flex", alignItems: "flex-end", padding: "clamp(24px,5vw,64px)", background: "linear-gradient(180deg,transparent 30%,rgba(5,5,6,.9))" }}>
             <div className="b-container" style={{ margin: 0 }}>
-              <p className="b-kicker">
-                {publicCategory ? presentWorld(publicCategory.value) : canonicalWorldDetail ? "Backyrd Spot" : spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
-              </p>
-              <h1
-                className="b-display b-display-lg"
-                style={{ maxWidth: 1000, marginTop: 14 }}
-              >
-                {spot.name}
-              </h1>
-              <p className="b-body" style={{ fontSize: 18 }}>
-                {spot.address ||
-                  [spot.city, spot.country].filter(Boolean).join(" · ")}
-              </p>
-              <SpotActions
-                spotId={spot.id}
-                spotName={spot.name}
-                routeUrl={maps(spot.address, spot.name)}
-              />
+              <h1 className="b-display b-display-lg" style={{ maxWidth: 1000 }}>{spot.name}</h1>
+              <MoodSignature labels={rankMoodSupport(data.top_moods).map(mood => mood.label)} moodCount={data.mood_count} />
             </div>
           </div>
         </CanonicalSpotImage>
       </section>
+      <div className="b-container" style={{ paddingTop: 24 }}>
+        <SpotMoodProfile moods={data.top_moods} />
+        <p className="b-kicker">
+          {publicCategory ? presentWorld(publicCategory.value) : canonicalWorldDetail ? "Backyrd Spot" : spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
+        </p>
+        <p className="b-body" style={{ fontSize: 18 }}>
+          {spot.address ||
+            [spot.city, spot.country].filter(Boolean).join(" · ")}
+        </p>
+        <SpotActions
+          spotId={spot.id}
+          spotName={spot.name}
+          routeUrl={maps(spot.address, spot.name)}
+        />
+      </div>
       <div className="b-container b-section">
         <div className="b-spot-detail-grid">
           <section aria-label="Erfahrungen und Eindrücke">
-            <SpotMoodProfile moods={data.top_moods} />
             {overviewKeys.some((key) => field(key)) ? (
               <section className="b-detail-section" aria-label="Auf einen Blick">
                 <p className="b-kicker">Auf einen Blick</p>

@@ -18,8 +18,9 @@ import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
 import { cityCenterFor, normalizeLocationCity, resolveLocationContext } from "../../lib/locationContext";
 import { hasActiveConsent } from "../../lib/consent";
-import { loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
+import { useSpotMoodCounts, loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
 import { trackAnalyticsEvent } from "../../lib/analytics";
+import { MoodSignature } from "../../components/spot/MoodSignature";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
@@ -99,6 +100,7 @@ export default function MapScreen() {
 
   // Mood-Daten: spotId → [token1, token2, ...]
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
+  const moodCounts = useSpotMoodCounts(globalSpots.map(spot => spot.id));
 
   // Mapping: spotId → [mood_id1, mood_id2, ...]
   const [spotMoodIds, setSpotMoodIds] = useState<Record<string, string[]>>({});
@@ -667,9 +669,9 @@ export default function MapScreen() {
               />
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
+                <MoodSignature labels={spotMoods[item.id] ?? []} moodCount={moodCounts[item.id]} compact />
                 <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
                 <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
-                {spotMoods[item.id]?.length ? <Text style={[styles.listCardAddress, { color: theme.color.pink }]} numberOfLines={1}>{spotMoods[item.id].slice(0, 3).join(" · ")}</Text> : null}
               </View>
             </Pressable>
           )}
@@ -727,17 +729,8 @@ export default function MapScreen() {
                       {selectedSpot.name}
                     </Text>
 
+                    <MoodSignature labels={spotMoods[selectedSpot.id] ?? []} moodCount={moodCounts[selectedSpot.id]} compact />
                     {selectedSpot.address && <Text style={styles.resultSubtitle} numberOfLines={1}>{selectedSpot.address}</Text>}
-
-                    <View style={styles.cardChipsRow}>
-                      {(spotMoods[selectedSpot.id] || [])
-                        .slice(0, 4)
-                        .map((m) => (
-                          <View key={m} style={styles.badgeGhost}>
-                            <Text style={styles.badgeGhostText}>{m}</Text>
-                          </View>
-                        ))}
-                    </View>
                   </LinearGradient>
                 </View>
               </Pressable>

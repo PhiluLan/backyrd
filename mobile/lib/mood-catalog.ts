@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { parseMoodOptions, type MoodOption } from "../../packages/shared/src/presentation/mood";
 
@@ -35,9 +36,34 @@ export async function loadSpotBrowseMoods(spotIds: readonly string[]) {
     const timer = setTimeout(() => abort.abort(), 8000);
     try {
       const { data, error } = await supabase.from("backyrd_spot_mood_profile_public_v1")
-        .select("spot_id,concept_key,label,rank").in("spot_id", ids).order("spot_id").order("concept_key").range(from, to).abortSignal(abort.signal);
+        .select("spot_id,concept_key,label,concept_contributors,evidence_state,rank").in("spot_id", ids).order("spot_id").order("concept_key").range(from, to).abortSignal(abort.signal);
       if (error) throw error;
       return data;
     } finally { clearTimeout(timer); }
   });
+}
+
+export async function loadSpotMoodCounts(spotIds: readonly string[]) {
+  const { loadMoodCounts } = await import("../../packages/shared/src/presentation/mood");
+  return loadMoodCounts(spotIds, async ids => {
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 8000);
+    try {
+      const { data, error } = await supabase.rpc("backyrd_public_spot_mood_counts_v1", { p_spot_ids: ids }).abortSignal(abort.signal);
+      if (error) throw error;
+      return data;
+    } finally { clearTimeout(timer); }
+  });
+}
+
+export function useSpotMoodCounts(spotIds: readonly string[]) {
+  const key = [...new Set(spotIds)].sort().join(",");
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setCounts({});
+    void loadSpotMoodCounts(key ? key.split(",") : []).then(rows => { if (active) setCounts(rows); }).catch(() => { /* A failed count remains unavailable, never zero. */ });
+    return () => { active = false; };
+  }, [key]));
+  return counts;
 }
