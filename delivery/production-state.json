@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "fcf6ee079c144dcc360b8308fc04da1231b2454b",
-    "migrationTip": "20261018010454_decision_event_activities_v1",
-    "migrationCount": 186,
-    "deploymentRunId": 39086548229,
+    "shippedSourceSha": "af51fb0dd788809fa23c4b96b72c7abc029aa7fd",
+    "migrationTip": "20261018015918_spot_event_authoring_v1",
+    "migrationCount": 187,
+    "deploymentRunId": 39109660214,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "fcf6ee079c144dcc360b8308fc04da1231b2454b",
+      "sourceSha": "af51fb0dd788809fa23c4b96b72c7abc029aa7fd",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "4018447d-f205-4bf2-afdb-5f7719070f80",
-      "iosUpdateId": "01a14ca4-0ec9-7b09-b1aa-88111e6acce6",
+      "otaGroupId": "e8a620df-cb67-4af7-aac6-7f5f67a21930",
+      "iosUpdateId": "01a14e07-2c1a-7399-9f8f-67423d74d1a2",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Events and explicit activities published from the exact certified iOS artifact; live production manifest and launch-asset bytes verified. Authenticated browser search returns Open Court Volta Pong and opens the correct occurrence. Installation on the user iPhone has not been observed."
+      "note": "Spot-linked Owner/Admin event authoring and compact upcoming events shipped from the exact certified iOS artifact. Public production manifest and launch-asset bytes match. Browser Spot detail shows Open Court Volta Pong with its next occurrence. Native Admin browser inspection was blocked by the locked Mac; installed iPhone identity has not been observed."
     }
   },
   "reviewMediaIncident": {
