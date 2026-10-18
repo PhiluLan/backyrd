@@ -39,7 +39,9 @@ Its existing catalog and manifest validation remains authoritative. Without this
 export the output explicitly lacks current-value/conflict comparison. An input
 name and URL list do not independently prove that a Spot exists or that a source
 belongs to the right branch. The operator must select the correct identity and
-sources before running.
+sources before running. With an export, source hosts must match the stored website
+(ignoring www); other hosts require manual identity review and are skipped. A host
+match still does not prove branch or entity identity.
 
 ## Bounds and evidence
 
@@ -81,3 +83,25 @@ conflict handling and authorization in the canonical flow.
 
 Run the runtime tests for boundary/format regressions. Real-model quality must be
 assessed separately; mocked transport tests do not certify semantic correctness.
+
+## Pilot findings, 2026-10-18
+
+The initial six-Spot run covered 24 field requests: 16 failed validation and 8
+were unresolved, with no accepted proposals and no canonical writes. The initial
+string-encoded JSON value was replaced by a directly typed value in contract v2.
+A subsequent live telephone extraction produced a correct quoted proposal in
+about 12 seconds, but a later prompt variant incorrectly described that same
+contact number as a fax. This is a measured semantic failure, not production
+readiness. The initial thermal monitor reached fair pressure, not serious pressure.
+
+The local MLX grammar compiler rejects `uniqueItems` and `if`/`then`/`else`.
+These keywords are omitted only from the decoding grammar. The complete field
+contract stays in the prompt and every proposal still passes the canonical
+validator before review. Never treat decoding as validation.
+
+The current authenticated Admin export showed existing values on all six Spots.
+Description, telephone and regular hours were already present; the scoped
+experience profile was absent. The Alexander Spot was a restaurant while the
+old manual research packet pointed at a hotel. Hotel results must be discarded.
+Alternative source domains require identity review; matching names are insufficient.
+Do not batch-import this pilot or use it to certify the existing stored values.

@@ -18,9 +18,9 @@ export async function fetchPublicSource(value,{resolve=lookup,requestImpl=reques
   if(!addresses.length||addresses.some(a=>!isPublicIPv4(a.address)))throw new Error('source_private_address');
   return new Promise((accept,reject)=>{
     const req=requestImpl(url,{method:'GET',headers:{'user-agent':'Backyrd-Nuknuk-Research/1.0','accept':'text/html,text/plain','accept-encoding':'identity'},lookup:(_host,options,callback)=>callback(null,options?.all?[{address:addresses[0].address,family:4}]:addresses[0].address,4)},res=>{
-      if(res.statusCode!==200){res.resume();reject(new Error(`source_http_${res.statusCode}`));return;}
+      if(res.statusCode!==200){res.destroy();reject(new Error(`source_http_${res.statusCode}`));return;}
       const type=String(res.headers['content-type']??'');
-      if(!/^(text\/html|text\/plain|application\/xhtml\+xml)/i.test(type)){res.resume();reject(new Error('source_format_unsupported'));return;}
+      if(!/^(text\/html|text\/plain|application\/xhtml\+xml)/i.test(type)){res.destroy();reject(new Error('source_format_unsupported'));return;}
       const chunks=[];let size=0;
       res.on('data',chunk=>{size+=chunk.length;if(size>maxBytes){req.destroy(new Error('source_too_large'));return;}chunks.push(chunk);});
       res.on('error',reject);
@@ -36,4 +36,12 @@ export function sourceText(page,id) {
   if(!text)throw new Error('source_empty');
   const excerpt=text.slice(0,12000);
   return {id,url:page.url,observedAt:page.observedAt,text:excerpt,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex')};
+}
+
+// A different host is a review item, not an automatically trusted alias/branch.
+export function matchesExistingWebsite(sourceUrl, existingWebsite) {
+  try {
+    const host = value => new URL(value).hostname.toLowerCase().replace(/^www\./, '');
+    return host(sourceUrl) === host(existingWebsite);
+  } catch { return false; }
 }

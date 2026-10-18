@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { AUTHORING_FIELDS, AUTHORING_CATALOG_HASH, validateAuthoringSubmission, parseWorldResearchBatch } from '../../packages/world-knowledge-core/dist/index.js';
 import { researchValueContract } from '../../packages/world-knowledge-core/dist/research-value-schema.js';
 import { researchExistingSpot } from '../../packages/spot-research-runtime/src/nuknuk-research.mjs';
-import { fetchPublicSource, sourceText } from '../../packages/spot-research-runtime/src/nuknuk-sources.mjs';
+import { fetchPublicSource, sourceText, matchesExistingWebsite } from '../../packages/spot-research-runtime/src/nuknuk-sources.mjs';
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 export function reviewHtml(reports) {
   return '<!doctype html><html lang="de"><meta charset="utf-8"><title>Nuknuk Research – Prüfentwürfe</title><style>body{max-width:1100px;margin:40px auto;padding:0 24px;background:#17151b;color:#eee;font:16px system-ui;line-height:1.5}h1,h2{color:#ff80b5}article{padding:18px;border:1px solid #555;border-radius:12px;margin:18px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#91c8ff}.status{font-weight:bold}small{color:#bbb}</style><h1>Nuknuk Research</h1><p>Prüfentwürfe für bestehende Spots. Nichts gespeichert oder veröffentlicht. Quellenzitate sind nachvollziehbar, aber keine automatische Bestätigung der Interpretation.</p>'+reports.map(r=>`<section><h2>${esc(r.name)}</h2><p>${r.existingStateAvailable?'Aktueller Export für den Vergleich vorhanden.':'Kein aktueller Admin-Export: bestehende Werte und Konflikte noch nicht abgeglichen.'}</p>${(r.sourceFailures??[]).map(f=>`<p>Quelle nicht verarbeitet: ${esc(f.url)} – ${esc(f.reason)}</p>`).join('')}${r.results.map(f=>`<article><h3>${esc(f.attributeKey)}</h3><div class="status">${esc(f.status)}</div>${f.value!==undefined?`<h4>Vorschlag</h4><pre>${esc(JSON.stringify(f.value,null,2))}</pre>`:''}${f.currentValue!==undefined?`<h4>Bisheriger Wert</h4><pre>${esc(JSON.stringify(f.currentValue,null,2))}</pre>`:''}${f.reason?`<p>${esc(f.reason)}</p>`:''}${(f.citations??[]).map(c=>`<blockquote>${esc(c.evidence)}</blockquote><a href="${esc(c.url)}" rel="noreferrer">Quelle öffnen</a> <small>Abgerufen: ${esc(c.observedAt)}</small>`).join('')}</article>`).join('')}</section>`).join('')+'</html>';
@@ -23,13 +23,13 @@ async function main() {
   const out=resolve(outputPath);await mkdir(out,{recursive:true});const reports=[];
   // One spot and one local model request at a time. Each partial result is durable.
   for(const input of manifest.spots) {
-    if(!/^[0-9a-f-]{36}$/i.test(input.spotId??'')||typeof input.name!=='string'||!input.name.trim()||input.name.length>240||!Array.isArray(input.sources)||!input.sources.length||input.sources.length>6)throw new Error('manifest_spot_invalid');
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.spotId??'')||typeof input.name!=='string'||!input.name.trim()||input.name.length>240||!Array.isArray(input.sources)||!input.sources.length||input.sources.length>6)throw new Error('manifest_spot_invalid');
     const bound=exported?.batch.spots.find(s=>s.spotId===input.spotId);
     if(exported&&!bound)throw new Error('spot_not_in_export');
     const spot={spotId:input.spotId,name:bound?.name??input.name,locality:bound?.locality??input.locality??null,existingValues:bound?.existingValues??null};
     const sources=[],sourceFailures=[];
     for(const url of [...new Set(input.sources)]) {
-      try {sources.push(sourceText(await fetchPublicSource(url),`s${sources.length+1}`));}
+      try {if(bound&&!matchesExistingWebsite(url,bound.existingValues['contact.website']?.value))throw new Error('SOURCE_IDENTITY_REQUIRES_REVIEW');sources.push(sourceText(await fetchPublicSource(url),`s${sources.length+1}`));}
       catch(error){sourceFailures.push({url,reason:String(error.message).slice(0,160)});}
     }
     await writeFile(`${out}/${spot.spotId}-sources.json`,JSON.stringify({spotId:spot.spotId,sources,sourceFailures},null,2));
