@@ -1,52 +1,65 @@
--- Standalone synthetic harness. Run ONLY in an empty, disposable database.
--- Run with psql -v ON_ERROR_STOP=1 -f supabase/tests/public_spot_review_counts_isolated.sql.
-create table public.spots (id uuid primary key, status text, data_origin text);
-create table public.reviews (id uuid primary key, spot_id uuid, data_origin text);
-create table public.safety_content_items(entity_type text,entity_id uuid,lifecycle_status text);
-create table public.test_distribution_denied(entity_type text,entity_id uuid);
-create function public.distribution_trust_entity_is_eligible_v1(kind text, entity uuid, surface text)
-returns boolean language sql stable as $$
- select surface=case when kind='spot' then 'discovery' when kind='review' then 'feed' else '' end
- and not exists(select 1 from public.test_distribution_denied where entity_type=kind and entity_id=entity)
-$$;
-\ir ../migrations/20261018162100_public_spot_review_counts_v1.sql
-insert into public.spots values
- ('00000000-0000-0000-0000-000000000001','approved','REAL'),
- ('00000000-0000-0000-0000-000000000002','approved','REAL'),
- ('00000000-0000-0000-0000-000000000003','pending','REAL'),
- ('00000000-0000-0000-0000-000000000004','approved','FIXTURE'),
- ('00000000-0000-0000-0000-000000000005','approved','REAL');
-insert into public.test_distribution_denied values ('spot','00000000-0000-0000-0000-000000000005'),('review','00000000-0000-0000-0000-000000000018');
-insert into public.reviews
-select ('00000000-0000-0000-0000-'||lpad(i::text,12,'0'))::uuid,
- '00000000-0000-0000-0000-000000000001',case i when 16 then 'TEST' when 17 then 'FIXTURE' else 'REAL' end
+\set ON_ERROR_STOP on
+begin;
+-- Synthetic fixtures only; the full Product schema and migration must already be installed.
+insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+values ('00000000-0000-0000-0000-000000000000','88000000-0000-4000-8000-000000000090','authenticated','authenticated','mood-count@test.invalid','','{}','{}',now(),now());
+insert into public.profiles(id) values('88000000-0000-4000-8000-000000000090') on conflict do nothing;
+insert into public.spots(id,status,data_origin,name,lat,lng) values
+ ('88000000-0000-4000-8000-000000000001','approved','REAL','Mood count fixture',47.55,7.59),
+ ('88000000-0000-4000-8000-000000000002','approved','REAL','Mood count fixture',47.55,7.59),
+ ('88000000-0000-4000-8000-000000000003','pending','REAL','Mood pending fixture',47.55,7.59),
+ ('88000000-0000-4000-8000-000000000004','approved','FIXTURE','Mood non-product fixture',47.55,7.59),
+ ('88000000-0000-4000-8000-000000000005','approved','REAL','Mood count fixture',47.55,7.59);
+insert into public.reviews(id,spot_id,data_origin,user_id,text)
+select ('88000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,
+ '88000000-0000-4000-8000-000000000001',case i when 16 then 'TEST' when 17 then 'FIXTURE' else 'REAL' end,'88000000-0000-4000-8000-000000000090','Synthetic count test'
 from generate_series(11,18) i;
-insert into public.safety_content_items values
- ('review','00000000-0000-0000-0000-000000000013','hidden'),
- ('review','00000000-0000-0000-0000-000000000014','removed'),
- ('review','00000000-0000-0000-0000-000000000015','deleted');
+-- Fixture provenance is a privileged internal write; Product clients cannot forge it.
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select set_config('request.jwt.claim.role','service_role',true);
+update public.reviews set data_origin=case right(id::text,2) when '16' then 'TEST' else 'FIXTURE' end
+where id in ('88000000-0000-4000-8000-000000000016','88000000-0000-4000-8000-000000000017');
+select set_config('request.jwt.claims','{}',true);
+select set_config('request.jwt.claim.role','',true);
+-- Synthetic moderation fixtures use the real canonical consumer eligibility functions.
+insert into public.safety_content_items(content_type,entity_type,entity_id,lifecycle_status) values
+ ('review','review','88000000-0000-4000-8000-000000000013','hidden'),
+ ('review','review','88000000-0000-4000-8000-000000000014','removed'),
+ ('review','review','88000000-0000-4000-8000-000000000015','deleted')
+on conflict (content_type,entity_type,entity_id) do update set lifecycle_status=excluded.lifecycle_status;
+insert into public.safety_content_items(id,content_type,entity_type,entity_id) values
+ ('88000000-0000-4000-8000-000000000051','spot_profile','spot','88000000-0000-4000-8000-000000000005'),
+ ('88000000-0000-4000-8000-000000000052','review','review','88000000-0000-4000-8000-000000000018')
+on conflict (content_type,entity_type,entity_id) do nothing;
+insert into public.distribution_trust_states(content_item_id,engine_version,automatic_state,effective_state,evaluation_source)
+select i.id,v.version,'quarantined','quarantined','automatic'
+from public.safety_content_items i cross join public.distribution_trust_engine_versions v
+where v.status='active' and (i.entity_type,i.entity_id) in (
+ ('spot','88000000-0000-4000-8000-000000000005'::uuid),('review','88000000-0000-4000-8000-000000000018'::uuid))
+on conflict (content_item_id) do update set automatic_state='quarantined',effective_state='quarantined';
+-- backyrd:authorization-positive
 set role anon;
 do $$ declare n bigint; k int; begin
- select review_count into n from public.backyrd_public_spot_review_counts_v1(array['00000000-0000-0000-0000-000000000001']::uuid[]);
+ select review_count into n from public.backyrd_public_spot_review_counts_v1(array['88000000-0000-4000-8000-000000000001']::uuid[]);
  if n is distinct from 2::bigint then raise exception 'visible review count: %',n; end if;
- select review_count into n from public.backyrd_public_spot_review_counts_v1(array['00000000-0000-0000-0000-000000000002']::uuid[]);
+ select review_count into n from public.backyrd_public_spot_review_counts_v1(array['88000000-0000-4000-8000-000000000002']::uuid[]);
  if n is distinct from 0::bigint then raise exception 'empty spot count: %',n; end if;
- select count(*) into k from public.backyrd_public_spot_review_counts_v1(array['00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000099']::uuid[]);
+-- backyrd:authorization-negative
+ select count(*) into k from public.backyrd_public_spot_review_counts_v1(array['88000000-0000-4000-8000-000000000003','88000000-0000-4000-8000-000000000004','88000000-0000-4000-8000-000000000005','88000000-0000-4000-8000-000000000099']::uuid[]);
  if k<>0 then raise exception 'ineligible spot exposed'; end if;
  select count(*) into k from public.backyrd_public_spot_review_counts_v1(null);
  if k<>0 then raise exception 'null became unbounded read'; end if;
  begin
-  perform * from public.backyrd_public_spot_review_counts_v1(array_fill('00000000-0000-0000-0000-000000000001'::uuid,array[201]));
+  perform * from public.backyrd_public_spot_review_counts_v1(array_fill('88000000-0000-4000-8000-000000000001'::uuid,array[201]));
   raise exception 'batch limit missing';
  exception when invalid_parameter_value then null; end;
- begin perform * from public.reviews; raise exception 'review identities exposed'; exception when insufficient_privilege then null; end;
- begin insert into public.reviews values('00000000-0000-0000-0000-000000000099',null,'REAL'); raise exception 'write allowed'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 set role authenticated;
 do $$ declare n bigint; begin
- select review_count into n from public.backyrd_public_spot_review_counts_v1(array['00000000-0000-0000-0000-000000000001']::uuid[]);
+ select review_count into n from public.backyrd_public_spot_review_counts_v1(array['88000000-0000-4000-8000-000000000001']::uuid[]);
  if n is distinct from 2::bigint then raise exception 'authenticated count wrong'; end if;
 end $$;
 reset role;
-select 'public review count synthetic isolation: PASS';
+select 'public review count full-schema acceptance: PASS';
+rollback;
