@@ -1,7 +1,8 @@
 \set ON_ERROR_STOP on
 -- backyrd:authorization-positive
 -- backyrd:authorization-negative
--- Run in an isolated fixture database with release-control fixtures enabled.
+-- Run only in an isolated fixture database. Activation is transaction-local
+-- through the real operator API; ROLLBACK restores the initial OFF state.
 begin;
 create function pg_temp.assert(ok boolean,msg text) returns void language plpgsql as $$begin if ok is not true then raise exception '%',msg;end if;end$$;
 create function pg_temp.expect_error(sql text, expected text) returns void language plpgsql as $$declare actual text;begin begin execute sql;exception when others then get stacked diagnostics actual=returned_sqlstate;if actual=expected then return;end if;raise exception 'Expected %, received %',expected,actual;end;raise exception 'Unexpected success: %',sql;end$$;
@@ -25,6 +26,10 @@ create function pg_temp.context() returns jsonb language sql as $$select public.
 select set_config('request.jwt.claims','{"role":"authenticated","sub":"de000000-0000-4000-8000-000000000001"}',true);
 select pg_temp.expect_error('select pg_temp.context()','42501');
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select pg_temp.expect_error('select pg_temp.context()','55000');
+select pg_temp.assert((public.backyrd_decision_vnext_product_activate_v1(
+  0,repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),clock_timestamp()+interval '1 hour'
+)->>'generation')::bigint=1,'real operator activation binds this fixture release only');
 set local role service_role;
 select pg_temp.assert(jsonb_array_length(pg_temp.context()->'eventOccurrences')=3,'only published occurrences; cancellation retained for explicit exclusion');
 select pg_temp.assert(pg_temp.context()->>'status'='NO_CONSENT','no consent produces neutral context');

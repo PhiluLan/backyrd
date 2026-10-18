@@ -72,17 +72,18 @@ calendar/overnight matching, cancellation, stock, age, budgets, explicit genre,
 family suitability and venue deduplication.
 
 `supabase/tests/decision_manual_event_candidates_v1.sql` exercises the new
-migration's read and validation boundaries in an isolated fixture database with
-release-control fixtures. It checks service-only execution, retained RLS,
+migration's read and validation boundaries in an isolated fixture database.
+It first checks OFF-state rejection, then obtains a transaction-local lease
+through the real operator activation API; ROLLBACK restores the initial state. It checks service-only execution, retained RLS,
 unknown/invalid actors, invalid tags/statuses, image rights, publication filtering,
-per-occurrence status, consent-neutral output and events without a Spot. The
-local schema-only rehearsal substitutes the release-control function and seeds
-one synthetic auth user; it does not certify the production activation gate or
-a restore rehearsal. Production release still requires the normal release,
+per-occurrence status, consent-neutral output and events without a Spot. The initial schema-only rehearsal used a substituted control function; the
+subsequent full 185-migration clean boot and selected Event SQL test use the real
+control/activation functions and pass without that substitution. Neither is a
+production activation or restore rehearsal. Production release still requires the normal release,
 migration-risk and recovery gates. Manual app/device verification remains part
 of release acceptance.
 
-Local implementation check: 341 core tests, 18 Mobile contract/Wohin tests,
+Local implementation check: 341 core tests, 19 Mobile contract/Wohin tests,
 6 existing Mobile product-contract checks and 54 release/production-plan checks
 passed, as did Mobile/Web/Admin type checks and the single-route validator.
 The migration and SQL boundary test passed in the isolated synthetic database.
@@ -93,3 +94,9 @@ adapter. Web and Admin production builds pass with both Turbopack and Webpack;
 373 World Knowledge tests (including browser-boundary/hash parity), 341 Decision
 tests and a synthetic Owner editor browser smoke test pass. This is local build
 and fixture evidence, not a production release or Event device acceptance.
+
+The Mobile production validator recognizes only the optional boolean Event opt-in;
+unknown client authority fields remain rejected. Web/Admin contract suites
+(30/85 cases) and Mobile release validation also pass. The generated database
+evidence records the independently reproducible schema/ACL fingerprints; it is
+not migration-risk approval or permission to deploy.
