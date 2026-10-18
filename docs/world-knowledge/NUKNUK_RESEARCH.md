@@ -64,7 +64,7 @@ hosts do not prove branch identity: check addresses and the specific venue.
   STAY focuses on overnight accommodation. Food is conservatively typed as GASTRONOMY, drinks as DRINKS and rooms as OVERNIGHT_STAY; a food item is not inferred to be a full meal. These are partial profiles, not complete
   inventories. Unsupported facilities, diets and suitability are never filled.
   Simple explicit CHF menu-item prices can be projected with midday/evening
-  conditions. PDFs, group restrictions, variants and uncertain units retain
+  conditions. PDF/OCR images, group restrictions, variants and uncertain units retain
   evidence only, without canonical prices.
 
 MLX decoding omits unsupported `uniqueItems` and `if`/`then`/`else` keywords.
@@ -81,7 +81,7 @@ Exact wording alone does not prove scope, truth, freshness or semantic entailmen
 
 At most 10 Spots, 12 fields and six public HTTPS requests per Spot. The four fields
 above are the evaluated pilot scope; other catalog fields use the generic contract
-and are not certified by these tests. One-hop discovery follows relevant menu,
+and are not certified by these tests. One-hop HTML discovery follows relevant menu,
 contact and opening-hours links on explicitly supplied pages on the same host.
 Set `discoverLinks:false` to use only the explicit URLs. No external search/model
 provider, credentials, recursive crawl or redirects. Private DNS addresses are
@@ -93,8 +93,23 @@ PDF text extraction requires local Poppler `pdftotext` on PATH or an absolute
 `NUKNUK_PDFTOTEXT` executable path. It runs without a shell, with a ten-second
 limit and 200 KB output cap, reading at most ten pages in content-stream order.
 PDFs retain `layoutReviewRequired:true`: inspect the original layout and dates
-before accepting menu/price associations. Image-only PDFs need manual OCR/review;
-there is no fabricated text fallback. A ten-page limit is not a complete-document
+before accepting menu/price associations. Image-only PDFs still need manual conversion/review; there is no fabricated text fallback.
+Embedded JPEG/PNG menu images can be read with local Tesseract, without a provider.
+Set `NUKNUK_TESSERACT` if it is not on PATH. `NUKNUK_OCR_LANGUAGES` defaults to
+`eng`; use installed languages such as `deu+ukr+eng` for multilingual menus.
+`TESSDATA_PREFIX` can point to a local trained-data directory. Missing languages
+or OCR failures are explicit failures. OCR has a 15-second/200 KB bound and image
+bytes are limited to 2 MB. OCR text is **not a verified transcription**: inspect
+names, digits and diacritics in the original. Image schedules require manual
+verification. Canonical prices are never derived from OCR.
+
+Up to four actual menu-image URLs can be discovered on a retrieved official page,
+within the same six-request total. Externally hosted images retain `discoveredOn`
+and the original asset hash; their official parent must pass the website gate.
+Arbitrary alternate-host pages do not gain that exemption. HTML link discovery
+is limited to explicit pages, with at most four queued page URLs to reserve space
+for image assets. Cover sheets may consume this budget; no full-menu coverage is
+claimed. The report links the asset and its embedding page. A ten-page limit is not a complete-document
 coverage claim. Retrieval failures and truncated source text remain visible.
 
 Model calls are sequential, temperature zero, thinking disabled, 1,800 output

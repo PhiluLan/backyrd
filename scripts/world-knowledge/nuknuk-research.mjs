@@ -5,10 +5,10 @@ import { pathToFileURL } from 'node:url';
 import { AUTHORING_FIELDS, AUTHORING_CATALOG_HASH, validateAuthoringSubmission, parseWorldResearchBatch } from '../../packages/world-knowledge-core/dist/index.js';
 import { researchValueContract } from '../../packages/world-knowledge-core/dist/research-value-schema.js';
 import { researchExistingSpot } from '../../packages/spot-research-runtime/src/nuknuk-research.mjs';
-import { fetchPublicSource, readSourceText, matchesExistingWebsite, discoverOfficialLinks } from '../../packages/spot-research-runtime/src/nuknuk-sources.mjs';
+import { fetchPublicSource, readSourceText, matchesExistingWebsite, discoverOfficialLinks, discoverMenuImages } from '../../packages/spot-research-runtime/src/nuknuk-sources.mjs';
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 export function reviewHtml(reports) {
-  return '<!doctype html><html lang="de"><meta charset="utf-8"><title>Nuknuk Research – Prüfentwürfe</title><style>body{max-width:1100px;margin:40px auto;padding:0 24px;background:#17151b;color:#eee;font:16px system-ui;line-height:1.5}h1,h2{color:#ff80b5}article{padding:18px;border:1px solid #555;border-radius:12px;margin:18px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#91c8ff}.status{font-weight:bold}small{color:#bbb}</style><h1>Nuknuk Research</h1><p>Prüfentwürfe für bestehende Spots. Nichts gespeichert oder veröffentlicht. Quellenzitate sind nachvollziehbar, aber keine automatische Bestätigung der Interpretation.</p>'+reports.map(r=>`<section><h2>${esc(r.name)}</h2><p>${r.exportBound?'Aktueller Export für den Vergleich vorhanden.':'Kein aktueller Admin-Export: bestehende Werte und Konflikte noch nicht abgeglichen.'}</p>${(r.sourceFailures??[]).map(f=>`<p>Quelle nicht verarbeitet: ${esc(f.url)} – ${esc(f.reason)}</p>`).join('')}${r.results.map(f=>`<article><h3>${esc(f.attributeKey)}</h3><div class="status">${esc(f.status)}</div>${f.partialProfile?'<p>Unvollständiger Profilentwurf: nur einzeln prüfen und ergänzen, niemals das Gesamtprofil ersetzen.</p>':''}${f.value!==undefined?`<h4>Vorschlag</h4><pre>${esc(JSON.stringify(f.value,null,2))}</pre>`:''}${f.currentValue!==undefined?`<h4>Bisheriger Wert</h4><pre>${esc(JSON.stringify(f.currentValue,null,2))}</pre>`:''}${f.reason?`<p>${esc(f.reason)}</p>`:''}${(f.citations??f.reviewEvidence??[]).map(c=>`${c.layoutReviewRequired?'<p>PDF: Spaltenzuordnung und Aktualität im Original prüfen.</p>':''}<blockquote>${esc(c.evidence)}</blockquote><a href="${esc(c.url)}" rel="noreferrer">Quelle öffnen</a> <small>Abgerufen: ${esc(c.observedAt)}</small>`).join('')}</article>`).join('')}</section>`).join('')+'</html>';
+  return '<!doctype html><html lang="de"><meta charset="utf-8"><title>Nuknuk Research – Prüfentwürfe</title><style>body{max-width:1100px;margin:40px auto;padding:0 24px;background:#17151b;color:#eee;font:16px system-ui;line-height:1.5}h1,h2{color:#ff80b5}article{padding:18px;border:1px solid #555;border-radius:12px;margin:18px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:#91c8ff}.status{font-weight:bold}small{color:#bbb}</style><h1>Nuknuk Research</h1><p>Prüfentwürfe für bestehende Spots. Nichts gespeichert oder veröffentlicht. Quellenzitate sind nachvollziehbar, aber keine automatische Bestätigung der Interpretation.</p>'+reports.map(r=>`<section><h2>${esc(r.name)}</h2><p>${r.exportBound?'Aktueller Export für den Vergleich vorhanden.':'Kein aktueller Admin-Export: bestehende Werte und Konflikte noch nicht abgeglichen.'}</p>${(r.sourceFailures??[]).map(f=>`<p>Quelle nicht verarbeitet: ${esc(f.url)} – ${esc(f.reason)}</p>`).join('')}${r.results.map(f=>`<article><h3>${esc(f.attributeKey)}</h3><div class="status">${esc(f.status)}</div>${f.partialProfile?'<p>Unvollständiger Profilentwurf: nur einzeln prüfen und ergänzen, niemals das Gesamtprofil ersetzen.</p>':''}${f.value!==undefined?`<h4>Vorschlag</h4><pre>${esc(JSON.stringify(f.value,null,2))}</pre>`:''}${f.currentValue!==undefined?`<h4>Bisheriger Wert</h4><pre>${esc(JSON.stringify(f.currentValue,null,2))}</pre>`:''}${f.reason?`<p>${esc(f.reason)}</p>`:''}${(f.citations??f.reviewEvidence??[]).map(c=>`${c.layoutReviewRequired?'<p>PDF/Bildquelle: Lesefehler, Spaltenzuordnung und Aktualität im Original prüfen.</p>':''}<blockquote>${esc(c.evidence)}</blockquote><a href="${esc(c.url)}" rel="noreferrer">Quelle öffnen</a> ${c.discoveredOn?`<a href="${esc(c.discoveredOn)}" rel="noreferrer">Einbettende Website</a>`:''} <small>Abgerufen: ${esc(c.observedAt)}</small>`).join('')}</article>`).join('')}</section>`).join('')+'</html>';
 }
 async function main() {
   const [manifestPath,modelPath,outputPath]=process.argv.slice(2);
@@ -29,14 +29,19 @@ async function main() {
     if(exported&&!bound)throw new Error('spot_not_in_export');
     const spot={spotId:input.spotId,name:bound?.name??input.name,locality:bound?.locality??input.locality??null,existingValues:bound?.existingValues??null};
     const sources=[],sourceFailures=[];
-    const queue=[...new Set(input.sources)],explicit=new Set(queue);
+    const queue=[...new Set(input.sources)].map(url=>({url})),explicit=new Set(input.sources);
     for(let index=0;index<queue.length&&index<6;index++) {
-      const url=queue[index];
+      const {url,discoveredOn}=queue[index];
       try {
-        if(bound&&!matchesExistingWebsite(url,bound.existingValues['contact.website']?.value))throw new Error('SOURCE_IDENTITY_REQUIRES_REVIEW');
+        if(bound&&!matchesExistingWebsite(discoveredOn??url,bound.existingValues['contact.website']?.value))throw new Error('SOURCE_IDENTITY_REQUIRES_REVIEW');
         const page=await fetchPublicSource(url);
-        sources.push(await readSourceText(page,`s${sources.length+1}`));
-        if(manifest.discoverLinks!==false&&explicit.has(url))for(const link of discoverOfficialLinks(page))if(queue.length<6&&!queue.includes(link))queue.push(link);
+        const source=await readSourceText(page,`s${sources.length+1}`);
+        if(discoveredOn){if(source.format!=='IMAGE_OCR')throw new Error('embedded_asset_not_image');source.discoveredOn=discoveredOn;}
+        sources.push(source);
+        if(manifest.discoverLinks!==false) {
+          for(const image of discoverMenuImages(page))if(queue.length<6&&!queue.some(q=>q.url===image.url))queue.push(image);
+          if(explicit.has(url))for(const link of discoverOfficialLinks(page))if(queue.length<4&&!queue.some(q=>q.url===link))queue.push({url:link});
+        }
       }
       catch(error){sourceFailures.push({url,reason:String(error.message).slice(0,160)});}
     }

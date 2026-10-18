@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildNuknukResearchRequest, validateNuknukProposal, researchExistingSpot, localModelEndpoint, NUKNUK_MODEL_REVISION, extractedProposal, parseHoursRow, normalizePhone, projectOffers, sourceQuote, fieldCandidates, bindOfferEvidence } from '../src/nuknuk-research.mjs';
-import { publicSourceUrl,isPublicIPv4,sourceText,fetchPublicSource, readSourceText, discoverOfficialLinks } from '../src/nuknuk-sources.mjs';
+import { publicSourceUrl,isPublicIPv4,sourceText,fetchPublicSource, readSourceText, discoverOfficialLinks, discoverMenuImages } from '../src/nuknuk-sources.mjs';
 const spot={spotId:'e3f8c181-dd7e-4b50-b562-8696cace045f',name:'Synthetic Cafe',existingValues:null};
 const field={attributeKey:'contact.phone',valueSchema:{type:'string'}};
 const source={id:'s1',url:'https://example.org/contact',text:'Telefon: +41 61 111 22 33. Keine Terrasse vorhanden.',observedAt:'2026-10-18T10:00:00.000Z',hash:'a'.repeat(64)};
@@ -70,7 +70,7 @@ test('canonical catalog rejects malformed telephone proposals',async()=>{
 });
 
 test('public-source HTTP redirects and unsupported image content are explicit failures',async()=>{
-  for(const [status,type,error] of [[302,'text/html',/source_http_302/],[200,'image/png',/source_format_unsupported/]]){
+  for(const [status,type,error] of [[302,'text/html',/source_http_302/],[200,'image/gif',/source_format_unsupported/]]){
     const requestImpl=(_url,_options,callback)=>{
       const req=new EventEmitter();
       req.end=()=>queueMicrotask(()=>{callback({statusCode:status,headers:{'content-type':type},destroy(){}});req.emit('close');});
@@ -185,4 +185,21 @@ test('descriptions exclude partner venue footers while contact evidence remains 
  assert.ok(source.text.includes('Telefon'));assert.ok(source.text.includes('Partnerhotel'));
  const candidates=fieldCandidates({attributeKey:'description.highlight'},[source]);
  assert.equal(candidates.length,1);assert.equal(candidates[0].quote,'Unsere Bar serviert Cocktails und Speisen.');
+});
+
+test('menu images keep their observed official parent and reject secret-bearing links',()=>{
+ const page={url:'https://example.org/menu',body:'<img src="https://cdn.example.net/menu-1.jpg" alt="Menu"><img src="https://cdn.example.net/menu-2.jpg?token=private" alt="Menu"><img src="/logo.png" alt="Logo">'};
+ assert.deepEqual(discoverMenuImages(page),[{url:'https://cdn.example.net/menu-1.jpg',discoveredOn:page.url}]);
+});
+test('OCR rejects invalid image bytes and unavailable local executable',async()=>{
+ await assert.rejects(readSourceText({contentType:'image/jpeg',body:Buffer.from('fake')},'s1'),/image_invalid/);
+ await assert.rejects(readSourceText({contentType:'image/jpeg',body:Buffer.from([255,216,255,217])},'s1',{ocrCommand:'/nonexistent/nuknuk-ocr'}),/ocr_failed/);
+});
+
+test('image schedules require manual visual verification rather than silently trusting HTML times',async()=>{
+ const report=await researchExistingSpot({spot,fields:[{attributeKey:'hours.regular',valueSchema:{type:'array'}}],sources:[{...source,format:'IMAGE_OCR',text:'Unsere Öffnungszeiten Montag 11-22 Uhr'}],modelPath},{validateValue,fetchImpl:()=>{throw new Error('must not call model');}});
+ assert.equal(report.results[0].status,'UNRESOLVED');assert.equal(report.results[0].reason,'IMAGE_SCHEDULE_REQUIRES_REVIEW');
+});
+test('description snippets exclude signoffs and headings',()=>{
+ assert.deepEqual(fieldCandidates({attributeKey:'description.highlight'},[{...source,text:'Euer Team von unserem schönen Restaurant'}]),[]);
 });

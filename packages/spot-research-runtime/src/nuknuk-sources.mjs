@@ -18,14 +18,14 @@ export async function fetchPublicSource(value,{resolve=lookup,requestImpl=reques
   const addresses=await Promise.race([resolve(u.hostname,{family:4,all:true}),new Promise((_,reject)=>{dnsTimer=setTimeout(()=>reject(new Error('source_dns_timeout')),timeoutMs);})]).finally(()=>clearTimeout(dnsTimer));
   if(!addresses.length||addresses.some(a=>!isPublicIPv4(a.address)))throw new Error('source_private_address');
   return new Promise((accept,reject)=>{
-    const req=requestImpl(url,{method:'GET',headers:{'user-agent':'Backyrd-Nuknuk-Research/1.0','accept':'text/html,text/plain,application/pdf','accept-encoding':'identity'},lookup:(_host,options,callback)=>callback(null,options?.all?[{address:addresses[0].address,family:4}]:addresses[0].address,4)},res=>{
+    const req=requestImpl(url,{method:'GET',headers:{'user-agent':'Backyrd-Nuknuk-Research/1.0','accept':'text/html,text/plain,application/pdf,image/jpeg,image/png','accept-encoding':'identity'},lookup:(_host,options,callback)=>callback(null,options?.all?[{address:addresses[0].address,family:4}]:addresses[0].address,4)},res=>{
       if(res.statusCode!==200){res.destroy();reject(new Error(`source_http_${res.statusCode}`));return;}
       const type=String(res.headers['content-type']??'').toLowerCase();
-      if(!/^(text\/html|text\/plain|application\/xhtml\+xml|application\/pdf)/i.test(type)){res.destroy();reject(new Error('source_format_unsupported'));return;}
+      if(!/^(text\/html|text\/plain|application\/xhtml\+xml|application\/pdf|image\/jpeg|image\/png)/i.test(type)){res.destroy();reject(new Error('source_format_unsupported'));return;}
       const chunks=[];let size=0;
       res.on('data',chunk=>{size+=chunk.length;if(size>maxBytes){req.destroy(new Error('source_too_large'));return;}chunks.push(chunk);});
       res.on('error',reject);
-      res.on('end',()=>accept({url,contentType:type,body:type.startsWith('application/pdf')?Buffer.concat(chunks):Buffer.concat(chunks).toString('utf8'),observedAt:new Date().toISOString()}));
+      res.on('end',()=>accept({url,contentType:type,body:/^(application\/pdf|image\/)/.test(type)?Buffer.concat(chunks):Buffer.concat(chunks).toString('utf8'),observedAt:new Date().toISOString()}));
     });
     const timer=setTimeout(()=>req.destroy(new Error('source_timeout')),timeoutMs);
     req.on('close',()=>clearTimeout(timer));req.on('error',reject);req.end();
@@ -50,7 +50,18 @@ export function matchesExistingWebsite(sourceUrl, existingWebsite) {
   } catch { return false; }
 }
 
-export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFTOTEXT??'pdftotext'}={}) {
+export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFTOTEXT??'pdftotext',ocrCommand=process.env.NUKNUK_TESSERACT??'tesseract',ocrLanguages=process.env.NUKNUK_OCR_LANGUAGES??'eng'}={}) {
+  const image=/^image\/(jpeg|png)$/i.test(page.contentType??'');
+  if(image) {
+    const b=page.body;
+    if(!Buffer.isBuffer(b)||b.length>2000000||!(b[0]===0xff&&b[1]===0xd8||b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))))throw new Error('source_image_invalid');
+    const body=await new Promise((resolve,reject)=>{
+      const child=execFile(ocrCommand,['stdin','stdout','-l',ocrLanguages],{timeout:15000,maxBuffer:200000,encoding:'utf8'},(error,stdout)=>error?reject(new Error('source_ocr_failed')):resolve(stdout));
+      child.stdin.on('error',()=>{});child.stdin.end(b);
+    });
+    const text=body.trim().slice(0,12000);if(!text)throw new Error('source_ocr_empty');
+    return {id,url:page.url,observedAt:page.observedAt,text,truncated:body.trim().length>12000,format:'IMAGE_OCR',layoutReviewRequired:true,ocrLanguage:ocrLanguages,assetHash:createHash('sha256').update(b).digest('hex'),hash:createHash('sha256').update(text).digest('hex')};
+  }
   if(!String(page.contentType??'').toLowerCase().startsWith('application/pdf'))return sourceText(page,id);
   if(!Buffer.isBuffer(page.body)||page.body.length>2000000||page.body.subarray(0,5).toString()!=='%PDF-')throw new Error('source_pdf_invalid');
   const body=await new Promise((resolve,reject)=>{
@@ -74,4 +85,19 @@ export function discoverOfficialLinks(page) {
     try {const url=publicSourceUrl(new URL(href,page.url).href);if(matchesExistingWebsite(url,page.url)&&url!==page.url&&!links.includes(url))links.push(url);}catch{}
   }
   return links.slice(0,6);
+}
+
+// Only actual image URLs embedded by the approved official page, not guessed
+// CDN paths. Preserve that parent URL so asset hosting cannot masquerade as identity.
+export function discoverMenuImages(page) {
+  if(typeof page.body!=='string')return [];
+  const images=[];
+  for(const match of page.body.matchAll(/<img\b[^>]*>/gi)) {
+    const src=match[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1];
+    const alt=match[0].match(/\balt\s*=\s*["']([^"']+)["']/i)?.[1]??'';
+    if(!src||!/menu|speisekarte|menü/i.test(src+' '+alt))continue;
+    try {const url=publicSourceUrl(new URL(src.replace(/&amp;/g,'&'),page.url).href);if(!images.some(i=>i.url===url))images.push({url,discoveredOn:page.url});}catch{}
+    if(images.length===4)break;
+  }
+  return images;
 }
