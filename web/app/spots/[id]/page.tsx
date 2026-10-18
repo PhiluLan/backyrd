@@ -1,3 +1,4 @@
+import { SpotMoodProfile } from "@/components/consumer/spot-mood-profile";
 import { EventCards } from "@/components/home-events";
 import { spotEvents } from "@/lib/events-public";
 import { upcomingSpotEvents } from "../../../../packages/shared/src/presentation/event";
@@ -154,29 +155,7 @@ export default async function SpotDetailPage({
       <div className="b-container b-section">
         <div className="b-spot-detail-grid">
           <section aria-label="Erfahrungen und Eindrücke">
-            {data.top_moods.length ? (
-              <section>
-                <h2 className="b-section-title">So fühlt es sich hier an</h2>
-                {data.top_moods[0]?.evidence_state === "EARLY" ? <p className="b-muted" style={{ marginTop: 8 }}>Erste Eindrücke</p> : null}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    flexWrap: "wrap",
-                    marginTop: 16,
-                  }}
-                >
-                  {data.top_moods.slice(0, 8).map((mood) => (
-                    <span
-                      className="b-chip"
-                      key={mood.concept_key}
-                    >
-                      {mood.label}{mood.evidence_state === "ESTABLISHED" ? ` ${mood.percentage}%` : ""}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+            <SpotMoodProfile moods={data.top_moods} />
             {overviewKeys.some((key) => field(key)) ? (
               <section className="b-detail-section" aria-label="Auf einen Blick">
                 <p className="b-kicker">Auf einen Blick</p>

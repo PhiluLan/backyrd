@@ -15,8 +15,7 @@ import { AchievementUnlockModal } from "../../components/AchievementUnlockModal"
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { userFacingError } from "../../lib/userFacingError";
-import { MoodExpressionInput } from "../../components/MoodExpressionInput";
-import { MOOD_SUGGESTIONS } from "../../lib/moods";
+import { MoodSelection } from "../../components/MoodSelection";
 import {
   ReviewMediaField,
   ReviewSubmissionStatus,
@@ -77,7 +76,6 @@ export default function NewReviewScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
-  const [showCustomMood, setShowCustomMood] = useState(false);
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<ReviewMediaAsset[]>([]);
   const pendingMediaReviewId = useRef<string | null>(null);
@@ -382,32 +380,7 @@ export default function NewReviewScreen() {
             )}
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>So hat es sich angefühlt</Text>
-              <Text style={{ color: theme.colors.textSoft }}>Wähle bis zu zwei Stimmungen.</Text>
-              <View style={styles.moodChoices}>
-                {MOOD_SUGGESTIONS.filter((mood) => !["instagrammable", "laut"].includes(mood)).slice(0, 10).map((mood) => {
-                  const selected = moodA === mood || moodB === mood;
-                  return <Pressable
-                    key={mood}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => {
-                      if (moodA === mood) { setMoodA(moodB); setMoodB(""); }
-                      else if (moodB === mood) setMoodB("");
-                      else if (!moodA.trim()) setMoodA(mood);
-                      else setMoodB(mood);
-                    }}
-                    style={[styles.moodChoice, selected && styles.moodChoiceSelected]}
-                  ><Text style={[styles.moodChoiceText, selected && styles.moodChoiceTextSelected]}>{mood}</Text></Pressable>;
-                })}
-              </View>
-              {!showCustomMood ? <Pressable accessibilityRole="button" accessibilityState={{ expanded: false }} onPress={() => setShowCustomMood(true)} style={{ paddingVertical: 14, alignSelf: "flex-start" }}>
-                <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Andere Stimmung hinzufügen</Text>
-              </Pressable> : null}
-              {showCustomMood ? <>
-                <MoodExpressionInput label="Deine Stimmung" placeholder="Eigene Stimmung eingeben" value={moodA} onChangeText={setMoodA} />
-                <MoodExpressionInput label="Zweite Stimmung · optional" placeholder="Noch eine Stimmung" value={moodB} onChangeText={setMoodB} />
-              </> : null}
+              <MoodSelection values={[moodA, moodB]} onChange={values => { setMoodA(values[0] ?? ""); setMoodB(values[1] ?? ""); }} />
 
               <Text style={styles.label}>Dein Eindruck · optional</Text>
               <TextInput
@@ -577,11 +550,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.45,
     marginBottom: 12,
   },
-  moodChoices: { flexDirection: "row", flexWrap: "wrap", gap: 9, marginTop: 16, marginBottom: 6 },
-  moodChoice: { minHeight: 42, justifyContent: "center", paddingHorizontal: 15, borderRadius: 999, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  moodChoiceSelected: { borderColor: theme.colors.primary, backgroundColor: "rgba(255,79,145,0.16)" },
-  moodChoiceText: { color: theme.colors.textSoft, fontSize: 14, fontWeight: "700" },
-  moodChoiceTextSelected: { color: theme.colors.accent },
   cardHint: {
     color: theme.colors.textMuted,
     fontSize: 14,

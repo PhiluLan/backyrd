@@ -275,6 +275,8 @@ export default function SpotDetailScreen() {
   const [mediaRevision,setMediaRevision]=useState(0);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
+  const [moodProfileFailed, setMoodProfileFailed] = useState(false);
+  const [moodProfileLoading, setMoodProfileLoading] = useState(true);
   const [moodSummary, setMoodSummary] = useState<SpotMoodProfileItem[]>([]);
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
@@ -409,6 +411,8 @@ export default function SpotDetailScreen() {
       .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
       .eq("spot_id", id)
       .order("rank", { ascending: true });
+    setMoodProfileFailed(Boolean(profileError));
+    setMoodProfileLoading(false);
     if (!profileError) setMoodSummary(profile ?? []);
   }, [id]);
 
@@ -583,6 +587,8 @@ export default function SpotDetailScreen() {
         .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
         .eq("spot_id", id)
         .order("rank", { ascending: true });
+      setMoodProfileFailed(Boolean(profileError));
+      setMoodProfileLoading(false);
       if (!profileError) setMoodSummary(profile ?? []);
 
       setLoading(false);
@@ -940,10 +946,10 @@ export default function SpotDetailScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
-            {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <View style={styles.moodEmpty}>
+            {moodProfileLoading ? <Text style={styles.moodEmptyCopy}>Eindrücke werden geladen …</Text> : moodProfileFailed ? <View><Text style={styles.moodEmptyCopy}>Die Eindrücke konnten gerade nicht geladen werden.</Text><Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={styles.textAction}><Text style={styles.textActionLabel}>Erneut laden</Text></Pressable></View> : moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <View style={styles.moodEmpty}>
               <Feather name="sun" size={22} color={theme.colors.textMuted} />
               <Text style={styles.moodEmptyTitle}>Noch keine Eindrücke</Text>
-              <Text style={styles.moodEmptyCopy}>Teile nach deinem Besuch deinen Moment.</Text>
+              <Text style={styles.moodEmptyCopy}>Beschreibe nach deinem Besuch, wie sich der Ort angefühlt hat.</Text>
             </View>}
           </View>
 
