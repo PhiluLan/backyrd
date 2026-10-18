@@ -6,6 +6,9 @@ import { supabase } from "@/lib/supabaseClient";
 
 type EventSummary = {
   id: string;
+  primary_source_id: string;
+  authoring_spot_id: string | null;
+  provenance: { submissionStatus?: string };
   title: string;
   status: string;
   categories: string[];
@@ -23,8 +26,8 @@ export default function EventsPage() {
     let active = true;
     void supabase
       .from("events_v1")
-      .select("id,title,status,categories,organizer,updated_at")
-      .eq("primary_source_id", "manual_admin")
+      .select("id,title,status,categories,organizer,updated_at,primary_source_id,authoring_spot_id,provenance")
+      .in("primary_source_id", ["manual_admin", "manual_owner"])
       .order("updated_at", { ascending: false })
       .then(({ data, error: loadError }) => {
         if (!active) return;
@@ -109,12 +112,12 @@ export default function EventsPage() {
                             : "muted"
                       }`}
                     >
-                      {event.status}
+                      {event.status === "DRAFT" && event.provenance.submissionStatus === "PENDING_REVIEW" ? "Zur Prüfung" : event.status}
                     </span>
                   </td>
                   <td>{event.organizer ?? "—"}</td>
                   <td>
-                    <Link className="bi-action" href={`/events/${event.id}/edit`}>
+                    <Link className="bi-action" href={event.authoring_spot_id ? `/spots/${event.authoring_spot_id}/edit#events` : `/events/${event.id}/edit`}>
                       Bearbeiten →
                     </Link>
                   </td>

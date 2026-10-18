@@ -24,10 +24,11 @@ test("Events overview preserves list, search, filters, and edit access", async (
   const page = await read("app/events/page.tsx");
 
   assert.match(page, /\.from\("events_v1"\)/);
-  assert.match(page, /\.eq\("primary_source_id",\s*"manual_admin"\)/);
+  assert.match(page, /\.in\("primary_source_id",\s*\["manual_admin",\s*"manual_owner"\]\)/);
   assert.match(page, /placeholder="Events suchen …"/);
   assert.match(page, /\["DRAFT",\s*"PUBLISHED",\s*"CANCELLED",\s*"ENDED"\]/);
-  assert.match(page, /href=\{`\/events\/\$\{event\.id\}\/edit`\}/);
+  assert.match(page, /`\/events\/\$\{event\.id\}\/edit`/);
+  assert.match(page, /`\/spots\/\$\{event\.authoring_spot_id\}\/edit#events`/);
 });
 
 test("Create and edit routes keep the complete Manual Admin editor", async () => {

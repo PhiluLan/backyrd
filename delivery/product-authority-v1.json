@@ -56,6 +56,12 @@
       "sha256": "52aa079748137e3edefa0dd6cac3f840ca75fa2d3f2272a5704b069fca5eb639",
       "scope": "EXPIRED_ACTOR_SCOPED_DISCOVERY_PREPARATION_COUNTERS_ONLY",
       "source": "Founder explicit Freigegeben approval in release conversation, 2026-10-14; current actor counters older than two days only"
+    },
+    {
+      "path": "supabase/migrations/20261018015918_spot_event_authoring_v1.sql",
+      "sha256": "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b",
+      "scope": "GENERATED_FUTURE_EVENT_OCCURRENCES_OUTSIDE_SERIES_ONLY",
+      "source": "Founder approved the exact bounded recurrence cleanup for PR validation, then explicitly confirmed production publication and the untested database recovery risk on 2026-10-18 in this release conversation. No unrelated SQL is authorized."
     }
   ],
   "additiveProductMigrationScope": {
@@ -63,24 +69,20 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261017234644_decision_manual_event_candidates_v1.sql",
-        "sha256": "464e9e58bc2f4076692a1439213c910937c4be8726dabe56d2fbdde0c56a4722"
-      },
-      {
-        "path": "supabase/migrations/20261018010454_decision_event_activities_v1.sql",
-        "sha256": "df79b33065f4f5fd09c995d88eaa85ffb05086fed0f48fd172de2168e6eabb9a"
+        "path": "supabase/migrations/20261018015918_spot_event_authoring_v1.sql",
+        "sha256": "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved both exact Event migrations and the remaining untested database recovery risk in this release conversation on 2026-10-18: Ja, beide Event-Migrationen mit diesem Risiko ver\u00f6ffentlichen. Previous approvals remain immutable in Git.",
+    "source": "Founder requested Live schalten bitte and explicitly answered Bestätigt to the migration-specific untested database recovery risk question on 2026-10-18. Scope is exactly 20261018015918_spot_event_authoring_v1.sql; previous approvals remain in Git.",
     "backupEvidence": {
-      "runId": 39011664171,
+      "runId": 39106807088,
       "result": "SUCCESS",
       "databaseIncluded": true,
       "restoreDrillPerformed": false,
-      "note": "Latest completed encrypted off-provider backup from 2026-10-17, within 24 hours at release preparation. An additional fresh backup run 39085692543 was requested on 2026-10-18; the protected deployment preflight must verify a successful recent backup immediately before apply. Backup evidence is not a restore drill."
+      "note": "Successful encrypted off-provider backup on 2026-10-18 at 07:12 UTC. The protected production preflight must verify a recent successful backup immediately before apply; no restore drill or guaranteed full rollback is claimed."
     }
   },
   "protectedSemanticSourceSet": {

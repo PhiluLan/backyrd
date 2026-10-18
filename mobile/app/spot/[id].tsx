@@ -33,6 +33,7 @@ import {
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
 import { normalizeSpotGallery, type SpotGalleryPhoto } from "../../lib/spot-gallery";
 import { selectSpotImageUrl } from "../../lib/spot-images";
+import { SpotEventsSection } from "../../components/events/SpotEventsSection";
 import { SpotExperience } from "../../components/spot/SpotExperience";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
@@ -984,6 +985,7 @@ export default function SpotDetailScreen() {
             ) : <Text style={styles.mutedText}>Für diesen Spot ist noch keine Beschreibung hinterlegt.</Text>}
           </View>
 
+          <SpotEventsSection spotId={String(spot.id)}/>
           <SpotExperience profile={productProfile?.experienceProfile}/>
 
           {showHours ? (

@@ -1,3 +1,5 @@
+import { spotEvents } from "@/lib/events-public";
+import { upcomingSpotEvents } from "../../../../packages/shared/src/presentation/event";
 import type { Metadata } from "next";
 import { SpotExperience } from "@/components/consumer/spot-experience";
 import Link from "next/link";
@@ -84,6 +86,7 @@ export default async function SpotDetailPage({
   const data = await getPublicSpotDetailServer(id);
   if (!data?.spot?.id) notFound();
   const spot = data.spot;
+  const eventsResult = await spotEvents(id).then(rows => ({ rows: upcomingSpotEvents(rows), failed: false })).catch(() => ({ rows: [], failed: true }));
   const canonicalWorldDetail = Boolean(data.world_profile?.worldManifestHash);
   const publicCategory = data.world_profile?.fields.find((field)=>field.attributeKey==="classification.primary_category");
   const fields = data.world_profile?.fields ?? [];
@@ -204,6 +207,7 @@ export default async function SpotDetailPage({
                 </p>
               </section>
             ) : null}
+            {(eventsResult.failed || eventsResult.rows.length > 0) && <section className="b-detail-section" aria-label="Events bei diesem Spot"><h2>Was steht an?</h2>{eventsResult.failed ? <p>Die Events konnten gerade nicht geladen werden. Bitte lade die Seite erneut.</p> : eventsResult.rows.map(event => <Link key={event.event_id} href={`/events/${event.event_id}?occurrence=${event.occurrence_id}`} style={{ display: "block", padding: "18px 0", borderBottom: "1px solid var(--border)" }}><strong>{event.title}</strong><p>{new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(event.start_at))}{event.is_free ? " · Gratis" : event.price_min !== null ? ` · ab CHF ${event.price_min}` : ""} →</p></Link>)}</section>}
             <SpotExperience profile={data.world_profile?.experienceProfile}/>
             {field("hours.special") ? (
               <section className="b-detail-section" aria-label="Sonderöffnungszeiten">

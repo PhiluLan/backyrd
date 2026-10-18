@@ -265,3 +265,11 @@ test("scoped World authoring migrations are an exact contiguous set, not an open
   assert.equal(isExactProductAdditiveSet(migrations.map((m,i)=>i===1?{...m,sha256:"0".repeat(64)}:m)),false);
   assert.equal(isExactProductAdditiveSet([...migrations,{path:"supabase/migrations/unapproved.sql",sha256:"0".repeat(64)}]),false);
  });
+
+ test("Spot event release accepts only the exact reviewed migration", () => {
+   const migration = { path: "supabase/migrations/20261018015918_spot_event_authoring_v1.sql", sha256: "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b" };
+   assert.equal(isExactProductAdditiveSet([migration]), true);
+   assert.equal(isExactProductAdditiveSet([{...migration,sha256:"0".repeat(64)}]), false);
+   assert.equal(isExactProductAdditiveSet([{...migration,path:"supabase/migrations/future.sql"}]), false);
+   assert.equal(isExactProductAdditiveSet([migration,{path:"supabase/migrations/future.sql",sha256:"0".repeat(64)}]), false);
+ });

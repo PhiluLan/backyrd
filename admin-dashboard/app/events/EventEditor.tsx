@@ -76,6 +76,10 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
         setError(formatAdminError(eventError, "Das Event konnte nicht geladen werden."));
         return;
       }
+      if (event.authoring_spot_id) {
+        router.replace(`/spots/${event.authoring_spot_id}/edit#events`);
+        return;
+      }
       let venue: { name: string; address_line: string | null; matched_spot_id: string | null } | null = null;
       if (event.primary_venue_id) {
         const { data: venueRow, error: venueError } = await supabase.from("event_venues_v1").select("name,address_line,matched_spot_id").eq("id", event.primary_venue_id).single();
@@ -100,7 +104,7 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
       if (occurrenceError) logAdminError("Occurrences laden", occurrenceError, { eventId });
       setOccurrences((occurrenceRows ?? []) as Occurrence[]);
     })();
-  }, [eventId]);
+  }, [eventId, router]);
 
   function changeVenueQuery(value: string) {
     setVenueQuery(value);
