@@ -20,7 +20,7 @@ Each occurrence has candidate ID `event:<occurrence UUID>`, separate `eventBindi
 provenance, and `presentation.event` metadata. The legacy field name `spotId`
 remains a transport compatibility detail; an event ID is never written into the
 World ledger or canonical Spot learning. Event evaluation is versioned as
-`decision-vnext-librarian-evaluator@2`; Spot-only evaluation remains @1. Specific-activity evaluation is @3.
+`decision-vnext-librarian-evaluator@3`; Spot-only evaluation remains @1.
 
 The internal event projection shares the existing offer vocabulary. It never
 inherits venue opening hours, atmosphere, accessibility, cuisine or age rules.
@@ -127,3 +127,10 @@ budget. This diagnostic does not claim the production field has been saved,
 that Event integration is deployed, or that authentication/personalization has
 been retested. Saving the activity requires the new schema and normal Admin
 write path after release.
+
+Activity correction validation: 352 Decision core tests, 373 World tests and
+86 Admin contracts pass. The Admin production build passes with local placeholder
+public configuration. The full isolated 186-migration database boot, SQL activity
+bounds, positive/negative access tests and generated release-evidence validation
+pass. The local real-meaning replay returns one confirmed Open Court candidate
+at rank 1, with 23 recurring occurrences evaluated before series collapse.
