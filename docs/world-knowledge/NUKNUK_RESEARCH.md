@@ -126,9 +126,10 @@ source-text hashes, prompt hash and latency; reports pin the model and contract.
 Raw responses are retained for diagnosing failed interpretation. Public contact
 information may occur in these reports; keep them local and remove when unneeded.
 
-`REQUIRES_REVIEW` is not factual approval. Check every assertion against the
-original source, identity/address, offer/area scope, dates, price basis, dietary
-conditions and conflicting schedules. Partial profiles must never replace a
+`REQUIRES_REVIEW` is not factual approval. Check the outstanding interpretation
+and evidence issues against identity/address, offer/area scope, dates, price
+basis, dietary conditions and conflicting schedules. A `TEXT_VERIFIED` evidence
+check removes the need to repeat the exact text comparison, not these judgments. Partial profiles must never replace a
 complete stored profile. Failed/unresolved results never become negative facts.
 
 The CLI has no database client or write path. It does not create Spots, overwrite
@@ -171,3 +172,31 @@ Alexander HTML/image hours. These must not be treated as approved replacements.
 The default fill-missing mode preserves the existing known description/contact/
 hours fields. Current-value conflict checking still requires a fresh full export;
 the evaluation's partial Admin observations are not import authority.
+
+## Deterministic verification (nuknuk-evidence-v1)
+
+Research no longer assigns every supported result the same review burden.
+`AUTO_VERIFIED` means no repeat factual review is requested by this research
+policy. Initially this covers only an explicit international telephone number
+on a line containing the stored Spot name and street address, with exactly one
+international number across retrieved sources and no conflicting stored value.
+Missing retrievals or PDF/OCR/truncated sources prevent automatic phone approval.
+This deliberately narrow first rule does not certify all contact-page layouts.
+
+Each citation additionally gets an independent `TEXT_VERIFIED` or
+`REQUIRES_REVIEW` evidence check. Verification requires a bound canonical export,
+a matching stored website, name and street address in the source, an intact text
+hash, an exact quote, non-truncated HTML/text and retrieval within 24 hours.
+`TEXT_VERIFIED` confirms transcription only: it saves repeating a text comparison,
+but does not establish that a named offer belongs to the right area, that an
+announcement is a permanent description, or that a price applies to that offer.
+PDF/OCR layout, prices, opening-hour scope and editorial interpretation still
+need review. No numeric confidence score substitutes for these conditions.
+
+The report records policy version, check time and reasons separately from model
+output. Aggregate `humanReviewRequired` is false only when every requested field
+is automatically verified or already preserved. Failed and unresolved fields
+remain visible. Neither status grants import authority, sets a profile's
+`reviewed` flag nor writes production data. The existing Admin persistence path
+and its approval rules are unchanged. Cached pilot observations without the full
+canonical export cannot be promoted to automatic verification.

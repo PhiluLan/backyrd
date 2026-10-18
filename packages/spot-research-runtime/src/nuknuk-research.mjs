@@ -1,5 +1,6 @@
 // Local, proposal-only adapter. No provider key, database client or write path.
 import { createHash } from 'node:crypto';
+import { matchesExistingWebsite } from './nuknuk-sources.mjs';
 import { parseExperienceProfile } from '../../world-knowledge-core/dist/index.js';
 export const NUKNUK_RESEARCH_VERSION = 'nuknuk-research-v4';
 export const NUKNUK_MODEL_REVISION = '8b2b98c00a6b4d291155e4890773ca8f769aee53';
@@ -277,7 +278,45 @@ export function validateNuknukProposal(raw,{field,sources,validateValue}) {
   });
   return {attributeKey:field.attributeKey,status:'REQUIRES_REVIEW',knowledgeState,value:validated.value??value,citations,...(field.attributeKey==='experience.profile'?{partialProfile:true}:{})};
 }
-export async function researchExistingSpot({spot,fields,sources,modelPath,endpoint='http://127.0.0.1:8088/v1/chat/completions',budgetMs=240000,skipKnownFields=false},{fetchImpl=fetch,validateValue,now=Date.now,onField=()=>{}}={}) {
+// Verification is a deterministic research decision, never a profile approval or write.
+export const NUKNUK_VERIFICATION_POLICY = 'nuknuk-evidence-v1';
+export function verifyResearchProposal(proposal,{spot,sources,exportBound=false,sourceFailures=[],now=Date.now()}) {
+  if(proposal.status!=='REQUIRES_REVIEW')return proposal;
+  const website=spot.existingValues?.['contact.website']?.value;
+  const address=spot.existingValues?.['location.address_line1']?.value;
+  const normalize=value=>String(value??'').normalize('NFKC').toLowerCase().replace(/\s+/g,' ').trim();
+  const evidenceChecks=proposal.citations.map(c=>{
+    const source=sources.find(s=>s.url===c.url&&s.hash===c.sourceHash);
+    let reason=null;
+    if(!exportBound)reason='CURRENT_EXPORT_REQUIRED';
+    else if(!source||hash(source.text)!==source.hash||!sourceQuote(source.text,c.evidence))reason='SOURCE_INTEGRITY_FAILED';
+    else if(!matchesExistingWebsite(source.url,website))reason='SOURCE_IDENTITY_UNCONFIRMED';
+    else if(source.layoutReviewRequired||source.format==='PDF_TEXT'||source.format==='IMAGE_OCR')reason='LAYOUT_REQUIRES_REVIEW';
+    else if(source.truncated)reason='SOURCE_TRUNCATED';
+    else if(!Number.isFinite(Date.parse(source.observedAt))||now-Date.parse(source.observedAt)>86400000||now<Date.parse(source.observedAt))reason='SOURCE_NOT_FRESH';
+    else if(!address||!normalize(source.text).includes(normalize(address))||!normalize(source.text).includes(normalize(spot.name)))reason='SPOT_ADDRESS_NOT_CONFIRMED';
+    return {url:c.url,sourceHash:c.sourceHash,status:reason?'REQUIRES_REVIEW':'TEXT_VERIFIED',reason,scope:'EXACT_SOURCE_TEXT_ONLY'};
+  });
+  const allTextVerified=evidenceChecks.length>0&&evidenceChecks.every(c=>c.status==='TEXT_VERIFIED');
+  let reason=allTextVerified?'INTERPRETATION_REQUIRES_REVIEW':'SOURCE_REQUIRES_REVIEW';
+  let automatic=false;
+  if(allTextVerified&&proposal.attributeKey==='contact.phone') {
+    // A unique explicitly labelled international telephone, on the same line as
+    // the known Spot name and street address. Other numbers anywhere in the
+    // retrieved set (including fax/other branches) block automatic verification.
+    const numbers=new Set(sources.flatMap(s=>[...s.text.matchAll(/(?:\+|00)\d[\d ()/.-]{6,}\d/g)].map(m=>m[0].replace(/[^+\d]/g,'').replace(/^00/,'+'))));
+    const labelled=proposal.citations.some(c=>c.evidence.split(/\n/).some(line=>{
+      const match=line.match(/(?:Telefon|Tel\.?|Phone)\s*:?\s*((?:\+|00)\d[\d ()/.-]{6,}\d)/i);
+      return match&&match[1].replace(/[^+\d]/g,'').replace(/^00/,'+')===proposal.value&&normalize(line).includes(normalize(spot.name))&&normalize(line).includes(normalize(address));
+    }));
+    const current=spot.existingValues?.[proposal.attributeKey];
+    const conflict=current&&(['KNOWN_VALUE','KNOWN_TRUE','KNOWN_FALSE','NOT_APPLICABLE'].includes(current.knowledgeState))&&current.value!==proposal.value;
+    automatic=labelled&&numbers.size===1&&numbers.has(proposal.value)&&!conflict&&!sourceFailures.length&&sources.every(s=>!s.truncated&&!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format));
+    reason=automatic?'UNIQUE_EXPLICIT_SPOT_PHONE':conflict?'EXISTING_VALUE_CONFLICT':sourceFailures.length?'SOURCE_RETRIEVAL_INCOMPLETE':'PHONE_SCOPE_REQUIRES_REVIEW';
+  }
+  return {...proposal,status:automatic?'AUTO_VERIFIED':proposal.status,verification:{policy:NUKNUK_VERIFICATION_POLICY,checkedAt:new Date(now).toISOString(),reason,evidenceChecks},humanReviewRequired:!automatic};
+}
+export async function researchExistingSpot({spot,fields,sources,modelPath,endpoint='http://127.0.0.1:8088/v1/chat/completions',budgetMs=240000,skipKnownFields=false,exportBound=false,sourceFailures=[]},{fetchImpl=fetch,validateValue,now=Date.now,onField=()=>{}}={}) {
   localModelEndpoint(endpoint);
   if(typeof validateValue!=='function'||!Array.isArray(fields)||!fields.length||fields.length>12||!Number.isFinite(budgetMs)||budgetMs<1||budgetMs>900000)throw new Error('research_config_invalid');
   const start=now(),results=[];
@@ -300,11 +339,11 @@ export async function researchExistingSpot({spot,fields,sources,modelPath,endpoi
       const raw=await response.json(),choice=raw?.choices?.[0];
       if(choice?.finish_reason!=='stop'||typeof choice?.message?.content!=='string'||choice.message.content.length>50000)throw new Error('model_incomplete');
       rawModelOutput=choice.message.content;
-      const proposal=validateNuknukProposal(extractedProposal(JSON.parse(choice.message.content),{spot,field,sources}),{field,sources,validateValue});
+      const proposal=verifyResearchProposal(validateNuknukProposal(extractedProposal(JSON.parse(choice.message.content),{spot,field,sources}),{field,sources,validateValue}),{spot,sources,exportBound,sourceFailures,now:now()});
       result={...proposal,latencyMs:now()-started,promptHash:hash(JSON.stringify(body.messages)),rawModelOutput:choice.message.content};
     }catch(error){result={attributeKey:field.attributeKey,status:error?.message==='research_hours_scope_conflict'?'UNRESOLVED':'FAILED',reason:String(error?.message??'research_failure').slice(0,180),latencyMs:now()-started,...(rawModelOutput?{rawModelOutput}:{})};}
     if(result.reason==='research_hours_scope_conflict')result.reviewEvidence=fieldCandidates(field,sources).map(c=>({url:sources.find(s=>s.id===c.sourceId).url,evidence:c.context,observedAt:sources.find(s=>s.id===c.sourceId).observedAt}));
     results.push(result);await onField(result);
   }
-  return {version:NUKNUK_RESEARCH_VERSION,spotId:spot.spotId,name:spot.name,existingStateAvailable:spot.existingValues!==null&&spot.existingValues!==undefined,canonicalWrite:false,importable:false,humanReviewRequired:true,modelRevision:NUKNUK_MODEL_REVISION,elapsedMs:now()-start,results};
+  return {version:NUKNUK_RESEARCH_VERSION,spotId:spot.spotId,name:spot.name,existingStateAvailable:spot.existingValues!==null&&spot.existingValues!==undefined,canonicalWrite:false,importable:false,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status)),modelRevision:NUKNUK_MODEL_REVISION,elapsedMs:now()-start,results};
 }

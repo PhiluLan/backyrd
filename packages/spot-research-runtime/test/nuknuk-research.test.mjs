@@ -218,3 +218,45 @@ test('fill-missing mode preserves known current values without asking the model 
  const report=await researchExistingSpot({spot:current,fields:[field],sources,modelPath,skipKnownFields:true},{validateValue,fetchImpl:()=>{throw new Error('must not call model');}});
  assert.equal(report.results[0].status,'SKIPPED');assert.equal(report.results[0].currentValue,'+41611112233');
 });
+
+async function verificationFixture() {
+  const {verifyResearchProposal}=await import('../src/nuknuk-research.mjs');
+  const page=sourceText({url:'https://example.org/contact',observedAt:source.observedAt,body:'<p>Synthetic Cafe, Teststrasse 12, Telefon: +41 61 111 22 33.</p>'},'s1');
+  const current={...spot,existingValues:{'contact.website':{value:'https://example.org'},'location.address_line1':{value:'Teststrasse 12'}}};
+  const proposal=validateNuknukProposal({...proposed,citations:[{sourceId:'s1',quote:page.text}]},{field,sources:[page],validateValue});
+  const context={spot:current,sources:[page],exportBound:true,now:Date.parse(source.observedAt)+1000};
+  return {verifyResearchProposal,page,proposal,context};
+}
+test('unique explicit phone is automatically verified without granting write authority',async()=>{
+  const {verifyResearchProposal,proposal,context}=await verificationFixture();
+  const result=verifyResearchProposal(proposal,context);
+  assert.equal(result.status,'AUTO_VERIFIED');assert.equal(result.humanReviewRequired,false);
+  assert.equal(result.verification.evidenceChecks[0].status,'TEXT_VERIFIED');
+  assert.equal(result.importable,undefined);assert.equal(result.value,'+41611112233');
+});
+test('verification fails closed for absent export, wrong identity, stale, truncated or altered sources',async()=>{
+  const {verifyResearchProposal,proposal,context,page}=await verificationFixture();
+  for(const change of [{exportBound:false},{now:context.now+86400000},{now:0},{sources:[{...page,text:page.text+' changed'}]},{sources:[{...page,truncated:true}]},{sources:[{...page,format:'PDF_TEXT'}]},{spot:{...context.spot,name:'Other Cafe'}},{spot:{...context.spot,existingValues:{...context.spot.existingValues,'contact.website':{value:'https://other.example'}}}}]) {
+    assert.equal(verifyResearchProposal(proposal,{...context,...change}).status,'REQUIRES_REVIEW',JSON.stringify(change));
+  }
+});
+test('competing numbers, failed retrieval and existing value conflicts prevent automatic phone confirmation',async()=>{
+  const {verifyResearchProposal,proposal,context}=await verificationFixture();
+  const competing=sourceText({url:'https://example.org/branch',observedAt:source.observedAt,body:'Andere Filiale: Telefon +41 61 999 22 33'},'s2');
+  for(const change of [{sources:[...context.sources,competing]},{sourceFailures:[{reason:'timeout'}]},{spot:{...context.spot,existingValues:{...context.spot.existingValues,'contact.phone':{knowledgeState:'KNOWN_VALUE',value:'+41619992233'}}}}])assert.equal(verifyResearchProposal(proposal,{...context,...change}).status,'REQUIRES_REVIEW');
+});
+test('exact quote cannot automatically confirm a different number or editorial interpretation',async()=>{
+  const {verifyResearchProposal,proposal,context}=await verificationFixture();
+  assert.equal(verifyResearchProposal({...proposal,value:'+41619992233'},context).status,'REQUIRES_REVIEW');
+  const result=verifyResearchProposal({...proposal,attributeKey:'description.highlight',value:proposal.citations[0].evidence},context);
+  assert.equal(result.status,'REQUIRES_REVIEW');assert.equal(result.verification.evidenceChecks[0].status,'TEXT_VERIFIED');
+  assert.equal(result.verification.reason,'INTERPRETATION_REQUIRES_REVIEW');
+});
+test('runtime and review report expose automatic verification separately from persistence',async()=>{
+  const {context,page}=await verificationFixture();
+  const report=await researchExistingSpot({...context,fields:[field],modelPath},{validateValue,now:()=>context.now,fetchImpl:async()=>reply({...extracted,quote:page.text})});
+  assert.equal(report.results[0].status,'AUTO_VERIFIED');assert.equal(report.humanReviewRequired,false);
+  assert.equal(report.canonicalWrite,false);assert.equal(report.importable,false);
+  const {reviewHtml}=await import('../../../scripts/world-knowledge/nuknuk-research.mjs');
+  assert.match(reviewHtml([report]),/UNIQUE_EXPLICIT_SPOT_PHONE/);
+});
