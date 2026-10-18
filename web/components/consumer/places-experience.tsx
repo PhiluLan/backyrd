@@ -4,6 +4,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { loadSpotBrowseMoods } from "@/lib/mood-catalog";
 import { moodExpressionKey, type BrowseMood } from "../../../packages/shared/src/presentation/mood";
+import { MoodSignature } from "./mood-signature";
 import moodStyles from "./mood-experience.module.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CanonicalSpotImage } from "@/components/canonical-spot-image";
@@ -267,12 +268,11 @@ export function PlacesExperience() {
               spotName={activeSelected.name}
             />
             <div className="b-map-preview-body">
-              <p className="b-kicker">
-                {activeSelected.category_name || "Backyrd Spot"}
-              </p>
               <h2 className="b-card-title" style={{ marginTop: 7 }}>
                 {activeSelected.name}
               </h2>
+              <MoodSignature labels={moodLabels.get(activeSelected.id) ?? []} compact />
+              <p className="b-kicker">{activeSelected.category_name || "Backyrd Spot"}</p>
               <p className="b-meta" style={{ marginTop: 7 }}>
                 {activeSelected.address || "Basel"}
               </p>

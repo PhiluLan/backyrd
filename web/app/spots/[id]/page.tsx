@@ -130,15 +130,16 @@ export default async function SpotDetailPage({
             }}
           >
             <div className="b-container" style={{ margin: 0 }}>
-              <p className="b-kicker">
-                {publicCategory ? presentWorld(publicCategory.value) : canonicalWorldDetail ? "Backyrd Spot" : spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
-              </p>
               <h1
                 className="b-display b-display-lg"
                 style={{ maxWidth: 1000, marginTop: 14 }}
               >
                 {spot.name}
               </h1>
+              <SpotMoodProfile moods={data.top_moods} />
+              <p className="b-kicker">
+                {publicCategory ? presentWorld(publicCategory.value) : canonicalWorldDetail ? "Backyrd Spot" : spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
+              </p>
               <p className="b-body" style={{ fontSize: 18 }}>
                 {spot.address ||
                   [spot.city, spot.country].filter(Boolean).join(" · ")}
@@ -155,7 +156,6 @@ export default async function SpotDetailPage({
       <div className="b-container b-section">
         <div className="b-spot-detail-grid">
           <section aria-label="Erfahrungen und Eindrücke">
-            <SpotMoodProfile moods={data.top_moods} />
             {overviewKeys.some((key) => field(key)) ? (
               <section className="b-detail-section" aria-label="Auf einen Blick">
                 <p className="b-kicker">Auf einen Blick</p>

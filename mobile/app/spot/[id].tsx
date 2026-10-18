@@ -905,6 +905,9 @@ export default function SpotDetailScreen() {
               </View>
 
               <AppText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={4} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
+              <View style={{ marginTop: 16 }}>
+                {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : moodSummary.length ? <SpotMoodProfile moods={moodSummary} /> : <AppText role="meta" tone="secondary">Noch keine Moods geteilt</AppText>}
+              </View>
             </View>
           </Animated.View>
         </Animated.View>
@@ -944,14 +947,6 @@ export default function SpotDetailScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
-            {moodProfileLoading ? <Text style={styles.moodEmptyCopy}>Eindrücke werden geladen …</Text> : moodProfileFailed ? <View><Text style={styles.moodEmptyCopy}>Die Eindrücke konnten gerade nicht geladen werden.</Text><Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={styles.textAction}><Text style={styles.textActionLabel}>Erneut laden</Text></Pressable></View> : moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <View style={styles.moodEmpty}>
-              <Feather name="sun" size={22} color={theme.colors.textMuted} />
-              <Text style={styles.moodEmptyTitle}>Noch keine Eindrücke</Text>
-              <Text style={styles.moodEmptyCopy}>Beschreibe nach deinem Besuch, wie sich der Ort angefühlt hat.</Text>
-            </View>}
-          </View>
 
           <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
 
@@ -1467,14 +1462,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: "700",
   },
-  moodEmpty: {
-    minHeight: 124,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  moodEmptyTitle: { color: theme.colors.text, fontSize: 15, fontWeight: "700" },
-  moodEmptyCopy: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: "center" },
   showMoreText: {
     color: theme.colors.pinkSoft,
     fontSize: 13,

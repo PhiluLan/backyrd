@@ -11,9 +11,20 @@
 .textButton { align-self: start; color: var(--pink-soft); background: transparent; border: 0; padding: 8px 0; min-height: 44px; cursor: pointer; font: inherit; }
 .hint { font-size: 13px; line-height: 1.65; color: var(--muted); margin: 0; }
 .notice { font-size: 14px; color: var(--pink-soft); margin: 0; }
-.portrait { border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); padding: 28px 0; margin-bottom: 28px; }
-.portrait h2 { margin: 0 0 10px; font-size: 26px; }
-.portrait .chips { margin: 18px 0; }
-.evidence { margin-top: 14px; padding: 14px 0; border-top: 1px solid var(--border); }
-.evidence summary { cursor: pointer; min-height: 44px; padding: 12px 0; color: var(--muted); }
-.evidence p { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+.signature { display: flex; flex-direction: column; gap: 5px; color: var(--pink-soft); text-align: left; }
+.wordmark { font-size: 9px; line-height: 13px; letter-spacing: 2.4px; font-weight: 800; color: var(--pink); }
+.signatureWords { display: flex; flex-wrap: wrap; column-gap: 9px; row-gap: 2px; font-size: clamp(20px,2.2vw,28px); line-height: 1.4; font-weight: 600; }
+.signatureWord { display: inline-flex; align-items: center; gap: 9px; }
+.dot { font-size: 20px; font-weight: 400; color: var(--pink); }
+.signatureCompact { margin: 11px 0; }
+.signatureCompact .signatureWords { font-size: 17px; line-height: 24px; }
+.identityButton { display: inline-flex; align-items: center; gap: 18px; border: 0; background: transparent; padding: 0; margin: 18px 0 8px; min-height: 52px; font: inherit; color: inherit; cursor: pointer; }
+.identityButton:focus-visible { outline: 2px solid var(--pink); outline-offset: 7px; border-radius: 4px; }
+.infoMark { flex-shrink: 0; width: 20px; height: 20px; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--foreground); font-size: 12px; line-height: 19px; text-align: center; }
+.moodDetails { display: grid; gap: 20px; margin-top: 24px; }
+.moodDetails h3 { font-size: 24px; color: var(--pink-soft); margin: 0 0 8px; }
+.moodDetails p { font-size: 15px; line-height: 1.65; color: var(--muted); }
+
+.removeMood { color: inherit; background: transparent; border: 0; padding: 6px 0; min-height: 44px; font: inherit; cursor: pointer; }
+.removeMood:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }

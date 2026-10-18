@@ -2,6 +2,7 @@
 import { useEffect, useId, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { moodExpressionKey, parseMoodOptions, toggleMoodExpression, type MoodOption } from "../../../packages/shared/src/presentation/mood";
+import { MoodSignature } from "./mood-signature";
 import styles from "./mood-experience.module.css";
 
 export function MoodSelection({ values, onChange }: { values: readonly string[]; onChange: (values: string[]) => void }) {
@@ -37,9 +38,10 @@ export function MoodSelection({ values, onChange }: { values: readonly string[];
     if (!result.full) { onChange(result.values); setQuery(""); }
   }
   return <fieldset className={styles.selection}>
-    <legend>Wie fühlt sich der Ort an?</legend>
-    <div className={styles.intro}><p>Beschreibe die Atmosphäre bei deinem Besuch. Bis zu zwei Eindrücke, ganz ohne Pflicht.</p><span aria-label={`${selected.length} von 2 ausgewählt`}>{selected.length}/2</span></div>
-    {selected.length > 0 ? <div className={styles.chips} aria-label="Deine Auswahl">{selected.map(value => <button type="button" key={value} className={`${styles.chip} ${styles.active}`} aria-label={`${value} entfernen`} onClick={() => choose(value)}>{value} ×</button>)}</div> : null}
+    <legend>Deine Moods für diesen Ort</legend>
+    <div className={styles.intro}><p>Wähle bis zu zwei Begriffe, die deinen Besuch beschreiben.</p><span aria-label={`${selected.length} von 2 ausgewählt`}>{selected.length}/2</span></div>
+    {selected.length > 0 ? <MoodSignature labels={selected} onRemove={choose} /> : null}
+
     <label htmlFor={id} className="b-label">Mood suchen oder selbst beschreiben</label>
     <input id={id} className="b-input" placeholder="Zum Beispiel gemütlich" maxLength={40} value={query} onChange={e => { setState("loading"); setOptions([]); setQuery(e.target.value); }} autoComplete="off" aria-describedby={`${id}-hint`} />
     {state === "loading" ? <p className={styles.hint} role="status">Moods werden geladen …</p> : null}

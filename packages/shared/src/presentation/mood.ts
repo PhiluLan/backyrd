@@ -33,9 +33,6 @@ export function moodEvidenceCopy(mood: MoodEvidence): string {
   if (typeof count !== "number" || !Number.isInteger(count) || count < 1) return "Dieser Eindruck stammt aus den Erfahrungen von Gästen. Je nach Besuch kann sich ein Ort unterschiedlich anfühlen.";
   return `${count === 1 ? "Eine Person hat" : `${count} Personen haben`} diesen Ort so beschrieben. Je nach Besuch kann sich die Atmosphäre unterscheiden.`;
 }
-export function moodIsProminent(mood: MoodEvidence): boolean {
-  return mood.evidence_state === "ESTABLISHED" && (mood.concept_contributors ?? 0) >= 3 && mood.rank <= 2;
-}
 
 export type BrowseMood = { spot_id: string; concept_key: string; label: string; rank: number };
 /** Fetch only this catalog's public profiles, without silently truncating at the API row cap. */

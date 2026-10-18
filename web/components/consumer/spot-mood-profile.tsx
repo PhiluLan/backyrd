@@ -1,17 +1,29 @@
+"use client";
 import Link from "next/link";
-import { moodEvidenceCopy, moodIsProminent } from "../../../packages/shared/src/presentation/mood";
+import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
+import { moodEvidenceCopy } from "../../../packages/shared/src/presentation/mood";
 import type { PublicSpotDetailDTO } from "@/lib/public-spot-detail";
+import { MoodSignature } from "./mood-signature";
+import { Dialog } from "./ui";
 import styles from "./mood-experience.module.css";
 
 export function SpotMoodProfile({ moods }: { moods: PublicSpotDetailDTO["top_moods"] }) {
-  return <section className={styles.portrait} aria-label="Atmosphäre aus der Community">
-    <h2 className="b-section-title">So fühlt es sich hier an</h2>
-    <p className={styles.hint}>{moods.length ? "Von Gästen beschrieben. Jeder Besuch kann anders sein." : "Noch keine Eindrücke. Beschreibe nach deinem Besuch, wie sich der Ort angefühlt hat."}</p>
-    {moods.length > 0 ? <>
-      {moods[0].evidence_state === "EARLY" ? <p className={styles.hint}>Erste Eindrücke</p> : null}
-      <div className={styles.chips}>{moods.map(mood => <Link key={mood.concept_key} className={`${styles.chip} ${moodIsProminent(mood) ? styles.active : ""}`} href={`/places?mood=${encodeURIComponent(mood.label)}`} aria-label={`Orte mit dem Mood ${mood.label} entdecken`}>{mood.label} ↗</Link>)}</div>
-      <p className={styles.hint}>Tippe auf einen Mood und entdecke weitere Orte mit diesem Eindruck.</p>
-      <details className={styles.evidence}><summary>Woher kommen die Eindrücke?</summary><p>Gäste beschreiben die Atmosphäre nach ihrem Besuch. Jede Person zählt ausgewogen mit, auch bei mehreren Besuchen. Die Begriffe beschreiben den Ort und sind keine Qualitätsnote.</p>{moods.map(mood => <p key={mood.concept_key}><strong>{mood.label}:</strong> {moodEvidenceCopy(mood)}</p>)}</details>
-    </> : null}
-  </section>;
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  if (!moods.length) return <p className={styles.hint}>Noch keine Moods geteilt</p>;
+  return <>
+    <button type="button" className={styles.identityButton} onClick={() => setOpen(true)} aria-label={`Moods: ${moods.slice(0, 3).map(m => m.label).join(", ")}. Eindrücke ansehen`}>
+      <MoodSignature labels={moods.map(m => m.label)} />
+      <span className={styles.infoMark} aria-hidden="true">i</span>
+    </button>
+    {moods[0].evidence_state === "EARLY" ? <p className={styles.hint}>Erste Eindrücke</p> : null}
+    {open ? createPortal(<Dialog open={open} title="Die Moods dieses Ortes" onClose={close}>
+      <p className={styles.hint}>So haben Gäste den Ort erlebt. Welche Moods zu dir passen, entscheidest du.</p>
+      <div className={styles.moodDetails}>{moods.map(mood => <div key={mood.concept_key}>
+        <h3>{mood.label}</h3><p>{moodEvidenceCopy(mood)}</p>
+        <Link className={styles.textButton} href={`/places?mood=${encodeURIComponent(mood.label)}`}>Orte mit diesem Mood entdecken ↗</Link>
+      </div>)}</div>
+    </Dialog>, document.body) : null}
+  </>;
 }
