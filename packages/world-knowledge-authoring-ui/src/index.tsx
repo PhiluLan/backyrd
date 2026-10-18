@@ -1,10 +1,10 @@
 "use client";
-import { SPOT_TYPE_CATALOG, SPOT_GROUPS } from "@backyrd/world-knowledge-core";
+import { SPOT_TYPE_CATALOG, SPOT_GROUPS } from "@backyrd/world-knowledge-core/browser";
 import { ExperienceInput } from "./ExperienceInput";
 import { DiscoveryInput } from "./DiscoveryInput";
 
 import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { AUTHORING_FIELDS, AUTHORING_STEPS, PRICE_PURPOSE_LABELS, formatPriceOptionsSummary, AUTHORING_TAXONOMY_VERSION, evaluateAuthoringReadiness, getAuthoringFieldsForContext, getPlaceTypeConflict, validateAuthoringSubmission, type AuthoringField, type AuthoringReadinessReport, type AuthoringRole, type AuthoringSectionState } from "@backyrd/world-knowledge-core";
+import { AUTHORING_FIELDS, AUTHORING_STEPS, PRICE_PURPOSE_LABELS, formatPriceOptionsSummary, AUTHORING_TAXONOMY_VERSION, evaluateAuthoringReadiness, getAuthoringFieldsForContext, getPlaceTypeConflict, validateAuthoringSubmission, type AuthoringField, type AuthoringReadinessReport, type AuthoringRole, type AuthoringSectionState } from "@backyrd/world-knowledge-core/browser";
 import type { WorldAuthoringClient } from "./session";
 import { WorldProductCorrection as ProductCorrection, type ProductCorrectionProps, type ProductFieldInputProps } from "./ProductCorrection";
 import { isUnconditionalContextConditions } from "./context-choice";

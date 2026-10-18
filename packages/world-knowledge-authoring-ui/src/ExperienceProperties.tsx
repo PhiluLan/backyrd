@@ -1,7 +1,7 @@
 "use client";
 import { getExperienceAuthoringQuestions } from "./experience-authoring";
 import { experienceAnswerGuidance } from "./experience-answer-guidance";
-import { emptyExperienceConditions, EXPERIENCE_QUESTIONS, sameLibrarianText, type ExperienceCategory, type ExperienceConditions, type ExperienceProperty, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core";
+import { emptyExperienceConditions, EXPERIENCE_QUESTIONS, sameLibrarianText, type ExperienceCategory, type ExperienceConditions, type ExperienceProperty, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core/browser";
 const weekdays=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const dayparts=[["MORNING","Vormittag"],["MIDDAY","Mittag"],["AFTERNOON","Nachmittag"],["EVENING","Abend"],["NIGHT","Nacht"]];
 export function Conditions({value,onChange,inline=false}:{value:ExperienceConditions;onChange:(value:ExperienceConditions)=>void;inline?:boolean}){

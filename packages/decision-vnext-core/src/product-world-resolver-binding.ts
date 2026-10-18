@@ -2,7 +2,9 @@ import { REGISTRY_V2_4_PLACE_TYPES, EXPERIENCE_TEMPLATES, parseExperienceProfile
 import { contentHash, deepFreeze } from "./canonical.js";
 
 type Entry = Pick<PortKnowledgeEntry, "key" | "value" | "resolution" | "freshness" | "trust" | "entryHash"> & { readonly validFrom?: string | null; readonly validUntil?: string | null; readonly authorizedUseCases?: readonly SourceUseCase[] };
+import type { DecisionEventOccurrence } from "./product-event-candidates.js";
 export type ProductWorldView = Pick<WorldKnowledgeSnapshot, "spot" | "explicitUnknowns" | "exclusions" | "snapshotHash"> & {
+  readonly eventOccurrence?: DecisionEventOccurrence;
   readonly facts: readonly Entry[];
   readonly operationalRules: readonly Entry[];
   readonly currentStates: readonly Entry[];

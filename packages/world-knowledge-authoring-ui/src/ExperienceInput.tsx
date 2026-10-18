@@ -5,7 +5,7 @@ import { ExperienceReferences } from "./ExperienceReferences";
 import { getExperienceAuthoringQuestions, type ExperienceWorkspace } from "./experience-authoring";
 import { Conditions, Properties } from "./ExperienceProperties";
 import { experiencePriceIncludes } from "./experience-answer-guidance";
-import { SPOT_TYPE_CATALOG, SPOT_GROUPS, AREA_CATALOG, EXPERIENCE_QUESTIONS, experienceCategoryFromAnswers, EXPERIENCE_TEMPLATES, emptyExperienceProfile, emptyExperienceConditions, parseAttributeValue, WEEKDAYS, type WeeklyScheduleDay, experienceReuseSuggestions, reuseExperienceProperty, parseExperienceProfile, type ExperienceCategory, type ExperienceProfile, type ExperienceProperty, type ExperienceScope, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
+import { SPOT_TYPE_CATALOG, SPOT_GROUPS, AREA_CATALOG, EXPERIENCE_QUESTIONS, experienceCategoryFromAnswers, EXPERIENCE_TEMPLATES, emptyExperienceProfile, emptyExperienceConditions, parseAttributeValue, WEEKDAYS, type WeeklyScheduleDay, experienceReuseSuggestions, reuseExperienceProperty, parseExperienceProfile, type ExperienceCategory, type ExperienceProfile, type ExperienceProperty, type ExperienceScope, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core/browser";
 const weekdays=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const nullableNumber=(v:string)=>v===""?null:Number(v);
 const displayValue=(v:unknown)=>v===true?"Ja":v===false?"Nein":String(v);

@@ -1,0 +1,1 @@
+export const EVENT_DECISION_TAGS: Readonly<{ LIVE_MUSIC:"Livemusik"; DJ:"DJ"; JAZZ:"Jazz"; CLASSICAL:"Klassik"; ROCK:"Rock"; POP:"Pop"; ELECTRONIC:"Elektronische Musik"; TECHNO:"Techno"; PUB_QUIZ:"Pubquiz"; KARAOKE:"Karaoke" }>;

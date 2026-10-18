@@ -1,7 +1,9 @@
 # Events V1 — Basel pilot
 
-Events V1 is a deterministic source sync and discovery surface. It is isolated
-from Decision, Mood, Reviews, ranking, and the Gate-1–7 contracts.
+Events V1 is a deterministic source sync and discovery surface. Published manual
+occurrences can additionally enter the opt-in Decision integration described in
+[Decision event candidates](../decision/DECISION_EVENT_CANDIDATES_V1.md). External
+source ingestion, Reviews and historical Gate-1–7 contracts remain separate.
 
 ## Active and pending sources
 

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { discoveryPreparationErrorMessage } from "./discovery-errors";
-import { DISCOVERY_PROFILE_VERSION, parseDiscoveryProfile, type DiscoveryProfile } from "@backyrd/world-knowledge-core";
+import { DISCOVERY_PROFILE_VERSION, parseDiscoveryProfile, type DiscoveryProfile } from "@backyrd/world-knowledge-core/browser";
 export function DiscoveryInput({value,onChange,onPrepare,onSave,disabled,savedSource}:{savedSource?:string;value:unknown;onChange:(value:DiscoveryProfile)=>void;onPrepare?:((sourceText:string)=>Promise<DiscoveryProfile>)|undefined;onSave:(value:DiscoveryProfile)=>Promise<void>;disabled:boolean}){
   let profile:DiscoveryProfile|null=null;try{profile=parseDiscoveryProfile(value,false);}catch{ /* Empty form has no prepared facts. */ }
   const [source,setSource]=useState(profile?.description??savedSource??""),[consent,setConsent]=useState(false),[reviewed,setReviewed]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);

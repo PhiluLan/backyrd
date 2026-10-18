@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ComponentType } from "re
 import {
   AUTHORING_FIELDS, formatPriceOptionsSummary, AUTHORING_STEPS, getAuthoringFieldsForContext,
   validateAuthoringSubmission, parseDiscoveryProfile, parseExperienceProfile, evaluateAuthoringReadiness, type DiscoveryProfile, type AuthoringField,
-} from "@backyrd/world-knowledge-core";
+} from "@backyrd/world-knowledge-core/browser";
 import { sectionStatus } from "./section-status";
 import type { ExperienceWorkspace } from "./experience-authoring";
 import type { RpcResult, WorldAuthoringClient } from "./session";

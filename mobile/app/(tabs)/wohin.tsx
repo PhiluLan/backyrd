@@ -8,6 +8,8 @@ import * as Crypto from "expo-crypto";
 import type { DecisionProductCandidate, DecisionProductResponse } from "@backyrd/product-decision-contract";
 
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
+import { eventImageUrl } from "@/lib/events-v1";
+import { Image } from "expo-image";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
 import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
@@ -64,7 +66,7 @@ function DecisionResultCard({ candidate, imageUrl, compact, onOpen, onDetails }:
 }) {
   return (
     <View style={styles.resultCard} testID="wohin-result-card">
-      <SpotArtwork imageUrl={imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />
+      {candidate.presentation.event ? <Image source={imageUrl ? {uri:imageUrl} : undefined} accessibilityLabel={candidate.presentation.name} style={StyleSheet.absoluteFill} contentFit="cover" /> : <SpotArtwork imageUrl={imageUrl} spotId={candidate.spotId} spotName={candidate.presentation.name} showFallbackName={false} attributionPosition="top" style={StyleSheet.absoluteFill} />}
       <LinearGradient pointerEvents="none" colors={["transparent", "rgba(5,5,6,0.45)", "rgba(5,5,6,0.97)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
       <View style={[styles.cardBottom, compact && styles.compactBottom]}>
         <ScrollView style={styles.cardSummary} contentContainerStyle={styles.cardSummaryContent}>
@@ -76,7 +78,7 @@ function DecisionResultCard({ candidate, imageUrl, compact, onOpen, onDetails }:
           <Ionicons name="add" size={19} color={color.pink} />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={styles.openSpotButton}>
-          <AppText role="label" style={styles.openSpotText}>Spot entdecken</AppText>
+          <AppText role="label" style={styles.openSpotText}>{candidate.presentation.event ? "Event entdecken" : "Spot entdecken"}</AppText>
           <Ionicons name="arrow-forward" size={20} color={color.background} />
         </Pressable>
       </View>
@@ -118,6 +120,7 @@ export default function WohinScreen() {
     if (visible) setActiveIndex(visible.index!);
     for (const { item, isViewable } of viewableItems) {
       if (!isViewable) continue;
+      if (item.presentation.event) continue;
       const key = `${current.decisionId}:${item.spotId}`;
       if (seenImpressions.current.has(key)) continue;
       seenImpressions.current.add(key);
@@ -166,7 +169,7 @@ export default function WohinScreen() {
     let active = true;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8_000);
-    void loadCanonicalSpotHeaders(candidates.map(candidate => candidate.spotId), controller.signal)
+    void loadCanonicalSpotHeaders(candidates.filter(candidate => !candidate.presentation.event).map(candidate => candidate.spotId), controller.signal)
       .then(headers => { if (active) setCoverImages(headers); })
       .catch(() => undefined) // Keep the sealed presentation/fallback when the cover service is unavailable.
       .finally(() => clearTimeout(timer));
@@ -215,14 +218,15 @@ export default function WohinScreen() {
   }, [authenticated, city, identityError, identityReady, params.auto, params.query, run]);
 
   const openSpot = (candidate: DecisionProductCandidate) => {
-    if (response) {
+    if (response && !candidate.presentation.event) {
       const actionId = Crypto.randomUUID();
       void recordDecisionProductInteraction({
         supabase,
         request: { contractVersion: "backyrd.decision-vnext.product-interaction-request@1.0", actionId, idempotencyKey: actionId, decisionId: response.decisionId, eventType: "candidate_opened", candidateId: candidate.spotId },
       }).catch(() => undefined);
     }
-    router.push(`/spot/${candidate.spotId}?entrySource=decision` as never);
+    const event=candidate.presentation.event;
+    router.push((event ? `/events/${event.eventId}?occurrenceId=${event.occurrenceId}` : `/spot/${candidate.spotId}?entrySource=decision`) as never);
   };
 
   const limitations = response ? wohinLimitations(response.limitations, candidates.length) : [];
@@ -263,7 +267,7 @@ export default function WohinScreen() {
             extraData={coverImages}
             keyExtractor={(candidate) => candidate.spotId}
             renderItem={({ item: candidate }) => <View style={[styles.cardPage, { width: pageWidth, height: pageHeight }]}>
-              <DecisionResultCard candidate={candidate} imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : candidate.presentation.imageUrl} compact={pageHeight < 440} onOpen={() => openSpot(candidate)} onDetails={() => setDetailsOpen(true)} />
+              <DecisionResultCard candidate={candidate} imageUrl={coverImages.has(candidate.spotId) ? coverImages.get(candidate.spotId)! : (candidate.presentation.event ? eventImageUrl(candidate.presentation.event.imageStoragePath) ?? candidate.presentation.imageUrl : candidate.presentation.imageUrl)} compact={pageHeight < 440} onOpen={() => openSpot(candidate)} onDetails={() => setDetailsOpen(true)} />
             </View>}
           /> : null}
         </View>

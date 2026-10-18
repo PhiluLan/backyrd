@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AUTHORING_FIELDS } from "@backyrd/world-knowledge-core";
+import { AUTHORING_FIELDS } from "@backyrd/world-knowledge-core/browser";
 import { AdminPageHeader, ErrorState, LoadingState } from "@/components/admin/AdminUi";
 import { supabase } from "@/lib/supabaseClient";
 

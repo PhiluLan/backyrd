@@ -3,6 +3,7 @@ export type DecisionProductRequest = {
   requestId: string;
   idempotencyKey: string;
   naturalLanguage: string;
+  includeEvents?: boolean;
   explicit: {
     primaryIntent?: string | null;
     secondaryIntent?: string | null;
@@ -41,6 +42,7 @@ export type DecisionProductCandidate = {
   presentation: {
     contractVersion: "backyrd.decision-vnext.product-presentation@1.0";
     spotId: string;
+    event?: { kind: "EVENT"; eventId: string; occurrenceId: string; venueSpotId: string | null; venueName: string | null; address: string | null; startAt: string; endAt: string | null; ticketUrl: string | null; imageStoragePath: string | null };
     name: string;
     locality: string | null;
     categoryLabel: string | null;

@@ -147,6 +147,8 @@ npm --prefix mobile ci
 npm --prefix admin-dashboard ci
 ```
 
+Führe diese Installation auch in jeder neuen Git-Arbeitskopie aus. Verlinke `node_modules` nicht auf andere Checkouts: Turbopack löst keine Abhängigkeiten außerhalb der konfigurierten Projektwurzel auf. Die Admin-Abhängigkeiten werden separat installiert; `npm ci` im Root deckt bereits Web und die gemeinsamen Pakete ab.
+
 ### 2. Lokales Backend starten
 
 ```bash

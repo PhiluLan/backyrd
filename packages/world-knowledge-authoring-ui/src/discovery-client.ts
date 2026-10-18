@@ -1,4 +1,4 @@
-import { parseDiscoveryProfile, type DiscoveryProfile } from "@backyrd/world-knowledge-core";
+import { parseDiscoveryProfile, type DiscoveryProfile } from "@backyrd/world-knowledge-core/browser";
 import type { WorldAuthoringClient } from "./session";
 /** Publication is explicit in the UI; upstream text is loaded server-side from
  * this canonical PUBLIC claim, never copied from the import request body. */

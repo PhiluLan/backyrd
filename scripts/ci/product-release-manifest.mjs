@@ -26,6 +26,8 @@ const SOURCE_SETS = Object.freeze({
   decisionArtifact: [
     "packages/decision-vnext-core/package.json",
     "packages/decision-vnext-core/src",
+    "packages/shared/src/event-decision.mjs",
+    "packages/shared/src/event-decision.d.mts",
     "mobile/packages/product-decision-contract",
     "mobile/lib/decision/productDecision.ts",
     "mobile/app/(tabs)/decision.tsx",
@@ -47,6 +49,7 @@ const EDGE_BUILD_REQUIRED = Object.freeze([
   "packages/world-knowledge-core/dist/index.js",
 ]);
 const WORKER_SOURCE_DIRS = Object.freeze([
+  "packages/shared/src",
   "packages/user-intelligence-runtime/src",
   "packages/n6-shadow-runtime/src",
   "packages/spot-research-runtime/src",

@@ -13,6 +13,7 @@ export function createWohinRequest(input: { query: string; city: string; request
     requestId: input.requestId,
     idempotencyKey: input.requestId,
     naturalLanguage,
+    includeEvents: true,
     // The profile city is location authority, never an inferred preference.
     // No guided choices or client-side intent interpretation enter this request.
     explicit: { targetCity },
@@ -39,6 +40,8 @@ export function visibleWohinCandidates(response: DecisionProductResponse): Decis
 
 export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
   const groups: Record<string, string> = { EAT: "Essen & Trinken", DRINKS: "Bar", COFFEE_DAYTIME: "Café", NIGHTLIFE: "Nachtleben", CULTURE_ARTS: "Kultur", ENTERTAINMENT: "Unterhaltung", ACTIVITIES_PLAY: "Aktivitäten & Spiel", SPORT_MOVEMENT: "Sport & Bewegung", OUTDOOR_NATURE: "Natur & draussen", WELLNESS_RELAXATION: "Wellness", SHOPPING_MARKETS: "Shopping", STAY: "Übernachten", COMMUNITY_SOCIAL: "Gemeinschaft", ATTRACTIONS_LANDMARKS: "Ausflugsziel", TEMPORARY_PLACES: "Veranstaltungsort" };
+  const event = candidate.presentation.event;
+  if (event) return ["Veranstaltung",new Intl.DateTimeFormat("de-CH",{timeZone:"Europe/Zurich",weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}).format(new Date(event.startAt)),event.venueName??candidate.presentation.locality].filter(Boolean).join(" · ");
   const raw = candidate.presentation.categoryLabel;
   const category = groups[raw ?? ""] ?? (raw && !/^[A-Z_]+$/.test(raw) ? raw : null);
   return [category, candidate.presentation.locality].filter(Boolean).join(" · ");
@@ -46,6 +49,7 @@ export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
 
 /** One grounded sentence, never an inference from the user's free text or ranking score. */
 export function wohinRecommendation(candidate: DecisionProductCandidate): string {
+  if (candidate.presentation?.event) return candidate.coreIntentCoverage === "CONFIRMED" ? "Das könnte dein nächster Moment werden – schau dir den Termin an." : "Vielleicht etwas für dich – schau dir die Details und den Termin an.";
   const world = candidate.reasons.filter(reason => reason.confirmed && reason.domain === "WORLD");
   const offers = world.find(reason => reason.code === "librarian-selected-offers" && reason.statement.startsWith("Passende Angebote: "));
   if (offers) return `Hier gibt’s ${offers.statement.slice("Passende Angebote: ".length).replace(/[.!?]+$/, "")} – passend zu dem, was du suchst.`;
@@ -79,6 +83,7 @@ const librarianNotes: Record<string, string> = {
 
 export function wohinConsiderations(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
   const notes: string[] = candidate.reasons.flatMap(reason => {
+    if (reason.code === "event-ticket-availability") return [reason.statement];
     if (reason.confirmed || reason.domain !== "LIMITATION") return [];
     if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt)/.test(reason.statement)) return [librarianNotes[reason.statement] ?? reason.statement];
     if (reason.code === "librarian-access-details") return [librarianNotes[reason.statement] ?? reason.statement];

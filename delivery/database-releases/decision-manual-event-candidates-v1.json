@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "decision-manual-event-candidates-v1",
+  "previousEvidence": "public-spot-knowledge-presentation-v2-5",
+  "previousFingerprints": {
+    "publicAclSha256": "6a098d01a9a9d356a6c3acc9c8a35e36a0dc45a526a1297ba9b89461d139f850",
+    "applicationSchemaSha256": "3c12b9e873f25cc03a291bca055cae104adcb6cc23b59940ced93f878a800a0b"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261017234644_decision_manual_event_candidates_v1.sql",
+      "sha256": "464e9e58bc2f4076692a1439213c910937c4be8726dabe56d2fbdde0c56a4722"
+    },
+    {
+      "path": "supabase/migrations/20261018010454_decision_event_activities_v1.sql",
+      "sha256": "df79b33065f4f5fd09c995d88eaa85ffb05086fed0f48fd172de2168e6eabb9a"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_manual_event_candidates_v1.sql",
+      "sha256": "4d436b2f2d87c5cad30364fae021040a4cba5df5d27044d7e84d0c6502290e98"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "f01d26f25f22e65b0e0114df4ffe124016dd8ee7eedb222a50029c61a85715ac",
+    "applicationSchemaSha256": "45ded6b1d2b267bf283e104da92fe4aac2bf99c0c689ca5e0f8318687f4f2743"
+  }
+}
