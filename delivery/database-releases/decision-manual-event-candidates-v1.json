@@ -11,16 +11,20 @@
     {
       "path": "supabase/migrations/20261017234644_decision_manual_event_candidates_v1.sql",
       "sha256": "464e9e58bc2f4076692a1439213c910937c4be8726dabe56d2fbdde0c56a4722"
+    },
+    {
+      "path": "supabase/migrations/20261018010454_decision_event_activities_v1.sql",
+      "sha256": "df79b33065f4f5fd09c995d88eaa85ffb05086fed0f48fd172de2168e6eabb9a"
     }
   ],
   "tests": [
     {
       "path": "supabase/tests/decision_manual_event_candidates_v1.sql",
-      "sha256": "6adfe736a2bf62f5692f4170796f588feac6a09d67eaa9458cf4b01ea039abc0"
+      "sha256": "4d436b2f2d87c5cad30364fae021040a4cba5df5d27044d7e84d0c6502290e98"
     }
   ],
   "fingerprints": {
-    "publicAclSha256": "0bc33fc9059872454ba3bdfd8ffa112f9f1e16441a89725f23eb907d361d8ff7",
-    "applicationSchemaSha256": "07208163d9717f8764fa58d20754ed8d0f60bf4d07ee78208a4861f93129ac8b"
+    "publicAclSha256": "f01d26f25f22e65b0e0114df4ffe124016dd8ee7eedb222a50029c61a85715ac",
+    "applicationSchemaSha256": "45ded6b1d2b267bf283e104da92fe4aac2bf99c0c689ca5e0f8318687f4f2743"
   }
 }

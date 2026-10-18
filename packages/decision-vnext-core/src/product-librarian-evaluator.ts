@@ -11,7 +11,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { DecisionProductContextSchema, DecisionProductCandidateAssessmentSchema, DecisionProductEvaluationSchema, DecisionProductPresentationSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS, type DecisionProductContext, type DecisionProductRequest } from "./product-v1-contracts.js";
 
 export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@1" as const;
-export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@2" as const;
+export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@3" as const;
 const cityKey = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").trim().toLowerCase();
 
 export function canonicalLibrarianCity(city: string): string {

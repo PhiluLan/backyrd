@@ -20,15 +20,21 @@ Each occurrence has candidate ID `event:<occurrence UUID>`, separate `eventBindi
 provenance, and `presentation.event` metadata. The legacy field name `spotId`
 remains a transport compatibility detail; an event ID is never written into the
 World ledger or canonical Spot learning. Event evaluation is versioned as
-`decision-vnext-librarian-evaluator@2`; Spot-only evaluation remains @1.
+`decision-vnext-librarian-evaluator@2`; Spot-only evaluation remains @1. Specific-activity evaluation is @3.
 
 The internal event projection shares the existing offer vocabulary. It never
 inherits venue opening hours, atmosphere, accessibility, cuisine or age rules.
 Published category MUSIC proves a music event, not live music or Jazz. Explicit
 Admin `decision_tags` establish genre/format; `family_friendly=true` supports
 family-friendly ranking but never overrides a known minimum age. Other missing
-properties remain unknown. Additional activity subtypes need explicit structured
-support; event descriptions and titles are not treated as proof of those facts.
+properties remain unknown. Specific activities are stored in `events_v1.decision_activities` (up to 32
+human-confirmed labels, 160 characters each). Admin exposes these separately
+from broad categories and genre/format tags. The v6 context carries them as
+`activities`; they become properties of this occurrence's offer. Arbitrary
+activities use exact matching; shared vocabulary maps supported synonyms such
+as Pingpong, Tischtennis and table tennis. Event descriptions and titles are
+not treated as proof. Existing rows stay empty until an Admin confirms their
+activities; this migration does not silently infer or backfill production data.
 
 ## Eligibility and ranking
 
@@ -39,6 +45,14 @@ retained only on its start day or before its start; no arbitrary duration is
 invented. An exact requested visit must fit the known interval; coarse windows
 may overlap it. Unknown end times stay uncertain. Missing time input imposes no
 implicit today/open-now filter; the actual event date remains visible.
+
+A bound, confirmed free entry tariff satisfies a zero budget without inventing
+a currency, party size or per-person scope: zero remains zero in each case. A
+known positive universal entry fee contradicts a free request. Missing prices
+stay unknown, and separately requested cost components (such as equipment)
+are not silently covered. Recurring series occupy one visible card, choosing
+the best supported occurrence and then its nearest matching date. Distinct
+events at one venue remain distinct candidates.
 
 Known minimum ages and entry prices participate in the existing deterministic
 eligibility rules. Unknown ticket stock, accessibility, atmosphere and ancillary
@@ -100,3 +114,16 @@ unknown client authority fields remain rejected. Web/Admin contract suites
 (30/85 cases) and Mobile release validation also pass. The generated database
 evidence records the independently reproducible schema/ACL fingerprints; it is
 not migration-risk approval or permission to deploy.
+
+## Open Court diagnostic (2026-10-18)
+
+The original Spot-only test missed Events. The corrected local replay uses the
+current canonical cohort (390 Basel Spots) and 23 published Open Court
+occurrences, plus the human's explicit confirmation of `Tischtennis spielen`
+applied locally. A real captured Luna interpretation drives the same evaluator
+and response builder. Expected result: one confirmed Open Court card for
+2026-10-26, 16:00–23:00 Europe/Zurich, with no requested-time gate and no unknown
+budget. This diagnostic does not claim the production field has been saved,
+that Event integration is deployed, or that authentication/personalization has
+been retested. Saving the activity requires the new schema and normal Admin
+write path after release.

@@ -11,14 +11,14 @@ import { buildVenuePayload, filterEventSpots, validateEventInput, venueFieldsAft
 const CATEGORIES = ["MUSIC", "NIGHTLIFE", "ART", "THEATRE", "FILM", "FOOD_DRINK", "FAMILY", "SPORT", "ACTIVITY", "LEISURE", "MARKET", "WORKSHOP", "COMMUNITY", "OTHER"];
 type Occurrence = { id: string; start_at: string; end_at: string | null; status: string; is_recurrence_exception: boolean; ticket_status: "UNKNOWN" | "AVAILABLE" | "SOLD_OUT" };
 type FormState = {
-  decisionTags: string[]; title: string; description: string; startDate: string; startTime: string; endTime: string; venueName: string;
+  activities: string; decisionTags: string[]; title: string; description: string; startDate: string; startTime: string; endTime: string; venueName: string;
   address: string; categories: string[]; minimumAge: string; family: string; price: string; free: boolean;
   organizer: string; externalUrl: string; status: string; frequency: string; interval: string; until: string;
   count: string; recurring: boolean; recurrenceSummary: string; spotId: string; imagePath: string;
 };
 
 const blank: FormState = {
-  decisionTags: [], title: "", description: "", startDate: "2026-09-14", startTime: "16:00", endTime: "23:00", venueName: "",
+  activities: "", decisionTags: [], title: "", description: "", startDate: "2026-09-14", startTime: "16:00", endTime: "23:00", venueName: "",
   address: "", categories: ["OTHER"], minimumAge: "", family: "unknown", price: "", free: false, organizer: "",
   externalUrl: "", status: "DRAFT", frequency: "ONCE", interval: "1", until: "", count: "", recurring: false,
   recurrenceSummary: "", spotId: "", imagePath: "",
@@ -86,7 +86,7 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
       const venueName = venue?.name ?? "";
       setVenueQuery(venueName);
       setForm({
-        ...blank, decisionTags: event.decision_tags ?? [], title: event.title, description: event.short_description ?? "", venueName,
+        ...blank, activities: (event.decision_activities ?? []).join("\n"), decisionTags: event.decision_tags ?? [], title: event.title, description: event.short_description ?? "", venueName,
         address: event.manual_address ?? venue?.address_line ?? "", categories: event.categories ?? [event.category],
         minimumAge: event.minimum_age?.toString() ?? "", family: event.family_friendly === null ? "unknown" : event.family_friendly ? "yes" : "no",
         price: event.price_min?.toString() ?? "", free: event.is_free === true, organizer: event.organizer ?? "",
@@ -170,7 +170,7 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
       };
       const payload = {
         id, primary_source_id: "manual_admin", primary_source_event_id: id, title: form.title.trim(),
-        short_description: form.description.trim() || null, decision_tags: form.decisionTags, category: form.categories[0], categories: form.categories, status,
+        short_description: form.description.trim() || null, decision_activities: form.activities.split(/\r?\n/).map(a => a.trim()).filter(Boolean), decision_tags: form.decisionTags, category: form.categories[0], categories: form.categories, status,
         is_free: form.free, price_min: form.free ? 0 : form.price ? Number(form.price) : null,
         price_currency: form.free || form.price ? "CHF" : null, source_url: form.externalUrl || "https://backyrd.com/events",
         external_url: form.externalUrl || null, image_storage_path: imagePath || null,
@@ -245,6 +245,8 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
         </div>}
       </div>
       <label>Adresse<input value={form.address} onChange={(event) => set("address", event.target.value)} placeholder="Adresse bleibt frei editierbar" /></label>
+      <label>Was können Gäste hier machen?<textarea value={form.activities} onChange={e => set("activities", e.target.value)} placeholder={"Tischtennis spielen\nTanzen\nKeramik bemalen"} aria-describedby="event-activities-help" /></label>
+      <p id="event-activities-help">Eine Aktivität pro Zeile. Trage nur ein, was bei diesem Event tatsächlich angeboten wird. Diese Angaben helfen, die Veranstaltung bei passenden Suchanfragen zu finden.</p>
       <fieldset><legend>Format und Musikrichtung</legend><p>Wähle nur, was für diese Veranstaltung bestätigt ist. Die Kategorie „Musik“ allein bedeutet beispielsweise noch nicht Livemusik.</p><div className="eventChecks">{Object.entries(EVENT_DECISION_TAGS).map(([tag,label])=><label key={tag}><input type="checkbox" checked={form.decisionTags.includes(tag)} onChange={e=>set("decisionTags",e.target.checked ? [...form.decisionTags,tag] : form.decisionTags.filter(t=>t!==tag))}/>{label}</label>)}</div></fieldset>
       <fieldset><legend>Kategorien</legend><div className="eventChecks">{CATEGORIES.map((category) => <label key={category}><input type="checkbox" checked={form.categories.includes(category)} onChange={(event) => set("categories", event.target.checked ? [...form.categories.filter((entry) => entry !== "OTHER"), category] : form.categories.filter((entry) => entry !== category))} />{category}</label>)}</div></fieldset>
       <div className="eventGrid"><label>Mindestalter<input type="number" min="0" max="99" value={form.minimumAge} onChange={(event) => set("minimumAge", event.target.value)} /></label><label>Familiengeeignet<select value={form.family} onChange={(event) => set("family", event.target.value)}><option value="unknown">Unbekannt</option><option value="yes">Ja</option><option value="no">Nein</option></select></label><label><input type="checkbox" checked={form.free} onChange={(event) => set("free", event.target.checked)} /> Gratis</label><label>Preis CHF<input type="number" min="0" disabled={form.free} value={form.price} onChange={(event) => set("price", event.target.value)} /></label></div>

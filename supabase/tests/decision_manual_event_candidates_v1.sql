@@ -1,3 +1,5 @@
+-- backyrd:authorization-positive
+-- backyrd:authorization-negative
 \set ON_ERROR_STOP on
 -- backyrd:authorization-positive
 -- backyrd:authorization-negative
@@ -20,6 +22,11 @@ insert into public.event_occurrences_v1(id,event_id,venue_id,start_at,end_at,sta
 select ('de000000-0000-4000-8000-'||lpad((10+n)::text,12,'0'))::uuid,'de000000-0000-4000-8000-000000000003','de000000-0000-4000-8000-000000000002',now()+interval '1 day'*n,now()+interval '1 day'*n+interval '2 hours',case when n=2 then 'CANCELLED' else 'SCHEDULED' end,'https://example.test/event','decision-event-'||n,now(),case when n=3 then null else now() end,case when n=4 then 'SOLD_OUT' else 'UNKNOWN' end
 from generate_series(1,4)n;
 select pg_temp.expect_error($q$update public.events_v1 set image_storage_path='fixture/image.jpg' where id='de000000-0000-4000-8000-000000000003'$q$,'23514');
+update public.events_v1 set decision_activities=array['Tischtennis spielen','Keramik bemalen'] where id='de000000-0000-4000-8000-000000000003';
+select pg_temp.expect_error($q$update public.events_v1 set decision_activities=array[' '] where id='de000000-0000-4000-8000-000000000003'$q$,'23514');
+select pg_temp.expect_error($q$update public.events_v1 set decision_activities=array[null] where id='de000000-0000-4000-8000-000000000003'$q$,'23514');
+select pg_temp.expect_error($q$update public.events_v1 set decision_activities=array_fill('x'::text,array[33]) where id='de000000-0000-4000-8000-000000000003'$q$,'23514');
+select pg_temp.expect_error($q$update public.events_v1 set decision_activities=array[repeat('x',161)] where id='de000000-0000-4000-8000-000000000003'$q$,'23514');
 select pg_temp.expect_error($q$update public.events_v1 set decision_tags=array['INVENTED'] where id='de000000-0000-4000-8000-000000000003'$q$,'23514');
 select pg_temp.expect_error($q$update public.event_occurrences_v1 set ticket_status='GUARANTEED' where event_id='de000000-0000-4000-8000-000000000003'$q$,'23514');
 create function pg_temp.context() returns jsonb language sql as $$select public.backyrd_decision_vnext_product_context_v6('de000000-0000-4000-8000-000000000001',repeat('a',64),'Basel',null,repeat('a',64),repeat('b',64),repeat('c',64),1)$$;
@@ -36,13 +43,14 @@ select pg_temp.assert(pg_temp.context()->>'status'='NO_CONSENT','no consent prod
 select pg_temp.assert(jsonb_array_length(pg_temp.context()->'worldSnapshots')=0,'events do not require an existing Spot');
 select pg_temp.assert((pg_temp.context()->'eventOccurrences'->0)->>'imageStoragePath' is null,'unverified image rights never leak');
 select pg_temp.assert((pg_temp.context()->'eventOccurrences'->0)->'tags'='["JAZZ"]','explicit genres preserved');
+select pg_temp.assert((pg_temp.context()->'eventOccurrences'->0)->'activities'='["Tischtennis spielen","Keramik bemalen"]','specific activities survive authoritative retrieval');
 select pg_temp.assert((pg_temp.context()->'eventOccurrences'->0)->>'matchedSpotId' is null,'free venue does not fabricate Spot identity');
 select pg_temp.assert(exists(select 1 from jsonb_array_elements(pg_temp.context()->'eventOccurrences') e where e->>'ticketStatus'='SOLD_OUT'),'ticket status stays per occurrence');
 reset role;
 select pg_temp.expect_error($q$select public.backyrd_decision_vnext_product_context_v6(null,repeat('a',64),'Basel',null,repeat('a',64),repeat('b',64),repeat('c',64),1)$q$,'42501');
 select set_config('request.jwt.claims','{"role":"authenticated","sub":"de000000-0000-4000-8000-000000000001"}',true);
 set local role authenticated;
-with changed as (update public.events_v1 set decision_tags=array['LIVE_MUSIC'] where id='de000000-0000-4000-8000-000000000003' returning id)
+with changed as (update public.events_v1 set decision_tags=array['LIVE_MUSIC'],decision_activities=array['Unapproved activity'] where id='de000000-0000-4000-8000-000000000003' returning id)
 select pg_temp.assert((select count(*)=0 from changed),'ordinary users cannot edit event features');
 reset role;
 rollback;

@@ -163,6 +163,10 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
       contextualReject: candidate.rejectionClass === "SITUATIONAL_REJECT", comparativeReason: null,
     };
   }).sort(compareCandidates);
+  return rankCandidateRows(rows, situationalIds);
+}
+
+function rankCandidateRows(rows: readonly RankedCandidate[], situationalIds: ReadonlySet<string> | null): readonly RankedCandidate[] {
   let position = 0;
   const rankedRows = rows.filter((candidate) => rankable(candidate, situationalIds));
   return deepFreeze(rows.map((candidate) => {
@@ -233,19 +237,31 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const situation = evaluation.interpretation.group.companionType;
   const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
     && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
-  const situationalIds = ["decision-vnext-librarian-evaluator@1", "decision-vnext-librarian-evaluator@2"].includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
+  const situationalIds = ["decision-vnext-librarian-evaluator@1", "decision-vnext-librarian-evaluator@3"].includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
     situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );
   const ranked = candidateRows(evaluation, projection, input.presentations, situationalIds);
   const matchingEventVenues = new Set(ranked.filter(c=>c.presentation.event && rankable(c,situationalIds) && c.coreIntentCoverage === "CONFIRMED").flatMap(c=>c.presentation.event?.venueSpotId ? [c.presentation.event.venueSpotId] : []));
-  const available = ranked.filter((candidate) => rankable(candidate, situationalIds) && !matchingEventVenues.has(candidate.spotId));
+  const eligible = ranked.filter((candidate) => rankable(candidate, situationalIds) && !matchingEventVenues.has(candidate.spotId));
+  // A recurring series occupies one card. Prefer the best supported matching
+  // occurrence, then its nearest date, rather than a neutral UUID tie-breaker.
+  const series = new Map<string, RankedCandidate>();
+  for (const candidate of eligible) {
+    const event = candidate.presentation.event;
+    if (!event) continue;
+    const current = series.get(event.eventId);
+    const evidenceOrder = current ? rankingChecks(candidate, current).slice(0, -1).find(([difference]) => difference !== 0)?.[0] ?? 0 : 0;
+    if (!current || evidenceOrder < 0 || evidenceOrder === 0 && Date.parse(event.startAt) < Date.parse(current.presentation.event!.startAt)) series.set(event.eventId, candidate);
+  }
+  const available = rankCandidateRows(eligible.filter(candidate => !candidate.presentation.event || series.get(candidate.presentation.event.eventId)?.spotId === candidate.spotId), situationalIds);
+  const occurrencesCollapsed = available.length < eligible.length;
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
   for (let windowSize = maxWindowSize; windowSize >= (maxWindowSize === 0 ? 0 : 1); windowSize -= 1) {
     const selected = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds)).slice(0, PRODUCT_PRESENTATION_WINDOW)
-      : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize && !matchingEventVenues.size ? ranked
+      : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize && !matchingEventVenues.size && !occurrencesCollapsed ? ranked
         : available.slice(firstUnseenIndex, firstUnseenIndex + windowSize);
     const candidates = selected.map(materializeCandidate);
     const primary = firstUnseenIndex < 0 ? null : available[firstUnseenIndex];

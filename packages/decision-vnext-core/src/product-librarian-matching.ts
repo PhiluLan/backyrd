@@ -379,6 +379,27 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
     const scopedOfferIds = physicalSubjects.length ? sorted(Object.entries(state.assignments).filter(([key]) => physicalSubjects.some(id => key.startsWith(`owner:${id}:offer:`))).map(([, id]) => id)).filter(id => state.chargeOfferIds.includes(id)) : state.chargeOfferIds;
     if (!scopedOfferIds.length)
         return result("UNKNOWN", "PRICE_SCOPE_UNBOUND");
+    // Zero is invariant across currency and headcount. Only a bound, explicit
+    // free event tariff proves this; a missing price or an unrelated free offer
+    // cannot satisfy a free activity request. Component-specific budgets retain
+    // their existing coverage check below.
+    if (eventEntry && money.amount === 0 && ["EQ", "LTE"].includes(money.operator)
+        && !facts.some(f => ["budget.coverage", "budget.cost_treatment"].includes(f.key))) {
+        const freePrices = scopedOfferIds.map(id => profile.offers.find(o => o.id === id)?.prices.filter(p =>
+            p.min === 0 && p.max === 0 && p.basis === "PER_PERSON" && p.minimumAge === null && p.maximumAge === null
+            && p.mandatoryFeesIncluded === true && librarianConcept(p.includes) === "entry"
+            && librarianConditions(p.conditions, visit) === "MET"));
+        if (freePrices.every(prices => prices?.length === 1))
+            return result(fact.modality === "EXCLUDED" ? "FAILED" : "MET", "SCOPED_FREE_EVENT_CONFIRMED", freePrices.flatMap(prices => prices!.map(p => contentHash(p))));
+        const paid = scopedOfferIds.flatMap(id => {
+            const prices = profile.offers.find(o => o.id === id)?.prices.filter(p => p.basis === "PER_PERSON"
+                && p.minimumAge === null && p.maximumAge === null && librarianConcept(p.includes) === "entry"
+                && librarianConditions(p.conditions, visit) === "MET") ?? [];
+            return prices.length && prices.every(p => p.min > 0) ? prices : [];
+        });
+        if (paid.length)
+            return result(fact.modality === "EXCLUDED" ? "MET" : "FAILED", "SCOPED_EVENT_ENTRY_NOT_FREE", paid.map(p => contentHash(p)));
+    }
     const scopes = facts.filter(f => f.key === "budget.scope" && f.value.kind === "BUDGET_SCOPE" && (!f.subjectIds.length || f.subjectIds.some(id => fact.subjectIds.includes(id)))), scope = scopes.length === 1 && scopes[0]!.value.kind === "BUDGET_SCOPE" ? scopes[0]!.value.scope : null;
     if (!scope || !["PER_PERSON", "GROUP_TOTAL"].includes(scope) || money.currency === "UNSPECIFIED")
         return result("UNKNOWN", "BUDGET_BASIS_OR_CURRENCY_UNKNOWN");

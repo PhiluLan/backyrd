@@ -17,9 +17,11 @@ export function venueFieldsAfterTyping(value: string): { venueName: string; spot
   return { venueName: value, spotId: "" };
 }
 
-export function validateEventInput(input: { title: string; description: string; categories: string[]; minimumAge: string; price: string; free: boolean; startDate: string; startTime: string; endTime: string }): string | null {
+export function validateEventInput(input: { activities?: string; title: string; description: string; categories: string[]; minimumAge: string; price: string; free: boolean; startDate: string; startTime: string; endTime: string }): string | null {
   const title = input.title.trim();
   if (!title || title.length > 300) return "Bitte gib einen Eventtitel mit höchstens 300 Zeichen ein.";
+  const activities = (input.activities ?? "").split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+  if (activities.length > 32 || activities.some(value => value.length > 160)) return "Bitte trage höchstens 32 Aktivitäten mit jeweils maximal 160 Zeichen ein.";
   if (input.description.length > 600) return "Die Beschreibung darf höchstens 600 Zeichen lang sein.";
   if (input.categories.length < 1 || input.categories.length > 12) return "Bitte wähle mindestens eine Kategorie aus.";
   if (input.minimumAge) {

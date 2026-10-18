@@ -22,6 +22,7 @@ export const DecisionEventOccurrenceSchema = schema.object({
   isFree:schema.union([schema.boolean(),schema.literal(null)] as const),priceMin:nullableNumber,currency:schema.union([schema.string({pattern:/^[A-Z]{3}$/}),schema.literal(null)] as const),
   minimumAge:schema.union([schema.number({min:0,max:130,integer:true}),schema.literal(null)] as const),familyFriendly:schema.union([schema.boolean(),schema.literal(null)] as const),
   sourceUrl:nullableUrl,ticketUrl:nullableUrl,imageUrl:nullableUrl,
+  activities:schema.optional(schema.array(schema.string({min:1,max:160,pattern:/\S/u}),{max:32})),
   tags:schema.optional(schema.array(schema.enum(["LIVE_MUSIC","DJ","JAZZ","CLASSICAL","ROCK","POP","ELECTRONIC","TECHNO","PUB_QUIZ","KARAOKE"] as const),{max:10})),
   ticketStatus:schema.optional(schema.enum(["UNKNOWN","AVAILABLE","SOLD_OUT"] as const)),
   imageStoragePath:schema.optional(nullableText),
@@ -81,6 +82,7 @@ export function projectDecisionEventOccurrences(raw:unknown, city:string, now:st
     const snapshotHash=contentHash({source:"PUBLISHED_MANUAL_EVENT_OCCURRENCE@1",event});
     const conditions=emptyExperienceConditions();
     const properties:ExperienceProperty[]=event.categories.flatMap(category=>activities[category]?[{key:"experience.activity",value:activities[category]!,label:null,state:"KNOWN" as const,conditions}]:[]);
+    for (const activity of event.activities ?? []) properties.push({key:"experience.activity",value:activity,label:null,state:"KNOWN",conditions});
     if(event.minimumAge!==null)properties.push({key:"participation.minimum_age",value:event.minimumAge,label:null,state:"KNOWN",conditions});
     const amount=event.isFree===true?0:event.priceMin;
     const profile={...emptyExperienceProfile("TEMPORARY_PLACES"),reviewed:true,offers:[{id:event.occurrenceId,kind:categoryOffer[event.categories[0]!]??"EVENT",name:event.title.slice(0,160),areaIds:[],properties,
