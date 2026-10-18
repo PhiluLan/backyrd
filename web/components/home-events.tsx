@@ -46,32 +46,38 @@ export function HomeEvents() {
       ) : rows.length === 0 ? (
         <p className={styles.state}>Aktuell sind noch keine Events bestätigt.</p>
       ) : (
-        <div
-          aria-label="Kommende Events"
-          className={`${styles.carousel} ${rows.length === 1 ? styles.single : ""}`}
-        >
-          {rows.map((event) => (
-            <Link
-              className={styles.card}
-              key={event.occurrence_id}
-              href={`/events/${event.event_id}?occurrence=${event.occurrence_id}`}
-            >
-              <small className={styles.date}>
-                {new Date(event.start_at).toLocaleDateString("de-CH", {
-                  timeZone: "Europe/Zurich",
-                  weekday: "short",
-                  day: "2-digit",
-                  month: "short",
-                })}
-              </small>
-              <h3>{event.title}</h3>
-              <span className={styles.venue}>
-                {event.venue_name ?? "Venue noch nicht bestätigt"}
-              </span>
-            </Link>
-          ))}
-        </div>
+        <EventCards rows={rows}/>
       )}
     </section>
+  );
+}
+
+export function EventCards({ rows }: { rows: EventRow[] }) {
+  return (
+  <div
+    aria-label="Kommende Events"
+    className={`${styles.carousel} ${rows.length === 1 ? styles.single : ""}`}
+  >
+    {rows.map((event) => (
+      <Link
+        className={styles.card}
+        key={event.occurrence_id}
+        href={`/events/${event.event_id}?occurrence=${event.occurrence_id}`}
+      >
+        <small className={styles.date}>
+          {new Date(event.start_at).toLocaleDateString("de-CH", {
+            timeZone: "Europe/Zurich",
+            weekday: "short",
+            day: "2-digit",
+            month: "short",
+          })}
+        </small>
+        <h3>{event.title}</h3>
+        <span className={styles.venue}>
+          {event.venue_name ?? "Venue noch nicht bestätigt"}
+        </span>
+      </Link>
+    ))}
+  </div>
   );
 }
