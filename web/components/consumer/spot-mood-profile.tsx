@@ -13,9 +13,11 @@ export function SpotMoodProfile({ moods }: { moods: PublicSpotDetailDTO["top_moo
   const ranked = rankMoodSupport(moods);
   if (!ranked.length) return <p className={styles.hint}>Noch keine Moods geteilt</p>;
   return <div className={styles.summary}>
-    <p className={styles.summaryText}>{ranked.slice(0, 10).map((mood, index) => <span key={mood.concept_key}>{index ? " · " : ""}{mood.label}{publicMoodCount(mood) !== null ? ` (${publicMoodCount(mood)})` : ""}</span>)}</p>
+    <h2 className={styles.summaryTitle}>So fühlt’s sich hier an.</h2>
+    <div className={styles.topMoods}>{ranked.slice(0, 3).map(mood => <span key={mood.concept_key} className={styles.topChip}>{mood.label}{publicMoodCount(mood) !== null ? <span className={styles.topChipCount}>{publicMoodCount(mood)}</span> : null}</span>)}</div>
+    <div className={styles.otherMoods}>{ranked.slice(3, 10).map(mood => <span key={mood.concept_key} className={styles.otherChip}>{mood.label}{publicMoodCount(mood) !== null ? <span>{publicMoodCount(mood)}</span> : null}</span>)}</div>
     {ranked[0].evidence_state === "EARLY" ? <p className={styles.hint}>Erste Eindrücke</p> : null}
-    <button type="button" className={styles.textButton} onClick={() => setOpen(true)}>Mehr anzeigen</button>
+    <button type="button" className={styles.textButton} onClick={() => setOpen(true)}>Alle Moods entdecken →</button>
     {open ? createPortal(<Dialog open={open} title="Alle Moods" onClose={close}>
       <p className={styles.hint}>Die Zahlen zeigen, wie viele Gäste den Ort so beschrieben haben.</p>
       <div className={styles.moodDetails}>{ranked.map(mood => <Link key={mood.concept_key} className={styles.moodLink} href={`/places?mood=${encodeURIComponent(mood.label)}`}>

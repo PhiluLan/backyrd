@@ -35,9 +35,17 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
   return (
     <>
       {ranked.length ? <View style={styles.summary}>
-        <AppText role="meta" style={[styles.summaryText, light && styles.textLight]}>{ranked.slice(0, 10).map((mood, index) => <AppText key={mood.concept_key} role="meta" style={light && styles.textLight}>{index ? " · " : ""}{mood.label}{publicMoodCount(mood) !== null ? ` (${publicMoodCount(mood)})` : ""}</AppText>)}</AppText>
+        <AppText role="sectionTitle" style={[styles.summaryTitle, light && styles.textLight]}>So fühlt’s sich hier an.</AppText>
+        <View style={styles.topMoods}>{ranked.slice(0, 3).map(mood => <View key={mood.concept_key} style={styles.topChip}>
+          <AppText role="label" tone="pink" style={styles.topChipLabel}>{mood.label}</AppText>
+          {publicMoodCount(mood) !== null ? <AppText role="caption" style={[styles.topChipCount, light && styles.textLight]}>{publicMoodCount(mood)}</AppText> : null}
+        </View>)}</View>
+        <View style={styles.otherMoods}>{ranked.slice(3, 10).map(mood => <View key={mood.concept_key} style={[styles.otherChip, light && { borderColor: theme.color.borderLight }]}>
+          <AppText role="caption" tone="secondary">{mood.label}</AppText>
+          {publicMoodCount(mood) !== null ? <AppText role="caption" tone="secondary">{publicMoodCount(mood)}</AppText> : null}
+        </View>)}</View>
         {ranked[0]?.evidence_state === "EARLY" ? <AppText role="caption" tone="secondary">Erste Eindrücke</AppText> : null}
-        <Pressable accessibilityRole="button" onPress={() => setSelected(ranked[0])} style={styles.allMoods}><AppText role="label" tone="pink">Mehr anzeigen</AppText></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => setSelected(ranked[0])} style={styles.allMoods}><AppText role="label" tone="pink">Alle Moods entdecken →</AppText></Pressable>
       </View> : <AppText role="meta" tone="secondary">Noch keine Moods geteilt</AppText>}
       <Modal animationType="slide" onRequestClose={() => setSelected(null)} transparent visible={Boolean(current)}>
         <View style={styles.backdrop}>
@@ -67,8 +75,14 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
 }
 
 const styles = StyleSheet.create({
-  summary: { gap: 2 },
-  summaryText: { lineHeight: 23 },
+  summary: { gap: 12 },
+  summaryTitle: { fontFamily: theme.type.display, fontSize: 24, lineHeight: 30, marginBottom: 6 },
+  topMoods: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  topChip: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 11, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,79,145,0.22)", backgroundColor: "rgba(255,79,145,0.10)" },
+  topChipLabel: { fontSize: 14, lineHeight: 21 },
+  topChipCount: { borderLeftWidth: 1, borderLeftColor: "rgba(255,79,145,0.25)", paddingLeft: 7 },
+  otherMoods: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  otherChip: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: theme.color.border },
   supportRow: { minHeight: 48, justifyContent: "center", gap: 8, paddingVertical: 8 },
   supportLabel: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" },
   allMoods: { minHeight: 48, justifyContent: "center", alignSelf: "flex-start" },

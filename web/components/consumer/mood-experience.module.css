@@ -24,4 +24,10 @@
 .removeMood:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
 
 .summary { max-width: 680px; }
-.summaryText { margin: 0; font-size: 14px; line-height: 1.7; color: var(--muted); }
+.summaryTitle { font-family: var(--font-dm-serif), Georgia, serif; font-size: 24px; font-weight: 400; line-height: 1.25; margin: 0 0 20px; letter-spacing: -.35px; }
+.topMoods { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.topChip { display: inline-flex; align-items: baseline; gap: 8px; padding: 10px 11px; border-radius: 16px; background: rgba(255,79,145,.10); border: 1px solid rgba(255,79,145,.22); color: var(--pink); font-size: 14px; font-weight: 600; }
+.topChipCount { font-size: 12px; font-weight: 400; color: var(--foreground); border-left: 1px solid rgba(255,79,145,.25); padding-left: 7px; }
+.otherMoods { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 9px; }
+.otherChip { display: inline-flex; align-items: baseline; gap: 9px; padding: 8px 11px; border: 1px solid var(--border); border-radius: 12px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.otherChip span { font-size: 11px; }
