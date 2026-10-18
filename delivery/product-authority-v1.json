@@ -56,6 +56,12 @@
       "sha256": "52aa079748137e3edefa0dd6cac3f840ca75fa2d3f2272a5704b069fca5eb639",
       "scope": "EXPIRED_ACTOR_SCOPED_DISCOVERY_PREPARATION_COUNTERS_ONLY",
       "source": "Founder explicit Freigegeben approval in release conversation, 2026-10-14; current actor counters older than two days only"
+    },
+    {
+      "path": "supabase/migrations/20261018015918_spot_event_authoring_v1.sql",
+      "sha256": "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b",
+      "scope": "GENERATED_FUTURE_EVENT_OCCURRENCES_OUTSIDE_SERIES_ONLY",
+      "source": "Founder explicit Freigegeben approval, 2026-10-18, for PR validation only; no production deployment or recovery-risk acceptance authorized."
     }
   ],
   "additiveProductMigrationScope": {
@@ -74,7 +80,7 @@
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved both exact Event migrations and the remaining untested database recovery risk in this release conversation on 2026-10-18: Ja, beide Event-Migrationen mit diesem Risiko ver\u00f6ffentlichen. Previous approvals remain immutable in Git.",
+    "source": "Founder explicitly approved both exact Event migrations and the remaining untested database recovery risk in this release conversation on 2026-10-18: Ja, beide Event-Migrationen mit diesem Risiko veröffentlichen. Previous approvals remain immutable in Git.",
     "backupEvidence": {
       "runId": 39011664171,
       "result": "SUCCESS",
