@@ -1,0 +1,19 @@
+.selection { border: 0; padding: 0; margin: 8px 0; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.selection legend { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+.intro { display: flex; align-items: start; gap: 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.intro p { margin: 0; flex: 1; }
+.intro span { flex-shrink: 0; color: var(--pink-soft); font-weight: 700; }
+.chips { display: flex; flex-wrap: wrap; gap: 9px; }
+.chip { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 46px; border-radius: 999px; padding: 10px 17px; border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--muted); cursor: pointer; font: inherit; font-size: 14px; text-decoration: none; }
+.chip:hover { border-color: var(--pink); color: var(--foreground); }
+.chip:focus-visible, .textButton:focus-visible { outline: 2px solid var(--pink); outline-offset: 4px; }
+.active { background: rgba(255,79,145,.13); border-color: var(--pink); color: var(--foreground); }
+.textButton { align-self: start; color: var(--pink-soft); background: transparent; border: 0; padding: 8px 0; min-height: 44px; cursor: pointer; font: inherit; }
+.hint { font-size: 13px; line-height: 1.65; color: var(--muted); margin: 0; }
+.notice { font-size: 14px; color: var(--pink-soft); margin: 0; }
+.portrait { border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); padding: 28px 0; margin-bottom: 28px; }
+.portrait h2 { margin: 0 0 10px; font-size: 26px; }
+.portrait .chips { margin: 18px 0; }
+.evidence { margin-top: 14px; padding: 14px 0; border-top: 1px solid var(--border); }
+.evidence summary { cursor: pointer; min-height: 44px; padding: 12px 0; color: var(--muted); }
+.evidence p { font-size: 14px; color: var(--muted); line-height: 1.65; }

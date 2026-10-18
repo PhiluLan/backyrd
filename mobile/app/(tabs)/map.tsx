@@ -18,7 +18,7 @@ import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
 import { cityCenterFor, normalizeLocationCity, resolveLocationContext } from "../../lib/locationContext";
 import { hasActiveConsent } from "../../lib/consent";
-import { MOOD_SUGGESTIONS } from "../../lib/moods";
+import { loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { Button, IconButton } from "../../components/foundation/Button";
@@ -103,19 +103,10 @@ export default function MapScreen() {
   // Mapping: spotId → [mood_id1, mood_id2, ...]
   const [spotMoodIds, setSpotMoodIds] = useState<Record<string, string[]>>({});
 
-  // Alle Mood-IDs, die in Daten vorkommen → für Fallback-Logik
-  const allMoodIdsInData = useMemo(() => {
-    const set = new Set<string>();
-    Object.values(spotMoodIds).forEach((arr) =>
-      arr.forEach((id) => {
-        if (typeof id === "string") set.add(id);
-      })
-    );
-    return set;
-  }, [spotMoodIds]);
-
-  // Dynamic Mood-Chips (Top Moods über gesamte App)
-  const [topMoodChips, setTopMoodChips] = useState<string[]>([]);
+  const { options: moodOptions, state: moodCatalogState, retry: retryMoodCatalog } = useMoodCatalog();
+  const [moodProfilesFailed, setMoodProfilesFailed] = useState(false);
+  const [moodProfilesLoading, setMoodProfilesLoading] = useState(true);
+  const [moodRevision, setMoodRevision] = useState(0);
 
   const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
   const [profileCity, setProfileCity] = useState<string | null>(null);
@@ -131,6 +122,7 @@ export default function MapScreen() {
   // Auswahl: Mood über Chip
   const [selectedMood, setSelectedMood] = useState<string | null>(params.mood ?? null);
   const [selectedMoodId, setSelectedMoodId] = useState<string | null>(null);
+  const [moodResolverFailed, setMoodResolverFailed] = useState(false);
 
   // Mood, der aus der freien Suche kommt
   const [searchMoodId, setSearchMoodId] = useState<string | null>(null);
@@ -221,125 +213,51 @@ export default function MapScreen() {
         .select("id,name,icon,color")
         .limit(200);
 
-      // Canonical Community Mood profile.
-      const { data: moodRows } = await supabase
-        .from("backyrd_spot_mood_profile_public_v1")
-        .select("spot_id,concept_key,label,concept_contributors,rank")
-        .lte("rank", 5);
-
-      const moodMap: Record<string, string[]> = {};
-      const moodIdMap: Record<string, string[]> = {};
-
-      (moodRows || []).forEach((r: any) => {
-        const token = r.label;
-        if (!token) return;
-
-        if (!moodMap[r.spot_id]) moodMap[r.spot_id] = [];
-        if (!moodIdMap[r.spot_id]) moodIdMap[r.spot_id] = [];
-
-        moodMap[r.spot_id].push(token);
-        moodIdMap[r.spot_id].push(r.concept_key);
-      });
-
-      setSpotMoods(moodMap);
-      setSpotMoodIds(moodIdMap);
       setDbCategories(catRows || []);
     })();
   }, [refresh]);
 
-  /* =============================================================
-     DYNAMIC TOP MOOD CHIPS
-  ============================================================= */
-  useEffect(() => {
-    (async () => {
-      try {
-        // Wir holen viele Mood-Aggregate, aggregieren clientseitig
-        const { data, error } = await supabase
-          .from("backyrd_spot_mood_profile_public_v1")
-          .select("concept_key,label,concept_contributors")
-          .limit(2000);
-
-        if (error || !data) {
-          // Fallback auf statische Suggestions
-          setTopMoodChips(MOOD_SUGGESTIONS);
-          return;
-        }
-
-        const freq: Record<string, number> = {};
-        (data || []).forEach((row: any) => {
-          const token = row.label;
-          if (!token) return;
-          const key = normalizeText(token);
-          if (!key || key.length < 2) return;
-          freq[key] = (freq[key] || 0) + (row.concept_contributors || 1);
-        });
-
-        const sorted = Object.entries(freq)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 24)
-          .map(([key]) => key);
-
-        const prettified = sorted.map(
-          (k) => k.charAt(0).toUpperCase() + k.slice(1)
-        );
-
-        if (prettified.length > 0) {
-          setTopMoodChips(prettified);
-        } else {
-          setTopMoodChips(MOOD_SUGGESTIONS);
-        }
-      } catch {
-        setTopMoodChips(MOOD_SUGGESTIONS);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setMoodProfilesLoading(true);
+    setMoodProfilesFailed(false);
+    void loadSpotBrowseMoods(globalSpots.map(spot => spot.id)).then(rows => {
+      if (!active) return;
+      const labels: Record<string, string[]> = {}, concepts: Record<string, string[]> = {};
+      for (const row of rows) {
+        (labels[row.spot_id] ??= []).push(row.label);
+        (concepts[row.spot_id] ??= []).push(row.concept_key);
       }
-    })();
-  }, []);
-
-  /* =============================================================
-     MOOD ENGINE HOOKS
-  ============================================================= */
-
-  // Chip → canonical Mood concept through the shared resolver.
-  async function resolveSelectedMoodId(text: string | null) {
-    if (!text) {
-      setSelectedMoodId(null);
-      return;
-    }
-    try {
-      const { data, error } = await supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: text });
-      if (!error && data?.status === "RESOLVED") {
-        setSelectedMoodId(data.conceptKey);
-      } else {
-        setSelectedMoodId(null);
-      }
-    } catch {
-      setSelectedMoodId(null);
-    }
-  }
+      setSpotMoods(labels); setSpotMoodIds(concepts);
+    }).catch(() => { if (active) setMoodProfilesFailed(true); })
+      .finally(() => { if (active) setMoodProfilesLoading(false); });
+    return () => { active = false; };
+  }, [globalSpots, moodRevision]));
 
   useEffect(() => {
-    resolveSelectedMoodId(selectedMood);
-  }, [selectedMood]);
+    let active = true;
+    setSelectedMoodId(null);
+    setMoodResolverFailed(false);
+    if (!selectedMood) return () => { active = false; };
+    const known = moodOptions.find(option => option.label.toLowerCase() === selectedMood.toLowerCase());
+    if (known) { setSelectedMoodId(known.concept_key); return () => { active = false; }; }
+    void supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: selectedMood }).then(({ data, error }) => {
+      if (!active) return;
+      if (!error && data?.status === "RESOLVED") setSelectedMoodId(data.conceptKey);
+      else if (error) setMoodResolverFailed(true);
+    });
+    return () => { active = false; };
+  }, [selectedMood, moodOptions]);
 
-  // Freitext-Suche → auch Mood Engine probieren
+  // Resolve a complete Mood expression; ordinary place/name search stays independent.
   useEffect(() => {
-    (async () => {
-      const t = debouncedSearch.trim();
-      if (!t || t.length < 2) {
-        setSearchMoodId(null);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: t });
-        if (!error && data?.status === "RESOLVED") {
-          setSearchMoodId(data.conceptKey);
-        } else {
-          setSearchMoodId(null);
-        }
-      } catch {
-        setSearchMoodId(null);
-      }
-    })();
+    let active = true;
+    setSearchMoodId(null);
+    if (debouncedSearch.trim().length < 2) return () => { active = false; };
+    void supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: debouncedSearch.trim() }).then(({ data, error }) => {
+      if (active && !error && data?.status === "RESOLVED") setSearchMoodId(data.conceptKey);
+    });
+    return () => { active = false; };
   }, [debouncedSearch]);
 
   /* =============================================================
@@ -347,6 +265,7 @@ export default function MapScreen() {
   ============================================================= */
 
   const spotMatchesMood = React.useCallback((spot: Spot) => {
+    if ((moodProfilesFailed || moodResolverFailed) && (selectedMood || searchMoodId)) return false;
     const ids = spotMoodIds[spot.id] || [];
 
     // Effektive Mood-IDs aus Chip + Suche
@@ -354,13 +273,9 @@ export default function MapScreen() {
       (v): v is string => typeof v === "string"
     );
 
-    // Nur IDs verwenden, die überhaupt in den Daten vorkommen → Fallback,
-    // damit z.B. "cozy" nicht alles killt, falls kein Spot dieses ID hat.
-    const effectiveMoodIds = combined.filter((mid) => allMoodIdsInData.has(mid));
-
-    if (effectiveMoodIds.length === 0) return true;
-    return effectiveMoodIds.some((mid) => ids.includes(mid));
-  }, [allMoodIdsInData, searchMoodId, selectedMoodId, spotMoodIds]);
+    if (combined.length === 0) return !selectedMood;
+    return combined.every(mid => ids.includes(mid));
+  }, [searchMoodId, selectedMoodId, selectedMood, spotMoodIds, moodProfilesFailed, moodResolverFailed]);
 
   const filteredSpots = useMemo(() => {
     let base = globalSpots;
@@ -374,7 +289,7 @@ export default function MapScreen() {
     return base.filter((s) => {
       if (!spotMatchesMood(s)) return false;
       if (selectedCategory && s.category_id !== selectedCategory) return false;
-      if (debouncedSearch.trim() && !spotMatchesSearch(s, debouncedSearch, spotMoods[s.id] ?? []))
+      if (debouncedSearch.trim() && !searchMoodId && !spotMatchesSearch(s, debouncedSearch, spotMoods[s.id] ?? []))
         return false;
       return true;
     });
@@ -385,6 +300,7 @@ export default function MapScreen() {
     initialSpotIdList,
     spotMatchesMood,
     spotMoods,
+    searchMoodId,
   ]);
 
   useEffect(() => {
@@ -648,6 +564,8 @@ export default function MapScreen() {
           </View>
         </View>
 
+        {moodProfilesFailed || moodResolverFailed ? <View style={{ padding: 12 }}><AppText role="meta">Die Mood-Eindrücke konnten gerade nicht geladen werden.</AppText><Button label="Erneut laden" variant="tertiary" onPress={() => { setMoodRevision(v => v + 1); retryMoodCatalog(); }} /></View> : null}
+        {selectedMood && moodProfilesLoading ? <AppText role="meta" tone="secondary">Mood-Eindrücke werden geladen …</AppText> : null}
         {activeFilters.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilters}>
           {activeFilters.map((filter) => <Chip key={filter.id} label={`${filter.label} ×`} kind="selected" onPress={filter.onRemove} />)}
         </ScrollView>}
@@ -668,17 +586,18 @@ export default function MapScreen() {
               </IconButton>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterSheetContent}>
-              <AppText role="label" tone="lime">MOOD</AppText>
+              <AppText role="cardTitle">Welche Atmosphäre suchst du?</AppText>
+              <AppText role="meta" tone="secondary">Die Moods stammen von Gästen. Ein Filter zeigt Orte mit diesem Eindruck; Orte ohne Mood-Angaben erscheinen dann nicht.</AppText>
+              {moodCatalogState === "error" ? <Button label="Moods erneut laden" variant="tertiary" onPress={retryMoodCatalog} /> : null}
               <View style={styles.filterChipGrid}>
-                {(topMoodChips.length ? topMoodChips : MOOD_SUGGESTIONS).map((m) => {
+                {moodOptions.map(({ label: m }) => {
                   const selected = selectedMood?.toLowerCase() === m.toLowerCase();
                   return <Chip key={m} label={displayMoodLabel(m)} kind="input" selected={selected} onPress={() => {
                     setSelectedMood((current) => current?.toLowerCase() === m.toLowerCase() ? null : m);
-                    setSearch((current) => current?.toLowerCase() === m.toLowerCase() ? "" : m);
                   }} />;
                 })}
               </View>
-              <AppText role="label" tone="lime" style={styles.filterSectionLabel}>KATEGORIE</AppText>
+              <AppText role="label" tone="pink" style={styles.filterSectionLabel}>KATEGORIE</AppText>
               <View style={styles.filterChipGrid}>
                 {dbCategories.map((category) => <Chip key={category.id} label={category.name} kind="input" selected={selectedCategory === category.id} onPress={() => setSelectedCategory((current) => current === category.id ? null : category.id)} />)}
               </View>
@@ -713,8 +632,8 @@ export default function MapScreen() {
           >
             {renderedMarkers}
           </ClusteredMapView>
-          {!filteredSpots.length && <View pointerEvents="box-none" style={styles.emptyOverlay}>
-            <StateView kind="empty" title="Hier ist gerade nichts dabei" message="Passe deine Suche oder Filter an und entdecke weitere Orte." actionLabel="Filter zurücksetzen" onAction={clearFilters} />
+          {!filteredSpots.length && !(selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed)) && <View pointerEvents="box-none" style={styles.emptyOverlay}>
+            <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />
           </View>}
         </View>
       ) : (
@@ -723,7 +642,7 @@ export default function MapScreen() {
           data={filteredSpots}
           keyExtractor={(i) => i.id}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<StateView kind="empty" title="Hier ist gerade nichts dabei" message="Passe deine Suche oder Filter an und entdecke weitere Orte." actionLabel="Filter zurücksetzen" onAction={clearFilters} />}
+          ListEmptyComponent={selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed) ? null : <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />}
           style={styles.list}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
@@ -750,6 +669,7 @@ export default function MapScreen() {
                 <Text style={styles.listCardTitle}>{item.name}</Text>
                 <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
                 <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
+                {spotMoods[item.id]?.length ? <Text style={[styles.listCardAddress, { color: theme.color.pink }]} numberOfLines={1}>{spotMoods[item.id].slice(0, 3).join(" · ")}</Text> : null}
               </View>
             </Pressable>
           )}
