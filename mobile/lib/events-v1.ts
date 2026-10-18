@@ -143,6 +143,7 @@ function normalizeRow(row: Record<string, unknown>): EventDiscoveryDTO {
 
 export async function loadEvents(input: {
   filter: EventTimeFilter;
+  spotId?: string;
   category?: EventDiscoveryDTO["category"] | null;
 }): Promise<EventDiscoveryDTO[]> {
   const range = eventDateRange(input.filter);
@@ -155,6 +156,7 @@ export async function loadEvents(input: {
     )
     .order("start_at", { ascending: true })
     .limit(500);
+  if (input.spotId) query = query.eq("matched_spot_id", input.spotId).in("event_status", ["PUBLISHED", "SCHEDULED"]).eq("occurrence_status", "SCHEDULED");
   if (input.category) query = query.contains("categories", [input.category]);
   const { data, error } = await query;
   if (error) throw new Error(error.message);

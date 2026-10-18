@@ -1,13 +1,14 @@
 // admin-dashboard/app/spots/[id]/edit/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { EVENT_DECISION_TAGS } from "../../../../../packages/shared/src/event-decision.mjs";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Spot } from "@/types/spots";
 import { SpotForm } from "../../SpotForm";
-import { sessionRecoveringAuthoringClient, WorldProductCorrection, preparePublicDiscovery } from "@backyrd/world-knowledge-authoring-ui";
+import { sessionRecoveringAuthoringClient, WorldProductCorrection, preparePublicDiscovery, SpotEvents, type SpotEventRpc } from "@backyrd/world-knowledge-authoring-ui";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
 import "@backyrd/world-knowledge-authoring-ui/styles.css";
 import { authorizedWorldKnowledgePost, authorizedWorldKnowledgeSpotSearch } from "@/lib/worldKnowledgeSession";
@@ -26,13 +27,21 @@ interface OpeningHourRow {
   idx: number;
 }
 
+const subscribeHash = (listener: () => void) => { window.addEventListener("hashchange", listener); return () => window.removeEventListener("hashchange", listener); };
+const readHash = () => window.location.hash;
+const serverHash = () => "";
+
+const eventRpc: SpotEventRpc = async (name, args) => { const { data, error } = await supabase.rpc(name, args); return { data, error }; };
+
 const worldAuthoringClient = sessionRecoveringAuthoringClient(supabase, supabase.auth);
 
 export default function EditSpotPage({ params }: EditSpotPageProps) {
   const router = useRouter();
   const { id: spotId } = React.use(params);
 
-  const [editorView,setEditorView]=useState<"profile"|"media">("profile");
+  const hash = useSyncExternalStore(subscribeHash, readHash, serverHash);
+  const [selectedView,setEditorView]=useState<"profile"|"media"|"events"|null>(null);
+  const editorView = selectedView ?? (hash === "#events" ? "events" : "profile");
   const [spot, setSpot] = useState<Spot | null>(null);
   const [openingHours, setOpeningHours] = useState<OpeningHourRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,6 +166,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
       <nav className="spot-editor-tabs" aria-label="Spot-Bereiche">
         <button type="button" aria-pressed={editorView==="profile"} onClick={()=>setEditorView("profile")}>Profil & Angebote</button>
         <button type="button" aria-pressed={editorView==="media"} onClick={()=>setEditorView("media")}>Bilder & Verwaltung</button>
+        <button type="button" aria-pressed={editorView==="events"} onClick={()=>setEditorView("events")}>Events & Veranstaltungen</button>
         <details className="spot-editor-more"><summary>Weitere Aktionen</summary><div><Link href="/spots/presentation">App-Darstellung verwalten</Link><Link href={`/spots/${spotId}`}>Spot-Übersicht öffnen</Link><Link href={`/spots/${spotId}/owner`}>Owner-Zugang verwalten</Link></div></details>
       </nav>
 
@@ -186,6 +196,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           rebuild={(id, idempotencyKey) => authorizedWorldKnowledgePost({ auth: supabase.auth, body: { action: "product-rebuild", spotId: id, idempotencyKey } })}
         />
       </div>
+      <div id="events" hidden={editorView!=="events"}><SpotEvents key={spotId} spotId={spotId} admin rpc={eventRpc} formatTags={EVENT_DECISION_TAGS}/></div>
       <div id="spot-information" className="spot-editor-anchor" hidden={editorView!=="media"}><SpotForm
         mode="edit"
         spotId={spotId}

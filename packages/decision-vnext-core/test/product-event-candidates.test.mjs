@@ -199,3 +199,9 @@ test('a positive known entry fee contradicts gratis without needing currency or 
  assert.equal(r.ranked.length,0);assert.equal(r.excluded.length,1);
  assert.equal(r.excluded[0].facts.find(f=>f.factId==='free').reason,'SCOPED_EVENT_ENTRY_NOT_FREE');
 });
+
+test('admin-approved Owner events preserve source and match explicit activity',()=>{
+ const result=run([fact('table','experience.activity','Ping Pong spielen')],{source:'manual_owner',categories:['SPORT'],activities:['Tischtennis spielen'],isFree:true,priceMin:0,currency:'CHF'}).result;
+ assert.equal(result.ranked.length,1);
+ assert.doesNotThrow(()=>views({source:'manual_owner'}));
+});

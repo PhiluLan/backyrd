@@ -1,14 +1,20 @@
 "use client";
 
+import { EVENT_DECISION_TAGS } from "../../../packages/shared/src/event-decision.mjs";
 import {
   preparePublicDiscovery,
   sessionRecoveringAuthoringClient,
   WorldProductCorrection,
+  SpotEvents,
+  type SpotEventRpc,
   type ProductAdminSpotSearch,
 } from "@backyrd/world-knowledge-authoring-ui";
 import { getOwnerSpots } from "@/lib/owner-api";
 import { supabase } from "@/lib/supabase/client";
+import { useState } from "react";
 import { OwnerShell } from "./owner-shell";
+
+const eventRpc: SpotEventRpc = async (name, args) => { const { data, error } = await supabase.rpc(name, args); return { data, error }; };
 
 const authoringClient = sessionRecoveringAuthoringClient(supabase, supabase.auth);
 
@@ -54,9 +60,11 @@ async function searchOwnedSpots(query: string): Promise<ProductAdminSpotSearch> 
 }
 
 export function OwnerWorldEditor({ spotId }: { spotId?: string }) {
+  const [view, setView] = useState<"profile" | "events">("profile");
   return <OwnerShell>
     <div className="owner-world">
-    <WorldProductCorrection
+    {spotId && <nav className="spot-editor-tabs" aria-label="Spot-Bereiche"><button type="button" aria-pressed={view === "profile"} onClick={() => setView("profile")}>Profil & Angebote</button><button type="button" aria-pressed={view === "events"} onClick={() => setView("events")}>Events & Veranstaltungen</button></nav>}
+    <div hidden={view !== "profile"}><WorldProductCorrection
       key={spotId ?? "spot-picker"}
       surface="OWNER"
       client={authoringClient}
@@ -64,7 +72,8 @@ export function OwnerWorldEditor({ spotId }: { spotId?: string }) {
       prepareDiscovery={async (id,text)=>{const {data}=await supabase.auth.getSession();if(!data.session?.access_token)throw new Error("authentication_required");return preparePublicDiscovery(authoringClient,data.session.access_token,id,text,rebuildOwnedSpot);}}
       rebuild={rebuildOwnedSpot}
       initialSpotId={spotId}
-    />
+    /></div>
+    {spotId && <div hidden={view !== "events"}><SpotEvents key={spotId} spotId={spotId} admin={false} rpc={eventRpc} formatTags={EVENT_DECISION_TAGS}/></div>}
     </div>
   </OwnerShell>;
 }

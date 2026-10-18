@@ -418,3 +418,5 @@ function Review({ detail, report, onJump }: { detail: SpotDetail; report: Author
 }
 
 export { preparePublicDiscovery } from "./discovery-client";
+
+export { SpotEvents, type SpotEventRpc } from "./SpotEvents";
