@@ -29,6 +29,12 @@
       ],
       "@/*": [
         "./*"
+      ],
+      "@backyrd/world-knowledge-core/browser": [
+        "../packages/world-knowledge-core/dist/browser-runtime.js"
+      ],
+      "@backyrd/world-knowledge-core": [
+        "../packages/world-knowledge-core/dist/index.js"
       ]
     }
   },
