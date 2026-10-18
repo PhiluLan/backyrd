@@ -1,4 +1,4 @@
-import { evaluateAuthoringReadiness, type AuthoringField } from "@backyrd/world-knowledge-core";
+import { evaluateAuthoringReadiness, type AuthoringField } from "@backyrd/world-knowledge-core/browser";
 type Answer = {knowledgeState:string; value:unknown};
 /** Counts describe saved input, never semantic correctness or scoped-offer completeness. */
 export function sectionStatus(fields:readonly AuthoringField[],answers:Readonly<Record<string,Answer>>,category:unknown){

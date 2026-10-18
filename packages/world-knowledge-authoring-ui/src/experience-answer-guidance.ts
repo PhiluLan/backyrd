@@ -1,4 +1,4 @@
-import { SPOT_TYPE_CATALOG, OFFER_CATALOG, hasOfferModule, EXPERIENCE_VALUE_CHOICES, WORLD_VALUE_LABELS, type ExperienceCategory } from "@backyrd/world-knowledge-core";
+import { SPOT_TYPE_CATALOG, OFFER_CATALOG, hasOfferModule, EXPERIENCE_VALUE_CHOICES, WORLD_VALUE_LABELS, type ExperienceCategory } from "@backyrd/world-knowledge-core/browser";
 
 export type ExperienceAnswerGuidance =
   | { readonly kind: "CHOICES"; readonly choices: readonly string[]; readonly help: string; readonly multiple?: boolean; readonly exclusiveGroups?: readonly (readonly string[])[] }

@@ -86,7 +86,10 @@ Local implementation check: 341 core tests, 18 Mobile contract/Wohin tests,
 6 existing Mobile product-contract checks and 54 release/production-plan checks
 passed, as did Mobile/Web/Admin type checks and the single-route validator.
 The migration and SQL boundary test passed in the isolated synthetic database.
-Full frontend builds are **not certified**: this worktree resolves dependencies
-through links outside the Turbopack root; an attempted Webpack fallback reaches
-an existing `node:crypto` import through World authoring UI. A normal installed
-dependency build and manual device acceptance remain required before release.
+The frontend build blockers were resolved on 2026-10-18: dependencies were
+installed from the existing lockfiles inside this worktree, and UI imports now
+use the explicit World Knowledge browser entry with a browser-compatible hash
+adapter. Web and Admin production builds pass with both Turbopack and Webpack;
+373 World Knowledge tests (including browser-boundary/hash parity), 341 Decision
+tests and a synthetic Owner editor browser smoke test pass. This is local build
+and fixture evidence, not a production release or Event device acceptance.

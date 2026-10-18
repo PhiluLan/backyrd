@@ -1,4 +1,4 @@
-import { OFFER_CATALOG, emptyExperienceConditions, type ExperienceProperty } from "@backyrd/world-knowledge-core";
+import { OFFER_CATALOG, emptyExperienceConditions, type ExperienceProperty } from "@backyrd/world-knowledge-core/browser";
 
 // Authoring choices project the existing storage contract. Legacy kinds remain readable.
 export const offerLabel = (kind: string, fallback: string): string => kind === "FULL_MEAL" ? "Essen (ohne Trennung nach Mahlzeit)" : fallback;
