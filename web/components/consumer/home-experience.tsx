@@ -1,5 +1,7 @@
 "use client";
 
+import { MoodSignature } from "./mood-signature";
+
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -112,6 +114,7 @@ export function HomeExperience() {
                 >
                   {hero.name}
                 </h2>
+                <MoodSignature labels={hero.top_moods} reviewCount={hero.review_count} compact />
                 <ButtonLink href={`/spots/${hero.spot_id}`} variant="secondary">
                   Spot ansehen <ArrowIcon />
                 </ButtonLink>

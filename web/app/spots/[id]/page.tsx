@@ -119,40 +119,30 @@ export default async function SpotDetailPage({
           spotId={spot.id}
           spotName={spot.name}
         >
-          <div
-            style={{
-              minHeight: "min(76vh,820px)",
-              display: "flex",
-              alignItems: "end",
-              padding: "clamp(26px,6vw,96px)",
-              background:
-                "linear-gradient(180deg,rgba(5,5,6,.06),rgba(5,5,6,.9))",
-            }}
-          >
-            <div className="b-container" style={{ margin: 0 }}>
-              <h1
-                className="b-display b-display-lg"
-                style={{ maxWidth: 1000, marginTop: 14 }}
-              >
-                {spot.name}
-              </h1>
-              <SpotMoodProfile moods={data.top_moods} />
-              <p className="b-kicker">
-                {publicCategory ? presentWorld(publicCategory.value) : canonicalWorldDetail ? "Backyrd Spot" : spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
-              </p>
-              <p className="b-body" style={{ fontSize: 18 }}>
-                {spot.address ||
-                  [spot.city, spot.country].filter(Boolean).join(" · ")}
-              </p>
-              <SpotActions
-                spotId={spot.id}
-                spotName={spot.name}
-                routeUrl={maps(spot.address, spot.name)}
-              />
-            </div>
-          </div>
+          <div style={{ minHeight: "min(58vh,620px)" }} />
         </CanonicalSpotImage>
       </section>
+      <div className="b-container" style={{ paddingTop: 24 }}>
+        <h1
+          className="b-display b-display-lg"
+          style={{ maxWidth: 1000, marginTop: 14 }}
+        >
+          {spot.name}
+        </h1>
+        <SpotMoodProfile moods={data.top_moods} reviewCount={data.review_count} />
+        <p className="b-kicker">
+          {publicCategory ? presentWorld(publicCategory.value) : canonicalWorldDetail ? "Backyrd Spot" : spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
+        </p>
+        <p className="b-body" style={{ fontSize: 18 }}>
+          {spot.address ||
+            [spot.city, spot.country].filter(Boolean).join(" · ")}
+        </p>
+        <SpotActions
+          spotId={spot.id}
+          spotName={spot.name}
+          routeUrl={maps(spot.address, spot.name)}
+        />
+      </div>
       <div className="b-container b-section">
         <div className="b-spot-detail-grid">
           <section aria-label="Erfahrungen und Eindrücke">

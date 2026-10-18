@@ -18,7 +18,7 @@ import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
 import { cityCenterFor, normalizeLocationCity, resolveLocationContext } from "../../lib/locationContext";
 import { hasActiveConsent } from "../../lib/consent";
-import { loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
+import { useSpotReviewCounts, loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { MoodSignature } from "../../components/spot/MoodSignature";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
@@ -100,6 +100,7 @@ export default function MapScreen() {
 
   // Mood-Daten: spotId → [token1, token2, ...]
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
+  const reviewCounts = useSpotReviewCounts(globalSpots.map(spot => spot.id));
 
   // Mapping: spotId → [mood_id1, mood_id2, ...]
   const [spotMoodIds, setSpotMoodIds] = useState<Record<string, string[]>>({});
@@ -668,7 +669,7 @@ export default function MapScreen() {
               />
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
-                <MoodSignature labels={spotMoods[item.id] ?? []} compact />
+                <MoodSignature labels={spotMoods[item.id] ?? []} reviewCount={reviewCounts[item.id]} compact />
                 <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
                 <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
               </View>
@@ -728,7 +729,7 @@ export default function MapScreen() {
                       {selectedSpot.name}
                     </Text>
 
-                    <MoodSignature labels={spotMoods[selectedSpot.id] ?? []} compact />
+                    <MoodSignature labels={spotMoods[selectedSpot.id] ?? []} reviewCount={reviewCounts[selectedSpot.id]} compact />
                     {selectedSpot.address && <Text style={styles.resultSubtitle} numberOfLines={1}>{selectedSpot.address}</Text>}
                   </LinearGradient>
                 </View>

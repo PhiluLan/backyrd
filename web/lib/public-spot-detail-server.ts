@@ -1,3 +1,4 @@
+import { loadSpotReviewCounts } from "./mood-catalog";
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { PublicSpotDetailDTO } from "@/lib/public-spot-detail";
@@ -25,6 +26,7 @@ export async function getPublicSpotDetailServer(spotId: string) {
   if (moodError) return null;
   const result = {
     ...(data as PublicSpotDetailDTO),
+    review_count: (await loadSpotReviewCounts([spotId], client).catch(() => ({} as Record<string, number>)))[spotId] ?? null,
     top_moods: moodProfile ?? [],
     world_profile: worldError
       ? null

@@ -1,3 +1,4 @@
+import { reviewCountCopy } from "../../../packages/shared/src/presentation/mood";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -20,7 +21,7 @@ import Avatar from "../../components/Avatar";
 import { IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
 import { MoodSignature } from "../../components/spot/MoodSignature";
-import { loadSpotBrowseMoods } from "../../lib/mood-catalog";
+import { useSpotReviewCounts, loadSpotBrowseMoods } from "../../lib/mood-catalog";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { useAuth } from "../../hooks/useAuth";
 import { loadDiscoverySpots, type DiscoverySpot } from "../../lib/spot-images";
@@ -44,6 +45,7 @@ export default function HomeScreen() {
   const [firstName, setFirstName] = useState<string | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
+  const reviewCounts = useSpotReviewCounts(spots.map(spot => spot.id));
   const [popularMoods, setPopularMoods] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -59,7 +61,7 @@ export default function HomeScreen() {
       const rows = await loadSpotBrowseMoods(catalog.map(spot => spot.id));
       if (requestId !== moodRequest.current) return;
       const labels: Record<string, string[]> = {};
-      for (const row of rows.sort((a, b) => a.rank - b.rank)) (labels[row.spot_id] ??= []).push(row.label);
+      for (const row of rows) (labels[row.spot_id] ??= []).push(row.label);
       setSpotMoods(labels);
       const availability = new Map<string, number>();
       for (const row of rows) availability.set(row.label, (availability.get(row.label) ?? 0) + 1);
@@ -217,7 +219,7 @@ export default function HomeScreen() {
               snapToOffsets={heroCarouselOffsets}
             >
               {topSpots.map((spot, index) => (
-                <Pressable accessibilityLabel={`${spot.name} öffnen${spotMoods[spot.id]?.length ? `. Moods: ${spotMoods[spot.id].slice(0, 2).join(", ")}` : ""}`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.heroCard, { width: heroCardWidth, height: heroCardHeight }, pressed && styles.cardPressed]}>
+                <Pressable accessibilityLabel={`${spot.name} öffnen${spotMoods[spot.id]?.length ? `. Moods: ${spotMoods[spot.id].slice(0, 3).join(", ")}` : ""}${reviewCountCopy(reviewCounts[spot.id]) ? `. ${reviewCountCopy(reviewCounts[spot.id])}` : ""}`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.heroCard, { width: heroCardWidth, height: heroCardHeight }, pressed && styles.cardPressed]}>
                   <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill} />
                   <LinearGradient colors={["rgba(5,5,5,0.02)", "rgba(5,5,5,0.18)", "rgba(5,5,5,0.92)"]} locations={[0.2, 0.54, 1]} style={StyleSheet.absoluteFill} />
                   {(() => {
@@ -227,7 +229,7 @@ export default function HomeScreen() {
                   })()}
                   <View style={styles.heroCardContent}>
                     <AppText role="displayL" adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={2} style={styles.spotName}>{spot.name}</AppText>
-                    <MoodSignature labels={spotMoods[spot.id] ?? []} compact />
+                    <MoodSignature labels={spotMoods[spot.id] ?? []} reviewCount={reviewCounts[spot.id]} compact />
                     <AppText role="meta" numberOfLines={1} style={styles.spotMeta}>{spotMeta(spot)}</AppText>
                   </View>
                 </Pressable>
@@ -244,10 +246,10 @@ export default function HomeScreen() {
               <View style={styles.sectionHeader}><View><AppText role="label" tone="secondary" style={styles.eyebrow}>GERADE DAZUGEKOMMEN</AppText><AppText role="sectionTitle">Neu auf Backyrd</AppText></View></View>
               <ScrollView horizontal contentContainerStyle={styles.compactCards} showsHorizontalScrollIndicator={false}>
                 {newSpots.map((spot) => (
-                  <Pressable accessibilityRole="button" accessibilityLabel={`${spot.name} öffnen${spotMoods[spot.id]?.length ? `. Moods: ${spotMoods[spot.id].slice(0, 2).join(", ")}` : ""}`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.compactCard, { width: compactCardWidth }, pressed && styles.cardPressed]}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`${spot.name} öffnen${spotMoods[spot.id]?.length ? `. Moods: ${spotMoods[spot.id].slice(0, 3).join(", ")}` : ""}${reviewCountCopy(reviewCounts[spot.id]) ? `. ${reviewCountCopy(reviewCounts[spot.id])}` : ""}`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.compactCard, { width: compactCardWidth }, pressed && styles.cardPressed]}>
                     <View style={styles.compactImage}><SpotArtwork imageUrl={spot.header_photo_url} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill} /></View>
                     <AppText role="bodyStrong" numberOfLines={2} style={styles.compactTitle}>{spot.name}</AppText>
-                    <MoodSignature labels={spotMoods[spot.id] ?? []} compact />
+                    <MoodSignature labels={spotMoods[spot.id] ?? []} reviewCount={reviewCounts[spot.id]} compact />
                     <AppText role="caption" tone="secondary" numberOfLines={1}>{spot.category_name || spot.city || city}</AppText>
                   </Pressable>
                 ))}
