@@ -322,3 +322,27 @@ test('cafe variants retain their exact source span and cannot acquire invented p
   assert.throws(()=>extractedProposal({selected:['invented']},{spot,field:f,sources:ss}),/selection_not_found/);
   assert.deepEqual(cafeOfferCandidates(f,[{...source,text:'Wir servieren keinen Blue Mountain Coffee.'}]),[]);
 });
+
+test('availability predicates reject wishes, outages, future plans and other venues',async()=>{
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  for(const text of ['Unsere Gäste wünschen WLAN.','Wir bieten Kaffee neben einem Café mit WLAN.','Unsere Filiale in Zürich verfügt über WLAN.','Unser WLAN ist ausgefallen.','Wir bieten bald WLAN.','Our WiFi is unavailable.','We offer WiFi in another branch.','Wir haben Kaffee und WLAN-Ratgeber.']) {
+    assert.deepEqual(enumFactCandidates({attributeKey:'amenity.features'},[{...source,text}]),[],text);
+  }
+  for(const text of ['Wir haben WLAN.','Unser WLAN ist kostenlos.','WiFi is available.','We offer free WiFi.'])assert.equal(enumFactCandidates({attributeKey:'amenity.features'},[{...source,text}])[0]?.value,'WIFI',text);
+});
+test('cafe names exclude price tails and duplicate product mentions',async()=>{
+  const {cafeOfferCandidates}=await import('../src/nuknuk-research.mjs');
+  const f={attributeKey:'experience.profile',profileCategory:'COFFEE_DAYTIME'};
+  const ss=[{...source,text:'Wir servieren Cornetto naturale für CHF 5.50. Wir servieren Cornetto naturale für CHF 6.50.'}];
+  assert.deepEqual(cafeOfferCandidates(f,ss).map(c=>c.name),['Cornetto naturale']);
+  assert.deepEqual(cafeOfferCandidates(f,[{...source,text:'Wir servieren bald Blue Mountain Coffee.'}]),[]);
+});
+test('direct profile validation cannot change cafe kinds or reintroduce negated offers',async()=>{
+  const {researchValueContract}=await import('../../world-knowledge-core/dist/research-value-schema.js');
+  const f={attributeKey:'experience.profile',profileCategory:'COFFEE_DAYTIME',...researchValueContract('experience.profile')};
+  for(const [quote,kind,error] of [['Wir servieren Blue Mountain Coffee.','GASTRONOMY',/cafe_offer_not_supported/],['Wir servieren keinen Blue Mountain Coffee.','DRINKS',/cafe_scope_uncertain/]]){
+    const ss=[{...source,text:quote}];
+    const raw={status:'PROPOSED',value:{offers:[{name:'Blue Mountain Coffee',kind,sourceId:'s1',quote}]},citations:[{sourceId:'s1',quote}],reason:null};
+    assert.throws(()=>validateNuknukProposal(raw,{field:f,sources:ss,validateValue:()=>({ok:true})}),error);
+  }
+});

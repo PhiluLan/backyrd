@@ -238,3 +238,26 @@ remain unresolved. Model-request elapsed time was 19.286 s, median 2.280 s per
 field; source retrieval and model startup are excluded. Same export and requested
 fields, freshly fetched official pages. This is a development regression case,
 not a held-out accuracy result. 108 runtime tests cover the final implementation.
+
+## Generalized assertion checks (v6)
+
+Counterexamples beyond Kaphi exposed five additional false-positive facility
+patterns: visitor wishes, outages, future plans, another branch and a nearby cafe.
+Current-assertion filters now exclude these explicit uncertainty/scope markers;
+facility predicates must attach to the equipment instead of a separate food offer
+in the same sentence. English and German positive controls remain supported.
+These are conservative bounded language rules, not a general semantic proof;
+indirect or unsupported formulations remain unresolved or reviewable.
+
+Cafe name extraction strips price/extra tails and deduplicates repeated names.
+Independent profile validation rejects changed kinds or source spans when immutable
+cafe candidates exist, and excludes explicitly uncertain cafe-offer quotes even
+when there are no candidates. The pinned model weights are unchanged; request and
+validation behavior are versioned as v6.
+
+Validation: 111 runtime tests, core typecheck and repository/security gates passed.
+Seven synthetic real-model cases passed (five negative assertions and two positive
+controls). Replaying all eight Kaphi fields with the exact cached source package
+preserved every value and status from the successful v5 run. This is regression
+coverage, not an estimate of real-world accuracy across unseen Spots. All evaluation
+artifacts stay local; no canonical data was changed and the owned model was stopped.
