@@ -31,10 +31,10 @@
         "./*"
       ],
       "@backyrd/world-knowledge-core/browser": [
-        "../packages/world-knowledge-core/dist/browser-runtime.js"
+        "../packages/world-knowledge-core/dist/browser-runtime"
       ],
       "@backyrd/world-knowledge-core": [
-        "../packages/world-knowledge-core/dist/index.js"
+        "../packages/world-knowledge-core/dist/index"
       ]
     }
   },
