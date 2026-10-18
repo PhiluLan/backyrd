@@ -114,7 +114,7 @@ export function HomeExperience() {
                 >
                   {hero.name}
                 </h2>
-                <MoodSignature labels={hero.top_moods} reviewCount={hero.review_count} compact />
+                <MoodSignature labels={hero.top_moods} moodCount={hero.mood_count} compact />
                 <ButtonLink href={`/spots/${hero.spot_id}`} variant="secondary">
                   Spot ansehen <ArrowIcon />
                 </ButtonLink>
@@ -171,7 +171,7 @@ export function HomeExperience() {
                     category: spot.category_name,
                     image: spot.photo_url,
                     moods: spot.top_moods,
-                    reviews: spot.review_count,
+                    moodCount: spot.mood_count,
                   }}
                 />
               ))}

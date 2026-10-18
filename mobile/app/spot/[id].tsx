@@ -1,4 +1,6 @@
-import { useSpotReviewCounts } from "../../lib/mood-catalog";
+import { MoodSignature } from "../../components/spot/MoodSignature";
+import { rankMoodSupport } from "../../../packages/shared/src/presentation/mood";
+import { useSpotMoodCounts } from "../../lib/mood-catalog";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
@@ -278,7 +280,7 @@ export default function SpotDetailScreen() {
   const [hours, setHours] = useState<Record<string, any[]>>({});
   const [moodProfileFailed, setMoodProfileFailed] = useState(false);
   const [moodProfileLoading, setMoodProfileLoading] = useState(true);
-  const reviewCounts = useSpotReviewCounts(id ? [String(id)] : []);
+  const moodCounts = useSpotMoodCounts(id ? [String(id)] : []);
   const [moodSummary, setMoodSummary] = useState<SpotMoodProfileItem[]>([]);
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
@@ -905,15 +907,15 @@ export default function SpotDetailScreen() {
                 </View>
                 {!canonicalWorldDetail && spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
-
+              <AppText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={4} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
+              <View style={{ marginTop: 10 }}><MoodSignature labels={moodProfileFailed || moodProfileLoading ? [] : rankMoodSupport(moodSummary).map(mood => mood.label)} moodCount={moodCounts[String(id)]} /></View>
             </View>
           </Animated.View>
         </Animated.View>
 
         <View style={styles.content}>
-          <AppText role="displayL" style={[styles.heroTitle, { marginBottom: 16 }]}>{spot.name}</AppText>
           <View style={{ marginBottom: 24 }}>
-            {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} reviewCount={reviewCounts[String(id)]} />}
+            {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
           </View>
           {addressLines.length ? <View style={styles.addressBlock}>
             <Feather name="map-pin" size={18} color={theme.colors.pink} style={styles.addressIcon} />

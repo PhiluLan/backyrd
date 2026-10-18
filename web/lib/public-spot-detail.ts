@@ -1,9 +1,9 @@
-import { loadSpotReviewCounts } from "./mood-catalog";
+import { loadSpotMoodCounts } from "./mood-catalog";
 import { supabase } from "@/lib/supabase/client";
 import { applyCanonicalWorldSpot, type PublicWorldSpotProfile } from "@/lib/spot-world-profile";
 
 export type PublicSpotDetailDTO = {
-  review_count?: number | null;
+  mood_count?: number | null;
   world_profile?: PublicWorldSpotProfile | null;
   spot: {
     id: string;
@@ -75,7 +75,7 @@ export async function getPublicSpotDetail(
   if (moodError) throw new Error("Spot-Wissen konnte nicht geladen werden.");
   const result = {
     ...(data as PublicSpotDetailDTO),
-    review_count: (await loadSpotReviewCounts([spotId]).catch(() => ({} as Record<string, number>)))[spotId] ?? null,
+    mood_count: (await loadSpotMoodCounts([spotId]).catch(() => ({} as Record<string, number>)))[spotId] ?? null,
     top_moods: moodProfile ?? [],
     world_profile: worldError
       ? null

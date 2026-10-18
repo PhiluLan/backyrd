@@ -1,3 +1,5 @@
+import { MoodSignature } from "@/components/consumer/mood-signature";
+import { rankMoodSupport } from "../../../../packages/shared/src/presentation/mood";
 import { SpotMoodProfile } from "@/components/consumer/spot-mood-profile";
 import { EventCards } from "@/components/home-events";
 import { spotEvents } from "@/lib/events-public";
@@ -119,17 +121,16 @@ export default async function SpotDetailPage({
           spotId={spot.id}
           spotName={spot.name}
         >
-          <div style={{ minHeight: "min(58vh,620px)" }} />
+          <div style={{ minHeight: "min(58vh,620px)", display: "flex", alignItems: "flex-end", padding: "clamp(24px,5vw,64px)", background: "linear-gradient(180deg,transparent 30%,rgba(5,5,6,.9))" }}>
+            <div className="b-container" style={{ margin: 0 }}>
+              <h1 className="b-display b-display-lg" style={{ maxWidth: 1000 }}>{spot.name}</h1>
+              <MoodSignature labels={rankMoodSupport(data.top_moods).map(mood => mood.label)} moodCount={data.mood_count} />
+            </div>
+          </div>
         </CanonicalSpotImage>
       </section>
       <div className="b-container" style={{ paddingTop: 24 }}>
-        <h1
-          className="b-display b-display-lg"
-          style={{ maxWidth: 1000, marginTop: 14 }}
-        >
-          {spot.name}
-        </h1>
-        <SpotMoodProfile moods={data.top_moods} reviewCount={data.review_count} />
+        <SpotMoodProfile moods={data.top_moods} />
         <p className="b-kicker">
           {publicCategory ? presentWorld(publicCategory.value) : canonicalWorldDetail ? "Backyrd Spot" : spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
         </p>

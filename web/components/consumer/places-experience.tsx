@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
-import { loadSpotBrowseMoods, loadSpotReviewCounts } from "@/lib/mood-catalog";
+import { loadSpotBrowseMoods, loadSpotMoodCounts } from "@/lib/mood-catalog";
 import { moodExpressionKey, type BrowseMood } from "../../../packages/shared/src/presentation/mood";
 import { MoodSignature } from "./mood-signature";
 import moodStyles from "./mood-experience.module.css";
@@ -15,7 +15,7 @@ import { ConsumerSpotCard } from "./spot-card";
 import { MapCanvas } from "./map-canvas";
 
 export function PlacesExperience() {
-  const [reviewCounts, setReviewCounts] = useState<Record<string, number>>({});
+  const [moodCounts, setMoodCounts] = useState<Record<string, number>>({});
   const [mood, setMood] = useState<string | null>(null);
   const [moodRows, setMoodRows] = useState<BrowseMood[]>([]);
   const [moodLoading, setMoodLoading] = useState(true);
@@ -67,8 +67,8 @@ export function PlacesExperience() {
     let active = true;
     setMoodFailed(false);
     setMoodLoading(true);
-    setReviewCounts({});
-    void loadSpotReviewCounts(spots.map(spot => spot.id)).then(rows => { if (active) setReviewCounts(rows); }).catch(() => {});
+    setMoodCounts({});
+    void loadSpotMoodCounts(spots.map(spot => spot.id)).then(rows => { if (active) setMoodCounts(rows); }).catch(() => {});
     void loadSpotBrowseMoods(spots.map(spot => spot.id)).then(rows => { if (active) setMoodRows(rows); }).catch(() => { if (active) setMoodFailed(true); }).finally(() => { if (active) setMoodLoading(false); });
     return () => { active = false; };
   }, [spots, moodRevision]);
@@ -241,7 +241,7 @@ export function PlacesExperience() {
                   category: spot.category_name,
                   image: spot.header_photo_url,
                   moods: moodLabels.get(spot.id),
-                  reviews: reviewCounts[spot.id],
+                  moodCount: moodCounts[spot.id],
                 }}
               />
             ))}
@@ -275,7 +275,7 @@ export function PlacesExperience() {
               <h2 className="b-card-title" style={{ marginTop: 7 }}>
                 {activeSelected.name}
               </h2>
-              <MoodSignature labels={moodLabels.get(activeSelected.id) ?? []} reviewCount={reviewCounts[activeSelected.id]} compact />
+              <MoodSignature labels={moodLabels.get(activeSelected.id) ?? []} moodCount={moodCounts[activeSelected.id]} compact />
               <p className="b-kicker">{activeSelected.category_name || "Backyrd Spot"}</p>
               <p className="b-meta" style={{ marginTop: 7 }}>
                 {activeSelected.address || "Basel"}

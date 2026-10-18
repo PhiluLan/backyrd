@@ -14,13 +14,13 @@ export function loadSpotBrowseMoods(spotIds: readonly string[]) {
   });
 }
 
-export async function loadSpotReviewCounts(spotIds: readonly string[], client = supabase) {
-  const { loadReviewCounts } = await import("../../packages/shared/src/presentation/mood");
-  return loadReviewCounts(spotIds, async ids => {
+export async function loadSpotMoodCounts(spotIds: readonly string[], client = supabase) {
+  const { loadMoodCounts } = await import("../../packages/shared/src/presentation/mood");
+  return loadMoodCounts(spotIds, async ids => {
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), 8000);
     try {
-      const { data, error } = await client.rpc("backyrd_public_spot_review_counts_v1", { p_spot_ids: ids }).abortSignal(abort.signal);
+      const { data, error } = await client.rpc("backyrd_public_spot_mood_counts_v1", { p_spot_ids: ids }).abortSignal(abort.signal);
       if (error) throw error;
       return data;
     } finally { clearTimeout(timer); }

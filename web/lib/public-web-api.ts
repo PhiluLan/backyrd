@@ -1,4 +1,4 @@
-import { loadSpotBrowseMoods, loadSpotReviewCounts } from "./mood-catalog";
+import { loadSpotBrowseMoods, loadSpotMoodCounts } from "./mood-catalog";
 import { supabase } from "@/lib/supabase/client";
 
 export type PublicCitySpot = {
@@ -9,6 +9,7 @@ export type PublicCitySpot = {
   photo_url: string | null;
   top_moods: string[];
   review_count?: number;
+  mood_count?: number;
 };
 
 export type PublicMoment = {
@@ -68,9 +69,9 @@ async function attachCanonicalHeaders(spots: PublicCitySpot[]): Promise<PublicCi
       ? data.filter(isRow).map((row) => [String(row.spot_id ?? ""), str(row.header_photo_path)] as const)
       : [],
   );
-  const [moods, reviewCounts] = await Promise.all([
+  const [moods, moodCounts] = await Promise.all([
     loadSpotBrowseMoods(ids).catch(() => []),
-    loadSpotReviewCounts(ids).catch(() => ({} as Record<string, number>)),
+    loadSpotMoodCounts(ids).catch(() => ({} as Record<string, number>)),
   ]);
   const moodMap = new Map<string, string[]>();
   for (const row of moods ?? []) {
@@ -82,7 +83,7 @@ async function attachCanonicalHeaders(spots: PublicCitySpot[]): Promise<PublicCi
     ...spot,
     photo_url: headers.get(spot.spot_id) ?? null,
     top_moods: moodMap.get(spot.spot_id) ?? [],
-    review_count: reviewCounts[spot.spot_id],
+    mood_count: moodCounts[spot.spot_id],
   }));
 }
 

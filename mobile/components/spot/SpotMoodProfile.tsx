@@ -1,12 +1,11 @@
 import { useRouter } from "expo-router";
-import { moodEvidenceCopy, rankMoodSupport, publicMoodCount, moodSupportRatio } from "../../../packages/shared/src/presentation/mood";
+import { rankMoodSupport, publicMoodCount } from "../../../packages/shared/src/presentation/mood";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { backyrdTheme as theme } from "../../theme/backyrd";
-import { MoodSignature } from "./MoodSignature";
 import { AppText } from "../foundation/AppText";
 import { Button, IconButton } from "../foundation/Button";
 
@@ -20,7 +19,7 @@ export type SpotMoodProfileItem = {
   rank: number;
 };
 
-export function SpotMoodProfile({ moods, reviewCount, appearance = "dark" }: { moods: SpotMoodProfileItem[]; reviewCount?: number | null; appearance?: "dark" | "light" }) {
+export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoodProfileItem[]; appearance?: "dark" | "light" }) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [selected, setSelected] = useState<SpotMoodProfileItem | null>(null);
@@ -28,20 +27,17 @@ export function SpotMoodProfile({ moods, reviewCount, appearance = "dark" }: { m
   const ranked = rankMoodSupport(moods);
   const current = ranked.find(mood => mood.concept_key === selected?.concept_key) ?? null;
   const renderRow = (mood: SpotMoodProfileItem) => {
-    const count = publicMoodCount(mood), ratio = moodSupportRatio(mood);
-    return <Pressable key={mood.concept_key} accessibilityRole="button" accessibilityLabel={`${mood.label}: ${count === null ? "Erste Eindrücke" : `${count} ${count === 1 ? "Person" : "Personen"}`}. Details ansehen`} onPress={() => setSelected(mood)} style={styles.supportRow}>
-      <View style={styles.supportLabel}><AppText role="label" style={light && styles.textLight}>{mood.label}</AppText><AppText role="caption" tone="secondary">{count === null ? "Erste Eindrücke" : `${count} ${count === 1 ? "Person" : "Personen"}`}</AppText></View>
-      {ratio !== null ? <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.track}><View style={[styles.fill, { width: `${ratio * 100}%` }]} /></View> : null}
+    const count = publicMoodCount(mood);
+    return <Pressable key={mood.concept_key} accessibilityRole="button" accessibilityLabel={`${mood.label}: ${count === null ? "Erste Eindrücke" : `${count} ${count === 1 ? "Person" : "Personen"}`}. Zum Entdecken auswählen`} accessibilityState={{ selected: current?.concept_key === mood.concept_key }} onPress={() => setSelected(mood)} style={styles.supportRow}>
+      <View style={styles.supportLabel}><AppText role="label" tone={current?.concept_key === mood.concept_key ? "pink" : undefined} style={light && styles.textLight}>{mood.label}</AppText><AppText role="caption" tone="secondary">{count === null ? "Erste Eindrücke" : `${count} ${count === 1 ? "Person" : "Personen"}`}</AppText></View>
     </Pressable>;
   };
   return (
     <>
-      <MoodSignature labels={ranked.map(mood => mood.label)} reviewCount={reviewCount} onPress={ranked.length ? () => setSelected(ranked[0]) : undefined} />
-      {ranked[0]?.evidence_state === "EARLY" ? <AppText role="caption" tone="secondary" style={{ marginTop: 5 }}>Erste Eindrücke</AppText> : null}
-      {ranked.length ? <View style={styles.distribution}>
-        <AppText role="meta" tone="secondary">So haben Gäste den Ort erlebt</AppText>
-        {ranked.slice(0, 3).map(renderRow)}
-        <Pressable accessibilityRole="button" onPress={() => setSelected(ranked[0])} style={styles.allMoods}><AppText role="label" tone="pink">Alle Moods ansehen →</AppText></Pressable>
+      {ranked.length ? <View style={styles.summary}>
+        <AppText role="meta" style={[styles.summaryText, light && styles.textLight]}>{ranked.slice(0, 10).map((mood, index) => <AppText key={mood.concept_key} role="meta" style={light && styles.textLight}>{index ? " · " : ""}{mood.label}{publicMoodCount(mood) !== null ? ` (${publicMoodCount(mood)})` : ""}</AppText>)}</AppText>
+        {ranked[0]?.evidence_state === "EARLY" ? <AppText role="caption" tone="secondary">Erste Eindrücke</AppText> : null}
+        <Pressable accessibilityRole="button" onPress={() => setSelected(ranked[0])} style={styles.allMoods}><AppText role="label" tone="pink">Mehr anzeigen</AppText></Pressable>
       </View> : <AppText role="meta" tone="secondary">Noch keine Moods geteilt</AppText>}
       <Modal animationType="slide" onRequestClose={() => setSelected(null)} transparent visible={Boolean(current)}>
         <View style={styles.backdrop}>
@@ -51,7 +47,7 @@ export function SpotMoodProfile({ moods, reviewCount, appearance = "dark" }: { m
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeading}>
                 <AppText role="caption" tone="pink" style={styles.kicker}>DIE MOODS DIESES ORTES</AppText>
-                <AppText role="sectionTitle" style={[styles.sheetTitle, light && styles.textLight]}>{current?.label ?? "Mood"}</AppText>
+                <AppText role="sectionTitle" style={[styles.sheetTitle, light && styles.textLight]}>Alle Moods</AppText>
               </View>
               <IconButton accessibilityLabel="Schließen" onPress={() => setSelected(null)}>
                 <Ionicons name="close" size={21} color={light ? theme.color.textPrimaryLight : theme.color.textPrimary} />
@@ -60,10 +56,8 @@ export function SpotMoodProfile({ moods, reviewCount, appearance = "dark" }: { m
             <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 18, paddingTop: 18 }}>
 
               {ranked.map(renderRow)}
-              <AppText role="caption" tone="secondary">Jede Person zählt pro Mood einmal. Mehrere Moods sind möglich. Die Balken zeigen den Anteil der Gäste mit Mood-Angaben.</AppText>
-              {current ? <AppText style={[styles.explanation, styles.bodyRegular, light && styles.textMutedLight]}>{moodEvidenceCopy(current)}</AppText> : null}
-              <AppText role="meta" tone="secondary">So haben Gäste den Ort erlebt. Welche Moods zu dir passen, entscheidest du.</AppText>
-              {current ? <Button label="Orte mit diesem Mood entdecken" onPress={() => { const mood = current.label; setSelected(null); router.push({ pathname: "/(tabs)/map", params: { mood, view: "list" } }); }} /> : null}
+              <AppText role="caption" tone="secondary">Die Zahlen zeigen, wie viele Gäste den Ort so beschrieben haben.</AppText>
+              {current ? <Button label={`Orte mit ${current.label} entdecken`} onPress={() => { const mood = current.label; setSelected(null); router.push({ pathname: "/(tabs)/map", params: { mood, view: "list" } }); }} /> : null}
             </ScrollView>
           </View>
         </View>
@@ -73,15 +67,12 @@ export function SpotMoodProfile({ moods, reviewCount, appearance = "dark" }: { m
 }
 
 const styles = StyleSheet.create({
-  distribution: { marginTop: 20, gap: 6 },
+  summary: { gap: 2 },
+  summaryText: { lineHeight: 23 },
   supportRow: { minHeight: 48, justifyContent: "center", gap: 8, paddingVertical: 8 },
   supportLabel: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" },
-  track: { height: 4, backgroundColor: "rgba(255,79,145,0.12)", borderRadius: 2, overflow: "hidden" },
-  fill: { height: 4, backgroundColor: theme.color.pink, borderRadius: 2 },
   allMoods: { minHeight: 48, justifyContent: "center", alignSelf: "flex-start" },
-  bodyRegular: { fontFamily: theme.type.body },
   textLight: { color: theme.color.textPrimaryLight },
-  textMutedLight: { color: theme.color.textSecondaryLight },
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.62)" },
   sheet: { maxHeight: "90%", paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.sm, borderTopLeftRadius: theme.radius.xl, borderTopRightRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.color.border, backgroundColor: theme.color.surfaceElevated },
   sheetLight: { borderColor: theme.color.borderLight, backgroundColor: theme.color.surfaceLightElevated },
@@ -91,5 +82,4 @@ const styles = StyleSheet.create({
   sheetTitle: { fontFamily: theme.type.display, fontSize: 30, lineHeight: 36 },
   sheetHeading: { flex: 1, gap: theme.spacing.xxs },
   kicker: { letterSpacing: 1.6 },
-  explanation: { marginTop: theme.spacing.md, maxWidth: 430, color: theme.color.textSecondary },
 });

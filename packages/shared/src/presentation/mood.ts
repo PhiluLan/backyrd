@@ -73,26 +73,21 @@ export function publicMoodCount(mood: MoodSupport): number | null {
 export function rankMoodSupport<T extends MoodSupport>(moods: readonly T[]): T[] {
   return [...moods].sort((a, b) => (publicMoodCount(b) ?? 0) - (publicMoodCount(a) ?? 0) || a.rank - b.rank || a.concept_key.localeCompare(b.concept_key));
 }
-/** Bar represents unique people / unique Mood contributors, never the weighted percentage. */
-export function moodSupportRatio(mood: MoodSupport): number | null {
-  const count = publicMoodCount(mood), total = mood.eligible_contributors;
-  return count !== null && typeof total === "number" && Number.isSafeInteger(total) && total >= count ? count / total : null;
-}
-export function reviewCountCopy(count: number | null | undefined): string | null {
-  return typeof count === "number" && Number.isSafeInteger(count) && count >= 0 ? `${count} ${count === 1 ? "Bewertung" : "Bewertungen"}` : null;
+export function moodCountCopy(count: number | null | undefined): string | null {
+  return typeof count === "number" && Number.isSafeInteger(count) && count >= 0 ? `${count} ${count === 1 ? "Mood" : "Moods"}` : null;
 }
 
 /** Complete per-Spot counts, bounded requests; missing/failed data must never become zero. */
-export async function loadReviewCounts(spotIds: readonly string[], read: (ids: string[]) => Promise<unknown>): Promise<Record<string, number>> {
+export async function loadMoodCounts(spotIds: readonly string[], read: (ids: string[]) => Promise<unknown>): Promise<Record<string, number>> {
   const result: Record<string, number> = {}, ids = [...new Set(spotIds)];
   for (let start = 0; start < ids.length; start += 200) {
     const batch = ids.slice(start, start + 200), rows = await read(batch);
-    if (!Array.isArray(rows)) throw new Error("review_counts_invalid");
+    if (!Array.isArray(rows)) throw new Error("mood_counts_invalid");
     for (const row of rows) {
-      if (!row || typeof row !== "object") throw new Error("review_counts_invalid");
+      if (!row || typeof row !== "object") throw new Error("mood_counts_invalid");
       const item = row as Record<string, unknown>;
-      if (typeof item.spot_id !== "string" || !batch.includes(item.spot_id) || typeof item.review_count !== "number" || !Number.isSafeInteger(item.review_count) || item.review_count < 0) throw new Error("review_counts_invalid");
-      result[item.spot_id] = item.review_count;
+      if (typeof item.spot_id !== "string" || !batch.includes(item.spot_id) || typeof item.mood_count !== "number" || !Number.isSafeInteger(item.mood_count) || item.mood_count < 0) throw new Error("mood_counts_invalid");
+      result[item.spot_id] = item.mood_count;
     }
   }
   return result;
