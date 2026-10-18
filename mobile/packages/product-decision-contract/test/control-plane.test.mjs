@@ -89,3 +89,12 @@ test("impression and open interactions use the same sealed transport and reject 
   await assert.rejects(() => executeDecisionProductInteraction({ binding, request: interaction, invoke: async () => ({ ...acknowledged, candidateId: "spot-forged" }) }), /decision_interaction_response_binding_invalid/);
   await assert.rejects(() => executeDecisionProductInteraction({ binding, request: { ...interaction, serverAuthority: true }, invoke: async () => acknowledged }), /decision_interaction_request_shape_invalid/);
 });
+
+test("Event opt-in remains an optional boolean and never grants client authority", () => {
+  for (const includeEvents of [true,false]) assert.doesNotThrow(()=>validateDecisionProductRequest({...request,includeEvents}));
+  assert.doesNotThrow(()=>validateDecisionProductRequest(request));
+  for (const includeEvents of ['true',1,null,{}]) assert.throws(()=>validateDecisionProductRequest({...request,includeEvents}),/decision_events_capability_invalid/);
+  for (const field of ['serverAuthority','worldSnapshots','eventOccurrences','rankingPolicyHash','actor']) {
+    assert.throws(()=>validateDecisionProductRequest({...request,includeEvents:true,[field]:true}),/decision_request_shape_invalid/);
+  }
+});

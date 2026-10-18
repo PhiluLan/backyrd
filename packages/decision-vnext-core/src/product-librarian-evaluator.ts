@@ -1,3 +1,4 @@
+import { projectDecisionEventOccurrences } from "./product-event-candidates.js";
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, librarianConcept, parseExperienceProfile } from "@backyrd/world-knowledge-core";
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
 import { contentHash, deepFreeze, withContentHash } from "./canonical.js";
@@ -10,6 +11,7 @@ import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE
 import { DecisionProductContextSchema, DecisionProductCandidateAssessmentSchema, DecisionProductEvaluationSchema, DecisionProductPresentationSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS, type DecisionProductContext, type DecisionProductRequest } from "./product-v1-contracts.js";
 
 export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@1" as const;
+export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@3" as const;
 const cityKey = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").trim().toLowerCase();
 
 export function canonicalLibrarianCity(city: string): string {
@@ -121,8 +123,15 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     && f.reason !== "UNDATED_DAYPART_NO_OPENING_CLAIM" && f.reason !== "RETAINED_AS_REQUEST_CONTEXT");
   const availability = temporal.length ? temporal.some(f => f.state === "FAILED") ? "closed" : temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";
   if (temporal.some(f => f.reason === "VISIT_TIME_UNCONFIRMED")) reasons.push({reasonCode:"librarian-visit-time-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,statementDe:"Der Spot passt zu deinem Wunsch. Öffnungs- und Angebotszeiten für den gewünschten Besuch sind noch nicht bestätigt.",confirmed:false});
-  const tastes = userTasteMatches(world, context, projection);
+  const event = world.eventOccurrence;
+  if (event) {
+    if (!["PUBLISHED","SCHEDULED"].includes(event.eventStatus) || event.occurrenceStatus !== "SCHEDULED" || event.ticketStatus === "SOLD_OUT") failed.push("EVENT_NOT_SCHEDULED");
+    reasons.unshift({reasonCode:"event-occurrence",domain:"WORLD",sourceHash:world.snapshotHash,statementDe:"Der Termin für diese Veranstaltung ist veröffentlicht.",confirmed:true});
+    reasons.push({reasonCode:"event-ticket-availability",domain:"LIMITATION",sourceHash:world.snapshotHash,statementDe:"Ob du ein Ticket oder eine Anmeldung brauchst und noch teilnehmen kannst, bitte vorab prüfen.",confirmed:false});
+  }
+  const tastes = event ? [] : userTasteMatches(world, context, projection);
   return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
+    ...(event?.matchedSpotId ? {relatedSpotId:event.matchedSpotId}:{}),
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: candidate.spotId, snapshotHash: candidate.snapshotHash,
     tier: rejected || failed.length ? "INELIGIBLE" : candidate.status === "CONFIRMED" && hasVisitEvidence ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK",
     coreIntentCoverage: core, secondaryIntentCoverage: { ...core, state: "NOT_APPLICABLE" },
@@ -149,13 +158,14 @@ function requiredInEveryAlternative(node: LunaExpression, meaning: LibrarianRequ
 
 export function evaluateLibrarianProduct(input: {
   readonly request: DecisionProductRequest; readonly meaning: LibrarianRequest;
-  readonly catalog: readonly unknown[]; readonly authority: { readonly authorizedCity: string; readonly serverTime: string };
+  readonly catalog: readonly unknown[]; readonly eventOccurrences?: unknown; readonly authority: { readonly authorizedCity: string; readonly serverTime: string };
   readonly projection: RelevantUserProjection;
 }) {
   const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.meaning.raw, sourceText: input.meaning.source.sourceText, reference: input.meaning.source.reference });
   if (meaning.source.sourceText !== input.request.naturalLanguage || meaning.requestHash !== input.meaning.requestHash) throw new Error("product_librarian_source_binding_invalid");
   if (librarianTargetCity(input.request, meaning) !== input.authority.authorizedCity) throw new Error("product_librarian_city_binding_invalid");
-  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime }, limit: 1000 });
+  const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime) : [];
+  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime }, limit: 1500 });
   const byId = new Map(worlds.map(w => [w.spot.spotId, w]));
   const ids = [...byId.keys()].sort();
   if (!ids.length) throw new Error("product_world_candidate_set_invalid");
@@ -164,7 +174,8 @@ export function evaluateLibrarianProduct(input: {
     contractVersion: PRODUCT_DECISION_VERSIONS.cohort, cohortId: `product-world-${candidateSetHash.slice(0, 24)}`, source: "CANONICAL_WORLD_KNOWLEDGE_READER", generatedAt: input.authority.serverTime,
     authorizedCity: input.authority.authorizedCity, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH,
     sourcePolicyVersion: ACCEPTED_SOURCE_POLICY.policyVersion, sourcePolicyHash: ACCEPTED_SOURCE_POLICY.policyHash,
-    spotBindings: worlds.map(w => ({ spotId: w.spot.spotId, snapshotHash: w.snapshotHash })).sort((a,b) => a.spotId.localeCompare(b.spotId)), candidateSetHash, limitations: [], commercialSignalsPresent: false, fixtureSourceUsed: false,
+    ...(eventViews.length ? { eventBindings: eventViews.map(w => ({occurrenceId: w.eventOccurrence!.occurrenceId, snapshotHash:w.snapshotHash})) } : {}),
+    spotBindings: worlds.filter(w => !w.eventOccurrence).map(w => ({ spotId: w.spot.spotId, snapshotHash: w.snapshotHash })).sort((a,b) => a.spotId.localeCompare(b.spotId)), candidateSetHash, limitations: [], commercialSignalsPresent: false, fixtureSourceUsed: false,
   }, "cohortHash"));
   const admitted = new Set(result.ranked.map(c => c.spotId));
   let candidates = [...result.ranked, ...result.excluded, ...result.unresolved].map(c => assessment(c, byId.get(c.spotId)!, context, input.request, input.projection, admitted.has(c.spotId)));
@@ -189,14 +200,17 @@ export function evaluateLibrarianProduct(input: {
     const guardRequest = { ...input.request, naturalLanguage: " ", explicit: guardExplicit };
     const guards = evaluateProductWorldViews(guardRequest, input.authority, input.projection, worlds, candidateSetHash).evaluation.candidates;
     candidates = candidates.map(c => {
-      const guard = guards.find(g => g.candidateId === c.candidateId)!;
+      const guard = guards.find(g => g.candidateId === c.candidateId);
+      if (!guard) return c;
       const { assessmentHash: _hash, ...body } = c;
       // This guard may not apply its implicit "today" to a future Luna visit.
       // Time eligibility belongs to Luna unless an older UI explicitly sets it.
       const uiRequestsTime = !!explicit.dateTime || explicit.hardConstraints?.some(code => ["OPEN_NOW", "OPEN_ON_REQUESTED_DAY"].includes(code));
-      const applicableGuard = (code: string) => (code !== "INDOOR_REQUIRED") && (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime)
+      const applicableGuard = (code: string) => (code !== "INDOOR_REQUIRED") && (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime && !byId.get(c.candidateId)?.eventOccurrence)
         && (code !== "BUDGET_MAXIMUM" || !scopedBudgetRetained);
       const failed = [...c.failedHardConstraints, ...guard.failedHardConstraints.filter(applicableGuard)];
+      const event = byId.get(c.candidateId)?.eventOccurrence;
+      if(event && explicit.hardConstraints?.includes("OPEN_NOW") && Date.parse(event.startAt)>Date.parse(input.authority.serverTime)) failed.push("EVENT_NOT_STARTED");
       const unknown = [...c.unknownHardConstraints, ...guard.unknownHardConstraints.filter(applicableGuard)];
       if (explicit.primaryIntent && ["INCOMPATIBLE", "DISPUTED"].includes(guard.coreIntentCoverage.state)) failed.push("EXPLICIT_INTENT_CONTRADICTED");
       else if (explicit.primaryIntent && guard.coreIntentCoverage.state !== "CONFIRMED") unknown.push("EXPLICIT_INTENT_NOT_PROVEN");
@@ -208,13 +222,13 @@ export function evaluateLibrarianProduct(input: {
   const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.evaluation, evaluationId: `product-evaluation-${contentHash({ requestId: input.request.requestId, cohortHash: cohort.cohortHash }).slice(0,24)}`,
     createdAt: input.authority.serverTime, requestHash: contentHash(input.request), interpretation: context, worldCohort: cohort,
-    userProjectionHash: input.projection.projectionHash, candidates, limitations: [], evaluatorVersion: PRODUCT_LIBRARIAN_EVALUATOR_VERSION,
+    userProjectionHash: input.projection.projectionHash, candidates, limitations: [], evaluatorVersion: input.request.includeEvents === true ? PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION : PRODUCT_LIBRARIAN_EVALUATOR_VERSION,
     evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash, evaluationReleaseHash: DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash, intentPolicyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash,
     sourceKind: "CANONICAL_PRODUCT_PORTS", productSemanticsApproved: true, productRankingAuthorized: true, fixtureSourceUsed: false,
   }, "evaluationHash"));
   const presentations = worlds.map(w => DecisionProductPresentationSchema.parse(withContentHash({
-    contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: w.spot.spotId, name: w.spot.identity.name ?? "Unbenannter Ort", locality: w.spot.location.locality,
-    categoryLabel: w.spot.classification.primaryCategory, imageUrl: null, sourceHash: w.snapshotHash,
+    contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: w.spot.spotId, ...(w.eventOccurrence ? {event:{kind:"EVENT",eventId:w.eventOccurrence.eventId,occurrenceId:w.eventOccurrence.occurrenceId,venueSpotId:w.eventOccurrence.matchedSpotId,venueName:w.eventOccurrence.venueName,address:w.eventOccurrence.address,startAt:w.eventOccurrence.startAt,endAt:w.eventOccurrence.endAt,ticketUrl:w.eventOccurrence.ticketUrl,imageStoragePath:w.eventOccurrence.imageStoragePath??null}} : {}), name: (w.spot.identity.name ?? "Unbenannter Ort").slice(0,160), locality: w.spot.location.locality,
+    categoryLabel: w.eventOccurrence ? "Veranstaltung" : w.spot.classification.primaryCategory, imageUrl: w.eventOccurrence?.imageUrl ?? null, sourceHash: w.snapshotHash,
   }, "presentationHash")));
   return deepFreeze({ evaluation, presentations });
 }

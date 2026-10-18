@@ -101,7 +101,7 @@ for (const [label, source, pattern] of [
   ["decision-v13 Product transport", decisionBinding, /"transportFunction":\s*"decision-v13"/],
   ["vNext Product request", decisionBinding, /backyrd\.decision-vnext\.product-request@1\.0/],
   ["vNext Product response", decisionBinding, /backyrd\.decision-vnext\.product-response@1\.0/],
-  ["strict authority-free Product request", decisionControl, /exactKeys\(value, \["contractVersion", "requestId", "idempotencyKey", "naturalLanguage", "explicit", "alternativeRequested", "previouslyPresentedCandidateIds", "rejectedCandidateIds"\]/],
+  ["strict authority-free Product request", decisionControl, /exactKeys\(value, \["contractVersion", "requestId", "idempotencyKey", "naturalLanguage", \.\.\.\(Object\.hasOwn\(value \?\? \{\}, "includeEvents"\) \? \["includeEvents"\] : \[\]\), "explicit", "alternativeRequested", "previouslyPresentedCandidateIds", "rejectedCandidateIds"\]/],
 ]) {
   if (!pattern.test(source)) failures.push(`Decision contract missing: ${label}`);
 }

@@ -1,4 +1,4 @@
-import { AUTHORING_FIELDS, EXPERIENCE_QUESTIONS, type ExperienceProfile, type ExperienceProperty } from "@backyrd/world-knowledge-core";
+import { AUTHORING_FIELDS, EXPERIENCE_QUESTIONS, type ExperienceProfile, type ExperienceProperty } from "@backyrd/world-knowledge-core/browser";
 
 const displayValue = (property: ExperienceProperty) => property.state === "UNKNOWN" ? "Unbekannt" : property.state === "NOT_APPLICABLE" ? "Nicht relevant" : property.value === true ? "Ja" : property.value === false ? "Nein" : String(property.value ?? "");
 const hasConditions = (property: ExperienceProperty) => property.conditions.weekdays.length > 0 || property.conditions.dayparts.length > 0 || property.conditions.event !== null || property.conditions.validFrom !== null || property.conditions.validUntil !== null;

@@ -45,6 +45,14 @@ Dark/Shadow and Founder modules are retired history and must not be imported.
 - Product control, Auth, rate limit, idempotency and learning authority remain
   server-side and fail closed.
 
+Browser consumers of World Knowledge import `@backyrd/world-knowledge-core/browser`.
+This entry exposes UI catalogs and validators without Founder handoffs, research
+or server HTTP entrypoints. Canonical serialization is shared; the package's
+browser mapping selects the bundler-compatible SHA-256 adapter while Node/Edge
+keep `node:crypto`. Hashes, validation rules and server authority are unchanged.
+The default package entry and the existing Edge `server-runtime` mapping remain
+compatible. Do not restore the old Admin alias to the default `dist/index.js`.
+
 ## Lossless Luna composition
 
 The 2026-10-16 implementation candidate connects the existing single handler

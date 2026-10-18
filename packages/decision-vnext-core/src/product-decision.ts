@@ -1,3 +1,4 @@
+import { isEventCandidateId } from "./product-event-candidates.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
 import { Buffer } from "node:buffer";
 import {
@@ -48,7 +49,7 @@ const reasonDomain = (domain: DecisionProductCandidateAssessment["reasons"][numb
 
 function userRelevance(candidate: DecisionProductCandidateAssessment, projection: RelevantUserProjection) {
   const direct = projection.status === "ACTIVE"
-    ? projection.directSpot.filter((item) => item.spotId === candidate.candidateId && (positiveDirectStates.has(item.state) || negativeDirectStates.has(item.state))).sort((a, b) => b.confidence - a.confidence)[0]
+    ? projection.directSpot.filter((item) => item.spotId === (candidate.relatedSpotId ?? candidate.candidateId) && (positiveDirectStates.has(item.state) || negativeDirectStates.has(item.state))).sort((a, b) => b.confidence - a.confidence)[0]
     : undefined;
   const matches = projection.status === "ACTIVE" ? candidate.userTasteMatches : [];
   const weighted = matches.reduce((sum, item) => sum + item.affinity * item.confidence, 0);
@@ -162,6 +163,10 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
       contextualReject: candidate.rejectionClass === "SITUATIONAL_REJECT", comparativeReason: null,
     };
   }).sort(compareCandidates);
+  return rankCandidateRows(rows, situationalIds);
+}
+
+function rankCandidateRows(rows: readonly RankedCandidate[], situationalIds: ReadonlySet<string> | null): readonly RankedCandidate[] {
   let position = 0;
   const rankedRows = rows.filter((candidate) => rankable(candidate, situationalIds));
   return deepFreeze(rows.map((candidate) => {
@@ -232,18 +237,31 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const situation = evaluation.interpretation.group.companionType;
   const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
     && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
-  const situationalIds = evaluation.evaluatorVersion === "decision-vnext-librarian-evaluator@1" || evaluation.interpretation.primaryIntent !== null ? null : new Set(
+  const situationalIds = ["decision-vnext-librarian-evaluator@1", "decision-vnext-librarian-evaluator@3"].includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
     situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );
   const ranked = candidateRows(evaluation, projection, input.presentations, situationalIds);
-  const available = ranked.filter((candidate) => rankable(candidate, situationalIds));
+  const matchingEventVenues = new Set(ranked.filter(c=>c.presentation.event && rankable(c,situationalIds) && c.coreIntentCoverage === "CONFIRMED").flatMap(c=>c.presentation.event?.venueSpotId ? [c.presentation.event.venueSpotId] : []));
+  const eligible = ranked.filter((candidate) => rankable(candidate, situationalIds) && !matchingEventVenues.has(candidate.spotId));
+  // A recurring series occupies one card. Prefer the best supported matching
+  // occurrence, then its nearest date, rather than a neutral UUID tie-breaker.
+  const series = new Map<string, RankedCandidate>();
+  for (const candidate of eligible) {
+    const event = candidate.presentation.event;
+    if (!event) continue;
+    const current = series.get(event.eventId);
+    const evidenceOrder = current ? rankingChecks(candidate, current).slice(0, -1).find(([difference]) => difference !== 0)?.[0] ?? 0 : 0;
+    if (!current || evidenceOrder < 0 || evidenceOrder === 0 && Date.parse(event.startAt) < Date.parse(current.presentation.event!.startAt)) series.set(event.eventId, candidate);
+  }
+  const available = rankCandidateRows(eligible.filter(candidate => !candidate.presentation.event || series.get(candidate.presentation.event.eventId)?.spotId === candidate.spotId), situationalIds);
+  const occurrencesCollapsed = available.length < eligible.length;
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
   for (let windowSize = maxWindowSize; windowSize >= (maxWindowSize === 0 ? 0 : 1); windowSize -= 1) {
     const selected = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds)).slice(0, PRODUCT_PRESENTATION_WINDOW)
-      : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize ? ranked
+      : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize && !matchingEventVenues.size && !occurrencesCollapsed ? ranked
         : available.slice(firstUnseenIndex, firstUnseenIndex + windowSize);
     const candidates = selected.map(materializeCandidate);
     const primary = firstUnseenIndex < 0 ? null : available[firstUnseenIndex];
@@ -279,7 +297,7 @@ export function buildDecisionLearningEvents(input: {
     { eventType: "decision_requested", candidateId: null, spotId: null },
   ];
   if (input.request.alternativeRequested) specs.push({ eventType: "alternative_requested", candidateId: null, spotId: null });
-  for (const spotId of [...new Set(input.request.rejectedCandidateIds)].sort()) specs.push({ eventType: "candidate_rejected", candidateId: spotId, spotId });
+  for (const spotId of [...new Set(input.request.rejectedCandidateIds)].filter(id=>!isEventCandidateId(id)).sort()) specs.push({ eventType: "candidate_rejected", candidateId: spotId, spotId });
   return deepFreeze(specs.map((spec) => {
     const identity = contentHash({ decisionId: input.decisionId, sessionId: input.sessionId, contextBindingHash: input.contextHash, ...spec });
     return ProductDecisionLearningInputSchema.parse({
@@ -307,6 +325,7 @@ export function buildDecisionInteractionLearningEvent(input: {
   readonly verifiedExecution: DecisionProductExecution;
 }): ProductDecisionLearningInput {
   const execution = DecisionProductExecutionSchema.parse(input.verifiedExecution);
+  if (isEventCandidateId(input.candidateId)) throw new Error("product_event_learning_not_supported");
   const candidate = execution.response.candidates.find((item) => item.spotId === input.candidateId && item.rank !== null);
   if (!candidate) throw new Error("product_decision_interaction_candidate_not_presented");
   const decisionId = execution.response.decisionId;
@@ -332,6 +351,7 @@ export function buildAuthorizedDecisionInteractionLearningEvent(input: {
   readonly authority: { readonly sessionId: string; readonly spotId: string; readonly contextBindingHash: string; readonly occurredAt: string };
 }): ProductDecisionLearningInput {
   const request = DecisionProductInteractionRequestSchema.parse(input.request);
+  if (isEventCandidateId(request.candidateId)) throw new Error("product_event_learning_not_supported");
   if (input.authority.spotId !== request.candidateId) throw new Error("product_decision_interaction_candidate_authority_invalid");
   return ProductDecisionLearningInputSchema.parse({
     contractVersion: CONTRACT_VERSIONS.productDecisionLearningInput,
@@ -442,7 +462,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       });
       if (parsedRequest.contractVersion === PRODUCT_DECISION_VERSIONS.interactionRequest) {
         const authority = await at("INTERACTION_AUTHORITY", (signal) => ports.interaction.resolve({ request: parsedRequest, actor }, signal));
-        if (authority.status === "AUTHORIZED") {
+        if (authority.status === "AUTHORIZED" && !isEventCandidateId(parsedRequest.candidateId)) {
           const event = buildAuthorizedDecisionInteractionLearningEvent({ request: parsedRequest, authority });
           await at("LEARNING", async (signal) => {
             if (ports.learning.contractVersion !== "backyrd.user-intelligence.product-decision-learning-port@1.0") throw new Error("product_decision_learning_port_version_invalid");

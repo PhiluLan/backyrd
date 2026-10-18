@@ -1,4 +1,4 @@
-import { getExperienceQuestions, type ExperienceCategory, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core";
+import { getExperienceQuestions, type ExperienceCategory, type ExperienceQuestion, type ExperienceScope } from "@backyrd/world-knowledge-core/browser";
 
 export type ExperienceWorkspace = "OFFERS" | "AREAS" | "SPOT";
 

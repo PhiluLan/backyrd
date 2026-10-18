@@ -6,15 +6,15 @@ import { contentHash } from "../dist/canonical.js";
 import { reference, authority } from "./librarian-matching-fixtures.mjs";
 const actor = {userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
 const identity = {releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};
-export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false}) {
+export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[]}) {
   let calls=0,reads=0,stored,diagnostics=[];
   const provider=createDecisionProductLunaProvider({apiKey:'synthetic-key',allowedUserIds:'*',now:()=>new Date(reference.now),fetchImpl:fetchImpl??(async(_url,options)=>{
     calls++; const body=JSON.parse(options.body); assert.equal(body.store,false);
     assert.equal(JSON.parse(body.input).request,text);
     return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));
   })});
-  const rpc={async rpc(name,parameters){reads++;assert.equal(name,'backyrd_decision_vnext_product_context_v5');assert.equal(parameters.p_auth_user_id,actor.userId);assert.equal(JSON.stringify(parameters).includes(text),false);
-    return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',serverTime:authority.now,worldSnapshots:catalog}};
+  const rpc={async rpc(name,parameters){reads++;assert.equal(name,request.includeEvents === true ? 'backyrd_decision_vnext_product_context_v6' : 'backyrd_decision_vnext_product_context_v5');assert.equal(parameters.p_auth_user_id,actor.userId);assert.equal(JSON.stringify(parameters).includes(text),false);
+    return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',serverTime:authority.now,worldSnapshots:catalog,...(request.includeEvents === true ? {eventOccurrences} : {})}};
   }};
   const evaluation=createDecisionProductRpcEvaluationProvider(rpc,{meaningRequired:true});
   const handler=createDecisionProductHttpHandler({

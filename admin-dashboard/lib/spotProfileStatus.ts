@@ -1,4 +1,4 @@
-import { evaluateAuthoringReadiness, parseExperienceProfile } from "@backyrd/world-knowledge-core";
+import { evaluateAuthoringReadiness, parseExperienceProfile } from "@backyrd/world-knowledge-core/browser";
 
 export type SpotProfileStatus = { label: string; detail: string; state: "available" | "attention" | "unavailable" };
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);

@@ -76,3 +76,9 @@ test("[object Object] erscheint niemals im UI", () => {
   for (const value of values) assert.doesNotMatch(formatAdminError(value), /\[object Object\]/);
   assert.doesNotMatch(JSON.stringify(safeSerializeError({ unexpected: true })), /\[object Object\]/);
 });
+
+ test("Aktivitäten sind frei beschreibbar und vor dem Speichern begrenzt", () => {
+  assert.equal(validateEventInput({...validForm, activities:"Tischtennis spielen\nKeramik bemalen"}),null);
+  assert.match(validateEventInput({...validForm, activities:Array(33).fill("Aktivität").join("\n")}), /32 Aktivitäten/);
+  assert.match(validateEventInput({...validForm, activities:"x".repeat(161)}), /160 Zeichen/);
+ });
