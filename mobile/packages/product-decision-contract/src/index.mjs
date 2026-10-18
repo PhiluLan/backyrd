@@ -38,7 +38,8 @@ export const DECISION_PRODUCT_CONTRACT = Object.freeze({
 });
 
 export function validateDecisionProductRequest(value) {
-  exactKeys(value, ["contractVersion", "requestId", "idempotencyKey", "naturalLanguage", "explicit", "alternativeRequested", "previouslyPresentedCandidateIds", "rejectedCandidateIds"], "decision_request_shape_invalid");
+  exactKeys(value, ["contractVersion", "requestId", "idempotencyKey", "naturalLanguage", ...(Object.hasOwn(value ?? {}, "includeEvents") ? ["includeEvents"] : []), "explicit", "alternativeRequested", "previouslyPresentedCandidateIds", "rejectedCandidateIds"], "decision_request_shape_invalid");
+  if (Object.hasOwn(value, "includeEvents")) requireValue(typeof value.includeEvents === "boolean", "decision_events_capability_invalid");
   requireValue(value.contractVersion === REQUEST_VERSION, "decision_request_version_unknown");
   requireValue(ID.test(value.requestId) && ID.test(value.idempotencyKey), "decision_request_identity_invalid");
   requireValue(typeof value.naturalLanguage === "string" && value.naturalLanguage.trim().length > 0 && value.naturalLanguage.length <= 2_000, "decision_natural_language_invalid");
@@ -54,7 +55,16 @@ export function validateDecisionProductRequest(value) {
 }
 
 function validatePresentation(value, spotId) {
-  exactKeys(value, ["contractVersion", "spotId", "name", "locality", "categoryLabel", "imageUrl", "sourceHash", "presentationHash"], "decision_presentation_shape_invalid");
+  exactKeys(value, ["contractVersion", "spotId", "name", "locality", "categoryLabel", "imageUrl", "sourceHash", "presentationHash", ...(Object.hasOwn(value ?? {}, "event") ? ["event"] : [])], "decision_presentation_shape_invalid");
+  if (value.event) {
+    const e=value.event;
+    requireValue([e.venueName,e.address].every(v=>v === null || typeof v === "string" && v.length <= 500), "decision_event_location_invalid");
+    exactKeys(e,["kind","eventId","occurrenceId","venueSpotId","venueName","address","startAt","endAt","ticketUrl","imageStoragePath"],"decision_event_presentation_invalid");
+    requireValue(e.kind === "EVENT" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.eventId) && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.occurrenceId) && spotId === `event:${e.occurrenceId}` && Number.isFinite(Date.parse(e.startAt)) && (e.endAt === null || Number.isFinite(Date.parse(e.endAt)) && Date.parse(e.endAt)>=Date.parse(e.startAt)), "decision_event_identity_invalid");
+    requireValue(e.venueSpotId === null || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.venueSpotId), "decision_event_venue_invalid");
+    requireValue(e.imageStoragePath === null || typeof e.imageStoragePath === "string" && e.imageStoragePath.length <= 500 && !e.imageStoragePath.startsWith("/") && !e.imageStoragePath.includes("..") && !/[?#:\\]/.test(e.imageStoragePath), "decision_event_image_invalid");
+    requireValue(e.ticketUrl === null || /^https:\/\//.test(e.ticketUrl), "decision_event_ticket_invalid");
+  } else requireValue(!spotId.startsWith("event:"), "decision_event_presentation_missing");
   requireValue(value.contractVersion === PRESENTATION_VERSION && value.spotId === spotId, "decision_presentation_binding_invalid");
   requireValue(typeof value.name === "string" && value.name.trim().length > 0 && value.name.length <= 160, "decision_presentation_name_invalid");
   requireValue(value.locality === null || ID.test(value.locality), "decision_presentation_locality_invalid");
@@ -69,7 +79,7 @@ function validateCandidate(candidate, seen) {
   seen.add(candidate.spotId);
   validatePresentation(candidate.presentation, candidate.spotId);
   requireValue(["ELIGIBLE_CONFIRMED", "UNCONFIRMED_FALLBACK", "NOT_CONFIGURED", "INELIGIBLE"].includes(candidate.tier), "decision_candidate_tier_invalid");
-  requireValue(candidate.rank === null || (Number.isInteger(candidate.rank) && candidate.rank >= 1 && candidate.rank <= 1_000), "decision_candidate_rank_invalid");
+  requireValue(candidate.rank === null || (Number.isInteger(candidate.rank) && candidate.rank >= 1 && candidate.rank <= 1_500), "decision_candidate_rank_invalid");
   requireValue(["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "INCOMPATIBLE", "DISPUTED", "NOT_APPLICABLE"].includes(candidate.coreIntentCoverage), "decision_candidate_coverage_invalid");
   requireValue(["open", "closed", "unknown", "not_authorized", "expired", "disputed", "not_requested"].includes(candidate.actualAvailability), "decision_candidate_availability_invalid");
   stringArray(candidate.confirmedHardConstraints, 30, "decision_candidate_constraints_invalid");

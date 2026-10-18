@@ -1,3 +1,4 @@
+import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { librarianRankingOnlyFamily } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
@@ -232,6 +233,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         return report("NOT_REQUIRED", "NO_MATCHING_DUTY");
     if (contextual(fact))
         return report("CONTEXT", "RETAINED_AS_REQUEST_CONTEXT");
+    if (world.eventOccurrence && eventFactMatch(world.eventOccurrence,fact))
+        return report(fact.modality === "EXCLUDED" ? "FAILED" : "MET", "EXPLICIT_EVENT_FEATURE", [{evidenceHashes:[world.snapshotHash],offerIds:profile?.offers.map(o=>o.id)??[],areaIds:[],assignments:assignments(request,fact,profile?.offers[0]?.id??null,null),conditionUnresolved:false,chargeable:true}]);
     if (fact.key === "location.destination" || fact.key === "location.country") {
         const key = fact.key === "location.destination" ? "location.locality" : "location.country_code", row = world.facts.find(r => r.key === key);
         if (!row || typeof row.value !== "string" || fact.value.kind !== "TEXT")
@@ -366,7 +369,7 @@ function countPeople(facts: readonly LibrarianFact[], request: LibrarianRequest)
     // authority for quantities, prices and capacity.
     return null;
 }
-function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], request: LibrarianRequest, profile: ExperienceProfile | null, state: State, visit: VisitWindow): LibrarianFactAssessment {
+function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], request: LibrarianRequest, profile: ExperienceProfile | null, state: State, visit: VisitWindow, eventEntry = false): LibrarianFactAssessment {
     const money = fact.value;
     const base = { factId: fact.id, family: fact.key, modality: fact.modality, evidenceHashes: [] as readonly string[], offerIds: state.offerIds, areaIds: state.areaIds };
     const result = (s: MatchTruth, reason: string, hashes: readonly string[] = []): LibrarianFactAssessment => ({ ...base, state: s, reason, evidenceHashes: hashes });
@@ -395,7 +398,7 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
         if(offer.prices.some(p=>["PER_ROOM_NIGHT","PER_PERSON_NIGHT","PER_SITE_NIGHT"].includes(p.basis)))
             return result("UNKNOWN", "OVERNIGHT_PRICE_QUANTITY_OR_SCOPE_UNRESOLVED");
         const concepts = sorted([...(OFFER_CONCEPTS[offer.kind] ?? []), ...facts.filter(f => ["experience.activity", "offer.kind"].includes(f.key) && f.value.kind === "TEXT" && f.subjectIds.some(id => state.assignments[`owner:${id}:offer:${offerId}`] === offerId)).flatMap(f => f.value.kind === "TEXT" ? [librarianConcept(f.value.text) ?? ""] : [])]);
-        const purpose = ["meal", "lunch", "dinner", "breakfast"].some(c => concepts.includes(c)) ? "meal" : concepts.includes("coffee") ? "coffee" : concepts.includes("drinks") ? "drinks" : ["VISIT", "PERMANENT_EXHIBITION", "SPECIAL_EXHIBITION"].includes(offer.kind) ? "entry" : null;
+        const purpose = eventEntry ? "entry" : ["meal", "lunch", "dinner", "breakfast"].some(c => concepts.includes(c)) ? "meal" : concepts.includes("coffee") ? "coffee" : concepts.includes("drinks") ? "drinks" : ["VISIT", "PERMANENT_EXHIBITION", "SPECIAL_EXHIBITION"].includes(offer.kind) ? "entry" : null;
         if (purpose === null)
             return result("UNKNOWN", "PRICE_PURPOSE_UNSTRUCTURED");
         const prices = offer.prices.filter(p => (librarianConcept(p.includes) === purpose || purpose === "meal" && ["lunch", "dinner", "breakfast"].includes(librarianConcept(p.includes) ?? "")) && p.currency === money.currency && librarianConditions(p.conditions, visit) === "MET");
@@ -475,7 +478,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         let cache = availabilityByVisit.get(window);
         if (!cache) { cache = new Map(); availabilityByVisit.set(window, cache); }
         let value = cache.get(offer.id);
-        if (!value) { value = librarianOfferAvailability(offer, snapshot, window); cache.set(offer.id, value); }
+        if (!value) { value = snapshot.eventOccurrence ? eventVisitAvailability(snapshot.eventOccurrence, window) : librarianOfferAvailability(offer, snapshot, window); cache.set(offer.id, value); }
         return value;
     };
     const temporalVisits = new Map(selected.filter(f => LIBRARIAN_FAMILY_STRATEGIES[f.key] === "TEMPORAL").map(f => [f.id,
@@ -519,7 +522,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             if (!fact)
                 return r;
             if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE")
-                return { ...jointPrice(fact, selected, request, profile, state, visit), modality: r.modality };
+                return { ...jointPrice(fact, selected, request, profile, state, visit, world.eventOccurrence !== undefined), modality: r.modality };
             if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL") {
                 const temporalVisit = temporalVisits.get(fact.id)!;
                 if (temporalVisit.undatedDayPhase)
@@ -527,7 +530,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
                 const availability = state.offerIds.map(id => offerAvailability(profile!.offers.find(o => o.id === id)!, world, temporalVisit));
                 // A venue-only request uses venue hours. It must not invent an
                 // offer schedule merely because a scoped profile exists.
-                if (!state.offerIds.length && !allAtoms.some(atom => selected.some(f => f.id === atom.report.factId && offerDuty(f)) && atom.report.offerIds.length > 0)) availability.push(librarianVenueAvailability(world, temporalVisit));
+                if (!state.offerIds.length && !allAtoms.some(atom => selected.some(f => f.id === atom.report.factId && offerDuty(f)) && atom.report.offerIds.length > 0)) availability.push(world.eventOccurrence ? eventVisitAvailability(world.eventOccurrence, temporalVisit) : librarianVenueAvailability(world, temporalVisit));
                 const stateValue: MatchTruth = !temporalVisit.complete || !availability.length ? "UNKNOWN" : availability.some(a => a.state === "FAILED") ? "FAILED" : availability.some(a => a.state === "UNKNOWN") ? "UNKNOWN" : "MET";
                 if (stateValue === "UNKNOWN" && temporalVisit.complete)
                     return { ...r, state: "CONTEXT" as const, reason: "VISIT_TIME_UNCONFIRMED", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
@@ -584,6 +587,7 @@ function runLibrarianCatalogSearch(input: {
         readonly city: string;
         readonly now: string;
     };
+    readonly eventViews?: readonly ProductWorldView[];
     readonly conditionEvidence?: readonly LibrarianConditionEvidence[];
     readonly limit?: number;
 }, semantics: LibrarianSemanticIndex | null): { readonly result: Readonly<LibrarianSearchResult>; readonly worlds: readonly ProductWorldView[] } {
@@ -595,13 +599,18 @@ function runLibrarianCatalogSearch(input: {
     if (input.catalog.length > 1000)
         failure("catalog_limit");
     const limit = input.limit ?? 6;
-    if (!Number.isInteger(limit) || limit < 1 || limit > 1000)
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1500)
         failure("result_limit");
-    const worlds = input.catalog.map(binding => parseProductWorldResolverBinding(binding, input.authority.city));
+    const worlds = [...input.catalog.map(binding => parseProductWorldResolverBinding(binding, input.authority.city)), ...(input.eventViews ?? [])];
+    if ((input.eventViews?.length ?? 0) > 500 || worlds.length > 1500) failure("catalog_limit");
     if (new Set(worlds.map(w => w.spot.spotId)).size !== worlds.length)
         failure("duplicate_spot");
     const conditionIds = sorted(request.weatherConditions.map(c => c.id)), unknownConditions = new Set<string>();
     const candidates: readonly LibrarianCandidate[] = worlds.map(world => {
+        if (world.eventOccurrence && (!["PUBLISHED","SCHEDULED"].includes(world.eventOccurrence.eventStatus) || world.eventOccurrence.occurrenceStatus !== "SCHEDULED" || world.eventOccurrence.ticketStatus === "SOLD_OUT")) {
+            const body = {spotId:world.spot.spotId,name:world.spot.identity.name,status:"INELIGIBLE" as const,facts:[],selectedFactIds:[],inactiveFactIds:[],matchedPreferences:[],unknownFactIds:[],failedFactIds:["EVENT_NOT_SCHEDULED"],offerIds:[],areaIds:[],limitations:["EVENT_NOT_SCHEDULED"],snapshotHash:world.snapshotHash,alternativeOrder:[],conditionalPlans:[]};
+            return {...body,candidateHash:contentHash(body)};
+        }
         const dateFacts = request.facts.filter(f => f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED");
         const date = dateFacts.length === 1 && dateFacts[0]!.value.kind === "DATE" ? dateFacts[0]!.value.date : null;
         const truths = new Map<string, boolean>();

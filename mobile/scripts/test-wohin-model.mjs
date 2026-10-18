@@ -103,3 +103,11 @@ test("one sentence uses only confirmed World evidence and does not promote possi
  assert.match(wohinRecommendation({...base,reasons:[{code:"LBR:drink",domain:"WORLD",confirmed:true,statement:"Bestätigt: die Getränkeauswahl."}]}),/Drink/);
  assert.match(wohinRecommendation({...base,reasons:[{code:"core-intent-confirmed",domain:"WORLD",confirmed:true,statement:"internal"}]}),/passende Idee/);
 });
+
+test("an event card shows its real date and venue without a Spot-hours claim", () => {
+ const candidate={presentation:{event:{startAt:"2026-10-15T18:00:00.000Z",venueName:"Musikraum"},locality:"Basel"},coreIntentCoverage:"UNKNOWN",reasons:[]};
+ assert.match(wohinPlaceMeta(candidate),/Musikraum/);
+ assert.match(wohinPlaceMeta(candidate),/20:00/);
+ assert.match(wohinRecommendation(candidate),/Vielleicht/);
+ assert.doesNotMatch(wohinRecommendation(candidate),/geöffnet/);
+});

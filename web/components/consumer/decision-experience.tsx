@@ -25,13 +25,14 @@ function toggle(values: string[], value: string) {
     : [...values, value];
 }
 function image(spot: DecisionResult) {
-  return spot.presentation.imageUrl;
+  const path=spot.presentation.event?.imageStoragePath;
+  return path ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/event-images/${path}` : spot.presentation.imageUrl;
 }
 function category(spot: DecisionResult) {
   return spot.presentation.categoryLabel || "Backyrd Spot";
 }
 function maps(spot: DecisionResult) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([spot.presentation.name, spot.presentation.locality].filter(Boolean).join(", "))}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([spot.presentation.event?.venueName ?? spot.presentation.name, spot.presentation.event?.address ?? spot.presentation.locality].filter(Boolean).join(", "))}`;
 }
 const visibleReasonCopy: Record<string, string> = {
   "core-intent-confirmed": "Die Art des Ortes passt zu deinem Wunsch.",
@@ -42,6 +43,7 @@ const visibleReasonCopy: Record<string, string> = {
   "primary-purpose-confirmed": "Der Ort ist auch auf diese Art von Besuch ausgerichtet.",
 };
 function resultCopy(spot: DecisionResult): { highlights: string[]; considerations: string[] } {
+  if (spot.presentation.event) return {highlights:[spot.coreIntentCoverage === "CONFIRMED" ? "Das könnte dein nächster Moment werden." : "Vielleicht etwas für dich – schau dir die Details an."],considerations:spot.reasons.filter(r=>r.domain === "LIMITATION" && !r.confirmed).map(r=>r.statement)};
   const confirmed = new Set(spot.reasons.filter((reason) => reason.confirmed).map((reason) => reason.code));
   const highlights = Object.entries(visibleReasonCopy)
     .filter(([code]) => confirmed.has(code) && !(code === "primary-purpose-confirmed" && confirmed.has("core-intent-confirmed")))
@@ -94,6 +96,7 @@ export function DecisionExperience() {
   useEffect(() => {
     const element = resultElement.current;
     if (status !== "results" || !run || !current || !element) return;
+    if (current.presentation.event) return;
     const key = `${run.decisionId}:${current.spotId}`;
     if (impressed.current.has(key)) return;
     let timer: number | null = null;
@@ -387,7 +390,7 @@ export function DecisionExperience() {
                 {current.presentation.name}
               </h2>
               <p className="b-kicker" style={{ marginTop: 18 }}>
-                {current.actualAvailability === "open"
+                {current.presentation.event ? new Intl.DateTimeFormat("de-CH",{timeZone:"Europe/Zurich",dateStyle:"medium",timeStyle:"short"}).format(new Date(current.presentation.event.startAt)) : current.actualAvailability === "open"
                   ? "Laut Angaben geöffnet"
                   : current.actualAvailability === "closed"
                     ? "Laut Angaben geschlossen"
@@ -403,13 +406,13 @@ export function DecisionExperience() {
               <div className="b-decision-actions">
                 <div className="b-form-actions">
                   <Link
-                    href={`/spots/${current.spotId}?from=decision`}
+                    href={current.presentation.event ? `/events/${current.presentation.event.eventId}?occurrence=${current.presentation.event.occurrenceId}` : `/spots/${current.spotId}?from=decision`}
                     className="b-button b-button-secondary"
                     onClick={() => {
-                      void recordDecisionInteraction(run.decisionId, current.spotId, "candidate_opened").catch(() => undefined);
+                      !current.presentation.event && void recordDecisionInteraction(run.decisionId, current.spotId, "candidate_opened").catch(() => undefined);
                     }}
                   >
-                    Spot ansehen
+                    {current.presentation.event ? "Event ansehen" : "Spot ansehen"}
                   </Link>
                   <a
                     className="b-button b-button-secondary"

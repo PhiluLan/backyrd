@@ -101,6 +101,7 @@ type DecisionProductRequest = {
   requestId: string;
   idempotencyKey: string;
   naturalLanguage: string;
+  includeEvents?: boolean;
   explicit: { targetCity?: string | null; moods?: string[] };
   alternativeRequested: boolean;
   previouslyPresentedCandidateIds: string[];
@@ -120,6 +121,7 @@ export type DecisionResult = {
   presentation: {
     contractVersion: typeof PRESENTATION_VERSION;
     spotId: string;
+    event?: { kind: "EVENT"; eventId: string; occurrenceId: string; venueSpotId: string | null; venueName: string | null; address: string | null; startAt: string; endAt: string | null; ticketUrl: string | null; imageStoragePath: string | null };
     name: string;
     locality: string | null;
     categoryLabel: string | null;
@@ -255,6 +257,7 @@ export function buildCanonicalDecisionRequest(
     requestId,
     idempotencyKey: requestId,
     naturalLanguage: query,
+    includeEvents: true,
     explicit,
     alternativeRequested: action.alternativeRequested,
     previouslyPresentedCandidateIds: uniqueIdentifiers(action.previouslyPresentedCandidateIds),
@@ -348,7 +351,14 @@ async function validateCandidate(value: unknown, expectedRank: number | null): P
   if (!enumValue(item.tier, ["ELIGIBLE_CONFIRMED", "UNCONFIRMED_FALLBACK", "NOT_CONFIGURED", "INELIGIBLE"]) || !enumValue(item.coreIntentCoverage, ["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "INCOMPATIBLE", "DISPUTED", "NOT_APPLICABLE"]) || !enumValue(item.actualAvailability, ["open", "closed", "unknown", "not_authorized", "expired", "disputed", "not_requested"])) throw unavailable();
   for (const key of ["confirmedHardConstraints", "unknownHardConstraints", "failedHardConstraints", "limitations"] as const) if (!strings(item[key], 40)) throw unavailable();
   const presentation = record(item.presentation);
-  exactKeys(presentation, ["contractVersion", "spotId", "name", "locality", "categoryLabel", "imageUrl", "sourceHash", "presentationHash"]);
+  exactKeys(presentation, ["contractVersion", "spotId", "name", "locality", "categoryLabel", "imageUrl", "sourceHash", "presentationHash", ...(Object.hasOwn(presentation,"event") ? ["event"] : [])]);
+  if (presentation.event) {
+    const event = record(presentation.event);
+    exactKeys(event,["kind","eventId","occurrenceId","venueSpotId","venueName","address","startAt","endAt","ticketUrl","imageStoragePath"]);
+    const uuid=(v:unknown)=>typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+    const date=(v:unknown)=>typeof v === "string" && Number.isFinite(Date.parse(v));
+    if(event.kind!=="EVENT" || !uuid(event.eventId) || !uuid(event.occurrenceId) || item.spotId!==`event:${event.occurrenceId}` || !date(event.startAt) || event.endAt!==null && (!date(event.endAt) || Date.parse(event.endAt as string)<Date.parse(event.startAt as string)) || event.venueSpotId!==null && !uuid(event.venueSpotId) || ![event.venueName,event.address].every(v=>v===null || typeof v === "string" && v.length<=500) || event.ticketUrl!==null && (typeof event.ticketUrl!=="string" || !event.ticketUrl.startsWith("https://")) || event.imageStoragePath!==null && (typeof event.imageStoragePath!=="string" || event.imageStoragePath.length>500 || event.imageStoragePath.startsWith("/") || event.imageStoragePath.includes("..") || /[?#:\\]/.test(event.imageStoragePath))) throw unavailable();
+  } else if ((item.spotId as string).startsWith("event:")) throw unavailable();
   if (presentation.contractVersion !== PRESENTATION_VERSION || presentation.spotId !== item.spotId || typeof presentation.name !== "string" || presentation.name.length < 1 || presentation.name.length > 160 || (presentation.locality !== null && !identifier(presentation.locality)) || (presentation.categoryLabel !== null && typeof presentation.categoryLabel !== "string") || (presentation.imageUrl !== null && (typeof presentation.imageUrl !== "string" || !presentation.imageUrl.startsWith("https://"))) || !hash(presentation.sourceHash)) throw unavailable();
   await assertContentHash(presentation, "presentationHash");
   const rankVector = record(item.rankVector);
@@ -388,11 +398,15 @@ async function validateResponse(value: unknown, request: DecisionProductRequest)
   await validateInterpretation(item.interpretation);
   const candidates = Array.isArray(item.candidates) ? item.candidates : (() => { throw unavailable(); })();
   if (candidates.length > 40) throw unavailable();
-  const ranked = candidates.filter((candidate) => record(candidate).rank !== null);
+  let lastRank = 0;
   const parsed: DecisionResult[] = [];
   for (let index = 0; index < candidates.length; index += 1) {
     const rank = record(candidates[index]).rank;
-    parsed.push(await validateCandidate(candidates[index], rank === null ? null : ranked.indexOf(candidates[index]) + 1));
+    if (rank !== null) {
+      if (!Number.isInteger(rank) || (rank as number) <= lastRank || (rank as number) > 1500) throw unavailable();
+      lastRank = rank as number;
+    }
+    parsed.push(await validateCandidate(candidates[index], rank as number | null));
   }
   if (new Set(parsed.map((candidate) => candidate.spotId)).size !== parsed.length) throw unavailable();
   const rankedIds = new Set(parsed.filter((candidate) => candidate.rank !== null && !candidate.contextualReject).map((candidate) => candidate.spotId));

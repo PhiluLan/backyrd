@@ -1,4 +1,4 @@
-import { evaluateLibrarianProduct, librarianTargetCity, canonicalLibrarianCity, PRODUCT_LIBRARIAN_EVALUATOR_VERSION } from "./product-librarian-evaluator.js";
+import { evaluateLibrarianProduct, librarianTargetCity, canonicalLibrarianCity } from "./product-librarian-evaluator.js";
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -446,10 +446,11 @@ async function readDecisionProductRuntimeContext(rpc: DecisionProductRpcClient, 
   readonly identity: DecisionProductProductionIdentity;
   readonly targetCity: string;
   readonly retrievalHint: string | null;
+  readonly includeEvents?: boolean;
   readonly signal: AbortSignal;
 }) {
   if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
-  const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
+  const result = await rpc.rpc(input.includeEvents ? "backyrd_decision_vnext_product_context_v6" : DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
     p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
     p_target_city: input.targetCity, p_primary_intent: input.retrievalHint,
     p_release_hash: input.identity.releaseHash, p_artifact_hash: input.identity.artifactHash,
@@ -523,12 +524,13 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
       const city = canonicalLibrarianCity(input.request.explicit.targetCity);
       const outcome = readDecisionProductRuntimeContext(rpc, {
-        actor: input.actor, identity: input.identity, targetCity: city, retrievalHint: "EAT", signal: input.signal,
+        actor: input.actor, identity: input.identity, includeEvents: input.request.includeEvents === true, targetCity: city, retrievalHint: "EAT", signal: input.signal,
       }).then(context => ({ context }), error => ({ error }));
       prepared.set(input.request, { bindingHash: bindingHash(input), city, signal: input.signal, outcome });
       await outcome;
     },
     async evaluate(input: Parameters<DecisionProductCanonicalEvaluationProvider["evaluate"]>[0]) {
+      if(input.request.includeEvents === true && !input.meaning) throw new Error("product_event_meaning_required");
       if (options.meaningRequired && !input.meaning) throw new Error("product_librarian_meaning_required");
       const targetCity = input.meaning ? librarianTargetCity(input.request, input.meaning) : productTargetCity(input.request);
       const prefetched = prepared.get(input.request);
@@ -542,7 +544,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
         runtimeContext = outcome.context;
       } else {
         runtimeContext = await readDecisionProductRuntimeContext(rpc, {
-          actor: input.actor, identity: input.identity, targetCity,
+          actor: input.actor, identity: input.identity, includeEvents: input.request.includeEvents === true, targetCity,
           retrievalHint: input.meaning ? "EAT" : productRetrievalIntent(input.request), signal: input.signal,
         });
       }
@@ -551,8 +553,8 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       if (input.meaning) {
         if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
         const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
-        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], authority: { authorizedCity: targetCity, serverTime }, projection }));
-        return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: evaluated.evaluation.worldCohort.candidateSetHash }) }, evaluatorContractVersion: PRODUCT_LIBRARIAN_EVALUATOR_VERSION };
+        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], eventOccurrences: context.eventOccurrences, authority: { authorizedCity: targetCity, serverTime }, projection }));
+        return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: evaluated.evaluation.worldCohort.candidateSetHash }) }, evaluatorContractVersion: evaluated.evaluation.evaluatorVersion };
       }
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];
       const snapshots = new Map<string, ReturnType<typeof parseProductWorldResolverBinding>>();
