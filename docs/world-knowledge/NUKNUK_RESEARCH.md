@@ -105,3 +105,10 @@ experience profile was absent. The Alexander Spot was a restaurant while the
 old manual research packet pointed at a hotel. Hotel results must be discarded.
 Alternative source domains require identity review; matching names are insufficient.
 Do not batch-import this pilot or use it to certify the existing stored values.
+
+Version v3 bounds each experience-profile proposal to one offer and one area.
+Reports mark this as a partial profile; it must never replace a stored complete
+profile. This follows a live test that exceeded the 90-second request limit while
+trying to generate the full profile. Batching/merging many partial profiles is not
+yet implemented. The syntax-only compiler regression passes; that does not imply
+that the model has correctly understood the source.

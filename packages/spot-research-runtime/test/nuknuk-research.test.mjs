@@ -93,3 +93,10 @@ test('MLX grammar adaptation preserves the authoritative catalog schema',()=>{
   assert.equal(JSON.parse(request.messages[1].content).field.valueSchema.uniqueItems,true);
   assert.equal(original.uniqueItems,true);
 });
+
+test('profile proposals stay bounded and cannot represent a complete replacement',()=>{
+  const context={field:{attributeKey:'experience.profile'},sources,validateValue:()=>({ok:true})};
+  const value={reviewed:false,offers:[{name:'Synthetic offer'}],areas:[]};
+  assert.equal(validateNuknukProposal({...proposed,value},context).partialProfile,true);
+  assert.throws(()=>validateNuknukProposal({...proposed,value:{...value,offers:[{},{}]}},context),/scope_exceeded/);
+});
