@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { matchesExistingWebsite } from './nuknuk-sources.mjs';
 import { parseExperienceProfile } from '../../world-knowledge-core/dist/index.js';
-export const NUKNUK_RESEARCH_VERSION = 'nuknuk-research-v4';
+export const NUKNUK_RESEARCH_VERSION = 'nuknuk-research-v5';
 export const NUKNUK_MODEL_REVISION = '8b2b98c00a6b4d291155e4890773ca8f769aee53';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -27,6 +27,7 @@ function offerKinds(field) {
   if(field.profileCategory==='STAY')return ['OVERNIGHT_STAY'];
   if(field.profileCategory==='EAT')return ['GASTRONOMY'];
   if(field.profileCategory==='DRINKS')return ['DRINKS'];
+  if(field.profileCategory==='COFFEE_DAYTIME')return ['GASTRONOMY','DRINKS'];
   return all;
 }
 export function imageOfferCandidates(field,sources) {
@@ -42,20 +43,69 @@ export function imageOfferCandidates(field,sources) {
   }
   return candidates;
 }
+// Closed evidence mappings: the model selects assertions, not arbitrary enum values.
+// Unsupported languages/phrases stay unknown. Images are not availability policies.
+const factPatterns={
+  'offering.groups':{
+    COFFEE:/\b(?:Kaffee|Coffee)\b/iu, BAKED_GOODS:/\b(?:Backwaren|Cornettos?|Gipfeli|croissants?|pastries)\b/iu,
+    BEER:/\b(?:Bier|beer)\b/iu, WINE:/\b(?:Wein|wine)\b/iu,
+  },
+  'amenity.features':{
+    WIFI:/\b(?:WLAN|Wi-?Fi)\b/iu, CLOAKROOM:/\b(?:Garderobe|cloakroom)\b/iu,
+    TERRACE:/\b(?:Terrasse|terrace)\b/iu, PLAY_AREA:/\b(?:Spielbereich|Spielzimmer|Kinderzimmer|playroom)\b/iu,
+    OUTDOOR_SEATING:/\b(?:Sitzplätze (?:draussen|draußen)|outdoor seating)\b/iu,
+  },
+};
+export function enumFactCandidates(field,sources) {
+  const patterns=factPatterns[field.attributeKey];
+  if(!patterns)return null;
+  const result=[];
+  for(const source of sources.filter(s=>!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format))) {
+    for(const quote of source.text.split(/(?<=[.!?])\s+|\n+/).map(s=>s.trim())) {
+      if(quote.length<12||quote.length>800||/\b(?:kein\w*|nicht|ohne|no|not|without|früher|ehemals|closed|geschlossen|vielleicht|maybe|falls|wenn|if)\b|\?/iu.test(quote))continue;
+      const assertion=field.attributeKey==='offering.groups'?/servier|bieten|angebot|gibt|gibts|geniess|genieß|verwöhn|lädt.+zu|we (?:serve|offer)/iu:/verfügbar|vorhanden|bieten|verfügt|haben|unser|available|we (?:have|offer)/iu;
+      if(!assertion.test(quote))continue;
+      for(const [value,pattern] of Object.entries(patterns))if(pattern.test(quote)) {
+        result.push({id:'f'+result.length,value,quote,sourceId:source.id});
+        if(result.length>=60)return result;
+      }
+    }
+  }
+  return result;
+}
+// Cafe prose often shares a pastry prefix across a list of variants. Keep that
+// list intact and select immutable spans rather than generating expanded names.
+export function cafeOfferCandidates(field,sources) {
+  if(field.attributeKey!=='experience.profile'||field.profileCategory!=='COFFEE_DAYTIME')return [];
+  const candidates=[];
+  for(const source of sources.filter(s=>!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format)))for(const quote of source.text.split(/(?<=[.!?])\s+|\n+/)) {
+    if(quote.length>800||/\b(?:kein\w*|nicht|ohne|no|not|without|früher|ehemals|wenn|if)\b|\?/iu.test(quote)||!/servier|bieten|gibt|gibts|verwöhn|we (?:serve|offer)/iu.test(quote))continue;
+    for(const [kind,pattern] of [['DRINKS',/(?:[A-Z][\p{L}-]+ ){1,3}(?:Coffee|Kaffee)\b/gu],['GASTRONOMY',/\b(?:Cornetto|Croissant|Muffin|Cookie)\s+[^.!?;]{2,100}/gu]])for(const match of quote.matchAll(pattern)) {
+      candidates.push({id:'p'+candidates.length,name:match[0].trim(),kind,quote,sourceId:source.id});
+      if(candidates.length>=60)return candidates;
+    }
+  }
+  return candidates;
+}
 export function buildNuknukResearchRequest({spot,field,sources,modelPath}) {
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(spot?.spotId??'') || !spot.name || !field?.attributeKey || !field.valueSchema) throw new Error('research_input_invalid');
   if(typeof modelPath!=='string'||!modelPath.startsWith('/')||!modelPath.endsWith(NUKNUK_MODEL_REVISION)) throw new Error('pinned_local_model_required');
   if(!Array.isArray(sources)||!sources.length||sources.length>6||sources.some(s=>!s.id||typeof s.text!=='string'||!s.text.trim()||s.text.length>12000))throw new Error('research_sources_invalid');
   const key=field.attributeKey;
-  const imageCandidates=imageOfferCandidates(field,sources);
-  const candidates=imageCandidates.length?imageCandidates:fieldCandidates(field,sources);
+  const cafeCandidates=cafeOfferCandidates(field,sources);
+  const imageCandidates=cafeCandidates.length?cafeCandidates:imageOfferCandidates(field,sources);
+  const factCandidates=enumFactCandidates(field,sources);
+  const candidates=factCandidates??(imageCandidates.length?imageCandidates:fieldCandidates(field,sources));
   let task, schema;
-  if(imageCandidates.length) {
-    task='Select up to four IDs for '+(field.profileCategory==='DRINKS'?'drinks':'food dishes')+' from the supplied menu lines. Select only items offered by this place. Return selected IDs; empty selected if none. Code preserves original names and evidence without translation.';
+  if(factCandidates!==null) {
+    task='Select the IDs of all explicit supported assertions for this exact place. Do not infer facilities from visitors, food, target groups or photos. Empty selected if absent. Code maps selected evidence to allowed values.';
+    schema=record({selected:{type:'array',maxItems:60,items:{type:'string',enum:factCandidates.length?factCandidates.map(c=>c.id):['NONE']}}});
+  } else if(imageCandidates.length) {
+    task='Select up to four IDs for '+(cafeCandidates.length?'named coffees and pastries':field.profileCategory==='DRINKS'?'drinks':'food dishes')+' from the supplied menu lines. Select only items offered by this place. Return selected IDs; empty selected if none. Code preserves original names and evidence without translation.';
     schema=record({selected:{type:'array',maxItems:4,items:{type:'string',enum:imageCandidates.map(c=>c.id)}}});
   } else if(key==='experience.profile') {
-    const scope=field.profileCategory==='STAY'?'accommodation/room names (exclude food, bars and events)':field.profileCategory==='EAT'?'food dishes and menus (exclude drinks and events)':field.profileCategory==='DRINKS'?'named drinks (exclude food and events)':'named activities';
-    task='Copy up to four '+scope+', their exact surrounding quotes and sourceIds. Keep the original source language, alphabet and spelling. Never translate or transliterate names or quotes. Preserve price conditions in quotes. Names must not include adjacent dietary labels or prices. Empty offers if absent. Kind is '+offerKinds(field).join(' or ')+'.';
+    const scope=field.profileCategory==='STAY'?'accommodation/room names (exclude food, bars and events)':field.profileCategory==='EAT'?'food dishes and menus (exclude drinks and events)':field.profileCategory==='DRINKS'?'named drinks (exclude food and events)':field.profileCategory==='COFFEE_DAYTIME'?'named coffees, drinks and baked goods (including explicitly named pastry variants; exclude events)':'named activities';
+    task='Copy up to four '+scope+', their exact surrounding quotes and sourceIds. Keep the original source language, alphabet and spelling. Never translate or transliterate names or quotes. Preserve price conditions in quotes. Every name must be an exact contiguous substring of its quote, and that entire quote must occur in the chosen sourceId. Never pair an item with a general sentence from another page. If variants share a prefix, copy the complete named variant list as ONE offer; never expand omitted prefixes into invented names. Names must not include adjacent dietary labels or prices. Empty offers if absent. Kind is '+offerKinds(field).join(' or ')+'.';
     schema=record({offers:{type:'array',maxItems:4,items:record({name:{type:'string',maxLength:160},...evidenceSchema,kind:{type:'string',enum:offerKinds(field)}})}});
   } else if(candidates) {
     task=key==='hours.regular'?'Select IDs of regular opening-hours rows for this exact place. Exclude kitchen, hotel restaurant/bar/room-service, appointments and other branches. Empty selected if no matching row.':'Select one ID containing a factual description of what the place offers. Prefer descriptive prose, not opening hours, contact details, slogans or navigation. Empty selected if none suitable.';
@@ -88,12 +138,21 @@ export function extractedProposal(raw,{spot,field,sources=[]}) {
   const key=field.attributeKey;
   const empty=()=>({status:'UNRESOLVED',value:null,citations:[],reason:key==='hours.regular'?'NO_SUPPORTED_COMPLETE_INTERVAL':'NO_SUPPORTED_FACT'});
   const proposed=(value,citations)=>({status:'PROPOSED',value,citations,reason:null});
+  const facts=enumFactCandidates(field,sources);
+  if(facts!==null) {
+    if(!exact(raw,['selected'])||!Array.isArray(raw.selected)||raw.selected.length>60||new Set(raw.selected).size!==raw.selected.length)throw new Error('research_selection_invalid');
+    if(!raw.selected.length)return empty();
+    const selected=raw.selected.map(id=>{const c=facts.find(c=>c.id===id);if(!c)throw new Error('research_selection_not_found');return c;});
+    const unique=[...new Map(selected.map(c=>[c.value,c])).values()];
+    return proposed(unique.map(c=>c.value),unique.map(({quote,sourceId})=>({quote,sourceId})));
+  }
   if(key==='experience.profile') {
-    const candidates=imageOfferCandidates(field,sources);
+    const cafeCandidates=cafeOfferCandidates(field,sources);
+    const candidates=cafeCandidates.length?cafeCandidates:imageOfferCandidates(field,sources);
     if(candidates.length) {
       if(!exact(raw,['selected'])||!Array.isArray(raw.selected)||raw.selected.length>4||new Set(raw.selected).size!==raw.selected.length)throw new Error('research_selection_invalid');
       if(!raw.selected.length)return empty();
-      const offers=raw.selected.map(id=>{const c=candidates.find(c=>c.id===id);if(!c)throw new Error('research_selection_not_found');return {name:c.name,quote:c.quote,sourceId:c.sourceId,kind:offerKinds(field)[0]};});
+      const offers=raw.selected.map(id=>{const c=candidates.find(c=>c.id===id);if(!c)throw new Error('research_selection_not_found');return {name:c.name,quote:c.quote,sourceId:c.sourceId,kind:c.kind??offerKinds(field)[0]};});
       return proposed({offers},offers.map(({sourceId,quote})=>({sourceId,quote})));
     }
     if(!exact(raw,['offers'])||!Array.isArray(raw.offers))throw new Error('research_output_invalid');
@@ -252,6 +311,8 @@ export function validateNuknukProposal(raw,{field,sources,validateValue}) {
   }
   if(raw.reason!==null||!raw.citations.length)throw new Error('research_proposal_invalid');
   let value=raw.value;
+  const facts=enumFactCandidates(field,sources);
+  if(facts!==null&&(!Array.isArray(value)||!value.length||new Set(value).size!==value.length||value.some(v=>!facts.some(f=>f.value===v&&raw.citations.some(c=>c.sourceId===f.sourceId&&c.quote===f.quote)))))throw new Error('research_enum_not_supported');
   if(field.attributeKey==='description.highlight') {
     const c=raw.citations[0],source=sources.find(s=>s.id===c?.sourceId);
     if(raw.citations.length!==1||value!==c?.quote||!source)throw new Error('research_description_not_grounded');
@@ -279,7 +340,7 @@ export function validateNuknukProposal(raw,{field,sources,validateValue}) {
   return {attributeKey:field.attributeKey,status:'REQUIRES_REVIEW',knowledgeState,value:validated.value??value,citations,...(field.attributeKey==='experience.profile'?{partialProfile:true}:{})};
 }
 // Verification is a deterministic research decision, never a profile approval or write.
-export const NUKNUK_VERIFICATION_POLICY = 'nuknuk-evidence-v1';
+export const NUKNUK_VERIFICATION_POLICY = 'nuknuk-evidence-v2';
 export function verifyResearchProposal(proposal,{spot,sources,exportBound=false,sourceFailures=[],now=Date.now()}) {
   if(proposal.status!=='REQUIRES_REVIEW')return proposal;
   const website=spot.existingValues?.['contact.website']?.value;
@@ -310,9 +371,10 @@ export function verifyResearchProposal(proposal,{spot,sources,exportBound=false,
       return match&&match[1].replace(/[^+\d]/g,'').replace(/^00/,'+')===proposal.value&&normalize(line).includes(normalize(spot.name))&&normalize(line).includes(normalize(address));
     }));
     const current=spot.existingValues?.[proposal.attributeKey];
+    const existingMatch=current?.knowledgeState==='KNOWN_VALUE'&&current.value===proposal.value&&proposal.citations.some(c=>{try{return normalizePhone(c.evidence,null)===proposal.value;}catch{return false;}});
     const conflict=current&&(['KNOWN_VALUE','KNOWN_TRUE','KNOWN_FALSE','NOT_APPLICABLE'].includes(current.knowledgeState))&&current.value!==proposal.value;
-    automatic=labelled&&numbers.size===1&&numbers.has(proposal.value)&&!conflict&&!sourceFailures.length&&sources.every(s=>!s.truncated&&!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format));
-    reason=automatic?'UNIQUE_EXPLICIT_SPOT_PHONE':conflict?'EXISTING_VALUE_CONFLICT':sourceFailures.length?'SOURCE_RETRIEVAL_INCOMPLETE':'PHONE_SCOPE_REQUIRES_REVIEW';
+    automatic=(labelled||existingMatch)&&numbers.size===1&&numbers.has(proposal.value)&&!conflict&&!sourceFailures.length&&sources.every(s=>!s.truncated&&!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format));
+    reason=automatic?(existingMatch?'EXISTING_PHONE_RECONFIRMED':'UNIQUE_EXPLICIT_SPOT_PHONE'):conflict?'EXISTING_VALUE_CONFLICT':sourceFailures.length?'SOURCE_RETRIEVAL_INCOMPLETE':'PHONE_SCOPE_REQUIRES_REVIEW';
   }
   return {...proposal,status:automatic?'AUTO_VERIFIED':proposal.status,verification:{policy:NUKNUK_VERIFICATION_POLICY,checkedAt:new Date(now).toISOString(),reason,evidenceChecks},humanReviewRequired:!automatic};
 }

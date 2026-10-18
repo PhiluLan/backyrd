@@ -260,3 +260,65 @@ test('runtime and review report expose automatic verification separately from pe
   const {reviewHtml}=await import('../../../scripts/world-knowledge/nuknuk-research.mjs');
   assert.match(reviewHtml([report]),/UNIQUE_EXPLICIT_SPOT_PHONE/);
 });
+
+test('cafe research requests coffees and pastries instead of named activities',async()=>{
+  const {researchValueContract}=await import('../../world-knowledge-core/dist/research-value-schema.js');
+  const f={attributeKey:'experience.profile',profileCategory:'COFFEE_DAYTIME',...researchValueContract('experience.profile')};
+  const request=buildNuknukResearchRequest({spot,field:f,sources,modelPath});
+  assert.match(request.messages[0].content,/coffees, drinks and baked goods/);
+  assert.doesNotMatch(request.messages[0].content,/named activities/);
+  assert.deepEqual(request.response_format.json_schema.schema.properties.offers.items.properties.kind.enum,['GASTRONOMY','DRINKS']);
+});
+test('navigation menu icons are never treated as menu documents',()=>{
+  assert.deepEqual(discoverMenuImages({url:'https://example.org',body:'<img src="/menu-toggle.png"><img src="/menu.svg"><img src="/hamburger-menu.jpg"><img src="/speisekarte.jpg" alt="Speisekarte">'}),[{url:'https://example.org/speisekarte.jpg',discoveredOn:'https://example.org'}]);
+});
+test('closed enum extraction maps explicit evidence without arbitrary values or duplication',async()=>{
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  const {researchValueContract}=await import('../../world-knowledge-core/dist/research-value-schema.js');
+  const {validateAuthoringSubmission}=await import('../../world-knowledge-core/dist/index.js');
+  const f={attributeKey:'offering.groups',...researchValueContract('offering.groups')};
+  const ss=[{...source,text:'Wir servieren Kaffee und Bier. Wir bieten Wein und Backwaren. Wir servieren Kaffee.'}];
+  const candidates=enumFactCandidates(f,ss);
+  const raw=extractedProposal({selected:candidates.map(c=>c.id)},{spot,field:f,sources:ss});
+  assert.deepEqual(new Set(raw.value),new Set(['COFFEE','BEER','WINE','BAKED_GOODS']));
+  assert.equal(validateNuknukProposal(raw,{field:f,sources:ss,validateValue:validateAuthoringSubmission}).status,'REQUIRES_REVIEW');
+  assert.throws(()=>extractedProposal({selected:['f99']},{spot,field:f,sources:ss}),/selection_not_found/);
+});
+test('invented amenities fail even with valid unique enums and verbatim unrelated quotes',async()=>{
+  const {researchValueContract}=await import('../../world-knowledge-core/dist/research-value-schema.js');
+  const {validateAuthoringSubmission}=await import('../../world-knowledge-core/dist/index.js');
+  const f={attributeKey:'amenity.features',...researchValueContract('amenity.features')};
+  const ss=[{...source,text:'Wir servieren Kaffee und begrüssen Familien mit Kindern.'}];
+  for(const value of [['WIFI'],['CLOAKROOM'],['WIFI','OUTDOOR_SEATING']])assert.throws(()=>validateNuknukProposal({status:'PROPOSED',reason:null,value,citations:[{sourceId:'s1',quote:ss[0].text}]},{field:f,sources:ss,validateValue:validateAuthoringSubmission}),/enum_not_supported/);
+});
+test('negative, conditional, historical and unrelated facility mentions are not positive facts',async()=>{
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  const f={attributeKey:'amenity.features'};
+  for(const text of ['Wir haben kein WLAN.','Wir bieten früher WLAN.','Wenn wir WLAN haben, melden wir uns.','WLAN? Wir bieten Kaffee.','Familien schätzen WLAN.','We have no WiFi.'])assert.deepEqual(enumFactCandidates(f,[{...source,text}]),[],text);
+  const positive={...source,text:'Wir haben WLAN und eine Garderobe.'};
+  assert.deepEqual(enumFactCandidates(f,[positive]).map(c=>c.value),['WIFI','CLOAKROOM']);
+  assert.deepEqual(enumFactCandidates(f,[{...positive,format:'IMAGE_OCR'}]),[]);
+});
+test('existing phone can be reconfirmed across contact-page line breaks, but conflicts remain manual',async()=>{
+  const {verifyResearchProposal,context}=await verificationFixture();
+  const page=sourceText({url:source.url,observedAt:source.observedAt,body:'<h1>Synthetic Cafe</h1><p>Teststrasse 12</p><h2>Kontakt</h2><p>+41 61 111 22 33</p>'},'s1');
+  const proposal=validateNuknukProposal({...proposed,citations:[{sourceId:'s1',quote:'+41 61 111 22 33'}]},{field,sources:[page],validateValue});
+  const spotWithPhone={...context.spot,existingValues:{...context.spot.existingValues,'contact.phone':{knowledgeState:'KNOWN_VALUE',value:proposal.value}}};
+  const result=verifyResearchProposal(proposal,{...context,spot:spotWithPhone,sources:[page]});
+  assert.equal(result.status,'AUTO_VERIFIED');assert.equal(result.verification.reason,'EXISTING_PHONE_RECONFIRMED');
+  assert.equal(verifyResearchProposal(proposal,{...context,sources:[page]}).status,'REQUIRES_REVIEW');
+});
+test('cafe variants retain their exact source span and cannot acquire invented prefixes or evidence',async()=>{
+  const {cafeOfferCandidates}=await import('../src/nuknuk-research.mjs');
+  const {researchValueContract}=await import('../../world-knowledge-core/dist/research-value-schema.js');
+  const f={attributeKey:'experience.profile',profileCategory:'COFFEE_DAYTIME',...researchValueContract('experience.profile')};
+  const ss=[{...source,text:'Wir servieren Blue Mountain Coffee aus Nepal. Verwöhn dich mit Cornetto naturale, pistaccio und chocolate.'}];
+  const cs=cafeOfferCandidates(f,ss);
+  assert.deepEqual(cs.map(c=>c.name),['Blue Mountain Coffee','Cornetto naturale, pistaccio und chocolate']);
+  const proposal=extractedProposal({selected:cs.map(c=>c.id)},{spot,field:f,sources:ss});
+  const result=validateNuknukProposal(proposal,{field:f,sources:ss,validateValue:()=>({ok:true})});
+  assert.deepEqual(result.value.offers.map(o=>o.kind),['DRINKS','GASTRONOMY']);
+  assert.equal(result.value.reviewed,false);
+  assert.throws(()=>extractedProposal({selected:['invented']},{spot,field:f,sources:ss}),/selection_not_found/);
+  assert.deepEqual(cafeOfferCandidates(f,[{...source,text:'Wir servieren keinen Blue Mountain Coffee.'}]),[]);
+});

@@ -95,7 +95,7 @@ export function discoverMenuImages(page) {
   for(const match of page.body.matchAll(/<img\b[^>]*>/gi)) {
     const src=match[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1];
     const alt=match[0].match(/\balt\s*=\s*["']([^"']+)["']/i)?.[1]??'';
-    if(!src||!/menu|speisekarte|menü/i.test(src+' '+alt))continue;
+    if(!src||!/menu|speisekarte|menü/i.test(src+' '+alt)||/\.svg(?:[?#\s]|$)|menu[-_ ]?(?:toggle|icon|button)|hamburger|navigation/i.test(src+' '+alt))continue;
     try {const url=publicSourceUrl(new URL(src.replace(/&amp;/g,'&'),page.url).href);if(!images.some(i=>i.url===url))images.push({url,discoveredOn:page.url});}catch{}
     if(images.length===4)break;
   }

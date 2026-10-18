@@ -200,3 +200,41 @@ remain visible. Neither status grants import authority, sets a profile's
 `reviewed` flag nor writes production data. The existing Admin persistence path
 and its approval rules are unchanged. Cached pilot observations without the full
 canonical export cannot be promoted to automatic verification.
+
+## Kaphi regression corrections (v5 / evidence-v2)
+
+`COFFEE_DAYTIME` now researches coffee, drinks and pastries rather than activities.
+For supported explicit cafe prose, immutable product spans preserve a shared-prefix
+variant list as one named offer; code never invents expanded variant names. Named
+coffee and pastry patterns currently cover only a small German/English subset;
+other supported profile categories retain the earlier extraction path. This is a
+partial inventory, not a claim that all menu items were found.
+
+Offering groups and amenities now use closed, evidence-bound enum selections.
+Each selected value must have its own supported affirmative source sentence, and
+validation repeats this check independently of the model's selection schema.
+An unrelated exact quote no longer validates a unique, syntactically valid WIFI
+or CLOAKROOM claim. Negative, conditional and historical phrases and PDF/OCR
+material are excluded from these mappings. Currently covered groups are coffee,
+baked goods, beer and wine; covered facilities are Wi-Fi, cloakroom, terrace,
+playroom and explicit outdoor seating. Unsupported expressions remain open;
+coverage is deliberately limited and does not imply an absent facility. Image
+captions alone are not used to establish equipment availability or access rules.
+
+Menu discovery ignores navigation controls and SVG assets. An already stored
+phone can be reconfirmed from its exact normalized citation on an intact, fresh,
+identity-checked official contact page even when address and number occupy
+separate lines. This rule never applies to a different or missing stored number;
+those still require the stricter explicit identity-bound phone rule. Retrieval
+failures and competing numbers still block automatic confirmation. Policy v2
+records `EXISTING_PHONE_RECONFIRMED` separately from a new contact fact.
+
+The final eight-field Kaphi rerun produced five supported partial proposals
+(phone automatically reconfirmed), three unresolved fields and zero failed fields.
+It recovered Blue Mountain Coffee and the original shared Cornetto variant list,
+and four explicit offering groups. Unsupported Wi-Fi/cloakroom no longer appears.
+Opening hours, laptop permission and amenities without supported textual assertions
+remain unresolved. Model-request elapsed time was 19.286 s, median 2.280 s per
+field; source retrieval and model startup are excluded. Same export and requested
+fields, freshly fetched official pages. This is a development regression case,
+not a held-out accuracy result. 108 runtime tests cover the final implementation.
