@@ -1,5 +1,25 @@
 # Decision event candidates v1
 
+Production release on 2026-10-18: Main `fcf6ee079c144dcc360b8308fc04da1231b2454b`,
+certification run `39086267448`, deployment run `39086548229`, Decision Function
+version 213. Both Event migrations are applied (186 total). Fresh encrypted
+backup run `39085692543` passed; a restore drill remains unperformed.
+Manifest: `45e626d0808992f7f3b351cac084da158aad1cc8934c638bb97c55018016de09`.
+iOS production OTA group `4018447d-f205-4bf2-afdb-5f7719070f80`, update
+`01a14ca4-0ec9-7b09-b1aa-88111e6acce6`, runtime 1.1.0, published without rebuilding.
+The live Expo manifest and launch-asset hash match the certified bytes. Device
+installation has not been observed.
+
+Open Court's human-confirmed `Tischtennis spielen` activity was saved through
+the authenticated production Admin and read back from the database. The real
+Consumer browser flow, with an authenticated profile, returned one Event for
+`gratis ping pong spielen in basel`: Open Court Volta Pong on 26 October 2026,
+16:00. Its link opens the exact occurrence, displaying 16:00–23:00 and Gratis.
+The live service-only v6 grant was verified: denied to anon/authenticated,
+allowed to service_role. Web/Admin Vercel deployments passed for the same Main.
+
+## Implementation and release order (historical preparation)
+
 Implementation prepared on 2026-10-18. This document does not certify a production
 release. Apply the migration, deploy the Decision worker, then deploy Web/Admin
 and the compatible mobile OTA; older clients retain context v5 and Spot-only

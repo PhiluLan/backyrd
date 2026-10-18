@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "c8def07791c9124e65488b78aaffba845ece2223",
-    "migrationTip": "20261016120624_public_spot_knowledge_presentation_v2_5",
-    "migrationCount": 184,
-    "deploymentRunId": 38977664849,
+    "shippedSourceSha": "fcf6ee079c144dcc360b8308fc04da1231b2454b",
+    "migrationTip": "20261018010454_decision_event_activities_v1",
+    "migrationCount": 186,
+    "deploymentRunId": 39086548229,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "f17ed0b01869cdbea695e3e7105bc125e365c8a1",
+      "sourceSha": "fcf6ee079c144dcc360b8308fc04da1231b2454b",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "f2c553c4-a6de-4dad-bc87-483342cf84fc",
-      "iosUpdateId": "01a14981-b860-78f0-bb83-8c0886df703e",
+      "otaGroupId": "4018447d-f205-4bf2-afdb-5f7719070f80",
+      "iosUpdateId": "01a14ca4-0ec9-7b09-b1aa-88111e6acce6",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Existing top-level Mobile verification and review-media evidence describe the earlier observed release. This update is published and bundle/config verified, but its installation on the user device has not been observed."
+      "note": "Events and explicit activities published from the exact certified iOS artifact; live production manifest and launch-asset bytes verified. Authenticated browser search returns Open Court Volta Pong and opens the correct occurrence. Installation on the user iPhone has not been observed."
     }
   },
   "reviewMediaIncident": {
