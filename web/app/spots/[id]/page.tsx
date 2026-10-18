@@ -1,3 +1,4 @@
+import { EventCards } from "@/components/home-events";
 import { spotEvents } from "@/lib/events-public";
 import { upcomingSpotEvents } from "../../../../packages/shared/src/presentation/event";
 import type { Metadata } from "next";
@@ -207,7 +208,7 @@ export default async function SpotDetailPage({
                 </p>
               </section>
             ) : null}
-            {(eventsResult.failed || eventsResult.rows.length > 0) && <section className="b-detail-section" aria-label="Events bei diesem Spot"><h2>Was steht an?</h2>{eventsResult.failed ? <p>Die Events konnten gerade nicht geladen werden. Bitte lade die Seite erneut.</p> : eventsResult.rows.map(event => <Link key={event.event_id} href={`/events/${event.event_id}?occurrence=${event.occurrence_id}`} style={{ display: "block", padding: "18px 0", borderBottom: "1px solid var(--border)" }}><strong>{event.title}</strong><p>{new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(event.start_at))}{event.is_free ? " · Gratis" : event.price_min !== null ? ` · ab CHF ${event.price_min}` : ""} →</p></Link>)}</section>}
+
             <SpotExperience profile={data.world_profile?.experienceProfile}/>
             {field("hours.special") ? (
               <section className="b-detail-section" aria-label="Sonderöffnungszeiten">
@@ -248,6 +249,16 @@ export default async function SpotDetailPage({
                 </div>
               </section>
             ) : null}
+            {(eventsResult.failed || eventsResult.rows.length > 0) && (
+              <section className="b-detail-section" aria-label="Events bei diesem Spot">
+                <h2 className="b-section-title">Was steht an?</h2>
+                {eventsResult.failed ? (
+                  <p>Die Events konnten gerade nicht geladen werden. Bitte lade die Seite erneut.</p>
+                ) : (
+                  <div style={{ marginTop: 20 }}><EventCards rows={eventsResult.rows} /></div>
+                )}
+              </section>
+            )}
             <section style={{ marginTop: 64 }}>
               <div className="b-section-header">
                 <div>

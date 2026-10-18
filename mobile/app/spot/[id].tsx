@@ -985,7 +985,6 @@ export default function SpotDetailScreen() {
             ) : <Text style={styles.mutedText}>Für diesen Spot ist noch keine Beschreibung hinterlegt.</Text>}
           </View>
 
-          <SpotEventsSection spotId={String(spot.id)}/>
           <SpotExperience profile={productProfile?.experienceProfile}/>
 
           {showHours ? (
@@ -1051,6 +1050,8 @@ export default function SpotDetailScreen() {
             </Pressable>
             <Text style={styles.moreInfoSubtitle}>Ausstattung, Atmosphäre und weitere Details</Text>
           </View>
+
+          <SpotEventsSection spotId={String(spot.id)}/>
 
           <View style={styles.section}>
               <View style={styles.sectionHeader}><SectionTitle>Momente</SectionTitle>{presentableReviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
