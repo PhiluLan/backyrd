@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildNuknukResearchRequest, validateNuknukProposal, researchExistingSpot, localModelEndpoint, NUKNUK_MODEL_REVISION, extractedProposal, parseHoursRow, normalizePhone, projectOffers, sourceQuote, fieldCandidates, bindOfferEvidence } from '../src/nuknuk-research.mjs';
+import { buildNuknukResearchRequest, validateNuknukProposal, researchExistingSpot, localModelEndpoint, NUKNUK_MODEL_REVISION, extractedProposal, parseHoursRow, normalizePhone, projectOffers, sourceQuote, fieldCandidates, bindOfferEvidence, imageOfferCandidates } from '../src/nuknuk-research.mjs';
 import { publicSourceUrl,isPublicIPv4,sourceText,fetchPublicSource, readSourceText, discoverOfficialLinks, discoverMenuImages } from '../src/nuknuk-sources.mjs';
 const spot={spotId:'e3f8c181-dd7e-4b50-b562-8696cace045f',name:'Synthetic Cafe',existingValues:null};
 const field={attributeKey:'contact.phone',valueSchema:{type:'string'}};
@@ -202,4 +202,19 @@ test('image schedules require manual visual verification rather than silently tr
 });
 test('description snippets exclude signoffs and headings',()=>{
  assert.deepEqual(fieldCandidates({attributeKey:'description.highlight'},[{...source,text:'Euer Team von unserem schönen Restaurant'}]),[]);
+});
+
+test('image-menu selection preserves original script and never turns translated names into citations',async()=>{
+ const field=await profileField(),sources=[{...source,format:'IMAGE_OCR',layoutReviewRequired:true,text:'Український борщ 18.00\nКрем-суп з вершками та 18.00\nКотлета по київськи 29.50'}];
+ assert.equal(imageOfferCandidates(field,sources).length,2);
+ const p=extractedProposal({selected:['i0']},{spot,field,sources});
+ assert.equal(p.value.offers[0].name,'Український борщ');
+ assert.equal(validateNuknukProposal(p,{field,sources,validateValue:()=>({ok:true})}).citations[0].sourceFormat,'IMAGE_OCR');
+ assert.throws(()=>extractedProposal({selected:['Ukrainian Borscht']},{spot,field,sources}),/selection_not_found/);
+});
+
+test('fill-missing mode preserves known current values without asking the model to rewrite them',async()=>{
+ const current={...spot,existingValues:{'contact.phone':{knowledgeState:'KNOWN_VALUE',value:'+41611112233'}}};
+ const report=await researchExistingSpot({spot:current,fields:[field],sources,modelPath,skipKnownFields:true},{validateValue,fetchImpl:()=>{throw new Error('must not call model');}});
+ assert.equal(report.results[0].status,'SKIPPED');assert.equal(report.results[0].currentValue,'+41611112233');
 });

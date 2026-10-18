@@ -26,7 +26,6 @@ Example manifest, using a synthetic identity:
 {
   "exportPath": "/absolute/path/current-admin-export.json",
   "discoverLinks": true,
-  "fields": ["description.highlight", "contact.phone", "hours.regular", "experience.profile"],
   "spots": [{
     "spotId": "11111111-1111-4111-8111-111111111111",
     "name": "Example Spot",
@@ -35,6 +34,8 @@ Example manifest, using a synthetic identity:
   }]
 }
 ```
+
+By default the four pilot fields are researched only when the export does not already contain a known value. Explicit `fields` selects fields for rechecking; all results still remain review drafts. Known values are never automatically rewritten.
 
 `exportPath` is a current Admin `world-research-batch@1.1` export. Its catalog,
 manifest hashes and identity validation remain authoritative. The adapter uses
@@ -99,7 +100,7 @@ Set `NUKNUK_TESSERACT` if it is not on PATH. `NUKNUK_OCR_LANGUAGES` defaults to
 `eng`; use installed languages such as `deu+ukr+eng` for multilingual menus.
 `TESSDATA_PREFIX` can point to a local trained-data directory. Missing languages
 or OCR failures are explicit failures. OCR has a 15-second/200 KB bound and image
-bytes are limited to 2 MB. OCR text is **not a verified transcription**: inspect
+bytes are limited to 2 MB. For food/drink image menus, the model selects immutable IDs for recognizable price lines; original names and script are copied by code. Incomplete wrapped names are omitted. OCR text is **not a verified transcription**: inspect
 names, digits and diacritics in the original. Image schedules require manual
 verification. Canonical prices are never derived from OCR.
 
@@ -154,3 +155,19 @@ Runtime regression tests cover source boundaries, exact grounding, fax/phone,
 unknown days, scoped prices, draft-only profiles, PDF failure handling and bounded
 link discovery. Real-model results must be evaluated separately. Passing mocked
 transport or schema tests does not establish CTO-level research quality.
+
+The final representative pilot produced reviewable partial experience profiles
+for all six existing Spots, containing 23 named offers in total (three hotel room
+options and up to four offers for each other Spot). HTML, two PDF menus and an
+embedded Ukrainian image-menu page were exercised. The image-menu test initially
+transliterated/translated evidence incorrectly; selecting immutable OCR-row IDs
+preserved the original names and script. Names were checked against the rendered
+menu. Complex/PDF/OCR prices remain unprojected. This is a small development set,
+not a held-out accuracy claim or complete inventory.
+
+The supplemental audit still found a seasonal Amani announcement unsuitable as a
+permanent description, conflicting schedules for Alchemist/Amani, and differing
+Alexander HTML/image hours. These must not be treated as approved replacements.
+The default fill-missing mode preserves the existing known description/contact/
+hours fields. Current-value conflict checking still requires a fresh full export;
+the evaluation's partial Admin observations are not import authority.

@@ -28,14 +28,31 @@ function offerKinds(field) {
   if(field.profileCategory==='DRINKS')return ['DRINKS'];
   return all;
 }
+export function imageOfferCandidates(field,sources) {
+  if(field.attributeKey!=='experience.profile'||!['EAT','DRINKS'].includes(field.profileCategory))return [];
+  const candidates=[];
+  for(const source of sources.filter(s=>s.format==='IMAGE_OCR'))for(const line of source.text.split(/\n+/)) {
+    const match=line.match(/^(.{4,160}?)\s+(\d{1,4}[.,]\d{2})(?:\s|$)/u);
+    if(!match||!/\p{L}/u.test(match[1]))continue;
+    const name=match[1].replace(/\s+vegi$/i,'').trim();
+    if(/(?:(?:^|\s)(?:та|und|and|with|mit|et)|[,|])$/iu.test(name)||/telefon|tel\.|phone|öffnungs|uhr|allerg|preis|price|inkl/i.test(name))continue;
+    candidates.push({id:'i'+candidates.length,name,quote:line,sourceId:source.id});
+    if(candidates.length===60)return candidates;
+  }
+  return candidates;
+}
 export function buildNuknukResearchRequest({spot,field,sources,modelPath}) {
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(spot?.spotId??'') || !spot.name || !field?.attributeKey || !field.valueSchema) throw new Error('research_input_invalid');
   if(typeof modelPath!=='string'||!modelPath.startsWith('/')||!modelPath.endsWith(NUKNUK_MODEL_REVISION)) throw new Error('pinned_local_model_required');
   if(!Array.isArray(sources)||!sources.length||sources.length>6||sources.some(s=>!s.id||typeof s.text!=='string'||!s.text.trim()||s.text.length>12000))throw new Error('research_sources_invalid');
   const key=field.attributeKey;
-  const candidates=fieldCandidates(field,sources);
+  const imageCandidates=imageOfferCandidates(field,sources);
+  const candidates=imageCandidates.length?imageCandidates:fieldCandidates(field,sources);
   let task, schema;
-  if(key==='experience.profile') {
+  if(imageCandidates.length) {
+    task='Select up to four IDs for '+(field.profileCategory==='DRINKS'?'drinks':'food dishes')+' from the supplied menu lines. Select only items offered by this place. Return selected IDs; empty selected if none. Code preserves original names and evidence without translation.';
+    schema=record({selected:{type:'array',maxItems:4,items:{type:'string',enum:imageCandidates.map(c=>c.id)}}});
+  } else if(key==='experience.profile') {
     const scope=field.profileCategory==='STAY'?'accommodation/room names (exclude food, bars and events)':field.profileCategory==='EAT'?'food dishes and menus (exclude drinks and events)':field.profileCategory==='DRINKS'?'named drinks (exclude food and events)':'named activities';
     task='Copy up to four '+scope+', their exact surrounding quotes and sourceIds. Keep the original source language, alphabet and spelling. Never translate or transliterate names or quotes. Preserve price conditions in quotes. Names must not include adjacent dietary labels or prices. Empty offers if absent. Kind is '+offerKinds(field).join(' or ')+'.';
     schema=record({offers:{type:'array',maxItems:4,items:record({name:{type:'string',maxLength:160},...evidenceSchema,kind:{type:'string',enum:offerKinds(field)}})}});
@@ -71,6 +88,13 @@ export function extractedProposal(raw,{spot,field,sources=[]}) {
   const empty=()=>({status:'UNRESOLVED',value:null,citations:[],reason:key==='hours.regular'?'NO_SUPPORTED_COMPLETE_INTERVAL':'NO_SUPPORTED_FACT'});
   const proposed=(value,citations)=>({status:'PROPOSED',value,citations,reason:null});
   if(key==='experience.profile') {
+    const candidates=imageOfferCandidates(field,sources);
+    if(candidates.length) {
+      if(!exact(raw,['selected'])||!Array.isArray(raw.selected)||raw.selected.length>4||new Set(raw.selected).size!==raw.selected.length)throw new Error('research_selection_invalid');
+      if(!raw.selected.length)return empty();
+      const offers=raw.selected.map(id=>{const c=candidates.find(c=>c.id===id);if(!c)throw new Error('research_selection_not_found');return {name:c.name,quote:c.quote,sourceId:c.sourceId,kind:offerKinds(field)[0]};});
+      return proposed({offers},offers.map(({sourceId,quote})=>({sourceId,quote})));
+    }
     if(!exact(raw,['offers'])||!Array.isArray(raw.offers))throw new Error('research_output_invalid');
     return raw.offers.length?proposed(raw,raw.offers.map(({quote,sourceId})=>({quote,sourceId}))):empty();
   }
@@ -253,12 +277,15 @@ export function validateNuknukProposal(raw,{field,sources,validateValue}) {
   });
   return {attributeKey:field.attributeKey,status:'REQUIRES_REVIEW',knowledgeState,value:validated.value??value,citations,...(field.attributeKey==='experience.profile'?{partialProfile:true}:{})};
 }
-export async function researchExistingSpot({spot,fields,sources,modelPath,endpoint='http://127.0.0.1:8088/v1/chat/completions',budgetMs=240000},{fetchImpl=fetch,validateValue,now=Date.now,onField=()=>{}}={}) {
+export async function researchExistingSpot({spot,fields,sources,modelPath,endpoint='http://127.0.0.1:8088/v1/chat/completions',budgetMs=240000,skipKnownFields=false},{fetchImpl=fetch,validateValue,now=Date.now,onField=()=>{}}={}) {
   localModelEndpoint(endpoint);
   if(typeof validateValue!=='function'||!Array.isArray(fields)||!fields.length||fields.length>12||!Number.isFinite(budgetMs)||budgetMs<1||budgetMs>900000)throw new Error('research_config_invalid');
   const start=now(),results=[];
   for(const requestedField of fields) {
     const field=requestedField.attributeKey==='experience.profile'?{...requestedField,profileCategory:spot.existingValues?.['classification.primary_category']?.value??requestedField.profileCategory}:requestedField;
+    if(skipKnownFields&&['KNOWN_VALUE','KNOWN_TRUE','KNOWN_FALSE','NOT_APPLICABLE'].includes(spot.existingValues?.[field.attributeKey]?.knowledgeState)) {
+      const result={attributeKey:field.attributeKey,status:'SKIPPED',reason:'EXISTING_VALUE_PRESERVED',currentValue:spot.existingValues[field.attributeKey].value};results.push(result);await onField(result);continue;
+    }
     if(now()-start>=budgetMs){const result={attributeKey:field.attributeKey,status:'UNRESOLVED',reason:'RUN_BUDGET_EXHAUSTED'};results.push(result);await onField(result);continue;}
     if(field.attributeKey==='experience.profile'&&!field.profileCategory){const result={attributeKey:field.attributeKey,status:'UNRESOLVED',reason:'CURRENT_CATEGORY_REQUIRED'};results.push(result);await onField(result);continue;}
     if(field.attributeKey==='hours.regular'&&sources.some(s=>s.format==='IMAGE_OCR'&&/öffnungs|opening|hours|küche|kitchen/i.test(s.text))) {

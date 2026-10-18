@@ -47,7 +47,7 @@ async function main() {
     }
     await writeFile(`${out}/${spot.spotId}-sources.json`,JSON.stringify({spotId:spot.spotId,sources,sourceFailures},null,2));
     const partial=[];
-    const report=sources.length?await researchExistingSpot({spot,fields,sources,modelPath},{validateValue:validateAuthoringSubmission,onField:async result=>{
+    const report=sources.length?await researchExistingSpot({spot,fields,sources,modelPath,skipKnownFields:manifest.fields===undefined},{validateValue:validateAuthoringSubmission,onField:async result=>{
       if(bound?.existingValues[result.attributeKey]) result.currentValue=bound.existingValues[result.attributeKey].value;
       partial.push(result);await writeFile(`${out}/${spot.spotId}-partial.json`,JSON.stringify({canonicalWrite:false,completed:false,results:partial},null,2));
       console.log(`${spot.name}: ${result.attributeKey}: ${result.status}${result.reason?' — '+result.reason:''}`);
