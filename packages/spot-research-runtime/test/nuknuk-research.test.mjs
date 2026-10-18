@@ -1,13 +1,14 @@
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildNuknukResearchRequest, validateNuknukProposal, researchExistingSpot, localModelEndpoint, NUKNUK_MODEL_REVISION } from '../src/nuknuk-research.mjs';
-import { publicSourceUrl,isPublicIPv4,sourceText,fetchPublicSource } from '../src/nuknuk-sources.mjs';
+import { buildNuknukResearchRequest, validateNuknukProposal, researchExistingSpot, localModelEndpoint, NUKNUK_MODEL_REVISION, extractedProposal, parseHoursRow, normalizePhone, projectOffers, sourceQuote, fieldCandidates, bindOfferEvidence } from '../src/nuknuk-research.mjs';
+import { publicSourceUrl,isPublicIPv4,sourceText,fetchPublicSource, readSourceText, discoverOfficialLinks } from '../src/nuknuk-sources.mjs';
 const spot={spotId:'e3f8c181-dd7e-4b50-b562-8696cace045f',name:'Synthetic Cafe',existingValues:null};
 const field={attributeKey:'contact.phone',valueSchema:{type:'string'}};
 const source={id:'s1',url:'https://example.org/contact',text:'Telefon: +41 61 111 22 33. Keine Terrasse vorhanden.',observedAt:'2026-10-18T10:00:00.000Z',hash:'a'.repeat(64)};
 const sources=[source];const modelPath=`/tmp/${NUKNUK_MODEL_REVISION}`;
 const validateValue=(_key,state,value)=>({ok:state==='KNOWN_VALUE'&&value==='+41611112233'});
+const extracted={phone:'+41 61 111 22 33',quote:'Telefon: +41 61 111 22 33.',sourceId:'s1'};
 const proposed={status:'PROPOSED',value:'+41611112233',citations:[{sourceId:'s1',quote:'Telefon: +41 61 111 22 33.'}],reason:null};
 const reply=body=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(body)}}]}));
 test('public-source boundary rejects private DNS and credential-bearing URLs',async()=>{
@@ -25,15 +26,16 @@ test('source text omits scripts and records bounded exact text hash',()=>{
 test('localhost-only request uses existing catalog schema and preserves untrusted material as data',()=>{
   for(const url of ['https://api.openai.com/v1/chat/completions','http://127.0.0.1:8088/other','http://localhost:8088/v1/chat/completions'])assert.throws(()=>localModelEndpoint(url));
   const b=buildNuknukResearchRequest({spot,field,sources,modelPath});
-  assert.equal(b.model,modelPath);assert.equal(b.temperature,0);assert.equal(JSON.parse(b.messages[1].content).spot.existingValues,null);
-  assert.deepEqual(JSON.parse(b.messages[1].content).field.valueSchema,field.valueSchema);
+  assert.equal(b.model,modelPath);assert.equal(b.temperature,0);assert.equal(JSON.parse(b.messages[1].content).spot.name,spot.name);
+  assert.ok(!JSON.stringify(b.messages).includes('existingValues'));
+  assert.equal(b.response_format.json_schema.schema.properties.phone.type,'string');
   assert.ok(!('tools' in b));
 });
 test('claims require real source IDs, exact quotes and canonical value validation',()=>{
   const context={field,sources,validateValue};
   assert.equal(validateNuknukProposal(proposed,context).status,'REQUIRES_REVIEW');
   for(const bad of [ {...proposed,citations:[]},{...proposed,citations:[{sourceId:'s9',quote:source.text}]},{...proposed,citations:[{sourceId:'s1',quote:'Telefon wurde bestätigt.'}]},{...proposed,value:'invented'},{...proposed,reviewed:true} ])assert.throws(()=>validateNuknukProposal(bad,context));
-  assert.throws(()=>validateNuknukProposal({...proposed,value:{reviewed:true}},{...context,field:{attributeKey:'experience.profile'},validateValue:()=>({ok:true})}),/self_approve/);
+  assert.throws(()=>validateNuknukProposal({...proposed,value:{reviewed:true}},{...context,field:{attributeKey:'experience.profile'},validateValue:()=>({ok:true})}),/offer_shape_invalid/);
 });
 test('unknown stays unresolved and truncation cannot become a successful proposal',async()=>{
   assert.equal(validateNuknukProposal({status:'UNRESOLVED',value:null,citations:[],reason:'Keine belastbare Quelle.'},{field,sources,validateValue}).status,'UNRESOLVED');
@@ -49,7 +51,7 @@ test('runtime has no credentials, redirects or writes; unverified result fails w
 });
 test('run budget stops subsequent requests, preserving completed fields',async()=>{
   let time=0,calls=0;
-  const report=await researchExistingSpot({spot,fields:[field,{...field,attributeKey:'contact.website'}],sources,modelPath,budgetMs:20},{now:()=>time,validateValue,fetchImpl:async()=>{calls++;time=21;return reply(proposed);}});
+  const report=await researchExistingSpot({spot,fields:[field,{...field,attributeKey:'contact.website'}],sources,modelPath,budgetMs:20},{now:()=>time,validateValue,fetchImpl:async()=>{calls++;time=21;return reply(extracted);}});
   assert.equal(calls,1);assert.equal(report.results[0].status,'REQUIRES_REVIEW');assert.equal(report.results[1].reason,'RUN_BUDGET_EXHAUSTED');
 });
 test('review output escapes hostile source and model text',async()=>{
@@ -67,8 +69,8 @@ test('canonical catalog rejects malformed telephone proposals',async()=>{
   assert.throws(()=>validateNuknukProposal({...proposed,value:'call us'},{field,sources,validateValue:validateAuthoringSubmission}),/value_invalid/);
 });
 
-test('public-source HTTP redirects and PDF are explicit failures',async()=>{
-  for(const [status,type,error] of [[302,'text/html',/source_http_302/],[200,'application/pdf',/source_format_unsupported/]]){
+test('public-source HTTP redirects and unsupported image content are explicit failures',async()=>{
+  for(const [status,type,error] of [[302,'text/html',/source_http_302/],[200,'image/png',/source_format_unsupported/]]){
     const requestImpl=(_url,_options,callback)=>{
       const req=new EventEmitter();
       req.end=()=>queueMicrotask(()=>{callback({statusCode:status,headers:{'content-type':type},destroy(){}});req.emit('close');});
@@ -86,17 +88,101 @@ test('a hotel source cannot silently enrich a restaurant with the same name',asy
   assert.equal(matchesExistingWebsite('https://example.org',undefined),false);
 });
 
-test('MLX grammar adaptation preserves the authoritative catalog schema',()=>{
+test('MLX adaptation changes only decoding; generic proposals still pass canonical validation',()=>{
   const original={type:'array',uniqueItems:true,items:{type:'string'}};
-  const request=buildNuknukResearchRequest({spot,field:{...field,valueSchema:original},sources,modelPath});
+  const request=buildNuknukResearchRequest({spot,field:{attributeKey:'test.generic',valueSchema:original},sources,modelPath});
   assert.equal(request.response_format.json_schema.schema.properties.value.anyOf[0].uniqueItems,undefined);
-  assert.equal(JSON.parse(request.messages[1].content).field.valueSchema.uniqueItems,true);
   assert.equal(original.uniqueItems,true);
 });
 
-test('profile proposals stay bounded and cannot represent a complete replacement',()=>{
-  const context={field:{attributeKey:'experience.profile'},sources,validateValue:()=>({ok:true})};
-  const value={reviewed:false,offers:[{name:'Synthetic offer'}],areas:[]};
-  assert.equal(validateNuknukProposal({...proposed,value},context).partialProfile,true);
-  assert.throws(()=>validateNuknukProposal({...proposed,value:{...value,offers:[{},{}]}},context),/scope_exceeded/);
+const profileField=async()=>({attributeKey:'experience.profile',profileCategory:'EAT',...(await import('../../world-knowledge-core/dist/research-value-schema.js')).researchValueContract('experience.profile')});
+const menuSource={...source,text:'Schnitzel mit Pommes Mittag CHF 23.50 Abend CHF 28.50'};
+const offer={name:'Schnitzel mit Pommes',kind:'GASTRONOMY',quote:menuSource.text,sourceId:'s1'};
+test('evidence becomes a canonical unreviewed draft with scoped midday/evening item prices',async()=>{
+  const field=await profileField(),context={field,sources:[menuSource],validateValue:()=>{throw new Error('draft is not a human-approved authoring submission');}};
+  const value={offers:[offer]};
+  const result=validateNuknukProposal(extractedProposal(value,{spot,field}),context);
+  assert.equal(result.partialProfile,true);assert.equal(result.value.reviewed,false);
+  assert.equal(result.value.offers[0].prices[0].basis,'PER_ITEM');
+  assert.equal(result.value.offers[0].prices[0].min,23.5);
+  assert.deepEqual(result.value.offers[0].prices.map(p=>p.conditions.dayparts),[['MIDDAY'],['EVENING']]);
+  assert.deepEqual(result.value.properties,[]);
+  const {validateAuthoringSubmission}=await import('../../world-knowledge-core/dist/index.js');
+  assert.equal(validateAuthoringSubmission('experience.profile','KNOWN_VALUE',result.value).ok,false);
+  assert.throws(()=>projectOffers({offers:[{...offer,kind:'HIKE'}]},context),/kind_invalid/);
+  assert.throws(()=>projectOffers({offers:[offer,offer]},context),/duplicate_offer/);
+  assert.throws(()=>projectOffers({offers:[{...offer,name:'Pizza'}]},context),/not_grounded/);
+  assert.throws(()=>projectOffers({offers:[offer],reviewed:true},context),/shape_invalid/);
+});
+test('complex menu variants and PDF columns remain evidence, not invented prices or diets',async()=>{
+  const field=await profileField();
+  for(const text of ['Schnitzel mit Pommes CHF 23.50 pro Person ab 2 Personen','Schnitzel mit Pommes Normal CHF 23.50 Mit Burrata CHF 28.50']) {
+    const v=projectOffers({offers:[{...offer,quote:text}]},{field,sources:[{...menuSource,text}]});
+    assert.deepEqual(v.offers[0].prices,[]);assert.deepEqual(v.offers[0].properties,[]);
+  }
+  const v=projectOffers({offers:[offer]},{field,sources:[{...menuSource,format:'PDF_TEXT'}]});
+  assert.deepEqual(v.offers[0].prices,[]);
+});
+test('hours expand only quoted days; partial/private/kitchen hours never fabricate closures',()=>{
+  assert.deepEqual(parseHoursRow('Di - Do. 11.00-14.00 16.00 - 22.00').map(d=>d.day),['TUESDAY','WEDNESDAY','THURSDAY']);
+  assert.deepEqual(parseHoursRow('Fr 11.00 - 14:00 16.00 - 24.00')[0].intervals,[{start:'11:00',end:'14:00'},{start:'16:00',end:'00:00'}]);
+  assert.deepEqual(parseHoursRow('Sonntag & Montag Ruhetag'),[{day:'SUNDAY',intervals:[]},{day:'MONDAY',intervals:[]}]);
+  for(const row of ['Montag - Freitag ab 17 Uhr geöffnet','Samstag Verfügbar für Privatevents','Küche täglich 11:30–14:00','Montag 28:00-29:00','Dienstag 11:00-11:00'])assert.deepEqual(parseHoursRow(row),[],row);
+  const sources=[{...source,text:'Di - Do. 11.00-14.00 16.00 - 22.00'}];
+  const field={attributeKey:'hours.regular'};
+  assert.equal(fieldCandidates(field,sources).length,1);
+  assert.equal(extractedProposal({selected:['c0']},{spot,field,sources}).value.length,3);
+  assert.throws(()=>extractedProposal({selected:['invented']},{spot,field,sources}),/selection_not_found/);
+});
+test('telephone normalization requires country for national numbers and exact published digits',()=>{
+  assert.equal(normalizePhone('061 / 681 / 73 / 55','CH'),'+41616817355');
+  assert.equal(normalizePhone('0041 61 111 22 33'),'+41611112233');
+  assert.equal(normalizePhone('06 12345678','IT'),'+390612345678');
+  assert.throws(()=>normalizePhone('061 111 22 33'),/country_required/);
+  assert.throws(()=>extractedProposal({...extracted,phone:'+41 99 999 99 99'},{spot,field}),/not_grounded/);
+});
+test('PDF extraction rejects invalid bytes and unavailable extractor without fallback fabrication',async()=>{
+  await assert.rejects(readSourceText({contentType:'application/pdf',body:Buffer.from('not PDF')},'s1'),/pdf_invalid/);
+  await assert.rejects(readSourceText({contentType:'application/pdf',body:Buffer.from('%PDF-1.4')},'s1',{pdfCommand:'/nonexistent/nuknuk-pdftotext'}),/extraction_failed/);
+});
+
+test('source matching tolerates layout typography only; changed facts and prompt-injected text fail',()=>{
+  assert.equal(sourceQuote('You’ll eat\n  well (25.–).',"You'll eat well (25.–)."),'You’ll eat\n  well (25.–).');
+  assert.equal(sourceQuote('Meal CHF 25.00','Meal CHF 29.00'),null);
+  assert.equal(sourceQuote('Not suitable for children','Suitable for children'),null);
+});
+test('bounded source discovery excludes external domains, secrets and unrelated links',()=>{
+  const page={url:'https://example.org/',contentType:'text/html',body:'<a href="/menu.pdf">Speisekarte</a><a href="/hours">Öffnungszeiten</a><a href="https://other.org/menu">Menu</a><a href="/contact?token=secret">Kontakt</a><a href="/shop">Shop</a>'};
+  assert.deepEqual(discoverOfficialLinks(page),['https://example.org/menu.pdf','https://example.org/hours']);
+});
+
+test('a labeled fax cannot become the public telephone even when the model omits the label',()=>{
+ const raw={phone:'+41 61 111 22 33',quote:'+41 61 111 22 33',sourceId:'s1'};
+ assert.throws(()=>extractedProposal(raw,{spot,field,sources:[{...source,text:'Fax: +41 61 111 22 33'}]}),/fax_not_phone/);
+});
+
+test('last-order windows cannot become complete opening-hour candidates',()=>{
+ const field={attributeKey:'hours.regular'};
+ assert.deepEqual(fieldCandidates(field,[{...source,text:'Montag bis Freitag von 11.30 bis 13.30 (letzte Bestellung)'}]),[]);
+});
+test('overlapping weekday scopes remain a conflict instead of being merged into invented hours',()=>{
+ const field={attributeKey:'hours.regular'},sources=[{...source,text:'Restaurant Montag bis Samstag 18:00-23:00. Bar Montag bis Donnerstag 17:00-23:00.'}];
+ assert.throws(()=>extractedProposal({selected:['c0','c1']},{spot,field,sources}),/hours_scope_conflict/);
+ assert.throws(()=>extractedProposal({selected:['c0']},{spot,field,sources}),/hours_scope_conflict/);
+});
+
+test('offer evidence can bind adjacent name and factual text but not another selected offer or distant price',()=>{
+ const item={name:'Business Zimmer',kind:'OVERNIGHT_STAY',sourceId:'s1',quote:'Ein Zimmer mit 22 Quadratmetern.'};
+ const text='Business Zimmer\n\nEin Zimmer mit 22 Quadratmetern.';
+ assert.equal(bindOfferEvidence({offers:[item]},[{...source,text}]).offers[0].quote,text);
+ assert.throws(()=>bindOfferEvidence({offers:[item]},[{...source,text:'Business Zimmer '+'.'.repeat(1200)+item.quote}]),/scope_unbound/);
+ const other={...item,name:'Familienzimmer',quote:'Ein Zimmer mit 22 Quadratmetern.'};
+ assert.throws(()=>bindOfferEvidence({offers:[item,other]},[{...source,text:'Business Zimmer Familienzimmer Ein Zimmer mit 22 Quadratmetern.'}]),/scope_unbound/);
+});
+
+test('descriptions exclude partner venue footers while contact evidence remains available',()=>{
+ const source=sourceText({url:'https://example.org',observedAt:'2026-10-18T10:00:00Z',body:'<main><p>Unsere Bar serviert Cocktails und Speisen.</p></main><footer><p>Partnerhotel: Ein luxuriöses Haus mit Pool.</p><p>Telefon +41 61 111 22 33</p></footer>'},'s1');
+ assert.ok(source.text.includes('Telefon'));assert.ok(source.text.includes('Partnerhotel'));
+ const candidates=fieldCandidates({attributeKey:'description.highlight'},[source]);
+ assert.equal(candidates.length,1);assert.equal(candidates[0].quote,'Unsere Bar serviert Cocktails und Speisen.');
 });

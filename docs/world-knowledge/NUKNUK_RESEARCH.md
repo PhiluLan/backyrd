@@ -1,114 +1,141 @@
-# Local Nuknuk Research pilot
+# Local Nuknuk Research
 
-Status: proposal-only pilot, not a production enrichment worker.
+Status: local evidence-backed review drafts for existing Spots. No automatic
+publication, production enrichment worker or import-ready batch.
 
-The user decision is whether sourced additions belong in an existing Spot. The
-fallback is manual research and the existing Admin authoring/research-batch flow.
-Invented facts, wrong branches, area-to-Spot inference, silent overwrites and
-model self-approval are unacceptable. Exact quotes and canonical validation help
-review; they do not establish that a claim follows from a source.
+The user decision is whether a sourced addition belongs in an existing Spot.
+The fallback is manual research and the canonical Admin preview/commit flow.
+Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
+model self-approval are unacceptable. Grounding establishes where text came
+from, not that the source or its interpretation is correct.
 
 ## Run
 
-Build `npm run build --workspace @backyrd/world-knowledge-core` first. Start the
-existing local MLX server on `127.0.0.1:8088` with
-`mlx-community/Qwen3.5-9B-4bit`, revision
-`8b2b98c00a6b4d291155e4890773ca8f769aee53`. Keep the server loopback-only.
+Build `npm run world-knowledge:build` first. Start the existing loopback-only MLX
+server on `127.0.0.1:8088` with `mlx-community/Qwen3.5-9B-4bit`, revision
+`8b2b98c00a6b4d291155e4890773ca8f769aee53`.
 
-```
+```sh
 node scripts/world-knowledge/nuknuk-research.mjs manifest.json /absolute/model/path/8b2b98c00a6b4d291155e4890773ca8f769aee53 .local/research-output
 node --test packages/spot-research-runtime/test/*.test.mjs
 ```
 
-Manifest example (replace the synthetic identity with the intended existing Spot):
+Example manifest, using a synthetic identity:
 
 ```json
 {
+  "exportPath": "/absolute/path/current-admin-export.json",
+  "discoverLinks": true,
   "fields": ["description.highlight", "contact.phone", "hours.regular", "experience.profile"],
   "spots": [{
     "spotId": "11111111-1111-4111-8111-111111111111",
     "name": "Example Spot",
     "locality": "Basel",
-    "sources": ["https://example.org/contact"]
+    "sources": ["https://example.org/contact", "https://example.org/menu"]
   }]
 }
 ```
 
-Optional `exportPath` points to a current Admin `world-research-batch@1.1` export.
-Its existing catalog and manifest validation remains authoritative. Without this
-export the output explicitly lacks current-value/conflict comparison. An input
-name and URL list do not independently prove that a Spot exists or that a source
-belongs to the right branch. The operator must select the correct identity and
-sources before running. With an export, source hosts must match the stored website
-(ignoring www); other hosts require manual identity review and are skipped. A host
-match still does not prove branch or entity identity.
+`exportPath` is a current Admin `world-research-batch@1.1` export. Its catalog,
+manifest hashes and identity validation remain authoritative. The adapter uses
+its stored category, address and country as context, not independent evidence.
+Without an export there is no current-value comparison; profile proposals require
+a known category and national phone numbers require a known country. The CLI does
+not manufacture a current export from partial observations.
 
-## Bounds and evidence
+With an export, every source host must match the stored website, ignoring www.
+Alternate domains require identity review and are skipped. Matching names or
+hosts do not prove branch identity: check addresses and the specific venue.
 
-At most 10 Spots, 12 fields per Spot, 6 explicit public HTTPS URLs per Spot.
-No recursive crawl, search provider, website credentials or redirects. Private
-DNS addresses are rejected and the selected address is pinned for HTTPS.
-DNS and each HTTP fetch have separate 15-second limits; responses are bounded to
-2 MB and model excerpts to 12,000 characters per source. HTML and plain text are
-supported; PDFs and JavaScript-only pages require manual research for now.
-Truncated material and unavailable sources remain visible in the saved evidence.
+## Evidence-first extraction (v4)
 
-One local model request at a time, temperature zero, 5,000 output tokens maximum,
-90 seconds per request and four minutes per Spot's model phase. No automatic
-semantic retry. These are new pilot bounds, not measurements of the CTO's manual
-research. Stop the owned model server after testing; a client timeout alone does
-not guarantee the model server has stopped generation.
+- Description: choose an immutable passage from the primary page’s main content; navigation and partner-venue footers are excluded; never generate a description
+  from model knowledge. The selected text may still need editorial trimming.
+- Telephone: extract the published digits; normalize formatting and supported
+  national prefixes in code. Explicit fax labels are rejected. Unknown country
+  codes are not guessed.
+- Regular hours: select quoted day/time rows. Code expands supported German and
+  English day groups, split intervals and midnight. Missing days stay unknown;
+  closed days require an explicit statement. Missing closing times, unsupported
+  formats and conflicting weekday scopes in the source candidates remain unresolved even if the model selects only one. This deliberately requires manual resolution for multi-branch sites and differently scoped restaurant/bar schedules. Kitchen,
+  bar, event and branch distinctions also require reviewer attention.
+- Experience profile: extract at most four named offers with surrounding evidence.
+  Code creates IDs and empty unknown fields. EAT/DRINKS focus on food/drink offers;
+  STAY focuses on overnight accommodation. Food is conservatively typed as GASTRONOMY, drinks as DRINKS and rooms as OVERNIGHT_STAY; a food item is not inferred to be a full meal. These are partial profiles, not complete
+  inventories. Unsupported facilities, diets and suitability are never filled.
+  Simple explicit CHF menu-item prices can be projected with midday/evening
+  conditions. PDFs, group restrictions, variants and uncertain units retain
+  evidence only, without canonical prices.
 
-Every field has a status, exact source quotes where proposed, retrieval timestamp,
-source-text hash, latency and prompt hash where available. Reports identify the
-model revision and contract version. `research.json`, per-Spot source/partial JSON
-and `review.html` stay in ignored local output directories, not Git. Public source
-material and raw model responses can contain contact details; keep reports local
-and delete them when no longer needed. No provider keys or private profile data
-are needed for the initial pilot.
+MLX decoding omits unsupported `uniqueItems` and `if`/`then`/`else` keywords.
+This does not weaken acceptance: ordinary values use the canonical authoring
+validator. Profiles use `parseExperienceProfile(value, false)`, the canonical
+**draft** parser; `reviewed:false` is mandatory. The normal authoring validator
+still rejects such an unreviewed profile for persistence.
 
-## Human review and persistence
+Offer names and nearby evidence on separate lines are bound to one original contiguous span (at most 1,100 characters), without crossing another selected offer. Source matching permits only whitespace and typographic quotation-mark changes,
+then stores the original source span. Different words, digits or ordering fail.
+Exact wording alone does not prove scope, truth, freshness or semantic entailment.
 
-`REQUIRES_REVIEW` means format and quoted text passed checks, not factual approval.
-Check every individual assertion, branch, offer/area scope, date, price unit,
-opening/last-order distinction and contradiction. `FAILED` and `UNRESOLVED` are
-never converted to facts or negative answers. Structured profiles cannot set
-`reviewed:true` themselves.
+## Source retrieval and bounds
 
-The command has no database client, insert/update path or import-ready output.
-It neither creates Spots nor overwrites existing values. After a fresh export and
-human review, use the existing Admin preview/commit workflow to persist accepted
-additions. Automated conversion to an import batch is not implemented. This keeps
-conflict handling and authorization in the canonical flow.
+At most 10 Spots, 12 fields and six public HTTPS requests per Spot. The four fields
+above are the evaluated pilot scope; other catalog fields use the generic contract
+and are not certified by these tests. One-hop discovery follows relevant menu,
+contact and opening-hours links on explicitly supplied pages on the same host.
+Set `discoverLinks:false` to use only the explicit URLs. No external search/model
+provider, credentials, recursive crawl or redirects. Private DNS addresses are
+rejected and the selected address is pinned for HTTPS.
 
-Run the runtime tests for boundary/format regressions. Real-model quality must be
-assessed separately; mocked transport tests do not certify semantic correctness.
+DNS and each HTTP request have separate 15-second limits. Responses are limited
+to 2 MB; source excerpts to 12,000 characters. HTML paragraph breaks are retained.
+PDF text extraction requires local Poppler `pdftotext` on PATH or an absolute
+`NUKNUK_PDFTOTEXT` executable path. It runs without a shell, with a ten-second
+limit and 200 KB output cap, reading at most ten pages in content-stream order.
+PDFs retain `layoutReviewRequired:true`: inspect the original layout and dates
+before accepting menu/price associations. Image-only PDFs need manual OCR/review;
+there is no fabricated text fallback. A ten-page limit is not a complete-document
+coverage claim. Retrieval failures and truncated source text remain visible.
 
-## Pilot findings, 2026-10-18
+Model calls are sequential, temperature zero, thinking disabled, 1,800 output
+tokens maximum, 90 seconds per request and four minutes per Spot's model phase.
+No automatic semantic retries. Stop the owned server after tests; a client timeout
+alone does not guarantee that the model has stopped generating.
 
-The initial six-Spot run covered 24 field requests: 16 failed validation and 8
-were unresolved, with no accepted proposals and no canonical writes. The initial
-string-encoded JSON value was replaced by a directly typed value in contract v2.
-A subsequent live telephone extraction produced a correct quoted proposal in
-about 12 seconds, but a later prompt variant incorrectly described that same
-contact number as a fax. This is a measured semantic failure, not production
-readiness. The initial thermal monitor reached fair pressure, not serious pressure.
+## Review and persistence
 
-The local MLX grammar compiler rejects `uniqueItems` and `if`/`then`/`else`.
-These keywords are omitted only from the decoding grammar. The complete field
-contract stays in the prompt and every proposal still passes the canonical
-validator before review. Never treat decoding as validation.
+`research.json`, per-Spot source/partial files and `review.html` stay in ignored
+local directories. Each proposed field carries evidence URLs, retrieval times,
+source-text hashes, prompt hash and latency; reports pin the model and contract.
+Raw responses are retained for diagnosing failed interpretation. Public contact
+information may occur in these reports; keep them local and remove when unneeded.
 
-The current authenticated Admin export showed existing values on all six Spots.
-Description, telephone and regular hours were already present; the scoped
-experience profile was absent. The Alexander Spot was a restaurant while the
-old manual research packet pointed at a hotel. Hotel results must be discarded.
-Alternative source domains require identity review; matching names are insufficient.
-Do not batch-import this pilot or use it to certify the existing stored values.
+`REQUIRES_REVIEW` is not factual approval. Check every assertion against the
+original source, identity/address, offer/area scope, dates, price basis, dietary
+conditions and conflicting schedules. Partial profiles must never replace a
+complete stored profile. Failed/unresolved results never become negative facts.
 
-Version v3 bounds each experience-profile proposal to one offer and one area.
-Reports mark this as a partial profile; it must never replace a stored complete
-profile. This follows a live test that exceeded the 90-second request limit while
-trying to generate the full profile. Batching/merging many partial profiles is not
-yet implemented. The syntax-only compiler regression passes; that does not imply
-that the model has correctly understood the source.
+The CLI has no database client or write path. It does not create Spots, overwrite
+values, self-approve profiles or produce import-ready output. After a fresh export
+and human approval, persist accepted additions through the existing Admin workflow.
+Automated conversion to an import batch is not implemented.
+
+## Evaluation record
+
+The initial six-Spot baseline had 24 field requests: 16 failed, eight unresolved,
+zero reviewable proposals. Full-profile generation also exceeded the 90-second
+limit. The old CTO packet incorrectly pointed the Alexander restaurant at a hotel;
+use the stored restaurant website and address instead.
+
+A controlled small extraction on the same model correctly read a description,
+telephone and dish in 3.7 seconds without grammar / 4.8 seconds with simple grammar.
+Thinking mode exhausted 1,600 tokens after 37 seconds. The failure was therefore
+not simply inability to read German: oversized/status-first contracts and source
+layout materially affected the result. Intermediate tests also exposed invented
+closed days, room-as-meal classification and mixed PDF columns; v4 adds explicit
+controls and bounded extraction for these failure modes.
+
+Runtime regression tests cover source boundaries, exact grounding, fax/phone,
+unknown days, scoped prices, draft-only profiles, PDF failure handling and bounded
+link discovery. Real-model results must be evaluated separately. Passing mocked
+transport or schema tests does not establish CTO-level research quality.
