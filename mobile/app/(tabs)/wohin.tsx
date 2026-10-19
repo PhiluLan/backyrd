@@ -1,3 +1,5 @@
+import { useAuth } from "@/hooks/useAuth";
+import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -88,6 +90,7 @@ function DecisionResultCard({ candidate, imageUrl, compact, onOpen, onDetails }:
 
 export default function WohinScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [editing, setEditing] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -178,6 +181,7 @@ export default function WohinScreen() {
 
   const run = useCallback(async (text: string) => {
     if (!identityReady || identityError || !authenticated || !city || loading) return;
+    clearJourneySelection();
     const generation = ++requestGeneration.current;
     setSubmittedQuery(text.trim());
     Keyboard.dismiss();
@@ -224,6 +228,10 @@ export default function WohinScreen() {
         supabase,
         request: { contractVersion: "backyrd.decision-vnext.product-interaction-request@1.0", actionId, idempotencyKey: actionId, decisionId: response.decisionId, eventType: "candidate_opened", candidateId: candidate.spotId },
       }).catch(() => undefined);
+    }
+    if (response && user && canCarryPlaceRecommendation(candidate)) {
+      rememberJourneySelection({ actorId: user.id, decisionId: response.decisionId, spotId: candidate.spotId,
+        wish: submittedQuery, recommendation: wohinRecommendation(candidate), notes: [availabilityLabel(candidate).text, ...wohinConsiderations(candidate, response.personalization.state === "ACTIVE")], selectedAt: Date.now() });
     }
     const event=candidate.presentation.event;
     router.push((event ? `/events/${event.eventId}?occurrenceId=${event.occurrenceId}` : `/spot/${candidate.spotId}?entrySource=decision`) as never);
@@ -284,7 +292,7 @@ export default function WohinScreen() {
           {response && candidates.length ? <Pressable accessibilityRole="button" onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.backToResults}><AppText role="label" tone="pink">Zurück zu deinen Vorschlägen</AppText></Pressable> : null}
           <AppText role="caption" tone="pink">DEIN NÄCHSTER MOMENT</AppText>
           <AppText role="displayL" style={{ color: color.text, marginTop: 10 }}>Wohin?</AppText>
-          <Text style={{ color: color.muted, marginTop: 10, lineHeight: 22 }}>Sag uns, worauf du Lust hast. Wir finden passende Orte für dich.</Text>
+          <Text style={{ color: color.muted, marginTop: 10, lineHeight: 22 }}>Beschreibe deinen nächsten Moment. Ein Ort, eine Atmosphäre, deine Begleitung – was dir gerade wichtig ist.</Text>
 
           <View style={{ marginTop: backyrdTheme.spacing.xl, padding: backyrdTheme.spacing.lg, borderRadius: backyrdTheme.radius.lg, backgroundColor: color.card, borderWidth: 1, borderColor: color.border }}>
             <Text style={{ color: color.pink, fontSize: 14, fontWeight: "900" }}>Was jetzt?</Text>

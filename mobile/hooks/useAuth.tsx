@@ -1,6 +1,7 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
+import { clearJourneySelection } from "../lib/discovery-journey";
 import { supabase } from "../lib/supabase";
 import { clearSupabaseAuthStorage } from "../lib/supabaseStorage";
 
@@ -38,6 +39,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  useEffect(() => { clearJourneySelection(); }, [session?.user.id]);
 
   useEffect(() => {
     let mounted = true;
