@@ -1,5 +1,7 @@
 # Connected discovery, atmosphere and Moments
 
+Published to iOS production OTA on 19 October 2026 from Main `5c4aefd5ced633a2f3fad09fdd304e6e6039a03c` (PR #531). Exact Main certification `39312725149` and public launch-byte verification passed. Update `01a155b2-779c-7213-a403-779e8d04472f`, runtime `1.1.0`. Installation on a physical device remains unobserved.
+
 Task class: PRODUCT_RELEASE (existing Mobile Decision presentation and journey).
 Owned surfaces: iOS Home, Wohin, place detail, shared Moment card and review composers. No schema, engine matching, recommendation ranking, consent or moderation change.
 
