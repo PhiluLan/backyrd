@@ -54,10 +54,25 @@ export function menuOfferingGroup(label) {
 }
 export function sourceText(page,id,{preferMain=false}={}) {
   const named={auml:'ä',ouml:'ö',uuml:'ü',Auml:'Ä',Ouml:'Ö',Uuml:'Ü',szlig:'ß',eacute:'é',egrave:'è',agrave:'à',ccedil:'ç',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',ndash:'–',mdash:'—',euro:'€',hellip:'…',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',thinsp:' ',ensp:' ',emsp:' ',laquo:'«',raquo:'»',copy:'©'};
-  const clean=html=>html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<\/?(?:p|h[1-6]|li|div|section|article|tr|br)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&([a-zA-Z]+);/g,(m,key)=>named[key]??m).replace(/&#(x[0-9a-f]+|\d+);/gi,(_m,n)=>{const c=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return c>0&&c<=0x10ffff?String.fromCodePoint(c):' ';}).replace(/[ \t\r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+  const plain=html=>html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<\/?(?:p|h[1-6]|li|div|section|article|tr|br)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&([a-zA-Z]+);/g,(m,key)=>named[key]??m).replace(/&#(x[0-9a-f]+|\d+);/gi,(_m,n)=>{const c=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return c>0&&c<=0x10ffff?String.fromCodePoint(c):' ';}).replace(/[ \t\r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+  const clean=html=>plain(html.replace(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi,(row,inner)=>{
+    const cells=[...inner.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(m=>plain(m[1]).split(/\n+/u).map(x=>x.trim()).filter(Boolean));
+    if(cells.length!==2||cells[0].length<2||cells[0].length!==cells[1].length||!/^(?:mon|tue|wed|thu|fri|sat|sun|mo\b|di\b|mi\b|do\b|fr\b|sa\b|so\b|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)/iu.test(cells[0][0])||!cells[1].every(x=>/^\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2}$/u.test(x)))return row;
+    return '\n'+cells[0].map((label,i)=>label+' '+cells[1][i]).join('\n')+'\n';
+  }));
   const primary=page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
   const selectedHtml=preferMain&&primary?primary.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '):page.body;
-  const text=clean(selectedHtml);
+  const mainText=clean(selectedHtml);
+  const outside=preferMain&&primary?clean(page.body.replace(/<main\b[^>]*>[\s\S]*?<\/main>/i,' ')):'';
+  const windows=[];
+  for(const match of outside.matchAll(/(?:öffnungs(?:zeiten)?|oeffnungs(?:zeiten)?|opening\s+hours|adresse|address|(?:\+|\b00)\d[\d ()/.-]{7,}\d|[-\w.+]+@[\w.-]+\.[a-z]{2,})/giu)) {
+    if(windows.length>=14)break;
+    const start=Math.max(0,outside.lastIndexOf('\n',match.index)+1),end=Math.min(outside.length,match.index+420);
+    const last=windows.at(-1);if(last&&start<=last[1])last[1]=Math.max(last[1],end);else windows.push([start,end]);
+  }
+  const publicInfo=windows.map(([start,end])=>outside.slice(start,end)).join('\n\n').slice(0,3200).trim();
+  const identityOffset=publicInfo?mainText.length+2:undefined;
+  const text=publicInfo?mainText+'\n\nWebsite-Kontakt und Öffnungszeiten\n'+publicInfo:mainText;
   const headings=[];
   if(preferMain)for(const match of selectedHtml.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi)) {
     const label=clean(match[2]);if(!label||label.length>160)continue;
@@ -70,6 +85,7 @@ export function sourceText(page,id,{preferMain=false}={}) {
   const descriptionText=clean(main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ')).slice(0,12000);
   if(!text)throw new Error('source_empty');
   const excerpt=text.slice(0,12000);
+  if(identityOffset!==undefined&&identityOffset<excerpt.length)headings.push({level:1,text:'Website-Kontakt und Öffnungszeiten',offset:identityOffset});
   const linkedMenus=[];
   for(const match of main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
     const href=match[1].match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1],label=clean(match[2]);
@@ -83,7 +99,7 @@ export function sourceText(page,id,{preferMain=false}={}) {
       linkedMenus.push({label,url:target});if(linkedMenus.length>=12)break;
     }catch{}
   }
-  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex'),...(preferMain?{textSelection:primary?'MAIN_CONTENT':'FULL_PAGE',headings,assetHash:createHash('sha256').update(page.body).digest('hex')}:{})};
+  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex'),...(preferMain?{textSelection:primary?publicInfo?'MAIN_WITH_PUBLIC_INFO':'MAIN_CONTENT':'FULL_PAGE',headings,identityOffset,assetHash:createHash('sha256').update(page.body).digest('hex')}:{})};
 }
 
 // A different host is a review item, not an automatically trusted alias/branch.
@@ -167,17 +183,28 @@ export function discoverResearchLinks(page) {
   const links=[];
   const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|food|drink|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|experience|ausstellung|exhibition|sammlung|collection|zimmer|rooms?|aktivität|activities/iu,about:/über|ueber|about|portrait|konzept|concept/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq/iu};
   for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href=m[1].replace(/&amp;/g,'&');
+    if(/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\.|\.contains\(|\.data\.|(?:^|[/?=])(?:MenuURL|LinkURL|RouteURL)/iu.test(href))continue;
     const label=m[2].replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim().slice(0,200);
     try {
-      const url=publicSourceUrl(new URL(m[1].replace(/&amp;/g,'&'),page.url).href);
-      if(!matchesExistingWebsite(url,page.url)||url===page.url||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|cart|privacy|datenschutz/iu.test(new URL(url).pathname))continue;
+      const url=publicSourceUrl(new URL(href,page.url).href);
+      if(!matchesExistingWebsite(url,page.url)||url===page.url||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|cart|privacy|datenschutz|(?:^|\/)shop(?:\/|$)/iu.test(new URL(url).pathname))continue;
+      // Dated events are useful to a different product flow, but cannot prove
+      // a permanent venue offering or regular opening hours. Do not spend the
+      // bounded Spot-research budget crawling individual event/news pages.
+      if(/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news|blog|aktuell)(?:\/|$)/iu.test(new URL(url).pathname)||/\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2})\b/u.test(label))continue;
+      // Exhibition/programme pages describe time-bounded offerings. The
+      // permanent Spot profile cannot encode their validity yet.
+      if(/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?|group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(url).pathname))continue;
       const material=decodeURI(new URL(url).pathname)+' '+label;
       const topics=Object.entries(topicPatterns).filter(([,pattern])=>pattern.test(material)).map(([key])=>key);
       if(!topics.length&&(!label||/\.(?:jpg|png|zip|mp4)$/iu.test(url)||/\/(?:products|collections|blogs|policies)\//iu.test(new URL(url).pathname)))continue;
       const existing=links.find(l=>l.url===url);
       if(existing){existing.topics=[...new Set([...existing.topics,...topics])];existing.label=(existing.label+' | '+label).slice(0,200);continue;}
-      if(links.length<60)links.push({url,label,topics});
+      if(links.length<500)links.push({url,label,topics});
     }catch{}
   }
-  return links;
+  if(links.length<=120)return links;
+  const score=link=>link.topics.reduce((n,topic)=>n+({contact:8,hours:8,visit:3,about:3,access:2,stay:2,experience:2,menu:1}[topic]??0),0);
+  return links.map((link,index)=>({link,index})).sort((a,b)=>score(b.link)-score(a.link)||a.index-b.index).slice(0,120).map(x=>x.link);
 }

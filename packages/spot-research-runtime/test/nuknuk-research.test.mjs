@@ -58,6 +58,7 @@ test('review output escapes hostile source and model text',async()=>{
   const {reviewHtml}=await import('../../../scripts/world-knowledge/nuknuk-research.mjs');
   const html=reviewHtml([{name:'<script>alert(1)</script>',results:[{attributeKey:'x',status:'REQUIRES_REVIEW',value:'<img src=x onerror=alert(1)>'}]}]);
   assert.ok(!html.includes('<script>'));assert.ok(!html.includes('<img'));assert.ok(html.includes('&lt;script&gt;'));
+  assert.match(reviewHtml([{name:'Zoo',limitations:['CLIENT_RENDERED_CONTENT_MISSING'],results:[]}]),/Dynamisch geladene Angaben sind nicht belegt/);
 });
 
 test('DNS lookup has a deadline before any HTTP request',async()=>{
@@ -137,6 +138,8 @@ test('hours expand only quoted days; partial/private/kitchen hours never fabrica
 test('telephone normalization requires country for national numbers and exact published digits',()=>{
   assert.equal(normalizePhone('061 / 681 / 73 / 55','CH'),'+41616817355');
   assert.equal(normalizePhone('0041 61 111 22 33'),'+41611112233');
+  assert.equal(normalizePhone('+41 (0) 61 466 15 15','CH'),'+41614661515');
+  assert.equal(normalizePhone('0041 (0) 61 466 15 15','CH'),'+41614661515');
   assert.equal(normalizePhone('06 12345678','IT'),'+390612345678');
   assert.throws(()=>normalizePhone('061 111 22 33'),/country_required/);
   assert.throws(()=>extractedProposal({...extracted,phone:'+41 99 999 99 99'},{spot,field}),/not_grounded/);
@@ -422,6 +425,14 @@ test('decoded HTML time spacing and midnight produce exact supported weekly rows
  const s=sourceText({url:source.url,observedAt:source.observedAt,body:'<main><p>Do<br>08:00&thinsp;–&thinsp;Mitternacht</p><p>Fr&thinsp;–&thinsp;Sa<br>08:00&thinsp;–&thinsp;01:00</p></main>'},'s1');
  const cs=fieldCandidates({attributeKey:'hours.regular'},[s]);
  assert.deepEqual(cs.flatMap(c=>parseHoursRow(c.quote)),[{day:'THURSDAY',intervals:[{start:'08:00',end:'00:00'}]},{day:'FRIDAY',intervals:[{start:'08:00',end:'01:00'}]},{day:'SATURDAY',intervals:[{start:'08:00',end:'01:00'}]}]);
+});
+test('English twelve-hour museum schedule keeps the Wednesday exception separate',()=>{
+ const text='Opening hours\nMonday–Sunday: 10 a.m. – 6 p.m.\nWednesday: 10 a.m. – 8 p.m.';
+ const cs=fieldCandidates({attributeKey:'hours.regular'},[{...source,text,descriptionText:text}]);
+ assert.deepEqual(cs.map(c=>c.quote),['Monday–Sunday: 10 a.m. – 6 p.m.','Wednesday: 10 a.m. – 8 p.m.']);
+ assert.deepEqual(parseHoursRow(cs[0].quote).map(r=>r.day),['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY']);
+ assert.deepEqual(parseHoursRow(cs[1].quote),[{day:'WEDNESDAY',intervals:[{start:'10:00',end:'20:00'}]}]);
+ assert.deepEqual(parseHoursRow('Monday 13 a.m. – 6 p.m.'),[]);
 });
 test('closing-only exception inherits start only from its contiguous supported base range',()=>{
  const text='Dienstag bis Sonntag 11-18 Uhr\n\nDonnerstags bis 21 Uhr geöffnet\n\nMontag geschlossen';

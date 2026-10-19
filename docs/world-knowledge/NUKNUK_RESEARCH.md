@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v2.0
+## Active architecture: Research v2.1
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -43,8 +43,9 @@ npm test --workspace @backyrd/spot-research-runtime
    remain in the ledger and cannot crowd valid claims in the critic request.
    Pages with no eligible claims still persist their checkpoint. Descriptions
    copy a factual original span. Main content is preferred
-   over navigation/footers when present; duplicate source text is not processed
-   repeatedly. Original hashes and omitted/held evidence remain visible.
+   over navigation/footers when present. Repeated literal text retains each
+   source offset so a hotel facility does not inherit the scope of an earlier
+   navigation mention. Original hashes and omitted/held evidence remain visible.
 3. **Check interpretation.** A separate local-model critic checks each candidate
    against the original source and target, including its venue/area/offer/other/unknown
    subject, its separate ownership relationship (`belongsTo`), polarity and current/dated/conditional applicability. Restrictions
@@ -55,8 +56,9 @@ npm test --workspace @backyrd/spot-research-runtime
    use the same pinned model: useful error detection, not independent truth.
 4. **Project drafts.** Only supported, current unconditional target facts enter
    whole-Spot draft fields. Area/conditional/dated evidence remains visible for
-   scoped review. Owned room/activity offers can remain narrower than the whole
-   venue. Exact descriptions may retain their explicit conditions in copied text;
+   scoped review. An `experience.profile` item must have explicit offer scope;
+   an owned building or area is not itself a visitor offer. Owned room/activity
+   offers can remain narrower than the whole venue. Exact descriptions may retain their explicit conditions in copied text;
    this does not establish an unconditional property. Original offer names are
    retained, offer kinds checked against the current research focus, hours parsed
    deterministically and conflicts withheld. The research focus is narrower than
@@ -84,6 +86,31 @@ area label; an earlier navigation word cannot relabel a later schedule. Bare hea
 selection, not merely rejected after generation. Regional formats not
 understood by the existing canonical parsers remain unresolved.
 
+The v2.1 source frontier excludes dated event/news pages and exhibition-programme
+subtrees from permanent Spot research. A dated exhibition may have genuine value
+for discovery, but the current permanent Spot fields cannot carry its validity
+window. Programme copy or exhibition names cannot become whole-venue description
+or undated offers, including when a model critic approves them. Museum building
+hours stay distinct from whole-museum hours. Generic navigation labels such as
+"Kostenlose Museumsangebote" and "Online-Ticket" are not concrete offers.
+Conditional group-booking/programme and press pages are excluded from
+permanent-field research; if reached by a redirect, their facts remain scoped.
+They cannot supply a whole-venue contact or an undated group tour.
+Food/delivery/kitchen schedules remain separate from restaurant hours. The
+address- and official-host-bound weekday parser can certify literal restaurant,
+bar or café hours without a weak model veto; other ambiguous hours remain open.
+Swiss optional trunk formatting such as `+41 (0)61 ...` normalizes consistently.
+An old HTTP website is only probed over HTTPS on that exact host; TLS errors are
+reported, never bypassed. The review page surfaces truncated-source warnings.
+The main page text is supplemented with a bounded public identity panel when
+hours, address or contact details appear in the surrounding official page.
+That panel is used for literal identity/contact/hour evidence; event and offer
+extraction stays in the main content. Museum, shop and bistro phone labels are
+kept separate. English 12-hour opening times such as `10 a.m. – 6 p.m.` are
+parsed without changing the quoted source text. A narrower weekday row can
+override its immediately adjacent general row; unparsed late-opening notices
+hold the schedule instead of silently publishing an early closing time.
+
 Set optional manifest `budget` to `{ "maxRequests": 12, "maxModelCalls": 24,
 "budgetMs": 600000, "maxDepth": 3 }`. `sources` may be omitted when a current
 export contains the official website. `discoverLinks:false` restricts fetching to
@@ -107,6 +134,44 @@ by the CLI. Larger weights are not evidence of better Backyrd performance; do no
 promote this route until measured on identical sources, errors, useful coverage,
 latency and memory. Neither route uses an external AI API. Existing v9 entry
 points retain their original 9B contract.
+
+Autonomous **research draft** is distinct from autonomous **catalog import**.
+Release the unattended draft runner only after a held-out, source-reviewed suite
+has zero invented or wrong-venue facts, zero time-bounded offers in permanent
+fields, zero area-hours promotion, no silent source failures, and useful coverage
+across restaurant/bar, hotel, culture and activity cases. Measure field-level
+precision, supported-field coverage, unresolved reasons, source availability,
+latency and memory. An all-unresolved run is safe but fails useful coverage.
+Keep the Admin review/commit boundary even after the draft runner passes.
+
+### 19 October 2026 local source-reviewed evaluation
+
+Independent expectations were written before the respective local 9B runs;
+the raw Admin exports and reports are ignored local files, not repository
+fixtures or production writes. The observations below are about these
+particular official-site versions and code revisions, not a population-wide
+accuracy estimate.
+
+| Spot | Useful supported draft after correction | Remaining issue |
+| --- | --- | --- |
+| 8 Bar | Public phone/email and regular hours | Description and concrete offers unresolved |
+| Alexander | Public phone/email and description; an isolated current-code hours run parsed all seven restaurant days without model calls | Full crawl still missed regular hours before the structured-hours fix |
+| Alter Zoll | None | Stored HTTP site fails the exact-host HTTPS TLS probe; no certificate bypass |
+| Märthof | Hotel description/email and four partial room offers | Phone format conflict in the original run; deterministic replay with Swiss optional-trunk normalization resolves it, pending a fresh full run |
+| Kunstmuseum Basel | Public phone | Original blind run wrongly projected dated exhibitions. A later run removed the dated copy but still included a programme-scope virtual tour; current deterministic replay withholds it. Multi-building hours remain unresolved. A fresh current-code run is still required. |
+| Zoo Basel | None | Client-rendered official pages expose template placeholders to the text fetcher; the limitation is now explicit. Safe abstention, inadequate coverage. |
+| Acero | Public phone/email, grounded description and all seven Bistro days including Sunday | The 9B model still misses literal concrete offers; source-grounded hyphen correction has a synthetic regression but needs a fresh full run. |
+| Museum Tinguely | The latest full run correctly proposed the main museum phone and all seven days, including Monday closed and the Thursday extension to 21:00; dated event copy, shop/bistro phones and fake email did not become proposals | Description and concrete enduring offers remain unresolved; the run used its eight-request budget on multilingual contact/press pages before the press-frontier fix. |
+| Fondation Beyeler | The latest full run proposed the museum phone, all seven days with Wednesday's later close, and a literal though generic description. Group contacts, dated group tours and ensemble buildings stayed out of the permanent fields. Final deterministic replay preserved that result. | Named enduring offers remained unresolved; one programme page had empty source text and the eight-request budget was exhausted. A final guard against an incorrectly `OFFER`-labeled building passed a synthetic test after the run. |
+
+**Release decision: not yet approved for unattended batch operation.** These
+cases exposed failures that unit tests alone missed. The current 9B route can
+create useful review drafts but does not meet the coverage and held-out safety
+gate across venue classes. Recheck every material rule against genuinely new
+Spots, including a JavaScript-rendered activity site; do not treat a deterministic
+replay or a corrected development case as an independent blind pass. The 27B
+route remains unpromoted until the complete pinned download and same-source
+comparison finish.
 
 A 12-case synthetic language regression corpus covers false preferences,
 venue/area confusion, reviews, expired offers, explicit facilities and affirmative

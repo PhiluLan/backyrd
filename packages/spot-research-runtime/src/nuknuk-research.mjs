@@ -182,7 +182,9 @@ export function buildNuknukResearchRequest({spot,field,sources,modelPath}) {
 }
 export function normalizePhone(phone,country) {
   if(typeof phone!=='string'||!/^[+\d ()./-]+$/.test(phone))throw new Error('research_phone_invalid');
-  let number=phone.replace(/[ ()./-]/g,'').replace(/^00/,'+');
+  // Parenthesized national trunk zero is omitted when dialling an explicit
+  // international prefix: +41 (0)61 and +41 61 identify the same line.
+  let number=phone.replace(/^\s*((?:\+|00)\d{1,3})\s*\(0\)/u,'$1').replace(/[ ()./-]/g,'').replace(/^00/,'+');
   // Only normalize known national numbering plans; never guess a country.
   const prefixes={CH:'41',DE:'49',AT:'43',FR:'33',IT:'39',GB:'44'};
   if(!number.startsWith('+')) {
@@ -281,11 +283,12 @@ export function parseHoursRow(quote) {
     const start=indexes[0],end=indexes[1];indexes=[];for(let n=start;;n=(n+1)%7){indexes.push(n);if(n===end)break;}
   }
   if(!indexes.length)return [];
-  const clock='([0-2]?\\d)(?:[.:]([0-5]\\d))?';
+  const clock='([0-2]?\\d)(?:[.:]([0-5]\\d))?\\s*([ap]\\.?m\\.?)?';
   const pairs=[...quote.matchAll(new RegExp('(?<![\\d.:])'+clock+'\\s*(?:Uhr|h)?\\s*(?:-|–|—|bis|to|till|through)\\s*'+clock+'(?![\\d.:])','gi'))];
-  const fmt=(h,m)=>String(Number(h)%24).padStart(2,'0')+':'+(m??'00');
-  if(pairs.some(p=>Number(p[1])>23||Number(p[3])>24||(Number(p[3])===24&&p[4]&&p[4]!=='00')))return [];
-  const intervals=pairs.map(p=>({start:fmt(p[1],p[2]),end:fmt(p[3],p[4])}));
+  const valid=(h,m,meridiem,end)=>meridiem?Number(h)>=1&&Number(h)<=12:Number(h)<= (end?24:23)&&(!end||Number(h)!==24||!m||m==='00');
+  if(pairs.some(p=>!valid(p[1],p[2],p[3],false)||!valid(p[4],p[5],p[6],true)))return [];
+  const fmt=(h,m,meridiem)=>String(meridiem?(Number(h)%12)+(/^p/iu.test(meridiem)?12:0):Number(h)%24).padStart(2,'0')+':'+(m??'00');
+  const intervals=pairs.map(p=>({start:fmt(p[1],p[2],p[3]),end:fmt(p[4],p[5],p[6])}));
   if(intervals.some(p=>p.start===p.end))return [];
   const closed=/geschlossen|ruhetag|closed/i.test(quote);
   if((!intervals.length&&!closed)||(intervals.length&&closed))return [];
@@ -304,7 +307,7 @@ export function fieldCandidates(field,sources) {
     } else {
       const day='(?:'+dayWords.flat().sort((a,b)=>b.length-a.length).join('|')+'|täglich|daily)';
       const group=day+'(?:\\.?\\s*(?:-|–|—|bis|to|till|through|&|und|and)\\s*'+day+')*\\.?';
-      const clock='(?:[0-2]?\\d(?:[.:][0-5]\\d)?)';
+      const clock='(?:[0-2]?\\d(?:[.:][0-5]\\d)?(?:\\s*[ap]\\.?m\\.?)?)';
       const pair=clock+'\\s*(?:Uhr|h)?\\s*(?:-|–|—|bis|to|till|through)\\s*(?:'+clock+'|Mitternacht|midnight)'+'(?:\\s*(?:Uhr|h))?';
       const pattern='(?<![a-zäöü])'+group+'\\s*:?(?:\\s+von)?\\s*(?:'+pair+'(?:[\\s,&]*(?:und|and)?\\s*'+pair+')*|geschlossen|ruhetag|closed)(?![a-zäöü])';
       const inText=text=>[...text.matchAll(new RegExp(pattern,'gi'))].map(m=>{
