@@ -104,6 +104,7 @@ export default function WohinScreen() {
   const [city, setCity] = useState<string | null>(null);
   const [identityReady, setIdentityReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [verifiedActorId, setVerifiedActorId] = useState<string | null>(null);
   const [identityError, setIdentityError] = useState(false);
   const [identityAttempt, setIdentityAttempt] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -137,6 +138,14 @@ export default function WohinScreen() {
 
   useEffect(() => {
     let active = true;
+    ++requestGeneration.current;
+    autoRunKey.current = null;
+    clearJourneySelection();
+    responseRef.current = null;
+    setResponse(null);
+    setCandidates([]);
+    setLoading(false);
+    setVerifiedActorId(null);
     setIdentityReady(false);
     setIdentityError(false);
     setAuthenticated(false);
@@ -151,6 +160,7 @@ export default function WohinScreen() {
         return;
       }
       setAuthenticated(true);
+      setVerifiedActorId(data.user.id);
       const { data: profile, error: profileError } = await withinIdentityDeadline(
         supabase.from("profiles").select("city").eq("id", data.user.id).maybeSingle(),
       );
@@ -160,7 +170,7 @@ export default function WohinScreen() {
       setIdentityReady(true);
     })().catch(() => { if (active) { setIdentityError(true); setIdentityReady(true); } });
     return () => { active = false; };
-  }, [identityAttempt]);
+  }, [identityAttempt, user?.id]);
 
   useEffect(() => {
     if (typeof params.query === "string") setQuery(params.query);
@@ -180,7 +190,7 @@ export default function WohinScreen() {
   }, [candidates]);
 
   const run = useCallback(async (text: string) => {
-    if (!identityReady || identityError || !authenticated || !city || loading) return;
+    if (!identityReady || identityError || !authenticated || !city || loading || !verifiedActorId || verifiedActorId !== user?.id) return;
     clearJourneySelection();
     const generation = ++requestGeneration.current;
     setSubmittedQuery(text.trim());
@@ -208,9 +218,9 @@ export default function WohinScreen() {
       void recordDecisionFailure(cause, failurePhase).catch(() => undefined);
       if (generation === requestGeneration.current) setError(userFacingError(cause, "Wohin kann gerade keine verlässlichen Vorschläge zeigen."));
     } finally {
-      setLoading(false);
+      if (generation === requestGeneration.current) setLoading(false);
     }
-  }, [authenticated, city, identityError, identityReady, loading]);
+  }, [authenticated, city, identityError, identityReady, loading, user?.id, verifiedActorId]);
 
   useEffect(() => {
     const incoming = typeof params.query === "string" ? params.query.trim() : "";
@@ -229,7 +239,7 @@ export default function WohinScreen() {
         request: { contractVersion: "backyrd.decision-vnext.product-interaction-request@1.0", actionId, idempotencyKey: actionId, decisionId: response.decisionId, eventType: "candidate_opened", candidateId: candidate.spotId },
       }).catch(() => undefined);
     }
-    if (response && user && canCarryPlaceRecommendation(candidate)) {
+    if (response && user && user.id === verifiedActorId && canCarryPlaceRecommendation(candidate)) {
       rememberJourneySelection({ actorId: user.id, decisionId: response.decisionId, spotId: candidate.spotId,
         wish: submittedQuery, recommendation: wohinRecommendation(candidate), notes: [availabilityLabel(candidate).text, ...wohinConsiderations(candidate, response.personalization.state === "ACTIVE")], selectedAt: Date.now() });
     }
