@@ -129,7 +129,7 @@ try {
 
   const appUrl = `http://127.0.0.1:${address.port}`;
   await page.goto(appUrl, { waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("Was hast du heute vor?").waitFor({ timeout: 30000 }).catch(async (error) => {
+  await page.getByRole("textbox", { name: "Was hast du heute vor?", exact: true }).waitFor({ timeout: 30000 }).catch(async (error) => {
     throw new Error(`Authenticated home did not appear at ${page.url()}: ${(await page.locator("body").innerText()).slice(0, 1200)}`, { cause: error });
   });
   await page.getByText("Wohin", { exact: true }).last().click();
@@ -207,7 +207,7 @@ try {
   await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByPlaceholder("Was hast du heute vor?").waitFor();
+  await page.getByRole("textbox", { name: "Was hast du heute vor?", exact: true }).waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("ruhiges Café nach Reload");
   await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
