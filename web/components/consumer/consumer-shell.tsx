@@ -89,7 +89,7 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
     () => user?.name || user?.email || "Profil",
     [user],
   );
-  if (pathname.startsWith("/owner")) return children;
+  if (pathname.startsWith("/owner") || pathname === "/booking" || pathname.startsWith("/booking/")) return children;
   return (
     <div className="b-app">
       <header className="b-header">

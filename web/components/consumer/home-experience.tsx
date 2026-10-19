@@ -247,7 +247,10 @@ export function HomeExperience() {
             <h2>Dein Ort gehört zu backyrd?</h2>
             <p>Pflege seine Geschichte und die Angaben, die Menschen bei ihrer Entscheidung helfen.</p>
           </div>
-          <Link href="/owner" className="b-owner-invite-link">Zum Owner-Bereich <ArrowIcon /></Link>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
+            <Link href="/owner" className="b-owner-invite-link">Zum Owner-Bereich <ArrowIcon /></Link>
+            <Link href="/booking" className="b-owner-invite-link">Backyrd Booking <ArrowIcon /></Link>
+          </div>
         </div>
       </section>
     </>
