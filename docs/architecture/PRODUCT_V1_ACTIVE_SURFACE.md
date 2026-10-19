@@ -98,7 +98,8 @@ visit. UI controls from older clients remain binding; their compatibility guard
 reads typed explicit fields only, never the original prose.
 
 The deployed composition requires `BACKYRD_DECISION_AI_INTENT_ENABLED=true`
-and the existing actor enablement configuration. Disabled/unavailable Luna fails
+for all verified authenticated accounts; there is no actor allowlist.
+Disabled/unavailable Luna fails
 closed; interaction events still use the same authenticated route. The model
 is pinned by the frozen configuration, not the former AI_INTENT_MODEL setting.
 There is no broad-plan cache yet: the narrower legacy cache cannot safely store

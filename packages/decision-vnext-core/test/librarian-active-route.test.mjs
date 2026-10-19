@@ -240,3 +240,13 @@ test('legacy UI equipment and non-category exclusions cannot restore hard blocki
  const r=await exercise({text:'Essen mit Spielplatz ohne Bier',meaning:plan([meal(),fact('play','offer.feature','Spielplatz'),fact('beer','food.drink','Bier','EXCLUDED')]),catalog:[b],explicit:{targetCity:'Basel',hardConstraints:['WK_REQUIRED:P1:amenity.features:PLAY_AREA','WK_EXCLUDED:B1:offering.groups:BEER']}});
  assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);assert.deepEqual(r.body.candidates[0].failedHardConstraints,[]);
 });
+
+test('all authenticated account identities reach Luna without an account allowlist', async () => {
+  for (const userId of ['33333333-3333-4333-a333-333333333333','44444444-4444-4444-a444-444444444444','55555555-5555-4555-a555-555555555555']) {
+    const result=await exercise({text:'Ein ruhiges Café in Basel für einen Kaffee mit einer Freundin',meaning:plan([meal()]),catalog:[binding(1,profile())],userId});
+    assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+    assert.equal(result.calls,1);
+    assert.equal(result.reads,1);
+    assert.notEqual(result.body.primaryCandidateId,null);
+  }
+});

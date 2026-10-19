@@ -1,4 +1,5 @@
 import test from "node:test";
+import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 
@@ -62,22 +63,16 @@ test("Production release is manual-only", () => {
   assert.match(workflow, /product-release-manifest\.mjs verify/);
 });
 
-test("Decision AI evaluation rebinds only to the audited shipped Function and two named accounts", () => {
+test("Decision access control binds authenticated-user enablement to the audited shipped Function", () => {
   const workflow = read(".github/workflows/decision-ai-pilot-production.yml");
-  assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /validate-production-state\.mjs/);
-  assert.match(workflow, /\.supabase\.shippedSourceSha/);
-  assert.match(workflow, /\.supabase\.deploymentRunId/);
+  for (const required of ["workflow_dispatch:", "ENABLE_AUTHENTICATED_USERS", "EMERGENCY_OFF", "validate-production-state.mjs", ".supabase.shippedSourceSha", ".supabase.deploymentRunId", ".ezbr_sha256 == $digest", "BACKYRD_DECISION_AI_INTENT_ENABLED=false"]) assert.ok(workflow.includes(required), required);
   assert.match(workflow, /test "\$DEPLOYMENT_RUN_ID" = "\$expected_run"/);
-  assert.match(workflow, /supabase-production-\$\{\{ steps\.shipped\.outputs\.source_sha \}\}/);
-  assert.match(workflow, /\.canonicalMainSha == \$sha/);
-  assert.match(workflow, /\.ezbr_sha256 == \$digest/);
-  assert.match(workflow, /if test "\$MODE" = ENABLE_EVAL_COHORT/);
-  assert.match(workflow, /allowlist=97062df5-f2ba-40b1-b170-015669a09713/);
-  assert.match(workflow, /6b31c2d2-6b2b-45bb-a7e0-ffbd0cdbea6f/);
-  assert.match(workflow, /BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST="\$allowlist"/);
-  assert.match(workflow, /BACKYRD_DECISION_AI_INTENT_ENABLED=false/);
-  assert.doesNotMatch(workflow, /BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST=\*/);
+  assert.match(workflow, /test "\$CONFIRMATION" = "\$MODE"/);
+  assert.doesNotMatch(workflow, /ENABLE_ONE_ACCOUNT|ENABLE_EVAL_COHORT|ENABLE_HELLO_ACCOUNT|allowlist=/);
+  const entry = read("supabase/functions/decision-v13/vnext-only.ts");
+  const provider = read("packages/decision-vnext-core/src/product-luna-provider.ts");
+  assert.doesNotMatch(entry, /ALLOWLIST|allowedUserIds|parseDecisionProductAiIntentAllowlist/);
+  assert.doesNotMatch(provider, /allowedUserIds|not_enabled_for_actor/);
 });
 
 test("Decision continuity cannot become automated activation or deployment", () => {
@@ -122,4 +117,18 @@ test("superseded manual duplicate workflows are removed", () => {
   for (const path of ["database.yml", "quality.yml", "security.yml"]) {
     assert.equal(existsSync(new URL(`../../.github/workflows/${path}`, import.meta.url)), false);
   }
+});
+
+
+test("authenticated-user enablement has no individual account IDs", () => {
+  const workflow = read(".github/workflows/decision-ai-pilot-production.yml");
+  const enableStep = workflow.split("      - name: Enable Decision for authenticated users\n")[1].split("      - name: Emergency off\n")[0];
+  const script = enableStep.split("        run: |\n")[1].split("\n").map(line => line.startsWith("          ") ? line.slice(10) : line).join("\n");
+  const output = execFileSync("bash", ["-c", `supabase() { printf '%s\\n' "$@"; }\n${script}`], {
+    encoding: "utf8", env: { ...process.env, MODE: "ENABLE_AUTHENTICATED_USERS", GITHUB_STEP_SUMMARY: "/dev/null" },
+  });
+  const args = output.trim().split("\n");
+  assert.ok(args.includes("BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST=*"));
+  assert.ok(args.includes("BACKYRD_DECISION_AI_INTENT_ENABLED=true"));
+  assert.doesNotMatch(output, /[0-9a-f]{8}-[0-9a-f-]{27,}/);
 });

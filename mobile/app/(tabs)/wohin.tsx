@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -308,6 +308,8 @@ export default function WohinScreen() {
             >
               {loading ? <ActivityIndicator color={color.background} /> : <Text style={{ color: color.background, fontWeight: "900", fontSize: 16 }}>Orte finden</Text>}
             </Pressable>
+            <Text style={{ color: color.muted, fontSize: 12, lineHeight: 18, marginTop: 14 }}>Für die KI-Suche senden wir deinen Suchwunsch und gewählte Suchangaben an OpenAI. Bitte keine vertraulichen Daten eingeben.</Text>
+            <Pressable accessibilityRole="link" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => { void Linking.openURL("https://www.backyrd.ch/legal#decision").catch(() => setError("Die Datenschutzinformation konnte nicht geöffnet werden. Versuche es erneut.")); }} style={{ minHeight: 44, justifyContent: "center" }}><Text style={{ color: color.pink, fontSize: 12 }}>Datenschutz zur KI-Suche</Text></Pressable>
           </View>
 
           {identityError ? <View style={{ marginTop: 20 }}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt((value) => value + 1)}><Text style={{ color: color.pink, marginTop: 12, fontWeight: "800" }}>Erneut prüfen</Text></Pressable></View> : null}
