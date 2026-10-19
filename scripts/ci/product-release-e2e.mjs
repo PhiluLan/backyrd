@@ -244,7 +244,7 @@ try {
   const guestPage = await guestContext.newPage();
   await guestPage.goto(appUrl, { waitUntil: "domcontentloaded" });
   await guestPage.getByText("Erst einmal Orte entdecken", { exact: true }).click();
-  await guestPage.getByPlaceholder("Ort, Küche oder Stimmung suchen").waitFor();
+  await guestPage.getByRole("textbox", { name: "Orte suchen", exact: true }).waitFor();
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
