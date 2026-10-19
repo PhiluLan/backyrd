@@ -179,6 +179,7 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
     if(f.field==='description.highlight'&&/^["“„«‘’']/u.test(f.quote.trim()))return 'DESCRIPTION_QUOTED_SPEECH';
     if(typeof f.offerKind!=='string')return 'OFFER_KIND_INVALID';
     if(f.field==='experience.profile') {
+      if(f.value.trim().toLocaleLowerCase()===spot.name.trim().toLocaleLowerCase())return 'VENUE_NAME_NOT_CONCRETE_OFFER';
       if(f.value.length>160)return 'OFFER_NAME_TOO_LONG';
       if(f.quote.trim()===f.value.trim())return 'OFFER_CONTEXT_REQUIRED';
       if(f.offerKind==='WORKSHOP'&&!/\b(?:workshops?|ateliers?|kurse?|courses?)\b/iu.test(f.quote))return 'WORKSHOP_KIND_NOT_EXPLICIT';
@@ -425,8 +426,15 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         }catch(error){await progress({stage:'EXTRACTION_ERROR',url:source.url,fields:group.map(f=>f.attributeKey),reason:error instanceof Error?error.message:'EXTRACTION_FAILURE'});}
       }
       if(source.areaScope)for(const fact of extracted)if(fact.subject==='TARGET'){fact.subject='AREA';fact.subjectLabel=source.areaScope;}
-      const eligible=extracted.filter(f=>f.state!=='REJECTED').slice(0,32);
-      if(!eligible.length)continue;
+      // Apply known eligibility before asking the critic. Ineligible area facts,
+      // invented names or enum guesses must not crowd out valid target evidence.
+      for(const fact of extracted)if(fact.state!=='REJECTED') {
+        const reason=deterministicFactReason(fact,source,fields.find(field=>field.attributeKey===fact.field)!,spot);
+        if(reason){fact.state='HELD';fact.reason=reason;}
+      }
+      const recordFacts=()=>progress({stage:'FACTS',url:source.url,accepted:extracted.filter(f=>f.state==='ACCEPTED').length,held:extracted.filter(f=>f.state==='HELD').length,heldReasons:[...new Set(extracted.filter(f=>f.state==='HELD').map(f=>f.reason))],rejected:extracted.filter(f=>f.state==='REJECTED').length});
+      const eligible=extracted.filter(f=>f.state==='HELD'&&f.reason==='SEMANTIC_CHECK_PENDING').slice(0,32);
+      if(!eligible.length){await recordFacts();await checkpoint();continue;}
       const verdictRaw=await model('VERIFY',source,request(modelPath,'You are a strict independent evidence critic for Backyrd. Check each claim AGAINST the original source and requested venue. An ordinary explicit business statement does not require an invented restriction or extra uncertainty. Literal descriptions may mention specific offers with their stated days; preserving that sentence is not claiming daily availability. Business contacts on the named venue website can be supported; exclude clearly different branches, departments or fax. Do not reject a fact solely because it was marked pending by the extraction pipeline. SUPPORTED only when the value, subject, polarity and current unconditional applicability are all directly supported. A literal quote alone is insufficient. Mark other branches, kitchen times as whole venue hours, expired/future menus, wishes, missing information, navigation labels, inferred facilities, diet, suitability and laptop permission as UNSUPPORTED or AMBIGUOUS. For offers require a concrete named compatible experience; never treat menu categories as dishes. Respond once for EVERY supplied fact ID, classifying subject, belongsTo and applicability. Distinguish ownership from assertion scope: a room or workshop OFFER can belongTo TARGET; this does not make its amenities/hours whole-venue facts. For experience.profile check a concrete offering belonging to the target, not a whole-venue property. For contact/hours/amenities require whole-venue scope. A description is exact copied visitor-facing text, not a flat boolean property: an owned scoped passage or explicitly retained condition can be supported without implying it applies everywhere or always. Exclude quoted visitor reviews, finances and other non-visitor content. restrictionQuote is empty unless an actual explicit restriction for that particular claim appears; copy it literally, no explanations. A different branch belongs in subject OTHER, not an invented condition. Verify the offerKind against the specific named offer: surrounding hotel text does not turn its restaurant into accommodation, and the whole venue name is not a concrete room/activity. Do not trust the extractor.',{asOf:new Date(now()).toISOString().slice(0,10),target:context(spot),questions:fields.map(fieldInstructions),source:{url:source.url,text:source.text,headings:source.headings??[]},claims:eligible.map(({id,field,value,quote,subject,belongsTo,condition,applicability,polarity,offerKind})=>({id,field,value,quote,subject,belongsTo,condition,applicability,polarity,offerKind}))},record({verdicts:{type:'array',maxItems:32,items:record({factId:enumeration(eligible.map(f=>f.id)),verdict:enumeration(['SUPPORTED','UNSUPPORTED','AMBIGUOUS']),subject:enumeration(subjectKinds),applicability:enumeration(applicabilityKinds),restrictionQuote:text(500),belongsTo:enumeration(['TARGET','OTHER','UNKNOWN'])})}})));
       if(!isObject(verdictRaw)||Object.keys(verdictRaw).length!==1||!Array.isArray(verdictRaw.verdicts)||verdictRaw.verdicts.length!==eligible.length)throw new Error('VERDICTS_INCOMPLETE');
       const verdicts=new Map<string,{verdict:string;subject:EvidenceFact['subject'];applicability:EvidenceFact['applicability'];restrictionQuote:string;belongsTo:EvidenceFact['belongsTo']}>();
@@ -447,7 +455,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         f.state=verdict==='UNSUPPORTED'?'REJECTED':reason?'HELD':verdict==='SUPPORTED'?'ACCEPTED':'HELD';
         f.reason=reason??'SEMANTIC_'+verdict;
       }
-      await progress({stage:'FACTS',url:source.url,accepted:extracted.filter(f=>f.state==='ACCEPTED').length,held:extracted.filter(f=>f.state==='HELD').length,heldReasons:[...new Set(extracted.filter(f=>f.state==='HELD').map(f=>f.reason))],rejected:extracted.filter(f=>f.state==='REJECTED').length});
+      await recordFacts();
     }catch(error){await progress({stage:'MODEL_ERROR',url:source.url,reason:error instanceof Error?error.message:'MODEL_FAILURE'});}
     await checkpoint();
   }

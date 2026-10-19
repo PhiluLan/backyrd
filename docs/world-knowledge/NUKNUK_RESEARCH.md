@@ -38,7 +38,11 @@ npm test --workspace @backyrd/spot-research-runtime
    create source-bound candidates; the model cannot invent or rewrite them.
    Semantic extraction is split into small offer and property question groups.
    It selects immutable original blocks for evidence and uses canonical enum
-   values. Descriptions copy a factual original span. Main content is preferred
+   values. Known grounding, scope, ownership, validity and enum entailment floors
+   run before the critic as well as before projection. Already ineligible facts
+   remain in the ledger and cannot crowd valid claims in the critic request.
+   Pages with no eligible claims still persist their checkpoint. Descriptions
+   copy a factual original span. Main content is preferred
    over navigation/footers when present; duplicate source text is not processed
    repeatedly. Original hashes and omitted/held evidence remain visible.
 3. **Check interpretation.** A separate local-model critic checks each candidate
@@ -518,3 +522,51 @@ The final real-model evaluation, exact source digests, independent pre-run check
 source failures and field-by-field audit are recorded locally, with a summary
 below after completion. Small samples cannot establish autonomous production
 reliability. The same weights remain in use; no model training is claimed.
+
+## V2 development acceptance, 19 October 2026
+
+Code validation: 181 runtime tests and 373 world-knowledge core tests pass;
+both typechecks and the relevant repository/security checks pass locally. The
+incremental change classifier selects repository-security, world and supply-chain;
+the manifest changes build/test scripts only and adds no dependency or lockfile
+change. CI remains authoritative; no release, deployment, import or canonical
+Spot write is authorized by this research adapter.
+
+New development Spots were Acero, Café Frühling, Fondation Beyeler, Basler
+Papiermühle, Volkshaus Basel and Restaurant Kunsthalle. These became development
+cases during iteration and must never subsequently be called blind held-out
+accuracy evidence. Before adopting different weights, use new independent cases.
+The museum/hotel model comparison reuses identical freshly retrieved page bytes;
+it isolates model interpretation, not autonomous discovery. The additional
+restaurant run starts from its exported official seed and retrieves live sources.
+
+The full restaurant run used four requests and 16 model calls in about 273 seconds.
+It recovered public contacts, an original description and partial food offers,
+but confused bar and restaurant schedules in its intermediate ledger; projection
+held the conflict. It also selected the venue name as an offer. General fixes now
+separate explicit operating-area labels before model verification and withhold a
+verbatim duplicate of the target name as a concrete offer. These are explicitly
+scoped repairs, not a claim that the entire eight-field run has been repeated on
+the final code. A fresh single-field hours run and deterministic evidence replay
+check the affected path separately. PDF-derived names remain layout-review drafts;
+prices are never projected.
+
+Known quality limitations remain material: source planning can spend budget on an
+old linked PDF; the 9B critic can reject clearly supported target facts; general
+venue names can still be less useful than concrete offers; coverage is partial.
+The 27B download and its real-model comparison are not complete at this acceptance
+point. The experimental route is not adopted as a proven improvement. Green tests
+are software-contract evidence, not a certificate of autonomous research quality.
+
+Final targeted results after moving deterministic eligibility before the critic:
+the fresh restaurant hours run correctly held all three bar rows, but the critic
+still rejected the valid restaurant row (one request, one model call). On the same
+prepared museum/hotel pages, the museum description and activity profile remain
+omissions; the hotel description is correct and its room profile partial, with a
+missing Terrace-Suite and an overly general hotel-name entry. The raw language
+regression remains 11/12. These are recorded failures and coverage gaps, not a
+release pass. A replay of previously supported restaurant evidence demoted the
+three bar rows and duplicate venue-name offer, promoted zero facts, recovered six
+restaurant weekdays, left Sunday unknown and retained four price-free food names.
+That replay is not a new model run. The local review summary and hashed audits
+remain ignored under `.local/nuknuk-research/`; no customer/admin exports enter Git.
