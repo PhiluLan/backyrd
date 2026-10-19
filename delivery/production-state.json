@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "50f56159949910368efec32c46d3735ba0631495",
+      "sourceSha": "897877c1553a52f3804d7c0485c64893b351a723",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "882640fa-b9d8-453f-8260-dae1b1ede696",
-      "iosUpdateId": "01a15102-8521-7967-b114-0d2c50406b56",
+      "otaGroupId": "8d808df1-48dc-414c-9391-c3cfee25b792",
+      "iosUpdateId": "01a154af-bb1b-7d89-bdb9-ed7b0ca3e9b8",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Selected soft Mood chips below the Spot photo; total Mood submissions and top three Moods directly below the Spot name. Public production manifest and actual downloaded launch bundle match the exact certified artifact. Public Web and live aggregate RPC verified. Installation on the user iPhone not observed."
+      "note": "Approved editorial Mood summary with three relative-frequency lines, seven further Moods in two columns and the exact subtitle So wird dieser Ort beschrieben. Public production manifest and actual launch bundle match the Main-certified artifact. User iPhone installation not observed. No database or Decision deployment."
     }
   },
   "reviewMediaIncident": {
