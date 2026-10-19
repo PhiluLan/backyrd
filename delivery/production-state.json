@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "6176de4051a13a418d5a372f2b5e08a69d7c92da",
+      "sourceSha": "f9ee80dd456866d32b77cab9bd91c24b3da3dc80",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "ebc6e2d2-c6a7-4a66-bf6f-a9a222f335bd",
-      "iosUpdateId": "01a15527-3be9-7643-99f6-1cb5465836db",
+      "otaGroupId": "4f409847-bd65-4f11-b31d-d038a16a5eda",
+      "iosUpdateId": "01a1555d-a28a-7b7b-ae7e-bf05e5341386",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Authenticated Decision access and scoped AI processing notice. Protected backend deployment 39290606906 and authenticated-user control 39291893322 succeeded. Public production launch bytes match the Main-certified iOS artifact. New iOS launch UX polish is excluded. Physical-device installation not observed."
+      "note": "iOS launch UX polish and camera-first Moments with prominent pink Plus. PR #527 merged with all required checks passing; exact Main certification run 39299664279 succeeded. Public production launch bytes match the certified artifact. Physical-device installation, camera/upload acceptance and ten-second timing not observed."
     }
   },
   "reviewMediaIncident": {
