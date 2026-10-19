@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "897877c1553a52f3804d7c0485c64893b351a723",
+      "sourceSha": "6176de4051a13a418d5a372f2b5e08a69d7c92da",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "8d808df1-48dc-414c-9391-c3cfee25b792",
-      "iosUpdateId": "01a154af-bb1b-7d89-bdb9-ed7b0ca3e9b8",
+      "otaGroupId": "ebc6e2d2-c6a7-4a66-bf6f-a9a222f335bd",
+      "iosUpdateId": "01a15527-3be9-7643-99f6-1cb5465836db",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Approved editorial Mood summary with three relative-frequency lines, seven further Moods in two columns and the exact subtitle So wird dieser Ort beschrieben. Public production manifest and actual launch bundle match the Main-certified artifact. User iPhone installation not observed. No database or Decision deployment."
+      "note": "Authenticated Decision access and scoped AI processing notice. Protected backend deployment 39290606906 and authenticated-user control 39291893322 succeeded. Public production launch bytes match the Main-certified iOS artifact. New iOS launch UX polish is excluded. Physical-device installation not observed."
     }
   },
   "reviewMediaIncident": {
