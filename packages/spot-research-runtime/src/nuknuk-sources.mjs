@@ -39,7 +39,20 @@ export function sourceText(page,id) {
   const descriptionText=clean(main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ')).slice(0,12000);
   if(!text)throw new Error('source_empty');
   const excerpt=text.slice(0,12000);
-  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex')};
+  const linkedMenus=[];
+  for(const match of main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
+    const href=match[1].match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1],label=clean(match[2]);
+    if(!href||!label||!/^(?:Mittagsmenü|Abendmenü|Lunch menu|Dinner menu|Weinkarte|Offenweine|Wine ?list)$/iu.test(label))continue;
+    try {
+      const target=publicSourceUrl(new URL(href.replace(/&amp;/g,'&'),page.url).href);
+      if(new URL(target).hostname!==new URL(page.url).hostname||!excerpt.includes(label))continue;
+      // Dated menus require their own validity evaluation. Do not treat an old
+      // weekly menu still linked by the site as proof of a current offering.
+      if(/\d{1,2}[.-]\d{1,2}[.-]\d{2,4}/u.test(target))continue;
+      linkedMenus.push({label,url:target});if(linkedMenus.length>=12)break;
+    }catch{}
+  }
+  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex')};
 }
 
 // A different host is a review item, not an automatically trusted alias/branch.

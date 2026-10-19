@@ -261,3 +261,38 @@ controls). Replaying all eight Kaphi fields with the exact cached source package
 preserved every value and status from the successful v5 run. This is regression
 coverage, not an estimate of real-world accuracy across unseen Spots. All evaluation
 artifacts stay local; no canonical data was changed and the owned model was stopped.
+
+## Krafft corrections (v7)
+
+Descriptions prefer exact sentences that explicitly state cuisine or what the
+venue serves over atmospheric opening prose, when such sentences exist in the
+primary source. No rewritten promotional description is generated.
+
+Weather-limited affirmative terrace statements now establish TERRACE existence.
+The exact weather qualifier remains in the citation; no unconditional opening
+schedule, outdoor seating inventory or suitability claim is inferred. Negative,
+future and nearby-venue statements remain excluded.
+
+HTML extraction retains up to 12 actual same-host HTTPS menu links from the main
+content, excluding header/nav/footer/aside sections. Exact recognized labels can
+support partial LUNCH, DINNER and WINE groups. Bare text headings do not qualify.
+Links containing numeric calendar dates are withheld pending separate validity
+assessment; this excludes the expired Krafft weekly lunch menu without treating
+it as current proof. Seasonal named menus remain reviewable, not automatically
+certified as available on a particular visit date. Missing groups never remove
+existing groups or imply the absence of an offering.
+
+The Krafft regression comparison uses identical stored source-text hashes and
+refreshes only link provenance from the matching official HTML. The canonical
+weekly schedule remains unresolved when the source provides time windows without
+weekdays. Restaurant service windows are not converted into kitchen hours.
+
+Final real-model validation: all eight Krafft fields rerun with matching source
+text hashes. The description now names French cuisine; partial groups DINNER/WINE
+and TERRACE existence are recovered. Telephone, email and all four named dishes
+match the earlier correct results. Weekday-less hours and unproven laptop policy
+remain unresolved. Eight cached Kaphi fields were replayed as a value regression
+check without fresh export authority; supported values remain intact. 114 runtime
+tests, core typecheck and repository/security gates pass. Krafft model requests
+elapsed 28.127 s total, median 2.523 s; Kaphi replay 15.040 s total, excluding startup
+and retrieval. No canonical writes; owned model process stopped after evaluation.

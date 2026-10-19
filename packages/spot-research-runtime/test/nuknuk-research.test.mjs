@@ -346,3 +346,30 @@ test('direct profile validation cannot change cafe kinds or reintroduce negated 
     assert.throws(()=>validateNuknukProposal(raw,{field:f,sources:ss,validateValue:()=>({ok:true})}),error);
   }
 });
+
+test('weather-limited terrace establishes existence without inventing unconditional hours',async()=>{
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  const f={attributeKey:'amenity.features'};
+  for(const text of ['Die Terrasse ist bei schönem Wetter geöffnet.','Unsere Terrasse ist geöffnet.','Our terrace is open.']) {
+    const cs=enumFactCandidates(f,[{...source,text}]);assert.deepEqual(cs.map(c=>c.value),['TERRACE']);assert.equal(cs[0].quote,text);
+  }
+  for(const text of ['Die Terrasse ist geschlossen.','Die Terrasse ist bald geöffnet.','Die Terrasse nebenan ist geöffnet.','Bei schönem Wetter wünschen wir eine Terrasse.'])assert.deepEqual(enumFactCandidates(f,[{...source,text}]),[]);
+  assert.deepEqual(parseHoursRow('Die Terrasse ist bei schönem Wetter geöffnet.'),[]);
+});
+test('actual official menu links establish partial groups while dated and foreign menus stay out',async()=>{
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  const {researchValueContract}=await import('../../world-knowledge-core/dist/research-value-schema.js');
+  const {validateAuthoringSubmission}=await import('../../world-knowledge-core/dist/index.js');
+  const page=sourceText({url:'https://example.org/restaurant',observedAt:source.observedAt,body:'<main><a href="/Mittagskarte-12.10.26-18.10.2026.pdf">Mittagsmenü</a><a href="/dinner-autumn.pdf">Abendmenü</a><a href="/wine.pdf">Weinkarte</a><a href="https://other.example/lunch.pdf">Lunch menu</a></main><footer><a href="/other-lunch.pdf">Mittagsmenü</a></footer>'},'s1');
+  assert.deepEqual(page.linkedMenus.map(l=>l.label),['Abendmenü','Weinkarte']);
+  const f={attributeKey:'offering.groups',...researchValueContract('offering.groups')};const cs=enumFactCandidates(f,[page]);
+  assert.deepEqual(cs.map(c=>c.value),['DINNER','WINE']);
+  const proposal=extractedProposal({selected:cs.map(c=>c.id)},{spot,field:f,sources:[page]});
+  assert.equal(validateNuknukProposal(proposal,{field:f,sources:[page],validateValue:validateAuthoringSubmission}).status,'REQUIRES_REVIEW');
+  assert.deepEqual(enumFactCandidates(f,[{...page,linkedMenus:[]}]),[]);
+});
+test('description candidates prefer explicit cuisine over atmospheric introductory prose',()=>{
+  const text='Das Parkett knarrt leise unter den Füssen, der Rhein fliesst ruhig vorbei. Wir zelebrieren die französische Kochkunst, klassisch und handwerklich.';
+  const cs=fieldCandidates({attributeKey:'description.highlight'},[{...source,text,descriptionText:text}]);
+  assert.deepEqual(cs.map(c=>c.quote),['Wir zelebrieren die französische Kochkunst, klassisch und handwerklich.']);
+});
