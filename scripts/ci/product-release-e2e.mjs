@@ -90,10 +90,25 @@ try {
   page.on("pageerror", (error) => process.stderr.write(`browser page error: ${error.message}\n`));
   let passwordLogins = 0;
   let fixturePhotoRequests = 0;
+  let momentPublishes = 0;
   const remoteFixture = async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+    if (/\/rpc\/(reserve_review_media_upload_v2|finalize_review_with_media_v2|finalize_review_without_media_v1)$/.test(path)) {
+      momentPublishes++;
+      return route.abort("blockedbyclient");
+    }
+    if (path === "/rest/v1/rpc/backyrd_search_mood_concepts_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(["Gemütlich","Urban"].map(label=>({concept_key:label,label,matched_expression:label})))});
+    if (path === "/rest/v1/rpc/distribution_trust_filter_entities_v1") {
+      const body=JSON.parse(request.postData()??"{}");
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify((body.p_entity_ids??[]).map(entity_id=>({entity_id,eligible:true,distribution_priority:0})))});
+    }
+    if (path === "/rest/v1/spots" && url.searchParams.get("select") === "id,name,address,lat,lng,status") {
+      assert.equal(url.searchParams.get("status"),"eq.approved");
+      assert.equal(url.searchParams.get("limit"),"20");
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{id:"11111111-1111-4111-a111-111111111111",name:"Café Moment",address:"Testgasse 1",lat:46.94,lng:7.44,status:"approved"}])});
+    }
     if (path === "/fixture-spot-photo.jpg") { fixturePhotoRequests++; return route.fulfill({status:200,contentType:"image/jpeg",path:resolve(root,"mobile/assets/headers/bern_day.jpg")}); }
     if (path === "/rest/v1/rpc/backyrd_web_canonical_spot_image_headers_v1") {
       const {p_spot_ids: ids} = JSON.parse(request.postData() ?? "{}");
@@ -132,6 +147,22 @@ try {
   await page.getByRole("textbox", { name: "Was hast du heute vor?", exact: true }).waitFor({ timeout: 30000 }).catch(async (error) => {
     throw new Error(`Authenticated home did not appear at ${page.url()}: ${(await page.locator("body").innerText()).slice(0, 1200)}`, { cause: error });
   });
+  // The prominent Plus opens the draft directly; location refusal does not block manual entry.
+  await page.getByRole("button",{name:"Moment mit Foto festhalten",exact:true}).click();
+  await page.getByText("Dein Moment",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Gemütlich",exact:true}).click();
+  await page.getByRole("button",{name:"Urban",exact:true}).click();
+  await page.getByText("2/2",{exact:true}).waitFor();
+  await page.getByRole("button",{name:"Ort selbst wählen",exact:true}).click();
+  await page.getByRole("textbox",{name:"Ort für deinen Moment suchen",exact:true}).fill("Café");
+  await page.getByRole("button",{name:"Café Moment · Testgasse 1",exact:true}).click();
+  await page.getByText("Café Moment",{exact:true}).waitFor();
+  assert.equal(await page.getByRole("button",{name:"Gemütlich entfernen",exact:true}).count(),1,"place choice preserves first Mood");
+  assert.equal(await page.getByRole("button",{name:"Urban entfernen",exact:true}).count(),1,"place choice preserves second Mood");
+  assert.equal(await page.getByRole("button",{name:"Moment teilen",exact:true}).isEnabled(),true);
+  assert.equal(momentPublishes,0,"two Mood selections and place matching never publish automatically");
+  await page.getByRole("button",{name:"Moment schließen",exact:true}).click();
+  await page.getByRole("textbox",{name:"Was hast du heute vor?",exact:true}).waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).waitFor({ timeout: 30000 });
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("Sonntag gemütlich Kaffee trinken");
@@ -248,7 +279,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
 } finally {
   await browser.close();
   await new Promise((closed) => server.close(closed));

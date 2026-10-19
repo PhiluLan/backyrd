@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, ActivityIndicator, Alert, AccessibilityInfo, ScrollView, KeyboardAvoidingView, Platform, Linking } from "react-native";
-import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
+import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +19,12 @@ import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodSelection } from "../../components/MoodSelection";
+import { Button } from "../../components/foundation/Button";
+import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
+import { suggestMomentPlaces } from "../../lib/moment-place-match";
+import { withRequestDeadline } from "../../lib/requestDeadline";
+import { filterDistributedSpots } from "../../lib/distributionTrust";
+import { useAuth } from "../../hooks/useAuth";
 import {
   ReviewMediaField,
   ReviewSubmissionStatus,
@@ -78,7 +84,7 @@ function smartReviewGateCopy(
         reason,
         title: "Login erforderlich",
         body:
-          "Moment vor Orts sind mit deinem Backyrd-Konto verbunden. Melde dich an, bevor du deine Erfahrung festhältst.",
+          "Momente sind mit deinem Backyrd-Konto verbunden. Melde dich an, bevor du deine Erfahrung festhältst.",
       };
 
     case "consent_not_granted":
@@ -131,20 +137,18 @@ function smartReviewGateCopy(
   }
 }
 
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+function isSpotRow(value: unknown): value is SpotRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.id === "string" && Boolean(row.id) && typeof row.name === "string" && Boolean(row.name.trim())
+    && typeof row.lat === "number" && typeof row.lng === "number"
+    && Number.isFinite(row.lat) && Number.isFinite(row.lng) && Math.abs(row.lat) <= 90 && Math.abs(row.lng) <= 180
+    && (row.address === undefined || row.address === null || typeof row.address === "string") && row.status === "approved";
 }
 
 export default function SmartReviewScreen() {
   const router = useRouter();
+  const { user: entryUser } = useAuth();
   const {
     decisionId,
     decisionRank,
@@ -152,6 +156,7 @@ export default function SmartReviewScreen() {
     inputMode,
     modelVersion,
     source,
+    capture,
   } = useLocalSearchParams<{
     decisionId?: string;
     decisionRank?: string;
@@ -159,8 +164,10 @@ export default function SmartReviewScreen() {
     inputMode?: string;
     modelVersion?: string;
     source?: string;
+    capture?: string;
   }>();
 
+  const cameraFirst = capture === "1";
   const isDecisionReview = source === "decision" || Boolean(decisionId);
 
   const [photo, setPhoto] = useState<ReviewMediaAsset | null>(null);
@@ -170,6 +177,17 @@ export default function SmartReviewScreen() {
   const photoUri = photo?.uri ?? null;
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [nearest, setNearest] = useState<SpotRow | null>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<SpotRow[]>([]);
+  const [automaticPlace, setAutomaticPlace] = useState(false);
+  const manualPlaceChosen = useRef(false);
+  const [authReady, setAuthReady] = useState(Boolean(entryUser));
+  const [requestLocation, setRequestLocation] = useState(false);
+  const [choosingPlace, setChoosingPlace] = useState(false);
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeResults, setPlaceResults] = useState<SpotRow[]>([]);
+  const [placeSearchState, setPlaceSearchState] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [showText, setShowText] = useState(false);
+  const draftStartedAt = useRef(Date.now());
 
   const [searching, setSearching] = useState(true);
   const [gateFailure, setGateFailure] =
@@ -187,7 +205,7 @@ export default function SmartReviewScreen() {
 
   const mediaReady = !photo || Boolean(photo.prepared);
   const hasContent = Boolean(moodA.trim() || moodB.trim() || text.trim() || photo);
-  const canSubmit = !!nearest && mediaReady && hasContent;
+  const canSubmit = !!nearest && mediaReady && hasContent && (!cameraFirst || authReady);
 
   useEffect(() => {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: source ?? "smart" } });
@@ -200,25 +218,31 @@ export default function SmartReviewScreen() {
       setSearching(true);
       setGateFailure(null);
       setCoords(null);
-      setNearest(null);
+      if (!manualPlaceChosen.current) setNearest(null);
+      setNearbyPlaces([]);
 
       try {
-        const { data: userData } = await supabase.auth.getUser();
+        const { data: userData } = await withRequestDeadline(() => supabase.auth.getUser(), 5_000);
 
         if (!userData.user?.id) {
           if (active) {
+            setAuthReady(false);
             setGateFailure(smartReviewGateCopy("login_required"));
           }
           return;
         }
 
+        if (!active) return;
+        setAuthReady(true);
+
         const locationResult = await getPrivacySafeLocation({
           purpose: "smart_review_match",
-          requestPermission: true,
+          requestPermission: !cameraFirst || requestLocation,
           forceConsentRefresh: true,
-          timeoutMs: 8_000,
+          timeoutMs: 5_000,
           allowLastKnown: false,
         });
+        if (!active) return;
 
         if (!locationResult.ok) {
           if (active) {
@@ -241,31 +265,28 @@ export default function SmartReviewScreen() {
         const lon = locationResult.location.coords.longitude;
         setCoords({ lat, lon });
 
-        const { data: spots, error } = await supabase
-          .from("spots")
-          .select("id,name,address,lat,lng,status")
-          .eq("status", "approved")
-          .limit(300);
-
-        if (error) throw error;
-
-        let nearestSpot: SpotRow | null = null;
-        let nearestDist = Number.POSITIVE_INFINITY;
-
-        for (const s of spots || []) {
-          const d = haversineKm(lat, lon, s.lat, s.lng);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearestSpot = s as SpotRow;
-          }
-        }
-
+        // Bound retrieval to the current area; never scan an arbitrary first 300 places.
+        const latRadius = 0.0011;
+        const lonRadius = latRadius / Math.max(0.01, Math.cos(lat * Math.PI / 180));
+        const spots = await withRequestDeadline(async signal => {
+          const result = await supabase.from("spots")
+            .select("id,name,address,lat,lng,status")
+            .eq("status", "approved")
+            .gte("lat", lat - latRadius).lte("lat", lat + latRadius)
+            .gte("lng", lon - lonRadius).lte("lng", lon + lonRadius)
+            .limit(50).abortSignal(signal);
+          if (result.error) throw result.error;
+          return {
+            places: await filterDistributedSpots((result.data ?? []).filter(isSpotRow), "search", signal),
+            complete: (result.data ?? []).length < 50,
+          };
+        }, 6_000);
         if (!active) return;
-
-        if (nearestSpot && nearestDist <= 0.12) {
-          setNearest(nearestSpot);
-        } else {
-          setNearest(null);
+        const match = suggestMomentPlaces(spots.places, { lat, lon, accuracy: locationResult.location.coords.accuracy, complete: spots.complete });
+        setNearbyPlaces(match.nearby);
+        if (!manualPlaceChosen.current) {
+          setNearest(match.automatic);
+          setAutomaticPlace(Boolean(match.automatic));
         }
       } catch (e: any) {
         safeDevelopmentWarning("[smart-review] bootstrap failed", e);
@@ -281,7 +302,40 @@ export default function SmartReviewScreen() {
     return () => {
       active = false;
     };
-  }, [bootstrapNonce, decisionId, router, source]);
+  }, [bootstrapNonce, decisionId, router, source, cameraFirst, requestLocation]);
+
+  useEffect(() => {
+    if (!cameraFirst || !choosingPlace || placeQuery.trim().length < 2) {
+      setPlaceResults([]);
+      setPlaceSearchState("idle");
+      return;
+    }
+    let active = true;
+    setPlaceSearchState("loading");
+    const timer = setTimeout(() => {
+      void withRequestDeadline(async signal => {
+        const needle = placeQuery.trim().replace(/[\\%_]/g, "\\$&");
+        const result = await supabase.from("spots").select("id,name,address,lat,lng,status")
+          .eq("status", "approved").ilike("name", `%${needle}%`).order("name").limit(20).abortSignal(signal);
+        if (result.error) throw result.error;
+        return filterDistributedSpots((result.data ?? []).filter(isSpotRow), "search", signal);
+      }, 6_000).then(rows => {
+        if (active) { setPlaceResults(rows); setPlaceSearchState("ready"); }
+      }).catch(() => { if (active) setPlaceSearchState("error"); });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [cameraFirst, choosingPlace, placeQuery]);
+
+  async function choosePlace(place: SpotRow) {
+    if (saving || submittingRef.current) return;
+    // Reuse media cleanup before changing the destination of a retry.
+    if (!await changePhoto(photo ? [photo] : [])) return;
+    manualPlaceChosen.current = true;
+    setNearest(place);
+    setAutomaticPlace(false);
+    setChoosingPlace(false);
+    setPlaceQuery("");
+  }
 
   const headerTitle = useMemo(() => {
     if (searching) return "Ort wird erkannt…";
@@ -364,18 +418,16 @@ export default function SmartReviewScreen() {
       return;
     }
 
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData?.user;
-
-    if (!user?.id) {
-      Alert.alert("Login nötig", "Bitte melde dich an, um einen Moment zu teilen.");
-      router.push("/login");
-      return;
-    }
-
     try {
       setSaving(true);
       setSubmitError(null);
+      const { data: userData } = await withRequestDeadline(() => supabase.auth.getUser(), 5_000);
+      const user = userData?.user;
+      if (!user?.id) {
+        Alert.alert("Login nötig", "Bitte melde dich an, um einen Moment zu teilen.");
+        router.push("/login");
+        return;
+      }
       setProgress({ stage: "auth", completed: 0, total: photo ? 1 : 0 });
 
       const reviewId = pendingMediaReviewId.current ?? Crypto.randomUUID();
@@ -383,20 +435,20 @@ export default function SmartReviewScreen() {
       let photoUrls: string[] = [];
       if (photo) {
         const media = await uploadReservedReviewMedia({
-          reviewId, spotId: nearest.id, smartReview: true, assets: [photo], onProgress: setProgress,
+          reviewId, spotId: nearest.id, smartReview: automaticPlace, assets: [photo], onProgress: setProgress,
         });
         pendingUploadedPaths.current = media.storagePaths;
         photoUrls = media.publicUrls;
         await finalizeReviewWithMedia({
           reviewId, spotId: nearest.id, text: text.trim() || null,
           moodA: moodA.trim() || null, moodB: moodB.trim() || null,
-          ...media, smartReview: true, onProgress: setProgress,
+          ...media, smartReview: automaticPlace, onProgress: setProgress,
         });
       } else {
         await finalizeReviewWithoutMedia({
           reviewId, spotId: nearest.id, text: text.trim() || null,
           moodA: moodA.trim() || null, moodB: moodB.trim() || null,
-          smartReview: true, onProgress: setProgress,
+          smartReview: automaticPlace, onProgress: setProgress,
         });
       }
 
@@ -423,7 +475,7 @@ export default function SmartReviewScreen() {
       pendingMediaReviewId.current = null;
       pendingUploadedPaths.current = [];
       setProgress(null);
-      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_smart", entityType: "review", entityId: reviewId, spotId: nearest.id, decisionId: decisionId ?? null, properties: { photo_count: photo ? 1 : 0, has_text: Boolean(text.trim()), source: source ?? "smart" } });
+      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_smart", entityType: "review", entityId: reviewId, spotId: nearest.id, decisionId: decisionId ?? null, properties: { photo_count: photo ? 1 : 0, has_text: Boolean(text.trim()), source: source ?? "smart", entry_mode: cameraFirst ? "camera_first" : "location_first", draft_duration_ms: Date.now() - draftStartedAt.current } });
 
       const newlyUnlocked = await awardAchievementsForUser(user.id).catch((error) => {
         console.info("Achievement sync after smart review publish failed", error);
@@ -534,7 +586,7 @@ export default function SmartReviewScreen() {
     }
   }
 
-  if (gateFailure) {
+  if (gateFailure && (!cameraFirst || gateFailure.reason === "login_required")) {
     const consentMissing = gateFailure.reason === "consent_not_granted";
     const loginRequired = gateFailure.reason === "login_required";
     const canOpenDeviceSettings =
@@ -652,6 +704,59 @@ export default function SmartReviewScreen() {
     );
   }
 
+  if (cameraFirst) {
+    return <SafeAreaView edges={["top", "bottom"]} style={styles.gateSafe}>
+      <View style={styles.quickHeader}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Moment schließen" onPress={() => router.back()} style={styles.quickBack}>
+          <Ionicons name="close" size={24} color={foundationTheme.color.textPrimary} />
+        </Pressable>
+        <AppText role="cardTitle" style={{ flex: 1 }}>Dein Moment</AppText>
+      </View>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerStyle={styles.quickContent}>
+          <ReviewMediaField assets={photo ? [photo] : []} maxAssets={1} cameraFirst={authReady && Platform.OS !== "web"}
+            disabled={!authReady || saving} onChange={changePhoto} onError={setSubmitError} />
+          <View style={styles.quickPlace}>
+            <AppText role="caption" tone="secondary">{nearest ? automaticPlace ? "Vorgeschlagener Ort" : "Dein Ort" : "Dein Ort"}</AppText>
+            {nearest ? <>
+              <AppText role="cardTitle">{nearest.name}</AppText>
+              {nearest.address ? <AppText role="meta" tone="secondary">{nearest.address}</AppText> : null}
+              <Button label={choosingPlace ? "Auswahl schliessen" : "Ort ändern"} variant="tertiary" disabled={saving} onPress={() => setChoosingPlace(value => !value)} />
+            </> : searching ? <View accessibilityLiveRegion="polite" style={styles.quickStatus}>
+              <ActivityIndicator color={foundationTheme.color.pink} /><AppText role="meta">Wir suchen deinen Ort …</AppText>
+            </View> : <AppText role="meta" tone="secondary">{nearbyPlaces.length ? "Welcher dieser Orte ist es?" : "Wähle den Ort, an dem du gerade bist."}</AppText>}
+            {!nearest && nearbyPlaces.slice(0, 3).map(place => <Button key={place.id} label={place.name} variant="secondary" disabled={saving} onPress={() => void choosePlace(place)} />)}
+            {!nearest && !choosingPlace ? <Button label="Ort selbst wählen" variant="secondary" disabled={saving} onPress={() => setChoosingPlace(true)} /> : null}
+            {choosingPlace ? <View style={{ gap: foundationTheme.spacing.sm }}>
+              <TextInput accessibilityLabel="Ort für deinen Moment suchen" placeholder="Name des Ortes" placeholderTextColor={foundationTheme.color.textMuted}
+                value={placeQuery} onChangeText={setPlaceQuery} autoCorrect={false} style={styles.input} editable={!saving} />
+              {placeSearchState === "loading" ? <ActivityIndicator accessibilityLabel="Orte werden gesucht" color={foundationTheme.color.pink} /> : null}
+              {placeSearchState === "error" ? <AppText role="meta" tone="secondary">Die Ortssuche klappt gerade nicht. Dein Foto bleibt hier. Versuche es mit einer neuen Suche.</AppText> : null}
+              {placeSearchState === "ready" && !placeResults.length ? <AppText role="meta" tone="secondary">Kein Ort mit diesem Namen gefunden.</AppText> : null}
+              {placeResults.map(place => <Button key={place.id} label={[place.name, place.address].filter(Boolean).join(" · ")} variant="secondary" disabled={saving} onPress={() => void choosePlace(place)} />)}
+            </View> : null}
+            {!nearest && gateFailure ? <>
+              <AppText role="meta" tone="secondary">Die automatische Ortserkennung ist gerade nicht verfügbar. Du kannst deinen Ort selbst wählen.</AppText>
+              {gateFailure.reason === "consent_not_granted" ? <Button label="Standortfreigabe verwalten" variant="tertiary" onPress={() => router.push("/privacy-consents")} /> : null}
+              <Button label="Ortserkennung erneut versuchen" variant="tertiary" disabled={saving} onPress={() => { setRequestLocation(true); setBootstrapNonce(value => value + 1); }} />
+            </> : null}
+          </View>
+          <MoodSelection values={[moodA, moodB]} onChange={values => { setMoodA(values[0] ?? ""); setMoodB(values[1] ?? ""); }} />
+          <Button label={showText ? "Text schliessen" : "Text hinzufügen · optional"} variant="tertiary" onPress={() => setShowText(value => !value)} />
+          {showText ? <TextInput accessibilityLabel="Text zum Moment" placeholder="Was bleibt dir in Erinnerung?" placeholderTextColor={foundationTheme.color.textMuted}
+            value={text} onChangeText={setText} multiline maxLength={100} style={[styles.input, { minHeight: 88 }]} editable={!saving} /> : null}
+          <ReviewSubmissionStatus progress={progress} error={submitError} onRetry={() => void submitSmartReview()} />
+        </ScrollView>
+        <View style={styles.quickFooter}>
+          <Button label="Moment teilen" disabled={!canSubmit} loading={saving} onPress={() => void submitSmartReview()} />
+        </View>
+      </KeyboardAvoidingView>
+      {unlockedAchievements.length > 0 ? <AchievementUnlockModal achievements={unlockedAchievements} onClose={() => {
+        setUnlockedAchievements([]); if (nearest) router.replace(`/spot/${nearest.id}`); else router.back();
+      }} /> : null}
+    </SafeAreaView>;
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <KeyboardAvoidingView
@@ -742,10 +847,9 @@ export default function SmartReviewScreen() {
               </>
             ) : (
               <>
-                <Text style={styles.title}>Kein Ort in der Nähe gefunden</Text>
-                <Text style={styles.muted}>
-                  Wir haben in ca. 120 m Umkreis nichts Passendes gefunden.
-                </Text>
+                <Text style={styles.title}>{nearbyPlaces.length ? "Welcher Ort ist es?" : "Kein Ort in der Nähe gefunden"}</Text>
+                {nearbyPlaces.map(place => <Button key={place.id} label={place.name} variant="secondary" onPress={() => void choosePlace(place)} />)}
+                {!nearbyPlaces.length ? <Text style={styles.muted}>Wir haben in ca. 120 m Umkreis nichts Passendes gefunden.</Text> : null}
 
                 <Pressable accessibilityRole="button" accessibilityLabel="Neuen Ort einreichen" onPress={onConfirmCreate} style={[styles.btn, styles.btnPrimary]}>
                   <Text style={styles.btnPrimaryText}>Neuen Ort anlegen / einreichen</Text>
@@ -774,6 +878,12 @@ export default function SmartReviewScreen() {
 }
 
 const styles = StyleSheet.create({
+  quickHeader: { flexDirection: "row", alignItems: "center", gap: foundationTheme.spacing.sm, paddingHorizontal: foundationTheme.layout.pageGutter, paddingVertical: foundationTheme.spacing.sm },
+  quickBack: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  quickContent: { paddingHorizontal: foundationTheme.layout.pageGutter, paddingBottom: foundationTheme.spacing.lg, gap: foundationTheme.spacing.lg },
+  quickPlace: { gap: foundationTheme.spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: foundationTheme.color.border, paddingBottom: foundationTheme.spacing.lg },
+  quickStatus: { flexDirection: "row", alignItems: "center", gap: foundationTheme.spacing.sm },
+  quickFooter: { paddingHorizontal: foundationTheme.layout.pageGutter, paddingVertical: foundationTheme.spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: foundationTheme.color.border, backgroundColor: foundationTheme.color.background },
   gateSafe: {
     flex: 1,
     backgroundColor: theme.colors.background,

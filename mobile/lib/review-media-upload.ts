@@ -111,7 +111,7 @@ export function reviewMediaUserMessage(error: unknown) {
       ? "Das Bild konnte wegen einer Netzwerk- oder Serverstörung nicht hochgeladen werden. Dein Entwurf bleibt erhalten."
       : "Das Bild konnte nicht hochgeladen werden. Es wurde kein Moment veröffentlicht. Dein Entwurf bleibt erhalten.";
   }
-  if (error.stage === "finalization") return "Bild und Moment konnten nicht gemeinsam gespeichert werden. Es wurde keine unvollständiger Moment veröffentlicht; dein Entwurf bleibt erhalten.";
+  if (error.stage === "finalization") return "Bild und Moment konnten nicht gemeinsam gespeichert werden. Es wurde kein unvollständiger Moment veröffentlicht; dein Entwurf bleibt erhalten.";
   if (error.stage === "cleanup") return "Das vorherige Bild konnte noch nicht sicher entfernt werden. Bitte versuche es nochmals.";
   return "Der sichere Bild-Upload konnte nicht vorbereitet werden. Dein Entwurf bleibt erhalten.";
 }

@@ -51,7 +51,7 @@ export default function SelectReviewSpotScreen() {
         <ProductTextInput
           accessibilityLabel="Ort suchen"
           autoCorrect={false}
-          placeholder="Ort oder Ort suchen"
+          placeholder="Name oder Adresse suchen"
           placeholderTextColor={theme.color.textMuted}
           style={styles.input}
           value={query}

@@ -23,6 +23,7 @@ type Props = {
   assets: ReviewMediaAsset[];
   maxAssets?: number;
   disabled?: boolean;
+  cameraFirst?: boolean;
   onChange: (assets: ReviewMediaAsset[]) => boolean | void | Promise<boolean | void>;
   onError?: (message: string) => void;
   onValidationError?: (error: Error) => void;
@@ -42,6 +43,7 @@ export function ReviewMediaField({
   assets,
   maxAssets = 1,
   disabled = false,
+  cameraFirst = false,
   onChange,
   onError,
   onValidationError,
@@ -51,6 +53,15 @@ export function ReviewMediaField({
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
   const [validation, setValidation] = useState<ReviewMediaValidationState>({ status: "idle" });
   const coordinator = useRef(new ReviewMediaValidationCoordinator(prepareReviewMediaAsset));
+  const cameraStarted = useRef(false);
+  const pickRef = useRef(pick);
+  pickRef.current = pick;
+
+  useEffect(() => {
+    if (!cameraFirst || disabled || cameraStarted.current) return;
+    cameraStarted.current = true;
+    void pickRef.current("camera");
+  }, [cameraFirst, disabled]);
 
   useEffect(() => () => coordinator.current.cancel(), []);
 
@@ -90,7 +101,7 @@ export function ReviewMediaField({
 
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ["images"],
-        allowsEditing: true,
+        allowsEditing: !cameraFirst,
         aspect: [4, 3],
         quality: 0.85,
       };
