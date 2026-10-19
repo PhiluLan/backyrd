@@ -6,7 +6,7 @@ const source = readFileSync(new URL("../../packages/shared/src/presentation/mood
 const contract = ts.transpileModule(readFileSync(new URL("../../packages/shared/src/contracts/mood.ts", import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
 const contractUrl = `data:text/javascript;base64,${Buffer.from(contract).toString("base64")}`;
 const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText.replace("../contracts/mood", contractUrl);
-const { toggleMoodExpression, parseMoodOptions, moodEvidenceCopy, loadBrowseMoods, rankMoodSupport, publicMoodCount, moodCountCopy, loadMoodCounts } = await import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
+const { toggleMoodExpression, parseMoodOptions, moodEvidenceCopy, loadBrowseMoods, rankMoodSupport, publicMoodCount, moodSupportFraction, moodCountCopy, loadMoodCounts } = await import(`data:text/javascript;base64,${Buffer.from(js).toString("base64")}`);
 
 test("a third impression never silently replaces the visitor's two choices", () => {
   assert.deepEqual(toggleMoodExpression(["Gemütlich", "Laut"], "Urban"), { values: ["Gemütlich", "Laut"], full: true });
@@ -58,6 +58,13 @@ test("published Mood totals remain distinct from contributor counts; missing tot
   await assert.rejects(loadMoodCounts(["spot"],async()=>[{spot_id:"other",mood_count:1}]),/invalid/);
   await assert.rejects(loadMoodCounts(["spot"],async()=>[{spot_id:"spot",mood_count:-1}]),/invalid/);
   await assert.rejects(loadMoodCounts(["spot"],async()=>{throw Error("offline");}),/offline/);
+});
+test("relative Mood lines cannot expose masked counts or imply a visitor percentage", () => {
+  const mood = { concept_key: "urban", label: "Urban", rank: 1, evidence_state: "ESTABLISHED", concept_contributors: 26, eligible_contributors: 100, percentage: 82 };
+  assert.equal(moodSupportFraction(mood, 41), 26 / 41);
+  assert.equal(moodSupportFraction({...mood, evidence_state: "EARLY"}, 41), null);
+  assert.equal(moodSupportFraction({...mood, concept_contributors: null}, 41), null);
+  for (const maximum of [null, 0, -1, 25, NaN, Infinity, 41.5]) assert.equal(moodSupportFraction(mood, maximum), null);
 });
 test("catalog signatures use the same contributor ranking as detail profiles",async()=>{
   const rows=[{spot_id:"s",concept_key:"quiet",label:"Ruhig",rank:1,concept_contributors:2,evidence_state:"ESTABLISHED"},{spot_id:"s",concept_key:"urban",label:"Urban",rank:2,concept_contributors:8,evidence_state:"ESTABLISHED"}];

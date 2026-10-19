@@ -24,10 +24,21 @@
 .removeMood:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
 
 .summary { max-width: 680px; }
-.summaryTitle { font-family: var(--font-dm-serif), Georgia, serif; font-size: 24px; font-weight: 400; line-height: 1.25; margin: 0 0 20px; letter-spacing: -.35px; }
-.topMoods { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.topChip { display: inline-flex; align-items: baseline; gap: 8px; padding: 10px 11px; border-radius: 16px; background: rgba(255,79,145,.10); border: 1px solid rgba(255,79,145,.22); color: var(--pink); font-size: 14px; font-weight: 600; }
-.topChipCount { font-size: 12px; font-weight: 400; color: var(--foreground); border-left: 1px solid rgba(255,79,145,.25); padding-left: 7px; }
-.otherMoods { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 9px; }
-.otherChip { display: inline-flex; align-items: baseline; gap: 9px; padding: 8px 11px; border: 1px solid var(--border); border-radius: 12px; color: var(--muted); font-size: 12px; line-height: 1.4; }
-.otherChip span { font-size: 11px; }
+.summaryTitle { font-family: inherit; font-size: 21px; font-weight: 600; line-height: 28px; margin: 0; letter-spacing: -.4px; }
+.summarySubtitle { color: var(--muted); font-size: 13px; line-height: 20px; margin: 6px 0 24px; }
+.topMoods { display: grid; gap: 19px; }
+.leadingLabel { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; }
+.leadingMood { font-size: 18px; line-height: 24px; font-weight: 500; letter-spacing: -.2px; overflow-wrap: anywhere; }
+.moodCount { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.supportTrack { height: 4px; margin-top: 10px; background: var(--border); overflow: hidden; }
+.supportFill { height: 100%; background: var(--pink); }
+.topMoods > :nth-child(2) .supportFill { opacity: .72; }
+.topMoods > :nth-child(3) .supportFill { opacity: .5; }
+.otherMoods { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px 24px; margin-top: 23px; padding-top: 23px; border-top: 1px solid var(--border); }
+.otherMood { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; line-height: 19px; min-width: 0; }
+.otherMood > :first-child { overflow-wrap: anywhere; }
+.otherMood .moodCount { font-size: 12px; }
+.earlyEvidence { margin-top: 16px; }
+.allMoodsAction { display: flex; justify-content: space-between; align-items: center; gap: 14px; width: 100%; min-height: 58px; margin-top: 21px; padding: 12px 0; border: 0; border-top: 1px solid var(--border); background: transparent; color: var(--foreground); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.allMoodsAction > :last-child { color: var(--pink); font-size: 20px; }
+.allMoodsAction:focus-visible { outline: 2px solid var(--pink); outline-offset: 4px; }
