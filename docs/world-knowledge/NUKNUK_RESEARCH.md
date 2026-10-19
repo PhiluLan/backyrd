@@ -296,3 +296,44 @@ check without fresh export authority; supported values remain intact. 114 runtim
 tests, core typecheck and repository/security gates pass. Krafft model requests
 elapsed 28.127 s total, median 2.523 s; Kaphi replay 15.040 s total, excluding startup
 and retrieval. No canonical writes; owned model process stopped after evaluation.
+
+## Cross-Spot generalization (v8)
+
+A replay of the six earlier source packages found the same coverage gaps beyond
+Krafft: Amber's explicit rooftop terrace and inflected German beer/wine names,
+Airport Hotel's affirmative free-Wi-Fi label, and useful room/dish descriptions
+competing with atmospheric or seasonal text. The general rules now recognize
+these positive forms, preserve negative/outage/future/nearby exclusions and
+validate short fixed facility labels against their exact source text. This is
+still a bounded vocabulary, not unrestricted language understanding.
+
+Menu label classification is shared by HTML extraction and independent enum
+validation. It covers lunch/dinner card variants, spacing, wine labels and explicit
+branded lunch-menu titles. Generic menus, sample/event titles, foreign hosts and
+calendar-dated links still do not establish current general offering groups.
+Actual links remain required; headings and mentions alone are insufficient.
+
+Stable description candidates suppress seasonal closures, new-menu announcements,
+signoffs and slogans, and prefer concrete room, cuisine, dish and service facts.
+If none are supported, the field stays unresolved rather than substituting a
+seasonal notice. Independent proposal validation enforces the same candidate
+boundary; an exact quotation alone cannot bypass it.
+
+Evaluation uses cached source packages rather than asserting current Spot facts.
+Menu-link metadata is refreshed only when the fetched source-text hash exactly
+matches the saved text. Amber's live pages changed, so its saved snapshot is kept
+unchanged for the regression test without attaching fresh metadata. Source
+identity/current-value approval and production persistence are separate concerns;
+none of these evaluation outputs is an import-ready or automatically approved
+production update. Missing mappings never erase existing facts.
+
+Final v8 evaluation: eight cached Spot packages, 34 real-model field requests,
+zero FAILED fields. Amber recovered BEER/WINE and TERRACE, Airport Hotel recovered
+WIFI and a concrete room description, and Alchemist recovered DINNER from actual
+menu links and a concrete Tavolata description. Amani's description remained open
+instead of using seasonal text. All eight Krafft values and all eight Kaphi values
+match their previous successful control runs. Candidate coverage before/after was
+recorded for the six additional Spots; they were not all rerun with the old model
+request version. 119 runtime tests, core typecheck and repository/security gates
+passed. These small development cases do not establish general accuracy; unknown
+fields remain unknown and local evidence remains outside Git.

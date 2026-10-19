@@ -373,3 +373,47 @@ test('description candidates prefer explicit cuisine over atmospheric introducto
   const cs=fieldCandidates({attributeKey:'description.highlight'},[{...source,text,descriptionText:text}]);
   assert.deepEqual(cs.map(c=>c.quote),['Wir zelebrieren die französische Kochkunst, klassisch und handwerklich.']);
 });
+
+test('facility descriptions support affirmative labels and rooftop phrases without inferring nearby amenities',async()=>{
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  const {researchValueContract}=await import('../../world-knowledge-core/dist/research-value-schema.js');
+  const {validateAuthoringSubmission}=await import('../../world-knowledge-core/dist/index.js');
+  const field={attributeKey:'amenity.features',...researchValueContract('amenity.features')};
+  for(const [text,expected] of [['Kostenloses WLAN','WIFI'],['Free Wi-Fi','WIFI'],['Die Garderobe ist vorhanden.','CLOAKROOM'],['Eine stimmungsvolle Bar mit einer einmaligen Dach-Terrasse über der Stadt.','TERRACE']]){
+    const ss=[{...source,text}],cs=enumFactCandidates(field,ss);
+    assert.deepEqual(cs.map(c=>c.value),[expected],text);
+    const p=extractedProposal({selected:cs.map(c=>c.id)},{spot,field,sources:ss});
+    assert.equal(validateNuknukProposal(p,{field,sources:ss,validateValue:validateAuthoringSubmission}).status,'REQUIRES_REVIEW');
+  }
+  for(const text of ['Free Wi-Fi nearby','Eine Bar neben einer Dach-Terrasse.','Wir wünschen kostenloses WLAN.','Die Garderobe ist künftig vorhanden.','Wir haben WLAN-Probleme.'])assert.deepEqual(enumFactCandidates(field,[{...source,text}]),[],text);
+});
+test('beer and wine inflections remain explicit offering evidence, not ingredient inference',async()=>{
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  const field={attributeKey:'offering.groups'};
+  assert.deepEqual(enumFactCandidates(field,[{...source,text:'Wir servieren Cocktails, Bieren und Weinen aus aller Welt.'}]).map(c=>c.value),['BEER','WINE']);
+  for(const text of ['Whisky, Rotwein, Zucker und Eis.','Keine Biere oder Weine erhältlich.','Unsere Nachbarn bieten Weine.'])assert.deepEqual(enumFactCandidates(field,[{...source,text}]),[],text);
+});
+test('menu classification supports multiple venues through shared labels and actual links only',async()=>{
+  const {menuOfferingGroup}=await import('../src/nuknuk-sources.mjs');
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  for(const [label,value] of [['Mittags Menü','LUNCH'],['Mittagskarte','LUNCH'],['Lunch','LUNCH'],['Harbor Lunch Sharefood Menu','LUNCH'],['Abendkarte','DINNER'],['Dinner Menu','DINNER'],['Offene Weine','WINE'],['Wine menu','WINE']]){
+    assert.equal(menuOfferingGroup(label),value,label);
+    const page=sourceText({url:source.url,observedAt:source.observedAt,body:`<main><a href="/current.pdf">${label}</a></main>`},'s1');
+    assert.deepEqual(enumFactCandidates({attributeKey:'offering.groups'},[page]).map(c=>c.value),[value]);
+  }
+  for(const label of ['Speisekarte','Menu','Getränkekarte','Sample lunch menu','Keine Weinkarte'])assert.equal(menuOfferingGroup(label),null,label);
+});
+test('stable description selection suppresses slogans and notices while preserving service facts',()=>{
+  for(const [text,expected] of [
+    ['Schöne Momente für alle Sinne! In unserem Hotel bieten wir 147 moderne Zimmer.','In unserem Hotel bieten wir 147 moderne Zimmer.'],
+    ['Essen muss ein Erlebnis sein! Ein besonderer Fokus liegt bei unseren Gerichten auf Schmorgerichten.','Ein besonderer Fokus liegt bei unseren Gerichten auf Schmorgerichten.'],
+    ['Wir machen eine Sommerpause. Freut Euch auf eine neue Speisekarte. Geschmack, der Geschichten erzählt.',null],
+  ]){
+    const ss=[{...source,text,descriptionText:text}];
+    assert.deepEqual(fieldCandidates({attributeKey:'description.highlight'},ss).map(c=>c.quote),expected?[expected]:[]);
+  }
+});
+test('independent description validation rejects an exact seasonal notice when a stable fact exists',()=>{
+  const text='Freut Euch auf eine neue Speisekarte. Wir servieren französische Küche aus regionalen Produkten.';
+  assert.throws(()=>validateNuknukProposal({status:'PROPOSED',value:'Freut Euch auf eine neue Speisekarte.',citations:[{sourceId:'s1',quote:'Freut Euch auf eine neue Speisekarte.'}],reason:null},{field:{attributeKey:'description.highlight'},sources:[{...source,text,descriptionText:text}],validateValue:()=>({ok:true})}),/description_not_supported/);
+});

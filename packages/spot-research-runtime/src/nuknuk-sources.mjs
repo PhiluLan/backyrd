@@ -31,6 +31,17 @@ export async function fetchPublicSource(value,{resolve=lookup,requestImpl=reques
     req.on('close',()=>clearTimeout(timer));req.on('error',reject);req.end();
   });
 }
+// Shared classification used at extraction and independent output validation.
+// A menu title describes only its explicit group; a generic food/drinks menu
+// cannot establish every kind of food or drink served by a venue.
+export function menuOfferingGroup(label) {
+  const text=String(label??'').normalize('NFKC').replace(/\s+/gu,' ').trim();
+  if(/\b(?:sample|example|Beispiel|Christmas|Weihnacht|Silvester|New Year)\b/iu.test(text))return null;
+  if(/^(?:Mittags?\s*(?:menü|menu|karte)|Lunch(?: menu)?|Lunchkarte|(?:[\p{L}'’-]+\s+){1,4}Lunch\s+(?:Sharefood\s+)?Menu)$/iu.test(text))return 'LUNCH';
+  if(/^(?:Abend\s*(?:menü|menu|karte)|Dinner(?: menu)?|Dinnerkarte)$/iu.test(text))return 'DINNER';
+  if(/^(?:Wein(?:karte|e)?|Offen(?:e )?weine|Wine ?(?:list|menu)|Wines)$/iu.test(text))return 'WINE';
+  return null;
+}
 export function sourceText(page,id) {
   const named={auml:'ä',ouml:'ö',uuml:'ü',Auml:'Ä',Ouml:'Ö',Uuml:'Ü',szlig:'ß',eacute:'é',egrave:'è',agrave:'à',ccedil:'ç',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',ndash:'–',mdash:'—',euro:'€',hellip:'…',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
   const clean=html=>html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<\/?(?:p|h[1-6]|li|div|section|article|tr|br)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&([a-zA-Z]+);/g,(m,key)=>named[key]??m).replace(/&#(x[0-9a-f]+|\d+);/gi,(_m,n)=>{const c=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return c>0&&c<=0x10ffff?String.fromCodePoint(c):' ';}).replace(/[ \t\r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
@@ -42,7 +53,7 @@ export function sourceText(page,id) {
   const linkedMenus=[];
   for(const match of main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
     const href=match[1].match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1],label=clean(match[2]);
-    if(!href||!label||!/^(?:Mittagsmenü|Abendmenü|Lunch menu|Dinner menu|Weinkarte|Offenweine|Wine ?list)$/iu.test(label))continue;
+    if(!href||!menuOfferingGroup(label))continue;
     try {
       const target=publicSourceUrl(new URL(href.replace(/&amp;/g,'&'),page.url).href);
       if(new URL(target).hostname!==new URL(page.url).hostname||!excerpt.includes(label))continue;
