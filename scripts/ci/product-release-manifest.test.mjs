@@ -283,3 +283,11 @@ test("Mood release approval binds the exact pair and rejects changed scope", () 
   }
   assert.equal(isExactProductAdditiveSet([...migrations, {path: "supabase/migrations/unapproved.sql", sha256: "0".repeat(64)}]), false);
 });
+
+test("two-person Mood display approval binds only the reviewed migration", () => {
+  const migration = { path: "supabase/migrations/20261019152123_mood_two_person_display_v1.sql", sha256: "5907a21d48629cc1ea883fa08716614b7b4f05ccc2acd55ec7734b505594bfed" };
+  assert.equal(isExactProductAdditiveSet([migration]), true);
+  assert.equal(isExactProductAdditiveSet([{ ...migration, sha256: "0".repeat(64) }]), false);
+  assert.equal(isExactProductAdditiveSet([{ ...migration, path: "supabase/migrations/unapproved.sql" }]), false);
+  assert.equal(isExactProductAdditiveSet([migration, { path: "supabase/migrations/unapproved.sql", sha256: "0".repeat(64) }]), false);
+});

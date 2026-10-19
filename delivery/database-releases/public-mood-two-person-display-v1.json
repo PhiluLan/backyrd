@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "public-mood-two-person-display-v1",
+  "previousEvidence": "compact-community-moods-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "3697c49f62d7c39fef8d431d16ba9e5183a401b64e330a84e44190e92080e7d9",
+    "applicationSchemaSha256": "857bb5bcf772b5205eaabc4196df38420acf4dc19fedda8558bdc17dbbd5e227"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261019152123_mood_two_person_display_v1.sql",
+      "sha256": "5907a21d48629cc1ea883fa08716614b7b4f05ccc2acd55ec7734b505594bfed"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/public_mood_two_person_display_v1.sql",
+      "sha256": "2c4243ca6f54bb49f10bde6906fb0ba844364512ca6ffeb61b28e45e2d7ec369"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "3697c49f62d7c39fef8d431d16ba9e5183a401b64e330a84e44190e92080e7d9",
+    "applicationSchemaSha256": "c5c6bdf34c93e2cc3b47ef5421d89de0fbef8b48ffebfa67f9ab0c0b62cd24a3"
+  }
+}

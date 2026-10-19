@@ -47,7 +47,7 @@ The Safety trigger runs after existing lifecycle/distribution triggers. Review w
 - percentage: `100 × community score / unique contributor denominator`, rounded to two decimals;
 - rank: community score, then positive contributor count, then stable concept key.
 
-The launch evidence threshold is 3 eligible contributors. Below 3, the internal model records `EARLY`, while the public view masks exact counts and percentage and clients show “Erste Eindrücke”. At 0, clients show an intentional invitation state. N4, Research, Owner or Admin data never fills missing community Mood.
+The internal aggregate/Decision evidence threshold is 3 eligible contributors. Public display has a separate threshold of 2 distinct eligible contributors per Spot (19 October 2026): below 2, the public view masks exact counts and percentage and clients show “Erste Eindrücke”. At 0, clients show an intentional invitation state. N4, Research, Owner or Admin data never fills missing community Mood.
 
 ## Product and server contracts
 
@@ -129,3 +129,10 @@ App and Consumer Web now use the approved unframed editorial layout below the ph
 Line lengths compare each public contributor count with the leading public Mood count, so the most frequent public Mood spans the available width. They are relative frequencies, not visitor percentages, percentages of all Mood submissions, weighted aggregate scores, quality grades or progress toward a target. EARLY or missing counts never produce numbers or lines; “Erste Eindrücke” remains visible when applicable. Empty, loading, failed reads and retry states remain distinct. The count-first hero signature, canonical ordering, aggregate rules, Review capture, privacy and Decision behavior remain unchanged. No migration or backend deployment is needed.
 
 Task class: FAST_PR for the existing Mobile/Web presentation and shared frequency helper; production delivery consumes the exact Main-certified iOS artifact. Acceptance covers relative-count/weighted-score separation, invalid denominators and EARLY masking, existing Mood and Consumer contracts, Mobile/Web typechecks and production builds, and responsive interaction with the actual components using fictional fixtures.
+
+
+## Public display starts at two distinct people — 19 October 2026
+
+The public Mood projection now exposes counts and display evidence from two distinct eligible contributors per Spot. One person with several visits remains one contributor and cannot unlock counts. The threshold applies to the Spot, so a Mood supported by one person can display its count once two people have contributed to the Spot overall. Existing two-person Spots become visible immediately through the view; no backfill, invented Reviews or aggregate rewrite is needed.
+
+This is solely a display-policy change for App, Consumer Web and public Mood catalog consumers. The internal aggregate retains its three-person evidence threshold, and the Decision signal RPC continues to consume that internal state. Moderation, contributor eligibility, aggregation, RLS and grants are unchanged. Existing clients already render the public projection, so no iOS update is required. Isolated SQL tests cover zero/one/two/three people, repeated visits, anonymous/authenticated reads, denied base/privileged access, moderation removal/restoration and unchanged Decision activation.
