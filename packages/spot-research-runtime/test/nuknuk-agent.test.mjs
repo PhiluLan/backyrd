@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverPublicDataSources,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
-import {NUKNUK_MODEL_REVISION,fieldCandidates} from '../src/nuknuk-research.mjs';
+import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
+import {reviewHtml,selectResearchSpots} from '../../../scripts/world-knowledge/nuknuk-research.mjs';
 const spot={spotId:'11111111-1111-4111-8111-111111111111',name:'Synthetic Restaurant',existingValues:{'classification.primary_category':{value:'EAT'},'contact.website':{value:'https://example.org/'},'location.country_code':{value:'CH'},'location.address_line1':{value:'Teststrasse 1'}}};
 const field=attributeKey=>({attributeKey,...researchValueContract(attributeKey)});
 const fields=['contact.phone','hours.regular','amenity.features','operation.laptop_policy','experience.profile'].map(field);
@@ -15,9 +16,34 @@ const ledger=(facts,s)=>validateEvidenceFacts({facts},s,fields).map(f=>({...f,st
 const reply=value=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]}));
 const opts={spot,fields:[field('contact.phone')],modelPath:'/tmp/'+NUKNUK_MODEL_REVISION,maxRequests:4,maxModelCalls:8};
 const deps={validateValue:validateAuthoringSubmission};
+test('unattended selection uses only official-site Admin rows with missing fields',()=>{
+ const item=(spotId,website,values={})=>({spotId,name:spotId,existingValues:{'contact.website':website?{knowledgeState:'KNOWN_VALUE',value:website}:undefined,...values}});
+ const exported={batch:{spots:[
+  item('a','https://a.example.org/',{'contact.phone':{knowledgeState:'KNOWN_VALUE',value:'+41610000000'}}),
+  item('b','https://b.example.org/'),
+  item('c',null),
+  item('d','https://d.example.org/',{'contact.phone':{knowledgeState:'KNOWN_VALUE',value:'+41610000000'},'hours.regular':{knowledgeState:'NOT_APPLICABLE'}}),
+ ]}};
+ assert.deepEqual(selectResearchSpots(exported,['contact.phone','hours.regular'],{maxSpots:2}).map(x=>x.spotId),['b','a']);
+ assert.throws(()=>selectResearchSpots(exported,['contact.phone'],{maxSpots:11}),/automatic_selection_invalid/);
+});
+test('draft review clearly displays the image-menu limitation',()=>{
+ const html=reviewHtml([{name:'Bar',results:[],limitations:['MENU_LAYOUT_REQUIRES_REVIEW']}]);
+ assert.match(html,/Bild- oder PDF-Speisekarten brauchen eine Layoutprüfung/);
+});
+test('a sport activity page remains eligible after model planning adds a menu topic',()=>{
+ const frontier=[{url:'https://example.org/bouldern',depth:1,topics:['experience','menu']},{url:'https://example.org/bistro',depth:1,topics:['menu']}];
+ const selected=rankResearchFrontier(frontier,[{field:'contact.phone',state:'ACCEPTED'}],[{...field('experience.profile'),profileCategory:'SPORT_MOVEMENT'}]);
+ assert.deepEqual(selected.map(item=>item.url),['https://example.org/bouldern']);
+});
 test('research links include scoped information pages and reject external/action URLs',()=>{
  const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/besuch">Besuch</a><a href="/besuch/barrierefrei">Zugang</a><a href="https://evil.org/kontakt">Kontakt</a><a href="/login">Contact</a><a href="/reservation">Öffnungszeiten</a>'});
  assert.deepEqual(links.map(x=>x.url),['https://example.org/besuch','https://example.org/besuch/barrierefrei']);
+});
+test('a venue profile outranks and excludes dated news or programme paths',()=>{
+ const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/home/ueber-das-lokal">Über das Lokal</a><a href="/home/news-leute-machen-orte">News</a><a href="/kunstprogramm">Kunst</a><a href="/kontakt">Kontakt</a>'});
+ assert.deepEqual(links.map(link=>link.url),['https://example.org/home/ueber-das-lokal','https://example.org/kontakt']);
+ assert.ok(links[0].topics.includes('about'));
 });
 test('template expressions are not followed and a late official contact link survives large navigation',()=>{
  const menu=Array.from({length:130},(_,i)=>`<a href="/topic/${i}">Weitere Informationen</a>`).join('');
@@ -26,10 +52,120 @@ test('template expressions are not followed and a late official contact link sur
  assert.ok(links.some(x=>x.url==='https://example.org/de/kontakt/'));
  assert.ok(!links.some(x=>x.url.includes('MenuURL')||x.url.includes('browser1')));
 });
+test('client template fragments cannot consume a bounded source request',()=>{
+ const links=discoverResearchLinks({url:'https://example.org/besuchen/',contentType:'text/html',body:'<a href="/besuchen/RubrikMenuURL_de ==">Mehr erfahren</a><a href="/bouldern">Bouldern</a><a href="/kontakt">Kontakt</a>'});
+ assert.deepEqual(links.map(x=>x.url),['https://example.org/bouldern','https://example.org/kontakt']);
+ assert.ok(links[0].topics.includes('experience'));
+});
+test('a menu price is not a date and a later contact heading ends event scope',()=>{
+ const text='Speisekarte\nBurger Da Pia mit Pommes Frites\n19.50 Fr.\nTeigwaren und Risotto frisch zubereitet.\n20.08.2026\nBoulder-Rave\nEin Abend mit Musik.\nKontakt & Anfahrt\nÖffnungszeiten\nMO 09.00 bis 23.00\nAllgemein\nelys@boulderloft.ch';
+ const s={...source(text),headings:[{level:2,text:'Speisekarte',offset:0},{level:3,text:'Boulder-Rave',offset:text.indexOf('Boulder-Rave')},{level:2,text:'Kontakt & Anfahrt',offset:text.indexOf('Kontakt & Anfahrt')}]};
+ const cases=[fact('experience.profile','Risotto','Teigwaren und Risotto frisch zubereitet.',{subject:'OFFER',offerKind:'GASTRONOMY'}),fact('description.highlight','Ein Abend mit Musik.','Ein Abend mit Musik.'),fact('contact.public_email','elys@boulderloft.ch','elys@boulderloft.ch')];
+ const values=validateEvidenceFacts({facts:cases},s,[field('experience.profile'),field('description.highlight'),field('contact.public_email')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(values,[s],[field('experience.profile'),field('description.highlight'),field('contact.public_email')],spot);
+ assert.equal(checked[0].state,'ACCEPTED');
+ assert.equal(checked[1].reason,'DATED_EVENT_NOT_PERMANENT_SPOT_FACT');
+ assert.equal(checked[2].state,'ACCEPTED');
+});
+test('restaurant kitchen hours and department email never override whole-venue values',()=>{
+ const restaurant={...spot,name:'Pizzeria Da Pia'};
+ const text='Pizzeria Da Pia\nÖffnungszeiten\nMo – Fr\n08:30 – 23:00\nÖffnungszeiten Küche\nMo – Sa 11:00 – 14:00\nKontakt\nAllgemein\ninfo@restaurant-dapia.ch\nKurse & Gruppen\nkurse@restaurant-dapia.ch';
+ const s={...source(text),headings:[{level:3,text:'Öffnungszeiten',offset:text.indexOf('Öffnungszeiten')}]};
+ const items=[fact('hours.regular','Mo – Fr\n08:30 – 23:00','Mo – Fr\n08:30 – 23:00'),fact('hours.regular','Mo – Sa 11:00 – 14:00','Mo – Sa 11:00 – 14:00'),fact('contact.public_email','info@restaurant-dapia.ch','info@restaurant-dapia.ch'),fact('contact.public_email','kurse@restaurant-dapia.ch','kurse@restaurant-dapia.ch')];
+ const chosen=[field('hours.regular'),field('contact.public_email')];
+ const facts=validateEvidenceFacts({facts:items},s,chosen).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(facts,[s],chosen,restaurant);
+ assert.equal(checked[0].state,'ACCEPTED');
+ assert.equal(checked[1].reason,'EXPLICIT_AREA_HOURS');
+ assert.equal(checked[2].state,'ACCEPTED');
+ assert.equal(checked[3].reason,'EXPLICIT_AREA_EMAIL');
+});
 test('public client-data discovery follows only observed read-only same-host endpoints',()=>{
  const page={url:'https://zoo.example.org/de/zoobesuch/r/1/oeffnungszeiten/',contentType:'text/html',body:'{{Oeffnungszeit_de}}<dmx-serverconnect id="scOeffnungszeiten" url="/dmxConnect/api/Website/de/Oeffnungszeiten.php" dmx-param:wrid="query.wrid"><dmx-serverconnect id="scStatsPage" url="/dmxConnect/api/Website/Stats/Oeffnungszeiten.php"><dmx-serverconnect id="scOther" url="https://evil.org/dmxConnect/api/Website/Oeffnungszeiten.php"><dmx-serverconnect id="scKontakt" url="/dmxConnect/api/Website/de/Kontakt.php" dmx-param:uid="query.missing">'};
  assert.deepEqual(discoverPublicDataSources(page).map(x=>x.url),['https://zoo.example.org/dmxConnect/api/Website/de/Oeffnungszeiten.php?wrid=1']);
  assert.deepEqual(discoverPublicDataSources({...page,body:page.body.replace('{{Oeffnungszeit_de}}','') }),[]);
+});
+test('a page-bound public sidebar yields contacts and seasonal hours without event copy',async()=>{
+ const page={url:'https://park.example.org/besuchen/r/1/parkbesuch/',contentType:'text/html',body:'<dmx-serverconnect id="scSidebar" url="/dmxConnect/api/Website/includes/Sidebar.php"><dmx-serverconnect id="scStatsPage" url="/dmxConnect/api/Website/Stats/Page.php"><div dmx-bind:repeat="scSidebar.data.qryOeffnungszeiten">{{Oeffnungszeit_de}}</div><p>{{scSidebar.data.sqrySidebarContact.Telefon}}</p>'};
+ const [item]=discoverPublicDataSources(page);
+ assert.equal(item.url,'https://park.example.org/dmxConnect/api/Website/includes/Sidebar.php');
+ assert.deepEqual(item.topics,['contact','hours']);
+ const payload={sqrySidebarContact:{Firma_de:'Tierpark Lange Erlen',Adresszeile1:'Erlenparkweg 110',Telefon:'+41 61 681 43 44',EMail:'info@erlen-verein.ch'},qryOeffnungszeiten:[{Kategorie_de:'März bis Oktober',Oeffnungszeit_de:'Täglich von 08.00 bis 18.00 Uhr'},{Kategorie_de:'November bis Februar',Oeffnungszeit_de:'Täglich von 08.00 bis 17.00 Uhr'}],qrySidebarEvents:[{VeranstaltungText_de:'Ausstellung täglich 12–17 Uhr'}]};
+ const source=await readSourceText({url:item.url,contentType:'application/json',body:JSON.stringify(payload),observedAt:new Date().toISOString()},'s1');
+ assert.match(source.text,/Tierpark Lange Erlen/);assert.match(source.text,/Erlenparkweg 110/);assert.match(source.text,/08.00 bis 18.00 Uhr/);
+ assert.doesNotMatch(source.text,/Ausstellung täglich/);assert.equal(source.seasonalSchedule,true);
+});
+test('sport research accepts the canonical bouldering kind when the activity is literal',()=>{
+ const sport={...spot,name:'ELYS Boulderloft',existingValues:{...spot.existingValues,'classification.primary_category':{value:'SPORT_MOVEMENT'}}};
+ const text='Bouldern ist Klettern in Absprunghöhe, ohne Seil und Gurt, dafür auf dicken Matten.';
+ const s=source(text);
+ const item=fact('experience.profile','Bouldern',text,{subject:'OFFER',subjectLabel:'Bouldern',offerKind:'BOULDERING'});
+ const facts=validateEvidenceFacts({facts:[item]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ const result=projectEvidenceLedger({spot:sport,fields:[field('experience.profile')],facts,sources:[s],...deps})[0];
+ assert.equal(result.status,'REQUIRES_REVIEW');assert.equal(result.value.offers[0].kind,'BOULDERING');
+ const target=validateEvidenceFacts({facts:[{...item,subject:'TARGET'}]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:sport,fields:[field('experience.profile')],facts:target,sources:[s],...deps})[0].status,'REQUIRES_REVIEW');
+ const food=validateEvidenceFacts({facts:[fact('experience.profile','Pizza','Wir bieten Pizza aus dem Bistro an.',{subject:'TARGET',offerKind:'GASTRONOMY'})]},source('Wir bieten Pizza aus dem Bistro an.'),[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:sport,fields:[field('experience.profile')],facts:food,sources:[source('Wir bieten Pizza aus dem Bistro an.')],...deps})[0].status,'UNRESOLVED');
+});
+test('a wine list is not a concrete restaurant offer even when the model approves it',()=>{
+ const text='Unsere Weinkarte im Restaurant bietet ausgewählte Weine, perfekt abgestimmt auf unsere Spezialitäten.';
+ const s=source(text);
+ const item=fact('experience.profile','Weinkarte',text,{subject:'TARGET',subjectLabel:'Weinkarte',offerKind:'GASTRONOMY'});
+ const facts=validateEvidenceFacts({facts:[item]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot,fields:[field('experience.profile')],facts,sources:[s],...deps})[0].status,'UNRESOLVED');
+});
+test('an explicit move away from the stored address stops old-Spot research',async()=>{
+ const old={...spot,name:'Roter Bären',existingValues:{...spot.existingValues,'location.address_line1':{value:'Ochsengasse 17'}}};
+ const body='<main><h1>Wir sind umgezogen</h1><p>Der Rote Bären ist neu im Perron zu Hause. Seit August kochen wir am Vogesenplatz 1 weiter.</p></main>';
+ const result=await researchSpotV2({...opts,spot:old,fields:[field('description.highlight'),field('contact.phone')]},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:async()=>{throw new Error('model must not run after relocation');}});
+ assert.equal(result.stopReason,'IDENTITY_RELOCATION_REQUIRES_REVIEW');assert.equal(result.modelCalls,0);
+ assert.ok(result.results.every(r=>r.status==='UNRESOLVED'));
+});
+test('membership benefits are not visitor offers and office phones stay separate',()=>{
+ const museum={...spot,name:'S AM Schweizerisches Architekturmuseum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const member=source('Eine exklusive Führung durch die Ausstellung Ihrer Wahl pro Jahr.');member.url='https://example.org/de/mitglied-werden';
+ const offer=fact('experience.profile','Eine exklusive Führung durch die Ausstellung Ihrer Wahl pro Jahr',member.text,{subject:'TARGET',offerKind:'GUIDED_TOUR'});
+ const offerFacts=validateEvidenceFacts({facts:[offer]},member,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:museum,fields:[field('experience.profile')],facts:offerFacts,sources:[member],...deps})[0].status,'UNRESOLVED');
+ const contact=source('Telefonnummer Büro:: +41 (0)61 261 14 13\nTelefonnummer Museumsfoyer: +41 (0)61 206 99 01');
+ const phoneFacts=validateEvidenceFacts({facts:[fact('contact.phone','+41 (0)61 261 14 13','+41 (0)61 261 14 13'),fact('contact.phone','+41 (0)61 206 99 01','+41 (0)61 206 99 01')]},contact,[field('contact.phone')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:museum,fields:[field('contact.phone')],facts:phoneFacts,sources:[contact],...deps})[0].value,'+41612069901');
+});
+test('slash-separated weekday groups remain one literal schedule row',()=>{
+ assert.deepEqual(fieldCandidates(field('hours.regular'),[source('Öffnungszeiten\nDi/MI/Fr 11–18:00H')]).flatMap(c=>parseHoursRow(c.quote)).map(r=>r.day),['TUESDAY','WEDNESDAY','FRIDAY']);
+});
+test('a hotel reception schedule and a Hôtel heading are not whole-Spot offers',()=>{
+ const stay={...spot,name:'Hotel Brasserie au Violon',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const schedule='Öffnungszeiten Rezeption:\nMontag bis Samstag von 8.00 bis 21.00 Uhr';
+ const s=source(schedule);
+ const hours=validateEvidenceFacts({facts:[fact('hours.regular','Montag bis Samstag von 8.00 bis 21.00 Uhr','Montag bis Samstag von 8.00 bis 21.00 Uhr')]},s,[field('hours.regular')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:stay,fields:[field('hours.regular')],facts:hours,sources:[s],...deps})[0].status,'UNRESOLVED');
+ const title=source('hotel brasserie au violon - Hôtel');
+ const offers=validateEvidenceFacts({facts:[fact('experience.profile','Hôtel',title.text,{subject:'TARGET',offerKind:'OVERNIGHT_STAY'})]},title,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:stay,fields:[field('experience.profile')],facts:offers,sources:[title],...deps})[0].status,'UNRESOLVED');
+});
+test('a hotel room list with an explicit availability sentence yields named review offers',async()=>{
+ const stay={...spot,name:'Hotel Brasserie au Violon',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const body='<main><h1>Hotel Brasserie au Violon</h1><p>Unsere Zimmer sind individuell gestaltet.</p><p>Es stehen verschiedene Zimmer zur Auswahl:<br>Zimmer "Münster" und Zimmer "Lohnhof"</p></main>';
+ const report=await researchSpotV2({...opts,spot:stay,fields:[field('experience.profile')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
+ assert.equal(report.results[0].status,'REQUIRES_REVIEW');
+ assert.deepEqual(report.results[0].value.offers.map(o=>o.name),['Zimmer "Münster"','Zimmer "Lohnhof"']);
+});
+test('hotel amenity sentences cannot masquerade as room names',()=>{
+ const stay={...spot,name:'Hotel Brasserie au Violon',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const text='Alle Zimmer sind mit Dusche/WC, Schreibtisch, Direktwahltelefon und Haarfön ausgestattet.';
+ const offer=fact('experience.profile','Zimmer sind mit Dusche/WC, Schreibtisch, Direktwahltelefon und Haarfön ausgestattet',text,{subject:'OFFER',offerKind:'OVERNIGHT_STAY'});
+ const s=source(text),facts=validateEvidenceFacts({facts:[offer]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:stay,fields:[field('experience.profile')],facts,sources:[s],...deps})[0].status,'UNRESOLVED');
+});
+test('malformed ampersand paths never enter the official research frontier',()=>{
+ const links=discoverResearchLinks({url:'https://hotel.example.org/',contentType:'text/html',body:'<a href="/&#38;">Hotel</a><a href="/&">Hotel</a><a href="/Hotel/Zimmer/">Zimmer</a>'});
+ assert.deepEqual(links.map(link=>link.url),['https://hotel.example.org/Hotel/Zimmer/']);
+});
+test('punctuation-only links cannot consume a hotel research request',()=>{
+ const links=discoverResearchLinks({url:'https://hotel.example.org/Hotel/PsdEW/',contentType:'text/html',body:'<a href="&">Hotel</a><a href="/Hotel/Zimmer/P62zQ/">Zimmer</a>'});
+ assert.deepEqual(links.map(link=>link.url),['https://hotel.example.org/Hotel/Zimmer/P62zQ/']);
 });
 test('seasonal JSON hours remain source-bound evidence, not a permanent weekly schedule',async()=>{
  const body=JSON.stringify({repeatOeffnungszeitenKategorien:[{Kategorie_de:'Öffnungszeiten',repeatOeffnungszeiten:[{Datum:'1970-01-01',Tag_de:'Januar bis Februar',Oeffnungszeit_de:'8.00 bis 17.30 Uhr'},{Tag_de:'Mai bis August Montag bis Freitag',Oeffnungszeit_de:'8.00 bis 18.30 Uhr'}]},{Kategorie_de:'Restaurant',repeatOeffnungszeiten:[{Tag_de:'Montag bis Freitag',Oeffnungszeit_de:'9.00 bis 17.30 Uhr'}]}]});
@@ -92,12 +228,48 @@ test('an official address-bound museum phone is certifiable from the public iden
  const denied=await researchSpotV2({...opts,spot:wrong,fields:[field('contact.phone')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:async()=>reply({verdicts:[]})});
  assert.equal(denied.results[0].status,'UNRESOLVED');
 });
+test('single-venue sport hours under an explicit regular heading survive later dated exceptions',async()=>{
+ const sport={...spot,name:'Kletterhalle 7',existingValues:{...spot.existingValues,'classification.primary_category':{value:'SPORT_MOVEMENT'},'location.address_line1':{value:''}}};
+ const body='<title>Kletterhalle 7 – Klettern in Basel</title><main><h1>Kletterhalle 7</h1><h2>Öffnungszeiten</h2><p>Reguläre Öffnungszeiten</p><p>Montag–Freitag: 12.00–22.30 Uhr</p><p>Samstag–Sonntag: 10.00–18.00 Uhr</p><h2>Schulferienzeit Sommer</h2><p>03.07.27 bis 08.08.27</p><p>Montag–Freitag: 16.30–22.00 Uhr</p></main>';
+ const result=await researchSpotV2({...opts,spot:sport,fields:[field('hours.regular')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:async()=>reply({verdicts:[]})});
+ assert.equal(result.results[0].value?.length,7);
+ assert.equal(result.results[0].value?.find(day=>day.day==='MONDAY')?.intervals[0].start,'12:00');
+ assert.equal(result.results[0].value?.find(day=>day.day==='SUNDAY')?.intervals[0].end,'18:00');
+});
 test('dated event copy on a homepage cannot become a permanent venue description',()=>{
  const s=source('16. Oktober 2026 |\n20:00 |\nEintritt frei\nTapas Festival\nDie Idee ist einfach: von Lokal zu Lokal ziehen, verschiedene Tapas probieren und gemeinsam anstossen.');
  const quote='Die Idee ist einfach: von Lokal zu Lokal ziehen, verschiedene Tapas probieren und gemeinsam anstossen.';
  const facts=validateEvidenceFacts({facts:[fact('description.highlight',quote,quote)]},s,[field('description.highlight')]).map(f=>({...f,state:'ACCEPTED'}));
  const [result]=projectEvidenceLedger({spot,fields:[field('description.highlight')],facts,sources:[s],...deps});
  assert.equal(result.status,'UNRESOLVED');
+});
+test('a wrapped-line fragment cannot become a standalone spot description',()=>{
+ const text='In den letzten Jahren fanden Kunstinstallationen,\nLesungen und Stand-Up Comedy ihren Weg in die Bar.\n\nHeute finden Gäste hier Kultur und Getränke.';
+ const s=source(text),fragment='Lesungen und Stand-Up Comedy ihren Weg in die Bar.',complete='Heute finden Gäste hier Kultur und Getränke.';
+ const facts=validateEvidenceFacts({facts:[fact('description.highlight',fragment,fragment),fact('description.highlight',complete,complete)]},s,[field('description.highlight')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot,fields:[field('description.highlight')],facts:[facts[0]],sources:[s],...deps})[0].status,'UNRESOLVED');
+ assert.equal(projectEvidenceLedger({spot,fields:[field('description.highlight')],facts:[facts[1]],sources:[s],...deps})[0].value,complete);
+});
+test('description selection sees a complete sentence across visual line wraps',async()=>{
+ const sentence='Hier finden Gäste Getränke und kulturelle Angebote,\ndie regelmässig stattfinden und zum Mitmachen einladen.';
+ const body=`<main><h1>Synthetic Restaurant</h1><p>${sentence}</p></main>`;
+ let candidates=[];
+ await researchSpotV2({...opts,fields:[field('description.highlight')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:async(_url,init)=>{candidates=JSON.parse(JSON.parse(init.body).messages[1].content).candidates.map(c=>c.text);return reply({selected:[]});}});
+ assert.ok(candidates.includes(sentence));
+ assert.ok(!candidates.some(text=>text.startsWith('die regelmässig')));
+});
+test('menu-image ingredient words do not become named drink offers without layout review',()=>{
+ const bar={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'DRINKS'}}};
+ const s={...source('PIMM S, GINGER ALE, ORANGE, LIME, PFEFFERMINZ, GURKE'),format:'IMAGE_OCR',layoutReviewRequired:true};
+ const facts=validateEvidenceFacts({facts:[fact('experience.profile','GINGER ALE',s.text,{subject:'OFFER',offerKind:'DRINKS'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:bar,fields:[field('experience.profile')],facts,sources:[s],...deps})[0].status,'UNRESOLVED');
+});
+test('unverified menu layouts are reported without consuming the research frontier',async()=>{
+ const body='<main><h1>Synthetic Restaurant</h1><a href="/menu.pdf">Speisekarte</a><img src="/speisekarte.jpg" alt="Speisekarte"></main>';
+ const report=await researchSpotV2({...opts,maxRequests:3},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()})});
+ assert.equal(report.requests,1);
+ assert.ok(report.limitations.includes('MENU_LAYOUT_REQUIRES_REVIEW'));
+ assert.deepEqual(discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body}).map(link=>link.url),[]);
 });
 test('weekday-prefixed calendar entries cannot become museum description or undated visits',()=>{
  const museum={...spot,name:'Museum Tinguely',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
@@ -367,17 +539,17 @@ test('source restrictions cannot be invented by the model',async()=>{
 });
 test('bounded same-site redirects validate every target and reject outside hosts',async()=>{
  const {EventEmitter}=await import('node:events');const {fetchPublicSource}=await import('../src/nuknuk-sources.mjs');
- for(const external of [false,true]){
+ for(const mode of ['same','external','http-alias']){
   const visited=[];
   const requestImpl=(url,_options,callback)=>{
    const req=new EventEmitter();req.end=()=>queueMicrotask(()=>{
-    visited.push(url);const res=new EventEmitter();res.statusCode=url.endsWith('/old')?301:200;res.headers=res.statusCode===301?{location:external?'https://evil.org/new':'/new'}:{'content-type':'text/html'};res.destroy=()=>req.emit('close');callback(res);
+    visited.push(url);const res=new EventEmitter();res.statusCode=url.endsWith('/old')?301:200;res.headers=res.statusCode===301?{location:mode==='external'?'https://evil.org/new':mode==='http-alias'?'http://www.example.org/new':'/new'}:{'content-type':'text/html'};res.destroy=()=>req.emit('close');callback(res);
     if(res.statusCode===200){res.emit('data',Buffer.from('Current venue source.'));res.emit('end');req.emit('close');}
    });req.destroy=error=>req.emit('error',error);return req;
   };
   const config={maxRedirects:2,resolve:async()=>[{address:'93.184.216.34'}],requestImpl};
-  if(external){await assert.rejects(fetchPublicSource('https://example.org/old',config),/redirect_identity_rejected/);assert.equal(visited.length,1);}
-  else {const page=await fetchPublicSource('https://example.org/old',config);assert.equal(page.url,'https://example.org/new');assert.deepEqual(page.redirectedFrom,['https://example.org/old']);}
+  if(mode==='external'){await assert.rejects(fetchPublicSource('https://example.org/old',config),/redirect_identity_rejected/);assert.equal(visited.length,1);}
+  else {const page=await fetchPublicSource('https://example.org/old',config);assert.equal(page.url,mode==='http-alias'?'https://www.example.org/new':'https://example.org/new');assert.deepEqual(page.redirectedFrom,['https://example.org/old']);assert.ok(visited.every(url=>url.startsWith('https://')));}
  }
 });
 test('description candidates do not require a hand-maintained venue or cuisine vocabulary',async()=>{
@@ -442,10 +614,10 @@ test('literal candidate extraction retains the established fax exclusion',async(
  const r=await researchSpotV2(opts,{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'Fax: +41 61 111 22 33',observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
  assert.equal(r.results[0].status,'UNRESOLVED');assert.equal(r.facts.filter(f=>f.field==='contact.phone').length,0);
 });
-test('hotel restaurant pages cannot establish whole-hotel hours even when critic says TARGET',async()=>{
+test('hotel restaurant pages are not selected to establish whole-hotel hours',async()=>{
  const stay={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
  const r=await researchSpotV2({...opts,spot:stay,fields:[field('hours.regular')]},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:url.endsWith('/restaurant')?'Montag 10–18 Uhr':'<a href="/restaurant">Restaurant</a>',observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
- assert.equal(r.results[0].status,'UNRESOLVED');assert.equal(r.facts[0].subject,'AREA');assert.equal(r.sources[1].areaScope,'Restaurant');
+ assert.equal(r.results[0].status,'UNRESOLVED');assert.equal(r.requests,1);assert.equal(r.sources.length,1);
 });
 test('same-page HTML heading hierarchy keeps bar hours separate from a hotel',async()=>{
  const stay={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};

@@ -24,7 +24,12 @@ export async function fetchPublicSource(value,{resolve=lookup,requestImpl=reques
         res.destroy();
         try{
           if(typeof res.headers.location!=='string')throw new Error('source_redirect_location_missing');
-          const target=publicSourceUrl(new URL(res.headers.location,url).href);
+          const observed=new URL(res.headers.location,url);
+          // An official site may advertise an HTTP redirect to its www alias.
+          // Probe the observed host/path over HTTPS only; never send the
+          // research request to the insecure Location or a foreign host.
+          if(observed.protocol==='http:'&&matchesExistingWebsite(observed.href,allowedWebsite))observed.protocol='https:';
+          const target=publicSourceUrl(observed.href);
           if(!matchesExistingWebsite(target,allowedWebsite))throw new Error('source_redirect_identity_rejected');
           accept(fetchPublicSource(target,{resolve,requestImpl,maxBytes,timeoutMs,maxRedirects:maxRedirects-1,allowedWebsite}).then(page=>({...page,redirectedFrom:[url,...(page.redirectedFrom??[])]})));
         }catch(error){reject(error);}return;
@@ -105,6 +110,9 @@ export function sourceText(page,id,{preferMain=false}={}) {
 function jsonSourceText(page,id) {
   let parsed;try{parsed=JSON.parse(page.body);}catch{throw new Error('source_json_invalid');}
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('source_json_invalid');
+  // Public sidebar responses often mix venue contacts and hours with dated
+  // event cards. Keep only the two arrays explicitly bound by the HTML page.
+  if(/\/includes\/Sidebar\.php$/iu.test(new URL(page.url).pathname))parsed={sqrySidebarContact:parsed.sqrySidebarContact,qryOeffnungszeiten:parsed.qryOeffnungszeiten};
   const language=new URL(page.url).pathname.match(/\/Website\/(de|en|fr)\//iu)?.[1]?.toLowerCase()??'de';
   const lines=[],headings=[];let length=0;
   const add=line=>{if(length>16000)return;const at=length;lines.push(line);length+=line.length+1;return at;};
@@ -116,7 +124,7 @@ function jsonSourceText(page,id) {
       keys.sort((a,b)=>Number(b.toLowerCase()==='kategorie_'+language)-Number(a.toLowerCase()==='kategorie_'+language)||Number(/^repeat/u.test(b))-Number(/^repeat/u.test(a)));
       for(const child of keys)walk(value[child],child,depth+1);return;
     }
-    if(typeof value!=='string'||!value.trim()||!((key.toLowerCase().endsWith('_'+language))||/^(?:META_Description|phone|telefon|email|address|adresse)$/iu.test(key)))return;
+    if(typeof value!=='string'||!value.trim()||!((key.toLowerCase().endsWith('_'+language))||/^(?:META_Description|phone|telefon|email|address|adresse|adresszeile1|plz)$/iu.test(key)))return;
     const cleaned=sourceText({url:page.url,observedAt:page.observedAt,body:value},id).text.trim();
     if(!cleaned||cleaned.length>3200)return;
     const label=key.toLowerCase()==='kategorie_'+language?'Kategorie':key.replace(/_(?:de|en|fr)$/iu,'');
@@ -209,18 +217,20 @@ export function discoverMenuDocuments(page) {
 export function discoverResearchLinks(page) {
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
   const links=[];
-  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|food|drink|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|experience|ausstellung|exhibition|sammlung|collection|zimmer|rooms?|aktivität|activities/iu,about:/über|ueber|about|portrait|konzept|concept/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq/iu};
+  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|food|drink|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq/iu};
   for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const href=m[1].replace(/&amp;/g,'&');
-    if(/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\.|\.contains\(|\.data\.|(?:^|[/?=])(?:MenuURL|LinkURL|RouteURL)/iu.test(href))continue;
+    if(/^[\s&;]+$/u.test(href))continue;
+    if(/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\.|\.contains\(|\.data\.|(?:^|[/?=])(?:MenuURL|LinkURL|RouteURL|RubrikMenuURL)|(?:==|!=|\?\s*['"])/iu.test(href))continue;
     const label=m[2].replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim().slice(0,200);
     try {
       const url=publicSourceUrl(new URL(href,page.url).href);
-      if(!matchesExistingWebsite(url,page.url)||url===page.url||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|cart|privacy|datenschutz|(?:^|\/)shop(?:\/|$)/iu.test(new URL(url).pathname))continue;
+      if(!matchesExistingWebsite(url,page.url)||url===page.url||/(?:^|\/)[&;]+(?:\/|$)/u.test(new URL(url).pathname)||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|cart|privacy|datenschutz|(?:^|\/)(?:shop|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(url).pathname))continue;
+      if(/\.(?:pdf|jpe?g|png|webp|gif)(?:[?#]|$)/iu.test(url))continue;
       // Dated events are useful to a different product flow, but cannot prove
       // a permanent venue offering or regular opening hours. Do not spend the
       // bounded Spot-research budget crawling individual event/news pages.
-      if(/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news|blog|aktuell)(?:\/|$)/iu.test(new URL(url).pathname)||/\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2})\b/u.test(label))continue;
+      if(/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news(?:[-_][^/]*)?|blog|aktuell|[^/]*(?:programme?|programm))(?:\/|$)/iu.test(new URL(url).pathname)||/\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2})\b/u.test(label))continue;
       // Exhibition/programme pages describe time-bounded offerings. The
       // permanent Spot profile cannot encode their validity yet.
       if(/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?|group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(url).pathname))continue;
@@ -247,7 +257,8 @@ export function discoverPublicDataSources(page) {
     if(/\bnoload\b/iu.test(tag[0]))continue;
     const id=tag[0].match(/\bid=["']([^"']+)["']/iu)?.[1]??'';
     const href=tag[0].match(/\burl=["']([^"']+)["']/iu)?.[1];
-    if(!href||/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\./iu.test(href)||!/(?:oeffnungs?|öffnungs?|opening|hours|zeiten|kontakt|contact)/iu.test(id+' '+href)||/(?:stats|cookies?|tracking|analytics)/iu.test(id+' '+href))continue;
+    const sidebar=id==='scSidebar'&&/\/includes\/Sidebar\.php(?:[?#]|$)/iu.test(href)&&/(?:scSidebar\.data\.sqrySidebarContact|scSidebar\.data\.qryOeffnungszeiten)/u.test(page.body);
+    if(!href||/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\./iu.test(href)||!sidebar&&!/(?:oeffnungs?|öffnungs?|opening|hours|zeiten|kontakt|contact)/iu.test(id+' '+href)||/(?:stats|cookies?|tracking|analytics)/iu.test(id+' '+href))continue;
     try {
       const target=new URL(href,page.url);
       if(!target.pathname.startsWith('/dmxConnect/api/Website/')||!matchesExistingWebsite(target.href,page.url))continue;
@@ -261,7 +272,7 @@ export function discoverPublicDataSources(page) {
       if(!valid)continue;
       const url=publicSourceUrl(target.href);
       if(found.some(item=>item.url===url))continue;
-      found.push({url,label:id,discoveredOn:page.url,topics:[/(?:oeffnungs?|öffnungs?|opening|hours|zeiten)/iu.test(id+' '+href)?'hours':'contact']});
+      found.push({url,label:id,discoveredOn:page.url,topics:sidebar?['contact','hours']: [/(?:oeffnungs?|öffnungs?|opening|hours|zeiten)/iu.test(id+' '+href)?'hours':'contact']});
       if(found.length>=4)break;
     }catch{}
   }

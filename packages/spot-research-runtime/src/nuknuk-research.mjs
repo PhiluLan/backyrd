@@ -306,7 +306,7 @@ export function fieldCandidates(field,sources) {
       quotes=(source.descriptionText??source.text).split(/(?<!\b(?:St|Dr|Prof|Mr|Mrs)\.)(?<=[.!?])\s+(?=[A-ZÄÖÜ])|\n+/).map(s=>s.trim()).filter(s=>s.length>=25&&s.length<=800&&/[.!?]$/.test(s));
     } else {
       const day='(?:'+dayWords.flat().sort((a,b)=>b.length-a.length).join('|')+'|täglich|daily)';
-      const group=day+'(?:\\.?\\s*(?:-|–|—|bis|to|till|through|&|und|and)\\s*'+day+')*\\.?';
+      const group=day+'(?:\\.?\\s*(?:-|–|—|\\/|bis|to|till|through|&|und|and)\\s*'+day+')*\\.?';
       const clock='(?:[0-2]?\\d(?:[.:][0-5]\\d)?(?:\\s*[ap]\\.?m\\.?)?)';
       const pair=clock+'\\s*(?:Uhr|h)?\\s*(?:-|–|—|bis|to|till|through)\\s*(?:'+clock+'|Mitternacht|midnight)'+'(?:\\s*(?:Uhr|h))?';
       const pattern='(?<![a-zäöü])'+group+'\\s*:?(?:\\s+von)?\\s*(?:'+pair+'(?:[\\s,&]*(?:und|and)?\\s*'+pair+')*|geschlossen|ruhetag|closed)(?![a-zäöü])';

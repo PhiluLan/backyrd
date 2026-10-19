@@ -2,13 +2,14 @@
 // semantic check, then canonical draft projection. No database or publication.
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
-import {parseExperienceProfile} from '../../world-knowledge-core/dist/index.js';
+import {EXPERIENCE_TEMPLATES,parseExperienceProfile} from '../../world-knowledge-core/dist/index.js';
+import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages} from './nuknuk-sources.mjs';
 import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.2';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.3';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -63,16 +64,17 @@ function enumValues(field:ResearchField):string[] {
 function fieldInstructions(field:ResearchField):Record<string,unknown> {
   const common={field:field.attributeKey,rules:field.valueRules??[]};
   switch(field.attributeKey) {
-    case 'description.highlight':return {...common,value:'Exact passage about a visitor’s concrete experience, offerings, setting or service. Exclude finances/fundraising/governance, employee profiles, reviews, self-praise, unrelated history, event announcements and navigation. No synthesis.'};
+    case 'description.highlight':return {...common,value:'Copy one complete, standalone current-tense sentence about a visitor’s concrete experience, offerings, setting or service. Never start inside a wrapped sentence or omit its beginning. Exclude finances/fundraising/governance, employee profiles, reviews, self-praise, unrelated or past-only history, event announcements and navigation. No synthesis.'};
     case 'contact.phone':return {...common,value:'Exact published phone string. No fax, shop, press, individual staff or different branch.'};
     case 'contact.public_email':return {...common,value:'Exact literal public email. Never reconstruct obfuscation or placeholders; no staff/press/shop address.'};
     case 'hours.regular':return {...common,value:'Exact complete weekday/time row. Keep bar, kitchen, hotel, shop and restaurant schedules as separate subjects. Never invent missing end/start times or closed days.'};
-    case 'experience.profile':return {...common,value:'Exact name of a concrete experience, dish, drink, room or activity. Classify its actual kind independently of the venue category; do not turn a restaurant inside a hotel into an overnight stay. The projection separately checks the current research focus. In a list such as Cuisine — dish A, dish B, copy an individual named dish, never the cuisine heading. Not generic menu headings, adjectives or invented combinations. Copy original spelling; one fact per offer. No inferred suitability or diet. Set offerKind to the supported kind for each concrete offer; other fields use empty offerKind.'};
+    case 'experience.profile':return {...common,categoryExamples:EXPERIENCE_TEMPLATES[field.profileCategory as keyof typeof EXPERIENCE_TEMPLATES]?.offers.slice(0,12)??[],value:'Exact name of a concrete experience, dish, drink, room or activity. Classify its actual kind independently of the venue category; use BOULDERING for bouldering, CLIMBING for climbing, VISIT for an ordinary park visit, and GASTRONOMY only for actual food. Do not turn a restaurant inside a hotel into an overnight stay. The projection separately checks the current research focus. In a list such as Cuisine — dish A, dish B, copy an individual named dish, never the cuisine heading. Not generic menu headings, adjectives or invented combinations. Copy original spelling; one fact per offer. No inferred suitability or diet. Set offerKind to the supported kind for each concrete offer; other fields use empty offerKind.'};
     case 'operation.laptop_policy':return {...common,value:'String true or false ONLY for explicit permission/prohibition of laptop use. Wi-Fi, sockets and coworking mentions alone are insufficient.'};
     default:return {...common,allowedValues:enumValues(field),value:'One allowed value per fact ONLY if explicitly entailed by the quote. Understand synonyms, but do not infer diet, full meals, facilities, suitability or availability from related concepts.'};
   }
 }
-const evidenceOfferKinds=['','GASTRONOMY','DRINKS','OVERNIGHT_STAY','VISIT','GUIDED_TOUR','SELF_GUIDED_VISIT','WORKSHOP','PERMANENT_EXHIBITION','SPECIAL_EXHIBITION'];
+const experienceValueSchema=researchValueContract('experience.profile').valueSchema as {properties:{offers:{items:{properties:{kind:{enum:string[]}}}}}};
+const evidenceOfferKinds=['',...experienceValueSchema.properties.offers.items.properties.kind.enum];
 const factSchema=record({field:enumeration(SUPPORTED),value:text(800),quote:text(1100),subject:enumeration(subjectKinds),subjectLabel:text(160),belongsTo:enumeration(['TARGET','OTHER','UNKNOWN']),applicability:enumeration(applicabilityKinds),condition:text(500),validFrom:nullableDate,validUntil:nullableDate,polarity:enumeration(['AFFIRMATIVE','NEGATIVE']),offerKind:enumeration(evidenceOfferKinds)});
 function sectionAt(source:ResearchSource,offset:number) {
   const stack:{level:number;text:string;offset:number}[]=[];
@@ -88,9 +90,14 @@ function factOffset(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'sourceOff
 }
 function explicitPhoneArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'sourceOffset'>,spot:SpotContext):string|null {
   const offset=factOffset(source,f);if(offset<0)return null;
-  const label=source.text.slice(Math.max(0,offset-90),offset).match(/(?:^|\n)\s*([^:\n]{2,45}):\s*$/u)?.[1]?.trim();
-  if(!label||!/(?<!\p{L})(?:shop|bistro|restaurant|brasserie|bar|café|cafe|kiosk|presse|press|rezeption|reception)(?!\p{L})/iu.test(label))return null;
+  const label=source.text.slice(Math.max(0,offset-90),offset).match(/(?:^|\n)\s*([^\n]{2,55}):+\s*$/u)?.[1]?.trim();
+  if(!label||!/(?<!\p{L})(?:shop|bistro|restaurant|brasserie|bar|café|cafe|kiosk|presse|press|rezeption|reception|büro|buero|office|administration)(?!\p{L})/iu.test(label))return null;
   return spot.name.toLocaleLowerCase().includes(label.toLocaleLowerCase())?null:label;
+}
+function explicitEmailArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'sourceOffset'>):string|null {
+  const offset=factOffset(source,f);if(offset<0)return null;
+  const preceding=source.text.slice(Math.max(0,offset-110),offset).split(/\n+/u).map(line=>line.trim()).filter(Boolean).at(-1)??'';
+  return /^(?:kurse?(?:\s*&\s*gruppen)?|courses?(?:\s*&\s*groups?)?|gruppen|groups?|events?(?:\s*&\s*catering)?|veranstaltungen?|presse|press|medien|media|jobs?|karriere|recruitment|buchhaltung|accounting|verwaltung|administration)\s*:?$/iu.test(preceding)?preceding:null;
 }
 function excludedHoursArea(source:ResearchSource,quote:string,spot:SpotContext,sourceOffset?:number):string|null {
   const category=String(spot.existingValues?.['classification.primary_category']?.value);
@@ -110,6 +117,8 @@ function excludedHoursArea(source:ResearchSource,quote:string,spot:SpotContext,s
   const heading=sections.find(text=>excluded.test(text));if(heading)return heading;
   const prefix=source.text.slice(Math.max(0,offset-100),offset),line=prefix.match(/(?:^|\n)([^\n:]{1,70}):[ \t]*$/u)?.[1];
   if(line&&excluded.test(line))return line;
+  const preceding=prefix.split(/\n+/u).map(text=>text.trim()).filter(Boolean).at(-1)??'';
+  if(preceding.length<=70&&/^(?:öffnungszeiten|oeffnungszeiten|opening hours|hours)\s+(?:küche|kueche|kitchen|bar|restaurant|bistro|shop|rezeption|reception|lieferdienst|delivery|takeaway|abholung)\s*:?$/iu.test(preceding)&&excluded.test(preceding))return preceding;
   // Some sites render scoped schedules as uppercase labels, not HTML headings.
   // Inherit those labels across their weekday rows ONLY inside an explicit
   // opening-hours section; an earlier navigation item cannot establish scope.
@@ -128,14 +137,24 @@ function timeBoundEventContext(source:ResearchSource,quote:string,sourceOffset?:
   const path=new URL(source.url).pathname;
   if(/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news|blog|aktuell)(?:\/|$)/iu.test(path)||/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)\/20\d{2}(?:\/|$)/iu.test(path))return true;
   const offset=factOffset(source,{quote,sourceOffset});if(offset<0)return false;
-  const local=source.text.slice(Math.max(source.identityOffset!==undefined&&offset>=source.identityOffset?source.identityOffset:0,offset-260),offset);
+  const structural=/^(?:kontakt(?:\s*&\s*anfahrt)?|contact(?:\s*&\s*directions)?|öffnungszeiten|oeffnungszeiten|opening hours|hours|adresse|address|speisekarte|menu|angebote|offers|über uns|ueber uns|about us|besuch|visit)(?:\s|$)/iu;
+  const boundary=(source.headings??[]).filter(h=>h.offset<=offset&&structural.test(h.text)).at(-1)?.offset??0;
+  const local=source.text.slice(Math.max(source.identityOffset!==undefined&&offset>=source.identityOffset?source.identityOffset:0,boundary,offset-260),offset);
   // A calendar item on the venue home page remains a dated event even when its
   // detail link was not crawled. Require an explicit day/month marker nearby;
   // copyright years, street numbers and general historical dates do not count.
   if(/(?:^|\n)\s*(?:Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*,?\s+\d{1,2}\.\s*(?:Jan(?:uar)?|Feb(?:ruar)?|März|Maerz|Apr(?:il)?|Mai|Jun(?:i)?|Jul(?:i)?|Aug(?:ust)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?|January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2}\b/iu.test(local))return true;
-  if(/(?:^|\n)\s*\d{1,2}(?:[.\/-]\s*\d{1,2}|\.\s*(?:Jan(?:uar)?|Feb(?:ruar)?|März|Maerz|Apr(?:il)?|Mai|Jun(?:i)?|Jul(?:i)?|Aug(?:ust)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?|January|February|March|April|May|June|July|August|September|October|November|December))\b[^\n]{0,45}(?:\n|$)/iu.test(local))return true;
+  if(/(?:^|\n)\s*\d{1,2}[.\/-]\s*(?:0?[1-9]|1[0-2])[.\/-]\s*\d{2,4}\b[^\n]{0,45}(?:\n|$)/iu.test(local))return true;
+  if(/(?:^|\n)\s*\d{1,2}\.\s*(?:Jan(?:uar)?|Feb(?:ruar)?|März|Maerz|Apr(?:il)?|Mai|Jun(?:i)?|Jul(?:i)?|Aug(?:ust)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?|January|February|March|April|May|June|July|August|September|October|November|December)\b[^\n]{0,45}(?:\n|$)/iu.test(local))return true;
   const following=source.text.slice(offset+quote.length,offset+quote.length+180);
   return /^\s*(?:\S[^\n]*\n){0,2}\s*\/?\s*\d{1,2}\.\s*(?:Jan(?:uar)?|Feb(?:ruar)?|März|Maerz|Apr(?:il)?|Mai|Jun(?:i)?|Jul(?:i)?|Aug(?:ust)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?|January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2}/iu.test(following);
+}
+function explicitRelocation(source:ResearchSource,spot:SpotContext):boolean {
+  const stored=spot.existingValues?.['location.address_line1']?.value;
+  if(typeof stored!=='string'||stored.trim().length<5)return false;
+  const text=source.text.slice(0,Math.min(source.identityOffset??source.text.length,2400));
+  if(text.toLocaleLowerCase().includes(stored.trim().toLocaleLowerCase()))return false;
+  return /\b(?:wir\s+sind\s+umgezogen|we\s+have\s+moved|we\s+are\s+now\s+at|ist\s+neu\s+(?:im|am|in)\b[^.!\n]{0,90}\b(?:zu\s+hause|zuhause)|neuer\s+standort|new\s+location)\b/iu.test(text);
 }
 
 function evidenceBlocks(source:ResearchSource) {
@@ -208,13 +227,20 @@ export function validateEvidenceFacts(raw:unknown,source:ResearchSource,fields:R
 }
 function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:ResearchField,spot:SpotContext):string|null {
   if(f.state==='REJECTED')return f.reason;
+  if(f.field==='experience.profile'&&source.layoutReviewRequired)return 'LAYOUT_REQUIRES_HUMAN_OFFER_REVIEW';
+  if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(source.url).pathname))return 'MEMBERSHIP_BENEFIT_NOT_PUBLIC_SPOT_OFFER';
   if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)(?:\/|$)/iu.test(new URL(source.url).pathname))return 'EXHIBITION_PROGRAMME_SCOPE';
   if(timeBoundEventContext(source,f.quote,f.sourceOffset))return 'DATED_EVENT_NOT_PERMANENT_SPOT_FACT';
   const section=sectionAt(source,factOffset(source,f));
   if(section.some(s=>/\b(?:reviews?|ratings?|testimonials?|bewertungen|gäste-?stimmen|was\s+andere\s+sagen|what\s+(?:the\s+)?others\s+say)\b/iu.test(s)))return 'VISITOR_REVIEW_NOT_OFFICIAL_FACT';
   if(f.belongsTo!=='TARGET')return 'OWNERSHIP_'+f.belongsTo;
   if(f.field==='contact.phone'&&explicitPhoneArea(source,f,spot))return 'EXPLICIT_AREA_PHONE';
-  if(f.field==='experience.profile'&&f.subject!=='OFFER')return 'OFFER_SUBJECT_REQUIRED';
+  if(f.field==='contact.public_email'&&explicitEmailArea(source,f))return 'EXPLICIT_AREA_EMAIL';
+  // A venue can state its own concrete offer directly ("Bouldern ist ...").
+  // TARGET in that sentence denotes the venue's assertion, not a claim that
+  // every area or visitor has the same property. Literal name, kind, scope,
+  // currency and time guards below still apply before projection.
+  if(f.field==='experience.profile'&&!['OFFER','TARGET'].includes(f.subject))return 'OFFER_SUBJECT_REQUIRED';
   if(f.field==='description.highlight'&&!['TARGET','AREA','OFFER'].includes(f.subject))return 'SUBJECT_'+f.subject;
   if(!['experience.profile','description.highlight'].includes(f.field)&&f.subject!=='TARGET')return 'SUBJECT_'+f.subject;
   if(source.areaScope)return 'SOURCE_AREA_SCOPE';
@@ -232,18 +258,27 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
     if(f.field==='contact.public_email'&&(!f.quote.includes(f.value)||!/^[-\w.+]+@[\w.-]+\.[a-z]{2,}$/i.test(f.value)||/example\.|\.invalid$|notexisting|nodomain/i.test(f.value)))return 'EMAIL_NOT_LITERAL';
     if(['description.highlight','experience.profile'].includes(f.field)&&!sourceQuote(f.quote,f.value))return 'VALUE_NOT_LITERAL';
     if(f.field==='description.highlight'&&(f.value!==f.quote||f.quote.length<25))return 'DESCRIPTION_NOT_EXACT';
+    if(f.field==='description.highlight') {
+      const offset=factOffset(source,f),before=offset>0?source.text.slice(0,offset):'';
+      const previousLine=before.trimEnd().split(/\n/u).at(-1)?.trim();
+      const followsHeading=!!previousLine&&(source.headings??[]).some(h=>h.text.trim()===previousLine&&h.offset+h.text.length<=before.length);
+      if(before&&!/(?:[.!?]\s*|\n\s*\n\s*)$/u.test(before)&&!followsHeading)return 'DESCRIPTION_FRAGMENT_NOT_STANDALONE';
+    }
     if(f.field==='description.highlight'&&/^["“„«‘’']/u.test(f.quote.trim()))return 'DESCRIPTION_QUOTED_SPEECH';
+    if(f.field==='description.highlight'&&/\b(?:wheelchair|rollstuhl|barrierefrei|accessible|accessibility)\b/iu.test(f.quote)&&!/\b(?:experience|explore|discover|enjoy|erleben|entdecken|geniessen|genießen|besuchen|visit)\b/iu.test(f.quote))return 'DESCRIPTION_FACILITY_NOT_HIGHLIGHT';
     if(typeof f.offerKind!=='string')return 'OFFER_KIND_INVALID';
     if(f.field==='experience.profile') {
       if(f.value.trim().toLocaleLowerCase()===spot.name.trim().toLocaleLowerCase())return 'VENUE_NAME_NOT_CONCRETE_OFFER';
       if(f.offerKind==='VISIT'&&/\b(?:buildings?|pavilions?|gatehouses?|ensemble|geb[aä]ude|pavillon|areal)\b/iu.test(f.quote)&&!/\b(?:visit|visiting|tour|tours|accessible|open to (?:the )?public|besuch(?:en)?|besichtigung|f[uü]hrung|ausstellung|exhibition)\b/iu.test(f.quote))return 'AREA_NOT_VISIT_OFFER';
-      const genericName=/\b(?:cuisine|küche|kueche|cucina|speisekarte|menu|menü|food|drinks|getränke|cocktails|restaurant|brasserie|bar|hotel|hostel|museum|gallery|galerie|museumsangebote|angebote|offers|tickets?|online-ticket|eiscafé|eiscafe|glacé|gelato|ice\s*cream|eis|eisportionen|fruchteis|sorbet)\s*$/iu.test(f.value.trim());
+      const genericName=/\b(?:cuisine|küche|kueche|cucina|speisekarte|weinkarte|getränkekarte|wine\s*list|drinks?\s*menu|menu|menü|food|drinks|getränke|cocktails|restaurant|brasserie|bar|hotel|hôtel|hostel|museum|gallery|galerie|museumsangebote|angebote|offers|tickets?|online-ticket|eiscafé|eiscafe|glacé|gelato|ice\s*cream|eis|eisportionen|fruchteis|sorbet)\s*$/iu.test(f.value.trim());
       if(genericName&&f.value.trim().split(/\s+/u).length<=4)return 'CATEGORY_LABEL_NOT_CONCRETE_OFFER';
       if(f.value.length>160)return 'OFFER_NAME_TOO_LONG';
+      if(f.value.trim().split(/\s+/u).length>=6&&/\b(?:sind|ist|haben|hat|werden|wird|bieten|bietet|verfügen|verfügt|are|is|have|has|offers?|includes?|equipped)\b/iu.test(f.value))return 'OFFER_SENTENCE_NOT_NAME';
       if(f.quote.trim()===f.value.trim())return 'OFFER_CONTEXT_REQUIRED';
       if(f.offerKind==='WORKSHOP'&&!/\b(?:workshops?|ateliers?|kurse?|courses?)\b/iu.test(f.quote))return 'WORKSHOP_KIND_NOT_EXPLICIT';
       const category=spot.existingValues?.['classification.primary_category']?.value??field.profileCategory;
       if(typeof category!=='string')return 'CURRENT_CATEGORY_REQUIRED';
+      if(category==='SPORT_MOVEMENT'&&!EXPERIENCE_TEMPLATES.SPORT_MOVEMENT.offers.some(offer=>offer.kind===f.offerKind))return 'OFFER_OUTSIDE_RESEARCH_FOCUS';
       try{projectOffers({offers:[{name:f.value,kind:f.offerKind,quote:f.quote,sourceId:f.sourceId}]},{field:{...field,profileCategory:category},sources:[source]});}catch{return 'OFFER_OUTSIDE_RESEARCH_FOCUS';}
     }
     if(f.field==='hours.regular'&&source.seasonalSchedule)return 'SEASONAL_SCHEDULE_REQUIRES_REVIEW';
@@ -276,7 +311,10 @@ function literalSourceFacts(source:ResearchSource,fields:ResearchField[],spot:Sp
       // Domain-independent prose candidates: meaning is checked by the critic,
       // not a growing cuisine/venue keyword whitelist.
       const maxLength=typeof field.valueSchema.maxLength==='number'?Math.min(800,field.valueSchema.maxLength):800;
-      const prose=(source.descriptionText??source.text).split(/\n+|(?<=[.!?])\s+(?=[A-ZÄÖÜ])/u).map(q=>q.trim()).filter(q=>!/^["“„«‘’']/u.test(q)&&q.length>=40&&q.length<=maxLength&&/[.!?]$/.test(q)&&!/@|https?:\/\//u.test(q)&&((q.match(/\d/g)??[]).length/q.length)<0.08&&sourceQuote(source.text,q));
+      // A soft line break inside a paragraph is not a sentence boundary.
+      // Splitting every line let the model select grammatical fragments as
+      // permanent descriptions on wrapped CMS and PDF text.
+      const prose=(source.descriptionText??source.text).split(/\n\s*\n/u).flatMap(paragraph=>paragraph.split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ])/u)).map(q=>q.trim()).filter(q=>!/^["“„«‘’']/u.test(q)&&q.length>=40&&q.length<=maxLength&&/[.!?]$/.test(q)&&!/@|https?:\/\//u.test(q)&&((q.match(/\d/g)??[]).length/q.length)<0.08&&sourceQuote(source.text,q));
       for(const quote of [...new Set(prose)].slice(0,12))add(key,quote,quote);
     }else for(const candidate of (fieldCandidates(field,[source])??[]).slice(0,14)){
       let at=source.text.indexOf(candidate.quote),seen=0;
@@ -300,6 +338,19 @@ function literalSourceFacts(source:ResearchSource,fields:ResearchField[],spot:Sp
       selected++;
     }
   }
+  if(fields.some(f=>f.attributeKey==='experience.profile')&&spot.existingValues?.['classification.primary_category']?.value==='STAY') {
+    // A named room list is an enduring accommodation offer only when the page
+    // explicitly introduces rooms available to guests. Navigation alone is not
+    // sufficient; the model still verifies ownership and currency below.
+    for(const match of source.text.matchAll(/(?:^|\n)\s*([^\n]{8,120}(?:Zimmer\s+zur\s+Auswahl|rooms?\s+(?:to\s+choose|available))\s*:\s*\n\s*[^\n]{8,180})/giu)) {
+      const quote=match[1],sourceOffset=source.text.indexOf(quote,match.index);
+      for(const room of quote.matchAll(/\b(?:Einzelzimmer|Doppelzimmer|Zimmer|Single Room|Double Room|Room)\s*["“][^"”\n]{2,70}["”]/giu)) {
+        const name=room[0];
+        if(core.some(f=>f.field==='experience.profile'&&f.value===name&&f.quote===quote))continue;
+        core.push({id:'f'+(offset+core.length),sourceId:source.id,field:'experience.profile',value:name,quote,sourceOffset,subject:'OFFER',subjectLabel:name,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'OVERNIGHT_STAY',state:'HELD',reason:'SEMANTIC_CHECK_PENDING'});
+      }
+    }
+  }
   return core;
 }
 function atomicHours(quote:string) {
@@ -319,15 +370,19 @@ function certifiedVenuePhone(f:EvidenceFact,source:ResearchSource,spot:SpotConte
   try{normalizePhone(f.value,spot.existingValues?.['location.country_code']?.value);return true;}catch{return false;}
 }
 function certifiedVenueHours(f:EvidenceFact,source:ResearchSource,spot:SpotContext,sources:ResearchSource[]):boolean {
-  if(f.field!=='hours.regular'||f.state!=='HELD'||f.reason!=='SEMANTIC_CHECK_PENDING'||!['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(spot.existingValues?.['classification.primary_category']?.value))||!atomicHours(f.quote).length||excludedHoursArea(source,f.quote,spot,f.sourceOffset)||timeBoundEventContext(source,f.quote,f.sourceOffset))return false;
+  const category=String(spot.existingValues?.['classification.primary_category']?.value);
+  if(f.field!=='hours.regular'||f.state!=='HELD'||f.reason!=='SEMANTIC_CHECK_PENDING'||!['EAT','DRINKS','COFFEE_DAYTIME','SPORT_MOVEMENT'].includes(category)||!atomicHours(f.quote).length||excludedHoursArea(source,f.quote,spot,f.sourceOffset)||timeBoundEventContext(source,f.quote,f.sourceOffset))return false;
   const address=spot.existingValues?.['location.address_line1']?.value;
-  if(typeof address!=='string'||address.length<5||!sources.some(s=>matchesExistingWebsite(s.url,source.url)&&s.text.toLocaleLowerCase().includes(address.toLocaleLowerCase())&&s.text.toLocaleLowerCase().includes(spot.name.toLocaleLowerCase())))return false;
+  if(category!=='SPORT_MOVEMENT'&&(typeof address!=='string'||address.length<5))return false;
+  const identity=sources.some(s=>matchesExistingWebsite(s.url,source.url)&&s.text.toLocaleLowerCase().includes(spot.name.toLocaleLowerCase())&&(typeof address!=='string'||address.length<5||s.text.toLocaleLowerCase().includes(address.toLocaleLowerCase())));
+  if(!identity)return false;
   const index=factOffset(source,f),nearest=sectionAt(source,index).at(-1)??'';
   if(!source.text.slice(0,Math.min(index,500)).toLocaleLowerCase().includes(spot.name.toLocaleLowerCase()))return false;
-  const heading=/^(?:(?:unsere|aktuelle|regular|current)\s+)?(?:öffnungszeiten|oeffnungszeiten|opening hours|business hours)\s*:?$/iu;
+  const heading=/^(?:(?:unsere|aktuelle|reguläre|regulaere|regular|current)\s+)?(?:öffnungszeiten|oeffnungszeiten|opening hours|business hours)\s*:?$/iu;
   const lastPlain=source.text.slice(Math.max(0,index-450),index).split(/\n+/u).map(x=>x.trim()).filter(Boolean);
   let plainIndex=-1;for(let i=0;i<lastPlain.length;i++)if(heading.test(lastPlain[i]))plainIndex=i;
   if(!heading.test(nearest)&&plainIndex<0)return false;
+  if((typeof address!=='string'||address.length<5)&&category==='SPORT_MOVEMENT'&&!lastPlain.some(x=>/^(?:reguläre|regulaere|regular)\s+(?:öffnungszeiten|oeffnungszeiten|opening hours)\s*:?$/iu.test(x)))return false;
   if(!heading.test(nearest)&&lastPlain.slice(plainIndex+1).some(x=>/^(?:warme\s+k[üu]che|kitchen|lieferdienst|delivery|takeaway|abholung|restaurant|bar|brasserie|rezeption|reception|shop)\s*:?$/iu.test(x)))return false;
   if(/\b(?:nur|only|weather|wetter|saisonal|seasonal|ferien|holiday|feiertag|reservation|reservierung|ausnahme|exception)\b/iu.test(f.quote))return false;
   return true;
@@ -364,8 +419,8 @@ export function recheckEvidenceFloors(facts:EvidenceFact[],sources:ResearchSourc
 function topicsForField(key:string,category?:string):string[] {
   if(key.startsWith('contact.'))return ['contact'];
   if(key.startsWith('hours.'))return ['hours','visit'];
-  if(key==='experience.profile')return category==='STAY'?['stay']:category==='CULTURE_ARTS'?['experience','visit']:['menu','experience'];
-  if(key==='offering.groups')return category==='STAY'?['stay','menu']:category==='CULTURE_ARTS'?['experience','visit']:['menu','experience'];
+  if(key==='experience.profile')return category==='STAY'?['stay']:['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category))?['menu','experience']:['experience','visit'];
+  if(key==='offering.groups')return category==='STAY'?['stay','menu']:['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category))?['menu','experience']:['experience','visit'];
   if(key==='description.highlight')return ['about','experience'];
   return category==='STAY'?['stay','access','about']:['visit','access','about'];
 }
@@ -375,10 +430,10 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+
     (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
     (open.some(f=>f.attributeKey.startsWith('contact.'))&&link.topics.includes('contact')?500:0);
-  const culture=open.some(field=>field.profileCategory==='CULTURE_ARTS');
-  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(url).pathname);
+  const nonFood=open.some(field=>field.profileCategory&&!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory));
+  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
-  const candidates=frontier.filter(link=>link.depth<=3&&!scopedPage(link.url)&&!(culture&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.includes('visit'))));
+  const candidates=frontier.filter(link=>link.depth<=3&&!scopedPage(link.url)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic)))));
   const matching=candidates.filter(link=>open.some(f=>topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))));
   const useful=matching.length?matching:facts.some(f=>f.state==='ACCEPTED')?[]:candidates;
   return useful.sort((a,b)=>score(b)-score(a)||a.depth-b.depth||a.url.localeCompare(b.url));
@@ -468,6 +523,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     enqueue({url:secureSeed,label:'Official seed',depth:0,topics:['contact','hours','experience','about','visit']});
   }
   let modelUnavailable=false;
+  let menuLayoutSkipped=false;
   let modelCalls=0,requests=0,stopReason=fields.length?'FRONTIER_EXHAUSTED':'NO_FIELDS_REQUIRE_RESEARCH';
   const checkpoint=async()=>deps.onCheckpoint?.({version:NUKNUK_AGENT_VERSION,spotId:spot.spotId,canonicalWrite:false,completed:false,sources,facts,sourceFailures,modelAudit,actions,requests,modelCalls});
   const remaining=()=>Math.max(0,budgetMs-(now()-start));
@@ -511,16 +567,24 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       source=await (deps.readPage??readSourceText)(page,'s'+(sources.length+1),{preferMain:true});
       if(!source.text||source.text.length>12000||hash(source.text)!==source.hash)throw new Error('SOURCE_INTEGRITY_FAILED');
       if(next.discoveredOn){if(!['PDF_TEXT','IMAGE_OCR','JSON_TEXT'].includes(source.format??''))throw new Error('EMBEDDED_FORMAT_REJECTED');source.discoveredOn=next.discoveredOn;}
-      const menuArea=next.depth>0&&next.topics.includes('menu')&&!next.topics.includes('stay')&&['STAY','CULTURE_ARTS'].includes(String(category));
+      const menuArea=next.depth>0&&next.topics.includes('menu')&&!next.topics.includes('stay')&&!['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category));
       const hotelArea=next.depth>0&&next.topics.includes('stay')&&!next.topics.includes('menu')&&['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category));
       const scopedDepartment=/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(source.url).pathname);
       if(menuArea||hotelArea||scopedDepartment)source.areaScope=next.label||next.url;
       sources.push(source);await checkpoint();
+      if(next.depth===0&&explicitRelocation(source,spot)){
+        stopReason='IDENTITY_RELOCATION_REQUIRES_REVIEW';
+        await progress({stage:'IDENTITY_RELOCATION',url:source.url,storedAddress:spot.existingValues?.['location.address_line1']?.value});
+        break;
+      }
       if(options.discoverLinks!==false&&next.depth<maxDepth) {
         links=discoverResearchLinks(page);
         for(const link of links)if(link.topics?.length)enqueue({...link,depth:next.depth+1,topics:link.topics});
         for(const data of discoverPublicDataSources(page))enqueue({...data,depth:next.depth+1,topics:data.topics??[]});
-        for(const asset of [...discoverMenuDocuments(page),...discoverMenuImages(page)])enqueue({...asset,depth:next.depth+1,topics:['menu']});
+        // Menu PDFs and images need layout review before individual line items
+        // can be distinguished from ingredients or neighboring columns.
+        // Do not spend model time extracting offers we cannot certify.
+        if(discoverMenuDocuments(page).length||discoverMenuImages(page).length)menuLayoutSkipped=true;
       }
     }catch(error){sourceFailures.push({url:next.url,reason:error instanceof Error?error.message:'RETRIEVAL_FAILED'});continue;}
     if(sources.slice(0,-1).some(s=>s.hash===source.hash)){await progress({stage:'DUPLICATE_CONTENT',url:source.url});continue;}
@@ -540,15 +604,19 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       for(const group of semanticGroups) {
         try {
           const offeredBlocks=group.some(f=>f.attributeKey==='experience.profile')?blocks.filter(b=>((b.text.match(/\p{L}+/gu)??[]).length>=5||/(?:CHF|EUR|€|\$)\s*\d|\d[.,]\d{2}/u.test(b.text))&&!(source.headings??[]).some(h=>h.text===b.text)):blocks;
-          const raw=await model('EXTRACT',source,request(modelPath,'You are Nuknuk, researching one small group of Backyrd questions. Extract at most EIGHT facts for the exact requested venue from numbered original blocks. Use block IDs, never reconstruct quotes. TARGET is an assertion about the whole venue. AREA is a narrower operating area. OFFER is a concrete dish, room or activity. belongsTo identifies whether the entity is part of the requested exact venue, another branch/venue, or unknown. A room/visit/workshop OFFER can belong to TARGET without being a whole-venue assertion. Never promote offer/area facilities or hours to the whole venue. OTHER is a different venue. CURRENT means an ordinary present website statement; copyright years are never validity dates. restrictionQuote must be EMPTY unless that specific fact has an explicit weather/date/daypart/party-size restriction; copy the restriction literally. Never add explanations or inferred restrictions. Use NEGATIVE only for explicit absence/prohibition. For offers choose blocks that include the original name AND its actual description or menu context, never bare heading-only blocks. Choose at most four concrete original names and their actual offerKind independent of the requested venue category. A hotel restaurant remains GASTRONOMY, never OVERNIGHT_STAY. The whole venue name is not a distinct room/activity offer; no navigation headings or generic labels. For other fields use empty offerKind. Wi-Fi alone is not laptop permission. nextLinks can select observed IDs relevant to unanswered questions; no privacy/legal/shopping pages.',{asOf:new Date(now()).toISOString().slice(0,10),target:context(spot),questions:group.map(fieldInstructions),source:{id:source.id,url:source.url,format:source.format??'HTML'},blocks:offeredBlocks,nextLinks:links.map((l,i)=>({id:'l'+i,url:l.url,label:l.label}))},extractionSchema(group,offeredBlocks,links)));
+          const raw=await model('EXTRACT',source,request(modelPath,'You are Nuknuk, researching one small group of Backyrd questions. Extract at most EIGHT facts for the exact requested venue from numbered original blocks. Use block IDs, never reconstruct quotes. TARGET is an assertion about the whole venue. AREA is a narrower operating area. OFFER is a concrete dish, room or activity. For experience.profile, a TARGET sentence can also establish an offer when it explicitly names what a visitor can do or receive at this venue; still copy the literal concrete offer name, not the venue name. belongsTo identifies whether the entity is part of the requested exact venue, another branch/venue, or unknown. A room/visit/workshop OFFER can belong to TARGET without being a whole-venue assertion. Never promote offer/area facilities or hours to the whole venue. OTHER is a different venue. CURRENT means an ordinary present website statement; copyright years are never validity dates. restrictionQuote must be EMPTY unless that specific fact has an explicit weather/date/daypart/party-size restriction; copy the restriction literally. Never add explanations or inferred restrictions. Use NEGATIVE only for explicit absence/prohibition. For offers choose blocks that include the original name AND its actual description or menu context, never bare heading-only blocks. Choose at most four concrete original names and their actual offerKind independent of the requested venue category. A hotel restaurant remains GASTRONOMY, never OVERNIGHT_STAY. The whole venue name is not a distinct room/activity offer; no navigation headings or generic labels. For other fields use empty offerKind. Wi-Fi alone is not laptop permission. nextLinks can select observed IDs relevant to unanswered questions; no privacy/legal/shopping pages.',{asOf:new Date(now()).toISOString().slice(0,10),target:context(spot),questions:group.map(fieldInstructions),source:{id:source.id,url:source.url,format:source.format??'HTML'},blocks:offeredBlocks,nextLinks:links.map((l,i)=>({id:'l'+i,url:l.url,label:l.label}))},extractionSchema(group,offeredBlocks,links)));
           if(isObject(raw)&&raw.nextLinks!==undefined) {
             const selections=raw.nextLinks;
             const valid=Array.isArray(selections)&&selections.length<=4&&new Set(selections).size===selections.length&&selections.every(id=>typeof id==='string'&&(id==='NONE'&&!links.length||/^l\d+$/.test(id)&&links[Number(id.slice(1))]));
             if(!valid)await progress({stage:'PLANNER_ERROR',url:source.url,reason:'PLANNER_SELECTION_INVALID'});
             else for(const id of selections){if(id==='NONE')continue;const link=links[Number(String(id).slice(1))],queuedLink=frontier.find(f=>f.url===link.url);
               if(category==='STAY'&&link.topics?.includes('menu')&&!link.topics.includes('stay'))continue;
-              if(queuedLink)queuedLink.topics=[...new Set([...queuedLink.topics,...group.flatMap(f=>topicsForField(f.attributeKey,f.profileCategory))])];
-              else enqueue({...link,depth:next.depth+1,topics:[...new Set(group.flatMap(f=>topicsForField(f.attributeKey,f.profileCategory)))]});
+              // The model may prioritize observed links, but it cannot invent
+              // topic labels for them. That previously promoted news and
+              // programme pages into the permanent-offer frontier.
+              if(!link.topics?.some(topic=>group.some(f=>topicsForField(f.attributeKey,f.profileCategory).includes(topic))))continue;
+              if(queuedLink)continue;
+              enqueue({...link,depth:next.depth+1,topics:link.topics});
             }
           }
           const additions=factsFromBlocks(raw,source,group,offeredBlocks,facts.length);facts.push(...additions);extracted.push(...additions);await checkpoint();
@@ -601,6 +669,6 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   });
   const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status)),elapsedMs:now()-start,stopReason,requests,modelCalls,results,facts,sources,sourceFailures,modelAudit,actions,failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
     coverage:results.map(r=>({attributeKey:r.attributeKey,status:r.status,acceptedFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='ACCEPTED').length,heldFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='HELD').length,complete:false})),
-    frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:['OFFICIAL_SITE_LINK_SEARCH_ONLY','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
+    frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:['OFFICIAL_SITE_LINK_SEARCH_ONLY','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
   await deps.onProgress?.({stage:'COMPLETE',report});return report;
 }

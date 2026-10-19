@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v2.2
+## Active architecture: Research v2.3
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -61,8 +61,9 @@ npm test --workspace @backyrd/spot-research-runtime
    use the same pinned model: useful error detection, not independent truth.
 4. **Project drafts.** Only supported, current unconditional target facts enter
    whole-Spot draft fields. Area/conditional/dated evidence remains visible for
-   scoped review. An `experience.profile` item must have explicit offer scope;
-   an owned building or area is not itself a visitor offer. Owned room/activity
+   scoped review. An `experience.profile` item must name a concrete source-literal
+   offer; a venue's direct statement about its own activity can establish one,
+   while an owned building, category heading or area cannot. Owned room/activity
    offers can remain narrower than the whole venue. Exact descriptions may retain their explicit conditions in copied text;
    this does not establish an unconditional property. Original offer names are
    retained, offer kinds checked against the current research focus, hours parsed
@@ -81,7 +82,9 @@ Supported v2 fields: description.highlight, contact.phone, contact.public_email,
 hours.regular, experience.profile, offering.groups, amenity.features and
 operation.laptop_policy. Other requested fields are explicitly unresolved. Named
 offers remain bounded partial profiles (at most four), never full inventories.
-PDF/image layout remains a review requirement; conditions are preserved in the
+PDF/image menu layout remains a review requirement and those assets are not
+used for automatic named-offer extraction; otherwise ingredients can be mistaken
+for menu items. Conditions are preserved in the
 ledger rather than silently erased into whole-Spot fields. Prices are deliberately empty
 in projected v2 offers: block-level extraction does not certify menu layout.
 Original HTML heading hierarchy helps separate hours of hotel/museum/restaurant,
@@ -93,7 +96,8 @@ understood by the existing canonical parsers remain unresolved. Seasonal hours
 from public JSON stay in evidence but cannot become an unconditional weekly
 schedule in the current Backyrd field.
 
-The v2.2 source frontier excludes dated event/news pages and exhibition-programme
+The v2.3 source frontier excludes dated event/news pages, membership/fundraising
+benefits and exhibition-programme
 subtrees from permanent Spot research. A dated exhibition may have genuine value
 for discovery, but the current permanent Spot fields cannot carry its validity
 window. Programme copy or exhibition names cannot become whole-venue description
@@ -106,7 +110,21 @@ They cannot supply a whole-venue contact or an undated group tour.
 Food/delivery/kitchen schedules remain separate from restaurant hours. The
 address- and official-host-bound weekday parser can certify literal restaurant,
 bar or café hours without a weak model veto; other ambiguous hours remain open.
+For a single-venue sport site with no stored address, the same literal parser
+requires an explicit **regular opening hours** heading and matching venue name;
+later dated holiday schedules stay outside the weekly result.
 Swiss optional trunk formatting such as `+41 (0)61 ...` normalizes consistently.
+An official redirect advertising HTTP is probed only at that observed path on
+the matching HTTPS host; insecure requests remain prohibited. An explicit move
+away from the stored address stops the old Spot before any model claim.
+Observed public sidebars contribute only contact and opening-hour data, never
+their dated event feed. Menu prices cannot be mistaken for event dates. The
+canonical offer-kind enum includes activity kinds such as `BOULDERING`; copied
+amenity sentences, membership benefits and generic wine-list/hotel labels
+cannot become named offers. Sport research does not consume a bistro menu as its
+primary experience.
+Description candidates preserve visual line wraps within a sentence; an
+incomplete line or past-only event fragment cannot become standalone Spot copy.
 An old HTTP website is only probed over HTTPS on that exact host; TLS errors are
 reported, never bypassed. The review page surfaces truncated-source warnings.
 The main page text is supplemented with a bounded public identity panel when
@@ -123,6 +141,26 @@ Set optional manifest `budget` to `{ "maxRequests": 12, "maxModelCalls": 24,
 export contains the official website. `discoverLinks:false` restricts fetching to
 seeds. Explicit requested fields recheck known values; the default eight supported
 fields preserve existing known values.
+
+For a bounded autonomous **draft** batch, provide a current Admin export and
+let the CLI choose up to ten Spots with a known official website and missing
+requested fields. It prioritizes the most incomplete eligible rows, skips all
+known values and stops before the next Spot when the total time budget is too
+small. Selection is deterministic; no catalog write or automatic approval occurs.
+`research.json` records selected and deferred counts. Example manifest:
+
+```json
+{
+  "exportPath": "/absolute/path/current-admin-export.json",
+  "selection": {"mode":"MISSING_FIELDS","maxSpots":5,"totalBudgetMs":3600000},
+  "discoverLinks": true,
+  "budget": {"maxRequests":10,"maxModelCalls":24,"budgetMs":480000,"maxDepth":2}
+}
+```
+
+Run it through the same `scripts/world-knowledge/nuknuk-research.mjs`
+command shown below. This is a local experimental operator tool; the export is
+still obtained through the authorized Admin flow.
 
 A research-system update is not model pretraining or fine-tuning. The existing
 local weights are unchanged. No outside AI provider or provider key is used.
@@ -176,9 +214,43 @@ cases exposed failures that unit tests alone missed. The current 9B route can
 create useful review drafts but does not meet the coverage and held-out safety
 gate across venue classes. Recheck every material rule against genuinely new
 Spots, including another client-rendered activity site; do not treat a deterministic
-replay or a corrected development case as an independent blind pass. The 27B
-route remains unpromoted until the complete pinned download and same-source
-comparison finish.
+replay or a corrected development case as an independent blind pass. The pinned
+27B download completed later on 19 October.
+
+### v2.3 exploratory source review, 19 October 2026
+
+These local contexts used previously identified OSM spot identities and live
+official websites, **not a current Admin export**. All statuses therefore remain
+review drafts. The listed outcomes came from live-source runs as the v2.3 guards
+were refined; the corrected Spots are development cases, not independent blind validation.
+
+| Venue | Final live result | Material holdback |
+| --- | --- | --- |
+| Pizzeria Da Pia | Description, public phone/email, all seven weekly days and three named dishes from one official page | Generic wine-list heading withheld |
+| Hotel Brasserie au Violon | Description, hotel phone and two literal room names; four requests, no failed source | Reception hours and unproven email withheld |
+| Kletterhalle 7 | Description, public phone/email, seven regular days, four supported climbing/course activities | Dated holiday and summer exceptions excluded from the regular weekly field |
+| SILO by TALENT | Description, public phone/email, one literal double-room offer | Reception or stay hours unresolved |
+| Schweizerisches Architekturmuseum | Public phone/email and seven regular days | Membership benefits and unsupported visitor copy withheld |
+| Schall und Rauch Bar | No permanent-field proposal from the final run | Email is obfuscated, published hours lack closing times, and photographed menu items require layout review; news/event pages and ingredient words stay out |
+| Roter Bären | No proposal; explicit move away from the stored address stopped the run | Identity requires human reconciliation before research |
+
+An older Admin export was used only to smoke-test the new `MISSING_FIELDS`
+selection path: it selected one missing-field spot, wrote a local report, and
+reported `canonicalWrite:false`. Its 30-second one-page result is not evidence
+of research quality on current catalog data.
+
+On the same ELYS website and v2.3 code, pinned 9B and 27B each returned five
+review-field proposals. The 9B run took 71 seconds and found `Bouldern` and
+`Grundkurs`; 27B took 283 seconds and found only `Trainingsbereich`. Website
+bytes were fetched live rather than frozen, and Mac memory was not measured.
+This limited comparison does not justify promoting 27B.
+
+**Current release decision: local autonomous draft selection is implemented but
+not certified for unattended catalog-scale use.** The exploratory suite shows
+useful coverage and safe abstention, but it is too small and was used to develop
+the rules. A fresh current Admin export, an untouched cross-category validation
+set, source review of every projected claim, and sustained budget/latency checks
+remain required. No catalog import or approval is automated.
 
 A 12-case synthetic language regression corpus covers false preferences,
 venue/area confusion, reviews, expired offers, explicit facilities and affirmative
