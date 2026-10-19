@@ -27,26 +27,38 @@ export function BookingConsole() {
   const [notice, setNotice] = useState<string | null>(null);
   const [action, setAction] = useState<{ reservation: BookingReservation; status: BookingStatus } | null>(null);
   const generation = useRef(0);
+  const entryGeneration = useRef(0);
+  const actorId = useRef<string | null>(null);
   const inFlight = useRef(false);
 
   useEffect(() => {
     let active = true;
+    const entryRequest = ++entryGeneration.current;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session && active) {
+        entryGeneration.current += 1;
+        actorId.current = null;
         generation.current += 1;
         setEntry("guest"); setSpots([]); setSpotId(""); setSnapshot(null); setError(null); setNotice(null); setAction(null); setDirty(false);
+      } else if (active && session && actorId.current && actorId.current !== session.user.id) {
+        entryGeneration.current += 1; generation.current += 1;
+        actorId.current = session.user.id;
+        setEntry("loading"); setSpots([]); setSpotId(""); setSnapshot(null); setError(null); setNotice(null); setAction(null); setDirty(false);
+        setAttempt((value) => value + 1);
       }
     });
     async function loadEntry() {
       setEntry("loading");
       try {
         const { data, error: authError } = await supabase.auth.getUser();
-        if (!active) return;
+        if (!active || entryRequest !== entryGeneration.current) return;
+        if (authError && authError.name !== "AuthSessionMissingError" && authError.status !== 401 && authError.status !== 403) throw authError;
         if (authError || !data.user) { setEntry("guest"); return; }
+        actorId.current = data.user.id;
         const rows = await getOwnerSpots(100);
-        if (!active) return;
+        if (!active || entryRequest !== entryGeneration.current) return;
         setSpots(rows); setSpotId(rows[0]?.spot_id ?? ""); setEntry("ready");
-      } catch { if (active) setEntry("error"); }
+      } catch { if (active && entryRequest === entryGeneration.current) setEntry("error"); }
     }
     void loadEntry();
     return () => { active = false; generation.current += 1; subscription.unsubscribe(); };

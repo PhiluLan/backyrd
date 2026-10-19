@@ -32,7 +32,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     if (method === "booking_console_slots_v1") return route.fulfill({ json: [{ service_id: snapshot.services[0].id, table_id: snapshot.tables[0].id, starts_at: `${body.p_date}T18:00:00+02:00`, ends_at: `${body.p_date}T20:00:00+02:00` }] });
     if (method === "booking_console_create_v1") {
       bookingCalls++;
-      snapshot.reservations = [{ id: reservationId, table_id: body.p_table_id, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, starts_at: body.p_starts_at, ends_at: body.p_starts_at, status: body.p_status, source: body.p_source }];
+      snapshot.reservations = [{ id: reservationId, table_id: body.p_table_id, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, starts_at: body.p_starts_at, ends_at: new Date(Date.parse(body.p_starts_at) + 120 * 60 * 1000).toISOString(), status: body.p_status, source: body.p_source }];
       return route.fulfill({ json: reservationId });
     }
     if (method === "booking_console_set_status_v1") {
@@ -84,6 +84,13 @@ test("operator configures a restaurant, records a reservation and cancels it aft
   await page.getByRole("button", { name: "Stornieren", exact: true }).click();
   await page.getByRole("button", { name: "Status speichern", exact: true }).click();
   await expect(page.getByText("Storniert", { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    const channel = new BroadcastChannel("sb-127-auth-token");
+    channel.postMessage({ event: "SIGNED_OUT", session: null });
+    channel.close();
+  });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Synthetischer Gast" })).toHaveCount(0);
 });
 
 test("setup stays usable on a narrow phone and rejects a stale save honestly", async ({ page }) => {
