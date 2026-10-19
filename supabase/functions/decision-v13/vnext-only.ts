@@ -9,7 +9,7 @@ import {
   type DecisionProductRpcClient,
 } from "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js";
 import { createDecisionProductHttpHandler } from "../../../packages/decision-vnext-core/dist/product-decision.js";
-import { createDecisionProductLunaProvider, parseDecisionProductAiIntentAllowlist } from "../../../packages/decision-vnext-core/dist/product-luna-provider.js";
+import { createDecisionProductLunaProvider } from "../../../packages/decision-vnext-core/dist/product-luna-provider.js";
 
 export const DECISION_V13_VNEXT_ONLY_ENTRYPOINT = "backyrd.decision-vnext.single-route@1.0" as const;
 
@@ -128,7 +128,6 @@ Deno.serve(async (request: Request) => {
     const aiEnabled = Deno.env.get("BACKYRD_DECISION_AI_INTENT_ENABLED") === "true";
     const understandingProvider = aiEnabled ? createDecisionProductLunaProvider({
       apiKey: required("OPENAI_API_KEY"),
-      allowedUserIds: parseDecisionProductAiIntentAllowlist(Deno.env.get("BACKYRD_DECISION_AI_INTENT_USER_ALLOWLIST") ?? ""),
     }) : async () => { throw new Error("product_luna_disabled"); };
     const ports = createDecisionProductProductionPorts({
       rpc,

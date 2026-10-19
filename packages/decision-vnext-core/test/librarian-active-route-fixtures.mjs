@@ -4,11 +4,12 @@ import { createDecisionProductLunaProvider } from "../dist/product-luna-provider
 import { createDecisionProductRpcEvaluationProvider } from "../dist/product-decision-production-adapter.js";
 import { contentHash } from "../dist/canonical.js";
 import { reference, authority } from "./librarian-matching-fixtures.mjs";
-const actor = {userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
+const baseActor = {userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
 const identity = {releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};
-export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[]}) {
+export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[],userId=baseActor.userId}) {
+  const actor={...baseActor,userId};
   let calls=0,reads=0,stored,diagnostics=[];
-  const provider=createDecisionProductLunaProvider({apiKey:'synthetic-key',allowedUserIds:'*',now:()=>new Date(reference.now),fetchImpl:fetchImpl??(async(_url,options)=>{
+  const provider=createDecisionProductLunaProvider({apiKey:'synthetic-key',now:()=>new Date(reference.now),fetchImpl:fetchImpl??(async(_url,options)=>{
     calls++; const body=JSON.parse(options.body); assert.equal(body.store,false);
     assert.equal(JSON.parse(body.input).request,text);
     return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));

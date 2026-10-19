@@ -12,7 +12,16 @@ const intents = PRODUCT_V1_INTENT_MAPPINGS.map((mapping) => mapping.intentId);
 const intentSet = new Set<string>(intents);
 const modelName = /^[A-Za-z0-9._-]{1,80}$/;
 
-export { parseDecisionProductAiIntentAllowlist } from "./product-luna-provider.js";
+// Historical classifier compatibility only; the installed Luna route has no account list.
+export function parseDecisionProductAiIntentAllowlist(raw: string): readonly string[] | "*" {
+  const value = raw.trim();
+  if (value === "*") return "*";
+  if (!value) return [];
+  const ids = value.split(",").map(part => part.trim().toLowerCase());
+  if (ids.length > 16 || ids.some(id => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) || new Set(ids).size !== ids.length) throw new Error("product_ai_intent_allowlist_invalid");
+  return ids;
+}
+
 
 type Facet = { readonly key: string; readonly value: string; readonly role: "REQUIRED" | "PREFERRED" | "EXCLUDED"; readonly group: string | null };
 type UnresolvedNeed = "MUSIC_AT_VISIT_UNVERIFIED" | "PRECISE_TIME_UNVERIFIED" | "OTHER_CORE_NEED_UNMAPPED";
