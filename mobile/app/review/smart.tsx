@@ -1,3 +1,4 @@
+import { MomentShared } from "../../components/reviews/MomentShared";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, ActivityIndicator, Alert, AccessibilityInfo, ScrollView, KeyboardAvoidingView, Platform, Linking } from "react-native";
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
@@ -168,7 +169,6 @@ export default function SmartReviewScreen() {
   }>();
 
   const cameraFirst = capture === "1";
-  const isDecisionReview = source === "decision" || Boolean(decisionId);
 
   const [photo, setPhoto] = useState<ReviewMediaAsset | null>(null);
   const pendingMediaReviewId = useRef<string | null>(null);
@@ -201,6 +201,7 @@ export default function SmartReviewScreen() {
   const [moodB, setMoodB] = useState("");
   const [text, setText] = useState("");
 
+  const [shared, setShared] = useState(false);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
   const mediaReady = !photo || Boolean(photo.prepared);
@@ -485,13 +486,7 @@ export default function SmartReviewScreen() {
       if (newlyUnlocked.length > 0) {
         setUnlockedAchievements(newlyUnlocked);
       } else {
-        Alert.alert(
-          "Danke!",
-          isDecisionReview
-            ? "Dein Moment wurde als Backyrd Treffer gespeichert."
-            : "Dein Moment wurde gespeichert."
-        );
-        router.replace(`/spot/${nearest.id}`);
+        setShared(true);
       }
     } catch (e: any) {
       const errorMessage = String(e?.message ?? e ?? "");
@@ -704,6 +699,8 @@ export default function SmartReviewScreen() {
     );
   }
 
+  if (shared) return <MomentShared placeName={nearest?.name} moods={[moodA, moodB]} onViewPlace={() => router.replace(`/spot/${nearest?.id}` as never)} onDone={() => router.replace("/(tabs)")} />;
+
   if (cameraFirst) {
     return <SafeAreaView edges={["top", "bottom"]} style={styles.gateSafe}>
       <View style={styles.quickHeader}>
@@ -752,7 +749,7 @@ export default function SmartReviewScreen() {
         </View>
       </KeyboardAvoidingView>
       {unlockedAchievements.length > 0 ? <AchievementUnlockModal achievements={unlockedAchievements} onClose={() => {
-        setUnlockedAchievements([]); if (nearest) router.replace(`/spot/${nearest.id}`); else router.back();
+        setUnlockedAchievements([]); setShared(true);
       }} /> : null}
     </SafeAreaView>;
   }
@@ -864,11 +861,7 @@ export default function SmartReviewScreen() {
             achievements={unlockedAchievements}
             onClose={() => {
               setUnlockedAchievements([]);
-              if (nearest?.id) {
-                router.replace(`/spot/${nearest.id}`);
-              } else {
-                router.back();
-              }
+              setShared(true);
             }}
           />
         )}

@@ -1,6 +1,6 @@
 # iOS launch UX polish — 19 October 2026
 
-Status: implemented for review; this design change has not been published. The separate authenticated Decision rollout and approved public Mood threshold migration are independent releases.
+Status: published to iOS production OTA on 19 October 2026 from Main `f9ee80dd456866d32b77cab9bd91c24b3da3dc80` (PR #527). Certification run `39299664279` passed; the public launch bytes match the certified artifact. Update `01a1555d-a28a-7b7b-ae7e-bf05e5341386`, runtime `1.1.0`. Physical-device installation and the remaining acceptance checks below are not yet verified. The separate authenticated Decision rollout and approved public Mood threshold migration are independent releases.
 
 ## Scope
 

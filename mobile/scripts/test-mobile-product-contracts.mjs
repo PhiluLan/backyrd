@@ -38,7 +38,7 @@ const analyticsProvider = read("providers/AnalyticsProvider.tsx");
 const googleSignIn = read("lib/googleSignIn.ts");
 const signOut = read("lib/signOut.ts");
 
-for (const path of ["app/(tabs)/feed.tsx", "app/(tabs)/profile.tsx", "app/user/[id].tsx"]) {
+for (const path of ["lib/social-feed.ts", "app/(tabs)/profile.tsx", "app/user/[id].tsx"]) {
   const source = read(path);
   assert.match(source, /throw new Error\("safety_visibility_unavailable"\)/, `${path} must fail closed if post or review visibility is unavailable`);
   assert.doesNotMatch(source, /visiblePostsResult\.data\)\s*\? visiblePostsResult\.data\s*:\s*postIds/, `${path} must not expose unchecked posts`);

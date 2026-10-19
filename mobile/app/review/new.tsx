@@ -1,3 +1,4 @@
+import { MomentShared } from "../../components/reviews/MomentShared";
 import React, { useEffect, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, ActivityIndicator, Alert, AccessibilityInfo, KeyboardAvoidingView, ScrollView, Platform } from "react-native";
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
@@ -84,6 +85,7 @@ export default function NewReviewScreen() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<ReviewMediaProgress | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [shared, setShared] = useState(false);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
   const mediaReady = photos.length === 0 || photos.every((photo) => Boolean(photo.prepared));
   const hasContent = Boolean(moodA.trim() || moodB.trim() || text.trim() || photos.length);
@@ -239,13 +241,7 @@ export default function NewReviewScreen() {
       if (newlyUnlocked.length > 0) {
         setUnlockedAchievements(newlyUnlocked);
       } else {
-        Alert.alert(
-          "Danke!",
-          isDecisionReview
-            ? "Dein Moment wurde als Backyrd Treffer gespeichert."
-            : "Dein Moment wurde gespeichert."
-        );
-        router.back();
+        setShared(true);
       }
     } catch (e: any) {
       const errorMessage = String(e?.message ?? e ?? "");
@@ -336,6 +332,8 @@ export default function NewReviewScreen() {
       setUploading(false);
     }
   }
+
+  if (shared) return <MomentShared placeName={null} moods={[moodA, moodB]} onViewPlace={() => router.replace(`/spot/${spotId}` as never)} onDone={() => router.replace("/(tabs)")} />;
 
   return (
     <KeyboardAvoidingView
@@ -442,7 +440,7 @@ export default function NewReviewScreen() {
               achievements={unlockedAchievements}
               onClose={() => {
                 setUnlockedAchievements([]);
-                router.back();
+                setShared(true);
               }}
             />
           )}

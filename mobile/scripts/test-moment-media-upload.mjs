@@ -352,6 +352,6 @@ const afterRestartHydration = await loadSocialMediaModule()
   .hydrateSocialMediaSignedUrls([persistedPost]);
 assert.equal(afterRestartHydration[0].media[0].public_url, "https://media.example/signed/2");
 assert.equal(signedUrlCalls, 2);
-assert.match(feedSource, /await hydrateSocialMediaSignedUrls\(visiblePosts\)/);
+assert.match(fs.readFileSync(path.resolve("lib/social-feed.ts"), "utf8"), /hydrateSocialMediaSignedUrls\(visiblePosts\)/);
 
 console.log("Moment media upload contracts passed.");
