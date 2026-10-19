@@ -1,0 +1,19 @@
+{
+  "version":"nuknuk-model-quality@1",
+  "asOf":"2026-10-19",
+  "scope":"Synthetic regression probes for known failure classes, not a blind benchmark or general accuracy estimate. Expected judgments must not be sent to the model.",
+  "cases":[
+    {"id":"c01","target":"Synthetic Café, Example Street 1","source":"Wir servieren hausgemachte Kuchen, Waffeln und frischen Kaffee.","claim":"This venue has Wi-Fi.","expected":"UNSUPPORTED"},
+    {"id":"c02","target":"Synthetic Museum, Example Street 1","source":"MUSEUM: Telefon +41 61 111 22 33. CAFE & RESTAURANT: Telefon +41 61 444 55 66.","claim":"The museum public phone is +41 61 111 22 33.","expected":"SUPPORTED"},
+    {"id":"c03","target":"Synthetic Museum, Example Street 1","source":"MUSEUM: Telefon +41 61 111 22 33. CAFE & RESTAURANT: Telefon +41 61 444 55 66.","claim":"The museum public phone is +41 61 444 55 66.","expected":"UNSUPPORTED"},
+    {"id":"c04","target":"Synthetic Hotel, STAY","source":"Bar: Montag bis Freitag 11–23 Uhr. Die Hotelrezeption erreichen Sie telefonisch.","claim":"The hotel's regular opening hours are Monday to Friday 11–23.","expected":"UNSUPPORTED"},
+    {"id":"c05","target":"Synthetic Museum","source":"Besucherbewertung: «Ein grossartiger Ort für meine Kinder!» – Anna, Besucherin.","claim":"The museum officially states that it is suitable for children.","expected":"UNSUPPORTED"},
+    {"id":"c06","target":"Synthetic Hotel, STAY","source":"Classic Room: ein Doppelzimmer mit Boxspringbett und eigenem Bad.","claim":"Classic Room is an overnight accommodation offer of the hotel.","expected":"SUPPORTED"},
+    {"id":"c07","target":"Synthetic Restaurant","source":"Mittagskarte gültig vom 12.10.2026 bis 16.10.2026: Kürbissuppe mit Brot.","claim":"This source establishes that Kürbissuppe is currently offered on 19.10.2026.","expected":"UNSUPPORTED"},
+    {"id":"c08","target":"Synthetic Brasserie","source":"Wir sind eine Brasserie, keine Brauerei. Wir servieren saisonale Gerichte.","claim":"The venue brews its own beer.","expected":"UNSUPPORTED"},
+    {"id":"c09","target":"Synthetic Café","source":"Unser kostenloses WLAN steht allen Gästen zur Verfügung.","claim":"This venue has Wi-Fi for guests.","expected":"SUPPORTED"},
+    {"id":"c10","target":"Synthetic Museum","source":"Tuesday till Friday 11–17. Saturday 13–17. Sunday 11–17. Monday closed.","claim":"The museum is explicitly closed on Mondays.","expected":"SUPPORTED"},
+    {"id":"c11","target":"Synthetic Restaurant","source":"Unsere Terrasse ist bei schönem Wetter geöffnet.","claim":"The terrace is open regardless of weather.","expected":"UNSUPPORTED"},
+    {"id":"c12","target":"Synthetic Restaurant","source":"Unsere Terrasse ist bei schönem Wetter geöffnet.","claim":"The restaurant has a terrace, with weather-dependent opening.","expected":"SUPPORTED"}
+  ]
+}

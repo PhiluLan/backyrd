@@ -277,12 +277,12 @@ export function parseHoursRow(quote) {
   const regex=new RegExp('(?<![a-zäöü])('+dayWords.flat().sort((a,b)=>b.length-a.length).join('|')+')(?![a-zäöü])','gi');
   const mentions=[...quote.matchAll(regex)];let indexes=mentions.map(m=>dayWords.findIndex(words=>words.includes(m[1].toLowerCase())));
   if(/täglich|daily|jeden tag/i.test(quote)&&!indexes.length)indexes=[0,1,2,3,4,5,6];
-  else if(mentions.length===2&&/^\.?\s*(?:-|–|—|bis|to)\s*$/i.test(quote.slice(mentions[0].index+mentions[0][0].length,mentions[1].index))) {
+  else if(mentions.length===2&&/^\.?\s*(?:-|–|—|bis|to|till|through)\s*$/i.test(quote.slice(mentions[0].index+mentions[0][0].length,mentions[1].index))) {
     const start=indexes[0],end=indexes[1];indexes=[];for(let n=start;;n=(n+1)%7){indexes.push(n);if(n===end)break;}
   }
   if(!indexes.length)return [];
   const clock='([0-2]?\\d)(?:[.:]([0-5]\\d))?';
-  const pairs=[...quote.matchAll(new RegExp('(?<![\\d.:])'+clock+'\\s*(?:Uhr|h)?\\s*(?:-|–|—|bis|to)\\s*'+clock+'(?![\\d.:])','gi'))];
+  const pairs=[...quote.matchAll(new RegExp('(?<![\\d.:])'+clock+'\\s*(?:Uhr|h)?\\s*(?:-|–|—|bis|to|till|through)\\s*'+clock+'(?![\\d.:])','gi'))];
   const fmt=(h,m)=>String(Number(h)%24).padStart(2,'0')+':'+(m??'00');
   if(pairs.some(p=>Number(p[1])>23||Number(p[3])>24||(Number(p[3])===24&&p[4]&&p[4]!=='00')))return [];
   const intervals=pairs.map(p=>({start:fmt(p[1],p[2]),end:fmt(p[3],p[4])}));
@@ -303,9 +303,9 @@ export function fieldCandidates(field,sources) {
       quotes=(source.descriptionText??source.text).split(/(?<!\b(?:St|Dr|Prof|Mr|Mrs)\.)(?<=[.!?])\s+(?=[A-ZÄÖÜ])|\n+/).map(s=>s.trim()).filter(s=>s.length>=25&&s.length<=800&&/[.!?]$/.test(s));
     } else {
       const day='(?:'+dayWords.flat().sort((a,b)=>b.length-a.length).join('|')+'|täglich|daily)';
-      const group=day+'(?:\\.?\\s*(?:-|–|—|bis|to|&|und|and)\\s*'+day+')*\\.?';
+      const group=day+'(?:\\.?\\s*(?:-|–|—|bis|to|till|through|&|und|and)\\s*'+day+')*\\.?';
       const clock='(?:[0-2]?\\d(?:[.:][0-5]\\d)?)';
-      const pair=clock+'\\s*(?:Uhr|h)?\\s*(?:-|–|—|bis|to)\\s*(?:'+clock+'|Mitternacht|midnight)'+'(?:\\s*(?:Uhr|h))?';
+      const pair=clock+'\\s*(?:Uhr|h)?\\s*(?:-|–|—|bis|to|till|through)\\s*(?:'+clock+'|Mitternacht|midnight)'+'(?:\\s*(?:Uhr|h))?';
       const pattern='(?<![a-zäöü])'+group+'\\s*:?(?:\\s+von)?\\s*(?:'+pair+'(?:[\\s,&]*(?:und|and)?\\s*'+pair+')*|geschlossen|ruhetag|closed)(?![a-zäöü])';
       const inText=text=>[...text.matchAll(new RegExp(pattern,'gi'))].map(m=>{
         const after=text.slice(m.index+m[0].length),extension=after.match(new RegExp('^\\s*'+day+'\\s+bis\\s+'+clock+'\\s*(?:Uhr)?\\s+geöffnet','iu'));

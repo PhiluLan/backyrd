@@ -11,14 +11,24 @@ export function isPublicIPv4(ip) {
   const p=ip.split('.').map(Number);
   return p.length===4&&p.every(n=>Number.isInteger(n)&&n>=0&&n<256)&&![0,10,127].includes(p[0])&&p[0]<224&&!(p[0]===169&&p[1]===254)&&!(p[0]===172&&p[1]>=16&&p[1]<=31)&&!(p[0]===192&&[0,168].includes(p[1]))&&!(p[0]===100&&p[1]>=64&&p[1]<=127)&&!(p[0]===198&&[18,19].includes(p[1]));
 }
-// Explicit operator-approved URLs only. No recursive crawl, credentials or redirect following.
-export async function fetchPublicSource(value,{resolve=lookup,requestImpl=request,maxBytes=2000000,timeoutMs=15000}={}) {
+// Public GET only; callers constrain official-site discovery. No credentials or redirects.
+export async function fetchPublicSource(value,{resolve=lookup,requestImpl=request,maxBytes=2000000,timeoutMs=15000,maxRedirects=0,allowedWebsite=value}={}) {
+  if(!Number.isInteger(maxRedirects)||maxRedirects<0||maxRedirects>3)throw new Error('source_redirect_limit_invalid');
   const url=publicSourceUrl(value),u=new URL(url);
   let dnsTimer;
   const addresses=await Promise.race([resolve(u.hostname,{family:4,all:true}),new Promise((_,reject)=>{dnsTimer=setTimeout(()=>reject(new Error('source_dns_timeout')),timeoutMs);})]).finally(()=>clearTimeout(dnsTimer));
   if(!addresses.length||addresses.some(a=>!isPublicIPv4(a.address)))throw new Error('source_private_address');
   return new Promise((accept,reject)=>{
     const req=requestImpl(url,{method:'GET',headers:{'user-agent':'Backyrd-Nuknuk-Research/1.0','accept':'text/html,text/plain,application/pdf,image/jpeg,image/png','accept-encoding':'identity'},lookup:(_host,options,callback)=>callback(null,options?.all?[{address:addresses[0].address,family:4}]:addresses[0].address,4)},res=>{
+      if([301,302,303,307,308].includes(res.statusCode)&&maxRedirects>0){
+        res.destroy();
+        try{
+          if(typeof res.headers.location!=='string')throw new Error('source_redirect_location_missing');
+          const target=publicSourceUrl(new URL(res.headers.location,url).href);
+          if(!matchesExistingWebsite(target,allowedWebsite))throw new Error('source_redirect_identity_rejected');
+          accept(fetchPublicSource(target,{resolve,requestImpl,maxBytes,timeoutMs,maxRedirects:maxRedirects-1,allowedWebsite}).then(page=>({...page,redirectedFrom:[url,...(page.redirectedFrom??[])]})));
+        }catch(error){reject(error);}return;
+      }
       if(res.statusCode!==200){res.destroy();reject(new Error(`source_http_${res.statusCode}`));return;}
       const type=String(res.headers['content-type']??'').toLowerCase();
       if(!/^(text\/html|text\/plain|application\/xhtml\+xml|application\/pdf|image\/jpeg|image\/png)/i.test(type)){res.destroy();reject(new Error('source_format_unsupported'));return;}
@@ -42,10 +52,20 @@ export function menuOfferingGroup(label) {
   if(/^(?:Wein(?:karte|e)?|Offen(?:e )?weine|Wine ?(?:list|menu)|Wines)$/iu.test(text))return 'WINE';
   return null;
 }
-export function sourceText(page,id) {
+export function sourceText(page,id,{preferMain=false}={}) {
   const named={auml:'ä',ouml:'ö',uuml:'ü',Auml:'Ä',Ouml:'Ö',Uuml:'Ü',szlig:'ß',eacute:'é',egrave:'è',agrave:'à',ccedil:'ç',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',ndash:'–',mdash:'—',euro:'€',hellip:'…',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',thinsp:' ',ensp:' ',emsp:' ',laquo:'«',raquo:'»',copy:'©'};
   const clean=html=>html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<\/?(?:p|h[1-6]|li|div|section|article|tr|br)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&([a-zA-Z]+);/g,(m,key)=>named[key]??m).replace(/&#(x[0-9a-f]+|\d+);/gi,(_m,n)=>{const c=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return c>0&&c<=0x10ffff?String.fromCodePoint(c):' ';}).replace(/[ \t\r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
-  const text=clean(page.body);
+  const primary=page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
+  const selectedHtml=preferMain&&primary?primary.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '):page.body;
+  const text=clean(selectedHtml);
+  const headings=[];
+  if(preferMain)for(const match of selectedHtml.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi)) {
+    const label=clean(match[2]);if(!label||label.length>160)continue;
+    const expected=clean(selectedHtml.slice(0,match.index)).length;
+    const offset=text.indexOf(label,Math.max(0,expected-12));
+    if(offset<0||Math.abs(offset-expected)>20||offset+label.length>12000)continue;
+    headings.push({level:Number(match[1]),text:label,offset});if(headings.length===80)break;
+  }
   const main=page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]??page.body;
   const descriptionText=clean(main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ')).slice(0,12000);
   if(!text)throw new Error('source_empty');
@@ -63,7 +83,7 @@ export function sourceText(page,id) {
       linkedMenus.push({label,url:target});if(linkedMenus.length>=12)break;
     }catch{}
   }
-  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex')};
+  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex'),...(preferMain?{textSelection:primary?'MAIN_CONTENT':'FULL_PAGE',headings,assetHash:createHash('sha256').update(page.body).digest('hex')}:{})};
 }
 
 // A different host is a review item, not an automatically trusted alias/branch.
@@ -74,7 +94,7 @@ export function matchesExistingWebsite(sourceUrl, existingWebsite) {
   } catch { return false; }
 }
 
-export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFTOTEXT??'pdftotext',ocrCommand=process.env.NUKNUK_TESSERACT??'tesseract',ocrLanguages=process.env.NUKNUK_OCR_LANGUAGES??'eng'}={}) {
+export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFTOTEXT??'pdftotext',ocrCommand=process.env.NUKNUK_TESSERACT??'tesseract',ocrLanguages=process.env.NUKNUK_OCR_LANGUAGES??'eng',preferMain=false}={}) {
   const image=/^image\/(jpeg|png)$/i.test(page.contentType??'');
   if(image) {
     const b=page.body;
@@ -86,7 +106,7 @@ export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFT
     const text=body.trim().slice(0,12000);if(!text)throw new Error('source_ocr_empty');
     return {id,url:page.url,observedAt:page.observedAt,text,truncated:body.trim().length>12000,format:'IMAGE_OCR',layoutReviewRequired:true,ocrLanguage:ocrLanguages,assetHash:createHash('sha256').update(b).digest('hex'),hash:createHash('sha256').update(text).digest('hex')};
   }
-  if(!String(page.contentType??'').toLowerCase().startsWith('application/pdf'))return sourceText(page,id);
+  if(!String(page.contentType??'').toLowerCase().startsWith('application/pdf'))return sourceText(page,id,{preferMain});
   if(!Buffer.isBuffer(page.body)||page.body.length>2000000||page.body.subarray(0,5).toString()!=='%PDF-')throw new Error('source_pdf_invalid');
   const body=await new Promise((resolve,reject)=>{
     const child=execFile(pdfCommand,['-raw','-f','1','-l','10','-','-'],{timeout:10000,maxBuffer:200000,encoding:'utf8'},(error,stdout)=>error?reject(new Error('source_pdf_extraction_failed')):resolve(stdout));
@@ -138,4 +158,26 @@ export function discoverMenuDocuments(page) {
     if(documents.length===4)break;
   }
   return documents;
+}
+
+// Bounded official-site frontier for Research v2. Only observed links; no guessed
+// URLs, browser instructions, authenticated actions or automatic domain aliases.
+export function discoverResearchLinks(page) {
+  if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
+  const links=[];
+  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|food|drink|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|experience|ausstellung|exhibition|sammlung|collection|zimmer|rooms?|aktivität|activities/iu,about:/über|ueber|about|portrait|konzept|concept/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq/iu};
+  for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const label=m[2].replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim().slice(0,200);
+    try {
+      const url=publicSourceUrl(new URL(m[1].replace(/&amp;/g,'&'),page.url).href);
+      if(!matchesExistingWebsite(url,page.url)||url===page.url||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|cart|privacy|datenschutz/iu.test(new URL(url).pathname))continue;
+      const material=decodeURI(new URL(url).pathname)+' '+label;
+      const topics=Object.entries(topicPatterns).filter(([,pattern])=>pattern.test(material)).map(([key])=>key);
+      if(!topics.length&&(!label||/\.(?:jpg|png|zip|mp4)$/iu.test(url)||/\/(?:products|collections|blogs|policies)\//iu.test(new URL(url).pathname)))continue;
+      const existing=links.find(l=>l.url===url);
+      if(existing){existing.topics=[...new Set([...existing.topics,...topics])];existing.label=(existing.label+' | '+label).slice(0,200);continue;}
+      if(links.length<60)links.push({url,label,topics});
+    }catch{}
+  }
+  return links;
 }

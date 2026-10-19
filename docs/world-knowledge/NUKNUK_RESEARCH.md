@@ -1,6 +1,6 @@
-# Local Nuknuk Research
+# Local Nuknuk Research v2
 
-Status: local evidence-backed review drafts for existing Spots. No automatic
+Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
 
 The user decision is whether a sourced addition belongs in an existing Spot.
@@ -9,15 +9,129 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
+## Active architecture: Research v2.0
+
+Task class: FAST_PR. Owned paths: the local research adapter, public-source
+reader, CLI, their tests and this document. No runtime client, shared catalog,
+production worker, database, migration, import authority or model weight changes.
+The CLI now uses `researchSpotV2` in `src/nuknuk-agent.ts`; the v9 field extractor
+remains an API/regression reference, not the CLI execution path. The typed local adapter compiles to ignored `dist/` JavaScript for compatibility
+with the repository’s Node 20 CI. Build and typecheck the adapter:
+
+```sh
+npm run build --workspace @backyrd/spot-research-runtime
+npm run typecheck --workspace @backyrd/spot-research-runtime
+npm test --workspace @backyrd/spot-research-runtime
+```
+
+1. **Plan and retrieve.** Start with the current exported official website (or
+   explicit approved seeds). Build a frontier only from actual public links.
+   Contact, hours, menus, experiences, visitor/access and about pages are scored
+   against unanswered fields after each page. Follow up to three link levels;
+   all URLs and DNS requests retain the public-source boundary. Up to three
+   HTTPS redirects may be followed within the same official host; every hop is
+   separately DNS-checked and charged to the request budget. Default limits:
+   12 HTTP requests (including redirect hops), 24 model calls and 10 minutes per Spot; hard maxima 24/48/15min.
+   This is official-site link research, not an internet search engine or a browser
+   capable of rendering every JavaScript-only page. Aliases require review.
+2. **Extract atomic evidence.** Literal phone/email and opening-hours parsers
+   create source-bound candidates; the model cannot invent or rewrite them.
+   Semantic extraction is split into small offer and property question groups.
+   It selects immutable original blocks for evidence and uses canonical enum
+   values. Descriptions copy a factual original span. Main content is preferred
+   over navigation/footers when present; duplicate source text is not processed
+   repeatedly. Original hashes and omitted/held evidence remain visible.
+3. **Check interpretation.** A separate local-model critic checks each candidate
+   against the original source and target, including its venue/area/offer/other/unknown
+   subject, its separate ownership relationship (`belongsTo`), polarity and current/dated/conditional applicability. Restrictions
+   must be literal source text, never generated explanations. Date bounds are
+   not guessed; dated evidence is held with its original wording. The critic may
+   narrow applicability, never silently broaden an extracted restriction.
+   Missing, duplicate or rejected decisions cannot approve a claim. Both passes
+   use the same pinned model: useful error detection, not independent truth.
+4. **Project drafts.** Only supported, current unconditional target facts enter
+   whole-Spot draft fields. Area/conditional/dated evidence remains visible for
+   scoped review. Owned room/activity offers can remain narrower than the whole
+   venue. Exact descriptions may retain their explicit conditions in copied text;
+   this does not establish an unconditional property. Original offer names are
+   retained, offer kinds checked against the current research focus, hours parsed
+   deterministically and conflicts withheld. The research focus is narrower than
+   the canonical ontology; a hotel restaurant is not intrinsically invalid.
+   Phones/emails must occur literally; enum values must exist in the canonical
+   catalog. Exact grounding does not prove semantic interpretation.
+5. **Report coverage honestly.** Reports include sources, facts, model outputs and
+   prompt hashes, rejected/held evidence, retrieval/model failures, actions,
+   pending links and the exact stop reason. Code and source-reader hashes bind
+   future runs to their exact implementation. A checkpoint saves source text,
+   pending facts and raw model outputs after each stage, including failed stages. Every field has `complete:false`:
+   finding one fact or exhausting observed links cannot certify completeness.
+
+Supported v2 fields: description.highlight, contact.phone, contact.public_email,
+hours.regular, experience.profile, offering.groups, amenity.features and
+operation.laptop_policy. Other requested fields are explicitly unresolved. Named
+offers remain bounded partial profiles (at most four), never full inventories.
+PDF/image layout remains a review requirement; conditions are preserved in the
+ledger rather than silently erased into whole-Spot fields. Prices are deliberately empty
+in projected v2 offers: block-level extraction does not certify menu layout.
+Original HTML heading hierarchy helps separate hours of hotel/museum/restaurant,
+bar and kitchen areas. Explicit uppercase operating-area labels inherit over their
+weekday rows only inside an actual opening-hours section, and reset at the next
+area label; an earlier navigation word cannot relabel a later schedule. Bare headings are removed from offer candidates before model
+selection, not merely rejected after generation. Regional formats not
+understood by the existing canonical parsers remain unresolved.
+
+Set optional manifest `budget` to `{ "maxRequests": 12, "maxModelCalls": 24,
+"budgetMs": 600000, "maxDepth": 3 }`. `sources` may be omitted when a current
+export contains the official website. `discoverLinks:false` restricts fetching to
+seeds. Explicit requested fields recheck known values; the default eight supported
+fields preserve existing known values.
+
+A research-system update is not model pretraining or fine-tuning. The existing
+local weights are unchanged. No outside AI provider or provider key is used.
+Public HTTP requests still go to the researched websites. Draft review and the
+existing Admin persistence boundary remain mandatory. Rollback: restore the
+prior CLI commit; no data or schema rollback is required.
+
+## Model selection and quality boundary
+
+The active default is the pinned local `mlx-community/Qwen3.5-9B-4bit`, revision
+`8b2b98c00a6b4d291155e4890773ca8f769aee53`. An explicitly selected experimental
+27B route is also supported: `mlx-community/Qwen3.5-27B-4bit`, revision
+`45797d2985a12c55e6473686e9ea91b95e959553`, with a 240-second request timeout
+and 15-minute default Spot budget. It is not automatically selected or downloaded
+by the CLI. Larger weights are not evidence of better Backyrd performance; do not
+promote this route until measured on identical sources, errors, useful coverage,
+latency and memory. Neither route uses an external AI API. Existing v9 entry
+points retain their original 9B contract.
+
+A 12-case synthetic language regression corpus covers false preferences,
+venue/area confusion, reviews, expired offers, explicit facilities and affirmative
+controls. It is a regression set, not a blind benchmark or production accuracy
+estimate. The 9B model alone still fails the bar-hours-to-hotel negative case;
+structural evidence gates are therefore mandatory even after two model passes.
+High quality cannot be obtained by treating model agreement as proof.
+
+Offer decoding permits all actual offer kinds and an empty abstention, even for a
+STAY target. Restricting the decoder to room kinds forced a restaurant to be
+mislabelled as accommodation in development. Decode actual kind first, then check
+the research focus; the critic also checks the relation of name to kind. These
+checks still depend on model interpretation and do not certify a full portfolio.
+
+## Historical v4–v9 implementation and evaluation record
+
+The sections below document the previous field-extraction pilot and its exact
+limitations. Their six-request/one-hop bounds do not describe the active v2 CLI.
+
 ## Run
 
-Build `npm run world-knowledge:build` first. Start the existing loopback-only MLX
+Build `npm run world-knowledge:build` and
+`npm run build --workspace @backyrd/spot-research-runtime` first. Start the existing loopback-only MLX
 server on `127.0.0.1:8088` with `mlx-community/Qwen3.5-9B-4bit`, revision
 `8b2b98c00a6b4d291155e4890773ca8f769aee53`.
 
 ```sh
 node scripts/world-knowledge/nuknuk-research.mjs manifest.json /absolute/model/path/8b2b98c00a6b4d291155e4890773ca8f769aee53 .local/research-output
-node --test packages/spot-research-runtime/test/*.test.mjs
+npm test --workspace @backyrd/spot-research-runtime
 ```
 
 Example manifest, using a synthetic identity:
@@ -35,7 +149,7 @@ Example manifest, using a synthetic identity:
 }
 ```
 
-By default the four pilot fields are researched only when the export does not already contain a known value. Explicit `fields` selects fields for rechecking; all results still remain review drafts. Known values are never automatically rewritten.
+In the historical v9 pilot, the four pilot fields were researched only when the export does not already contain a known value. Explicit `fields` selects fields for rechecking; all results still remain review drafts. Known values are never automatically rewritten.
 
 `exportPath` is a current Admin `world-research-batch@1.1` export. Its catalog,
 manifest hashes and identity validation remain authoritative. The adapter uses
@@ -381,3 +495,26 @@ held-out-accuracy or fully autonomous-discovery claim. 129 runtime tests, core
 typecheck and repository/security gates pass. No canonical writes; owned model
 processes stopped after both runs. Live exports, public-source snapshots and
 review artifacts remain local and are excluded from Git.
+
+## Evaluation discipline for v2
+
+`nuknuk-evaluation.ts` binds every field assessment to a report hash and an
+independent reference hash. All requested fields must be assessed exactly once.
+Correct assertions, partial answers, omissions, incorrect assertions and justified
+abstentions are distinct; false assertions, wrong subjects and missed reference
+facts have separate counts. A technical successful exit or zero FAILED fields is
+not an accuracy metric. Missing supported facts cannot count as correct
+abstentions. Recorded reference checks do not certify every possible fact.
+
+Development reports remain in ignored `.local/nuknuk-research/v2-heldout/`.
+The first all-field extraction experiment abstained on all 24 fields across
+Acero, Café Frühling and Fondation Beyeler. It exposed invented explanatory
+conditions, copyright-year validity and a stored-URL redirect failure. That
+experiment is explicitly a failed quality baseline, not a safe/reliable success.
+The subsequent blocked-span all-field experiment also underperformed. v2 now
+splits the model's tasks and uses literal parsers for non-generative facts.
+Interrupted runs and model-unavailable results are excluded from quality claims.
+The final real-model evaluation, exact source digests, independent pre-run checks,
+source failures and field-by-field audit are recorded locally, with a summary
+below after completion. Small samples cannot establish autonomous production
+reliability. The same weights remain in use; no model training is claimed.
