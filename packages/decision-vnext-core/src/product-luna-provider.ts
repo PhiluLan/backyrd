@@ -2,7 +2,7 @@ import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, LUNA_LIBRARIAN
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 import type { DecisionProductAuthenticatedActor } from "./product-decision.js";
 
-export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@1" as const;
+export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@2" as const;
 
 
 function modelOutput(value: unknown): unknown {

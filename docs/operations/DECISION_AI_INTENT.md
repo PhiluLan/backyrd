@@ -4,7 +4,7 @@
 
 The founder explicitly requested Decision for every authenticated Backyrd account
 and removal of the account allowlist. The installed Luna provider and Edge
-composition no longer read or enforce an actor list. Verified authentication
+composition (`backyrd.luna-provider@2`) no longer read or enforce an actor list. Verified authentication
 still rejects missing, anonymous, deleted and banned accounts before model calls.
 Release authority, rate limits, timeouts, consent-bound personalization and
 Emergency-OFF remain in force.
