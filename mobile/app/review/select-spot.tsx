@@ -42,16 +42,16 @@ export default function SelectReviewSpotScreen() {
 
       <View style={styles.intro}>
         <AppText role="body" tone="secondary">Wähle den Ort, an dem du deinen Moment erlebt hast.</AppText>
-        <Button label="Spot automatisch erkennen" variant="secondary" onPress={() => router.push("/review/smart")} style={styles.smartButton} />
+        <Button label="Ort automatisch erkennen" variant="secondary" onPress={() => router.push("/review/smart")} style={styles.smartButton} />
         <AppText role="caption" tone="muted">Optional · benötigt deine Standortfreigabe</AppText>
       </View>
 
       <View style={styles.search}>
         <Ionicons name="search" size={20} color={theme.color.textSecondary} />
         <ProductTextInput
-          accessibilityLabel="Spot suchen"
+          accessibilityLabel="Ort suchen"
           autoCorrect={false}
-          placeholder="Spot oder Ort suchen"
+          placeholder="Name oder Adresse suchen"
           placeholderTextColor={theme.color.textMuted}
           style={styles.input}
           value={query}
@@ -59,14 +59,14 @@ export default function SelectReviewSpotScreen() {
         />
       </View>
 
-      {loading ? <View style={styles.state}><StateView kind="loading" title="Spots werden geladen" /></View>
-        : error ? <View style={styles.state}><StateView kind="error" title="Spots gerade nicht verfügbar" message="Bitte versuche es noch einmal. Dein Moment ist noch nicht verloren." actionLabel="Erneut laden" onAction={() => void refresh()} /></View>
+      {loading ? <View style={styles.state}><StateView kind="loading" title="Orte werden geladen" /></View>
+        : error ? <View style={styles.state}><StateView kind="error" title="Orte gerade nicht verfügbar" message="Bitte versuche es noch einmal. Dein Moment ist noch nicht verloren." actionLabel="Erneut laden" onAction={() => void refresh()} /></View>
         : <FlatList
             data={results}
             keyExtractor={(spot) => spot.id}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.list}
-            ListEmptyComponent={<StateView kind="empty" title={query ? "Kein passender Spot" : "Noch keine Spots"} message={query ? "Versuche einen anderen Namen oder Ort." : "Aktuell sind keine Spots verfügbar."} />}
+            ListEmptyComponent={<StateView kind="empty" title={query ? "Kein passender Ort" : "Noch keine Orte"} message={query ? "Versuche einen anderen Namen oder Ort." : "Aktuell sind keine Orte verfügbar."} />}
             renderItem={({ item }) => (
               <Pressable
                 accessibilityRole="button"
@@ -75,8 +75,8 @@ export default function SelectReviewSpotScreen() {
                 onPress={() => router.push({ pathname: "/review/new", params: { spotId: item.id, source: "manual" } })}
               >
                 <View style={styles.rowText}>
-                  <AppText role="bodyStrong" numberOfLines={1}>{item.name}</AppText>
-                  <AppText role="meta" tone="secondary" numberOfLines={1}>{item.address || item.city || "Adresse noch offen"}</AppText>
+                  <AppText role="bodyStrong">{item.name}</AppText>
+                  <AppText role="meta" tone="secondary">{item.address || item.city || "Adresse noch offen"}</AppText>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={theme.color.textMuted} />
               </Pressable>
@@ -89,7 +89,7 @@ export default function SelectReviewSpotScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.color.background },
   header: { flexDirection: "row", alignItems: "center", gap: theme.spacing.md, paddingHorizontal: theme.spacing.lg, paddingTop: theme.spacing.md },
-  back: { minHeight: 44, minWidth: 36, justifyContent: "center" },
+  back: { minHeight: 44, minWidth: theme.control.compact, justifyContent: "center" },
   intro: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xl, gap: theme.spacing.sm },
   smartButton: { alignSelf: "stretch", marginTop: theme.spacing.sm },
   search: { flexDirection: "row", alignItems: "center", marginHorizontal: theme.spacing.xl, marginTop: theme.spacing.xl, paddingHorizontal: theme.spacing.md, minHeight: 52, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.color.border, backgroundColor: theme.color.surface },

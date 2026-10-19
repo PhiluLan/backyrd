@@ -10,7 +10,7 @@ export const backyrdTheme = {
     textPrimaryLight: "#17161A",
     textSecondary: "#9B9B9F",
     textSecondaryLight: "#827D77",
-    textMuted: "#747478",
+    textMuted: "#8C8C92",
     pink: "#FF4F91",
     blue: "#A9C2FF",
     openGreen: "#9AE67A",

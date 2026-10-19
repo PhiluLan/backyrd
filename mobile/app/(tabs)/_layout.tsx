@@ -1,21 +1,25 @@
 // mobile/app/(tabs)/_layout.tsx
+import { AppText } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { useAuth } from "../../hooks/useAuth";
 import { backyrdTheme as theme } from "../../theme/backyrd";
+import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 
-function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
+function SmartReviewTabButton({ onPress, opening }: { onPress?: () => void; opening: boolean }) {
   return (
     <View style={styles.plusWrap}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Moment erstellen und Spot auswählen"
+        accessibilityLabel="Moment mit Foto festhalten"
+        accessibilityState={{ busy: opening, disabled: opening }}
+        disabled={opening}
         hitSlop={8}
         onPress={onPress}
         style={({ pressed }) => [
@@ -23,7 +27,7 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
           pressed && styles.plusButtonPressed,
         ]}
       >
-        <Ionicons name="add" size={27} color={theme.color.background} />
+        {opening ? <ActivityIndicator color={theme.color.background} /> : <Ionicons name="add" size={27} color={theme.color.background} />}
       </Pressable>
     </View>
   );
@@ -35,6 +39,8 @@ export default function TabsLayout() {
   const params = useGlobalSearchParams();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const momentOpening = React.useRef(false);
+  const [openingMoment, setOpeningMoment] = React.useState(false);
   const isGuest = !user;
 
   const hideTabs = pathname.includes("/decision-onboarding") || (pathname.includes("/decision") && params.hideTabs === "1");
@@ -55,7 +61,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: theme.color.pink,
         tabBarInactiveTintColor: "#808087",
         tabBarHideOnKeyboard: true,
-        tabBarLabelStyle: styles.tabLabel,
+        tabBarLabel: ({ children, color }) => <AppText role="caption" maxFontSizeMultiplier={1.1} style={[styles.tabLabel, { color }]}>{children}</AppText>,
         tabBarItemStyle: styles.tabItem,
       }}
     >
@@ -63,6 +69,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Entdecken",
+          tabBarAccessibilityLabel: "Entdecken",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "compass" : "compass-outline"}
@@ -78,6 +85,7 @@ export default function TabsLayout() {
         options={{
           href: isGuest ? null : undefined,
           title: "Wohin",
+          tabBarAccessibilityLabel: "Wohin",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "sparkles" : "sparkles-outline"}
@@ -97,13 +105,15 @@ export default function TabsLayout() {
             ? () => null
             : () => (
                 <SmartReviewTabButton
+                  opening={openingMoment}
                   onPress={() => {
-                    trackAnalyticsEvent({
-                      eventName: "review_started",
-                      screenName: "tabs",
-                      properties: { mode: "spot_selection", source: "tab_bar" },
-                    });
-                    router.push("/review/select-spot");
+                    if (momentOpening.current) return;
+                    momentOpening.current = true;
+                    setOpeningMoment(true);
+                    void openMomentComposerSafely({ router, href: "/review/smart?capture=1", onAllowed: () => {
+                      void trackAnalyticsEvent({ eventName: "review_started", screenName: "tabs", properties: { mode: "camera_first", source: "tab_bar" } });
+                    } }).catch(() => Alert.alert("Moment gerade nicht verfügbar", "Versuche es bitte noch einmal."))
+                      .finally(() => { momentOpening.current = false; setOpeningMoment(false); });
                   }}
                 />
               ),
@@ -114,6 +124,7 @@ export default function TabsLayout() {
         name="map"
         options={{
           title: "Orte",
+          tabBarAccessibilityLabel: "Orte",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "map" : "map-outline"}
@@ -129,6 +140,7 @@ export default function TabsLayout() {
         options={{
           href: isGuest ? null : undefined,
           title: "Momente",
+          tabBarAccessibilityLabel: "Momente",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "people" : "people-outline"}

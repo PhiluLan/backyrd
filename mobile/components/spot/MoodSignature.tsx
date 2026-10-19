@@ -3,11 +3,16 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { AppText } from "../foundation/AppText";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
+export function moodCountDescription(count: number | null | undefined) {
+  return count === 0 ? "Noch keine Eindrücke" : moodCountCopy(count);
+}
+
 export function MoodSignature({ labels, compact = false, onPress, onRemove, moodCount }: {
   labels: readonly string[]; compact?: boolean; moodCount?: number | null; onPress?: () => void; onRemove?: (label: string) => void;
 }) {
   const visible = [...new Set(labels.filter(Boolean))].slice(0, 3);
-  const countCopy = moodCountCopy(moodCount);
+  const countCopy = moodCount === 0 ? null : moodCountCopy(moodCount);
+  if (!visible.length && moodCount === 0) return <AppText role="caption" tone="secondary">Noch keine Eindrücke</AppText>;
   if (!visible.length && !countCopy) return null;
   const content = <View style={styles.row}>
     {countCopy ? <AppText role="label" style={compact ? styles.compact : styles.label}>{countCopy}</AppText> : null}

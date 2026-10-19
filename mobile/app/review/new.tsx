@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Pressable, StyleSheet, ActivityIndicator, Alert, AccessibilityInfo, KeyboardAvoidingView, ScrollView, TouchableWithoutFeedback, Keyboard, Platform } from "react-native";
-import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
+import { View, Pressable, StyleSheet, ActivityIndicator, Alert, AccessibilityInfo, KeyboardAvoidingView, ScrollView, Platform } from "react-native";
+import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import type { User } from "@supabase/supabase-js";
+import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -71,7 +72,6 @@ export default function NewReviewScreen() {
   const isDecisionReview = source === "decision" || Boolean(decisionId);
 
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const [user, setUser] = useState<User | null>(null);
   const [moodA, setMoodA] = useState("");
@@ -157,12 +157,12 @@ export default function NewReviewScreen() {
 
   async function submitReviewOnce() {
     if (!spotId) {
-      Alert.alert("Fehler", "Kein Spot ausgewählt");
+      Alert.alert("Fehler", "Kein Ort ausgewählt");
       return;
     }
 
     if (!user?.id) {
-      Alert.alert("Login benötigt", "Bitte melde dich an, um eine Review zu schreiben.");
+      Alert.alert("Login benötigt", "Bitte melde dich an, um einen Moment zu teilen.");
       return;
     }
     if (!hasContent) {
@@ -242,8 +242,8 @@ export default function NewReviewScreen() {
         Alert.alert(
           "Danke!",
           isDecisionReview
-            ? "Deine Review wurde als Backyrd Treffer gespeichert."
-            : "Deine Review wurde gespeichert."
+            ? "Dein Moment wurde als Backyrd Treffer gespeichert."
+            : "Dein Moment wurde gespeichert."
         );
         router.back();
       }
@@ -264,8 +264,8 @@ export default function NewReviewScreen() {
         console.info("Owner self-review blocked by Review Integrity.");
 
         Alert.alert(
-          "Eigenen Spot bewerten nicht möglich",
-          "Als verifizierter Owner kannst du deinen eigenen Spot nicht bewerten. So bleiben Reviews und Empfehlungen auf Backyrd unabhängig.",
+          "Eigenen Ort bewerten nicht möglich",
+          "Als verifizierter Owner kannst du deinen eigenen Ort nicht bewerten. So bleiben Momente und Empfehlungen auf Backyrd unabhängig.",
           [{ text: "Verstanden", onPress: () => router.back() }],
         );
       } else if (safetyMessage) {
@@ -328,8 +328,8 @@ export default function NewReviewScreen() {
         console.error("submitReview error:", e);
 
         Alert.alert(
-          "Review nicht gespeichert",
-          userFacingError(e, "Deine Review konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."),
+          "Moment nicht gespeichert",
+          userFacingError(e, "Dein Moment konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."),
         );
       }
     } finally {
@@ -342,13 +342,12 @@ export default function NewReviewScreen() {
       style={{ flex: 1, backgroundColor: theme.colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-          <View style={[styles.headerWrap, { paddingTop: insets.top + 4 }]}>
+        <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom", "left", "right"]}>
+          <View style={[styles.headerWrap, { paddingTop: foundationTheme.spacing.xxs }]}>
             <BlurView intensity={40} tint="dark" style={styles.header}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Review schließen"
+                accessibilityLabel="Moment schließen"
                 onPress={() => router.back()}
                 hitSlop={10}
                 style={styles.headerBtn}
@@ -360,11 +359,11 @@ export default function NewReviewScreen() {
             </BlurView>
           </View>
 
-          <ScrollView contentContainerStyle={styles.container}>
+          <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" contentContainerStyle={styles.container}>
             <View style={styles.hero}>
               <Text style={styles.kicker}>DEIN MOMENT</Text>
-              <Text style={styles.title}>Was bleibt dir in Erinnerung?</Text>
-              <Text style={styles.subtitle}>Was ist dir von diesem Ort geblieben? Eine Stimmung, ein Satz oder ein Foto genügt.</Text>
+              <AppText role="displayM" style={styles.title}>Was bleibt?</AppText>
+              <Text style={styles.subtitle}>Teile deinen Eindruck von diesem Ort. Ein Satz oder ein Foto genügt.</Text>
             </View>
 
             {isDecisionReview && (
@@ -448,14 +447,13 @@ export default function NewReviewScreen() {
             />
           )}
         </SafeAreaView>
-      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   hero: {
-    marginBottom: theme.spacing(3),
+    marginBottom: foundationTheme.spacing.lg,
   },
   kicker: {
     color: "#FF4F91",
@@ -466,10 +464,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.text,
-    fontSize: 42,
-    lineHeight: 44,
-    fontWeight: "900",
-    letterSpacing: -1.1,
+    ...foundationTheme.typeScale.displayM,
   },
   subtitle: {
     color: theme.colors.textMuted,
@@ -522,19 +517,19 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   headerBtn: {
-    width: 36,
-    height: 36,
+    minWidth: foundationTheme.control.compact,
+    minHeight: foundationTheme.control.compact,
     borderRadius: theme.radius.pill,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
   },
-  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
+  headerTitle: { color: foundationTheme.color.textPrimary, ...foundationTheme.typeScale.cardTitle, flex: 1, textAlign: "center" },
 
   container: {
     paddingHorizontal: theme.spacing(3),
     paddingTop: theme.spacing(2),
-    paddingBottom: theme.spacing(12),
+    paddingBottom: foundationTheme.spacing.xl,
   },
   card: {
     paddingVertical: theme.spacing(2),

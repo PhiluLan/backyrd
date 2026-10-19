@@ -8,9 +8,9 @@ type Props = { label: string; kind?: Kind; selected?: boolean; onPress?: Pressab
 
 export function Chip({ label, kind = "information", selected = false, onPress, style }: Props) {
   const active = selected || kind === "selected";
-  const contents = <AppText role="caption" tone={active ? "primary" : "secondary"}>{label}</AppText>;
+  const contents = <AppText role="caption" tone="secondary" style={active ? { color: theme.color.background } : undefined}>{label}</AppText>;
   const base = [styles.root, active && styles.selected, kind === "status" && styles.status, style];
   return onPress ? <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} onPress={onPress} style={({ pressed }) => [...base, pressed && styles.pressed]}>{contents}</Pressable> : <View style={base}>{contents}</View>;
 }
 
-const styles = StyleSheet.create({ root: { minHeight: theme.control.compact, paddingHorizontal: theme.spacing.lg, borderRadius: theme.radius.pill, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: theme.color.border }, selected: { backgroundColor: theme.color.pink, borderColor: theme.color.pink }, status: { borderColor: "rgba(200,227,166,0.34)" }, pressed: { opacity: 0.8 } });
+const styles = StyleSheet.create({ root: { minHeight: theme.control.compact, paddingHorizontal: theme.spacing.lg, paddingVertical: theme.spacing.xs, flexShrink: 1, borderRadius: theme.radius.pill, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: theme.color.border }, selected: { backgroundColor: theme.color.pink, borderColor: theme.color.pink }, status: { borderColor: "rgba(200,227,166,0.34)" }, pressed: { opacity: 0.8 } });

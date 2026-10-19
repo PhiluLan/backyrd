@@ -1,7 +1,7 @@
 // backyrd/mobile/app/map.tsx
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { View, Alert, Pressable, ScrollView, StyleSheet, Dimensions, Animated, FlatList, PanResponder, Modal } from "react-native";
+import { View, Alert, Platform, Pressable, ScrollView, StyleSheet, Dimensions, Animated, FlatList, PanResponder, Modal, useWindowDimensions } from "react-native";
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 
 import ClusteredMapView from "react-native-map-clustering";
@@ -12,6 +12,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 
+import { OpeningStatusBadge } from "../../components/spot/OpeningStatusBadge";
+import { spotOpeningStatusNow, type SpotHoursRow } from "../../lib/spot-opening-status";
 import { useSpotsStore } from "../../lib/useSpotsStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useDebounce } from "use-debounce";
@@ -74,11 +76,13 @@ type Spot = {
   address?: string | null;
   city?: string | null;
   header_photo_url?: string | null;
+  spot_hours?: SpotHoursRow[];
   category_id?: string | null;
   categories?: { name?: string | null; color?: string | null } | null;
 };
 
 export default function MapScreen() {
+  const { fontScale } = useWindowDimensions();
   const { spots: globalSpots, refresh, loading, error: spotsError } = useSpotsStore();
   const { user } = useAuth();
   const router = useRouter();
@@ -509,7 +513,7 @@ export default function MapScreen() {
   if (spotsError)
     return (
       <SafeAreaView style={styles.center} edges={["top"]}>
-        <StateView kind="error" title="Orte gerade nicht verfügbar" message="Die Spots konnten nicht geladen werden. Bitte versuche es erneut." actionLabel="Erneut laden" onAction={() => void refresh()} />
+        <StateView kind="error" title="Orte gerade nicht verfügbar" message="Die Orte konnten nicht geladen werden. Bitte versuche es erneut." actionLabel="Erneut laden" onAction={() => void refresh()} />
       </SafeAreaView>
     );
 
@@ -518,8 +522,8 @@ export default function MapScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <View style={styles.titleCopy}>
-            <AppText role="label" tone="lime">{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
+          <View style={[styles.titleCopy, fontScale > 1.3 && { flexBasis: "100%" }]}>
+            <AppText role="label" tone="pink">{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
             <AppText role="screenTitle">Orte entdecken</AppText>
           </View>
           <AppText role="caption" tone="secondary" style={styles.resultCount}>{filteredSpots.length} Orte</AppText>
@@ -579,7 +583,7 @@ export default function MapScreen() {
           <View style={[styles.filterSheet, { paddingBottom: insets.bottom + theme.spacing.lg }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.filterSheetHeader}>
-              <View>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <AppText role="sectionTitle">Filter</AppText>
                 <AppText role="meta" tone="secondary">Nur das, was zu deinem Moment passt.</AppText>
               </View>
@@ -605,8 +609,8 @@ export default function MapScreen() {
               </View>
             </ScrollView>
             <View style={styles.filterSheetActions}>
-              <Button label="Zurücksetzen" variant="tertiary" onPress={clearFilters} style={styles.filterReset} />
-              <Button label={viewMode === "map" ? "Karte zeigen" : "Liste zeigen"} onPress={() => setFiltersOpen(false)} style={styles.filterApply} />
+              <Button label="Zurücksetzen" variant="tertiary" onPress={clearFilters} style={[styles.filterReset, fontScale > 1.3 && { flexBasis: "100%" }]} />
+              <Button label={viewMode === "map" ? "Karte zeigen" : "Liste zeigen"} onPress={() => setFiltersOpen(false)} style={[styles.filterApply, fontScale > 1.3 && { flexBasis: "100%" }]} />
             </View>
           </View>
         </View>
@@ -617,7 +621,8 @@ export default function MapScreen() {
         <View style={styles.mapStage}>
           <ClusteredMapView
           ref={mapRef}
-          provider={PROVIDER_GOOGLE}
+          provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+          userInterfaceStyle="dark"
           style={{ flex: 1 }}
           initialRegion={region}
           showsUserLocation={locationConsentGranted}
@@ -670,8 +675,9 @@ export default function MapScreen() {
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
                 <MoodSignature labels={spotMoods[item.id] ?? []} moodCount={moodCounts[item.id]} compact />
-                <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
-                <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
+                <Text style={styles.listCardContext}>{item.categories?.name || item.city || "Ort"}</Text>
+                <Text style={styles.listCardAddress}>{item.address || "Adresse noch nicht hinterlegt"}</Text>
+                <OpeningStatusBadge status={spotOpeningStatusNow(item.spot_hours ?? [])} style={{ marginTop: theme.spacing.sm }} />
               </View>
             </Pressable>
           )}
@@ -692,12 +698,11 @@ export default function MapScreen() {
           { height: SHEET_HEIGHT, bottom: theme.control.tabBar + insets.bottom, transform: [{ translateY }] },
         ]}
         pointerEvents="box-none"
-        {...panResponder.panHandlers}
       >
         <BlurView intensity={34} tint="dark" style={styles.sheetBlur}>
-          <View style={styles.sheetHandle} />
+          <View accessibilityLabel="Ortsvorschau verschieben" style={{ minHeight: 44, justifyContent: "center" }} {...panResponder.panHandlers}><View style={styles.sheetHandle} /></View>
 
-            <View style={{ paddingHorizontal: 16, paddingBottom: 30 }}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.lg }}>
               <Pressable
                 onPress={() => {
                   void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: selectedSpot.id, spotId: selectedSpot.id, properties: { source: "preview" } });
@@ -725,12 +730,13 @@ export default function MapScreen() {
                     end={{ x: 0.5, y: 1 }}
                     style={styles.cardOverlay}
                   >
-                    <Text style={styles.resultTitle} numberOfLines={1}>
+                    <Text style={styles.resultTitle}>
                       {selectedSpot.name}
                     </Text>
 
                     <MoodSignature labels={spotMoods[selectedSpot.id] ?? []} moodCount={moodCounts[selectedSpot.id]} compact />
-                    {selectedSpot.address && <Text style={styles.resultSubtitle} numberOfLines={1}>{selectedSpot.address}</Text>}
+                    {selectedSpot.address && <Text style={styles.resultSubtitle}>{selectedSpot.address}</Text>}
+                    <OpeningStatusBadge status={spotOpeningStatusNow(selectedSpot.spot_hours ?? [])} />
                   </LinearGradient>
                 </View>
               </Pressable>
@@ -742,9 +748,9 @@ export default function MapScreen() {
                   router.push(`/spot/${selectedSpot.id}`);
                 }}
               >
-                <Text style={styles.sheetCtaPrimaryText}>Spot ansehen</Text>
+                <Text style={styles.sheetCtaPrimaryText}>Ort ansehen</Text>
               </Pressable>
-            </View>
+            </ScrollView>
         </BlurView>
       </Animated.View> : null}
     </SafeAreaView>
@@ -756,17 +762,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.color.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.color.background },
   header: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, backgroundColor: theme.color.background },
-  titleRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.sm },
-  titleCopy: { gap: 1 },
-  resultCount: { marginTop: theme.spacing.xs, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radius.pill, backgroundColor: "rgba(216,255,62,0.08)", borderWidth: 1, borderColor: "rgba(216,255,62,0.22)" },
-  headerTopRow: { flexDirection: "row", gap: theme.spacing.xs, alignItems: "center" },
-  searchBox: { flex: 1, flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
+  titleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.sm },
+  titleCopy: { flex: 1, minWidth: 0, gap: 1 },
+  resultCount: { marginTop: theme.spacing.xs, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radius.pill, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border },
+  headerTopRow: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.xs, alignItems: "center" },
+  searchBox: { flex: 1, minWidth: 120, flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
   searchInput: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15, minHeight: theme.control.standard },
-  searchClear: { minWidth: 34, minHeight: 34 },
+  searchClear: { minWidth: theme.control.compact, minHeight: theme.control.compact },
   headerButton: { width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill },
   headerButtonActive: { backgroundColor: theme.color.pink, borderColor: theme.color.pink },
-  perspectiveSwitch: { flexDirection: "row", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, padding: 3 },
-  perspectiveOption: { minWidth: 58, minHeight: 38, paddingHorizontal: theme.spacing.xs, borderRadius: theme.radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  perspectiveSwitch: { flexDirection: "row", flexShrink: 1, minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, padding: 3 },
+  perspectiveOption: { minWidth: 58, minHeight: theme.control.compact, paddingVertical: theme.spacing.xs, paddingHorizontal: theme.spacing.xs, borderRadius: theme.radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
   perspectiveOptionActive: { backgroundColor: theme.color.pink },
   pressed: { opacity: 0.8, transform: [{ scale: theme.motion.pressScale }] },
   activeFilters: { gap: theme.spacing.xs, paddingTop: theme.spacing.sm, paddingRight: theme.spacing.xs },
@@ -790,7 +796,7 @@ const styles = StyleSheet.create({
   sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 3, backgroundColor: "rgba(247,243,233,0.3)", marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm },
   sheetCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 10, elevation: 8 },
   cardMedia: { position: "relative" }, cardImg: { width: "100%", height: 214 },
-  cardOverlay: { position: "absolute", left: 0, right: 0, bottom: 0, padding: theme.spacing.md },
+  cardOverlay: { padding: theme.spacing.md },
   resultTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, ...theme.typeScale.sectionTitle, marginBottom: theme.spacing.xxs },
   resultSubtitle: { color: "rgba(247,243,233,0.76)", fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginBottom: theme.spacing.sm },
   cardChipsRow: { flexDirection: "row", gap: theme.spacing.xs, flexWrap: "wrap" },
@@ -804,7 +810,7 @@ const styles = StyleSheet.create({
   filterSheetContent: { gap: theme.spacing.sm, paddingBottom: theme.spacing.lg },
   filterChipGrid: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.xs },
   filterSectionLabel: { marginTop: theme.spacing.lg },
-  filterSheetActions: { flexDirection: "row", gap: theme.spacing.sm, paddingTop: theme.spacing.sm },
+  filterSheetActions: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm, paddingTop: theme.spacing.sm },
   filterReset: { flex: 1 }, filterApply: { flex: 1 },
 });
 
