@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "f9ee80dd456866d32b77cab9bd91c24b3da3dc80",
+      "sourceSha": "5c4aefd5ced633a2f3fad09fdd304e6e6039a03c",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "4f409847-bd65-4f11-b31d-d038a16a5eda",
-      "iosUpdateId": "01a1555d-a28a-7b7b-ae7e-bf05e5341386",
+      "otaGroupId": "8ecd442c-2ec9-431f-849c-d83830edba57",
+      "iosUpdateId": "01a155b2-779c-7213-a403-779e8d04472f",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "iOS launch UX polish and camera-first Moments with prominent pink Plus. PR #527 merged with all required checks passing; exact Main certification run 39299664279 succeeded. Public production launch bytes match the certified artifact. Physical-device installation, camera/upload acceptance and ten-second timing not observed."
+      "note": "Connected discovery, atmosphere and Moments, including Home previews, new atmosphere wishes, actor-bound grounded place context and shared Moment confirmation. PR #531 and exact Main certification run 39312725149 passed. Public production launch bytes match the certified iOS artifact. Additional native visual inspection was blocked by the locked Mac; physical-device installation/camera/upload/timing not observed."
     }
   },
   "reviewMediaIncident": {
