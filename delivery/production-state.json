@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "c8def07791c9124e65488b78aaffba845ece2223",
-    "migrationTip": "20261016120624_public_spot_knowledge_presentation_v2_5",
-    "migrationCount": 184,
-    "deploymentRunId": 38977664849,
+    "shippedSourceSha": "6176de4051a13a418d5a372f2b5e08a69d7c92da",
+    "migrationTip": "20261019152123_mood_two_person_display_v1",
+    "migrationCount": 190,
+    "deploymentRunId": 39290606906,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "f17ed0b01869cdbea695e3e7105bc125e365c8a1",
+      "sourceSha": "6176de4051a13a418d5a372f2b5e08a69d7c92da",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "f2c553c4-a6de-4dad-bc87-483342cf84fc",
-      "iosUpdateId": "01a14981-b860-78f0-bb83-8c0886df703e",
+      "otaGroupId": "ebc6e2d2-c6a7-4a66-bf6f-a9a222f335bd",
+      "iosUpdateId": "01a15527-3be9-7643-99f6-1cb5465836db",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Existing top-level Mobile verification and review-media evidence describe the earlier observed release. This update is published and bundle/config verified, but its installation on the user device has not been observed."
+      "note": "Authenticated Decision access and scoped AI processing notice. Protected backend deployment 39290606906 and authenticated-user control 39291893322 succeeded. Public production launch bytes match the Main-certified iOS artifact. New iOS launch UX polish is excluded. Physical-device installation not observed."
     }
   },
   "reviewMediaIncident": {

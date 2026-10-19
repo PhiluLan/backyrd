@@ -1,3 +1,4 @@
+import type { SpotHoursRow } from "./spot-opening-status";
 import { create } from "zustand";
 import { supabase } from "./supabase";
 import { filterDistributedSpots } from "./distributionTrust";
@@ -13,6 +14,7 @@ type Spot = {
   city?: string | null;
   category_id?: string | null;
   header_photo_url?: string | null;
+  spot_hours?: SpotHoursRow[];
   categories?: { name?: string | null; color?: string | null } | null;
 };
 
@@ -48,7 +50,8 @@ export const useSpotsStore = create<State>((set) => ({
         category_id,
         header_photo_path,
         categories ( name, color ),
-        spot_photos ( url )
+        spot_photos ( url ),
+        spot_hours ( day_of_week, open_time, close_time )
           `)
           .eq("status", "approved")
           .limit(2000)

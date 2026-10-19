@@ -12,7 +12,7 @@ import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
-import { MoodExpressionInput } from "../../components/MoodExpressionInput";
+import { MoodSelection } from "../../components/MoodSelection";
 import { ReviewSubmissionStatus } from "../../components/reviews/ReviewMediaField";
 import {
   discardReviewMediaAttempt,
@@ -165,7 +165,7 @@ export default function QuickReviewScreen() {
 
   async function submitReviewOnce() {
     if (!spotId) {
-      Alert.alert("Fehler", "Spot-ID fehlt.");
+      Alert.alert("Fehler", "Ort-ID fehlt.");
       return;
     }
 
@@ -191,8 +191,8 @@ export default function QuickReviewScreen() {
       });
 
       Alert.alert(
-        "Eigenen Spot bewerten nicht möglich",
-        "Als verifizierter Owner kannst du deinen eigenen Spot nicht bewerten. So bleiben Reviews und Empfehlungen auf Backyrd unabhängig.",
+        "Eigenen Ort bewerten nicht möglich",
+        "Als verifizierter Owner kannst du deinen eigenen Ort nicht bewerten. So bleiben Momente und Empfehlungen auf Backyrd unabhängig.",
         [{ text: "Verstanden", onPress: () => router.back() }],
       );
       return;
@@ -285,8 +285,8 @@ export default function QuickReviewScreen() {
         });
         console.info("Owner self-review blocked by Review Integrity.");
         Alert.alert(
-          "Eigenen Spot bewerten nicht möglich",
-          "Als verifizierter Owner kannst du deinen eigenen Spot nicht bewerten. So bleiben Reviews und Empfehlungen auf Backyrd unabhängig.",
+          "Eigenen Ort bewerten nicht möglich",
+          "Als verifizierter Owner kannst du deinen eigenen Ort nicht bewerten. So bleiben Momente und Empfehlungen auf Backyrd unabhängig.",
           [{ text: "Verstanden", onPress: () => router.back() }],
         );
       } else if (safetyMessage) {
@@ -333,7 +333,7 @@ export default function QuickReviewScreen() {
           decisionId: decisionId ?? null,
         });
         console.error("submitQuickReview error:", e);
-        Alert.alert("Review nicht gespeichert", userFacingError(e, "Deine Review konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."));
+        Alert.alert("Moment nicht gespeichert", userFacingError(e, "Dein Moment konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."));
       }
     } finally {
       setLoading(false);
@@ -345,7 +345,7 @@ export default function QuickReviewScreen() {
     return (
       <SafeAreaView style={styles.center}>
         <Text style={styles.permissionTitle}>Kamera freigeben</Text>
-        <Text style={styles.permissionBody}>Für eine schnelle Review mit Bild brauchen wir Zugriff auf deine Kamera.</Text>
+        <Text style={styles.permissionBody}>Für eine schnelle Moment mit Bild brauchen wir Zugriff auf deine Kamera.</Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Kamerazugriff erlauben"
@@ -399,10 +399,10 @@ export default function QuickReviewScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.reviewHeader}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Review schließen" onPress={() => router.back()} style={styles.iconButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Moment schließen" onPress={() => router.back()} style={styles.iconButton}>
             <Ionicons name="chevron-back" size={24} color={theme.text} />
           </Pressable>
-          <Text style={styles.reviewHeaderTitle}>Schnelle Review</Text>
+          <Text style={styles.reviewHeaderTitle}>Schnelle Moment</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Bild ersetzen" onPress={() => void retakePhoto()} style={styles.iconButton}>
             <Ionicons name="camera-outline" size={21} color={theme.text} />
           </Pressable>
@@ -416,10 +416,8 @@ export default function QuickReviewScreen() {
 
         {/* Mood Inputs */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Moods</Text>
-          <Text style={{ color: theme.soft }}>Welche zwei Moods beschreiben diesen Ort am besten?</Text>
-          <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
-          <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. lebhaft" value={moodB} onChangeText={setMoodB} />
+              <MoodSelection values={[moodA, moodB]} onChange={values => { setMoodA(values[0] ?? ""); setMoodB(values[1] ?? ""); }} />
+
         </View>
 
         <ReviewSubmissionStatus
@@ -430,7 +428,7 @@ export default function QuickReviewScreen() {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Review veröffentlichen"
+          accessibilityLabel="Moment veröffentlichen"
           accessibilityState={{ disabled: loading || !mediaReady, busy: loading }}
           onPress={submitReview}
           style={[styles.submitBtn, (loading || !mediaReady) && { opacity: 0.6 }]}
@@ -439,7 +437,7 @@ export default function QuickReviewScreen() {
           {loading ? (
             <ActivityIndicator color={theme.ink} />
           ) : (
-            <Text style={styles.submitText}>Review veröffentlichen</Text>
+            <Text style={styles.submitText}>Moment veröffentlichen</Text>
           )}
         </Pressable>
       </ScrollView>

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "spot-event-authoring-v1",
+  "previousEvidence": "decision-manual-event-candidates-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "f01d26f25f22e65b0e0114df4ffe124016dd8ee7eedb222a50029c61a85715ac",
+    "applicationSchemaSha256": "45ded6b1d2b267bf283e104da92fe4aac2bf99c0c689ca5e0f8318687f4f2743"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261018015918_spot_event_authoring_v1.sql",
+      "sha256": "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/spot_event_authoring_v1.sql",
+      "sha256": "8a944d7b036b8d4f413a322759757d556afadbe4976fa739db4e4ae40eb025fb"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "d82eca1c4ec89267cb090ef1af4d83436f686fd5b3488306497c575cde41a320",
+    "applicationSchemaSha256": "b671c9034db97d23776d77b9e564e6c424c870cd9b235c107bd4e81e8b3ce091"
+  }
+}

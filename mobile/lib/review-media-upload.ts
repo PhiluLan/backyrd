@@ -109,9 +109,9 @@ export function reviewMediaUserMessage(error: unknown) {
   if (error.stage === "storage_upload") {
     return error.httpStatus === null || error.httpStatus >= 500
       ? "Das Bild konnte wegen einer Netzwerk- oder Serverstörung nicht hochgeladen werden. Dein Entwurf bleibt erhalten."
-      : "Das Bild konnte nicht hochgeladen werden. Es wurde keine Review veröffentlicht. Dein Entwurf bleibt erhalten.";
+      : "Das Bild konnte nicht hochgeladen werden. Es wurde kein Moment veröffentlicht. Dein Entwurf bleibt erhalten.";
   }
-  if (error.stage === "finalization") return "Bild und Review konnten nicht gemeinsam gespeichert werden. Es wurde keine unvollständige Review veröffentlicht; dein Entwurf bleibt erhalten.";
+  if (error.stage === "finalization") return "Bild und Moment konnten nicht gemeinsam gespeichert werden. Es wurde kein unvollständiger Moment veröffentlicht; dein Entwurf bleibt erhalten.";
   if (error.stage === "cleanup") return "Das vorherige Bild konnte noch nicht sicher entfernt werden. Bitte versuche es nochmals.";
   return "Der sichere Bild-Upload konnte nicht vorbereitet werden. Dein Entwurf bleibt erhalten.";
 }
@@ -124,7 +124,7 @@ export function reviewMediaProgressLabel(progress: ReviewMediaProgress | null) {
     case "media_validation": return "Bild wird geprüft…";
     case "reservation": return "Sicherer Upload wird vorbereitet…";
     case "storage_upload": return progress.total > 1 ? `Bild ${progress.completed + 1} von ${progress.total} wird hochgeladen…` : "Bild wird hochgeladen…";
-    case "finalization": return "Review und Bild werden gemeinsam gespeichert…";
+    case "finalization": return "Moment und Bild werden gemeinsam gespeichert…";
     case "cleanup": return "Vorheriges Bild wird entfernt…";
   }
 }

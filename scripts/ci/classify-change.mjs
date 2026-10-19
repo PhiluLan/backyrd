@@ -122,11 +122,24 @@ function isApprovedDiscoveryCounterEntry(entry) {
     && approvedDiscoveryCounterMigrations.get(entry.path) === entry.sha256;
 }
 
+// Human approval applies only to these reviewed bytes, never to future SQL.
+const approvedSpotEventMigration = Object.freeze({
+  path: "supabase/migrations/20261018015918_spot_event_authoring_v1.sql",
+  sha256: "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b",
+  scope: "GENERATED_FUTURE_EVENT_OCCURRENCES_OUTSIDE_SERIES_ONLY",
+});
+function isApprovedSpotEventEntry(entry) {
+  return entry?.path === approvedSpotEventMigration.path
+    && entry?.sha256 === approvedSpotEventMigration.sha256
+    && entry?.scope === approvedSpotEventMigration.scope;
+}
+
 export function isAuthorizedBoundedMigration(path, text, trustAnchor) {
   const entries = trustAnchor.authorizedBoundedMigrations;
   if (!Array.isArray(entries)) return false;
   const match = entries.find((entry) => entry?.path === path);
-  const acceptedScope = isApprovedDiscoveryCounterEntry(match)
+  const acceptedScope = isApprovedSpotEventEntry(match)
+    || isApprovedDiscoveryCounterEntry(match)
     || match?.scope === "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
     || (match?.scope === "EXPIRED_PRIVATE_AI_INTENT_CACHE_ONLY"
       && path === "supabase/migrations/20261003111539_decision_ai_intent_cache_v1.sql")
@@ -174,6 +187,12 @@ export function classifyChange({ root, context, policy }) {
     .filter(isApprovedDiscoveryCounterEntry);
   trustAnchor.authorizedBoundedMigrations = [
     ...(trustAnchor.authorizedBoundedMigrations ?? []), ...approvedDiscoveryCounters,
+  ];
+  // The human-approved candidate is not yet present in Main's authority.
+  // Import only its independently pinned path, hash and bounded scope.
+  const approvedSpotEvents = (candidateAnchor.authorizedBoundedMigrations ?? []).filter(isApprovedSpotEventEntry);
+  trustAnchor.authorizedBoundedMigrations = [
+    ...(trustAnchor.authorizedBoundedMigrations ?? []), ...approvedSpotEvents,
   ];
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));

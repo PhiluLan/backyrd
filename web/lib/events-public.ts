@@ -82,3 +82,12 @@ export function imageUrl(
   if (!path || !rightsVerified) return null;
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/event-images/${path}`;
 }
+
+export async function spotEvents(spotId: string): Promise<EventRow[]> {
+  const { data, error } = await supabase.from("event_discovery_v1").select("*")
+    .eq("matched_spot_id", spotId).in("event_status", ["PUBLISHED", "SCHEDULED"]).eq("occurrence_status", "SCHEDULED")
+    .or(`end_at.gt.${new Date().toISOString()},and(end_at.is.null,start_at.gt.${new Date().toISOString()})`)
+    .order("start_at").limit(500);
+  if (error) throw error;
+  return (data ?? []) as EventRow[];
+}

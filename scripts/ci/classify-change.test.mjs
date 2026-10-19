@@ -433,3 +433,21 @@ for (const path of ["supabase/migrations/20261012152228_world_knowledge_open_dis
     assert.equal(isAuthorizedBoundedMigration(path, modified, { authorizedBoundedMigrations: [{ ...entry, sha256: replacedHash }] }), false);
   });
 }
+
+test("Spot event series approval is exact, candidate-bound, and does not authorize other deletion", () => {
+  const path = "supabase/migrations/20261018015918_spot_event_authoring_v1.sql";
+  const sql = readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+  const authority = JSON.parse(readFileSync(new URL("../../delivery/product-authority-v1.json", import.meta.url), "utf8"));
+  const entry = authority.authorizedBoundedMigrations.find(item => item.path === path);
+  assert.equal(isDestructiveMigration(sql), true);
+  assert.equal(isAuthorizedBoundedMigration(path, sql, authority), true);
+  const files = { [path]: sql, "decision-lab/config/anchor.json": JSON.stringify({ ...authority, protectedSemanticSourceSet: { paths: ["mobile/lib/protected-decision.ts"] } }) };
+  assert.equal(plan({files}).blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"), false);
+  for (const change of [{path:"supabase/migrations/future.sql"},{sha256:"0".repeat(64)},{scope:"BROAD_DELETE"}]) {
+    const changed = {...entry,...change};
+    assert.equal(isAuthorizedBoundedMigration(changed.path, sql, {authorizedBoundedMigrations:[changed]}), false);
+  }
+  const modified = sql + "\ndelete from public.spots;";
+  assert.equal(isAuthorizedBoundedMigration(path, modified, {authorizedBoundedMigrations:[{...entry,sha256:createHash("sha256").update(modified).digest("hex")}]}), false);
+  assert.equal(isAuthorizedBoundedMigration(path, sql, {authorizedBoundedMigrations:[]}), false);
+});

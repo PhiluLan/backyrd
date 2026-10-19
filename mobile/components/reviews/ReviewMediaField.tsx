@@ -23,6 +23,7 @@ type Props = {
   assets: ReviewMediaAsset[];
   maxAssets?: number;
   disabled?: boolean;
+  cameraFirst?: boolean;
   onChange: (assets: ReviewMediaAsset[]) => boolean | void | Promise<boolean | void>;
   onError?: (message: string) => void;
   onValidationError?: (error: Error) => void;
@@ -42,6 +43,7 @@ export function ReviewMediaField({
   assets,
   maxAssets = 1,
   disabled = false,
+  cameraFirst = false,
   onChange,
   onError,
   onValidationError,
@@ -51,6 +53,15 @@ export function ReviewMediaField({
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
   const [validation, setValidation] = useState<ReviewMediaValidationState>({ status: "idle" });
   const coordinator = useRef(new ReviewMediaValidationCoordinator(prepareReviewMediaAsset));
+  const cameraStarted = useRef(false);
+  const pickRef = useRef(pick);
+  pickRef.current = pick;
+
+  useEffect(() => {
+    if (!cameraFirst || disabled || cameraStarted.current) return;
+    cameraStarted.current = true;
+    void pickRef.current("camera");
+  }, [cameraFirst, disabled]);
 
   useEffect(() => () => coordinator.current.cancel(), []);
 
@@ -90,7 +101,7 @@ export function ReviewMediaField({
 
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ["images"],
-        allowsEditing: true,
+        allowsEditing: !cameraFirst,
         aspect: [4, 3],
         quality: 0.85,
       };
@@ -194,7 +205,7 @@ export function ReviewMediaField({
       ) : (
         <View style={styles.empty} accessible accessibilityLabel="Noch kein Bild ausgewählt">
           <Ionicons name="image-outline" size={28} color={theme.color.textSecondary} />
-          <Text style={styles.emptyText}>Deine Review funktioniert auch ohne Bild.</Text>
+          <Text style={styles.emptyText}>Dein Moment funktioniert auch ohne Bild.</Text>
         </View>
       )}
 
@@ -281,7 +292,7 @@ export function ReviewSubmissionStatus({
         {error ?? progressLabel}
       </Text>
       {error ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Review erneut versuchen" onPress={onRetry} style={styles.retryButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Moment erneut versuchen" onPress={onRetry} style={styles.retryButton}>
           <Text style={styles.retryText}>Erneut versuchen</Text>
         </Pressable>
       ) : null}

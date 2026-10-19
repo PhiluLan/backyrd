@@ -1,0 +1,74 @@
+{
+  "status": "SHIPPED",
+  "sourceSha": "50f56159949910368efec32c46d3735ba0631495",
+  "pullRequest": 520,
+  "mainCiRunId": 39168840157,
+  "certificationRunId": 39169038065,
+  "manifestHash": "e88e6712ea6e722e43d21b20e4495e1eec08b1412edcab518f99c2a722f5e7f6",
+  "deploymentRunId": 39169533592,
+  "auditHash": "4dd3029866ffcc95be10f1d783164cb7850c1af2e9403c424828078c5b2cc899",
+  "planHash": "246c7c23b52bc8a3d715db8dee37014c498f1c49893adfbc44925c4916657c80",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261018162100_public_spot_review_counts_v1.sql",
+      "sha256": "d94344813caa42578d9203d8791f51b81d62db83527abc24c21c1fe0148fdd9c"
+    },
+    {
+      "path": "supabase/migrations/20261018171218_public_spot_mood_counts_v1.sql",
+      "sha256": "9c9a547f38c645f44f8d283c073e32ecceecd21910ffa79c54efbab7a9d776fd"
+    }
+  ],
+  "backupRunId": 39165203558,
+  "migrationRecoveryRiskAccepted": true,
+  "restoreDrillPerformed": false,
+  "guaranteedDatabaseRollback": false,
+  "decisionChanged": false,
+  "web": {
+    "productionDeployStatus": "SUCCESS",
+    "publicSpotObserved": "https://www.backyrd.ch/spots/1101ee26-5046-4cdc-921a-5a3bd4cb5306",
+    "totalMoodCountObserved": 14,
+    "topThreeObserved": [
+      "Gemütlich",
+      "Elegant",
+      "Industriell"
+    ],
+    "softChipsObserved": true,
+    "fullMoodListOpens": true,
+    "screenshotEvidence": "Live browser screenshot captured during publication; no production content modified."
+  },
+  "liveVerification": {
+    "status": "PASS",
+    "anonymousPublicAggregateVerified": true,
+    "emptyInputVerified": true,
+    "unknownSpotOmitted": true,
+    "compatibilityRpcVerified": true,
+    "spots": [
+      {
+        "spot_id": "1101ee26-5046-4cdc-921a-5a3bd4cb5306",
+        "mood_count": 14
+      },
+      {
+        "spot_id": "ff90b2f4-0c51-4423-adb5-e9a0ad22213e",
+        "mood_count": 10
+      }
+    ],
+    "sourceSpotDataModified": false
+  },
+  "productionMigrationCount": 189,
+  "mobile": {
+    "liveLaunchBytesVerified": true,
+    "status": "PASS",
+    "updateId": "01a15102-8521-7967-b114-0d2c50406b56",
+    "group": "882640fa-b9d8-453f-8260-dae1b1ede696",
+    "sourceSha": "50f56159949910368efec32c46d3735ba0631495",
+    "runtimeVersion": "1.1.0",
+    "publicConfigurationValid": true,
+    "launchAssetMatchesCertifiedBytes": true,
+    "installedDeviceVerified": false
+  },
+  "limits": [
+    "Per-concept counts remain masked for EARLY evidence. Total submission counts are public aggregates, not a star score or unique-person total.",
+    "Physical iPhone installation has not been observed. Production OTA manifest and actual launch-bundle bytes verified.",
+    "No database restore drill claimed; Founder explicitly accepted the risk for these exact migrations."
+  ]
+}

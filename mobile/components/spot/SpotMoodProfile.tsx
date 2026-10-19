@@ -1,11 +1,13 @@
+import { useRouter } from "expo-router";
+import { rankMoodSupport, publicMoodCount, moodSupportFraction } from "../../../packages/shared/src/presentation/mood";
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { useState } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { backyrdTheme as theme } from "../../theme/backyrd";
 import { AppText } from "../foundation/AppText";
-import { IconButton } from "../foundation/Button";
+import { Button, IconButton } from "../foundation/Button";
 
 export type SpotMoodProfileItem = {
   concept_key: string;
@@ -17,76 +19,65 @@ export type SpotMoodProfileItem = {
   rank: number;
 };
 
-function strengthWidth(percentage: number | null) {
-  const value = Number(percentage);
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(12, Math.min(100, value));
-}
-
-function communityCopy(mood: SpotMoodProfileItem) {
-  if (mood.evidence_state === "EARLY") return "Ein erster Eindruck aus der Community. Noch ist die Grundlage zu klein für eine Gewichtung.";
-  if (mood.rank <= 2) return "Dieser Mood gehört zu den zwei prägendsten Community-Eindrücken für diesen Ort.";
-  return "Dieser Mood taucht in den Community-Eindrücken zu diesem Ort wiederkehrend auf.";
-}
-
 export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoodProfileItem[]; appearance?: "dark" | "light" }) {
   const insets = useSafeAreaInsets();
-  const [showAll, setShowAll] = useState(false);
+  const router = useRouter();
   const [selected, setSelected] = useState<SpotMoodProfileItem | null>(null);
   const light = appearance === "light";
-  const early = moods[0]?.evidence_state === "EARLY";
-  const visible = useMemo(() => (showAll ? moods : moods.slice(0, 5)), [moods, showAll]);
-
+  const ranked = rankMoodSupport(moods);
+  const strongestCount = ranked.length ? publicMoodCount(ranked[0]) : null;
+  const current = ranked.find(mood => mood.concept_key === selected?.concept_key) ?? null;
+  const renderRow = (mood: SpotMoodProfileItem) => {
+    const count = publicMoodCount(mood);
+    return <Pressable key={mood.concept_key} accessibilityRole="button" accessibilityLabel={`${mood.label}: ${count === null ? "Erste Eindrücke" : `${count} ${count === 1 ? "Person" : "Personen"}`}. Zum Entdecken auswählen`} accessibilityState={{ selected: current?.concept_key === mood.concept_key }} onPress={() => setSelected(mood)} style={styles.supportRow}>
+      <View style={styles.supportLabel}><AppText role="label" tone={current?.concept_key === mood.concept_key ? "pink" : undefined} style={light && styles.textLight}>{mood.label}</AppText><AppText role="caption" tone="secondary">{count === null ? "Erste Eindrücke" : `${count} ${count === 1 ? "Person" : "Personen"}`}</AppText></View>
+    </Pressable>;
+  };
   return (
     <>
-      {early ? <AppText role="meta" style={[styles.earlyLabel, styles.bodyRegular, light && styles.textMutedLight]}>Erste Eindrücke</AppText> : null}
-      <View style={styles.wrap}>
-        {visible.map((mood) => {
-          const established = mood.evidence_state === "ESTABLISHED";
-          const prominent = established && mood.rank <= 2;
-          return (
-            <Pressable
-              key={mood.concept_key}
-              accessibilityHint="Öffnet die Einordnung dieses Community-Moods"
-              accessibilityLabel={`${mood.label}${prominent ? ", besonders prägender Community-Eindruck" : ""}`}
-              accessibilityRole="button"
-              onPress={() => setSelected(mood)}
-              style={({ pressed }) => [styles.pill, light && styles.pillLight, prominent && styles.pillProminent, light && prominent && styles.pillProminentLight, pressed && styles.pillPressed]}
-            >
-              <AppText numberOfLines={1} role="label" style={[styles.bodyBold, light && styles.textLight, !prominent && light && styles.textMutedLight, prominent && styles.labelProminent]}>{mood.label}</AppText>
-              {established ? <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.strengthTrack}><View style={[styles.strengthLine, { width: `${strengthWidth(mood.percentage)}%` }]} /></View> : null}
-            </Pressable>
-          );
-        })}
-      </View>
-      {moods.length > 5 ? (
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: showAll }} onPress={() => setShowAll((current) => !current)} style={({ pressed }) => [styles.more, pressed && styles.morePressed]}>
-          <AppText role="label" tone="pink" style={styles.bodyBold}>{showAll ? "Weniger anzeigen" : "Mehr anzeigen"}</AppText>
-          <Ionicons name={showAll ? "chevron-up" : "chevron-down"} size={16} color={theme.color.pink} />
-        </Pressable>
-      ) : null}
-
-      <Modal animationType="slide" onRequestClose={() => setSelected(null)} transparent visible={Boolean(selected)}>
+      {ranked.length ? <View style={styles.summary}>
+        <View style={styles.summaryHeader}>
+          <AppText role="sectionTitle" style={[styles.summaryTitle, light && styles.textLight]}>Moods</AppText>
+          <AppText role="body" tone="secondary" style={[styles.summarySubtitle, light && styles.secondaryLight]}>So wird dieser Ort beschrieben</AppText>
+        </View>
+        <View style={styles.topMoods}>{ranked.slice(0, 3).map((mood, index) => {
+          const count = publicMoodCount(mood);
+          const fraction = moodSupportFraction(mood, strongestCount);
+          return <View key={mood.concept_key}>
+            <View style={styles.leadingLabel}>
+              <AppText role="bodyStrong" style={[styles.leadingMood, light && styles.textLight]}>{mood.label}</AppText>
+              {count !== null ? <AppText role="body" tone="secondary" accessibilityLabel={`${count} ${count === 1 ? "Person" : "Personen"}`} style={[styles.leadingCount, light && styles.secondaryLight]}>{count}</AppText> : null}
+            </View>
+            {fraction !== null ? <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.track, light && { backgroundColor: theme.color.borderLight }]}><View style={[styles.fill, { width: `${fraction * 100}%`, opacity: [1, 0.72, 0.5][index] }]} /></View> : null}
+          </View>;
+        })}</View>
+        {ranked.length > 3 ? <View style={[styles.otherMoods, light && { borderColor: theme.color.borderLight }]}>{ranked.slice(3, 10).map(mood => <View key={mood.concept_key} style={styles.otherRow}>
+          <AppText role="body" style={[styles.otherLabel, light && styles.textLight]}>{mood.label}</AppText>
+          {publicMoodCount(mood) !== null ? <AppText role="body" tone="secondary" accessibilityLabel={`${publicMoodCount(mood)} ${publicMoodCount(mood) === 1 ? "Person" : "Personen"}`} style={[styles.otherCount, light && styles.secondaryLight]}>{publicMoodCount(mood)}</AppText> : null}
+        </View>)}</View> : null}
+        {ranked.some(mood => mood.evidence_state === "EARLY") ? <AppText role="caption" tone="secondary" style={[styles.earlyEvidence, light && styles.secondaryLight]}>Erste Eindrücke</AppText> : null}
+        <Pressable accessibilityRole="button" onPress={() => setSelected(ranked[0])} style={[styles.allMoods, light && { borderColor: theme.color.borderLight }]}><AppText role="meta" style={[styles.allMoodsLabel, light && styles.textLight]}>Alle Moods ansehen</AppText><Ionicons name="arrow-forward" size={18} color={theme.color.pink} /></Pressable>
+      </View> : <AppText role="meta" tone="secondary">Noch keine Moods geteilt</AppText>}
+      <Modal animationType="slide" onRequestClose={() => setSelected(null)} transparent visible={Boolean(current)}>
         <View style={styles.backdrop}>
           <Pressable accessibilityLabel="Mood-Details schließen" accessibilityRole="button" onPress={() => setSelected(null)} style={StyleSheet.absoluteFill} />
           <View style={[styles.sheet, light && styles.sheetLight, { paddingBottom: Math.max(insets.bottom, theme.spacing.xl) }]}>
             <View style={[styles.handle, light && styles.handleLight]} />
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeading}>
-                <AppText role="caption" tone="pink" style={[styles.kicker, styles.bodyBold]}>COMMUNITY-EINDRUCK</AppText>
-                <AppText role="sectionTitle" style={[styles.bodyBold, light && styles.textLight]}>{selected?.label ?? "Mood"}</AppText>
+                <AppText role="caption" tone="pink" style={styles.kicker}>DIE MOODS DIESES ORTES</AppText>
+                <AppText role="sectionTitle" style={[styles.sheetTitle, light && styles.textLight]}>Alle Moods</AppText>
               </View>
               <IconButton accessibilityLabel="Schließen" onPress={() => setSelected(null)}>
                 <Ionicons name="close" size={21} color={light ? theme.color.textPrimaryLight : theme.color.textPrimary} />
               </IconButton>
             </View>
-            {selected ? <AppText style={[styles.explanation, styles.bodyRegular, light && styles.textMutedLight]}>{communityCopy(selected)}</AppText> : null}
-            {selected?.evidence_state === "ESTABLISHED" && typeof selected.concept_contributors === "number" ? (
-              <View style={[styles.evidence, light && styles.evidenceLight]}>
-                <AppText role="cardTitle" style={[styles.bodyBold, light && styles.textLight]}>{selected.concept_contributors}</AppText>
-                <AppText role="meta" style={[styles.evidenceCopy, styles.bodyRegular, light && styles.textMutedLight]}>{selected.concept_contributors === 1 ? "Community-Stimme bildet die Grundlage." : "Community-Stimmen bilden die Grundlage."}</AppText>
-              </View>
-            ) : null}
+            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 18, paddingTop: 18 }}>
+
+              {ranked.map(renderRow)}
+              <AppText role="caption" tone="secondary">Die Zahlen zeigen, wie viele Gäste den Ort so beschrieben haben.</AppText>
+              {current ? <Button label={`Orte mit ${current.label} entdecken`} onPress={() => { const mood = current.label; setSelected(null); router.push({ pathname: "/(tabs)/map", params: { mood, view: "list" } }); }} /> : null}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -95,32 +86,34 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
 }
 
 const styles = StyleSheet.create({
-  earlyLabel: { marginBottom: theme.spacing.md },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm },
-  pill: { minHeight: theme.control.compact, minWidth: 92, justifyContent: "center", overflow: "hidden", paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.xs, paddingTop: theme.spacing.xs, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border, backgroundColor: "rgba(255,255,255,0.045)" },
-  pillLight: { borderColor: theme.color.borderLight, backgroundColor: "rgba(23,22,26,0.025)" },
-  pillProminent: { borderColor: "rgba(255,79,145,0.35)", backgroundColor: "rgba(255,79,145,0.085)" },
-  pillProminentLight: { borderColor: "rgba(255,79,145,0.46)", backgroundColor: "rgba(255,79,145,0.075)" },
-  pillPressed: { opacity: 0.78, transform: [{ scale: theme.motion.pressScale }] },
-  labelProminent: { color: theme.color.textPrimary },
-  bodyRegular: { fontFamily: theme.type.body },
-  bodyBold: { fontFamily: theme.type.bodyBold, fontSize: 14, lineHeight: 20 },
+  summary: { gap: 0 },
+  summaryHeader: { gap: 6, marginBottom: 24 },
+  summaryTitle: { fontFamily: theme.type.bodyMedium, fontSize: 21, lineHeight: 28, letterSpacing: -0.4 },
+  summarySubtitle: { fontSize: 13, lineHeight: 20 },
+  topMoods: { gap: 19 },
+  leadingLabel: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 20 },
+  leadingMood: { fontSize: 18, lineHeight: 24, letterSpacing: -0.2, flexShrink: 1 },
+  leadingCount: { fontSize: 14, lineHeight: 19 },
+  track: { height: 4, marginTop: 10, backgroundColor: theme.color.border, overflow: "hidden" },
+  fill: { height: 4, backgroundColor: theme.color.pink },
+  otherMoods: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 16, marginTop: 23, paddingTop: 23, borderTopWidth: 1, borderColor: theme.color.border },
+  otherRow: { width: "47%", flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 },
+  otherLabel: { fontSize: 13, lineHeight: 19, flexShrink: 1 },
+  otherCount: { fontSize: 12, lineHeight: 19 },
+  earlyEvidence: { marginTop: 16 },
+  supportRow: { minHeight: 48, justifyContent: "center", gap: 8, paddingVertical: 8 },
+  supportLabel: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" },
+  allMoods: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 14, marginTop: 21, borderTopWidth: 1, borderColor: theme.color.border },
+  allMoodsLabel: { fontSize: 13, lineHeight: 19 },
   textLight: { color: theme.color.textPrimaryLight },
-  textMutedLight: { color: theme.color.textSecondaryLight },
-  strengthTrack: { position: "absolute", right: theme.spacing.lg, bottom: 6, left: theme.spacing.lg, height: 2, overflow: "hidden", borderRadius: theme.radius.pill, backgroundColor: "rgba(255,79,145,0.13)" },
-  strengthLine: { height: 2, borderRadius: theme.radius.pill, backgroundColor: theme.color.pink },
-  more: { alignSelf: "flex-start", minHeight: theme.control.compact, marginTop: theme.spacing.sm, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
-  morePressed: { opacity: 0.72 },
+  secondaryLight: { color: theme.color.textSecondaryLight },
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.62)" },
-  sheet: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.sm, borderTopLeftRadius: theme.radius.xl, borderTopRightRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.color.border, backgroundColor: theme.color.surfaceElevated },
+  sheet: { maxHeight: "90%", paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.sm, borderTopLeftRadius: theme.radius.xl, borderTopRightRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.color.border, backgroundColor: theme.color.surfaceElevated },
   sheetLight: { borderColor: theme.color.borderLight, backgroundColor: theme.color.surfaceLightElevated },
   handle: { alignSelf: "center", width: 42, height: 5, marginBottom: theme.spacing.lg, borderRadius: theme.radius.pill, backgroundColor: theme.color.borderStrong },
   handleLight: { backgroundColor: "rgba(23,22,26,0.22)" },
   sheetHeader: { flexDirection: "row", alignItems: "center", gap: theme.spacing.md },
+  sheetTitle: { fontFamily: theme.type.display, fontSize: 30, lineHeight: 36 },
   sheetHeading: { flex: 1, gap: theme.spacing.xxs },
   kicker: { letterSpacing: 1.6 },
-  explanation: { marginTop: theme.spacing.md, maxWidth: 430, color: theme.color.textSecondary },
-  evidence: { marginTop: theme.spacing.xl, paddingTop: theme.spacing.lg, flexDirection: "row", alignItems: "baseline", gap: theme.spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.color.border },
-  evidenceLight: { borderTopColor: theme.color.borderLight },
-  evidenceCopy: { flex: 1 },
 });

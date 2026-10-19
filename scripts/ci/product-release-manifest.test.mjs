@@ -265,3 +265,29 @@ test("scoped World authoring migrations are an exact contiguous set, not an open
   assert.equal(isExactProductAdditiveSet(migrations.map((m,i)=>i===1?{...m,sha256:"0".repeat(64)}:m)),false);
   assert.equal(isExactProductAdditiveSet([...migrations,{path:"supabase/migrations/unapproved.sql",sha256:"0".repeat(64)}]),false);
  });
+
+ test("Spot event release accepts only the exact reviewed migration", () => {
+   const migration = { path: "supabase/migrations/20261018015918_spot_event_authoring_v1.sql", sha256: "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b" };
+   assert.equal(isExactProductAdditiveSet([migration]), true);
+   assert.equal(isExactProductAdditiveSet([{...migration,sha256:"0".repeat(64)}]), false);
+   assert.equal(isExactProductAdditiveSet([{...migration,path:"supabase/migrations/future.sql"}]), false);
+   assert.equal(isExactProductAdditiveSet([migration,{path:"supabase/migrations/future.sql",sha256:"0".repeat(64)}]), false);
+ });
+
+test("Mood release approval binds the exact pair and rejects changed scope", () => {
+  const migrations = [{"path": "supabase/migrations/20261018162100_public_spot_review_counts_v1.sql", "sha256": "d94344813caa42578d9203d8791f51b81d62db83527abc24c21c1fe0148fdd9c"}, {"path": "supabase/migrations/20261018171218_public_spot_mood_counts_v1.sql", "sha256": "9c9a547f38c645f44f8d283c073e32ecceecd21910ffa79c54efbab7a9d776fd"}];
+  assert.equal(isExactProductAdditiveSet(migrations), true);
+  assert.equal(isExactProductAdditiveSet([...migrations].reverse()), false);
+  for (let i = 0; i < migrations.length; i += 1) {
+    assert.equal(isExactProductAdditiveSet(migrations.map((m, at) => at === i ? {...m, sha256: "0".repeat(64)} : m)), false);
+  }
+  assert.equal(isExactProductAdditiveSet([...migrations, {path: "supabase/migrations/unapproved.sql", sha256: "0".repeat(64)}]), false);
+});
+
+test("two-person Mood display approval binds only the reviewed migration", () => {
+  const migration = { path: "supabase/migrations/20261019152123_mood_two_person_display_v1.sql", sha256: "5907a21d48629cc1ea883fa08716614b7b4f05ccc2acd55ec7734b505594bfed" };
+  assert.equal(isExactProductAdditiveSet([migration]), true);
+  assert.equal(isExactProductAdditiveSet([{ ...migration, sha256: "0".repeat(64) }]), false);
+  assert.equal(isExactProductAdditiveSet([{ ...migration, path: "supabase/migrations/unapproved.sql" }]), false);
+  assert.equal(isExactProductAdditiveSet([migration, { path: "supabase/migrations/unapproved.sql", sha256: "0".repeat(64) }]), false);
+});

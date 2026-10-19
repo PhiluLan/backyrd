@@ -266,7 +266,7 @@ assert.match(spotDetail, /<Modal animationType="slide" presentationStyle="fullSc
 assert.match(spotDetail, /presentableReviews\.slice\(0, 3\)/, "Spot Detail must keep the meaningful Moment preview bounded");
 assert.match(spotDetail, /presentableReviews = reviews\.filter/, "Spot Detail must not render visually empty Moment cards");
 assert.match(spotDetail, /<SafeAreaView style=\{styles\.moreInfoScreen\} edges=\{\["top", "bottom"\]\}/, "More Infos must respect device safe areas");
-assert.match(spotDetail, /<SectionTitle>Rund um diesen Spot<\/SectionTitle>/, "the existing nearby rail must remain present");
+assert.match(spotDetail, /<SectionTitle>Rund um diesen Ort<\/SectionTitle>/, "the existing nearby rail must remain present");
 assert.match(spotDetail, /descriptionExpanded/, "Spot Detail must keep long descriptions collapsed initially");
 assert.match(spotDetail, /hoursExpanded/, "Spot Detail must keep full weekly hours opt-in");
 assert.doesNotMatch(spotDetail, /appearance="light"/, "Spot Detail must not reintroduce a light state surface");
@@ -279,7 +279,8 @@ assert.match(homeEvents, /snapToInterval/, "Events must use the shared Home rail
 assert.match(home, /HOME_RAIL/, "Spots must use the shared Home rail contract");
 assert.match(home, /snapToInterval/, "Spots must use the shared Home rail snap contract");
 assert.match(home, /resolveLocationContext\(\{ purpose: "nearby_discovery", requestPermission: false/, "Home must never prompt for location merely to decorate a card");
-assert.match(home, /SPOT_OPENING_STATUS_COPY/, "Home cards must present the canonical opening status");
+assert.match(home, /<OpeningStatusBadge status=\{spotOpeningStatusNow\(spot\.hours\)\}/, "Home cards must present the canonical opening status through the shared badge");
+assert.match(fs.readFileSync(new URL("../components/spot/OpeningStatusBadge.tsx", import.meta.url), "utf8"), /SPOT_OPENING_STATUS_COPY\[status\]/, "Shared status badges must use canonical opening-status copy");
 assert.match(home, /spot\.category_name.*spot\.address/, "Home cards must fall back to the address when no current location is available");
 assert.match(spotOpeningStatus, /openingSoon: "Öffnet bald"/, "opening-soon status must remain explicit");
 assert.match(spotOpeningStatus, /closingSoon: "Schließt bald"/, "closing-soon status must remain explicit");

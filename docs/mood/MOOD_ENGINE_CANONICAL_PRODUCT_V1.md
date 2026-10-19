@@ -47,7 +47,7 @@ The Safety trigger runs after existing lifecycle/distribution triggers. Review w
 - percentage: `100 × community score / unique contributor denominator`, rounded to two decimals;
 - rank: community score, then positive contributor count, then stable concept key.
 
-The launch evidence threshold is 3 eligible contributors. Below 3, the internal model records `EARLY`, while the public view masks exact counts and percentage and clients show “Erste Eindrücke”. At 0, clients show an intentional invitation state. N4, Research, Owner or Admin data never fills missing community Mood.
+The internal aggregate/Decision evidence threshold is 3 eligible contributors. Public display has a separate threshold of 2 distinct eligible contributors per Spot (19 October 2026): below 2, the public view masks exact counts and percentage and clients show “Erste Eindrücke”. At 0, clients show an intentional invitation state. N4, Research, Owner or Admin data never fills missing community Mood.
 
 ## Product and server contracts
 
@@ -76,3 +76,63 @@ The forward migration preserves Reviews, raw expressions, photos, ownership and 
 Safe deployment order is database → Review Edge/server → Web/Admin → Mobile OTA. Database triggers protect invariants from old Mobile clients. The UI changes are TypeScript/Expo JavaScript only and are OTA-compatible; no native module or native build is introduced. Keep the compatibility window only until the new Edge/Web/Mobile versions are live, then separately retire proven-dead legacy database writers.
 
 New/changed `SECURITY DEFINER` inventory for Security CTO: read-only `backyrd_resolve_mood_input_v2` (keeps the blocked-expression registry private), service-only `backyrd_resolve_decision_mood_query_v1` and `backyrd_decision_community_mood_signal_v1`, `backyrd_enforce_review_daily_publication_v1`, `backyrd_validate_review_mood_input_v2`, `backyrd_rebuild_spot_mood_profile_v1`, `backyrd_refresh_current_mood_contribution_v1`, `backyrd_sync_review_mood_expressions_v1`, `backyrd_refresh_mood_for_safety_item_v1`, `backyrd_rebuild_all_spot_mood_profiles_v1`, `backyrd_admin_resolve_mood_candidate_v1`, and `backyrd_admin_merge_mood_concepts_v1`. Internal rebuild/trigger functions are service-role only; governance RPCs require server-side Admin authorization.
+
+## Mood experience refresh — October 2026
+
+This phase changes consumer presentation, Review capture and explicit catalog browsing only. It does not change the Decision entrypoint, ranking, learning, governed taxonomy, Review publication contracts, aggregation math or database evidence thresholds.
+
+All three Mobile Review paths and Web use a searchable chip picker backed by the existing public canonical autocomplete. Zero, one or two impressions remain optional. A third selection never silently replaces an existing impression. Selected impressions can be individually removed; approved aliases use the canonical display label. Own expressions remain possible and their pending contribution to the shared profile is explained before selection. Unavailable suggestions preserve the draft and offer retry. The unused fixed Mobile suggestion/color vocabulary is retired.
+
+Spot portraits describe guest impressions without percentage labels or strength bars. Copy distinguishes early evidence and single-person impressions; pink prominence requires at least three contributors for that concept, as a presentation condition only. Existing aggregate `EARLY`/`ESTABLISHED` values are not rewritten. App details provide context and a link to the public Places list with that Mood selected; Web chips provide the same browsing entry and a disclosure explains their origin. No impression becomes a quality rating.
+
+An explicit browsing Mood filter shows catalog spots with that public Community impression. It does not silently disable itself when there are no matching profiles. Clear/reset returns spots without Mood evidence as well. Search aliases use the existing deterministic resolver; free place/name search remains available. App catalog profiles refresh on focus. Profile reads are bounded to the visible catalog IDs, paginated and time-limited; failures are separate from a genuine empty filter. No new votes, owner-generated community evidence or production test Reviews are created.
+
+Validation includes selection-limit/removal/free-expression checks, public-row parsing and pagination/failure tests, existing Mobile/Web contracts, typechecks, lint, Web production build, anonymous read-only canonical autocomplete probes, and isolated browser interaction with the actual Mobile/Web components. Physical iPhone acceptance and production delivery remain separate release steps.
+
+## Mood as Spot identity — consumer integration
+
+The qualitative Mood signature is part of the Spot identity. On Mobile and Web Spot detail pages it sits directly below the hero image, outside its overlay. Compact cards and map previews place it after the name. Mobile Home cards, catalog list/map previews and the Spot head share `MoodSignature`; Consumer Web cards, map previews, the Spot head and Review selection use the same visual language. The old separate portrait section and its instructional block are removed. Community provenance, early evidence and individual contribution counts remain available in an accessible detail sheet/dialog. A small early-evidence qualifier stays visible when applicable.
+
+Review selection previews the same signature that visitors encounter while browsing, with direct removal of selected expressions. Brand pink identifies Moods consistently; it no longer encodes the former concept-count prominence rule. Signature order comes from the existing public profile, with up to three labels on cards and in the Spot head. No percentage, quality score, personal match score, new aggregation, taxonomy, learning or Decision rule is introduced. Existing Home Mood entry actions and general search behavior remain unchanged.
+
+Validation uses existing selection/public-profile tests, canonical Mood invariants, Mobile/Web contracts, typechecks, Web build and iOS export. Isolated layout previews use fictional Spot names, sample imagery and synthetic Community data, never Production votes.
+
+
+## Mood signature and support distribution — October 2026
+
+On Spot detail the name and Mood signature sit together below the hero photo. All discovery signatures show up to three impressions and the total number of public Reviews, including Reviews without a Mood. Review totals use `backyrd_public_spot_review_counts_v1`, limited to 200 requested Spot IDs per call. It excludes non-approved, test/fixture and distribution-ineligible Spots, and excludes test/fixture, hidden/removed/deleted and distribution-ineligible Reviews. It returns no Review text or author identity. Failed or missing counts stay unavailable rather than becoming zero. Clients batch IDs and use an eight-second timeout.
+
+Presentation order now uses public distinct `concept_contributors` descending, with canonical rank and concept key as stable ties. This does not rewrite the stored weighted percentage, canonical aggregation, or Decision ranking. The three leading Moods form the qualitative summary; there is no scalar quality grade. Compact signature and detail use the same support order.
+
+The Spot head shows three support rows, and “Alle Moods ansehen” opens the full accessible sheet/dialog, with per-Mood browsing links. Each row shows the distinct person count, not the Review count. Pink bar length is explicitly `concept_contributors / eligible_contributors`, never the existing multi-visit weighted percentage, never count divided by all Reviews. Several Moods per person are possible, so bars are not parts of a total summing to 100%. EARLY evidence preserves existing count masking: it shows “Erste Eindrücke”, without a numeric bar or an exact contributor count. Review capture stays optional with the existing two-selection limit.
+
+Validation adds synthetic SQL permission, eligibility, lifecycle, zero-count and batch-limit cases, plus shared presentation tests for support order, low-evidence masking, count/denominator separation, and bounded count parsing. No Production votes or Reviews are created.
+
+
+## Compact Mood identity — supersedes the distribution layout above
+
+The Spot hero shows its name with one compact line below: total published Mood submissions first, then up to three leading public Moods. The standalone wordmark, Review count, support bars and large distribution block are removed. Cards and map previews use the same compact line. Below the photo, Spot detail shows a short inline summary of up to ten leading Moods, with public distinct-person counts in parentheses where available. “Mehr anzeigen” opens the full accessible list with explicit Mood browsing links. EARLY profiles retain per-concept count masking and their brief qualifier.
+
+The new additive `backyrd_public_spot_mood_counts_v1` RPC counts resolved active concept submissions from eligible public Reviews, one concept per Review. A later legitimate visit is another submission. Empty Reviews, unresolved/invalid expressions, duplicate aliases within a Review, hidden/removed/deleted/quarantined Reviews, inactive concepts and test/fixture data contribute no total. The bounded batch, authorization, eight-second client timeout and honest missing-data behavior remain. Total submissions are deliberately distinct from unique people, distinct labels and Review count. Per-concept display order still uses unique contributors, with canonical rank for ties; stored aggregation and Decision remain unchanged. The earlier Review count RPC is retained solely for compatibility and is no longer used by the Mood UI. Apply the new forward migration before delivering these clients.
+
+Validation covers submitted-Mood versus Review/label counts, duplicate concepts, multiple historical visits, unresolved and empty inputs, eligibility and moderation, anonymous/authenticated access and batch bounds. SQL tests use the current canonical Mood schema with synthetic fixtures and transaction rollback. Responsive previews test the ten-item cutoff and full-list expansion using fictional Spot data.
+
+
+## Previous visual treatment: Sanfte Chips — superseded below
+
+The approved design uses “So fühlt’s sich hier an.” below the hero. The leading three Moods have a subtle pink fill and separated contributor count; the next seven use smaller neutral outlines. No bars, quality score or additional enclosing card. “Alle Moods entdecken →” opens the existing full list. The count-first hero signature, count masking, capture limits and Decision boundaries remain unchanged.
+
+## Selected visual treatment: restrained Mood summary — 19 October 2026
+
+App and Consumer Web now use the approved unframed editorial layout below the photo: a sans-serif “Moods” heading and the exact subtitle “So wird dieser Ort beschrieben”. No column headings, pills, poster treatment or decorative paint. The leading three Moods show their public distinct-person count, with thin pink frequency lines; the next seven appear in two aligned columns. “Alle Moods ansehen” opens the existing accessible full list and retains Mood-based browsing.
+
+Line lengths compare each public contributor count with the leading public Mood count, so the most frequent public Mood spans the available width. They are relative frequencies, not visitor percentages, percentages of all Mood submissions, weighted aggregate scores, quality grades or progress toward a target. EARLY or missing counts never produce numbers or lines; “Erste Eindrücke” remains visible when applicable. Empty, loading, failed reads and retry states remain distinct. The count-first hero signature, canonical ordering, aggregate rules, Review capture, privacy and Decision behavior remain unchanged. No migration or backend deployment is needed.
+
+Task class: FAST_PR for the existing Mobile/Web presentation and shared frequency helper; production delivery consumes the exact Main-certified iOS artifact. Acceptance covers relative-count/weighted-score separation, invalid denominators and EARLY masking, existing Mood and Consumer contracts, Mobile/Web typechecks and production builds, and responsive interaction with the actual components using fictional fixtures.
+
+
+## Public display starts at two distinct people — 19 October 2026
+
+The public Mood projection now exposes counts and display evidence from two distinct eligible contributors per Spot. One person with several visits remains one contributor and cannot unlock counts. The threshold applies to the Spot, so a Mood supported by one person can display its count once two people have contributed to the Spot overall. Existing two-person Spots become visible immediately through the view; no backfill, invented Reviews or aggregate rewrite is needed.
+
+This is solely a display-policy change for App, Consumer Web and public Mood catalog consumers. The internal aggregate retains its three-person evidence threshold, and the Decision signal RPC continues to consume that internal state. Moderation, contributor eligibility, aggregation, RLS and grants are unchanged. Existing clients already render the public projection, so no iOS update is required. Isolated SQL tests cover zero/one/two/three people, repeated visits, anonymous/authenticated reads, denied base/privileged access, moderation removal/restoration and unchanged Decision activation.

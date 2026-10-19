@@ -1,8 +1,12 @@
+import { MoodSignature } from "../../components/spot/MoodSignature";
+import { rankMoodSupport } from "../../../packages/shared/src/presentation/mood";
+import { useSpotMoodCounts } from "../../lib/mood-catalog";
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
   Image,
   Dimensions,
+  useWindowDimensions,
   Pressable,
   FlatList,
   Share,
@@ -33,6 +37,7 @@ import {
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
 import { normalizeSpotGallery, type SpotGalleryPhoto } from "../../lib/spot-gallery";
 import { selectSpotImageUrl } from "../../lib/spot-images";
+import { SpotEventsSection } from "../../components/events/SpotEventsSection";
 import { SpotExperience } from "../../components/spot/SpotExperience";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
@@ -75,7 +80,6 @@ const { width } = Dimensions.get("window");
 // Spot imagery is the opening decision context, just like an Event hero: it
 // deliberately reaches the screen edges rather than sitting in a card.
 const HERO_W = width;
-const HEADER_H = Math.round(HERO_W * 1.05);
 const HEADER_MAX = Math.round(HERO_W * 1.05);
 const SLIDE_INTERVAL = 6000;
 const SLIDE_DURATION = 650;
@@ -169,7 +173,7 @@ const ContactAction = ({
     <View style={styles.contactIcon}>
       <Feather name={icon} size={19} color={theme.colors.text} />
     </View>
-    <Text numberOfLines={1} style={styles.contactLabel}>{label}</Text>
+    <Text style={styles.contactLabel}>{label}</Text>
   </Pressable>
 );
 
@@ -252,10 +256,13 @@ export default function SpotDetailScreen() {
   const decisionOrigin = entrySource === "decision";
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: viewportWidth } = useWindowDimensions();
+  const [heroContentHeight, setHeroContentHeight] = useState(0);
+  const heroHeight = Math.max(Math.round(viewportWidth * 1.05), heroContentHeight + insets.top + foundationTheme.control.standard + foundationTheme.spacing.display);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, HEADER_H],
+    inputRange: [0, heroHeight],
     outputRange: [0, -80],
     extrapolate: "clamp",
   });
@@ -274,6 +281,9 @@ export default function SpotDetailScreen() {
   const [mediaRevision,setMediaRevision]=useState(0);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
+  const [moodProfileFailed, setMoodProfileFailed] = useState(false);
+  const [moodProfileLoading, setMoodProfileLoading] = useState(true);
+  const moodCounts = useSpotMoodCounts(id ? [String(id)] : []);
   const [moodSummary, setMoodSummary] = useState<SpotMoodProfileItem[]>([]);
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
@@ -408,6 +418,8 @@ export default function SpotDetailScreen() {
       .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
       .eq("spot_id", id)
       .order("rank", { ascending: true });
+    setMoodProfileFailed(Boolean(profileError));
+    setMoodProfileLoading(false);
     if (!profileError) setMoodSummary(profile ?? []);
   }, [id]);
 
@@ -582,6 +594,8 @@ export default function SpotDetailScreen() {
         .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
         .eq("spot_id", id)
         .order("rank", { ascending: true });
+      setMoodProfileFailed(Boolean(profileError));
+      setMoodProfileLoading(false);
       if (!profileError) setMoodSummary(profile ?? []);
 
       setLoading(false);
@@ -654,7 +668,7 @@ export default function SpotDetailScreen() {
 
   async function requestClaim() {
     if (!userId) {
-      setLoginPromptMessage("Melde dich an, um diesen Spot zu verwalten.");
+      setLoginPromptMessage("Melde dich an, um diesen Ort zu verwalten.");
       setShowLoginPrompt(true);
       return;
     }
@@ -703,7 +717,7 @@ export default function SpotDetailScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-        <StateView appearance="dark" kind="loading" title="Spot wird geladen" message="Backyrd bereitet diesen Ort für dich vor." />
+        <StateView appearance="dark" kind="loading" title="Ort wird geladen" message="Backyrd bereitet diesen Ort für dich vor." />
       </View>
     );
   }
@@ -768,19 +782,19 @@ export default function SpotDetailScreen() {
         style={[styles.stickyNav, {
           paddingTop: insets.top + 8,
           backgroundColor: scrollY.interpolate({
-            inputRange: [0, HEADER_H * 0.55],
+            inputRange: [0, heroHeight * 0.55],
             outputRange: ["rgba(8,8,9,0)", "rgba(8,8,9,0.97)"],
             extrapolate: "clamp",
           }),
         }]}
       >
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.topBarBtn} hitSlop={8}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Zurück" onPress={() => router.back()} style={styles.topBarBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color="#fff" />
           </Pressable>
 
           <View style={styles.topBarActions}>
-            <Pressable onPress={onShare} style={styles.topBarBtn} hitSlop={8}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Ort teilen" onPress={onShare} style={styles.topBarBtn} hitSlop={8}>
               <Feather name="share" size={18} color="#fff" />
             </Pressable>
 
@@ -824,8 +838,8 @@ export default function SpotDetailScreen() {
       >
         <Animated.View
           style={{
-            width: HERO_W,
-            height: HEADER_H,
+            width: viewportWidth,
+            height: heroHeight,
             marginTop: 0,
             marginHorizontal: 0,
             borderRadius: 0,
@@ -839,7 +853,7 @@ export default function SpotDetailScreen() {
               top: 0,
               left: 0,
               right: 0,
-              height: HEADER_MAX,
+              height: heroHeight,
               transform: [{ translateY: headerParallax }],
             }}
           >
@@ -847,8 +861,8 @@ export default function SpotDetailScreen() {
               <Animated.View
                 style={{
                   flexDirection: "row",
-                  width: HERO_W * 2,
-                  height: HEADER_MAX,
+                  width: viewportWidth * 2,
+                  height: heroHeight,
                   transform: [{ translateX }],
                 }}
               >
@@ -858,7 +872,7 @@ export default function SpotDetailScreen() {
                   showFallbackName={false}
                   spotId={String(spot.id)}
                   spotName={spot.name}
-                  style={{ width: HERO_W, height: HEADER_MAX }}
+                  style={{ width: viewportWidth, height: heroHeight }}
                 />
                 <SpotArtwork
                   imageUrl={photos[(index.current + 1) % photos.length]?.url}
@@ -866,7 +880,7 @@ export default function SpotDetailScreen() {
                   showFallbackName={false}
                   spotId={String(spot.id)}
                   spotName={spot.name}
-                  style={{ width: HERO_W, height: HEADER_MAX }}
+                  style={{ width: viewportWidth, height: heroHeight }}
                 />
               </Animated.View>
             ) : (
@@ -876,7 +890,7 @@ export default function SpotDetailScreen() {
                 showFallbackName={false}
                 spotId={String(spot.id)}
                 spotName={spot.name}
-                style={{ width: HERO_W, height: HEADER_MAX }}
+                style={{ width: viewportWidth, height: heroHeight }}
               />
             )}
 
@@ -886,7 +900,7 @@ export default function SpotDetailScreen() {
               style={StyleSheet.absoluteFill}
             />
 
-            <View style={styles.heroContent}>
+            <View style={styles.heroContent} onLayout={(event) => setHeroContentHeight(event.nativeEvent.layout.height)}>
               <View style={styles.heroPills}>
                 <View style={[styles.statusPill, openingState === "open" ? styles.statusOpen : openingState === "openingSoon" ? styles.statusOpeningSoon : openingState === "closingSoon" ? styles.statusClosingSoon : openingUnknown ? styles.statusUnknown : styles.statusClosed]}>
                   <View style={[styles.statusDot, { backgroundColor: openingState === "open" ? theme.colors.greenSoft : openingState === "openingSoon" ? foundationTheme.color.warning : openingState === "closingSoon" ? foundationTheme.color.closingSoon : openingUnknown ? theme.colors.textSoft : theme.colors.danger }]} />
@@ -896,60 +910,29 @@ export default function SpotDetailScreen() {
                 </View>
                 {!canonicalWorldDetail && spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
-
-              <AppText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={4} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
+              <AppText role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
+              <View style={{ marginTop: 10 }}><MoodSignature labels={moodProfileFailed || moodProfileLoading ? [] : rankMoodSupport(moodSummary).map(mood => mood.label)} moodCount={moodCounts[String(id)]} /></View>
             </View>
           </Animated.View>
         </Animated.View>
 
         <View style={styles.content}>
+          <View style={{ marginBottom: 24 }}>
+            {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
+          </View>
           {addressLines.length ? <View style={styles.addressBlock}>
             <Feather name="map-pin" size={18} color={theme.colors.pink} style={styles.addressIcon} />
             <View style={styles.addressLines}>{addressLines.map((line, index) => (
               <Text key={`${index}:${line}`} style={index === 0 ? styles.addressStreet : styles.addressDetail}>{line}</Text>
             ))}</View>
           </View> : null}
-          <View style={styles.quickActions}>
-            <Pressable onPress={() => {
-              if (!decisionOrigin) {
-                void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
-                if (userId) void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
-              }
-              openInAppleMaps(spot.lat, spot.lng, spot.name);
-            }} style={styles.primaryAction}>
-              <Feather name="navigation" size={17} color="#111113" />
-              <Text style={styles.primaryActionText}>Route</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                if (!userId) {
-                  setLoginPromptMessage("Melde dich an, um deinen Moment an diesem Ort zu teilen.");
-                  setShowLoginPrompt(true);
-                  return;
-                }
-                if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_review_started", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
-                void openMomentComposerSafely({ router, href: `/review/new?spotId=${spot.id}` });
-              }}
-              style={styles.secondaryAction}
-            >
-              <Feather name="plus" size={18} color={theme.colors.text} />
-              <Text style={styles.secondaryActionText}>Moment</Text>
-            </Pressable>
-          </View>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
-            {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <View style={styles.moodEmpty}>
-              <Feather name="sun" size={22} color={theme.colors.textMuted} />
-              <Text style={styles.moodEmptyTitle}>Noch keine Eindrücke</Text>
-              <Text style={styles.moodEmptyCopy}>Teile nach deinem Besuch deinen Moment.</Text>
-            </View>}
-          </View>
+
 
           <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
 
           {galleryPhotos.length>0||galleryFailed?<View style={styles.section}>
-            <SectionTitle>Fotos vom Spot</SectionTitle>
+            <SectionTitle>Fotos vom Ort</SectionTitle>
             {galleryFailed?<View><Text style={styles.mutedText}>Die Fotos konnten nicht geladen werden.</Text><Pressable accessibilityRole="button" onPress={()=>setMediaRevision(value=>value+1)} style={styles.textAction}><Text style={styles.textActionLabel}>Erneut laden</Text></Pressable></View>:<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingVertical:12}}>
               {galleryPhotos.map((photo,i)=><Pressable key={photo.id} accessibilityRole="button" accessibilityLabel={`Spotfoto ${i+1} vergrössern`} onPress={()=>setGalleryImage(photo.url)}><SpotArtwork imageUrl={photo.url} spotId={String(spot.id)} spotName={spot.name} showFallbackName={false} style={{width:220,height:160,borderRadius:16}}/></Pressable>)}
             </ScrollView>}
@@ -981,7 +964,7 @@ export default function SpotDetailScreen() {
                   </Pressable>
                 ) : null}
               </>
-            ) : <Text style={styles.mutedText}>Für diesen Spot ist noch keine Beschreibung hinterlegt.</Text>}
+            ) : <Text style={styles.mutedText}>Für diesen Ort ist noch keine Beschreibung hinterlegt.</Text>}
           </View>
 
           <SpotExperience profile={productProfile?.experienceProfile}/>
@@ -1049,6 +1032,8 @@ export default function SpotDetailScreen() {
             </Pressable>
             <Text style={styles.moreInfoSubtitle}>Ausstattung, Atmosphäre und weitere Details</Text>
           </View>
+
+          <SpotEventsSection spotId={String(spot.id)}/>
 
           <View style={styles.section}>
               <View style={styles.sectionHeader}><SectionTitle>Momente</SectionTitle>{presentableReviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
@@ -1142,7 +1127,7 @@ export default function SpotDetailScreen() {
           </View>
 
           <View style={styles.section}>
-            <SectionTitle>Rund um diesen Spot</SectionTitle>
+            <SectionTitle>Rund um diesen Ort</SectionTitle>
             {nearby.length > 0 ? (
               <FlatList
                 horizontal
@@ -1166,16 +1151,16 @@ export default function SpotDetailScreen() {
                       />
                       <LinearGradient colors={["transparent", "rgba(0,0,0,0.62)"]} style={styles.nearbyGradient} />
                       <View style={styles.distancePill}>
-                        <Text style={styles.distanceText}>{item.distanceKm.toFixed(1)} km vom Spot</Text>
+                        <Text style={styles.distanceText}>{item.distanceKm.toFixed(1)} km vom Ort</Text>
                       </View>
                     </View>
-                    <Text style={styles.nearbyName} numberOfLines={1}>{item.name}</Text>
-                    {!!item.address && <Text style={styles.nearbyAddress} numberOfLines={1}>{item.address}</Text>}
+                    <Text style={styles.nearbyName}>{item.name}</Text>
+                    {!!item.address && <Text style={styles.nearbyAddress}>{item.address}</Text>}
                   </Pressable>
                 )}
               />
             ) : (
-              <Text style={styles.mutedText}>Keine Spots gefunden.</Text>
+              <Text style={styles.mutedText}>Keine Orte gefunden.</Text>
             )}
           </View>
 
@@ -1183,7 +1168,7 @@ export default function SpotDetailScreen() {
             {ownerCtx?.is_verified_owner ? (
               <Pressable onPress={() => router.push(`/spot/${spot.id}/manage`)} style={styles.ownerButton}>
                 <Feather name="settings" size={17} color={theme.colors.text} />
-                <Text style={styles.ownerButtonText}>Spot verwalten</Text>
+                <Text style={styles.ownerButtonText}>Ort verwalten</Text>
               </Pressable>
             ) : ownerCtx?.claim_status === "pending" ? (
               <View style={styles.ownerButton}>
@@ -1199,16 +1184,44 @@ export default function SpotDetailScreen() {
           </View>
         </View>
 
-        <View style={{ height: foundationTheme.control.tabBar + foundationTheme.spacing.xxl + insets.bottom }} />
+        <View style={{ height: foundationTheme.spacing.xl }} />
       </Animated.ScrollView>
+          <View style={[styles.quickActions, { paddingBottom: Math.max(insets.bottom, foundationTheme.spacing.sm) }]}>
+            <Pressable onPress={() => {
+              if (!decisionOrigin) {
+                void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                if (userId) void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
+              }
+              openInAppleMaps(spot.lat, spot.lng, spot.name);
+            }} accessibilityRole="button" accessibilityLabel="Route zu diesem Ort öffnen" style={styles.primaryAction}>
+              <Feather name="navigation" size={17} allowFontScaling={false} color="#111113" />
+              <Text maxFontSizeMultiplier={1.5} style={styles.primaryActionText}>Route</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (!userId) {
+                  setLoginPromptMessage("Melde dich an, um deinen Moment an diesem Ort zu teilen.");
+                  setShowLoginPrompt(true);
+                  return;
+                }
+                if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_review_started", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                void openMomentComposerSafely({ router, href: `/review/new?spotId=${spot.id}` });
+              }}
+              accessibilityRole="button" accessibilityLabel="Moment an diesem Ort teilen"
+              style={styles.secondaryAction}
+            >
+              <Feather name="plus" size={18} allowFontScaling={false} color={theme.colors.text} />
+              <Text maxFontSizeMultiplier={1.5} style={styles.secondaryActionText}>Moment</Text>
+            </Pressable>
+          </View>
 
       <Modal animationType="slide" presentationStyle="fullScreen" visible={moreInfoExpanded} onRequestClose={() => setMoreInfoExpanded(false)}>
         <SafeAreaProvider>
         <SafeAreaView style={styles.moreInfoScreen} edges={["top", "bottom"]}>
           <View style={styles.moreInfoHeader}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Zurück zum Spot" onPress={() => setMoreInfoExpanded(false)} style={styles.moreInfoBack}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Zurück zum Ort" onPress={() => setMoreInfoExpanded(false)} style={styles.moreInfoBack}>
               <Feather name="chevron-left" size={20} color={theme.colors.text} />
-              <Text style={styles.moreInfoBackText}>Zurück zum Spot</Text>
+              <Text style={styles.moreInfoBackText}>Zurück zum Ort</Text>
             </Pressable>
             <Text style={styles.moreInfoPageTitle}>Mehr Infos</Text>
             <Text style={styles.moreInfoPageSubtitle}>Alle weiteren Angaben zu {spot.name} auf einen Blick.</Text>
@@ -1368,11 +1381,18 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 24,
+    paddingTop: foundationTheme.spacing.sm,
+    paddingHorizontal: foundationTheme.layout.pageGutter,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: foundationTheme.color.border,
+    backgroundColor: foundationTheme.color.background,
   },
   primaryAction: {
     flex: 1.15,
-    height: 54,
+    minHeight: foundationTheme.control.standard,
+    paddingVertical: foundationTheme.spacing.sm,
+    paddingHorizontal: foundationTheme.spacing.sm,
+    minWidth: 0,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.pink,
     flexDirection: "row",
@@ -1382,12 +1402,17 @@ const styles = StyleSheet.create({
   },
   primaryActionText: {
     color: "#111113",
+    flexShrink: 1,
+    textAlign: "center",
     fontSize: 15,
     fontWeight: "900",
   },
   secondaryAction: {
     flex: 1,
-    height: 54,
+    minHeight: foundationTheme.control.standard,
+    paddingVertical: foundationTheme.spacing.sm,
+    paddingHorizontal: foundationTheme.spacing.sm,
+    minWidth: 0,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
@@ -1399,6 +1424,8 @@ const styles = StyleSheet.create({
   },
   secondaryActionText: {
     color: theme.colors.text,
+    flexShrink: 1,
+    textAlign: "center",
     fontSize: 15,
     fontWeight: "800",
   },
@@ -1458,14 +1485,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: "700",
   },
-  moodEmpty: {
-    minHeight: 124,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  moodEmptyTitle: { color: theme.colors.text, fontSize: 15, fontWeight: "700" },
-  moodEmptyCopy: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: "center" },
   showMoreText: {
     color: theme.colors.pinkSoft,
     fontSize: 13,
@@ -1551,7 +1570,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: "rgba(255,255,255,0.04)",
   },
-  contactLabel: { color: theme.colors.textSoft, fontSize: 12, lineHeight: 17, fontWeight: "600" },
+  contactLabel: { textAlign: "center", color: theme.colors.textSoft, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   factRow: {
     paddingVertical: 19,
     borderBottomWidth: StyleSheet.hairlineWidth,

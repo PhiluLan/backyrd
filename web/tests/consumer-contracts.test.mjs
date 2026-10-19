@@ -201,13 +201,16 @@ test("successful auth synchronizes the persistent shell and server-visible navig
   assert.match(account, /window\.location\.replace\("\/"\)/);
 });
 
-test("Review Mood input uses selectable canonical autocomplete without closing free expression", async () => {
-  const source = await read("web/components/consumer/review-form.tsx");
-  assert.match(source, /backyrd_search_mood_concepts_v1/);
-  assert.match(source, /role="listbox"/);
-  assert.match(source, /onClick=\{\(\) => \{ onChange\(item\.label\)/);
-  assert.match(source, /onChange=\{\(event\) => onChange\(event\.target\.value\)\}/);
-  assert.doesNotMatch(source, /const moods\s*=/);
+test("Review Mood input keeps one canonical picker and optional free expression", async () => {
+  const form = await read("web/components/consumer/review-form.tsx");
+  const picker = await read("web/components/consumer/mood-selection.tsx");
+  assert.match(form, /<MoodSelection/);
+  assert.match(picker, /backyrd_search_mood_concepts_v1/);
+  assert.match(picker, /aria-pressed=\{active\}/);
+  assert.match(picker, /toggleMoodExpression/);
+  assert.match(picker, /maxLength=\{40\}/);
+  assert.match(picker, /verwenden/);
+  assert.doesNotMatch(picker, /const moods\s*=/);
 });
 
 test("canonical Owner image failures remain local and fall back without changing source priority", async () => {

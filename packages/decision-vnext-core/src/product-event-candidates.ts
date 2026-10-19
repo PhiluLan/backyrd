@@ -13,7 +13,7 @@ const nullableText = schema.union([schema.string({min:1,max:500}),schema.literal
 const nullableTime = schema.union([timestamp,schema.literal(null)] as const);
 const nullableNumber = schema.union([schema.number({min:0,max:100000}),schema.literal(null)] as const);
 export const DecisionEventOccurrenceSchema = schema.object({
-  eventId: uuid, occurrenceId: uuid, source: schema.literal("manual_admin"), title:schema.string({min:1,max:300}),
+  eventId: uuid, occurrenceId: uuid, source: schema.enum(["manual_admin", "manual_owner"] as const), title:schema.string({min:1,max:300}),
   categories:schema.array(schema.enum(["MUSIC","NIGHTLIFE","ART","THEATRE","FILM","FOOD_DRINK","FAMILY","SPORT","ACTIVITY","LEISURE","MARKET","WORKSHOP","COMMUNITY","OTHER"] as const),{min:1,max:12}),
   city:schema.string({min:1,max:160}), venueName:nullableText, address:nullableText, matchedSpotId:schema.union([uuid,schema.literal(null)] as const),
   startAt:timestamp,endAt:nullableTime, eventStatus:schema.enum(["PUBLISHED","SCHEDULED","POSTPONED","CANCELLED","ENDED"] as const),

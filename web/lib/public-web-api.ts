@@ -1,3 +1,4 @@
+import { loadSpotBrowseMoods, loadSpotMoodCounts } from "./mood-catalog";
 import { supabase } from "@/lib/supabase/client";
 
 export type PublicCitySpot = {
@@ -7,7 +8,8 @@ export type PublicCitySpot = {
   category_name: string | null;
   photo_url: string | null;
   top_moods: string[];
-  review_count: number;
+  review_count?: number;
+  mood_count?: number;
 };
 
 export type PublicMoment = {
@@ -67,12 +69,10 @@ async function attachCanonicalHeaders(spots: PublicCitySpot[]): Promise<PublicCi
       ? data.filter(isRow).map((row) => [String(row.spot_id ?? ""), str(row.header_photo_path)] as const)
       : [],
   );
-  const { data: moods } = await supabase
-    .from("backyrd_spot_mood_profile_public_v1")
-    .select("spot_id,label,rank")
-    .in("spot_id", ids)
-    .lte("rank", 3)
-    .order("rank", { ascending: true });
+  const [moods, moodCounts] = await Promise.all([
+    loadSpotBrowseMoods(ids).catch(() => []),
+    loadSpotMoodCounts(ids).catch(() => ({} as Record<string, number>)),
+  ]);
   const moodMap = new Map<string, string[]>();
   for (const row of moods ?? []) {
     const labels = moodMap.get(row.spot_id) ?? [];
@@ -83,6 +83,7 @@ async function attachCanonicalHeaders(spots: PublicCitySpot[]): Promise<PublicCi
     ...spot,
     photo_url: headers.get(spot.spot_id) ?? null,
     top_moods: moodMap.get(spot.spot_id) ?? [],
+    mood_count: moodCounts[spot.spot_id],
   }));
 }
 

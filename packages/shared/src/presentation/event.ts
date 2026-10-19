@@ -123,7 +123,7 @@ export function eventCategoryLabel(value: string): string {
 }
 
 export function isManualEventSource(source: string): boolean {
-  return normalized(source).replace(/[ -]/g, "_") === "manual_admin";
+  return ["manual_admin", "manual_owner"].includes(normalized(source).replace(/[ -]/g, "_"));
 }
 
 export function eventSourceLabel(source: string): string {
@@ -288,4 +288,12 @@ export function formatEventAddress(input: EventAddressInput): string | null {
     parts.push(part);
   }
   return parts.join(", ") || null;
+}
+
+/** One next actionable occurrence per series; drafts and cancellations never become cards. */
+export function upcomingSpotEvents<T extends { event_id: string; occurrence_id: string; start_at: string; end_at: string | null; event_status: string; occurrence_status: string }>(rows: readonly T[], now = new Date(), limit = 8): T[] {
+  const seen = new Set<string>();
+  return [...rows].filter(row => ["PUBLISHED", "SCHEDULED"].includes(row.event_status) && row.occurrence_status === "SCHEDULED" && Date.parse(row.end_at ?? row.start_at) > now.getTime())
+    .sort((a, b) => Date.parse(a.start_at) - Date.parse(b.start_at) || a.occurrence_id.localeCompare(b.occurrence_id))
+    .filter(row => { if (seen.has(row.event_id)) return false; seen.add(row.event_id); return true; }).slice(0, limit);
 }

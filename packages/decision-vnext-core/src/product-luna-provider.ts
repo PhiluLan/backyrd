@@ -2,16 +2,8 @@ import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, LUNA_LIBRARIAN
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 import type { DecisionProductAuthenticatedActor } from "./product-decision.js";
 
-export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@1" as const;
+export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@2" as const;
 
-export function parseDecisionProductAiIntentAllowlist(raw: string): readonly string[] | "*" {
-  const value = raw.trim();
-  if (value === "*") return "*";
-  if (!value) return [];
-  const ids = value.split(",").map(part => part.trim().toLowerCase());
-  if (ids.length > 16 || ids.some(id => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) || new Set(ids).size !== ids.length) throw new Error("product_ai_intent_allowlist_invalid");
-  return ids;
-}
 
 function modelOutput(value: unknown): unknown {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("product_luna_response_invalid");
@@ -47,15 +39,13 @@ function assertExplicitContext(request: DecisionProductRequest, meaning: Librari
  * facet cache, provider-response persistence or repair call is used. */
 export function createDecisionProductLunaProvider(input: {
   readonly apiKey: string;
-  readonly allowedUserIds: readonly string[] | "*";
   readonly fetchImpl?: typeof fetch;
   readonly now?: () => Date;
 }) {
   if (!input.apiKey) throw new Error("product_luna_configuration_invalid");
   const fetchImpl = input.fetchImpl ?? fetch;
-  return async (requestValue: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal): Promise<LibrarianRequest> => {
+  return async (requestValue: DecisionProductRequest, _actor: DecisionProductAuthenticatedActor, signal: AbortSignal): Promise<LibrarianRequest> => {
     const request = DecisionProductRequestSchema.parse(requestValue);
-    if (input.allowedUserIds !== "*" && !input.allowedUserIds.includes(actor.userId.toLowerCase())) throw new Error("product_luna_not_enabled_for_actor");
     if (signal.aborted) throw new Error("product_luna_aborted");
     const reference = { now: (input.now?.() ?? new Date()).toISOString(), timezone: "Europe/Zurich" as const };
     const body = buildLunaLibrarianModelRequest({ sourceText: request.naturalLanguage, reference, explicitContext: request.explicit });

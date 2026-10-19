@@ -1,7 +1,7 @@
 // backyrd/mobile/app/map.tsx
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { View, Alert, Pressable, ScrollView, StyleSheet, Dimensions, Animated, FlatList, PanResponder, Modal } from "react-native";
+import { View, Alert, Platform, Pressable, ScrollView, StyleSheet, Dimensions, Animated, FlatList, PanResponder, Modal, useWindowDimensions } from "react-native";
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 
 import ClusteredMapView from "react-native-map-clustering";
@@ -12,14 +12,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 
+import { OpeningStatusBadge } from "../../components/spot/OpeningStatusBadge";
+import { spotOpeningStatusNow, type SpotHoursRow } from "../../lib/spot-opening-status";
 import { useSpotsStore } from "../../lib/useSpotsStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
 import { cityCenterFor, normalizeLocationCity, resolveLocationContext } from "../../lib/locationContext";
 import { hasActiveConsent } from "../../lib/consent";
-import { MOOD_SUGGESTIONS } from "../../lib/moods";
+import { useSpotMoodCounts, loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
 import { trackAnalyticsEvent } from "../../lib/analytics";
+import { MoodSignature } from "../../components/spot/MoodSignature";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
@@ -73,11 +76,13 @@ type Spot = {
   address?: string | null;
   city?: string | null;
   header_photo_url?: string | null;
+  spot_hours?: SpotHoursRow[];
   category_id?: string | null;
   categories?: { name?: string | null; color?: string | null } | null;
 };
 
 export default function MapScreen() {
+  const { fontScale } = useWindowDimensions();
   const { spots: globalSpots, refresh, loading, error: spotsError } = useSpotsStore();
   const { user } = useAuth();
   const router = useRouter();
@@ -99,23 +104,15 @@ export default function MapScreen() {
 
   // Mood-Daten: spotId → [token1, token2, ...]
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
+  const moodCounts = useSpotMoodCounts(globalSpots.map(spot => spot.id));
 
   // Mapping: spotId → [mood_id1, mood_id2, ...]
   const [spotMoodIds, setSpotMoodIds] = useState<Record<string, string[]>>({});
 
-  // Alle Mood-IDs, die in Daten vorkommen → für Fallback-Logik
-  const allMoodIdsInData = useMemo(() => {
-    const set = new Set<string>();
-    Object.values(spotMoodIds).forEach((arr) =>
-      arr.forEach((id) => {
-        if (typeof id === "string") set.add(id);
-      })
-    );
-    return set;
-  }, [spotMoodIds]);
-
-  // Dynamic Mood-Chips (Top Moods über gesamte App)
-  const [topMoodChips, setTopMoodChips] = useState<string[]>([]);
+  const { options: moodOptions, state: moodCatalogState, retry: retryMoodCatalog } = useMoodCatalog();
+  const [moodProfilesFailed, setMoodProfilesFailed] = useState(false);
+  const [moodProfilesLoading, setMoodProfilesLoading] = useState(true);
+  const [moodRevision, setMoodRevision] = useState(0);
 
   const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
   const [profileCity, setProfileCity] = useState<string | null>(null);
@@ -131,6 +128,7 @@ export default function MapScreen() {
   // Auswahl: Mood über Chip
   const [selectedMood, setSelectedMood] = useState<string | null>(params.mood ?? null);
   const [selectedMoodId, setSelectedMoodId] = useState<string | null>(null);
+  const [moodResolverFailed, setMoodResolverFailed] = useState(false);
 
   // Mood, der aus der freien Suche kommt
   const [searchMoodId, setSearchMoodId] = useState<string | null>(null);
@@ -221,125 +219,51 @@ export default function MapScreen() {
         .select("id,name,icon,color")
         .limit(200);
 
-      // Canonical Community Mood profile.
-      const { data: moodRows } = await supabase
-        .from("backyrd_spot_mood_profile_public_v1")
-        .select("spot_id,concept_key,label,concept_contributors,rank")
-        .lte("rank", 5);
-
-      const moodMap: Record<string, string[]> = {};
-      const moodIdMap: Record<string, string[]> = {};
-
-      (moodRows || []).forEach((r: any) => {
-        const token = r.label;
-        if (!token) return;
-
-        if (!moodMap[r.spot_id]) moodMap[r.spot_id] = [];
-        if (!moodIdMap[r.spot_id]) moodIdMap[r.spot_id] = [];
-
-        moodMap[r.spot_id].push(token);
-        moodIdMap[r.spot_id].push(r.concept_key);
-      });
-
-      setSpotMoods(moodMap);
-      setSpotMoodIds(moodIdMap);
       setDbCategories(catRows || []);
     })();
   }, [refresh]);
 
-  /* =============================================================
-     DYNAMIC TOP MOOD CHIPS
-  ============================================================= */
-  useEffect(() => {
-    (async () => {
-      try {
-        // Wir holen viele Mood-Aggregate, aggregieren clientseitig
-        const { data, error } = await supabase
-          .from("backyrd_spot_mood_profile_public_v1")
-          .select("concept_key,label,concept_contributors")
-          .limit(2000);
-
-        if (error || !data) {
-          // Fallback auf statische Suggestions
-          setTopMoodChips(MOOD_SUGGESTIONS);
-          return;
-        }
-
-        const freq: Record<string, number> = {};
-        (data || []).forEach((row: any) => {
-          const token = row.label;
-          if (!token) return;
-          const key = normalizeText(token);
-          if (!key || key.length < 2) return;
-          freq[key] = (freq[key] || 0) + (row.concept_contributors || 1);
-        });
-
-        const sorted = Object.entries(freq)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 24)
-          .map(([key]) => key);
-
-        const prettified = sorted.map(
-          (k) => k.charAt(0).toUpperCase() + k.slice(1)
-        );
-
-        if (prettified.length > 0) {
-          setTopMoodChips(prettified);
-        } else {
-          setTopMoodChips(MOOD_SUGGESTIONS);
-        }
-      } catch {
-        setTopMoodChips(MOOD_SUGGESTIONS);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setMoodProfilesLoading(true);
+    setMoodProfilesFailed(false);
+    void loadSpotBrowseMoods(globalSpots.map(spot => spot.id)).then(rows => {
+      if (!active) return;
+      const labels: Record<string, string[]> = {}, concepts: Record<string, string[]> = {};
+      for (const row of rows) {
+        (labels[row.spot_id] ??= []).push(row.label);
+        (concepts[row.spot_id] ??= []).push(row.concept_key);
       }
-    })();
-  }, []);
-
-  /* =============================================================
-     MOOD ENGINE HOOKS
-  ============================================================= */
-
-  // Chip → canonical Mood concept through the shared resolver.
-  async function resolveSelectedMoodId(text: string | null) {
-    if (!text) {
-      setSelectedMoodId(null);
-      return;
-    }
-    try {
-      const { data, error } = await supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: text });
-      if (!error && data?.status === "RESOLVED") {
-        setSelectedMoodId(data.conceptKey);
-      } else {
-        setSelectedMoodId(null);
-      }
-    } catch {
-      setSelectedMoodId(null);
-    }
-  }
+      setSpotMoods(labels); setSpotMoodIds(concepts);
+    }).catch(() => { if (active) setMoodProfilesFailed(true); })
+      .finally(() => { if (active) setMoodProfilesLoading(false); });
+    return () => { active = false; };
+  }, [globalSpots, moodRevision]));
 
   useEffect(() => {
-    resolveSelectedMoodId(selectedMood);
-  }, [selectedMood]);
+    let active = true;
+    setSelectedMoodId(null);
+    setMoodResolverFailed(false);
+    if (!selectedMood) return () => { active = false; };
+    const known = moodOptions.find(option => option.label.toLowerCase() === selectedMood.toLowerCase());
+    if (known) { setSelectedMoodId(known.concept_key); return () => { active = false; }; }
+    void supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: selectedMood }).then(({ data, error }) => {
+      if (!active) return;
+      if (!error && data?.status === "RESOLVED") setSelectedMoodId(data.conceptKey);
+      else if (error) setMoodResolverFailed(true);
+    });
+    return () => { active = false; };
+  }, [selectedMood, moodOptions]);
 
-  // Freitext-Suche → auch Mood Engine probieren
+  // Resolve a complete Mood expression; ordinary place/name search stays independent.
   useEffect(() => {
-    (async () => {
-      const t = debouncedSearch.trim();
-      if (!t || t.length < 2) {
-        setSearchMoodId(null);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: t });
-        if (!error && data?.status === "RESOLVED") {
-          setSearchMoodId(data.conceptKey);
-        } else {
-          setSearchMoodId(null);
-        }
-      } catch {
-        setSearchMoodId(null);
-      }
-    })();
+    let active = true;
+    setSearchMoodId(null);
+    if (debouncedSearch.trim().length < 2) return () => { active = false; };
+    void supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: debouncedSearch.trim() }).then(({ data, error }) => {
+      if (active && !error && data?.status === "RESOLVED") setSearchMoodId(data.conceptKey);
+    });
+    return () => { active = false; };
   }, [debouncedSearch]);
 
   /* =============================================================
@@ -347,6 +271,7 @@ export default function MapScreen() {
   ============================================================= */
 
   const spotMatchesMood = React.useCallback((spot: Spot) => {
+    if ((moodProfilesFailed || moodResolverFailed) && (selectedMood || searchMoodId)) return false;
     const ids = spotMoodIds[spot.id] || [];
 
     // Effektive Mood-IDs aus Chip + Suche
@@ -354,13 +279,9 @@ export default function MapScreen() {
       (v): v is string => typeof v === "string"
     );
 
-    // Nur IDs verwenden, die überhaupt in den Daten vorkommen → Fallback,
-    // damit z.B. "cozy" nicht alles killt, falls kein Spot dieses ID hat.
-    const effectiveMoodIds = combined.filter((mid) => allMoodIdsInData.has(mid));
-
-    if (effectiveMoodIds.length === 0) return true;
-    return effectiveMoodIds.some((mid) => ids.includes(mid));
-  }, [allMoodIdsInData, searchMoodId, selectedMoodId, spotMoodIds]);
+    if (combined.length === 0) return !selectedMood;
+    return combined.every(mid => ids.includes(mid));
+  }, [searchMoodId, selectedMoodId, selectedMood, spotMoodIds, moodProfilesFailed, moodResolverFailed]);
 
   const filteredSpots = useMemo(() => {
     let base = globalSpots;
@@ -374,7 +295,7 @@ export default function MapScreen() {
     return base.filter((s) => {
       if (!spotMatchesMood(s)) return false;
       if (selectedCategory && s.category_id !== selectedCategory) return false;
-      if (debouncedSearch.trim() && !spotMatchesSearch(s, debouncedSearch, spotMoods[s.id] ?? []))
+      if (debouncedSearch.trim() && !searchMoodId && !spotMatchesSearch(s, debouncedSearch, spotMoods[s.id] ?? []))
         return false;
       return true;
     });
@@ -385,6 +306,7 @@ export default function MapScreen() {
     initialSpotIdList,
     spotMatchesMood,
     spotMoods,
+    searchMoodId,
   ]);
 
   useEffect(() => {
@@ -591,7 +513,7 @@ export default function MapScreen() {
   if (spotsError)
     return (
       <SafeAreaView style={styles.center} edges={["top"]}>
-        <StateView kind="error" title="Orte gerade nicht verfügbar" message="Die Spots konnten nicht geladen werden. Bitte versuche es erneut." actionLabel="Erneut laden" onAction={() => void refresh()} />
+        <StateView kind="error" title="Orte gerade nicht verfügbar" message="Die Orte konnten nicht geladen werden. Bitte versuche es erneut." actionLabel="Erneut laden" onAction={() => void refresh()} />
       </SafeAreaView>
     );
 
@@ -600,8 +522,8 @@ export default function MapScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <View style={styles.titleCopy}>
-            <AppText role="label" tone="lime">{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
+          <View style={[styles.titleCopy, fontScale > 1.3 && { flexBasis: "100%" }]}>
+            <AppText role="label" tone="pink">{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
             <AppText role="screenTitle">Orte entdecken</AppText>
           </View>
           <AppText role="caption" tone="secondary" style={styles.resultCount}>{filteredSpots.length} Orte</AppText>
@@ -648,6 +570,8 @@ export default function MapScreen() {
           </View>
         </View>
 
+        {moodProfilesFailed || moodResolverFailed ? <View style={{ padding: 12 }}><AppText role="meta">Die Mood-Eindrücke konnten gerade nicht geladen werden.</AppText><Button label="Erneut laden" variant="tertiary" onPress={() => { setMoodRevision(v => v + 1); retryMoodCatalog(); }} /></View> : null}
+        {selectedMood && moodProfilesLoading ? <AppText role="meta" tone="secondary">Mood-Eindrücke werden geladen …</AppText> : null}
         {activeFilters.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilters}>
           {activeFilters.map((filter) => <Chip key={filter.id} label={`${filter.label} ×`} kind="selected" onPress={filter.onRemove} />)}
         </ScrollView>}
@@ -659,7 +583,7 @@ export default function MapScreen() {
           <View style={[styles.filterSheet, { paddingBottom: insets.bottom + theme.spacing.lg }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.filterSheetHeader}>
-              <View>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <AppText role="sectionTitle">Filter</AppText>
                 <AppText role="meta" tone="secondary">Nur das, was zu deinem Moment passt.</AppText>
               </View>
@@ -668,24 +592,25 @@ export default function MapScreen() {
               </IconButton>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterSheetContent}>
-              <AppText role="label" tone="lime">MOOD</AppText>
+              <AppText role="cardTitle">Welche Atmosphäre suchst du?</AppText>
+              <AppText role="meta" tone="secondary">Die Moods stammen von Gästen. Ein Filter zeigt Orte mit diesem Eindruck; Orte ohne Mood-Angaben erscheinen dann nicht.</AppText>
+              {moodCatalogState === "error" ? <Button label="Moods erneut laden" variant="tertiary" onPress={retryMoodCatalog} /> : null}
               <View style={styles.filterChipGrid}>
-                {(topMoodChips.length ? topMoodChips : MOOD_SUGGESTIONS).map((m) => {
+                {moodOptions.map(({ label: m }) => {
                   const selected = selectedMood?.toLowerCase() === m.toLowerCase();
                   return <Chip key={m} label={displayMoodLabel(m)} kind="input" selected={selected} onPress={() => {
                     setSelectedMood((current) => current?.toLowerCase() === m.toLowerCase() ? null : m);
-                    setSearch((current) => current?.toLowerCase() === m.toLowerCase() ? "" : m);
                   }} />;
                 })}
               </View>
-              <AppText role="label" tone="lime" style={styles.filterSectionLabel}>KATEGORIE</AppText>
+              <AppText role="label" tone="pink" style={styles.filterSectionLabel}>KATEGORIE</AppText>
               <View style={styles.filterChipGrid}>
                 {dbCategories.map((category) => <Chip key={category.id} label={category.name} kind="input" selected={selectedCategory === category.id} onPress={() => setSelectedCategory((current) => current === category.id ? null : category.id)} />)}
               </View>
             </ScrollView>
             <View style={styles.filterSheetActions}>
-              <Button label="Zurücksetzen" variant="tertiary" onPress={clearFilters} style={styles.filterReset} />
-              <Button label={viewMode === "map" ? "Karte zeigen" : "Liste zeigen"} onPress={() => setFiltersOpen(false)} style={styles.filterApply} />
+              <Button label="Zurücksetzen" variant="tertiary" onPress={clearFilters} style={[styles.filterReset, fontScale > 1.3 && { flexBasis: "100%" }]} />
+              <Button label={viewMode === "map" ? "Karte zeigen" : "Liste zeigen"} onPress={() => setFiltersOpen(false)} style={[styles.filterApply, fontScale > 1.3 && { flexBasis: "100%" }]} />
             </View>
           </View>
         </View>
@@ -696,7 +621,8 @@ export default function MapScreen() {
         <View style={styles.mapStage}>
           <ClusteredMapView
           ref={mapRef}
-          provider={PROVIDER_GOOGLE}
+          provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+          userInterfaceStyle="dark"
           style={{ flex: 1 }}
           initialRegion={region}
           showsUserLocation={locationConsentGranted}
@@ -713,8 +639,8 @@ export default function MapScreen() {
           >
             {renderedMarkers}
           </ClusteredMapView>
-          {!filteredSpots.length && <View pointerEvents="box-none" style={styles.emptyOverlay}>
-            <StateView kind="empty" title="Hier ist gerade nichts dabei" message="Passe deine Suche oder Filter an und entdecke weitere Orte." actionLabel="Filter zurücksetzen" onAction={clearFilters} />
+          {!filteredSpots.length && !(selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed)) && <View pointerEvents="box-none" style={styles.emptyOverlay}>
+            <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />
           </View>}
         </View>
       ) : (
@@ -723,7 +649,7 @@ export default function MapScreen() {
           data={filteredSpots}
           keyExtractor={(i) => i.id}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<StateView kind="empty" title="Hier ist gerade nichts dabei" message="Passe deine Suche oder Filter an und entdecke weitere Orte." actionLabel="Filter zurücksetzen" onAction={clearFilters} />}
+          ListEmptyComponent={selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed) ? null : <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />}
           style={styles.list}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
@@ -748,8 +674,10 @@ export default function MapScreen() {
               />
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
-                <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
-                <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
+                <MoodSignature labels={spotMoods[item.id] ?? []} moodCount={moodCounts[item.id]} compact />
+                <Text style={styles.listCardContext}>{item.categories?.name || item.city || "Ort"}</Text>
+                <Text style={styles.listCardAddress}>{item.address || "Adresse noch nicht hinterlegt"}</Text>
+                <OpeningStatusBadge status={spotOpeningStatusNow(item.spot_hours ?? [])} style={{ marginTop: theme.spacing.sm }} />
               </View>
             </Pressable>
           )}
@@ -770,12 +698,11 @@ export default function MapScreen() {
           { height: SHEET_HEIGHT, bottom: theme.control.tabBar + insets.bottom, transform: [{ translateY }] },
         ]}
         pointerEvents="box-none"
-        {...panResponder.panHandlers}
       >
         <BlurView intensity={34} tint="dark" style={styles.sheetBlur}>
-          <View style={styles.sheetHandle} />
+          <View accessibilityLabel="Ortsvorschau verschieben" style={{ minHeight: 44, justifyContent: "center" }} {...panResponder.panHandlers}><View style={styles.sheetHandle} /></View>
 
-            <View style={{ paddingHorizontal: 16, paddingBottom: 30 }}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.lg }}>
               <Pressable
                 onPress={() => {
                   void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: selectedSpot.id, spotId: selectedSpot.id, properties: { source: "preview" } });
@@ -803,21 +730,13 @@ export default function MapScreen() {
                     end={{ x: 0.5, y: 1 }}
                     style={styles.cardOverlay}
                   >
-                    <Text style={styles.resultTitle} numberOfLines={1}>
+                    <Text style={styles.resultTitle}>
                       {selectedSpot.name}
                     </Text>
 
-                    {selectedSpot.address && <Text style={styles.resultSubtitle} numberOfLines={1}>{selectedSpot.address}</Text>}
-
-                    <View style={styles.cardChipsRow}>
-                      {(spotMoods[selectedSpot.id] || [])
-                        .slice(0, 4)
-                        .map((m) => (
-                          <View key={m} style={styles.badgeGhost}>
-                            <Text style={styles.badgeGhostText}>{m}</Text>
-                          </View>
-                        ))}
-                    </View>
+                    <MoodSignature labels={spotMoods[selectedSpot.id] ?? []} moodCount={moodCounts[selectedSpot.id]} compact />
+                    {selectedSpot.address && <Text style={styles.resultSubtitle}>{selectedSpot.address}</Text>}
+                    <OpeningStatusBadge status={spotOpeningStatusNow(selectedSpot.spot_hours ?? [])} />
                   </LinearGradient>
                 </View>
               </Pressable>
@@ -829,9 +748,9 @@ export default function MapScreen() {
                   router.push(`/spot/${selectedSpot.id}`);
                 }}
               >
-                <Text style={styles.sheetCtaPrimaryText}>Spot ansehen</Text>
+                <Text style={styles.sheetCtaPrimaryText}>Ort ansehen</Text>
               </Pressable>
-            </View>
+            </ScrollView>
         </BlurView>
       </Animated.View> : null}
     </SafeAreaView>
@@ -843,17 +762,17 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.color.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.color.background },
   header: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, backgroundColor: theme.color.background },
-  titleRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.sm },
-  titleCopy: { gap: 1 },
-  resultCount: { marginTop: theme.spacing.xs, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radius.pill, backgroundColor: "rgba(216,255,62,0.08)", borderWidth: 1, borderColor: "rgba(216,255,62,0.22)" },
-  headerTopRow: { flexDirection: "row", gap: theme.spacing.xs, alignItems: "center" },
-  searchBox: { flex: 1, flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
+  titleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.sm },
+  titleCopy: { flex: 1, minWidth: 0, gap: 1 },
+  resultCount: { marginTop: theme.spacing.xs, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radius.pill, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border },
+  headerTopRow: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.xs, alignItems: "center" },
+  searchBox: { flex: 1, minWidth: 120, flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
   searchInput: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15, minHeight: theme.control.standard },
-  searchClear: { minWidth: 34, minHeight: 34 },
+  searchClear: { minWidth: theme.control.compact, minHeight: theme.control.compact },
   headerButton: { width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill },
   headerButtonActive: { backgroundColor: theme.color.pink, borderColor: theme.color.pink },
-  perspectiveSwitch: { flexDirection: "row", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, padding: 3 },
-  perspectiveOption: { minWidth: 58, minHeight: 38, paddingHorizontal: theme.spacing.xs, borderRadius: theme.radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  perspectiveSwitch: { flexDirection: "row", flexShrink: 1, minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, padding: 3 },
+  perspectiveOption: { minWidth: 58, minHeight: theme.control.compact, paddingVertical: theme.spacing.xs, paddingHorizontal: theme.spacing.xs, borderRadius: theme.radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
   perspectiveOptionActive: { backgroundColor: theme.color.pink },
   pressed: { opacity: 0.8, transform: [{ scale: theme.motion.pressScale }] },
   activeFilters: { gap: theme.spacing.xs, paddingTop: theme.spacing.sm, paddingRight: theme.spacing.xs },
@@ -877,7 +796,7 @@ const styles = StyleSheet.create({
   sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 3, backgroundColor: "rgba(247,243,233,0.3)", marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm },
   sheetCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 10, elevation: 8 },
   cardMedia: { position: "relative" }, cardImg: { width: "100%", height: 214 },
-  cardOverlay: { position: "absolute", left: 0, right: 0, bottom: 0, padding: theme.spacing.md },
+  cardOverlay: { padding: theme.spacing.md },
   resultTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, ...theme.typeScale.sectionTitle, marginBottom: theme.spacing.xxs },
   resultSubtitle: { color: "rgba(247,243,233,0.76)", fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginBottom: theme.spacing.sm },
   cardChipsRow: { flexDirection: "row", gap: theme.spacing.xs, flexWrap: "wrap" },
@@ -891,7 +810,7 @@ const styles = StyleSheet.create({
   filterSheetContent: { gap: theme.spacing.sm, paddingBottom: theme.spacing.lg },
   filterChipGrid: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.xs },
   filterSectionLabel: { marginTop: theme.spacing.lg },
-  filterSheetActions: { flexDirection: "row", gap: theme.spacing.sm, paddingTop: theme.spacing.sm },
+  filterSheetActions: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.sm, paddingTop: theme.spacing.sm },
   filterReset: { flex: 1 }, filterApply: { flex: 1 },
 });
 

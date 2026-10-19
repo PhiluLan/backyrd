@@ -32,6 +32,10 @@ export const PRODUCT_ADDITIVE_MIGRATIONS = Object.freeze([
   Object.freeze({ path: "supabase/migrations/20261016120624_public_spot_knowledge_presentation_v2_5.sql", sha256: "b826c2bcd5bc4d41e20d95e2f79b2e022e27bfe156b3c2b0e2674f7c107fcc8c" }),
   Object.freeze({"path": "supabase/migrations/20261017234644_decision_manual_event_candidates_v1.sql", "sha256": "464e9e58bc2f4076692a1439213c910937c4be8726dabe56d2fbdde0c56a4722"}),
   Object.freeze({"path": "supabase/migrations/20261018010454_decision_event_activities_v1.sql", "sha256": "df79b33065f4f5fd09c995d88eaa85ffb05086fed0f48fd172de2168e6eabb9a"}),
+  Object.freeze({ path: "supabase/migrations/20261018015918_spot_event_authoring_v1.sql", sha256: "e1d5608ce05a1149c16f2aac2220a7d8f313dfd83181f9c34440492d9c2e820b" }),
+  Object.freeze({"path": "supabase/migrations/20261018162100_public_spot_review_counts_v1.sql", "sha256": "d94344813caa42578d9203d8791f51b81d62db83527abc24c21c1fe0148fdd9c"}),
+  Object.freeze({"path": "supabase/migrations/20261018171218_public_spot_mood_counts_v1.sql", "sha256": "9c9a547f38c645f44f8d283c073e32ecceecd21910ffa79c54efbab7a9d776fd"}),
+  Object.freeze({ path: "supabase/migrations/20261019152123_mood_two_person_display_v1.sql", sha256: "5907a21d48629cc1ea883fa08716614b7b4f05ccc2acd55ec7734b505594bfed" }),
 ]);
 
 export function isExactProductAdditiveSet(migrations) {

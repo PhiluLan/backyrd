@@ -302,6 +302,11 @@ export function DecisionExperience() {
                 </Chip>
               ))}
             </div>
+            <p className="b-muted" style={{ fontSize: 13, lineHeight: 1.6, marginTop: 20 }}>
+              Für die KI-Suche senden wir deinen Suchwunsch und gewählte Suchangaben an OpenAI.
+              Bitte keine vertraulichen Daten eingeben.{" "}
+              <Link href="/legal#decision">Datenschutz zur KI-Suche</Link>
+            </p>
             <div className="b-form-actions" style={{ marginTop: 26 }}>
               {stage > 1 ? (
                 <Button
