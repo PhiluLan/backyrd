@@ -118,6 +118,14 @@ The new additive `backyrd_public_spot_mood_counts_v1` RPC counts resolved active
 Validation covers submitted-Mood versus Review/label counts, duplicate concepts, multiple historical visits, unresolved and empty inputs, eligibility and moderation, anonymous/authenticated access and batch bounds. SQL tests use the current canonical Mood schema with synthetic fixtures and transaction rollback. Responsive previews test the ten-item cutoff and full-list expansion using fictional Spot data.
 
 
-## Selected visual treatment: Sanfte Chips
+## Previous visual treatment: Sanfte Chips — superseded below
 
 The approved design uses “So fühlt’s sich hier an.” below the hero. The leading three Moods have a subtle pink fill and separated contributor count; the next seven use smaller neutral outlines. No bars, quality score or additional enclosing card. “Alle Moods entdecken →” opens the existing full list. The count-first hero signature, count masking, capture limits and Decision boundaries remain unchanged.
+
+## Selected visual treatment: restrained Mood summary — 19 October 2026
+
+App and Consumer Web now use the approved unframed editorial layout below the photo: a sans-serif “Moods” heading and the exact subtitle “So wird dieser Ort beschrieben”. No column headings, pills, poster treatment or decorative paint. The leading three Moods show their public distinct-person count, with thin pink frequency lines; the next seven appear in two aligned columns. “Alle Moods ansehen” opens the existing accessible full list and retains Mood-based browsing.
+
+Line lengths compare each public contributor count with the leading public Mood count, so the most frequent public Mood spans the available width. They are relative frequencies, not visitor percentages, percentages of all Mood submissions, weighted aggregate scores, quality grades or progress toward a target. EARLY or missing counts never produce numbers or lines; “Erste Eindrücke” remains visible when applicable. Empty, loading, failed reads and retry states remain distinct. The count-first hero signature, canonical ordering, aggregate rules, Review capture, privacy and Decision behavior remain unchanged. No migration or backend deployment is needed.
+
+Task class: FAST_PR for the existing Mobile/Web presentation and shared frequency helper; production delivery consumes the exact Main-certified iOS artifact. Acceptance covers relative-count/weighted-score separation, invalid denominators and EARLY masking, existing Mood and Consumer contracts, Mobile/Web typechecks and production builds, and responsive interaction with the actual components using fictional fixtures.

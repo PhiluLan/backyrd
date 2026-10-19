@@ -70,6 +70,12 @@ export function publicMoodCount(mood: MoodSupport): number | null {
   const count = mood.concept_contributors;
   return mood.evidence_state === "ESTABLISHED" && typeof count === "number" && Number.isSafeInteger(count) && count > 0 ? count : null;
 }
+/** Relative frequency, normalized to the leading public Mood; never a guest percentage or quality score. */
+export function moodSupportFraction(mood: MoodSupport, strongestCount: number | null): number | null {
+  const count = publicMoodCount(mood);
+  if (count === null || strongestCount === null || !Number.isSafeInteger(strongestCount) || strongestCount < count) return null;
+  return count / strongestCount;
+}
 export function rankMoodSupport<T extends MoodSupport>(moods: readonly T[]): T[] {
   return [...moods].sort((a, b) => (publicMoodCount(b) ?? 0) - (publicMoodCount(a) ?? 0) || a.rank - b.rank || a.concept_key.localeCompare(b.concept_key));
 }
