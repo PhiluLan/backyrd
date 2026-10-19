@@ -78,15 +78,15 @@ function smartReviewGateCopy(
         reason,
         title: "Login erforderlich",
         body:
-          "Smart Reviews sind mit deinem Backyrd-Konto verbunden. Melde dich an, bevor du deine Erfahrung festhältst.",
+          "Moment vor Orts sind mit deinem Backyrd-Konto verbunden. Melde dich an, bevor du deine Erfahrung festhältst.",
       };
 
     case "consent_not_granted":
       return {
         reason,
-        title: "Standort für Smart Review aktivieren",
+        title: "Standort für Moment vor Ort aktivieren",
         body:
-          "Smart Review erkennt den Spot über deinen aktuellen Standort. Aktiviere dafür den präzisen Standort unter Datenschutz & Einwilligungen. Backyrd speichert keinen Standortverlauf.",
+          "Moment vor Ort erkennt den Ort über deinen aktuellen Standort. Aktiviere dafür den präzisen Standort unter Datenschutz & Einwilligungen. Backyrd speichert keinen Standortverlauf.",
       };
 
     case "services_disabled":
@@ -94,7 +94,7 @@ function smartReviewGateCopy(
         reason,
         title: "Ortungsdienste sind ausgeschaltet",
         body:
-          "Aktiviere die Ortungsdienste auf deinem Gerät. Ohne aktuelle Position kann Backyrd keinen Smart Review erstellen.",
+          "Aktiviere die Ortungsdienste auf deinem Gerät. Ohne aktuelle Position kann Backyrd keinen Moment vor Ort erstellen.",
       };
 
     case "permission_denied":
@@ -116,15 +116,15 @@ function smartReviewGateCopy(
     case "web_unsupported":
       return {
         reason,
-        title: "Smart Review nur in der App",
+        title: "Moment vor Ort nur in der App",
         body:
-          "Die Standort- und Kamerafunktion für Smart Review ist in dieser Webansicht nicht verfügbar.",
+          "Die Standort- und Kamerafunktion für Moment vor Ort ist in dieser Webansicht nicht verfügbar.",
       };
 
     default:
       return {
         reason,
-        title: "Smart Review konnte nicht starten",
+        title: "Moment vor Ort konnte nicht starten",
         body:
           "Der Standortcheck ist fehlgeschlagen. Bitte versuche es nochmals.",
       };
@@ -284,9 +284,9 @@ export default function SmartReviewScreen() {
   }, [bootstrapNonce, decisionId, router, source]);
 
   const headerTitle = useMemo(() => {
-    if (searching) return "Spot wird erkannt…";
-    if (nearest) return "Smart Review";
-    return "Kein Spot gefunden";
+    if (searching) return "Ort wird erkannt…";
+    if (nearest) return "Moment vor Ort";
+    return "Kein Ort gefunden";
   }, [searching, nearest]);
 
   async function linkDecisionReview(reviewId: string) {
@@ -350,7 +350,7 @@ export default function SmartReviewScreen() {
 
   async function submitSmartReviewOnce() {
     if (!nearest?.id) {
-      Alert.alert("Kein Spot", "Es wurde kein passender Spot erkannt.");
+      Alert.alert("Kein Ort", "Es wurde kein passender Ort erkannt.");
       return;
     }
     if (!hasContent) {
@@ -368,7 +368,7 @@ export default function SmartReviewScreen() {
     const user = userData?.user;
 
     if (!user?.id) {
-      Alert.alert("Login nötig", "Bitte logge dich ein, um eine Review zu schreiben.");
+      Alert.alert("Login nötig", "Bitte melde dich an, um einen Moment zu teilen.");
       router.push("/login");
       return;
     }
@@ -436,8 +436,8 @@ export default function SmartReviewScreen() {
         Alert.alert(
           "Danke!",
           isDecisionReview
-            ? "Deine Review wurde als Backyrd Treffer gespeichert."
-            : "Deine Review wurde gespeichert."
+            ? "Dein Moment wurde als Backyrd Treffer gespeichert."
+            : "Dein Moment wurde gespeichert."
         );
         router.replace(`/spot/${nearest.id}`);
       }
@@ -456,8 +456,8 @@ export default function SmartReviewScreen() {
         });
         console.info("Owner self-review blocked by Review Integrity.");
         Alert.alert(
-          "Eigenen Spot bewerten nicht möglich",
-          "Als verifizierter Owner kannst du deinen eigenen Spot nicht bewerten. So bleiben Reviews und Empfehlungen auf Backyrd unabhängig.",
+          "Eigenen Ort bewerten nicht möglich",
+          "Als verifizierter Owner kannst du deinen eigenen Ort nicht bewerten. So bleiben Momente und Empfehlungen auf Backyrd unabhängig.",
           [{ text: "Verstanden", onPress: () => router.back() }],
         );
       } else if (safetyMessage) {
@@ -504,7 +504,7 @@ export default function SmartReviewScreen() {
           decisionId: decisionId ?? null,
         });
         console.error("submitSmartReview error:", e);
-        Alert.alert("Review nicht gespeichert", userFacingError(e, "Deine Review konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."));
+        Alert.alert("Moment nicht gespeichert", userFacingError(e, "Dein Moment konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."));
       }
     } finally {
       setSaving(false);
@@ -530,7 +530,7 @@ export default function SmartReviewScreen() {
       router.replace(`/spot/new?${q.toString()}`);
     } catch (e: any) {
       safeDevelopmentWarning("[smart-review] reverse geocode failed", e);
-      Alert.alert("Spot nicht vorbereitet", userFacingError(e, "Der neue Spot konnte gerade nicht vorbereitet werden. Bitte versuche es noch einmal."));
+      Alert.alert("Ort nicht vorbereitet", userFacingError(e, "Der neue Ort konnte gerade nicht vorbereitet werden. Bitte versuche es noch einmal."));
     }
   }
 
@@ -544,10 +544,10 @@ export default function SmartReviewScreen() {
     return (
       <SafeAreaView style={styles.gateSafe}>
         <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Smart Review schließen" onPress={() => router.back()} hitSlop={10}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Moment vor Ort schließen" onPress={() => router.back()} hitSlop={10}>
             <Ionicons name="chevron-back" size={26} color="#fff" />
           </Pressable>
-          <Text style={styles.headerTitle}>Smart Review</Text>
+          <Text style={styles.headerTitle}>Moment vor Ort</Text>
           <View style={{ width: 26 }} />
         </View>
 
@@ -578,7 +578,7 @@ export default function SmartReviewScreen() {
             />
             <Text style={styles.gatePrivacyText}>
               Backyrd verwendet deinen Standort nur während der aktiven
-              Spot-Erkennung. Es wird kein Standortverlauf gespeichert.
+              Ort-Erkennung. Es wird kein Standortverlauf gespeichert.
             </Text>
           </View>
 
@@ -629,22 +629,22 @@ export default function SmartReviewScreen() {
           {!loginRequired ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Spot ohne Standort selbst auswählen"
+              accessibilityLabel="Ort ohne Standort selbst auswählen"
               style={[styles.btn, styles.btnGhost]}
               onPress={() => router.replace("/review/select-spot")}
             >
-              <Text style={styles.btnGhostText}>Spot selbst auswählen</Text>
+              <Text style={styles.btnGhostText}>Ort selbst auswählen</Text>
             </Pressable>
           ) : null}
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Smart Review schließen"
+            accessibilityLabel="Moment vor Ort schließen"
             style={styles.gateBack}
             onPress={() => router.back()}
           >
             <Text style={styles.gateBackText}>
-              Backyrd ohne Smart Review weiter nutzen
+              Backyrd ohne Moment vor Ort weiter nutzen
             </Text>
           </Pressable>
         </View>
@@ -659,7 +659,7 @@ export default function SmartReviewScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.header}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Smart Review schließen" onPress={() => router.back()} hitSlop={10}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Moment vor Ort schließen" onPress={() => router.back()} hitSlop={10}>
             <Ionicons name="chevron-back" size={26} color="#fff" />
           </Pressable>
           <Text style={styles.headerTitle}>{headerTitle}</Text>
@@ -670,18 +670,18 @@ export default function SmartReviewScreen() {
           <View style={styles.hero}>
             <Text style={styles.kicker}>DEIN MOMENT</Text>
             <Text style={styles.heroTitle}>Was bleibt dir in Erinnerung?</Text>
-            <Text style={styles.heroText}>Backyrd erkennt den passenden Spot über deinen aktuellen Standort. Ein Bild ist optional.</Text>
+            <Text style={styles.heroText}>Backyrd erkennt den passenden Ort über deinen aktuellen Standort. Ein Bild ist optional.</Text>
           </View>
 
           <View style={styles.card}>
             {searching ? (
               <View style={{ alignItems: "center" }}>
                 <ActivityIndicator color={theme.colors.primary} />
-                <Text style={styles.muted}>Suche Spots in deiner Nähe…</Text>
+                <Text style={styles.muted}>Suche Orte in deiner Nähe…</Text>
               </View>
             ) : nearest ? (
               <>
-                <Text style={styles.title}>Spot erkannt</Text>
+                <Text style={styles.title}>Ort erkannt</Text>
                 <Text style={styles.spotName}>{nearest.name}</Text>
                 {!!nearest.address && <Text style={styles.address}>{nearest.address}</Text>}
 
@@ -689,7 +689,7 @@ export default function SmartReviewScreen() {
 
                 <Text style={styles.label}>Text</Text>
                 <TextInput
-                  accessibilityLabel="Text zur Review"
+                  accessibilityLabel="Text zum Moment"
                   style={[styles.input, { minHeight: 88, textAlignVertical: "top" }]}
                   placeholder="Was sollte man wissen?"
                   placeholderTextColor="rgba(255,255,255,0.34)"
@@ -719,7 +719,7 @@ export default function SmartReviewScreen() {
 
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Smart Review veröffentlichen"
+                  accessibilityLabel="Moment vor Ort veröffentlichen"
                   accessibilityState={{ disabled: !canSubmit || saving, busy: saving }}
                   onPress={submitSmartReview}
                   disabled={!canSubmit || saving}
@@ -736,19 +736,19 @@ export default function SmartReviewScreen() {
                   )}
                 </Pressable>
 
-                <Pressable accessibilityRole="button" accessibilityLabel="Falschen Spot melden" onPress={onConfirmCreate} style={[styles.btn, styles.btnGhost]}>
-                  <Text style={styles.btnGhostText}>Das ist nicht der richtige Spot</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Falschen Ort melden" onPress={onConfirmCreate} style={[styles.btn, styles.btnGhost]}>
+                  <Text style={styles.btnGhostText}>Das ist nicht der richtige Ort</Text>
                 </Pressable>
               </>
             ) : (
               <>
-                <Text style={styles.title}>Kein Spot in der Nähe gefunden</Text>
+                <Text style={styles.title}>Kein Ort in der Nähe gefunden</Text>
                 <Text style={styles.muted}>
                   Wir haben in ca. 120 m Umkreis nichts Passendes gefunden.
                 </Text>
 
-                <Pressable accessibilityRole="button" accessibilityLabel="Neuen Spot einreichen" onPress={onConfirmCreate} style={[styles.btn, styles.btnPrimary]}>
-                  <Text style={styles.btnPrimaryText}>Neuen Spot anlegen / einreichen</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Neuen Ort einreichen" onPress={onConfirmCreate} style={[styles.btn, styles.btnPrimary]}>
+                  <Text style={styles.btnPrimaryText}>Neuen Ort anlegen / einreichen</Text>
                 </Pressable>
               </>
             )}

@@ -101,7 +101,7 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
       {fallbackVisible ? (
         <LinearGradient colors={["#242126", "#111113", "#070708"]} style={StyleSheet.absoluteFill}>
           <View style={styles.fallbackPattern} />
-          <Ionicons color="rgba(247,243,233,0.34)" name="location-outline" size={showFallbackName ? 30 : 38} style={showFallbackName ? styles.fallbackIcon : styles.fallbackIconCentered} />
+          {showFallbackName ? <Ionicons color={theme.color.textSecondary} name="image-outline" size={28} style={styles.fallbackIcon} /> : <View accessible accessibilityLabel={`Für ${spotName} ist noch kein Foto hinterlegt`} style={styles.fallbackCenter}><Ionicons color={theme.color.textSecondary} name="image-outline" size={28} /></View>}
           {showFallbackName ? <Text numberOfLines={2} style={styles.fallbackName}>{spotName}</Text> : null}
         </LinearGradient>
       ) : null}
@@ -127,10 +127,10 @@ export const SpotImage = SpotArtwork;
 const styles = StyleSheet.create({
   root: { overflow: "hidden", backgroundColor: theme.color.surface },
   loading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface },
-  googleAttribution: { position: "absolute", left: 8, right: 8, bottom: 8, alignSelf: "flex-start", maxWidth: "90%", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(7,7,8,0.72)" },
-  googleAttributionText: { color: "rgba(255,255,255,0.9)", fontSize: 9, lineHeight: 12 },
+  googleAttribution: { minHeight: theme.control.compact, justifyContent: "center", position: "absolute", left: 8, right: 8, bottom: 8, alignSelf: "flex-start", maxWidth: "90%", paddingHorizontal: 7, paddingVertical: 4, borderRadius: 999, backgroundColor: "rgba(7,7,8,0.72)" },
+  googleAttributionText: { color: "rgba(255,255,255,0.9)", ...theme.typeScale.caption },
   fallbackPattern: { position: "absolute", width: "145%", height: 92, left: "-18%", top: "38%", backgroundColor: "rgba(255,79,145,0.08)", transform: [{ rotate: "-11deg" }] },
   fallbackIcon: { position: "absolute", left: 18, top: 18 },
-  fallbackIconCentered: { alignSelf: "center", marginTop: 58 },
+  fallbackCenter: { flex: 1, alignItems: "center", justifyContent: "flex-start", paddingTop: theme.spacing.display, paddingHorizontal: theme.spacing.md },
   fallbackName: { position: "absolute", left: 18, right: 18, bottom: 18, color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.6 },
 });

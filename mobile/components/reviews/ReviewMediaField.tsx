@@ -194,7 +194,7 @@ export function ReviewMediaField({
       ) : (
         <View style={styles.empty} accessible accessibilityLabel="Noch kein Bild ausgewählt">
           <Ionicons name="image-outline" size={28} color={theme.color.textSecondary} />
-          <Text style={styles.emptyText}>Deine Review funktioniert auch ohne Bild.</Text>
+          <Text style={styles.emptyText}>Dein Moment funktioniert auch ohne Bild.</Text>
         </View>
       )}
 
@@ -281,7 +281,7 @@ export function ReviewSubmissionStatus({
         {error ?? progressLabel}
       </Text>
       {error ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Review erneut versuchen" onPress={onRetry} style={styles.retryButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Moment erneut versuchen" onPress={onRetry} style={styles.retryButton}>
           <Text style={styles.retryText}>Erneut versuchen</Text>
         </Pressable>
       ) : null}

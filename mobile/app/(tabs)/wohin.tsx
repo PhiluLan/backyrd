@@ -70,15 +70,15 @@ function DecisionResultCard({ candidate, imageUrl, compact, onOpen, onDetails }:
       <LinearGradient pointerEvents="none" colors={["transparent", "rgba(5,5,6,0.45)", "rgba(5,5,6,0.97)"]} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />
       <View style={[styles.cardBottom, compact && styles.compactBottom]}>
         <ScrollView style={styles.cardSummary} contentContainerStyle={styles.cardSummaryContent}>
-          <AppText role="screenTitle" numberOfLines={2} style={styles.resultTitle}>{candidate.presentation.name}</AppText>
-          <AppText role="meta" numberOfLines={1} style={styles.resultMeta}>{wohinPlaceMeta(candidate)}</AppText>
+          <AppText role="displayM" style={styles.resultTitle}>{candidate.presentation.name}</AppText>
+          <AppText role="meta" style={styles.resultMeta}>{wohinPlaceMeta(candidate)}</AppText>
         </ScrollView>
         <Pressable accessibilityRole="button" onPress={onDetails} style={styles.detailsToggle}>
           <AppText role="meta" style={styles.detailsText}>Details & Hinweise</AppText>
           <Ionicons name="add" size={19} color={color.pink} />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={styles.openSpotButton}>
-          <AppText role="label" style={styles.openSpotText}>{candidate.presentation.event ? "Event entdecken" : "Spot entdecken"}</AppText>
+          <AppText role="label" style={styles.openSpotText}>{candidate.presentation.event ? "Event entdecken" : "Ort entdecken"}</AppText>
           <Ionicons name="arrow-forward" size={20} color={color.background} />
         </Pressable>
       </View>
@@ -280,13 +280,13 @@ export default function WohinScreen() {
           <Pressable accessibilityRole="button" accessibilityLabel="Nächster Vorschlag" disabled={activeIndex === candidates.length - 1} onPress={() => goTo(activeIndex + 1)} style={[styles.pagerButton, activeIndex === candidates.length - 1 && styles.disabled]}><Ionicons name="arrow-forward" size={23} color={color.text} /></Pressable>
         </View>
       </View> : <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 28, paddingBottom: 130 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: backyrdTheme.layout.pageGutter, paddingTop: backyrdTheme.spacing.lg, paddingBottom: backyrdTheme.control.tabBar + insets.bottom + backyrdTheme.spacing.xl }}>
           {response && candidates.length ? <Pressable accessibilityRole="button" onPress={() => { setEditing(false); Keyboard.dismiss(); }} style={styles.backToResults}><AppText role="label" tone="pink">Zurück zu deinen Vorschlägen</AppText></Pressable> : null}
-          <AppText role="caption" tone="lime">DEIN NÄCHSTER MOMENT</AppText>
+          <AppText role="caption" tone="pink">DEIN NÄCHSTER MOMENT</AppText>
           <AppText role="displayL" style={{ color: color.text, marginTop: 10 }}>Wohin?</AppText>
-          <Text style={{ color: color.muted, marginTop: 10, lineHeight: 22 }}>Worauf hast du gerade Lust? Erzähl es uns in deinen Worten – wir zeigen dir passende Orte mit einem nachvollziehbaren Grund.</Text>
+          <Text style={{ color: color.muted, marginTop: 10, lineHeight: 22 }}>Sag uns, worauf du Lust hast. Wir finden passende Orte für dich.</Text>
 
-          <View style={{ marginTop: 32, padding: 20, borderRadius: 28, backgroundColor: color.card, borderWidth: 1, borderColor: color.border }}>
+          <View style={{ marginTop: backyrdTheme.spacing.xl, padding: backyrdTheme.spacing.lg, borderRadius: backyrdTheme.radius.lg, backgroundColor: color.card, borderWidth: 1, borderColor: color.border }}>
             <Text style={{ color: color.pink, fontSize: 14, fontWeight: "900" }}>Was jetzt?</Text>
             <TextInput
               accessibilityLabel="Was jetzt?"
@@ -304,7 +304,7 @@ export default function WohinScreen() {
               accessibilityRole="button"
               disabled={loading || !identityReady || identityError || !authenticated || !city || query.trim().length < 3}
               onPress={() => void run(query)}
-              style={{ marginTop: 22, minHeight: 54, borderRadius: 999, backgroundColor: !loading && authenticated && city && query.trim().length >= 3 ? color.pink : "#48484C", alignItems: "center", justifyContent: "center" }}
+              style={{ marginTop: 22, minHeight: backyrdTheme.control.standard, paddingVertical: backyrdTheme.spacing.sm, paddingHorizontal: backyrdTheme.spacing.md, borderRadius: backyrdTheme.radius.pill, backgroundColor: !loading && authenticated && city && query.trim().length >= 3 ? color.pink : "#48484C", alignItems: "center", justifyContent: "center" }}
             >
               {loading ? <ActivityIndicator color={color.background} /> : <Text style={{ color: color.background, fontWeight: "900", fontSize: 16 }}>Orte finden</Text>}
             </Pressable>
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   compactBottom: { maxHeight: "92%", padding: 16 },
   cardSummary: { flexShrink: 1 },
   cardSummaryContent: { gap: 10 },
-  resultTitle: { color: color.text, fontSize: 36, lineHeight: 40 },
+  resultTitle: { color: color.text },
   resultMeta: { color: "#D1CDD1", marginBottom: 4 },
   detailsToggle: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7, justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#FFFFFF40", marginTop: 14, marginBottom: 10 },
   detailsText: { color: color.pink },

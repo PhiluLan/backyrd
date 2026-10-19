@@ -1,4 +1,5 @@
 // mobile/app/(tabs)/_layout.tsx
+import { AppText } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
@@ -15,7 +16,7 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
     <View style={styles.plusWrap}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Moment erstellen und Spot auswählen"
+        accessibilityLabel="Moment erstellen und Ort auswählen"
         hitSlop={8}
         onPress={onPress}
         style={({ pressed }) => [
@@ -23,7 +24,7 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
           pressed && styles.plusButtonPressed,
         ]}
       >
-        <Ionicons name="add" size={27} color={theme.color.background} />
+        <Ionicons name="add" size={24} color={theme.color.textPrimary} />
       </Pressable>
     </View>
   );
@@ -55,7 +56,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: theme.color.pink,
         tabBarInactiveTintColor: "#808087",
         tabBarHideOnKeyboard: true,
-        tabBarLabelStyle: styles.tabLabel,
+        tabBarLabel: ({ children, color }) => <AppText role="caption" maxFontSizeMultiplier={1.1} style={[styles.tabLabel, { color }]}>{children}</AppText>,
         tabBarItemStyle: styles.tabItem,
       }}
     >
@@ -63,6 +64,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: "Entdecken",
+          tabBarAccessibilityLabel: "Entdecken",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "compass" : "compass-outline"}
@@ -78,6 +80,7 @@ export default function TabsLayout() {
         options={{
           href: isGuest ? null : undefined,
           title: "Wohin",
+          tabBarAccessibilityLabel: "Wohin",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "sparkles" : "sparkles-outline"}
@@ -114,6 +117,7 @@ export default function TabsLayout() {
         name="map"
         options={{
           title: "Orte",
+          tabBarAccessibilityLabel: "Orte",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "map" : "map-outline"}
@@ -129,6 +133,7 @@ export default function TabsLayout() {
         options={{
           href: isGuest ? null : undefined,
           title: "Momente",
+          tabBarAccessibilityLabel: "Momente",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "people" : "people-outline"}
@@ -194,15 +199,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   plusButton: {
-    width: 47,
-    height: 47,
+    width: theme.control.compact,
+    height: theme.control.compact,
     borderRadius: 24,
-    backgroundColor: theme.color.pink,
+    backgroundColor: theme.color.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.color.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
-    shadowOpacity: 0.34,
-    shadowRadius: 12,
+    shadowOpacity: 0,
+    shadowRadius: 0,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
     transform: [{ scale: 1 }],

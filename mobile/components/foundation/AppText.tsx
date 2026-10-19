@@ -21,7 +21,7 @@ const roles: Record<TextRole, TextStyle> = {
   caption: { fontFamily: theme.type.bodyMedium, ...theme.typeScale.caption },
 };
 
-const maximumScale: Record<TextRole, number> = { displayXL: 1.1, displayL: 1.12, displayM: 1.15, screenTitle: 1.2, sectionTitle: 1.25, cardTitle: 1.25, body: 1.4, bodyStrong: 1.35, meta: 1.35, label: 1.3, caption: 1.3 };
+const maximumScale: Record<TextRole, number> = { displayXL: 1.4, displayL: 1.4, displayM: 1.4, screenTitle: 1.8, sectionTitle: 1.8, cardTitle: 1.8, body: 2, bodyStrong: 2, meta: 2, label: 2, caption: 2 };
 const tones = { primary: theme.color.textPrimary, secondary: theme.color.textSecondary, muted: theme.color.textMuted, pink: theme.color.pink, lime: theme.color.lime, error: theme.color.danger } as const;
 
 function responsiveDisplay(role: TextRole, width: number): TextStyle | undefined {
@@ -48,10 +48,10 @@ export function AppText({ role = "body", tone = "primary", maxFontSizeMultiplier
 /** For legacy layouts: keeps their sizing while replacing mixed system/Inter fonts with Home's UI family. */
 export function ProductText({ style, maxFontSizeMultiplier, ...props }: TextProps) {
   const flattened = StyleSheet.flatten(style);
-  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 1.4} style={[{ color: theme.color.textPrimary, fontFamily: theme.type.body, ...theme.typeScale.body, lineHeight: flattened?.fontSize ? undefined : theme.typeScale.body.lineHeight }, style, { fontFamily: uiFont(style, theme.type.body), fontWeight: "normal" }]} />;
+  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[{ color: theme.color.textPrimary, fontFamily: theme.type.body, ...theme.typeScale.body, lineHeight: flattened?.fontSize ? undefined : theme.typeScale.body.lineHeight }, style, { fontFamily: uiFont(style, theme.type.body), fontWeight: "normal" }]} />;
 }
 
 /** Native input behavior and refs remain intact; only the UI font is normalized. */
-export const ProductTextInput = forwardRef<TextInput, TextInputProps>(function ProductTextInput({ style, ...props }, ref) {
-  return <TextInput ref={ref} {...props} style={[style, { fontFamily: theme.type.body }]} />;
+export const ProductTextInput = forwardRef<TextInput, TextInputProps>(function ProductTextInput({ style, maxFontSizeMultiplier, ...props }, ref) {
+  return <TextInput ref={ref} {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[style, { fontFamily: theme.type.body }]} />;
 });
