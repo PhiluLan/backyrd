@@ -46,7 +46,7 @@ const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url
 const token = `${encode({ alg: "none", typ: "JWT" })}.${encode({ sub: subject, exp: now + 3600, role: "authenticated", aud: "authenticated" })}.synthetic-only`;
 const user = { id: subject, aud: "authenticated", role: "authenticated", is_anonymous: false, user_metadata: {}, app_metadata: {}, created_at: new Date(now * 1000).toISOString() };
 const session = { access_token: token, refresh_token: "synthetic-refresh", expires_in: 3600, expires_at: now + 3600, token_type: "bearer", user };
-const state = { consent: false, unavailable: false, worldName: "Café Vorher", worldVersion: 1, decisions: [], interactions: [], unexpectedRemote: [] };
+const state = { consent: false, unavailable: false, allowSyntheticMoment: false, worldName: "Café Vorher", worldVersion: 1, decisions: [], interactions: [], unexpectedRemote: [] };
 const spots = [
   { spotId: "spot-cafe-one", name: () => state.worldName, rank: 1 },
   { spotId: "spot-cafe-two", name: () => "Café Alternative", rank: 2 },
@@ -97,8 +97,20 @@ try {
     const path = url.pathname;
     if (/\/rpc\/(reserve_review_media_upload_v2|finalize_review_with_media_v2|finalize_review_without_media_v1)$/.test(path)) {
       momentPublishes++;
+      if (state.allowSyntheticMoment && path.endsWith("/finalize_review_without_media_v1")) {
+        const body=JSON.parse(request.postData()??"{}");
+        assert.equal(body.p_mood_a,"Gemütlich");
+        return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(body.p_review_id)});
+      }
       return route.abort("blockedbyclient");
     }
+    if (path === "/rest/v1/rpc/get_social_feed_v2") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{post_id:"moment-visible",user_id:subject,spot_id:"spot-cafe-one",spot_name:state.worldName,spot_city:"Bern",category_name:"Café",mood_tags:["Gemütlich","Ruhig"],caption:"Ein Kaffee am Fenster",created_at:new Date().toISOString(),media:[]},{post_id:"moment-hidden",user_id:subject,spot_id:"spot-cafe-two",spot_name:"Verborgener Ort",spot_city:"Bern",mood_tags:["Laut"],created_at:new Date().toISOString(),media:[]}])});
+    if (path === "/rest/v1/rpc/safety_visible_social_post_ids_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(["moment-visible"])});
+    if (path === "/rest/v1/rpc/safety_visible_entity_ids_v1") {
+      const body=JSON.parse(request.postData()??"{}");
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(body.p_entity_type === "profile" ? [subject] : [])});
+    }
+    if (path === "/rest/v1/spots" && url.searchParams.get("id")?.startsWith("eq.")) return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({id:url.searchParams.get("id").replace("eq.",""),name:state.worldName,address:"Testgasse 1",city:"Bern",lat:46.94,lng:7.44})});
     if (path === "/rest/v1/rpc/backyrd_search_mood_concepts_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(["Gemütlich","Urban"].map(label=>({concept_key:label,label,matched_expression:label})))});
     if (path === "/rest/v1/rpc/distribution_trust_filter_entities_v1") {
       const body=JSON.parse(request.postData()??"{}");
@@ -168,9 +180,9 @@ try {
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("Sonntag gemütlich Kaffee trinken");
   await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
-  await page.getByText("Café Vorher", { exact: true }).first().waitFor();
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).first().waitFor();
   await page.getByText("1 / 5", { exact: true }).waitFor();
-  await page.waitForTimeout(400);
+  for (let attempt=0; attempt<40 && !state.interactions.some(row=>row.eventType === "candidate_impression"); attempt++) await page.waitForTimeout(100);
   assert.deepEqual([...new Set(state.interactions.filter(row => row.eventType === "candidate_impression").map(row => row.candidateId))], [spots[0].spotId], "offscreen pages must not record impressions");
   const cardBounds=await page.getByTestId("wohin-result-card").first().boundingBox();
   assert.ok(cardBounds && cardBounds.height>400 && cardBounds.y>40 && cardBounds.y+cardBounds.height<740,"one full-height card occupies the available viewport");
@@ -200,10 +212,10 @@ try {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/wohin-320.png`});
   const compactBounds=await compactAction.boundingBox();
   assert.ok(compactBounds && compactBounds.x>=0 && compactBounds.x+compactBounds.width<=320 && compactBounds.y+compactBounds.height<480,`small-screen action remains above tabs: ${JSON.stringify(compactBounds)}`);
-  const compactName=await page.getByText("Café Vorher",{exact:true}).first().boundingBox();
+  const compactName=await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Café Vorher",{exact:true}).boundingBox();
   const compactDetails=await page.getByText("Details & Hinweise",{exact:true}).first().boundingBox();
   assert.ok(compactName && compactDetails && compactName.y+compactName.height<=compactDetails.y,"Spot name and details action remain readable on small screens");
-  assert.equal(await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).count(),0,"recommendation prose stays off the photo");
+  assert.equal(await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).filter({visible:true}).count(),0,"recommendation prose stays off the photo");
   // Real touch swipe, not a rejection action or another model call.
   const cdp=await context.newCDPSession(page);
   await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:270,y:170}]});
@@ -216,23 +228,30 @@ try {
   await page.setViewportSize({width:390,height:844});
   await page.getByText("Details & Hinweise",{exact:true}).first().click();
   await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).waitFor();
-  await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).waitFor();
+  await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).filter({visible:true}).waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
   assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
-  await page.getByText("Eine passende Idee für das, was du gerade vorhast.", { exact: true }).waitFor({state:"hidden"});
+  await page.getByText("Eine passende Idee für das, was du gerade vorhast.", { exact: true }).filter({visible:true}).waitFor({state:"hidden"});
   assert.equal(await page.getByText(/World-Version 1/).count(), 0, "internal evidence stays out of the consumer UI");
 
   assert.equal(state.decisions.every((item) => item.contractVersion === DECISION_PRODUCT_CONTRACT.request), true);
   assert.equal(state.decisions.length, 1);
+
+  // A recommendation keeps its grounded context only when opened from this search.
+  await page.getByRole("button", {name:"Café Vorher entdecken",exact:true}).click();
+  await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).waitFor();
+  await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).filter({visible:true}).waitFor();
+  await page.getByRole("button",{name:"Zurück zu deinen Vorschlägen",exact:true}).click();
+  await page.getByText("1 / 5",{exact:true}).waitFor();
 
   state.consent = true;
   state.worldName = "Café Aktualisiert";
   state.worldVersion = 2;
   await page.getByRole("button",{name:"Suche ändern",exact:true}).click();
   await page.getByText("Orte finden", { exact: true }).click();
-  await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   assert.equal(await page.getByText(/World-Version 2/).count(), 0);
   await page.getByText("Details & Hinweise",{exact:true}).first().click();
   await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).waitFor();
@@ -243,13 +262,13 @@ try {
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("ruhiges Café nach Reload");
   await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
-  await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   state.unavailable = true;
   const failureReport = page.waitForRequest(request => request.url().includes("/rpc/analytics_report_error_v1") && JSON.parse(request.postData() ?? "{}").p_error_type === "wohin_request_failed", {timeout:15000});
   await page.getByRole("button",{name:"Suche ändern",exact:true}).click();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText(/Wohin kann gerade keine verlässlichen Vorschläge zeigen|Vorschläge nicht verfügbar/).waitFor();
-  assert.equal(await page.getByText("Café Aktualisiert", { exact: true }).count(), 0);
+  assert.equal(await page.getByTestId("wohin-result-card").count(), 0, "unavailable search never retains a recommendation card");
   const diagnostic = JSON.parse((await failureReport).postData());
   assert.equal(diagnostic.p_context.phase,"LOAD");
   assert.equal(diagnostic.p_context.http_status,503);
@@ -258,6 +277,47 @@ try {
   assert.equal(state.unexpectedRemote.length, 0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.equal(overflow, 0);
+
+  state.unavailable = false;
+  await page.goto(appUrl, {waitUntil:"domcontentloaded"});
+  await page.getByText("Hier entstehen Momente",{exact:true}).waitFor();
+  await page.getByRole("button",{name:/Moment bei Café Aktualisiert/}).waitFor();
+  assert.equal(await page.getByText("Verborgener Ort",{exact:true}).count(),0,"Home never displays safety-hidden Moments");
+  await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-home-390.png`,fullPage:true});
+  await page.getByText("Momente",{exact:true}).last().click();
+  await page.getByRole("button",{name:"Ähnliche Orte finden",exact:true}).first().click();
+  await page.getByText("1 / 5",{exact:true}).waitFor();
+  assert.equal(state.decisions.at(-1).naturalLanguage,"Ich suche einen Ort (Café) mit dieser Atmosphäre: Gemütlich, Ruhig in Bern.");
+  await page.getByRole("button",{name:"Café Aktualisiert entdecken",exact:true}).click();
+  await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).waitFor();
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-place-390.png`});
+  // A direct visit has no personalized rationale, even for the same place.
+  await page.goto(`${appUrl}/spot/spot-cafe-one`,{waitUntil:"domcontentloaded"});
+  await page.getByText("Café Aktualisiert",{exact:true}).first().waitFor();
+  assert.equal(await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).count(),0);
+
+  // Explicit sharing reaches the common confirmation only after successful synthetic finalization.
+  await page.goto(appUrl,{waitUntil:"domcontentloaded"});
+  await page.getByRole("button",{name:"Moment mit Foto festhalten",exact:true}).click();
+  await page.getByRole("button",{name:"Gemütlich",exact:true}).click();
+  await page.getByRole("button",{name:"Ort selbst wählen",exact:true}).click();
+  await page.getByRole("textbox",{name:"Ort für deinen Moment suchen",exact:true}).fill("Café");
+  await page.getByRole("button",{name:"Café Moment · Testgasse 1",exact:true}).click();
+  assert.equal(momentPublishes,0);
+  state.allowSyntheticMoment=true;
+  await page.getByRole("button",{name:"Moment teilen",exact:true}).click();
+  await page.getByText("Dein Moment ist geteilt.",{exact:true}).waitFor();
+  assert.equal(momentPublishes,1);
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
+    await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-shared-390.png`});
+    await page.setViewportSize({width:320,height:568});
+    await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-shared-320.png`});
+    await page.setViewportSize({width:430,height:932});
+    await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-shared-430.png`});
+  }
+  await page.getByRole("button",{name:"Zur Startseite",exact:true}).click();
+  await page.getByRole("textbox",{name:"Was hast du heute vor?",exact:true}).waitFor();
 
   const loginContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await loginContext.route(`${endpoint}/**`, remoteFixture);
@@ -279,7 +339,12 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+} catch (error) {
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
+    for (const ctx of browser.contexts()) for (const [index, tab] of ctx.pages().entries()) await tab.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/failure-${index}.png`}).catch(()=>undefined);
+  }
+  throw error;
 } finally {
   await browser.close();
   await new Promise((closed) => server.close(closed));

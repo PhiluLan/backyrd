@@ -5,6 +5,7 @@ import { ProductText as Text } from "./foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
+import { DiscoverFromMoment } from "./DiscoverFromMoment";
 import Avatar from "./Avatar";
 import { supabase } from "../lib/supabase";
 import ReportContentButton from "./safety/ReportContentButton";
@@ -232,7 +233,7 @@ export default function SocialPostCard({
 
     if (post.spot_id) {
       options.push({
-        text: "Spot ansehen",
+        text: "Ort ansehen",
         onPress: () => onOpenSpot(post),
       });
     }
@@ -485,11 +486,11 @@ export default function SocialPostCard({
           >
             <Ionicons name="location-outline" size={16} color={theme.color.pink} />
             <View style={styles.spotCopy}>
-              <Text style={styles.spotName} numberOfLines={1}>
+              <Text style={styles.spotName}>
                 {post.spot_name}
               </Text>
               {[post.category_name, post.spot_city].filter(Boolean).length > 0 ? (
-                <Text style={styles.spotMeta} numberOfLines={1}>
+                <Text style={styles.spotMeta}>
                   {[post.category_name, post.spot_city].filter(Boolean).join(" · ")}
                 </Text>
               ) : null}
@@ -497,6 +498,8 @@ export default function SocialPostCard({
             <Text style={styles.spotLink}>Ansehen</Text>
           </Pressable>
         ) : null}
+
+        {post.spot_id ? <DiscoverFromMoment moods={presentMomentTags(post.mood_tags)} city={post.spot_city} category={post.category_name} /> : null}
 
         {commentCount > 0 ? (
           <Pressable accessibilityRole="button" accessibilityLabel={`Alle ${commentCount} Kommentare öffnen`} onPress={() => onOpenComments(post)}>

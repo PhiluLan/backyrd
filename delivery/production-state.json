@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "6176de4051a13a418d5a372f2b5e08a69d7c92da",
+      "sourceSha": "5c4aefd5ced633a2f3fad09fdd304e6e6039a03c",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "ebc6e2d2-c6a7-4a66-bf6f-a9a222f335bd",
-      "iosUpdateId": "01a15527-3be9-7643-99f6-1cb5465836db",
+      "otaGroupId": "8ecd442c-2ec9-431f-849c-d83830edba57",
+      "iosUpdateId": "01a155b2-779c-7213-a403-779e8d04472f",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Authenticated Decision access and scoped AI processing notice. Protected backend deployment 39290606906 and authenticated-user control 39291893322 succeeded. Public production launch bytes match the Main-certified iOS artifact. New iOS launch UX polish is excluded. Physical-device installation not observed."
+      "note": "Connected discovery, atmosphere and Moments, including Home previews, new atmosphere wishes, actor-bound grounded place context and shared Moment confirmation. PR #531 and exact Main certification run 39312725149 passed. Public production launch bytes match the certified iOS artifact. Additional native visual inspection was blocked by the locked Mac; physical-device installation/camera/upload/timing not observed."
     }
   },
   "reviewMediaIncident": {
