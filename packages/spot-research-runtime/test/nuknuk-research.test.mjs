@@ -417,3 +417,63 @@ test('independent description validation rejects an exact seasonal notice when a
   const text='Freut Euch auf eine neue Speisekarte. Wir servieren französische Küche aus regionalen Produkten.';
   assert.throws(()=>validateNuknukProposal({status:'PROPOSED',value:'Freut Euch auf eine neue Speisekarte.',citations:[{sourceId:'s1',quote:'Freut Euch auf eine neue Speisekarte.'}],reason:null},{field:{attributeKey:'description.highlight'},sources:[{...source,text,descriptionText:text}],validateValue:()=>({ok:true})}),/description_not_supported/);
 });
+
+test('decoded HTML time spacing and midnight produce exact supported weekly rows',()=>{
+ const s=sourceText({url:source.url,observedAt:source.observedAt,body:'<main><p>Do<br>08:00&thinsp;–&thinsp;Mitternacht</p><p>Fr&thinsp;–&thinsp;Sa<br>08:00&thinsp;–&thinsp;01:00</p></main>'},'s1');
+ const cs=fieldCandidates({attributeKey:'hours.regular'},[s]);
+ assert.deepEqual(cs.flatMap(c=>parseHoursRow(c.quote)),[{day:'THURSDAY',intervals:[{start:'08:00',end:'00:00'}]},{day:'FRIDAY',intervals:[{start:'08:00',end:'01:00'}]},{day:'SATURDAY',intervals:[{start:'08:00',end:'01:00'}]}]);
+});
+test('closing-only exception inherits start only from its contiguous supported base range',()=>{
+ const text='Dienstag bis Sonntag 11-18 Uhr\n\nDonnerstags bis 21 Uhr geöffnet\n\nMontag geschlossen';
+ const cs=fieldCandidates({attributeKey:'hours.regular'},[{...source,text}]);
+ const rows=cs.flatMap(c=>parseHoursRow(c.quote));
+ assert.equal(rows.find(r=>r.day==='THURSDAY').intervals[0].end,'21:00');assert.equal(rows.find(r=>r.day==='FRIDAY').intervals[0].end,'18:00');
+ assert.deepEqual(parseHoursRow('Donnerstags bis 21 Uhr geöffnet'),[]);
+ assert.deepEqual(parseHoursRow('Dienstag bis Mittwoch 11-18 Uhr\nDonnerstags bis 21 Uhr geöffnet'),[]);
+});
+test('regular schedule ignores kitchen block and uses main venue content over navigation branch hours',()=>{
+ const text='Cafe Other\nMontag 10-18\nCafe Main\nMontag 08-22';
+ assert.deepEqual(fieldCandidates({attributeKey:'hours.regular'},[{...source,text,descriptionText:'Montag 08-22'}]).map(c=>c.quote),['Montag 08-22']);
+ const quotes=fieldCandidates({attributeKey:'hours.regular'},[{...source,text:'OPENING HOURS:\nMO bis MI: 6:30 — 23\nKITCHEN HOURS:\nMO bis SO: 11:30 — 14 / 18 — 22'}]).map(c=>c.quote);
+ assert.deepEqual(quotes,['MO bis MI: 6:30 — 23']);
+});
+test('duplicate identical source schedules do not falsely conflict',()=>{
+ const ss=[{...source,text:'Montag 08-22'},{...source,id:'s2',text:'Montag 08-22'}];
+ const result=extractedProposal({selected:['c0','c1']},{spot,field:{attributeKey:'hours.regular'},sources:ss});
+ assert.deepEqual(result.value,[{day:'MONDAY',intervals:[{start:'08:00',end:'22:00'}]}]);
+});
+test('placeholder email and absent phone stay unknown without a model call',async()=>{
+ const report=await researchExistingSpot({spot,fields:[{attributeKey:'contact.public_email',valueSchema:{type:'string'}},field],sources:[{...source,text:'Museum contact notexisting@nodomain.com'}],modelPath},{validateValue,fetchImpl:()=>{throw new Error('must not call model');}});
+ assert.deepEqual(report.results.map(r=>r.status),['UNRESOLVED','UNRESOLVED']);
+});
+test('unknown with supporting context is an abstention, not an invalid null claim',()=>{
+ assert.equal(extractedProposal({value:null,citations:[{sourceId:'s1',quote:source.text}]},{spot,field:{attributeKey:'operation.laptop_policy'},sources}).status,'UNRESOLVED');
+});
+test('public CDN menu PDF discovery retains observed parent and rejects unrelated or credential links',async()=>{
+ const {discoverMenuDocuments}=await import('../src/nuknuk-sources.mjs');
+ const page={url:'https://example.org/eatery',body:'<a href="https://cdn.example.net/current.pdf">Food Menu</a><a href="https://cdn.example.net/menu.pdf?token=private">Menu</a><a href="/report.pdf">Annual Report</a>'};
+ assert.deepEqual(discoverMenuDocuments(page),[{url:'https://cdn.example.net/current.pdf',discoveredOn:page.url,label:'Food Menu'}]);
+});
+test('museum description and named visits remain grounded while cafe pastry lists preserve originals',async()=>{
+ const {cultureOfferCandidates}=await import('../src/nuknuk-research.mjs');
+ const text='Das Museum zeigt eine Sammlung kinetischer Skulpturen. Unser Schauatelier ist öffentlich zugänglich.';
+ assert.ok(fieldCandidates({attributeKey:'description.highlight'},[{...source,text}]).length);
+ assert.deepEqual(cultureOfferCandidates({attributeKey:'experience.profile',profileCategory:'CULTURE_ARTS'},[{...source,text}]).map(c=>c.kind),['VISIT']);
+ const {cafeOfferCandidates}=await import('../src/nuknuk-research.mjs');
+ assert.deepEqual(cafeOfferCandidates({attributeKey:'experience.profile',profileCategory:'COFFEE_DAYTIME'},[{...source,text:'Das Angebot reicht von Schwarzwälder Kirschtorte bis zu Pastel de Nata.'}]).map(c=>c.name),['Schwarzwälder Kirschtorte','Pastel de Nata']);
+});
+test('explicit open Wi-Fi and stroller space do not imply a laptop permission',async()=>{
+ const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+ const text='Offenes WLAN\nPlatz für Kinderwagen';
+ assert.deepEqual(enumFactCandidates({attributeKey:'amenity.features'},[{...source,text}]).map(c=>c.value),['WIFI','STROLLER_SPACE']);
+ assert.equal(enumFactCandidates({attributeKey:'operation.laptop_policy'},[{...source,text}]),null);
+});
+test('external menu cannot establish a group until the public PDF is fetched with matching parent provenance',async()=>{
+ const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+ const parent={...source,text:'Unser aktuelles Lunch Menu steht bereit.',linkedMenus:[{label:'Lunch Menu',url:'https://cdn.example.net/current.pdf'}]};
+ const field={attributeKey:'offering.groups'};
+ assert.deepEqual(enumFactCandidates(field,[parent]),[]);
+ const asset={id:'s2',url:'https://cdn.example.net/current.pdf',format:'PDF_TEXT',layoutReviewRequired:true,text:'Lunch menu',discoveredOn:parent.url};
+ assert.deepEqual(enumFactCandidates(field,[parent,asset]).map(c=>c.value),['LUNCH']);
+ assert.deepEqual(enumFactCandidates(field,[parent,{...asset,discoveredOn:'https://other.example/'}]),[]);
+});

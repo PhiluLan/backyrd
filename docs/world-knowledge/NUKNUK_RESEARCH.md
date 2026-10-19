@@ -337,3 +337,47 @@ recorded for the six additional Spots; they were not all rerun with the old mode
 request version. 119 runtime tests, core typecheck and repository/security gates
 passed. These small development cases do not establish general accuracy; unknown
 fields remain unknown and local evidence remains outside Git.
+
+## Fresh three-Spot evaluation (v9)
+
+Three new current authenticated exports (Museum Tinguely, Nomad Eatery & Bar and
+Unternehmen Mitte) were researched against freshly retrieved official HTML on
+19 October 2026. Baseline: 24 fields, seven partial proposals, 12 unresolved,
+five FAILED. This revealed missing HTML spacing entities/midnight parsing,
+closing-only weekday exceptions, duplicate identical schedules, insufficient
+cultural description/offer coverage, placeholder-email handling and unsupported
+contact/boolean abstentions. Actual linked CDN menu PDFs were not being retrieved.
+
+The v9 changes decode spacing entities, use main-content schedule rows when
+available to avoid navigation-area schedules, and exclude explicit kitchen blocks.
+A contiguous closing-only exception can inherit an opening time only from a
+preceding complete range containing that weekday and exactly one interval; otherwise
+it stays unresolved. Identical repeated weekday rows deduplicate; differing rows
+still conflict. Midnight is 00:00 of the next day. Scope conflicts between genuine
+Eatery/Bar schedules remain unresolved rather than being silently merged.
+
+Emails are selected from exact bounded literal candidates; explicit spam-decoy and
+placeholder domains are excluded and never reconstructed. Absent telephone evidence
+stays unresolved. Null with supporting context remains an abstention, while malformed
+output still fails. Explicit open Wi-Fi and stroller-space labels are supported;
+these facts do not establish laptop permission. Cultural visit terms and common
+named pastry spans are copied immutably within their supported category; this is
+still a limited vocabulary and partial inventory.
+
+Actual menu PDF links may use a public CDN when discovered on the approved official
+parent. The same parent identity gate, public-network constraints, byte/time/request
+limits and PDF layout-review requirement apply. External menu links establish a
+partial group only after a matching-parent PDF has actually been fetched. The CLI
+keeps the total six-request cap; no arbitrary external URLs gain identity authority.
+
+Final fresh-case replay: same saved HTML bodies with corrected extraction plus two
+observed Nomad menu PDFs, 24 fields, 14 supported partial proposals, ten unresolved,
+zero FAILED. This is an end-to-end research-method comparison, not an isolated
+model-only accuracy gain. Museum weekly hours include Thursday until 21:00; Mitte
+main-venue weekly hours include midnight and remain separate from other branches;
+Nomad recovers four named dishes while differing Eatery/Bar hours remain open.
+Names were checked against the rendered Food Menu. There is no full-inventory,
+held-out-accuracy or fully autonomous-discovery claim. 129 runtime tests, core
+typecheck and repository/security gates pass. No canonical writes; owned model
+processes stopped after both runs. Live exports, public-source snapshots and
+review artifacts remain local and are excluded from Git.

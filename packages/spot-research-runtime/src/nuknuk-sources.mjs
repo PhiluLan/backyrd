@@ -43,7 +43,7 @@ export function menuOfferingGroup(label) {
   return null;
 }
 export function sourceText(page,id) {
-  const named={auml:'ä',ouml:'ö',uuml:'ü',Auml:'Ä',Ouml:'Ö',Uuml:'Ü',szlig:'ß',eacute:'é',egrave:'è',agrave:'à',ccedil:'ç',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',ndash:'–',mdash:'—',euro:'€',hellip:'…',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
+  const named={auml:'ä',ouml:'ö',uuml:'ü',Auml:'Ä',Ouml:'Ö',Uuml:'Ü',szlig:'ß',eacute:'é',egrave:'è',agrave:'à',ccedil:'ç',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',ndash:'–',mdash:'—',euro:'€',hellip:'…',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',thinsp:' ',ensp:' ',emsp:' ',laquo:'«',raquo:'»',copy:'©'};
   const clean=html=>html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<\/?(?:p|h[1-6]|li|div|section|article|tr|br)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&([a-zA-Z]+);/g,(m,key)=>named[key]??m).replace(/&#(x[0-9a-f]+|\d+);/gi,(_m,n)=>{const c=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return c>0&&c<=0x10ffff?String.fromCodePoint(c):' ';}).replace(/[ \t\r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
   const text=clean(page.body);
   const main=page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]??page.body;
@@ -124,4 +124,18 @@ export function discoverMenuImages(page) {
     if(images.length===4)break;
   }
   return images;
+}
+
+// Public menu documents may be hosted by a CDN. Identity comes from the actual
+// embedding official page; the caller must preserve and validate that parent.
+export function discoverMenuDocuments(page) {
+  if(typeof page.body!=='string')return [];
+  const documents=[];
+  for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const label=m[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+    if(!/menu|menü|karte/iu.test(label))continue;
+    try{const url=publicSourceUrl(new URL(m[1].replace(/&amp;/g,'&'),page.url).href);if(!/\.pdf(?:[?#]|$)/iu.test(url)||documents.some(d=>d.url===url))continue;documents.push({url,discoveredOn:page.url,label});}catch{}
+    if(documents.length===4)break;
+  }
+  return documents;
 }
