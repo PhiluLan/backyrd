@@ -1,0 +1,38 @@
+{
+  "status": "SHIPPED",
+  "sourceSha": "897877c1553a52f3804d7c0485c64893b351a723",
+  "pullRequest": 522,
+  "mainCiRunId": 39271666974,
+  "certificationRunId": 39272095528,
+  "manifestHash": "df840347f22d0a9c8f828235934c606b2e4ef8933b025cfdb6d1730e564f938c",
+  "mobile": {
+    "status": "PASS",
+    "sourceSha": "897877c1553a52f3804d7c0485c64893b351a723",
+    "manifestHash": "df840347f22d0a9c8f828235934c606b2e4ef8933b025cfdb6d1730e564f938c",
+    "otaGroupId": "8d808df1-48dc-414c-9391-c3cfee25b792",
+    "iosUpdateId": "01a154af-bb1b-7d89-bdb9-ed7b0ca3e9b8",
+    "runtimeVersion": "1.1.0",
+    "channel": "production",
+    "liveLaunchBytesVerified": true,
+    "installedDeviceVerified": false
+  },
+  "databaseChanged": false,
+  "decisionChanged": false,
+  "web": {
+    "productionObserved": true,
+    "spotUrl": "https://www.backyrd.ch/spots/1101ee26-5046-4cdc-921a-5a3bd4cb5306",
+    "exactSubtitleObserved": true,
+    "earlyEvidenceMaskingObserved": true
+  },
+  "validation": [
+    "Mobile and Web typechecks, canonical Mood invariants, targeted lint and existing Mobile contracts pass.",
+    "24 targeted shared/Mood/Consumer tests pass, including relative count comparison, invalid denominators and masked evidence.",
+    "Web production build, iOS export and exact Main artifact certification pass.",
+    "Actual App/Web component previews cover ten-Mood cutoff, full-list access, Mood selection, EARLY/empty states, 320/390px widths and Web Escape/focus restoration.",
+    "Live production iOS manifest and actual downloaded launch bundle match the certified artifact."
+  ],
+  "limits": [
+    "Installed iPhone acceptance not observed.",
+    "EARLY contributor counts remain masked, with no invented numbers or frequency lines."
+  ]
+}
