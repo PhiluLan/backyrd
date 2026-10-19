@@ -1,5 +1,25 @@
 # Decision Product intent interpretation
 
+## Current access policy — 2026-10-19
+
+The founder explicitly requested Decision for every authenticated Backyrd account
+and removal of the account allowlist. The installed Luna provider and Edge
+composition (`backyrd.luna-provider@2`) no longer read or enforce an actor list. Verified authentication
+still rejects missing, anonymous, deleted and banned accounts before model calls.
+Release authority, rate limits, timeouts, consent-bound personalization and
+Emergency-OFF remain in force.
+
+The existing protected manual control now provides only
+`ENABLE_AUTHENTICATED_USERS` and `EMERGENCY_OFF`. It validates current Main, the
+audited shipped Function digest and the server-side model key. For compatibility
+with the already shipped artifact it sets the old allowlist setting to `*`; new
+code ignores this setting. No user UUID is selected or granted special access.
+The founder request supersedes the historical pilot-only scope below.
+Authenticated App/Web checks remain required after activation.
+
+The sections below record earlier release stages and are historical, not the
+current access policy.
+
 ## Proposed query semantics v2 (not yet released)
 
 The next Product release replaces the one-field intent classifier on the same
