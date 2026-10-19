@@ -100,3 +100,20 @@ for (const callback of [
 assert.match(cardSource, /width: 44,\s*height: 44,/);
 
 console.log("Moments presentation contracts passed.");
+
+const journeySource = fs.readFileSync(path.resolve("lib/discovery-journey.ts"), "utf8");
+const journeyModule = { exports: {} };
+new Function("exports", "require", "module", ts.transpileModule(journeySource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(journeyModule.exports, () => helperModule.exports, journeyModule);
+const { atmosphereWish, rememberJourneySelection, journeySelectionFor, clearJourneySelection, canCarryPlaceRecommendation } = journeyModule.exports;
+assert.equal(atmosphereWish(["cozy", "calm"], "Basel", "Café"), "Ich suche einen Ort (Café) mit dieser Atmosphäre: Gemütlich, Ruhig in Basel.");
+assert.equal(atmosphereWish([], null, "SPORT_MOVEMENT"), "Ich suche einen Ort.");
+const selected = { actorId: "actor-a", decisionId: "decision-a", spotId: "spot-a", wish: "Kaffee", recommendation: "Grounded explanation", notes: ["Time unknown"], selectedAt: 1000 };
+rememberJourneySelection(selected);
+assert.deepEqual(journeySelectionFor("spot-a", "actor-a", true, 2000), selected);
+for (const args of [["spot-b", "actor-a", true, 2000], ["spot-a", "actor-b", true, 2000], ["spot-a", null, true, 2000], ["spot-a", "actor-a", false, 2000], ["spot-a", "actor-a", true, 1801001]]) assert.equal(journeySelectionFor(...args), null);
+assert.equal(canCarryPlaceRecommendation({ presentation: { event: {} }, rank: 1, contextualReject: false }), false);
+assert.equal(canCarryPlaceRecommendation({ presentation: {}, rank: null, contextualReject: false }), false);
+clearJourneySelection();
+assert.equal(journeySelectionFor("spot-a", "actor-a", true, 2000), null);
+assert.doesNotMatch(journeySource, /AsyncStorage|localStorage|trackAnalytics|supabase/);
+console.log("Connected journey: wishes, actor/origin/venue isolation, expiry and clear passed.");

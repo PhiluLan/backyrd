@@ -1,3 +1,5 @@
+import { journeySelectionFor } from "../../lib/discovery-journey";
+import { DiscoverFromMoment } from "../../components/DiscoverFromMoment";
 import { MoodSignature } from "../../components/spot/MoodSignature";
 import { rankMoodSupport } from "../../../packages/shared/src/presentation/mood";
 import { useSpotMoodCounts } from "../../lib/mood-catalog";
@@ -254,6 +256,7 @@ function specialHours(value: unknown): { date: string; hours: string }[] {
 export default function SpotDetailScreen() {
   const { id, entrySource } = useLocalSearchParams<{ id: string; entrySource?: string }>();
   const decisionOrigin = entrySource === "decision";
+  const [journeyDetailsOpen, setJourneyDetailsOpen] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: viewportWidth } = useWindowDimensions();
@@ -744,6 +747,8 @@ export default function SpotDetailScreen() {
   const moreInfoKeys = ["context.typical_dayparts", "context.atmosphere", "amenity.features", "accessibility.accessible_toilet", "accessibility.elevator", "accessibility.step_free_entrance", "context.visit_situations", "offering.food_specialities", "rule.pet_access"];
   const moreInfoFields = moreInfoKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item));
   const hasMoreInfo = moreInfoFields.length > 0 || additionalFields.length > 0 || (!canonicalWorldDetail && taxonomyItems.length > 0);
+  const journey = journeySelectionFor(String(id), userId, decisionOrigin);
+
   const presentableReviews = reviews.filter((review) => Boolean(
     review.text?.trim() || review.photo_path || review.review_photos?.length ||
     review.mood_a || review.mood_b || review.moodA?.token || review.moodB?.token,
@@ -917,6 +922,17 @@ export default function SpotDetailScreen() {
         </Animated.View>
 
         <View style={styles.content}>
+          {journey ? <View style={styles.journeyContext}>
+            <AppText role="caption" tone="pink">FÜR DEINEN NÄCHSTEN MOMENT</AppText>
+            <AppText role="bodyStrong">{journey.wish}</AppText>
+            <AppText role="body">{journey.recommendation}</AppText>
+            {journey.notes[0] ? <AppText role="meta" tone="secondary">{journey.notes[0]}</AppText> : null}
+            {journey.notes.length > 1 ? <>
+              <Pressable accessibilityRole="button" accessibilityState={{ expanded: journeyDetailsOpen }} onPress={() => setJourneyDetailsOpen(value => !value)} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">{journeyDetailsOpen ? "Hinweise schliessen" : "Details & Hinweise"}</AppText></Pressable>
+              {journeyDetailsOpen ? journey.notes.slice(1).map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>) : null}
+            </> : null}
+            <Pressable accessibilityRole="button" onPress={() => router.back()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="label" tone="pink">Zurück zu deinen Vorschlägen</AppText></Pressable>
+          </View> : null}
           <View style={{ marginBottom: 24 }}>
             {moodProfileLoading ? <AppText role="caption" tone="secondary">Moods werden geladen …</AppText> : moodProfileFailed ? <Pressable accessibilityRole="button" onPress={() => void refreshVisibleReviews()} style={{ minHeight: 44, justifyContent: "center" }}><AppText role="meta" tone="pink">Moods erneut laden</AppText></Pressable> : <SpotMoodProfile moods={moodSummary} />}
           </View>
@@ -1036,8 +1052,9 @@ export default function SpotDetailScreen() {
           <SpotEventsSection spotId={String(spot.id)}/>
 
           <View style={styles.section}>
-              <View style={styles.sectionHeader}><SectionTitle>Momente</SectionTitle>{presentableReviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
-              {presentableReviews.length === 0 ? <Text style={styles.mutedText}>Hier wurden noch keine Momente geteilt.</Text> : null}
+              <View style={styles.sectionHeader}><SectionTitle>Hier erlebt</SectionTitle>{presentableReviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
+              {presentableReviews.length === 0 ? <Text style={styles.mutedText}>Noch keine Momente von hier. Wenn du hier warst, halte deinen Eindruck fest.</Text> : null}
+              <AppText role="meta" tone="secondary" style={{ marginBottom: 16 }}>Persönliche Momente und die Atmosphäre, die geblieben ist.</AppText>
               {presentableReviews.slice(0, 3).map((rev) => {
                 const moods = [
                   presentMoodToken(rev.moodA?.token ?? rev.mood_a),
@@ -1120,6 +1137,7 @@ export default function SpotDetailScreen() {
                       </View>
                     )}
                     {reviewPhotoUrl ? <Image source={{ uri: reviewPhotoUrl }} style={styles.reviewPhoto} /> : null}
+                    <DiscoverFromMoment moods={moods} city={spot.city} />
                   </View>
                 );
               })}
@@ -1205,7 +1223,7 @@ export default function SpotDetailScreen() {
                   return;
                 }
                 if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_review_started", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
-                void openMomentComposerSafely({ router, href: `/review/new?spotId=${spot.id}` });
+                void openMomentComposerSafely({ router, href: journey ? `/review/new?spotId=${spot.id}&source=decision&decisionId=${journey.decisionId}` : `/review/new?spotId=${spot.id}` });
               }}
               accessibilityRole="button" accessibilityLabel="Moment an diesem Ort teilen"
               style={styles.secondaryAction}
@@ -1252,6 +1270,7 @@ export default function SpotDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  journeyContext: { marginBottom: 28, paddingBottom: 20, gap: 12, borderBottomWidth: 1, borderBottomColor: foundationTheme.color.border },
   stickyNav: {
     position: "absolute",
     top: 0,

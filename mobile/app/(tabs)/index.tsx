@@ -16,6 +16,8 @@ import { AppText, ProductTextInput as TextInput } from "../../components/foundat
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
+import { HomeMomentsSection } from "../../components/HomeMomentsSection";
+import { atmosphereWish } from "../../lib/discovery-journey";
 import Avatar from "../../components/Avatar";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
@@ -41,6 +43,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { width, fontScale } = useWindowDimensions();
   const [query, setQuery] = useState("");
+  const [momentRevision, setMomentRevision] = useState(0);
   const [city, setCity] = useState("Basel");
   const [firstName, setFirstName] = useState<string | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
@@ -144,7 +147,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => void load(true)} />} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => { void load(true); setMomentRevision(value => value + 1); }} />} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View style={styles.greetingBlock}>
               <AppText role="bodyStrong" maxFontSizeMultiplier={1.6} style={styles.greeting}>{user ? `Hey${firstName ? `, ${firstName}` : ""}` : "Willkommen bei Backyrd"}</AppText>
@@ -164,7 +167,8 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <AppText role="displayM" style={styles.pageTitle}>Wohin heute?</AppText>
+          <AppText role="displayM" style={styles.pageTitle}>Dein nächster Moment</AppText>
+          <AppText role="body" tone="secondary" style={styles.intro}>Worauf hast du Lust?</AppText>
           <View style={styles.searchShell}>
             <Ionicons color={theme.color.textSecondary} name="search-outline" size={20} />
             <TextInput accessibilityLabel={user ? "Was hast du heute vor?" : "Orte suchen"} onChangeText={setQuery} onSubmitEditing={() => submitDecision()} placeholder={user ? "Dein Wunsch" : "Orte suchen"} placeholderTextColor={theme.color.textSecondary} returnKeyType="go" style={styles.searchInput} value={query} />
@@ -178,10 +182,10 @@ export default function HomeScreen() {
 
           {popularMoods.length ? (
             <View style={styles.moodSection}>
-              <AppText role="label" tone="secondary" style={[styles.eyebrow, styles.moodSectionTitle]}>DEIN MOOD. DEIN ORT.</AppText>
+              <AppText role="label" tone="secondary" style={[styles.eyebrow, styles.moodSectionTitle]}>WIE SOLL ES SICH ANFÜHLEN?</AppText>
               <ScrollView horizontal contentContainerStyle={styles.moodRow} showsHorizontalScrollIndicator={false}>
                 {popularMoods.map((mood) => (
-                  <Pressable accessibilityHint={user ? "Startet Für jetzt mit diesem Mood" : "Zeigt passende Orte"} accessibilityLabel={`Mood ${mood}`} key={mood} onPress={() => user ? submitDecision(`${mood} in ${city}`) : router.push({ pathname: "/(tabs)/map", params: { view: "list", mood } } as never)} style={({ pressed }) => [styles.moodLink, pressed && styles.pressed]}>
+                  <Pressable accessibilityRole="button" accessibilityHint={user ? "Sucht Orte mit dieser Atmosphäre" : "Zeigt Orte mit diesem Eindruck"} accessibilityLabel={`Atmosphäre ${mood}`} key={mood} onPress={() => user ? submitDecision(atmosphereWish([mood], city)) : router.push({ pathname: "/(tabs)/map", params: { view: "list", mood } } as never)} style={({ pressed }) => [styles.moodLink, pressed && styles.pressed]}>
                     <View style={styles.moodDot} />
                     <AppText role="meta" numberOfLines={1}>{mood}</AppText>
                   </Pressable>
@@ -230,6 +234,8 @@ export default function HomeScreen() {
             <View style={styles.stateWrap}><StateView kind="empty" title="Noch keine Orte hier" message={`Sobald es in ${city} Neues zu entdecken gibt, findest du es hier.`} /></View>
           )}
 
+          <HomeMomentsSection city={city} revision={momentRevision} />
+
           <HomeEventsSection />
 
           {!loading && !error && newSpots.length ? (
@@ -260,6 +266,7 @@ const styles = StyleSheet.create({
   greetingBlock: { flex: 1, minWidth: 0 },
   greeting: { color: theme.color.textPrimary },
   pageTitle: { marginTop: theme.spacing.lg, marginHorizontal: theme.layout.pageGutter },
+  intro: { marginTop: theme.spacing.sm, marginHorizontal: theme.layout.pageGutter },
   findButton: { marginHorizontal: theme.layout.pageGutter, marginTop: theme.spacing.sm },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   headerIcon: { backgroundColor: "rgba(246,240,232,0.06)", borderWidth: 1, borderColor: theme.color.border },
