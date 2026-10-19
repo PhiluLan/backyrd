@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {researchSpotV2,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier} from '../dist/nuknuk-agent.js';
-import {discoverResearchLinks,sourceText} from '../src/nuknuk-sources.mjs';
+import {discoverResearchLinks,discoverPublicDataSources,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {NUKNUK_MODEL_REVISION,fieldCandidates} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
@@ -25,6 +25,19 @@ test('template expressions are not followed and a late official contact link sur
  assert.equal(links.length,120);
  assert.ok(links.some(x=>x.url==='https://example.org/de/kontakt/'));
  assert.ok(!links.some(x=>x.url.includes('MenuURL')||x.url.includes('browser1')));
+});
+test('public client-data discovery follows only observed read-only same-host endpoints',()=>{
+ const page={url:'https://zoo.example.org/de/zoobesuch/r/1/oeffnungszeiten/',contentType:'text/html',body:'{{Oeffnungszeit_de}}<dmx-serverconnect id="scOeffnungszeiten" url="/dmxConnect/api/Website/de/Oeffnungszeiten.php" dmx-param:wrid="query.wrid"><dmx-serverconnect id="scStatsPage" url="/dmxConnect/api/Website/Stats/Oeffnungszeiten.php"><dmx-serverconnect id="scOther" url="https://evil.org/dmxConnect/api/Website/Oeffnungszeiten.php"><dmx-serverconnect id="scKontakt" url="/dmxConnect/api/Website/de/Kontakt.php" dmx-param:uid="query.missing">'};
+ assert.deepEqual(discoverPublicDataSources(page).map(x=>x.url),['https://zoo.example.org/dmxConnect/api/Website/de/Oeffnungszeiten.php?wrid=1']);
+ assert.deepEqual(discoverPublicDataSources({...page,body:page.body.replace('{{Oeffnungszeit_de}}','') }),[]);
+});
+test('seasonal JSON hours remain source-bound evidence, not a permanent weekly schedule',async()=>{
+ const body=JSON.stringify({repeatOeffnungszeitenKategorien:[{Kategorie_de:'Öffnungszeiten',repeatOeffnungszeiten:[{Datum:'1970-01-01',Tag_de:'Januar bis Februar',Oeffnungszeit_de:'8.00 bis 17.30 Uhr'},{Tag_de:'Mai bis August Montag bis Freitag',Oeffnungszeit_de:'8.00 bis 18.30 Uhr'}]},{Kategorie_de:'Restaurant',repeatOeffnungszeiten:[{Tag_de:'Montag bis Freitag',Oeffnungszeit_de:'9.00 bis 17.30 Uhr'}]}]});
+ const s=await readSourceText({url:'https://zoo.example.org/dmxConnect/api/Website/de/Oeffnungszeiten.php?wrid=1',contentType:'application/json',body,observedAt:new Date().toISOString()},'s1');
+ assert.equal(s.format,'JSON_TEXT');assert.equal(s.seasonalSchedule,true);assert.match(s.text,/Kategorie: Restaurant/);assert.doesNotMatch(s.text,/1970-01-01/);
+ const quote='Tag: Mai bis August Montag bis Freitag';
+ const facts=validateEvidenceFacts({facts:[fact('hours.regular','Montag bis Freitag 8.00 bis 18.30 Uhr',quote)]},s,[field('hours.regular')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot,fields:[field('hours.regular')],facts,sources:[s],...deps})[0].status,'UNRESOLVED');
 });
 test('permanent Spot research does not crawl event and news detail pages',()=>{
  const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/konzert/band">Live-Musik</a><a href="/news/opening-hours">Öffnungszeiten</a><a href="/events/2026-10-20">Programm</a><a href="/besuch/ihrevent">Ihr Event</a><a href="/oeffnungszeiten">Öffnungszeiten</a>'});
@@ -189,6 +202,11 @@ test('planner prioritizes unresolved questions, not insertion order',()=>{
 test('regular hours outrank a menu when both questions remain open',()=>{
  const links=[{url:'https://example.org/menu',depth:1,topics:['menu','experience']},{url:'https://example.org/hours',depth:1,topics:['hours']}];
  const pending=[field('hours.regular'),field('experience.profile'),field('offering.groups')];
+ assert.equal(rankResearchFrontier(links,[],pending)[0].url,'https://example.org/hours');
+});
+test('an explicit hours page outranks a busy visit page with many semantic topics',()=>{
+ const links=[{url:'https://example.org/events',depth:1,topics:['visit','menu','experience','access','about']},{url:'https://example.org/hours',depth:1,topics:['hours','visit']}];
+ const pending=[field('hours.regular'),field('experience.profile'),field('offering.groups'),field('amenity.features'),field('operation.laptop_policy')];
  assert.equal(rankResearchFrontier(links,[],pending)[0].url,'https://example.org/hours');
 });
 test('museum offer research follows visitor experiences instead of bistro menus',()=>{

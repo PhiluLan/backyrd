@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v2.1
+## Active architecture: Research v2.2
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -33,7 +33,12 @@ npm test --workspace @backyrd/spot-research-runtime
    separately DNS-checked and charged to the request budget. Default limits:
    12 HTTP requests (including redirect hops), 24 model calls and 10 minutes per Spot; hard maxima 24/48/15min.
    This is official-site link research, not an internet search engine or a browser
-   capable of rendering every JavaScript-only page. Aliases require review.
+   capable of rendering every JavaScript-only page. For pages with template
+   placeholders, a bounded adapter follows only observed same-host, read-only
+   App Connect data URLs. Parameters must come from the actual page URL;
+   analytics, action endpoints, unresolved parameters and other hosts are skipped.
+   Public JSON is reduced to visitor-facing text in the page language; the
+   endpoint and embedding page remain traceable. Aliases require review.
 2. **Extract atomic evidence.** Literal phone/email and opening-hours parsers
    create source-bound candidates; the model cannot invent or rewrite them.
    Semantic extraction is split into small offer and property question groups.
@@ -84,9 +89,11 @@ bar and kitchen areas. Explicit uppercase operating-area labels inherit over the
 weekday rows only inside an actual opening-hours section, and reset at the next
 area label; an earlier navigation word cannot relabel a later schedule. Bare headings are removed from offer candidates before model
 selection, not merely rejected after generation. Regional formats not
-understood by the existing canonical parsers remain unresolved.
+understood by the existing canonical parsers remain unresolved. Seasonal hours
+from public JSON stay in evidence but cannot become an unconditional weekly
+schedule in the current Backyrd field.
 
-The v2.1 source frontier excludes dated event/news pages and exhibition-programme
+The v2.2 source frontier excludes dated event/news pages and exhibition-programme
 subtrees from permanent Spot research. A dated exhibition may have genuine value
 for discovery, but the current permanent Spot fields cannot carry its validity
 window. Programme copy or exhibition names cannot become whole-venue description
@@ -159,7 +166,7 @@ accuracy estimate.
 | Alter Zoll | None | Stored HTTP site fails the exact-host HTTPS TLS probe; no certificate bypass |
 | Märthof | Hotel description/email and four partial room offers | Phone format conflict in the original run; deterministic replay with Swiss optional-trunk normalization resolves it, pending a fresh full run |
 | Kunstmuseum Basel | Public phone | Original blind run wrongly projected dated exhibitions. A later run removed the dated copy but still included a programme-scope virtual tour; current deterministic replay withholds it. Multi-building hours remain unresolved. A fresh current-code run is still required. |
-| Zoo Basel | None | Client-rendered official pages expose template placeholders to the text fetcher; the limitation is now explicit. Safe abstention, inadequate coverage. |
+| Zoo Basel | The latest full run used observed official read-only data endpoints to propose the main phone and public email | Opening hours differ by season and stay unresolved for the permanent weekly field. Enduring offers and description remain unresolved; the eight-request budget was exhausted. |
 | Acero | Public phone/email, grounded description and all seven Bistro days including Sunday | The 9B model still misses literal concrete offers; source-grounded hyphen correction has a synthetic regression but needs a fresh full run. |
 | Museum Tinguely | The latest full run correctly proposed the main museum phone and all seven days, including Monday closed and the Thursday extension to 21:00; dated event copy, shop/bistro phones and fake email did not become proposals | Description and concrete enduring offers remain unresolved; the run used its eight-request budget on multilingual contact/press pages before the press-frontier fix. |
 | Fondation Beyeler | The latest full run proposed the museum phone, all seven days with Wednesday's later close, and a literal though generic description. Group contacts, dated group tours and ensemble buildings stayed out of the permanent fields. Final deterministic replay preserved that result. | Named enduring offers remained unresolved; one programme page had empty source text and the eight-request budget was exhausted. A final guard against an incorrectly `OFFER`-labeled building passed a synthetic test after the run. |
@@ -168,7 +175,7 @@ accuracy estimate.
 cases exposed failures that unit tests alone missed. The current 9B route can
 create useful review drafts but does not meet the coverage and held-out safety
 gate across venue classes. Recheck every material rule against genuinely new
-Spots, including a JavaScript-rendered activity site; do not treat a deterministic
+Spots, including another client-rendered activity site; do not treat a deterministic
 replay or a corrected development case as an independent blind pass. The 27B
 route remains unpromoted until the complete pinned download and same-source
 comparison finish.

@@ -3,12 +3,12 @@
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {parseExperienceProfile} from '../../world-knowledge-core/dist/index.js';
-import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverMenuDocuments,discoverMenuImages} from './nuknuk-sources.mjs';
+import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages} from './nuknuk-sources.mjs';
 import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.1';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.2';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -246,6 +246,7 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
       if(typeof category!=='string')return 'CURRENT_CATEGORY_REQUIRED';
       try{projectOffers({offers:[{name:f.value,kind:f.offerKind,quote:f.quote,sourceId:f.sourceId}]},{field:{...field,profileCategory:category},sources:[source]});}catch{return 'OFFER_OUTSIDE_RESEARCH_FOCUS';}
     }
+    if(f.field==='hours.regular'&&source.seasonalSchedule)return 'SEASONAL_SCHEDULE_REQUIRES_REVIEW';
     if(f.field==='hours.regular'&&excludedHoursArea(source,f.quote,spot,f.sourceOffset))return 'EXPLICIT_AREA_HOURS';
     if(f.field==='hours.regular'&&(!atomicHours(f.quote).length))return 'UNSUPPORTED_OR_NONATOMIC_HOURS';
     if(['amenity.features','offering.groups'].includes(f.field)) {
@@ -371,7 +372,9 @@ function topicsForField(key:string,category?:string):string[] {
 export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[]):FrontierEntry[] {
   const open=fields.filter(f=>!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
   const weight=(key:string)=>key.startsWith('contact.')||key==='hours.regular'?8:['description.highlight','experience.profile'].includes(key)?2:1;
-  const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth;
+  const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+
+    (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
+    (open.some(f=>f.attributeKey.startsWith('contact.'))&&link.topics.includes('contact')?500:0);
   const culture=open.some(field=>field.profileCategory==='CULTURE_ARTS');
   const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
@@ -382,7 +385,7 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
 }
 function citation(f:EvidenceFact,sources:ResearchSource[]):Citation {
   const s=sources.find(s=>s.id===f.sourceId)!;
-  return {url:s.url,evidence:f.quote,observedAt:s.observedAt,sourceHash:s.hash,...(typeof f.sourceOffset==='number'?{sourceOffset:f.sourceOffset}:{}),...(s.layoutReviewRequired?{layoutReviewRequired:true,sourceFormat:s.format,discoveredOn:s.discoveredOn??null}:{})};
+  return {url:s.url,evidence:f.quote,observedAt:s.observedAt,sourceHash:s.hash,...(typeof f.sourceOffset==='number'?{sourceOffset:f.sourceOffset}:{}),...(s.layoutReviewRequired?{layoutReviewRequired:true,sourceFormat:s.format}:{}),...(s.discoveredOn?{discoveredOn:s.discoveredOn}:{}),...(s.format==='JSON_TEXT'?{sourceFormat:s.format}:{})};
 }
 export function projectEvidenceLedger({spot,fields,facts,sources,validateValue}:{spot:SpotContext;fields:ResearchField[];facts:EvidenceFact[];sources:ResearchSource[];validateValue:ValueValidator}):FieldResult[] {
   return fields.map(field=>{
@@ -507,7 +510,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       requests+=page.redirectedFrom?.length??0;if(page.redirectedFrom?.length)await progress({stage:'REDIRECT',from:next.url,url:page.url,chain:page.redirectedFrom});
       source=await (deps.readPage??readSourceText)(page,'s'+(sources.length+1),{preferMain:true});
       if(!source.text||source.text.length>12000||hash(source.text)!==source.hash)throw new Error('SOURCE_INTEGRITY_FAILED');
-      if(next.discoveredOn){if(!['PDF_TEXT','IMAGE_OCR'].includes(source.format??''))throw new Error('EMBEDDED_FORMAT_REJECTED');source.discoveredOn=next.discoveredOn;}
+      if(next.discoveredOn){if(!['PDF_TEXT','IMAGE_OCR','JSON_TEXT'].includes(source.format??''))throw new Error('EMBEDDED_FORMAT_REJECTED');source.discoveredOn=next.discoveredOn;}
       const menuArea=next.depth>0&&next.topics.includes('menu')&&!next.topics.includes('stay')&&['STAY','CULTURE_ARTS'].includes(String(category));
       const hotelArea=next.depth>0&&next.topics.includes('stay')&&!next.topics.includes('menu')&&['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category));
       const scopedDepartment=/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(source.url).pathname);
@@ -516,6 +519,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       if(options.discoverLinks!==false&&next.depth<maxDepth) {
         links=discoverResearchLinks(page);
         for(const link of links)if(link.topics?.length)enqueue({...link,depth:next.depth+1,topics:link.topics});
+        for(const data of discoverPublicDataSources(page))enqueue({...data,depth:next.depth+1,topics:data.topics??[]});
         for(const asset of [...discoverMenuDocuments(page),...discoverMenuImages(page)])enqueue({...asset,depth:next.depth+1,topics:['menu']});
       }
     }catch(error){sourceFailures.push({url:next.url,reason:error instanceof Error?error.message:'RETRIEVAL_FAILED'});continue;}

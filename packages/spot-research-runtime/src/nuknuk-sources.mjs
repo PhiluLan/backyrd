@@ -31,7 +31,7 @@ export async function fetchPublicSource(value,{resolve=lookup,requestImpl=reques
       }
       if(res.statusCode!==200){res.destroy();reject(new Error(`source_http_${res.statusCode}`));return;}
       const type=String(res.headers['content-type']??'').toLowerCase();
-      if(!/^(text\/html|text\/plain|application\/xhtml\+xml|application\/pdf|image\/jpeg|image\/png)/i.test(type)){res.destroy();reject(new Error('source_format_unsupported'));return;}
+      if(!/^(text\/html|text\/plain|application\/xhtml\+xml|application\/json|application\/pdf|image\/jpeg|image\/png)/i.test(type)){res.destroy();reject(new Error('source_format_unsupported'));return;}
       const chunks=[];let size=0;
       res.on('data',chunk=>{size+=chunk.length;if(size>maxBytes){req.destroy(new Error('source_too_large'));return;}chunks.push(chunk);});
       res.on('error',reject);
@@ -102,6 +102,33 @@ export function sourceText(page,id,{preferMain=false}={}) {
   return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex'),...(preferMain?{textSelection:primary?publicInfo?'MAIN_WITH_PUBLIC_INFO':'MAIN_CONTENT':'FULL_PAGE',headings,identityOffset,assetHash:createHash('sha256').update(page.body).digest('hex')}:{})};
 }
 
+function jsonSourceText(page,id) {
+  let parsed;try{parsed=JSON.parse(page.body);}catch{throw new Error('source_json_invalid');}
+  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error('source_json_invalid');
+  const language=new URL(page.url).pathname.match(/\/Website\/(de|en|fr)\//iu)?.[1]?.toLowerCase()??'de';
+  const lines=[],headings=[];let length=0;
+  const add=line=>{if(length>16000)return;const at=length;lines.push(line);length+=line.length+1;return at;};
+  const walk=(value,key='',depth=0)=>{
+    if(depth>7||length>16000)return;
+    if(Array.isArray(value)){for(const item of value.slice(0,80))walk(item,key,depth+1);return;}
+    if(value&&typeof value==='object'){
+      const keys=Object.keys(value).filter(k=>!/^qry/u.test(k)||!Object.hasOwn(value,'repeat'+k.slice(3)));
+      keys.sort((a,b)=>Number(b.toLowerCase()==='kategorie_'+language)-Number(a.toLowerCase()==='kategorie_'+language)||Number(/^repeat/u.test(b))-Number(/^repeat/u.test(a)));
+      for(const child of keys)walk(value[child],child,depth+1);return;
+    }
+    if(typeof value!=='string'||!value.trim()||!((key.toLowerCase().endsWith('_'+language))||/^(?:META_Description|phone|telefon|email|address|adresse)$/iu.test(key)))return;
+    const cleaned=sourceText({url:page.url,observedAt:page.observedAt,body:value},id).text.trim();
+    if(!cleaned||cleaned.length>3200)return;
+    const label=key.toLowerCase()==='kategorie_'+language?'Kategorie':key.replace(/_(?:de|en|fr)$/iu,'');
+    const at=add(label+': '+cleaned);
+    if(key.toLowerCase()==='kategorie_'+language&&at!==undefined)headings.push({level:2,text:cleaned,offset:at});
+  };
+  walk(parsed);
+  const full=lines.join('\n').trim(),text=full.slice(0,12000);
+  if(!text)throw new Error('source_json_empty');
+  return {id,url:page.url,observedAt:page.observedAt,text,descriptionText:text,headings:headings.filter(h=>h.offset<text.length),truncated:full.length>text.length,format:'JSON_TEXT',seasonalSchedule:/\b(?:Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\s+(?:bis|–|-)\s*(?:Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\b/iu.test(text),hash:createHash('sha256').update(text).digest('hex')};
+}
+
 // A different host is a review item, not an automatically trusted alias/branch.
 export function matchesExistingWebsite(sourceUrl, existingWebsite) {
   try {
@@ -111,6 +138,7 @@ export function matchesExistingWebsite(sourceUrl, existingWebsite) {
 }
 
 export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFTOTEXT??'pdftotext',ocrCommand=process.env.NUKNUK_TESSERACT??'tesseract',ocrLanguages=process.env.NUKNUK_OCR_LANGUAGES??'eng',preferMain=false}={}) {
+  if(/^application\/json\b/i.test(page.contentType??''))return jsonSourceText(page,id);
   const image=/^image\/(jpeg|png)$/i.test(page.contentType??'');
   if(image) {
     const b=page.body;
@@ -207,4 +235,35 @@ export function discoverResearchLinks(page) {
   if(links.length<=120)return links;
   const score=link=>link.topics.reduce((n,topic)=>n+({contact:8,hours:8,visit:3,about:3,access:2,stay:2,experience:2,menu:1}[topic]??0),0);
   return links.map((link,index)=>({link,index})).sort((a,b)=>score(b.link)-score(a.link)||a.index-b.index).slice(0,120).map(x=>x.link);
+}
+
+// Some official pages print template placeholders but declare read-only public
+// data sources. Follow only observed same-host GET endpoints with parameters
+// taken from the page URL; never execute the page's scripts or action endpoints.
+export function discoverPublicDataSources(page) {
+  if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/iu.test(page.contentType??'')||!page.body.includes('{{'))return [];
+  const found=[],pageUrl=new URL(page.url),routeId=pageUrl.pathname.match(/(?:^|\/)r\/(\d{1,8})(?:\/|$)/u)?.[1];
+  for(const tag of page.body.matchAll(/<dmx-serverconnect\b[^>]*>/giu)) {
+    if(/\bnoload\b/iu.test(tag[0]))continue;
+    const id=tag[0].match(/\bid=["']([^"']+)["']/iu)?.[1]??'';
+    const href=tag[0].match(/\burl=["']([^"']+)["']/iu)?.[1];
+    if(!href||/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\./iu.test(href)||!/(?:oeffnungs?|öffnungs?|opening|hours|zeiten|kontakt|contact)/iu.test(id+' '+href)||/(?:stats|cookies?|tracking|analytics)/iu.test(id+' '+href))continue;
+    try {
+      const target=new URL(href,page.url);
+      if(!target.pathname.startsWith('/dmxConnect/api/Website/')||!matchesExistingWebsite(target.href,page.url))continue;
+      let valid=true;
+      for(const parameter of tag[0].matchAll(/\bdmx-param:([\w-]+)=["']([^"']+)["']/giu)) {
+        const variable=parameter[2].match(/^query\.([\w-]+)$/u);
+        const value=variable&&(pageUrl.searchParams.get(variable[1])??(variable[1]==='wrid'?routeId:null));
+        if(!value||value.length>80||!/^[-\w]+$/u.test(value)){valid=false;break;}
+        target.searchParams.set(parameter[1],value);
+      }
+      if(!valid)continue;
+      const url=publicSourceUrl(target.href);
+      if(found.some(item=>item.url===url))continue;
+      found.push({url,label:id,discoveredOn:page.url,topics:[/(?:oeffnungs?|öffnungs?|opening|hours|zeiten)/iu.test(id+' '+href)?'hours':'contact']});
+      if(found.length>=4)break;
+    }catch{}
+  }
+  return found;
 }
