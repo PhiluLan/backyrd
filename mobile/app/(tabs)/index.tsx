@@ -1,3 +1,5 @@
+import { useMinuteClock } from "../../hooks/useMinuteClock";
+import type { OpeningSchedule } from "../../lib/discovery-opening-hours";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useRef, useState } from "react";
@@ -21,8 +23,8 @@ import { atmosphereWish } from "../../lib/discovery-journey";
 import Avatar from "../../components/Avatar";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
-import { loadDiscoveryOpeningStatuses } from "../../lib/discovery-opening-hours";
-import type { SpotOpeningStatus } from "../../lib/spot-opening-status";
+import { loadDiscoveryOpeningSchedules } from "../../lib/discovery-opening-hours";
+import { spotOpeningStatusNow, type SpotOpeningStatus } from "../../lib/spot-opening-status";
 import { HomeSpotRail } from "../../components/HomeSpotRail";
 import { readRecentDecisionSearch, type RecentDecisionSearch } from "../../lib/decision/recentDecisionSearch";
 import { useSpotMoodCounts, loadSpotBrowseMoods } from "../../lib/mood-catalog";
@@ -54,7 +56,9 @@ export default function HomeScreen() {
   const [recentSpots, setRecentSpots] = useState<DiscoverySpot[]>([]);
   const [recentError, setRecentError] = useState(false);
   const [newError, setNewError] = useState(false);
-  const [openingStatuses, setOpeningStatuses] = useState<Record<string, SpotOpeningStatus>>({});
+  const [openingSchedules, setOpeningSchedules] = useState<Record<string, OpeningSchedule>>({});
+  const now = useMinuteClock();
+  const openingStatuses: Record<string, SpotOpeningStatus> = Object.fromEntries(Object.entries(openingSchedules).map(([id, schedule]) => [id, spotOpeningStatusNow(schedule.rows, now, schedule.missingDayIsUnknown)]));
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
   const moodCounts = useSpotMoodCounts([...spots, ...newSpots, ...recentSpots].map(spot => spot.id));
   const [popularMoods, setPopularMoods] = useState<string[]>([]);
@@ -84,7 +88,7 @@ export default function HomeScreen() {
   const load = useCallback(async (refresh = false) => {
     const requestId = ++loadRequest.current;
     ++moodRequest.current;
-    setOpeningStatuses({});
+    setOpeningSchedules({});
     setCurrentLocation(null);
     setSpots([]);
     setNewSpots([]);
@@ -133,8 +137,8 @@ export default function HomeScreen() {
       setRecentSearch(recent && user?.id ? { ...recent.search, actorId: user.id } : null);
       setRecentSpots(recent?.places ?? []);
       setRecentError(recent?.failed ?? false);
-      void loadDiscoveryOpeningStatuses([...local.nearest.slice(0, 6), ...(local.newest ?? []), ...(recent?.places ?? [])])
-        .then(statuses => { if (requestId === loadRequest.current) setOpeningStatuses(statuses); })
+      void loadDiscoveryOpeningSchedules([...local.nearest.slice(0, 6), ...(local.newest ?? []), ...(recent?.places ?? [])])
+        .then(statuses => { if (requestId === loadRequest.current) setOpeningSchedules(statuses); })
         .catch(() => { /* Unavailable hours stay unknown; place discovery remains usable. */ });
       void loadMoodContext([...local.nearest.slice(0, 14), ...(local.newest ?? []), ...(recent?.places ?? [])]);
     } catch {

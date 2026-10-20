@@ -1,7 +1,7 @@
 // backyrd/mobile/app/map.tsx
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { View, Alert, Platform, Pressable, ScrollView, StyleSheet, Dimensions, Animated, FlatList, PanResponder, Modal, useWindowDimensions } from "react-native";
+import { View, Alert, RefreshControl, Platform, Pressable, ScrollView, StyleSheet, Dimensions, Animated, FlatList, PanResponder, Modal, useWindowDimensions, type ViewToken } from "react-native";
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 
 import ClusteredMapView from "react-native-map-clustering";
@@ -31,6 +31,9 @@ import { backyrdTheme as theme } from "../../theme/backyrd";
 import { clusterPolicyFor, resolveMapZoomBucket, type MapZoomBucket } from "../../lib/mapDiscoveryPolicy";
 import { spotMatchesSearch } from "../../lib/spot-search";
 
+import { loadDiscoveryOpeningSchedules, type OpeningSchedule } from "../../lib/discovery-opening-hours";
+import { useMinuteClock } from "../../hooks/useMinuteClock";
+
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
 
 function displayMoodLabel(value: string) {
@@ -51,15 +54,6 @@ const SHEET_HEIGHT = SCREEN_H;
 const OFFSET_COLLAPSED = SHEET_HEIGHT - SNAP_COLLAPSED;
 const OFFSET_FULL = 0;
 const OFFSET_HIDDEN = SHEET_HEIGHT + 40;
-
-// Normalisiert Suchbegriffe für Textsuche
-const normalizeText = (str?: string | null) =>
-  (str || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/ß/g, "ss")
-    .trim();
 
 type DbCategory = {
   id: string;
@@ -141,12 +135,20 @@ export default function MapScreen() {
   useEffect(() => { if (params.mood !== undefined) setSelectedMood(params.mood); }, [params.mood]);
 
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
+  const now = useMinuteClock();
+  const [visibleIds, setVisibleIds] = useState<string[]>([]);
+  const [openingSchedules, setOpeningSchedules] = useState<Record<string, OpeningSchedule>>({});
+  const onVisibleChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Spot>[] }) => {
+    setVisibleIds(viewableItems.filter(row => row.isViewable).map(row => row.item.id));
+  }).current;
+
   const [viewMode, setViewMode] = useState<"map" | "list">(explicitMapIntent ? "map" : "list");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const mapRef = useRef<ClusteredMapView | null>(null);
   const centeredProfileCity = useRef<string | null>(null);
   const listRef = useRef<FlatList<Spot> | null>(null);
+  const [refreshingPlaces, setRefreshingPlaces] = useState(false);
   const listScrollOffset = useRef(0);
   const [locationConsentGranted, setLocationConsentGranted] = useState(false);
   const clusterPolicy = useMemo(() => clusterPolicyFor(zoomBucket), [zoomBucket]);
@@ -238,6 +240,8 @@ export default function MapScreen() {
     }).catch(() => { if (active) setMoodProfilesFailed(true); })
       .finally(() => { if (active) setMoodProfilesLoading(false); });
     return () => { active = false; };
+  // The retry revision intentionally reruns this read without changing its query.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalSpots, moodRevision]));
 
   useEffect(() => {
@@ -309,6 +313,17 @@ export default function MapScreen() {
     searchMoodId,
   ]);
 
+  const openingCandidates = useMemo(() => viewMode === "map" ? (selectedSpot ? [selectedSpot] : []) : filteredSpots.filter((spot, index) => visibleIds.length ? visibleIds.includes(spot.id) : index < 8), [viewMode, selectedSpot, filteredSpots, visibleIds]);
+  useEffect(() => {
+    let active = true;
+    void loadDiscoveryOpeningSchedules(openingCandidates.map(spot => ({ id: spot.id, hours: spot.spot_hours ?? [] }))).then(schedules => { if (active) setOpeningSchedules(schedules); });
+    return () => { active = false; };
+  }, [openingCandidates]);
+  const openingStatus = (id: string) => {
+    const schedule = openingSchedules[id];
+    return schedule ? spotOpeningStatusNow(schedule.rows, now, schedule.missingDayIsUnknown) : "unknown";
+  };
+
   useEffect(() => {
     if (viewMode === "list") {
       requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: listScrollOffset.current, animated: false }));
@@ -329,7 +344,7 @@ export default function MapScreen() {
      MAP RENDERING
   ============================================================= */
 
-  const renderedMarkers = filteredSpots.map((spot) => {
+  const renderedMarkers = filteredSpots.filter(spot => Number.isFinite(spot.lat) && Number.isFinite(spot.lng) && Math.abs(spot.lat) <= 90 && Math.abs(spot.lng) <= 180).map((spot) => {
     const isSelected = selectedSpot?.id === spot.id;
     return (
         <Marker
@@ -646,7 +661,10 @@ export default function MapScreen() {
       ) : (
         <FlatList
           ref={listRef}
+          refreshControl={<RefreshControl refreshing={refreshingPlaces} tintColor={theme.color.pink} onRefresh={() => { setRefreshingPlaces(true); void refresh().finally(() => setRefreshingPlaces(false)); }} />}
+          keyboardShouldPersistTaps="handled"
           data={filteredSpots}
+          onViewableItemsChanged={onVisibleChanged}
           keyExtractor={(i) => i.id}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed) ? null : <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />}
@@ -659,6 +677,7 @@ export default function MapScreen() {
           scrollEventThrottle={16}
           renderItem={({ item }) => (
             <Pressable
+              accessibilityRole="button" accessibilityLabel={`${item.name} öffnen`}
               style={styles.listCard}
               onPress={() => {
                 void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: item.id, spotId: item.id, properties: { source: "list" } });
@@ -677,7 +696,7 @@ export default function MapScreen() {
                 <MoodSignature labels={spotMoods[item.id] ?? []} moodCount={moodCounts[item.id]} compact />
                 <Text style={styles.listCardContext}>{item.categories?.name || item.city || "Ort"}</Text>
                 <Text style={styles.listCardAddress}>{item.address || "Adresse noch nicht hinterlegt"}</Text>
-                <OpeningStatusBadge status={spotOpeningStatusNow(item.spot_hours ?? [])} style={{ marginTop: theme.spacing.sm }} />
+                <OpeningStatusBadge status={openingStatus(item.id)} style={{ marginTop: theme.spacing.sm }} />
               </View>
             </Pressable>
           )}
@@ -686,7 +705,7 @@ export default function MapScreen() {
 
       {/* RECENTER BUTTON */}
       {viewMode === "map" && (
-        <Pressable style={styles.recenterBtn} onPress={recenterToMe}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Karte auf meinen Standort zentrieren" style={styles.recenterBtn} onPress={recenterToMe}>
           <Ionicons name="locate-outline" size={22} color={theme.color.textPrimary} />
         </Pressable>
       )}
@@ -736,7 +755,7 @@ export default function MapScreen() {
 
                     <MoodSignature labels={spotMoods[selectedSpot.id] ?? []} moodCount={moodCounts[selectedSpot.id]} compact />
                     {selectedSpot.address && <Text style={styles.resultSubtitle}>{selectedSpot.address}</Text>}
-                    <OpeningStatusBadge status={spotOpeningStatusNow(selectedSpot.spot_hours ?? [])} />
+                    <OpeningStatusBadge status={openingStatus(selectedSpot.id)} />
                   </LinearGradient>
                 </View>
               </Pressable>

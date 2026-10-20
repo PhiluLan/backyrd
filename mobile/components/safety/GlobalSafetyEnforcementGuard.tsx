@@ -151,12 +151,15 @@ export default function GlobalSafetyEnforcementGuard({
     }
   }
 
-  if (isFullAccountLock && !isSafetyRoute) {
-    return (
-      <View style={{ flex: 1 }}>
+  const checkingSafety = loading && signedIn && status === null;
+  const blocking = checkingSafety || (isFullAccountLock && !isSafetyRoute);
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }} pointerEvents={blocking ? "none" : "auto"} accessibilityElementsHidden={blocking} importantForAccessibility={blocking ? "no-hide-descendants" : "auto"}>
         {children}
-
-        <SafeAreaView
+      </View>
+      {checkingSafety ? <View accessibilityViewIsModal pointerEvents="auto" style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]}><ProductLoading label="Sicherheit wird geprüft" /></View> : null}
+      {isFullAccountLock && !isSafetyRoute ? <SafeAreaView
           style={[
             StyleSheet.absoluteFillObject,
             styles.lockRoot,
@@ -216,16 +219,9 @@ export default function GlobalSafetyEnforcementGuard({
               </Text>
             </Pressable>
           </View>
-        </SafeAreaView>
-      </View>
-    );
-  }
-
-  if (loading && signedIn && status === null) {
-    return <ProductLoading label="Sicherheit wird geprüft" />;
-  }
-
-  return <>{children}</>;
+        </SafeAreaView> : null}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

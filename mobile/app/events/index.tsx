@@ -1,7 +1,8 @@
+import { withRequestDeadline } from "../../lib/requestDeadline";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,18 +25,18 @@ const timeFilters: { key: EventTimeFilter; label: string }[] = [
 const categories: { key: EventCategoryDTO | null; label: string }[] = [
   { key: null, label: "Alles" },
   { key: "MUSIC", label: "Musik" },
-  { key: "NIGHTLIFE", label: "Nightlife" },
+  { key: "NIGHTLIFE", label: "Nachtleben" },
   { key: "ART", label: "Kunst" },
   { key: "THEATRE", label: "Bühne" },
   { key: "FILM", label: "Film" },
-  { key: "FOOD_DRINK", label: "Food & Drinks" },
+  { key: "FOOD_DRINK", label: "Essen & Trinken" },
   { key: "FAMILY", label: "Familie" },
   { key: "SPORT", label: "Sport" },
   { key: "ACTIVITY", label: "Aktivität" },
   { key: "LEISURE", label: "Freizeit" },
   { key: "MARKET", label: "Märkte" },
   { key: "WORKSHOP", label: "Workshops" },
-  { key: "COMMUNITY", label: "Quartier & Community" },
+  { key: "COMMUNITY", label: "Quartier & Begegnung" },
   { key: "OTHER", label: "Weitere" },
 ];
 
@@ -143,23 +144,26 @@ export default function EventsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const request = useRef(0);
 
   const fetchEvents = useCallback(async (refresh = false) => {
+    const generation = ++request.current;
     if (refresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      setEvents(await loadEvents({ filter: timeFilter, category }));
+      const rows = await withRequestDeadline(() => loadEvents({ filter: timeFilter, category }), 12_000);
+      if (generation === request.current) setEvents(rows);
     } catch {
+      if (generation !== request.current) return;
       setEvents([]);
       setError("Die Basler Events konnten gerade nicht geladen werden.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (generation === request.current) { setLoading(false); setRefreshing(false); }
     }
   }, [category, timeFilter]);
 
-  useEffect(() => { void fetchEvents(); }, [fetchEvents]);
+  useEffect(() => { void fetchEvents(); const generationRef = request; return () => { ++generationRef.current; }; }, [fetchEvents]);
 
   const emptyCopy = useMemo(() => {
     if (timeFilter === "today") return "Für heute sind noch keine Events bestätigt.";
@@ -199,6 +203,7 @@ export default function EventsScreen() {
               contentContainerStyle={styles.chipRow}
               renderItem={({ item }) => (
                 <Pressable
+                  accessibilityRole="button" accessibilityState={{ selected: timeFilter === item.key }}
                   onPress={() => setTimeFilter(item.key)}
                   style={[styles.timeChip, timeFilter === item.key && styles.timeChipActive]}
                 >
@@ -214,6 +219,7 @@ export default function EventsScreen() {
               contentContainerStyle={styles.categoryRow}
               renderItem={({ item }) => (
                 <Pressable
+                  accessibilityRole="button" accessibilityState={{ selected: category === item.key }}
                   onPress={() => setCategory(item.key)}
                   style={[styles.categoryChip, category === item.key && styles.categoryChipActive]}
                 >

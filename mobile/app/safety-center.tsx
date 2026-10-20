@@ -73,7 +73,7 @@ const reportReasonLabels: Record<string, string> = {
   sexual: "Sexuelle Inhalte",
   self_harm: "Selbstgefährdung",
   spam_fraud: "Spam oder Betrug",
-  false_spot_info: "Falsche Spot-Informationen",
+  false_spot_info: "Falsche Angaben zu einem Ort",
   privacy: "Privatsphäre",
   illegal_dangerous: "Illegal oder gefährlich",
   other: "Anderer Grund",
@@ -504,7 +504,7 @@ export default function SafetyCenterScreen() {
                         </Text>
                         <Text style={styles.metaValue}>
                           {report.content_type === "review"
-                            ? "Moment / Review"
+                            ? "Moment"
                             : report.content_type}
                         </Text>
                       </View>

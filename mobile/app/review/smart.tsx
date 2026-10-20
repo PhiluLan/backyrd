@@ -1,3 +1,4 @@
+import { useUnsavedMoment } from "../../hooks/useUnsavedMoment";
 import { MomentShared } from "../../components/reviews/MomentShared";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, ActivityIndicator, Alert, AccessibilityInfo, ScrollView, KeyboardAvoidingView, Platform, Linking } from "react-native";
@@ -206,6 +207,7 @@ export default function SmartReviewScreen() {
 
   const mediaReady = !photo || Boolean(photo.prepared);
   const hasContent = Boolean(moodA.trim() || moodB.trim() || text.trim() || photo);
+  useUnsavedMoment(hasContent && !shared && unlockedAchievements.length === 0, saving);
   const canSubmit = !!nearest && mediaReady && hasContent && (!cameraFirst || authReady);
 
   useEffect(() => {

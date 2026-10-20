@@ -1,3 +1,6 @@
+import { useAuth } from "../../hooks/useAuth";
+import { useMinuteClock } from "../../hooks/useMinuteClock";
+import { withRequestDeadline } from "../../lib/requestDeadline";
 import { journeySelectionFor } from "../../lib/discovery-journey";
 import { DiscoverFromMoment } from "../../components/DiscoverFromMoment";
 import { MoodSignature } from "../../components/spot/MoodSignature";
@@ -11,11 +14,11 @@ import {
   useWindowDimensions,
   Pressable,
   FlatList,
-  Share,
+  Alert,
+  AccessibilityInfo,
   Animated,
   Easing,
   StyleSheet,
-  Linking,
   Modal,
   ScrollView,
 } from "react-native";
@@ -29,7 +32,7 @@ import * as Haptics from "expo-haptics";
 import LoginPromptModal from "../../components/LoginPromptModal";
 import ReportContentButton from "../../components/safety/ReportContentButton";
 import { supabase } from "../../lib/supabase";
-import { openWebsite, callNumber, openInAppleMaps } from "../../lib/links";
+import { openWebsite, callNumber, openInAppleMaps, openExternalUrl, sharePlace } from "../../lib/links";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { recordMemoryProductAction } from "../../lib/memory-bridge";
 import {
@@ -258,6 +261,7 @@ export default function SpotDetailScreen() {
   const decisionOrigin = entrySource === "decision";
   const [journeyDetailsOpen, setJourneyDetailsOpen] = useState(false);
   const router = useRouter();
+  const now = useMinuteClock();
   const insets = useSafeAreaInsets();
   const { width: viewportWidth } = useWindowDimensions();
   const [heroContentHeight, setHeroContentHeight] = useState(0);
@@ -283,6 +287,8 @@ export default function SpotDetailScreen() {
   const [galleryImage,setGalleryImage]=useState<string|null>(null);
   const [mediaRevision,setMediaRevision]=useState(0);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsFailed, setReviewsFailed] = useState(false);
+  const reviewGeneration = useRef(0);
   const [hours, setHours] = useState<Record<string, any[]>>({});
   const [moodProfileFailed, setMoodProfileFailed] = useState(false);
   const [moodProfileLoading, setMoodProfileLoading] = useState(true);
@@ -298,8 +304,13 @@ export default function SpotDetailScreen() {
   const [moreInfoExpanded, setMoreInfoExpanded] = useState(false);
   const productOpenLogged = useRef(false);
 
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [isFav, setIsFav] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const favoritePending = useRef(false);
+  const [loadError, setLoadError] = useState(false);
+  const [loadRevision, setLoadRevision] = useState(0);
 
   // One canonical detail-open signal for generic entry surfaces. Decision and
   // nearby-card entries already emit their own source event before navigation.
@@ -339,18 +350,16 @@ export default function SpotDetailScreen() {
     }
   }, [id]);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) =>
-      setUserId(sess?.user?.id ?? null)
-    );
-    return () => sub.subscription.unsubscribe();
-  }, []);
 
   const refreshVisibleReviews = useCallback(async () => {
     if (!id) return;
+    const generation = ++reviewGeneration.current;
+    setReviews([]);
+    setReviewsFailed(false);
+    setMoodProfileLoading(true);
+    try {
 
-    const { data: revRows, error: reviewsError } = await supabase
+    const { data: revRows, error: reviewsError } = await withRequestDeadline(async signal => supabase
       .from("reviews")
       .select(`
         id,
@@ -375,15 +384,14 @@ export default function SpotDetailScreen() {
         )
       `)
       .eq("spot_id", id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).abortSignal(signal), 12_000);
 
     if (reviewsError) {
-      console.log("refresh reviews error", reviewsError);
-      return;
+      throw reviewsError;
     }
 
     const rawReviews = revRows || [];
-    let visibleReviews = rawReviews;
+    let visibleReviews: typeof rawReviews = [];
 
     if (rawReviews.length > 0) {
       const reviewIds = rawReviews
@@ -391,16 +399,13 @@ export default function SpotDetailScreen() {
         .filter(Boolean);
 
       const { data: visibleReviewIds, error: visibilityError } =
-        await supabase.rpc("safety_visible_entity_ids_v1", {
+        await withRequestDeadline(async signal => supabase.rpc("safety_visible_entity_ids_v1", {
           p_entity_type: "review",
           p_entity_ids: reviewIds,
-        });
+        }).abortSignal(signal), 8_000);
 
       if (visibilityError) {
-        console.log(
-          "safety_visible_entity_ids_v1 refresh error",
-          visibilityError,
-        );
+        throw visibilityError;
       } else {
         const allowedIds = new Set(
           Array.isArray(visibleReviewIds)
@@ -414,6 +419,7 @@ export default function SpotDetailScreen() {
       }
     }
 
+    if (generation !== reviewGeneration.current) return;
     setReviews(visibleReviews);
 
     const { data: profile, error: profileError } = await supabase
@@ -421,15 +427,20 @@ export default function SpotDetailScreen() {
       .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
       .eq("spot_id", id)
       .order("rank", { ascending: true });
+    if (generation !== reviewGeneration.current) return;
     setMoodProfileFailed(Boolean(profileError));
     setMoodProfileLoading(false);
     if (!profileError) setMoodSummary(profile ?? []);
+    } catch {
+      if (generation === reviewGeneration.current) { setReviews([]); setReviewsFailed(true); setMoodProfileFailed(true); setMoodProfileLoading(false); }
+    }
   }, [id]);
 
   useFocusEffect(
     useCallback(() => {
       loadOwnerCtx();
       void refreshVisibleReviews();
+      return () => { ++reviewGeneration.current; };
     }, [loadOwnerCtx, refreshVisibleReviews])
   );
 
@@ -459,60 +470,35 @@ export default function SpotDetailScreen() {
   },[id,mediaRevision]));
 
   useEffect(() => {
-    (async () => {
-      if (!id) return;
+    let active = true;
+    void (async () => {
+      try {
+      if (!id) throw new Error("place_id_missing");
       setLoading(true);
+      setLoadError(false);
 
       const [
-        { data: spotRow },
-        { data: revRows },
+        { data: spotRow, error: spotError },
         { data: hourRows },
         taxonomyRows,
         worldProfile,
-      ] = await Promise.all([
+      ] = await withRequestDeadline(() => Promise.all([
         supabase
           .from("spots")
           .select("id,name,address,lat,lng,phone,website,email,price_level,header_photo_path,google_place_id,google_photo_enabled")
           .eq("id", id)
           .single(),
 
-        supabase
-          .from("reviews")
-          .select(`
-            id,
-            text,
-            photo_path,
-            created_at,
-            mood_a,
-            mood_b,
-            mood_a_id,
-            mood_b_id,
-            moodA:mood_a_id ( token ),
-            moodB:mood_b_id ( token ),
-            profiles:user_id (
-              id,
-              first_name,
-              is_local
-            ),
-            review_photos (
-              id,
-              url,
-              created_at
-            )
-          `)
-          .eq("spot_id", id)
-          .order("created_at", { ascending: false }),
-
         supabase.from("spot_hours").select("*").eq("spot_id", id),
         getMobileSpotTaxonomy(String(id), "de").catch((error) => {
           console.log("get_mobile_spot_taxonomy_v1 error", error);
           return [];
         }),
-        getMobileSpotProductProfile(String(id)).catch((error) => {
-          console.log("spot_detail_product_profile_v1 error", error);
-          return null;
-        }),
-      ]);
+        getMobileSpotProductProfile(String(id)),
+      ]), 12_000);
+
+      if (!active) return;
+      if (spotError || !spotRow || !worldProfile) throw new Error("place_unavailable");
 
       const headerPhotoUrl = selectSpotImageUrl({
         headerPhotoPath: spotRow?.header_photo_path,
@@ -540,44 +526,9 @@ export default function SpotDetailScreen() {
       setLegacyAddress(spotRow?.address ?? null);
       setPhotos(canonicalPhotos);
 
-      const rawReviews = revRows || [];
-      let visibleReviews = rawReviews;
-
-      if (rawReviews.length > 0) {
-        const reviewIds = rawReviews
-          .map((review: any) => review.id)
-          .filter(Boolean);
-
-        const { data: visibleReviewIds, error: visibilityError } =
-          await supabase.rpc("safety_visible_entity_ids_v1", {
-            p_entity_type: "review",
-            p_entity_ids: reviewIds,
-          });
-
-        if (visibilityError) {
-          console.log(
-            "safety_visible_entity_ids_v1 error",
-            visibilityError,
-          );
-        } else {
-          const allowedIds = new Set(
-            Array.isArray(visibleReviewIds)
-              ? visibleReviewIds
-              : [],
-          );
-
-          visibleReviews = rawReviews.filter((review: any) =>
-            allowedIds.has(review.id),
-          );
-        }
-      }
-
-      setReviews(visibleReviews);
-
       setTaxonomyItems(taxonomyRows || []);
       setProductProfile(worldProfile);
 
-      await loadOwnerCtx();
 
       const grouped: Record<string, any[]> = {};
       const effectiveHourRows = worldProfile?.worldManifestHash
@@ -592,24 +543,17 @@ export default function SpotDetailScreen() {
       });
       setHours(grouped);
 
-      const { data: profile, error: profileError } = await supabase
-        .from("backyrd_spot_mood_profile_public_v1")
-        .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
-        .eq("spot_id", id)
-        .order("rank", { ascending: true });
-      setMoodProfileFailed(Boolean(profileError));
-      setMoodProfileLoading(false);
-      if (!profileError) setMoodSummary(profile ?? []);
-
       setLoading(false);
+      } catch { if (active) { setLoadError(true); setLoading(false); } }
     })();
-  }, [id, loadOwnerCtx]);
+    return () => { active = false; };
+  }, [id, loadRevision]);
 
   const todayNameNormalized = useMemo(() => {
     const formatter = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
-    const todayName = formatter.format(new Date());
+    const todayName = formatter.format(now);
     return todayName.charAt(0).toUpperCase() + todayName.slice(1);
-  }, []);
+  }, [now]);
 
   const todaysHours = useMemo(() => {
     return hours[todayNameNormalized] || [];
@@ -617,22 +561,17 @@ export default function SpotDetailScreen() {
 
   const canonicalWorldDetail = Boolean(productProfile?.worldManifestHash);
   const openingStatus = useMemo(() => {
-    return spotOpeningStatusNow(Object.values(hours).flat(), new Date(), canonicalWorldDetail);
-  }, [canonicalWorldDetail, hours]);
+    return spotOpeningStatusNow(Object.values(hours).flat(), now, canonicalWorldDetail);
+  }, [canonicalWorldDetail, hours, now]);
   const openingState = openingStatus === "open" ? "open" : openingStatus === "openingSoon" ? "openingSoon" : openingStatus === "closingSoon" ? "closingSoon" : openingStatus === "unknown" ? "unknown" : "closed";
   const openingUnknown = openingState === "unknown";
 
   useEffect(() => {
-    if (!userId || !id) return;
-    (async () => {
-      const { data } = await supabase
-        .from("favorites")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("spot_id", id)
-        .maybeSingle();
-      setIsFav(!!data);
-    })();
+    let active = true;
+    setIsFav(false);
+    if (userId && id) void supabase.from("favorites").select("id").eq("user_id", userId).eq("spot_id", id).maybeSingle()
+      .then(({ data, error }) => { if (active && !error) setIsFav(Boolean(data)); });
+    return () => { active = false; };
   }, [userId, id]);
 
   const startSlideshow = useCallback(() => {
@@ -661,11 +600,8 @@ export default function SpotDetailScreen() {
 
   async function onShare() {
     if (!spot) return;
-    const url =
-      spot.website ||
-      `https://maps.apple.com/?ll=${spot.lat},${spot.lng}&q=${encodeURIComponent(spot.name)}`;
     if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_shared", screenName: "spot_detail", entityType: "spot", entityId: id, spotId: id });
-    Share.share({ message: `${spot.name}\n${spot.address ?? ""}\n${url}` });
+    await sharePlace(String(id), spot.name, spot.address);
   }
 
   async function requestClaim() {
@@ -708,6 +644,8 @@ export default function SpotDetailScreen() {
       active = false;
     };
   }, [spot]);
+
+  if (loadError) return <SafeAreaView style={{ flex: 1, backgroundColor: foundationTheme.color.background, padding: 24, justifyContent: "center" }}><StateView kind="error" title="Ort gerade nicht verfügbar" message="Der Ort wurde entfernt oder konnte nicht geladen werden." actionLabel="Erneut laden" onAction={() => setLoadRevision(value => value + 1)} /><Pressable accessibilityRole="button" onPress={() => router.back()} style={{ minHeight: 52, justifyContent: "center" }}><Text style={{ color: foundationTheme.color.pink }}>Zurück</Text></Pressable></SafeAreaView>;
 
   if (loading || !spot) {
     return (
@@ -771,7 +709,7 @@ export default function SpotDetailScreen() {
     const icon: keyof typeof Feather.glyphMap = social?.icon ?? (contact.key === "contact.phone" ? "phone" : contact.key === "contact.public_email" ? "mail" : "globe");
     const onPress = () => {
       if (contact.key === "contact.phone") { trackContact("phone"); callNumber(contact.value); }
-      else if (contact.key === "contact.public_email") void Linking.openURL(`mailto:${contact.value}`);
+      else if (contact.key === "contact.public_email") void openExternalUrl(`mailto:${contact.value}`, "Die E-Mail-App konnte nicht geöffnet werden.");
       else { if (contact.key === "contact.website") trackContact("website"); openWebsite(contact.value); }
     };
     contactActions.push({ key: contact.key, label, value: contact.value, icon, onPress });
@@ -802,23 +740,30 @@ export default function SpotDetailScreen() {
               <Feather name="share" size={18} color="#fff" />
             </Pressable>
 
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel={isFav ? "Ort nicht mehr speichern" : "Ort speichern"} accessibilityState={{ selected: isFav, busy: favoriteBusy, disabled: favoriteBusy }} disabled={favoriteBusy}
               onPress={async () => {
                 if (!userId) {
                   setLoginPromptMessage("Melde dich an, um diesen Ort für später zu speichern.");
                   setShowLoginPrompt(true);
                   return;
                 }
+                if (favoritePending.current) return;
+                favoritePending.current = true;
+                setFavoriteBusy(true);
                 try {
                   if (isFav) {
-                    await supabase.from("favorites").delete().eq("user_id", userId).eq("spot_id", id);
+                    const { error } = await supabase.from("favorites").delete().eq("user_id", userId).eq("spot_id", id);
+                    if (error) throw error;
                     setIsFav(false);
                   } else {
-                    await supabase.from("favorites").insert({ user_id: userId, spot_id: id });
+                    const { error } = await supabase.from("favorites").insert({ user_id: userId, spot_id: id });
+                    if (error) throw error;
                     setIsFav(true);
                   }
-                  Haptics.selectionAsync();
-                } catch {}
+                  void Haptics.selectionAsync().catch(() => undefined);
+                  AccessibilityInfo.announceForAccessibility(isFav ? "Ort aus Gespeichert entfernt" : "Ort gespeichert");
+                } catch { Alert.alert("Nicht gespeichert", "Deine gespeicherten Orte konnten nicht geändert werden. Versuche es bitte erneut."); }
+                finally { favoritePending.current = false; setFavoriteBusy(false); }
               }}
               style={styles.topBarBtn}
               hitSlop={8}
@@ -1052,7 +997,8 @@ export default function SpotDetailScreen() {
 
           <View style={styles.section}>
               <View style={styles.sectionHeader}><SectionTitle>Hier erlebt</SectionTitle>{presentableReviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
-              {presentableReviews.length === 0 ? <Text style={styles.mutedText}>Noch keine Momente von hier. Wenn du hier warst, halte deinen Eindruck fest.</Text> : null}
+              {reviewsFailed ? <StateView kind="error" title="Momente konnten nicht geladen werden" actionLabel="Erneut laden" onAction={() => void refreshVisibleReviews()} /> : null}
+              {!reviewsFailed && presentableReviews.length === 0 ? <Text style={styles.mutedText}>Noch keine Momente von hier. Wenn du hier warst, halte deinen Eindruck fest.</Text> : null}
               <AppText role="meta" tone="secondary" style={{ marginBottom: 16 }}>Persönliche Momente und die Atmosphäre, die geblieben ist.</AppText>
               {presentableReviews.slice(0, 3).map((rev) => {
                 const moods = [
@@ -1190,7 +1136,7 @@ export default function SpotDetailScreen() {
             ) : ownerCtx?.claim_status === "pending" ? (
               <View style={styles.ownerButton}>
                 <Feather name="clock" size={17} color={theme.colors.textSoft} />
-                <Text style={styles.ownerButtonText}>Claim wird geprüft</Text>
+                <Text style={styles.ownerButtonText}>Betreiberanfrage wird geprüft</Text>
               </View>
             ) : (
               <Pressable onPress={requestClaim} style={styles.ownerButton}>
@@ -1209,7 +1155,7 @@ export default function SpotDetailScreen() {
                 void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
                 if (userId) void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
               }
-              openInAppleMaps(spot.lat, spot.lng, spot.name);
+              void openInAppleMaps(spot.lat, spot.lng, spot.name, [spot.address, spot.city].filter(Boolean).join(", "));
             }} accessibilityRole="button" accessibilityLabel="Route zu diesem Ort öffnen" style={styles.primaryAction}>
               <Feather name="navigation" size={17} allowFontScaling={false} color="#111113" />
               <Text maxFontSizeMultiplier={1.5} style={styles.primaryActionText}>Route</Text>
