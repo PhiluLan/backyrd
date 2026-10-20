@@ -279,8 +279,8 @@ try {
   await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("textbox", { name: "Was hast du heute vor?", exact: true }).waitFor();
-  await page.getByText("Wohin", { exact: true }).last().click();
+  // A refresh now preserves the current route instead of remounting Home.
+  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).waitFor();
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("ruhiges Café nach Reload");
   await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
