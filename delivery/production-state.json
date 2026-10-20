@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "5c4aefd5ced633a2f3fad09fdd304e6e6039a03c",
+      "sourceSha": "252974128c036053db699eaac96d8ec1c5a1d345",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "8ecd442c-2ec9-431f-849c-d83830edba57",
-      "iosUpdateId": "01a155b2-779c-7213-a403-779e8d04472f",
+      "otaGroupId": "df6f2bff-792a-4f0d-aae3-417f8be923f1",
+      "iosUpdateId": "01a1599e-e8ab-7a92-8a03-8f16e68a6bd1",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Connected discovery, atmosphere and Moments, including Home previews, new atmosphere wishes, actor-bound grounded place context and shared Moment confirmation. PR #531 and exact Main certification run 39312725149 passed. Public production launch bytes match the certified iOS artifact. Additional native visual inspection was blocked by the locked Mac; physical-device installation/camera/upload/timing not observed."
+      "note": "Home nearby places sorted by actual air-line distance within 15 km, independent of profile city, with honest location fallback and complete batched Distribution visibility checks. PRs #534/#536 and exact Main certification run 39434742257 succeeded. Public production launch bytes match the certified artifact. Read-only public API smoke at a fixed Basel test point passed; no personal GPS or production writes. A 1,501-place regression verifies capped RPC responses cannot discard the nearest place. Physical-device installation/GPS observation remains unverified."
     }
   },
   "reviewMediaIncident": {
