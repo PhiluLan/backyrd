@@ -48,6 +48,10 @@ select set_config('booking.test.transfer_clock','08:00',true);
 set local role authenticated;
 select pg_temp.booking_actor('booking-owner');
 select public.booking_console_walk_in_v2(pg_temp.booking_id('spot-a'),pg_temp.booking_id('walk'),pg_temp.booking_id('service-a'),pg_temp.booking_id('table-a'),array[pg_temp.booking_id('table-a'),pg_temp.booking_id('table-two')],pg_temp.booking_id('group-ab'),6,60,'Private transfer guest','private@booking.invalid','PRIVATE_NOTE') as admitted \gset
+select set_config('booking.test.visit_id',(:'admitted'::jsonb->>'id'),true);
+create function pg_temp.visit_field(field text) returns text language sql as $$
+ select r->>field from jsonb_array_elements(public.booking_console_read_v1(pg_temp.booking_id('spot-a'),(now() at time zone 'Europe/Zurich')::date)->'reservations') r where r->>'id'=current_setting('booking.test.visit_id');
+$$;
 reset role;
 insert into public.booking_reservations(spot_id,request_id,service_id,table_id,starts_at,ends_at,party_size,guest_name,source,status)
 values(pg_temp.booking_id('spot-a'),pg_temp.booking_id('earlier-unresolved'),pg_temp.booking_id('service-a'),pg_temp.booking_id('table-three'),((now() at time zone 'Europe/Zurich')::date+time '08:00') at time zone 'Europe/Zurich',((now() at time zone 'Europe/Zurich')::date+time '09:00') at time zone 'Europe/Zurich',2,'Earlier synthetic party','operator','confirmed');
@@ -57,8 +61,8 @@ select set_config('booking.test.transfer_clock','12:00',true);
 select pg_temp.booking_assert(jsonb_array_length(public.booking_console_transfer_choices_v1(pg_temp.booking_id('spot-a'),(:'admitted'::jsonb->>'id')::uuid,60)->'choices')=1,'overstay did not have exactly the alternate compatible group');
 select public.booking_console_transfer_v1(pg_temp.booking_id('spot-a'),(:'admitted'::jsonb->>'id')::uuid,pg_temp.booking_id('transfer'),0,pg_temp.booking_id('table-two'),array[pg_temp.booking_id('table-two'),pg_temp.booking_id('table-three')],pg_temp.booking_id('group-bc'),60) as moved \gset
 select pg_temp.booking_assert(:'moved'::jsonb->>'allocation_starts_at'=to_jsonb((((now() at time zone 'Europe/Zurich')::date+time '12:00') at time zone 'Europe/Zurich'))#>>'{}','server did not set actual movement time');
-select pg_temp.booking_assert(public.booking_console_read_v1(pg_temp.booking_id('spot-a'),(now() at time zone 'Europe/Zurich')::date)#>>'{reservations,0,starts_at}'=:'admitted'::jsonb->>'starts_at','planned start was rewritten');
-select pg_temp.booking_assert(public.booking_console_read_v1(pg_temp.booking_id('spot-a'),(now() at time zone 'Europe/Zurich')::date)#>>'{reservations,0,ends_at}'=:'admitted'::jsonb->>'ends_at','planned end was rewritten');
+select pg_temp.booking_assert(pg_temp.visit_field('starts_at')=:'admitted'::jsonb->>'starts_at','planned start was rewritten');
+select pg_temp.booking_assert(pg_temp.visit_field('ends_at')=:'admitted'::jsonb->>'ends_at','planned end was rewritten');
 select public.booking_console_transfer_v1(pg_temp.booking_id('spot-a'),(:'admitted'::jsonb->>'id')::uuid,pg_temp.booking_id('transfer'),0,pg_temp.booking_id('table-two'),array[pg_temp.booking_id('table-three'),pg_temp.booking_id('table-two')],pg_temp.booking_id('group-bc'),60) as replay \gset
 select pg_temp.booking_assert(:'moved'::jsonb=:'replay'::jsonb,'transfer replay changed clock/outcome');
 select pg_temp.booking_assert(exists(select 1 from jsonb_array_elements(public.booking_console_walk_in_slots_v2(pg_temp.booking_id('spot-a'),2,60)->'slots') s where s->>'table_id'=pg_temp.booking_id('table-a')::text and s->'combination_id'='null'),'old member stayed occupied');
@@ -70,7 +74,7 @@ select pg_temp.booking_assert(booking_private.closure_affected_v1(pg_temp.bookin
 set local role authenticated;
 select pg_temp.booking_actor('booking-owner');
 select public.booking_console_amend_v2(pg_temp.booking_id('spot-a'),(:'admitted'::jsonb->>'id')::uuid,pg_temp.booking_id('correction'),1,pg_temp.booking_id('service-a'),pg_temp.booking_id('table-two'),array[pg_temp.booking_id('table-two'),pg_temp.booking_id('table-three')],pg_temp.booking_id('group-bc'),(:'admitted'::jsonb->>'starts_at')::timestamptz,60,6,'Corrected seated name');
-select pg_temp.booking_assert(public.booking_console_read_v1(pg_temp.booking_id('spot-a'),(now() at time zone 'Europe/Zurich')::date)#>>'{reservations,0,allocation_ends_at}'=:'moved'::jsonb->>'allocation_ends_at','guest correction reset actual occupancy');
+select pg_temp.booking_assert(pg_temp.visit_field('allocation_ends_at')=:'moved'::jsonb->>'allocation_ends_at','guest correction reset actual occupancy');
 select public.booking_console_walk_in_v2(pg_temp.booking_id('spot-a'),pg_temp.booking_id('walk'),pg_temp.booking_id('service-a'),pg_temp.booking_id('table-a'),array[pg_temp.booking_id('table-a'),pg_temp.booking_id('table-two')],pg_temp.booking_id('group-ab'),6,60,'Private transfer guest','private@booking.invalid','PRIVATE_NOTE') as original_replayed \gset
 select pg_temp.booking_assert(:'admitted'::jsonb=:'original_replayed'::jsonb,'original admission replay was changed by transfer');
 -- A delayed identical transfer replay does not undo later guest corrections.
