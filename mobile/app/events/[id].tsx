@@ -183,7 +183,7 @@ export default function EventDetailScreen() {
 
           {routeDestination ? <Pressable accessibilityRole="button" accessibilityLabel="Route zum Event" onPress={() => void openExternalUrl(routeUrl, "Die Karten-App konnte nicht geöffnet werden.")} style={styles.routeButton}><Ionicons name="navigate-outline" size={18} color="#F4EFE4" /><Text style={styles.routeButtonText}>Route</Text></Pressable> : null}
           {sourceUrl ? (
-            <Pressable accessibilityRole="link" onPress={() => void openExternalUrl(sourceUrl)} style={styles.primaryButton}>
+            <Pressable accessibilityRole="link" accessibilityLabel={cancelled ? "Infos zur Absage" : ticketUrl ? "Tickets ansehen" : "Mehr erfahren"} onPress={() => void openExternalUrl(sourceUrl)} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{cancelled ? "Infos zur Absage" : ticketUrl ? "Tickets ansehen" : "Mehr erfahren"}</Text>
               <Ionicons name="open-outline" size={18} color="#171719" />
             </Pressable>
