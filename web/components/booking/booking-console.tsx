@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { getOwnerSpots, type OwnerSpotListItem } from "@/lib/owner-api";
-import { bookingError, readBookingConsole, restaurantDate, restaurantTime, saveBookingSetup, type BookingSetup, type BookingSnapshot, type BookingStatus } from "@/lib/booking-api";
+import { bookingError, occupiesInventory as active, readBookingConsole, restaurantDate, restaurantTime, saveBookingSetup, type BookingSetup, type BookingSnapshot } from "@/lib/booking-api";
 import { SetupForm } from "./setup-form";
 import { NewReservation, type CreatedBooking } from "./new-reservation";
 import { ReservationDetails, statusLabels } from "./reservation-details";
@@ -20,7 +20,6 @@ function shiftDate(date: string, days: number) {
 function displayDate(date: string) {
   return new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", weekday: "short", day: "numeric", month: "long" }).format(new Date(date + "T12:00:00Z"));
 }
-function active(status: BookingStatus) { return status === "pending" || status === "confirmed"; }
 
 export function BookingConsole() {
   const [entry, setEntry] = useState<EntryState>("loading");
@@ -164,7 +163,8 @@ export function BookingConsole() {
                     {readyToBook ? <button className={styles.primary} disabled={navigationDisabled || !canCreate} title={!canCreate ? "Neue Buchungen sind für heute und die nächsten 365 Tage möglich." : undefined} onClick={() => setEditor({ tableId: "" })}>+ Neue Reservierung</button> : <button className={styles.primary} disabled={navigationDisabled} onClick={() => setView("setup")}>Einrichtung abschliessen</button>}
                   </section>
                   <div className={styles.workspaceSummary}><div className={styles.workspaceHeading}><div><p className={styles.kicker}>{displayDate(date)}</p><h2>{view === "tables" ? "Deine Tische" : "Dein Reservierungsbuch"}</h2></div><p className={styles.help}>{filtered ? "Auswahl" : "Ganzer Tag"} · gespeicherte Buchungen</p></div>
-                  <div className={styles.metrics} aria-label="Buchungsübersicht der Auswahl"><div><strong>{activeRows.length}</strong><span>Aktive Reservierungen</span></div><div><strong>{activeRows.reduce((sum, row) => sum + row.party_size, 0)}</strong><span>Erwartete Gäste</span></div><div><strong>{rows.filter((row) => row.status === "pending").length}</strong><span>Offene Anfragen</span></div></div></div>
+                  <div className={styles.metrics} aria-label="Buchungsübersicht der Auswahl"><div><strong>{activeRows.length}</strong><span>Aktive Reservierungen</span></div><div><strong>{activeRows.reduce((sum, row) => sum + row.party_size, 0)}</strong><span>Gäste in aktiven Reservierungen</span></div><div><strong>{rows.filter((row) => row.status === "pending").length}</strong><span>Offene Anfragen</span></div></div></div>
+                  {snapshot.capabilities?.service_lifecycle && <div className={styles.serviceProgress} aria-label="Service in der Auswahl">{(["arrived", "seated", "completed"] as const).map((stage) => <span key={stage}><strong>{rows.filter((row) => row.status === stage).reduce((sum, row) => sum + row.party_size, 0)}</strong> {stage === "arrived" ? "Gäste angekommen" : stage === "seated" ? "Gäste am Tisch" : "Gäste verabschiedet"}</span>)}<small>Manuell erfasster Servicestatus · Auswahl</small></div>}
                   {view === "book" && <div className={styles.bookFilters}><label>Gast suchen<input type="search" autoComplete="off" placeholder="Name suchen …" value={query} onChange={(event) => setQuery(event.target.value)} /></label><label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Alle Status</option><option value="active">Aktive Reservierungen</option>{Object.entries(statusLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>{filtered && <button className={styles.secondary} onClick={clearFilters}>Alle anzeigen</button>}</div>}
                   {view === "book" ? <section className={styles.book} aria-label="Reservierungen">
                     <div className={styles.bookColumns} aria-hidden="true"><span>Zeit</span><span>Gast</span><span>Personen</span><span>Bereich / Tisch</span><span>Status</span><span /></div>
@@ -174,7 +174,7 @@ export function BookingConsole() {
                         return <li key={row.id}><button className={styles.bookRow} aria-label={"Reservierung von " + row.guest_name + " öffnen"} onClick={() => setSelectedId(row.id)}><span className={styles.rowTime}><strong>{restaurantTime(row.starts_at)}</strong><small>bis {restaurantTime(row.ends_at)}</small></span><span className={styles.rowGuest}><strong>{row.guest_name}</strong><small>{row.note ? "Interner Hinweis" : row.source === "phone" ? "Telefon" : row.source === "email" ? "E-Mail" : row.source === "walk_in" ? "Vor Ort" : "Betreiber"}</small></span><span className={styles.rowParty}>{row.party_size}<small> Personen</small></span><span className={styles.rowTable}>{table?.label ?? "Tisch"}<small>{snapshot.areas.find((area) => area.id === table?.area_id)?.name ?? "Bereich"}</small></span><span className={styles.status} data-status={row.status}>{statusLabels[row.status]}</span><span className={styles.rowArrow} aria-hidden="true">↗</span></button></li>;
                       })}</ul>}
                   </section> : <section aria-label="Tischübersicht">
-                    <div className={styles.tableToolbar}><label>Belegung um<input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>{time && <button className={styles.secondary} onClick={() => setTime("")}>Ganzer Tag</button>}<p className={styles.help}>{time ? "Reservierungen, die zu dieser Uhrzeit laufen." : "Aktive Reservierungen über den ganzen Tag. Freie Buchungszeiten werden bei der Erfassung geprüft."}</p></div>
+                    <div className={styles.tableToolbar}><label>Belegung um<input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>{time && <button className={styles.secondary} onClick={() => setTime("")}>Ganzer Tag</button>}<p className={styles.help}>{time ? "Geplante Reservierungszeiten. Der manuell erfasste Servicestatus zeigt den letzten gespeicherten Stand." : "Aktive Reservierungen über den ganzen Tag. Freie Buchungszeiten werden bei der Erfassung geprüft."}</p></div>
                     {filtered && <button className={styles.secondary} onClick={clearFilters}>Alle Bereiche und Services</button>}
                     {snapshot.areas.filter((area) => !validArea || area.id === validArea).map((area) => <section className={styles.areaSection} key={area.id}><h3>{area.name}{!area.is_active ? " · nicht buchbar" : ""}</h3><div className={styles.tableGrid}>{snapshot.tables.filter((table) => table.area_id === area.id).map((table) => {
                       const reservations = context.filter((row) => row.table_id === table.id && active(row.status) && (!time || (restaurantDate(new Date(row.starts_at)) + "T" + restaurantTime(row.starts_at) <= date + "T" + time && restaurantDate(new Date(row.ends_at)) + "T" + restaurantTime(row.ends_at) > date + "T" + time)));
@@ -184,7 +184,7 @@ export function BookingConsole() {
                   </section>}
                 </div>
                 {editor && <NewReservation spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={() => setEditor(null)} onBusy={setBusy} onCreated={created} />}
-                {selected && <ReservationDetails key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={setBusy} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}
+                {selected && <ReservationDetails key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={setBusy} onReload={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) await reload(); }} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}
               </>}
             </>}
     </div>

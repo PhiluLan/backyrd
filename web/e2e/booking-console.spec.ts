@@ -15,6 +15,88 @@ test.beforeEach(async ({ page }) => {
   await page.clock.install({ time: new Date("2026-10-20T12:00:00Z") });
 });
 
+test("service lifecycle records arrival, seating and departure across reloads on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, lifecycle: true });
+  await page.goto("/booking/console");
+  const openGuest = () => page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  await openGuest();
+  const panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await panel.getByRole("button", { name: "Gast angekommen", exact: true }).click();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "Am Tisch platzieren", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Nicht erschienen", exact: true })).toHaveCount(0);
+  await panel.getByRole("button", { name: "Am Tisch platzieren", exact: true }).click();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "Besuch beenden", exact: true })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Stornieren", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath("service-phone.png") });
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await expect(page.getByRole("button", { name: "18:00 · Testgast Abend 2 Personen · Am Tisch" })).toBeVisible();
+  await page.getByRole("button", { name: "Reservierungsbuch", exact: true }).click();
+  await openGuest();
+  await panel.getByRole("button", { name: "Besuch beenden", exact: true }).click();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(panel.getByText("Besuch beendet", { exact: true })).toHaveCount(2);
+  await expect(panel.getByRole("button", { name: "Gast angekommen", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await expect(page.getByRole("button", { name: /18:00 · Testgast Abend/ })).toHaveCount(0);
+  expect(fixture.statusRequests()).toEqual([
+    { p_spot_id: spot, p_reservation_id: reservationId, p_expected_status: "confirmed", p_status: "arrived" },
+    { p_spot_id: spot, p_reservation_id: reservationId, p_expected_status: "arrived", p_status: "seated" },
+    { p_spot_id: spot, p_reservation_id: reservationId, p_expected_status: "seated", p_status: "completed" },
+  ]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("lifecycle controls require a backend capability and the booking's service day", async ({ page }) => {
+  await mockConsole(page, { seeded: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  await expect(page.getByRole("button", { name: "Gast angekommen", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.unroute("**/rest/v1/rpc/*");
+  await mockConsole(page, { seeded: true, lifecycle: true });
+  await page.clock.setFixedTime(new Date("2026-10-19T12:00:00Z"));
+  await page.reload();
+  await page.getByLabel("Datum · Europe/Zurich").fill("2026-10-20");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  await expect(page.getByRole("button", { name: "Gast angekommen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Am Tisch platzieren", exact: true })).toHaveCount(0);
+});
+
+test("service status conflicts preserve the saved state and uncertain retries retain compare-and-set", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, lifecycle: true, uncertainStatus: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  const panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await panel.getByRole("button", { name: "Gast angekommen", exact: true }).click();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toBeVisible();
+  await expect(panel.getByText("Bestätigt", { exact: true })).toBeVisible();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "Am Tisch platzieren", exact: true })).toBeVisible();
+  expect(fixture.statusRequests()[0]).toEqual(fixture.statusRequests()[1]);
+});
+
+test("a concurrent status update never shows a successful local service transition", async ({ page }) => {
+  await mockConsole(page, { seeded: true, lifecycle: true, statusConflict: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  const panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await panel.getByRole("button", { name: "Gast angekommen", exact: true }).click();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toHaveText("Die Reservierung wurde inzwischen geändert. Bitte neu laden.");
+  await expect(panel.getByText("Bestätigt", { exact: true })).toBeVisible();
+  await expect(page.getByText("Der Status wurde gespeichert.", { exact: true })).toHaveCount(0);
+  await panel.getByRole("button", { name: "Reservierung neu laden", exact: true }).click();
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Gast angekommen", exact: true })).toBeVisible();
+});
+
 function seededSnapshot(): BookingSnapshot {
   return {
     settings: { revision: 1, duration_minutes: 120, max_party_size: 8 },
@@ -30,7 +112,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + 3600;
   const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
@@ -40,6 +122,9 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   await page.route("**/rest/v1/profiles?*", (route) => route.fulfill({ json: { display_name: "Test Operator", first_name: "Test", avatar_url: null } }));
   let snapshot: BookingSnapshot = options.seeded ? seededSnapshot() : { settings: null, areas: [], tables: [], services: [], reservations: [] };
   let savedSetup: BookingSetup | null = null;
+  if (options.lifecycle) snapshot.capabilities = { service_lifecycle: true };
+  let statusCalls = 0;
+  const statusRequests: object[] = [];
   let bookingCalls = 0;
   const slotParties: number[] = [];
   const slotReplies: number[] = [];
@@ -76,12 +161,19 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       return route.fulfill({ json: reservationId });
     }
     if (method === "booking_console_set_status_v1") {
-      snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id ? { ...r, status: body.p_status } : r);
+      statusCalls++;
+      statusRequests.push(body);
+      if (options.statusConflict) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } });
+      snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id ? { ...r, status: body.p_status,
+        arrived_at: ["arrived", "seated"].includes(body.p_status) ? r.arrived_at ?? "2026-10-20T12:00:00Z" : r.arrived_at,
+        seated_at: body.p_status === "seated" ? "2026-10-20T12:00:00Z" : r.seated_at,
+        completed_at: body.p_status === "completed" ? "2026-10-20T12:00:00Z" : r.completed_at } : r);
+      if (options.uncertainStatus && statusCalls === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
       return route.fulfill({ status: 204 });
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds };
+  return { setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests };
 }
 
 async function configure(page: Page) {

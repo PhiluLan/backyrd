@@ -105,7 +105,7 @@ export function isDestructiveMigration(text) {
     const replacement = statement.match(/^alter table ([a-z0-9_."]+) drop constraint(?: if exists)? ([a-z0-9_"]+)$/i);
     if (replacement) {
       const [, relation, constraint] = replacement;
-      const addPattern = new RegExp(`^alter table ${relation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} add constraint ${constraint.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} check \\(`, "i");
+      const addPattern = new RegExp(`^alter table ${relation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} add constraint ${constraint.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} (?:check|exclude using gist) \\(`, "i");
       if (statements.some((candidate) => addPattern.test(candidate))) continue;
     }
     return true;

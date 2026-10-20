@@ -1,5 +1,8 @@
 # Backyrd Booking Console v1
 
+The continuing product target and acceptance gaps are tracked in
+[Booking product acceptance](BOOKING_PRODUCT_ACCEPTANCE.md).
+
 Task class: DATABASE_PR plus affected Web gate. The Console is a restaurant
 operations module at `/booking/console`, separate from Decision ranking.
 
@@ -241,3 +244,59 @@ boundaries, 320/390px layout, focus/Escape/discard, logout with an open draft,
 out-of-order availability, slot conflict and accepted-write/uncertain-response
 retry identity. These browser fixtures verify client behavior; the existing
 database authorization/allocation acceptance remains the backend evidence.
+
+## Restaurant service lifecycle increment
+
+Forward migration `20261020184245_booking_restaurant_service_lifecycle_v1.sql`
+extends the restaurant adapter with `arrived`, `seated` and `completed`.
+Confirmed bookings can arrive or be seated directly on their Europe/Zurich
+service date. Arrived guests can be seated or cancelled; seated guests can
+complete their visit, including closing a visit left open on an earlier day.
+Terminal states cannot be reopened through the status endpoint. Pending
+requests must first be confirmed. Existing confirmation, decline, cancellation
+and no-show rules remain.
+
+Actual arrival, seating and completion timestamps are set by the server and
+shown separately from the original planned interval. Arrived/seated reservations
+occupy that planned interval in both slot lookup and the exclusion constraint.
+Setup capacity reduction retains the same protection for those states.
+Completion releases the interval without deleting the reservation or changing
+the planned times. It does not automatically infer payment or send a message.
+
+All writes retain the common restaurant lock and expected-current-state check.
+An identical same-actor retry of a previously completed transition succeeds
+without a second audit event, including a lost response. A stale attempt to a
+different target still fails. RLS, table grants, owner/safety checks and all five
+public RPC signatures are unchanged. Audit continues to avoid guest text.
+
+The read RPC advertises `capabilities.service_lifecycle`; clients treat its
+absence as false and hide lifecycle actions against the old backend. The new
+Web parser accepts the additional states/timestamps. There are no Mobile/Admin
+Booking consumers to migrate. Cached older Web clients may need a reload to
+understand new states; they cannot bypass the server transition rules.
+
+The table time selector shows planned intervals. The service badges/counts
+show the last manually saved attendance state, not a live physical occupancy
+sensor. Automatic overstay handling, extended allocations, overdue queues,
+undo/correction workflows and real current-time walk-ins remain acceptance gaps.
+No production status changes or actual guest bookings are used as QA.
+
+The CI classifier recognizes an atomic same-table/same-name GiST exclusion
+replacement as a schema change, analogous to its existing CHECK replacement
+rule. It still requires the Database gate, SQL acceptance and release evidence;
+unpaired drops, a different relation/name and row/column removal remain blocked.
+This recognition does not approve a production release or establish that an
+arbitrary replacement preserves business rules. This migration expands the
+existing predicate and SQL acceptance checks the actual allocation behavior.
+
+Candidate validation on 2026-10-20: the canonical 192-migration Supabase clean
+boot passed its baseline SQL, both explicitly selected Booking suites, RLS/ACL
+checks, existing multi-connection races and the unchanged DB-lint allowance.
+Its schema/ACL snapshot generates the immutable lifecycle release record.
+The 15 synthetic browser cases cover the full attendance flow across reloads,
+320px layout, capability/date gating, concurrent-change rejection and uncertain
+status-response retry, in addition to the original workspace cases. The phone
+viewport was visually inspected with synthetic data. Web lint (existing
+warnings only), typecheck, 42 contract tests, production build and 48 classifier
+tests passed. This is candidate evidence, not a production deployment or a
+physical-device/restaurant service trial.

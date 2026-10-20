@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-restaurant-service-lifecycle-v1",
+  "previousEvidence": "booking-restaurant-console-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "3cf9a7a716c410be0111108193b10c771c2b3bff307383af7251c77eb714abc9",
+    "applicationSchemaSha256": "9ead115e1f25e91c02d99c8025b76697790cfb35210ff860a883ce70cf1adfc3"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
+      "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_restaurant_service_lifecycle_v1.sql",
+      "sha256": "15d59b41b122e157309560150bb8504a060d5de22f1b0aac6e022e8b128fe1be"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "3cf9a7a716c410be0111108193b10c771c2b3bff307383af7251c77eb714abc9",
+    "applicationSchemaSha256": "0f6d34d3be02ae73504790bf103a8a1dc66843487abc4ab27666fa09ce22f04e"
+  }
+}
