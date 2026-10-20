@@ -14,6 +14,7 @@
     "src/nuknuk-agent.ts",
     "src/nuknuk-evaluation.ts",
     "src/nuknuk-research.mjs",
-    "src/nuknuk-sources.mjs"
+    "src/nuknuk-sources.mjs",
+    "src/nuknuk-search.mjs"
   ]
 }

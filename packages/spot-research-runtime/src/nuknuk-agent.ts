@@ -6,10 +6,12 @@ import {EXPERIENCE_TEMPLATES,isAuthoringAttributeRelevant,parseExperienceProfile
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages} from './nuknuk-sources.mjs';
 import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs';
+import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults} from './nuknuk-search.mjs';
+import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.6';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.7';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -25,6 +27,7 @@ const roomSlug=(value:string)=>value.normalize('NFKD').replace(/[\u0300-\u036f]/
 const researchCodeHash=hash(readFileSync(new URL(import.meta.url),'utf8'));
 const literalParserHash=hash(readFileSync(new URL('./nuknuk-research.mjs',import.meta.url),'utf8'));
 const sourceReaderHash=hash(readFileSync(new URL('./nuknuk-sources.mjs',import.meta.url),'utf8'));
+const searchCodeHash=hash(readFileSync(new URL('./nuknuk-search.mjs',import.meta.url),'utf8'));
 const isObject=(x:unknown):x is Record<string,unknown>=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const record=(properties:Record<string,unknown>)=>({type:'object',additionalProperties:false,required:Object.keys(properties),properties});
 const text=(maxLength:number)=>({type:'string',maxLength});
@@ -47,9 +50,11 @@ export interface AgentOptions {
   spot:SpotContext; fields:ResearchField[]; modelPath:string; sources?:string[];
   budgetMs?:number; maxRequests?:number; maxModelCalls?:number; maxDepth?:number;
   discoverLinks?:boolean; skipKnownFields?:boolean; exportBound?:boolean;
+  webSearchEndpoint?:string; maxSearchQueries?:number; maxExternalPages?:number;
 }
 export interface AgentDependencies {
   validateValue:ValueValidator; fetchPage?:typeof fetchPublicSource; readPage?:typeof readSourceText;
+  searchWeb?:typeof searchLocalWeb;
   modelFetch?:typeof fetch; now?:()=>number;
   onProgress?:(event:Record<string,unknown>)=>void|Promise<void>;
   onCheckpoint?:(state:Record<string,unknown>)=>void|Promise<void>;
@@ -575,6 +580,9 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   const maxRequests=options.maxRequests??12,maxModelCalls=options.maxModelCalls??24,maxDepth=options.maxDepth??3;
   const endpoint=localModelEndpoint('http://127.0.0.1:8088/v1/chat/completions');
   if(!/^[0-9a-f-]{36}$/i.test(spot.spotId)||!spot.name||!Number.isInteger(budgetMs)||budgetMs<1||budgetMs>900000||!Number.isInteger(maxRequests)||maxRequests<1||maxRequests>24||!Number.isInteger(maxModelCalls)||maxModelCalls<2||maxModelCalls>48||!Number.isInteger(maxDepth)||maxDepth<0||maxDepth>3||!Array.isArray(options.fields)||!options.fields.length||options.fields.length>12||new Set(options.fields.map(f=>f.attributeKey)).size!==options.fields.length||typeof deps.validateValue!=='function')throw new Error('agent_config_invalid');
+  const searchEndpoint=options.webSearchEndpoint?localSearchEndpoint(options.webSearchEndpoint):null;
+  const maxSearchQueries=options.maxSearchQueries??3,maxExternalPages=options.maxExternalPages??2;
+  if(!Number.isInteger(maxSearchQueries)||maxSearchQueries<1||maxSearchQueries>6||!Number.isInteger(maxExternalPages)||maxExternalPages<0||maxExternalPages>4)throw new Error('search_budget_invalid');
   const known=(key:string)=>['KNOWN_VALUE','KNOWN_TRUE','KNOWN_FALSE','NOT_APPLICABLE'].includes(spot.existingValues?.[key]?.knowledgeState??'');
   const category=spot.existingValues?.['classification.primary_category']?.value;
   const fields=options.fields.filter(f=>SUPPORTED.includes(f.attributeKey)&&researchFieldRelevance(spot,f.attributeKey).relevant&&!(options.skipKnownFields&&known(f.attributeKey))).map(f=>({...f,profileCategory:typeof category==='string'?category:f.profileCategory}));
@@ -585,6 +593,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   const venuePath=(value:string)=>new URL(value).pathname.split('/').filter(Boolean).filter((part,index)=>index!==0||!/^(?:de|en|fr|it)$/iu.test(part));
   const officialPath=venuePath(official);
   const sources:ResearchSource[]=[],facts:EvidenceFact[]=[],sourceFailures:SourceFailure[]=[],modelAudit:ModelAudit[]=[];
+  const searchQueries:{key:string;query:string;resultCount:number;error?:string}[]=[],searchLeads:SearchLead[]=[],externalSources:{url:string;observedAt:string;hash:string;identity:'MATCHED'|'UNCONFIRMED';text:string;excerpt:string;contacts:{email:string[];phone:string[]}}[]=[];
   const actions:Record<string,unknown>[]=[],visited=new Set<string>(),queued=new Set<string>();
   const frontier:FrontierEntry[]=[];
   const enqueue=(entry:FrontierEntry)=>{
@@ -606,7 +615,8 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   }
   let modelUnavailable=false;
   let menuLayoutSkipped=false;
-  let modelCalls=0,requests=0,stopReason=fields.length?'FRONTIER_EXHAUSTED':'NO_FIELDS_REQUIRE_RESEARCH';
+  let modelCalls=0,requests=0,searchDone=false,stopReason=fields.length?'FRONTIER_EXHAUSTED':'NO_FIELDS_REQUIRE_RESEARCH';
+  const searchedTopics=new Set<string>();
   const checkpoint=async()=>deps.onCheckpoint?.({version:NUKNUK_AGENT_VERSION,spotId:spot.spotId,canonicalWrite:false,completed:false,sources,facts,sourceFailures,modelAudit,actions,requests,modelCalls});
   const remaining=()=>Math.max(0,budgetMs-(now()-start));
   const progress=async(event:Record<string,unknown>)=>{actions.push(event);await deps.onProgress?.(event);};
@@ -628,12 +638,26 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     }catch(error){audit.error=error instanceof Error?error.message:'MODEL_FAILURE';if(error instanceof Error&&(['AbortError','TimeoutError','TypeError'].includes(error.name)||/^model_http_5/.test(error.message)))modelUnavailable=true;throw error;}
     finally{audit.latencyMs=now()-called;modelAudit.push(audit);await checkpoint();}
   };
-  while(frontier.length&&fields.length) {
+  while((frontier.length||searchEndpoint&&!searchDone)&&fields.length) {
     if(modelUnavailable){stopReason='MODEL_UNAVAILABLE';break;}
     if(!remaining()){stopReason='TIME_BUDGET_EXHAUSTED';break;}
     if(requests>=maxRequests){stopReason='REQUEST_BUDGET_EXHAUSTED';break;}
     const planned=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
     const pendingFields=fields.filter(f=>{const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&Array.isArray(proposal?.value)&&proposal.value.length<7||f.attributeKey==='experience.profile'&&proposal?.partialProfile&&Array.isArray((proposal.value as {offers?:unknown[]} | undefined)?.offers)&&(proposal.value as {offers:unknown[]}).offers.length<4;});
+    if(!frontier.length&&searchEndpoint&&!searchDone){
+      const item=planSpotSearches(spot,pendingFields,official,{maxQueries:6}).find(query=>!searchedTopics.has(query.key));
+      if(!item||searchedTopics.size>=maxSearchQueries||remaining()<15000){searchDone=true;stopReason='FRONTIER_EXHAUSTED';break;}
+      searchedTopics.add(item.key);
+      try {
+        const found=await (deps.searchWeb??searchLocalWeb)(searchEndpoint,item.query,{timeoutMs:Math.min(10000,remaining())});
+        const classified=classifySearchResults(found,spot,official);
+        searchQueries.push({...item,resultCount:found.length});
+        for(const lead of classified.official)enqueue({url:lead.url,label:lead.title,depth:1,topics:['contact','hours','experience','about','visit']});
+        for(const lead of classified.external)if(!searchLeads.some(existing=>existing.url===lead.url))searchLeads.push(lead);
+        await progress({stage:'WEB_SEARCH',query:item.query,officialLeads:classified.official.length,externalLeads:classified.external.length});
+      }catch(error){const reason=error instanceof Error?error.message:'SEARCH_FAILED';searchQueries.push({...item,resultCount:0,error:reason});await progress({stage:'WEB_SEARCH_ERROR',query:item.query,reason});}
+      continue;
+    }
     const next=rankResearchFrontier(frontier,facts,pendingFields)[0];if(!next){stopReason='FRONTIER_EXHAUSTED';break;}frontier.splice(frontier.indexOf(next),1);
     const relevant=(field:ResearchField)=>next.depth===0||topicsForField(field.attributeKey,field.profileCategory).some(topic=>next.topics.includes(topic));
     const semanticGroups=[pendingFields.filter(f=>f.attributeKey==='experience.profile'&&relevant(f)),pendingFields.filter(f=>['offering.groups','amenity.features','operation.laptop_policy'].includes(f.attributeKey)&&relevant(f))].filter(group=>group.length);
@@ -753,6 +777,26 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     }catch(error){await progress({stage:'MODEL_ERROR',url:source.url,reason:error instanceof Error?error.message:'MODEL_FAILURE'});}
     await checkpoint();
   }
+  // Different domains are useful for finding contradictions, but a search
+  // snippet or matching name does not establish ownership. Keep their page
+  // text in the review trail and never feed it into canonical projection.
+  if(searchEndpoint&&!modelUnavailable)for(const lead of searchLeads.slice(0,maxExternalPages)){
+    if(requests>=maxRequests||remaining()<5000)break;
+    try{
+      requests++;
+      const page=await (deps.fetchPage??fetchPublicSource)(lead.url,{timeoutMs:Math.min(10000,remaining()),maxRedirects:0});
+      if(page.url!==lead.url)throw new Error('EXTERNAL_REDIRECT_REJECTED');
+      const source=await (deps.readPage??readSourceText)(page,'x'+(externalSources.length+1),{preferMain:true});
+      const normalized=source.text.toLocaleLowerCase();
+      const name=spot.name.split(/\s+-\s+/u)[0].toLocaleLowerCase();
+      const address=spot.existingValues?.['location.address_line1']?.value;
+      const identity=normalized.includes(name)&&typeof address==='string'&&address.length>=5&&normalized.includes(address.toLocaleLowerCase())?'MATCHED':'UNCONFIRMED';
+      const email=[...new Set([...source.text.matchAll(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/giu)].map(match=>match[0].toLocaleLowerCase()))].slice(0,6);
+      const phone=[...new Set([...source.text.matchAll(/(?:\+|\b00)\d[\d ()/.-]{6,}\d|\b0\d[\d ()/.-]{7,}\d\b/gu)].flatMap(match=>{try{return [normalizePhone(match[0],spot.existingValues?.['location.country_code']?.value)];}catch{return [];}}))].slice(0,6);
+      externalSources.push({url:source.url,observedAt:source.observedAt,hash:source.hash,identity,text:source.text,excerpt:source.text.slice(0,1600),contacts:{email,phone}});
+      await progress({stage:'EXTERNAL_CROSS_CHECK',url:source.url,identity});
+    }catch(error){sourceFailures.push({url:lead.url,reason:error instanceof Error?error.message:'EXTERNAL_RETRIEVAL_FAILED'});}
+  }
   const projected=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
   const results:FieldResult[]=options.fields.map(field=>{
     const current=spot.existingValues?.[field.attributeKey];
@@ -764,8 +808,23 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const checked=verifyResearchProposal(proposal,{spot,sources,exportBound:options.exportBound,sourceFailures,now:now()});
     return {...checked,...(current?{currentValue:current.value}:{})};
   });
-  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status)),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,actions,failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
+  const externalDiscrepancies=externalSources.flatMap(source=>{
+    if(source.identity!=='MATCHED')return [];
+    return (['contact.public_email','contact.phone'] as const).flatMap(key=>{
+      const proposed=results.find(result=>result.attributeKey===key);
+      const value=proposed?.value??spot.existingValues?.[key]?.value;
+      if(typeof value!=='string')return [];
+      const normalized=key==='contact.public_email'?value.toLocaleLowerCase():(()=>{try{return normalizePhone(value,spot.existingValues?.['location.country_code']?.value);}catch{return '';}})();
+      const observed=key==='contact.public_email'?source.contacts.email:source.contacts.phone;
+      return observed.length===1&&normalized&&observed[0]!==normalized?[{field:key,officialValue:value,externalValue:observed[0],url:source.url,status:'UNVERIFIED_DISCREPANCY'}]:[];
+    });
+  });
+  for(const discrepancy of externalDiscrepancies){
+    const result=results.find(item=>item.attributeKey===discrepancy.field);
+    if(result?.status==='AUTO_VERIFIED'){result.status='REQUIRES_REVIEW';result.reason='EXTERNAL_DISCREPANCY_REQUIRES_REVIEW';result.humanReviewRequired=true;}
+  }
+  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,searchCodeHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status))||externalDiscrepancies.length>0,startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,actions,search:{configured:Boolean(searchEndpoint),queries:searchQueries,leads:searchLeads,externalSources,discrepancies:externalDiscrepancies},failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
     coverage:results.map(r=>({attributeKey:r.attributeKey,status:r.status,acceptedFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='ACCEPTED').length,heldFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='HELD').length,complete:false})),
-    frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:['OFFICIAL_SITE_LINK_SEARCH_ONLY','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
+    frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:[searchEndpoint?'EXTERNAL_SOURCES_CROSS_CHECK_ONLY':'WEB_SEARCH_NOT_CONFIGURED','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(searchQueries.some(q=>q.error)?['WEB_SEARCH_DEGRADED']:[]),...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
   await deps.onProgress?.({stage:'COMPLETE',report});return report;
 }

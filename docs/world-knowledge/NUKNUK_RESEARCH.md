@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v2.6
+## Active architecture: Research v2.7
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -38,7 +38,8 @@ npm test --workspace @backyrd/spot-research-runtime
    Cultural experience pages and observed German-language links receive priority;
    request forms and dated news are filtered. A museum's permanent-exhibition
    overview may be followed from an observed, explicitly labelled `Aktuell`
-   link, while individual dated programme pages remain excluded. This is official-site link research, not an internet search engine or a browser
+   link, while individual dated programme pages remain excluded. With no local
+   search endpoint configured, this remains official-site link research, not an internet search engine or a browser
    capable of rendering every JavaScript-only page. For pages with template
    placeholders, a bounded adapter follows only observed same-host, read-only
    App Connect data URLs. Parameters must come from the actual page URL;
@@ -83,6 +84,33 @@ npm test --workspace @backyrd/spot-research-runtime
    future runs to their exact implementation. A checkpoint saves source text,
    pending facts and raw model outputs after each stage, including failed stages. Every field has `complete:false`:
    finding one fact or exhausting observed links cannot certify completeness.
+
+6. **Search and countercheck, when explicitly configured.** After the official
+   link frontier is exhausted, the agent forms bounded queries from the exact
+   exported Spot identity and still-open fields. A locally running SearXNG
+   endpoint supplies result URLs; snippets are never evidence. Matching
+   official-host pages join the existing safe fetch/identity/evidence pipeline.
+   A small number of other public pages can be fetched for a countercheck,
+   but their text cannot enter catalog projection. Exact contact differences
+   are labelled *unverified discrepancies* for human review; they are not
+   automatically resolved in favour of either source. Search errors and
+   candidates appear in `research.json` and `search-review.html`. This does
+   not yet certify a second domain as a primary source or compare complex
+   experience claims across sources.
+
+   The optional manifest setting is
+   `"webSearch":{"endpoint":"http://127.0.0.1:8888/","maxQueries":3,"maxExternalPages":2}`.
+   Only loopback HTTP endpoints are accepted. The operator must start a local
+   SearXNG instance with JSON output enabled; absent or failed search leaves
+   the normal official-site research path usable and reports the limit.
+   SearXNG itself queries external search engines, so Spot name and location
+   leave the machine as search terms, although the local model stays local.
+   Follow the [official SearXNG container guide](https://docs.searxng.org/admin/installation-docker.html)
+   and enable `search.formats: [html, json]` in its private `settings.yml`;
+   the [search API](https://docs.searxng.org/dev/search_api.html) returns HTTP
+   403 for JSON when that format is not enabled. Bind the service only to
+   loopback for this local workflow. No SearXNG image or container is bundled
+   with Backyrd.
 
 Supported v2 fields: description.highlight, contact.phone, contact.public_email,
 hours.regular, experience.profile, offering.groups, amenity.features and
@@ -398,6 +426,23 @@ STAY target. Restricting the decoder to room kinds forced a restaurant to be
 mislabelled as accommodation in development. Decode actual kind first, then check
 the research focus; the critic also checks the relation of name to kind. These
 checks still depend on model interpretation and do not certify a full portfolio.
+
+### v2.7 local web-search development status, 20 October 2026
+
+The new search adapter and agent path were exercised with a SearXNG-compatible
+test response: a missing official contact page was found, fetched and used for
+a source-bound draft. A different-domain page with the same exact Spot name
+and street address exposed a conflicting telephone number as an unverified
+discrepancy; a same-name page without the address did not. A failing search
+left the field unresolved and reported its error. These are controlled
+regression tests, not live web-search quality evidence.
+
+Both Docker Hub and the official GHCR mirror stalled while pulling the local
+SearXNG image on the development Mac. No actual SearXNG query or new-Spot
+live run was completed for v2.7. Therefore web-search coverage, cross-source
+accuracy and autonomous readiness remain unverified. The current implementation
+compares only exact contact values across domains; complex hours and experience
+claims still need a dedicated source comparison and source-authority policy.
 
 ### v2.6 category-aware research case, 20 October 2026
 

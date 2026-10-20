@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverPublicDataSources,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
+import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults} from '../src/nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
-import {reviewHtml,selectResearchSpots,summarizeResearchReports,resumeResearchReports} from '../../../scripts/world-knowledge/nuknuk-research.mjs';
+import {reviewHtml,searchReviewHtml,selectResearchSpots,summarizeResearchReports,resumeResearchReports} from '../../../scripts/world-knowledge/nuknuk-research.mjs';
 const spot={spotId:'11111111-1111-4111-8111-111111111111',name:'Synthetic Restaurant',existingValues:{'classification.primary_category':{value:'EAT'},'contact.website':{value:'https://example.org/'},'location.country_code':{value:'CH'},'location.address_line1':{value:'Teststrasse 1'}}};
 const field=attributeKey=>({attributeKey,...researchValueContract(attributeKey)});
 const fields=['contact.phone','hours.regular','amenity.features','operation.laptop_policy','experience.profile'].map(field);
@@ -16,6 +17,18 @@ const ledger=(facts,s)=>validateEvidenceFacts({facts},s,fields).map(f=>({...f,st
 const reply=value=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]}));
 const opts={spot,fields:[field('contact.phone')],modelPath:'/tmp/'+NUKNUK_MODEL_REVISION,maxRequests:4,maxModelCalls:8};
 const deps={validateValue:validateAuthoringSubmission};
+test('local web search accepts only loopback, and snippets are leads rather than evidence',async()=>{
+ assert.equal(localSearchEndpoint('http://127.0.0.1:8888/'),'http://127.0.0.1:8888/search');
+ for(const url of ['https://127.0.0.1:8888/','http://192.168.1.1:8888/','http://localhost:8888/','http://127.0.0.1:8888/redirect','http://user:secret@127.0.0.1:8888/'])assert.throws(()=>localSearchEndpoint(url),/local_search_endpoint_required/);
+ const query=planSpotSearches(spot,[field('contact.phone')],spot.existingValues['contact.website'].value,{maxQueries:2});
+ assert.equal(query.length,2);assert.match(query[0].query,/site:example\.org/);
+ const results=await searchLocalWeb('http://127.0.0.1:8888/',query[0].query,{fetchImpl:async(url,options)=>{
+  assert.equal(new URL(url).hostname,'127.0.0.1');assert.equal(new URL(url).searchParams.get('format'),'json');assert.equal(options.redirect,'error');
+  return new Response(JSON.stringify({results:[{url:'https://example.org/contact',title:'Synthetic Restaurant – Kontakt',content:'Basel'},{url:'http://127.0.0.1/private',title:'Synthetic Restaurant'},{url:'https://directory.example/place',title:'Other venue'}]}),{headers:{'content-type':'application/json'}});
+ }});
+ assert.deepEqual(results.map(result=>result.url),['https://example.org/contact','https://directory.example/place']);
+ assert.deepEqual(classifySearchResults(results,spot,spot.existingValues['contact.website'].value).official.map(result=>result.url),['https://example.org/contact']);
+});
 test('unattended selection uses only official-site Admin rows with missing fields',()=>{
  const item=(spotId,website,values={})=>({spotId,name:spotId,existingValues:{'contact.website':website?{knowledgeState:'KNOWN_VALUE',value:website}:undefined,...values}});
  const exported={batch:{spots:[
@@ -89,6 +102,10 @@ test('museum research projects the exact permanent heading after correcting mode
 test('draft review clearly displays the image-menu limitation',()=>{
  const html=reviewHtml([{name:'Bar',results:[],limitations:['MENU_LAYOUT_REQUIRES_REVIEW']}]);
  assert.match(html,/Bild- oder PDF-Speisekarten brauchen eine Layoutprüfung/);
+});
+test('web-search review separates leads from facts and escapes outside text',()=>{
+ const html=searchReviewHtml([{name:'Museum',search:{configured:true,queries:[{query:'Museum Basel',resultCount:1}],leads:[{url:'https://other.example/',title:'<script>alert(1)</script>'}],externalSources:[],discrepancies:[]}}]);
+ assert.match(html,/Suchtreffer, kein Beleg/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
 });
 test('batch summary keeps unresolved fields and incomplete spots visible',()=>{
  const summary=summarizeResearchReports([{results:[{status:'REQUIRES_REVIEW'},{status:'UNRESOLVED'}],sourceFailures:[{reason:'TLS'}],modelAudit:[],stopReason:'REQUEST_BUDGET_EXHAUSTED'}],3);
@@ -661,6 +678,42 @@ test('adaptive crawl follows second-level contact page without operator source p
  'https://example.org/besuch/kontakt':'<p>Telefon: +41 61 111 22 33</p>'};
  const r=await researchSpotV2(opts,{...deps,fetchPage:async url=>({url,contentType:'text/html',body:pages[url],observedAt:new Date().toISOString()}),modelFetch:modelFor(data=>data.source.text.includes('Telefon:')?[fact('contact.phone','+41 61 111 22 33','Telefon: +41 61 111 22 33')]:[])});
  assert.equal(r.requests,3);assert.equal(r.results[0].value,'+41611112233');assert.equal(r.stopReason,'FRONTIER_EXHAUSTED');assert.equal(r.coverage[0].complete,false);assert.equal(r.canonicalWrite,false);assert.equal(r.importable,false);
+});
+test('local web search recovers an official contact page and flags a contradictory external page without using it as evidence',async()=>{
+ const target={...spot,locality:'Basel',existingValues:{...spot.existingValues,'contact.phone':{knowledgeState:'KNOWN_VALUE',value:'+41611112233'}}};
+ const pages={
+  'https://example.org/':'<main>Synthetic Restaurant Basel</main>',
+  'https://example.org/kontakt':'<main>Synthetic Restaurant Basel. E-Mail: info@synthetic-restaurant.ch</main>',
+  'https://city.example.ch/restaurant':'<main>Synthetic Restaurant Basel, Teststrasse 1. Telefon +41 61 999 88 77</main>'};
+ const report=await researchSpotV2({...opts,spot:target,fields:[field('contact.public_email'),field('contact.phone')],skipKnownFields:true,webSearchEndpoint:'http://127.0.0.1:8888/',maxSearchQueries:1,maxExternalPages:1,maxRequests:4},{...deps,
+  fetchPage:async url=>({url,contentType:'text/html',body:pages[url],observedAt:new Date().toISOString()}),
+  searchWeb:async()=>[{url:'https://example.org/kontakt',title:'Synthetic Restaurant Basel Kontakt',snippet:'E-Mail'},{url:'https://city.example.ch/restaurant',title:'Synthetic Restaurant Basel',snippet:'Teststrasse 1'}],
+  modelFetch:modelFor(()=>[])});
+ assert.equal(report.search.queries.length,1);
+ assert.equal(report.search.externalSources[0].identity,'MATCHED');
+ assert.deepEqual(report.search.discrepancies.map(item=>item.field),['contact.phone']);
+ assert.equal(report.results.find(item=>item.attributeKey==='contact.phone').status,'SKIPPED');
+ assert.equal(report.results.find(item=>item.attributeKey==='contact.public_email').value,'info@synthetic-restaurant.ch');
+ assert.equal(report.humanReviewRequired,true);
+ assert.equal(report.sources.every(source=>source.url.startsWith('https://example.org/')),true);
+ assert.equal(report.canonicalWrite,false);
+});
+test('failed optional search stays visible and cannot fabricate a proposal',async()=>{
+ const report=await researchSpotV2({...opts,webSearchEndpoint:'http://127.0.0.1:8888/',maxSearchQueries:1,maxRequests:2},{...deps,
+  fetchPage:async url=>({url,contentType:'text/html',body:'<main>Synthetic Restaurant Basel</main>',observedAt:new Date().toISOString()}),
+  searchWeb:async()=>{throw new Error('search_http_403');},modelFetch:modelFor(()=>[])});
+ assert.equal(report.search.queries[0].error,'search_http_403');
+ assert.ok(report.limitations.includes('WEB_SEARCH_DEGRADED'));
+ assert.equal(report.results[0].status,'UNRESOLVED');
+ assert.equal(report.canonicalWrite,false);
+});
+test('a same-name external listing without the exact address cannot become a contradiction',async()=>{
+ const target={...spot,locality:'Basel',existingValues:{...spot.existingValues,'contact.phone':{knowledgeState:'KNOWN_VALUE',value:'+41611112233'}}};
+ const report=await researchSpotV2({...opts,spot:target,fields:[field('contact.phone'),field('contact.public_email')],skipKnownFields:true,webSearchEndpoint:'http://127.0.0.1:8888/',maxSearchQueries:1,maxExternalPages:1,maxRequests:3},{...deps,
+  fetchPage:async url=>({url,contentType:'text/html',body:url.includes('city.example.ch')?'<main>Synthetic Restaurant Basel. Telefon +41 61 999 88 77</main>':'<main>Synthetic Restaurant Basel</main>',observedAt:new Date().toISOString()}),
+  searchWeb:async()=>[{url:'https://city.example.ch/listing',title:'Synthetic Restaurant Basel',snippet:'Basel'}],modelFetch:modelFor(()=>[])});
+ assert.equal(report.search.externalSources[0].identity,'UNCONFIRMED');
+ assert.deepEqual(report.search.discrepancies,[]);
 });
 for(const [label,extra,expected] of [['other branch',{subject:'OTHER'},'SUBJECT_OTHER'],['kitchen',{subject:'AREA',subjectLabel:'Küche'},'SUBJECT_AREA'],['conditional',{applicability:'CONDITIONAL',condition:'bei gutem Wetter'},'VALIDITY_OR_CONDITION_REQUIRES_REVIEW'],['dated',{validUntil:'2020-01-01',applicability:'DATED'},'VALIDITY_OR_CONDITION_REQUIRES_REVIEW']])test(label+' remains separate even when model critic approves',async()=>{
  const r=await researchSpotV2({...opts,fields:[field('hours.regular')]},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<p>Montag 10–18 Uhr</p><p>bei gutem Wetter</p>',observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[],'SUPPORTED',{subject:extra.subject??'TARGET',applicability:extra.applicability??'CURRENT',restrictionQuote:extra.condition??''})});
