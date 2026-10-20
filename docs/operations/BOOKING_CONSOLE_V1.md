@@ -1092,3 +1092,13 @@ A stale transfer preview or reservation revision stops submission and offers
 explicit draft discard followed by a fresh reservation read. Continuing to
 edit does not discard the selected duration/table. A server access denial clears
 the private workspace immediately, without waiting for periodic revalidation.
+
+Final client acceptance: all 109 Booking browser journeys passed on the final
+runtime, including movement on a 320px phone, all-member physical relocation,
+planned-time retention, effective-time filtering, frozen lost/malformed retries,
+upcoming conflict, unavailable/stale previews, explicit discard/reload after
+preview/write revision changes, quiet revocation and immediate denied-write
+cleanup. The phone editor screenshot was visually inspected. TypeScript,
+42 Web contracts, 69 CI tests, lint (13 existing unrelated warnings) and the
+production build with synthetic local Supabase settings passed. No real guest
+records, production schema or guest messages were changed during acceptance.
