@@ -1,3 +1,5 @@
+begin;
+
 -- Canonical physical resources per reservation. Client writes still enter via Booking RPCs.
 -- No combinations capability is advertised until the full create/edit/client contract is ready.
 alter table public.booking_reservations add constraint booking_reservation_spot_identity unique(spot_id,id);
@@ -159,3 +161,5 @@ language sql stable set search_path='' as $$
    where a.reservation_id=r.id and a.is_active and t.area_id=p_area))
   and tstzrange(r.starts_at,r.ends_at,'[)') && tstzrange(p_start,p_end,'[)');
 $$;
+
+commit;
