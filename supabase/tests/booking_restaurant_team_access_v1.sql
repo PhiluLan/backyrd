@@ -84,6 +84,7 @@ do $$ declare s uuid:=pg_temp.booking_id('spot-a'); slot record; r uuid; begin
  perform public.booking_console_amend_v1(s,r,pg_temp.booking_id('host-amend'),0,slot.service_id,slot.table_id,slot.starts_at,60,2,'Corrected by host');
  perform public.booking_console_set_status_v1(s,r,'confirmed','cancelled');
  perform pg_temp.booking_assert((select jsonb_array_length(public.booking_console_read_v1(s,(now() at time zone 'Europe/Zurich')::date+1)->'reservations'))=1,'host cannot read own service book');
+ perform pg_temp.booking_assert(not exists(select 1 from public.booking_reservations),'host raw guest read after a real reservation bypassed RPC');
  begin perform public.booking_console_save_setup_v1(s,1,pg_temp.booking_setup('a')); raise exception 'host changed setup'; exception when insufficient_privilege then null; end;
  begin perform public.booking_console_save_layout_v1(s,1,'[]'); raise exception 'host changed plan'; exception when insufficient_privilege then null; end;
  begin perform public.booking_console_save_closure_v1(s,1,pg_temp.booking_id('host-block'),current_date); raise exception 'host changed closures'; exception when insufficient_privilege then null; end;
@@ -107,8 +108,9 @@ select pg_temp.booking_actor('booking-manager');
 select public.booking_console_invitation_v1(repeat('c',64),true);
 select pg_temp.booking_assert((public.booking_console_access_v1(pg_temp.booking_id('spot-a'))->>'can_manage')='true','manager config denied');
 select public.booking_console_save_setup_v1(pg_temp.booking_id('spot-a'),1,pg_temp.booking_setup('a'));
-select public.booking_console_save_layout_v1(pg_temp.booking_id('spot-a'),2,'[]');
-select public.booking_console_save_closure_v1(pg_temp.booking_id('spot-a'),2,pg_temp.booking_id('manager-block'),(now() at time zone 'Europe/Zurich')::date+2);
+select public.booking_console_save_layout_v1(pg_temp.booking_id('spot-a'),2,jsonb_build_array(jsonb_build_object('table_id',pg_temp.booking_id('table-a'),'area_id',pg_temp.booking_id('area-a'),'layout',jsonb_build_object('x',10,'y',10,'width',100,'height',80,'shape','rectangle'))));
+select pg_temp.booking_assert(public.booking_console_read_v1(pg_temp.booking_id('spot-a'),current_date)#>>'{tables,0,layout,width}'='100','manager layout write did not persist');
+select public.booking_console_save_closure_v1(pg_temp.booking_id('spot-a'),3,pg_temp.booking_id('manager-block'),(now() at time zone 'Europe/Zurich')::date+2);
 do $$ begin
  begin perform public.booking_console_team_v1(pg_temp.booking_id('spot-a')); raise exception 'manager roster access'; exception when insufficient_privilege then null; end;
  begin perform public.booking_console_invite_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('manager-invite'),'new@booking.invalid','manager',repeat('e',64)); raise exception 'manager delegated'; exception when insufficient_privilege then null; end;
