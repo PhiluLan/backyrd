@@ -1,5 +1,7 @@
 # Home nearby discovery
 
+Published to iOS production OTA on 20 October 2026 from Main `6e718e901939daf5b99542279f29f26213e74415` (PR #534). Exact Main certification `39432360797` and public launch-byte verification passed. Update `01a15990-3b55-7351-a8ec-c92d3c024adf`, runtime `1.1.0`. Read-only public API smoke returned 14 approved places in correct distance order from a fixed Basel test point; no personal GPS was used. Physical-device installation/GPS observation remains outstanding.
+
 Task class: FAST_PR; Mobile Home retrieval/presentation only. No schema, RLS, Decision ranking or dependency changes.
 
 With an existing location consent and OS permission, Home obtains a fresh position without prompting. It loads approved places in complete spherical bounding boxes covering 15 km, irrespective of profile city or city borders. Stable UUID pagination prevents the former newest-160/newest-14 truncation from discarding closer places. Invalid/missing coordinates and places outside the actual Haversine circle are omitted; canonical Distribution eligibility is applied before selecting the nearest results. Distance is primary, with stable ID ties. Up to six cards are shown, including clearly marked closed places. Distances are air-line distances, never walking-route claims.
