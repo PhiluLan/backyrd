@@ -69,21 +69,14 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261019152123_mood_two_person_display_v1.sql",
-        "sha256": "5907a21d48629cc1ea883fa08716614b7b4f05ccc2acd55ec7734b505594bfed"
+        "path": "supabase/migrations/20261019203759_booking_restaurant_console_v1.sql",
+        "sha256": "e982735f7a36d258e1b162970e844f841de408137d9ac0721ee31ddf220ec36b"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicit migration-specific recovery risk approval, 2026-10-19: Ja, diese Migration mit dem beschriebenen Risiko veröffentlichen. Exact scope: public Mood display from two distinct contributors; Decision threshold unchanged.",
-    "backupEvidence": {
-      "runId": 39217886694,
-      "result": "SUCCESS",
-      "databaseIncluded": true,
-      "restoreDrillPerformed": false,
-      "note": "Encrypted off-provider export completed on 2026-10-19; protected preflight must verify current recovery evidence before apply. No restore drill or guaranteed full rollback is claimed."
-    }
+    "source": "Founder explicit migration-specific recovery risk approval in the Booking Console conversation, 2026-10-20: Ja veröffentlichen, in response to the disclosed untested and non-guaranteed full database recovery risk. Exact scope: operator-only restaurant Booking Console migration 20261019203759; no other migration, Edge Function or Auth change is authorized. Historical backup evidence remains in Git; current backup completion must be verified before apply and recorded with the release."
   },
   "protectedSemanticSourceSet": {
     "paths": [
