@@ -6,7 +6,7 @@ import {EXPERIENCE_TEMPLATES,isAuthoringAttributeRelevant,parseExperienceProfile
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages} from './nuknuk-sources.mjs';
 import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs';
-import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults} from './nuknuk-search.mjs';
+import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from './nuknuk-search.mjs';
 import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
@@ -291,7 +291,7 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
     if(f.field==='experience.profile') {
       if(f.value.trim().toLocaleLowerCase()===spot.name.trim().toLocaleLowerCase())return 'VENUE_NAME_NOT_CONCRETE_OFFER';
       if(f.offerKind==='VISIT'&&/\b(?:buildings?|pavilions?|gatehouses?|ensemble|geb[aä]ude|pavillon|areal)\b/iu.test(f.quote)&&!/\b(?:visit|visiting|tour|tours|accessible|open to (?:the )?public|besuch(?:en)?|besichtigung|f[uü]hrung|ausstellung|exhibition)\b/iu.test(f.quote))return 'AREA_NOT_VISIT_OFFER';
-      const genericName=/\b(?:cuisine|küche|kueche|cucina|speisekarte|weinkarte|getränkekarte|wine\s*list|drinks?\s*menu|menu|menü|food|drinks|getränke|cocktails|restaurant|brasserie|bar|hotel|hôtel|hostel|museum|gallery|galerie|museumsangebote|angebote|offers|tickets?|online-ticket|eiscafé|eiscafe|glacé|gelato|ice\s*cream|eis|eisportionen|fruchteis|sorbet)\s*$/iu.test(f.value.trim());
+      const genericName=/\b(?:cuisine|küche|kueche|cucina|speisekarte|weinkarte|getränkekarte|wine\s*list|drinks?\s*menu|menu|menü|food|drinks|getränke|cocktails|restaurant|brasserie|bar|hotel|hôtel|hostel|museum|gallery|galerie|museumsangebote|angebote|offers|tickets?|online-ticket|dauerausstellung|permanent exhibition|exposition permanente|mostra permanente|eiscafé|eiscafe|glacé|gelato|ice\s*cream|eis|eisportionen|fruchteis|sorbet)\s*$/iu.test(f.value.trim());
       if(genericName&&f.value.trim().split(/\s+/u).length<=4)return 'CATEGORY_LABEL_NOT_CONCRETE_OFFER';
       if(f.value.length>160)return 'OFFER_NAME_TOO_LONG';
       if(f.value.trim().split(/\s+/u).length>=6&&/\b(?:sind|ist|haben|hat|werden|wird|bieten|bietet|verfügen|verfügt|are|is|have|has|offers?|includes?|equipped)\b/iu.test(f.value))return 'OFFER_SENTENCE_NOT_NAME';
@@ -436,6 +436,7 @@ function certifiedHotelRoom(f:EvidenceFact,source:ResearchSource,spot:SpotContex
 export function certifiedPermanentExhibition(f:EvidenceFact,source:ResearchSource,spot:SpotContext):boolean {
   if(f.field!=='experience.profile'||f.offerKind!=='PERMANENT_EXHIBITION'||f.subject==='OTHER'||f.belongsTo!=='TARGET'||f.applicability!=='CURRENT'||f.condition||f.validFrom||f.validUntil||f.polarity!=='AFFIRMATIVE'||source.truncated||source.areaScope||spot.existingValues?.['classification.primary_category']?.value!=='CULTURE_ARTS'||!matchesExistingWebsite(source.url,String(spot.existingValues?.['contact.website']?.value)))return false;
   const name=spot.name.split(/\s+-\s+/u)[0].toLocaleLowerCase();
+  if(/^(?:dauerausstellung|permanent exhibition|exposition permanente|mostra permanente)$/iu.test(f.value.trim()))return false;
   if(name.length<5||!f.quote.toLocaleLowerCase().includes(name)||!/(?:dauerausstellung|exposition permanente|permanent exhibition|mostra permanente)/iu.test(f.value))return false;
   const heading=(source.headings??[]).find(h=>h.text.trim().toLocaleLowerCase()===f.value.trim().toLocaleLowerCase());
   const offset=factOffset(source,f);
@@ -594,7 +595,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   const officialPath=venuePath(official);
   const sources:ResearchSource[]=[],facts:EvidenceFact[]=[],sourceFailures:SourceFailure[]=[],modelAudit:ModelAudit[]=[];
   const searchQueries:{key:string;query:string;resultCount:number;error?:string}[]=[],searchLeads:SearchLead[]=[],externalSources:{url:string;observedAt:string;hash:string;identity:'MATCHED'|'UNCONFIRMED';text:string;excerpt:string;contacts:{email:string[];phone:string[]}}[]=[],externalReadSources:ResearchSource[]=[];
-  const semanticCounterchecks:{url:string;factId:string;field:string;verdict:string;quote:string}[]=[];
+  const semanticCounterchecks:{url:string;factId:string;field:string;verdict:string;quote:string;reason?:string}[]=[];
   const actions:Record<string,unknown>[]=[],visited=new Set<string>(),queued=new Set<string>();
   const frontier:FrontierEntry[]=[];
   const enqueue=(entry:FrontierEntry)=>{
@@ -645,7 +646,9 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     if(requests>=maxRequests){stopReason='REQUEST_BUDGET_EXHAUSTED';break;}
     const planned=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
     const pendingFields=fields.filter(f=>{const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&Array.isArray(proposal?.value)&&proposal.value.length<7||f.attributeKey==='experience.profile'&&proposal?.partialProfile&&Array.isArray((proposal.value as {offers?:unknown[]} | undefined)?.offers)&&(proposal.value as {offers:unknown[]}).offers.length<4;});
-    if(!frontier.length&&searchEndpoint&&!searchDone){
+    // Ask the local search service after the seed, before spending the budget
+    // on translated navigation pages. Search URLs remain untrusted leads.
+    if(searchEndpoint&&!searchDone&&(!frontier.length||sources.length===1&&searchedTopics.size===0)){
       const item=planSpotSearches(spot,pendingFields,official,{maxQueries:6}).find(query=>!searchedTopics.has(query.key));
       if(!item||searchedTopics.size>=maxSearchQueries||remaining()<15000){searchDone=true;stopReason='FRONTIER_EXHAUSTED';break;}
       searchedTopics.add(item.key);
@@ -653,13 +656,17 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         const found=await (deps.searchWeb??searchLocalWeb)(searchEndpoint,item.query,{timeoutMs:Math.min(10000,remaining())});
         const classified=classifySearchResults(found,spot,official);
         searchQueries.push({...item,resultCount:found.length});
-        for(const lead of classified.official)enqueue({url:lead.url,label:lead.title,depth:1,topics:['contact','hours','experience','about','visit']});
+        for(const lead of classified.official)if(permanentSpotSearchLead(lead.url))enqueue({url:lead.url,label:lead.title,depth:1,topics:['contact','hours','experience','about','visit']});
         for(const lead of classified.external)if(!searchLeads.some(existing=>existing.url===lead.url))searchLeads.push(lead);
         await progress({stage:'WEB_SEARCH',query:item.query,officialLeads:classified.official.length,externalLeads:classified.external.length});
       }catch(error){const reason=error instanceof Error?error.message:'SEARCH_FAILED';searchQueries.push({...item,resultCount:0,error:reason});await progress({stage:'WEB_SEARCH_ERROR',query:item.query,reason});}
       continue;
     }
     const next=rankResearchFrontier(frontier,facts,pendingFields)[0];if(!next){stopReason='FRONTIER_EXHAUSTED';break;}frontier.splice(frontier.indexOf(next),1);
+    if(next.depth>0&&/^\/(?:en|fr|it)\/(?:home(?:-\d+)?|info(?:rmations?)?|about)\/?$/iu.test(new URL(next.url).pathname)&&sources.some(source=>source.url!==next.url&&!/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(source.url).pathname))){
+      await progress({stage:'TRANSLATED_OVERVIEW_DEFERRED',url:next.url});
+      continue;
+    }
     const relevant=(field:ResearchField)=>next.depth===0||topicsForField(field.attributeKey,field.profileCategory).some(topic=>next.topics.includes(topic));
     const semanticGroups=[pendingFields.filter(f=>f.attributeKey==='experience.profile'&&relevant(f)),pendingFields.filter(f=>['offering.groups','amenity.features','operation.laptop_policy'].includes(f.attributeKey)&&relevant(f))].filter(group=>group.length);
     const selectDescription=pendingFields.some(f=>f.attributeKey==='description.highlight'&&relevant(f));
@@ -810,11 +817,14 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         if(!isObject(item)||typeof item.factId!=='string'||seen.has(item.factId)||!comparable.some(f=>f.id===item.factId)||!['SUPPORTS','CONTRADICTS','NO_STATEMENT','UNCERTAIN'].includes(String(item.verdict))||typeof item.quote!=='string'||item.quote.length>500)throw new Error('CROSS_CHECK_INVALID');
         seen.add(item.factId);
         const verdict=String(item.verdict);
-        if(['SUPPORTS','CONTRADICTS'].includes(verdict)&&(!item.quote||!sourceQuote(source.text.slice(0,8000),item.quote)))throw new Error('CROSS_CHECK_QUOTE_NOT_FOUND');
-        if(['NO_STATEMENT','UNCERTAIN'].includes(verdict)&&item.quote)throw new Error('CROSS_CHECK_QUOTE_UNEXPECTED');
       }
-      for(const item of raw.checks){const fact=comparable.find(f=>f.id===item.factId)!;semanticCounterchecks.push({url:source.url,factId:fact.id,field:fact.field,verdict:String(item.verdict),quote:String(item.quote)});}
-      await progress({stage:'SEMANTIC_CROSS_CHECK',url:source.url,possibleConflicts:semanticCounterchecks.filter(c=>c.url===source.url&&c.verdict==='CONTRADICTS').length});
+      for(const item of raw.checks){
+        const fact=comparable.find(f=>f.id===item.factId)!,verdict=String(item.verdict),quote=String(item.quote);
+        const reason=['SUPPORTS','CONTRADICTS'].includes(verdict)&&(!quote||!sourceQuote(source.text.slice(0,8000),quote))?'QUOTE_NOT_FOUND':
+          ['NO_STATEMENT','UNCERTAIN'].includes(verdict)&&quote?'UNEXPECTED_QUOTE':undefined;
+        semanticCounterchecks.push({url:source.url,factId:fact.id,field:fact.field,verdict:reason?'UNCERTAIN':verdict,quote:reason?'':quote,...(reason?{reason}:{})});
+      }
+      await progress({stage:'SEMANTIC_CROSS_CHECK',url:source.url,possibleConflicts:semanticCounterchecks.filter(c=>c.url===source.url&&c.verdict==='CONTRADICTS').length,ungrounded:semanticCounterchecks.filter(c=>c.url===source.url&&c.reason).length});
     }catch(error){await progress({stage:'CROSS_CHECK_ERROR',url:source.url,reason:error instanceof Error?error.message:'CROSS_CHECK_FAILED'});}
   }
   const projected=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
@@ -849,6 +859,6 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   }
   const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,searchCodeHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status))||externalDiscrepancies.length>0||semanticCounterchecks.some(item=>item.verdict==='CONTRADICTS'),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,actions,search:{configured:Boolean(searchEndpoint),queries:searchQueries,leads:searchLeads,externalSources,discrepancies:externalDiscrepancies,semanticCounterchecks},failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
     coverage:results.map(r=>({attributeKey:r.attributeKey,status:r.status,acceptedFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='ACCEPTED').length,heldFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='HELD').length,complete:false})),
-    frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:[searchEndpoint?'EXTERNAL_SOURCES_CROSS_CHECK_ONLY':'WEB_SEARCH_NOT_CONFIGURED','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(searchQueries.some(q=>q.error)?['WEB_SEARCH_DEGRADED']:[]),...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
+    frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:[searchEndpoint?'EXTERNAL_SOURCES_CROSS_CHECK_ONLY':'WEB_SEARCH_NOT_CONFIGURED','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(searchQueries.some(q=>q.error)?['WEB_SEARCH_DEGRADED']:[]),...(semanticCounterchecks.some(c=>c.reason)?['CROSS_CHECK_UNGROUNDED']:[]),...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
   await deps.onProgress?.({stage:'COMPLETE',report});return report;
 }

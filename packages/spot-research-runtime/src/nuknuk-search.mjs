@@ -1,5 +1,16 @@
 import { publicSourceUrl, matchesExistingWebsite } from './nuknuk-sources.mjs';
 
+// Search results bypass the observed-link filter. Keep dated programmes and
+// event calendars out of permanent Spot research even when an engine ranks
+// them highly. A dated query parameter is equally unsuitable for a countercheck.
+export function permanentSpotSearchLead(url) {
+  const parsed=new URL(publicSourceUrl(url));
+  const path=decodeURI(parsed.pathname);
+  if([...parsed.searchParams.keys()].some(key=>/^(?:date|datum|event|eventdate|start|end)$/iu.test(key)))return false;
+  return !/(?:^|\/)(?:events?|veranstaltungen?|agenda|calendar|kalender|news|blog|konzert|concert|programme?|programm)(?:[/.]|$)/iu.test(path)
+    && !/\b(?:\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[.-]\d{1,2}[.-]\d{2,4})\b/u.test(path);
+}
+
 // The search service runs on the operator's machine. Result URLs are leads,
 // never evidence; every selected page is fetched and checked separately.
 export function localSearchEndpoint(value) {
@@ -38,6 +49,7 @@ export async function searchLocalWeb(endpoint,query,{fetchImpl=fetch,timeoutMs=1
     if(!item||typeof item.url!=='string')return [];
     try {
       const target=publicSourceUrl(item.url);
+      if(!permanentSpotSearchLead(target))return [];
       if(!/^(?:text\/html|application\/xhtml\+xml)?$/iu.test(String(item.mimetype??'')))return [];
       return [{url:target,title:String(item.title??'').slice(0,180),snippet:String(item.content??'').replace(/<[^>]*>/gu,' ').slice(0,300)}];
     }catch{return [];}
@@ -49,6 +61,7 @@ export function classifySearchResults(results,spot,website,{maxOfficial=6,maxExt
   const locality=String(spot.locality??'').toLocaleLowerCase();
   const official=[],external=[],seen=new Set();
   for(const result of results) {
+    if(!permanentSpotSearchLead(result.url))continue;
     if(seen.has(result.url))continue;seen.add(result.url);
     const description=(result.title+' '+result.snippet).toLocaleLowerCase();
     const exactIdentity=description.includes(identity);

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverPublicDataSources,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
-import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults} from '../src/nuknuk-search.mjs';
+import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from '../src/nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
@@ -28,6 +28,11 @@ test('local web search accepts only loopback, and snippets are leads rather than
  }});
  assert.deepEqual(results.map(result=>result.url),['https://example.org/contact','https://directory.example/place']);
  assert.deepEqual(classifySearchResults(results,spot,spot.existingValues['contact.website'].value).official.map(result=>result.url),['https://example.org/contact']);
+ assert.equal(permanentSpotSearchLead('https://example.org/events/'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/kalender/'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/museum?date=2026-11-15'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/dauerausstellung/'),true);
+ assert.deepEqual(classifySearchResults([{url:'https://example.org/events/',title:'Synthetic Restaurant Basel',snippet:'Basel'},{url:'https://example.org/museum?date=2026-11-15',title:'Synthetic Restaurant Basel',snippet:'Basel'}],spot,spot.existingValues['contact.website'].value).official,[]);
 });
 test('unattended selection uses only official-site Admin rows with missing fields',()=>{
  const item=(spotId,website,values={})=>({spotId,name:spotId,existingValues:{'contact.website':website?{knowledgeState:'KNOWN_VALUE',value:website}:undefined,...values}});
@@ -70,32 +75,35 @@ test('a permanent museum offer requires an explicit permanence statement',()=>{
  const candidates=[...validateEvidenceFacts({facts:[fact('experience.profile','Sonderausstellung Papier und Druck',dated,{subject:'OFFER',offerKind:'PERMANENT_EXHIBITION'})]},one,chosen),...validateEvidenceFacts({facts:[fact('experience.profile','DAUERAUSSTELLUNG',permanent,{subject:'OFFER',offerKind:'PERMANENT_EXHIBITION'})]},two,chosen)].map(item=>({...item,state:'ACCEPTED'}));
  const checked=recheckEvidenceFloors(candidates,[one,two],chosen,museum);
  assert.equal(checked[0].reason,'PERMANENCE_NOT_EXPLICIT');
- assert.equal(checked[1].state,'ACCEPTED');
+ assert.equal(checked[1].reason,'CATEGORY_LABEL_NOT_CONCRETE_OFFER');
 });
-test('a described official museum Dauerausstellung survives a wrong AREA label but not a dated or foreign page',()=>{
+test('only a named permanent exhibition survives a wrong AREA label',()=>{
  const museum={...spot,name:'Basler Papiermühle - Schweizerisches Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
- const quote='DAUERAUSSTELLUNG\n\nDie Basler Papiermühle zeigt die Geschichte von Papier und Buch in einer dauerhaften Ausstellung mit Werkstätten und Objekten zum Mitmachen.';
- const official={...source(quote),url:'https://example.org/aktuell/',headings:[{level:3,text:'DAUERAUSSTELLUNG',offset:0}]};
- const candidate={...fact('experience.profile','DAUERAUSSTELLUNG',quote,{subject:'AREA',offerKind:'PERMANENT_EXHIBITION'}),sourceOffset:0};
+ const name='Dauerausstellung Papier und Druck';
+ const quote=`${name}\n\nDie Basler Papiermühle zeigt die Geschichte von Papier und Buch in einer dauerhaften Ausstellung mit Werkstätten und Objekten zum Mitmachen.`;
+ const official={...source(quote),url:'https://example.org/aktuell/',headings:[{level:3,text:name,offset:0}]};
+ const candidate={...fact('experience.profile',name,quote,{subject:'AREA',offerKind:'PERMANENT_EXHIBITION'}),sourceOffset:0};
  assert.equal(certifiedPermanentExhibition(candidate,official,museum),true);
+ assert.equal(certifiedPermanentExhibition({...candidate,value:'Dauerausstellung'},official,museum),false);
  assert.equal(certifiedPermanentExhibition(candidate,{...official,url:'https://example.org/aktuell/event/2026/'},museum),false);
  assert.equal(certifiedPermanentExhibition({...candidate,belongsTo:'OTHER'},official,museum),false);
  assert.equal(certifiedPermanentExhibition(candidate,{...official,headings:[]},museum),false);
  const otherQuote=quote.replace('Basler Papiermühle','Anderes Museum');
- assert.equal(certifiedPermanentExhibition({...candidate,quote:otherQuote},{...official,text:otherQuote,headings:[{level:3,text:'DAUERAUSSTELLUNG',offset:0}]},museum),false);
+ assert.equal(certifiedPermanentExhibition({...candidate,quote:otherQuote},{...official,text:otherQuote,headings:[{level:3,text:name,offset:0}]},museum),false);
 });
-test('museum research projects the exact permanent heading after correcting model scope and case',async()=>{
+test('museum research projects a named permanent exhibition after correcting model scope and case',async()=>{
  const museum={...spot,name:'Basler Papiermühle - Schweizerisches Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'classification.place_types':{value:['MUSEUM']}}};
- const quote='DAUERAUSSTELLUNG\n\nDie Basler Papiermühle zeigt die Geschichte von Papier und Buch in einer dauerhaften Ausstellung mit Werkstätten und Objekten zum Mitmachen.';
- const official={...source(quote),url:'https://example.org/aktuell/',headings:[{level:3,text:'DAUERAUSSTELLUNG',offset:0}]};
+ const name='Dauerausstellung Papier und Druck';
+ const quote=`${name}\n\nDie Basler Papiermühle zeigt die Geschichte von Papier und Buch in einer dauerhaften Ausstellung mit Werkstätten und Objekten zum Mitmachen.`;
+ const official={...source(quote),url:'https://example.org/aktuell/',headings:[{level:3,text:name,offset:0}]};
  const report=await researchSpotV2({...opts,spot:museum,fields:[field('experience.profile')],sources:[official.url],maxRequests:1,maxModelCalls:4,discoverLinks:false},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<main></main>',observedAt:new Date().toISOString()}),readPage:async()=>official,modelFetch:async(_url,request)=>{
   const input=JSON.parse(JSON.parse(request.body).messages[1].content);
   const block=input.blocks.find(block=>block.text===quote);
   assert.ok(block);
-  return reply({facts:[{field:'experience.profile',value:'Dauerausstellung',blockId:block.id,subject:'AREA',subjectLabel:'Dauerausstellung',belongsTo:'TARGET',applicability:'CURRENT',restrictionQuote:'',offerKind:'PERMANENT_EXHIBITION',polarity:'AFFIRMATIVE'}],nextLinks:[]});
+  return reply({facts:[{field:'experience.profile',value:name,blockId:block.id,subject:'AREA',subjectLabel:name,belongsTo:'TARGET',applicability:'CURRENT',restrictionQuote:'',offerKind:'PERMANENT_EXHIBITION',polarity:'AFFIRMATIVE'}],nextLinks:[]});
  }});
  assert.equal(report.results[0].status,'REQUIRES_REVIEW');
- assert.equal(report.results[0].value.offers[0].name,'DAUERAUSSTELLUNG');
+ assert.equal(report.results[0].value.offers[0].name,name);
  assert.equal(report.results[0].value.offers[0].kind,'PERMANENT_EXHIBITION');
  assert.equal(report.canonicalWrite,false);
 });
@@ -679,6 +687,17 @@ test('adaptive crawl follows second-level contact page without operator source p
  const r=await researchSpotV2(opts,{...deps,fetchPage:async url=>({url,contentType:'text/html',body:pages[url],observedAt:new Date().toISOString()}),modelFetch:modelFor(data=>data.source.text.includes('Telefon:')?[fact('contact.phone','+41 61 111 22 33','Telefon: +41 61 111 22 33')]:[])});
  assert.equal(r.requests,3);assert.equal(r.results[0].value,'+41611112233');assert.equal(r.stopReason,'FRONTIER_EXHAUSTED');assert.equal(r.coverage[0].complete,false);assert.equal(r.canonicalWrite,false);assert.equal(r.importable,false);
 });
+test('search finds the primary-language page before translated overviews consume the budget',async()=>{
+ const target={...spot,name:'Basler Papiermühle',locality:'Basel',existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/en/home-2/'},'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const fetched=[];
+ const report=await researchSpotV2({...opts,spot:target,fields:[field('description.highlight')],webSearchEndpoint:'http://127.0.0.1:8888/',maxSearchQueries:1,maxExternalPages:0,maxRequests:4},{...deps,
+  fetchPage:async url=>{fetched.push(url);return {url,contentType:'text/html',body:url.endsWith('/en/home-2/')?'<main>Basler Papiermühle</main><a href="/en/info/">Info</a><a href="/fr/informations/">Informations</a>':'<main>Basler Papiermühle</main>',observedAt:new Date().toISOString()};},
+  searchWeb:async()=>[{url:'https://example.org/',title:'Basler Papiermühle Basel',snippet:'Offizielle Website'}],
+  modelFetch:modelFor(()=>[])});
+ assert.deepEqual(fetched,['https://example.org/en/home-2/','https://example.org/']);
+ assert.equal(report.search.queries.length,1);
+ assert.ok(report.actions.some(action=>action.stage==='TRANSLATED_OVERVIEW_DEFERRED'));
+});
 test('local web search recovers an official contact page and flags a contradictory external page without using it as evidence',async()=>{
  const target={...spot,locality:'Basel',existingValues:{...spot.existingValues,'contact.phone':{knowledgeState:'KNOWN_VALUE',value:'+41611112233'}}};
  const pages={
@@ -748,8 +767,9 @@ test('semantic cross-check records a literal external contradiction without prom
     }
     return base(url,init);
   }});
- assert.deepEqual(invalid.search.semanticCounterchecks,[]);
- assert.ok(invalid.actions.some(action=>action.reason==='CROSS_CHECK_QUOTE_NOT_FOUND'));
+ assert.equal(invalid.search.semanticCounterchecks[0].verdict,'UNCERTAIN');
+ assert.equal(invalid.search.semanticCounterchecks[0].reason,'QUOTE_NOT_FOUND');
+ assert.ok(invalid.limitations.includes('CROSS_CHECK_UNGROUNDED'));
 });
 for(const [label,extra,expected] of [['other branch',{subject:'OTHER'},'SUBJECT_OTHER'],['kitchen',{subject:'AREA',subjectLabel:'Küche'},'SUBJECT_AREA'],['conditional',{applicability:'CONDITIONAL',condition:'bei gutem Wetter'},'VALIDITY_OR_CONDITION_REQUIRES_REVIEW'],['dated',{validUntil:'2020-01-01',applicability:'DATED'},'VALIDITY_OR_CONDITION_REQUIRES_REVIEW']])test(label+' remains separate even when model critic approves',async()=>{
  const r=await researchSpotV2({...opts,fields:[field('hours.regular')]},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<p>Montag 10–18 Uhr</p><p>bei gutem Wetter</p>',observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[],'SUPPORTED',{subject:extra.subject??'TARGET',applicability:extra.applicability??'CURRENT',restrictionQuote:extra.condition??''})});

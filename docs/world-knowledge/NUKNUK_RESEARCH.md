@@ -85,8 +85,10 @@ npm test --workspace @backyrd/spot-research-runtime
    pending facts and raw model outputs after each stage, including failed stages. Every field has `complete:false`:
    finding one fact or exhausting observed links cannot certify completeness.
 
-6. **Search and countercheck, when explicitly configured.** After the official
-   link frontier is exhausted, the agent forms bounded queries from the exact
+6. **Search and countercheck, when explicitly configured.** After reading the
+   seed page, the agent can search for a primary-language official page before
+   spending its budget on translated overviews. When the official link
+   frontier is exhausted, it forms further bounded queries from the exact
    exported Spot identity and still-open fields. A locally running SearXNG
    endpoint supplies result URLs; snippets are never evidence. Matching
    official-host pages join the existing safe fetch/identity/evidence pipeline.
@@ -100,6 +102,12 @@ npm test --workspace @backyrd/spot-research-runtime
    external facts. Search errors and candidates appear in `research.json`
    and `search-review.html`. This does not certify a second domain as a
    primary source or reliably adjudicate complex experience claims.
+   Search leads for dated pages, event calendars and programmes are excluded
+   from permanent Spot research. Translated overview pages are deferred once
+   an unprefixed official page has been read. An ungrounded countercheck quote
+   is recorded as `UNCERTAIN` with a reason; it never confirms or contradicts
+   a claim. A generic heading such as `Dauerausstellung` cannot become a
+   named offer without a distinct source-literal exhibition title.
 
    The optional manifest setting is
    `"webSearch":{"endpoint":"http://127.0.0.1:8888/","maxQueries":3,"maxExternalPages":2}`.
