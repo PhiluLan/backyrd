@@ -9,6 +9,7 @@ const dateTime = (value: string) => new Intl.DateTimeFormat("de-CH", { timeZone:
 function title(e: BookingHistoryEvent) {
   if (e.action === "reservation_created") return "Reservierung erstellt";
   if (e.action === "walk_in_created") return "Walk-in platziert";
+  if (e.action === "reservation_tables_assigned") return "Tischzuteilung geändert";
   if (e.action === "reservation_amended") return "Reservierung bearbeitet";
   const next = e.action.split("_to_")[1];
   return next && Object.hasOwn(status, next) ? status[next as keyof typeof status] : "Änderung protokolliert";
@@ -20,7 +21,7 @@ function changes(before: BookingHistoryState | null, after: BookingHistoryState)
   add("Personen", before ? String(before.party_size) : null, String(after.party_size));
   const period = (s: BookingHistoryState) => `${dateTime(s.starts_at)} – ${restaurantTime(s.ends_at, s.starts_at)}`;
   if (!before || before.starts_at !== after.starts_at || before.ends_at !== after.ends_at) add("Termin", before ? period(before) : null, period(after));
-  if (!before || before.table_id !== after.table_id) add("Tisch", before?.table_label ?? null, after.table_label);
+  if (!before || JSON.stringify(before.table_ids ?? [before.table_id]) !== JSON.stringify(after.table_ids ?? [after.table_id])) add("Tische", before ? (before.table_labels ?? [before.table_label]).join(" + ") : null, (after.table_labels ?? [after.table_label]).join(" + "));
   if (!before || before.service_id !== after.service_id) add("Service", before?.service_name ?? null, after.service_name);
   for (const [label, key] of [["Angekommen", "arrived_at"], ["Platziert", "seated_at"], ["Besuch beendet", "completed_at"]] as const) {
     if (after[key] && before?.[key] !== after[key]) add(label, before?.[key] ? dateTime(before[key]) : null, dateTime(after[key]));

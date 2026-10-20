@@ -17,6 +17,9 @@ spot='7b000000-0000-4000-8000-000000000002'
 area='7b000000-0000-4000-8000-000000000003'
 table_id='7b000000-0000-4000-8000-000000000004'
 service='7b000000-0000-4000-8000-000000000005'
+# Freeze the business date once so waiting across midnight cannot change a replay payload.
+business_date="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (clock_timestamp() at time zone 'Europe/Zurich')::date;")"
+[[ "$business_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || exit 1
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >"$race_root/setup.out" <<SQL
 insert into auth.users(id,instance_id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
 values('$owner','00000000-0000-0000-0000-000000000000','authenticated','authenticated','booking-race@booking.invalid','','{}','{}',now(),now());
@@ -67,8 +70,8 @@ SQL
   if test "$expected" = SUCCESS; then test "$waiter_status" = 0 || { cat "$race_root/$case_name-waiter.out" >&2; return 1; }
   else test "$waiter_status" != 0 && grep -q "$expected" "$race_root/$case_name-waiter.out" || { cat "$race_root/$case_name-waiter.out" >&2; return 1; }; fi
 }
-day_a="((now() at time zone 'Europe/Zurich')::date+1)"
-day_b="((now() at time zone 'Europe/Zurich')::date+2)"
+day_a="(date '$business_date'+1)"
+day_b="(date '$business_date'+2)"
 run_case closure_first \
  "select public.booking_console_save_closure_v1('$spot',1,'7b000000-0000-4000-8000-000000000010',$day_a);" \
  "select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000011','$service','$table_id',(($day_a+time '18:00') at time zone 'Europe/Zurich'),2,'Synthetic waiting guest');" \
@@ -87,7 +90,7 @@ values('$staff','00000000-0000-0000-0000-000000000000','authenticated','authenti
 insert into public.booking_team_members(spot_id,user_id,owner_id,role) values('$spot','$staff','$owner','host');
 SQL
 staff_auth="set local role authenticated; select set_config('request.jwt.claim.sub','$staff',true); select set_config('request.jwt.claims','{\"sub\":\"$staff\",\"role\":\"authenticated\"}',true);"
-day_c="((now() at time zone 'Europe/Zurich')::date+3)"
+day_c="(date '$business_date'+3)"
 run_case revoke_first \
  "select public.booking_console_member_v1('$spot','$staff',0,null);" \
  "select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000021','$service','$table_id',(($day_c+time '18:00') at time zone 'Europe/Zurich'),2,'Denied after revocation');" \
@@ -101,8 +104,8 @@ team_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select count(
 test "$team_proof" = '2:1' || { printf 'Unexpected Booking permission race state: %s\n' "$team_proof" >&2; exit 1; }
 
 # Dated service windows serialize against bookings, including the explicit keep-existing decision.
-day_d="((now() at time zone 'Europe/Zurich')::date+4)"
-day_e="((now() at time zone 'Europe/Zurich')::date+5)"
+day_d="(date '$business_date'+4)"
+day_e="(date '$business_date'+5)"
 run_case hours_first \
  "select public.booking_console_save_hours_v1('$spot',2,'7b000000-0000-4000-8000-000000000030','$service',$day_d,p_closed=>true);" \
  "select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000031','$service','$table_id',(($day_d+time '18:00') at time zone 'Europe/Zurich'),2,'Denied after changed hours');" \
@@ -138,8 +141,8 @@ psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 insert into public.booking_restaurant_tables(id,spot_id,area_id,label,seats) values('$second_table','$spot','$area','Secondary race table',4),('$third_table','$spot','$area','Third race table',4);
 begin;
 $auth_sql
-select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000072','$service','$table_id',(((now() at time zone 'Europe/Zurich')::date+6+time '18:00') at time zone 'Europe/Zurich'),2,'First allocation fixture');
-select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000073','$service','$third_table',(((now() at time zone 'Europe/Zurich')::date+6+time '18:00') at time zone 'Europe/Zurich'),2,'Second allocation fixture');
+select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000072','$service','$table_id',((date '$business_date'+6+time '18:00') at time zone 'Europe/Zurich'),2,'First allocation fixture');
+select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000073','$service','$third_table',((date '$business_date'+6+time '18:00') at time zone 'Europe/Zurich'),2,'Second allocation fixture');
 commit;
 SQL
 internal_auth="select set_config('request.jwt.claim.sub','$owner',true); select set_config('request.jwt.claims','{\"sub\":\"$owner\",\"role\":\"authenticated\"}',true);"
@@ -150,10 +153,32 @@ run_case secondary_allocation \
 allocation_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select string_agg(n||':'||revision,',' order by request_id) from (select r.request_id,r.revision,(select count(*) from booking_private.reservation_allocations_v1 a where a.reservation_id=r.id and a.is_active) n from public.booking_reservations r where r.spot_id='$spot' and r.request_id in ('7b000000-0000-4000-8000-000000000072','7b000000-0000-4000-8000-000000000073')) proof;")"
 test "$allocation_proof" = '2:1,1:0' || { printf 'Unexpected secondary-allocation race state: %s\n' "$allocation_proof" >&2; exit 1; }
 
+# Public combined bookings compete on a shared secondary table under the same restaurant lock.
+group_ab='7b000000-0000-4000-8000-000000000074'
+group_bc='7b000000-0000-4000-8000-000000000077'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+begin;
+$auth_sql
+select public.booking_console_save_combination_v1('$spot',4,'$group_ab','A + B','$table_id',array['$table_id'::uuid,'$second_table'::uuid],8);
+select public.booking_console_save_combination_v1('$spot',5,'$group_bc','B + C','$third_table',array['$third_table'::uuid,'$second_table'::uuid],8);
+commit;
+SQL
+combined_a="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000075','$service','$table_id',array['$table_id'::uuid,'$second_table'::uuid],'$group_ab',((date '$business_date'+7+time '18:00') at time zone 'Europe/Zurich'),60,6,'Combined race fixture');"
+combined_b="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000076','$service','$third_table',array['$third_table'::uuid,'$second_table'::uuid],'$group_bc',((date '$business_date'+7+time '18:00') at time zone 'Europe/Zurich'),60,6,'Competing combined fixture');"
+run_case combined_overlap "$combined_a" "$combined_b" booking_slot_unavailable
+combined_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select count(*) from public.booking_reservations where spot_id='$spot' and request_id in ('7b000000-0000-4000-8000-000000000075','7b000000-0000-4000-8000-000000000076'))||':'||(select count(*) from booking_private.reservation_requests_v2 where spot_id='$spot');")"
+test "$combined_proof" = '1:1' || { printf 'Unexpected combined overlap race: %s\n' "$combined_proof" >&2; exit 1; }
+combined_retry="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000078','$service','$table_id',array['$table_id'::uuid,'$second_table'::uuid],'$group_ab',((date '$business_date'+8+time '18:00') at time zone 'Europe/Zurich'),60,6,'Repeated combined fixture');"
+run_case combined_retry "$combined_retry" "$combined_retry" SUCCESS
+retry_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select count(*) from public.booking_reservations where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000078')||':'||(select count(*) from booking_private.reservation_requests_v2 where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000078')||':'||(select count(*) from public.booking_audit_events e join public.booking_reservations r on r.id=e.reservation_id where r.spot_id='$spot' and r.request_id='7b000000-0000-4000-8000-000000000078');")"
+test "$retry_proof" = '1:1:1' || { printf 'Unexpected concurrent combined retry: %s\n' "$retry_proof" >&2; exit 1; }
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
+delete from booking_private.reservation_requests_v2 where spot_id='$spot';
 delete from public.booking_reservations where spot_id='$spot';
+delete from public.booking_table_combinations where spot_id='$spot';
 delete from public.booking_restaurant_closures where spot_id='$spot';
 delete from public.booking_service_hours where spot_id='$spot';
 delete from public.booking_restaurant_tables where spot_id='$spot';
@@ -164,4 +189,4 @@ delete from public.spots where id in ('$spot','$other_spot');
 delete from auth.users where id in ('$owner','$staff','$other_owner');
 commit;
 SQL
-printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation serializes and rolls back the losing party.\n'
+printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation and public combined bookings serialize, roll back a competing claim, and deduplicate concurrent identical requests.\n'
