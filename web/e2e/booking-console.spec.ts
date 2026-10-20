@@ -432,14 +432,15 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
   const session = { access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: owner, role: "authenticated", exp: expires })}.local-signature`, refresh_token: "booking-test", token_type: "bearer", expires_in: 3600, expires_at: expires, user };
   await page.context().addCookies([{ name: "sb-127-auth-token", value: `base64-${encode(session)}`, domain: "127.0.0.1", path: "/" }]);
-  await page.route("**/auth/v1/user", (route) => route.fulfill({ json: user }));
-  await page.route("**/rest/v1/profiles?*", (route) => route.fulfill({ json: { display_name: "Test Operator", first_name: "Test", avatar_url: null } }));
+  const routing = options.sharedContext ? page.context() : page;
+  await routing.route("**/auth/v1/user", (route) => route.fulfill({ json: user }));
+  await routing.route("**/rest/v1/profiles?*", (route) => route.fulfill({ json: { display_name: "Test Operator", first_name: "Test", avatar_url: null } }));
   let snapshot: BookingSnapshot = options.seeded ? seededSnapshot() : { settings: null, areas: [], tables: [], services: [], reservations: [] };
   if (options.layouts) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!options.lifecycle, table_layouts: true }; snapshot.tables = snapshot.tables.map((table) => ({ ...table, layout: null })); }
   let savedSetup: BookingSetup | null = null;
@@ -458,6 +459,11 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     snapshot.reservations.push({ id: "51000000-0000-4000-8000-000000000024", table_id: table1, service_id: dinner, guest_name: "Testgast Vorabend", guest_contact: null, note: null, party_size: 2, starts_at: "2026-10-19T18:00:00+02:00", ends_at: "2026-10-19T20:00:00+02:00", status: "seated", source: "phone", revision: 0, is_walk_in: false, arrived_at: "2026-10-19T18:00:00+02:00", seated_at: "2026-10-19T18:00:00+02:00" });
   }
   const layoutRequests: Record<string, unknown>[] = [];
+  let readCalls = 0;
+  let readError: "network" | "denied" | "safety" | null = null;
+  let holdRead = false;
+  let releaseRead = () => {};
+  let readGate = Promise.resolve();
   let statusCalls = 0;
   const statusRequests: object[] = [];
   const amendRequests: Record<string, unknown>[] = [];
@@ -474,12 +480,20 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   const slotParties: number[] = [];
   const slotReplies: number[] = [];
   const requestIds: string[] = [];
-  await page.route("**/rest/v1/rpc/*", async (route) => {
+  await routing.route("**/rest/v1/rpc/*", async (route) => {
     const method = route.request().url().split("/").pop();
     const body = route.request().postDataJSON();
     if (method === "get_owner_spots_v1") return route.fulfill({ json: options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", address: null, category_name: "Restaurant", status: "approved", website: null }] });
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
-    if (method === "booking_console_read_v1") return route.fulfill({ json: { ...snapshot, reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] } });
+    if (method === "booking_console_read_v1") {
+      readCalls++;
+      const data = { ...snapshot, reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] };
+      if (holdRead) await readGate;
+      if (readError === "safety") return route.fulfill({ status: 400, json: { code: "P0001", message: "SAFETY_OWNER_EDIT_RESTRICTED" } });
+      if (readError === "denied") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      if (readError === "network") return route.fulfill({ status: 503, json: { message: "temporarily unavailable" } });
+      return route.fulfill({ json: data });
+    }
     if (method === "booking_console_save_layout_v1") {
       layoutRequests.push(body);
       if (options.layoutConflict) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
@@ -579,7 +593,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -968,3 +982,96 @@ for (const operation of ["create", "amend"] as const) {
     expect(operation === "create" ? fixture.bookingCalls() : fixture.amendRequests().length).toBe(1);
   });
 }
+
+
+test("two consoles refresh saved changes while an open guest draft remains untouched", async ({ page, context }) => {
+  const fixture = await mockConsole(page, { seeded: true, amendments: true, sharedContext: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  const other = await context.newPage();
+  await other.clock.install({ time: new Date("2026-10-20T12:00:00Z") });
+  await other.goto("/booking/console");
+  const edit = await editGuest(other);
+  await edit.getByLabel("Gastname", { exact: true }).fill("Auf zweitem Gerät geändert");
+  await edit.getByRole("button", { name: "Änderungen speichern", exact: true }).click();
+  await expect(other.getByText("Die Änderungen wurden gespeichert.", { exact: true })).toBeVisible();
+  // Bring the observing page to the foreground; focus/visibility also revalidate.
+  await page.bringToFront();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByRole("button", { name: "Reservierung von Auf zweitem Gerät geändert öffnen", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const draft = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await draft.getByLabel("Gastname", { exact: true }).fill("Privater laufender Entwurf");
+  const before = fixture.readCalls();
+  await page.clock.runFor(31_000);
+  expect(fixture.readCalls()).toBe(before);
+  await expect(draft.getByLabel("Gastname", { exact: true })).toHaveValue("Privater laufender Entwurf");
+});
+
+test("offline and failed refresh preserve an explicit old snapshot until recovery", async ({ page, context }) => {
+  const fixture = await mockConsole(page, { seeded: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  await context.setOffline(true);
+  await expect(page.getByRole("region", { name: "Datenstand" })).toContainText("Offline");
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toBeDisabled();
+  fixture.setReadError("network");
+  await context.setOffline(false);
+  await expect(page.getByRole("region", { name: "Datenstand" })).toContainText("Aktualisierung fehlgeschlagen");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toBeDisabled();
+  fixture.setReadError(null);
+  await page.clock.runFor(30_000);
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toBeEnabled();
+  await expect(page.getByRole("region", { name: "Datenstand" })).not.toContainText("fehlgeschlagen");
+});
+
+for (const reason of ["denied", "safety"] as const) {
+test("revoked access during automatic refresh removes private guest data: " + reason, async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  fixture.setReadError(reason);
+  await page.clock.runFor(30_000);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toHaveCount(0);
+});
+
+}
+
+test("a refresh begun before opening an editor cannot replace the current draft", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, amendments: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  fixture.holdRead();
+  const before = fixture.readCalls();
+  await page.clock.runFor(30_000);
+  await expect.poll(() => fixture.readCalls()).toBeGreaterThan(before);
+  const panel = await editGuest(page);
+  await panel.getByLabel("Gastname", { exact: true }).fill("Nicht überschreiben");
+  fixture.releaseRead();
+  await expect(panel.getByLabel("Gastname", { exact: true })).toHaveValue("Nicht überschreiben");
+  await expect(page.getByRole("button", { name: "Aktualisieren", exact: true })).not.toBeDisabled();
+});
+
+
+test("a hung automatic read times out without overlapping requests and can recover", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  const before = fixture.readCalls();
+  fixture.holdRead();
+  await page.clock.runFor(30_000);
+  await expect.poll(() => fixture.readCalls()).toBe(before + 1);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  expect(fixture.readCalls()).toBe(before + 1);
+  await page.clock.runFor(15_001);
+  await expect(page.getByRole("region", { name: "Datenstand" })).toContainText("Aktualisierung fehlgeschlagen");
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toBeDisabled();
+  fixture.releaseRead();
+  // Stop at the next request; do not advance its deadline before real I/O settles.
+  await page.clock.runFor(15_000);
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toBeEnabled();
+  expect(fixture.readCalls()).toBe(before + 2);
+});
