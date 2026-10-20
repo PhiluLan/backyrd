@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverPublicDataSources,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from '../src/nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
@@ -121,6 +121,18 @@ test('a filtered view skips model work only when every source line is already kn
  assert.equal(sourceSubsumedByEarlier({...subset,text:subset.text+'\nNeuer Workshop: Keramik selbst gestalten.'},[original]),false);
  assert.equal(sourceSubsumedByEarlier({...subset,url:'https://other.example.org/de/angebote'},[original]),false);
  assert.equal(sourceSubsumedByEarlier({...subset,url:'https://museum.example.org/de/andere-angebote'},[original]),false);
+});
+test('a translated room overview skips model work only when every room was already accepted',()=>{
+ const body=(names,booking)=>'<main><h1>Rooms</h1><h3>'+booking+'</h3>'+names.map(name=>`<h2>${name}</h2><p>${name} is a room available to hotel guests.</p>`).join('')+'</main>';
+ const names=['Small Double Room','Medium Double Room','Terrace Club Suite'];
+ const earlier=sourceText({url:'https://hotel.example/en/rooms-suites',body:body(names,'room<br>book'),contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const current=sourceText({url:'https://hotel.example/de/rooms-suites',body:body(names,'Zimmer<br>buchen'),contentType:'text/html',observedAt:new Date().toISOString()},'s2',{preferMain:true});
+ const accepted=names.map(value=>({field:'experience.profile',sourceId:'s1',value,state:'ACCEPTED'}));
+ assert.equal(equivalentLocalizedRoomInventory(current,[earlier],accepted),true);
+ assert.equal(equivalentLocalizedRoomInventory(current,[earlier],accepted.slice(1)),false);
+ const changed=sourceText({url:'https://hotel.example/de/rooms-suites',body:body([...names,'Family Suite'],'Zimmer<br>buchen'),contentType:'text/html',observedAt:new Date().toISOString()},'s3',{preferMain:true});
+ assert.equal(equivalentLocalizedRoomInventory(changed,[earlier],accepted),false);
+ assert.equal(equivalentLocalizedRoomInventory({...current,url:'https://other.example/de/rooms-suites'},[earlier],accepted),false);
 });
 test('wellness overview and sauna outrank action-only pages for a wellness profile',()=>{
  const entries=['/badewelt-actionwelt.html','/wellness.html','/sauna.html','/wellness-buchen.html'].map(path=>({url:'https://example.org'+path,label:path,depth:1,topics:['experience']}));
@@ -1142,9 +1154,17 @@ test('official search leads carry only topics visible in their URL or title',()=
  const frontier=[{url:'https://amber-bar.ch/amber-menu/',depth:1,topics:['menu']},{url:'https://amber-bar.ch/menu/barfood/',depth:1,topics:['menu']},{url:'https://amber-bar.ch/impressionen/',depth:1,topics:[]}];
  assert.equal(rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'DRINKS'}])[0].url,'https://amber-bar.ch/amber-menu/');
 });
-test('hotel research prefers an observed room detail over a duplicate locale index',()=>{
+test('hotel research reads an observed room inventory overview before detail pages',()=>{
  const frontier=[{url:'https://example.org/de/rooms-suites',depth:1,topics:['stay','experience']},{url:'https://example.org/en/rooms-suites/large-junior-suite',depth:1,topics:['stay','experience']}];
- assert.equal(rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'STAY'}])[0].url,'https://example.org/en/rooms-suites/large-junior-suite');
+ const profile={...field('experience.profile'),profileCategory:'STAY'};
+ assert.equal(rankResearchFrontier(frontier,[],[profile])[0].url,'https://example.org/de/rooms-suites');
+ const six=Array.from({length:6},(_,i)=>({field:'experience.profile',value:'Room '+i,state:'ACCEPTED'}));
+ assert.equal(rankResearchFrontier(frontier,six,[profile])[0].url,'https://example.org/de/rooms-suites');
+});
+test('four accepted drinks do not hide an unread official menu overview',()=>{
+ const frontier=[{url:'https://example.org/amber-menu/',depth:1,topics:['menu']}];
+ const four=Array.from({length:4},(_,i)=>({field:'experience.profile',value:'Cocktail '+i,state:'ACCEPTED'}));
+ assert.equal(rankResearchFrontier(frontier,four,[{...field('experience.profile'),profileCategory:'DRINKS'}])[0].url,'https://example.org/amber-menu/');
 });
 test('wrong offer kind is withheld per fact and does not invalidate correctly typed hotel rooms',async()=>{
  const s=source('Classic Room: a double room with shower.\nSteak with seasonal vegetables.');
@@ -1172,6 +1192,16 @@ test('a hotel retreat with an included room is not a separate room category',()=
  const checked=recheckEvidenceFloors(original,[s],[field('experience.profile')],stay);
  assert.deepEqual(checked.map(f=>f.state),['ACCEPTED','HELD']);
  assert.equal(checked[1].reason,'STAY_PACKAGE_NOT_ROOM');
+});
+test('hotel inventory cards bind each room heading to its own description after a details link',()=>{
+ const stay={...spot,name:'ART HOUSE Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const body='<main><h1>Rooms & Suites</h1><nav>Small Double Room | Terrace Club Suite</nav><h2>Small Double Room</h2><p>Room details</p><p>Large windows and a French balcony provide a view of Basel’s city life.</p><h2>Terrace Club Suite</h2><p>Room details</p><p>The Terrace Club Suite on the top floor has a large terrace and a separate living area.</p><h2>Urban Wellness Retreat</h2><p>Includes breakfast, wellness access and a room to sleep in.</p></main>';
+ const s=sourceText({url:'https://example.org/en/rooms-suites',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const candidates=literalSourceFacts(s,[field('experience.profile')],stay,0);
+ assert.deepEqual(candidates.map(f=>f.value),['Small Double Room','Terrace Club Suite']);
+ assert.ok(candidates.every(f=>s.text.slice(f.sourceOffset,f.sourceOffset+f.quote.length)===f.quote));
+ assert.ok(candidates[0].quote.includes('Large windows'));
+ assert.ok(!candidates[0].quote.includes('separate living area'));
 });
 test('a named water slide cannot be relabelled as a wellness bathing offer',()=>{
  const wellness={...spot,name:'aquabasilea',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};

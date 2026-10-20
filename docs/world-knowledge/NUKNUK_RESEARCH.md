@@ -119,6 +119,19 @@ six known facts missed (the signature cocktails), zero source failures and
 zero late references. The sample also lacks the required twelve Spots and
 category balance. Later tuned successes do not erase those blind failures.
 
+The follow-up hotel coverage check reads an observed room inventory overview
+even after a numeric offer threshold is met. A tuned full run then found all
+seven ART HOUSE room categories without a package, using five requests and
+seven model calls in 396 seconds. Pairing each overview card's exact heading
+with its own description produced the same seven in a further tuned run with
+three requests and five calls in 349 seconds, without source or model errors.
+The site repeats those seven headings on its German edition; a conservative
+same-host, same-path inventory comparison skips another model check only when
+every name is identical and already accepted. Its localized booking-button
+headings are excluded. The rule passes unit checks against changed lists and
+the saved real source replay; an end-to-end latency result after this last
+skip correction has not yet been measured.
+
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
 npm run typecheck --workspace @backyrd/spot-research-runtime

@@ -517,6 +517,20 @@ export function literalSourceFacts(source:ResearchSource,fields:ResearchField[],
     // matching pane. The source reader puts that exact tab label immediately
     // before the pane text; keep the literal pair as one reviewable claim.
     const headings=source.headings??[];
+    // Other hotel CMSs render an inventory card as a room heading, a generic
+    // "Room details" link, then its own description. Keep that literal card
+    // together rather than pairing a navigation name with a different room.
+    if(/(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(new URL(source.url).pathname)) {
+      for(let i=0;i<headings.length;i++){
+        if(core.filter(f=>f.field==='experience.profile').length>=8)break;
+        const h=headings[i];
+        if(h.level<2||h.level>3||h.text.length<5||h.text.length>80||/^(?:rooms?\s*(?:&|and)\s*suites?|zimmer\s*(?:&|und)\s*suiten?)$/iu.test(h.text)||!/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)||/(?:packages?|retreats?|deals?|specials?|arrangements?|pauschalen?|angebote?)/iu.test(h.text))continue;
+        const next=headings.slice(i+1).find(other=>other.level<=h.level)?.offset??source.identityOffset??source.text.length;
+        const quote=source.text.slice(h.offset,Math.min(next,h.offset+500)).split(/\n\s*\n/u).slice(0,3).join('\n\n').trimEnd();
+        if(!quote.startsWith(h.text+'\n')||source.text.slice(h.offset,h.offset+quote.length)!==quote||quote.length<h.text.length+45||!/[.!?]/u.test(quote))continue;
+        core.push({id:'f'+(offset+core.length),sourceId:source.id,field:'experience.profile',value:h.text,quote,sourceOffset:h.offset,subject:'OFFER',subjectLabel:h.text,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'OVERNIGHT_STAY',state:'HELD',reason:'SEMANTIC_CHECK_PENDING'});
+      }
+    }
     for(let i=0;i<headings.length;i++){
       const h=headings[i];
       if(h.level<4||h.text.length<3||h.text.length>80||!sectionAt(source,h.offset).some(section=>/^(?:zimmer\s+und\s+suiten|rooms?\s+and\s+suites?|suites?\s+and\s+rooms?)$/iu.test(section)))continue;
@@ -676,6 +690,15 @@ function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],front
   // workshops. Reaching four facts is not evidence that the inventory is
   // complete; keep searching within the explicit page/query budget.
   if(field.profileCategory==='CULTURE_ARTS')return true;
+  // A numeric offer target is not proof of coverage. Always read an observed
+  // first-party inventory overview before declaring a hotel or menu profile
+  // sufficient, even when detail pages already supplied several offers.
+  if(frontier.some(link=>{
+    const path=new URL(link.url).pathname;
+    if(field.profileCategory==='STAY')return /(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(path);
+    if(['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(field.profileCategory)))return /(?:^|\/)(?:[^/]+[-_])?(?:menu|menue|menü|speisekarte|karte)\/?$/iu.test(path);
+    return false;
+  }))return true;
   const accepted=facts.filter(f=>f.field==='experience.profile'&&f.state==='ACCEPTED');
   if(new Set(accepted.map(f=>f.value.toLocaleLowerCase())).size<(field.profileCategory==='STAY'?6:4))return true;
   // A fourth narrow treatment must not end a wellness crawl while an observed
@@ -697,6 +720,20 @@ export function sourceSubsumedByEarlier(source:ResearchSource,earlier:ResearchSo
     return [...current].every(line=>known.has(line));
   });
 }
+export function equivalentLocalizedRoomInventory(source:ResearchSource,earlier:ResearchSource[],facts:EvidenceFact[]):boolean {
+  const target=new URL(source.url);
+  const neutral=(path:string)=>path.replace(/^\/(?:de|en|fr|it)(?=\/|$)/iu,'');
+  const locale=(path:string)=>path.match(/^\/(de|en|fr|it)(?=\/|$)/iu)?.[1]?.toLocaleLowerCase();
+  if(!locale(target.pathname)||!/(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(target.pathname))return false;
+  const names=(page:ResearchSource)=>new Set((page.headings??[]).filter(h=>h.level>=2&&h.level<=3&&!/\n/u.test(h.text)&&!/(?:buchen|booking|book now|reserve)/iu.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!/^(?:rooms?\s*(?:&|and)\s*suites?|zimmer\s*(?:&|und)\s*suiten?)$/iu.test(h.text)).map(h=>h.text.trim().toLocaleLowerCase()));
+  const current=names(source);
+  if(current.size<3)return false;
+  return earlier.some(previous=>{
+    const original=new URL(previous.url),known=names(previous);
+    if(original.origin!==target.origin||neutral(original.pathname)!==neutral(target.pathname)||!locale(original.pathname)||locale(original.pathname)===locale(target.pathname)||known.size!==current.size||![...current].every(name=>known.has(name)))return false;
+    return [...current].every(name=>facts.some(f=>f.sourceId===previous.id&&f.field==='experience.profile'&&f.state==='ACCEPTED'&&f.value.trim().toLocaleLowerCase()===name));
+  });
+}
 export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[]):FrontierEntry[] {
   const open=fields.filter(f=>f.attributeKey==='experience.profile'?profileNeedsMoreEvidence(f,facts,frontier):!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
   const leaf=(url:string)=>new URL(url).pathname.split('/').filter(Boolean).at(-1)??'';
@@ -713,6 +750,7 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:atelier|workshops?)/iu.test(leaf(link.url))?145:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='WELLNESS_RELAXATION')&&/(?:wellness|sauna|spa|hamam|relax)/iu.test(leaf(link.url))?80:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='STAY')&&!/^\/(?:en|fr|it|de)(?:\/|$)/iu.test(new URL(link.url).pathname)&&/(?:hotel|zimmer|rooms?|accommodation)/iu.test(leaf(link.url))?160:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='STAY')&&/(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(new URL(link.url).pathname)?175:0)+
     (link.topics.includes('language')?40:0)+
     // A site's unprefixed locale is usually its primary edition. Prefer an
     // observed primary page to yet another English/French translation when
@@ -957,6 +995,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     }catch(error){sourceFailures.push({url:next.url,reason:error instanceof Error?error.message:'RETRIEVAL_FAILED'});continue;}
     if(sources.slice(0,-1).some(s=>s.hash===source.hash)){await progress({stage:'DUPLICATE_CONTENT',url:source.url});continue;}
     if(sourceSubsumedByEarlier(source,sources.slice(0,-1))){await progress({stage:'SUBSUMED_SOURCE',url:source.url});continue;}
+    if(category==='STAY'&&pendingFields.every(field=>field.attributeKey==='experience.profile')&&equivalentLocalizedRoomInventory(source,sources.slice(0,-1),facts)){await progress({stage:'EQUIVALENT_ROOM_INVENTORY',url:source.url});continue;}
     try {
       const blocks=evidenceBlocks(source);
       const candidates=literalSourceFacts(source,fields,spot,facts.length);
