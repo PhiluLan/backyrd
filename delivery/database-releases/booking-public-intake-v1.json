@@ -10,21 +10,21 @@
   "migrations": [
     {
       "path": "supabase/migrations/20261020230227_booking_public_intake_v1.sql",
-      "sha256": "192ed4fe1b79f120c7f578a280e6c58cc11f184c9e3ab3e32a33da0b1bea7fc5"
+      "sha256": "845e6c70fcd39a4e1c18249831e47f6142db7f035b40bbf1c011c4b3d8442827"
     }
   ],
   "tests": [
     {
       "path": "supabase/tests/booking_public_intake_safety_v1.sql",
-      "sha256": "ddec12b21ebdb0795a23211fa0417fefe07860851316ce7829426b9a4be54e91"
+      "sha256": "22b656c3ab0bce7d257f2fe5a740bad610abf411107a22dec78bbd62f728c47e"
     },
     {
       "path": "supabase/tests/booking_public_intake_v1.sql",
-      "sha256": "4f6132e1d28a88d440d9081c676d5f1df328bc0099ba1803188c99a0f8674eaa"
+      "sha256": "23cdfb95c53f9ce9526b5f36d76ad3700577baf5da897b42dc87495c7bda2c65"
     }
   ],
   "fingerprints": {
-    "publicAclSha256": "f7b220c5d778f5d7c640120d1f10b4b2c430481c6d69f31a72898d2b39c491c2",
-    "applicationSchemaSha256": "fed9af045feb32f0209dad031ddf65ecb613b4c56e480440af8ae126f69f7914"
+    "publicAclSha256": "49ee7eea0f56a7973db5d443cc7dabe02935fecd352e34885ad6b8f62871112f",
+    "applicationSchemaSha256": "54bdff61a2e5a86226919d30aa809e5b7c7cbe228cd27c3c1687c4c08d45d8b7"
   }
 }

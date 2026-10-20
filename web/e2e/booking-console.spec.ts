@@ -2277,6 +2277,7 @@ test("a public guest booking is identified honestly in the Console and keeps gue
 });
 
 test("an online booking editor explains queued updates and contact-link revocation honestly", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
   await mockConsole(page, { seeded: true, publicGuest: true, amendments: true });
   await page.goto("/booking/console");
   const editor = await editGuest(page);
@@ -2285,4 +2286,6 @@ test("an online booking editor explains queued updates and contact-link revocati
   await editor.getByLabel("Telefon oder E-Mail (optional)", { exact: true }).fill("corrected@booking.invalid");
   await expect(editor).toContainText("bisherige Gastlink ungültig");
   await expect(editor).toContainText("Ausstehende Nachrichten an die bisherige Adresse werden angehalten");
+  expect(await editor.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await editor.screenshot({ path: test.info().outputPath("online-contact-change-phone.png") });
 });

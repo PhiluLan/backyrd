@@ -1192,7 +1192,7 @@ ownership rebinding, access expiry/contact revocation, complete allocation,
 recipient quota, cancellation cutoff and all-member release, request-mode
 honesty, pending-mail replacement and private-note suppression. No guest email
 was sent. Final receipt:
-`fe33020ed2c92584fccf96a68a3ae9ebffa75ac91f00c7504435d50026b19ae4`.
+`f7cfe889cc478e61c6a7ae4e436e05d30657b7c8ab182064c8f1fe26d99704f2`.
 Release evidence: `booking-public-intake-v1.json`.
 
 Rollout requires the updated `website` source/guest-actor readers before enabling
@@ -1202,3 +1202,22 @@ Production activation, scoped private-schema drift validation, the complete
 Booking privacy/retention lifecycle, verified sender/dispatch readiness and
 restaurant/physical-device acceptance remain outstanding. No public capability
 or Aleno parity claim is advertised by this foundation.
+
+The additional read-only guest recovery RPC accepts request identity plus the
+original capability hash and returns current own-booking facts. It does not
+resubmit changed booking input or create another reservation. Paused intake,
+mail readiness and a fresh human challenge do not obstruct a proven owner's
+status recovery. A wrong/revoked/expired credential or owner Safety still denies
+access. Recovery after cancellation returns the current cancelled state, while
+creation replay retains its distinct original-operation outcome.
+
+Final client runtime acceptance: all 111 Console browser journeys passed,
+including online source display, guest attribution and explicit queued-update/
+contact-revocation text. TypeScript, 42 Web contract tests, 69 CI tests, lint
+(13 existing unrelated warnings) and production build passed. These are operator
+compatibility checks, not browser acceptance of a public guest checkout; that
+surface and real delivery remain to implement.
+The online-contact editor was additionally exercised and visually inspected at
+320px: the revocation explanation wraps correctly and the save footer remains
+reachable without horizontal overflow. This does not replace a physical-phone
+or restaurant trial.
