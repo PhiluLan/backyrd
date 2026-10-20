@@ -476,3 +476,6 @@ unsaved discard and identical uncertain retries. The 320px plan/list was visuall
 inspected. Web typecheck and 42 contracts passed; lint has only the 13 existing
 warnings. A physical-device/restaurant trial remains required before a usability
 or operational-parity claim.
+The production Web build passed after clearing a generated Turbopack cache that
+had retained a sandbox-denied loopback error. No application configuration or
+security control was changed to resolve the local build-cache failure.
