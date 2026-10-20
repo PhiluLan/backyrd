@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.2
+# Local Nuknuk Research v3.3
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.2
+## Active architecture: Research v3.3
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -84,6 +84,40 @@ Private Führungen and Kinderworkshops with exact first-party evidence; dated
 workshop themes were withheld. The two-page test deliberately bypassed source
 discovery and therefore cannot substitute for an unattended full crawl or the
 pre-run-reference cohort gate.
+
+On 20 October, an untouched ART HOUSE Basel run was compared with an official
+room-list reference fixed before the run. It found all seven current room
+categories in three HTTP requests and 201 seconds, but wrongly added the
+"Urban Wellness Retreat" package as an eighth room. The deterministic
+overnight-offer boundary now requires a named accommodation unit or a room
+tab with its own description and rejects package/retreat labels. Rechecking
+the saved original evidence leaves exactly the seven room categories; that
+replay is a tuned fix, not a new blind pass.
+
+The next untouched Amber Bar run found zero of six pre-recorded signature
+cocktails, even though the official menu page was fetched, and correctly
+abstained on regular hours because the website gives start times only. The
+27B extractor chose broad drink labels and wine producers from the long menu.
+v3.3 now pairs literal priced cocktail rows with their own ingredient lines
+under an explicit drink section, including Swiss `20.–` notation. The model
+still checks the resulting names and venue scope. Search hits receive only
+topics visible in their URL/title; they no longer claim to answer every open
+question. A filtered official page whose every meaningful line is already
+present on a previously read version skips redundant model work. The tuned
+Amber end-to-end retest proposed all six signature cocktails plus two other
+named cocktails, with no invented closing time, in five HTTP requests and
+255 seconds. A final v3.3 full-site retest including the search-topic change
+read only the homepage, hours page and complete menu, then proposed the same
+eight named cocktails while leaving hours unresolved: three requests, four
+model calls and 236 seconds, with no source or model errors. Neither tuned
+retest counts toward the untouched release cohort; the unattended-draft gate
+remains closed.
+
+The formal pre-run-reference gate over these two untouched cases reports
+`readyForUnattendedDrafts=false`: one false assertion (the hotel package),
+six known facts missed (the signature cocktails), zero source failures and
+zero late references. The sample also lacks the required twelve Spots and
+category balance. Later tuned successes do not erase those blind failures.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
