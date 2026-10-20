@@ -17,6 +17,7 @@ const privateRoutePrefixes = [
   "reviews",
   "search",
   "owner",
+  "booking/console",
 ];
 
 const nextConfig: NextConfig = {
