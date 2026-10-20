@@ -110,6 +110,11 @@ try {
       const body=JSON.parse(request.postData()??"{}");
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(body.p_entity_type === "profile" ? [subject] : [])});
     }
+    if (path === "/rest/v1/spots" && url.searchParams.get("select")?.includes("categories(name)")) {
+      const ids = url.searchParams.get("id");
+      const rows = spots.filter(spot => !ids || ids.includes(spot.spotId)).map((spot,index)=>({id:spot.spotId,name:spot.name(),city:"Bern",address:"Testgasse 1",lat:46.94,lng:7.44,status:"approved",created_at:new Date(Date.UTC(2026,0,index+1)).toISOString(),categories:{name:"Café"},spot_hours:[]}));
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(rows.reverse())});
+    }
     if (path === "/rest/v1/spots" && url.searchParams.get("id")?.startsWith("eq.")) return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({id:url.searchParams.get("id").replace("eq.",""),name:state.worldName,address:"Testgasse 1",city:"Bern",lat:46.94,lng:7.44})});
     if (path === "/rest/v1/rpc/backyrd_search_mood_concepts_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(["Gemütlich","Urban"].map(label=>({concept_key:label,label,matched_expression:label})))});
     if (path === "/rest/v1/rpc/distribution_trust_filter_entities_v1") {
@@ -284,6 +289,28 @@ try {
   await page.getByRole("button",{name:/Moment bei Café Aktualisiert/}).waitFor();
   assert.equal(await page.getByText("Verborgener Ort",{exact:true}).count(),0,"Home never displays safety-hidden Moments");
   await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
+  await page.getByText("DEINE LETZTE SUCHE",{exact:true}).waitFor();
+  await page.getByText("ruhiges Café nach Reload",{exact:true}).waitFor();
+  const recentRail = page.getByLabel("Deine letzte Suche: ruhiges Café nach Reload",{exact:true});
+  await recentRail.getByRole("button",{name:/Café Aktualisiert öffnen/}).first().waitFor();
+  const recentLabels = await recentRail.getByRole("button").evaluateAll(nodes=>nodes.map(node=>node.getAttribute("aria-label")));
+  assert.match(recentLabels[0],/Café Aktualisiert/);
+  assert.match(recentLabels[1],/Café Alternative/);
+  const newRail = page.getByLabel("Neu auf Backyrd",{exact:true});
+  const newLabels = await newRail.getByRole("button").evaluateAll(nodes=>nodes.map(node=>node.getAttribute("aria-label")));
+  assert.match(newLabels[0],/Café Fünfte Wahl/);
+  assert.match(newLabels.at(-1),/Café Aktualisiert/);
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
+    for (const [width,height] of [[320,568],[430,932]]) {
+      await page.setViewportSize({width,height});
+      await newRail.getByRole("button").first().scrollIntoViewIfNeeded();
+      await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/home-new-and-recent-${width}.png`,fullPage:true});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth),0);
+      await recentRail.getByRole("button").first().scrollIntoViewIfNeeded();
+      await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/home-last-search-${width}.png`});
+    }
+    await page.setViewportSize({width:390,height:844});
+  }
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-home-390.png`,fullPage:true});
   await page.getByText("Momente",{exact:true}).last().click();
   await page.getByRole("button",{name:"Ähnliche Orte finden",exact:true}).first().click();

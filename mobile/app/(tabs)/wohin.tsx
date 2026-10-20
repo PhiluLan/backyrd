@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { rememberRecentDecisionSearch } from "@/lib/decision/recentDecisionSearch";
 import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -214,6 +215,7 @@ export default function WohinScreen() {
       responseRef.current = result;
       setResponse(result);
       setCandidates(visible);
+      void rememberRecentDecisionSearch(verifiedActorId, text, visible);
     } catch (cause) {
       void recordDecisionFailure(cause, failurePhase).catch(() => undefined);
       if (generation === requestGeneration.current) setError(userFacingError(cause, "Wohin kann gerade keine verlässlichen Vorschläge zeigen."));

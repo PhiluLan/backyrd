@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   AppState,
   KeyboardAvoidingView,
@@ -22,20 +21,17 @@ import { atmosphereWish } from "../../lib/discovery-journey";
 import Avatar from "../../components/Avatar";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
-import { MoodSignature, moodCountDescription } from "../../components/spot/MoodSignature";
+import { HomeSpotRail } from "../../components/HomeSpotRail";
+import { readRecentDecisionSearch, type RecentDecisionSearch } from "../../lib/decision/recentDecisionSearch";
 import { useSpotMoodCounts, loadSpotBrowseMoods } from "../../lib/mood-catalog";
-import { OpeningStatusBadge } from "../../components/spot/OpeningStatusBadge";
-import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { useAuth } from "../../hooks/useAuth";
 import { loadDiscoverySpots, type DiscoverySpot } from "../../lib/spot-images";
 import type { LocationCoordinates } from "../../lib/locationContext";
 import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
-import { loadNearbyDiscoverySpots, validDiscoveryLocation, HOME_NEARBY_RADIUS_KM } from "../../lib/nearby-discovery";
+import { loadHomeNearbySpots, loadNewestCitySpots, loadDiscoverySpotsByIds, validDiscoveryLocation, HOME_NEARBY_RADIUS_KM } from "../../lib/nearby-discovery";
 import { withRequestDeadline } from "../../lib/requestDeadline";
-import { spotOpeningStatusNow } from "../../lib/spot-opening-status";
-import { haversineKm } from "../../lib/utils/haversine";
 import { supabase } from "../../lib/supabase";
-import { HOME_RAIL, homeRailCardWidth } from "../../lib/home-rail";
+import { homeRailCardWidth } from "../../lib/home-rail";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 function cleanName(value: unknown) {
@@ -52,8 +48,12 @@ export default function HomeScreen() {
   const [firstName, setFirstName] = useState<string | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
   const [newSpots, setNewSpots] = useState<DiscoverySpot[]>([]);
+  const [recentSearch, setRecentSearch] = useState<(RecentDecisionSearch & { actorId: string }) | null>(null);
+  const [recentSpots, setRecentSpots] = useState<DiscoverySpot[]>([]);
+  const [recentError, setRecentError] = useState(false);
+  const [newError, setNewError] = useState(false);
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
-  const moodCounts = useSpotMoodCounts([...spots, ...newSpots].map(spot => spot.id));
+  const moodCounts = useSpotMoodCounts([...spots, ...newSpots, ...recentSpots].map(spot => spot.id));
   const [popularMoods, setPopularMoods] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,6 +84,10 @@ export default function HomeScreen() {
     setCurrentLocation(null);
     setSpots([]);
     setNewSpots([]);
+    setRecentSearch(null);
+    setRecentSpots([]);
+    setRecentError(false);
+    setNewError(false);
     setSpotMoods({});
     setPopularMoods([]);
     setLoading(true);
@@ -105,14 +109,27 @@ export default function HomeScreen() {
       const point = location?.ok && location.source === "current" ? { latitude: location.location.coords.latitude, longitude: location.location.coords.longitude } : null;
       const current = validDiscoveryLocation(point) ? point : null;
       // Publish the location only together with its matching catalog, never label city rows as nearby.
-      const [catalog, cityCatalog] = current
-        ? await Promise.all([loadNearbyDiscoverySpots(current, 14), withRequestDeadline(() => loadDiscoverySpots(productCity, 160), 10_000).catch(() => [])])
-        : await withRequestDeadline(async () => { const rows = await loadDiscoverySpots(productCity, 160); return [rows, rows]; }, 10_000);
+      const recentTask = user?.id ? readRecentDecisionSearch(user.id).then(async search => {
+        if (!search) return null;
+        try { return { search, places: await loadDiscoverySpotsByIds(search.spotIds), failed: false }; }
+        catch { return { search, places: [], failed: true }; }
+      }) : Promise.resolve(null);
+      const [local, recent] = await Promise.all([
+        current ? loadHomeNearbySpots(current) : Promise.all([
+          withRequestDeadline(() => loadDiscoverySpots(productCity, 160), 10_000),
+          loadNewestCitySpots(productCity).catch(() => null),
+        ]).then(([nearest, newest]) => ({ nearest, newest })),
+        recentTask,
+      ]);
       if (requestId !== loadRequest.current) return;
       setCurrentLocation(current);
-      setSpots(catalog.slice(0, 14));
-      setNewSpots([...cityCatalog.slice(0, 14)].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 6));
-      void loadMoodContext([...catalog.slice(0, 14), ...cityCatalog.slice(0, 14)]);
+      setSpots(local.nearest.slice(0, 14));
+      setNewSpots(local.newest ?? []);
+      setNewError(local.newest === null);
+      setRecentSearch(recent && user?.id ? { ...recent.search, actorId: user.id } : null);
+      setRecentSpots(recent?.places ?? []);
+      setRecentError(recent?.failed ?? false);
+      void loadMoodContext([...local.nearest.slice(0, 14), ...(local.newest ?? []), ...(recent?.places ?? [])]);
     } catch {
       if (requestId === loadRequest.current) {
         setError("Die Orte konnten gerade nicht geladen werden.");
@@ -130,23 +147,10 @@ export default function HomeScreen() {
     return () => { subscription.remove(); ++loadRequest.current; ++moodRequest.current; };
   }, [load]));
 
-  const topSpots = useMemo(() => spots.slice(0, 6), [spots]);
-  const heroCardGap = HOME_RAIL.gap;
+  const topSpots = spots.slice(0, 6);
   const heroCardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
   const heroCardHeight = Math.round(heroCardWidth * 1.08);
-  const heroCarouselOffsets = useMemo(
-    () => topSpots.map((_, index) => index * (heroCardWidth + heroCardGap)),
-    [heroCardGap, heroCardWidth, topSpots],
-  );
-  const compactCardWidth = Math.min(190, Math.max(154, width * 0.44));
-
-  function spotMeta(spot: DiscoverySpot) {
-    if (currentLocation && spot.lat !== null && spot.lng !== null) {
-      const distance = haversineKm(currentLocation, { latitude: spot.lat, longitude: spot.lng });
-      return `${spot.category_name ?? "Ort"} · ${distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}`;
-    }
-    return [spot.category_name, spot.address ?? spot.city].filter(Boolean).join(" · ");
-  }
+  const activeRecent = recentSearch?.actorId === user?.id ? recentSearch : null;
 
   function submitDecision(value = query) {
     const normalized = value.trim();
@@ -223,28 +227,7 @@ export default function HomeScreen() {
           ) : error ? (
             <View style={styles.stateWrap}><StateView actionLabel="Noch einmal" kind="error" message={error} onAction={() => void load()} title="Kurz den Faden verloren." /></View>
           ) : topSpots.length ? (
-            <ScrollView
-              horizontal
-              contentContainerStyle={[styles.heroCards, { paddingHorizontal: HOME_RAIL.horizontalInset, gap: heroCardGap }]}
-              decelerationRate={HOME_RAIL.decelerationRate}
-              disableIntervalMomentum={HOME_RAIL.disableIntervalMomentum}
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={heroCardWidth + heroCardGap}
-              snapToOffsets={heroCarouselOffsets}
-            >
-              {topSpots.map((spot, index) => (
-                <Pressable accessibilityLabel={`${spot.name} öffnen${spotMoods[spot.id]?.length ? `. Moods: ${spotMoods[spot.id].slice(0, 3).join(", ")}` : ""}${moodCountDescription(moodCounts[spot.id]) ? `. ${moodCountDescription(moodCounts[spot.id])}` : ""}`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.heroCard, { width: heroCardWidth, minHeight: heroCardHeight, paddingTop: theme.spacing.display * 2 }, pressed && styles.cardPressed]}>
-                  <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill} />
-                  <LinearGradient colors={["rgba(5,5,5,0.02)", "rgba(5,5,5,0.18)", "rgba(5,5,5,0.92)"]} locations={[0.2, 0.54, 1]} style={StyleSheet.absoluteFill} />
-                  <OpeningStatusBadge status={spotOpeningStatusNow(spot.hours)} style={styles.statusPill} />
-                  <View style={styles.heroCardContent}>
-                    <AppText role="displayM" style={styles.spotName}>{spot.name}</AppText>
-                    <MoodSignature labels={spotMoods[spot.id] ?? []} moodCount={moodCounts[spot.id]} compact />
-                    <AppText role="meta" style={styles.spotMeta}>{spotMeta(spot)}</AppText>
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
+            <HomeSpotRail spots={topSpots} moods={spotMoods} moodCounts={moodCounts} location={currentLocation} label="Orte entdecken" />
           ) : (
             <View style={styles.stateWrap}><StateView kind="empty" title={currentLocation ? "Noch keine Orte in deiner Nähe" : "Noch keine Orte hier"} message={currentLocation ? `Im Umkreis von ${HOME_NEARBY_RADIUS_KM} km gibt es gerade keine freigegebenen Orte auf Backyrd.` : `Sobald es in ${city} Neues zu entdecken gibt, findest du es hier.`} /></View>
           )}
@@ -253,21 +236,28 @@ export default function HomeScreen() {
 
           <HomeEventsSection />
 
-          {!loading && !error && newSpots.length ? (
-            <View style={styles.newSection}>
-              <View style={styles.sectionHeader}><View><AppText role="label" tone="secondary" style={styles.eyebrow}>GERADE DAZUGEKOMMEN</AppText><AppText role="sectionTitle">Neu auf Backyrd</AppText></View></View>
-              <ScrollView horizontal contentContainerStyle={styles.compactCards} showsHorizontalScrollIndicator={false}>
-                {newSpots.map((spot) => (
-                  <Pressable accessibilityRole="button" accessibilityLabel={`${spot.name} öffnen${spotMoods[spot.id]?.length ? `. Moods: ${spotMoods[spot.id].slice(0, 3).join(", ")}` : ""}${moodCountDescription(moodCounts[spot.id]) ? `. ${moodCountDescription(moodCounts[spot.id])}` : ""}`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.compactCard, { width: compactCardWidth }, pressed && styles.cardPressed]}>
-                    <View style={styles.compactImage}><SpotArtwork imageUrl={spot.header_photo_url} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill} /></View>
-                    <AppText role="bodyStrong" style={styles.compactTitle}>{spot.name}</AppText>
-                    <MoodSignature labels={spotMoods[spot.id] ?? []} moodCount={moodCounts[spot.id]} compact />
-                    <AppText role="caption" tone="secondary">{spot.category_name || spot.city || city}</AppText>
-                  </Pressable>
-                ))}
-              </ScrollView>
+          {!loading && !error ? (
+            <View>
+              <View style={styles.sectionHeader}><View style={styles.sectionTitleBlock}>
+                <AppText role="label" tone="secondary" style={styles.eyebrow}>GERADE DAZUGEKOMMEN</AppText>
+                <AppText role="sectionTitle">Neu auf Backyrd</AppText>
+                <AppText role="meta" tone="secondary">{currentLocation ? `In deinem Umkreis · bis ${HOME_NEARBY_RADIUS_KM} km` : `In ${city}`}</AppText>
+              </View></View>
+              {newError ? <View style={styles.stateWrap}><StateView kind="error" title="Neue Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
+                : newSpots.length ? <HomeSpotRail spots={newSpots} moods={spotMoods} moodCounts={moodCounts} location={currentLocation} label="Neu auf Backyrd" />
+                : <View style={styles.stateWrap}><StateView kind="empty" title="Hier kommt bald Neues dazu" message="Sobald neue Orte in dieser Gegend auf Backyrd sind, findest du sie hier." /></View>}
             </View>
           ) : null}
+
+          {!loading && activeRecent ? <View>
+            <View style={styles.sectionHeader}><View style={styles.sectionTitleBlock}>
+              <AppText role="label" tone="secondary" style={styles.eyebrow}>DEINE LETZTE SUCHE</AppText>
+              <AppText role="sectionTitle">{activeRecent.query}</AppText>
+            </View></View>
+            {recentError ? <View style={styles.stateWrap}><StateView kind="error" title="Deine Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
+              : recentSpots.length ? <HomeSpotRail spots={recentSpots} moods={spotMoods} moodCounts={moodCounts} location={currentLocation} label={`Deine letzte Suche: ${activeRecent.query}`} />
+              : <View style={styles.stateWrap}><StateView kind="empty" title="Keine Orte zum Anzeigen" message="Zu dieser Suche sind gerade keine Orte verfügbar." /></View>}
+          </View> : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -275,6 +265,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  sectionTitleBlock: { flex: 1, minWidth: 0 },
   root: { flex: 1, backgroundColor: theme.color.background },
   content: { paddingTop: theme.spacing.lg, paddingBottom: theme.control.tabBar + theme.spacing.display },
   header: { minHeight: 60, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md },
@@ -297,18 +288,6 @@ const styles = StyleSheet.create({
   moodDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.color.pink },
   sectionHeader: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
   sectionLink: { minHeight: theme.control.compact, maxWidth: "42%", minWidth: theme.control.compact, justifyContent: "center" },
-  heroCards: { paddingTop: theme.spacing.lg },
-  heroCard: { overflow: "hidden", borderRadius: theme.radius.xl, justifyContent: "flex-end", backgroundColor: theme.color.surface },
-  heroCardContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg },
-  statusPill: { position: "absolute", top: theme.spacing.md, left: theme.spacing.md, maxWidth: "88%", zIndex: 1 },
-  spotName: { color: theme.color.textPrimary },
-  spotMeta: { marginTop: 8, color: "rgba(246,240,232,0.78)" },
-  cardPressed: { opacity: 0.9, transform: [{ scale: theme.motion.pressScale }] },
   heroSkeleton: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, borderRadius: theme.radius.xl, backgroundColor: theme.color.surfaceElevated },
   stateWrap: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl },
-  newSection: { marginTop: theme.spacing.sm },
-  compactCards: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.lg, gap: theme.spacing.md },
-  compactCard: { minHeight: 224 },
-  compactImage: { height: 170, borderRadius: theme.radius.lg, overflow: "hidden", backgroundColor: theme.color.surface },
-  compactTitle: { marginTop: theme.spacing.sm },
 });
