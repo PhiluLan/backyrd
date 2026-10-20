@@ -152,6 +152,16 @@ Neither Airport run counts toward the release cohort. The two untouched
 cases still leave the formal gate closed: one false assertion, six missed
 facts, and insufficient category-balanced coverage.
 
+The older Kunstmuseum Basel full crawl spent several model calls on
+`targetId`/`typeId` views of the same programme page before opening the
+unfiltered overview, then timed out. The overview is an observed link on
+both the official homepage and visitor-planning page. v3.4 ranks that
+overview before its observed filter variants while keeping a filtered page
+eligible when it contains distinct rows. A focused ranking regression and
+live public-link check cover this retrieval change; the complete current
+model crawl has not yet been repeated, so cultural offer coverage remains
+unproven.
+
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
 npm run typecheck --workspace @backyrd/spot-research-runtime

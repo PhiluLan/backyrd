@@ -103,6 +103,14 @@ test('museum collection and onsite tours outrank online videos and broad childre
  assert.equal(ranked[1].url,entries[2].url);
  assert.ok(!ranked.some(x=>x.url===entries[0].url));
 });
+test('a museum programme overview outranks observed filter variants without hiding unique filtered pages',()=>{
+ const url='https://museum.example/de/veranstaltungen/schulen,-gruppen-und-fuehrungen';
+ const filtered={url:url+'?targetId=3&typeId=9',depth:1,topics:['experience']};
+ const overview={url,depth:1,topics:['experience']};
+ const profile={...field('experience.profile'),profileCategory:'CULTURE_ARTS'};
+ assert.equal(rankResearchFrontier([filtered,overview],[],[profile])[0].url,url);
+ assert.equal(rankResearchFrontier([filtered],[],[profile])[0].url,filtered.url);
+});
 test('museum visitor planning outranks private-collection and history pages',()=>{
  const museumField={...field('experience.profile'),profileCategory:'CULTURE_ARTS'};
  const links=[

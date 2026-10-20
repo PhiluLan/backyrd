@@ -752,6 +752,10 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const leaf=(url:string)=>new URL(url).pathname.split('/').filter(Boolean).at(-1)??'';
   const weight=(key:string)=>key.startsWith('contact.')||key==='hours.regular'?8:['description.highlight','experience.profile'].includes(key)?2:1;
   const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+(link.depth===0?1000:0)+
+    // Read a site's observed programme/listing overview before target/type
+    // filter variants. A filtered view remains available for novel rows, but
+    // should not consume the model budget ahead of the shared parent page.
+    ([...new URL(link.url).searchParams.keys()].some(key=>/^(?:targetId|typeId)$/iu.test(key))?-90:0)+
     (open.some(f=>f.attributeKey==='description.highlight')&&new URL(link.url).pathname==='/'?90:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(f.profileCategory)))&&/(?:^|\/)(?:[^/]+[-_])?(?:menu|menue|menü|speisekarte|karte)(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(link.url).pathname)?170:0)+
     (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
