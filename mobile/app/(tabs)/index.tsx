@@ -21,6 +21,8 @@ import { atmosphereWish } from "../../lib/discovery-journey";
 import Avatar from "../../components/Avatar";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
+import { loadDiscoveryOpeningStatuses } from "../../lib/discovery-opening-hours";
+import type { SpotOpeningStatus } from "../../lib/spot-opening-status";
 import { HomeSpotRail } from "../../components/HomeSpotRail";
 import { readRecentDecisionSearch, type RecentDecisionSearch } from "../../lib/decision/recentDecisionSearch";
 import { useSpotMoodCounts, loadSpotBrowseMoods } from "../../lib/mood-catalog";
@@ -52,6 +54,7 @@ export default function HomeScreen() {
   const [recentSpots, setRecentSpots] = useState<DiscoverySpot[]>([]);
   const [recentError, setRecentError] = useState(false);
   const [newError, setNewError] = useState(false);
+  const [openingStatuses, setOpeningStatuses] = useState<Record<string, SpotOpeningStatus>>({});
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
   const moodCounts = useSpotMoodCounts([...spots, ...newSpots, ...recentSpots].map(spot => spot.id));
   const [popularMoods, setPopularMoods] = useState<string[]>([]);
@@ -81,6 +84,7 @@ export default function HomeScreen() {
   const load = useCallback(async (refresh = false) => {
     const requestId = ++loadRequest.current;
     ++moodRequest.current;
+    setOpeningStatuses({});
     setCurrentLocation(null);
     setSpots([]);
     setNewSpots([]);
@@ -129,6 +133,9 @@ export default function HomeScreen() {
       setRecentSearch(recent && user?.id ? { ...recent.search, actorId: user.id } : null);
       setRecentSpots(recent?.places ?? []);
       setRecentError(recent?.failed ?? false);
+      void loadDiscoveryOpeningStatuses([...local.nearest.slice(0, 6), ...(local.newest ?? []), ...(recent?.places ?? [])])
+        .then(statuses => { if (requestId === loadRequest.current) setOpeningStatuses(statuses); })
+        .catch(() => { /* Unavailable hours stay unknown; place discovery remains usable. */ });
       void loadMoodContext([...local.nearest.slice(0, 14), ...(local.newest ?? []), ...(recent?.places ?? [])]);
     } catch {
       if (requestId === loadRequest.current) {
@@ -227,7 +234,7 @@ export default function HomeScreen() {
           ) : error ? (
             <View style={styles.stateWrap}><StateView actionLabel="Noch einmal" kind="error" message={error} onAction={() => void load()} title="Kurz den Faden verloren." /></View>
           ) : topSpots.length ? (
-            <HomeSpotRail spots={topSpots} moods={spotMoods} moodCounts={moodCounts} location={currentLocation} label="Orte entdecken" />
+            <HomeSpotRail spots={topSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label="Orte entdecken" />
           ) : (
             <View style={styles.stateWrap}><StateView kind="empty" title={currentLocation ? "Noch keine Orte in deiner Nähe" : "Noch keine Orte hier"} message={currentLocation ? `Im Umkreis von ${HOME_NEARBY_RADIUS_KM} km gibt es gerade keine freigegebenen Orte auf Backyrd.` : `Sobald es in ${city} Neues zu entdecken gibt, findest du es hier.`} /></View>
           )}
@@ -244,7 +251,7 @@ export default function HomeScreen() {
                 <AppText role="meta" tone="secondary">{currentLocation ? `In deinem Umkreis · bis ${HOME_NEARBY_RADIUS_KM} km` : `In ${city}`}</AppText>
               </View></View>
               {newError ? <View style={styles.stateWrap}><StateView kind="error" title="Neue Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
-                : newSpots.length ? <HomeSpotRail spots={newSpots} moods={spotMoods} moodCounts={moodCounts} location={currentLocation} label="Neu auf Backyrd" />
+                : newSpots.length ? <HomeSpotRail spots={newSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label="Neu auf Backyrd" />
                 : <View style={styles.stateWrap}><StateView kind="empty" title="Hier kommt bald Neues dazu" message="Sobald neue Orte in dieser Gegend auf Backyrd sind, findest du sie hier." /></View>}
             </View>
           ) : null}
@@ -255,7 +262,7 @@ export default function HomeScreen() {
               <AppText role="sectionTitle">{activeRecent.query}</AppText>
             </View></View>
             {recentError ? <View style={styles.stateWrap}><StateView kind="error" title="Deine Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
-              : recentSpots.length ? <HomeSpotRail spots={recentSpots} moods={spotMoods} moodCounts={moodCounts} location={currentLocation} label={`Deine letzte Suche: ${activeRecent.query}`} />
+              : recentSpots.length ? <HomeSpotRail spots={recentSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label={`Deine letzte Suche: ${activeRecent.query}`} />
               : <View style={styles.stateWrap}><StateView kind="empty" title="Keine Orte zum Anzeigen" message="Zu dieser Suche sind gerade keine Orte verfügbar." /></View>}
           </View> : null}
         </ScrollView>

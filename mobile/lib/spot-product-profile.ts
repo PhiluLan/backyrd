@@ -66,8 +66,9 @@ export function spotProductOpeningHours(profile: SpotProductProfile): SpotProduc
   return rows;
 }
 
-export async function getMobileSpotProductProfile(spotId: string): Promise<SpotProductProfile | null> {
-  const { data, error } = await supabase.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "MOBILE" });
+export async function getMobileSpotProductProfile(spotId: string, signal?: AbortSignal): Promise<SpotProductProfile | null> {
+  const request = supabase.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "MOBILE" });
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
   if (error) throw error;
   if (!data || data.contractVersion !== "backyrd.spot-detail-product-profile@1.0" || data.surface !== "MOBILE"
     || !data.spot || typeof data.spot !== "object" || typeof data.spot.name !== "string"

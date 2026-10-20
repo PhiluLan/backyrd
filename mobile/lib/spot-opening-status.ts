@@ -20,12 +20,12 @@ function minutes(value: string | null) {
  * Presentation-only opening state. It never changes availability or ranking;
  * unknown data stays unknown rather than being presented as closed.
  */
-export function spotOpeningStatusNow(rows: SpotHoursRow[], now = new Date()): SpotOpeningStatus {
+export function spotOpeningStatusNow(rows: SpotHoursRow[], now = new Date(), missingDayIsUnknown = false): SpotOpeningStatus {
   const today = DAYS[now.getDay()];
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const todayRows = rows.filter((row) => row.day_of_week === today);
 
-  if (!todayRows.length) return rows.length ? "closed" : "unknown";
+  if (!todayRows.length) return missingDayIsUnknown ? "unknown" : rows.length ? "closed" : "unknown";
 
   for (const row of todayRows) {
     const open = minutes(row.open_time);
