@@ -59,3 +59,22 @@ matter to their actual service. Core availability, privacy, authorization,
 communication honesty and recovery cannot be waived to improve a comparison.
 Only after core workflows pass and remaining differences are explicitly named
 may we make the limited practical comparison requested by the founder.
+
+## Integration checkpoint: 2026-10-20
+
+Weekly planning is reviewable in PR #557; team access is a dependent draft in
+PR #558. The weekly planning classification gate currently blocks integration
+because `booking_console_save_closure_v1` intentionally deletes a selected
+closure configuration when its operator confirms removal. It does not delete
+reservations or guest records, and it records the removed configuration in the
+audit log. Separate, narrowly scoped Founder authorization for this deletion
+has been requested and has not yet been received. Do not bypass or weaken the
+classifier, infer authorization from the general development mandate, or merge
+with a failing required gate. Archival is an alternative if selected by the
+founder; published migration history and release evidence must be preserved.
+Production activation is a separate outstanding decision.
+
+The team candidate passed 65 browser journeys, TypeScript, contracts, CI tests,
+lint and production build, plus the canonical 197-migration database validation
+including Safety/RLS and real concurrent revocation tests. This is implemented
+and locally verified evidence, not production delivery or restaurant acceptance.
