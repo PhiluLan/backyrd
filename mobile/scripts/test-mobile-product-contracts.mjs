@@ -6,6 +6,7 @@ import ts from "typescript";
 import "./test-spot-product-presentation.mjs";
 import "./test-nearby-discovery.mjs";
 import "./test-discovery-opening-hours.mjs";
+import "./test-app-experience.mjs";
 import "./test-recent-decision-search.mjs";
 import "./test-spot-address-presentation.mjs";
 import "./test-supabase-runtime-config.mjs";
@@ -284,7 +285,7 @@ assert.match(homeRail, /HOME_RAIL/, "Spots must use the shared Home rail contrac
 assert.match(homeRail, /snapToInterval/, "Spots must use the shared Home rail snap contract");
 assert.match(home, /getPrivacySafeLocation\(\{ purpose: "nearby_discovery", requestPermission: false/, "Home must never prompt for location merely to decorate a card");
 assert.match(homeRail, /<OpeningStatusBadge status=\{openingStatuses\[spot\.id\] \?\? "unknown"\}/, "Home cards must show the canonical projection status, never unchecked legacy hours");
-assert.match(home, /loadDiscoveryOpeningStatuses/, "all Home rails must load the Place Detail hours projection");
+assert.match(home, /loadDiscoveryOpeningSchedules/, "all Home rails must load the Place Detail hours projection");
 assert.match(fs.readFileSync(new URL("../components/spot/OpeningStatusBadge.tsx", import.meta.url), "utf8"), /SPOT_OPENING_STATUS_COPY\[status\]/, "Shared status badges must use canonical opening-status copy");
 assert.match(homeRail, /spot\.category_name.*spot\.address/, "Home cards must fall back to the address when no current location is available");
 assert.match(spotOpeningStatus, /openingSoon: "Öffnet bald"/, "opening-soon status must remain explicit");

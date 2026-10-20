@@ -46,13 +46,13 @@ const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url
 const token = `${encode({ alg: "none", typ: "JWT" })}.${encode({ sub: subject, exp: now + 3600, role: "authenticated", aud: "authenticated" })}.synthetic-only`;
 const user = { id: subject, aud: "authenticated", role: "authenticated", is_anonymous: false, user_metadata: {}, app_metadata: {}, created_at: new Date(now * 1000).toISOString() };
 const session = { access_token: token, refresh_token: "synthetic-refresh", expires_in: 3600, expires_at: now + 3600, token_type: "bearer", user };
-const state = { consent: false, unavailable: false, allowSyntheticMoment: false, worldName: "Café Vorher", worldVersion: 1, decisions: [], interactions: [], unexpectedRemote: [] };
+const state = { locked: false, favoriteFail: false, visibilityFail: false, placeUnavailable: false, favoriteWrites: 0, consent: false, unavailable: false, allowSyntheticMoment: false, worldName: "Café Vorher", worldVersion: 1, decisions: [], interactions: [], unexpectedRemote: [] };
 const spots = [
-  { spotId: "spot-cafe-one", name: () => state.worldName, rank: 1 },
-  { spotId: "spot-cafe-two", name: () => "Café Alternative", rank: 2 },
-  { spotId: "spot-cafe-three", name: () => "Café Dritte Wahl", rank: 3 },
-  { spotId: "spot-cafe-four", name: () => "Café Vierte Wahl", rank: 4 },
-  { spotId: "spot-cafe-five", name: () => "Café Fünfte Wahl", rank: 5 },
+  { spotId: "22222222-2222-4222-a222-000000000001", name: () => state.worldName, rank: 1 },
+  { spotId: "22222222-2222-4222-a222-000000000002", name: () => "Café Alternative", rank: 2 },
+  { spotId: "22222222-2222-4222-a222-000000000003", name: () => "Café Dritte Wahl", rank: 3 },
+  { spotId: "22222222-2222-4222-a222-000000000004", name: () => "Café Vierte Wahl", rank: 4 },
+  { spotId: "22222222-2222-4222-a222-000000000005", name: () => "Café Fünfte Wahl", rank: 5 },
 ];
 const candidate = (spot) => {
   const sourceHash = hash({ spotId: spot.spotId, worldVersion: state.worldVersion });
@@ -104,20 +104,27 @@ try {
       }
       return route.abort("blockedbyclient");
     }
-    if (path === "/rest/v1/rpc/get_social_feed_v2") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{post_id:"moment-visible",user_id:subject,spot_id:"spot-cafe-one",spot_name:state.worldName,spot_city:"Bern",category_name:"Café",mood_tags:["Gemütlich","Ruhig"],caption:"Ein Kaffee am Fenster",created_at:new Date().toISOString(),media:[]},{post_id:"moment-hidden",user_id:subject,spot_id:"spot-cafe-two",spot_name:"Verborgener Ort",spot_city:"Bern",mood_tags:["Laut"],created_at:new Date().toISOString(),media:[]}])});
+    if (path === "/rest/v1/rpc/get_social_feed_v2") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{post_id:"moment-visible",user_id:subject,spot_id:"22222222-2222-4222-a222-000000000001",spot_name:state.worldName,spot_city:"Bern",category_name:"Café",mood_tags:["Gemütlich","Ruhig"],caption:"Ein Kaffee am Fenster",created_at:new Date().toISOString(),media:[]},{post_id:"moment-hidden",user_id:subject,spot_id:"22222222-2222-4222-a222-000000000002",spot_name:"Verborgener Ort",spot_city:"Bern",mood_tags:["Laut"],created_at:new Date().toISOString(),media:[]}])});
     if (path === "/rest/v1/rpc/safety_visible_social_post_ids_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(["moment-visible"])});
     if (path === "/rest/v1/rpc/safety_visible_entity_ids_v1") {
+      if (state.visibilityFail && JSON.parse(request.postData() ?? "{}").p_entity_type === "review") return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "synthetic safety outage" }) });
       const body=JSON.parse(request.postData()??"{}");
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(body.p_entity_type === "profile" ? [subject] : [])});
     }
-    if (path === "/rest/v1/spots" && url.searchParams.get("select")?.includes("categories(name)")) {
+    if (path === "/rest/v1/reviews" && state.visibilityFail) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ id: "unsafe-moment", text: "MUST NEVER BE DISPLAYED", created_at: new Date().toISOString(), profiles: { id: subject, first_name: "Fixture" }, review_photos: [] }]) });
+    if (path === "/rest/v1/favorites") {
+      if (["POST", "DELETE"].includes(request.method())) { state.favoriteWrites++; return route.fulfill({ status: state.favoriteFail ? 403 : 201, contentType: "application/json", body: state.favoriteFail ? JSON.stringify({ message: "synthetic denied write" }) : "[]" }); }
+      return route.fulfill({ status: 200, contentType: "application/json", body: "null" });
+    }
+    if (path === "/rest/v1/spots" && (url.searchParams.get("select")?.includes("categories(name)") || url.searchParams.get("select")?.includes("spot_hours"))) {
       const ids = url.searchParams.get("id");
-      const rows = spots.filter(spot => !ids || ids.includes(spot.spotId)).map((spot,index)=>({id:spot.spotId,name:spot.name(),city:"Bern",address:"Testgasse 1",lat:46.94,lng:7.44,status:"approved",created_at:new Date(Date.UTC(2026,0,index+1)).toISOString(),categories:{name:"Café"},spot_hours:[]}));
+      const rows = spots.filter(spot => !ids || ids.includes(spot.spotId)).map((spot,index)=>({id:spot.spotId,name:spot.name(),city:"Bern",address:"Testgasse 1",lat:46.94,lng:7.44,status:"approved",created_at:new Date(Date.UTC(2026,0,index+1)).toISOString(),categories:{name:"Café"},spot_photos:[],spot_hours:[]}));
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(rows.reverse())});
     }
     if (path === "/rest/v1/spots" && url.searchParams.get("id")?.startsWith("eq.")) return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({id:url.searchParams.get("id").replace("eq.",""),name:state.worldName,address:"Testgasse 1",city:"Bern",lat:46.94,lng:7.44})});
     if (path === "/rest/v1/rpc/spot_detail_product_profile_v1") {
       const { p_spot_id: id } = JSON.parse(request.postData() ?? "{}");
+      if (state.placeUnavailable) return route.fulfill({status:200,contentType:"application/json",body:"null"});
       const place=spots.find(spot=>spot.spotId===id);
       const regularHours=["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"].map(day=>({day,intervals:id===spots[0].spotId?[]:[{start:"00:00",end:"23:59"}]}));
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({contractVersion:"backyrd.spot-detail-product-profile@1.0",surface:"MOBILE",worldManifestHash:"canonical-hours-fixture",spot:{spotId:id,name:place?.name()??state.worldName,addressLine1:"Testgasse 1",locality:"Bern",countryCode:"CH",latitude:46.94,longitude:7.44,regularHours,source:"WORLD_KNOWLEDGE",headerPhotoPath:null},fields:[{attributeKey:"hours.regular",sectionKey:"hours",sortOrder:1,scope:"SPOT",knowledgeState:"KNOWN_VALUE",value:regularHours,trust:"CONFIRMED",freshness:"CURRENT"}]})});
@@ -143,9 +150,14 @@ try {
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(session) });
     }
     if (path === "/auth/v1/user") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(user) });
-    if (path.includes("/rest/v1/rpc/safety_user_enforcement_summary_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ active_points: 0, confirmed_violations: 0, active_measure_type: null, active_measure_ends_at: null, can_write: true, requires_account_review: false }]) });
+    if (path.includes("/rest/v1/rpc/safety_user_enforcement_summary_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ active_points: 0, confirmed_violations: 0, active_measure_type: state.locked ? "account_restricted" : null, active_measure_ends_at: null, can_write: !state.locked, requires_account_review: false }]) });
     if (path.includes("/rest/v1/rpc/get_my_legal_gate_status_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ gate_required: false }]) });
     if (path.includes("/rest/v1/rpc/get_my_product_entry_status_v1")) return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ loggedIn: true, userId: subject, profileBasicsComplete: true, tasteOnboardingComplete: true, personalizationConsentValid: true, canEnterDecision: true, needsProfileOnboarding: false, needsDecisionOnboarding: false, semanticContractVersion: "synthetic", nextRoute: "/(tabs)" }]) });
+    if (path === "/rest/v1/event_discovery_v1") {
+      const detail = url.searchParams.get("event_id") === "eq.33333333-3333-4333-a333-333333333333" && !url.searchParams.has("start_at");
+      const event = {event_id:"33333333-3333-4333-a333-333333333333",occurrence_id:"44444444-4444-4444-a444-444444444444",source:"MANUAL",source_event_id:"fixture",title:"Open Court Testevent",short_description:"Ein synthetischer abgesagter Termin.",category:"COMMUNITY",categories:["COMMUNITY"],event_status:"CANCELLED",occurrence_status:"CANCELLED",start_at:"2026-10-24T16:00:00Z",end_at:"2026-10-24T18:00:00Z",venue_name:"Testhalle",address_line:"Testgasse 2",city:"Basel",country_code:"CH",latitude:47.56,longitude:7.59,matched_spot_id:null,is_free:true,source_url:"https://example.org/event",ticket_url:"https://example.org/ticket",updated_at:"2026-10-20T10:00:00Z"};
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(detail ? event : [])});
+    }
     if (path === "/rest/v1/profiles") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([{ city: "Bern" }]) });
     if (path === "/functions/v1/decision-v13") {
       assert.match(request.headers().authorization ?? "", /^Bearer\s+\S+$/);
@@ -184,6 +196,10 @@ try {
   assert.equal(await page.getByRole("button",{name:"Urban entfernen",exact:true}).count(),1,"place choice preserves second Mood");
   assert.equal(await page.getByRole("button",{name:"Moment teilen",exact:true}).isEnabled(),true);
   assert.equal(momentPublishes,0,"two Mood selections and place matching never publish automatically");
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByRole("button",{name:"Moment schließen",exact:true}).click();
+  await page.getByRole("button",{name:"Gemütlich entfernen",exact:true}).waitFor();
+  page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button",{name:"Moment schließen",exact:true}).click();
   await page.getByRole("textbox",{name:"Was hast du heute vor?",exact:true}).waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
@@ -268,8 +284,8 @@ try {
   await page.getByText("Nach deinen Vorlieben ausgewählt",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("textbox", { name: "Was hast du heute vor?", exact: true }).waitFor();
-  await page.getByText("Wohin", { exact: true }).last().click();
+  // A refresh now preserves the current route instead of remounting Home.
+  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).waitFor();
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("ruhiges Café nach Reload");
   await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
@@ -328,9 +344,41 @@ try {
   await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).waitFor();
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-place-390.png`});
   // A direct visit has no personalized rationale, even for the same place.
-  await page.goto(`${appUrl}/spot/spot-cafe-one`,{waitUntil:"domcontentloaded"});
+  await page.goto(`${appUrl}/spot/22222222-2222-4222-a222-000000000001`,{waitUntil:"domcontentloaded"});
   await page.getByText("Café Aktualisiert",{exact:true}).first().waitFor();
   assert.equal(await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).count(),0);
+
+  await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
+  assert.match(page.url(), /\/spot\/22222222/);
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/direct-place-390.png`});
+  // A failed write never turns the save heart into a successful state.
+  state.favoriteFail = true;
+  const [deniedFavorite] = await Promise.all([
+    page.waitForResponse(response => response.url().includes("/rest/v1/favorites") && response.request().method() === "POST"),
+    page.getByRole("button",{name:"Ort speichern",exact:true}).click(),
+  ]);
+  assert.equal(deniedFavorite.status(),403);
+  await page.getByRole("button",{name:"Ort speichern",exact:true}).waitFor();
+  state.favoriteFail = false;
+  await page.getByRole("button",{name:"Ort speichern",exact:true}).click();
+  await page.getByRole("button",{name:"Ort nicht mehr speichern",exact:true}).waitFor();
+  assert.equal(state.favoriteWrites,2);
+  state.visibilityFail = true;
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.getByText("Momente konnten nicht geladen werden",{exact:true}).waitFor();
+  assert.equal(await page.getByText("MUST NEVER BE DISPLAYED",{exact:true}).count(),0,"a visibility outage fails closed");
+  state.visibilityFail = false;
+  state.placeUnavailable = true;
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.getByText("Ort gerade nicht verfügbar",{exact:true}).waitFor();
+  state.placeUnavailable = false;
+  await page.getByRole("button",{name:"Erneut laden",exact:true}).first().click();
+  await page.getByText("Café Aktualisiert",{exact:true}).first().waitFor();
+  await page.goto(`${appUrl}/search?search=Alternative`,{waitUntil:"domcontentloaded"});
+  await page.getByRole("textbox",{name:"Orte suchen",exact:true}).waitFor();
+  assert.equal(await page.getByRole("textbox",{name:"Orte suchen",exact:true}).inputValue(),"Alternative");
+  await page.getByRole("button",{name:"Café Alternative öffnen",exact:true}).waitFor();
+  assert.equal(await page.getByRole("button",{name:"Café Aktualisiert öffnen",exact:true}).count(),0);
 
   // Explicit sharing reaches the common confirmation only after successful synthetic finalization.
   await page.goto(appUrl,{waitUntil:"domcontentloaded"});
@@ -360,10 +408,42 @@ try {
   await loginPage.goto(`${appUrl}/auth/login`, { waitUntil: "domcontentloaded" });
   await loginPage.getByLabel("E-Mail", { exact: true }).fill("synthetic@example.invalid");
   await loginPage.getByLabel("Passwort", { exact: true }).fill("synthetic-password");
+  await loginPage.getByRole("button",{name:"Passwort anzeigen",exact:true}).click();
+  assert.equal(await loginPage.getByLabel("Passwort", { exact: true }).evaluate(node => node.type),"text");
+  await loginPage.getByRole("button",{name:"Passwort verbergen",exact:true}).click();
+  assert.equal(await loginPage.getByLabel("Passwort", { exact: true }).evaluate(node => node.type),"password");
   await loginPage.getByText("Einloggen", { exact: true }).last().click();
   await loginPage.waitForFunction(() => window.localStorage.getItem("sb-example-auth-token") !== null);
   assert.equal(passwordLogins, 1);
+  const recoveryPage = await loginContext.newPage();
+  await recoveryPage.goto(`${appUrl}/auth/forgot-password`,{waitUntil:"domcontentloaded"});
+  await recoveryPage.getByRole("button",{name:"Link senden",exact:true}).waitFor();
+  await recoveryPage.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
+  for (const [width,height] of [[320,568],[430,932]]) {
+    await recoveryPage.setViewportSize({width,height});
+    assert.equal(await recoveryPage.evaluate(()=>document.documentElement.scrollWidth-document.documentElement.clientWidth),0);
+    if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await recoveryPage.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/password-recovery-${width}.png`});
+  }
   await loginContext.close();
+
+  await page.goto(`${appUrl}/events/33333333-3333-4333-a333-333333333333`,{waitUntil:"domcontentloaded"});
+  await page.getByText("Open Court Testevent",{exact:true}).waitFor();
+  await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
+  await page.getByRole("button",{name:"Route zum Event",exact:true}).waitFor();
+  await page.getByRole("link",{name:"Infos zur Absage",exact:true}).waitFor();
+  assert.equal(await page.getByText("Tickets ansehen",{exact:true}).count(),0);
+  await page.getByRole("button",{name:"Event teilen",exact:true}).waitFor();
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/cancelled-event-390.png`});
+
+  // Safety still blocks interaction and screen-reader targets while navigation stays mounted.
+  state.locked = true;
+  await page.goto(`${appUrl}/spot/22222222-2222-4222-a222-000000000001`,{waitUntil:"domcontentloaded"});
+  await page.getByText("Dein Backyrd-Account ist gesperrt",{exact:true}).waitFor();
+  await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
+  assert.equal(await page.getByRole("button",{name:"Ort speichern",exact:true}).count(),0,"locked content is inaccessible behind the safety overlay");
+  state.locked = false;
+  await page.reload({waitUntil:"domcontentloaded"});
+  await page.getByRole("button",{name:"Ort speichern",exact:true}).waitFor();
 
   const guestContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await guestContext.route(`${endpoint}/**`, remoteFixture);
@@ -374,7 +454,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
 } catch (error) {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
     for (const ctx of browser.contexts()) for (const [index, tab] of ctx.pages().entries()) await tab.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/failure-${index}.png`}).catch(()=>undefined);

@@ -111,7 +111,7 @@ export default function PrivacyDataRightsScreen() {
   function confirmDeletion() {
     Alert.alert(
       "Konto wirklich löschen?",
-      "Die Löschung wird zunächst für 14 Tage vorgemerkt. Während dieser Frist kannst du sie hier stornieren. Danach folgt eine kontrollierte Prüfung von Spot-Ownership, Safety-Daten und Inhalten.",
+      "Die Löschung wird zunächst für 14 Tage vorgemerkt. Während dieser Frist kannst du sie hier stornieren. Danach folgt eine kontrollierte Prüfung von Verantwortlichkeiten für Orte, Sicherheitsdaten und Inhalten.",
       [
         { text: "Abbrechen", style: "cancel" },
         {
@@ -137,7 +137,7 @@ export default function PrivacyDataRightsScreen() {
     } catch (error: any) {
       const message =
         error?.message?.includes("admin_account_requires_manual_transfer")
-          ? "Dieses Konto besitzt Admin-Rechte. Vor einer Löschung müssen Admin-Zugänge und Spot-Verantwortlichkeiten manuell übertragen werden."
+          ? "Dieses Konto besitzt Admin-Rechte. Vor einer Löschung müssen Admin-Zugänge und Verantwortlichkeiten für Orte manuell übertragen werden."
           : "Die Löschanfrage konnte gerade nicht erstellt werden. Bitte versuche es erneut.";
 
       Alert.alert("Löschung nicht vorgemerkt", message);
@@ -238,7 +238,7 @@ export default function PrivacyDataRightsScreen() {
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>Datenexport</Text>
                 <Text style={styles.cardText}>
-                  Erstellt eine JSON-Datei mit Profil, Reviews, Momenten,
+                  Erstellt eine JSON-Datei mit Profil, Eindrücken, Momenten,
                   Nachrichten, Decisions, Analytics und Einwilligungen.
                 </Text>
               </View>
@@ -291,7 +291,7 @@ export default function PrivacyDataRightsScreen() {
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>Konto und Daten löschen</Text>
                 <Text style={styles.cardText}>
-                  Die Anfrage erhält eine 14-tägige Sicherheitsfrist. Spot-
+                  Die Anfrage erhält eine 14-tägige Sicherheitsfrist. Orts-
                   Ownership, öffentlich relevante Inhalte und Safety-Daten
                   werden anschließend kontrolliert behandelt.
                 </Text>

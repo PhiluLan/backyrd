@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type TextInputProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -32,13 +32,15 @@ export function AuthScreen({ eyebrow, title, description, children, backTo = "/g
   );
 }
 
-export function AuthField({ label, ...props }: TextInputProps & { label: string }) {
-  return (
-    <View style={styles.field}>
-      <AppText role="label" tone="secondary" style={styles.fieldLabel}>{label}</AppText>
-      <ProductTextInput {...props} accessibilityLabel={label} maxFontSizeMultiplier={1.3} placeholderTextColor={theme.color.textMuted} style={styles.input} />
+export function AuthField({ label, secureTextEntry, style, ...props }: TextInputProps & { label: string }) {
+  const [revealed, setRevealed] = useState(false);
+  return <View style={styles.field}>
+    <AppText role="label" tone="secondary" style={styles.fieldLabel}>{label}</AppText>
+    <View style={{ position: "relative" }}>
+      <ProductTextInput {...props} accessibilityLabel={label} secureTextEntry={Boolean(secureTextEntry && !revealed)} placeholderTextColor={theme.color.textMuted} style={[styles.input, secureTextEntry && { paddingRight: 56 }, style]} />
+      {secureTextEntry ? <Pressable accessibilityRole="button" accessibilityLabel={revealed ? "Passwort verbergen" : "Passwort anzeigen"} accessibilityState={{ selected: revealed }} onPress={() => setRevealed(value => !value)} style={{ position: "absolute", right: 4, top: 4, minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name={revealed ? "eye-off-outline" : "eye-outline"} size={22} color={theme.color.textSecondary} /></Pressable> : null}
     </View>
-  );
+  </View>;
 }
 
 export function AuthSubmit({ label, loading, disabled, onPress }: { label: string; loading: boolean; disabled: boolean; onPress: () => void }) {

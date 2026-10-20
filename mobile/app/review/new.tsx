@@ -1,3 +1,4 @@
+import { useUnsavedMoment } from "../../hooks/useUnsavedMoment";
 import { MomentShared } from "../../components/reviews/MomentShared";
 import React, { useEffect, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, ActivityIndicator, Alert, AccessibilityInfo, KeyboardAvoidingView, ScrollView, Platform } from "react-native";
@@ -89,6 +90,7 @@ export default function NewReviewScreen() {
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
   const mediaReady = photos.length === 0 || photos.every((photo) => Boolean(photo.prepared));
   const hasContent = Boolean(moodA.trim() || moodB.trim() || text.trim() || photos.length);
+  useUnsavedMoment(hasContent && !shared && unlockedAchievements.length === 0, uploading);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));

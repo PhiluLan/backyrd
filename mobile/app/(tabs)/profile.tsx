@@ -732,7 +732,7 @@ export default function ProfileScreen() {
                   <View style={styles.emptyState}>
                     <Ionicons name="bookmark-outline" size={34} color="rgba(255,255,255,0.42)" />
                     <Text style={styles.emptyTitle}>Noch keine Favoriten</Text>
-                    <Text style={styles.emptyText}>Gemerkte Spots landen hier.</Text>
+                    <Text style={styles.emptyText}>Hier findest du deine gespeicherten Orte.</Text>
                   </View>
                 ) : (
                   favorites.map((item) => (
@@ -744,13 +744,13 @@ export default function ProfileScreen() {
                         router.push(`/spot/${item.spot_id}` as any);
                       }}
                     >
-                      <SpotArtwork imageUrl={getSpotPhoto(item)} spotId={item.spot_id} spotName={item.spots?.name ?? "Spot"} showFallbackName={false} style={styles.favoriteImage} />
+                      <SpotArtwork imageUrl={getSpotPhoto(item)} spotId={item.spot_id} spotName={item.spots?.name ?? "Ort"} showFallbackName={false} style={styles.favoriteImage} />
                       <LinearGradient
                         colors={["transparent", "rgba(0,0,0,0.88)"]}
                         style={StyleSheet.absoluteFill}
                       />
                       <View style={styles.favoriteContent}>
-                        <Text style={styles.favoriteTitle}>{item.spots?.name ?? "Spot"}</Text>
+                        <Text style={styles.favoriteTitle}>{item.spots?.name ?? "Ort"}</Text>
                         {!!item.spots?.city && <Text style={styles.favoriteMeta}>{item.spots.city}</Text>}
                       </View>
                     </Pressable>

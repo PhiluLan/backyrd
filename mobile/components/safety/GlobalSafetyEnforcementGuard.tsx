@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import React, { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { Alert, AppState, type AppStateStatus, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Platform, AppState, type AppStateStatus, Pressable, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -151,12 +151,16 @@ export default function GlobalSafetyEnforcementGuard({
     }
   }
 
-  if (isFullAccountLock && !isSafetyRoute) {
-    return (
-      <View style={{ flex: 1 }}>
+  const checkingSafety = loading && signedIn && status === null;
+  const blocking = checkingSafety || (isFullAccountLock && !isSafetyRoute);
+  const webBlockProps = Platform.OS === "web" ? { inert: blocking } : {};
+  return (
+    <View style={{ flex: 1 }}>
+      <View {...webBlockProps} aria-hidden={blocking} style={{ flex: 1 }} pointerEvents={blocking ? "none" : "auto"} accessibilityElementsHidden={blocking} importantForAccessibility={blocking ? "no-hide-descendants" : "auto"}>
         {children}
-
-        <SafeAreaView
+      </View>
+      {checkingSafety ? <View accessibilityViewIsModal pointerEvents="auto" style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]}><ProductLoading label="Sicherheit wird geprüft" /></View> : null}
+      {isFullAccountLock && !isSafetyRoute ? <SafeAreaView accessibilityViewIsModal aria-modal
           style={[
             StyleSheet.absoluteFillObject,
             styles.lockRoot,
@@ -186,7 +190,7 @@ export default function GlobalSafetyEnforcementGuard({
               Dein Konto ist vorübergehend gesperrt. Im Safety Center kannst du sehen, warum diese Maßnahme gilt, wie lange sie dauert und ob du die Entscheidung anfechten kannst.
             </Text>
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() =>
                 router.push("/safety/account-status" as any)
               }
@@ -202,7 +206,7 @@ export default function GlobalSafetyEnforcementGuard({
               </Text>
             </Pressable>
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() => void signOut()}
               style={styles.secondaryButton}
             >
@@ -216,16 +220,9 @@ export default function GlobalSafetyEnforcementGuard({
               </Text>
             </Pressable>
           </View>
-        </SafeAreaView>
-      </View>
-    );
-  }
-
-  if (loading && signedIn && status === null) {
-    return <ProductLoading label="Sicherheit wird geprüft" />;
-  }
-
-  return <>{children}</>;
+        </SafeAreaView> : null}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
