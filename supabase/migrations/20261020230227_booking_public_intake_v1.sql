@@ -185,6 +185,16 @@ create function public.booking_guest_read_v1(p_reservation_id uuid,p_key_hash te
 language plpgsql security definer set search_path='' as $$ declare r public.booking_reservations%rowtype; begin
  r:=booking_private.authorize_guest_v1(p_reservation_id,p_key_hash); return booking_private.guest_receipt_v1(r);
 end $$;
+-- Read-only outcome recovery requires the original guest capability, not mail
+-- readiness or another human challenge. It never creates or resubmits a booking.
+create function public.booking_guest_recover_v1(p_spot_id uuid,p_request_id uuid,p_key_hash text) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare reservation uuid; r public.booking_reservations%rowtype; begin
+ select reservation_id into reservation from booking_private.reservation_requests_v2 where spot_id=p_spot_id and request_id=p_request_id and request_kind='guest_create';
+ if not found then raise exception 'booking_guest_link_unavailable' using errcode='P0002'; end if;
+ r:=booking_private.authorize_guest_v1(reservation,p_key_hash);
+ return booking_private.guest_receipt_v1(r);
+end $$;
 create function public.booking_guest_cancel_v1(p_reservation_id uuid,p_key_hash text,p_request_id uuid,p_expected_revision bigint) returns jsonb
 language plpgsql security definer set search_path='' as $$
 declare r public.booking_reservations%rowtype; changed public.booking_reservations%rowtype; previous booking_private.reservation_requests_v2%rowtype; fingerprint text; result jsonb; begin
@@ -224,6 +234,6 @@ create trigger booking_guest_access_sync after update on public.booking_reservat
 revoke all on function booking_private.public_policy_v1(uuid),booking_private.public_choices_v1(uuid,date,integer,timestamptz),booking_private.guest_receipt_v1(public.booking_reservations),booking_private.authorize_guest_v1(uuid,text),booking_private.sync_guest_access_v1() from public,anon,authenticated;
 revoke all on function public.booking_console_public_settings_v1(uuid),public.booking_console_save_public_settings_v1(uuid,bigint,boolean,uuid[],integer,integer,integer,text,text,text) from public,anon,authenticated;
 grant execute on function public.booking_console_public_settings_v1(uuid),public.booking_console_save_public_settings_v1(uuid,bigint,boolean,uuid[],integer,integer,integer,text,text,text) to authenticated;
-revoke all on function public.booking_guest_availability_v1(uuid,date,integer),public.booking_guest_create_v1(uuid,uuid,bigint,timestamptz,integer,text,text,text,text,text),public.booking_guest_read_v1(uuid,text),public.booking_guest_cancel_v1(uuid,text,uuid,bigint) from public,anon,authenticated;
-grant execute on function public.booking_guest_availability_v1(uuid,date,integer),public.booking_guest_create_v1(uuid,uuid,bigint,timestamptz,integer,text,text,text,text,text),public.booking_guest_read_v1(uuid,text),public.booking_guest_cancel_v1(uuid,text,uuid,bigint) to service_role;
+revoke all on function public.booking_guest_availability_v1(uuid,date,integer),public.booking_guest_create_v1(uuid,uuid,bigint,timestamptz,integer,text,text,text,text,text),public.booking_guest_read_v1(uuid,text),public.booking_guest_recover_v1(uuid,uuid,text),public.booking_guest_cancel_v1(uuid,text,uuid,bigint) from public,anon,authenticated;
+grant execute on function public.booking_guest_availability_v1(uuid,date,integer),public.booking_guest_create_v1(uuid,uuid,bigint,timestamptz,integer,text,text,text,text,text),public.booking_guest_read_v1(uuid,text),public.booking_guest_recover_v1(uuid,uuid,text),public.booking_guest_cancel_v1(uuid,text,uuid,bigint) to service_role;
 commit;

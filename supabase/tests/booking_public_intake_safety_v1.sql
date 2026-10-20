@@ -57,7 +57,7 @@ do $$ begin
 end $$;
 reset role;
 do $$ declare f record; t text; begin
- for f in select p.oid,p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('booking_guest_availability_v1','booking_guest_create_v1','booking_guest_read_v1','booking_guest_cancel_v1') loop
+ for f in select p.oid,p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('booking_guest_availability_v1','booking_guest_create_v1','booking_guest_read_v1','booking_guest_recover_v1','booking_guest_cancel_v1') loop
   perform pg_temp.booking_assert(not has_function_privilege('anon',f.oid,'execute'),'anonymous direct guest RPC: '||f.proname);
   perform pg_temp.booking_assert(not has_function_privilege('authenticated',f.oid,'execute'),'authenticated direct guest RPC: '||f.proname);
   perform pg_temp.booking_assert(has_function_privilege('service_role',f.oid,'execute'),'service channel missing: '||f.proname);
@@ -79,6 +79,7 @@ set local role service_role;
 select pg_temp.deny_rpc('select pg_temp.public_create()','SAFETY_WRITE_RESTRICTED');
 select pg_temp.deny_rpc('select public.booking_guest_availability_v1(pg_temp.booking_id(''spot-a''),(now() at time zone ''Europe/Zurich'')::date+1,2)','SAFETY_WRITE_RESTRICTED');
 select pg_temp.deny_rpc('select public.booking_guest_read_v1(current_setting(''booking.test.guest_id'')::uuid,repeat(''a'',64))','SAFETY_WRITE_RESTRICTED');
+select pg_temp.deny_rpc('select public.booking_guest_recover_v1(pg_temp.booking_id(''spot-a''),pg_temp.booking_id(''request''),repeat(''a'',64))','SAFETY_WRITE_RESTRICTED');
 reset role;
 update public.safety_account_measures set status='revoked' where user_id=pg_temp.booking_id('booking-owner') and reason_code='booking_public_fixture';
 set local role service_role;

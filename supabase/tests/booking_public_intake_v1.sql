@@ -80,13 +80,15 @@ select public.booking_console_save_public_settings_v1(pg_temp.booking_id('spot-a
 set local role service_role;
 select pg_temp.booking_assert(pg_temp.guest_create('guest-one',repeat('a',64))=:'created'::jsonb,'pause prevented proven successful creation replay');
 select pg_temp.booking_assert(public.booking_guest_read_v1((:'created'::jsonb->>'id')::uuid,repeat('a',64))->>'status'='confirmed','paused intake hid own booking');
+select pg_temp.booking_assert(public.booking_guest_recover_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('guest-one'),repeat('a',64))->>'status'='confirmed','paused intake blocked credential-bound outcome recovery');
 do $$ begin
  begin perform public.booking_guest_availability_v1(pg_temp.booking_id('spot-a'),(now() at time zone 'Europe/Zurich')::date+1,6); raise exception 'paused public intake remained open'; exception when no_data_found then if sqlerrm<>'booking_public_unavailable' then raise; end if; end;
- begin perform public.booking_guest_read_v1((select id from public.booking_reservations where request_id=pg_temp.booking_id('guest-one')),repeat('b',64)); raise exception 'wrong key accepted'; exception when no_data_found then if sqlerrm<>'booking_guest_link_unavailable' then raise; end if; end;
+ begin perform public.booking_guest_recover_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('guest-one'),repeat('b',64)); raise exception 'wrong key accepted'; exception when no_data_found then if sqlerrm<>'booking_guest_link_unavailable' then raise; end if; end;
 end $$;
 select public.booking_guest_cancel_v1((:'created'::jsonb->>'id')::uuid,repeat('a',64),pg_temp.booking_id('cancel'),0) as cancelled \gset
 select public.booking_guest_cancel_v1((:'created'::jsonb->>'id')::uuid,repeat('a',64),pg_temp.booking_id('cancel'),0) as cancelled_again \gset
 select pg_temp.booking_assert(:'cancelled'::jsonb=:'cancelled_again'::jsonb and :'cancelled'::jsonb->>'status'='cancelled','cancel replay changed outcome');
+select pg_temp.booking_assert(public.booking_guest_recover_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('guest-one'),repeat('a',64))->>'status'='cancelled','recovery returned an obsolete creation status');
 reset role;
 select pg_temp.booking_assert((select count(*) from booking_private.guest_mail_outbox_v1 where spot_id=pg_temp.booking_id('spot-a'))=2,'cancel/replay duplicated mail intent');
 select pg_temp.booking_assert(not exists(select 1 from booking_private.reservation_allocations_v1 where reservation_id=(:'created'::jsonb->>'id')::uuid and is_active and status<>'cancelled'),'guest cancellation did not release all members');
