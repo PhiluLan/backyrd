@@ -6,6 +6,19 @@ import styles from "./console.module.css";
 
 const weekdays = [[1, "Mo"], [2, "Di"], [3, "Mi"], [4, "Do"], [5, "Fr"], [6, "Sa"], [0, "So"]] as const;
 
+// Keep editable text separate from the numeric RPC contract. An empty field is
+// an unfinished draft, not zero; native form validation runs before submit.
+type SetupDraft = Omit<BookingSetup, "duration_minutes" | "max_party_size" | "tables"> & {
+  duration_minutes: string;
+  max_party_size: string;
+  tables: (Omit<BookingSetup["tables"][number], "seats"> & { seats: string })[];
+};
+
+function editableSetup(snapshot: BookingSnapshot): SetupDraft {
+  const setup = setupFromSnapshot(snapshot);
+  return { ...setup, duration_minutes: String(setup.duration_minutes), max_party_size: String(setup.max_party_size), tables: setup.tables.map((table) => ({ ...table, seats: String(table.seats) })) };
+}
+
 export function setupFromSnapshot(snapshot: BookingSnapshot): BookingSetup {
   return {
     duration_minutes: snapshot.settings?.duration_minutes ?? 120,
@@ -20,16 +33,16 @@ export function SetupForm({ snapshot, busy, onSave, onDirty }: {
   snapshot: BookingSnapshot; busy: boolean;
   onSave: (setup: BookingSetup) => Promise<void>; onDirty: (value: boolean) => void;
 }) {
-  const [initial] = useState(() => setupFromSnapshot(snapshot));
-  const [setup, setSetup] = useState<BookingSetup>(initial);
+  const [initial] = useState(() => editableSetup(snapshot));
+  const [setup, setSetup] = useState<SetupDraft>(initial);
   const dirty = JSON.stringify(initial) !== JSON.stringify(setup);
   useEffect(() => { onDirty(dirty); }, [dirty, onDirty]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    await onSave(setup);
+    await onSave({ ...setup, duration_minutes: Number(setup.duration_minutes), max_party_size: Number(setup.max_party_size), tables: setup.tables.map((table) => ({ ...table, seats: Number(table.seats) })) });
   }
-  const field = (key: "duration_minutes" | "max_party_size", value: string) => setSetup((current) => ({ ...current, [key]: Number(value) }));
+  const field = (key: "duration_minutes" | "max_party_size", value: string) => setSetup((current) => ({ ...current, [key]: value }));
 
   return (
     <form onSubmit={submit} aria-label="Restaurant-Einrichtung">
@@ -38,8 +51,8 @@ export function SetupForm({ snapshot, busy, onSave, onDirty }: {
           <div className={styles.panelHeading}><div><p className={styles.kicker}>01 / GRUNDLAGEN</p><h2>Dein Restaurant</h2></div><span>Europe/Zurich</span></div>
           <p className={styles.help}>Reservierungen belegen einen Tisch für die gewählte Dauer. Pro Buchung wird in dieser ersten Version genau ein Tisch vergeben.</p>
           <div className={styles.fields}>
-            <label>Aufenthaltsdauer in Minuten<input type="number" min={30} max={480} required value={setup.duration_minutes} onChange={(e) => field("duration_minutes", e.target.value)} /></label>
-            <label>Maximale Gruppengrösse<input type="number" min={1} max={30} required value={setup.max_party_size} onChange={(e) => field("max_party_size", e.target.value)} /></label>
+            <label>Aufenthaltsdauer in Minuten<input type="number" inputMode="numeric" min={30} max={480} step={1} required value={setup.duration_minutes} onChange={(e) => field("duration_minutes", e.target.value)} /></label>
+            <label>Maximale Gruppengrösse<input type="number" inputMode="numeric" min={1} max={30} step={1} required value={setup.max_party_size} onChange={(e) => field("max_party_size", e.target.value)} /></label>
           </div>
         </div>
 
@@ -53,13 +66,13 @@ export function SetupForm({ snapshot, busy, onSave, onDirty }: {
         </div>
 
         <div className={styles.panel}>
-          <div className={styles.panelHeading}><div><p className={styles.kicker}>03 / KAPAZITÄT</p><h2>Tische</h2></div><button type="button" className={styles.secondary} disabled={!setup.areas.length || setup.tables.length >= 200} onClick={() => setSetup((s) => ({ ...s, tables: [...s.tables, { id: crypto.randomUUID(), area_id: s.areas[0].id, label: "", seats: 2, is_active: true }] }))}>+ Tisch</button></div>
+          <div className={styles.panelHeading}><div><p className={styles.kicker}>03 / KAPAZITÄT</p><h2>Tische</h2></div><button type="button" className={styles.secondary} disabled={!setup.areas.length || setup.tables.length >= 200} onClick={() => setSetup((s) => ({ ...s, tables: [...s.tables, { id: crypto.randomUUID(), area_id: s.areas[0].id, label: "", seats: "2", is_active: true }] }))}>+ Tisch</button></div>
           <p className={styles.help}>Deaktivierte Tische und Bereiche erhalten ihre bestehenden Reservierungen, nehmen aber keine neuen Buchungen an.</p>
           {!setup.tables.length && <p className={styles.help}>Noch keine Tische eingerichtet.</p>}
           {setup.tables.map((table, index) => <div className={styles.tableRow} key={table.id}>
             <label>Tisch {index + 1}<input required maxLength={40} value={table.label} placeholder="Tischname" onChange={(e) => setSetup((s) => ({ ...s, tables: s.tables.map((t) => t.id === table.id ? { ...t, label: e.target.value } : t) }))} /></label>
             <label>Bereich für Tisch {index + 1}<select value={table.area_id} onChange={(e) => setSetup((s) => ({ ...s, tables: s.tables.map((t) => t.id === table.id ? { ...t, area_id: e.target.value } : t) }))}>{setup.areas.map((area) => <option key={area.id} value={area.id}>{area.name || "Unbenannter Bereich"}{!area.is_active ? " (inaktiv)" : ""}</option>)}</select></label>
-            <label>Plätze für Tisch {index + 1}<input type="number" min={1} max={30} required value={table.seats} onChange={(e) => setSetup((s) => ({ ...s, tables: s.tables.map((t) => t.id === table.id ? { ...t, seats: Number(e.target.value) } : t) }))} /></label>
+            <label>Plätze für Tisch {index + 1}<input type="number" inputMode="numeric" min={1} max={30} step={1} required value={table.seats} onChange={(e) => setSetup((s) => ({ ...s, tables: s.tables.map((t) => t.id === table.id ? { ...t, seats: e.target.value } : t) }))} /></label>
             <label className={styles.checkbox}><input type="checkbox" checked={table.is_active} onChange={(e) => setSetup((s) => ({ ...s, tables: s.tables.map((t) => t.id === table.id ? { ...t, is_active: e.target.checked } : t) }))} />Buchbar</label>
           </div>)}
         </div>

@@ -16,6 +16,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   let snapshot: BookingSnapshot = { settings: null, areas: [], tables: [], services: [], reservations: [] };
   let savedSetup: BookingSetup | null = null;
   let bookingCalls = 0;
+  const slotParties: number[] = [];
   await page.route("**/rest/v1/rpc/*", async (route) => {
     const method = route.request().url().split("/").pop();
     const body = route.request().postDataJSON();
@@ -29,7 +30,10 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       snapshot = { ...snapshot, ...setup, settings: { revision: (snapshot.settings?.revision ?? 0) + 1, duration_minutes: setup.duration_minutes, max_party_size: setup.max_party_size } };
       return route.fulfill({ json: snapshot.settings!.revision });
     }
-    if (method === "booking_console_slots_v1") return route.fulfill({ json: [{ service_id: snapshot.services[0].id, table_id: snapshot.tables[0].id, starts_at: `${body.p_date}T18:00:00+02:00`, ends_at: `${body.p_date}T20:00:00+02:00` }] });
+    if (method === "booking_console_slots_v1") {
+      slotParties.push(body.p_party_size);
+      return route.fulfill({ json: [{ service_id: snapshot.services[0].id, table_id: snapshot.tables[0].id, starts_at: `${body.p_date}T18:00:00+02:00`, ends_at: `${body.p_date}T20:00:00+02:00` }] });
+    }
     if (method === "booking_console_create_v1") {
       bookingCalls++;
       snapshot.reservations = [{ id: reservationId, table_id: body.p_table_id, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, starts_at: body.p_starts_at, ends_at: new Date(Date.parse(body.p_starts_at) + 120 * 60 * 1000).toISOString(), status: body.p_status, source: body.p_source }];
@@ -41,7 +45,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { setup: () => savedSetup, bookingCalls: () => bookingCalls };
+  return { setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties };
 }
 
 async function configure(page: Page) {
@@ -102,6 +106,66 @@ test("setup stays usable on a narrow phone and rejects a stale save honestly", a
   await expect(page.getByText("Die Einrichtung wurde gespeichert.", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Bereich 1", { exact: true })).toHaveValue("Gastraum");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
+test("phone number fields stay empty while editing and submit numeric values", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fixture = await mockConsole(page);
+  await page.goto("/booking/console");
+  for (const [label, value] of [["Aufenthaltsdauer in Minuten", "90"], ["Maximale Gruppengrösse", "6"]]) {
+    const input = page.getByLabel(label, { exact: true });
+    await input.fill("");
+    await expect(input).toHaveValue("");
+    await input.press("Tab");
+    await expect(input).toHaveValue("");
+    await input.pressSequentially(value);
+  }
+  await page.getByRole("button", { name: "+ Bereich", exact: true }).click();
+  await page.getByLabel("Bereich 1", { exact: true }).fill("Gastraum");
+  await page.getByRole("button", { name: "+ Tisch", exact: true }).click();
+  await page.getByLabel("Tisch 1", { exact: true }).fill("Tisch 1");
+  const seats = page.getByLabel("Plätze für Tisch 1", { exact: true });
+  await seats.fill("");
+  await expect(seats).toHaveValue("");
+  await page.getByRole("button", { name: "Einrichtung speichern", exact: true }).click();
+  expect(fixture.setup()).toBeNull();
+  await seats.fill("31");
+  await page.getByRole("button", { name: "Einrichtung speichern", exact: true }).click();
+  expect(fixture.setup()).toBeNull();
+  await seats.fill("");
+  await seats.pressSequentially("4");
+  await expect(seats).toHaveValue("4");
+  await page.getByRole("button", { name: "+ Service", exact: true }).click();
+  await page.getByLabel("Service 1", { exact: true }).fill("Abendservice");
+  await page.screenshot({ path: test.info().outputPath("phone-setup.png"), fullPage: true });
+  await page.getByRole("button", { name: "Einrichtung speichern", exact: true }).click();
+  await expect(page.getByText("Die Einrichtung wurde gespeichert.", { exact: true })).toBeVisible();
+  expect(fixture.setup()).toMatchObject({ duration_minutes: 90, max_party_size: 6, tables: [{ seats: 4 }] });
+  await page.getByRole("button", { name: "Reservierungen", exact: true }).click();
+  const party = page.getByLabel("Personen", { exact: true });
+  await party.fill("");
+  await expect(party).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Freie Zeiten prüfen", exact: true })).toBeDisabled();
+  await party.pressSequentially("3");
+  await expect(party).toHaveValue("3");
+  await page.getByRole("button", { name: "Freie Zeiten prüfen", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Uhrzeit und Tisch", exact: true })).toBeVisible();
+  expect(fixture.slotParties()).toEqual([3]);
+  await page.getByRole("button", { name: "4 Personen", exact: true }).click();
+  await expect(party).toHaveValue("4");
+  await expect(page.getByRole("button", { name: "4 Personen", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("combobox", { name: "Uhrzeit und Tisch", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "8 Personen", exact: true })).toHaveCount(0);
+  await party.fill("2.5");
+  await expect(page.getByRole("button", { name: "Freie Zeiten prüfen", exact: true })).toBeDisabled();
+  await party.fill("7");
+  await expect(page.getByRole("button", { name: "Freie Zeiten prüfen", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "4 Personen", exact: true }).click();
+  await page.getByRole("button", { name: "Freie Zeiten prüfen", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Uhrzeit und Tisch", exact: true })).toBeVisible();
+  expect(fixture.slotParties()).toEqual([3, 4]);
+  await page.screenshot({ path: test.info().outputPath("phone-reservation.png"), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test("missing backend produces an unavailable state without a fake empty diary", async ({ page }) => {
