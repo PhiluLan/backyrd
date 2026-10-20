@@ -782,3 +782,84 @@ passed (13 existing unrelated warnings). The production build uses synthetic
 local Supabase settings, not production credentials. History is a candidate on
 top of team access, not a production deployment or a resolution of the separate
 weekly-closure integration authorization.
+
+## Special hours and overnight service candidate (2026-10-20)
+
+Migration `20261020213718_booking_special_service_hours_v1.sql` adds explicit
+weekly overnight service endings and dated service windows. A weekday/date is
+the service's start day. A window may continue into the next calendar day and
+cover at most 24 civil hours, including 23/25-hour real days at DST transitions.
+Dated windows replace the weekly window for that service and start date; they
+may open an otherwise closed weekday or suppress that start-day service.
+A suppressed start-day service does not close carryover from the previous day;
+calendar-day closures remain the appropriate control for that case.
+
+One private service-window function drives planned availability, reservation
+amendments and actual walk-in admission. Calendar-day availability includes
+carryover from the previous service-start day but returns only slots beginning
+on the requested actual date. Generated instants use real elapsed duration and
+retain existing UTC-offset disambiguation. The common closure predicate checks
+every civil day touched by an occupied interval, so a post-midnight closure
+cannot be bypassed by starting a reservation the evening before.
+
+Dated-window writes require Manager/Owner access under the restaurant lock,
+current owner/actor Safety and the setup revision. Before/after eligibility is
+compared for active reservations in the affected two-day scope. Only newly
+ineligible reservations require explicit keep-existing acknowledgement;
+previously grandfathered reservations are not counted again. No reservation is
+cancelled or moved automatically. Reverting to weekly hours archives the dated
+record and retains its audit evidence. Identical saved/archived requests are
+no-ops. A private server clock captured after the write lock permits a still
+running or deliberately re-opened prior-day night service to be adjusted, while
+finished historical dates cannot be edited as new planning operations.
+
+The setup RPC retains the existing weekly-night flag when an older payload
+omits it. Its area/table/service upserts additionally check restaurant ownership
+at the unique-key conflict itself, closing the race between the initial foreign
+ID check and a concurrent insert. A real two-connection case holds another
+restaurant's resource insert uncommitted, observes the competing backend wait
+on PostgreSQL, then verifies that the loser cannot update the foreign resource
+and that its partial setup is rolled back. The same harness tests special-hours
+versus reservation writes in both lock orders. All fixtures require an explicitly
+isolated loopback database; none run against production data.
+
+The Console progressively exposes dated hours in day/week planning and weekly
+night endings in setup only with the backend capability. Native editors use
+editable numeric text drafts, explicit preservation/archive confirmation,
+immutable uncertain retries and the bounded RPC transport. Guest messages are
+not sent. Phone/desktop acceptance, canonical release evidence and production
+activation are tracked separately below; this candidate is not deployed merely
+because its source is implemented.
+
+Database acceptance: the canonical 199-migration clean boot passed all twelve
+Booking SQL suites, baseline authorization/Safety, the existing race suites and
+database lint. The receipt is
+`1b1e9647b58e8c11056697d49bdd17ea41e8118ef38477b7421cfe16788badb2`;
+release evidence is `booking-special-service-hours-v1.json`. SQL acceptance
+covers ordinary and weekly/dated night windows, actual calendar-day allocation,
+post-midnight closure overlap and exact touching boundaries, real post-midnight
+create/replay/admission, preservation acknowledgement and archive rollback,
+legacy omitted weekly-night keys, Manager/Host separation, owner/actor Safety,
+revocation, stale/cross-spot input, eleven/thirteen-hour DST nights, non-existent
+civil times and controlled prior-day planning-clock boundaries. A global
+schema-history rewrite or production schema operation was not performed.
+
+The UI indicates an end on a later civil day explicitly, for example
+`01:30 (+1 Tag)`, in the contextual editor, reservation book and details. Archive
+requests discard incomplete local time/interval drafts and carry only the
+selected resource plus explicit preservation acknowledgement. An archived entry
+is not silently recreated by an uncertain retry. A current read is always
+loaded after success; another operator may subsequently add a replacement dated
+window. None of these automated checks is a physical-phone or restaurant trial.
+
+Final client validation: all 82 Booking browser journeys passed on the final
+runtime code, including weekly night-service persistence, dated midnight
+carryover, explicit preservation, archival with an unfinished numeric draft,
+immutable uncertain/deadline retries, revision conflicts, read-only roles,
+management revocation and explicit next-day reservation endings. The 320px
+editor screenshot was visually inspected, with no horizontal overflow and a
+reachable save footer. TypeScript, 42 Web contract tests, 64 CI
+classification/evidence/coverage tests, lint (13 existing unrelated warnings)
+and the production build with synthetic local Supabase settings passed.
+This candidate depends on reservation history/team/week planning; all production
+activation and restaurant trials remain outstanding.

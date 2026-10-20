@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { BookingSetup, BookingSnapshot, BookingRole, BookingTeamRole } from "../lib/booking-api";
+import type { BookingSpecialHours, BookingSetup, BookingSnapshot, BookingRole, BookingTeamRole } from "../lib/booking-api";
 
 const spot = "51000000-0000-4000-8000-000000000001";
 const owner = "51000000-0000-4000-8000-000000000099";
@@ -432,7 +432,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -445,6 +445,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   let snapshot: BookingSnapshot = options.seeded ? seededSnapshot() : { settings: null, areas: [], tables: [], services: [], reservations: [] };
   if (options.layouts) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!options.lifecycle, table_layouts: true }; snapshot.tables = snapshot.tables.map((table) => ({ ...table, layout: null })); }
   if (options.planning) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, week_planning: true }; snapshot.closures = []; }
+  if (options.hours) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, special_hours: true }; snapshot.special_hours = []; snapshot.services = snapshot.services.map((row) => ({ ...row, ends_next_day: false })); }
   if (options.foldSlots && snapshot.settings) snapshot.settings.duration_minutes = 60;
   let currentTeamRole: BookingRole = options.teamRole ?? (options.requireJoin ? "host" : "owner");
   let teamRevoked = false, joined = !options.requireJoin, legacyOwnerCalls = 0;
@@ -488,6 +489,10 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     return new Date(Date.parse(actualDate + "T" + (time === "24:00" ? "00:00" : time) + ":00Z") - (actualDate <= "2026-10-25" ? 120 : 60) * 60_000).toISOString();
   };
   let statusCalls = 0;
+  const hoursRequests: Record<string, unknown>[] = [];
+  const hoursBodies = new Map<string, string>();
+  let releaseHours = () => {};
+  const hoursGate = new Promise<void>((resolve) => { releaseHours = resolve; });
   const statusRequests: object[] = [];
   const amendRequests: Record<string, unknown>[] = [];
   const amendParties: number[] = [];
@@ -544,7 +549,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     if (method === "booking_console_read_v1") {
       readCalls++;
       if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
-      const data = { ...snapshot, ...(options.teams ? { access: access() } : {}), closures: (snapshot.closures ?? []).filter((row) => row.book_date === body.p_date), reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] };
+      const data = { ...snapshot, special_hours: (snapshot.special_hours ?? []).filter((h) => h.book_date <= body.p_date && h.book_date >= new Date(Date.parse(body.p_date + "T12:00:00Z") - 86400_000).toISOString().slice(0, 10)), ...(options.teams ? { access: access() } : {}), closures: (snapshot.closures ?? []).filter((row) => row.book_date === body.p_date), reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] };
       if (holdRead) await readGate;
       if (readError === "safety") return route.fulfill({ status: 400, json: { code: "P0001", message: "SAFETY_OWNER_EDIT_RESTRICTED" } });
       if (readError === "denied") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
@@ -562,7 +567,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
         const rows = snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === date && (!body.p_service_id || row.service_id === body.p_service_id) && (!body.p_area_id || snapshot.tables.some((table) => table.id === row.table_id && table.area_id === body.p_area_id)));
         const active = rows.filter((row) => ["pending", "confirmed", "arrived", "seated"].includes(row.status));
         const closures = (snapshot.closures ?? []).filter((closure) => closure.book_date === date && (!body.p_service_id || !closure.service_id || closure.service_id === body.p_service_id) && (!body.p_area_id || !closure.area_id || closure.area_id === body.p_area_id));
-        return { date, active_reservations: active.length, active_guests: active.reduce((sum, row) => sum + row.party_size, 0), pending: rows.filter((row) => row.status === "pending").length, completed: rows.filter((row) => row.status === "completed").length, cancelled: rows.filter((row) => ["cancelled", "declined"].includes(row.status)).length, no_show: rows.filter((row) => row.status === "no_show").length, closed: closures.some((closure) => !closure.start_time && !closure.area_id && !closure.service_id), closures };
+        return { date, active_reservations: active.length, active_guests: active.reduce((sum, row) => sum + row.party_size, 0), pending: rows.filter((row) => row.status === "pending").length, completed: rows.filter((row) => row.status === "completed").length, cancelled: rows.filter((row) => ["cancelled", "declined"].includes(row.status)).length, no_show: rows.filter((row) => row.status === "no_show").length, special_hours: (snapshot.special_hours ?? []).filter((h) => h.book_date === date && (!body.p_service_id || h.service_id === body.p_service_id)), closed: closures.some((closure) => !closure.start_time && !closure.area_id && !closure.service_id), closures };
       });
       weekReplies.push(body.p_area_id ?? "all");
       return route.fulfill({ json: { start_date: body.p_start_date, revision: snapshot.settings!.revision, observed_at: "2026-10-20T12:00:00Z", days } });
@@ -588,6 +593,22 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       if (options.deferClosureResponse && closureRequests.length === 1) await closureResponseGate;
       if (options.uncertainClosure && closureRequests.length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
       return route.fulfill({ json: { revision: snapshot.settings!.revision, existing_reservations: affected } });
+    }
+    if (method === "booking_console_save_hours_v1") {
+      hoursRequests.push(body);
+      if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const same = hoursBodies.get(body.p_id) === JSON.stringify(body);
+      if (same) return route.fulfill({ json: { revision: snapshot.settings!.revision, existing_reservations: 0 } });
+      if (options.hoursConflict || body.p_revision !== snapshot.settings!.revision) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
+      if (options.hoursAffected && !body.p_keep_existing) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_hours_has_reservations", details: String(options.hoursAffected) } });
+      const endDate = body.p_next_day ? new Date(Date.parse(body.p_date + "T12:00:00Z") + 86400_000).toISOString().slice(0, 10) : body.p_date;
+      const h: BookingSpecialHours = { id: body.p_id, service_id: body.p_service_id, book_date: body.p_date, opens_at: body.p_opens_at, closes_at: body.p_closes_at, next_day: body.p_next_day, is_closed: body.p_closed, interval_minutes: body.p_interval, starts_at: body.p_closed ? null : fixtureInstant(body.p_date, body.p_opens_at), ends_at: body.p_closed ? null : fixtureInstant(endDate, body.p_closes_at), note: body.p_note || null };
+      snapshot.special_hours = (snapshot.special_hours ?? []).filter((row) => row.id !== body.p_id);
+      if (!body.p_archive) snapshot.special_hours.push(h);
+      snapshot.settings!.revision++; hoursBodies.set(body.p_id, JSON.stringify(body));
+      if (options.deferHours && hoursRequests.length === 1) await hoursGate;
+      if (options.uncertainHours && hoursRequests.length === 1) return route.fulfill({ status: 503, json: { message: "saved_response_lost" } });
+      return route.fulfill({ json: { revision: snapshot.settings!.revision, existing_reservations: options.hoursAffected ?? 0 } });
     }
     if (method === "booking_console_save_layout_v1") {
       layoutRequests.push(body);
@@ -689,7 +710,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -1641,4 +1662,146 @@ test("a history reply after logout cannot restore private content", async ({ pag
   release();
   await expect(page.getByRole("region", { name: "Änderungsverlauf", exact: true })).toHaveCount(0);
   await expect(page.getByText("Kontakt aktualisiert", { exact: false })).toHaveCount(0);
+});
+
+async function openHours(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Sonderzeiten", exact: true }).click();
+  return page.getByRole("dialog", { name: "Sonderzeiten", exact: true });
+}
+
+test("a phone operator configures a regular weekly overnight service", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, hours: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Einrichtung", exact: true }).click();
+  await page.getByRole("button", { name: "Servicezeiten", exact: false }).click();
+  await page.getByRole("checkbox", { name: "Ende am Folgetag für Service 1", exact: true }).check();
+  await page.getByLabel("Ende für Service 1", { exact: true }).fill("02:00");
+  await page.getByRole("button", { name: "Einrichtung speichern", exact: true }).click();
+  await expect(page.getByText("Die Einrichtung wurde gespeichert.", { exact: true })).toBeVisible();
+  expect(fixture.setup()?.services[0]).toMatchObject({ closes_at: "02:00", ends_next_day: true });
+  await page.reload();
+  await page.getByRole("button", { name: "Einrichtung", exact: true }).click();
+  await page.getByRole("button", { name: "Servicezeiten", exact: false }).click();
+  await expect(page.getByRole("checkbox", { name: "Ende am Folgetag für Service 1", exact: true })).toBeChecked();
+  await expect(page.getByLabel("Ende für Service 1", { exact: true })).toHaveValue("02:00");
+});
+
+test("special service hours save a night window and show its carryover on the next actual calendar day", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, hours: true, planning: true });
+  const panel = await openHours(page);
+  await panel.getByRole("checkbox", { name: "Ende am Folgetag", exact: true }).check();
+  await panel.getByLabel("Serviceende", { exact: true }).fill("02:00");
+  await panel.getByLabel("Buchungsintervall in Minuten", { exact: true }).fill("");
+  await expect(panel.getByLabel("Buchungsintervall in Minuten", { exact: true })).toHaveValue("");
+  await expect(panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true })).toBeDisabled();
+  await panel.getByLabel("Buchungsintervall in Minuten", { exact: true }).fill("30");
+  await panel.screenshot({ path: test.info().outputPath("special-hours-phone.png") });
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.hoursRequests()[0]).toMatchObject({ p_date: "2026-10-20", p_opens_at: "18:00", p_closes_at: "02:00", p_next_day: true, p_closed: false, p_interval: 30 });
+  await page.getByRole("button", { name: "Nächster Tag", exact: true }).click();
+  const context = page.getByRole("region", { name: "Sonderzeiten im Tageskontext", exact: true });
+  await expect(context).toContainText("18:00–02:00 am Folgetag");
+  await page.getByRole("button", { name: "Woche", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Wochenübersicht", exact: true })).toContainText("18:00–02:00 am Folgetag");
+});
+
+test("a closed special service keeps guests only after explicit acknowledgement and archives back to weekly hours", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, hours: true, hoursAffected: 2 });
+  const panel = await openHours(page);
+  await panel.getByRole("checkbox", { name: "Service mit diesem Beginn entfällt", exact: true }).check();
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Bestätige ausdrücklich");
+  await expect(panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true })).toBeDisabled();
+  await panel.getByRole("checkbox", { name: "Bestehende Reservierungen ausdrücklich beibehalten", exact: true }).check();
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole("region", { name: "Sonderzeiten im Tageskontext", exact: true }).getByRole("button", { name: /Service entfällt/ }).click();
+  const existing = page.getByRole("dialog", { name: "Sonderzeiten", exact: true });
+  await existing.getByLabel("Buchungsintervall in Minuten", { exact: true }).fill("");
+  await existing.getByRole("button", { name: "Wochenzeiten wieder verwenden", exact: true }).click();
+  await expect(existing.getByRole("status")).toContainText("archiviert");
+  await existing.getByRole("checkbox", { name: "Bestehende Reservierungen ausdrücklich beibehalten", exact: true }).check();
+  await existing.getByRole("button", { name: "Wochenzeiten bestätigen", exact: true }).click();
+  await expect(existing).toHaveCount(0);
+  expect(fixture.hoursRequests().at(-1)).toMatchObject({ p_archive: true, p_keep_existing: true });
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+});
+
+test("uncertain special hours freeze and repeat exactly one configuration patch", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, hours: true, uncertainHours: true });
+  const panel = await openHours(page);
+  await panel.getByLabel("Organisatorischer Hinweis (optional)", { exact: true }).fill("Synthetischer Sonderanlass");
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  await expect(panel.getByLabel("Servicebeginn", { exact: true })).toBeDisabled();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.hoursRequests()).toHaveLength(2);
+  expect(fixture.hoursRequests()[0]).toEqual(fixture.hoursRequests()[1]);
+});
+
+test("special-hours deadlines preserve an identical retry and stale configuration cannot fake success", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, hours: true, deferHours: true });
+  const panel = await openHours(page);
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect.poll(() => fixture.hoursRequests().length).toBe(1);
+  await page.clock.runFor(15_001);
+  await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  fixture.releaseHours();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.hoursRequests()[0]).toEqual(fixture.hoursRequests()[1]);
+});
+
+test("a stale hours revision preserves the editor and never reports saved special hours", async ({ page }) => {
+  await mockConsole(page, { seeded: true, hours: true, hoursConflict: true });
+  const panel = await openHours(page);
+  await panel.getByLabel("Organisatorischer Hinweis (optional)", { exact: true }).fill("Nicht verlieren");
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("inzwischen geändert");
+  await expect(panel.getByLabel("Organisatorischer Hinweis (optional)", { exact: true })).toHaveValue("Nicht verlieren");
+  await expect(page.getByText("Die Sonderzeiten wurden gespeichert. Bestehende Reservierungen bleiben erhalten.", { exact: true })).toHaveCount(0);
+});
+
+for (const role of ["viewer", "host"] as const) {
+  test(role + " reads special hours without configuration actions", async ({ page }) => {
+    await mockConsole(page, { seeded: true, hours: true, teams: true, teamRole: role });
+    await page.goto("/booking/console");
+    await expect(page.getByRole("region", { name: "Sonderzeiten im Tageskontext", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "+ Sonderzeiten", exact: true })).toHaveCount(0);
+  });
+}
+
+test("revoked management rights close a private special-hours draft", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, hours: true, teams: true, teamRole: "manager" });
+  const panel = await openHours(page);
+  await panel.getByLabel("Organisatorischer Hinweis (optional)", { exact: true }).fill("Nicht nach Rechteentzug speichern");
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Sonderzeiten im Tageskontext", exact: true })).toHaveCount(0);
+  expect(fixture.hoursRequests()).toHaveLength(0);
+});
+
+
+test("a midnight-crossing reservation names the following day in its editor, book and details", async ({ page }) => {
+  await mockConsole(page, { seeded: true, hours: true });
+  await page.route("**/rest/v1/rpc/booking_console_slots_v1", (route) => route.fulfill({ json: [{ service_id: dinner, table_id: table1, starts_at: "2026-10-20T23:30:00+02:00", ends_at: "2026-10-21T01:30:00+02:00" }] }));
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "23:30" });
+  await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+  await panel.getByLabel("Gastname", { exact: true }).fill("Synthetischer Nachtgast");
+  await expect(panel).toContainText("01:30 (+1 Tag)");
+  await panel.getByRole("button", { name: "Reservierung speichern", exact: true }).click();
+  const row = page.getByRole("button", { name: "Reservierung von Synthetischer Nachtgast öffnen", exact: true });
+  await expect(row).toContainText("01:30 (+1 Tag)");
+  await row.click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("01:30 (+1 Tag)");
 });

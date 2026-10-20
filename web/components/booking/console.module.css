@@ -92,3 +92,7 @@
 
 .historySection { margin-top: 24px; }
 .historySection > section { margin-top: 16px; }
+
+.hoursConfirmation { padding: 16px 24px; border-top: 1px solid #34343d; font-size: 13px; overflow-wrap: anywhere; }
+.hoursSummary { margin: 20px 0; padding: 20px; border: 1px solid #34343d; border-radius: 14px; }
+.hoursSummary h2 { font-size: 16px; font-family: inherit; }

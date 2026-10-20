@@ -6,7 +6,7 @@ export type BookingStatus = "pending" | "confirmed" | "arrived" | "seated" | "co
 export type BookingSource = "phone" | "walk_in" | "email" | "operator";
 export type BookingArea = { id: string; name: string; is_active: boolean };
 export type BookingTable = { id: string; area_id: string; label: string; seats: number; is_active: boolean; layout?: TableLayout | null };
-export type BookingService = { id: string; name: string; weekdays: number[]; opens_at: string; closes_at: string; interval_minutes: number; is_active: boolean };
+export type BookingService = { id: string; name: string; weekdays: number[]; opens_at: string; closes_at: string; interval_minutes: number; is_active: boolean; ends_next_day?: boolean };
 export type BookingSetup = { duration_minutes: number; max_party_size: number; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[] };
 export type BookingReservation = {
   id: string; table_id: string; service_id: string; guest_name: string; guest_contact: string | null; note: string | null;
@@ -15,7 +15,7 @@ export type BookingReservation = {
   revision?: number;
   is_walk_in?: boolean;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[] };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean; special_hours?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[]; special_hours?: BookingSpecialHours[] };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
@@ -42,13 +42,14 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const amendments = capabilities?.reservation_amendments == null ? false : boolean(capabilities.reservation_amendments);
   const seating = capabilities?.current_seating == null ? false : boolean(capabilities.current_seating);
   const team = capabilities?.team_access == null ? false : boolean(capabilities.team_access);
+  const specialHours = capabilities?.special_hours == null ? false : boolean(capabilities.special_hours);
   const planning = capabilities?.week_planning == null ? false : boolean(capabilities.week_planning);
   const layouts = capabilities?.table_layouts == null ? false : boolean(capabilities.table_layouts);
   const layout = (value: unknown) => { if (value === null || (value === undefined && !layouts)) return null; if (!validTableLayout(value)) return invalid(); return value; };
   const walkIns = capabilities?.walk_ins == null ? false : boolean(capabilities.walk_ins);
   const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in) });
   return {
-    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history) },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history), special_hours: specialHours },
     access: team ? parseBookingAccess(row.access) : ownerBookingAccess,
     operating_date: row.operating_date == null && !seating ? undefined : calendarDate(row.operating_date),
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
@@ -58,15 +59,16 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
       if (!Array.isArray(s.weekdays)) return invalid();
       const weekdays = s.weekdays.map(integer);
       if (!weekdays.length || weekdays.some((d) => d < 0 || d > 6)) return invalid();
-      return { id: uuid(s.id), name: string(s.name), weekdays, opens_at: time(s.opens_at), closes_at: time(s.closes_at), interval_minutes: integer(s.interval_minutes), is_active: boolean(s.is_active) };
+      return { id: uuid(s.id), name: string(s.name), weekdays, opens_at: time(s.opens_at), closes_at: endTime(s.closes_at), interval_minutes: integer(s.interval_minutes), is_active: boolean(s.is_active), ends_next_day: s.ends_next_day == null && !specialHours ? false : boolean(s.ends_next_day) };
     }),
     reservations: array(row.reservations, reservation),
+    special_hours: row.special_hours == null && !specialHours ? [] : array(row.special_hours, parseSpecialHours),
     closures: row.closures == null && !planning ? [] : array(row.closures, parseClosure),
     unclosed_visits: row.unclosed_visits == null && !seating ? [] : array(row.unclosed_visits, reservation),
   };
 }
 
-async function bookingRpcPayload(method: "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+async function bookingRpcPayload(method: "booking_console_save_hours_v1" | "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
   const controller = new AbortController();
   let abort = () => {};
   const cancelled = new Promise<never>((_resolve, reject) => { abort = () => { controller.abort(); reject(new Error("Booking-Anfrage abgebrochen oder Zeitgrenze erreicht.")); }; });
@@ -169,6 +171,11 @@ export function bookingWriteUncertain(error: unknown): boolean {
 }
 
 const errorCopy: Record<string, string> = {
+  booking_hours_not_running: "Der Service des Vortags ist nicht mehr geöffnet. Änderungen am Vortag sind nur für laufende oder jetzt wieder geöffnete Nachtservices möglich.",
+  invalid_booking_hours: "Prüfe Datum, Beginn, Ende und Buchungsintervall. Nachtservices dürfen höchstens 24 Ortsstunden umfassen.",
+  invalid_booking_hours_time: "Diese Ortszeit existiert am gewählten Tag nicht. Wähle eine andere Öffnungszeit.",
+  booking_hours_has_reservations: "Die Änderung betrifft bestehende Reservierungen. Bestätige ausdrücklich, dass diese erhalten bleiben.",
+  invalid_booking_setup: "Prüfe die Restaurant-Einrichtung und die Servicezeiten.",
   booking_invalid_response: "Booking hat eine ungültige Antwort geliefert. Bitte erneut laden.",
   invalid_booking_history_cursor: "Der Verlauf wurde inzwischen geändert. Lade den Verlauf erneut.",
   booking_team_backend_required: "Teamzugänge sind auf diesem Backend noch nicht vollständig verfügbar. Bitte nach der Freischaltung erneut versuchen.",
@@ -203,6 +210,7 @@ export function bookingError(error: unknown): string {
   if (row.code === "PGRST202" || row.code === "42P01") return "Die Booking Console ist auf diesem Backend noch nicht freigeschaltet. Bitte nach dem Backend-Release erneut versuchen.";
   if (row.code === "23P01") return errorCopy.booking_slot_unavailable;
   if (row.code === "23505") {
+    if (message.includes("booking_service_hours_active_date")) return "Für diesen Service und dieses Datum bestehen bereits Sonderzeiten. Öffne den vorhandenen Eintrag.";
     if (message.includes("booking_reservations_one_seated_per_table")) return errorCopy.booking_table_occupied;
     if (message.includes("booking_reservations_amend_request")) return errorCopy.booking_request_reused;
     if (message.includes("booking_table_active_label")) return "Tischnamen müssen innerhalb deines Restaurants eindeutig sein.";
@@ -218,7 +226,9 @@ export function restaurantDate(now = new Date()) {
 function restaurantOffset(value: string) { return new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", timeZoneName: "shortOffset" }).formatToParts(new Date(value)).find((part) => part.type === "timeZoneName")?.value.replace("GMT", "UTC"); }
 export function restaurantTime(value: string, reference?: string) {
   const label = new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
-  return reference && restaurantOffset(value) !== restaurantOffset(reference) ? label + " (" + restaurantOffset(value) + ")" : label;
+  const offset = reference && restaurantOffset(value) !== restaurantOffset(reference) ? " (" + restaurantOffset(value) + ")" : "";
+  const days = reference ? Math.round((Date.parse(restaurantDate(new Date(value)) + "T12:00:00Z") - Date.parse(restaurantDate(new Date(reference)) + "T12:00:00Z")) / 86_400_000) : 0;
+  return label + offset + (days > 0 ? ` (+${days} ${days === 1 ? "Tag" : "Tage"})` : "");
 }
 export function bookingAtLocalTime(booking: Pick<BookingReservation, "starts_at" | "ends_at">, date: string, time: string) {
   if (!time) return true;
@@ -246,12 +256,12 @@ function parseClosure(row: Record<string, unknown>): BookingClosure {
 }
 export function shiftBookingDate(date: string, days: number) { const value = new Date(date + "T12:00:00Z"); value.setUTCDate(value.getUTCDate() + days); return value.toISOString().slice(0, 10); }
 export function bookingWeekStart(date: string) { const weekday = new Date(date + "T12:00:00Z").getUTCDay(); return shiftBookingDate(date, -((weekday + 6) % 7)); }
-export type BookingWeekDay = { date: string; active_reservations: number; active_guests: number; pending: number; completed: number; cancelled: number; no_show: number; closed: boolean; closures: BookingClosure[] };
+export type BookingWeekDay = { date: string; active_reservations: number; active_guests: number; pending: number; completed: number; cancelled: number; no_show: number; closed: boolean; closures: BookingClosure[]; special_hours?: BookingSpecialHours[] };
 export type BookingWeek = { start_date: string; revision: number; observed_at: string; days: BookingWeekDay[] };
-export async function readBookingWeek(spotId: string, startDate: string, serviceId: string, areaId: string, signal?: AbortSignal): Promise<BookingWeek> {
+export async function readBookingWeek(spotId: string, startDate: string, serviceId: string, areaId: string, signal?: AbortSignal, expectHours = false): Promise<BookingWeek> {
   const row = record(await bookingRpcPayload("booking_console_week_v1", { p_spot_id: spotId, p_start_date: startDate, p_service_id: serviceId || null, p_area_id: areaId || null }, signal));
-  const days = array(row.days, (day): BookingWeekDay => ({ date: calendarDate(day.date), active_reservations: count(day.active_reservations), active_guests: count(day.active_guests), pending: count(day.pending), completed: count(day.completed), cancelled: count(day.cancelled), no_show: count(day.no_show), closed: boolean(day.closed), closures: array(day.closures, parseClosure) }));
-  if (calendarDate(row.start_date) !== startDate || days.length !== 7 || days.some((day, index) => day.date !== shiftBookingDate(startDate, index) || day.pending > day.active_reservations || day.closures.some((closure) => closure.book_date !== day.date))) return invalid();
+  const days = array(row.days, (day): BookingWeekDay => ({ date: calendarDate(day.date), active_reservations: count(day.active_reservations), active_guests: count(day.active_guests), pending: count(day.pending), completed: count(day.completed), cancelled: count(day.cancelled), no_show: count(day.no_show), closed: boolean(day.closed), closures: array(day.closures, parseClosure), special_hours: day.special_hours == null && !expectHours ? [] : array(day.special_hours, parseSpecialHours) }));
+  if (calendarDate(row.start_date) !== startDate || days.length !== 7 || days.some((day, index) => day.date !== shiftBookingDate(startDate, index) || day.pending > day.active_reservations || day.closures.some((closure) => closure.book_date !== day.date) || day.special_hours?.some((hours) => hours.book_date !== day.date))) return invalid();
   return { start_date: startDate, revision: count(row.revision), observed_at: timestamp(row.observed_at), days };
 }
 export type ClosureChange = { id: string; date: string; startTime: string | null; endTime: string | null; serviceId: string | null; areaId: string | null; note: string; keepExisting: boolean; remove: boolean };
@@ -326,7 +336,7 @@ export type BookingHistory = { reservationId: string; revision: number; observed
 function parseHistoryState(value: unknown): BookingHistoryState {
   const s = record(value);
   const result = { revision: integer(s.revision), status: enumeration(s.status, statuses), party_size: integer(s.party_size), starts_at: timestamp(s.starts_at), ends_at: timestamp(s.ends_at), table_id: uuid(s.table_id), table_label: string(s.table_label), service_id: uuid(s.service_id), service_name: string(s.service_name), arrived_at: s.arrived_at == null ? null : timestamp(s.arrived_at), seated_at: s.seated_at == null ? null : timestamp(s.seated_at), completed_at: s.completed_at == null ? null : timestamp(s.completed_at) };
-  if (result.revision < 0 || result.party_size < 1 || result.party_size > 30 || Date.parse(result.ends_at) <= Date.parse(result.starts_at) || !result.table_label.trim() || result.table_label.length > 40 || !result.service_name.trim() || result.service_name.length > 80) return invalid();
+  if (result.revision < 0 || result.party_size < 1 || result.party_size > 30 || Date.parse(result.ends_at) <= Date.parse(result.starts_at) || !result.table_label.trim() || [...result.table_label].length > 40 || !result.service_name.trim() || [...result.service_name].length > 80) return invalid();
   return result;
 }
 export async function readBookingHistory(spotId: string, reservationId: string, beforeId: string | null, signal?: AbortSignal): Promise<BookingHistory> {
@@ -348,4 +358,21 @@ export async function readBookingHistory(spotId: string, reservationId: string, 
   if (result.reservationId !== reservationId || result.revision < 0 || result.events.length > 50 || new Set(result.events.map((e) => e.id)).size !== result.events.length || result.events.some((e) => e.details && e.details.after.revision > result.revision)
     || (result.nextCursor !== null && (result.events.length !== 50 || result.events.at(-1)?.id !== result.nextCursor || result.nextCursor === beforeId))) return invalid();
   return result;
+}
+
+export type BookingSpecialHours = { id: string; service_id: string; book_date: string; opens_at: string | null; closes_at: string | null; next_day: boolean; is_closed: boolean; interval_minutes: number; starts_at: string | null; ends_at: string | null; note: string | null };
+function endTime(value: unknown) { return value === "24:00" || value === "24:00:00" ? "24:00" : time(value); }
+function parseSpecialHours(row: Record<string, unknown>): BookingSpecialHours {
+  const h = { id: uuid(row.id), service_id: uuid(row.service_id), book_date: calendarDate(row.book_date), opens_at: row.opens_at === null ? null : time(row.opens_at), closes_at: row.closes_at === null ? null : endTime(row.closes_at), next_day: boolean(row.next_day), is_closed: boolean(row.is_closed), interval_minutes: integer(row.interval_minutes), starts_at: row.starts_at === null ? null : timestamp(row.starts_at), ends_at: row.ends_at === null ? null : timestamp(row.ends_at), note: nullable(row.note) };
+  if (h.interval_minutes < 15 || h.interval_minutes > 120 || (h.note && [...h.note].length > 160)) return invalid();
+  if (h.is_closed) { if (h.opens_at !== null || h.closes_at !== null || h.starts_at !== null || h.ends_at !== null || h.next_day) return invalid(); }
+  else if (!h.opens_at || !h.closes_at || !h.starts_at || !h.ends_at || Date.parse(h.ends_at) <= Date.parse(h.starts_at) || restaurantDate(new Date(h.starts_at)) !== h.book_date
+    || restaurantDate(new Date(h.ends_at)) !== shiftBookingDate(h.book_date, h.next_day || h.closes_at === "24:00" ? 1 : 0)
+    || (h.next_day ? h.closes_at > h.opens_at || h.closes_at === "24:00" : h.closes_at <= h.opens_at)) return invalid();
+  return h;
+}
+export type BookingHoursChange = { id: string; serviceId: string; date: string; opensAt: string | null; closesAt: string | null; nextDay: boolean; closed: boolean; interval: number; note: string; keepExisting: boolean; archive: boolean };
+export async function saveBookingHours(spotId: string, revision: number, change: BookingHoursChange) {
+  const row = record(await bookingRpcPayload("booking_console_save_hours_v1", { p_spot_id: spotId, p_revision: revision, p_id: change.id, p_service_id: change.serviceId, p_date: change.date, p_opens_at: change.opensAt, p_closes_at: change.closesAt, p_next_day: change.nextDay, p_closed: change.closed, p_interval: change.interval, p_note: change.note, p_keep_existing: change.keepExisting, p_archive: change.archive }));
+  return { revision: count(row.revision), existingReservations: count(row.existing_reservations) };
 }

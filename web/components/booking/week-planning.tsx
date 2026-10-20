@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { bookingError, bookingReadDenied, bookingWeekStart, bookingWriteUncertain, readBookingWeek, restaurantDate, saveBookingClosure, shiftBookingDate, type BookingClosure, type BookingSnapshot, type BookingWeek, type ClosureChange } from "@/lib/booking-api";
+import { bookingError, bookingReadDenied, bookingWeekStart, bookingWriteUncertain, readBookingWeek, restaurantDate, saveBookingClosure, shiftBookingDate, type BookingSpecialHours, type BookingClosure, type BookingSnapshot, type BookingWeek, type ClosureChange } from "@/lib/booking-api";
 import { ConsolePanel } from "./console-panel";
 import styles from "./console.module.css";
 
@@ -9,9 +9,9 @@ function dateLabel(date: string) { return new Intl.DateTimeFormat("de-CH", { tim
 export function closureLabel(closure: BookingClosure, snapshot: BookingSnapshot) {
   return (closure.start_time ? closure.start_time + "–" + closure.end_time : "Ganztägig") + " · " + (snapshot.services.find((service) => service.id === closure.service_id)?.name ?? "Alle Services") + " · " + (snapshot.areas.find((area) => area.id === closure.area_id)?.name ?? "Alle Bereiche");
 }
-export function WeekOverview({ spotId, date, snapshot, serviceId, areaId, disabled, onDate, onEdit, onDenied }: {
+export function WeekOverview({ spotId, date, snapshot, serviceId, areaId, disabled, onDate, onEdit, onHours, onDenied }: {
   spotId: string; date: string; snapshot: BookingSnapshot; serviceId: string; areaId: string; disabled: boolean;
-  onDate: (date: string) => void; onEdit: (date: string, closure?: BookingClosure) => void; onDenied: () => void;
+  onHours: (date: string, hours?: BookingSpecialHours) => void; onDate: (date: string) => void; onEdit: (date: string, closure?: BookingClosure) => void; onDenied: () => void;
 }) {
   const start = bookingWeekStart(date), key = spotId + start + serviceId + areaId;
   const [state, setState] = useState<{ key: string; source: BookingSnapshot; week?: BookingWeek; error?: string } | null>(null);
@@ -19,7 +19,7 @@ export function WeekOverview({ spotId, date, snapshot, serviceId, areaId, disabl
   useEffect(() => {
     let active = true; const controller = new AbortController();
     async function load() {
-      try { const week = await readBookingWeek(spotId, start, serviceId, areaId, controller.signal); if (active) setState({ key, source: snapshot, week }); }
+      try { const week = await readBookingWeek(spotId, start, serviceId, areaId, controller.signal, !!snapshot.capabilities?.special_hours); if (active) setState({ key, source: snapshot, week }); }
       catch (error) { if (!active) return; if (bookingReadDenied(error)) onDenied(); else setState({ key, source: snapshot, error: bookingError(error) }); }
     }
     void load(); return () => { active = false; controller.abort(); };
@@ -38,6 +38,8 @@ export function WeekOverview({ spotId, date, snapshot, serviceId, areaId, disabl
         {day.closed && <p className={styles.status}>Für neue Buchungen gesperrt</p>}
         <p><strong>{day.active_guests}</strong> Gäste · {day.active_reservations} {day.active_reservations === 1 ? "aktive Reservierung" : "aktive Reservierungen"}</p>
         <p className={styles.help}>{day.pending} {day.pending === 1 ? "Anfrage" : "Anfragen"} · {day.completed} beendet · {day.cancelled} storniert/abgelehnt · {day.no_show} nicht erschienen</p>
+        {day.special_hours?.map((hours) => <button key={hours.id} className={styles.closureCard} disabled={!canEdit(day.date)} onClick={() => onHours(day.date, hours)}><strong>{snapshot.services.find((s) => s.id === hours.service_id)?.name ?? "Service"} · {hours.is_closed ? "Service entfällt" : `${hours.opens_at}–${hours.closes_at}${hours.next_day ? " am Folgetag" : ""}`}</strong>{hours.note && <span>{hours.note}</span>}</button>)}
+        {snapshot.capabilities?.special_hours && (snapshot.access?.can_manage ?? true) && <button className={styles.secondary} disabled={!canEdit(day.date)} onClick={() => onHours(day.date)}>+ Sonderzeiten</button>}
         {day.closures.map((closure) => <button key={closure.id} className={styles.closureCard} disabled={!canEdit(day.date)} onClick={() => onEdit(day.date, closure)}><strong>{closureLabel(closure, snapshot)}</strong>{closure.note && <span>{closure.note}</span>}<span>{closure.affected_reservations} bestehende aktive Reservierungen bleiben erhalten</span></button>)}
         {(snapshot.access?.can_manage ?? true) && <button className={styles.secondary} disabled={!canEdit(day.date)} onClick={() => onEdit(day.date)}>+ Buchungssperre</button>}
       </article>)}</div>
