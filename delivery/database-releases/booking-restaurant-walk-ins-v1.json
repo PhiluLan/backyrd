@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-restaurant-walk-ins-v1",
+  "previousEvidence": "booking-reservation-amendments-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "1f43f1882adfafb5dfe63c362a7837289fba80c4e333a4255c47f20371d0aa9e",
+    "applicationSchemaSha256": "8f2ccd29a39e4cbf0b7ef326bca09b8d49f11cac0c6a1830bb07c03b464d4c7f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
+      "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_restaurant_walk_ins_v1.sql",
+      "sha256": "c2f1ab0d4244971f6663d93e4e986a4f7caeafbd7ef0529c182738b026b4a17f"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "2a11f2faa81c02777721d9138d71e9f3d5883b14f09ad9d093621d97b4f74530",
+    "applicationSchemaSha256": "2bcb6eb7c31dff92dc1dccf6733bb58870e9e83440f2d3b57a3ea64708186157"
+  }
+}

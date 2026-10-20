@@ -11,8 +11,9 @@ export type BookingReservation = {
   party_size: number; starts_at: string; ends_at: string; status: BookingStatus; source: BookingSource;
   arrived_at?: string | null; seated_at?: string | null; completed_at?: string | null;
   revision?: number;
+  is_walk_in?: boolean;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean }; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[] };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean }; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[] };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
@@ -38,9 +39,10 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const capabilities = row.capabilities == null ? null : record(row.capabilities);
   const amendments = capabilities?.reservation_amendments == null ? false : boolean(capabilities.reservation_amendments);
   const seating = capabilities?.current_seating == null ? false : boolean(capabilities.current_seating);
-  const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision) });
+  const walkIns = capabilities?.walk_ins == null ? false : boolean(capabilities.walk_ins);
+  const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in) });
   return {
-    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns },
     operating_date: row.operating_date == null && !seating ? undefined : calendarDate(row.operating_date),
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
     areas: array(row.areas, (a) => ({ id: uuid(a.id), name: string(a.name), is_active: boolean(a.is_active) })),
@@ -105,6 +107,41 @@ export async function amendBooking(spotId: string, amendment: BookingAmendment) 
   return uuid(data);
 }
 
+export type WalkInSlot = BookingSlot & { table_label: string; seats: number; area_id: string; area_name: string; service_name: string };
+export type WalkInPreview = { observedAt: string; services: { id: string; name: string }[]; slots: WalkInSlot[] };
+export async function readWalkInSlots(spotId: string, partySize: number, duration: number): Promise<WalkInPreview> {
+  const { data, error } = await supabase.rpc("booking_console_walk_in_slots_v1", { p_spot_id: spotId, p_party_size: partySize, p_duration_minutes: duration });
+  if (error) throw error;
+  const row = record(data);
+  const preview = { observedAt: timestamp(row.observed_at), services: array(row.services, (s) => ({ id: uuid(s.id), name: string(s.name) })), slots: array(row.slots, (s) => ({
+    service_id: uuid(s.service_id), table_id: uuid(s.table_id), starts_at: timestamp(s.starts_at), ends_at: timestamp(s.ends_at),
+    table_label: string(s.table_label), seats: integer(s.seats), area_id: uuid(s.area_id), area_name: string(s.area_name), service_name: string(s.service_name),
+  })) };
+  if (preview.slots.some((slot) => !preview.services.some((service) => service.id === slot.service_id) || slot.seats < partySize || slot.seats > 30
+    || Date.parse(slot.starts_at) !== Date.parse(preview.observedAt) || Date.parse(slot.ends_at) - Date.parse(slot.starts_at) !== duration * 60_000)) return invalid();
+  return preview;
+}
+export type NewWalkIn = { requestId: string; serviceId: string; tableId: string; partySize: number; duration: number; name: string; contact: string; note: string };
+export async function createWalkIn(spotId: string, walkIn: NewWalkIn): Promise<{ id: string; slot: BookingSlot }> {
+  const { data, error } = await supabase.rpc("booking_console_walk_in_v1", {
+    p_spot_id: spotId, p_request_id: walkIn.requestId, p_service_id: walkIn.serviceId, p_table_id: walkIn.tableId,
+    p_party_size: walkIn.partySize, p_duration_minutes: walkIn.duration, p_guest_name: walkIn.name, p_guest_contact: walkIn.contact, p_note: walkIn.note,
+  });
+  if (error) throw error;
+  const row = record(data);
+  const result = { id: uuid(row.id), slot: { service_id: uuid(row.service_id), table_id: uuid(row.table_id), starts_at: timestamp(row.starts_at), ends_at: timestamp(row.ends_at) } };
+  if (result.slot.service_id !== walkIn.serviceId || result.slot.table_id !== walkIn.tableId
+    || Date.parse(result.slot.ends_at) - Date.parse(result.slot.starts_at) !== walkIn.duration * 60_000) return invalid();
+  return result;
+}
+
+export function bookingWriteUncertain(error: unknown): boolean {
+  const row = error && typeof error === "object" ? error as Record<string, unknown> : {};
+  // Only explicit transactional rejection codes establish a failed write.
+  // Network/gateway errors and malformed success responses remain uncertain.
+  return !["22023", "22P02", "23502", "23503", "23505", "23514", "23P01", "40001", "40P01", "42501", "42P01", "PGRST202", "PGRST301", "PGRST302"].includes(typeof row.code === "string" ? row.code : "");
+}
+
 const errorCopy: Record<string, string> = {
   booking_operator_required: "Für dieses Restaurant fehlt dir der Betreiberzugang.",
   booking_setup_changed_reload: "Die Einrichtung wurde inzwischen geändert. Bitte neu laden, bevor du speicherst.",
@@ -117,12 +154,13 @@ const errorCopy: Record<string, string> = {
   booking_request_reused: "Diese Anfrage wurde mit anderen Angaben bereits erfasst. Bitte neu laden.",
   booking_not_found: "Diese Reservierung ist nicht mehr verfügbar. Bitte neu laden.",
   invalid_booking_duration: "Wähle eine Dauer zwischen 30 und 480 Minuten.",
+  invalid_booking_party_size: "Wähle eine passende Personenzahl für dein Restaurant.",
   booking_table_occupied: "An diesem Tisch ist noch ein Besuch als «Am Tisch» erfasst. Prüfe den laufenden Besuch, bevor du weitere Gäste platzierst.",
 };
 export function bookingError(error: unknown): string {
   const row = error && typeof error === "object" ? error as Record<string, unknown> : {};
   const message = typeof row.message === "string" ? row.message : "";
-  if (errorCopy[message]) return errorCopy[message];
+  if (Object.prototype.hasOwnProperty.call(errorCopy, message)) return errorCopy[message];
   if (row.code === "PGRST202" || row.code === "42P01") return "Die Booking Console ist auf diesem Backend noch nicht freigeschaltet. Bitte nach dem Backend-Release erneut versuchen.";
   if (row.code === "23P01") return errorCopy.booking_slot_unavailable;
   if (row.code === "23505") {
