@@ -58,15 +58,44 @@ export function menuOfferingGroup(label) {
   return null;
 }
 export function sourceText(page,id,{preferMain=false}={}) {
+  const boundedExcerpt=value=>{
+    if(value.length<=12000)return {text:value,offset:at=>at};
+    const marker='\n\n[Auszug: mittlerer Seitenteil ausgelassen]\n\n';
+    const headBreak=value.lastIndexOf('\n',4000),headEnd=headBreak>=0?headBreak:4000;
+    const targetStart=value.length-(12000-headEnd-marker.length),tailBreak=value.indexOf('\n',targetStart);
+    const tailStart=Math.max(headEnd+1,tailBreak>=0?tailBreak+1:targetStart);
+    return {text:value.slice(0,headEnd)+marker+value.slice(tailStart),offset:at=>at<headEnd?at:at>=tailStart?headEnd+marker.length+at-tailStart:-1};
+  };
   const named={auml:'ä',ouml:'ö',uuml:'ü',Auml:'Ä',Ouml:'Ö',Uuml:'Ü',szlig:'ß',eacute:'é',egrave:'è',agrave:'à',ccedil:'ç',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',bdquo:'„',sbquo:'‚',ndash:'–',mdash:'—',euro:'€',hellip:'…',sup2:'²',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',thinsp:' ',ensp:' ',emsp:' ',laquo:'«',raquo:'»',copy:'©'};
-  const plain=html=>html.replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<\/?(?:p|h[1-6]|li|div|section|article|tr|br)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&([a-zA-Z][a-zA-Z0-9]*);/g,(m,key)=>named[key]??m).replace(/&#(x[0-9a-f]+|\d+);/gi,(_m,n)=>{const c=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return c>0&&c<=0x10ffff?String.fromCodePoint(c):' ';}).replace(/[ \t\r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+  const withMailto=html=>html.replace(/<a\b[^>]*\bhref\s*=\s*["']mailto:([^"']+)["'][^>]*>([\s\S]*?)<\/a>/giu,(whole,href,label)=>{
+    let address;try{address=decodeURIComponent(href.split('?')[0]).trim();}catch{return label;}
+    if(!/^[-\w.+]+@[-\w.]+\.[a-z]{2,}$/iu.test(address))return label;
+    return label.includes(address)?label:`\n${label} (${address})\n`;
+  });
+  const plain=html=>withMailto(html).replace(/<(script|style|noscript|svg)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<\/?(?:p|h[1-6]|li|div|section|article|tr|br)\b[^>]*>/gi,'\n').replace(/<[^>]+>/g,' ').replace(/&([a-zA-Z][a-zA-Z0-9]*);/g,(m,key)=>named[key]??m).replace(/&#(x[0-9a-f]+|\d+);/gi,(_m,n)=>{const c=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return c>0&&c<=0x10ffff?String.fromCodePoint(c):' ';}).replace(/[ \t\r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+  const pairTabs=html=>{
+    const labels=new Map();
+    for(const match of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/giu)){
+      if(!/\brole\s*=\s*["']tab["']/iu.test(match[1]))continue;
+      const key=match[1].match(/\baria-controls\s*=\s*["']([a-z0-9_-]{1,64})["']/iu)?.[1];
+      const label=plain(match[2]);
+      if(key&&label.length>=3&&label.length<=80&&labels.size<24)labels.set(key,label);
+    }
+    if(!labels.size)return html;
+    return html.replace(/<div\b([^>]*)>/giu,(opening,attributes)=>{
+      if(!/\brole\s*=\s*["']tabpanel["']/iu.test(attributes))return opening;
+      const key=attributes.match(/\bid\s*=\s*["']([a-z0-9_-]{1,64})["']/iu)?.[1],label=labels.get(key);
+      return label?opening+'<h4>'+label.replace(/&/gu,'&amp;').replace(/</gu,'&lt;').replace(/>/gu,'&gt;')+'</h4>':opening;
+    });
+  };
   const clean=html=>plain(html.replace(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi,(row,inner)=>{
     const cells=[...inner.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(m=>plain(m[1]).split(/\n+/u).map(x=>x.trim()).filter(Boolean));
     if(cells.length!==2||cells[0].length<2||cells[0].length!==cells[1].length||!/^(?:mon|tue|wed|thu|fri|sat|sun|mo\b|di\b|mi\b|do\b|fr\b|sa\b|so\b|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)/iu.test(cells[0][0])||!cells[1].every(x=>/^\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2}$/u.test(x)))return row;
     return '\n'+cells[0].map((label,i)=>label+' '+cells[1][i]).join('\n')+'\n';
   }));
-  const primary=page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
-  const selectedHtml=preferMain&&primary?primary.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '):page.body;
+  const htmlWithTabs=pairTabs(page.body);
+  const primary=htmlWithTabs.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
+  const selectedHtml=preferMain&&primary?primary.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '):htmlWithTabs;
   const mainText=clean(selectedHtml);
   const outside=preferMain&&primary?clean(page.body.replace(/<main\b[^>]*>[\s\S]*?<\/main>/i,' ')):'';
   const windows=[];
@@ -93,14 +122,16 @@ export function sourceText(page,id,{preferMain=false}={}) {
     const label=clean(match[2]);if(!label||label.length>160)continue;
     const expected=clean(selectedHtml.slice(0,match.index)).length;
     const offset=text.indexOf(label,Math.max(0,expected-12));
-    if(offset<0||Math.abs(offset-expected)>20||offset+label.length>12000)continue;
+    if(offset<0||Math.abs(offset-expected)>20)continue;
     headings.push({level:Number(match[1]),text:label,offset});if(headings.length===80)break;
   }
   const main=page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]??page.body;
-  const descriptionText=clean(main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ')).slice(0,12000);
+  const descriptionText=boundedExcerpt(clean(main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '))).text;
   if(!text)throw new Error('source_empty');
-  const excerpt=text.slice(0,12000);
-  if(identityOffset!==undefined&&identityOffset<excerpt.length)headings.push({level:1,text:'Website-Kontakt und Öffnungszeiten',offset:identityOffset});
+  const bounded=boundedExcerpt(text),excerpt=bounded.text;
+  if(identityOffset!==undefined)headings.push({level:1,text:'Website-Kontakt und Öffnungszeiten',offset:identityOffset});
+  const keptHeadings=headings.map(h=>({...h,offset:bounded.offset(h.offset)})).filter(h=>h.offset>=0&&h.offset+h.text.length<=excerpt.length);
+  const keptIdentityOffset=identityOffset===undefined?undefined:bounded.offset(identityOffset);
   const linkedMenus=[];
   for(const match of main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
     const href=match[1].match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1],label=clean(match[2]);
@@ -114,7 +145,7 @@ export function sourceText(page,id,{preferMain=false}={}) {
       linkedMenus.push({label,url:target});if(linkedMenus.length>=12)break;
     }catch{}
   }
-  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex'),...(preferMain?{textSelection:primary?publicPanel?'MAIN_WITH_PUBLIC_INFO':'MAIN_CONTENT':'FULL_PAGE',headings,identityOffset,assetHash:createHash('sha256').update(page.body).digest('hex')}:{})};
+  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex'),...(preferMain?{textSelection:primary?publicPanel?'MAIN_WITH_PUBLIC_INFO':'MAIN_CONTENT':'FULL_PAGE',headings:keptHeadings,identityOffset:keptIdentityOffset>=0?keptIdentityOffset:undefined,assetHash:createHash('sha256').update(page.body).digest('hex')}:{})};
 }
 
 function jsonSourceText(page,id) {
@@ -224,10 +255,16 @@ export function discoverMenuDocuments(page) {
 
 // Bounded official-site frontier for Research v2. Only observed links; no guessed
 // URLs, browser instructions, authenticated actions or automatic domain aliases.
+export function standingExperiencePath(url) {
+  const path=decodeURI(new URL(url).pathname);
+  const leaf=path.split('/').filter(Boolean).at(-1)??'';
+  return !/\b(?:19|20)\d{2}\b/u.test(leaf)&&/(?:atelier|workshops?|f(?:ü|ue|u)hrungen?|guided[-_]?tours?|education|vermittlung)/iu.test(leaf);
+}
 export function discoverResearchLinks(page) {
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
   const links=[];
   const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|food|drink|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|mitmach|hands[-\s]?on|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq/iu};
+  topicPatterns.contact=/kontakt|contact|impressum|anschrift|adresse|mitarbeitende|team|staff|employees|equipe|équipe/iu;
   for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const href=m[1].replace(/&amp;/g,'&');
     if(/^[\s&;]+$/u.test(href))continue;
@@ -246,15 +283,17 @@ export function discoverResearchLinks(page) {
       // a permanent venue offering or regular opening hours. Do not spend the
       // bounded Spot-research budget crawling individual event/news pages.
       const pathname=decodeURI(new URL(url).pathname).replace(/\/+$/u,'');
+      if(/(?:^|\/)(?:ihrevent|your-event|votre.?[eé]v[eé]nement)(?:\/|$)/iu.test(pathname))continue;
+      if(/(?:^|\/)(?:press|presse|media|medien|digital|videos?)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(pathname))continue;
       // Some museums place a permanent-exhibition overview behind an
       // "Aktuell" navigation item. Follow only an observed link explicitly
       // labelled as an exhibition or hands-on activity, never a generic news
       // link or an individual dated event.
       const permanentOverview=/^(?:\/(?:de|en|fr|it))?\/(?:aktuell|actualites|actualités)$/iu.test(pathname)&&/\b(?:ausstellung|dauerausstellung|exposition permanente|mitmachstationen|hands[-\s]?on activities)\b/iu.test(label);
-      if((/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news(?:[-_][^/]*)?|blog|aktuelles?|actualit[eé]s?|[^/]*(?:programme?|programm))(?:\.html)?(?:\/|$)/iu.test(pathname)&&!permanentOverview)||/\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2})\b/u.test(label))continue;
+      if((/(?:^|\/)(?:konzert|concert|events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news(?:[-_][^/]*)?|blog|aktuelles?|actualit[eé]s?|[^/]*(?:programme?|programm))(?:\.html)?(?:\/|$)/iu.test(pathname)&&!permanentOverview&&!standingExperiencePath(url))||/\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2})\b/u.test(label))continue;
       // Exhibition/programme pages describe time-bounded offerings. The
       // permanent Spot profile cannot encode their validity yet.
-      if(/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?|group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(url).pathname))continue;
+      if(/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?|group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname))continue;
       // Campaigns, member deals and artist programmes do not establish a
       // permanent venue profile, and their contact details may be departmental.
       if(/(?:^|\/)(?:offers?|angebote?|deals?|specials?|special-offers?|promotions?|stay-for-goods|artist-in-(?:hotel-)?residence)(?:\/|$)/iu.test(pathname))continue;

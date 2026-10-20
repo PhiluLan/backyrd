@@ -1,4 +1,4 @@
-# Local Nuknuk Research v2
+# Local Nuknuk Research v3.2
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v2.7
+## Active architecture: Research v3.2
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -17,6 +17,73 @@ production worker, database, migration, import authority or model weight changes
 The CLI now uses `researchSpotV2` in `src/nuknuk-agent.ts`; the v9 field extractor
 remains an API/regression reference, not the CLI execution path. The typed local adapter compiles to ignored `dist/` JavaScript for compatibility
 with the repository’s Node 20 CI. Build and typecheck the adapter:
+
+Version 3.1 keeps exact page text near both ends of long official pages, with
+an explicit marker for omitted middle text. It pairs culture-offer headings
+with their own descriptions, prefers a restaurant's menu and a dedicated
+site's homepage over news or legal pages, and falls back to Yahoo/Yep through
+the local SearXNG service when its default engines fail. Search results remain
+leads only. Deterministic checks withhold museum collection objects presented
+as exhibitions, food categories presented as dishes, hotel ancillary services
+presented as rooms, contact links presented as tours, and promotional copy
+presented as description. A description may test three exact original
+sentences; the first semantically supported, non-promotional one is proposed.
+Named sauna rows on official wellness overview tables are paired with their
+own temperature and description before semantic checking; a general page
+heading cannot stand in for a named sauna.
+Facts receive unique IDs when entered into the ledger, including after unused
+description candidates. Missing or duplicated critic IDs hold only the affected
+facts and are visible as verification errors; they never approve a claim.
+Accessible HTML tab labels are paired with their matching pane text so hotel
+room categories can be checked against their own descriptions. A v3.1 review
+profile may contain up to eight distinct cited offers; it still reports partial
+coverage and cannot certify a complete inventory.
+All proposals still require human review and have no catalog write path.
+
+v3.2 keeps searching cultural offers after the first few accepted facts. Search
+looks for visitor workshops and ateliers by name, and standing programme pages
+under an official site's event directory can be used only when their recurring
+intro is separate from dated individual events. The literal H1 and programme
+intro stay in one evidence block even when logistics appear between them.
+Private-event planning pages are excluded from ordinary cultural Spot offers;
+individual dated workshop themes remain ineligible. Once a German cultural
+source has been read, English/French/Italian follow-up pages are deferred to
+avoid spending the bounded budget on duplicate-language offers. Cultural
+search runs after each relevant page while the question remains open. These
+retrieval policies improve coverage but do not establish a complete inventory.
+
+On 20 October 2026, the pinned 27B model completed a full aquabasilea run
+against six current official pages in 522 seconds: eleven model calls, no
+source or model failures, no duplicate fact IDs. The partial review profile
+contained Sprudelgrotte (bathing), Sugaring and Hamam Rundgang (spa), and
+Finnsauna (sauna), each supported by the relevant official page. This is one
+reviewed case, not a release-cohort pass or a complete offer inventory.
+An untouched Volkshaus Basel hotel run found only two of six independently
+listed room categories and exhausted its request budget on meeting-room and
+duplicate-language pages. v3.1 pairs accessible room tabs with their panes,
+keeps the more specific name when a tab and its own description name the same
+room, and selects the main hotel overview first. The same Spot then yielded
+all six categories from two official pages in 231 seconds with no model or
+source failures. That tuned retest cannot count as a held-out release case.
+An untouched Kunstmuseum Basel culture run, compared with a reference written
+before the model run, missed four known offering groups. A tuned full-site run
+reached the official public-visit and two recurring-workshop pages, accepted
+the recurring Offenes Atelier and excluded its dated themes, but still missed
+public tours and Kinderworkshops. It also promoted generic school-programme
+price headings into offers and timed out after eight pages, fifteen model
+calls and 720 seconds. The v3.2 reader now joins adjacent offer names and
+admission prices, permits a quoted scheduling caveat for a demonstrably
+recurring programme while withholding age restrictions, and rejects bare
+programme price/language headings. These changes require a fresh end-to-end
+retest; the tuned case is not a held-out release pass. The unattended-draft
+release gate remains closed.
+The v3.2 targeted interpretation check on the official visit-planning and
+Kinderworkshops pages completed in 189 seconds with two page requests, four
+model calls and no source/model errors. It proposed Öffentliche Führung,
+Private Führungen and Kinderworkshops with exact first-party evidence; dated
+workshop themes were withheld. The two-page test deliberately bypassed source
+discovery and therefore cannot substitute for an unattended full crawl or the
+pre-run-reference cohort gate.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
@@ -126,7 +193,7 @@ npm test --workspace @backyrd/spot-research-runtime
 Supported v2 fields: description.highlight, contact.phone, contact.public_email,
 hours.regular, experience.profile, offering.groups, amenity.features and
 operation.laptop_policy. Other requested fields are explicitly unresolved. Named
-offers remain bounded partial profiles (at most four), never full inventories.
+offers remain bounded partial profiles (at most eight), never full inventories.
 PDF/image menu layout remains a review requirement and those assets are not
 used for automatic named-offer extraction; otherwise ingredients can be mistaken
 for menu items. Conditions are preserved in the
@@ -221,14 +288,19 @@ prior CLI commit; no data or schema rollback is required.
 
 ## Model selection and quality boundary
 
-The active default is the pinned local `mlx-community/Qwen3.5-9B-4bit`, revision
+The CLI's unchanged default is the pinned local `mlx-community/Qwen3.5-9B-4bit`, revision
 `8b2b98c00a6b4d291155e4890773ca8f769aee53`. An explicitly selected experimental
 27B route is also supported: `mlx-community/Qwen3.5-27B-4bit`, revision
 `45797d2985a12c55e6473686e9ea91b95e959553`, with a 240-second request timeout
 and 15-minute default Spot budget. It is not automatically selected or downloaded
-by the CLI. Larger weights are not evidence of better Backyrd performance; do not
-promote this route until measured on identical sources, errors, useful coverage,
-latency and memory. Neither route uses an external AI API. Existing v9 entry
+by the CLI. For quality evaluation, explicitly select 27B: on the same official
+Museum Tinguely collection and tours pages, the v3.0 extraction produced four
+correctly named offers with 27B, while 9B rejected the named collection and
+tour offers after the artifact guard. This is one paired case, not population
+accuracy or release readiness. The 27B targeted run took about 142 seconds;
+the full Restaurant Antalya run took about 280 seconds for three proposed
+fields. Run it as a background research job on the 48 GB Mac and stop the
+model server when finished. Neither route uses an external AI API. Existing v9 entry
 points retain their original 9B contract.
 
 Autonomous **research draft** is distinct from autonomous **catalog import**.
@@ -262,7 +334,7 @@ node scripts/world-knowledge/nuknuk-readiness.mjs /private/path/cohort.json /pri
 ```
 
 The gate requires at least twelve distinct Spots, at least three per category,
-pre-run references, zero incorrect facts or venue misattributions, at least 30%
+pre-run references, zero incorrect, misattributed or missed reference facts, at least 30%
 useful proposed-field coverage, triaged source failures, and no more than 25%
 budget-stopped runs. A source-reviewed cohort and manually confirmed *untouched*
 case selection are still necessary; timestamps and hashes cannot prove that a

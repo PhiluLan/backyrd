@@ -4,14 +4,14 @@ import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {EXPERIENCE_TEMPLATES,isAuthoringAttributeRelevant,parseExperienceProfile} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
-import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages} from './nuknuk-sources.mjs';
+import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages,standingExperiencePath} from './nuknuk-sources.mjs';
 import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs';
 import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from './nuknuk-search.mjs';
 import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.7';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.2';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -112,8 +112,15 @@ function explicitPhoneArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'so
   return spot.name.toLocaleLowerCase().includes(label.toLocaleLowerCase())?null:label;
 }
 function explicitEmailArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'sourceOffset'|'value'>):string|null {
+  // A legal imprint identifies the publisher or website operator. Even a
+  // literal mailbox there is not evidence of the venue's visitor contact.
+  if(/(?:^|\/)(?:impressum|imprint|mentions-legales)(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(source.url).pathname))return 'LEGAL_IMPRINT';
   const mailbox=f.value.split('@')[0]?.toLocaleLowerCase()??'';
-  if(/^(?:catering|events?|veranstaltungen?|presse|press|media|jobs?|karriere|recruitment|buchhaltung|accounting|reservations?|reservierungen?|booking|quality|qualitaet|qualität|spa|wellness)(?:[._+-]|$)|^res[._+-]/iu.test(mailbox))return 'ROLE_MAILBOX';
+  if(/(?:^|\/)(?:mitarbeitende|team|staff|employees|equipe|équipe)(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(source.url).pathname)){
+    const section=sectionAt(source,factOffset(source,f)).join(' ');
+    if(!/\b(?:visitor services|besucherservice|besucherdienst|besucherinformation|visitor information)\b/iu.test(section)||!/^info(?:[._+-]|$)/iu.test(mailbox))return 'STAFF_DIRECTORY_SCOPE';
+  }
+  if(/^(?:catering|events?|veranstaltungen?|presse|press|media|kommunikation|communications?|digital|jobs?|karriere|recruitment|buchhaltung|accounting|reservations?|reservierungen?|booking|quality|qualitaet|qualität|spa|wellness)(?:[._+-]|$)|^res[._+-]/iu.test(mailbox))return 'ROLE_MAILBOX';
   const offset=factOffset(source,f);if(offset<0)return null;
   const preceding=source.text.slice(Math.max(0,offset-110),offset).split(/\n+/u).map(line=>line.trim()).filter(Boolean).at(-1)??'';
   return /^(?:kurse?(?:\s*&\s*gruppen)?|courses?(?:\s*&\s*groups?)?|gruppen|groups?|events?(?:\s*&\s*catering)?|veranstaltungen?|presse|press|medien|media|jobs?|karriere|recruitment|buchhaltung|accounting|verwaltung|administration)\s*:?$/iu.test(preceding)?preceding:null;
@@ -155,8 +162,16 @@ function excludedHoursArea(source:ResearchSource,quote:string,spot:SpotContext,s
 }
 function timeBoundEventContext(source:ResearchSource,quote:string,sourceOffset?:number):boolean {
   const path=new URL(source.url).pathname;
-  if(/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news|blog|aktuelles?)(?:\.html)?(?:\/|$)/iu.test(path)||/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)\/20\d{2}(?:\/|$)/iu.test(path))return true;
   const offset=factOffset(source,{quote,sourceOffset});if(offset<0)return false;
+  const eventPage=/(?:^|\/)(?:konzert|concert|events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news|blog|aktuelles?)(?:\.html)?(?:\/|$)/iu.test(path);
+  if(/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)\/20\d{2}(?:\/|$)/iu.test(path))return true;
+  if(eventPage) {
+    if(!standingExperiencePath(source.url))return true;
+    const firstDatedItem=source.text.search(/(?:^|\n)\s*(?:Mo(?:ntag)?|Di(?:enstag)?|Mi(?:ttwoch)?|Do(?:nnerstag)?|Fr(?:eitag)?|Sa(?:mstag)?|So(?:nntag)?|Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\s*,?\s*\d{1,2}[.\/-]\d{1,2}[.\/-]20\d{2}/iu);
+    if(firstDatedItem>=0&&offset>firstDatedItem)return true;
+    const intro=source.text.slice(0,firstDatedItem>=0?Math.min(firstDatedItem,1600):1600);
+    if(!/\b(?:jeden|j(?:ä|ae)hrlich|monatlich|w(?:ö|oe)chentlich|regelm(?:ä|ae|a)ssig|every|monthly|weekly|regularly|wir bieten|we offer)\b/iu.test(intro))return true;
+  }
   const structural=/^(?:kontakt(?:\s*&\s*anfahrt)?|contact(?:\s*&\s*directions)?|öffnungszeiten|oeffnungszeiten|opening hours|hours|adresse|address|speisekarte|menu|angebote|offers|über uns|ueber uns|about us|besuch|visit)(?:\s|$)/iu;
   const boundary=(source.headings??[]).filter(h=>h.offset<=offset&&structural.test(h.text)).at(-1)?.offset??0;
   const local=source.text.slice(Math.max(source.identityOffset!==undefined&&offset>=source.identityOffset?source.identityOffset:0,boundary,offset-260),offset);
@@ -180,7 +195,7 @@ function explicitRelocation(source:ResearchSource,spot:SpotContext):boolean {
 function evidenceBlocks(source:ResearchSource) {
   const blocks:{id:string;text:string;offset:number;section?:string}[]=[];
   for(const line of source.text.matchAll(/[^\n]+/gu)) {
-    const trimmed=line[0].trim();if(trimmed.length<4)continue;
+    const trimmed=line[0].trim();if(trimmed.length<4||trimmed.startsWith('[Auszug:'))continue;
     const lineOffset=line.index!+line[0].indexOf(trimmed);
     if(source.identityOffset!==undefined&&lineOffset>=source.identityOffset)break;
     // Keep contiguous source text. Long paragraphs are split at literal sentence
@@ -191,17 +206,48 @@ function evidenceBlocks(source:ResearchSource) {
       const offset=source.text.indexOf(sentence,from);if(offset<0)continue;from=offset+sentence.length;
       if(sentence.length>=4&&sentence.length<=1100)blocks.push({id:'b'+blocks.length,text:sentence,offset});
     }
-    if(blocks.length>=100)break;
   }
   const lines=[...source.text.matchAll(/[^\n]+/gu)].filter(m=>m[0].trim());
-  for(let i=0;i+1<lines.length&&blocks.length<120;i++) {
+  for(let i=0;i+1<lines.length;i++) {
     const title=lines[i][0].trim(),following=lines[i+1][0].trim();
     if(title.length<4||title.length>100||/[.!?:]$/.test(title)||following.length<40||following.length>800)continue;
     if(!(source.headings??[]).some(h=>h.text===title&&Math.abs(h.offset-lines[i].index!)<=2))continue;
     const start=lines[i].index!,end=lines[i+1].index!+lines[i+1][0].length,span=source.text.slice(start,end).trim();
     if(span.length<=1100)blocks.push({id:'b'+blocks.length,text:span,offset:source.text.indexOf(span,start)});
   }
-  return blocks.slice(0,120).map(block=>({...block,section:sectionAt(source,block.offset).join(' > ')}));
+  // CMS pages often style offer names as plain paragraphs rather than h-tags.
+  // Keep the exact title and its following description together so the model
+  // can copy the complete named offer instead of reducing it to "Führung".
+  for(const match of source.text.matchAll(/(?:^|\n\n)([^\n]{4,100})\n\n([^\n]{40,800})/gu)) {
+    const title=match[1].trim(),description=match[2].trim();
+    if(!/(?:f(?:ü|ue|u)hrungen?|guided tours?|workshops?|ateliers?|sammlung|collection|ausstellung|exhibition|zimmer|rooms?|suite)/iu.test(title)||!/[.!?]$/u.test(description))continue;
+    const span=title+'\n\n'+description,offset=source.text.indexOf(span,match.index);
+    if(offset>=0&&span.length<=1100&&!blocks.some(b=>b.text===span&&b.offset===offset))blocks.push({id:'b'+blocks.length,text:span,offset});
+  }
+  // Visitor-offer lists often render a short name and its admission price in
+  // separate elements. Keep their exact adjacent text together so neither a
+  // bare navigation label nor a price without its offer is model evidence.
+  for(const match of source.text.matchAll(/(?:^|\n\n)([^\n]{6,90})\n\n([^\n]{4,100}(?:CHF|EUR|€)[^\n]{0,40})(?=\n|$)/gu)) {
+    const name=match[1].trim(),price=match[2].trim();
+    if(!/(?:f(?:ü|ue|u)hrung|guided tour|workshop|atelier|matin[eé]e)/iu.test(name)||!/(?:\d|kostenlos|free)/iu.test(price))continue;
+    const span=name+'\n\n'+price,offset=source.text.indexOf(span,match.index);
+    if(offset>=0&&!blocks.some(block=>block.text===span&&block.offset===offset))blocks.push({id:'b'+blocks.length,text:span,offset});
+  }
+  // A recurring programme page often places logistics between its H1 and
+  // descriptive paragraph. Keep that exact introductory span together, but
+  // stop before the first dated calendar item so one-off themes cannot ride
+  // along as a standing offer.
+  if(standingExperiencePath(source.url))for(const heading of source.headings??[]) {
+    if(heading.level!==1||!/(?:atelier|workshops?|f(?:ü|ue|u)hrungen?|guided[- ]?tours?)/iu.test(heading.text))continue;
+    const tail=source.text.slice(heading.offset,heading.offset+1000);
+    const date=tail.search(/(?:^|\n)\s*(?:Mo(?:ntag)?|Di(?:enstag)?|Mi(?:ttwoch)?|Do(?:nnerstag)?|Fr(?:eitag)?|Sa(?:mstag)?|So(?:nntag)?|Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)\s*,?\s*\d{1,2}[.\/-]\d{1,2}[.\/-]20\d{2}/iu);
+    const intro=tail.slice(0,date<0?1000:date).trim();
+    if(intro.length>=100&&intro.length<=1100&&/\b(?:jeden|monatlich|w(?:ö|oe)chentlich|regelm(?:ä|ae|a)ssig|every|monthly|weekly|regularly|wir bieten|we offer)\b/iu.test(intro))blocks.push({id:'b'+blocks.length,text:intro,offset:heading.offset});
+  }
+  if(blocks.length<=120)return blocks.map(block=>({...block,section:sectionAt(source,block.offset).join(' > ')}));
+  const important=/(?:besuch|visitor|museum|sammlung|collection|ausstellung|exhibition|permanent|f(?:ü|ue|u)hrung|guided|workshop|angebot|experience|ticket|restaurant|men[uü]|speise|zimmer|room|hotel|activity|aktivität)/iu;
+  const middle=blocks.slice(30,-40).map((block,index)=>({block,index,score:Number(important.test(block.text))*10+Number(block.text.length>=100)*3+Number(block.text.length>=200)})).sort((a,b)=>b.score-a.score||a.index-b.index).slice(0,50).map(x=>x.block);
+  return [...blocks.slice(0,30),...middle,...blocks.slice(-40)].sort((a,b)=>a.offset-b.offset).map(block=>({...block,section:sectionAt(source,block.offset).join(' > ')}));
 }
 function criticContext(source:ResearchSource,facts:EvidenceFact[]) {
   return {url:source.url,title:source.text.slice(0,240),footer:source.text.slice(-420),claims:facts.map(f=>{
@@ -247,9 +293,10 @@ export function validateEvidenceFacts(raw:unknown,source:ResearchSource,fields:R
 }
 function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:ResearchField,spot:SpotContext):string|null {
   if(f.state==='REJECTED')return f.reason;
+  if(f.quote.includes('[Auszug: mittlerer Seitenteil ausgelassen]'))return 'EXCERPT_GAP_NOT_EVIDENCE';
   if(f.field==='experience.profile'&&source.layoutReviewRequired)return 'LAYOUT_REQUIRES_HUMAN_OFFER_REVIEW';
   if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(source.url).pathname))return 'MEMBERSHIP_BENEFIT_NOT_PUBLIC_SPOT_OFFER';
-  if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)(?:\/|$)/iu.test(new URL(source.url).pathname))return 'EXHIBITION_PROGRAMME_SCOPE';
+  if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(source.url).pathname))return 'EXHIBITION_PROGRAMME_SCOPE';
   if(timeBoundEventContext(source,f.quote,f.sourceOffset))return 'DATED_EVENT_NOT_PERMANENT_SPOT_FACT';
   const section=sectionAt(source,factOffset(source,f));
   if(section.some(s=>/\b(?:reviews?|ratings?|testimonials?|bewertungen|gäste-?stimmen|was\s+andere\s+sagen|what\s+(?:the\s+)?others\s+say)\b/iu.test(s)))return 'VISITOR_REVIEW_NOT_OFFICIAL_FACT';
@@ -265,10 +312,18 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
   if(f.field==='description.highlight'&&!['TARGET','AREA','OFFER'].includes(f.subject))return 'SUBJECT_'+f.subject;
   if(!['experience.profile','description.highlight'].includes(f.field)&&f.subject!=='TARGET')return 'SUBJECT_'+f.subject;
   if(source.areaScope)return 'SOURCE_AREA_SCOPE';
+  if(f.field==='experience.profile'&&(spot.existingValues?.['classification.primary_category']?.value??field.profileCategory)==='CULTURE_ARTS'&&/(?:^|\/)(?:ihrevent|your-event|votre.?[eé]v[eé]nement)(?:\/|$)/iu.test(decodeURI(new URL(source.url).pathname)))return 'PRIVATE_EVENT_ONLY_OFFER';
   // Dated/conditional evidence stays in the ledger and cannot lose its conditions
   // by being projected into an unconditional whole-Spot field.
   const retainedTextCondition=f.field==='description.highlight'&&['CURRENT','CONDITIONAL'].includes(f.applicability)&&(!f.condition||!!sourceQuote(f.quote,f.condition));
-  if((!retainedTextCondition&&(f.applicability!=='CURRENT'||f.condition.trim()))||f.validFrom!==null||f.validUntil!==null)return 'VALIDITY_OR_CONDITION_REQUIRES_REVIEW';
+  // A current recurring workshop exists even though its individual session
+  // dates are announced later. The profile lists that offer without claiming
+  // daily availability; keep the exact scheduling caveat in cited evidence.
+  const recurringOfferCondition=f.field==='experience.profile'&&f.applicability==='CURRENT'&&standingExperiencePath(source.url)&&f.condition.trim()&&!!sourceQuote(f.quote,f.condition)&&
+    /\b(?:jeden|monatlich|w(?:ö|oe)chentlich|every|monthly|weekly)\b/iu.test(source.text.slice(0,Math.min(source.text.length,4000)))&&
+    /(?:nach Ankündigung|Samstags?|Sonntags?|Montags?|Dienstags?|Mittwochs?|Donnerstags?|Freitags?|monthly|weekly|every)/iu.test(f.condition)&&
+    !/(?:\b(?:ab|bis|nur für|only for|aged?|years?|jahre|personen|people|bei regen|weather|member|mitglied)\b|\d{1,2}\s*[-–]\s*\d{1,2}\s*Jahr)/iu.test(f.condition);
+  if((!retainedTextCondition&&!recurringOfferCondition&&(f.applicability!=='CURRENT'||f.condition.trim()))||f.validFrom!==null||f.validUntil!==null)return 'VALIDITY_OR_CONDITION_REQUIRES_REVIEW';
   if(source.layoutReviewRequired&&f.field!=='experience.profile')return 'DOCUMENT_LAYOUT_REQUIRES_REVIEW';
   try {
     if(f.field==='contact.phone') {
@@ -286,20 +341,45 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
       if(before&&!/(?:[.!?]\s*|\n\s*\n\s*)$/u.test(before)&&!followsHeading)return 'DESCRIPTION_FRAGMENT_NOT_STANDALONE';
     }
     if(f.field==='description.highlight'&&/^["“„«‘’']/u.test(f.quote.trim()))return 'DESCRIPTION_QUOTED_SPEECH';
+    if(f.field==='description.highlight'&&/(?:unvergesslich|verzauber\w*|einzigartig(?:es|en|e)?\s+erlebnis|unforgettable|magical experience|best(?:e|er|es)?\s+(?:erlebnis|experience))/iu.test(f.quote))return 'DESCRIPTION_PROMOTIONAL_CLAIM';
     if(f.field==='description.highlight'&&/\b(?:wheelchair|rollstuhl|barrierefrei|accessible|accessibility)\b/iu.test(f.quote)&&!/\b(?:experience|explore|discover|enjoy|erleben|entdecken|geniessen|genießen|besuchen|visit)\b/iu.test(f.quote))return 'DESCRIPTION_FACILITY_NOT_HIGHLIGHT';
     if(typeof f.offerKind!=='string')return 'OFFER_KIND_INVALID';
     if(f.field==='experience.profile') {
+      if(/@/u.test(f.quote))return 'CONTACT_LINK_NOT_OFFER_EVIDENCE';
       if(f.value.trim().toLocaleLowerCase()===spot.name.trim().toLocaleLowerCase())return 'VENUE_NAME_NOT_CONCRETE_OFFER';
+      if(/^(?:Dauer und Kosten für|Duration and prices? for|Prix et dur[eé]e pour)\b/iu.test(f.quote.trim())||/^\s*[^\n]{3,90}\n\n(?:Angebot in|Available in):?\s*(?:Deutsch|English|Français|French)\b/iu.test(f.quote))return 'CATEGORY_LABEL_NOT_CONCRETE_OFFER';
       if(f.offerKind==='VISIT'&&/\b(?:buildings?|pavilions?|gatehouses?|ensemble|geb[aä]ude|pavillon|areal)\b/iu.test(f.quote)&&!/\b(?:visit|visiting|tour|tours|accessible|open to (?:the )?public|besuch(?:en)?|besichtigung|f[uü]hrung|ausstellung|exhibition)\b/iu.test(f.quote))return 'AREA_NOT_VISIT_OFFER';
-      const genericName=/\b(?:cuisine|küche|kueche|cucina|speisekarte|weinkarte|getränkekarte|wine\s*list|drinks?\s*menu|menu|menü|food|drinks|getränke|cocktails|restaurant|brasserie|bar|hotel|hôtel|hostel|museum|gallery|galerie|museumsangebote|angebote|offers|tickets?|online-ticket|dauerausstellung|permanent exhibition|exposition permanente|mostra permanente|eiscafé|eiscafe|glacé|gelato|ice\s*cream|eis|eisportionen|fruchteis|sorbet)\s*$/iu.test(f.value.trim());
+      const genericName=/\b(?:cuisine|küche|kueche|cucina|speisekarte|weinkarte|getränkekarte|wine\s*list|drinks?\s*menu|menu|menü|food|drinks|getränke|cocktails|restaurant|brasserie|bar|hotel|hôtel|hostel|museum|gallery|galerie|museumsangebote|angebote|offers|tickets?|online-ticket|dauerausstellung|permanent(?:e|en|er|es)?\s+ausstellung|permanent exhibition|exposition permanente|mostra permanente|eiscafé|eiscafe|glacé|gelato|ice\s*cream|eis|eisportionen|fruchteis|sorbet)\s*$/iu.test(f.value.trim());
       if(genericName&&f.value.trim().split(/\s+/u).length<=4)return 'CATEGORY_LABEL_NOT_CONCRETE_OFFER';
       if(f.value.length>160)return 'OFFER_NAME_TOO_LONG';
       if(f.value.trim().split(/\s+/u).length>=6&&/\b(?:sind|ist|haben|hat|werden|wird|bieten|bietet|verfügen|verfügt|are|is|have|has|offers?|includes?|equipped)\b/iu.test(f.value))return 'OFFER_SENTENCE_NOT_NAME';
       if(f.quote.trim()===f.value.trim())return 'OFFER_CONTEXT_REQUIRED';
-      if(f.offerKind==='WORKSHOP'&&!/\b(?:workshops?|ateliers?|kurse?|courses?)\b/iu.test(f.quote))return 'WORKSHOP_KIND_NOT_EXPLICIT';
-      if(f.offerKind==='PERMANENT_EXHIBITION'&&!/(?:dauerausstellung|exposition permanente|permanent exhibition|mostra permanente)/iu.test(f.quote))return 'PERMANENCE_NOT_EXPLICIT';
+      if(f.offerKind==='WORKSHOP'&&!/(?:\b|\p{L})(?:workshops?|ateliers?|kurse?|courses?)\b/iu.test(f.quote))return 'WORKSHOP_KIND_NOT_EXPLICIT';
+      if(f.offerKind==='PERMANENT_EXHIBITION'&&!/(?:dauerausstellung|permanent(?:e|en|er|es)?\s+ausstellung|exposition permanente|permanent exhibition|mostra permanente)/iu.test(f.quote))return 'PERMANENCE_NOT_EXPLICIT';
       const category=spot.existingValues?.['classification.primary_category']?.value??field.profileCategory;
       if(typeof category!=='string')return 'CURRENT_CATEGORY_REQUIRED';
+      if(['EAT','DRINKS','COFFEE_DAYTIME'].includes(category)&&['GASTRONOMY','DRINKS'].includes(f.offerKind)) {
+        const menuPage=/(?:^|\/)(?:menu|menue|menü|speisekarte|karte)(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(source.url).pathname);
+        // A homepage's list of food types is an overview, not a catalogue of
+        // individually named dishes. A literal one-word item can be accepted
+        // from a menu row; elsewhere require a specific compound product name.
+        const menuSection=sectionAt(source,factOffset(source,f)).some(heading=>/\b(?:menu|menue|menü|speisekarte|gerichte)\b/iu.test(heading));
+        const itemPrice=/(?:\b(?:CHF|EUR|Fr\.?)\s*\d|\b\d{1,3}[.,]\d{2}\s*(?:CHF|EUR|Fr\.?))/iu.test(f.quote);
+        const explicitCuisineList=/(?:cuisine|küche|cucina)\s*[—–-]\s*[^.!?]+/iu.test(f.quote);
+        if(!menuPage&&!menuSection&&!itemPrice&&!explicitCuisineList&&!f.value.trim().includes(' ')&&!f.value.includes('-'))return 'FOOD_ITEM_SOURCE_REQUIRED';
+      }
+      if(category==='CULTURE_ARTS'&&['PERMANENT_EXHIBITION','SPECIAL_EXHIBITION'].includes(f.offerKind)) {
+        const startsWithTitle=f.quote.trimStart().startsWith(f.value.trim()+'\n');
+        const heading=(source.headings??[]).some(h=>h.text.trim()===f.value.trim()&&f.quote.includes(h.text));
+        if(!startsWithTitle&&!heading)return 'EXHIBITION_TITLE_REQUIRED';
+      }
+      if(category==='STAY'&&f.offerKind==='OVERNIGHT_STAY') {
+        const namedLodging=/(?:zimmer|chambre|camere|übernacht|\b(?:rooms?|suites?|apartments?|studios?|dorms?|bedrooms?|overnight stay)\b)/iu.test(f.value);
+        const titledPackage=(source.headings??[]).some(h=>h.text.trim()===f.value.trim())&&/(?:\b(?:overnight stay|room to sleep|hotel room|übernachtung|zimmer zum übernachten)\b)/iu.test(f.quote);
+        const tabbedRoom=(source.headings??[]).some(h=>h.text.trim()===f.value.trim()&&f.quote.startsWith(h.text)&&sectionAt(source,h.offset).some(section=>/^(?:zimmer\s+und\s+suiten|rooms?\s+and\s+suites?|suites?\s+and\s+rooms?)$/iu.test(section))&&/(?:zimmer|suite|room|hotel|übernacht)/iu.test(f.quote)&&f.quote.length>=65);
+        if(!namedLodging&&!titledPackage&&!tabbedRoom)return 'STAY_OFFER_NOT_LODGING';
+      }
+      if(category==='WELLNESS_RELAXATION'&&f.offerKind==='BATHING'&&/(?:rutsche|rutschenden|röhre|slide|toboggan|turbotube|topspeed)/iu.test(f.quote)&&!/(?:badewelt|wellenbad|pool|becken|b[aä]der|baden|schwimmen|thermal|hamam)/iu.test(f.value))return 'WATER_SLIDE_NOT_BATHING_OFFER';
       if(category==='STAY'&&f.offerKind==='OVERNIGHT_STAY'&&/(?:^|\/)(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(source.url).pathname)&&(f.quote.length<f.value.length+35||!/[.!?]/u.test(f.quote)))return 'ROOM_DETAIL_DESCRIPTION_REQUIRED';
       if(category==='WELLNESS_RELAXATION') {
         if(!EXPERIENCE_TEMPLATES.WELLNESS_RELAXATION.offers.some(offer=>offer.kind===f.offerKind))return 'OFFER_OUTSIDE_RESEARCH_FOCUS';
@@ -332,7 +412,7 @@ function literalSourceFacts(source:ResearchSource,fields:ResearchField[],spot:Sp
   };
   const phones=[...source.text.matchAll(/(?:\+|\b00)\d[\d ()/.-]{6,}\d|\b0\d[\d ()/.-]{7,}\d\b/gu)];
   for(const m of phones.slice(0,6)) {try{extractedProposal({phone:m[0],quote:m[0],sourceId:source.id},{spot,field:{attributeKey:'contact.phone',valueSchema:{}},sources:[source]});add('contact.phone',m[0],m[0],m.index);}catch{}}
-  for(const email of emailCandidates([source]).slice(0,4))add('contact.public_email',email.email,email.quote);
+  for(const email of emailCandidates([source]).sort((a,b)=>Number(/^info@/iu.test(b.email))-Number(/^info@/iu.test(a.email))).slice(0,12))add('contact.public_email',email.email,email.quote);
   for(const key of ['hours.regular','description.highlight']) {
     const field=fields.find(f=>f.attributeKey===key);if(!field)continue;
     if(key==='description.highlight') {
@@ -366,7 +446,64 @@ function literalSourceFacts(source:ResearchSource,fields:ResearchField[],spot:Sp
       selected++;
     }
   }
+  if(fields.some(f=>f.attributeKey==='experience.profile')&&spot.existingValues?.['classification.primary_category']?.value==='CULTURE_ARTS'&&!source.areaScope) {
+    // Offer names are often section titles, while the model paraphrases their
+    // names or misses a section buried below a long CMS list. Preserve the
+    // literal title together with its own explanatory paragraph. The normal
+    // scope, currency, semantic and projection checks still decide acceptance.
+    for(const match of source.text.matchAll(/(?:^|\n\n)([^\n]{8,100})\n\n([^\n]{40,950})/gu)) {
+      if(core.filter(f=>f.field==='experience.profile').length>=8)break;
+      const name=match[1].trim(),description=match[2].trim();
+      if(!/(?:f(?:ü|ue|u)hrung|guided tours?|workshop|atelier|sammlung|collection|ausstellung|exhibition)/iu.test(name)||/(?:archiv|kontakt|navigation|kalender|tickets?|anfrage|bildverwendung|bildrecht|copyright|reproduction|lizenz|licen[sc]e)/iu.test(name))continue;
+      if(/\b(?:nicht möglich|not possible|cancelled|abgesagt)\b/iu.test(description))continue;
+      if(!/(?:\b(?:wir bieten|öffentlich|public|regelmässig|regelmäßig|permanent|jeden|every|teilnahme|besuch|visit|gezeigt|zugänglich)\b|\d{1,2}[.:]\d{2}\s*Uhr)/iu.test(description))continue;
+      const quote=name+'\n\n'+description,sourceOffset=source.text.indexOf(quote,match.index);
+      if(sourceOffset<0||source.identityOffset!==undefined&&sourceOffset>=source.identityOffset)continue;
+      const offerKind=/(?:f(?:ü|ue|u)hrung|guided tours?)/iu.test(name)?'GUIDED_TOUR':/(?:workshop|atelier)/iu.test(name)?'WORKSHOP':/(?:permanent(?:e|en|er|es)?\s+ausstellung|dauerausstellung)/iu.test(quote)?'PERMANENT_EXHIBITION':'VISIT';
+      core.push({id:'f'+(offset+core.length),sourceId:source.id,field:'experience.profile',value:name,quote,sourceOffset,subject:'OFFER',subjectLabel:name,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind,state:'HELD',reason:'SEMANTIC_CHECK_PENDING'});
+    }
+  }
+  if(fields.some(f=>f.attributeKey==='experience.profile')&&spot.existingValues?.['classification.primary_category']?.value==='WELLNESS_RELAXATION'&&!source.areaScope) {
+    // Sauna overviews often render as a flattened table. Pair each literal
+    // row name with its own temperature and description instead of asking the
+    // model to choose from a long, unrelated page excerpt.
+    const section=source.text.match(/(?:^|\n)Alle Saunen im Überblick\s*\n/iu);
+    if(section) {
+      const start=section.index!+section[0].length;
+      const end=source.text.indexOf('\nWebsite-Kontakt',start);
+      const table=source.text.slice(start,end>=0?end:Math.min(source.text.length,start+8000));
+      const rows=[...table.matchAll(/(?:^|\n\n)([^\n]{4,70})\n\n(\d{2,3}°[^\n]*)\n(?:([^\n]{3,40})\n)?([^\n]{50,650})/gu)];
+      const addSauna=(name:string,quote:string,sourceOffset:number)=>{
+        if(core.filter(f=>f.field==='experience.profile').length>=8)return;
+        if(!/(?:sauna|sanarium|solegrotte|banja)/iu.test(name)||/^(?:alle|\d+)/iu.test(name)||sourceOffset<0||quote.length>1100||core.some(f=>f.field==='experience.profile'&&f.value===name))return;
+        core.push({id:'f'+(offset+core.length),sourceId:source.id,field:'experience.profile',value:name,quote,sourceOffset,subject:'OFFER',subjectLabel:name,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'SAUNA',state:'HELD',reason:'SEMANTIC_CHECK_PENDING'});
+      };
+      for(const row of rows) {
+        const name=row[1].trim(),quote=row[0].replace(/^\n\n/u,'');
+        addSauna(name,quote,source.text.indexOf(quote,start+row.index!));
+      }
+      // HTML tables can also flatten an entire row onto one text line.
+      for(const line of table.split(/\n+/u)) {
+        const row=line.trim().match(/^(.{4,70}?)\s+(\d{2,3}°[^\n]{2,70})\s+([^\n]{50,650})$/u);
+        if(!row)continue;
+        addSauna(row[1].trim(),line.trim(),source.text.indexOf(line.trim(),start));
+      }
+    }
+  }
   if(fields.some(f=>f.attributeKey==='experience.profile')&&spot.existingValues?.['classification.primary_category']?.value==='STAY') {
+    // Accessible room tabs name a category in the tab and describe it in the
+    // matching pane. The source reader puts that exact tab label immediately
+    // before the pane text; keep the literal pair as one reviewable claim.
+    const headings=source.headings??[];
+    for(let i=0;i<headings.length;i++){
+      const h=headings[i];
+      if(h.level<4||h.text.length<3||h.text.length>80||!sectionAt(source,h.offset).some(section=>/^(?:zimmer\s+und\s+suiten|rooms?\s+and\s+suites?|suites?\s+and\s+rooms?)$/iu.test(section)))continue;
+      const next=headings.slice(i+1).find(other=>other.level<=h.level)?.offset??source.identityOffset??source.text.length;
+      const quote=source.text.slice(h.offset,Math.min(next,h.offset+700)).split(/\n\s*\n/u).slice(0,2).join('\n\n').trim();
+      if(!quote.startsWith(h.text+'\n')||quote.length<65||!/(?:zimmer|suite|room|hotel|übernacht)/iu.test(quote))continue;
+      core.push({id:'f'+(offset+core.length),sourceId:source.id,field:'experience.profile',value:h.text,quote,sourceOffset:h.offset,subject:'OFFER',subjectLabel:h.text,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'OVERNIGHT_STAY',state:'HELD',reason:'SEMANTIC_CHECK_PENDING'});
+      if(core.filter(f=>f.field==='experience.profile').length>=8)break;
+    }
     const pathParts=new URL(source.url).pathname.split('/').filter(Boolean);
     const detailHeading=[...(source.headings??[])].reverse().find(h=>/^(?:zimmer|rooms?|rooms-suites|chambres?|camere)$/iu.test(pathParts.at(-2)??'')&&h.level<=4&&h.text.length>=4&&h.text.length<=80&&roomSlug(h.text)===roomSlug(pathParts.at(-1)??'').replace(/-\d{1,3}$/u,''));
     if(detailHeading){
@@ -459,9 +596,14 @@ function mergeSchedules(facts:EvidenceFact[],sources:ResearchSource[]) {
       // same page; independent conflicting closing times remain unresolved.
       if(!ranked.slice(1).every(e=>{
         if(JSON.stringify(e.row)===JSON.stringify(specific.row))return true;
-        if(e.specificity<=specific.specificity||e.fact.sourceId!==specific.fact.sourceId)return false;
+        if(e.specificity<=specific.specificity)return false;
+        // A broad row on another language page is compatible only when that
+        // same page also states the identical narrower exception. Otherwise
+        // it may be an independently conflicting schedule.
+        const witness=e.fact.sourceId===specific.fact.sourceId?specific:entries.find(candidate=>candidate.fact.sourceId===e.fact.sourceId&&candidate.specificity===specific.specificity&&JSON.stringify(candidate.row)===JSON.stringify(specific.row));
+        if(!witness)return false;
         const source=sources.find(s=>s.id===e.fact.sourceId)!;
-        const start=factOffset(source,e.fact)+e.fact.quote.length,end=factOffset(source,specific.fact);
+        const start=factOffset(source,e.fact)+e.fact.quote.length,end=factOffset(source,witness.fact);
         return end>=start&&end-start<=64&&/^[\s,;:()–—-]*$/u.test(source.text.slice(start,end));
       }))throw new Error('CONFLICTING_TARGET_SCHEDULES');
       intervals.push(...specific.row.intervals);
@@ -492,23 +634,48 @@ function topicsForField(key:string,category?:string):string[] {
   if(key==='description.highlight')return ['about','experience','language'];
   return category==='STAY'?['stay','access','about']:['visit','access','about'];
 }
+function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],frontier:FrontierEntry[]):boolean {
+  // Cultural programmes can span tours, self-guided visits and recurring
+  // workshops. Reaching four facts is not evidence that the inventory is
+  // complete; keep searching within the explicit page/query budget.
+  if(field.profileCategory==='CULTURE_ARTS')return true;
+  const accepted=facts.filter(f=>f.field==='experience.profile'&&f.state==='ACCEPTED');
+  if(new Set(accepted.map(f=>f.value.toLocaleLowerCase())).size<(field.profileCategory==='STAY'?6:4))return true;
+  // A fourth narrow treatment must not end a wellness crawl while an observed
+  // official sauna page remains unread and no sauna offer has been established.
+  return field.profileCategory==='WELLNESS_RELAXATION'&&!accepted.some(f=>f.offerKind==='SAUNA')&&frontier.some(link=>/sauna/iu.test(new URL(link.url).pathname));
+}
 export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[]):FrontierEntry[] {
-  const open=fields.filter(f=>f.attributeKey==='experience.profile'?new Set(facts.filter(x=>x.field===f.attributeKey&&x.state==='ACCEPTED').map(x=>x.value.toLocaleLowerCase())).size<4:!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
+  const open=fields.filter(f=>f.attributeKey==='experience.profile'?profileNeedsMoreEvidence(f,facts,frontier):!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
+  const leaf=(url:string)=>new URL(url).pathname.split('/').filter(Boolean).at(-1)??'';
   const weight=(key:string)=>key.startsWith('contact.')||key==='hours.regular'?8:['description.highlight','experience.profile'].includes(key)?2:1;
-  const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+
+  const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+(link.depth===0?1000:0)+
+    (open.some(f=>f.attributeKey==='description.highlight')&&new URL(link.url).pathname==='/'?90:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(f.profileCategory)))&&/(?:^|\/)(?:menu|menue|menü|speisekarte|karte)(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(link.url).pathname)?110:0)+
     (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
     (open.some(f=>f.attributeKey.startsWith('contact.'))&&link.topics.includes('contact')?500:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&link.topics.includes('experience')?35:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:sammlung|collection|f(?:ü|ue|u)hrungen?|guided[-_]?tours?)/iu.test(leaf(link.url))?70:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:besuch[-_]?planen|plan[-_]?your[-_]?visit|visit[-_]?planning|visitor[-_]?information)/iu.test(leaf(link.url))?180:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&standingExperiencePath(link.url)?25:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:atelier|workshops?)/iu.test(leaf(link.url))?145:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='WELLNESS_RELAXATION')&&/(?:wellness|sauna|spa|hamam|relax)/iu.test(leaf(link.url))?80:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='STAY')&&!/^\/(?:en|fr|it|de)(?:\/|$)/iu.test(new URL(link.url).pathname)&&/(?:hotel|zimmer|rooms?|accommodation)/iu.test(leaf(link.url))?160:0)+
     (link.topics.includes('language')?40:0)+
     // A site's unprefixed locale is usually its primary edition. Prefer an
     // observed primary page to yet another English/French translation when
     // both answer the same open question; never synthesize a URL.
     (!/^\/(?:en|fr|it|de)(?:\/|$)/iu.test(new URL(link.url).pathname)?15:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='STAY')&&/(?:room|zimmer|chambre|suite)/iu.test(leaf(link.url))?80:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='STAY')&&/(?:^|\/)(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(link.url).pathname)?50:0);
   const nonFood=open.some(field=>field.profileCategory&&!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory));
-  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|room-rental|raumvermietung|location-de-salle|press|presse|media|medien|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(url).pathname);
+  const stayProfileOnly=open.length===1&&open[0].attributeKey==='experience.profile'&&open[0].profileCategory==='STAY';
+  const cultureProfileOnly=open.length===1&&open[0].attributeKey==='experience.profile'&&open[0].profileCategory==='CULTURE_ARTS';
+  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|reservierungen?|reservations?|booking|[^/]*(?:buchen|buchung|reservieren)|room-rental|raumvermietung|location-de-salle|press|presse|media|medien|digital|video|videos|aktuelles|news|events?|datenschutzerklaerung|privacy|terms|agb|legal|impressum|imprint|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
-  const candidates=frontier.filter(link=>link.depth<=3&&!scopedPage(link.url)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic)))));
+  const stayAncillary=(url:string)=>/(?:^|\/)(?:sitzungszimmer|meeting[-_]?rooms?|conference[-_]?rooms?|seminar[-_]?rooms?|gaeste[-_]?services?|g[aä]ste[-_]?services?|guest[-_]?services?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
+  const cultureBackground=(url:string)=>/(?:^|\/)(?:private[-_]?sammlungen|private[-_]?collections|collections[-_]?particuli[eè]res|geschichte|history|histoire|schwerpunkte|foci[-_]?of[-_]?the[-_]?collection|leihanfragen|loan[-_]?requests)(?:\/|$)/iu.test(decodeURI(new URL(url).pathname));
+  const candidates=frontier.filter(link=>link.depth<=3&&!scopedPage(link.url)&&!(stayProfileOnly&&stayAncillary(link.url))&&!(cultureProfileOnly&&cultureBackground(link.url))&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic)))));
   const matching=candidates.filter(link=>open.some(f=>topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))));
   const useful=matching.length?matching:facts.some(f=>f.state==='ACCEPTED')?[]:candidates;
   return useful.sort((a,b)=>score(b)-score(a)||a.depth-b.depth||a.url.localeCompare(b.url));
@@ -558,7 +725,21 @@ export function projectEvidenceLedger({spot,fields,facts,sources,validateValue}:
         case 'experience.profile': {
           const category=spot.existingValues?.['classification.primary_category']?.value??field.profileCategory;
           if(typeof category!=='string')return unresolved('CURRENT_CATEGORY_REQUIRED');
-          used=[...new Map(affirmative.map(f=>[f.value.toLowerCase(),f])).values()].slice(0,4);
+          const distinct=[...new Map(affirmative.map(f=>[f.value.toLowerCase(),f])).values()];
+          // A tab may say "Cozy" while its own description explicitly calls
+          // the same room "Cozy Double Room". Keep the more specific literal
+          // name only when the short claim's own quotation contains it.
+          const unique=category==='STAY'?distinct.filter(f=>!distinct.some(other=>other!==f&&other.sourceId===f.sourceId&&other.offerKind===f.offerKind&&other.value.toLocaleLowerCase().startsWith(f.value.toLocaleLowerCase()+' ')&&sourceQuote(f.quote,other.value))):distinct;
+          const score=(fact:EvidenceFact)=>{
+            const path=new URL(sources.find(s=>s.id===fact.sourceId)!.url).pathname.normalize('NFKD').replace(/\p{M}/gu,'').toLocaleLowerCase();
+            const terms=fact.value.normalize('NFKD').replace(/\p{M}/gu,'').toLocaleLowerCase().match(/[a-z0-9]{4,}/gu)??[];
+            return terms.some(term=>path.includes(term))?10:0;
+          };
+          const ranked=unique.map((fact,index)=>({fact,index,score:score(fact)})).sort((a,b)=>b.score-a.score||a.index-b.index);
+          const selected:typeof ranked=[],kinds=new Set<string>();
+          for(const item of ranked)if(!kinds.has(item.fact.offerKind)){selected.push(item);kinds.add(item.fact.offerKind);if(selected.length===8)break;}
+          for(const item of ranked)if(selected.length<8&&!selected.includes(item))selected.push(item);
+          used=selected.sort((a,b)=>a.index-b.index).map(item=>item.fact);
           const profile=parseExperienceProfile(projectOffers({offers:used.map(f=>({name:f.value,kind:f.offerKind,quote:f.quote,sourceId:f.sourceId}))},{field:{...field,profileCategory:String(category)},sources}),false);
           // Block-level evidence has not certified item-to-price layout. Preserve
           // source prices in evidence, never derive canonical prices in v2.
@@ -582,7 +763,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   const endpoint=localModelEndpoint('http://127.0.0.1:8088/v1/chat/completions');
   if(!/^[0-9a-f-]{36}$/i.test(spot.spotId)||!spot.name||!Number.isInteger(budgetMs)||budgetMs<1||budgetMs>900000||!Number.isInteger(maxRequests)||maxRequests<1||maxRequests>24||!Number.isInteger(maxModelCalls)||maxModelCalls<2||maxModelCalls>48||!Number.isInteger(maxDepth)||maxDepth<0||maxDepth>3||!Array.isArray(options.fields)||!options.fields.length||options.fields.length>12||new Set(options.fields.map(f=>f.attributeKey)).size!==options.fields.length||typeof deps.validateValue!=='function')throw new Error('agent_config_invalid');
   const searchEndpoint=options.webSearchEndpoint?localSearchEndpoint(options.webSearchEndpoint):null;
-  const maxSearchQueries=options.maxSearchQueries??3,maxExternalPages=options.maxExternalPages??2;
+  const maxSearchQueries=options.maxSearchQueries??6,maxExternalPages=options.maxExternalPages??2;
   if(!Number.isInteger(maxSearchQueries)||maxSearchQueries<1||maxSearchQueries>6||!Number.isInteger(maxExternalPages)||maxExternalPages<0||maxExternalPages>4)throw new Error('search_budget_invalid');
   const known=(key:string)=>['KNOWN_VALUE','KNOWN_TRUE','KNOWN_FALSE','NOT_APPLICABLE'].includes(spot.existingValues?.[key]?.knowledgeState??'');
   const category=spot.existingValues?.['classification.primary_category']?.value;
@@ -597,13 +778,14 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   const searchQueries:{key:string;query:string;resultCount:number;error?:string}[]=[],searchLeads:SearchLead[]=[],externalSources:{url:string;observedAt:string;hash:string;identity:'MATCHED'|'UNCONFIRMED';text:string;excerpt:string;contacts:{email:string[];phone:string[]}}[]=[],externalReadSources:ResearchSource[]=[];
   const semanticCounterchecks:{url:string;factId:string;field:string;verdict:string;quote:string;reason?:string}[]=[];
   const actions:Record<string,unknown>[]=[],visited=new Set<string>(),queued=new Set<string>();
+  const topicAttempts=new Map<string,number>();
   const frontier:FrontierEntry[]=[];
   const enqueue=(entry:FrontierEntry)=>{
     try {
       entry.url=publicSourceUrl(entry.url);
       if(entry.depth>maxDepth||queued.size>=300||queued.has(entry.url))return;
       if(entry.depth>0&&officialPath.length>=2&&!officialPath.every((part,index)=>venuePath(entry.url)[index]===part))return;
-      if(entry.depth>0&&[...new URL(entry.url).searchParams.keys()].some(key=>/^(?:page|paged|offset|cursor|pagination|query-\d+-page)$/iu.test(key)))return;
+      if(entry.depth>0&&[...new URL(entry.url).searchParams.keys()].some(key=>/^(?:page|paged|offset|cursor|pagination|detail|query-\d+-page)$/iu.test(key)))return;
       if(!matchesExistingWebsite(entry.discoveredOn??entry.url,official))throw new Error('SOURCE_IDENTITY_REQUIRES_REVIEW');
       queued.add(entry.url);frontier.push(entry);
     }catch(error){sourceFailures.push({url:entry.url,reason:error instanceof Error?error.message:'URL_REJECTED'});}
@@ -614,6 +796,11 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const secureSeed=typeof seed==='string'&&seed.startsWith('http://')?'https://'+seed.slice(7):seed;
     if(secureSeed!==seed)actions.push({stage:'HTTPS_PROBE',storedUrl:seed,secureUrl:secureSeed});
     enqueue({url:secureSeed,label:'Official seed',depth:0,topics:['contact','hours','experience','about','visit']});
+    // A catalog often stores /kontakt or /information as its website. On a
+    // dedicated host the homepage is the natural venue overview; queue it
+    // explicitly instead of relying on a CMS navigation link or web search.
+    const seedUrl=new URL(secureSeed);
+    if(seedUrl.pathname.split('/').filter(Boolean).length===1)enqueue({url:seedUrl.origin+'/',label:'Official homepage',depth:1,topics:['about','experience','visit']});
   }
   let modelUnavailable=false;
   let menuLayoutSkipped=false;
@@ -645,13 +832,20 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     if(!remaining()){stopReason='TIME_BUDGET_EXHAUSTED';break;}
     if(requests>=maxRequests){stopReason='REQUEST_BUDGET_EXHAUSTED';break;}
     const planned=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
-    const pendingFields=fields.filter(f=>{const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&Array.isArray(proposal?.value)&&proposal.value.length<7||f.attributeKey==='experience.profile'&&proposal?.partialProfile&&Array.isArray((proposal.value as {offers?:unknown[]} | undefined)?.offers)&&(proposal.value as {offers:unknown[]}).offers.length<4;});
-    // Ask the local search service after the seed, before spending the budget
-    // on translated navigation pages. Search URLs remain untrusted leads.
-    if(searchEndpoint&&!searchDone&&(!frontier.length||sources.length===1&&searchedTopics.size===0)){
-      const item=planSpotSearches(spot,pendingFields,official,{maxQueries:6}).find(query=>!searchedTopics.has(query.key));
-      if(!item||searchedTopics.size>=maxSearchQueries||remaining()<15000){searchDone=true;stopReason='FRONTIER_EXHAUSTED';break;}
-      searchedTopics.add(item.key);
+    const pendingFields=fields.filter(f=>{const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&Array.isArray(proposal?.value)&&proposal.value.length<7||f.attributeKey==='experience.profile'&&profileNeedsMoreEvidence(f,facts,frontier);});
+    // A hard-to-find contact must not consume the whole budget while a
+    // substantive experience question is still unanswered.
+    const balancedFields=pendingFields.filter(f=>!(f.attributeKey.startsWith('contact.')&&(topicAttempts.get('contact')??0)>=3&&pendingFields.some(other=>other.attributeKey==='experience.profile')));
+    const searchAndRankFields=balancedFields.length?balancedFields:pendingFields;
+    // Cultural profiles can have several distinct programme types; look for
+    // new offer families after each page instead of waiting for two more
+    // navigation pages. Search URLs remain untrusted leads.
+    const usefulFrontier=rankResearchFrontier(frontier,facts,searchAndRankFields);
+    const cultureSearch=searchAndRankFields.some(field=>field.attributeKey==='experience.profile'&&field.profileCategory==='CULTURE_ARTS');
+    if(searchEndpoint&&!searchDone&&(!usefulFrontier.length||sources.length>=1+(cultureSearch?1:2)*searchedTopics.size)){
+      const item=planSpotSearches(spot,searchAndRankFields,official,{maxQueries:6}).find(query=>!searchedTopics.has(query.key));
+      if(!item||searchedTopics.size>=maxSearchQueries||remaining()<15000){searchDone=true;if(!usefulFrontier.length){stopReason='FRONTIER_EXHAUSTED';break;}}
+      else {searchedTopics.add(item.key);
       try {
         const found=await (deps.searchWeb??searchLocalWeb)(searchEndpoint,item.query,{timeoutMs:Math.min(10000,remaining())});
         const classified=classifySearchResults(found,spot,official);
@@ -661,8 +855,13 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         await progress({stage:'WEB_SEARCH',query:item.query,officialLeads:classified.official.length,externalLeads:classified.external.length});
       }catch(error){const reason=error instanceof Error?error.message:'SEARCH_FAILED';searchQueries.push({...item,resultCount:0,error:reason});await progress({stage:'WEB_SEARCH_ERROR',query:item.query,reason});}
       continue;
+      }
     }
-    const next=rankResearchFrontier(frontier,facts,pendingFields)[0];if(!next){stopReason='FRONTIER_EXHAUSTED';break;}frontier.splice(frontier.indexOf(next),1);
+    const next=rankResearchFrontier(frontier,facts,searchAndRankFields)[0];if(!next){stopReason='FRONTIER_EXHAUSTED';break;}frontier.splice(frontier.indexOf(next),1);
+    if(cultureSearch&&next.depth>0&&/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(next.url).pathname)&&sources.some(source=>/^\/de(?:\/|$)/iu.test(new URL(source.url).pathname))){
+      await progress({stage:'TRANSLATED_CULTURE_PAGE_DEFERRED',url:next.url});
+      continue;
+    }
     if(next.depth>0&&/^\/(?:en|fr|it)\/(?:home(?:-\d+)?|info(?:rmations?)?|about)\/?$/iu.test(new URL(next.url).pathname)&&sources.some(source=>source.url!==next.url&&!/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(source.url).pathname))){
       await progress({stage:'TRANSLATED_OVERVIEW_DEFERRED',url:next.url});
       continue;
@@ -677,6 +876,8 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     try {
       page=await (deps.fetchPage??fetchPublicSource)(next.url,{timeoutMs:Math.max(1,Math.min(15000,Math.floor(remaining()/8))),maxRedirects:Math.min(3,maxRequests-requests)});
       if(page.url!==next.url&&(!page.redirectedFrom?.length||page.redirectedFrom[0]!==next.url||!matchesExistingWebsite(page.url,next.url)))throw new Error('UNEXPECTED_SOURCE_URL');
+      if(page.url!==next.url&&visited.has(page.url)){await progress({stage:'DUPLICATE_REDIRECT',from:next.url,url:page.url});continue;}
+      visited.add(page.url);
       requests+=page.redirectedFrom?.length??0;if(page.redirectedFrom?.length)await progress({stage:'REDIRECT',from:next.url,url:page.url,chain:page.redirectedFrom});
       source=await (deps.readPage??readSourceText)(page,'s'+(sources.length+1),{preferMain:true});
       if(!source.text||source.text.length>12000||hash(source.text)!==source.hash)throw new Error('SOURCE_INTEGRITY_FAILED');
@@ -686,6 +887,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       const scopedDepartment=/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(source.url).pathname);
       if(menuArea||hotelArea||scopedDepartment)source.areaScope=next.label||next.url;
       sources.push(source);await checkpoint();
+      if(next.depth===0||/(?:kontakt|contact|mitarbeitende|employees|team|staff|equipe|équipe|impressum|imprint)/iu.test(new URL(source.url).pathname+' '+next.label))topicAttempts.set('contact',(topicAttempts.get('contact')??0)+1);
       if(next.depth===0&&explicitRelocation(source,spot)){
         stopReason='IDENTITY_RELOCATION_REQUIRES_REVIEW';
         await progress({stage:'IDENTITY_RELOCATION',url:source.url,storedAddress:spot.existingValues?.['location.address_line1']?.value});
@@ -712,18 +914,25 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       const foreignSeed=next.depth===0&&/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(source.url).pathname);
       const descriptions=selectDescription&&!(foreignSeed&&germanEdition)?candidates.filter(f=>f.field==='description.highlight'):[];
       if(selectDescription&&foreignSeed&&germanEdition)await progress({stage:'DESCRIPTION_DEFERRED_FOR_GERMAN_SOURCE',url:source.url});
-      const extracted=candidates.filter(f=>f.field!=='description.highlight');facts.push(...extracted);await checkpoint();
+      const extracted:EvidenceFact[]=[];
+      // Description candidates are only alternatives for the selector. Give
+      // IDs to facts when they enter the ledger, otherwise unused description
+      // candidates leave gaps that collide with later model-extracted facts.
+      for(const candidate of candidates)if(candidate.field!=='description.highlight'){
+        candidate.id='f'+facts.length;facts.push(candidate);extracted.push(candidate);
+      }
+      await checkpoint();
       if(descriptions.length) {
         try {
-          const raw=await model('SELECT_DESCRIPTION',source,request(modelPath,'Choose at most ONE original passage that helps a Backyrd visitor understand what they can experience, do or enjoy at this exact venue: concrete offerings, setting or service. Exclude fundraising, finances, governance, staff profiles, awards, visitor testimonials, unrelated history, slogans and contact/opening-hours text. For STAY prioritize accommodation and guest experience; for CULTURE_ARTS the museum visit and activities; for EAT dining. Empty selected if no passage serves that purpose. Never rewrite text.',{target:context(spot),candidates:descriptions.map((f,i)=>({id:'d'+i,text:f.quote}))},record({selected:{type:'array',maxItems:1,items:enumeration(descriptions.map((_,i)=>'d'+i))}})));
-          if(!isObject(raw)||Object.keys(raw).length!==1||!Array.isArray(raw.selected)||raw.selected.length>1||raw.selected.some(id=>typeof id!=='string'||!/^d\d+$/.test(id)||!descriptions[Number(id.slice(1))]))throw new Error('DESCRIPTION_SELECTION_INVALID');
-          if(raw.selected.length){const selected={...descriptions[Number(String(raw.selected[0]).slice(1))],id:'f'+facts.length};facts.push(selected);extracted.push(selected);}
+          const raw=await model('SELECT_DESCRIPTION',source,request(modelPath,'Choose up to THREE distinct original passages, ranked best first, that help a Backyrd visitor understand a concrete experience, offering, setting or service at this exact venue. An independent evidence critic will check each passage, and the first supported one becomes the description. Exclude fundraising, finances, governance, staff profiles, awards, visitor testimonials, unrelated history, slogans, subjective promises of exceptional quality and contact/opening-hours text. Prefer clear factual sentences over promotional copy. For STAY prioritize accommodation and guest experience; for CULTURE_ARTS the museum visit and activities; for EAT dining. Empty selected if no passage serves that purpose. Never rewrite text.',{target:context(spot),candidates:descriptions.map((f,i)=>({id:'d'+i,text:f.quote}))},record({selected:{type:'array',maxItems:3,items:enumeration(descriptions.map((_,i)=>'d'+i))}})));
+          if(!isObject(raw)||Object.keys(raw).length!==1||!Array.isArray(raw.selected)||raw.selected.length>3||new Set(raw.selected).size!==raw.selected.length||raw.selected.some(id=>typeof id!=='string'||!/^d\d+$/.test(id)||!descriptions[Number(id.slice(1))]))throw new Error('DESCRIPTION_SELECTION_INVALID');
+          for(const id of raw.selected){const selected={...descriptions[Number(String(id).slice(1))],id:'f'+facts.length};facts.push(selected);extracted.push(selected);}
         }catch(error){await progress({stage:'DESCRIPTION_ERROR',url:source.url,reason:error instanceof Error?error.message:'DESCRIPTION_FAILURE'});}
       }
 
       for(const group of semanticGroups) {
         try {
-          const offeredBlocks=group.some(f=>f.attributeKey==='experience.profile')?blocks.filter(b=>((b.text.match(/\p{L}+/gu)??[]).length>=5||/(?:CHF|EUR|€|\$)\s*\d|\d[.,]\d{2}/u.test(b.text))&&!(source.headings??[]).some(h=>h.text===b.text)):blocks;
+          const offeredBlocks=group.some(f=>f.attributeKey==='experience.profile')?blocks.filter(b=>((b.text.match(/\p{L}+/gu)??[]).length>=5||/(?:CHF|EUR|€|\$)\s*\d|\d\s*(?:CHF|EUR|€|\$)|\d[.,]\d{2}/u.test(b.text))&&!(source.headings??[]).some(h=>h.text===b.text)):blocks;
           const raw=await model('EXTRACT',source,request(modelPath,'You are Nuknuk, researching one small group of Backyrd questions. Extract at most EIGHT facts for the exact requested venue from numbered original blocks. Use block IDs, never reconstruct quotes. TARGET is an assertion about the whole venue. AREA is a narrower operating area. OFFER is a concrete dish, room or activity. For experience.profile, a TARGET sentence can also establish an offer when it explicitly names what a visitor can do or receive at this venue; still copy the literal concrete offer name, not the venue name. belongsTo identifies whether the entity is part of the requested exact venue, another branch/venue, or unknown. A room/visit/workshop OFFER can belong to TARGET without being a whole-venue assertion. Never promote offer/area facilities or hours to the whole venue. OTHER is a different venue. CURRENT means an ordinary present website statement; copyright years are never validity dates. restrictionQuote must be EMPTY unless that specific fact has an explicit weather/date/daypart/party-size restriction; copy the restriction literally. Never add explanations or inferred restrictions. Use NEGATIVE only for explicit absence/prohibition. For offers choose blocks that include the original name AND its actual description or menu context, never bare heading-only blocks. Choose at most four concrete original names and their actual offerKind independent of the requested venue category. A hotel restaurant remains GASTRONOMY, never OVERNIGHT_STAY. The whole venue name is not a distinct room/activity offer; no navigation headings or generic labels. For other fields use empty offerKind. Wi-Fi alone is not laptop permission. nextLinks can select observed IDs relevant to unanswered questions; no privacy/legal/shopping pages.',{asOf:new Date(now()).toISOString().slice(0,10),target:context(spot),questions:group.map(fieldInstructions),source:{id:source.id,url:source.url,format:source.format??'HTML'},blocks:offeredBlocks,nextLinks:links.map((l,i)=>({id:'l'+i,url:l.url,label:l.label}))},extractionSchema(group,offeredBlocks,links)));
           if(isObject(raw)&&raw.nextLinks!==undefined) {
             const selections=raw.nextLinks;
@@ -761,15 +970,19 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       const recordFacts=()=>progress({stage:'FACTS',url:source.url,accepted:extracted.filter(f=>f.state==='ACCEPTED').length,held:extracted.filter(f=>f.state==='HELD').length,heldReasons:[...new Set(extracted.filter(f=>f.state==='HELD').map(f=>f.reason))],rejected:extracted.filter(f=>f.state==='REJECTED').length});
       const eligible=extracted.filter(f=>f.state==='HELD'&&f.reason==='SEMANTIC_CHECK_PENDING').slice(0,32);
       if(!eligible.length){await recordFacts();await checkpoint();continue;}
-      const verdictRaw=await model('VERIFY',source,request(modelPath,'You are a strict independent evidence critic for Backyrd. Check each claim AGAINST the exact source excerpts, their section headings and requested venue. The title/footer help establish page identity; they do not automatically make every claim a whole-venue fact. An ordinary explicit business statement does not require an invented restriction or extra uncertainty. Literal descriptions may mention specific offers with their stated days; preserving that sentence is not claiming daily availability. Business contacts on the named venue website can be supported; exclude clearly different branches, departments or fax. Do not reject a fact solely because it was marked pending by the extraction pipeline. SUPPORTED only when the value, subject, polarity and current unconditional applicability are all directly supported. A literal quote alone is insufficient. Mark other branches, kitchen times as whole venue hours, expired/future menus, wishes, missing information, navigation labels, inferred facilities, diet, suitability and laptop permission as UNSUPPORTED or AMBIGUOUS. For offers require a concrete named compatible experience; never treat menu categories as dishes. Respond once for EVERY supplied fact ID, classifying subject, belongsTo and applicability. Distinguish ownership from assertion scope: a room or workshop OFFER can belongTo TARGET; this does not make its amenities/hours whole-venue facts. For experience.profile check a concrete offering belonging to the target, not a whole-venue property. For contact/hours/amenities require whole-venue scope. A description is exact copied visitor-facing text, not a flat boolean property: an owned scoped passage or explicitly retained condition can be supported without implying it applies everywhere or always. Exclude quoted visitor reviews, finances and other non-visitor content. restrictionQuote is empty unless an actual explicit restriction for that particular claim appears; copy it literally, no explanations. A different branch belongs in subject OTHER, not an invented condition. Verify the offerKind against the specific named offer: surrounding hotel text does not turn its restaurant into accommodation, and the whole venue name is not a concrete room/activity. Do not trust the extractor.',{asOf:new Date(now()).toISOString().slice(0,10),target:context(spot),questions:fields.map(fieldInstructions),source:criticContext(source,eligible),claims:eligible.map(({id,field,value,quote,subject,belongsTo,condition,applicability,polarity,offerKind})=>({id,field,value,quote,subject,belongsTo,condition,applicability,polarity,offerKind}))},record({verdicts:{type:'array',maxItems:32,items:record({factId:enumeration(eligible.map(f=>f.id)),verdict:enumeration(['SUPPORTED','UNSUPPORTED','AMBIGUOUS']),subject:enumeration(subjectKinds),applicability:enumeration(applicabilityKinds),restrictionQuote:text(500),belongsTo:enumeration(['TARGET','OTHER','UNKNOWN'])})}})));
-      if(!isObject(verdictRaw)||Object.keys(verdictRaw).length!==1||!Array.isArray(verdictRaw.verdicts)||verdictRaw.verdicts.length!==eligible.length)throw new Error('VERDICTS_INCOMPLETE');
+      const verdictRaw=await model('VERIFY',source,request(modelPath,'You are a strict independent evidence critic for Backyrd. Check each claim AGAINST the exact source excerpts, their section headings and requested venue. The title/footer help establish page identity; they do not automatically make every claim a whole-venue fact. An ordinary explicit business statement does not require an invented restriction or extra uncertainty. Literal descriptions may mention specific offers with their stated days; preserving that sentence is not claiming daily availability. Business contacts on the named venue website can be supported; exclude clearly different branches, departments or fax. Do not reject a fact solely because it was marked pending by the extraction pipeline. For non-description claims, SUPPORTED requires the value, subject, polarity and current applicability to be directly supported. For description.highlight, judge the exact first-party sentence as visitor-facing prose: a factual statement about a recurring or seasonal service remains supportable when its timing stays verbatim in the quote (for example, menus changing with the seasons). An owned setting or service may be described without claiming it is unique or permanently available. Reject unsupported advertising promises, but do not reject a concrete source statement merely because nearby prose is promotional. A literal quote alone is insufficient. Mark other branches, kitchen times as whole venue hours, expired/future menus, wishes, missing information, navigation labels, inferred facilities, diet, suitability and laptop permission as UNSUPPORTED or AMBIGUOUS. For offers require a concrete named compatible experience; never treat menu categories as dishes. Respond once for EVERY supplied fact ID, classifying subject, belongsTo and applicability. Distinguish ownership from assertion scope: a room or workshop OFFER can belongTo TARGET; this does not make its amenities/hours whole-venue facts. For experience.profile check a concrete offering belonging to the target, not a whole-venue property. For contact/hours/amenities require whole-venue scope. A description is exact copied visitor-facing text, not a flat boolean property: an owned scoped passage or explicitly retained condition can be supported without implying it applies everywhere or always. Exclude quoted visitor reviews, finances and other non-visitor content. restrictionQuote is empty unless an actual explicit restriction for that particular claim appears; copy it literally, no explanations. A different branch belongs in subject OTHER, not an invented condition. Verify the offerKind against the specific named offer: surrounding hotel text does not turn its restaurant into accommodation, and the whole venue name is not a concrete room/activity. Do not trust the extractor.',{asOf:new Date(now()).toISOString().slice(0,10),target:context(spot),questions:fields.map(fieldInstructions),source:criticContext(source,eligible),claims:eligible.map(({id,field,value,quote,subject,belongsTo,condition,applicability,polarity,offerKind})=>({id,field,value,quote,subject,belongsTo,condition,applicability,polarity,offerKind}))},record({verdicts:{type:'array',maxItems:32,items:record({factId:enumeration(eligible.map(f=>f.id)),verdict:enumeration(['SUPPORTED','UNSUPPORTED','AMBIGUOUS']),subject:enumeration(subjectKinds),applicability:enumeration(applicabilityKinds),restrictionQuote:text(500),belongsTo:enumeration(['TARGET','OTHER','UNKNOWN'])})}})));
+      if(!isObject(verdictRaw)||Object.keys(verdictRaw).length!==1||!Array.isArray(verdictRaw.verdicts)||verdictRaw.verdicts.length>32)throw new Error('VERDICTS_INVALID');
       const verdicts=new Map<string,{verdict:string;subject:EvidenceFact['subject'];applicability:EvidenceFact['applicability'];restrictionQuote:string;belongsTo:EvidenceFact['belongsTo']}>();
+      const ambiguousIds=new Set<string>();
       for(const v of verdictRaw.verdicts as unknown[]) {
-        if(!isObject(v)||Object.keys(v).length!==6||typeof v.factId!=='string'||!eligible.some(f=>f.id===v.factId)||verdicts.has(v.factId)||!['SUPPORTED','UNSUPPORTED','AMBIGUOUS'].includes(String(v.verdict))||!subjectKinds.includes(v.subject as EvidenceFact['subject'])||!applicabilityKinds.includes(v.applicability as EvidenceFact['applicability'])||typeof v.restrictionQuote!=='string'||v.restrictionQuote.length>500||!['TARGET','OTHER','UNKNOWN'].includes(String(v.belongsTo)))throw new Error('VERDICT_INVALID');
+        if(!isObject(v)||Object.keys(v).length!==6||typeof v.factId!=='string'||!eligible.some(f=>f.id===v.factId)||!['SUPPORTED','UNSUPPORTED','AMBIGUOUS'].includes(String(v.verdict))||!subjectKinds.includes(v.subject as EvidenceFact['subject'])||!applicabilityKinds.includes(v.applicability as EvidenceFact['applicability'])||typeof v.restrictionQuote!=='string'||v.restrictionQuote.length>500||!['TARGET','OTHER','UNKNOWN'].includes(String(v.belongsTo)))throw new Error('VERDICT_INVALID');
+        if(verdicts.has(v.factId)||ambiguousIds.has(v.factId)){verdicts.delete(v.factId);ambiguousIds.add(v.factId);continue;}
         verdicts.set(v.factId,{verdict:String(v.verdict),subject:v.subject as EvidenceFact['subject'],applicability:v.applicability as EvidenceFact['applicability'],restrictionQuote:v.restrictionQuote,belongsTo:v.belongsTo as EvidenceFact['belongsTo']});
       }
+      if(verdicts.size!==eligible.length)await progress({stage:'VERDICT_ID_ERROR',url:source.url,missingOrDuplicate:eligible.length-verdicts.size,duplicate:ambiguousIds.size});
       for(const f of eligible) {
-        const check=verdicts.get(f.id)!;
+        const check=verdicts.get(f.id);
+        if(!check){f.state='HELD';f.reason='VERDICT_MISSING_OR_DUPLICATE';continue;}
         if(f.belongsTo==='TARGET'&&check.belongsTo!=='TARGET')f.belongsTo=check.belongsTo;
         if(['OTHER','UNKNOWN'].includes(check.subject)||f.subject==='TARGET'&&check.subject!=='TARGET')f.subject=check.subject;
         if(f.applicability==='CURRENT'&&check.applicability!=='CURRENT')f.applicability=check.applicability;

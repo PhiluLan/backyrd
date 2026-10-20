@@ -60,6 +60,7 @@ export function evaluateNuknukCohort(cases:CohortCase[]) {
   if(lateReferences)blockers.push('REFERENCE_NOT_PREPARED_BEFORE_RUN');
   for(const key of categories)if(counts[key]<3)blockers.push('CATEGORY_'+key+'_BELOW_3');
   if(incorrect||falseAssertions||misattributions)blockers.push('FACTUAL_OR_SCOPE_ERROR');
+  if(missedFacts)blockers.push('KNOWN_FACTS_MISSED');
   if(proposed/assessed<0.3)blockers.push('USEFUL_FIELD_COVERAGE_BELOW_30_PERCENT');
   if(sourceFailures)blockers.push('SOURCE_FAILURES_REQUIRE_TRIAGE');
   if(budgetStopped>cases.length/4)blockers.push('BUDGET_STOPS_ABOVE_25_PERCENT');

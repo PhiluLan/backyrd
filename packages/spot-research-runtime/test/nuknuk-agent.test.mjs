@@ -31,8 +31,38 @@ test('local web search accepts only loopback, and snippets are leads rather than
  assert.equal(permanentSpotSearchLead('https://example.org/events/'),false);
  assert.equal(permanentSpotSearchLead('https://example.org/kalender/'),false);
  assert.equal(permanentSpotSearchLead('https://example.org/museum?date=2026-11-15'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/press/2017/museum.pdf'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/en/exhibitions/artist-name'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/ausstellungen.html'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/veranstaltungen/veranstaltungshighlights/offenes-atelier'),true);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/veranstaltungen/veranstaltungshighlights/kinderworkshops'),true);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/besuch/ihrevent/fuehrungen-und-workshops'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/veranstaltungen/kalender'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/sammlung.html?detail=artwork-1'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/presse-download'),false);
  assert.equal(permanentSpotSearchLead('https://example.org/dauerausstellung/'),true);
  assert.deepEqual(classifySearchResults([{url:'https://example.org/events/',title:'Synthetic Restaurant Basel',snippet:'Basel'},{url:'https://example.org/museum?date=2026-11-15',title:'Synthetic Restaurant Basel',snippet:'Basel'}],spot,spot.existingValues['contact.website'].value).official,[]);
+ const museum={...spot,name:'Fondation Beyeler',existingValues:{...spot.existingValues,'classification.place_types':{value:['MUSEUM']}}};
+ assert.match(planSpotSearches(museum,[field('contact.public_email')],museum.existingValues['contact.website'].value,{maxQueries:3})[1].query,/"Visitor Services" site:example\.org/);
+ const museumQueries=planSpotSearches(museum,[field('experience.profile')],museum.existingValues['contact.website'].value,{maxQueries:4});
+ assert.deepEqual(museumQueries.slice(1,3).map(x=>x.query),['Fondation Beyeler Besuch planen Führungen Atelier site:example.org','Fondation Beyeler Workshop Atelier']);
+ let attempts=0;
+ const recovered=await searchLocalWeb('http://127.0.0.1:8888/','Museum Tinguely Sammlung',{fetchImpl:async url=>{
+  attempts++;
+  if(attempts===2)assert.equal(new URL(url).searchParams.get('engines'),'yahoo,yep');
+  return new Response(JSON.stringify(attempts===1?{results:[],unresponsive_engines:[['duckduckgo','CAPTCHA']]}:{results:[{url:'https://example.org/sammlung',title:'Museum Tinguely',content:'Sammlung'}]}),{headers:{'content-type':'application/json'}});
+ }});
+ assert.equal(attempts,2);assert.equal(recovered.length,1);
+});
+test('an ambiguous restaurant name does not admit flights as external identity matches',()=>{
+ const restaurant={...spot,name:'Antalya',locality:'Basel'};
+ const results=[{url:'https://travel.example/flug/basel-antalya',title:'Flüge Basel Antalya',snippet:'Reisen von Basel in die Stadt Antalya'},{url:'https://guide.example/restaurants/antalya',title:'Antalya Restaurant in Basel',snippet:'Speisekarte am Leonhardsgraben'}];
+ assert.deepEqual(classifySearchResults(results,restaurant,'https://restaurantantalya.ch/').external.map(item=>item.url),['https://guide.example/restaurants/antalya']);
+ assert.match(planSpotSearches(restaurant,[field('experience.profile')],'https://restaurantantalya.ch/',{maxQueries:2})[1].query,/Speisekarte Gerichte/);
+});
+test('wellness research asks for the relevant water and spa facilities',()=>{
+ const wellness={...spot,name:'aquabasilea',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ assert.match(planSpotSearches(wellness,[field('experience.profile')],'https://www.aquabasilea.ch/',{maxQueries:2})[1].query,/Sauna Spa Hamam Badewelt/);
 });
 test('unattended selection uses only official-site Admin rows with missing fields',()=>{
  const item=(spotId,website,values={})=>({spotId,name:spotId,existingValues:{'contact.website':website?{knowledgeState:'KNOWN_VALUE',value:website}:undefined,...values}});
@@ -66,6 +96,46 @@ test('a real museum overview link outranks translations and request forms',()=>{
  assert.ok(ranked.findIndex(link=>link.url.endsWith('/aktuell/'))<ranked.findIndex(link=>link.url.endsWith('/fr/informations/')));
  assert.ok(ranked.findIndex(link=>link.url.endsWith('/informationen/'))<ranked.findIndex(link=>link.url.endsWith('/fr/informations/')));
 });
+test('museum collection and onsite tours outrank online videos and broad children pages',()=>{
+ const entries=['/de/digital/tinguely-home.html','/de/vermittlung-fuehrungen-workshops/freizeitangebot-fuer-kinder.html','/de/tinguely-sammlung-restaurierung/sammlung.html','/de/vermittlung-fuehrungen-workshops/fuehrungen/'].map(path=>({url:'https://example.org'+path,label:path,depth:1,topics:['experience']}));
+ const ranked=rankResearchFrontier(entries,[],[{...field('experience.profile'),profileCategory:'CULTURE_ARTS'}]);
+ assert.equal(ranked[0].url,entries[3].url);
+ assert.equal(ranked[1].url,entries[2].url);
+ assert.ok(!ranked.some(x=>x.url===entries[0].url));
+});
+test('museum visitor planning outranks private-collection and history pages',()=>{
+ const museumField={...field('experience.profile'),profileCategory:'CULTURE_ARTS'};
+ const links=[
+  {url:'https://example.org/de/sammlung/private-sammlungen',label:'Private Sammlungen',depth:1,topics:['experience']},
+  {url:'https://example.org/de/sammlung/geschichte',label:'Geschichte',depth:1,topics:['experience']},
+  {url:'https://example.org/de/besuch/besuch-planen',label:'Besuch planen',depth:1,topics:['visit']},
+ ];
+ assert.deepEqual(rankResearchFrontier(links,[],[museumField]).map(link=>link.url),['https://example.org/de/besuch/besuch-planen']);
+});
+test('wellness overview and sauna outrank action-only pages for a wellness profile',()=>{
+ const entries=['/badewelt-actionwelt.html','/wellness.html','/sauna.html','/wellness-buchen.html'].map(path=>({url:'https://example.org'+path,label:path,depth:1,topics:['experience']}));
+ const ranked=rankResearchFrontier(entries,[],[{...field('experience.profile'),profileCategory:'WELLNESS_RELAXATION'}]);
+ assert.deepEqual(ranked.slice(0,2).map(x=>x.url),[entries[2].url,entries[1].url]);
+ assert.ok(!ranked.some(x=>x.url===entries[3].url));
+});
+test('four wellness facts do not hide an unread sauna page, and projection covers different offer kinds',()=>{
+ const wellness={...spot,name:'aquabasilea',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ const f={...field('experience.profile'),profileCategory:'WELLNESS_RELAXATION'};
+ const texts=[
+  ['Sprudelgrotte','BATHING','In der Sprudelgrotte schwimmen Gäste in warmem Wasser und geniessen die beleuchtete Grotte.','https://example.org/badewelt/relaxwelt.html'],
+  ['Sugaring','SPA_TREATMENT','Wir bieten Sugaring als hautschonende Haarentfernung im Spa-Bereich des aquabasilea an.','https://example.org/wellness.html'],
+  ['Ayurveda-Anwendungen','SPA_TREATMENT','Unsere Ayurveda-Anwendungen werden im Spa von erfahrenem Personal angeboten und individuell besprochen.','https://example.org/wellness.html'],
+  ['Hamam Rundgang','SPA_TREATMENT','Ein Hamam Rundgang im aquabasilea umfasst einen Reinigungsbereich und einen Ruhebereich.','https://example.org/wellness/hamam.html'],
+  ['Sogukluk','SAUNA','Gestartet wird mit einem Besuch im milden Dampfbad Sogukluk und anschliessender Ruhephase.','https://example.org/wellness/hamam.html'],
+ ];
+ const sources=texts.map(([, ,quote,url],i)=>({...source(quote,'s'+i),url}));
+ const facts=texts.map(([name,kind,quote],i)=>validateEvidenceFacts({facts:[fact('experience.profile',name,quote,{subject:'OFFER',offerKind:kind})]},sources[i],[f])[0]).map(x=>({...x,state:'ACCEPTED'}));
+ const frontier=[{url:'https://example.org/wellness/sauna.html',depth:1,topics:['experience']}];
+ assert.equal(rankResearchFrontier(frontier,facts.slice(0,4),[f])[0].url,frontier[0].url);
+ const result=projectEvidenceLedger({spot:wellness,fields:[f],facts,sources,...deps})[0];
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.deepEqual(result.value.offers.map(o=>o.name),['Sprudelgrotte','Sugaring','Ayurveda-Anwendungen','Hamam Rundgang','Sogukluk']);
+});
 test('a permanent museum offer requires an explicit permanence statement',()=>{
  const museum={...spot,name:'Basler Papiermühle',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
  const chosen=[field('experience.profile')];
@@ -76,6 +146,24 @@ test('a permanent museum offer requires an explicit permanence statement',()=>{
  const checked=recheckEvidenceFloors(candidates,[one,two],chosen,museum);
  assert.equal(checked[0].reason,'PERMANENCE_NOT_EXPLICIT');
  assert.equal(checked[1].reason,'CATEGORY_LABEL_NOT_CONCRETE_OFFER');
+});
+test('a named museum collection can use the explicitly inflected German permanence statement',()=>{
+ const museum={...spot,name:'Museum Tinguely',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'classification.place_types':{value:['MUSEUM']}}};
+ const quote='Sammlung Museum Tinguely\n\nDie Werke sind für Besuchende in der permanenten Ausstellung im Museum Tinguely zugänglich.';
+ const original=source(quote);
+ const draft=validateEvidenceFacts({facts:[fact('experience.profile','Sammlung Museum Tinguely',quote,{subject:'OFFER',offerKind:'PERMANENT_EXHIBITION'})]},original,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(draft,[original],[field('experience.profile')],museum)[0].state,'ACCEPTED');
+ const generic=validateEvidenceFacts({facts:[fact('experience.profile','permanenten Ausstellung',quote,{subject:'OFFER',offerKind:'PERMANENT_EXHIBITION'})]},original,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(generic,[original],[field('experience.profile')],museum)[0].reason,'CATEGORY_LABEL_NOT_CONCRETE_OFFER');
+});
+test('museum collection objects cannot masquerade as four separate permanent exhibitions',()=>{
+ const museum={...spot,name:'Museum Tinguely',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const quote='Sammlung Museum Tinguely\n\nDie Skulpturen, Zeichnungen und Briefzeichnungen der Sammlung sind in der permanenten Ausstellung öffentlich zugänglich.';
+ const original=source(quote);
+ const draft=validateEvidenceFacts({facts:['Sammlung Museum Tinguely','Skulpturen','Zeichnungen','Briefzeichnungen'].map(name=>fact('experience.profile',name,quote,{subject:'OFFER',offerKind:'PERMANENT_EXHIBITION'}))},original,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(draft,[original],[field('experience.profile')],museum);
+ assert.deepEqual(checked.map(f=>f.state),['ACCEPTED','HELD','HELD','HELD']);
+ assert.deepEqual(checked.slice(1).map(f=>f.reason),['EXHIBITION_TITLE_REQUIRED','EXHIBITION_TITLE_REQUIRED','EXHIBITION_TITLE_REQUIRED']);
 });
 test('only a named permanent exhibition survives a wrong AREA label',()=>{
  const museum={...spot,name:'Basler Papiermühle - Schweizerisches Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
@@ -155,14 +243,16 @@ test('wellness and water-park pages are researchable without following booking f
  const links=discoverResearchLinks({url:'https://example.org/informationen.html',contentType:'text/html',body:'<a href="/badewelt/actionwelt.html">Actionwelt</a><a href="/wellness/sauna.html">Sauna</a><a href="/wellness/hamam.html">Hamam</a><a href="/wellness-buchen.html">Wellness buchen</a><a href="/wellness-buchen.htmll">Wellness</a>'});
  assert.deepEqual(links.filter(link=>link.topics.includes('experience')).map(link=>link.url),['https://example.org/badewelt/actionwelt.html','https://example.org/wellness/sauna.html','https://example.org/wellness/hamam.html']);
 });
-test('public generic mailto link provides literal email without accepting department links',()=>{
+test('public mailto links retain the inline department context for verification',()=>{
  const html='<main><h1>Restaurant Antalya</h1><p>Leonhardsgraben 8</p><a href="mailto:info@restaurantantalya.ch?subject=Hallo">E-Mail</a><a href="mailto:press@restaurantantalya.ch">Presse</a></main>';
  const read=sourceText({url:'https://www.restaurantantalya.ch/kontakt',body:html,observedAt:new Date().toISOString()},'s1',{preferMain:true});
- assert.match(read.text,/Öffentliche E-Mail-Links\ninfo@restaurantantalya\.ch/);
- assert.doesNotMatch(read.text,/press@restaurantantalya\.ch/);
- assert.equal(read.textSelection,'MAIN_WITH_PUBLIC_INFO');
+ assert.match(read.text,/E-Mail \(info@restaurantantalya\.ch\)/);
+ assert.match(read.text,/Presse \(press@restaurantantalya\.ch\)/);
+ assert.equal(read.textSelection,'MAIN_CONTENT');
  const staff=sourceText({url:'https://www.restaurantantalya.ch/team/jane',body:html,observedAt:new Date().toISOString()},'s2',{preferMain:true});
- assert.doesNotMatch(staff.text,/info@restaurantantalya\.ch/);
+ assert.match(staff.text,/info@restaurantantalya\.ch/);
+ const evidence=validateEvidenceFacts({facts:[fact('contact.public_email','press@restaurantantalya.ch','press@restaurantantalya.ch')]},read,[field('contact.public_email')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(evidence,[read],[field('contact.public_email')],spot)[0].reason,'EXPLICIT_AREA_EMAIL');
 });
 test('a hotel instance crawl skips other cities and pagination on the shared brand site',async()=>{
  const hotel={...spot,name:'25hours Hotel Zürich Langstrasse',existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/de/zurich/langstrasse/'}}};
@@ -698,6 +788,26 @@ test('search finds the primary-language page before translated overviews consume
  assert.equal(report.search.queries.length,1);
  assert.ok(report.actions.some(action=>action.stage==='TRANSLATED_OVERVIEW_DEFERRED'));
 });
+test('a stored contact-page seed queues and reads the same-host homepage as HTML',async()=>{
+ const restaurant={...spot,existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/kontakt'}}};
+ const fetched=[];
+ const r=await researchSpotV2({...opts,spot:restaurant,fields:[field('description.highlight')],maxRequests:2,discoverLinks:false},{...deps,fetchPage:async url=>{fetched.push(url);return {url,contentType:'text/html',body:url.endsWith('/kontakt')?'<main><h1>Kontakt</h1></main>':'<main><h1>Synthetic Restaurant</h1><p>Wir servieren hausgemachte Spezialitäten aus der Region in unserem Restaurant.</p></main>',observedAt:new Date().toISOString()};},modelFetch:modelFor(()=>[])});
+ assert.deepEqual(fetched,['https://example.org/kontakt','https://example.org/']);
+ assert.equal(r.sources.length,2);
+ assert.ok(!r.sourceFailures.some(f=>f.reason==='EMBEDDED_FORMAT_REJECTED'));
+});
+test('a rejected promotional description does not hide a second factual passage',async()=>{
+ const promotional='Bei uns erleben Sie ein unvergessliches Geschmackserlebnis, das alle Ihre Sinne verzaubert.';
+ const factual='Unsere Küche serviert anatolische Gerichte und frisch zubereitete Pide im Restaurant.';
+ const body=`<main><h1>Synthetic Restaurant</h1><p>${promotional}</p><p>${factual}</p></main>`;
+ const r=await researchSpotV2({...opts,fields:[field('description.highlight')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:async(_url,init)=>{
+  const input=JSON.parse(JSON.parse(init.body).messages[1].content);
+  if(input.candidates)return reply({selected:input.candidates.map(c=>c.id)});
+  return reply({verdicts:input.claims.map(f=>({factId:f.id,verdict:f.quote===promotional?'UNSUPPORTED':'SUPPORTED',subject:'TARGET',belongsTo:'TARGET',applicability:'CURRENT',restrictionQuote:''}))});
+ }});
+ assert.equal(r.results[0].status,'REQUIRES_REVIEW');
+ assert.equal(r.results[0].value,factual);
+});
 test('local web search recovers an official contact page and flags a contradictory external page without using it as evidence',async()=>{
  const target={...spot,locality:'Basel',existingValues:{...spot.existingValues,'contact.phone':{knowledgeState:'KNOWN_VALUE',value:'+41611112233'}}};
  const pages={
@@ -782,7 +892,7 @@ test('independent critic rejection cannot be projected',async()=>{
 test('missing/duplicate verification decisions leave facts unapproved and report errors',async()=>{
  const base=modelFor(()=>[fact('contact.phone','+41 61 111 22 33','Telefon: +41 61 111 22 33')]);
  const r=await researchSpotV2(opts,{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'Telefon: +41 61 111 22 33',observedAt:new Date().toISOString()}),modelFetch:async(u,o)=>JSON.parse(o.body).messages[0].content.includes('critic')?reply({verdicts:[]}):base(u,o)});
- assert.equal(r.facts[0].state,'HELD');assert.equal(r.results[0].status,'UNRESOLVED');assert.ok(r.actions.some(a=>a.reason==='VERDICTS_INCOMPLETE'));
+ assert.equal(r.facts[0].state,'HELD');assert.equal(r.facts[0].reason,'VERDICT_MISSING_OR_DUPLICATE');assert.equal(r.results[0].status,'UNRESOLVED');assert.ok(r.actions.some(a=>a.stage==='VERDICT_ID_ERROR'));
 });
 test('request limits preserve unresolved frontier and source failures are visible',async()=>{
  const r=await researchSpotV2({...opts,maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<a href="/kontakt">Kontakt</a>',observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
@@ -824,6 +934,105 @@ test('adjacent explicit weekday override is resolved but another page never over
  assert.equal(r.value.find(x=>x.day==='WEDNESDAY').intervals[0].end,'20:00');assert.equal(r.value.length,7);
  const other={...s,id:'s2',url:'https://example.org/other'};facts[1]={...facts[1],sourceId:'s2'};
  assert.equal(projectEvidenceLedger({spot,fields:[field('hours.regular')],facts,sources:[s,other],...deps})[0].reason,'CONFLICTING_TARGET_SCHEDULES');
+});
+test('the same general schedule and Wednesday exception in two languages agree',()=>{
+ const english=source('Monday–Sunday: 10 a.m. – 6 p.m.\nWednesday: 10 a.m. – 8 p.m.');
+ const german={...source('Montag–Sonntag: 10–18 Uhr\nMittwoch: 10–20 Uhr','s2'),url:'https://example.org/de/besuch'};
+ const facts=[
+  ...ledger([fact('hours.regular','Monday–Sunday: 10 a.m. – 6 p.m.','Monday–Sunday: 10 a.m. – 6 p.m.'),fact('hours.regular','Wednesday: 10 a.m. – 8 p.m.','Wednesday: 10 a.m. – 8 p.m.')],english),
+  ...ledger([fact('hours.regular','Montag–Sonntag: 10–18 Uhr','Montag–Sonntag: 10–18 Uhr'),fact('hours.regular','Mittwoch: 10–20 Uhr','Mittwoch: 10–20 Uhr')],german).map(f=>({...f,sourceId:'s2'})),
+ ];
+ const result=projectEvidenceLedger({spot,fields:[field('hours.regular')],facts,sources:[english,german],...deps})[0];
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.equal(result.value.length,7);
+ assert.equal(result.value.find(row=>row.day==='WEDNESDAY').intervals[0].end,'20:00');
+});
+test('a legal imprint mailbox cannot become the public visitor email',()=>{
+ const imprint={...source('Impressum\nVerantwortlich für Inhalte\nDigitale Kommunikation\nkommunikation@fondationbeyeler.ch'),url:'https://example.org/de/impressum'};
+ const email=validateEvidenceFacts({facts:[fact('contact.public_email','kommunikation@fondationbeyeler.ch','kommunikation@fondationbeyeler.ch')]},imprint,[field('contact.public_email')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(email,[imprint],[field('contact.public_email')],spot);
+ assert.equal(checked[0].reason,'EXPLICIT_AREA_EMAIL');
+ assert.equal(projectEvidenceLedger({spot,fields:[field('contact.public_email')],facts:email,sources:[imprint],...deps})[0].status,'UNRESOLVED');
+});
+test('a staff page retains mailto scope and accepts only its visitor-services inbox',()=>{
+ const page={url:'https://example.org/de/mitarbeitende',contentType:'text/html',observedAt:new Date().toISOString(),body:'<main><h1>Team</h1><h2>Digitale Kommunikation</h2><a href="mailto:kommunikation@museum.ch">Kontakt</a><h2>Visitor Services</h2><a href="mailto:info@museum.ch">Kontakt</a></main>'};
+ const staff=sourceText(page,'s1',{preferMain:true});
+ assert.match(staff.text,/Digitale Kommunikation\n\s*Kontakt \(kommunikation@museum\.ch\)/);
+ assert.match(staff.text,/Visitor Services\n\s*Kontakt \(info@museum\.ch\)/);
+ const facts=validateEvidenceFacts({facts:[fact('contact.public_email','kommunikation@museum.ch','kommunikation@museum.ch'),fact('contact.public_email','info@museum.ch','info@museum.ch')]},staff,[field('contact.public_email')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(facts,[staff],[field('contact.public_email')],spot);
+ assert.equal(checked[0].reason,'EXPLICIT_AREA_EMAIL');
+ assert.equal(checked[1].state,'ACCEPTED');
+ const result=projectEvidenceLedger({spot,fields:[field('contact.public_email')],facts,sources:[staff],...deps})[0];
+ assert.equal(result.value,'info@museum.ch');
+});
+test('a long museum artwork list does not hide the visitor-facing collection summary at its end',()=>{
+ const artworks=Array.from({length:500},(_,i)=>`<p>Jean Tinguely Kunstwerk ${i} aus der Sammlung.</p>`).join('');
+ const summary='Die Sammlung ist in der permanenten Ausstellung im Museum für Besuchende zugänglich.';
+ const read=sourceText({url:'https://example.org/de/sammlung.html',contentType:'text/html',observedAt:new Date().toISOString(),body:`<main><h1>Sammlung</h1>${artworks}<h2>Sammlung Museum Tinguely</h2><p>${summary}</p></main>`},'s1',{preferMain:true});
+ assert.ok(read.text.length<=12000);
+ assert.match(read.text,/mittlerer Seitenteil ausgelassen/);
+ assert.ok(read.text.includes(summary));
+ assert.ok(read.descriptionText.includes(summary));
+ const heading=read.headings.find(h=>h.text==='Sammlung Museum Tinguely');
+ assert.equal(read.text.slice(heading.offset,heading.offset+heading.text.length),heading.text);
+});
+test('museum extraction actually receives the summary after a long artwork list',async()=>{
+ const summary='Die Sammlung Museum Tinguely ist für Besuchende in der permanenten Ausstellung zugänglich.';
+ const artworks=Array.from({length:500},(_,i)=>`<p>Jean Tinguely Kunstwerk ${i} aus der Sammlung.</p>`).join('');
+ const museum={...spot,name:'Museum Tinguely',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'classification.place_types':{value:['MUSEUM']}}};
+ let offered=[];
+ await researchSpotV2({...opts,spot:museum,fields:[field('experience.profile')],maxRequests:1,discoverLinks:false},{...deps,
+  fetchPage:async url=>({url,contentType:'text/html',observedAt:new Date().toISOString(),body:`<main><h1>Museum Tinguely</h1>${artworks}<h2>Sammlung Museum Tinguely</h2><p>${summary}</p></main>`}),
+  modelFetch:async(_url,init)=>{const input=JSON.parse(JSON.parse(init.body).messages[1].content);if(input.blocks)offered=input.blocks;return input.claims?reply({verdicts:input.claims.map(f=>({factId:f.id,verdict:'UNSUPPORTED',subject:'UNKNOWN',belongsTo:'UNKNOWN',applicability:'UNCERTAIN',restrictionQuote:''}))}):reply({facts:[],nextLinks:[]});},
+ });
+ assert.ok(offered.some(block=>block.text.includes(summary)));
+});
+test('plain-text museum tour titles are paired with their exact description for extraction',async()=>{
+ const museum={...spot,name:'Synthetic Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'classification.place_types':{value:['MUSEUM']}}};
+ let offered=[];
+ await researchSpotV2({...opts,spot:museum,fields:[field('experience.profile')],maxRequests:1,discoverLinks:false},{...deps,
+  fetchPage:async url=>({url,contentType:'text/html',observedAt:new Date().toISOString(),body:'<main><h1>Synthetic Museum</h1><p>Private Gruppenführungen</p><p>Wir bieten private Führungen durch die Sammlung in mehreren Sprachen an.</p></main>'}),
+  modelFetch:async(_url,init)=>{const input=JSON.parse(JSON.parse(init.body).messages[1].content);if(input.blocks)offered=input.blocks;return input.claims?reply({verdicts:input.claims.map(f=>({factId:f.id,verdict:'UNSUPPORTED',subject:'UNKNOWN',belongsTo:'UNKNOWN',applicability:'UNCERTAIN',restrictionQuote:''}))}):reply({facts:[],nextLinks:[]});},
+ });
+ assert.ok(offered.some(block=>block.text==='Private Gruppenführungen\n\nWir bieten private Führungen durch die Sammlung in mehreren Sprachen an.'));
+});
+test('a staff-directory tour email link does not establish a bookable guided tour',()=>{
+ const text='Rundgänge und Gruppen (tours@museum.ch)';
+ const directory={...source(text),url:'https://example.org/de/mitarbeitende'};
+ const draft=validateEvidenceFacts({facts:[fact('experience.profile','Rundgänge und Gruppen',text,{offerKind:'GUIDED_TOUR'})]},directory,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(draft,[directory],[field('experience.profile')],spot)[0].reason,'CONTACT_LINK_NOT_OFFER_EVIDENCE');
+ assert.equal(projectEvidenceLedger({spot,fields:[field('experience.profile')],facts:draft,sources:[directory],...deps})[0].status,'UNRESOLVED');
+});
+test('search continues with an unresolved field after the official seed has no useful links',async()=>{
+ const queries=[];
+ const report=await researchSpotV2({...opts,discoverLinks:false,webSearchEndpoint:'http://127.0.0.1:8888/',maxSearchQueries:3},{...deps,
+  fetchPage:async url=>({url,contentType:'text/html',body:'<main><p>No contact information on this page.</p></main>',observedAt:new Date().toISOString()}),
+  searchWeb:async(_endpoint,query)=>{queries.push(query);return [];},
+ });
+ assert.equal(report.search.queries.length,2);
+ assert.match(queries[0],/site:example\.org/);
+ assert.match(queries[1],/Kontakt Telefon E-Mail/);
+ assert.equal(report.results[0].status,'UNRESOLVED');
+});
+test('a redirected official seed is not fetched again from search results',async()=>{
+ const fetched=[];
+ const report=await researchSpotV2({...opts,webSearchEndpoint:'http://127.0.0.1:8888/',maxSearchQueries:1,discoverLinks:false,maxRequests:4},{...deps,
+  fetchPage:async url=>{fetched.push(url);return {url:'https://example.org/de.html',redirectedFrom:['https://example.org/'],contentType:'text/html',body:'<main>Synthetic Restaurant</main>',observedAt:new Date().toISOString()};},
+  searchWeb:async()=>[{url:'https://example.org/de.html',title:'Synthetic Restaurant',snippet:'Official page'}],
+ });
+ assert.deepEqual(fetched,['https://example.org/']);
+ assert.equal(report.search.queries.length,1);
+});
+test('an unresolved museum email does not starve collection research',async()=>{
+ const museum={...spot,name:'Synthetic Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'classification.place_types':{value:['MUSEUM']}}};
+ const fetched=[];
+ const report=await researchSpotV2({...opts,spot:museum,fields:[field('contact.public_email'),field('experience.profile')],maxRequests:4,maxModelCalls:8},{...deps,
+  fetchPage:async url=>{fetched.push(url);return {url,contentType:'text/html',observedAt:new Date().toISOString(),body:url==='https://example.org/'?'<main><h1>Synthetic Museum</h1><a href="/de/kontakt">Kontakt</a><a href="/de/mitarbeitende">Mitarbeitende</a><a href="/de/sammlung">Sammlung</a></main>':'<main><h1>Synthetic Museum</h1><p>Further information.</p></main>'};},
+  modelFetch:modelFor(()=>[]),
+ });
+ assert.deepEqual(fetched.slice(0,4),['https://example.org/','https://example.org/de/kontakt','https://example.org/de/mitarbeitende','https://example.org/de/sammlung']);
+ assert.equal(report.results.find(x=>x.attributeKey==='experience.profile').status,'UNRESOLVED');
 });
 test('model link IDs must refer to actual observed pages and cannot inject a URL',async()=>{
  const r=await researchSpotV2({...opts,fields:[field('amenity.features')]},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<a href="/kontakt">Kontakt</a>',observedAt:new Date().toISOString()}),modelFetch:async()=>reply({facts:[],nextLinks:['https://evil.org/']})});
@@ -917,6 +1126,26 @@ test('wrong offer kind is withheld per fact and does not invalidate correctly ty
  const [r]=projectEvidenceLedger({spot:stay,fields:[field('experience.profile')],facts,sources:[s],...deps});
  assert.equal(r.status,'REQUIRES_REVIEW');assert.equal(r.value.offers.length,1);assert.equal(r.value.offers[0].name,'Classic Room');
 });
+test('hotel pet packages and extra beds cannot masquerade as overnight room offers',()=>{
+ const stay={...spot,name:'ART HOUSE Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const body='Small Double Room: A comfortable room for overnight guests.\nA dog package is available for 25 francs per night and includes a dog bed.\nAn extra bed for guests costs CHF 25 per night.';
+ const s=source(body);
+ const quotes=['Small Double Room: A comfortable room for overnight guests.','A dog package is available for 25 francs per night and includes a dog bed.','An extra bed for guests costs CHF 25 per night.'];
+ const original=validateEvidenceFacts({facts:['Small Double Room','dog package','extra bed'].map((name,i)=>fact('experience.profile',name,quotes[i],{subject:'OFFER',offerKind:'OVERNIGHT_STAY'}))},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(original,[s],[field('experience.profile')],stay);
+ assert.deepEqual(checked.map(f=>f.state),['ACCEPTED','HELD','HELD']);
+ assert.deepEqual(checked.slice(1).map(f=>f.reason),['STAY_OFFER_NOT_LODGING','STAY_OFFER_NOT_LODGING']);
+});
+test('a named water slide cannot be relabelled as a wellness bathing offer',()=>{
+ const wellness={...spot,name:'aquabasilea',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ const slide='Auf der Rivellazione sind Reifen Pflicht und die Rutsche führt durch eine rote Röhre.';
+ const pool='Das Wellenbad lädt Gäste zum Baden im warmen Wasser ein.';
+ const s=source(slide+'\n\n'+pool);
+ const original=validateEvidenceFacts({facts:[fact('experience.profile','Rivellazione',slide,{subject:'OFFER',offerKind:'BATHING'}),fact('experience.profile','Wellenbad',pool,{subject:'OFFER',offerKind:'BATHING'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(original,[s],[field('experience.profile')],wellness);
+ assert.equal(checked[0].reason,'WATER_SLIDE_NOT_BATHING_OFFER');
+ assert.equal(checked[1].state,'ACCEPTED');
+});
 test('different fragment links merge research topics instead of hiding the hours intent',()=>{
  const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/info/#top">Info</a><a href="/info/#hours">Hours</a>'});
  assert.equal(links.length,1);assert.ok(links[0].topics.includes('hours'));
@@ -932,6 +1161,15 @@ test('English weekday ranges with till or through retain every explicitly includ
 test('quoted visitor speech cannot become an official Spot description',()=>{
  const s=source('“This was wonderful for our children and we enjoyed every minute.');const facts=validateEvidenceFacts({facts:[fact('description.highlight',s.text,s.text)]},s,[field('description.highlight')]).map(f=>({...f,state:'ACCEPTED'}));
  const [r]=projectEvidenceLedger({spot,fields:[field('description.highlight')],facts,sources:[s],...deps});assert.equal(r.status,'UNRESOLVED');
+});
+test('promotional promises cannot displace a concrete literal Spot description',()=>{
+ const hype='Ob Kebabs oder Meze – bei uns erleben Sie ein Geschmackserlebnis, das Ihre Sinne verzaubert.';
+ const factual='Wir bieten regelmässig wechselnde Mittagsmenüs an.';
+ const s=source(hype+'\n\n'+factual);
+ const facts=validateEvidenceFacts({facts:[fact('description.highlight',hype,hype),fact('description.highlight',factual,factual)]},s,[field('description.highlight')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(facts,[s],[field('description.highlight')],spot);
+ assert.equal(checked[0].reason,'DESCRIPTION_PROMOTIONAL_CLAIM');
+ assert.equal(projectEvidenceLedger({spot,fields:[field('description.highlight')],facts:checked,sources:[s],...deps})[0].value,factual);
 });
 test('research model routing accepts only the two pinned local snapshots',async()=>{
  const {selectResearchModel}=await import('../dist/nuknuk-agent.js');assert.equal(selectResearchModel('/tmp/45797d2985a12c55e6473686e9ea91b95e959553').id,'qwen3.5-27b-4bit');
@@ -1029,11 +1267,155 @@ test('the venue itself cannot be duplicated as a concrete dish or activity offer
  const text='Synthetic Restaurant serves seasonal food every evening.';const s=source(text);const f=ledger([fact('experience.profile',spot.name,text,{offerKind:'GASTRONOMY'})],s);
  assert.equal(projectEvidenceLedger({spot,fields:[field('experience.profile')],facts:f,sources:[s],...deps})[0].status,'UNRESOLVED');
 });
+test('museum section titles with their own descriptions become literal offer candidates, while prohibited tours do not',async()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const body='<main><h1>Museum Example</h1><h2>Sammlung Museum Example</h2><p>Die Sammlung des Museums ist öffentlich zugänglich und wird regelmässig in der permanenten Ausstellung gezeigt.</p><h2>Private Gruppenführungen</h2><p>Wir bieten private Führungen durch die Sammlung des Museums in mehreren Sprachen an.</p><h2>Eigenführungen</h2><p>Führungen durch externe Personen sind aus Sicherheitsgründen nicht möglich.</p></main>';
+ const r=await researchSpotV2({...opts,spot:museum,fields:[field('experience.profile')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
+ const names=r.results[0].value?.offers?.map(o=>o.name)??[];
+ assert.deepEqual(names,['Sammlung Museum Example','Private Gruppenführungen']);
+ assert.equal(r.results[0].status,'REQUIRES_REVIEW');
+ assert.ok(!r.facts.some(f=>f.value==='Eigenführungen'&&f.state==='ACCEPTED'));
+});
+test('a recurring museum atelier remains eligible while its dated theme does not',()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const opening='Offenes Atelier\n\nJeden ersten Sonntag im Monat öffnen wir unser Atelier im Museum Example für alle Besucherinnen und Besucher.';
+ const dated='Sonntag, 4.10.2026\n\nPunkte, Linien, Pop-Art! Wir gestalten heute eigene Comics im Atelier.';
+ const s={...source(opening+'\n\n'+dated),url:'https://example.org/de/veranstaltungen/veranstaltungshighlights/offenes-atelier'};
+ const f=validateEvidenceFacts({facts:[fact('experience.profile','Offenes Atelier',opening,{subject:'OFFER',offerKind:'WORKSHOP'}),fact('experience.profile','Punkte, Linien, Pop-Art!',dated,{subject:'OFFER',offerKind:'WORKSHOP'})]},s,[field('experience.profile')]).map(x=>({...x,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(f,[s],[field('experience.profile')],museum);
+ assert.equal(checked[0].state,'ACCEPTED');
+ assert.equal(checked[1].reason,'DATED_EVENT_NOT_PERMANENT_SPOT_FACT');
+});
+test('private event workshops do not become ordinary museum visitor offers',()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const quote='We offer individual teambuilding workshops for your private event guests at Museum Example.';
+ const s={...source(quote),url:'https://example.org/en/visit/your-event/guided-tours-and-workshops'};
+ const facts=validateEvidenceFacts({facts:[fact('experience.profile','teambuilding workshops',quote,{subject:'OFFER',offerKind:'WORKSHOP'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(facts,[s],[field('experience.profile')],museum)[0].reason,'PRIVATE_EVENT_ONLY_OFFER');
+});
+test('museum programme price headers and language labels are not concrete offers',()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const s=source('Dauer und Kosten für Workshops:\nBesuch ohne Führung\n\nAngebot in: Deutsch / Englisch / Französisch');
+ const facts=validateEvidenceFacts({facts:[fact('experience.profile','Workshops','Dauer und Kosten für Workshops:',{subject:'OFFER',offerKind:'WORKSHOP'}),fact('experience.profile','Besuch ohne Führung','Besuch ohne Führung\n\nAngebot in: Deutsch / Englisch / Französisch',{subject:'OFFER',offerKind:'SELF_GUIDED_VISIT'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.deepEqual(recheckEvidenceFloors(facts,[s],[field('experience.profile')],museum).map(f=>f.reason),['CATEGORY_LABEL_NOT_CONCRETE_OFFER','CATEGORY_LABEL_NOT_CONCRETE_OFFER']);
+});
+test('a compound workshop name states its kind explicitly',()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const quote='Kinderworkshops finden jeden Monat im Museum Example statt und bieten Kindern Raum zum Experimentieren.';
+ const s={...source(quote),url:'https://example.org/de/veranstaltungen/veranstaltungshighlights/kinderworkshops'};
+ const facts=validateEvidenceFacts({facts:[fact('experience.profile','Kinderworkshops',quote,{subject:'OFFER',offerKind:'WORKSHOP'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(facts,[s],[field('experience.profile')],museum)[0].state,'ACCEPTED');
+});
+test('a recurring programme may retain a cited schedule caveat, but not an age restriction',()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const quote='Kinderworkshops finden jeden Monat im Museum Example statt. Termin: Samstags nach Ankündigung. Nur für Kinder von 7–10 Jahren.';
+ const s={...source(quote),url:'https://example.org/de/veranstaltungen/veranstaltungshighlights/kinderworkshops'};
+ const make=condition=>validateEvidenceFacts({facts:[{...fact('experience.profile','Kinderworkshops',quote,{subject:'OFFER',offerKind:'WORKSHOP'}),condition}]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(make('Samstags nach Ankündigung'),[s],[field('experience.profile')],museum)[0].state,'ACCEPTED');
+ assert.equal(recheckEvidenceFloors(make('Nur für Kinder von 7–10 Jahren'),[s],[field('experience.profile')],museum)[0].reason,'VALIDITY_OR_CONDITION_REQUIRES_REVIEW');
+});
+test('recurring museum programme intro stays with its heading before dated themes',async()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'contact.website':{value:'https://example.org/de/veranstaltungen/veranstaltungshighlights/kinderworkshops'}}};
+ const body='<main><h1>Kinderworkshops</h1><p>Termin: Samstags nach Ankündigung</p><p>Ort: Hauptbau</p><p>Für Kinder von 7–10 Jahren</p><p>Jeden Monat finden im Museum Example Kinderworkshops zu einem Thema statt. Kinder experimentieren mit Farben und Materialien.</p><p>Samstag, 24.10.2026</p><h2>Kinderworkshop: Süsses oder Saures</h2><p>Ein einmaliger Halloween-Termin.</p></main>';
+ let inspected=false;
+ const report=await researchSpotV2({...opts,spot:museum,fields:[field('experience.profile')],maxRequests:1,discoverLinks:false},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(data=>{
+  const intro=data.blocks.find(block=>block.text.startsWith('Kinderworkshops\n')&&block.text.includes('Jeden Monat'));
+  assert.ok(intro);assert.doesNotMatch(intro.text,/Süsses oder Saures/);inspected=true;return [];
+ })});
+ assert.equal(inspected,true);assert.equal(report.canonicalWrite,false);
+});
+test('museum offer name and adjacent admission price reach extraction together',async()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const body='<main><h1>Museum Example</h1><h2>Öffentliche Führungen</h2><p>Öffentliche Führung</p><p>Eintritt + 7 CHF</p><p>Private Führungen</p><p>500 CHF für Gruppen</p></main>';
+ let inspected=false;
+ await researchSpotV2({...opts,spot:museum,fields:[field('experience.profile')],maxRequests:1,discoverLinks:false},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(data=>{
+  assert.ok(data.blocks.some(block=>block.text==='Öffentliche Führung\n\nEintritt + 7 CHF'));
+  inspected=true;return [];
+ })});
+ assert.equal(inspected,true);
+});
+test('a flattened sauna overview retains named rows with their own descriptions',async()=>{
+ const wellness={...spot,name:'Thermalbad Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ const body='<main><h1>Thermalbad Example</h1><h2>Alle Saunen im Überblick</h2><table><tr><th>Name</th><th>Temperatur</th><th>Besonderheiten</th></tr><tr><td>Finnsauna</td><td>80° bis 90° C</td><td>In dieser Sauna finden regelmässig Aufgusszeremonien statt.</td></tr><tr><td>Eventsauna</td><td>80° bis 90° C</td><td>Die Eventsauna bietet Raum für bis zu 120 Personen und Aufgüsse mit Musik.</td></tr></table></main>';
+ const r=await researchSpotV2({...opts,spot:wellness,fields:[field('experience.profile')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
+ assert.deepEqual(r.results[0].value?.offers?.map(offer=>offer.name),['Finnsauna','Eventsauna']);
+ assert.ok(r.facts.some(f=>f.value==='Finnsauna'&&f.state==='ACCEPTED'&&f.offerKind==='SAUNA'));
+});
+test('accessible tab labels are paired with their own pane content in source text',()=>{
+ const body='<main><h2>Zimmer und Suiten</h2><ul role="tablist"><li><a role="tab" aria-controls="room-a" href="#room-a">Corner</a></li><li><a role="tab" aria-controls="room-b" href="#room-b">Junior Suite</a></li></ul><div role="tabpanel" id="room-a"><p>Dieses Zimmer bietet einen Ausblick auf das Quartier und viel Platz.</p></div><div role="tabpanel" id="room-b"><p>Diese Suite bietet einen separaten Wohnbereich für Hotelgäste.</p></div></main>';
+ const s=sourceText({url:'https://example.org/rooms',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.match(s.text,/Corner\n\nDieses Zimmer bietet/u);
+ assert.match(s.text,/Junior Suite\n\nDiese Suite bietet/u);
+ assert.ok(s.headings.some(h=>h.text==='Corner'));
+});
+test('hotel-room research prefers a suite page over meeting rooms and guest services',()=>{
+ const stayField={...field('experience.profile'),profileCategory:'STAY'};
+ const links=['https://example.org/terrace-suite/','https://example.org/sitzungszimmer/','https://example.org/gaeste-services/'].map(url=>({url,label:url,depth:1,topics:['stay','experience']}));
+ assert.deepEqual(rankResearchFrontier(links,[],[stayField]).map(link=>link.url),['https://example.org/terrace-suite/']);
+});
+test('a primary-language hotel room overview outranks one suite detail',()=>{
+ const stayField={...field('experience.profile'),profileCategory:'STAY'};
+ const links=[
+  {url:'https://example.org/terrace-suite/',label:'Terrace Suite',depth:1,topics:['stay']},
+  {url:'https://example.org/boutique-design-hotel/',label:'Hotel | Zimmer und Suiten',depth:1,topics:['stay','experience']},
+  {url:'https://example.org/en/terrace-suite/',label:'Terrace Suite',depth:1,topics:['stay','language']},
+ ];
+ assert.equal(rankResearchFrontier(links,[],[stayField])[0].url,'https://example.org/boutique-design-hotel/');
+});
+test('six official hotel room tabs remain six scoped lodging offers',async()=>{
+ const stay={...spot,name:'Hotel Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const labels=['Cozy','Corner','Top Floor Signature Design','Signature Design','Junior Suite','Terrace Suite'];
+ const tabs=labels.map((name,i)=>`<a role="tab" aria-controls="room-${i}" href="#room-${i}">${name}</a>`).join('');
+ const panes=labels.map((name,i)=>`<div role="tabpanel" id="room-${i}"><p>Dieses Zimmer im Hotel Example bietet Gästen eine eigene Unterkunft mit Beschreibung für die Zimmerkategorie ${name}.</p></div>`).join('');
+ const body=`<main><h1>Hotel Example</h1><h3>Zimmer und Suiten</h3>${tabs}${panes}</main>`;
+ const r=await researchSpotV2({...opts,spot:stay,fields:[field('experience.profile')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
+ assert.equal(r.results[0].status,'REQUIRES_REVIEW');
+ assert.deepEqual(r.results[0].value.offers.map(offer=>offer.name),labels);
+ assert.ok(r.results[0].value.offers.every(offer=>offer.kind==='OVERNIGHT_STAY'));
+});
+test('a room tab and its more specific literal room name are one offer',()=>{
+ const stay={...spot,name:'Hotel Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const text='Cozy\n\nIm Cozy Double Room geniessen Gäste einen ruhigen Aufenthalt in diesem Hotelzimmer.';
+ const s=source(text);
+ const f=validateEvidenceFacts({facts:[fact('experience.profile','Cozy',text,{subject:'OFFER',offerKind:'OVERNIGHT_STAY'}),fact('experience.profile','Cozy Double Room','Im Cozy Double Room geniessen Gäste einen ruhigen Aufenthalt in diesem Hotelzimmer.',{subject:'OFFER',offerKind:'OVERNIGHT_STAY'})]},s,[field('experience.profile')]).map(x=>({...x,state:'ACCEPTED'}));
+ const result=projectEvidenceLedger({spot:stay,fields:[field('experience.profile')],facts:f,sources:[s],...deps})[0];
+ assert.deepEqual(result.value?.offers?.map(offer=>offer.name),['Cozy Double Room']);
+});
+test('duplicate critic IDs hold only their affected facts',async()=>{
+ const wellness={...spot,name:'Thermalbad Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ const body='<main><h1>Thermalbad Example</h1><h2>Alle Saunen im Überblick</h2><table><tr><td>Finnsauna</td><td>80° bis 90° C</td><td>In dieser Sauna finden regelmässig Aufgusszeremonien statt.</td></tr><tr><td>Eventsauna</td><td>80° bis 90° C</td><td>Die Eventsauna bietet Raum für bis zu 120 Personen und Aufgüsse mit Musik.</td></tr></table></main>';
+ const critic=(id,verdict)=>({factId:id,verdict,subject:'OFFER',belongsTo:'TARGET',applicability:'CURRENT',restrictionQuote:''});
+ const r=await researchSpotV2({...opts,spot:wellness,fields:[field('experience.profile')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:async(_url,init)=>{
+  const data=JSON.parse(JSON.parse(init.body).messages[1].content);
+  if(!data.claims)return reply({facts:[],nextLinks:[]});
+  return reply({verdicts:[critic(data.claims[0].id,'SUPPORTED'),critic(data.claims[1].id,'SUPPORTED'),critic(data.claims[1].id,'UNSUPPORTED')]});
+ }});
+ assert.deepEqual(r.results[0].value?.offers?.map(offer=>offer.name),['Finnsauna']);
+ assert.equal(r.facts.find(f=>f.value==='Eventsauna')?.reason,'VERDICT_MISSING_OR_DUPLICATE');
+ assert.ok(r.actions.some(a=>a.stage==='VERDICT_ID_ERROR'));
+});
+test('unused description candidates cannot reuse IDs of later model facts',async()=>{
+ const wellness={...spot,name:'Thermalbad Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ const body='<main><h1>Thermalbad Example</h1><p>Das Thermalbad bietet einen Innenbereich mit warmem Wasser für seine Gäste.</p><p>Im Aussenbereich befinden sich weitere Becken für einen Besuch.</p><h2>Alle Saunen im Überblick</h2><table><tr><td>Finnsauna</td><td>80° bis 90° C</td><td>In dieser Sauna finden regelmässig Aufgusszeremonien statt.</td></tr></table><p>Die Schneehöhle ist ideal zum Abkühlen nach dem Saunagang.</p></main>';
+ const r=await researchSpotV2({...opts,spot:wellness,fields:[field('description.highlight'),field('experience.profile')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(data=>{
+  const block=data.blocks.find(b=>b.text.includes('Schneehöhle'));
+  return block?[fact('experience.profile','Schneehöhle',block.text,{subject:'OFFER',subjectLabel:'Schneehöhle',offerKind:'SAUNA'})]:[];
+ })});
+ assert.ok(r.facts.some(f=>f.value==='Schneehöhle'));
+ assert.equal(new Set(r.facts.map(f=>f.id)).size,r.facts.length);
+ assert.ok(!r.actions.some(a=>a.stage==='VERDICT_ID_ERROR'));
+});
 test('ice-cream product categories remain offering-group evidence, not named profile offers',()=>{
  const cafe={...spot,name:'Acero',existingValues:{...spot.existingValues,'classification.primary_category':{value:'COFFEE_DAYTIME'}}};
  const s=source('Dort bieten wir kleine, mittlere und grosse Eisportionen im Becher oder in der Waffel an. Unser Fruchteis wird aus Früchten hergestellt.');
  const f=validateEvidenceFacts({facts:[fact('experience.profile','Eisportionen','Dort bieten wir kleine, mittlere und grosse Eisportionen im Becher oder in der Waffel an.',{offerKind:'GASTRONOMY'}),fact('experience.profile','Fruchteis','Unser Fruchteis wird aus Früchten hergestellt.',{offerKind:'GASTRONOMY'})]},s,[field('experience.profile')]).map(x=>({...x,state:'ACCEPTED'}));
  assert.equal(projectEvidenceLedger({spot:cafe,fields:[field('experience.profile')],facts:f,sources:[s],...deps})[0].status,'UNRESOLVED');
+});
+test('restaurant homepage food categories need a named menu item source',()=>{
+ const quote='Ob saftige Kebabs, aromatische Meze oder Desserts – bei uns erleben Sie anatolische Küche.';
+ const s=source(quote);const proposed=['Kebabs','Meze','Desserts'].map(name=>fact('experience.profile',name,quote,{subject:'OFFER',offerKind:'GASTRONOMY'}));
+ const checked=recheckEvidenceFloors(validateEvidenceFacts({facts:proposed},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'})),[s],[field('experience.profile')],spot);
+ assert.deepEqual(checked.map(f=>f.reason),['FOOD_ITEM_SOURCE_REQUIRED','FOOD_ITEM_SOURCE_REQUIRED','FOOD_ITEM_SOURCE_REQUIRED']);
 });
 test('a model spelling a hyphenated offer with spaces is grounded to the literal source spelling',async()=>{
  const body='<main><p>Unsere Focaccia-Sandwiches werden frisch zubereitet und am Tresen angeboten.</p></main>';

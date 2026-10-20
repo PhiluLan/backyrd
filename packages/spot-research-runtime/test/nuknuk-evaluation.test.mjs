@@ -26,6 +26,8 @@ test('cohort gate requires a balanced audited set, useful coverage and zero wron
  assert.ok(evaluateNuknukCohort(cases.slice(0,11)).blockers.includes('MINIMUM_12_SPOTS'));
  const late=structuredClone(cases);late[0].audit.preRunReference=false;
  assert.ok(evaluateNuknukCohort(late).blockers.includes('REFERENCE_NOT_PREPARED_BEFORE_RUN'));
+ const missed=structuredClone(cases);missed[0].audit.assessments[0].outcome='PARTIAL';missed[0].audit.assessments[0].missedFacts=1;missed[0].audit.totals.missedFacts=1;
+ assert.ok(evaluateNuknukCohort(missed).blockers.includes('KNOWN_FACTS_MISSED'));
  const bad=structuredClone(cases);
  bad[0].report.results[0].status='UNRESOLVED';
  assert.throws(()=>evaluateNuknukCohort(bad),/cohort_audit_invalid/);

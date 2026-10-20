@@ -6,6 +6,7 @@ export function matchesExistingWebsite(sourceUrl:string,existingWebsite:unknown)
 export function fetchPublicSource(value:string,options?:{timeoutMs?:number;maxRedirects?:number}):Promise<PublicPage>;
 export function readSourceText(page:PublicPage,id:string,options?:{preferMain?:boolean}):Promise<ResearchSource>;
 export function discoverResearchLinks(page:PublicPage):ResearchLink[];
+export function standingExperiencePath(url:string):boolean;
 export function discoverPublicDataSources(page:PublicPage):ResearchLink[];
 export function discoverMenuImages(page:PublicPage):ResearchLink[];
 export function discoverMenuDocuments(page:PublicPage):ResearchLink[];

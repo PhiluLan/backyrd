@@ -356,7 +356,7 @@ export function sourceQuote(text,quote) {
 // Name and evidence may occupy separate HTML/PDF lines. Bind them to an
 // original contiguous span, never by inventing a combined quotation.
 export function bindOfferEvidence(extracted,sources) {
-  if(!exact(extracted,['offers'])||!Array.isArray(extracted.offers)||extracted.offers.length>4)throw new Error('research_offer_shape_invalid');
+  if(!exact(extracted,['offers'])||!Array.isArray(extracted.offers)||extracted.offers.length>8)throw new Error('research_offer_shape_invalid');
   return {offers:extracted.offers.map(item=>{
     if(!exact(item,['name','kind','sourceId','quote']))throw new Error('research_offer_invalid');
     const source=sources.find(s=>s.id===item.sourceId);
@@ -378,7 +378,7 @@ export function bindOfferEvidence(extracted,sources) {
 }
 // The model selects evidence; bookkeeping and empty/unknown fields are deterministic.
 export function projectOffers(extracted,{field,sources}) {
-  if(!exact(extracted,['offers'])||!Array.isArray(extracted.offers)||!extracted.offers.length||extracted.offers.length>4)throw new Error('research_offer_shape_invalid');
+  if(!exact(extracted,['offers'])||!Array.isArray(extracted.offers)||!extracted.offers.length||extracted.offers.length>8)throw new Error('research_offer_shape_invalid');
   if(!field.profileCategory)throw new Error('research_current_category_required');
   const seen=new Set();
   const offers=extracted.offers.map(item=>{
