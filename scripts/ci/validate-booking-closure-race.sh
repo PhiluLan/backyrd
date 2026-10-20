@@ -173,6 +173,26 @@ run_case combined_retry "$combined_retry" "$combined_retry" SUCCESS
 retry_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select count(*) from public.booking_reservations where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000078')||':'||(select count(*) from booking_private.reservation_requests_v2 where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000078')||':'||(select count(*) from public.booking_audit_events e join public.booking_reservations r on r.id=e.reservation_id where r.spot_id='$spot' and r.request_id='7b000000-0000-4000-8000-000000000078');")"
 test "$retry_proof" = '1:1:1' || { printf 'Unexpected concurrent combined retry: %s\n' "$retry_proof" >&2; exit 1; }
 
+# Actual-time movement of two overstay visits competes for one physical target.
+visit_a='7b000000-0000-4000-8000-000000000090'
+visit_b='7b000000-0000-4000-8000-000000000091'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+insert into public.booking_reservations(id,spot_id,request_id,table_id,service_id,guest_name,party_size,starts_at,ends_at,status,source,arrived_at,seated_at) values
+ ('$visit_a','$spot','$visit_a','$table_id','$service','First movement fixture',2,clock_timestamp()-interval '2 hours',clock_timestamp()-interval '1 hour','seated','operator',clock_timestamp()-interval '2 hours',clock_timestamp()-interval '2 hours'),
+ ('$visit_b','$spot','$visit_b','$third_table','$service','Second movement fixture',2,clock_timestamp()-interval '2 hours',clock_timestamp()-interval '1 hour','seated','operator',clock_timestamp()-interval '2 hours',clock_timestamp()-interval '2 hours');
+SQL
+transfer_a="select public.booking_console_transfer_v1('$spot','$visit_a','7b000000-0000-4000-8000-000000000092',0,'$second_table',array['$second_table'::uuid],null,60);"
+transfer_b="select public.booking_console_transfer_v1('$spot','$visit_b','7b000000-0000-4000-8000-000000000093',0,'$second_table',array['$second_table'::uuid],null,60);"
+run_case seated_transfer "$transfer_a" "$transfer_b" booking_slot_unavailable
+move_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select table_id='$second_table' and allocation_starts_at is not null and revision=1 from public.booking_reservations where id='$visit_a')||':'||(select table_id='$third_table' and allocation_starts_at is null and revision=0 from public.booking_reservations where id='$visit_b')||':'||(select count(*) from booking_private.reservation_requests_v2 where spot_id='$spot' and request_kind='transfer');")"
+test "$move_proof" = 'true:true:1' || { printf 'Unexpected physical transfer race: %s\n' "$move_proof" >&2; exit 1; }
+run_case seated_transfer_retry "$transfer_a" "$transfer_a" SUCCESS
+move_audit="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select count(*) from public.booking_audit_events where reservation_id='$visit_a' and action='seated_tables_transferred';")"
+test "$move_audit" = 1 || { printf 'Movement replay duplicated its audit.\n' >&2; exit 1; }
+run_case departure_before_transfer \
+ "select public.booking_console_set_status_v1('$spot','$visit_b','seated','completed');" \
+ "$transfer_b" booking_changed_reload
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
@@ -189,4 +209,4 @@ delete from public.spots where id in ('$spot','$other_spot');
 delete from auth.users where id in ('$owner','$staff','$other_owner');
 commit;
 SQL
-printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation and public combined bookings serialize, roll back a competing claim, and deduplicate concurrent identical requests.\n'
+printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation and public combined bookings serialize, roll back a competing claim, deduplicate concurrent identical requests, and fence actual-time seated transfers against competing movements and departure.\n'
