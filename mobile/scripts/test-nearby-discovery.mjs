@@ -11,7 +11,7 @@ const point={latitude:47.5596,longitude:7.5886};
 new Function("exports","require","module",source)(mod.exports,name=>{
  if(name==="./utils/haversine")return geo.exports;
  if(name==="./supabase")return{ supabase:{ from(table){assert.equal(table,"spots");const q={filters:[],range:[0,499]};queries.push(q);const builder={select(value){q.select=value;return this;},eq(k,v){q.filters.push([k,v]);return this;},gte(k,v){q.filters.push([k,">=",v]);return this;},lte(k,v){q.filters.push([k,"<=",v]);return this;},order(k){q.order=k;return this;},range(a,b){q.range=[a,b];return this;},abortSignal(){return this;},then(resolve){resolve({data:endless?Array.from({length:500},()=>rows[0]):rows.slice(q.range[0],q.range[1]+1),error:null});}};return builder;}}};
- if(name==="./distributionTrust")return{filterDistributedSpots:async(items,surface)=>{assert.equal(surface,"discovery");assert.ok(items.length<=500,"visibility RPC responses must stay below the PostgREST row cap");if(deny)throw Error("visibility unavailable");return items.filter(item=>!hidden.has(item.id)).reverse();}};
+ if(name==="./distributionTrust")return{filterDistributedSpots:async(items,surface)=>{assert.equal(surface,"discovery");if(deny)throw Error("visibility unavailable");return items.filter(item=>!hidden.has(item.id)).reverse().slice(0,1000);}};
  if(name==="./spot-images")return{loadCanonicalSpotHeaders:async(ids)=>{assert.ok(ids.length<=14);return new Map(ids.map(id=>[id,`https://fixture.invalid/${id}`]));}};
  if(name==="./requestDeadline")return{withRequestDeadline:async task=>task(new AbortController().signal)};
  throw Error(`Unexpected nearby dependency ${name}`);
@@ -26,9 +26,9 @@ assert.deepEqual(nearestDiscoverySpots([far,fixture("null",null,null),near,fixtu
 assert.equal(nearbyDiscoveryBounds({latitude:0,longitude:179.99}).longitudeRanges.length,2);
 assert.deepEqual(nearbyDiscoveryBounds({latitude:89.99,longitude:0}).longitudeRanges,[[-180,180]]);
 assert.throws(()=>nearbyDiscoveryBounds({latitude:NaN,longitude:0}),/invalid/);
-rows=[...Array.from({length:500},(_,i)=>fixture(`a-new-${i}`,47.57,7.59)),near];
+rows=[...Array.from({length:1500},(_,i)=>fixture(`a-new-${i}`,47.57,7.59)),near];
 let result=await loadNearbyDiscoverySpots(point,6);
-assert.equal(queries.length,2,"pagination must find an older near place beyond the first 500 records");
+assert.equal(queries.length,4,"pagination and capped visibility RPCs must retain an older near place beyond 1,500 records");
 assert.equal(result[0].id,"old-near");
 assert.ok(queries.every(q=>q.order==="id"&&!q.filters.some(f=>f[0]==="city")),"current position, not profile city, owns retrieval");
 assert.ok(queries.every(q=>q.filters.some(f=>f[0]==="status"&&f[1]==="approved")));
