@@ -152,5 +152,37 @@ do $$ declare r public.booking_reservations%rowtype; s uuid:=pg_temp.booking_id(
  exception when invalid_parameter_value then null; end;
 end $$;
 reset role;
+-- A prior day's visit can be left seated after its planned interval. Planned
+-- availability remains distinct, but a second physical seating must fail.
+insert into public.booking_reservations(id,spot_id,table_id,service_id,request_id,guest_name,party_size,starts_at,ends_at,status,source,arrived_at,seated_at)
+values(pg_temp.booking_id('unclosed'),pg_temp.booking_id('spot-a'),pg_temp.booking_id('table-a2'),pg_temp.booking_id('service-a'),
+ pg_temp.booking_id('unclosed-create'),'Synthetic prior visit',2,
+ (((now() at time zone 'Europe/Zurich')::date-1)+time '12:00') at time zone 'Europe/Zurich',
+ (((now() at time zone 'Europe/Zurich')::date-1)+time '13:00') at time zone 'Europe/Zurich','seated','phone',now()-interval '1 day',now()-interval '1 day');
+do $$ begin
+ begin
+  insert into public.booking_reservations(spot_id,table_id,service_id,request_id,guest_name,party_size,starts_at,ends_at,status,source)
+  select spot_id,table_id,service_id,gen_random_uuid(),'Synthetic simultaneous party',2,starts_at+interval '3 hours',ends_at+interval '3 hours','seated','phone'
+  from public.booking_reservations where id=pg_temp.booking_id('unclosed');
+  raise exception 'simultaneous seating bypassed index';
+ exception when unique_violation then null; end;
+end $$;
+set local role authenticated;
+do $$ declare s uuid:=pg_temp.booking_id('spot-a'); d date:=(now() at time zone 'Europe/Zurich')::date; snap jsonb; begin
+ snap:=public.booking_console_read_v1(s,d);
+ perform pg_temp.booking_assert(snap#>>'{capabilities,current_seating}'='true','current seating capability missing');
+ perform pg_temp.booking_assert(jsonb_array_length(snap->'unclosed_visits')=1,'prior-day seated visit hidden');
+ perform pg_temp.booking_assert(jsonb_array_length(public.booking_console_read_v1(s,d-1)->'unclosed_visits')=0,'current occupancy mixed into historical diary');
+ begin
+  perform public.booking_console_set_status_v1(s,pg_temp.booking_id('current'),'arrived','seated');
+  raise exception 'second party seated on an occupied physical table';
+ exception when invalid_parameter_value then
+  perform pg_temp.booking_assert(sqlerrm='booking_table_occupied','wrong simultaneous seating rejection');
+ end;
+ perform public.booking_console_set_status_v1(s,pg_temp.booking_id('unclosed'),'seated','completed');
+ perform public.booking_console_set_status_v1(s,pg_temp.booking_id('current'),'arrived','seated');
+ perform pg_temp.booking_assert(jsonb_array_length(public.booking_console_read_v1(s,d)->'unclosed_visits')=0,'completed prior visit remained unclosed');
+end $$;
+reset role;
 rollback;
 

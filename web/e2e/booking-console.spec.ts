@@ -176,6 +176,42 @@ test("arrived guests allow contact correction, while allocation and completed vi
   await expect(panel.getByRole("button", { name: "Reservierung bearbeiten", exact: true })).toHaveCount(0);
 });
 
+test("unclosed prior visits stay visible outside time filters and block seating until explicitly completed", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  await mockConsole(page, { seeded: true, amendments: true, unclosed: true });
+  await page.goto("/booking/console");
+  const queue = page.getByRole("region", { name: "Offene Besuche früherer Tage" });
+  await expect(queue.getByRole("button", { name: "Testgast Vorabend · Fenster 1 · 2026-10-19" })).toBeVisible();
+  await queue.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath("unclosed-phone.png") });
+  await expect(page.getByLabel("Buchungsübersicht der Auswahl").getByText("3", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await details.getByRole("button", { name: "Am Tisch platzieren", exact: true }).click();
+  await details.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(details.getByRole("alert")).toContainText("noch ein Besuch als «Am Tisch» erfasst");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByLabel("Belegung um", { exact: true }).fill("21:00");
+  await page.getByRole("button", { name: "Laufenden Besuch von Testgast Vorabend öffnen" }).click();
+  await expect(details.getByText("Testgast Vorabend", { exact: true })).toBeVisible();
+  await expect(details.getByText(/19\. Oktober 2026/)).toBeVisible();
+  await details.getByRole("button", { name: "Besuch beenden", exact: true }).click();
+  await details.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(queue).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Laufenden Besuch von Testgast Vorabend öffnen" })).toHaveCount(0);
+  await expect(page.getByLabel("Belegung um", { exact: true })).toHaveValue("21:00");
+  await page.getByRole("button", { name: "Reservierungsbuch", exact: true }).click();
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  await details.getByRole("button", { name: "Am Tisch platzieren", exact: true }).click();
+  await details.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(details.getByRole("button", { name: "Besuch beenden", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 for (const failure of ["amendSlotConflict", "uncertainAmend"] as const) {
   test("amendments retain input and request identity after " + failure, async ({ page }) => {
     const fixture = await mockConsole(page, { seeded: true, amendments: true, [failure]: true });
@@ -249,7 +285,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + 3600;
   const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
@@ -261,6 +297,11 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   let savedSetup: BookingSetup | null = null;
   if (options.lifecycle) snapshot.capabilities = { service_lifecycle: true };
   if (options.amendments) { snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
+  if (options.unclosed) {
+    snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, current_seating: true };
+    snapshot.operating_date = "2026-10-20";
+    snapshot.reservations.push({ id: "51000000-0000-4000-8000-000000000024", table_id: table1, service_id: dinner, guest_name: "Testgast Vorabend", guest_contact: null, note: null, party_size: 2, starts_at: "2026-10-19T18:00:00+02:00", ends_at: "2026-10-19T20:00:00+02:00", status: "seated", source: "phone", revision: 0, arrived_at: "2026-10-19T18:00:00+02:00", seated_at: "2026-10-19T18:00:00+02:00" });
+  }
   let statusCalls = 0;
   const statusRequests: object[] = [];
   const amendRequests: Record<string, unknown>[] = [];
@@ -275,7 +316,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     const body = route.request().postDataJSON();
     if (method === "get_owner_spots_v1") return route.fulfill({ json: options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", address: null, category_name: "Restaurant", status: "approved", website: null }] });
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
-    if (method === "booking_console_read_v1") return route.fulfill({ json: { ...snapshot, reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date) } });
+    if (method === "booking_console_read_v1") return route.fulfill({ json: { ...snapshot, reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] } });
     if (method === "booking_console_save_setup_v1") {
       if (options.conflict) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
       savedSetup = body.p_setup;
@@ -305,6 +346,8 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       statusCalls++;
       statusRequests.push(body);
       if (options.statusConflict) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } });
+      const target = snapshot.reservations.find((r) => r.id === body.p_reservation_id);
+      if (options.unclosed && body.p_status === "seated" && snapshot.reservations.some((r) => r.id !== target?.id && r.table_id === target?.table_id && r.status === "seated")) return route.fulfill({ status: 409, json: { code: "22023", message: "booking_table_occupied" } });
       snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id && r.status !== body.p_status ? { ...r, status: body.p_status, revision: (r.revision ?? 0) + 1,
         arrived_at: ["arrived", "seated"].includes(body.p_status) ? r.arrived_at ?? "2026-10-20T12:00:00Z" : r.arrived_at,
         seated_at: body.p_status === "seated" ? "2026-10-20T12:00:00Z" : r.seated_at,

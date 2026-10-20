@@ -347,3 +347,17 @@ identical retries retain request identity and expected revision. A conflicting
 revision offers an explicit discard-and-reload choice. Successful cross-day
 rescheduling follows the new date/service/room in the workspace. No guest
 message is sent. This increment is not production activated yet.
+
+Physical seating is protected separately from the planned interval: a partial
+unique index permits at most one `seated` party per table, and the checked
+transition returns `booking_table_occupied` when the current visit must be
+resolved first. Adjacent planned reservations are still valid. On the server's
+current Europe/Zurich operating date, the read model includes prior-day seated
+visits separately from the day's diary. The Console provides an explicit
+recovery queue and a table service-state layer unaffected by the planning time
+filter; those prior visits do not inflate the selected day's reservation totals.
+Details include the actual reservation date. An operator may complete a prior
+visit after checking it, then seat the new party. No automatic departure or
+physical-presence inference is made. The earlier lifecycle SQL test restores
+its synthetic future seating fixture before exercising actual current-day
+seating; both suites remain part of the amendment release acceptance.

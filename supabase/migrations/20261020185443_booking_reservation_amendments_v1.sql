@@ -5,6 +5,10 @@ alter table public.booking_reservations
  add column creation_fingerprint text;
 create unique index booking_reservations_amend_request
  on public.booking_reservations(spot_id,last_amend_request_id) where last_amend_request_id is not null;
+-- Planned intervals may be adjacent, but only one party can actually be
+-- seated at the same physical table until its visit is completed.
+create unique index booking_reservations_one_seated_per_table
+ on public.booking_reservations(table_id) where status='seated';
 
 -- Keep only a digest of the immutable original create payload when a booking
 -- is first edited. Original create retries must still replay the same ID after
@@ -177,6 +181,10 @@ begin
    (v_row.status='arrived' and p_status='cancelled') or
    (v_row.status='seated' and p_status='completed')
  ) then raise exception 'invalid_booking_status_transition' using errcode='22023'; end if;
+ if p_status='seated' and exists(select 1 from public.booking_reservations other
+   where other.table_id=v_row.table_id and other.id<>v_row.id and other.status='seated') then
+   raise exception 'booking_table_occupied' using errcode='22023';
+ end if;
  update public.booking_reservations set status=p_status,revision=revision+1,updated_at=now(),
    arrived_at=case when p_status in ('arrived','seated') then coalesce(arrived_at,now()) else arrived_at end,
    seated_at=case when p_status='seated' then now() else seated_at end,
@@ -192,11 +200,16 @@ begin
  perform booking_private.assert_operator(p_spot_id);
  if p_date is null then raise exception 'booking_date_required' using errcode='22023'; end if;
  return jsonb_build_object(
-   'capabilities', jsonb_build_object('service_lifecycle',true,'reservation_amendments',true),
+   'capabilities', jsonb_build_object('service_lifecycle',true,'reservation_amendments',true,'current_seating',true),
+   'operating_date', (now() at time zone 'Europe/Zurich')::date,
    'settings', (select to_jsonb(s) from public.booking_restaurant_settings s where spot_id=p_spot_id),
    'areas', coalesce((select jsonb_agg(to_jsonb(a) order by a.name) from public.booking_restaurant_areas a where spot_id=p_spot_id), '[]'),
    'tables', coalesce((select jsonb_agg(to_jsonb(t) order by t.label) from public.booking_restaurant_tables t where spot_id=p_spot_id), '[]'),
    'services', coalesce((select jsonb_agg(to_jsonb(s) order by s.opens_at) from public.booking_restaurant_services s where spot_id=p_spot_id), '[]'),
+   'unclosed_visits', case when p_date=(now() at time zone 'Europe/Zurich')::date then
+     coalesce((select jsonb_agg((to_jsonb(r)-'creation_fingerprint'-'last_amend_request_id') order by r.starts_at)
+       from public.booking_reservations r where r.spot_id=p_spot_id and r.status='seated'
+         and r.starts_at<(p_date::timestamp at time zone 'Europe/Zurich')), '[]'::jsonb) else '[]'::jsonb end,
    'reservations', coalesce((select jsonb_agg((to_jsonb(r)-'creation_fingerprint'-'last_amend_request_id') order by r.starts_at) from public.booking_reservations r
      where spot_id=p_spot_id and starts_at >= (p_date::timestamp at time zone 'Europe/Zurich')
        and starts_at < ((p_date+1)::timestamp at time zone 'Europe/Zurich')), '[]')

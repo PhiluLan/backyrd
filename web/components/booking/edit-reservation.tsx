@@ -97,9 +97,9 @@ export function EditReservation({ spotId, reservation: r, snapshot, onClose, onS
   return <ConsolePanel title="Reservierung bearbeiten" dirty={dirty} busy={busy} onClose={onClose}>
     <form className={styles.editorForm} onSubmit={submit} onChange={() => setDirty(true)}>
       <fieldset disabled={busy} className={styles.fieldset}><div className={styles.drawerBody}>
-        <p className={styles.editorContext}>Bisher: {restaurantDate(new Date(r.starts_at))} · {restaurantTime(r.starts_at)}–{restaurantTime(r.ends_at)} · {r.party_size} Personen · {snapshot.tables.find((table) => table.id === r.table_id)?.label ?? "Tisch"}</p>
-        <label>Gastname<input data-initial-focus required maxLength={120} value={name} autoComplete="off" onChange={(event) => setName(event.target.value)} /></label>
-        <label>Telefon oder E-Mail (optional)<input maxLength={320} value={contact} autoComplete="off" onChange={(event) => setContact(event.target.value)} /></label>
+        <p className={styles.editorContext}>Bisher: {new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(r.starts_at))} · {restaurantTime(r.starts_at)}–{restaurantTime(r.ends_at)} · {r.party_size} Personen · {snapshot.tables.find((table) => table.id === r.table_id)?.label ?? "Tisch"}</p>
+        <div className={styles.fields}><label>Gastname<input data-initial-focus required maxLength={120} value={name} autoComplete="off" onChange={(event) => setName(event.target.value)} /></label></div>
+        <div className={styles.fields}><label>Telefon oder E-Mail (optional)<input maxLength={320} value={contact} autoComplete="off" onChange={(event) => setContact(event.target.value)} /></label></div>
         <label>Interner Hinweis (optional)<textarea maxLength={1000} rows={3} value={note} onChange={(event) => setNote(event.target.value)} /><span className={styles.help}>Nur notwendige organisatorische Angaben erfassen.</span></label>
         {allocationAllowed ? <label className={styles.checkbox}><input type="checkbox" checked={allocate} onChange={(event) => { setAllocate(event.target.checked); clearSlots(); }} />Zeit, Personen oder Tisch ändern</label> : <p className={styles.help}>Nach der Ankunft kannst du Gastangaben korrigieren. Die Tischzuteilung bleibt erhalten.</p>}
         {allocate && <section aria-label="Umbuchung"><p className={styles.help}>Die ursprüngliche Reservierung bleibt bestehen, bis die neue Zuteilung erfolgreich gespeichert ist.</p>
@@ -114,7 +114,7 @@ export function EditReservation({ spotId, reservation: r, snapshot, onClose, onS
         {error && <div className={styles.error}><p role="alert">{error}</p><button type="button" className={styles.secondary} onClick={() => setReloadConfirm(true)}>Aktuellen Stand laden</button></div>}
         {reloadConfirm && <section className={styles.confirmation}><h3>Ungespeicherte Änderungen ersetzen?</h3><p>Deine Eingaben werden verworfen und die gespeicherte Reservierung wird neu geladen.</p><div className={styles.actions}><button type="button" className={styles.primary} onClick={() => void refresh()}>Verwerfen und neu laden</button><button type="button" className={styles.secondary} onClick={() => setReloadConfirm(false)}>Weiter bearbeiten</button></div></section>}
         <p className={styles.help}>Änderungen werden protokolliert. Es wird keine Nachricht an den Gast versendet.</p>
-      </div><footer className={styles.editorFooter}><span>Europe/Zurich · Änderung</span><button className={styles.primary} disabled={busy || !dirty || !name.trim() || (allocate && (checking || !validNumbers || !validDate || !chosen))}>{busy ? "Speichert …" : "Änderungen speichern"}</button></footer></fieldset>
+      </div><footer className={styles.editorFooter}><span>{allocate ? chosen ? restaurantDate(new Date(chosen.starts_at)) + " · " + restaurantTime(chosen.starts_at) + " · " + partySize + " Personen · " + (snapshot.tables.find((table) => table.id === chosen.table_id)?.label ?? "Tisch") : "Neue Zuteilung wählen" : "Gastangaben · Europe/Zurich"}</span><button className={styles.primary} disabled={busy || !dirty || !name.trim() || (allocate && (checking || !validNumbers || !validDate || !chosen))}>{busy ? "Speichert …" : "Änderungen speichern"}</button></footer></fieldset>
     </form>
   </ConsolePanel>;
 }
