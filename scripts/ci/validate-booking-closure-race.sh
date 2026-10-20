@@ -229,7 +229,7 @@ exec 3>"$race_root/mail-skip.pipe"
 printf 'begin; set local role service_role; select public.booking_mail_claim_v1('\''%s'\''); select '\''BOOKING_HOLDER_READY'\'';\n' "$lease_a" >&3
 wait_for_state 'booking-race-holder-mail-skip' "state='idle in transaction' and query like '%BOOKING_HOLDER_READY%'"
 skip_proof="$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "begin; set local statement_timeout='2s'; set local role service_role; select public.booking_mail_claim_v1('$lease_b') is null; commit;")"
-test "$skip_proof" = t || { printf 'Competing mail worker did not skip the held restaurant.\n' >&2; exit 1; }
+test "$skip_proof" = t || { printf 'Competing mail worker did not skip the held restaurant; returned <%s>.\n' "$skip_proof" >&2; exit 1; }
 printf 'commit;\n' >&3
 exec 3>&-
 wait "$holder_pid"; holder_pid=''
