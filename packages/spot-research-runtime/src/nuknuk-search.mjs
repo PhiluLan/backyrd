@@ -83,16 +83,17 @@ export async function searchLocalWeb(endpoint,query,{fetchImpl=fetch,timeoutMs=1
 }
 
 export function classifySearchResults(results,spot,website,{maxOfficial=6,maxExternal=4}={}) {
-  const identity=String(spot.name??'').split(/\s+-\s+/u)[0].toLocaleLowerCase();
-  const locality=String(spot.locality??'').toLocaleLowerCase();
+  const comparable=value=>String(value??'').normalize('NFKD').replace(/\p{M}/gu,'').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/gu,' ');
+  const identity=comparable(String(spot.name??'').split(/\s+-\s+/u)[0]);
+  const locality=comparable(spot.locality);
   const category=spot.existingValues?.['classification.primary_category']?.value;
   const externalType=category==='EAT'?/\b(?:restaurant|speisekarte|menu|menü|küche|essen|dining|food)\b/iu:category==='CULTURE_ARTS'?/\b(?:museum|galerie|gallery|kunst|ausstellung|exhibition)\b/iu:category==='STAY'?/\b(?:hotel|hostel|unterkunft|zimmer|rooms?|stay)\b/iu:null;
   const official=[],external=[],seen=new Set();
   for(const result of results) {
     if(!permanentSpotSearchLead(result.url))continue;
     if(seen.has(result.url))continue;seen.add(result.url);
-    const description=(result.title+' '+result.snippet).toLocaleLowerCase();
-    const exactIdentity=description.includes(identity);
+    const description=comparable(result.title+' '+result.snippet);
+    const exactIdentity=identity.length>=4&&(' '+description+' ').includes(' '+identity+' ');
     if(!exactIdentity)continue;
     const item={...result,identityMatched:true};
     if(matchesExistingWebsite(result.url,website)){if(official.length<maxOfficial)official.push(item);}

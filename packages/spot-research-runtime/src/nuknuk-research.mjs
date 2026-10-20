@@ -56,6 +56,8 @@ const factPatterns={
     TERRACE:/(?<![\p{L}])(?:Dach[- ]?)?Terrasse\b|\b(?:rooftop )?terrace\b/iu, PLAY_AREA:/\b(?:Spielbereich|Spielzimmer|Kinderzimmer|playroom)\b/iu,
     STROLLER_SPACE:/\bPlatz für Kinderwagen\b/iu,
     OUTDOOR_SEATING:/\b(?:Sitzplätze (?:draussen|draußen)|Freiluft[- ]Sitzpl[aä]tz\w*|outdoor seating)\b/iu,
+    GARDEN:/\b(?:Gartenparadies|Garten|garden)\b/iu,
+    PRIVATE_ROOM:/\b(?:Sääli|separater Raum|separates Zimmer|private room)\b/iu,
     CHANGING_TABLE:/\b(?:Wickeltisch|changing table|baby changing)\b/iu,
     TOILET:/\b(?:WC|Toilette|restroom|toilet)\b/iu,
   },
@@ -76,6 +78,8 @@ function facilityAssertion(quote,pattern) {
   if(pattern===factPatterns['amenity.features'].TERRACE&&(/\b(?:bei uns|unser\w*|wir)\b.{0,90}\bTerrasse\b/iu.test(quote)||/\b(?:Café|Restaurant|Bar|Hotel)\s+mit\s+(?:\w+\s+){0,3}Terrasse\b/iu.test(quote)))return true;
   if(pattern===factPatterns['amenity.features'].OUTDOOR_SEATING&&(/\b(?:bei uns|unser\w*|Café|Restaurant|Bar|Hotel)\b.{0,90}\b(?:Freiluft[- ]Sitzpl[aä]tz\w*|Sitzplätze (?:draussen|draußen)|outdoor seating)\b/iu.test(quote)||/\bmit\s+Freiluft[- ]Sitzpl[aä]tz\w*\b/iu.test(quote)))return true;
   if(pattern===factPatterns['amenity.features'].CHANGING_TABLE&&/\b(?:unser\w*|bei uns|wir)\b.{0,100}\b(?:WC|Toilette|restroom|toilet)\b.{0,80}\b(?:Wickeltisch|changing table|baby changing)\b/iu.test(quote))return true;
+  if(pattern===factPatterns['amenity.features'].GARDEN&&(/\b(?:unser\w*|bei uns|(?:Café|Restaurant|Bar|Hotel)\b)\b.{0,140}\b(?:Gartenparadies|Garten|garden)\b/iu.test(quote)||/^(?:Ganzjährlich geöffnet\s*[-–]\s*)?mit\s+.{0,80}\bGartenparadies\b/iu.test(quote)))return true;
+  if(pattern===factPatterns['amenity.features'].PRIVATE_ROOM&&/\b(?:unser\w*\s+Sääli|wir\s+reservieren\b.{0,90}\bSääli|(?:Café|Restaurant|Bar|Hotel)\b.{0,100}\b(?:separater Raum|separates Zimmer|private room))\b/iu.test(quote))return true;
   if(pattern===factPatterns['amenity.features'].TOILET&&/\b(?:unser\w*|bei uns|wir)\b.{0,100}\b(?:WC|Toilette|restroom|toilet)\b/iu.test(quote))return true;
   if(/^(?:Unsere?\w*|Die|Das|Der|Our|The)\s+$/iu.test(prefix)&&/^\s+(?:ist|sind|is|are)\s+(?:verfügbar|vorhanden|kostenlos|available|free)\b/iu.test(suffix))return true;
   if(/^(?:Wir verfügen über|We provide|We have)\s+(?:eine?\s+|a\s+)?$/iu.test(prefix))return true;
@@ -147,7 +151,7 @@ export function emailCandidates(sources) {
   }
   return candidates;
 }
-function hasPhoneEvidence(sources) {return sources.some(s=>/(?:\+|\b00)\d[\d ()/.-]{6,}\d|\b0\d[\d ()/.-]{7,}\d\b/u.test(s.text));}
+function hasPhoneEvidence(sources) {return sources.some(s=>/(?:\+[ \t]{0,2}|\b00)\d[\d ()/.-]{6,}\d|\b0\d[\d ()/.-]{7,}\d\b/u.test(s.text));}
 export function buildNuknukResearchRequest({spot,field,sources,modelPath}) {
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(spot?.spotId??'') || !spot.name || !field?.attributeKey || !field.valueSchema) throw new Error('research_input_invalid');
   if(typeof modelPath!=='string'||!modelPath.startsWith('/')||!modelPath.endsWith(NUKNUK_MODEL_REVISION)) throw new Error('pinned_local_model_required');

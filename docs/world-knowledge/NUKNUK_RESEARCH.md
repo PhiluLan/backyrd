@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.7
+# Local Nuknuk Research v3.12
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.7
+## Active architecture: Research v3.12
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -312,6 +312,53 @@ selection replay then retained Hummus, Granola, Reispudding, Curry and coffee
 among the bounded review offers. This replay is tuned evidence and does not
 count as a fresh end-to-end or held-out pass. Overall-clock timeouts now report
 budget exhaustion instead of falsely reporting that the local model went down.
+
+## v3.12 menu and source-discovery evaluation, 21 October 2026
+
+Three previously untested historical-catalog Spots were evaluated with an
+independent operator-source reference recorded **before** each first local
+model run. These are development cases, not the current Admin-export release
+cohort. The current Admin export was unavailable. Every report, reference and
+source snapshot stays ignored under `.local/nuknuk-research/`.
+
+- **Grenzwert:** the first complete run reached the official bar and food
+  pages, correctly transcribed seven overnight bar-hour rows and the public
+  phone/email, but proposed just one wine and missed the house cocktails.
+  The page puts offer names, ingredients and prices in separate same-level
+  headings. v3.12 now joins only adjacent, price-backed heading pairs into
+  cited, price-free review leads. A saved-source replay yields five drinks
+  and two foods alongside the original wine. This is a tuned replay.
+- **Cantina Don Camillo:** the first run stopped after a near-empty
+  `speisekarte-download.html` page because observed `dinner.html`, `info.html`
+  and encoded `uumlber-uns.html` links had no retrieval topics. After general
+  flat-site link fixes, a complete rerun reached all three pages and recovered
+  restaurant hours, public email and a factual description, but chose long
+  ingredient strings as dish names and missed a phone written `+ 416...`.
+  v3.12 adds bounded à-la-carte row evidence, a phone-prefix parser and
+  source-backed title shortening. A saved-source replay includes Donna's
+  Burger and other exact menu names without prices. The live operator pages
+  showed kitchen closing at 21:00; an older search snapshot said 22:00, so
+  the live page prevails and kitchen hours remain distinct from restaurant
+  hours. This replay is not a fresh blind pass.
+- **Che que lomo:** the first complete run recovered the split lunch/dinner
+  hours and the correct general phone/email but missed the menu. A search hit
+  titled `¡Che, que lomo!` failed the old literal identity test for the stored
+  name `Che que lomo`. Punctuation-normalized exact-name matching led a tuned
+  rerun to the official menu. The model still treated a description, "Die
+  Fleischpizza", as the dish name and misclassified some named drinks as
+  food. v3.12 now joins adjacent name-description-price paragraphs, keeps
+  their original citations, and prefers concrete menu-backed review names.
+  A saved-source replay proposes Parillada para dos, Bife de Lomo and
+  Empanada de carne, while removing the false description-name offer. The
+  complete run on this final projection has not yet been repeated.
+
+These repairs do not establish manual-research parity. Explicit garden and
+private-room claims now have deterministic first-party evidence mappings, but
+the new mappings have only synthetic regression and saved-source checks.
+Some valid amenities and offers remain unresolved; representative selection
+and source freshness require more independent evaluation. The unattended
+research and catalog-write release gates remain closed. No automatic catalog
+write path exists in this adapter.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

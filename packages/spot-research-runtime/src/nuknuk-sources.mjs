@@ -313,6 +313,12 @@ export function discoverResearchLinks(page) {
       // because it sits under /informationen/.
       const material=(pathname.split('/').at(-1)??'')+' '+label;
       const topics=Object.entries(topicPatterns).filter(([,pattern])=>pattern.test(material)).map(([key])=>key);
+      // Flat CMS sites often use /dinner.html, /info.html and an HTML-entity
+      // encoded "Über uns" slug. These are observed links, not guessed paths.
+      const leaf=pathname.split('/').at(-1)??'';
+      if(/^(?:dinner|lunch|breakfast|brunch)(?:\.html)?$/iu.test(leaf))topics.push('menu');
+      if(/^info(?:rmation(?:en)?)?(?:\.html)?$/iu.test(leaf))topics.push('visit','hours','contact');
+      if(/^(?:uumlber[-_]uns|ueber[-_]uns|uber[-_]uns)(?:\.html)?$/iu.test(leaf))topics.push('about');
       if(/^Deutsch$/iu.test(label)&&/^(?:\/|\/de\/?|\/de\/home(?:-[0-9]+)?\/?)$/iu.test(new URL(url).pathname))topics.push('language');
       if(!topics.length&&(!label||/\.(?:jpg|png|zip|mp4)$/iu.test(url)||/\/(?:products|collections|blogs|policies)\//iu.test(new URL(url).pathname)))continue;
       const existing=links.find(l=>l.url===url);

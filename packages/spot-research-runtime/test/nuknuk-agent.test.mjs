@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {agreeingPricedRows,auditMenuImages} from '../src/nuknuk-menu-media.mjs';
 import {parseMenuVisionRows,corroborateMenuVisionRows} from '../src/nuknuk-menu-vision.mjs';
@@ -17,6 +17,61 @@ const source=(text,id='s1')=>({id,text,url:'https://example.org/',observedAt:new
 const fact=(field,value,quote,extra={})=>({field,value,quote,subject:'TARGET',subjectLabel:spot.name,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'',...extra});
 const ledger=(facts,s)=>validateEvidenceFacts({facts},s,fields).map(f=>({...f,state:'ACCEPTED'}));
 const reply=value=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]}));
+test('official heading-paired menu names become price-free review leads with food and drink scope',()=>{
+ const drinkText="BARKARTE\n\nBARTENDER'S CHOICE\n\nCEST LA VIT\n\nWhiskey, Aquavit, Rosmarin, Verjus\n\nCHF 18.00\n\nMAR-OHNI\n\nWhiskey, Thymian, Ahorn, Marroni\n\nCHF 18.00\n\nLONGDRINKS\n\nPimm’s Nº1 Cup\n\nPimm’s Nº 1, Ginger Ale, Gurke, Orange\n\n13 CHF";
+ const foodText='BAR FOOD\n\nSNACKS\n\nApéroplatte gemischt\n\nFleisch, Käse, Oliven\n\n18 CHF\n\nESSEN\n\nHausburger\n\nRindfleisch, Brie, Speck und Pommes Frites\n\n26,50 CHF';
+ const make=(text,url,names)=>({...source(text),url,headings:names.map(([level,name])=>({level,text:name,offset:text.indexOf(name)})).sort((a,b)=>a.offset-b.offset)});
+ const sources=[make(drinkText,'https://example.org/bar/',[[1,'BARKARTE'],[2,"BARTENDER'S CHOICE"],[6,'CEST LA VIT'],[6,'CHF 18.00'],[6,'MAR-OHNI'],[2,'LONGDRINKS'],[6,'Pimm’s Nº1 Cup'],[6,'13 CHF']]),make(foodText,'https://example.org/food/',[[1,'BAR FOOD'],[2,'SNACKS'],[4,'Apéroplatte gemischt'],[4,'18 CHF'],[2,'ESSEN'],[4,'Hausburger'],[4,'26,50 CHF']])];
+ // Duplicate price headings in production have distinct offsets; this small
+ // fixture keeps one of each price to isolate grouping and scope.
+ const leads=structuredMenuLeads(sources);
+ assert.deepEqual(leads.map(lead=>[lead.name,lead.kind]),[['CEST LA VIT','DRINKS'],['Pimm’s Nº1 Cup','DRINKS'],['Apéroplatte gemischt','GASTRONOMY'],['Hausburger','GASTRONOMY']]);
+ const result=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'}, {...field('experience.profile'),profileCategory:'DRINKS'},sources);
+ assert.equal(result.status,'REQUIRES_REVIEW');assert.equal(result.humanReviewRequired,true);
+ assert.deepEqual(result.value.offers.map(offer=>offer.name),['CEST LA VIT','Pimm’s Nº1 Cup','Apéroplatte gemischt','Hausburger']);
+ assert.ok(result.value.offers.every(offer=>offer.prices.length===0));
+ assert.ok(result.citations.every(citation=>citation.layoutReviewRequired&&citation.sourceFormat==='HTML_MENU'&&citation.evidence.includes('CHF')));
+});
+test('flat CMS navigation promotes observed dinner, info and encoded about links',()=>{
+ const page={url:'https://example.org/index.html',contentType:'text/html',body:'<nav><a href="dinner.html">Dinner</a><a href="info.html">Info</a><a href="uumlber-uns.html">Mehr &uuml;ber uns</a><a href="speisekarte-download.html">Speisekarte download</a><a href="reservation.html">Reservation</a></nav>'};
+ const links=discoverResearchLinks(page);
+ assert.ok(links.find(link=>link.url.endsWith('/dinner.html'))?.topics.includes('menu'));
+ assert.ok(links.find(link=>link.url.endsWith('/info.html'))?.topics.includes('contact'));
+ assert.ok(links.find(link=>link.url.endsWith('/info.html'))?.topics.includes('hours'));
+ assert.ok(links.find(link=>link.url.endsWith('/uumlber-uns.html'))?.topics.includes('about'));
+ assert.ok(!links.some(link=>link.url.endsWith('/reservation.html')));
+ const ranked=rankResearchFrontier(links.map(link=>({...link,depth:1})),[],[{...field('experience.profile'),profileCategory:'EAT'}]);
+ assert.equal(ranked[0].url,'https://example.org/dinner.html');
+ assert.deepEqual(topicsForSearchLead({url:'https://example.org/info.html',title:'Info'}),['visit','hours','contact']);
+});
+test('search identity matches punctuation in an official venue name without matching another venue',()=>{
+ const results=[{url:'https://www.chequelomo.ch/menus',title:'Speisekarte | ¡Che, que lomo!',snippet:'Argentinische Spezialitäten Basel'},{url:'https://www.chequelomo.ch/another',title:'Che Lomo',snippet:'Andere Bar Basel'}];
+ const found=classifySearchResults(results,{name:'Che que lomo',locality:'Basel',existingValues:{'classification.primary_category':{value:'EAT'}}},'https://chequelomo.ch/');
+ assert.deepEqual(found.official.map(lead=>lead.url),['https://www.chequelomo.ch/menus']);
+});
+test('inline à-la-carte rows yield literal dish leads without ingredients, diet markers or footer prices',()=>{
+ const text='Dinner\n\nA la Carte\n\nVorspeisen _ pflanzlich\nSuppe des Tages gf 12\n\nFaux Gras, Artischoke, Marmelade, Aroma-Öl gf 23\n\nHauptgänge _ pflanzlich\nDonna’s Burger, Malz-Bao-Bun, Cashew-Creme 32\n\nDesserts _ pflanzlich\nJohnny Crumble, Vanille-Glace gf 14\n\nAllergien, bitte fragen Sie uns\nPreise in CHF / incl. MwSt\nKüche von 18h - 21h';
+ const leads=structuredMenuLeads([{...source(text),url:'https://example.org/dinner.html'}]);
+ assert.deepEqual(leads.map(lead=>[lead.name,lead.section]),[['Suppe des Tages','VORSPEISEN _ PFLANZLICH'],['Faux Gras','VORSPEISEN _ PFLANZLICH'],['Donna’s Burger','HAUPTGÄNGE _ PFLANZLICH'],['Johnny Crumble','DESSERTS _ PFLANZLICH']]);
+ assert.ok(leads.every(lead=>lead.citation.evidence.includes(lead.name)&&lead.citation.layoutReviewRequired));
+});
+test('adjacent storefront menu rows outrank a model-selected description as a dish name',()=>{
+ const text='Speisekarte\n\nFleischspezialitäten\n\nParillada para dos\n\ngemischte Grillplatte für zwei\n139 CHF\n\nBife de Lomo\n\nArgentinisches Rindsfilet\n59 CHF\n\nEntraña a la pizza\n\nDie Fleischpizza mit Schinken und Käse\n46 CHF\n\nEmpanadas\n\nEmpanada de carne\n\nGefüllt mit Rindfleisch\n6 CHF';
+ const s={...source(text),url:'https://example.org/menu'};
+ const leads=structuredMenuLeads([s]);
+ assert.deepEqual(leads.map(lead=>lead.name),['Parillada para dos','Bife de Lomo','Entraña a la pizza','Empanada de carne']);
+ const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',category:'EAT',properties:[],areas:[],offers:[{id:'offer_bogus',kind:'GASTRONOMY',name:'Die Fleischpizza',areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}],reviewed:false};
+ const draft=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'REQUIRES_REVIEW',value:profile,citations:[{url:s.url,evidence:'Die Fleischpizza mit Schinken und Käse',observedAt:s.observedAt,sourceHash:s.hash}]},{...field('experience.profile'),profileCategory:'EAT'},[s]);
+ assert.ok(draft.value.offers.some(offer=>offer.name==='Entraña a la pizza'));
+ assert.ok(!draft.value.offers.some(offer=>offer.name==='Die Fleischpizza'));
+ assert.ok(draft.value.offers.every(offer=>offer.prices.length===0));
+ assert.ok(draft.reviewEvidence.some(citation=>citation.evidence.includes('Die Fleischpizza')));
+});
+test('a published Swiss phone with space after plus is captured literally and normalized later',()=>{
+ const s=source('Cantina Restaurant\n\nKontakt\n\n+ 41616930507');
+ const found=literalSourceFacts(s,[field('contact.phone')],spot,0).filter(f=>f.field==='contact.phone');
+ assert.deepEqual(found.map(f=>f.value),['+ 41616930507']);
+});
 test('corroborated image menu rows become cited review draft offers without prices or catalog approval',()=>{
  const audit={officialMenuUrl:'https://example.org/menu',observedAt:'2026-10-20T12:00:00Z',images:[{url:'https://example.org/board.png',discoveredOn:'https://example.org/menu',assetHash:'a'.repeat(64),visionLines:[{text:'HAUSGEKOCHT'}],localVision:{corroborated:[{name:'Curry',price:'15.5'},{name:'Granola mit Früchten',price:'7.5'}],held:[{name:'Aperol',price:'12.5',reason:'NAME_PRICE_ROW_NOT_CORROBORATED'}]}}]};
  const result=addMenuImageReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED',reason:'NO_SUPPORTED_TARGET_FACT'}, {...field('experience.profile'),profileCategory:'EAT'},[audit]);
@@ -63,6 +118,12 @@ test('explicit first-party cafe facilities survive deterministic entailment with
  const found=enumFactCandidates(field('amenity.features'),[source(text)]);
  assert.deepEqual([...new Set(found.map(item=>item.value))].sort(),['CHANGING_TABLE','OUTDOOR_SEATING','TERRACE','TOILET','WIFI']);
  assert.ok(found.every(item=>!item.quote.includes('Nachbarcafé')&&!item.quote.includes('Spielplatz')));
+});
+test('first-party garden and Sääli assertions survive without importing a neighboring garden',()=>{
+ const s=source('Ganzjährlich geöffnet - mit wunderschönem Gartenparadies. Für grössere Gruppen reservieren wir gerne in unserem Sääli. Der Garten nebenan gehört einem anderen Restaurant.');
+ const found=enumFactCandidates(field('amenity.features'),[s]);
+ assert.deepEqual([...new Set(found.map(item=>item.value))].sort(),['GARDEN','PRIVATE_ROOM']);
+ assert.ok(found.every(item=>!item.quote.includes('nebenan')));
 });
 test('a description preserves St. as part of the place name instead of ending the sentence',()=>{
  const sentence='Das Parkcafé serviert Kaffee und hausgemachte Speisen im St. Johanns-Park am Rhein.';
