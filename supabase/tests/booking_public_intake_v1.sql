@@ -97,10 +97,17 @@ select public.booking_console_save_public_settings_v1(pg_temp.booking_id('spot-a
 set local role service_role;
 select public.booking_guest_create_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('guest-pending'),3,((now() at time zone 'Europe/Zurich')::date+1+time '18:00') at time zone 'Europe/Zurich',6,'Pending guest','pending@booking.invalid',repeat('c',64),repeat('sealed-',10)) as pending \gset
 select pg_temp.booking_assert(:'pending'::jsonb->>'status'='pending','request-mode policy fabricated confirmation');
+set local role authenticated;
+select pg_temp.booking_actor('booking-owner');
+select public.booking_console_set_status_v1(pg_temp.booking_id('spot-a'),(:'pending'::jsonb->>'id')::uuid,'pending','confirmed');
 reset role;
+select pg_temp.booking_assert((select count(*) from booking_private.guest_mail_outbox_v1 where reservation_id=(:'pending'::jsonb->>'id')::uuid)=2,'operator confirmation omitted guest update intent');
+select pg_temp.booking_assert((select state from booking_private.guest_mail_outbox_v1 where reservation_id=(:'pending'::jsonb->>'id')::uuid and event_kind='created')='suppressed','obsolete request confirmation remained sendable');
+update public.booking_reservations set note='PRIVATE_OPERATOR_NOTE',revision=revision+1 where id=(:'pending'::jsonb->>'id')::uuid;
+select pg_temp.booking_assert((select count(*) from booking_private.guest_mail_outbox_v1 where reservation_id=(:'pending'::jsonb->>'id')::uuid)=2,'private note generated guest mail');
 update public.booking_reservations set guest_contact='corrected@booking.invalid',revision=revision+1 where id=(:'pending'::jsonb->>'id')::uuid;
 select pg_temp.booking_assert((select revoked_at is not null from booking_private.guest_access_v1 where reservation_id=(:'pending'::jsonb->>'id')::uuid),'old email kept guest access');
-select pg_temp.booking_assert((select state from booking_private.guest_mail_outbox_v1 where reservation_id=(:'pending'::jsonb->>'id')::uuid)='suppressed','wrong-recipient mail intent not suppressed');
+select pg_temp.booking_assert(not exists(select 1 from booking_private.guest_mail_outbox_v1 where reservation_id=(:'pending'::jsonb->>'id')::uuid and state<>'suppressed'),'wrong-recipient mail intent not suppressed');
 set local role service_role;
 do $$ begin
  begin perform public.booking_guest_read_v1((select id from public.booking_reservations where request_id=pg_temp.booking_id('guest-pending')),repeat('c',64)); raise exception 'revoked contact link accepted'; exception when no_data_found then if sqlerrm<>'booking_guest_link_unavailable' then raise; end if; end;

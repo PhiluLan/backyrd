@@ -193,9 +193,37 @@ run_case departure_before_transfer \
  "select public.booking_console_set_status_v1('$spot','$visit_b','seated','completed');" \
  "$transfer_b" booking_changed_reload
 
+# Public intake shares operator inventory and the same complete-operation registry.
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+update auth.users set email_confirmed_at=clock_timestamp() where id='$owner';
+begin;
+$auth_sql
+select public.booking_console_save_public_settings_v1('$spot',(select revision from public.booking_restaurant_settings where spot_id='$spot'),true,array['$service'::uuid],60,90,120,'confirmed','privacy@booking.invalid');
+commit;
+SQL
+guest_auth="set local role service_role; select set_config('request.jwt.claim.sub','',true); select set_config('request.jwt.claims','{\"role\":\"service_role\"}',true);"
+guest_create="select public.booking_guest_create_v1('$spot','7b000000-0000-4000-8000-000000000100',1,((date '$business_date'+9+time '18:00') at time zone 'Europe/Zurich'),6,'Public race fixture','guest-race@booking.invalid',repeat('a',64),repeat('sealed-fixture-',5));"
+operator_competitor="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000101','$service','$table_id',array['$table_id'::uuid,'$second_table'::uuid],'$group_ab',((date '$business_date'+9+time '18:00') at time zone 'Europe/Zurich'),60,6,'Operator competing with guest');"
+run_case guest_before_operator "$guest_create" "$operator_competitor" booking_slot_unavailable "$auth_sql" "$guest_auth"
+run_case operator_before_guest \
+ "select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000102','$service','$table_id',array['$table_id'::uuid,'$second_table'::uuid],'$group_ab',((date '$business_date'+10+time '18:00') at time zone 'Europe/Zurich'),60,6,'Operator before guest');" \
+ "select public.booking_guest_create_v1('$spot','7b000000-0000-4000-8000-000000000103',1,((date '$business_date'+10+time '18:00') at time zone 'Europe/Zurich'),6,'Waiting guest fixture','guest-race@booking.invalid',repeat('b',64),repeat('sealed-fixture-',5));" \
+ booking_slot_unavailable "$guest_auth" "$auth_sql"
+guest_retry="select public.booking_guest_create_v1('$spot','7b000000-0000-4000-8000-000000000104',1,((date '$business_date'+11+time '18:00') at time zone 'Europe/Zurich'),6,'Retry guest fixture','guest-race@booking.invalid',repeat('c',64),repeat('sealed-fixture-',5));"
+run_case guest_concurrent_retry "$guest_retry" "$guest_retry" SUCCESS "$guest_auth" "$guest_auth"
+run_case public_pause_before_guest \
+ "select public.booking_console_save_public_settings_v1('$spot',(select revision from public.booking_restaurant_settings where spot_id='$spot'),false,array['$service'::uuid],60,90,120,'confirmed','privacy@booking.invalid');" \
+ "select public.booking_guest_create_v1('$spot','7b000000-0000-4000-8000-000000000105',1,((date '$business_date'+12+time '18:00') at time zone 'Europe/Zurich'),6,'Denied paused guest','paused@booking.invalid',repeat('d',64),repeat('sealed-fixture-',5));" \
+ booking_public_unavailable "$guest_auth" "$auth_sql"
+run_case guest_retry_after_pause "$guest_retry" "$guest_retry" SUCCESS "$guest_auth" "$guest_auth"
+guest_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select count(*) from public.booking_reservations where spot_id='$spot' and source='website')||':'||(select count(*) from booking_private.reservation_requests_v2 where spot_id='$spot' and request_kind='guest_create')||':'||(select count(*) from booking_private.guest_mail_outbox_v1 where spot_id='$spot');")"
+test "$guest_proof" = '2:2:2' || { printf 'Unexpected public intake race state: %s\n' "$guest_proof" >&2; exit 1; }
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
+delete from booking_private.guest_mail_outbox_v1 where spot_id='$spot';
+delete from booking_private.guest_access_v1 where spot_id='$spot';
 delete from booking_private.reservation_requests_v2 where spot_id='$spot';
 delete from public.booking_reservations where spot_id='$spot';
 delete from public.booking_table_combinations where spot_id='$spot';
@@ -204,9 +232,10 @@ delete from public.booking_service_hours where spot_id='$spot';
 delete from public.booking_restaurant_tables where spot_id='$spot';
 delete from public.booking_restaurant_services where spot_id='$spot';
 delete from public.booking_restaurant_areas where spot_id='$spot';
+delete from public.booking_public_settings where spot_id='$spot';
 delete from public.booking_restaurant_settings where spot_id='$spot';
 delete from public.spots where id in ('$spot','$other_spot');
 delete from auth.users where id in ('$owner','$staff','$other_owner');
 commit;
 SQL
-printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation and public combined bookings serialize, roll back a competing claim, deduplicate concurrent identical requests, and fence actual-time seated transfers against competing movements and departure.\n'
+printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation and public combined bookings serialize, roll back a competing claim, deduplicate concurrent identical requests, and fence actual-time seated transfers against competing movements and departure; public intake and operator inventory serialize in both orders, with replay and paused-intake fences.\n'

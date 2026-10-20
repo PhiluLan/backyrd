@@ -21,6 +21,8 @@ grant select on public.booking_public_settings to authenticated;
 grant all on public.booking_public_settings to service_role;
 create policy booking_public_settings_owner on public.booking_public_settings for select to authenticated using (booking_private.is_operator(spot_id));
 
+create index booking_public_contact_recent on public.booking_reservations(spot_id,lower(guest_contact),created_at) where source='website';
+
 create table booking_private.guest_access_v1 (
  spot_id uuid not null,
  reservation_id uuid primary key,
@@ -150,6 +152,8 @@ declare p public.booking_public_settings%rowtype; previous booking_private.reser
  if (select count(*) from public.booking_reservations where spot_id=p_spot_id and source='website' and lower(guest_contact)=email and created_at>clock_timestamp()-interval '24 hours')>=3 then raise exception 'booking_guest_request_unavailable' using errcode='22023'; end if;
  select * into choice from booking_private.public_choices_v1(p_spot_id,(p_starts_at at time zone 'Europe/Zurich')::date,p_party_size,p_starts_at) limit 1;
  if not found then raise exception 'booking_slot_unavailable' using errcode='22023'; end if;
+ -- Reuse the canonical allocation validator before mutating shared inventory.
+ perform booking_private.validate_allocation_v2(p_spot_id,choice.service_id,choice.table_id,choice.table_ids,choice.combination_id,choice.starts_at,extract(epoch from choice.ends_at-choice.starts_at)::integer/60,p_party_size,null,false);
  insert into public.booking_reservations(spot_id,request_id,service_id,table_id,combination_id,starts_at,ends_at,party_size,guest_name,guest_contact,note,source,status,created_by,creation_fingerprint)
  values(p_spot_id,p_request_id,choice.service_id,choice.table_id,choice.combination_id,choice.starts_at,choice.ends_at,p_party_size,trim(p_guest_name),email,nullif(trim(p_note),''),'website',p.confirmation_status,null,fingerprint) returning * into r;
  perform booking_private.write_allocations_v2(r,choice.table_ids);
