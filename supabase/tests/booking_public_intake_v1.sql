@@ -112,4 +112,32 @@ set local role service_role;
 do $$ begin
  begin perform public.booking_guest_read_v1((select id from public.booking_reservations where request_id=pg_temp.booking_id('guest-pending')),repeat('c',64)); raise exception 'revoked contact link accepted'; exception when no_data_found then if sqlerrm<>'booking_guest_link_unavailable' then raise; end if; end;
 end $$;
+
+-- Recipient quotas remain bounded even when old bookings have been cancelled.
+set local role service_role;
+select public.booking_guest_create_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('quota-two'),3,((now() at time zone 'Europe/Zurich')::date+1+time '20:00') at time zone 'Europe/Zurich',6,'Quota fixture two','guest@booking.invalid',repeat('d',64),repeat('sealed-',10)) as quota_two \gset
+select public.booking_guest_create_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('quota-three'),3,((now() at time zone 'Europe/Zurich')::date+1+time '21:00') at time zone 'Europe/Zurich',6,'Quota fixture three','guest@booking.invalid',repeat('e',64),repeat('sealed-',10));
+do $$ begin
+ begin perform public.booking_guest_create_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('quota-four'),3,((now() at time zone 'Europe/Zurich')::date+1+time '22:00') at time zone 'Europe/Zurich',6,'Quota fixture four','guest@booking.invalid',repeat('f',64),repeat('sealed-',10)); raise exception 'recipient quota bypass'; exception when invalid_parameter_value then if sqlerrm<>'booking_guest_request_unavailable' then raise; end if; end;
+end $$;
+reset role;
+select pg_temp.booking_assert((select count(*) from public.booking_reservations where spot_id=pg_temp.booking_id('spot-a') and source='website')=4,'quota failure orphaned a reservation');
+select set_config('booking.test.quota_id',(:'quota_two'::jsonb->>'id'),true);
+update booking_private.guest_access_v1 set cancellation_deadline=clock_timestamp()-interval '1 second' where reservation_id=current_setting('booking.test.quota_id')::uuid;
+set local role service_role;
+do $$ begin
+ begin perform public.booking_guest_cancel_v1(current_setting('booking.test.quota_id')::uuid,repeat('d',64),pg_temp.booking_id('past-cutoff'),0); raise exception 'cancel cutoff bypassed'; exception when invalid_parameter_value then if sqlerrm<>'booking_guest_cancel_unavailable' then raise; end if; end;
+end $$;
+reset role;
+select pg_temp.booking_assert((select status from public.booking_reservations where id=current_setting('booking.test.quota_id')::uuid)='pending','denied cancellation changed saved state');
+-- Unresolved physical overstays are not silently promised to another public guest.
+update public.booking_reservations set status='seated',starts_at=((now() at time zone 'Europe/Zurich')::date-1+time '20:00') at time zone 'Europe/Zurich',ends_at=((now() at time zone 'Europe/Zurich')::date-1+time '21:00') at time zone 'Europe/Zurich',revision=revision+1 where id=current_setting('booking.test.quota_id')::uuid;
+set local role service_role;
+select pg_temp.booking_assert(jsonb_array_length(public.booking_guest_availability_v1(pg_temp.booking_id('spot-a'),(now() at time zone 'Europe/Zurich')::date+1,6)->'slots')=0,'overstay was publicly offered before staff resolved it');
+reset role;
+update public.booking_reservations set status='completed',revision=revision+1 where id=current_setting('booking.test.quota_id')::uuid;
+set local role service_role;
+select pg_temp.booking_assert(jsonb_array_length(public.booking_guest_availability_v1(pg_temp.booking_id('spot-a'),(now() at time zone 'Europe/Zurich')::date+1,6)->'slots')>0,'completed visit still hid public capacity');
+reset role;
+select pg_temp.booking_assert((select count(*) from booking_private.guest_mail_outbox_v1 where spot_id=pg_temp.booking_id('spot-a'))=6,'quota/cutoff/private changes created unexpected mail intents');
 rollback;
