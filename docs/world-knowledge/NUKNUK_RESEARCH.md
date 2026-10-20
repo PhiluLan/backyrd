@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.4
+# Local Nuknuk Research v3.5
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.4
+## Active architecture: Research v3.5
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -158,9 +158,63 @@ unfiltered overview, then timed out. The overview is an observed link on
 both the official homepage and visitor-planning page. v3.4 ranks that
 overview before its observed filter variants while keeping a filtered page
 eligible when it contains distinct rows. A focused ranking regression and
-live public-link check cover this retrieval change; the complete current
-model crawl has not yet been repeated, so cultural offer coverage remains
-unproven.
+live public-link check cover this retrieval change. The complete model crawl
+then read ten official requests, used fifteen model calls and stopped at its
+request limit with no source/model failures. It found the pre-run reference's
+public and private tours, monthly Kinderworkshops and monthly Offenes Atelier.
+It also incorrectly named ordinary hospitality prose ("macht Platz") as a
+self-guided experience. The general cultural-offer floor now requires a
+recognizable visitor activity name or its own source heading for a
+self-guided visit. Reapplying that deterministic floor to the saved, real
+model evidence removes the false item and yields eight cited offers including
+all four reference groups; this is a tuned replay, not a blind release pass.
+The request-budget stop and wider category coverage still need improvement.
+
+A new, independently pre-referenced Café Frühling run read the operator's
+English and German venue pages after a same-host English redirect. It finished
+in 166 seconds with three HTTP requests, four model calls, no failures and no
+budget stop. Its sole proposed food item was the literal combined phrase
+"Zimt- und Kardamomschnecken". It missed at least four other specifically
+named items on the venue page: Sauerteigbrot, Quiche, Espresso and
+Filterkaffee. The old food-source floor required a separate menu or price for
+one-word items even when the café explicitly named them in its own serving
+prose. This is a blind omission, not a release pass. A general scoped floor
+now permits that venue prose only under the exact venue heading and a local
+serving statement; shop and sibling-café sections remain excluded. Its model
+retest found Sauerteigbrot, Quiche, the combined Zimt- und Kardamomschnecken,
+Espresso and Filterkaffee in two HTTP requests and 113 seconds without failures.
+The same local model marked both coffees as food. An exact-name beverage rule
+now corrects unambiguous coffee drinks to `DRINKS`; rechecking the saved real
+evidence yields the right five offer kinds. This last correction is a replay,
+not a further end-to-end result. The unattended gate remains closed.
+
+A separate untouched Restaurant Alexander run found three named items from
+four official HTML pages in 159 seconds. Its pre-run reference also lists
+Fondue, Rösti and Borschtsch from literal cuisine lines on the homepage.
+Those one-word foods were withheld because the old cuisine-list parser did
+not tolerate decorative emojis before the dash. The general literal-list
+rule now does; the original saved model facts pass the corrected floor.
+This correction still needs an end-to-end retest. The detailed 2026 menu is
+published as images, whose text this run did not read. Filename text is not
+menu evidence and image OCR alone would require layout review.
+
+The v3.5 targeted one-page model retest of Alexander produced seven literal,
+supported offers, including Fondue, Rösti and Borschtsch, in 129 seconds.
+The extractor had marked individual list entries as whole-venue TARGET facts;
+the same model's critic rejected them. A source-bound normalization now labels
+literal dish names in an explicit cuisine list as OFFER before criticism.
+Connective and suitability prose cannot become offer names. This was a
+targeted development test with a one-request stop, not an unattended full
+crawl. A separate full v3.4 retest still had a transient local-search engine
+failure and proposed only two items. Neither is a release pass.
+
+The three formal, untouched pre-run-reference cases (ART HOUSE Basel, Amber
+Bar and Restaurant Alexander) leave the unattended-draft gate closed: one
+false hotel-room assertion, at least nine missed facts, no late references,
+and no independent culture/activity cases. Café Frühling has a pre-run
+reference and a clear blind omission, but its initial reference was not in
+the formal audit schema, so it is reported separately rather than inserted
+retroactively into the formal cohort.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

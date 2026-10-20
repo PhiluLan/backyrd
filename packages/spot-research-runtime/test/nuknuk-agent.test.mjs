@@ -1395,6 +1395,43 @@ test('museum programme price headers and language labels are not concrete offers
  const facts=validateEvidenceFacts({facts:[fact('experience.profile','Workshops','Dauer und Kosten für Workshops:',{subject:'OFFER',offerKind:'WORKSHOP'}),fact('experience.profile','Besuch ohne Führung','Besuch ohne Führung\n\nAngebot in: Deutsch / Englisch / Französisch',{subject:'OFFER',offerKind:'SELF_GUIDED_VISIT'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
  assert.deepEqual(recheckEvidenceFloors(facts,[s],[field('experience.profile')],museum).map(f=>f.reason),['CATEGORY_LABEL_NOT_CONCRETE_OFFER','CATEGORY_LABEL_NOT_CONCRETE_OFFER']);
 });
+test('museum hospitality prose is not a named self-guided visitor activity',()=>{
+ const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const quote='Das Museum Example macht Platz für dich und stellt sich auf dich ein. Stöbere in unseren Pop-Up-Bibliotheken und werde kreativ.';
+ const s=source(quote);
+ const facts=validateEvidenceFacts({facts:[fact('experience.profile','macht Platz',quote,{subject:'OFFER',offerKind:'SELF_GUIDED_VISIT'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(facts,[s],[field('experience.profile')],museum)[0].reason,'VISITOR_ACTIVITY_NAME_REQUIRED');
+});
+test('a café can cite named items from its own serving prose without admitting sibling-shop items',()=>{
+ const cafe={...spot,name:'Café Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'COFFEE_DAYTIME'}}};
+ const first='Café Example – unser Café\n\nIm Café Example kannst du unseren Espresso probieren. Süsses und Salziges backen wir von Hand: Quiche und Gebäck.';
+ const other='\n\nUnser Onlineshop\n\nIm Onlineshop gibt es Espresso für zuhause.';
+ const s={...source(first+other),headings:[{level:1,text:'Café Example – unser Café',offset:0},{level:2,text:'Unser Onlineshop',offset:first.length+2}]};
+ const facts=validateEvidenceFacts({facts:[fact('experience.profile','Espresso','Im Café Example kannst du unseren Espresso probieren.',{subject:'OFFER',offerKind:'DRINKS'}),fact('experience.profile','Quiche','Süsses und Salziges backen wir von Hand: Quiche und Gebäck.',{subject:'OFFER',offerKind:'GASTRONOMY'}),fact('experience.profile','Espresso','Im Onlineshop gibt es Espresso für zuhause.',{subject:'OFFER',offerKind:'DRINKS'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.deepEqual(recheckEvidenceFloors(facts,[s],[field('experience.profile')],cafe).map(f=>f.state),['ACCEPTED','ACCEPTED','HELD']);
+ assert.equal(recheckEvidenceFloors(facts,[s],[field('experience.profile')],cafe)[2].reason,'FOOD_ITEM_SOURCE_REQUIRED');
+});
+test('unambiguous coffee beverages remain drinks when the model calls them gastronomy',()=>{
+ const quote='Im Café Example kannst du einen Espresso und Filterkaffee probieren.';
+ const s=source(quote+'\nQuiche wird bei uns gebacken.');
+ const values=validateEvidenceFacts({facts:[fact('experience.profile','Espresso',quote,{offerKind:'GASTRONOMY'}),fact('experience.profile','Filterkaffee',quote,{offerKind:'GASTRONOMY'}),fact('experience.profile','Quiche','Quiche wird bei uns gebacken.',{offerKind:'GASTRONOMY'})]},s,[field('experience.profile')]);
+ assert.deepEqual(values.map(f=>f.offerKind),['DRINKS','DRINKS','GASTRONOMY']);
+});
+test('literal cuisine lists with decorative emoji support individual dishes',()=>{
+ const quote='Schweizer Küche 🧀🥔 — Fondue, Rösti, Cordon Bleu, saisonale Gerichte';
+ const s=source(quote);
+ const facts=validateEvidenceFacts({facts:[fact('experience.profile','Fondue',quote,{subject:'OFFER',offerKind:'GASTRONOMY'}),fact('experience.profile','Rösti',quote,{subject:'OFFER',offerKind:'GASTRONOMY'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.deepEqual(recheckEvidenceFloors(facts,[s],[field('experience.profile')],spot).map(f=>f.state),['ACCEPTED','ACCEPTED']);
+ const modelScoped=validateEvidenceFacts({facts:[fact('experience.profile','Rösti',quote,{subject:'TARGET',subjectLabel:spot.name,offerKind:'GASTRONOMY'})]},s,[field('experience.profile')]);
+ assert.equal(modelScoped[0].subject,'OFFER');
+ assert.equal(modelScoped[0].subjectLabel,'Rösti');
+});
+test('adjectival and connective prose cannot become food offer names',()=>{
+ const quote='Schweizer und ukrainische Küche – nicht zufällig nebeneinander, sondern bewusst verbunden.';
+ const s=source(quote);
+ const facts=validateEvidenceFacts({facts:[fact('experience.profile','nicht zufällig nebeneinander',quote,{offerKind:'GASTRONOMY'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(facts,[s],[field('experience.profile')],spot)[0].reason,'OFFER_PROSE_NOT_NAME');
+});
 test('a compound workshop name states its kind explicitly',()=>{
  const museum={...spot,name:'Museum Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
  const quote='Kinderworkshops finden jeden Monat im Museum Example statt und bieten Kindern Raum zum Experimentieren.';
