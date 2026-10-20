@@ -418,3 +418,23 @@ do not yet have the walk-in editor's payload freeze/review warning. Durable
 uncertain-outcome recovery across a browser restart remains a reliability gap;
 do not claim indefinite exactly-once processing. Broader offline support,
 overnight services and dynamic overstay replanning remain outside this increment.
+
+Walk-in candidate validation on 2026-10-20: canonical 194-migration Supabase
+clean boot with baseline SQL and all four Booking suites passed. The dedicated
+clock fixture explicitly uses a UTC session and constructs Zurich civil times
+with grouped timezone conversion. SQL acceptance covers current service/window,
+resource eligibility, real seating, planned reservations, overdue visits,
+closing endpoints, failed-write rollback, changed/replayed UUIDs, guest
+corrections, completed-visit replay and negative authorization. The immutable
+release evidence chains from the amendment candidate; it is not a Production
+deployment receipt. This branch depends on the amendment PR #549.
+
+All 30 synthetic browser journeys passed after the scoped-snapshot change; the
+seven walk-in journeys were rechecked after final label/error-text hardening.
+The 320px editor was visually inspected. Web typecheck, lint (existing warnings
+only), 42 contracts and production build passed. The shared native dialog and
+older reservation flows remain covered. Late-session response and frozen
+uncertain-payload tests use controlled synthetic transport, not production guest
+writes or an Aleno account mutation. The Vercel integration reported a build
+quota limit during this work; verify actual delivery separately from Git/CI
+before calling a new UI increment live.

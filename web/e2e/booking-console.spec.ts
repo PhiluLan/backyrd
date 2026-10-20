@@ -279,7 +279,7 @@ test("a phone walk-in uses server time and immediate seating while following tod
   await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
   await expect(panel.getByRole("button", { name: "2 Personen", exact: true })).toBeFocused();
-  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Bereich Gastraum für Mittag wählen", exact: true }).click();
   await page.screenshot({ path: test.info().outputPath("walk-in-phone.png") });
   await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
   await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: false })).toBeVisible();
@@ -305,13 +305,13 @@ test("walk-in conflicts retain guest input and offer another table without repor
   const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
   await panel.getByText("Gastangaben ergänzen", { exact: true }).click();
   await panel.getByLabel("Gastname (optional)").fill("Synthetischer Walk-in");
-  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Bereich Gastraum für Mittag wählen", exact: true }).click();
   await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
   await expect(panel.getByRole("alert")).toContainText("inzwischen belegt");
   await expect(panel.getByLabel("Gastname (optional)")).toHaveValue("Synthetischer Walk-in");
   await expect(panel.getByLabel("Gastname (optional)")).toBeEnabled();
   await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: true })).toHaveCount(0);
-  await panel.getByRole("button", { name: "Tisch Terrasse 2 im Terrasse für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Tisch Terrasse 2 im Bereich Terrasse für Mittag wählen", exact: true }).click();
   await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
   await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: true })).toBeVisible();
   expect(fixture.walkInRequests()).toHaveLength(2);
@@ -323,7 +323,7 @@ test("an uncertain walk-in freezes its payload and safely retries the same reque
   await page.goto("/booking/console");
   await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
-  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Bereich Gastraum für Mittag wählen", exact: true }).click();
   await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
   await expect(panel.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
   await expect(panel.getByLabel("Personen", { exact: true })).toBeDisabled();
@@ -345,7 +345,7 @@ test("leaving an uncertain walk-in reloads the server's operating day with an ex
   await page.getByLabel("Datum · Europe/Zurich").fill("2026-10-21");
   await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
   const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
-  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Bereich Gastraum für Mittag wählen", exact: true }).click();
   await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
   await expect(panel.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
   await page.keyboard.press("Escape");
@@ -381,10 +381,10 @@ test("late walk-in availability cannot offer a table too small for the latest pa
   const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
   await expect.poll(() => fixture.walkInParties()).toEqual([2]);
   await panel.getByRole("button", { name: "4 Personen", exact: true }).click();
-  const table = panel.getByRole("button", { name: "Tisch Terrasse 2 im Terrasse für Mittag wählen", exact: true });
+  const table = panel.getByRole("button", { name: "Tisch Terrasse 2 im Bereich Terrasse für Mittag wählen", exact: true });
   await table.click();
   await expect.poll(() => fixture.walkInReplies()).toEqual([4, 2]);
-  await expect(panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Tisch Fenster 1 im Bereich Gastraum für Mittag wählen", exact: true })).toHaveCount(0);
   await expect(table).toHaveAttribute("aria-pressed", "true");
   await expect(panel.getByRole("button", { name: "Walk-in platzieren", exact: true })).toBeEnabled();
 });
@@ -394,7 +394,7 @@ test("a late walk-in response from a signed-out session cannot close a new sessi
   await page.goto("/booking/console");
   await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
   let panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
-  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Bereich Gastraum für Mittag wählen", exact: true }).click();
   await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
   await expect.poll(() => fixture.walkInRequests().length).toBe(1);
   await page.evaluate(() => { const channel = new BroadcastChannel("sb-127-auth-token"); channel.postMessage({ event: "SIGNED_OUT", session: null }); channel.close(); });

@@ -160,7 +160,7 @@ const errorCopy: Record<string, string> = {
 export function bookingError(error: unknown): string {
   const row = error && typeof error === "object" ? error as Record<string, unknown> : {};
   const message = typeof row.message === "string" ? row.message : "";
-  if (errorCopy[message]) return errorCopy[message];
+  if (Object.prototype.hasOwnProperty.call(errorCopy, message)) return errorCopy[message];
   if (row.code === "PGRST202" || row.code === "42P01") return "Die Booking Console ist auf diesem Backend noch nicht freigeschaltet. Bitte nach dem Backend-Release erneut versuchen.";
   if (row.code === "23P01") return errorCopy.booking_slot_unavailable;
   if (row.code === "23505") {
