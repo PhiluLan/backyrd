@@ -8,6 +8,7 @@ import { bookingError, occupiesInventory as active, readBookingConsole, restaura
 import { SetupForm } from "./setup-form";
 import { NewReservation, type CreatedBooking } from "./new-reservation";
 import { ReservationDetails, statusLabels } from "./reservation-details";
+import { WalkIn } from "./walk-in";
 import styles from "./console.module.css";
 
 type EntryState = "loading" | "guest" | "ready" | "error";
@@ -27,7 +28,8 @@ export function BookingConsole() {
   const [spots, setSpots] = useState<OwnerSpotListItem[]>([]);
   const [spotId, setSpotId] = useState("");
   const [date, setDate] = useState(restaurantDate);
-  const [snapshot, setSnapshot] = useState<BookingSnapshot | null>(null);
+  const [snapshotState, setSnapshotState] = useState<{ spotId: string; date: string; data: BookingSnapshot } | null>(null);
+  const snapshot = snapshotState?.spotId === spotId && snapshotState.date === date ? snapshotState.data : null;
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -38,6 +40,8 @@ export function BookingConsole() {
   const [query, setQuery] = useState("");
   const [time, setTime] = useState("");
   const [editor, setEditor] = useState<{ tableId: string } | null>(null);
+  const [walkInOpen, setWalkInOpen] = useState(false);
+  const [uncertainWrite, setUncertainWrite] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -46,12 +50,13 @@ export function BookingConsole() {
   const actorId = useRef<string | null>(null);
   const inFlight = useRef(false);
   const createdNotice = useRef<string | null>(null);
+  const followOperatingDate = useRef(false);
 
   useEffect(() => {
     let mounted = true;
     const request = ++entryGeneration.current;
     function clearPrivateState() {
-      generation.current += 1; setSpots([]); setSpotId(""); setSnapshot(null); setEditor(null); setSelectedId(null);
+      generation.current += 1; inFlight.current = false; setSpots([]); setSpotId(""); setSnapshotState(null); setEditor(null); setSelectedId(null); setWalkInOpen(false); setUncertainWrite(false); followOperatingDate.current = false;
       setQuery(""); setService(""); setArea(""); setStatus("all"); setTime(""); setError(null); setNotice(null); setDirty(false); setBusy(false); setLoading(false); createdNotice.current = null;
     }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -86,15 +91,17 @@ export function BookingConsole() {
     try {
       const data = await readBookingConsole(spotId, date);
       if (request !== generation.current) return;
-      setSnapshot(data);
+      if (followOperatingDate.current && data.operating_date && date !== data.operating_date) { followOperatingDate.current = false; setDate(data.operating_date); return; }
+      followOperatingDate.current = false;
+      setSnapshotState({ spotId, date, data });
       if (!data.settings) setView("setup");
-    } catch (error) { if (request === generation.current) { setSnapshot(null); setError(bookingError(error)); } }
+    } catch (error) { if (request === generation.current) { setSnapshotState(null); setError(bookingError(error)); } }
     finally { if (request === generation.current) setLoading(false); }
   }, [spotId, date]);
 
   useEffect(() => {
-    setSnapshot(null); setDirty(false); setNotice(createdNotice.current); createdNotice.current = null;
-    setSelectedId(null); setEditor(null); void reload();
+    setSnapshotState(null); setDirty(false); setNotice(createdNotice.current); createdNotice.current = null;
+    setSelectedId(null); setEditor(null); setWalkInOpen(false); void reload();
   }, [reload]);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault(); };
@@ -112,7 +119,7 @@ export function BookingConsole() {
       if (actor !== actorId.current || request !== entryGeneration.current) return;
       setDirty(false); setNotice("Die Einrichtung wurde gespeichert."); await reload();
     } catch (error) { if (actor === actorId.current && request === entryGeneration.current) setError(bookingError(error)); }
-    finally { inFlight.current = false; setBusy(false); }
+    finally { if (actor === actorId.current && request === entryGeneration.current) { inFlight.current = false; setBusy(false); } }
   }
 
   const validService = snapshot?.services.some((s) => s.id === service) ? service : "";
@@ -129,9 +136,11 @@ export function BookingConsole() {
   const selected = snapshot?.reservations.find((reservation) => reservation.id === selectedId) ?? unclosed.find((reservation) => reservation.id === selectedId);
   const currentActor = actorId.current;
   const currentEntry = entryGeneration.current;
+  function actorBusy(value: boolean) { if (currentActor === actorId.current && currentEntry === entryGeneration.current) setBusy(value); }
   // Native modal dialogs make the workspace inert while preserving the
   // launching control as a valid focus-return target.
-  const navigationDisabled = busy || loading || dirty;
+  const waitingForSnapshot = entry === "ready" && !!spotId && !snapshot && !error;
+  const navigationDisabled = busy || loading || waitingForSnapshot || dirty;
   const readyToBook = !!snapshot?.settings && snapshot.tables.some((table) => table.is_active && snapshot.areas.some((area) => area.id === table.area_id && area.is_active)) && snapshot.services.some((service) => service.is_active);
   const canCreate = date >= restaurantDate() && date <= shiftDate(restaurantDate(), 365);
   function clearFilters() { setService(""); setArea(""); setStatus("all"); setQuery(""); }
@@ -155,7 +164,8 @@ export function BookingConsole() {
               <nav className={styles.tabs} aria-label="Booking Bereiche">{([["book", "Reservierungsbuch"], ["tables", "Tischübersicht"], ["setup", "Einrichtung"]] as const).map(([key, label]) => <button key={key} type="button" aria-current={view === key ? "page" : undefined} disabled={navigationDisabled} onClick={() => setView(key)}>{label}{key === "setup" && dirty ? " · ungespeichert" : ""}</button>)}</nav>
               {error && <div className={styles.error} role="alert">{error}<button className={styles.secondary} disabled={busy || dirty} onClick={() => void reload()}>Neu laden</button></div>}
               {notice && <p className={styles.success} role="status">{notice}</p>}
-              {loading && <p role="status" className={styles.help}>Daten werden geladen …</p>}
+              {uncertainWrite && <section className={styles.error} role="alert"><p>Eine Walk-in-Anfrage kann bereits gespeichert sein. Prüfe den aktuellen Stand im Buchungsbuch, bevor du denselben Besuch nochmals erfasst.</p><div className={styles.actions}><button className={styles.secondary} disabled={navigationDisabled} onClick={() => void reload()}>Stand aktualisieren</button><button className={styles.secondary} onClick={() => setUncertainWrite(false)}>Stand geprüft</button></div></section>}
+              {(loading || waitingForSnapshot) && <p role="status" className={styles.help}>Daten werden geladen …</p>}
               {snapshot && <>
                 <div hidden={view !== "setup"}><SetupForm key={spotId + ":" + (snapshot.settings?.revision ?? "new")} snapshot={snapshot} busy={busy || loading} onSave={save} onDirty={setDirty} /></div>
                 <div hidden={view === "setup"}>
@@ -163,6 +173,7 @@ export function BookingConsole() {
                     <div className={styles.dateNavigation}><button className={styles.secondary} aria-label="Vorheriger Tag" disabled={navigationDisabled} onClick={() => setDate(shiftDate(date, -1))}>←</button><label>Datum · Europe/Zurich<input type="date" required value={date} disabled={navigationDisabled} onChange={(event) => { if (event.target.value) setDate(event.target.value); }} /></label><button className={styles.secondary} aria-label="Nächster Tag" disabled={navigationDisabled} onClick={() => setDate(shiftDate(date, 1))}>→</button>{date !== restaurantDate() && <button className={styles.secondary} disabled={navigationDisabled} onClick={() => setDate(restaurantDate())}>Heute</button>}</div>
                     <div className={styles.contextFilters}><label>Service<select value={validService} disabled={navigationDisabled} onChange={(event) => setService(event.target.value)}><option value="">Alle Services</option>{snapshot.services.map((service) => <option key={service.id} value={service.id}>{service.name}{!service.is_active ? " (inaktiv)" : ""}</option>)}</select></label><label>Bereich<select value={validArea} disabled={navigationDisabled} onChange={(event) => setArea(event.target.value)}><option value="">Alle Bereiche</option>{snapshot.areas.map((area) => <option key={area.id} value={area.id}>{area.name}{!area.is_active ? " (inaktiv)" : ""}</option>)}</select></label></div>
                     {readyToBook ? <button className={styles.primary} disabled={navigationDisabled || !canCreate} title={!canCreate ? "Neue Buchungen sind für heute und die nächsten 365 Tage möglich." : undefined} onClick={() => setEditor({ tableId: "" })}>+ Neue Reservierung</button> : <button className={styles.primary} disabled={navigationDisabled} onClick={() => setView("setup")}>Einrichtung abschliessen</button>}
+                    {readyToBook && snapshot.capabilities?.walk_ins && <button className={styles.secondary} disabled={navigationDisabled} onClick={() => setWalkInOpen(true)}>+ Walk-in für jetzt</button>}
                   </section>
                   {unclosed.length > 0 && <section className={styles.unclosed} aria-label="Offene Besuche früherer Tage"><h2>Frühere Besuche prüfen</h2><p>Diese Besuche sind noch als «Am Tisch» erfasst. Prüfe, ob die Gäste noch da sind, und beende abgeschlossene Besuche. Ganzes Restaurant · zusätzlich zum gewählten Tag.</p><div className={styles.actions}>{unclosed.map((row) => <button className={styles.secondary} key={row.id} onClick={() => setSelectedId(row.id)}>{row.guest_name} · {snapshot.tables.find((table) => table.id === row.table_id)?.label ?? "Tisch"} · {restaurantDate(new Date(row.starts_at))}</button>)}</div></section>}
                   <div className={styles.workspaceSummary}><div className={styles.workspaceHeading}><div><p className={styles.kicker}>{displayDate(date)}</p><h2>{view === "tables" ? "Deine Tische" : "Dein Reservierungsbuch"}</h2></div><p className={styles.help}>{filtered ? "Auswahl" : "Ganzer Tag"} · gespeicherte Buchungen</p></div>
@@ -174,7 +185,7 @@ export function BookingConsole() {
                     {!visible.length ? <div className={styles.empty}><p className={styles.emptySymbol} aria-hidden="true">↗</p><h3>{filtered && snapshot.reservations.length ? "Keine Treffer für diese Filter." : "Ein freier Anfang."}</h3><p>{filtered && snapshot.reservations.length ? "Es gibt Buchungen an diesem Tag. Passe deine Auswahl an." : "Für diesen Tag wurden noch keine Reservierungen erfasst."}</p>{filtered && <button className={styles.secondary} onClick={clearFilters}>Filter zurücksetzen</button>}</div>
                       : <ul className={styles.bookRows}>{visible.map((row) => {
                         const table = snapshot.tables.find((table) => table.id === row.table_id);
-                        return <li key={row.id}><button className={styles.bookRow} aria-label={"Reservierung von " + row.guest_name + " öffnen"} onClick={() => setSelectedId(row.id)}><span className={styles.rowTime}><strong>{restaurantTime(row.starts_at)}</strong><small>bis {restaurantTime(row.ends_at)}</small></span><span className={styles.rowGuest}><strong>{row.guest_name}</strong><small>{row.note ? "Interner Hinweis" : row.source === "phone" ? "Telefon" : row.source === "email" ? "E-Mail" : row.source === "walk_in" ? "Vor Ort" : "Betreiber"}</small></span><span className={styles.rowParty}>{row.party_size}<small> Personen</small></span><span className={styles.rowTable}>{table?.label ?? "Tisch"}<small>{snapshot.areas.find((area) => area.id === table?.area_id)?.name ?? "Bereich"}</small></span><span className={styles.status} data-status={row.status}>{statusLabels[row.status]}</span><span className={styles.rowArrow} aria-hidden="true">↗</span></button></li>;
+                        return <li key={row.id}><button className={styles.bookRow} aria-label={"Reservierung von " + row.guest_name + " öffnen"} aria-describedby={"booking-time-" + row.id + " booking-party-" + row.id + " booking-table-" + row.id + " booking-status-" + row.id} onClick={() => setSelectedId(row.id)}><span id={"booking-time-" + row.id} className={styles.rowTime}><strong>{restaurantTime(row.starts_at)}</strong><small>bis {restaurantTime(row.ends_at)}</small></span><span className={styles.rowGuest}><strong>{row.guest_name}</strong><small>{row.note ? "Interner Hinweis" : row.source === "phone" ? "Telefon" : row.source === "email" ? "E-Mail" : row.source === "walk_in" ? "Vor Ort" : "Betreiber"}</small></span><span id={"booking-party-" + row.id} className={styles.rowParty}>{row.party_size}<small> Personen</small></span><span id={"booking-table-" + row.id} className={styles.rowTable}>{table?.label ?? "Tisch"}<small>{snapshot.areas.find((area) => area.id === table?.area_id)?.name ?? "Bereich"}</small></span><span id={"booking-status-" + row.id} className={styles.status} data-status={row.status}>{statusLabels[row.status]}</span><span className={styles.rowArrow} aria-hidden="true">↗</span></button></li>;
                       })}</ul>}
                   </section> : <section aria-label="Tischübersicht">
                     <div className={styles.tableToolbar}><label>Belegung um<input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>{time && <button className={styles.secondary} onClick={() => setTime("")}>Ganzer Tag</button>}<p className={styles.help}>{time ? "Geplante Reservierungszeiten. Der manuell erfasste Servicestatus zeigt den letzten gespeicherten Stand." : "Aktive Reservierungen über den ganzen Tag. Freie Buchungszeiten werden bei der Erfassung geprüft."}</p></div>
@@ -187,8 +198,9 @@ export function BookingConsole() {
                     {!snapshot.areas.length && <div className={styles.empty}><h3>Noch keine Bereiche.</h3><p>Lege Bereiche und Tische in der Einrichtung an.</p></div>}
                   </section>}
                 </div>
-                {editor && <NewReservation spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={() => setEditor(null)} onBusy={setBusy} onCreated={(booking) => savedBooking(booking, "Die Reservierung wurde gespeichert.")} />}
-                {selected && <ReservationDetails key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={setBusy} onAmended={(date, slot) => savedBooking({ date, slot }, "Die Änderungen wurden gespeichert.")} onReload={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) await reload(); }} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}
+                {editor && <NewReservation spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={() => setEditor(null)} onBusy={actorBusy} onCreated={(booking) => savedBooking(booking, "Die Reservierung wurde gespeichert.")} />}
+                {walkInOpen && <WalkIn spotId={spotId} snapshot={snapshot} serviceId={validService} areaId={validArea} onBusy={actorBusy} onClose={(uncertain) => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setWalkInOpen(false); if (uncertain) { setUncertainWrite(true); setNotice(null); clearFilters(); setView("book"); followOperatingDate.current = true; void reload(); } }} onSaved={async (date, slot) => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setWalkInOpen(false); await savedBooking({ date, slot }, "Der Walk-in wurde erfasst."); }} />}
+                {selected && <ReservationDetails key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={actorBusy} onAmended={(date, slot) => savedBooking({ date, slot }, "Die Änderungen wurden gespeichert.")} onReload={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) await reload(); }} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}
               </>}
             </>}
     </div>

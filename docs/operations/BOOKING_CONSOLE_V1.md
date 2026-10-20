@@ -374,3 +374,47 @@ Phone recovery and desktop editor viewports were visually inspected. Web lint
 has no new errors (13 existing unrelated warnings), typecheck, contract checks
 and production build passed. No actual production guest data was written or
 copied. Backend activation and restaurant/physical-device validation remain open.
+
+## Real current-time walk-ins
+
+`booking_console_walk_in_slots_v1` previews current eligible services and tables;
+`booking_console_walk_in_v1` atomically admits and seats a party. Both retain
+the owner/safety boundary and restaurant row lock. No public guest grant is
+added. A short shared lock keeps the preview's resource names, current service
+list and availability consistent. Client input cannot set an admission time.
+The write obtains the server clock after waiting for the restaurant write lock,
+then checks active same-day weekly services, duration within closing time,
+active room/table, party capacity, planned intervals and any still-seated visit.
+The planned-time and physical-presence predicates are deliberately separate.
+
+An admitted visit has `is_walk_in=true`, source `walk_in`, status `seated` and
+server arrival/seating timestamps. Legacy/future reservations with only a
+walk-in source stay `is_walk_in=false`. A name/contact is optional for a private
+in-person admission; unnamed visits use the explicit «Walk-in» placeholder.
+Durations retain the restaurant adapter's 30–480 minute contract. Suggestions
+do not hold inventory and are checked again at commit. One request UUID replays
+the original ID/time, including after a guest correction or completion; changed
+input or an ordinary reservation's UUID is rejected. No guest message is sent.
+
+The private admission clock normally calls `clock_timestamp()` and is not
+executable by clients. SQL acceptance replaces only this private clock inside
+a rolled-back synthetic transaction, advances it between preview/write, and
+tests closing boundaries without dependence on the CI runner's wall clock.
+It does not override PostgreSQL built-ins or add a public test-time parameter.
+
+The capability-gated Walk-in action works independently of a future planning
+date and follows the server-returned date after saving. The short editor offers
+party/duration shortcuts and current table choices with authoritative resource
+labels, plus optional guest details. Unknown write outcomes freeze the current
+payload for an identical retry. Leaving such a request explicitly warns that it
+may already be stored, refreshes the server's current operating day and shows a
+review warning until acknowledged. Late responses from a signed-out session
+cannot close a new session's draft. Console read snapshots are scoped to their
+restaurant/date; row accessibility descriptions distinguish repeated guest names
+and unnamed admissions by time, party, table and status.
+
+The existing general reservation/amendment editors preserve retry identity but
+do not yet have the walk-in editor's payload freeze/review warning. Durable
+uncertain-outcome recovery across a browser restart remains a reliability gap;
+do not claim indefinite exactly-once processing. Broader offline support,
+overnight services and dynamic overstay replanning remain outside this increment.

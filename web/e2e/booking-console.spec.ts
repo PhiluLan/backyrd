@@ -270,6 +270,149 @@ test("late amendment availability cannot replace a more recent party and duratio
   await page.screenshot({ path: test.info().outputPath("amendment-desktop.png") });
 });
 
+test("a phone walk-in uses server time and immediate seating while following today's actual service", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, walkIns: true });
+  await page.goto("/booking/console");
+  await page.getByLabel("Datum · Europe/Zurich").fill("2026-10-21");
+  await page.getByRole("combobox", { name: "Service", exact: true }).selectOption(dinner);
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await expect(panel.getByRole("button", { name: "2 Personen", exact: true })).toBeFocused();
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await page.screenshot({ path: test.info().outputPath("walk-in-phone.png") });
+  await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
+  await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: false })).toBeVisible();
+  await expect(page.getByLabel("Datum · Europe/Zurich")).toHaveValue("2026-10-20");
+  await expect(page.getByRole("combobox", { name: "Service", exact: true })).toHaveValue(lunch);
+  expect(fixture.walkInRequests()).toHaveLength(1);
+  expect(fixture.walkInRequests()[0]).toMatchObject({ p_spot_id: spot, p_service_id: lunch, p_table_id: table1, p_party_size: 2, p_duration_minutes: 120, p_guest_name: "" });
+  expect(fixture.walkInRequests()[0]).not.toHaveProperty("p_starts_at");
+  expect(fixture.walkInRequests()[0]).not.toHaveProperty("p_date");
+  await expect(page.getByRole("button", { name: "Reservierung von Walk-in öffnen", exact: true })).toHaveAccessibleDescription(/14:02.*Fenster 1/);
+  await page.getByRole("button", { name: "Reservierung von Walk-in öffnen", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(details.getByText("Walk-in · sofortige Platzierung", { exact: true })).toBeVisible();
+  await expect(details.getByText(/14:02–16:02/)).toBeVisible();
+  await expect(details.getByRole("button", { name: "Besuch beenden", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("walk-in conflicts retain guest input and offer another table without reporting a saved admission", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, walkIns: true, walkInConflict: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await panel.getByText("Gastangaben ergänzen", { exact: true }).click();
+  await panel.getByLabel("Gastname (optional)").fill("Synthetischer Walk-in");
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("inzwischen belegt");
+  await expect(panel.getByLabel("Gastname (optional)")).toHaveValue("Synthetischer Walk-in");
+  await expect(panel.getByLabel("Gastname (optional)")).toBeEnabled();
+  await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: true })).toHaveCount(0);
+  await panel.getByRole("button", { name: "Tisch Terrasse 2 im Terrasse für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
+  await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: true })).toBeVisible();
+  expect(fixture.walkInRequests()).toHaveLength(2);
+  expect(fixture.walkInRequests()[0].p_request_id).not.toBe(fixture.walkInRequests()[1].p_request_id);
+});
+
+test("an uncertain walk-in freezes its payload and safely retries the same request", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, walkIns: true, uncertainWalkIn: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
+  await expect(panel.getByLabel("Personen", { exact: true })).toBeDisabled();
+  await expect(panel.getByRole("button", { name: "4 Personen", exact: true })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(panel.getByText("Die Anfrage kann bereits gespeichert sein.", { exact: false })).toBeVisible();
+  await panel.getByRole("button", { name: "Zur Anfrage", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true })).toBeFocused();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: true })).toBeVisible();
+  expect(fixture.walkInRequests()).toHaveLength(2);
+  expect(fixture.walkInRequests()[0]).toEqual(fixture.walkInRequests()[1]);
+  await expect(page.getByRole("button", { name: "Reservierung von Walk-in öffnen", exact: true })).toHaveCount(1);
+});
+
+test("leaving an uncertain walk-in reloads the server's operating day with an explicit review warning", async ({ page }) => {
+  await mockConsole(page, { seeded: true, walkIns: true, uncertainWalkIn: true });
+  await page.goto("/booking/console");
+  await page.getByLabel("Datum · Europe/Zurich").fill("2026-10-21");
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
+  await page.keyboard.press("Escape");
+  await panel.getByRole("button", { name: "Anfrage verlassen", exact: true }).click();
+  await expect(page.getByLabel("Datum · Europe/Zurich")).toHaveValue("2026-10-20");
+  await expect(page.getByRole("button", { name: "Reservierung von Walk-in öffnen", exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("kann bereits gespeichert sein");
+  await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Stand geprüft", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
+});
+
+test("walk-in numeric drafts stay empty, and a closed service cannot create an admission", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, walkIns: true, walkInClosed: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await expect(panel.getByText("Für diese Dauer läuft gerade kein Service.", { exact: true })).toBeVisible();
+  const calls = fixture.walkInParties().length;
+  await panel.getByLabel("Personen", { exact: true }).fill("");
+  await panel.getByLabel("Dauer in Minuten", { exact: true }).fill("");
+  await expect(panel.getByLabel("Personen", { exact: true })).toHaveValue("");
+  await expect(panel.getByLabel("Dauer in Minuten", { exact: true })).toHaveValue("");
+  expect(fixture.walkInParties()).toHaveLength(calls);
+  await expect(panel.getByRole("button", { name: "Walk-in platzieren", exact: true })).toBeDisabled();
+  expect(fixture.walkInRequests()).toEqual([]);
+});
+
+test("late walk-in availability cannot offer a table too small for the latest party", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, walkIns: true, slowWalkInSlots: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await expect.poll(() => fixture.walkInParties()).toEqual([2]);
+  await panel.getByRole("button", { name: "4 Personen", exact: true }).click();
+  const table = panel.getByRole("button", { name: "Tisch Terrasse 2 im Terrasse für Mittag wählen", exact: true });
+  await table.click();
+  await expect.poll(() => fixture.walkInReplies()).toEqual([4, 2]);
+  await expect(panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true })).toHaveCount(0);
+  await expect(table).toHaveAttribute("aria-pressed", "true");
+  await expect(panel.getByRole("button", { name: "Walk-in platzieren", exact: true })).toBeEnabled();
+});
+
+test("a late walk-in response from a signed-out session cannot close a new session's private draft", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, walkIns: true, deferWalkInWrite: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  let panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await panel.getByRole("button", { name: "Tisch Fenster 1 im Gastraum für Mittag wählen", exact: true }).click();
+  await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
+  await expect.poll(() => fixture.walkInRequests().length).toBe(1);
+  await page.evaluate(() => { const channel = new BroadcastChannel("sb-127-auth-token"); channel.postMessage({ event: "SIGNED_OUT", session: null }); channel.close(); });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden" })).toBeVisible();
+  await expect(panel).toHaveCount(0);
+  await page.evaluate((session) => { const channel = new BroadcastChannel("sb-127-auth-token"); channel.postMessage({ event: "SIGNED_IN", session }); channel.close(); }, fixture.session);
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await panel.getByText("Gastangaben ergänzen", { exact: true }).click();
+  await panel.getByLabel("Gastname (optional)").fill("Neuer privater Entwurf");
+  const response = page.waitForResponse((response) => response.url().endsWith("booking_console_walk_in_v1"));
+  fixture.releaseWalkInWrite();
+  await (await response).finished();
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  await expect(panel.getByLabel("Gastname (optional)")).toHaveValue("Neuer privater Entwurf");
+  await expect(page.getByText("Der Walk-in wurde erfasst.", { exact: false })).toHaveCount(0);
+});
+
 function seededSnapshot(): BookingSnapshot {
   return {
     settings: { revision: 1, duration_minutes: 120, max_party_size: 8 },
@@ -285,7 +428,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + 3600;
   const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
@@ -297,16 +440,30 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   let savedSetup: BookingSetup | null = null;
   if (options.lifecycle) snapshot.capabilities = { service_lifecycle: true };
   if (options.amendments) { snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
+  if (options.walkIns) {
+    snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true, current_seating: true, walk_ins: true };
+    snapshot.operating_date = "2026-10-20";
+    snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0, is_walk_in: false }));
+    snapshot.services = snapshot.services.map((service) => service.id === lunch ? { ...service, closes_at: "17:00" } : service);
+    if (options.slowWalkInSlots) snapshot.tables = snapshot.tables.map((table) => table.id === table1 ? { ...table, seats: 2 } : table);
+  }
   if (options.unclosed) {
     snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, current_seating: true };
     snapshot.operating_date = "2026-10-20";
-    snapshot.reservations.push({ id: "51000000-0000-4000-8000-000000000024", table_id: table1, service_id: dinner, guest_name: "Testgast Vorabend", guest_contact: null, note: null, party_size: 2, starts_at: "2026-10-19T18:00:00+02:00", ends_at: "2026-10-19T20:00:00+02:00", status: "seated", source: "phone", revision: 0, arrived_at: "2026-10-19T18:00:00+02:00", seated_at: "2026-10-19T18:00:00+02:00" });
+    snapshot.reservations.push({ id: "51000000-0000-4000-8000-000000000024", table_id: table1, service_id: dinner, guest_name: "Testgast Vorabend", guest_contact: null, note: null, party_size: 2, starts_at: "2026-10-19T18:00:00+02:00", ends_at: "2026-10-19T20:00:00+02:00", status: "seated", source: "phone", revision: 0, is_walk_in: false, arrived_at: "2026-10-19T18:00:00+02:00", seated_at: "2026-10-19T18:00:00+02:00" });
   }
   let statusCalls = 0;
   const statusRequests: object[] = [];
   const amendRequests: Record<string, unknown>[] = [];
   const amendParties: number[] = [];
   let lastAmendId = "";
+  const walkInRequests: Record<string, unknown>[] = [];
+  const walkInParties: number[] = [];
+  const walkInReplies: number[] = [];
+  const walkInStored = new Map<string, { payload: string; result: { id: string; service_id: string; table_id: string; starts_at: string; ends_at: string } }>();
+  let blockedWalkInTable = "";
+  let releaseWalkInWrite = () => {};
+  const walkInWriteGate = new Promise<void>((resolve) => { releaseWalkInWrite = resolve; });
   let bookingCalls = 0;
   const slotParties: number[] = [];
   const slotReplies: number[] = [];
@@ -338,7 +495,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       bookingCalls++;
       requestIds.push(body.p_request_id);
       if (options.slotConflict && bookingCalls === 1) return route.fulfill({ status: 409, json: { code: "22023", message: "booking_slot_unavailable" } });
-      snapshot.reservations = [{ id: reservationId, table_id: body.p_table_id, service_id: body.p_service_id, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, starts_at: body.p_starts_at, ends_at: new Date(Date.parse(body.p_starts_at) + 120 * 60 * 1000).toISOString(), status: body.p_status, source: body.p_source }];
+      snapshot.reservations = [{ id: reservationId, table_id: body.p_table_id, service_id: body.p_service_id, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, starts_at: body.p_starts_at, ends_at: new Date(Date.parse(body.p_starts_at) + 120 * 60 * 1000).toISOString(), status: body.p_status, source: body.p_source, revision: 0, is_walk_in: false }];
       if (options.uncertainCreate && bookingCalls === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
       return route.fulfill({ json: reservationId });
     }
@@ -378,9 +535,37 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       if (options.uncertainAmend && amendRequests.length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
       return route.fulfill({ json: body.p_reservation_id });
     }
+    if (method === "booking_console_walk_in_slots_v1") {
+      walkInParties.push(body.p_party_size);
+      const observedAt = "2026-10-20T12:00:00Z";
+      const end = new Date(Date.parse(observedAt) + body.p_duration_minutes * 60_000).toISOString();
+      const open = !options.walkInClosed && Date.parse(end) <= Date.parse("2026-10-20T15:00:00Z");
+      const slots = open ? snapshot.tables.filter((table) => table.is_active && table.seats >= body.p_party_size && table.id !== blockedWalkInTable && !snapshot.reservations.some((r) => r.table_id === table.id && r.status === "seated")).map((table) => ({
+        service_id: lunch, table_id: table.id, starts_at: observedAt, ends_at: end, table_label: table.label, seats: table.seats, area_id: table.area_id,
+        area_name: snapshot.areas.find((area) => area.id === table.area_id)!.name, service_name: "Mittag",
+      })) : [];
+      if (options.slowWalkInSlots && walkInParties.length === 1) await new Promise((resolve) => setTimeout(resolve, 800));
+      walkInReplies.push(body.p_party_size);
+      return route.fulfill({ json: { observed_at: observedAt, services: open ? [{ id: lunch, name: "Mittag" }] : [], slots } });
+    }
+    if (method === "booking_console_walk_in_v1") {
+      walkInRequests.push(body);
+      if (options.walkInConflict && walkInRequests.length === 1) { blockedWalkInTable = body.p_table_id; return route.fulfill({ status: 409, json: { code: "22023", message: "booking_slot_unavailable" } }); }
+      const payload = JSON.stringify(body);
+      const existing = walkInStored.get(body.p_request_id);
+      if (existing) return existing.payload === payload ? route.fulfill({ json: existing.result }) : route.fulfill({ status: 409, json: { code: "22023", message: "booking_request_reused" } });
+      const result = { id: "51000000-0000-4000-8000-" + String(60 + walkInStored.size).padStart(12, "0"), service_id: body.p_service_id, table_id: body.p_table_id,
+        starts_at: "2026-10-20T12:02:00Z", ends_at: new Date(Date.parse("2026-10-20T12:02:00Z") + body.p_duration_minutes * 60_000).toISOString() };
+      walkInStored.set(body.p_request_id, { payload, result });
+      snapshot.reservations.push({ ...result, guest_name: body.p_guest_name.trim() || "Walk-in", guest_contact: body.p_guest_contact || null, note: body.p_note || null, party_size: body.p_party_size,
+        status: "seated", source: "walk_in", is_walk_in: true, arrived_at: result.starts_at, seated_at: result.starts_at, revision: 0 });
+      if (options.deferWalkInWrite) await walkInWriteGate;
+      if (options.uncertainWalkIn && walkInRequests.length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
+      return route.fulfill({ json: result });
+    }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties };
+  return { setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
