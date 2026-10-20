@@ -438,3 +438,44 @@ uncertain-payload tests use controlled synthetic transport, not production guest
 writes or an Aleno account mutation. The Vercel integration reported a build
 quota limit during this work; verify actual delivery separately from Git/CI
 before calling a new UI increment live.
+
+## Schematic restaurant table plans
+
+The optional `table_layouts` capability exposes bounded integer geometry on
+restaurant tables. Each room uses a 1000 × 700 coordinate space; rectangle and
+round/oval shapes are supported with dimensions 40–300. A private CHECK validator
+also protects privileged writes. Clients still have no direct write grant.
+`booking_console_save_layout_v1` uses the existing owner/safety assertion and
+restaurant settings lock. A patch contains only table, expected room and geometry;
+capacity, booking allocation and guest data are not accepted. All entries are
+validated before writes, duplicate IDs and cross-spot resources are rejected,
+and settings revisions prevent lost updates. An already satisfied identical
+patch replays without another revision/audit entry. Actual room changes clear
+the old coordinates; the legacy setup RPC's temporary resource retirement does
+not. Geometric overlap is a visible editor warning, not a reservation constraint.
+
+The Tischübersicht retains the date, service, room and planned-time context when
+opening a plan. The schematic view has keyboard-operable nodes, zoom/local scroll
+and a full-size button/list alternative. Table cards remain the detailed source
+for planned bookings and last saved physical attendance. Unpositioned tables
+are explicit. The native editor supports drag, arrow keys (Shift for larger
+steps), numeric string drafts, shapes, removal and an explicit unsaved room-grid
+proposal. No automatic table allocation is implied by a visual move. Invalid
+numeric drafts are never converted to zero. Version conflicts retain the draft;
+unknown save responses freeze the patch for an identical retry. Closing or
+reloading warns about unsaved/uncertain input. New UI remains capability-gated
+until this migration cohort is separately authorized and activated.
+
+Table-plan candidate validation on 2026-10-20: canonical 195-migration Supabase
+clean boot with all five Booking SQL suites, baseline authorization/race tests,
+ACL/schema snapshots and database lint passed. The release record chains from
+the walk-in candidate; it does not activate Production. All 34 synthetic browser
+journeys passed, including numeric clearing, geometry persistence, constrained
+drag/keyboard positioning, room isolation, context retention, revision conflict,
+unsaved discard and identical uncertain retries. The 320px plan/list was visually
+inspected. Web typecheck and 42 contracts passed; lint has only the 13 existing
+warnings. A physical-device/restaurant trial remains required before a usability
+or operational-parity claim.
+The production Web build passed after clearing a generated Turbopack cache that
+had retained a sandbox-denied loopback error. No application configuration or
+security control was changed to resolve the local build-cache failure.
