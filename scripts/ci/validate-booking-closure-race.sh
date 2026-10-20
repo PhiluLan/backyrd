@@ -131,6 +131,25 @@ run_case cross_spot_resource \
 resource_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select name from public.booking_restaurant_areas where id='$shared_area' and spot_id='$spot')||':'||(select count(*) from public.booking_restaurant_settings where spot_id='$other_spot');")"
 test "$resource_proof" = 'Shared guarded:0' || { printf 'Unexpected Booking resource-race state: %s\n' "$resource_proof" >&2; exit 1; }
 
+# Both reservations retain distinct primary tables and compete for one secondary table.
+second_table='7b000000-0000-4000-8000-000000000070'
+third_table='7b000000-0000-4000-8000-000000000071'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+insert into public.booking_restaurant_tables(id,spot_id,area_id,label,seats) values('$second_table','$spot','$area','Secondary race table',4),('$third_table','$spot','$area','Third race table',4);
+begin;
+$auth_sql
+select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000072','$service','$table_id',(((now() at time zone 'Europe/Zurich')::date+6+time '18:00') at time zone 'Europe/Zurich'),2,'First allocation fixture');
+select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000073','$service','$third_table',(((now() at time zone 'Europe/Zurich')::date+6+time '18:00') at time zone 'Europe/Zurich'),2,'Second allocation fixture');
+commit;
+SQL
+internal_auth="select set_config('request.jwt.claim.sub','$owner',true); select set_config('request.jwt.claims','{\"sub\":\"$owner\",\"role\":\"authenticated\"}',true);"
+run_case secondary_allocation \
+ "select booking_private.assign_reservation_tables_v1('$spot',(select id from public.booking_reservations where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000072'),0,array['$table_id'::uuid,'$second_table'::uuid]);" \
+ "select booking_private.assign_reservation_tables_v1('$spot',(select id from public.booking_reservations where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000073'),0,array['$third_table'::uuid,'$second_table'::uuid]);" \
+ booking_slot_unavailable "$internal_auth" "$internal_auth"
+allocation_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select string_agg(n||':'||revision,',' order by request_id) from (select r.request_id,r.revision,(select count(*) from booking_private.reservation_allocations_v1 a where a.reservation_id=r.id and a.is_active) n from public.booking_reservations r where r.spot_id='$spot' and r.request_id in ('7b000000-0000-4000-8000-000000000072','7b000000-0000-4000-8000-000000000073')) proof;")"
+test "$allocation_proof" = '2:1,1:0' || { printf 'Unexpected secondary-allocation race state: %s\n' "$allocation_proof" >&2; exit 1; }
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
@@ -145,4 +164,4 @@ delete from public.spots where id in ('$spot','$other_spot');
 delete from auth.users where id in ('$owner','$staff','$other_owner');
 commit;
 SQL
-printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced.\n'
+printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation serializes and rolls back the losing party.\n'
