@@ -93,10 +93,13 @@ npm test --workspace @backyrd/spot-research-runtime
    A small number of other public pages can be fetched for a countercheck,
    but their text cannot enter catalog projection. Exact contact differences
    are labelled *unverified discrepancies* for human review; they are not
-   automatically resolved in favour of either source. Search errors and
-   candidates appear in `research.json` and `search-review.html`. This does
-   not yet certify a second domain as a primary source or compare complex
-   experience claims across sources.
+   automatically resolved in favour of either source. A bounded local-model
+   pass also compares accepted official claims with an address-matched
+   external page. Support or contradiction needs a literal page quotation.
+   These verdicts are model hints, never independent proof or approval of
+   external facts. Search errors and candidates appear in `research.json`
+   and `search-review.html`. This does not certify a second domain as a
+   primary source or reliably adjudicate complex experience claims.
 
    The optional manifest setting is
    `"webSearch":{"endpoint":"http://127.0.0.1:8888/","maxQueries":3,"maxExternalPages":2}`.
@@ -434,15 +437,17 @@ test response: a missing official contact page was found, fetched and used for
 a source-bound draft. A different-domain page with the same exact Spot name
 and street address exposed a conflicting telephone number as an unverified
 discrepancy; a same-name page without the address did not. A failing search
-left the field unresolved and reported its error. These are controlled
+left the field unresolved and reported its error. A model-backed countercheck
+retained a literal external contradiction about a named offer for review
+without projecting that external statement into the Spot. These are controlled
 regression tests, not live web-search quality evidence.
 
 Both Docker Hub and the official GHCR mirror stalled while pulling the local
 SearXNG image on the development Mac. No actual SearXNG query or new-Spot
 live run was completed for v2.7. Therefore web-search coverage, cross-source
-accuracy and autonomous readiness remain unverified. The current implementation
-compares only exact contact values across domains; complex hours and experience
-claims still need a dedicated source comparison and source-authority policy.
+accuracy and autonomous readiness remain unverified. The model's semantic
+countercheck is not an independent adjudicator; complex hours and experience
+claims still need a source-authority policy and a held-out quality evaluation.
 
 ### v2.6 category-aware research case, 20 October 2026
 

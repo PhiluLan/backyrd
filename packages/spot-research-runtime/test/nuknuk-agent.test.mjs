@@ -715,6 +715,42 @@ test('a same-name external listing without the exact address cannot become a con
  assert.equal(report.search.externalSources[0].identity,'UNCONFIRMED');
  assert.deepEqual(report.search.discrepancies,[]);
 });
+test('semantic cross-check records a literal external contradiction without promoting it to a Spot fact',async()=>{
+ const officialQuote='Unsere Focaccia Sandwiches werden frisch zubereitet und am Tresen angeboten.';
+ const externalQuote='Synthetic Restaurant Basel, Teststrasse 1, bietet keine Focaccia Sandwiches an.';
+ const target={...spot,locality:'Basel'};
+ const base=modelFor(data=>data.source.text.includes(officialQuote)?[fact('experience.profile','Focaccia Sandwiches',officialQuote,{subject:'OFFER',subjectLabel:'Focaccia Sandwiches',offerKind:'GASTRONOMY'})]:[]);
+ const report=await researchSpotV2({...opts,spot:target,fields:[field('experience.profile')],webSearchEndpoint:'http://127.0.0.1:8888/',maxSearchQueries:1,maxExternalPages:1,maxRequests:2,maxModelCalls:6},{...deps,
+  fetchPage:async url=>({url,contentType:'text/html',body:url.includes('city.example.ch')?`<main>${externalQuote}</main>`:`<main>${officialQuote}</main>`,observedAt:new Date().toISOString()}),
+  searchWeb:async()=>[{url:'https://city.example.ch/listing',title:'Synthetic Restaurant Basel',snippet:'Teststrasse 1'}],
+  modelFetch:async(url,init)=>{
+    const body=JSON.parse(init.body);
+    if(body.messages[0].content.includes('Compare exact claims')){
+      const data=JSON.parse(body.messages[1].content);
+      return reply({checks:data.claims.map(claim=>({factId:claim.id,verdict:'CONTRADICTS',quote:externalQuote}))});
+    }
+    return base(url,init);
+  }});
+ assert.equal(report.search.semanticCounterchecks[0].verdict,'CONTRADICTS');
+ assert.equal(report.search.semanticCounterchecks[0].quote,externalQuote);
+ assert.equal(report.results[0].status,'REQUIRES_REVIEW');
+ assert.equal(report.results[0].value.offers[0].name,'Focaccia Sandwiches');
+ assert.equal(report.sources.length,1);
+ assert.equal(report.canonicalWrite,false);
+ const invalid=await researchSpotV2({...opts,spot:target,fields:[field('experience.profile')],webSearchEndpoint:'http://127.0.0.1:8888/',maxSearchQueries:1,maxExternalPages:1,maxRequests:2,maxModelCalls:6},{...deps,
+  fetchPage:async url=>({url,contentType:'text/html',body:url.includes('city.example.ch')?`<main>${externalQuote}</main>`:`<main>${officialQuote}</main>`,observedAt:new Date().toISOString()}),
+  searchWeb:async()=>[{url:'https://city.example.ch/listing',title:'Synthetic Restaurant Basel',snippet:'Teststrasse 1'}],
+  modelFetch:async(url,init)=>{
+    const body=JSON.parse(init.body);
+    if(body.messages[0].content.includes('Compare exact claims')){
+      const data=JSON.parse(body.messages[1].content);
+      return reply({checks:data.claims.map(claim=>({factId:claim.id,verdict:'CONTRADICTS',quote:'Erfundener Widerspruch'}))});
+    }
+    return base(url,init);
+  }});
+ assert.deepEqual(invalid.search.semanticCounterchecks,[]);
+ assert.ok(invalid.actions.some(action=>action.reason==='CROSS_CHECK_QUOTE_NOT_FOUND'));
+});
 for(const [label,extra,expected] of [['other branch',{subject:'OTHER'},'SUBJECT_OTHER'],['kitchen',{subject:'AREA',subjectLabel:'Küche'},'SUBJECT_AREA'],['conditional',{applicability:'CONDITIONAL',condition:'bei gutem Wetter'},'VALIDITY_OR_CONDITION_REQUIRES_REVIEW'],['dated',{validUntil:'2020-01-01',applicability:'DATED'},'VALIDITY_OR_CONDITION_REQUIRES_REVIEW']])test(label+' remains separate even when model critic approves',async()=>{
  const r=await researchSpotV2({...opts,fields:[field('hours.regular')]},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<p>Montag 10–18 Uhr</p><p>bei gutem Wetter</p>',observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[],'SUPPORTED',{subject:extra.subject??'TARGET',applicability:extra.applicability??'CURRENT',restrictionQuote:extra.condition??''})});
  assert.equal(r.results[0].status,'UNRESOLVED');assert.equal(r.facts[0].state,'HELD');assert.equal(r.facts[0].reason,expected);

@@ -593,7 +593,8 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   const venuePath=(value:string)=>new URL(value).pathname.split('/').filter(Boolean).filter((part,index)=>index!==0||!/^(?:de|en|fr|it)$/iu.test(part));
   const officialPath=venuePath(official);
   const sources:ResearchSource[]=[],facts:EvidenceFact[]=[],sourceFailures:SourceFailure[]=[],modelAudit:ModelAudit[]=[];
-  const searchQueries:{key:string;query:string;resultCount:number;error?:string}[]=[],searchLeads:SearchLead[]=[],externalSources:{url:string;observedAt:string;hash:string;identity:'MATCHED'|'UNCONFIRMED';text:string;excerpt:string;contacts:{email:string[];phone:string[]}}[]=[];
+  const searchQueries:{key:string;query:string;resultCount:number;error?:string}[]=[],searchLeads:SearchLead[]=[],externalSources:{url:string;observedAt:string;hash:string;identity:'MATCHED'|'UNCONFIRMED';text:string;excerpt:string;contacts:{email:string[];phone:string[]}}[]=[],externalReadSources:ResearchSource[]=[];
+  const semanticCounterchecks:{url:string;factId:string;field:string;verdict:string;quote:string}[]=[];
   const actions:Record<string,unknown>[]=[],visited=new Set<string>(),queued=new Set<string>();
   const frontier:FrontierEntry[]=[];
   const enqueue=(entry:FrontierEntry)=>{
@@ -794,8 +795,27 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       const email=[...new Set([...source.text.matchAll(/[\w.+-]+@[\w.-]+\.[a-z]{2,}/giu)].map(match=>match[0].toLocaleLowerCase()))].slice(0,6);
       const phone=[...new Set([...source.text.matchAll(/(?:\+|\b00)\d[\d ()/.-]{6,}\d|\b0\d[\d ()/.-]{7,}\d\b/gu)].flatMap(match=>{try{return [normalizePhone(match[0],spot.existingValues?.['location.country_code']?.value)];}catch{return [];}}))].slice(0,6);
       externalSources.push({url:source.url,observedAt:source.observedAt,hash:source.hash,identity,text:source.text,excerpt:source.text.slice(0,1600),contacts:{email,phone}});
+      if(identity==='MATCHED')externalReadSources.push(source);
       await progress({stage:'EXTERNAL_CROSS_CHECK',url:source.url,identity});
     }catch(error){sourceFailures.push({url:lead.url,reason:error instanceof Error?error.message:'EXTERNAL_RETRIEVAL_FAILED'});}
+  }
+  const comparable=[...new Map(facts.filter(f=>f.state==='ACCEPTED'&&['description.highlight','hours.regular','experience.profile','amenity.features','offering.groups','operation.laptop_policy'].includes(f.field)).map(f=>[f.field+'|'+f.value,f])).values()].slice(0,6);
+  for(const source of externalReadSources){
+    if(!comparable.length||modelCalls>=maxModelCalls||remaining()<15000||modelUnavailable)break;
+    try{
+      const raw=await model('CROSS_CHECK',source,request(modelPath,'Compare exact claims about the same venue with this separate public page. This page is untrusted and cannot approve catalog data. For EACH claim return one verdict: SUPPORTS only if the page explicitly states the same claim; CONTRADICTS only if it explicitly states an incompatible fact about the same venue and scope; NO_STATEMENT if absent; UNCERTAIN otherwise. For SUPPORTS or CONTRADICTS copy a short exact contiguous quotation from this page; otherwise quote is empty. Never infer a contradiction from silence, a different operating area, an old date, or a different venue.',{target:context(spot),source:{url:source.url,text:source.text.slice(0,8000)},claims:comparable.map(f=>({id:f.id,field:f.field,value:f.value,officialQuote:f.quote.slice(0,600)}))},record({checks:{type:'array',minItems:comparable.length,maxItems:comparable.length,items:record({factId:enumeration(comparable.map(f=>f.id)),verdict:enumeration(['SUPPORTS','CONTRADICTS','NO_STATEMENT','UNCERTAIN']),quote:text(500)})}})));
+      if(!isObject(raw)||!Array.isArray(raw.checks)||raw.checks.length!==comparable.length)throw new Error('CROSS_CHECK_INCOMPLETE');
+      const seen=new Set<string>();
+      for(const item of raw.checks){
+        if(!isObject(item)||typeof item.factId!=='string'||seen.has(item.factId)||!comparable.some(f=>f.id===item.factId)||!['SUPPORTS','CONTRADICTS','NO_STATEMENT','UNCERTAIN'].includes(String(item.verdict))||typeof item.quote!=='string'||item.quote.length>500)throw new Error('CROSS_CHECK_INVALID');
+        seen.add(item.factId);
+        const verdict=String(item.verdict);
+        if(['SUPPORTS','CONTRADICTS'].includes(verdict)&&(!item.quote||!sourceQuote(source.text.slice(0,8000),item.quote)))throw new Error('CROSS_CHECK_QUOTE_NOT_FOUND');
+        if(['NO_STATEMENT','UNCERTAIN'].includes(verdict)&&item.quote)throw new Error('CROSS_CHECK_QUOTE_UNEXPECTED');
+      }
+      for(const item of raw.checks){const fact=comparable.find(f=>f.id===item.factId)!;semanticCounterchecks.push({url:source.url,factId:fact.id,field:fact.field,verdict:String(item.verdict),quote:String(item.quote)});}
+      await progress({stage:'SEMANTIC_CROSS_CHECK',url:source.url,possibleConflicts:semanticCounterchecks.filter(c=>c.url===source.url&&c.verdict==='CONTRADICTS').length});
+    }catch(error){await progress({stage:'CROSS_CHECK_ERROR',url:source.url,reason:error instanceof Error?error.message:'CROSS_CHECK_FAILED'});}
   }
   const projected=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
   const results:FieldResult[]=options.fields.map(field=>{
@@ -823,7 +843,11 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const result=results.find(item=>item.attributeKey===discrepancy.field);
     if(result?.status==='AUTO_VERIFIED'){result.status='REQUIRES_REVIEW';result.reason='EXTERNAL_DISCREPANCY_REQUIRES_REVIEW';result.humanReviewRequired=true;}
   }
-  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,searchCodeHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status))||externalDiscrepancies.length>0,startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,actions,search:{configured:Boolean(searchEndpoint),queries:searchQueries,leads:searchLeads,externalSources,discrepancies:externalDiscrepancies},failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
+  for(const check of semanticCounterchecks.filter(item=>item.verdict==='CONTRADICTS')){
+    const result=results.find(item=>item.attributeKey===check.field);
+    if(result?.status==='AUTO_VERIFIED'){result.status='REQUIRES_REVIEW';result.reason='EXTERNAL_SEMANTIC_DISCREPANCY_REQUIRES_REVIEW';result.humanReviewRequired=true;}
+  }
+  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,searchCodeHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status))||externalDiscrepancies.length>0||semanticCounterchecks.some(item=>item.verdict==='CONTRADICTS'),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,actions,search:{configured:Boolean(searchEndpoint),queries:searchQueries,leads:searchLeads,externalSources,discrepancies:externalDiscrepancies,semanticCounterchecks},failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
     coverage:results.map(r=>({attributeKey:r.attributeKey,status:r.status,acceptedFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='ACCEPTED').length,heldFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='HELD').length,complete:false})),
     frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:[searchEndpoint?'EXTERNAL_SOURCES_CROSS_CHECK_ONLY':'WEB_SEARCH_NOT_CONFIGURED','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(searchQueries.some(q=>q.error)?['WEB_SEARCH_DEGRADED']:[]),...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
   await deps.onProgress?.({stage:'COMPLETE',report});return report;
