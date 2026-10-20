@@ -24,7 +24,7 @@ export default function BookingPage() {
         <nav>
           <a href="#produkt">Produkt</a>
           <a href="#restaurants">Für Restaurants</a>
-          <Link href="/login?next=/owner" className={styles.login}>Owner Login</Link>
+          <Link href="/booking/console" className={styles.login}>Booking Console</Link>
         </nav>
       </header>
 

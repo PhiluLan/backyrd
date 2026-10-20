@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-restaurant-console-v1",
+  "previousEvidence": "public-mood-two-person-display-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "3697c49f62d7c39fef8d431d16ba9e5183a401b64e330a84e44190e92080e7d9",
+    "applicationSchemaSha256": "c5c6bdf34c93e2cc3b47ef5421d89de0fbef8b48ffebfa67f9ab0c0b62cd24a3"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261019203759_booking_restaurant_console_v1.sql",
+      "sha256": "e982735f7a36d258e1b162970e844f841de408137d9ac0721ee31ddf220ec36b"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_restaurant_console_v1.sql",
+      "sha256": "d288db323af6091ca084982a41dc8d36eab04ed320574f7581d8ec29dfd226ff"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "3cf9a7a716c410be0111108193b10c771c2b3bff307383af7251c77eb714abc9",
+    "applicationSchemaSha256": "9ead115e1f25e91c02d99c8025b76697790cfb35210ff860a883ce70cf1adfc3"
+  }
+}

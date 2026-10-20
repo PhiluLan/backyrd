@@ -21,6 +21,7 @@ const nav: NavItem[] = [
   { href: "/owner/analytics/decision", label: "Empfehlungs-Aufrufe", icon: "✦" },
   { href: "/owner/analytics/moments", label: "Momente", icon: "◉" },
   { href: "/owner/spots", label: "Meine Spots", icon: "⌖" },
+  { href: "/booking/console", label: "Booking Console", icon: "▦" },
   { href: "/owner/world-knowledge", label: "Spot-Angaben", icon: "◎" },
   { href: "/owner/billing", label: "Owner Pro & Abrechnung", icon: "✳" },
 ];
