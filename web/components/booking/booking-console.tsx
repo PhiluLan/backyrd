@@ -133,13 +133,13 @@ export function BookingConsole() {
   const readyToBook = !!snapshot?.settings && snapshot.tables.some((table) => table.is_active && snapshot.areas.some((area) => area.id === table.area_id && area.is_active)) && snapshot.services.some((service) => service.is_active);
   const canCreate = date >= restaurantDate() && date <= shiftDate(restaurantDate(), 365);
   function clearFilters() { setService(""); setArea(""); setStatus("all"); setQuery(""); }
-  async function created(booking: CreatedBooking) {
+  async function savedBooking(booking: CreatedBooking, message: string) {
     if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return;
     setEditor(null); setStatus("all"); setQuery("");
     if (validService) setService(booking.slot.service_id);
     if (validArea) setArea(snapshot?.tables.find((table) => table.id === booking.slot.table_id)?.area_id ?? "");
-    if (booking.date !== date) { createdNotice.current = "Die Reservierung wurde gespeichert. " + displayDate(booking.date); setDate(booking.date); }
-    else { setNotice("Die Reservierung wurde gespeichert."); await reload(); }
+    if (booking.date !== date) { createdNotice.current = message + " " + displayDate(booking.date); setDate(booking.date); }
+    else { setNotice(message); await reload(); }
   }
 
   return <main className={styles.page}>
@@ -183,8 +183,8 @@ export function BookingConsole() {
                     {!snapshot.areas.length && <div className={styles.empty}><h3>Noch keine Bereiche.</h3><p>Lege Bereiche und Tische in der Einrichtung an.</p></div>}
                   </section>}
                 </div>
-                {editor && <NewReservation spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={() => setEditor(null)} onBusy={setBusy} onCreated={created} />}
-                {selected && <ReservationDetails key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={setBusy} onReload={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) await reload(); }} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}
+                {editor && <NewReservation spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={() => setEditor(null)} onBusy={setBusy} onCreated={(booking) => savedBooking(booking, "Die Reservierung wurde gespeichert.")} />}
+                {selected && <ReservationDetails key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={setBusy} onAmended={(date, slot) => savedBooking({ date, slot }, "Die Änderungen wurden gespeichert.")} onReload={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) await reload(); }} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}
               </>}
             </>}
     </div>

@@ -10,8 +10,9 @@ export type BookingReservation = {
   id: string; table_id: string; service_id: string; guest_name: string; guest_contact: string | null; note: string | null;
   party_size: number; starts_at: string; ends_at: string; status: BookingStatus; source: BookingSource;
   arrived_at?: string | null; seated_at?: string | null; completed_at?: string | null;
+  revision?: number;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean }; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[] };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean }; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[] };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
@@ -33,8 +34,10 @@ function time(value: unknown): string { const result = string(value); if (!/^([0
 export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const row = record(value);
   const settings = row.settings == null ? null : record(row.settings);
+  const capabilities = row.capabilities == null ? null : record(row.capabilities);
+  const amendments = capabilities?.reservation_amendments == null ? false : boolean(capabilities.reservation_amendments);
   return {
-    capabilities: { service_lifecycle: row.capabilities == null ? false : boolean(record(row.capabilities).service_lifecycle) },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments },
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
     areas: array(row.areas, (a) => ({ id: uuid(a.id), name: string(a.name), is_active: boolean(a.is_active) })),
     tables: array(row.tables, (t) => ({ id: uuid(t.id), area_id: uuid(t.area_id), label: string(t.label), seats: integer(t.seats), is_active: boolean(t.is_active) })),
@@ -44,7 +47,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
       if (!weekdays.length || weekdays.some((d) => d < 0 || d > 6)) return invalid();
       return { id: uuid(s.id), name: string(s.name), weekdays, opens_at: time(s.opens_at), closes_at: time(s.closes_at), interval_minutes: integer(s.interval_minutes), is_active: boolean(s.is_active) };
     }),
-    reservations: array(row.reservations, (r) => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at) })),
+    reservations: array(row.reservations, (r) => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision) })),
   };
 }
 
@@ -78,6 +81,25 @@ export async function setBookingStatus(spotId: string, reservation: BookingReser
   if (error) throw error;
 }
 
+export async function readAmendmentSlots(spotId: string, reservationId: string, date: string, partySize: number, duration: number): Promise<BookingSlot[]> {
+  const { data, error } = await supabase.rpc("booking_console_amendment_slots_v1", {
+    p_spot_id: spotId, p_reservation_id: reservationId, p_date: date, p_party_size: partySize, p_duration_minutes: duration,
+  });
+  if (error) throw error;
+  return array(data, (s) => ({ service_id: uuid(s.service_id), table_id: uuid(s.table_id), starts_at: timestamp(s.starts_at), ends_at: timestamp(s.ends_at) }));
+}
+export type BookingAmendment = { requestId: string; revision: number; reservationId: string; slot: BookingSlot; partySize: number; duration: number; name: string; contact: string; note: string };
+export async function amendBooking(spotId: string, amendment: BookingAmendment) {
+  const { data, error } = await supabase.rpc("booking_console_amend_v1", {
+    p_spot_id: spotId, p_reservation_id: amendment.reservationId, p_request_id: amendment.requestId, p_expected_revision: amendment.revision,
+    p_service_id: amendment.slot.service_id, p_table_id: amendment.slot.table_id, p_starts_at: amendment.slot.starts_at,
+    p_duration_minutes: amendment.duration, p_party_size: amendment.partySize, p_guest_name: amendment.name,
+    p_guest_contact: amendment.contact, p_note: amendment.note,
+  });
+  if (error) throw error;
+  return uuid(data);
+}
+
 const errorCopy: Record<string, string> = {
   booking_operator_required: "Für dieses Restaurant fehlt dir der Betreiberzugang.",
   booking_setup_changed_reload: "Die Einrichtung wurde inzwischen geändert. Bitte neu laden, bevor du speicherst.",
@@ -88,6 +110,8 @@ const errorCopy: Record<string, string> = {
   invalid_booking_status_transition: "Dieser Statuswechsel ist nicht möglich. Bitte neu laden.",
   invalid_booking_date_or_party: "Wähle ein Datum innerhalb der nächsten 365 Tage und eine passende Personenzahl.",
   booking_request_reused: "Diese Anfrage wurde mit anderen Angaben bereits erfasst. Bitte neu laden.",
+  booking_not_found: "Diese Reservierung ist nicht mehr verfügbar. Bitte neu laden.",
+  invalid_booking_duration: "Wähle eine Dauer zwischen 30 und 480 Minuten.",
 };
 export function bookingError(error: unknown): string {
   const row = error && typeof error === "object" ? error as Record<string, unknown> : {};

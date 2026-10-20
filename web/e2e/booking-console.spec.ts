@@ -57,6 +57,7 @@ test("lifecycle controls require a backend capability and the booking's service 
   await page.goto("/booking/console");
   await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
   await expect(page.getByRole("button", { name: "Gast angekommen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung bearbeiten", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await page.unroute("**/rest/v1/rpc/*");
   await mockConsole(page, { seeded: true, lifecycle: true });
@@ -97,6 +98,142 @@ test("a concurrent status update never shows a successful local service transiti
   await expect(panel.getByRole("button", { name: "Gast angekommen", exact: true })).toBeVisible();
 });
 
+async function editGuest(page: Page) {
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  await page.getByRole("button", { name: "Reservierung bearbeiten", exact: true }).click();
+  return page.getByRole("dialog", { name: "Reservierung bearbeiten", exact: true });
+}
+
+test("guest corrections preserve allocation, survive reload and protect unsaved phone edits", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, amendments: true });
+  await page.goto("/booking/console");
+  const panel = await editGuest(page);
+  await panel.getByLabel("Gastname", { exact: true }).fill("Korrigierter Testgast");
+  await page.keyboard.press("Escape");
+  await panel.getByRole("button", { name: "Weiter bearbeiten", exact: true }).click();
+  await expect(panel.getByLabel("Gastname", { exact: true })).toHaveValue("Korrigierter Testgast");
+  await panel.getByLabel("Telefon oder E-Mail (optional)").fill("korrigiert@invalid");
+  await panel.getByLabel("Interner Hinweis (optional)").fill("Geänderter synthetischer Hinweis");
+  await panel.getByRole("button", { name: "Änderungen speichern", exact: true }).click();
+  await expect(page.getByText("Die Änderungen wurden gespeichert.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true }).getByText("Korrigierter Testgast", { exact: true })).toBeVisible();
+  expect(fixture.amendParties()).toEqual([]);
+  expect(fixture.amendRequests()[0]).toMatchObject({ p_reservation_id: reservationId, p_expected_revision: 0, p_table_id: table1, p_party_size: 2, p_duration_minutes: 120, p_starts_at: "2026-10-20T18:00:00+02:00", p_guest_name: "Korrigierter Testgast" });
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await page.getByRole("button", { name: "Reservierung von Korrigierter Testgast öffnen" }).click();
+  await expect(page.getByText("Geänderter synthetischer Hinweis", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("rescheduling changes date, duration, party and table atomically and retains the workspace context", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, amendments: true });
+  await page.goto("/booking/console");
+  await page.getByRole("combobox", { name: "Bereich", exact: true }).selectOption(area1);
+  await page.getByRole("combobox", { name: "Service", exact: true }).selectOption(dinner);
+  const panel = await editGuest(page);
+  await panel.getByRole("checkbox", { name: "Zeit, Personen oder Tisch ändern" }).check();
+  await panel.getByLabel("Personen", { exact: true }).fill("");
+  await expect(panel.getByLabel("Personen", { exact: true })).toHaveValue("");
+  await panel.getByLabel("Personen", { exact: true }).fill("4");
+  await panel.getByLabel("Dauer in Minuten", { exact: true }).fill("");
+  await expect(panel.getByLabel("Dauer in Minuten", { exact: true })).toHaveValue("");
+  await panel.getByLabel("Dauer in Minuten", { exact: true }).fill("90");
+  await panel.getByLabel("Buchungsdatum", { exact: true }).fill("2026-10-21");
+  await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "19:00" });
+  await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+  await panel.getByRole("button", { name: "Änderungen speichern", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" })).toBeVisible();
+  await expect(page.getByLabel("Datum · Europe/Zurich")).toHaveValue("2026-10-21");
+  await expect(page.getByRole("combobox", { name: "Bereich", exact: true })).toHaveValue(area2);
+  await expect(page.getByRole("combobox", { name: "Service", exact: true })).toHaveValue(dinner);
+  expect(fixture.amendRequests()[0]).toMatchObject({ p_table_id: table2, p_party_size: 4, p_duration_minutes: 90, p_starts_at: "2026-10-21T19:00:00+02:00" });
+  await page.getByLabel("Datum · Europe/Zurich").fill("2026-10-20");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" })).toHaveCount(0);
+});
+
+test("arrived guests allow contact correction, while allocation and completed visits stay protected", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, amendments: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  let panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await panel.getByRole("button", { name: "Gast angekommen", exact: true }).click();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await panel.getByRole("button", { name: "Reservierung bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Reservierung bearbeiten", exact: true });
+  await expect(editor.getByRole("checkbox", { name: "Zeit, Personen oder Tisch ändern" })).toHaveCount(0);
+  await editor.getByLabel("Telefon oder E-Mail (optional)").fill("am-tisch@invalid");
+  await editor.getByRole("button", { name: "Änderungen speichern", exact: true }).click();
+  panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(panel.getByText("Angekommen", { exact: true })).toHaveCount(2);
+  expect(fixture.amendRequests()[0]).toMatchObject({ p_expected_revision: 1, p_table_id: table1, p_guest_contact: "am-tisch@invalid" });
+  await panel.getByRole("button", { name: "Am Tisch platzieren", exact: true }).click();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await panel.getByRole("button", { name: "Besuch beenden", exact: true }).click();
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(panel.getByText("Besuch beendet", { exact: true })).toHaveCount(2);
+  await expect(panel.getByRole("button", { name: "Reservierung bearbeiten", exact: true })).toHaveCount(0);
+});
+
+for (const failure of ["amendSlotConflict", "uncertainAmend"] as const) {
+  test("amendments retain input and request identity after " + failure, async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, amendments: true, [failure]: true });
+    await page.goto("/booking/console");
+    const panel = await editGuest(page);
+    await panel.getByLabel("Gastname", { exact: true }).fill("Umbuchung Testgast");
+    await panel.getByRole("checkbox", { name: "Zeit, Personen oder Tisch ändern" }).check();
+    await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "19:00" });
+    await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+    await panel.getByRole("button", { name: "Änderungen speichern", exact: true }).click();
+    await expect(panel.getByRole("alert")).toBeVisible();
+    await expect(panel.getByLabel("Gastname", { exact: true })).toHaveValue("Umbuchung Testgast");
+    await expect(page.getByText("Die Änderungen wurden gespeichert.", { exact: true })).toHaveCount(0);
+    if (failure === "amendSlotConflict") {
+      await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "19:00" });
+      await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+    }
+    await panel.getByRole("button", { name: "Änderungen speichern", exact: true }).click();
+    await expect(page.getByText("Die Änderungen wurden gespeichert.", { exact: true })).toBeVisible();
+    expect(fixture.amendRequests()).toHaveLength(2);
+    expect(fixture.amendRequests()[0]).toEqual(fixture.amendRequests()[1]);
+  });
+}
+
+test("amendment revision conflicts require explicit discard before reloading the current record", async ({ page }) => {
+  await mockConsole(page, { seeded: true, amendments: true, amendRevisionConflict: true });
+  await page.goto("/booking/console");
+  const panel = await editGuest(page);
+  await panel.getByLabel("Gastname", { exact: true }).fill("Nicht gespeicherter Entwurf");
+  await panel.getByRole("button", { name: "Änderungen speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toHaveText("Die Reservierung wurde inzwischen geändert. Bitte neu laden.");
+  await panel.getByRole("button", { name: "Aktuellen Stand laden", exact: true }).click();
+  await panel.getByRole("button", { name: "Weiter bearbeiten", exact: true }).click();
+  await expect(panel.getByLabel("Gastname", { exact: true })).toHaveValue("Nicht gespeicherter Entwurf");
+  await panel.getByRole("button", { name: "Aktuellen Stand laden", exact: true }).click();
+  await panel.getByRole("button", { name: "Verwerfen und neu laden", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(details.getByText("Testgast Abend", { exact: true })).toBeVisible();
+  await expect(details.getByText("Extern geändert", { exact: true })).toBeVisible();
+  await expect(page.getByText("Die Änderungen wurden gespeichert.", { exact: true })).toHaveCount(0);
+});
+
+test("late amendment availability cannot replace a more recent party and duration request", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, amendments: true, slowAmendSlots: true });
+  await page.goto("/booking/console");
+  const panel = await editGuest(page);
+  await panel.getByRole("checkbox", { name: "Zeit, Personen oder Tisch ändern" }).check();
+  await expect.poll(() => fixture.amendParties().length).toBe(1);
+  await panel.getByLabel("Personen", { exact: true }).fill("4");
+  await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "19:00" });
+  await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+  await expect.poll(() => fixture.amendParties()).toEqual([2, 4]);
+  await page.waitForTimeout(900);
+  await expect(panel.getByRole("combobox", { name: "Uhrzeit", exact: true })).toHaveValue("2026-10-20T19:00:00+02:00");
+  await expect(panel.getByRole("combobox", { name: "Tisch", exact: true }).locator("option")).not.toContainText(["Fenster 1"]);
+  await page.screenshot({ path: test.info().outputPath("amendment-desktop.png") });
+});
+
 function seededSnapshot(): BookingSnapshot {
   return {
     settings: { revision: 1, duration_minutes: 120, max_party_size: 8 },
@@ -112,7 +249,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + 3600;
   const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
@@ -123,8 +260,12 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   let snapshot: BookingSnapshot = options.seeded ? seededSnapshot() : { settings: null, areas: [], tables: [], services: [], reservations: [] };
   let savedSetup: BookingSetup | null = null;
   if (options.lifecycle) snapshot.capabilities = { service_lifecycle: true };
+  if (options.amendments) { snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
   let statusCalls = 0;
   const statusRequests: object[] = [];
+  const amendRequests: Record<string, unknown>[] = [];
+  const amendParties: number[] = [];
+  let lastAmendId = "";
   let bookingCalls = 0;
   const slotParties: number[] = [];
   const slotReplies: number[] = [];
@@ -164,16 +305,39 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       statusCalls++;
       statusRequests.push(body);
       if (options.statusConflict) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } });
-      snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id ? { ...r, status: body.p_status,
+      snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id && r.status !== body.p_status ? { ...r, status: body.p_status, revision: (r.revision ?? 0) + 1,
         arrived_at: ["arrived", "seated"].includes(body.p_status) ? r.arrived_at ?? "2026-10-20T12:00:00Z" : r.arrived_at,
         seated_at: body.p_status === "seated" ? "2026-10-20T12:00:00Z" : r.seated_at,
         completed_at: body.p_status === "completed" ? "2026-10-20T12:00:00Z" : r.completed_at } : r);
       if (options.uncertainStatus && statusCalls === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
       return route.fulfill({ status: 204 });
     }
+    if (method === "booking_console_amendment_slots_v1") {
+      amendParties.push(body.p_party_size);
+      const slow = options.slowAmendSlots && amendParties.length === 1;
+      if (slow) await new Promise((resolve) => setTimeout(resolve, 800));
+      const start = body.p_date + (slow ? "T18:00:00+02:00" : "T19:00:00+02:00");
+      return route.fulfill({ json: body.p_party_size > 6 ? [] : [{ service_id: dinner, table_id: slow ? table1 : table2, starts_at: start, ends_at: new Date(Date.parse(start) + body.p_duration_minutes * 60_000).toISOString() }] });
+    }
+    if (method === "booking_console_amend_v1") {
+      amendRequests.push(body);
+      if (options.amendRevisionConflict) {
+        snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id ? { ...r, note: "Extern geändert", revision: (r.revision ?? 0) + 1 } : r);
+        return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } });
+      }
+      if (options.amendSlotConflict && amendRequests.length === 1) return route.fulfill({ status: 409, json: { code: "22023", message: "booking_slot_unavailable" } });
+      if (lastAmendId !== body.p_request_id) {
+        snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id ? { ...r, table_id: body.p_table_id, service_id: body.p_service_id,
+          starts_at: body.p_starts_at, ends_at: new Date(Date.parse(body.p_starts_at) + body.p_duration_minutes * 60_000).toISOString(),
+          party_size: body.p_party_size, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, revision: (r.revision ?? 0) + 1 } : r);
+        lastAmendId = body.p_request_id;
+      }
+      if (options.uncertainAmend && amendRequests.length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
+      return route.fulfill({ json: body.p_reservation_id });
+    }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests };
+  return { setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties };
 }
 
 async function configure(page: Page) {
