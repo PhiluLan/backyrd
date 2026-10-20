@@ -43,7 +43,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
     <div className={styles.drawerBody}>
       <div className={styles.detailHeading}><h3>{r.guest_name}</h3><span className={styles.status} data-status={r.status}>{statusLabels[r.status]}</span></div>
       <p className={styles.help}>{new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", weekday: "short", day: "numeric", month: "long", year: "numeric" }).format(new Date(r.starts_at))}</p>
-      <p className={styles.detailTime}>{restaurantTime(r.starts_at)}–{restaurantTime(r.ends_at)} <span>· {r.party_size} {r.party_size === 1 ? "Person" : "Personen"}</span></p>
+      <p className={styles.detailTime}>{restaurantTime(r.starts_at, r.ends_at)}–{restaurantTime(r.ends_at, r.starts_at)} <span>· {r.party_size} {r.party_size === 1 ? "Person" : "Personen"}</span></p>
       <dl className={styles.detailGrid}><div><dt>Bereich / Tisch</dt><dd>{area?.name ?? "Bereich"} · {table?.label ?? "Tisch"}</dd></div><div><dt>Service</dt><dd>{snapshot.services.find((s) => s.id === r.service_id)?.name ?? "Service"}</dd></div><div><dt>Kontakt</dt><dd>{r.guest_contact || "Nicht hinterlegt"}</dd></div><div><dt>Quelle</dt><dd>{r.is_walk_in ? "Walk-in · sofortige Platzierung" : sources[r.source]}</dd></div></dl>
       {r.note && <section className={styles.note}><h3>Interner Hinweis</h3><p>{r.note}</p></section>}
       <p className={styles.help}>Referenz #{r.id.slice(0, 8).toUpperCase()}</p>

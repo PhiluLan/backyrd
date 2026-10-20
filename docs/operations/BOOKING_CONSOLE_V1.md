@@ -548,3 +548,89 @@ an overlapping poll. Web typecheck, 42 contracts, lint (13 existing warnings)
 and the production build passed. No backend schema or grant was changed, so the
 preceding canonical 195-migration database evidence remains the backend basis;
 these browser cases prove client behavior, not a real multi-device pilot.
+
+## Weekly planning and restaurant booking blocks
+
+The capability-gated week view provides seven ordered Zurich civil dates, scoped
+to the selected service and room. It uses one owner/safety-protected weekly RPC
+with the restaurant shared lock, not seven unrelated daily reads. Counts are
+reservations whose start belongs to that civil day: pending/confirmed/arrived/
+seated are active; pending is also reported separately, and cancelled includes
+declined. Guest counts sum active party sizes and are not an occupancy quota.
+Guest identity/contact/note fields are absent from the summary; organizational
+block reasons retain the same private operator boundary. Opening a day preserves
+scope and immediately revalidates even when it is already the selected date.
+Incomplete/failed weeks do not become an apparently empty calendar. A weekly
+Safety/auth denial clears the whole private workspace and retires old callbacks.
+
+`booking_restaurant_closures` stores dated full-day or minute-aligned intervals,
+optionally limited to a service and/or room. A private civil-boundary CHECK also
+protects privileged writes. Partial blocks may end at 24:00; full days use the
+next local midnight and can be 23 or 25 actual hours. Nonexistent local block
+boundaries are rejected; ambiguous starts use the earliest occurrence and ends
+the latest, covering the continuous interval between those boundaries. The
+editor explains that behavior. Intervals are half-open at both booking/block
+boundaries. Existing setup clients leave these independent records intact.
+
+The closure RPC shares the restaurant FOR UPDATE lock with create, amendment,
+walk-in and configuration writes. It validates the complete scoped request,
+uses the settings revision, replays an already satisfied save/removal without
+another revision/audit entry, and never deletes or cancels a reservation. When
+active reserved intervals overlap a new/changed block, the write requires an
+explicit `keep_existing` acknowledgement. The affected count is computed again
+under the lock; changing scope resets the UI acknowledgement. Save/removal audit
+details retain the before/after rule, actor and affected count. A saved identical
+block can still replay after its date passes. Changing/creating blocks is limited
+to today and the next 365 days; removing an old rule remains safe with a revision.
+
+New booking suggestions, create and allocation-changing amendments use the same
+private block predicate; real-time walk-in allocation checks it too. Existing
+bookings can still receive guest corrections and normal attendance transitions,
+and replay of an original request remains valid after a block is introduced.
+The native editor preserves conflict drafts, freezes unknown saves/removals for
+an identical retry, and revalidates the possibly saved target date on explicit
+exit. Closure transport has a 15-second UI deadline; cancellation does not prove
+that the server transaction rolled back. A busy/uncertain block warns on unload.
+Full offline operation and durable recovery after a browser restart remain open.
+
+Planned slots now iterate actual instants rather than adding a duration to
+potentially nonexistent civil starts. Weekly service openings in a repeated hour
+use the earliest occurrence, closings the latest; missing weekly boundaries use
+PostgreSQL's forward shift. Walk-ins use the same service boundary rule. Real
+reservation duration and service end remain hard constraints. The time chooser
+labels duplicated autumn times with UTC offsets, and intervals crossing the
+clock change show both offsets. Table-time focus includes both valid occurrences
+of an ambiguous local time and none of a spring gap, with an explicit UI note.
+
+The two-connection closure/booking acceptance script observes a holder actually
+idle in its transaction and a second backend waiting on a PostgreSQL lock. It
+then commits the holder and tests both winners: a block rejects the waiting new
+booking; a booking forces the waiting block to request explicit preservation.
+The race runs only against an explicitly marked loopback test database and is
+part of the canonical database gate and its input receipt. All fixtures are
+synthetic; no production guest or signed-in reference account is mutated.
+
+This increment does not implement exceptional opening windows, overnight service
+adapters, room/service quotas, table combinations, guest checkout, notifications
+or staff invitations. These remain operating acceptance requirements. Backend
+activation requires the new cohort's migration-scoped recovery-risk approval and
+certified deployment. Merging code alone is not evidence of production delivery.
+
+Week-planning candidate validation on 2026-10-20: canonical 196-migration Supabase
+clean boot passed with all six Booking SQL suites, baseline authorization/race
+contracts, the observed two-connection closure race, ACL/schema snapshots and
+database lint. SQL acceptance includes original request replay after blocks,
+metadata correction, allocation rejection, scoped/half-open boundaries,
+explicit existing-booking preservation, revision conflicts, denied access,
+actual spring/autumn durations, a service opening in the repeated hour,
+nonexistent boundaries, 24:00 and saved-block replay after its date passes.
+The generated release record chains from table layout and is not a deployment.
+
+All 52 synthetic browser journeys passed, including week/day scope retention,
+seven desktop columns/320px layout, existing-reservation acknowledgement and
+removal, stale/incomplete/late weekly responses, Safety denial, ambiguous-time
+selection and table focus, midnight closing, unknown closure exit/replay and
+write timeout recovery. The week and native phone editor were visually inspected.
+Web typecheck, lint (13 existing warnings), 42 contracts, 25 CI receipt/delivery
+regression tests and the production build passed. Physical-device/restaurant
+acceptance and the new migration cohort's production activation remain open.
