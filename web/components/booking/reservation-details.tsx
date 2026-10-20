@@ -9,9 +9,10 @@ import styles from "./console.module.css";
 export const statusLabels: Record<BookingStatus, string> = { pending: "Anfrage offen", confirmed: "Bestätigt", arrived: "Angekommen", seated: "Am Tisch", completed: "Besuch beendet", cancelled: "Storniert", declined: "Abgelehnt", no_show: "Nicht erschienen" };
 const sources = { phone: "Telefon", email: "E-Mail", walk_in: "Vor Ort", operator: "Betreiber" };
 
-export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, onSaved, onAmended, onReload, onBusy }: {
+export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, onSaved, onAmended, onReload, onBusy, onUncertain }:  {
   spotId: string; reservation: BookingReservation; snapshot: BookingSnapshot;
   onClose: () => void; onSaved: () => Promise<void>; onReload: () => Promise<void>; onBusy: (busy: boolean) => void;
+  onUncertain: (date: string) => void;
   onAmended: (date: string, slot: BookingSlot) => Promise<void>;
 }) {
   const [target, setTarget] = useState<BookingStatus | null>(null);
@@ -37,7 +38,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
     try { await onReload(); setTarget(null); setError(null); }
     finally { inFlight.current = false; setBusy(false); onBusy(false); }
   }
-  if (editing) return <EditReservation spotId={spotId} reservation={r} snapshot={snapshot} onClose={() => setEditing(false)} onBusy={onBusy} onReload={onReload} onSaved={async (date, slot) => { await onAmended(date, slot); setEditing(false); }} />;
+  if (editing) return <EditReservation spotId={spotId} reservation={r} snapshot={snapshot} onClose={(uncertain, date) => { if (uncertain) onUncertain(date ?? restaurantDate(new Date(r.starts_at))); else setEditing(false); }} onBusy={onBusy} onReload={onReload} onSaved={async (date, slot) => { await onAmended(date, slot); setEditing(false); }} />;
   return <ConsolePanel title="Reservierung" busy={busy} onClose={onClose}>
     <div className={styles.drawerBody}>
       <div className={styles.detailHeading}><h3>{r.guest_name}</h3><span className={styles.status} data-status={r.status}>{statusLabels[r.status]}</span></div>

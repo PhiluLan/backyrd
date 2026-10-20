@@ -413,8 +413,9 @@ cannot close a new session's draft. Console read snapshots are scoped to their
 restaurant/date; row accessibility descriptions distinguish repeated guest names
 and unnamed admissions by time, party, table and status.
 
-The existing general reservation/amendment editors preserve retry identity but
-do not yet have the walk-in editor's payload freeze/review warning. Durable
+The original walk-in increment left the general reservation/amendment editors
+with retry identity but without a payload freeze/review warning. The later
+write-recovery increment below closes that in-session gap. Durable
 uncertain-outcome recovery across a browser restart remains a reliability gap;
 do not claim indefinite exactly-once processing. Broader offline support,
 overnight services and dynamic overstay replanning remain outside this increment.
@@ -479,3 +480,31 @@ or operational-parity claim.
 The production Web build passed after clearing a generated Turbopack cache that
 had retained a sandbox-denied loopback error. No application configuration or
 security control was changed to resolve the local build-cache failure.
+
+
+## In-session uncertain reservation writes
+
+New reservations and amendments now freeze the exact original request after an
+unknown write result, including its UUID, allocation, guest fields and revision.
+The editor stops availability refreshes and disables further input; the footer
+remains available for an identical retry. A later retry rejection does not prove
+that the original unknown request failed, so the payload stays frozen until a
+successful replay or explicit exit. Definite initial validation/allocation
+conflicts remain editable and retain the usual recheck behavior.
+
+The native exit warning explains that the request may already be stored. Leaving
+refreshes the candidate booking date, clears filters and shows a persistent
+review warning without claiming success. For an amendment, operators should
+check the old and requested dates. The dialog no longer offers an editable
+stale detail view after such an exit. Actor/entry guards prevent signed-out
+responses from changing a new session. No new database, guest messaging or
+browser storage of private booking payloads is introduced. Recovery after a
+browser restart and full offline support remain open.
+
+Write-recovery candidate validation: all 36 synthetic browser journeys passed;
+the unchanged create/amend replay cases also passed after advancing the browser
+clock beyond the original reservation date. Those two clock fixtures explicitly
+use a longer synthetic token lifetime so token refresh is not confused with
+reservation replay. Web typecheck, 42 contracts, lint (existing warnings only)
+and the production build passed. Backend execution evidence is unchanged from
+the preceding table-plan candidate; this increment adds no migration.
