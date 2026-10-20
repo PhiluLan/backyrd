@@ -40,9 +40,15 @@ require_pattern 'distribution_trust_filter_entities_v1' \
   'supabase/functions/semantic-spot-search/index.ts' 'Semantic Search must use canonical Distribution eligibility'
 require_pattern 'distribution_trust_filter_entities_v1' \
   'mobile/lib/distributionTrust.ts' 'Mobile must use the central client-safe contract'
-require_pattern 'distribution_trust_spot_catalog_v1' \
-  'mobile/app/search.tsx' 'Search must provide trusted alternatives after Distribution filtering'
-require_pattern 'filterDistributedSpots' \
+require_pattern 'pathname: "/\(tabs\)/map"' \
+  'mobile/app/search.tsx' 'Search must delegate to the canonical map/list catalog'
+require_pattern 'search: params\.search \?\? params\.q \?\? ""' \
+  'mobile/app/search.tsx' 'Search must preserve the query when delegating to the filtered catalog'
+for surface in 'mobile/app/(tabs)/map.tsx' 'mobile/app/(tabs)/map.web.tsx'; do
+  require_pattern 'useSpotsStore\(\)' "$surface" 'Search/map surfaces must consume the shared Distribution-filtered store'
+  require_pattern 'spotMatchesSearch\(' "$surface" 'Search/map surfaces must filter the shared catalog by the requested query'
+done
+require_pattern 'return filterDistributedSpots\(mapped, "maps", signal\)' \
   'mobile/lib/useSpotsStore.ts' 'Maps must use canonical Distribution filtering'
 require_pattern 'loadDiscoverySpots' \
   'mobile/app/(tabs)/index.tsx' 'Discovery Home must use the shared Product-visible catalog'
