@@ -288,3 +288,15 @@ unpaired drops, a different relation/name and row/column removal remain blocked.
 This recognition does not approve a production release or establish that an
 arbitrary replacement preserves business rules. This migration expands the
 existing predicate and SQL acceptance checks the actual allocation behavior.
+
+Candidate validation on 2026-10-20: the canonical 192-migration Supabase clean
+boot passed its baseline SQL, both explicitly selected Booking suites, RLS/ACL
+checks, existing multi-connection races and the unchanged DB-lint allowance.
+Its schema/ACL snapshot generates the immutable lifecycle release record.
+The 15 synthetic browser cases cover the full attendance flow across reloads,
+320px layout, capability/date gating, concurrent-change rejection and uncertain
+status-response retry, in addition to the original workspace cases. The phone
+viewport was visually inspected with synthetic data. Web lint (existing
+warnings only), typecheck, 42 contract tests, production build and 48 classifier
+tests passed. This is candidate evidence, not a production deployment or a
+physical-device/restaurant service trial.
