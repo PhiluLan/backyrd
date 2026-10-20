@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverPublicDataSources,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
@@ -26,6 +26,65 @@ test('unattended selection uses only official-site Admin rows with missing field
  ]}};
  assert.deepEqual(selectResearchSpots(exported,['contact.phone','hours.regular'],{maxSpots:2}).map(x=>x.spotId),['b','a']);
  assert.throws(()=>selectResearchSpots(exported,['contact.phone'],{maxSpots:11}),/automatic_selection_invalid/);
+});
+test('museum planning omits food and laptop questions before fetching or selecting a batch row',async()=>{
+ const museum={...spot,name:'Anatomisches Museum',existingValues:{...spot.existingValues,'contact.website':{knowledgeState:'KNOWN_VALUE',value:'https://example.org/'},'classification.primary_category':{value:'CULTURE_ARTS'},'classification.place_types':{value:['MUSEUM']}}};
+ assert.deepEqual(researchFieldRelevance(museum,'offering.groups'),{relevant:false,reason:'FIELD_NOT_APPLICABLE_TO_SPOT_TYPE'});
+ assert.deepEqual(researchFieldRelevance(museum,'operation.laptop_policy'),{relevant:false,reason:'FIELD_NOT_APPLICABLE_TO_SPOT_TYPE'});
+ assert.equal(researchFieldRelevance(museum,'experience.profile').relevant,true);
+ assert.deepEqual(selectResearchSpots({batch:{spots:[museum]}},['offering.groups','operation.laptop_policy'],{maxSpots:1}),[]);
+ const report=await researchSpotV2({...opts,spot:museum,fields:[field('offering.groups'),field('operation.laptop_policy')]},{...deps,fetchPage:async()=>{throw Error('irrelevant fetch');}});
+ assert.equal(report.stopReason,'NO_FIELDS_REQUIRE_RESEARCH');
+ assert.equal(report.requests,0);
+ assert.deepEqual(report.results.map(result=>result.reason),['FIELD_NOT_APPLICABLE_TO_SPOT_TYPE','FIELD_NOT_APPLICABLE_TO_SPOT_TYPE']);
+ assert.deepEqual(report.researchPlan.activeFields,[]);
+});
+test('a real museum overview link outranks translations and request forms',()=>{
+ const links=discoverResearchLinks({url:'https://www.baslerpapiermuehle.ch/en/home-2/',contentType:'text/html',body:'<a href="/">Deutsch</a><a href="/en/info/">Info</a><a href="/fr/informations/">Informations</a><a href="/informationen/">Informationen</a><a href="/aktuell/">Aktuell</a><a href="/aktuell/">Ausstellung</a><a href="/aktuell/">Mitmachstationen</a><a href="/fr/actualites/">Actualités</a><a href="/en/request-for-guided-tour-groups/">Guided tour request</a><a href="/en/request-for-request-for-room-rental/">Room rental</a>'});
+ assert.deepEqual(links.map(link=>link.url),['https://www.baslerpapiermuehle.ch/','https://www.baslerpapiermuehle.ch/en/info/','https://www.baslerpapiermuehle.ch/fr/informations/','https://www.baslerpapiermuehle.ch/informationen/','https://www.baslerpapiermuehle.ch/aktuell/']);
+ const frontier=links.map(link=>({...link,depth:1}));
+ const ranked=rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'CULTURE_ARTS'},field('description.highlight')]);
+ assert.equal(ranked[0].url,'https://www.baslerpapiermuehle.ch/');
+ assert.ok(ranked.findIndex(link=>link.url.endsWith('/aktuell/'))<ranked.findIndex(link=>link.url.endsWith('/fr/informations/')));
+ assert.ok(ranked.findIndex(link=>link.url.endsWith('/informationen/'))<ranked.findIndex(link=>link.url.endsWith('/fr/informations/')));
+});
+test('a permanent museum offer requires an explicit permanence statement',()=>{
+ const museum={...spot,name:'Basler Papiermühle',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const chosen=[field('experience.profile')];
+ const dated='Sonderausstellung Papier und Druck zeigt die Geschichte des Buches.';
+ const permanent='DAUERAUSSTELLUNG\n\nDie Ausstellung zeigt die Geschichte von Papier bis zum fertigen Buch.';
+ const one=source(dated),two=source(permanent,'s2');
+ const candidates=[...validateEvidenceFacts({facts:[fact('experience.profile','Sonderausstellung Papier und Druck',dated,{subject:'OFFER',offerKind:'PERMANENT_EXHIBITION'})]},one,chosen),...validateEvidenceFacts({facts:[fact('experience.profile','DAUERAUSSTELLUNG',permanent,{subject:'OFFER',offerKind:'PERMANENT_EXHIBITION'})]},two,chosen)].map(item=>({...item,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(candidates,[one,two],chosen,museum);
+ assert.equal(checked[0].reason,'PERMANENCE_NOT_EXPLICIT');
+ assert.equal(checked[1].state,'ACCEPTED');
+});
+test('a described official museum Dauerausstellung survives a wrong AREA label but not a dated or foreign page',()=>{
+ const museum={...spot,name:'Basler Papiermühle - Schweizerisches Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const quote='DAUERAUSSTELLUNG\n\nDie Basler Papiermühle zeigt die Geschichte von Papier und Buch in einer dauerhaften Ausstellung mit Werkstätten und Objekten zum Mitmachen.';
+ const official={...source(quote),url:'https://example.org/aktuell/',headings:[{level:3,text:'DAUERAUSSTELLUNG',offset:0}]};
+ const candidate={...fact('experience.profile','DAUERAUSSTELLUNG',quote,{subject:'AREA',offerKind:'PERMANENT_EXHIBITION'}),sourceOffset:0};
+ assert.equal(certifiedPermanentExhibition(candidate,official,museum),true);
+ assert.equal(certifiedPermanentExhibition(candidate,{...official,url:'https://example.org/aktuell/event/2026/'},museum),false);
+ assert.equal(certifiedPermanentExhibition({...candidate,belongsTo:'OTHER'},official,museum),false);
+ assert.equal(certifiedPermanentExhibition(candidate,{...official,headings:[]},museum),false);
+ const otherQuote=quote.replace('Basler Papiermühle','Anderes Museum');
+ assert.equal(certifiedPermanentExhibition({...candidate,quote:otherQuote},{...official,text:otherQuote,headings:[{level:3,text:'DAUERAUSSTELLUNG',offset:0}]},museum),false);
+});
+test('museum research projects the exact permanent heading after correcting model scope and case',async()=>{
+ const museum={...spot,name:'Basler Papiermühle - Schweizerisches Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'classification.place_types':{value:['MUSEUM']}}};
+ const quote='DAUERAUSSTELLUNG\n\nDie Basler Papiermühle zeigt die Geschichte von Papier und Buch in einer dauerhaften Ausstellung mit Werkstätten und Objekten zum Mitmachen.';
+ const official={...source(quote),url:'https://example.org/aktuell/',headings:[{level:3,text:'DAUERAUSSTELLUNG',offset:0}]};
+ const report=await researchSpotV2({...opts,spot:museum,fields:[field('experience.profile')],sources:[official.url],maxRequests:1,maxModelCalls:4,discoverLinks:false},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<main></main>',observedAt:new Date().toISOString()}),readPage:async()=>official,modelFetch:async(_url,request)=>{
+  const input=JSON.parse(JSON.parse(request.body).messages[1].content);
+  const block=input.blocks.find(block=>block.text===quote);
+  assert.ok(block);
+  return reply({facts:[{field:'experience.profile',value:'Dauerausstellung',blockId:block.id,subject:'AREA',subjectLabel:'Dauerausstellung',belongsTo:'TARGET',applicability:'CURRENT',restrictionQuote:'',offerKind:'PERMANENT_EXHIBITION',polarity:'AFFIRMATIVE'}],nextLinks:[]});
+ }});
+ assert.equal(report.results[0].status,'REQUIRES_REVIEW');
+ assert.equal(report.results[0].value.offers[0].name,'DAUERAUSSTELLUNG');
+ assert.equal(report.results[0].value.offers[0].kind,'PERMANENT_EXHIBITION');
+ assert.equal(report.canonicalWrite,false);
 });
 test('draft review clearly displays the image-menu limitation',()=>{
  const html=reviewHtml([{name:'Bar',results:[],limitations:['MENU_LAYOUT_REQUIRES_REVIEW']}]);

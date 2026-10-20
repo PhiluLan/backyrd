@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v2.5
+## Active architecture: Research v2.6
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -24,7 +24,10 @@ npm run typecheck --workspace @backyrd/spot-research-runtime
 npm test --workspace @backyrd/spot-research-runtime
 ```
 
-1. **Plan and retrieve.** Start with the current exported official website (or
+1. **Plan and retrieve.** Use the exported category and place types to remove
+   fields that do not apply to the Spot before selecting it for a batch or
+   spending requests. Preserve known values. The report names active and
+   irrelevant fields; unknown place types remain open. Start with the current exported official website (or
    explicit approved seeds). Build a frontier only from actual public links.
    Contact, hours, menus, experiences, visitor/access and about pages are scored
    against unanswered fields after each page. Follow up to three link levels;
@@ -32,7 +35,10 @@ npm test --workspace @backyrd/spot-research-runtime
    HTTPS redirects may be followed within the same official host; every hop is
    separately DNS-checked and charged to the request budget. Default limits:
    12 HTTP requests (including redirect hops), 24 model calls and 10 minutes per Spot; hard maxima 24/48/15min.
-   This is official-site link research, not an internet search engine or a browser
+   Cultural experience pages and observed German-language links receive priority;
+   request forms and dated news are filtered. A museum's permanent-exhibition
+   overview may be followed from an observed, explicitly labelled `Aktuell`
+   link, while individual dated programme pages remain excluded. This is official-site link research, not an internet search engine or a browser
    capable of rendering every JavaScript-only page. For pages with template
    placeholders, a bounded adapter follows only observed same-host, read-only
    App Connect data URLs. Parameters must come from the actual page URL;
@@ -87,6 +93,12 @@ used for automatic named-offer extraction; otherwise ingredients can be mistaken
 for menu items. Conditions are preserved in the
 ledger rather than silently erased into whole-Spot fields. Prices are deliberately empty
 in projected v2 offers: block-level extraction does not certify menu layout.
+An explicitly headed and described permanent exhibition at a culture venue
+can be retained as a partial named offer even when the local model calls it
+an area. This correction requires the exact official host, the target venue
+in the quotation, an original heading, current unconditional wording, and
+no dated context. Projection still checks literal source text and requires
+human review.
 Original HTML heading hierarchy helps separate hours of hotel/museum/restaurant,
 bar and kitchen areas. Explicit uppercase operating-area labels inherit over their
 weekday rows only inside an actual opening-hours section, and reset at the next
@@ -386,6 +398,34 @@ STAY target. Restricting the decoder to room kinds forced a restaurant to be
 mislabelled as accommodation in development. Decode actual kind first, then check
 the research focus; the critic also checks the relation of name to kind. These
 checks still depend on model interpretation and do not certify a full portfolio.
+
+### v2.6 category-aware research case, 20 October 2026
+
+Basler Papiermühle was researched from the current Admin export and its
+official site. The v2.5 run spent 9 requests, 22 model calls and 419 seconds;
+it offered an English description and a French permanent-exhibition label
+without a sufficiently useful museum profile. The v2.6 live run spent 7
+requests, 16 model calls and 233 seconds. It planned only missing description,
+experience profile and amenities, skipped the museum-inapplicable food/drink
+groups and laptop policy, and proposed a German description grounded in the
+official `https://www.baslerpapiermuehle.ch/aktuell/` page. The description
+is a review draft, not final Backyrd editorial copy. The live run found the
+explicit `DAUERAUSSTELLUNG` heading but the profile remained unresolved because
+the model's title case did not literally match the uppercase source heading.
+After that run, source-heading case is preserved. Replaying the actual captured
+source and fact through projection produced a partial permanent-exhibition
+review draft. The final case fix has **not** had a third full live model run;
+synthetic end-to-end and source-bound replay checks cover it.
+
+The current-export Anatomisches Museum case has all meaningful fields known;
+only the food/drink group was missing. The v2.6 CLI now reports
+`NO_FIELDS_REQUIRE_RESEARCH` with zero requests and zero model calls. This
+avoids asking the model to turn museum tours into snacks or drinks.
+
+These are development cases, not an independent quality measurement. Source
+selection still visited translated pages, and genuine experience coverage
+remains incomplete. Unattended catalog writes and the release cohort gate
+remain closed.
 
 ## Historical v4–v9 implementation and evaluation record
 

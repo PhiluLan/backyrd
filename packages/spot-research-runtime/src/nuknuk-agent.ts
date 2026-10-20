@@ -2,14 +2,14 @@
 // semantic check, then canonical draft projection. No database or publication.
 import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
-import {EXPERIENCE_TEMPLATES,parseExperienceProfile} from '../../world-knowledge-core/dist/index.js';
+import {EXPERIENCE_TEMPLATES,isAuthoringAttributeRelevant,parseExperienceProfile} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages} from './nuknuk-sources.mjs';
 import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.5';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.6';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -57,6 +57,17 @@ export interface AgentDependencies {
 function context(spot:SpotContext) {
   return {name:spot.name,locality:spot.locality??null,address:spot.existingValues?.['location.address_line1']?.value??null,
     country:spot.existingValues?.['location.country_code']?.value??null,category:spot.existingValues?.['classification.primary_category']?.value??null};
+}
+// Ask only questions that make sense for this exact catalog identity. In
+// particular, a museum's visitor groups are not the food/drink enum
+// `offering.groups`. Unknown place types remain open rather than guessed.
+export function researchFieldRelevance(spot:SpotContext,key:string):{relevant:boolean;reason?:string} {
+  const raw=spot.existingValues?.['classification.place_types']?.value;
+  const placeTypes=Array.isArray(raw)?raw.filter((item):item is string=>typeof item==='string'):[];
+  if(placeTypes.length&&!isAuthoringAttributeRelevant(key,{placeTypes}))return {relevant:false,reason:'FIELD_NOT_APPLICABLE_TO_SPOT_TYPE'};
+  const category=spot.existingValues?.['classification.primary_category']?.value;
+  if(!placeTypes.length&&key==='offering.groups'&&typeof category==='string'&&!['EAT','DRINKS','COFFEE_DAYTIME','NIGHTLIFE','STAY','TEMPORARY_PLACES'].includes(category))return {relevant:false,reason:'FIELD_NOT_APPLICABLE_TO_SPOT_TYPE'};
+  return {relevant:true};
 }
 function enumValues(field:ResearchField):string[] {
   const items=field.valueSchema.items;
@@ -281,6 +292,7 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
       if(f.value.trim().split(/\s+/u).length>=6&&/\b(?:sind|ist|haben|hat|werden|wird|bieten|bietet|verfügen|verfügt|are|is|have|has|offers?|includes?|equipped)\b/iu.test(f.value))return 'OFFER_SENTENCE_NOT_NAME';
       if(f.quote.trim()===f.value.trim())return 'OFFER_CONTEXT_REQUIRED';
       if(f.offerKind==='WORKSHOP'&&!/\b(?:workshops?|ateliers?|kurse?|courses?)\b/iu.test(f.quote))return 'WORKSHOP_KIND_NOT_EXPLICIT';
+      if(f.offerKind==='PERMANENT_EXHIBITION'&&!/(?:dauerausstellung|exposition permanente|permanent exhibition|mostra permanente)/iu.test(f.quote))return 'PERMANENCE_NOT_EXPLICIT';
       const category=spot.existingValues?.['classification.primary_category']?.value??field.profileCategory;
       if(typeof category!=='string')return 'CURRENT_CATEGORY_REQUIRED';
       if(category==='STAY'&&f.offerKind==='OVERNIGHT_STAY'&&/(?:^|\/)(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(source.url).pathname)&&(f.quote.length<f.value.length+35||!/[.!?]/u.test(f.quote)))return 'ROOM_DETAIL_DESCRIPTION_REQUIRED';
@@ -413,6 +425,18 @@ function certifiedHotelRoom(f:EvidenceFact,source:ResearchSource,spot:SpotContex
   if(/\b(?:ab|from)\s*(?:chf|eur|€|\d)|\b(?:nur|only|bis|until|deal|special|angebot|aktion|promotion)\b/iu.test(f.quote))return false;
   return true;
 }
+// A permanent exhibition may be a narrower area of a museum and still be a
+// genuine visitor offer. Only the explicit, described heading on the exact
+// official museum site can correct an AREA label from the local model.
+export function certifiedPermanentExhibition(f:EvidenceFact,source:ResearchSource,spot:SpotContext):boolean {
+  if(f.field!=='experience.profile'||f.offerKind!=='PERMANENT_EXHIBITION'||f.subject==='OTHER'||f.belongsTo!=='TARGET'||f.applicability!=='CURRENT'||f.condition||f.validFrom||f.validUntil||f.polarity!=='AFFIRMATIVE'||source.truncated||source.areaScope||spot.existingValues?.['classification.primary_category']?.value!=='CULTURE_ARTS'||!matchesExistingWebsite(source.url,String(spot.existingValues?.['contact.website']?.value)))return false;
+  const name=spot.name.split(/\s+-\s+/u)[0].toLocaleLowerCase();
+  if(name.length<5||!f.quote.toLocaleLowerCase().includes(name)||!/(?:dauerausstellung|exposition permanente|permanent exhibition|mostra permanente)/iu.test(f.value))return false;
+  const heading=(source.headings??[]).find(h=>h.text.trim().toLocaleLowerCase()===f.value.trim().toLocaleLowerCase());
+  const offset=factOffset(source,f);
+  if(!heading||offset!==heading.offset||!f.quote.toLocaleLowerCase().startsWith(f.value.toLocaleLowerCase())||f.quote.length<f.value.length+80||!/[.!?]/u.test(f.quote)||timeBoundEventContext(source,f.quote,f.sourceOffset))return false;
+  return true;
+}
 function mergeSchedules(facts:EvidenceFact[],sources:ResearchSource[]) {
   const days=new Map<string,{fact:EvidenceFact;row:{day:string;intervals:{start:string;end:string}[]};specificity:number}[]>();
   for(const fact of facts){const rows=atomicHours(fact.quote);for(const row of rows){const list=days.get(row.day)??[];list.push({fact,row,specificity:rows.length});days.set(row.day,list);}}
@@ -457,9 +481,9 @@ export function recheckEvidenceFloors(facts:EvidenceFact[],sources:ResearchSourc
 function topicsForField(key:string,category?:string):string[] {
   if(key.startsWith('contact.'))return ['contact'];
   if(key.startsWith('hours.'))return ['hours','visit'];
-  if(key==='experience.profile')return category==='STAY'?['stay']:['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category))?['menu','experience']:['experience','visit'];
+  if(key==='experience.profile')return category==='STAY'?['stay']:['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category))?['menu','experience']:['experience','visit','language'];
   if(key==='offering.groups')return category==='STAY'?['stay','menu']:['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category))?['menu','experience']:['experience','visit'];
-  if(key==='description.highlight')return ['about','experience'];
+  if(key==='description.highlight')return ['about','experience','language'];
   return category==='STAY'?['stay','access','about']:['visit','access','about'];
 }
 export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[]):FrontierEntry[] {
@@ -468,9 +492,15 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+
     (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
     (open.some(f=>f.attributeKey.startsWith('contact.'))&&link.topics.includes('contact')?500:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&link.topics.includes('experience')?35:0)+
+    (link.topics.includes('language')?40:0)+
+    // A site's unprefixed locale is usually its primary edition. Prefer an
+    // observed primary page to yet another English/French translation when
+    // both answer the same open question; never synthesize a URL.
+    (!/^\/(?:en|fr|it|de)(?:\/|$)/iu.test(new URL(link.url).pathname)?15:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='STAY')&&/(?:^|\/)(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(link.url).pathname)?50:0);
   const nonFood=open.some(field=>field.profileCategory&&!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory));
-  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(url).pathname);
+  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|room-rental|raumvermietung|location-de-salle|press|presse|media|medien|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
   const candidates=frontier.filter(link=>link.depth<=3&&!scopedPage(link.url)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic)))));
   const matching=candidates.filter(link=>open.some(f=>topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))));
@@ -547,7 +577,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   if(!/^[0-9a-f-]{36}$/i.test(spot.spotId)||!spot.name||!Number.isInteger(budgetMs)||budgetMs<1||budgetMs>900000||!Number.isInteger(maxRequests)||maxRequests<1||maxRequests>24||!Number.isInteger(maxModelCalls)||maxModelCalls<2||maxModelCalls>48||!Number.isInteger(maxDepth)||maxDepth<0||maxDepth>3||!Array.isArray(options.fields)||!options.fields.length||options.fields.length>12||new Set(options.fields.map(f=>f.attributeKey)).size!==options.fields.length||typeof deps.validateValue!=='function')throw new Error('agent_config_invalid');
   const known=(key:string)=>['KNOWN_VALUE','KNOWN_TRUE','KNOWN_FALSE','NOT_APPLICABLE'].includes(spot.existingValues?.[key]?.knowledgeState??'');
   const category=spot.existingValues?.['classification.primary_category']?.value;
-  const fields=options.fields.filter(f=>SUPPORTED.includes(f.attributeKey)&&!(options.skipKnownFields&&known(f.attributeKey))).map(f=>({...f,profileCategory:typeof category==='string'?category:f.profileCategory}));
+  const fields=options.fields.filter(f=>SUPPORTED.includes(f.attributeKey)&&researchFieldRelevance(spot,f.attributeKey).relevant&&!(options.skipKnownFields&&known(f.attributeKey))).map(f=>({...f,profileCategory:typeof category==='string'?category:f.profileCategory}));
   const website=spot.existingValues?.['contact.website']?.value;
   const seeds=options.sources??(typeof website==='string'?[website]:[]);
   if(!seeds.length||seeds.length>6)throw new Error('agent_official_seed_required');
@@ -643,7 +673,13 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     try {
       const blocks=evidenceBlocks(source);
       const candidates=literalSourceFacts(source,fields,spot,facts.length);
-      const descriptions=selectDescription?candidates.filter(f=>f.field==='description.highlight'):[];
+      // Prefer the observed German edition of a Swiss venue over copying an
+      // English/French sentence that would need editorial translation later.
+      // This does not guess a German URL: the link must be on the fetched page.
+      const germanEdition=links.some(link=>link.topics?.includes('language'));
+      const foreignSeed=next.depth===0&&/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(source.url).pathname);
+      const descriptions=selectDescription&&!(foreignSeed&&germanEdition)?candidates.filter(f=>f.field==='description.highlight'):[];
+      if(selectDescription&&foreignSeed&&germanEdition)await progress({stage:'DESCRIPTION_DEFERRED_FOR_GERMAN_SOURCE',url:source.url});
       const extracted=candidates.filter(f=>f.field!=='description.highlight');facts.push(...extracted);await checkpoint();
       if(descriptions.length) {
         try {
@@ -679,6 +715,12 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       // invented names or enum guesses must not crowd out valid target evidence.
       for(const fact of extracted)if(fact.state!=='REJECTED') {
         if(certifiedHotelRoom(fact,source,spot)){fact.subject='OFFER';fact.subjectLabel=fact.value;fact.belongsTo='TARGET';fact.state='ACCEPTED';fact.reason='STRUCTURED_HOTEL_ROOM';continue;}
+        if(certifiedPermanentExhibition(fact,source,spot)){
+          // Keep the exact source heading, including its case. The ordinary
+          // projection guard must still find the offer name in the quotation.
+          fact.value=(source.headings??[]).find(h=>h.text.trim().toLocaleLowerCase()===fact.value.trim().toLocaleLowerCase())!.text.trim();
+          fact.subject='OFFER';fact.subjectLabel=fact.value;fact.state='ACCEPTED';fact.reason='STRUCTURED_PERMANENT_EXHIBITION';continue;
+        }
         const reason=deterministicFactReason(fact,source,fields.find(field=>field.attributeKey===fact.field)!,spot);
         if(reason){fact.state='HELD';fact.reason=reason;}
         else if(certifiedVenuePhone(fact,source,spot)){fact.state='ACCEPTED';fact.reason='STRUCTURED_VENUE_PHONE';}
@@ -715,12 +757,14 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   const results:FieldResult[]=options.fields.map(field=>{
     const current=spot.existingValues?.[field.attributeKey];
     if(options.skipKnownFields&&known(field.attributeKey))return {attributeKey:field.attributeKey,status:'SKIPPED',reason:'EXISTING_VALUE_PRESERVED',currentValue:current?.value};
+    const relevance=researchFieldRelevance(spot,field.attributeKey);
+    if(!relevance.relevant)return {attributeKey:field.attributeKey,status:'SKIPPED',reason:relevance.reason,...(current?{currentValue:current.value}:{})};
     const proposal=projected.find(p=>p.attributeKey===field.attributeKey)??{attributeKey:field.attributeKey,status:'UNRESOLVED',reason:'FIELD_NOT_SUPPORTED_IN_V2'};
     // Existing narrow evidence policy can verify transcription/contact only.
     const checked=verifyResearchProposal(proposal,{spot,sources,exportBound:options.exportBound,sourceFailures,now:now()});
     return {...checked,...(current?{currentValue:current.value}:{})};
   });
-  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status)),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,facts,sources,sourceFailures,modelAudit,actions,failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
+  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status)),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,actions,failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
     coverage:results.map(r=>({attributeKey:r.attributeKey,status:r.status,acceptedFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='ACCEPTED').length,heldFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='HELD').length,complete:false})),
     frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:['OFFICIAL_SITE_LINK_SEARCH_ONLY','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
   await deps.onProgress?.({stage:'COMPLETE',report});return report;

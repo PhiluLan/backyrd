@@ -227,7 +227,7 @@ export function discoverMenuDocuments(page) {
 export function discoverResearchLinks(page) {
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
   const links=[];
-  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|food|drink|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq/iu};
+  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|food|drink|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|mitmach|hands[-\s]?on|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq/iu};
   for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const href=m[1].replace(/&amp;/g,'&');
     if(/^[\s&;]+$/u.test(href))continue;
@@ -240,24 +240,30 @@ export function discoverResearchLinks(page) {
     const label=(m[2].replace(/<[^>]*>/g,' ').trim()||accessible).replace(/&amp;/g,'&').replace(/\s+/g,' ').trim().slice(0,200);
     try {
       const url=publicSourceUrl(new URL(href,page.url).href);
-      if(!matchesExistingWebsite(url,page.url)||url===page.url||/(?:^|\/)[&;]+(?:\/|$)/u.test(new URL(url).pathname)||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|cart|privacy|datenschutz|(?:^|\/)(?:shop|jobs?|stellenangebote|karriere|careers?|buchen|[^/]*-buchen|anmeldung(?:-[^/]*)?|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname))continue;
+      if(!matchesExistingWebsite(url,page.url)||url===page.url||/(?:^|\/)[&;]+(?:\/|$)/u.test(new URL(url).pathname)||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|cart|privacy|datenschutz|(?:^|\/)(?:shop|jobs?|stellenangebote|karriere|careers?|buchen|[^/]*-buchen|anmeldung(?:-[^/]*)?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|room-rental|raumvermietung|location-de-salle|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname))continue;
       if(/\.(?:pdf|jpe?g|png|webp|gif)(?:[?#]|$)/iu.test(url))continue;
       // Dated events are useful to a different product flow, but cannot prove
       // a permanent venue offering or regular opening hours. Do not spend the
       // bounded Spot-research budget crawling individual event/news pages.
-      if(/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news(?:[-_][^/]*)?|blog|aktuelles?|[^/]*(?:programme?|programm))(?:\.html)?(?:\/|$)/iu.test(new URL(url).pathname)||/\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2})\b/u.test(label))continue;
+      const pathname=decodeURI(new URL(url).pathname).replace(/\/+$/u,'');
+      // Some museums place a permanent-exhibition overview behind an
+      // "Aktuell" navigation item. Follow only an observed link explicitly
+      // labelled as an exhibition or hands-on activity, never a generic news
+      // link or an individual dated event.
+      const permanentOverview=/^(?:\/(?:de|en|fr|it))?\/(?:aktuell|actualites|actualités)$/iu.test(pathname)&&/\b(?:ausstellung|dauerausstellung|exposition permanente|mitmachstationen|hands[-\s]?on activities)\b/iu.test(label);
+      if((/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news(?:[-_][^/]*)?|blog|aktuelles?|actualit[eé]s?|[^/]*(?:programme?|programm))(?:\.html)?(?:\/|$)/iu.test(pathname)&&!permanentOverview)||/\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}[.\/-]\d{1,2}[.\/-]\d{1,2})\b/u.test(label))continue;
       // Exhibition/programme pages describe time-bounded offerings. The
       // permanent Spot profile cannot encode their validity yet.
       if(/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?|group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\/|$)/iu.test(new URL(url).pathname))continue;
       // Campaigns, member deals and artist programmes do not establish a
       // permanent venue profile, and their contact details may be departmental.
-      if(/(?:^|\/)(?:offers?|angebote?|deals?|specials?|promotions?|stay-for-goods|artist-in-(?:hotel-)?residence)(?:\/|$)/iu.test(new URL(url).pathname))continue;
+      if(/(?:^|\/)(?:offers?|angebote?|deals?|specials?|special-offers?|promotions?|stay-for-goods|artist-in-(?:hotel-)?residence)(?:\/|$)/iu.test(pathname))continue;
       // Parent paths name a site section, not necessarily the linked page.
       // /informationen/pv-anlage.html is not visitor information merely
       // because it sits under /informationen/.
-      const pathname=decodeURI(new URL(url).pathname).replace(/\/+$/u,'');
       const material=(pathname.split('/').at(-1)??'')+' '+label;
       const topics=Object.entries(topicPatterns).filter(([,pattern])=>pattern.test(material)).map(([key])=>key);
+      if(/^Deutsch$/iu.test(label)&&/^(?:\/|\/de\/?|\/de\/home(?:-[0-9]+)?\/?)$/iu.test(new URL(url).pathname))topics.push('language');
       if(!topics.length&&(!label||/\.(?:jpg|png|zip|mp4)$/iu.test(url)||/\/(?:products|collections|blogs|policies)\//iu.test(new URL(url).pathname)))continue;
       const existing=links.find(l=>l.url===url);
       if(existing){existing.topics=[...new Set([...existing.topics,...topics])];existing.label=(existing.label+' | '+label).slice(0,200);continue;}
