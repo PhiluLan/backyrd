@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { bookingAllocationLabel, bookingTableIds, bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, restaurantSlotTime, type BookingSlot, type BookingSnapshot, type BookingSource } from "@/lib/booking-api";
+import { bookingAllocationLabel, bookingTableIds, bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, restaurantSlotTime, type BookingSlot, type BookingSnapshot, type ConsoleBookingSource } from "@/lib/booking-api";
 import { ConsolePanel } from "./console-panel";
 import styles from "./console.module.css";
 
@@ -22,7 +22,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [note, setNote] = useState("");
-  const [source, setSource] = useState<BookingSource>("phone");
+  const [source, setSource] = useState<ConsoleBookingSource>("phone");
   const [status, setStatus] = useState<"confirmed" | "pending">("confirmed");
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -133,7 +133,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
           {slot && <p className={styles.slotSummary}>{partySize} Personen · {restaurantTime(slot.starts_at, slot.ends_at)}–{restaurantTime(slot.ends_at, slot.starts_at)} · {bookingAllocationLabel(slot, snapshot)}</p>}
           <details className={styles.editorDetails}><summary>Weitere Angaben</summary>
             {!tableId && <label>Bereich<select value={area} onChange={(e) => { setArea(e.target.value); setTime(""); setSelected(""); }}><option value="">Alle Bereiche</option>{snapshot.areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>}
-            <div className={styles.fields}><label>Quelle<select value={source} onChange={(e) => setSource(e.target.value as BookingSource)}><option value="phone">Telefon</option><option value="email">E-Mail</option><option value="walk_in">Vor Ort</option><option value="operator">Betreiber</option></select></label><label>Status<select value={status} onChange={(e) => setStatus(e.target.value as "pending" | "confirmed")}><option value="confirmed">Bestätigt</option><option value="pending">Anfrage offen</option></select></label></div>
+            <div className={styles.fields}><label>Quelle<select value={source} onChange={(e) => setSource(e.target.value as ConsoleBookingSource)}><option value="phone">Telefon</option><option value="email">E-Mail</option><option value="walk_in">Vor Ort</option><option value="operator">Betreiber</option></select></label><label>Status<select value={status} onChange={(e) => setStatus(e.target.value as "pending" | "confirmed")}><option value="confirmed">Bestätigt</option><option value="pending">Anfrage offen</option></select></label></div>
             <label>Interner Hinweis (optional)<textarea maxLength={1000} rows={3} value={note} onChange={(e) => setNote(e.target.value)} /><span className={styles.help}>Nur notwendige organisatorische Angaben erfassen.</span></label>
           </details>
           {error && <p role="alert" className={styles.error}>{error}{uncertain ? " Der Speicherstatus ist unklar. Die Eingaben bleiben gesperrt; erneutes Speichern sendet ausschliesslich dieselbe Anfrage. Prüfe nach dem Verlassen den gespeicherten Stand." : ""}</p>}

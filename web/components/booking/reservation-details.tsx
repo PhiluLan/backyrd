@@ -10,7 +10,7 @@ import styles from "./console.module.css";
 
 export { statusLabels } from "./reservation-labels";
 import { statusLabels } from "./reservation-labels";
-const sources = { phone: "Telefon", email: "E-Mail", walk_in: "Vor Ort", operator: "Betreiber" };
+const sources = { phone: "Telefon", email: "E-Mail", walk_in: "Vor Ort", operator: "Betreiber", website: "Online-Buchung" };
 
 export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, onDenied, onSaved, onAmended, onReload, onTransferred, onBusy, onUncertain }:  {
   spotId: string; reservation: BookingReservation; snapshot: BookingSnapshot;

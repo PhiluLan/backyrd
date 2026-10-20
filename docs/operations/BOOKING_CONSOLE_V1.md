@@ -1102,3 +1102,103 @@ cleanup. The phone editor screenshot was visually inspected. TypeScript,
 42 Web contracts, 69 CI tests, lint (13 existing unrelated warnings) and the
 production build with synthetic local Supabase settings passed. No real guest
 records, production schema or guest messages were changed during acceptance.
+
+## Public guest-intake contracts (2026-10-21)
+
+Migration `20261020230227_booking_public_intake_v1.sql` provides the server-side
+public-booking contract. This is a foundation for the guest HTTP flow, not an
+activated public checkout. There is no anonymous execution grant on a guest
+RPC, no public guest form in this increment and no mail-dispatch worker yet.
+Public policy is absent/off until explicitly configured by an authorized
+Owner/Manager. Its owner binding prevents inheriting a previous owner's opt-in.
+An approved, non-test/non-fixture, canonically Distribution-visible restaurant,
+a verified owner email and current owner Safety are required for new intake.
+This uses visibility eligibility only; it never ranks restaurants or changes
+Decision behavior.
+
+Public availability returns unique actual instants and end times, policy
+revision, notice/horizon/cancellation rules and the restaurant's public notice
+and privacy contact. It excludes tables, rooms, service IDs/names, guest lists,
+notes and private resource labels. The guest selects party/date/time; the server
+chooses a compatible complete allocation under the restaurant lock, favoring
+lower physical chair consumption and fewer member tables. The existing service
+windows, configured combinations, closure predicate, allocation ledger and final
+canonical allocation validator enforce inventory. Unresolved seated overstays
+are not offered publicly until staff update/complete the visit; no departure
+forecast is invented. Operators retain their existing explicit planning tools.
+
+Creation, every physical membership, guest access, the original-operation
+request record, audit and one pending mail intent commit together. The existing
+complete-operation request registry is extended for guest create/cancel; no
+parallel idempotency ledger is added. Normalized payload comparison includes
+policy revision, requested instant/party, name/email/note and the guest-key hash.
+A changed payload is rejected. An identical successful creation can be recovered
+with the same valid guest credential even after intake is paused. Its original
+outcome does not reapply later edits. Three creations per normalized recipient
+per restaurant per 24 hours are allowed, including cancelled creations; this is
+a bounded abuse brake, not identity proof or a substitute for gateway limits.
+An index supports that exact recipient/recent-creation query.
+
+Scoped guest read/cancel use a private key hash, expiry and revocation. Receipt
+responses expose only that reservation's public operating facts, not contact,
+notes, tables or other guests. Stornierung checks the saved cancellation rule,
+current revision and pending/confirmed state, releases every table and enqueues
+one cancellation intent. Identical replay does not enqueue twice. Guest links
+remain usable when new intake is paused. Current owner Safety still applies;
+existing-booking support during account restriction must be reviewed before
+public activation. Key access expires 30 days after the planned end; that is an
+access expiry, not deletion/retention of the underlying reservation.
+
+`sealed_key` is an opaque service-only storage contract. The forthcoming trusted
+HTTP adapter must generate/use a high-entropy guest capability and authenticated
+encryption; it must never accept a purported sealed key from a browser. This
+migration does not itself implement or certify the encryption producer. Guest
+link transport, raw-key lifetime, browser recovery and secure reissue are part
+of the next integration. Correcting contact revokes the old key and suppresses
+pending/leased mail to that recipient atomically. No replacement credential is
+invented by SQL. Canonical guest fields changed by staff enqueue a replacement
+intent and suppress obsolete unsent intent; private notes, physical table moves
+and attendance alone do not generate guest mail. The Console describes online
+source and guest audit attribution honestly and explains the contact-link impact.
+Manual Console sources remain a separate, narrower creation contract.
+
+Required delivery integration: trusted same-origin bounded HTTP handlers,
+server-only service credentials, gateway/global/subject limits using the existing
+launch-cost boundary, validated human challenge, fresh challenge handling with
+frozen logical retry payloads, authenticated encryption, owner publication UI,
+accessible mobile guest checkout and fragment-based revocable self-service
+links. These must fail closed when configuration/readiness is absent. The mail
+worker must lease safely, freeze an encrypted immutable provider payload before
+its first attempt, use one idempotency key per intent, avoid retrying uncertain
+sends outside the provider's idempotency window, and distinguish accepted mail
+from verified delivery/bounce. A metadata-only reservation revision must not
+silently drop its initial confirmation. Signed provider callbacks and stale
+recipient/lease handling still need implementation and acceptance.
+
+Provider references checked for that integration: [Turnstile server-side
+validation](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)
+requires actual server verification and short-lived, single-use proof;
+[Resend idempotency keys](https://resend.com/docs/dashboard/emails/idempotency-keys)
+have a 24-hour retention window. These are constraints on the future worker,
+not evidence of an implemented or tested external delivery.
+
+Canonical PostgreSQL 17 boot through 203 migrations passed all twenty Booking
+SQL suites and actual two-connection races. Public/Console claims compete in
+both orders, repeated guest requests create one reservation/request/mail intent,
+a concurrent pause denies new intake, and credential-bound replay after pause
+still succeeds without new writes. SQL covers actual owner Safety/recovery,
+forged role claims/direct RPC denial, private RLS/grants, canonical visibility,
+ownership rebinding, access expiry/contact revocation, complete allocation,
+recipient quota, cancellation cutoff and all-member release, request-mode
+honesty, pending-mail replacement and private-note suppression. No guest email
+was sent. Final receipt:
+`fe33020ed2c92584fccf96a68a3ae9ebffa75ac91f00c7504435d50026b19ae4`.
+Release evidence: `booking-public-intake-v1.json`.
+
+Rollout requires the updated `website` source/guest-actor readers before enabling
+public intake; old cached Console builds need an explicit reload trial. Do not
+coerce a guest into an operator source or hide their reservation for compatibility.
+Production activation, scoped private-schema drift validation, the complete
+Booking privacy/retention lifecycle, verified sender/dispatch readiness and
+restaurant/physical-device acceptance remain outstanding. No public capability
+or Aleno parity claim is advertised by this foundation.

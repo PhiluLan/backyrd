@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -460,6 +460,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   const inviteBodies = new Map<string, string>();
   let savedSetup: BookingSetup | null = null;
   if (options.history) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, reservation_history: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 1 })); }
+  if (options.publicGuest) snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, source: "website", note: null }));
   if (options.lifecycle) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true };
   if (options.amendments) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
   if (options.walkIns) {
@@ -1643,7 +1644,8 @@ function historyEvent(index: number, detailed = false) {
   const state = { revision: 0, status: "confirmed", party_size: 2, starts_at: "2026-10-20T16:00:00Z", ends_at: "2026-10-20T18:00:00Z", table_id: table1, table_label: "Fenster 1", service_id: dinner, service_name: "Abendservice", arrived_at: null, seated_at: null, completed_at: null };
   return { id: `52000000-0000-4000-8000-${String(index).padStart(12, "0")}`, at: "2026-10-20T11:00:00Z", action: detailed ? "reservation_amended" : "reservation_created", actor_id: owner, actor_is_you: true, details: detailed ? { schema: "reservation_history_v1", actor_role: "owner", before: { ...state, party_size: 4, revision: 0, table_id: table2, table_label: "Garten 2" }, after: { ...state, revision: 1 }, changed_fields: ["guest_contact", "note"] } : null };
 }
-function historyPage(events: ReturnType<typeof historyEvent>[], next: string | null = null, revision = 1) {
+// Wire fixtures may include valid guest actors or deliberately malformed rows.
+function historyPage(events: readonly unknown[], next: string | null = null, revision = 1) {
   return { reservation_id: reservationId, revision, observed_at: "2026-10-20T12:00:00Z", events, next_cursor: next };
 }
 async function openHistory(page: Page) {
@@ -2253,4 +2255,34 @@ test("a server-denied seated transfer immediately removes private guest content"
   await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
   await expect(editor).toHaveCount(0);
   await expect(page.getByText("Testgast Abend", { exact: true })).toHaveCount(0);
+});
+
+
+test("a public guest booking is identified honestly in the Console and keeps guest audit attribution", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true, publicGuest: true });
+  const base = historyEvent(2, true);
+  const event = { ...base, action: "reservation_created", actor_id: null, actor_is_you: false, details: { ...base.details!, actor_role: "guest", before: null, changed_fields: [] } };
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", (route) => route.fulfill({ json: historyPage([event]) }));
+  await page.goto("/booking/console");
+  const row = page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true });
+  await expect(row).toContainText("Online-Buchung");
+  await row.click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(details).toContainText("Online-Buchung");
+  await details.getByRole("button", { name: "Änderungsverlauf anzeigen", exact: true }).click();
+  const history = page.getByRole("region", { name: "Änderungsverlauf", exact: true });
+  await expect(history).toContainText("Gast · Buchungslink");
+  await expect(history.getByRole("heading", { name: "Reservierung erstellt", exact: true })).toBeVisible();
+  await expect(history).not.toContainText("Konto nicht mehr hinterlegt");
+});
+
+test("an online booking editor explains queued updates and contact-link revocation honestly", async ({ page }) => {
+  await mockConsole(page, { seeded: true, publicGuest: true, amendments: true });
+  await page.goto("/booking/console");
+  const editor = await editGuest(page);
+  await expect(editor).toContainText("werden für den Gast vorbereitet");
+  await expect(editor).not.toContainText("Es wird keine Nachricht an den Gast versendet");
+  await editor.getByLabel("Telefon oder E-Mail (optional)", { exact: true }).fill("corrected@booking.invalid");
+  await expect(editor).toContainText("bisherige Gastlink ungültig");
+  await expect(editor).toContainText("Ausstehende Nachrichten an die bisherige Adresse werden angehalten");
 });

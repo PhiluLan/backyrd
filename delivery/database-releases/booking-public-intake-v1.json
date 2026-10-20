@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-public-intake-v1",
+  "previousEvidence": "booking-seated-table-transfers-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "b8d7f50e09c8d3269ca5bee93f3430a1d8089bbe7b1cf2e2d33d89a1f7a72149",
+    "applicationSchemaSha256": "2cff26923b9c30820f801ae42a210cbba586db85551821d4cdbe655c9ac8eb11"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020230227_booking_public_intake_v1.sql",
+      "sha256": "192ed4fe1b79f120c7f578a280e6c58cc11f184c9e3ab3e32a33da0b1bea7fc5"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_public_intake_safety_v1.sql",
+      "sha256": "ddec12b21ebdb0795a23211fa0417fefe07860851316ce7829426b9a4be54e91"
+    },
+    {
+      "path": "supabase/tests/booking_public_intake_v1.sql",
+      "sha256": "4f6132e1d28a88d440d9081c676d5f1df328bc0099ba1803188c99a0f8674eaa"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "f7b220c5d778f5d7c640120d1f10b4b2c430481c6d69f31a72898d2b39c491c2",
+    "applicationSchemaSha256": "fed9af045feb32f0209dad031ddf65ecb613b4c56e480440af8ae126f69f7914"
+  }
+}

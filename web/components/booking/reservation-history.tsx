@@ -32,9 +32,9 @@ function changes(before: BookingHistoryState | null, after: BookingHistoryState)
 }
 function Event({ event }: { event: BookingHistoryEvent }) {
   const details = event.details;
-  const role = details ? { owner: "Betreiber", host: "Service", manager: "Management", viewer: "Nur lesen" }[details.actor_role] : "Konto";
+  const role = details ? { owner: "Betreiber", host: "Service", manager: "Management", viewer: "Nur lesen", guest: "Gast" }[details.actor_role] : "Konto";
   return <li className={styles.historyEvent}><article>
-    <h4>{title(event)}</h4><p className={styles.help}><time dateTime={event.at}>{dateTime(event.at)}</time> · {event.actor_is_you ? "Du" : event.actor_id ? `${role} · ${event.actor_id.slice(0, 8).toUpperCase()}` : "Konto nicht mehr hinterlegt"}</p>
+    <h4>{title(event)}</h4><p className={styles.help}><time dateTime={event.at}>{dateTime(event.at)}</time> · {event.actor_is_you ? "Du" : event.actor_id ? `${role} · ${event.actor_id.slice(0, 8).toUpperCase()}` : details?.actor_role === "guest" ? "Gast · Buchungslink" : "Konto nicht mehr hinterlegt"}</p>
     {details ? <><dl className={styles.historyDiff}>{changes(details.before, details.after).map((row) => <div key={row.label}><dt>{row.label}</dt><dd>{row.before !== null && <><span className={styles.help}>Vorher: {row.before}</span></>}Jetzt: {row.after}</dd></div>)}</dl>
       {details.changed_fields.length > 0 && <p>{details.changed_fields.map((field) => ({ guest_name: "Name aktualisiert", guest_contact: "Kontakt aktualisiert", note: "Interne Notiz aktualisiert" })[field]).join(" · ")}</p>}
     </> : <p className={styles.help}>Für diesen älteren Eintrag sind keine Detailwerte gespeichert.</p>}

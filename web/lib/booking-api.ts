@@ -3,7 +3,8 @@ import { getOwnerSpots } from "./owner-api";
 import { supabase } from "@/lib/supabase/client";
 
 export type BookingStatus = "pending" | "confirmed" | "arrived" | "seated" | "completed" | "cancelled" | "declined" | "no_show";
-export type BookingSource = "phone" | "walk_in" | "email" | "operator";
+export type BookingSource = "phone" | "walk_in" | "email" | "operator" | "website";
+export type ConsoleBookingSource = Exclude<BookingSource, "website">;
 export type BookingArea = { id: string; name: string; is_active: boolean };
 export type BookingTable = { id: string; area_id: string; label: string; seats: number; is_active: boolean; layout?: TableLayout | null };
 export type BookingService = { id: string; name: string; weekdays: number[]; opens_at: string; closes_at: string; interval_minutes: number; is_active: boolean; ends_next_day?: boolean };
@@ -22,7 +23,7 @@ export type BookingSlot = { service_id: string; table_id: string; starts_at: str
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
 export function occupiesInventory(status: BookingStatus) { return status === "pending" || status === "confirmed" || status === "arrived" || status === "seated"; }
-const sources: BookingSource[] = ["phone", "walk_in", "email", "operator"];
+const sources: BookingSource[] = ["phone", "walk_in", "email", "operator", "website"];
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function invalid(): never { throw new Error("booking_invalid_response"); }
 function record(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) return invalid(); return value as Record<string, unknown>; }
@@ -108,7 +109,7 @@ export async function readBookingSlots(spotId: string, date: string, partySize: 
   if (error) throw error;
   return array(data, (s) => ({ service_id: uuid(s.service_id), table_id: uuid(s.table_id), starts_at: timestamp(s.starts_at), ends_at: timestamp(s.ends_at) }));
 }
-export type NewBooking = { requestId: string; slot: BookingSlot; partySize: number; name: string; contact: string; note: string; source: BookingSource; status: "pending" | "confirmed" };
+export type NewBooking = { requestId: string; slot: BookingSlot; partySize: number; name: string; contact: string; note: string; source: ConsoleBookingSource; status: "pending" | "confirmed" };
 export async function createBooking(spotId: string, booking: NewBooking) {
   if (booking.slot.table_ids) {
     const row = record(await bookingRpcPayload("booking_console_create_v2", { p_spot_id: spotId, p_request_id: booking.requestId, p_service_id: booking.slot.service_id, p_table_id: booking.slot.table_id, p_table_ids: booking.slot.table_ids, p_combination_id: booking.slot.combination_id ?? null,
@@ -362,7 +363,7 @@ export type BookingHistoryState = {
 };
 export type BookingHistoryEvent = {
   id: string; at: string; action: string; actor_id: string | null; actor_is_you: boolean;
-  details: { actor_role: BookingRole; before: BookingHistoryState | null; after: BookingHistoryState; changed_fields: ("guest_name" | "guest_contact" | "note")[] } | null;
+  details: { actor_role: BookingRole | "guest"; before: BookingHistoryState | null; after: BookingHistoryState; changed_fields: ("guest_name" | "guest_contact" | "note")[] } | null;
 };
 export type BookingHistory = { reservationId: string; revision: number; observedAt: string; events: BookingHistoryEvent[]; nextCursor: string | null };
 function parseHistoryState(value: unknown): BookingHistoryState {
@@ -382,7 +383,7 @@ export async function readBookingHistory(spotId: string, reservationId: string, 
       if (d.schema !== "reservation_history_v1" || !Array.isArray(d.changed_fields)) return invalid();
       const changed = d.changed_fields.map((f) => enumeration<"guest_name" | "guest_contact" | "note">(f, ["guest_name", "guest_contact", "note"]));
       if (new Set(changed).size !== changed.length) return invalid();
-      details = { actor_role: enumeration<BookingRole>(d.actor_role, ["owner", "manager", "host"]), before: d.before == null ? null : parseHistoryState(d.before), after: parseHistoryState(d.after), changed_fields: changed };
+      details = { actor_role: enumeration<BookingRole | "guest">(d.actor_role, ["owner", "manager", "host", "guest"]), before: d.before == null ? null : parseHistoryState(d.before), after: parseHistoryState(d.after), changed_fields: changed };
       if (details.before && details.after.revision !== details.before.revision + 1) return invalid();
     }
     const action = string(e.action);
