@@ -361,3 +361,16 @@ visit after checking it, then seat the new party. No automatic departure or
 physical-presence inference is made. The earlier lifecycle SQL test restores
 its synthetic future seating fixture before exercising actual current-day
 seating; both suites remain part of the amendment release acceptance.
+
+Amendment candidate validation on 2026-10-20: canonical 193-migration Supabase
+clean boot, baseline SQL and all three Booking suites passed, including original
+create replay after an amendment, rollback on conflicts, owner isolation,
+status/amendment revisions, seating uniqueness and prior-day recovery. The
+generated schema/ACL snapshot is recorded in the amendment release evidence.
+All 23 synthetic browser cases passed on the unchanged final source, including
+numeric deletion, cross-day context, metadata corrections after arrival,
+uncertain/slot-conflict retries, stale availability and 320px prior-visit recovery.
+Phone recovery and desktop editor viewports were visually inspected. Web lint
+has no new errors (13 existing unrelated warnings), typecheck, contract checks
+and production build passed. No actual production guest data was written or
+copied. Backend activation and restaurant/physical-device validation remain open.
