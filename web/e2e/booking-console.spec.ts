@@ -853,6 +853,7 @@ test("table plan keeps numeric drafts empty, persists geometry and preserves boo
   const node = panel.getByRole("button", { name: "Fenster 1 · 4 Plätze", exact: true });
   await node.focus(); await page.keyboard.press("ArrowRight");
   await expect(panel.getByLabel("Position X", { exact: true })).toHaveValue("105");
+  await panel.screenshot({ path: test.info().outputPath("table-plan-editor-phone.png") });
   await panel.getByRole("button", { name: "Tischplan speichern", exact: true }).click();
   await expect(panel).toHaveCount(0);
   await expect(page.getByLabel("Belegung um")).toHaveValue("18:15");

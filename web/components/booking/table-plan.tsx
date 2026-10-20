@@ -94,7 +94,8 @@ export function TablePlanEditor({ spotId, snapshot, initialArea, onBusy, onClose
     finally { saving.current = false; setBusy(false); onBusy(false); }
   }
   return <ConsolePanel title="Tischplan bearbeiten" dirty={dirty || !validFields} busy={busy} uncertain={uncertain} onClose={onClose}>
-    <form className={styles.drawerBody} onSubmit={(event) => { event.preventDefault(); void save(); }}>
+    <form className={styles.editorForm} onSubmit={(event) => { event.preventDefault(); void save(); }}>
+      <div className={styles.drawerBody}>
       <p className={styles.help}>Verschiebe Tische im Plan oder nutze die Positionsfelder. Pfeiltasten verschieben um 5, Umschalt + Pfeiltaste um 25 Einheiten. Fläche: 1000 × 700. Sitzplätze und Reservierungen bleiben unverändert.</p>
       {error && <p role="alert" className={styles.error}>{error} Bei einem Versionskonflikt schliesse den Editor, lade die Übersicht neu und öffne den Plan erneut.</p>}
       {uncertain && <p role="alert">Der Speicherstatus ist unklar. Du kannst dieselbe Anfrage erneut senden oder den Editor verlassen und den gespeicherten Plan prüfen.</p>}
@@ -114,7 +115,7 @@ export function TablePlanEditor({ spotId, snapshot, initialArea, onBusy, onClose
         {!validFields && <p role="alert">Gib ganze Zahlen ein. Breite und Höhe: 40–300. Der Tisch muss vollständig innerhalb der Planfläche liegen.</p>}
         {overlap && <p role="status">Tische überlappen sich. Prüfe, ob diese Anordnung deinem Raum entspricht.</p>}
       </fieldset>
-      <button className={styles.primary} type="submit" disabled={busy || !dirty || !validFields}>{busy ? "Wird gespeichert …" : uncertain ? "Identisches Speichern wiederholen" : "Tischplan speichern"}</button>
+      </div><footer className={styles.editorFooter}><span>Nur Anordnung · keine Buchungsänderung</span><button className={styles.primary} type="submit" disabled={busy || !dirty || !validFields}>{busy ? "Wird gespeichert …" : uncertain ? "Identisches Speichern wiederholen" : "Tischplan speichern"}</button></footer>
     </form>
   </ConsolePanel>;
 }
