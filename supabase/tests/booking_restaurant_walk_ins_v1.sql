@@ -2,6 +2,7 @@
 -- backyrd:authorization-negative
 \set ON_ERROR_STOP on
 begin;
+set local timezone='UTC';
 
 create function pg_temp.booking_id(label text) returns uuid language sql immutable as $$ select md5('booking-walk-in-test:'||label)::uuid $$;
 create function pg_temp.booking_assert(ok boolean, message text) returns void language plpgsql as $$
@@ -100,7 +101,8 @@ begin
  perform pg_temp.booking_assert(again=result and (select guest_name='Known synthetic guest' and revision=1 from public.booking_reservations where id=r.id),'walk-in replay undid guest correction');
  -- Planned time can end while the visit is still open. It stays unavailable
  -- for another walk-in until explicitly completed by an operator.
- update pg_temp.booking_admission_clock set value=(value at time zone 'Europe/Zurich')::date+time '14:00' at time zone 'Europe/Zurich';
+ update pg_temp.booking_admission_clock set value=(((value at time zone 'Europe/Zurich')::date)+time '14:00') at time zone 'Europe/Zurich';
+ perform pg_temp.booking_assert((select (value at time zone 'Europe/Zurich')::time=time '14:00' from pg_temp.booking_admission_clock),'test clock must advance to Zurich time independent of session timezone');
  preview:=public.booking_console_walk_in_slots_v1(s,2,60);
  perform pg_temp.booking_assert(jsonb_array_length(preview->'slots')=1 and not exists(select 1 from jsonb_array_elements(preview->'slots') j where j->>'table_id'=r.table_id::text),'overdue seated visit was treated as physically free');
  perform public.booking_console_set_status_v1(s,r.id,'seated','completed');
