@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { getOwnerSpots, type OwnerSpotListItem } from "@/lib/owner-api";
-import { bookingError, occupiesInventory as active, readBookingConsole, restaurantDate, restaurantTime, saveBookingSetup, type BookingSetup, type BookingSnapshot } from "@/lib/booking-api";
+import { bookingError, bookingReadDenied, occupiesInventory as active, readBookingConsole, restaurantDate, restaurantTime, saveBookingSetup, type BookingSetup, type BookingSnapshot } from "@/lib/booking-api";
 import { SetupForm } from "./setup-form";
 import { NewReservation, type CreatedBooking } from "./new-reservation";
 import { ReservationDetails, statusLabels } from "./reservation-details";
@@ -29,8 +29,10 @@ export function BookingConsole() {
   const [spots, setSpots] = useState<OwnerSpotListItem[]>([]);
   const [spotId, setSpotId] = useState("");
   const [date, setDate] = useState(restaurantDate);
-  const [snapshotState, setSnapshotState] = useState<{ spotId: string; date: string; data: BookingSnapshot } | null>(null);
+  const [snapshotState, setSnapshotState] = useState<{ spotId: string; date: string; data: BookingSnapshot; receivedAt: number } | null>(null);
   const snapshot = snapshotState?.spotId === spotId && snapshotState.date === date ? snapshotState.data : null;
+  const [online, setOnline] = useState(true);
+  const [syncFailed, setSyncFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -54,12 +56,13 @@ export function BookingConsole() {
   const inFlight = useRef(false);
   const createdNotice = useRef<string | null>(null);
   const followOperatingDate = useRef(false);
+  const reconnectPending = useRef(false);
 
   useEffect(() => {
     let mounted = true;
     const request = ++entryGeneration.current;
     function clearPrivateState() {
-      generation.current += 1; inFlight.current = false; setSpots([]); setSpotId(""); setSnapshotState(null); setEditor(null); setSelectedId(null); setWalkInOpen(false); setPlanOpen(false); setUncertainWrite(false); followOperatingDate.current = false;
+      generation.current += 1; inFlight.current = false; setSpots([]); setSpotId(""); setSnapshotState(null); setEditor(null); setSelectedId(null); setWalkInOpen(false); setPlanOpen(false); setUncertainWrite(false); setSyncFailed(false); followOperatingDate.current = false;
       setQuery(""); setService(""); setArea(""); setStatus("all"); setTime(""); setError(null); setNotice(null); setDirty(false); setBusy(false); setLoading(false); createdNotice.current = null;
     }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -96,14 +99,14 @@ export function BookingConsole() {
       if (request !== generation.current) return;
       if (followOperatingDate.current && data.operating_date && date !== data.operating_date) { followOperatingDate.current = false; setDate(data.operating_date); return; }
       followOperatingDate.current = false;
-      setSnapshotState({ spotId, date, data });
+      setSnapshotState({ spotId, date, data, receivedAt: Date.now() }); setSyncFailed(false); reconnectPending.current = false;
       if (!data.settings) setView("setup");
     } catch (error) { if (request === generation.current) { setSnapshotState(null); setError(bookingError(error)); } }
     finally { if (request === generation.current) setLoading(false); }
   }, [spotId, date]);
 
   useEffect(() => {
-    setSnapshotState(null); setDirty(false); setNotice(createdNotice.current); createdNotice.current = null;
+    setSnapshotState(null); setSyncFailed(false); setDirty(false); setNotice(createdNotice.current); createdNotice.current = null;
     setSelectedId(null); setEditor(null); setWalkInOpen(false); setPlanOpen(false); void reload();
   }, [reload]);
   useEffect(() => {
@@ -111,6 +114,39 @@ export function BookingConsole() {
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
   }, [dirty]);
+
+  useEffect(() => {
+    const changed = () => { reconnectPending.current = true; setSyncFailed(true); setOnline(navigator.onLine); };
+    changed(); window.addEventListener("online", changed); window.addEventListener("offline", changed);
+    return () => { window.removeEventListener("online", changed); window.removeEventListener("offline", changed); };
+  }, []);
+  const receivedAt = snapshotState?.spotId === spotId && snapshotState.date === date ? snapshotState.receivedAt : null;
+  const canRefresh = entry === "ready" && !!receivedAt && online && !loading && !busy && !dirty && view !== "setup" && !editor && !walkInOpen && !planOpen && !selectedId && !error;
+  useEffect(() => {
+    if (!canRefresh) return;
+    let active = true;
+    let controller: AbortController | null = null;
+    const actor = actorId.current, entry = entryGeneration.current, readGeneration = generation.current;
+    async function refresh() {
+      if (!active || controller || document.visibilityState !== "visible" || !navigator.onLine) return;
+      controller = new AbortController();
+      try {
+        const data = await readBookingConsole(spotId, date, controller.signal);
+        if (!active || actor !== actorId.current || entry !== entryGeneration.current || readGeneration !== generation.current) return;
+        setSnapshotState({ spotId, date, data, receivedAt: Date.now() }); setSyncFailed(false); reconnectPending.current = false;
+      } catch (error) {
+        if (!active || controller?.signal.aborted || actor !== actorId.current || entry !== entryGeneration.current || readGeneration !== generation.current) return;
+        if (bookingReadDenied(error)) { setSnapshotState(null); setError("Der Betreiberzugriff ist nicht mehr verfügbar. Prüfe deinen Kontostatus oder melde dich erneut an."); }
+        else setSyncFailed(true);
+      } finally { controller = null; }
+    }
+    const resume = () => { if (document.visibilityState === "hidden") { controller?.abort(); return; } void refresh(); };
+    const interval = window.setInterval(() => void refresh(), 30_000);
+    // Reopening a long-running editor/setup refreshes the canonical read model.
+    if (reconnectPending.current || (receivedAt && Date.now() - receivedAt >= 30_000)) void refresh();
+    window.addEventListener("focus", resume); window.addEventListener("online", resume); document.addEventListener("visibilitychange", resume);
+    return () => { active = false; controller?.abort(); window.clearInterval(interval); window.removeEventListener("focus", resume); window.removeEventListener("online", resume); document.removeEventListener("visibilitychange", resume); };
+  }, [canRefresh, receivedAt, spotId, date]);
 
   async function save(setup: BookingSetup) {
     if (inFlight.current || !snapshot) return;
@@ -144,6 +180,7 @@ export function BookingConsole() {
   // launching control as a valid focus-return target.
   const waitingForSnapshot = entry === "ready" && !!spotId && !snapshot && !error;
   const navigationDisabled = busy || loading || waitingForSnapshot || dirty;
+  const writeUnavailable = !online || syncFailed;
   const readyToBook = !!snapshot?.settings && snapshot.tables.some((table) => table.is_active && snapshot.areas.some((area) => area.id === table.area_id && area.is_active)) && snapshot.services.some((service) => service.is_active);
   const canCreate = date >= restaurantDate() && date <= shiftDate(restaurantDate(), 365);
   function clearFilters() { setService(""); setArea(""); setStatus("all"); setQuery(""); }
@@ -171,6 +208,7 @@ export function BookingConsole() {
               <div className={styles.heading}><div><p className={styles.kicker}>DEIN SERVICE. DEIN ÜBERBLICK.</p><h1>{spots.find((spot) => spot.spot_id === spotId)?.name ?? "Booking Console"}</h1></div>{spots.length > 1 && <label>Restaurant<select value={spotId} disabled={navigationDisabled} onChange={(event) => { clearFilters(); setSpotId(event.target.value); }}>{spots.map((spot) => <option value={spot.spot_id} key={spot.spot_id}>{spot.name}{spot.city ? " · " + spot.city : ""}</option>)}</select></label>}<button type="button" className={styles.secondary} aria-label="Aktualisieren" title="Aktualisieren" disabled={navigationDisabled} onClick={() => { setNotice(null); void reload(); }}>↻</button></div>
               <nav className={styles.tabs} aria-label="Booking Bereiche">{([["book", "Reservierungsbuch"], ["tables", "Tischübersicht"], ["setup", "Einrichtung"]] as const).map(([key, label]) => <button key={key} type="button" aria-current={view === key ? "page" : undefined} disabled={navigationDisabled} onClick={() => setView(key)}>{label}{key === "setup" && dirty ? " · ungespeichert" : ""}</button>)}</nav>
               {error && <div className={styles.error} role="alert">{error}<button className={styles.secondary} disabled={busy || dirty} onClick={() => void reload()}>Neu laden</button></div>}
+              {snapshot && <section className={styles.help} aria-label="Datenstand"><p>{receivedAt ? "Zuletzt geladen: " + new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(receivedAt)) : ""} · automatische Prüfung alle 30 Sekunden bei geöffneter Übersicht.</p>{!online ? <p role="status">Offline · Du siehst den zuletzt geladenen Stand. Neue Erfassungen sind bis zur Aktualisierung gesperrt.</p> : syncFailed ? <p role="status">Aktualisierung fehlgeschlagen · Der angezeigte Stand kann veraltet sein. Lade die Übersicht neu, bevor du erneut erfasst.</p> : !canRefresh && <p>Automatische Aktualisierung während Einrichtung oder geöffnetem Dialog pausiert.</p>}</section>}
               {notice && <p className={styles.success} role="status">{notice}</p>}
               {uncertainWrite && <section className={styles.error} role="alert"><p>Eine Buchungsanfrage oder Änderung kann bereits gespeichert sein. Prüfe die betroffenen Tage im Buchungsbuch, bevor du erneut erfasst oder änderst.</p><div className={styles.actions}><button className={styles.secondary} disabled={navigationDisabled} onClick={() => void reload()}>Stand aktualisieren</button><button className={styles.secondary} onClick={() => setUncertainWrite(false)}>Stand geprüft</button></div></section>}
               {(loading || waitingForSnapshot) && <p role="status" className={styles.help}>Daten werden geladen …</p>}
@@ -180,8 +218,8 @@ export function BookingConsole() {
                   <section className={styles.serviceBar} aria-label="Tageskontext">
                     <div className={styles.dateNavigation}><button className={styles.secondary} aria-label="Vorheriger Tag" disabled={navigationDisabled} onClick={() => setDate(shiftDate(date, -1))}>←</button><label>Datum · Europe/Zurich<input type="date" required value={date} disabled={navigationDisabled} onChange={(event) => { if (event.target.value) setDate(event.target.value); }} /></label><button className={styles.secondary} aria-label="Nächster Tag" disabled={navigationDisabled} onClick={() => setDate(shiftDate(date, 1))}>→</button>{date !== restaurantDate() && <button className={styles.secondary} disabled={navigationDisabled} onClick={() => setDate(restaurantDate())}>Heute</button>}</div>
                     <div className={styles.contextFilters}><label>Service<select value={validService} disabled={navigationDisabled} onChange={(event) => setService(event.target.value)}><option value="">Alle Services</option>{snapshot.services.map((service) => <option key={service.id} value={service.id}>{service.name}{!service.is_active ? " (inaktiv)" : ""}</option>)}</select></label><label>Bereich<select value={validArea} disabled={navigationDisabled} onChange={(event) => setArea(event.target.value)}><option value="">Alle Bereiche</option>{snapshot.areas.map((area) => <option key={area.id} value={area.id}>{area.name}{!area.is_active ? " (inaktiv)" : ""}</option>)}</select></label></div>
-                    {readyToBook ? <button className={styles.primary} disabled={navigationDisabled || !canCreate} title={!canCreate ? "Neue Buchungen sind für heute und die nächsten 365 Tage möglich." : undefined} onClick={() => setEditor({ tableId: "" })}>+ Neue Reservierung</button> : <button className={styles.primary} disabled={navigationDisabled} onClick={() => setView("setup")}>Einrichtung abschliessen</button>}
-                    {readyToBook && snapshot.capabilities?.walk_ins && <button className={styles.secondary} disabled={navigationDisabled} onClick={() => setWalkInOpen(true)}>+ Walk-in für jetzt</button>}
+                    {readyToBook ? <button className={styles.primary} disabled={navigationDisabled || writeUnavailable || !canCreate} title={!canCreate ? "Neue Buchungen sind für heute und die nächsten 365 Tage möglich." : undefined} onClick={() => setEditor({ tableId: "" })}>+ Neue Reservierung</button> : <button className={styles.primary} disabled={navigationDisabled} onClick={() => setView("setup")}>Einrichtung abschliessen</button>}
+                    {readyToBook && snapshot.capabilities?.walk_ins && <button className={styles.secondary} disabled={navigationDisabled || writeUnavailable} onClick={() => setWalkInOpen(true)}>+ Walk-in für jetzt</button>}
                   </section>
                   {unclosed.length > 0 && <section className={styles.unclosed} aria-label="Offene Besuche früherer Tage"><h2>Frühere Besuche prüfen</h2><p>Diese Besuche sind noch als «Am Tisch» erfasst. Prüfe, ob die Gäste noch da sind, und beende abgeschlossene Besuche. Ganzes Restaurant · zusätzlich zum gewählten Tag.</p><div className={styles.actions}>{unclosed.map((row) => <button className={styles.secondary} key={row.id} onClick={() => setSelectedId(row.id)}>{row.guest_name} · {snapshot.tables.find((table) => table.id === row.table_id)?.label ?? "Tisch"} · {restaurantDate(new Date(row.starts_at))}</button>)}</div></section>}
                   <div className={styles.workspaceSummary}><div className={styles.workspaceHeading}><div><p className={styles.kicker}>{displayDate(date)}</p><h2>{view === "tables" ? "Deine Tische" : "Dein Reservierungsbuch"}</h2></div><p className={styles.help}>{filtered ? "Auswahl" : "Ganzer Tag"} · gespeicherte Buchungen</p></div>
@@ -202,7 +240,7 @@ export function BookingConsole() {
                     {snapshot.areas.filter((area) => !validArea || area.id === validArea).map((area) => <section className={styles.areaSection} key={area.id}><h3>{area.name}{!area.is_active ? " · nicht buchbar" : ""}</h3><div className={styles.tableGrid}>{snapshot.tables.filter((table) => table.area_id === area.id).map((table) => {
                       const reservations = context.filter((row) => row.table_id === table.id && active(row.status) && (!time || (restaurantDate(new Date(row.starts_at)) + "T" + restaurantTime(row.starts_at) <= date + "T" + time && restaurantDate(new Date(row.ends_at)) + "T" + restaurantTime(row.ends_at) > date + "T" + time)));
                       const seated = currentSeated.find((row) => row.table_id === table.id);
-                      return <article className={styles.tableCard} key={table.id} data-occupied={!!reservations.length || !!seated}><div className={styles.panelHeading}><h4>{table.label}</h4><span>{table.seats} Plätze</span></div><p>{!table.is_active || !area.is_active ? "Nicht buchbar" : reservations.length ? reservations.length + (reservations.length === 1 ? " Reservierung" : " Reservierungen") : seated ? "Servicestatus bitte prüfen" : "Keine Reservierung"}</p>{seated && <button className={styles.tableBooking} aria-label={"Laufenden Besuch von " + seated.guest_name + " öffnen"} onClick={() => setSelectedId(seated.id)}><strong>Am Tisch · {seated.guest_name}</strong><span>{seated.party_size} Personen · letzter gespeicherter Servicestatus</span></button>}{reservations.map((row) => <button key={row.id} className={styles.tableBooking} onClick={() => setSelectedId(row.id)}><strong>{restaurantTime(row.starts_at)} · {row.guest_name}</strong><span>{row.party_size} Personen · {statusLabels[row.status]}</span></button>)}<button className={styles.secondary} disabled={navigationDisabled || !canCreate || !readyToBook || !table.is_active || !area.is_active} onClick={() => setEditor({ tableId: table.id })}>Zeit für {table.label} prüfen</button></article>;
+                      return <article className={styles.tableCard} key={table.id} data-occupied={!!reservations.length || !!seated}><div className={styles.panelHeading}><h4>{table.label}</h4><span>{table.seats} Plätze</span></div><p>{!table.is_active || !area.is_active ? "Nicht buchbar" : reservations.length ? reservations.length + (reservations.length === 1 ? " Reservierung" : " Reservierungen") : seated ? "Servicestatus bitte prüfen" : "Keine Reservierung"}</p>{seated && <button className={styles.tableBooking} aria-label={"Laufenden Besuch von " + seated.guest_name + " öffnen"} onClick={() => setSelectedId(seated.id)}><strong>Am Tisch · {seated.guest_name}</strong><span>{seated.party_size} Personen · letzter gespeicherter Servicestatus</span></button>}{reservations.map((row) => <button key={row.id} className={styles.tableBooking} onClick={() => setSelectedId(row.id)}><strong>{restaurantTime(row.starts_at)} · {row.guest_name}</strong><span>{row.party_size} Personen · {statusLabels[row.status]}</span></button>)}<button className={styles.secondary} disabled={navigationDisabled || writeUnavailable || !canCreate || !readyToBook || !table.is_active || !area.is_active} onClick={() => setEditor({ tableId: table.id })}>Zeit für {table.label} prüfen</button></article>;
                     })}</div></section>)}
                     {!snapshot.areas.length && <div className={styles.empty}><h3>Noch keine Bereiche.</h3><p>Lege Bereiche und Tische in der Einrichtung an.</p></div>}
                   </section>}

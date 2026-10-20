@@ -508,3 +508,43 @@ use a longer synthetic token lifetime so token refresh is not confused with
 reservation replay. Web typecheck, 42 contracts, lint (existing warnings only)
 and the production build passed. Backend execution evidence is unchanged from
 the preceding table-plan candidate; this increment adds no migration.
+
+## Console freshness and concurrent sessions
+
+The visible, idle reservation/table workspace revalidates through the existing
+owner/safety-protected `booking_console_read_v1` every 30 seconds and on focus or
+visibility return. It does not subscribe directly to reservation tables or put
+guest payloads in browser storage. The displayed timestamp is a successful read
+time, not a claim of an instantaneous live feed. Setup, open dialogs, dirty
+input, foreground reads and writes pause background reads. In-flight responses
+are aborted and ignored when that context changes; foreground reload generation
+and actor/session guards prevent late reads from crossing contexts. A long-open
+editor/setup is revalidated on return to the workspace.
+
+Offline state and failed background reads retain the last successful snapshot
+with an explicit stale/offline message. New reservation/walk-in launches are
+blocked until a successful canonical read; reconnect forces revalidation even
+if the last read was recent. Existing open editors are not an offline write
+queue: any attempted write still uses the existing server RPC and uncertain
+outcome flow. This is not full offline operation. Ownership/authentication denial
+and the actual canonical `P0001` Safety rejection messages clear the snapshot
+instead of retaining a degraded guest list. An open dialog pauses polling, so
+this is detection on the next allowed read, not instant remote revocation.
+
+Read requests have an explicit 15-second deadline and abort the underlying
+PostgREST fetch. The deadline also bounds the UI wait if the SDK is still waiting
+for auth renewal before starting fetch. The polling loop allows one read at a
+time and retries at the normal interval; it does not run while hidden. All write
+eligibility, table occupancy, revisions and replay rules remain server-enforced.
+An authenticated push invalidation mechanism with appropriate restaurant/safety
+access control, staff roles and a real restaurant multi-device trial remain
+separate operating acceptance gaps.
+
+Freshness candidate validation: all 42 synthetic Booking browser journeys passed,
+including shared-server two-console changes, paused drafts, a read started before
+opening an editor, offline/reconnect failure and recovery, ownership denial,
+canonical Safety error shape and a held request timing out/recovering without
+an overlapping poll. Web typecheck, 42 contracts, lint (13 existing warnings)
+and the production build passed. No backend schema or grant was changed, so the
+preceding canonical 195-migration database evidence remains the backend basis;
+these browser cases prove client behavior, not a real multi-device pilot.

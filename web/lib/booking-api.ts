@@ -61,11 +61,26 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   };
 }
 
-export async function readBookingConsole(spotId: string, date: string): Promise<BookingSnapshot> {
-  const { data, error } = await supabase.rpc("booking_console_read_v1", { p_spot_id: spotId, p_date: date });
-  if (error) throw error;
-  return parseBookingSnapshot(data);
+export async function readBookingConsole(spotId: string, date: string, signal?: AbortSignal): Promise<BookingSnapshot> {
+  const controller = new AbortController();
+  let abort = () => {};
+  const cancelled = new Promise<never>((_resolve, reject) => { abort = () => { controller.abort(); reject(new Error("Booking-Leseanfrage abgebrochen oder Zeitgrenze erreicht.")); }; });
+  if (signal?.aborted) abort(); else signal?.addEventListener("abort", abort, { once: true });
+  const timeout = setTimeout(abort, 15_000);
+  try {
+    // The explicit deadline also bounds an SDK auth refresh before fetch starts.
+    const { data, error, status } = await Promise.race([supabase.rpc("booking_console_read_v1", { p_spot_id: spotId, p_date: date }).abortSignal(controller.signal), cancelled]);
+    if (error) throw { ...error, status };
+    return parseBookingSnapshot(data);
+  } finally { clearTimeout(timeout); signal?.removeEventListener("abort", abort); }
 }
+export function bookingReadDenied(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const row = error as Record<string, unknown>;
+  return row.status === 401 || row.status === 403 || ["42501", "PGRST301", "PGRST302"].includes(typeof row.code === "string" ? row.code : "")
+    || (row.code === "P0001" && ["not_authenticated", "SAFETY_ACCOUNT_RESTRICTED", "SAFETY_WRITE_RESTRICTED", "SAFETY_POSTING_RESTRICTED", "SAFETY_COMMENTING_RESTRICTED", "SAFETY_MESSAGING_RESTRICTED", "SAFETY_OWNER_EDIT_RESTRICTED", "SAFETY_ACTION_RESTRICTED"].includes(typeof row.message === "string" ? row.message : ""));
+}
+
 export async function saveBookingSetup(spotId: string, revision: number, setup: BookingSetup) {
   const { data, error } = await supabase.rpc("booking_console_save_setup_v1", { p_spot_id: spotId, p_revision: revision, p_setup: setup });
   if (error) throw error;
