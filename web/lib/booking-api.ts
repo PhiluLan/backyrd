@@ -15,8 +15,9 @@ export type BookingReservation = {
   revision?: number;
   is_walk_in?: boolean;
   table_ids?: string[]; combination_id?: string | null;
+  allocation_starts_at?: string | null; allocation_ends_at?: string | null;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean; special_hours?: boolean; table_combinations?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[]; special_hours?: BookingSpecialHours[]; combinations?: BookingCombination[]; archived_combination_count?: number };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean; special_hours?: boolean; table_combinations?: boolean; seated_transfers?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[]; special_hours?: BookingSpecialHours[]; combinations?: BookingCombination[]; archived_combination_count?: number };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string; table_ids?: string[]; combination_id?: string | null; allocation_label?: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
@@ -43,15 +44,16 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const amendments = capabilities?.reservation_amendments == null ? false : boolean(capabilities.reservation_amendments);
   const seating = capabilities?.current_seating == null ? false : boolean(capabilities.current_seating);
   const team = capabilities?.team_access == null ? false : boolean(capabilities.team_access);
+  const transfers = capabilities?.seated_transfers == null ? false : boolean(capabilities.seated_transfers);
   const combinations = capabilities?.table_combinations == null ? false : boolean(capabilities.table_combinations);
   const specialHours = capabilities?.special_hours == null ? false : boolean(capabilities.special_hours);
   const planning = capabilities?.week_planning == null ? false : boolean(capabilities.week_planning);
   const layouts = capabilities?.table_layouts == null ? false : boolean(capabilities.table_layouts);
   const layout = (value: unknown) => { if (value === null || (value === undefined && !layouts)) return null; if (!validTableLayout(value)) return invalid(); return value; };
   const walkIns = capabilities?.walk_ins == null ? false : boolean(capabilities.walk_ins);
-  const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in), ...(combinations ? { table_ids: parseTableIds(r.table_ids, uuid(r.table_id)), combination_id: r.combination_id === null ? null : uuid(r.combination_id) } : {}) });
+  const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in), ...(transfers ? parseTransferWindow(r) : {}), ...(combinations ? { table_ids: parseTableIds(r.table_ids, uuid(r.table_id)), combination_id: r.combination_id === null ? null : uuid(r.combination_id) } : {}) });
   return {
-    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history), special_hours: specialHours, table_combinations: combinations },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history), special_hours: specialHours, table_combinations: combinations, seated_transfers: transfers },
     access: team ? parseBookingAccess(row.access) : ownerBookingAccess,
     operating_date: row.operating_date == null && !seating ? undefined : calendarDate(row.operating_date),
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
@@ -72,7 +74,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   };
 }
 
-async function bookingRpcPayload(method: "booking_console_slots_v2" | "booking_console_create_v2" | "booking_console_amend_v2" | "booking_console_walk_in_v2" | "booking_console_walk_in_slots_v2" | "booking_console_save_combination_v1" | "booking_console_save_hours_v1" | "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+async function bookingRpcPayload(method: "booking_console_transfer_choices_v1" | "booking_console_transfer_v1" | "booking_console_slots_v2" | "booking_console_create_v2" | "booking_console_amend_v2" | "booking_console_walk_in_v2" | "booking_console_walk_in_slots_v2" | "booking_console_save_combination_v1" | "booking_console_save_hours_v1" | "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
   const controller = new AbortController();
   let abort = () => {};
   const cancelled = new Promise<never>((_resolve, reject) => { abort = () => { controller.abort(); reject(new Error("Booking-Anfrage abgebrochen oder Zeitgrenze erreicht.")); }; });
@@ -191,6 +193,8 @@ export function bookingWriteUncertain(error: unknown): boolean {
 }
 
 const errorCopy: Record<string, string> = {
+  invalid_booking_transfer_duration: "Wähle eine verbleibende Dauer zwischen 15 und 480 Minuten.",
+  invalid_booking_transfer_request: "Prüfe die gewählten Tische und die verbleibende Dauer.",
   invalid_booking_combination: "Wähle zwei bis vier aktive Tische im selben Bereich und eine passende Gruppengrösse.",
   booking_combination_limit: "Es sind bereits 100 Kombinationen aktiv. Hebe eine nicht mehr benötigte Kombination auf.",
   booking_combination_configuration_invalid: "Passe zuerst die betroffenen aktiven Tischkombinationen an oder hebe sie auf.",
@@ -258,12 +262,12 @@ export function restaurantTime(value: string, reference?: string) {
   const days = reference ? Math.round((Date.parse(restaurantDate(new Date(value)) + "T12:00:00Z") - Date.parse(restaurantDate(new Date(reference)) + "T12:00:00Z")) / 86_400_000) : 0;
   return label + offset + (days > 0 ? ` (+${days} ${days === 1 ? "Tag" : "Tage"})` : "");
 }
-export function bookingAtLocalTime(booking: Pick<BookingReservation, "starts_at" | "ends_at">, date: string, time: string) {
+export function bookingAtLocalTime(booking: Pick<BookingReservation, "starts_at" | "ends_at" | "allocation_starts_at" | "allocation_ends_at">, date: string, time: string) {
   if (!time) return true;
   const base = Date.parse(date + "T" + time + ":00Z");
   if (!Number.isFinite(base)) return false;
   // Both modern Zurich offsets are verified by a roundtrip; spring gaps match neither.
-  return [base - 3_600_000, base - 7_200_000].some((instant) => restaurantDate(new Date(instant)) === date && restaurantTime(new Date(instant).toISOString()) === time && instant >= Date.parse(booking.starts_at) && instant < Date.parse(booking.ends_at));
+  return [base - 3_600_000, base - 7_200_000].some((instant) => restaurantDate(new Date(instant)) === date && restaurantTime(new Date(instant).toISOString()) === time && instant >= Date.parse(booking.allocation_starts_at ?? booking.starts_at) && instant < Date.parse(booking.allocation_ends_at ?? booking.ends_at));
 }
 
 export async function saveBookingLayout(spotId: string, revision: number, entries: { table_id: string; area_id: string; layout: TableLayout | null }[]) {
@@ -353,7 +357,7 @@ export async function inspectBookingInvite(token: string, accept: boolean): Prom
 
 export type BookingHistoryState = {
   revision: number; status: BookingStatus; party_size: number; starts_at: string; ends_at: string;
-  table_id: string; table_label: string; table_ids?: string[]; table_labels?: string[]; service_id: string; service_name: string;
+  table_id: string; table_label: string; table_ids?: string[]; table_labels?: string[]; allocation_starts_at?: string | null; allocation_ends_at?: string | null; service_id: string; service_name: string;
   arrived_at: string | null; seated_at: string | null; completed_at: string | null;
 };
 export type BookingHistoryEvent = {
@@ -365,6 +369,7 @@ function parseHistoryState(value: unknown): BookingHistoryState {
   const s = record(value);
   const result = { revision: integer(s.revision), status: enumeration(s.status, statuses), party_size: integer(s.party_size), starts_at: timestamp(s.starts_at), ends_at: timestamp(s.ends_at), table_id: uuid(s.table_id), table_label: string(s.table_label), service_id: uuid(s.service_id), service_name: string(s.service_name), arrived_at: s.arrived_at == null ? null : timestamp(s.arrived_at), seated_at: s.seated_at == null ? null : timestamp(s.seated_at), completed_at: s.completed_at == null ? null : timestamp(s.completed_at) };
   if (result.revision < 0 || result.party_size < 1 || result.party_size > 30 || Date.parse(result.ends_at) <= Date.parse(result.starts_at) || !result.table_label.trim() || [...result.table_label].length > 40 || !result.service_name.trim() || [...result.service_name].length > 80) return invalid();
+  if (s.allocation_starts_at !== undefined || s.allocation_ends_at !== undefined) Object.assign(result, parseTransferWindow(s));
   if (s.table_ids != null) { const ids = parseTableIds(s.table_ids, result.table_id); if (!Array.isArray(s.table_labels) || s.table_labels.length !== ids.length) return invalid(); return { ...result, table_ids: ids, table_labels: s.table_labels.map(string) }; }
   return result;
 }
@@ -424,9 +429,40 @@ function parseAllocationSlot(row: Record<string, unknown>): BookingSlot {
   if (Date.parse(end) <= Date.parse(start) || (combination === null ? ids.length !== 1 : ids.length < 2)) return invalid();
   return { table_id: primary, table_ids: ids, combination_id: combination, service_id: uuid(row.service_id), starts_at: start, ends_at: end, ...(row.allocation_label == null ? {} : { allocation_label: string(row.allocation_label) }) };
 }
-function sameAllocation(a: BookingSlot, b: BookingSlot) { return a.service_id === b.service_id && a.table_id === b.table_id && (a.combination_id ?? null) === (b.combination_id ?? null) && JSON.stringify([...(a.table_ids ?? [a.table_id])].sort()) === JSON.stringify([...(b.table_ids ?? [b.table_id])].sort()); }
+type AllocationIdentity = Pick<BookingSlot, "table_id" | "table_ids" | "combination_id">;
+function sameTableAllocation(a: AllocationIdentity, b: AllocationIdentity) { return a.table_id === b.table_id && (a.combination_id ?? null) === (b.combination_id ?? null) && JSON.stringify([...(a.table_ids ?? [a.table_id])].sort()) === JSON.stringify([...(b.table_ids ?? [b.table_id])].sort()); }
+function sameAllocation(a: BookingSlot, b: BookingSlot) { return a.service_id === b.service_id && sameTableAllocation(a, b); }
 export function bookingTableIds(item: { table_id: string; table_ids?: string[] }) { return item.table_ids ?? [item.table_id]; }
 export function bookingAllocationLabel(item: { table_id: string; table_ids?: string[]; allocation_label?: string }, snapshot: Pick<BookingSnapshot, "tables">) { return item.allocation_label ?? bookingTableIds(item).map((id) => snapshot.tables.find((t) => t.id === id)?.label ?? "Tisch").join(" + "); }
 export async function saveBookingCombination(spotId: string, revision: number, combination: Omit<BookingCombination, "is_available">) {
   return count(await bookingRpcPayload("booking_console_save_combination_v1", { p_spot_id: spotId, p_revision: revision, p_id: combination.id, p_name: combination.name, p_primary_table_id: combination.primary_table_id, p_table_ids: combination.table_ids, p_max_party_size: combination.max_party_size, p_active: combination.is_active }));
+}
+
+function parseTransferWindow(row: Record<string, unknown>): { allocation_starts_at: string | null; allocation_ends_at: string | null } {
+  const start = row.allocation_starts_at === null ? null : timestamp(row.allocation_starts_at);
+  const end = row.allocation_ends_at === null ? null : timestamp(row.allocation_ends_at);
+  if ((start === null) !== (end === null) || (start !== null && end !== null && Date.parse(end) <= Date.parse(start))) return invalid();
+  return { allocation_starts_at: start, allocation_ends_at: end };
+}
+export type TransferChoice = { table_id: string; table_ids: string[]; combination_id: string | null; allocation_label: string; area_id: string; seats: number };
+export type TransferPreview = { reservation_id: string; revision: number; observed_at: string; ends_at: string; choices: TransferChoice[] };
+export async function readTransferChoices(spotId: string, reservationId: string, duration: number): Promise<TransferPreview> {
+  const row = record(await bookingRpcPayload("booking_console_transfer_choices_v1", { p_spot_id: spotId, p_reservation_id: reservationId, p_duration_minutes: duration }));
+  const preview = { reservation_id: uuid(row.reservation_id), revision: count(row.revision), observed_at: timestamp(row.observed_at), ends_at: timestamp(row.ends_at), choices: array(row.choices, (r) => {
+    const primary = uuid(r.table_id), ids = parseTableIds(r.table_ids, primary), group = r.combination_id === null ? null : uuid(r.combination_id), seats = integer(r.seats);
+    if ((group === null ? ids.length !== 1 : ids.length < 2) || seats < 1 || seats > 30) return invalid();
+    return { table_id: primary, table_ids: ids, combination_id: group, allocation_label: string(r.allocation_label), area_id: uuid(r.area_id), seats };
+  }) };
+  if (preview.reservation_id !== reservationId || Date.parse(preview.ends_at) - Date.parse(preview.observed_at) !== duration * 60_000) return invalid();
+  return preview;
+}
+export type BookingTransfer = { requestId: string; reservationId: string; revision: number; duration: number; choice: TransferChoice };
+export async function transferBooking(spotId: string, transfer: BookingTransfer) {
+  const { choice } = transfer;
+  const row = record(await bookingRpcPayload("booking_console_transfer_v1", { p_spot_id: spotId, p_reservation_id: transfer.reservationId, p_request_id: transfer.requestId, p_expected_revision: transfer.revision, p_duration_minutes: transfer.duration,
+    p_table_id: choice.table_id, p_table_ids: choice.table_ids, p_combination_id: choice.combination_id }));
+  const result = { id: uuid(row.id), revision: count(row.revision), ...parseTransferWindow(row) };
+  const returned = { ...choice, table_id: uuid(row.table_id), table_ids: parseTableIds(row.table_ids, uuid(row.table_id)), combination_id: row.combination_id === null ? null : uuid(row.combination_id) };
+  if (result.id !== transfer.reservationId || result.revision !== transfer.revision + 1 || !sameTableAllocation(returned, choice) || !result.allocation_starts_at || !result.allocation_ends_at || Date.parse(result.allocation_ends_at) - Date.parse(result.allocation_starts_at) !== transfer.duration * 60_000) return invalid();
+  return result;
 }

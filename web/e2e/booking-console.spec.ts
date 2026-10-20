@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -499,7 +499,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   const combinationConfigRequests: Record<string, unknown>[] = [];
   const combinedWrites: Record<string, unknown>[] = [];
   const combinedOps = new Map<string, { body: string; result: unknown }>();
-  if (options.combinations) {
+  if (options.combinations || options.transfers) {
     snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true, current_seating: true, walk_ins: true, table_combinations: true };
     snapshot.operating_date = "2026-10-20";
     snapshot.tables = [...snapshot.tables.map((t) => ({ ...t, seats: 4, area_id: area1 })), { id: table3, label: "Fenster 3", area_id: area1, seats: 4, is_active: true }];
@@ -508,7 +508,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       { id: groupBC, name: "Gruppentisch", primary_table_id: table2, table_ids: [table2, table3], max_party_size: 8, is_active: true, is_available: true },
     ];
     snapshot.archived_combination_count = 0;
-    snapshot.reservations = options.combinedSeed ? [{ ...snapshot.reservations[0], table_ids: [table1, table2], combination_id: groupAB, party_size: 6, revision: 0, is_walk_in: false }] : [];
+    snapshot.reservations = (options.combinedSeed || options.transfers) ? [{ ...snapshot.reservations[0], table_ids: [table1, table2], combination_id: groupAB, party_size: 6, revision: 0, is_walk_in: false }] : [];
   }
   const combinedChoices = (party: number, service: string, start: string, duration: number, amend = false): BookingSlot[] => {
     const end = new Date(Date.parse(start) + duration * 60_000).toISOString();
@@ -516,6 +516,13 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     const groups = (snapshot.combinations ?? []).filter((g) => g.is_active && g.max_party_size >= party && (!amend || g.id === groupBC)).map((g) => ({ table_id: g.primary_table_id, table_ids: g.table_ids, combination_id: g.id, service_id: service, starts_at: start, ends_at: end, allocation_label: g.name + " · " + g.table_ids.map((id) => snapshot.tables.find((t) => t.id === id)?.label).join(" + ") }));
     return [...singles, ...groups];
   };
+  if (options.transfers) {
+    snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, seated_transfers: true };
+    snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, status: "seated", starts_at: "2026-10-20T12:00:00+02:00", ends_at: "2026-10-20T13:00:00+02:00", seated_at: "2026-10-20T10:00:00Z", arrived_at: "2026-10-20T10:00:00Z", allocation_starts_at: null, allocation_ends_at: null }));
+  }
+  let transferPreviews = 0;
+  const transferWrites: Record<string, unknown>[] = [];
+  const transferOps = new Map<string, { body: string; result: unknown }>();
   const statusRequests: object[] = [];
   const amendRequests: Record<string, unknown>[] = [];
   const amendParties: number[] = [];
@@ -632,6 +639,29 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       if (options.deferHours && hoursRequests.length === 1) await hoursGate;
       if (options.uncertainHours && hoursRequests.length === 1) return route.fulfill({ status: 503, json: { message: "saved_response_lost" } });
       return route.fulfill({ json: { revision: snapshot.settings!.revision, existing_reservations: options.hoursAffected ?? 0 } });
+    }
+    if (method === "booking_console_transfer_choices_v1") {
+      if (teamRevoked || currentTeamRole === "viewer") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const r = snapshot.reservations.find((r) => r.id === body.p_reservation_id)!;
+      transferPreviews++;
+      if (options.staleTransferPreview && transferPreviews === 1) r.revision = (r.revision ?? 0) + 1;
+      return route.fulfill({ json: { reservation_id: r.id, revision: r.revision ?? 0, observed_at: "2026-10-20T12:00:00Z", ends_at: new Date(Date.parse("2026-10-20T12:00:00Z") + body.p_duration_minutes * 60_000).toISOString(), choices: options.transferNoChoices ? [] : [{ table_id: table2, table_ids: [table2, table3], combination_id: groupBC, allocation_label: "Gruppentisch · Terrasse 2 + Fenster 3", area_id: area1, seats: 8 }] } });
+    }
+    if (method === "booking_console_transfer_v1") {
+      transferWrites.push(body);
+      if (teamRevoked || currentTeamRole === "viewer") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const previous = transferOps.get(body.p_request_id);
+      if (previous) return previous.body === JSON.stringify(body) ? route.fulfill({ json: previous.result }) : route.fulfill({ status: 400, json: { code: "22023", message: "booking_request_reused" } });
+      const r = snapshot.reservations.find((r) => r.id === body.p_reservation_id)!;
+      if (options.staleTransferWrite && transferWrites.length === 1) r.revision = (r.revision ?? 0) + 1;
+      if (options.transferConflict) return route.fulfill({ status: 409, json: { code: "22023", message: "booking_slot_unavailable" } });
+      if (r.revision !== body.p_expected_revision) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } });
+      const result = { id: r.id, revision: body.p_expected_revision + 1, table_id: body.p_table_id, table_ids: body.p_table_ids, combination_id: body.p_combination_id, allocation_starts_at: "2026-10-20T12:02:00Z", allocation_ends_at: new Date(Date.parse("2026-10-20T12:02:00Z") + body.p_duration_minutes * 60_000).toISOString() };
+      Object.assign(r, result);
+      transferOps.set(body.p_request_id, { body: JSON.stringify(body), result });
+      if (options.uncertainTransfer && transferWrites.length === 1) return route.fulfill({ status: 503, json: { message: "saved_response_lost" } });
+      if (options.malformedTransfer && transferWrites.length === 1) return route.fulfill({ json: { ...result, revision: 0 } });
+      return route.fulfill({ json: result });
     }
     if (method === "booking_console_save_combination_v1") {
       combinationConfigRequests.push(body);
@@ -766,7 +796,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -2063,4 +2093,164 @@ test("a large combination availability scope can recover by narrowing its reques
   await editor.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "18:00" });
   expect(requests.at(-1)).toMatchObject({ p_time: "18:00" });
   await expect(editor.getByRole("alert")).toHaveCount(0);
+});
+
+async function openTransfer(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Gast umplatzieren", exact: true }).click();
+  return page.getByRole("dialog", { name: "Gast umplatzieren", exact: true });
+}
+
+test("a phone seated transfer preserves planned time and relocates every physical table", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, transfers: true });
+  const editor = await openTransfer(page);
+  await editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true }).fill("");
+  await expect(editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true })).toHaveValue("");
+  await expect(editor.getByRole("button", { name: "Tischwechsel speichern", exact: true })).toBeDisabled();
+  await editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true }).fill("60");
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  await editor.screenshot({ path: test.info().outputPath("seated-transfer-phone.png") });
+  expect(await editor.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  await expect(page.getByText("Der Gast wurde umplatziert.", { exact: true })).toBeVisible();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(details).toContainText("12:00–13:00");
+  await expect(details).toContainText("Tischwechsel um 14:02");
+  await expect(details).toContainText("15:02");
+  await expect(details).toContainText("Terrasse 2 + Fenster 3");
+  expect(fixture.transferWrites()[0]).toMatchObject({ p_expected_revision: 0, p_duration_minutes: 60, p_table_ids: [table2, table3], p_combination_id: groupBC });
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  const old = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Fenster 1", exact: true }) });
+  await expect(old.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+  for (const name of ["Terrasse 2", "Fenster 3"]) {
+    const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name, exact: true }) });
+    await expect(card.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toBeVisible();
+  }
+});
+
+for (const malformed of [false, true]) {
+  test("an uncertain seated transfer freezes one exact request: " + (malformed ? "malformed response" : "lost response"), async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, transfers: true, uncertainTransfer: !malformed, malformedTransfer: malformed });
+    const editor = await openTransfer(page);
+    await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+    await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+    await expect(editor.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
+    await expect(editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true })).toBeDisabled();
+    await editor.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    expect(fixture.transferWrites()).toHaveLength(2);
+    expect(fixture.transferWrites()[0]).toEqual(fixture.transferWrites()[1]);
+  });
+}
+
+test("a conflicting seated transfer keeps its duration and reports no successful move", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, transferConflict: true });
+  const editor = await openTransfer(page);
+  await editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true }).fill("45");
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toContainText("inzwischen belegt");
+  await expect(editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true })).toHaveValue("45");
+  await expect(page.getByText("Der Gast wurde umplatziert.", { exact: true })).toHaveCount(0);
+  expect(fixture.transferWrites()).toHaveLength(1);
+});
+
+test("a stale seated transfer preview cannot overwrite a changed reservation", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, staleTransferPreview: true });
+  const editor = await openTransfer(page);
+  await expect(editor.getByRole("alert")).toContainText("inzwischen geändert");
+  await expect(editor.getByRole("button", { name: "Tischwechsel speichern", exact: true })).toBeDisabled();
+  expect(fixture.transferWrites()).toHaveLength(0);
+});
+
+test("a seated transfer with no compatible target has an honest unavailable state", async ({ page }) => {
+  await mockConsole(page, { seeded: true, transfers: true, transferNoChoices: true });
+  const editor = await openTransfer(page);
+  await expect(editor.getByRole("status")).toContainText("kein anderer Tisch verfügbar");
+  await expect(editor.getByRole("button", { name: "Tischwechsel speichern", exact: true })).toBeDisabled();
+});
+
+test("a viewer cannot transfer a seated party", async ({ page }) => {
+  await mockConsole(page, { seeded: true, transfers: true, teams: true, teamRole: "viewer" });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Gast umplatzieren", exact: true })).toHaveCount(0);
+});
+
+test("revoked access clears an open seated transfer without submitting it", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, teams: true, teamRole: "host" });
+  const editor = await openTransfer(page);
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByText("Testgast Abend", { exact: true })).toHaveCount(0);
+  expect(fixture.transferWrites()).toHaveLength(0);
+});
+
+test("leaving an uncertain seated transfer reloads the actual current assignment", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, uncertainTransfer: true });
+  const editor = await openTransfer(page);
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
+  await editor.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await editor.getByRole("button", { name: "Anfrage verlassen", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toContainText("Terrasse 2 + Fenster 3");
+  expect(fixture.transferWrites()).toHaveLength(1);
+});
+
+test("table-time filtering uses the remaining seated transfer window while the book keeps original time", async ({ page }) => {
+  await mockConsole(page, { seeded: true, transfers: true });
+  const editor = await openTransfer(page);
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
+  const row = page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true });
+  await expect(row).toContainText("12:00");
+  await expect(row).toContainText("Umplatziert · Belegung bis 15:02");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByLabel("Belegung um", { exact: true }).fill("14:30");
+  await expect(page.getByRole("button", { name: /14:02 · Testgast Abend/ })).toHaveCount(2);
+  await page.getByLabel("Belegung um", { exact: true }).fill("12:30");
+  await expect(page.getByRole("button", { name: /14:02 · Testgast Abend/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toHaveCount(2);
+});
+
+for (const duringWrite of [false, true]) {
+  test("a changed seated transfer recovers only after explicitly discarding its draft: " + (duringWrite ? "write" : "preview"), async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, transfers: true, staleTransferWrite: duringWrite, staleTransferPreview: !duringWrite });
+    const editor = await openTransfer(page);
+    if (duringWrite) {
+      await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+      await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+    }
+    await expect(editor.getByRole("alert")).toContainText("inzwischen geändert");
+    await editor.getByRole("button", { name: "Aktuelle Reservierung laden", exact: true }).click();
+    await editor.getByRole("button", { name: "Weiter bearbeiten", exact: true }).click();
+    await expect(editor).toBeVisible();
+    await editor.getByRole("button", { name: "Aktuelle Reservierung laden", exact: true }).click();
+    await editor.getByRole("button", { name: "Entwurf verwerfen und neu laden", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await page.getByRole("button", { name: "Gast umplatzieren", exact: true }).click();
+    await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+    await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+    await expect(page.getByText("Der Gast wurde umplatziert.", { exact: true })).toBeVisible();
+    expect(fixture.transferWrites().at(-1)).toMatchObject({ p_expected_revision: 1 });
+  });
+}
+
+test("a server-denied seated transfer immediately removes private guest content", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, teams: true, teamRole: "host" });
+  const editor = await openTransfer(page);
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  fixture.revokeTeam();
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByText("Testgast Abend", { exact: true })).toHaveCount(0);
 });

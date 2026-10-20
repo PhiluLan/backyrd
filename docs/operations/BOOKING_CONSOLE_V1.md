@@ -1019,3 +1019,71 @@ no horizontal overflow, readable choices and reachable save footer. TypeScript,
 42 Web contract tests, 69 CI classification/evidence/coverage tests, lint
 (13 existing unrelated warnings) and the production build passed. No production
 schema, guest records or external messages were changed by this acceptance.
+
+## Seated table transfers (2026-10-21)
+
+The 202nd migration, `20261020224442_booking_seated_table_transfers_v1.sql`,
+separates the original guest reservation range from an optional remaining
+physical-allocation window. Existing rows retain their behavior through null
+fallbacks. A seated party may move to another configured single/table group
+without rewriting arrival, seating, original guest time, party size, source or
+contact. The compatibility primary and all current physical members change
+atomically. Original promised table membership remains available in audit
+history and original request outcomes.
+
+A transfer requires current write access and both owner/actor Safety, a seated
+reservation, expected revision, active compatible resources and sufficient
+chairs. It cannot invent arbitrary groups, take another seated guest's table,
+conflict with an upcoming occupying reservation or enter a blocked target
+room/date. Target capacity uses the existing party size; a lower intake limit
+does not strand a guest already admitted. Closed admission hours alone do not
+prevent staff from servicing an overstay. This is an existing visit's table
+change, not a second admission or a bypass for new guest bookings.
+
+The remaining duration is 15–480 minutes. The server captures its actual start
+only after acquiring the restaurant lock; preview times are informational and
+never accepted as a client-controlled movement timestamp. The parent and
+private-allocation exclusions use the same effective range. They retain the
+same occupying statuses, and both one-seated-party constraints remain active.
+Trigger synchronization and subsequent guest corrections preserve this range;
+departure releases every selected table. Original resources not retained in
+the new set become available in the same commit. An overlapping previous
+booking that ended before the actual transfer does not block the target merely
+because the guest's original reservation began earlier.
+
+The existing private complete-operation request registry adds a transfer kind.
+It compares request/reservation identity, expected revision, full normalized
+target set/group and remaining duration. Identical replay returns the original
+movement outcome after later guest edits or departure. Changed payloads are
+rejected; current permissions/Safety are checked before replay. A failed target
+claim rolls back the parent, every old/new member, request record and audit.
+The operational history records before/after membership and allocation range
+without copying guest contact/note text.
+
+Planning must also use the remaining allocation. A regression probe demonstrated
+that checking only original guest time could silently shorten a service around
+an already moved party. The forward migration updates dated-hours eligibility
+comparisons to effective ranges and retains the explicit keep-existing decision.
+Current closure impact includes seated overstays through the observed current
+instant, while future impact still uses expected ranges rather than inventing
+an indefinite departure forecast.
+
+Canonical PostgreSQL 17 acceptance passed all 202 migrations, eighteen Booking
+SQL suites, actual owner/actor Safety and role checks, and observed two-connection
+races. New races cover two overstay guests claiming one physical destination,
+concurrent identical movement replay and a completed visit racing movement.
+The loser retains its original membership/revision; replay emits one event and
+cannot re-seat a departed guest. SQL additionally covers shared-member group
+moves, original time retention, previous target bookings, upcoming conflicts,
+metadata edits, original admission replay, closure impact, service-hours
+preservation and effective-range synchronization. Final database receipt:
+`0b42e70e8be9226ed15b1a3335e1a606fa03149a00bd7249e3368f970ec7c677`.
+Release evidence: `booking-seated-table-transfers-v1.json`.
+
+The source-only Web control is gated by `seated_transfers`. Planned guest time
+stays in the book/details; physical cards, remaining-end labels and time
+filtering use the current allocation. Numeric fields accept an empty draft.
+Unknown/malformed write responses freeze the exact transfer for retry; leaving
+reloads current assignments. Role revocation clears an open private draft.
+Production activation, private-schema drift coverage, real-device checks and a
+restaurant trial remain outstanding; this is no Aleno parity claim.
