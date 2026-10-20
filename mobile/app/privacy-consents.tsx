@@ -61,7 +61,7 @@ const PURPOSE_PRESENTATION: Record<
   precise_location: {
     title: "Präziser Standort",
     description:
-      "Ermöglicht aktive Standortfunktionen und die automatische Spot-Erkennung für Smart Review.",
+      "Zeigt Orte in deiner Nähe und kann den Ort für deinen Moment vorschlagen. Du kannst einen Ort auch selbst auswählen.",
   },
   push_notifications: {
     title: "Push-Benachrichtigungen",
@@ -135,8 +135,8 @@ export default function PrivacyConsentScreen() {
   async function confirmDisablePreciseLocation() {
     return await new Promise<boolean>((resolve) => {
       Alert.alert(
-        "Smart Review deaktivieren?",
-        "Ohne präzisen Standort kannst du keine Smart Reviews erstellen. Discovery, Map, Decision und dein Profil bleiben weiterhin nutzbar.",
+        "Standortzugriff deaktivieren?",
+        "Backyrd nutzt deinen präzisen Standort dann nicht mehr. Du kannst Orte weiterhin suchen und für deinen Moment selbst auswählen.",
         [
           {
             text: "Abbrechen",

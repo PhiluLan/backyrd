@@ -1,8 +1,10 @@
+import { withRequestDeadline } from "../../lib/requestDeadline";
+import { openExternalUrl } from "../../lib/links";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Image, Share, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -50,30 +52,35 @@ export default function EventDetailScreen() {
     sameVenue: [],
   });
   const [showAllOccurrences, setShowAllOccurrences] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  const request = useRef(0);
 
   const load = useCallback(async () => {
     if (!eventId) { setError(true); setLoading(false); return; }
+    const generation = ++request.current;
     setLoading(true);
     setError(false);
+    setImageFailed(false);
+    setShowAllOccurrences(false);
     try {
-      const loaded = await loadEventOccurrence(eventId, occurrenceId);
+      const loaded = await withRequestDeadline(() => loadEventOccurrence(eventId, occurrenceId), 12_000);
+      if (generation !== request.current) return;
       setEvent(loaded);
-      setUpcoming(
-        loaded
-          ? await loadUpcomingEvents(loaded)
-          : { sameEvent: [], sameVenue: [] },
-      );
-    } catch {
-      setError(true);
-    } finally {
+      setUpcoming({ sameEvent: [], sameVenue: [] });
       setLoading(false);
+      const related = loaded ? await withRequestDeadline(() => loadUpcomingEvents(loaded), 8_000).catch(() => ({ sameEvent: [], sameVenue: [] })) : { sameEvent: [], sameVenue: [] };
+      if (generation === request.current) setUpcoming(related);
+    } catch {
+      if (generation === request.current) setError(true);
+    } finally {
+      if (generation === request.current) setLoading(false);
     }
   }, [eventId, occurrenceId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); const generationRef = request; return () => { ++generationRef.current; }; }, [load]);
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator color="#FF7DA7" /><Text style={styles.stateText}>Event wird geladen …</Text></View>;
+    return <View style={styles.center}><ActivityIndicator color="#FF4F91" /><Text style={styles.stateText}>Event wird geladen …</Text></View>;
   }
   if (error || !event) {
     return (
@@ -81,15 +88,16 @@ export default function EventDetailScreen() {
         <Ionicons name="calendar-outline" size={38} color="#A9A5A0" />
         <Text style={styles.stateTitle}>Event nicht verfügbar</Text>
         <Text style={styles.stateText}>Der Termin wurde möglicherweise entfernt oder ist gerade nicht erreichbar.</Text>
-        <Pressable onPress={() => void load()} style={styles.primaryButton}><Text style={styles.primaryButtonText}>Nochmals versuchen</Text></Pressable>
-        <Pressable onPress={() => router.back()}><Text style={styles.backLink}>Zurück</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => void load()} style={styles.primaryButton}><Text style={styles.primaryButtonText}>Nochmals versuchen</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => router.back()}><Text style={styles.backLink}>Zurück</Text></Pressable>
       </SafeAreaView>
     );
   }
 
   const ticketUrl = safeExternalUrl(event.ticket_url);
-  const sourceUrl = ticketUrl ?? safeExternalUrl(event.source_url);
+
   const cancelled = event.event_status === "CANCELLED" || event.occurrence_status === "CANCELLED";
+  const sourceUrl = cancelled ? safeExternalUrl(event.source_url) : ticketUrl ?? safeExternalUrl(event.source_url);
   const postponed = event.event_status === "POSTPONED" || event.occurrence_status === "POSTPONED";
   const address = formatEventAddress({
     addressLine: event.address_line,
@@ -97,7 +105,7 @@ export default function EventDetailScreen() {
     city: event.city,
     countryCode: event.country_code,
   });
-  const image = eventImageUrl(event.image_storage_path);
+  const image = imageFailed ? null : eventImageUrl(event.image_storage_path);
   const imageCredit = eventImageCredit(event.source, event.image_credit);
   const recurrence = humanizeRecurrence(event.recurrence_summary);
   const properties = eventPropertyLabels(event.minimum_age, event.family_friendly);
@@ -110,20 +118,21 @@ export default function EventDetailScreen() {
     countryCode: event.country_code,
   });
   const routeDestination =
-    event.latitude !== null && event.longitude !== null
+    event.latitude !== null && event.longitude !== null && Number.isFinite(event.latitude) && Number.isFinite(event.longitude) && Math.abs(event.latitude) <= 90 && Math.abs(event.longitude) <= 180
       ? `${event.latitude},${event.longitude}`
-      : event.matched_spot_address || address || event.venue_name || event.title;
+      : event.matched_spot_address || address || [event.venue_name, event.city].filter(Boolean).join(", ");
   const routeUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(routeDestination)}`;
 
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <LinearGradient colors={["#352635", "#19171D", "#080808"]} style={styles.hero}>
-          {image ? <Image source={{ uri: image }} style={StyleSheet.absoluteFillObject} resizeMode="cover" /> : null}
+          {image ? <Image source={{ uri: image }} onError={() => setImageFailed(true)} style={StyleSheet.absoluteFillObject} resizeMode="cover" /> : null}
           <SafeAreaView edges={["top"]} style={styles.heroSafe}>
-            <Pressable onPress={() => router.back()} style={styles.iconButton} accessibilityLabel="Zurück">
+            <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.iconButton} accessibilityLabel="Zurück">
               <Ionicons name="arrow-back" size={22} color="#F4EFE4" />
             </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Event teilen" style={styles.iconButton} onPress={() => { const url = `https://www.backyrd.ch/events/${encodeURIComponent(event.event_id)}?occurrenceId=${encodeURIComponent(event.occurrence_id)}`; void Share.share({ message: `${event.title}\n${formatEventDateTime(event.start_at, event.end_at)}\n${url}`, url }).catch(() => { Alert.alert("Teilen nicht möglich", "Das Event konnte gerade nicht geteilt werden."); }); }}><Ionicons name="share-outline" size={22} color="#F4EFE4" /></Pressable>
           </SafeAreaView>
           <View style={styles.heroGlow} />
           {image && imageCredit ? <Text style={styles.imagePolicy}>{imageCredit}</Text> : null}
@@ -151,7 +160,7 @@ export default function EventDetailScreen() {
               <Ionicons name="location-outline" size={21} color="#BBC7A0" />
               <View style={styles.factCopy}><Text style={styles.factLabel}>Wo</Text><Text style={styles.factValue}>{event.venue_name || "Ort noch nicht bestätigt"}</Text>{address ? <Text style={styles.factSecondary}>{address}</Text> : null}</View>
             </View>
-            {event.is_free === true || event.price_min !== null ? <><View style={styles.divider} /><View style={styles.factRow}><Ionicons name="ticket-outline" size={21} color="#C9B1F4" /><View style={styles.factCopy}><Text style={styles.factLabel}>Eintritt</Text><Text style={styles.factValue}>{event.is_free === true ? "Kostenlos" : `ab ${event.price_currency} ${event.price_min?.toFixed(2)}`}</Text></View></View></> : null}
+            {event.is_free === true || event.price_min !== null ? <><View style={styles.divider} /><View style={styles.factRow}><Ionicons name="ticket-outline" size={21} color="#FF4F91" /><View style={styles.factCopy}><Text style={styles.factLabel}>Eintritt</Text><Text style={styles.factValue}>{event.is_free === true ? "Kostenlos" : `ab ${event.price_currency} ${event.price_min?.toFixed(2)}`}</Text></View></View></> : null}
           </View>
 
           {recurrence ? <View style={styles.recurrence}><Ionicons name="repeat-outline" size={18} color="#FF9ABA" /><Text style={styles.recurrenceText}>{recurrence}</Text></View> : null}
@@ -162,22 +171,20 @@ export default function EventDetailScreen() {
 
           {event.matched_spot_id ? (
             <View style={styles.venueActions}>
-              <Pressable onPress={() => router.push(`/spot/${event.matched_spot_id}`)} style={styles.spotButton}>
-                {event.matched_spot_photo ? <Image source={{uri:event.matched_spot_photo}} style={styles.spotImage}/> : null}<View style={{flex:1}}><Text style={styles.spotKicker}>AUF BACKYRD</Text><Text style={styles.spotButtonText}>{event.matched_spot_name || "Spot ansehen"}</Text>{spotAddress ? <Text style={styles.factSecondary}>{spotAddress}</Text> : null}</View>
+              <Pressable accessibilityRole="button" onPress={() => router.push(`/spot/${event.matched_spot_id}`)} style={styles.spotButton}>
+                {event.matched_spot_photo ? <Image source={{uri:event.matched_spot_photo}} style={styles.spotImage}/> : null}<View style={{flex:1}}><Text style={styles.spotKicker}>AUF BACKYRD</Text><Text style={styles.spotButtonText}>{event.matched_spot_name || "Ort ansehen"}</Text>{spotAddress ? <Text style={styles.factSecondary}>{spotAddress}</Text> : null}</View>
                 <Ionicons name="arrow-forward" size={21} color="#F4EFE4" />
               </Pressable>
-              <Pressable onPress={() => void Linking.openURL(routeUrl)} style={styles.routeButton}>
-                <Ionicons name="navigate-outline" size={18} color="#F4EFE4" />
-                <Text style={styles.routeButtonText}>Route</Text>
-              </Pressable>
+
             </View>
           ) : (
-            <View style={styles.unmatchedNote}><Ionicons name="information-circle-outline" size={18} color="#8E8D8A" /><Text style={styles.unmatchedText}>Dieser Veranstaltungsort ist noch keinem Backyrd Spot zugeordnet.</Text></View>
+            <View style={styles.unmatchedNote}><Ionicons name="information-circle-outline" size={18} color="#8E8D8A" /><Text style={styles.unmatchedText}>Dieser Veranstaltungsort ist noch keinem Backyrd-Ort zugeordnet.</Text></View>
           )}
 
+          {routeDestination ? <Pressable accessibilityRole="button" accessibilityLabel="Route zum Event" onPress={() => void openExternalUrl(routeUrl, "Die Karten-App konnte nicht geöffnet werden.")} style={styles.routeButton}><Ionicons name="navigate-outline" size={18} color="#F4EFE4" /><Text style={styles.routeButtonText}>Route</Text></Pressable> : null}
           {sourceUrl ? (
-            <Pressable onPress={() => void Linking.openURL(sourceUrl)} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>{ticketUrl ? "Tickets bei der Originalquelle" : "Mehr erfahren"}</Text>
+            <Pressable accessibilityRole="link" accessibilityLabel={cancelled ? "Infos zur Absage" : ticketUrl ? "Tickets ansehen" : "Mehr erfahren"} onPress={() => void openExternalUrl(sourceUrl)} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>{cancelled ? "Infos zur Absage" : ticketUrl ? "Tickets ansehen" : "Mehr erfahren"}</Text>
               <Ionicons name="open-outline" size={18} color="#171719" />
             </Pressable>
           ) : null}
@@ -237,7 +244,7 @@ const styles = StyleSheet.create({
   stateText: { color: "#A9A5A0", fontSize: 14, lineHeight: 21, textAlign: "center" },
   backLink: { color: "#FF9ABA", fontSize: 14, fontWeight: "800", marginTop: 5 },
   hero: { height: 332, overflow: "hidden", justifyContent: "center", alignItems: "center" },
-  heroSafe: { position: "absolute", top: 0, left: 20, right: 20, alignItems: "flex-start", zIndex: 3 },
+  heroSafe: { flexDirection: "row", justifyContent: "space-between", position: "absolute", top: 0, left: 20, right: 20, alignItems: "flex-start", zIndex: 3 },
   iconButton: { width: 44, height: 44, marginTop: 10, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(8,8,8,0.48)", borderWidth: 1, borderColor: "rgba(255,255,255,0.10)" },
   heroGlow: { position: "absolute", width: 260, height: 260, top: -120, right: -80, borderRadius: 130, backgroundColor: "rgba(255,125,167,0.16)" },
   calendarGlyph: { width: 142, height: 142, borderRadius: 42, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.055)", borderWidth: 1, borderColor: "rgba(255,255,255,0.11)" },
@@ -252,7 +259,7 @@ const styles = StyleSheet.create({
   cancelled: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(248,113,113,0.13)" },
   cancelledText: { color: "#FCA5A5", fontSize: 10, fontWeight: "900" },
   postponed: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(201,177,244,0.13)" },
-  postponedText: { color: "#C9B1F4", fontSize: 10, fontWeight: "900" },
+  postponedText: { color: "#FF4F91", fontSize: 10, fontWeight: "900" },
   title: { color: "#F4EFE4", fontSize: 36, lineHeight: 41, fontWeight: "700", letterSpacing: -0.7 },
   factCard: { padding: 18, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.052)", borderWidth: 1, borderColor: "rgba(255,255,255,0.075)" },
   factRow: { flexDirection: "row", gap: 13, alignItems: "flex-start" },
