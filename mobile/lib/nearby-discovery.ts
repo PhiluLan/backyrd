@@ -81,7 +81,12 @@ export async function loadNearbyDiscoverySpots(point: LocationCoordinates, limit
       }
     }
     const withinRadius = nearestDiscoverySpots(candidates, point, candidates.length);
-    const visible = await filterDistributedSpots(withinRadius, "discovery", signal);
+    const visible: DiscoverySpot[] = [];
+    // PostgREST caps table-valued RPC responses too. Check every page before
+    // selecting six places; a single large RPC could omit the true nearest.
+    for (let offset = 0; offset < withinRadius.length; offset += PAGE_SIZE) {
+      visible.push(...await filterDistributedSpots(withinRadius.slice(offset, offset + PAGE_SIZE), "discovery", signal));
+    }
     const nearest = nearestDiscoverySpots(visible, point, limit);
     const headers = await loadCanonicalSpotHeaders(nearest.map(spot => spot.id), signal);
     return nearest.map(spot => ({ ...spot, header_photo_url: headers.get(spot.id) ?? null }));
