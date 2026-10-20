@@ -19,7 +19,7 @@ alter table public.booking_reservations add constraint booking_reservations_tabl
  where(status in ('pending','confirmed','arrived','seated'));
 alter table booking_private.reservation_requests_v2 drop constraint reservation_requests_v2_request_kind_check;
 alter table booking_private.reservation_requests_v2 add constraint reservation_requests_v2_request_kind_check
- check(request_kind in ('create','amend','walk_in','transfer'));
+ check (request_kind in ('create','amend','walk_in','transfer'));
 
 create or replace function booking_private.sync_reservation_allocations_v1() returns trigger
 language plpgsql security definer set search_path='' as $$ begin
