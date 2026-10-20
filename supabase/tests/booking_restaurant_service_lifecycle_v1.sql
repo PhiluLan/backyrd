@@ -64,6 +64,7 @@ update public.booking_reservations set status='seated' where request_id=pg_temp.
 set local role authenticated;
 select pg_temp.lifecycle_inventory_assert();
 reset role;
+update public.booking_reservations set status='confirmed' where request_id=pg_temp.lifecycle_id('future-request');
 insert into public.booking_reservations(id,spot_id,table_id,service_id,request_id,guest_name,party_size,starts_at,ends_at,status,source,created_by)
 values(pg_temp.lifecycle_id('current'),pg_temp.lifecycle_id('spot'),pg_temp.lifecycle_id('table'),pg_temp.lifecycle_id('service'),pg_temp.lifecycle_id('request'),
  'Synthetic current guest',4,((now() at time zone 'Europe/Zurich')::date+time '12:00') at time zone 'Europe/Zurich',

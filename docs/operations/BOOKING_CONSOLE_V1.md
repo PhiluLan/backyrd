@@ -300,3 +300,77 @@ viewport was visually inspected with synthetic data. Web lint (existing
 warnings only), typecheck, 42 contract tests, production build and 48 classifier
 tests passed. This is candidate evidence, not a production deployment or a
 physical-device/restaurant service trial.
+
+## Atomic reservation amendments
+
+The following increment adds `booking_console_amendment_slots_v1` and
+`booking_console_amend_v1`, using the same canonical owner/safety checks and
+restaurant write lock. The private shared availability enumerator takes an
+optional exclusion identity; only the checked amendment wrapper can supply the
+operator's own target booking. Standard create/availability retains its v1
+signature and configured default duration. Amendment durations are whole minutes
+between 30 and 480, within the chosen weekly same-day service and its slot grid.
+
+Pending/confirmed reservations may change guest fields and allocation. A change
+to party/date/service/table/duration requires a new eligible future slot. If it
+conflicts, the original booking and guest data remain intact. No temporary
+cancellation is used to find alternatives. Arrived/seated bookings allow guest
+corrections without touching allocation or actual service timestamps; their
+allocation cannot be moved here. Terminal bookings cannot be amended. Past
+party-size corrections, occupied-table moves and an override workflow remain
+separate acceptance gaps.
+
+Each reservation has a revision. Both amendments and real status transitions
+advance it; the amendment endpoint rejects a stale revision. No-op edits do not
+advance it or manufacture audit events. An amendment request UUID is stored on
+the reservation, unique within a restaurant. Its identical retry replays safely
+after a lost response, including a subsequent status transition. Reusing the
+UUID for different fields or another reservation fails. After a newer amendment
+replaces that request identity, an older retry conflicts and requires a read;
+this is not an indefinite command-history service.
+
+The first real amendment preserves a SHA-256 digest of the original normalized
+create fields. A retry of the original create request must still return the
+same booking ID after edits or cancellation; it cannot restore the original
+guest text, reallocate inventory or reactivate the reservation. The original
+v1 contract's status-independent create replay is retained intentionally.
+No duplicate guest text is stored in command/audit tables. Internal replay
+metadata is omitted from the Console read model. Audit records the amendment
+actor, time and reservation reference, without guest text; full before/after
+history and privacy corrections after a terminal state remain future work.
+
+The read capability `reservation_amendments` gates the editor. Metadata changes
+do not fetch or replace allocation. Changing the allocation explicitly opens a
+debounced alternative search, clears stale selections, and supports numeric
+deletion without converting blanks to zero. Failed writes preserve guest text;
+identical retries retain request identity and expected revision. A conflicting
+revision offers an explicit discard-and-reload choice. Successful cross-day
+rescheduling follows the new date/service/room in the workspace. No guest
+message is sent. This increment is not production activated yet.
+
+Physical seating is protected separately from the planned interval: a partial
+unique index permits at most one `seated` party per table, and the checked
+transition returns `booking_table_occupied` when the current visit must be
+resolved first. Adjacent planned reservations are still valid. On the server's
+current Europe/Zurich operating date, the read model includes prior-day seated
+visits separately from the day's diary. The Console provides an explicit
+recovery queue and a table service-state layer unaffected by the planning time
+filter; those prior visits do not inflate the selected day's reservation totals.
+Details include the actual reservation date. An operator may complete a prior
+visit after checking it, then seat the new party. No automatic departure or
+physical-presence inference is made. The earlier lifecycle SQL test restores
+its synthetic future seating fixture before exercising actual current-day
+seating; both suites remain part of the amendment release acceptance.
+
+Amendment candidate validation on 2026-10-20: canonical 193-migration Supabase
+clean boot, baseline SQL and all three Booking suites passed, including original
+create replay after an amendment, rollback on conflicts, owner isolation,
+status/amendment revisions, seating uniqueness and prior-day recovery. The
+generated schema/ACL snapshot is recorded in the amendment release evidence.
+All 23 synthetic browser cases passed on the unchanged final source, including
+numeric deletion, cross-day context, metadata corrections after arrival,
+uncertain/slot-conflict retries, stale availability and 320px prior-visit recovery.
+Phone recovery and desktop editor viewports were visually inspected. Web lint
+has no new errors (13 existing unrelated warnings), typecheck, contract checks
+and production build passed. No actual production guest data was written or
+copied. Backend activation and restaurant/physical-device validation remain open.
