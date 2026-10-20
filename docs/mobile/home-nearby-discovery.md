@@ -1,0 +1,13 @@
+# Home nearby discovery
+
+Task class: FAST_PR; Mobile Home retrieval/presentation only. No schema, RLS, Decision ranking or dependency changes.
+
+With an existing location consent and OS permission, Home obtains a fresh position without prompting. It loads approved places in complete spherical bounding boxes covering 15 km, irrespective of profile city or city borders. Stable UUID pagination prevents the former newest-160/newest-14 truncation from discarding closer places. Invalid/missing coordinates and places outside the actual Haversine circle are omitted; canonical Distribution eligibility is applied before selecting the nearest results. Distance is primary, with stable ID ties. Up to six cards are shown, including clearly marked closed places. Distances are air-line distances, never walking-route claims.
+
+Bounding boxes handle the date line and poles. Retrieval has a ten-second deadline and a 10,000-row completeness ceiling; an incomplete catalog fails honestly instead of presenting an arbitrary subset as the nearest. Only the selected places load canonical cover images. Existing canonical hours feed the status badge.
+
+No consent, denied OS permission, unavailable/invalid coordinates or a last-known location produces a clearly labelled profile-city catalog, without distance or a nearby claim. Nearby retrieval failure displays an error, not a silently substituted city list. Focus, return to foreground and pull-to-refresh repeat the location/consent check. Request-generation guards prevent earlier location/data responses from replacing a newer result. Coordinates stay in screen memory and are not added to analytics/logs. “Alle ansehen” opens the existing map at the current point; city fallback opens the existing city list.
+
+The separate “Neu auf Backyrd” cards retain their profile-city source rather than mislabelling older nearby places as new. Home Moments retain their existing city scope.
+
+Validation: deterministic tests execute the actual Home load callback and the geographic data loader. Coverage includes distance over age/priority, city borders, more than one result page, eligibility denial, malformed/null coordinates, spherical/date-line/polar bounds, incomplete catalogs, denied/stale position, refresh, and late-response isolation. Mobile types/lint/contracts and the exported-app product journey cover the fallback and preserved discovery/Moment flows. Tests use synthetic data and do not access personal location or write production content. Physical-device GPS and visual acceptance remain separate observations.
