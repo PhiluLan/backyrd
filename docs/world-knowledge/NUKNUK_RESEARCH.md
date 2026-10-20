@@ -231,9 +231,12 @@ draft-only, and the unattended gate remains closed.
 A live read-only audit of Restaurant Alexander's official menu found all 21
 embedded images without fetch failures. The first three were cover, allergen
 and hours pages, so the former four-image preview could hardly inspect the
-menu. The v3.6 heuristic emitted 34 cross-reader priced-row *candidates*,
-including visibly incomplete names. This is a coverage diagnostic, not 34
-verified dishes. The local command is:
+menu. Joining same-column name continuations and rejecting dangling text or
+priced add-ons yields 31 cross-reader priced-row *candidates*. The audit also
+retains 1,162 Vision lines with coordinates and 958 Tesseract lines for later
+layout comparison. Some item names and dietary labels still need independent
+interpretation, and several dishes repeat on different pages. This is a
+coverage diagnostic, not 31 verified dishes. The local command is:
 
 ```sh
 NUKNUK_TESSDATA_DIR=.local/nuknuk-research/tessdata \

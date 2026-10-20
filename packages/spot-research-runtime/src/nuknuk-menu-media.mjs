@@ -11,7 +11,19 @@ import {fetchPublicSource,discoverMenuImages} from './nuknuk-sources.mjs';
 const run=(command,args,options={})=>new Promise((accept,reject)=>execFile(command,args,{encoding:'utf8',timeout:120000,maxBuffer:2000000,...options},(error,stdout)=>error?reject(error):accept(stdout)));
 export const normalizeOcrText=text=>String(text).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/gu,' ');
 const price=text=>String(text).trim().match(/^(\d{1,3})[.,](\d{2})$/u)?.[0]??null;
-const incompleteName=text=>/^(?:klein|gro[ssß]|small|large|mit|with|ohne|without)\b|(?:[-–—,;:]|\b(?:dazu|mit|und|oder|with|and|of|та|і|з|із|до))\s*$/iu.test(text);
+const incompleteName=text=>/^(?:klein|gro[ssß]|small|large|mit|with|ohne|without|zusätzlicher|additional|extra)(?:\s|$)|(?:[-–—,;:]|(?:^|\s)(?:dazu|mit|und|oder|with|and|of|та|і|з|із|до))\s*$/iu.test(text);
+function continuationLines(head,amount,visionLines) {
+  // Image coordinates have origin at the bottom. Menu item names often wrap
+  // below the price row; smaller descriptive copy must not become the name.
+  const ordered=visionLines.filter(line=>line!==head&&line!==amount&&typeof line.text==='string'&&line.confidence>=0.65&&line.y<head.y&&Math.abs(line.x-head.x)<=0.045&&line.x+line.width<amount.x+0.035&&line.height>=Math.max(0.013,head.height*0.72)&&!price(line.text))
+    .sort((a,b)=>b.y-a.y);
+  const joined=[];let previous=head;
+  for(const line of ordered) {
+    if(previous.y-line.y>0.026||joined.length===3)break;
+    joined.push(line);previous=line;
+  }
+  return joined;
+}
 export function agreeingPricedRows(visionLines,tesseractText) {
   if(!Array.isArray(visionLines)||typeof tesseractText!=='string')return [];
   const ocrLines=tesseractText.split(/\n+/u).map(normalizeOcrText).filter(Boolean);
@@ -22,9 +34,11 @@ export function agreeingPricedRows(visionLines,tesseractText) {
     const matching=visionLines.filter(line=>line!==amount&&typeof line.text==='string'&&line.confidence>=0.65&&Math.abs(line.y-amount.y)<=0.014&&line.x<amount.x&&line.x+line.width<=amount.x+0.03&&!price(line.text)&&!/^vegi|vegan$/iu.test(line.text.trim()))
       .sort((a,b)=>b.x-a.x)[0];
     if(!matching)continue;
-    const name=matching.text.trim(),normalized=normalizeOcrText(name),amountText=normalizeOcrText(value);
+    const continuations=continuationLines(matching,amount,visionLines);
+    const name=[matching,...continuations].map(line=>line.text.trim()).join(' '),normalized=normalizeOcrText(name),amountText=normalizeOcrText(value);
     if(name.length<4||name.length>90||incompleteName(name)||normalized.split(' ').length>8||!/\p{L}/u.test(name))continue;
-    if(!ocrLines.some(line=>line.includes(normalized)&&line.includes(amountText)))continue;
+    const first=normalizeOcrText(matching.text);
+    if(!ocrLines.some(line=>line.includes(first)&&line.includes(amountText))||!continuations.every(part=>ocrLines.some(line=>line.includes(normalizeOcrText(part.text)))))continue;
     if(rows.some(row=>row.name===name&&row.price===value))continue;
     rows.push({name,price:value,vision:{name:matching,price:amount},tesseractAgreement:true});
   }
@@ -67,10 +81,11 @@ export async function auditMenuImages(officialMenuUrl,{page:providedPage=null,ma
     for(let i=0;i<readable.length;i++) {
       if(Date.now()>deadline-1000){truncated=true;break;}
       const item=readable[i],lines=visionPages[i].lines;
+      if(visionPages[i].path!==item.path||!Array.isArray(lines)||lines.length>500||lines.some(line=>typeof line.text!=='string'||line.text.length>500||![line.confidence,line.x,line.y,line.width,line.height].every(value=>Number.isFinite(value)&&value>=0&&value<=1)))throw new Error('menu_vision_output_invalid');
       const args=[item.path,'stdout',...(tessdataDir?['--tessdata-dir',tessdataDir]:[]),'-l',ocrLanguages];
       const tesseract=await runCommand('tesseract',args,{timeout:Math.min(20000,Math.max(1000,deadline-Date.now()))});
       const rows=agreeingPricedRows(lines,tesseract);
-      inspected.push({url:item.url,discoveredOn:item.discoveredOn,index:item.index,assetHash:item.assetHash,bytes:item.bytes,visionLineCount:lines.length,tesseractTextHash:createHash('sha256').update(tesseract).digest('hex'),pricedRows:rows});
+      inspected.push({url:item.url,discoveredOn:item.discoveredOn,index:item.index,assetHash:item.assetHash,bytes:item.bytes,visionLines:lines,tesseractLines:tesseract.split(/\n+/u).map(line=>line.trim()).filter(Boolean),tesseractTextHash:createHash('sha256').update(tesseract).digest('hex'),pricedRows:rows});
     }
     return {officialMenuUrl:page.url,images:inspected,discoveredImages:images.length,fetchFailures:candidates.filter(item=>item.error).map(({path,...item})=>item),candidateRows:inspected.reduce((n,item)=>n+item.pricedRows.length,0),catalogWrites:0,certifiedComplete:false,truncated:truncated||inspected.length<images.length};
   }finally{await rm(temp,{recursive:true,force:true});}

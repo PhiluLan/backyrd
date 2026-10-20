@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
-import {agreeingPricedRows} from '../../../scripts/world-knowledge/nuknuk-menu-audit.mjs';
+import {agreeingPricedRows,auditMenuImages} from '../src/nuknuk-menu-media.mjs';
 import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from '../src/nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
@@ -29,6 +29,38 @@ test('two OCR engines must agree on a priced menu row at the same visual height'
  assert.deepEqual(agreeingPricedRows(lines,'Борщ 18.00'),[]);
  const variants=[{text:'klein',confidence:1,x:0.1,y:0.5,width:0.2},{text:'26.00',confidence:1,x:0.4,y:0.5,width:0.1},{text:'Deruny Natur dazu',confidence:1,x:0.1,y:0.3,width:0.25},{text:'18.00',confidence:1,x:0.4,y:0.3,width:0.1}];
  assert.deepEqual(agreeingPricedRows(variants,'klein 26.00\nDeruny Natur dazu 18.00'),[]);
+});
+test('image-menu rows join same-column name continuations but exclude smaller descriptions',()=>{
+ const lines=[
+  {text:'Hausgemachte Quark',confidence:.98,x:.55,y:.20,width:.20,height:.018},
+  {text:'22.50',confidence:.98,x:.86,y:.20,width:.07,height:.018},
+  {text:'Küchleine „Syrnyky“',confidence:.96,x:.55,y:.181,width:.24,height:.018},
+  {text:'Dazu Sauerrahm',confidence:.96,x:.55,y:.166,width:.20,height:.010},
+  {text:'Fremde Spalte',confidence:.98,x:.12,y:.181,width:.20,height:.018}
+ ];
+ assert.deepEqual(agreeingPricedRows(lines,'Hausgemachte Quark vegi 22.50\nKüchleine „Syrnyky“\nDazu Sauerrahm').map(row=>row.name),['Hausgemachte Quark Küchleine „Syrnyky“']);
+ assert.deepEqual(agreeingPricedRows(lines,'Hausgemachte Quark 22.50').map(row=>row.name),[]);
+});
+test('image-menu leads reject dangling Ukrainian conjunctions and priced add-ons',()=>{
+ const rows=[
+  {text:'Крем-суп з вершками та',confidence:.99,x:.1,y:.7,width:.3,height:.018},{text:'18.00',confidence:.99,x:.45,y:.7,width:.06,height:.018},
+  {text:'Zusätzlicher Kirsch zum Tünkle (2cl)',confidence:.99,x:.55,y:.5,width:.3,height:.018},{text:'5.50',confidence:.99,x:.9,y:.5,width:.05,height:.018}
+ ];
+ assert.deepEqual(agreeingPricedRows(rows,'Крем-суп з вершками та 18.00\nZusätzlicher Kirsch zum Tünkle (2cl) 5.50'),[]);
+});
+test('menu-image audit retains both local OCR transcripts with official image provenance',async()=>{
+ const url='https://example.org/speisekarte',imageUrl='https://cdn.example.org/menu-page-1.jpg';
+ const page={url,contentType:'text/html',body:`<img src="${imageUrl}" alt="Menü Seite 1">`};
+ const line={text:'Borschtsch',confidence:.99,x:.1,y:.7,width:.2,height:.02};
+ const amount={text:'18.00',confidence:.99,x:.5,y:.7,width:.06,height:.02};
+ const report=await auditMenuImages(url,{page,maxImages:1,fetchPage:async requested=>{assert.equal(requested,imageUrl);return {url:requested,contentType:'image/jpeg',body:Buffer.from('public image bytes')};},runCommand:async(command,args)=>command==='swift'?JSON.stringify({path:args[1],lines:[line,amount]}):'Borschtsch 18.00'});
+ assert.equal(report.candidateRows,1);
+ assert.equal(report.catalogWrites,0);
+ assert.equal(report.certifiedComplete,false);
+ assert.equal(report.images[0].discoveredOn,url);
+ assert.equal(report.images[0].assetHash,createHash('sha256').update('public image bytes').digest('hex'));
+ assert.deepEqual(report.images[0].visionLines,[line,amount]);
+ assert.deepEqual(report.images[0].tesseractLines,['Borschtsch 18.00']);
 });
 test('menu-image inspection remains a cited lead and never an asserted catalog offer',async()=>{
  const menuUrl='https://example.org/speisekarte';
