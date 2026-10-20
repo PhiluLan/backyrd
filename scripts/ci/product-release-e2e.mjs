@@ -116,6 +116,12 @@ try {
       return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(rows.reverse())});
     }
     if (path === "/rest/v1/spots" && url.searchParams.get("id")?.startsWith("eq.")) return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({id:url.searchParams.get("id").replace("eq.",""),name:state.worldName,address:"Testgasse 1",city:"Bern",lat:46.94,lng:7.44})});
+    if (path === "/rest/v1/rpc/spot_detail_product_profile_v1") {
+      const { p_spot_id: id } = JSON.parse(request.postData() ?? "{}");
+      const place=spots.find(spot=>spot.spotId===id);
+      const regularHours=["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"].map(day=>({day,intervals:id===spots[0].spotId?[]:[{start:"00:00",end:"23:59"}]}));
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify({contractVersion:"backyrd.spot-detail-product-profile@1.0",surface:"MOBILE",worldManifestHash:"canonical-hours-fixture",spot:{spotId:id,name:place?.name()??state.worldName,addressLine1:"Testgasse 1",locality:"Bern",countryCode:"CH",latitude:46.94,longitude:7.44,regularHours,source:"WORLD_KNOWLEDGE",headerPhotoPath:null},fields:[{attributeKey:"hours.regular",sectionKey:"hours",sortOrder:1,scope:"SPOT",knowledgeState:"KNOWN_VALUE",value:regularHours,trust:"CONFIRMED",freshness:"CURRENT"}]})});
+    }
     if (path === "/rest/v1/rpc/backyrd_search_mood_concepts_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(["Gemütlich","Urban"].map(label=>({concept_key:label,label,matched_expression:label})))});
     if (path === "/rest/v1/rpc/distribution_trust_filter_entities_v1") {
       const body=JSON.parse(request.postData()??"{}");
@@ -293,6 +299,8 @@ try {
   await page.getByText("ruhiges Café nach Reload",{exact:true}).waitFor();
   const recentRail = page.getByLabel("Deine letzte Suche: ruhiges Café nach Reload",{exact:true});
   await recentRail.getByRole("button",{name:/Café Aktualisiert öffnen/}).first().waitFor();
+  await recentRail.getByText("Geschlossen",{exact:true}).first().waitFor();
+  assert.equal(await recentRail.getByText("Öffnungszeiten unbekannt",{exact:true}).count(),0,"Home must use confirmed canonical hours even when old spot_hours is empty");
   const recentLabels = await recentRail.getByRole("button").evaluateAll(nodes=>nodes.map(node=>node.getAttribute("aria-label")));
   assert.match(recentLabels[0],/Café Aktualisiert/);
   assert.match(recentLabels[1],/Café Alternative/);
