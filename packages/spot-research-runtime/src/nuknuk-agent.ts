@@ -9,7 +9,7 @@ import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs'
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.4';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.5';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -97,7 +97,7 @@ function explicitPhoneArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'so
 }
 function explicitEmailArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'sourceOffset'|'value'>):string|null {
   const mailbox=f.value.split('@')[0]?.toLocaleLowerCase()??'';
-  if(/^(?:catering|events?|veranstaltungen?|presse|press|media|jobs?|karriere|recruitment|buchhaltung|accounting|reservations?|reservierungen?|booking)(?:[._+-]|$)|^res[._+-]/iu.test(mailbox))return 'ROLE_MAILBOX';
+  if(/^(?:catering|events?|veranstaltungen?|presse|press|media|jobs?|karriere|recruitment|buchhaltung|accounting|reservations?|reservierungen?|booking|quality|qualitaet|qualität|spa|wellness)(?:[._+-]|$)|^res[._+-]/iu.test(mailbox))return 'ROLE_MAILBOX';
   const offset=factOffset(source,f);if(offset<0)return null;
   const preceding=source.text.slice(Math.max(0,offset-110),offset).split(/\n+/u).map(line=>line.trim()).filter(Boolean).at(-1)??'';
   return /^(?:kurse?(?:\s*&\s*gruppen)?|courses?(?:\s*&\s*groups?)?|gruppen|groups?|events?(?:\s*&\s*catering)?|veranstaltungen?|presse|press|medien|media|jobs?|karriere|recruitment|buchhaltung|accounting|verwaltung|administration)\s*:?$/iu.test(preceding)?preceding:null;
@@ -110,6 +110,7 @@ function excludedHoursArea(source:ResearchSource,quote:string,spot:SpotContext,s
     EAT:/(?<!\p{L})(?:bar|hotel|reception|rezeption|kitchen|küche|kuche|shop|kiosk|brunch|breakfast|frühstück|lieferdienst|delivery|takeaway|abholung)(?!\p{L})/iu,
     COFFEE_DAYTIME:/(?<!\p{L})(?:bar|hotel|reception|rezeption|kitchen|küche|kuche|shop|kiosk|brunch|breakfast|frühstück|lieferdienst|delivery|takeaway|abholung)(?!\p{L})/iu,
     DRINKS:/(?<!\p{L})(?:restaurant|brasserie|hotel|reception|rezeption|kitchen|küche|kuche|shop|kiosk|brunch|breakfast|frühstück|lieferdienst|delivery|takeaway|abholung)(?!\p{L})/iu,
+    WELLNESS_RELAXATION:/(?<!\p{L})(?:sauna|badewelt|poolbar|hamam|spa|gastronomie|restaurant|bar|kitchen|küche|shop|kiosk)(?!\p{L})/iu,
   };
   const excluded=patterns[category];if(!excluded)return null;
   const offset=factOffset(source,{quote,sourceOffset}),sections=sectionAt(source,offset);
@@ -138,7 +139,7 @@ function excludedHoursArea(source:ResearchSource,quote:string,spot:SpotContext,s
 }
 function timeBoundEventContext(source:ResearchSource,quote:string,sourceOffset?:number):boolean {
   const path=new URL(source.url).pathname;
-  if(/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news|blog|aktuell)(?:\/|$)/iu.test(path)||/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)\/20\d{2}(?:\/|$)/iu.test(path))return true;
+  if(/(?:^|\/)(?:konzert|concert|[^/]*events?|veranstaltung|veranstaltungen|agenda|calendar|kalender|news|blog|aktuelles?)(?:\.html)?(?:\/|$)/iu.test(path)||/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)\/20\d{2}(?:\/|$)/iu.test(path))return true;
   const offset=factOffset(source,{quote,sourceOffset});if(offset<0)return false;
   const structural=/^(?:kontakt(?:\s*&\s*anfahrt)?|contact(?:\s*&\s*directions)?|öffnungszeiten|oeffnungszeiten|opening hours|hours|adresse|address|speisekarte|menu|angebote|offers|über uns|ueber uns|about us|besuch|visit)(?:\s|$)/iu;
   const boundary=(source.headings??[]).filter(h=>h.offset<=offset&&structural.test(h.text)).at(-1)?.offset??0;
@@ -282,6 +283,12 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
       if(f.offerKind==='WORKSHOP'&&!/\b(?:workshops?|ateliers?|kurse?|courses?)\b/iu.test(f.quote))return 'WORKSHOP_KIND_NOT_EXPLICIT';
       const category=spot.existingValues?.['classification.primary_category']?.value??field.profileCategory;
       if(typeof category!=='string')return 'CURRENT_CATEGORY_REQUIRED';
+      if(category==='STAY'&&f.offerKind==='OVERNIGHT_STAY'&&/(?:^|\/)(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(source.url).pathname)&&(f.quote.length<f.value.length+35||!/[.!?]/u.test(f.quote)))return 'ROOM_DETAIL_DESCRIPTION_REQUIRED';
+      if(category==='WELLNESS_RELAXATION') {
+        if(!EXPERIENCE_TEMPLATES.WELLNESS_RELAXATION.offers.some(offer=>offer.kind===f.offerKind))return 'OFFER_OUTSIDE_RESEARCH_FOCUS';
+        if(/(?:kanal|duschen?|fontänen?|d(?:ü|ue)sen?|becken|liegen|ruhezonen?|sprudel|jets?|fountains?|showers?|nozzles?|loungers?)$/iu.test(f.value.trim()))return 'WELLNESS_FACILITY_NOT_OFFER';
+        if(f.quote.length<f.value.length+35||!/[.!?]/u.test(f.quote))return 'WELLNESS_OFFER_DESCRIPTION_REQUIRED';
+      }
       if(category==='SPORT_MOVEMENT'&&!EXPERIENCE_TEMPLATES.SPORT_MOVEMENT.offers.some(offer=>offer.kind===f.offerKind))return 'OFFER_OUTSIDE_RESEARCH_FOCUS';
       try{projectOffers({offers:[{name:f.value,kind:f.offerKind,quote:f.quote,sourceId:f.sourceId}]},{field:{...field,profileCategory:category},sources:[source]});}catch{return 'OFFER_OUTSIDE_RESEARCH_FOCUS';}
     }
@@ -344,7 +351,7 @@ function literalSourceFacts(source:ResearchSource,fields:ResearchField[],spot:Sp
   }
   if(fields.some(f=>f.attributeKey==='experience.profile')&&spot.existingValues?.['classification.primary_category']?.value==='STAY') {
     const pathParts=new URL(source.url).pathname.split('/').filter(Boolean);
-    const detailHeading=[...(source.headings??[])].reverse().find(h=>/^(?:zimmer|rooms?|chambres?|camere)$/iu.test(pathParts.at(-2)??'')&&h.level<=4&&h.text.length>=4&&h.text.length<=80&&roomSlug(h.text)===roomSlug(pathParts.at(-1)??''));
+    const detailHeading=[...(source.headings??[])].reverse().find(h=>/^(?:zimmer|rooms?|rooms-suites|chambres?|camere)$/iu.test(pathParts.at(-2)??'')&&h.level<=4&&h.text.length>=4&&h.text.length<=80&&roomSlug(h.text)===roomSlug(pathParts.at(-1)??'').replace(/-\d{1,3}$/u,''));
     if(detailHeading){
       const quote=source.text.slice(detailHeading.offset).split(/\n\s*\n/u).slice(0,2).join('\n\n').slice(0,320);
       if(quote.startsWith(detailHeading.text)&&((quote.match(/\p{L}+/gu)??[]).length>=5))core.push({id:'f'+(offset+core.length),sourceId:source.id,field:'experience.profile',value:detailHeading.text,quote,sourceOffset:detailHeading.offset,subject:'OFFER',subjectLabel:detailHeading.text,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'OVERNIGHT_STAY',state:'HELD',reason:'SEMANTIC_CHECK_PENDING'});
@@ -400,9 +407,9 @@ function certifiedVenueHours(f:EvidenceFact,source:ResearchSource,spot:SpotConte
 function certifiedHotelRoom(f:EvidenceFact,source:ResearchSource,spot:SpotContext):boolean {
   if(f.field!=='experience.profile'||f.offerKind!=='OVERNIGHT_STAY'||f.applicability!=='CURRENT'||f.polarity!=='AFFIRMATIVE'||f.condition||f.subject==='OTHER'||f.belongsTo==='OTHER'||source.truncated||spot.existingValues?.['classification.primary_category']?.value!=='STAY'||!matchesExistingWebsite(source.url,String(spot.existingValues?.['contact.website']?.value)))return false;
   const parts=new URL(source.url).pathname.split('/').filter(Boolean),last=parts.at(-1)??'';
-  if(parts.length<2||!/(?:^|\/)(?:rooms?|zimmer|chambres?|camere)(?:\/|$)/iu.test(new URL(source.url).pathname)||roomSlug(last)!==roomSlug(f.value)||f.value.length<4||f.value.length>80)return false;
+  if(parts.length<2||!/(?:^|\/)(?:rooms?|zimmer|chambres?|camere|rooms-suites)(?:\/|$)/iu.test(new URL(source.url).pathname)||roomSlug(last).replace(/-\d{1,3}$/u,'')!==roomSlug(f.value)||f.value.length<4||f.value.length>80)return false;
   if(!source.text.split(/\n+/u).map(line=>line.trim()).filter(Boolean).slice(0,3).join(' ').toLocaleLowerCase().includes(spot.name.toLocaleLowerCase())||!(source.headings??[]).some(h=>h.text.toLocaleLowerCase()===f.value.toLocaleLowerCase()))return false;
-  const offset=factOffset(source,f);if(offset<0||!f.quote.toLocaleLowerCase().includes(f.value.toLocaleLowerCase())||((f.quote.match(/\p{L}+/gu)??[]).length<5))return false;
+  const offset=factOffset(source,f);if(offset<0||!f.quote.toLocaleLowerCase().includes(f.value.toLocaleLowerCase())||f.quote.length<f.value.length+35||!/[.!?]/u.test(f.quote))return false;
   if(/\b(?:ab|from)\s*(?:chf|eur|€|\d)|\b(?:nur|only|bis|until|deal|special|angebot|aktion|promotion)\b/iu.test(f.quote))return false;
   return true;
 }
@@ -460,7 +467,8 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const weight=(key:string)=>key.startsWith('contact.')||key==='hours.regular'?8:['description.highlight','experience.profile'].includes(key)?2:1;
   const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+
     (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
-    (open.some(f=>f.attributeKey.startsWith('contact.'))&&link.topics.includes('contact')?500:0);
+    (open.some(f=>f.attributeKey.startsWith('contact.'))&&link.topics.includes('contact')?500:0)+
+    (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='STAY')&&/(?:^|\/)(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(link.url).pathname)?50:0);
   const nonFood=open.some(field=>field.profileCategory&&!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory));
   const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
@@ -487,7 +495,16 @@ export function projectEvidenceLedger({spot,fields,facts,sources,validateValue}:
       switch(field.attributeKey) {
         case 'contact.phone':case 'contact.public_email':case 'operation.laptop_policy': {
           const values=affirmative.map(f=>field.attributeKey==='contact.phone'?normalizePhone(f.value,spot.existingValues?.['location.country_code']?.value):field.attributeKey==='operation.laptop_policy'?f.value==='true':f.value);
-          if(new Set(values).size>1)return unresolved('CONFLICTING_TARGET_VALUES');
+          if(new Set(values).size>1) {
+            if(field.attributeKey!=='contact.public_email')return unresolved('CONFLICTING_TARGET_VALUES');
+            const general=affirmative.filter(f=>/^info@[-\w.]+\.[a-z]{2,}$/iu.test(f.value));
+            const address=String(spot.existingValues?.['location.address_line1']?.value??'').toLocaleLowerCase();
+            const corroborated=general.filter(f=>{const source=sources.find(s=>s.id===f.sourceId);return source&&address.length>=5&&source.text.toLocaleLowerCase().includes(spot.name.toLocaleLowerCase())&&source.text.toLocaleLowerCase().includes(address)&&matchesExistingWebsite(source.url,String(spot.existingValues?.['contact.website']?.value));});
+            const unique=[...new Set(corroborated.map(f=>f.value.toLocaleLowerCase()))];
+            const domain=unique[0]?.split('@')[1];
+            if(unique.length!==1||!affirmative.every(f=>f.value.toLocaleLowerCase().endsWith('@'+domain)))return unresolved('CONFLICTING_TARGET_VALUES');
+            used=corroborated;value=unique[0];break;
+          }
           value=values[0];break;
         }
         case 'hours.regular': {
@@ -703,7 +720,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const checked=verifyResearchProposal(proposal,{spot,sources,exportBound:options.exportBound,sourceFailures,now:now()});
     return {...checked,...(current?{currentValue:current.value}:{})};
   });
-  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status)),elapsedMs:now()-start,stopReason,requests,modelCalls,results,facts,sources,sourceFailures,modelAudit,actions,failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
+  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status)),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,facts,sources,sourceFailures,modelAudit,actions,failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
     coverage:results.map(r=>({attributeKey:r.attributeKey,status:r.status,acceptedFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='ACCEPTED').length,heldFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='HELD').length,complete:false})),
     frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:['OFFICIAL_SITE_LINK_SEARCH_ONLY','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
   await deps.onProgress?.({stage:'COMPLETE',report});return report;

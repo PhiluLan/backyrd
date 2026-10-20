@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v2.4
+## Active architecture: Research v2.5
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -189,6 +189,45 @@ precision, supported-field coverage, unresolved reasons, source availability,
 latency and memory. An all-unresolved run is safe but fails useful coverage.
 Keep the Admin review/commit boundary even after the draft runner passes.
 
+The v2.5 source reader also follows explicitly observed accessible names on
+icon-only official links, and copies a literal public address from a generic
+`mailto:` link on an official home/contact page when the address itself is absent from visible text.
+Department-labelled mail links are excluded; existing venue/role/identity
+checks still apply. Job pages are outside the permanent Spot research frontier.
+This improves contact and relevant-page coverage without allowing a model to
+invent an address or URL.
+
+`scripts/world-knowledge/nuknuk-readiness.mjs` evaluates a local, source-reviewed
+cohort. Its manifest has `cases` with `category` (`FOOD_DRINK`, `STAY`, `CULTURE`,
+`ACTIVITY`) and paths to each full report, a separately prepared reference, and
+field assessments. Each reference needs `spotId`, `preparedAt`, and nonempty
+`checks`; `preparedAt` must precede the report's `startedAt`. Each assessment
+needs the field, outcome, counts of false assertions, venue misattributions and
+missed facts, and a substantive note. Example invocation after building the
+runtime:
+
+```sh
+node scripts/world-knowledge/nuknuk-readiness.mjs /private/path/cohort.json /private/path/readiness.json
+```
+
+The gate requires at least twelve distinct Spots, at least three per category,
+pre-run references, zero incorrect facts or venue misattributions, at least 30%
+useful proposed-field coverage, triaged source failures, and no more than 25%
+budget-stopped runs. A source-reviewed cohort and manually confirmed *untouched*
+case selection are still necessary; timestamps and hashes cannot prove that a
+human did not inspect a case earlier. A passing gate permits unattended local
+**draft creation** only. `readyForCatalogWrites` is always false. Keep cohort
+exports, reports and references local; no production Spot data or audited
+reports are committed to the repository.
+Each local `research.json` also summarizes proposed, unresolved, failed and
+preserved fields, source/model failures, budget stops and deferred Spots. This
+operational summary never claims a cohort pass or a catalog write.
+Set `"resume":true` in a batch manifest to continue completed Spots after an
+interruption. The CLI reuses only fully completed reports whose Spot order,
+current Admin export, manifest, pinned model path and research code match the
+saved run fingerprint; an interrupted Spot starts again. A changed export or
+code version fails the resume check instead of mixing evidence from two runs.
+
 ### 19 October 2026 local source-reviewed evaluation
 
 Independent expectations were written before the respective local 9B runs;
@@ -303,6 +342,37 @@ but unattended catalog-scale accuracy and coverage are not certified.** The
 current-export sample is still small and exposed multiple general errors during
 development. A larger untouched cross-category set and repeatability runs are
 required before relaxing review. Canonical import and approval remain human-led.
+
+### v2.5 new current-export development cases, 20 October 2026
+
+A fresh four-Spot Admin export selected a museum, restaurant, wellness venue and
+hotel that were not part of the previous development suite. The museum had a
+source-only preflight; the other three received live local-9B research runs.
+These are **development cases** because each failure informed a correction
+during this iteration. They cannot count as an untouched release cohort.
+
+| Spot | Source-reviewed final observation | Remaining limit |
+| --- | --- | --- |
+| Antalya | Three review drafts: the public `info@` address from a generic `mailto:` link, a seven-day schedule matching the current catalog value, and three literal named dishes from its official menu | Menu profile is partial; no price certification |
+| ART HOUSE Basel | General `info@` address and four room names grounded in official hotel room/detail text; site-title-only room claims are held when the descriptive passage is missing | Hotel-wide regular hours are unresolved; nine requests reached the budget after several legitimate redirects |
+| aquabasilea | General `info@` address; the final v2.5 run used eight requests, 15 model calls and no source/model failures | Separate area schedules cannot prove whole-venue hours. The model misclassified pool equipment and incidental food as offers in earlier runs; final guards withhold them, leaving the partial profile unresolved. Useful offer coverage remains insufficient. |
+
+The same live exploration found a generic navigation bug: child pages inherited
+the parent's `/informationen/` topic, causing news, a solar-panel page and
+videos to consume the budget. Topic selection now uses the linked page's own
+path segment and accessible label. Wellness pages are eligible, while dated
+news, job and booking pages (including malformed filename extensions) are
+excluded. Room detail URLs with bounded numeric CMS suffixes are accepted only
+when the exact room heading, target-hotel identity and descriptive sentence
+agree. A single address-bound `info@` address can resolve a conflict with a
+same-domain booking mailbox, but foreign-domain conflicts remain unresolved.
+
+The final aquabasilea run demonstrates the present trade-off: **zero projected
+facility-as-offer errors, but no useful experience profile**. Another round of
+single-venue regex tuning would not establish autonomy. The next release step
+is a frozen, independently prepared twelve-Spot cohort, with field-level
+source review and explicit measurement of missed genuine experiences. The
+cohort gate remains closed; no automatic catalog write was made.
 
 A 12-case synthetic language regression corpus covers false preferences,
 venue/area confusion, reviews, expired offers, explicit facilities and affirmative

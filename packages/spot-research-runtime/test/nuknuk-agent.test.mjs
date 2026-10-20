@@ -6,7 +6,7 @@ import {discoverResearchLinks,discoverPublicDataSources,sourceText,readSourceTex
 import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
-import {reviewHtml,selectResearchSpots} from '../../../scripts/world-knowledge/nuknuk-research.mjs';
+import {reviewHtml,selectResearchSpots,summarizeResearchReports,resumeResearchReports} from '../../../scripts/world-knowledge/nuknuk-research.mjs';
 const spot={spotId:'11111111-1111-4111-8111-111111111111',name:'Synthetic Restaurant',existingValues:{'classification.primary_category':{value:'EAT'},'contact.website':{value:'https://example.org/'},'location.country_code':{value:'CH'},'location.address_line1':{value:'Teststrasse 1'}}};
 const field=attributeKey=>({attributeKey,...researchValueContract(attributeKey)});
 const fields=['contact.phone','hours.regular','amenity.features','operation.laptop_policy','experience.profile'].map(field);
@@ -31,6 +31,24 @@ test('draft review clearly displays the image-menu limitation',()=>{
  const html=reviewHtml([{name:'Bar',results:[],limitations:['MENU_LAYOUT_REQUIRES_REVIEW']}]);
  assert.match(html,/Bild- oder PDF-Speisekarten brauchen eine Layoutprüfung/);
 });
+test('batch summary keeps unresolved fields and incomplete spots visible',()=>{
+ const summary=summarizeResearchReports([{results:[{status:'REQUIRES_REVIEW'},{status:'UNRESOLVED'}],sourceFailures:[{reason:'TLS'}],modelAudit:[],stopReason:'REQUEST_BUDGET_EXHAUSTED'}],3);
+ assert.equal(summary.completedSpots,1);
+ assert.equal(summary.deferredSpots,2);
+ assert.equal(summary.proposedFields,1);
+ assert.equal(summary.fieldStatuses.UNRESOLVED,1);
+ assert.equal(summary.sourceFailures,1);
+ assert.equal(summary.budgetStopped,1);
+ assert.equal(summary.catalogWrites,0);
+ assert.equal(summary.readinessCertified,false);
+});
+test('a resumed batch cannot silently mix reports from another export or spot order',()=>{
+ const inputs=[{spotId:'a'},{spotId:'b'}],report={spotId:'a',canonicalWrite:false,importable:false};
+ const previous={runKey:'same-export-and-code',canonicalWrite:false,selectedCount:2,reports:[report]};
+ assert.deepEqual(resumeResearchReports(previous,'same-export-and-code',inputs),[report]);
+ assert.throws(()=>resumeResearchReports(previous,'changed-export',inputs),/research_resume_mismatch/);
+ assert.throws(()=>resumeResearchReports(previous,'same-export-and-code',[inputs[1],inputs[0]]),/research_resume_mismatch/);
+});
 test('a sport activity page remains eligible after model planning adds a menu topic',()=>{
  const frontier=[{url:'https://example.org/bouldern',depth:1,topics:['experience','menu']},{url:'https://example.org/bistro',depth:1,topics:['menu']}];
  const selected=rankResearchFrontier(frontier,[{field:'contact.phone',state:'ACCEPTED'}],[{...field('experience.profile'),profileCategory:'SPORT_MOVEMENT'}]);
@@ -40,6 +58,28 @@ test('research links include scoped information pages and reject external/action
  const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/besuch">Besuch</a><a href="/besuch/barrierefrei">Zugang</a><a href="https://evil.org/kontakt">Kontakt</a><a href="/login">Contact</a><a href="/reservation">Öffnungszeiten</a>'});
  assert.deepEqual(links.map(x=>x.url),['https://example.org/besuch','https://example.org/besuch/barrierefrei']);
 });
+test('accessible icon links expose observed contact and hours pages',()=>{
+ const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/service" aria-label="Kontakt"><svg></svg></a><a href="/schedule" title="Öffnungszeiten"><span class="icon"></span></a><a href="/rooms"><img alt="Zimmer" src="room.svg"></a>'});
+ assert.deepEqual(links.map(link=>link.url),['https://example.org/service','https://example.org/schedule','https://example.org/rooms']);
+ assert.deepEqual(links.map(link=>link.topics),[['contact'],['hours'],['stay','experience']]);
+});
+test('parent information section does not turn solar and video pages into visitor facts',()=>{
+ const links=discoverResearchLinks({url:'https://example.org/informationen.html',contentType:'text/html',body:'<a href="/informationen/pv-anlage.html">PV Anlage</a><a href="/informationen/videos.html">Videos</a><a href="/informationen/oeffnungszeiten.html">Öffnungszeiten</a>'});
+ assert.deepEqual(links.filter(link=>link.topics.length).map(link=>link.url),['https://example.org/informationen/oeffnungszeiten.html']);
+});
+test('wellness and water-park pages are researchable without following booking forms',()=>{
+ const links=discoverResearchLinks({url:'https://example.org/informationen.html',contentType:'text/html',body:'<a href="/badewelt/actionwelt.html">Actionwelt</a><a href="/wellness/sauna.html">Sauna</a><a href="/wellness/hamam.html">Hamam</a><a href="/wellness-buchen.html">Wellness buchen</a><a href="/wellness-buchen.htmll">Wellness</a>'});
+ assert.deepEqual(links.filter(link=>link.topics.includes('experience')).map(link=>link.url),['https://example.org/badewelt/actionwelt.html','https://example.org/wellness/sauna.html','https://example.org/wellness/hamam.html']);
+});
+test('public generic mailto link provides literal email without accepting department links',()=>{
+ const html='<main><h1>Restaurant Antalya</h1><p>Leonhardsgraben 8</p><a href="mailto:info@restaurantantalya.ch?subject=Hallo">E-Mail</a><a href="mailto:press@restaurantantalya.ch">Presse</a></main>';
+ const read=sourceText({url:'https://www.restaurantantalya.ch/kontakt',body:html,observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.match(read.text,/Öffentliche E-Mail-Links\ninfo@restaurantantalya\.ch/);
+ assert.doesNotMatch(read.text,/press@restaurantantalya\.ch/);
+ assert.equal(read.textSelection,'MAIN_WITH_PUBLIC_INFO');
+ const staff=sourceText({url:'https://www.restaurantantalya.ch/team/jane',body:html,observedAt:new Date().toISOString()},'s2',{preferMain:true});
+ assert.doesNotMatch(staff.text,/info@restaurantantalya\.ch/);
+});
 test('a hotel instance crawl skips other cities and pagination on the shared brand site',async()=>{
  const hotel={...spot,name:'25hours Hotel Zürich Langstrasse',existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/de/zurich/langstrasse/'}}};
  const visited=[];
@@ -48,7 +88,7 @@ test('a hotel instance crawl skips other cities and pagination on the shared bra
  assert.deepEqual(visited,['https://example.org/de/zurich/langstrasse/','https://example.org/de/zurich/langstrasse/rooms/']);
 });
 test('a venue profile outranks and excludes dated news or programme paths',()=>{
- const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/home/ueber-das-lokal">Über das Lokal</a><a href="/home/news-leute-machen-orte">News</a><a href="/kunstprogramm">Kunst</a><a href="/kontakt">Kontakt</a>'});
+ const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/home/ueber-das-lokal">Über das Lokal</a><a href="/home/news-leute-machen-orte">News</a><a href="/kunstprogramm">Kunst</a><a href="/informationen/aktuelles.html">Aktuelles</a><a href="/stellenangebote.html">Stellenangebote</a><a href="/kontakt">Kontakt</a>'});
  assert.deepEqual(links.map(link=>link.url),['https://example.org/home/ueber-das-lokal','https://example.org/kontakt']);
  assert.ok(links[0].topics.includes('about'));
 });
@@ -77,6 +117,13 @@ test('a menu price is not a date and a later contact heading ends event scope',(
  assert.equal(checked[0].state,'ACCEPTED');
  assert.equal(checked[1].reason,'DATED_EVENT_NOT_PERMANENT_SPOT_FACT');
  assert.equal(checked[2].state,'ACCEPTED');
+});
+test('dated news path ending in HTML cannot supply a permanent venue description',()=>{
+ const text='Im November findet das Lichterfest im Bad statt.';
+ const s={...source(text),url:'https://example.org/informationen/aktuelles.html'};
+ const f=validateEvidenceFacts({facts:[fact('description.highlight',text,text)]},s,[field('description.highlight')]).map(item=>({...item,state:'ACCEPTED'}));
+ const [checked]=recheckEvidenceFloors(f,[s],[field('description.highlight')],spot);
+ assert.equal(checked.reason,'DATED_EVENT_NOT_PERMANENT_SPOT_FACT');
 });
 test('restaurant kitchen hours and department email never override whole-venue values',()=>{
  const restaurant={...spot,name:'Pizzeria Da Pia'};
@@ -118,6 +165,45 @@ test('role mailbox cannot conflict with a venue-wide contact email',()=>{
  assert.equal(checked[0].reason,'EXPLICIT_AREA_EMAIL');
  assert.equal(checked[1].state,'ACCEPTED');
  assert.equal(projectEvidenceLedger({spot,fields:chosen,facts:checked,sources:[s],validateValue:validateAuthoringSubmission})[0].value,'info@chequelomo.ch');
+});
+test('wellness department mailboxes and poolbar hours cannot override the venue',()=>{
+ const wellness={...spot,name:'aquabasilea',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ const text='aquabasilea\ninfo@aquabasilea.ch\nspa@aquabasilea.ch\nquality@aquabasilea.ch\nPoolbar La Brise\nTäglich von 10.30 - 21.30 Uhr';
+ const s={...source(text),headings:[{level:4,text:'Poolbar La Brise',offset:text.indexOf('Poolbar La Brise')}]};
+ const selected=[field('contact.public_email'),field('hours.regular')];
+ const values=[fact('contact.public_email','info@aquabasilea.ch','info@aquabasilea.ch'),fact('contact.public_email','spa@aquabasilea.ch','spa@aquabasilea.ch'),fact('contact.public_email','quality@aquabasilea.ch','quality@aquabasilea.ch'),fact('hours.regular','Täglich von 10.30 - 21.30 Uhr','Täglich von 10.30 - 21.30 Uhr')];
+ const checked=recheckEvidenceFloors(validateEvidenceFacts({facts:values},s,selected).map(item=>({...item,state:'ACCEPTED'})),[s],selected,wellness);
+ assert.deepEqual(checked.map(item=>item.reason),['SEMANTIC_CHECK_PENDING','EXPLICIT_AREA_EMAIL','EXPLICIT_AREA_EMAIL','EXPLICIT_AREA_HOURS']);
+});
+test('pool equipment cannot be projected as separate bookable wellness experiences',()=>{
+ const wellness={...spot,name:'aquabasilea',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ const quote='Im Aussenbecken sind Strömungskanal, Nackenduschen, Wasserfontänen und Unterwassermassagedüsen besondere Anziehungspunkte.';
+ const s=source(quote),selected=[field('experience.profile')];
+ const candidates=['Strömungskanal','Nackenduschen','Wasserfontänen','Unterwassermassagedüsen'].map(value=>fact('experience.profile',value,quote,{subject:'OFFER',offerKind:value.includes('massage')?'MASSAGE':'BATHING'}));
+ const checked=recheckEvidenceFloors(validateEvidenceFacts({facts:candidates},s,selected).map(item=>({...item,state:'ACCEPTED'})),[s],selected,wellness);
+ assert.ok(checked.every(item=>item.reason==='WELLNESS_FACILITY_NOT_OFFER'));
+ assert.equal(projectEvidenceLedger({spot:wellness,fields:selected,facts:checked,sources:[s],...deps})[0].status,'UNRESOLVED');
+});
+test('a wellness profile excludes incidental food and title-only treatment fragments',()=>{
+ const wellness={...spot,name:'aquabasilea',existingValues:{...spot.existingValues,'classification.primary_category':{value:'WELLNESS_RELAXATION'}}};
+ const text='Private Hamam Suite very exclusive\nIm arabischen Café geniessen Gäste einen Tee nach dem Hamam.';
+ const s=source(text),selected=[field('experience.profile')];
+ const items=[fact('experience.profile','Private Hamam Suite','Private Hamam Suite very exclusive',{subject:'OFFER',offerKind:'SPA_TREATMENT'}),fact('experience.profile','Tee','Im arabischen Café geniessen Gäste einen Tee nach dem Hamam.',{subject:'OFFER',offerKind:'GASTRONOMY'})];
+ const checked=recheckEvidenceFloors(validateEvidenceFacts({facts:items},s,selected).map(item=>({...item,state:'ACCEPTED'})),[s],selected,wellness);
+ assert.deepEqual(checked.map(item=>item.reason),['WELLNESS_OFFER_DESCRIPTION_REQUIRED','OFFER_OUTSIDE_RESEARCH_FOCUS']);
+});
+test('a single address-bound general inbox wins over same-domain booking inbox',()=>{
+ const hotel={...spot,name:'ART HOUSE Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'},'location.address_line1':{value:'Steinenvorstadt 42'}}};
+ const text='ART HOUSE Basel\nSteinenvorstadt 42\ninfo@arthousebasel.ch\nQuestions about booking? hotel@arthousebasel.ch';
+ const s=source(text);
+ const chosen=[field('contact.public_email')];
+ const facts=validateEvidenceFacts({facts:[fact('contact.public_email','info@arthousebasel.ch','info@arthousebasel.ch'),fact('contact.public_email','hotel@arthousebasel.ch','hotel@arthousebasel.ch')]},s,chosen).map(item=>({...item,state:'ACCEPTED'}));
+ const result=projectEvidenceLedger({spot:hotel,fields:chosen,facts,sources:[s],...deps})[0];
+ assert.equal(result.value,'info@arthousebasel.ch');
+ assert.equal(result.citations.length,1);
+ const other=source(text+'\ninfo@otherhotel.ch');
+ const mixed=validateEvidenceFacts({facts:[fact('contact.public_email','info@arthousebasel.ch','info@arthousebasel.ch'),fact('contact.public_email','info@otherhotel.ch','info@otherhotel.ch')]},other,chosen).map(item=>({...item,state:'ACCEPTED'}));
+ assert.equal(projectEvidenceLedger({spot:hotel,fields:chosen,facts:mixed,sources:[other],...deps})[0].reason,'CONFLICTING_TARGET_VALUES');
 });
 test('public client-data discovery follows only observed read-only same-host endpoints',()=>{
  const page={url:'https://zoo.example.org/de/zoobesuch/r/1/oeffnungszeiten/',contentType:'text/html',body:'{{Oeffnungszeit_de}}<dmx-serverconnect id="scOeffnungszeiten" url="/dmxConnect/api/Website/de/Oeffnungszeiten.php" dmx-param:wrid="query.wrid"><dmx-serverconnect id="scStatsPage" url="/dmxConnect/api/Website/Stats/Oeffnungszeiten.php"><dmx-serverconnect id="scOther" url="https://evil.org/dmxConnect/api/Website/Oeffnungszeiten.php"><dmx-serverconnect id="scKontakt" url="/dmxConnect/api/Website/de/Kontakt.php" dmx-param:uid="query.missing">'};
@@ -200,6 +286,20 @@ test('literal hotel room detail heading survives a mistaken AREA label',async()=
  assert.deepEqual(report.sources.map(s=>s.url),Object.keys(pages));
  assert.deepEqual(report.results[0].value.offers.map(o=>o.name),['Familienzimmer','Business Zimmer']);
  assert.ok(report.facts.some(f=>f.value==='Familienzimmer'&&f.reason==='STRUCTURED_HOTEL_ROOM'));
+});
+test('official room detail with numeric CMS suffix retains its exact room heading',async()=>{
+ const stay={...spot,name:'ART HOUSE Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const quote='Arthouse Club Suite offers a separate sitting area and a quiet place to rest.';
+ const url='https://example.org/en/rooms-suites/arthouse-club-suite-40';
+ const body=`<main><p>ART HOUSE Basel</p><h1>Arthouse Club Suite</h1><p>${quote}</p></main>`;
+ const report=await researchSpotV2({...opts,spot:stay,fields:[field('experience.profile')],sources:[url],maxRequests:1},{...deps,fetchPage:async()=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
+ assert.deepEqual(report.results[0].value.offers.map(offer=>offer.name),['Arthouse Club Suite']);
+ assert.ok(report.facts.some(f=>f.value==='Arthouse Club Suite'&&f.reason==='STRUCTURED_HOTEL_ROOM'));
+ const title='Arthouse Club Suite | ART HOUSE Basel';
+ const sourcePage={...source(title+'\n\nArthouse Club Suite\n\n'+quote),url,headings:[{level:1,text:'Arthouse Club Suite',offset:title.length+2}]};
+ const short=validateEvidenceFacts({facts:[fact('experience.profile','Arthouse Club Suite',title,{subject:'OFFER',offerKind:'OVERNIGHT_STAY'})]},sourcePage,[field('experience.profile')]).map(item=>({...item,state:'ACCEPTED'}));
+ // A site title is not a room description, even when the room itself exists.
+ assert.equal(recheckEvidenceFloors(short,[sourcePage],[field('experience.profile')],stay)[0].reason,'ROOM_DETAIL_DESCRIPTION_REQUIRED');
 });
 test('a room page titled for another hotel cannot become this hotel’s offer',async()=>{
  const stay={...spot,name:'Airport Hotel Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
@@ -637,6 +737,10 @@ test('rechecking saved evidence blocks newly guarded claims without promoting un
 test('hotel research prioritizes rooms over restaurant menus for missing room offers',()=>{
  const frontier=[{url:'https://example.org/menu',depth:1,topics:['menu']},{url:'https://example.org/rooms',depth:1,topics:['stay']}];
  assert.equal(rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'STAY'}])[0].url,'https://example.org/rooms');
+});
+test('hotel research prefers an observed room detail over a duplicate locale index',()=>{
+ const frontier=[{url:'https://example.org/de/rooms-suites',depth:1,topics:['stay','experience']},{url:'https://example.org/en/rooms-suites/large-junior-suite',depth:1,topics:['stay','experience']}];
+ assert.equal(rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'STAY'}])[0].url,'https://example.org/en/rooms-suites/large-junior-suite');
 });
 test('wrong offer kind is withheld per fact and does not invalidate correctly typed hotel rooms',async()=>{
  const s=source('Classic Room: a double room with shower.\nSteak with seasonal vegetables.');

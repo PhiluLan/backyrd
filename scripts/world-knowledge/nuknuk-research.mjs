@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AUTHORING_FIELDS, AUTHORING_CATALOG_HASH, validateAuthoringSubmission, parseWorldResearchBatch } from '../../packages/world-knowledge-core/dist/index.js';
@@ -20,11 +21,27 @@ export function selectResearchSpots(exported,keys,{maxSpots}={}) {
     return missing(b)-missing(a)||a.spotId.localeCompare(b.spotId);
   }).slice(0,maxSpots).map(spot=>({spotId:spot.spotId,name:spot.name}));
 }
+export function summarizeResearchReports(reports,selectedCount) {
+  if(!Array.isArray(reports)||!Number.isInteger(selectedCount)||selectedCount<reports.length)throw new Error('research_summary_invalid');
+  const fields=reports.flatMap(report=>report.results??[]);
+  const statuses=Object.fromEntries(['AUTO_VERIFIED','REQUIRES_REVIEW','UNRESOLVED','FAILED','SKIPPED'].map(status=>[status,fields.filter(field=>field.status===status).length]));
+  return {selectedSpots:selectedCount,completedSpots:reports.length,deferredSpots:selectedCount-reports.length,
+    proposedFields:statuses.AUTO_VERIFIED+statuses.REQUIRES_REVIEW,fieldStatuses:statuses,
+    sourceFailures:reports.reduce((count,report)=>count+(report.sourceFailures?.length??0),0),
+    modelFailures:reports.reduce((count,report)=>count+(report.modelAudit?.filter(call=>call.error).length??0),0),
+    budgetStopped:reports.filter(report=>report.stopReason?.endsWith('BUDGET_EXHAUSTED')).length,
+    catalogWrites:0,readinessCertified:false};
+}
+export function resumeResearchReports(previous,runKey,inputs) {
+  if(!previous||previous.runKey!==runKey||previous.canonicalWrite!==false||previous.selectedCount!==inputs.length||!Array.isArray(previous.reports)||previous.reports.length>inputs.length||previous.reports.some((report,index)=>report.spotId!==inputs[index].spotId||report.canonicalWrite!==false||report.importable!==false))throw new Error('research_resume_mismatch');
+  return previous.reports;
+}
 async function main() {
   const [manifestPath,modelPath,outputPath]=process.argv.slice(2);
   if(!manifestPath||!modelPath||!outputPath)throw new Error('usage: node scripts/world-knowledge/nuknuk-research.mjs MANIFEST MODEL_PATH OUTPUT_DIRECTORY');
-  const manifest=JSON.parse(await readFile(manifestPath,'utf8'));
+  const manifestText=await readFile(manifestPath,'utf8'),manifest=JSON.parse(manifestText);
   if(manifest.discoverLinks!==undefined&&typeof manifest.discoverLinks!=='boolean')throw new Error('manifest_discovery_invalid');
+  if(manifest.resume!==undefined&&typeof manifest.resume!=='boolean')throw new Error('manifest_resume_invalid');
   const automatic=manifest.selection?.mode==='MISSING_FIELDS';
   if(automatic===Array.isArray(manifest.spots))throw new Error('manifest_selection_mode_invalid');
   if(!automatic&&(!manifest.spots.length||manifest.spots.length>10))throw new Error('manifest_spots_invalid');
@@ -32,17 +49,26 @@ async function main() {
   const keys=manifest.fields??['description.highlight','contact.phone','contact.public_email','hours.regular','experience.profile','offering.groups','amenity.features','operation.laptop_policy'];
   if(!Array.isArray(keys)||!keys.length||keys.length>12||new Set(keys).size!==keys.length)throw new Error('manifest_fields_invalid');
   const fields=keys.map(key=>{const f=AUTHORING_FIELDS.find(f=>f.attributeKey===key&&f.roles.includes('ADMIN'));if(!f||key==='state.current')throw new Error('field_not_researchable');return {attributeKey:key,label:f.label,help:f.help,...researchValueContract(key)};});
-  const exported=manifest.exportPath?parseWorldResearchBatch(JSON.parse(await readFile(manifest.exportPath,'utf8'))):null;
+  const exportText=manifest.exportPath?await readFile(manifest.exportPath,'utf8'):null;
+  const exported=exportText?parseWorldResearchBatch(JSON.parse(exportText)):null;
   if(automatic&&!exported)throw new Error('automatic_selection_requires_admin_export');
   if(automatic&&Object.keys(manifest.selection).some(key=>!['mode','maxSpots','totalBudgetMs'].includes(key)))throw new Error('automatic_selection_invalid');
   const totalBudgetMs=automatic?(manifest.selection.totalBudgetMs??3600000):null;
   if(automatic&&(!Number.isInteger(totalBudgetMs)||totalBudgetMs<30000||totalBudgetMs>3600000))throw new Error('automatic_budget_invalid');
   const inputs=automatic?selectResearchSpots(exported,keys,manifest.selection):manifest.spots;
   if(!inputs.length)throw new Error('no_spots_need_research');
-  const out=resolve(outputPath);await mkdir(out,{recursive:true});const reports=[];
+  const code=await Promise.all(['../../packages/spot-research-runtime/dist/nuknuk-agent.js','../../packages/spot-research-runtime/dist/nuknuk-sources.mjs','../../packages/spot-research-runtime/dist/nuknuk-research.mjs',import.meta.url].map(path=>readFile(new URL(path,import.meta.url))));
+  const runKey=createHash('sha256').update(JSON.stringify({manifestText,exportText,modelPath,catalogHash:AUTHORING_CATALOG_HASH})).update(Buffer.concat(code)).digest('hex');
+  const out=resolve(outputPath);await mkdir(out,{recursive:true});
+  let reports=[];
+  if(manifest.resume) {
+    let previous;
+    try{previous=JSON.parse(await readFile(`${out}/research.json`,'utf8'));}catch(error){if(error?.code!=='ENOENT')throw error;}
+    if(previous)reports=resumeResearchReports(previous,runKey,inputs);
+  }
   const started=Date.now();let deferred=0;
   // One spot and one local model request at a time. Each partial result is durable.
-  for(const input of inputs) {
+  for(const input of inputs.slice(reports.length)) {
     const remaining=totalBudgetMs===null?null:totalBudgetMs-(Date.now()-started);
     if(remaining!==null&&remaining<30000){deferred=inputs.length-reports.length;break;}
     if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.spotId??'')||typeof input.name!=='string'||!input.name.trim()||input.name.length>240||(input.sources!==undefined&&(!Array.isArray(input.sources)||!input.sources.length||input.sources.length>6)))throw new Error('manifest_spot_invalid');
@@ -60,10 +86,10 @@ async function main() {
     report.exportBound=!!bound;report.catalogHash=AUTHORING_CATALOG_HASH;
     if(bound)report.baseManifestHash=bound.manifestHash;
     reports.push(report);
-    await writeFile(`${out}/research.json`,JSON.stringify({completed:reports.length===inputs.length,canonicalWrite:false,automaticSelection:automatic,selectedCount:inputs.length,deferredCount:inputs.length-reports.length,reports},null,2));
+    await writeFile(`${out}/research.json`,JSON.stringify({completed:reports.length===inputs.length,canonicalWrite:false,runKey,automaticSelection:automatic,selectedCount:inputs.length,deferredCount:inputs.length-reports.length,summary:summarizeResearchReports(reports,inputs.length),reports},null,2));
     await writeFile(`${out}/review.html`,reviewHtml(reports));
   }
-  if(deferred)await writeFile(`${out}/research.json`,JSON.stringify({completed:false,canonicalWrite:false,automaticSelection:true,selectedCount:inputs.length,deferredCount:deferred,reports},null,2));
+  if(deferred)await writeFile(`${out}/research.json`,JSON.stringify({completed:false,canonicalWrite:false,runKey,automaticSelection:true,selectedCount:inputs.length,deferredCount:deferred,summary:summarizeResearchReports(reports,inputs.length),reports},null,2));
   if(reports.some(r=>r.results.some(f=>f.status==='FAILED')||r.modelAudit?.some(a=>a.error)||r.actions?.some(a=>String(a.stage).endsWith('_ERROR'))))process.exitCode=1;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main().catch(error=>{console.error(error.message);process.exitCode=1;});
