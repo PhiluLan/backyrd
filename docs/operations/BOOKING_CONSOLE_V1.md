@@ -1221,3 +1221,52 @@ The online-contact editor was additionally exercised and visually inspected at
 320px: the revocation explanation wraps correctly and the save footer remains
 reachable without horizontal overflow. This does not replace a physical-phone
 or restaurant trial.
+
+## Public-policy cleanup at former-owner erasure (2026-10-21)
+
+The Auth-deletion boundary exposed a real integration defect in the preceding
+foundation: after a restaurant transfer, its old public opt-in still referenced
+the former Auth user with a restrictive foreign key. A local rollback-only probe
+reproduced the exact `booking_public_settings_owner_id_fkey` failure. The existing
+account-erasure path requires ownership transfer before erasure; that rule is
+preserved. This change does not add a user-deletion endpoint or alter its
+administrator authorization, cooling-off or Safety controls.
+
+Forward migration `20261020232712_booking_public_owner_cleanup_v1.sql` changes
+only that configuration reference to cascade when the Auth account is explicitly
+deleted. It removes the former owner's public contact/opt-in, not the restaurant,
+guest reservations, allocations, capabilities, audit or mail intents. A new
+operator must opt in again. Existing guests keep their recorded cancellation
+promise and scoped self-service access under the current operator.
+
+Removing/recreating a policy must not reuse a prior terms version. A private,
+RLS-protected per-restaurant epoch preserves the last public-policy revision
+without owner/contact data. Initialization is fenced in the existing restaurant
+writer lock order; the revision writer advances from the larger of existing
+policy/epoch, including a new policy after former-owner erasure. Identical saves
+remain no-ops. A cached pre-transfer form is rejected after republication, while
+an already committed guest request keeps its distinct original-operation replay.
+Existing 203 policy/retry contracts retain their normal revisions.
+
+Canonical PostgreSQL 17 boot through all 204 migrations passed twenty-one Booking
+SQL suites and all existing real races. New acceptance deletes a synthetic former
+Auth owner only after transfer, preserves guest/access/mail records, denies an
+ordinary client's Auth deletion and a deleted owner's stale JWT, requires a fresh
+policy epoch, rejects an old-terms form and preserves guest cancellation rights.
+A separate PostgreSQL 16 supplement restored schema only into a newly created
+local database, seeded actual 203 configuration through its RPC, applied the
+actual 204 migration file with nonempty data and verified erasure/republication
+without revision reuse. That database was then removed. It is a migration-state
+supplement, not a second proof of canonical Safety or a production restore drill.
+Receipt: `cce7e26dfbea687a50f616448d61c67fecaa30a91b1953a210d3c6771278e2dd`.
+Release evidence: `booking-public-owner-cleanup-v1.json`.
+
+The generic destructive-migration gate also classifies this foreign-key
+replacement/account-triggered configuration removal as requiring separate
+Founder authorization. Do not weaken the classifier or treat this source fix as
+production approval. The configuration-only erasure rule must be included in
+the explicit integration approval alongside the existing closure-removal rule;
+production migration/recovery authorization remains separate. No real Auth user,
+guest record or production schema was changed. No Web runtime changed in 204;
+the preceding 111 client journeys/build are unchanged-runtime evidence, not new
+public-checkout acceptance.
