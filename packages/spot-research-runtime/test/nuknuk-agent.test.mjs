@@ -40,10 +40,21 @@ test('research links include scoped information pages and reject external/action
  const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/besuch">Besuch</a><a href="/besuch/barrierefrei">Zugang</a><a href="https://evil.org/kontakt">Kontakt</a><a href="/login">Contact</a><a href="/reservation">Öffnungszeiten</a>'});
  assert.deepEqual(links.map(x=>x.url),['https://example.org/besuch','https://example.org/besuch/barrierefrei']);
 });
+test('a hotel instance crawl skips other cities and pagination on the shared brand site',async()=>{
+ const hotel={...spot,name:'25hours Hotel Zürich Langstrasse',existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/de/zurich/langstrasse/'}}};
+ const visited=[];
+ const body='<main><h1>25hours Hotel Zürich Langstrasse</h1></main><a href="/de/dubai/one-central/rooms/">Rooms</a><a href="/de/zurich/langstrasse/rooms/">Rooms</a><a href="/de/zurich/langstrasse/rooms/?query-0-page=2">Rooms</a>';
+ await researchSpotV2({...opts,spot:hotel,maxRequests:4},{...deps,fetchPage:async url=>{visited.push(url);return {url,contentType:'text/html',body,observedAt:new Date().toISOString()};},modelFetch:async()=>reply({verdicts:[]})});
+ assert.deepEqual(visited,['https://example.org/de/zurich/langstrasse/','https://example.org/de/zurich/langstrasse/rooms/']);
+});
 test('a venue profile outranks and excludes dated news or programme paths',()=>{
  const links=discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/home/ueber-das-lokal">Über das Lokal</a><a href="/home/news-leute-machen-orte">News</a><a href="/kunstprogramm">Kunst</a><a href="/kontakt">Kontakt</a>'});
  assert.deepEqual(links.map(link=>link.url),['https://example.org/home/ueber-das-lokal','https://example.org/kontakt']);
  assert.ok(links[0].topics.includes('about'));
+});
+test('temporary hotel campaigns do not enter permanent-spot research',()=>{
+ const links=discoverResearchLinks({url:'https://example.org/de/zurich/langstrasse/',contentType:'text/html',body:'<a href="/de/zurich/langstrasse/rooms/">Zimmer</a><a href="/de/zurich/langstrasse/stay-for-goods/">Stay for Goods</a><a href="/de/zurich/langstrasse/artist-in-hotel-residence/">Artist in Residence</a><a href="/de/zurich/langstrasse/offers/winter/">Winter Offer</a>'});
+ assert.deepEqual(links.map(x=>x.url),['https://example.org/de/zurich/langstrasse/rooms/']);
 });
 test('template expressions are not followed and a late official contact link survives large navigation',()=>{
  const menu=Array.from({length:130},(_,i)=>`<a href="/topic/${i}">Weitere Informationen</a>`).join('');
@@ -79,6 +90,34 @@ test('restaurant kitchen hours and department email never override whole-venue v
  assert.equal(checked[1].reason,'EXPLICIT_AREA_HOURS');
  assert.equal(checked[2].state,'ACCEPTED');
  assert.equal(checked[3].reason,'EXPLICIT_AREA_EMAIL');
+});
+test('split lunch and dinner hours merge without inventing closed weekdays',()=>{
+ const rows=['Mi-Fr 12-14 Uhr','Di-Do 17-22 Uhr','Fr & Sa 17-23 Uhr'];
+ const text='Öffnungszeiten\n'+rows.join('\n');
+ const s=source(text);
+ const make=quotes=>validateEvidenceFacts({facts:quotes.map(q=>fact('hours.regular',q,q))},s,[field('hours.regular')]).map(f=>({...f,state:'ACCEPTED'}));
+ const partial=projectEvidenceLedger({spot,fields:[field('hours.regular')],facts:make(rows),sources:[s],...deps})[0];
+ assert.equal(partial.status,'REQUIRES_REVIEW');
+ assert.equal(partial.partialHours,true);
+ assert.equal(partial.value.length,5);
+ assert.ok(!partial.value.some(row=>['MONDAY','SUNDAY'].includes(row.day)));
+ assert.match(reviewHtml([{name:'Test',results:[partial]}]),/Nicht genannte Wochentage sind unbekannt/);
+ const fullText=text+'\nMo geschlossen\nSo geschlossen';
+ const full=source(fullText);
+ const facts=validateEvidenceFacts({facts:[...rows,'Mo geschlossen','So geschlossen'].map(q=>fact('hours.regular',q,q))},full,[field('hours.regular')]).map(f=>({...f,state:'ACCEPTED'}));
+ const result=projectEvidenceLedger({spot,fields:[field('hours.regular')],facts,sources:[full],...deps})[0];
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.deepEqual(result.value.find(row=>row.day==='FRIDAY').intervals,[{start:'12:00',end:'14:00'},{start:'17:00',end:'23:00'}]);
+});
+test('role mailbox cannot conflict with a venue-wide contact email',()=>{
+ const text='¡Che, que lomo!\nCatering@chequelomo.ch\nKontakt\ninfo@chequelomo.ch';
+ const s=source(text);
+ const chosen=[field('contact.public_email')];
+ const facts=validateEvidenceFacts({facts:[fact('contact.public_email','Catering@chequelomo.ch','Catering@chequelomo.ch'),fact('contact.public_email','info@chequelomo.ch','info@chequelomo.ch')]},s,chosen).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(facts,[s],chosen,spot);
+ assert.equal(checked[0].reason,'EXPLICIT_AREA_EMAIL');
+ assert.equal(checked[1].state,'ACCEPTED');
+ assert.equal(projectEvidenceLedger({spot,fields:chosen,facts:checked,sources:[s],validateValue:validateAuthoringSubmission})[0].value,'info@chequelomo.ch');
 });
 test('public client-data discovery follows only observed read-only same-host endpoints',()=>{
  const page={url:'https://zoo.example.org/de/zoobesuch/r/1/oeffnungszeiten/',contentType:'text/html',body:'{{Oeffnungszeit_de}}<dmx-serverconnect id="scOeffnungszeiten" url="/dmxConnect/api/Website/de/Oeffnungszeiten.php" dmx-param:wrid="query.wrid"><dmx-serverconnect id="scStatsPage" url="/dmxConnect/api/Website/Stats/Oeffnungszeiten.php"><dmx-serverconnect id="scOther" url="https://evil.org/dmxConnect/api/Website/Oeffnungszeiten.php"><dmx-serverconnect id="scKontakt" url="/dmxConnect/api/Website/de/Kontakt.php" dmx-param:uid="query.missing">'};
@@ -151,6 +190,22 @@ test('a hotel room list with an explicit availability sentence yields named revi
  const report=await researchSpotV2({...opts,spot:stay,fields:[field('experience.profile')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
  assert.equal(report.results[0].status,'REQUIRES_REVIEW');
  assert.deepEqual(report.results[0].value.offers.map(o=>o.name),['Zimmer "Münster"','Zimmer "Lohnhof"']);
+});
+test('literal hotel room detail heading survives a mistaken AREA label',async()=>{
+ const stay={...spot,name:'Airport Hotel Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const quote='Familienzimmer mit Platz für die ganze Familie und eigenem Bad.',business='Business Zimmer mit ruhigem Arbeitsplatz und eigenem Bad.';
+ const pages={'https://example.org/':'<main><h1>Airport Hotel Basel</h1><a href="/zimmer/familienzimmer">Familienzimmer</a><a href="/zimmer/business-zimmer">Business Zimmer</a></main>','https://example.org/zimmer/familienzimmer':`<main><p>Airport Hotel Basel</p><h1>Familienzimmer</h1><p>${quote}</p></main>`,'https://example.org/zimmer/business-zimmer':`<main><p>Airport Hotel Basel</p><h1>Business Zimmer</h1><p>${business}</p></main>`};
+ const report=await researchSpotV2({...opts,spot:stay,fields:[field('experience.profile')],maxRequests:3},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:pages[url],observedAt:new Date().toISOString()}),modelFetch:modelFor(data=>data.source.url.endsWith('/familienzimmer')?[fact('experience.profile','Familienzimmer',quote,{subject:'AREA',belongsTo:'UNKNOWN',offerKind:'OVERNIGHT_STAY'})]:data.source.url.endsWith('/business-zimmer')?[fact('experience.profile','Business Zimmer',business,{subject:'AREA',belongsTo:'UNKNOWN',offerKind:'OVERNIGHT_STAY'})]:[])});
+ assert.equal(report.results[0].status,'REQUIRES_REVIEW');
+ assert.deepEqual(report.sources.map(s=>s.url),Object.keys(pages));
+ assert.deepEqual(report.results[0].value.offers.map(o=>o.name),['Familienzimmer','Business Zimmer']);
+ assert.ok(report.facts.some(f=>f.value==='Familienzimmer'&&f.reason==='STRUCTURED_HOTEL_ROOM'));
+});
+test('a room page titled for another hotel cannot become this hotel’s offer',async()=>{
+ const stay={...spot,name:'Airport Hotel Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const body='<main><p>Other Hotel</p><h1>Familienzimmer</h1><p>Familienzimmer mit Platz für die ganze Familie und eigenem Bad.</p></main>';
+ const report=await researchSpotV2({...opts,spot:stay,fields:[field('experience.profile')],sources:['https://example.org/zimmer/familienzimmer'],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
+ assert.equal(report.results[0].status,'UNRESOLVED');
 });
 test('hotel amenity sentences cannot masquerade as room names',()=>{
  const stay={...spot,name:'Hotel Brasserie au Violon',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};

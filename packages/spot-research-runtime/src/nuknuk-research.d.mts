@@ -2,7 +2,7 @@ import type { ResearchSource } from './nuknuk-sources.mjs';
 export interface ResearchField {attributeKey:string;valueSchema:Record<string,unknown>;profileCategory?:string;valueRules?:string[]}
 export interface SpotContext {spotId:string;name:string;locality?:string|null;existingValues?:Record<string,{value:unknown;knowledgeState?:string}>|null}
 export interface Citation {url:string;evidence:string;observedAt:string;sourceHash:string;sourceOffset?:number;layoutReviewRequired?:boolean;sourceFormat?:string;discoveredOn?:string|null}
-export interface FieldResult {attributeKey:string;status:string;reason?:string;value?:unknown;knowledgeState?:string;citations?:Citation[];partialProfile?:boolean;currentValue?:unknown;humanReviewRequired?:boolean;verification?:unknown}
+export interface FieldResult {attributeKey:string;status:string;reason?:string;value?:unknown;knowledgeState?:string;citations?:Citation[];partialProfile?:boolean;partialHours?:boolean;currentValue?:unknown;humanReviewRequired?:boolean;verification?:unknown}
 export type ValueValidator=(key:string,state:string,value:unknown)=>{ok:boolean;value?:unknown};
 export const NUKNUK_MODEL_REVISION:string;
 export function localModelEndpoint(value:string):string;

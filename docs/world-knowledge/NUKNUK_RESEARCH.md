@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v2.3
+## Active architecture: Research v2.4
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -245,12 +245,64 @@ review-field proposals. The 9B run took 71 seconds and found `Bouldern` and
 bytes were fetched live rather than frozen, and Mac memory was not measured.
 This limited comparison does not justify promoting 27B.
 
-**Current release decision: local autonomous draft selection is implemented but
+**Release decision on 19 October: local autonomous draft selection was implemented but
 not certified for unattended catalog-scale use.** The exploratory suite shows
 useful coverage and safe abstention, but it is too small and was used to develop
 the rules. A fresh current Admin export, an untouched cross-category validation
 set, source review of every projected claim, and sustained budget/latency checks
 remain required. No catalog import or approval is automated.
+
+### v2.4 current-export blind review, 20 October 2026
+
+A fresh Admin export contained six selected Spots. Three previously untested
+restaurant, hotel and bar entries were independently re-researched against live
+official websites with five requested fields. This is a small blind set, not a
+catalog-wide accuracy estimate. It exposed general source-handling errors:
+
+- The resolver rejected a public `192.0.66.202` address as private because it
+  blocked all of `192.0/16`. Within that range only the reserved `192.0.0/24` is now blocked;
+  the private-address test and live hotel fetch pass.
+- A hotel on a multi-location brand site followed another city's pages, a
+  special programme and pagination. The crawl now stays under the selected
+  venue path when that path identifies a multi-segment instance, and skips
+  campaign/artist-programme and pagination URLs. The corrected hotel run read
+  three pages in 108 seconds without source failures, versus ten requests in
+  248 seconds before the scope fix. Its main phone and email matched the
+  official hotel page; hours and generic offer groups remained unresolved.
+- A catering mailbox was counted as a second general restaurant email. Role
+  mailboxes are now excluded from venue-wide contact projection. The rerun
+  selected the literal `info@` address. HTML low-quote entities are decoded
+  before evidence extraction, so source-backed copy does not contain raw
+  `&bdquo;` text.
+- Separate lunch and dinner rows previously produced a false schedule conflict.
+  They now merge when intervals do not overlap, while contradictory overlapping
+  times still stop projection. Partial weekly schedules retain only named days;
+  the review page explicitly warns that missing days are unknown and must not
+  replace a complete existing schedule without human reconciliation.
+- A named room on an official hotel detail page was rejected because the local
+  critic labeled the room as an area. A narrow deterministic rule now requires a
+  room URL slug, matching page heading, descriptive text and hotel identity in
+  the first page lines. A page headed for another hotel is held even if the
+  model approves it. The agent keeps looking for up to four distinct room
+  offers within its existing request/time budget.
+
+The bar's published phone and weekly hours agreed with its existing catalog
+values. A separate automatic `MISSING_FIELDS` run selected five current Spots
+and completed with no catalog writes. It preserved all known fields, safely
+abstained when laptop policy was not explicitly stated, and exposed an external
+site with a self-signed certificate rather than bypassing TLS validation. Its
+first pass found no new fields; this is an accuracy success but a coverage gap.
+After the room-detail change, a live Airport Hotel rerun proposed three distinct
+named room types in 130 seconds and six requests. Each name was checked on its
+own current official detail page; prices remained empty and the profile is
+marked partial. The final tests cover the source/IP, identity, partial-hours,
+role-mailbox, and multi-room guards. No catalog values were written.
+
+**Current release decision: autonomous bounded research drafts are useful,
+but unattended catalog-scale accuracy and coverage are not certified.** The
+current-export sample is still small and exposed multiple general errors during
+development. A larger untouched cross-category set and repeatability runs are
+required before relaxing review. Canonical import and approval remain human-led.
 
 A 12-case synthetic language regression corpus covers false preferences,
 venue/area confusion, reviews, expired offers, explicit facilities and affirmative

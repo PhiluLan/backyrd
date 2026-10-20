@@ -9,7 +9,7 @@ import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs'
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.3';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v2.4';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -21,6 +21,7 @@ export function selectResearchModel(modelPath:string) {
 }
 const SUPPORTED=['description.highlight','contact.phone','contact.public_email','hours.regular','experience.profile','offering.groups','amenity.features','operation.laptop_policy'];
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
+const roomSlug=(value:string)=>value.normalize('NFKD').replace(/[\u0300-\u036f]/gu,'').toLocaleLowerCase().replace(/ß/gu,'ss').replace(/[^a-z0-9]+/gu,'-').replace(/^-|-$/gu,'');
 const researchCodeHash=hash(readFileSync(new URL(import.meta.url),'utf8'));
 const literalParserHash=hash(readFileSync(new URL('./nuknuk-research.mjs',import.meta.url),'utf8'));
 const sourceReaderHash=hash(readFileSync(new URL('./nuknuk-sources.mjs',import.meta.url),'utf8'));
@@ -94,7 +95,9 @@ function explicitPhoneArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'so
   if(!label||!/(?<!\p{L})(?:shop|bistro|restaurant|brasserie|bar|café|cafe|kiosk|presse|press|rezeption|reception|büro|buero|office|administration)(?!\p{L})/iu.test(label))return null;
   return spot.name.toLocaleLowerCase().includes(label.toLocaleLowerCase())?null:label;
 }
-function explicitEmailArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'sourceOffset'>):string|null {
+function explicitEmailArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'sourceOffset'|'value'>):string|null {
+  const mailbox=f.value.split('@')[0]?.toLocaleLowerCase()??'';
+  if(/^(?:catering|events?|veranstaltungen?|presse|press|media|jobs?|karriere|recruitment|buchhaltung|accounting|reservations?|reservierungen?|booking)(?:[._+-]|$)|^res[._+-]/iu.test(mailbox))return 'ROLE_MAILBOX';
   const offset=factOffset(source,f);if(offset<0)return null;
   const preceding=source.text.slice(Math.max(0,offset-110),offset).split(/\n+/u).map(line=>line.trim()).filter(Boolean).at(-1)??'';
   return /^(?:kurse?(?:\s*&\s*gruppen)?|courses?(?:\s*&\s*groups?)?|gruppen|groups?|events?(?:\s*&\s*catering)?|veranstaltungen?|presse|press|medien|media|jobs?|karriere|recruitment|buchhaltung|accounting|verwaltung|administration)\s*:?$/iu.test(preceding)?preceding:null;
@@ -236,6 +239,7 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
   if(f.belongsTo!=='TARGET')return 'OWNERSHIP_'+f.belongsTo;
   if(f.field==='contact.phone'&&explicitPhoneArea(source,f,spot))return 'EXPLICIT_AREA_PHONE';
   if(f.field==='contact.public_email'&&explicitEmailArea(source,f))return 'EXPLICIT_AREA_EMAIL';
+  if(f.field==='experience.profile'&&spot.existingValues?.['classification.primary_category']?.value==='STAY'&&/(?:^|\/)(?:rooms?|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(source.url).pathname)&&!source.text.split(/\n+/u).map(line=>line.trim()).filter(Boolean).slice(0,3).join(' ').toLocaleLowerCase().includes(spot.name.toLocaleLowerCase()))return 'ROOM_PAGE_IDENTITY_UNCONFIRMED';
   // A venue can state its own concrete offer directly ("Bouldern ist ...").
   // TARGET in that sentence denotes the venue's assertion, not a claim that
   // every area or visitor has the same property. Literal name, kind, scope,
@@ -339,6 +343,12 @@ function literalSourceFacts(source:ResearchSource,fields:ResearchField[],spot:Sp
     }
   }
   if(fields.some(f=>f.attributeKey==='experience.profile')&&spot.existingValues?.['classification.primary_category']?.value==='STAY') {
+    const pathParts=new URL(source.url).pathname.split('/').filter(Boolean);
+    const detailHeading=[...(source.headings??[])].reverse().find(h=>/^(?:zimmer|rooms?|chambres?|camere)$/iu.test(pathParts.at(-2)??'')&&h.level<=4&&h.text.length>=4&&h.text.length<=80&&roomSlug(h.text)===roomSlug(pathParts.at(-1)??''));
+    if(detailHeading){
+      const quote=source.text.slice(detailHeading.offset).split(/\n\s*\n/u).slice(0,2).join('\n\n').slice(0,320);
+      if(quote.startsWith(detailHeading.text)&&((quote.match(/\p{L}+/gu)??[]).length>=5))core.push({id:'f'+(offset+core.length),sourceId:source.id,field:'experience.profile',value:detailHeading.text,quote,sourceOffset:detailHeading.offset,subject:'OFFER',subjectLabel:detailHeading.text,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'OVERNIGHT_STAY',state:'HELD',reason:'SEMANTIC_CHECK_PENDING'});
+    }
     // A named room list is an enduring accommodation offer only when the page
     // explicitly introduces rooms available to guests. Navigation alone is not
     // sufficient; the model still verifies ownership and currency below.
@@ -387,22 +397,43 @@ function certifiedVenueHours(f:EvidenceFact,source:ResearchSource,spot:SpotConte
   if(/\b(?:nur|only|weather|wetter|saisonal|seasonal|ferien|holiday|feiertag|reservation|reservierung|ausnahme|exception)\b/iu.test(f.quote))return false;
   return true;
 }
+function certifiedHotelRoom(f:EvidenceFact,source:ResearchSource,spot:SpotContext):boolean {
+  if(f.field!=='experience.profile'||f.offerKind!=='OVERNIGHT_STAY'||f.applicability!=='CURRENT'||f.polarity!=='AFFIRMATIVE'||f.condition||f.subject==='OTHER'||f.belongsTo==='OTHER'||source.truncated||spot.existingValues?.['classification.primary_category']?.value!=='STAY'||!matchesExistingWebsite(source.url,String(spot.existingValues?.['contact.website']?.value)))return false;
+  const parts=new URL(source.url).pathname.split('/').filter(Boolean),last=parts.at(-1)??'';
+  if(parts.length<2||!/(?:^|\/)(?:rooms?|zimmer|chambres?|camere)(?:\/|$)/iu.test(new URL(source.url).pathname)||roomSlug(last)!==roomSlug(f.value)||f.value.length<4||f.value.length>80)return false;
+  if(!source.text.split(/\n+/u).map(line=>line.trim()).filter(Boolean).slice(0,3).join(' ').toLocaleLowerCase().includes(spot.name.toLocaleLowerCase())||!(source.headings??[]).some(h=>h.text.toLocaleLowerCase()===f.value.toLocaleLowerCase()))return false;
+  const offset=factOffset(source,f);if(offset<0||!f.quote.toLocaleLowerCase().includes(f.value.toLocaleLowerCase())||((f.quote.match(/\p{L}+/gu)??[]).length<5))return false;
+  if(/\b(?:ab|from)\s*(?:chf|eur|€|\d)|\b(?:nur|only|bis|until|deal|special|angebot|aktion|promotion)\b/iu.test(f.quote))return false;
+  return true;
+}
 function mergeSchedules(facts:EvidenceFact[],sources:ResearchSource[]) {
   const days=new Map<string,{fact:EvidenceFact;row:{day:string;intervals:{start:string;end:string}[]};specificity:number}[]>();
   for(const fact of facts){const rows=atomicHours(fact.quote);for(const row of rows){const list=days.get(row.day)??[];list.push({fact,row,specificity:rows.length});days.set(row.day,list);}}
   return [...days.values()].map(entries=>{
     if(new Set(entries.map(e=>JSON.stringify(e.row))).size===1)return entries[0].row;
-    const ranked=[...entries].sort((a,b)=>a.specificity-b.specificity),specific=ranked[0];
-    // A following, adjacent narrower day explicitly overrides a broad day range
-    // on the SAME page. Different sources/sections remain a real conflict.
-    if(!ranked.slice(1).every(e=>{
-      if(JSON.stringify(e.row)===JSON.stringify(specific.row))return true;
-      if(e.specificity<=specific.specificity||e.fact.sourceId!==specific.fact.sourceId)return false;
-      const source=sources.find(s=>s.id===e.fact.sourceId)!;
-      const start=factOffset(source,e.fact)+e.fact.quote.length,end=factOffset(source,specific.fact);
-      return end>=start&&end-start<=64&&/^[\s,;:()–—-]*$/u.test(source.text.slice(start,end));
-    }))throw new Error('CONFLICTING_TARGET_SCHEDULES');
-    return specific.row;
+    const byStart=new Map<string,typeof entries>();
+    for(const entry of entries)for(const interval of entry.row.intervals.length?entry.row.intervals:[{start:'CLOSED',end:'CLOSED'}]){
+      const group=byStart.get(interval.start)??[];group.push({...entry,row:{day:entry.row.day,intervals:entry.row.intervals.length?[interval]:[]}});byStart.set(interval.start,group);
+    }
+    const intervals:{start:string;end:string}[]=[];
+    for(const group of byStart.values()){
+      const ranked=[...group].sort((a,b)=>a.specificity-b.specificity),specific=ranked[0];
+      // A following, adjacent narrower day overrides a broad day range on the
+      // same page; independent conflicting closing times remain unresolved.
+      if(!ranked.slice(1).every(e=>{
+        if(JSON.stringify(e.row)===JSON.stringify(specific.row))return true;
+        if(e.specificity<=specific.specificity||e.fact.sourceId!==specific.fact.sourceId)return false;
+        const source=sources.find(s=>s.id===e.fact.sourceId)!;
+        const start=factOffset(source,e.fact)+e.fact.quote.length,end=factOffset(source,specific.fact);
+        return end>=start&&end-start<=64&&/^[\s,;:()–—-]*$/u.test(source.text.slice(start,end));
+      }))throw new Error('CONFLICTING_TARGET_SCHEDULES');
+      intervals.push(...specific.row.intervals);
+    }
+    if(byStart.has('CLOSED')&&intervals.length)throw new Error('CONFLICTING_TARGET_SCHEDULES');
+    intervals.sort((a,b)=>a.start.localeCompare(b.start));
+    const minute=(value:string)=>Number(value.slice(0,2))*60+Number(value.slice(3));
+    if(intervals.some((item,index)=>index>0&&minute(item.start)<(minute(intervals[index-1].end)<=minute(intervals[index-1].start)?minute(intervals[index-1].end)+1440:minute(intervals[index-1].end))))throw new Error('CONFLICTING_TARGET_SCHEDULES');
+    return {day:entries[0].row.day,intervals};
   });
 }
 // Reapply only deterministic floors to saved model evidence. This cannot
@@ -425,7 +456,7 @@ function topicsForField(key:string,category?:string):string[] {
   return category==='STAY'?['stay','access','about']:['visit','access','about'];
 }
 export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[]):FrontierEntry[] {
-  const open=fields.filter(f=>!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
+  const open=fields.filter(f=>f.attributeKey==='experience.profile'?new Set(facts.filter(x=>x.field===f.attributeKey&&x.state==='ACCEPTED').map(x=>x.value.toLocaleLowerCase())).size<4:!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
   const weight=(key:string)=>key.startsWith('contact.')||key==='hours.regular'?8:['description.highlight','experience.profile'].includes(key)?2:1;
   const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+
     (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
@@ -485,7 +516,7 @@ export function projectEvidenceLedger({spot,fields,facts,sources,validateValue}:
       const knowledgeState=typeof value==='boolean'?(value?'KNOWN_TRUE':'KNOWN_FALSE'):'KNOWN_VALUE';
       const validated=field.attributeKey==='experience.profile'?{ok:true,value:parseExperienceProfile(value,false)}:validateValue(field.attributeKey,knowledgeState,value);
       if(!validated.ok)throw new Error('CANONICAL_VALUE_REJECTED');
-      return {attributeKey:field.attributeKey,status:'REQUIRES_REVIEW',knowledgeState,value:validated.value??value,citations:used.slice(0,12).map(f=>citation(f,sources)),humanReviewRequired:true,...(field.attributeKey==='experience.profile'?{partialProfile:true}:{})};
+      return {attributeKey:field.attributeKey,status:'REQUIRES_REVIEW',knowledgeState,value:validated.value??value,citations:used.slice(0,12).map(f=>citation(f,sources)),humanReviewRequired:true,...(field.attributeKey==='experience.profile'?{partialProfile:true}:{}),...(field.attributeKey==='hours.regular'&&(value as unknown[]).length<7?{partialHours:true}:{})};
     }catch(error){return {attributeKey:field.attributeKey,status:'FAILED',reason:error instanceof Error?error.message:'PROJECTION_FAILED'};}
   });
 }
@@ -504,6 +535,8 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   const seeds=options.sources??(typeof website==='string'?[website]:[]);
   if(!seeds.length||seeds.length>6)throw new Error('agent_official_seed_required');
   const official=typeof website==='string'?website:seeds[0];
+  const venuePath=(value:string)=>new URL(value).pathname.split('/').filter(Boolean).filter((part,index)=>index!==0||!/^(?:de|en|fr|it)$/iu.test(part));
+  const officialPath=venuePath(official);
   const sources:ResearchSource[]=[],facts:EvidenceFact[]=[],sourceFailures:SourceFailure[]=[],modelAudit:ModelAudit[]=[];
   const actions:Record<string,unknown>[]=[],visited=new Set<string>(),queued=new Set<string>();
   const frontier:FrontierEntry[]=[];
@@ -511,6 +544,8 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     try {
       entry.url=publicSourceUrl(entry.url);
       if(entry.depth>maxDepth||queued.size>=300||queued.has(entry.url))return;
+      if(entry.depth>0&&officialPath.length>=2&&!officialPath.every((part,index)=>venuePath(entry.url)[index]===part))return;
+      if(entry.depth>0&&[...new URL(entry.url).searchParams.keys()].some(key=>/^(?:page|paged|offset|cursor|pagination|query-\d+-page)$/iu.test(key)))return;
       if(!matchesExistingWebsite(entry.discoveredOn??entry.url,official))throw new Error('SOURCE_IDENTITY_REQUIRES_REVIEW');
       queued.add(entry.url);frontier.push(entry);
     }catch(error){sourceFailures.push({url:entry.url,reason:error instanceof Error?error.message:'URL_REJECTED'});}
@@ -551,7 +586,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     if(!remaining()){stopReason='TIME_BUDGET_EXHAUSTED';break;}
     if(requests>=maxRequests){stopReason='REQUEST_BUDGET_EXHAUSTED';break;}
     const planned=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
-    const pendingFields=fields.filter(f=>{const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&Array.isArray(proposal?.value)&&proposal.value.length<7;});
+    const pendingFields=fields.filter(f=>{const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&Array.isArray(proposal?.value)&&proposal.value.length<7||f.attributeKey==='experience.profile'&&proposal?.partialProfile&&Array.isArray((proposal.value as {offers?:unknown[]} | undefined)?.offers)&&(proposal.value as {offers:unknown[]}).offers.length<4;});
     const next=rankResearchFrontier(frontier,facts,pendingFields)[0];if(!next){stopReason='FRONTIER_EXHAUSTED';break;}frontier.splice(frontier.indexOf(next),1);
     const relevant=(field:ResearchField)=>next.depth===0||topicsForField(field.attributeKey,field.profileCategory).some(topic=>next.topics.includes(topic));
     const semanticGroups=[pendingFields.filter(f=>f.attributeKey==='experience.profile'&&relevant(f)),pendingFields.filter(f=>['offering.groups','amenity.features','operation.laptop_policy'].includes(f.attributeKey)&&relevant(f))].filter(group=>group.length);
@@ -626,6 +661,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       // Apply known eligibility before asking the critic. Ineligible area facts,
       // invented names or enum guesses must not crowd out valid target evidence.
       for(const fact of extracted)if(fact.state!=='REJECTED') {
+        if(certifiedHotelRoom(fact,source,spot)){fact.subject='OFFER';fact.subjectLabel=fact.value;fact.belongsTo='TARGET';fact.state='ACCEPTED';fact.reason='STRUCTURED_HOTEL_ROOM';continue;}
         const reason=deterministicFactReason(fact,source,fields.find(field=>field.attributeKey===fact.field)!,spot);
         if(reason){fact.state='HELD';fact.reason=reason;}
         else if(certifiedVenuePhone(fact,source,spot)){fact.state='ACCEPTED';fact.reason='STRUCTURED_VENUE_PHONE';}
