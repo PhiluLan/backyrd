@@ -1,6 +1,7 @@
 import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
+import { setRecentDecisionActor } from "../lib/decision/recentDecisionSearch";
 import { clearJourneySelection } from "../lib/discovery-journey";
 import { supabase } from "../lib/supabase";
 import { clearSupabaseAuthStorage } from "../lib/supabaseStorage";
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           "Invalid Supabase refresh token detected. Clearing local session."
         );
         await recoverFromInvalidRefreshToken();
-        if (mounted) setSession(null);
+        if (mounted) { setRecentDecisionActor(null); setSession(null); }
       } finally {
         recovering = false;
       }
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           console.warn("Session fetch error:", error.message);
         }
 
-        if (mounted) setSession(data.session ?? null);
+        if (mounted) { setRecentDecisionActor(data.session?.user.id ?? null); setSession(data.session ?? null); }
       } catch (error) {
         if (isInvalidRefreshTokenError(error)) {
           await recover(error);
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         console.warn("Unexpected session fetch error:", error);
-        if (mounted) setSession(null);
+        if (mounted) { setRecentDecisionActor(null); setSession(null); }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -94,6 +95,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       if (!mounted) return;
 
+      setRecentDecisionActor(currentSession?.user.id ?? null);
       setSession(currentSession ?? null);
     });
 
