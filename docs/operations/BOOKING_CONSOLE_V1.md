@@ -73,3 +73,39 @@ environment; do not create production guest bookings for smoke tests.
 
 Rollback: remove the Console entry through a Web revert, preserving database
 reservations. Never drop the Booking tables or rewrite the applied migration.
+
+## Interaction direction: restaurant service first
+
+Aleno is the requested usability reference. Keep Backyrd's own design and domain
+contracts, while reducing the effort of common service tasks. Public research
+on 2026-10-20 is sufficient to define the first structure:
+
+- The reservation book is the daily working surface. Date and service context
+  should remain visible when starting a reservation. Aleno documents creation
+  from both its reservation book and seating view, with date/time editable in
+  the form: [Create reservations](https://knowledge.aleno.me/de/kb/reservierungen-erstellen).
+- Common party sizes should take one tap, with direct entry for other sizes.
+  The first increment adds size shortcuts within the restaurant's configured
+  maximum. Changing party size always invalidates old availability.
+- Separate setup from service work. A later room/table-plan view should support
+  placement without obscuring the reservation list. Public reference:
+  [Create a table plan](https://knowledge.aleno.me/de/kb/tischplan-erstellen).
+- A later calendar/service overview should lead into the selected day's book;
+  date-specific overrides require backend support before exposing controls.
+  Public reference: [Calendar and day settings](https://knowledge.aleno.me/de/kb/kalender-funktionen).
+- Keep the daily list scannable; choose essential columns before adding a large
+  guest form. Public reference: [Reservation-book columns](https://knowledge.aleno.me/de/kb/spalten-ansicht-im-booqin-und-in-print-anpassen).
+
+Numeric drafts remain text until valid form submission; deleting a value must
+leave it empty, including after blur. Duration, maximum party size and table
+seats are converted only at the existing numeric API boundary. Required, range
+and whole-number rules still apply. Availability checks reject an empty or
+invalid party size without calling the backend. Mobile inputs use numeric
+keyboards and 16px text, and table setup stacks on narrow screens.
+
+Public documentation establishes structure, not proof of current touch behavior
+inside a customer account. Before the larger Console redesign, inspect the
+founder's signed-in Volta Bräu workflow for reservation creation, book/table-plan
+switching and phone/tablet operation. Do not modify live reservations or copy
+guest data during that inspection. Walk-in lifecycle, guest profiles and table
+movement need explicit backend designs; they are not enabled by these UI changes.
