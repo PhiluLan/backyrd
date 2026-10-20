@@ -132,8 +132,10 @@ headings are excluded. The rule passes unit checks against changed lists and
 the saved real source replay; an end-to-end latency result after this last
 skip correction has not yet been measured.
 
-The third pre-run-reference case, Airport Hotel Basel, is a different hotel
-with three official room categories. Its untouched v3.3 run found all three
+Airport Hotel Basel is a development regression case with three official
+room categories. Earlier local v2.4 runs used this Spot, so the reference
+prepared before the v3.4 comparison does not make it a new blind case.
+The current-code baseline found all three
 but falsely added a twin-bed choice mentioned inside Business Zimmer as a
 fourth room. The fixed six-offer target then kept crawling unrelated service,
 contact and package pages until its eight-request budget expired after 540
@@ -144,11 +146,11 @@ hotel research at its actual number of accepted categories, even if fewer
 than six. The tuned full-site retest returned only Business Zimmer, Executive
 Zimmer and Familienzimmer from the homepage and official room overview in
 two requests, three model calls and 132 seconds, with no model/source errors.
-Rechecking the saved blind evidence under v3.4 also holds the twin-bed
+Rechecking the saved baseline evidence under v3.4 also holds the twin-bed
 choice while retaining only the three named rooms.
-This tuned success does not count as a new blind case. The three untouched
-cases still leave the formal gate closed: two false assertions, six missed
-facts, one budget stop, and insufficient category-balanced coverage.
+Neither Airport run counts toward the release cohort. The two untouched
+cases still leave the formal gate closed: one false assertion, six missed
+facts, and insufficient category-balanced coverage.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
