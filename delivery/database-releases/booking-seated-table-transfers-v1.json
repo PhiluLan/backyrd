@@ -10,7 +10,7 @@
   "migrations": [
     {
       "path": "supabase/migrations/20261020224442_booking_seated_table_transfers_v1.sql",
-      "sha256": "713c58d71969a868b825f868a27504eac498b0598f93b0e8d3ad310874a53ad5"
+      "sha256": "1281d8d7390404d4bd024960c5ec230b1061976bd92a6e7afd1b4fffa6611e63"
     }
   ],
   "tests": [

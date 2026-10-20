@@ -1077,7 +1077,7 @@ cannot re-seat a departed guest. SQL additionally covers shared-member group
 moves, original time retention, previous target bookings, upcoming conflicts,
 metadata edits, original admission replay, closure impact, service-hours
 preservation and effective-range synchronization. Final database receipt:
-`0b42e70e8be9226ed15b1a3335e1a606fa03149a00bd7249e3368f970ec7c677`.
+`37334d6e73e2ad071151d27c671da0c71e6934c1008fb3069de5abab04d0987b`.
 Release evidence: `booking-seated-table-transfers-v1.json`.
 
 The source-only Web control is gated by `seated_transfers`. Planned guest time
@@ -1087,3 +1087,8 @@ Unknown/malformed write responses freeze the exact transfer for retry; leaving
 reloads current assignments. Role revocation clears an open private draft.
 Production activation, private-schema drift coverage, real-device checks and a
 restaurant trial remain outstanding; this is no Aleno parity claim.
+
+A stale transfer preview or reservation revision stops submission and offers
+explicit draft discard followed by a fresh reservation read. Continuing to
+edit does not discard the selected duration/table. A server access denial clears
+the private workspace immediately, without waiting for periodic revalidation.
