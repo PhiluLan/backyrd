@@ -107,6 +107,7 @@ for (const migrationPath of [
   "supabase/migrations/20261014072400_world_knowledge_scoped_experience_cards_v2_4.sql",
   "supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql",
   "supabase/migrations/20261015122708_world_verification_clock_skew_guard.sql",
+  "supabase/migrations/20261019203759_booking_restaurant_console_v1.sql",
 ]) test(`separately bound additive migration seals without inheriting Founder authority: ${migrationPath}`, () => {
   const { root, base } = fixture();
   put(root, "supabase/production/preapplied-product-migrations-v1.json", `${JSON.stringify({
@@ -286,6 +287,14 @@ test("Mood release approval binds the exact pair and rejects changed scope", () 
 
 test("two-person Mood display approval binds only the reviewed migration", () => {
   const migration = { path: "supabase/migrations/20261019152123_mood_two_person_display_v1.sql", sha256: "5907a21d48629cc1ea883fa08716614b7b4f05ccc2acd55ec7734b505594bfed" };
+  assert.equal(isExactProductAdditiveSet([migration]), true);
+  assert.equal(isExactProductAdditiveSet([{ ...migration, sha256: "0".repeat(64) }]), false);
+  assert.equal(isExactProductAdditiveSet([{ ...migration, path: "supabase/migrations/unapproved.sql" }]), false);
+  assert.equal(isExactProductAdditiveSet([migration, { path: "supabase/migrations/unapproved.sql", sha256: "0".repeat(64) }]), false);
+});
+
+test("Booking Console release scope binds the exact migration bytes", () => {
+  const migration = { path: "supabase/migrations/20261019203759_booking_restaurant_console_v1.sql", sha256: "e982735f7a36d258e1b162970e844f841de408137d9ac0721ee31ddf220ec36b" };
   assert.equal(isExactProductAdditiveSet([migration]), true);
   assert.equal(isExactProductAdditiveSet([{ ...migration, sha256: "0".repeat(64) }]), false);
   assert.equal(isExactProductAdditiveSet([{ ...migration, path: "supabase/migrations/unapproved.sql" }]), false);
