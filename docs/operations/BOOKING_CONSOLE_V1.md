@@ -940,3 +940,72 @@ inside a transaction, ran the actual initialization, observed the staged-backfil
 exception before new DDL and verified unchanged reservation count plus the
 restored allocation schema after connection rollback. The guard now runs before
 the unique index build. No production data or production schema was used.
+
+## Configured table combinations (2026-10-21)
+
+Migration `20261020221656_booking_table_combinations_v1.sql` completes the
+operator workflow on the allocation foundation. Owner/Manager can configure
+up to 100 active, compatible groups of two to four active tables in one room,
+with an explicit party limit bounded by their summed chairs. An identical
+active physical footprint cannot be configured twice. Configuration changes
+and archival affect future choices; existing reservations keep their saved
+physical membership and continue to block every member.
+
+Capability-gated `slots_v2`, `create_v2`, `amend_v2`, `walk_in_slots_v2` and
+`walk_in_v2` return/accept the full table set plus configured group identity.
+Singles remain available. Restaurant/service/room eligibility, dated and
+night-service windows, interval grid, actual closure dates, party capacity and
+all-member collisions are checked under current access/Safety and the common
+restaurant lock. A client cannot invent a table set from arbitrary table IDs.
+Availability can be narrowed by service, room and minute; more than 10,000
+choices returns an explicit scope error instead of silently omitting inventory.
+Minute filtering retains both instants during a daylight-saving clock fold.
+
+The canonical reservation remains one record with one guest count. Its primary
+table is retained for compatibility; the physical allocation relation is the
+occupancy source. Create/amend/walk-in share a private membership writer. A
+combined amendment can replace the entire member set and primary in one
+transaction. Legacy inventory amendments cannot silently split a group;
+metadata corrections and service-status transitions continue to work. Setup
+changes cannot invalidate active definitions or the resources/capacity of
+future occupying reservations and seated parties, including overstays.
+
+A private request registry hashes the normalized complete operation, including
+operation kind, initial status and all selected members. It stores the original
+operational outcome, not another copy of guest contact/note fields. Replaying
+creation after amendment/group archival or walk-in after departure returns that
+original outcome without reapplying old guest text or seating another party.
+Amendment replays remain valid after a later correction. Current access and
+both acting-user/owner Safety are enforced before replay. Hashes are not a
+claim of anonymization; registry retention must be included in the planned
+Booking data-lifecycle work before public guest checkout.
+
+The Web Console shows every saved table in the book, details, amendment and
+change history. Current seating and table-plan occupancy appear on each member;
+summary metrics count the parent reservation once. The management drawer uses
+editable numeric drafts and an area-scoped table selection; its reference
+primary is assigned internally. Archival uses the saved definition, including
+when an unfinished numeric draft is invalid. Unknown writes freeze the exact
+operation; leaving asks for review of the current server state. Viewer/Host
+can read full membership but cannot configure groups. Legacy backends retain
+V1 calls and controls until the capability is actually returned.
+
+Canonical acceptance: PostgreSQL 17 clean boot through all 201 migrations,
+sixteen Booking SQL suites and actual two-connection races passed. The new
+public API tests cover configured compatibility, all-member create/reschedule,
+capacity/configuration rollback, archived definitions with retained occupancy,
+legacy split prevention, after-amendment creation replay, after-later-edit
+amendment replay, immediate walk-in and replay after departure. Authorization
+acceptance exercises Viewer/Host/Manager, forged metadata, cross-restaurant
+access, private ACLs/RLS, real Safety measures on both owner and actor, recovery
+and revoked-host replay. Concurrent public writes sharing one secondary table
+create exactly one party; simultaneous identical requests create one parent,
+one request record and one audit event. The race harness fixes one business
+date before starting either connection to avoid midnight-dependent payloads.
+Receipt: `7bb7d083aa2258092a4ff83acd6255ffbc327b9c0d68f442679a376fc9b722fd`.
+Release evidence: `booking-table-combinations-v1.json`.
+
+Production activation, scoped private-schema drift validation, physical phone
+checks and a restaurant/team trial remain outstanding. Moving an already
+seated party, service quotas, guest checkout/communication and durable recovery
+are separate open capabilities. This is no Aleno parity claim.

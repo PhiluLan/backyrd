@@ -1918,7 +1918,7 @@ test("seating and departure appear on every physical member of a table combinati
   const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
   await details.getByRole("button", { name: "Am Tisch platzieren", exact: true }).click();
   await details.getByRole("button", { name: "Status speichern", exact: true }).click();
-  await page.keyboard.press("Escape");
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
   await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
   for (const name of ["Fenster 1", "Terrasse 2"]) {
     const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name, exact: true }) });
@@ -1928,7 +1928,7 @@ test("seating and departure appear on every physical member of a table combinati
   await page.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true }).first().click();
   await details.getByRole("button", { name: "Besuch beenden", exact: true }).click();
   await details.getByRole("button", { name: "Status speichern", exact: true }).click();
-  await page.keyboard.press("Escape");
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
   await expect(page.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toHaveCount(0);
 });
 
@@ -2001,4 +2001,66 @@ test("a combined walk-in retains both tables through an uncertain admission retr
   expect(fixture.combinedWrites()[0]).toEqual(fixture.combinedWrites()[1]);
   expect(fixture.combinedWrites()[0]).toMatchObject({ p_table_ids: [table1, table2], p_combination_id: groupAB });
   await expect(page.getByRole("button", { name: "Reservierung von Walk-in öffnen", exact: true })).toContainText("Fenster 1 + Terrasse 2");
+});
+
+test("archiving a combination ignores an unfinished numeric draft and preserves its booked members", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, combinedSeed: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true }).click();
+  await page.getByRole("button", { name: /Familientisch/ }).click();
+  const editor = page.getByRole("dialog", { name: "Kombination bearbeiten", exact: true });
+  await editor.getByLabel("Maximale Personen dieser Kombination", { exact: true }).fill("");
+  await editor.getByRole("button", { name: "Kombination aufheben", exact: true }).click();
+  await editor.getByRole("button", { name: "Aufheben bestätigen", exact: true }).click();
+  const list = page.getByRole("dialog", { name: "Tischkombinationen", exact: true });
+  await expect(list).toBeVisible();
+  expect(fixture.combinationConfigRequests()[0]).toMatchObject({ p_name: "Familientisch", p_max_party_size: 8, p_active: false, p_table_ids: [table1, table2] });
+  await list.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toContainText("Fenster 1 + Terrasse 2");
+});
+
+test("a stale combination configuration keeps its draft without a saved result", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, combinationConfigConflict: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true }).click();
+  await page.getByRole("button", { name: /Familientisch/ }).click();
+  const editor = page.getByRole("dialog", { name: "Kombination bearbeiten", exact: true });
+  await editor.getByLabel("Name der Kombination", { exact: true }).fill("Nicht überschreiben");
+  await editor.getByRole("button", { name: "Kombination speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toContainText("Die Einrichtung wurde inzwischen geändert");
+  await expect(editor.getByLabel("Name der Kombination", { exact: true })).toHaveValue("Nicht überschreiben");
+  expect(fixture.combinationConfigRequests()).toHaveLength(1);
+});
+
+test("a revoked manager loses an open combination draft before saving", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, teams: true, teamRole: "manager" });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true }).click();
+  await page.getByRole("button", { name: /Familientisch/ }).click();
+  const editor = page.getByRole("dialog", { name: "Kombination bearbeiten", exact: true });
+  await editor.getByLabel("Name der Kombination", { exact: true }).fill("Privater Entwurf");
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByText("Privater Entwurf", { exact: true })).toHaveCount(0);
+  expect(fixture.combinationConfigRequests()).toHaveLength(0);
+});
+
+test("a large combination availability scope can recover by narrowing its requested minute", async ({ page }) => {
+  await mockConsole(page, { seeded: true, combinations: true });
+  const requests: Record<string, unknown>[] = [];
+  await page.route("**/rest/v1/rpc/booking_console_slots_v2", async (route) => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    if (!body.p_time) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_availability_scope_too_large" } });
+    return route.fallback();
+  });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await expect(editor.getByRole("alert")).toContainText("Grenze die Auswahl");
+  await editor.getByLabel("Uhrzeit eingrenzen (optional)", { exact: true }).fill("18:00");
+  await editor.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "18:00" });
+  expect(requests.at(-1)).toMatchObject({ p_time: "18:00" });
+  await expect(editor.getByRole("alert")).toHaveCount(0);
 });
