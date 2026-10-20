@@ -39,3 +39,10 @@ hooks.useUnsavedMoment(true,true);prevented({data:{action:'BACK'}});assert.equal
 native.Platform.OS='web';let accepted=false;const events=new Map();globalThis.window={confirm:()=>accepted,addEventListener:(name,fn)=>events.set(name,fn),removeEventListener:name=>events.delete(name)};
 hooks.useUnsavedMoment(true,false);prevented({data:{action:'BACK'}});assert.equal(dispatches.length,1);accepted=true;prevented({data:{action:'BACK'}});assert.equal(dispatches.length,2);assert.ok(events.has('beforeunload'));effectCleanup();assert.equal(events.size,0);delete globalThis.window;
 console.log('Experience regressions passed: overnight/overlapping/missing hours, safe contact/routes/sharing and discard/upload/reload protection.');
+
+let store;
+const storeRows=[{id:'one',name:'One',lat:null,lng:null,categories:{name:'Café'},spot_photos:[]},{id:'two',name:'Two',lat:0,lng:0,categories:[{name:'Bar'}],spot_photos:[]}];
+const query=Object.assign(Promise.resolve({data:storeRows,error:null}),{select(){return this;},eq(){return this;},limit(){return this;},abortSignal(){return this;}});
+load('lib/useSpotsStore.ts',{'zustand':{create:factory=>{store=factory(update=>Object.assign(store,update));return store;}},'./supabase':{supabase:{from:()=>query,channel:()=>({on(){return this;},subscribe(){return this;}})}},'./distributionTrust':{filterDistributedSpots:async rows=>rows},'./spot-images':{selectSpotImageUrl:()=>null},'./requestDeadline':{withRequestDeadline:operation=>operation(new AbortController().signal)}});
+await store.refresh();assert.equal(store.error,false);assert.equal(store.spots[0].categories.name,'Café');assert.equal(store.spots[1].categories.name,'Bar');assert.ok(Number.isNaN(store.spots[0].lat));assert.equal(store.spots[1].lat,0);
+console.log('Catalog boundary: object/array category joins, missing coordinates and real zero coordinates passed.');

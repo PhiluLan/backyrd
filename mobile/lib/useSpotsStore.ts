@@ -63,7 +63,7 @@ export const useSpotsStore = create<State>((set) => ({
           ...s,
           lat: s.lat == null ? Number.NaN : Number(s.lat),
           lng: s.lng == null ? Number.NaN : Number(s.lng),
-          categories: Array.isArray(s.categories) ? s.categories[0] ?? null : null,
+          categories: Array.isArray(s.categories) ? s.categories[0] ?? null : s.categories,
           header_photo_url: selectSpotImageUrl({
             photoUrl: s.spot_photos[0]?.url || null,
             headerPhotoPath: s.header_photo_path,

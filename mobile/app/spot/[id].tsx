@@ -422,11 +422,11 @@ export default function SpotDetailScreen() {
     if (generation !== reviewGeneration.current) return;
     setReviews(visibleReviews);
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await withRequestDeadline(async signal => supabase
       .from("backyrd_spot_mood_profile_public_v1")
       .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
       .eq("spot_id", id)
-      .order("rank", { ascending: true });
+      .order("rank", { ascending: true }).abortSignal(signal), 8_000).catch(() => ({ data: null, error: new Error("mood_profile_deadline") }));
     if (generation !== reviewGeneration.current) return;
     setMoodProfileFailed(Boolean(profileError));
     setMoodProfileLoading(false);
