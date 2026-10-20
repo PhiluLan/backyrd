@@ -219,9 +219,45 @@ run_case guest_retry_after_pause "$guest_retry" "$guest_retry" SUCCESS "$guest_a
 guest_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select count(*) from public.booking_reservations where spot_id='$spot' and source='website')||':'||(select count(*) from booking_private.reservation_requests_v2 where spot_id='$spot' and request_kind='guest_create')||':'||(select count(*) from booking_private.guest_mail_outbox_v1 where spot_id='$spot');")"
 test "$guest_proof" = '2:2:2' || { printf 'Unexpected public intake race state: %s\n' "$guest_proof" >&2; exit 1; }
 
+# A competing worker must skip a restaurant held by another claim, not block or
+# lease the same message. Observe a real idle transaction before competing.
+lease_a='7b000000-0000-4000-8000-000000000110'
+lease_b='7b000000-0000-4000-8000-000000000111'
+mkfifo "$race_root/mail-skip.pipe"
+PGAPPNAME='booking-race-holder-mail-skip' psql "$DB_URL" -X -v ON_ERROR_STOP=1 <"$race_root/mail-skip.pipe" >"$race_root/mail-skip-holder.out" 2>&1 & holder_pid=$!
+exec 3>"$race_root/mail-skip.pipe"
+printf 'begin; set local role service_role; select public.booking_mail_claim_v1('\''%s'\''); select '\''BOOKING_HOLDER_READY'\'';\n' "$lease_a" >&3
+wait_for_state 'booking-race-holder-mail-skip' "state='idle in transaction' and query like '%BOOKING_HOLDER_READY%'"
+skip_proof="$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "begin; set local statement_timeout='2s'; set local role service_role; select public.booking_mail_claim_v1('$lease_b') is null; commit;")"
+test "$skip_proof" = t || { printf 'Competing mail worker did not skip the held restaurant.\n' >&2; exit 1; }
+printf 'commit;\n' >&3
+exec 3>&-
+wait "$holder_pid"; holder_pid=''
+psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "begin; set local role service_role; select public.booking_mail_claim_v1('$lease_b'); commit;" >"$race_root/mail-second-claim.out"
+mail_a="$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select id from booking_private.guest_mail_outbox_v1 where lease_id='$lease_a';")"
+mail_b="$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select id from booking_private.guest_mail_outbox_v1 where lease_id='$lease_b';")"
+[[ "$mail_a" =~ ^[0-9a-f-]{36}$ && "$mail_b" =~ ^[0-9a-f-]{36}$ && "$mail_a" != "$mail_b" ]] || exit 1
+reservation_a="$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select reservation_id from booking_private.guest_mail_outbox_v1 where id='$mail_a';")"
+reservation_b="$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select reservation_id from booking_private.guest_mail_outbox_v1 where id='$mail_b';")"
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+select public.booking_mail_prepare_v1(o.id,o.lease_id,booking_private.request_fingerprint_v2(booking_private.mail_snapshot_v1(o.reservation_id)),repeat('sealed-race-payload-',4),repeat('e',64)) from booking_private.guest_mail_outbox_v1 o where id in ('$mail_a','$mail_b');
+SQL
+amend_a="select public.booking_console_amend_v2(r.spot_id,r.id,'7b000000-0000-4000-8000-000000000112',r.revision,r.service_id,r.table_id,array['$table_id'::uuid,'$second_table'::uuid],r.combination_id,r.starts_at,60,r.party_size,r.guest_name,'corrected-a@booking.invalid',r.note) from public.booking_reservations r where id='$reservation_a';"
+amend_b="select public.booking_console_amend_v2(r.spot_id,r.id,'7b000000-0000-4000-8000-000000000113',r.revision,r.service_id,r.table_id,array['$table_id'::uuid,'$second_table'::uuid],r.combination_id,r.starts_at,60,r.party_size,r.guest_name,'corrected-b@booking.invalid',r.note) from public.booking_reservations r where id='$reservation_b';"
+run_case mail_contact_before_dispatch "$amend_a" \
+ "select case when public.booking_mail_begin_v1('$mail_a','$lease_a',repeat('e',64)) is null then 'NO_DISPATCH' else 'UNSAFE_DISPATCH' end;" SUCCESS "$guest_auth" "$auth_sql"
+grep -q '^ NO_DISPATCH' "$race_root/mail_contact_before_dispatch-waiter.out" || { cat "$race_root/mail_contact_before_dispatch-waiter.out" >&2; exit 1; }
+run_case mail_dispatch_before_contact \
+ "select public.booking_mail_begin_v1('$mail_b','$lease_b',repeat('e',64));" "$amend_b" SUCCESS "$auth_sql" "$guest_auth"
+mail_proof="$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select (select state from booking_private.guest_mail_outbox_v1 where id='$mail_a')||':'||(select state||':'||(superseded_at is not null)::text from booking_private.guest_mail_outbox_v1 where id='$mail_b');")"
+test "$mail_proof" = 'suppressed:sending:true' || { printf 'Unexpected dispatch/contact boundary: %s\n' "$mail_proof" >&2; exit 1; }
+psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "begin; set local role service_role; select public.booking_mail_finish_v1('$mail_b','$lease_b','retry'); commit;" >"$race_root/mail-unknown-finish.out"
+test "$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select state from booking_private.guest_mail_outbox_v1 where id='$mail_b';")" = review_required || exit 1
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
+delete from booking_private.guest_mail_events_v1 where outbox_id in (select id from booking_private.guest_mail_outbox_v1 where spot_id='$spot');
 delete from booking_private.guest_mail_outbox_v1 where spot_id='$spot';
 delete from booking_private.guest_access_v1 where spot_id='$spot';
 delete from booking_private.reservation_requests_v2 where spot_id='$spot';
@@ -239,3 +275,4 @@ delete from auth.users where id in ('$owner','$staff','$other_owner');
 commit;
 SQL
 printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation and public combined bookings serialize, roll back a competing claim, deduplicate concurrent identical requests, and fence actual-time seated transfers against competing movements and departure; public intake and operator inventory serialize in both orders, with replay and paused-intake fences.\n'
+printf 'Mail workers skip held restaurant claims without duplicate leases; contact correction fences dispatch in both real lock orders, and an already in-flight unknown send cannot retry the obsolete recipient. No provider was contacted.\n'
