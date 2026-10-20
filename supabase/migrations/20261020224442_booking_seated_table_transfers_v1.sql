@@ -70,7 +70,7 @@ language sql stable set search_path='' as $$
   and (p_service is null or r.service_id=p_service)
   and (p_area is null or exists(select 1 from booking_private.reservation_allocations_v1 a join public.booking_restaurant_tables t on t.spot_id=a.spot_id and t.id=a.table_id
    where a.reservation_id=r.id and a.is_active and t.area_id=p_area))
-  and tstzrange(coalesce(r.allocation_starts_at,r.starts_at),coalesce(r.allocation_ends_at,r.ends_at),'[)') && tstzrange(p_start,p_end,'[)');
+  and tstzrange(coalesce(r.allocation_starts_at,r.starts_at),case when r.status='seated' then greatest(coalesce(r.allocation_ends_at,r.ends_at),booking_private.admission_clock_v1()+interval '1 microsecond') else coalesce(r.allocation_ends_at,r.ends_at) end,'[)') && tstzrange(p_start,p_end,'[)');
 $$;
 
 -- A transfer is service for an admitted guest, not a second admission.
@@ -167,5 +167,74 @@ begin
  );
 end;
 $$;
+
+-- Newly ineligible remaining occupancy still needs an explicit keep-existing decision.
+create or replace function public.booking_console_save_hours_v1(p_spot_id uuid,p_revision bigint,p_id uuid,p_service_id uuid,p_date date,
+ p_opens_at time default null,p_closes_at time default null,p_next_day boolean default false,p_closed boolean default false,
+ p_interval integer default 30,p_note text default null,p_keep_existing boolean default false,p_archive boolean default false) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare h public.booking_service_hours%rowtype; v_revision bigint; v_start timestamptz; v_end timestamptz;
+ v_invalid uuid[]; n bigint; v_after jsonb; v_clock timestamptz; v_today date; v_running boolean; begin
+ perform booking_private.assert_console_access_v1(p_spot_id,'manage');
+ select revision into v_revision from public.booking_restaurant_settings where spot_id=p_spot_id for update;
+ if not found then raise exception 'booking_setup_required' using errcode='22023'; end if;
+ v_clock:=booking_private.planning_clock_v1(); v_today:=(v_clock at time zone 'Europe/Zurich')::date;
+ if p_id is null or p_revision is null or p_revision<0 or p_date is null or not isfinite(p_date)
+  or p_date<date '0001-01-02' or p_date>date '9999-12-29' or p_archive is null or p_closed is null or p_next_day is null or p_keep_existing is null
+  or p_interval is null or p_interval not between 15 and 120 or length(p_note)>160 then raise exception 'invalid_booking_hours' using errcode='22023'; end if;
+ if not exists(select 1 from public.booking_restaurant_services where spot_id=p_spot_id and id=p_service_id and (is_active or p_archive)) then raise exception 'booking_resource_spot_mismatch' using errcode='42501'; end if;
+ select * into h from public.booking_service_hours where id=p_id;
+ if found and (h.spot_id<>p_spot_id or h.service_id<>p_service_id or h.book_date<>p_date) then raise exception 'booking_resource_spot_mismatch' using errcode='42501'; end if;
+ if p_archive then
+  if h.id is null or not h.is_active then return jsonb_build_object('revision',v_revision,'existing_reservations',0); end if;
+  select coalesce(booking_private.civil_boundary_v1(p_date,s.opens_at,false),(p_date+s.opens_at) at time zone 'Europe/Zurich'),
+   coalesce(booking_private.civil_boundary_v1(p_date+case when s.ends_next_day then 1 else 0 end,s.closes_at,true),(p_date+case when s.ends_next_day then 1 else 0 end+s.closes_at) at time zone 'Europe/Zurich')
+   into v_start,v_end from public.booking_restaurant_services s where s.spot_id=p_spot_id and s.id=p_service_id and s.is_active and extract(dow from p_date)::integer=any(s.weekdays);
+ else
+  if p_closed then
+   if p_opens_at is not null or p_closes_at is not null or p_next_day then raise exception 'invalid_booking_hours' using errcode='22023'; end if;
+  else
+   if p_opens_at is null or p_closes_at is null or p_opens_at>=time '24:00' or extract(second from p_opens_at)<>0 or extract(second from p_closes_at)<>0
+    or (not p_next_day and p_closes_at<=p_opens_at) or (p_next_day and (p_closes_at>p_opens_at or p_closes_at>=time '24:00')) then raise exception 'invalid_booking_hours' using errcode='22023'; end if;
+   v_start:=booking_private.civil_boundary_v1(p_date,p_opens_at,false);
+   v_end:=booking_private.civil_boundary_v1(p_date+case when p_next_day then 1 else 0 end,p_closes_at,true);
+   if v_start is null or v_end is null or v_end<=v_start then raise exception 'invalid_booking_hours_time' using errcode='22023'; end if;
+  end if;
+  if h.is_active and h.opens_at is not distinct from p_opens_at and h.closes_at is not distinct from p_closes_at and h.next_day=p_next_day and h.is_closed=p_closed
+   and h.interval_minutes=p_interval and h.note is not distinct from nullif(trim(p_note),'') then return jsonb_build_object('revision',v_revision,'existing_reservations',0); end if;
+ end if;
+ if p_date<v_today-1 or p_date>v_today+365 then raise exception 'invalid_booking_hours' using errcode='22023'; end if;
+ if p_date=v_today-1 then
+  select exists(select 1 from booking_private.service_windows_v1(p_spot_id,p_date) w where w.service_id=p_service_id and v_clock>=w.starts_at and v_clock<w.ends_at) into v_running;
+  if not v_running and not(coalesce((p_archive or (not p_closed and p_next_day)) and v_start<=v_clock and v_end>v_clock,false)) then
+   raise exception 'booking_hours_not_running' using errcode='22023'; end if;
+ end if;
+ if v_revision<>p_revision then raise exception 'booking_setup_changed_reload' using errcode='40001'; end if;
+ -- Only newly ineligible allocations require acknowledgement; grandfathered bookings are not counted again.
+ select coalesce(array_agg(r.id),'{}'::uuid[]) into v_invalid from public.booking_reservations r
+ where r.spot_id=p_spot_id and r.service_id=p_service_id and r.status in ('pending','confirmed','arrived','seated')
+  and coalesce(r.allocation_starts_at,r.starts_at)>=(p_date::timestamp at time zone 'Europe/Zurich') and coalesce(r.allocation_starts_at,r.starts_at)<((p_date+2)::timestamp at time zone 'Europe/Zurich')
+  and not exists(select 1 from (select (coalesce(r.allocation_starts_at,r.starts_at) at time zone 'Europe/Zurich')::date-1 d union all select (coalesce(r.allocation_starts_at,r.starts_at) at time zone 'Europe/Zurich')::date) days
+   cross join lateral booking_private.service_windows_v1(p_spot_id,days.d) w where w.service_id=r.service_id and coalesce(r.allocation_starts_at,r.starts_at)>=w.starts_at and coalesce(r.allocation_ends_at,r.ends_at)<=w.ends_at);
+ if p_archive then update public.booking_service_hours set is_active=false,updated_at=now() where id=h.id;
+ else
+  insert into public.booking_service_hours(id,spot_id,service_id,book_date,opens_at,closes_at,next_day,is_closed,interval_minutes,starts_at,ends_at,note)
+   values(p_id,p_spot_id,p_service_id,p_date,p_opens_at,p_closes_at,p_next_day,p_closed,p_interval,v_start,v_end,nullif(trim(p_note),''))
+   on conflict(id) do update set opens_at=excluded.opens_at,closes_at=excluded.closes_at,next_day=excluded.next_day,is_closed=excluded.is_closed,
+    interval_minutes=excluded.interval_minutes,starts_at=excluded.starts_at,ends_at=excluded.ends_at,note=excluded.note,is_active=true,updated_at=now()
+    where public.booking_service_hours.spot_id=p_spot_id and public.booking_service_hours.service_id=p_service_id and public.booking_service_hours.book_date=p_date;
+  if not found then raise exception 'booking_resource_spot_mismatch' using errcode='42501'; end if;
+ end if;
+ select count(*) into n from public.booking_reservations r where r.spot_id=p_spot_id and r.service_id=p_service_id and r.status in ('pending','confirmed','arrived','seated') and not(r.id=any(v_invalid))
+  and coalesce(r.allocation_starts_at,r.starts_at)>=(p_date::timestamp at time zone 'Europe/Zurich') and coalesce(r.allocation_starts_at,r.starts_at)<((p_date+2)::timestamp at time zone 'Europe/Zurich')
+  and not exists(select 1 from (select (coalesce(r.allocation_starts_at,r.starts_at) at time zone 'Europe/Zurich')::date-1 d union all select (coalesce(r.allocation_starts_at,r.starts_at) at time zone 'Europe/Zurich')::date) days
+   cross join lateral booking_private.service_windows_v1(p_spot_id,days.d) w where w.service_id=r.service_id and coalesce(r.allocation_starts_at,r.starts_at)>=w.starts_at and coalesce(r.allocation_ends_at,r.ends_at)<=w.ends_at);
+ if n>0 and not p_keep_existing then raise exception 'booking_hours_has_reservations' using errcode='22023',detail=n::text; end if;
+ select to_jsonb(x) into v_after from public.booking_service_hours x where id=p_id;
+ insert into public.booking_audit_events(spot_id,actor_id,action,details) values(p_spot_id,auth.uid(),case when p_archive then 'service_hours_archived' else 'service_hours_saved' end,
+  jsonb_build_object('before',to_jsonb(h),'after',v_after,'existing_reservations',n));
+ update public.booking_restaurant_settings set revision=revision+1,updated_at=now() where spot_id=p_spot_id;
+ return jsonb_build_object('revision',v_revision+1,'existing_reservations',n);
+end $$;
 
 commit;

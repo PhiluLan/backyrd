@@ -77,6 +77,13 @@ select public.booking_console_amend_v2(pg_temp.booking_id('spot-a'),(:'admitted'
 select pg_temp.booking_assert(pg_temp.visit_field('allocation_ends_at')=:'moved'::jsonb->>'allocation_ends_at','guest correction reset actual occupancy');
 select public.booking_console_walk_in_v2(pg_temp.booking_id('spot-a'),pg_temp.booking_id('walk'),pg_temp.booking_id('service-a'),pg_temp.booking_id('table-a'),array[pg_temp.booking_id('table-a'),pg_temp.booking_id('table-two')],pg_temp.booking_id('group-ab'),6,60,'Private transfer guest','private@booking.invalid','PRIVATE_NOTE') as original_replayed \gset
 select pg_temp.booking_assert(:'admitted'::jsonb=:'original_replayed'::jsonb,'original admission replay was changed by transfer');
+-- Changing hours must evaluate the remaining allocation, not only the original guest time.
+do $$ begin
+ begin
+  perform public.booking_console_save_hours_v1(pg_temp.booking_id('spot-a'),3,pg_temp.booking_id('hours-after-transfer'),pg_temp.booking_id('service-a'),(now() at time zone 'Europe/Zurich')::date,p_opens_at=>time '00:00',p_closes_at=>time '12:30');
+  raise exception 'changed hours ignored remaining allocation';
+ exception when invalid_parameter_value then if sqlerrm<>'booking_hours_has_reservations' then raise; end if; end;
+end $$;
 -- A delayed identical transfer replay does not undo later guest corrections.
 select public.booking_console_transfer_v1(pg_temp.booking_id('spot-a'),(:'admitted'::jsonb->>'id')::uuid,pg_temp.booking_id('transfer'),0,pg_temp.booking_id('table-two'),array[pg_temp.booking_id('table-two'),pg_temp.booking_id('table-three')],pg_temp.booking_id('group-bc'),60);
 do $$ declare r uuid:=(select id from public.booking_reservations where request_id=pg_temp.booking_id('walk')); begin
@@ -94,6 +101,11 @@ select pg_temp.booking_actor('booking-owner');
 do $$ declare r uuid:=(select id from public.booking_reservations where request_id=pg_temp.booking_id('walk')); begin
  begin perform public.booking_console_transfer_v1(pg_temp.booking_id('spot-a'),r,pg_temp.booking_id('conflicting'),2,pg_temp.booking_id('table-a'),array[pg_temp.booking_id('table-a'),pg_temp.booking_id('table-two')],pg_temp.booking_id('group-ab'),60); raise exception 'upcoming booking lost its table'; exception when invalid_parameter_value then if sqlerrm<>'booking_slot_unavailable' then raise; end if; end;
 end $$;
+select set_config('booking.test.transfer_clock','14:00',true);
+reset role;
+select pg_temp.booking_assert(booking_private.closure_affected_v1(pg_temp.booking_id('spot-a'),((now() at time zone 'Europe/Zurich')::date+time '14:00') at time zone 'Europe/Zurich',((now() at time zone 'Europe/Zurich')::date+time '14:30') at time zone 'Europe/Zurich',null,null)=1,'an overstay disappeared from current closure impact');
+set local role authenticated;
+select pg_temp.booking_actor('booking-owner');
 select public.booking_console_set_status_v1(pg_temp.booking_id('spot-a'),(:'admitted'::jsonb->>'id')::uuid,'seated','completed');
 select public.booking_console_transfer_v1(pg_temp.booking_id('spot-a'),(:'admitted'::jsonb->>'id')::uuid,pg_temp.booking_id('transfer'),0,pg_temp.booking_id('table-two'),array[pg_temp.booking_id('table-two'),pg_temp.booking_id('table-three')],pg_temp.booking_id('group-bc'),60) as after_departure \gset
 select pg_temp.booking_assert(:'moved'::jsonb=:'after_departure'::jsonb,'completed transfer replay reseated the guest');
