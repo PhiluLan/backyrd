@@ -5,13 +5,14 @@ import {readFileSync} from 'node:fs';
 import {EXPERIENCE_TEMPLATES,isAuthoringAttributeRelevant,parseExperienceProfile} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages,standingExperiencePath} from './nuknuk-sources.mjs';
+import {auditMenuImages} from './nuknuk-menu-media.mjs';
 import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs';
 import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from './nuknuk-search.mjs';
 import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.5';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.6';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -28,6 +29,8 @@ const researchCodeHash=hash(readFileSync(new URL(import.meta.url),'utf8'));
 const literalParserHash=hash(readFileSync(new URL('./nuknuk-research.mjs',import.meta.url),'utf8'));
 const sourceReaderHash=hash(readFileSync(new URL('./nuknuk-sources.mjs',import.meta.url),'utf8'));
 const searchCodeHash=hash(readFileSync(new URL('./nuknuk-search.mjs',import.meta.url),'utf8'));
+const menuMediaCodeHash=hash(readFileSync(new URL('./nuknuk-menu-media.mjs',import.meta.url),'utf8'));
+const visionOcrCodeHash=hash(readFileSync(new URL('../src/nuknuk-vision-ocr.swift',import.meta.url),'utf8'));
 const isObject=(x:unknown):x is Record<string,unknown>=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const record=(properties:Record<string,unknown>)=>({type:'object',additionalProperties:false,required:Object.keys(properties),properties});
 const text=(maxLength:number)=>({type:'string',maxLength});
@@ -50,10 +53,12 @@ export interface AgentOptions {
   spot:SpotContext; fields:ResearchField[]; modelPath:string; sources?:string[];
   budgetMs?:number; maxRequests?:number; maxModelCalls?:number; maxDepth?:number;
   discoverLinks?:boolean; skipKnownFields?:boolean; exportBound?:boolean;
+  inspectMenuImages?:boolean;
   webSearchEndpoint?:string; maxSearchQueries?:number; maxExternalPages?:number;
 }
 export interface AgentDependencies {
   validateValue:ValueValidator; fetchPage?:typeof fetchPublicSource; readPage?:typeof readSourceText;
+  inspectMenuImages?:typeof auditMenuImages;
   searchWeb?:typeof searchLocalWeb;
   modelFetch?:typeof fetch; now?:()=>number;
   onProgress?:(event:Record<string,unknown>)=>void|Promise<void>;
@@ -937,10 +942,11 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     if(seedUrl.pathname.split('/').filter(Boolean).length===1)enqueue({url:seedUrl.origin+'/',label:'Official homepage',depth:1,topics:['about','experience','visit']});
   }
   let modelUnavailable=false;
-  let menuLayoutSkipped=false;
+  let menuLayoutSkipped=false,menuMediaAudited=false;
+  const menuMediaAudits:Awaited<ReturnType<typeof auditMenuImages>>[]=[];
   let modelCalls=0,requests=0,searchDone=false,stopReason=fields.length?'FRONTIER_EXHAUSTED':'NO_FIELDS_REQUIRE_RESEARCH';
   const searchedTopics=new Set<string>();
-  const checkpoint=async()=>deps.onCheckpoint?.({version:NUKNUK_AGENT_VERSION,spotId:spot.spotId,canonicalWrite:false,completed:false,sources,facts,sourceFailures,modelAudit,actions,requests,modelCalls});
+  const checkpoint=async()=>deps.onCheckpoint?.({version:NUKNUK_AGENT_VERSION,spotId:spot.spotId,canonicalWrite:false,completed:false,sources,facts,sourceFailures,modelAudit,menuMediaAudits,actions,requests,modelCalls});
   const remaining=()=>Math.max(0,budgetMs-(now()-start));
   const progress=async(event:Record<string,unknown>)=>{actions.push(event);await deps.onProgress?.(event);};
   const model=async(stage:string,source:ResearchSource,body:ReturnType<typeof request>):Promise<unknown>=>{
@@ -1034,7 +1040,18 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         // Menu PDFs and images need layout review before individual line items
         // can be distinguished from ingredients or neighboring columns.
         // Do not spend model time extracting offers we cannot certify.
-        if(discoverMenuDocuments(page).length||discoverMenuImages(page).length)menuLayoutSkipped=true;
+        const observedMenuImages=discoverMenuImages(page,{maxImages:24});
+        if(discoverMenuDocuments(page).length||observedMenuImages.length)menuLayoutSkipped=true;
+        const isMenuPage=next.topics.includes('menu')||/(?:menu|men[uü]|speise|karte)/iu.test(new URL(page.url).pathname+' '+next.label);
+        if(options.inspectMenuImages===true&&!menuMediaAudited&&isMenuPage&&observedMenuImages.length>=2&&['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category))&&fields.some(field=>field.attributeKey==='experience.profile')&&remaining()>90000){
+          menuMediaAudited=true;
+          try {
+            const audit=await (deps.inspectMenuImages??auditMenuImages)(page.url,{page,maxImages:24});
+            menuMediaAudits.push(audit);
+            await progress({stage:'MENU_MEDIA_AUDITED',url:page.url,images:audit.images.length,candidateRows:audit.candidateRows??0});
+            await checkpoint();
+          }catch(error){const reason=error instanceof Error?error.message:'MENU_MEDIA_AUDIT_FAILED';sourceFailures.push({url:page.url,reason:'MENU_MEDIA_AUDIT_FAILED:'+reason});await progress({stage:'MENU_MEDIA_AUDIT_ERROR',url:page.url,reason});}
+        }
       }
     }catch(error){sourceFailures.push({url:next.url,reason:error instanceof Error?error.message:'RETRIEVAL_FAILED'});continue;}
     if(sources.slice(0,-1).some(s=>s.hash===source.hash)){await progress({stage:'DUPLICATE_CONTENT',url:source.url});continue;}
@@ -1206,7 +1223,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const result=results.find(item=>item.attributeKey===check.field);
     if(result?.status==='AUTO_VERIFIED'){result.status='REQUIRES_REVIEW';result.reason='EXTERNAL_SEMANTIC_DISCREPANCY_REQUIRES_REVIEW';result.humanReviewRequired=true;}
   }
-  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,searchCodeHash,literalParserHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status))||externalDiscrepancies.length>0||semanticCounterchecks.some(item=>item.verdict==='CONTRADICTS'),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,actions,search:{configured:Boolean(searchEndpoint),queries:searchQueries,leads:searchLeads,externalSources,discrepancies:externalDiscrepancies,semanticCounterchecks},failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
+  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,searchCodeHash,literalParserHash,menuMediaCodeHash,visionOcrCodeHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status))||externalDiscrepancies.length>0||semanticCounterchecks.some(item=>item.verdict==='CONTRADICTS'),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,menuMedia:{audits:menuMediaAudits,candidateRows:menuMediaAudits.reduce((n,item)=>n+(item.candidateRows??0),0),assertions:0},actions,search:{configured:Boolean(searchEndpoint),queries:searchQueries,leads:searchLeads,externalSources,discrepancies:externalDiscrepancies,semanticCounterchecks},failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
     coverage:results.map(r=>({attributeKey:r.attributeKey,status:r.status,acceptedFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='ACCEPTED').length,heldFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='HELD').length,complete:false})),
     frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:[searchEndpoint?'EXTERNAL_SOURCES_CROSS_CHECK_ONLY':'WEB_SEARCH_NOT_CONFIGURED','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(searchQueries.some(q=>q.error)?['WEB_SEARCH_DEGRADED']:[]),...(semanticCounterchecks.some(c=>c.reason)?['CROSS_CHECK_UNGROUNDED']:[]),...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
   await deps.onProgress?.({stage:'COMPLETE',report});return report;

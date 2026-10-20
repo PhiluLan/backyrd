@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.5
+# Local Nuknuk Research v3.6
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.5
+## Active architecture: Research v3.6
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -215,6 +215,40 @@ and no independent culture/activity cases. Café Frühling has a pre-run
 reference and a clear blind omission, but its initial reference was not in
 the formal audit schema, so it is reported separately rather than inserted
 retroactively into the formal cohort.
+
+v3.6 adds an optional, read-only audit for image-only menus. Set
+`"inspectMenuImages": true` in a local research manifest to inspect up to 24
+images actually embedded on a fetched official menu page. The local macOS
+Vision reader and Tesseract independently read each image; a priced-row lead
+is retained only when both readers agree on its literal name and price at the
+same visual row. Each lead stores its official parent URL, image URL, asset
+hash and Vision coordinates. The audit has a 60-second bound and records
+truncation and source failures. No OCR row becomes a catalog fact or an
+`experience.profile` offer; multi-line names, size variants and adjacent
+columns still require a separate layout/identity decision. The CLI remains
+draft-only, and the unattended gate remains closed.
+
+A live read-only audit of Restaurant Alexander's official menu found all 21
+embedded images without fetch failures. The first three were cover, allergen
+and hours pages, so the former four-image preview could hardly inspect the
+menu. The v3.6 heuristic emitted 34 cross-reader priced-row *candidates*,
+including visibly incomplete names. This is a coverage diagnostic, not 34
+verified dishes. The local command is:
+
+```sh
+NUKNUK_TESSDATA_DIR=.local/nuknuk-research/tessdata \
+NUKNUK_OCR_LANGUAGES=ukr+deu+eng \
+node scripts/world-knowledge/nuknuk-menu-audit.mjs \
+  https://www.restaurant-alexander-bs.ch/speisekarte \
+  .local/nuknuk-research/alexander-menu-audit.json
+```
+
+Keep OCR language weights and resulting image audit reports under ignored
+`.local/`. On macOS, Vision needs no downloaded model; Tesseract requires the
+matching local language data. These weights are not committed or uploaded.
+Before offer extraction can use these leads, a reviewer or layout-aware local
+model must separate complete dish names, descriptions, options, prices and
+section headers, then independently check venue identity and official scope.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

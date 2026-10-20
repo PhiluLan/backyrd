@@ -8,5 +8,5 @@ export function readSourceText(page:PublicPage,id:string,options?:{preferMain?:b
 export function discoverResearchLinks(page:PublicPage):ResearchLink[];
 export function standingExperiencePath(url:string):boolean;
 export function discoverPublicDataSources(page:PublicPage):ResearchLink[];
-export function discoverMenuImages(page:PublicPage):ResearchLink[];
+export function discoverMenuImages(page:PublicPage,options?:{maxImages?:number}):ResearchLink[];
 export function discoverMenuDocuments(page:PublicPage):ResearchLink[];

@@ -226,7 +226,11 @@ export function discoverOfficialLinks(page) {
 
 // Only actual image URLs embedded by the approved official page, not guessed
 // CDN paths. Preserve that parent URL so asset hosting cannot masquerade as identity.
-export function discoverMenuImages(page) {
+/** @param {Parameters<typeof sourceText>[0]} page
+ * @param {{maxImages?:number}} [options]
+ */
+export function discoverMenuImages(page,{maxImages=4}={}) {
+  if(!Number.isInteger(maxImages)||maxImages<1||maxImages>24)throw new Error('menu_image_limit_invalid');
   if(typeof page.body!=='string')return [];
   const images=[];
   for(const match of page.body.matchAll(/<img\b[^>]*>/gi)) {
@@ -234,7 +238,7 @@ export function discoverMenuImages(page) {
     const alt=match[0].match(/\balt\s*=\s*["']([^"']+)["']/i)?.[1]??'';
     if(!src||!/menu|speisekarte|menü/i.test(src+' '+alt)||/\.svg(?:[?#\s]|$)|menu[-_ ]?(?:toggle|icon|button)|hamburger|navigation/i.test(src+' '+alt))continue;
     try {const url=publicSourceUrl(new URL(src.replace(/&amp;/g,'&'),page.url).href);if(!images.some(i=>i.url===url))images.push({url,discoveredOn:page.url});}catch{}
-    if(images.length===4)break;
+    if(images.length===maxImages)break;
   }
   return images;
 }

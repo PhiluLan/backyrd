@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
-import {discoverResearchLinks,discoverPublicDataSources,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
+import {discoverResearchLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
+import {agreeingPricedRows} from '../../../scripts/world-knowledge/nuknuk-menu-audit.mjs';
 import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from '../src/nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
@@ -15,6 +16,35 @@ const source=(text,id='s1')=>({id,text,url:'https://example.org/',observedAt:new
 const fact=(field,value,quote,extra={})=>({field,value,quote,subject:'TARGET',subjectLabel:spot.name,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'',...extra});
 const ledger=(facts,s)=>validateEvidenceFacts({facts},s,fields).map(f=>({...f,state:'ACCEPTED'}));
 const reply=value=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]}));
+test('menu-image discovery can inventory observed pages beyond a four-image preview',()=>{
+ const tags=Array.from({length:7},(_,i)=>`<img src="https://assets.example.org/menu-${i}.jpg" alt="menu page ${i}">`).join('');
+ const page={url:'https://example.org/speisekarte',contentType:'text/html',body:tags};
+ assert.equal(discoverMenuImages(page).length,4);
+ assert.equal(discoverMenuImages(page,{maxImages:7}).length,7);
+ assert.throws(()=>discoverMenuImages(page,{maxImages:25}),/menu_image_limit_invalid/);
+});
+test('two OCR engines must agree on a priced menu row at the same visual height',()=>{
+ const lines=[{text:'Український борщ',confidence:0.99,x:0.06,y:0.66,width:0.3,height:0.02},{text:'18.00',confidence:0.99,x:0.42,y:0.66,width:0.08,height:0.02},{text:'З пампушками',confidence:0.99,x:0.06,y:0.62,width:0.3,height:0.02},{text:'19.50',confidence:0.99,x:0.82,y:0.4,width:0.08,height:0.02}];
+ assert.deepEqual(agreeingPricedRows(lines,'Український борщ 18.00\nЗ пампушками').map(row=>row.name),['Український борщ']);
+ assert.deepEqual(agreeingPricedRows(lines,'Борщ 18.00'),[]);
+ const variants=[{text:'klein',confidence:1,x:0.1,y:0.5,width:0.2},{text:'26.00',confidence:1,x:0.4,y:0.5,width:0.1},{text:'Deruny Natur dazu',confidence:1,x:0.1,y:0.3,width:0.25},{text:'18.00',confidence:1,x:0.4,y:0.3,width:0.1}];
+ assert.deepEqual(agreeingPricedRows(variants,'klein 26.00\nDeruny Natur dazu 18.00'),[]);
+});
+test('menu-image inspection remains a cited lead and never an asserted catalog offer',async()=>{
+ const menuUrl='https://example.org/speisekarte';
+ const menu='<main><h1>Speisekarte</h1><img src="https://cdn.example.org/menu-1.jpg" alt="Menü 1"><img src="https://cdn.example.org/menu-2.jpg" alt="Menü 2"></main>';
+ let inspected=0;
+ const report=await researchSpotV2({...opts,fields:[field('experience.profile')],sources:[menuUrl],maxRequests:1,inspectMenuImages:true},{...deps,
+   fetchPage:async url=>({url,contentType:'text/html',body:menu,observedAt:new Date().toISOString()}),
+   inspectMenuImages:async(url,{page})=>{inspected++;assert.equal(url,menuUrl);assert.equal(page.body,menu);return {officialMenuUrl:url,images:[{url:'https://cdn.example.org/menu-1.jpg',assetHash:'abc',pricedRows:[{name:'Suppe',price:'12.00'}]}],candidateRows:1,catalogWrites:0,certifiedComplete:false};},
+   modelFetch:modelFor(()=>[])
+ });
+ assert.equal(inspected,1);
+ assert.equal(report.menuMedia.candidateRows,1);
+ assert.equal(report.menuMedia.assertions,0);
+ assert.equal(report.facts.filter(f=>f.value==='Suppe').length,0);
+ assert.equal(report.canonicalWrite,false);
+});
 const opts={spot,fields:[field('contact.phone')],modelPath:'/tmp/'+NUKNUK_MODEL_REVISION,maxRequests:4,maxModelCalls:8};
 const deps={validateValue:validateAuthoringSubmission};
 test('local web search accepts only loopback, and snippets are leads rather than evidence',async()=>{

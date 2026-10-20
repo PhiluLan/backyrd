@@ -53,6 +53,7 @@ async function main() {
   if(!manifestPath||!modelPath||!outputPath)throw new Error('usage: node scripts/world-knowledge/nuknuk-research.mjs MANIFEST MODEL_PATH OUTPUT_DIRECTORY');
   const manifestText=await readFile(manifestPath,'utf8'),manifest=JSON.parse(manifestText);
   if(manifest.discoverLinks!==undefined&&typeof manifest.discoverLinks!=='boolean')throw new Error('manifest_discovery_invalid');
+  if(manifest.inspectMenuImages!==undefined&&typeof manifest.inspectMenuImages!=='boolean')throw new Error('manifest_menu_image_audit_invalid');
   if(manifest.resume!==undefined&&typeof manifest.resume!=='boolean')throw new Error('manifest_resume_invalid');
   const automatic=manifest.selection?.mode==='MISSING_FIELDS';
   if(automatic===Array.isArray(manifest.spots))throw new Error('manifest_selection_mode_invalid');
@@ -70,7 +71,7 @@ async function main() {
   const inputs=automatic?selectResearchSpots(exported,keys,manifest.selection):manifest.spots;
   if(!inputs.length)throw new Error('no_spots_need_research');
   if(manifest.webSearch!==undefined&&(!manifest.webSearch||typeof manifest.webSearch.endpoint!=='string'||Object.keys(manifest.webSearch).some(key=>!['endpoint','maxQueries','maxExternalPages'].includes(key))))throw new Error('manifest_web_search_invalid');
-  const code=await Promise.all(['../../packages/spot-research-runtime/dist/nuknuk-agent.js','../../packages/spot-research-runtime/dist/nuknuk-sources.mjs','../../packages/spot-research-runtime/dist/nuknuk-search.mjs','../../packages/spot-research-runtime/dist/nuknuk-research.mjs',import.meta.url].map(path=>readFile(new URL(path,import.meta.url))));
+  const code=await Promise.all(['../../packages/spot-research-runtime/dist/nuknuk-agent.js','../../packages/spot-research-runtime/dist/nuknuk-sources.mjs','../../packages/spot-research-runtime/dist/nuknuk-search.mjs','../../packages/spot-research-runtime/dist/nuknuk-research.mjs','../../packages/spot-research-runtime/src/nuknuk-menu-media.mjs','../../packages/spot-research-runtime/src/nuknuk-vision-ocr.swift',import.meta.url].map(path=>readFile(new URL(path,import.meta.url))));
   const runKey=createHash('sha256').update(JSON.stringify({manifestText,exportText,modelPath,catalogHash:AUTHORING_CATALOG_HASH})).update(Buffer.concat(code)).digest('hex');
   const out=resolve(outputPath);await mkdir(out,{recursive:true});
   let reports=[];
@@ -89,7 +90,7 @@ async function main() {
     if(exported&&!bound)throw new Error('spot_not_in_export');
     const spot={spotId:input.spotId,name:bound?.name??input.name,locality:bound?.locality??input.locality??null,existingValues:bound?.existingValues??null};
     const budgetMs=remaining===null?manifest.budget?.budgetMs:Math.min(manifest.budget?.budgetMs??600000,remaining,900000);
-    const report=await researchSpotV2({spot,fields,modelPath,sources:input.sources,discoverLinks:manifest.discoverLinks,skipKnownFields:automatic||manifest.fields===undefined,exportBound:!!bound,budgetMs,maxRequests:manifest.budget?.maxRequests,maxModelCalls:manifest.budget?.maxModelCalls,maxDepth:manifest.budget?.maxDepth,webSearchEndpoint:manifest.webSearch?.endpoint,maxSearchQueries:manifest.webSearch?.maxQueries,maxExternalPages:manifest.webSearch?.maxExternalPages},{validateValue:validateAuthoringSubmission,onCheckpoint:async state=>writeFile(`${out}/${spot.spotId}-checkpoint.json`,JSON.stringify(state,null,2)),onProgress:async event=>{
+    const report=await researchSpotV2({spot,fields,modelPath,sources:input.sources,discoverLinks:manifest.discoverLinks,inspectMenuImages:manifest.inspectMenuImages,skipKnownFields:automatic||manifest.fields===undefined,exportBound:!!bound,budgetMs,maxRequests:manifest.budget?.maxRequests,maxModelCalls:manifest.budget?.maxModelCalls,maxDepth:manifest.budget?.maxDepth,webSearchEndpoint:manifest.webSearch?.endpoint,maxSearchQueries:manifest.webSearch?.maxQueries,maxExternalPages:manifest.webSearch?.maxExternalPages},{validateValue:validateAuthoringSubmission,onCheckpoint:async state=>writeFile(`${out}/${spot.spotId}-checkpoint.json`,JSON.stringify(state,null,2)),onProgress:async event=>{
       if(event.stage==='COMPLETE')return;
       await writeFile(`${out}/${spot.spotId}-progress.json`,JSON.stringify({canonicalWrite:false,completed:false,lastEvent:event},null,2));
       console.log(`${spot.name}: ${event.stage}: ${event.url??event.reason??''}`);

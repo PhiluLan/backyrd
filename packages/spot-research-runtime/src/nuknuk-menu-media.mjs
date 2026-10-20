@@ -1,0 +1,77 @@
+// Read-only menu-image audit. OCR output is a lead with image coordinates,
+// never a catalog claim or proof of a complete menu.
+import {createHash} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {mkdtemp,rm,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {dirname,join} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {fetchPublicSource,discoverMenuImages} from './nuknuk-sources.mjs';
+
+const run=(command,args,options={})=>new Promise((accept,reject)=>execFile(command,args,{encoding:'utf8',timeout:120000,maxBuffer:2000000,...options},(error,stdout)=>error?reject(error):accept(stdout)));
+export const normalizeOcrText=text=>String(text).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/gu,' ');
+const price=text=>String(text).trim().match(/^(\d{1,3})[.,](\d{2})$/u)?.[0]??null;
+const incompleteName=text=>/^(?:klein|gro[ssß]|small|large|mit|with|ohne|without)\b|(?:[-–—,;:]|\b(?:dazu|mit|und|oder|with|and|of|та|і|з|із|до))\s*$/iu.test(text);
+export function agreeingPricedRows(visionLines,tesseractText) {
+  if(!Array.isArray(visionLines)||typeof tesseractText!=='string')return [];
+  const ocrLines=tesseractText.split(/\n+/u).map(normalizeOcrText).filter(Boolean);
+  const rows=[];
+  for(const amount of visionLines) {
+    const value=price(amount.text);
+    if(!value||amount.confidence<0.65)continue;
+    const matching=visionLines.filter(line=>line!==amount&&typeof line.text==='string'&&line.confidence>=0.65&&Math.abs(line.y-amount.y)<=0.014&&line.x<amount.x&&line.x+line.width<=amount.x+0.03&&!price(line.text)&&!/^vegi|vegan$/iu.test(line.text.trim()))
+      .sort((a,b)=>b.x-a.x)[0];
+    if(!matching)continue;
+    const name=matching.text.trim(),normalized=normalizeOcrText(name),amountText=normalizeOcrText(value);
+    if(name.length<4||name.length>90||incompleteName(name)||normalized.split(' ').length>8||!/\p{L}/u.test(name))continue;
+    if(!ocrLines.some(line=>line.includes(normalized)&&line.includes(amountText)))continue;
+    if(rows.some(row=>row.name===name&&row.price===value))continue;
+    rows.push({name,price:value,vision:{name:matching,price:amount},tesseractAgreement:true});
+  }
+  return rows;
+}
+
+/** @param {string} officialMenuUrl
+ * @param {{page?:Awaited<ReturnType<typeof fetchPublicSource>>|null,maxImages?:number,maxDurationMs?:number,tessdataDir?:string|null,ocrLanguages?:string,fetchPage?:typeof fetchPublicSource,runCommand?:typeof run}} [options]
+ */
+export async function auditMenuImages(officialMenuUrl,{page:providedPage=null,maxImages=24,maxDurationMs=60000,tessdataDir=process.env.NUKNUK_TESSDATA_DIR??null,ocrLanguages=process.env.NUKNUK_OCR_LANGUAGES??'eng',fetchPage=fetchPublicSource,runCommand=run}={}) {
+  if(!Number.isInteger(maxDurationMs)||maxDurationMs<1000||maxDurationMs>120000)throw new Error('menu_audit_duration_invalid');
+  const deadline=Date.now()+maxDurationMs;
+  const page=providedPage??await fetchPage(officialMenuUrl,{maxBytes:2000000,timeoutMs:15000,maxRedirects:1,allowedWebsite:officialMenuUrl});
+  if(page.url!==officialMenuUrl)throw new Error('menu_page_identity_mismatch');
+  if(!/^text\/html/iu.test(page.contentType??''))throw new Error('menu_page_not_html');
+  const images=discoverMenuImages(page,{maxImages});
+  const temp=await mkdtemp(join(tmpdir(),'nuknuk-menu-'));
+  try {
+    const candidates=[];
+    let truncated=false;
+    // Image subrequests are bounded independently of the ordinary page crawl.
+    // Sequential fetch avoids burst traffic and keeps each result attributable.
+    for(let i=0;i<images.length;i++) {
+      if(Date.now()>deadline-5000){truncated=true;break;}
+      const item=images[i];
+      try {
+        const fetched=await fetchPage(item.url,{maxBytes:4000000,timeoutMs:Math.min(15000,Math.max(1000,deadline-Date.now()-3000)),maxRedirects:0});
+        if(!/^image\/(?:jpeg|png)/iu.test(fetched.contentType??'')||!Buffer.isBuffer(fetched.body))throw new Error('menu_image_format_invalid');
+        const path=join(temp,`${i}.img`);await writeFile(path,fetched.body);
+        candidates.push({...item,index:i,path,assetHash:createHash('sha256').update(fetched.body).digest('hex'),bytes:fetched.body.length});
+      }catch(error){candidates.push({...item,index:i,error:error instanceof Error?error.message:'menu_image_fetch_failed'});}
+    }
+    const readable=candidates.filter(item=>item.path);
+    if(!readable.length)return {officialMenuUrl:page.url,images:candidates.map(({path,...item})=>item),candidateRows:0,fetchFailures:candidates.filter(item=>item.error).map(({path,...item})=>item),catalogWrites:0,certifiedComplete:false,truncated,error:'NO_READABLE_MENU_IMAGES'};
+    const visionPath=join(dirname(fileURLToPath(import.meta.url)),'..','src','nuknuk-vision-ocr.swift');
+    const visionRaw=await runCommand('swift',[visionPath,...readable.map(item=>item.path)],{timeout:Math.max(1000,deadline-Date.now())});
+    const visionPages=visionRaw.trim().split(/\n+/u).map(line=>JSON.parse(line));
+    if(visionPages.length!==readable.length)throw new Error('menu_vision_page_count_mismatch');
+    const inspected=[];
+    for(let i=0;i<readable.length;i++) {
+      if(Date.now()>deadline-1000){truncated=true;break;}
+      const item=readable[i],lines=visionPages[i].lines;
+      const args=[item.path,'stdout',...(tessdataDir?['--tessdata-dir',tessdataDir]:[]),'-l',ocrLanguages];
+      const tesseract=await runCommand('tesseract',args,{timeout:Math.min(20000,Math.max(1000,deadline-Date.now()))});
+      const rows=agreeingPricedRows(lines,tesseract);
+      inspected.push({url:item.url,discoveredOn:item.discoveredOn,index:item.index,assetHash:item.assetHash,bytes:item.bytes,visionLineCount:lines.length,tesseractTextHash:createHash('sha256').update(tesseract).digest('hex'),pricedRows:rows});
+    }
+    return {officialMenuUrl:page.url,images:inspected,discoveredImages:images.length,fetchFailures:candidates.filter(item=>item.error).map(({path,...item})=>item),candidateRows:inspected.reduce((n,item)=>n+item.pricedRows.length,0),catalogWrites:0,certifiedComplete:false,truncated:truncated||inspected.length<images.length};
+  }finally{await rm(temp,{recursive:true,force:true});}
+}
