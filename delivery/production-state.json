@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "5c4aefd5ced633a2f3fad09fdd304e6e6039a03c",
+      "sourceSha": "6e718e901939daf5b99542279f29f26213e74415",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "8ecd442c-2ec9-431f-849c-d83830edba57",
-      "iosUpdateId": "01a155b2-779c-7213-a403-779e8d04472f",
+      "otaGroupId": "a1ea5fc6-a047-49b2-9bf1-8d35db3ac36d",
+      "iosUpdateId": "01a15990-3b55-7351-a8ec-c92d3c024adf",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Connected discovery, atmosphere and Moments, including Home previews, new atmosphere wishes, actor-bound grounded place context and shared Moment confirmation. PR #531 and exact Main certification run 39312725149 passed. Public production launch bytes match the certified iOS artifact. Additional native visual inspection was blocked by the locked Mac; physical-device installation/camera/upload/timing not observed."
+      "note": "Home nearby places sorted by actual air-line distance within 15 km, independent of profile city, with honest location fallback. PR #534 and exact Main certification run 39432360797 succeeded. Public production launch bytes match the certified artifact. Read-only public API smoke at a fixed Basel test point passed; no personal GPS or production writes. Physical-device installation/GPS observation remains unverified."
     }
   },
   "reviewMediaIncident": {
