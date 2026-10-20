@@ -1009,3 +1009,13 @@ Production activation, scoped private-schema drift validation, physical phone
 checks and a restaurant/team trial remain outstanding. Moving an already
 seated party, service quotas, guest checkout/communication and durable recovery
 are separate open capabilities. This is no Aleno parity claim.
+
+Final client acceptance on this runtime: all 92 existing/combined browser
+journeys passed; four additional focused cases passed for archival with an
+unfinished numeric field, stale configuration, manager revocation during an
+open group draft and recovery from an oversized availability scope by minute
+filtering (96 total). The 320px combination editor was visually inspected:
+no horizontal overflow, readable choices and reachable save footer. TypeScript,
+42 Web contract tests, 69 CI classification/evidence/coverage tests, lint
+(13 existing unrelated warnings) and the production build passed. No production
+schema, guest records or external messages were changed by this acceptance.
