@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.6
+# Local Nuknuk Research v3.7
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.6
+## Active architecture: Research v3.7
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -252,6 +252,66 @@ matching local language data. These weights are not committed or uploaded.
 Before offer extraction can use these leads, a reviewer or layout-aware local
 model must separate complete dish names, descriptions, options, prices and
 section headers, then independently check venue identity and official scope.
+
+v3.7 adds that bounded layout-aware step for image menus. The pinned local 27B
+model reads up to four selected official menu images; each proposed name and
+price must match a separate Vision same-row check or a Tesseract text row.
+Uncorroborated rows, generic headings and ambiguous slash variants stay in the
+image audit. Corroborated names can enter an **unreviewed**, partial
+`experience.profile` draft. Each selected offer has an image URL, asset hash,
+observation time and official parent page in its citation. Image prices remain
+empty in the canonical profile, because a plausible OCR price association is
+not yet a certified catalog price. On mixed boards, a row must sit under its
+own food or drink heading; an ambiguous section remains outside the draft.
+A second bounded local model call can select
+representative names only from the corroborated set; deterministic selection
+and minimum food coverage remain available if that call fails. Remaining
+corroborated names are retained as review evidence. The output remains
+non-importable and requires human review; no autonomous catalog write or
+complete-inventory assertion is created.
+
+The first new development case, Kleiner Wassermann, had an independent
+reference recorded before the model run. Its four official menu images include
+one wine/drink page with no alt text; v3.7 inventories it by its position
+between explicit menu images. A single-decimal OCR pass and the local 27B
+vision pass found 36 corroborated name/price rows and held 26 model rows.
+The initial complete run correctly left an explicitly summer-2026 schedule
+unresolved in October, but its profile contained only one HTML-text drink:
+the image findings had no route into the draft. A saved-evidence replay of
+the new bridge produces food and drink offers with image citations and no
+prices, including Curry, Granola and Cappuccino. That replay informed the
+repair and is not an independent blind pass. Source snapshots and reports
+remain ignored under `.local/nuknuk-research/`.
+
+The menu page also embeds visitor-review text without a review heading. The
+first model pass extracted a review sentence and drink mentions as candidate
+facts; the semantic critic rejected them in the broader development run.
+A deterministic review-widget boundary now holds the same material even if
+a future critic accepts it. The guard requires both a nearby expand link and
+a reviewer-relative timestamp, so ordinary operator menu prose remains
+eligible. This is a fallback for the observed widget pattern, not a claim to
+recognize every possible testimonial layout.
+
+The broader autonomous-seed development run used only the stored official
+homepage plus local SearXNG. In 900 seconds it fetched nine official pages,
+including the menu, seasonal hours and concept page, and made 21 model calls.
+It produced seven image-backed review-draft offers and one literal description;
+the current autumn hours and unrestricted laptop permission correctly remained
+unresolved. It did **not** reach manual-research parity: the representative
+selection favored ordinary bottled drinks over coffee, and explicit terrace,
+WLAN, outdoor seating and changing-table evidence remained unresolved. Its
+final FAQ extraction was aborted at the overall time limit; the run is a
+failed quality case, not a release pass. The local model process stopped.
+
+The follow-up general repairs move menu curation immediately after image
+inspection so later pages cannot spend its budget, exclude reservation forms
+from factual crawling, preserve abbreviations such as `St. Johanns-Park` in
+description sentences, and admit explicit first-party facility sentences while
+still rejecting a nearby playground as the venue's own. A same-source menu
+selection replay then retained Hummus, Granola, Reispudding, Curry and coffee
+among the bounded review offers. This replay is tuned evidence and does not
+count as a fresh end-to-end or held-out pass. Overall-clock timeouts now report
+budget exhaustion instead of falsely reporting that the local model went down.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

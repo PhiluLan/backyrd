@@ -74,8 +74,10 @@ export async function searchLocalWeb(endpoint,query,{fetchImpl=fetch,timeoutMs=1
       return [{url:target,title:String(item.title??'').slice(0,180),snippet:String(item.content??'').replace(/<[^>]*>/gu,' ').slice(0,300)}];
     }catch{return [];}
   });
-  if(results.length||!Array.isArray(parsed.unresponsive_engines)||!parsed.unresponsive_engines.length)return results;
-  if(attempt===1)throw new Error('search_engines_unavailable');
+  if(results.length)return results;
+  // Some engines return a valid, empty JSON response without declaring a
+  // rate-limit failure. A second engine set is still worth one bounded try.
+  if(attempt===1){if(Array.isArray(parsed.unresponsive_engines)&&parsed.unresponsive_engines.length)throw new Error('search_engines_unavailable');return [];}
   }
   throw new Error('search_engines_unavailable');
 }

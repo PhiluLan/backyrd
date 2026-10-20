@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {agreeingPricedRows,auditMenuImages} from '../src/nuknuk-menu-media.mjs';
+import {parseMenuVisionRows,corroborateMenuVisionRows} from '../src/nuknuk-menu-vision.mjs';
 import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from '../src/nuknuk-search.mjs';
-import {NUKNUK_MODEL_REVISION,fieldCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
+import {NUKNUK_MODEL_REVISION,fieldCandidates,enumFactCandidates,parseHoursRow} from '../src/nuknuk-research.mjs';
 import {validateAuthoringSubmission} from '../../world-knowledge-core/dist/index.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 import {reviewHtml,searchReviewHtml,selectResearchSpots,summarizeResearchReports,resumeResearchReports} from '../../../scripts/world-knowledge/nuknuk-research.mjs';
@@ -16,12 +17,72 @@ const source=(text,id='s1')=>({id,text,url:'https://example.org/',observedAt:new
 const fact=(field,value,quote,extra={})=>({field,value,quote,subject:'TARGET',subjectLabel:spot.name,belongsTo:'TARGET',applicability:'CURRENT',condition:'',validFrom:null,validUntil:null,polarity:'AFFIRMATIVE',offerKind:'',...extra});
 const ledger=(facts,s)=>validateEvidenceFacts({facts},s,fields).map(f=>({...f,state:'ACCEPTED'}));
 const reply=value=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(value)}}]}));
+test('corroborated image menu rows become cited review draft offers without prices or catalog approval',()=>{
+ const audit={officialMenuUrl:'https://example.org/menu',observedAt:'2026-10-20T12:00:00Z',images:[{url:'https://example.org/board.png',discoveredOn:'https://example.org/menu',assetHash:'a'.repeat(64),visionLines:[{text:'HAUSGEKOCHT'}],localVision:{corroborated:[{name:'Curry',price:'15.5'},{name:'Granola mit Früchten',price:'7.5'}],held:[{name:'Aperol',price:'12.5',reason:'NAME_PRICE_ROW_NOT_CORROBORATED'}]}}]};
+ const result=addMenuImageReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED',reason:'NO_SUPPORTED_TARGET_FACT'}, {...field('experience.profile'),profileCategory:'EAT'},[audit]);
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.equal(result.value.reviewed,false);
+ assert.deepEqual(result.value.offers.map(offer=>offer.name).sort(),['Curry','Granola mit Früchten']);
+ assert.ok(result.value.offers.every(offer=>offer.prices.length===0));
+ assert.ok(result.citations.every(citation=>citation.layoutReviewRequired&&citation.sourceHash==='a'.repeat(64)&&citation.sourceFormat==='IMAGE_OCR'));
+ assert.ok(!JSON.stringify(result).includes('Aperol'));
+ assert.equal(addMenuImageReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'}, {...field('experience.profile'),profileCategory:'DRINKS'},[audit]).status,'UNRESOLVED');
+ assert.equal(addMenuImageReviewLeads({attributeKey:'experience.profile',status:'FAILED',reason:'SOURCE_INTEGRITY_FAILED'}, {...field('experience.profile'),profileCategory:'EAT'},[audit]).status,'FAILED');
+});
+test('a mixed food-and-coffee board classifies each corroborated row by its own section',()=>{
+ const audit={officialMenuUrl:'https://example.org/menu',observedAt:'2026-10-20T12:00:00Z',images:[{url:'https://example.org/mixed.png',discoveredOn:'https://example.org/menu',assetHash:'b'.repeat(64),visionLines:[{text:'HAUSGEKOCHT',y:.9},{text:'CURRY',y:.7},{text:'KAFFEE',y:.5},{text:'CAPPUCCINO',y:.3}],localVision:{corroborated:[{name:'CURRY',price:'15.5'},{name:'CAPPUCCINO',price:'5.8'}]}}]};
+ const empty={attributeKey:'experience.profile',status:'UNRESOLVED',reason:'NO_SUPPORTED_TARGET_FACT'};
+ const names=category=>addMenuImageReviewLeads(empty,{...field('experience.profile'),profileCategory:category},[audit]).value.offers.map(offer=>offer.name);
+ assert.deepEqual(names('EAT'),['CURRY']);assert.deepEqual(names('DRINKS'),['CAPPUCCINO']);
+ assert.deepEqual(names('COFFEE_DAYTIME').sort(),['CAPPUCCINO','CURRY']);
+});
+test('reservation forms do not consume a bounded factual-research page slot',()=>{
+ const entries=[
+  {url:'https://example.org/angebot/tisch-reservierung',label:'Tisch reservieren',depth:1,topics:['menu','experience']},
+  {url:'https://example.org/angebot/speisekarte',label:'Speisekarte',depth:1,topics:['menu','experience']}
+ ];
+ const chosen=rankResearchFrontier(entries,[],[{...field('experience.profile'),profileCategory:'EAT'}]);
+ assert.deepEqual(chosen.map(item=>item.url),['https://example.org/angebot/speisekarte']);
+});
+test('embedded visitor reviews without a heading cannot supply operator descriptions or offers',()=>{
+ const review='The bread that came with hummus was crispy outside and fluffy inside.';
+ const text='Speisekarte\n\nHummus mit Brot\n\n'+review+'\nMehr lesen\n\nShuhei Kagawa\n\n5 years ago\n\nWir servieren hausgemachte Speisen im Park.';
+ const s=source(text);
+ const drafted=[
+   {...fact('description.highlight',review,review),id:'f0',sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'},
+   {...fact('experience.profile','Hummus',review, {subject:'OFFER',offerKind:'GASTRONOMY'}),id:'f1',sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}
+ ];
+ const checked=recheckEvidenceFloors(drafted,[s],[field('description.highlight'),{...field('experience.profile'),profileCategory:'EAT'}],spot);
+ assert.deepEqual(checked.map(item=>item.reason),['VISITOR_REVIEW_NOT_OFFICIAL_FACT','VISITOR_REVIEW_NOT_OFFICIAL_FACT']);
+ const official='Wir servieren hausgemachte Speisen im Park.';
+ const safe=recheckEvidenceFloors([{...fact('description.highlight',official,official),id:'f2',sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[s],[field('description.highlight')],spot);
+ assert.equal(safe[0].reason,'SEMANTIC_SUPPORTED');
+});
+test('explicit first-party cafe facilities survive deterministic entailment without claiming nearby facilities',()=>{
+ const text='CAFÉ MIT TERRASSE IN BASEL STADT\nDEIN NEUES LIEBLINGSCAFÉ IN BASEL MIT WLAN\nBARRIEREFREIER FAMILIENORT IN BASEL MIT FREILUFT SITZPLATZ\nUnd in unserem WC findest du auch einen Wickeltisch.\nDer Spielplatz nebenan gehört nicht zu uns.\nEin Nachbarcafé mit WLAN ist ebenfalls in der Nähe.';
+ const found=enumFactCandidates(field('amenity.features'),[source(text)]);
+ assert.deepEqual([...new Set(found.map(item=>item.value))].sort(),['CHANGING_TABLE','OUTDOOR_SEATING','TERRACE','TOILET','WIFI']);
+ assert.ok(found.every(item=>!item.quote.includes('Nachbarcafé')&&!item.quote.includes('Spielplatz')));
+});
+test('a description preserves St. as part of the place name instead of ending the sentence',()=>{
+ const sentence='Das Parkcafé serviert Kaffee und hausgemachte Speisen im St. Johanns-Park am Rhein.';
+ const facts=literalSourceFacts(source(sentence),[field('description.highlight')],spot,0);
+ assert.ok(facts.some(item=>item.quote===sentence));
+ assert.ok(!facts.some(item=>item.quote.endsWith('St.')));
+});
 test('menu-image discovery can inventory observed pages beyond a four-image preview',()=>{
  const tags=Array.from({length:7},(_,i)=>`<img src="https://assets.example.org/menu-${i}.jpg" alt="menu page ${i}">`).join('');
  const page={url:'https://example.org/speisekarte',contentType:'text/html',body:tags};
  assert.equal(discoverMenuImages(page).length,4);
  assert.equal(discoverMenuImages(page,{maxImages:7}).length,7);
  assert.throws(()=>discoverMenuImages(page,{maxImages:25}),/menu_image_limit_invalid/);
+});
+test('an unlabeled image between official menu pages remains in the menu inventory',()=>{
+ const img=(src,alt)=>`<img src="https://assets.example.org/${src}.png" alt="${alt}">`;
+ const page={url:'https://example.org/speisekarte',contentType:'text/html',body:img('logo','Venue')+img('menu-one','Speisekarte')+img('menu-two','Speisekarte')+img('wine-page','')+img('menu-four','Speisekarte')+img('reviewer','Guest photo')};
+ assert.deepEqual(discoverMenuImages(page,{maxImages:24}).map(item=>new URL(item.url).pathname),['/menu-one.png','/menu-two.png','/wine-page.png','/menu-four.png']);
+ const unrelated={...page,body:img('menu-one','Speisekarte')+img('reviewer','Guest photo')};
+ assert.deepEqual(discoverMenuImages(unrelated,{maxImages:24}).map(item=>new URL(item.url).pathname),['/menu-one.png']);
 });
 test('two OCR engines must agree on a priced menu row at the same visual height',()=>{
  const lines=[{text:'Український борщ',confidence:0.99,x:0.06,y:0.66,width:0.3,height:0.02},{text:'18.00',confidence:0.99,x:0.42,y:0.66,width:0.08,height:0.02},{text:'З пампушками',confidence:0.99,x:0.06,y:0.62,width:0.3,height:0.02},{text:'19.50',confidence:0.99,x:0.82,y:0.4,width:0.08,height:0.02}];
@@ -62,6 +123,40 @@ test('menu-image audit retains both local OCR transcripts with official image pr
  assert.deepEqual(report.images[0].visionLines,[line,amount]);
  assert.deepEqual(report.images[0].tesseractLines,['Borschtsch 18.00']);
 });
+test('menu-image audit recovers single-decimal prices from a second OCR layout mode',async()=>{
+ const url='https://example.org/speisekarte',imageUrl='https://cdn.example.org/menu-1.png';
+ const page={url,contentType:'text/html',body:`<img src="${imageUrl}" alt="Speisekarte">`};
+ const lines=[{text:'OLIVEN MIT BROT',confidence:.99,x:.26,y:.81,width:.25,height:.025},{text:'6.8',confidence:.99,x:.7,y:.81,width:.07,height:.03}];
+ const report=await auditMenuImages(url,{page,maxImages:1,fetchPage:async()=>({url:imageUrl,contentType:'image/png',body:Buffer.from('public image bytes')}),runCommand:async(command,args)=>command==='swift'?JSON.stringify({path:args[1],lines}):args.includes('4')?'=OLIVEN MIT BROT 6.8':'OLIVEN MIT BROT\n6.8'});
+ assert.deepEqual(report.images[0].pricedRows.map(row=>row.name),['OLIVEN MIT BROT']);
+ assert.deepEqual(report.images[0].tesseractLayoutLines,['=OLIVEN MIT BROT 6.8']);
+});
+test('bounded menu audit keeps local vision findings inside the image evidence report',async()=>{
+ const url='https://example.org/speisekarte',imageUrl='https://cdn.example.org/menu-1.png';
+ const page={url,contentType:'text/html',body:`<img src="${imageUrl}" alt="Speisekarte">`};
+ const lines=[{text:'OLIVEN MIT BROT',confidence:.99,x:.26,y:.81,width:.25,height:.025},{text:'6.8',confidence:.99,x:.7,y:.81,width:.07,height:.03}];
+ const report=await auditMenuImages(url,{page,maxImages:1,fetchPage:async()=>({url:imageUrl,contentType:'image/png',body:Buffer.from('public image bytes')}),runCommand:async(command,args)=>command==='swift'?JSON.stringify({path:args[1],lines}):'OLIVEN MIT BROT 6.8',visionModel:async(bytes,mime,audit)=>{
+   assert.equal(mime,'image/png');assert.equal(audit.assetHash,createHash('sha256').update(bytes).digest('hex'));
+   return {modelRows:1,corroborated:[{name:'OLIVEN MIT BROT',price:'6.8'}],held:[],catalogWrites:0,certifiedComplete:false};
+ }});
+ assert.equal(report.visionPages,1);
+ assert.deepEqual(report.images[0].localVision.corroborated.map(row=>row.name),['OLIVEN MIT BROT']);
+ assert.equal(report.catalogWrites,0);
+});
+test('local vision menu rows need their own OCR price row and concrete name',()=>{
+ const audit={url:'https://assets.example.org/menu.png',discoveredOn:'https://example.org/speisekarte',assetHash:'abc',
+  visionLines:[
+   {text:'OLIVEN MIT BROT',confidence:.99,x:.26,y:.8,width:.25,height:.025},{text:'6.8',confidence:.99,x:.7,y:.8,width:.07,height:.03},
+   {text:'HAUSGEMACHT MIT/OHNE ALK',confidence:.99,x:.26,y:.4,width:.3,height:.025},{text:'12.5',confidence:.99,x:.7,y:.4,width:.07,height:.03},
+   {text:'APEROL',confidence:.99,x:.26,y:.37,width:.12,height:.025}
+  ],tesseractLines:[],tesseractLayoutLines:['=OLIVEN MIT BROT 6.8','HAUSGEMACHT MIT/OHNE ALK 12.5','APEROL']};
+ const raw='```json\n'+JSON.stringify({rows:[{name:'OLIVEN MIT BROT',price:'6.8'},{name:'APEROL',price:'12.5'},{name:'HAUSGEMACHT MIT/OHNE ALK',price:'12.5'},{name:'FLASCHE',price:'57.0'},{name:'ROTE WONNE',price:''}]})+'\n```';
+ const result=corroborateMenuVisionRows(raw,audit);
+ assert.deepEqual(result.corroborated.map(row=>row.name),['OLIVEN MIT BROT']);
+ assert.deepEqual(result.held.map(row=>row.reason),['NAME_PRICE_ROW_NOT_CORROBORATED','GENERIC_OR_CONTEXT_DEPENDENT_NAME','GENERIC_OR_CONTEXT_DEPENDENT_NAME','PRICE_MISSING_OR_INVALID']);
+ assert.equal(result.catalogWrites,0);
+ assert.throws(()=>parseMenuVisionRows('{"rows":[{"name":"Aperol","price":"12.5","approved":true}]}'),/menu_vision_row_invalid/);
+});
 test('menu-image inspection remains a cited lead and never an asserted catalog offer',async()=>{
  const menuUrl='https://example.org/speisekarte';
  const menu='<main><h1>Speisekarte</h1><img src="https://cdn.example.org/menu-1.jpg" alt="Menü 1"><img src="https://cdn.example.org/menu-2.jpg" alt="Menü 2"></main>';
@@ -75,6 +170,29 @@ test('menu-image inspection remains a cited lead and never an asserted catalog o
  assert.equal(report.menuMedia.candidateRows,1);
  assert.equal(report.menuMedia.assertions,0);
  assert.equal(report.facts.filter(f=>f.value==='Suppe').length,0);
+ assert.equal(report.canonicalWrite,false);
+});
+test('optional local menu vision counts against the agent model budget and remains review-only',async()=>{
+ const url='https://example.org/speisekarte';
+ const menu='<main><h1>Speisekarte</h1><img src="https://cdn.example.org/menu-1.jpg" alt="Menü 1"><img src="https://cdn.example.org/menu-2.jpg" alt="Menü 2"></main>';
+ let calls=0;
+ const report=await researchSpotV2({...opts,fields:[field('experience.profile')],sources:[url],maxRequests:1,inspectMenuImages:true,inspectMenuImagesWithModel:true},{...deps,
+   fetchPage:async requested=>({url:requested,contentType:'text/html',body:menu,observedAt:new Date().toISOString()}),
+   inspectMenuImages:async(requested,options)=>{assert.equal(requested,url);const image={index:0,url:'https://cdn.example.org/menu-1.jpg',discoveredOn:url,assetHash:'abc',visionLines:[{text:'HAUSGEKOCHT',y:.8}]};
+     const localVision=await options.visionModel(Buffer.from('image'),'image/jpeg',image,5000);
+     return {officialMenuUrl:url,observedAt:new Date().toISOString(),images:[{...image,localVision}],candidateRows:0,visionPages:1,visionErrors:0,catalogWrites:0,certifiedComplete:false};},
+   readMenuImage:async()=>{calls++;return {modelRows:1,corroborated:[{name:'Suppe',price:'12.00'}],held:[],promptHash:'test',raw:'{}',catalogWrites:0,certifiedComplete:false};},
+   modelFetch:async(url,init)=>JSON.parse(init.body).response_format?.json_schema?.schema?.properties?.selectedNames?reply({selectedNames:['Suppe']}):modelFor(()=>[])(url,init)
+ });
+ assert.equal(calls,1);
+ assert.equal(report.menuMedia.corroboratedRows,1);
+ assert.equal(report.menuMedia.assertions,0);
+ assert.equal(report.menuMedia.reviewDraftOffers,1);
+ assert.ok(report.actions.findIndex(action=>action.stage==='MENU_REVIEW_SELECTION')>report.actions.findIndex(action=>action.stage==='MENU_MEDIA_AUDITED'));
+ assert.ok(report.actions.findIndex(action=>action.stage==='MENU_REVIEW_SELECTION')<report.actions.findIndex(action=>action.stage==='FACTS'));
+ assert.deepEqual(report.results.find(result=>result.attributeKey==='experience.profile').value.offers.map(offer=>offer.name),['Suppe']);
+ assert.ok(report.modelCalls>=1);
+ assert.equal(report.humanReviewRequired,true);
  assert.equal(report.canonicalWrite,false);
 });
 const opts={spot,fields:[field('contact.phone')],modelPath:'/tmp/'+NUKNUK_MODEL_REVISION,maxRequests:4,maxModelCalls:8};
@@ -115,6 +233,12 @@ test('local web search accepts only loopback, and snippets are leads rather than
   return new Response(JSON.stringify(attempts===1?{results:[],unresponsive_engines:[['duckduckgo','CAPTCHA']]}:{results:[{url:'https://example.org/sammlung',title:'Museum Tinguely',content:'Sammlung'}]}),{headers:{'content-type':'application/json'}});
  }});
  assert.equal(attempts,2);assert.equal(recovered.length,1);
+ let silentEmpty=0;
+ const recoveredSilent=await searchLocalWeb('http://127.0.0.1:8888/','Kleiner Wassermann Basel',{fetchImpl:async()=>{
+  silentEmpty++;
+  return new Response(JSON.stringify(silentEmpty===1?{results:[],unresponsive_engines:[]}:{results:[{url:'https://example.org/menu',title:'Kleiner Wassermann',content:'Menü'}]}),{headers:{'content-type':'application/json'}});
+ }});
+ assert.equal(silentEmpty,2);assert.equal(recoveredSilent.length,1);
 });
 test('an ambiguous restaurant name does not admit flights as external identity matches',()=>{
  const restaurant={...spot,name:'Antalya',locality:'Basel'};
@@ -289,6 +413,8 @@ test('museum research projects a named permanent exhibition after correcting mod
 });
 test('draft review clearly displays the image-menu limitation',()=>{
  const html=reviewHtml([{name:'Bar',results:[],limitations:['MENU_LAYOUT_REQUIRES_REVIEW']}]);
+ const withExtra=reviewHtml([{name:'Café',results:[{attributeKey:'experience.profile',status:'REQUIRES_REVIEW',citations:[{url:'https://example.org/one',evidence:'Curry 15.5',observedAt:'2026-10-20'}],reviewEvidence:[{url:'https://example.org/two',evidence:'Cappuccino 5.8',observedAt:'2026-10-20'}]}]}]);
+ assert.match(withExtra,/Curry 15\.5/);assert.match(withExtra,/Cappuccino 5\.8/);
  assert.match(html,/Bild- oder PDF-Speisekarten brauchen eine Layoutprüfung/);
 });
 test('web-search review separates leads from facts and escapes outside text',()=>{
@@ -1365,6 +1491,15 @@ test('v2 block extraction never promotes unverified item prices into a canonical
 test('unavailable model stops further crawling and preserves the explicit failure',async()=>{
  let requests=0,calls=0;const r=await researchSpotV2(opts,{...deps,fetchPage:async url=>{requests++;return {url,contentType:'text/html',body:'Telefon: +41 61 111 22 33<a href="/kontakt">Kontakt</a>',observedAt:new Date().toISOString()};},modelFetch:async()=>{calls++;throw new TypeError('fetch failed');}});
  assert.equal(requests,1);assert.equal(calls,1);assert.equal(r.stopReason,'MODEL_UNAVAILABLE');assert.equal(r.results[0].status,'UNRESOLVED');assert.ok(r.failureSummary.length);
+});
+test('a request cut off by the overall research clock reports budget exhaustion rather than model outage',async()=>{
+ let clock=0;
+ const r=await researchSpotV2({...opts,fields:[field('description.highlight')],budgetMs:1000},{...deps,now:()=>clock,
+  fetchPage:async url=>({url,contentType:'text/html',body:'<main><h1>Über uns</h1>Wir servieren Kaffee und hausgemachte Speisen direkt am Rhein.</main>',observedAt:new Date().toISOString()}),
+  modelFetch:async()=>{clock=1000;const error=new Error('The operation was aborted due to timeout');error.name='TimeoutError';throw error;}
+ });
+ assert.equal(r.stopReason,'TIME_BUDGET_EXHAUSTED');
+ assert.equal(r.modelAudit[0].error,'TIME_BUDGET_EXHAUSTED');
 });
 test('critic can narrow an owned OFFER to unknown and cannot approve it accidentally',async()=>{
  const quote='Classic Room: a double room with shower.';const stay={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};

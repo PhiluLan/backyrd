@@ -55,7 +55,9 @@ const factPatterns={
     WIFI:/\b(?:WLAN|Wi-?Fi)\b/iu, CLOAKROOM:/\b(?:Garderobe|cloakroom)\b/iu,
     TERRACE:/(?<![\p{L}])(?:Dach[- ]?)?Terrasse\b|\b(?:rooftop )?terrace\b/iu, PLAY_AREA:/\b(?:Spielbereich|Spielzimmer|Kinderzimmer|playroom)\b/iu,
     STROLLER_SPACE:/\bPlatz für Kinderwagen\b/iu,
-    OUTDOOR_SEATING:/\b(?:Sitzplätze (?:draussen|draußen)|outdoor seating)\b/iu,
+    OUTDOOR_SEATING:/\b(?:Sitzplätze (?:draussen|draußen)|Freiluft[- ]Sitzpl[aä]tz\w*|outdoor seating)\b/iu,
+    CHANGING_TABLE:/\b(?:Wickeltisch|changing table|baby changing)\b/iu,
+    TOILET:/\b(?:WC|Toilette|restroom|toilet)\b/iu,
   },
 };
 // Explicit current assertions only. Ambiguous availability, other venues and
@@ -70,6 +72,11 @@ function facilityAssertion(quote,pattern) {
   if(/^[\p{L}-]/u.test(suffix))return false;
   if(pattern===factPatterns['amenity.features'].STROLLER_SPACE&&/^Platz für Kinderwagen[.!]?$/iu.test(quote))return true;
   if(pattern===factPatterns['amenity.features'].WIFI&&/^(?:(?:Kostenloses|Offenes|Gratis|Free)\s+(?:WLAN|Wi-?Fi)|(?:WLAN|Wi-?Fi)\s+(?:kostenlos|gratis|free))[.!]?$/iu.test(quote))return true;
+  if(pattern===factPatterns['amenity.features'].WIFI&&(/\b(?:unser\w*|bei uns)\b.{0,70}\b(?:WLAN|Wi-?Fi)\b/iu.test(quote)||/(?:^|\s)[\p{L}-]*(?:café|restaurant|bar|hotel).{0,70}\bmit\s+(?:kostenlosem\s+)?(?:WLAN|Wi-?Fi)\b/iu.test(quote)))return true;
+  if(pattern===factPatterns['amenity.features'].TERRACE&&(/\b(?:bei uns|unser\w*|wir)\b.{0,90}\bTerrasse\b/iu.test(quote)||/\b(?:Café|Restaurant|Bar|Hotel)\s+mit\s+(?:\w+\s+){0,3}Terrasse\b/iu.test(quote)))return true;
+  if(pattern===factPatterns['amenity.features'].OUTDOOR_SEATING&&(/\b(?:bei uns|unser\w*|Café|Restaurant|Bar|Hotel)\b.{0,90}\b(?:Freiluft[- ]Sitzpl[aä]tz\w*|Sitzplätze (?:draussen|draußen)|outdoor seating)\b/iu.test(quote)||/\bmit\s+Freiluft[- ]Sitzpl[aä]tz\w*\b/iu.test(quote)))return true;
+  if(pattern===factPatterns['amenity.features'].CHANGING_TABLE&&/\b(?:unser\w*|bei uns|wir)\b.{0,100}\b(?:WC|Toilette|restroom|toilet)\b.{0,80}\b(?:Wickeltisch|changing table|baby changing)\b/iu.test(quote))return true;
+  if(pattern===factPatterns['amenity.features'].TOILET&&/\b(?:unser\w*|bei uns|wir)\b.{0,100}\b(?:WC|Toilette|restroom|toilet)\b/iu.test(quote))return true;
   if(/^(?:Unsere?\w*|Die|Das|Der|Our|The)\s+$/iu.test(prefix)&&/^\s+(?:ist|sind|is|are)\s+(?:verfügbar|vorhanden|kostenlos|available|free)\b/iu.test(suffix))return true;
   if(/^(?:Wir verfügen über|We provide|We have)\s+(?:eine?\s+|a\s+)?$/iu.test(prefix))return true;
   if(pattern===factPatterns['amenity.features'].TERRACE&&/^(?:Eine?\s+(?:[\p{L}-]+\s+){0,3}(?:Bar|Restaurant|Café|Hotel)|(?:A|An)\s+(?:[\p{L}-]+\s+){0,3}(?:bar|restaurant|cafe|hotel))\s+(?:mit\s+(?:einer?\s+)?|with\s+(?:a\s+)?)(?:[\p{L}-]+\s+){0,3}$/iu.test(prefix))return true;

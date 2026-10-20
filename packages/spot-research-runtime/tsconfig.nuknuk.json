@@ -16,6 +16,7 @@
     "src/nuknuk-research.mjs",
     "src/nuknuk-sources.mjs",
     "src/nuknuk-menu-media.mjs",
+    "src/nuknuk-menu-vision.mjs",
     "src/nuknuk-search.mjs"
   ]
 }

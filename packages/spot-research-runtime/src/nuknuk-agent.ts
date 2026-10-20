@@ -6,13 +6,15 @@ import {EXPERIENCE_TEMPLATES,isAuthoringAttributeRelevant,parseExperienceProfile
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 import {fetchPublicSource,readSourceText,publicSourceUrl,matchesExistingWebsite,discoverResearchLinks,discoverPublicDataSources,discoverMenuDocuments,discoverMenuImages,standingExperiencePath} from './nuknuk-sources.mjs';
 import {auditMenuImages} from './nuknuk-menu-media.mjs';
+import {readLocalMenuImage} from './nuknuk-menu-vision.mjs';
+import type {MenuMediaAudit} from './nuknuk-menu-media.mjs';
 import type {PublicPage,ResearchSource,ResearchLink} from './nuknuk-sources.mjs';
 import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from './nuknuk-search.mjs';
 import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.6';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.7';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -30,6 +32,7 @@ const literalParserHash=hash(readFileSync(new URL('./nuknuk-research.mjs',import
 const sourceReaderHash=hash(readFileSync(new URL('./nuknuk-sources.mjs',import.meta.url),'utf8'));
 const searchCodeHash=hash(readFileSync(new URL('./nuknuk-search.mjs',import.meta.url),'utf8'));
 const menuMediaCodeHash=hash(readFileSync(new URL('./nuknuk-menu-media.mjs',import.meta.url),'utf8'));
+const menuVisionCodeHash=hash(readFileSync(new URL('./nuknuk-menu-vision.mjs',import.meta.url),'utf8'));
 const visionOcrCodeHash=hash(readFileSync(new URL('../src/nuknuk-vision-ocr.swift',import.meta.url),'utf8'));
 const isObject=(x:unknown):x is Record<string,unknown>=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const record=(properties:Record<string,unknown>)=>({type:'object',additionalProperties:false,required:Object.keys(properties),properties});
@@ -54,11 +57,13 @@ export interface AgentOptions {
   budgetMs?:number; maxRequests?:number; maxModelCalls?:number; maxDepth?:number;
   discoverLinks?:boolean; skipKnownFields?:boolean; exportBound?:boolean;
   inspectMenuImages?:boolean;
+  inspectMenuImagesWithModel?:boolean;
   webSearchEndpoint?:string; maxSearchQueries?:number; maxExternalPages?:number;
 }
 export interface AgentDependencies {
   validateValue:ValueValidator; fetchPage?:typeof fetchPublicSource; readPage?:typeof readSourceText;
   inspectMenuImages?:typeof auditMenuImages;
+  readMenuImage?:typeof readLocalMenuImage;
   searchWeb?:typeof searchLocalWeb;
   modelFetch?:typeof fetch; now?:()=>number;
   onProgress?:(event:Record<string,unknown>)=>void|Promise<void>;
@@ -307,6 +312,15 @@ export function validateEvidenceFacts(raw:unknown,source:ResearchSource,fields:R
     return {...normalizeCuisineListSubject(normalizeExplicitBeverageKind(f)),id:'f'+(offset+index),sourceId:source.id,quote:matched??f.quote,state:matched?'HELD':'REJECTED',reason:matched?'SEMANTIC_CHECK_PENDING':'QUOTE_NOT_FOUND'};
   });
 }
+function embeddedVisitorReview(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'sourceOffset'>):boolean {
+  const offset=factOffset(source,f);
+  if(offset<0)return false;
+  const after=source.text.slice(offset+f.quote.length,offset+f.quote.length+360);
+  // Many venue sites embed review widgets in otherwise first-party pages.
+  // A quote followed by widget expansion, reviewer and relative age is still
+  // visitor speech even when the widget has no semantic HTML heading.
+  return /(?:mehr lesen|read more|weiterlesen|voir plus)\s*\n[\s\S]{0,170}?\b(?:\d+\s+(?:years?|months?|days?)\s+ago|vor\s+\d+\s+(?:Jahren?|Monaten?|Tagen?)|il y a\s+\d+\s+(?:ans?|mois|jours?))\b/iu.test(after);
+}
 function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:ResearchField,spot:SpotContext):string|null {
   if(f.state==='REJECTED')return f.reason;
   if(f.quote.includes('[Auszug: mittlerer Seitenteil ausgelassen]'))return 'EXCERPT_GAP_NOT_EVIDENCE';
@@ -314,6 +328,7 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
   if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(source.url).pathname))return 'MEMBERSHIP_BENEFIT_NOT_PUBLIC_SPOT_OFFER';
   if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(source.url).pathname))return 'EXHIBITION_PROGRAMME_SCOPE';
   if(timeBoundEventContext(source,f.quote,f.sourceOffset))return 'DATED_EVENT_NOT_PERMANENT_SPOT_FACT';
+  if(['description.highlight','experience.profile'].includes(f.field)&&embeddedVisitorReview(source,f))return 'VISITOR_REVIEW_NOT_OFFICIAL_FACT';
   const section=sectionAt(source,factOffset(source,f));
   if(section.some(s=>/\b(?:reviews?|ratings?|testimonials?|bewertungen|gäste-?stimmen|was\s+andere\s+sagen|what\s+(?:the\s+)?others\s+say)\b/iu.test(s)))return 'VISITOR_REVIEW_NOT_OFFICIAL_FACT';
   if(f.belongsTo!=='TARGET')return 'OWNERSHIP_'+f.belongsTo;
@@ -460,7 +475,7 @@ export function literalSourceFacts(source:ResearchSource,fields:ResearchField[],
       // A soft line break inside a paragraph is not a sentence boundary.
       // Splitting every line let the model select grammatical fragments as
       // permanent descriptions on wrapped CMS and PDF text.
-      const prose=(source.descriptionText??source.text).split(/\n\s*\n/u).flatMap(paragraph=>paragraph.split(/(?<=[.!?])\s+(?=[A-ZÄÖÜ])/u)).map(q=>q.trim()).filter(q=>!/^["“„«‘’']/u.test(q)&&q.length>=40&&q.length<=maxLength&&/[.!?]$/.test(q)&&!/@|https?:\/\//u.test(q)&&((q.match(/\d/g)??[]).length/q.length)<0.08&&sourceQuote(source.text,q));
+      const prose=(source.descriptionText??source.text).split(/\n\s*\n/u).flatMap(paragraph=>paragraph.split(/(?<!\b(?:St|Dr|Prof|Mr|Mrs)\.)(?<=[.!?])\s+(?=[A-ZÄÖÜ])/u)).map(q=>q.trim()).filter(q=>!/^["“„«‘’']/u.test(q)&&q.length>=40&&q.length<=maxLength&&/[.!?]$/.test(q)&&!/@|https?:\/\//u.test(q)&&((q.match(/\d/g)??[]).length/q.length)<0.08&&sourceQuote(source.text,q));
       for(const quote of [...new Set(prose)].slice(0,12))add(key,quote,quote);
     }else for(const candidate of (fieldCandidates(field,[source])??[]).slice(0,14)){
       let at=source.text.indexOf(candidate.quote),seen=0;
@@ -810,7 +825,7 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const nonFood=open.some(field=>field.profileCategory&&!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory));
   const stayProfileOnly=open.length===1&&open[0].attributeKey==='experience.profile'&&open[0].profileCategory==='STAY';
   const cultureProfileOnly=open.length===1&&open[0].attributeKey==='experience.profile'&&open[0].profileCategory==='CULTURE_ARTS';
-  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|reservierungen?|reservations?|booking|[^/]*(?:buchen|buchung|reservieren)|room-rental|raumvermietung|location-de-salle|press|presse|media|medien|digital|video|videos|impressionen|gallery|galerie|aktuelles|news|events?|datenschutzerklaerung|privacy|terms|agb|legal|impressum|imprint|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
+  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|[^/]*reservierung(?:en)?|reservations?|booking|[^/]*(?:buchen|buchung|reservieren)|room-rental|raumvermietung|location-de-salle|press|presse|media|medien|digital|video|videos|impressionen|gallery|galerie|aktuelles|news|events?|datenschutzerklaerung|privacy|terms|agb|legal|impressum|imprint|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
   const stayAncillary=(url:string)=>/(?:^|\/)(?:sitzungszimmer|meeting[-_]?rooms?|conference[-_]?rooms?|seminar[-_]?rooms?|gaeste[-_]?services?|g[aä]ste[-_]?services?|guest[-_]?services?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureBackground=(url:string)=>/(?:^|\/)(?:private[-_]?sammlungen|private[-_]?collections|collections[-_]?particuli[eè]res|geschichte|history|histoire|schwerpunkte|foci[-_]?of[-_]?the[-_]?collection|leihanfragen|loan[-_]?requests)(?:\/|$)/iu.test(decodeURI(new URL(url).pathname));
@@ -894,6 +909,68 @@ export function projectEvidenceLedger({spot,fields,facts,sources,validateValue}:
   });
 }
 
+// Image text is useful for a human draft, but its layout is not certified as a
+// catalog assertion. Only independently corroborated rows can enter here.
+function menuImageRowContext(image:MenuMediaAudit['images'][number],name:string):{kind:'GASTRONOMY'|'DRINKS';section:string}|null {
+  const normalize=(value:string)=>value.normalize('NFKD').replace(/\p{M}/gu,'').toLocaleUpperCase().trim();
+  const foodHeadings=/^(?:ZUM TEILEN|HAUSGEKOCHT|SUSS|SPEISEN|ESSEN)$/u;
+  const drinkHeadings=/^(?:KAFFEE|BIER|WEIN|SPRITZ|DRINKS|GETRANKE)$/u;
+  const headings=(image.visionLines??[]).filter(line=>foodHeadings.test(normalize(line.text))||drinkHeadings.test(normalize(line.text))||normalize(line.text)==='HAUSGEMACHT');
+  const hasFood=headings.some(line=>foodHeadings.test(normalize(line.text))),hasDrinks=headings.some(line=>drinkHeadings.test(normalize(line.text)));
+  const first=normalize(name).split(/[^\p{L}]+/u)[0];
+  const line=first.length>=4?image.visionLines?.find(item=>normalize(item.text).includes(first)&&!headings.includes(item)):undefined;
+  const nearest=line?headings.filter(item=>item.y>line.y).sort((a,b)=>a.y-b.y)[0]:undefined;
+  const section=nearest?normalize(nearest.text):'';
+  if(foodHeadings.test(section))return {kind:'GASTRONOMY',section};
+  if(drinkHeadings.test(section))return {kind:'DRINKS',section};
+  if(hasFood===hasDrinks)return null;
+  return {kind:hasFood?'GASTRONOMY':'DRINKS',section};
+}
+export function addMenuImageReviewLeads(result:FieldResult,field:ResearchField,audits:MenuMediaAudit[],chosenNames?:string[]):FieldResult {
+  if(field.attributeKey!=='experience.profile'||!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory??'')||!['UNRESOLVED','REQUIRES_REVIEW'].includes(result.status)||!audits.length)return result;
+  const category=field.profileCategory!;
+  const existing=result.status==='REQUIRES_REVIEW'&&result.value?parseExperienceProfile(result.value,false):null;
+  const already=new Set(existing?.offers.map(offer=>offer.name.normalize('NFKC').toLocaleLowerCase())??[]);
+  const candidates:{name:string;kind:'GASTRONOMY'|'DRINKS';citation:Citation;score:number;index:number}[]=[];
+  for(const audit of audits)for(const image of audit.images) {
+    if(!image.assetHash||!image.localVision?.corroborated?.length||!image.discoveredOn||!audit.observedAt)continue;
+    for(const row of image.localVision.corroborated) {
+      const name=row.name.trim(),key=name.normalize('NFKC').toLocaleLowerCase();
+      if(!name||name.length>160||name.includes('/')||already.has(key)||!row.price||!/^\d{1,3}[.,]\d{1,2}$/u.test(row.price)||!/^https:\/\//u.test(image.url))continue;
+      const context=menuImageRowContext(image,name);
+      if(!context||category==='EAT'&&context.kind!=='GASTRONOMY'||category==='DRINKS'&&context.kind!=='DRINKS')continue;
+      already.add(key);
+      const citation:Citation={url:image.url,evidence:`${name} ${row.price}`,observedAt:audit.observedAt,sourceHash:image.assetHash,layoutReviewRequired:true,sourceFormat:'IMAGE_OCR',discoveredOn:image.discoveredOn};
+      const sectionBonus=context.section==='HAUSGEKOCHT'?30:context.section==='SUSS'||context.section==='HAUSGEMACHT'?16:context.section==='KAFFEE'?14:context.section==='ZUM TEILEN'?5:0;
+      const score=Math.min(name.length,35)+(name.includes(' ')?12:0)-(name.includes('/')?4:0)+sectionBonus;
+      candidates.push({name,kind:context.kind,citation,score,index:candidates.length});
+    }
+  }
+  if(!candidates.length)return result;
+  const limit=8-(existing?.offers.length??0);
+  if(limit<=0)return {...result,reviewEvidence:[...candidates.map(candidate=>candidate.citation)]};
+  const ranked=candidates.sort((a,b)=>b.score-a.score||a.index-b.index);
+  const selected:typeof candidates=[];
+  if(chosenNames?.length){
+    const chosen=chosenNames.map(name=>ranked.find(item=>item.name===name)).filter((item):item is typeof candidates[number]=>Boolean(item));
+    const minFood=category==='COFFEE_DAYTIME'?Math.min(4,limit,ranked.filter(item=>item.kind==='GASTRONOMY').length):0;
+    for(const candidate of chosen.filter(item=>item.kind==='GASTRONOMY'))if(!selected.includes(candidate)&&selected.length<limit)selected.push(candidate);
+    for(const candidate of ranked.filter(item=>item.kind==='GASTRONOMY'))if(selected.filter(item=>item.kind==='GASTRONOMY').length<minFood&&selected.length<limit&&!selected.includes(candidate))selected.push(candidate);
+    for(const candidate of chosen.filter(item=>item.kind==='DRINKS'))if(!selected.includes(candidate)&&selected.length<limit)selected.push(candidate);
+    for(const candidate of ranked)if(selected.length<limit&&!selected.includes(candidate))selected.push(candidate);
+  }else {
+    const preferred=category==='COFFEE_DAYTIME'?{GASTRONOMY:Math.min(4,limit),DRINKS:Math.min(4,limit)}:{GASTRONOMY:limit,DRINKS:limit};
+    for(const kind of ['GASTRONOMY','DRINKS'] as const)for(const candidate of ranked.filter(item=>item.kind===kind).slice(0,preferred[kind]))if(selected.length<limit)selected.push(candidate);
+    for(const candidate of ranked)if(selected.length<limit&&!selected.includes(candidate))selected.push(candidate);
+  }
+  if(!selected.length)return result;
+  const offers=selected.map(candidate=>({id:'offer_'+hash(candidate.name.toLocaleLowerCase()).slice(0,16),kind:candidate.kind,name:candidate.name,areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}));
+  try {
+    const profile=parseExperienceProfile(existing?{...existing,offers:[...existing.offers,...offers]}:{contractVersion:(field.valueSchema as {properties:{contractVersion:{const:string}}}).properties.contractVersion.const,category,properties:[],areas:[],offers,reviewed:false},false);
+    return {...result,status:'REQUIRES_REVIEW',reason:undefined,knowledgeState:'KNOWN_VALUE',value:profile,citations:[...(result.citations??[]),...selected.map(item=>item.citation)],partialProfile:true,humanReviewRequired:true,reviewEvidence:candidates.filter(candidate=>!selected.includes(candidate)).map(candidate=>candidate.citation)};
+  }catch{return result;}
+}
+
 export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies) {
   const {spot,modelPath}=options;
   const researchModel=selectResearchModel(modelPath);
@@ -944,6 +1021,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
   let modelUnavailable=false;
   let menuLayoutSkipped=false,menuMediaAudited=false;
   const menuMediaAudits:Awaited<ReturnType<typeof auditMenuImages>>[]=[];
+  let chosenMenuNames:string[]|undefined;
   let modelCalls=0,requests=0,searchDone=false,stopReason=fields.length?'FRONTIER_EXHAUSTED':'NO_FIELDS_REQUIRE_RESEARCH';
   const searchedTopics=new Set<string>();
   const checkpoint=async()=>deps.onCheckpoint?.({version:NUKNUK_AGENT_VERSION,spotId:spot.spotId,canonicalWrite:false,completed:false,sources,facts,sourceFailures,modelAudit,menuMediaAudits,actions,requests,modelCalls});
@@ -964,8 +1042,30 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       const choice:unknown=choices[0];
       if(!isObject(choice)||choice.finish_reason!=='stop'||!isObject(choice.message)||typeof choice.message.content!=='string')throw new Error('model_incomplete');
       audit.rawOutput=choice.message.content;return JSON.parse(choice.message.content);
-    }catch(error){audit.error=error instanceof Error?error.message:'MODEL_FAILURE';if(error instanceof Error&&(['AbortError','TimeoutError','TypeError'].includes(error.name)||/^model_http_5/.test(error.message)))modelUnavailable=true;throw error;}
+    }catch(error){
+      const budgetTimeout=error instanceof Error&&['AbortError','TimeoutError'].includes(error.name)&&remaining()<=1000;
+      audit.error=budgetTimeout?'TIME_BUDGET_EXHAUSTED':error instanceof Error?error.message:'MODEL_FAILURE';
+      if(error instanceof Error&&!budgetTimeout&&(['AbortError','TimeoutError','TypeError'].includes(error.name)||/^model_http_5/.test(error.message)))modelUnavailable=true;
+      if(budgetTimeout)throw new Error('TIME_BUDGET_EXHAUSTED');
+      throw error;
+    }
     finally{audit.latencyMs=now()-called;modelAudit.push(audit);await checkpoint();}
+  };
+  const curateMenuReview=async(source:ResearchSource)=>{
+    const profileField=fields.find(field=>field.attributeKey==='experience.profile');
+    if(!profileField||modelUnavailable||modelCalls>=maxModelCalls||remaining()<90000)return;
+    const menuFoods:string[]=[],menuDrinks:string[]=[];
+    for(const audit of menuMediaAudits)for(const image of audit.images)for(const row of image.localVision?.corroborated??[]){
+      const context=menuImageRowContext(image,row.name),group=context?.kind==='GASTRONOMY'?menuFoods:context?.kind==='DRINKS'?menuDrinks:null;
+      if(group&&!row.name.includes('/')&&!group.includes(row.name))group.push(row.name);
+    }
+    const menuNames=[...new Set([...menuFoods,...menuDrinks])].slice(0,70);
+    if(!menuNames.length)return;
+    try {
+      const raw=await model('CURATE_MENU',source,request(modelPath,'Select a small representative set of actual offerings from this exact venue’s corroborated menu-image names. Choose only supplied exact names. For a cafe with food and drinks, select at least THREE foods (including a prepared dish if present) and at least TWO drinks (including coffee if present). Prefer venue-distinctive offerings and different menu sections. Exclude generic commodities, headings, duplicates, size variants and guesses. Do not add prices, dietary claims or availability. Selection is only a human-review draft.',{venue:context(spot),category:profileField.profileCategory,availableFoods:menuFoods,availableDrinks:menuDrinks,existingDraftOffers:facts.filter(fact=>fact.field==='experience.profile'&&fact.state==='ACCEPTED').map(fact=>fact.value),maxSelected:7},record({selectedNames:{type:'array',maxItems:7,items:enumeration(menuNames)}})));
+      if(isObject(raw)&&Array.isArray(raw.selectedNames)&&raw.selectedNames.length&&raw.selectedNames.every((name):name is string=>typeof name==='string'&&menuNames.includes(name)))chosenMenuNames=[...new Set(raw.selectedNames)];
+      await progress({stage:'MENU_REVIEW_SELECTION',selected:chosenMenuNames?.length??0,source:source.url});
+    }catch(error){await progress({stage:'MENU_REVIEW_SELECTION_ERROR',reason:error instanceof Error?error.message:'MODEL_SELECTION_FAILED'});}
   };
   while((frontier.length||searchEndpoint&&!searchDone)&&fields.length) {
     if(modelUnavailable){stopReason='MODEL_UNAVAILABLE';break;}
@@ -1046,9 +1146,22 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         if(options.inspectMenuImages===true&&!menuMediaAudited&&isMenuPage&&observedMenuImages.length>=2&&['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category))&&fields.some(field=>field.attributeKey==='experience.profile')&&remaining()>90000){
           menuMediaAudited=true;
           try {
-            const audit=await (deps.inspectMenuImages??auditMenuImages)(page.url,{page,maxImages:24});
+            const withLocalVision=options.inspectMenuImagesWithModel===true&&remaining()>360000&&modelCalls+4<=maxModelCalls;
+            const audit=await (deps.inspectMenuImages??auditMenuImages)(page.url,{page,maxImages:24,
+              ...(withLocalVision?{maxDurationMs:Math.min(600000,remaining()-30000),maxVisionImages:4,
+                visionModel:async(bytes,mime,item,timeoutMs)=>{
+                  if(modelCalls>=maxModelCalls||remaining()<30000)throw new Error('MENU_VISION_BUDGET_EXHAUSTED');
+                  modelCalls++;const called=now();
+                  try {
+                    const result=await (deps.readMenuImage??readLocalMenuImage)(bytes,mime,modelPath,item,{fetchImpl:deps.modelFetch??fetch,timeoutMs:Math.min(timeoutMs,Math.max(1000,remaining()-20000))});
+                    modelAudit.push({stage:'MENU_VISION',sourceId:`menu:${item.index}`,promptHash:result.promptHash,latencyMs:now()-called,rawOutput:result.raw});
+                    return result;
+                  }catch(error){modelAudit.push({stage:'MENU_VISION',sourceId:`menu:${item.index}`,promptHash:menuVisionCodeHash,latencyMs:now()-called,error:error instanceof Error?error.message:'MENU_VISION_FAILED'});throw error;}
+                }}:{})});
             menuMediaAudits.push(audit);
-            await progress({stage:'MENU_MEDIA_AUDITED',url:page.url,images:audit.images.length,candidateRows:audit.candidateRows??0});
+            await progress({stage:'MENU_MEDIA_AUDITED',url:page.url,images:audit.images.length,candidateRows:audit.candidateRows??0,visionPages:audit.visionPages??0,visionErrors:audit.visionErrors??0});
+            for(const image of audit.images)if(image.visionError)await progress({stage:'MENU_VISION_ERROR',url:image.url,reason:image.visionError});
+            await curateMenuReview(source);
             await checkpoint();
           }catch(error){const reason=error instanceof Error?error.message:'MENU_MEDIA_AUDIT_FAILED';sourceFailures.push({url:page.url,reason:'MENU_MEDIA_AUDIT_FAILED:'+reason});await progress({stage:'MENU_MEDIA_AUDIT_ERROR',url:page.url,reason});}
         }
@@ -1151,6 +1264,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     }catch(error){await progress({stage:'MODEL_ERROR',url:source.url,reason:error instanceof Error?error.message:'MODEL_FAILURE'});}
     await checkpoint();
   }
+  if(modelAudit.some(item=>item.error==='TIME_BUDGET_EXHAUSTED'))stopReason='TIME_BUDGET_EXHAUSTED';
   // Different domains are useful for finding contradictions, but a search
   // snippet or matching name does not establish ownership. Keep their page
   // text in the review trail and never feed it into canonical projection.
@@ -1202,7 +1316,9 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const proposal=projected.find(p=>p.attributeKey===field.attributeKey)??{attributeKey:field.attributeKey,status:'UNRESOLVED',reason:'FIELD_NOT_SUPPORTED_IN_V2'};
     // Existing narrow evidence policy can verify transcription/contact only.
     const checked=verifyResearchProposal(proposal,{spot,sources,exportBound:options.exportBound,sourceFailures,now:now()});
-    return {...checked,...(current?{currentValue:current.value}:{})};
+    const activeField=fields.find(item=>item.attributeKey===field.attributeKey)??field;
+    const withImageLeads=addMenuImageReviewLeads(checked,activeField,menuMediaAudits,chosenMenuNames);
+    return {...withImageLeads,...(current?{currentValue:current.value}:{})};
   });
   const externalDiscrepancies=externalSources.flatMap(source=>{
     if(source.identity!=='MATCHED')return [];
@@ -1223,7 +1339,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const result=results.find(item=>item.attributeKey===check.field);
     if(result?.status==='AUTO_VERIFIED'){result.status='REQUIRES_REVIEW';result.reason='EXTERNAL_SEMANTIC_DISCREPANCY_REQUIRES_REVIEW';result.humanReviewRequired=true;}
   }
-  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,searchCodeHash,literalParserHash,menuMediaCodeHash,visionOcrCodeHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status))||externalDiscrepancies.length>0||semanticCounterchecks.some(item=>item.verdict==='CONTRADICTS'),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,menuMedia:{audits:menuMediaAudits,candidateRows:menuMediaAudits.reduce((n,item)=>n+(item.candidateRows??0),0),assertions:0},actions,search:{configured:Boolean(searchEndpoint),queries:searchQueries,leads:searchLeads,externalSources,discrepancies:externalDiscrepancies,semanticCounterchecks},failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
+  const report={version:NUKNUK_AGENT_VERSION,researchCodeHash,sourceReaderHash,searchCodeHash,literalParserHash,menuMediaCodeHash,menuVisionCodeHash,visionOcrCodeHash,spotId:spot.spotId,name:spot.name,modelId:researchModel.id,modelRepo:researchModel.repo,modelRevision:researchModel.revision,canonicalWrite:false,importable:false,exportBound:options.exportBound===true,humanReviewRequired:results.some(r=>!['AUTO_VERIFIED','SKIPPED'].includes(r.status))||menuMediaAudits.some(item=>(item.candidateRows??0)>0||item.images.some(image=>image.localVision))||externalDiscrepancies.length>0||semanticCounterchecks.some(item=>item.verdict==='CONTRADICTS'),startedAt:new Date(start).toISOString(),completedAt:new Date(now()).toISOString(),elapsedMs:now()-start,stopReason,requests,modelCalls,results,researchPlan:{category:typeof category==='string'?category:null,placeTypes:Array.isArray(spot.existingValues?.['classification.place_types']?.value)?spot.existingValues?.['classification.place_types']?.value:[],activeFields:fields.map(f=>f.attributeKey),irrelevantFields:results.filter(r=>r.reason==='FIELD_NOT_APPLICABLE_TO_SPOT_TYPE').map(r=>r.attributeKey)},facts,sources,sourceFailures,modelAudit,menuMedia:{audits:menuMediaAudits,candidateRows:menuMediaAudits.reduce((n,item)=>n+(item.candidateRows??0),0),visionRows:menuMediaAudits.flatMap(item=>item.images).reduce((n,image)=>n+(image.localVision?.modelRows??0),0),corroboratedRows:menuMediaAudits.flatMap(item=>item.images).reduce((n,image)=>n+(image.localVision?.corroborated?.length??0),0),heldVisionRows:menuMediaAudits.flatMap(item=>item.images).reduce((n,image)=>n+(image.localVision?.held?.length??0),0),reviewDraftOffers:results.filter(result=>result.attributeKey==='experience.profile').flatMap(result=>{try{return parseExperienceProfile(result.value,false).offers.filter(offer=>result.citations?.some(citation=>citation.sourceFormat==='IMAGE_OCR'&&citation.evidence.startsWith(offer.name+' ')));}catch{return [];}}).length,assertions:0},actions,search:{configured:Boolean(searchEndpoint),queries:searchQueries,leads:searchLeads,externalSources,discrepancies:externalDiscrepancies,semanticCounterchecks},failureSummary:actions.filter(a=>String(a.stage).endsWith('_ERROR')),
     coverage:results.map(r=>({attributeKey:r.attributeKey,status:r.status,acceptedFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='ACCEPTED').length,heldFacts:facts.filter(f=>f.field===r.attributeKey&&f.state==='HELD').length,complete:false})),
     frontier:frontier.map(({url,depth,topics})=>({url,depth,topics})),limitations:[searchEndpoint?'EXTERNAL_SOURCES_CROSS_CHECK_ONLY':'WEB_SEARCH_NOT_CONFIGURED','SEMANTIC_CHECK_USES_SAME_MODEL','COVERAGE_NOT_CERTIFIED','DRAFT_ONLY',...(searchQueries.some(q=>q.error)?['WEB_SEARCH_DEGRADED']:[]),...(semanticCounterchecks.some(c=>c.reason)?['CROSS_CHECK_UNGROUNDED']:[]),...(menuLayoutSkipped?['MENU_LAYOUT_REQUIRES_REVIEW']:[]),...(sources.some(s=>s.truncated)?['SOURCE_TEXT_TRUNCATED']:[]),...(sources.some(s=>/\{\{[^{}]{2,100}\}\}/u.test(s.text))?['CLIENT_RENDERED_CONTENT_MISSING']:[]),...(stopReason.endsWith('BUDGET_EXHAUSTED')?['RESEARCH_STOPPED_AT_BUDGET']:[])]};
   await deps.onProgress?.({stage:'COMPLETE',report});return report;

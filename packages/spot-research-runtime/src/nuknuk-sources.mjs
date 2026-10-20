@@ -232,15 +232,22 @@ export function discoverOfficialLinks(page) {
 export function discoverMenuImages(page,{maxImages=4}={}) {
   if(!Number.isInteger(maxImages)||maxImages<1||maxImages>24)throw new Error('menu_image_limit_invalid');
   if(typeof page.body!=='string')return [];
-  const images=[];
+  const observed=[];
   for(const match of page.body.matchAll(/<img\b[^>]*>/gi)) {
     const src=match[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1];
     const alt=match[0].match(/\balt\s*=\s*["']([^"']+)["']/i)?.[1]??'';
-    if(!src||!/menu|speisekarte|menü/i.test(src+' '+alt)||/\.svg(?:[?#\s]|$)|menu[-_ ]?(?:toggle|icon|button)|hamburger|navigation/i.test(src+' '+alt))continue;
-    try {const url=publicSourceUrl(new URL(src.replace(/&amp;/g,'&'),page.url).href);if(!images.some(i=>i.url===url))images.push({url,discoveredOn:page.url});}catch{}
-    if(images.length===maxImages)break;
+    if(!src||/\.svg(?:[?#\s]|$)|menu[-_ ]?(?:toggle|icon|button)|hamburger|navigation/i.test(src+' '+alt))continue;
+    try {
+      const url=publicSourceUrl(new URL(src.replace(/&amp;/g,'&'),page.url).href);
+      if(!observed.some(item=>item.url===url))observed.push({url,discoveredOn:page.url,explicit:/menu|speisekarte|menü/i.test(src+' '+alt)});
+    }catch{}
+    if(observed.length===100)break;
   }
-  return images;
+  // Some sites omit alt text on a middle page of a contiguous image menu.
+  // An observed, unlabeled asset is a lead only when flanked by explicit
+  // menu images on the same asset host; never bridge into unrelated reviews.
+  const images=observed.filter((item,index)=>item.explicit||index>0&&index+1<observed.length&&observed[index-1].explicit&&observed[index+1].explicit&&new URL(item.url).hostname===new URL(observed[index-1].url).hostname&&new URL(item.url).hostname===new URL(observed[index+1].url).hostname);
+  return images.slice(0,maxImages).map(({url,discoveredOn})=>({url,discoveredOn}));
 }
 
 // Public menu documents may be hosted by a CDN. Identity comes from the actual
