@@ -3,15 +3,17 @@
 import { useRef, useState } from "react";
 import { bookingError, restaurantDate, restaurantTime, setBookingStatus, type BookingReservation, type BookingSlot, type BookingSnapshot, type BookingStatus } from "@/lib/booking-api";
 import { ConsolePanel } from "./console-panel";
+import { ReservationHistory } from "./reservation-history";
 import { EditReservation } from "./edit-reservation";
 import styles from "./console.module.css";
 
-export const statusLabels: Record<BookingStatus, string> = { pending: "Anfrage offen", confirmed: "Bestätigt", arrived: "Angekommen", seated: "Am Tisch", completed: "Besuch beendet", cancelled: "Storniert", declined: "Abgelehnt", no_show: "Nicht erschienen" };
+export { statusLabels } from "./reservation-labels";
+import { statusLabels } from "./reservation-labels";
 const sources = { phone: "Telefon", email: "E-Mail", walk_in: "Vor Ort", operator: "Betreiber" };
 
-export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, onSaved, onAmended, onReload, onBusy, onUncertain }:  {
+export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, onDenied, onSaved, onAmended, onReload, onBusy, onUncertain }:  {
   spotId: string; reservation: BookingReservation; snapshot: BookingSnapshot;
-  onClose: () => void; onSaved: () => Promise<void>; onReload: () => Promise<void>; onBusy: (busy: boolean) => void;
+  onClose: () => void; onDenied: () => void; onSaved: () => Promise<void>; onReload: () => Promise<void>; onBusy: (busy: boolean) => void;
   onUncertain: (date: string) => void;
   onAmended: (date: string, slot: BookingSlot) => Promise<void>;
 }) {
@@ -19,6 +21,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const inFlight = useRef(false);
   const table = snapshot.tables.find((table) => table.id === r.table_id);
   const area = snapshot.areas.find((area) => area.id === table?.area_id);
@@ -59,6 +62,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
         {(r.status === "confirmed" || r.status === "pending" || r.status === "arrived") && <button className={styles.secondary} onClick={() => setTarget("cancelled")}>Stornieren</button>}
         {r.status === "confirmed" && Date.parse(r.starts_at) <= Date.now() && <button className={styles.secondary} onClick={() => setTarget("no_show")}>Nicht erschienen</button>}
       </div>)}
+      {snapshot.capabilities?.reservation_history && <div className={styles.historySection}><button type="button" className={styles.secondary} aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}>{historyOpen ? "Änderungsverlauf ausblenden" : "Änderungsverlauf anzeigen"}</button>{historyOpen && <ReservationHistory key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservationId={r.id} revision={r.revision ?? 0} onDenied={onDenied} onReload={onReload} />}</div>}
     </div>
   </ConsolePanel>;
 }

@@ -722,3 +722,63 @@ build, 42 contracts, lint (13 existing warnings) and 25 CI regression tests pass
 The generated evidence is a development release chain, not production activation.
 A real restaurant/team/physical-device pilot, authenticated push updates, broader
 recovery rehearsal and guest communication remain required acceptance work.
+
+## Reservation history candidate (2026-10-20)
+
+Migration `20261020212626_booking_reservation_history_v1.sql` extends the existing
+reservation audit events, rather than introducing another booking write path or
+a second event ledger. Create, amendment, attendance/status and walk-in RPCs keep
+their signatures, existing authorization/locks, optimistic revisions and replay
+rules. Only their successful audit insert gains a versioned `details` object and
+an actual recording timestamp. No-op amendments, exact retries and rejected
+writes still produce no extra event.
+
+New events retain before/after operating facts: revision, status, party size,
+planned instants, table/service IDs and labels at recording time, and actual
+attendance/departure instants. They record the acting role at that time and use
+the canonical audit actor reference. Guest name, contact and internal note are
+represented only by changed-field markers, never by copies of their contents.
+Request IDs, creation fingerprints, invitation credentials and team contact
+lists are excluded. This is an operational audit trail, not a guest CRM or a
+claim that legal retention/deletion work is finished.
+
+`booking_console_history_v1(spot, reservation, before_id)` checks live scoped
+read access and owner/actor Safety using the same restaurant lock as delegated
+access. It verifies that both the reservation and optional cursor belong to the
+requested restaurant and reservation. A matching index supports descending
+`(created_at,id)` keyset reads, bounded to 50 events plus a one-row continuation
+probe. The response includes the current reservation revision and observation
+time. Existing audit grants/RLS remain unchanged; staff obtain only the scoped
+RPC projection. Private serialization helpers are not executable by clients.
+
+The Console advertises `reservation_history` only after the backend migration.
+The native reservation panel loads history on explicit expansion, appends older
+pages and offers a fresh reload. It shows actual before/after operating facts,
+privacy-preserving guest-field changes, time-zone offsets and account references;
+these references are not invented staff names. Older audit events have an honest
+missing-details explanation. No before/after data is reconstructed from today's
+reservation or configuration. An error never becomes an empty history, a failed
+page retains an explicit stale warning, denied access clears the entire private
+workspace, and cancelled or old-session responses cannot repopulate it. A newer
+history revision asks the operator to reload reservation data. Detailed history
+covers the upgraded RPC paths from activation onward; direct privileged/manual
+mutations are not claimed to have acquired a complete historical trigger audit.
+
+Acceptance: the canonical clean boot through 198 migrations passed all ten
+Booking SQL suites, baseline authorization checks, actual owner/actor Safety
+measures, existing two-connection allocation/revocation races and database lint.
+History SQL exercises real create/retry, status/retry, host amendment/retry,
+rescheduling, cancellation, walk-in/retry, guest-text minimization, raw audit RLS,
+legacy entries, tied-time multi-page reads, foreign reservation/cursor denial and
+revocation. The evidence receipt is
+`fb93525f935c07d5dde6d0117508c2319a7bf87dc69c8c9fd4046d5d73d71e36`;
+its release manifest is `booking-reservation-history-v1.json`.
+Production activation and a restaurant/team trial remain outstanding.
+
+Client acceptance: all 72 Booking browser journeys passed; the seven history
+journeys passed again after visual phone spacing and action-order adjustments.
+TypeScript, 42 Web contract tests, 16 database-evidence/coverage tests and lint
+passed (13 existing unrelated warnings). The production build uses synthetic
+local Supabase settings, not production credentials. History is a candidate on
+top of team access, not a production deployment or a resolution of the separate
+weekly-closure integration authorization.

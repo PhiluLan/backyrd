@@ -432,7 +432,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -455,6 +455,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   const teamInviteRequests: Record<string, unknown>[] = [], memberRequests: Record<string, unknown>[] = [], invitationRequests: Record<string, unknown>[] = [], accessRequests: Record<string, unknown>[] = [];
   const inviteBodies = new Map<string, string>();
   let savedSetup: BookingSetup | null = null;
+  if (options.history) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, reservation_history: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 1 })); }
   if (options.lifecycle) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true };
   if (options.amendments) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
   if (options.walkIns) {
@@ -1529,4 +1530,115 @@ test("expired tab credentials are discarded and an active invitation handoff exp
   await page.clock.fastForward("01:00:01");
   await expect(page.getByRole("heading", { name: "Einladung erneut öffnen.", exact: true })).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toBe(null);
+});
+
+function historyEvent(index: number, detailed = false) {
+  const state = { revision: 0, status: "confirmed", party_size: 2, starts_at: "2026-10-20T16:00:00Z", ends_at: "2026-10-20T18:00:00Z", table_id: table1, table_label: "Fenster 1", service_id: dinner, service_name: "Abendservice", arrived_at: null, seated_at: null, completed_at: null };
+  return { id: `52000000-0000-4000-8000-${String(index).padStart(12, "0")}`, at: "2026-10-20T11:00:00Z", action: detailed ? "reservation_amended" : "reservation_created", actor_id: owner, actor_is_you: true, details: detailed ? { schema: "reservation_history_v1", actor_role: "owner", before: { ...state, party_size: 4, revision: 0, table_id: table2, table_label: "Garten 2" }, after: { ...state, revision: 1 }, changed_fields: ["guest_contact", "note"] } : null };
+}
+function historyPage(events: ReturnType<typeof historyEvent>[], next: string | null = null, revision = 1) {
+  return { reservation_id: reservationId, revision, observed_at: "2026-10-20T12:00:00Z", events, next_cursor: next };
+}
+async function openHistory(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Änderungsverlauf anzeigen", exact: true }).click();
+  return page.getByRole("region", { name: "Änderungsverlauf", exact: true });
+}
+
+test("history loads on demand and shows actual changes and honest legacy entries on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, history: true });
+  const requests: object[] = [];
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", async (route) => { requests.push(route.request().postDataJSON()); await route.fulfill({ json: historyPage([historyEvent(2, true), historyEvent(1)]) }); });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  expect(requests).toHaveLength(0);
+  await page.getByRole("button", { name: "Änderungsverlauf anzeigen", exact: true }).click();
+  const history = page.getByRole("region", { name: "Änderungsverlauf", exact: true });
+  await expect(history.getByRole("heading", { name: "Reservierung bearbeitet", exact: true })).toBeVisible();
+  await expect(history).toContainText("Vorher: 4");
+  await expect(history).toContainText("Jetzt: 2");
+  await expect(history).toContainText("Vorher: Garten 2");
+  await expect(history).toContainText("Jetzt: Fenster 1");
+  await expect(history).toContainText("Kontakt aktualisiert · Interne Notiz aktualisiert");
+  await expect(history).toContainText("Für diesen älteren Eintrag sind keine Detailwerte gespeichert.");
+  expect(requests).toEqual([{ p_spot_id: spot, p_reservation_id: reservationId, p_before_id: null }]);
+  expect(fixture.bookingCalls()).toBe(0);
+  expect(await history.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await history.screenshot({ path: test.info().outputPath("history-phone.png") });
+});
+
+test("history keyset pagination appends once and retry retains existing entries honestly", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true, teams: true, teamRole: "viewer" });
+  const rows = Array.from({ length: 50 }, (_, i) => historyEvent(100 - i));
+  const calls: Record<string, unknown>[] = [];
+  let fail = true;
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", async (route) => {
+    const body = route.request().postDataJSON(); calls.push(body);
+    if (!body.p_before_id) return route.fulfill({ json: historyPage(rows, rows.at(-1)!.id) });
+    if (fail) { fail = false; return route.fulfill({ status: 503, json: { message: "network error" } }); }
+    return route.fulfill({ json: historyPage([historyEvent(50), historyEvent(49)]) });
+  });
+  const history = await openHistory(page);
+  await expect(history.getByRole("listitem")).toHaveCount(50);
+  await history.getByRole("button", { name: "Ältere Einträge laden", exact: true }).click();
+  await expect(history.getByRole("alert")).toContainText("Die bisherigen Einträge bleiben sichtbar");
+  await expect(history.getByRole("listitem")).toHaveCount(50);
+  await history.getByRole("button", { name: "Ältere Einträge laden", exact: true }).click();
+  await expect(history.getByRole("listitem")).toHaveCount(52);
+  await expect(history.getByRole("button", { name: "Ältere Einträge laden", exact: true })).toHaveCount(0);
+  expect(calls[1]).toEqual(calls[2]);
+  expect(calls[1].p_before_id).toBe(rows.at(-1)!.id);
+  await expect(page.getByRole("button", { name: "Stornieren", exact: true })).toHaveCount(0);
+});
+
+for (const reason of ["denied", "safety"] as const) {
+  test("history " + reason + " clears the whole private reservation workspace", async ({ page }) => {
+    await mockConsole(page, { seeded: true, history: true });
+    await page.route("**/rest/v1/rpc/booking_console_history_v1", (route) => route.fulfill({ status: reason === "denied" ? 403 : 400, json: reason === "denied" ? { code: "42501", message: "booking_operator_required" } : { code: "P0001", message: "SAFETY_ACCOUNT_RESTRICTED" } }));
+    await openHistory(page);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Betreiberzugriff");
+  });
+}
+
+test("history failure and a malformed reply never become a fabricated empty history", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true });
+  let calls = 0;
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", (route) => {
+    calls++;
+    return calls === 1 ? route.fulfill({ status: 503, json: { message: "network error" } }) : calls === 2 ? route.fulfill({ json: { ...historyPage([historyEvent(1)]), reservation_id: table2 } }) : route.fulfill({ json: historyPage([]) });
+  });
+  const history = await openHistory(page);
+  await expect(history.getByRole("alert")).toContainText("Es konnte kein Verlauf geladen werden");
+  await expect(history.getByText("Für diese Reservierung sind noch keine Einträge vorhanden.", { exact: true })).toHaveCount(0);
+  await history.getByRole("button", { name: "Verlauf aktualisieren", exact: true }).click();
+  await expect(history.getByRole("alert")).toContainText("ungültige Antwort");
+  await history.getByRole("button", { name: "Verlauf aktualisieren", exact: true }).click();
+  await expect(history.getByText("Für diese Reservierung sind noch keine Einträge vorhanden.", { exact: true })).toBeVisible();
+});
+
+test("a newer canonical history revision asks for a reservation reload", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true, amendments: true });
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", (route) => route.fulfill({ json: historyPage([historyEvent(2, true)], null, 2) }));
+  const history = await openHistory(page);
+  await expect(history).toContainText("Die Reservierung wurde inzwischen geändert.");
+  await expect(history.getByRole("button", { name: "Reservierung neu laden", exact: true })).toBeVisible();
+});
+
+test("a history reply after logout cannot restore private content", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true });
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let called = false;
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", async (route) => { called = true; await gate; try { await route.fulfill({ json: historyPage([historyEvent(2, true)]) }); } catch { /* cancelled request after sign-out */ } });
+  await openHistory(page);
+  await expect.poll(() => called).toBe(true);
+  await page.evaluate(() => { const channel = new BroadcastChannel("sb-127-auth-token"); channel.postMessage({ event: "SIGNED_OUT", session: null }); channel.close(); });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden", exact: true })).toBeVisible();
+  release();
+  await expect(page.getByRole("region", { name: "Änderungsverlauf", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Kontakt aktualisiert", { exact: false })).toHaveCount(0);
 });

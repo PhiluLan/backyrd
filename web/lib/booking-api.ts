@@ -15,14 +15,14 @@ export type BookingReservation = {
   revision?: number;
   is_walk_in?: boolean;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[] };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[] };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
 export function occupiesInventory(status: BookingStatus) { return status === "pending" || status === "confirmed" || status === "arrived" || status === "seated"; }
 const sources: BookingSource[] = ["phone", "walk_in", "email", "operator"];
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function invalid(): never { throw new Error("Booking hat eine ungültige Antwort geliefert. Bitte erneut laden."); }
+function invalid(): never { throw new Error("booking_invalid_response"); }
 function record(value: unknown): Record<string, unknown> { if (!value || typeof value !== "object" || Array.isArray(value)) return invalid(); return value as Record<string, unknown>; }
 function string(value: unknown): string { if (typeof value !== "string") return invalid(); return value; }
 function nullable(value: unknown): string | null { return value == null ? null : string(value); }
@@ -48,7 +48,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const walkIns = capabilities?.walk_ins == null ? false : boolean(capabilities.walk_ins);
   const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in) });
   return {
-    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history) },
     access: team ? parseBookingAccess(row.access) : ownerBookingAccess,
     operating_date: row.operating_date == null && !seating ? undefined : calendarDate(row.operating_date),
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
@@ -66,7 +66,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   };
 }
 
-async function bookingRpcPayload(method: "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+async function bookingRpcPayload(method: "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
   const controller = new AbortController();
   let abort = () => {};
   const cancelled = new Promise<never>((_resolve, reject) => { abort = () => { controller.abort(); reject(new Error("Booking-Anfrage abgebrochen oder Zeitgrenze erreicht.")); }; });
@@ -169,6 +169,8 @@ export function bookingWriteUncertain(error: unknown): boolean {
 }
 
 const errorCopy: Record<string, string> = {
+  booking_invalid_response: "Booking hat eine ungültige Antwort geliefert. Bitte erneut laden.",
+  invalid_booking_history_cursor: "Der Verlauf wurde inzwischen geändert. Lade den Verlauf erneut.",
   booking_team_backend_required: "Teamzugänge sind auf diesem Backend noch nicht vollständig verfügbar. Bitte nach der Freischaltung erneut versuchen.",
   invalid_booking_invitation: "Prüfe die E-Mail-Adresse und die gewählte Rolle.",
   booking_invitation_unavailable: "Die Einladung ist nicht verfügbar. Melde dich mit der bestätigten eingeladenen E-Mail-Adresse an oder fordere einen neuen Link beim Betreiber an.",
@@ -309,4 +311,41 @@ export async function inspectBookingInvite(token: string, accept: boolean): Prom
   const row = record(await bookingRpcPayload("booking_console_invitation_v1", { p_token: token, p_accept: accept }));
   const result = { spot_id: uuid(row.spot_id), spot_name: string(row.spot_name), role: enumeration(row.role, teamRoles), expires_at: timestamp(row.expires_at), accepted: boolean(row.accepted) };
   if (accept && !result.accepted) return invalid(); return result;
+}
+
+export type BookingHistoryState = {
+  revision: number; status: BookingStatus; party_size: number; starts_at: string; ends_at: string;
+  table_id: string; table_label: string; service_id: string; service_name: string;
+  arrived_at: string | null; seated_at: string | null; completed_at: string | null;
+};
+export type BookingHistoryEvent = {
+  id: string; at: string; action: string; actor_id: string | null; actor_is_you: boolean;
+  details: { actor_role: BookingRole; before: BookingHistoryState | null; after: BookingHistoryState; changed_fields: ("guest_name" | "guest_contact" | "note")[] } | null;
+};
+export type BookingHistory = { reservationId: string; revision: number; observedAt: string; events: BookingHistoryEvent[]; nextCursor: string | null };
+function parseHistoryState(value: unknown): BookingHistoryState {
+  const s = record(value);
+  const result = { revision: integer(s.revision), status: enumeration(s.status, statuses), party_size: integer(s.party_size), starts_at: timestamp(s.starts_at), ends_at: timestamp(s.ends_at), table_id: uuid(s.table_id), table_label: string(s.table_label), service_id: uuid(s.service_id), service_name: string(s.service_name), arrived_at: s.arrived_at == null ? null : timestamp(s.arrived_at), seated_at: s.seated_at == null ? null : timestamp(s.seated_at), completed_at: s.completed_at == null ? null : timestamp(s.completed_at) };
+  if (result.revision < 0 || result.party_size < 1 || result.party_size > 30 || Date.parse(result.ends_at) <= Date.parse(result.starts_at) || !result.table_label.trim() || result.table_label.length > 40 || !result.service_name.trim() || result.service_name.length > 80) return invalid();
+  return result;
+}
+export async function readBookingHistory(spotId: string, reservationId: string, beforeId: string | null, signal?: AbortSignal): Promise<BookingHistory> {
+  const row = record(await bookingRpcPayload("booking_console_history_v1", { p_spot_id: spotId, p_reservation_id: reservationId, p_before_id: beforeId }, signal));
+  const result: BookingHistory = { reservationId: uuid(row.reservation_id), revision: integer(row.revision), observedAt: timestamp(row.observed_at), nextCursor: row.next_cursor == null ? null : uuid(row.next_cursor), events: array(row.events, (e) => {
+    let details: BookingHistoryEvent["details"] = null;
+    if (e.details != null) {
+      const d = record(e.details);
+      if (d.schema !== "reservation_history_v1" || !Array.isArray(d.changed_fields)) return invalid();
+      const changed = d.changed_fields.map((f) => enumeration<"guest_name" | "guest_contact" | "note">(f, ["guest_name", "guest_contact", "note"]));
+      if (new Set(changed).size !== changed.length) return invalid();
+      details = { actor_role: enumeration<BookingRole>(d.actor_role, ["owner", "manager", "host"]), before: d.before == null ? null : parseHistoryState(d.before), after: parseHistoryState(d.after), changed_fields: changed };
+      if (details.before && details.after.revision !== details.before.revision + 1) return invalid();
+    }
+    const action = string(e.action);
+    if (!action || action.length > 100) return invalid();
+    return { id: uuid(e.id), at: timestamp(e.at), action, actor_id: e.actor_id == null ? null : uuid(e.actor_id), actor_is_you: boolean(e.actor_is_you), details };
+  }) };
+  if (result.reservationId !== reservationId || result.revision < 0 || result.events.length > 50 || new Set(result.events.map((e) => e.id)).size !== result.events.length || result.events.some((e) => e.details && e.details.after.revision > result.revision)
+    || (result.nextCursor !== null && (result.events.length !== 50 || result.events.at(-1)?.id !== result.nextCursor || result.nextCursor === beforeId))) return invalid();
+  return result;
 }
