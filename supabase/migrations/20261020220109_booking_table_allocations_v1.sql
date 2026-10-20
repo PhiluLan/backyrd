@@ -1,5 +1,11 @@
 begin;
 
+lock table public.booking_reservations in share row exclusive mode;
+do $$ begin
+ if (select count(*) from (select 1 from public.booking_reservations limit 5001) bounded)>5000 then
+  raise exception 'booking_allocation_staged_backfill_required'; end if;
+end $$;
+
 -- Canonical physical resources per reservation. Client writes still enter via Booking RPCs.
 -- No combinations capability is advertised until the full create/edit/client contract is ready.
 alter table public.booking_reservations add constraint booking_reservation_spot_identity unique(spot_id,id);
@@ -25,8 +31,7 @@ alter table booking_private.reservation_allocations_v1 enable row level security
 revoke all on booking_private.reservation_allocations_v1 from public,anon,authenticated;
 grant all on booking_private.reservation_allocations_v1 to service_role;
 
--- Lock before installing synchronization/backfill: a concurrent legacy write cannot fall between them.
-lock table public.booking_reservations in share row exclusive mode;
+-- The initialization lock acquired before DDL still spans synchronization and backfill.
 create function booking_private.sync_reservation_allocations_v1() returns trigger
 language plpgsql security definer set search_path='' as $$ begin
  if tg_op='UPDATE' then
@@ -50,9 +55,6 @@ create trigger booking_reservation_allocations_sync after insert or update on pu
  for each row execute function booking_private.sync_reservation_allocations_v1();
 
 do $$ declare last_id uuid; n integer; total integer:=0; begin
- -- Fail before any partial migration for larger installations; require a separately reviewed staged backfill.
- if (select count(*) from (select 1 from public.booking_reservations limit 5001) bounded)>5000 then
-  raise exception 'booking_allocation_staged_backfill_required'; end if;
  loop
   with batch as materialized(select * from public.booking_reservations where last_id is null or id>last_id order by id limit 500),
   inserted as (insert into booking_private.reservation_allocations_v1(spot_id,reservation_id,table_id,starts_at,ends_at,status,reservation_revision)
