@@ -1,0 +1,60 @@
+{
+  "status": "SHIPPED",
+  "sourceSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
+  "implementationPullRequest": 533,
+  "releaseScopePullRequest": 539,
+  "mainCiRunId": 39453825127,
+  "certificationRunId": 39453852025,
+  "deploymentRunId": 39454556426,
+  "manifestHash": "e2c61a22d3912ab334cc317c3709164880f25364cb292fd4700279cb9cbd1649",
+  "planHash": "b634a4b9538cb60fe81e2f46aeb28309f5d47d5fe97ca4de3a840221bcbaee42",
+  "auditHash": "a969d21b0ceddfec511f99ac8d0f50d73c7a5278d1ebf74596a7063039efff6d",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261019203759_booking_restaurant_console_v1.sql",
+      "sha256": "e982735f7a36d258e1b162970e844f841de408137d9ac0721ee31ddf220ec36b"
+    }
+  ],
+  "deployFunctions": [],
+  "authConfigDeployed": false,
+  "backup": {
+    "runId": 39452491201,
+    "result": "SUCCESS",
+    "mode": "weekly",
+    "completedAt": "2026-10-20T16:03:16Z",
+    "databaseIncluded": true,
+    "storageFiles": 136,
+    "restoreDrillPerformed": false,
+    "guaranteedDatabaseRollback": false
+  },
+  "liveVerification": {
+    "consoleUrl": "https://www.backyrd.ch/booking/console",
+    "httpStatus": 200,
+    "cacheControl": "private, no-store",
+    "robots": "noindex, nofollow",
+    "guestEntryAndLoginReturnObserved": true,
+    "migrationCount": 191,
+    "migrationTip": "20261019203759",
+    "rlsTables": 6,
+    "anonReadableTables": 0,
+    "directClientWritableTables": 0,
+    "anonCallableBookingRpcs": 0,
+    "authenticatedCallableBookingRpcs": 5,
+    "tableOverlapExclusionConstraintPresent": true,
+    "existingOperatorReadUnderAuthenticatedRole": "PASS",
+    "unrelatedActorReadDenied": true,
+    "productionGuestBookingsCreatedByAgent": false,
+    "productionRestaurantSetupEditedByAgent": false
+  },
+  "validation": [
+    "Canonical clean boot, changed SQL allow/deny tests, Web build and contracts passed for the Console implementation.",
+    "29 release-manifest contract tests passed, including exact Booking scope build/verify and changed-byte/unknown-scope rejection.",
+    "Exact Main artifact certification and manual source-bound Production deployment passed.",
+    "Production operator read and unrelated actor rejection were asserted in a rolled-back read-only smoke transaction; no guest data was returned."
+  ],
+  "limits": [
+    "Founder explicitly accepted this migration's untested, non-guaranteed database recovery risk on 2026-10-20.",
+    "Guest checkout, guest messaging, payments and the Mobile Booking tab are outside this Console release.",
+    "Existing canonical restaurant ownership is required; no operator or restaurant was auto-enabled."
+  ]
+}
