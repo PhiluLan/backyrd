@@ -8,17 +8,18 @@ import { SpotArtwork } from "./spot/SpotArtwork";
 import { HOME_RAIL, homeRailCardWidth } from "../lib/home-rail";
 import type { LocationCoordinates } from "../lib/locationContext";
 import type { DiscoverySpot } from "../lib/spot-images";
-import { spotOpeningStatusNow } from "../lib/spot-opening-status";
+import type { SpotOpeningStatus } from "../lib/spot-opening-status";
 import { haversineKm } from "../lib/utils/haversine";
 import { backyrdTheme as theme } from "../theme/backyrd";
 
 /** The same place card and rail geometry for all Home discovery entry points. */
-export function HomeSpotRail({ spots, moods, moodCounts, location, label }: {
+export function HomeSpotRail({ spots, moods, moodCounts, location, label, openingStatuses }: {
   spots: readonly DiscoverySpot[];
   moods: Record<string, string[]>;
   moodCounts: Record<string, number | null | undefined>;
   location: LocationCoordinates | null;
   label: string;
+  openingStatuses: Record<string, SpotOpeningStatus>;
 }) {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -41,8 +42,9 @@ export function HomeSpotRail({ spots, moods, moodCounts, location, label }: {
       style={({ pressed }) => [styles.card, { width: cardWidth, minHeight: cardHeight, paddingTop: theme.spacing.display * 2 }, pressed && styles.pressed]}>
       <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} showFallbackName={false} style={StyleSheet.absoluteFill} />
       <LinearGradient colors={["rgba(5,5,5,0.02)", "rgba(5,5,5,0.18)", "rgba(5,5,5,0.92)"]} locations={[0.2, 0.54, 1]} style={StyleSheet.absoluteFill} />
-      <OpeningStatusBadge status={spotOpeningStatusNow(spot.hours)} style={styles.statusPill} />
+      <OpeningStatusBadge status={openingStatuses[spot.id] ?? "unknown"} style={styles.statusPill} />
       <View style={styles.cardContent}>
+        <LinearGradient pointerEvents="none" colors={["rgba(5,5,5,0)", "rgba(5,5,5,0.32)", "rgba(5,5,5,0.56)"]} locations={[0, 0.3, 1]} style={[StyleSheet.absoluteFill, styles.textScrim]} />
         <AppText role="displayM" style={styles.name}>{spot.name}</AppText>
         <MoodSignature labels={moods[spot.id] ?? []} moodCount={moodCounts[spot.id]} compact />
         <AppText role="meta" style={styles.meta}>{meta(spot)}</AppText>
@@ -55,6 +57,7 @@ const styles = StyleSheet.create({
   card: { overflow: "hidden", borderRadius: theme.radius.xl, justifyContent: "flex-end", backgroundColor: theme.color.surface },
   cardContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg },
   statusPill: { position: "absolute", top: theme.spacing.md, left: theme.spacing.md, maxWidth: "88%", zIndex: 1 },
+  textScrim: { top: -36 },
   name: { color: theme.color.textPrimary },
   meta: { marginTop: 8, color: "rgba(246,240,232,0.78)" },
   pressed: { opacity: 0.9, transform: [{ scale: theme.motion.pressScale }] },
