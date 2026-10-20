@@ -204,3 +204,40 @@ mandatory for a later museum, club or activity adapter.
 Not verified in this review: successful save or notification delivery, guest
 matching, drag-and-drop reallocation, payment, profile deduplication, capacity
 formulas or phone touch behavior. Those are not established product guarantees.
+
+## Console workspace implementation
+
+The first Aleno-informed increment implements the existing-contract scope:
+
+- A compact reservation book, service/area/status/name filters, a visible day
+  context and explicit recovery from a filtered-empty result.
+- Saved active-reservation, expected-guest and pending-request counts scoped to
+  the current list selection; no inferred seat-capacity percentage.
+- A table overview grouped by area. Day totals and occupancy at a focused
+  Europe/Zurich time are distinguished; a reservation ending at that time no
+  longer occupies the table. This is not a graphical floor-plan editor.
+- A native modal side panel on wide screens and full-height phone editor.
+  Background controls are inert, Escape/close protects edited drafts, focus
+  enters the editor and returns to its launching control on cancellation.
+- Automatic debounced availability for the chosen date and party size, with
+  stale-response rejection, separate time/table choices and optional details.
+  Filters prefill from the working context. Guest text survives a rejected
+  save; an identical retry retains its request ID after an uncertain response.
+- Existing reservation details and explicit checked status confirmation live
+  in a separate panel. No new lifecycle states or notifications are implied.
+- Setup navigation separates Basics, Areas and tables, and Service times.
+  Drafts survive section changes. Saving reveals and focuses invalid fields in
+  their section before any backend call, then uses the existing atomic save.
+- Sign-out/account changes clear private inputs and reject stale UI responses.
+
+The Web read model now consumes the existing reservation service_id returned
+by booking_console_read_v1, so overlapping service hours do not cause guessed
+service attribution. The SQL/RPC contracts, grants, table allocation and
+idempotency enforcement are unchanged. No migration is needed.
+
+Acceptance lives in web/e2e/booking-console.spec.ts with synthetic RPC fixtures:
+save/reload/create/cancel, filters and context retention, half-open table-time
+boundaries, 320/390px layout, focus/Escape/discard, logout with an open draft,
+out-of-order availability, slot conflict and accepted-write/uncertain-response
+retry identity. These browser fixtures verify client behavior; the existing
+database authorization/allocation acceptance remains the backend evidence.
