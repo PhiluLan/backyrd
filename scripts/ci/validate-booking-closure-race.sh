@@ -100,17 +100,49 @@ run_case staff_write_first \
 team_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select count(*) from public.booking_reservations where spot_id='$spot')||':'||(select count(*) from public.booking_team_members where spot_id='$spot' and revoked_at is not null);")"
 test "$team_proof" = '2:1' || { printf 'Unexpected Booking permission race state: %s\n' "$team_proof" >&2; exit 1; }
 
+# Dated service windows serialize against bookings, including the explicit keep-existing decision.
+day_d="((now() at time zone 'Europe/Zurich')::date+4)"
+day_e="((now() at time zone 'Europe/Zurich')::date+5)"
+run_case hours_first \
+ "select public.booking_console_save_hours_v1('$spot',2,'7b000000-0000-4000-8000-000000000030','$service',$day_d,p_closed=>true);" \
+ "select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000031','$service','$table_id',(($day_d+time '18:00') at time zone 'Europe/Zurich'),2,'Denied after changed hours');" \
+ booking_slot_unavailable
+run_case hours_booking_first \
+ "select public.booking_console_create_v1('$spot','7b000000-0000-4000-8000-000000000032','$service','$table_id',(($day_e+time '18:00') at time zone 'Europe/Zurich'),2,'Saved before hours change');" \
+ "select public.booking_console_save_hours_v1('$spot',3,'7b000000-0000-4000-8000-000000000033','$service',$day_e,p_closed=>true);" \
+ booking_hours_has_reservations
+hours_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select count(*) from public.booking_service_hours where spot_id='$spot')||':'||(select count(*) from public.booking_reservations where spot_id='$spot')||':'||(select revision from public.booking_restaurant_settings where spot_id='$spot');")"
+test "$hours_proof" = '1:3:3' || { printf 'Unexpected Booking hours race state: %s\n' "$hours_proof" >&2; exit 1; }
+
+# An uncommitted resource ID in another restaurant cannot be overwritten after a unique-key wait.
+other_owner='7b000000-0000-4000-8000-000000000040'
+other_spot='7b000000-0000-4000-8000-000000000041'
+shared_area='7b000000-0000-4000-8000-000000000042'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+insert into auth.users(id,instance_id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+ values('$other_owner','00000000-0000-0000-0000-000000000000','authenticated','authenticated','booking-resource-race@booking.invalid','','{}','{}',now(),now());
+insert into public.spots(id,name,lat,lng,owner_id,status) values('$other_spot','Second isolated race restaurant',47.5,7.5,'$other_owner','approved');
+SQL
+other_auth="set local role authenticated; select set_config('request.jwt.claim.sub','$other_owner',true); select set_config('request.jwt.claims','{\"sub\":\"$other_owner\",\"role\":\"authenticated\"}',true);"
+run_case cross_spot_resource \
+ "select public.booking_console_save_setup_v1('$spot',3,jsonb_build_object('duration_minutes',60,'max_party_size',8,'areas',jsonb_build_array(jsonb_build_object('id','$area','name','Room','is_active',true),jsonb_build_object('id','$shared_area','name','Shared guarded','is_active',true)),'tables',jsonb_build_array(jsonb_build_object('id','$table_id','area_id','$area','label','Race table','seats',4,'is_active',true)),'services',jsonb_build_array(jsonb_build_object('id','$service','name','Service','weekdays',jsonb_build_array(0,1,2,3,4,5,6),'opens_at','00:00','closes_at','23:59','interval_minutes',30,'is_active',true))));" \
+ "select public.booking_console_save_setup_v1('$other_spot',0,jsonb_build_object('duration_minutes',60,'max_party_size',8,'areas',jsonb_build_array(jsonb_build_object('id','$shared_area','name','Should not overwrite','is_active',true)),'tables','[]'::jsonb,'services','[]'::jsonb));" \
+ booking_resource_spot_mismatch "$other_auth"
+resource_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select (select name from public.booking_restaurant_areas where id='$shared_area' and spot_id='$spot')||':'||(select count(*) from public.booking_restaurant_settings where spot_id='$other_spot');")"
+test "$resource_proof" = 'Shared guarded:0' || { printf 'Unexpected Booking resource-race state: %s\n' "$resource_proof" >&2; exit 1; }
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
 delete from public.booking_reservations where spot_id='$spot';
 delete from public.booking_restaurant_closures where spot_id='$spot';
+delete from public.booking_service_hours where spot_id='$spot';
 delete from public.booking_restaurant_tables where spot_id='$spot';
 delete from public.booking_restaurant_services where spot_id='$spot';
 delete from public.booking_restaurant_areas where spot_id='$spot';
 delete from public.booking_restaurant_settings where spot_id='$spot';
-delete from public.spots where id='$spot';
-delete from auth.users where id in ('$owner','$staff');
+delete from public.spots where id in ('$spot','$other_spot');
+delete from auth.users where id in ('$owner','$staff','$other_owner');
 commit;
 SQL
-printf 'Booking closure/reservation and staff-revocation races passed in both lock orders.\n'
+printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced.\n'
