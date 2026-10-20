@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.3
+# Local Nuknuk Research v3.4
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.3
+## Active architecture: Research v3.4
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -131,6 +131,24 @@ every name is identical and already accepted. Its localized booking-button
 headings are excluded. The rule passes unit checks against changed lists and
 the saved real source replay; an end-to-end latency result after this last
 skip correction has not yet been measured.
+
+The third pre-run-reference case, Airport Hotel Basel, is a different hotel
+with three official room categories. Its untouched v3.3 run found all three
+but falsely added a twin-bed choice mentioned inside Business Zimmer as a
+fourth room. The fixed six-offer target then kept crawling unrelated service,
+contact and package pages until its eight-request budget expired after 540
+seconds. v3.4 requires a room offer to have its own heading, named row or an
+explicit quoted room list; a bedding choice inside another room's amenities
+cannot qualify. A complete, untruncated official room inventory can close
+hotel research at its actual number of accepted categories, even if fewer
+than six. The tuned full-site retest returned only Business Zimmer, Executive
+Zimmer and Familienzimmer from the homepage and official room overview in
+two requests, three model calls and 132 seconds, with no model/source errors.
+Rechecking the saved blind evidence under v3.4 also holds the twin-bed
+choice while retaining only the three named rooms.
+This tuned success does not count as a new blind case. The three untouched
+cases still leave the formal gate closed: two false assertions, six missed
+facts, one budget stop, and insufficient category-balanced coverage.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

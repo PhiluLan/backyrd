@@ -1166,6 +1166,17 @@ test('four accepted drinks do not hide an unread official menu overview',()=>{
  const four=Array.from({length:4},(_,i)=>({field:'experience.profile',value:'Cocktail '+i,state:'ACCEPTED'}));
  assert.equal(rankResearchFrontier(frontier,four,[{...field('experience.profile'),profileCategory:'DRINKS'}])[0].url,'https://example.org/amber-menu/');
 });
+test('a complete official hotel inventory stops at its actual room count, not a fixed six',()=>{
+ const names=['Business Zimmer','Executive Zimmer','Familienzimmer'];
+ const body='<main><h1>Zimmer</h1>'+names.map(name=>`<h3>${name}</h3><p>${name} bietet ein eigenes Zimmer für Hotelgäste.</p>`).join('')+'</main>';
+ const s=sourceText({url:'https://hotel.example/zimmer',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const facts=names.map(value=>({field:'experience.profile',value,state:'ACCEPTED',sourceId:'s1'}));
+ const frontier=[{url:'https://hotel.example/zimmer/business-zimmer',depth:1,topics:['stay']}];
+ const fields=[{...field('experience.profile'),profileCategory:'STAY'}];
+ assert.deepEqual(rankResearchFrontier(frontier,facts,fields,[s]),[]);
+ assert.equal(rankResearchFrontier(frontier,facts.slice(1),fields,[s])[0].url,frontier[0].url);
+ assert.equal(rankResearchFrontier(frontier,facts,fields,[{...s,truncated:true}])[0].url,frontier[0].url);
+});
 test('wrong offer kind is withheld per fact and does not invalidate correctly typed hotel rooms',async()=>{
  const s=source('Classic Room: a double room with shower.\nSteak with seasonal vegetables.');
  const stay={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
@@ -1192,6 +1203,16 @@ test('a hotel retreat with an included room is not a separate room category',()=
  const checked=recheckEvidenceFloors(original,[s],[field('experience.profile')],stay);
  assert.deepEqual(checked.map(f=>f.state),['ACCEPTED','HELD']);
  assert.equal(checked[1].reason,'STAY_PACKAGE_NOT_ROOM');
+});
+test('a bedding choice mentioned inside room details is not a separate room category',()=>{
+ const stay={...spot,name:'Airport Hotel Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const room='Business Zimmer: a comfortable hotel room with modern design and space to rest.';
+ const bed='Grosses Kingsizebett / Zweibettzimmer nach Wahl';
+ const s=source(room+'\n\n'+bed);
+ const original=validateEvidenceFacts({facts:[fact('experience.profile','Business Zimmer',room,{subject:'OFFER',offerKind:'OVERNIGHT_STAY'}),fact('experience.profile','Zweibettzimmer',bed,{subject:'OFFER',offerKind:'OVERNIGHT_STAY'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(original,[s],[field('experience.profile')],stay);
+ assert.deepEqual(checked.map(f=>f.state),['ACCEPTED','HELD']);
+ assert.equal(checked[1].reason,'ROOM_CATEGORY_TITLE_REQUIRED');
 });
 test('hotel inventory cards bind each room heading to its own description after a details link',()=>{
  const stay={...spot,name:'ART HOUSE Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};

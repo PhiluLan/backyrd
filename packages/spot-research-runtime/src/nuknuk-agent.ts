@@ -11,7 +11,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.3';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.4';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -380,6 +380,11 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
         const namedLodging=/(?:zimmer|chambre|camere|\b(?:rooms?|suites?|apartments?|studios?|dorms?|bedrooms?)\b)/iu.test(f.value);
         const tabbedRoom=(source.headings??[]).some(h=>h.text.trim()===f.value.trim()&&f.quote.startsWith(h.text)&&sectionAt(source,h.offset).some(section=>/^(?:zimmer\s+und\s+suiten|rooms?\s+and\s+suites?|suites?\s+and\s+rooms?)$/iu.test(section))&&/(?:zimmer|suite|room|hotel|übernacht)/iu.test(f.quote)&&f.quote.length>=65);
         if(!namedLodging&&!tabbedRoom)return 'STAY_OFFER_NOT_LODGING';
+        const title=(source.headings??[]).some(h=>h.text.trim().toLocaleLowerCase()===f.value.trim().toLocaleLowerCase());
+        const value=f.value.trim().toLocaleLowerCase(),quote=f.quote.trimStart().toLocaleLowerCase();
+        const namedRow=quote.startsWith(value)||['im ','in the ','our ','unsere '].some(prefix=>quote.startsWith(prefix+value));
+        const explicitList=/(?:zimmer\s+zur\s+auswahl|rooms?\s+(?:to\s+choose|available))\s*:/iu.test(f.quote)&&/["“”]/u.test(f.value);
+        if(!title&&!namedRow&&!explicitList)return 'ROOM_CATEGORY_TITLE_REQUIRED';
       }
       if(category==='WELLNESS_RELAXATION'&&f.offerKind==='BATHING'&&/(?:rutsche|rutschenden|röhre|slide|toboggan|turbotube|topspeed)/iu.test(f.quote)&&!/(?:badewelt|wellenbad|pool|becken|b[aä]der|baden|schwimmen|thermal|hamam)/iu.test(f.value))return 'WATER_SLIDE_NOT_BATHING_OFFER';
       if(category==='STAY'&&f.offerKind==='OVERNIGHT_STAY'&&/(?:^|\/)(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(source.url).pathname)&&(f.quote.length<f.value.length+35||!/[.!?]/u.test(f.quote)))return 'ROOM_DETAIL_DESCRIPTION_REQUIRED';
@@ -685,7 +690,14 @@ export function topicsForSearchLead(lead:Pick<SearchLead,'url'|'title'>):string[
   if(/(?:besuch|visit|information|anreise)/iu.test(path+' '+label))topics.push('visit');
   return topics;
 }
-function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],frontier:FrontierEntry[]):boolean {
+function hotelInventoryCovered(facts:EvidenceFact[],sources:ResearchSource[]):boolean {
+  return sources.some(source=>{
+    if(source.truncated||!/(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(new URL(source.url).pathname))return false;
+    const names=new Set((source.headings??[]).filter(h=>h.level>=2&&h.level<=3&&!/\n/u.test(h.text)&&!/(?:buchen|booking|book now|reserve)/iu.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!/^(?:rooms?\s*(?:&|and)\s*suites?|zimmer\s*(?:&|und)\s+suiten?)$/iu.test(h.text)).map(h=>h.text.trim().toLocaleLowerCase()));
+    return names.size>=2&&[...names].every(name=>facts.some(f=>f.field==='experience.profile'&&f.state==='ACCEPTED'&&f.value.trim().toLocaleLowerCase()===name));
+  });
+}
+function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],frontier:FrontierEntry[],sources:ResearchSource[]=[]):boolean {
   // Cultural programmes can span tours, self-guided visits and recurring
   // workshops. Reaching four facts is not evidence that the inventory is
   // complete; keep searching within the explicit page/query budget.
@@ -699,6 +711,7 @@ function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],front
     if(['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(field.profileCategory)))return /(?:^|\/)(?:[^/]+[-_])?(?:menu|menue|menü|speisekarte|karte)\/?$/iu.test(path);
     return false;
   }))return true;
+  if(field.profileCategory==='STAY'&&hotelInventoryCovered(facts,sources))return false;
   const accepted=facts.filter(f=>f.field==='experience.profile'&&f.state==='ACCEPTED');
   if(new Set(accepted.map(f=>f.value.toLocaleLowerCase())).size<(field.profileCategory==='STAY'?6:4))return true;
   // A fourth narrow treatment must not end a wellness crawl while an observed
@@ -734,8 +747,8 @@ export function equivalentLocalizedRoomInventory(source:ResearchSource,earlier:R
     return [...current].every(name=>facts.some(f=>f.sourceId===previous.id&&f.field==='experience.profile'&&f.state==='ACCEPTED'&&f.value.trim().toLocaleLowerCase()===name));
   });
 }
-export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[]):FrontierEntry[] {
-  const open=fields.filter(f=>f.attributeKey==='experience.profile'?profileNeedsMoreEvidence(f,facts,frontier):!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
+export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[],sources:ResearchSource[]=[]):FrontierEntry[] {
+  const open=fields.filter(f=>f.attributeKey==='experience.profile'?profileNeedsMoreEvidence(f,facts,frontier,sources):!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
   const leaf=(url:string)=>new URL(url).pathname.split('/').filter(Boolean).at(-1)??'';
   const weight=(key:string)=>key.startsWith('contact.')||key==='hours.regular'?8:['description.highlight','experience.profile'].includes(key)?2:1;
   const score=(link:FrontierEntry)=>open.reduce((n,f)=>n+(topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))?12*weight(f.attributeKey):0),0)+link.topics.length*2-link.depth+(link.depth===0?1000:0)+
@@ -922,7 +935,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     if(!remaining()){stopReason='TIME_BUDGET_EXHAUSTED';break;}
     if(requests>=maxRequests){stopReason='REQUEST_BUDGET_EXHAUSTED';break;}
     const planned=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
-    const pendingFields=fields.filter(f=>{const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&Array.isArray(proposal?.value)&&proposal.value.length<7||f.attributeKey==='experience.profile'&&profileNeedsMoreEvidence(f,facts,frontier);});
+    const pendingFields=fields.filter(f=>{const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&Array.isArray(proposal?.value)&&proposal.value.length<7||f.attributeKey==='experience.profile'&&profileNeedsMoreEvidence(f,facts,frontier,sources);});
     // A hard-to-find contact must not consume the whole budget while a
     // substantive experience question is still unanswered.
     const balancedFields=pendingFields.filter(f=>!(f.attributeKey.startsWith('contact.')&&(topicAttempts.get('contact')??0)>=3&&pendingFields.some(other=>other.attributeKey==='experience.profile')));
@@ -930,7 +943,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     // Cultural profiles can have several distinct programme types; look for
     // new offer families after each page instead of waiting for two more
     // navigation pages. Search URLs remain untrusted leads.
-    const usefulFrontier=rankResearchFrontier(frontier,facts,searchAndRankFields);
+    const usefulFrontier=rankResearchFrontier(frontier,facts,searchAndRankFields,sources);
     const cultureSearch=searchAndRankFields.some(field=>field.attributeKey==='experience.profile'&&field.profileCategory==='CULTURE_ARTS');
     if(searchEndpoint&&!searchDone&&(!usefulFrontier.length||sources.length>=1+(cultureSearch?1:2)*searchedTopics.size)){
       const item=planSpotSearches(spot,searchAndRankFields,official,{maxQueries:6}).find(query=>!searchedTopics.has(query.key));
@@ -947,7 +960,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       continue;
       }
     }
-    const next=rankResearchFrontier(frontier,facts,searchAndRankFields)[0];if(!next){stopReason='FRONTIER_EXHAUSTED';break;}frontier.splice(frontier.indexOf(next),1);
+    const next=rankResearchFrontier(frontier,facts,searchAndRankFields,sources)[0];if(!next){stopReason='FRONTIER_EXHAUSTED';break;}frontier.splice(frontier.indexOf(next),1);
     if(cultureSearch&&next.depth>0&&/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(next.url).pathname)&&sources.some(source=>/^\/de(?:\/|$)/iu.test(new URL(source.url).pathname))){
       await progress({stage:'TRANSLATED_CULTURE_PAGE_DEFERRED',url:next.url});
       continue;
