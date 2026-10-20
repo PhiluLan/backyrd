@@ -465,3 +465,14 @@ numeric drafts are never converted to zero. Version conflicts retain the draft;
 unknown save responses freeze the patch for an identical retry. Closing or
 reloading warns about unsaved/uncertain input. New UI remains capability-gated
 until this migration cohort is separately authorized and activated.
+
+Table-plan candidate validation on 2026-10-20: canonical 195-migration Supabase
+clean boot with all five Booking SQL suites, baseline authorization/race tests,
+ACL/schema snapshots and database lint passed. The release record chains from
+the walk-in candidate; it does not activate Production. All 34 synthetic browser
+journeys passed, including numeric clearing, geometry persistence, constrained
+drag/keyboard positioning, room isolation, context retention, revision conflict,
+unsaved discard and identical uncertain retries. The 320px plan/list was visually
+inspected. Web typecheck and 42 contracts passed; lint has only the 13 existing
+warnings. A physical-device/restaurant trial remains required before a usability
+or operational-parity claim.

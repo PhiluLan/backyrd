@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-restaurant-table-layout-v1",
+  "previousEvidence": "booking-restaurant-walk-ins-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "2a11f2faa81c02777721d9138d71e9f3d5883b14f09ad9d093621d97b4f74530",
+    "applicationSchemaSha256": "2bcb6eb7c31dff92dc1dccf6733bb58870e9e83440f2d3b57a3ea64708186157"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
+      "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_restaurant_table_layout_v1.sql",
+      "sha256": "26a911e08f4b5fc1a711890ae775764055619e111e1c34fb59df4fb8927e88fe"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "717c6beeeeac06627769814de2633f7059315ab4d21ab7a71610d84b9307a592"
+  }
+}
