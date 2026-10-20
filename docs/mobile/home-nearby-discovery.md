@@ -1,6 +1,6 @@
 # Home nearby discovery
 
-Published to iOS production OTA on 20 October 2026 from Main `252974128c036053db699eaac96d8ec1c5a1d345` (PRs #534/#536). Exact Main certification `39434742257` and public launch-byte verification passed. Update `01a1599e-e8ab-7a92-8a03-8f16e68a6bd1`, runtime `1.1.0`. Read-only public API smoke returned 14 approved places in correct distance order from a fixed Basel test point; no personal GPS was used. Physical-device installation/GPS observation remains outstanding.
+Published to iOS production OTA on 20 October 2026 from Main `04b4beffe366532ae5049d0be16882df3a04a3dd` (PR #538). Exact Main certification `39457139936` and public manifest/downloaded launch-byte verification passed. Update `01a15a26-60cc-7e44-8620-bc8702c2d369`, runtime `1.1.0`. Includes local newest chronology, the shared Home photo-card rail and the actor-bound last successful Wohin search. Existing nearby retrieval remains intact. Read-only public API smoke passed from a fixed Basel point without personal GPS or production writes. Physical-device installation remains unverified.
 
 Task class: PRODUCT_RELEASE for the Home continuation of installed Decision results and account-bound local cache. No schema, RLS, Decision ranking or dependency changes.
 
