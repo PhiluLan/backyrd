@@ -863,3 +863,80 @@ classification/evidence/coverage tests, lint (13 existing unrelated warnings)
 and the production build with synthetic local Supabase settings passed.
 This candidate depends on reservation history/team/week planning; all production
 activation and restaurant trials remain outstanding.
+
+## Multi-table allocation foundation (2026-10-21)
+
+Migration `20261020220109_booking_table_allocations_v1.sql` introduces the private
+physical-table allocation relation for each canonical reservation. It does not
+advertise a combinations capability or expose an incomplete public reservation
+API. The complete operator create/amend/walk-in workflow and client rendering
+remain the next increment; a private helper is not an Aleno parity claim.
+
+Existing single-table writes keep their RPC contracts. A pinned private trigger
+synchronizes active allocations when the canonical reservation's planned range,
+status or revision changes. The allocation relation has composite restaurant
+foreign keys, no client grants, RLS, a per-table occupied-range exclusion and
+one seated party per physical table. Completion releases all members, including
+secondary tables; cancelled/declined/no-show states no longer occupy planned
+inventory. Inactive former membership rows are retained. They are membership
+state, not an additional reservation history or guest-record ledger.
+
+Private `assign_reservation_tables_v1` is a building block for the following
+public contract. Under current operator/Safety access and the common restaurant
+lock it checks reservation revision, unique bounded membership (one to four),
+canonical primary retention, active resources in one area, total chair capacity,
+current service windows/closures and conflicting allocations. Identical target
+sets are no-ops even if their order differs. Changes are limited to future
+pending/confirmed reservations and audited without guest text. A legacy primary
+move cannot silently discard additional members. Later combined creation,
+full amendment, actual seated moves and configured combination eligibility must
+extend this path deliberately; they are not implemented by the private helper.
+
+Planned and amendment availability, current walk-in occupancy and closure impact
+reads now use all active allocations. The unchanged single-table primary pointer
+is a compatibility field. All user-facing table lists/plans and reservation
+history must show the complete member set before a combinations capability is
+enabled. Configuration checks that currently compare party size with a primary
+table must also be extended before real combined reservations can be operated.
+The next public contract must preserve full-payload creation/amendment replay,
+not infer that a matching membership set proves unrelated guest edits succeeded.
+
+Initialization explicitly starts one transaction because the pinned Supabase
+runner does not wrap whole migration files in a transaction. A reservation-table
+write lock spans trigger installation and the nonempty backfill. Chunks are
+bounded to 500 with progress notices; more than 5,000 existing reservations fails
+closed and requires a separately reviewed staged backfill. Under failure the
+transaction rolls back; do not manually continue half an initialization. The
+native PostgreSQL 16 supplement exercised a nonempty local backfill and compared
+its fields with the existing canonical record. Canonical PostgreSQL 17 clean
+boot/authorization/race execution is recorded separately when complete.
+
+Release-evidence boundary: the existing application-schema fingerprint v1
+explicitly covers `public` and `decision_lab`. Private Booking definitions and
+ACLs therefore need an additional scoped production-drift comparison before a
+new production activation; do not present that v1 hash as comprehensive private
+schema coverage. Migration hashes and isolated execution remain current source
+and test evidence. This follow-up does not authorize changing historic release
+fingerprints or applying unapproved production migrations.
+
+Final foundation acceptance: canonical PostgreSQL 17 clean boot through 200
+migrations passed all fourteen Booking SQL suites, baseline authorization and
+actual owner/actor Safety measures, the existing planning/revocation/resource
+races and the new secondary-table assignment race, plus database lint. Both
+competitors start with distinct primary tables; after an observed PostgreSQL
+lock wait exactly one adds the shared table and the loser's membership/revision
+remain unchanged. SQL also covers six guests across two four-chair tables,
+insufficient capacity, order-independent retry, membership retirement/reactivation,
+legacy-primary-move rollback, secondary physical seating after an overstay,
+all-member departure and raw/private access denial. The receipt is
+`73258147fd73803c9bf47a671f25bc6a19a74054b19e1d0a1934dbb4778d7e8c`;
+release evidence is `booking-table-allocations-v1.json`. Sixty-four CI
+classification/evidence/coverage tests passed. No Web runtime or public RPC
+contract changed in this foundation; the prior 82 mocked Web journeys are not
+represented as end-to-end multi-table acceptance.
+
+A separate native PostgreSQL 16 rollback probe inserted 5,001 synthetic records
+inside a transaction, ran the actual initialization, observed the staged-backfill
+exception before new DDL and verified unchanged reservation count plus the
+restored allocation schema after connection rollback. The guard now runs before
+the unique index build. No production data or production schema was used.
