@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "04b4beffe366532ae5049d0be16882df3a04a3dd",
+      "sourceSha": "6742f6855460987fcb6181710b0542937a2b9cfc",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "53074d0d-d4f9-4c76-9b29-6d2d2bb0b135",
-      "iosUpdateId": "01a15a26-60cc-7e44-8620-bc8702c2d369",
+      "otaGroupId": "24bb271a-7c1d-45d1-a07c-96cb2aa4a49c",
+      "iosUpdateId": "01a15a49-1a7b-72b3-8534-42f2bd37c201",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Local newest places sorted strictly by creation date, current 15 km area or explicit profile-city fallback; shared large Home place cards and actor-bound last successful Wohin search in original result order. PR #538 and exact Main certification run 39457139936 passed. Public production launch manifest and downloaded bytes match the certified iOS artifact. Mobile/Decision/cache isolation tests and exported-app journey passed. Read-only API smoke passed without personal GPS or production writes. No backend deployment is part of this iOS release. Physical-device installation remains unverified."
+      "note": "Home place cards resolve confirmed opening hours through the same public projection/parser as Place Detail; unknown canonical data does not inherit stale legacy times. Shared Home cards add a soft dark text scrim. PR #544 and exact Main certification run 39462617433 passed; production manifest and downloaded launch bytes match the certified iOS artifact. Mobile/Decision/regression and exported-app tests passed. Read-only Kaphi check confirmed zero old hours, seven canonical days and matching closed status at 18:51 Europe/Zurich on 20 October 2026. No production data writes or backend deployment. Physical-device installation remains unverified."
     }
   },
   "reviewMediaIncident": {
