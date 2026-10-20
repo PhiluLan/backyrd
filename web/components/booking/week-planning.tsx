@@ -39,7 +39,7 @@ export function WeekOverview({ spotId, date, snapshot, serviceId, areaId, disabl
         <p><strong>{day.active_guests}</strong> Gäste · {day.active_reservations} {day.active_reservations === 1 ? "aktive Reservierung" : "aktive Reservierungen"}</p>
         <p className={styles.help}>{day.pending} {day.pending === 1 ? "Anfrage" : "Anfragen"} · {day.completed} beendet · {day.cancelled} storniert/abgelehnt · {day.no_show} nicht erschienen</p>
         {day.closures.map((closure) => <button key={closure.id} className={styles.closureCard} disabled={!canEdit(day.date)} onClick={() => onEdit(day.date, closure)}><strong>{closureLabel(closure, snapshot)}</strong>{closure.note && <span>{closure.note}</span>}<span>{closure.affected_reservations} bestehende aktive Reservierungen bleiben erhalten</span></button>)}
-        <button className={styles.secondary} disabled={!canEdit(day.date)} onClick={() => onEdit(day.date)}>+ Buchungssperre</button>
+        {(snapshot.access?.can_manage ?? true) && <button className={styles.secondary} disabled={!canEdit(day.date)} onClick={() => onEdit(day.date)}>+ Buchungssperre</button>}
       </article>)}</div>
       {week && <p className={styles.help}>Wochenstand: {new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(week.observed_at))} · Bestehende Reservierungen werden durch Sperren nicht storniert.</p>}
     </>}

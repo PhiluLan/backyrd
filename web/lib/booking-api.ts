@@ -1,4 +1,5 @@
 import { validTableLayout, type TableLayout } from "./booking-table-layout";
+import { getOwnerSpots } from "./owner-api";
 import { supabase } from "@/lib/supabase/client";
 
 export type BookingStatus = "pending" | "confirmed" | "arrived" | "seated" | "completed" | "cancelled" | "declined" | "no_show";
@@ -14,7 +15,7 @@ export type BookingReservation = {
   revision?: number;
   is_walk_in?: boolean;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean }; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[] };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[] };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
@@ -40,13 +41,15 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const capabilities = row.capabilities == null ? null : record(row.capabilities);
   const amendments = capabilities?.reservation_amendments == null ? false : boolean(capabilities.reservation_amendments);
   const seating = capabilities?.current_seating == null ? false : boolean(capabilities.current_seating);
+  const team = capabilities?.team_access == null ? false : boolean(capabilities.team_access);
   const planning = capabilities?.week_planning == null ? false : boolean(capabilities.week_planning);
   const layouts = capabilities?.table_layouts == null ? false : boolean(capabilities.table_layouts);
   const layout = (value: unknown) => { if (value === null || (value === undefined && !layouts)) return null; if (!validTableLayout(value)) return invalid(); return value; };
   const walkIns = capabilities?.walk_ins == null ? false : boolean(capabilities.walk_ins);
   const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in) });
   return {
-    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team },
+    access: team ? parseBookingAccess(row.access) : ownerBookingAccess,
     operating_date: row.operating_date == null && !seating ? undefined : calendarDate(row.operating_date),
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
     areas: array(row.areas, (a) => ({ id: uuid(a.id), name: string(a.name), is_active: boolean(a.is_active) })),
@@ -63,7 +66,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   };
 }
 
-async function bookingRpcPayload(method: "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+async function bookingRpcPayload(method: "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
   const controller = new AbortController();
   let abort = () => {};
   const cancelled = new Promise<never>((_resolve, reject) => { abort = () => { controller.abort(); reject(new Error("Booking-Anfrage abgebrochen oder Zeitgrenze erreicht.")); }; });
@@ -166,6 +169,14 @@ export function bookingWriteUncertain(error: unknown): boolean {
 }
 
 const errorCopy: Record<string, string> = {
+  booking_team_backend_required: "Teamzugänge sind auf diesem Backend noch nicht vollständig verfügbar. Bitte nach der Freischaltung erneut versuchen.",
+  invalid_booking_invitation: "Prüfe die E-Mail-Adresse und die gewählte Rolle.",
+  booking_invitation_unavailable: "Die Einladung ist nicht verfügbar. Melde dich mit der bestätigten eingeladenen E-Mail-Adresse an oder fordere einen neuen Link beim Betreiber an.",
+  booking_invitation_exists: "Für diese Adresse besteht bereits eine Einladung. Widerrufe den bisherigen Link, bevor du einen neuen erstellst.",
+  booking_team_member_exists: "Diese Person hat bereits Zugang. Passe die Rolle im Team an.",
+  booking_team_owner_has_access: "Du hast als Betreiber bereits vollständigen Zugang.",
+  booking_team_member_revoked: "Dieser Zugang wurde entzogen. Eine neue Einladung ist erforderlich.",
+  booking_team_member_not_found: "Der Teamzugang ist nicht mehr verfügbar. Lade den aktuellen Stand.",
   invalid_booking_closure: "Prüfe Datum, Zeitfenster und die Angaben der Buchungssperre.",
   invalid_booking_closure_time: "Diese Ortszeit existiert am gewählten Tag nicht. Wähle ein anderes Zeitfenster.",
   booking_closure_has_reservations: "Die Sperre betrifft bestehende Reservierungen. Bestätige ausdrücklich, dass diese erhalten bleiben.",
@@ -251,4 +262,51 @@ export function restaurantSlotTime(value: string, alternatives: string[]) {
   const label = restaurantTime(value);
   if (!alternatives.some((other) => other !== value && restaurantTime(other) === label && Date.parse(other) !== Date.parse(value))) return label;
   return label + " (" + restaurantOffset(value) + ")";
+}
+
+
+export type BookingTeamRole = "viewer" | "host" | "manager";
+export type BookingRole = BookingTeamRole | "owner";
+export type BookingAccess = { role: BookingRole; can_write: boolean; can_manage: boolean; can_manage_team: boolean };
+export const ownerBookingAccess: BookingAccess = { role: "owner", can_write: true, can_manage: true, can_manage_team: true };
+function parseBookingAccess(value: unknown): BookingAccess {
+  const row = record(value), role = enumeration(row.role, ["owner", "manager", "host", "viewer"] as BookingRole[]);
+  const access = { role, can_write: boolean(row.can_write), can_manage: boolean(row.can_manage), can_manage_team: boolean(row.can_manage_team) };
+  if (access.can_write !== (role !== "viewer") || access.can_manage !== ["owner", "manager"].includes(role) || access.can_manage_team !== (role === "owner")) return invalid();
+  return access;
+}
+export type BookingSpot = { spot_id: string; name: string; city: string | null; access_role: BookingRole };
+export async function readBookingSpots(): Promise<BookingSpot[]> {
+  let value: unknown;
+  try { value = await bookingRpcPayload("booking_console_spots_v1", {}); }
+  catch (error) {
+    if (!error || typeof error !== "object" || !("code" in error) || error.code !== "PGRST202") throw error;
+    // Only the absent new RPC may use the canonical legacy Owner list.
+    value = (await getOwnerSpots(100)).map((spot) => ({ ...spot, access_role: "owner" }));
+  }
+  return array(value, (row) => ({ spot_id: uuid(row.spot_id), name: string(row.name), city: nullable(row.city), access_role: enumeration(row.access_role, ["owner", "manager", "host", "viewer"] as BookingRole[]) }));
+}
+export async function readBookingAccess(spotId: string, signal?: AbortSignal) { return parseBookingAccess(await bookingRpcPayload("booking_console_access_v1", { p_spot_id: spotId }, signal)); }
+export type BookingTeamMember = { user_id: string; email: string | null; role: BookingTeamRole; revision: number; revoked_at: string | null };
+export type BookingInvitation = { id: string; email: string; role: BookingTeamRole; expires_at: string; accepted_at: string | null; revoked_at: string | null };
+export type BookingTeam = { members: BookingTeamMember[]; invitations: BookingInvitation[] };
+const teamRoles: BookingTeamRole[] = ["viewer", "host", "manager"];
+export async function readBookingTeam(spotId: string, signal?: AbortSignal): Promise<BookingTeam> {
+  const row = record(await bookingRpcPayload("booking_console_team_v1", { p_spot_id: spotId }, signal));
+  return { members: array(row.members, (m) => ({ user_id: uuid(m.user_id), email: nullable(m.email), role: enumeration(m.role, teamRoles), revision: count(m.revision), revoked_at: m.revoked_at === null ? null : timestamp(m.revoked_at) })),
+    invitations: array(row.invitations, (i) => ({ id: uuid(i.id), email: string(i.email), role: enumeration(i.role, teamRoles), expires_at: timestamp(i.expires_at), accepted_at: i.accepted_at === null ? null : timestamp(i.accepted_at), revoked_at: i.revoked_at === null ? null : timestamp(i.revoked_at) })) };
+}
+export type BookingInviteRequest = { id: string; email: string; role: BookingTeamRole; token: string };
+export function newBookingInvite(email: string, role: BookingTeamRole): BookingInviteRequest { return { id: crypto.randomUUID(), email: email.trim().toLowerCase(), role, token: [...crypto.getRandomValues(new Uint8Array(32))].map((byte) => byte.toString(16).padStart(2, "0")).join("") }; }
+export async function inviteBookingMember(spotId: string, invite: BookingInviteRequest) {
+  const row = record(await bookingRpcPayload("booking_console_invite_v1", { p_spot_id: spotId, p_request_id: invite.id, p_email: invite.email, p_role: invite.role, p_token: invite.token }));
+  if (uuid(row.id) !== invite.id) return invalid(); return { id: invite.id, expires_at: timestamp(row.expires_at) };
+}
+export async function changeBookingMember(spotId: string, member: Pick<BookingTeamMember, "user_id" | "revision">, role: BookingTeamRole | null) { return count(await bookingRpcPayload("booking_console_member_v1", { p_spot_id: spotId, p_user_id: member.user_id, p_revision: member.revision, p_role: role })); }
+export async function revokeBookingInvite(spotId: string, id: string) { await bookingRpcPayload("booking_console_revoke_invite_v1", { p_spot_id: spotId, p_id: id }); }
+export type BookingInvitePreview = { spot_id: string; spot_name: string; role: BookingTeamRole; expires_at: string; accepted: boolean };
+export async function inspectBookingInvite(token: string, accept: boolean): Promise<BookingInvitePreview> {
+  const row = record(await bookingRpcPayload("booking_console_invitation_v1", { p_token: token, p_accept: accept }));
+  const result = { spot_id: uuid(row.spot_id), spot_name: string(row.spot_name), role: enumeration(row.role, teamRoles), expires_at: timestamp(row.expires_at), accepted: boolean(row.accepted) };
+  if (accept && !result.accepted) return invalid(); return result;
 }

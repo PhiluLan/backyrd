@@ -634,3 +634,91 @@ write timeout recovery. The week and native phone editor were visually inspected
 Web typecheck, lint (13 existing warnings), 42 contracts, 25 CI receipt/delivery
 regression tests and the production build passed. Physical-device/restaurant
 acceptance and the new migration cohort's production activation remain open.
+
+## Restaurant team access
+
+Team roles are Booking-scoped and database-backed. The canonical Spot owner
+retains global Owner/profile authority; accepting a Booking invitation does not
+change `spots.owner_id` or the legacy `is_operator` predicate. Existing raw
+Booking-table SELECT policies remain Owner-only, and new team/invitation tables
+have RLS plus no authenticated/anonymous direct grants. Delegated access uses
+explicit checked RPCs, not editable user metadata or JWT role hints.
+
+| Booking role | Read book/availability | Reservations and attendance | Setup, plan, blocks | Team management |
+| --- | --- | --- | --- | --- |
+| Viewer / Nur lesen | Yes | No | No | No |
+| Host / Service | Yes | Yes | No | No |
+| Manager / Management | Yes | Yes | Yes | No |
+| Canonical owner | Yes | Yes | Yes | Yes |
+
+Each checked operation takes the restaurant lock before reading the live role:
+SHARE for reads, UPDATE for writes/management. Revocation uses the same lock.
+An already authorized write can finish before revocation; a request waiting
+behind a committed revocation must fail. Safety is checked for both acting user
+and canonical owner in deterministic UUID order, so staff cannot bypass a
+restricted owner through delegated work. The legacy Owner assertion stays
+Owner-only; all delegated RPC scopes are replaced explicitly. Ownership changes
+revoke memberships and invitations, including if the previous owner later
+returns. Role changes use per-member revisions; a revoked membership requires
+a fresh, explicitly accepted invitation rather than a role-edit resurrection.
+
+The new scoped Spot list discovers owned/delegated restaurants. Only a genuinely
+absent new RPC (`PGRST202`) may use the existing Owner-list fallback. Other access
+or transport errors do not fall back. A staff list paired with a snapshot lacking
+the new team capability fails closed instead of displaying legacy Owner actions.
+Snapshots return validated role/permission flags. Normal revalidation updates
+idle consoles; while a dialog/setup draft pauses guest-data refresh, a separate
+30-second permission-only check can retire the old callbacks, close inputs and
+reload after a role change, or clear private data after access/Safety denial.
+It is not instantaneous remote erasure, and offline clients still rely on the
+server check before every write.
+
+Only the owner issues an invitation. The browser creates a cryptographic
+32-byte token and request UUID, keeps the exact payload for uncertain retries,
+and receives the original invite ID/expiry on replay. The database stores only
+the SHA-256 token hash, target email, role and seven-day expiry. The private
+invite read model and audit never return/store the raw token. Invitation links
+use a URL fragment, which is removed from the address bar after handing off to
+tab-scoped session storage; token values are not put into login/registration
+query strings. The tab handoff is valid for one hour: stale records are discarded
+on entry and an active invitation expires on its timer/focus check. It also
+handles a link opened into an already-mounted Console. No guest payload is
+persisted by this mechanism.
+
+An invite preview requires authentication and the matching confirmed email;
+wrong/unverified accounts receive an unavailable result. The person reviews the
+restaurant and role before explicitly accepting. An accepted-token retry returns
+the current active membership role and cannot restore a downgrade, revocation
+or previous ownership. Pending, expired and revoked links cannot grant access.
+The owner can copy the newly confirmed link, revoke links and edit/revoke members
+with explicit confirmation. No invitation email is sent. Lost raw links cannot
+be read back from the database and must be revoked/recreated. Confirmed link
+creation resets the next invitation to the Service role. Separate role drafts
+retain their original member revision across roster reloads; they are never
+silently rebased onto another operator's change.
+
+Uncertain team writes freeze their operation for an identical retry and warn
+before exit. Unknown invitation acceptance retains the same link and cannot
+turn a replay into Owner controls. The private route remains no-store/noindex.
+The existing Owner login/profile system is reused; no second password store,
+service-role browser credential or automatic external message is introduced.
+
+Team candidate validation on 2026-10-20: canonical 197-migration Supabase clean
+boot passed with all eight Booking SQL suites, actual Owner/actor Safety measures,
+baseline authorization/races, ACL/schema snapshots and database lint. Permission
+acceptance includes a real stored reservation hidden from staff raw SELECT,
+Host booking/amendment/cancellation/admission, actual Manager layout/setup/block
+writes, Viewer write denial, email verification, cross-restaurant boundaries,
+spoofed user metadata, stale/replayed invitations, role/revocation replay and
+ownership transfer/back. Two live PostgreSQL connections prove both revocation
+lock orders in addition to the closure/reservation race.
+
+All 65 synthetic browser journeys passed, including the full previous Booking
+flows, role-specific actions, open-dialog downgrade/revocation, explicit member
+and link revocation, stale member drafts, uncertain link/acceptance replay,
+login handoff without token query strings, same-document links and one-hour
+expiry. The phone team panel was visually inspected. Web typecheck, production
+build, 42 contracts, lint (13 existing warnings) and 25 CI regression tests passed.
+The generated evidence is a development release chain, not production activation.
+A real restaurant/team/physical-device pilot, authenticated push updates, broader
+recovery rehearsal and guest communication remain required acceptance work.

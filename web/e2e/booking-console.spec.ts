@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { BookingSetup, BookingSnapshot } from "../lib/booking-api";
+import type { BookingSetup, BookingSnapshot, BookingRole, BookingTeamRole } from "../lib/booking-api";
 
 const spot = "51000000-0000-4000-8000-000000000001";
 const owner = "51000000-0000-4000-8000-000000000099";
@@ -432,11 +432,12 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
-  const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
-  const session = { access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: owner, role: "authenticated", exp: expires })}.local-signature`, refresh_token: "booking-test", token_type: "bearer", expires_in: 3600, expires_at: expires, user };
+  const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
+  const user = { id: actor, email: options.requireJoin ? "service@booking.invalid" : "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
+  const session = { access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: actor, role: "authenticated", exp: expires })}.local-signature`, refresh_token: "booking-test", token_type: "bearer", expires_in: 3600, expires_at: expires, user };
   await page.context().addCookies([{ name: "sb-127-auth-token", value: `base64-${encode(session)}`, domain: "127.0.0.1", path: "/" }]);
   const routing = options.sharedContext ? page.context() : page;
   await routing.route("**/auth/v1/user", (route) => route.fulfill({ json: user }));
@@ -445,16 +446,25 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   if (options.layouts) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!options.lifecycle, table_layouts: true }; snapshot.tables = snapshot.tables.map((table) => ({ ...table, layout: null })); }
   if (options.planning) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, week_planning: true }; snapshot.closures = []; }
   if (options.foldSlots && snapshot.settings) snapshot.settings.duration_minutes = 60;
+  let currentTeamRole: BookingRole = options.teamRole ?? (options.requireJoin ? "host" : "owner");
+  let teamRevoked = false, joined = !options.requireJoin, legacyOwnerCalls = 0;
+  const access = () => ({ role: currentTeamRole, can_write: currentTeamRole !== "viewer", can_manage: ["owner", "manager"].includes(currentTeamRole), can_manage_team: currentTeamRole === "owner" });
+  if (options.teams) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, team_access: true };
+  const teamMembers = [{ user_id: "51000000-0000-4000-8000-000000000111", email: "service@booking.invalid", role: "host" as BookingTeamRole, revision: 0, revoked_at: null as string | null }];
+  const teamInvitations: { id: string; email: string; role: BookingTeamRole; expires_at: string; accepted_at: string | null; revoked_at: string | null }[] = [];
+  const teamInviteRequests: Record<string, unknown>[] = [], memberRequests: Record<string, unknown>[] = [], invitationRequests: Record<string, unknown>[] = [], accessRequests: Record<string, unknown>[] = [];
+  const inviteBodies = new Map<string, string>();
   let savedSetup: BookingSetup | null = null;
-  if (options.lifecycle) snapshot.capabilities = { service_lifecycle: true };
-  if (options.amendments) { snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
+  if (options.lifecycle) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true };
+  if (options.amendments) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
   if (options.walkIns) {
-    snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true, current_seating: true, walk_ins: true };
+    snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true, current_seating: true, walk_ins: true };
     snapshot.operating_date = "2026-10-20";
     snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0, is_walk_in: false }));
     snapshot.services = snapshot.services.map((service) => service.id === lunch ? { ...service, closes_at: "17:00" } : service);
     if (options.slowWalkInSlots) snapshot.tables = snapshot.tables.map((table) => table.id === table1 ? { ...table, seats: 2 } : table);
   }
+  if (options.incompleteTeamBackend && snapshot.capabilities) snapshot.capabilities.team_access = false;
   if (options.unclosed) {
     snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, current_seating: true };
     snapshot.operating_date = "2026-10-20";
@@ -495,11 +505,45 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   await routing.route("**/rest/v1/rpc/*", async (route) => {
     const method = route.request().url().split("/").pop();
     const body = route.request().postDataJSON();
-    if (method === "get_owner_spots_v1") return route.fulfill({ json: options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", address: null, category_name: "Restaurant", status: "approved", website: null }] });
+    if (method === "get_owner_spots_v1") { legacyOwnerCalls++; return route.fulfill({ json: options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", address: null, category_name: "Restaurant", status: "approved", website: null }] }); }
+    if (method === "booking_console_spots_v1") {
+      if (!options.teams) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
+      if (options.teamSpotsDenied) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      return route.fulfill({ json: !joined || teamRevoked || options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", access_role: currentTeamRole }] });
+    }
+    if (method === "booking_console_access_v1") {
+      accessRequests.push(body);
+      if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      return route.fulfill({ json: access() });
+    }
+    if (method === "booking_console_team_v1") return currentTeamRole === "owner" ? route.fulfill({ json: { members: teamMembers, invitations: teamInvitations } }) : route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+    if (method === "booking_console_invite_v1") {
+      teamInviteRequests.push(body);
+      const previous = inviteBodies.get(body.p_request_id);
+      if (previous && previous !== JSON.stringify(body)) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_request_reused" } });
+      if (!previous) { inviteBodies.set(body.p_request_id, JSON.stringify(body)); teamInvitations.push({ id: body.p_request_id, email: body.p_email, role: body.p_role, expires_at: "2026-10-27T12:00:00Z", accepted_at: null, revoked_at: null }); }
+      if (options.uncertainTeamInvite && teamInviteRequests.length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
+      return route.fulfill({ json: { id: body.p_request_id, expires_at: "2026-10-27T12:00:00Z" } });
+    }
+    if (method === "booking_console_member_v1") {
+      memberRequests.push(body); const member = teamMembers.find((row) => row.user_id === body.p_user_id)!;
+      if (options.memberConflict) { member.role = "manager"; member.revision++; return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } }); }
+      if (body.p_role === null) member.revoked_at = "2026-10-20T12:00:00Z"; else member.role = body.p_role;
+      member.revision++; return route.fulfill({ json: member.revision });
+    }
+    if (method === "booking_console_revoke_invite_v1") { const invitation = teamInvitations.find((row) => row.id === body.p_id); if (invitation) invitation.revoked_at = "2026-10-20T12:00:00Z"; return route.fulfill({ status: 204 }); }
+    if (method === "booking_console_invitation_v1") {
+      invitationRequests.push(body);
+      if (body.p_token !== "e".repeat(64)) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_invitation_unavailable" } });
+      if (body.p_accept) joined = true;
+      if (options.uncertainInviteAccept && body.p_accept && invitationRequests.filter((row) => row.p_accept).length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
+      return route.fulfill({ json: { spot_id: spot, spot_name: "Restaurant Testbetrieb", role: "host", expires_at: "2026-10-27T12:00:00Z", accepted: joined } });
+    }
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
     if (method === "booking_console_read_v1") {
       readCalls++;
-      const data = { ...snapshot, closures: (snapshot.closures ?? []).filter((row) => row.book_date === body.p_date), reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] };
+      if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const data = { ...snapshot, ...(options.teams ? { access: access() } : {}), closures: (snapshot.closures ?? []).filter((row) => row.book_date === body.p_date), reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] };
       if (holdRead) await readGate;
       if (readError === "safety") return route.fulfill({ status: 400, json: { code: "P0001", message: "SAFETY_OWNER_EDIT_RESTRICTED" } });
       if (readError === "denied") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
@@ -644,7 +688,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -1319,4 +1363,170 @@ test("a closure response timeout releases busy state and retries only its origin
   await expect(panel).toHaveCount(0);
   expect(fixture.closureRequests()).toHaveLength(2);
   expect(fixture.closureRequests()[0]).toEqual(fixture.closureRequests()[1]);
+});
+
+
+for (const role of ["viewer", "host", "manager"] as const) {
+  test("the " + role + " role exposes only its Booking actions", async ({ page }) => {
+    await mockConsole(page, { seeded: true, teams: true, teamRole: role, amendments: true, layouts: true, planning: true });
+    await page.goto("/booking/console");
+    await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Team verwalten", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Einrichtung", exact: true })).toHaveCount(role === "manager" ? 1 : 0);
+    await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toHaveCount(role === "viewer" ? 0 : 1);
+    await expect(page.getByRole("button", { name: "+ Buchungssperre", exact: true })).toHaveCount(role === "manager" ? 1 : 0);
+    await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+    const panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+    await expect(panel.getByRole("button", { name: "Reservierung bearbeiten", exact: true })).toHaveCount(role === "viewer" ? 0 : 1);
+    await expect(panel.getByRole("button", { name: "Stornieren", exact: true })).toHaveCount(role === "viewer" ? 0 : 1);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+    await page.getByRole("button", { name: "Tischplan", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Tischplan bearbeiten", exact: true })).toHaveCount(role === "manager" ? 1 : 0);
+  });
+}
+
+test("a changed team role closes an open guest draft and reloads read-only access", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, teamRole: "host" });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await panel.getByLabel("Gastname", { exact: true }).fill("Nicht unter alten Rechten speichern");
+  fixture.setTeamRole("viewer");
+  await page.clock.runFor(30_000);
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByText("Dein Zugang: Nur lesen", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toHaveCount(0);
+  expect(fixture.bookingCalls()).toBe(0);
+});
+
+test("revocation is checked while a private reservation dialog is open", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, teamRole: "host" });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Betreiberzugriff");
+  expect(fixture.accessRequests().length).toBeGreaterThan(0);
+});
+
+test("an uncertain team invite retries one secret and exposes no token in the request URL", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, teams: true, uncertainTeamInvite: true });
+  const urls: string[] = []; page.on("request", (request) => urls.push(request.url()));
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Team verwalten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Teamzugänge", exact: true });
+  await panel.getByLabel("E-Mail der eingeladenen Person", { exact: true }).fill("new@booking.invalid");
+  await panel.getByRole("combobox", { name: "Rolle der Einladung", exact: true }).selectOption("manager");
+  await panel.getByRole("button", { name: "Einladungslink erstellen", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Ausgang ist unklar");
+  await expect(panel.getByLabel("E-Mail der eingeladenen Person", { exact: true })).toBeDisabled();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  const link = await panel.getByLabel("Einladungslink", { exact: true }).inputValue();
+  expect(new URL(link).search).toBe(""); expect(new URL(link).hash).toMatch(/^#invite=[0-9a-f]{64}$/);
+  expect(fixture.teamInviteRequests()).toHaveLength(2);
+  expect(fixture.teamInviteRequests()[0]).toEqual(fixture.teamInviteRequests()[1]);
+  expect(urls.some((url) => url.includes(String(fixture.teamInviteRequests()[0].p_token)))).toBe(false);
+  await panel.screenshot({ path: test.info().outputPath("team-phone.png") });
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
+test("a stale team role keeps the captured revision until the owner discards the draft", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, memberConflict: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Team verwalten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Teamzugänge", exact: true });
+  await panel.getByRole("combobox", { name: "Rolle für service@booking.invalid", exact: true }).selectOption("viewer");
+  await panel.getByRole("button", { name: "Rolle speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toBeVisible();
+  await expect(panel.getByRole("combobox", { name: "Rolle für service@booking.invalid", exact: true })).toHaveValue("viewer");
+  await expect(panel.getByRole("button", { name: "Team aktualisieren", exact: true })).toBeDisabled();
+  expect(fixture.memberRequests()[0]).toMatchObject({ p_revision: 0, p_role: "viewer" });
+  await panel.getByRole("button", { name: "Rollenentwurf verwerfen", exact: true }).click();
+  await panel.getByRole("button", { name: "Team aktualisieren", exact: true }).click();
+  await expect(panel.getByRole("combobox", { name: "Rolle für service@booking.invalid", exact: true })).toHaveValue("manager");
+});
+
+test("an invitation survives login in its tab without a token in login URLs", async ({ page, context }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, requireJoin: true });
+  await context.clearCookies();
+  const token = "e".repeat(64);
+  const urls: string[] = []; page.on("request", (request) => urls.push(request.url()));
+  await page.goto("/booking/console#invite=" + token);
+  await expect(page.getByRole("link", { name: "Mit Backyrd anmelden", exact: true })).toHaveAttribute("href", "/login?next=%2Fbooking%2Fconsole");
+  expect(new URL(page.url()).hash).toBe("");
+  expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toContain(token);
+  await context.addCookies([{ name: "sb-127-auth-token", value: "base64-" + Buffer.from(JSON.stringify(fixture.session)).toString("base64url"), domain: "127.0.0.1", path: "/" }]);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Restaurant Testbetrieb", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Einladung annehmen", exact: true })).toBeVisible();
+  expect(fixture.invitationRequests().filter((row) => row.p_accept)).toHaveLength(0);
+  await page.getByRole("button", { name: "Einladung annehmen", exact: true }).click();
+  await expect(page.getByText("Dein Zugang: Service", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toBe(null);
+  expect(urls.some((url) => url.includes(token))).toBe(false);
+});
+
+test("an uncertain invitation acceptance repeats the same link and never grants owner controls", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, requireJoin: true, uncertainInviteAccept: true });
+  await page.goto("/booking/console#invite=" + "e".repeat(64));
+  await page.getByRole("button", { name: "Einladung annehmen", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("kann bereits gespeichert sein");
+  await page.getByRole("button", { name: "Annahme unverändert wiederholen", exact: true }).click();
+  await expect(page.getByText("Dein Zugang: Service", { exact: true })).toBeVisible();
+  const writes = fixture.invitationRequests().filter((row) => row.p_accept);
+  expect(writes).toHaveLength(2); expect(writes[0]).toEqual(writes[1]);
+  await expect(page.getByRole("button", { name: "Team verwalten", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Einrichtung", exact: true })).toHaveCount(0);
+});
+
+test("a denied new team spot endpoint never falls back to Owner discovery", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, teamSpotsDenied: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("heading", { name: "Zugang konnte nicht geladen werden.", exact: true })).toBeVisible();
+  expect(fixture.legacyOwnerCalls()).toBe(0);
+});
+
+
+test("an incomplete delegated backend never renders Owner permissions for a staff account", async ({ page }) => {
+  await mockConsole(page, { seeded: true, teams: true, teamRole: "host", incompleteTeamBackend: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("noch nicht vollständig");
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+});
+
+
+test("the owner explicitly revokes a member and a pending invitation", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Team verwalten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Teamzugänge", exact: true });
+  await panel.getByRole("button", { name: "Zugang für service@booking.invalid entziehen", exact: true }).click();
+  expect(fixture.memberRequests()).toHaveLength(0);
+  await panel.getByRole("button", { name: "Entzug bestätigen", exact: true }).click();
+  await expect(panel.getByRole("article", { name: "service@booking.invalid", exact: true })).toContainText("Zugang entzogen");
+  expect(fixture.memberRequests()[0]).toMatchObject({ p_revision: 0, p_role: null });
+  await panel.getByLabel("E-Mail der eingeladenen Person", { exact: true }).fill("pending@booking.invalid");
+  await panel.getByRole("button", { name: "Einladungslink erstellen", exact: true }).click();
+  await panel.getByRole("button", { name: "Link für pending@booking.invalid widerrufen", exact: true }).click();
+  await panel.getByRole("button", { name: "Entzug bestätigen", exact: true }).click();
+  await expect(panel.getByText("Der Einladungslink wurde widerrufen.", { exact: true })).toBeVisible();
+});
+
+test("expired tab credentials are discarded and an active invitation handoff expires after an hour", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, teamRole: "host" });
+  await page.addInitScript(() => sessionStorage.setItem("backyrd.booking.pending-invitation.v1", JSON.stringify({ token: "e".repeat(64), receivedAt: 0 })));
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  expect(fixture.invitationRequests()).toHaveLength(0);
+  expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toBe(null);
+  await page.goto("/booking/console#invite=" + "e".repeat(64));
+  await expect(page.getByRole("button", { name: "Zur Booking Console", exact: true })).toBeVisible();
+  await page.clock.fastForward("01:00:01");
+  await expect(page.getByRole("heading", { name: "Einladung erneut öffnen.", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toBe(null);
 });
