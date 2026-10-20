@@ -47,7 +47,7 @@ function coordinate(value: unknown, maximum: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && Math.abs(parsed) <= maximum ? parsed : null;
 }
-function parseSpot(value: unknown): DiscoverySpot | null {
+export function parseDiscoverySpot(value: unknown): DiscoverySpot | null {
   const row = record(value);
   if (!row || typeof row.id !== "string" || typeof row.name !== "string" || row.status !== "approved") return null;
   const category = record(Array.isArray(row.categories) ? row.categories[0] : row.categories);
@@ -58,37 +58,84 @@ function parseSpot(value: unknown): DiscoverySpot | null {
   return { id: row.id, name: row.name, address: text(row.address), city: text(row.city), category_id: text(row.category_id), category_name: text(category?.name), status: row.status, created_at: text(row.created_at) ?? "", lat: coordinate(row.lat, 90), lng: coordinate(row.lng, 180), header_photo_url: null, distribution_priority: 0, hours };
 }
 
-/** No profile-city filter or arbitrary newest-row truncation can precede distance ranking. */
-export async function loadNearbyDiscoverySpots(point: LocationCoordinates, limit = 14): Promise<DiscoverySpot[]> {
-  const bounds = nearbyDiscoveryBounds(point);
+/** Creation time, not Distribution priority or profile edits, defines new on Backyrd. */
+export function newestDiscoverySpots(spots: readonly DiscoverySpot[], limit = 6): DiscoverySpot[] {
+  return [...new Map(spots.map(spot => [spot.id, spot])).values()]
+    .filter(spot => Number.isFinite(Date.parse(spot.created_at)))
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || a.id.localeCompare(b.id))
+    .slice(0, limit);
+}
+
+async function visibleLocalCatalog(point: LocationCoordinates | null, city: string | null, signal: AbortSignal) {
+  const bounds = point ? nearbyDiscoveryBounds(point) : null;
+  if (!bounds && !city?.trim()) throw new Error("discovery_city_missing");
+  const candidates: DiscoverySpot[] = [];
+  let fetched = 0;
+  for (const [minLng, maxLng] of bounds?.longitudeRanges ?? [[-180, 180]]) {
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      let request = supabase.from("spots")
+        .select("id,name,address,city,lat,lng,category_id,status,created_at,categories(name),spot_hours(day_of_week,open_time,close_time)")
+        .eq("status", "approved");
+      if (bounds) request = request.gte("lat", bounds.minLat).lte("lat", bounds.maxLat).gte("lng", minLng).lte("lng", maxLng);
+      else request = request.ilike("city", city!.trim().replace(/[\\%_]/g, value => `\\${value}`));
+      const { data, error } = await request.order("id").range(offset, offset + PAGE_SIZE - 1).abortSignal(signal);
+      if (error) throw error;
+      if (!Array.isArray(data)) throw new Error("nearby_catalog_invalid");
+      fetched += data.length;
+      if (fetched > MAX_CANDIDATES) throw new Error("nearby_catalog_incomplete");
+      candidates.push(...data.flatMap(value => { const spot = parseDiscoverySpot(value); return spot ? [spot] : []; }));
+      if (fetched >= MAX_CANDIDATES && data.length === PAGE_SIZE) throw new Error("nearby_catalog_incomplete");
+      if (data.length < PAGE_SIZE) break;
+    }
+  }
+  const local = point ? nearestDiscoverySpots(candidates, point, candidates.length) : candidates;
+  const visible: DiscoverySpot[] = [];
+  // RPC responses share the PostgREST row cap. Preserve complete eligibility checks.
+  for (let offset = 0; offset < local.length; offset += PAGE_SIZE) {
+    visible.push(...await filterDistributedSpots(local.slice(offset, offset + PAGE_SIZE), "discovery", signal));
+  }
+  return visible;
+}
+
+async function withCovers(spots: DiscoverySpot[], signal: AbortSignal) {
+  const headers = await loadCanonicalSpotHeaders(spots.map(spot => spot.id), signal);
+  return spots.map(spot => ({ ...spot, header_photo_url: headers.get(spot.id) ?? null }));
+}
+
+/** One complete local catalog feeds distance and creation-date ordering independently. */
+export async function loadHomeNearbySpots(point: LocationCoordinates, limit = 14) {
+  nearbyDiscoveryBounds(point);
   return withRequestDeadline(async signal => {
-    const candidates: DiscoverySpot[] = [];
-    let fetched = 0;
-    for (const [minLng, maxLng] of bounds.longitudeRanges) {
-      for (let offset = 0; ; offset += PAGE_SIZE) {
-        const { data, error } = await supabase.from("spots")
-          .select("id,name,address,city,lat,lng,category_id,status,created_at,categories(name),spot_hours(day_of_week,open_time,close_time)")
-          .eq("status", "approved").gte("lat", bounds.minLat).lte("lat", bounds.maxLat)
-          .gte("lng", minLng).lte("lng", maxLng).order("id").range(offset, offset + PAGE_SIZE - 1).abortSignal(signal);
-        if (error) throw error;
-        if (!Array.isArray(data)) throw new Error("nearby_catalog_invalid");
-        fetched += data.length;
-        if (fetched > MAX_CANDIDATES) throw new Error("nearby_catalog_incomplete");
-        candidates.push(...data.flatMap(value => { const spot = parseSpot(value); return spot ? [spot] : []; }));
-        // Never label an arbitrary incomplete subset as the nearest places.
-        if (fetched >= MAX_CANDIDATES && data.length === PAGE_SIZE) throw new Error("nearby_catalog_incomplete");
-        if (data.length < PAGE_SIZE) break;
-      }
-    }
-    const withinRadius = nearestDiscoverySpots(candidates, point, candidates.length);
-    const visible: DiscoverySpot[] = [];
-    // PostgREST caps table-valued RPC responses too. Check every page before
-    // selecting six places; a single large RPC could omit the true nearest.
-    for (let offset = 0; offset < withinRadius.length; offset += PAGE_SIZE) {
-      visible.push(...await filterDistributedSpots(withinRadius.slice(offset, offset + PAGE_SIZE), "discovery", signal));
-    }
+    const visible = await visibleLocalCatalog(point, null, signal);
     const nearest = nearestDiscoverySpots(visible, point, limit);
-    const headers = await loadCanonicalSpotHeaders(nearest.map(spot => spot.id), signal);
-    return nearest.map(spot => ({ ...spot, header_photo_url: headers.get(spot.id) ?? null }));
+    const newest = newestDiscoverySpots(visible);
+    const covered = await withCovers([...new Map([...nearest, ...newest].map(spot => [spot.id, spot])).values()], signal);
+    const byId = new Map(covered.map(spot => [spot.id, spot]));
+    return { nearest: nearest.map(spot => byId.get(spot.id)!), newest: newest.map(spot => byId.get(spot.id)!) };
+  }, 10_000);
+}
+
+/** No profile-city filter or newest-row truncation precedes distance ranking. */
+export async function loadNearbyDiscoverySpots(point: LocationCoordinates, limit = 14): Promise<DiscoverySpot[]> {
+  return (await loadHomeNearbySpots(point, limit)).nearest;
+}
+
+export async function loadNewestCitySpots(city: string): Promise<DiscoverySpot[]> {
+  return withRequestDeadline(async signal => withCovers(newestDiscoverySpots(await visibleLocalCatalog(null, city, signal)), signal), 10_000);
+}
+
+/** Refresh current public facts/visibility while preserving the original Decision order. */
+export async function loadDiscoverySpotsByIds(ids: readonly string[]): Promise<DiscoverySpot[]> {
+  const ordered = [...new Set(ids)].slice(0, 50);
+  if (!ordered.length) return [];
+  return withRequestDeadline(async signal => {
+    const { data, error } = await supabase.from("spots")
+      .select("id,name,address,city,lat,lng,category_id,status,created_at,categories(name),spot_hours(day_of_week,open_time,close_time)")
+      .eq("status", "approved").in("id", ordered).abortSignal(signal);
+    if (error) throw error;
+    if (!Array.isArray(data)) throw new Error("recent_decision_catalog_invalid");
+    const visible = await filterDistributedSpots(data.flatMap(value => { const spot = parseDiscoverySpot(value); return spot ? [spot] : []; }), "discovery", signal);
+    const byId = new Map(visible.map(spot => [spot.id, spot]));
+    return withCovers(ordered.flatMap(id => { const spot = byId.get(id); return spot ? [spot] : []; }), signal);
   }, 10_000);
 }

@@ -7,7 +7,7 @@ import styles from "./console.module.css";
 export function NewReservation({ spotId, date, snapshot, onCreated, onBusy }: {
   spotId: string; date: string; snapshot: BookingSnapshot; onCreated: () => Promise<void>; onBusy: (value: boolean) => void;
 }) {
-  const [party, setParty] = useState(2);
+  const [party, setParty] = useState("2");
   const [slots, setSlots] = useState<BookingSlot[]>([]);
   const [checked, setChecked] = useState(false);
   const [selected, setSelected] = useState("");
@@ -21,24 +21,32 @@ export function NewReservation({ spotId, date, snapshot, onCreated, onBusy }: {
   const [success, setSuccess] = useState<string | null>(null);
   const requestId = useRef<string | null>(null);
   const inFlight = useRef(false);
+  const partySize = Number(party);
+  const maxPartySize = snapshot.settings?.max_party_size ?? 8;
+  const validParty = party.trim() !== "" && Number.isInteger(partySize) && partySize >= 1 && partySize <= maxPartySize;
+
+  function changeParty(value: string) {
+    setParty(value); setSlots([]); setSelected(""); setChecked(false);
+    requestId.current = null; setSuccess(null);
+  }
 
   async function checkSlots() {
-    if (inFlight.current) return;
+    if (inFlight.current || !validParty) return;
     inFlight.current = true;
     setBusy(true); onBusy(true); setError(null); setSuccess(null); setSelected(""); setSlots([]); setChecked(false);
-    try { setSlots(await readBookingSlots(spotId, date, party)); setChecked(true); }
+    try { setSlots(await readBookingSlots(spotId, date, partySize)); setChecked(true); }
     catch (e) { setError(bookingError(e)); }
     finally { inFlight.current = false; setBusy(false); onBusy(false); }
   }
   async function submit(e: FormEvent) {
     e.preventDefault();
     const slot = slots[Number(selected)];
-    if (inFlight.current || selected === "" || !slot) return;
+    if (inFlight.current || !validParty || selected === "" || !slot) return;
     inFlight.current = true;
     setBusy(true); onBusy(true); setError(null); setSuccess(null);
     requestId.current ??= crypto.randomUUID();
     try {
-      const id = await createBooking(spotId, { requestId: requestId.current, slot, partySize: party, name, contact, note, source, status });
+      const id = await createBooking(spotId, { requestId: requestId.current, slot, partySize, name, contact, note, source, status });
       setSuccess(`Reservierung ${id.slice(0, 8).toUpperCase()} wurde gespeichert.`);
       requestId.current = null;
       setSlots([]); setSelected(""); setChecked(false); setName(""); setContact(""); setNote("");
@@ -55,8 +63,13 @@ export function NewReservation({ spotId, date, snapshot, onCreated, onBusy }: {
     <form onSubmit={submit} onChange={() => { requestId.current = null; setSuccess(null); }}>
       <fieldset disabled={busy} className={styles.fieldset}>
         <div className={styles.fields}>
-          <label>Personen<input type="number" min={1} max={snapshot.settings?.max_party_size ?? 8} required value={party} onChange={(e) => { setParty(Number(e.target.value)); setSlots([]); setSelected(""); setChecked(false); }} /></label>
-          <button type="button" className={styles.secondary} disabled={!Number.isInteger(party) || party < 1 || party > (snapshot.settings?.max_party_size ?? 8)} onClick={() => void checkSlots()}>{busy ? "Prüft …" : "Freie Zeiten prüfen"}</button>
+          <div className={styles.partyPicker}>
+            <label>Personen<input type="number" inputMode="numeric" min={1} max={maxPartySize} step={1} required value={party} onChange={(e) => changeParty(e.target.value)} /></label>
+            <div className={styles.partyChoices} role="group" aria-label="Personenzahl schnell wählen">
+              {[1, 2, 3, 4, 6, 8].filter((count) => count <= maxPartySize).map((count) => <button key={count} type="button" aria-label={`${count} ${count === 1 ? "Person" : "Personen"}`} aria-pressed={validParty && partySize === count} onClick={() => changeParty(String(count))}>{count}</button>)}
+            </div>
+          </div>
+          <button type="button" className={styles.secondary} disabled={!validParty} onClick={() => void checkSlots()}>{busy ? "Prüft …" : "Freie Zeiten prüfen"}</button>
         </div>
         {checked && !slots.length && <p className={styles.help}>Für diese Personenzahl ist an diesem Tag kein Tisch im Service verfügbar. Prüfe Datum, Servicezeiten und Tischgrössen.</p>}
         {!!slots.length && <>

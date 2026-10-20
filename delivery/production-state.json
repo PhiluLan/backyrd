@@ -2,10 +2,10 @@
   "schemaVersion": "backyrd-production-state-v1",
   "projectRef": "hjgcrrzfjchzqoegcywn",
   "supabase": {
-    "shippedSourceSha": "6176de4051a13a418d5a372f2b5e08a69d7c92da",
-    "migrationTip": "20261019152123_mood_two_person_display_v1",
-    "migrationCount": 190,
-    "deploymentRunId": 39290606906,
+    "shippedSourceSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
+    "migrationTip": "20261019203759_booking_restaurant_console_v1",
+    "migrationCount": 191,
+    "deploymentRunId": 39454556426,
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "252974128c036053db699eaac96d8ec1c5a1d345",
+      "sourceSha": "04b4beffe366532ae5049d0be16882df3a04a3dd",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "df6f2bff-792a-4f0d-aae3-417f8be923f1",
-      "iosUpdateId": "01a1599e-e8ab-7a92-8a03-8f16e68a6bd1",
+      "otaGroupId": "53074d0d-d4f9-4c76-9b29-6d2d2bb0b135",
+      "iosUpdateId": "01a15a26-60cc-7e44-8620-bc8702c2d369",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Home nearby places sorted by actual air-line distance within 15 km, independent of profile city, with honest location fallback and complete batched Distribution visibility checks. PRs #534/#536 and exact Main certification run 39434742257 succeeded. Public production launch bytes match the certified artifact. Read-only public API smoke at a fixed Basel test point passed; no personal GPS or production writes. A 1,501-place regression verifies capped RPC responses cannot discard the nearest place. Physical-device installation/GPS observation remains unverified."
+      "note": "Local newest places sorted strictly by creation date, current 15 km area or explicit profile-city fallback; shared large Home place cards and actor-bound last successful Wohin search in original result order. PR #538 and exact Main certification run 39457139936 passed. Public production launch manifest and downloaded bytes match the certified iOS artifact. Mobile/Decision/cache isolation tests and exported-app journey passed. Read-only API smoke passed without personal GPS or production writes. No backend deployment is part of this iOS release. Physical-device installation remains unverified."
     }
   },
   "reviewMediaIncident": {

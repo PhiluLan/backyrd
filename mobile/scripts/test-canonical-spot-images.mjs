@@ -10,7 +10,7 @@ const photoPolicy = fs.readFileSync(path.resolve("lib/spot-photo-policy.ts"), "u
 const decision = fs.readFileSync(path.resolve("app/(tabs)/wohin.tsx"), "utf8");
 const detail = fs.readFileSync(path.resolve("app/spot/[id].tsx"), "utf8");
 const sharedSurfaceSources = [
-  "app/(tabs)/index.tsx", // Home
+  "components/HomeSpotRail.tsx", // Shared Home nearby/new/last-search cards
   "app/(tabs)/map.tsx", // Orte list + Map preview
   "app/(tabs)/wohin.tsx", // Decision
   "app/(tabs)/profile.tsx", // Favorites
@@ -115,6 +115,7 @@ assert.deepEqual(resolve({ photoUrl: "https://images.example/unverified-gallery.
 });
 assert.equal(resolve({}).provenance, "BACKYRD_FALLBACK");
 assert.equal(loadPhotoPolicyModule().SPOT_PHOTO_POLICY.googlePlacePhotosEnabled, false, "Google Place Photos must be globally disabled for the Founder/Basel test phase");
+assert.equal((fs.readFileSync(path.resolve("app/(tabs)/index.tsx"), "utf8").match(/<HomeSpotRail /g) ?? []).length, 3, "all three Home place rails use the same canonical image/card renderer");
 for (const surface of sharedSurfaceSources) {
   assert.match(surface.source, /<SpotArtwork/, `${surface.file} must use the shared canonical Spot artwork renderer`);
   assert.doesNotMatch(surface.source, /getGooglePlacePhotoFallback/, `${surface.file} must not bypass the central Photo policy`);

@@ -617,9 +617,8 @@ export default function SpotDetailScreen() {
 
   const canonicalWorldDetail = Boolean(productProfile?.worldManifestHash);
   const openingStatus = useMemo(() => {
-    if (canonicalWorldDetail && !Object.prototype.hasOwnProperty.call(hours, todayNameNormalized)) return "unknown";
-    return spotOpeningStatusNow(Object.values(hours).flat());
-  }, [canonicalWorldDetail, hours, todayNameNormalized]);
+    return spotOpeningStatusNow(Object.values(hours).flat(), new Date(), canonicalWorldDetail);
+  }, [canonicalWorldDetail, hours]);
   const openingState = openingStatus === "open" ? "open" : openingStatus === "openingSoon" ? "openingSoon" : openingStatus === "closingSoon" ? "closingSoon" : openingStatus === "unknown" ? "unknown" : "closed";
   const openingUnknown = openingState === "unknown";
 
