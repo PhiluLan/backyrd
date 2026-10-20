@@ -214,7 +214,7 @@ test("unclosed prior visits stay visible outside time filters and block seating 
 
 for (const failure of ["amendSlotConflict", "uncertainAmend"] as const) {
   test("amendments retain input and request identity after " + failure, async ({ page }) => {
-    const fixture = await mockConsole(page, { seeded: true, amendments: true, [failure]: true });
+    const fixture = await mockConsole(page, { seeded: true, amendments: true, longSession: failure === "uncertainAmend", [failure]: true });
     await page.goto("/booking/console");
     const panel = await editGuest(page);
     await panel.getByLabel("Gastname", { exact: true }).fill("Umbuchung Testgast");
@@ -225,6 +225,10 @@ for (const failure of ["amendSlotConflict", "uncertainAmend"] as const) {
     await expect(panel.getByRole("alert")).toBeVisible();
     await expect(panel.getByLabel("Gastname", { exact: true })).toHaveValue("Umbuchung Testgast");
     await expect(page.getByText("Die Änderungen wurden gespeichert.", { exact: true })).toHaveCount(0);
+    if (failure === "uncertainAmend") {
+      await expect(panel.getByLabel("Gastname", { exact: true })).toBeDisabled();
+      await page.clock.setFixedTime(new Date("2026-10-22T12:00:00Z"));
+    }
     if (failure === "amendSlotConflict") {
       await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "19:00" });
       await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
@@ -428,9 +432,9 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
-  const expires = Math.floor(Date.now() / 1000) + 3600;
+  const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
   const session = { access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: owner, role: "authenticated", exp: expires })}.local-signature`, refresh_token: "booking-test", token_type: "bearer", expires_in: 3600, expires_at: expires, user };
   await page.context().addCookies([{ name: "sb-127-auth-token", value: `base64-${encode(session)}`, domain: "127.0.0.1", path: "/" }]);
@@ -808,7 +812,7 @@ test("stale availability cannot replace the latest party choice", async ({ page 
 
 for (const kind of ["slotConflict", "uncertainCreate"] as const) {
   test("reservation keeps input and replay identity after " + kind, async ({ page }) => {
-    const fixture = await mockConsole(page, { seeded: true, [kind]: true });
+    const fixture = await mockConsole(page, { seeded: true, longSession: kind === "uncertainCreate", [kind]: true });
     await page.goto("/booking/console");
     await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
@@ -820,6 +824,10 @@ for (const kind of ["slotConflict", "uncertainCreate"] as const) {
     await expect(dialog.getByRole("alert")).toBeVisible();
     await expect(dialog.getByLabel("Gastname", { exact: true })).toHaveValue("Testgast Wiederholung");
     await expect(dialog.getByLabel("Telefon oder E-Mail (optional)", { exact: true })).toHaveValue("test@invalid");
+    if (kind === "uncertainCreate") {
+      await expect(dialog.getByLabel("Gastname", { exact: true })).toBeDisabled();
+      await page.clock.setFixedTime(new Date("2026-10-22T12:00:00Z"));
+    }
     if (kind === "slotConflict") {
       await dialog.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "18:00" });
       await dialog.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
@@ -929,3 +937,34 @@ test("table plan drag stays inside its room and other rooms retain separate coor
   const entries = fixture.layoutRequests()[0].p_entries as { table_id: string; area_id: string; layout: { x: number } }[];
   expect(entries.map((row) => [row.table_id, row.area_id, row.layout.x])).toEqual([[table1, area1, 880], [table2, area2, 5]]);
 });
+
+for (const operation of ["create", "amend"] as const) {
+  test("uncertain " + operation + " freezes edits and leaving reloads the possibly saved date", async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, amendments: true, uncertainCreate: operation === "create", uncertainAmend: operation === "amend" });
+    await page.goto("/booking/console");
+    let panel;
+    if (operation === "create") {
+      await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+      panel = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+      await panel.getByLabel("Buchungsdatum", { exact: true }).fill("2026-10-21");
+    } else {
+      panel = await editGuest(page);
+      await panel.getByRole("checkbox", { name: "Zeit, Personen oder Tisch ändern" }).check();
+      await panel.getByLabel("Buchungsdatum", { exact: true }).fill("2026-10-21");
+    }
+    await panel.getByLabel("Gastname", { exact: true }).fill("Unklarer Testgast");
+    await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: operation === "create" ? "18:00" : "19:00" });
+    await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+    await panel.getByRole("button", { name: operation === "create" ? "Reservierung speichern" : "Änderungen speichern", exact: true }).click();
+    await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+    await expect(panel.getByLabel("Gastname", { exact: true })).toBeDisabled();
+    await expect(panel.getByLabel("Buchungsdatum", { exact: true })).toBeDisabled();
+    await expect(panel.getByRole("button", { name: operation === "create" ? "Reservierung speichern" : "Änderungen speichern", exact: true })).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await panel.getByRole("button", { name: "Anfrage verlassen", exact: true }).click();
+    await expect(page.getByLabel("Datum · Europe/Zurich")).toHaveValue("2026-10-21");
+    await expect(page.getByRole("button", { name: "Reservierung von Unklarer Testgast öffnen", exact: true })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("kann bereits gespeichert sein");
+    expect(operation === "create" ? fixture.bookingCalls() : fixture.amendRequests().length).toBe(1);
+  });
+}

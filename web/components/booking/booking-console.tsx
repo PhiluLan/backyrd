@@ -147,6 +147,11 @@ export function BookingConsole() {
   const readyToBook = !!snapshot?.settings && snapshot.tables.some((table) => table.is_active && snapshot.areas.some((area) => area.id === table.area_id && area.is_active)) && snapshot.services.some((service) => service.is_active);
   const canCreate = date >= restaurantDate() && date <= shiftDate(restaurantDate(), 365);
   function clearFilters() { setService(""); setArea(""); setStatus("all"); setQuery(""); }
+  function reviewUncertain(targetDate: string = date) {
+    if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return;
+    setEditor(null); setSelectedId(null); setUncertainWrite(true); setNotice(null); clearFilters(); setView("book");
+    if (targetDate !== date) setDate(targetDate); else void reload();
+  }
   async function savedBooking(booking: CreatedBooking, message: string) {
     if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return;
     setEditor(null); setStatus("all"); setQuery("");
@@ -167,7 +172,7 @@ export function BookingConsole() {
               <nav className={styles.tabs} aria-label="Booking Bereiche">{([["book", "Reservierungsbuch"], ["tables", "Tischübersicht"], ["setup", "Einrichtung"]] as const).map(([key, label]) => <button key={key} type="button" aria-current={view === key ? "page" : undefined} disabled={navigationDisabled} onClick={() => setView(key)}>{label}{key === "setup" && dirty ? " · ungespeichert" : ""}</button>)}</nav>
               {error && <div className={styles.error} role="alert">{error}<button className={styles.secondary} disabled={busy || dirty} onClick={() => void reload()}>Neu laden</button></div>}
               {notice && <p className={styles.success} role="status">{notice}</p>}
-              {uncertainWrite && <section className={styles.error} role="alert"><p>Eine Walk-in-Anfrage kann bereits gespeichert sein. Prüfe den aktuellen Stand im Buchungsbuch, bevor du denselben Besuch nochmals erfasst.</p><div className={styles.actions}><button className={styles.secondary} disabled={navigationDisabled} onClick={() => void reload()}>Stand aktualisieren</button><button className={styles.secondary} onClick={() => setUncertainWrite(false)}>Stand geprüft</button></div></section>}
+              {uncertainWrite && <section className={styles.error} role="alert"><p>Eine Buchungsanfrage oder Änderung kann bereits gespeichert sein. Prüfe die betroffenen Tage im Buchungsbuch, bevor du erneut erfasst oder änderst.</p><div className={styles.actions}><button className={styles.secondary} disabled={navigationDisabled} onClick={() => void reload()}>Stand aktualisieren</button><button className={styles.secondary} onClick={() => setUncertainWrite(false)}>Stand geprüft</button></div></section>}
               {(loading || waitingForSnapshot) && <p role="status" className={styles.help}>Daten werden geladen …</p>}
               {snapshot && <>
                 <div hidden={view !== "setup"}><SetupForm key={spotId + ":" + (snapshot.settings?.revision ?? "new")} snapshot={snapshot} busy={busy || loading} onSave={save} onDirty={setDirty} /></div>
@@ -203,9 +208,9 @@ export function BookingConsole() {
                   </section>}
                 </div>
                 {planOpen && <TablePlanEditor spotId={spotId} snapshot={snapshot} initialArea={validArea} onBusy={actorBusy} onClose={() => { setPlanOpen(false); void reload(); }} onSaved={async () => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setPlanOpen(false); setNotice("Der Tischplan wurde gespeichert."); await reload(); }} />}
-                {editor && <NewReservation spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={() => setEditor(null)} onBusy={actorBusy} onCreated={(booking) => savedBooking(booking, "Die Reservierung wurde gespeichert.")} />}
+                {editor && <NewReservation spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={(uncertain, date) => { if (uncertain) reviewUncertain(date); else setEditor(null); }} onBusy={actorBusy} onCreated={(booking) => savedBooking(booking, "Die Reservierung wurde gespeichert.")} />}
                 {walkInOpen && <WalkIn spotId={spotId} snapshot={snapshot} serviceId={validService} areaId={validArea} onBusy={actorBusy} onClose={(uncertain) => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setWalkInOpen(false); if (uncertain) { setUncertainWrite(true); setNotice(null); clearFilters(); setView("book"); followOperatingDate.current = true; void reload(); } }} onSaved={async (date, slot) => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setWalkInOpen(false); await savedBooking({ date, slot }, "Der Walk-in wurde erfasst."); }} />}
-                {selected && <ReservationDetails key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={actorBusy} onAmended={(date, slot) => savedBooking({ date, slot }, "Die Änderungen wurden gespeichert.")} onReload={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) await reload(); }} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}
+                {selected && <ReservationDetails onUncertain={reviewUncertain} key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={actorBusy} onAmended={(date, slot) => savedBooking({ date, slot }, "Die Änderungen wurden gespeichert.")} onReload={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) await reload(); }} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}
               </>}
             </>}
     </div>
