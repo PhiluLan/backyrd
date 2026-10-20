@@ -7,7 +7,7 @@ export type BookingTable = { id: string; area_id: string; label: string; seats: 
 export type BookingService = { id: string; name: string; weekdays: number[]; opens_at: string; closes_at: string; interval_minutes: number; is_active: boolean };
 export type BookingSetup = { duration_minutes: number; max_party_size: number; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[] };
 export type BookingReservation = {
-  id: string; table_id: string; guest_name: string; guest_contact: string | null; note: string | null;
+  id: string; table_id: string; service_id: string; guest_name: string; guest_contact: string | null; note: string | null;
   party_size: number; starts_at: string; ends_at: string; status: BookingStatus; source: BookingSource;
 };
 export type BookingSnapshot = { settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[] };
@@ -41,7 +41,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
       if (!weekdays.length || weekdays.some((d) => d < 0 || d > 6)) return invalid();
       return { id: uuid(s.id), name: string(s.name), weekdays, opens_at: time(s.opens_at), closes_at: time(s.closes_at), interval_minutes: integer(s.interval_minutes), is_active: boolean(s.is_active) };
     }),
-    reservations: array(row.reservations, (r) => ({ id: uuid(r.id), table_id: uuid(r.table_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources) })),
+    reservations: array(row.reservations, (r) => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources) })),
   };
 }
 
