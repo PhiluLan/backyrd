@@ -411,6 +411,24 @@ test("an unpaired or differently named constraint drop remains fail-closed", () 
   }
 });
 
+test("an atomic same-name GiST exclusion replacement is a schema change, with database acceptance still required", () => {
+  const result = plan({ files: { "supabase/migrations/20260102120000_expand_overlap.sql": "alter table public.booking_reservations drop constraint booking_overlap;\nalter table public.booking_reservations add constraint booking_overlap exclude using gist (table_id with =, period with &&) where (status in ('pending','confirmed','arrived','seated'));\n" } });
+  assert.equal(result.flags.destructive, false);
+  assert.equal(result.flags.database, true);
+  assert.ok(result.requiredGates.includes("database"));
+});
+
+test("GiST replacement recognition never permits unpaired drops, different relations or data removal", () => {
+  const drop = "alter table public.booking_reservations drop constraint booking_overlap;\n";
+  for (const sql of [
+    drop,
+    drop + "alter table public.booking_reservations add constraint different_overlap exclude using gist (table_id with =, period with &&);\n",
+    drop + "alter table private.other add constraint booking_overlap exclude using gist (table_id with =, period with &&);\n",
+    drop + "alter table public.booking_reservations add constraint booking_overlap exclude using gist (table_id with =, period with &&);\ndelete from public.booking_reservations;\n",
+    drop + "alter table public.booking_reservations add constraint booking_overlap exclude using gist (table_id with =, period with &&);\nalter table public.booking_reservations drop column guest_name;\n",
+  ]) assert.equal(isDestructiveMigration(sql), true);
+});
+
 for (const path of ["supabase/migrations/20261012152228_world_knowledge_open_discovery_v2_3.sql", "supabase/migrations/20261014072400_world_knowledge_scoped_experience_cards_v2_4.sql"]) {
   test(`actor counter approval is bound to exact bytes and path: ${path}`, () => {
     const migration = readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
