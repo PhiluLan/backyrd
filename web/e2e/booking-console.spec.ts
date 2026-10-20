@@ -428,7 +428,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + 3600;
   const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
@@ -437,6 +437,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   await page.route("**/auth/v1/user", (route) => route.fulfill({ json: user }));
   await page.route("**/rest/v1/profiles?*", (route) => route.fulfill({ json: { display_name: "Test Operator", first_name: "Test", avatar_url: null } }));
   let snapshot: BookingSnapshot = options.seeded ? seededSnapshot() : { settings: null, areas: [], tables: [], services: [], reservations: [] };
+  if (options.layouts) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!options.lifecycle, table_layouts: true }; snapshot.tables = snapshot.tables.map((table) => ({ ...table, layout: null })); }
   let savedSetup: BookingSetup | null = null;
   if (options.lifecycle) snapshot.capabilities = { service_lifecycle: true };
   if (options.amendments) { snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
@@ -452,6 +453,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     snapshot.operating_date = "2026-10-20";
     snapshot.reservations.push({ id: "51000000-0000-4000-8000-000000000024", table_id: table1, service_id: dinner, guest_name: "Testgast Vorabend", guest_contact: null, note: null, party_size: 2, starts_at: "2026-10-19T18:00:00+02:00", ends_at: "2026-10-19T20:00:00+02:00", status: "seated", source: "phone", revision: 0, is_walk_in: false, arrived_at: "2026-10-19T18:00:00+02:00", seated_at: "2026-10-19T18:00:00+02:00" });
   }
+  const layoutRequests: Record<string, unknown>[] = [];
   let statusCalls = 0;
   const statusRequests: object[] = [];
   const amendRequests: Record<string, unknown>[] = [];
@@ -474,6 +476,14 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     if (method === "get_owner_spots_v1") return route.fulfill({ json: options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", address: null, category_name: "Restaurant", status: "approved", website: null }] });
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
     if (method === "booking_console_read_v1") return route.fulfill({ json: { ...snapshot, reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] } });
+    if (method === "booking_console_save_layout_v1") {
+      layoutRequests.push(body);
+      if (options.layoutConflict) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
+      const entries = body.p_entries as { table_id: string; area_id: string; layout: NonNullable<BookingSnapshot["tables"][number]["layout"]> | null }[];
+      snapshot.tables = snapshot.tables.map((table) => ({ ...table, layout: entries.some((entry) => entry.table_id === table.id) ? entries.find((entry) => entry.table_id === table.id)!.layout : table.layout }));
+      if (options.uncertainLayout && layoutRequests.length === 1) return route.fulfill({ status: 503, json: { message: "Response lost" } });
+      return route.fulfill({ json: 2 });
+    }
     if (method === "booking_console_save_setup_v1") {
       if (options.conflict) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
       savedSetup = body.p_setup;
@@ -565,7 +575,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -821,3 +831,100 @@ for (const kind of ["slotConflict", "uncertainCreate"] as const) {
     await expect(page.getByRole("button", { name: "Reservierung von Testgast Wiederholung öffnen" })).toBeVisible();
   });
 }
+
+
+test("table plan keeps numeric drafts empty, persists geometry and preserves booking context on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, layouts: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByLabel("Belegung um").fill("18:15");
+  await page.getByRole("button", { name: "Tischplan", exact: true }).click();
+  await page.getByRole("button", { name: "Tischplan bearbeiten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Tischplan bearbeiten", exact: true });
+  await panel.getByLabel("Tisch auswählen").selectOption(table1);
+  await panel.getByRole("button", { name: "Tisch im Plan platzieren" }).click();
+  await panel.getByLabel("Position X", { exact: true }).fill("");
+  await expect(panel.getByLabel("Position X", { exact: true })).toHaveValue("");
+  await expect(panel.getByRole("button", { name: "Tischplan speichern", exact: true })).toBeDisabled();
+  await panel.getByLabel("Position X", { exact: true }).fill("100");
+  await panel.getByLabel("Position Y", { exact: true }).fill("80");
+  await panel.getByLabel("Tischform").selectOption("round");
+  const node = panel.getByRole("button", { name: "Fenster 1 · 4 Plätze", exact: true });
+  await node.focus(); await page.keyboard.press("ArrowRight");
+  await expect(panel.getByLabel("Position X", { exact: true })).toHaveValue("105");
+  await panel.getByRole("button", { name: "Tischplan speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByLabel("Belegung um")).toHaveValue("18:15");
+  expect(fixture.layoutRequests()).toEqual([{ p_spot_id: spot, p_revision: 1, p_entries: [{ table_id: table1, area_id: area1, layout: { x: 105, y: 80, width: 120, height: 90, shape: "round" } }] }]);
+  await expect(page.getByRole("button", { name: /Fenster 1 · 4 Plätze · 1 geplante Reservierungen/ })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("table-plan-phone.png"), fullPage: true });
+  await page.reload();
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByRole("button", { name: "Tischplan", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Fenster 1 · 4 Plätze/ })).toBeVisible();
+});
+
+test("table plan conflict preserves the draft and never changes capacity or bookings", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, layouts: true, layoutConflict: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByRole("button", { name: "Tischplan", exact: true }).click();
+  await page.getByRole("button", { name: "Tischplan bearbeiten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Tischplan bearbeiten", exact: true });
+  await panel.getByRole("button", { name: "Bereich als Raster anordnen" }).click();
+  await panel.getByRole("button", { name: "Tischplan speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Versionskonflikt");
+  await expect(panel.getByRole("button", { name: "Fenster 1 · 4 Plätze", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel.getByText("Ungespeicherte Eingaben verwerfen?")).toBeVisible();
+  await panel.getByRole("button", { name: "Weiter bearbeiten", exact: true }).click();
+  expect(fixture.layoutRequests()).toHaveLength(1);
+  expect(fixture.bookingCalls()).toBe(0);
+  expect(fixture.setup()).toBe(null);
+});
+
+test("uncertain table plan save freezes changes and retries the identical patch", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, layouts: true, uncertainLayout: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByRole("button", { name: "Tischplan", exact: true }).click();
+  await page.getByRole("button", { name: "Tischplan bearbeiten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Tischplan bearbeiten", exact: true });
+  await panel.getByRole("button", { name: "Bereich als Raster anordnen" }).click();
+  await panel.getByRole("button", { name: "Tischplan speichern", exact: true }).click();
+  await expect(panel.getByLabel("Bereich im Plan")).toBeDisabled();
+  await panel.getByRole("button", { name: "Identisches Speichern wiederholen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.layoutRequests()).toHaveLength(2);
+  expect(fixture.layoutRequests()[0]).toEqual(fixture.layoutRequests()[1]);
+});
+
+
+test("table plan drag stays inside its room and other rooms retain separate coordinates", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, layouts: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByRole("button", { name: "Tischplan", exact: true }).click();
+  await page.getByRole("button", { name: "Tischplan bearbeiten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Tischplan bearbeiten", exact: true });
+  await panel.getByRole("button", { name: "Bereich als Raster anordnen" }).click();
+  const node = panel.getByRole("button", { name: "Fenster 1 · 4 Plätze", exact: true });
+  const box = await node.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.down(); await page.mouse.move(box!.x + 200, box!.y + 100, { steps: 8 }); await page.mouse.up();
+  expect(Number(await panel.getByLabel("Position X", { exact: true }).inputValue())).toBeGreaterThan(5);
+  await panel.getByLabel("Position X", { exact: true }).fill("880");
+  await panel.getByRole("button", { name: "Fenster 1 · 4 Plätze", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(panel.getByLabel("Position X", { exact: true })).toHaveValue("880");
+  await panel.getByLabel("Bereich im Plan").selectOption(area2);
+  await expect(panel.getByRole("button", { name: "Fenster 1 · 4 Plätze", exact: true })).toHaveCount(0);
+  await panel.getByRole("button", { name: "Bereich als Raster anordnen" }).click();
+  await panel.getByRole("button", { name: "Tischplan speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  const entries = fixture.layoutRequests()[0].p_entries as { table_id: string; area_id: string; layout: { x: number } }[];
+  expect(entries.map((row) => [row.table_id, row.area_id, row.layout.x])).toEqual([[table1, area1, 880], [table2, area2, 5]]);
+});

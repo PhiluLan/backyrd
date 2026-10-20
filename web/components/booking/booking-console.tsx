@@ -8,6 +8,7 @@ import { bookingError, occupiesInventory as active, readBookingConsole, restaura
 import { SetupForm } from "./setup-form";
 import { NewReservation, type CreatedBooking } from "./new-reservation";
 import { ReservationDetails, statusLabels } from "./reservation-details";
+import { TablePlan, TablePlanEditor } from "./table-plan";
 import { WalkIn } from "./walk-in";
 import styles from "./console.module.css";
 
@@ -40,6 +41,8 @@ export function BookingConsole() {
   const [query, setQuery] = useState("");
   const [time, setTime] = useState("");
   const [editor, setEditor] = useState<{ tableId: string } | null>(null);
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planVisible, setPlanVisible] = useState(false);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [uncertainWrite, setUncertainWrite] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -56,7 +59,7 @@ export function BookingConsole() {
     let mounted = true;
     const request = ++entryGeneration.current;
     function clearPrivateState() {
-      generation.current += 1; inFlight.current = false; setSpots([]); setSpotId(""); setSnapshotState(null); setEditor(null); setSelectedId(null); setWalkInOpen(false); setUncertainWrite(false); followOperatingDate.current = false;
+      generation.current += 1; inFlight.current = false; setSpots([]); setSpotId(""); setSnapshotState(null); setEditor(null); setSelectedId(null); setWalkInOpen(false); setPlanOpen(false); setUncertainWrite(false); followOperatingDate.current = false;
       setQuery(""); setService(""); setArea(""); setStatus("all"); setTime(""); setError(null); setNotice(null); setDirty(false); setBusy(false); setLoading(false); createdNotice.current = null;
     }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -101,7 +104,7 @@ export function BookingConsole() {
 
   useEffect(() => {
     setSnapshotState(null); setDirty(false); setNotice(createdNotice.current); createdNotice.current = null;
-    setSelectedId(null); setEditor(null); setWalkInOpen(false); void reload();
+    setSelectedId(null); setEditor(null); setWalkInOpen(false); setPlanOpen(false); void reload();
   }, [reload]);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault(); };
@@ -190,6 +193,7 @@ export function BookingConsole() {
                   </section> : <section aria-label="Tischübersicht">
                     <div className={styles.tableToolbar}><label>Belegung um<input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>{time && <button className={styles.secondary} onClick={() => setTime("")}>Ganzer Tag</button>}<p className={styles.help}>{time ? "Geplante Reservierungszeiten. Der manuell erfasste Servicestatus zeigt den letzten gespeicherten Stand." : "Aktive Reservierungen über den ganzen Tag. Freie Buchungszeiten werden bei der Erfassung geprüft."}</p></div>
                     {filtered && <button className={styles.secondary} onClick={clearFilters}>Alle Bereiche und Services</button>}
+                    {snapshot.capabilities?.table_layouts && <><div className={styles.actions}><button className={styles.secondary} aria-pressed={!planVisible} onClick={() => setPlanVisible(false)}>Tischkarten</button><button className={styles.secondary} aria-pressed={planVisible} onClick={() => setPlanVisible(true)}>Tischplan</button></div>{planVisible && <TablePlan snapshot={snapshot} areaId={validArea} onEdit={() => setPlanOpen(true)} describe={(id) => { const seated = currentSeated.find((row) => row.table_id === id); const planned = context.filter((row) => row.table_id === id && active(row.status) && (!time || (restaurantDate(new Date(row.starts_at)) + "T" + restaurantTime(row.starts_at) <= date + "T" + time && restaurantDate(new Date(row.ends_at)) + "T" + restaurantTime(row.ends_at) > date + "T" + time))); return (seated ? "Am Tisch · letzter gespeicherter Servicestatus. " : "") + planned.length + " geplante Reservierungen"; }} />}</>}
                     {snapshot.areas.filter((area) => !validArea || area.id === validArea).map((area) => <section className={styles.areaSection} key={area.id}><h3>{area.name}{!area.is_active ? " · nicht buchbar" : ""}</h3><div className={styles.tableGrid}>{snapshot.tables.filter((table) => table.area_id === area.id).map((table) => {
                       const reservations = context.filter((row) => row.table_id === table.id && active(row.status) && (!time || (restaurantDate(new Date(row.starts_at)) + "T" + restaurantTime(row.starts_at) <= date + "T" + time && restaurantDate(new Date(row.ends_at)) + "T" + restaurantTime(row.ends_at) > date + "T" + time)));
                       const seated = currentSeated.find((row) => row.table_id === table.id);
@@ -198,6 +202,7 @@ export function BookingConsole() {
                     {!snapshot.areas.length && <div className={styles.empty}><h3>Noch keine Bereiche.</h3><p>Lege Bereiche und Tische in der Einrichtung an.</p></div>}
                   </section>}
                 </div>
+                {planOpen && <TablePlanEditor spotId={spotId} snapshot={snapshot} initialArea={validArea} onBusy={actorBusy} onClose={() => { setPlanOpen(false); void reload(); }} onSaved={async () => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setPlanOpen(false); setNotice("Der Tischplan wurde gespeichert."); await reload(); }} />}
                 {editor && <NewReservation spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={() => setEditor(null)} onBusy={actorBusy} onCreated={(booking) => savedBooking(booking, "Die Reservierung wurde gespeichert.")} />}
                 {walkInOpen && <WalkIn spotId={spotId} snapshot={snapshot} serviceId={validService} areaId={validArea} onBusy={actorBusy} onClose={(uncertain) => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setWalkInOpen(false); if (uncertain) { setUncertainWrite(true); setNotice(null); clearFilters(); setView("book"); followOperatingDate.current = true; void reload(); } }} onSaved={async (date, slot) => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setWalkInOpen(false); await savedBooking({ date, slot }, "Der Walk-in wurde erfasst."); }} />}
                 {selected && <ReservationDetails key={selected.id} spotId={spotId} reservation={selected} snapshot={snapshot} onClose={() => setSelectedId(null)} onBusy={actorBusy} onAmended={(date, slot) => savedBooking({ date, slot }, "Die Änderungen wurden gespeichert.")} onReload={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) await reload(); }} onSaved={async () => { if (currentActor === actorId.current && currentEntry === entryGeneration.current) { setNotice("Der Status wurde gespeichert."); await reload(); } }} />}

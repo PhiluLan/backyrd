@@ -1,9 +1,10 @@
+import { validTableLayout, type TableLayout } from "./booking-table-layout";
 import { supabase } from "@/lib/supabase/client";
 
 export type BookingStatus = "pending" | "confirmed" | "arrived" | "seated" | "completed" | "cancelled" | "declined" | "no_show";
 export type BookingSource = "phone" | "walk_in" | "email" | "operator";
 export type BookingArea = { id: string; name: string; is_active: boolean };
-export type BookingTable = { id: string; area_id: string; label: string; seats: number; is_active: boolean };
+export type BookingTable = { id: string; area_id: string; label: string; seats: number; is_active: boolean; layout?: TableLayout | null };
 export type BookingService = { id: string; name: string; weekdays: number[]; opens_at: string; closes_at: string; interval_minutes: number; is_active: boolean };
 export type BookingSetup = { duration_minutes: number; max_party_size: number; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[] };
 export type BookingReservation = {
@@ -13,7 +14,7 @@ export type BookingReservation = {
   revision?: number;
   is_walk_in?: boolean;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean }; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[] };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean }; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[] };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
@@ -39,14 +40,16 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const capabilities = row.capabilities == null ? null : record(row.capabilities);
   const amendments = capabilities?.reservation_amendments == null ? false : boolean(capabilities.reservation_amendments);
   const seating = capabilities?.current_seating == null ? false : boolean(capabilities.current_seating);
+  const layouts = capabilities?.table_layouts == null ? false : boolean(capabilities.table_layouts);
+  const layout = (value: unknown) => { if (value === null || (value === undefined && !layouts)) return null; if (!validTableLayout(value)) return invalid(); return value; };
   const walkIns = capabilities?.walk_ins == null ? false : boolean(capabilities.walk_ins);
   const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in) });
   return {
-    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts },
     operating_date: row.operating_date == null && !seating ? undefined : calendarDate(row.operating_date),
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
     areas: array(row.areas, (a) => ({ id: uuid(a.id), name: string(a.name), is_active: boolean(a.is_active) })),
-    tables: array(row.tables, (t) => ({ id: uuid(t.id), area_id: uuid(t.area_id), label: string(t.label), seats: integer(t.seats), is_active: boolean(t.is_active) })),
+    tables: array(row.tables, (t) => ({ id: uuid(t.id), area_id: uuid(t.area_id), label: string(t.label), seats: integer(t.seats), is_active: boolean(t.is_active), layout: layout(t.layout) })),
     services: array(row.services, (s) => {
       if (!Array.isArray(s.weekdays)) return invalid();
       const weekdays = s.weekdays.map(integer);
@@ -177,3 +180,9 @@ export function restaurantDate(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Zurich", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 export function restaurantTime(value: string) { return new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
+
+export async function saveBookingLayout(spotId: string, revision: number, entries: { table_id: string; area_id: string; layout: TableLayout | null }[]) {
+  const { data, error } = await supabase.rpc("booking_console_save_layout_v1", { p_spot_id: spotId, p_revision: revision, p_entries: entries });
+  if (error) throw error;
+  return integer(data);
+}
