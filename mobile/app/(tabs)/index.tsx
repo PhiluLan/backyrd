@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
+  AppState,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -27,7 +28,10 @@ import { OpeningStatusBadge } from "../../components/spot/OpeningStatusBadge";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { useAuth } from "../../hooks/useAuth";
 import { loadDiscoverySpots, type DiscoverySpot } from "../../lib/spot-images";
-import { resolveLocationContext, type LocationCoordinates } from "../../lib/locationContext";
+import type { LocationCoordinates } from "../../lib/locationContext";
+import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
+import { loadNearbyDiscoverySpots, validDiscoveryLocation, HOME_NEARBY_RADIUS_KM } from "../../lib/nearby-discovery";
+import { withRequestDeadline } from "../../lib/requestDeadline";
 import { spotOpeningStatusNow } from "../../lib/spot-opening-status";
 import { haversineKm } from "../../lib/utils/haversine";
 import { supabase } from "../../lib/supabase";
@@ -47,14 +51,16 @@ export default function HomeScreen() {
   const [city, setCity] = useState("Basel");
   const [firstName, setFirstName] = useState<string | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
+  const [newSpots, setNewSpots] = useState<DiscoverySpot[]>([]);
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
-  const moodCounts = useSpotMoodCounts(spots.map(spot => spot.id));
+  const moodCounts = useSpotMoodCounts([...spots, ...newSpots].map(spot => spot.id));
   const [popularMoods, setPopularMoods] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LocationCoordinates | null>(null);
 
+  const loadRequest = useRef(0);
   const moodRequest = useRef(0);
   const loadMoodContext = useCallback(async (catalog: DiscoverySpot[]) => {
     const requestId = ++moodRequest.current;
@@ -73,50 +79,58 @@ export default function HomeScreen() {
   }, []);
 
   const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
+    const requestId = ++loadRequest.current;
+    ++moodRequest.current;
+    setCurrentLocation(null);
+    setSpots([]);
+    setNewSpots([]);
+    setSpotMoods({});
+    setPopularMoods([]);
+    setLoading(true);
+    setRefreshing(refresh);
     setError(null);
     try {
-      let productCity = city;
-      if (user?.id) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("city,first_name,display_name,username")
-          .eq("id", user.id)
-          .maybeSingle();
-        const profileName = cleanName(profile?.first_name) ?? cleanName(profile?.display_name) ?? cleanName(profile?.username);
-        if (profileName) setFirstName(profileName.split(/\s+/)[0]);
-        if (profile?.city?.trim()) {
-          productCity = profile.city.trim();
-          setCity(productCity);
-        }
-      }
-      const catalog = await loadDiscoverySpots(productCity, 160);
+      const [profile, location] = await Promise.all([
+        user?.id ? withRequestDeadline(async signal => {
+          const result = await supabase.from("profiles").select("city,first_name,display_name,username").eq("id", user.id).abortSignal(signal).maybeSingle();
+          return result.data;
+        }, 5_000).catch(() => null) : Promise.resolve(null),
+        withRequestDeadline(() => getPrivacySafeLocation({ purpose: "nearby_discovery", requestPermission: false, forceConsentRefresh: true, allowLastKnown: false, timeoutMs: 5_000 }), 6_500).catch(() => null),
+      ]);
+      if (requestId !== loadRequest.current) return;
+      const productCity = cleanName(profile?.city) ?? "Basel";
+      setCity(productCity);
+      const profileName = cleanName(profile?.first_name) ?? cleanName(profile?.display_name) ?? cleanName(profile?.username);
+      setFirstName(profileName ? profileName.split(/\s+/)[0] : null);
+      const point = location?.ok && location.source === "current" ? { latitude: location.location.coords.latitude, longitude: location.location.coords.longitude } : null;
+      const current = validDiscoveryLocation(point) ? point : null;
+      // Publish the location only together with its matching catalog, never label city rows as nearby.
+      const [catalog, cityCatalog] = current
+        ? await Promise.all([loadNearbyDiscoverySpots(current, 14), withRequestDeadline(() => loadDiscoverySpots(productCity, 160), 10_000).catch(() => [])])
+        : await withRequestDeadline(async () => { const rows = await loadDiscoverySpots(productCity, 160); return [rows, rows]; }, 10_000);
+      if (requestId !== loadRequest.current) return;
+      setCurrentLocation(current);
       setSpots(catalog.slice(0, 14));
-      void loadMoodContext(catalog.slice(0, 40));
-    } catch (loadError) {
-      console.warn("Home discovery failed", { message: loadError instanceof Error ? loadError.message : String(loadError) });
-      setError("Die Orte konnten gerade nicht geladen werden.");
-      setSpots([]);
+      setNewSpots([...cityCatalog.slice(0, 14)].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 6));
+      void loadMoodContext([...catalog.slice(0, 14), ...cityCatalog.slice(0, 14)]);
+    } catch {
+      if (requestId === loadRequest.current) {
+        setError("Die Orte konnten gerade nicht geladen werden.");
+        setSpots([]);
+        setCurrentLocation(null);
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === loadRequest.current) { setLoading(false); setRefreshing(false); }
     }
-  }, [city, loadMoodContext, user?.id]);
+  }, [loadMoodContext, user?.id]);
 
-  useEffect(() => { void load(); }, [load]);
-
-  useEffect(() => {
-    let active = true;
-    void resolveLocationContext({ purpose: "nearby_discovery", requestPermission: false, allowCityFallback: false, timeoutMs: 2_500 })
-      .then((context) => {
-        if (active && context.source === "current") setCurrentLocation(context.coordinates);
-      });
-    return () => { active = false; };
-  }, []);
+  useFocusEffect(useCallback(() => {
+    void load();
+    const subscription = AppState.addEventListener("change", state => { if (state === "active") void load(); });
+    return () => { subscription.remove(); ++loadRequest.current; ++moodRequest.current; };
+  }, [load]));
 
   const topSpots = useMemo(() => spots.slice(0, 6), [spots]);
-  const newSpots = useMemo(() => [...spots].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 6), [spots]);
   const heroCardGap = HOME_RAIL.gap;
   const heroCardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
   const heroCardHeight = Math.round(heroCardWidth * 1.08);
@@ -197,8 +211,9 @@ export default function HomeScreen() {
           <View style={[styles.sectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <AppText role="sectionTitle">{currentLocation ? "Orte in deiner Nähe" : `Orte in ${city} entdecken`}</AppText>
+              {!loading ? <AppText role="meta" tone="secondary">{currentLocation ? `Nächste zuerst · bis ${HOME_NEARBY_RADIUS_KM} km Luftlinie` : "Ohne aktuellen Standort · Auswahl nach Stadt"}</AppText> : null}
             </View>
-            <Pressable accessibilityRole="button" style={[styles.sectionLink, fontScale > 1.3 && { maxWidth: "100%" }]} onPress={() => router.push({ pathname: "/(tabs)/map", params: { view: "list" } } as never)}>
+            <Pressable accessibilityRole="button" style={[styles.sectionLink, fontScale > 1.3 && { maxWidth: "100%" }]} onPress={() => router.push({ pathname: "/(tabs)/map", params: currentLocation ? { view: "map", lat: String(currentLocation.latitude), lng: String(currentLocation.longitude) } : { view: "list" } } as never)}>
               <AppText role="label" tone="pink">Alle ansehen</AppText>
             </Pressable>
           </View>
@@ -231,7 +246,7 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
           ) : (
-            <View style={styles.stateWrap}><StateView kind="empty" title="Noch keine Orte hier" message={`Sobald es in ${city} Neues zu entdecken gibt, findest du es hier.`} /></View>
+            <View style={styles.stateWrap}><StateView kind="empty" title={currentLocation ? "Noch keine Orte in deiner Nähe" : "Noch keine Orte hier"} message={currentLocation ? `Im Umkreis von ${HOME_NEARBY_RADIUS_KM} km gibt es gerade keine freigegebenen Orte auf Backyrd.` : `Sobald es in ${city} Neues zu entdecken gibt, findest du es hier.`} /></View>
           )}
 
           <HomeMomentsSection city={city} revision={momentRevision} />

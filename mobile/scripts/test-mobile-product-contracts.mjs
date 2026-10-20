@@ -4,6 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 import "./test-spot-product-presentation.mjs";
+import "./test-nearby-discovery.mjs";
 import "./test-spot-address-presentation.mjs";
 import "./test-supabase-runtime-config.mjs";
 
@@ -278,7 +279,7 @@ assert.match(homeEvents, /HOME_RAIL/, "Events must use the shared Home rail cont
 assert.match(homeEvents, /snapToInterval/, "Events must use the shared Home rail snap contract");
 assert.match(home, /HOME_RAIL/, "Spots must use the shared Home rail contract");
 assert.match(home, /snapToInterval/, "Spots must use the shared Home rail snap contract");
-assert.match(home, /resolveLocationContext\(\{ purpose: "nearby_discovery", requestPermission: false/, "Home must never prompt for location merely to decorate a card");
+assert.match(home, /getPrivacySafeLocation\(\{ purpose: "nearby_discovery", requestPermission: false/, "Home must never prompt for location merely to decorate a card");
 assert.match(home, /<OpeningStatusBadge status=\{spotOpeningStatusNow\(spot\.hours\)\}/, "Home cards must present the canonical opening status through the shared badge");
 assert.match(fs.readFileSync(new URL("../components/spot/OpeningStatusBadge.tsx", import.meta.url), "utf8"), /SPOT_OPENING_STATUS_COPY\[status\]/, "Shared status badges must use canonical opening-status copy");
 assert.match(home, /spot\.category_name.*spot\.address/, "Home cards must fall back to the address when no current location is available");
