@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { BookingCombination, BookingSlot, BookingSpecialHours, BookingSetup, BookingSnapshot, BookingRole, BookingTeamRole, BookingGuestCard, GuestCardOutcome, GuestCardEvent } from "../lib/booking-api";
+import type { BookingCombination, BookingSlot, BookingSpecialHours, BookingSetup, BookingSnapshot, BookingRole, BookingTeamRole, BookingGuestCard, GuestCardOutcome, GuestCardEvent, ReservationGuestIntent, ReservationGuestOutcome, ReservationGuestDetails } from "../lib/booking-api";
 
 const spot = "51000000-0000-4000-8000-000000000001";
 const owner = "51000000-0000-4000-8000-000000000099";
@@ -435,7 +435,8 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean; search?: boolean; guestCards?: boolean; guestCardUncertain?: boolean; guestCardMalformed?: boolean; guestCardConflict?: boolean; guestCardRecoverError?: boolean; guestCardPaged?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean; search?: boolean; guestCards?: boolean; guestCardUncertain?: boolean; guestCardMalformed?: boolean; guestCardConflict?: boolean; guestCardRecoverError?: boolean; guestCardPaged?: boolean; guestHistory?: boolean; guestHistoryLinked?: boolean; guestHistoryUncertain?: boolean; guestHistoryMalformed?: boolean; guestHistoryConflict?: boolean; guestHistoryRecoverError?: boolean; guestHistoryPaged?: boolean } = {}) {
+  if (options.guestHistory) options = { ...options, guestCards: true, combinations: true };
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -491,9 +492,20 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     for (let n = 1; n <= 30; n++) snapshot.reservations.push({ ...snapshot.reservations[0], id: `54000000-0000-4000-8000-${String(n).padStart(12, "0")}`, guest_name: "Testgast Wiederkehrend", status: "cancelled", starts_at: "2026-10-22T18:00:00+02:00", ends_at: "2026-10-22T20:00:00+02:00" });
   }
   if (options.guestCards) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_cards: true };
+  if (options.guestHistory) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_history: true };
   const guestCardId = "56000000-0000-4000-8000-000000000001";
   const guestCards: BookingGuestCard[] = [{ id: guestCardId, name: "Kartengast Beispiel", email: "karte@booking.invalid", phone: "+41 61 000 00 00", revision: 0, is_archived: false, created_at: "2026-10-20T10:00:00.000000Z", updated_at: "2026-10-20T11:00:00.000000Z" }];
   if (options.guestCardPaged) for (let n = 2; n <= 30; n++) guestCards.push({ ...guestCards[0], id: `56000000-0000-4000-8000-${String(n).padStart(12, "0")}` });
+  const associations = new Map<string, { guest_id: string | null; revision: number; events: ReservationGuestDetails["events"] }>();
+  const associationRequests: Record<string,unknown>[] = [];
+  const associationOps = new Map<string,{key:string;outcome:ReservationGuestOutcome}>();
+  let associationSequence = 0, associationFailureUsed = false, historyCreateSequence = 0;
+  if (options.guestHistoryLinked) associations.set(reservationId,{guest_id:guestCardId,revision:1,events:[]});
+  if (options.guestHistoryPaged) for (let n=1;n<=30;n++) {
+    const id = `57000000-0000-4000-8000-${String(n).padStart(12,"0")}`;
+    snapshot.reservations.push({...snapshot.reservations[0],id,starts_at:"2026-10-21T18:00:00+02:00",ends_at:"2026-10-21T20:00:00+02:00",status:"cancelled",guest_name:"Synthetic history",guest_contact:"PRIVATE_HISTORY_CONTACT",note:"PRIVATE_HISTORY_NOTE"});
+    associations.set(id,{guest_id:guestCardId,revision:1,events:[]});
+  }
   let guestEventSequence = 0, guestWriteFailureUsed = false, guestRecoverFailureUsed = false;
   const guestCardRequests: Record<string, unknown>[] = [];
   const guestJournal = new Map<string, { intent: string; outcome: GuestCardOutcome }>();
@@ -532,7 +544,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       { id: groupBC, name: "Gruppentisch", primary_table_id: table2, table_ids: [table2, table3], max_party_size: 8, is_active: true, is_available: true },
     ];
     snapshot.archived_combination_count = 0;
-    snapshot.reservations = (options.combinedSeed || options.transfers) ? [{ ...snapshot.reservations[0], table_ids: [table1, table2], combination_id: groupAB, party_size: 6, revision: 0, is_walk_in: false }] : [];
+    snapshot.reservations = options.guestHistory ? snapshot.reservations.map(r => ({ ...r, table_ids: [r.table_id], combination_id: null, revision: r.revision ?? 0, is_walk_in: false })) : (options.combinedSeed || options.transfers) ? [{ ...snapshot.reservations[0], table_ids: [table1, table2], combination_id: groupAB, party_size: 6, revision: 0, is_walk_in: false }] : [];
   }
   const combinedChoices = (party: number, service: string, start: string, duration: number, amend = false): BookingSlot[] => {
     const end = new Date(Date.parse(start) + duration * 60_000).toISOString();
@@ -600,6 +612,40 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       return route.fulfill({ json: { spot_id: spot, spot_name: "Restaurant Testbetrieb", role: "host", expires_at: "2026-10-27T12:00:00Z", accepted: joined } });
     }
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
+    if (["booking_console_reservation_guest_v1","booking_console_reservation_guest_write_v1","booking_console_guest_reservations_v1"].includes(method ?? "")) {
+      if (teamRevoked) return route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});
+      if (method === "booking_console_guest_reservations_v1") {
+        const card = guestCards.find(c=>c.id===body.p_guest_id);
+        if (!card || (card.is_archived && !["owner","manager"].includes(currentTeamRole))) return route.fulfill({status:400,json:{code:"22023",message:"booking_guest_unavailable"}});
+        const rows = snapshot.reservations.filter(r=>associations.get(r.id)?.guest_id===card.id)
+          .sort((a,b)=>Date.parse(b.starts_at)-Date.parse(a.starts_at)||b.id.localeCompare(a.id))
+          .filter(r=>!body.p_before_starts_at || Date.parse(r.starts_at)<Date.parse(body.p_before_starts_at) || (Date.parse(r.starts_at)===Date.parse(body.p_before_starts_at) && r.id<body.p_before_id));
+        const page=rows.slice(0,25),last=page.at(-1);
+        return route.fulfill({json:{reservations:page.map(r=>({id:r.id,starts_at:r.starts_at,ends_at:r.ends_at,party_size:r.party_size,status:r.status,guest_name:r.guest_name,revision:r.revision??0})),next_cursor:rows.length>25 ? {id:last!.id,starts_at:last!.starts_at}:null}});
+      }
+      if (method === "booking_console_reservation_guest_v1") {
+        const link=associations.get(body.p_reservation_id),card=guestCards.find(c=>c.id===link?.guest_id),visible=card && (!card.is_archived || ["owner","manager"].includes(currentTeamRole));
+        return route.fulfill({json:{reservation_id:body.p_reservation_id,revision:link?.revision??0,guest:card?{id:card.id,name:visible?card.name:null,is_archived:card.is_archived,revision:visible?card.revision:null}:null,events:link?.events??[]}});
+      }
+      associationRequests.push(body);
+      if (body.p_actor!==actor || currentTeamRole==="viewer") return route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});
+      const key=JSON.stringify({intent:body.p_intent,actor:body.p_actor}),prior=associationOps.get(body.p_request_id);
+      if(prior&&prior.key!==key)return route.fulfill({status:400,json:{code:"22023",message:"booking_request_reused"}});
+      if(body.p_recover){if(options.guestHistoryRecoverError&&!associationFailureUsed){associationFailureUsed=true;return route.fulfill({status:500,json:{message:"recovery_unavailable"}});}return route.fulfill({json:prior?.outcome??null});}
+      if(prior)return route.fulfill({json:prior.outcome});
+      const intent=body.p_intent as ReservationGuestIntent,link=associations.get(intent.reservation_id)??{guest_id:null,revision:0,events:[]};
+      if(options.guestHistoryConflict&&!associationFailureUsed){associationFailureUsed=true;associations.set(intent.reservation_id,{...link,guest_id:null,revision:link.revision+1});return route.fulfill({status:409,json:{code:"40001",message:"booking_guest_link_changed"}});}
+      if(link.revision!==intent.link_revision)return route.fulfill({status:409,json:{code:"40001",message:"booking_guest_link_changed"}});
+      const target=snapshot.reservations.find(r=>r.id===intent.reservation_id),card=guestCards.find(c=>c.id===intent.guest_id);
+      if(!target||(target.revision??0)!==intent.reservation_revision)return route.fulfill({status:409,json:{code:"40001",message:"booking_reservation_changed"}});
+      if(intent.kind==="assign"&&(!card||card.is_archived||card.revision!==intent.guest_revision))return route.fulfill({status:409,json:{code:"40001",message:"booking_guest_changed"}});
+      const changed=link.guest_id!==intent.guest_id,revision=link.revision+(changed?1:0);
+      const events=changed?[{id:`58000000-0000-4000-8000-${String(++associationSequence).padStart(12,"0")}`,actor_id:actor,previous_guest_id:link.guest_id,guest_id:intent.guest_id,revision,created_at:"2026-10-20T12:00:00.123456Z"},...link.events]:link.events;
+      associations.set(intent.reservation_id,{guest_id:intent.guest_id,revision,events});
+      const outcome={reservation_id:intent.reservation_id,guest_id:intent.guest_id,revision};associationOps.set(body.p_request_id,{key,outcome});
+      if((options.guestHistoryUncertain||options.guestHistoryMalformed)&&!associationFailureUsed){associationFailureUsed=true;return options.guestHistoryMalformed?route.fulfill({json:{reservation_id:intent.reservation_id}}):route.fulfill({status:503,json:{message:"saved_response_lost"}});}
+      return route.fulfill({json:outcome});
+    }
     if (["booking_console_guests_v1", "booking_console_guest_v1", "booking_console_guest_write_v1"].includes(method ?? "")) {
       if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
       const manages = ["owner", "manager"].includes(currentTeamRole);
@@ -754,17 +800,24 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       const slots = combinedChoices(body.p_party_size, lunch, observed, body.p_duration_minutes).map((slot) => ({ ...slot, table_label: slot.allocation_label, seats: slot.combination_id ? snapshot.combinations!.find((g) => g.id === slot.combination_id)!.max_party_size : 4, area_id: area1, area_name: "Gastraum", service_name: "Mittag" }));
       return route.fulfill({ json: { observed_at: observed, services: [{ id: lunch, name: "Mittag" }], slots } });
     }
-    if (["booking_console_create_v2", "booking_console_amend_v2", "booking_console_walk_in_v2"].includes(method!)) {
+    if (["booking_console_create_v3", "booking_console_create_v2", "booking_console_amend_v2", "booking_console_walk_in_v2"].includes(method!)) {
       combinedWrites.push(body);
+      if(method==="booking_console_create_v3"&&(body.p_actor!==actor||teamRevoked))return route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});
       const saved = combinedOps.get(body.p_request_id);
       if (saved) return saved.body === JSON.stringify(body) ? route.fulfill({ json: saved.result }) : route.fulfill({ status: 400, json: { code: "22023", message: "booking_request_reused" } });
+      if(method==="booking_console_create_v3"){
+        const card=guestCards.find(c=>c.id===body.p_guest_id);
+        if(body.p_guest_id&&(!card||card.is_archived||card.revision!==body.p_guest_revision))return route.fulfill({status:409,json:{code:"40001",message:"booking_guest_changed"}});
+      }
       if (options.amendRevisionConflict && method === "booking_console_amend_v2") return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } });
       if (options.slotConflict) return route.fulfill({ status: 409, json: { code: "22023", message: "booking_slot_unavailable" } });
       const instant = method === "booking_console_walk_in_v2" ? "2026-10-20T12:02:00Z" : body.p_starts_at;
-      const outcome = { id: body.p_reservation_id || (method === "booking_console_walk_in_v2" ? "53000000-0000-4000-8000-000000000060" : reservationId), service_id: body.p_service_id, table_id: body.p_table_id, table_ids: body.p_table_ids, combination_id: body.p_combination_id, starts_at: instant, ends_at: new Date(Date.parse(instant) + body.p_duration_minutes * 60_000).toISOString() };
+      const outcome = { id: body.p_reservation_id || (method === "booking_console_create_v3" ? `59000000-0000-4000-8000-${String(++historyCreateSequence).padStart(12,"0")}` : method === "booking_console_walk_in_v2" ? "53000000-0000-4000-8000-000000000060" : reservationId), service_id: body.p_service_id, table_id: body.p_table_id, table_ids: body.p_table_ids, combination_id: body.p_combination_id, starts_at: instant, ends_at: new Date(Date.parse(instant) + body.p_duration_minutes * 60_000).toISOString() };
       if (method === "booking_console_amend_v2") snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id ? { ...r, ...outcome, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, revision: (r.revision ?? 0) + 1 } : r);
       else snapshot.reservations.push({ ...outcome, guest_name: body.p_guest_name?.trim() || "Walk-in", guest_contact: body.p_guest_contact || null, note: body.p_note || null, party_size: body.p_party_size, source: method === "booking_console_walk_in_v2" ? "walk_in" : body.p_source, status: method === "booking_console_walk_in_v2" ? "seated" : body.p_status, revision: 0, is_walk_in: method === "booking_console_walk_in_v2" });
-      const result: unknown = method === "booking_console_amend_v2" ? body.p_reservation_id : outcome;
+      const guestLink=method==="booking_console_create_v3"?{reservation_id:outcome.id,guest_id:body.p_guest_id??null,revision:body.p_guest_id?1:0}:null;
+      if(guestLink&&guestLink.guest_id)associations.set(outcome.id,{guest_id:guestLink.guest_id,revision:1,events:[]});
+      const result: unknown = method === "booking_console_amend_v2" ? body.p_reservation_id : guestLink?{...outcome,guest_link:guestLink}:outcome;
       combinedOps.set(body.p_request_id, { body: JSON.stringify(body), result });
       if ((options.uncertainCreate || options.uncertainAmend || options.uncertainWalkIn) && combinedWrites.length === 1) return route.fulfill({ status: 503, json: { message: "saved_response_lost" } });
       if (options.malformedCombinedCreate && combinedWrites.length === 1) return route.fulfill({ json: { ...outcome, table_ids: [body.p_table_id] } });
@@ -870,7 +923,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { guestCardRequests: () => guestCardRequests, guestCards: () => guestCards, searchRequests: () => searchRequests, transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { associationRequests: () => associationRequests, associations: () => associations, guestCardRequests: () => guestCardRequests, guestCards: () => guestCards, searchRequests: () => searchRequests, transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -3599,4 +3652,212 @@ test("inline guest selection cannot restore late contact details after logout", 
   await expect(editor).toHaveCount(0);
   await expect(page.getByText("karte@booking.invalid", { exact: false })).toHaveCount(0);
   expect(fixture.bookingCalls()).toBe(0);
+});
+
+async function openGuestAssociation(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button",{name:"Reservierung von Testgast Abend öffnen",exact:true}).click();
+  await page.getByRole("button",{name:"Gästekarte zur Reservierung",exact:true}).click();
+  return page.getByRole("dialog",{name:"Gästekarte zur Reservierung",exact:true});
+}
+async function chooseGuestAssociation(panel: ReturnType<Page["getByRole"]>, name = "Kartengast Beispiel") {
+  await panel.getByRole("button",{name:"Gespeicherten Gast auswählen",exact:true}).click();
+  await panel.getByLabel("Gästekarte suchen",{exact:true}).fill(name);
+  await panel.getByRole("button",{name:"Gäste suchen",exact:true}).click();
+  await panel.getByRole("button",{name:new RegExp(name+".*Kontaktdaten prüfen")}).click();
+  await panel.getByRole("button",{name:"Diese Gästekarte auswählen",exact:true}).click();
+}
+
+test("guest history phone creation associates only after explicit opt-in and opens a canonical reservation",async({page})=>{
+  await page.setViewportSize({width:320,height:820});
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true});
+  const editor=await openInlineGuestPicker(page);
+  await editor.getByRole("button",{name:"Gäste suchen",exact:true}).click();
+  await editor.getByRole("button",{name:/Kartengast Beispiel.*Kontaktdaten prüfen/}).click();
+  await editor.getByRole("button",{name:"Gastname und Kontakt übernehmen",exact:true}).click();
+  const optin=editor.getByRole("checkbox",{name:"Reservierung dieser Gästekarte zuordnen",exact:true});
+  await expect(optin).not.toBeChecked();await optin.check();
+  await editor.getByLabel("Gastname",{exact:true}).fill("Gastname dieser Buchung");
+  await editor.getByLabel("Buchungsdatum",{exact:true}).fill("2026-10-21");
+  await editor.getByRole("combobox",{name:"Uhrzeit",exact:true}).selectOption({index:1});
+  await editor.getByRole("combobox",{name:"Tisch",exact:true}).selectOption({index:1});
+  const {default:AxeBuilder}=await import("@axe-core/playwright");
+  expect((await new AxeBuilder({page}).include('dialog[aria-label="Neue Reservierung"]').analyze()).violations).toEqual([]);
+  await editor.screenshot({path:test.info().outputPath("guest-association-create-phone.png")});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await editor.getByRole("button",{name:"Reservierung speichern",exact:true}).click();await expect(editor).toHaveCount(0);
+  expect(fixture.combinedWrites()[0]).toMatchObject({p_actor:owner,p_guest_id:fixture.guestCards()[0].id,p_guest_revision:0,p_guest_name:"Gastname dieser Buchung"});
+  await page.getByRole("button",{name:"Gästekarten",exact:true}).click();
+  await page.getByRole("button",{name:"Gästekarte von Kartengast Beispiel öffnen",exact:true}).click();
+  const card=page.getByRole("dialog",{name:"Gästekarte",exact:true});
+  await card.getByRole("button",{name:"Zugeordnete Reservierungen anzeigen",exact:true}).click();
+  await expect(card).toContainText("1 Reservierungen auf dieser Seite");
+  await card.getByRole("button",{name:/Gastname dieser Buchung.*Reservierung öffnen/}).click();
+  await expect(page.getByRole("dialog",{name:"Reservierung",exact:true})).toContainText("Gastname dieser Buchung");
+});
+
+test("guest history copy without opt-in remains explicitly unlinked",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true});
+  const editor=await openInlineGuestPicker(page);
+  await editor.getByRole("button",{name:"Gäste suchen",exact:true}).click();
+  await editor.getByRole("button",{name:/Kartengast Beispiel.*Kontaktdaten prüfen/}).click();
+  await editor.getByRole("button",{name:"Gastname und Kontakt übernehmen",exact:true}).click();
+  await editor.getByLabel("Buchungsdatum",{exact:true}).fill("2026-10-21");
+  await editor.getByRole("combobox",{name:"Uhrzeit",exact:true}).selectOption({index:1});
+  await editor.getByRole("combobox",{name:"Tisch",exact:true}).selectOption({index:1});
+  await editor.getByRole("button",{name:"Reservierung speichern",exact:true}).click();await expect(editor).toHaveCount(0);
+  expect(fixture.combinedWrites()[0]).toMatchObject({p_actor:owner,p_guest_id:null,p_guest_revision:null});
+  expect([...fixture.associations().values()].filter(link=>link.guest_id)).toHaveLength(0);
+});
+
+test("guest history correction and detach preserve saved reservation contact facts",async({page})=>{
+  await page.setViewportSize({width:320,height:820});
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true});
+  let panel=await openGuestAssociation(page);
+  await chooseGuestAssociation(panel);
+  await expect(panel).toContainText("Zuordnen: Kartengast Beispiel");
+  const {default:AxeBuilder}=await import("@axe-core/playwright");
+  expect((await new AxeBuilder({page}).include('dialog[aria-label="Gästekarte zur Reservierung"]').analyze()).violations).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await panel.screenshot({path:test.info().outputPath("guest-association-correction-phone.png")});
+  await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect(panel).toHaveCount(0);
+  const details=page.getByRole("dialog",{name:"Reservierung",exact:true});await expect(details).toContainText("test@invalid");
+  await expect(details).toContainText("Testgast Abend");
+  fixture.guestCards().push({...fixture.guestCards()[0],id:"56000000-0000-4000-8000-000000000002",name:"Andere Gästekarte"});
+  await details.getByRole("button",{name:"Gästekarte zur Reservierung",exact:true}).click();
+  panel=page.getByRole("dialog",{name:"Gästekarte zur Reservierung",exact:true});
+  await chooseGuestAssociation(panel,"Andere Gästekarte");
+  await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect(panel).toHaveCount(0);
+  expect(fixture.associations().get(reservationId)?.guest_id).toBe("56000000-0000-4000-8000-000000000002");
+  await details.getByRole("button",{name:"Gästekarte zur Reservierung",exact:true}).click();
+  await panel.getByRole("button",{name:"Zuordnung aufheben",exact:true}).click();
+  await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect(panel).toHaveCount(0);
+  await expect(details).toContainText("test@invalid");expect(fixture.associations().get(reservationId)?.guest_id).toBe(null);
+  expect(fixture.associations().get(reservationId)?.events).toHaveLength(3);
+  expect(fixture.amendRequests()).toHaveLength(0);expect(fixture.statusRequests()).toHaveLength(0);
+});
+
+for(const mode of ["lost","malformed"] as const)test("guest history uncertain association freezes one original intent: "+mode,async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true,guestHistoryLinked:true,guestHistoryUncertain:mode==="lost",guestHistoryMalformed:mode==="malformed"});
+  const panel=await openGuestAssociation(page);
+  await panel.getByRole("button",{name:"Zuordnung aufheben",exact:true}).click();
+  await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();
+  await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  await expect(panel.getByRole("button",{name:"Gespeicherten Gast auswählen",exact:true})).toHaveCount(0);
+  await panel.getByRole("button",{name:"Zuordnungsanfrage prüfen",exact:true}).click();await expect(panel).toHaveCount(0);
+  const calls=fixture.associationRequests();expect(calls.filter(c=>!c.p_recover)).toHaveLength(1);expect(new Set(calls.map(c=>c.p_request_id)).size).toBe(1);
+  for(const call of calls)expect(call.p_intent).toEqual(calls[0].p_intent);
+});
+
+test("guest history pre-dispatch recovery failure preserves an editable assignment draft",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true,guestHistoryRecoverError:true});
+  const panel=await openGuestAssociation(page);await chooseGuestAssociation(panel);
+  await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect(panel.getByRole("alert")).toBeVisible();
+  expect(fixture.associationRequests().filter(r=>!r.p_recover)).toHaveLength(0);
+  await expect(panel.getByRole("button",{name:"Gespeicherten Gast auswählen",exact:true})).toBeEnabled();
+  await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect(panel).toHaveCount(0);
+  expect(fixture.associationRequests().filter(r=>!r.p_recover)).toHaveLength(1);
+});
+
+test("guest history stale association requires explicit current-state reload",async({page})=>{
+  await mockConsole(page,{seeded:true,guestHistory:true,guestHistoryConflict:true});
+  const panel=await openGuestAssociation(page);await chooseGuestAssociation(panel);
+  await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect(panel.getByRole("alert")).toContainText("Zuordnung wurde inzwischen geändert");
+  await expect(panel).toContainText("Zuordnen: Kartengast Beispiel");await expect(panel.getByRole("button",{name:"Zuordnung speichern",exact:true})).toBeDisabled();
+  await panel.getByRole("button",{name:"Aktuelle Zuordnung neu laden",exact:true}).click();
+  await expect(panel.getByRole("alert")).toHaveCount(0);await expect(panel.getByRole("region",{name:"Zuordnung prüfen",exact:true})).toHaveCount(0);
+  await chooseGuestAssociation(panel);await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect(panel).toHaveCount(0);
+});
+
+test("guest history viewer reads an association without write controls",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true,guestHistoryLinked:true,teams:true,teamRole:"viewer"});
+  const panel=await openGuestAssociation(page);await expect(panel).toContainText("Zugeordnet: Kartengast Beispiel");
+  for(const name of ["Gespeicherten Gast auswählen","Zuordnung aufheben","Zuordnung speichern"])await expect(panel.getByRole("button",{name,exact:true})).toHaveCount(0);
+  expect(fixture.associationRequests()).toHaveLength(0);
+});
+
+test("guest history paging labels cancellations without exposing contact or notes",async({page})=>{
+  await mockConsole(page,{seeded:true,guestHistory:true,guestHistoryPaged:true});
+  const card=await openDefaultGuestCard(page);
+  await card.getByRole("button",{name:"Zugeordnete Reservierungen anzeigen",exact:true}).click();
+  await expect(card).toContainText("25 Reservierungen auf dieser Seite");await expect(card.getByText("Storniert",{exact:true})).toHaveCount(25);
+  await expect(card).not.toContainText("PRIVATE_HISTORY_CONTACT");await expect(card).not.toContainText("PRIVATE_HISTORY_NOTE");
+  await card.getByRole("button",{name:"Weitere zugeordnete Reservierungen",exact:true}).click();await expect(card).toContainText("5 Reservierungen auf dieser Seite");
+});
+
+test("guest history offline assignment draft survives without submitting",async({page,context})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true});
+  const panel=await openGuestAssociation(page);await chooseGuestAssociation(panel);
+  await context.setOffline(true);await expect(panel).toContainText("dein Zuordnungsentwurf bleibt erhalten");await expect(panel.getByRole("button",{name:"Zuordnung speichern",exact:true})).toBeDisabled();
+  await context.setOffline(false);await expect(panel).toContainText("Zuordnen: Kartengast Beispiel");await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect(panel).toHaveCount(0);
+  expect(fixture.associationRequests().filter(r=>!r.p_recover)).toHaveLength(1);
+});
+
+for(const endpoint of ["booking_console_reservation_guest_v1","booking_console_reservation_guest_write_v1","booking_console_guest_reservations_v1"])test("guest history server denial removes private workspace: "+endpoint,async({page})=>{
+  await mockConsole(page,{seeded:true,guestHistory:true});
+  await page.route("**/rest/v1/rpc/"+endpoint,route=>route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}}));
+  if(endpoint==="booking_console_guest_reservations_v1"){const card=await openDefaultGuestCard(page);await card.getByRole("button",{name:"Zugeordnete Reservierungen anzeigen",exact:true}).click();}
+  else{const panel=await openGuestAssociation(page);if(endpoint.endsWith("write_v1")){await chooseGuestAssociation(panel);await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();}}
+  await expect(page.getByRole("dialog")).toHaveCount(0);await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+});
+
+for(const denied of [false,true])test("guest history pending recovery stays with its original account: "+(denied?"late denial":"late empty result"),async({page,context})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true});
+  let release=()=>{},called=false,replied=false,mutations=0;
+  const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/rest/v1/rpc/booking_console_reservation_guest_write_v1",async route=>{
+    if(!route.request().postDataJSON().p_recover){mutations++;return route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});}
+    called=true;await gate;
+    try{if(denied)await route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});else await route.fulfill({json:null});}catch{/* old context was removed */}finally{replied=true;}
+  });
+  const panel=await openGuestAssociation(page);await chooseGuestAssociation(panel);
+  await panel.getByRole("button",{name:"Zuordnung speichern",exact:true}).click();await expect.poll(()=>called).toBe(true);
+  const nextUser={...fixture.session.user,id:"58000000-0000-4000-8000-000000000099",email:"other@booking.invalid"};
+  const parts=fixture.session.access_token.split("."),claims=JSON.parse(Buffer.from(parts[1],"base64url").toString("utf8"));claims.sub=nextUser.id;
+  const nextSession={...fixture.session,user:nextUser,access_token:parts[0]+"."+Buffer.from(JSON.stringify(claims)).toString("base64url")+".local-signature"};
+  await page.route("**/auth/v1/user",route=>route.fulfill({json:nextUser}));
+  await context.addCookies([{name:"sb-127-auth-token",value:"base64-"+Buffer.from(JSON.stringify(nextSession)).toString("base64url"),domain:"127.0.0.1",path:"/"}]);
+  await page.evaluate(session=>{const c=new BroadcastChannel("sb-127-auth-token");c.postMessage({event:"SIGNED_IN",session});c.close();},nextSession);
+  await expect(panel).toHaveCount(0);await page.getByRole("button",{name:"+ Neue Reservierung",exact:true}).click();
+  const editor=page.getByRole("dialog",{name:"Neue Reservierung",exact:true});await editor.getByLabel("Gastname",{exact:true}).fill("Neuer Booking-Kontext");
+  release();await expect.poll(()=>replied).toBe(true);await expect(editor.getByLabel("Gastname",{exact:true})).toHaveValue("Neuer Booking-Kontext");expect(mutations).toBe(0);
+});
+
+test("guest history late private read cannot return after logout",async({page})=>{
+  await mockConsole(page,{seeded:true,guestHistory:true});
+  let release=()=>{},called=false;const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/rest/v1/rpc/booking_console_guest_reservations_v1",async route=>{called=true;await gate;try{await route.fulfill({json:{reservations:[],next_cursor:null}});}catch{/* logout abort */}});
+  const card=await openDefaultGuestCard(page);await card.getByRole("button",{name:"Zugeordnete Reservierungen anzeigen",exact:true}).click();await expect.poll(()=>called).toBe(true);
+  await page.evaluate(()=>{const c=new BroadcastChannel("sb-127-auth-token");c.postMessage({event:"SIGNED_OUT",session:null});c.close();});
+  await expect(page.getByRole("link",{name:"Zur Booking Console anmelden",exact:true})).toBeVisible();release();await expect(card).toHaveCount(0);
+});
+
+test("guest history permission polling removes an open assignment on role downgrade",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true,teams:true,teamRole:"host"});
+  const panel=await openGuestAssociation(page);await chooseGuestAssociation(panel);fixture.setTeamRole("viewer");await page.clock.runFor(30_000);
+  await expect(panel).toHaveCount(0);await expect(page.getByRole("button",{name:"+ Neue Reservierung",exact:true})).toHaveCount(0);
+  expect(fixture.associationRequests().filter(r=>!r.p_recover)).toHaveLength(0);
+});
+
+test("guest history stale selected card preserves the booking draft and allows explicit unlinked creation",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true});const editor=await openInlineGuestPicker(page);
+  await editor.getByRole("button",{name:"Gäste suchen",exact:true}).click();await editor.getByRole("button",{name:/Kartengast Beispiel.*Kontaktdaten prüfen/}).click();await editor.getByRole("button",{name:"Gastname und Kontakt übernehmen",exact:true}).click();
+  const checkbox=editor.getByRole("checkbox",{name:"Reservierung dieser Gästekarte zuordnen",exact:true});await checkbox.check();
+  await editor.getByLabel("Buchungsdatum",{exact:true}).fill("2026-10-21");await editor.getByRole("combobox",{name:"Uhrzeit",exact:true}).selectOption({index:1});await editor.getByRole("combobox",{name:"Tisch",exact:true}).selectOption({index:1});
+  fixture.guestCards()[0].revision=1;fixture.guestCards()[0].name="Korrigierte Gästekarte";
+  await editor.getByRole("button",{name:"Reservierung speichern",exact:true}).click();await expect(editor.getByRole("alert")).toContainText("Gästekarte wurde inzwischen geändert");
+  await expect(editor.getByLabel("Gastname",{exact:true})).toHaveValue("Kartengast Beispiel");expect(fixture.associations().size).toBe(0);
+  await checkbox.uncheck();await editor.getByRole("button",{name:"Reservierung speichern",exact:true}).click();await expect(editor).toHaveCount(0);
+  expect(fixture.combinedWrites().at(-1)).toMatchObject({p_guest_id:null,p_guest_revision:null});
+});
+
+test("guest history uncertain atomic create replays its original card selection after card correction",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,guestHistory:true,uncertainCreate:true});const editor=await openInlineGuestPicker(page);
+  await editor.getByRole("button",{name:"Gäste suchen",exact:true}).click();await editor.getByRole("button",{name:/Kartengast Beispiel.*Kontaktdaten prüfen/}).click();await editor.getByRole("button",{name:"Gastname und Kontakt übernehmen",exact:true}).click();
+  const checkbox=editor.getByRole("checkbox",{name:"Reservierung dieser Gästekarte zuordnen",exact:true});await checkbox.check();
+  await editor.getByLabel("Buchungsdatum",{exact:true}).fill("2026-10-21");await editor.getByRole("combobox",{name:"Uhrzeit",exact:true}).selectOption({index:1});await editor.getByRole("combobox",{name:"Tisch",exact:true}).selectOption({index:1});
+  await editor.getByRole("button",{name:"Reservierung speichern",exact:true}).click();await expect(editor.getByRole("alert")).toContainText("Speicherstatus ist unklar");await expect(checkbox).toBeDisabled();
+  fixture.guestCards()[0].revision=1;fixture.guestCards()[0].name="Zwischenzeitlich korrigiert";
+  await editor.getByRole("button",{name:"Reservierung speichern",exact:true}).click();await expect(editor).toHaveCount(0);
+  expect(fixture.combinedWrites()).toHaveLength(2);expect(fixture.combinedWrites()[1]).toEqual(fixture.combinedWrites()[0]);expect(fixture.associations().size).toBe(1);
 });

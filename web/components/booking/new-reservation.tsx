@@ -1,15 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { bookingAllocationLabel, bookingTableIds, bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, restaurantSlotTime, type BookingSlot, type BookingSnapshot, type ConsoleBookingSource } from "@/lib/booking-api";
+import { bookingAllocationLabel, bookingTableIds, bookingError, bookingWriteUncertain, bookingReadDenied, createBooking, readBookingSlots, restaurantDate, restaurantTime, restaurantSlotTime, type BookingSlot, type BookingSnapshot, type ConsoleBookingSource } from "@/lib/booking-api";
 import { ReservationGuestPicker } from "./reservation-guest-picker";
 import { ConsolePanel } from "./console-panel";
 import styles from "./console.module.css";
 
 export type CreatedBooking = { date: string; slot: BookingSlot };
 
-export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId = "", tableId = "", time = "", initialGuest, online, isCurrent, onDenied, onCreated, onBusy, onClose }: {
-  spotId: string; date: string; snapshot: BookingSnapshot; serviceId?: string; areaId?: string; tableId?: string; time?: string; initialGuest?: { name: string; contact: string };
+export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId = "", tableId = "", time = "", initialGuest, actorId, online, isCurrent, onDenied, onCreated, onBusy, onClose }: {
+  spotId: string; date: string; snapshot: BookingSnapshot; serviceId?: string; areaId?: string; tableId?: string; time?: string; initialGuest?: { name: string; contact: string; card?: { id: string; revision: number } };
+  actorId: string;
   online: boolean; isCurrent: () => boolean; onDenied: () => void;
   onCreated: (booking: CreatedBooking) => Promise<void>; onBusy: (value: boolean) => void; onClose: (uncertain?: boolean, date?: string) => void;
 }) {
@@ -23,6 +24,9 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   const [selected, setSelected] = useState("");
   const [name, setName] = useState(initialGuest?.name ?? "");
   const [contact, setContact] = useState(initialGuest?.contact ?? "");
+  const [candidate, setCandidate] = useState(initialGuest?.card ? { ...initialGuest.card, name: initialGuest.name } : null);
+  const [associate, setAssociate] = useState(false);
+  const guestContext = snapshot.capabilities?.guest_history ? { actorId, card: associate && candidate ? { id: candidate.id, revision: candidate.revision } : null } : undefined;
   const [copiedGuest, setCopiedGuest] = useState(!!initialGuest);
   const [note, setNote] = useState("");
   const [source, setSource] = useState<ConsoleBookingSource>(initialGuest ? "operator" : "phone");
@@ -85,16 +89,18 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (inFlight.current || (!frozen.current && (!validParty || !validDate || !slot || !available.includes(slot) || !name.trim()))) return;
+    if (!online || !isCurrent() || inFlight.current || (!frozen.current && (!validParty || !validDate || !slot || !available.includes(slot) || !name.trim()))) return;
     inFlight.current = true; setBusy(true); onBusy(true); setError(null);
-    const key = JSON.stringify({ slot, partySize, name, contact, note, source, status });
+    const key = JSON.stringify({ slot, partySize, name, contact, note, source, status, guestContext });
     if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
     try {
-      const operation = frozen.current ?? { booking: { requestId: request.current.id, slot: slot!, partySize, name, contact, note, source, status }, date: bookingDate };
+      const operation = frozen.current ?? { booking: { requestId: request.current.id, slot: slot!, partySize, name, contact, note, source, status, guestContext }, date: bookingDate };
       frozen.current = operation;
       await createBooking(spotId, operation.booking);
       await onCreated({ date: operation.date, slot: operation.booking.slot });
     } catch (error) {
+      if (!isCurrent()) return;
+      if (bookingReadDenied(error)) { onDenied(); return; }
       setError(bookingError(error));
       if (uncertain || bookingWriteUncertain(error)) { setUncertain(true); generation.current += 1; }
       else frozen.current = null;
@@ -109,11 +115,12 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
       <fieldset disabled={busy || uncertain} className={styles.fieldset}>
         <div className={styles.drawerBody}>{copiedGuest && <p className={styles.help}>Kontaktdaten aus einer Gästekarte übernommen. Prüfe die Angaben für diese Reservierung. Änderungen hier betreffen diese Buchung.</p>}
           <p className={styles.editorContext}>{snapshot.services.find((s) => s.id === service)?.name ?? "Alle Services"} · {snapshot.areas.find((a) => a.id === area)?.name ?? "Alle Bereiche"}{tableId ? " · " + snapshot.tables.find((t) => t.id === tableId)?.label : ""}</p>
-          {snapshot.capabilities?.guest_cards && <ReservationGuestPicker spotId={spotId} online={online} disabled={busy || uncertain} isCurrent={isCurrent} onDenied={onDenied} onCopy={copy => { setName(copy.name); setContact(copy.contact); setCopiedGuest(true); setEdited(true); }} />}
+          {snapshot.capabilities?.guest_cards && <ReservationGuestPicker spotId={spotId} online={online} disabled={busy || uncertain} isCurrent={isCurrent} onDenied={onDenied} onCopy={copy => { setName(copy.name); setContact(copy.contact); setCandidate({ ...copy.card, name: copy.name }); setAssociate(false); setCopiedGuest(true); setEdited(true); }} />}
           <div className={styles.fields}>
             <label>Gastname<input data-initial-focus required maxLength={120} placeholder="Für wen reservieren wir?" value={name} autoComplete="off" onChange={(e) => setName(e.target.value)} /></label>
           </div>
           <label>Telefon oder E-Mail (optional)<input maxLength={320} value={contact} autoComplete="off" onChange={(e) => setContact(e.target.value)} /></label>
+          {snapshot.capabilities?.guest_history && candidate && <section className={styles.cardCopy} aria-label="Gästekarte zuordnen"><p className={styles.help}>Gewählte Gästekarte: {candidate.name}</p><label className={styles.checkbox}><input type="checkbox" checked={associate} onChange={event => setAssociate(event.target.checked)} />Reservierung dieser Gästekarte zuordnen</label><p className={styles.help}>{associate ? "Die Buchung erscheint nach dem Speichern in den zugeordneten Reservierungen dieser Karte. Prüfe die Personenzuordnung; Name und Kontakt dieser Buchung bleiben eigene Angaben." : "Nur Kontaktdaten übernehmen. Ohne Zuordnung erscheint diese Buchung nicht im Verlauf der Karte."}</p></section>}
           <div className={styles.fields}>
             <div className={styles.partyPicker}><label>Personen<input type="number" inputMode="numeric" min={1} max={maxPartySize} step={1} required value={party} onChange={(e) => { setParty(e.target.value); clearAvailability(); }} /></label>
               <div className={styles.partyChoices} role="group" aria-label="Personenzahl schnell wählen">
@@ -144,7 +151,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
           <p className={styles.help}>Die Bestätigung wird im System gespeichert. Es wird keine Nachricht an den Gast versendet.</p>
         </div>
       </fieldset>
-        <footer className={styles.editorFooter}><span>Europe/Zurich · {status === "confirmed" ? "Bestätigt" : "Anfrage offen"}</span><button className={styles.primary} disabled={busy || (!uncertain && (checking || !validParty || !validDate || !slot || !name.trim()))}>{busy ? "Speichert …" : "Reservierung speichern"}</button></footer>
+        <footer className={styles.editorFooter}><span>Europe/Zurich · {status === "confirmed" ? "Bestätigt" : "Anfrage offen"}</span><button className={styles.primary} disabled={busy || !online || (!uncertain && (checking || !validParty || !validDate || !slot || !name.trim()))}>{busy ? "Speichert …" : "Reservierung speichern"}</button></footer>
     </form>
   </ConsolePanel>;
 }

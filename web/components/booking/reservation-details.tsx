@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { bookingAllocationLabel, bookingError, restaurantDate, restaurantTime, setBookingStatus, type BookingReservation, type BookingSlot, type BookingSnapshot, type BookingStatus } from "@/lib/booking-api";
+import { ReservationGuest } from "./reservation-guest";
 import { ConsolePanel } from "./console-panel";
 import { ManualConfirmation } from "./manual-confirmation";
 import { ReissueGuestLink } from "./reissue-guest-link";
@@ -15,7 +16,8 @@ export { statusLabels } from "./reservation-labels";
 import { statusLabels } from "./reservation-labels";
 const sources = { phone: "Telefon", email: "E-Mail", walk_in: "Vor Ort", operator: "Betreiber", website: "Online-Buchung" };
 
-export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, onDenied, onSaved, onAmended, onReload, onTransferred, onBusy, onUncertain }:  {
+export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, onDenied, onSaved, onAmended, onReload, onTransferred, onBusy, onUncertain, actorId, online, isCurrent }:  {
+  actorId: string; online: boolean; isCurrent: () => boolean;
   spotId: string; reservation: BookingReservation; snapshot: BookingSnapshot;
   onClose: () => void; onDenied: () => void; onSaved: () => Promise<void>; onTransferred: () => Promise<void>; onReload: () => Promise<void>; onBusy: (busy: boolean) => void;
   onUncertain: (date: string) => void;
@@ -24,6 +26,8 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
   const [target, setTarget] = useState<BookingStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [associationOpen, setAssociationOpen] = useState(false);
+  const [associationNotice, setAssociationNotice] = useState(false);
   const [editing, setEditing] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -51,6 +55,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
     try { await onReload(); setTarget(null); setError(null); }
     finally { inFlight.current = false; setBusy(false); onBusy(false); }
   }
+  if (associationOpen) return <ReservationGuest key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} actorId={actorId} reservation={r} online={online} canWrite={canWrite} isCurrent={isCurrent} onDenied={onDenied} onBusy={onBusy} onReload={onReload} onClose={uncertain => { if (uncertain) onUncertain(restaurantDate(new Date(r.starts_at))); else setAssociationOpen(false); }} onSaved={async () => { setAssociationNotice(true); setAssociationOpen(false); await onReload(); }} />;
   if (transferring) return <TransferReservation spotId={spotId} reservation={r} snapshot={snapshot} onClose={(uncertain) => { if (uncertain) onUncertain(snapshot.operating_date ?? restaurantDate()); else setTransferring(false); }} onBusy={onBusy} onDenied={onDenied} onReload={onReload} onSaved={async () => { await onTransferred(); setTransferring(false); }} />;
   if (editing) return <EditReservation spotId={spotId} reservation={r} snapshot={snapshot} onClose={(uncertain, date) => { if (uncertain) onUncertain(date ?? restaurantDate(new Date(r.starts_at))); else setEditing(false); }} onBusy={onBusy} onReload={onReload} onSaved={async (date, slot) => { await onAmended(date, slot); setEditing(false); }} />;
   return <ConsolePanel focusFallbackSelector="[data-booking-workspace-focus]" title="Reservierung" busy={busy} uncertain={mailPending} uncertainHelp="Ein Gastlink-Auftrag ist noch offen. Beim erneuten Öffnen in diesem Tab kannst du ausschliesslich denselben Auftrag prüfen oder wiederholen." onClose={onClose}>
@@ -77,6 +82,8 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
       {mailNotice && <p role="status" className={styles.note}>{mailNotice}</p>}
       {writeAccess && r.source==="website" && snapshot.capabilities?.guest_link_reissue && <ReissueGuestLink key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservation={r} onBusy={(value) => { setBusy(value); onBusy(value); }} onPending={setMailPending} onDenied={onDenied} onSaved={async (queued) => { setMailNotice(queued ? "Die neue Bestätigung wurde zur Vorbereitung eingereiht. Das bestätigt noch keinen Versand. Prüfe den Versandstatus." : "Der frühere Auftrag wurde nicht ausgeführt. Die Reservierung wurde inzwischen geändert; der aktuelle Stand wird geladen."); await onReload(); }} />}
       {writeAccess&&snapshot.capabilities?.manual_guest_mail&&["phone","email","operator"].includes(r.source)&&<ManualConfirmation key={`${spotId}:${r.id}`} spotId={spotId} reservation={r} onBusy={value=>{setBusy(value);onBusy(value);}} onPending={setMailPending} onDenied={onDenied} onQueued={async()=>{setMailNotice("Die Gastnachricht wurde vorbereitet. Prüfe den aktuellen Versand- und Zustellstand unter Gastnachrichten.");setMailOpen(true);await onReload();}} onReload={onReload} />}
+      {associationNotice && <p role="status" className={styles.note}>Die Zuordnung wurde gespeichert. Die Buchungsangaben bleiben erhalten.</p>}
+      {snapshot.capabilities?.guest_history && <div className={styles.historySection}><button type="button" className={styles.secondary} disabled={busy || mailPending || !online} onClick={() => setAssociationOpen(true)}>Gästekarte zur Reservierung</button></div>}
       {snapshot.capabilities?.guest_mail && <div className={styles.historySection}><button type="button" className={styles.secondary} aria-expanded={mailOpen} onClick={() => setMailOpen(!mailOpen)}>{mailOpen ? "Gastnachrichten ausblenden" : "Gastnachrichten anzeigen"}</button>{mailOpen && <ReservationMail key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservationId={r.id} revision={r.revision ?? 0} manual={snapshot.capabilities?.manual_guest_mail===true} onDenied={onDenied} onReload={onReload} />}</div>}
       {snapshot.capabilities?.reservation_history && <div className={styles.historySection}><button type="button" className={styles.secondary} aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}>{historyOpen ? "Änderungsverlauf ausblenden" : "Änderungsverlauf anzeigen"}</button>{historyOpen && <ReservationHistory key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservationId={r.id} revision={r.revision ?? 0} onDenied={onDenied} onReload={onReload} />}</div>}
     </div>

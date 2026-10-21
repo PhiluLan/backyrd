@@ -43,3 +43,13 @@ restaurant/Owner-scoped contact cards, minimal mutation receipts and change
 metadata. Authenticated RPCs enforce current team/Safety boundaries; there are
 no direct client/service-role table grants. It adds no automatic reservation
 identity linkage. See [guest cards](../operations/BOOKING_GUEST_CARDS.md).
+
+The subsequent guest-history candidate adds private `reservation_guests_v1`,
+`reservation_guest_requests_v1` and `reservation_guest_events_v1`. These store
+explicit, reversible staff associations with independent revisions and minimal
+original-operation/change metadata. An actor-bound v3 wrapper retains the
+canonical v2 allocator and commits booking plus optional association atomically;
+older clients retain their contracts. All direct client/worker table grants are
+revoked. Current Owner/team/Safety checks, archive redaction and scoped paginated
+reads apply; matching contact values never infer identity. See
+[guest cards and reservation history](../operations/BOOKING_GUEST_CARDS.md).
