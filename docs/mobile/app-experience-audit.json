@@ -247,7 +247,7 @@
     {
       "priority": "P1",
       "title": "Langer Name bei maximaler Systemschrift",
-      "description": "Die Header-Aktionen erhalten bei vergrösserter Systemschrift eine eigene Zeile. Der Begrüssung bleibt die volle Breite; der Vorname bricht auf dem kleinen iPhone nicht mehr mitten im Wort um. Standardansicht und auffälliges Plus bleiben erhalten.",
+      "description": "Die Header-Aktionen erhalten bei vergrösserter Systemschrift eine eigene Zeile. Der Begrüssung bleibt die volle Breite; der Vorname bricht auf dem kleinen iPhone nicht mehr mitten im Wort um. Standardansicht und auffälliges Plus bleiben erhalten. Native Ortsliste zeigt korrekt „1 Ort“ und benennt das Suchfeld für Screenreader. Der Filter erhält einen begrenzten Inhaltsbereich und verzichtet auf den redundanten Satz unter dem Titel.",
       "source": "mobile/app/(tabs)/index.tsx",
       "validation": "Nativer Vorher-/Nachher-Vergleich auf 375pt mit accessibility-extra-extra-extra-large; Typecheck und geänderte Datei ESLint."
     }
@@ -344,14 +344,18 @@
       "camera denied recovery",
       "manual place without location",
       "two Moods preserved through place selection",
-      "native discard confirmation and keep editing"
+      "native discard confirmation and keep editing",
+      "native result singular label",
+      "native named search field",
+      "native filter selection and apply through accessibility actions"
     ],
     "notVerified": [
       "physical camera capture",
       "physical-device OTA installation",
       "complete VoiceOver spoken order",
       "live two-account messaging",
-      "new native permission strings in installed shells"
+      "new native permission strings in installed shells",
+      "complete filter touch-scroll gestures through the desktop automation bridge"
     ],
     "productionWrites": 0
   }
