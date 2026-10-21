@@ -61,3 +61,13 @@ npm --workspace web run test:e2e -- e2e/booking-mobile.spec.ts
 ```
 
 The tests wait until the startup overlay actually releases the controls, intercept the synthetic Supabase/Booking requests, and use only synthetic user/capability fixtures. Run the standard Mobile contract chain via `npm --prefix mobile run test:contracts`; `test:booking` is included in it. Stop the local server after acceptance. A test export is not a production release command.
+
+### Final local acceptance
+
+- **13/13** actual Expo-export browser journeys passed, including guest and signed-in 320px layouts, complete tab text (measured against clipping ancestors), retained moment touch target, accessibility of the Booking surface, pending/confirmed distinction, original terms, unknown cancellation across reload, fresh confirmation revisions, storage failures, invalid/revoked credentials, local-only removal and returning to an in-flight write without replaying a late private view.
+- **16/16** new wallet/service tests and the complete standard Mobile contract chain passed. The final credential read explicitly refuses a record removed between the last two reads; it cannot fall back to a forgotten cached capability.
+- **101/101** Web contract tests and **156/156** Booking Web browser journeys passed. Both surfaces retain an unknown cancellation on a quota-rejected retry and can settle it using a current higher revision.
+- Mobile, Web and shared TypeScript; Web production build; isolated iOS/Android Hermes and Web exports; canonical secret scan and client-secret boundary all passed. Lint has no errors, one unchanged Mobile warning and 13 unchanged Web warnings.
+- The parent 209 exact-input database receipt still validates (`resume-evidence: PASS`, SHA256 `1e6445b07ad4d51e0440d1ca36bbfbaa88ef7edc1db2842408ae7356ad993188`). No new database execution or migration is claimed by this client-only increment.
+
+Actual iOS/Android execution, native secure-storage and network behavior, account-wide association, store/OTA release, production server readiness and restaurant pilot acceptance remain unverified. The mock app browser results must not be represented as physical-device or production evidence.
