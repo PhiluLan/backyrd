@@ -14,7 +14,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.51';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.57';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -215,8 +215,28 @@ function brandOverviewForSpecificVenue(source:ResearchSource,spot:SpotContext):b
   if(!venueScopePath(website).length)return false;
   return /^\/(?:de|en|fr|it)\/(?:home|index)(?:\.html)?\/?$/iu.test(new URL(source.url).pathname)||new URL(source.url).pathname==='/';
 }
+function genericChainServiceSeed(spot:SpotContext):boolean {
+  const website=spot.existingValues?.['contact.website']?.value;
+  if(typeof website!=='string')return false;
+  return /(?:^|\/)services?\/(?:[^/]+\/)*[^/]+\/?$/iu.test(new URL(website).pathname);
+}
+export function chainBranchCityPath(url:string,spot:SpotContext):boolean {
+  const locality=spot.locality??spot.existingValues?.['location.locality']?.value;
+  if(typeof locality!=='string'||locality.length<3)return false;
+  const slug=locality.normalize('NFKD').replace(/\p{M}/gu,'').toLocaleLowerCase().replace(/[^a-z0-9]+/gu,'-');
+  return new URL(url).pathname.split('/').some(part=>part.toLocaleLowerCase()===slug||part.toLocaleLowerCase().startsWith(slug+'-'));
+}
+function exactChainBranchSource(source:ResearchSource,spot:SpotContext):boolean {
+  const address=spot.existingValues?.['location.address_line1']?.value;
+  if(typeof address!=='string'||address.length<8||!chainBranchCityPath(source.url,spot))return false;
+  const normalized=(value:string)=>value.normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ');
+  const identity=normalized(source.text.slice(0,1600));
+  return identity.includes(normalized(spot.name))&&identity.includes(normalized(address));
+}
 function venueScopePath(value:string):string[] {
   const parts=new URL(value).pathname.split('/').filter(Boolean).filter((part,index)=>index!==0||!/^(?:de|en|fr|it)$/iu.test(part));
+  // A chain-wide service article is not the path of an individual hotel.
+  if(parts[0]&&/^services?$/iu.test(parts[0]))return [];
   while(parts.length&&/^(?:infos?-kontakt|kontakt|contact|info(?:rmation(?:en)?)?|oeffnungszeiten|öffnungszeiten|opening[-_]?hours|hours|besuch|visit)$/iu.test(parts.at(-1)!))parts.pop();
   return parts;
 }
@@ -236,6 +256,7 @@ function sourceOutsideBranchPath(sourceUrl:string,spot:SpotContext):boolean {
 }
 function contactOutsideVenueSection(source:ResearchSource,f:EvidenceFact,spot:SpotContext):boolean {
   if(!['contact.phone','contact.public_email'].includes(f.field))return false;
+  if(genericChainServiceSeed(spot)&&exactChainBranchSource(source,spot))return false;
   const website=spot.existingValues?.['contact.website']?.value;
   if(typeof website!=='string')return false;
   const venuePath=new URL(website).pathname.replace(/^\/(?:de|en|fr|it)(?=\/)/iu,'').replace(/\/+$/u,'');
@@ -441,6 +462,7 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
   if(source.delegatedBy&&(f.field!=='experience.profile'||!['GUIDED_TOUR','VISIT'].includes(f.offerKind)))return 'DELEGATED_OPERATOR_FIELD_SCOPE';
   if(f.quote.includes('[Auszug: mittlerer Seitenteil ausgelassen]'))return 'EXCERPT_GAP_NOT_EVIDENCE';
   if(brandOverviewForSpecificVenue(source,spot))return 'BRAND_HOME_NOT_VENUE_SOURCE';
+  if(genericChainServiceSeed(spot)&&!exactChainBranchSource(source,spot))return 'CHAIN_BRANCH_IDENTITY_UNCONFIRMED';
   if(['description.highlight','experience.profile','offering.groups'].includes(f.field)&&/(?:angebot|menu|menü|assortment).{0,90}(?:variiert|varies|vary).{0,100}(?:standort|location|filiale|branch)|(?:variiert|varies|vary).{0,100}(?:standort|location|filiale|branch)/iu.test(source.text.slice(0,700)))return 'BRAND_MENU_LOCATION_UNCONFIRMED';
   if(sourceOutsideBranchPath(source.url,spot))return 'BRANCH_SOURCE_OUTSIDE_LOCATION_PATH';
   if(['description.highlight','experience.profile'].includes(f.field)&&limitedCampaignContext(source,f.quote,f.sourceOffset))return 'LIMITED_CAMPAIGN_NOT_PERMANENT';
@@ -1043,6 +1065,7 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
     (/(?:^|\/)(?:team|staff|employees|mitarbeitende)(?:\.html|\/|$)/iu.test(new URL(link.url).pathname)?-180:0)+
     (open.some(f=>f.attributeKey==='amenity.features')&&/(?:park(?:en|ing|pl[aä]tze)?|anfahrt|directions)/iu.test(new URL(link.url).pathname+' '+link.label)?120:0)+
     (open.some(f=>f.attributeKey==='amenity.features')&&/(?:fitness|facilities|ausstattung)/iu.test(new URL(link.url).pathname+' '+link.label)?40:0)+
+    (open.some(f=>f.attributeKey==='amenity.features'&&f.profileCategory==='STAY')&&/(?:^|\/)(?:services?|vorteile|advantages|amenities)(?:\/|$)/iu.test(new URL(link.url).pathname)?320:0)+
     (open.some(f=>f.attributeKey==='offering.groups'&&f.profileCategory==='STAY')&&/(?:^|\/)(?:essen-und-trinken|food-and-drink|food-and-beverage|breakfast|fr[uü]hst[uü]ck)(?:\/|$)/iu.test(new URL(link.url).pathname)?180:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&link.topics.includes('experience')?35:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:^|\/)(?:museum|sammlung|collection)(?:\.html|\/|$)/iu.test(new URL(link.url).pathname)&&/(?:sammlung|collection|museum)/iu.test(link.label+' '+leaf(link.url))?220:0)+
@@ -1072,7 +1095,8 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const cultureResearch=fields.some(field=>field.profileCategory==='CULTURE_ARTS');
   const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|[^/]*reservierung(?:en)?|reservations?|booking|[^/]*(?:buchen|buchung|reservieren)|room-rental|raumvermietung|location-de-salle|ihr[-_]anlass|ihrevent|your[-_]?event|press|presse|media|medien|digital|video|videos|impressionen|gallery|galerie|aktuelles|news|events?|verein|association|friends|freunde(?:[-_][^/]*)?|datenschutzerklaerung|privacy|terms|agb|legal|impressum|imprint|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
-  const stayAncillary=(url:string)=>/(?:^|\/)(?:sitzungszimmer|meeting[-_]?rooms?|conference[-_]?rooms?|seminar[-_]?rooms?|gaeste[-_]?services?|g[aä]ste[-_]?services?|guest[-_]?services?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
+  const stayAncillary=(url:string)=>/(?:^|\/)(?:sitzungszimmer|meeting[-_]?rooms?|meetings[-_]?seminars?|conference[-_]?rooms?|seminar[-_]?rooms?|events?[-_]?banquets?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
+  const guestServices=(url:string)=>/(?:^|\/)(?:gaeste[-_]?services?|g[aä]ste[-_]?services?|guest[-_]?services?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
   const stayInventoryComplete=hotelInventoryCovered(facts,sources);
   const roomDetail=(url:string)=>{
     const path=new URL(url).pathname,leaf=path.split('/').filter(Boolean).at(-1)??'';
@@ -1091,7 +1115,7 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const roomHire=(url:string)=>/(?:^|\/)(?:room[-_]hire|venue[-_]hire|salle[-_]a[-_]louer)(?:\/|$)/iu.test(new URL(url).pathname);
   const nonFoodAdmission=(url:string)=>/(?:^|\/)(?:eintrittspreise?|ticket[-_]?preise?|admission[-_]?prices?|pricing)(?:\/|$)/iu.test(new URL(url).pathname);
   const hotelOfferingsOpen=open.some(field=>field.attributeKey==='offering.groups'&&field.profileCategory==='STAY');
-  const candidates=frontier.filter(link=>link.depth<=3&&(link.depth===0||!scopedPage(link.url))&&!roomHire(link.url)&&!(stayProfileOnly&&stayAncillary(link.url))&&!(stayInventoryComplete&&(roomDetail(link.url)||translatedRoomOverview(link.url)))&&!translatedPageAlreadyRead(link.url)&&!(stayInventoryComplete&&stayFoodArea(link.url)&&!hotelOfferingsOpen)&&!(cultureResearch&&cultureBackground(link.url))&&!(nonFoodAdmission(link.url)&&nonFood)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic))&&!(hotelOfferingsOpen&&stayFoodArea(link.url)))));
+  const candidates=frontier.filter(link=>link.depth<=3&&(link.depth===0||!scopedPage(link.url))&&!roomHire(link.url)&&!(fields.some(field=>field.profileCategory==='STAY')&&stayAncillary(link.url))&&!(stayProfileOnly&&guestServices(link.url))&&!(stayInventoryComplete&&(roomDetail(link.url)||translatedRoomOverview(link.url)))&&!translatedPageAlreadyRead(link.url)&&!(stayInventoryComplete&&stayFoodArea(link.url)&&!hotelOfferingsOpen)&&!(cultureResearch&&cultureBackground(link.url))&&!(nonFoodAdmission(link.url)&&nonFood)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic))&&!(hotelOfferingsOpen&&stayFoodArea(link.url)))));
   const matching=candidates.filter(link=>open.some(f=>topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))));
   const useful=matching.length?matching:facts.some(f=>f.state==='ACCEPTED')?[]:candidates;
   return useful.sort((a,b)=>score(b)-score(a)||a.depth-b.depth||a.url.localeCompare(b.url));
@@ -1253,10 +1277,58 @@ export function addMenuImageReviewLeads(result:FieldResult,field:ResearchField,a
 export function structuredRoomLeads(sources:ResearchSource[]):{name:string;citation:Citation}[] {
   const leads:{name:string;citation:Citation}[]=[],seen=new Set<string>();
   for(const source of sources){
-    if(source.truncated||hash(source.text)!==source.hash||!/(?:^|\/)(?:rooms?|zimmer|unsere-zimmer|our-rooms|chambres?|camere)\/?$/iu.test(new URL(source.url).pathname))continue;
+    if(source.truncated||hash(source.text)!==source.hash||!/(?:^|\/)(?:rooms?|zimmer|unsere-zimmer|our-rooms|chambres?|camere|rooms-suites|zimmer-suiten)\/?$/iu.test(new URL(source.url).pathname))continue;
+    const headings=(source.headings??[]).filter(h=>h.offset>=0).sort((a,b)=>a.offset-b.offset);
+    const roomHeading=/(?:zimmer\b|appartements?\b|appartemente\b|\b(?:rooms?|suites?|chambres?|camere|apartments?)\b)/iu;
+    // On some official inventories the room type is only "Medium" or
+    // "Large". Adjacent same-level cards supply the missing context: each has
+    // its own size, descriptive room sentence and booking control, followed
+    // by a new section such as room amenities. Read the complete card group,
+    // never the next section as another room type.
+    const cardHeadings=headings.filter(h=>h.level===3&&h.text.length>=4&&h.text.length<=70&&h.text.split(/\s+/u).length<=4&&!/[.!?:]/u.test(h.text)&&!/(?:amenit|ausstatt|facilit|inclusive|inclusiv|all room|alle zimmer|restaurant|bar|meeting|seminar|breakfast|frühstück|book|buchen)/iu.test(h.text));
+    const cardCandidates=cardHeadings.flatMap(heading=>{
+      const next=headings.find(h=>h.offset>heading.offset&&h.level<=3);
+      const evidence=source.text.slice(heading.offset,Math.min(next?.offset??source.text.length,heading.offset+900)).trimEnd();
+      const own=evidence.slice(heading.text.length).trim();
+      const size=/^\d{1,3}\s*(?:sq\.?m|sqm|qm|m²|m2)\b/iu.test(own);
+      const namedDescription=own.toLocaleLowerCase().includes(heading.text.toLocaleLowerCase())&&/(?:zimmer|\brooms?\b|\bsuites?\b|chambre|camera)/iu.test(own);
+      return size&&own.length>=80&&namedDescription&&/(?:mehr lesen|read more|jetzt buchen|book now)/iu.test(own)&&sourceQuote(source.text,evidence)?[{name:heading.text.trim(),citation:{url:source.url,evidence,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:heading.offset}}]:[];
+    });
+    if(cardCandidates.length>=3&&cardCandidates.length<=8){
+      for(const lead of cardCandidates){const key=lead.name.normalize('NFKC').toLocaleLowerCase();if(!seen.has(key)){seen.add(key);leads.push(lead);}}
+      continue;
+    }
+    // Some inventories render compact booking cards: literal room name, size,
+    // occupancy, then the card's own details/booking controls. Require at
+    // least two complete cards on the room overview; a stray booking CTA or
+    // a room mentioned in a package cannot become an overnight offer.
+    const compact=[...source.text.matchAll(/(?:^|\n\n)([^\n]{4,70})\n\n(\d{1,3}\s*(?:m2|m²|qm|sq\.?\s?m))\n\n(\d{1,2}\s*(?:Personen|people|guests))\n\n(Details|View details|More details)\n\n(buchen|book|book now)(?=\n\n|$)/giu)].filter(match=>{
+      const name=match[1].trim();
+      return name.split(/\s+/u).length<=4&&roomHeading.test(name)&&!/(?:meeting|seminar|conference|tagungs|tageszimmer|day.?room|package|angebot|arrangement|spa|wellness|restaurant|bar)/iu.test(name);
+    });
+    if(compact.length>=2&&compact.length<=8){
+      for(const match of compact){
+        const name=match[1].trim(),key=name.normalize('NFKC').toLocaleLowerCase();
+        if(seen.has(key))continue;
+        const evidence=match[0].replace(/^\n\n/u,''),offset=match.index!+match[0].indexOf(name);
+        if(!sourceQuote(source.text,evidence))continue;
+        seen.add(key);leads.push({name,citation:{url:source.url,evidence,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:offset}});
+      }
+      continue;
+    }
+    const described=headings.filter(h=>h.level>=2&&h.level<=3&&h.text.length<=70&&h.text.split(/\s+/u).length<=4&&roomHeading.test(h.text)&&!/(?:ansehen|view|buchen|booking|reserve|book now|amenit|ausstatt|facilit|inclusive|inclusiv|all room|alle zimmer)/iu.test(h.text)&&!/^(?:(?:our|unsere|all|alle|hotel)\s+)?(?:rooms?|zimmer|suites?|chambres?|camere)(?:\s*(?:&|and|und)\s*(?:suites?|rooms?|zimmer))?$/iu.test(h.text)).flatMap(heading=>{
+      const next=headings.find(h=>h.offset>heading.offset&&h.level<=heading.level);
+      const evidence=source.text.slice(heading.offset,Math.min(next?.offset??source.text.length,heading.offset+900)).trimEnd();
+      const description=evidence.slice(heading.text.length).trim();
+      return description.length>=70&&description.length<=800&&sourceQuote(source.text,evidence)?[{name:heading.text.trim(),citation:{url:source.url,evidence,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:heading.offset}}]:[];
+    });
+    if(described.length>=2){
+      for(const lead of described){const key=lead.name.normalize('NFKC').toLocaleLowerCase();if(!seen.has(key)){seen.add(key);leads.push(lead);}}
+      continue;
+    }
     for(const match of source.text.matchAll(/(?:^|\n\n)([^\n]{4,100})\n\n([^\n]{40,800})/gu)){
       const name=match[1].trim(),description=match[2].trim();
-      if(name.length>70||name.split(/\s+/u).length>4||/[?!.:,;"“”]/u.test(name)||/^(?:(?:our|unsere|alle|all)\s+(?:rooms?|zimmer|suites?|chambres?|camere)$|(?:rooms?|zimmer|chambres?|camere|accommodations?|suites?|day.?rooms?|tageszimmer|early|late|check.?in|check.?out|dinner|breakfast|frühstück|brunch|packages?|angebote?|offers?|events?|meetings?|seminar|geburtstag|romantik|überraschung|booking|reservation|stornierung)\b)/iu.test(name))continue;
+      if(name.length>70||name.split(/\s+/u).length>4||/[?!.:,;"“”]/u.test(name)||/(?:ansehen|view|buchen|booking|reserve|book now)$/iu.test(name)||/^(?:(?:our|unsere|alle|all)\s+(?:rooms?|zimmer|suites?|chambres?|camere)$|(?:rooms?|zimmer|chambres?|camere|accommodations?|suites?|day.?rooms?|tageszimmer|early|late|check.?in|check.?out|dinner|breakfast|frühstück|brunch|packages?|angebote?|offers?|events?|meetings?|seminar|geburtstag|romantik|überraschung|booking|reservation|stornierung)\b)/iu.test(name))continue;
       if(/\s\/\s|\/\s*\n/u.test(description)&&(description.match(/(?:zimmer|\brooms?\b|\bsuites?\b|chambre|camere)/giu)??[]).length>=2)continue;
       if(!/(?:einzelzimmer|doppelzimmer|familienzimmer|\bzimmer\b|\brooms?\b|\bsuite\b)/iu.test(description.slice(0,180))&&!/(?:\brooms?\b|\bsuite\b|\bzimmer\b)/iu.test(name))continue;
       const evidence=name+'\n\n'+description,offset=source.text.indexOf(evidence,match.index);
@@ -1546,6 +1618,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         if(entry.depth>2||!matchesExistingWebsite(entry.delegatedBy,official)||!sources.some(source=>source.url===entry.delegatedBy)||matchesExistingWebsite(entry.url,official))return;
       }else{
         if(entry.depth>0&&sourceOutsideBranchPath(entry.url,spot))return;
+        if(entry.depth>0&&genericChainServiceSeed(spot)&&!chainBranchCityPath(entry.url,spot))return;
         if(entry.depth>0&&officialPath.length>=2&&!officialPath.every((part,index)=>venuePath(entry.url)[index]===part))return;
       }
       if(entry.depth>0&&[...new URL(entry.url).searchParams.keys()].some(key=>/^(?:page|paged|offset|cursor|pagination|detail|query-\d+-page)$/iu.test(key)))return;
@@ -1730,6 +1803,10 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     }catch(error){sourceFailures.push({url:next.url,reason:error instanceof Error?error.message:'RETRIEVAL_FAILED'});continue;}
     if(sources.slice(0,-1).some(s=>s.hash===source.hash)){await progress({stage:'DUPLICATE_CONTENT',url:source.url});continue;}
     if(sourceSubsumedByEarlier(source,sources.slice(0,-1))){await progress({stage:'SUBSUMED_SOURCE',url:source.url});continue;}
+    if(genericChainServiceSeed(spot)&&!exactChainBranchSource(source,spot)){
+      await progress({stage:'CHAIN_BRANCH_SOURCE_DEFERRED',url:source.url});
+      continue;
+    }
     if(category==='STAY'&&pendingFields.every(field=>field.attributeKey==='experience.profile')&&equivalentLocalizedRoomInventory(source,sources.slice(0,-1),facts)){await progress({stage:'EQUIVALENT_ROOM_INVENTORY',url:source.url});continue;}
     try {
       const blocks=evidenceBlocks(source);

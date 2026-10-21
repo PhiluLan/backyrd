@@ -1,15 +1,81 @@
-# Local Nuknuk Research v3.44
+# Local Nuknuk Research v3.57
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
 
+On 21 October 2026, a previously untouched Odelya Hotel run against a
+pre-recorded official-source reference failed: it found public phone and email,
+but missed the attic apartment and supported amenities, added a booking link
+and a form label as room types, and exhausted 900 seconds after eleven requests.
+This is a failed blind case. v3.52 pairs lodging overview headings with their
+own descriptions, rejects booking controls as room cards, recognizes hotel
+service links as amenity sources, excludes meeting/seminar paths from overnight
+research, and admits only exact venue-owned Wi-Fi and paid on-property parking
+statements into review evidence. Replaying the saved Odelya pages yields five
+literal room-category leads and no booking-control leads; this replay is a tuned
+development check, not a new blind pass. The independent release cohort gate
+remains closed; no autonomous publication or canonical Spot writes are enabled.
+
+The independent Hotel du Commerce run correctly withheld every unsupported
+field when its official site served only a maintenance page; that is a narrow
+source-boundary pass. The independent Nouri Hotel v3.52 run failed after 900
+seconds: it fetched the official seven-room inventory but returned all five
+requested fields unresolved. Its detail pages lacked the full hotel name, and
+the compact inventory cards and inclusion list were not understood. v3.53
+reads only repeated, literal room cards on a dedicated official room overview
+and exact hotel inclusion-list labels for Wi-Fi and breakfast; a paid, on-site
+garage sentence supports parking without importing its price. Replaying the
+saved Nouri overview yields the seven exact room names, Wi-Fi, breakfast and
+parking. That replay is a tuned development check, not an independent pass.
+The release gate remains closed pending new blind cases.
+
+The next independent B&B HOTEL Basel v3.53 run also failed. The catalog's
+website was a chain-wide service article; Nuknuk found official search results
+but treated that article's path as the Basel branch path and discarded the
+actual branch page. No wrong-branch facts were proposed. v3.54 treats an
+explicit service article as an unscoped same-host discovery seed while requiring
+the exact Spot name and stored street address in a bounded branch source before
+any fact can pass. The HTML reader selects a branch's schema.org Hotel block
+when the site lacks `<main>`, avoiding global navigation and corporate footer.
+Saved-page replay exposes the exact Basel branch email, paid garage, Wi-Fi and
+breakfast buffet. This is a tuned development replay; independent parity is
+still unproven.
+
+The first v3.54 B&B development replay was stopped after it spent its initial
+model calls on a chain-wide contact page, FAQ and city-level parking page.
+v3.55 permits follow-up pages from an unscoped chain service seed only when
+the URL contains the exact city segment, defers model extraction from pages
+without matching branch name and address, and requires both identifiers near
+the beginning of the branch excerpt. This is a retrieval and cost fix; its
+end-to-end outcome must be checked separately.
+
+The v3.55 B&B development replay reached the exact Basel branch in two
+requests and returned its branch email, breakfast and paid garage correctly.
+It left general opening hours and laptop policy unresolved, as required.
+It still missed hotel-wide Wi-Fi because the service-list heading and a
+hyphenated WLAN sentence escaped the exact facility parser. v3.56 recognizes
+these explicit venue-wide formulations and ignores a bare `WLAN gratis` label
+inside a room card as whole-hotel proof. This saved-page replay must not count
+as an independent hotel pass.
+
+The independent Airport Hotel Basel v3.56 case passed its narrow overnight
+inventory check: all three pre-recorded room types were returned with exact
+official citations, no extra room names and no dynamic room prices. The
+independent 25hours Hotel Zürich Langstrasse v3.56 case failed: it omitted
+Medium, Large and Extra Large and mislabeled `All room amenities` as a room.
+v3.57 groups repeated same-level room cards by their own size, description and
+booking control, including literal short names without a room noun. It stops
+at the amenity section. Saved English and German Langstrasse pages now replay
+to the same five exact room names; this is tuned development evidence, not
+a new blind pass. The autonomous release gate stays closed.
+
 The user decision is whether a sourced addition belongs in an existing Spot.
 The fallback is manual research and the canonical Admin preview/commit flow.
 Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
-  model self-approval are unacceptable. Grounding establishes where text came
+model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.44
+## Active architecture: Research v3.57
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,

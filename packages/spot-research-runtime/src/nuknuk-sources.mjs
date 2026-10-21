@@ -164,7 +164,11 @@ export function sourceText(page,id,{preferMain=false}={}) {
   // mistaken for facts about the visited venue. An incomplete container is
   // left to the existing full-page fallback rather than silently truncated.
   if(!primaryMatch&&preferMain) {
-    const opening=/<div\b(?=[^>]*\bid\s*=\s*["'](?:content|main-content)["'])[^>]*>/i.exec(htmlWithTabs);
+    // Chain sites sometimes omit <main> but wrap the individual branch in
+    // schema.org/Hotel. That bounded block starts after the global hotel
+    // navigation and carries the branch's own address and contact details.
+    const opening=/<div\b(?=[^>]*\bid\s*=\s*["'](?:content|main-content)["'])[^>]*>/i.exec(htmlWithTabs)
+      ??/<div\b(?=[^>]*\bitemscope\b)(?=[^>]*\bitemtype\s*=\s*["']https?:\/\/schema\.org\/Hotel["'])[^>]*>/i.exec(htmlWithTabs);
     if(opening&&opening.index<500000) {
       const tags=/<\/?div\b[^>]*>/gi;
       tags.lastIndex=opening.index+opening[0].length;
@@ -175,7 +179,7 @@ export function sourceText(page,id,{preferMain=false}={}) {
           const inner=htmlWithTabs.slice(opening.index+opening[0].length,tag.index);
           const preceding=htmlWithTabs.slice(Math.max(0,opening.index-6000),opening.index);
           const hero=[...preceding.matchAll(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi)].at(-1)?.[0]??'';
-          if(/<h1\b/i.test(inner)||hero) {
+          if(/<h1\b/i.test(inner)||hero||/\bitemtype\s*=\s*["']https?:\/\/schema\.org\/Hotel["']/iu.test(opening[0])&&/\bitemprop\s*=\s*["'](?:streetAddress|addressLocality)["']/iu.test(inner)) {
             const whole=htmlWithTabs.slice(opening.index,tags.lastIndex);
             primaryMatch=Object.assign([whole,/<h1\b/i.test(inner)?inner:hero+inner],{index:opening.index});
           }
@@ -403,7 +407,7 @@ export function discoverResearchLinks(page) {
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
   const links=[];
   const pageBase=observedPageBase(page);
-  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|(?<!\p{L})(?:food|drinks?)(?!\p{L})|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|mitmach|hands[-\s]?on|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|turmbesteig|tower|krypt|crypt|kreuzgang|cloister|kinderzoo|f[uü]tterung|feeding|pinguin|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq|park(?:en|ing|pl[aä]tze)?|anfahrt|directions|fitness/iu};
+  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|(?<!\p{L})(?:food|drinks?)(?!\p{L})|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|mitmach|hands[-\s]?on|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|turmbesteig|tower|krypt|crypt|kreuzgang|cloister|kinderzoo|f[uü]tterung|feeding|pinguin|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq|park(?:en|ing|pl[aä]tze)?|anfahrt|directions|fitness|(?:^|[\s/|])(?:services|vorteile|advantages|amenities)(?:$|[\s/|])/iu};
   topicPatterns.contact=/kontakt|contact|impressum|anschrift|adresse|mitarbeitende|team|staff|employees|equipe|équipe/iu;
   for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const href=m[1].replace(/&amp;/g,'&');

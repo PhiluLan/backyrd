@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,structuredRoomLeads,addStructuredRoomReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,structuredRoomLeads,addStructuredRoomReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead,chainBranchCityPath} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverDelegatedExperienceLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {agreeingPricedRows,auditMenuImages} from '../src/nuknuk-menu-media.mjs';
 import {parseMenuVisionRows,corroborateMenuVisionRows} from '../src/nuknuk-menu-vision.mjs';
@@ -353,6 +353,13 @@ test('explicit hotel benefit labels enter the critic without inventing bicycle p
  assert.deepEqual(facts.map(item=>item.value),['WIFI','GARDEN','PLAY_AREA']);
  assert.ok(facts.every(item=>item.state==='HELD'&&item.reason==='SEMANTIC_CHECK_PENDING'&&s.text.slice(item.sourceOffset,item.sourceOffset+item.quote.length)===item.quote));
  assert.deepEqual(enumFactCandidates(field('amenity.features'),[source('Kostenloses WLAN im ganzen Hotel\n\nKinder-Spielzimmer')]),[]);
+});
+test('hotel-owned English service list and paid onsite garage yield only supported amenities',()=>{
+ const services={...source(['Your advantages at Hotel Example','Hotel Example offers you numerous amenities.','Benefit from many extras:','WIFI','GYM (10 MINUTES\' WALK)','ADAPTERS, UMBRELLAS AND BIKES FOR HIRE'].join('\n\n')),url:'https://hotel.example/en/hotel/services'};
+ assert.deepEqual(enumFactCandidates(field('amenity.features'),[services]).map(item=>item.value),['WIFI']);
+ const parking='For a parkingfee you can park your car either in our underground garage or in our outdoor parking lots.';
+ assert.deepEqual(enumFactCandidates(field('amenity.features'),[source(parking)]).map(item=>item.value),['PARKING']);
+ assert.ok(!enumFactCandidates(field('amenity.features'),[source('For a parkingfee you can park your car in the nearby public garage.')]).some(item=>item.value==='PARKING'));
 });
 test('literal hotel breakfast-buffet labels become review facts, not guest-review claims',()=>{
  const stay={...spot,name:'Hotel Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'},'classification.place_types':{value:['HOTEL']}}};
@@ -2119,6 +2126,86 @@ test('a first-party room-type list repeated as category headings yields exact re
  assert.ok(leads.every(item=>item.citation.evidence.includes('Our hotel offers comfortable rooms')&&item.citation.evidence.includes(item.name)&&item.citation.sourceHash===complete.hash));
  assert.deepEqual(rankResearchFrontier([{url:'https://hotel.example/our-rooms/family-room/',depth:1,topics:['stay']}],[],[{...field('experience.profile'),profileCategory:'STAY'}],[complete]),[]);
  assert.deepEqual(structuredRoomLeads([make(names.slice(0,2))]),[]);
+});
+test('hotel room headings with descriptions exclude booking links and form labels',()=>{
+ const names=['Einzelzimmer','Doppelzimmer','Familienzimmer','Dachappartemente','Historisches Zimmer'];
+ const cards=names.map(name=>`<h3>${name}</h3><p>Unsere Unterkunft ${name} bietet Gästen einen eigenen Schlafbereich und ein Badezimmer für eine Übernachtung in unserem Hotel.</p><a href="/de/hotel/zimmer/${name.toLowerCase()}/">${name} ansehen</a>`).join('');
+ const s=sourceText({url:'https://hotel.example/de/hotel/zimmer',body:`<main><h1>Unsere Hotelzimmer</h1>${cards}<h3>Was ist inklusive?</h3><form><label>Personen</label><button>Zimmer buchen Jetzt buchen zum besten Preis</button></form></main>`,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.deepEqual(structuredRoomLeads([s]).map(lead=>lead.name),names);
+ const result=addStructuredRoomReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED',reason:'NO_SUPPORTED_TARGET_FACT'},{...field('experience.profile'),profileCategory:'STAY'},[s]);
+ assert.deepEqual(result.value.offers.map(offer=>offer.name),names);
+});
+test('compact hotel inventory cards preserve every literal room and exclude unrelated booking controls',()=>{
+ const names=['Penthouse Suite','Junior Suite','Deluxe Room','Prestige Room','Superior Accessible Room','Superior Room','Comfort Room'];
+ const cards=names.map((name,index)=>`${name}\n\n${90-index*8} m2\n\n${index%2+2} Personen\n\nDetails\n\nbuchen`).join('\n\n');
+ const text=`Zimmer und Suiten\n\nSechs verschiedene Zimmerkategorien stehen zur Auswahl.\n\n${cards}\n\nAnkommen.\n\nInklusivleistungen\n\nHighspeed WLAN\n\nReichhaltiges Frühstück\n\nMeeting Room\n\n45 m2\n\n20 Personen\n\nDetails\n\nbuchen`;
+ const s={...source(text),url:'https://hotel.example/zimmer-suiten/'};
+ const leads=structuredRoomLeads([s]);
+ assert.deepEqual(leads.map(lead=>lead.name),names);
+ assert.ok(leads.every(lead=>s.text.slice(lead.citation.sourceOffset,lead.citation.sourceOffset+lead.citation.evidence.length)===lead.citation.evidence));
+ const result=addStructuredRoomReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'},{...field('experience.profile'),profileCategory:'STAY'},[s]);
+ assert.deepEqual(result.value.offers.map(offer=>offer.name),names);
+ assert.ok(result.value.offers.every(offer=>offer.prices.length===0));
+ assert.deepEqual(rankResearchFrontier([{url:'https://hotel.example/zimmer/comfort-room/',depth:2,topics:['stay']}],[],[{...field('experience.profile'),profileCategory:'STAY'}],[s]),[]);
+});
+test('sized sibling room cards include nounless type names but stop before hotel amenities',()=>{
+ const names=['Medium','Large','Extra Large','Plaza Suite','Trainspotting Suite'];
+ const cards=names.map((name,i)=>`<h3>${name}</h3><p>${18+i*6}sqm | king-size bed</p><p>The ${name} room offers a private bathroom, a bed and a quiet place to stay overnight in this hotel.</p><a href="/book">Book now</a>`).join('');
+ const body=`<main><h1>rooms</h1>${cards}<h2>All room amenities</h2><p>Free minibar, high-speed WiFi and television for hotel guests.</p><h2>restaurants & bars</h2><h3>Breakfast & Brunch</h3><p>Breakfast is served downstairs.</p></main>`;
+ const s=sourceText({url:'https://hotel.example/rooms/',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.deepEqual(structuredRoomLeads([s]).map(item=>item.name),names);
+ const result=addStructuredRoomReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'},{...field('experience.profile'),profileCategory:'STAY'},[s]);
+ assert.deepEqual(result.value.offers.map(offer=>offer.name),names);
+ assert.ok(result.citations.every(citation=>!citation.evidence.includes('All room amenities')&&citation.sourceHash===s.hash));
+});
+test('hotel inclusion list supports literal Wi-Fi and breakfast, while paid garage is parking',()=>{
+ const text='Zimmer und Suiten\n\nInklusivleistungen\n\nHighspeed WLAN\n\nReichhaltiges Frühstück\n\nNutzung der Therme\n\nWissenswertes\n\nParkmöglichkeit in der Tiefgarage: 17 € / Nacht. Parkplatz vor dem Hotel: 17 € / Nacht';
+ const s={...source(text),url:'https://hotel.example/zimmer-suiten/'};
+ const amenity={...field('amenity.features'),profileCategory:'STAY'};
+ const offering={...field('offering.groups'),profileCategory:'STAY'};
+ assert.deepEqual([...new Set(enumFactCandidates(amenity,[s]).map(item=>item.value))].sort(),['PARKING','WIFI']);
+ assert.deepEqual(enumFactCandidates(offering,[s]).map(item=>item.value),['BREAKFAST']);
+ const other={...source('Wellness partners\n\nHighspeed WLAN\n\nReichhaltiges Frühstück'),url:'https://hotel.example/partners/'};
+ assert.deepEqual(enumFactCandidates(amenity,[other]),[]);
+ assert.deepEqual(enumFactCandidates(offering,[other]),[]);
+ const service={...source('Services im B&B HOTEL Basel\n\nKostenpflichtige Tiefgarage\n\nKostenloses Highspeed-WLAN\n\nFrühstücksbuffet\n\nUnseren Gästen steht im gesamten Gebäude eine kostenlose High-Speed-WLAN-Internetverbindung zur Verfügung.'),url:'https://hotel.example/de/hotel/basel'};
+ assert.deepEqual([...new Set(enumFactCandidates(amenity,[service]).map(item=>item.value))].sort(),['PARKING','WIFI']);
+ assert.ok(enumFactCandidates(amenity,[service]).some(item=>item.value==='WIFI'&&item.quote.startsWith('Unseren Gästen')));
+ assert.deepEqual(enumFactCandidates(offering,[service]).map(item=>item.value),['BREAKFAST']);
+ const roomOnly={...source('Doppelzimmer\n\n1 Doppelbett\n\nWLAN gratis'),url:'https://hotel.example/de/zimmer/doppelzimmer'};
+ assert.deepEqual(enumFactCandidates(amenity,[roomOnly]),[]);
+});
+test('a chain hotel branch is read from its bounded Hotel block after global navigation',()=>{
+ const nav='<div class="navigation">'+Array.from({length:100},(_,i)=>`<a href="/hotel/city-${i}">Other Hotel ${i}</a>`).join('')+'</div>';
+ const body=`${nav}<div itemscope itemtype="http://schema.org/Hotel"><span>B&B HOTEL Basel</span><span itemprop="streetAddress">St. Jakobs-Strasse 195</span><a href="mailto:bb_7605@hotelbb.com">bb_7605@hotelbb.com</a><h2>Ausstattung und Services</h2><p>Kostenpflichtige Tiefgarage</p><h2>Services im Überblick</h2><p>Kostenloses Highspeed-WLAN</p><p>Frühstücksbuffet</p></div><footer>Other Hotel Berlin</footer>`;
+ const s=sourceText({url:'https://hotel-bb.example/de/hotel/basel',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.equal(s.textSelection,'MAIN_CONTENT');
+ assert.ok(s.text.includes('St. Jakobs-Strasse 195')&&s.text.includes('bb_7605@hotelbb.com'));
+ assert.ok(!s.text.includes('Other Hotel Berlin')&&!s.text.includes('Other Hotel 99'));
+ assert.deepEqual([...new Set(enumFactCandidates({...field('amenity.features'),profileCategory:'STAY'},[s]).map(item=>item.value))].sort(),['PARKING','WIFI']);
+ assert.deepEqual(enumFactCandidates({...field('offering.groups'),profileCategory:'STAY'},[s]).map(item=>item.value),['BREAKFAST']);
+});
+test('generic chain service seed permits only the exact address-matched branch evidence',()=>{
+ const branchSpot={...spot,name:'B&B Hotel Basel',locality:'Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'},'contact.website':{value:'https://hotel-bb.example/de/services/schweiz/24std-erreichbar'},'location.address_line1':{value:'St. Jakobs-Strasse 195'}}};
+ const make=(name,address)=>source(`${name}\n\n${address}\n\nbb_7605@hotelbb.com`);
+ const branch={...make('B&B Hotel Basel','St. Jakobs-Strasse 195'),url:'https://hotel-bb.example/de/hotel/basel'};
+ const wrong={...make('B&B Hotel Berlin','Alexanderplatz 1'),url:'https://hotel-bb.example/de/hotel/berlin'};
+ const generic={...make('B&B Hotels Schweiz','Alle Hotels'),url:'https://hotel-bb.example/de/services/schweiz/24std-erreichbar'};
+ const accepted=s=>validateEvidenceFacts({facts:[fact('contact.public_email','bb_7605@hotelbb.com','bb_7605@hotelbb.com',{subjectLabel:branchSpot.name})]},s,[field('contact.public_email')]).map(x=>({...x,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(accepted(branch),[branch],[field('contact.public_email')],branchSpot)[0].state,'ACCEPTED');
+ assert.equal(recheckEvidenceFloors(accepted(wrong),[wrong],[field('contact.public_email')],branchSpot)[0].reason,'CHAIN_BRANCH_IDENTITY_UNCONFIRMED');
+ assert.equal(recheckEvidenceFloors(accepted(generic),[generic],[field('contact.public_email')],branchSpot)[0].reason,'CHAIN_BRANCH_IDENTITY_UNCONFIRMED');
+ assert.equal(chainBranchCityPath('https://hotel-bb.example/de/hotel/basel',branchSpot),true);
+ assert.equal(chainBranchCityPath('https://hotel-bb.example/de/hotel/basel-city',branchSpot),true);
+ assert.equal(chainBranchCityPath('https://hotel-bb.example/de/hotel/bern',branchSpot),false);
+ assert.equal(chainBranchCityPath('https://hotel-bb.example/de/stadt/hotels-basel/parkplatz',branchSpot),false);
+});
+test('hotel service evidence outranks seminar rooms after room inventory is read',()=>{
+ const page={url:'https://hotel.example/en',contentType:'text/html',body:'<a href="/en/hotel/services">Services</a><a href="/en/meetings-seminars/event-meeting">Meetings & Seminars</a>',observedAt:new Date().toISOString()};
+ const links=discoverResearchLinks(page).map(link=>({...link,depth:1}));
+ assert.deepEqual(links.find(link=>link.url.endsWith('/services')).topics,['access']);
+ const fields=[{...field('experience.profile'),profileCategory:'STAY'},{...field('amenity.features'),profileCategory:'STAY'}];
+ assert.deepEqual(rankResearchFrontier(links,[],fields).map(link=>link.url),['https://hotel.example/en/hotel/services']);
 });
 test('four accepted drinks do not hide an unread official menu overview',()=>{
  const frontier=[{url:'https://example.org/amber-menu/',depth:1,topics:['menu']}];

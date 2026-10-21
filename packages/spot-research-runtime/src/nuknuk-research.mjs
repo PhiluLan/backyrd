@@ -53,7 +53,7 @@ const factPatterns={
   },
   'amenity.features':{
     WIFI:/\b(?:WLAN|Wi-?Fi)\b/iu, CLOAKROOM:/\b(?:Garderobe|cloakroom)\b/iu,
-    PARKING:/\b(?:Parkpl[aä]tze|Parkplatz|parking|Garagen[- ]?Stellpl[aä]tze|Garagenpl[aä]tze)\b/iu,
+    PARKING:/\b(?:Parkpl[aä]tze|Parkplatz|Parkmöglichkeit|parking|Garagen[- ]?Stellpl[aä]tze|Garagenpl[aä]tze)\b/iu,
     TERRACE:/(?<![\p{L}])(?:Dach[- ]?)?Terrasse\b|\b(?:rooftop )?terrace\b/iu, PLAY_AREA:/\b(?:Spielbereich|Spielzimmer|Kinderzimmer|playroom)\b/iu,
     STROLLER_SPACE:/\bPlatz für Kinderwagen\b/iu,
     OUTDOOR_SEATING:/\b(?:Sitzplätze (?:draussen|draußen)|Freiluft[- ]Sitzpl[aä]tz\w*|outdoor seating)\b/iu,
@@ -69,7 +69,9 @@ const factPatterns={
 const uncertainAssertion=/\b(?:kein\w*|nicht|ohne|no|not|without|früher|ehemals|closed|geschlossen|vielleicht|maybe|falls|wenn|if|bald|künftig|zukünftig|geplant|planned|soon|would|wünschen|wünscht|wish|wishes|fehlt|fehlen|ausgefallen|defekt|unavailable|broken|Filiale\w*|branch\w*|Nachbar\w*|nebenan|neben|nearby|gegenüber)\b|\?/iu;
 function currentAssertion(quote) {return quote.length>=6&&quote.length<=800&&!uncertainAssertion.test(quote.replace(/\bneben dem Empfangsschalter\b/giu,'am Empfang'));}
 function ownedParkingAssertion(quote) {
+  if(/^Parkmöglichkeit in der Tiefgarage:\s*\d{1,3}\s*€\s*\/\s*Nacht(?:\.|\s|$)/iu.test(quote)&&currentAssertion(quote))return true;
   if(/^(?:Parkpl[aä]tze|Parking spaces?)\b.{0,90}\b(?:Parkhaus|car park|garage)\b.{0,60}\b(?:in unserem Gebäude|in our building)\b/iu.test(quote)&&currentAssertion(quote))return true;
+  if(/^(?:Gegen eine Parkgebühr|For a parking\s*fee)\b.{0,120}\b(?:unserer Tiefgarage|our underground garage)\b.{0,100}\b(?:Aussenparkpl[aä]tzen|outdoor parking lots)\b/iu.test(quote)&&currentAssertion(quote))return true;
   const claim=/^(?:Wir haben|Wir vermieten|Unser Hotel (?:hat|bietet|vermietet)|Vor dem Hotel (?:stehen|gibt es))\b.{0,110}\b(?:Parkpl[aä]tze|Garagen[- ]?Stellpl[aä]tze|Garagenpl[aä]tze)\b/iu.exec(quote);
   if(!claim||/\b(?:kein\w*|ohne|fremd\w*|andere\w*|Nachbar\w*|nebenan|nearby)\b/iu.test(claim[0]))return false;
   // First-come spaces exist, but the source does not promise a free space or
@@ -80,6 +82,7 @@ function facilityAssertion(quote,pattern) {
   const match=quote.match(pattern);
   if(!match)return false;
   if(pattern===factPatterns['amenity.features'].PARKING)return ownedParkingAssertion(quote);
+  if(pattern===factPatterns['amenity.features'].WIFI&&/\b(?:unseren?\s+Gästen|our\s+guests)\b.{0,100}\b(?:im gesamten Gebäude|throughout the building)\b.{0,100}\b(?:WLAN|Wi-?Fi)\b.{0,100}\b(?:zur Verfügung|available)\b/iu.test(quote)&&currentAssertion(quote))return true;
   if(pattern===factPatterns['amenity.features'].TERRACE&&/^(?:Die|Unsere|The|Our)\s+(?:Herbst)?(?:Terrasse|terrace)\s+(?:ist|is)\s+(?:(?:bei schönem Wetter|in good weather)\s+)?(?:(?:ab|from)\s+\d{1,2}(?::\d{2})?\s*(?:Uhr)?\s+)?(?:geöffnet|open)[.!]?$/iu.test(quote))return true;
   const prefix=quote.slice(0,match.index),suffix=quote.slice(match.index+match[0].length);
   if(/^[\p{L}-]/u.test(suffix)&&!(pattern===factPatterns['amenity.features'].WIFI&&/^[- ]+\s*Internetzugang\b/iu.test(suffix)))return false;
@@ -113,8 +116,12 @@ export function enumFactCandidates(field,sources) {
   if(!patterns)return null;
   const result=[];
   if(field.attributeKey==='offering.groups'&&field.profileCategory==='STAY')for(const source of sources.filter(s=>!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format))) {
-    for(const quote of source.text.split(/\n\s*\n/u).map(item=>item.trim())) {
-      if(quote.length>100||!/^(?:(?:reichhaltiges?\s+)?frühstücks?buffet|(?:(?:generous|rich|full)\s+){0,3}breakfast buffet(?:\s*& more)?)$/iu.test(quote))continue;
+    const lines=source.text.split(/\n\s*\n/u).map(item=>item.trim());
+    const included=lines.findIndex(line=>/^Inklusivleistungen$/iu.test(line));
+    for(const [index,quote] of lines.entries()) {
+      const explicitBuffet=/^(?:(?:reichhaltiges?\s+)?frühstücks?buffet|(?:(?:generous|rich|full)\s+){0,3}breakfast buffet(?:\s*& more)?)$/iu.test(quote);
+      const includedBreakfast=included>=0&&index>included&&index<=included+8&&/^Reichhaltiges Frühstück$/iu.test(quote);
+      if(quote.length>100||!explicitBuffet&&!includedBreakfast)continue;
       result.push({id:'f'+result.length,value:'BREAKFAST',quote,sourceId:source.id});
       break;
     }
@@ -123,13 +130,12 @@ export function enumFactCandidates(field,sources) {
     // Hotel benefit/facility lists are often bare labels rather than prose.
     // Read only the bounded list under an explicit venue-owned heading. A
     // bicycle rental is deliberately not bicycle parking.
-    const lines=source.text.split(/\n\s*\n/u).map(line=>line.trim());
-    const start=lines.findIndex(line=>/^(?:Ihre Vorteile auf einen Blick|(?:Hotel[- ]?)?Ausstattung|Hotel facilities|Your (?:hotel )?benefits at a glance)$/iu.test(line));
-    if(start<0)continue;
-    const end=Math.min(lines.length,start+17);
-    for(const quote of lines.slice(start+1,end)) {
+    const lines=source.text.split(/\n+/u).map(line=>line.trim()).filter(Boolean);
+    const sections=lines.flatMap((line,index)=>/^(?:Ihre Vorteile auf einen Blick|(?:Hotel[- ]?)?Ausstattung|Hotel facilities|Your (?:hotel )?benefits at a glance|Your advantages at Hotel [\p{L}\p{N} .'-]{2,60}|Benefit from many extras:)$/iu.test(line)||field.profileCategory==='STAY'&&/^(?:Inklusivleistungen|Ausstattung und Services|Services im Überblick|Services im [\p{L}\p{N}& .'-]{4,70})$/iu.test(line)?[index]:[]);
+    for(const start of sections)for(const quote of lines.slice(start+1,Math.min(lines.length,start+17))) {
       let value;
-      if(/^(?:(?:Kostenloses?|Gratis|Free|Complimentary)\s+)?(?:WLAN|Wi-?Fi)(?:\s+(?:im ganzen Hotel|throughout the hotel))?$/iu.test(quote))value='WIFI';
+      if(/^(?:(?:Kostenloses?|Gratis|Free|Complimentary|Highspeed)\s+)?(?:Highspeed[- ]?)?(?:WLAN|Wi-?Fi)(?:\s+(?:im ganzen Hotel|throughout the hotel))?$/iu.test(quote))value='WIFI';
+      else if(field.profileCategory==='STAY'&&/^Kostenpflichtige Tiefgarage$/iu.test(quote))value='PARKING';
       else if(/^(?:Kinder[- ]?)?(?:Spielzimmer|Spielbereich|Playroom|Kids(?:'|’) Play Area)$/iu.test(quote))value='PLAY_AREA';
       else if(/^(?:[\p{L}-]+\s+){0,3}Garten(?:\s+im Innenhof)?$/iu.test(quote)||/^(?:Courtyard )?Garden$/iu.test(quote))value='GARDEN';
       else if(/^(?:Fahrrad(?:abstell)?pl[aä]tze|Fahrradparkpl[aä]tze|Bike parking|Bicycle parking)$/iu.test(quote))value='BICYCLE_PARKING';
@@ -141,7 +147,7 @@ export function enumFactCandidates(field,sources) {
       if(!currentAssertion(quote)&&!(field.attributeKey==='amenity.features'&&ownedParkingAssertion(quote)))continue;
       const assertion=field.attributeKey==='offering.groups'?/servier|bieten|angebot|gibt|gibts|geniess|genieß|verwöhn|lädt.+zu|we (?:serve|offer)/iu:/verfügbar|vorhanden|bieten|verfügt|haben|unser|available|we (?:have|offer)/iu;
       if(field.attributeKey==='offering.groups'&&!assertion.test(quote))continue;
-      for(const [value,pattern] of Object.entries(patterns))if(pattern.test(quote)&&(field.attributeKey!=='amenity.features'||facilityAssertion(quote,pattern))) {
+      for(const [value,pattern] of Object.entries(patterns))if(pattern.test(quote)&&!(field.attributeKey==='amenity.features'&&field.profileCategory==='STAY'&&value==='WIFI'&&/^(?:WLAN|Wi-?Fi)\s+(?:gratis|kostenlos|free)$/iu.test(quote))&&(field.attributeKey!=='amenity.features'||facilityAssertion(quote,pattern))) {
         result.push({id:'f'+result.length,value,quote,sourceId:source.id});
         if(result.length>=60)return result;
       }
