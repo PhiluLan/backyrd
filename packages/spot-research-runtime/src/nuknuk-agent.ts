@@ -14,7 +14,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.61';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.64';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -915,10 +915,16 @@ function certifiedVenueHours(f:EvidenceFact,source:ResearchSource,spot:SpotConte
   if(f.field!=='hours.regular'||f.state!=='HELD'||f.reason!=='SEMANTIC_CHECK_PENDING'||!['EAT','DRINKS','COFFEE_DAYTIME','SPORT_MOVEMENT'].includes(category)||!atomicHours(f.quote).length||excludedHoursArea(source,f.quote,spot,f.sourceOffset)||timeBoundEventContext(source,f.quote,f.sourceOffset))return false;
   const address=spot.existingValues?.['location.address_line1']?.value;
   if(category!=='SPORT_MOVEMENT'&&(typeof address!=='string'||address.length<5))return false;
-  const identity=sources.some(s=>matchesExistingWebsite(s.url,source.url)&&s.text.toLocaleLowerCase().includes(spot.name.toLocaleLowerCase())&&(typeof address!=='string'||address.length<5||s.text.toLocaleLowerCase().includes(address.toLocaleLowerCase())));
+  // Some official CMS pages omit the business name from their extracted body.
+  // A matching first-party hostname plus the exact street address is a
+  // separate identity witness; a generic host such as example.org is not.
+  const domainName=new URL(String(spot.existingValues?.['contact.website']?.value??source.url)).hostname.replace(/^www\./u,'').split('.')[0].replace(/[^\p{L}\p{N}]/gu,'').toLocaleLowerCase();
+  const spotName=spot.name.normalize('NFKD').replace(/[\u0300-\u036f]/gu,'').replace(/[^\p{L}\p{N}]/gu,'').toLocaleLowerCase();
+  const domainIdentity=domainName.length>=7&&spotName.includes(domainName)&&matchesExistingWebsite(source.url,String(spot.existingValues?.['contact.website']?.value))&&typeof address==='string'&&source.text.toLocaleLowerCase().includes(address.toLocaleLowerCase());
+  const identity=domainIdentity||sources.some(s=>matchesExistingWebsite(s.url,source.url)&&s.text.toLocaleLowerCase().includes(spot.name.toLocaleLowerCase())&&(typeof address!=='string'||address.length<5||s.text.toLocaleLowerCase().includes(address.toLocaleLowerCase())));
   if(!identity)return false;
   const index=factOffset(source,f),nearest=sectionAt(source,index).at(-1)??'';
-  if(!source.text.slice(0,Math.min(index,500)).toLocaleLowerCase().includes(spot.name.toLocaleLowerCase()))return false;
+  if(!domainIdentity&&!source.text.slice(0,Math.min(index,500)).toLocaleLowerCase().includes(spot.name.toLocaleLowerCase()))return false;
   const heading=/^(?:(?:unsere|aktuelle|reguläre|regulaere|regular|current)\s+)?(?:öffnungszeiten|oeffnungszeiten|opening hours|business hours)\s*:?$/iu;
   const lastPlain=source.text.slice(Math.max(0,index-450),index).split(/\n+/u).map(x=>x.trim()).filter(Boolean);
   let plainIndex=-1;for(let i=0;i<lastPlain.length;i++)if(heading.test(lastPlain[i]))plainIndex=i;
@@ -1044,6 +1050,7 @@ function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],front
   // complete; keep searching within the explicit page/query budget.
   if(field.profileCategory==='CULTURE_ARTS')return true;
   if(field.profileCategory==='STAY'&&hotelInventoryCovered(facts,sources))return false;
+  if(field.profileCategory==='EAT'&&completeCourseMenuOverview(sources))return false;
   // Four broad food nouns on a homepage do not certify its menu inventory.
   // Look for at least one separate official product/menu page when available.
   if(['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(field.profileCategory))&&sources.length===1&&new URL(sources[0].url).pathname==='/')return true;
@@ -1053,7 +1060,10 @@ function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],front
   if(frontier.some(link=>{
     const path=new URL(link.url).pathname;
     if(field.profileCategory==='STAY')return /(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(path);
-    if(['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(field.profileCategory)))return link.discoveredOn&&link.topics.includes('menu')&&/\.pdf(?:[?#]|$)/iu.test(link.url)||/(?:^|\/)(?:[^/]+[-_])?(?:menu|menue|menü|speisekarte|karte)\/?$/iu.test(path);
+    if(['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(field.profileCategory))){
+      if(field.profileCategory==='EAT'&&/(?:weinkarte|wine[-_]?list|wine[-_]?menu|momentaufnahme|snap[-_]?shot)/iu.test(path))return false;
+      return link.discoveredOn&&link.topics.includes('menu')&&/\.pdf(?:[?#]|$)/iu.test(link.url)||/(?:^|\/)(?:[^/]+[-_])?(?:menu|menue|menü|speisekarte|karte)(?:[-_](?:de|en|fr|it))?\/?$/iu.test(path);
+    }
     return false;
   }))return true;
   const accepted=facts.filter(f=>f.field==='experience.profile'&&f.state==='ACCEPTED');
@@ -1062,7 +1072,16 @@ function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],front
   // official sauna page remains unread and no sauna offer has been established.
   return field.profileCategory==='WELLNESS_RELAXATION'&&!accepted.some(f=>f.offerKind==='SAUNA')&&frontier.some(link=>/sauna/iu.test(new URL(link.url).pathname));
 }
+function completeCourseMenuOverview(sources:ResearchSource[]):boolean {
+  return sources.some(source=>{
+    if(source.truncated||source.format&&source.format!=='HTML'||!/(?:^|\/)(?:menu|menue|menü|speisekarte)(?:[-_](?:de|en|fr|it))?\/?$/iu.test(new URL(source.url).pathname))return false;
+    const rows=source.text.split('\n').filter(row=>/^\s*\d{1,2}\s*[-–]\s*(?:(?:g[aä]nge|gang)\s*[-–]?\s*men[uü]|course\s+menu)\s*(?:\|\s*)?CHF\s*\d{1,3}/iu.test(row)).length;
+    const leads=structuredMenuLeads([source]).filter(lead=>['LUNCH','DINNER'].includes(lead.kind));
+    return rows>=4&&rows<=8&&leads.length===rows;
+  });
+}
 function hoursNeedCorroboration(facts:EvidenceFact[],sources:ResearchSource[]):boolean {
+  if(completeOfficialHoursSection(facts,sources))return false;
   const accepted=facts.filter(fact=>fact.field==='hours.regular'&&fact.state==='ACCEPTED');
   if(!accepted.length)return false;
   const sourceIds=new Set(accepted.map(fact=>fact.sourceId));
@@ -1070,6 +1089,24 @@ function hoursNeedCorroboration(facts:EvidenceFact[],sources:ResearchSource[]):b
   if(!source||new URL(source.url).pathname!=='/')return false;
   if(sourceIds.size>=3)return false;
   return !sources.some(item=>sourceIds.has(item.id)&&item.id!==source.id&&/(?:^|\/)(?:kontakt|contact|oeffnungszeiten|öffnungszeiten|opening[-_]?hours|hours)(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(item.url).pathname));
+}
+function completeOfficialHoursSection(facts:EvidenceFact[],sources:ResearchSource[]):boolean {
+  return sources.some(source=>{
+    if(source.truncated||source.areaScope)return false;
+    const accepted=facts.filter(f=>f.sourceId===source.id&&f.field==='hours.regular'&&f.state==='ACCEPTED'&&f.reason==='STRUCTURED_VENUE_HOURS');
+    if(accepted.length<2)return false;
+    const heading=source.text.search(/(?:^|\n)\s*(?:unsere\s+)?(?:Öffnungszeiten|Oeffnungszeiten|Opening Hours)\s*:?\s*(?=\n)/iu);
+    if(heading<0)return false;
+    const tail=source.text.slice(heading).split('\n');
+    const rows:string[]=[];
+    for(const line of tail.slice(1)){
+      const row=line.trim();
+      if(!row){if(rows.length)continue;else continue;}
+      if(atomicHours(row).length){rows.push(row);continue;}
+      if(rows.length)break;
+    }
+    return rows.length>=2&&rows.every(row=>accepted.some(f=>f.quote===row));
+  });
 }
 const closureBlockedFields=new Set(['experience.profile','offering.groups','hours.regular','hours.kitchen']);
 export function currentVenueClosure(spot:SpotContext,sources:ResearchSource[],asOf=new Date()):Citation|null {
@@ -1124,6 +1161,7 @@ export function equivalentLocalizedRoomInventory(source:ResearchSource,earlier:R
 }
 export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[],sources:ResearchSource[]=[]):FrontierEntry[] {
   const open=fields.filter(f=>f.attributeKey==='experience.profile'?profileNeedsMoreEvidence(f,facts,frontier,sources):f.attributeKey==='hours.regular'&&hoursNeedCorroboration(facts,sources)||!facts.some(x=>x.field===f.attributeKey&&x.state==='ACCEPTED'));
+  const foodProfileOpen=open.some(field=>field.attributeKey==='experience.profile'&&field.profileCategory==='EAT');
   const leaf=(url:string)=>new URL(url).pathname.split('/').filter(Boolean).at(-1)??'';
   const weight=(key:string)=>key.startsWith('contact.')||key==='hours.regular'?8:['description.highlight','experience.profile'].includes(key)?2:1;
   const roomOverviewRead=sources.some(source=>/(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(new URL(source.url).pathname));
@@ -1141,6 +1179,8 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
     ([...new URL(link.url).searchParams.keys()].some(key=>/^(?:targetId|typeId)$/iu.test(key))?-90:0)+
     (open.some(f=>f.attributeKey==='description.highlight')&&new URL(link.url).pathname==='/'?90:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(f.profileCategory)))&&/(?:^|\/)(?:[^/]+[-_])?(?:menu|menue|menü|speisekarte|karte|dinner)(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(link.url).pathname)?170:0)+
+    (foodProfileOpen&&/(?:^|\/)(?:menu|menue|menü|speisekarte)(?:[-_](?:de|en|fr|it))?(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(link.url).pathname)?350:0)+
+    (foodProfileOpen&&/(?:momentaufnahme|snap[-_]?shot|weinkarte|wine[-_]?list)/iu.test(new URL(link.url).pathname)?-300:0)+
     (/(?:^|\/)(?:speisekarte|menu)[-_]download(?:\.html)?$/iu.test(new URL(link.url).pathname)?-100:0)+
     (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
     (open.some(f=>f.attributeKey==='hours.regular')&&hoursNeedCorroboration(facts,sources)&&/(?:^|\/)(?:kontakt|contact|oeffnungszeiten|öffnungszeiten|opening[-_]?hours|hours)(?:\.[a-z0-9]+)?\/?$/iu.test(new URL(link.url).pathname)?260:0)+
@@ -1198,7 +1238,7 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const roomHire=(url:string)=>/(?:^|\/)(?:room[-_]hire|venue[-_]hire|salle[-_]a[-_]louer)(?:\/|$)/iu.test(new URL(url).pathname);
   const nonFoodAdmission=(url:string)=>/(?:^|\/)(?:eintrittspreise?|ticket[-_]?preise?|admission[-_]?prices?|pricing)(?:\/|$)/iu.test(new URL(url).pathname);
   const hotelOfferingsOpen=open.some(field=>field.attributeKey==='offering.groups'&&field.profileCategory==='STAY');
-  const candidates=frontier.filter(link=>link.depth<=3&&(link.depth===0||!scopedPage(link.url))&&!roomHire(link.url)&&!(fields.some(field=>field.profileCategory==='STAY')&&stayAncillary(link.url))&&!(stayProfileOnly&&guestServices(link.url))&&!(stayInventoryComplete&&(roomDetail(link.url)||translatedRoomOverview(link.url)))&&!translatedPageAlreadyRead(link.url)&&!(stayInventoryComplete&&stayFoodArea(link.url)&&!hotelOfferingsOpen)&&!(cultureResearch&&cultureBackground(link.url))&&!(nonFoodAdmission(link.url)&&nonFood)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic))&&!(hotelOfferingsOpen&&stayFoodArea(link.url)))));
+  const candidates=frontier.filter(link=>link.depth<=3&&(link.depth===0||!scopedPage(link.url))&&!(foodProfileOpen&&/(?:weinkarte|wine[-_]?list|wine[-_]?menu)/iu.test(new URL(link.url).pathname))&&!roomHire(link.url)&&!(fields.some(field=>field.profileCategory==='STAY')&&stayAncillary(link.url))&&!(stayProfileOnly&&guestServices(link.url))&&!(stayInventoryComplete&&(roomDetail(link.url)||translatedRoomOverview(link.url)))&&!translatedPageAlreadyRead(link.url)&&!(stayInventoryComplete&&stayFoodArea(link.url)&&!hotelOfferingsOpen)&&!(cultureResearch&&cultureBackground(link.url))&&!(nonFoodAdmission(link.url)&&nonFood)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic))&&!(hotelOfferingsOpen&&stayFoodArea(link.url)))));
   const matching=candidates.filter(link=>open.some(f=>topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))));
   // Evidence for one field must not end source discovery for another open
   // field. A site may publish hours in a footer on an about or shop page
@@ -1468,8 +1508,8 @@ export function addStructuredRoomReviewLeads(result:FieldResult,field:ResearchFi
 // line-by-line model then sees the ingredients but loses the product name.
 // Preserve only adjacent, same-level heading pairs on an official menu page.
 // This is source evidence for an unreviewed draft, never a price assertion.
-export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:'GASTRONOMY'|'DRINKS';section:string;citation:Citation;prerequisite?:string}[] {
-  const leads:{name:string;kind:'GASTRONOMY'|'DRINKS';section:string;citation:Citation;prerequisite?:string}[]=[];
+export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:'GASTRONOMY'|'DRINKS'|'LUNCH'|'DINNER';section:string;citation:Citation;prerequisite?:string;availability?:{weekdays:number[];dayparts:string[];literal:string}}[] {
+  const leads:{name:string;kind:'GASTRONOMY'|'DRINKS'|'LUNCH'|'DINNER';section:string;citation:Citation;prerequisite?:string;availability?:{weekdays:number[];dayparts:string[];literal:string}}[]=[];
   const seen=new Set<string>();
   const price=/^(?:(?:klein|gross|groß|small|large|stange|glas)\s*:\s*)?(?:CHF\s*\d{1,3}(?:[.,]\d{1,2})?|\d{1,3}(?:[.,]\d{1,2})?\s*(?:CHF|EUR|€))(?:\s|$)/iu;
   const generic=/^(?:all|bier|weine?|cocktails?|longdrinks?|spirits?|sours?|aperitif|snacks?|essen|food|drinks?|speisen?|getr[aä]nke|flaschen?|fass|weiss|weiß|ros[eé]|rot|happy hour|kategorien|diverse longdrinks)$/iu;
@@ -1477,6 +1517,11 @@ export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:
     if(source.format==='PDF_TEXT'&&source.layoutReviewRequired&&source.discoveredOn){
       // Text extraction alone cannot certify columns or prices. Keep only
       // literal, priced source rows as price-free human-review candidates.
+      // Wine inventories mix contents, vintages, regions, producers and
+      // bottle prices. A line-level parser cannot certify a sellable item.
+      if(/(?:weinkarte|wine[-_]?list|wine[-_]?menu|vins?[-_]?carte)/iu.test(new URL(source.url).pathname))continue;
+      const firstPage=source.text.split('\f')[0];
+      const contentsPage=source.text.includes('\f')&&/^\s*1\s*\n/u.test(firstPage)&&firstPage.split('\n').filter(row=>/^[A-ZÄÖÜÉÈÀÇ][A-ZÄÖÜÉÈÀÇ ,&-]{4,80}\s+\d{1,2}\s*$/u.test(row.trim())).length>=4;
       for(const match of source.text.matchAll(/(?:^|[\n\f])([^\n\f]{4,75})\n([35]\s*-\s*Gang Surprise Men[uü])/giu)){
         const name=match[1].trim(),offset=match.index!+match[0].indexOf(match[1]);
         if(/\d|[.!?:]/u.test(name)||name.length>70)continue;
@@ -1492,6 +1537,7 @@ export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:
       let section='MENU_FOOD',kind:'GASTRONOMY'|'DRINKS'='GASTRONOMY';
       for(const match of source.text.matchAll(/[^\n\f]+/gu)){
         const row=match[0].trim(),offset=match.index!+match[0].indexOf(row);
+        if(contentsPage&&offset<firstPage.length)continue;
         if(!row)continue;
         if(row.length<80&&/^(?:SCHAUMWEINE|WEISSWEINE|WEIßWEINE|ROTWEINE|ROS[EÉ]WEINE|SCHAUM\s*,\s*ROS[EÉ]\s*,\s*WEISS\s*&\s*ROT|WEISS\s+\d.*FLASCHE|WEIß\s+\d.*FLASCHE|WINE LIST|WINES|VINS)\b/iu.test(row)){
           section='WINE_LIST';kind='DRINKS';continue;
@@ -1525,6 +1571,25 @@ export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:
     const cocktailSection=source.text.match(/(?:^|\n)(?:AUSZUG AUS DER\s+)?COCKTAILKARTE\s*(?:\n|$)/iu);
     const menuPage=/(?:bar|food|menu|men[uü]|speise|drinks?|karte|dinner|lunch|breakfast|brunch)/iu.test(path)||Boolean(cocktailSection)||(source.headings??[]).some(h=>h.level===1&&/(?:bar\s*karte|speise\s*karte|food\s*menu|men[uü])/iu.test(h.text));
     if(!menuPage)continue;
+    // Course-count menus are often plain text rows, not semantic headings.
+    // The section label is included in each citation so a Thursday-only
+    // business lunch cannot become an everyday dinner or lunch claim.
+    let courseSection:{name:string;offset:number;kind:'LUNCH'|'DINNER';availability?:{weekdays:number[];dayparts:string[];literal:string}}|null=null;
+    for(const match of source.text.matchAll(/[^\n]+/gu)){
+      const row=match[0].trim(),offset=match.index!+match[0].indexOf(row);
+      if(/^(?:dinner|abend(?:essen|men[uü])?)$/iu.test(row)){courseSection={name:row,offset,kind:'DINNER'};continue;}
+      if(/^(?:business\s*lunch\s*\(?(?:thursday only|only thursday)\)?|businesslunch\s+am\s+donnerstag)$/iu.test(row)){
+        courseSection={name:row,offset,kind:'LUNCH',availability:{weekdays:[4],dayparts:['MIDDAY'],literal:row}};continue;
+      }
+      if(/^(?:our address|unsere adresse|opening hours|öffnungszeiten|reservation|kontakt|wine pairing|weinkarte)$/iu.test(row)){courseSection=null;continue;}
+      if(!courseSection||offset-courseSection.offset>500)continue;
+      const priced=row.match(/^((?:\d{1,2}\s*[-–]\s*(?:g[aä]nge|gang)\s*[-–]?\s*men[uü]|\d{1,2}\s*[-–]\s*course\s+menu))\s*(?:\|\s*)?CHF\s*\d{1,3}(?:[.,]\d{1,2})?$/iu);
+      if(!priced)continue;
+      const name=priced[1].trim(),evidence=source.text.slice(courseSection.offset,offset+row.length);
+      if(evidence.length>500||!sourceQuote(source.text,evidence))continue;
+      const key='COURSE:'+courseSection.kind+':'+name.match(/^\d{1,2}/u)?.[0];if(seen.has(key))continue;seen.add(key);
+      leads.push({name,kind:courseSection.kind,section:courseSection.name.toLocaleUpperCase(),...(courseSection.availability?{availability:courseSection.availability}:{}),citation:{url:source.url,evidence,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:courseSection.offset,layoutReviewRequired:true,sourceFormat:'HTML_MENU'}});
+    }
     const headings=source.headings??[];
     for(let i=0;i<headings.length-1;i++){
       const title=headings[i],next=headings[i+1],name=title.text.trim();
@@ -1635,9 +1700,10 @@ export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:
 
 export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchField,sources:ResearchSource[]):FieldResult {
   if(field.attributeKey!=='experience.profile'||!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory??'')||!['UNRESOLVED','REQUIRES_REVIEW'].includes(result.status))return result;
-  const leads=structuredMenuLeads(sources);
+  const leads=structuredMenuLeads(sources).filter(lead=>field.profileCategory!=='EAT'||!/(?:weinkarte|wine[-_]?list|wine[-_]?menu|getraenkekarte|getränkekarte|beverage[-_]?menu)/iu.test(new URL(lead.citation.url).pathname));
   if(!leads.length)return result;
-  const foodCandidates=leads.filter(lead=>lead.kind==='GASTRONOMY');
+  const isFood=(kind:string)=>['GASTRONOMY','LUNCH','DINNER'].includes(kind);
+  const foodCandidates=leads.filter(lead=>isFood(lead.kind));
   const dedicatedPdfFood=foodCandidates.filter(lead=>lead.citation.sourceFormat==='PDF_TEXT'&&!/(?:getraenk|geschäft|drinks?|cocktail|bar[-_]?karte|beverage)/iu.test(new URL(lead.citation.url).pathname));
   const food=dedicatedPdfFood.length>=4?dedicatedPdfFood:foodCandidates;
   const drinks=leads.filter(lead=>lead.kind==='DRINKS');
@@ -1672,9 +1738,9 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
   const menuNames=new Set(representative.map(lead=>lead.name.normalize('NFKC').toLocaleLowerCase()));
   const menuMatched=normalized.filter(offer=>menuNames.has(offer.name.normalize('NFKC').toLocaleLowerCase())||result.citations?.some(citation=>citation.sourceFormat==='IMAGE_OCR'&&citation.evidence.startsWith(offer.name+' ')));
   const otherOffers=normalized.filter(offer=>!menuMatched.includes(offer)&&!leads.some(lead=>lead.name!==offer.name&&lead.citation.evidence.includes(offer.name)));
-  const foodLeads=leads.some(lead=>lead.kind==='GASTRONOMY');
+  const foodLeads=leads.some(lead=>isFood(lead.kind));
   const drinkLeads=leads.some(lead=>lead.kind==='DRINKS');
-  const matchedLimit=(kind:string)=>foodLeads&&drinkLeads?(field.profileCategory==='DRINKS'?(kind==='DRINKS'?5:3):(kind==='GASTRONOMY'?6:2)):8;
+  const matchedLimit=(kind:string)=>foodLeads&&drinkLeads?(field.profileCategory==='DRINKS'?(kind==='DRINKS'?5:3):(isFood(kind)?6:2)):8;
   const authoritativeDocument=sources.some(source=>source.format==='PDF_TEXT'&&source.layoutReviewRequired&&source.discoveredOn);
   const retained=leads.length>=4?[...menuMatched.filter(offer=>menuMatched.filter(other=>other.kind===offer.kind).indexOf(offer)<matchedLimit(offer.kind)),...otherOffers.filter(offer=>offer.schedule.length>0).slice(0,2),...otherOffers.filter(offer=>offer.schedule.length===0).slice(0,authoritativeDocument||field.profileCategory==='DRINKS'&&leads.filter(lead=>lead.kind==='DRINKS').length>=6?0:1)].slice(0,8):normalized;
   const existing=parsed?{...parsed,offers:retained}:null;
@@ -1685,18 +1751,19 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
   const limit=8-(existing?.offers.length??0);
   if(limit<=0)return {...result,reviewEvidence:[...(result.reviewEvidence??[]),...leads.filter(lead=>!already.has(lead.name.normalize('NFKC').toLocaleLowerCase())).map(lead=>lead.citation)]};
   const selected:typeof leads=[];
-  const groups=field.profileCategory==='DRINKS'?[['DRINKS',5],['GASTRONOMY',3]]:field.profileCategory==='EAT'?[['GASTRONOMY',foodQuota],['DRINKS',drinkQuota]]:[['GASTRONOMY',4],['DRINKS',4]];
-  for(const [kind,quota] of groups as ['GASTRONOMY'|'DRINKS',number][]){
-    const remainingQuota=Math.max(0,quota-(existing?.offers.filter(offer=>offer.kind===kind).length??0));
-    const group=available.filter(lead=>lead.kind===kind).sort((a,b)=>kind==='GASTRONOMY'?Number(/[’']s\b/u.test(b.name))*20-Number(/[’']s\b/u.test(a.name))*20:0);
+  const groups=field.profileCategory==='DRINKS'?[['DRINKS',5],['FOOD',3]]:field.profileCategory==='EAT'?[['FOOD',foodQuota],['DRINKS',drinkQuota]]:[['FOOD',4],['DRINKS',4]];
+  for(const [kind,quota] of groups as ['FOOD'|'DRINKS',number][]){
+    const belongs=(value:string)=>kind==='FOOD'?isFood(value):value==='DRINKS';
+    const remainingQuota=Math.max(0,quota-(existing?.offers.filter(offer=>belongs(offer.kind)).length??0));
+    const group=available.filter(lead=>belongs(lead.kind)).sort((a,b)=>kind==='FOOD'?Number(/[’']s\b/u.test(b.name))*20-Number(/[’']s\b/u.test(a.name))*20:0);
     const sections=new Set<string>();
-    for(const lead of group)if(selected.length<limit&&selected.filter(item=>item.kind===kind).length<remainingQuota&&!sections.has(lead.section)){selected.push(lead);sections.add(lead.section);}
-    for(const lead of group)if(selected.length<limit&&selected.filter(item=>item.kind===kind).length<remainingQuota&&!selected.includes(lead))selected.push(lead);
+    for(const lead of group)if(selected.length<limit&&selected.filter(item=>belongs(item.kind)).length<remainingQuota&&!sections.has(lead.section)){selected.push(lead);sections.add(lead.section);}
+    for(const lead of group)if(selected.length<limit&&selected.filter(item=>belongs(item.kind)).length<remainingQuota&&!selected.includes(lead))selected.push(lead);
   }
   if(!foodLeads||!drinkLeads)for(const lead of available)if(selected.length<limit&&!selected.includes(lead))selected.push(lead);
   if(!selected.length)return result;
   try {
-    const offers=selected.map(lead=>({id:'offer_'+hash(lead.name.toLocaleLowerCase()).slice(0,16),kind:lead.kind,name:lead.name,areaIds:[],properties:lead.prerequisite?[{key:'participation.prerequisite',label:null,state:'KNOWN' as const,value:lead.prerequisite,conditions:{weekdays:[],dayparts:[],event:null,validFrom:null,validUntil:null}}]:[],prices:[],schedule:[],validFrom:null,validUntil:null}));
+    const offers=selected.map(lead=>({id:'offer_'+hash(lead.kind+':'+lead.name.toLocaleLowerCase()).slice(0,16),kind:lead.kind,name:lead.name,areaIds:[],properties:[...(lead.prerequisite?[{key:'participation.prerequisite',label:null,state:'KNOWN' as const,value:lead.prerequisite,conditions:{weekdays:[],dayparts:[],event:null,validFrom:null,validUntil:null}}]:[]),...(lead.availability?[{key:'custom.detail',label:'Verfügbarkeit',state:'KNOWN' as const,value:lead.availability.literal,conditions:{weekdays:lead.availability.weekdays,dayparts:lead.availability.dayparts,event:null,validFrom:null,validUntil:null}}]:[])],prices:[],schedule:[],validFrom:null,validUntil:null}));
     const profile=parseExperienceProfile(existing?{...existing,offers:[...existing.offers,...offers]}:{contractVersion:(field.valueSchema as {properties:{contractVersion:{const:string}}}).properties.contractVersion.const,category:field.profileCategory,properties:[],areas:[],offers,reviewed:false},false);
     return {...result,status:'REQUIRES_REVIEW',reason:undefined,knowledgeState:'KNOWN_VALUE',value:profile,citations:[...retainedCitations,...shortened.map(lead=>lead.citation),...selected.map(lead=>lead.citation)],partialProfile:true,humanReviewRequired:true,reviewEvidence:[...(result.reviewEvidence??[]),...droppedCitations,...leads.filter(lead=>!profile.offers.some(offer=>offer.name.normalize('NFKC').toLocaleLowerCase()===lead.name.normalize('NFKC').toLocaleLowerCase())).map(lead=>lead.citation)]};
   }catch{return result;}
@@ -1814,7 +1881,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const knownClosure=currentVenueClosure(spot,sources,new Date(now()));
     if(knownClosure&&fields.every(field=>closureBlockedFields.has(field.attributeKey))){stopReason='VENUE_TEMPORARILY_CLOSED';break;}
     const planned=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
-    const pendingFields=fields.filter(f=>{if(knownClosure&&closureBlockedFields.has(f.attributeKey))return false;const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&(Array.isArray(proposal?.value)&&proposal.value.length<7||hoursNeedCorroboration(facts,sources))||f.attributeKey==='experience.profile'&&profileNeedsMoreEvidence(f,facts,frontier,sources);});
+    const pendingFields=fields.filter(f=>{if(knownClosure&&closureBlockedFields.has(f.attributeKey)||f.attributeKey==='experience.profile'&&f.profileCategory==='EAT'&&completeCourseMenuOverview(sources))return false;const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&((Array.isArray(proposal?.value)&&proposal.value.length<7&&!completeOfficialHoursSection(facts,sources))||hoursNeedCorroboration(facts,sources))||f.attributeKey==='experience.profile'&&profileNeedsMoreEvidence(f,facts,frontier,sources);});
     // A hard-to-find contact must not consume the whole budget while a
     // substantive experience question is still unanswered.
     const balancedFields=pendingFields.filter(f=>!(f.attributeKey.startsWith('contact.')&&(topicAttempts.get('contact')??0)>=3&&pendingFields.some(other=>other.attributeKey==='experience.profile')));

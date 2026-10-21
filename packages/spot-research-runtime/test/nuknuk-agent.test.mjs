@@ -65,6 +65,26 @@ test('priced surprise menus retain their minimum-party rule in the review draft'
  assert.equal(result.value.offers.find(offer=>offer.name==='House Share Menu')?.properties[0].value,'ab 2 Personen nur ganze Tische');
  assert.ok(!result.value.offers.some(offer=>offer.name==='geerntet / harvested'));
 });
+test('course-count dinner and Thursday lunch menus outrank a wine-list contents page',()=>{
+ const wineText='1\nGETRÄNKEBEGLEITUNG MIT ALKOHOL 2\nGETRÄNKEBEGLEITUNG OHNE ALKOHOL 2\nALKOHOLFREI 3\nSCHAUMWEIN 4\nCHAMPAGNER 5\f2\nGetränkebegleitung mit Alkohol\n7 Gläser 115\n8 Gläser 130';
+ const wine={...source(wineText),url:'https://example.org/uploads/2026-weinkarte.pdf',format:'PDF_TEXT',layoutReviewRequired:true,discoveredOn:'https://example.org/menu/'};
+ const menuText='menu – roots\n\ndinner\n\n7-gänge-menü chf 198\n\n8-gänge-menü chf 208\n\n9-gänge-menü chf 218\n\n10-gänge-menü chf 228\n\nbusinesslunch am donnerstag\n\n3-gänge-menü chf 98\n\n4-gänge-menü chf 110\n\n5-gänge-menü chf 122\n\nour address\n\nbachlettenstrasse 1';
+ const menu={...source(menuText,'s2'),url:'https://example.org/de/menu-de/'};
+ const leads=structuredMenuLeads([wine,menu]);
+ assert.equal(leads.filter(lead=>lead.citation.url===wine.url).length,0);
+ assert.deepEqual(leads.map(lead=>[lead.kind,lead.name]),[['DINNER','7-gänge-menü'],['DINNER','8-gänge-menü'],['DINNER','9-gänge-menü'],['DINNER','10-gänge-menü'],['LUNCH','3-gänge-menü'],['LUNCH','4-gänge-menü'],['LUNCH','5-gänge-menü']]);
+ const result=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'},{...field('experience.profile'),profileCategory:'EAT'},[wine,menu]);
+ assert.equal(result.status,'REQUIRES_REVIEW');assert.equal(result.value.offers.length,7);
+ assert.ok(result.value.offers.every(offer=>offer.prices.length===0));
+ assert.ok(result.value.offers.filter(offer=>offer.kind==='LUNCH').every(offer=>offer.properties[0].conditions.weekdays.join(',')==='4'));
+ assert.ok(result.citations.filter(c=>c.url===menu.url).every(c=>c.evidence.includes('dinner')||c.evidence.includes('businesslunch am donnerstag')));
+ const ranked=rankResearchFrontier([
+  {url:wine.url,depth:1,topics:['menu','experience'],discoveredOn:'https://example.org/de/'},
+  {url:menu.url,depth:1,topics:['menu','experience'],label:'menu'}
+ ],[],[{...field('experience.profile'),profileCategory:'EAT'}]);
+ assert.deepEqual(ranked.map(link=>link.url),[menu.url]);
+ assert.deepEqual(rankResearchFrontier([{url:'https://example.org/about-us/',depth:2,topics:['about']}],[],[{...field('experience.profile'),profileCategory:'EAT'}],[menu]),[]);
+});
 test('a directly adjacent weekday lunch restriction becomes a bounded offer schedule',()=>{
  const quote='Alchemist Lunch Sharefood Menu\n\nUnser Wochenmenu beinhaltet wechselnde Gerichte zum Teilen.';
  const condition='Montag bis Freitag von 11.30 bis 13.30 (letzte Bestellung)';
@@ -1554,6 +1574,16 @@ test('address-bound regular-hours section survives a weak language critic withou
  const other='<main><h1>Restaurant Annex</h1><h2>Unsere Öffnungszeiten</h2><p>Mo.- Do. von 11 bis 22 Uhr</p><p>Alexander, Riehenring 85, Basel</p></main>';
  const wrong=await researchSpotV2({...opts,spot:exact,fields:[field('hours.regular')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:other,observedAt:new Date().toISOString()}),modelFetch:async()=>reply({verdicts:[]})});
  assert.equal(wrong.results[0].status,'UNRESOLVED');
+});
+test('official name-matching domain and exact address certify complete restaurant hours when CMS body omits its name',async()=>{
+ const exact={...spot,name:'¡Che, que lomo!',existingValues:{...spot.existingValues,'contact.website':{value:'https://www.chequelomo.ch/'},'location.address_line1':{value:'Horburgstrasse 74'}}};
+ const body='<main><h4>Argentinischer Grill</h4><h4>Öffnungszeiten:</h4><p>Mi-Fr 12.00-14.00Uhr</p><p>Di-Do 17.00-22.00Uhr</p><p>Fr & Sa 17.00-23.00Uhr</p><p>Die Küche schliesst jeweils 30 Minuten vorher.</p><p>Horburgstrasse 74, 4057 Basel</p></main>';
+ const result=await researchSpotV2({...opts,spot:exact,sources:['https://www.chequelomo.ch/'],fields:[field('hours.regular')],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:async()=>reply({verdicts:[]})});
+ const hours=result.results[0];
+ assert.equal(hours.status,'REQUIRES_REVIEW');
+ assert.deepEqual(hours.value.find(row=>row.day==='TUESDAY').intervals,[{start:'17:00',end:'22:00'}]);
+ assert.deepEqual(hours.value.find(row=>row.day==='FRIDAY').intervals,[{start:'12:00',end:'14:00'},{start:'17:00',end:'23:00'}]);
+ assert.equal(result.facts.filter(f=>f.field==='hours.regular'&&f.reason==='STRUCTURED_VENUE_HOURS').length,3);
 });
 test('the official home page can bind an address for a same-host hours page whose main content omits its footer',async()=>{
  const exact={...spot,name:'Alexander',existingValues:{...spot.existingValues,'location.address_line1':{value:'Riehenring 85'}}};

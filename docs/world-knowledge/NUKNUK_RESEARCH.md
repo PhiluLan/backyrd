@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.61
+# Local Nuknuk Research v3.64
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -101,6 +101,36 @@ Neither the old summer menu nor ZIP archives were fetched. This verifies the
 specific safety and efficiency repair on an already seen case; a new closed
 venue and broader open-venue cohort are still needed before autonomous use.
 
+The independent v3.61 roots case failed its food-profile check. It read the
+current operator menu but returned four headings from the wine-list contents
+page as GASTRONOMY offers and missed all seven literal course-count options.
+The current weekly hours, including both Thursday intervals, were correct.
+v3.62 excludes wine inventories from line-level offer projection, detects
+contents pages, ranks a dedicated food-menu page ahead of wine and snapshot
+PDFs, and constructs price-free DINNER/LUNCH review offers from exact priced
+course rows. Thursday business-lunch options retain a weekday condition.
+Saved-source replay yields the seven named options. The v3.63 full local-model
+development run also returned all seven variants and the correct weekly hours
+after two first-party requests and three model calls (69.6 seconds), compared
+with twelve requests and six model calls in the v3.62 development run. It
+remains a tuned replay of the failed roots case, not an independent pass.
+
+The next independent v3.63 case, ¡Che, que lomo!, failed its hours check:
+Nuknuk read the official homepage but rejected its three complete hours rows
+because the CMS-extracted body omitted the restaurant name. It returned only
+the lunch-only footer from the menu page. The official page states Tuesday to
+Saturday evening hours, Wednesday to Friday lunch, kitchen closing thirty
+minutes earlier, and future holidays starting 24 December 2026. v3.64 can
+certify a literal hours section on the exact first-party domain when the
+domain matches the spot name and the page contains the stored street address.
+It stops hours discovery once every parseable row in that section is accepted;
+missing days remain unspecified, not falsely marked closed. The v3.64
+development replay recovered all five published open days and their intervals
+from two HTML pages, with three requests and four model calls. The third
+request was a linked 30 MB menu PDF rejected by the source-size limit; eight
+literal dishes from the HTML menu entered the review draft. This is a repaired
+case, not a new blind pass or proof of autonomous research readiness.
+
 On 21 October 2026, a previously untouched Odelya Hotel run against a
 pre-recorded official-source reference failed: it found public phone and email,
 but missed the attic apartment and supported amenities, added a booking link
@@ -173,7 +203,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.61
+## Active architecture: Research v3.64
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
