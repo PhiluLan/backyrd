@@ -403,6 +403,27 @@ run_case guest_history_owner_transfer_before_replay \
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.spots set owner_id='$owner' where id='$spot';" >/dev/null
 printf 'Guest history atomic create/replay, inventory rollback, card correction/archive order, association CAS, amended-booking and ownership-replay fences passed.\n'
 
+# Report readers share the restaurant lock and observe complete committed facts.
+report_read_a="select 'REPORT_TOTAL:'||(r#>>'{totals,reservations}')||':'||(r#>>'{totals,guests}') from (select public.booking_console_report_v1('$spot',date '$business_date'+200,date '$business_date'+200) r) x;"
+report_create_a="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000801','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+200+time '10:00') at time zone 'Europe/Zurich'),60,3,'Report race',null,null,'phone','confirmed');"
+run_case report_before_create "$report_read_a" "$report_create_a" SUCCESS
+grep -q 'REPORT_TOTAL:0:0' "$race_root/report_before_create-holder.out" || exit 1
+report_read_b="select 'REPORT_TOTAL:'||(r#>>'{totals,reservations}')||':'||(r#>>'{totals,guests}') from (select public.booking_console_report_v1('$spot',date '$business_date'+201,date '$business_date'+201) r) x;"
+report_create_b="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000802','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+201+time '10:00') at time zone 'Europe/Zurich'),60,4,'Report race',null,null,'email','confirmed');"
+run_case create_before_report "$report_create_b" "$report_read_b" SUCCESS
+grep -q 'REPORT_TOTAL:1:4' "$race_root/create_before_report-waiter.out" || exit 1
+report_viewer='7b000000-0000-4000-8000-000000000821'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+insert into auth.users(id,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data) values('$report_viewer','booking-report-race@booking.invalid',clock_timestamp(),'{}','{}');
+insert into public.booking_team_members(spot_id,user_id,owner_id,role) values('$spot','$report_viewer','$owner','viewer');
+SQL
+report_auth="set local role authenticated; select set_config('request.jwt.claim.sub','$report_viewer',true); select set_config('request.jwt.claims','{\"sub\":\"$report_viewer\",\"role\":\"authenticated\"}',true);"
+run_case revoke_before_report "select public.booking_console_member_v1('$spot','$report_viewer',0,null);" "$report_read_a" booking_operator_required "$report_auth"
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.booking_team_members set revoked_at=null,revision=revision+1 where spot_id='$spot' and user_id='$report_viewer';" >/dev/null
+run_case report_before_revoke "$report_read_a" "select public.booking_console_member_v1('$spot','$report_viewer',2,null);" SUCCESS "$auth_sql" "$report_auth"
+grep -q 'REPORT_TOTAL:1:3' "$race_root/report_before_revoke-holder.out" || exit 1
+printf 'Service reports observe complete facts across creation and enforce Viewer revocation in both real root-lock orders.\n'
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
@@ -421,7 +442,7 @@ delete from public.booking_public_settings where spot_id='$spot';
 delete from booking_private.public_settings_requests_v1 where spot_id='$spot';
 delete from public.booking_restaurant_settings where spot_id='$spot';
 delete from public.spots where id in ('$spot','$other_spot');
-delete from auth.users where id in ('$owner','$staff','$other_owner');
+delete from auth.users where id in ('$owner','$staff','$other_owner','$report_viewer');
 commit;
 SQL
 printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation and public combined bookings serialize, roll back a competing claim, deduplicate concurrent identical requests, and fence actual-time seated transfers against competing movements and departure; public intake and operator inventory serialize in both orders, with replay and paused-intake fences.\n'
