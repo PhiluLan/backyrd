@@ -18,7 +18,7 @@ The Console advertises `capabilities.guest_mail` only after the new database con
 - Superseded is independent of the delivery state. A stale message already in transit cannot be recalled.
 - Revoked/expired guest access and provider-triggered delivery blocks are displayed independently. A delivery block does not itself revoke guest self-service access.
 
-There is deliberately no automatic or manual blind resend button. Secure guest-key reissue, contact-bound suppression handling, explicit reconciliation of uncertain delivery and audited new message intents remain separate work. Internal notes and table changes produce no mail; after arrival, guest-name corrections also produce no message. Contact correction invalidates the prior link and stops further attempts, but cannot retract an in-flight email. The editor now explains those boundaries.
+There is deliberately no automatic or manual blind resend button. The dependent 208 candidate adds explicit existing-link renewal, recipient-bound suppression and an audited new intent. General delivery reconciliation and initial manual-booking credentials remain separate work. Internal notes and table changes produce no mail; after arrival, guest-name corrections also produce no message. Contact correction invalidates the prior link and stops further attempts, but cannot retract an in-flight email. The editor now explains those boundaries.
 
 ## Authorization and data boundary
 
@@ -38,3 +38,7 @@ Opening the overview starts one abortable, bounded authenticated RPC. Closing, s
 - Production build, TypeScript, lint (13 existing warnings; no errors), canonical SQL secret scan and client secret boundary checks passed. Local proof files are `/tmp/backyrd-mail-overview-{contracts,types,lint,build,browser,secret-scan,client-boundary}.log` and `.local/gate-receipts/booking-mail-overview-{receipt,snapshot}.json`.
 
 No actual customer record, recipient or provider request is used. Local acceptance does not establish production readiness or Aleno parity. Production migration approvals, full restore/drift coverage, genuine sender/callback/scheduler acceptance and a real restaurant multi-device trial remain open.
+
+## Existing-link renewal follow-up (208)
+
+The dependent candidate adds explicit staff renewal for an existing unexpired future website booking, with recipient-bound delivery feedback and durable uncertain-write recovery. See [BOOKING_GUEST_LINK_REISSUE.md](BOOKING_GUEST_LINK_REISSUE.md). It provides no initial manual-booking credentials, blind resend or production activation.

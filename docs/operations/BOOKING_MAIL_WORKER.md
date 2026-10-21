@@ -132,8 +132,8 @@ Console runtime did not change; the prior 111 Console journeys are inherited
 evidence, not a fresh mail acceptance run. The official Svix known signature
 vector is tested in addition to forged/modified/stale/rotated callbacks.
 
-Real sender/callback/scheduler acceptance, staff review actions, secure guest
-link reissue, reminders, public checkout/publishing, private schema/ACL drift,
+Real sender/callback/scheduler acceptance, broader staff review actions, initial
+manual-booking confirmations, reminders, public checkout/publishing, private schema/ACL drift,
 the full recovery rehearsal and restaurant/device acceptance remain open.
 Separate integration approvals for #557/#565/#567 and production migration/
 recovery authorization remain outstanding. The 206 CHECK replacement uses the
@@ -150,3 +150,7 @@ Primary integration references:
 ## Staff delivery evidence follow-up
 
 The dependent 207 candidate adds a privacy-safe, role-scoped, on-demand Console overview of message intents and actual delivery evidence. See [BOOKING_MAIL_OVERVIEW.md](BOOKING_MAIL_OVERVIEW.md). It introduces no resend or guest-key reissue operation and does not activate dispatch.
+
+## Recipient binding and guest-link renewal follow-up (208)
+
+The dependent candidate freezes each prepared message’s normalized recipient hash and fences late provider callbacks from a former contact. Explicit staff renewal preserves saved guest terms and queues one audited new intent; see [BOOKING_GUEST_LINK_REISSUE.md](BOOKING_GUEST_LINK_REISSUE.md). Initial manual-booking confirmation, broader reconciliation and genuine production acceptance remain open.
