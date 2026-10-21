@@ -292,6 +292,24 @@ run_case transfer_owner_before_reissue_replay \
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.spots set owner_id='$owner' where id='$spot';" >/dev/null
 printf 'Guest-link reissue deduplicates independently generated capabilities across concurrent retries; contact amendments and guest cancellation fence stale issuance in both lock orders, and ownership transfer blocks old-actor replay.\n'
 
+# Public-rule saves have their own actor-bound nonce journal. A read without an
+# outcome never settles an old write unless a later monotonic root fences it.
+public_rev="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select revision from public.booking_restaurant_settings where spot_id='$spot';")"
+public_payload="'{\"enabled\":false,\"service_ids\":[\"$service\"],\"notice_minutes\":60,\"horizon_days\":90,\"cancellation_minutes\":120,\"confirmation_status\":\"confirmed\",\"privacy_contact\":\"privacy@booking.invalid\",\"guest_notice\":\"\"}'::jsonb"
+public_save="select public.booking_console_save_public_settings_v2('$spot','7b000000-0000-4000-8000-000000000130',$public_rev,$public_payload);"
+run_case public_settings_same_nonce "$public_save" "$public_save" SUCCESS
+case_count="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select count(*) from booking_private.public_settings_requests_v1 where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000130';")"
+test "$case_count" = 1 || exit 1
+legacy_change="select public.booking_console_save_public_settings_v1('$spot',$public_rev,false,array['$service'::uuid],60,90,120,'confirmed','privacy@booking.invalid','New rules from another manager');"
+stale_new_settings="select public.booking_console_save_public_settings_v2('$spot','7b000000-0000-4000-8000-000000000131',$public_rev,$public_payload);"
+run_case public_settings_other_change_first "$legacy_change" "$stale_new_settings" SUCCESS
+grep -q '"not_committed": true' "$race_root/public_settings_other_change_first-waiter.out" || exit 1
+public_rev="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select revision from public.booking_restaurant_settings where spot_id='$spot';")"
+new_settings="select public.booking_console_save_public_settings_v2('$spot','7b000000-0000-4000-8000-000000000132',$public_rev,$public_payload);"
+stale_legacy_change="select public.booking_console_save_public_settings_v1('$spot',$public_rev,false,array['$service'::uuid],60,90,120,'confirmed','different@booking.invalid','Stale manager rules');"
+run_case public_settings_nonce_first "$new_settings" "$stale_legacy_change" booking_setup_changed_reload
+printf 'Public booking-rule intents deduplicate concurrent retries and fence competing changes in both actual root-lock orders.\n'
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
@@ -307,6 +325,7 @@ delete from public.booking_restaurant_tables where spot_id='$spot';
 delete from public.booking_restaurant_services where spot_id='$spot';
 delete from public.booking_restaurant_areas where spot_id='$spot';
 delete from public.booking_public_settings where spot_id='$spot';
+delete from booking_private.public_settings_requests_v1 where spot_id='$spot';
 delete from public.booking_restaurant_settings where spot_id='$spot';
 delete from public.spots where id in ('$spot','$other_spot');
 delete from auth.users where id in ('$owner','$staff','$other_owner');
