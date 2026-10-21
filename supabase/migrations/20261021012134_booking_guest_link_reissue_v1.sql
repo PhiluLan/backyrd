@@ -6,7 +6,7 @@ lock table public.booking_restaurant_settings in exclusive mode;
 alter table booking_private.guest_mail_outbox_v1 add column recipient_hash text check(recipient_hash ~ '^[0-9a-f]{64}$');
 alter table booking_private.guest_access_v1 add column delivery_blocked_recipient_hash text check(delivery_blocked_recipient_hash ~ '^[0-9a-f]{64}$');
 alter table booking_private.reservation_requests_v2 drop constraint reservation_requests_v2_request_kind_check;
-alter table booking_private.reservation_requests_v2 add constraint reservation_requests_v2_request_kind_check check(request_kind in ('create','amend','walk_in','transfer','guest_create','guest_cancel','guest_reissue'));
+alter table booking_private.reservation_requests_v2 add constraint reservation_requests_v2_request_kind_check check (request_kind in ('create','amend','walk_in','transfer','guest_create','guest_cancel','guest_reissue'));
 
 create function booking_private.mail_recipient_hash_v1(contact text) returns text language sql immutable set search_path='' as $$
  select encode(sha256(convert_to(lower(trim(contact)),'UTF8')),'hex');
