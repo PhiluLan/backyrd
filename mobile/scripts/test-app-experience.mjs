@@ -46,3 +46,37 @@ const query=Object.assign(Promise.resolve({data:storeRows,error:null}),{select()
 load('lib/useSpotsStore.ts',{'zustand':{create:factory=>{store=factory(update=>Object.assign(store,update));return store;}},'./supabase':{supabase:{from:()=>query,channel:()=>({on(){return this;},subscribe(){return this;}})}},'./distributionTrust':{filterDistributedSpots:async rows=>rows},'./spot-images':{selectSpotImageUrl:()=>null},'./requestDeadline':{withRequestDeadline:operation=>operation(new AbortController().signal)}});
 await store.refresh();assert.equal(store.error,false);assert.equal(store.spots[0].categories.name,'Café');assert.equal(store.spots[1].categories.name,'Bar');assert.ok(Number.isNaN(store.spots[0].lat));assert.equal(store.spots[1].lat,0);
 console.log('Catalog boundary: object/array category joins, missing coordinates and real zero coordinates passed.');
+
+// Real hook transitions: simultaneous taps, failed requests and edits during a send.
+const hookSlots=[];let hookCursor=0;
+const hookReact={
+ useState:initial=>{const slot=hookCursor++;if(!(slot in hookSlots))hookSlots[slot]=initial;return [hookSlots[slot],value=>{hookSlots[slot]=value;}];},
+ useRef:initial=>{const slot=hookCursor++;if(!(slot in hookSlots))hookSlots[slot]={current:initial};return hookSlots[slot];},
+ useCallback:callback=>callback,
+};
+const {useMessageComposer}=load('hooks/useMessageComposer.ts',{react:hookReact});
+const renderComposer=()=>{hookCursor=0;return useMessageComposer();};
+let composer=renderComposer();
+assert.equal(composer.beginSend('text'),null,'blank messages do not lock the composer');
+composer.updateText('First message');composer=renderComposer();
+const first=composer.beginSend('text');
+assert.equal(composer.beginSend('text'),null,'same-frame double tap cannot start a second send');
+assert.equal(composer.beginSend('image'),null,'text and image sends cannot overlap');
+composer.updateText('My next message');composer.finishSend(first,false);composer=renderComposer();
+assert.equal(composer.text,'My next message','a failed send cannot overwrite new typing');
+assert.equal(composer.sendingKind,null);
+const second=composer.beginSend('text');composer.finishSend(second,false);composer=renderComposer();
+assert.equal(composer.text,'My next message','failed unchanged draft stays available for retry');
+const third=composer.beginSend('text');composer.finishSend(third,true);composer=renderComposer();
+assert.equal(composer.text,'','confirmed unchanged message is cleared');
+composer.updateText('Caption');const image=composer.beginSend('image');
+composer.updateText('Next caption');composer.finishSend(image,true);composer=renderComposer();
+assert.equal(composer.text,'Next caption','successful image send preserves new typing');
+const revised=composer.beginSend('text');composer.updateText('Other');composer.updateText('Next caption');
+composer.finishSend(revised,true);composer=renderComposer();
+assert.equal(composer.text,'Next caption','editing back to identical text is still a new draft');
+const latest=composer.beginSend('image');composer.finishSend(revised,true);composer=renderComposer();
+assert.equal(composer.sendingKind,'image','a late completion cannot unlock another request');
+composer.finishSend(latest,true);composer=renderComposer();assert.equal(composer.text,'');
+assert.ok(composer.beginSend('image'),'an image without caption remains supported');
+console.log('Chat composer: failure/new typing, image captions, double taps and stale completion passed.');
