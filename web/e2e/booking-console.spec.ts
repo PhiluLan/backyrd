@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean; search?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -485,6 +485,12 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     snapshot.operating_date = "2026-10-20";
     snapshot.reservations = snapshot.reservations.map(r => r.service_id === lunch ? { ...r, status: "seated", revision: 0, seated_at: "2026-10-20T10:00:00Z" } : r);
   }
+  if (options.search) {
+    snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, reservation_search: true };
+    snapshot.reservations.push({ ...snapshot.reservations[0], id: "54000000-0000-4000-8000-000000000099", guest_name: "Testgast Morgen", guest_contact: "morgen@booking.invalid", note: "PRIVATE_SEARCH_NOTE", starts_at: "2026-10-21T18:00:00+02:00", ends_at: "2026-10-21T20:00:00+02:00" });
+    for (let n = 1; n <= 30; n++) snapshot.reservations.push({ ...snapshot.reservations[0], id: `54000000-0000-4000-8000-${String(n).padStart(12, "0")}`, guest_name: "Testgast Wiederkehrend", status: "cancelled", starts_at: "2026-10-22T18:00:00+02:00", ends_at: "2026-10-22T20:00:00+02:00" });
+  }
+  const searchRequests: Record<string, unknown>[] = [];
   const layoutRequests: Record<string, unknown>[] = [];
   let readCalls = 0;
   let readError: "network" | "denied" | "safety" | null = null;
@@ -586,6 +592,15 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       return route.fulfill({ json: { spot_id: spot, spot_name: "Restaurant Testbetrieb", role: "host", expires_at: "2026-10-27T12:00:00Z", accepted: joined } });
     }
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
+    if (method === "booking_console_search_v1") {
+      searchRequests.push(body);
+      const matches = snapshot.reservations.filter(r => r.starts_at.slice(0, 10) >= body.p_from && r.starts_at.slice(0, 10) <= body.p_to && (r.guest_name.toLowerCase().includes(body.p_query.toLowerCase()) || r.guest_contact?.toLowerCase().includes(body.p_query.toLowerCase())))
+        .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at) || a.id.localeCompare(b.id))
+        .filter(r => !body.p_after_starts_at || Date.parse(r.starts_at) > Date.parse(body.p_after_starts_at) || (Date.parse(r.starts_at) === Date.parse(body.p_after_starts_at) && r.id > body.p_after_id));
+      const pageRows = matches.slice(0, 25).map(({ id, guest_name, guest_contact, starts_at, ends_at, party_size, status }) => ({ id, guest_name, guest_contact, starts_at, ends_at, party_size, status }));
+      const last = pageRows.at(-1);
+      return route.fulfill({ json: { reservations: pageRows, next_cursor: matches.length > 25 ? { id: last!.id, starts_at: last!.starts_at } : null } });
+    }
     if (method === "booking_console_read_v1") {
       readCalls++;
       if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
@@ -806,7 +821,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { searchRequests: () => searchRequests, transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -2908,4 +2923,187 @@ test("overrun saved state survives offline honestly and disappears when access i
   await page.clock.runFor(60_000);
   await expect(queue).toHaveCount(0);
   expect(fixture.statusRequests()).toHaveLength(0);
+});
+
+
+async function openReservationSearch(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierungen finden", exact: true }).click();
+  return page.getByRole("dialog", { name: "Reservierungen finden", exact: true });
+}
+
+test("restaurant search on a phone opens the actual next-day reservation with a fresh read", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, search: true, lifecycle: true });
+  const panel = await openReservationSearch(page);
+  await expect(panel.getByLabel("Name oder Kontakt")).toBeFocused();
+  await panel.getByLabel("Name oder Kontakt").fill("mo");
+  await expect(panel.getByRole("button", { name: "Reservierungen suchen", exact: true })).toBeDisabled();
+  expect(fixture.searchRequests()).toHaveLength(0);
+  await panel.getByLabel("Name oder Kontakt").fill("morgen@booking.invalid");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await expect(panel).toContainText("Treffer 1–1");
+  await expect(panel).not.toContainText("PRIVATE_SEARCH_NOTE");
+  await panel.screenshot({ path: test.info().outputPath("reservation-search-phone.png") });
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  expect((await new AxeBuilder({ page }).include('dialog[aria-label="Reservierungen finden"]').analyze()).violations).toEqual([]);
+  expect(page.url()).not.toContain("morgen");
+  const reads = fixture.readCalls();
+  await panel.getByRole("button", { name: "Reservierung von Testgast Morgen am 2026-10-21 öffnen" }).click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(details).toContainText("Testgast Morgen");
+  await expect(page.getByLabel("Datum · Europe/Zurich")).toHaveValue("2026-10-21");
+  expect(fixture.readCalls()).toBeGreaterThan(reads);
+  expect(fixture.statusRequests()).toHaveLength(0);
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Aktualisieren", exact: true })).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole("button", { name: "Reservierungen finden", exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath("reservation-search-return-phone.png") });
+});
+
+test("restaurant search pages a bounded list and clears old results when the search changes", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, search: true });
+  const panel = await openReservationSearch(page);
+  await panel.getByLabel("Name oder Kontakt").fill("Wiederkehrend");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await expect(panel).toContainText("Treffer 1–25");
+  await expect(panel.getByRole("button", { name: /Reservierung von Testgast Wiederkehrend/ })).toHaveCount(25);
+  await panel.getByRole("button", { name: "Nächste 25 Treffer", exact: true }).click();
+  await expect(panel).toContainText("Treffer 26–30");
+  await expect(panel.getByRole("button", { name: /Reservierung von Testgast Wiederkehrend/ })).toHaveCount(5);
+  await panel.getByRole("button", { name: "Zur ersten Seite", exact: true }).click();
+  await expect(panel).toContainText("Treffer 1–25");
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await expect(panel.getByRole("button", { name: /Reservierung von/ })).toHaveCount(0);
+  expect(fixture.searchRequests()).toHaveLength(3);
+  await panel.getByLabel("Bis", { exact: true }).fill("2028-01-01");
+  await expect(panel.getByRole("button", { name: "Reservierungen suchen", exact: true })).toBeDisabled();
+});
+
+test("restaurant search discards a late response after query editing", async ({ page }) => {
+  await mockConsole(page, { seeded: true, search: true });
+  let release = () => {}, called = false;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/rest/v1/rpc/booking_console_search_v1", async route => { called = true; await gate; try { await route.fulfill({ json: { reservations: [], next_cursor: null } }); } catch { /* request cancelled by editing */ } });
+  const panel = await openReservationSearch(page);
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await expect.poll(() => called).toBe(true);
+  await panel.getByLabel("Name oder Kontakt").fill("Andere Suche");
+  release();
+  await expect(panel.getByRole("button", { name: "Reservierungen suchen", exact: true })).toBeEnabled();
+  await expect(panel).not.toContainText("Keine Reservierungen");
+});
+
+test("restaurant search clears results offline and requires an explicit new search", async ({ page, context }) => {
+  const fixture = await mockConsole(page, { seeded: true, search: true });
+  const panel = await openReservationSearch(page);
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await expect(panel).toContainText("Treffer 1–1");
+  await context.setOffline(true);
+  await expect(panel.getByRole("alert")).toContainText("Offline");
+  await expect(panel.getByRole("button", { name: /Reservierung von/ })).toHaveCount(0);
+  await context.setOffline(false);
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+  expect(fixture.searchRequests()).toHaveLength(1);
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await expect(panel).toContainText("Treffer 1–1");
+});
+
+test("restaurant search lets a viewer find and inspect without editing", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, search: true, teams: true, teamRole: "viewer" });
+  const panel = await openReservationSearch(page);
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await panel.getByRole("button", { name: /Reservierung von Testgast Morgen/ }).click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(details).toContainText("Testgast Morgen");
+  await expect(details.getByRole("button", { name: "Status speichern", exact: true })).toHaveCount(0);
+  expect(fixture.statusRequests()).toHaveLength(0);
+});
+
+for (const reason of ["denied", "malformed"] as const) {
+  test("restaurant search rejects an unavailable response honestly: " + reason, async ({ page }) => {
+    await mockConsole(page, { seeded: true, search: true });
+    await page.route("**/rest/v1/rpc/booking_console_search_v1", route => reason === "denied" ? route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } }) : route.fulfill({ json: { reservations: [{ id: "invalid" }], next_cursor: null } }));
+    const panel = await openReservationSearch(page);
+    await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+    await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+    if (reason === "denied") { await expect(panel).toHaveCount(0); await expect(page.getByRole("main").getByRole("alert")).toBeVisible(); }
+    else { await expect(panel.getByRole("alert")).toBeVisible(); await expect(panel).not.toContainText("Keine Reservierungen"); }
+  });
+}
+
+test("restaurant search cannot restore a private response after logout", async ({ page }) => {
+  await mockConsole(page, { seeded: true, search: true });
+  let release = () => {}, called = false;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/rest/v1/rpc/booking_console_search_v1", async route => { called = true; await gate; try { await route.fulfill({ json: { reservations: [], next_cursor: null } }); } catch { /* request cancelled by logout */ } });
+  const panel = await openReservationSearch(page);
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await expect.poll(() => called).toBe(true);
+  await page.evaluate(() => { const c = new BroadcastChannel("sb-127-auth-token"); c.postMessage({ event: "SIGNED_OUT", session: null }); c.close(); });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden", exact: true })).toBeVisible();
+  release();
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByText("Morgen", { exact: true })).toHaveCount(0);
+});
+
+test("restaurant search missing canonical reservation does not open a stale detail", async ({ page }) => {
+  await mockConsole(page, { seeded: true, search: true });
+  await page.route("**/rest/v1/rpc/booking_console_read_v1", route => route.request().postDataJSON().p_date === "2026-10-21" ? route.fulfill({ json: { ...seededSnapshot(), reservations: [], capabilities: { service_lifecycle: true, reservation_search: true } } }) : route.fallback());
+  const panel = await openReservationSearch(page);
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await panel.getByRole("button", { name: /Reservierung von Testgast Morgen/ }).click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Diese Reservierung ist im aktuellen Tagesstand nicht mehr enthalten.", { exact: false })).toBeVisible();
+});
+
+test("restaurant search cancel preserves workspace filters and returns keyboard focus", async ({ page }) => {
+  await mockConsole(page, { seeded: true, search: true });
+  await page.goto("/booking/console");
+  await page.getByLabel("Gast suchen", { exact: true }).fill("Abend");
+  await page.getByRole("combobox", { name: "Status", exact: true }).selectOption("confirmed");
+  const launcher = page.getByRole("button", { name: "Reservierungen finden", exact: true });
+  await launcher.click();
+  const panel = page.getByRole("dialog", { name: "Reservierungen finden", exact: true });
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await page.keyboard.press("Escape");
+  await expect(panel.getByLabel("Name oder Kontakt")).toHaveValue("");
+  await page.keyboard.press("Escape");
+  await expect(launcher).toBeFocused();
+  await expect(page.getByLabel("Gast suchen", { exact: true })).toHaveValue("Abend");
+  await expect(page.getByRole("combobox", { name: "Status", exact: true })).toHaveValue("confirmed");
+  await launcher.click();
+  await expect(panel.getByLabel("Name oder Kontakt")).toHaveValue("");
+});
+
+test("restaurant search is removed when the team's periodic access check is revoked", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, search: true, teams: true, teamRole: "host" });
+  const panel = await openReservationSearch(page);
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await expect(panel).toContainText("Treffer 1–1");
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+  await expect(page.getByText("morgen@booking.invalid", { exact: true })).toHaveCount(0);
+});
+
+test("restaurant search is reachable from week planning and opens the current day detail", async ({ page }) => {
+  await mockConsole(page, { seeded: true, search: true, planning: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Woche", exact: true }).click();
+  await page.getByRole("button", { name: "Reservierungen finden", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Reservierungen finden", exact: true });
+  await panel.getByLabel("Name oder Kontakt").fill("Morgen");
+  await panel.getByRole("button", { name: "Reservierungen suchen", exact: true }).click();
+  await panel.getByRole("button", { name: /Reservierung von Testgast Morgen/ }).click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("Testgast Morgen");
+  await expect(page.getByRole("button", { name: "Tag", exact: true })).toHaveAttribute("aria-pressed", "true");
 });

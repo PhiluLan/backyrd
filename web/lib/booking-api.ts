@@ -18,7 +18,7 @@ export type BookingReservation = {
   table_ids?: string[]; combination_id?: string | null;
   allocation_starts_at?: string | null; allocation_ends_at?: string | null;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean; special_hours?: boolean; table_combinations?: boolean; seated_transfers?: boolean; guest_mail?: boolean; guest_link_reissue?: boolean; public_booking?: boolean; manual_guest_mail?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[]; special_hours?: BookingSpecialHours[]; combinations?: BookingCombination[]; archived_combination_count?: number };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean; special_hours?: boolean; table_combinations?: boolean; seated_transfers?: boolean; guest_mail?: boolean; guest_link_reissue?: boolean; public_booking?: boolean; manual_guest_mail?: boolean; reservation_search?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[]; special_hours?: BookingSpecialHours[]; combinations?: BookingCombination[]; archived_combination_count?: number };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string; table_ids?: string[]; combination_id?: string | null; allocation_label?: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
@@ -54,7 +54,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const walkIns = capabilities?.walk_ins == null ? false : boolean(capabilities.walk_ins);
   const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in), ...(transfers ? parseTransferWindow(r) : {}), ...(combinations ? { table_ids: parseTableIds(r.table_ids, uuid(r.table_id)), combination_id: r.combination_id === null ? null : uuid(r.combination_id) } : {}) });
   return {
-    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history), special_hours: specialHours, table_combinations: combinations, seated_transfers: transfers, guest_mail: capabilities?.guest_mail == null ? false : boolean(capabilities.guest_mail), guest_link_reissue: capabilities?.guest_link_reissue == null ? false : boolean(capabilities.guest_link_reissue), public_booking: capabilities?.public_booking == null ? false : boolean(capabilities.public_booking), manual_guest_mail: capabilities?.manual_guest_mail == null ? false : boolean(capabilities.manual_guest_mail) },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history), special_hours: specialHours, table_combinations: combinations, seated_transfers: transfers, guest_mail: capabilities?.guest_mail == null ? false : boolean(capabilities.guest_mail), guest_link_reissue: capabilities?.guest_link_reissue == null ? false : boolean(capabilities.guest_link_reissue), public_booking: capabilities?.public_booking == null ? false : boolean(capabilities.public_booking), manual_guest_mail: capabilities?.manual_guest_mail == null ? false : boolean(capabilities.manual_guest_mail), reservation_search: capabilities?.reservation_search == null ? false : boolean(capabilities.reservation_search) },
     access: team ? parseBookingAccess(row.access) : ownerBookingAccess,
     operating_date: row.operating_date == null && !seating ? undefined : calendarDate(row.operating_date),
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
@@ -75,7 +75,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   };
 }
 
-async function bookingRpcPayload(method: "booking_console_public_settings_v2" | "booking_console_save_public_settings_v2" | "booking_console_public_settings_recover_v1" | "booking_console_mail_v1" | "booking_console_mail_v2" | "booking_console_transfer_choices_v1" | "booking_console_transfer_v1" | "booking_console_slots_v2" | "booking_console_create_v2" | "booking_console_amend_v2" | "booking_console_walk_in_v2" | "booking_console_walk_in_slots_v2" | "booking_console_save_combination_v1" | "booking_console_save_hours_v1" | "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+async function bookingRpcPayload(method: "booking_console_search_v1" | "booking_console_public_settings_v2" | "booking_console_save_public_settings_v2" | "booking_console_public_settings_recover_v1" | "booking_console_mail_v1" | "booking_console_mail_v2" | "booking_console_transfer_choices_v1" | "booking_console_transfer_v1" | "booking_console_slots_v2" | "booking_console_create_v2" | "booking_console_amend_v2" | "booking_console_walk_in_v2" | "booking_console_walk_in_slots_v2" | "booking_console_save_combination_v1" | "booking_console_save_hours_v1" | "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
   const controller = new AbortController();
   let abort = () => {};
   const cancelled = new Promise<never>((_resolve, reject) => { abort = () => { controller.abort(); reject(new Error("Booking-Anfrage abgebrochen oder Zeitgrenze erreicht.")); }; });
@@ -528,4 +528,41 @@ export async function saveBookingPublicConfig(spotId: string, intent: BookingPub
 }
 export function parseBookingPublicIntent(value: unknown): BookingPublicIntent {
   const r = record(value); return { requestId: uuid(r.requestId), revision: count(r.revision), settings: parsePublicValues(r.settings) };
+}
+
+
+export type BookingSearchCursor = { starts_at: string; id: string };
+export type BookingSearchRow = Pick<BookingReservation, "id" | "guest_name" | "guest_contact" | "starts_at" | "ends_at" | "party_size" | "status">;
+export type BookingSearchScope = { query: string; from: string; to: string };
+export type BookingSearchPage = { reservations: BookingSearchRow[]; next_cursor: BookingSearchCursor | null };
+export function validateBookingSearchScope(scope: BookingSearchScope): BookingSearchScope {
+  const query = scope.query.trim(), from = calendarDate(scope.from), to = calendarDate(scope.to);
+  if ([...query].length < 3 || [...query].length > 120 || /[\u0000-\u001f\u007f]/.test(query) || to < from || Date.parse(to) - Date.parse(from) > 365 * 86400_000) return invalid();
+  return { query, from, to };
+}
+export function parseBookingSearch(value: unknown, scope: BookingSearchScope, after: BookingSearchCursor | null = null): BookingSearchPage {
+  validateBookingSearchScope(scope);
+  const row = record(value), seen = new Set<string>();
+  if (!Array.isArray(row.reservations) || row.reservations.length > 25 || !Object.hasOwn(row, "next_cursor")) return invalid();
+  if (after) { uuid(after.id); timestamp(after.starts_at); const day = restaurantDate(new Date(after.starts_at)); if (day < scope.from || day > scope.to) return invalid(); }
+  let previous = after;
+  const reservations = array(row.reservations, r => {
+    const result: BookingSearchRow = { id: uuid(r.id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), party_size: integer(r.party_size), status: enumeration(r.status, statuses) };
+    const day = restaurantDate(new Date(result.starts_at));
+    const start = Date.parse(result.starts_at), prior = previous ? Date.parse(previous.starts_at) : -Infinity;
+    if (seen.has(result.id) || !result.guest_name.trim() || [...result.guest_name].length > 120 || [...(result.guest_contact ?? "")].length > 320
+      || result.party_size < 1 || result.party_size > 30 || Date.parse(result.ends_at) <= start || day < scope.from || day > scope.to
+      || (previous && (start < prior || (start === prior && result.id.toLowerCase() <= previous.id.toLowerCase())))) return invalid();
+    seen.add(result.id); previous = result; return result;
+  });
+  if (reservations.length > 25) return invalid();
+  const cursor = row.next_cursor == null ? null : record(row.next_cursor);
+  const next_cursor = cursor ? { starts_at: timestamp(cursor.starts_at), id: uuid(cursor.id) } : null;
+  const last = reservations.at(-1);
+  if (next_cursor && (reservations.length !== 25 || !last || Date.parse(next_cursor.starts_at) !== Date.parse(last.starts_at) || next_cursor.id !== last.id)) return invalid();
+  return { reservations, next_cursor };
+}
+export async function searchBookingReservations(spotId: string, scope: BookingSearchScope, after: BookingSearchCursor | null, signal?: AbortSignal): Promise<BookingSearchPage> {
+  const valid = validateBookingSearchScope(scope);
+  return parseBookingSearch(await bookingRpcPayload("booking_console_search_v1", { p_spot_id: spotId, p_query: valid.query, p_from: valid.from, p_to: valid.to, p_after_starts_at: after?.starts_at ?? null, p_after_id: after?.id ?? null }, signal), valid, after);
 }

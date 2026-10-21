@@ -68,6 +68,15 @@ reusable profiles, corrected identities, transparent preferences/history,
 authorised linking/merging, retention and access/deletion handling remain open.
 No guest data is exported to Aleno or AI; real Volta data must not be fixtures.
 Production authorization, a real-device test and restaurant-shift acceptance are
-still required. The default Turbopack subprocess port is unavailable in this
-local environment; the supported Webpack production build is used for browser
-acceptance without changing the repository's default build configuration.
+still required. Earlier local Turbopack attempts failed while binding a subprocess port. This
+candidate uses the supported Webpack production build for browser acceptance,
+without changing the repository's default build configuration.
+
+Local acceptance on 2026-10-21: all 28 Booking SQL suites, canonical baseline
+SQL/races, 20 private-drift mutations, schema/ACL attestation and DB lint passed.
+Database receipt: `c19264503202010c5e6325e823b714b4c06645da61c95434cf8edfe055bfe937`.
+Web contracts 125/125; Console/guest-link/checkout browser cases 185/185. Search
+modal axe check has no violations; 320px modal and return-to-book captures were
+visually inspected, with no horizontal overflow. Production Webpack build and
+TypeScript pass; lint has no errors and 13 existing warnings outside this change.
+No production, physical-device or restaurant-shift acceptance is implied.

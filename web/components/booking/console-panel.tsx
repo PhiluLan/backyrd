@@ -20,7 +20,7 @@ export function ConsolePanel({ title, dirty = false, busy = false, uncertain = f
       document.body.style.overflow = overflow;
       window.requestAnimationFrame(() => {
         if (document.querySelector("dialog[open]")) return;
-        if (previous instanceof HTMLElement && previous.isConnected && !previous.matches(":disabled") && !previous.closest("[hidden], [inert]")) previous.focus();
+        if (previous instanceof HTMLElement && previous !== document.body && previous !== document.documentElement && previous.isConnected && !previous.matches(":disabled") && !previous.closest("[hidden], [inert]")) previous.focus();
         else if (focusFallbackSelector) document.querySelector<HTMLElement>(focusFallbackSelector)?.focus();
       });
     };
