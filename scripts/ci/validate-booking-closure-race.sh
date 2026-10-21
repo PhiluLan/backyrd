@@ -310,6 +310,37 @@ stale_legacy_change="select public.booking_console_save_public_settings_v1('$spo
 run_case public_settings_nonce_first "$new_settings" "$stale_legacy_change" booking_setup_changed_reload
 printf 'Public booking-rule intents deduplicate concurrent retries and fence competing changes in both actual root-lock orders.\n'
 
+# Manual staff messages reuse the complete operation registry and restaurant lock.
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update auth.users set email_confirmed_at=coalesce(email_confirmed_at,clock_timestamp()) where id='$owner';" >/dev/null
+make_summary_reservation() {
+ local nonce="$1" days="$2"
+ psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 <<SQL | tail -n 1
+begin;
+$auth_sql
+select (public.booking_console_create_v2('$spot','$nonce','$service','$table_id',array['$table_id'::uuid],null,
+ ((date '$business_date'+$days+time '10:00') at time zone 'Europe/Zurich'),60,2,'Manual summary race','+41 61 555 00 00',null,'phone','confirmed'))->>'id';
+commit;
+SQL
+}
+summary_a="$(make_summary_reservation '7b000000-0000-4000-8000-000000000150' 14)"
+summary_b="$(make_summary_reservation '7b000000-0000-4000-8000-000000000151' 15)"
+[[ "$summary_a" =~ ^[a-f0-9-]{36}$ && "$summary_b" =~ ^[a-f0-9-]{36}$ ]] || exit 1
+summary_write="select public.booking_mail_summary_v1('$owner','$spot','$summary_a','7b000000-0000-4000-8000-000000000160',0,'summary-race@booking.invalid');"
+run_case manual_summary_same_nonce "$summary_write" "$summary_write" SUCCESS "$guest_auth" "$guest_auth"
+test "$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from booking_private.guest_mail_outbox_v1 where reservation_id='$summary_a' and manual_summary is not null;")" = 1 || exit 1
+summary_cancel="select public.booking_console_set_status_v1('$spot','$summary_a','confirmed','cancelled');"
+stale_summary="select public.booking_mail_summary_v1('$owner','$spot','$summary_a','7b000000-0000-4000-8000-000000000161',1,'summary-race@booking.invalid');"
+run_case cancel_before_manual_summary "$summary_cancel" "$stale_summary" SUCCESS "$guest_auth" "$auth_sql"
+grep -q '"not_committed": true' "$race_root/cancel_before_manual_summary-waiter.out" || exit 1
+summary_b_write="select public.booking_mail_summary_v1('$owner','$spot','$summary_b','7b000000-0000-4000-8000-000000000162',0,'summary-b@booking.invalid');"
+summary_b_amend="select public.booking_console_amend_v2('$spot','$summary_b','7b000000-0000-4000-8000-000000000163',0,'$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+15+time '10:00') at time zone 'Europe/Zurich'),60,2,'Stale manual change','+41 61 555 00 00',null);"
+run_case manual_summary_before_amend "$summary_b_write" "$summary_b_amend" booking_changed_reload "$auth_sql" "$guest_auth"
+run_case owner_transfer_before_summary_replay \
+ "select 1 from public.booking_restaurant_settings where spot_id='$spot' for update;update public.spots set owner_id='$other_owner' where id='$spot';" \
+ "$summary_write" booking_operator_required "$guest_auth" 'set local role postgres;'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.spots set owner_id='$owner' where id='$spot';" >/dev/null
+printf 'Manual confirmation races deduplicate the same intent, fence cancellation/amendment in both root-lock orders and reauthorize after ownership transfer. No provider was contacted.\n'
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
