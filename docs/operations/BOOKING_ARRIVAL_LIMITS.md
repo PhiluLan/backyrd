@@ -99,3 +99,29 @@ advanced per-service/room/online quotas, rolling pacing and real activation rema
 open. The populated restore proof from migration 214 does not certify populated
 arrival-policy/request-table restoration. Production remains unchanged and
 public guest intake remains paused. No practical Aleno parity claim follows.
+
+Before claiming restaurant usability, implement the Console editor and run two
+actual operator sessions on supported phone/desktop devices: review the effective
+limit, replace/delete numeric input, save/disable it, recover a lost save response,
+observe a competing Manager change, fill a window across services and combined
+tables, try an online request at that same instant, move a booking across a
+boundary and lower the limit while preserving existing bookings. Inspect the
+current policy after retry rather than treating an older original receipt as the
+latest configuration. These manual/device/restaurant steps remain unperformed.
+
+Final local canonical acceptance passed all **32 Booking SQL suites**, baseline
+and concurrency checks including the **nine new pacing races**, **20 private-drift
+mutations**, lineage, public/private schema/ACL and database lint. Receipt:
+`57177a369a75ac86ba0ad376373ffbf84f192ba4061358d333a2477bdfdba6f4`.
+All 72 selected classifier/delivery-workflow contract cases and both secret
+boundary scans passed. No Web runtime or shared success contract changed, so
+previous browser results are not represented as new pacing-UI verification.
+
+An earlier local gate completed its database execution but rejected release
+evidence while the new migration/evidence were still uncommitted. That was not
+accepted as a green release gate. The Repeatable Read correction changed a
+protected SQL input, so the final gate used a fresh independent clean boot with
+committed evidence. A first race-fixture attempt also exposed a collision with an
+existing synthetic guest-key hash; only the owned fixtures were cleaned, new keys
+were namespaced and the actual race suite was then rerun successfully. No failed
+attempt or evidence-only resume is represented as the final execution proof.
