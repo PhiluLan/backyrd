@@ -48,6 +48,16 @@ function guestCardObservation(db) {
  api.parseGuestCardOutcome(facts.originalOutcome,{kind:'save',id:facts.detail.guest.id,revision:null,name:'Synthetic card original',email:'restore-card@booking.invalid',phone:'+41 61 000 00 00'});
  return facts;
 }
+function guestHistoryObservation(db) {
+ const facts=JSON.parse(sql(db,readFileSync(resolve(root,'scripts/ops/fixtures/verify-restored-guest-history.sql'),'utf8'),'guest-history-acceptance'));
+ const api=load('../lib/booking-api.ts',{'./owner-api':{},'@/lib/supabase/client':{}});
+ for(const field of ['active','corrected','detached','archived'])api.parseReservationGuestDetails(facts[field],facts[field].reservation_id);
+ for(const field of ['activeHistory','correctedHistory','archivedHistory'])assert.equal(api.parseGuestReservations(facts[field]).reservations.length,1);
+ for(const field of ['linked','corrected','detached','archived'])api.parseReservationGuestOutcome(facts.original[field].guest_link);
+ api.parseReservationGuestOutcome(facts.original.correction);
+ api.parseReservationGuestOutcome(facts.original.detach);
+ return facts;
+}
 const mode=process.argv[2];
 if(mode==='seed') {
  assert.equal(sql(source,'select count(*) from public.booking_restaurant_settings;','empty-synthetic-source'),'0');
@@ -62,7 +72,7 @@ if(mode==='seed') {
  assert.equal(sql(source,`select public.booking_mail_prepare_v1('${claim.id}','${lease}','${claim.context}',${quote(sealed.sealed)},'${sealed.digest}');`,'prepare-payload'),'t');
  const began=JSON.parse(sql(source,`select public.booking_mail_begin_v1('${claim.id}','${lease}','${sealed.digest}');`,'begin-without-provider'));
  assert.equal(began.id,claim.id);
- const observation={guestCards:guestCardObservation(source),controls:controls(source),fingerprints:fingerprints(source),rows:JSON.parse(sql(admin(source),corpus,'source-row-snapshot')),outcome:outcome(source),mailId:claim.id,digest:sealed.digest,providerBody:envelope.body};
+ const observation={guestHistory:guestHistoryObservation(source),guestCards:guestCardObservation(source),controls:controls(source),fingerprints:fingerprints(source),rows:JSON.parse(sql(admin(source),corpus,'source-row-snapshot')),outcome:outcome(source),mailId:claim.id,digest:sealed.digest,providerBody:envelope.body};
  writeFileSync(resolve(artifacts,'keys.json'),JSON.stringify(keys),{mode:0o600});writeFileSync(resolve(artifacts,'source.json'),JSON.stringify(observation),{mode:0o600});
  console.log('BOOKING_RESTORE_CORPUS_PREPARED: synthetic guest access, staff roles, idempotent manual intent and genuinely sealed in-flight payload; no provider request.');
 } else if(mode==='capture-controls') {
@@ -93,6 +103,7 @@ if(mode==='seed') {
  if(actualRows.length!==expected.rows.length||changed.length)throw Error('restored_corpus_row_mismatch:'+changed.join(','));
  assert.deepEqual(outcome(target),expected.outcome,'original_request_outcome_changed');
  assert.deepEqual(guestCardObservation(target),expected.guestCards,'guest_card_original_facts_or_outcome_changed');
+ assert.deepEqual(guestHistoryObservation(target),expected.guestHistory,'guest_history_original_facts_or_outcome_changed');
  const restored=JSON.parse(sql(target,`select jsonb_build_object('payload',payload_sealed,'digest',payload_digest,'state',state,'attempts',attempts) from booking_private.guest_mail_outbox_v1 where id='${expected.mailId}';`,'restored-mail'));
  assert.equal(restored.state,'sending');assert.equal(restored.attempts,1);assert.equal(restored.digest,expected.digest);
  const keys=JSON.parse(readFileSync(resolve(artifacts,'keys.json'),'utf8')),config=configFrom(keys);
@@ -108,9 +119,10 @@ if(mode==='seed') {
  assert.equal(sql(target,`begin;set local role service_role;select public.booking_guest_read_v1((select id from public.booking_reservations where request_id=${id('online-op')}),repeat('b',64))->>'status';rollback;`,'guest-access'),'confirmed');
  assert.equal(sql(target,"select has_table_privilege('authenticated','booking_private.guest_mail_outbox_v1','SELECT');",'private-denial'),'f');
  assert.equal(sql(target,"select has_function_privilege('anon','public.booking_mail_summary_v1(uuid,uuid,uuid,uuid,bigint,text)','EXECUTE');",'anonymous-denial'),'f');
- const proofFiles=['scripts/ops/validate-booking-restore.mjs','scripts/ops/fixtures/booking-restore.sql','scripts/ops/fixtures/verify-restored-guest-cards.sql','scripts/ops/fixtures/quarantine-restored-booking.sql','scripts/ops/export-database-snapshot.sh','scripts/ops/backup-managed-controls.sql','web/lib/booking-api.ts'];
- const evidence={schemaVersion:'backyrd-isolated-booking-restore-v1',scope:'local-synthetic-logical-restore',tablesCompared:expected.rows.length,fingerprints:expected.fingerprints,managedRuleCount:JSON.parse(parts.get('managed-controls.json'))[0].managed_backup.ruleCount,guestCardTables:expected.rows.filter(row=>/^booking_private\.guest_card(?:s|_requests|_events)_v1$/.test(row.relation)),guestCardBehaviorPassed:true,mailQueueQuarantined:true,originalOutcomesPreserved:true,externalPayloadKeyRequired:true,actualDeliveryOrCloudOrStorageBytes:false,backupManifestSha256:createHash('sha256').update(readFileSync(resolve(artifacts,'database/files-sha256.txt'))).digest('hex'),proofFiles:proofFiles.map(path=>({path,sha256:createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex')}))};
+ const proofFiles=['scripts/ops/validate-booking-restore.mjs','scripts/ops/fixtures/booking-restore.sql','scripts/ops/fixtures/verify-restored-guest-cards.sql','scripts/ops/fixtures/verify-restored-guest-history.sql','scripts/ops/fixtures/quarantine-restored-booking.sql','scripts/ops/export-database-snapshot.sh','scripts/ops/backup-managed-controls.sql','web/lib/booking-api.ts'];
+ const evidence={schemaVersion:'backyrd-isolated-booking-restore-v1',scope:'local-synthetic-logical-restore',tablesCompared:expected.rows.length,fingerprints:expected.fingerprints,managedRuleCount:JSON.parse(parts.get('managed-controls.json'))[0].managed_backup.ruleCount,guestCardTables:expected.rows.filter(row=>/^booking_private\.guest_card(?:s|_requests|_events)_v1$/.test(row.relation)),guestHistoryTables:expected.rows.filter(row=>/^booking_private\.reservation_guest(?:s|_requests|_events)_v1$/.test(row.relation)),guestHistoryBehaviorPassed:true,guestCardBehaviorPassed:true,mailQueueQuarantined:true,originalOutcomesPreserved:true,externalPayloadKeyRequired:true,actualDeliveryOrCloudOrStorageBytes:false,backupManifestSha256:createHash('sha256').update(readFileSync(resolve(artifacts,'database/files-sha256.txt'))).digest('hex'),proofFiles:proofFiles.map(path=>({path,sha256:createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex')}))};
  assert.equal(evidence.guestCardTables.length,3);
+ assert.deepEqual(evidence.guestHistoryTables.map(row=>[row.relation,row.rows]),[['booking_private.reservation_guest_events_v1',6],['booking_private.reservation_guest_requests_v1',6],['booking_private.reservation_guests_v1',4]]);
  writeFileSync(resolve(artifacts,'restore-evidence.json'),JSON.stringify(evidence,null,2)+'\n',{mode:0o600});
- console.log(`BOOKING_LOGICAL_RESTORE_PASS: ${expected.rows.length} application/Auth/Storage/ledger table digests and both schema/ACL fingerprints plus managed Auth/Storage/Realtime controls match; populated guest-card facts, history, actor-bound original receipts and actual role/Owner fences survive; original mail intent and guest access survive; sealed payload needs external key; restored sends held with idempotent audit. No actual delivery, Storage-byte, cloud-backup or production-restore claim.`);
+ console.log(`BOOKING_LOGICAL_RESTORE_PASS: ${expected.rows.length} application/Auth/Storage/ledger table digests and both schema/ACL fingerprints plus managed Auth/Storage/Realtime controls match; populated guest-card and explicit reservation-association facts, corrected/detached/archived history, actor-bound original receipts and actual role/Owner fences survive; original mail intent and guest access survive; sealed payload needs external key; restored sends held with idempotent audit. No actual delivery, Storage-byte, cloud-backup or production-restore claim.`);
 } else throw Error('restore_mode_required');

@@ -76,7 +76,7 @@ is an operator guard, not permission for a real recovery operation.
    manual/online reservations, stored guest access and an idempotent manual intent.
    It also creates three populated guest cards through the actual operator-bound
    RPC: corrected, archived and restored, with seven request receipts and seven
-   metadata events.
+   metadata events. Four additional bookings are created through `booking_console_create_v3`: current, corrected, detached and subsequently archived associations. Six original association receipts and six metadata events are populated through the real actor-bound RPCs.
    Database passwords use libpq environment fields, not command arguments.
 4. Run `node scripts/ops/validate-booking-restore.mjs prepare`.
    It stops this source's local cron jobs, creates genuinely sealed provider
@@ -104,7 +104,7 @@ is an operator guard, not permission for a real recovery operation.
    after later correction. Actual Viewer/Host/Manager/outsider/worker/anonymous
    checks, stale revisions, fresh correction/unarchive, revoked Host and new
    Owner fences run against the source and restored target. Actual returned JSON
-   must also pass the Web codecs. No probe mutation is committed.
+   must also pass the Web codecs. `verify-restored-guest-history.sql` separately verifies all four association states, original create/correction/detach receipts, actual raw-role denials, stale link/booking revisions, fresh reattachment, Safety/revoked staff and new-Owner fences. All saved public booking facts are compared before/after; no probe mutation is committed.
 8. The local quarantine fixture parks pending/leased/sending messages for manual
    review, clears leases, retains immutable payload/recipient/provider evidence
    and records a system audit per affected reservation. Repeating it adds no
@@ -128,9 +128,50 @@ transaction or silently accept the altered inventory of a completed drill.
 cannot replace a source whose rows or schema changed. These diagnostic modes do
 not authorize reseeding or overriding failed recovery evidence.
 
-## Verified evidence and remaining boundary
+## Current association-history restore acceptance
 
-- The latest populated guest-card restore matched 387 table row digests across
+The candidate at migration 214 has now completed the extended two-project drill.
+The source completed the canonical clean boot with all 31 Booking SQL suites,
+baseline/concurrency checks, 20 private-drift cases, lineage, schema/ACL and database
+lint. The optional local Founder setup also completed in this run. The unchanged
+database input receipt is
+`9cc0c120e22f38a4e3f2e9be2157411bb957d055cf642f743c5deb04d1f89c25`.
+
+The actual CLI 2.116.0 export and independent provider-bootstrap restore matched
+**390** complete table row digests, both fingerprint scopes and **26** managed
+Auth/Storage/Realtime controls. The private scope contains **1066** facts with
+fingerprint `d35d619430c7fc41c5077d6fcd0cbe87d9a00bbc41ca8adf2cb62a8fd3147348`.
+The three card tables still contain 3 cards, 7 receipts and 7 metadata events.
+The three association tables contain **4 current link rows, 6 receipts and 6
+metadata events**, including an explicitly detached row. No historical contact
+text is inferred into an association.
+
+The rolled-back source/target history probe checks original create outcomes after
+correction/detachment/archival, original correction and detach receipts, current
+association history, Host archive redaction, Manager archived access and Viewer
+read-only access. Anonymous/worker/staff raw-table denials execute with their
+actual roles. Wrong actors, changed replay intents, stale revisions, Safety,
+revoked Host and new-Owner boundaries are exercised. A fresh reattachment and
+its recovery succeed without changing any saved public booking facts. Returned
+source and restored JSON pass the actual Web history/details/outcome parsers and
+are compared exactly. This closes the populated local association-table restore
+gap; it does not certify cross-browser restart recovery or a cloud restore.
+
+A corrupted data file was refused by its manifest checksum before restoration;
+the original bytes were restored before the successful drill. Original guest
+access, manual intent, sealed payload/external-key requirement and audited,
+idempotent mail quarantine passed as before. No provider request was made.
+All **31** current Booking SQL suites and the existing review-media authorization
+suite then passed on the restored target, followed by the 1066-fact private-scope
+check. All **88** selected backup/export, classifier and delivery-workflow contract
+cases passed. The contact-free evidence report is retained privately as
+`.local/booking-guest-history-logical-restore-evidence.json`; its executed-source
+hashes bind the new probe, corpus, harness, exporter and actual Web API codecs.
+Dumps, payload keys and disposable projects/volumes are removed after validation.
+
+## Earlier contact-card acceptance and remaining boundary
+
+- The preceding contact-card-only restore matched 387 table row digests across
   application schemas, Auth, Storage and migration ledger, both application/private schema
   fingerprints and the captured Auth/Storage/Realtime controls.
 - An original manual nonce recovers its original result; stored guest access

@@ -44,6 +44,22 @@ select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mai
  jsonb_build_object('kind','save','id',pg_temp.mail_id('card-archived'),'revision',null,'name','Synthetic card archived','email',null,'phone',null),pg_temp.mail_id('host'));
 select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-restored-create'),
  jsonb_build_object('kind','save','id',pg_temp.mail_id('card-restored'),'revision',null,'name','Synthetic card restored','email',null,'phone',null),pg_temp.mail_id('host'));
+-- Four persistent associations exercise current, corrected, detached and archived
+-- identity after a real backup. Saved booking contacts remain independent facts.
+do $$ declare label text; hour integer:=19; saved jsonb; rid uuid; begin
+ foreach label in array array['linked','corrected','detached','archived'] loop
+  saved:=public.booking_console_create_v3(pg_temp.mail_id('spot'),pg_temp.mail_id('history-'||label),pg_temp.mail_id('service'),pg_temp.mail_id('table'),array[pg_temp.mail_id('table')],null,
+   (((now() at time zone 'Europe/Zurich')::date+1+make_time(hour,0,0)) at time zone 'Europe/Zurich'),60,2,'Synthetic history '||label,'restore-history@booking.invalid','PRIVATE_RESTORE_HISTORY_NOTE','phone','confirmed',
+   pg_temp.mail_id(case when label='archived' then 'card-archived' else 'card-active' end),case when label='archived' then 0 else 1 end,pg_temp.mail_id('host'));
+  rid:=(saved->>'id')::uuid;
+  if label in ('corrected','detached') then
+   perform public.booking_console_reservation_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('history-'||label||'-change'),jsonb_build_object(
+    'kind',case when label='detached' then 'detach' else 'assign' end,'reservation_id',rid,'reservation_revision',0,'link_revision',1,
+    'guest_id',case when label='detached' then null else pg_temp.mail_id('card-restored') end,'guest_revision',case when label='detached' then null else 0 end),pg_temp.mail_id('host'));
+  end if;
+  hour:=hour+1;
+ end loop;
+end $$;
 select set_config('request.jwt.claim.sub',pg_temp.mail_id('manager')::text,true);
 select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.mail_id('manager'),'role','authenticated')::text,true);
 select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-archived-archive'),
