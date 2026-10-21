@@ -1871,6 +1871,12 @@ values, self-approve profiles or produce import-ready output. After a fresh expo
 and human approval, persist accepted additions through the existing Admin workflow.
 Automated conversion to an import batch is not implemented.
 
+For operator inspection, the Admin World Knowledge page can open a local
+`report.json` from this runner as a read-only Nuknuk draft. The browser renders
+each proposed value, cited original text, unresolved field and source failure;
+the file is not sent to the import API. This path has no preview or commit
+control and cannot turn an unreviewed partial profile into a canonical claim.
+
 ## Evaluation record
 
 The initial six-Spot baseline had 24 field requests: 16 failed, eight unresolved,
