@@ -22,7 +22,7 @@ test("all 16 primary categories have a versioned category/place-type/section con
   assert.deepEqual(Object.keys(CATEGORY_AUTHORING_MATRIX).sort(), [...PRIMARY_CATEGORIES].sort());
   assert.match(AUTHORING_TAXONOMY_VERSION, /@5\.0$/);
   assert.match(AUTHORING_TAXONOMY_HASH, /^[a-f0-9]{64}$/);
-  assert.match(AUTHORING_GUIDANCE_VERSION, /@1\.0$/);
+  assert.match(AUTHORING_GUIDANCE_VERSION, /@1\.1$/);
   assert.match(AUTHORING_GUIDANCE_HASH, /^[a-f0-9]{64}$/);
   for (const category of PRIMARY_CATEGORIES) {
     assert.ok(CATEGORY_AUTHORING_MATRIX[category].relevantSteps.includes("classification"));
@@ -103,4 +103,16 @@ test("weitere Referenztypen erhalten keine fachfremden Gastronomiefragen", () =>
     assert.ok(!getAuthoringFieldsForContext("objective", category, context).some((field) => field.attributeKey === "capacity.seats_indoor"), `${placeType} must not imply gastronomy seating`);
   }
   assert.ok(getAuthoringFieldsForContext("objective", "SPORT_MOVEMENT", { placeTypes: ["CLIMBING_GYM"] }).some((field) => field.attributeKey === "rule.reservation"));
+});
+
+test("hotel breakfasts can use offering groups without enabling cuisine or kitchen fields", () => {
+  for (const placeType of ["HOTEL", "HOSTEL", "GUESTHOUSE"]) {
+    const context = { placeTypes: [placeType] };
+    const offerings = getAuthoringFieldsForContext("offering", "STAY", context).map((field) => field.attributeKey);
+    assert.ok(offerings.includes("offering.groups"), placeType);
+    assert.ok(!offerings.includes("offering.cuisines"), placeType);
+    assert.ok(!offerings.includes("offering.food_specialities"), placeType);
+    assert.ok(!getAuthoringFieldsForContext("hours", "STAY", context).some((field) => field.attributeKey === "hours.kitchen"), placeType);
+  }
+  assert.ok(!getAuthoringFieldsForContext("offering", "STAY", { placeTypes: ["HOLIDAY_APARTMENT"] }).some((field) => field.attributeKey === "offering.groups"));
 });
