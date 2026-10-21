@@ -1,10 +1,11 @@
 // mobile/app/(tabs)/_layout.tsx
 import { AppText } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
+import { PlatformPressable } from "@react-navigation/elements";
 import { BlurView } from "expo-blur";
 import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import React from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { trackAnalyticsEvent } from "../../lib/analytics";
@@ -42,12 +43,14 @@ export default function TabsLayout() {
   const momentOpening = React.useRef(false);
   const [openingMoment, setOpeningMoment] = React.useState(false);
   const isGuest = !user;
+  const { width } = useWindowDimensions();
+  const compactTabs = !isGuest && width < 360;
 
   const hideTabs = pathname.includes("/decision-onboarding") || (pathname.includes("/decision") && params.hideTabs === "1");
 
   const tabBarStyle = hideTabs
     ? ({ display: "none" } as const)
-    : [styles.tabBar, { bottom: Math.max(8, insets.bottom - 2) }];
+    : [styles.tabBar, { bottom: Math.max(8, insets.bottom - 2), left: compactTabs ? 8 : 14, right: compactTabs ? 8 : 14 }];
 
   return (
     <Tabs
@@ -61,8 +64,9 @@ export default function TabsLayout() {
         tabBarActiveTintColor: theme.color.pink,
         tabBarInactiveTintColor: "#808087",
         tabBarHideOnKeyboard: true,
-        tabBarLabel: ({ children, color }) => <AppText role="caption" maxFontSizeMultiplier={1.1} style={[styles.tabLabel, { color }]}>{children}</AppText>,
+        tabBarLabel: ({ children, color }) => <AppText role="caption" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9} maxFontSizeMultiplier={1.1} style={[styles.tabLabel, compactTabs && styles.compactTabLabel, { color }]}>{children}</AppText>,
         tabBarItemStyle: styles.tabItem,
+        tabBarButton: props => <PlatformPressable {...props} style={[props.style, compactTabs && styles.compactTabButton]} />,
       }}
     >
       <Tabs.Screen
@@ -151,6 +155,10 @@ export default function TabsLayout() {
         }}
       />
 
+      <Tabs.Screen
+        name="booking"
+        options={{ title: "Booking", tabBarAccessibilityLabel: "Booking", tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "calendar" : "calendar-outline"} color={color} size={23} /> }}
+      />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="decision" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
@@ -177,6 +185,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: -0.1,
   },
+  compactTabLabel: { fontSize: 10, letterSpacing: -0.15 },
+  compactTabButton: { paddingHorizontal: 0 },
   tabBar: {
     position: "absolute",
     left: 14,
