@@ -4,6 +4,9 @@ Status: dependent development candidate after public-intake migration 203 and
 owner-cleanup migration 204. This document describes source behavior, not a
 production activation. No guest messages have been sent for acceptance testing.
 
+The dependent worker follow-up is described in `BOOKING_MAIL_WORKER.md`; it also
+corrects the browser/HTTP contract to accept canonical revision-zero reservations.
+
 ## Boundary and credentials
 
 `POST /api/booking/guest` accepts exact, bounded JSON DTOs for availability,

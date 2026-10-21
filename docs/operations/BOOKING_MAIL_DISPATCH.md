@@ -5,6 +5,9 @@ through guest HTTP/self-service #566. This increment defines and tests the
 database dispatch boundary. It does not deploy a worker, verify a sender, send
 mail or activate public intake. The HTTP adapter remains closed for new intake.
 
+The dependent source worker/callback implementation and 206 follow-up are now
+described in `BOOKING_MAIL_WORKER.md`; genuine production acceptance remains open.
+
 ## Canonical operation
 
 Creation and relevant amendments/cancellation already enqueue one intent per
