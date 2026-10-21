@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { bookingError, createBooking, readBookingSlots, restaurantDate, restaurantTime, type BookingSlot, type BookingSnapshot, type BookingSource } from "@/lib/booking-api";
+import { bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, type BookingSlot, type BookingSnapshot, type BookingSource } from "@/lib/booking-api";
 import { ConsolePanel } from "./console-panel";
 import styles from "./console.module.css";
 
@@ -9,7 +9,7 @@ export type CreatedBooking = { date: string; slot: BookingSlot };
 
 export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId = "", tableId = "", time = "", onCreated, onBusy, onClose }: {
   spotId: string; date: string; snapshot: BookingSnapshot; serviceId?: string; areaId?: string; tableId?: string; time?: string;
-  onCreated: (booking: CreatedBooking) => Promise<void>; onBusy: (value: boolean) => void; onClose: () => void;
+  onCreated: (booking: CreatedBooking) => Promise<void>; onBusy: (value: boolean) => void; onClose: (uncertain?: boolean, date?: string) => void;
 }) {
   const [bookingDate, setDate] = useState(date);
   const [party, setParty] = useState(() => String(Math.min(2, snapshot.settings?.max_party_size ?? 8)));
@@ -25,6 +25,8 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   const [status, setStatus] = useState<"confirmed" | "pending">("confirmed");
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
+  const frozen = useRef<{ booking: Parameters<typeof createBooking>[1]; date: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slotError, setSlotError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
     generation.current += 1; setSlots([]); setTime(""); setSelected(""); setChecked(false); setSlotError(null);
   }
   const checkSlots = useCallback(async () => {
-    if (!validParty || !validDate) return;
+    if (!validParty || !validDate || uncertain) return;
     const current = ++generation.current;
     setChecking(true); setSlotError(null); setSlots([]); setSelected(""); setChecked(false);
     try {
@@ -61,13 +63,13 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
       setTime(rows.find((slot) => restaurantTime(slot.starts_at) === time)?.starts_at ?? "");
     } catch (error) { if (current === generation.current) setSlotError(bookingError(error)); }
     finally { if (current === generation.current) setChecking(false); }
-  }, [spotId, bookingDate, partySize, validParty, validDate, time]);
+  }, [spotId, bookingDate, partySize, validParty, validDate, time, uncertain]);
 
   useEffect(() => {
-    if (!validParty || !validDate) { setChecking(false); return; }
+    if (!validParty || !validDate || uncertain) { setChecking(false); return; }
     const timer = window.setTimeout(() => void checkSlots(), 250);
     return () => { window.clearTimeout(timer); generation.current += 1; };
-  }, [checkSlots, validParty, validDate]);
+  }, [checkSlots, validParty, validDate, uncertain]);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => { if (edited) event.preventDefault(); };
     window.addEventListener("beforeunload", beforeUnload);
@@ -77,24 +79,28 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (inFlight.current || !validParty || !validDate || !slot || !available.includes(slot) || !name.trim()) return;
+    if (inFlight.current || (!frozen.current && (!validParty || !validDate || !slot || !available.includes(slot) || !name.trim()))) return;
     inFlight.current = true; setBusy(true); onBusy(true); setError(null);
     const key = JSON.stringify({ slot, partySize, name, contact, note, source, status });
     if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
     try {
-      await createBooking(spotId, { requestId: request.current.id, slot, partySize, name, contact, note, source, status });
-      await onCreated({ date: bookingDate, slot });
+      const operation = frozen.current ?? { booking: { requestId: request.current.id, slot: slot!, partySize, name, contact, note, source, status }, date: bookingDate };
+      frozen.current = operation;
+      await createBooking(spotId, operation.booking);
+      await onCreated({ date: operation.date, slot: operation.booking.slot });
     } catch (error) {
       setError(bookingError(error));
+      if (uncertain || bookingWriteUncertain(error)) { setUncertain(true); generation.current += 1; }
+      else frozen.current = null;
       // Preserve guest text and the request identity for a retry after an
       // uncertain response. A conflict still requires fresh availability.
-      if (error && typeof error === "object" && "message" in error && error.message === "booking_slot_unavailable") void checkSlots();
+      if (!uncertain && !bookingWriteUncertain(error) && error && typeof error === "object" && "message" in error && error.message === "booking_slot_unavailable") void checkSlots();
     } finally { inFlight.current = false; setBusy(false); onBusy(false); }
   }
 
-  return <ConsolePanel title="Neue Reservierung" dirty={edited} busy={busy} onClose={onClose}>
+  return <ConsolePanel title="Neue Reservierung" dirty={edited} busy={busy} uncertain={uncertain} onClose={() => onClose(uncertain, frozen.current?.date)}>
     <form className={styles.editorForm} onSubmit={submit} onChange={() => setEdited(true)}>
-      <fieldset disabled={busy} className={styles.fieldset}>
+      <fieldset disabled={busy || uncertain} className={styles.fieldset}>
         <div className={styles.drawerBody}>
           <p className={styles.editorContext}>{snapshot.services.find((s) => s.id === service)?.name ?? "Alle Services"} · {snapshot.areas.find((a) => a.id === area)?.name ?? "Alle Bereiche"}{tableId ? " · " + snapshot.tables.find((t) => t.id === tableId)?.label : ""}</p>
           <div className={styles.fields}>
@@ -126,11 +132,11 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
             <div className={styles.fields}><label>Quelle<select value={source} onChange={(e) => setSource(e.target.value as BookingSource)}><option value="phone">Telefon</option><option value="email">E-Mail</option><option value="walk_in">Vor Ort</option><option value="operator">Betreiber</option></select></label><label>Status<select value={status} onChange={(e) => setStatus(e.target.value as "pending" | "confirmed")}><option value="confirmed">Bestätigt</option><option value="pending">Anfrage offen</option></select></label></div>
             <label>Interner Hinweis (optional)<textarea maxLength={1000} rows={3} value={note} onChange={(e) => setNote(e.target.value)} /><span className={styles.help}>Nur notwendige organisatorische Angaben erfassen.</span></label>
           </details>
-          {error && <p role="alert" className={styles.error}>{error}</p>}
+          {error && <p role="alert" className={styles.error}>{error}{uncertain ? " Der Speicherstatus ist unklar. Die Eingaben bleiben gesperrt; erneutes Speichern sendet ausschliesslich dieselbe Anfrage. Prüfe nach dem Verlassen den gespeicherten Stand." : ""}</p>}
           <p className={styles.help}>Die Bestätigung wird im System gespeichert. Es wird keine Nachricht an den Gast versendet.</p>
         </div>
-        <footer className={styles.editorFooter}><span>Europe/Zurich · {status === "confirmed" ? "Bestätigt" : "Anfrage offen"}</span><button className={styles.primary} disabled={busy || checking || !validParty || !validDate || !slot || !name.trim()}>{busy ? "Speichert …" : "Reservierung speichern"}</button></footer>
       </fieldset>
+        <footer className={styles.editorFooter}><span>Europe/Zurich · {status === "confirmed" ? "Bestätigt" : "Anfrage offen"}</span><button className={styles.primary} disabled={busy || (!uncertain && (checking || !validParty || !validDate || !slot || !name.trim()))}>{busy ? "Speichert …" : "Reservierung speichern"}</button></footer>
     </form>
   </ConsolePanel>;
 }
