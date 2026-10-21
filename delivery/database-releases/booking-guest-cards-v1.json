@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-guest-cards-v1",
+  "previousEvidence": "booking-reservation-search-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "706f686937df8c18abf26d480e7ad18f9b52797ea3e8b4dd0f34df01acadb211",
+    "applicationSchemaSha256": "fa2423175a51f25ce577b66a172038cff32bf116056aa3a42d9b6b858ce74fa3"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261021051825_booking_guest_cards_v1.sql",
+      "sha256": "0065b8f3f125979157ae639b7528087dabd62d03ab289025f44184f8f5102e24"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_guest_cards_v1.sql",
+      "sha256": "7d0c6e7d6a763c8473386bb3f3e4fdad2752cc3125775e477a5bd7d6be6599d7"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "3481bfe124cd082b74b465beb5dc9f88d8f72da6209299a2b246862fba75e1e5",
+    "applicationSchemaSha256": "33de111dc4d6e7629bb5ff7250aaf276be89e74aabe728e848a477a174b5d739"
+  }
+}

@@ -37,3 +37,9 @@ Supabase PostgreSQL owns shared product state and cross-client invariants. `auth
 The additional `delivery/database-scopes/booking-private-v1.json` attestation covers the private Booking catalog and permissions, including executable helpers, immutable message guards and operation journals. It is verified by the canonical clean-boot gate without changing the historical default `public`/`decision_lab` fingerprints. It does not hash guest rows or establish restore success. See [private Booking drift](../operations/BOOKING_PRIVATE_DRIFT.md).
 
 The dependent Booking reservation-search candidate adds an authenticated restaurant-scoped read RPC and snapshot capability, without new tables or direct guest-data grants. It reuses current team/Safety authorization and bounded Zurich date ranges. See [reservation search](../operations/BOOKING_RESERVATION_SEARCH.md).
+
+The dependent guest-card candidate adds three RLS-protected private tables for
+restaurant/Owner-scoped contact cards, minimal mutation receipts and change
+metadata. Authenticated RPCs enforce current team/Safety boundaries; there are
+no direct client/service-role table grants. It adds no automatic reservation
+identity linkage. See [guest cards](../operations/BOOKING_GUEST_CARDS.md).

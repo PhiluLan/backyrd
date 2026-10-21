@@ -341,6 +341,35 @@ run_case owner_transfer_before_summary_replay \
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.spots set owner_id='$owner' where id='$spot';" >/dev/null
 printf 'Manual confirmation races deduplicate the same intent, fence cancellation/amendment in both root-lock orders and reauthorize after ownership transfer. No provider was contacted.\n'
 
+
+# Guest directory mutations use the same root lock and retain original outcomes.
+card_id='7b000000-0000-4000-8000-000000000151'
+card_create="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000152',jsonb_build_object('kind','save','id','$card_id','revision',null,'name','Synthetic card','email','guest@booking.invalid','phone',null));"
+run_case guest_card_create_replay "$card_create" "$card_create" SUCCESS
+test "$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select count(*) from booking_private.guest_card_events_v1 where guest_id='$card_id';")" = 1 || exit 1
+card_edit="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000153',jsonb_build_object('kind','save','id','$card_id','revision',0,'name','Winning correction','email','guest@booking.invalid','phone',null));"
+card_stale="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000154',jsonb_build_object('kind','save','id','$card_id','revision',0,'name','Losing correction','email','guest@booking.invalid','phone',null));"
+run_case guest_card_edit_cas "$card_edit" "$card_stale" booking_guest_changed
+test "$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select name||':'||revision from booking_private.guest_cards_v1 where id='$card_id';")" = 'Winning correction:1' || exit 1
+card_archive="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000155',jsonb_build_object('kind','archive','id','$card_id','revision',1,'archived',true));"
+card_edit_after_archive="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000156',jsonb_build_object('kind','save','id','$card_id','revision',1,'name','Stale active card','email','guest@booking.invalid','phone',null));"
+run_case guest_card_archive_first "$card_archive" "$card_edit_after_archive" booking_guest_changed
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+begin;
+$auth_sql
+select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000157',jsonb_build_object('kind','archive','id','$card_id','revision',2,'archived',false));
+commit;
+SQL
+card_edit_first="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000158',jsonb_build_object('kind','save','id','$card_id','revision',3,'name','Latest correction','email','guest@booking.invalid','phone',null));"
+card_stale_archive="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000159',jsonb_build_object('kind','archive','id','$card_id','revision',3,'archived',true));"
+run_case guest_card_edit_before_archive "$card_edit_first" "$card_stale_archive" booking_guest_changed
+test "$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select is_archived||':'||revision from booking_private.guest_cards_v1 where id='$card_id';")" = 'false:4' || exit 1
+run_case guest_card_owner_transfer_before_replay \
+ "select 1 from public.booking_restaurant_settings where spot_id='$spot' for update;update public.spots set owner_id='$other_owner' where id='$spot';" \
+ "$card_create" booking_operator_required "$auth_sql" 'set local role postgres;'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.spots set owner_id='$owner' where id='$spot';" >/dev/null
+printf 'Guest card concurrent create/replay, revision correction, archive/edit in both orders and ownership-replay fences passed.\n'
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
