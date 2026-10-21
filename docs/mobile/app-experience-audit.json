@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "date": "2026-10-21",
   "scope": "Consumer-App und zugehörige öffentliche Datenwege; Decision-Logik ausgeschlossen",
-  "status": "native-acceptance-and-production-release-validation",
+  "status": "published-certified-ios-physical-device-acceptance-open",
   "method": [
     "Aktive Routen, zentrale Komponenten und Datenwege im Code nachvollzogen",
     "Bestehende Domain-/Medien-/Deep-Link-Verträge genutzt und gezielt ergänzt",
@@ -327,7 +327,25 @@
     "Keine DB-Migration, RLS-/Moderations-/Consent-Abschwächung oder Testbewertung",
     "Keine Behauptung einer vollständigen Hardware-/Accessibility-Abnahme"
   ],
-  "release": null,
+  "release": {
+    "status": "PASS",
+    "sourceSha": "93c05ccf67432128aaf3c15f72040f0c3fc931e8",
+    "manifestHash": "69a91bdc272def16cee0f249b8a6254e35736295017f73ea137a2cf423ccf5fc",
+    "otaGroupId": "ca70eddd-cfd1-4e16-be67-07b1cfa43eb8",
+    "iosUpdateId": "01a15cdf-2673-75c8-b2a3-d2c90de386b6",
+    "runtimeVersion": "1.1.0",
+    "channel": "production",
+    "liveLaunchBytesVerified": true,
+    "installedDeviceVerified": false,
+    "featurePrs": [
+      548,
+      551,
+      552,
+      579
+    ],
+    "policyPr": 577,
+    "exactMainCertificationRunId": 39547508732
+  },
   "nativeAcceptance": {
     "platform": "iOS 18.3 Simulator",
     "smallDevice": "iPhone SE 3rd generation, 375pt, accessibility-extra-extra-extra-large",
@@ -358,5 +376,30 @@
       "complete filter touch-scroll gestures through the desktop automation bridge"
     ],
     "productionWrites": 0
+  },
+  "sourceSha": "93c05ccf67432128aaf3c15f72040f0c3fc931e8",
+  "toolingDependencyAudit": {
+    "command": "npm audit --omit=dev",
+    "date": "2026-10-21",
+    "critical": 0,
+    "high": 31,
+    "moderate": 20,
+    "total": 51,
+    "shellQuoteAdvisoryPatched": true,
+    "status": "OTHER_FINDINGS_REMAIN",
+    "exposure": "Includes framework development/build-tool transitive dependencies; runtime exploitability is not established by the count."
+  },
+  "validation": {
+    "mobileTypeScript": "PASS",
+    "changedMobileLint": "PASS",
+    "productContracts": "PASS",
+    "mapAndRequestDeadline": "PASS",
+    "deliveryPolicy": "PASS",
+    "featurePrRequiredChecks": "PASS",
+    "exactMainExportedAppJourney": "PASS",
+    "safetyAccountLockPreserved": "PASS",
+    "productionManifestAndLaunchBytes": "PASS",
+    "productionTestWrites": 0,
+    "physicalDeviceAcceptance": false
   }
 }
