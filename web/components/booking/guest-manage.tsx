@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { guestKey, guestUuid, type GuestReceipt } from "@/lib/booking-guest-contract";
+import { guestCancellationFenced, guestKey, guestUuid, type GuestReceipt } from "@/lib/booking-guest-contract";
 import { guestRequest, GuestRequestError } from "@/lib/booking-guest-client";
 import { readGuestCredential, storeGuestCredential, forgetGuestCredential, clearLatestGuestCredential, type GuestCredential } from "@/lib/booking-guest-storage";
 import { guestWhen as when } from "@/lib/booking-guest-time";
@@ -45,7 +45,7 @@ export function GuestManage() {
     try {
       const result = await guestRequest({ operation: "read", reservationId: c.reservationId, key: c.key });
       if (!("id" in result) || credential.current !== c || sequence.current !== current) return;
-      if (result.status === "cancelled") { c.cancellation = null; storeGuestCredential(c); setUncertain(false); }
+      if (result.status === "cancelled" || (c.cancellation && guestCancellationFenced(result, c.cancellation.revision))) { c.cancellation = null; storeGuestCredential(c); setUncertain(false); }
       setReceipt(result);
     } catch (error) {
       if (credential.current !== c || sequence.current !== current) return;
@@ -86,7 +86,7 @@ export function GuestManage() {
       c.cancellation = null; storeGuestCredential(c); setUncertain(false); setReceipt(result);
     } catch (error) {
       if (credential.current !== c || sequence.current !== current) return;
-      if (error instanceof GuestRequestError && !error.uncertain) {
+      if (error instanceof GuestRequestError && !error.uncertain && !previousCancellation) {
         c.cancellation = null; storeGuestCredential(c); setUncertain(false);
         setMessage(error.code === "changed" ? "Die Reservierung wurde inzwischen geändert. Lade den aktuellen Stand, bevor du erneut entscheidest." : error.code === "cancellation_unavailable" ? "Eine Stornierung über diesen Link ist nicht mehr möglich. Bitte kontaktiere das Restaurant." : error.code === "rate_limited" ? "Zu viele Versuche. Warte bitte eine Minute und lade den aktuellen Stand." : "Die Stornierung wurde nicht ausgeführt. Lade bitte den aktuellen Stand.");
         setReceipt(null);

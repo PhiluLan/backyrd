@@ -152,3 +152,30 @@ test("a temporary storage failure during an uncertain cancellation preserves its
   await expect(page.getByText("Reservierung storniert", { exact: true })).toBeVisible();
   const cancelled = calls.filter(c => c.operation === "cancel"); expect(cancelled).toHaveLength(2); expect(cancelled[1]).toEqual(cancelled[0]);
 });
+test("a quota rejection of an uncertain cancellation never discards its original nonce", async ({ page }) => {
+  const calls = await mock(page, { unknown: true }); await page.goto(link);
+  await page.getByRole("button", { name: "Reservierung stornieren", exact: true }).click();
+  await page.getByRole("button", { name: "Ja, stornieren", exact: true }).click();
+  await expect(page.getByText(/Der Ausgang der Stornierung ist noch unklar/)).toBeVisible();
+  await page.route("**/api/booking/guest", async route => {
+    const input = route.request().postDataJSON() as Operation;
+    if (input.operation !== "cancel") return route.fallback();
+    calls.push(input); await route.fulfill({status:429,json:{error:"rate_limited",outcome:"rejected"}});
+  }, { times: 1 });
+  await page.getByRole("button", { name: "Denselben Auftrag wiederholen", exact: true }).click();
+  await expect(page.getByText(/Der Ausgang der Stornierung ist noch unklar/)).toBeVisible();
+  await page.getByRole("button", { name: "Denselben Auftrag wiederholen", exact: true }).click();
+  await expect(page.getByText("Reservierung storniert", { exact: true })).toBeVisible();
+  const cancelled=calls.filter(call=>call.operation==="cancel"); expect(cancelled).toHaveLength(3); expect(cancelled[1]).toEqual(cancelled[0]); expect(cancelled[2]).toEqual(cancelled[0]);
+});
+test("a current higher revision releases an older uncertain cancellation for a fresh guest decision", async ({ page }) => {
+  const calls = await mock(page,{unknown:true}); await page.goto(link);
+  await page.getByRole("button",{name:"Reservierung stornieren",exact:true}).click(); await page.getByRole("button",{name:"Ja, stornieren",exact:true}).click();
+  await expect(page.getByText(/Der Ausgang der Stornierung ist noch unklar/)).toBeVisible();
+  await page.route("**/api/booking/guest",route=>route.fulfill({json:{data:{...receipt,party_size:4,revision:2}}}),{times:1});
+  await page.getByRole("button",{name:"Aktuellen Stand prüfen",exact:true}).click();
+  await expect(page.getByText("Testgast · 4 Personen",{exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Denselben Auftrag wiederholen",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Reservierung stornieren",exact:true})).toBeVisible();
+  expect(calls.filter(call=>call.operation==="cancel")).toHaveLength(1);
+});
