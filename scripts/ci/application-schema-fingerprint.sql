@@ -5,7 +5,8 @@
 -- attnum holes after DROP COLUMN. Function CRLFs and the six forensically
 -- certified historical comment-only deltas are normalized before hashing.
 with application_schemas(schema_name) as (
-  values ('public'), ('decision_lab')
+  select unnest(case when current_setting('backyrd.fingerprint_scope',true)='booking-private-v1'
+    then array['booking_private'] else array['public','decision_lab'] end)
 ), client_roles(role_name) as (
   values ('anon'), ('authenticated'), ('service_role')
 ), table_privileges(privilege_name) as (
@@ -199,6 +200,67 @@ with application_schemas(schema_name) as (
     join pg_roles grantor on grantor.oid=acl.grantor
     left join pg_roles grantee on grantee.oid=acl.grantee
    where n.nspname in (select schema_name from application_schemas) or d.defaclnamespace=0
+
+  -- Additive private scope only: preserve every historical default-scope byte.
+  union all
+  select format('PRIVATE_COLUMN_GRANT|%I.%I.%I|%s|%s',n.nspname,c.relname,a.attname,r.role_name,v.privilege_name)
+    from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace
+    join application_schemas s on s.schema_name=n.nspname cross join client_roles r
+    cross join (values ('SELECT'),('INSERT'),('UPDATE'),('REFERENCES')) v(privilege_name)
+   where current_setting('backyrd.fingerprint_scope',true)='booking-private-v1'
+     and a.attnum>0 and not a.attisdropped and c.relkind in ('r','p','v','m','f')
+     and has_column_privilege(r.role_name,c.oid,a.attnum,v.privilege_name)
+
+  union all
+  select format('PRIVATE_TYPE_GRANT|%I.%I|%s|USAGE',n.nspname,t.typname,r.role_name)
+    from pg_type t join pg_namespace n on n.oid=t.typnamespace join application_schemas s on s.schema_name=n.nspname cross join client_roles r
+   where current_setting('backyrd.fingerprint_scope',true)='booking-private-v1' and t.typtype in ('d','e','c') and has_type_privilege(r.role_name,t.oid,'USAGE')
+
+  union all
+  select format('PRIVATE_CLIENT_ROLE|%I|superuser=%s|bypass_rls=%s|inherit=%s',r.rolname,r.rolsuper,r.rolbypassrls,r.rolinherit)
+    from pg_roles r join client_roles c on c.role_name=r.rolname
+   where current_setting('backyrd.fingerprint_scope',true)='booking-private-v1'
+
+  union all
+  select format('PRIVATE_ROLE_INHERIT|%s|%I',c.role_name,r.rolname)
+    from pg_roles r cross join client_roles c
+   where current_setting('backyrd.fingerprint_scope',true)='booking-private-v1' and pg_has_role(c.role_name,r.oid,'USAGE')
+
+  union all
+  select format('PRIVATE_SCHEMA_CREATE|%I|%s',n.nspname,r.role_name)
+    from pg_namespace n join application_schemas s on s.schema_name=n.nspname cross join client_roles r
+   where current_setting('backyrd.fingerprint_scope',true)='booking-private-v1'
+     and has_schema_privilege(r.role_name,n.oid,'CREATE')
+
+  union all
+  select format('PRIVATE_TRIGGER_STATE|%I.%I|%I|enabled=%s',n.nspname,c.relname,t.tgname,t.tgenabled)
+    from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace
+    join application_schemas s on s.schema_name=n.nspname
+   where current_setting('backyrd.fingerprint_scope',true)='booking-private-v1' and not t.tgisinternal
+
+  union all
+  select format('PRIVATE_ACL|%s|grantee=%s|grantor=%I|privilege=%s|grantable=%s',
+    objects.identity,coalesce(grantee.rolname,'PUBLIC'),grantor.rolname,acl.privilege_type,acl.is_grantable)
+    from (
+      select format('SCHEMA:%I',n.nspname) identity,coalesce(n.nspacl,acldefault('n',n.nspowner)) permissions
+        from pg_namespace n join application_schemas s on s.schema_name=n.nspname
+      union all
+      select format('RELATION:%I.%I',n.nspname,c.relname),coalesce(c.relacl,acldefault(case when c.relkind='S' then 's'::"char" else 'r'::"char" end,c.relowner))
+        from pg_class c join pg_namespace n on n.oid=c.relnamespace join application_schemas s on s.schema_name=n.nspname where c.relkind in ('r','p','v','m','S','f')
+      union all
+      select format('COLUMN:%I.%I.%I',n.nspname,c.relname,a.attname),a.attacl
+        from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace
+        join application_schemas s on s.schema_name=n.nspname where a.attnum>0 and not a.attisdropped and a.attacl is not null
+      union all
+      select format('FUNCTION:%s',p.oid::regprocedure),coalesce(p.proacl,acldefault('f',p.proowner))
+        from pg_proc p join pg_namespace n on n.oid=p.pronamespace join application_schemas s on s.schema_name=n.nspname where p.prokind in ('f','p')
+      union all
+      select format('TYPE:%I.%I',n.nspname,t.typname),coalesce(t.typacl,acldefault('T',t.typowner))
+        from pg_type t join pg_namespace n on n.oid=t.typnamespace join application_schemas s on s.schema_name=n.nspname where t.typtype in ('d','e','c')
+    ) objects cross join lateral aclexplode(objects.permissions) acl
+    join pg_roles grantor on grantor.oid=acl.grantor left join pg_roles grantee on grantee.oid=acl.grantee
+   where current_setting('backyrd.fingerprint_scope',true)='booking-private-v1'
+
 )
 select count(*)::bigint as entry_count,
        encode(extensions.digest(convert_to(string_agg(entry,E'\n' order by entry)||E'\n','UTF8'),'sha256'),'hex') as fingerprint

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-reservation-search-v1",
+  "previousEvidence": "booking-manual-confirmation-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "a069bc449c990847edaaea8ab261e5154d06b6567fdbfb49c40afccaa00e4f23",
+    "applicationSchemaSha256": "ac19cbcf257266bb0de24264cbf06b8b81044836ac4d70560ceea1510e7ac641"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261021045215_booking_console_reservation_search_v1.sql",
+      "sha256": "708ff8665df270298d6c353aeb7c407778b9f08d6afe8d4bb76051f100cc5e66"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_console_reservation_search_v1.sql",
+      "sha256": "4d87a6a226f831ebed48ba6594081c6d1054b30b03bacb7ffa4dc0cc03d3d53b"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "706f686937df8c18abf26d480e7ad18f9b52797ea3e8b4dd0f34df01acadb211",
+    "applicationSchemaSha256": "fa2423175a51f25ce577b66a172038cff32bf116056aa3a42d9b6b858ce74fa3"
+  }
+}
