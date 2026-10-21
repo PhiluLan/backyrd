@@ -1362,3 +1362,8 @@ migration/activation, actual restaurant/device and file-download acceptance,
 advanced capacity/quotas, historical as-of/comparison reports and the broader
 operational activity view remain separate work. No payment integration, guest
 sender, discovery/ranking signal or commercial entitlement changes.
+
+
+## Restaurant-wide arrival pacing foundation (migration 215 candidate)
+
+The central optional guest cap now filters existing slot previews and protects actual parent reservation writes across all services and channels. Fixed 15/30/60-minute windows, original retries, lower-limit preservation, current actor/Owner/Safety and concurrent policy/allocation semantics are documented in [arrival limits](BOOKING_ARRIVAL_LIMITS.md). This backend foundation advertises no new snapshot capability: the Manager editor, recovery flow and operational review still need Console implementation and acceptance before presenting this as a usable Console feature. Production and guest intake remain unchanged.

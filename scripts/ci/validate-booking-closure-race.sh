@@ -424,6 +424,61 @@ run_case report_before_revoke "$report_read_a" "select public.booking_console_me
 grep -q 'REPORT_TOTAL:1:3' "$race_root/report_before_revoke-holder.out" || exit 1
 printf 'Service reports observe complete facts across creation and enforce Viewer revocation in both real root-lock orders.\n'
 
+# Restaurant-wide arrival pacing must serialize across distinct free tables,
+# operator/public writes and policy changes, with exact-intent retry/CAS behavior.
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+begin;
+$auth_sql
+select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000900',0,30,4,'$owner');
+select public.booking_console_save_public_settings_v1('$spot',(select revision from public.booking_restaurant_settings where spot_id='$spot'),true,array['$service'::uuid],60,90,120,'confirmed','privacy@booking.invalid');
+commit;
+SQL
+pacing_create_a="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000910','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+70+time '10:00') at time zone 'Europe/Zurich'),60,3,'Pacing race');"
+pacing_create_b="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000911','$service','$second_table',array['$second_table'::uuid],null,((date '$business_date'+70+time '10:00') at time zone 'Europe/Zurich'),60,3,'Pacing race');"
+run_case paced_distinct_tables "$pacing_create_a" "$pacing_create_b" booking_arrival_limit_exceeded
+pacing_proof="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select count(*)||':'||sum(party_size) from public.booking_reservations where spot_id='$spot' and request_id in ('7b000000-0000-4000-8000-000000000910','7b000000-0000-4000-8000-000000000911');")"
+test "$pacing_proof" = '1:3' || { printf 'Pacing race exceeded the global limit: %s\n' "$pacing_proof" >&2; exit 1; }
+run_case pacing_limit_before_create \
+ "select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000901',1,30,2,'$owner');" \
+ "select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000912','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+71+time '10:00') at time zone 'Europe/Zurich'),60,3,'After lower limit');" booking_arrival_limit_exceeded
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+begin;
+$auth_sql
+select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000902',2,30,4,'$owner');
+commit;
+SQL
+run_case pacing_create_before_limit \
+ "select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000913','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+72+time '10:00') at time zone 'Europe/Zurich'),60,3,'Before lower limit');" \
+ "select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000903',3,30,2,'$owner');" SUCCESS
+pacing_retry="select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000904',4,15,6,'$owner');"
+run_case pacing_same_policy_retry "$pacing_retry" "$pacing_retry" SUCCESS
+pacing_revision="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select revision||':'||(select count(*) from booking_private.arrival_limit_requests_v1 where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000904') from booking_private.arrival_limits_v1 where spot_id='$spot';")"
+test "$pacing_revision" = '5:1' || exit 1
+pacing_policy_revision="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select revision from public.booking_public_settings where spot_id='$spot';")"
+pacing_guest_a="select public.booking_guest_create_v1('$spot','7b000000-0000-4000-8000-000000000915',$pacing_policy_revision,((date '$business_date'+73+time '10:00') at time zone 'Europe/Zurich'),3,'Synthetic paced guest','pacing-a@booking.invalid',encode(sha256(convert_to('booking-pacing-race-a','UTF8')),'hex'),repeat('sealed-',10));"
+pacing_guest_b="select public.booking_guest_create_v1('$spot','7b000000-0000-4000-8000-000000000916',$pacing_policy_revision,((date '$business_date'+74+time '10:00') at time zone 'Europe/Zurich'),3,'Synthetic paced guest','pacing-b@booking.invalid',encode(sha256(convert_to('booking-pacing-race-b','UTF8')),'hex'),repeat('sealed-',10));"
+run_case pacing_operator_before_public \
+ "select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000914','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+73+time '10:00') at time zone 'Europe/Zurich'),60,4,'Paced operator');" \
+ "$pacing_guest_a" booking_slot_unavailable "set local role service_role;"
+run_case pacing_public_before_operator "$pacing_guest_b" \
+ "select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000917','$service','$second_table',array['$second_table'::uuid],null,((date '$business_date'+74+time '10:00') at time zone 'Europe/Zurich'),60,4,'Paced operator');" \
+ booking_arrival_limit_exceeded "$auth_sql" "set local role service_role;"
+run_case pacing_policy_cas \
+ "select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000905',5,30,6,'$owner');" \
+ "select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000906',5,30,8,'$owner');" booking_arrival_limit_changed
+# A row lock without an MVCC version change is insufficient at Repeatable Read.
+# Both writes must conflict on a versioned root even with distinct free tables.
+pacing_repeatable_auth="set transaction isolation level repeatable read; $auth_sql"
+run_case pacing_repeatable_tables \
+ "select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000918','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+75+time '10:00') at time zone 'Europe/Zurich'),60,4,'Repeatable A');" \
+ "select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000919','$service','$second_table',array['$second_table'::uuid],null,((date '$business_date'+75+time '10:00') at time zone 'Europe/Zurich'),60,4,'Repeatable B');" \
+ 'could not serialize access' "$pacing_repeatable_auth" "$pacing_repeatable_auth"
+run_case pacing_repeatable_policy \
+ "select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000907',6,30,2,'$owner');" \
+ "select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000920','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+76+time '10:00') at time zone 'Europe/Zurich'),60,3,'Repeatable old policy');" \
+ 'could not serialize access' "$pacing_repeatable_auth"
+printf 'Arrival pacing passed nine actual distinct-table, policy/create, exact retry, CAS, public/operator and Repeatable Read lock-order races.\n'
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';

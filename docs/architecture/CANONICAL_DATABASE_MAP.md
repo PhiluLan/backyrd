@@ -62,3 +62,5 @@ single bounded query reconciles totals/days/services/sources without joining
 allocation membership or selecting guest/card/contact/note fields. The existing
 private scope retains its semantic fingerprint with newly bound migration inputs;
 the public schema/ACL evidence covers the new read RPC.
+
+The dependent migration-215 arrival-pacing foundation adds private restaurant policy and actor-bound operation receipts, with RLS and raw client/worker grants revoked. Current team/Safety-scoped policy RPCs and a parent-reservation trigger enforce one restaurant-wide fixed-window guest cap across existing operator and public allocation paths. No snapshot capability or Console editor is advertised yet. See [arrival limits](../operations/BOOKING_ARRIVAL_LIMITS.md).

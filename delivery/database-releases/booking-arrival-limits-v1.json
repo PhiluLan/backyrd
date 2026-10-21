@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-arrival-limits-v1",
+  "previousEvidence": "booking-service-reports-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "6d2a0c1f6152ea35396a6f32a47aa068416e2985f2ec2535be999c46cca0c67d",
+    "applicationSchemaSha256": "1d0175b9ba091170ddc39ad179c04ecc54a1e448709ec8e525607a838cdd0c44"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261021075159_booking_arrival_limits_v1.sql",
+      "sha256": "d1e5bce0f1e0863c4d94da52d41d9577510fee141c3b84bb1407b0c8020c5edb"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_arrival_limits_v1.sql",
+      "sha256": "31bea599438134343a5a85e4565073f8fac8e643b61d347f218958403cc78ee0"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "69bcd311ab0096a22e9c7ce07edc52922c444c3eb6f805d7a90a7f5ab4e9b15b",
+    "applicationSchemaSha256": "19a4fa65ce80bc25c33ca9f08ac6cee6eeeba0dfc534acacd1f3f3fdef1ae90d"
+  }
+}
