@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.14
+# Local Nuknuk Research v3.15
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.14
+## Active architecture: Research v3.15
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -401,6 +401,22 @@ selection still favours a small snack and salad over a more distinctive main
 dish, although the official page and review evidence include those dishes.
 Further independent blind tests, representative-offer selection and seasonal
 amenity modelling are required. The unattended research gate remains closed.
+
+v3.15 addresses the observed eight-offer selection bias without publishing
+menu prices. Within a section, a substantially lower-priced side item is
+deprioritized when the same official menu lists main dishes. Food sections
+then contribute representative entries across classics, seasonal dishes and
+sharing before appetizers. On a saved Werk 8 report plus the current official
+page, the draft now includes WERK 8 Club Sandwich and Geschmorte Karotte
+instead of the small nuts and salad, while retaining five named cocktails and
+the cited Aperoplatte. All other literal menu rows remain review evidence.
+The complete v3.15 local 27B/SearXNG rerun took 271 seconds (three page
+requests, four model calls) and produced exactly five named cocktails plus
+WERK 8 Club Sandwich, Geschmorte Karotte and the vegetarian Aperoplatte.
+Regular hours, public phone and public email stayed correct; the conditional
+terrace stayed unresolved. No source failure or dated-event offer appeared.
+This is a tuned case, not an untouched blind pass, and does not establish
+manual-research parity.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

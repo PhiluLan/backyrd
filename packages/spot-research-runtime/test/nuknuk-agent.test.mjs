@@ -28,7 +28,7 @@ test('official heading-paired menu names become price-free review leads with foo
  assert.deepEqual(leads.map(lead=>[lead.name,lead.kind]),[['CEST LA VIT','DRINKS'],['Pimm’s Nº1 Cup','DRINKS'],['Apéroplatte gemischt','GASTRONOMY'],['Hausburger','GASTRONOMY']]);
  const result=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'}, {...field('experience.profile'),profileCategory:'DRINKS'},sources);
  assert.equal(result.status,'REQUIRES_REVIEW');assert.equal(result.humanReviewRequired,true);
- assert.deepEqual(result.value.offers.map(offer=>offer.name),['CEST LA VIT','Pimm’s Nº1 Cup','Apéroplatte gemischt','Hausburger']);
+ assert.deepEqual(result.value.offers.map(offer=>offer.name),['CEST LA VIT','Pimm’s Nº1 Cup','Hausburger','Apéroplatte gemischt']);
  assert.ok(result.value.offers.every(offer=>offer.prices.length===0));
  assert.ok(result.citations.every(citation=>citation.layoutReviewRequired&&citation.sourceFormat==='HTML_MENU'&&citation.evidence.includes('CHF')));
 });
@@ -88,6 +88,13 @@ test('drink-led venues reserve draft slots for cited food when both menus exist'
  assert.equal(draft.value.offers.filter(offer=>offer.kind==='DRINKS').length,5);
  assert.equal(draft.value.offers.filter(offer=>offer.kind==='GASTRONOMY').length,3);
  assert.ok(draft.value.offers.some(offer=>offer.name==='WERK 8 Club Sandwich'));
+});
+test('representative food drafts favour substantive dishes across sections over low-priced side items',()=>{
+ const html='<main><h2>Auszug aus der Cocktailkarte</h2><p>Yuzual Suspects chf 18.00</p><p>Hanami chf 18.00</p><h4>SHARING</h4><p>WERK8 Aperoplatte</p><p>Oliven, Dips</p><p>CHF 31.00</p><h4>APPETIZERS</h4><p>würzige nüsse</p><p>chf 6.00</p><h4>SEASONALS</h4><p>Herbstsalat</p><p>Apfel, Kürbis</p><p>CHF 14.00</p><p>Geschmorte Karotte</p><p>Shiitake, Curry</p><p>CHF 31.00</p><p>Hausgemachte Spätzli</p><p>Bergkäse, Trüffel</p><p>CHF 39.00</p><h4>CLASSICS</h4><p>Kräuterpommes mit Dip</p><p>CHF 9.00</p><p>WERK 8 Club Sandwich</p><p>mit Pommes</p><p>CHF 28.00</p><p>Rindstartar</p><p>mit Toast</p><p>CHF 34.00</p></main>';
+ const s=sourceText({url:'https://example.org/',body:html,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const draft=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'},{...field('experience.profile'),profileCategory:'DRINKS'},[s]);
+ assert.deepEqual(draft.value.offers.filter(offer=>offer.kind==='GASTRONOMY').map(offer=>offer.name),['WERK 8 Club Sandwich','Geschmorte Karotte','WERK8 Aperoplatte']);
+ assert.ok(draft.value.offers.every(offer=>offer.prices.length===0));
 });
 test('a published Swiss phone with space after plus is captured literally and normalized later',()=>{
  const s=source('Cantina Restaurant\n\nKontakt\n\n+ 41616930507');

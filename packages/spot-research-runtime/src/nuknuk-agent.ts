@@ -14,7 +14,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.14';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.15';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -1101,6 +1101,28 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
   if(field.attributeKey!=='experience.profile'||!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory??'')||!['UNRESOLVED','REQUIRES_REVIEW'].includes(result.status))return result;
   const leads=structuredMenuLeads(sources);
   if(!leads.length)return result;
+  const food=leads.filter(lead=>lead.kind==='GASTRONOMY');
+  const drinks=leads.filter(lead=>lead.kind==='DRINKS');
+  const sectionPriority=(section:string)=>/(?:classics?|hauptg[aä]nge|main courses|signature)/iu.test(section)?4:/(?:seasonals?|saison)/iu.test(section)?3:/(?:sharing|zum teilen)/iu.test(section)?2:/(?:appetizers?|starters?|vorspeisen|snacks?)/iu.test(section)?0:1;
+  const priceOf=(lead:typeof food[number])=>{
+    const evidence=lead.citation.evidence;
+    const match=[...evidence.matchAll(/\bCHF\s*(\d{1,3}(?:[.,]\d{1,2})?)|(\d{1,3}(?:[.,]\d{1,2})?)\s*(?:CHF|EUR|€)\b/giu)].at(-1);
+    return match?Number((match[1]??match[2]).replace(',','.')):null;
+  };
+  const foodBySection=new Map<string,typeof food>();
+  for(const lead of food){const group=foodBySection.get(lead.section)??[];group.push(lead);foodBySection.set(lead.section,group);}
+  const sectionFirst:typeof food=[],sectionRemainder:typeof food=[];
+  for(const [,group] of [...foodBySection].sort((a,b)=>sectionPriority(b[0])-sectionPriority(a[0]))){
+    const prices=group.map(priceOf).filter((value):value is number=>value!==null).sort((a,b)=>a-b);
+    const median=prices.length?prices[Math.floor(prices.length/2)]:0;
+    const representative=group.filter(lead=>{const value=priceOf(lead);return value===null||value>=median/2;});
+    sectionFirst.push(representative[0]??group[0]);
+    sectionRemainder.push(...representative.slice(1));
+  }
+  const rankedFood=[...sectionFirst,...sectionRemainder];
+  const foodQuota=field.profileCategory==='DRINKS'?3:field.profileCategory==='EAT'?6:4;
+  const drinkQuota=field.profileCategory==='DRINKS'?5:field.profileCategory==='EAT'?2:4;
+  const representative=[...(field.profileCategory==='DRINKS'?drinks.slice(0,drinkQuota):rankedFood.slice(0,foodQuota)),...(field.profileCategory==='DRINKS'?rankedFood.slice(0,foodQuota):drinks.slice(0,drinkQuota))];
   const parsed=result.status==='REQUIRES_REVIEW'&&result.value?parseExperienceProfile(result.value,false):null;
   const shortened:typeof leads=[];
   const normalized=parsed?parsed.offers.map(offer=>{
@@ -1109,7 +1131,7 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
     shortened.push(concise);
     return {...offer,id:'offer_'+hash(concise.name.toLocaleLowerCase()).slice(0,16),name:concise.name,prices:[]};
   }):[];
-  const menuNames=new Set(leads.map(lead=>lead.name.normalize('NFKC').toLocaleLowerCase()));
+  const menuNames=new Set(representative.map(lead=>lead.name.normalize('NFKC').toLocaleLowerCase()));
   const menuMatched=normalized.filter(offer=>menuNames.has(offer.name.normalize('NFKC').toLocaleLowerCase())||result.citations?.some(citation=>citation.sourceFormat==='IMAGE_OCR'&&citation.evidence.startsWith(offer.name+' ')));
   const otherOffers=normalized.filter(offer=>!menuMatched.includes(offer)&&!leads.some(lead=>lead.name!==offer.name&&lead.citation.evidence.includes(offer.name)));
   const foodLeads=leads.some(lead=>lead.kind==='GASTRONOMY');
@@ -1120,9 +1142,9 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
   const retainedCitations=(result.citations??[]).filter(citation=>retained.some(offer=>citation.evidence.includes(offer.name)));
   const droppedCitations=(result.citations??[]).filter(citation=>!retainedCitations.includes(citation));
   const already=new Set(existing?.offers.map(offer=>offer.name.normalize('NFKC').toLocaleLowerCase())??[]);
-  const available=leads.filter(lead=>!already.has(lead.name.normalize('NFKC').toLocaleLowerCase()));
+  const available=representative.filter(lead=>!already.has(lead.name.normalize('NFKC').toLocaleLowerCase()));
   const limit=8-(existing?.offers.length??0);
-  if(limit<=0)return {...result,reviewEvidence:[...(result.reviewEvidence??[]),...available.map(lead=>lead.citation)]};
+  if(limit<=0)return {...result,reviewEvidence:[...(result.reviewEvidence??[]),...leads.filter(lead=>!already.has(lead.name.normalize('NFKC').toLocaleLowerCase())).map(lead=>lead.citation)]};
   const selected:typeof leads=[];
   const groups=field.profileCategory==='DRINKS'?[['DRINKS',5],['GASTRONOMY',3]]:field.profileCategory==='EAT'?[['GASTRONOMY',6],['DRINKS',2]]:[['GASTRONOMY',4],['DRINKS',4]];
   for(const [kind,quota] of groups as ['GASTRONOMY'|'DRINKS',number][]){
@@ -1137,7 +1159,7 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
   try {
     const offers=selected.map(lead=>({id:'offer_'+hash(lead.name.toLocaleLowerCase()).slice(0,16),kind:lead.kind,name:lead.name,areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}));
     const profile=parseExperienceProfile(existing?{...existing,offers:[...existing.offers,...offers]}:{contractVersion:(field.valueSchema as {properties:{contractVersion:{const:string}}}).properties.contractVersion.const,category:field.profileCategory,properties:[],areas:[],offers,reviewed:false},false);
-    return {...result,status:'REQUIRES_REVIEW',reason:undefined,knowledgeState:'KNOWN_VALUE',value:profile,citations:[...retainedCitations,...shortened.map(lead=>lead.citation),...selected.map(lead=>lead.citation)],partialProfile:true,humanReviewRequired:true,reviewEvidence:[...(result.reviewEvidence??[]),...droppedCitations,...available.filter(lead=>!selected.includes(lead)).map(lead=>lead.citation)]};
+    return {...result,status:'REQUIRES_REVIEW',reason:undefined,knowledgeState:'KNOWN_VALUE',value:profile,citations:[...retainedCitations,...shortened.map(lead=>lead.citation),...selected.map(lead=>lead.citation)],partialProfile:true,humanReviewRequired:true,reviewEvidence:[...(result.reviewEvidence??[]),...droppedCitations,...leads.filter(lead=>!profile.offers.some(offer=>offer.name.normalize('NFKC').toLocaleLowerCase()===lead.name.normalize('NFKC').toLocaleLowerCase())).map(lead=>lead.citation)]};
   }catch{return result;}
 }
 
