@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { bookingAllocationLabel, bookingError, restaurantDate, restaurantTime, setBookingStatus, type BookingReservation, type BookingSlot, type BookingSnapshot, type BookingStatus } from "@/lib/booking-api";
 import { ConsolePanel } from "./console-panel";
+import { ReservationMail } from "./reservation-mail";
 import { ReservationHistory } from "./reservation-history";
 import { TransferReservation } from "./transfer-reservation";
 import { EditReservation } from "./edit-reservation";
@@ -24,6 +25,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
   const [editing, setEditing] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [mailOpen, setMailOpen] = useState(false);
   const inFlight = useRef(false);
   const table = snapshot.tables.find((table) => table.id === r.table_id);
   const area = snapshot.areas.find((area) => area.id === table?.area_id);
@@ -67,6 +69,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
         {(r.status === "confirmed" || r.status === "pending" || r.status === "arrived") && <button className={styles.secondary} onClick={() => setTarget("cancelled")}>Stornieren</button>}
         {r.status === "confirmed" && Date.parse(r.starts_at) <= Date.now() && <button className={styles.secondary} onClick={() => setTarget("no_show")}>Nicht erschienen</button>}
       </div>)}
+      {snapshot.capabilities?.guest_mail && <div className={styles.historySection}><button type="button" className={styles.secondary} aria-expanded={mailOpen} onClick={() => setMailOpen(!mailOpen)}>{mailOpen ? "Gastnachrichten ausblenden" : "Gastnachrichten anzeigen"}</button>{mailOpen && <ReservationMail key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservationId={r.id} revision={r.revision ?? 0} onDenied={onDenied} onReload={onReload} />}</div>}
       {snapshot.capabilities?.reservation_history && <div className={styles.historySection}><button type="button" className={styles.secondary} aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}>{historyOpen ? "Änderungsverlauf ausblenden" : "Änderungsverlauf anzeigen"}</button>{historyOpen && <ReservationHistory key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservationId={r.id} revision={r.revision ?? 0} onDenied={onDenied} onReload={onReload} />}</div>}
     </div>
   </ConsolePanel>;

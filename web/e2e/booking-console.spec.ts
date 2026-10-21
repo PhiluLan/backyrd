@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -460,6 +460,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   const inviteBodies = new Map<string, string>();
   let savedSetup: BookingSetup | null = null;
   if (options.history) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, reservation_history: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 1 })); }
+  if (options.mail) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_mail: true };
   if (options.publicGuest) snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, source: "website", note: null }));
   if (options.lifecycle) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true };
   if (options.amendments) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
@@ -2285,7 +2286,162 @@ test("an online booking editor explains queued updates and contact-link revocati
   await expect(editor).not.toContainText("Es wird keine Nachricht an den Gast versendet");
   await editor.getByLabel("Telefon oder E-Mail (optional)", { exact: true }).fill("corrected@booking.invalid");
   await expect(editor).toContainText("bisherige Gastlink ungültig");
-  await expect(editor).toContainText("Ausstehende Nachrichten an die bisherige Adresse werden angehalten");
+  await expect(editor).toContainText("Eine bereits gestartete Nachricht kann trotzdem noch ankommen");
   expect(await editor.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   await editor.screenshot({ path: test.info().outputPath("online-contact-change-phone.png") });
+});
+
+function mailMessage(index = 1, state = "accepted", extra: Record<string, unknown> = {}) {
+  return { id: `57000000-0000-4000-8000-${String(index).padStart(12, "0")}`, revision: 0, kind: "created", state, created_at: "2026-10-20T11:00:00Z", updated_at: "2026-10-20T11:01:00Z", attempts: 1, prepared: true, first_attempt_at: "2026-10-20T11:00:30Z", next_attempt_at: state === "pending" ? "2026-10-20T11:02:00Z" : null, superseded: false, delayed: false, ...extra };
+}
+function mailPage(messages: ReturnType<typeof mailMessage>[] = [], extra: Record<string, unknown> = {}) {
+  return { reservation_id: reservationId, revision: 0, observed_at: "2026-10-20T12:00:00Z", guest_access: "active", delivery_blocked: false, messages, next_cursor: null, ...extra };
+}
+async function openMail(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Gastnachrichten anzeigen", exact: true }).click();
+  return page.getByRole("region", { name: "Gastnachrichten", exact: true });
+}
+
+test("mail overview distinguishes acceptance delay delivery and stale evidence on a narrow phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, publicGuest: true, mail: true });
+  const calls: Record<string, unknown>[] = [];
+  let mode = "accepted";
+  await page.route("**/rest/v1/rpc/booking_console_mail_v1", (route) => {
+    calls.push(route.request().postDataJSON());
+    return mode === "offline" ? route.fulfill({ status: 503, json: { message: "network error" } }) : route.fulfill({ json: mailPage([mailMessage(1, mode === "delay" ? "accepted" : mode, { delayed: mode === "delay" })]) });
+  });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  expect(calls).toHaveLength(0);
+  await page.getByRole("button", { name: "Gastnachrichten anzeigen", exact: true }).click();
+  const region = page.getByRole("region", { name: "Gastnachrichten", exact: true });
+  await expect(region).toContainText("Vom Mailanbieter angenommen");
+  await expect(region).toContainText("Die Zustellung ist noch nicht bestätigt.");
+  mode = "delay";
+  await region.getByRole("button", { name: "Versandstatus aktualisieren" }).click();
+  await expect(region).toContainText("Zustellung verzögert");
+  mode = "delivered";
+  await region.getByRole("button", { name: "Versandstatus aktualisieren" }).click();
+  await expect(region).toContainText("Beim empfangenden Mailserver zugestellt");
+  await expect(region).toContainText("Dies bestätigt keine Öffnung oder Kenntnisnahme");
+  await expect(region).not.toContainText("Zustellung verzögert");
+  mode = "offline";
+  await region.getByRole("button", { name: "Versandstatus aktualisieren" }).click();
+  await expect(region.getByRole("alert")).toContainText("möglicherweise nicht mehr aktuell");
+  await expect(region.getByRole("listitem")).toHaveCount(1);
+  expect(calls.every((c) => c.p_spot_id === spot && c.p_reservation_id === reservationId && c.p_before_id === null)).toBe(true);
+  expect(fixture.bookingCalls()).toBe(0);
+  expect(await region.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await region.screenshot({ path: test.info().outputPath("mail-delivery-phone.png") });
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  expect((await new AxeBuilder({ page }).include('section[aria-label="Gastnachrichten"]').analyze()).violations).toEqual([]);
+});
+
+test("mail overview shows unknown dispatch review and contact revocation without a blind resend", async ({ page }) => {
+  await mockConsole(page, { seeded: true, mail: true, teams: true, teamRole: "viewer" });
+  await page.route("**/rest/v1/rpc/booking_console_mail_v1", (route) => route.fulfill({ json: mailPage([
+    mailMessage(1, "sending", { superseded: true }), mailMessage(2, "review_required", { prepared: false, first_attempt_at: null, attempts: 0 }), mailMessage(3, "suppressed"),
+  ], { guest_access: "revoked", delivery_blocked: true }) }));
+  const region = await openMail(page);
+  await expect(region).toContainText("Versandergebnis noch unklar");
+  await expect(region).toContainText("Ein bereits gestarteter Versand kann nicht zurückgerufen werden");
+  await expect(region).toContainText("noch kein Versandversuch gestartet");
+  await expect(region).toContainText("Der bisherige Gastlink wurde ungültig gemacht");
+  await expect(region).toContainText("wegen einer Zustellrückmeldung gesperrt");
+  await expect(region.getByRole("button")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Stornieren", exact: true })).toHaveCount(0);
+});
+
+test("mail overview pages tied intents without duplicates and refreshes latest evidence", async ({ page }) => {
+  await mockConsole(page, { seeded: true, mail: true });
+  const rows = Array.from({ length: 50 }, (_, i) => mailMessage(100 - i));
+  let latest = false;
+  const calls: Record<string, unknown>[] = [];
+  await page.route("**/rest/v1/rpc/booking_console_mail_v1", (route) => {
+    const body = route.request().postDataJSON(); calls.push(body);
+    return route.fulfill({ json: body.p_before_id ? mailPage([mailMessage(50)]) : latest ? mailPage([mailMessage(100, "delivered")]) : mailPage(rows, { next_cursor: rows.at(-1)!.id }) });
+  });
+  const region = await openMail(page);
+  await expect(region.getByRole("listitem")).toHaveCount(50);
+  await region.getByRole("button", { name: "Ältere Nachrichten laden" }).click();
+  await expect(region.getByRole("listitem")).toHaveCount(51);
+  expect(calls[1].p_before_id).toBe(rows.at(-1)!.id);
+  latest = true;
+  await region.getByRole("button", { name: "Versandstatus aktualisieren" }).click();
+  await expect(region.getByRole("listitem")).toHaveCount(1);
+  await expect(region).toContainText("Beim empfangenden Mailserver zugestellt");
+});
+
+for (const reason of ["denied", "safety"] as const) {
+  test("mail overview " + reason + " clears the private workspace", async ({ page }) => {
+    await mockConsole(page, { seeded: true, mail: true });
+    await page.route("**/rest/v1/rpc/booking_console_mail_v1", (route) => route.fulfill({ status: reason === "denied" ? 403 : 400, json: reason === "denied" ? { code: "42501", message: "booking_operator_required" } : { code: "P0001", message: "SAFETY_ACCOUNT_RESTRICTED" } }));
+    await openMail(page);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Betreiberzugriff");
+  });
+}
+
+test("mail overview malformed and failed reads never become fabricated success or empty results", async ({ page }) => {
+  await mockConsole(page, { seeded: true, mail: true });
+  let attempts = 0;
+  await page.route("**/rest/v1/rpc/booking_console_mail_v1", (route) => {
+    attempts++;
+    return attempts === 1 ? route.fulfill({ status: 503, json: { message: "network error" } }) : route.fulfill({ json: mailPage([], attempts === 2 ? { reservation_id: table2 } : { guest_access: "none" }) });
+  });
+  const region = await openMail(page);
+  await expect(region).toContainText("Der Versandstatus ist nicht bekannt");
+  await expect(region).not.toContainText("keine Gastnachricht protokolliert");
+  await region.getByRole("button", { name: "Versandstatus aktualisieren" }).click();
+  await expect(region).toContainText("ungültige Antwort");
+  await region.getByRole("button", { name: "Versandstatus aktualisieren" }).click();
+  await expect(region).toContainText("keine Gastnachricht protokolliert");
+  await expect(region.getByRole("alert")).toHaveCount(0);
+});
+
+test("mail overview reports a newer reservation revision and expired credential", async ({ page }) => {
+  await mockConsole(page, { seeded: true, mail: true, amendments: true });
+  await page.route("**/rest/v1/rpc/booking_console_mail_v1", (route) => route.fulfill({ json: mailPage([], { revision: 1, guest_access: "expired" }) }));
+  const region = await openMail(page);
+  await expect(region).toContainText("Die Reservierung wurde inzwischen geändert");
+  await expect(region).toContainText("Der Gastlink ist abgelaufen");
+  await expect(region.getByRole("button", { name: "Reservierung neu laden" })).toBeVisible();
+});
+
+test("an arrived online booking does not promise a name correction email", async ({ page }) => {
+  await mockConsole(page, { seeded: true, publicGuest: true, amendments: true, lifecycle: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Gast angekommen", exact: true }).click();
+  await page.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await page.getByRole("button", { name: "Reservierung bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Reservierung bearbeiten", exact: true });
+  await expect(editor).toContainText("Nach der Ankunft lösen Änderungen an den Gastangaben keine Nachricht aus");
+  await expect(editor).not.toContainText("werden für den Gast vorbereitet");
+});
+
+test("mail overview drops a late private reply after sign-out", async ({ page }) => {
+  await mockConsole(page, { seeded: true, mail: true });
+  let received = false, release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/rest/v1/rpc/booking_console_mail_v1", async (route) => {
+    received = true;
+    await gate;
+    await route.fulfill({ json: mailPage([mailMessage(1, "complained")]) }).catch(() => {});
+  });
+  const region = await openMail(page);
+  await expect.poll(() => received).toBe(true);
+  await expect(region).toContainText("Versandstatus wird geladen");
+  await page.evaluate(() => {
+    const channel = new BroadcastChannel("sb-127-auth-token");
+    channel.postMessage({ event: "SIGNED_OUT", session: null }); channel.close();
+  });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden" })).toBeVisible();
+  release();
+  await expect(page.getByRole("region", { name: "Gastnachrichten", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Als unerwünscht gemeldet", { exact: true })).toHaveCount(0);
 });
