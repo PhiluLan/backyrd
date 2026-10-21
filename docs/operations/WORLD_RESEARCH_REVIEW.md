@@ -64,3 +64,11 @@ has already advanced, obtain a fresh export rather than bypassing drift checks.
 
 Local fixtures validate behavior; they are not a live import of Nomad facts.
 The Founder performs research and reviews/imports the actual fresh JSON.
+
+Nuknuk-Research-Berichte können im Admin als reine Prüfentwürfe gespeichert werden.
+Der Admin-geschützte Entwurfsweg speichert nur die angezeigten Vorschläge,
+Belege und offenen Punkte in der bestehenden service-role-only-Tabelle für
+Recherchevorschläge; rohe Modelltraces bleiben lokal. Gespeicherte Entwürfe
+sind für Admins geräteübergreifend sichtbar. Sie haben keinen Import- oder
+World-Knowledge-Schreibpfad. Die Übernahme belegter Angaben erfordert weiter
+den bestehenden World-Research-Prüf- und Importweg.

@@ -1,29 +1,11 @@
 "use client";
 
 import styles from "./WorldResearchBatchPanel.module.css";
+import { type NuknukDraft } from "@/lib/nuknukResearchDraft";
 
-type Citation = { url: string; evidence: string; layoutReviewRequired?: boolean };
 type Offer = { name: string; kind: string; properties?: Array<{ key: string; value: unknown }> };
-type Result = { attributeKey: string; status: string; reason?: string; value?: unknown; citations?: Citation[]; partialProfile?: boolean };
-export type NuknukDraft = { version: string; spotId: string; name: string; canonicalWrite: false; importable: false; results: Result[]; requests?: number; modelCalls?: number; sourceFailures?: Array<{ url: string; reason: string }>; limitations?: string[] };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
-const publicLink = (value: string) => { try { const url = new URL(value); return url.protocol === "https:" && !url.username && !url.password ? url.href : null; } catch { return null; } };
-
-export function parseNuknukDraft(value: unknown): NuknukDraft | null {
-  if (!isRecord(value) || typeof value.version !== "string" || !/^nuknuk-research-v[\d.]+$/.test(value.version)
-    || typeof value.spotId !== "string" || !/^[0-9a-f-]{36}$/i.test(value.spotId)
-    || typeof value.name !== "string" || !value.name.trim() || value.canonicalWrite !== false || value.importable !== false
-    || !Array.isArray(value.results) || value.results.length > 12
-    || value.sourceFailures !== undefined && (!Array.isArray(value.sourceFailures) || value.sourceFailures.length > 100 || value.sourceFailures.some(failure => !isRecord(failure) || typeof failure.url !== "string" || typeof failure.reason !== "string"))
-    || value.limitations !== undefined && (!Array.isArray(value.limitations) || value.limitations.length > 50 || value.limitations.some(item => typeof item !== "string"))) return null;
-  for (const result of value.results) {
-    if (!isRecord(result) || typeof result.attributeKey !== "string" || typeof result.status !== "string"
-      || !Array.isArray(result.citations) && result.citations !== undefined) return null;
-    if (Array.isArray(result.citations) && (result.citations.length > 100 || result.citations.some(citation => !isRecord(citation) || typeof citation.url !== "string" || !publicLink(citation.url) || typeof citation.evidence !== "string"))) return null;
-  }
-  return value as NuknukDraft;
-}
 
 function offers(value: unknown): Offer[] {
   if (!isRecord(value) || !Array.isArray(value.offers)) return [];
@@ -31,7 +13,9 @@ function offers(value: unknown): Offer[] {
     .map(offer => ({ ...offer, properties: Array.isArray(offer.properties) ? offer.properties.filter(property => isRecord(property) && typeof property.key === "string") as Offer["properties"] : [] }));
 }
 
-export function NuknukDraftPreview({ draft, onClose }: { draft: NuknukDraft; onClose: () => void }) {
+export function NuknukDraftPreview({ draft, onClose, onSave, saved, saving, error }: {
+  draft: NuknukDraft; onClose: () => void; onSave: () => void; saved: boolean; saving: boolean; error: string;
+}) {
   return <div className={styles.draft}>
     <div className={styles.status} role="status"><span>NUKNUK · LOKALER PRÜFENTWURF</span><h3>{draft.name}</h3><p>Diese Ansicht zeigt den Bericht unverändert als Recherchevorschlag. Er ist nicht importierbar und schreibt nichts in World Knowledge. Prüfe die Originalquellen, insbesondere PDF-Layouts und die Aktualität von Angeboten.</p></div>
     <div className={styles.stage}><p className={styles.note}>{draft.version} · {draft.requests ?? "?"} Quellenabrufe · {draft.modelCalls ?? "?"} Modellaufrufe</p>
@@ -46,6 +30,9 @@ export function NuknukDraftPreview({ draft, onClose }: { draft: NuknukDraft; onC
       </article>)}
       {!!draft.sourceFailures?.length && <details className={styles.details}><summary>Nicht verarbeitete Quellen ({draft.sourceFailures.length})</summary><ul>{draft.sourceFailures.map((failure, index) => <li key={index}>{failure.url}: {failure.reason}</li>)}</ul></details>}
       {!!draft.limitations?.length && <p className={styles.note}>Grenzen: {draft.limitations.join(" · ")}</p>}
+      {saved ? <p className={styles.note} role="status">Im Admin gespeichert. Dieser Prüfentwurf ist auch auf anderen Geräten mit Admin-Zugang sichtbar.</p>
+        : <button className={styles.primary} disabled={saving} onClick={onSave}>{saving ? "Wird gespeichert …" : "Prüfentwurf im Admin speichern"}</button>}
+      {error && <p className={styles.error} role="alert">{error}</p>}
       <button className={styles.secondary} onClick={onClose}>Zurück zur Recherche</button>
     </div>
   </div>;
