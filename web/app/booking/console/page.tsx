@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { BookingConsole } from "@/components/booking/booking-console";
+import { BookingEntry } from "@/components/booking/team-invitation";
 
 export const metadata: Metadata = { title: "Booking Console", robots: { index: false, follow: false } };
 
-export default function BookingConsolePage() { return <BookingConsole />; }
+export default function BookingConsolePage() { return <BookingEntry />; }
