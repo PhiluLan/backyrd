@@ -112,6 +112,30 @@ export function enumFactCandidates(field,sources) {
   const patterns=factPatterns[field.attributeKey];
   if(!patterns)return null;
   const result=[];
+  if(field.attributeKey==='offering.groups'&&field.profileCategory==='STAY')for(const source of sources.filter(s=>!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format))) {
+    for(const quote of source.text.split(/\n\s*\n/u).map(item=>item.trim())) {
+      if(quote.length>100||!/^(?:(?:reichhaltiges?\s+)?frühstücks?buffet|(?:(?:generous|rich|full)\s+){0,3}breakfast buffet(?:\s*& more)?)$/iu.test(quote))continue;
+      result.push({id:'f'+result.length,value:'BREAKFAST',quote,sourceId:source.id});
+      break;
+    }
+  }
+  if(field.attributeKey==='amenity.features')for(const source of sources.filter(s=>!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format))) {
+    // Hotel benefit/facility lists are often bare labels rather than prose.
+    // Read only the bounded list under an explicit venue-owned heading. A
+    // bicycle rental is deliberately not bicycle parking.
+    const lines=source.text.split(/\n\s*\n/u).map(line=>line.trim());
+    const start=lines.findIndex(line=>/^(?:Ihre Vorteile auf einen Blick|(?:Hotel[- ]?)?Ausstattung|Hotel facilities|Your (?:hotel )?benefits at a glance)$/iu.test(line));
+    if(start<0)continue;
+    const end=Math.min(lines.length,start+17);
+    for(const quote of lines.slice(start+1,end)) {
+      let value;
+      if(/^(?:(?:Kostenloses?|Gratis|Free|Complimentary)\s+)?(?:WLAN|Wi-?Fi)(?:\s+(?:im ganzen Hotel|throughout the hotel))?$/iu.test(quote))value='WIFI';
+      else if(/^(?:Kinder[- ]?)?(?:Spielzimmer|Spielbereich|Playroom|Kids(?:'|’) Play Area)$/iu.test(quote))value='PLAY_AREA';
+      else if(/^(?:[\p{L}-]+\s+){0,3}Garten(?:\s+im Innenhof)?$/iu.test(quote)||/^(?:Courtyard )?Garden$/iu.test(quote))value='GARDEN';
+      else if(/^(?:Fahrrad(?:abstell)?pl[aä]tze|Fahrradparkpl[aä]tze|Bike parking|Bicycle parking)$/iu.test(quote))value='BICYCLE_PARKING';
+      if(value&&!result.some(item=>item.value===value&&item.quote===quote))result.push({id:'f'+result.length,value,quote,sourceId:source.id});
+    }
+  }
   for(const source of sources.filter(s=>!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format))) {
     for(const quote of source.text.split(/(?<=[.!?])\s+|\n+/).map(s=>s.trim())) {
       if(!currentAssertion(quote)&&!(field.attributeKey==='amenity.features'&&ownedParkingAssertion(quote)))continue;

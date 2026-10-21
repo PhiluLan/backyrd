@@ -107,6 +107,13 @@ export function sourceText(page,id,{preferMain=false}={}) {
   };
   const named={auml:'ä',ouml:'ö',uuml:'ü',Auml:'Ä',Ouml:'Ö',Uuml:'Ü',szlig:'ß',eacute:'é',egrave:'è',agrave:'à',ccedil:'ç',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',bdquo:'„',sbquo:'‚',ndash:'–',mdash:'—',euro:'€',hellip:'…',sup2:'²',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',thinsp:' ',ensp:' ',emsp:' ',laquo:'«',raquo:'»',copy:'©'};
   const withMailto=html=>html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/giu,(whole,attributes,label)=>{
+    const cfHex=label.match(/\bdata-cfemail\s*=\s*["']([0-9a-f]{8,510})["']/iu)?.[1]
+      ??attributes.match(/\bhref\s*=\s*["'][^"']*\/cdn-cgi\/l\/email-protection#([0-9a-f]{8,510})["']/iu)?.[1];
+    if(cfHex&&cfHex.length%2===0){
+      const bytes=Buffer.from(cfHex,'hex'),key=bytes[0];
+      const address=Buffer.from(bytes.subarray(1).map(byte=>byte^key)).toString('utf8');
+      if(/^[-\w.+]+@[-\w.]+\.[a-z]{2,}$/iu.test(address)&&address.length<=254)return `\n${address}\n`;
+    }
     const encoded=attributes.match(/\bdata-mailto-token\s*=\s*["']([^"']{10,200})["']/iu)?.[1];
     const vector=attributes.match(/\bdata-mailto-vector\s*=\s*["'](\d{1,2})["']/iu)?.[1];
     // TYPO3's published click handler rotates only these three character

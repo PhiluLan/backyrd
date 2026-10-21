@@ -14,7 +14,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.47';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.51';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -623,6 +623,15 @@ export function literalSourceFacts(source:ResearchSource,fields:ResearchField[],
   const phones=[...source.text.matchAll(/(?:\+[ \t]{0,2}|\b00)\d[\d ()/.-]{6,}\d|\b0\d[\d ()/.-]{7,}\d\b/gu)];
   for(const m of phones.slice(0,6)) {try{extractedProposal({phone:m[0],quote:m[0],sourceId:source.id},{spot,field:{attributeKey:'contact.phone',valueSchema:{}},sources:[source]});add('contact.phone',m[0],m[0],m.index);}catch{}}
   for(const email of emailCandidates([source]).sort((a,b)=>Number(/^info@/iu.test(b.email))-Number(/^info@/iu.test(a.email))).slice(0,12))add('contact.public_email',email.email,email.quote);
+  const amenityField=fields.find(field=>field.attributeKey==='amenity.features');
+  if(amenityField){
+    const lines=source.text.split(/\n\s*\n/u).map(line=>line.trim());
+    const start=lines.findIndex(line=>/^(?:Ihre Vorteile auf einen Blick|(?:Hotel[- ]?)?Ausstattung|Hotel facilities|Your (?:hotel )?benefits at a glance)$/iu.test(line));
+    const benefits=new Set(start<0?[]:lines.slice(start+1,start+17));
+    for(const candidate of (enumFactCandidates(amenityField,[source])??[]).filter(item=>benefits.has(item.quote)).slice(0,12))add('amenity.features',candidate.value,candidate.quote);
+  }
+  const offeringField=fields.find(field=>field.attributeKey==='offering.groups'&&field.profileCategory==='STAY');
+  if(offeringField)for(const candidate of (enumFactCandidates(offeringField,[source])??[]).filter(item=>item.value==='BREAKFAST').slice(0,1))add('offering.groups','BREAKFAST',candidate.quote);
   for(const key of ['hours.regular','description.highlight']) {
     const field=fields.find(f=>f.attributeKey===key);if(!field)continue;
     if(key==='description.highlight') {
@@ -944,6 +953,15 @@ export function topicsForSearchLead(lead:Pick<SearchLead,'url'|'title'>):string[
   return topics;
 }
 function hotelInventoryCovered(facts:EvidenceFact[],sources:ResearchSource[]):boolean {
+  // A complete official card overview already gives exact, reviewable room
+  // names. When the site also uses headings, every named heading must have a
+  // paired card; otherwise individual detail pages remain useful.
+  if(sources.some(source=>{
+    const cards=structuredRoomLeads([source]);
+    if(cards.length<2||cards.length>8)return false;
+    const roomHeadings=(source.headings??[]).filter(h=>h.level>=2&&h.level<=3&&h.text.length<=70&&h.text.split(/\s+/u).length<=5&&!/[.!?:]/u.test(h.text)&&!/(?:^|\b)(?:find|discover|choose|finden|entdecken|w[aä]hlen)\b/iu.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!/^(?:(?:our|unsere|all|alle|design)\s+)?(?:rooms?|zimmer|suites?|chambres?|camere)(?:\s*(?:&|and|und)\s*(?:suites?|rooms?|zimmer))?$/iu.test(h.text));
+    return roomHeadings.every(heading=>cards.some(card=>card.name.toLocaleLowerCase()===heading.text.trim().toLocaleLowerCase()));
+  }))return true;
   return sources.some(source=>{
     if(source.truncated||!/(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(new URL(source.url).pathname))return false;
     const names=new Set((source.headings??[]).filter(h=>h.level>=2&&h.level<=3&&!/\n/u.test(h.text)&&!/(?:buchen|booking|book now|reserve)/iu.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!/^(?:rooms?\s*(?:&|and)\s*suites?|zimmer\s*(?:&|und)\s+suiten?)$/iu.test(h.text)).map(h=>h.text.trim().toLocaleLowerCase()));
@@ -1025,6 +1043,7 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
     (/(?:^|\/)(?:team|staff|employees|mitarbeitende)(?:\.html|\/|$)/iu.test(new URL(link.url).pathname)?-180:0)+
     (open.some(f=>f.attributeKey==='amenity.features')&&/(?:park(?:en|ing|pl[aä]tze)?|anfahrt|directions)/iu.test(new URL(link.url).pathname+' '+link.label)?120:0)+
     (open.some(f=>f.attributeKey==='amenity.features')&&/(?:fitness|facilities|ausstattung)/iu.test(new URL(link.url).pathname+' '+link.label)?40:0)+
+    (open.some(f=>f.attributeKey==='offering.groups'&&f.profileCategory==='STAY')&&/(?:^|\/)(?:essen-und-trinken|food-and-drink|food-and-beverage|breakfast|fr[uü]hst[uü]ck)(?:\/|$)/iu.test(new URL(link.url).pathname)?180:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&link.topics.includes('experience')?35:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:^|\/)(?:museum|sammlung|collection)(?:\.html|\/|$)/iu.test(new URL(link.url).pathname)&&/(?:sammlung|collection|museum)/iu.test(link.label+' '+leaf(link.url))?220:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:sammlung|collection|f(?:ü|ue|u)hrungen?|guided[-_]?tours?)/iu.test(leaf(link.url))?70:0)+
@@ -1055,19 +1074,24 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
   const stayAncillary=(url:string)=>/(?:^|\/)(?:sitzungszimmer|meeting[-_]?rooms?|conference[-_]?rooms?|seminar[-_]?rooms?|gaeste[-_]?services?|g[aä]ste[-_]?services?|guest[-_]?services?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
   const stayInventoryComplete=hotelInventoryCovered(facts,sources);
-  const roomDetail=(url:string)=>/(?:^|\/)(?:rooms?|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(url).pathname);
+  const roomDetail=(url:string)=>{
+    const path=new URL(url).pathname,leaf=path.split('/').filter(Boolean).at(-1)??'';
+    if(/^(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)$/iu.test(leaf))return false;
+    return /(?:^|\/)(?:rooms?|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(path)||/(?:rooms?|zimmer|suites?|chambres?|camere)/iu.test(leaf);
+  };
   const translatedRoomOverview=(url:string)=>/^\/(?:en|fr|it)\/(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/?$/iu.test(new URL(url).pathname);
   const translatedPageAlreadyRead=(url:string)=>{
     const path=new URL(url).pathname;
     if(!/^\/(?:en|fr|it)(?:\/|$)/iu.test(path))return false;
-    const neutral=(value:string)=>value.replace(/^\/(?:de|en|fr|it)(?=\/|$)/iu,'').replace(/location-access-parking|lage-anfahrt-parken/iu,'parking');
+    const neutral=(value:string)=>value.replace(/^\/(?:de|en|fr|it)(?=\/|$)/iu,'').replace(/location-access-parking|lage-anfahrt-parken/iu,'parking').replace(/childrens?-playroom|kinder-spielzimmer/iu,'playroom');
     return sources.some(source=>!/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(source.url).pathname)&&neutral(new URL(source.url).pathname)===neutral(path)&&source.text.length>=200&&!source.truncated);
   };
-  const stayFoodArea=(url:string)=>/(?:^|\/)(?:food-and-drink|restaurants?|bars?|brunch|breakfast|fr[uü]hst[uü]ck)(?:\/|$)/iu.test(new URL(url).pathname);
+  const stayFoodArea=(url:string)=>/(?:^|\/)(?:food-and-drink|food-and-beverage|essen-und-trinken|restaurants?|bars?|brunch|breakfast|fr[uü]hst[uü]ck)(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureBackground=(url:string)=>/(?:^|\/)(?:private[-_]?sammlungen|private[-_]?collections|collections[-_]?particuli[eè]res|sammlung[-_]und[-_]konservierung|sammlungskonzept|collection[-_]and[-_]conservation|collection[-_]concept|geschichte|history|histoire|schwerpunkte|foci[-_]?of[-_]?the[-_]?collection|leihanfragen|loan[-_]?requests)(?:\/|$)/iu.test(decodeURI(new URL(url).pathname));
   const roomHire=(url:string)=>/(?:^|\/)(?:room[-_]hire|venue[-_]hire|salle[-_]a[-_]louer)(?:\/|$)/iu.test(new URL(url).pathname);
   const nonFoodAdmission=(url:string)=>/(?:^|\/)(?:eintrittspreise?|ticket[-_]?preise?|admission[-_]?prices?|pricing)(?:\/|$)/iu.test(new URL(url).pathname);
-  const candidates=frontier.filter(link=>link.depth<=3&&(link.depth===0||!scopedPage(link.url))&&!roomHire(link.url)&&!(stayProfileOnly&&stayAncillary(link.url))&&!(stayInventoryComplete&&(roomDetail(link.url)||translatedRoomOverview(link.url)))&&!translatedPageAlreadyRead(link.url)&&!(stayInventoryComplete&&stayFoodArea(link.url))&&!(cultureResearch&&cultureBackground(link.url))&&!(nonFoodAdmission(link.url)&&nonFood)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic)))));
+  const hotelOfferingsOpen=open.some(field=>field.attributeKey==='offering.groups'&&field.profileCategory==='STAY');
+  const candidates=frontier.filter(link=>link.depth<=3&&(link.depth===0||!scopedPage(link.url))&&!roomHire(link.url)&&!(stayProfileOnly&&stayAncillary(link.url))&&!(stayInventoryComplete&&(roomDetail(link.url)||translatedRoomOverview(link.url)))&&!translatedPageAlreadyRead(link.url)&&!(stayInventoryComplete&&stayFoodArea(link.url)&&!hotelOfferingsOpen)&&!(cultureResearch&&cultureBackground(link.url))&&!(nonFoodAdmission(link.url)&&nonFood)&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic))&&!(hotelOfferingsOpen&&stayFoodArea(link.url)))));
   const matching=candidates.filter(link=>open.some(f=>topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))));
   const useful=matching.length?matching:facts.some(f=>f.state==='ACCEPTED')?[]:candidates;
   return useful.sort((a,b)=>score(b)-score(a)||a.depth-b.depth||a.url.localeCompare(b.url));
@@ -1219,6 +1243,57 @@ export function addMenuImageReviewLeads(result:FieldResult,field:ResearchField,a
   try {
     const profile=parseExperienceProfile(existing?{...existing,offers:[...existing.offers,...offers]}:{contractVersion:(field.valueSchema as {properties:{contractVersion:{const:string}}}).properties.contractVersion.const,category,properties:[],areas:[],offers,reviewed:false},false);
     return {...result,status:'REQUIRES_REVIEW',reason:undefined,knowledgeState:'KNOWN_VALUE',value:profile,citations:[...(result.citations??[]),...selected.map(item=>item.citation)],partialProfile:true,humanReviewRequired:true,reviewEvidence:candidates.filter(candidate=>!selected.includes(candidate)).map(candidate=>candidate.citation)};
+  }catch{return result;}
+}
+
+// Room overviews can render each room type as plain-text cards instead of
+// headings. Pair only a short literal name with its adjacent lodging
+// description on the exact official room-inventory path. Navigation labels,
+// day rooms and booking packages are not overnight room inventory.
+export function structuredRoomLeads(sources:ResearchSource[]):{name:string;citation:Citation}[] {
+  const leads:{name:string;citation:Citation}[]=[],seen=new Set<string>();
+  for(const source of sources){
+    if(source.truncated||hash(source.text)!==source.hash||!/(?:^|\/)(?:rooms?|zimmer|unsere-zimmer|our-rooms|chambres?|camere)\/?$/iu.test(new URL(source.url).pathname))continue;
+    for(const match of source.text.matchAll(/(?:^|\n\n)([^\n]{4,100})\n\n([^\n]{40,800})/gu)){
+      const name=match[1].trim(),description=match[2].trim();
+      if(name.length>70||name.split(/\s+/u).length>4||/[?!.:,;"“”]/u.test(name)||/^(?:(?:our|unsere|alle|all)\s+(?:rooms?|zimmer|suites?|chambres?|camere)$|(?:rooms?|zimmer|chambres?|camere|accommodations?|suites?|day.?rooms?|tageszimmer|early|late|check.?in|check.?out|dinner|breakfast|frühstück|brunch|packages?|angebote?|offers?|events?|meetings?|seminar|geburtstag|romantik|überraschung|booking|reservation|stornierung)\b)/iu.test(name))continue;
+      if(/\s\/\s|\/\s*\n/u.test(description)&&(description.match(/(?:zimmer|\brooms?\b|\bsuites?\b|chambre|camere)/giu)??[]).length>=2)continue;
+      if(!/(?:einzelzimmer|doppelzimmer|familienzimmer|\bzimmer\b|\brooms?\b|\bsuite\b)/iu.test(description.slice(0,180))&&!/(?:\brooms?\b|\bsuite\b|\bzimmer\b)/iu.test(name))continue;
+      const evidence=name+'\n\n'+description,offset=source.text.indexOf(evidence,match.index);
+      if(offset<0||evidence.length>900||!sourceQuote(source.text,evidence))continue;
+      const key=name.normalize('NFKC').toLocaleLowerCase();if(seen.has(key))continue;seen.add(key);
+      leads.push({name,citation:{url:source.url,evidence,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:offset}});
+    }
+    // Some hotel inventories give a single explicit room-type list followed
+    // by linked headings with no individual descriptions. The repeated list
+    // and headings together establish the literal inventory, but only as
+    // review leads. Navigation labels alone cannot satisfy these conditions.
+    const overview=(source.headings??[]).find(h=>h.level===1&&/(?:zimmer|\brooms?\b|chambres?|camere)/iu.test(h.text)&&!/\b(?:book|buchen|reserve)\b/iu.test(h.text));
+    const named=(source.headings??[]).filter(h=>h.level>=2&&h.level<=3&&h.text.length>=4&&h.text.length<=70&&h.text.split(/\s+/u).length<=4&&!/[.!?:]/u.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!(/^(?:our|unsere|all|alle)?\s*(?:rooms?|zimmer|suites?|chambres?|camere)$/iu.test(h.text)));
+    if(!overview||named.length<2||named.length>8||named[0].offset<=overview.offset||named.at(-1)!.offset-named[0].offset>2400)continue;
+    const list=source.text.slice(overview.offset,named[0].offset).trimEnd();
+    if(list.length<100||list.length>900||!named.every(h=>list.includes(h.text))||!sourceQuote(source.text,list))continue;
+    for(const heading of named){
+      const name=heading.text.trim(),key=name.normalize('NFKC').toLocaleLowerCase();
+      if(seen.has(key))continue;seen.add(key);
+      leads.push({name,citation:{url:source.url,evidence:list,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:overview.offset}});
+    }
+  }
+  return leads;
+}
+
+export function addStructuredRoomReviewLeads(result:FieldResult,field:ResearchField,sources:ResearchSource[]):FieldResult {
+  if(field.attributeKey!=='experience.profile'||field.profileCategory!=='STAY'||!['UNRESOLVED','REQUIRES_REVIEW'].includes(result.status))return result;
+  const leads=structuredRoomLeads(sources);if(!leads.length)return result;
+  try {
+    const parsed=result.status==='REQUIRES_REVIEW'&&result.value?parseExperienceProfile(result.value,false):null;
+    const selected=leads.slice(0,8),names=new Set(selected.map(lead=>lead.name.normalize('NFKC').toLocaleLowerCase()));
+    const roomOffers=selected.map(lead=>parsed?.offers.find(offer=>offer.kind==='OVERNIGHT_STAY'&&offer.name.normalize('NFKC').toLocaleLowerCase()===lead.name.normalize('NFKC').toLocaleLowerCase())??{id:'offer_'+hash(lead.name.toLocaleLowerCase()).slice(0,16),kind:'OVERNIGHT_STAY' as const,name:lead.name,areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null});
+    const otherOffers=(parsed?.offers??[]).filter(offer=>offer.kind!=='OVERNIGHT_STAY'&&!names.has(offer.name.normalize('NFKC').toLocaleLowerCase())).slice(0,8-roomOffers.length);
+    const profile=parseExperienceProfile(parsed?{...parsed,offers:[...roomOffers,...otherOffers],reviewed:false}:{contractVersion:(field.valueSchema as {properties:{contractVersion:{const:string}}}).properties.contractVersion.const,category:'STAY',properties:[],areas:[],offers:roomOffers,reviewed:false},false);
+    const retainedCitations=(result.citations??[]).filter(citation=>otherOffers.some(offer=>citation.evidence.includes(offer.name)));
+    const droppedCitations=(result.citations??[]).filter(citation=>!retainedCitations.includes(citation));
+    return {...result,status:'REQUIRES_REVIEW',reason:undefined,knowledgeState:'KNOWN_VALUE',value:profile,citations:[...selected.map(lead=>lead.citation),...retainedCitations],partialProfile:true,humanReviewRequired:true,reviewEvidence:[...(result.reviewEvidence??[]),...droppedCitations,...leads.slice(8).map(lead=>lead.citation)]};
   }catch{return result;}
 }
 
@@ -1813,7 +1888,8 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const activeField=fields.find(item=>item.attributeKey===field.attributeKey)??field;
     const withImageLeads=addMenuImageReviewLeads(checked,activeField,menuMediaAudits,chosenMenuNames);
     const withStructuredMenu=addStructuredMenuReviewLeads(withImageLeads,activeField,sources);
-    if(field.attributeKey==='hours.regular'&&withStructuredMenu.status==='UNRESOLVED') {
+    const withStructuredRooms=addStructuredRoomReviewLeads(withStructuredMenu,activeField,sources);
+    if(field.attributeKey==='hours.regular'&&withStructuredRooms.status==='UNRESOLVED') {
       const seasonal=sources.find(source=>source.seasonalSchedule&&matchesExistingWebsite(source.url,official));
       if(seasonal) {
         const firstCategory=seasonal.format==='JSON_TEXT'&&/^Kategorie: (?:Öffnungszeiten|Opening hours?)\b/iu.test(seasonal.text)
@@ -1822,11 +1898,11 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         const excerpt=firstCategory??(monthAt>=0?seasonal.text.slice(Math.max(0,monthAt-120),Math.min(seasonal.text.length,monthAt+500)):'');
         if(excerpt) {
           const evidence=excerpt.slice(0,900);
-          return {...withStructuredMenu,reason:'SEASONAL_HOURS_REQUIRE_REVIEW',reviewEvidence:[{url:seasonal.url,evidence,observedAt:seasonal.observedAt,sourceHash:seasonal.hash,...(seasonal.format?{sourceFormat:seasonal.format}:{}),...(seasonal.discoveredOn?{discoveredOn:seasonal.discoveredOn}:{})}],...(current?{currentValue:current.value}:{})};
+          return {...withStructuredRooms,reason:'SEASONAL_HOURS_REQUIRE_REVIEW',reviewEvidence:[{url:seasonal.url,evidence,observedAt:seasonal.observedAt,sourceHash:seasonal.hash,...(seasonal.format?{sourceFormat:seasonal.format}:{}),...(seasonal.discoveredOn?{discoveredOn:seasonal.discoveredOn}:{})}],...(current?{currentValue:current.value}:{})};
         }
       }
     }
-    return {...withStructuredMenu,...(current?{currentValue:current.value}:{})};
+    return {...withStructuredRooms,...(current?{currentValue:current.value}:{})};
   });
   const externalDiscrepancies=externalSources.flatMap(source=>{
     if(source.identity!=='MATCHED')return [];

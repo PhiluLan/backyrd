@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,structuredRoomLeads,addStructuredRoomReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverDelegatedExperienceLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {agreeingPricedRows,auditMenuImages} from '../src/nuknuk-menu-media.mjs';
 import {parseMenuVisionRows,corroborateMenuVisionRows} from '../src/nuknuk-menu-vision.mjs';
@@ -329,6 +329,41 @@ test('hotel-wide WLAN and paid garage rental are recognized without borrowing ne
  assert.ok(enumFactCandidates(field('amenity.features'),[source(inventory)]).some(item=>item.value==='WIFI'));
  assert.deepEqual(enumFactCandidates(field('amenity.features'),[source(garage)]).map(item=>item.value),['PARKING']);
  for(const unsafe of ['Das Nachbarhotel bietet kostenloses WLAN-Internetzugang.','Das Hotel hat kein WLAN-Internetzugang.','Wir vermieten keine Garagen-Stellplätze.','Das Nachbarhotel vermietet Garagen-Stellplätze.'])assert.deepEqual(enumFactCandidates(field('amenity.features'),[source(unsafe)]),[]);
+});
+test('a public Cloudflare-protected hotel mailbox is decoded from its own link',()=>{
+ const address='mail@hotel.example',key=0x6a;
+ const encoded=Buffer.from([key,...Buffer.from(address).map(byte=>byte^key)]).toString('hex');
+ const body=`<main><h1>Hotel Example</h1><p>Kontakt</p><a href="/cdn-cgi/l/email-protection#${encoded}"><span data-cfemail="${encoded}">[email protected]</span></a></main>`;
+ const s=sourceText({url:'https://hotel.example/',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.ok(s.text.includes(address));
+ const stay={...spot,name:'Hotel Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const facts=literalSourceFacts(s,[field('contact.public_email')],stay,0);
+ assert.deepEqual(facts.map(item=>item.value),[address]);
+ assert.equal(facts[0].state,'HELD');
+ const malformed=sourceText({url:'https://hotel.example/',body:body.replaceAll(encoded,'zzzzzzzz'),contentType:'text/html',observedAt:new Date().toISOString()},'s2',{preferMain:true});
+ assert.ok(!malformed.text.includes(address));
+});
+test('explicit hotel benefit labels enter the critic without inventing bicycle parking from rentals',()=>{
+ const text=['Ihre Vorteile auf einen Blick','Kostenloses WLAN im ganzen Hotel','Schöner Garten im Innenhof','Kinder-Spielzimmer','Kostenlose Fahrräder','Direkt buchen'].join('\n\n');
+ const s={...source(text),url:'https://hotel.example/'};
+ const candidates=enumFactCandidates(field('amenity.features'),[s]);
+ assert.deepEqual(candidates.map(item=>item.value),['WIFI','GARDEN','PLAY_AREA']);
+ const stay={...spot,name:'Example Hotel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const facts=literalSourceFacts(s,[field('amenity.features')],stay,0);
+ assert.deepEqual(facts.map(item=>item.value),['WIFI','GARDEN','PLAY_AREA']);
+ assert.ok(facts.every(item=>item.state==='HELD'&&item.reason==='SEMANTIC_CHECK_PENDING'&&s.text.slice(item.sourceOffset,item.sourceOffset+item.quote.length)===item.quote));
+ assert.deepEqual(enumFactCandidates(field('amenity.features'),[source('Kostenloses WLAN im ganzen Hotel\n\nKinder-Spielzimmer')]),[]);
+});
+test('literal hotel breakfast-buffet labels become review facts, not guest-review claims',()=>{
+ const stay={...spot,name:'Hotel Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'},'classification.place_types':{value:['HOTEL']}}};
+ const offering={...field('offering.groups'),profileCategory:'STAY'};
+ for(const label of ['Reichhaltiges\nFrühstückbuffet','Generous rich breakfast buffet & more']){
+  const s=source('Hotel Example\n\n'+label);
+  assert.ok(enumFactCandidates(offering,[s]).some(item=>item.value==='BREAKFAST'&&item.quote===label));
+  assert.ok(literalSourceFacts(s,[offering],stay,0).some(item=>item.field==='offering.groups'&&item.value==='BREAKFAST'&&item.quote===label&&item.state==='HELD'));
+ }
+ const review=source('A guest wrote: The breakfast buffet was wonderful!');
+ assert.ok(!enumFactCandidates(offering,[review]).some(item=>item.value==='BREAKFAST'));
 });
 test('explicit garage parking inside the venue building is evidence, adjacent parking is not',()=>{
  const onsite='Parkplätze findest du direkt im Parkhaus in unserem Gebäude.';
@@ -792,6 +827,11 @@ test('museum planning omits food and laptop questions before fetching or selecti
  assert.equal(report.requests,0);
  assert.deepEqual(report.results.map(result=>result.reason),['FIELD_NOT_APPLICABLE_TO_SPOT_TYPE','FIELD_NOT_APPLICABLE_TO_SPOT_TYPE']);
  assert.deepEqual(report.researchPlan.activeFields,[]);
+});
+test('hotel planning retains offering groups for a source-backed breakfast question',()=>{
+ const hotel={...spot,name:'Hotel Example',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'},'classification.place_types':{value:['HOTEL']}}};
+ assert.deepEqual(researchFieldRelevance(hotel,'offering.groups'),{relevant:true});
+ assert.deepEqual(researchFieldRelevance(hotel,'offering.cuisines'),{relevant:false,reason:'FIELD_NOT_APPLICABLE_TO_SPOT_TYPE'});
 });
 test('a real museum overview link outranks translations and request forms',()=>{
  const links=discoverResearchLinks({url:'https://www.baslerpapiermuehle.ch/en/home-2/',contentType:'text/html',body:'<a href="/">Deutsch</a><a href="/en/info/">Info</a><a href="/fr/informations/">Informations</a><a href="/informationen/">Informationen</a><a href="/aktuell/">Aktuell</a><a href="/aktuell/">Ausstellung</a><a href="/aktuell/">Mitmachstationen</a><a href="/fr/actualites/">Actualités</a><a href="/en/request-for-guided-tour-groups/">Guided tour request</a><a href="/en/request-for-request-for-room-rental/">Room rental</a>'});
@@ -2050,6 +2090,36 @@ test('hotel research reads an observed room inventory overview before detail pag
  const six=Array.from({length:6},(_,i)=>({field:'experience.profile',value:'Room '+i,state:'ACCEPTED'}));
  assert.equal(rankResearchFrontier(frontier,six,[profile])[0].url,'https://example.org/de/rooms-suites');
 });
+test('plain-text hotel room cards yield eight literal review offers without day rooms or packages',()=>{
+ const names=['Tiny Economy','Economy','Business','Comfort','Eco-Double','Superior','Superior Garden','Family'];
+ const text=['Zimmer','Sämtliche Zimmer verfügen über ein Bett und ein Bad.','Tageszimmer','Ein Hotelzimmer ohne Übernachtung kann auf Anfrage gebucht werden.',...names.flatMap(name=>[name,`Unser ${name} Zimmer bietet ein Bett und ein eigenes Bad für einen Aufenthalt im Hotel.`]),'Dinner Package','Das Zimmer mit einem Drei-Gang-Dinner kann als Paket gebucht werden.'].join('\n\n');
+ const s={...source(text),url:'https://hotel.example/de/rooms/'};
+ const leads=structuredRoomLeads([s]);
+ assert.deepEqual(leads.map(lead=>lead.name),names);
+ assert.ok(leads.every(lead=>lead.citation.evidence.startsWith(lead.name+'\n\n')&&lead.citation.sourceHash===s.hash));
+ const result=addStructuredRoomReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED',reason:'NO_SUPPORTED_TARGET_FACT'},{...field('experience.profile'),profileCategory:'STAY'},[s]);
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.deepEqual(result.value.offers.map(offer=>offer.name),names);
+ assert.ok(result.value.offers.every(offer=>offer.kind==='OVERNIGHT_STAY'&&offer.prices.length===0));
+ assert.deepEqual(rankResearchFrontier([{url:'https://hotel.example/de/rooms/economy/',depth:1,topics:['stay','experience']}],[],[{...field('experience.profile'),profileCategory:'STAY'}],[s]),[]);
+ assert.deepEqual(structuredRoomLeads([{...s,text:s.text+' changed'}]),[]);
+});
+test('a complete room-card overview skips direct detail URLs despite a promotional room heading',()=>{
+ const body='<main><h1>Our Rooms</h1><h2>Find your perfect feel-good room</h2><h3>Design Standard Room</h3><p>Our Design Standard Room is a hotel bedroom with a double bed.</p><h3>Design Family Room</h3><p>Our Design Family Room is a hotel bedroom for overnight family stays.</p></main>';
+ const s=sourceText({url:'https://hotel.example/en/zimmer',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.deepEqual(structuredRoomLeads([s]).map(lead=>lead.name),['Design Standard Room','Design Family Room']);
+ const frontier=[{url:'https://hotel.example/en/design-standard-room',depth:1,topics:['stay','experience']},{url:'https://hotel.example/en/DesignFamilyZimmer',depth:2,topics:['stay','experience']}];
+ assert.deepEqual(rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'STAY'}],[s]),[]);
+});
+test('a first-party room-type list repeated as category headings yields exact review leads',()=>{
+ const names=['Single room','Double room','Family room'];
+ const make=listed=>sourceText({url:'https://hotel.example/our-rooms/',body:`<main><h1>Our Rooms</h1><p>Our hotel offers comfortable rooms for overnight stays.</p><h2>Modern and comfortable</h2><p>${listed.join(' / ')} /</p>${names.map(name=>`<h3>${name}</h3><a href="/our-rooms/${name.toLowerCase().replaceAll(' ','-')}/">View room</a>`).join('')}</main>`,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const complete=make(names),leads=structuredRoomLeads([complete]);
+ assert.deepEqual(leads.map(item=>item.name),names);
+ assert.ok(leads.every(item=>item.citation.evidence.includes('Our hotel offers comfortable rooms')&&item.citation.evidence.includes(item.name)&&item.citation.sourceHash===complete.hash));
+ assert.deepEqual(rankResearchFrontier([{url:'https://hotel.example/our-rooms/family-room/',depth:1,topics:['stay']}],[],[{...field('experience.profile'),profileCategory:'STAY'}],[complete]),[]);
+ assert.deepEqual(structuredRoomLeads([make(names.slice(0,2))]),[]);
+});
 test('four accepted drinks do not hide an unread official menu overview',()=>{
  const frontier=[{url:'https://example.org/amber-menu/',depth:1,topics:['menu']}];
  const four=Array.from({length:4},(_,i)=>({field:'experience.profile',value:'Cocktail '+i,state:'ACCEPTED'}));
@@ -2068,13 +2138,20 @@ test('a complete official hotel inventory stops at its actual room count, not a 
  const frontier=[{url:'https://hotel.example/zimmer/business-zimmer',depth:1,topics:['stay']}];
  const fields=[{...field('experience.profile'),profileCategory:'STAY'}];
  assert.deepEqual(rankResearchFrontier(frontier,facts,fields,[s]),[]);
- assert.equal(rankResearchFrontier(frontier,facts.slice(1),fields,[s])[0].url,frontier[0].url);
+ assert.deepEqual(rankResearchFrontier(frontier,facts.slice(1),fields,[s]),[]);
  assert.equal(rankResearchFrontier(frontier,facts,fields,[{...s,truncated:true}])[0].url,frontier[0].url);
+ const incompleteBody='<main><h1>Zimmer</h1><h3>Business Zimmer</h3><p>Business Zimmer bietet ein eigenes Zimmer für Hotelgäste.</p><h3>Executive Zimmer</h3><p>Mehr.</p><h3>Familienzimmer</h3><p>Familienzimmer bietet ein eigenes Zimmer für Hotelgäste.</p></main>';
+ const incomplete=sourceText({url:'https://hotel.example/zimmer',body:incompleteBody,contentType:'text/html',observedAt:new Date().toISOString()},'s2',{preferMain:true});
+ assert.equal(rankResearchFrontier(frontier,[],fields,[incomplete])[0].url,frontier[0].url);
  const translated=[{url:'https://hotel.example/en/rooms',depth:1,topics:['stay']}];
  assert.deepEqual(rankResearchFrontier(translated,facts,fields,[s]),[]);
  const active=[{url:'https://hotel.example/en/rooms',depth:1,topics:['stay']},{url:'https://hotel.example/de/food-and-drink/brunch/',depth:1,topics:['stay','experience']},{url:'https://hotel.example/de/information/lage-anfahrt-parken/',depth:1,topics:['access']}];
  const pending=[fields[0],{...field('amenity.features'),profileCategory:'STAY'}];
  assert.deepEqual(rankResearchFrontier(active,facts,pending,[s]).map(item=>item.url),['https://hotel.example/de/information/lage-anfahrt-parken/']);
+ const food=[{url:'https://hotel.example/de/hotel/essen-und-trinken/',depth:1,topics:['menu']}];
+ assert.deepEqual(rankResearchFrontier(food,facts,[fields[0],{...field('offering.groups'),profileCategory:'STAY'}],[s]).map(item=>item.url),[food[0].url]);
+ const mixed=[{url:'https://hotel.example/de/hotel/',depth:1,topics:['stay']},...food];
+ assert.equal(rankResearchFrontier(mixed,facts,[fields[0],{...field('offering.groups'),profileCategory:'STAY'}],[s])[0].url,food[0].url);
 });
 test('wrong offer kind is withheld per fact and does not invalidate correctly typed hotel rooms',async()=>{
  const s=source('Classic Room: a double room with shower.\nSteak with seasonal vegetables.');

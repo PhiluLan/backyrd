@@ -934,6 +934,93 @@ PDF, the strict row inventory has 39 food/drink candidates, including coffee,
 and no wine-list entries. This inventory still needs visual layout review.
 The v3.47 runtime typecheck and all 421 tests pass.
 
+### v3.48 hotel inventory and independent checks
+
+The first independently prepared hotel reference, Hotel Wettstein, failed the
+v3.47 blind gate. The reference preceded model execution and listed eight
+current room types; the 900-second, 12-request run proposed none. It found the
+public phone, email and garden, correctly withheld whole-hotel hours and a
+laptop policy, but missed Wi-Fi, play area, bicycle parking, breakfast and
+snacks. Six late fetch timeouts followed exhaustion of the run budget. This
+case is now a development regression, not a blind pass.
+
+v3.48 pairs literal names and adjacent lodging descriptions on an untruncated
+official room overview, retaining exact citations and emitting only unreviewed,
+price-free overnight-stay draft offers. A deterministic replay of Wettstein's
+saved source yields the eight room names, without the day room or dinner
+package. This replay proves the parser behavior, not autonomous research.
+Inventory stopping still requires accepted room headings when the source has
+room headings. The runtime typecheck and all 422 tests pass.
+
+The live v3.48 Wettstein development rerun reached the complete room overview
+in two requests and proposed all eight pre-recorded room types, each with an
+official citation; the day room and dinner package were excluded. It then
+reached a playroom page, but exhausted a 420-second budget after three pages
+and nine model calls. The draft still contained only GARDEN among amenities
+and no breakfast/snack group. This run is a development regression; it does
+not replace the failed v3.47 blind outcome.
+
+v3.49 adds bounded first-party hotel benefit-list labels as amenity facts for
+independent verification. In the saved Wettstein homepage, the parser now
+supplies WIFI, GARDEN and PLAY_AREA with literal quotes; “Kostenlose Fahrräder”
+does not imply BICYCLE_PARKING. The hotel-food frontier now keeps an observed
+German “Essen und Trinken” page open while the hotel offering groups are
+unanswered, and prioritizes it over generic hotel pages. This is implemented
+and tested (typecheck plus all 423 runtime tests), but has not yet passed a
+new full live run or a blind cohort.
+
+The next blind hotel reference was frozen before v3.49 researched Das Breite
+Hotel from the current Admin export. All four official room categories and the
+public phone reached a cited review draft; the generic “Design Rooms” claim
+did not survive as a fifth room. Whole-hotel hours, laptop permission and a
+neighboring Rhyvage offer were not invented. The run still failed the blind
+gate: the public email was missed, four stale direct room links returned 404,
+and 12 requests were exhausted after four useful pages. The reference also
+expected breakfast in `offering.groups`; the authoritative authoring catalog
+marks that field inapplicable to `HOTEL`, so this is a schema/field-mapping gap
+rather than a model extraction miss. Do not silently override that catalog.
+
+v3.50 decodes only syntactically valid public email addresses from observed
+Cloudflare `data-cfemail` links. A real read of the Breite homepage now exposes
+`mail@dasbreitehotel.ch` to the existing venue and semantic checks. Complete,
+untruncated official room overviews with two to eight literal name/description
+pairs now stop further room-detail crawling when every specific room heading
+is represented; incomplete overviews still lead to details. This prevents
+stale duplicate detail URLs from consuming the remainder of the request
+budget. The v3.50 behavior is a development regression until it passes a new
+unseen hotel test. No canonical Spot data has been written.
+
+The next independent v3.50 Hotel Rochat run found five of six pre-recorded
+room types. It missed “Grandlit Zimmer” after 22 local model calls and stopped
+at the model-call limit. Phone and public email were correct; general hotel
+hours and blanket laptop permission were correctly withheld, and the nearby
+City parking garage was not claimed as on-site parking. This blind test failed
+despite having no false room type.
+
+v3.51 treats an official room overview as a reviewable inventory when its
+room-context introduction contains two to eight literal category names that
+are repeated as specific headings on the same untruncated page. The six names
+from the saved Rochat overview now all produce source-cited, price-free draft
+leads, including Grandlit Zimmer, without guessing from navigation alone.
+Generic headings and incomplete lists remain excluded. The authoring guidance
+is versioned to 1.1 so HOTEL, HOSTEL and GUESTHOUSE can use the existing
+registry-approved `offering.groups` field for an actually evidenced breakfast;
+cuisine, food specialities and kitchen hours stay inapplicable to those place
+types. Exact first-party breakfast-buffet labels enter independent review,
+while guest-review prose does not. These are development replays and tests,
+not a new blind pass. There is no database schema change or catalog write.
+World-Knowledge-Core passes 374 tests, Nuknuk Runtime passes 428 tests, both
+package typechecks pass, and the Admin TypeScript check passes with the
+already-installed root dependencies.
+
+A second reference was frozen before the Basel Marriott run. Its official
+homepage returned HTTP 403 to Nuknuk's public fetcher, so the v3.48 blind run
+ended with no supported first-party facts after three requests and no model
+calls. Third-party search snippets were not promoted into claims. This is a
+source-access coverage failure; the hotel cohort has not passed the release
+gate. The independent reference and both run reports remain local and ignored
+by Git. No production catalog data was changed.
+
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
 npm run typecheck --workspace @backyrd/spot-research-runtime
