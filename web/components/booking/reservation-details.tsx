@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { bookingAllocationLabel, bookingError, restaurantDate, restaurantTime, setBookingStatus, type BookingReservation, type BookingSlot, type BookingSnapshot, type BookingStatus } from "@/lib/booking-api";
 import { ConsolePanel } from "./console-panel";
+import { ReissueGuestLink } from "./reissue-guest-link";
 import { ReservationMail } from "./reservation-mail";
 import { ReservationHistory } from "./reservation-history";
 import { TransferReservation } from "./transfer-reservation";
@@ -25,11 +26,14 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
   const [editing, setEditing] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [mailNotice, setMailNotice] = useState<string | null>(null);
+  const [mailPending, setMailPending] = useState(false);
   const [mailOpen, setMailOpen] = useState(false);
   const inFlight = useRef(false);
   const table = snapshot.tables.find((table) => table.id === r.table_id);
   const area = snapshot.areas.find((area) => area.id === table?.area_id);
-  const canWrite = snapshot.access?.can_write ?? true;
+  const writeAccess = snapshot.access?.can_write ?? true;
+  const canWrite = writeAccess && !mailPending;
   const lifecycle = snapshot.capabilities?.service_lifecycle === true;
   const isToday = restaurantDate(new Date(r.starts_at)) === restaurantDate();
   async function save() {
@@ -48,7 +52,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
   }
   if (transferring) return <TransferReservation spotId={spotId} reservation={r} snapshot={snapshot} onClose={(uncertain) => { if (uncertain) onUncertain(snapshot.operating_date ?? restaurantDate()); else setTransferring(false); }} onBusy={onBusy} onDenied={onDenied} onReload={onReload} onSaved={async () => { await onTransferred(); setTransferring(false); }} />;
   if (editing) return <EditReservation spotId={spotId} reservation={r} snapshot={snapshot} onClose={(uncertain, date) => { if (uncertain) onUncertain(date ?? restaurantDate(new Date(r.starts_at))); else setEditing(false); }} onBusy={onBusy} onReload={onReload} onSaved={async (date, slot) => { await onAmended(date, slot); setEditing(false); }} />;
-  return <ConsolePanel title="Reservierung" busy={busy} onClose={onClose}>
+  return <ConsolePanel title="Reservierung" busy={busy} uncertain={mailPending} uncertainHelp="Ein Gastlink-Auftrag ist noch offen. Beim erneuten Öffnen in diesem Tab kannst du ausschliesslich denselben Auftrag prüfen oder wiederholen." onClose={onClose}>
     <div className={styles.drawerBody}>
       <div className={styles.detailHeading}><h3>{r.guest_name}</h3><span className={styles.status} data-status={r.status}>{statusLabels[r.status]}</span></div>
       <p className={styles.help}>{new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", weekday: "short", day: "numeric", month: "long", year: "numeric" }).format(new Date(r.starts_at))}</p>
@@ -69,6 +73,8 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
         {(r.status === "confirmed" || r.status === "pending" || r.status === "arrived") && <button className={styles.secondary} onClick={() => setTarget("cancelled")}>Stornieren</button>}
         {r.status === "confirmed" && Date.parse(r.starts_at) <= Date.now() && <button className={styles.secondary} onClick={() => setTarget("no_show")}>Nicht erschienen</button>}
       </div>)}
+      {mailNotice && <p role="status" className={styles.note}>{mailNotice}</p>}
+      {writeAccess && snapshot.capabilities?.guest_link_reissue && <ReissueGuestLink key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservation={r} onBusy={(value) => { setBusy(value); onBusy(value); }} onPending={setMailPending} onDenied={onDenied} onSaved={async (queued) => { setMailNotice(queued ? "Die neue Bestätigung wurde zur Vorbereitung eingereiht. Das bestätigt noch keinen Versand. Prüfe den Versandstatus." : "Der frühere Auftrag wurde nicht ausgeführt. Die Reservierung wurde inzwischen geändert; der aktuelle Stand wird geladen."); await onReload(); }} />}
       {snapshot.capabilities?.guest_mail && <div className={styles.historySection}><button type="button" className={styles.secondary} aria-expanded={mailOpen} onClick={() => setMailOpen(!mailOpen)}>{mailOpen ? "Gastnachrichten ausblenden" : "Gastnachrichten anzeigen"}</button>{mailOpen && <ReservationMail key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservationId={r.id} revision={r.revision ?? 0} onDenied={onDenied} onReload={onReload} />}</div>}
       {snapshot.capabilities?.reservation_history && <div className={styles.historySection}><button type="button" className={styles.secondary} aria-expanded={historyOpen} onClick={() => setHistoryOpen(!historyOpen)}>{historyOpen ? "Änderungsverlauf ausblenden" : "Änderungsverlauf anzeigen"}</button>{historyOpen && <ReservationHistory key={`${spotId}:${r.id}:${r.revision}`} spotId={spotId} reservationId={r.id} revision={r.revision ?? 0} onDenied={onDenied} onReload={onReload} />}</div>}
     </div>

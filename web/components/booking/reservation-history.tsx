@@ -7,6 +7,7 @@ import styles from "./console.module.css";
 import { statusLabels as status } from "./reservation-labels";
 const dateTime = (value: string) => new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "shortOffset" }).format(new Date(value));
 function title(e: BookingHistoryEvent) {
+  if (e.action === "guest_link_reissued") return "Gastlink neu ausgestellt";
   if (e.action === "reservation_created") return "Reservierung erstellt";
   if (e.action === "walk_in_created") return "Walk-in platziert";
   if (e.action === "seated_tables_transferred") return "Gast umplatziert";

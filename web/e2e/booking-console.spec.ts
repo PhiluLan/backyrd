@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -460,6 +460,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   const inviteBodies = new Map<string, string>();
   let savedSetup: BookingSetup | null = null;
   if (options.history) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, reservation_history: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 1 })); }
+  if (options.reissue) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_link_reissue: true }; snapshot.reservations = snapshot.reservations.map(r => ({ ...r, guest_contact: "reissue@booking.invalid" })); }
   if (options.mail) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_mail: true };
   if (options.publicGuest) snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, source: "website", note: null }));
   if (options.lifecycle) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true };
@@ -2444,4 +2445,151 @@ test("mail overview drops a late private reply after sign-out", async ({ page })
   release();
   await expect(page.getByRole("region", { name: "Gastnachrichten", exact: true })).toHaveCount(0);
   await expect(page.getByText("Als unerwünscht gemeldet", { exact: true })).toHaveCount(0);
+});
+
+const reissueMessage = "58000000-0000-4000-8000-000000000001";
+function reissueReply(body: { revision: number }) { return { data: { id: reservationId, revision: body.revision + 1, message_id: reissueMessage, queued_at: "2026-10-20T12:00:00Z" } }; }
+async function openReissue(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  return page.getByRole("region", { name: "Gastlink neu ausstellen", exact: true });
+}
+
+test("guest-link reissue requires an explicit recipient review and never exposes a capability to the operator", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, publicGuest: true, reissue: true, amendments: true });
+  const calls: Record<string, unknown>[] = [];
+  await page.route("**/api/booking/mail/reissue", (route) => { const body = route.request().postDataJSON(); calls.push(body); expect(route.request().headers().authorization).toContain("Bearer "); return route.fulfill({ json: reissueReply(body) }); });
+  const region = await openReissue(page);
+  expect(calls).toHaveLength(0);
+  await region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true }).click();
+  await expect(region).toContainText("reissue@booking.invalid");
+  await expect(region).toContainText("Der bisherige Gastlink wird ungültig");
+  await expect(region).toContainText("Die bisherigen Stornierungsbedingungen bleiben erhalten");
+  expect(calls).toHaveLength(0);
+  await region.screenshot({ path: test.info().outputPath("reissue-recipient-review-phone.png") });
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  expect((await new AxeBuilder({ page }).include('section[aria-label="Gastlink neu ausstellen"]').analyze()).violations).toEqual([]);
+  expect(await region.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await region.getByRole("button", { name: "Ja, neuen Gastlink vorbereiten", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("Das bestätigt noch keinen Versand");
+  expect(calls).toHaveLength(1); expect(Object.keys(calls[0]).sort()).toEqual(["contactHash","operation","requestId","reservationId","revision","spotId"]);
+  expect(calls[0].revision).toBe(0); expect(calls[0].operation).toBe("issue"); expect(JSON.stringify(calls[0])).not.toContain("reissue@booking.invalid");
+  expect(fixture.amendRequests()).toHaveLength(0);
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith("booking.mail-reissue.v1:")).length)).toBe(0);
+});
+
+test("an unknown guest-link write survives reload and only reuses its original reviewed intent", async ({ page }) => {
+  await mockConsole(page, { seeded: true, publicGuest: true, reissue: true, amendments: true });
+  const calls: Record<string, unknown>[] = [];
+  await page.route("**/api/booking/mail/reissue", (route) => {
+    const body = route.request().postDataJSON(); calls.push(body);
+    return calls.length === 1 ? route.fulfill({ status: 503, json: { error: "outcome_unknown", outcome: "unknown" } }) : body.operation === "recover" ? route.fulfill({ json: { data: null } }) : route.fulfill({ json: reissueReply(body) });
+  });
+  let region = await openReissue(page);
+  await region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true }).click();
+  await region.getByRole("button", { name: "Ja, neuen Gastlink vorbereiten", exact: true }).click();
+  await expect(region).toContainText("noch ein Auftrag offen");
+  await expect(page.getByRole("button", { name: "Reservierung bearbeiten", exact: true })).toHaveCount(0);
+  await page.reload();
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  region = page.getByRole("region", { name: "Gastlink neu ausstellen", exact: true });
+  await expect(region.getByRole("button", { name: "Auftragsstatus prüfen", exact: true })).toBeVisible();
+  await region.getByRole("button", { name: "Auftragsstatus prüfen", exact: true }).click();
+  await expect(region).toContainText("Eine laufende Anfrage kann weiterhin ankommen");
+  await region.getByRole("button", { name: "Denselben Auftrag wiederholen", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("zur Vorbereitung eingereiht");
+  expect(calls).toHaveLength(3);
+  expect({ ...calls[0], operation: "recover" }).toEqual(calls[1]); expect(calls[2]).toEqual(calls[0]);
+});
+
+test("a canonical newer revision settles an uncommitted guest-link intent without another write", async ({ page }) => {
+  await mockConsole(page, { seeded: true, publicGuest: true, reissue: true });
+  const calls: Record<string, unknown>[] = [];
+  await page.route("**/api/booking/mail/reissue", (route) => {
+    const body = route.request().postDataJSON(); calls.push(body);
+    return calls.length === 1 ? route.fulfill({ status: 503, json: { error: "outcome_unknown", outcome: "unknown" } }) : route.fulfill({ json: { data: { not_committed: true, id: reservationId, revision: 2 } } });
+  });
+  const region = await openReissue(page);
+  await region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true }).click();
+  await region.getByRole("button", { name: "Ja, neuen Gastlink vorbereiten", exact: true }).click();
+  await region.getByRole("button", { name: "Auftragsstatus prüfen", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("Der frühere Auftrag wurde nicht ausgeführt");
+  expect(calls.map(c => c.operation)).toEqual(["issue","recover"]);
+  await expect(region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true })).toBeVisible();
+});
+
+for (const error of ["sender_unavailable", "recipient_blocked", "review_required"] as const) {
+  test("guest-link reissue honestly refuses " + error, async ({ page }) => {
+    await mockConsole(page, { seeded: true, publicGuest: true, reissue: true });
+    await page.route("**/api/booking/mail/reissue", (route) => route.fulfill({ status: error === "sender_unavailable" ? 503 : 409, json: { error, outcome: "rejected" } }));
+    const region = await openReissue(page);
+    await region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true }).click();
+    await region.getByRole("button", { name: "Ja, neuen Gastlink vorbereiten", exact: true }).click();
+    await expect(region.getByRole("alert")).toContainText(error === "sender_unavailable" ? "noch nicht betriebsbereit" : error === "recipient_blocked" ? "Zustellsperre" : "manuelle Prüfung");
+    await expect(region.getByRole("button", { name: "Auftragsstatus prüfen", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).not.toContainText("zur Vorbereitung eingereiht");
+  });
+}
+
+test("Viewer cannot issue a guest link and a denied Host write clears the private workspace", async ({ page }) => {
+  await mockConsole(page, { seeded: true, publicGuest: true, reissue: true, teams: true, teamRole: "viewer" });
+  await page.goto("/booking/console"); await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true })).toHaveCount(0);
+  await mockConsole(page, { seeded: true, publicGuest: true, reissue: true, teams: true, teamRole: "host" });
+  await page.route("**/api/booking/mail/reissue", (route) => route.fulfill({ status: 403, json: { error: "access_denied", outcome: "rejected" } }));
+  const region = await openReissue(page);
+  await region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true }).click();
+  await region.getByRole("button", { name: "Ja, neuen Gastlink vorbereiten", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+});
+
+test("guest-link reissue refuses unavailable tab storage before any API write", async ({ page }) => {
+  await mockConsole(page, { seeded: true, publicGuest: true, reissue: true });
+  let writes = 0;
+  await page.route("**/api/booking/mail/reissue", (route) => { writes++; return route.fulfill({ status: 500 }); });
+  const region = await openReissue(page);
+  await page.evaluate(() => { const original = Storage.prototype.setItem; Storage.prototype.setItem = function(key: string, value: string) { if (key.startsWith("booking.mail-reissue.v1:")) throw new Error("synthetic_storage_denied"); original.call(this,key,value); }; });
+  await region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true }).click();
+  await region.getByRole("button", { name: "Ja, neuen Gastlink vorbereiten", exact: true }).click();
+  await expect(region.getByRole("alert")).toContainText("Browser kann den Auftrag nicht sicher speichern");
+  expect(writes).toBe(0);
+});
+
+test("a late guest-link reply cannot affect a new authenticated session's private draft", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, publicGuest: true, reissue: true, amendments: true });
+  let received = false, release = () => {};
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/booking/mail/reissue", async (route) => {
+    received = true; const body = route.request().postDataJSON(); await gate;
+    await route.fulfill({ json: reissueReply(body) }).catch(() => {});
+  });
+  const region = await openReissue(page);
+  await region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true }).click();
+  await region.getByRole("button", { name: "Ja, neuen Gastlink vorbereiten", exact: true }).click();
+  await expect.poll(() => received).toBe(true);
+  await page.evaluate(() => { const channel = new BroadcastChannel("sb-127-auth-token"); channel.postMessage({ event: "SIGNED_OUT", session: null }); channel.close(); });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden" })).toBeVisible();
+  await page.evaluate(session => { const channel = new BroadcastChannel("sb-127-auth-token"); channel.postMessage({ event: "SIGNED_IN", session }); channel.close(); },fixture.session);
+  await page.getByRole("button", { name: "Reservierung von Testgast Terrasse öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Reservierung bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Reservierung bearbeiten", exact: true });
+  await editor.getByLabel("Gastname", { exact: true }).fill("Neuer privater Entwurf");
+  const response = page.waitForResponse(r => r.url().endsWith("/api/booking/mail/reissue"));
+  release(); await (await response).finished();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+  await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Neuer privater Entwurf");
+  await expect(page.getByText("Die neue Bestätigung wurde zur Vorbereitung eingereiht.", { exact: false })).toHaveCount(0);
+});
+
+test("a corrupted saved guest-link intent cannot silently become a fresh write", async ({ page }) => {
+  await mockConsole(page, { seeded: true, publicGuest: true, reissue: true });
+  await page.addInitScript(({ actor, spotId, id }) => { sessionStorage.setItem(`booking.mail-reissue.v1:${actor}:${spotId}:${id}`, "malformed-private-intent"); },{ actor: owner, spotId: spot, id: reservationId });
+  let writes = 0;
+  await page.route("**/api/booking/mail/reissue", (route) => { writes++; return route.fulfill({ status: 500 }); });
+  const region = await openReissue(page);
+  await expect(region.getByRole("alert")).toContainText("gespeicherter Auftrag konnte nicht gelesen werden");
+  await expect(region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true })).toBeDisabled();
+  expect(writes).toBe(0);
 });
