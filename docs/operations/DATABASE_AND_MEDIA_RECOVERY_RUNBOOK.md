@@ -33,7 +33,7 @@ command line, write them to the repository, or include them in reports.
 1. Create a new timestamped directory outside the repository with mode `0700`.
 2. Record project reference, UTC time, Git commit, Production migration tip, and
    CLI version without recording credentials.
-3. Export roles, schema, and data separately with `supabase db dump --linked`.
+3. Use the pinned complete database helper with an explicit linked target: roles, all non-platform application schemas/data, separate migration schema/history, installed app-owned Auth/Storage/Realtime controls and file checksums. Do not narrow application scope to `public`. A source with private helper functions but no private tables is valid; every installed private table requires a data section. See [independent backup export](BOOKING_BACKUP_EXPORT.md).
 4. Export every Storage bucket recursively with `supabase storage cp --linked`.
 5. Record file counts, byte counts, and SHA-256 manifests. Restrict dump,
    manifest, and log files to mode `0600`.
@@ -115,3 +115,7 @@ the exact error and ledger state, confirm transaction rollback, compare the
 applied schema with the expected pre-state, and create a reviewed forward fix.
 Escalate any ambiguous partial application, destructive recovery, identity
 merge, Product-truth rewrite, or history rewrite to the Founder.
+
+## Independent export coverage correction
+
+The v2 exporter is isolated from the pending Booking feature chain. It preserves the existing approved AWS/Main/OIDC/retention/encryption boundary and includes schema-derived private table inventory, original migration history and actually installed managed controls. The full later-candidate synthetic logical restore is separate evidence in PR #575, not a dependency or proof that a current cloud archive is restorable. Keep cron/webhooks, apps/intake and external workers disabled during recovery until target compatibility and lost/external operations are reconciled. See [export scope and limits](BOOKING_BACKUP_EXPORT.md).
