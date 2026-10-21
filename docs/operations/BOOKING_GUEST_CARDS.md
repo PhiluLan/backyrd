@@ -130,13 +130,21 @@ production build. The phone case verifies 320-pixel layout without horizontal
 overflow, 20-pixel radio controls with the established label targets, keyboard
 focus, no automated accessibility violations and a real ordinary booking through
 the synthetic RPC fixture. The final build and type checking passed; lint still
-has zero errors and 13 existing warnings. Schema and database-gate inputs are
-unchanged from the actor-bound guest-card receipt above; this is not a new
-populated restore or restaurant/device pilot result.
+has zero errors and 13 existing warnings. That inline-selection increment left
+schema and database-gate inputs unchanged from the actor-bound guest-card receipt above; it did not establish populated
+restore or restaurant/device pilot acceptance.
 
 Remaining product work includes explicit reservation linkage and history,
 controlled identity merge/correction workflows, transparent preferences with
 appropriate consent, retention/access/deletion handling, ownership handover,
-cross-restart recovery and actual restaurant/device acceptance. The new private
-tables must also be included in the next populated guest-card backup/restore rehearsal;
-the existing logical-restore evidence predates this schema increment.
+cross-restart recovery and actual restaurant/device acceptance.
+
+The subsequent populated logical-restore drill covers the three private guest
+tables with three cards, seven original request receipts and seven metadata
+events. All 387 source/target table digests, both schema/ACL scopes and 26 managed
+controls matched. Actual role and Owner fences, correction/archive/restore,
+stale revisions and original actor-bound replay after correction passed; actual
+JSON passed the Web codecs. All 29 Booking SQL suites and media authorization
+also passed on the restored target. See `BOOKING_BACKUP_RECOVERY.md`. This closes
+the local populated guest-card logical-restore gap; encrypted cloud/Storage-byte
+recovery and an approved actual reopening remain separate acceptance.

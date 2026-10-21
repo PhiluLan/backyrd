@@ -4,9 +4,10 @@ The previous weekly exporter selected schema `public` and data
 `public,auth,storage`. It omitted private Booking capabilities, request journals,
 allocation memberships, team invitations and dispatch evidence, as well as other
 application schemas. A clean migration build cannot recover those guest facts.
-This dependent candidate corrects the actual exporter and exercises a real
-export/restore with synthetic data in two independent local Supabase projects.
-It has not changed the scheduled Main job or any Production data yet.
+The independent exporter correction in PR #576 is now merged into Main.
+The dependent acceptance harness exercises a real export/restore with synthetic
+data in two independent local Supabase projects. This does not certify an
+actual scheduled cloud run or change Production data.
 
 ## Snapshot v2
 
@@ -60,7 +61,7 @@ remote DB hosts, the same source/target port, and a restore target that already
 has Booking schema, Auth users or Storage buckets/objects. The environment flag
 is an operator guard, not permission for a real recovery operation.
 
-1. Build the candidate using `validate-supabase-current.sh`, selecting all 27
+1. Build the candidate using `validate-supabase-current.sh`, selecting all 29
    Booking SQL suites and keeping that disposable source for the drill. Use the
    canonical pinned database runtime, not the developer's normal checkout.
 2. Start a second empty local Supabase project with unique project id and ports,
@@ -73,6 +74,9 @@ is an operator guard, not permission for a real recovery operation.
    once on the empty source booking configuration. It applies the guarded fixture
    and creates namespaced synthetic verified staff, Viewer/Host/Manager roles,
    manual/online reservations, stored guest access and an idempotent manual intent.
+   It also creates three populated guest cards through the actual operator-bound
+   RPC: corrected, archived and restored, with seven request receipts and seven
+   metadata events.
    Database passwords use libpq environment fields, not command arguments.
 4. Run `node scripts/ops/validate-booking-restore.mjs prepare`.
    It stops this source's local cron jobs, creates genuinely sealed provider
@@ -90,41 +94,62 @@ is an operator guard, not permission for a real recovery operation.
    with the administrative identity. Restore schema, migration schema, data,
    ledger and captured app-owned managed controls in one transaction with
    replication triggers disabled. Do not run canonical cron/webhook references.
-7. Compare source/target row digests, original request result, both structural/ACL
+7. Compare source/target row digests, original request results, both structural/ACL
    fingerprints, captured managed controls, stored guest receipt and private
    authorization. The provider-owned `storage.migrations.executed_at` timestamp
    is normalized; its migration id/name/hash remain compared. No application,
-   guest, journal, audit, payload or ordinary timestamp is normalized.
+   guest, journal, audit, payload or ordinary timestamp is normalized. The
+   rolled-back `verify-restored-guest-cards.sql` probe compares current cards,
+   archive membership, metadata history and original actor-bound request replay
+   after later correction. Actual Viewer/Host/Manager/outsider/worker/anonymous
+   checks, stale revisions, fresh correction/unarchive, revoked Host and new
+   Owner fences run against the source and restored target. Actual returned JSON
+   must also pass the Web codecs. No probe mutation is committed.
 8. The local quarantine fixture parks pending/leased/sending messages for manual
    review, clears leases, retains immutable payload/recipient/provider evidence
    and records a system audit per affected reservation. Repeating it adds no
    audit duplicate. Actual SQL claim must return no message. **Keep all apps,
    intake and workers paused**: parking old rows alone does not prevent new
    requests, reconstruct lost post-backup writes or reconcile external delivery.
-9. Run all 27 Booking SQL suites and private-scope verification against the
+9. Run all 29 Booking SQL suites and private-scope verification against the
    restored target, then the existing review-media authorization suite. Keep the
    synthetic fixture emails namespaced to avoid collisions with suite fixtures.
+   The harness writes a private `restore-evidence.json` after successful
+   comparisons, including actual guest-table row digests, captured-control count,
+   backup-manifest hash and the hashes of the executed proof sources. It contains
+   no contact values, credentials or payload keys. This report certifies the
+   local logical comparison, not subsequent SQL suites unless those also pass.
    Stop both projects, remove their volumes and delete protected dumps/keys.
 
-`verify-restored` resumes verification of an already committed local restore; it
-does not repeat the restore transaction. `capture-controls` only augments an
-unchanged recorded local source after checking all row/schema observations; it
+`verify-restored` resumes verification of an already committed local restore
+before quarantine changes its row inventory; it does not repeat the restore
+transaction or silently accept the altered inventory of a completed drill.
+`capture-controls` only augments an unchanged recorded local source after checking all row/schema observations; it
 cannot replace a source whose rows or schema changed. These diagnostic modes do
 not authorize reseeding or overriding failed recovery evidence.
 
 ## Verified evidence and remaining boundary
 
-- The actual final restore matched 384 table row digests across application
-  schemas, Auth, Storage and migration ledger, both application/private schema
+- The latest populated guest-card restore matched 387 table row digests across
+  application schemas, Auth, Storage and migration ledger, both application/private schema
   fingerprints and the captured Auth/Storage/Realtime controls.
 - An original manual nonce recovers its original result; stored guest access
   still authorizes its receipt. The in-flight payload has the same digest and
   content under the separately provided key; a different key fails. No provider
   request occurred. Queue claims are blocked after audited quarantine.
 - A deliberately corrupted backup file was refused before restoration.
-- All 27 Booking SQL suites passed on the restored database, as did the existing
-  review-media authorization suite and private-scope comparison (879 facts,
-  `1388671eb836983a5270288a01606491fe939fc7de7d38a9d501d842e718e974`).
+- All 29 Booking SQL suites passed on the restored database, as did the existing
+  review-media authorization suite and private-scope comparison (975 facts,
+  `81c1001a3c743a478302c0834b8967ee96ef997aaf39a5f3b5c670896364fd78`).
+  The three guest-card tables retained exactly three cards, seven request
+  receipts and seven change events. The corrected card stayed at revision 1;
+  recovery/replay still returned its original revision-0 create result. The
+  restored card retained its archive/restore history and revision 2.
+- Two newer SQL suites previously asserted a globally empty or fixed-size
+  reservation table. They now compare complete before/after reservation facts,
+  including unrelated restored reservations. This strengthens the no-mutation
+  checks and lets the same suites run on clean and populated databases; no
+  reservation is deleted or test bypassed for the restore.
 - Backup/workflow contract tests and the existing delivery-policy tests passed.
   These include orchestration with an isolated CLI stub, unexpected CLI, unsafe
   target/reference, pre-existing output, missing Booking sections, invalid Storage
@@ -132,13 +157,31 @@ not authorize reseeding or overriding failed recovery evidence.
   source and target provider projects use canonical CLI 2.80.0 / PostgreSQL
   `17.6.1.095`. This does not certify a different Production provider version.
 
+The final canonical clean boot with the stronger SQL inventory checks also
+passed all 29 Booking suites, baseline/concurrency checks, 20 private-drift cases,
+lineage, schema/ACL and database lint. Its new input-bound gate receipt is
+`bb4a1575fb7854dbb46bfdbcb46c4f429d7805b13667e7356cab650d2be454fe`.
+All 69 backup/export and delivery contract cases passed. No migration was added
+and prior release evidence was not rewritten.
+
+The kept-source setup completed its database checks but the optional unrelated
+Founder demo seeder then received HTTP 503 while PostgREST loaded its schema
+cache. That setup process exited nonzero and is not represented as a fully
+successful setup command. The identified source database remained live; its
+actual SQL facts, fingerprints and guarded restore corpus were verified directly.
+The final normal clean-boot process (without that optional demo seeder) passed.
+A preliminary long nonnumeric run id also failed before building the final
+source; the final run used the ordinary short numeric CI run-id format. Neither
+failure was accepted as a substitute for actual database execution.
+
 Initial attempts usefully failed on managed Storage write privilege, provider
 migration execution timestamps, missing app Auth hook and incomplete canonical
 Storage policy coverage. Those are fixed in the recipe, not waived. One SQL-test
 attempt collided with generic synthetic staff addresses; the corpus now prefixes
 its addresses. Exact row equality was measured before that test-isolation change.
 
-The new helper has not run against Production or S3. A current encrypted cloud
+The exporter and extended harness have not run against Production or S3 in this
+acceptance. A current encrypted cloud
 archive has not been downloaded/revalidated, Storage object bytes have not been
 restored, RPO/restore time for a real dataset has not been measured, provider/JWT/
 SMTP/widget/scheduler secrets are separate, and post-backup writes plus external
