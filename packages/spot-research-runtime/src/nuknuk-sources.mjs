@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 export function publicSourceUrl(value) {
   const u=new URL(value);
   if(u.protocol!=='https:'||u.username||u.password||u.port||!u.hostname.includes('.')||/^[\d.]+$|:|localhost|\.local$/i.test(u.hostname)||[...u.searchParams.keys()].some(k=>/token|secret|key|auth|session|email/i.test(k)))throw new Error('source_url_rejected');
+  for(const key of [...u.searchParams.keys()])if(/^(?:_gl|_ga|fbclid|gclid|msclkid|utm_.+)$/iu.test(key))u.searchParams.delete(key);
   u.hash='';return u.href;
 }
 function observedPageBase(page) {
@@ -67,6 +68,7 @@ export function menuOfferingGroup(label) {
   return null;
 }
 export function sourceText(page,id,{preferMain=false}={}) {
+  if(/(?:^|\/)content-access-denied(?:\/|$)/iu.test(new URL(page.url).pathname))throw new Error('source_access_denied');
   const pageBase=observedPageBase(page);
   const boundedExcerpt=(value,focusOffsets=[])=>{
     if(value.length<=12000)return {text:value,offset:at=>at};
@@ -126,18 +128,43 @@ export function sourceText(page,id,{preferMain=false}={}) {
     return '\n'+cells[0].map((label,i)=>label+' '+cells[1][i]).join('\n')+'\n';
   }));
   const htmlWithTabs=pairTabs(page.body);
-  const primaryMatch=/<main\b[^>]*>([\s\S]*?)<\/main>/i.exec(htmlWithTabs);
+  let primaryMatch=/<main\b[^>]*>([\s\S]*?)<\/main>/i.exec(htmlWithTabs);
+  // Some CMSs use a nested <div id="content"> instead of <main>. Match its
+  // balanced div boundary so navigation and the corporate footer cannot be
+  // mistaken for facts about the visited venue. An incomplete container is
+  // left to the existing full-page fallback rather than silently truncated.
+  if(!primaryMatch&&preferMain) {
+    const opening=/<div\b(?=[^>]*\bid\s*=\s*["'](?:content|main-content)["'])[^>]*>/i.exec(htmlWithTabs);
+    if(opening&&opening.index<500000) {
+      const tags=/<\/?div\b[^>]*>/gi;
+      tags.lastIndex=opening.index+opening[0].length;
+      let depth=1,tag;
+      while((tag=tags.exec(htmlWithTabs))&&tag.index-opening.index<500000) {
+        depth+=/^<\/div\b/i.test(tag[0])?-1:1;
+        if(depth===0) {
+          const inner=htmlWithTabs.slice(opening.index+opening[0].length,tag.index);
+          const preceding=htmlWithTabs.slice(Math.max(0,opening.index-6000),opening.index);
+          const hero=[...preceding.matchAll(/<h1\b[^>]*>[\s\S]*?<\/h1>/gi)].at(-1)?.[0]??'';
+          if(/<h1\b/i.test(inner)||hero) {
+            const whole=htmlWithTabs.slice(opening.index,tags.lastIndex);
+            primaryMatch=Object.assign([whole,/<h1\b/i.test(inner)?inner:hero+inner],{index:opening.index});
+          }
+          break;
+        }
+      }
+    }
+  }
   const primary=primaryMatch?.[1];
   // Some CMS layouts close <main> after the hero and render the actual page
   // content in sibling element sections. Include only that bounded region,
   // never the footer or unrelated navigation and sidebar material.
   const afterMain=primaryMatch?htmlWithTabs.slice(primaryMatch.index+primaryMatch[0].length):'';
   const beforeFooter=afterMain.split(/<footer\b/i,1)[0];
-  const siblingContent=beforeFooter.length<=250000&&/<section\b[^>]*\bclass\s*=\s*["'][^"']*\belement\b[^"']*["']/i.test(beforeFooter)?beforeFooter:'';
+  const siblingContent=primaryMatch?.[0].startsWith('<main')&&beforeFooter.length<=250000&&/<section\b[^>]*\bclass\s*=\s*["'][^"']*\belement\b[^"']*["']/i.test(beforeFooter)?beforeFooter:'';
   const contentHtml=preferMain&&primary?primary+siblingContent:htmlWithTabs;
   const selectedHtml=preferMain&&primary?contentHtml.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '):contentHtml;
   const mainText=clean(selectedHtml);
-  const outside=preferMain&&primary?clean(htmlWithTabs.replace(primaryMatch[0],' ').replace(siblingContent,' ')):'';
+  const outside=preferMain&&primary&&primaryMatch[0].startsWith('<main')?clean(htmlWithTabs.replace(primaryMatch[0],' ').replace(siblingContent,' ')):'';
   const windows=[];
   for(const match of outside.matchAll(/(?:öffnungs(?:zeiten)?|oeffnungs(?:zeiten)?|opening\s+hours|adresse|address|(?:\+|\b00)\d[\d ()/.-]{7,}\d|[-\w.+]+@[\w.-]+\.[a-z]{2,})/giu)) {
     if(windows.length>=14)break;
@@ -347,6 +374,7 @@ export function discoverResearchLinks(page) {
       // a permanent venue offering or regular opening hours. Do not spend the
       // bounded Spot-research budget crawling individual event/news pages.
       const pathname=decodeURI(new URL(url).pathname).replace(/\/+$/u,'');
+      if(/(?:^|\/)node\/\d+$/iu.test(pathname)||/(?:^|\/)content-access-denied$/iu.test(pathname))continue;
       if(/(?:^|\/)(?:[^/]*[-_])?(?:gewinnspiel|contest|competition|special|promotion|limited)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)|(?:^|\/)(?:win|firmen(?:angebote)?|corporate)(?:\/|$)/iu.test(pathname))continue;
       if(/(?:^|\/)(?:ihrevent|your-event|votre.?[eé]v[eé]nement)(?:\/|$)/iu.test(pathname))continue;
       if(/(?:^|\/)(?:press|presse|media|medien|digital|videos?)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(pathname))continue;

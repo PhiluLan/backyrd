@@ -9,6 +9,9 @@ export function permanentSpotSearchLead(url) {
   // General web search should retrieve readable venue pages. Menu documents
   // are discovered from their official parent page with explicit provenance.
   if(/\.(?:pdf|jpe?g|png|webp|gif|zip)$/iu.test(path))return false;
+  // Numeric CMS node endpoints are often stale search-index entries; the
+  // canonical visitor URL is the readable page linked by the site itself.
+  if(/(?:^|\/)node\/\d+\/?$/iu.test(path)||/(?:^|\/)content-access-denied(?:\/|$)/iu.test(path))return false;
   if(/(?:^|\/)(?:ihrevent|your-event|votre.?[eé]v[eé]nement)(?:\/|$)/iu.test(path))return false;
   if(/(?:^|\/)(?:[^/]*[-_])?(?:gewinnspiel|contest|competition|special|promotion|limited)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)|(?:^|\/)(?:win|firmen(?:angebote)?|corporate)(?:\/|$)/iu.test(path))return false;
   if([...parsed.searchParams.keys()].some(key=>/^(?:date|datum|event|eventdate|start|end|detail)$/iu.test(key)))return false;

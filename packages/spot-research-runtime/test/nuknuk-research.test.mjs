@@ -13,6 +13,7 @@ const proposed={status:'PROPOSED',value:'+41611112233',citations:[{sourceId:'s1'
 const reply=body=>new Response(JSON.stringify({choices:[{finish_reason:'stop',message:{content:JSON.stringify(body)}}]}));
 test('public-source boundary rejects private DNS and credential-bearing URLs',async()=>{
   for(const url of ['http://example.org','https://127.0.0.1','https://user:pass@example.org','https://localhost/','https://example.org?token=secret'])assert.throws(()=>publicSourceUrl(url));
+  assert.equal(publicSourceUrl('https://example.org/de/museum.html?_gl=tracking&utm_source=search&lang=de#section'),'https://example.org/de/museum.html?lang=de');
   for(const ip of ['127.0.0.1','10.1.2.3','172.16.0.1','192.0.0.1','192.168.1.2','169.254.1.1','100.64.1.1','198.18.0.1','224.1.1.1'])assert.equal(isPublicIPv4(ip),false,ip);
   assert.equal(isPublicIPv4('192.0.66.202'),true,'public addresses in 192.0/16 are not all reserved');
   let requested=false;
@@ -131,6 +132,10 @@ test('hours expand only quoted days; partial/private/kitchen hours never fabrica
   assert.deepEqual(parseHoursRow('Di - Do. 11.00-14.00 16.00 - 22.00').map(d=>d.day),['TUESDAY','WEDNESDAY','THURSDAY']);
   assert.deepEqual(parseHoursRow('Fr 11.00 - 14:00 16.00 - 24.00')[0].intervals,[{start:'11:00',end:'14:00'},{start:'16:00',end:'00:00'}]);
   assert.deepEqual(parseHoursRow('Sonntag & Montag Ruhetag'),[{day:'SUNDAY',intervals:[]},{day:'MONDAY',intervals:[]}]);
+  const commaRows='Di, Mi 11:00–17:00 Uhr\nDo, Fr 11:00–22:00 Uhr\nSa, So 10:00–16:00 Uhr';
+  const commaCandidates=fieldCandidates({attributeKey:'hours.regular'},[{...source,text:commaRows,descriptionText:commaRows}]);
+  assert.deepEqual(commaCandidates.map(c=>c.quote),commaRows.split('\n'));
+  assert.deepEqual(commaCandidates.flatMap(c=>parseHoursRow(c.quote)).map(row=>row.day),['TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY']);
   for(const row of ['Montag - Freitag ab 17 Uhr geöffnet','Samstag Verfügbar für Privatevents','Küche täglich 11:30–14:00','Montag 28:00-29:00','Dienstag 11:00-11:00'])assert.deepEqual(parseHoursRow(row),[],row);
   const sources=[{...source,text:'Di - Do. 11.00-14.00 16.00 - 22.00'}];
   const field={attributeKey:'hours.regular'};
@@ -335,6 +340,17 @@ test('availability predicates reject wishes, outages, future plans and other ven
     assert.deepEqual(enumFactCandidates({attributeKey:'amenity.features'},[{...source,text}]),[],text);
   }
   for(const text of ['Wir haben WLAN.','Unser WLAN ist kostenlos.','WiFi is available.','We offer free WiFi.'])assert.equal(enumFactCandidates({attributeKey:'amenity.features'},[{...source,text}])[0]?.value,'WIFI',text);
+});
+test('explicit visitor facilities on a venue visit page entail only their stated features',async()=>{
+  const {enumFactCandidates}=await import('../src/nuknuk-research.mjs');
+  const lines=[
+    'Für die Besucherinnen und Besucher des Novartis Pavillon steht ein kostenloses WLAN zur Verfügung.',
+    'Der Novartis Pavillon verfügt sowohl über Herren- und Damen-, als auch über geschlechtsneutrale und rollstuhlgerechte Toiletten sowie Wickelräume.',
+    'Unsere Besucherinnen und Besucher können Mäntel, Taschen und persönliche Utensilien in der Garderobe neben dem Empfangsschalter abgeben oder die Schliessfächer vor Ort nutzen.',
+  ];
+  const found=enumFactCandidates({attributeKey:'amenity.features'},[{...source,text:lines.join('\n')}]);
+  assert.deepEqual([...new Set(found.map(item=>item.value))].sort(),['CLOAKROOM','LOCKERS','TOILET','WIFI']);
+  for(const text of ['Die Garderobe des Nachbarhotels ist verfügbar.','Schliessfächer nebenan können Besucher nutzen.','Wir planen Toiletten und WLAN.'])assert.deepEqual(enumFactCandidates({attributeKey:'amenity.features'},[{...source,text}]),[],text);
 });
 test('cafe names exclude price tails and duplicate product mentions',async()=>{
   const {cafeOfferCandidates}=await import('../src/nuknuk-research.mjs');

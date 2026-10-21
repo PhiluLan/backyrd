@@ -112,6 +112,24 @@ test('hotel-owned first-come parking is a cited facility without implying a rese
  assert.deepEqual(result[0].value,['PARKING']);
  assert.equal(result[0].citations[0].evidence,quote);
 });
+test('hotel-wide WLAN and paid garage rental are recognized without borrowing nearby amenities',()=>{
+ const homepage='Das Hotel Alexander bietet Ihnen 65 modern eingerichtete Zimmer mit kostenlosem WLAN- Internetzugang.';
+ const inventory='Unabhängig von der gebuchten Zimmerkategorie sind Serviceleistungen, wie WLAN-Internetzugang, Druck- und Kopier-Service für unsere Gäste kostenlos.';
+ const garage='Wir vermieten Garagen-Stellplätze zum fairen Preis direkt am Hotel.';
+ assert.ok(enumFactCandidates(field('amenity.features'),[source(homepage)]).some(item=>item.value==='WIFI'));
+ assert.ok(enumFactCandidates(field('amenity.features'),[source(inventory)]).some(item=>item.value==='WIFI'));
+ assert.deepEqual(enumFactCandidates(field('amenity.features'),[source(garage)]).map(item=>item.value),['PARKING']);
+ for(const unsafe of ['Das Nachbarhotel bietet kostenloses WLAN-Internetzugang.','Das Hotel hat kein WLAN-Internetzugang.','Wir vermieten keine Garagen-Stellplätze.','Das Nachbarhotel vermietet Garagen-Stellplätze.'])assert.deepEqual(enumFactCandidates(field('amenity.features'),[source(unsafe)]),[]);
+});
+test('after a hotel inventory overview, unread room categories outrank already supported details',()=>{
+ const overview={...source('Einzelzimmer Classic\n\nEinzelzimmer Modern'),url:'https://example.org/de/zimmer/',headings:[{level:2,text:'Einzelzimmer Classic',offset:0},{level:2,text:'Einzelzimmer Modern',offset:22}]};
+ const accepted=[{...fact('experience.profile','Einzelzimmer Modern','Einzelzimmer Modern',{subject:'OFFER',offerKind:'OVERNIGHT_STAY'}),state:'ACCEPTED'}];
+ const links=[
+   {url:'https://example.org/de/zimmer/einzelzimmer-standard/',label:'Einzelzimmer Modern',depth:1,topics:['stay']},
+   {url:'https://example.org/de/zimmer/einzelzimmer-basic/',label:'Einzelzimmer Classic',depth:1,topics:['stay']}
+ ];
+ assert.equal(rankResearchFrontier(links,accepted,[{...field('experience.profile'),profileCategory:'STAY'}],[overview])[0].label,'Einzelzimmer Classic');
+});
 test('search identity matches punctuation in an official venue name without matching another venue',()=>{
  const results=[{url:'https://www.chequelomo.ch/menus',title:'Speisekarte | ¡Che, que lomo!',snippet:'Argentinische Spezialitäten Basel'},{url:'https://www.chequelomo.ch/another',title:'Che Lomo',snippet:'Andere Bar Basel'}];
  const found=classifySearchResults(results,{name:'Che que lomo',locality:'Basel',existingValues:{'classification.primary_category':{value:'EAT'}}},'https://chequelomo.ch/');
@@ -386,6 +404,8 @@ test('local web search accepts only loopback, and snippets are leads rather than
  assert.equal(permanentSpotSearchLead('https://example.org/kalender/'),false);
  assert.equal(permanentSpotSearchLead('https://example.org/museum?date=2026-11-15'),false);
  assert.equal(permanentSpotSearchLead('https://example.org/press/2017/museum.pdf'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/node/866'),false);
+ assert.equal(permanentSpotSearchLead('https://example.org/de/content-access-denied?destination=/de/node/866'),false);
  assert.equal(permanentSpotSearchLead('https://example.org/en/exhibitions/artist-name'),false);
  assert.equal(permanentSpotSearchLead('https://example.org/de/ausstellungen.html'),false);
  assert.equal(permanentSpotSearchLead('https://example.org/de/veranstaltungen/veranstaltungshighlights/offenes-atelier'),true);
@@ -459,8 +479,8 @@ test('a real museum overview link outranks translations and request forms',()=>{
 test('museum collection and onsite tours outrank online videos and broad children pages',()=>{
  const entries=['/de/digital/tinguely-home.html','/de/vermittlung-fuehrungen-workshops/freizeitangebot-fuer-kinder.html','/de/tinguely-sammlung-restaurierung/sammlung.html','/de/vermittlung-fuehrungen-workshops/fuehrungen/'].map(path=>({url:'https://example.org'+path,label:path,depth:1,topics:['experience']}));
  const ranked=rankResearchFrontier(entries,[],[{...field('experience.profile'),profileCategory:'CULTURE_ARTS'}]);
- assert.equal(ranked[0].url,entries[3].url);
- assert.equal(ranked[1].url,entries[2].url);
+ assert.equal(ranked[0].url,entries[2].url);
+ assert.equal(ranked[1].url,entries[3].url);
  assert.ok(!ranked.some(x=>x.url===entries[0].url));
 });
 test('a museum programme overview outranks observed filter variants without hiding unique filtered pages',()=>{
@@ -1182,6 +1202,29 @@ function modelFor(makeFacts,verdict='SUPPORTED',criticExtra={}) {return async(_u
  if(!data.claims)data.source.text=data.blocks.map(b=>b.text).join('\n');
  return data.claims?reply({verdicts:data.claims.map(f=>({factId:f.id,verdict,subject:'TARGET',belongsTo:'TARGET',applicability:'CURRENT',restrictionQuote:'',...criticExtra}))}):reply({facts:wireFacts(data,makeFacts(data)),nextLinks:[]});
 };}
+test('an ongoing named exhibition becomes a visit draft without a permanent-exhibition claim',async()=>{
+ const target={...spot,name:'Novartis Pavillon',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'contact.website':{value:'https://example.org/pavillon'}}};
+ const quote='Inside, you will find the interactive exhibition Wonders of Medicine that explores the past, present and future of medicine.';
+ const r=await researchSpotV2({...opts,spot:target,fields:[field('experience.profile')],sources:['https://example.org/pavillon'],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:`<main><h1>Novartis Pavillon</h1><p>${quote}</p></main>`,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[fact('experience.profile','Wonders of Medicine',quote,{subject:'OFFER',subjectLabel:'Wonders of Medicine',offerKind:'PERMANENT_EXHIBITION'})])});
+ assert.equal(r.results[0].status,'REQUIRES_REVIEW');
+ assert.deepEqual(r.results[0].value.offers.map(o=>[o.name,o.kind]),[['Wonders of Medicine','VISIT']]);
+ assert.equal(r.facts.find(f=>f.value==='Wonders of Medicine')?.offerKind,'VISIT');
+});
+test('critic context stays inside the cited sibling collection section',async()=>{
+ const target={...spot,name:'Synthetic Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'contact.website':{value:'https://example.org/sammlung.html'}}};
+ const body='<main><h1>Sammlung</h1><h2>Orient</h2><p>Die Sammlung Orient ist geschlossen.</p><h2>Skulpturen</h2><p>Die Sammlung zeigt griechische und römische Skulpturen im Museum und ermöglicht Besucherinnen und Besuchern einen Rundgang durch die Ausstellung.</p></main>';
+ let examined=false;
+ const r=await researchSpotV2({...opts,spot:target,fields:[field('experience.profile')],sources:['https://example.org/sammlung.html'],maxRequests:1},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:async(_url,init)=>{
+   const data=JSON.parse(JSON.parse(init.body).messages[1].content);
+   if(data.claims){
+     const candidate=data.source.claims.find(x=>x.section.includes('Skulpturen'));
+     assert.ok(candidate);assert.ok(!candidate.surrounding.includes('geschlossen'));examined=true;
+     return reply({verdicts:data.claims.map(f=>({factId:f.id,verdict:'SUPPORTED',subject:'OFFER',belongsTo:'TARGET',applicability:'CURRENT',restrictionQuote:''}))});
+   }
+   return reply({facts:[],nextLinks:[]});
+ }});
+ assert.ok(examined);assert.ok(r.results[0].value.offers.some(o=>o.name==='Skulpturen'));
+});
 test('adaptive crawl follows second-level contact page without operator source preparation',async()=>{
  const pages={
  'https://example.org/':'<a href="/besuch">Informationen für den Besuch</a>',
@@ -1461,6 +1504,97 @@ test('main content can be read without mixing other-branch footer or navigation 
  const s=await readSourceText({url:'https://example.org/',contentType:'text/html',observedAt:new Date().toISOString(),body:'<nav>Other shop</nav><main><p>Our venue content here.</p></main><footer>Neighbour has Wi-Fi</footer>'},'s1',{preferMain:true});
  assert.equal(s.text,'Our venue content here.');assert.equal(s.textSelection,'MAIN_CONTENT');assert.equal(s.assetHash.length,64);
 });
+test('nested CMS content div excludes navigation and unrelated footer while preserving the venue H1',()=>{
+ const body='<nav>Neighbour café has free Wi-Fi</nav><div id="main"><div class="main-content" id="content"><h1>Novartis Pavillon</h1><section><div><h2>Plan your visit</h2><p>We have bathrooms for everyone at Novartis Pavillon.</p></div></section></div><aside>Campus phone +41 61 999 99 99</aside></div><footer>Corporate contact</footer>';
+ const s=sourceText({url:'https://example.org/pavillon',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.equal(s.textSelection,'MAIN_CONTENT');
+ assert.ok(s.text.includes('We have bathrooms for everyone at Novartis Pavillon.'));
+ assert.ok(!s.text.includes('Neighbour café'));
+ assert.ok(!s.text.includes('Campus phone'));
+ assert.ok(!s.text.includes('Corporate contact'));
+ for(const heading of s.headings)assert.equal(s.text.slice(heading.offset,heading.offset+heading.text.length),heading.text);
+});
+test('CMS hero heading immediately before a content div remains attached to its body',()=>{
+ const body='<nav>Other locations</nav><div class="hero"><h1>Über die Ausstellung «Wonders of Medicine»</h1></div><div id="main"><div id="content"><p>Ziel der Ausstellung ist es, medizinische Themen verständlich aufzubereiten und Besucherinnen und Besucher zum Dialog einzuladen.</p></div></div><footer>Unrelated</footer>';
+ const s=sourceText({url:'https://example.org/pavillon/ausstellung',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.equal(s.textSelection,'MAIN_CONTENT');
+ assert.ok(s.text.startsWith('Über die Ausstellung «Wonders of Medicine»'));
+ assert.ok(s.text.includes('Ziel der Ausstellung'));
+ assert.ok(!s.text.includes('Other locations'));
+});
+test('an HTTP-200 access-denied redirect is not usable as official evidence',()=>{
+ assert.throws(()=>sourceText({url:'https://example.org/de/content-access-denied?destination=/de/node/866',body:'<h1>Access denied</h1>',observedAt:new Date().toISOString()},'s1',{preferMain:true}),/source_access_denied/);
+});
+test('numeric CMS node links are excluded from the visitor-page frontier',()=>{
+ const page={url:'https://example.org/pavillon',contentType:'text/html',body:'<a href="/de/node/866">Ausstellung</a><a href="/de/pavillon/ausstellung">Ausstellung besuchen</a>'};
+ assert.deepEqual(discoverResearchLinks(page).map(link=>link.url),['https://example.org/de/pavillon/ausstellung']);
+});
+test('a shared corporate contact page scopes identical numbers to the named venue block',()=>{
+ const target={...spot,name:'Novartis Pavillon',existingValues:{...spot.existingValues,'contact.website':{value:'https://campus.example/de/novartis-pavillon'}}};
+ const text='Kontakt\n\nAllgemeine Anfragen\n\nTelefon: +41 61 324 11 11\n\nNovartis Pavillon\n\nTelefon: +41 61 324 11 11\n\nCafé\n\nTelefon: +41 61 555 55 55';
+ const s={...source(text),url:'https://campus.example/de/kontakt'};
+ const quote='+41 61 324 11 11',first=text.indexOf(quote),second=text.indexOf(quote,first+1);
+ const facts=[first,second].map((sourceOffset,i)=>({...fact('contact.phone',quote,quote,{subjectLabel:target.name}),id:'f'+i,sourceId:s.id,sourceOffset,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}));
+ const checked=recheckEvidenceFloors(facts,[s],[field('contact.phone')],target);
+ assert.equal(checked[0].reason,'CONTACT_VENUE_SCOPE_UNCONFIRMED');
+ assert.equal(checked[1].state,'ACCEPTED');
+});
+test('museum workshop contacts and age-limited programme titles are not whole-venue facts',()=>{
+ const target={...spot,name:'Antikenmuseum Basel und Sammlung Ludwig',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'contact.website':{value:'https://museum.example/'}}};
+ const quote='Die Götter Ägyptens\n\nEintauchen in die Götterwelt der alten Ägypter';
+ const text=quote+'\nInteraktive Führung mit Bastelarbeit\n2 Stunden, für Schulkinder ab 10 Jahren, max. 20 Personen\n\nKontakt +41 61 267 01 40';
+ const s={...source(text),url:'https://museum.example/de/workshops.html'};
+ const facts=[{...fact('experience.profile','Die Götter Ägyptens',quote,{subject:'OFFER',subjectLabel:'Die Götter Ägyptens',offerKind:'GUIDED_TOUR'}),id:'f0',sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'},
+  {...fact('contact.phone','+41 61 267 01 40','+41 61 267 01 40',{subjectLabel:target.name}),id:'f1',sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}];
+ const checked=recheckEvidenceFloors(facts,[s],[field('experience.profile'),field('contact.phone')],target);
+ assert.equal(checked[0].reason,'PROGRAMME_ACCESS_CONDITION_REQUIRES_REVIEW');
+ assert.equal(checked[1].reason,'PROGRAMME_CONTACT_NOT_VENUE');
+});
+test('an exhibit film and scanner do not become standalone culture visits',()=>{
+ const target={...spot,name:'Novartis Pavillon',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'contact.website':{value:'https://campus.example/de/novartis-pavillon'}}};
+ const text='Über die Ausstellung «Wonders of Medicine»\n\nAuf dem Weg ins Obergeschoss befindet sich ein kleiner Filmsaal. Hier startet die Ausstellung mit dem Kurzfilm «Making Medicine».\n\nDer «Time Scanner» ermöglicht anhand einer interaktiven Stadtkarte, die Veränderungen der Stadt Basel nachzuvollziehen.';
+ const s={...source(text),url:'https://campus.example/de/novartis-pavillon/ausstellung',headings:[{level:1,text:'Über die Ausstellung «Wonders of Medicine»',offset:0}]};
+ const values=['Making Medicine','Time Scanner'];
+ const facts=values.map((value,i)=>({...fact('experience.profile',value,text.split('\n\n')[i+1],{subject:'OFFER',subjectLabel:value,offerKind:'VISIT'}),id:'f'+i,sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}));
+ const checked=recheckEvidenceFloors(facts,[s],[field('experience.profile')],target);
+ assert.ok(checked.every(f=>f.reason==='EXHIBITION_COMPONENT_NOT_STANDALONE_VISIT'));
+});
+test('a published audio walk is self-guided even when the model calls it a guided tour',()=>{
+ const target={...spot,name:'Museum Beispiel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'contact.website':{value:'https://museum.example/'}}};
+ const quote='Verpassen Sie nicht unseren Audio-Rundgang zum Thema «Griechische Mythen».';
+ const s={...source(quote),url:'https://museum.example/de/museum.html'};
+ const f={...fact('experience.profile','Audio-Rundgang zum Thema «Griechische Mythen»',quote,{subject:'OFFER',offerKind:'GUIDED_TOUR'}),id:'f0',sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'};
+ const [checked]=recheckEvidenceFloors([f],[s],[field('experience.profile')],target);
+ assert.equal(checked.offerKind,'SELF_GUIDED_VISIT');
+ assert.equal(checked.state,'ACCEPTED');
+});
+test('a named exhibition with visitor prose is a current VISIT lead without claiming permanence',()=>{
+ const target={...spot,name:'Novartis Pavillon',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'contact.website':{value:'https://campus.example/de/novartis-pavillon'}}};
+ const title='Über die Ausstellung «Wonders of Medicine»';
+ const text=title+'\n\nZiel der Ausstellung ist es, wissenschaftliche und medizinische Themen verständlich aufzubereiten, Interesse zu wecken und Besucherinnen und Besucher zu einem Dialog einzuladen.';
+ const s={...source(text),url:'https://campus.example/de/novartis-pavillon/ausstellung',headings:[{level:1,text:title,offset:0}]};
+ const facts=literalSourceFacts(s,[field('experience.profile')],target,0);
+ assert.deepEqual(facts.map(f=>[f.value,f.offerKind]),[['Wonders of Medicine','VISIT']]);
+ const checked=recheckEvidenceFloors(facts.map(f=>({...f,state:'ACCEPTED'})),[s],[field('experience.profile')],target);
+ assert.equal(checked[0].state,'ACCEPTED');
+});
+test('a museum collection overview outranks a staff directory and age-scoped workshop page after public phone is known',()=>{
+ const frontier=[
+  {url:'https://museum.example/de/footer/team.html',label:'Team und Kontakt',depth:1,topics:['contact']},
+  {url:'https://museum.example/de/workshops.html',label:'Workshops',depth:1,topics:['experience']},
+  {url:'https://museum.example/de/museum.html',label:'Sammlung',depth:1,topics:['experience']},
+ ];
+ const ranked=rankResearchFrontier(frontier,[{field:'contact.phone',state:'ACCEPTED'}],[field('contact.public_email'),{...field('experience.profile'),profileCategory:'CULTURE_ARTS'}]);
+ assert.equal(ranked[0].url,'https://museum.example/de/museum.html');
+});
+test('collection headings bind to their own prose while closed, online and second-site sections stay out',()=>{
+ const target={...spot,name:'Museum Beispiel und Sammlung',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'},'contact.website':{value:'https://museum.example/'}}};
+ const body='<main><h1>Sammlung</h1><p>Unser zweiter Standort, die Skulpturhalle Beispiel, befindet sich an einer anderen Adresse.</p><h2>Griechische Vasen</h2><p>Die Sammlung griechischer Vasen zeigt antike Tongefässe und ihre Nutzung in Alltag und Mythologie.</p><h2>Ägypten</h2><p>Rund 600 Artefakte präsentieren die Kulturgeschichte des pharaonischen Ägyptens und die Entwicklung von Kunst und Schrift.</p><h2>Orient</h2><p>Die Sammlung zeigt Werke des Vorderen Orients.</p><p>Dieser Bereich bleibt bis 2027 geschlossen.</p><h2>Skulpturhalle Beispiel</h2><p>Die Sammlung von Gipsabgüssen gehört zu unserem zweiten Standort und umfasst antike Skulpturen.</p><h2>Sammlung Online</h2><p>Die digitale Sammlung zeigt Bilder und Texte im Internet.</p></main>';
+ const s=sourceText({url:'https://museum.example/de/museum.html',body,observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const facts=literalSourceFacts(s,[field('experience.profile')],target,0);
+ assert.deepEqual(facts.filter(f=>f.offerKind==='VISIT').map(f=>f.value),['Griechische Vasen','Ägypten']);
+ assert.ok(facts.filter(f=>f.offerKind==='VISIT').every(f=>s.text.includes(f.quote)));
+});
 test('CMS element sections following a short main remain readable without admitting the footer',()=>{
  const body='<header>Hotel navigation</header><main><h1>Hotel Beispiel</h1></main><section class="element text"><h2>Parken</h2><p>Vor dem Hotel stehen fünf kostenfreie Parkplätze zur Verfügung.</p></section><section class="element text"><p>Weitere Angaben zur Anfahrt.</p></section><footer><p>Ein anderes Hotel hat eine Tiefgarage.</p></footer>';
  const s=sourceText({url:'https://hotel.example/de/information/parken/',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
@@ -1702,6 +1836,14 @@ test('same-page HTML heading hierarchy keeps bar hours separate from a hotel',as
  const stay={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
  const r=await researchSpotV2({...opts,spot:stay,fields:[field('hours.regular')]},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<main><h1>Hotel</h1><h2>Bar</h2><h3>Opening hours</h3><p>Montag 10–18 Uhr</p></main>',observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
  assert.equal(r.results[0].status,'UNRESOLVED');assert.equal(r.facts[0].subject,'AREA');assert.equal(r.sources[0].headings[1].text,'Bar');
+});
+test('exhibition hours under a Pavillon heading do not become whole-venue hours',()=>{
+ const target={...spot,name:'Novartis Pavillon',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const s=sourceText({url:'https://example.org/pavillon',body:'<main><h1>Novartis Pavillon</h1><h2>Opening hours</h2><h3>Exhibition</h3><p>Wonders of Medicine open from Tue. - Sun. 10:00 - 18:00</p></main>',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const quote='Tue. - Sun. 10:00 - 18:00';
+ const facts=[{...fact('hours.regular',quote,quote,{subjectLabel:target.name}),id:'f0',sourceId:s.id,sourceOffset:s.text.indexOf(quote),state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}];
+ const [checked]=recheckEvidenceFloors(facts,[s],[field('hours.regular')],target);
+ assert.equal(checked.reason,'EXPLICIT_AREA_HOURS');
 });
 test('explicit same-line area label is sufficient to withhold hotel opening hours',async()=>{
  const stay={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};

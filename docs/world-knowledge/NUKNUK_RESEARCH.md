@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.22
+# Local Nuknuk Research v3.28
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.22
+## Active architecture: Research v3.28
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -525,6 +525,125 @@ rendered menu do not establish which items the Basel Barfi branch sells.
 Keeping concrete dishes unresolved is the correct answer until an exact
 branch-bound source is found. The local regression suite passes (371 tests).
 The unattended draft and catalog-write gates remain closed.
+
+Novartis Pavillon was the next deterministic public-catalog Museum/Aktivität
+case; three earlier candidates were unavailable by TLS, DNS or an off-host
+redirect. Its official-source checks were recorded before the first run. The
+v3.22 blind run read twelve pages in 606 seconds and missed the named
+`Wonders of Medicine` exhibition as a visit. It treated a short film and an
+interactive scanner *inside* that exhibition as separate visits. It also
+left explicitly documented visitor Wi-Fi, toilets, cloakroom and lockers
+unresolved. Café and exhibition hours remained correctly separate from
+whole-Pavillon hours. Its factual exhibition description and a contact
+number explicitly listed under the Pavillon on the official contact page
+were review candidates; it also cited the same number under general campus
+inquiries, showing a contact-scope error. Several official HTTP-200 pages
+were actually access-denied redirects. This is another failed blind case.
+
+v3.23 reads balanced CMS `#content` regions and adjacent hero headings,
+excluding unrelated navigation and footer text. It rejects access-denied
+pages, scopes shared contact-page numbers to the named venue block, and
+requires standalone cultural visits rather than exhibit components. A named
+current exhibition may become a `VISIT` draft without claiming permanence.
+Literal visitor-facility assertions now cover the four observed facilities;
+baby-changing stays unresolved where the text only says a room exists, not
+that a changing table is installed. The v3.23 full retest recovered those
+four facilities and the Pavillon-specific phone, but still made the exhibition
+schedule into whole-building hours and omitted the main exhibition. The
+accepted phone citation incorrectly included an identical general-campus
+number as well as the properly labelled Pavillon number; the new section
+scope holds only the former. Three stale Drupal node URLs redirected to
+HTTP-200 access-denied pages. The reader now rejects their content.
+
+v3.24 classifies an explicitly named, currently visitable exhibition as a
+`VISIT` when permanence is not stated, and guards area-labelled exhibition
+hours. Its full local 27B/SearXNG retest ended with `FRONTIER_EXHAUSTED`
+after eleven requests, ten model calls and 463 seconds. It proposed just
+`Wonders of Medicine` as a visit; the internal film and scanner were held.
+It also proposed the four explicit visitor facilities, the literal first-party
+exhibition description and the phone listed under Novartis Pavillon on the
+official contact page. Whole-Pavillon hours and a general visitor email stayed
+unresolved. The three stale numeric CMS links still consumed requests, but
+their access-denied pages contributed no facts. v3.25 removes numeric CMS
+node URLs from observed and search-discovered visitor-page frontiers. This
+is a tuned development case, not an independent release pass. The next
+unseen museum reference was saved before its first model run. The unattended
+draft and catalog-write gates remain closed.
+
+The next unseen case, Antikenmuseum Basel und Sammlung Ludwig, was selected
+from the approved Basel public catalog under ordinary `anon` RLS. The first
+deterministic museum candidate, Anatomisches Museum, redirected off its stored
+host and was not fetched as the target. The Antikenmuseum reference was saved
+before the v3.25 model run. Its full 900-second run used ten page requests and
+17 model calls and failed the reference: comma-separated weekday pairs lost
+their first day, leaving only Monday, Wednesday, Friday and Sunday; a workshop
+department phone conflicted with the correctly identified main-museum phone;
+age-scoped school workshops entered the general culture profile without their
+conditions. The named physical collections were omitted because the model
+quoted descriptions without their separate headings. The Skulpturhalle phone
+and its distinct opening hours were correctly rejected; the public general
+email was obfuscated on the official homepage and remained unresolved.
+Tracked `_gl` copies of the collection page and low-value staff, provenance
+and room pages consumed research time. This is a failed blind case, not a
+release-cohort pass.
+
+v3.26 captures complete comma-separated weekday groups, strips known tracking
+parameters, scopes workshop contacts and holds age/group-limited programme
+offers when their conditions cannot be represented. It also binds named
+physical-collection headings to their own explanatory paragraph, excluding
+closed sections, digital collections and explicitly separate sites. Museum
+collection overviews now outrank staff directories and condition-heavy
+workshops once the main contact is known. The saved-fact replay removes the
+workshop-phone conflict and eight unsafe programme items; it cannot recover
+missing days or collections without another model run. The full v3.26 retest
+used 11 requests, 16 model calls and 893 seconds; it exhausted the useful
+frontier. It recovered the complete seven-day museum schedule, main phone,
+Greek vases and Egypt collections, and held conditional school-workshop
+items, the obfuscated email, other-site facts and unsupported amenities.
+It still misclassified a self-guided audio tour as a guided tour and missed
+the open Greek and Roman sculpture collection: the model copied a closure
+caveat from the preceding Orient section. The blind case therefore still
+fails independent review despite materially better coverage.
+
+v3.27 normalizes explicitly named audio tours to self-guided visits and
+bounds each critic's surrounding evidence to the cited heading section. A
+regression fixture places a closed collection immediately before an open
+one; the verifier sees the open section without the preceding closure. The
+full runtime suite passes 386 tests. A focused live-source retest on the
+official collection page used one request, two model calls and 115 seconds;
+it recovered `Griechische und römische Skulpturen` as a `VISIT`, retained
+`Griechische Vasen` and `Ägypten`, and classified the named audio tour and
+children's trail as self-guided visits. This is a regression check on a known
+page, not a fresh blind end-to-end pass. It does not establish parity or
+reopen the unattended catalog-write gate. All results remain human-review
+drafts with no catalog write.
+
+The next untouched cross-category case was Hotel Alexander, chosen from the
+ordinary `anon`-visible approved Basel hotel catalog. Its reference was saved
+before the v3.27 run and independently checked against the hotel's official
+homepage, contact and room-overview pages. The full blind run used ten HTTP
+requests, 22 model calls and 879 seconds, then hit the model-call budget.
+It recovered all six named room categories, the main phone, the literal
+public email and a factual hotel description. It correctly left whole-hotel
+regular hours unresolved and did not project the limited Basel Weekend
+package or partner-restaurant dinner as standing hotel room offers. It
+missed two explicit general amenities: complimentary WLAN and paid garage
+space rental. The deterministic entailment floor did not recognize the
+compound `WLAN-Internetzugang` or the hotel's first-person garage-rental
+sentence. This is another failed blind release case, despite strong room
+and contact coverage.
+
+v3.28 adds narrowly grounded hotel-wide WLAN clauses and first-person garage
+rental to the deterministic amenity evidence, preserving the paid-rental
+caveat in the citation; nearby hotels, absent facilities and bare image or
+navigation labels remain ineligible. Once a hotel's room overview has been
+read, observed links to room categories not yet supported outrank detail
+pages for already supported categories. The suite passes 388 tests. A focused
+live-source retest on the official hotel homepage used one request, two model
+calls and 111 seconds; it drafted exactly `WIFI` and `PARKING`, with the
+garage's paid-rental wording retained in the citation. This is a known-page
+regression check; these rules must also pass a fresh blind case before the
+independent release cohort can count them.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
