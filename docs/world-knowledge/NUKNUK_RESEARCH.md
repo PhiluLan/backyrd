@@ -1,7 +1,105 @@
-# Local Nuknuk Research v3.57
+# Local Nuknuk Research v3.61
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
+
+The independent v3.57 food cases failed. Alchemist found the current autumn
+menu PDF but proposed its `Herbst` cover label as a food offer and missed the
+explicit lunch offer; ingredient and group-service lines were correctly held
+for review. Acero proposed generic products, typed coffee drinks as food,
+missed its recurring Pasta Night and Sunday brunch, and left regular hours
+unresolved. Indexed Acero page copies suggested a closing-time conflict;
+fresh retrieval later showed that comparison was stale. Neither case is a
+quality pass. Their reference checks were recorded before the model calls;
+reports and authenticated exports stay in ignored local storage.
+
+v3.58 separates literal seasonal PDF menu rows from cover labels and prices,
+keeps a priced three- or five-course menu only with its explicit group
+prerequisite, admits a precise adjacent weekday/time condition for a meal
+offer, and rejects broad food/drink class labels as named products. A named,
+non-seasonal hours section may be read despite unrelated seasonal content on
+the same page. Remaining open fields continue source discovery after another
+field has accepted facts. PDF-derived items remain layout-review drafts;
+conflicting hours and absent closing times must stay unresolved. Development
+replays of Alchemist and Acero and an independent Amber Bar case are used to
+assess these changes. No autonomous release gate is opened by unit tests.
+
+The Alchemist v3.58 development replay used twelve source requests and eight
+model calls in 311 seconds. Its review draft contains the literal lunch menu
+with the stated Monday-Friday 11:30-13:30 schedule, three named surprise
+menus with the two-person whole-table prerequisite, and four current food
+items from the operator's autumn PDF. `Herbst` and PDF price labels no longer
+appear as offers. This is a tuned rerun of a failed blind case, not new
+independent accuracy evidence. The autumn dishes have no verified expiry date
+in the profile; a reviewer must resolve their seasonal validity before any
+catalog update.
+
+Amber Bar was frozen as an independent DRINKS case before any v3.58 model
+call. The end-to-end run took seven source requests, four model calls and
+233 seconds. It returned all six pre-recorded signature cocktails plus two
+more literal cocktails from the same first-party menu, with no wine vintage,
+ingredient or generic heading as an offer. Regular hours remained unresolved
+because the operator provides opening starts but no closing times. Two
+unnecessary external directories returned HTTP 403; they supplied no accepted
+facts. This is a narrow independent pass for drink offers and honest hours
+abstention, not evidence of autonomous parity across Spot types.
+
+Acero's v3.58 development replay still failed: it stopped after the homepage
+and returned only generic food classes. It held the correctly identified
+`Pasta Night` and `Sonntags-Brunch` because it could not represent their
+recurring weekday conditions. It proposed the homepage's Bistro hours without
+consulting a second official page to cross-check Tuesday-Thursday closing
+time. v3.59 retains literal weekday/daypart conditions as review-only
+offer details, types those named meal offers as DINNER and BRUNCH, and keeps
+discovery open after homepage-only food or hours evidence. Apparent source
+conflicts must be checked against current pages. These changes need an end-to-end replay;
+passing a synthetic regression is insufficient.
+
+The v3.59 Acero replay found the two named recurring meals with their
+weekday/daypart conditions. It still returned the homepage's 18:30 closing
+time: a second product page repeated the same site-wide hours header, and the
+crawl stopped before reading the official contact page. An older search-index
+copy of that page said 20:00, but fresh direct retrieval later said 18:30. It
+also labelled `Bio-Kaffee` and `Cioccolata Calda` as food. v3.60 requires a
+distinct contact/hours page or a third official page before treating a
+homepage schedule as cross-checked, prioritizes contact/hours links in that
+case, and recognizes these literal drink names. Acero remains a failed
+development case until the full v3.60 run verifies both corrections.
+
+The v3.60 Acero development replay reached the operator's contact page in
+four requests and five model calls (382 seconds). It retained Pasta Night on
+Friday/Saturday evenings and Sonntags-Brunch on Sunday, and typed Bio-Kaffee
+and Cioccolata Calda as drinks. Its Tuesday-Thursday 18:30 Bistro close is
+consistent with fresh direct retrieval of the homepage, contact and shop
+pages on 21 October. The older 20:00 conflict came from stale indexed results;
+the pre-run reference for that criterion cannot score current model accuracy.
+Generic food classes still dominate the partial profile, so Acero remains a
+development case rather than parity evidence. Future references must be
+frozen from fresh page bytes, not search-result snippets.
+
+The independent v3.60 Restaurant Stucki case used a fresh authenticated
+export and freshly checked operator-page bytes before the model ran. It
+correctly returned no active menu or regular hours for the restaurant, which
+the operator says has been closed for renovation since 28 September 2026.
+However, it took twelve source requests and seven model calls, including
+pre-closure menu PDFs and unsupported press ZIP files. This is a narrow
+false-assertion pass and a source-planning failure. v3.61 now recognizes an
+exact current whole-venue closure only when the first-party source matches
+the stored venue name and street address, the literal closure start date is
+not in the future, and the source text/hash match. It keeps affected profile,
+offering and hours fields unresolved with the closure citation and stops
+menu discovery when only those fields were requested. The World contract has
+no dedicated temporary-closure claim here, so the reason is review evidence,
+not a canonical closed-state write. This development retest must be measured
+separately; it does not turn the tuned case into another blind pass.
+
+The v3.61 Stucki development replay, using the same export and current
+first-party contact page, stopped after one request in 645 ms with zero model
+calls and zero source failures. Both requested fields remained unresolved with
+the exact renovation-closure sentence and source hash in review evidence.
+Neither the old summer menu nor ZIP archives were fetched. This verifies the
+specific safety and efficiency repair on an already seen case; a new closed
+venue and broader open-venue cohort are still needed before autonomous use.
 
 On 21 October 2026, a previously untouched Odelya Hotel run against a
 pre-recorded official-source reference failed: it found public phone and email,
@@ -75,7 +173,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.57
+## Active architecture: Research v3.61
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,

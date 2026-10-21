@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,structuredRoomLeads,addStructuredRoomReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead,chainBranchCityPath} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,currentVenueClosure,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,structuredRoomLeads,addStructuredRoomReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead,chainBranchCityPath} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverDelegatedExperienceLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {agreeingPricedRows,auditMenuImages} from '../src/nuknuk-menu-media.mjs';
 import {parseMenuVisionRows,corroborateMenuVisionRows} from '../src/nuknuk-menu-vision.mjs';
@@ -45,6 +45,123 @@ test('observed official PDF rows replace generic website food claims with cited 
  assert.ok(result.value.offers.some(offer=>offer.name==='Espresso Martini'&&offer.kind==='DRINKS'));
  assert.ok(!result.value.offers.some(offer=>offer.name==='Craft Beer'));
  assert.ok(result.value.offers.every(offer=>offer.prices.length===0));
+});
+test('Swiss-priced PDF dishes survive while season-year cover titles do not become offers',()=>{
+ const text='LABORJOURNAL\nHerbst 26\fgeerntet / harvested\nKürbissalat, pumpkin\t15.-\nbirne, feta, walnuss\nSprossensalat, sproutsalad 15.-\napfel-basilikum-dressing\ngeschmort / braised\nGemüse-Tajine\t16.-\ntomaten, aprikosen, ras el hanout, kichererbsen';
+ const pdf={...source(text),url:'https://example.org/wp-content/uploads/2026/09/herbst26.pdf',format:'PDF_TEXT',layoutReviewRequired:true,discoveredOn:'https://example.org/menue/'};
+ const leads=structuredMenuLeads([pdf]);
+ assert.deepEqual(leads.map(lead=>lead.name),['Kürbissalat','Sprossensalat','Gemüse-Tajine']);
+ assert.ok(leads.every(lead=>lead.kind==='GASTRONOMY'&&lead.citation.layoutReviewRequired));
+});
+test('priced surprise menus retain their minimum-party rule in the review draft',()=>{
+ const text='House Share Menu\n3-Gang Surprise Menu\nzum Teilen\n69.-/Person\nab 2 Personen nur ganze Tische\ngeerntet / harvested\nKürbissalat, pumpkin 15.-\nRandensuppe, beetroot 15.-\nGemüse-Tajine 16.-\nHirschragout 19.-';
+ const pdf={...source(text),url:'https://example.org/menus/autumn26.pdf',format:'PDF_TEXT',layoutReviewRequired:true,discoveredOn:'https://example.org/menue/'};
+ const leads=structuredMenuLeads([pdf]);
+ const menu=leads.find(lead=>lead.name==='House Share Menu');
+ assert.equal(menu?.section,'TASTING_MENU');
+ assert.equal(menu?.prerequisite,'ab 2 Personen nur ganze Tische');
+ const result=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'},{...field('experience.profile'),profileCategory:'EAT'},[pdf]);
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.equal(result.value.offers.find(offer=>offer.name==='House Share Menu')?.properties[0].value,'ab 2 Personen nur ganze Tische');
+ assert.ok(!result.value.offers.some(offer=>offer.name==='geerntet / harvested'));
+});
+test('a directly adjacent weekday lunch restriction becomes a bounded offer schedule',()=>{
+ const quote='Alchemist Lunch Sharefood Menu\n\nUnser Wochenmenu beinhaltet wechselnde Gerichte zum Teilen.';
+ const condition='Montag bis Freitag von 11.30 bis 13.30 (letzte Bestellung)';
+ const text=`Mittagsangebot\n\n${quote}\n\n22.-/pro Person inkl. Wasser\n\n${condition}\n\nAbendkarte\n\nAndere Gerichte`;
+ const s={...source(text),url:'https://example.org/menue/',headings:[{level:2,text:'Mittagsangebot',offset:0},{level:2,text:'Abendkarte',offset:text.indexOf('Abendkarte')}]};
+ const target={...spot,name:'Alchemist',existingValues:{...spot.existingValues,'classification.primary_category':{value:'EAT'}}};
+ const accepted=ledger([fact('experience.profile','Alchemist Lunch Sharefood Menu',quote,{offerKind:'LUNCH',subject:'OFFER',subjectLabel:'Alchemist Lunch Sharefood Menu',condition})],s);
+ const [result]=projectEvidenceLedger({spot:target,fields:[{...field('experience.profile'),profileCategory:'EAT'}],facts:accepted,sources:[s],validateValue:validateAuthoringSubmission});
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.deepEqual(result.value.offers[0].schedule,[1,2,3,4,5].map(weekday=>({weekday,start:'11:30',end:'13:30'})));
+ const unrelatedText=text.replace(condition,'Abendkarte\n\n'+condition);
+ const unrelated={...s,text:unrelatedText,hash:createHash('sha256').update(unrelatedText).digest('hex'),headings:[{level:2,text:'Mittagsangebot',offset:0},{level:2,text:'Abendkarte',offset:unrelatedText.indexOf('Abendkarte')}]};
+ const [blocked]=projectEvidenceLedger({spot:target,fields:[{...field('experience.profile'),profileCategory:'EAT'}],facts:ledger([fact('experience.profile','Alchemist Lunch Sharefood Menu',quote,{offerKind:'LUNCH',subject:'OFFER',subjectLabel:'Alchemist Lunch Sharefood Menu',condition})],unrelated),sources:[unrelated],validateValue:validateAuthoringSubmission});
+ assert.equal(blocked.status,'UNRESOLVED');
+});
+test('accepted menu evidence does not stop discovery while opening hours remain open',()=>{
+ const links=[{url:'https://example.org/about/',depth:1,topics:['about'],label:'Über uns'},{url:'https://example.org/shop/',depth:1,topics:[],label:'Shop'}];
+ const accepted=[{...fact('experience.profile','Named menu','Named menu with context',{offerKind:'GASTRONOMY'}),state:'ACCEPTED'}];
+ const ranked=rankResearchFrontier(links,accepted,[field('hours.regular'),{...field('experience.profile'),profileCategory:'EAT'}]);
+ assert.ok(ranked.some(link=>link.url==='https://example.org/about/'));
+ assert.ok(ranked.some(link=>link.url==='https://example.org/shop/'));
+});
+test('seasonal kiosk prose does not invalidate a separate explicit bistro hours section',()=>{
+ const quote='Dienstag\n11:00-18:30';
+ const text=`Öffnungszeiten Bistro\n\n${quote}\n\nStandorte\n\nBistro an der Teststrasse 1\n\nUnser Kiosk öffnet in der Saison April-September nur bei gutem Wetter.`;
+ const s={...source(text),seasonalSchedule:true,headings:[{level:2,text:'Öffnungszeiten Bistro',offset:0},{level:2,text:'Standorte',offset:text.indexOf('Standorte')}]};
+ const [result]=projectEvidenceLedger({spot:{...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'COFFEE_DAYTIME'}}},fields:[field('hours.regular')],facts:ledger([fact('hours.regular',quote,quote)],s),sources:[s],validateValue:validateAuthoringSubmission});
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ const seasonalText=`Öffnungszeiten Bistro\n\n${quote}\n\nSaison April-September nur bei gutem Wetter`;
+ const seasonal={...s,text:seasonalText,hash:createHash('sha256').update(seasonalText).digest('hex'),headings:[{level:2,text:'Öffnungszeiten Bistro',offset:0}]};
+ const [held]=projectEvidenceLedger({spot:{...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'COFFEE_DAYTIME'}}},fields:[field('hours.regular')],facts:ledger([fact('hours.regular',quote,quote)],seasonal),sources:[seasonal],validateValue:validateAuthoringSubmission});
+ assert.equal(held.status,'UNRESOLVED');
+});
+test('a generic coffee-drink class is not a named café offer',()=>{
+ const quote='Wir servieren deliziöse Kaffeegetränke und hausgemachte Kuchen in unserem Bistro.';
+ const s={...source(quote),headings:[{level:1,text:'Acero',offset:0}]};
+ const target={...spot,name:'Acero',existingValues:{...spot.existingValues,'classification.primary_category':{value:'COFFEE_DAYTIME'}}};
+ const [result]=projectEvidenceLedger({spot:target,fields:[{...field('experience.profile'),profileCategory:'COFFEE_DAYTIME'}],facts:ledger([fact('experience.profile','deliziöse Kaffeegetränke',quote,{subject:'OFFER',subjectLabel:'deliziöse Kaffeegetränke',offerKind:'GASTRONOMY'})],s),sources:[s],validateValue:validateAuthoringSubmission});
+ assert.equal(result.status,'UNRESOLVED');
+});
+test('literal named coffee and hot chocolate remain drinks even when the model calls them food',()=>{
+ const quote='Wir servieren Bio-Kaffee und Cioccolata Calda.';
+ const s=source(quote);
+ const checked=ledger([
+  fact('experience.profile','Bio-Kaffee',quote,{subject:'OFFER',subjectLabel:'Bio-Kaffee',offerKind:'GASTRONOMY'}),
+  fact('experience.profile','Cioccolata Calda',quote,{subject:'OFFER',subjectLabel:'Cioccolata Calda',offerKind:'GASTRONOMY'})
+ ],s);
+ assert.deepEqual(checked.map(item=>item.offerKind),['DRINKS','DRINKS']);
+});
+test('recurring café meal names retain literal weekdays and dayparts for review',()=>{
+ const quote='Freitag und Samstag- Abend heisst es: Pasta Night! Und am Sonntag erwartet euch ein Buffet zum Sonntags-Brunch.';
+ const s=source(quote);
+ const target={...spot,name:'Acero',existingValues:{...spot.existingValues,'classification.primary_category':{value:'COFFEE_DAYTIME'}}};
+ const accepted=ledger([
+  fact('experience.profile','Pasta Night',quote,{subject:'OFFER',subjectLabel:'Pasta Night',offerKind:'GASTRONOMY',condition:'Freitag und Samstag- Abend'}),
+  fact('experience.profile','Sonntags-Brunch',quote,{subject:'OFFER',subjectLabel:'Sonntags-Brunch',offerKind:'GASTRONOMY',condition:'am Sonntag'})
+ ],s);
+ const [result]=projectEvidenceLedger({spot:target,fields:[{...field('experience.profile'),profileCategory:'COFFEE_DAYTIME'}],facts:accepted,sources:[s],validateValue:validateAuthoringSubmission});
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.deepEqual(result.value.offers.map(offer=>[offer.name,offer.kind]),[['Pasta Night','DINNER'],['Sonntags-Brunch','BRUNCH']]);
+ assert.deepEqual(result.value.offers[0].properties[0].conditions,{weekdays:[5,6],dayparts:['EVENING'],event:null,validFrom:null,validUntil:null});
+ assert.deepEqual(result.value.offers[1].properties[0].conditions,{weekdays:[7],dayparts:[],event:null,validFrom:null,validUntil:null});
+ assert.ok(result.value.offers.every(offer=>offer.schedule.length===0));
+ const wrong=ledger([fact('experience.profile','Pasta Night',quote,{subject:'OFFER',subjectLabel:'Pasta Night',offerKind:'GASTRONOMY',condition:'am Sonntag'})],s);
+ const [held]=projectEvidenceLedger({spot:target,fields:[{...field('experience.profile'),profileCategory:'COFFEE_DAYTIME'}],facts:wrong,sources:[s],validateValue:validateAuthoringSubmission});
+ assert.equal(held.status,'UNRESOLVED');
+});
+test('homepage hours need a second official source before discovery closes',()=>{
+ const first={...source('Öffnungszeiten Bistro\nDienstag 11:00-18:30'),headings:[{level:2,text:'Öffnungszeiten Bistro',offset:0}]};
+ const accepted=[{...fact('hours.regular','Dienstag 11:00-18:30','Dienstag 11:00-18:30'),id:'f0',sourceId:first.id,state:'ACCEPTED'}];
+ const links=[{url:'https://example.org/kontakt.html',depth:1,topics:['contact']},{url:'https://example.org/shop/glace.html',depth:1,topics:['menu']}];
+ assert.equal(rankResearchFrontier(links,accepted,[field('hours.regular')],[first])[0].url,'https://example.org/kontakt.html');
+ const second={...source('Öffnungszeiten Bistro\nDienstag 11:00-20:00','s2'),url:'https://example.org/kontakt.html'};
+ const other=[...accepted,{...fact('hours.regular','Dienstag 11:00-20:00','Dienstag 11:00-20:00'),id:'f1',sourceId:second.id,state:'ACCEPTED'}];
+ assert.deepEqual(rankResearchFrontier(links,other,[field('hours.regular')],[first,second]),[]);
+ const menu={...source('Öffnungszeiten Bistro\nDienstag 11:00-18:30','s3'),url:'https://example.org/getraenke.html'};
+ const repeated=[...accepted,{...fact('hours.regular','Dienstag 11:00-18:30','Dienstag 11:00-18:30'),id:'f2',sourceId:menu.id,state:'ACCEPTED'}];
+ assert.equal(rankResearchFrontier(links,repeated,[field('hours.regular')],[first,menu])[0].url,'https://example.org/kontakt.html');
+});
+test('current named venue closure blocks old menus and other-branch hours',async()=>{
+ const target={...spot,name:'Restaurant Stucki - Tanja Grandits',existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/kontakt/'},'location.address_line1':{value:'Bruderholzallee 42'}}};
+ const text='Restaurant Stucki\nBruderholzallee 42\nDas Restaurant Stucki ist seit dem 28. September 2020 wegen unseres Umbaus geschlossen.\nTanja am Rhy startet andernorts.\nShop ava Dienstag 10:00-18:30.';
+ const s={...source(text),url:'https://example.org/kontakt/'};
+ const closure=currentVenueClosure(target,[s],new Date('2026-10-21T00:00:00Z'));
+ assert.equal(closure?.evidence,'Das Restaurant Stucki ist seit dem 28. September 2020 wegen unseres Umbaus geschlossen.');
+ const oldMenu={...source('Spätsommerkarte\nRande 20.-','s2'),url:'https://example.org/menu/'};
+ const accepted=[{...fact('experience.profile','Rande','Rande 20.-',{offerKind:'GASTRONOMY'}),id:'f0',sourceId:'s2',state:'ACCEPTED'}];
+ const results=projectEvidenceLedger({spot:target,fields:[{...field('experience.profile'),profileCategory:'EAT'},field('hours.regular')],facts:accepted,sources:[s,oldMenu],validateValue:validateAuthoringSubmission});
+ assert.deepEqual(results.map(item=>[item.status,item.reason]),[['UNRESOLVED','VENUE_TEMPORARILY_CLOSED'],['UNRESOLVED','VENUE_TEMPORARILY_CLOSED']]);
+ let fetched=0;
+ const body='<main><h1>Restaurant Stucki</h1><p>Bruderholzallee 42</p><p>Das Restaurant Stucki ist seit dem 28. September 2020 wegen unseres Umbaus geschlossen.</p><a href="/speisekarte/">Speisekarte</a></main>';
+ const run=await researchSpotV2({spot:target,fields:[{...field('experience.profile'),profileCategory:'EAT'},field('hours.regular')],modelPath:'/tmp/'+NUKNUK_MODEL_REVISION,sources:['https://example.org/kontakt/'],maxRequests:4,maxModelCalls:8,discoverLinks:true},{validateValue:validateAuthoringSubmission,fetchPage:async url=>{fetched++;return {url,contentType:'text/html',body,observedAt:new Date().toISOString()};},modelFetch:async()=>{throw new Error('model_must_not_run_for_current_closure');}});
+ assert.equal(fetched,1);assert.equal(run.modelCalls,0);assert.equal(run.stopReason,'VENUE_TEMPORARILY_CLOSED');
+ assert.ok(run.results.every(item=>item.status==='UNRESOLVED'&&item.reason==='VENUE_TEMPORARILY_CLOSED'));
+ const future=text.replace('2020','2027');const futureSource={...source(future),url:s.url};
+ assert.equal(currentVenueClosure(target,[futureSource],new Date('2026-10-21T00:00:00Z')),null);
+ assert.equal(currentVenueClosure({...target,name:'Restaurant Elsewhere'},[s],new Date('2026-10-21T00:00:00Z')),null);
 });
 test('flat CMS navigation promotes observed dinner, info and encoded about links',()=>{
  const page={url:'https://example.org/index.html',contentType:'text/html',body:'<nav><a href="dinner.html">Dinner</a><a href="info.html">Info</a><a href="uumlber-uns.html">Mehr &uuml;ber uns</a><a href="speisekarte-download.html">Speisekarte download</a><a href="reservation.html">Reservation</a></nav>'};

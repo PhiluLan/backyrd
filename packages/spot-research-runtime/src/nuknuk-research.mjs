@@ -25,10 +25,10 @@ const evidenceSchema = {quote:textSchema,sourceId:{type:'string',maxLength:20}};
 function offerKinds(field) {
   const all=field.valueSchema.properties.offers.items.properties.kind.enum;
   if(field.profileCategory==='STAY')return ['OVERNIGHT_STAY'];
-  if(field.profileCategory==='EAT')return ['GASTRONOMY'];
+  if(field.profileCategory==='EAT')return ['GASTRONOMY','LUNCH','DINNER','BRUNCH','DRINKS'];
   if(field.profileCategory==='DRINKS')return ['DRINKS'];
   if(field.profileCategory==='CULTURE_ARTS')return ['VISIT','GUIDED_TOUR','SELF_GUIDED_VISIT','WORKSHOP','PERMANENT_EXHIBITION','SPECIAL_EXHIBITION'];
-  if(field.profileCategory==='COFFEE_DAYTIME')return ['GASTRONOMY','DRINKS'];
+  if(field.profileCategory==='COFFEE_DAYTIME')return ['GASTRONOMY','CAFE','BRUNCH','LUNCH','DINNER','DRINKS'];
   return all;
 }
 export function imageOfferCandidates(field,sources) {

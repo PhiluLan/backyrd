@@ -278,7 +278,7 @@ test('cafe research requests coffees and pastries instead of named activities',a
   const request=buildNuknukResearchRequest({spot,field:f,sources,modelPath});
   assert.match(request.messages[0].content,/coffees, drinks and baked goods/);
   assert.doesNotMatch(request.messages[0].content,/named activities/);
-  assert.deepEqual(request.response_format.json_schema.schema.properties.offers.items.properties.kind.enum,['GASTRONOMY','DRINKS']);
+  assert.deepEqual(request.response_format.json_schema.schema.properties.offers.items.properties.kind.enum,['GASTRONOMY','CAFE','BRUNCH','LUNCH','DINNER','DRINKS']);
 });
 test('navigation menu icons are never treated as menu documents',()=>{
   assert.deepEqual(discoverMenuImages({url:'https://example.org',body:'<img src="/menu-toggle.png"><img src="/menu.svg"><img src="/hamburger-menu.jpg"><img src="/speisekarte.jpg" alt="Speisekarte">'}),[{url:'https://example.org/speisekarte.jpg',discoveredOn:'https://example.org'}]);
