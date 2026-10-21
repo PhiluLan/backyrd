@@ -125,3 +125,54 @@ committed evidence. A first race-fixture attempt also exposed a collision with a
 existing synthetic guest-key hash; only the owned fixtures were cleaned, new keys
 were namespaced and the actual race suite was then rerun successfully. No failed
 attempt or evidence-only resume is represented as the final execution proof.
+
+## Console editor candidate (migration 216)
+
+The subsequent Console increment advertises `arrival_limits` only after the
+central contract exists. Owner/Manager find **Gästeandrang steuern** under
+**Einrichtung**. Host/Viewer cannot open the editor. The loaded policy remains
+separate from the local draft. A nullable disabled limit is explicit; numeric
+input stays a string while editing so an empty value does not turn into zero.
+The form requires a whole number from 1 to 1000 before enabling a write.
+
+Each save freezes the actor-bound nonce/revision/window/maximum. It first asks
+for the exact original outcome, dispatches only if absent, and preserves the
+same request after an uncertain dispatched response. Pre-dispatch read failure
+leaves the draft editable. A definite revision conflict requires an explicit
+current-state reload; it cannot blindly retry using a new revision. A known
+save followed by a failed current read requires refresh rather than another
+write. Even a recovered original outcome is followed by a fresh policy read,
+so another Manager's newer rule is displayed instead of being overwritten or
+misrepresented as the recovered value.
+
+Offline input is retained, save is disabled, and unsaved/unknown close states
+explain what is being discarded locally. No browser storage persists the draft
+or nonce. Closing an unknown request therefore requires reopening and reviewing
+the current rule; cross-restart exact-intent recovery remains open. Account and
+mount guards prevent late results/denials from entering a replacement context.
+Existing permission-only polling continues while the panel is open and closes
+it on role change/revocation. All new API responses validate restaurant, revision,
+window and explicit null/range semantics before reaching the editor.
+
+Migration-216 canonical clean boot passed all **33 Booking SQL suites**, baseline
+and concurrency checks (including the nine pacing races), 20 private-drift cases,
+lineage, schema/ACL and DB lint. Its input-bound receipt is
+`3bcd1d20e2b6afe2326031d5d71d92a05395580d44f8f764a57fe116149ce9d8`.
+The 1124-fact private fingerprint remains unchanged; its inputs now bind migration
+216. Actual PostgreSQL snapshot, initial policy, saved policy and exact recovery
+JSON passed the actual Web parsers. The isolated databases/volumes were removed.
+
+All **150 Web contract cases** passed, including four new policy/intent/RPC
+scope/range/recovery cases. The **18 targeted browser journeys** passed against
+the final Webpack production build: numeric deletion/zero validation, explicit
+disable, dirty close, lost response and newer Manager rule, CAS/reload,
+malformed/network reads, pre-dispatch recovery failure, known commit with failed
+refresh, offline retention, Manager-only entry, role downgrade, backend denial,
+late account data/denial, capability gating, unknown close/reopen and logout.
+The 320-pixel phone view passed automated accessibility and no-document-overflow
+checks and was visually inspected. Type checking and the supported Webpack build
+passed; lint has zero errors and 13 existing warnings. These are local synthetic
+results, not physical-device or restaurant operating acceptance.
+The full **270 Booking browser cases** also passed against that final production
+build after targeted and visual review. Production migration/activation and the
+actual restaurant/device pilot remain separate acceptance steps.

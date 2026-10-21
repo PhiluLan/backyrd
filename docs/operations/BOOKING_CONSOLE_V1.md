@@ -1367,3 +1367,8 @@ sender, discovery/ranking signal or commercial entitlement changes.
 ## Restaurant-wide arrival pacing foundation (migration 215 candidate)
 
 The central optional guest cap now filters existing slot previews and protects actual parent reservation writes across all services and channels. Fixed 15/30/60-minute windows, original retries, lower-limit preservation, current actor/Owner/Safety and concurrent policy/allocation semantics are documented in [arrival limits](BOOKING_ARRIVAL_LIMITS.md). This backend foundation advertises no new snapshot capability: the Manager editor, recovery flow and operational review still need Console implementation and acceptance before presenting this as a usable Console feature. Production and guest intake remain unchanged.
+
+
+## Arrival-limit Console candidate (migration 216)
+
+Owner/Manager can open Gästeandrang under Einrichtung when `arrival_limits` is advertised. The editor separates the loaded policy from its draft, retains empty numeric input, handles explicit disable, preserves offline/unsaved input and freezes one exact actor-bound intent after an uncertain write. Pre-dispatch recovery failures remain editable; CAS conflicts require explicit reload. A saved original outcome is followed by a fresh current read before showing the effective configuration. Late context/mount replies are ignored and existing permission polling closes a downgraded editor. Current-window workload review, cross-restart exact-intent recovery, populated restoration of arrival policy/receipt rows and actual device/restaurant acceptance remain open. See [arrival limits](BOOKING_ARRIVAL_LIMITS.md).

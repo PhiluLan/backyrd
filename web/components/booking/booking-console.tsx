@@ -15,6 +15,7 @@ import { ServiceHoursEditor, hoursLabel } from "./service-hours";
 import { TableCombinations } from "./table-combinations";
 import { GuestCards, type GuestContactCopy } from "./guest-cards";
 import { ReservationSearch } from "./reservation-search";
+import { ArrivalLimitEditor } from "./arrival-limit";
 import { ServiceReport } from "./service-report";
 import { ServiceOverruns } from "./service-overruns";
 import { WalkIn } from "./walk-in";
@@ -66,6 +67,7 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
   const [uncertainWrite, setUncertainWrite] = useState(false);
   const [guestCardsOpen, setGuestCardsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [arrivalLimitOpen, setArrivalLimitOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchTarget = useRef<{ spotId: string; date: string; id: string; generation: number } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
     let mounted = true;
     const request = ++entryGeneration.current;
     function clearPrivateState() {
-      generation.current += 1; inFlight.current = false; searchTarget.current = null; setSpots([]); setSpotId(""); setSnapshotState(null); setEditor(null); setSelectedId(null); setSearchOpen(false); setReportOpen(false); setGuestCardsOpen(false); setWalkInOpen(false); setPlanOpen(false); setClosureEditor(null); setHoursEditor(null); setCombinationsOpen(false); setPublicOpen(false); setTeamOpen(false); setTeamReview(false); setAccessWarning(false); setBookPeriod("day"); setUncertainWrite(false); setSyncFailed(false); followOperatingDate.current = false;
+      generation.current += 1; inFlight.current = false; searchTarget.current = null; setSpots([]); setSpotId(""); setSnapshotState(null); setEditor(null); setSelectedId(null); setSearchOpen(false); setReportOpen(false); setArrivalLimitOpen(false); setGuestCardsOpen(false); setWalkInOpen(false); setPlanOpen(false); setClosureEditor(null); setHoursEditor(null); setCombinationsOpen(false); setPublicOpen(false); setTeamOpen(false); setTeamReview(false); setAccessWarning(false); setBookPeriod("day"); setUncertainWrite(false); setSyncFailed(false); followOperatingDate.current = false;
       setQuery(""); setService(""); setArea(""); setStatus("all"); setTime(""); setError(null); setNotice(null); setDirty(false); setBusy(false); setLoading(false); createdNotice.current = null;
     }
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -129,7 +131,7 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
 
   useEffect(() => {
     setSnapshotState(null); setSyncFailed(false); setDirty(false); setNotice(createdNotice.current); createdNotice.current = null;
-    setSelectedId(null); setSearchOpen(false); setReportOpen(false); setGuestCardsOpen(false); setEditor(null); setWalkInOpen(false); setPlanOpen(false); setClosureEditor(null); setHoursEditor(null); setCombinationsOpen(false); setPublicOpen(false); setTeamOpen(false); void reload();
+    setSelectedId(null); setSearchOpen(false); setReportOpen(false); setArrivalLimitOpen(false); setGuestCardsOpen(false); setEditor(null); setWalkInOpen(false); setPlanOpen(false); setClosureEditor(null); setHoursEditor(null); setCombinationsOpen(false); setPublicOpen(false); setTeamOpen(false); void reload();
   }, [reload]);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => { if (dirty) event.preventDefault(); };
@@ -144,12 +146,12 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
   }, []);
   const denyAccess = useCallback(() => {
     generation.current += 1; entryGeneration.current += 1; inFlight.current = false; searchTarget.current = null;
-    setSnapshotState(null); setEditor(null); setSelectedId(null); setSearchOpen(false); setReportOpen(false); setGuestCardsOpen(false); setWalkInOpen(false); setPlanOpen(false); setClosureEditor(null); setHoursEditor(null); setCombinationsOpen(false); setPublicOpen(false); setTeamOpen(false); setTeamReview(false);
+    setSnapshotState(null); setEditor(null); setSelectedId(null); setSearchOpen(false); setReportOpen(false); setArrivalLimitOpen(false); setGuestCardsOpen(false); setWalkInOpen(false); setPlanOpen(false); setClosureEditor(null); setHoursEditor(null); setCombinationsOpen(false); setPublicOpen(false); setTeamOpen(false); setTeamReview(false);
     setLoading(false); setBusy(false); setDirty(false); setNotice(null);
     setError("Der Betreiberzugriff ist nicht mehr verfügbar. Prüfe deinen Kontostatus oder melde dich erneut an.");
   }, []);
   const receivedAt = snapshotState?.spotId === spotId && snapshotState.date === date ? snapshotState.receivedAt : null;
-  const canRefresh = entry === "ready" && !!receivedAt && online && !loading && !busy && !dirty && view !== "setup" && !editor && !walkInOpen && !planOpen && !closureEditor && !hoursEditor && !combinationsOpen && !teamOpen && !publicOpen && !searchOpen && !reportOpen && !guestCardsOpen && !selectedId && !error;
+  const canRefresh = entry === "ready" && !!receivedAt && online && !loading && !busy && !dirty && view !== "setup" && !editor && !walkInOpen && !planOpen && !closureEditor && !hoursEditor && !combinationsOpen && !teamOpen && !publicOpen && !searchOpen && !reportOpen && !arrivalLimitOpen && !guestCardsOpen && !selectedId && !error;
   useEffect(() => {
     if (!canRefresh) return;
     let active = true;
@@ -190,7 +192,7 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
         setAccessWarning(false);
         if (next.role !== access.role) {
           generation.current += 1; entryGeneration.current += 1; inFlight.current = false; searchTarget.current = null;
-          setEditor(null); setSelectedId(null); setSearchOpen(false); setReportOpen(false); setGuestCardsOpen(false); setPlanOpen(false); setClosureEditor(null); setHoursEditor(null); setCombinationsOpen(false); setWalkInOpen(false); setPublicOpen(false); setTeamOpen(false); setTeamReview(false); setDirty(false); setBusy(false); setSnapshotState(null); setView("book");
+          setEditor(null); setSelectedId(null); setSearchOpen(false); setReportOpen(false); setArrivalLimitOpen(false); setGuestCardsOpen(false); setPlanOpen(false); setClosureEditor(null); setHoursEditor(null); setCombinationsOpen(false); setWalkInOpen(false); setPublicOpen(false); setTeamOpen(false); setTeamReview(false); setDirty(false); setBusy(false); setSnapshotState(null); setView("book");
           createdNotice.current = null; followOperatingDate.current = false;
           setNotice("Deine Teamrechte wurden geändert. Offene Eingaben wurden geschlossen; der aktuelle Stand wird neu geladen."); await reload();
         }
@@ -248,7 +250,7 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
                   if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return;
                   const targetDate = restaurantDate(new Date(row.starts_at));
                   searchTarget.current = { spotId, date: targetDate, id: row.id, generation: generation.current + 1 };
-                  setSearchOpen(false); setReportOpen(false); setGuestCardsOpen(false); setSelectedId(null); clearFilters(); setView("book"); setBookPeriod("day"); setNotice(null);
+                  setSearchOpen(false); setReportOpen(false); setArrivalLimitOpen(false); setGuestCardsOpen(false); setSelectedId(null); clearFilters(); setView("book"); setBookPeriod("day"); setNotice(null);
                   if (targetDate !== date) setDate(targetDate); else void reload();
   }
   // Native modal dialogs make the workspace inert while preserving the
@@ -264,7 +266,7 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
   function clearFilters() { setService(""); setArea(""); setStatus("all"); setQuery(""); }
   function reviewUncertain(targetDate: string = date) {
     if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return;
-    setEditor(null); setSelectedId(null); setSearchOpen(false); setReportOpen(false); setGuestCardsOpen(false); setUncertainWrite(true); setNotice(null); clearFilters(); setView("book");
+    setEditor(null); setSelectedId(null); setSearchOpen(false); setReportOpen(false); setArrivalLimitOpen(false); setGuestCardsOpen(false); setUncertainWrite(true); setNotice(null); clearFilters(); setView("book");
     if (targetDate !== date) setDate(targetDate); else void reload();
   }
   async function savedBooking(booking: CreatedBooking, message: string) {
@@ -294,7 +296,7 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
               {uncertainWrite && <section className={styles.error} role="alert"><p>Eine Buchungsanfrage oder Änderung kann bereits gespeichert sein. Prüfe Buchungen, Tischkombinationen, Sperren und Sonderzeiten an den betroffenen Tagen, bei Nachtservices auch den Folgetag, bevor du erneut erfasst oder änderst.</p><div className={styles.actions}><button className={styles.secondary} disabled={navigationDisabled} onClick={() => void reload()}>Stand aktualisieren</button><button className={styles.secondary} onClick={() => setUncertainWrite(false)}>Stand geprüft</button></div></section>}
               {(loading || waitingForSnapshot) && <p role="status" className={styles.help}>Daten werden geladen …</p>}
               {snapshot && <>
-                <div hidden={view !== "setup"}>{access.can_manage && <SetupForm key={spotId + ":" + (snapshot.settings?.revision ?? "new")} snapshot={snapshot} busy={busy || loading} onSave={save} onDirty={setDirty} />}</div>
+                <div hidden={view !== "setup"}>{snapshot.capabilities?.arrival_limits && access.can_manage && <button type="button" className={styles.secondary} disabled={navigationDisabled || writeUnavailable || !snapshot.settings} onClick={() => setArrivalLimitOpen(true)}>Gästeandrang steuern</button>}{access.can_manage && <SetupForm key={spotId + ":" + (snapshot.settings?.revision ?? "new")} snapshot={snapshot} busy={busy || loading} onSave={save} onDirty={setDirty} />}</div>
                 <div hidden={view === "setup"}>
                   <section className={styles.serviceBar} aria-label="Tageskontext">
                     <div className={styles.dateNavigation}><button className={styles.secondary} aria-label={isWeek ? "Vorherige Woche" : "Vorheriger Tag"} disabled={navigationDisabled} onClick={() => setDate(shiftDate(date, isWeek ? -7 : -1))}>←</button><label>Datum · Europe/Zurich<input type="date" required value={date} disabled={navigationDisabled} onChange={(event) => { if (event.target.value) setDate(event.target.value); }} /></label><button className={styles.secondary} aria-label={isWeek ? "Nächste Woche" : "Nächster Tag"} disabled={navigationDisabled} onClick={() => setDate(shiftDate(date, isWeek ? 7 : 1))}>→</button>{date !== restaurantDate() && <button className={styles.secondary} disabled={navigationDisabled} onClick={() => setDate(restaurantDate())}>Heute</button>}</div>
@@ -341,6 +343,7 @@ export function BookingConsole({ initialSpotId }: { initialSpotId?: string } = {
                 {planOpen && access.can_manage && <TablePlanEditor spotId={spotId} snapshot={snapshot} initialArea={validArea} onBusy={actorBusy} onClose={() => { setPlanOpen(false); void reload(); }} onSaved={async () => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setPlanOpen(false); setNotice("Der Tischplan wurde gespeichert."); await reload(); }} />}
                 {editor && access.can_write && <NewReservation actorId={currentActor ?? ""} key={`${spotId}:${currentActor}:${currentEntry}`} online={online} isCurrent={isGuestContextCurrent} onDenied={guestAccessDenied} initialGuest={editor.guest} spotId={spotId} date={date} serviceId={validService} areaId={validArea} tableId={editor.tableId} time={time} snapshot={snapshot} onClose={(uncertain, date) => { if (uncertain) reviewUncertain(date); else setEditor(null); }} onBusy={actorBusy} onCreated={(booking) => savedBooking(booking, "Die Reservierung wurde gespeichert.")} />}
                 {walkInOpen && access.can_write && <WalkIn spotId={spotId} snapshot={snapshot} serviceId={validService} areaId={validArea} onBusy={actorBusy} onClose={(uncertain) => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setWalkInOpen(false); if (uncertain) { setUncertainWrite(true); setNotice(null); clearFilters(); setView("book"); followOperatingDate.current = true; void reload(); } }} onSaved={async (date, slot) => { if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return; setWalkInOpen(false); await savedBooking({ date, slot }, "Der Walk-in wurde erfasst."); }} />}
+                {arrivalLimitOpen && snapshot.capabilities?.arrival_limits && access.can_manage && <ArrivalLimitEditor key={`${spotId}:${currentActor}:${currentEntry}`} spotId={spotId} actorId={currentActor ?? ""} isCurrent={isGuestContextCurrent} online={online} onBusy={actorBusy} onDenied={guestAccessDenied} onClose={(uncertain,reviewed)=>{ if(!isGuestContextCurrent())return;setArrivalLimitOpen(false);if(uncertain)setNotice("Das Gäste-Limit kann bereits gespeichert sein. Öffne Gästeandrang erneut und prüfe den aktuellen Stand.");else if(reviewed)setNotice(null); }} />}
                 {reportOpen && snapshot.capabilities?.service_reports && <ServiceReport key={`${spotId}:${currentActor}:${currentEntry}`} spotId={spotId} date={date} serviceId={validService} services={snapshot.services} online={online} isCurrent={isGuestContextCurrent} onDenied={guestAccessDenied} onClose={() => setReportOpen(false)} />}
                 {guestCardsOpen && snapshot.capabilities?.guest_cards && <GuestCards historyEnabled={snapshot.capabilities?.guest_history === true} onReservation={openGuestReservation} key={`${spotId}:${currentActor}:${currentEntry}`} spotId={spotId} actorId={currentActor ?? ""} isCurrent={isGuestContextCurrent} online={online} access={access} canBook={access.can_write && !writeUnavailable && readyToBook && canCreate} onBusy={actorBusy} onDenied={guestAccessDenied} onClose={() => setGuestCardsOpen(false)} onUse={guest => {
                   if (currentActor !== actorId.current || currentEntry !== entryGeneration.current) return;
