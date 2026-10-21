@@ -32,6 +32,20 @@ test('official heading-paired menu names become price-free review leads with foo
  assert.ok(result.value.offers.every(offer=>offer.prices.length===0));
  assert.ok(result.citations.every(citation=>citation.layoutReviewRequired&&citation.sourceFormat==='HTML_MENU'&&citation.evidence.includes('CHF')));
 });
+test('observed official PDF rows replace generic website food claims with cited review leads',()=>{
+ const text='Bunt belegte Brote\nRÖSTI, PILZE, SCHNITTLAUCHMAYO 9.30\nRösti with mushrooms\nRANDE, APFEL, BAUMNÜSSE — 8.80\nEintopf 16 + Wienerli 4\nVegetable stew with Sausage + 4\nCocktails\nEspresso Martini 16\nWhiskey Sour 17\nmit Tonic & Soda 11\nWEISS 1DL / FLASCHE 7.5DL\nSauvignon Blanc 8.70 / 60';
+ const pdf={...source(text),url:'https://files.example.net/menu.pdf',format:'PDF_TEXT',layoutReviewRequired:true,discoveredOn:'https://example.org/das-angebot'};
+ const leads=structuredMenuLeads([pdf]);
+ assert.deepEqual(leads.map(lead=>[lead.name,lead.kind]),[['RÖSTI, PILZE, SCHNITTLAUCHMAYO','GASTRONOMY'],['RANDE, APFEL, BAUMNÜSSE','GASTRONOMY'],['Espresso Martini','DRINKS'],['Whiskey Sour','DRINKS']]);
+ assert.ok(leads.every(lead=>lead.citation.sourceFormat==='PDF_TEXT'&&lead.citation.discoveredOn==='https://example.org/das-angebot'&&lead.citation.layoutReviewRequired));
+ const generic={id:'offer_generic',kind:'GASTRONOMY',name:'Craft Beer',areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null};
+ const result=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'REQUIRES_REVIEW',value:{contractVersion:'backyrd.world-knowledge.experience-profile@1.0',category:'EAT',properties:[],areas:[],offers:[generic],reviewed:false},citations:[]},{...field('experience.profile'),profileCategory:'EAT'},[pdf]);
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.ok(result.value.offers.some(offer=>offer.name==='RÖSTI, PILZE, SCHNITTLAUCHMAYO'));
+ assert.ok(result.value.offers.some(offer=>offer.name==='Espresso Martini'&&offer.kind==='DRINKS'));
+ assert.ok(!result.value.offers.some(offer=>offer.name==='Craft Beer'));
+ assert.ok(result.value.offers.every(offer=>offer.prices.length===0));
+});
 test('flat CMS navigation promotes observed dinner, info and encoded about links',()=>{
  const page={url:'https://example.org/index.html',contentType:'text/html',body:'<nav><a href="dinner.html">Dinner</a><a href="info.html">Info</a><a href="uumlber-uns.html">Mehr &uuml;ber uns</a><a href="speisekarte-download.html">Speisekarte download</a><a href="reservation.html">Reservation</a></nav>'};
  const links=discoverResearchLinks(page);
@@ -176,6 +190,21 @@ test('a page-declared public JSON representation remains reachable at the crawl 
  });
  assert.ok(visited.includes(api),JSON.stringify(visited));
  assert.ok(report.sources.some(item=>item.url===api));
+});
+test('an official menu PDF is fetched as a bounded layout-review source',async()=>{
+ const pdf='https://example.org/_files/menu.pdf',cdn='https://files.example.net/assets/menu.pdf',venue={...spot,existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/'}}};
+ const requests=[];
+ const report=await researchSpotV2({...opts,spot:venue,fields:[field('experience.profile')],sources:['https://example.org/das-angebot'],maxRequests:2,maxModelCalls:4,maxDepth:2},{...deps,
+  fetchPage:async(url,options)=>{requests.push({url,options});return {url:url===pdf?cdn:url,...(url===pdf?{redirectedFrom:[url]}:{}),contentType:url===pdf?'application/pdf':'text/html',body:url===pdf?Buffer.from('%PDF-'): '<main><a href="/_files/menu.pdf">Menü</a></main>',observedAt:new Date().toISOString()};},
+  readPage:async(page,id)=>({...source(page.url===cdn?'RÖSTI, PILZE, SCHNITTLAUCHMAYO 9.30':'Menü',id),url:page.url,...(page.url===cdn?{format:'PDF_TEXT',layoutReviewRequired:true}:{})}),
+  modelFetch:modelFor(()=>[]),
+ });
+ assert.deepEqual(requests.map(item=>item.url),['https://example.org/das-angebot',pdf]);
+ assert.equal(requests[1].options.maxBytes,20000000);
+ assert.equal(requests[1].options.allowObservedPdfRedirect,true);
+ assert.equal(report.sources[1].url,cdn);
+ assert.equal(report.sources[1].discoveredOn,'https://example.org/das-angebot');
+ assert.equal(report.sources[1].layoutReviewRequired,true);
 });
 test('public JSON card links are same-site leads with visitor topics, never evidence by themselves',()=>{
  const body=JSON.stringify({repeatGrid:[{sqryCards:{InfoTitel_de:'Führungen',Link_de:'https://www.zoobasel.ch/de/zooerlebnisse/r/17/fuehrungen/'}},{sqryCards:{InfoTitel_de:'Kinderzoo',Link_de:'https://www.zoobasel.ch/de/zooerlebnisse/kinderzoo/'}},{sqryCards:{InfoTitel_de:'Shop',Link_de:'https://shop.example.org/'}}]});
@@ -1323,11 +1352,12 @@ test('menu-image ingredient words do not become named drink offers without layou
  const facts=validateEvidenceFacts({facts:[fact('experience.profile','GINGER ALE',s.text,{subject:'OFFER',offerKind:'DRINKS'})]},s,[field('experience.profile')]).map(f=>({...f,state:'ACCEPTED'}));
  assert.equal(projectEvidenceLedger({spot:bar,fields:[field('experience.profile')],facts,sources:[s],...deps})[0].status,'UNRESOLVED');
 });
-test('unverified menu layouts are reported without consuming the research frontier',async()=>{
+test('unverified menu layouts remain review-only when an observed PDF cannot be read',async()=>{
  const body='<main><h1>Synthetic Restaurant</h1><a href="/menu.pdf">Speisekarte</a><img src="/speisekarte.jpg" alt="Speisekarte"></main>';
- const report=await researchSpotV2({...opts,maxRequests:3},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()})});
- assert.equal(report.requests,1);
+ const report=await researchSpotV2({...opts,fields:[field('experience.profile')],maxRequests:3},{...deps,fetchPage:async url=>({url,contentType:'text/html',body,observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
+ assert.equal(report.requests,2);
  assert.ok(report.limitations.includes('MENU_LAYOUT_REQUIRES_REVIEW'));
+ assert.equal(report.results.find(result=>result.attributeKey==='experience.profile').status,'UNRESOLVED');
  assert.deepEqual(discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body}).map(link=>link.url),[]);
 });
 test('weekday-prefixed calendar entries cannot become museum description or undated visits',()=>{
@@ -1949,6 +1979,22 @@ test('bounded same-site redirects validate every target and reject outside hosts
   else {const page=await fetchPublicSource('https://example.org/old',config);assert.equal(page.url,mode==='http-alias'?'https://www.example.org/new':'https://example.org/new');assert.deepEqual(page.redirectedFrom,['https://example.org/old']);assert.ok(visited.every(url=>url.startsWith('https://')));}
  }
 });
+test('an observed official PDF link may make one bounded public document-host redirect',async()=>{
+ const {EventEmitter}=await import('node:events');const {fetchPublicSource}=await import('../src/nuknuk-sources.mjs');
+ const original='https://example.org/menu.pdf',cdn='https://files.example.net/assets/menu.pdf';
+ const payload=Buffer.concat([Buffer.from('%PDF-'),Buffer.alloc(2100000)]),visited=[];
+ const requestImpl=(url,_options,callback)=>{
+  const req=new EventEmitter();req.end=()=>queueMicrotask(()=>{
+   visited.push(url);const res=new EventEmitter();res.statusCode=url===original?302:200;res.headers=res.statusCode===302?{location:cdn}:{'content-type':'application/pdf'};res.destroy=()=>req.emit('close');callback(res);
+   if(res.statusCode===200){res.emit('data',payload);res.emit('end');req.emit('close');}
+  });req.destroy=error=>req.emit('error',error);return req;
+ };
+ const config={resolve:async()=>[{address:'93.184.216.34'}],requestImpl,maxRedirects:2,maxBytes:20000000};
+ await assert.rejects(fetchPublicSource(original,config),/redirect_identity_rejected/);
+ const page=await fetchPublicSource(original,{...config,allowObservedPdfRedirect:true});
+ assert.equal(page.url,cdn);assert.equal(page.body.length,payload.length);assert.deepEqual(page.redirectedFrom,[original]);
+ assert.deepEqual(visited,[original,original,cdn]);
+});
 test('description candidates do not require a hand-maintained venue or cuisine vocabulary',async()=>{
  const r=await researchSpotV2({...opts,fields:[field('description.highlight')]},{...deps,fetchPage:async url=>({url,contentType:'text/html',body:'<main><p>Hier entstehen handgeschnitzte Holzfiguren und kunstvolle Marionetten.</p></main>',observedAt:new Date().toISOString()}),modelFetch:modelFor(()=>[])});
  assert.equal(r.results[0].value,'Hier entstehen handgeschnitzte Holzfiguren und kunstvolle Marionetten.');
@@ -2008,6 +2054,11 @@ test('four accepted drinks do not hide an unread official menu overview',()=>{
  const frontier=[{url:'https://example.org/amber-menu/',depth:1,topics:['menu']}];
  const four=Array.from({length:4},(_,i)=>({field:'experience.profile',value:'Cocktail '+i,state:'ACCEPTED'}));
  assert.equal(rankResearchFrontier(frontier,four,[{...field('experience.profile'),profileCategory:'DRINKS'}])[0].url,'https://example.org/amber-menu/');
+});
+test('four provisional food offers do not hide an observed official menu PDF',()=>{
+ const pdf={url:'https://example.org/_files/menu.pdf',depth:1,topics:['menu','experience'],discoveredOn:'https://example.org/das-angebot',label:'Menü'};
+ const four=Array.from({length:4},(_,i)=>({field:'experience.profile',value:'Offer '+i,state:'ACCEPTED'}));
+ assert.equal(rankResearchFrontier([pdf],four,[{...field('experience.profile'),profileCategory:'EAT'}])[0].url,pdf.url);
 });
 test('a complete official hotel inventory stops at its actual room count, not a fixed six',()=>{
  const names=['Business Zimmer','Executive Zimmer','Familienzimmer'];

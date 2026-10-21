@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.42
+# Local Nuknuk Research v3.44
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
   model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.42
+## Active architecture: Research v3.44
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -894,6 +894,40 @@ v3.42 generalizes the group booking rule to literal advance deadlines stated
 in days, weeks or months; positive and absent-deadline tests pass. The full
 417-test runtime suite passes. Neither this tuned development work nor a
 replay closes the unattended research release gate.
+
+The next prospective test, Kuni & Gunde, has an independently prepared
+reference and official source snapshots before any Nuknuk model call. Its
+available Admin export is from 28 September, however, so this case cannot
+count as a fresh-export blind release pass until the current Admin session
+provides a new export. The official operator page links a 14.86 MB,
+13-page PDF menu hosted behind a Wix document redirect. A visual source
+review paired representative sandwich, dinner and cocktail names with their
+prices. The previous 2 MB source cap, absent local `pdftotext`, and strict
+same-host redirect rule prevented Nuknuk from reading it. Poppler is now
+installed locally. v3.43 follows an observed official menu PDF link to one
+public PDF redirect, enforces a 20 MB/45-second document bound, keeps the
+official embedding page and binary SHA-256, and marks the extracted content
+for layout review. The first development run still discarded the downloaded
+PDF at a second, agent-level source-URL gate and proposed broad food labels
+from the homepage. v3.44 extends that gate only for the same explicitly
+observed PDF chain. A focused v3.45 run then exposed a premature offer-count
+stop: Nuknuk discovered the PDF but initially ended after four HTML claims.
+It now keeps an observed official food menu PDF in the research frontier. With
+three network requests allowed, the local model fetched the PDF and preserved
+its official-page link and binary SHA-256, but generated only held translations
+from the menu. The final draft still contained the four weaker HTML offers.
+v3.46 extracts only literal priced rows from the observed menu into price-free,
+layout-review leads. When that official PDF supplies at least four leads,
+unmatched HTML offers are removed from the draft and retained as review
+evidence. A deterministic replay of the v3.45 source report now yields six
+cited food items and two cited cocktails, with no unsupported Craft Beer or
+generic bread claim. Malformed multi-price, continuation and wine-list rows
+are excluded. The text window now covers up to 20 PDF pages; the inspected
+13-page menu extracts to 7,038 characters without text truncation. This is
+development evidence, not a blind release pass. Individual prices remain
+unverified until page layout is reviewed. A fresh Admin export and independent
+spot cohort remain required before unattended research can be enabled.
+The v3.46 runtime typecheck and all 421 tests pass.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

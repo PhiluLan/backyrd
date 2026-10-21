@@ -22,7 +22,8 @@ export function isPublicIPv4(ip) {
   return p.length===4&&p.every(n=>Number.isInteger(n)&&n>=0&&n<256)&&![0,10,127].includes(p[0])&&p[0]<224&&!(p[0]===169&&p[1]===254)&&!(p[0]===172&&p[1]>=16&&p[1]<=31)&&!(p[0]===192&&p[1]===0&&p[2]===0)&&!(p[0]===192&&p[1]===168)&&!(p[0]===100&&p[1]>=64&&p[1]<=127)&&!(p[0]===198&&[18,19].includes(p[1]));
 }
 // Public GET only; callers constrain official-site discovery. No credentials or redirects.
-export async function fetchPublicSource(value,{resolve=lookup,requestImpl=request,maxBytes=2000000,timeoutMs=15000,maxRedirects=0,allowedWebsite=value}={}) {
+export async function fetchPublicSource(value,{resolve=lookup,requestImpl=request,maxBytes=2000000,timeoutMs=15000,maxRedirects=0,allowedWebsite=value,allowObservedPdfRedirect=false}={}) {
+  if(!Number.isInteger(maxBytes)||maxBytes<1||maxBytes>20000000)throw new Error('source_size_limit_invalid');
   if(!Number.isInteger(maxRedirects)||maxRedirects<0||maxRedirects>3)throw new Error('source_redirect_limit_invalid');
   const url=publicSourceUrl(value),u=new URL(url);
   let dnsTimer;
@@ -40,8 +41,12 @@ export async function fetchPublicSource(value,{resolve=lookup,requestImpl=reques
           // research request to the insecure Location or a foreign host.
           if(observed.protocol==='http:'&&matchesExistingWebsite(observed.href,allowedWebsite))observed.protocol='https:';
           const target=publicSourceUrl(observed.href);
-          if(!matchesExistingWebsite(target,allowedWebsite))throw new Error('source_redirect_identity_rejected');
-          accept(fetchPublicSource(target,{resolve,requestImpl,maxBytes,timeoutMs,maxRedirects:maxRedirects-1,allowedWebsite}).then(page=>({...page,redirectedFrom:[url,...(page.redirectedFrom??[])]})));
+          const sameWebsite=matchesExistingWebsite(target,allowedWebsite);
+          const linkedPdf=allowObservedPdfRedirect&&/\.pdf(?:[?#]|$)/iu.test(url)&&/\.pdf(?:[?#]|$)/iu.test(target)&&observed.protocol==='https:';
+          if(!sameWebsite&&!linkedPdf)throw new Error('source_redirect_identity_rejected');
+          // Only an explicitly observed official PDF link may cross to a
+          // public document host. The foreign hop gets no further redirects.
+          accept(fetchPublicSource(target,{resolve,requestImpl,maxBytes,timeoutMs,maxRedirects:sameWebsite?maxRedirects-1:0,allowedWebsite:sameWebsite?allowedWebsite:target,allowObservedPdfRedirect:false}).then(page=>({...page,redirectedFrom:[url,...(page.redirectedFrom??[])]})));
         }catch(error){reject(error);}return;
       }
       if(res.statusCode!==200){res.destroy();reject(new Error(`source_http_${res.statusCode}`));return;}
@@ -297,15 +302,15 @@ export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFT
     return {id,url:page.url,observedAt:page.observedAt,text,truncated:body.trim().length>12000,format:'IMAGE_OCR',layoutReviewRequired:true,ocrLanguage:ocrLanguages,assetHash:createHash('sha256').update(b).digest('hex'),hash:createHash('sha256').update(text).digest('hex')};
   }
   if(!String(page.contentType??'').toLowerCase().startsWith('application/pdf'))return sourceText(page,id,{preferMain});
-  if(!Buffer.isBuffer(page.body)||page.body.length>2000000||page.body.subarray(0,5).toString()!=='%PDF-')throw new Error('source_pdf_invalid');
+  if(!Buffer.isBuffer(page.body)||page.body.length>20000000||page.body.subarray(0,5).toString()!=='%PDF-')throw new Error('source_pdf_invalid');
   const body=await new Promise((resolve,reject)=>{
-    const child=execFile(pdfCommand,['-raw','-f','1','-l','10','-','-'],{timeout:10000,maxBuffer:200000,encoding:'utf8'},(error,stdout)=>error?reject(new Error('source_pdf_extraction_failed')):resolve(stdout));
+    const child=execFile(pdfCommand,['-raw','-f','1','-l','20','-','-'],{timeout:10000,maxBuffer:200000,encoding:'utf8'},(error,stdout)=>error?reject(new Error('source_pdf_extraction_failed')):resolve(stdout));
     child.stdin.on('error',()=>{});child.stdin.end(page.body);
   });
   const text=body.replace(/\r\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
   if(!text)throw new Error('source_pdf_needs_ocr');
   const excerpt=text.slice(0,12000);
-  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,truncated:text.length>12000,format:'PDF_TEXT',extractionOrder:'CONTENT_STREAM',layoutReviewRequired:true,pageLimit:10,hash:createHash('sha256').update(excerpt).digest('hex')};
+  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,truncated:text.length>12000,format:'PDF_TEXT',extractionOrder:'CONTENT_STREAM',layoutReviewRequired:true,pageLimit:20,assetHash:createHash('sha256').update(page.body).digest('hex'),hash:createHash('sha256').update(excerpt).digest('hex')};
 }
 
 // One-hop discovery on the supplied official host; links are candidates, not
