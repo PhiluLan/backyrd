@@ -101,7 +101,25 @@ export function sourceText(page,id,{preferMain=false}={}) {
     return {text:value.slice(0,headEnd)+marker+value.slice(tailStart),offset:at=>at<headEnd?at:at>=tailStart?headEnd+marker.length+at-tailStart:-1};
   };
   const named={auml:'ä',ouml:'ö',uuml:'ü',Auml:'Ä',Ouml:'Ö',Uuml:'Ü',szlig:'ß',eacute:'é',egrave:'è',agrave:'à',ccedil:'ç',rsquo:'’',lsquo:'‘',ldquo:'“',rdquo:'”',bdquo:'„',sbquo:'‚',ndash:'–',mdash:'—',euro:'€',hellip:'…',sup2:'²',amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',thinsp:' ',ensp:' ',emsp:' ',laquo:'«',raquo:'»',copy:'©'};
-  const withMailto=html=>html.replace(/<a\b[^>]*\bhref\s*=\s*["']mailto:([^"']+)["'][^>]*>([\s\S]*?)<\/a>/giu,(whole,href,label)=>{
+  const withMailto=html=>html.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/giu,(whole,attributes,label)=>{
+    const encoded=attributes.match(/\bdata-mailto-token\s*=\s*["']([^"']{10,200})["']/iu)?.[1];
+    const vector=attributes.match(/\bdata-mailto-vector\s*=\s*["'](\d{1,2})["']/iu)?.[1];
+    // TYPO3's published click handler rotates only these three character
+    // ranges. Decode a public mailto target, never infer an address from the
+    // anti-spam display text or arbitrary JavaScript.
+    if(encoded&&vector&&Number(vector)>=1&&Number(vector)<=25){
+      const shift=-Number(vector);
+      const rotated=[...encoded].map(char=>{
+        const code=char.charCodeAt(0),range=code>=43&&code<=58?[43,58]:code>=64&&code<=90?[64,90]:code>=97&&code<=122?[97,122]:null;
+        if(!range)return char;
+        const [first,last]=range,size=last-first+1;
+        return String.fromCharCode(first+((code-first+shift)%size+size)%size);
+      }).join('');
+      const address=rotated.startsWith('mailto:')?rotated.slice(7).split('?')[0]:'';
+      if(/^[-\w.+]+@[-\w.]+\.[a-z]{2,}$/iu.test(address))return `\n${address}\n`;
+    }
+    const href=attributes.match(/\bhref\s*=\s*["']mailto:([^"']+)["']/iu)?.[1];
+    if(!href)return whole;
     let address;try{address=decodeURIComponent(href.split('?')[0]).trim();}catch{return label;}
     if(!/^[-\w.+]+@[-\w.]+\.[a-z]{2,}$/iu.test(address))return label;
     return label.includes(address)?label:`\n${label} (${address})\n`;
@@ -221,7 +239,10 @@ export function sourceText(page,id,{preferMain=false}={}) {
       linkedMenus.push({label,url:target});if(linkedMenus.length>=12)break;
     }catch{}
   }
-  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,hash:createHash('sha256').update(excerpt).digest('hex'),...(preferMain?{textSelection:primary?publicPanel?'MAIN_WITH_PUBLIC_INFO':'MAIN_CONTENT':'FULL_PAGE',headings:keptHeadings,identityOffset:keptIdentityOffset>=0?keptIdentityOffset:undefined,assetHash:createHash('sha256').update(page.body).digest('hex')}:{})};
+  const month='(?:Januar|Februar|März|Maerz|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|January|February|March|May|June|July|August|October|December)';
+  const seasonalSchedule=new RegExp('\\b'+month+'\\s*(?:bis|to|[-–—])\\s*'+month+'\\b[^\\n]{0,70}\\b\\d{1,2}(?:[.:]\\d{2})?\\s*[-–—]\\s*\\d{1,2}(?:[.:]\\d{2})?\\s*(?:Uhr|h)?\\b','iu').test(excerpt)||
+    /(?:Öffnung|Öffnungszeiten|Opening hours?)\s+während\s+der\s+(?:Sommerzeit|Winterzeit|Adventszeit)|(?:Summer|Winter|Advent)\s+(?:opening\s+)?hours?/iu.test(excerpt);
+  return {id,url:page.url,observedAt:page.observedAt,text:excerpt,descriptionText,linkedMenus,truncated:text.length>excerpt.length,seasonalSchedule,hash:createHash('sha256').update(excerpt).digest('hex'),...(preferMain?{textSelection:primary?publicPanel?'MAIN_WITH_PUBLIC_INFO':'MAIN_CONTENT':'FULL_PAGE',headings:keptHeadings,identityOffset:keptIdentityOffset>=0?keptIdentityOffset:undefined,assetHash:createHash('sha256').update(page.body).digest('hex')}:{})};
 }
 
 function jsonSourceText(page,id) {
@@ -351,10 +372,26 @@ export function standingExperiencePath(url) {
   return !/\b(?:19|20)\d{2}\b/u.test(leaf)&&/(?:atelier|workshops?|f(?:ü|ue|u)hrungen?|guided[-_]?tours?|education|vermittlung)/iu.test(leaf);
 }
 export function discoverResearchLinks(page) {
+  if(/^application\/json\b/iu.test(page.contentType??'')&&typeof page.body==='string') {
+    let data;try{data=JSON.parse(page.body);}catch{return [];}
+    const language=new URL(page.url).pathname.match(/\/Website\/(de|en|fr)\//iu)?.[1]?.toLowerCase()??'de';
+    const observed=[];
+    const walk=(item,depth=0)=>{
+      if(depth>7||observed.length>=80||!item||typeof item!=='object')return;
+      if(Array.isArray(item)){for(const child of item.slice(0,80))walk(child,depth+1);return;}
+      const href=item['Link_'+language];
+      const label=item['InfoTitel_'+language]??item['RubrikTitel_'+language]??item['Titel_'+language]??item['LinkText_'+language];
+      if(typeof href==='string'&&typeof label==='string'&&label.trim()&&href.length<1000)observed.push({href,label:label.replace(/<[^>]*>/gu,' ').trim()});
+      for(const child of Object.values(item))if(child&&typeof child==='object')walk(child,depth+1);
+    };
+    walk(data);
+    const escape=value=>value.replace(/&/gu,'&amp;').replace(/"/gu,'&quot;').replace(/</gu,'&lt;').replace(/>/gu,'&gt;');
+    return discoverResearchLinks({...page,contentType:'text/html',body:observed.map(({href,label})=>`<a href="${escape(href)}">${escape(label)}</a>`).join('\n')});
+  }
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
   const links=[];
   const pageBase=observedPageBase(page);
-  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|(?<!\p{L})(?:food|drinks?)(?!\p{L})|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|mitmach|hands[-\s]?on|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq|park(?:en|ing|pl[aä]tze)?|anfahrt|directions|fitness/iu};
+  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|(?<!\p{L})(?:food|drinks?)(?!\p{L})|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|mitmach|hands[-\s]?on|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|turmbesteig|tower|krypt|crypt|kreuzgang|cloister|kinderzoo|f[uü]tterung|feeding|pinguin|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq|park(?:en|ing|pl[aä]tze)?|anfahrt|directions|fitness/iu};
   topicPatterns.contact=/kontakt|contact|impressum|anschrift|adresse|mitarbeitende|team|staff|employees|equipe|équipe/iu;
   for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const href=m[1].replace(/&amp;/g,'&');
@@ -376,7 +413,7 @@ export function discoverResearchLinks(page) {
       const pathname=decodeURI(new URL(url).pathname).replace(/\/+$/u,'');
       if(/(?:^|\/)node\/\d+$/iu.test(pathname)||/(?:^|\/)content-access-denied$/iu.test(pathname))continue;
       if(/(?:^|\/)(?:[^/]*[-_])?(?:gewinnspiel|contest|competition|special|promotion|limited)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)|(?:^|\/)(?:win|firmen(?:angebote)?|corporate)(?:\/|$)/iu.test(pathname))continue;
-      if(/(?:^|\/)(?:ihrevent|your-event|votre.?[eé]v[eé]nement)(?:\/|$)/iu.test(pathname))continue;
+      if(/(?:^|\/)(?:ihr[-_]anlass|ihrevent|your-event|votre.?[eé]v[eé]nement|room[-_]hire)(?:\/|$)/iu.test(pathname))continue;
       if(/(?:^|\/)(?:press|presse|media|medien|digital|videos?)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(pathname))continue;
       // Some museums place a permanent-exhibition overview behind an
       // "Aktuell" navigation item. Follow only an observed link explicitly
@@ -395,6 +432,7 @@ export function discoverResearchLinks(page) {
       // because it sits under /informationen/.
       const material=(pathname.split('/').at(-1)??'')+' '+label;
       const topics=Object.entries(topicPatterns).filter(([,pattern])=>pattern.test(material)).map(([key])=>key);
+      if(/(?:^|[\s/|])(?:gruppen|groups?|familien|families)(?:$|[\s/|])/iu.test(material))topics.push('experience');
       if(/(?:sitzungszimmer|meeting[-_]?rooms?|conference[-_]?rooms?|seminar[-_]?rooms?)/iu.test(material))for(const topic of ['stay','experience']){const at=topics.indexOf(topic);if(at>=0)topics.splice(at,1);}
       // Flat CMS sites often use /dinner.html, /info.html and an HTML-entity
       // encoded "Über uns" slug. These are observed links, not guessed paths.
@@ -414,6 +452,31 @@ export function discoverResearchLinks(page) {
   return links.map((link,index)=>({link,index})).sort((a,b)=>score(b.link)-score(a.link)||a.index-b.index).slice(0,120).map(x=>x.link);
 }
 
+// A venue may explicitly delegate one visitor activity to another operator.
+// Follow only the exact published link, when both its label and destination
+// identify that activity and the named venue. It cannot authorize contacts,
+// hours, other pages on the partner host, or a search-result URL.
+export function discoverDelegatedExperienceLinks(page,spotName) {
+  if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
+  const tokens=String(spotName).toLocaleLowerCase().replace(/ä/gu,'ae').replace(/ö/gu,'oe').replace(/ü/gu,'ue').replace(/ß/gu,'ss').split(/[^a-z0-9]+/u)
+    .filter(token=>token.length>=6&&!/^(?:basel|basler|zuerich|zurich|geneve|gen[eè]ve|bern|berner|swiss|schweiz)$/u.test(token));
+  if(!tokens.length)return [];
+  const links=[];
+  for(const match of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/giu)) {
+    const label=match[2].replace(/<[^>]*>/gu,' ').replace(/&amp;/gu,'&').replace(/\s+/gu,' ').trim().slice(0,160);
+    if(!/(?:f(?:ü|ue|u)hrung|guided[- ]?tour|gruppenbesuch|group visit|turmbesteig|tower visit)/iu.test(label))continue;
+    try {
+      const url=publicSourceUrl(new URL(match[1].replace(/&amp;/gu,'&'),observedPageBase(page)).href);
+      if(matchesExistingWebsite(url,page.url)||/\.(?:pdf|jpe?g|png|webp|gif)(?:[?#]|$)/iu.test(url))continue;
+      const location=(new URL(url).hostname+new URL(url).pathname).toLocaleLowerCase();
+      if(!tokens.some(token=>location.includes(token))||/(?:^|\/)(?:login|logout|account|register|checkout|privacy|datenschutz)(?:\/|$)/iu.test(new URL(url).pathname))continue;
+      if(!links.some(link=>link.url===url))links.push({url,label,topics:['experience'],delegatedBy:page.url});
+      if(links.length>=3)break;
+    }catch{}
+  }
+  return links;
+}
+
 // Some official pages print template placeholders but declare read-only public
 // data sources. Follow only observed same-host GET endpoints with parameters
 // taken from the page URL; never execute the page's scripts or action endpoints.
@@ -426,7 +489,16 @@ export function discoverPublicDataSources(page) {
     const id=tag[0].match(/\bid=["']([^"']+)["']/iu)?.[1]??'';
     const href=tag[0].match(/\burl=["']([^"']+)["']/iu)?.[1];
     const sidebar=id==='scSidebar'&&/\/includes\/Sidebar\.php(?:[?#]|$)/iu.test(href)&&/(?:scSidebar\.data\.sqrySidebarContact|scSidebar\.data\.qryOeffnungszeiten)/u.test(page.body);
-    if(!href||/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\./iu.test(href)||!sidebar&&!/(?:oeffnungs?|öffnungs?|opening|hours|zeiten|kontakt|contact)/iu.test(id+' '+href)||/(?:stats|cookies?|tracking|analytics)/iu.test(id+' '+href))continue;
+    const routeBody=id==='scRubrik'&&/\/Rubrik\/Rubrik\.php(?:[?#]|$)/iu.test(href)&&!!routeId&&
+      !/(?:^|\/)(?:eintrittspreise?|ticket[-_]?preise?|admission[-_]?prices?|pricing|oeffnungszeiten|öffnungszeiten|opening[-_]?hours?|ihr[-_]anlass|ihrevent|your[-_]?event)(?:\/|$)/iu.test(pageUrl.pathname);
+    const visitorGrid=id==='scGrid'&&/\/Grid\.php(?:[?#]|$)/iu.test(href)&&/(?:erlebnis|experience|besuch|visit|activit)/iu.test(pageUrl.pathname);
+    const hours=/(?:oeffnungs?|öffnungs?|opening|hours|zeiten)/iu.test(id+' '+href);
+    const contact=/(?:kontakt|contact)/iu.test(id+' '+href);
+    // CMS templates may declare an opening-hours endpoint on every route,
+    // where unrelated route IDs return an empty array. Queue it only when
+    // the observed page itself is about opening hours.
+    if(!href||/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\./iu.test(href)||!sidebar&&!routeBody&&!visitorGrid&&!hours&&!contact||/(?:stats|cookies?|tracking|analytics)/iu.test(id+' '+href))continue;
+    if(hours&&!sidebar&&!/(?:oeffnungs?|öffnungs?|opening|hours|zeiten)/iu.test(pageUrl.pathname)&&!routeBody&&!visitorGrid)continue;
     try {
       const target=new URL(href,pageBase);
       if(!target.pathname.startsWith('/dmxConnect/api/Website/')||!matchesExistingWebsite(target.href,page.url))continue;
@@ -440,7 +512,9 @@ export function discoverPublicDataSources(page) {
       if(!valid)continue;
       const url=publicSourceUrl(target.href);
       if(found.some(item=>item.url===url))continue;
-      found.push({url,label:id,discoveredOn:page.url,topics:sidebar?['contact','hours']: [/(?:oeffnungs?|öffnungs?|opening|hours|zeiten)/iu.test(id+' '+href)?'hours':'contact']});
+      const routeTopics=/(?:anreise|arrival|directions|parking|parkieren)/iu.test(pageUrl.pathname)?['access']:
+        /(?:erlebnis|experience|f[uü]tterung|feeding|pinguin|f[uü]hrung|guided|kinderzoo|visit|besuch)/iu.test(pageUrl.pathname)?['experience','about','visit']:['about','visit'];
+      found.push({url,label:id,discoveredOn:page.url,topics:sidebar?['contact','hours']:routeBody?routeTopics:visitorGrid?['experience']:[hours?'hours':'contact']});
       if(found.length>=4)break;
     }catch{}
   }

@@ -69,6 +69,7 @@ const factPatterns={
 const uncertainAssertion=/\b(?:kein\w*|nicht|ohne|no|not|without|früher|ehemals|closed|geschlossen|vielleicht|maybe|falls|wenn|if|bald|künftig|zukünftig|geplant|planned|soon|would|wünschen|wünscht|wish|wishes|fehlt|fehlen|ausgefallen|defekt|unavailable|broken|Filiale\w*|branch\w*|Nachbar\w*|nebenan|neben|nearby|gegenüber)\b|\?/iu;
 function currentAssertion(quote) {return quote.length>=6&&quote.length<=800&&!uncertainAssertion.test(quote.replace(/\bneben dem Empfangsschalter\b/giu,'am Empfang'));}
 function ownedParkingAssertion(quote) {
+  if(/^(?:Parkpl[aä]tze|Parking spaces?)\b.{0,90}\b(?:Parkhaus|car park|garage)\b.{0,60}\b(?:in unserem Gebäude|in our building)\b/iu.test(quote)&&currentAssertion(quote))return true;
   const claim=/^(?:Wir haben|Wir vermieten|Unser Hotel (?:hat|bietet|vermietet)|Vor dem Hotel (?:stehen|gibt es))\b.{0,110}\b(?:Parkpl[aä]tze|Garagen[- ]?Stellpl[aä]tze|Garagenpl[aä]tze)\b/iu.exec(quote);
   if(!claim||/\b(?:kein\w*|ohne|fremd\w*|andere\w*|Nachbar\w*|nebenan|nearby)\b/iu.test(claim[0]))return false;
   // First-come spaces exist, but the source does not promise a free space or
@@ -92,6 +93,7 @@ function facilityAssertion(quote,pattern) {
   if(pattern===factPatterns['amenity.features'].OUTDOOR_SEATING&&(/\b(?:bei uns|unser\w*|Café|Restaurant|Bar|Hotel)\b.{0,90}\b(?:Freiluft[- ]Sitzpl[aä]tz\w*|Sitzplätze (?:draussen|draußen)|outdoor seating)\b/iu.test(quote)||/\bmit\s+Freiluft[- ]Sitzpl[aä]tz\w*\b/iu.test(quote)))return true;
   if(pattern===factPatterns['amenity.features'].CHANGING_TABLE&&/\b(?:unser\w*|bei uns|wir)\b.{0,100}\b(?:WC|Toilette|restroom|toilet)\b.{0,80}\b(?:Wickeltisch|changing table|baby changing)\b/iu.test(quote))return true;
   if(pattern===factPatterns['amenity.features'].TOILET&&/^(?:Der|Die|Das|The)\s+[^.!?]{3,90}\b(?:verf[uü]gt|has|offers?)\b[^.!?]{0,100}\b(?:WC|Toiletten?|restrooms?|toilets?)\b/iu.test(quote))return true;
+  if(pattern===factPatterns['amenity.features'].TOILET&&/^(?:Toiletten|Toilets|Restrooms)\s+(?:befinden sich|are located)\s+(?:im|in|near|in der N[aä]he)\b/iu.test(quote)&&!/(?:\b(?:nebenan|off[- ]?site|across the street|gegenüber|ausserhalb|außerhalb)\b)/iu.test(quote))return true;
   if(pattern===factPatterns['amenity.features'].CLOAKROOM&&/\b(?:besucher(?:innen)?(?:\s+und\s+besucher)?|visitors?)\b.{0,150}\b(?:Garderobe|cloakroom)\b.{0,80}\b(?:abgeben|nutzen|use|leave)\b/iu.test(quote))return true;
   if(pattern===factPatterns['amenity.features'].LOCKERS&&/\b(?:besucher(?:innen)?(?:\s+und\s+besucher)?|visitors?)\b.{0,180}\b(?:Schliessf[aä]cher|Schlie[ssß]f[aä]cher|lockers?)\b.{0,70}\b(?:nutzen|use)\b/iu.test(quote))return true;
   if(pattern===factPatterns['amenity.features'].GARDEN&&(/\b(?:unser\w*|bei uns|(?:Café|Restaurant|Bar|Hotel)\b)\b.{0,140}\b(?:Gartenparadies|Garten|garden)\b/iu.test(quote)||/^(?:Ganzjährlich geöffnet\s*[-–]\s*)?mit\s+.{0,80}\bGartenparadies\b/iu.test(quote)))return true;
@@ -409,13 +411,15 @@ export function projectOffers(extracted,{field,sources}) {
   if(!field.profileCategory)throw new Error('research_current_category_required');
   const seen=new Set();
   const offers=extracted.offers.map(item=>{
-    if(!exact(item,['name','kind','sourceId','quote'])||typeof item.name!=='string'||!item.name.trim()||item.name.length>160||typeof item.quote!=='string'||item.quote.length>1100)throw new Error('research_offer_invalid');
+    if(!(exact(item,['name','kind','sourceId','quote'])||exact(item,['name','kind','sourceId','quote','condition']))||typeof item.name!=='string'||!item.name.trim()||item.name.length>160||typeof item.quote!=='string'||item.quote.length>1100)throw new Error('research_offer_invalid');
     if(!offerKinds(field).includes(item.kind))throw new Error('research_offer_kind_invalid');
     const source=sources.find(s=>s.id===item.sourceId);
     if(!source||!sourceQuote(source.text,item.quote)||!sourceQuote(item.quote,item.name))throw new Error('research_offer_not_grounded');
+    if(item.condition!==undefined&&(typeof item.condition!=='string'||!item.condition.trim()||item.condition.length>500||!sourceQuote(item.quote,item.condition)))throw new Error('research_offer_condition_not_grounded');
     const name=item.name.trim(),id='offer_'+hash(name.toLowerCase()).slice(0,16);
     if(seen.has(id))throw new Error('research_duplicate_offer');seen.add(id);
-    return {id,kind:item.kind,name,areaIds:[],properties:[],prices:menuPrices(item,source),schedule:[],validFrom:null,validUntil:null};
+    const properties=item.condition===undefined?[]:[{key:'participation.prerequisite',label:null,state:'KNOWN',value:item.condition,conditions:{weekdays:[],dayparts:[],event:null,validFrom:null,validUntil:null}}];
+    return {id,kind:item.kind,name,areaIds:[],properties,prices:menuPrices(item,source),schedule:[],validFrom:null,validUntil:null};
   });
   return {contractVersion:field.valueSchema.properties.contractVersion.const,category:field.profileCategory,properties:[],areas:[],offers,reviewed:false};
 }

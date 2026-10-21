@@ -39,6 +39,8 @@ export function planSpotSearches(spot,fields,website,{maxQueries=3}={}) {
   const topics=[];
   const placeTypes=spot.existingValues?.['classification.place_types']?.value;
   const category=spot.existingValues?.['classification.primary_category']?.value;
+  const visitorExperienceFirst=fields.some(f=>f.attributeKey==='experience.profile')&&['ACTIVITIES_PLAY','OUTDOOR_NATURE','ATTRACTIONS_LANDMARKS'].includes(category);
+  if(visitorExperienceFirst)topics.push({key:'experience',query:`${identity} Erlebnisse Führungen Besuch site:${host}`});
   if(fields.some(f=>f.attributeKey==='contact.public_email')&&Array.isArray(placeTypes)&&placeTypes.includes('MUSEUM'))topics.push({key:'visitor-contact',terms:'"Visitor Services"',site:host});
   if(fields.some(f=>f.attributeKey==='contact.phone'||f.attributeKey==='contact.public_email'))topics.push({key:'contact',terms:'Kontakt Telefon E-Mail'});
   if(fields.some(f=>f.attributeKey==='hours.regular'))topics.push({key:'hours',terms:'Öffnungszeiten Besuch'});
@@ -48,7 +50,7 @@ export function planSpotSearches(spot,fields,website,{maxQueries=3}={}) {
     topics.push({key:'guided-tours',query:`${name} Führungen Workshop site:${host}`});
     topics.push({key:'collection',query:`${name} Sammlung site:${host}`});
   }
-  if(fields.some(f=>f.attributeKey==='experience.profile'))topics.push({key:'experience',terms:['EAT','DRINKS','COFFEE_DAYTIME'].includes(category)?'Speisekarte Gerichte':category==='STAY'?'Zimmer Übernachten':category==='CULTURE_ARTS'?'Angebote Dauerausstellung Erlebnisse':category==='WELLNESS_RELAXATION'?'Sauna Spa Hamam Badewelt':'Angebote Erlebnisse'});
+  if(fields.some(f=>f.attributeKey==='experience.profile')&&!visitorExperienceFirst)topics.push({key:'experience',terms:['EAT','DRINKS','COFFEE_DAYTIME'].includes(category)?'Speisekarte Gerichte':category==='STAY'?'Zimmer Übernachten':category==='CULTURE_ARTS'?'Angebote Dauerausstellung Erlebnisse':category==='WELLNESS_RELAXATION'?'Sauna Spa Hamam Badewelt':'Angebote Erlebnisse'});
   if(fields.some(f=>f.attributeKey==='description.highlight'||f.attributeKey==='amenity.features'))topics.push({key:'overview',terms:['EAT','DRINKS','COFFEE_DAYTIME'].includes(category)?'Restaurant Küche':category==='STAY'?'Hotel Zimmer':'Besuch Angebot'});
   const queries=[{key:'official',query:`${identity} site:${host}`}];
   for(const topic of topics)queries.push({key:topic.key,query:topic.query??`${identity} ${topic.terms}${topic.site?' site:'+topic.site:''}`});

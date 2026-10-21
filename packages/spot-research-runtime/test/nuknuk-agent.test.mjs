@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead} from '../dist/nuknuk-agent.js';
-import {discoverResearchLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
+import {discoverResearchLinks,discoverDelegatedExperienceLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {agreeingPricedRows,auditMenuImages} from '../src/nuknuk-menu-media.mjs';
 import {parseMenuVisionRows,corroborateMenuVisionRows} from '../src/nuknuk-menu-vision.mjs';
 import {localSearchEndpoint,planSpotSearches,searchLocalWeb,classifySearchResults,permanentSpotSearchLead} from '../src/nuknuk-search.mjs';
@@ -79,6 +79,186 @@ test('brand homepage and explicitly location-variable menu cannot prove a branch
   assert.equal(checked[0].state,'HELD');assert.equal(checked[0].reason,reason);
  }
 });
+test('a stored visitor-hours URL does not turn its dedicated homepage into a different brand',()=>{
+ const venue={...spot,name:'Basler Münster',existingValues:{...spot.existingValues,'contact.website':{value:'https://www.baslermuenster.ch/infos-kontakt/oeffnungszeiten'},'classification.primary_category':{value:'ATTRACTIONS_LANDMARKS'}}};
+ const quote='Ein Münsterbesuch im Basler Münster ist möglich.';
+ const s=sourceText({url:'https://www.baslermuenster.ch/',contentType:'text/html',observedAt:new Date().toISOString(),body:`<main><p>${quote}</p></main>`},'s1',{preferMain:true});
+ const [checked]=recheckEvidenceFloors(validateEvidenceFacts({facts:[fact('experience.profile','Münsterbesuch',quote,{offerKind:'VISIT'})]},s,[{...field('experience.profile'),profileCategory:'ATTRACTIONS_LANDMARKS'}]).map(f=>({...f,state:'ACCEPTED'})),[s],[{...field('experience.profile'),profileCategory:'ATTRACTIONS_LANDMARKS'}],venue);
+ assert.notEqual(checked.reason,'BRAND_HOME_NOT_VENUE_SOURCE');
+ const links=discoverResearchLinks({url:'https://www.baslermuenster.ch/infos-kontakt/oeffnungszeiten',contentType:'text/html',body:'<a href="/infos-kontakt/besuche-und-fuehrungen/turmbesteigung">Turmbesteigung</a>'});
+ assert.deepEqual(links.map(link=>link.topics),[['experience']]);
+});
+test('only direct venue-named official activity links delegate experience evidence',()=>{
+ const page={url:'https://www.baslermuenster.ch/',contentType:'text/html',body:'<a href="https://www.erk-bs.ch/muensterfuehrungen">Führungen</a><a href="https://www.gruppenbuchungen.baslermuenster.ch/">Gruppenbesuche</a><a href="https://www.other.ch/tours">Führungen</a><a href="https://www.erk-bs.ch/newsletter-baslermuenster">Newsletter</a>'};
+ assert.deepEqual(discoverDelegatedExperienceLinks(page,'Basler Münster').map(link=>[link.url,link.delegatedBy,link.topics]),[
+  ['https://www.erk-bs.ch/muensterfuehrungen','https://www.baslermuenster.ch/',['experience']],
+  ['https://www.gruppenbuchungen.baslermuenster.ch/','https://www.baslermuenster.ch/',['experience']]
+ ]);
+ const venue={...spot,name:'Basler Münster',existingValues:{...spot.existingValues,'contact.website':{value:'https://www.baslermuenster.ch/infos-kontakt/oeffnungszeiten'},'classification.primary_category':{value:'ATTRACTIONS_LANDMARKS'}}};
+ const quote='Münsterführungen im Basler Münster werden angeboten.';
+ const s={...source(quote+'\n061 272 91 57'),url:'https://www.erk-bs.ch/muensterfuehrungen',delegatedBy:'https://www.baslermuenster.ch/'};
+ const contact=fact('contact.phone','061 272 91 57','061 272 91 57');
+ const candidate=fact('experience.profile','Münsterführungen',quote,{offerKind:'GUIDED_TOUR'});
+ const chosen=[{...field('experience.profile'),profileCategory:'ATTRACTIONS_LANDMARKS'},field('contact.phone')];
+ const checked=recheckEvidenceFloors(validateEvidenceFacts({facts:[candidate,contact]},s,chosen).map(f=>({...f,state:'ACCEPTED'})),[s],chosen,venue);
+ assert.notEqual(checked[0].reason,'DELEGATED_OPERATOR_FIELD_SCOPE');
+ assert.equal(checked[1].reason,'DELEGATED_OPERATOR_FIELD_SCOPE');
+});
+test('a parent group-booking rule stays attached to each listed guided visit',()=>{
+ const venue={...spot,name:'Basler Münster',existingValues:{...spot.existingValues,'contact.website':{value:'https://www.baslermuenster.ch/infos-kontakt/oeffnungszeiten'},'classification.primary_category':{value:'ATTRACTIONS_LANDMARKS'}}};
+ const marker='Anmeldung für Gruppen obligatorisch:';
+ const line='→ Führung mit Guides vom Basler Münster : www.erk-bs.ch/muensterfuehrungen';
+ const text='Münsterbesuch\n\n'+marker+'\n'+line;
+ const s={...source(text),url:'https://www.baslermuenster.ch/'};
+ const chosen=[{...field('experience.profile'),profileCategory:'ATTRACTIONS_LANDMARKS'}];
+ const item=fact('experience.profile','Führung mit Guides vom Basler Münster',line,{offerKind:'GUIDED_TOUR',sourceOffset:text.indexOf(line)});
+ const [checked]=recheckEvidenceFloors([{...item,id:'f1',sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[s],chosen,venue);
+ assert.equal(checked.state,'ACCEPTED');assert.equal(checked.condition,marker);assert.ok(checked.quote.startsWith(marker));
+ const result=projectEvidenceLedger({spot:venue,fields:chosen,facts:[checked],sources:[s],...deps})[0];
+ assert.equal(result.status,'REQUIRES_REVIEW');assert.equal(result.value.offers[0].properties[0].value,marker);
+ const inline='Gruppenbesuch\n\nGruppen, Reisegruppen, Schulklassen mit oder ohne eigenen Guides müssen sich anmelden: www.gruppenbuchungen.baslermuenster.ch';
+ const s2={...source(inline,'s2'),url:'https://www.baslermuenster.ch/infos-kontakt/besuche-und-fuehrungen/fuehrungen'};
+ const [group]=recheckEvidenceFloors(validateEvidenceFacts({facts:[fact('experience.profile','Gruppenbesuch',inline,{offerKind:'VISIT'})]},s2,chosen).map(f=>({...f,state:'ACCEPTED'})),[s2],chosen,venue);
+ assert.equal(group.state,'ACCEPTED');assert.match(group.condition,/müssen sich anmelden/);
+});
+test('a page-wide group-tour deadline remains attached to each named tour heading',()=>{
+ const venue={...spot,name:'Synthetic Museum',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const deadline='Anmeldungen müssen mindestens zwei Wochen im Voraus erfolgen.';
+ const first='Rundgang durch das erste Haus',last='Rundgang durch das dritte Haus';
+ const text=`Gruppen\n\nGerne führen wir Ihre Gruppe auf Anfrage durch unsere Häuser.\n\nAnmeldung\n\n${deadline}\n\nAngebote im ersten Haus\n\n${first}\n\nAngebote im dritten Haus\n\n${last}\n\nAnfrageformular\n\n${deadline}`;
+ const s={...source(text),url:'https://example.org/besuch/gruppen',headings:[{level:1,text:'Gruppen',offset:0},{level:2,text:'Angebote im ersten Haus',offset:text.indexOf('Angebote im ersten Haus')},{level:2,text:'Angebote im dritten Haus',offset:text.indexOf('Angebote im dritten Haus')},{level:2,text:'Anfrageformular',offset:text.indexOf('Anfrageformular')}],identityOffset:text.length};
+ const chosen=[{...field('experience.profile'),profileCategory:'CULTURE_ARTS'}];
+ const proposals=[first,last].map((name,index)=>({...fact('experience.profile',name,name,{offerKind:'GUIDED_TOUR',sourceOffset:text.indexOf(name)}),id:'f'+index,sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}));
+ const checked=recheckEvidenceFloors(proposals,[s],chosen,venue);
+ assert.ok(checked.every(item=>item.state==='ACCEPTED'&&item.condition===deadline&&item.quote.includes(item.value)&&item.quote.includes(deadline)),JSON.stringify(checked.map(item=>({state:item.state,reason:item.reason,condition:item.condition,quote:item.quote}))));
+ const result=projectEvidenceLedger({spot:venue,fields:chosen,facts:checked,sources:[s],...deps})[0];
+ assert.equal(result.value.offers.length,2);
+ assert.ok(result.value.offers.every(item=>item.properties[0]?.value===deadline));
+ const shorter='Anmeldungen müssen mindestens drei Tage im Voraus erfolgen.';
+ const changedText=text.replaceAll(deadline,shorter);
+ const changed={...s,text:changedText,hash:createHash('sha256').update(changedText).digest('hex'),headings:s.headings.map(h=>({...h,offset:changedText.indexOf(h.text)}))};
+ const general=recheckEvidenceFloors([{...proposals[0],sourceOffset:changedText.indexOf(first)}],[changed],chosen,venue)[0];
+ assert.equal(general.condition,shorter);
+ const withoutDeadline={...s,text:text.replaceAll(deadline,'Die Anmeldung ist möglich.'),hash:createHash('sha256').update(text.replaceAll(deadline,'Die Anmeldung ist möglich.')).digest('hex')};
+ const unbound=recheckEvidenceFloors([{...proposals[0],sourceOffset:withoutDeadline.text.indexOf(first)}],[withoutDeadline],chosen,venue)[0];
+ assert.equal(unbound.reason,'OFFER_CONTEXT_REQUIRED');
+});
+test('a later tour mention cannot remove an earlier mandatory booking condition',()=>{
+ const venue={...spot,name:'Basler Münster',existingValues:{...spot.existingValues,'classification.primary_category':{value:'ATTRACTIONS_LANDMARKS'}}};
+ const withRule='Anmeldung für Gruppen obligatorisch:\nFührung mit Guides vom Basler Münster';
+ const withoutRule='Münsterführung: Führung mit Guides vom Basler Münster';
+ const sources=[source(withRule,'s1'),source(withoutRule,'s2')];
+ const item=(id,sourceId,quote,condition)=>({...fact('experience.profile','Führung mit Guides vom Basler Münster',quote,{offerKind:'GUIDED_TOUR',condition}),id,sourceId,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'});
+ const profile={...field('experience.profile'),profileCategory:'ATTRACTIONS_LANDMARKS'};
+ const result=projectEvidenceLedger({spot:venue,fields:[profile],facts:[item('f1','s1',withRule,'Anmeldung für Gruppen obligatorisch:'),item('f2','s2',withoutRule,'')],sources,...deps})[0];
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.equal(result.value.offers[0].properties[0].value,'Anmeldung für Gruppen obligatorisch:');
+});
+test('a public CMS route reveals only its observed visitor JSON, without unrelated empty hour endpoints',()=>{
+ const body='<dmx-serverconnect id="scRubrik" url="/dmxConnect/api/Website/de/Zoobesuch/Rubrik/Rubrik.php" dmx-param:wrid="query.wrid"><dmx-serverconnect id="scOeffnungszeiten" url="/dmxConnect/api/Website/de/Zoobesuch/Rubrik/Oeffnungszeiten.php" dmx-param:wrid="query.wrid"><dmx-serverconnect id="scStatsPage" url="/dmxConnect/api/Website/de/Zoobesuch/Rubrik/StatsPage.php" dmx-param:pageurl="browser1.location.href">{{RubrikText_de}}';
+ const visitor=discoverPublicDataSources({url:'https://www.zoobasel.ch/de/zoobesuch/r/5/fuetterung/',contentType:'text/html',body});
+ assert.deepEqual(visitor.map(link=>link.url),['https://www.zoobasel.ch/dmxConnect/api/Website/de/Zoobesuch/Rubrik/Rubrik.php?wrid=5']);
+ const hours=discoverPublicDataSources({url:'https://www.zoobasel.ch/de/zoobesuch/r/1/oeffnungszeiten/',contentType:'text/html',body});
+ assert.equal(hours.length,1);assert.ok(hours[0].url.endsWith('/Oeffnungszeiten.php?wrid=1'));
+});
+test('a page-declared public JSON representation remains reachable at the crawl depth limit',async()=>{
+ const venue={...spot,name:'Synthetic Zoo',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const api='https://example.org/dmxConnect/api/Website/de/Zooerlebnisse/Rubrik/Rubrik.php?wrid=19';
+ const pages=new Map([
+  ['https://example.org/','<main><a href="/zooerlebnisse/">Erlebnisse</a></main>'],
+  ['https://example.org/zooerlebnisse/','<main><a href="/zooerlebnisse/r/19/kinderzoo/">Kinderzoo</a></main>'],
+  ['https://example.org/zooerlebnisse/r/19/kinderzoo/','<main><dmx-serverconnect id="scRubrik" url="/dmxConnect/api/Website/de/Zooerlebnisse/Rubrik/Rubrik.php" dmx-param:wrid="query.wrid">{{RubrikText_de}}</main>'],
+ ]);
+ const visited=[];
+ const report=await researchSpotV2({...opts,spot:venue,fields:[field('experience.profile')],sources:['https://example.org/'],maxRequests:4,maxDepth:2,maxModelCalls:8},{...deps,
+  fetchPage:async url=>{visited.push(url);return {url,contentType:url===api?'application/json':'text/html',body:url===api?JSON.stringify({RubrikTitel_de:'Kinderzoo',RubrikText_de:'Kinder können im Kinderzoo Haustiere beobachten.'}):pages.get(url),observedAt:new Date().toISOString()};},
+  modelFetch:modelFor(()=>[]),
+ });
+ assert.ok(visited.includes(api),JSON.stringify(visited));
+ assert.ok(report.sources.some(item=>item.url===api));
+});
+test('public JSON card links are same-site leads with visitor topics, never evidence by themselves',()=>{
+ const body=JSON.stringify({repeatGrid:[{sqryCards:{InfoTitel_de:'Führungen',Link_de:'https://www.zoobasel.ch/de/zooerlebnisse/r/17/fuehrungen/'}},{sqryCards:{InfoTitel_de:'Kinderzoo',Link_de:'https://www.zoobasel.ch/de/zooerlebnisse/kinderzoo/'}},{sqryCards:{InfoTitel_de:'Shop',Link_de:'https://shop.example.org/'}}]});
+ const links=discoverResearchLinks({url:'https://www.zoobasel.ch/dmxConnect/api/Website/de/Zooerlebnisse/Grid.php',contentType:'application/json',body});
+ assert.deepEqual(links.map(link=>link.label),['Führungen','Kinderzoo']);
+ assert.ok(links.every(link=>link.topics.includes('experience')));
+});
+test('a visitor pass is not a standalone nature experience, and pricing pages cannot consume its research frontier',()=>{
+ const venue={...spot,name:'Zoo Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const quote='Mit einer Gönnerjahreskarte können Sie den Zoo ein ganzes Jahr lang besuchen.';
+ const s=source(quote),profile={...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'};
+ const [checked]=recheckEvidenceFloors([{...fact('experience.profile','Gönnerjahreskarte',quote,{offerKind:'VISIT'}),id:'f1',sourceId:'s1',state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[s],[profile],venue);
+ assert.equal(checked.reason,'ADMISSION_PRODUCT_NOT_VISITOR_EXPERIENCE');
+ const links=[{url:'https://example.org/de/zoobesuch/r/2/eintrittspreise/',depth:1,label:'Eintrittspreise',topics:['visit']},{url:'https://example.org/de/zooerlebnisse/',depth:1,label:'Zoo-Erlebnisse',topics:['experience']}];
+ assert.deepEqual(rankResearchFrontier(links,[],[profile]).map(link=>link.label),['Zoo-Erlebnisse']);
+});
+test('an explicitly observed animal feeding visit is eligible, while conditional walks remain held',()=>{
+ const venue={...spot,name:'Zoo Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const quote='Beobachten Sie die Tiere im Zoo Basel bei den Fütterungen.';
+ const s=source(quote),profile={...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'};
+ const [checked]=recheckEvidenceFloors([{...fact('experience.profile','Fütterungen',quote,{offerKind:'VISIT'}),id:'f1',sourceId:'s1',state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[s],[profile],venue);
+ assert.equal(checked.state,'ACCEPTED');
+ const seasonal='Die Pinguine spazieren von November bis Februar; vorausgesetzt, das Thermometer zeigt nicht mehr als 10° C an.';
+ const seasonalSource=source(seasonal);
+ const [held]=recheckEvidenceFloors([{...fact('experience.profile','Pinguinspaziergang',seasonal,{offerKind:'WALK',condition:'von November bis Februar; vorausgesetzt, das Thermometer zeigt nicht mehr als 10° C an.',applicability:'CONDITIONAL'}),id:'f2',sourceId:'s1',state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[seasonalSource],[profile],venue);
+ assert.equal(held.reason,'VALIDITY_OR_CONDITION_REQUIRES_REVIEW');
+});
+test('seasonal visitor instructions cannot become an evergreen highlight',()=>{
+ const venue={...spot,name:'Zoo Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const seasonal='Die Pinguine spazieren von November bis Februar in der Regel täglich; vorausgesetzt, das Thermometer zeigt nicht mehr als 10° C an.';
+ const logistics='Der Start erfolgt gegen 11.00 Uhr entweder bei der Brücke oder beim Gehege.';
+ const fields=[field('description.highlight')];
+ for(const [quote,reason] of [[seasonal,'DESCRIPTION_SEASONAL_OR_CONDITIONAL'],[logistics,'DESCRIPTION_VISITOR_LOGISTICS_NOT_HIGHLIGHT']]){
+  const s=source(quote);
+  const [checked]=recheckEvidenceFloors([{...fact('description.highlight',quote,quote),id:'f1',sourceId:'s1',state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[s],fields,venue);
+  assert.equal(checked.reason,reason);
+ }
+});
+test('a shared museum ticket is admission guidance, not a descriptive experience highlight',()=>{
+ const venue={...spot,name:'Historisches Museum Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'CULTURE_ARTS'}}};
+ const quote='Mit Ihrem Ticket haben Sie Zugang zu allen drei Ausstellungshäusern.';
+ const s=source(quote);
+ const [checked]=recheckEvidenceFloors([{...fact('description.highlight',quote,quote),id:'f1',sourceId:'s1',state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[s],[field('description.highlight')],venue);
+ assert.equal(checked.reason,'DESCRIPTION_ADMISSION_TERMS_NOT_HIGHLIGHT');
+});
+test('private event rental paths do not outrank ordinary visitor experiences',()=>{
+ const profile={...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'};
+ const links=[{url:'https://example.org/de/zooerlebnisse/r/20/ihr-anlass/',depth:1,label:'Ihr Anlass',topics:['experience']},{url:'https://example.org/de/zooerlebnisse/r/17/fuehrungen/',depth:1,label:'Führungen',topics:['experience']}];
+ assert.deepEqual(rankResearchFrontier(links,[],[profile]).map(link=>link.label),['Führungen']);
+ const page={url:'https://example.org/de/zooerlebnisse/',contentType:'text/html',body:'<a href="/de/zooerlebnisse/r/20/ihr-anlass/">Ihr Anlass</a><a href="/de/zooerlebnisse/r/17/fuehrungen/">Führungen</a>'};
+ assert.deepEqual(discoverResearchLinks(page).map(link=>link.label),['Führungen']);
+ const venue={...spot,name:'Zoo Basel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const quote='Für Ihren Apéro stehen der Zolli-Saal und das Restaurant bereit.';
+ const s={...source(quote),url:'https://example.org/de/zooerlebnisse/r/20/ihr-anlass/'};
+ const [checked]=recheckEvidenceFloors([{...fact('experience.profile','Zolli-Saal',quote,{offerKind:'GASTRONOMY'}),id:'f1',sourceId:'s1',state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[s],[profile],venue);
+ assert.equal(checked.reason,'PRIVATE_EVENT_SOURCE_NOT_SPOT_EXPERIENCE');
+ const backing={...s,url:'https://example.org/dmxConnect/api/Website/de/Zooerlebnisse/Rubrik/Rubrik.php?wrid=20',discoveredOn:s.url};
+ const [apiChecked]=recheckEvidenceFloors([{...fact('experience.profile','Zolli-Saal',quote,{offerKind:'GASTRONOMY'}),id:'f1',sourceId:'s1',state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'}],[backing],[profile],venue);
+ assert.equal(apiChecked.reason,'PRIVATE_EVENT_SOURCE_NOT_SPOT_EXPERIENCE');
+});
+test('museum group visits outrank collection administration and room hire',()=>{
+ const page={url:'https://www.hmb.ch/besuch',contentType:'text/html',body:'<a href="/besuch/gruppen">Gruppen</a><a href="/besuch/familien">Familien</a><a href="/museum/sammlung-und-konservierung">Sammlung und Konservierung</a><a href="/en/museum/room-hire">Room hire</a>'};
+ const links=discoverResearchLinks(page).map(link=>({...link,depth:1}));
+ const profile={...field('experience.profile'),profileCategory:'CULTURE_ARTS'};
+ assert.ok(links.find(link=>link.url.endsWith('/besuch/gruppen'))?.topics.includes('experience'));
+ assert.deepEqual(rankResearchFrontier(links,[],[profile,field('hours.regular'),field('amenity.features')]).map(link=>link.url),['https://www.hmb.ch/besuch/gruppen','https://www.hmb.ch/besuch/familien']);
+});
+test('season names keep a venue schedule out of a single whole-year weekly field',()=>{
+ const body='<main><h1>Öffnungszeiten</h1><p>Öffnung während der Sommerzeit</p><p>Montag bis Freitag: 10.00–17.00 Uhr</p><p>Öffnung während der Winterzeit</p><p>Montag bis Freitag: 11.00–16.00 Uhr</p></main>';
+ const s=sourceText({url:'https://www.baslermuenster.ch/infos-kontakt/oeffnungszeiten',contentType:'text/html',observedAt:new Date().toISOString(),body},'s1',{preferMain:true});
+ assert.equal(s.seasonalSchedule,true);
+});
+test('landmark visitor activities outrank background contacts and religious programme pages',()=>{
+ const open=[{...field('experience.profile'),profileCategory:'ATTRACTIONS_LANDMARKS'},field('contact.public_email')];
+ const frontier=[
+  {url:'https://www.baslermuenster.ch/infos-kontakt/besuche-und-fuehrungen/turmbesteigung',label:'Turmbesteigung',depth:2,topics:['experience']},
+  {url:'https://www.baslermuenster.ch/kirchliches-leben/gemeinde-feiert/gottesdienste',label:'Gottesdienste',depth:1,topics:['experience']},
+  {url:'https://www.baslermuenster.ch/bauwerk/freunde-der-basler-muensterbauhuette/kontakt',label:'Kontakt',depth:1,topics:['contact']}
+ ];
+ const ordered=rankResearchFrontier(frontier,[{field:'contact.phone',state:'ACCEPTED'}],open,[]);
+ assert.equal(ordered[0].label,'Turmbesteigung');
+ assert.ok(!ordered.some(item=>item.label==='Kontakt'));
+});
 test('description selection excludes an adjacent limited campaign before model choice',async()=>{
  const branch={...spot,name:'Nooch Basel Barfi',existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/basel-barfi'}}};
  const body='<main><h2>Basel Barfi</h2><p>Hier verbinden wir urban Asian Cuisine mit kreativer Rauminszenierung – mitten in Basel.</p><h2>Limited Special</h2><p>China auf dem Teller: Entdecke Cantonese Crispy Duck, Sichuan Mapo Tofu und Shrimp Dumpling Soup – modern interpretiert und voller intensiver Aromen.</p></main>';
@@ -121,6 +301,11 @@ test('hotel-wide WLAN and paid garage rental are recognized without borrowing ne
  assert.deepEqual(enumFactCandidates(field('amenity.features'),[source(garage)]).map(item=>item.value),['PARKING']);
  for(const unsafe of ['Das Nachbarhotel bietet kostenloses WLAN-Internetzugang.','Das Hotel hat kein WLAN-Internetzugang.','Wir vermieten keine Garagen-Stellplätze.','Das Nachbarhotel vermietet Garagen-Stellplätze.'])assert.deepEqual(enumFactCandidates(field('amenity.features'),[source(unsafe)]),[]);
 });
+test('explicit garage parking inside the venue building is evidence, adjacent parking is not',()=>{
+ const onsite='Parkplätze findest du direkt im Parkhaus in unserem Gebäude.';
+ assert.deepEqual(enumFactCandidates(field('amenity.features'),[source(onsite)]).map(item=>item.value),['PARKING']);
+ for(const unsafe of ['Parkplätze findest du im Parkhaus neben unserem Gebäude.','Parkplätze findest du im nahegelegenen Parkhaus.','Keine Parkplätze in unserem Gebäude.'])assert.ok(!enumFactCandidates(field('amenity.features'),[source(unsafe)]).some(item=>item.value==='PARKING'));
+});
 test('after a hotel inventory overview, unread room categories outrank already supported details',()=>{
  const overview={...source('Einzelzimmer Classic\n\nEinzelzimmer Modern'),url:'https://example.org/de/zimmer/',headings:[{level:2,text:'Einzelzimmer Classic',offset:0},{level:2,text:'Einzelzimmer Modern',offset:22}]};
  const accepted=[{...fact('experience.profile','Einzelzimmer Modern','Einzelzimmer Modern',{subject:'OFFER',offerKind:'OVERNIGHT_STAY'}),state:'ACCEPTED'}];
@@ -129,6 +314,27 @@ test('after a hotel inventory overview, unread room categories outrank already s
    {url:'https://example.org/de/zimmer/einzelzimmer-basic/',label:'Einzelzimmer Classic',depth:1,topics:['stay']}
  ];
  assert.equal(rankResearchFrontier(links,accepted,[{...field('experience.profile'),profileCategory:'STAY'}],[overview])[0].label,'Einzelzimmer Classic');
+});
+test('a source phrase offering alternative courses is not one invented composite course',()=>{
+ const quote='Wer die Technik schneller lernen möchte, bucht einen Schnupper- oder Grundkurs.';
+ const s={...source(quote),url:'https://example.org/bouldern'};
+ const sport={...spot,name:'Synthetic Boulder Hall',existingValues:{...spot.existingValues,'classification.primary_category':{value:'SPORT'}}};
+ const accepted=ledger([fact('experience.profile','Schnupper- oder Grundkurs',quote,{subject:'OFFER',offerKind:'COURSE'})],s);
+ const [checked]=recheckEvidenceFloors(accepted,[s],[field('experience.profile')],sport);
+ assert.equal(checked.state,'HELD');assert.equal(checked.reason,'ALTERNATIVE_OFFERS_NOT_SINGLE_OFFER');
+});
+test('a named movement area retains its exact under-18 access rule in the offer',()=>{
+ const quote='Bewegungslandschaft\n\nSpielen erwünscht und erlaubt, für alle. Unter 18 Jahren nur mit Aufsichtspflicht oder EVE.';
+ const s={...source(quote),url:'https://example.org/bouldern',headings:[{level:3,text:'Bewegungslandschaft',offset:0}]};
+ const sport={...spot,name:'Synthetic Boulder Hall',existingValues:{...spot.existingValues,'classification.primary_category':{value:'SPORT_MOVEMENT'}}};
+ const candidates=literalSourceFacts(s,[{...field('experience.profile'),profileCategory:'SPORT_MOVEMENT'}],sport,0);
+ const movement=candidates.find(f=>f.value==='Bewegungslandschaft');
+ assert.ok(movement);assert.equal(movement.quote,quote);assert.equal(movement.condition,'Unter 18 Jahren nur mit Aufsichtspflicht oder EVE.');
+ const [checked]=recheckEvidenceFloors([{...movement,state:'ACCEPTED'}],[s],[field('experience.profile')],sport);
+ assert.equal(checked.state,'ACCEPTED');
+ const [result]=projectEvidenceLedger({spot:sport,fields:[{...field('experience.profile'),profileCategory:'SPORT_MOVEMENT'}],facts:[checked],sources:[s],...deps});
+ assert.equal(result.status,'REQUIRES_REVIEW');
+ assert.deepEqual(result.value.offers[0].properties.map(property=>[property.key,property.value]),[['participation.prerequisite','Unter 18 Jahren nur mit Aufsichtspflicht oder EVE.']]);
 });
 test('search identity matches punctuation in an official venue name without matching another venue',()=>{
  const results=[{url:'https://www.chequelomo.ch/menus',title:'Speisekarte | ¡Che, que lomo!',snippet:'Argentinische Spezialitäten Basel'},{url:'https://www.chequelomo.ch/another',title:'Che Lomo',snippet:'Andere Bar Basel'}];
@@ -202,6 +408,97 @@ test('reservation mailbox under the operator general Contact heading may be publ
  const checked=recheckEvidenceFloors(facts,[s],chosen,spot);
  assert.equal(checked[0].reason,'SEMANTIC_CHECK_PENDING');
  assert.equal(checked[1].reason,'EXPLICIT_AREA_EMAIL');
+});
+test('prefixed tour mailbox on a venue contact page is not its public contact',()=>{
+ const text='Contact Botanical Garden\nBotanical Garden\nSpalengraben 8\ngarden@ clutter university.ch\nGuided tours in the Botanical Garden\nFor questions about tours please contact garden-events@university.ch.';
+ const s=sourceText({url:'https://example.org/contact/',body:`<main><p>${text.replaceAll('\n','</p><p>')}</p></main>`,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const value='garden-events@university.ch';
+ const facts=validateEvidenceFacts({facts:[fact('contact.public_email',value,value)]},s,[field('contact.public_email')]).map(f=>({...f,state:'ACCEPTED'}));
+ assert.equal(recheckEvidenceFloors(facts,[s],[field('contact.public_email')],spot)[0].reason,'EXPLICIT_AREA_EMAIL');
+ assert.equal(projectEvidenceLedger({spot,fields:[field('contact.public_email')],facts,sources:[s],...deps})[0].status,'UNRESOLVED');
+});
+test('published rotated mailto target yields the browser-visible venue email only',()=>{
+ const rotate=(text,amount)=>[...text].map(char=>{const code=char.charCodeAt(0),range=code>=43&&code<=58?[43,58]:code>=64&&code<=90?[64,90]:code>=97&&code<=122?[97,122]:null;if(!range)return char;const [first,last]=range,size=last-first+1;return String.fromCharCode(first+(code-first+amount)%size);}).join('');
+ const address='garden@university.ch',token=rotate('mailto:'+address,1);
+ const body=`<main><h1>Contact Botanical Garden</h1><p>Botanical Garden<br><a href="#" data-mailto-token="${token}" data-mailto-vector="1">garden@<i class="hidden">clutter</i>university.ch</a></p><h2>Guided tours</h2><p>For questions please contact garden-events@university.ch.</p></main>`;
+ const s=sourceText({url:'https://example.org/contact',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.match(s.text,/garden@university\.ch/);assert.doesNotMatch(s.text,/clutter/);
+ const chosen=[field('contact.public_email')];
+ const claims=[address,'garden-events@university.ch'].map(value=>fact('contact.public_email',value,value));
+ const checked=recheckEvidenceFloors(validateEvidenceFacts({facts:claims},s,chosen).map(f=>({...f,state:'ACCEPTED'})),[s],chosen,spot);
+ assert.deepEqual(checked.map(f=>f.reason),['SEMANTIC_CHECK_PENDING','EXPLICIT_AREA_EMAIL']);
+ const invalid=sourceText({url:'https://example.org/contact',body:body.replace('data-mailto-vector="1"','data-mailto-vector="99"'),contentType:'text/html',observedAt:new Date().toISOString()},'s2',{preferMain:true});
+ assert.doesNotMatch(invalid.text,/(?:^|\W)garden@university\.ch(?:\W|$)/u);
+});
+test('nature visit offers require visitor activity, not garden-map or hours labels',()=>{
+ const nature={...spot,name:'Botanical Garden',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const claims=[['Tropical House','The Tropical House offers a tropical experience for visitors.'],['Trees','Locations of greenhouses, outdoor sections and Trees (map as of 2025).'],['Victoria House','Tropical House, Victoria House and adjacent greenhouses 9-17 h']];
+ const s=source(claims.map(x=>x[1]).join('\n'));
+ const chosen=[{...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'}];
+ const facts=validateEvidenceFacts({facts:claims.map(([value,quote])=>fact('experience.profile',value,quote,{subject:'OFFER',offerKind:'VISIT'}))},s,chosen).map(f=>({...f,state:'ACCEPTED'}));
+ assert.deepEqual(recheckEvidenceFloors(facts,[s],chosen,nature).map(f=>f.reason),['SEMANTIC_CHECK_PENDING','NATURE_AREA_NOT_VISIT_OFFER','NATURE_AREA_NOT_VISIT_OFFER']);
+});
+test('published guided tour wording controls kind and all-weather wording is not a restriction',()=>{
+ const nature={...spot,name:'Botanical Garden',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const quote='Feierabendführungen sind öffentlich und finden bei jeder Witterung statt.';
+ const s=source(quote),chosen=[{...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'}];
+ const item=fact('experience.profile','Feierabendführungen',quote,{offerKind:'VISIT',condition:'bei jeder Witterung'});
+ const [checked]=recheckEvidenceFloors(validateEvidenceFacts({facts:[item]},s,chosen).map(f=>({...f,state:'ACCEPTED'})),[s],chosen,nature);
+ assert.equal(checked.state,'ACCEPTED');assert.equal(checked.offerKind,'GUIDED_TOUR');assert.equal(checked.condition,'');
+ const result=projectEvidenceLedger({spot:nature,fields:chosen,facts:[checked],sources:[s],...deps})[0];
+ assert.equal(result.value.offers[0].kind,'GUIDED_TOUR');
+});
+test('private guided-tour section and optional meal bundle cannot become unrestricted tours',()=>{
+ const nature={...spot,name:'Botanical Garden',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const title='Führungen & Apéros für private Gruppen und Institutionen';
+ const quote='Wir bieten eine allgemeine Gartenführung für maximal 20 Personen an.';
+ const text=title+'\n\n'+quote;
+ const s={...source(text),headings:[{level:2,text:title,offset:0}]};
+ const chosen=[{...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'}];
+ const candidates=[fact('experience.profile','Gartenführung',quote,{offerKind:'VISIT'}),fact('experience.profile',title,text,{offerKind:'VISIT'})];
+ const checked=recheckEvidenceFloors(validateEvidenceFacts({facts:candidates},s,chosen).map(f=>({...f,state:'ACCEPTED'})),[s],chosen,nature);
+ assert.deepEqual(checked.map(f=>f.reason),['PRIVATE_TOUR_AUDIENCE_NOT_RETAINED','OPTIONAL_MEAL_NOT_SINGLE_TOUR']);
+});
+test('explicitly public tours are not inherited as private from a broad parent heading',()=>{
+ const nature={...spot,name:'Botanical Garden',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const heading='Führungen & Apéros für private Gruppen und Institutionen';
+ const subheading='Feierabendführungen & Mittagsführungen';
+ const quote='Feierabendführungen sind öffentlich und finden bei jeder Witterung statt.';
+ const text=heading+'\n\n'+subheading+'\n\n'+quote;
+ const s={...source(text),headings:[{level:2,text:heading,offset:0},{level:3,text:subheading,offset:text.indexOf(subheading)}]};
+ const chosen=[{...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'}];
+ const [checked]=recheckEvidenceFloors(validateEvidenceFacts({facts:[fact('experience.profile','Feierabendführungen',quote,{offerKind:'VISIT',condition:'bei jeder Witterung'})]},s,chosen).map(f=>({...f,state:'ACCEPTED'})),[s],chosen,nature);
+ assert.equal(checked.state,'ACCEPTED');assert.equal(checked.offerKind,'GUIDED_TOUR');assert.equal(checked.condition,'');
+});
+test('a public guided-tour programme can remain a cited draft with unknown dates',()=>{
+ const nature={...spot,name:'Botanical Garden',existingValues:{...spot.existingValues,'classification.primary_category':{value:'OUTDOOR_NATURE'}}};
+ const quote='Feierabendführungen sind öffentlich. Sobald vorhanden, finden Sie das Programm auf dieser Seite Feierabendführungen.';
+ const s={...source(quote),url:'https://example.org/de/fuehrungen/'};
+ const chosen=[{...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'}];
+ const item=fact('experience.profile','Feierabendführungen',quote,{offerKind:'VISIT',applicability:'CONDITIONAL',condition:'Sobald vorhanden, finden Sie das Programm auf dieser Seite'});
+ const [checked]=recheckEvidenceFloors(validateEvidenceFacts({facts:[item]},s,chosen).map(f=>({...f,state:'ACCEPTED'})),[s],chosen,nature);
+ assert.equal(checked.state,'ACCEPTED');assert.equal(checked.offerKind,'GUIDED_TOUR');
+ const result=projectEvidenceLedger({spot:nature,fields:chosen,facts:[checked],sources:[s],...deps})[0];
+ assert.equal(result.status,'REQUIRES_REVIEW');assert.deepEqual(result.value.offers[0].schedule,[]);
+ assert.match(result.citations[0].evidence,/Sobald vorhanden/);
+});
+test('association background links are skipped, but an explicitly stored association seed remains readable',()=>{
+ const chosen=[{...field('experience.profile'),profileCategory:'OUTDOOR_NATURE'}];
+ const links=[{url:'https://example.org/verein/',label:'Verein',depth:1,topics:['experience']},{url:'https://example.org/fuehrungen/',label:'Führungen',depth:1,topics:['experience']}];
+ assert.deepEqual(rankResearchFrontier(links,[],chosen).map(item=>item.url),['https://example.org/fuehrungen/']);
+ assert.deepEqual(rankResearchFrontier([{...links[0],depth:0}],[],chosen).map(item=>item.url),['https://example.org/verein/']);
+});
+test('official FAQ toilet location proves the amenity without claiming off-site toilets',()=>{
+ const s=source('Toiletten befinden sich in der Nähe des Tropenhauses. Ein paar Meter am Eingang vorbei auf rechter Hand.\nToilets are located near the tropical greenhouse. A few metres past the entrance on the right.\nThe restrooms are located across the street.');
+ const found=enumFactCandidates(field('amenity.features'),[s]);
+ assert.deepEqual(found.filter(f=>f.value==='TOILET').map(f=>f.quote),['Toiletten befinden sich in der Nähe des Tropenhauses.','Toilets are located near the tropical greenhouse.']);
+});
+test('HTML source marks month-range hours as seasonal before weekly projection',()=>{
+ const body='<main><h1>Botanical Garden</h1><h2>Opening hours</h2><p>März-Oktober 8-18 Uhr</p><p>November-Februar 8-17 Uhr</p><p>Gewächshäuser 9-17 Uhr</p></main>';
+ const s=sourceText({url:'https://example.org/',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.equal(s.seasonalSchedule,true);
+ const ordinary=sourceText({url:'https://example.org/',body:'<main><p>Montag bis Sonntag 10-18 Uhr</p></main>',contentType:'text/html',observedAt:new Date().toISOString()},'s2',{preferMain:true});
+ assert.equal(ordinary.seasonalSchedule,false);
 });
 test('corroborated image menu rows become cited review draft offers without prices or catalog approval',()=>{
  const audit={officialMenuUrl:'https://example.org/menu',observedAt:'2026-10-20T12:00:00Z',images:[{url:'https://example.org/board.png',discoveredOn:'https://example.org/menu',assetHash:'a'.repeat(64),visionLines:[{text:'HAUSGEKOCHT'}],localVision:{corroborated:[{name:'Curry',price:'15.5'},{name:'Granola mit Früchten',price:'7.5'}],held:[{name:'Aperol',price:'12.5',reason:'NAME_PRICE_ROW_NOT_CORROBORATED'}]}}]};

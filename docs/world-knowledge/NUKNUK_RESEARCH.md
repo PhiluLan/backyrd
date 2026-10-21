@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.28
+# Local Nuknuk Research v3.42
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -6,10 +6,10 @@ publication, production enrichment worker or import-ready batch.
 The user decision is whether a sourced addition belongs in an existing Spot.
 The fallback is manual research and the canonical Admin preview/commit flow.
 Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
-model self-approval are unacceptable. Grounding establishes where text came
+  model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.28
+## Active architecture: Research v3.42
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -618,10 +618,12 @@ page, not a fresh blind end-to-end pass. It does not establish parity or
 reopen the unattended catalog-write gate. All results remain human-review
 drafts with no catalog write.
 
-The next untouched cross-category case was Hotel Alexander, chosen from the
+The next cross-category regression case was Hotel Alexander, chosen from the
 ordinary `anon`-visible approved Basel hotel catalog. Its reference was saved
 before the v3.27 run and independently checked against the hotel's official
-homepage, contact and room-overview pages. The full blind run used ten HTTP
+homepage, contact and room-overview pages. A subsequent full-archive audit
+found earlier Alexander research in `blind-batch-01`; this case was not
+untouched and cannot count toward the blind release cohort. The full run used ten HTTP
 requests, 22 model calls and 879 seconds, then hit the model-call budget.
 It recovered all six named room categories, the main phone, the literal
 public email and a factual hotel description. It correctly left whole-hotel
@@ -630,7 +632,7 @@ package or partner-restaurant dinner as standing hotel room offers. It
 missed two explicit general amenities: complimentary WLAN and paid garage
 space rental. The deterministic entailment floor did not recognize the
 compound `WLAN-Internetzugang` or the hotel's first-person garage-rental
-sentence. This is another failed blind release case, despite strong room
+sentence. This is a failed regression case, despite strong room
 and contact coverage.
 
 v3.28 adds narrowly grounded hotel-wide WLAN clauses and first-person garage
@@ -644,6 +646,254 @@ calls and 111 seconds; it drafted exactly `WIFI` and `PARKING`, with the
 garage's paid-rental wording retained in the citation. This is a known-page
 regression check; these rules must also pass a fresh blind case before the
 independent release cohort can count them.
+
+The next activity regression case was ELYS Boulderloft, again selected from
+the approved Basel catalog under ordinary `anon` RLS and compared with a
+first-party reference saved before the run. A subsequent full-archive audit
+found v2.3 ELYS runs from 19 October; this was not an untouched case either.
+The exploratory v3.28 run used eight requests, 12 model calls and 654 seconds. It correctly recovered the
+seven-day whole-venue hours, main phone, general email and bouldering,
+while excluding the course mailbox and dated events. It failed the reference:
+`Schnupper- oder Grundkurs` was falsely merged into one offer, the separately
+ticketed movement landscape was omitted, and explicitly signposted garage
+parking stayed unresolved. The run used legacy `SPORT` because the current
+World Knowledge classification was unavailable; the result also did not use
+the canonical `SPORT_MOVEMENT` contract. Two secondary sites returned
+redirects/rate limits and contributed no facts.
+
+v3.29 holds disjunctive offer names unless they are an actual published
+heading. It binds a named movement-play section to its adjacent explanation
+and retains a literal age/accompaniment restriction as the offer's
+`participation.prerequisite`, rather than silently dropping the restriction
+or the whole visit. A focused live test on the official bouldering page used
+one request and two model calls (88 seconds), returning `Bouldern` and
+`Bewegungslandschaft`; the latter carried the exact under-18 access text.
+v3.30 additionally accepts parking explicitly located in the venue's own
+building, without implying it is free, reserved or owned by the venue.
+Nearby parking remains excluded. The full suite passes 391 tests. The
+complete v3.30 rerun with canonical `SPORT_MOVEMENT` used four requests,
+six model calls and 332 seconds. It drafted the separate bouldering and
+movement-play offers, retained the under-18 prerequisite, recovered all
+seven-day hours and the general contacts, and cited the on-site garage.
+It held the alternative-course composite and the course mailbox. The
+first-visit registration rule visible on the official site is still absent
+from the profile, so this is an improved regression result rather than
+manual-research parity. A truly untouched botanical-garden case was selected
+only after checking every local research archive for both ID and name; its
+official-source reference was saved before the v3.30 model run.
+
+The first genuinely untouched Botanischer Garten der Universität Basel run
+read seven official pages in 418 seconds (nine HTTP requests and ten model
+calls). It correctly left whole-year opening hours unresolved because the
+current site states different March–October and November–February garden
+hours, and kept nearby parking and an unverified general phone out. It did
+**not** match the prewritten reference: it treated the guided-tour mailbox
+`botgarten-events@unibas.ch` as the garden's general email, made map labels,
+buildings and generic site sections into separate visit offers, and missed
+toilets explicitly located by the official visitor FAQ. The public garden
+mailbox is displayed in an anti-spam-obfuscated form, so the parser must not
+reconstruct it from the page. This blind case fails the parity gate and is now
+development data. v3.31 holds service-role mailboxes even when prefixed by
+the venue name, requires an explicit visitor experience for nature-visit
+offers, recognizes first-party toilet-location statements, and marks
+month-range HTML hours as seasonal. A deterministic replay of the saved facts
+now leaves the tour mailbox unresolved and retains only the two separately
+described greenhouse visits; replay cannot promote the previously held toilet
+fact or prove a fresh full-run result. All 395 runtime tests pass. The
+v3.31 full regression finished in 574 seconds, with nine HTTP requests and
+13 model calls. It retained only Tropenhaus and Nebelwaldhaus as visit
+drafts, correctly proposed the official visitor FAQ's `TOILET`, left
+seasonal hours and the scoped tour mailbox unresolved, and retrieved the
+official tours page. It still missed the public and private guided-tour
+offerings: the model called guided tours ordinary visits, invented singular
+offer names where the page published only plural/shared-prefix names, and
+treated “bei jeder Witterung” as a restricting condition. A third-party
+cross-check returned HTTP 403; this did not support any proposed value.
+This is a failed development regression, not a release-cohort pass.
+v3.32 reads the original operator-published rotated `mailto:` target using
+the three character ranges and vector in the site's own JavaScript click
+handler. A decoded address must be a valid mailto address; the anti-spam
+display text alone is never reconstructed. It also classifies explicitly
+named guided tours as `GUIDED_TOUR`, treats “bei jeder Witterung” as an
+all-weather statement rather than a restriction, holds optional tour-plus-meal
+headings and private-group tours whose audience was not retained, and avoids
+membership/association pages as ordinary Spot-offer sources. A focused live
+garden contact-and-tours retest is in progress. These are review drafts and do
+not close the blind-case omission until the current code has been checked.
+The first two-page focused run recovered the intended public
+`botgarten@unibas.ch` from the official encoded link and held the tour and
+association mailboxes. It still returned no tour offer because a broad
+private-group heading remained in the HTML heading stack above an explicitly
+public subsection. The scope check now gives the subsection's explicit
+“öffentlich” wording precedence; a one-page live tour retest is in progress.
+That retest still left the tours unresolved because the independent critic
+correctly copied the site's “programme published when available” caveat and
+the validity floor rejected every condition it could not put in the profile.
+The floor now admits exactly this public, first-party programme caveat on a
+standing tour page. It keeps the quotation and an empty schedule for review;
+it does not claim dates or daily availability. A second live one-page retest
+still rejected the two public tours: the model marked them `CONDITIONAL`,
+whereas the new guard covered only `CURRENT`. The guard now admits either
+applicability only with the exact quoted caveat, explicit public wording and
+a standing guided-tour page. The 401-test suite passes, including a
+`CONDITIONAL` regression; this last guard has not yet received a fresh live
+garden run. Unspecified private-group access and source-absent singular
+tour names remain held. None of the garden retests counts as a new blind case.
+
+The next genuinely untouched case was Basler Münster. Its official-source
+reference was written before any run, then the current one-Spot Admin export
+was downloaded and used verbatim as the test identity. The export classifies
+it as `ATTRACTIONS_LANDMARKS`; the old catalog's “Aussichtspunkt” is not the
+research category. v3.32 read only the dedicated homepage and opening-hours
+page in four requests and 266 seconds. It proposed the already known visitor
+phone but no visitor offers or description. Seasonal church, cloister and crypt
+hours correctly stayed unresolved. The blind result misses the tower ascent
+and guided visits; it fails the parity gate and is now development data.
+The local field-level audit against the pre-run reference records one correct
+field, two omissions, three justified abstentions and six missed reference
+facts across the six requested fields. These counts are human assessment of
+the recorded checks, not independent population-wide accuracy estimates.
+
+The first v3.33 regression fixed a structural navigation error: a saved
+`/infos-kontakt/oeffnungszeiten` website must not make the same venue's
+homepage look like a chain-brand overview or restrict all follow-up URLs to
+that leaf path. `Turmbesteigung` now receives a visitor-offer topic. The full
+v3.33 regression still reached no tower source before its 900-second budget
+ended (eight requests, thirteen model calls). It spent requests on a building
+society contact and religious programme pages, and its three tour/group
+drafts omitted a mandatory group registration from the parent section. It
+correctly held the Sunday worship service and dated lecture. This tuned
+regression also fails manual-research parity.
+
+v3.34 ranks observed landmark-visit and guided-tour pages ahead of unrelated
+society/religious sections. An external tour operator is eligible only through
+an exact, direct link published by the official venue, with both link purpose
+and destination identifying the venue. Such a page can support only visit or
+guided-tour facts; contacts, hours, further links and broad assertions remain
+out of scope. A literal mandatory group-registration sentence is bound to
+the listed group offer and stored as an offer-level prerequisite, either from
+an adjacent parent line or from the offer paragraph itself. Summer, winter
+and Advent hours are held from a whole-year weekly field by an independent
+season-heading check. Its full-site regression reached the official tour
+page and found the tower ascent, but spent its full 900-second budget on eight
+requests and fourteen model calls. It proposed a pastoral listening service
+as a visit, missed the public short-tour inventory and dropped a mandatory
+group-booking condition when a later duplicate tour mention replaced an
+earlier qualified one. This tuned run is not a release pass.
+
+The next untouched Spot was Zoo Basel. A current one-Spot Admin export and
+an independent nine-field reference were saved before any model call. The
+official public contact and seasonal-hours JSON responses were also captured
+with timestamps and hashes. The v3.34 blind run correctly proposed the
+general phone and email, but missed visitor activities and did not surface
+the seasonal-hours conflict with the stored all-year 08:00–18:00 value. It
+stopped at twelve requests after following several empty JavaScript page
+shells and an unrelated hours endpoint. The formal audit records two correct
+fields, five omissions, two justified abstentions and seven missed reference
+facts; its only source failure was an empty, observed but irrelevant API
+response. The pre-run reference incorrectly assumed that `OUTDOOR_NATURE`
+cannot classify a zoo. The authoring taxonomy explicitly permits `ZOO`
+under that primary category, so the audit marks that field as a justified
+abstention and keeps the original reference unchanged. The stored `PARK`
+place type and pet rule remain unresolved conflicts.
+
+v3.35 follows only page-declared same-host read-only visitor JSON endpoints
+and turns their explicit same-host links into leads. It ranks experience
+pages ahead of admission-price pages, preserves a mandatory booking caveat
+across duplicate offer mentions, and attaches a quoted seasonal-hours block
+to an unresolved hours result for human review. The v3.35 Zoo regression
+reached the exact seasonal table and proposed a factual description and the
+correct general contacts, but still stopped at sixteen requests. It falsely
+treated a Gönnerjahreskarte as a visitor experience, never reached the
+experience overview, and could not assess the unsupported pet/classification
+fields. This was a tuned retest, not another blind case.
+
+v3.36 prioritizes activity research earlier and excludes admission-product
+pages from non-food experience crawling. It reached the Zoo feeding text,
+experience overview, guided-tour details and the seasonal schedule. The
+900-second run still stopped at sixteen requests after 880 seconds. It
+accepted the general guided tour but also promoted an event venue's rooms
+and restaurant into ordinary Zoo offers and chose a seasonal penguin-walk
+condition as a permanent highlight. The current v3.37 floors reject those
+private-event facts even when their text comes from a backing JSON endpoint,
+exclude time-limited visitor instructions from permanent descriptions,
+and allow an explicitly named animal-feeding observation as a nature visit.
+The original v3.36 evidence replay removes the four private-event false
+offers and the seasonal description; it cannot promote previously held
+feeding facts without a new model run.
+
+The next genuinely new blind case, Historisches Museum Basel, used a fresh
+Admin export, four current official source snapshots and a six-field
+reference fixed before the model run. The official visit page directly
+links `Gruppen`, whose page describes named house-specific tours and a
+two-week advance group request. v3.37 never opened that link. It spent
+fourteen requests and 24 model calls (790 seconds) on collection-management
+pages, translated duplicates and room hire, then stopped at its model-call
+limit. The three known house tours were omitted. Separate house opening
+hours correctly remained unresolved; the general administration phone and
+email matched their official source. Its ticket sentence was literal but
+redundant with an already stored description. The six-field blind audit
+records three correct fields, one omission, two justified abstentions, three
+missed tour facts and one dead external cross-check URL. It fails the release
+gate.
+
+v3.38 treats observed visitor-group and family links as experience leads,
+prioritizes museum group-tour pages, removes collection administration and
+room-hire paths from the visitor frontier, defers generic translated
+collection/visit pages when an unprefixed primary page is already read, and
+holds ticket terms out of experience highlights. The actual HMB visit page
+now ranks `/besuch/gruppen` first. Its complete tuned HMB run reached that
+page second, used ten requests and 19 model calls over 739 seconds, and
+stopped when the frontier was exhausted. It extracted the three reference
+tour titles, but held each because the model returned a title alone without
+the page-wide two-week group booking rule. The output instead proposed
+generic programme labels and duplicate group-tour summaries. Institution-wide
+hours and accessibility correctly remained unresolved. This tuned run still
+fails the research quality target and does not change the blind audit.
+
+v3.39 binds a literal, page-wide booking deadline to named guided-tour
+headings only when an official group page explicitly lists them under offer
+sections. The quote remains one contiguous source span containing both the
+name and rule; no deadline is inferred from an unrelated page. Generic
+programme labels are withheld unless a dedicated recurring programme page
+supports one. Its focused HMB live test still failed: the critic classified
+four named house tours as OTHER even though the parent museum advertises
+group tours through its houses. The other two names lacked the section
+binding. This demonstrates that a deterministic rule alone is insufficient.
+
+v3.40 anchors the critic's section context on the offer name rather than the
+earlier page-wide booking sentence, passes the official group-page preamble
+that establishes ownership, and treats a named tour in an institution's own
+constituent house as a possible institution-owned offer. This does not
+transfer that house's opening hours or amenities to the institution.
+`Angebote Musikmuseum` now counts as a group-offer section. A focused local
+model run on the HMB development export used two pages, three model calls and
+209 seconds. It proposed six literal named group tours, including all three
+pre-run reference tours, each with the exact two-week registration deadline.
+The generic programme summaries were held. All 416 runtime tests and the
+runtime typecheck passed. This is a tuned development regression, not a new
+blind success.
+
+The complete v3.40 Zoo Basel development run used 16 requests, 19 model
+calls and 657 seconds. It retained a literal guided tour, general phone and
+email, and a factual description. The operator's JSON seasonal table was
+surfaced as `SEASONAL_HOURS_REQUIRE_REVIEW` rather than overwriting the
+stored all-year hours. It produced no private-event rooms or seasonal
+penguin walk as unconditional offers. Kinderzoo, feeding observation and
+other distinct experiences remained missing. The pet-access and place-type
+fields remain unsupported by this adapter and cannot count as verified.
+
+v3.41 fixes a generic crawler depth bug: a public JSON endpoint declared by
+an HTML page represents that page and remains reachable when the page is at
+the navigation-depth limit. A mock end-to-end test proves the endpoint is
+fetched. A focused live Kinderzoo test then reached its official JSON, but
+still proposed no supported visitor offer: the endpoint mainly supplies
+metadata and the model chose a bare activity title without visitor context.
+This is a remaining semantic/schema gap, not a passed research result.
+v3.42 generalizes the group booking rule to literal advance deadlines stated
+in days, weeks or months; positive and absent-deadline tests pass. The full
+417-test runtime suite passes. Neither this tuned development work nor a
+replay closes the unattended research release gate.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
