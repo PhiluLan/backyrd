@@ -3461,3 +3461,142 @@ for (const denied of [false, true]) {
     expect(fixture.guestCards()[0].name).toBe("Kartengast Beispiel");
   });
 }
+
+async function openInlineGuestPicker(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await editor.getByRole("button", { name: "Gespeicherten Gast auswählen", exact: true }).click();
+  return editor;
+}
+
+test("inline guest selection on phone explicitly replaces contacts and preserves a reservation draft", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true });
+  const editor = await openInlineGuestPicker(page);
+  await editor.getByLabel("Gastname", { exact: true }).fill("Entwurf");
+  await editor.getByLabel("Telefon oder E-Mail (optional)", { exact: true }).fill("Entwurfkontakt");
+  await editor.getByLabel("Buchungsdatum", { exact: true }).fill("2026-10-21");
+  await editor.getByRole("button", { name: "3 Personen", exact: true }).click();
+  await editor.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ index: 1 });
+  await editor.getByRole("combobox", { name: "Tisch", exact: true }).selectOption({ index: 1 });
+  const chosenTime = await editor.getByRole("combobox", { name: "Uhrzeit", exact: true }).inputValue();
+  const chosenTable = await editor.getByRole("combobox", { name: "Tisch", exact: true }).inputValue();
+  await editor.getByLabel("Gästekarte suchen", { exact: true }).fill("+41 61");
+  await editor.getByLabel("Gästekarte suchen", { exact: true }).press("Enter");
+  await editor.getByRole("button", { name: /Kartengast Beispiel.*Kontaktdaten prüfen/ }).click();
+  await expect(editor.getByRole("heading", { name: "Kartengast Beispiel", exact: true })).toBeFocused();
+  await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Entwurf");
+  await editor.getByRole("radio", { name: "E-Mail: karte@booking.invalid", exact: true }).check();
+  const contactRadio = await editor.getByRole("radio", { name: "E-Mail: karte@booking.invalid", exact: true }).boundingBox();
+  expect(contactRadio?.width).toBe(20); expect(contactRadio?.height).toBe(20);
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  expect((await new AxeBuilder({ page }).include('dialog[aria-label="Neue Reservierung"]').analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await editor.screenshot({ path: test.info().outputPath("inline-guest-phone.png") });
+  await editor.getByRole("button", { name: "Gastname und Kontakt übernehmen", exact: true }).click();
+  await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Kartengast Beispiel");
+  await expect(editor.getByLabel("Telefon oder E-Mail (optional)", { exact: true })).toHaveValue("karte@booking.invalid");
+  await expect(editor.getByLabel("Personen", { exact: true })).toHaveValue("3");
+  await expect(editor.getByRole("combobox", { name: "Uhrzeit", exact: true })).toHaveValue(chosenTime);
+  await expect(editor.getByRole("combobox", { name: "Tisch", exact: true })).toHaveValue(chosenTable);
+  await expect(editor.getByRole("button", { name: "Gespeicherten Gast auswählen", exact: true })).toBeFocused();
+  expect(fixture.bookingCalls()).toBe(0); expect(fixture.guestCardRequests()).toHaveLength(0);
+  await editor.getByRole("button", { name: "Reservierung speichern", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  expect(fixture.bookingCalls()).toBe(1); expect(fixture.guestCards()[0].name).toBe("Kartengast Beispiel");
+});
+
+test("inline guest selection cancels without replacing typed contacts and clears old search results", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, guestCardPaged: true });
+  const editor = await openInlineGuestPicker(page);
+  await editor.getByLabel("Gastname", { exact: true }).fill("Entwurf behalten");
+  await editor.getByRole("button", { name: "Gäste suchen", exact: true }).click();
+  await expect(editor.getByText("25 aktive Karten auf dieser Seite", { exact: false })).toBeVisible();
+  await editor.getByRole("button", { name: "Weitere Gäste", exact: true }).click();
+  await expect(editor.getByText("5 aktive Karten auf dieser Seite", { exact: false })).toBeVisible();
+  await editor.getByLabel("Gästekarte suchen", { exact: true }).fill("Nicht vorhanden");
+  await expect(editor.getByRole("button", { name: /Kartengast Beispiel.*Kontaktdaten prüfen/ })).toHaveCount(0);
+  await editor.getByRole("button", { name: "Gäste suchen", exact: true }).click();
+  await expect(editor).toContainText("Keine aktive Gästekarte gefunden.");
+  await editor.getByLabel("Gästekarte suchen", { exact: true }).press("Escape");
+  await expect(editor.getByLabel("Gästekarte suchen", { exact: true })).toHaveCount(0);
+  await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Entwurf behalten");
+  await expect(editor.getByText("Ungespeicherte Eingaben verwerfen?", { exact: true })).toHaveCount(0);
+  expect(fixture.bookingCalls()).toBe(0); expect(fixture.guestCardRequests()).toHaveLength(0);
+});
+
+for (const mode of ["archived", "missing", "malformed", "denied"] as const) {
+  test("inline guest selection rechecks card before copy: " + mode, async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, guestCards: true });
+    await page.route("**/rest/v1/rpc/booking_console_guest_v1", route => mode === "archived" ? route.fulfill({ json: { guest: { ...fixture.guestCards()[0], is_archived: true }, events: [] } }) : mode === "missing" ? route.fulfill({ status: 400, json: { code: "22023", message: "booking_guest_unavailable" } }) : mode === "denied" ? route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } }) : route.fulfill({ json: { guest: { id: "invalid" } } }));
+    const editor = await openInlineGuestPicker(page);
+    await editor.getByLabel("Gastname", { exact: true }).fill("Bleibt mein Entwurf");
+    await editor.getByRole("button", { name: "Gäste suchen", exact: true }).click();
+    await editor.getByRole("button", { name: /Kartengast Beispiel.*Kontaktdaten prüfen/ }).click();
+    if (mode === "denied") { await expect(editor).toHaveCount(0); await expect(page.getByRole("main").getByRole("alert")).toBeVisible(); }
+    else { await expect(editor.getByRole("alert")).toBeVisible(); await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Bleibt mein Entwurf"); }
+    await expect(editor.getByRole("button", { name: "Gastname und Kontakt übernehmen", exact: true })).toHaveCount(0);
+    expect(fixture.bookingCalls()).toBe(0); expect(fixture.guestCardRequests()).toHaveLength(0);
+  });
+}
+
+test("inline guest selection clears private choices offline while retaining the draft", async ({ page, context }) => {
+  await mockConsole(page, { seeded: true, guestCards: true });
+  const editor = await openInlineGuestPicker(page);
+  await editor.getByLabel("Gastname", { exact: true }).fill("Offline Entwurf");
+  await editor.getByRole("button", { name: "Gäste suchen", exact: true }).click();
+  await editor.getByRole("button", { name: /Kartengast Beispiel.*Kontaktdaten prüfen/ }).click();
+  await expect(editor.getByRole("button", { name: "Gastname und Kontakt übernehmen", exact: true })).toBeVisible();
+  await context.setOffline(true);
+  await expect(editor.getByRole("button", { name: "Gastname und Kontakt übernehmen", exact: true })).toHaveCount(0);
+  await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Offline Entwurf");
+  await context.setOffline(false);
+  await expect(editor.getByRole("button", { name: "Gäste suchen", exact: true })).toBeEnabled();
+  await expect(editor.getByText("karte@booking.invalid", { exact: true })).toHaveCount(0);
+});
+
+test("inline guest selection cannot restore a late private result after closing selection", async ({ page }) => {
+  await mockConsole(page, { seeded: true, guestCards: true });
+  let release = () => {}, called = false;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/rest/v1/rpc/booking_console_guests_v1", async route => { called = true; await gate; try { await route.fallback(); } catch { /* selection aborted */ } });
+  const editor = await openInlineGuestPicker(page);
+  await editor.getByRole("button", { name: "Gäste suchen", exact: true }).click();
+  await expect.poll(() => called).toBe(true);
+  await editor.getByRole("button", { name: "Auswahl schliessen", exact: true }).click();
+  release();
+  await editor.getByRole("button", { name: "Gespeicherten Gast auswählen", exact: true }).click();
+  await expect(editor.getByRole("button", { name: /Kartengast Beispiel.*Kontaktdaten prüfen/ })).toHaveCount(0);
+});
+
+test("inline guest selection copies freshly corrected values and explicitly clears a missing contact", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true });
+  await page.route("**/rest/v1/rpc/booking_console_guest_v1", route => route.fulfill({ json: { guest: { ...fixture.guestCards()[0], name: "Korrigierter Gast", phone: null, email: null, revision: 1 }, events: [] } }));
+  const editor = await openInlineGuestPicker(page);
+  await editor.getByLabel("Telefon oder E-Mail (optional)", { exact: true }).fill("Alter Kontakt");
+  await editor.getByRole("button", { name: "Gäste suchen", exact: true }).click();
+  await editor.getByRole("button", { name: /Kartengast Beispiel.*Kontaktdaten prüfen/ }).click();
+  await expect(editor).toContainText("Bei der Übernahme wird das Kontaktfeld geleert.");
+  await editor.getByRole("button", { name: "Gastname und Kontakt übernehmen", exact: true }).click();
+  await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Korrigierter Gast");
+  await expect(editor.getByLabel("Telefon oder E-Mail (optional)", { exact: true })).toHaveValue("");
+  expect(fixture.guestCardRequests()).toHaveLength(0);
+});
+
+test("inline guest selection cannot restore late contact details after logout", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true });
+  let release = () => {}, called = false;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/rest/v1/rpc/booking_console_guest_v1", async route => { called = true; await gate; try { await route.fulfill({ json: { guest: fixture.guestCards()[0], events: [] } }); } catch { /* logout aborts read */ } });
+  const editor = await openInlineGuestPicker(page);
+  await editor.getByRole("button", { name: "Gäste suchen", exact: true }).click();
+  await editor.getByRole("button", { name: /Kartengast Beispiel.*Kontaktdaten prüfen/ }).click();
+  await expect.poll(() => called).toBe(true);
+  await page.evaluate(() => { const channel = new BroadcastChannel("sb-127-auth-token"); channel.postMessage({ event: "SIGNED_OUT", session: null }); channel.close(); });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden", exact: true })).toBeVisible();
+  release();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByText("karte@booking.invalid", { exact: false })).toHaveCount(0);
+  expect(fixture.bookingCalls()).toBe(0);
+});

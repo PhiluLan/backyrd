@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { bookingAllocationLabel, bookingTableIds, bookingError, bookingWriteUncertain, createBooking, readBookingSlots, restaurantDate, restaurantTime, restaurantSlotTime, type BookingSlot, type BookingSnapshot, type ConsoleBookingSource } from "@/lib/booking-api";
+import { ReservationGuestPicker } from "./reservation-guest-picker";
 import { ConsolePanel } from "./console-panel";
 import styles from "./console.module.css";
 
 export type CreatedBooking = { date: string; slot: BookingSlot };
 
-export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId = "", tableId = "", time = "", initialGuest, onCreated, onBusy, onClose }: {
+export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId = "", tableId = "", time = "", initialGuest, online, isCurrent, onDenied, onCreated, onBusy, onClose }: {
   spotId: string; date: string; snapshot: BookingSnapshot; serviceId?: string; areaId?: string; tableId?: string; time?: string; initialGuest?: { name: string; contact: string };
+  online: boolean; isCurrent: () => boolean; onDenied: () => void;
   onCreated: (booking: CreatedBooking) => Promise<void>; onBusy: (value: boolean) => void; onClose: (uncertain?: boolean, date?: string) => void;
 }) {
   const [bookingDate, setDate] = useState(date);
@@ -21,6 +23,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   const [selected, setSelected] = useState("");
   const [name, setName] = useState(initialGuest?.name ?? "");
   const [contact, setContact] = useState(initialGuest?.contact ?? "");
+  const [copiedGuest, setCopiedGuest] = useState(!!initialGuest);
   const [note, setNote] = useState("");
   const [source, setSource] = useState<ConsoleBookingSource>(initialGuest ? "operator" : "phone");
   const [status, setStatus] = useState<"confirmed" | "pending">("confirmed");
@@ -104,8 +107,9 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   return <ConsolePanel title="Neue Reservierung" dirty={edited} busy={busy} uncertain={uncertain} onClose={() => onClose(uncertain, frozen.current?.date)}>
     <form className={styles.editorForm} onSubmit={submit} onChange={() => setEdited(true)}>
       <fieldset disabled={busy || uncertain} className={styles.fieldset}>
-        <div className={styles.drawerBody}>{initialGuest && <p className={styles.help}>Kontaktdaten aus einer Gästekarte übernommen. Prüfe die Angaben für diese Reservierung. Änderungen hier betreffen diese Buchung.</p>}
+        <div className={styles.drawerBody}>{copiedGuest && <p className={styles.help}>Kontaktdaten aus einer Gästekarte übernommen. Prüfe die Angaben für diese Reservierung. Änderungen hier betreffen diese Buchung.</p>}
           <p className={styles.editorContext}>{snapshot.services.find((s) => s.id === service)?.name ?? "Alle Services"} · {snapshot.areas.find((a) => a.id === area)?.name ?? "Alle Bereiche"}{tableId ? " · " + snapshot.tables.find((t) => t.id === tableId)?.label : ""}</p>
+          {snapshot.capabilities?.guest_cards && <ReservationGuestPicker spotId={spotId} online={online} disabled={busy || uncertain} isCurrent={isCurrent} onDenied={onDenied} onCopy={copy => { setName(copy.name); setContact(copy.contact); setCopiedGuest(true); setEdited(true); }} />}
           <div className={styles.fields}>
             <label>Gastname<input data-initial-focus required maxLength={120} placeholder="Für wen reservieren wir?" value={name} autoComplete="off" onChange={(e) => setName(e.target.value)} /></label>
           </div>

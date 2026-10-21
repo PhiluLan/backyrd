@@ -25,6 +25,24 @@ No reservation-to-profile identity link is inferred or stored in this increment;
 card corrections therefore do not rewrite existing reservation facts. Selecting
 contact data does not send a message or establish marketing consent.
 
+The dependent inline-selection increment exposes the same active-card search
+inside the new-reservation form. Search is explicit and paginated; Enter in its
+query performs the search rather than submitting a reservation. Selecting a row
+reads the current card again before presenting a contact choice. Archived,
+missing, malformed or denied cards cannot be copied. Copy is explicit and
+replaces only the draft name/contact, including clearing an absent contact;
+party, date, time, table, source and internal note stay as entered. Nothing is
+written to the card or previous bookings. Staff can cancel the selection, or
+press Escape inside it, without discarding the reservation draft.
+
+Search/detail requests are cancellable and fenced to the current authenticated
+entry. Changing the query, closing the selection, going offline, starting a
+reservation save or logging out clears pending private selection state; late
+responses cannot restore it. The entry is absent on older backends without the
+guest-card capability. No new RPC, schema migration or guest identity link is
+introduced by inline selection. The existing separate directory remains the
+place for card creation/correction, rather than adding a second editor here.
+
 ## Schema and authorization
 
 Migration `20261021051825_booking_guest_cards_v1.sql` adds three private tables:
@@ -105,10 +123,20 @@ Web type checking and the supported Webpack production build passed; lint had
 zero errors and 13 existing warnings. These use synthetic local fixtures, not
 production activation or restaurant/device pilot evidence.
 
+The inline-selection increment passed 216 Booking browser cases and all 132
+Web contract cases. After the final compact-radio and keyboard-focus adjustment,
+all ten targeted inline-selection cases passed again against a fresh Webpack
+production build. The phone case verifies 320-pixel layout without horizontal
+overflow, 20-pixel radio controls with the established label targets, keyboard
+focus, no automated accessibility violations and a real ordinary booking through
+the synthetic RPC fixture. The final build and type checking passed; lint still
+has zero errors and 13 existing warnings. Schema and database-gate inputs are
+unchanged from the actor-bound guest-card receipt above; this is not a new
+populated restore or restaurant/device pilot result.
+
 Remaining product work includes explicit reservation linkage and history,
 controlled identity merge/correction workflows, transparent preferences with
 appropriate consent, retention/access/deletion handling, ownership handover,
-search-assisted selection directly inside reservation forms, cross-restart
-recovery and actual restaurant/device acceptance. The new private tables must
-also be included in the next populated guest-card backup/restore rehearsal;
+cross-restart recovery and actual restaurant/device acceptance. The new private
+tables must also be included in the next populated guest-card backup/restore rehearsal;
 the existing logical-restore evidence predates this schema increment.
