@@ -370,6 +370,39 @@ run_case guest_card_owner_transfer_before_replay \
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.spots set owner_id='$owner' where id='$spot';" >/dev/null
 printf 'Guest card concurrent create/replay, revision correction, archive/edit in both orders and ownership-replay fences passed.\n'
 
+# Booking + guest association is one atomic operation, on the same root boundary.
+history_create="select public.booking_console_create_v3('$spot','7b000000-0000-4000-8000-000000000501','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+100+time '10:00') at time zone 'Europe/Zurich'),60,2,'History race',null,null,'phone','confirmed','$card_id',4,'$owner');"
+run_case guest_history_identical_create "$history_create" "$history_create" SUCCESS
+history_reservation="$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select id from public.booking_reservations where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000501';")"
+test "$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select count(*) from booking_private.reservation_guest_events_v1 where reservation_id='$history_reservation';")" = 1 || exit 1
+history_inventory_first="select public.booking_console_create_v3('$spot','7b000000-0000-4000-8000-000000000502','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+101+time '10:00') at time zone 'Europe/Zurich'),60,2,'History race',null,null,'phone','confirmed','$card_id',4,'$owner');"
+history_inventory_waiter="${history_inventory_first/000000000502/000000000503}"
+run_case guest_history_inventory_conflict "$history_inventory_first" "$history_inventory_waiter" booking_slot_unavailable
+test "$(psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c "select count(*) from booking_private.reservation_guest_requests_v1 where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000503';")" = 0 || exit 1
+history_card_edit="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000504',jsonb_build_object('kind','save','id','$card_id','revision',4,'name','Corrected while reserving','email','guest@booking.invalid','phone',null),'$owner');"
+history_stale_create="select public.booking_console_create_v3('$spot','7b000000-0000-4000-8000-000000000505','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+102+time '10:00') at time zone 'Europe/Zurich'),60,2,'History race',null,null,'phone','confirmed','$card_id',4,'$owner');"
+run_case guest_history_card_edit_before_create "$history_card_edit" "$history_stale_create" booking_guest_changed
+history_before_archive="select public.booking_console_create_v3('$spot','7b000000-0000-4000-8000-000000000506','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+103+time '10:00') at time zone 'Europe/Zurich'),60,2,'History race',null,null,'phone','confirmed','$card_id',5,'$owner');"
+history_archive="select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000507',jsonb_build_object('kind','archive','id','$card_id','revision',5,'archived',true),'$owner');"
+run_case guest_history_create_before_archive "$history_before_archive" "$history_archive" SUCCESS
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+begin;
+$auth_sql
+select public.booking_console_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000508',jsonb_build_object('kind','archive','id','$card_id','revision',6,'archived',false),'$owner');
+commit;
+SQL
+history_detach="select public.booking_console_reservation_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000509',jsonb_build_object('kind','detach','reservation_id','$history_reservation','reservation_revision',0,'link_revision',1,'guest_id',null,'guest_revision',null),'$owner');"
+history_stale_assign="select public.booking_console_reservation_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000510',jsonb_build_object('kind','assign','reservation_id','$history_reservation','reservation_revision',0,'link_revision',1,'guest_id','$card_id','guest_revision',7),'$owner');"
+run_case guest_history_competing_correction "$history_detach" "$history_stale_assign" booking_guest_link_changed
+history_amend="select public.booking_console_amend_v2('$spot','$history_reservation','7b000000-0000-4000-8000-000000000511',0,'$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+100+time '10:00') at time zone 'Europe/Zurich'),60,2,'Changed booking facts',null,null);"
+history_old_booking="select public.booking_console_reservation_guest_write_v1('$spot','7b000000-0000-4000-8000-000000000512',jsonb_build_object('kind','assign','reservation_id','$history_reservation','reservation_revision',0,'link_revision',2,'guest_id','$card_id','guest_revision',7),'$owner');"
+run_case guest_history_amend_before_association "$history_amend" "$history_old_booking" booking_reservation_changed
+run_case guest_history_owner_transfer_before_replay \
+ "select 1 from public.booking_restaurant_settings where spot_id='$spot' for update;update public.spots set owner_id='$other_owner' where id='$spot';" \
+ "$history_create" booking_operator_required "$auth_sql" 'set local role postgres;'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.spots set owner_id='$owner' where id='$spot';" >/dev/null
+printf 'Guest history atomic create/replay, inventory rollback, card correction/archive order, association CAS, amended-booking and ownership-replay fences passed.\n'
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
