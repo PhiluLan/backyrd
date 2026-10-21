@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-public-checkout-v1",
+  "previousEvidence": "booking-guest-link-reissue-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "7c6f2de40e83a6e4d207c183324061812a50366d7d2ca7c136d7806b19411eb2",
+    "applicationSchemaSha256": "cd996ecc286ea81a3139284059ff0b6c378111959dd87bcad40ee1401a6d981b"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261021015302_booking_public_checkout_contract_v1.sql",
+      "sha256": "dbf885d784ff57cd85d3b95f0f79d59afe153982241aaa5cc52dceb8ebf06715"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_public_checkout_contract_v1.sql",
+      "sha256": "c94d3a89711bbfc8170ad8960f847e68a7844a782a9d965712cc2befae60f9f6"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "c27995e6736943cfb4dbededb1e132a7b9c59830d7614cd406f36525b179a201",
+    "applicationSchemaSha256": "999ab737fdc1b747306f8d6c5734ac4d2eb43c94a8b9a88d98bb725da5b96731"
+  }
+}
