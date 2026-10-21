@@ -18,6 +18,12 @@ After a partial import, export again: the new manifest/current values become the
 base and the researcher only supplements remaining fields. Never edit a bound
 manifest/hash to make an old document appear current.
 
+The Admin research page can also open a local Nuknuk `report.json` as a
+read-only draft. It shows proposed offers, original citations, unresolved
+fields and source failures without sending the file to the import API. That
+view has no preview or commit control and cannot turn an unreviewed partial
+profile into a canonical claim.
+
 Confirmed country CH permits the deterministic proposal Europe/Zurich, visibly
 labelled as a geographic derivation with IANA provenance. It is not inferred
 from a city name, does not replace a known timezone, and a stored UNKNOWN still
