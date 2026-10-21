@@ -67,10 +67,41 @@ test('adjacent storefront menu rows outrank a model-selected description as a di
  assert.ok(draft.value.offers.every(offer=>offer.prices.length===0));
  assert.ok(draft.reviewEvidence.some(citation=>citation.evidence.includes('Die Fleischpizza')));
 });
+test('homepage cocktail name-price rows stay inside their menu section and exclude a dated special',()=>{
+ const text='AKTUELLES\n\n17.10.2026 Wild Dinner CHF 85\n\nAUSZUG AUS DER COCKTAILKARTE\n\nYuzual Suspects chf 18.00\n\nTequila, Yuzu und Limette\n\nNo Need 2 Be Sorry chf 18\n\nBourbon, Mezcal und Pfirsich\n\nSCHAUMWEINE\n\nCuvée d’Or\n\n68.00';
+ const leads=structuredMenuLeads([{...source(text),url:'https://example.org/'}]);
+ assert.deepEqual(leads.map(lead=>lead.name),['Yuzual Suspects','No Need 2 Be Sorry']);
+ assert.ok(leads.every(lead=>lead.kind==='DRINKS'&&lead.citation.sourceFormat==='HTML_MENU'));
+});
+test('modal food sections take item names before ingredient lines and leave secondary prices out',()=>{
+ const html='<main><h2>Auszug aus der Cocktailkarte</h2><p>Yuzual Suspects chf 18.00</p><h4>SHARING</h4><p>Classics Platte</p><p>Sandwich, Fried Chicken,</p><p>Kräuterpommes & Dip</p><p>CHF 55.00</p><h4>SEASONALS</h4><p>Herbstsalat</p><p>Apfel, Kürbis, Granola</p><p>CHF 14.00</p><p>als Vorspeise: CHF 9.00</p><p>Geschmorte Karotte</p><p>Shiitake, Curry</p><p>CHF 31.00</p></main>';
+ const s=sourceText({url:'https://example.org/',body:html,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ const leads=structuredMenuLeads([s]);
+ assert.deepEqual(leads.filter(lead=>lead.kind==='GASTRONOMY').map(lead=>lead.name),['Classics Platte','Herbstsalat','Geschmorte Karotte']);
+ assert.ok(leads.every(lead=>lead.citation.evidence.startsWith(lead.name)));
+});
+test('drink-led venues reserve draft slots for cited food when both menus exist',()=>{
+ const text='Auszug aus der cocktailkarte\n\nYuzual Suspects chf 18.00\n\nNo Need 2 Be Sorry chf 18.00\n\nInFloranti chf 18.00\n\nTziki-Tziki-Tak chf 18.00\n\nVirgin WERK8 spritz chf 14.00\n\nSober After Work chf 14.00\n\nSHARING\n\nWERK8 Aperoplatte\n\nGemüse, Oliven, Dips\n\nCHF 31.00\n\nSEASONALS\n\nGeschmorte Karotte\n\nShiitake, Curry\n\nCHF 31.00\n\nCLASSICS\n\nWERK 8 Club Sandwich\n\nmit Kräuterpommes\n\nCHF 28.00';
+ const s={...source(text),url:'https://example.org/',headings:['SHARING','SEASONALS','CLASSICS'].map(name=>({level:4,text:name,offset:text.indexOf(name)}))};
+ const existing={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',category:'DRINKS',properties:[],areas:[],offers:['Yuzual Suspects','No Need 2 Be Sorry','InFloranti','Tziki-Tziki-Tak','Virgin WERK8 spritz','Sober After Work','WERK8 Aperoplatte','Geschmorte Karotte'].map((name,index)=>({id:'offer_'+index,kind:index<6?'DRINKS':'GASTRONOMY',name,areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null})),reviewed:false};
+ const draft=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'REQUIRES_REVIEW',value:existing,citations:[]},{...field('experience.profile'),profileCategory:'DRINKS'},[s]);
+ assert.equal(draft.value.offers.filter(offer=>offer.kind==='DRINKS').length,5);
+ assert.equal(draft.value.offers.filter(offer=>offer.kind==='GASTRONOMY').length,3);
+ assert.ok(draft.value.offers.some(offer=>offer.name==='WERK 8 Club Sandwich'));
+});
 test('a published Swiss phone with space after plus is captured literally and normalized later',()=>{
  const s=source('Cantina Restaurant\n\nKontakt\n\n+ 41616930507');
  const found=literalSourceFacts(s,[field('contact.phone')],spot,0).filter(f=>f.field==='contact.phone');
  assert.deepEqual(found.map(f=>f.value),['+ 41616930507']);
+});
+test('reservation mailbox under the operator general Contact heading may be public, while event mail stays scoped',()=>{
+ const text='Kontakt\nWERK 8\nDornacherstrasse 192\nreservation@werkacht.ch\nBankette & Events\nevents@werkacht.ch';
+ const s={...source(text),headings:[{level:1,text:'Kontakt',offset:0},{level:1,text:'Bankette & Events',offset:text.indexOf('Bankette & Events')}]};
+ const chosen=[field('contact.public_email')];
+ const facts=validateEvidenceFacts({facts:[fact('contact.public_email','reservation@werkacht.ch','reservation@werkacht.ch'),fact('contact.public_email','events@werkacht.ch','events@werkacht.ch')]},s,chosen).map(item=>({...item,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(facts,[s],chosen,spot);
+ assert.equal(checked[0].reason,'SEMANTIC_CHECK_PENDING');
+ assert.equal(checked[1].reason,'EXPLICIT_AREA_EMAIL');
 });
 test('corroborated image menu rows become cited review draft offers without prices or catalog approval',()=>{
  const audit={officialMenuUrl:'https://example.org/menu',observedAt:'2026-10-20T12:00:00Z',images:[{url:'https://example.org/board.png',discoveredOn:'https://example.org/menu',assetHash:'a'.repeat(64),visionLines:[{text:'HAUSGEKOCHT'}],localVision:{corroborated:[{name:'Curry',price:'15.5'},{name:'Granola mit Früchten',price:'7.5'}],held:[{name:'Aperol',price:'12.5',reason:'NAME_PRICE_ROW_NOT_CORROBORATED'}]}}]};
@@ -1326,6 +1357,18 @@ test('main content can be read without mixing other-branch footer or navigation 
  const {readSourceText}=await import('../src/nuknuk-sources.mjs');
  const s=await readSourceText({url:'https://example.org/',contentType:'text/html',observedAt:new Date().toISOString(),body:'<nav>Other shop</nav><main><p>Our venue content here.</p></main><footer>Neighbour has Wi-Fi</footer>'},'s1',{preferMain:true});
  assert.equal(s.text,'Our venue content here.');assert.equal(s.textSelection,'MAIN_CONTENT');assert.equal(s.assetHash.length,64);
+});
+test('long official pages preserve price-bearing food and drink sections between introduction and footer',()=>{
+ const filler='Eine lange allgemeine Beschreibung ohne konkrete Angebote. '.repeat(115);
+ const body=`<main><h1>Testlokal</h1><p>Kontakt +41 61 111 22 33</p>${filler}<h2>ESSEN</h2><a href="#essen">Zur Speisekarte</a><h2>WEIN</h2>${filler}<h4>SHARING</h4><p>Gemischte Platte</p><p>CHF 31.00</p><h4>SEASONALS</h4><p>Geschmorte Karotte</p><p>CHF 28.00</p>${filler}<h2>Auszug aus der Cocktailkarte</h2><p>Yuzual Suspects chf 18.00</p><p>Gin, Zitrone</p>${filler}<h2>Kontakt</h2><p>reservation@testlokal.example</p></main>`;
+ const s=sourceText({url:'https://testlokal.example/',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.equal(s.truncated,true);
+ assert.ok(s.text.length<=12000);
+ assert.ok(s.text.includes('Gemischte Platte'));
+ assert.ok(s.text.includes('Geschmorte Karotte'));
+ assert.ok(s.text.includes('Yuzual Suspects'));
+ assert.ok(s.text.includes('reservation@testlokal.example'));
+ for(const heading of s.headings)assert.equal(s.text.slice(heading.offset,heading.offset+heading.text.length),heading.text);
 });
 test('public header hours and labelled museum contacts remain available without admitting navigation as offers',()=>{
  const body='<header><h3>Öffnungszeiten</h3><p>Dienstag bis Sonntag 11-18 Uhr</p><h3>Adresse</h3><p>Paul Sacher-Anlage 1, Basel</p><p>Museum: +41 61 681 93 20</p><p>Shop: +41 61 688 94 42</p></header><main><p>Die Sammlung zeigt kinetische Werke.</p></main>';

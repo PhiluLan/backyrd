@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.12
+# Local Nuknuk Research v3.14
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.12
+## Active architecture: Research v3.14
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -359,6 +359,48 @@ Some valid amenities and offers remain unresolved; representative selection
 and source freshness require more independent evaluation. The unattended
 research and catalog-write release gates remain closed. No automatic catalog
 write path exists in this adapter.
+
+## v3.13 additional blind pub case
+
+Werk 8 was another previously untested historical-catalog development case
+with a source reference recorded before the run. The local 27B run fetched
+the long official homepage and an irrelevant team page in about 267 seconds.
+It recovered the regular opening schedule including overnight Friday/Saturday
+closing and the public phone, and did not promote the already-past Wild dinner
+or tomorrow's exceptional private closure into standing offers or weekly hours.
+It **failed** offer and email coverage: the partial profile contained a cocktail
+ingredient and an imprecise wine name instead of the visible house cocktails;
+`reservation@werkacht.ch` was held solely because of its `reservation` prefix,
+despite its placement under the operator's general `Kontakt` heading. The
+homepage source was explicitly truncated; food in the omitted middle cannot
+be considered researched.
+
+v3.13 accepts a reservation-prefixed mailbox only when the official page itself
+places it under a general contact heading, while event, catering, staff and
+imprint mailboxes remain scoped. It also reads literal name/CHF-price lines
+only inside an explicitly titled cocktail-card section, stopping at the next
+section. The complete v3.13 local 27B rerun took 269 seconds and found eight
+literal cocktail names, the public mailbox, regular hours and phone. Food
+remained unresolved because the 12 KB source excerpt omitted the middle of
+the page. Search also spent its remaining requests on unrelated menu results.
+This is a tuned run, not a blind pass.
+
+v3.14 retains price-bearing food and drink sections from long official pages
+alongside opening and contact information, with source offsets preserved for
+exact citations. Its parser separates item names from multiline ingredients,
+secondary prices and adjacent drink sections. A saved-result replay using the
+current official Werk 8 page now yields five cited cocktails and three cited
+food items in the eight-slot review draft; additional menu rows remain as
+review evidence. The replay never publishes prices. A complete, explicitly
+versioned v3.14 27B + local-search rerun took 272 seconds and produced the
+same five-drink/three-food mix, regular hours, public phone and email. Its
+source remained excerpted and its two external cross-checks did not establish
+identity. The seasonal terrace remained unresolved because the current
+amenity contract cannot express its warm-month qualifier. The eight-offer
+selection still favours a small snack and salad over a more distinctive main
+dish, although the official page and review evidence include those dishes.
+Further independent blind tests, representative-offer selection and seasonal
+amenity modelling are required. The unattended research gate remains closed.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

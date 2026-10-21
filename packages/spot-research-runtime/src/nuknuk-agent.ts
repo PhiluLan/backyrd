@@ -14,7 +14,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.12';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.14';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -130,7 +130,9 @@ function explicitEmailArea(source:ResearchSource,f:Pick<EvidenceFact,'quote'|'so
     const section=sectionAt(source,factOffset(source,f)).join(' ');
     if(!/\b(?:visitor services|besucherservice|besucherdienst|besucherinformation|visitor information)\b/iu.test(section)||!/^info(?:[._+-]|$)/iu.test(mailbox))return 'STAFF_DIRECTORY_SCOPE';
   }
-  if(/^(?:catering|events?|veranstaltungen?|presse|press|media|kommunikation|communications?|digital|jobs?|karriere|recruitment|buchhaltung|accounting|reservations?|reservierungen?|booking|quality|qualitaet|qualität|spa|wellness)(?:[._+-]|$)|^res[._+-]/iu.test(mailbox))return 'ROLE_MAILBOX';
+  const generalContact=sectionAt(source,factOffset(source,f)).some(section=>/^(?:kontakt|contact|so erreichst du uns|so erreichen sie uns)$/iu.test(section.trim()));
+  const reservationOnly=/^(?:reservations?|reservierungen?)(?:[._+-]|$)/iu.test(mailbox);
+  if(/^(?:catering|events?|veranstaltungen?|presse|press|media|kommunikation|communications?|digital|jobs?|karriere|recruitment|buchhaltung|accounting|reservations?|reservierungen?|booking|quality|qualitaet|qualität|spa|wellness)(?:[._+-]|$)|^res[._+-]/iu.test(mailbox)&&!(reservationOnly&&generalContact))return 'ROLE_MAILBOX';
   const offset=factOffset(source,f);if(offset<0)return null;
   const preceding=source.text.slice(Math.max(0,offset-110),offset).split(/\n+/u).map(line=>line.trim()).filter(Boolean).at(-1)??'';
   return /^(?:kurse?(?:\s*&\s*gruppen)?|courses?(?:\s*&\s*groups?)?|gruppen|groups?|events?(?:\s*&\s*catering)?|veranstaltungen?|presse|press|medien|media|jobs?|karriere|recruitment|buchhaltung|accounting|verwaltung|administration)\s*:?$/iu.test(preceding)?preceding:null;
@@ -984,7 +986,8 @@ export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:
   for(const source of sources){
     if(source.format&&source.format!=='HTML')continue;
     const path=new URL(source.url).pathname;
-    const menuPage=/(?:bar|food|menu|men[uü]|speise|drinks?|karte|dinner|lunch|breakfast|brunch)/iu.test(path)||(source.headings??[]).some(h=>h.level===1&&/(?:bar\s*karte|speise\s*karte|food\s*menu|men[uü])/iu.test(h.text));
+    const cocktailSection=source.text.match(/(?:^|\n)(?:AUSZUG AUS DER\s+)?COCKTAILKARTE\s*(?:\n|$)/iu);
+    const menuPage=/(?:bar|food|menu|men[uü]|speise|drinks?|karte|dinner|lunch|breakfast|brunch)/iu.test(path)||Boolean(cocktailSection)||(source.headings??[]).some(h=>h.level===1&&/(?:bar\s*karte|speise\s*karte|food\s*menu|men[uü])/iu.test(h.text));
     if(!menuPage)continue;
     const headings=source.headings??[];
     for(let i=0;i<headings.length-1;i++){
@@ -1049,6 +1052,47 @@ export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:
         leads.push({name,kind:'GASTRONOMY',section,citation:{url:source.url,evidence:span,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:item.offset,layoutReviewRequired:true,sourceFormat:'HTML_MENU'}});
       }
     }
+    // Modal menus can place a literal item name, optional ingredients and a
+    // standalone price in separate paragraphs beneath a food-section heading.
+    // A price only proves the adjacent row; ingredient lists are never names.
+    const foodSection=/^(?:sharing|appetizers?|starters?|seasonals?|classics?|sweets?|desserts?|vorspeisen|hauptg[aä]nge|zum teilen)$/iu;
+    for(let i=0;i<headings.length;i++){
+      const heading=headings[i];
+      if(heading.level<2||!foodSection.test(heading.text.trim()))continue;
+      const end=headings.slice(i+1).find(next=>next.level<=heading.level)?.offset??source.text.length;
+      const sectionText=source.text.slice(heading.offset+heading.text.length,Math.min(end,heading.offset+heading.text.length+5000));
+      const paragraphs=[...sectionText.matchAll(/(?:^|\n\n)([^\n][\s\S]*?)(?=\n\n|$)/gu)].map(match=>({text:match[1].trim(),offset:heading.offset+heading.text.length+match.index!+match[0].indexOf(match[1])}));
+      let lastPrice=-1;
+      for(let j=1;j<paragraphs.length;j++){
+        if(/^(?:als\s+(?:Vorspeise|Hauptgang)|extra|zus[aä]tzlich)\s*:\s*CHF\s*\d/iu.test(paragraphs[j].text)){lastPrice=j;continue;}
+        if(!/^(?:CHF\s*)?\d{1,3}(?:[.,]\d{1,2})?\s*(?:CHF|EUR|€)?$/iu.test(paragraphs[j].text))continue;
+        const first=lastPrice+1;
+        const item=paragraphs[first];
+        lastPrice=j;
+        const name=item?.text?.replace(/\s+/gu,' ').trim();
+        if(!name||j-first>6||name.length<4||name.length>100||name.includes('\n')||generic.test(name)||foodSection.test(name)||price.test(name)||/[.!?:]$/u.test(name))continue;
+        const evidence=source.text.slice(item.offset,paragraphs[j].offset+paragraphs[j].text.length);
+        if(evidence.length>450||evidence.includes('[Auszug:')||!sourceQuote(source.text,evidence))continue;
+        const key='GASTRONOMY:'+name.normalize('NFKC').toLocaleLowerCase();if(seen.has(key))continue;seen.add(key);
+        leads.push({name,kind:'GASTRONOMY',section:heading.text.toLocaleUpperCase(),citation:{url:source.url,evidence,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:item.offset,layoutReviewRequired:true,sourceFormat:'HTML_MENU'}});
+      }
+    }
+    if(cocktailSection){
+      const from=cocktailSection.index!+cocktailSection[0].length;
+      const tail=source.text.slice(from,Math.min(source.text.length,from+4500));
+      const nextSection=tail.search(/(?:^|\n)(?:SCHAUMWEINE|WEINE|BIER|FOOD|ESSEN|SPEISEN|SPIRITS|BANKETTE|KONTAKT|SHARING|APPETIZERS|SEASONALS|CLASSICS|SWEETS|DESSERTS)\s*(?:\n|$)/iu);
+      const area=tail.slice(0,nextSection<0?tail.length:nextSection);
+      for(const match of area.matchAll(/(?:^|\n)([^\n]{4,90}?)\s+CHF\s*(\d{1,3}(?:[.,]\d{1,2})?)\s*(?=\n|$)/giu)){
+        const name=match[1].trim();
+        if(generic.test(name)||/[.!?:]$/u.test(name)||name.length>75)continue;
+        const key='DRINKS:'+name.normalize('NFKC').toLocaleLowerCase();if(seen.has(key))continue;seen.add(key);
+        const offset=from+match.index!+match[0].indexOf(name);
+        const end=offset+name.length+match[0].slice(match[0].indexOf(name)+name.length).length;
+        const evidence=source.text.slice(offset,end);
+        if(!sourceQuote(source.text,evidence))continue;
+        leads.push({name,kind:'DRINKS',section:'COCKTAILKARTE',citation:{url:source.url,evidence,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:offset,layoutReviewRequired:true,sourceFormat:'HTML_MENU'}});
+      }
+    }
   }
   return leads;
 }
@@ -1068,7 +1112,10 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
   const menuNames=new Set(leads.map(lead=>lead.name.normalize('NFKC').toLocaleLowerCase()));
   const menuMatched=normalized.filter(offer=>menuNames.has(offer.name.normalize('NFKC').toLocaleLowerCase())||result.citations?.some(citation=>citation.sourceFormat==='IMAGE_OCR'&&citation.evidence.startsWith(offer.name+' ')));
   const otherOffers=normalized.filter(offer=>!menuMatched.includes(offer)&&!leads.some(lead=>lead.name!==offer.name&&lead.citation.evidence.includes(offer.name)));
-  const retained=leads.length>=4?[...menuMatched,...otherOffers.slice(0,1)].slice(0,8):normalized;
+  const foodLeads=leads.some(lead=>lead.kind==='GASTRONOMY');
+  const drinkLeads=leads.some(lead=>lead.kind==='DRINKS');
+  const matchedLimit=(kind:string)=>foodLeads&&drinkLeads?(field.profileCategory==='DRINKS'?(kind==='DRINKS'?5:3):(kind==='GASTRONOMY'?6:2)):8;
+  const retained=leads.length>=4?[...menuMatched.filter(offer=>menuMatched.filter(other=>other.kind===offer.kind).indexOf(offer)<matchedLimit(offer.kind)),...otherOffers.slice(0,field.profileCategory==='DRINKS'&&leads.filter(lead=>lead.kind==='DRINKS').length>=6?0:1)].slice(0,8):normalized;
   const existing=parsed?{...parsed,offers:retained}:null;
   const retainedCitations=(result.citations??[]).filter(citation=>retained.some(offer=>citation.evidence.includes(offer.name)));
   const droppedCitations=(result.citations??[]).filter(citation=>!retainedCitations.includes(citation));
@@ -1077,14 +1124,15 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
   const limit=8-(existing?.offers.length??0);
   if(limit<=0)return {...result,reviewEvidence:[...(result.reviewEvidence??[]),...available.map(lead=>lead.citation)]};
   const selected:typeof leads=[];
-  const groups=field.profileCategory==='DRINKS'?[['DRINKS',Math.min(5,limit)],['GASTRONOMY',Math.min(3,limit)]]:field.profileCategory==='EAT'?[['GASTRONOMY',Math.min(6,limit)],['DRINKS',Math.min(2,limit)]]:[['GASTRONOMY',Math.min(4,limit)],['DRINKS',Math.min(4,limit)]];
+  const groups=field.profileCategory==='DRINKS'?[['DRINKS',5],['GASTRONOMY',3]]:field.profileCategory==='EAT'?[['GASTRONOMY',6],['DRINKS',2]]:[['GASTRONOMY',4],['DRINKS',4]];
   for(const [kind,quota] of groups as ['GASTRONOMY'|'DRINKS',number][]){
+    const remainingQuota=Math.max(0,quota-(existing?.offers.filter(offer=>offer.kind===kind).length??0));
     const group=available.filter(lead=>lead.kind===kind).sort((a,b)=>kind==='GASTRONOMY'?Number(/[’']s\b/u.test(b.name))*20-Number(/[’']s\b/u.test(a.name))*20:0);
     const sections=new Set<string>();
-    for(const lead of group)if(selected.length<limit&&selected.filter(item=>item.kind===kind).length<quota&&!sections.has(lead.section)){selected.push(lead);sections.add(lead.section);}
-    for(const lead of group)if(selected.length<limit&&selected.filter(item=>item.kind===kind).length<quota&&!selected.includes(lead))selected.push(lead);
+    for(const lead of group)if(selected.length<limit&&selected.filter(item=>item.kind===kind).length<remainingQuota&&!sections.has(lead.section)){selected.push(lead);sections.add(lead.section);}
+    for(const lead of group)if(selected.length<limit&&selected.filter(item=>item.kind===kind).length<remainingQuota&&!selected.includes(lead))selected.push(lead);
   }
-  for(const lead of available)if(selected.length<limit&&!selected.includes(lead))selected.push(lead);
+  if(!foodLeads||!drinkLeads)for(const lead of available)if(selected.length<limit&&!selected.includes(lead))selected.push(lead);
   if(!selected.length)return result;
   try {
     const offers=selected.map(lead=>({id:'offer_'+hash(lead.name.toLocaleLowerCase()).slice(0,16),kind:lead.kind,name:lead.name,areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null}));

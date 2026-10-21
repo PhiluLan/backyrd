@@ -58,9 +58,31 @@ export function menuOfferingGroup(label) {
   return null;
 }
 export function sourceText(page,id,{preferMain=false}={}) {
-  const boundedExcerpt=value=>{
+  const boundedExcerpt=(value,focusOffsets=[])=>{
     if(value.length<=12000)return {text:value,offset:at=>at};
     const marker='\n\n[Auszug: mittlerer Seitenteil ausgelassen]\n\n';
+    if(focusOffsets.length){
+      const two=focusOffsets.length>1;
+      const headSize=two?2000:3000,tailSize=two?3300:4500,focusSize=two?3200:4300;
+      const ranges=[[0,headSize],...focusOffsets.slice(0,2).map(at=>[at,Math.min(value.length,at+focusSize)]),[value.length-tailSize,value.length]];
+      ranges.sort((a,b)=>a[0]-b[0]);
+      const merged=[];
+      for(const [start,end] of ranges){
+        const last=merged.at(-1);
+        if(last&&start<=last[1])last[1]=Math.max(last[1],end);
+        else merged.push([start,end]);
+      }
+      let excerpt='',positions=[];
+      for(const [start,end] of merged){
+        if(excerpt)excerpt+=marker;
+        positions.push([start,end,excerpt.length]);
+        excerpt+=value.slice(start,end);
+      }
+      if(excerpt.length<=12000)return {text:excerpt,offset:at=>{
+        const range=positions.find(([start,end])=>at>=start&&at<end);
+        return range?range[2]+at-range[0]:-1;
+      }};
+    }
     const headBreak=value.lastIndexOf('\n',4000),headEnd=headBreak>=0?headBreak:4000;
     const targetStart=value.length-(12000-headEnd-marker.length),tailBreak=value.indexOf('\n',targetStart);
     const tailStart=Math.max(headEnd+1,tailBreak>=0?tailBreak+1:targetStart);
@@ -128,7 +150,16 @@ export function sourceText(page,id,{preferMain=false}={}) {
   const main=page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]??page.body;
   const descriptionText=boundedExcerpt(clean(main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '))).text;
   if(!text)throw new Error('source_empty');
-  const bounded=boundedExcerpt(text),excerpt=bounded.text;
+  // Long CMS pages often put the actual menu between a short introduction and
+  // a long footer or wine list. Keep price-bearing food and drink sections in
+  // addition to the beginning and end, preserving offsets for exact citations.
+  const pricedSection=(pattern)=>headings.find(h=>{
+    if(!pattern.test(h.text)||h.offset<=2000||h.offset>=text.length-3300)return false;
+    const next=headings.find(other=>other.offset>h.offset&&other.level<=h.level)?.offset??text.length;
+    return /(?:\bCHF\s*\d|\b\d{1,3}[.,]\d{2}\b)/iu.test(text.slice(h.offset,Math.min(next,h.offset+1800)));
+  })?.offset;
+  const menuFocus=[pricedSection(/(?:speise|essen|food|sharing|appetizer|seasonal|classic|sweets|dessert|hauptgericht|gerichte)/iu),pricedSection(/(?:cocktail|drinks|getränke|wein(?:karte)?)/iu)].filter(at=>at!==undefined);
+  const bounded=boundedExcerpt(text,menuFocus),excerpt=bounded.text;
   if(identityOffset!==undefined)headings.push({level:1,text:'Website-Kontakt und Öffnungszeiten',offset:identityOffset});
   const keptHeadings=headings.map(h=>({...h,offset:bounded.offset(h.offset)})).filter(h=>h.offset>=0&&h.offset+h.text.length<=excerpt.length);
   const keptIdentityOffset=identityOffset===undefined?undefined:bounded.offset(identityOffset);
