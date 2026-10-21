@@ -12,7 +12,7 @@ case "$target" in
   test "${BACKYRD_BACKUP_EPHEMERAL:-}" = 1 || { echo 'Local backup requires an explicit disposable fixture.' >&2; exit 1; }
   : "${BACKYRD_BACKUP_LOCAL_WORKDIR:?Local fixture workdir is required}"
   test -f "$BACKYRD_BACKUP_LOCAL_WORKDIR/supabase/config.toml"
-  if rg -q 'hjgcrrzfjchzqoegcywn' "$BACKYRD_BACKUP_LOCAL_WORKDIR/supabase/config.toml" "$BACKYRD_BACKUP_LOCAL_WORKDIR/supabase/.temp" 2>/dev/null; then
+  if grep -R -q -- 'hjgcrrzfjchzqoegcywn' "$BACKYRD_BACKUP_LOCAL_WORKDIR/supabase/config.toml" "$BACKYRD_BACKUP_LOCAL_WORKDIR/supabase/.temp" 2>/dev/null; then
    echo 'Production reference is forbidden in a local backup fixture.' >&2; exit 1
   fi
   database_args=(--local --workdir "$BACKYRD_BACKUP_LOCAL_WORKDIR") ;;
@@ -33,9 +33,9 @@ jq -er '.[0].managed_backup.sql' "$snapshot_output/managed-controls.json" > "$sn
 for part in roles schema data migration-schema migration-data; do
  test -s "$snapshot_output/$part.sql" || { echo "Database snapshot part is empty: $part" >&2; exit 1; }
 done
-rg -q 'booking_private' "$snapshot_output/schema.sql" || { echo 'Private Booking schema is missing from backup.' >&2; exit 1; }
-rg -q 'booking_private' "$snapshot_output/data.sql" || { echo 'Private Booking data sections are missing from backup.' >&2; exit 1; }
-rg -q 'schema_migrations' "$snapshot_output/migration-data.sql" || { echo 'Migration history is missing from backup.' >&2; exit 1; }
+grep -q -- 'booking_private' "$snapshot_output/schema.sql" || { echo 'Private Booking schema is missing from backup.' >&2; exit 1; }
+grep -q -- 'booking_private' "$snapshot_output/data.sql" || { echo 'Private Booking data sections are missing from backup.' >&2; exit 1; }
+grep -q -- 'schema_migrations' "$snapshot_output/migration-data.sql" || { echo 'Migration history is missing from backup.' >&2; exit 1; }
 mkdir "$snapshot_output/canonical"
 for control in auth_hooks storage realtime cron webhooks; do cp "$repo_root/supabase/canonical/$control.sql" "$snapshot_output/canonical/$control.sql"; done
 jq -n '{version:"backyrd-database-snapshot-v2",scope:"all-non-platform-application-schemas",managedData:["auth","storage"],migrationLedger:"separate",managedControls:{captured:"managed-controls.sql",canonicalReferenceOnly:["auth_hooks","storage","realtime","cron","webhooks"]},files:["roles.sql","schema.sql","data.sql","migration-schema.sql","migration-data.sql"]}' > "$snapshot_output/scope.json"
