@@ -12,6 +12,12 @@ create function booking_private.mail_recipient_hash_v1(contact text) returns tex
  select encode(sha256(convert_to(lower(trim(contact)),'UTF8')),'hex');
 $$;
 
+-- Compare the exact contact shown to the operator. Unicode case normalization
+-- stays authoritative in PostgreSQL for the separate recipient binding below.
+create function booking_private.mail_contact_fingerprint_v1(contact text) returns text language sql immutable set search_path='' as $$
+ select encode(sha256(convert_to(contact,'UTF8')),'hex');
+$$;
+
 -- Shared canonical authorization for user JWTs and a verified server-side actor.
 -- Only the service-only gateway may supply another actor; clients retain auth.uid().
 create function booking_private.assert_console_actor_v1(p_spot uuid,p_actor uuid,p_scope text) returns void
@@ -30,7 +36,7 @@ create or replace function booking_private.assert_console_access_v1(p_spot uuid,
 language plpgsql security definer set search_path='' as $$ begin
  perform booking_private.assert_console_actor_v1(p_spot,auth.uid(),p_scope);
 end $$;
-revoke all on function booking_private.mail_recipient_hash_v1(text),booking_private.assert_console_actor_v1(uuid,uuid,text) from public,anon,authenticated;
+revoke all on function booking_private.mail_recipient_hash_v1(text),booking_private.mail_contact_fingerprint_v1(text),booking_private.assert_console_actor_v1(uuid,uuid,text) from public,anon,authenticated;
 
 create or replace function booking_private.guard_mail_payload_v1() returns trigger language plpgsql set search_path='' as $$ begin
  if (old.payload_sealed is not null and (new.payload_sealed,new.payload_digest,new.payload_context,new.payload_prepared_at) is distinct from (old.payload_sealed,old.payload_digest,old.payload_context,old.payload_prepared_at))
@@ -108,17 +114,21 @@ language sql immutable set search_path='' as $$
  select booking_private.request_fingerprint_v2(jsonb_build_object('kind','guest_reissue','actor_id',p_actor,'reservation_id',p_reservation,'revision',p_revision,'contact_hash',p_contact_hash));
 $$;
 create function public.booking_mail_reissue_recover_v1(p_actor uuid,p_spot_id uuid,p_reservation_id uuid,p_request_id uuid,p_expected_revision bigint,p_contact_hash text) returns jsonb
-language plpgsql security definer set search_path='' as $$ declare previous booking_private.reservation_requests_v2%rowtype; begin
+language plpgsql security definer set search_path='' as $$ declare previous booking_private.reservation_requests_v2%rowtype; current_revision bigint; begin
  perform booking_private.assert_console_actor_v1(p_spot_id,p_actor,'write');
  if not exists(select 1 from auth.users where id=p_actor and email_confirmed_at is not null) then raise exception 'booking_operator_required' using errcode='42501'; end if;
  if p_request_id is null or p_expected_revision is null or p_expected_revision<0 or p_contact_hash is null or p_contact_hash !~ '^[0-9a-f]{64}$' then raise exception 'invalid_booking_mail_request' using errcode='22023'; end if;
- if not exists(select 1 from public.booking_reservations where spot_id=p_spot_id and id=p_reservation_id) then raise exception 'booking_not_found' using errcode='22023'; end if;
+ select revision into current_revision from public.booking_reservations where spot_id=p_spot_id and id=p_reservation_id;
+ if not found then raise exception 'booking_not_found' using errcode='22023'; end if;
  select * into previous from booking_private.reservation_requests_v2 where spot_id=p_spot_id and request_id=p_request_id;
  if found then
   if previous.request_kind<>'guest_reissue' or previous.fingerprint<>booking_private.reissue_fingerprint_v1(p_actor,p_reservation_id,p_expected_revision,p_contact_hash) then raise exception 'booking_request_reused' using errcode='22023'; end if;
   return previous.outcome;
  end if;
  if exists(select 1 from public.booking_reservations where spot_id=p_spot_id and (request_id=p_request_id or last_amend_request_id=p_request_id)) then raise exception 'booking_request_reused' using errcode='22023'; end if;
+ -- Under the same root lock, a later monotonic revision plus no committed
+ -- registry entry proves this exact old intent can never commit in the future.
+ if current_revision>p_expected_revision then return jsonb_build_object('not_committed',true,'id',p_reservation_id,'revision',current_revision); end if;
  return null;
 end $$;
 
@@ -129,17 +139,17 @@ declare r public.booking_reservations%rowtype; a booking_private.guest_access_v1
  if not exists(select 1 from auth.users where id=p_actor and email_confirmed_at is not null) then raise exception 'booking_operator_required' using errcode='42501'; end if;
  select * into r from public.booking_reservations where spot_id=p_spot_id and id=p_reservation_id for update;
  if not found then raise exception 'booking_not_found' using errcode='22023'; end if;
- if r.revision is distinct from p_expected_revision or booking_private.mail_recipient_hash_v1(r.guest_contact) is distinct from p_contact_hash then raise exception 'booking_changed_reload' using errcode='40001'; end if;
+ if r.revision is distinct from p_expected_revision or booking_private.mail_contact_fingerprint_v1(r.guest_contact) is distinct from p_contact_hash then raise exception 'booking_changed_reload' using errcode='40001'; end if;
  select * into a from booking_private.guest_access_v1 where reservation_id=r.id;
  if not exists(select 1 from public.spots s join auth.users u on u.id=s.owner_id and u.email_confirmed_at is not null where s.id=p_spot_id) then raise exception 'booking_mail_reissue_unavailable' using errcode='22023'; end if;
- if r.source<>'website' or r.status not in ('pending','confirmed') or r.starts_at<=clock_timestamp() or a.reservation_id is null or a.expires_at<=clock_timestamp() or r.guest_contact is null or length(r.guest_contact)>254 or r.guest_contact !~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$' then raise exception 'booking_mail_reissue_unavailable' using errcode='22023'; end if;
- if a.delivery_blocked_at is not null and (a.delivery_blocked_recipient_hash is null or a.delivery_blocked_recipient_hash=p_contact_hash) then raise exception 'booking_mail_recipient_blocked' using errcode='22023'; end if;
+ if r.source<>'website' or r.status not in ('pending','confirmed') or r.starts_at<=clock_timestamp() or a.reservation_id is null or a.expires_at<=clock_timestamp() or r.guest_contact is null or length(r.guest_contact)>254 or r.guest_contact ~ '[[:cntrl:]]' or r.guest_contact !~ '^[^[:space:]@<>]+@[^[:space:]@<>]+[.][^[:space:]@<>]+$' then raise exception 'booking_mail_reissue_unavailable' using errcode='22023'; end if;
+ if a.delivery_blocked_at is not null and (a.delivery_blocked_recipient_hash is null or a.delivery_blocked_recipient_hash=booking_private.mail_recipient_hash_v1(r.guest_contact)) then raise exception 'booking_mail_recipient_blocked' using errcode='22023'; end if;
  -- A legacy attempted message without a verified recipient binding cannot safely
  -- be reassigned to a corrected contact. It needs explicit operational review.
  if exists(select 1 from booking_private.guest_mail_outbox_v1 where reservation_id=r.id and first_attempt_at is not null and recipient_hash is null) then raise exception 'booking_mail_legacy_review_required' using errcode='22023'; end if;
  if (select count(*) from booking_private.reservation_requests_v2 where reservation_id=r.id and request_kind='guest_reissue' and created_at>clock_timestamp()-interval '24 hours')>=3 or
   (select count(*) from public.booking_audit_events where spot_id=p_spot_id and actor_id=p_actor and action='guest_link_reissued' and created_at>clock_timestamp()-interval '24 hours')>=50 then raise exception 'booking_mail_reissue_rate_limited' using errcode='22023'; end if;
- return jsonb_build_object('reservation_id',r.id,'creation_request_id',r.request_id,'revision',r.revision);
+ return jsonb_build_object('reservation_id',r.id,'creation_request_id',r.request_id,'revision',r.revision,'email',r.guest_contact);
 end $$;
 create function public.booking_mail_reissue_context_v1(p_actor uuid,p_spot_id uuid,p_reservation_id uuid,p_expected_revision bigint,p_contact_hash text) returns jsonb
 language sql security definer set search_path='' as $$
@@ -148,11 +158,11 @@ $$;
 
 create function public.booking_mail_reissue_v1(p_actor uuid,p_spot_id uuid,p_reservation_id uuid,p_request_id uuid,p_expected_revision bigint,p_contact_hash text,p_key_hash text,p_sealed_key text) returns jsonb
 language plpgsql security definer set search_path='' as $$
-declare previous jsonb; context jsonb; r public.booking_reservations%rowtype; changed public.booking_reservations%rowtype; message_id uuid; result jsonb; actor_role text; begin
+declare previous jsonb; r public.booking_reservations%rowtype; changed public.booking_reservations%rowtype; message_id uuid; result jsonb; actor_role text; begin
  previous:=public.booking_mail_reissue_recover_v1(p_actor,p_spot_id,p_reservation_id,p_request_id,p_expected_revision,p_contact_hash);
  if previous is not null then return previous; end if;
  if p_key_hash is null or p_key_hash !~ '^[0-9a-f]{64}$' or p_sealed_key is null or length(p_sealed_key) not between 40 and 2048 or p_sealed_key !~ '^[A-Za-z0-9_.-]+$' then raise exception 'invalid_booking_mail_request' using errcode='22023'; end if;
- context:=booking_private.reissue_context_v1(p_actor,p_spot_id,p_reservation_id,p_expected_revision,p_contact_hash);
+ perform booking_private.reissue_context_v1(p_actor,p_spot_id,p_reservation_id,p_expected_revision,p_contact_hash);
  select * into r from public.booking_reservations where id=p_reservation_id;
  if exists(select 1 from booking_private.guest_access_v1 where reservation_id=r.id and key_hash=p_key_hash) then raise exception 'invalid_booking_mail_request' using errcode='22023'; end if;
  update booking_private.guest_mail_outbox_v1 set superseded_at=coalesce(superseded_at,clock_timestamp()),
@@ -161,7 +171,7 @@ declare previous jsonb; context jsonb; r public.booking_reservations%rowtype; ch
  update booking_private.guest_access_v1 set key_hash=p_key_hash,sealed_key=p_sealed_key,revoked_at=null,delivery_blocked_at=null,delivery_blocked_recipient_hash=null where reservation_id=r.id;
  -- Preserve policy revision, cancellation deadline/minutes and expiry exactly.
  update public.booking_reservations set revision=revision+1,updated_at=clock_timestamp() where id=r.id returning * into changed;
- insert into booking_private.guest_mail_outbox_v1(spot_id,reservation_id,reservation_revision,event_kind,recipient_hash) values(r.spot_id,r.id,changed.revision,'changed',p_contact_hash) returning id into message_id;
+ insert into booking_private.guest_mail_outbox_v1(spot_id,reservation_id,reservation_revision,event_kind,recipient_hash) values(r.spot_id,r.id,changed.revision,'changed',booking_private.mail_recipient_hash_v1(r.guest_contact)) returning id into message_id;
  select case when owner_id=p_actor then 'owner' else (select role from public.booking_team_members where spot_id=p_spot_id and user_id=p_actor and revoked_at is null) end into actor_role from public.spots where id=p_spot_id;
  insert into public.booking_audit_events(spot_id,reservation_id,actor_id,action,details) values(r.spot_id,r.id,p_actor,'guest_link_reissued',jsonb_set(booking_private.reservation_audit_v1(r,changed),'{actor_role}',to_jsonb(actor_role)));
  result:=jsonb_build_object('id',r.id,'revision',changed.revision,'message_id',message_id,'queued_at',clock_timestamp());

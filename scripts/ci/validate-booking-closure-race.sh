@@ -261,6 +261,37 @@ test "$mail_proof" = 'suppressed:sending:true' || { printf 'Unexpected dispatch/
 psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "begin; set local role service_role; select public.booking_mail_finish_v1('$mail_b','$lease_b','retry'); commit;" >"$race_root/mail-unknown-finish.out"
 test "$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select state from booking_private.guest_mail_outbox_v1 where id='$mail_b';")" = review_required || exit 1
 
+# Reissue is a complete idempotent intent, including the verified server actor.
+# A different randomly generated key on retry must not replace the committed one.
+contact_a="encode(sha256(convert_to('corrected-a@booking.invalid','UTF8')),'hex')"
+reissue_a="select public.booking_mail_reissue_v1('$owner','$spot','$reservation_a','7b000000-0000-4000-8000-000000000120',1,$contact_a,repeat('f',64),repeat('sealed-reissue-race-',5));"
+reissue_a_retry="select public.booking_mail_reissue_v1('$owner','$spot','$reservation_a','7b000000-0000-4000-8000-000000000120',1,$contact_a,repeat('0',64),repeat('different-sealed-race-',5));"
+run_case reissue_concurrent_retry "$reissue_a" "$reissue_a_retry" SUCCESS "$guest_auth" "$guest_auth"
+test "$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select r.revision||':'||(a.key_hash=repeat('f',64))::text||':'||(select count(*) from booking_private.reservation_requests_v2 where reservation_id=r.id and request_kind='guest_reissue') from public.booking_reservations r join booking_private.guest_access_v1 a on a.reservation_id=r.id where r.id='$reservation_a';")" = '2:true:1' || exit 1
+
+correct_b_again="select public.booking_console_amend_v2(r.spot_id,r.id,'7b000000-0000-4000-8000-000000000121',r.revision,r.service_id,r.table_id,array['$table_id'::uuid,'$second_table'::uuid],r.combination_id,r.starts_at,60,r.party_size,r.guest_name,'new-race-b@booking.invalid',r.note) from public.booking_reservations r where id='$reservation_b';"
+reissue_b_stale="select public.booking_mail_reissue_v1('$owner','$spot','$reservation_b','7b000000-0000-4000-8000-000000000122',1,encode(sha256(convert_to('corrected-b@booking.invalid','UTF8')),'hex'),repeat('a',64),repeat('sealed-reissue-race-',5));"
+run_case contact_before_reissue "$correct_b_again" "$reissue_b_stale" SUCCESS "$guest_auth" "$auth_sql"
+grep -q '"not_committed": true' "$race_root/contact_before_reissue-waiter.out" || exit 1
+test "$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select count(*) from booking_private.reservation_requests_v2 where spot_id='$spot' and request_id='7b000000-0000-4000-8000-000000000122';")" = 0 || exit 1
+reissue_b="select public.booking_mail_reissue_v1('$owner','$spot','$reservation_b','7b000000-0000-4000-8000-000000000123',2,encode(sha256(convert_to('new-race-b@booking.invalid','UTF8')),'hex'),repeat('d',64),repeat('sealed-reissue-race-',5));"
+late_correct_b="select public.booking_console_amend_v2(r.spot_id,r.id,'7b000000-0000-4000-8000-000000000124',r.revision,r.service_id,r.table_id,array['$table_id'::uuid,'$second_table'::uuid],r.combination_id,r.starts_at,60,r.party_size,r.guest_name,'stale-correction@booking.invalid',r.note) from public.booking_reservations r where id='$reservation_b';"
+run_case reissue_before_contact "$reissue_b" "$late_correct_b" booking_changed_reload "$auth_sql" "$guest_auth"
+
+rotate_a="select public.booking_mail_reissue_v1('$owner','$spot','$reservation_a','7b000000-0000-4000-8000-000000000125',2,$contact_a,repeat('b',64),repeat('sealed-reissue-race-',5));"
+old_cancel_a="select public.booking_guest_cancel_v1('$reservation_a',repeat('f',64),'7b000000-0000-4000-8000-000000000126',2);"
+run_case reissue_before_guest_cancel "$rotate_a" "$old_cancel_a" booking_guest_link_unavailable "$guest_auth" "$guest_auth"
+cancel_b="select public.booking_guest_cancel_v1('$reservation_b',repeat('d',64),'7b000000-0000-4000-8000-000000000127',3);"
+rotate_b_after_cancel="select public.booking_mail_reissue_v1('$owner','$spot','$reservation_b','7b000000-0000-4000-8000-000000000128',3,encode(sha256(convert_to('new-race-b@booking.invalid','UTF8')),'hex'),repeat('e',64),repeat('sealed-reissue-race-',5));"
+run_case guest_cancel_before_reissue "$cancel_b" "$rotate_b_after_cancel" SUCCESS "$guest_auth" "$guest_auth"
+grep -q '"not_committed": true' "$race_root/guest_cancel_before_reissue-waiter.out" || exit 1
+test "$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "select status||':'||revision from public.booking_reservations where id='$reservation_b';")" = 'cancelled:4' || exit 1
+run_case transfer_owner_before_reissue_replay \
+ "select 1 from public.booking_restaurant_settings where spot_id='$spot' for update; update public.spots set owner_id='$other_owner' where id='$spot';" \
+ "$reissue_a_retry" booking_operator_required "$guest_auth" 'set local role postgres;'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.spots set owner_id='$owner' where id='$spot';" >/dev/null
+printf 'Guest-link reissue deduplicates independently generated capabilities across concurrent retries; contact amendments and guest cancellation fence stale issuance in both lock orders, and ownership transfer blocks old-actor replay.\n'
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';

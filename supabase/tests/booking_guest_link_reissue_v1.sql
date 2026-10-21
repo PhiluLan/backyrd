@@ -25,6 +25,8 @@ insert into public.booking_team_members(spot_id,user_id,owner_id,role)
 select pg_temp.mail_assert(not has_function_privilege('authenticated','public.booking_mail_reissue_v1(uuid,uuid,uuid,uuid,bigint,text,text,text)','execute'),'operator could inject a credential');
 select pg_temp.mail_assert(not has_function_privilege('anon','public.booking_mail_reissue_recover_v1(uuid,uuid,uuid,uuid,bigint,text)','execute'),'anonymous recovery');
 select pg_temp.mail_assert(not has_function_privilege('authenticated','booking_private.assert_console_actor_v1(uuid,uuid,text)','execute'),'operator can impersonate another actor');
+create function pg_temp.recipient_hash(contact text) returns text language sql immutable as $$ select encode(sha256(convert_to(lower(trim(contact)),'UTF8')),'hex') $$;
+create function pg_temp.contact_hash(contact text) returns text language sql immutable as $$ select encode(sha256(convert_to(contact,'UTF8')),'hex') $$;
 set local role service_role;
 select public.booking_guest_create_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('original'),1,
  (((now() at time zone 'Europe/Zurich')::date+1+time '12:00') at time zone 'Europe/Zurich'),2,
@@ -32,12 +34,13 @@ select public.booking_guest_create_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('o
 select set_config('booking.reissue.reservation',:'guest'::jsonb->>'id',true);
 create function pg_temp.reissue(op text,rev bigint,email text,key text,actor text default 'owner') returns jsonb language sql as $$
  select public.booking_mail_reissue_v1(pg_temp.mail_id(actor),pg_temp.mail_id('spot'),current_setting('booking.reissue.reservation')::uuid,pg_temp.mail_id(op),rev,
-  booking_private.mail_recipient_hash_v1(email),pg_temp.mail_hash(key),repeat('sealed-reissued-',5));
+  pg_temp.contact_hash(email),pg_temp.mail_hash(key),repeat('sealed-reissued-',5));
 $$;
 select to_jsonb(a)-'key_hash'-'sealed_key'-'revoked_at'-'delivery_blocked_at'-'delivery_blocked_recipient_hash' as terms from booking_private.guest_access_v1 a where reservation_id=(:'guest'::jsonb->>'id')::uuid \gset
-select pg_temp.mail_assert(public.booking_mail_reissue_recover_v1(pg_temp.mail_id('owner'),pg_temp.mail_id('spot'),(:'guest'::jsonb->>'id')::uuid,pg_temp.mail_id('issue-one'),0,booking_private.mail_recipient_hash_v1('old@booking.invalid')) is null,'recovery invented commit');
+select pg_temp.mail_assert(public.booking_mail_reissue_recover_v1(pg_temp.mail_id('owner'),pg_temp.mail_id('spot'),(:'guest'::jsonb->>'id')::uuid,pg_temp.mail_id('issue-one'),0,pg_temp.recipient_hash('old@booking.invalid')) is null,'recovery invented commit');
 select pg_temp.reissue('issue-one',0,'old@booking.invalid','key-one') as one \gset
 select pg_temp.mail_assert(:'one'::jsonb->>'revision'='1','reissue revision incorrect');
+select pg_temp.mail_assert(public.booking_mail_reissue_recover_v1(pg_temp.mail_id('owner'),pg_temp.mail_id('spot'),(:'guest'::jsonb->>'id')::uuid,pg_temp.mail_id('never-committed'),0,pg_temp.contact_hash('old@booking.invalid'))->>'not_committed'='true','old uncommitted intent not resolved under root lock');
 select pg_temp.mail_assert(:'one'::jsonb=pg_temp.reissue('issue-one',0,'old@booking.invalid','DIFFERENT_RANDOM_KEY'),'replay rotated credential or duplicated intent');
 select pg_temp.mail_assert((select key_hash=pg_temp.mail_hash('key-one') from booking_private.guest_access_v1 where reservation_id=(:'guest'::jsonb->>'id')::uuid),'random retry replaced committed capability');
 select pg_temp.mail_assert((select to_jsonb(a)-'key_hash'-'sealed_key'-'revoked_at'-'delivery_blocked_at'-'delivery_blocked_recipient_hash' from booking_private.guest_access_v1 a where reservation_id=(:'guest'::jsonb->>'id')::uuid)=:'terms'::jsonb,'reissue changed promised terms or expiry');
@@ -54,7 +57,7 @@ end $$;
 select pg_temp.mail_assert(public.booking_guest_read_v1((:'guest'::jsonb->>'id')::uuid,pg_temp.mail_hash('key-one'))->>'revision'='1','new capability unusable');
 select public.booking_mail_claim_v1(pg_temp.mail_id('old-lease')) as old_job \gset
 select public.booking_mail_prepare_v1((:'old_job'::jsonb->>'id')::uuid,pg_temp.mail_id('old-lease'),:'old_job'::jsonb->>'context_hash',repeat('sealed-payload-',5),repeat('a',64));
-select pg_temp.mail_assert((select recipient_hash=booking_private.mail_recipient_hash_v1('old@booking.invalid') from booking_private.guest_mail_outbox_v1 where id=(:'old_job'::jsonb->>'id')::uuid),'prepared recipient not frozen');
+select pg_temp.mail_assert((select recipient_hash=pg_temp.recipient_hash('old@booking.invalid') from booking_private.guest_mail_outbox_v1 where id=(:'old_job'::jsonb->>'id')::uuid),'prepared recipient not frozen');
 select public.booking_mail_begin_v1((:'old_job'::jsonb->>'id')::uuid,pg_temp.mail_id('old-lease'),repeat('a',64));
 select public.booking_mail_finish_v1((:'old_job'::jsonb->>'id')::uuid,pg_temp.mail_id('old-lease'),'accepted','old-provider');
 
@@ -76,7 +79,7 @@ select public.booking_mail_prepare_v1((:'new_job'::jsonb->>'id')::uuid,pg_temp.m
 select public.booking_mail_begin_v1((:'new_job'::jsonb->>'id')::uuid,pg_temp.mail_id('new-lease'),repeat('b',64));
 select public.booking_mail_finish_v1((:'new_job'::jsonb->>'id')::uuid,pg_temp.mail_id('new-lease'),'accepted','new-provider');
 select public.booking_mail_event_v1('new-bounce',(:'new_job'::jsonb->>'id')::uuid,'new-provider','bounced',clock_timestamp());
-select pg_temp.mail_assert((select delivery_blocked_recipient_hash=booking_private.mail_recipient_hash_v1('new@booking.invalid') from booking_private.guest_access_v1 where reservation_id=(:'guest'::jsonb->>'id')::uuid),'current-recipient bounce did not block');
+select pg_temp.mail_assert((select delivery_blocked_recipient_hash=pg_temp.recipient_hash('new@booking.invalid') from booking_private.guest_access_v1 where reservation_id=(:'guest'::jsonb->>'id')::uuid),'current-recipient bounce did not block');
 do $$ begin
  begin perform pg_temp.reissue('blocked',3,'new@booking.invalid','blocked-key'); raise exception 'same bounced recipient unblocked'; exception when invalid_parameter_value then if sqlerrm<>'booking_mail_recipient_blocked' then raise; end if; end;
  begin update booking_private.guest_mail_outbox_v1 set recipient_hash=repeat('d',64) where id=(select id from booking_private.guest_mail_outbox_v1 where provider_id='new-provider'); raise exception 'recipient binding mutable'; exception when check_violation then null; end;
@@ -101,6 +104,11 @@ set local role service_role;
 do $$ begin begin perform pg_temp.reissue('issue-three',4,'third@booking.invalid','random'); raise exception 'replay bypassed owner Safety'; exception when raise_exception then if sqlerrm<>'SAFETY_WRITE_RESTRICTED' then raise; end if; end; end $$;
 reset role;
 update public.safety_account_measures set status='revoked' where user_id=pg_temp.mail_id('owner') and reason_code='booking_reissue_fixture';
+insert into public.safety_account_measures(user_id,measure_type,reason_code) values(pg_temp.mail_id('host'),'account_restricted','booking_reissue_fixture');
+set local role service_role;
+do $$ begin begin perform pg_temp.reissue('host-blocked',5,'third@booking.invalid','random','host'); raise exception 'host bypassed actor Safety'; exception when raise_exception then if sqlerrm<>'SAFETY_ACCOUNT_RESTRICTED' then raise; end if; end; end $$;
+reset role;
+update public.safety_account_measures set status='revoked' where user_id=pg_temp.mail_id('host') and reason_code='booking_reissue_fixture';
 update public.booking_team_members set revoked_at=clock_timestamp() where user_id=pg_temp.mail_id('host');
 set local role service_role;
 do $$ begin begin perform pg_temp.reissue('revoked-op',5,'third@booking.invalid','random','host'); raise exception 'revoked host issued link'; exception when insufficient_privilege then null; end; end $$;
@@ -111,5 +119,31 @@ do $$ begin begin perform pg_temp.reissue('issue-three',4,'third@booking.invalid
 set local role authenticated;
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
 do $$ begin begin perform pg_temp.reissue('forged-role',5,'third@booking.invalid','random'); raise exception 'forged role injected credential'; exception when insufficient_privilege then null; end; end $$;
+reset role;
+update public.spots set owner_id=pg_temp.mail_id('owner') where id=pg_temp.mail_id('spot');
+update public.booking_team_members set revoked_at=null where user_id=pg_temp.mail_id('host');
+set local role service_role;
+select public.booking_guest_create_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('legacy-booking'),1,
+ (((now() at time zone 'Europe/Zurich')::date+1+time '16:00') at time zone 'Europe/Zurich'),2,
+ 'Legacy synthetic guest','legacy@booking.invalid',pg_temp.mail_hash('legacy-key'),repeat('sealed-legacy-',5)) as legacy \gset
+insert into booking_private.guest_mail_outbox_v1(spot_id,reservation_id,reservation_revision,event_kind,state,attempts,first_attempt_at,provider_id,payload_sealed,payload_digest,payload_context,payload_prepared_at)
+ values(pg_temp.mail_id('spot'),(:'legacy'::jsonb->>'id')::uuid,0,'changed','accepted',1,clock_timestamp(),'legacy-provider',repeat('sealed-legacy-body-',4),repeat('c',64),repeat('d',64),clock_timestamp());
+select set_config('booking.reissue.reservation',:'legacy'::jsonb->>'id',true);
+do $$ begin begin perform pg_temp.reissue('legacy-issue',0,'legacy@booking.invalid','replacement'); raise exception 'unknown legacy recipient auto-reissued'; exception when invalid_parameter_value then if sqlerrm<>'booking_mail_legacy_review_required' then raise; end if; end; end $$;
+select pg_temp.mail_assert(public.booking_guest_read_v1((:'legacy'::jsonb->>'id')::uuid,pg_temp.mail_hash('legacy-key'))->>'revision'='0','legacy review revoked old capability');
+select public.booking_guest_create_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('unicode-booking'),1,
+ (((now() at time zone 'Europe/Zurich')::date+1+time '18:00') at time zone 'Europe/Zurich'),2,
+ 'Unicode synthetic guest','unicode@booking.invalid',pg_temp.mail_hash('unicode-key'),repeat('sealed-unicode-',5)) as unicode \gset
+select set_config('booking.reissue.reservation',:'unicode'::jsonb->>'id',true);
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.mail_id('owner')::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.mail_id('owner'),'role','authenticated')::text,true);
+select pg_temp.correct_contact('İnfo@booking.invalid',0,'unicode-correction');
+set local role service_role;
+select pg_temp.reissue('unicode-issue',1,'İnfo@booking.invalid','unicode-new-key','host') as unicode_issued \gset
+select pg_temp.mail_assert((select details->>'actor_role'='host' and actor_id=pg_temp.mail_id('host') from public.booking_audit_events where reservation_id=(:'unicode'::jsonb->>'id')::uuid and action='guest_link_reissued'),'verified host issue lost actual actor attribution');
+select pg_temp.mail_assert((select recipient_hash=pg_temp.recipient_hash('İnfo@booking.invalid') from booking_private.guest_mail_outbox_v1 where id=(:'unicode_issued'::jsonb->>'message_id')::uuid),'Unicode contact used client-dependent case folding');
+update booking_private.guest_access_v1 set expires_at=clock_timestamp()-interval '1 second' where reservation_id=(:'unicode'::jsonb->>'id')::uuid;
+do $$ begin begin perform pg_temp.reissue('expired-issue',2,'İnfo@booking.invalid','replacement'); raise exception 'reissue extended expired promise'; exception when invalid_parameter_value then if sqlerrm<>'booking_mail_reissue_unavailable' then raise; end if; end; end $$;
 reset role;
 rollback;
