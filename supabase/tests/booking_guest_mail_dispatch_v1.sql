@@ -4,6 +4,7 @@
 begin;
 set local timezone='UTC';
 create function pg_temp.mail_id(label text) returns uuid language sql immutable as $$ select md5('booking-mail-fixture:'||label)::uuid $$;
+create function pg_temp.mail_hash(label text) returns text language sql immutable as $$ select encode(sha256(convert_to('booking-mail-fixture:'||label,'UTF8')),'hex') $$;
 create function pg_temp.mail_assert(ok boolean, message text) returns void language plpgsql as $$ begin if ok is not true then raise exception 'Booking mail: %',message; end if; end $$;
 insert into auth.users(id,instance_id,aud,role,email,email_confirmed_at,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
  values(pg_temp.mail_id('owner'),'00000000-0000-0000-0000-000000000000','authenticated','authenticated','mail-owner@booking.invalid',now(),'','{}','{}',now(),now());
@@ -32,9 +33,9 @@ set local role service_role;
 create function pg_temp.mail_create(label text,hour integer,keyhash text) returns jsonb language sql as $$
  select public.booking_guest_create_v1(pg_temp.mail_id('spot'),pg_temp.mail_id(label),1,(((now() at time zone 'Europe/Zurich')::date+1+make_time(hour,0,0)) at time zone 'Europe/Zurich'),2,'Synthetic guest',label||'@booking.invalid',keyhash,repeat('sealed-fixture-',5));
 $$;
-select pg_temp.mail_create('one',10,repeat('a',64)) as one \gset
-select pg_temp.mail_create('two',12,repeat('b',64)) as two \gset
-select pg_temp.mail_create('three',14,repeat('c',64)) as three \gset
+select pg_temp.mail_create('one',10,pg_temp.mail_hash('one')) as one \gset
+select pg_temp.mail_create('two',12,pg_temp.mail_hash('two')) as two \gset
+select pg_temp.mail_create('three',14,pg_temp.mail_hash('three')) as three \gset
 reset role;
 -- Pause public intake: existing transactional communication must remain independent.
 set local role authenticated;
@@ -90,7 +91,7 @@ select public.booking_mail_event_v1('bounce-two',(:'claim_two'::jsonb->>'id')::u
 select public.booking_mail_event_v1('complaint-two',(:'claim_two'::jsonb->>'id')::uuid,'provider-two','complained',:'event_time'::timestamptz);
 select public.booking_mail_event_v1('late-delivery-two',(:'claim_two'::jsonb->>'id')::uuid,'provider-two','delivered',:'event_time'::timestamptz);
 select pg_temp.mail_assert((select state='complained' from booking_private.guest_mail_outbox_v1 where id=(:'claim_two'::jsonb->>'id')::uuid),'late delivery hid complaint');
-select pg_temp.mail_assert(public.booking_guest_read_v1((:'two'::jsonb->>'id')::uuid,repeat('b',64))->>'id'=:'two'::jsonb->>'id','delivery block revoked guest self-service');
+select pg_temp.mail_assert(public.booking_guest_read_v1((:'two'::jsonb->>'id')::uuid,pg_temp.mail_hash('two'))->>'id'=:'two'::jsonb->>'id','delivery block revoked guest self-service');
 
 select public.booking_mail_claim_v1(pg_temp.mail_id('lease-three')) as claim_three \gset
 select public.booking_mail_prepare_v1((:'claim_three'::jsonb->>'id')::uuid,pg_temp.mail_id('lease-three'),:'claim_three'::jsonb->>'context_hash',repeat('payload-three-',5),repeat('f',64));
@@ -114,5 +115,36 @@ set local role service_role;
 select pg_temp.mail_assert(public.booking_mail_claim_v1(pg_temp.mail_id('expired-retry')) is null,'expired provider idempotency key reused');
 select pg_temp.mail_assert((select state='review_required' from booking_private.guest_mail_outbox_v1 where reservation_id=(:'three'::jsonb->>'id')::uuid and reservation_revision=99),'old unknown send not routed to review');
 select pg_temp.mail_assert(not public.booking_mail_event_v1('never-attempted',pg_temp.mail_id('missing'),'fake','delivered',clock_timestamp()),'unknown outbox accepted delivery');
+reset role;
+-- Owner restrictions and verified identity are rechecked at the actual dispatch
+-- boundary, even if a worker already prepared a valid encrypted payload.
+insert into booking_private.guest_mail_outbox_v1(spot_id,reservation_id,reservation_revision,event_kind)
+ values(pg_temp.mail_id('spot'),(:'three'::jsonb->>'id')::uuid,100,'changed');
+set local role service_role;
+select public.booking_mail_claim_v1(pg_temp.mail_id('safety-lease')) as safety_claim \gset
+select public.booking_mail_prepare_v1((:'safety_claim'::jsonb->>'id')::uuid,pg_temp.mail_id('safety-lease'),:'safety_claim'::jsonb->>'context_hash',repeat('safety-payload-',5),repeat('a',64));
+reset role;
+insert into public.safety_account_measures(user_id,measure_type,reason_code) values(pg_temp.mail_id('owner'),'write_suspension','booking_mail_fixture');
+set local role service_role;
+select pg_temp.mail_assert(public.booking_mail_begin_v1((:'safety_claim'::jsonb->>'id')::uuid,pg_temp.mail_id('safety-lease'),repeat('a',64)) is null,'prepared payload bypassed current owner Safety');
+reset role;
+update public.safety_account_measures set status='revoked' where user_id=pg_temp.mail_id('owner') and reason_code='booking_mail_fixture';
+update auth.users set email_confirmed_at=null where id=pg_temp.mail_id('owner');
+set local role service_role;
+select pg_temp.mail_assert(public.booking_mail_begin_v1((:'safety_claim'::jsonb->>'id')::uuid,pg_temp.mail_id('safety-lease'),repeat('a',64)) is null,'unverified current owner dispatched');
+reset role;
+update auth.users set email_confirmed_at=clock_timestamp() where id=pg_temp.mail_id('owner');
+set local role service_role;
+select pg_temp.mail_assert(public.booking_mail_begin_v1((:'safety_claim'::jsonb->>'id')::uuid,pg_temp.mail_id('safety-lease'),repeat('a',64)) is not null,'Safety recovery did not revalidate the original lease');
+do $$ begin
+ begin update booking_private.guest_mail_outbox_v1 set first_attempt_at=clock_timestamp()+interval '1 second' where lease_id=pg_temp.mail_id('safety-lease'); raise exception 'provider dedupe clock rewritten'; exception when check_violation then if sqlerrm<>'booking_mail_payload_frozen' then raise; end if; end;
+end $$;
+select public.booking_mail_finish_v1((:'safety_claim'::jsonb->>'id')::uuid,pg_temp.mail_id('safety-lease'),'rejected');
+reset role;
+insert into booking_private.guest_mail_outbox_v1(spot_id,reservation_id,reservation_revision,event_kind,state,first_attempt_at,attempts,payload_sealed,payload_digest,payload_context,payload_prepared_at)
+ values(pg_temp.mail_id('spot'),(:'three'::jsonb->>'id')::uuid,101,'changed','pending',clock_timestamp(),8,repeat('exhausted-payload-',5),repeat('f',64),booking_private.request_fingerprint_v2(booking_private.mail_snapshot_v1((:'three'::jsonb->>'id')::uuid)),clock_timestamp());
+set local role service_role;
+select pg_temp.mail_assert(public.booking_mail_claim_v1(pg_temp.mail_id('attempt-budget')) is null,'exhausted dispatch budget reused');
+select pg_temp.mail_assert((select state='review_required' from booking_private.guest_mail_outbox_v1 where reservation_id=(:'three'::jsonb->>'id')::uuid and reservation_revision=101),'exhausted attempts not routed to review');
 reset role;
 rollback;
