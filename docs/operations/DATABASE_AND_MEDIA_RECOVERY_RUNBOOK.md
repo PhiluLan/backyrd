@@ -33,7 +33,7 @@ command line, write them to the repository, or include them in reports.
 1. Create a new timestamped directory outside the repository with mode `0700`.
 2. Record project reference, UTC time, Git commit, Production migration tip, and
    CLI version without recording credentials.
-3. Use the pinned complete database helper with an explicit linked target: roles, all non-platform application schemas/data, separate migration schema/history, installed app-owned Auth/Storage/Realtime controls and file checksums. Do not narrow application scope to `public`. A source with private helper functions but no private tables is valid; every installed private table requires a data section. See [independent backup export](BOOKING_BACKUP_EXPORT.md).
+3. Export via `scripts/ops/export-database-snapshot.sh` with an explicit linked target and the backup-workflow CLI pin. Snapshot v2 includes all non-platform application/private schemas and data, separate migration history, actually installed app-owned Auth/Storage/Realtime controls, canonical reference configuration and file checksums. A source with private helper functions but no private tables is valid; every installed private table requires a data section. Do not narrow application scope to `public` or omit private journals/capabilities. See [independent backup export](BOOKING_BACKUP_EXPORT.md) and [Booking recovery](BOOKING_BACKUP_RECOVERY.md).
 4. Export every Storage bucket recursively with `supabase storage cp --linked`.
 5. Record file counts, byte counts, and SHA-256 manifests. Restrict dump,
    manifest, and log files to mode `0600`.
@@ -60,7 +60,7 @@ artifacts are not the durable launch backup destination.
    `custom_claims_allowlist` column; CLI 2.116.0 restored successfully.
 3. Disable outbound and Product-like services: Edge Functions, webhooks, cron
    targets, Realtime, Auth delivery, email/SMS, push, and external workers.
-4. Restore roles, schema, then data in one transaction with
+4. For v2, verify all file checksums first. Restore roles, app schema, migration schema, data, migration ledger and captured managed controls in one transaction with
    `ON_ERROR_STOP=1` and `session_replication_role=replica`, following the
    official Supabase logical-restore order.
 5. Before restoring a `pg_dump` schema, temporarily revoke the Supabase-added
@@ -119,3 +119,7 @@ merge, Product-truth rewrite, or history rewrite to the Founder.
 ## Independent export coverage correction
 
 The v2 exporter is isolated from the pending Booking feature chain. It preserves the existing approved AWS/Main/OIDC/retention/encryption boundary and includes schema-derived private table inventory, original migration history and actually installed managed controls. The full later-candidate synthetic logical restore is separate evidence in PR #575, not a dependency or proof that a current cloud archive is restorable. Keep cron/webhooks, apps/intake and external workers disabled during recovery until target compatibility and lost/external operations are reconciled. See [export scope and limits](BOOKING_BACKUP_EXPORT.md).
+
+## Booking-dependent recovery candidate
+
+The isolated candidate restore now compares 384 application/Auth/Storage/ledger table digests, both structural/ACL scopes and 26 captured app-owned Auth/Storage/Realtime rules. It verifies stored guest access, original request recovery, external-key-dependent immutable payloads and audited quarantine of restored sends, then runs all 27 Booking SQL suites plus media authorization on the restored target. This is local synthetic logical-restore evidence, not acceptance of an actual cloud archive, Storage bytes, Production dataset/provider version or automatic dispatch resumption. Keep apps/intake/workers closed until post-backup writes and external outcomes are reconciled. Full procedure and limitations: [Booking backup and recovery](BOOKING_BACKUP_RECOVERY.md).
