@@ -1,6 +1,8 @@
 import "server-only";
 import { parseGuestAvailability, parseGuestReceipt, parseGuestRequest, record, type GuestOperation, type GuestRequest } from "./booking-guest-contract";
 import { boundedJson, hashGuestKey } from "./booking-guest-security";
+import { BookingRpcRejection as GuestRpcRejection } from "./booking-service-rpc";
+export { BookingRpcRejection as GuestRpcRejection } from "./booking-service-rpc";
 
 type RpcArguments = Record<string, string | number | null>;
 export type GuestDependencies = {
@@ -11,9 +13,6 @@ export type GuestDependencies = {
   verifyChallenge: (token: string) => Promise<boolean>;
   seal: (key: string, spot: string, request: string) => string;
 };
-export class GuestRpcRejection extends Error {
-  constructor(readonly databaseCode: string, readonly databaseMessage: string) { super("guest_rpc_rejected"); }
-}
 const headers = { "Cache-Control": "private, no-store, max-age=0", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex, nofollow", "X-Content-Type-Options": "nosniff" };
 function failure(status: number, code: string, unknown = false) {
   return Response.json({ error: code, outcome: unknown ? "unknown" : "rejected" }, { status, headers: { ...headers, ...(status === 429 ? { "Retry-After": "60" } : {}) } });

@@ -5,7 +5,7 @@ const reservationId = "00000000-0000-4000-8000-000000000003";
 const spot = "00000000-0000-4000-8000-000000000001";
 const key = "A".repeat(43);
 const link = `/booking/manage#id=${reservationId}&key=${key}`;
-const receipt = { id: reservationId, spot_id: spot, name: "Testrestaurant", guest_name: "Testgast", party_size: 2, starts_at: "2030-10-27T18:00:00+00:00", ends_at: "2030-10-27T20:00:00+00:00", status: "confirmed", revision: 1, cancellation_deadline: "2030-10-27T16:00:00+00:00" };
+const receipt = { id: reservationId, spot_id: spot, name: "Testrestaurant", guest_name: "Testgast", party_size: 2, starts_at: "2030-10-27T18:00:00+00:00", ends_at: "2030-10-27T20:00:00+00:00", status: "confirmed", revision: 0, cancellation_deadline: "2030-10-27T16:00:00+00:00" };
 type Operation = { operation: string; key: string; requestId?: string; revision?: number };
 async function mock(page: Page, options: { pending?: boolean; unknown?: boolean; invalid?: boolean; stale?: boolean } = {}) {
   let current = { ...receipt, status: options.pending ? "pending" : "confirmed" };

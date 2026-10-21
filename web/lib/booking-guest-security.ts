@@ -52,7 +52,7 @@ export function guestRateSubject(headers: Headers, vercel: boolean, secret: stri
 }
 
 /** Enforce the limit while streaming, including chunked requests with no Content-Length. */
-export async function boundedJson(response: Request | Response, maximum: number, timeoutMs = 8000): Promise<unknown> {
+export async function boundedText(response: Request | Response, maximum: number, timeoutMs = 8000): Promise<string> {
   const length = response.headers.get("content-length");
   if (length && (!/^\d+$/.test(length) || Number(length) > maximum)) {
     void response.body?.cancel().catch(() => undefined);
@@ -72,13 +72,16 @@ export async function boundedJson(response: Request | Response, maximum: number,
       chunks.push(value);
     }
     const bytes = Buffer.concat(chunks, total);
-    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } finally {
     clearTimeout(timer);
     // Do not wait for a misbehaving client to acknowledge cancellation.
     void reader.cancel().catch(() => undefined);
     reader.releaseLock();
   }
+}
+export async function boundedJson(response: Request | Response, maximum: number, timeoutMs = 8000): Promise<unknown> {
+  return JSON.parse(await boundedText(response, maximum, timeoutMs)) as unknown;
 }
 
 export async function verifyGuestChallenge(token: string, origin: string, secret: string, transport: typeof fetch = fetch): Promise<boolean> {

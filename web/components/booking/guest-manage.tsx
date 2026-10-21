@@ -23,7 +23,7 @@ function storedCredential(): Credential | null {
     let cancellation: PendingCancellation | null = null;
     if (value.cancellation !== null) {
       const c = record(value.cancellation);
-      if (typeof c.revision !== "number" || !Number.isSafeInteger(c.revision) || c.revision < 1) throw new Error("invalid_link");
+      if (typeof c.revision !== "number" || !Number.isSafeInteger(c.revision) || c.revision < 0) throw new Error("invalid_link");
       cancellation = { requestId: guestUuid(c.requestId), revision: c.revision };
     }
     return { reservationId: guestUuid(value.reservationId), key: guestKey(value.key), cancellation };
@@ -138,6 +138,7 @@ export function GuestManage() {
         {!uncertain && <button className={styles.link} disabled={busy} onClick={() => void load()}>Stand aktualisieren</button>}
         {receipt.status === "pending" && <p>Das Restaurant prüft deine Anfrage. Der Platz ist noch nicht bestätigt.</p>}
         <dl className={styles.facts}><div><dt>Für</dt><dd>{receipt.guest_name} · {receipt.party_size} {receipt.party_size === 1 ? "Person" : "Personen"}</dd></div><div><dt>Wann</dt><dd>{when(receipt.starts_at)} <small>Schweizer Zeit</small></dd></div></dl>
+        <Link href={`/spots/${receipt.spot_id}`} prefetch={false} className={styles.contact}>Restaurantinformationen ↗</Link>
         {(receipt.status === "pending" || receipt.status === "confirmed") && <p className={styles.help}>Über diesen Link stornierbar bis {when(receipt.cancellation_deadline)}. Für Änderungen oder spätere Absagen kontaktiere bitte das Restaurant.</p>}
         {uncertain ? <div className={styles.actions}><button disabled={busy} onClick={() => void load()}>Aktuellen Stand prüfen</button><button className={styles.secondary} disabled={busy} onClick={() => void cancel()}>Denselben Auftrag wiederholen</button></div> : confirm ? <div className={styles.confirm}><h2>Reservierung wirklich stornieren?</h2><p>Damit gibst du deinen Platz wieder frei.</p><div className={styles.actions}><button disabled={busy} onClick={() => void cancel()}>Ja, stornieren</button><button disabled={busy} className={styles.secondary} onClick={() => setConfirm(false)}>Reservierung behalten</button></div></div> : cancellable && <button className={styles.secondary} disabled={busy} onClick={() => setConfirm(true)}>Reservierung stornieren</button>}
       </>}

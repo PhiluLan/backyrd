@@ -1,28 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import fs from "node:fs";
-import vm from "node:vm";
-import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
-import ts from "typescript";
-
-const require = createRequire(import.meta.url);
-function compile(path, dependencies = {}, globals = {}) {
-  const source = fs.readFileSync(new URL(path, import.meta.url), "utf8");
-  const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const exports = {};
-  vm.runInNewContext(code, { exports, Buffer, URL, Headers, Request, Response, TextDecoder, AbortSignal, setTimeout, clearTimeout, fetch, process: { env: {} }, require: name => name === "server-only" ? {} : dependencies[name] ?? require(name), ...globals });
-  return exports;
-}
+import { createBookingTsLoader } from "./helpers/booking-ts-runtime.mjs";
+const compile = createBookingTsLoader(import.meta.url);
 const contract = compile("../lib/booking-guest-contract.ts");
 const security = compile("../lib/booking-guest-security.ts", { "./booking-guest-contract": contract });
-const handler = compile("../lib/booking-guest-handler.ts", { "./booking-guest-contract": contract, "./booking-guest-security": security });
+const rpcModule = compile("../lib/booking-service-rpc.ts", { "./booking-guest-security": security, "./booking-guest-contract": contract });
+const handler = compile("../lib/booking-guest-handler.ts", { "./booking-guest-contract": contract, "./booking-guest-security": security, "./booking-service-rpc": rpcModule });
 const spot = "00000000-0000-4000-8000-000000000001", requestId = "00000000-0000-4000-8000-000000000002", reservationId = "00000000-0000-4000-8000-000000000003";
 const key = randomBytes(32).toString("base64url"), origin = "https://booking.example";
-const receipt = { id: reservationId, spot_id: spot, name: "Test Restaurant", guest_name: "Ada", party_size: 2, starts_at: "2030-10-27T18:00:00+00:00", ends_at: "2030-10-27T20:00:00+00:00", status: "confirmed", revision: 1, cancellation_deadline: "2030-10-27T16:00:00+00:00" };
+const receipt = { id: reservationId, spot_id: spot, name: "Test Restaurant", guest_name: "Ada", party_size: 2, starts_at: "2030-10-27T18:00:00+00:00", ends_at: "2030-10-27T20:00:00+00:00", status: "confirmed", revision: 0, cancellation_deadline: "2030-10-27T16:00:00+00:00" };
 const create = { operation: "create", spotId: spot, requestId, policyRevision: 1, startsAt: receipt.starts_at, partySize: 2, name: "Ada", email: "ada@example.test", key, note: "", challenge: "synthetic-challenge" };
 const read = { operation: "read", reservationId, key };
-const cancel = { operation: "cancel", reservationId, requestId, revision: 1, key };
+const cancel = { operation: "cancel", reservationId, requestId, revision: 0, key };
 const availability = { spot_id: spot, name: receipt.name, date: "2030-10-27", party_size: 2, policy_revision: 1, notice_minutes: 60, horizon_days: 90, cancellation_minutes: 120, confirmation_status: "confirmed", privacy_contact: "privacy@example.test", guest_notice: "Bitte pünktlich kommen.\nDanke!", slots: [{ starts_at: receipt.starts_at, ends_at: receipt.ends_at }] };
 function request(body, extra = {}) {
   return new Request(`${origin}/api/booking/guest`, { method: "POST", headers: { origin, "content-type": "application/json", ...extra }, body: JSON.stringify(body) });
@@ -161,7 +151,9 @@ test("a retry retains the logical request and key even when the encryption nonce
 test("production cannot open intake with environment switches before the mail dispatcher exists", async () => {
   const environment = { BOOKING_GUEST_ORIGIN: origin, NEXT_PUBLIC_SUPABASE_URL: "https://database.example", SUPABASE_SERVICE_ROLE_KEY: "synthetic-server-key", BOOKING_GUEST_RATE_SECRET: "synthetic-test-salt-at-least-32-bytes", BOOKING_PUBLIC_CREATE_ENABLED: "true", BOOKING_GUEST_MAIL_READY: "true" };
   let upstream;
-  const server = compile("../lib/booking-guest-server.ts", { "./booking-guest-contract": contract, "./booking-guest-security": security, "./booking-guest-handler": handler }, { process: { env: environment }, fetch: async (url, init) => { upstream = { url, init }; return Response.json(receipt); } });
+  const transport = async (url, init) => { upstream = { url, init }; return Response.json(receipt); };
+  const service = compile("../lib/booking-service-rpc.ts", { "./booking-guest-security": security, "./booking-guest-contract": contract }, { fetch: transport });
+  const server = compile("../lib/booking-guest-server.ts", { "./booking-guest-contract": contract, "./booking-guest-security": security, "./booking-guest-handler": handler, "./booking-service-rpc": service }, { process: { env: environment } });
   const d = server.guestDependencies(); assert.equal(d.newIntakeReady, false);
   await d.rpc("booking_guest_read_v1", { p_reservation_id: reservationId, p_key_hash: security.hashGuestKey(key) });
   assert.equal(upstream.init.headers.Authorization, "Bearer synthetic-server-key"); assert.equal(upstream.init.redirect, "error");

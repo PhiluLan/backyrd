@@ -79,7 +79,7 @@ export function parseGuestRequest(value: unknown): GuestRequest {
       return { operation: r.operation, spotId: guestUuid(r.spotId), requestId: guestUuid(r.requestId), key: guestKey(r.key) };
     case "cancel":
       exact(r, ["operation", "reservationId", "requestId", "revision", "key"]);
-      return { operation: r.operation, reservationId: guestUuid(r.reservationId), requestId: guestUuid(r.requestId), revision: integer(r.revision, 1, Number.MAX_SAFE_INTEGER), key: guestKey(r.key) };
+      return { operation: r.operation, reservationId: guestUuid(r.reservationId), requestId: guestUuid(r.requestId), revision: integer(r.revision, 0, Number.MAX_SAFE_INTEGER), key: guestKey(r.key) };
     default: throw new Error("invalid_guest_contract");
   }
 }
@@ -89,7 +89,7 @@ export function parseGuestReceipt(value: unknown): GuestReceipt {
   if (status !== "pending" && status !== "confirmed" && status !== "arrived" && status !== "seated" && status !== "completed" && status !== "cancelled" && status !== "declined" && status !== "no_show") throw new Error("invalid_guest_contract");
   const starts = instant(r.starts_at), ends = instant(r.ends_at);
   if (Date.parse(ends) <= Date.parse(starts)) throw new Error("invalid_guest_contract");
-  return { id: guestUuid(r.id), spot_id: guestUuid(r.spot_id), name: text(r.name, 1, 300), guest_name: text(r.guest_name, 1, 120), party_size: integer(r.party_size, 1, 500), starts_at: starts, ends_at: ends, status, revision: integer(r.revision, 1, Number.MAX_SAFE_INTEGER), cancellation_deadline: instant(r.cancellation_deadline) };
+  return { id: guestUuid(r.id), spot_id: guestUuid(r.spot_id), name: text(r.name, 1, 300), guest_name: text(r.guest_name, 1, 120), party_size: integer(r.party_size, 1, 500), starts_at: starts, ends_at: ends, status, revision: integer(r.revision, 0, Number.MAX_SAFE_INTEGER), cancellation_deadline: instant(r.cancellation_deadline) };
 }
 export function parseGuestAvailability(value: unknown): GuestAvailability {
   const r = record(value);
