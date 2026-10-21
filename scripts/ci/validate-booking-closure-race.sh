@@ -479,6 +479,33 @@ run_case pacing_repeatable_policy \
  'could not serialize access' "$pacing_repeatable_auth"
 printf 'Arrival pacing passed nine actual distinct-table, policy/create, exact retry, CAS, public/operator and Repeatable Read lock-order races.\n'
 
+# Review reads hold the existing shared root and return one policy/fact snapshot.
+arrival_read_a="select 'ARRIVAL_REVIEW:'||(r#>>'{policy,max_guests}')||':'||(r#>>'{totals,guests}') from (select public.booking_console_arrival_review_v1('$spot',date '$business_date'+240) r)x;"
+arrival_create_a="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000960','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+240+time '10:00') at time zone 'Europe/Zurich'),60,1,'Arrival review race');"
+run_case arrival_review_before_create "$arrival_read_a" "$arrival_create_a" SUCCESS
+grep -q 'ARRIVAL_REVIEW:2:0' "$race_root/arrival_review_before_create-holder.out" || exit 1
+arrival_read_b="select 'ARRIVAL_REVIEW:'||(r#>>'{policy,max_guests}')||':'||(r#>>'{totals,guests}') from (select public.booking_console_arrival_review_v1('$spot',date '$business_date'+241) r)x;"
+arrival_create_b="select public.booking_console_create_v2('$spot','7b000000-0000-4000-8000-000000000961','$service','$table_id',array['$table_id'::uuid],null,((date '$business_date'+241+time '10:00') at time zone 'Europe/Zurich'),60,1,'Arrival review race');"
+run_case arrival_create_before_review "$arrival_create_b" "$arrival_read_b" SUCCESS
+grep -q 'ARRIVAL_REVIEW:2:1' "$race_root/arrival_create_before_review-waiter.out" || exit 1
+run_case arrival_review_before_policy "$arrival_read_a" \
+ "select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000962',7,30,3,'$owner');" SUCCESS
+grep -q 'ARRIVAL_REVIEW:2:1' "$race_root/arrival_review_before_policy-holder.out" || exit 1
+run_case arrival_policy_before_review \
+ "select public.booking_console_save_arrival_limit_v1('$spot','7b000000-0000-4000-8000-000000000963',8,30,4,'$owner');" "$arrival_read_a" SUCCESS
+grep -q 'ARRIVAL_REVIEW:4:1' "$race_root/arrival_policy_before_review-waiter.out" || exit 1
+arrival_viewer='7b000000-0000-4000-8000-000000000950'
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
+insert into auth.users(id,email,email_confirmed_at,raw_app_meta_data,raw_user_meta_data) values('$arrival_viewer','booking-arrival-review-race@booking.invalid',clock_timestamp(),'{}','{}');
+insert into public.booking_team_members(spot_id,user_id,owner_id,role) values('$spot','$arrival_viewer','$owner','viewer');
+SQL
+arrival_auth="set local role authenticated; select set_config('request.jwt.claim.sub','$arrival_viewer',true); select set_config('request.jwt.claims','{\"sub\":\"$arrival_viewer\",\"role\":\"authenticated\"}',true);"
+run_case arrival_revoke_before_review "select public.booking_console_member_v1('$spot','$arrival_viewer',0,null);" "$arrival_read_a" booking_operator_required "$arrival_auth"
+psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "update public.booking_team_members set revoked_at=null,revision=revision+1 where spot_id='$spot' and user_id='$arrival_viewer';" >/dev/null
+run_case arrival_review_before_revoke "$arrival_read_a" "select public.booking_console_member_v1('$spot','$arrival_viewer',2,null);" SUCCESS "$auth_sql" "$arrival_auth"
+grep -q 'ARRIVAL_REVIEW:4:1' "$race_root/arrival_review_before_revoke-holder.out" || exit 1
+printf 'Arrival review passed six actual creation/policy/Viewer-revocation lock-order cases.\n'
+
 psql "$DB_URL" -X -v ON_ERROR_STOP=1 >/dev/null <<SQL
 begin;
 delete from public.booking_audit_events where spot_id='$spot';
@@ -497,7 +524,7 @@ delete from public.booking_public_settings where spot_id='$spot';
 delete from booking_private.public_settings_requests_v1 where spot_id='$spot';
 delete from public.booking_restaurant_settings where spot_id='$spot';
 delete from public.spots where id in ('$spot','$other_spot');
-delete from auth.users where id in ('$owner','$staff','$other_owner','$report_viewer');
+delete from auth.users where id in ('$owner','$staff','$other_owner','$report_viewer','$arrival_viewer');
 commit;
 SQL
 printf 'Booking closure, special-hours/reservation and staff-revocation races passed in both lock orders; concurrent cross-restaurant resource IDs remain fenced; secondary-table allocation and public combined bookings serialize, roll back a competing claim, deduplicate concurrent identical requests, and fence actual-time seated transfers against competing movements and departure; public intake and operator inventory serialize in both orders, with replay and paused-intake fences.\n'
