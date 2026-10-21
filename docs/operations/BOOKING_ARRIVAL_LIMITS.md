@@ -176,3 +176,72 @@ results, not physical-device or restaurant operating acceptance.
 The full **270 Booking browser cases** also passed against that final production
 build after targeted and visual review. Production migration/activation and the
 actual restaurant/device pilot remain separate acceptance steps.
+
+## Daily arrival-window review candidate (migration 217)
+
+The authenticated `booking_console_arrival_review_v1(spot, date)` read and
+`arrival_review` snapshot capability add **Zeitfenster prüfen** to the operational
+day context for Owner, Manager, Host and Viewer. It always covers the entire
+restaurant, independent of the diary's room/service/status filters. The selected
+review day does not navigate or overwrite the underlying diary context. Managers
+can open the existing rule editor; the review itself has no mutation path.
+
+One shared restaurant-root lock authorizes the current role/Owner/Safety scope
+and keeps the current policy coherent with a single materialized scan of parent
+booking facts. It returns the current policy, database observation time, counted
+and excluded reservation/party totals and a complete fixed-bin grid from Zurich
+midnight to the next midnight. The supported calendar is 1970-01-01 through
+9999-12-30; unsupported dates fail explicitly. A spring day has 23 actual hours,
+a fall day 25. Each endpoint is half-open, and repeated local hours retain their
+actual offsets. Every window, including zero windows, remains in the wire
+contract; hiding empty rows is only a display choice.
+
+The same five statuses as pacing contribute; cancelled/declined/no-show totals
+are shown separately. No guest names, contacts, notes, reservation/table/actor
+identifiers or configured service labels are selected into the aggregate.
+Historical views compare saved booking facts against the **current** loaded rule,
+not a reconstructed rule from that earlier date. A full/exceeded window never
+claims actual attendance, available tables or a kitchen capacity guarantee. No
+arrival policy or existing reservation is changed by this read.
+
+The Web codec binds restaurant/day/timezone and the policy, checks real calendar
+and microsecond timestamps, exact full-day/interval boundaries, contiguity,
+complete DST grids and both counted/excluded party totals. Invalid or partial
+responses produce an error, never an invented empty day. Date editing clears old
+facts immediately; offline clears results, and reconnect reads a new policy/fact
+snapshot. Current request/account/mount guards reject late results and denials.
+Permission-only polling continues while the review is open. The compact phone
+view keeps date editing in an optional disclosure and shows the loaded date,
+current-rule comparison, sums and limit states ahead of explanations.
+
+The final canonical clean boot passed all **34 Booking SQL suites**, the existing
+baseline/races, **six additional actual two-connection review cases**, 20 private
+drift mutations, lineage, schema/ACL and DB lint. New races cover review/create,
+review/policy-change and Viewer revocation in both root-lock orders. Receipt:
+`b059c664f7d8afe766f612f1654bab7704292ef37f3e439df339824a7d989848`.
+The private scope remains 1124 facts with its inputs bound to migration 217.
+Actual PostgreSQL fall-day JSON (50 half-hour windows, 22 counted and 6 excluded
+guests as summed party sizes) passed the real Web parser. The owned disposable
+fixture databases and volumes were removed after execution. Protected synthetic
+JSON and the input-bound receipt remain privately under `.local`.
+
+All **155 Web contract cases** passed, including five new full-grid/DST/scope,
+count reconciliation, timestamp/calendar and bounded RPC cases. Types and the
+supported Webpack production build passed; lint has zero errors and 13 existing
+warnings. The actual phone/restaurant pilot, rolling and per-room/service/online
+quotas, historical as-of policy reconstruction, cross-restart exact-intent
+recovery and populated arrival-policy/journal restore remain open. No production
+migration, guest intake, actual message or practical Aleno parity is activated.
+
+The final compact UI passed **17 targeted browser journeys** covering scoped
+whole-restaurant facts, excluded statuses, filter/focus preservation, explicit
+day changes, empty grids, repeated-hour offsets, changed policy refresh, failed
+reads, offline/reconnect, Viewer read-only access, Manager editor transition,
+revocation, stale day/closed/account replies, capability/endpoint denial and
+logout. Its 320-pixel phone view passed automated accessibility and no-document-
+overflow checks and was visually inspected. The date form is an optional
+disclosure; the loaded rule is explicitly labelled current, and small counts
+use singular labels. No physical-device acceptance is inferred from this.
+The full **287 Booking browser cases** then passed against the final compact
+production build. This closes the local daily-window-review implementation gap;
+production release and actual restaurant/device acceptance remain separate.

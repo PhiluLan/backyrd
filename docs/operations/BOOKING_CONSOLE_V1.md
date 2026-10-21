@@ -1372,3 +1372,8 @@ The central optional guest cap now filters existing slot previews and protects a
 ## Arrival-limit Console candidate (migration 216)
 
 Owner/Manager can open Gästeandrang under Einrichtung when `arrival_limits` is advertised. The editor separates the loaded policy from its draft, retains empty numeric input, handles explicit disable, preserves offline/unsaved input and freezes one exact actor-bound intent after an uncertain write. Pre-dispatch recovery failures remain editable; CAS conflicts require explicit reload. A saved original outcome is followed by a fresh current read before showing the effective configuration. Late context/mount replies are ignored and existing permission polling closes a downgraded editor. Current-window workload review, cross-restart exact-intent recovery, populated restoration of arrival policy/receipt rows and actual device/restaurant acceptance remain open. See [arrival limits](BOOKING_ARRIVAL_LIMITS.md).
+
+
+## Daily arrival-window review (migration 217 candidate)
+
+Zeitfenster prüfen opens a read-only whole-restaurant day view for all current team roles. It separates counted and excluded party facts, compares against the current policy, preserves full spring/fall elapsed-time grids and labels repeated local times with their actual offsets. Editing scope, going offline or losing context invalidates old results; reconnect/current refresh loads new policy and facts together. Manager can transition to the existing rule editor. The compact view retains diary filters and uses native focus restoration. It does not claim occupancy, attendance or availability and does not mutate bookings. See [arrival limits](BOOKING_ARRIVAL_LIMITS.md).
