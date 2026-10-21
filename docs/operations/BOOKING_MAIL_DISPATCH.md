@@ -127,3 +127,14 @@ Primary references:
 - [Resend idempotency window and immutable request retries](https://resend.com/docs/dashboard/emails/idempotency-keys)
 - [Resend raw-body webhook verification](https://resend.com/docs/webhooks/verify-webhooks-requests)
 - [PostgreSQL row locking and SKIP LOCKED](https://www.postgresql.org/docs/17/sql-select.html)
+
+Integration approval is still separate from passing execution. The existing
+`scripts/ci/classify-change.mjs` also classifies 205's atomic replacement of the
+outbox status CHECK constraint as requiring Founder authorization, because the
+DROP/ADD occurs in a combined ALTER statement. This replacement expands the
+allowed delivery states and does not delete reservation/guest data. It must be
+included explicitly alongside the pending #557 closure-configuration removal
+and #565 former-owner policy cleanup; their previous approval question does not
+authorize this additional operation. Do not weaken the classifier or rewrite
+the published migration/evidence to hide it. Production migration/recovery
+approval remains a separate outstanding decision.
