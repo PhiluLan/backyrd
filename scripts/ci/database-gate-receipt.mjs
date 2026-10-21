@@ -14,6 +14,12 @@ const INPUTS = [
   "supabase/canonical",
   "supabase/tests",
   "scripts/ci/application-schema-fingerprint.sql",
+  "scripts/ci/booking-private-fingerprint.sql",
+  "scripts/ci/validate-booking-private-scope.mjs",
+  "scripts/ci/validate-booking-private-drift.mjs",
+  "scripts/ci/validate-booking-private-scope.test.mjs",
+  "scripts/ci/database-gate-receipt.test.mjs",
+  "delivery/database-scopes",
   "scripts/ci/public-acl-fingerprint.sql",
   "scripts/ci/validate-supabase-current.sh",
   "scripts/ci/validate-database-lineage.mjs",
@@ -24,6 +30,7 @@ const INPUTS = [
   "scripts/ci/validate-world-knowledge-rebuild-race.sh",
   "scripts/ci/validate-review-same-day-race.sh",
   "scripts/ci/validate-founder-live-idempotency-race.sh",
+  "scripts/ci/validate-booking-closure-race.sh",
 ];
 
 const walk = (path) => {

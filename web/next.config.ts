@@ -18,6 +18,7 @@ const privateRoutePrefixes = [
   "search",
   "owner",
   "booking/console",
+  "booking/manage",
 ];
 
 const nextConfig: NextConfig = {
@@ -53,6 +54,10 @@ const nextConfig: NextConfig = {
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
         ],
       })),
+      {
+        source: "/booking/manage/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
     ];
   },
 };
