@@ -7,6 +7,7 @@ import "./test-spot-product-presentation.mjs";
 import "./test-nearby-discovery.mjs";
 import "./test-discovery-opening-hours.mjs";
 import "./test-app-experience.mjs";
+import "./test-shell-quote.mjs";
 import "./test-recent-decision-search.mjs";
 import "./test-spot-address-presentation.mjs";
 import "./test-supabase-runtime-config.mjs";

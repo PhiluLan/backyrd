@@ -91,6 +91,9 @@ try {
   let passwordLogins = 0;
   let fixturePhotoRequests = 0;
   let momentPublishes = 0;
+  const chatSends = [];
+  let chatLoadFail = true;
+  let finishChatRequest;
   const remoteFixture = async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -103,6 +106,14 @@ try {
         return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(body.p_review_id)});
       }
       return route.abort("blockedbyclient");
+    }
+    if (path === "/rest/v1/messages" && chatLoadFail) return route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"synthetic chat load outage"})});
+    if (path === "/rest/v1/rpc/get_my_direct_chats_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{chat_id:"55555555-5555-4555-a555-555555555555",other_user_id:"66666666-6666-4666-a666-666666666666",other_display_name:"Chat Test",unread_count:0}])});
+    if (path === "/rest/v1/rpc/send_message_v2") {
+      const body=JSON.parse(request.postData()??"{}");
+      chatSends.push(body);
+      const success=await new Promise(resolve=>{finishChatRequest=resolve;});
+      return route.fulfill({status:success?200:503,contentType:"application/json",body:JSON.stringify(success?[{id:body.p_client_request_id,chat_id:body.p_chat_id,sender_id:subject,text:body.p_text,created_at:new Date().toISOString()}]:{message:"synthetic send outage"})});
     }
     if (path === "/rest/v1/rpc/get_social_feed_v2") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{post_id:"moment-visible",user_id:subject,spot_id:"22222222-2222-4222-a222-000000000001",spot_name:state.worldName,spot_city:"Bern",category_name:"Café",mood_tags:["Gemütlich","Ruhig"],caption:"Ein Kaffee am Fenster",created_at:new Date().toISOString(),media:[]},{post_id:"moment-hidden",user_id:subject,spot_id:"22222222-2222-4222-a222-000000000002",spot_name:"Verborgener Ort",spot_city:"Bern",mood_tags:["Laut"],created_at:new Date().toISOString(),media:[]}])});
     if (path === "/rest/v1/rpc/safety_visible_social_post_ids_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(["moment-visible"])});
@@ -435,6 +446,36 @@ try {
   await page.getByRole("button",{name:"Event teilen",exact:true}).waitFor();
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/cancelled-event-390.png`});
 
+  // A delayed failed send must not replace edits in the live composer.
+  await page.goto(`${appUrl}/messages/55555555-5555-4555-a555-555555555555`,{waitUntil:"domcontentloaded"});
+  await page.getByText("Chat konnte nicht geladen werden",{exact:true}).waitFor();
+  assert.equal(await page.getByPlaceholder("Nachricht schreiben …",{exact:true}).count(),0);
+  chatLoadFail=false;
+  await page.getByRole("button",{name:"Erneut versuchen",exact:true}).click();
+  const chatInput=page.getByPlaceholder("Nachricht schreiben …",{exact:true});
+  await chatInput.waitFor();
+  await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
+  const waitForSend=async count=>{
+    for(let attempt=0;attempt<100&&chatSends.length<count;attempt++)await page.waitForTimeout(50);
+    assert.equal(chatSends.length,count);
+  };
+  const sendChat=page.getByRole("button",{name:"Nachricht senden",exact:true});
+  await chatInput.fill("Erste Nachricht");await sendChat.click();await waitForSend(1);
+  assert.equal(await sendChat.isEnabled(),false);
+  assert.equal(await page.getByRole("button",{name:"Foto aufnehmen",exact:true}).isEnabled(),false);
+  await chatInput.fill("Neuer Entwurf");finishChatRequest(false);
+  await page.waitForFunction(()=>document.querySelector('[aria-label="Nachricht senden"]')?.getAttribute('aria-disabled')!=="true");
+  assert.equal(await chatInput.inputValue(),"Neuer Entwurf");
+  await sendChat.click();await waitForSend(2);finishChatRequest(false);
+  await page.waitForFunction(()=>document.querySelector('[aria-label="Nachricht senden"]')?.getAttribute('aria-disabled')!=="true");
+  assert.equal(await chatInput.inputValue(),"Neuer Entwurf");
+  await sendChat.click();await waitForSend(3);
+  assert.equal(chatSends[1].p_client_request_id,chatSends[2].p_client_request_id,"retry reuses the server idempotency key");
+  await chatInput.fill("Schon der nächste");finishChatRequest(true);
+  await page.getByText("Neuer Entwurf",{exact:true}).waitFor();
+  assert.equal(await chatInput.inputValue(),"Schon der nächste","success preserves the next draft too");
+  if(process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR)await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/chat-draft-recovery-390.png`});
+
   // Safety still blocks interaction and screen-reader targets while navigation stays mounted.
   state.locked = true;
   await page.goto(`${appUrl}/spot/22222222-2222-4222-a222-000000000001`,{waitUntil:"domcontentloaded"});
@@ -454,7 +495,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
 } catch (error) {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
     for (const ctx of browser.contexts()) for (const [index, tab] of ctx.pages().entries()) await tab.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/failure-${index}.png`}).catch(()=>undefined);
