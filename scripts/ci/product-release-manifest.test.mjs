@@ -300,3 +300,28 @@ test("Booking Console release scope binds the exact migration bytes", () => {
   assert.equal(isExactProductAdditiveSet([{ ...migration, path: "supabase/migrations/unapproved.sql" }]), false);
   assert.equal(isExactProductAdditiveSet([migration, { path: "supabase/migrations/unapproved.sql", sha256: "0".repeat(64) }]), false);
 });
+
+test("iOS-only certification preserves pending SQL without granting backend delivery", () => {
+  const { root, base } = fixture();
+  put(root, "supabase/production/preapplied-product-migrations-v1.json", JSON.stringify({version:"backyrd-preapplied-product-migrations-v1",projectRef:"hjgcrrzfjchzqoegcywn",migrations:pendingMigrations}));
+  const path="supabase/migrations/20261020184245_unapproved_fixture.sql";
+  put(root,path,"select 'not authorized for production';\n");
+  const head=commit(root,"unrelated SQL is pending on Main");
+  const identity=resolveProductReleaseIdentity({root,mode:"POST_MERGE_MAIN",sourceSha:head,baseSha:git(root,["rev-parse",`${head}^`]),checkoutSha:head,canonicalMainSha:head});
+  const testEvidence=buildProductReleaseTestEvidence({root,sourceSha:head});
+  const pending=[{path,sha256:hash("select 'not authorized for production';\n")}];
+  const productionPlan={...plan(base,head),pendingMigrations:pending};
+  const args={root,sourceSha:head,mobileBundle:join(root,"mobile-export"),identity,testEvidence,productionPlan};
+  assert.throws(()=>buildProductReleaseManifest({...args,outputDir:join(root,"product")}),/release_recovery_risk_acceptance_invalid/);
+  assert.throws(()=>buildProductReleaseManifest({...args,outputDir:join(root,"bad-target"),deliveryTarget:"ALL_WITHOUT_APPROVAL"}),/release_delivery_target_invalid/);
+  const output=join(root,"ios");
+  const manifest=buildProductReleaseManifest({...args,outputDir:output,deliveryTarget:"IOS_OTA"});
+  assert.equal(manifest.deliveryTarget,"IOS_OTA");
+  assert.deepEqual(manifest.productionPlan.pendingMigrations,pending,"pending SQL remains explicit, never relabelled as applied/approved");
+  assert.equal(manifest.productionPlan.executionAuthorized,false);
+  const verify={artifactDir:output,expectedHash:manifest.manifestHash,expectedSourceSha:head,expectedMode:"POST_MERGE_MAIN",checkoutRoot:root};
+  assert.equal(verifyProductReleaseManifest({...verify,expectedDeliveryTarget:"IOS_OTA"}).manifestHash,manifest.manifestHash);
+  assert.throws(()=>verifyProductReleaseManifest({...verify,expectedDeliveryTarget:"PRODUCT"}),/release_delivery_target_mismatch/);
+  put(output,`bundle/${path}`,"tampered pending SQL\n");
+  assert.throws(()=>verifyProductReleaseManifest({...verify,expectedDeliveryTarget:"IOS_OTA"}),/release_artifact_file_mismatch/);
+});

@@ -181,3 +181,13 @@ test("authenticated-user enablement has no individual account IDs", () => {
   assert.ok(args.includes("BACKYRD_DECISION_AI_INTENT_ENABLED=true"));
   assert.doesNotMatch(output, /[0-9a-f]{8}-[0-9a-f-]{27,}/);
 });
+
+test("iOS-only certification is explicit and both Supabase verification steps require Product scope", () => {
+  const certification=read(".github/workflows/manual-product-artifact-certification.yml");
+  assert.match(certification,/options: \[PRODUCT, IOS_OTA\]/);
+  assert.match(certification,/default: PRODUCT/);
+  assert.match(certification,/--delivery-target "\$\{\{ inputs.delivery_target \}\}"/);
+  const production=read(".github/workflows/supabase-production.yml");
+  assert.equal((production.match(/--expected-delivery-target PRODUCT/g)||[]).length,2);
+  assert.match(read(".github/workflows/risk-gate.yml"), /product-release-manifest\.mjs build --delivery-target IOS_OTA/);
+});

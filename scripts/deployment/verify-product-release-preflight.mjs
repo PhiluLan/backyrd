@@ -16,6 +16,7 @@ const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 /** Pure comparison of a certified candidate with a separately collected, read-only remote receipt. */
 export function verifyProductReleasePreflight({ manifest, plan, ledger, baselineMigrationVersions, remote, now = new Date() }) {
   required(manifest?.contractVersion === "backyrd.product-release-manifest@3.0", "release_manifest_v3_required");
+  required((manifest.deliveryTarget ?? "PRODUCT") === "PRODUCT", "release_backend_delivery_not_authorized");
   const { manifestHash, ...manifestBody } = manifest;
   required(HASH.test(manifestHash) && sha256(JSON.stringify(manifestBody)) === manifestHash, "release_manifest_integrity_invalid");
   required(manifest.identity?.mode === "PR_CANDIDATE" || manifest.identity?.mode === "POST_MERGE_MAIN", "release_identity_mode_invalid");
