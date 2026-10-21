@@ -1,7 +1,8 @@
 import "server-only";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { guestUuid, parseGuestReceipt, record } from "./booking-guest-contract";
+import { guestUuid, parseGuestBookingSummary, parseGuestReceipt, record } from "./booking-guest-contract";
 import { openGuestKey, type GuestSealKeys } from "./booking-guest-security";
+import { guestWhen } from "./booking-guest-time";
 import type { BookingRpc } from "./booking-service-rpc";
 
 export type MailConfig = {
@@ -32,13 +33,20 @@ export function mailEmail(value: unknown): string {
 }
 function snapshot(value: unknown) {
   const s = record(value);
+  if (s.message_mode === "manual_summary") {
+    const summary = parseGuestBookingSummary({ id: s.reservation_id, spot_id: s.spot_id, name: s.restaurant_name, guest_name: s.guest_name, party_size: s.party_size, starts_at: s.starts_at, ends_at: s.ends_at, status: s.status, revision: s.revision });
+    if (!["pending", "confirmed", "cancelled", "declined"].includes(summary.status)) throw new Error("invalid_mail_content");
+    return { ...summary, email: mailEmail(s.email), messageMode: "manual_summary" as const };
+  }
+  if (s.message_mode !== undefined && s.message_mode !== "self_service") throw new Error("invalid_mail_content");
   const receipt = parseGuestReceipt({ id: s.reservation_id, spot_id: s.spot_id, name: s.restaurant_name, guest_name: s.guest_name, party_size: s.party_size, starts_at: s.starts_at, ends_at: s.ends_at, status: s.status, revision: 0, cancellation_deadline: s.cancellation_deadline });
   if (receipt.status !== "confirmed" && receipt.status !== "pending" && receipt.status !== "declined" && receipt.status !== "cancelled") throw new Error("invalid_mail_content");
-  return { ...receipt, creationRequestId: guestUuid(s.creation_request_id), email: mailEmail(s.email), keyHash: mailHash(s.key_hash), sealedKey: mailText(s.sealed_key, 2048) };
+  return { ...receipt, creationRequestId: guestUuid(s.creation_request_id), email: mailEmail(s.email), keyHash: mailHash(s.key_hash), sealedKey: mailText(s.sealed_key, 2048), messageMode: "self_service" as const };
 }
 export function parseMailClaim(value: unknown, lease: string): MailClaim {
   const c = record(value), s = snapshot(c.snapshot);
   const kind = c.event_kind;
+  if (s.messageMode === "manual_summary" && c.reservation_revision !== s.revision) throw new Error("invalid_mail_content");
   if (c.lease_id !== lease || guestUuid(c.spot_id) !== s.spot_id || guestUuid(c.reservation_id) !== s.id || (kind !== "created" && kind !== "changed" && kind !== "cancelled")) throw new Error("invalid_mail_content");
   const sealed = c.payload_sealed === null ? null : mailText(c.payload_sealed, 65536);
   const digest = c.payload_digest === null ? null : mailHash(c.payload_digest);
@@ -64,20 +72,24 @@ export function buildMailEnvelope(claim: MailClaim, config: MailConfig): Envelop
   const origin = new URL(config.origin);
   if (origin.protocol !== "https:" || origin.origin !== config.origin) throw new Error("invalid_mail_origin");
   mailEmail(config.from);
-  const rawKey = openGuestKey(s.sealedKey, s.spot_id, s.creationRequestId, s.keyHash, config.guestKeys);
-  const link = new URL("/booking/manage", origin); link.hash = `id=${s.id}&key=${rawKey}`;
+  let link: URL | null = null, deadline = "";
+  if (s.messageMode === "self_service") {
+    const rawKey = openGuestKey(s.sealedKey, s.spot_id, s.creationRequestId, s.keyHash, config.guestKeys);
+    link = new URL("/booking/manage", origin); link.hash = `id=${s.id}&key=${rawKey}`;
+    if (s.status === "confirmed" || s.status === "pending") deadline = `Online-Stornierungsfrist: ${guestWhen(s.cancellation_deadline)} (Schweizer Zeit).`;
+  }
   const restaurantLink = new URL(`/spots/${s.spot_id}`, origin).href;
-  const format = new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", dateStyle: "full", timeStyle: "short" });
-  const when = format.format(new Date(s.starts_at));
-  const heading = s.status === "pending" ? claim.kind === "changed" ? "Aktualisierte Reservierungsanfrage" : "Deine Reservierungsanfrage" : s.status === "cancelled" ? "Deine Reservierung wurde storniert" : s.status === "declined" ? "Deine Anfrage wurde abgelehnt" : claim.kind === "changed" ? "Aktualisierte Reservierung" : "Deine Reservierung";
+  const when = guestWhen(s.starts_at);
+  const heading = s.status === "pending" ? claim.kind === "changed" && s.messageMode === "self_service" ? "Aktualisierte Reservierungsanfrage" : "Deine Reservierungsanfrage" : s.status === "cancelled" ? "Deine Reservierung wurde storniert" : s.status === "declined" ? "Deine Anfrage wurde abgelehnt" : claim.kind === "changed" && s.messageMode === "self_service" ? "Aktualisierte Reservierung" : "Deine Reservierung";
   const status = s.status === "pending" ? "Das Restaurant prüft deine Anfrage. Der Platz ist noch nicht bestätigt." : s.status === "cancelled" ? "Diese Reservierung ist storniert." : s.status === "declined" ? "Das Restaurant hat deine Anfrage abgelehnt." : "Deine Reservierung ist bestätigt.";
   const summary = `${s.name}\n${when} (Schweizer Zeit)\n${s.party_size} ${s.party_size === 1 ? "Person" : "Personen"}`;
-  const deadline = s.status === "confirmed" || s.status === "pending" ? `Online-Stornierungsfrist: ${format.format(new Date(s.cancellation_deadline))} (Schweizer Zeit).` : "";
-  const footer = "Dieser persönliche Link zeigt den aktuellen Stand deiner Reservierung. Teile ihn nur mit Personen, denen du vertraust. Für Änderungen oder Absagen nach der Online-Frist kontaktiere bitte das Restaurant.";
+  const footer = link ? "Dieser persönliche Link zeigt den aktuellen Stand deiner Reservierung. Teile ihn nur mit Personen, denen du vertraust. Für Änderungen oder Absagen nach der Online-Frist kontaktiere bitte das Restaurant." : "Für Änderungen oder Absagen kontaktiere bitte direkt das Restaurant. Diese Nachricht fügt keine neuen Buchungsbedingungen oder Online-Stornierungsfristen hinzu.";
+  const accessText = link ? `Reservierung ansehen und verwalten:\n${link.href}\n\n` : "";
+  const accessHtml = link ? `<p><a href="${escape(link.href)}">Reservierung ansehen und verwalten</a></p>` : "";
   const body = JSON.stringify({
     from: `Backyrd Booking <${config.from}>`, to: [s.email], subject: `${heading} · ${s.name}`,
-    text: `Hallo ${s.guest_name}\n\n${status}\n\n${summary}\n\n${deadline}\n\nReservierung ansehen und verwalten:\n${link.href}\n\nRestaurantinformationen:\n${restaurantLink}\n\n${footer}`,
-    html: `<html lang="de"><body><h1>${escape(heading)}</h1><p>Hallo ${escape(s.guest_name)}</p><p>${escape(status)}</p><p>${escape(summary).replaceAll("\n", "<br>")}</p>${deadline ? `<p>${escape(deadline)}</p>` : ""}<p><a href="${escape(link.href)}">Reservierung ansehen und verwalten</a></p><p><a href="${escape(restaurantLink)}">Restaurantinformationen</a></p><p>${escape(footer)}</p></body></html>`,
+    text: `Hallo ${s.guest_name}\n\n${status}\n\n${summary}\n\n${deadline}\n\n${accessText}Restaurantinformationen:\n${restaurantLink}\n\n${footer}`,
+    html: `<html lang="de"><body><h1>${escape(heading)}</h1><p>Hallo ${escape(s.guest_name)}</p><p>${escape(status)}</p><p>${escape(summary).replaceAll("\n", "<br>")}</p>${deadline ? `<p>${escape(deadline)}</p>` : ""}${accessHtml}<p><a href="${escape(restaurantLink)}">Restaurantinformationen</a></p><p>${escape(footer)}</p></body></html>`,
     tags: [{ name: "booking_outbox", value: claim.id }, { name: "booking_proof", value: mailBinding(claim.id, config) }],
   });
   if (Buffer.byteLength(body, "utf8") > 32000) throw new Error("invalid_mail_content");

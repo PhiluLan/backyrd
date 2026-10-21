@@ -8,7 +8,7 @@ export function parseMailReissueRequest(value: unknown): MailReissueRequest {
   return { operation: r.operation, spotId: guestUuid(r.spotId), reservationId: guestUuid(r.reservationId), requestId: guestUuid(r.requestId), revision: r.revision, contactHash: r.contactHash };
 }
 export type MailReissueResolution = MailReissueResult | { not_committed: true; id: string; revision: number };
-export function parseMailReissueResult(value: unknown, intent: MailReissueIntent): MailReissueResolution {
+export function parseStaffMailResult(value: unknown, intent: Pick<MailReissueIntent, "reservationId" | "revision">): MailReissueResolution {
   const r = record(value);
   if (r.not_committed === true) {
     if (r.id !== intent.reservationId || typeof r.revision !== "number" || !Number.isSafeInteger(r.revision) || r.revision <= intent.revision) throw new Error("invalid_mail_reissue");
@@ -17,3 +17,5 @@ export function parseMailReissueResult(value: unknown, intent: MailReissueIntent
   if (r.id !== intent.reservationId || r.revision !== intent.revision + 1 || typeof r.queued_at !== "string" || !Number.isFinite(Date.parse(r.queued_at))) throw new Error("invalid_mail_reissue");
   return { id: guestUuid(r.id), revision: r.revision as number, message_id: guestUuid(r.message_id), queued_at: r.queued_at };
 }
+
+export function parseMailReissueResult(value: unknown, intent: MailReissueIntent) { return parseStaffMailResult(value,intent); }

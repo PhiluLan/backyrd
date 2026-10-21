@@ -13,7 +13,8 @@ const states = {
 };
 function Message({ message: m }: { message: BookingMailMessage }) {
   return <li className={styles.historyEvent}><article>
-    <h4>{{ created: "Buchungseingang", changed: "Buchungsänderung", cancelled: "Stornierungsnachricht" }[m.kind]}</h4>
+    <h4>{m.mode==="manual_summary"?"Vom Team angeforderte Buchungsnachricht":{ created: "Buchungseingang", changed: "Buchungsänderung", cancelled: "Stornierungsnachricht" }[m.kind]}</h4>
+    {m.recipient&&<p className={styles.help}>Empfänger: {m.recipient}</p>}
     <p><strong>{states[m.state]}</strong>{m.delayed && " · Zustellung verzögert"}</p>
     <p className={styles.help}>Erfasst <time dateTime={m.createdAt}>{dateTime(m.createdAt)}</time></p>
     <p className={styles.help}>Status aktualisiert <time dateTime={m.updatedAt}>{dateTime(m.updatedAt)}</time> · {m.attempts} {m.attempts === 1 ? "Versandversuch" : "Versandversuche"}</p>
@@ -27,7 +28,7 @@ function Message({ message: m }: { message: BookingMailMessage }) {
   </article></li>;
 }
 
-export function ReservationMail({ spotId, reservationId, revision, onDenied, onReload }: { spotId: string; reservationId: string; revision: number; onDenied: () => void; onReload: () => Promise<void> }) {
+export function ReservationMail({ spotId, reservationId, revision, onDenied, onReload, manual=false }: { spotId: string; reservationId: string; revision: number; manual?: boolean; onDenied: () => void; onReload: () => Promise<void> }) {
   const [mail, setMail] = useState<BookingMail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export function ReservationMail({ spotId, reservationId, revision, onDenied, onR
     const request = new AbortController(); active.current = request; inFlight.current = true;
     setLoading(true); setError(null);
     try {
-      const page = await readBookingMail(spotId, reservationId, beforeId, request.signal);
+      const page = await readBookingMail(spotId, reservationId, beforeId, request.signal, manual);
       if (request.signal.aborted) return;
       setMail((previous) => {
         if (!beforeId || !previous) return page;
@@ -49,7 +50,7 @@ export function ReservationMail({ spotId, reservationId, revision, onDenied, onR
       if (request.signal.aborted) return;
       if (bookingReadDenied(failure)) { setMail(null); onDenied(); } else setError(bookingError(failure));
     } finally { if (!request.signal.aborted) { setLoading(false); inFlight.current = false; } }
-  }, [spotId, reservationId, onDenied]);
+  }, [spotId, reservationId, onDenied, manual]);
   useEffect(() => {
     void load();
     return () => { active.current?.abort(); inFlight.current = false; };

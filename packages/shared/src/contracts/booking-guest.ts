@@ -94,13 +94,18 @@ export function parseGuestRequest(value: unknown): GuestRequest {
     default: throw new Error("invalid_guest_contract");
   }
 }
-export function parseGuestReceipt(value: unknown): GuestReceipt {
+export type GuestBookingSummary = Pick<GuestReceipt, "id" | "spot_id" | "name" | "guest_name" | "party_size" | "starts_at" | "ends_at" | "status" | "revision">;
+export function parseGuestBookingSummary(value: unknown): GuestBookingSummary {
   const r = record(value);
   const status = r.status;
   if (status !== "pending" && status !== "confirmed" && status !== "arrived" && status !== "seated" && status !== "completed" && status !== "cancelled" && status !== "declined" && status !== "no_show") throw new Error("invalid_guest_contract");
   const starts = instant(r.starts_at), ends = instant(r.ends_at);
   if (Date.parse(ends) <= Date.parse(starts)) throw new Error("invalid_guest_contract");
-  return { id: guestUuid(r.id), spot_id: guestUuid(r.spot_id), name: text(r.name, 1, 300), guest_name: text(r.guest_name, 1, 120), party_size: integer(r.party_size, 1, 500), starts_at: starts, ends_at: ends, status, revision: integer(r.revision, 0, Number.MAX_SAFE_INTEGER), cancellation_deadline: instant(r.cancellation_deadline), ...(r.policy_snapshot === undefined ? {} : { policy_snapshot: r.policy_snapshot === null ? null : parseGuestPolicy(r.policy_snapshot) }) };
+  return { id: guestUuid(r.id), spot_id: guestUuid(r.spot_id), name: text(r.name, 1, 300), guest_name: text(r.guest_name, 1, 120), party_size: integer(r.party_size, 1, 500), starts_at: starts, ends_at: ends, status, revision: integer(r.revision, 0, Number.MAX_SAFE_INTEGER) };
+}
+export function parseGuestReceipt(value: unknown): GuestReceipt {
+  const r = record(value);
+  return { ...parseGuestBookingSummary(r), cancellation_deadline: instant(r.cancellation_deadline), ...(r.policy_snapshot === undefined ? {} : { policy_snapshot: r.policy_snapshot === null ? null : parseGuestPolicy(r.policy_snapshot) }) };
 }
 export function parseGuestPolicy(value: unknown): GuestPolicySnapshot {
   const p = record(value);

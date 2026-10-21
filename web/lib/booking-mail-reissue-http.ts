@@ -15,7 +15,7 @@ export async function handleMailReissue(request: Request, d: MailReissueDependen
   if (request.headers.has("content-encoding") || !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(request.headers.get("content-type") ?? "")) return fail(415, "bad_request");
   let r: ReturnType<typeof parseMailReissueRequest>;
   try { r = parseMailReissueRequest(await boundedJson(request, 4096, 5000)); } catch { return fail(400, "bad_request"); }
-  let writing = false;
+  let writing = false, observedCommit = false;
   try {
     const actor = await d.actor(request);
     if (!actor) return fail(401, "authentication_required");
@@ -25,7 +25,7 @@ export async function handleMailReissue(request: Request, d: MailReissueDependen
     if (!quota.allowed) return fail(429, "rate_limited");
     // Recovery and replay work independently of current sender/key readiness.
     const prior = await d.rpc("booking_mail_reissue_recover_v1", args);
-    if (prior !== null) return Response.json({ data: parseMailReissueResult(prior, r) }, { headers });
+    if (prior !== null) { observedCommit=true; return Response.json({ data: parseMailReissueResult(prior, r) }, { headers }); }
     if (r.operation === "recover") return Response.json({ data: null }, { headers });
     const context = record(await d.rpc("booking_mail_reissue_context_v1", { p_actor: args.p_actor, p_spot_id: r.spotId, p_reservation_id: r.reservationId, p_expected_revision: r.revision, p_contact_hash: r.contactHash }));
     if (context.reservation_id !== r.reservationId || context.revision !== r.revision) throw new Error("mail_context_mismatch");
@@ -47,6 +47,6 @@ export async function handleMailReissue(request: Request, d: MailReissueDependen
       if (error.databaseMessage === "booking_mail_reissue_rate_limited") return fail(429, "rate_limited");
       if (error.databaseCode === "22023") return fail(400, "not_available");
     }
-    return fail(503, writing ? "outcome_unknown" : "mail_unavailable", writing);
+    return fail(503, writing || observedCommit ? "outcome_unknown" : "mail_unavailable", writing || observedCommit);
   }
 }
