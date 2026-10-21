@@ -24,7 +24,9 @@ export function createBookingService(wallet: BookingWallet, request: Requester, 
     const latest = await wallet.get(id);
     if (!latest || latest.key !== credential.key) throw new BookingWalletError("changed");
     if (cancellationFenced(receipt, latest)) await wallet.settleCancellation(id, latest.key, latest.cancellation!.requestId);
-    return { receipt, credential: await wallet.get(id) ?? latest };
+    const final = await wallet.get(id);
+    if (!final || final.key !== credential.key) throw new BookingWalletError("changed");
+    return { receipt, credential: final };
   }
   return {
     read,

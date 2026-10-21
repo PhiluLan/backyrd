@@ -41,7 +41,7 @@ export function BookingScreen({ actorId }: { actorId: string | null }) {
   const [loading, setLoading] = useState(false), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   const [adding, setAdding] = useState(false), [link, setLink] = useState("");
   const [now, setNow] = useState(Date.now());
-  const alive = useRef(true), enabled = useRef(false), sequence = useRef(0), writing = useRef(false);
+  const alive = useRef(true), enabled = useRef(false), sequence = useRef(0), writing = useRef(false), writeEpoch = useRef<number | null>(null);
   const invalidate = useCallback(() => { sequence.current++; }, []);
   enabled.current = focused && active;
   useEffect(() => { alive.current = true; return () => { alive.current = false; invalidate(); }; }, [invalidate]);
@@ -89,18 +89,19 @@ export function BookingScreen({ actorId }: { actorId: string | null }) {
     return invalidate;
   }, [focused, active, runtime, refresh, invalidate]);
 
+  function operationCurrent() { return alive.current && enabled.current && writeEpoch.current === sequence.current; }
   async function perform(operation: (value: BookingRuntime) => Promise<void>) {
     if (!runtime || writing.current || !alive.current || !enabled.current) return;
-    writing.current = true; sequence.current++; setLoading(false); setRows(previous => previous.map(row => row.loading ? { ...row, loading: false, issue: "Aktualisierung unterbrochen. Prüfe den Stand erneut." } : row)); setBusy(true); setMessage("");
+    writing.current = true; writeEpoch.current = ++sequence.current; setLoading(false); setRows(previous => previous.map(row => row.loading ? { ...row, loading: false, issue: "Aktualisierung unterbrochen. Prüfe den Stand erneut." } : row)); setBusy(true); setMessage("");
     try { await operation(runtime); }
-    catch (error) { if (alive.current && enabled.current) {
+    catch (error) { if (operationCurrent()) {
       setMessage(issue(error));
       if (error instanceof GuestRequestError && error.code === "link_unavailable") setRows(previous => previous.map(row => row.id === selected ? { ...row, receipt: null, observed: null, issue: issue(error) } : row));
     } }
-    finally { writing.current = false; if (alive.current) setBusy(false); }
+    finally { writing.current = false; if (alive.current) { setBusy(false); if (enabled.current && writeEpoch.current !== sequence.current) void refresh(); } }
   }
   function update(booking: Awaited<ReturnType<BookingRuntime["service"]["read"]>>) {
-    if (!alive.current || !enabled.current) return;
+    if (!operationCurrent()) return;
     setRows(previous => {
       const row: Row = { id: booking.receipt.id, ...booking, observed: Date.now(), issue: null, loading: false };
       return previous.some(value => value.id === row.id) ? previous.map(value => value.id === row.id ? row : value) : [...previous, row];
@@ -111,18 +112,18 @@ export function BookingScreen({ actorId }: { actorId: string | null }) {
     await perform(async value => {
       const booking = await value.service.importLink(supplied);
       update(booking);
-      if (alive.current && enabled.current) { setAdding(false); setSelected(booking.receipt.id); setMessage("Buchungslink auf diesem Gerät gespeichert."); }
+      if (operationCurrent()) { setAdding(false); setSelected(booking.receipt.id); setMessage("Buchungslink auf diesem Gerät gespeichert."); }
     });
   }
   async function cancel(row: Row) {
     if (!row.credential) return;
     await perform(async value => {
       const outcome = await value.service.cancel(row.id, row.credential!.key, row.credential!.cancellation?.revision ?? row.receipt!.revision);
-      if (!alive.current || !enabled.current) return;
+      if (!operationCurrent()) return;
       if (outcome.kind === "current") { update(outcome.booking); setMessage(outcome.booking.receipt.status === "cancelled" ? "Die Reservierung ist storniert." : "Der aktuelle Stand wurde geladen. Prüfe die geänderte Reservierung und entscheide bei Bedarf erneut."); }
       else {
         const credential = await value.wallet.get(row.id);
-        if (!alive.current || !enabled.current) return;
+        if (!operationCurrent()) return;
         setRows(previous => previous.map(item => item.id === row.id ? { ...item, credential, receipt: null, observed: null, loading: false, issue: null } : item));
         setMessage(outcome.kind === "unknown" ? outcome.acknowledged ? "Dein Stornierungsauftrag wurde erfasst; der aktuelle Stand ist noch nicht prüfbar. Der ursprüngliche Auftrag bleibt gespeichert." : "Der Ausgang der Stornierung ist unklar. Prüfe den Stand oder wiederhole ausschliesslich denselben Auftrag." : outcome.code === "changed" ? "Die Reservierung wurde inzwischen geändert. Lade den aktuellen Stand und entscheide erneut." : "Die Stornierung wurde nicht ausgeführt. Prüfe den aktuellen Stand oder kontaktiere das Restaurant.");
       }
@@ -131,7 +132,7 @@ export function BookingScreen({ actorId }: { actorId: string | null }) {
   async function confirmCancellation(row: Row) {
     await perform(async value => {
       const current = await value.service.read(row.id); update(current);
-      if (!alive.current || !enabled.current) return;
+      if (!operationCurrent()) return;
       if (!["confirmed", "pending"].includes(current.receipt.status) || Date.parse(current.receipt.cancellation_deadline) < Date.now()) { setMessage("Eine Online-Stornierung ist für diesen Stand nicht mehr möglich. Kontaktiere bitte das Restaurant."); return; }
       setConfirmation({ kind: "cancel", row: { ...row, ...current } }); scroll.current?.scrollTo({ y: 0, animated: false });
     });
@@ -147,7 +148,7 @@ export function BookingScreen({ actorId }: { actorId: string | null }) {
     if (value.kind === "cancel") return cancel(value.row);
     if (value.kind === "remove") return perform(async current => {
       await current.wallet.remove(value.row.id);
-      if (alive.current && enabled.current) { setRows(previous => previous.filter(item => item.id !== value.row.id)); setSelected(null); setMessage("Der gespeicherte Link wurde entfernt. Deine Reservierung bleibt bestehen."); }
+      if (operationCurrent()) { setRows(previous => previous.filter(item => item.id !== value.row.id)); setSelected(null); setMessage("Der gespeicherte Link wurde entfernt. Deine Reservierung bleibt bestehen."); }
     });
     if (!value.row.credential) return;
     const credential = value.row.credential;

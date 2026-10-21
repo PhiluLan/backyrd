@@ -68,3 +68,8 @@ test('late reads cannot recreate a locally removed reservation',async()=>{
 test('production origin is exact and development never falls back to production',()=>{
  assert.equal(resolveBookingOrigin('prod',undefined),'https://www.backyrd.ch');for(const origin of ['https://backyrd.ch','https://evil.test','https://www.backyrd.ch/'])assert.equal(resolveBookingOrigin('prod',origin),null);for(const origin of [undefined,'https://backyrd.ch','https://www.backyrd.ch','https://test.backyrd.ch','http://evil.test','https://user@isolated.test','https://isolated.test?next=x','https://isolated.test/path'])assert.equal(resolveBookingOrigin('dev',origin),null);assert.equal(resolveBookingOrigin('dev','http://127.0.0.1:4175'),'http://127.0.0.1:4175');assert.equal(resolveBookingOrigin('dev','https://isolated.example.test'),'https://isolated.example.test');assert.equal(resolveBookingOrigin(undefined,undefined),null);
 });
+test('a deletion between the two final credential reads cannot fall back to a forgotten entry',async()=>{
+ const f=await fixture(async()=>Response.json({data:receipt()}));let reads=0;
+ const guarded={...f.wallet,get:async id=>{const value=await f.wallet.get(id);if(++reads===2)await f.wallet.remove(id);return value;}};
+ const service=createBookingService(guarded,f.client,randomUUID);await assert.rejects(service.read(id),{code:'changed'});assert.deepEqual(await f.wallet.list(),[]);
+});

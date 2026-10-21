@@ -1,6 +1,7 @@
 // mobile/app/(tabs)/_layout.tsx
 import { AppText } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
+import { PlatformPressable } from "@react-navigation/elements";
 import { BlurView } from "expo-blur";
 import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import React from "react";
@@ -65,6 +66,7 @@ export default function TabsLayout() {
         tabBarHideOnKeyboard: true,
         tabBarLabel: ({ children, color }) => <AppText role="caption" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9} maxFontSizeMultiplier={1.1} style={[styles.tabLabel, compactTabs && styles.compactTabLabel, { color }]}>{children}</AppText>,
         tabBarItemStyle: styles.tabItem,
+        tabBarButton: props => <PlatformPressable {...props} style={[props.style, compactTabs && styles.compactTabButton]} />,
       }}
     >
       <Tabs.Screen
@@ -184,6 +186,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   compactTabLabel: { fontSize: 10, letterSpacing: -0.15 },
+  compactTabButton: { paddingHorizontal: 0 },
   tabBar: {
     position: "absolute",
     left: 14,
