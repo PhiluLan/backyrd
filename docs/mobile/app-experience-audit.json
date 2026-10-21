@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "date": "2026-10-20",
   "scope": "Consumer-App und zugehörige öffentliche Datenwege; Decision-Logik ausgeschlossen",
-  "status": "implementation-and-release-validation",
+  "status": "app-improvements-merged-further-reliability-validation-publication-pending",
   "method": [
     "Aktive Routen, zentrale Komponenten und Datenwege im Code nachvollzogen",
     "Bestehende Domain-/Medien-/Deep-Link-Verträge genutzt und gezielt ergänzt",
@@ -235,6 +235,13 @@
       "description": "Kategorie-Joins werden sowohl als Objekt als auch als Liste normalisiert. Kategorien gehen dadurch beim Wechsel zur Ortsliste nicht mehr still verloren.",
       "source": "mobile/lib/useSpotsStore.ts",
       "validation": "Funktionstest mit beiden Datenformen, Nullkoordinaten und echten 0/0"
+    },
+    {
+      "priority": "P1",
+      "title": "Chat-Entwurf und Wiederherstellung",
+      "description": "Laufende Text- und Bildsendungen behalten einen getrennten Entwurfsstand. Fehler und erfolgreiche Antworten überschreiben keine neu bearbeiteten Texte; synchrone Sperre verhindert parallelen Versand. Fehlgeschlagenes Laden zeigt Retry statt eines leeren Chats. Kamera/Bildaktionen haben beschriftete 44-Punkt-Ziele; funktionslose Sprachaufnahme entfernt.",
+      "source": "mobile/app/messages/[id].tsx",
+      "validation": "Hook-Grenzfälle; exportierter App-Test mit verzögerter Antwort, HTTP 503, neuer Eingabe und idempotentem Text-Retry."
     }
   ],
   "remaining": [
@@ -271,7 +278,7 @@
     {
       "priority": "P2",
       "title": "Chat unter Paketverlust",
-      "description": "Grundlage mit Anfrageschlüsseln und Echtzeit-Deduplizierung vorhanden. Mehrgeräte- und Netzwechseltests, Bildabbruch und gleichzeitiges Tippen bei fehlgeschlagenem Versand ergänzen.",
+      "description": "Gleichzeitiges Tippen bei fehlgeschlagenem und erfolgreichem Textversand sowie idempotenter Retry sind synthetisch geprüft; Bild-Untertitel im Hook geprüft. Mehrgeräte-, echte Netzwechsel-, abgebrochene Upload- und unklare Bild-Commit-Antworten bleiben zu prüfen.",
       "boundary": "Quellcode geprüft, kein Livechat mit zwei echten Konten"
     },
     {
