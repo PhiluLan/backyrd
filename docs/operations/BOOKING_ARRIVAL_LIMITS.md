@@ -245,3 +245,19 @@ use singular labels. No physical-device acceptance is inferred from this.
 The full **287 Booking browser cases** then passed against the final compact
 production build. This closes the local daily-window-review implementation gap;
 production release and actual restaurant/device acceptance remain separate.
+
+
+## Populated local restore acceptance
+
+The migration-217 two-project drill now restores the populated policy and request
+tables: one current revision-4 limit, five original actor-bound receipts and four
+policy changes. Original outcomes survive lowering/no-op/disable/re-enable; the
+current daily review still counts all saved bookings under the current rule.
+Actual restored quota rejection on a free second table, a fresh authorized
+policy increase/new booking, raw-role/Safety/revocation/Owner fences and Web
+codecs pass. All 34 current Booking SQL suites and media authorization pass on
+the restored target. See [backup recovery](BOOKING_BACKUP_RECOVERY.md) for the
+392-table proof and exact clock-comparison boundary. The populated local arrival
+restore gap is closed; cloud/PITR/Storage-byte recovery, runtime upgrade
+acceptance, incident-specific secrets/reconciliation and actual restaurant
+operation remain open. No production or real guest action follows.

@@ -77,6 +77,7 @@ is an operator guard, not permission for a real recovery operation.
    It also creates three populated guest cards through the actual operator-bound
    RPC: corrected, archived and restored, with seven request receipts and seven
    metadata events. Four additional bookings are created through `booking_console_create_v3`: current, corrected, detached and subsequently archived associations. Six original association receipts and six metadata events are populated through the real actor-bound RPCs.
+   One pacing policy is created, lowered, saved as a no-op, disabled and re-enabled through the actual Owner/Manager RPC, with five original receipts and four policy audit events. A second synthetic physical table makes post-restore quota rejection independent of table overlap.
    Database passwords use libpq environment fields, not command arguments.
 4. Run `node scripts/ops/validate-booking-restore.mjs prepare`.
    It stops this source's local cron jobs, creates genuinely sealed provider
@@ -104,7 +105,7 @@ is an operator guard, not permission for a real recovery operation.
    after later correction. Actual Viewer/Host/Manager/outsider/worker/anonymous
    checks, stale revisions, fresh correction/unarchive, revoked Host and new
    Owner fences run against the source and restored target. Actual returned JSON
-   must also pass the Web codecs. `verify-restored-guest-history.sql` separately verifies all four association states, original create/correction/detach receipts, actual raw-role denials, stale link/booking revisions, fresh reattachment, Safety/revoked staff and new-Owner fences. All saved public booking facts are compared before/after; no probe mutation is committed.
+   must also pass the Web codecs. `verify-restored-guest-history.sql` separately verifies all four association states, original create/correction/detach receipts, actual raw-role denials, stale link/booking revisions, fresh reattachment, Safety/revoked staff and new-Owner fences. All saved public booking facts are compared before/after; no probe mutation is committed. The arrival-policy probe additionally verifies current limits, original request results after later edits/disable, actual quota enforcement and fresh authorized writes. Only its volatile read-observation time is excluded from behavioral equality; SQL checks the real query clock. No stored timestamp is normalized.
 8. The local quarantine fixture parks pending/leased/sending messages for manual
    review, clears leases, retains immutable payload/recipient/provider evidence
    and records a system audit per affected reservation. Repeating it adds no
@@ -128,7 +129,71 @@ transaction or silently accept the altered inventory of a completed drill.
 cannot replace a source whose rows or schema changed. These diagnostic modes do
 not authorize reseeding or overriding failed recovery evidence.
 
-## Current association-history restore acceptance
+## Current arrival-policy and receipt restore acceptance
+
+The migration-217 candidate completed the extended actual two-project drill:
+**392** application/Auth/Storage/ledger table digests, both structural/ACL
+fingerprints and **26** captured managed Auth/Storage/Realtime controls matched.
+The private scope has **1124** facts,
+`937a04845c02226bc7367a89cab7923813ff5d9cb54ebab7b3f757d5273fbd62`.
+The existing populated cards/associations and their original outcomes remain
+verified. The two new arrival tables retain **one current policy row and five
+original Owner/Manager-bound request receipts**, with four policy audit events.
+The no-op adds its receipt without adding a policy revision or audit change.
+
+`verify-restored-arrival-policy.sql` runs against source and restored target in
+rolled-back transactions. The active current policy is revision 4, 30 minutes,
+maximum 1; the original create still returns revision 1 and maximum 8. Original
+lower/no-op/disable/re-enable responses retain their original revisions and
+values. Exact replay/recovery does not duplicate receipts or history. The daily
+review retains all seven saved bookings and fourteen summed party places,
+including seven windows above the lowered cap. Both current policy and review
+pass the actual Web codecs. Changed intent/actor, stale revisions, raw table/RLS,
+Viewer/Host/outsider/anonymous/worker, Safety, revoked Manager and Owner-handover
+boundaries execute with their actual roles. Resource configuration remains on
+handover, while a new Owner cannot recover the former actor's private intent.
+
+The current cap rejects an actual new booking on a genuinely free second table.
+An explicit authorized policy increase then permits a new booking and produces
+a recoverable policy receipt. A savepoint rolls those fresh proof writes back;
+all saved public booking facts remain identical afterwards. No probe mutation
+is committed. Only the read response's volatile `observed_at` is omitted from
+source/target behavioral equality, after SQL verifies it against each actual
+query clock and the Web codec validates it. **Every stored application, guest,
+journal and audit timestamp remains compared exactly** in the row digests.
+
+A corrupted data dump was rejected by checksum before restoration. Guest access,
+manual intent, separate-key payload decryption/wrong-key denial and idempotent,
+audited mail quarantine passed. All **34 Booking SQL suites**, media authorization
+and the 1124-fact private scope passed on the restored target. An arrival test's
+old generic guest-key hash collided with the real restored synthetic corpus;
+the two test keys are now deterministically namespaced. Only the failed and
+remaining suites were resumed; no restored row was deleted, guard bypassed or
+test skipped. Because a protected SQL test changed, a new normal canonical clean
+boot then passed all 34 suites, baseline/concurrency, 20 drift cases, lineage,
+schema/ACL and DB lint. Its receipt is
+`40c84bb2299206e3d74bb9711b77db0cb0e4b479e15090cf229425521d17b42b`.
+All **88** selected backup/export, classifier and delivery-workflow contract cases
+passed. No migration or prior release evidence was rewritten.
+
+The kept-source setup completed its database execution with the previous
+input-bound receipt, but its optional unrelated Founder demo seeder received
+PostgREST schema-cache HTTP 503. That whole setup command exited nonzero and is
+not represented as a complete setup success. Its identified live database was
+verified directly and used for the real seed/export/restore. The final normal
+clean boot above completed successfully without that optional post-step.
+
+The contact-free, executed-source-hashed proof remains privately in
+`.local/booking-arrival-policy-logical-restore-evidence.json`. Both owned restore
+projects/volumes, dumps, payload keys and generated fixture credentials were
+removed. This closes populated **local** arrival-policy/journal restore coverage,
+not cloud/PITR/Storage-byte recovery, incident secrets or controlled reopening.
+The proof remains bound to canonical CLI 2.80.0 / PostgreSQL 17.6.1.095 and backup
+CLI 2.116.0. Newer provider runtimes need separate upgrade/restore acceptance,
+including the [official 17.11 extension/index/crypto/operator migration checks](https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes);
+this drill neither upgrades nor certifies that runtime.
+
+## Earlier association-history restore acceptance
 
 The candidate at migration 214 has now completed the extended two-project drill.
 The source completed the canonical clean boot with all 31 Booking SQL suites,

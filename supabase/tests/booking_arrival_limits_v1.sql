@@ -65,8 +65,8 @@ set local role service_role;
 do $$ declare r jsonb; begin
  r:=public.booking_guest_availability_v1(pg_temp.pid('spot'),(pg_temp.start_at(1,'13:00') at time zone 'Europe/Zurich')::date,1);
  perform pg_temp.pass(not exists(select 1 from jsonb_array_elements(r->'slots')s where (s->>'starts_at')::timestamptz=pg_temp.start_at(1,'13:00')),'public preview bypass');
- begin perform public.booking_guest_create_v1(pg_temp.pid('spot'),pg_temp.pid('public-full'),1,pg_temp.start_at(1,'13:00'),1,'Public','arrival@booking.invalid',repeat('a',64),repeat('sealed-',10));raise exception 'public write bypass';exception when invalid_parameter_value then if sqlerrm<>'booking_slot_unavailable' then raise;end if;end;
- perform public.booking_guest_create_v1(pg_temp.pid('spot'),pg_temp.pid('public-next'),1,pg_temp.start_at(1,'14:30'),2,'Public','arrival@booking.invalid',repeat('b',64),repeat('sealed-',10));
+ begin perform public.booking_guest_create_v1(pg_temp.pid('spot'),pg_temp.pid('public-full'),1,pg_temp.start_at(1,'13:00'),1,'Public','arrival@booking.invalid',encode(sha256(convert_to('booking-arrival-pacing:public-full','UTF8')),'hex'),repeat('sealed-',10));raise exception 'public write bypass';exception when invalid_parameter_value then if sqlerrm<>'booking_slot_unavailable' then raise;end if;end;
+ perform public.booking_guest_create_v1(pg_temp.pid('spot'),pg_temp.pid('public-next'),1,pg_temp.start_at(1,'14:30'),2,'Public','arrival@booking.invalid',encode(sha256(convert_to('booking-arrival-pacing:public-next','UTF8')),'hex'),repeat('sealed-',10));
 end $$;
 reset role;
 set local role authenticated;

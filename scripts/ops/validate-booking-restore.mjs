@@ -58,6 +58,19 @@ function guestHistoryObservation(db) {
  api.parseReservationGuestOutcome(facts.original.detach);
  return facts;
 }
+function arrivalPolicyObservation(db) {
+ const facts=JSON.parse(sql(db,readFileSync(resolve(root,'scripts/ops/fixtures/verify-restored-arrival-policy.sql'),'utf8'),'arrival-policy-acceptance'));
+ const api=load('../lib/booking-api.ts',{'./owner-api':{},'@/lib/supabase/client':{}});
+ api.parseArrivalLimit(facts.policy,facts.policy.spot_id);
+ for(const original of Object.values(facts.original))api.parseArrivalLimit(original,facts.policy.spot_id);
+ const review=api.parseArrivalReview(facts.review,facts.policy.spot_id,facts.review.date);
+ assert.equal(review.totals.guests,14);assert.equal(review.policy.maxGuests,1);
+ // Only this fresh read's ephemeral observation time differs. The SQL probe
+ // checks it against the real query clock; every STORED timestamp is digested.
+ const {observed_at,...reviewFacts}=facts.review;
+ assert.equal(typeof observed_at,'string');
+ return {...facts,review:reviewFacts};
+}
 const mode=process.argv[2];
 if(mode==='seed') {
  assert.equal(sql(source,'select count(*) from public.booking_restaurant_settings;','empty-synthetic-source'),'0');
@@ -72,7 +85,7 @@ if(mode==='seed') {
  assert.equal(sql(source,`select public.booking_mail_prepare_v1('${claim.id}','${lease}','${claim.context}',${quote(sealed.sealed)},'${sealed.digest}');`,'prepare-payload'),'t');
  const began=JSON.parse(sql(source,`select public.booking_mail_begin_v1('${claim.id}','${lease}','${sealed.digest}');`,'begin-without-provider'));
  assert.equal(began.id,claim.id);
- const observation={guestHistory:guestHistoryObservation(source),guestCards:guestCardObservation(source),controls:controls(source),fingerprints:fingerprints(source),rows:JSON.parse(sql(admin(source),corpus,'source-row-snapshot')),outcome:outcome(source),mailId:claim.id,digest:sealed.digest,providerBody:envelope.body};
+ const observation={arrivalPolicy:arrivalPolicyObservation(source),guestHistory:guestHistoryObservation(source),guestCards:guestCardObservation(source),controls:controls(source),fingerprints:fingerprints(source),rows:JSON.parse(sql(admin(source),corpus,'source-row-snapshot')),outcome:outcome(source),mailId:claim.id,digest:sealed.digest,providerBody:envelope.body};
  writeFileSync(resolve(artifacts,'keys.json'),JSON.stringify(keys),{mode:0o600});writeFileSync(resolve(artifacts,'source.json'),JSON.stringify(observation),{mode:0o600});
  console.log('BOOKING_RESTORE_CORPUS_PREPARED: synthetic guest access, staff roles, idempotent manual intent and genuinely sealed in-flight payload; no provider request.');
 } else if(mode==='capture-controls') {
@@ -104,6 +117,7 @@ if(mode==='seed') {
  assert.deepEqual(outcome(target),expected.outcome,'original_request_outcome_changed');
  assert.deepEqual(guestCardObservation(target),expected.guestCards,'guest_card_original_facts_or_outcome_changed');
  assert.deepEqual(guestHistoryObservation(target),expected.guestHistory,'guest_history_original_facts_or_outcome_changed');
+ assert.deepEqual(arrivalPolicyObservation(target),expected.arrivalPolicy,'arrival_policy_original_facts_or_outcome_changed');
  const restored=JSON.parse(sql(target,`select jsonb_build_object('payload',payload_sealed,'digest',payload_digest,'state',state,'attempts',attempts) from booking_private.guest_mail_outbox_v1 where id='${expected.mailId}';`,'restored-mail'));
  assert.equal(restored.state,'sending');assert.equal(restored.attempts,1);assert.equal(restored.digest,expected.digest);
  const keys=JSON.parse(readFileSync(resolve(artifacts,'keys.json'),'utf8')),config=configFrom(keys);
@@ -119,10 +133,11 @@ if(mode==='seed') {
  assert.equal(sql(target,`begin;set local role service_role;select public.booking_guest_read_v1((select id from public.booking_reservations where request_id=${id('online-op')}),repeat('b',64))->>'status';rollback;`,'guest-access'),'confirmed');
  assert.equal(sql(target,"select has_table_privilege('authenticated','booking_private.guest_mail_outbox_v1','SELECT');",'private-denial'),'f');
  assert.equal(sql(target,"select has_function_privilege('anon','public.booking_mail_summary_v1(uuid,uuid,uuid,uuid,bigint,text)','EXECUTE');",'anonymous-denial'),'f');
- const proofFiles=['scripts/ops/validate-booking-restore.mjs','scripts/ops/fixtures/booking-restore.sql','scripts/ops/fixtures/verify-restored-guest-cards.sql','scripts/ops/fixtures/verify-restored-guest-history.sql','scripts/ops/fixtures/quarantine-restored-booking.sql','scripts/ops/export-database-snapshot.sh','scripts/ops/backup-managed-controls.sql','web/lib/booking-api.ts'];
- const evidence={schemaVersion:'backyrd-isolated-booking-restore-v1',scope:'local-synthetic-logical-restore',tablesCompared:expected.rows.length,fingerprints:expected.fingerprints,managedRuleCount:JSON.parse(parts.get('managed-controls.json'))[0].managed_backup.ruleCount,guestCardTables:expected.rows.filter(row=>/^booking_private\.guest_card(?:s|_requests|_events)_v1$/.test(row.relation)),guestHistoryTables:expected.rows.filter(row=>/^booking_private\.reservation_guest(?:s|_requests|_events)_v1$/.test(row.relation)),guestHistoryBehaviorPassed:true,guestCardBehaviorPassed:true,mailQueueQuarantined:true,originalOutcomesPreserved:true,externalPayloadKeyRequired:true,actualDeliveryOrCloudOrStorageBytes:false,backupManifestSha256:createHash('sha256').update(readFileSync(resolve(artifacts,'database/files-sha256.txt'))).digest('hex'),proofFiles:proofFiles.map(path=>({path,sha256:createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex')}))};
+ const proofFiles=['scripts/ops/validate-booking-restore.mjs','scripts/ops/fixtures/booking-restore.sql','scripts/ops/fixtures/verify-restored-guest-cards.sql','scripts/ops/fixtures/verify-restored-guest-history.sql','scripts/ops/fixtures/verify-restored-arrival-policy.sql','scripts/ops/fixtures/quarantine-restored-booking.sql','scripts/ops/export-database-snapshot.sh','scripts/ops/backup-managed-controls.sql','web/lib/booking-api.ts'];
+ const evidence={schemaVersion:'backyrd-isolated-booking-restore-v1',scope:'local-synthetic-logical-restore',tablesCompared:expected.rows.length,fingerprints:expected.fingerprints,managedRuleCount:JSON.parse(parts.get('managed-controls.json'))[0].managed_backup.ruleCount,guestCardTables:expected.rows.filter(row=>/^booking_private\.guest_card(?:s|_requests|_events)_v1$/.test(row.relation)),guestHistoryTables:expected.rows.filter(row=>/^booking_private\.reservation_guest(?:s|_requests|_events)_v1$/.test(row.relation)),arrivalPolicyTables:expected.rows.filter(row=>/^booking_private\.arrival_limit(?:s|_requests)_v1$/.test(row.relation)),arrivalPolicyBehaviorPassed:true,arrivalReviewQueryClockChecked:true,guestHistoryBehaviorPassed:true,guestCardBehaviorPassed:true,mailQueueQuarantined:true,originalOutcomesPreserved:true,externalPayloadKeyRequired:true,actualDeliveryOrCloudOrStorageBytes:false,backupManifestSha256:createHash('sha256').update(readFileSync(resolve(artifacts,'database/files-sha256.txt'))).digest('hex'),proofFiles:proofFiles.map(path=>({path,sha256:createHash('sha256').update(readFileSync(resolve(root,path))).digest('hex')}))};
  assert.equal(evidence.guestCardTables.length,3);
+ assert.deepEqual(evidence.arrivalPolicyTables.map(row=>[row.relation,row.rows]),[['booking_private.arrival_limit_requests_v1',5],['booking_private.arrival_limits_v1',1]]);
  assert.deepEqual(evidence.guestHistoryTables.map(row=>[row.relation,row.rows]),[['booking_private.reservation_guest_events_v1',6],['booking_private.reservation_guest_requests_v1',6],['booking_private.reservation_guests_v1',4]]);
  writeFileSync(resolve(artifacts,'restore-evidence.json'),JSON.stringify(evidence,null,2)+'\n',{mode:0o600});
- console.log(`BOOKING_LOGICAL_RESTORE_PASS: ${expected.rows.length} application/Auth/Storage/ledger table digests and both schema/ACL fingerprints plus managed Auth/Storage/Realtime controls match; populated guest-card and explicit reservation-association facts, corrected/detached/archived history, actor-bound original receipts and actual role/Owner fences survive; original mail intent and guest access survive; sealed payload needs external key; restored sends held with idempotent audit. No actual delivery, Storage-byte, cloud-backup or production-restore claim.`);
+ console.log(`BOOKING_LOGICAL_RESTORE_PASS: ${expected.rows.length} application/Auth/Storage/ledger table digests and both schema/ACL fingerprints plus managed Auth/Storage/Realtime controls match; populated guest-card and explicit reservation-association facts, corrected/detached/archived history, actor-bound original receipts and actual role/Owner fences survive; current arrival policy, five original actor-bound policy receipts and post-restore intake guards survive; original mail intent and guest access survive; sealed payload needs external key; restored sends held with idempotent audit. No actual delivery, Storage-byte, cloud-backup or production-restore claim.`);
 } else throw Error('restore_mode_required');

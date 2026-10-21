@@ -13,7 +13,7 @@ select set_config('request.jwt.claim.sub',pg_temp.mail_id('owner')::text,true);
 select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.mail_id('owner'),'role','authenticated')::text,true);
 select public.booking_console_save_setup_v1(pg_temp.mail_id('spot'),0,jsonb_build_object('duration_minutes',60,'max_party_size',4,
  'areas',jsonb_build_array(jsonb_build_object('id',pg_temp.mail_id('area'),'name','Room','is_active',true)),
- 'tables',jsonb_build_array(jsonb_build_object('id',pg_temp.mail_id('table'),'area_id',pg_temp.mail_id('area'),'label','1','seats',4,'is_active',true)),
+ 'tables',jsonb_build_array(jsonb_build_object('id',pg_temp.mail_id('table'),'area_id',pg_temp.mail_id('area'),'label','1','seats',4,'is_active',true),jsonb_build_object('id',pg_temp.mail_id('table-extra'),'area_id',pg_temp.mail_id('area'),'label','2','seats',4,'is_active',true)),
  'services',jsonb_build_array(jsonb_build_object('id',pg_temp.mail_id('service'),'name','Day','weekdays',jsonb_build_array(0,1,2,3,4,5,6),'opens_at','00:00','closes_at','23:59','interval_minutes',30,'is_active',true))));
 select public.booking_console_save_public_settings_v1(pg_temp.mail_id('spot'),1,true,array[pg_temp.mail_id('service')],60,90,120,'confirmed','privacy@booking.invalid');
 reset role;
@@ -68,5 +68,16 @@ select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mai
  jsonb_build_object('kind','archive','id',pg_temp.mail_id('card-restored'),'revision',0,'archived',true),pg_temp.mail_id('manager'));
 select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-restored-restore'),
  jsonb_build_object('kind','archive','id',pg_temp.mail_id('card-restored'),'revision',1,'archived',false),pg_temp.mail_id('manager'));
+-- Persist real pacing revisions and original receipts after bookings already
+-- exist. Lowering/disabling/re-enabling never rewrites those reservations.
+select set_config('request.jwt.claim.sub',pg_temp.mail_id('owner')::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.mail_id('owner'),'role','authenticated')::text,true);
+select public.booking_console_save_arrival_limit_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('arrival-first'),0,30,8,pg_temp.mail_id('owner'));
+select set_config('request.jwt.claim.sub',pg_temp.mail_id('manager')::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.mail_id('manager'),'role','authenticated')::text,true);
+select public.booking_console_save_arrival_limit_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('arrival-lower'),1,60,1,pg_temp.mail_id('manager'));
+select public.booking_console_save_arrival_limit_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('arrival-noop'),2,60,1,pg_temp.mail_id('manager'));
+select public.booking_console_save_arrival_limit_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('arrival-disable'),2,15,null,pg_temp.mail_id('manager'));
+select public.booking_console_save_arrival_limit_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('arrival-enable'),3,30,1,pg_temp.mail_id('manager'));
 reset role;
 commit;
