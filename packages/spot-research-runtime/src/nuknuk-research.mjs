@@ -53,6 +53,7 @@ const factPatterns={
   },
   'amenity.features':{
     WIFI:/\b(?:WLAN|Wi-?Fi)\b/iu, CLOAKROOM:/\b(?:Garderobe|cloakroom)\b/iu,
+    PARKING:/\b(?:Parkpl[aä]tze|Parkplatz|parking)\b/iu,
     TERRACE:/(?<![\p{L}])(?:Dach[- ]?)?Terrasse\b|\b(?:rooftop )?terrace\b/iu, PLAY_AREA:/\b(?:Spielbereich|Spielzimmer|Kinderzimmer|playroom)\b/iu,
     STROLLER_SPACE:/\bPlatz für Kinderwagen\b/iu,
     OUTDOOR_SEATING:/\b(?:Sitzplätze (?:draussen|draußen)|Freiluft[- ]Sitzpl[aä]tz\w*|outdoor seating)\b/iu,
@@ -66,9 +67,17 @@ const factPatterns={
 // future plans are review material, not positive enum evidence.
 const uncertainAssertion=/\b(?:kein\w*|nicht|ohne|no|not|without|früher|ehemals|closed|geschlossen|vielleicht|maybe|falls|wenn|if|bald|künftig|zukünftig|geplant|planned|soon|would|wünschen|wünscht|wish|wishes|fehlt|fehlen|ausgefallen|defekt|unavailable|broken|Filiale\w*|branch\w*|Nachbar\w*|nebenan|neben|nearby|gegenüber)\b|\?/iu;
 function currentAssertion(quote) {return quote.length>=6&&quote.length<=800&&!uncertainAssertion.test(quote);}
+function ownedParkingAssertion(quote) {
+  const claim=/^(?:Wir haben|Unser Hotel (?:hat|bietet)|Vor dem Hotel (?:stehen|gibt es))\b.{0,110}\bParkpl[aä]tze\b/iu.exec(quote);
+  if(!claim||/\b(?:kein\w*|ohne|fremd\w*|andere\w*|Nachbar\w*|nebenan|nearby)\b/iu.test(claim[0]))return false;
+  // First-come spaces exist, but the source does not promise a free space or
+  // reservation. Retain the whole restriction in the citation for review.
+  return currentAssertion(quote.replace(/\bnicht reservierbar\b/giu,'reservierungsfrei'));
+}
 function facilityAssertion(quote,pattern) {
   const match=quote.match(pattern);
   if(!match)return false;
+  if(pattern===factPatterns['amenity.features'].PARKING)return ownedParkingAssertion(quote);
   if(pattern===factPatterns['amenity.features'].TERRACE&&/^(?:Die|Unsere|The|Our)\s+(?:Herbst)?(?:Terrasse|terrace)\s+(?:ist|is)\s+(?:(?:bei schönem Wetter|in good weather)\s+)?(?:(?:ab|from)\s+\d{1,2}(?::\d{2})?\s*(?:Uhr)?\s+)?(?:geöffnet|open)[.!]?$/iu.test(quote))return true;
   const prefix=quote.slice(0,match.index),suffix=quote.slice(match.index+match[0].length);
   if(/^[\p{L}-]/u.test(suffix))return false;
@@ -96,7 +105,7 @@ export function enumFactCandidates(field,sources) {
   const result=[];
   for(const source of sources.filter(s=>!s.layoutReviewRequired&&!['PDF_TEXT','IMAGE_OCR'].includes(s.format))) {
     for(const quote of source.text.split(/(?<=[.!?])\s+|\n+/).map(s=>s.trim())) {
-      if(!currentAssertion(quote))continue;
+      if(!currentAssertion(quote)&&!(field.attributeKey==='amenity.features'&&ownedParkingAssertion(quote)))continue;
       const assertion=field.attributeKey==='offering.groups'?/servier|bieten|angebot|gibt|gibts|geniess|genieß|verwöhn|lädt.+zu|we (?:serve|offer)/iu:/verfügbar|vorhanden|bieten|verfügt|haben|unser|available|we (?:have|offer)/iu;
       if(field.attributeKey==='offering.groups'&&!assertion.test(quote))continue;
       for(const [value,pattern] of Object.entries(patterns))if(pattern.test(quote)&&(field.attributeKey!=='amenity.features'||facilityAssertion(quote,pattern))) {

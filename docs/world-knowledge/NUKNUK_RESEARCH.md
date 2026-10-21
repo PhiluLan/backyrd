@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.15
+# Local Nuknuk Research v3.22
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -9,7 +9,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.15
+## Active architecture: Research v3.22
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
@@ -423,6 +423,108 @@ coverage: a drinks-only or food-only menu can use all eight draft slots rather
 than reserving empty slots for an absent category. A saved Amber Bar report
 replay retained all eight of its previously cited drinks. The corresponding
 synthetic drinks-only regression and the full runtime suite pass (361 tests).
+
+## v3.16 independent hotel development case
+
+Schweizerhof Basel was the first deterministically selected, previously unused
+approved Basel Spot with an HTTPS website in the current public catalog, read
+under the database `anon` role and its ordinary RLS policies. A separate
+official-source reference was saved before the v3.15 model run. The 27B agent
+read the German room overview and accepted all five actual categories, but
+also read the English translation and filled eight draft slots with three
+German names plus five English duplicates. It never reached the linked
+parking page; after twelve requests and 23 model calls (828 seconds), it
+stopped at the model budget. Phone and public email were correct, hotel hours
+stayed unresolved, and a promotional "perfect symbiosis" sentence entered the
+description. No package or meeting room became a guest-room offer. This is a
+failed blind case, not a release-cohort pass; protected Admin values were not
+read.
+
+v3.16 normalizes common room-type translations only for overnight inventory,
+keeping Villa and ordinary rooms distinct. It rejects the observed promotional
+description wording and classifies observed parking and access links so they
+can be ranked before unrelated hotel side pages. A saved-fact replay projects
+exactly the five German room categories, and the real official homepage now
+ranks its parking page first after the room inventory is covered. The full
+v3.16 run retained the five correct German room categories, public contact
+values and unresolved hotel hours, but exhausted twelve requests / 23 model
+calls. It did fetch the German parking page; the source reader kept only its
+short hero `<main>` and missed the actual CMS content in sibling sections.
+
+v3.17 reads those bounded sibling sections before the footer. The real
+parking page now contains the literal five free spaces in the source text,
+and the full local 27B retest again retained the five rooms and public
+contacts. It still stopped at twelve requests / 24 model calls. The model
+quoted the first-come, non-reservable hotel parking correctly, but the
+deterministic amenity entailment held it as unresolved. It also visited
+English translations of already read pages, an unrelated brunch page and the
+English room overview after the German inventory was complete. The copied
+transit sentence in the description is factual but grammatically awkward.
+
+v3.18 accepts explicitly hotel-owned parking as an existence claim while
+retaining first-come / non-reservable wording in the citation. It rejects
+neighboring and explicitly absent parking. Once a complete room overview is
+accepted, the frontier omits translated room overviews, already-read
+same-topic translations and hotel food pages irrelevant to the remaining
+questions. The full local v3.18 retest ended with `FRONTIER_EXHAUSTED` after
+eight HTTP requests, eleven model calls and 466 seconds, without a source
+failure. It proposed all five correct rooms, phone, public email and `PARKING`
+with the non-reservable condition in its citation. Hotel hours remained
+unresolved. The copied transit description remained grammatically awkward.
+This is a tuned development case, not a blind release-cohort pass.
+
+For the next public-catalog restaurant selection, La Gondola's official
+hostname failed DNS before testing. Nooch Basel Barfi was the second
+deterministic candidate; its branch-specific reference was saved before the
+model run. v3.19 corrected same-origin HTML `<base>` resolution: observed
+`de/food-drinks` and `de/kontakt` links no longer become `/de/de/` paths. Its
+full blind run correctly proposed the branch phone, mailbox and all seven
+restaurant opening rows, keeping shorter kitchen hours separate. It failed
+the offer and description checks: a generic brand homepage and a menu which
+explicitly says selections vary by location supplied several incorrectly
+branch-assigned or time-limited dishes. It also spent twelve requests,
+sixteen model calls and the full 900-second time budget. This is a failed
+blind case, never a release pass.
+
+v3.20 withholds brand-home facts for a location-specific catalog URL, blocks
+offer and description claims from an explicitly location-variable brand menu,
+and holds source-adjacent limited campaigns out of permanent fields. A saved
+v3.19 fact replay then retains the seven branch opening rows, phone and email,
+while removing every accepted offer and the brand description; the empty
+profile is an honest coverage gap. It also queues a root homepage only for
+generic contact/information seeds, removes the `Seafood` false menu topic and
+excludes limited copy from the description selector. Its full local retest
+withheld all offer names, but still read brand-wide about and promotional
+pages, selected a brand-wide description, and stopped after twelve requests,
+24 model calls and 855 seconds. Seven correct branch hours, the location
+phone and mailbox survived. A saved v3.21 deterministic replay held the
+brand-wide description without touching those branch facts.
+
+v3.21 treats a city-specific official catalog path such as `/basel-barfi` as
+the location boundary. Generic same-host pages outside that path cannot
+prove the branch's facts, and are not queued as ordinary follow-ups. Observed
+and search-discovered contest, special and corporate campaign paths are also
+excluded. The full local 27B retest ended with `FRONTIER_EXHAUSTED` after five
+HTTP requests, four model calls and 192 seconds. It retained all seven
+correct branch hours, phone and mailbox, with no false offer, brand
+description or source failure. The profile and description remained empty;
+the source does not establish that the brand-wide dishes are sold at this
+branch. This tuned case demonstrates safer abstention and lower cost, not
+manual-research parity.
+
+v3.22 sends the sole remaining first-party, non-campaign, branch-scoped
+description sentence to the independent critic if the selector abstains. It
+is still only a review candidate. The full Nooch retest ended with
+`FRONTIER_EXHAUSTED` after five HTTP requests, four model calls and 193
+seconds. It retained the seven correct branch hours, phone, mailbox and a
+literal branch-specific description of its Asian cuisine and interior; no
+brand-wide dish became a branch offer. The only linked menu from the branch
+leads to a brand page that says its selection varies by location. Its
+external JavaScript menu can be rendered, but the observed brand-page link and
+rendered menu do not establish which items the Basel Barfi branch sells.
+Keeping concrete dishes unresolved is the correct answer until an exact
+branch-bound source is found. The local regression suite passes (371 tests).
+The unattended draft and catalog-write gates remain closed.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

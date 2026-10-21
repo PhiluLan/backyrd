@@ -7,6 +7,15 @@ export function publicSourceUrl(value) {
   if(u.protocol!=='https:'||u.username||u.password||u.port||!u.hostname.includes('.')||/^[\d.]+$|:|localhost|\.local$/i.test(u.hostname)||[...u.searchParams.keys()].some(k=>/token|secret|key|auth|session|email/i.test(k)))throw new Error('source_url_rejected');
   u.hash='';return u.href;
 }
+function observedPageBase(page) {
+  if(typeof page.body!=='string')return page.url;
+  const href=page.body.slice(0,50000).match(/<base\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/iu)?.[1];
+  if(!href)return page.url;
+  try {
+    const base=publicSourceUrl(new URL(href.replace(/&amp;/g,'&'),page.url).href);
+    return new URL(base).origin===new URL(page.url).origin?base:page.url;
+  }catch{return page.url;}
+}
 export function isPublicIPv4(ip) {
   const p=ip.split('.').map(Number);
   return p.length===4&&p.every(n=>Number.isInteger(n)&&n>=0&&n<256)&&![0,10,127].includes(p[0])&&p[0]<224&&!(p[0]===169&&p[1]===254)&&!(p[0]===172&&p[1]>=16&&p[1]<=31)&&!(p[0]===192&&p[1]===0&&p[2]===0)&&!(p[0]===192&&p[1]===168)&&!(p[0]===100&&p[1]>=64&&p[1]<=127)&&!(p[0]===198&&[18,19].includes(p[1]));
@@ -58,6 +67,7 @@ export function menuOfferingGroup(label) {
   return null;
 }
 export function sourceText(page,id,{preferMain=false}={}) {
+  const pageBase=observedPageBase(page);
   const boundedExcerpt=(value,focusOffsets=[])=>{
     if(value.length<=12000)return {text:value,offset:at=>at};
     const marker='\n\n[Auszug: mittlerer Seitenteil ausgelassen]\n\n';
@@ -116,10 +126,18 @@ export function sourceText(page,id,{preferMain=false}={}) {
     return '\n'+cells[0].map((label,i)=>label+' '+cells[1][i]).join('\n')+'\n';
   }));
   const htmlWithTabs=pairTabs(page.body);
-  const primary=htmlWithTabs.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
-  const selectedHtml=preferMain&&primary?primary.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '):htmlWithTabs;
+  const primaryMatch=/<main\b[^>]*>([\s\S]*?)<\/main>/i.exec(htmlWithTabs);
+  const primary=primaryMatch?.[1];
+  // Some CMS layouts close <main> after the hero and render the actual page
+  // content in sibling element sections. Include only that bounded region,
+  // never the footer or unrelated navigation and sidebar material.
+  const afterMain=primaryMatch?htmlWithTabs.slice(primaryMatch.index+primaryMatch[0].length):'';
+  const beforeFooter=afterMain.split(/<footer\b/i,1)[0];
+  const siblingContent=beforeFooter.length<=250000&&/<section\b[^>]*\bclass\s*=\s*["'][^"']*\belement\b[^"']*["']/i.test(beforeFooter)?beforeFooter:'';
+  const contentHtml=preferMain&&primary?primary+siblingContent:htmlWithTabs;
+  const selectedHtml=preferMain&&primary?contentHtml.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '):contentHtml;
   const mainText=clean(selectedHtml);
-  const outside=preferMain&&primary?clean(page.body.replace(/<main\b[^>]*>[\s\S]*?<\/main>/i,' ')):'';
+  const outside=preferMain&&primary?clean(htmlWithTabs.replace(primaryMatch[0],' ').replace(siblingContent,' ')):'';
   const windows=[];
   for(const match of outside.matchAll(/(?:öffnungs(?:zeiten)?|oeffnungs(?:zeiten)?|opening\s+hours|adresse|address|(?:\+|\b00)\d[\d ()/.-]{7,}\d|[-\w.+]+@[\w.-]+\.[a-z]{2,})/giu)) {
     if(windows.length>=14)break;
@@ -147,8 +165,8 @@ export function sourceText(page,id,{preferMain=false}={}) {
     if(offset<0||Math.abs(offset-expected)>20)continue;
     headings.push({level:Number(match[1]),text:label,offset});if(headings.length===80)break;
   }
-  const main=page.body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]??page.body;
-  const descriptionText=boundedExcerpt(clean(main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' '))).text;
+  const descriptionHtml=preferMain&&primary?selectedHtml:(primary??htmlWithTabs).replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ');
+  const descriptionText=boundedExcerpt(clean(descriptionHtml)).text;
   if(!text)throw new Error('source_empty');
   // Long CMS pages often put the actual menu between a short introduction and
   // a long footer or wine list. Keep price-bearing food and drink sections in
@@ -164,11 +182,11 @@ export function sourceText(page,id,{preferMain=false}={}) {
   const keptHeadings=headings.map(h=>({...h,offset:bounded.offset(h.offset)})).filter(h=>h.offset>=0&&h.offset+h.text.length<=excerpt.length);
   const keptIdentityOffset=identityOffset===undefined?undefined:bounded.offset(identityOffset);
   const linkedMenus=[];
-  for(const match of main.replace(/<(footer|nav|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
+  for(const match of descriptionHtml.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
     const href=match[1].match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1],label=clean(match[2]);
     if(!href||!menuOfferingGroup(label))continue;
     try {
-      const target=publicSourceUrl(new URL(href.replace(/&amp;/g,'&'),page.url).href);
+      const target=publicSourceUrl(new URL(href.replace(/&amp;/g,'&'),pageBase).href);
       if(new URL(target).hostname!==new URL(page.url).hostname||!excerpt.includes(label))continue;
       // Dated menus require their own validity evaluation. Do not treat an old
       // weekly menu still linked by the site as proof of a current offering.
@@ -246,11 +264,12 @@ export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFT
 // identity proof. The caller retains the total six-request limit and export gate.
 export function discoverOfficialLinks(page) {
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
+  const pageBase=observedPageBase(page);
   const links=[];
   for(const match of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const href=match[1].replace(/&amp;/g,'&');
     if(!/men[uü]|speise|karte|contact|kontakt|öffnung|opening|hours|impressum|about|über.uns|\.pdf/i.test(href+' '+match[2].replace(/<[^>]*>/g,'')))continue;
-    try {const url=publicSourceUrl(new URL(href,page.url).href);if(matchesExistingWebsite(url,page.url)&&url!==page.url&&!links.includes(url))links.push(url);}catch{}
+    try {const url=publicSourceUrl(new URL(href,pageBase).href);if(matchesExistingWebsite(url,page.url)&&url!==page.url&&!links.includes(url))links.push(url);}catch{}
   }
   return links.slice(0,6);
 }
@@ -264,12 +283,13 @@ export function discoverMenuImages(page,{maxImages=4}={}) {
   if(!Number.isInteger(maxImages)||maxImages<1||maxImages>24)throw new Error('menu_image_limit_invalid');
   if(typeof page.body!=='string')return [];
   const observed=[];
+  const pageBase=observedPageBase(page);
   for(const match of page.body.matchAll(/<img\b[^>]*>/gi)) {
     const src=match[0].match(/\bsrc\s*=\s*["']([^"']+)["']/i)?.[1];
     const alt=match[0].match(/\balt\s*=\s*["']([^"']+)["']/i)?.[1]??'';
     if(!src||/\.svg(?:[?#\s]|$)|menu[-_ ]?(?:toggle|icon|button)|hamburger|navigation/i.test(src+' '+alt))continue;
     try {
-      const url=publicSourceUrl(new URL(src.replace(/&amp;/g,'&'),page.url).href);
+      const url=publicSourceUrl(new URL(src.replace(/&amp;/g,'&'),pageBase).href);
       if(!observed.some(item=>item.url===url))observed.push({url,discoveredOn:page.url,explicit:/menu|speisekarte|menü/i.test(src+' '+alt)});
     }catch{}
     if(observed.length===100)break;
@@ -286,10 +306,11 @@ export function discoverMenuImages(page,{maxImages=4}={}) {
 export function discoverMenuDocuments(page) {
   if(typeof page.body!=='string')return [];
   const documents=[];
+  const pageBase=observedPageBase(page);
   for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const label=m[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(!/menu|menü|karte/iu.test(label))continue;
-    try{const url=publicSourceUrl(new URL(m[1].replace(/&amp;/g,'&'),page.url).href);if(!/\.pdf(?:[?#]|$)/iu.test(url)||documents.some(d=>d.url===url))continue;documents.push({url,discoveredOn:page.url,label});}catch{}
+    try{const url=publicSourceUrl(new URL(m[1].replace(/&amp;/g,'&'),pageBase).href);if(!/\.pdf(?:[?#]|$)/iu.test(url)||documents.some(d=>d.url===url))continue;documents.push({url,discoveredOn:page.url,label});}catch{}
     if(documents.length===4)break;
   }
   return documents;
@@ -305,7 +326,8 @@ export function standingExperiencePath(url) {
 export function discoverResearchLinks(page) {
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
   const links=[];
-  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|food|drink|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|mitmach|hands[-\s]?on|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq/iu};
+  const pageBase=observedPageBase(page);
+  const topicPatterns={contact:/kontakt|contact|impressum|anschrift|adresse/iu,hours:/öffnungs|oeffnungs|opening|hours|zeiten/iu,menu:/men[uü]|speise|karte|(?<!\p{L})(?:food|drinks?)(?!\p{L})|getränk|essen|restaurant|brasserie|bistro|gastronom/iu,stay:/hotel|zimmer|rooms?|suites?|guest|gäste|accommodation|übernacht/iu,experience:/angebot|erlebnis|erleben|experience|ausstellung|exhibition|sammlung|collection|mitmach|hands[-\s]?on|zimmer|rooms?|aktivität|activities|bouldern|klettern|climb|sport|spiel|play|workshop|führung|guided|badewelt|actionwelt|relaxwelt|wellness|sauna|hamam|massage|spa|therme|thermal|pool|rutsch|shiatsu/iu,about:/(?:^|[\s/|])(?:über[-\s](?:uns|das|die|den)|ueber[-\s](?:uns|das|die|den)|about(?:[-\s]us)?|portrait|konzept|concept)(?:$|[\s/|])/iu,visit:/besuch|visit|information|praktisch|practical|anreise/iu,access:/barriere|access|famil|kinder|children|ausstattung|facilities|faq|park(?:en|ing|pl[aä]tze)?|anfahrt|directions|fitness/iu};
   topicPatterns.contact=/kontakt|contact|impressum|anschrift|adresse|mitarbeitende|team|staff|employees|equipe|équipe/iu;
   for(const m of page.body.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     const href=m[1].replace(/&amp;/g,'&');
@@ -318,13 +340,14 @@ export function discoverResearchLinks(page) {
       ??'';
     const label=(m[2].replace(/<[^>]*>/g,' ').trim()||accessible).replace(/&amp;/g,'&').replace(/\s+/g,' ').trim().slice(0,200);
     try {
-      const url=publicSourceUrl(new URL(href,page.url).href);
+      const url=publicSourceUrl(new URL(href,pageBase).href);
       if(!matchesExistingWebsite(url,page.url)||url===page.url||/(?:^|\/)[&;]+(?:\/|$)/u.test(new URL(url).pathname)||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|cart|privacy|datenschutz|(?:^|\/)(?:shop|jobs?|stellenangebote|karriere|careers?|buchen|[^/]*-buchen|anmeldung(?:-[^/]*)?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|room-rental|raumvermietung|location-de-salle|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname))continue;
       if(/\.(?:pdf|jpe?g|png|webp|gif)(?:[?#]|$)/iu.test(url))continue;
       // Dated events are useful to a different product flow, but cannot prove
       // a permanent venue offering or regular opening hours. Do not spend the
       // bounded Spot-research budget crawling individual event/news pages.
       const pathname=decodeURI(new URL(url).pathname).replace(/\/+$/u,'');
+      if(/(?:^|\/)(?:[^/]*[-_])?(?:gewinnspiel|contest|competition|special|promotion|limited)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)|(?:^|\/)(?:win|firmen(?:angebote)?|corporate)(?:\/|$)/iu.test(pathname))continue;
       if(/(?:^|\/)(?:ihrevent|your-event|votre.?[eé]v[eé]nement)(?:\/|$)/iu.test(pathname))continue;
       if(/(?:^|\/)(?:press|presse|media|medien|digital|videos?)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(pathname))continue;
       // Some museums place a permanent-exhibition overview behind an
@@ -344,6 +367,7 @@ export function discoverResearchLinks(page) {
       // because it sits under /informationen/.
       const material=(pathname.split('/').at(-1)??'')+' '+label;
       const topics=Object.entries(topicPatterns).filter(([,pattern])=>pattern.test(material)).map(([key])=>key);
+      if(/(?:sitzungszimmer|meeting[-_]?rooms?|conference[-_]?rooms?|seminar[-_]?rooms?)/iu.test(material))for(const topic of ['stay','experience']){const at=topics.indexOf(topic);if(at>=0)topics.splice(at,1);}
       // Flat CMS sites often use /dinner.html, /info.html and an HTML-entity
       // encoded "Über uns" slug. These are observed links, not guessed paths.
       const leaf=pathname.split('/').at(-1)??'';
@@ -368,6 +392,7 @@ export function discoverResearchLinks(page) {
 export function discoverPublicDataSources(page) {
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/iu.test(page.contentType??'')||!page.body.includes('{{'))return [];
   const found=[],pageUrl=new URL(page.url),routeId=pageUrl.pathname.match(/(?:^|\/)r\/(\d{1,8})(?:\/|$)/u)?.[1];
+  const pageBase=observedPageBase(page);
   for(const tag of page.body.matchAll(/<dmx-serverconnect\b[^>]*>/giu)) {
     if(/\bnoload\b/iu.test(tag[0]))continue;
     const id=tag[0].match(/\bid=["']([^"']+)["']/iu)?.[1]??'';
@@ -375,7 +400,7 @@ export function discoverPublicDataSources(page) {
     const sidebar=id==='scSidebar'&&/\/includes\/Sidebar\.php(?:[?#]|$)/iu.test(href)&&/(?:scSidebar\.data\.sqrySidebarContact|scSidebar\.data\.qryOeffnungszeiten)/u.test(page.body);
     if(!href||/\{\{|\}\}|(?:^|[./])(?:window|document|browser\d*)\./iu.test(href)||!sidebar&&!/(?:oeffnungs?|öffnungs?|opening|hours|zeiten|kontakt|contact)/iu.test(id+' '+href)||/(?:stats|cookies?|tracking|analytics)/iu.test(id+' '+href))continue;
     try {
-      const target=new URL(href,page.url);
+      const target=new URL(href,pageBase);
       if(!target.pathname.startsWith('/dmxConnect/api/Website/')||!matchesExistingWebsite(target.href,page.url))continue;
       let valid=true;
       for(const parameter of tag[0].matchAll(/\bdmx-param:([\w-]+)=["']([^"']+)["']/giu)) {

@@ -44,6 +44,74 @@ test('flat CMS navigation promotes observed dinner, info and encoded about links
  assert.equal(ranked[0].url,'https://example.org/dinner.html');
  assert.deepEqual(topicsForSearchLead({url:'https://example.org/info.html',title:'Info'}),['visit','hours','contact']);
 });
+test('same-origin HTML base resolves relative links without duplicating locale segments',()=>{
+ const body='<head><base href="https://www.example.org/"></head><main><a href="de/food-drinks">Food &amp; Drinks</a><a href="de/kontakt">Kontakt</a><a href="de/dinner.pdf">Abendmenü</a></main>';
+ const page={url:'https://www.example.org/de/basel-barfi',body,contentType:'text/html',observedAt:new Date().toISOString()};
+ const links=discoverResearchLinks(page);
+ assert.ok(links.some(link=>link.url==='https://www.example.org/de/food-drinks'));
+ assert.ok(links.some(link=>link.url==='https://www.example.org/de/kontakt'));
+ assert.ok(!links.some(link=>link.url.includes('/de/de/')));
+ const s=sourceText(page,'s1',{preferMain:true});
+ assert.deepEqual(s.linkedMenus.map(item=>item.url),['https://www.example.org/de/dinner.pdf']);
+ const foreign={...page,body:body.replace('https://www.example.org/','https://other.example/')};
+ assert.ok(discoverResearchLinks(foreign).every(link=>!link.url.startsWith('https://other.example/')));
+});
+test('Seafood in a sustainability label is not a menu lead, while Food and Drinks is',()=>{
+ const page={url:'https://restaurant.example/de/home',contentType:'text/html',body:'<a href="/de/nachhaltigkeit">Nachhaltiger Seafood</a><a href="/de/food-drinks">Food & Drinks</a>'};
+ const links=discoverResearchLinks(page);
+ assert.ok(!links.find(link=>link.url.endsWith('/nachhaltigkeit'))?.topics.includes('menu'));
+ assert.ok(links.find(link=>link.url.endsWith('/food-drinks'))?.topics.includes('menu'));
+ const campaign={url:'https://restaurant.example/de/basel-barfi',contentType:'text/html',body:'<a href="/de/chinese-modern-cuisine-globetrotter-gewinnspiel">Modern Chinese Cuisine</a><a href="/de/firmen">Firmenangebot</a><a href="/de/food-drinks">Food & Drinks</a>'};
+ assert.deepEqual(discoverResearchLinks(campaign).map(link=>link.url),['https://restaurant.example/de/food-drinks']);
+ assert.equal(permanentSpotSearchLead('https://restaurant.example/de/chinese-modern-cuisine-globetrotter-gewinnspiel'),false);
+ assert.equal(permanentSpotSearchLead('https://restaurant.example/de/firmen'),false);
+});
+test('brand homepage and explicitly location-variable menu cannot prove a branch offer',()=>{
+ const branch={...spot,name:'Nooch Basel Barfi',locality:'Basel',existingValues:{...spot.existingValues,'contact.website':{value:'https://nooch.ch/basel-barfi'}}};
+ const quote='Entdecke Cantonese Crispy Duck mit Gemüse.';
+ const home=sourceText({url:'https://nooch.ch/de/home',contentType:'text/html',observedAt:new Date().toISOString(),body:`<main><h2>Limited Special</h2><p>${quote}</p></main>`},'s1',{preferMain:true});
+ const menu=sourceText({url:'https://nooch.ch/de/food-drinks',contentType:'text/html',observedAt:new Date().toISOString(),body:`<main><p>Unser Angebot variiert leicht von Standort zu Standort.</p><h2>Food & Drinks</h2><p>${quote}</p></main>`},'s2',{preferMain:true});
+ const branchPromo=sourceText({url:'https://nooch.ch/de/basel-barfi',contentType:'text/html',observedAt:new Date().toISOString(),body:`<main><h2>Limited Special</h2><p>${quote}</p></main>`},'s3',{preferMain:true});
+ const make=s=>({id:'f1',...fact('experience.profile','Cantonese Crispy Duck',quote,{subject:'OFFER',subjectLabel:'Cantonese Crispy Duck',offerKind:'GASTRONOMY'}),sourceId:s.id,state:'ACCEPTED',reason:'SEMANTIC_SUPPORTED'});
+ const brandAbout=sourceText({url:'https://nooch.ch/de/ueber-nooch',contentType:'text/html',observedAt:new Date().toISOString(),body:`<main><p>${quote}</p></main>`},'s4',{preferMain:true});
+ for(const [s,reason] of [[home,'BRAND_HOME_NOT_VENUE_SOURCE'],[menu,'BRAND_MENU_LOCATION_UNCONFIRMED'],[branchPromo,'LIMITED_CAMPAIGN_NOT_PERMANENT'],[brandAbout,'BRANCH_SOURCE_OUTSIDE_LOCATION_PATH']]){
+  const checked=recheckEvidenceFloors([make(s)],[s],[field('experience.profile')],branch);
+  assert.equal(checked[0].state,'HELD');assert.equal(checked[0].reason,reason);
+ }
+});
+test('description selection excludes an adjacent limited campaign before model choice',async()=>{
+ const branch={...spot,name:'Nooch Basel Barfi',existingValues:{...spot.existingValues,'contact.website':{value:'https://example.org/basel-barfi'}}};
+ const body='<main><h2>Basel Barfi</h2><p>Hier verbinden wir urban Asian Cuisine mit kreativer Rauminszenierung – mitten in Basel.</p><h2>Limited Special</h2><p>China auf dem Teller: Entdecke Cantonese Crispy Duck, Sichuan Mapo Tofu und Shrimp Dumpling Soup – modern interpretiert und voller intensiver Aromen.</p></main>';
+ let supplied,verified;
+ const report=await researchSpotV2({...opts,spot:branch,fields:[field('description.highlight')],maxRequests:1,maxModelCalls:2},{...deps,
+  fetchPage:async url=>({url,body,contentType:'text/html',observedAt:new Date().toISOString()}),
+  modelFetch:async(_url,init)=>{const request=JSON.parse(init.body),input=JSON.parse(request.messages[1].content);if(input.candidates){supplied=input.candidates;return reply({selected:[]});}verified=input.claims;return reply({verdicts:input.claims.map(claim=>({factId:claim.id,verdict:'SUPPORTED',subject:'TARGET',applicability:'CURRENT',restrictionQuote:'',belongsTo:'TARGET'}))});},
+ });
+ assert.deepEqual(supplied.map(candidate=>candidate.text),['Hier verbinden wir urban Asian Cuisine mit kreativer Rauminszenierung – mitten in Basel.']);
+ assert.deepEqual(verified.map(claim=>claim.value),supplied.map(candidate=>candidate.text));
+ assert.equal(report.results[0].status,'REQUIRES_REVIEW');
+});
+test('hotel parking links answer amenities while meeting rooms do not masquerade as guest rooms',()=>{
+ const page={url:'https://hotel.example/',contentType:'text/html',body:'<a href="/de/information/lage-anfahrt-parken/">Lage | Anfahrt | Parken</a><a href="/de/information/fitness/">Fitness</a><a href="/de/raeumlichkeiten/sitzungszimmer-12/">Sitzungszimmer 12</a><a href="/de/zimmer/ambiente-doppelzimmer/">Ambiente Doppelzimmer</a>'};
+ const links=discoverResearchLinks(page);
+ const parking=links.find(link=>link.url.includes('parken'));
+ const meeting=links.find(link=>link.url.includes('sitzungszimmer'));
+ assert.ok(parking.topics.includes('access'));
+ assert.ok(!meeting.topics.includes('stay'));
+ assert.equal(rankResearchFrontier(links.map(link=>({...link,depth:1})),[],[{...field('amenity.features'),profileCategory:'STAY'}])[0].url,parking.url);
+});
+test('hotel-owned first-come parking is a cited facility without implying a reserved space',()=>{
+ const quote='Wir haben vor dem Hotel 5 kostenfreie Parkplätze, die nach der Devise «frist come, first serve» vergeben werden und deshalb leider nicht reservierbar sind.';
+ const s=source(quote);
+ assert.deepEqual(enumFactCandidates(field('amenity.features'),[s]).map(item=>[item.value,item.quote]),[['PARKING',quote]]);
+ for(const unsafe of ['Wir haben leider keine Parkplätze.','Das Nachbarhotel hat 5 Parkplätze.','Im nahegelegenen Centralbahnparking können Sie kostenpflichtig parken.','Wir haben vor dem Hotel keine Parkplätze.'])assert.ok(!enumFactCandidates(field('amenity.features'),[source(unsafe)]).some(item=>item.value==='PARKING'));
+ const stay={...spot,name:'Hotel Beispiel',existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const facts=ledger([fact('amenity.features','PARKING',quote)],s);
+ const result=projectEvidenceLedger({spot:stay,fields:[field('amenity.features')],facts,sources:[s],...deps});
+ assert.equal(result[0].status,'REQUIRES_REVIEW');
+ assert.deepEqual(result[0].value,['PARKING']);
+ assert.equal(result[0].citations[0].evidence,quote);
+});
 test('search identity matches punctuation in an official venue name without matching another venue',()=>{
  const results=[{url:'https://www.chequelomo.ch/menus',title:'Speisekarte | ¡Che, que lomo!',snippet:'Argentinische Spezialitäten Basel'},{url:'https://www.chequelomo.ch/another',title:'Che Lomo',snippet:'Andere Bar Basel'}];
  const found=classifySearchResults(results,{name:'Che que lomo',locality:'Basel',existingValues:{'classification.primary_category':{value:'EAT'}}},'https://chequelomo.ch/');
@@ -433,6 +501,27 @@ test('a translated room overview skips model work only when every room was alrea
  const changed=sourceText({url:'https://hotel.example/de/rooms-suites',body:body([...names,'Family Suite'],'Zimmer<br>buchen'),contentType:'text/html',observedAt:new Date().toISOString()},'s3',{preferMain:true});
  assert.equal(equivalentLocalizedRoomInventory(changed,[earlier],accepted),false);
  assert.equal(equivalentLocalizedRoomInventory({...current,url:'https://other.example/de/rooms-suites'},[earlier],accepted),false);
+});
+test('a German room inventory matches its English translation without merging Villa and standard rooms',()=>{
+ const de=['Ambiente Doppelzimmer','Business Doppelzimmer','Economy Einzelzimmer','Villa Ambiente Doppelzimmer','Villa Business Doppelzimmer'];
+ const en=['Ambience Double Room','Business Double Room','Economy Single Room','Villa Ambiente Double Room','Villa Business Double Room'];
+ const page=(url,names,id)=>sourceText({url,contentType:'text/html',observedAt:new Date().toISOString(),body:`<main><h1>Hotel Beispiel</h1>${names.map(name=>`<h2>${name}</h2><p>${name} ist ein Zimmer für Hotelgäste.</p>`).join('')}</main>`},id,{preferMain:true});
+ const earlier=page('https://hotel.example/de/zimmer/',de,'s1');
+ const current=page('https://hotel.example/en/rooms/',en,'s2');
+ const accepted=de.map(value=>({field:'experience.profile',sourceId:'s1',value,state:'ACCEPTED'}));
+ assert.equal(equivalentLocalizedRoomInventory(current,[earlier],accepted),true);
+ assert.equal(equivalentLocalizedRoomInventory(current,[earlier],accepted.slice(1)),false);
+ const changed=page('https://hotel.example/en/rooms/',[...en.slice(0,4),'Villa Family Suite'],'s3');
+ assert.equal(equivalentLocalizedRoomInventory(changed,[earlier],accepted),false);
+});
+test('a multilingual hotel ledger projects one offer per actual room category',()=>{
+ const de=['Ambiente Doppelzimmer','Villa Ambiente Doppelzimmer'],en=['Ambience Double Room','Villa Ambiente Double Room'];
+ const make=(names,id,url)=>{const text=names.map(name=>`${name}\n\n${name} bietet ein eigenes Bad und bequeme Betten für Hotelgäste.`).join('\n\n');return {...source(text,id),url};};
+ const sources=[make(de,'s1','https://example.org/de/zimmer/'),make(en,'s2','https://example.org/en/rooms/')];
+ const facts=sources.flatMap((s,index)=>(index?en:de).map(name=>{const quote=`${name}\n\n${name} bietet ein eigenes Bad und bequeme Betten für Hotelgäste.`;return {...fact('experience.profile',name,quote,{subject:'OFFER',subjectLabel:name,offerKind:'OVERNIGHT_STAY'}),sourceId:s.id,sourceOffset:s.text.indexOf(quote),state:'ACCEPTED'};}));
+ const stay={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const result=projectEvidenceLedger({spot:stay,fields:[{...field('experience.profile'),profileCategory:'STAY'}],facts,sources,...deps})[0];
+ assert.deepEqual(result.value.offers.map(offer=>offer.name),de);
 });
 test('wellness overview and sauna outrank action-only pages for a wellness profile',()=>{
  const entries=['/badewelt-actionwelt.html','/wellness.html','/sauna.html','/wellness-buchen.html'].map(path=>({url:'https://example.org'+path,label:path,depth:1,topics:['experience']}));
@@ -1372,6 +1461,15 @@ test('main content can be read without mixing other-branch footer or navigation 
  const s=await readSourceText({url:'https://example.org/',contentType:'text/html',observedAt:new Date().toISOString(),body:'<nav>Other shop</nav><main><p>Our venue content here.</p></main><footer>Neighbour has Wi-Fi</footer>'},'s1',{preferMain:true});
  assert.equal(s.text,'Our venue content here.');assert.equal(s.textSelection,'MAIN_CONTENT');assert.equal(s.assetHash.length,64);
 });
+test('CMS element sections following a short main remain readable without admitting the footer',()=>{
+ const body='<header>Hotel navigation</header><main><h1>Hotel Beispiel</h1></main><section class="element text"><h2>Parken</h2><p>Vor dem Hotel stehen fünf kostenfreie Parkplätze zur Verfügung.</p></section><section class="element text"><p>Weitere Angaben zur Anfahrt.</p></section><footer><p>Ein anderes Hotel hat eine Tiefgarage.</p></footer>';
+ const s=sourceText({url:'https://hotel.example/de/information/parken/',body,contentType:'text/html',observedAt:new Date().toISOString()},'s1',{preferMain:true});
+ assert.ok(s.text.includes('fünf kostenfreie Parkplätze'));
+ assert.ok(s.descriptionText.includes('fünf kostenfreie Parkplätze'));
+ assert.ok(!s.text.includes('anderes Hotel'));
+ assert.ok(!s.text.includes('Hotel navigation'));
+ for(const heading of s.headings)assert.equal(s.text.slice(heading.offset,heading.offset+heading.text.length),heading.text);
+});
 test('long official pages preserve price-bearing food and drink sections between introduction and footer',()=>{
  const filler='Eine lange allgemeine Beschreibung ohne konkrete Angebote. '.repeat(115);
  const body=`<main><h1>Testlokal</h1><p>Kontakt +41 61 111 22 33</p>${filler}<h2>ESSEN</h2><a href="#essen">Zur Speisekarte</a><h2>WEIN</h2>${filler}<h4>SHARING</h4><p>Gemischte Platte</p><p>CHF 31.00</p><h4>SEASONALS</h4><p>Geschmorte Karotte</p><p>CHF 28.00</p>${filler}<h2>Auszug aus der Cocktailkarte</h2><p>Yuzual Suspects chf 18.00</p><p>Gin, Zitrone</p>${filler}<h2>Kontakt</h2><p>reservation@testlokal.example</p></main>`;
@@ -1490,6 +1588,11 @@ test('a complete official hotel inventory stops at its actual room count, not a 
  assert.deepEqual(rankResearchFrontier(frontier,facts,fields,[s]),[]);
  assert.equal(rankResearchFrontier(frontier,facts.slice(1),fields,[s])[0].url,frontier[0].url);
  assert.equal(rankResearchFrontier(frontier,facts,fields,[{...s,truncated:true}])[0].url,frontier[0].url);
+ const translated=[{url:'https://hotel.example/en/rooms',depth:1,topics:['stay']}];
+ assert.deepEqual(rankResearchFrontier(translated,facts,fields,[s]),[]);
+ const active=[{url:'https://hotel.example/en/rooms',depth:1,topics:['stay']},{url:'https://hotel.example/de/food-and-drink/brunch/',depth:1,topics:['stay','experience']},{url:'https://hotel.example/de/information/lage-anfahrt-parken/',depth:1,topics:['access']}];
+ const pending=[fields[0],{...field('amenity.features'),profileCategory:'STAY'}];
+ assert.deepEqual(rankResearchFrontier(active,facts,pending,[s]).map(item=>item.url),['https://hotel.example/de/information/lage-anfahrt-parken/']);
 });
 test('wrong offer kind is withheld per fact and does not invalidate correctly typed hotel rooms',async()=>{
  const s=source('Classic Room: a double room with shower.\nSteak with seasonal vegetables.');
@@ -1567,6 +1670,15 @@ test('quoted visitor speech cannot become an official Spot description',()=>{
 test('promotional promises cannot displace a concrete literal Spot description',()=>{
  const hype='Ob Kebabs oder Meze – bei uns erleben Sie ein Geschmackserlebnis, das Ihre Sinne verzaubert.';
  const factual='Wir bieten regelmässig wechselnde Mittagsmenüs an.';
+ const s=source(hype+'\n\n'+factual);
+ const facts=validateEvidenceFacts({facts:[fact('description.highlight',hype,hype),fact('description.highlight',factual,factual)]},s,[field('description.highlight')]).map(f=>({...f,state:'ACCEPTED'}));
+ const checked=recheckEvidenceFloors(facts,[s],[field('description.highlight')],spot);
+ assert.equal(checked[0].reason,'DESCRIPTION_PROMOTIONAL_CLAIM');
+ assert.equal(projectEvidenceLedger({spot,fields:[field('description.highlight')],facts:checked,sources:[s],...deps})[0].value,factual);
+});
+test('a perfect-symbiosis hotel slogan cannot become an objective highlight',()=>{
+ const hype='Die 89 Zimmer vereinen klassische Eleganz und moderne Annehmlichkeiten – eine perfekte Symbiose aus Vergangenheit und Gegenwart.';
+ const factual='Das Hotel wurde 1864 am Bahnhof Basel SBB eröffnet.';
  const s=source(hype+'\n\n'+factual);
  const facts=validateEvidenceFacts({facts:[fact('description.highlight',hype,hype),fact('description.highlight',factual,factual)]},s,[field('description.highlight')]).map(f=>({...f,state:'ACCEPTED'}));
  const checked=recheckEvidenceFloors(facts,[s],[field('description.highlight')],spot);

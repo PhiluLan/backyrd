@@ -14,7 +14,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.15';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.22';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -27,6 +27,7 @@ export function selectResearchModel(modelPath:string) {
 const SUPPORTED=['description.highlight','contact.phone','contact.public_email','hours.regular','experience.profile','offering.groups','amenity.features','operation.laptop_policy'];
 const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
 const roomSlug=(value:string)=>value.normalize('NFKD').replace(/[\u0300-\u036f]/gu,'').toLocaleLowerCase().replace(/ß/gu,'ss').replace(/[^a-z0-9]+/gu,'-').replace(/^-|-$/gu,'');
+const roomIdentity=(value:string)=>roomSlug(value).replace(/ambience/gu,'ambiente').replace(/(?:doppelzimmer|double-rooms?|chambre-double|camera-doppia)/gu,'double').replace(/(?:einzelzimmer|single-rooms?|chambre-simple|camera-singola)/gu,'single').replace(/-room$/u,'');
 const researchCodeHash=hash(readFileSync(new URL(import.meta.url),'utf8'));
 const literalParserHash=hash(readFileSync(new URL('./nuknuk-research.mjs',import.meta.url),'utf8'));
 const sourceReaderHash=hash(readFileSync(new URL('./nuknuk-sources.mjs',import.meta.url),'utf8'));
@@ -196,6 +197,32 @@ function timeBoundEventContext(source:ResearchSource,quote:string,sourceOffset?:
   const following=source.text.slice(offset+quote.length,offset+quote.length+180);
   return /^\s*(?:\S[^\n]*\n){0,2}\s*\/?\s*\d{1,2}\.\s*(?:Jan(?:uar)?|Feb(?:ruar)?|März|Maerz|Apr(?:il)?|Mai|Jun(?:i)?|Jul(?:i)?|Aug(?:ust)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Dez(?:ember)?|January|February|March|April|May|June|July|August|September|October|November|December)\s+20\d{2}/iu.test(following);
 }
+function limitedCampaignContext(source:ResearchSource,quote:string,sourceOffset?:number):boolean {
+  const offset=factOffset(source,{quote,sourceOffset});if(offset<0)return false;
+  const nearby=source.text.slice(Math.max(0,offset-320),offset);
+  return /\b(?:limited\s+(?:special|edition)|nur\s+f(?:ü|ue)r\s+kurze\s+zeit|zeitlich\s+begrenzte?\w*|for\s+a\s+limited\s+time)\b/iu.test(quote+'\n'+nearby);
+}
+function brandOverviewForSpecificVenue(source:ResearchSource,spot:SpotContext):boolean {
+  const website=spot.existingValues?.['contact.website']?.value;
+  if(typeof website!=='string')return false;
+  const seedPath=new URL(website).pathname.replace(/\/+$/u,'');
+  if(!seedPath||/^\/(?:de|en|fr|it)?\/?(?:kontakt|contact|info(?:rmation(?:en)?)?|about|ueber-uns|über-uns)?$/iu.test(seedPath))return false;
+  return /^\/(?:de|en|fr|it)\/(?:home|index)(?:\.html)?\/?$/iu.test(new URL(source.url).pathname)||new URL(source.url).pathname==='/';
+}
+function locationPathForBranch(spot:SpotContext):string|null {
+  const website=spot.existingValues?.['contact.website']?.value;
+  const locality=spot.locality??spot.existingValues?.['location.locality']?.value;
+  if(typeof website!=='string'||typeof locality!=='string'||locality.length<3)return null;
+  const path=new URL(website).pathname.replace(/^\/(?:de|en|fr|it)(?=\/)/iu,'').replace(/\/+$/u,'');
+  const leaf=path.split('/').filter(Boolean).at(-1)?.toLocaleLowerCase()??'';
+  const city=locality.toLocaleLowerCase().normalize('NFKD').replace(/\p{M}/gu,'').replace(/[^a-z0-9]+/gu,'-');
+  return leaf.startsWith(city+'-')||leaf===city?path:null;
+}
+function sourceOutsideBranchPath(sourceUrl:string,spot:SpotContext):boolean {
+  const branch=locationPathForBranch(spot);if(!branch)return false;
+  const path=new URL(sourceUrl).pathname.replace(/^\/(?:de|en|fr|it)(?=\/)/iu,'').replace(/\/+$/u,'');
+  return path!==branch&&!path.startsWith(branch+'/');
+}
 function explicitRelocation(source:ResearchSource,spot:SpotContext):boolean {
   const stored=spot.existingValues?.['location.address_line1']?.value;
   if(typeof stored!=='string'||stored.trim().length<5)return false;
@@ -326,6 +353,10 @@ function embeddedVisitorReview(source:ResearchSource,f:Pick<EvidenceFact,'quote'
 function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:ResearchField,spot:SpotContext):string|null {
   if(f.state==='REJECTED')return f.reason;
   if(f.quote.includes('[Auszug: mittlerer Seitenteil ausgelassen]'))return 'EXCERPT_GAP_NOT_EVIDENCE';
+  if(brandOverviewForSpecificVenue(source,spot))return 'BRAND_HOME_NOT_VENUE_SOURCE';
+  if(['description.highlight','experience.profile','offering.groups'].includes(f.field)&&/(?:angebot|menu|menü|assortment).{0,90}(?:variiert|varies|vary).{0,100}(?:standort|location|filiale|branch)|(?:variiert|varies|vary).{0,100}(?:standort|location|filiale|branch)/iu.test(source.text.slice(0,700)))return 'BRAND_MENU_LOCATION_UNCONFIRMED';
+  if(sourceOutsideBranchPath(source.url,spot))return 'BRANCH_SOURCE_OUTSIDE_LOCATION_PATH';
+  if(['description.highlight','experience.profile'].includes(f.field)&&limitedCampaignContext(source,f.quote,f.sourceOffset))return 'LIMITED_CAMPAIGN_NOT_PERMANENT';
   if(f.field==='experience.profile'&&source.layoutReviewRequired)return 'LAYOUT_REQUIRES_HUMAN_OFFER_REVIEW';
   if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\/|$)/iu.test(new URL(source.url).pathname))return 'MEMBERSHIP_BENEFIT_NOT_PUBLIC_SPOT_OFFER';
   if(['description.highlight','experience.profile'].includes(f.field)&&/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(source.url).pathname))return 'EXHIBITION_PROGRAMME_SCOPE';
@@ -374,7 +405,7 @@ function deterministicFactReason(f:EvidenceFact,source:ResearchSource,field:Rese
       if(before&&!/(?:[.!?]\s*|\n\s*\n\s*)$/u.test(before)&&!followsHeading)return 'DESCRIPTION_FRAGMENT_NOT_STANDALONE';
     }
     if(f.field==='description.highlight'&&/^["“„«‘’']/u.test(f.quote.trim()))return 'DESCRIPTION_QUOTED_SPEECH';
-    if(f.field==='description.highlight'&&/(?:unvergesslich|verzauber\w*|einzigartig(?:es|en|e)?\s+erlebnis|unforgettable|magical experience|best(?:e|er|es)?\s+(?:erlebnis|experience))/iu.test(f.quote))return 'DESCRIPTION_PROMOTIONAL_CLAIM';
+    if(f.field==='description.highlight'&&/(?:unvergesslich|verzauber\w*|einzigartig(?:es|en|e)?\s+erlebnis|unforgettable|magical experience|best(?:e|er|es)?\s+(?:erlebnis|experience)|perfekt(?:e|er|es|en)?\s+(?:symbiose|mischung|kombination|ausgangspunkt|wahl|mix)|ideal(?:e|er|es|en)?\s+(?:ausgangspunkt|wahl|lage))/iu.test(f.quote))return 'DESCRIPTION_PROMOTIONAL_CLAIM';
     if(f.field==='description.highlight'&&/\b(?:wheelchair|rollstuhl|barrierefrei|accessible|accessibility)\b/iu.test(f.quote)&&!/\b(?:experience|explore|discover|enjoy|erleben|entdecken|geniessen|genießen|besuchen|visit)\b/iu.test(f.quote))return 'DESCRIPTION_FACILITY_NOT_HIGHLIGHT';
     if(typeof f.offerKind!=='string')return 'OFFER_KIND_INVALID';
     if(f.field==='experience.profile') {
@@ -732,11 +763,12 @@ export function topicsForSearchLead(lead:Pick<SearchLead,'url'|'title'>):string[
   const topics:string[]=[];
   if(/(?:kontakt|contact|adresse|anschrift|impressum)/iu.test(path+' '+label))topics.push('contact');
   if(/(?:öffnungs|oeffnungs|opening|hours|zeiten)/iu.test(path+' '+label))topics.push('hours');
-  if(/(?:menu|menü|speisekarte|karte|food|drinks?|cocktails?|barfood|(?:^|\/)dinner(?:\.html|\/|$)|(?:^|\/)lunch(?:\.html|\/|$))/iu.test(path+' '+label))topics.push('menu');
+  if(/(?:menu|menü|speisekarte|karte|(?<!\p{L})(?:food|drinks?)(?!\p{L})|cocktails?|barfood|(?:^|\/)dinner(?:\.html|\/|$)|(?:^|\/)lunch(?:\.html|\/|$))/iu.test(path+' '+label))topics.push('menu');
   if(/(?:rooms?|zimmer|suites?|accommodation|hotel)/iu.test(path+' '+label))topics.push('stay');
   if(/(?:angebote?|erlebnisse?|experiences?|sammlung|collection|ausstellung|exhibition|workshops?|ateliers?|f(?:ü|ue|u)hrungen?|guided[-_]?tours?|wellness|sauna|spa)/iu.test(path+' '+label))topics.push('experience');
   if(/(?:about|über[-_]?uns|ueber[-_]?uns|uumlber[-_]?uns|konzept|concept)/iu.test(path+' '+label))topics.push('about');
   if(/(?:besuch|visit|information|anreise)/iu.test(path+' '+label)||/(?:^|\/)info(?:rmation(?:en)?)?(?:\.html|\/|$)/iu.test(path))topics.push('visit','hours','contact');
+  if(/(?:park(?:en|ing|pl[aä]tze)?|anfahrt|directions|fitness|facilities|ausstattung)/iu.test(path+' '+label))topics.push('access');
   return topics;
 }
 function hotelInventoryCovered(facts:EvidenceFact[],sources:ResearchSource[]):boolean {
@@ -751,6 +783,7 @@ function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],front
   // workshops. Reaching four facts is not evidence that the inventory is
   // complete; keep searching within the explicit page/query budget.
   if(field.profileCategory==='CULTURE_ARTS')return true;
+  if(field.profileCategory==='STAY'&&hotelInventoryCovered(facts,sources))return false;
   // A numeric offer target is not proof of coverage. Always read an observed
   // first-party inventory overview before declaring a hotel or menu profile
   // sufficient, even when detail pages already supplied several offers.
@@ -760,7 +793,6 @@ function profileNeedsMoreEvidence(field:ResearchField,facts:EvidenceFact[],front
     if(['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(field.profileCategory)))return /(?:^|\/)(?:[^/]+[-_])?(?:menu|menue|menü|speisekarte|karte)\/?$/iu.test(path);
     return false;
   }))return true;
-  if(field.profileCategory==='STAY'&&hotelInventoryCovered(facts,sources))return false;
   const accepted=facts.filter(f=>f.field==='experience.profile'&&f.state==='ACCEPTED');
   if(new Set(accepted.map(f=>f.value.toLocaleLowerCase())).size<(field.profileCategory==='STAY'?6:4))return true;
   // A fourth narrow treatment must not end a wellness crawl while an observed
@@ -784,16 +816,16 @@ export function sourceSubsumedByEarlier(source:ResearchSource,earlier:ResearchSo
 }
 export function equivalentLocalizedRoomInventory(source:ResearchSource,earlier:ResearchSource[],facts:EvidenceFact[]):boolean {
   const target=new URL(source.url);
-  const neutral=(path:string)=>path.replace(/^\/(?:de|en|fr|it)(?=\/|$)/iu,'');
+  const neutral=(path:string)=>path.replace(/^\/(?:de|en|fr|it)(?=\/|$)/iu,'').replace(/\/(?:rooms?-suites?|zimmer-suiten|rooms?|zimmer|chambres?|camere)\/?$/iu,'/rooms');
   const locale=(path:string)=>path.match(/^\/(de|en|fr|it)(?=\/|$)/iu)?.[1]?.toLocaleLowerCase();
   if(!locale(target.pathname)||!/(?:^|\/)(?:rooms?|rooms-suites|zimmer|zimmer-suiten|chambres?|camere)\/?$/iu.test(target.pathname))return false;
-  const names=(page:ResearchSource)=>new Set((page.headings??[]).filter(h=>h.level>=2&&h.level<=3&&!/\n/u.test(h.text)&&!/(?:buchen|booking|book now|reserve)/iu.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!/^(?:rooms?\s*(?:&|and)\s*suites?|zimmer\s*(?:&|und)\s*suiten?)$/iu.test(h.text)).map(h=>h.text.trim().toLocaleLowerCase()));
+  const names=(page:ResearchSource)=>new Set((page.headings??[]).filter(h=>h.level>=2&&h.level<=3&&!/\n/u.test(h.text)&&!/(?:buchen|booking|book now|reserve)/iu.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!/^(?:rooms?\s*(?:&|and)\s*suites?|zimmer\s*(?:&|und)\s+suiten?)$/iu.test(h.text)).map(h=>roomIdentity(h.text)));
   const current=names(source);
   if(current.size<3)return false;
   return earlier.some(previous=>{
     const original=new URL(previous.url),known=names(previous);
     if(original.origin!==target.origin||neutral(original.pathname)!==neutral(target.pathname)||!locale(original.pathname)||locale(original.pathname)===locale(target.pathname)||known.size!==current.size||![...current].every(name=>known.has(name)))return false;
-    return [...current].every(name=>facts.some(f=>f.sourceId===previous.id&&f.field==='experience.profile'&&f.state==='ACCEPTED'&&f.value.trim().toLocaleLowerCase()===name));
+    return [...current].every(name=>facts.some(f=>f.sourceId===previous.id&&f.field==='experience.profile'&&f.state==='ACCEPTED'&&roomIdentity(f.value)===name));
   });
 }
 export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact[],fields:ResearchField[],sources:ResearchSource[]=[]):FrontierEntry[] {
@@ -810,6 +842,8 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
     (/(?:^|\/)(?:speisekarte|menu)[-_]download(?:\.html)?$/iu.test(new URL(link.url).pathname)?-100:0)+
     (open.some(f=>f.attributeKey==='hours.regular')&&link.topics.includes('hours')?500:0)+
     (open.some(f=>f.attributeKey.startsWith('contact.'))&&link.topics.includes('contact')?500:0)+
+    (open.some(f=>f.attributeKey==='amenity.features')&&/(?:park(?:en|ing|pl[aä]tze)?|anfahrt|directions)/iu.test(new URL(link.url).pathname+' '+link.label)?120:0)+
+    (open.some(f=>f.attributeKey==='amenity.features')&&/(?:fitness|facilities|ausstattung)/iu.test(new URL(link.url).pathname+' '+link.label)?40:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&link.topics.includes('experience')?35:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:sammlung|collection|f(?:ü|ue|u)hrungen?|guided[-_]?tours?)/iu.test(leaf(link.url))?70:0)+
     (open.some(f=>f.attributeKey==='experience.profile'&&f.profileCategory==='CULTURE_ARTS')&&/(?:besuch[-_]?planen|plan[-_]?your[-_]?visit|visit[-_]?planning|visitor[-_]?information)/iu.test(leaf(link.url))?180:0)+
@@ -831,8 +865,18 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|[^/]*reservierung(?:en)?|reservations?|booking|[^/]*(?:buchen|buchung|reservieren)|room-rental|raumvermietung|location-de-salle|press|presse|media|medien|digital|video|videos|impressionen|gallery|galerie|aktuelles|news|events?|datenschutzerklaerung|privacy|terms|agb|legal|impressum|imprint|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
   const stayAncillary=(url:string)=>/(?:^|\/)(?:sitzungszimmer|meeting[-_]?rooms?|conference[-_]?rooms?|seminar[-_]?rooms?|gaeste[-_]?services?|g[aä]ste[-_]?services?|guest[-_]?services?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
+  const stayInventoryComplete=hotelInventoryCovered(facts,sources);
+  const roomDetail=(url:string)=>/(?:^|\/)(?:rooms?|zimmer|chambres?|camere)\/[^/]+\/?$/iu.test(new URL(url).pathname);
+  const translatedRoomOverview=(url:string)=>/^\/(?:en|fr|it)\/(?:rooms?|rooms-suites|zimmer|chambres?|camere)\/?$/iu.test(new URL(url).pathname);
+  const translatedPageAlreadyRead=(url:string)=>{
+    const path=new URL(url).pathname;
+    if(!/^\/(?:en|fr|it)(?:\/|$)/iu.test(path))return false;
+    const neutral=(value:string)=>value.replace(/^\/(?:de|en|fr|it)(?=\/|$)/iu,'').replace(/location-access-parking|lage-anfahrt-parken/iu,'parking');
+    return sources.some(source=>!/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(source.url).pathname)&&neutral(new URL(source.url).pathname)===neutral(path)&&source.text.length>=200&&!source.truncated);
+  };
+  const stayFoodArea=(url:string)=>/(?:^|\/)(?:food-and-drink|restaurants?|bars?|brunch|breakfast|fr[uü]hst[uü]ck)(?:\/|$)/iu.test(new URL(url).pathname);
   const cultureBackground=(url:string)=>/(?:^|\/)(?:private[-_]?sammlungen|private[-_]?collections|collections[-_]?particuli[eè]res|geschichte|history|histoire|schwerpunkte|foci[-_]?of[-_]?the[-_]?collection|leihanfragen|loan[-_]?requests)(?:\/|$)/iu.test(decodeURI(new URL(url).pathname));
-  const candidates=frontier.filter(link=>link.depth<=3&&!scopedPage(link.url)&&!(stayProfileOnly&&stayAncillary(link.url))&&!(cultureProfileOnly&&cultureBackground(link.url))&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic)))));
+  const candidates=frontier.filter(link=>link.depth<=3&&!scopedPage(link.url)&&!(stayProfileOnly&&stayAncillary(link.url))&&!(stayInventoryComplete&&(roomDetail(link.url)||translatedRoomOverview(link.url)))&&!translatedPageAlreadyRead(link.url)&&!(stayInventoryComplete&&stayFoodArea(link.url))&&!(cultureProfileOnly&&cultureBackground(link.url))&&!(nonFood&&(cultureFoodArea(link.url)||link.topics.includes('menu')&&!link.topics.some(topic=>['experience','visit','stay'].includes(topic)))));
   const matching=candidates.filter(link=>open.some(f=>topicsForField(f.attributeKey,f.profileCategory).some(t=>link.topics.includes(t))));
   const useful=matching.length?matching:facts.some(f=>f.state==='ACCEPTED')?[]:candidates;
   return useful.sort((a,b)=>score(b)-score(a)||a.depth-b.depth||a.url.localeCompare(b.url));
@@ -886,7 +930,12 @@ export function projectEvidenceLedger({spot,fields,facts,sources,validateValue}:
           // A tab may say "Cozy" while its own description explicitly calls
           // the same room "Cozy Double Room". Keep the more specific literal
           // name only when the short claim's own quotation contains it.
-          const unique=category==='STAY'?distinct.filter(f=>!distinct.some(other=>other!==f&&other.sourceId===f.sourceId&&other.offerKind===f.offerKind&&other.value.toLocaleLowerCase().startsWith(f.value.toLocaleLowerCase()+' ')&&sourceQuote(f.quote,other.value))):distinct;
+          const specific=category==='STAY'?distinct.filter(f=>!distinct.some(other=>other!==f&&other.sourceId===f.sourceId&&other.offerKind===f.offerKind&&other.value.toLocaleLowerCase().startsWith(f.value.toLocaleLowerCase()+' ')&&sourceQuote(f.quote,other.value))):distinct;
+          const seenRooms=new Set<string>();
+          const unique=category==='STAY'?specific.filter(f=>{
+            if(f.offerKind!=='OVERNIGHT_STAY')return true;
+            const key=roomIdentity(f.value);if(seenRooms.has(key))return false;seenRooms.add(key);return true;
+          }):specific;
           const score=(fact:EvidenceFact)=>{
             const path=new URL(sources.find(s=>s.id===fact.sourceId)!.url).pathname.normalize('NFKD').replace(/\p{M}/gu,'').toLocaleLowerCase();
             const terms=fact.value.normalize('NFKD').replace(/\p{M}/gu,'').toLocaleLowerCase().match(/[a-z0-9]{4,}/gu)??[];
@@ -1192,6 +1241,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     try {
       entry.url=publicSourceUrl(entry.url);
       if(entry.depth>maxDepth||queued.size>=300||queued.has(entry.url))return;
+      if(entry.depth>0&&sourceOutsideBranchPath(entry.url,spot))return;
       if(entry.depth>0&&officialPath.length>=2&&!officialPath.every((part,index)=>venuePath(entry.url)[index]===part))return;
       if(entry.depth>0&&[...new URL(entry.url).searchParams.keys()].some(key=>/^(?:page|paged|offset|cursor|pagination|detail|query-\d+-page)$/iu.test(key)))return;
       if(!matchesExistingWebsite(entry.discoveredOn??entry.url,official))throw new Error('SOURCE_IDENTITY_REQUIRES_REVIEW');
@@ -1208,7 +1258,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     // dedicated host the homepage is the natural venue overview; queue it
     // explicitly instead of relying on a CMS navigation link or web search.
     const seedUrl=new URL(secureSeed);
-    if(seedUrl.pathname.split('/').filter(Boolean).length===1)enqueue({url:seedUrl.origin+'/',label:'Official homepage',depth:1,topics:['about','experience','visit']});
+    if(/^\/(?:kontakt|contact|info(?:rmation(?:en)?)?|about|ueber-uns|über-uns)\/?$/iu.test(seedUrl.pathname))enqueue({url:seedUrl.origin+'/',label:'Official homepage',depth:1,topics:['about','experience','visit']});
   }
   let modelUnavailable=false;
   let menuLayoutSkipped=false,menuMediaAudited=false;
@@ -1370,7 +1420,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       // This does not guess a German URL: the link must be on the fetched page.
       const germanEdition=links.some(link=>link.topics?.includes('language'));
       const foreignSeed=next.depth===0&&/^\/(?:en|fr|it)(?:\/|$)/iu.test(new URL(source.url).pathname);
-      const descriptions=selectDescription&&!(foreignSeed&&germanEdition)?candidates.filter(f=>f.field==='description.highlight'):[];
+      const descriptions=selectDescription&&!(foreignSeed&&germanEdition)?candidates.filter(f=>f.field==='description.highlight'&&!limitedCampaignContext(source,f.quote,f.sourceOffset)):[];
       if(selectDescription&&foreignSeed&&germanEdition)await progress({stage:'DESCRIPTION_DEFERRED_FOR_GERMAN_SOURCE',url:source.url});
       const extracted:EvidenceFact[]=[];
       // Description candidates are only alternatives for the selector. Give
@@ -1384,7 +1434,11 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
         try {
           const raw=await model('SELECT_DESCRIPTION',source,request(modelPath,'Choose up to THREE distinct original passages, ranked best first, that help a Backyrd visitor understand a concrete experience, offering, setting or service at this exact venue. An independent evidence critic will check each passage, and the first supported one becomes the description. Exclude fundraising, finances, governance, staff profiles, awards, visitor testimonials, unrelated history, slogans, subjective promises of exceptional quality and contact/opening-hours text. Prefer clear factual sentences over promotional copy. For STAY prioritize accommodation and guest experience; for CULTURE_ARTS the museum visit and activities; for EAT dining. Empty selected if no passage serves that purpose. Never rewrite text.',{target:context(spot),candidates:descriptions.map((f,i)=>({id:'d'+i,text:f.quote}))},record({selected:{type:'array',maxItems:3,items:enumeration(descriptions.map((_,i)=>'d'+i))}})));
           if(!isObject(raw)||Object.keys(raw).length!==1||!Array.isArray(raw.selected)||raw.selected.length>3||new Set(raw.selected).size!==raw.selected.length||raw.selected.some(id=>typeof id!=='string'||!/^d\d+$/.test(id)||!descriptions[Number(id.slice(1))]))throw new Error('DESCRIPTION_SELECTION_INVALID');
-          for(const id of raw.selected){const selected={...descriptions[Number(String(id).slice(1))],id:'f'+facts.length};facts.push(selected);extracted.push(selected);}
+          // A single source-bound, non-campaign sentence still receives the
+          // independent critic when the selector abstains. This is a review
+          // candidate, never an accepted description by itself.
+          const selectedIds=raw.selected.length?raw.selected:descriptions.length===1?['d0']:[];
+          for(const id of selectedIds){const selected={...descriptions[Number(String(id).slice(1))],id:'f'+facts.length};facts.push(selected);extracted.push(selected);}
         }catch(error){await progress({stage:'DESCRIPTION_ERROR',url:source.url,reason:error instanceof Error?error.message:'DESCRIPTION_FAILURE'});}
       }
 

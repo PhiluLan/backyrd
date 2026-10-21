@@ -10,6 +10,7 @@ export function permanentSpotSearchLead(url) {
   // are discovered from their official parent page with explicit provenance.
   if(/\.(?:pdf|jpe?g|png|webp|gif|zip)$/iu.test(path))return false;
   if(/(?:^|\/)(?:ihrevent|your-event|votre.?[eé]v[eé]nement)(?:\/|$)/iu.test(path))return false;
+  if(/(?:^|\/)(?:[^/]*[-_])?(?:gewinnspiel|contest|competition|special|promotion|limited)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)|(?:^|\/)(?:win|firmen(?:angebote)?|corporate)(?:\/|$)/iu.test(path))return false;
   if([...parsed.searchParams.keys()].some(key=>/^(?:date|datum|event|eventdate|start|end|detail)$/iu.test(key)))return false;
   return (!/(?:^|\/)(?:events?|veranstaltungen?|agenda|calendar|kalender|news|blog|konzert|concert|programme?|programm)(?:[/.]|$)/iu.test(path)||standingExperiencePath(url))
     && !/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(path)
