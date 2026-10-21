@@ -47,6 +47,11 @@ No broader backfill, identity transfer, guest erasure or account association is
 silently performed.
 
 Each write authorizes before replay and serializes against owner/team changes.
+The expected operator UUID must match the actual JWT subject; a refresh or
+account switch cannot transfer a pending write to another account. Client
+identity/entry guards also run between recovery, dispatch and callbacks, before
+React unmount cleanup. The expectation is captured from the authenticated entry,
+not an editable guest field.
 Different requests cannot overwrite a newer revision. Retries return the
 original id/revision/archive outcome even after later corrections. The journal
 stores a scoped fingerprint and minimal result, not duplicate contact values.

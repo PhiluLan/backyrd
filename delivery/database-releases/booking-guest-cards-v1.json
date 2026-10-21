@@ -10,17 +10,17 @@
   "migrations": [
     {
       "path": "supabase/migrations/20261021051825_booking_guest_cards_v1.sql",
-      "sha256": "0065b8f3f125979157ae639b7528087dabd62d03ab289025f44184f8f5102e24"
+      "sha256": "e6ee25f4bec8e5750e633000daf5bfd452469fa1c60377e8502f024eab80087b"
     }
   ],
   "tests": [
     {
       "path": "supabase/tests/booking_guest_cards_v1.sql",
-      "sha256": "7d0c6e7d6a763c8473386bb3f3e4fdad2752cc3125775e477a5bd7d6be6599d7"
+      "sha256": "a77aa4230c69b1f9eed24cc5361eee8eaead1bc61c0b09680ca55be7fb2d7f9d"
     }
   ],
   "fingerprints": {
-    "publicAclSha256": "3481bfe124cd082b74b465beb5dc9f88d8f72da6209299a2b246862fba75e1e5",
-    "applicationSchemaSha256": "33de111dc4d6e7629bb5ff7250aaf276be89e74aabe728e848a477a174b5d739"
+    "publicAclSha256": "2852c9db8014061ecbf6888a31c7fa60e27cce39168c20e6b9682b0bb2914a02",
+    "applicationSchemaSha256": "89e38bc40d7b50ca95b5919a7b4993e4a97d695e24b96aa04208c41bae7ba3c2"
   }
 }

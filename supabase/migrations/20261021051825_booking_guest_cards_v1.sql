@@ -87,12 +87,13 @@ declare c booking_private.guest_cards_v1%rowtype; owner uuid; events jsonb; begi
  return jsonb_build_object('guest',booking_private.guest_card_projection_v1(c),'events',events);
 end $$;
 
-create function public.booking_console_guest_write_v1(p_spot_id uuid,p_request_id uuid,p_intent jsonb,p_recover boolean default false) returns jsonb
+create function public.booking_console_guest_write_v1(p_spot_id uuid,p_request_id uuid,p_intent jsonb,p_actor uuid,p_recover boolean default false) returns jsonb
 language plpgsql security definer set search_path='' as $$
 declare owner uuid; actor uuid:=auth.uid(); gid uuid; rev bigint; kind text; keys text[]; norm jsonb; fp text;
  old booking_private.guest_cards_v1%rowtype; saved booking_private.guest_cards_v1%rowtype; previous booking_private.guest_card_requests_v1%rowtype;
  result jsonb; fields text[]:='{}'; event_action text; n text; e text; p text; archived boolean; begin
  perform booking_private.assert_console_access_v1(p_spot_id,'write');
+ if p_actor is null or p_actor is distinct from auth.uid() then raise exception 'booking_operator_required' using errcode='42501'; end if;
  if p_request_id is null or p_recover is null or p_intent is null or jsonb_typeof(p_intent)<>'object' or octet_length(p_intent::text)>4096 then raise exception 'booking_guest_invalid' using errcode='22023'; end if;
  kind:=p_intent->>'kind';
  if kind='archive' then perform booking_private.assert_console_access_v1(p_spot_id,'manage'); end if;
@@ -155,8 +156,8 @@ declare owner uuid; actor uuid:=auth.uid(); gid uuid; rev bigint; kind text; key
  return result;
 exception when unique_violation then raise exception 'booking_guest_changed' using errcode='40001';
 end $$;
-revoke all on function public.booking_console_guests_v1(uuid,text,boolean,timestamptz,uuid),public.booking_console_guest_v1(uuid,uuid),public.booking_console_guest_write_v1(uuid,uuid,jsonb,boolean) from public,anon,authenticated,service_role;
-grant execute on function public.booking_console_guests_v1(uuid,text,boolean,timestamptz,uuid),public.booking_console_guest_v1(uuid,uuid),public.booking_console_guest_write_v1(uuid,uuid,jsonb,boolean) to authenticated;
+revoke all on function public.booking_console_guests_v1(uuid,text,boolean,timestamptz,uuid),public.booking_console_guest_v1(uuid,uuid),public.booking_console_guest_write_v1(uuid,uuid,jsonb,uuid,boolean) from public,anon,authenticated,service_role;
+grant execute on function public.booking_console_guests_v1(uuid,text,boolean,timestamptz,uuid),public.booking_console_guest_v1(uuid,uuid),public.booking_console_guest_write_v1(uuid,uuid,jsonb,uuid,boolean) to authenticated;
 
 create or replace function public.booking_console_read_v1(p_spot_id uuid, p_date date) returns jsonb
 language plpgsql security definer set search_path = '' as $$

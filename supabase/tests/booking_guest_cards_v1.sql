@@ -31,8 +31,11 @@ $$;
 create function pg_temp.card_archive(label text,rev bigint,archived boolean) returns jsonb language sql as $$
  select jsonb_build_object('kind','archive','id',pg_temp.booking_id(label),'revision',rev,'archived',archived);
 $$;
+create function pg_temp.card_write(spot uuid,request uuid,intent jsonb,recover boolean default false) returns jsonb language sql as $$
+ select public.booking_console_guest_write_v1(spot,request,intent,auth.uid(),recover);
+$$;
 select pg_temp.booking_assert(not has_function_privilege('anon','public.booking_console_guests_v1(uuid,text,boolean,timestamptz,uuid)','execute'),'anonymous directory grant');
-select pg_temp.booking_assert(not has_function_privilege('service_role','public.booking_console_guest_write_v1(uuid,uuid,jsonb,boolean)','execute'),'worker directory grant');
+select pg_temp.booking_assert(not has_function_privilege('service_role','public.booking_console_guest_write_v1(uuid,uuid,jsonb,uuid,boolean)','execute'),'worker directory grant');
 do $$ declare t text; begin
  foreach t in array array['guest_cards_v1','guest_card_requests_v1','guest_card_events_v1'] loop
   perform pg_temp.booking_assert((select relrowsecurity from pg_class where oid=('booking_private.'||t)::regclass),'missing guest RLS');
@@ -46,22 +49,23 @@ select public.booking_console_save_setup_v1(pg_temp.booking_id('spot-a'),0,pg_te
 select public.booking_console_save_setup_v1(pg_temp.booking_id('spot-b'),0,pg_temp.booking_setup('b'));
 select pg_temp.booking_assert(public.booking_console_read_v1(pg_temp.booking_id('spot-a'),current_date)#>>'{capabilities,guest_cards}'='true','directory capability absent');
 do $$ declare first_result jsonb; result jsonb; details jsonb; begin
- perform pg_temp.booking_assert(public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'),true) is null,'empty recovery mutated');
- first_result:=public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'));
+ begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('actor-mismatch'),pg_temp.card_intent('wrong-actor-card'),pg_temp.booking_id('booking-other')); raise exception 'expected actor ignored'; exception when insufficient_privilege then null; end;
+ perform pg_temp.booking_assert(pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'),true) is null,'empty recovery mutated');
+ first_result:=pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'));
  perform pg_temp.booking_assert(first_result->>'id'=pg_temp.booking_id('guest')::text and first_result->>'revision'='0','create outcome');
- perform pg_temp.booking_assert(public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'))=first_result,'create replay');
- result:=public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('edit'),pg_temp.card_intent('guest',0,'Corrected Guest','corrected@booking.invalid'));
+ perform pg_temp.booking_assert(pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'))=first_result,'create replay');
+ result:=pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('edit'),pg_temp.card_intent('guest',0,'Corrected Guest','corrected@booking.invalid'));
  perform pg_temp.booking_assert(result->>'revision'='1','edit CAS');
- perform pg_temp.booking_assert(public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'),true)=first_result,'recovery replaced original outcome');
+ perform pg_temp.booking_assert(pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'),true)=first_result,'recovery replaced original outcome');
  details:=public.booking_console_guest_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('guest'));
  perform pg_temp.booking_assert(details#>>'{guest,name}'='Corrected Guest' and jsonb_array_length(details->'events')=2,'canonical read/audit count');
  perform pg_temp.booking_assert(not (details->'guest') ? 'owner_id' and (details->'events')::text not like '%corrected@booking.invalid%','directory overexposure');
- begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest',null,'Other')); raise exception 'nonce reused with new intent'; exception when invalid_parameter_value then null; end;
- begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('stale'),pg_temp.card_intent('guest',0,'Stale')); raise exception 'stale edit'; exception when serialization_failure then null; end;
- begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('recreate'),pg_temp.card_intent('guest')); raise exception 'existing ID recreated'; exception when serialization_failure then null; end;
- result:=public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('noop'),pg_temp.card_intent('guest',1,'Corrected Guest','corrected@booking.invalid'));
+ begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest',null,'Other')); raise exception 'nonce reused with new intent'; exception when invalid_parameter_value then null; end;
+ begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('stale'),pg_temp.card_intent('guest',0,'Stale')); raise exception 'stale edit'; exception when serialization_failure then null; end;
+ begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('recreate'),pg_temp.card_intent('guest')); raise exception 'existing ID recreated'; exception when serialization_failure then null; end;
+ result:=pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('noop'),pg_temp.card_intent('guest',1,'Corrected Guest','corrected@booking.invalid'));
  perform pg_temp.booking_assert(result->>'revision'='1' and jsonb_array_length(public.booking_console_guest_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('guest'))->'events')=2,'no-op generated changes');
- perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('duplicate'),pg_temp.card_intent('duplicate',null,'Corrected Guest','corrected@booking.invalid'));
+ perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('duplicate'),pg_temp.card_intent('duplicate',null,'Corrected Guest','corrected@booking.invalid'));
  perform pg_temp.booking_assert(jsonb_array_length(public.booking_console_guests_v1(pg_temp.booking_id('spot-a'),'CORRECTED@booking.invalid')->'guests')=2,'contacts implicitly merged or case lookup failed');
  perform pg_temp.booking_assert(jsonb_array_length(public.booking_console_guests_v1(pg_temp.booking_id('spot-a'),'4161123')->'guests')=2,'phone normalization');
  perform pg_temp.booking_assert(jsonb_array_length(public.booking_console_guests_v1(pg_temp.booking_id('spot-a'),'%__')->'guests')=0,'wildcard search');
@@ -77,24 +81,24 @@ set local role authenticated;
 select pg_temp.booking_actor('booking-viewer');
 select pg_temp.booking_assert(jsonb_array_length(public.booking_console_guests_v1(pg_temp.booking_id('spot-a'))->'guests')=2,'viewer directory denied');
 do $$ begin
- begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('viewer-write'),pg_temp.card_intent('viewer')); raise exception 'viewer wrote'; exception when insufficient_privilege then null; end;
+ begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('viewer-write'),pg_temp.card_intent('viewer')); raise exception 'viewer wrote'; exception when insufficient_privilege then null; end;
  begin perform count(*) from booking_private.guest_cards_v1; raise exception 'viewer direct read'; exception when insufficient_privilege then null; end;
 end $$;
 select pg_temp.booking_actor('booking-host');
-select public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('host-edit'),pg_temp.card_intent('guest',1,'Host Corrected','corrected@booking.invalid'));
+select pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('host-edit'),pg_temp.card_intent('guest',1,'Host Corrected','corrected@booking.invalid'));
 do $$ begin
- begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('host-archive'),pg_temp.card_archive('guest',2,true)); raise exception 'host archived'; exception when insufficient_privilege then null; end;
+ begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('host-archive'),pg_temp.card_archive('guest',2,true)); raise exception 'host archived'; exception when insufficient_privilege then null; end;
 end $$;
 select pg_temp.booking_actor('booking-manager');
-select public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('archive'),pg_temp.card_archive('guest',2,true));
+select pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('archive'),pg_temp.card_archive('guest',2,true));
 select pg_temp.booking_assert(jsonb_array_length(public.booking_console_guests_v1(pg_temp.booking_id('spot-a'),'',true)->'guests')=1,'manager archive directory');
 select pg_temp.booking_actor('booking-host');
 do $$ begin
  begin perform public.booking_console_guest_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('guest')); raise exception 'host read archived contact'; exception when invalid_parameter_value then null; end;
- begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('archived-save'),pg_temp.card_intent('guest',3,'Wrong')); raise exception 'edit archived'; exception when invalid_parameter_value then null; end;
+ begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('archived-save'),pg_temp.card_intent('guest',3,'Wrong')); raise exception 'edit archived'; exception when invalid_parameter_value then null; end;
 end $$;
 select pg_temp.booking_actor('booking-manager');
-select public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('restore'),pg_temp.card_archive('guest',3,false));
+select pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('restore'),pg_temp.card_archive('guest',3,false));
 select pg_temp.booking_actor('booking-other');
 do $$ begin
  begin perform public.booking_console_guests_v1(pg_temp.booking_id('spot-a')); raise exception 'outsider read'; exception when insufficient_privilege then null; end;
@@ -115,7 +119,7 @@ do $$ declare a jsonb; b jsonb; invalid jsonb; begin
   pg_temp.card_intent('bad')||'{"revision":0.5}'::jsonb,pg_temp.card_intent('bad')||'{"phone":123}'::jsonb,
   pg_temp.card_intent('bad')||'{"revision":9007199254740992}'::jsonb
  ] loop
-  begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('bad'),invalid); raise exception 'invalid card intent accepted'; exception when invalid_parameter_value then null; end;
+  begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('bad'),invalid); raise exception 'invalid card intent accepted'; exception when invalid_parameter_value then null; end;
  end loop;
 end $$;
 reset role;
@@ -131,7 +135,7 @@ update public.booking_team_members set revoked_at=now() where user_id=pg_temp.bo
 set local role authenticated;
 select pg_temp.booking_actor('booking-host');
 do $$ begin
- begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('host-edit'),pg_temp.card_intent('guest',1,'Host Corrected','corrected@booking.invalid'),true); raise exception 'revoked replay'; exception when insufficient_privilege then null; end;
+ begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('host-edit'),pg_temp.card_intent('guest',1,'Host Corrected','corrected@booking.invalid'),true); raise exception 'revoked replay'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 update public.spots set owner_id=pg_temp.booking_id('booking-other') where id=pg_temp.booking_id('spot-a');
@@ -140,9 +144,9 @@ select pg_temp.booking_actor('booking-other');
 select pg_temp.booking_assert(jsonb_array_length(public.booking_console_guests_v1(pg_temp.booking_id('spot-a'))->'guests')=0,'new controller inherited former guest directory');
 do $$ begin
  begin perform public.booking_console_guest_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('guest')); raise exception 'new controller read former card'; exception when invalid_parameter_value then null; end;
- begin perform public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'),true); raise exception 'new controller recovered former outcome'; exception when invalid_parameter_value then null; end;
+ begin perform pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('create'),pg_temp.card_intent('guest'),true); raise exception 'new controller recovered former outcome'; exception when invalid_parameter_value then null; end;
 end $$;
-select public.booking_console_guest_write_v1(pg_temp.booking_id('spot-a'),pg_temp.booking_id('new-owner-create'),pg_temp.card_intent('new-owner-guest'));
+select pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('new-owner-create'),pg_temp.card_intent('new-owner-guest'));
 reset role;
 select pg_temp.booking_assert((select count(*)=0 from public.booking_reservations),'guest directory mutated booking inventory');
 rollback;
