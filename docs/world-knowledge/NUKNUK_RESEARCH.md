@@ -927,7 +927,12 @@ are excluded. The text window now covers up to 20 PDF pages; the inspected
 development evidence, not a blind release pass. Individual prices remain
 unverified until page layout is reviewed. A fresh Admin export and independent
 spot cohort remain required before unattended research can be enabled.
-The v3.46 runtime typecheck and all 421 tests pass.
+The full 13-page extraction also exposed wine-list rows that looked like
+ordinary priced offers. v3.47 identifies wine sections as contextual inventory
+and resumes item candidates at the subsequent hot-drinks rows. In the saved
+PDF, the strict row inventory has 39 food/drink candidates, including coffee,
+and no wine-list entries. This inventory still needs visual layout review.
+The v3.47 runtime typecheck and all 421 tests pass.
 
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime

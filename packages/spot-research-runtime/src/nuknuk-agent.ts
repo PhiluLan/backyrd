@@ -14,7 +14,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.46';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.47';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -1239,6 +1239,10 @@ export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:
       for(const match of source.text.matchAll(/[^\n\f]+/gu)){
         const row=match[0].trim(),offset=match.index!+match[0].indexOf(row);
         if(!row)continue;
+        if(row.length<80&&/^(?:SCHAUMWEINE|WEISSWEINE|WEIßWEINE|ROTWEINE|ROS[EÉ]WEINE|SCHAUM\s*,\s*ROS[EÉ]\s*,\s*WEISS\s*&\s*ROT|WEISS\s+\d.*FLASCHE|WEIß\s+\d.*FLASCHE|WINE LIST|WINES|VINS)\b/iu.test(row)){
+          section='WINE_LIST';kind='DRINKS';continue;
+        }
+        if(section==='WINE_LIST'&&/^(?:Espresso|Doppelter Espresso|Kaffee|Cappuccino|Latte Macchiato|Tee)\s+\d{1,3}(?:[.,]\d{1,2})?$/iu.test(row))section='HOT_DRINKS';
         if(row.length<65&&/(?:^|\b)(?:cocktails?|longdrinks?|aperitifs?|spritze|alkoholfreie drinks?|non.alcoholic drinks?|soft drinks?|weiss|weiß|rotwein|red wine|white wine|ros[eé]|bier|beer|champagner|champagne)(?:\b|$)/iu.test(row)){
           section=row.toLocaleUpperCase();kind='DRINKS';continue;
         }
@@ -1248,7 +1252,7 @@ export function structuredMenuLeads(sources:ResearchSource[]):{name:string;kind:
         const priced=row.match(/^(.{4,100}?)\s+(?:[—–-]\s*)?(\d{1,3}(?:[.,]\d{1,2})?)$/u);
         if(!priced)continue;
         const name=priced[1].trim().replace(/[—–-]\s*$/u,'').trim();
-        if(name.length<4||name.length>100||generic.test(name)||/\d|[+/]/u.test(name)||/^(?:mit|with|serviert|served)\b/iu.test(name)||/\b(?:CHF|EUR|FLASCHE)\b/iu.test(name)||/^(?:WEISS|WEIß|ROTWEIN|RED WINE|WHITE WINE|ROS[EÉ]|BIER|BEER|CHAMPAGNER|CHAMPAGNE)\b/iu.test(section))continue;
+        if(name.length<4||name.length>100||generic.test(name)||/\d|[+/]/u.test(name)||/^(?:mit|with|serviert|served)\b/iu.test(name)||/\b(?:CHF|EUR|FLASCHE)\b/iu.test(name)||section==='WINE_LIST'||/^(?:WEISS|WEIß|ROTWEIN|RED WINE|WHITE WINE|ROS[EÉ]|BIER|BEER|CHAMPAGNER|CHAMPAGNE)\b/iu.test(section))continue;
         const key=kind+':'+name.normalize('NFKC').toLocaleLowerCase();if(seen.has(key))continue;seen.add(key);
         leads.push({name,kind,section,citation:{url:source.url,evidence:row,observedAt:source.observedAt,sourceHash:source.hash,sourceOffset:offset,layoutReviewRequired:true,sourceFormat:'PDF_TEXT',discoveredOn:source.discoveredOn}});
       }

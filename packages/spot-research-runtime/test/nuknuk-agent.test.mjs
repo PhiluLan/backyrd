@@ -33,10 +33,10 @@ test('official heading-paired menu names become price-free review leads with foo
  assert.ok(result.citations.every(citation=>citation.layoutReviewRequired&&citation.sourceFormat==='HTML_MENU'&&citation.evidence.includes('CHF')));
 });
 test('observed official PDF rows replace generic website food claims with cited review leads',()=>{
- const text='Bunt belegte Brote\nRÖSTI, PILZE, SCHNITTLAUCHMAYO 9.30\nRösti with mushrooms\nRANDE, APFEL, BAUMNÜSSE — 8.80\nEintopf 16 + Wienerli 4\nVegetable stew with Sausage + 4\nCocktails\nEspresso Martini 16\nWhiskey Sour 17\nmit Tonic & Soda 11\nWEISS 1DL / FLASCHE 7.5DL\nSauvignon Blanc 8.70 / 60';
+ const text='Bunt belegte Brote\nRÖSTI, PILZE, SCHNITTLAUCHMAYO 9.30\nRösti with mushrooms\nRANDE, APFEL, BAUMNÜSSE — 8.80\nEintopf 16 + Wienerli 4\nVegetable stew with Sausage + 4\nCocktails\nEspresso Martini 16\nWhiskey Sour 17\nmit Tonic & Soda 11\nWEISS 1DL / FLASCHE 7.5DL\nSauvignon Blanc 8.70 / 60\nSCHAUM, ROSÉ, WEISS & ROT\nWEISSWEINE\nIsteiner Gutedel 61\nEspresso 4';
  const pdf={...source(text),url:'https://files.example.net/menu.pdf',format:'PDF_TEXT',layoutReviewRequired:true,discoveredOn:'https://example.org/das-angebot'};
  const leads=structuredMenuLeads([pdf]);
- assert.deepEqual(leads.map(lead=>[lead.name,lead.kind]),[['RÖSTI, PILZE, SCHNITTLAUCHMAYO','GASTRONOMY'],['RANDE, APFEL, BAUMNÜSSE','GASTRONOMY'],['Espresso Martini','DRINKS'],['Whiskey Sour','DRINKS']]);
+ assert.deepEqual(leads.map(lead=>[lead.name,lead.kind]),[['RÖSTI, PILZE, SCHNITTLAUCHMAYO','GASTRONOMY'],['RANDE, APFEL, BAUMNÜSSE','GASTRONOMY'],['Espresso Martini','DRINKS'],['Whiskey Sour','DRINKS'],['Espresso','DRINKS']]);
  assert.ok(leads.every(lead=>lead.citation.sourceFormat==='PDF_TEXT'&&lead.citation.discoveredOn==='https://example.org/das-angebot'&&lead.citation.layoutReviewRequired));
  const generic={id:'offer_generic',kind:'GASTRONOMY',name:'Craft Beer',areaIds:[],properties:[],prices:[],schedule:[],validFrom:null,validUntil:null};
  const result=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'REQUIRES_REVIEW',value:{contractVersion:'backyrd.world-knowledge.experience-profile@1.0',category:'EAT',properties:[],areas:[],offers:[generic],reviewed:false},citations:[]},{...field('experience.profile'),profileCategory:'EAT'},[pdf]);
