@@ -33,3 +33,34 @@ Supabase PostgreSQL owns shared product state and cross-client invariants. `auth
 ## Canonical verification
 
 `scripts/ci/application-schema-fingerprint.sql` hashes 10,245 semantic structural and security facts across Backyrd-owned schemas. Physical column-number holes and function line endings are normalized; six exact historical comment-only deltas are certified explicitly. Executable definitions, column contracts and all security facts remain covered. `scripts/ci/public-acl-fingerprint.sql` independently certifies effective Public API grants. Both clean bootstrap and Production must equal the committed fingerprints.
+
+The additional `delivery/database-scopes/booking-private-v1.json` attestation covers the private Booking catalog and permissions, including executable helpers, immutable message guards and operation journals. It is verified by the canonical clean-boot gate without changing the historical default `public`/`decision_lab` fingerprints. It does not hash guest rows or establish restore success. See [private Booking drift](../operations/BOOKING_PRIVATE_DRIFT.md).
+
+The dependent Booking reservation-search candidate adds an authenticated restaurant-scoped read RPC and snapshot capability, without new tables or direct guest-data grants. It reuses current team/Safety authorization and bounded Zurich date ranges. See [reservation search](../operations/BOOKING_RESERVATION_SEARCH.md).
+
+The dependent guest-card candidate adds three RLS-protected private tables for
+restaurant/Owner-scoped contact cards, minimal mutation receipts and change
+metadata. Authenticated RPCs enforce current team/Safety boundaries; there are
+no direct client/service-role table grants. It adds no automatic reservation
+identity linkage. See [guest cards](../operations/BOOKING_GUEST_CARDS.md).
+
+The subsequent guest-history candidate adds private `reservation_guests_v1`,
+`reservation_guest_requests_v1` and `reservation_guest_events_v1`. These store
+explicit, reversible staff associations with independent revisions and minimal
+original-operation/change metadata. An actor-bound v3 wrapper retains the
+canonical v2 allocator and commits booking plus optional association atomically;
+older clients retain their contracts. All direct client/worker table grants are
+revoked. Current Owner/team/Safety checks, archive redaction and scoped paginated
+reads apply; matching contact values never infer identity. See
+[guest cards and reservation history](../operations/BOOKING_GUEST_CARDS.md).
+
+The service-report candidate adds the authenticated read-only
+`booking_console_report_v1` RPC and `service_reports` snapshot capability. It
+reuses current restaurant/team/Safety authorization, the restaurant read lock and
+public booking facts. It adds no tables, data backfill or new raw grants. A
+single bounded query reconciles totals/days/services/sources without joining
+allocation membership or selecting guest/card/contact/note fields. The existing
+private scope retains its semantic fingerprint with newly bound migration inputs;
+the public schema/ACL evidence covers the new read RPC.
+
+The dependent migration-215 arrival-pacing foundation adds private restaurant policy and actor-bound operation receipts, with RLS and raw client/worker grants revoked. Current team/Safety-scoped policy RPCs and a parent-reservation trigger enforce one restaurant-wide fixed-window guest cap across existing operator and public allocation paths. The subsequent migration-216 candidate advertises the `arrival_limits` snapshot capability for a scoped Owner/Manager Console editor; the existing policy and original-intent RPCs remain authoritative. See [arrival limits](../operations/BOOKING_ARRIVAL_LIMITS.md).
