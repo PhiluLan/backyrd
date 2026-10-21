@@ -1270,3 +1270,95 @@ production migration/recovery authorization remains separate. No real Auth user,
 guest record or production schema was changed. No Web runtime changed in 204;
 the preceding 111 client journeys/build are unchanged-runtime evidence, not new
 public-checkout acceptance.
+
+
+## Scoped service reports candidate
+
+Migration `20261021070852_booking_service_reports_v1.sql` adds the optional
+`service_reports` capability and authenticated `booking_console_report_v1`.
+The Console shows **Auswertungen** only on capable backends with saved setup.
+Viewer, Host, Manager and Owner may read the same scoped operating facts they
+can inspect in the reservation book; anonymous, worker, outsider and revoked
+access are rejected. Current Owner/actor Safety and the restaurant read lock
+remain authoritative. No service-role credentials or guest fields enter this
+report or its download flow.
+
+Scope is one restaurant, an optional configured service (including inactive
+historical services) and 1–31 inclusive calendar days. Selection applies to the
+reservation's current saved start instant in **Europe/Zurich**, using half-open
+UTC boundaries. A 23-/25-hour day is still one calendar day. Overnight bookings
+belong to their start date. These are current saved facts: a later amendment,
+move or status change can change the result for an earlier period. Service names
+and active flags reflect current configuration. These are not immutable
+historical as-of snapshots. Guest/status/room/time filters in the underlying
+workspace do not constrain the report; its scope is shown explicitly and closing
+it preserves the original workspace filters and keyboard focus.
+
+Every reservation contributes once, including a multi-table combination.
+Person totals sum the stored party sizes. All eight saved statuses remain
+separate, including pending, declined, cancelled and no-show. Sources retain
+what staff/the guest flow recorded. There is no unique-person, inferred-visit,
+occupancy, conversion, revenue or payment measure. The response includes
+reconciled totals, all selected dates (including zeros), participating/explicitly
+selected services and all five sources. All dimensions derive from one
+materialized fact set within a single query; the payload contains no guest
+names, contacts, notes or card identities. Configured service names are retained
+as text, so this is an authorized operational aggregate, not a promise of
+anonymous data. More than 1,000 service rows fails explicitly rather than
+truncating the totals. The existing spot/start index supports the bounded date
+access; no unmeasured new index or performance claim is introduced.
+
+The dialog defaults to seven days ending on the selected workspace date and
+its selected service, loading that initial scope automatically. The period/service
+form is collapsed by default so the loaded numbers lead on a phone. Current
+period/service, observation time, CSV and refresh remain visible beside results.
+Opening filters preserves the loaded view until an input changes; submitting
+closes the filter form and returns keyboard focus to the new result heading.
+Count/export explanations use an optional disclosure. Presets choose 7/30 days through today. Editing a scope
+clears old results and aborts pending reads immediately; the operator explicitly
+loads the new selection. Missing/invalid/reversed/oversize periods cannot be
+submitted. Loading, failed reads, valid zero results and offline are distinct.
+The Web parser binds the returned venue and exact period/service, requires all
+dates/statuses/sources, and reconciles both reservation and person counts across
+every dimension. Invalid replies never become a zero report or an export.
+
+**CSV herunterladen** exports the reviewed loaded result only. It includes
+period, server observation time, status/day/service/source totals and service
+labels. It retains no report in browser storage and sends no message. Export is
+unavailable after scope change, offline, pending reload, role/context removal or
+an invalid result. The UTF-8/BOM semicolon CSV quotes cells, escapes quotes and
+neutralizes spreadsheet formula/control prefixes in configurable labels. File
+names contain bounded dates only. The saved file is controlled by the operator;
+permission loss cannot retract a previously downloaded file.
+
+Network responses are cancellable and bound to the current request and
+account/entry. Permission-only polling continues while the dialog is open.
+Account changes, logout and revoked access clear the private view. A late result
+or denial from an old request/closed dialog cannot overwrite a new booking draft.
+Reconnect discards stale data and reads a current report before allowing export.
+The 31-day range, role/Safety, cross-venue/service isolation, UTC boundaries,
+inactive services, zero periods and real two-table parent counting have actual
+SQL coverage. Four additional two-connection cases cover report-before-create,
+create-before-report, revoke-before-read and read-before-revoke. The final
+canonical gate passed all 31 Booking SQL suites, baseline/races, 20 private-drift
+cases, lineage, schema/ACL and DB lint. Its fresh receipt is
+`9cc0c120e22f38a4e3f2e9be2157411bb957d055cf642f743c5deb04d1f89c25`.
+Actual PostgreSQL report JSON passed the Web parser and CSV builder. Eight added
+contract cases cover reconciliation, DST/calendar bounds, redaction/minimization,
+filtered inactive services, zero reports, impossible counts, RPC scope and CSV
+formula/quote/control safety.
+All 146 Web contract cases and all 252 Booking browser cases passed. The 17
+new browser journeys cover scope invalidation/range limits, inactive and empty
+services, current statuses, actual downloaded CSV bytes, formula-label safety,
+Viewer reads, failures/retry, endpoint denial, late scope/closed-dialog replies,
+offline/reconnect, workspace/focus preservation, presets, logout, revocation and
+late data/denial after account change. The 320-pixel phone path passes automated
+accessibility and no-document-overflow checks. Type checking and the supported
+Webpack production build passed; lint has zero errors and 13 existing warnings.
+These are local synthetic acceptance results, not a physical-device/service trial.
+
+This is a dependent candidate after guest reservation history. Production
+migration/activation, actual restaurant/device and file-download acceptance,
+advanced capacity/quotas, historical as-of/comparison reports and the broader
+operational activity view remain separate work. No payment integration, guest
+sender, discovery/ranking signal or commercial entitlement changes.

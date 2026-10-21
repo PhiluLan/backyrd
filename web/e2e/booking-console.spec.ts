@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean; search?: boolean; guestCards?: boolean; guestCardUncertain?: boolean; guestCardMalformed?: boolean; guestCardConflict?: boolean; guestCardRecoverError?: boolean; guestCardPaged?: boolean; guestHistory?: boolean; guestHistoryLinked?: boolean; guestHistoryUncertain?: boolean; guestHistoryMalformed?: boolean; guestHistoryConflict?: boolean; guestHistoryRecoverError?: boolean; guestHistoryPaged?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean; search?: boolean; guestCards?: boolean; guestCardUncertain?: boolean; guestCardMalformed?: boolean; guestCardConflict?: boolean; guestCardRecoverError?: boolean; guestCardPaged?: boolean; guestHistory?: boolean; guestHistoryLinked?: boolean; guestHistoryUncertain?: boolean; guestHistoryMalformed?: boolean; guestHistoryConflict?: boolean; guestHistoryRecoverError?: boolean; guestHistoryPaged?: boolean; reports?: boolean; reportFormulaService?: boolean; reportInactiveService?: boolean } = {}) {
   if (options.guestHistory) options = { ...options, guestCards: true, combinations: true };
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
@@ -493,6 +493,10 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   }
   if (options.guestCards) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_cards: true };
   if (options.guestHistory) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_history: true };
+  if(options.reports) snapshot.capabilities={...snapshot.capabilities,service_lifecycle:!!snapshot.capabilities?.service_lifecycle,service_reports:true};
+  if(options.reportFormulaService)snapshot.services=snapshot.services.map(s=>s.id===dinner?{...s,name:'=SUM(1;2) "quoted"'}:s);
+  if(options.reportInactiveService)snapshot.services=snapshot.services.map(s=>s.id===dinner?{...s,is_active:false}:s);
+  const reportRequests: Record<string,unknown>[]=[];
   const guestCardId = "56000000-0000-4000-8000-000000000001";
   const guestCards: BookingGuestCard[] = [{ id: guestCardId, name: "Kartengast Beispiel", email: "karte@booking.invalid", phone: "+41 61 000 00 00", revision: 0, is_archived: false, created_at: "2026-10-20T10:00:00.000000Z", updated_at: "2026-10-20T11:00:00.000000Z" }];
   if (options.guestCardPaged) for (let n = 2; n <= 30; n++) guestCards.push({ ...guestCards[0], id: `56000000-0000-4000-8000-${String(n).padStart(12, "0")}` });
@@ -612,6 +616,17 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       return route.fulfill({ json: { spot_id: spot, spot_name: "Restaurant Testbetrieb", role: "host", expires_at: "2026-10-27T12:00:00Z", accepted: joined } });
     }
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
+    if(method==="booking_console_report_v1"){
+      reportRequests.push(body);
+      if(teamRevoked)return route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});
+      const statuses=["pending","confirmed","arrived","seated","completed","cancelled","declined","no_show"] as const,sources=["phone","email","walk_in","operator","website"] as const;
+      const localDate=(instant:string)=>new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Zurich",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(instant));
+      const rows=snapshot.reservations.filter(r=>localDate(r.starts_at)>=body.p_from&&localDate(r.starts_at)<=body.p_to&&(!body.p_service_id||r.service_id===body.p_service_id));
+      const counts=(values:typeof rows)=>({reservations:values.length,guests:values.reduce((n,r)=>n+r.party_size,0),statuses:statuses.map(status=>{const matched=values.filter(r=>r.status===status);return {status,reservations:matched.length,guests:matched.reduce((n,r)=>n+r.party_size,0)};})});
+      const dates=Array.from({length:Math.round((Date.parse(body.p_to+"T12:00:00Z")-Date.parse(body.p_from+"T12:00:00Z"))/86400000)+1},(_,n)=>new Date(Date.parse(body.p_from+"T12:00:00Z")+n*86400000).toISOString().slice(0,10));
+      const serviceRows=snapshot.services.filter(s=>s.id===body.p_service_id||rows.some(r=>r.service_id===s.id));
+      return route.fulfill({json:{spot_id:spot,scope:{from_date:body.p_from,to_date:body.p_to,service_id:body.p_service_id},observed_at:"2026-10-20T12:00:00.123456Z",totals:counts(rows),days:dates.map(date=>({date,...counts(rows.filter(r=>localDate(r.starts_at)===date))})),services:serviceRows.map(s=>({id:s.id,name:s.name,is_active:s.is_active,...counts(rows.filter(r=>r.service_id===s.id))})),sources:sources.map(source=>{const values=rows.filter(r=>r.source===source);return {source,reservations:values.length,guests:values.reduce((n,r)=>n+r.party_size,0)};})}});
+    }
     if (["booking_console_reservation_guest_v1","booking_console_reservation_guest_write_v1","booking_console_guest_reservations_v1"].includes(method ?? "")) {
       if (teamRevoked) return route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});
       if (method === "booking_console_guest_reservations_v1") {
@@ -923,7 +938,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { associationRequests: () => associationRequests, associations: () => associations, guestCardRequests: () => guestCardRequests, guestCards: () => guestCards, searchRequests: () => searchRequests, transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { reportRequests: () => reportRequests, associationRequests: () => associationRequests, associations: () => associations, guestCardRequests: () => guestCardRequests, guestCards: () => guestCards, searchRequests: () => searchRequests, transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -3860,4 +3875,136 @@ test("guest history uncertain atomic create replays its original card selection 
   fixture.guestCards()[0].revision=1;fixture.guestCards()[0].name="Zwischenzeitlich korrigiert";
   await editor.getByRole("button",{name:"Reservierung speichern",exact:true}).click();await expect(editor).toHaveCount(0);
   expect(fixture.combinedWrites()).toHaveLength(2);expect(fixture.combinedWrites()[1]).toEqual(fixture.combinedWrites()[0]);expect(fixture.associations().size).toBe(1);
+});
+
+async function openServiceReport(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button",{name:"Auswertungen",exact:true}).click();
+  return page.getByRole("dialog",{name:"Auswertungen",exact:true});
+}
+
+test("service report phone shows reconciled scoped totals and saved statuses without guest fields",async({page})=>{
+  await page.setViewportSize({width:320,height:820});
+  const fixture=await mockConsole(page,{seeded:true,reports:true});const report=await openServiceReport(page);
+  const result=report.getByRole("region",{name:"Geladene Auswertung",exact:true});await expect(result).toBeVisible();
+  await expect(report.getByLabel("Von",{exact:true})).toBeHidden();
+  const statuses=result.getByRole("table",{name:"Status im ausgewählten Zeitraum",exact:true});
+  await expect(statuses.getByRole("row",{name:/Storniert/}).getByRole("cell")).toHaveText(["1","3"]);
+  await expect(statuses.getByRole("row",{name:/Besuch beendet/}).getByRole("cell")).toHaveText(["0","0"]);
+  await expect(statuses.getByRole("row",{name:/Gesamt/}).getByRole("cell")).toHaveText(["4","11"]);
+  await expect(report).not.toContainText("Testgast Abend");await expect(report).not.toContainText("test@invalid");await expect(report).not.toContainText("Synthetischer Hinweis");
+  const {default:AxeBuilder}=await import("@axe-core/playwright");expect((await new AxeBuilder({page}).include('dialog[aria-label="Auswertungen"]').analyze()).violations).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);await report.screenshot({path:test.info().outputPath("service-report-phone.png")});
+  await report.getByRole("region",{name:"Tageswerte",exact:true}).locator("summary").last().click();
+  await expect(report.getByRole("table",{name:/Status am 20.*2026/})).toBeVisible();
+  expect(fixture.reportRequests()[0]).toMatchObject({p_spot_id:spot,p_from:"2026-10-14",p_to:"2026-10-20",p_service_id:null});
+  expect(fixture.combinedWrites()).toHaveLength(0);expect(fixture.statusRequests()).toHaveLength(0);
+});
+
+test("service report changing period invalidates old results and cannot request more than 31 days",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,reports:true});const report=await openServiceReport(page);
+  await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toBeVisible();
+  await report.getByText("Zeitraum und Service ändern",{exact:true}).click();
+  await report.getByLabel("Von",{exact:true}).fill("2026-09-01");
+  await expect(report.getByRole("region",{name:"Geladene Auswertung",exact:true})).toHaveCount(0);await expect(report.getByRole("button",{name:"Auswertung laden",exact:true})).toBeDisabled();expect(fixture.reportRequests()).toHaveLength(1);
+  await report.getByLabel("Von",{exact:true}).fill("2026-10-01");await report.getByLabel("Bis",{exact:true}).fill("2026-10-31");
+  await report.getByRole("button",{name:"Auswertung laden",exact:true}).click();await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toBeVisible();
+  await expect(report.getByRole("region",{name:"Tageswerte",exact:true}).locator("details")).toHaveCount(31);
+  expect(fixture.reportRequests().at(-1)).toMatchObject({p_from:"2026-10-01",p_to:"2026-10-31"});
+});
+
+test("service report supports historical inactive services and explicit empty periods",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,reports:true,reportInactiveService:true});const report=await openServiceReport(page);
+  await report.getByText("Zeitraum und Service ändern",{exact:true}).click();
+  await report.getByRole("combobox",{name:"Service im Bericht",exact:true}).selectOption(dinner);await report.getByRole("button",{name:"Auswertung laden",exact:true}).click();
+  const statuses=report.getByRole("table",{name:"Status im ausgewählten Zeitraum",exact:true});await expect(statuses.getByRole("row",{name:/Gesamt/}).getByRole("cell")).toHaveText(["3","9"]);
+  await expect(report.getByRole("region",{name:"Servicewerte",exact:true})).toContainText("(inaktiv)");
+  await report.getByText("Zeitraum und Service ändern",{exact:true}).click();
+  await report.getByLabel("Von",{exact:true}).fill("2026-10-01");await report.getByLabel("Bis",{exact:true}).fill("2026-10-02");await report.getByRole("button",{name:"Auswertung laden",exact:true}).click();
+  await expect(report).toContainText("Keine gespeicherten Reservierungen in dieser Auswahl.");await expect(statuses.getByRole("row",{name:/Gesamt/}).getByRole("cell")).toHaveText(["0","0"]);
+  expect(fixture.reportRequests().at(-1)).toMatchObject({p_service_id:dinner});
+});
+
+test("service report CSV downloads the reviewed scope and neutralizes configured formula labels",async({page})=>{
+  await mockConsole(page,{seeded:true,reports:true,reportFormulaService:true});const report=await openServiceReport(page);
+  const [download]=await Promise.all([page.waitForEvent("download"),report.getByRole("button",{name:"CSV herunterladen",exact:true}).click()]);
+  expect(download.suggestedFilename()).toBe("backyrd-booking-2026-10-14_2026-10-20.csv");
+  const {readFile}=await import("node:fs/promises");const csv=await readFile((await download.path())!,"utf8");
+  expect(csv.startsWith('\ufeff"Zeitraum von";')).toBe(true);expect(csv).toContain('"\'=SUM(1;2) ""quoted"""');expect(csv).toContain('"Storniert"');
+  expect(csv).not.toContain("Testgast");expect(csv).not.toContain("test@invalid");expect(csv).not.toContain("Synthetischer Hinweis");
+});
+
+for(const failure of ["malformed","network"] as const)test("service report failure is distinct from an empty result and retries honestly: "+failure,async({page})=>{
+  await mockConsole(page,{seeded:true,reports:true});let failed=false;
+  await page.route("**/rest/v1/rpc/booking_console_report_v1",route=>{if(!failed){failed=true;return failure==="network"?route.fulfill({status:503,json:{message:"report_unavailable"}}):route.fulfill({json:{totals:{reservations:0,guests:0}}});}return route.fallback();});
+  const report=await openServiceReport(page);await expect(report.getByRole("alert")).toBeVisible();await expect(report).not.toContainText("Keine gespeicherten Reservierungen in dieser Auswahl.");await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toHaveCount(0);
+  await report.getByRole("button",{name:"Erneut laden",exact:true}).click();await expect(report.getByRole("alert")).toHaveCount(0);await expect(report.getByRole("region",{name:"Geladene Auswertung",exact:true})).toBeVisible();
+});
+
+test("service report viewer reads and exports aggregates without reservation mutations",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,reports:true,teams:true,teamRole:"viewer"});const report=await openServiceReport(page);
+  await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toBeVisible();expect(fixture.reportRequests()).toHaveLength(1);expect(fixture.combinedWrites()).toHaveLength(0);expect(fixture.statusRequests()).toHaveLength(0);
+});
+
+test("service report permission denial removes the private workspace",async({page})=>{
+  await mockConsole(page,{seeded:true,reports:true});await page.route("**/rest/v1/rpc/booking_console_report_v1",route=>route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}}));
+  const report=await openServiceReport(page);await expect(report).toHaveCount(0);await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+});
+
+test("service report late response after changing scope cannot restore old results or export",async({page})=>{
+  await mockConsole(page,{seeded:true,reports:true});let release=()=>{},called=false,replied=false;const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/rest/v1/rpc/booking_console_report_v1",async route=>{called=true;await gate;try{await route.fallback();}catch{/* old scope was aborted */}finally{replied=true;}});
+  const report=await openServiceReport(page);await expect.poll(()=>called).toBe(true);await report.getByText("Zeitraum und Service ändern",{exact:true}).click();await report.getByLabel("Von",{exact:true}).fill("2026-10-01");release();await expect.poll(()=>replied).toBe(true);
+  await expect(report.getByRole("region",{name:"Geladene Auswertung",exact:true})).toHaveCount(0);await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toHaveCount(0);await expect(report).toContainText("Die Auswahl wurde geändert.");
+});
+
+test("service report clears old exports offline and reloads current facts after reconnect",async({page,context})=>{
+  const fixture=await mockConsole(page,{seeded:true,reports:true});const report=await openServiceReport(page);await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toBeVisible();
+  await context.setOffline(true);await expect(report).toContainText("Offline · Verbinde dich");await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toHaveCount(0);await expect(report.getByRole("region",{name:"Geladene Auswertung",exact:true})).toHaveCount(0);
+  await context.setOffline(false);await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toBeVisible();expect(fixture.reportRequests().length).toBeGreaterThanOrEqual(2);
+});
+
+test("service report preserves the workspace filters and returns keyboard focus",async({page})=>{
+  await mockConsole(page,{seeded:true,reports:true});await page.goto("/booking/console");await page.getByLabel("Gast suchen",{exact:true}).fill("Abend");
+  await page.getByRole("combobox",{name:"Service",exact:true}).selectOption(dinner);const launcher=page.getByRole("button",{name:"Auswertungen",exact:true});await launcher.click();
+  const report=page.getByRole("dialog",{name:"Auswertungen",exact:true});await report.getByText("Zeitraum und Service ändern",{exact:true}).click();await expect(report.getByRole("combobox",{name:"Service im Bericht",exact:true})).toHaveValue(dinner);await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toBeVisible();await report.getByRole("button",{name:"Schliessen",exact:true}).click();
+  await expect(launcher).toBeFocused();await expect(page.getByLabel("Gast suchen",{exact:true})).toHaveValue("Abend");await expect(page.getByRole("combobox",{name:"Service",exact:true})).toHaveValue(dinner);
+});
+
+test("service report presets only change the reviewed period until explicitly loaded",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,reports:true});const report=await openServiceReport(page);await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toBeVisible();
+  await report.getByText("Zeitraum und Service ändern",{exact:true}).click();
+  await report.getByRole("button",{name:"30 Tage bis heute",exact:true}).click();await expect(report.getByLabel("Von",{exact:true})).toHaveValue("2026-09-21");await expect(report.getByLabel("Bis",{exact:true})).toHaveValue("2026-10-20");expect(fixture.reportRequests()).toHaveLength(1);await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toHaveCount(0);
+  await report.getByRole("button",{name:"Auswertung laden",exact:true}).click();await expect(report.getByRole("region",{name:"Tageswerte",exact:true}).locator("details")).toHaveCount(30);
+});
+
+for(const denied of [false,true])test("service report late result stays with its original account: "+(denied?"denial":"data"),async({page,context})=>{
+  const fixture=await mockConsole(page,{seeded:true,reports:true});let release=()=>{},called=false,replied=false;const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/rest/v1/rpc/booking_console_report_v1",async route=>{called=true;await gate;try{if(denied)await route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});else await route.fallback();}catch{/* old account was removed */}finally{replied=true;}});
+  const report=await openServiceReport(page);await expect.poll(()=>called).toBe(true);
+  const user={...fixture.session.user,id:"58000000-0000-4000-8000-000000000099",email:"other@booking.invalid"},parts=fixture.session.access_token.split("."),claims=JSON.parse(Buffer.from(parts[1],"base64url").toString("utf8"));claims.sub=user.id;
+  const session={...fixture.session,user,access_token:parts[0]+"."+Buffer.from(JSON.stringify(claims)).toString("base64url")+".local-signature"};
+  await page.route("**/auth/v1/user",route=>route.fulfill({json:user}));await context.addCookies([{name:"sb-127-auth-token",value:"base64-"+Buffer.from(JSON.stringify(session)).toString("base64url"),domain:"127.0.0.1",path:"/"}]);
+  await page.evaluate(session=>{const c=new BroadcastChannel("sb-127-auth-token");c.postMessage({event:"SIGNED_IN",session});c.close();},session);
+  await expect(report).toHaveCount(0);await page.getByRole("button",{name:"+ Neue Reservierung",exact:true}).click();const editor=page.getByRole("dialog",{name:"Neue Reservierung",exact:true});await editor.getByLabel("Gastname",{exact:true}).fill("Neuer privater Entwurf");
+  release();await expect.poll(()=>replied).toBe(true);await expect(editor.getByLabel("Gastname",{exact:true})).toHaveValue("Neuer privater Entwurf");await expect(page.getByRole("button",{name:"CSV herunterladen",exact:true})).toHaveCount(0);
+});
+
+test("service report late result cannot restore after logout",async({page})=>{
+  await mockConsole(page,{seeded:true,reports:true});let release=()=>{},called=false;const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/rest/v1/rpc/booking_console_report_v1",async route=>{called=true;await gate;try{await route.fallback();}catch{/* logout aborted */}});
+  const report=await openServiceReport(page);await expect.poll(()=>called).toBe(true);await page.evaluate(()=>{const c=new BroadcastChannel("sb-127-auth-token");c.postMessage({event:"SIGNED_OUT",session:null});c.close();});
+  await expect(page.getByRole("link",{name:"Zur Booking Console anmelden",exact:true})).toBeVisible();release();await expect(report).toHaveCount(0);
+});
+
+test("service report is cleared by permission polling after team revocation",async({page})=>{
+  const fixture=await mockConsole(page,{seeded:true,reports:true,teams:true,teamRole:"viewer"});const report=await openServiceReport(page);await expect(report.getByRole("button",{name:"CSV herunterladen",exact:true})).toBeVisible();fixture.revokeTeam();await page.clock.runFor(30_000);
+  await expect(report).toHaveCount(0);await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+});
+
+test("service report closed reader cannot deliver a late denial into a new booking draft",async({page})=>{
+  await mockConsole(page,{seeded:true,reports:true});let release=()=>{},called=false,replied=false;const gate=new Promise<void>(resolve=>{release=resolve;});
+  await page.route("**/rest/v1/rpc/booking_console_report_v1",async route=>{called=true;await gate;try{await route.fulfill({status:403,json:{code:"42501",message:"booking_operator_required"}});}catch{/* closed report aborted */}finally{replied=true;}});
+  const report=await openServiceReport(page);await expect.poll(()=>called).toBe(true);await report.getByRole("button",{name:"Schliessen",exact:true}).click();await page.getByRole("button",{name:"+ Neue Reservierung",exact:true}).click();const editor=page.getByRole("dialog",{name:"Neue Reservierung",exact:true});await editor.getByLabel("Gastname",{exact:true}).fill("Aktueller Entwurf");
+  release();await expect.poll(()=>replied).toBe(true);await expect(editor.getByLabel("Gastname",{exact:true})).toHaveValue("Aktueller Entwurf");
 });

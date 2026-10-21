@@ -61,7 +61,7 @@ remote DB hosts, the same source/target port, and a restore target that already
 has Booking schema, Auth users or Storage buckets/objects. The environment flag
 is an operator guard, not permission for a real recovery operation.
 
-1. Build the candidate using `validate-supabase-current.sh`, selecting all 29
+1. Build the candidate using `validate-supabase-current.sh`, selecting all current
    Booking SQL suites and keeping that disposable source for the drill. Use the
    canonical pinned database runtime, not the developer's normal checkout.
 2. Start a second empty local Supabase project with unique project id and ports,
@@ -111,7 +111,7 @@ is an operator guard, not permission for a real recovery operation.
    audit duplicate. Actual SQL claim must return no message. **Keep all apps,
    intake and workers paused**: parking old rows alone does not prevent new
    requests, reconstruct lost post-backup writes or reconcile external delivery.
-9. Run all 29 Booking SQL suites and private-scope verification against the
+9. Run all current Booking SQL suites and private-scope verification against the
    restored target, then the existing review-media authorization suite. Keep the
    synthetic fixture emails namespaced to avoid collisions with suite fixtures.
    The harness writes a private `restore-evidence.json` after successful

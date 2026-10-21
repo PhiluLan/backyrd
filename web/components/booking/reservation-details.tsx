@@ -13,8 +13,7 @@ import { EditReservation } from "./edit-reservation";
 import styles from "./console.module.css";
 
 export { statusLabels } from "./reservation-labels";
-import { statusLabels } from "./reservation-labels";
-const sources = { phone: "Telefon", email: "E-Mail", walk_in: "Vor Ort", operator: "Betreiber", website: "Online-Buchung" };
+import { statusLabels, sourceLabels as sources } from "./reservation-labels";
 
 export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, onDenied, onSaved, onAmended, onReload, onTransferred, onBusy, onUncertain, actorId, online, isCurrent }:  {
   actorId: string; online: boolean; isCurrent: () => boolean;

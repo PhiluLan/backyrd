@@ -53,3 +53,12 @@ older clients retain their contracts. All direct client/worker table grants are
 revoked. Current Owner/team/Safety checks, archive redaction and scoped paginated
 reads apply; matching contact values never infer identity. See
 [guest cards and reservation history](../operations/BOOKING_GUEST_CARDS.md).
+
+The service-report candidate adds the authenticated read-only
+`booking_console_report_v1` RPC and `service_reports` snapshot capability. It
+reuses current restaurant/team/Safety authorization, the restaurant read lock and
+public booking facts. It adds no tables, data backfill or new raw grants. A
+single bounded query reconciles totals/days/services/sources without joining
+allocation membership or selecting guest/card/contact/note fields. The existing
+private scope retains its semantic fingerprint with newly bound migration inputs;
+the public schema/ACL evidence covers the new read RPC.
