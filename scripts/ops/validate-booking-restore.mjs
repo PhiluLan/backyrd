@@ -13,7 +13,9 @@ for(const db of [source,target])if(!['127.0.0.1','localhost','[::1]'].includes(n
 if(source===target||new URL(source).port===new URL(target).port)throw Error('independent_restore_target_required');
 const admin=db=>{const u=new URL(db);u.username='supabase_admin';return u.href;};
 function sql(db,body,label='sql',extra=[]) {
- try{return execFileSync('psql',['--dbname',db,'-X','--quiet','--tuples-only','--no-align','--set','ON_ERROR_STOP=1',...extra],{encoding:'utf8',input:body,env:{...process.env,PGCONNECT_TIMEOUT:'10',PGOPTIONS:'-c backyrd.booking_restore_fixture=isolated'},stdio:['pipe','pipe','pipe'],timeout:120000}).trim();}
+ const connection=new URL(db);
+ const connectionEnv={PGHOST:connection.hostname,PGPORT:connection.port||'5432',PGUSER:decodeURIComponent(connection.username),PGPASSWORD:decodeURIComponent(connection.password),PGDATABASE:decodeURIComponent(connection.pathname.slice(1)),PGSSLMODE:connection.searchParams.get('sslmode')||'prefer',PGSERVICE:undefined,PGSERVICEFILE:undefined};
+ try{return execFileSync('psql',['-X','--quiet','--tuples-only','--no-align','--set','ON_ERROR_STOP=1',...extra],{encoding:'utf8',input:body,env:{...process.env,...connectionEnv,PGCONNECT_TIMEOUT:'10',PGOPTIONS:'-c backyrd.booking_restore_fixture=isolated'},stdio:['pipe','pipe','pipe'],timeout:120000}).trim();}
  catch(error){writeFileSync(resolve(artifacts,`${label}-error.log`),error.stderr??'execution failed',{mode:0o600});throw Error(`isolated_restore_phase_failed:${label}`);}
 }
 const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
@@ -37,7 +39,11 @@ function controls(db) {
 }
 function outcome(db){return JSON.parse(sql(db,`select public.booking_mail_summary_recover_v1(${id('owner')},${id('spot')},(select reservation_id from booking_private.reservation_requests_v2 where request_id=${id('summary-op')}),${id('summary-op')},0,'restore-recipient@booking.invalid');`,'manual-recovery'));}
 const mode=process.argv[2];
-if(mode==='prepare') {
+if(mode==='seed') {
+ assert.equal(sql(source,'select count(*) from public.booking_restaurant_settings;','empty-synthetic-source'),'0');
+ sql(source,readFileSync(resolve(root,'scripts/ops/fixtures/booking-restore.sql'),'utf8'),'synthetic-corpus-seed');
+ console.log('Namespaced synthetic restore corpus seeded in the disposable source.');
+} else if(mode==='prepare') {
  sql(admin(source),'select cron.unschedule(jobid) from cron.job;','disable-local-source-cron');
  const lease=randomUUID(),claim=mail.parseMailClaim(JSON.parse(sql(source,`select public.booking_mail_claim_v1('${lease}');`,'prepare-claim')),lease);
  assert.equal(claim.snapshot.messageMode,'manual_summary');
