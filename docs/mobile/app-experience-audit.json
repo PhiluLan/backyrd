@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
-  "date": "2026-10-20",
+  "date": "2026-10-21",
   "scope": "Consumer-App und zugehörige öffentliche Datenwege; Decision-Logik ausgeschlossen",
-  "status": "app-improvements-merged-further-reliability-validation-publication-pending",
+  "status": "native-acceptance-and-production-release-validation",
   "method": [
     "Aktive Routen, zentrale Komponenten und Datenwege im Code nachvollzogen",
     "Bestehende Domain-/Medien-/Deep-Link-Verträge genutzt und gezielt ergänzt",
     "Exportierte App im Browser mit synthetischen, isolierten Antworten bedient",
-    "Keine Produktionsbewertungen, Chats, Profiländerungen oder Löschungen als Test erzeugt"
+    "Keine Produktionsbewertungen, Chats, Profiländerungen oder Löschungen als Test erzeugt",
+    "Aktuelle App-Quellen in separater nativer Testkopie mit ausschliesslich synthetischem Transport auf iPhone SE 375pt und iPhone 16 Pro Max 440pt / iOS 18.3 bedient; kleines Gerät mit maximaler Systemschrift."
   ],
   "capabilities": [
     {
@@ -242,13 +243,20 @@
       "description": "Laufende Text- und Bildsendungen behalten einen getrennten Entwurfsstand. Fehler und erfolgreiche Antworten überschreiben keine neu bearbeiteten Texte; synchrone Sperre verhindert parallelen Versand. Fehlgeschlagenes Laden zeigt Retry statt eines leeren Chats. Kamera/Bildaktionen haben beschriftete 44-Punkt-Ziele; funktionslose Sprachaufnahme entfernt.",
       "source": "mobile/app/messages/[id].tsx",
       "validation": "Hook-Grenzfälle; exportierter App-Test mit verzögerter Antwort, HTTP 503, neuer Eingabe und idempotentem Text-Retry."
+    },
+    {
+      "priority": "P1",
+      "title": "Langer Name bei maximaler Systemschrift",
+      "description": "Die Header-Aktionen erhalten bei vergrösserter Systemschrift eine eigene Zeile. Der Begrüssung bleibt die volle Breite; der Vorname bricht auf dem kleinen iPhone nicht mehr mitten im Wort um. Standardansicht und auffälliges Plus bleiben erhalten.",
+      "source": "mobile/app/(tabs)/index.tsx",
+      "validation": "Nativer Vorher-/Nachher-Vergleich auf 375pt mit accessibility-extra-extra-extra-large; Typecheck und geänderte Datei ESLint."
     }
   ],
   "remaining": [
     {
       "priority": "P1",
-      "title": "Echte iPhone-Abnahme",
-      "description": "Kamera, iOS-Berechtigungen, native Karte, Systemschrift, VoiceOver, Foto-Metadaten, schwaches Mobilnetz und Gesten auf kleinem/großem Gerät prüfen. Browser-Viewports sind kein Ersatz.",
+      "title": "Abnahme auf physischem iPhone",
+      "description": "Kleine und grosse native Simulatoransicht sowie maximale Systemschrift sind jetzt konkret geprüft. Echte Kamera, Foto-Metadaten, VoiceOver-Sprechausgabe, schwaches Mobilnetz und tatsächliche Installation des OTA auf physischem iPhone bleiben offen.",
       "boundary": "Gerätetest; keine Behauptung bereits erfolgt"
     },
     {
@@ -304,6 +312,12 @@
       "title": "Messbare Perfektion statt Geschmacksbehauptung",
       "description": "Aufgaben messen: Ort finden, Route öffnen, Moment teilen, gespeicherten Ort wiederfinden; mit echten Nutzern testen. Kein künstlicher Gesamtscore und kein Erfolg anhand Sitzungsdauer.",
       "boundary": "Produktvalidierung; Decision ausdrücklich ausgeklammert"
+    },
+    {
+      "priority": "P2",
+      "title": "Historische native Berechtigungsbeschriftung",
+      "description": "Die vorhandene native Entwicklungshülle zeigt im iOS-Kameradialog noch „Reviews“. Solche Info.plist-Texte können nicht per JavaScript-OTA ersetzt werden und müssen mit einem neuen nativen Build abgenommen werden. Der Moment-Editor selbst verwendet „Moment“.",
+      "boundary": "Im echten Simulator beobachtet; nicht als per OTA behoben dargestellt."
     }
   ],
   "invariants": [
@@ -313,5 +327,32 @@
     "Keine DB-Migration, RLS-/Moderations-/Consent-Abschwächung oder Testbewertung",
     "Keine Behauptung einer vollständigen Hardware-/Accessibility-Abnahme"
   ],
-  "release": null
+  "release": null,
+  "nativeAcceptance": {
+    "platform": "iOS 18.3 Simulator",
+    "smallDevice": "iPhone SE 3rd generation, 375pt, accessibility-extra-extra-extra-large",
+    "largeDevice": "iPhone 16 Pro Max, 440pt, default content size",
+    "transport": "synthetic-only; separate temporary test entry; actual app route sources",
+    "sourceBase": "dd894873ac6e077ec7c9ced1db0959067225eb85",
+    "headerSha256": "7ce9333eb98cff2a1eac6918499d666e9eb298f722022386860832f1c7e01b33",
+    "verified": [
+      "long greeting before/after",
+      "long place title",
+      "honest missing-photo fallback",
+      "closed status from synthetic canonical schedule",
+      "persistent route/moment actions",
+      "camera denied recovery",
+      "manual place without location",
+      "two Moods preserved through place selection",
+      "native discard confirmation and keep editing"
+    ],
+    "notVerified": [
+      "physical camera capture",
+      "physical-device OTA installation",
+      "complete VoiceOver spoken order",
+      "live two-account messaging",
+      "new native permission strings in installed shells"
+    ],
+    "productionWrites": 0
+  }
 }
