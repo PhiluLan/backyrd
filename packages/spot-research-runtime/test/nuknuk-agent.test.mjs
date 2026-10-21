@@ -96,6 +96,13 @@ test('representative food drafts favour substantive dishes across sections over 
  assert.deepEqual(draft.value.offers.filter(offer=>offer.kind==='GASTRONOMY').map(offer=>offer.name),['WERK 8 Club Sandwich','Geschmorte Karotte','WERK8 Aperoplatte']);
  assert.ok(draft.value.offers.every(offer=>offer.prices.length===0));
 });
+test('a drinks-only official menu can fill all eight draft slots without reserving absent food',()=>{
+ const names=['Yuzual Suspects','No Need 2 Be Sorry','InFloranti','Tziki-Tziki-Tak','Virgin Spritz','Sober After Work','Almighty Almond','Ana & Coco'];
+ const text='AUSZUG AUS DER COCKTAILKARTE\n\n'+names.map(name=>`${name} chf 18.00\n\nGin, Zitrone`).join('\n\n');
+ const s={...source(text),url:'https://example.org/'};
+ const draft=addStructuredMenuReviewLeads({attributeKey:'experience.profile',status:'UNRESOLVED'},{...field('experience.profile'),profileCategory:'DRINKS'},[s]);
+ assert.deepEqual(draft.value.offers.map(offer=>offer.name),names);
+});
 test('a published Swiss phone with space after plus is captured literally and normalized later',()=>{
  const s=source('Cantina Restaurant\n\nKontakt\n\n+ 41616930507');
  const found=literalSourceFacts(s,[field('contact.phone')],spot,0).filter(f=>f.field==='contact.phone');

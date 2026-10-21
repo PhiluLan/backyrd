@@ -1120,8 +1120,8 @@ export function addStructuredMenuReviewLeads(result:FieldResult,field:ResearchFi
     sectionRemainder.push(...representative.slice(1));
   }
   const rankedFood=[...sectionFirst,...sectionRemainder];
-  const foodQuota=field.profileCategory==='DRINKS'?3:field.profileCategory==='EAT'?6:4;
-  const drinkQuota=field.profileCategory==='DRINKS'?5:field.profileCategory==='EAT'?2:4;
+  const foodQuota=drinks.length===0?8:field.profileCategory==='DRINKS'?3:field.profileCategory==='EAT'?6:4;
+  const drinkQuota=food.length===0?8:field.profileCategory==='DRINKS'?5:field.profileCategory==='EAT'?2:4;
   const representative=[...(field.profileCategory==='DRINKS'?drinks.slice(0,drinkQuota):rankedFood.slice(0,foodQuota)),...(field.profileCategory==='DRINKS'?rankedFood.slice(0,foodQuota):drinks.slice(0,drinkQuota))];
   const parsed=result.status==='REQUIRES_REVIEW'&&result.value?parseExperienceProfile(result.value,false):null;
   const shortened:typeof leads=[];

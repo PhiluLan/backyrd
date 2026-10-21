@@ -418,6 +418,12 @@ terrace stayed unresolved. No source failure or dated-event offer appeared.
 This is a tuned case, not an untouched blind pass, and does not establish
 manual-research parity.
 
+The representative slots are conditional on the official menu's actual
+coverage: a drinks-only or food-only menu can use all eight draft slots rather
+than reserving empty slots for an absent category. A saved Amber Bar report
+replay retained all eight of its previously cited drinks. The corresponding
+synthetic drinks-only regression and the full runtime suite pass (361 tests).
+
 ```sh
 npm run build --workspace @backyrd/spot-research-runtime
 npm run typecheck --workspace @backyrd/spot-research-runtime
