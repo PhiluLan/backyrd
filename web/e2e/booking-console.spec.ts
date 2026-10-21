@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -479,6 +479,11 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, current_seating: true };
     snapshot.operating_date = "2026-10-20";
     snapshot.reservations.push({ id: "51000000-0000-4000-8000-000000000024", table_id: table1, service_id: dinner, guest_name: "Testgast Vorabend", guest_contact: null, note: null, party_size: 2, starts_at: "2026-10-19T18:00:00+02:00", ends_at: "2026-10-19T20:00:00+02:00", status: "seated", source: "phone", revision: 0, is_walk_in: false, arrived_at: "2026-10-19T18:00:00+02:00", seated_at: "2026-10-19T18:00:00+02:00" });
+  }
+  if (options.overruns) {
+    snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, current_seating: true };
+    snapshot.operating_date = "2026-10-20";
+    snapshot.reservations = snapshot.reservations.map(r => r.service_id === lunch ? { ...r, status: "seated", revision: 0, seated_at: "2026-10-20T10:00:00Z" } : r);
   }
   const layoutRequests: Record<string, unknown>[] = [];
   let readCalls = 0;
@@ -2821,4 +2826,86 @@ test("manual summary known acknowledgement stays settled when the metadata reloa
   await page.getByRole("button", { name: "Gastnachrichten anzeigen", exact: true }).click();
   await expect(page.getByRole("region", { name: "Gastnachrichten", exact: true })).toContainText("Empfänger: reviewed@booking.invalid");
   expect(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith("booking.manual-summary.v1:")).length)).toBe(0);
+});
+
+
+test("overrun review on a phone completes only after explicit status save and restores keyboard focus", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, overruns: true });
+  await page.goto("/booking/console");
+  const queue = page.getByRole("region", { name: "Besuche nach geplanter Zeit" });
+  await expect(queue).toContainText("Noch als «Am Tisch» erfasst");
+  await queue.locator("summary").click();
+  await expect(queue).toContainText("Weitere Reservierung ab 18:00");
+  await queue.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: test.info().outputPath("overrun-phone.png") });
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  expect((await new AxeBuilder({ page }).include('section[aria-label="Besuche nach geplanter Zeit"]').analyze()).violations).toEqual([]);
+  await queue.getByRole("button", { name: "Besuch von Testgast Mittag prüfen" }).click();
+  const panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await panel.getByRole("button", { name: "Besuch beenden", exact: true }).click();
+  expect(fixture.statusRequests()).toHaveLength(0);
+  await panel.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await expect(queue).toHaveCount(0);
+  expect(fixture.statusRequests()).toHaveLength(1);
+  await panel.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Aktualisieren", exact: true })).toBeFocused();
+});
+
+test("overrun clock crosses the deadline without submitting or replacing an open editor", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-20T11:59:00Z"));
+  const fixture = await mockConsole(page, { seeded: true, overruns: true, amendments: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Besuche nach geplanter Zeit" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen" }).click();
+  const panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await page.clock.setFixedTime(new Date("2026-10-20T12:01:00Z"));
+  await page.clock.runFor(30_000);
+  await expect(panel).toBeVisible();
+  expect(fixture.statusRequests()).toHaveLength(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("region", { name: "Besuche nach geplanter Zeit" })).toBeVisible();
+});
+
+test("overrun review remains global alongside prior visits and time filters", async ({ page }) => {
+  await mockConsole(page, { seeded: true, overruns: true, unclosed: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByLabel("Belegung um", { exact: true }).fill("21:00");
+  const queue = page.getByRole("region", { name: "Besuche nach geplanter Zeit" });
+  await queue.locator("summary").click();
+  await expect(queue.getByRole("button")).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "Offene Besuche früherer Tage" })).toContainText("Testgast Vorabend");
+  await queue.getByRole("button").click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByLabel("Belegung um", { exact: true })).toHaveValue("21:00");
+});
+
+test("overrun viewer can inspect saved visits but cannot finish them", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, overruns: true, teams: true, teamRole: "viewer" });
+  await page.goto("/booking/console");
+  const queue = page.getByRole("region", { name: "Besuche nach geplanter Zeit" });
+  await queue.locator("summary").click();
+  await queue.getByRole("button").click();
+  const panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(panel).toContainText("Testgast Mittag");
+  await expect(panel.getByRole("button", { name: "Besuch beenden", exact: true })).toHaveCount(0);
+  expect(fixture.statusRequests()).toHaveLength(0);
+});
+
+test("overrun saved state survives offline honestly and disappears when access is revoked", async ({ page, context }) => {
+  const fixture = await mockConsole(page, { seeded: true, overruns: true });
+  await page.goto("/booking/console");
+  const queue = page.getByRole("region", { name: "Besuche nach geplanter Zeit" });
+  await expect(queue).toBeVisible();
+  await context.setOffline(true);
+  await expect(page.getByRole("region", { name: "Datenstand" })).toContainText("Offline");
+  await expect(queue).toContainText("Noch als «Am Tisch» erfasst");
+  fixture.setReadError("denied");
+  await context.setOffline(false);
+  await expect(queue).toHaveCount(0);
+  await page.clock.runFor(60_000);
+  await expect(queue).toHaveCount(0);
+  expect(fixture.statusRequests()).toHaveLength(0);
 });

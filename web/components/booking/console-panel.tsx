@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import styles from "./console.module.css";
 
-export function ConsolePanel({ title, dirty = false, busy = false, uncertain = false, uncertainHelp, onClose, children }: {
-  title: string; dirty?: boolean; busy?: boolean; uncertain?: boolean; uncertainHelp?: string; onClose: () => void; children: ReactNode;
+export function ConsolePanel({ title, dirty = false, busy = false, uncertain = false, uncertainHelp, focusFallbackSelector, onClose, children }: {
+  title: string; dirty?: boolean; busy?: boolean; uncertain?: boolean; uncertainHelp?: string; focusFallbackSelector?: string; onClose: () => void; children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [discard, setDiscard] = useState(false);
@@ -19,10 +19,12 @@ export function ConsolePanel({ title, dirty = false, busy = false, uncertain = f
       dialog?.close();
       document.body.style.overflow = overflow;
       window.requestAnimationFrame(() => {
-        if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+        if (document.querySelector("dialog[open]")) return;
+        if (previous instanceof HTMLElement && previous.isConnected && !previous.matches(":disabled") && !previous.closest("[hidden], [inert]")) previous.focus();
+        else if (focusFallbackSelector) document.querySelector<HTMLElement>(focusFallbackSelector)?.focus();
       });
     };
-  }, []);
+  }, [focusFallbackSelector]);
   function close() {
     if (busy) return;
     if (dirty || uncertain) setDiscard(true);

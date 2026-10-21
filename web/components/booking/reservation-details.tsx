@@ -53,7 +53,7 @@ export function ReservationDetails({ spotId, reservation: r, snapshot, onClose, 
   }
   if (transferring) return <TransferReservation spotId={spotId} reservation={r} snapshot={snapshot} onClose={(uncertain) => { if (uncertain) onUncertain(snapshot.operating_date ?? restaurantDate()); else setTransferring(false); }} onBusy={onBusy} onDenied={onDenied} onReload={onReload} onSaved={async () => { await onTransferred(); setTransferring(false); }} />;
   if (editing) return <EditReservation spotId={spotId} reservation={r} snapshot={snapshot} onClose={(uncertain, date) => { if (uncertain) onUncertain(date ?? restaurantDate(new Date(r.starts_at))); else setEditing(false); }} onBusy={onBusy} onReload={onReload} onSaved={async (date, slot) => { await onAmended(date, slot); setEditing(false); }} />;
-  return <ConsolePanel title="Reservierung" busy={busy} uncertain={mailPending} uncertainHelp="Ein Gastlink-Auftrag ist noch offen. Beim erneuten Öffnen in diesem Tab kannst du ausschliesslich denselben Auftrag prüfen oder wiederholen." onClose={onClose}>
+  return <ConsolePanel focusFallbackSelector="[data-booking-workspace-focus]" title="Reservierung" busy={busy} uncertain={mailPending} uncertainHelp="Ein Gastlink-Auftrag ist noch offen. Beim erneuten Öffnen in diesem Tab kannst du ausschliesslich denselben Auftrag prüfen oder wiederholen." onClose={onClose}>
     <div className={styles.drawerBody}>
       <div className={styles.detailHeading}><h3>{r.guest_name}</h3><span className={styles.status} data-status={r.status}>{statusLabels[r.status]}</span></div>
       <p className={styles.help}>{new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", weekday: "short", day: "numeric", month: "long", year: "numeric" }).format(new Date(r.starts_at))}</p>
