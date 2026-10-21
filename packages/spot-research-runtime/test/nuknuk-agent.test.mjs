@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,currentVenueClosure,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,structuredRoomLeads,addStructuredRoomReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead,chainBranchCityPath} from '../dist/nuknuk-agent.js';
+import {researchSpotV2,researchFieldRelevance,certifiedPermanentExhibition,validateEvidenceFacts,projectEvidenceLedger,currentVenueClosure,criticContext,addMenuImageReviewLeads,structuredMenuLeads,addStructuredMenuReviewLeads,structuredRoomLeads,addStructuredRoomReviewLeads,rankResearchFrontier,recheckEvidenceFloors,sourceSubsumedByEarlier,equivalentLocalizedRoomInventory,literalSourceFacts,topicsForSearchLead,chainBranchCityPath} from '../dist/nuknuk-agent.js';
 import {discoverResearchLinks,discoverDelegatedExperienceLinks,discoverPublicDataSources,discoverMenuImages,sourceText,readSourceText} from '../src/nuknuk-sources.mjs';
 import {agreeingPricedRows,auditMenuImages} from '../src/nuknuk-menu-media.mjs';
 import {parseMenuVisionRows,corroborateMenuVisionRows} from '../src/nuknuk-menu-vision.mjs';
@@ -52,6 +52,27 @@ test('Swiss-priced PDF dishes survive while season-year cover titles do not beco
  const leads=structuredMenuLeads([pdf]);
  assert.deepEqual(leads.map(lead=>lead.name),['Kürbissalat','Sprossensalat','Gemüse-Tajine']);
  assert.ok(leads.every(lead=>lead.kind==='GASTRONOMY'&&lead.citation.layoutReviewRequired));
+});
+test('complete first-party priced PDF menu ends food discovery without rereading a translation',()=>{
+ const names=['Dish One','Dish Two','Dish Three','Dish Four','Dish Five','Dish Six','Dish Seven','Dish Eight'];
+ const text=names.map((name,index)=>`${name} ${20+index}.-`).join('\n');
+ const pdf={...source(text),url:'https://example.org/uploads/menu_de.pdf',format:'PDF_TEXT',layoutReviewRequired:true,discoveredOn:'https://example.org/',truncated:false};
+ assert.equal(structuredMenuLeads([pdf]).length,8);
+ const frontier=[{url:'https://example.org/uploads/menu_en.pdf',depth:1,topics:['menu']},{url:'https://example.org/hello-world/',depth:1,topics:['experience']}];
+ assert.deepEqual(rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'EAT'}],[pdf]),[]);
+});
+test('a different branch footer is not supplied as global critic identity',()=>{
+ const target={...spot,name:'Amani Restaurant',existingValues:{...spot.existingValues,'location.address_line1':{value:'Güterstrasse 100'}}};
+ const text='Amani Restaurant\nÖffnungszeiten\nDienstag bis Freitag 11:30-22:00\nGüterstrasse 100\nAnderer Betrieb\nSteinentorberg 20\nÖffnungszeiten 11:00-14:00\n'+('Anderer Betrieb in der Markthalle. '.repeat(20));
+ const s=source(text);
+ const targetHours='Dienstag bis Freitag 11:30-22:00',otherHours='Öffnungszeiten 11:00-14:00';
+ const ctx=criticContext(s,[{id:'target-hours',...fact('hours.regular',targetHours,targetHours)},{id:'other-hours',...fact('hours.regular',otherHours,otherHours)}],target);
+ assert.equal(ctx.footer,'');
+ assert.ok(ctx.title.includes('Amani Restaurant'));
+ assert.equal(ctx.claims[0].nearestPublishedAddress,'Güterstrasse 100');
+ assert.equal(ctx.claims[0].nearestAddressPosition,'after');
+ assert.equal(ctx.claims[1].nearestPublishedAddress,'Steinentorberg 20');
+ assert.equal(ctx.claims[1].nearestAddressPosition,'before');
 });
 test('priced surprise menus retain their minimum-party rule in the review draft',()=>{
  const text='House Share Menu\n3-Gang Surprise Menu\nzum Teilen\n69.-/Person\nab 2 Personen nur ganze Tische\ngeerntet / harvested\nKürbissalat, pumpkin 15.-\nRandensuppe, beetroot 15.-\nGemüse-Tajine 16.-\nHirschragout 19.-';

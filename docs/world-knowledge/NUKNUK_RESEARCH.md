@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.67
+# Local Nuknuk Research v3.68
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -156,6 +156,31 @@ availability form and returned empty; v3.67 filters booking/availability URLs
 and dated booking parameters from the research frontier. This final link
 filter has a deterministic regression test but no separate full-model replay.
 
+The independent v3.67 Amani’s Afghan Cuisine case used a current authenticated
+Spot export and a source reference frozen before the model call. Nuknuk found
+eight literal dishes in the first-party German menu PDF and the correct weekly
+hours for Güterstrasse 100, without publishing the different hours for the
+Alte Markthalle branch. However, it rejected every hours row on the shared
+homepage as belonging to the other branch, then recovered the target hours
+from the dedicated `/cuisine` page. Twelve requests, nine model calls and
+219.5 seconds made that a narrow content pass with an inefficient identity
+path, not an autonomous-research pass. The menu PDF is linked by the current
+official page but has an older upload path; a reviewer must check menu
+currency before applying the offer draft.
+
+v3.68 pairs a complete first-party priced PDF menu with bounded food discovery,
+skips an already-read menu's translated PDF, and excludes legal, imprint and
+sample-blog pages from the frontier. Its critic sees the nearest literal street
+address for each claim on shared multi-branch pages, including whether that
+address is before or after the quoted claim. This is evidence for the model,
+not automatic branch approval. In the full Amani development replay the model
+accepted the three restaurant hours rows directly from the homepage and
+rejected the three Alte Markthalle rows. The final review draft again held the
+same eight cited dishes and correct seven-day schedule. It used eight requests
+and five model calls in 151.6 seconds; one unrelated external directory failed
+to load. This is a tuned replay of the same Spot, not a second independent pass.
+The broader autonomous release gate remains closed.
+
 On 21 October 2026, a previously untouched Odelya Hotel run against a
 pre-recorded official-source reference failed: it found public phone and email,
 but missed the attic apartment and supported amenities, added a booking link
@@ -228,7 +253,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.67
+## Active architecture: Research v3.68
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,
