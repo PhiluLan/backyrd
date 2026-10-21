@@ -25,6 +25,8 @@ import { supabase } from "../../lib/supabase";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
 import { StateView } from "../../components/foundation/StateView";
+import { useMessageComposer } from "../../hooks/useMessageComposer";
+import { withRequestDeadline } from "../../lib/requestDeadline";
 
 type Message = {
   id: string;
@@ -162,12 +164,15 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatSummary, setChatSummary] =
     useState<ChatSummary | null>(null);
-  const [text, setText] = useState("");
+  const { text, updateText, sendingKind, beginSend, finishSend } = useMessageComposer();
+  const sending = sendingKind === "text";
+  const imageSending = sendingKind === "image";
+  const composerBusy = sendingKind !== null;
   const [uid, setUid] = useState<string | null>(null);
   const pendingTextRequest = useRef<{ body: string; id: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [imageSending, setImageSending] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const displayName =
     chatSummary?.other_display_name?.trim() ||
@@ -204,10 +209,11 @@ export default function ChatScreen() {
 
     const bootstrap = async () => {
       setLoading(true);
+      setLoadError(null);
 
       try {
         const { data: sessionData } =
-          await supabase.auth.getSession();
+          await withRequestDeadline(() => supabase.auth.getSession(), 12000);
 
         if (!active) return;
 
@@ -223,15 +229,16 @@ export default function ChatScreen() {
         const [
           { data: messageRows, error: messagesError },
           { data: chatRows, error: chatsError },
-        ] = await Promise.all([
+        ] = await withRequestDeadline(async (signal) => Promise.all([
           supabase
             .from("messages")
             .select("*")
             .eq("chat_id", id)
-            .order("created_at", { ascending: true }),
+            .order("created_at", { ascending: true })
+            .abortSignal(signal),
 
-          supabase.rpc("get_my_direct_chats_v1"),
-        ]);
+          supabase.rpc("get_my_direct_chats_v1").abortSignal(signal),
+        ]), 12000);
 
         if (messagesError) throw messagesError;
         if (chatsError) throw chatsError;
@@ -239,9 +246,11 @@ export default function ChatScreen() {
         if (!active) return;
 
         const hydratedMessages =
-          await hydrateChatMessages(
+          await withRequestDeadline(() => hydrateChatMessages(
             (messageRows ?? []) as Message[],
-          );
+          ), 8000);
+
+        if (!active) return;
 
         setMessages(
           normalizeMessages(hydratedMessages),
@@ -252,7 +261,7 @@ export default function ChatScreen() {
         ).find((row: ChatSummary) => row.chat_id === id);
 
         setChatSummary(summary ?? null);
-        await markAsRead();
+        void markAsRead().catch(() => console.warn("[messages] read acknowledgement unavailable"));
 
         channel = supabase
           .channel(`chat-${id}`)
@@ -307,11 +316,8 @@ export default function ChatScreen() {
             },
           )
           .subscribe();
-      } catch (error: any) {
-        Alert.alert(
-          "Chat konnte nicht geladen werden",
-          userFacingError(error, "Der Chat konnte gerade nicht geladen werden. Bitte versuche es noch einmal."),
-        );
+      } catch (error: unknown) {
+        if (active) setLoadError(userFacingError(error, "Der Chat konnte gerade nicht geladen werden. Bitte versuche es noch einmal."));
       } finally {
         if (active) setLoading(false);
       }
@@ -326,7 +332,7 @@ export default function ChatScreen() {
         void supabase.removeChannel(channel);
       }
     };
-  }, [appendServerMessage, id, markAsRead]);
+  }, [appendServerMessage, id, loadAttempt, markAsRead]);
 
   useEffect(() => {
     if (messages.length === 0) return;
@@ -353,12 +359,11 @@ export default function ChatScreen() {
   }, [messages, uid]);
 
   const send = useCallback(async () => {
-    const body = text.trim();
-
-    if (!body || !uid || !id || sending) return;
-
-    setSending(true);
-    setText("");
+    if (!uid || !id) return;
+    const submission = beginSend("text");
+    if (!submission) return;
+    const body = submission.text.trim();
+    let succeeded = false;
 
     try {
       const request = pendingTextRequest.current?.body === body
@@ -376,6 +381,7 @@ export default function ChatScreen() {
 
       if (error) throw error;
       pendingTextRequest.current = null;
+      succeeded = true;
 
       // Realtime kann schneller sein als die INSERT-Antwort.
       // normalizeMessages verhindert deshalb zuverlässig Duplikate.
@@ -384,9 +390,7 @@ export default function ChatScreen() {
           data as Message,
         ),
       );
-    } catch (error: any) {
-      setText(body);
-
+    } catch (error: unknown) {
       const safetyMessage =
         getSafetyRestrictionMessage(error);
 
@@ -402,16 +406,17 @@ export default function ChatScreen() {
         userFacingError(error, "Deine Nachricht konnte gerade nicht gesendet werden. Bitte versuche es noch einmal."),
       );
     } finally {
-      setSending(false);
+      finishSend(submission, succeeded);
     }
-  }, [appendServerMessage, id, sending, text, uid]);
+  }, [appendServerMessage, beginSend, finishSend, id, uid]);
 
   const sendImage = useCallback(
     async (uri: string) => {
-      if (!uid || !id || imageSending) return;
-
-      const caption = text.trim();
-      setImageSending(true);
+      if (!uid || !id) return;
+      const submission = beginSend("image");
+      if (!submission) return;
+      const caption = submission.text.trim();
+      let succeeded = false;
 
       try {
         const extension =
@@ -458,26 +463,23 @@ export default function ChatScreen() {
         const error = messageResponse.error;
 
         if (error) throw error;
+        succeeded = true;
 
         appendServerMessage(
           await hydrateChatMessageImage(
             data as Message,
           ),
         );
-
-        if (caption) {
-          setText("");
-        }
-      } catch (error: any) {
+      } catch (error: unknown) {
         Alert.alert(
           "Bild konnte nicht gesendet werden",
           userFacingError(error, "Das Bild konnte gerade nicht gesendet werden. Bitte versuche es noch einmal."),
         );
       } finally {
-        setImageSending(false);
+        finishSend(submission, succeeded);
       }
     },
-    [appendServerMessage, id, imageSending, text, uid],
+    [appendServerMessage, beginSend, finishSend, id, uid],
   );
 
   const pickImage = useCallback(
@@ -540,6 +542,8 @@ export default function ChatScreen() {
         <Pressable
           style={styles.headerCircle}
           onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Zurück zu den Nachrichten"
           hitSlop={8}
         >
           <Ionicons
@@ -552,6 +556,9 @@ export default function ChatScreen() {
         <Pressable
           style={styles.profileHeader}
           onPress={openOtherProfile}
+          accessibilityRole="button"
+          accessibilityLabel={`Profil von ${displayName} öffnen`}
+          disabled={!chatSummary?.other_user_id}
         >
           <Avatar
             uri={
@@ -591,6 +598,9 @@ export default function ChatScreen() {
         <Pressable
           style={styles.headerCircle}
           onPress={openOtherProfile}
+          accessibilityRole="button"
+          accessibilityLabel={`Profil von ${displayName} öffnen`}
+          disabled={!chatSummary?.other_user_id}
         >
           <Ionicons
             name="person-outline"
@@ -612,6 +622,10 @@ export default function ChatScreen() {
         {loading ? (
           <View style={styles.loading}>
             <StateView kind="loading" title="Chat wird geladen" />
+          </View>
+        ) : loadError ? (
+          <View style={styles.loading}>
+            <StateView kind="error" title="Chat konnte nicht geladen werden" message={loadError} actionLabel="Erneut versuchen" onAction={() => setLoadAttempt(attempt => attempt + 1)} />
           </View>
         ) : (
           <FlatList
@@ -788,18 +802,19 @@ export default function ChatScreen() {
           />
         )}
 
-        <View style={styles.composerOuter}>
+        {!loading && !loadError ? <View style={styles.composerOuter}>
           <View style={styles.composer}>
             <Pressable
               style={styles.cameraButton}
               onPress={() => void pickImage(true)}
-              disabled={imageSending}
+              accessibilityRole="button"
+              accessibilityLabel="Foto aufnehmen"
+              accessibilityState={{ disabled: composerBusy }}
+              disabled={composerBusy}
             >
-              <Ionicons
-                name="camera"
-                size={22}
-                color="#FFFFFF"
-              />
+              {imageSending ? <ActivityIndicator color="#FFFFFF" /> : (
+                <Ionicons name="camera" size={22} color="#FFFFFF" />
+              )}
             </Pressable>
 
             <TextInput
@@ -807,7 +822,7 @@ export default function ChatScreen() {
               placeholder="Nachricht schreiben …"
               placeholderTextColor="#85858E"
               value={text}
-              onChangeText={setText}
+              onChangeText={updateText}
               multiline
               maxLength={4000}
               returnKeyType="default"
@@ -817,7 +832,10 @@ export default function ChatScreen() {
               <Pressable
                 style={styles.sendButton}
                 onPress={() => void send()}
-                disabled={sending}
+                accessibilityRole="button"
+                accessibilityLabel="Nachricht senden"
+                accessibilityState={{ disabled: composerBusy, busy: sending }}
+                disabled={composerBusy}
               >
                 {sending ? (
                   <ActivityIndicator
@@ -837,7 +855,10 @@ export default function ChatScreen() {
                   onPress={() =>
                     void pickImage(false)
                   }
-                  disabled={imageSending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Bild auswählen"
+                  accessibilityState={{ disabled: composerBusy }}
+                  disabled={composerBusy}
                 >
                   <Ionicons
                     name="image-outline"
@@ -845,26 +866,10 @@ export default function ChatScreen() {
                     color="#FFFFFF"
                   />
                 </Pressable>
-
-                <Pressable
-                  style={styles.inlineAction}
-                  onPress={() =>
-                    Alert.alert(
-                      "Kommt bald",
-                      "Sprachnachrichten ergänzen wir in einem späteren Messenger-Upgrade.",
-                    )
-                  }
-                >
-                  <Ionicons
-                    name="mic-outline"
-                    size={24}
-                    color="#FFFFFF"
-                  />
-                </Pressable>
               </View>
             )}
           </View>
-        </View>
+        </View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -1066,8 +1071,8 @@ const styles = StyleSheet.create({
       "rgba(255,255,255,0.08)",
   },
   cameraButton: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
@@ -1091,14 +1096,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   inlineAction: {
-    width: 38,
-    height: 42,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   sendButton: {
     minWidth: 64,
-    height: 42,
+    minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
   },

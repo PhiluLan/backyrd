@@ -808,7 +808,7 @@ export default function FeedScreen() {
                   {selectedSpot && (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Verknüpften Spot entfernen"
+                      accessibilityLabel="Verknüpften Ort entfernen"
                       style={styles.clearSpotButton}
                       onPress={() => {
                         setSelectedSpot(null);
@@ -821,10 +821,10 @@ export default function FeedScreen() {
                 </View>
 
                 <TextInput
-                  accessibilityLabel="Spot für den Moment suchen"
+                  accessibilityLabel="Ort für den Moment suchen"
                   value={spotQuery}
                   onChangeText={searchSpots}
-                  placeholder="Spot suchen…"
+                  placeholder="Ort suchen …"
                   placeholderTextColor="#77777F"
                   style={styles.spotSearchInput}
                 />

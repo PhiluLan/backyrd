@@ -204,3 +204,11 @@ test("observed 13-migration prefix leaves only the two World Admin migrations pe
   input.remote.appliedMigrationVersions.pop();
   assert.throws(() => verifyProductReleasePreflight(input), /remote_migration_ledger_drift/);
 });
+
+test("a validly sealed iOS-only artifact never grants Supabase deployment authority", () => {
+  const input=fixture();
+  const {manifestHash,...body}=input.manifest;
+  const iosBody={...body,deliveryTarget:"IOS_OTA"};
+  input.manifest={...iosBody,manifestHash:hash(JSON.stringify(iosBody))};
+  assert.throws(()=>verifyProductReleasePreflight(input),/release_backend_delivery_not_authorized/);
+});

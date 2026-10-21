@@ -234,7 +234,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci --ignore-scripts
-      - run: node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/verify-risk-gate.test.mjs scripts/ci/delivery-workflow-v2.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-production-state.test.mjs
+      - run: node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/verify-risk-gate.test.mjs scripts/ci/delivery-workflow-v2.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ops/verify-production-backup-contract.test.mjs
       - run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/apply-supabase-auth-config.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/verify-already-applied-product-migrations.test.mjs scripts/deployment/verify-preapplied-product-ledger.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
 
   release-certification:
@@ -282,7 +282,7 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then MODE=PR_CANDIDATE; else MODE=POST_MERGE_MAIN; fi
           node scripts/ci/product-release-manifest.mjs evidence --source-sha "$HEAD_SHA" --output "$RUNNER_TEMP/product-release-tests.json"
-          node scripts/ci/product-release-manifest.mjs build --mode "$MODE" --base-sha "$BASE_SHA" --source-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-sha "$CANONICAL_MAIN_SHA" --test-evidence "$RUNNER_TEMP/product-release-tests.json" --mobile-bundle "$RUNNER_TEMP/mobile-ios" --output "$RUNNER_TEMP/product-release"
+          node scripts/ci/product-release-manifest.mjs build --delivery-target IOS_OTA --mode "$MODE" --base-sha "$BASE_SHA" --source-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-sha "$CANONICAL_MAIN_SHA" --test-evidence "$RUNNER_TEMP/product-release-tests.json" --mobile-bundle "$RUNNER_TEMP/mobile-ios" --output "$RUNNER_TEMP/product-release"
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with: { version: 2.98.2 }
       - name: Bundle the exact deployment artifact with Supabase Edge Runtime

@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "04b4beffe366532ae5049d0be16882df3a04a3dd",
+      "sourceSha": "93c05ccf67432128aaf3c15f72040f0c3fc931e8",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "53074d0d-d4f9-4c76-9b29-6d2d2bb0b135",
-      "iosUpdateId": "01a15a26-60cc-7e44-8620-bc8702c2d369",
+      "otaGroupId": "ca70eddd-cfd1-4e16-be67-07b1cfa43eb8",
+      "iosUpdateId": "01a15cdf-2673-75c8-b2a3-d2c90de386b6",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Local newest places sorted strictly by creation date, current 15 km area or explicit profile-city fallback; shared large Home place cards and actor-bound last successful Wohin search in original result order. PR #538 and exact Main certification run 39457139936 passed. Public production launch manifest and downloaded bytes match the certified iOS artifact. Mobile/Decision/cache isolation tests and exported-app journey passed. Read-only API smoke passed without personal GPS or production writes. No backend deployment is part of this iOS release. Physical-device installation remains unverified."
+      "note": "App quality update from PRs #548, #551, #552 and #579: protected Moments and chat drafts, honest load/write recovery, canonical opening status, safe actions, consistent typography/language, readable maximum-size greetings, and native place-search/filter polish. Exact Main IOS_OTA certification run 39547508732 and production manifest/downloaded launch-byte verification passed. Native synthetic acceptance covered 375pt maximum system text and 440pt views, camera refusal, manual place selection, two retained Moods and draft discard protection. No Decision behavior change, new migration, backend deployment or production test writes. Physical-device installation, camera capture, full VoiceOver and complete native touch-scroll acceptance remain unverified. Historical native permission wording needs a separate binary build."
     }
   },
   "reviewMediaIncident": {

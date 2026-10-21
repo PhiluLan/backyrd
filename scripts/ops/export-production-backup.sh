@@ -54,10 +54,7 @@ backup_mode="${BACKUP_MODE:-daily}"
 include_database=false
 if test "$backup_mode" = "weekly" || test "$(date -u +%u)" = "7"; then
   include_database=true
-  mkdir -p "$snapshot/database"
-  supabase db dump --linked --role-only --file "$snapshot/database/roles.sql" --agent=no >/dev/null
-  supabase db dump --linked --schema public --file "$snapshot/database/schema.sql" --agent=no >/dev/null
-  supabase db dump --linked --data-only --use-copy --schema public,auth,storage --file "$snapshot/database/data.sql" --agent=no >/dev/null
+  BACKYRD_BACKUP_DATABASE_TARGET=linked bash "$repo_root/scripts/ops/export-database-snapshot.sh" "$snapshot/database"
   (
     cd "$snapshot"
     find database -type f -print0 | sort -z | xargs -0 sha256sum > database-sha256.txt
@@ -67,7 +64,7 @@ fi
 created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 snapshot_id="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_SHA:0:12}"
 jq -n \
-  --arg version "backyrd-production-backup-v1" \
+  --arg version "backyrd-production-backup-v2" \
   --arg createdAt "$created_at" \
   --arg canonicalMainSha "$GITHUB_SHA" \
   --arg projectRef "hjgcrrzfjchzqoegcywn" \

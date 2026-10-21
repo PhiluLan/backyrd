@@ -1,0 +1,405 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-21",
+  "scope": "Consumer-App und zugehörige öffentliche Datenwege; Decision-Logik ausgeschlossen",
+  "status": "published-certified-ios-physical-device-acceptance-open",
+  "method": [
+    "Aktive Routen, zentrale Komponenten und Datenwege im Code nachvollzogen",
+    "Bestehende Domain-/Medien-/Deep-Link-Verträge genutzt und gezielt ergänzt",
+    "Exportierte App im Browser mit synthetischen, isolierten Antworten bedient",
+    "Keine Produktionsbewertungen, Chats, Profiländerungen oder Löschungen als Test erzeugt",
+    "Aktuelle App-Quellen in separater nativer Testkopie mit ausschliesslich synthetischem Transport auf iPhone SE 375pt und iPhone 16 Pro Max 440pt / iOS 18.3 bedient; kleines Gerät mit maximaler Systemschrift."
+  ],
+  "capabilities": [
+    {
+      "title": "Entdecken",
+      "description": "Startseite mit Standortbezug, echten nahen Orten, lokalen Neuzugängen, Events, sichtbaren Momenten und letzter Suche. Gemeinsame Ortskarten, Bildersatz und Leerzustände vorhanden.",
+      "source": "mobile/app/(tabs)/index.tsx",
+      "evidence": "Browser-Journey + Quellcode"
+    },
+    {
+      "title": "Ortssuche und Karte",
+      "description": "Namens-, Stadt-, Kategorien- und Atmosphärensuche; native Clusterkarte, Listenansicht, Filter und Ortsvorschau. Browser nutzt eine eigenständige Liste. Keine zweite Recommendation Engine.",
+      "source": "mobile/app/(tabs)/map.tsx",
+      "evidence": "Quellcode; Browser-Liste automatisiert"
+    },
+    {
+      "title": "Ortsprofil",
+      "description": "Bilder, Adresse, Kontakt, Route, bestätigte Angebote/Bereiche und praktische Angaben, Öffnungszeiten, Events, Moods und Momente. Gespeicherte Orte und Betreiberanfrage.",
+      "source": "mobile/app/spot/[id].tsx",
+      "evidence": "Browser-Journey + Quellcode"
+    },
+    {
+      "title": "Moods",
+      "description": "Wahrgenommene Atmosphäre statt Sterne: führende Eindrücke, öffentliche Häufigkeiten mit Personenschwelle, ausführliche Ansicht und Auswahl beim Moment. In diesem Auftrag kein neues Ranking und kein Redesign.",
+      "source": "mobile/components/spot/SpotMoodProfile.tsx",
+      "evidence": "Quellcode; bestehende Contract-Tests"
+    },
+    {
+      "title": "Momente",
+      "description": "Auffälliges Plus startet direkt den Kamera-/Momentfluss. Foto oder manuelle Auswahl, Ortsvorschlag mit manueller Alternative, bis zu zwei Moods, Text und ausdrückliches Teilen. Upload und Finalisierung besitzen eigene Verträge.",
+      "source": "mobile/app/review/new.tsx",
+      "evidence": "Browser-Journey ohne echte Kamera; Medien-Contract-Tests"
+    },
+    {
+      "title": "Gemeinschaft",
+      "description": "Sichtbarer Momentfeed, Nutzerprofile, Folgen, Interaktionen, Teilen und vom Ort aus weiterentdecken. Eigene Feed-Erstellung ist zusätzlich zum schnellen Plus-Fluss vorhanden.",
+      "source": "mobile/app/(tabs)/feed.tsx",
+      "evidence": "Quellcode; Home-Sichtbarkeit synthetisch getestet"
+    },
+    {
+      "title": "Profil und gespeicherte Orte",
+      "description": "Profilbild, Basisprofil und externe Profilverweise bearbeiten; eigene Momente und gespeicherte Orte wiederfinden.",
+      "source": "mobile/app/(tabs)/profile.tsx",
+      "evidence": "Quellcode, kein echter Profil-Upload im Audit"
+    },
+    {
+      "title": "Nachrichten",
+      "description": "Chatliste, Direktnachrichten, Lesestatus, Echtzeitaktualisierung und Bildnachrichten; serverseitige Sende-RPC und Anfrageschlüssel.",
+      "source": "mobile/app/messages/[id].tsx",
+      "evidence": "Quellcode; kein Chat zwischen echten Konten"
+    },
+    {
+      "title": "Events",
+      "description": "Zeit-/Kategoriefilter, Terminseite, wiederkehrende Termine, Preis, Ort, Kalenderdarstellung als Bildersatz, externe Quelle/Tickets und Ortsverknüpfung.",
+      "source": "mobile/app/events/[id].tsx",
+      "evidence": "Quellcode; Datums-/Shared-Verträge"
+    },
+    {
+      "title": "Zugang und Onboarding",
+      "description": "Gastentdecken, E-Mail-Anmeldung/Registrierung, Passwortwiederherstellung, Verifizierung und Profil-Onboarding; Apple auf iOS, Google auf Android in der bestehenden Oberfläche.",
+      "source": "mobile/app/auth/login.tsx",
+      "evidence": "E-Mail-Login synthetisch; Provider nicht am Gerät geprüft"
+    },
+    {
+      "title": "Datenschutz und Kontrolle",
+      "description": "Versionierte Einwilligungen, Standort nur mit Einwilligung, Historie, Dokumente, Datenexport und vorgemerkte Kontolöschung. Rechte und bestehende Fristen unverändert.",
+      "source": "mobile/app/privacy-data-rights.tsx",
+      "evidence": "Quellcode, keine echte Löschung/Export erzeugt"
+    },
+    {
+      "title": "Sicherheit",
+      "description": "Melden, Blockieren, Sicherheitsstatus, Moderationshinweise und Einspruch. Sichtbarkeits- und Verteilungsprüfungen zwischen Rohdaten und Anzeige.",
+      "source": "mobile/app/safety-center.tsx",
+      "evidence": "Quellcode; synthetischer Ausfalltest für Orts-Momente"
+    },
+    {
+      "title": "Verknüpfungen und Betrieb",
+      "description": "Deep Links, Push-Zielnavigation, Release-Diagnose, zentrale Fehleraufbereitung, gemeinsame Typografie/Controls und zertifizierte OTA-Auslieferung.",
+      "source": "mobile/app/+native-intent.tsx",
+      "evidence": "Vorhandene Contract-Tests + Release-Kette"
+    },
+    {
+      "title": "Owner/Admin-Anschluss",
+      "description": "Profile, Angebote, Bereiche und verknüpfte Events kommen über öffentliche Datenprojektionen in die App; Verwaltung/Moderation haben eigene Oberflächen. Kein vollständiger Owner-/Admin-Audit in diesem App-Auftrag.",
+      "source": "mobile/lib/spot-product-profile.ts",
+      "evidence": "Öffentlichen Datenabruf und Consumer geprüft; kein erneutes Admin-Gesamtaudit"
+    }
+  ],
+  "implemented": [
+    {
+      "priority": "P0",
+      "title": "Ungeprüfte Momente bei Sichtbarkeitsfehler",
+      "description": "Im Ortsprofil konnte ein fehlgeschlagener Safety-Abruf Roh-Momente stehen lassen. Jetzt leerer sicherer Zustand, ehrliche Fehlermeldung und Wiederholen.",
+      "source": "mobile/app/spot/[id].tsx",
+      "validation": "Synthetischer Safety-Ausfall; verborgener Text darf nie erscheinen"
+    },
+    {
+      "priority": "P1",
+      "title": "Gespeichert trotz verweigerter Speicherung",
+      "description": "Das Herz wird erst nach erfolgreicher Datenbankantwort umgestellt; Fehler bleibt sichtbar, erneuter Versuch möglich und Doppeltipp blockiert.",
+      "source": "mobile/app/spot/[id].tsx",
+      "validation": "Verweigerter und erfolgreicher Favoritenzugriff im Browser"
+    },
+    {
+      "priority": "P1",
+      "title": "Verlorene ungeteilte Momente",
+      "description": "Zurück/Swipe fragt vor dem Verwerfen. Während laufender Übertragung kein Verwerfen; Browser-Neuladen geschützt. Keine zusätzliche Hürde beim normalen Teilen.",
+      "source": "mobile/hooks/useUnsavedMoment.ts",
+      "validation": "Funktionstest + Browser: Abbrechen erhält Ortswahl/Moods, Verwerfen schließt"
+    },
+    {
+      "priority": "P1",
+      "title": "Nachtöffnungen und Pausen",
+      "description": "Öffnung über Mitternacht gehört zum Vortag. Überlappende Fenster werden zusammengeführt, echte Pausen bleiben geschlossen; ungültige/unbekannte Zeiten bleiben unbekannt.",
+      "source": "mobile/lib/spot-opening-status.ts",
+      "validation": "Elf Zeit-/Grenzfälle inklusive Sonntag/Montag"
+    },
+    {
+      "priority": "P1",
+      "title": "Veralteter Status auf offenem Screen",
+      "description": "Startseite, Ortsdetail und native Listenkarte rechnen den Status zur nächsten Minute sowie bei Rückkehr in den Vordergrund neu. Dafür keine zusätzlichen Minuten-Netzwerkabrufe.",
+      "source": "mobile/hooks/useMinuteClock.ts",
+      "validation": "Quellcode + bestehende Öffnungszeitenregression"
+    },
+    {
+      "priority": "P1",
+      "title": "Abweichende Zeiten in der Kartenliste",
+      "description": "Nur tatsächlich sichtbare native Karten und ausgewählter Marker laden denselben öffentlichen Stundenplan wie das Ortsdetail. Begrenzte Parallelität, ehrliches unbekannt bei Fehlern.",
+      "source": "mobile/app/(tabs)/map.tsx",
+      "validation": "Typecheck + Stundenplan-Contract; native Scrollsichtbarkeit nicht am Gerät geprüft"
+    },
+    {
+      "priority": "P1",
+      "title": "Endloses Laden im Ortsdetail",
+      "description": "Primärdaten zeitlich begrenzt, entfernte/nicht abrufbare Orte mit Wiederholen und Zurück; keine halbe Erfolgsansicht. Veraltete Antworten überschreiben keinen neueren Ort.",
+      "source": "mobile/app/spot/[id].tsx",
+      "validation": "Browser: fehlendes öffentliches Profil, danach erfolgreicher Retry"
+    },
+    {
+      "priority": "P1",
+      "title": "Direkte Browser-Ortslinks",
+      "description": "Die Sicherheitsprüfung hält die Navigation gemountet und sperrt darunterliegende Bedienung und Screenreader-Ziele während der Prüfung. Dadurch gehen Direktlinks und Eingaben beim Zustandswechsel nicht verloren; Sicherheitsregeln bleiben aktiv.",
+      "source": "mobile/components/safety/GlobalSafetyEnforcementGuard.tsx",
+      "validation": "Browser-Direktaufruf und Retry; bestehende native Startup-Verträge"
+    },
+    {
+      "priority": "P1",
+      "title": "Ignorierte Suchanfrage im Browser",
+      "description": "Home-/Legacy-Suchparameter werden an die bestehende Ortsliste übergeben und dort angewendet. Ein einziger Suchpfad ersetzt die separate alte Suchseite.",
+      "source": "mobile/app/(tabs)/map.web.tsx",
+      "validation": "Browser-Journey: Alternative liefert nur passenden Ort"
+    },
+    {
+      "priority": "P1",
+      "title": "Irreführende Kontakte und Teilen",
+      "description": "Orte teilen ihren Backyrd-Link. Weblinks werden auf HTTP(S) begrenzt, Öffnungsfehler angezeigt. Route akzeptiert Nullkoordinaten, verwirft ungültige Werte und nutzt echte Adresse als Alternative.",
+      "source": "mobile/lib/links.ts",
+      "validation": "Funktionstests: fremde Schemes, 0/0, fehlende Adresse, fehlgeschlagener Link, Share-Link"
+    },
+    {
+      "priority": "P1",
+      "title": "Events: falsche Antworten bei schnellem Filterwechsel",
+      "description": "Generationsschutz verhindert, dass eine ältere Filter- oder Terminanfrage neuere Ergebnisse überschreibt; begrenzte Ladezeit.",
+      "source": "mobile/app/events/index.tsx",
+      "validation": "Typecheck und Quellcode; gezielte Race-Simulation nicht separat als Gerätetest"
+    },
+    {
+      "priority": "P1",
+      "title": "Events: Absage und nützliche Aktionen",
+      "description": "Abgesagte Termine führen nicht mit aktivem Tickettext weiter. Event teilen mit Terminlink, Route auch ohne verknüpften Backyrd-Ort, Bilder mit echtem Kalender-Fallback, Zusatztermine können Haupttermin nicht mehr verwerfen.",
+      "source": "mobile/app/events/[id].tsx",
+      "validation": "Quellcode, Typecheck und Event-Verträge"
+    },
+    {
+      "priority": "P2",
+      "title": "Passwörter und Wiederherstellung",
+      "description": "Passwort anzeigen/verbergen in gemeinsamem Feld, konsistente dunkle Wiederherstellung, skalierende Schrift, Tastatur-Submit, deaktivierte Eingaben während Anfrage und synchroner Doppelsendeschutz.",
+      "source": "mobile/components/AuthPasswordScreen.tsx",
+      "validation": "Browser: Anzeigen/Verbergen/Login; Typecheck"
+    },
+    {
+      "priority": "P2",
+      "title": "Bedienzustände der Controls",
+      "description": "Gemeinsame Buttons melden disabled/busy und Icon-Buttons respektieren deaktivierten Zustand. Favoriten, Filter und Kartenaktionen erhalten verständliche Labels.",
+      "source": "mobile/components/foundation/Button.tsx",
+      "validation": "Typecheck, Browser-Zielauswahl"
+    },
+    {
+      "priority": "P2",
+      "title": "Erneut laden in der Ortsliste",
+      "description": "Native Liste mit Pull-to-refresh, sichtbarem Ladezustand und bedienbarer Tastatur während Suche.",
+      "source": "mobile/app/(tabs)/map.tsx",
+      "validation": "Typecheck; native Geste bleibt manuelle Gerätekontrolle"
+    },
+    {
+      "priority": "P2",
+      "title": "Browser-Ersatzansicht",
+      "description": "Technische Web-Modus-Texte und fremdes Blau durch einfache Sprache und Pink ersetzt. Einheitliche Ortsbilder, nachvollziehbare Standortverweigerung und Suche ohne Standort.",
+      "source": "mobile/app/(tabs)/map.web.tsx",
+      "validation": "Exportierter Browserflow und kleine/große Viewports"
+    },
+    {
+      "priority": "P2",
+      "title": "Ungültiger Standort als 0/0",
+      "description": "Nullkoordinaten werden nicht länger zum realen Punkt 0/0 umgewandelt. Native Marker zeigen nur gültige Koordinaten; echte Koordinate 0 bleibt erlaubt.",
+      "source": "mobile/lib/useSpotsStore.ts",
+      "validation": "Typecheck; Grenzfall im Linktest"
+    },
+    {
+      "priority": "P2",
+      "title": "Konsistente Begriffe und Akzente",
+      "description": "Sichtbare Review-/Spot-Reste in Feed, Profil, Sicherheit und Datenschutz verständlicher benannt; Einstellungen nutzen Pink. Rechtsgrundlagen/API-Namen unverändert.",
+      "source": "mobile/app/(tabs)/settings.tsx",
+      "validation": "Quellcode + Typecheck"
+    },
+    {
+      "priority": "P2",
+      "title": "Überflüssige Abrufe",
+      "description": "Doppelte Initialabfragen für Ortsmomente, Mood-Zusammenfassung und Betreiberkontext entfernt. Sichtbarkeitsfehler bleibt von leerem Inhalt unterscheidbar.",
+      "source": "mobile/app/spot/[id].tsx",
+      "validation": "Quellcode + Browser-Journey"
+    },
+    {
+      "priority": "P1",
+      "title": "Kategorien im Katalog",
+      "description": "Kategorie-Joins werden sowohl als Objekt als auch als Liste normalisiert. Kategorien gehen dadurch beim Wechsel zur Ortsliste nicht mehr still verloren.",
+      "source": "mobile/lib/useSpotsStore.ts",
+      "validation": "Funktionstest mit beiden Datenformen, Nullkoordinaten und echten 0/0"
+    },
+    {
+      "priority": "P1",
+      "title": "Chat-Entwurf und Wiederherstellung",
+      "description": "Laufende Text- und Bildsendungen behalten einen getrennten Entwurfsstand. Fehler und erfolgreiche Antworten überschreiben keine neu bearbeiteten Texte; synchrone Sperre verhindert parallelen Versand. Fehlgeschlagenes Laden zeigt Retry statt eines leeren Chats. Kamera/Bildaktionen haben beschriftete 44-Punkt-Ziele; funktionslose Sprachaufnahme entfernt.",
+      "source": "mobile/app/messages/[id].tsx",
+      "validation": "Hook-Grenzfälle; exportierter App-Test mit verzögerter Antwort, HTTP 503, neuer Eingabe und idempotentem Text-Retry."
+    },
+    {
+      "priority": "P1",
+      "title": "Langer Name bei maximaler Systemschrift",
+      "description": "Die Header-Aktionen erhalten bei vergrösserter Systemschrift eine eigene Zeile. Der Begrüssung bleibt die volle Breite; der Vorname bricht auf dem kleinen iPhone nicht mehr mitten im Wort um. Standardansicht und auffälliges Plus bleiben erhalten. Native Ortsliste zeigt korrekt „1 Ort“ und benennt das Suchfeld für Screenreader. Der Filter erhält einen begrenzten Inhaltsbereich und verzichtet auf den redundanten Satz unter dem Titel.",
+      "source": "mobile/app/(tabs)/index.tsx",
+      "validation": "Nativer Vorher-/Nachher-Vergleich auf 375pt mit accessibility-extra-extra-extra-large; Typecheck und geänderte Datei ESLint."
+    }
+  ],
+  "remaining": [
+    {
+      "priority": "P1",
+      "title": "Abnahme auf physischem iPhone",
+      "description": "Kleine und grosse native Simulatoransicht sowie maximale Systemschrift sind jetzt konkret geprüft. Echte Kamera, Foto-Metadaten, VoiceOver-Sprechausgabe, schwaches Mobilnetz und tatsächliche Installation des OTA auf physischem iPhone bleiben offen.",
+      "boundary": "Gerätetest; keine Behauptung bereits erfolgt"
+    },
+    {
+      "priority": "P1",
+      "title": "Entwürfe über Absturz und App-Ende",
+      "description": "Der neue Schutz bewahrt laufende Eingaben vor versehentlichem Zurück. Dauerhafte Fotoentwürfe nach Prozessende brauchen ein klares Speicher-, Lösch-, Datenschutz- und Wiederaufnahme-Konzept.",
+      "boundary": "Bewusster Folgeauftrag; keine heimliche Fotospeicherung"
+    },
+    {
+      "priority": "P1",
+      "title": "Zeitzonen für reisende Nutzer",
+      "description": "Öffnungsstatus verwendet weiterhin Geräte-Kalenderzeit. Für konsistente Anzeige bei einem Gerät außerhalb der Ortszeitzone braucht jeder Ort eine belastbare Zeitzone und gemeinsame Formatierungsregeln.",
+      "boundary": "Offener Daten-/Vertragsbedarf, nicht als gelöst ausgegeben"
+    },
+    {
+      "priority": "P1",
+      "title": "Datenqualität und Bildabdeckung",
+      "description": "Fehlende Fotos, aktuelle Feiertagsausnahmen, Adressen, bestätigte Angebote und echte Eindrücke sind Produktdaten. Ein schöner Fallback ersetzt sie nicht und darf nichts erfinden.",
+      "boundary": "Laufende redaktionelle Pflege; keine synthetischen Bewertungen"
+    },
+    {
+      "priority": "P2",
+      "title": "Vollständige barrierefreie Abnahme",
+      "description": "Touchziele und skalierende Textbausteine sind verbessert. Eine vollständige VoiceOver-Reihenfolge, Fokus-Rückgabe, Kontrast über echten Fotos und größte iOS-Schrift bleiben manuell zu prüfen.",
+      "boundary": "Geräteprüfung, kein pauschales WCAG-Siegel"
+    },
+    {
+      "priority": "P2",
+      "title": "Chat unter Paketverlust",
+      "description": "Gleichzeitiges Tippen bei fehlgeschlagenem und erfolgreichem Textversand sowie idempotenter Retry sind synthetisch geprüft; Bild-Untertitel im Hook geprüft. Mehrgeräte-, echte Netzwechsel-, abgebrochene Upload- und unklare Bild-Commit-Antworten bleiben zu prüfen.",
+      "boundary": "Quellcode geprüft, kein Livechat mit zwei echten Konten"
+    },
+    {
+      "priority": "P2",
+      "title": "Native Foto-Bearbeitung",
+      "description": "Text/Emoji/GIF sowie flexible Filter nach dem Foto sind noch kein durchgängig abgenommener eigener Editor. Erst Entwurf/Undo/Abbruch und Rechte sauber definieren; den schnellen Moment nicht verlangsamen.",
+      "boundary": "Produkt-/Medienerweiterung, nicht in dieses Wartungsupdate gemischt"
+    },
+    {
+      "priority": "P2",
+      "title": "Echte End-to-End-Rechte und Benachrichtigungen",
+      "description": "Provider-Login, Push nach Abmeldung, Export/Download, Löschwiderruf, Melden/Blockieren und Moderationsentscheid auf echten Testkonten kontrollieren. Keine echten Konten im Audit löschen.",
+      "boundary": "Vorhandene Verträge und Code sind keine Live-Abnahme"
+    },
+    {
+      "priority": "P2",
+      "title": "Offline und große Bestände",
+      "description": "Ehrliche Fehler und begrenzte Abfragen existieren. Kartenkatalog hat eine begrenzte globale Ladung (bis 2000), keine vollständige serverseitige Geosuche/Paginierung. Offline-Lesecache und räumliche Seiten nur mit Cache-/Privacy-Konzept ergänzen.",
+      "boundary": "Architektur-Folgearbeit vor größerer Expansion"
+    },
+    {
+      "priority": "P3",
+      "title": "Messbare Perfektion statt Geschmacksbehauptung",
+      "description": "Aufgaben messen: Ort finden, Route öffnen, Moment teilen, gespeicherten Ort wiederfinden; mit echten Nutzern testen. Kein künstlicher Gesamtscore und kein Erfolg anhand Sitzungsdauer.",
+      "boundary": "Produktvalidierung; Decision ausdrücklich ausgeklammert"
+    },
+    {
+      "priority": "P2",
+      "title": "Historische native Berechtigungsbeschriftung",
+      "description": "Die vorhandene native Entwicklungshülle zeigt im iOS-Kameradialog noch „Reviews“. Solche Info.plist-Texte können nicht per JavaScript-OTA ersetzt werden und müssen mit einem neuen nativen Build abgenommen werden. Der Moment-Editor selbst verwendet „Moment“.",
+      "boundary": "Im echten Simulator beobachtet; nicht als per OTA behoben dargestellt."
+    }
+  ],
+  "invariants": [
+    "Decision-Ranking und Prompts unverändert",
+    "Mood-Schwellen und gewählte Darstellung unverändert",
+    "Prominentes Plus bleibt und Schnellfluss erhält keinen neuen Pflichtschritt",
+    "Keine DB-Migration, RLS-/Moderations-/Consent-Abschwächung oder Testbewertung",
+    "Keine Behauptung einer vollständigen Hardware-/Accessibility-Abnahme"
+  ],
+  "release": {
+    "status": "PASS",
+    "sourceSha": "93c05ccf67432128aaf3c15f72040f0c3fc931e8",
+    "manifestHash": "69a91bdc272def16cee0f249b8a6254e35736295017f73ea137a2cf423ccf5fc",
+    "otaGroupId": "ca70eddd-cfd1-4e16-be67-07b1cfa43eb8",
+    "iosUpdateId": "01a15cdf-2673-75c8-b2a3-d2c90de386b6",
+    "runtimeVersion": "1.1.0",
+    "channel": "production",
+    "liveLaunchBytesVerified": true,
+    "installedDeviceVerified": false,
+    "featurePrs": [
+      548,
+      551,
+      552,
+      579
+    ],
+    "policyPr": 577,
+    "exactMainCertificationRunId": 39547508732
+  },
+  "nativeAcceptance": {
+    "platform": "iOS 18.3 Simulator",
+    "smallDevice": "iPhone SE 3rd generation, 375pt, accessibility-extra-extra-extra-large",
+    "largeDevice": "iPhone 16 Pro Max, 440pt, default content size",
+    "transport": "synthetic-only; separate temporary test entry; actual app route sources",
+    "sourceBase": "dd894873ac6e077ec7c9ced1db0959067225eb85",
+    "headerSha256": "7ce9333eb98cff2a1eac6918499d666e9eb298f722022386860832f1c7e01b33",
+    "verified": [
+      "long greeting before/after",
+      "long place title",
+      "honest missing-photo fallback",
+      "closed status from synthetic canonical schedule",
+      "persistent route/moment actions",
+      "camera denied recovery",
+      "manual place without location",
+      "two Moods preserved through place selection",
+      "native discard confirmation and keep editing",
+      "native result singular label",
+      "native named search field",
+      "native filter selection and apply through accessibility actions"
+    ],
+    "notVerified": [
+      "physical camera capture",
+      "physical-device OTA installation",
+      "complete VoiceOver spoken order",
+      "live two-account messaging",
+      "new native permission strings in installed shells",
+      "complete filter touch-scroll gestures through the desktop automation bridge"
+    ],
+    "productionWrites": 0
+  },
+  "sourceSha": "93c05ccf67432128aaf3c15f72040f0c3fc931e8",
+  "toolingDependencyAudit": {
+    "command": "npm audit --omit=dev",
+    "date": "2026-10-21",
+    "critical": 0,
+    "high": 31,
+    "moderate": 20,
+    "total": 51,
+    "shellQuoteAdvisoryPatched": true,
+    "status": "OTHER_FINDINGS_REMAIN",
+    "exposure": "Includes framework development/build-tool transitive dependencies; runtime exploitability is not established by the count."
+  },
+  "validation": {
+    "mobileTypeScript": "PASS",
+    "changedMobileLint": "PASS",
+    "productContracts": "PASS",
+    "mapAndRequestDeadline": "PASS",
+    "deliveryPolicy": "PASS",
+    "featurePrRequiredChecks": "PASS",
+    "exactMainExportedAppJourney": "PASS",
+    "safetyAccountLockPreserved": "PASS",
+    "productionManifestAndLaunchBytes": "PASS",
+    "productionTestWrites": 0,
+    "physicalDeviceAcceptance": false
+  }
+}

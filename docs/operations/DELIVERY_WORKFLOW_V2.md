@@ -154,3 +154,22 @@ source/tree SHAs, World/User/Decision artifacts, migration set, test evidence,
 build artifact, runtime policy and Production plan. Component hashes remain
 machine-verifiable children; the manifest hash is the single release identity
 shown to humans.
+
+### iOS-only artifact certification
+
+The existing manual Product artifact workflow accepts `delivery_target`:
+`PRODUCT` (default, unchanged backend/migration recovery gates) or `IOS_OTA`.
+Both targets bind the exact canonical Main commit, tested web export, production
+Hermes export, complete sealed bytes, historical recovery evidence and runtime
+closure tests. No artifact is rebuilt for publication.
+
+`IOS_OTA` records pending migrations exactly as pending; it does not authorize
+or apply them. Their separately approved backend release may remain pending while
+an independent app update ships. Supabase's two artifact verification steps
+require `PRODUCT`, and the production preflight independently rejects iOS-only
+artifacts before considering remote observations. iOS publication must verify
+`--expected-delivery-target IOS_OTA` in addition to source, mode and manifest hash.
+An iOS certificate must never be used as database or Edge Function authority.
+Routine Risk Gate certification uses `IOS_OTA` while retaining all Product and
+Edge-runtime tests. A backend deployment requires a separate exact-Main manual
+`PRODUCT` certification and its unchanged migration-specific approval gates.

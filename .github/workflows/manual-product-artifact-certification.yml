@@ -7,6 +7,12 @@ on:
         description: Exact canonical Main SHA to certify
         required: true
         type: string
+      delivery_target:
+        description: Artifact delivery scope; IOS_OTA never authorizes backend deployment
+        required: true
+        type: choice
+        default: PRODUCT
+        options: [PRODUCT, IOS_OTA]
       certification_confirmation:
         description: Type CERTIFY_PRODUCT_RELEASE
         required: true
@@ -79,6 +85,7 @@ jobs:
           node scripts/ci/product-release-manifest.mjs evidence --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/product-release-tests.json"
           node scripts/ci/product-release-manifest.mjs build \
             --mode POST_MERGE_MAIN \
+            --delivery-target "${{ inputs.delivery_target }}" \
             --base-sha "$base_sha" \
             --source-sha "$SOURCE_SHA" \
             --checkout-sha "$SOURCE_SHA" \
@@ -92,6 +99,7 @@ jobs:
             --expected-hash "$manifest_hash" \
             --expected-source-sha "$SOURCE_SHA" \
             --expected-mode POST_MERGE_MAIN \
+            --expected-delivery-target "${{ inputs.delivery_target }}" \
             --checkout-root "$GITHUB_WORKSPACE"
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:

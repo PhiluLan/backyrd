@@ -45,7 +45,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.kicker}>DEIN backyrd</Text>
-        <Text style={styles.title}>EINSTELLUNGEN</Text>
+        <Text style={styles.title}>Einstellungen</Text>
         <Text style={styles.subtitle}>Profil, Privatsphäre und deine App.</Text>
 
         <Text style={styles.groupLabel}>ACCOUNT</Text>
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     fontFamily: productTheme.type.display,
     ...productTheme.typeScale.displayL,
   },
-  kicker: { color: productTheme.color.acid, fontFamily: productTheme.type.bodyBold, fontSize: productTheme.typeScale.label.fontSize, letterSpacing: 2.5 },
+  kicker: { color: productTheme.color.pink, fontFamily: productTheme.type.bodyBold, fontSize: productTheme.typeScale.label.fontSize, letterSpacing: 2.5 },
   subtitle: {
     color: productTheme.color.textSecondary,
     marginTop: 6,
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   groupLabel: {
     marginTop: 26,
     marginBottom: 10,
-    color: productTheme.color.acid,
+    color: productTheme.color.pink,
     fontFamily: productTheme.type.bodyBold,
     fontSize: productTheme.typeScale.label.fontSize,
     letterSpacing: 1.4,
