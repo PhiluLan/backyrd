@@ -32,4 +32,25 @@ select set_config('summary.pending.id',:'pending'::jsonb->>'id',true);
 reset role;
 select public.booking_mail_summary_v1(pg_temp.mail_id('owner'),pg_temp.mail_id('spot'),current_setting('summary.manual.id')::uuid,pg_temp.mail_id('summary-op'),0,'restore-recipient@booking.invalid');
 select public.booking_guest_create_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('online-op'),1,(((now() at time zone 'Europe/Zurich')::date+1+time '17:00') at time zone 'Europe/Zurich'),2,'Synthetic online guest','restore-online@booking.invalid',repeat('b',64),repeat('sealed-fixture-',5),'SYNTHETIC_GUEST_NOTE');
+-- Populated contact-card lifecycle; all writes use the real operator-bound RPC.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.mail_id('host')::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.mail_id('host'),'role','authenticated')::text,true);
+select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-active-create'),
+ jsonb_build_object('kind','save','id',pg_temp.mail_id('card-active'),'revision',null,'name','Synthetic card original','email','restore-card@booking.invalid','phone','+41 61 000 00 00'),pg_temp.mail_id('host'));
+select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-active-edit'),
+ jsonb_build_object('kind','save','id',pg_temp.mail_id('card-active'),'revision',0,'name','Synthetic card corrected','email','restore-corrected@booking.invalid','phone','+41 61 000 00 00'),pg_temp.mail_id('host'));
+select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-archived-create'),
+ jsonb_build_object('kind','save','id',pg_temp.mail_id('card-archived'),'revision',null,'name','Synthetic card archived','email',null,'phone',null),pg_temp.mail_id('host'));
+select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-restored-create'),
+ jsonb_build_object('kind','save','id',pg_temp.mail_id('card-restored'),'revision',null,'name','Synthetic card restored','email',null,'phone',null),pg_temp.mail_id('host'));
+select set_config('request.jwt.claim.sub',pg_temp.mail_id('manager')::text,true);
+select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.mail_id('manager'),'role','authenticated')::text,true);
+select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-archived-archive'),
+ jsonb_build_object('kind','archive','id',pg_temp.mail_id('card-archived'),'revision',0,'archived',true),pg_temp.mail_id('manager'));
+select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-restored-archive'),
+ jsonb_build_object('kind','archive','id',pg_temp.mail_id('card-restored'),'revision',0,'archived',true),pg_temp.mail_id('manager'));
+select public.booking_console_guest_write_v1(pg_temp.mail_id('spot'),pg_temp.mail_id('card-restored-restore'),
+ jsonb_build_object('kind','archive','id',pg_temp.mail_id('card-restored'),'revision',1,'archived',false),pg_temp.mail_id('manager'));
+reset role;
 commit;

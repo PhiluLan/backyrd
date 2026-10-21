@@ -3,6 +3,10 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- Preserve pre-existing restored reservations as well as an empty clean boot.
+create temp table booking_inventory_before as
+ select coalesce(jsonb_agg(to_jsonb(r) order by id),'[]'::jsonb) facts from public.booking_reservations r;
+
 create function pg_temp.booking_id(label text) returns uuid language sql immutable as $$ select md5('booking-guest-card-test:'||label)::uuid $$;
 create function pg_temp.booking_assert(ok boolean, message text) returns void language plpgsql as $$
 begin if ok is not true then raise exception 'Booking Console: %',message; end if; end $$;
@@ -148,5 +152,5 @@ do $$ begin
 end $$;
 select pg_temp.card_write(pg_temp.booking_id('spot-a'),pg_temp.booking_id('new-owner-create'),pg_temp.card_intent('new-owner-guest'));
 reset role;
-select pg_temp.booking_assert((select count(*)=0 from public.booking_reservations),'guest directory mutated booking inventory');
+select pg_temp.booking_assert((select coalesce(jsonb_agg(to_jsonb(r) order by id),'[]'::jsonb) from public.booking_reservations r)=(select facts from booking_inventory_before),'guest directory mutated booking inventory');
 rollback;

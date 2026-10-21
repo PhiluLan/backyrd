@@ -42,6 +42,9 @@ values(pg_temp.booking_id('other'),pg_temp.booking_id('spot-b'),pg_temp.booking_
 insert into public.booking_reservations(id,spot_id,request_id,table_id,service_id,guest_name,party_size,starts_at,ends_at,status,source)
 select pg_temp.booking_id('boundary-'||n),pg_temp.booking_id('spot-a'),pg_temp.booking_id('boundary-request-'||n),pg_temp.booking_id('table-a'),pg_temp.booking_id('service-a'),'Boundary',2,
  t,t+interval '30 minutes','cancelled','operator' from (values (1,'2026-10-24T22:00:00Z'::timestamptz),(2,'2026-10-25T23:00:00Z'::timestamptz)) x(n,t);
+-- Compare exact saved facts, including unrelated restored reservations.
+create temp table booking_inventory_before as
+ select coalesce(jsonb_agg(to_jsonb(r) order by id),'[]'::jsonb) facts from public.booking_reservations r;
 set local role authenticated;
 select pg_temp.booking_actor('booking-viewer');
 do $$ declare a jsonb; b jsonb; q text; begin
@@ -86,5 +89,5 @@ do $$ begin
  begin perform public.booking_console_search_v1(pg_temp.booking_id('spot-a'),'Ada','2026-10-25','2026-10-25'); raise exception 'revoked read'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
-select pg_temp.booking_assert((select count(*)=33 from public.booking_reservations),'lookup changed inventory');
+select pg_temp.booking_assert((select coalesce(jsonb_agg(to_jsonb(r) order by id),'[]'::jsonb) from public.booking_reservations r)=(select facts from booking_inventory_before),'lookup changed inventory');
 rollback;
