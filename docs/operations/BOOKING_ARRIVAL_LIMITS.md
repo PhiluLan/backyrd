@@ -1,0 +1,263 @@
+# Booking arrival limits — central restaurant pacing candidate
+
+Restaurant staff need to limit how many guests are scheduled to start together,
+even when several tables are free. This dependent migration-215 foundation adds
+an optional restaurant-wide maximum party total in fixed 15-, 30- or 60-minute
+windows. It applies across every service, room, source and physical table.
+It does not replace table overlap, seating, closures, service hours, public
+notice/horizon, role or Safety checks.
+
+## Exact meaning
+
+Each parent reservation contributes its saved party size once when its saved
+start falls in `[window_start, window_end)`. Pending, confirmed, arrived, seated
+and completed reservations contribute. Cancelled, declined and no-show do not.
+Completing a visit does not make its recent intake load disappear. These are
+saved planning facts, not unique people or observed arrival/presence.
+
+Windows use PostgreSQL `date_bin` anchored at a UTC hour and elapsed minutes.
+In Europe/Zurich these align to the selected quarter, half or full hour. Repeated
+autumn hours remain distinct instants; the spring gap creates no phantom slots.
+A boundary belongs to the next window, including midnight. **This is fixed-bin
+pacing, not a rolling-window or kitchen-workload guarantee**: starts immediately
+on either side of a boundary can still cluster.
+
+No policy row means unlimited intake. A `null` maximum explicitly disables the
+limit; zero is invalid. Accepted maxima are 1–1000 guests; existing booking party,
+table and max-party restrictions continue to apply. The policy belongs to the
+restaurant configuration and remains on Owner transfer. Actor-bound operation
+receipts remain bound to their original Owner and verified current operator.
+
+Lowering a limit never cancels, deletes or rewrites existing reservations. An
+unchanged or smaller contribution in the same actual time window remains
+editable even when that window is now above its configured limit. An increased
+party or move into another window must pass the current cap. Changing service,
+room, table or duration alone cannot add a second parent contribution or bypass
+the global rule. Managers can disable/change the cap explicitly and with audit;
+there is no silent per-booking bypass.
+
+## Canonical paths and permissions
+
+`booking_private.arrival_limits_v1` holds the current policy/revision;
+`arrival_limit_requests_v1` holds original intent fingerprints and outcomes.
+Both have RLS and no raw grants to anonymous, authenticated or service-role
+clients. The parent-reservation trigger checks every counted insert/update,
+including privileged parent writes and atomic multi-row statements. Existing
+Booking RPCs acquire the restaurant root before reservation/resource rows; the
+trigger shares that root serialization and advances its MVCC version without changing business fields. Real policy changes do the same, so Repeatable Read cannot commit from an older allocation/policy snapshot; PostgreSQL aborts the stale transaction with 40001. A missing/disabled policy is never
+used as a replacement lock. Direct privileged multi-row updates must preserve
+the same lock order or may be aborted by PostgreSQL deadlock detection.
+
+Existing v1 single-table, v2 combination/amendment and immediate walk-in previews,
+and public availability/creation, reuse the private predicate. Full windows are
+removed before preview truncation. The trigger is the final transactional write
+check, so stale previews or two different free tables cannot exceed the cap.
+Canonical original booking retries return their original receipt before a fresh
+capacity check and do not add another contribution. No mobile/shared/public
+success payload is changed. Mobile currently consumes the same guest gateway;
+Admin has no separate Booking allocator.
+
+- `booking_console_arrival_limit_v1(spot)` reads the current policy for authorized
+  Viewer/Host/Manager/Owner, subject to current role, ownership and Safety.
+- `booking_console_save_arrival_limit_v1(spot, request, revision, window_minutes,
+  max_guests, actor, recover=false)` is Manager/Owner only. It validates the actual
+  JWT actor, CAS revision, range, current Owner and Safety before exact recovery.
+  Recovery of an unused nonce returns null without writing. Identical replay
+  returns the original outcome; changed intent/actor/Owner is rejected. A no-op
+  may record its original receipt but does not bump policy revision or add a
+  duplicate configuration audit. Real changes create an `arrival_limit_saved`
+  event containing configuration facts, not guest text.
+
+Outcomes contain only `spot_id`, policy `revision`, `window_minutes` and
+`max_guests`. `booking_arrival_limit_changed` is a revision conflict;
+`invalid_booking_arrival_limit` rejects invalid configuration;
+`booking_arrival_limit_exceeded` is a definite failed write. Legacy/public
+paths can reject earlier with the existing `booking_slot_unavailable` code.
+
+## Acceptance and release boundary
+
+The actual rolled-back SQL corpus exercises all canonical booking versions,
+public preview/create, amendment self-exclusion, preserved/shrunk contributions
+after lowering the cap, combined parents, completed and excluded statuses,
+reactivation, atomic multi-row rollback, DST/half-open bounds, frozen private
+server-clock walk-ins, actual role/raw-table denials, stale revisions, no-op and
+original recovery, changed intent/actor, Safety, revocation and Owner transfer.
+Nine additional actual two-connection cases cover competing free tables,
+policy-before-create, create-before-lowering, concurrent identical policy retry,
+policy CAS, public/operator allocation in both orders and Repeatable Read across distinct tables/policy changes. Synthetic guest-key
+hashes are namespaced so unrelated reissue fixtures remain intact.
+
+The existing `(spot_id, starts_at)` index supports the bounded window predicate;
+no speculative index, backfill or existing-booking rewrite is introduced. The
+private semantic fingerprint now covers 1124 facts,
+`937a04845c02226bc7367a89cab7923813ff5d9cb54ebab7b3f757d5273fbd62`.
+
+This foundation deliberately advertises no new Console capability before its
+editor/recovery UX is implemented and tested. The Manager editor, current-window
+review, public-facing empty-state copy, physical-device/restaurant acceptance,
+advanced per-service/room/online quotas, rolling pacing and real activation remain
+open. The populated restore proof from migration 214 does not certify populated
+arrival-policy/request-table restoration. Production remains unchanged and
+public guest intake remains paused. No practical Aleno parity claim follows.
+
+Before claiming restaurant usability, implement the Console editor and run two
+actual operator sessions on supported phone/desktop devices: review the effective
+limit, replace/delete numeric input, save/disable it, recover a lost save response,
+observe a competing Manager change, fill a window across services and combined
+tables, try an online request at that same instant, move a booking across a
+boundary and lower the limit while preserving existing bookings. Inspect the
+current policy after retry rather than treating an older original receipt as the
+latest configuration. These manual/device/restaurant steps remain unperformed.
+
+Final local canonical acceptance passed all **32 Booking SQL suites**, baseline
+and concurrency checks including the **nine new pacing races**, **20 private-drift
+mutations**, lineage, public/private schema/ACL and database lint. Receipt:
+`57177a369a75ac86ba0ad376373ffbf84f192ba4061358d333a2477bdfdba6f4`.
+All 72 selected classifier/delivery-workflow contract cases and both secret
+boundary scans passed. No Web runtime or shared success contract changed, so
+previous browser results are not represented as new pacing-UI verification.
+
+An earlier local gate completed its database execution but rejected release
+evidence while the new migration/evidence were still uncommitted. That was not
+accepted as a green release gate. The Repeatable Read correction changed a
+protected SQL input, so the final gate used a fresh independent clean boot with
+committed evidence. A first race-fixture attempt also exposed a collision with an
+existing synthetic guest-key hash; only the owned fixtures were cleaned, new keys
+were namespaced and the actual race suite was then rerun successfully. No failed
+attempt or evidence-only resume is represented as the final execution proof.
+
+## Console editor candidate (migration 216)
+
+The subsequent Console increment advertises `arrival_limits` only after the
+central contract exists. Owner/Manager find **Gästeandrang steuern** under
+**Einrichtung**. Host/Viewer cannot open the editor. The loaded policy remains
+separate from the local draft. A nullable disabled limit is explicit; numeric
+input stays a string while editing so an empty value does not turn into zero.
+The form requires a whole number from 1 to 1000 before enabling a write.
+
+Each save freezes the actor-bound nonce/revision/window/maximum. It first asks
+for the exact original outcome, dispatches only if absent, and preserves the
+same request after an uncertain dispatched response. Pre-dispatch read failure
+leaves the draft editable. A definite revision conflict requires an explicit
+current-state reload; it cannot blindly retry using a new revision. A known
+save followed by a failed current read requires refresh rather than another
+write. Even a recovered original outcome is followed by a fresh policy read,
+so another Manager's newer rule is displayed instead of being overwritten or
+misrepresented as the recovered value.
+
+Offline input is retained, save is disabled, and unsaved/unknown close states
+explain what is being discarded locally. No browser storage persists the draft
+or nonce. Closing an unknown request therefore requires reopening and reviewing
+the current rule; cross-restart exact-intent recovery remains open. Account and
+mount guards prevent late results/denials from entering a replacement context.
+Existing permission-only polling continues while the panel is open and closes
+it on role change/revocation. All new API responses validate restaurant, revision,
+window and explicit null/range semantics before reaching the editor.
+
+Migration-216 canonical clean boot passed all **33 Booking SQL suites**, baseline
+and concurrency checks (including the nine pacing races), 20 private-drift cases,
+lineage, schema/ACL and DB lint. Its input-bound receipt is
+`3bcd1d20e2b6afe2326031d5d71d92a05395580d44f8f764a57fe116149ce9d8`.
+The 1124-fact private fingerprint remains unchanged; its inputs now bind migration
+216. Actual PostgreSQL snapshot, initial policy, saved policy and exact recovery
+JSON passed the actual Web parsers. The isolated databases/volumes were removed.
+
+All **150 Web contract cases** passed, including four new policy/intent/RPC
+scope/range/recovery cases. The **18 targeted browser journeys** passed against
+the final Webpack production build: numeric deletion/zero validation, explicit
+disable, dirty close, lost response and newer Manager rule, CAS/reload,
+malformed/network reads, pre-dispatch recovery failure, known commit with failed
+refresh, offline retention, Manager-only entry, role downgrade, backend denial,
+late account data/denial, capability gating, unknown close/reopen and logout.
+The 320-pixel phone view passed automated accessibility and no-document-overflow
+checks and was visually inspected. Type checking and the supported Webpack build
+passed; lint has zero errors and 13 existing warnings. These are local synthetic
+results, not physical-device or restaurant operating acceptance.
+The full **270 Booking browser cases** also passed against that final production
+build after targeted and visual review. Production migration/activation and the
+actual restaurant/device pilot remain separate acceptance steps.
+
+## Daily arrival-window review candidate (migration 217)
+
+The authenticated `booking_console_arrival_review_v1(spot, date)` read and
+`arrival_review` snapshot capability add **Zeitfenster prüfen** to the operational
+day context for Owner, Manager, Host and Viewer. It always covers the entire
+restaurant, independent of the diary's room/service/status filters. The selected
+review day does not navigate or overwrite the underlying diary context. Managers
+can open the existing rule editor; the review itself has no mutation path.
+
+One shared restaurant-root lock authorizes the current role/Owner/Safety scope
+and keeps the current policy coherent with a single materialized scan of parent
+booking facts. It returns the current policy, database observation time, counted
+and excluded reservation/party totals and a complete fixed-bin grid from Zurich
+midnight to the next midnight. The supported calendar is 1970-01-01 through
+9999-12-30; unsupported dates fail explicitly. A spring day has 23 actual hours,
+a fall day 25. Each endpoint is half-open, and repeated local hours retain their
+actual offsets. Every window, including zero windows, remains in the wire
+contract; hiding empty rows is only a display choice.
+
+The same five statuses as pacing contribute; cancelled/declined/no-show totals
+are shown separately. No guest names, contacts, notes, reservation/table/actor
+identifiers or configured service labels are selected into the aggregate.
+Historical views compare saved booking facts against the **current** loaded rule,
+not a reconstructed rule from that earlier date. A full/exceeded window never
+claims actual attendance, available tables or a kitchen capacity guarantee. No
+arrival policy or existing reservation is changed by this read.
+
+The Web codec binds restaurant/day/timezone and the policy, checks real calendar
+and microsecond timestamps, exact full-day/interval boundaries, contiguity,
+complete DST grids and both counted/excluded party totals. Invalid or partial
+responses produce an error, never an invented empty day. Date editing clears old
+facts immediately; offline clears results, and reconnect reads a new policy/fact
+snapshot. Current request/account/mount guards reject late results and denials.
+Permission-only polling continues while the review is open. The compact phone
+view keeps date editing in an optional disclosure and shows the loaded date,
+current-rule comparison, sums and limit states ahead of explanations.
+
+The final canonical clean boot passed all **34 Booking SQL suites**, the existing
+baseline/races, **six additional actual two-connection review cases**, 20 private
+drift mutations, lineage, schema/ACL and DB lint. New races cover review/create,
+review/policy-change and Viewer revocation in both root-lock orders. Receipt:
+`b059c664f7d8afe766f612f1654bab7704292ef37f3e439df339824a7d989848`.
+The private scope remains 1124 facts with its inputs bound to migration 217.
+Actual PostgreSQL fall-day JSON (50 half-hour windows, 22 counted and 6 excluded
+guests as summed party sizes) passed the real Web parser. The owned disposable
+fixture databases and volumes were removed after execution. Protected synthetic
+JSON and the input-bound receipt remain privately under `.local`.
+
+All **155 Web contract cases** passed, including five new full-grid/DST/scope,
+count reconciliation, timestamp/calendar and bounded RPC cases. Types and the
+supported Webpack production build passed; lint has zero errors and 13 existing
+warnings. The actual phone/restaurant pilot, rolling and per-room/service/online
+quotas, historical as-of policy reconstruction, cross-restart exact-intent
+recovery and populated arrival-policy/journal restore remain open. No production
+migration, guest intake, actual message or practical Aleno parity is activated.
+
+The final compact UI passed **17 targeted browser journeys** covering scoped
+whole-restaurant facts, excluded statuses, filter/focus preservation, explicit
+day changes, empty grids, repeated-hour offsets, changed policy refresh, failed
+reads, offline/reconnect, Viewer read-only access, Manager editor transition,
+revocation, stale day/closed/account replies, capability/endpoint denial and
+logout. Its 320-pixel phone view passed automated accessibility and no-document-
+overflow checks and was visually inspected. The date form is an optional
+disclosure; the loaded rule is explicitly labelled current, and small counts
+use singular labels. No physical-device acceptance is inferred from this.
+The full **287 Booking browser cases** then passed against the final compact
+production build. This closes the local daily-window-review implementation gap;
+production release and actual restaurant/device acceptance remain separate.
+
+
+## Populated local restore acceptance
+
+The migration-217 two-project drill now restores the populated policy and request
+tables: one current revision-4 limit, five original actor-bound receipts and four
+policy changes. Original outcomes survive lowering/no-op/disable/re-enable; the
+current daily review still counts all saved bookings under the current rule.
+Actual restored quota rejection on a free second table, a fresh authorized
+policy increase/new booking, raw-role/Safety/revocation/Owner fences and Web
+codecs pass. All 34 current Booking SQL suites and media authorization pass on
+the restored target. See [backup recovery](BOOKING_BACKUP_RECOVERY.md) for the
+392-table proof and exact clock-comparison boundary. The populated local arrival
+restore gap is closed; cloud/PITR/Storage-byte recovery, runtime upgrade
+acceptance, incident-specific secrets/reconciliation and actual restaurant
+operation remain open. No production or real guest action follows.
