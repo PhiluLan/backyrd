@@ -181,7 +181,12 @@ export function WorldResearchBatchPanel(props: {
     setActiveJobId(jobId);
     panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  const previewBatch = (choices = confirmations, preserveReviews = false) => run(() => loadPreview(parse(), choices, preserveReviews));
+  const previewBatch = (choices = confirmations, preserveReviews = false) => run(async () => {
+    const document = parse();
+    const draft = parseNuknukDraft(document);
+    if (draft) { setNuknukDraft(draft); setSavedDraftId(null); setDraftsError(""); setJson(""); return; }
+    await loadPreview(document, choices, preserveReviews);
+  });
   const refreshBatch = () => run(async () => {
     const previous = parse() as { batch?: { spots?: Array<{ spotId: string }> } };
     const spotIds = previous.batch?.spots?.map((spot) => spot.spotId);
