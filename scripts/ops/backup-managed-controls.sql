@@ -22,5 +22,6 @@ with rules(ordinal,identity,ddl) as (
  from pg_publication_tables where pubname='supabase_realtime'
 )
 select jsonb_build_object('version','backyrd-managed-recovery-controls-v1',
+ 'bookingTables',coalesce((select jsonb_agg(c.relname order by c.relname) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='booking_private' and c.relkind='r'),'[]'::jsonb),
  'safeStorageRls',(select count(*)=2 and bool_and(c.relrowsecurity) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='storage' and c.relname in ('objects','buckets')),
  'ruleCount',count(*),'sql','set local search_path=pg_catalog,public;'||E'\n'||string_agg(ddl,E'\n' order by ordinal,identity)) as managed_backup from rules;

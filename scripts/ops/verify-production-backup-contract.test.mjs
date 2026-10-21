@@ -71,12 +71,12 @@ function exportFixture(options={}) {
 import fs from 'node:fs';import path from 'node:path';
 const args=process.argv.slice(2),file=process.env.FAKE_CALLS;const calls=fs.existsSync(file)?JSON.parse(fs.readFileSync(file)):[];calls.push(args);fs.writeFileSync(file,JSON.stringify(calls));
 if(args.includes('--version')){console.log(process.env.FAKE_VERSION);process.exit(0);}
-if(args[1]==='query'){console.log(JSON.stringify([{managed_backup:{version:'backyrd-managed-recovery-controls-v1',safeStorageRls:process.env.FAKE_SAFE_RLS!=='0',ruleCount:1,sql:'-- synthetic captured controls'}}]));process.exit(0);}
+if(args[1]==='query'){console.log(JSON.stringify([{managed_backup:{version:'backyrd-managed-recovery-controls-v1',safeStorageRls:process.env.FAKE_SAFE_RLS!=='0',ruleCount:1,bookingTables:process.env.FAKE_NO_TABLES==='1'?[]:['fixture_journal'],sql:'-- synthetic captured controls'}}]));process.exit(0);}
 const target=args[args.indexOf('--file')+1],name=path.basename(target);
-fs.writeFileSync(target,name==='migration-data.sql'?'COPY supabase_migrations.schema_migrations FROM stdin;':process.env.FAKE_PRIVATE==='0'?'CREATE SCHEMA public;':'-- synthetic booking_private payload section');
+fs.writeFileSync(target,name==='data.sql'&&process.env.FAKE_PRIVATE!=='0'?(process.env.FAKE_DATA==='0'||process.env.FAKE_NO_TABLES==='1'?'COPY public.fixture FROM stdin;':'COPY \"booking_private\".\"fixture_journal\" (id) FROM stdin;'):name==='migration-data.sql'?'COPY supabase_migrations.schema_migrations FROM stdin;':process.env.FAKE_PRIVATE==='0'?'CREATE SCHEMA public;':(name==='schema.sql'&&process.env.FAKE_SCHEMA_REFERENCE==='1'?'-- reference booking_private only':'CREATE SCHEMA IF NOT EXISTS \"booking_private\";'));
 `,{mode:0o700});
  if(options.existing){mkdirSync(output);writeFileSync(join(output,'keep'),'original');}
- const result=spawnSync('bash',[new URL('./export-database-snapshot.sh',import.meta.url).pathname,output],{encoding:'utf8',env:{...process.env,BACKYRD_BACKUP_SUPABASE_CLI:binary,BACKYRD_BACKUP_DATABASE_TARGET:options.target??'local',BACKYRD_BACKUP_EPHEMERAL:options.ephemeral??'1',BACKYRD_BACKUP_LOCAL_WORKDIR:workdir,FAKE_CALLS:calls,FAKE_VERSION:options.version??'2.116.0',FAKE_PRIVATE:options.private===false?'0':'1',FAKE_SAFE_RLS:options.safeRls===false?'0':'1'}});
+ const result=spawnSync('bash',[new URL('./export-database-snapshot.sh',import.meta.url).pathname,output],{encoding:'utf8',env:{...process.env,BACKYRD_BACKUP_SUPABASE_CLI:binary,BACKYRD_BACKUP_DATABASE_TARGET:options.target??'local',BACKYRD_BACKUP_EPHEMERAL:options.ephemeral??'1',BACKYRD_BACKUP_LOCAL_WORKDIR:workdir,FAKE_CALLS:calls,FAKE_VERSION:options.version??'2.116.0',FAKE_PRIVATE:options.private===false?'0':'1',FAKE_SAFE_RLS:options.safeRls===false?'0':'1',FAKE_DATA:options.data===false?'0':'1',FAKE_NO_TABLES:options.noTables?'1':'0',FAKE_SCHEMA_REFERENCE:options.schemaReference?'1':'0'}});
  return {root,output,result,calls:existsSync(calls)?JSON.parse(readFileSync(calls)):[],cleanup:()=>rmSync(root,{recursive:true,force:true})};
 }
 test('actual exporter orchestration includes private/default data and a separate migration history with private file permissions',()=>{
@@ -97,3 +97,7 @@ for(const [label,options] of [['unexpected CLI',{version:'2.80.0'}],['non-dispos
 test('missing private Booking content cannot produce a completed snapshot',()=>{const f=exportFixture({private:false});try{assert.notEqual(f.result.status,0);assert.match(f.result.stderr,/Private Booking schema is missing/);assert.equal(existsSync(join(f.output,'scope.json')),false);}finally{f.cleanup();}});
 
 test('disabled Storage protection cannot produce a completed backup',()=>{const f=exportFixture({safeRls:false});try{assert.notEqual(f.result.status,0);assert.equal(existsSync(join(f.output,'scope.json')),false);}finally{f.cleanup();}});
+
+test('a source with only private functions is backed up without inventing missing table data',()=>{const f=exportFixture({noTables:true});try{assert.equal(f.result.status,0,f.result.stderr);assert.deepEqual(JSON.parse(readFileSync(join(f.output,'scope.json'))).bookingTables,[]);}finally{f.cleanup();}});
+test('every actually installed private table needs its own COPY section',()=>{const f=exportFixture({data:false});try{assert.notEqual(f.result.status,0);assert.match(f.result.stderr,/Private Booking data sections are missing/);assert.equal(existsSync(join(f.output,'scope.json')),false);}finally{f.cleanup();}});
+test('a private-schema reference in public functions does not prove that the private schema was exported',()=>{const f=exportFixture({schemaReference:true});try{assert.notEqual(f.result.status,0);assert.match(f.result.stderr,/Private Booking schema is missing/);}finally{f.cleanup();}});

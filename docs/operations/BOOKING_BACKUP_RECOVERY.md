@@ -21,8 +21,11 @@ The helper exports roles, every non-platform application schema and all default
 application/Auth/Storage data. There is no application-schema allowlist to forget
 when a new private schema is added. CLI platform exclusions remain intentional.
 The Supabase migration schema and its data are exported separately because the
-CLI excludes that ledger by default. Missing Booking schema/data sections or
-migration history prevent a completed snapshot. Files use mode 0600 in private
+CLI excludes that ledger by default. The source catalog supplies the physical private-table inventory. A private
+function-only schema is valid; each installed physical table, including an empty
+one, needs its own COPY section. The schema must be declared, not merely mentioned
+in a public function. Missing expected schema/data sections or migration history
+prevent a completed snapshot. The independent Main-compatible exporter is PR #576. Files use mode 0600 in private
 directories; a per-file SHA-256 manifest supplements the existing whole-archive
 checksum and KMS protection. Dumps, credentials and decryption keys never belong
 in Git, reports or browser code.
