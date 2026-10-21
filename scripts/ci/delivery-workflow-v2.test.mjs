@@ -1,9 +1,58 @@
 import test from "node:test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 
 const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+
+function trustConsumerFixture() {
+  const root = mkdtempSync(join(tmpdir(), "backyrd-trust-consumers-"));
+  const write = (path, source) => { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), source); };
+  for (const path of [
+    "scripts/ci/validate-trust-platform-consumers.sh", "supabase/functions/semantic-spot-search/index.ts",
+    "mobile/lib/distributionTrust.ts", "mobile/app/search.tsx", "mobile/lib/useSpotsStore.ts",
+    "mobile/app/(tabs)/map.tsx", "mobile/app/(tabs)/map.web.tsx", "mobile/app/(tabs)/index.tsx",
+    "mobile/lib/spot-images.ts", "mobile/app/(tabs)/feed.tsx", "web/lib/backyrd-api.ts", "web/lib/public-web-api.ts",
+  ]) write(path, read(path));
+  mkdirSync(join(root, "admin-dashboard"));
+  return { root, write, run: () => spawnSync("bash", [join(root, "scripts/ci/validate-trust-platform-consumers.sh")], { encoding: "utf8" }) };
+}
+
+test("Trust consumer guard follows the real search redirect through both maps to Distribution eligibility", () => {
+  const fixture = trustConsumerFixture();
+  try { const result = fixture.run(); assert.equal(result.status, 0, result.stderr); assert.match(result.stdout, /runtime consumer boundary validation passed/); }
+  finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+for (const [label, path, before, after] of [
+  ["search destination", "mobile/app/search.tsx", 'pathname: "/(tabs)/map"', 'pathname: "/(tabs)/feed"'],
+  ["search query", "mobile/app/search.tsx", 'search: params.search ?? params.q ?? ""', 'search: ""'],
+  ["native filtered store", "mobile/app/(tabs)/map.tsx", "useSpotsStore()", "useUnfilteredCatalog()"],
+  ["web filtered store", "mobile/app/(tabs)/map.web.tsx", "useSpotsStore()", "useUnfilteredCatalog()"],
+  ["native query filter", "mobile/app/(tabs)/map.tsx", "spotMatchesSearch(", "unfilteredSearch("],
+  ["web query filter", "mobile/app/(tabs)/map.web.tsx", "spotMatchesSearch(", "unfilteredSearch("],
+  ["central Distribution filter", "mobile/lib/useSpotsStore.ts", 'return filterDistributedSpots(mapped, "maps", signal)', "return mapped"],
+  ["semantic eligibility", "supabase/functions/semantic-spot-search/index.ts", "distribution_trust_filter_entities_v1", "unfiltered_entities"],
+]) test("Trust consumer guard rejects loss of " + label, () => {
+  const fixture = trustConsumerFixture();
+  try {
+    const source = read(path); assert.ok(source.includes(before), "mutation target missing");
+    fixture.write(path, source.replaceAll(before, after));
+    const result = fixture.run(); assert.notEqual(result.status, 0); assert.match(result.stderr, /Trust Platform consumer validation failed/);
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+});
+
+for (const forbidden of ['supabase.from("distribution_trust_states")', 'supabase.rpc("get_social_feed_v1")']) {
+  test("Trust consumer guard still rejects private/retired runtime access: " + forbidden, () => {
+    const fixture = trustConsumerFixture();
+    try {
+      fixture.write("web/lib/public-web-api.ts", read("web/lib/public-web-api.ts") + "\n" + forbidden + ";\n");
+      const result = fixture.run(); assert.notEqual(result.status, 0); assert.match(result.stderr, /private Distribution internals|pre-Distribution social RPC/);
+    } finally { rmSync(fixture.root, { recursive: true, force: true }); }
+  });
+}
 
 test("routine Risk Gate is task-scoped and keeps the stable final gate", () => {
   const workflow = read(".github/workflows/risk-gate.yml");
