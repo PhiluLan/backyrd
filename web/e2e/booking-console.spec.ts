@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; publishing?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -461,6 +461,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   let savedSetup: BookingSetup | null = null;
   if (options.history) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, reservation_history: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 1 })); }
   if (options.reissue) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_link_reissue: true }; snapshot.reservations = snapshot.reservations.map(r => ({ ...r, guest_contact: "reissue@booking.invalid" })); }
+  if (options.publishing) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, public_booking: true };
   if (options.mail) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_mail: true };
   if (options.publicGuest) snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, source: "website", note: null }));
   if (options.lifecycle) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true };
@@ -2592,4 +2593,73 @@ test("a corrupted saved guest-link intent cannot silently become a fresh write",
   await expect(region.getByRole("alert")).toContainText("gespeicherter Auftrag konnte nicht gelesen werden");
   await expect(region.getByRole("button", { name: "Neuen Gastlink vorbereiten", exact: true })).toBeDisabled();
   expect(writes).toBe(0);
+});
+
+
+async function publicRules(page: Page, mode: "normal" | "unknown" | "conflict" = "normal", role: BookingRole = "owner") {
+  await mockConsole(page, { seeded: true, publishing: true, teams: true, teamRole: role });
+  let revision = 1;
+  let settings = { enabled: false, service_ids: [dinner], notice_minutes: 60, horizon_days: 90, cancellation_minutes: 0, confirmation_status: "pending", privacy_contact: "privacy@example.test", guest_notice: "Ursprüngliche Hinweise" };
+  const writes: Record<string, unknown>[] = [];
+  await page.route("**/rest/v1/rpc/booking_console_public_settings_v2", route => route.fulfill({ json: { actor_id: role === "owner" ? owner : "51000000-0000-4000-8000-000000000111", restaurant_revision: revision, observed_at: "2026-10-20T12:00:00Z", settings: { ...settings, spot_id: spot, revision } } }));
+  await page.route("**/rest/v1/rpc/booking_console_public_settings_recover_v1", route => route.fulfill({ json: null }));
+  await page.route("**/rest/v1/rpc/booking_console_save_public_settings_v2", route => {
+    const body = route.request().postDataJSON(); writes.push(body);
+    if (mode === "conflict") { revision = 2; return route.fulfill({ json: { not_committed: true, restaurant_revision: revision } }); }
+    if (mode === "unknown" && writes.length === 1) return route.fulfill({ status: 500, json: { message: "synthetic_lost_ack" } });
+    settings = body.p_settings; revision = 2;
+    return route.fulfill({ json: { restaurant_revision: revision, policy_revision: revision } });
+  });
+  await page.goto("/booking/console");
+  return writes;
+}
+test("owner prepares public rules on a phone with erasable zero and explicit non-live status", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const writes = await publicRules(page);
+  await page.getByRole("button", { name: "Online-Buchungen", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Online-Buchungen", exact: true });
+  const cancellation = panel.getByLabel("Online stornierbar · Minuten vor Beginn");
+  await cancellation.fill(""); await expect(cancellation).toHaveValue("");
+  await expect(panel.getByRole("button", { name: "Buchungsregeln speichern" })).toBeDisabled();
+  await cancellation.fill("0"); await panel.getByLabel("Buchungshinweise für Gäste").fill("Neue Hinweise");
+  await panel.getByRole("button", { name: "Buchungsregeln speichern" }).click();
+  await expect(panel.getByText(/Dein Speicherauftrag wurde bestätigt/)).toBeVisible();
+  expect(writes).toHaveLength(1); expect(writes[0].p_settings).toMatchObject({ cancellation_minutes: 0, guest_notice: "Neue Hinweise" });
+  await expect(panel.getByText(/öffentliche Betriebsfreigabe bleibt separat/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("public-rules-phone.png") });
+});
+test("operator rule retries preserve the intent after reload and a missing recovery cannot unlock editing", async ({ page }) => {
+  const writes = await publicRules(page, "unknown", "manager");
+  await page.getByRole("button", { name: "Online-Buchungen", exact: true }).click();
+  let panel = page.getByRole("dialog", { name: "Online-Buchungen", exact: true });
+  await panel.getByLabel("Buchungshinweise für Gäste").fill("Ungeklärter Auftrag");
+  await panel.getByRole("button", { name: "Buchungsregeln speichern" }).click();
+  await expect(panel.getByText("Speicherstatus unklar", { exact: true })).toBeVisible();
+  page.on("dialog", dialog => dialog.accept()); await page.reload();
+  await page.getByRole("button", { name: "Online-Buchungen", exact: true }).click();
+  panel = page.getByRole("dialog", { name: "Online-Buchungen", exact: true });
+  await expect(panel.getByLabel("Buchungshinweise für Gäste")).toHaveValue("Ungeklärter Auftrag");
+  await panel.getByRole("button", { name: "Speicherauftrag prüfen", exact: true }).click();
+  await expect(panel.getByLabel("Buchungshinweise für Gäste")).toBeDisabled();
+  expect(writes).toHaveLength(1);
+  await panel.getByRole("button", { name: "Denselben Speicherauftrag wiederholen" }).click();
+  await expect(panel.getByText(/Dein Speicherauftrag wurde bestätigt/)).toBeVisible();
+  expect(writes).toHaveLength(2); expect(writes[1]).toEqual(writes[0]);
+});
+test("a settled stale rule draft remains visible until explicitly discarded", async ({ page }) => {
+  const writes = await publicRules(page, "conflict");
+  await page.getByRole("button", { name: "Online-Buchungen", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Online-Buchungen", exact: true });
+  await panel.getByLabel("Buchungshinweise für Gäste").fill("Meine nicht gespeicherten Hinweise");
+  await panel.getByRole("button", { name: "Buchungsregeln speichern" }).click();
+  await expect(panel.getByLabel("Buchungshinweise für Gäste")).toHaveValue("Meine nicht gespeicherten Hinweise");
+  await expect(panel.getByRole("button", { name: "Buchungsregeln speichern" })).toBeDisabled();
+  await panel.getByRole("button", { name: "Verwerfen und gespeicherte Regeln laden" }).click();
+  await expect(panel.getByLabel("Buchungshinweise für Gäste")).toHaveValue("Ursprüngliche Hinweise"); expect(writes).toHaveLength(1);
+});
+for (const role of ["host", "viewer"] as const) test(`${role} cannot open public booking rules`, async ({ page }) => {
+  await publicRules(page, "normal", role);
+  await expect(page.getByRole("heading", { name: "Restaurant Testbetrieb", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Online-Buchungen", exact: true })).toHaveCount(0);
 });

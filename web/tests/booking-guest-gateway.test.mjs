@@ -10,7 +10,7 @@ const handler = compile("../lib/booking-guest-handler.ts", { "./booking-guest-co
 const spot = "00000000-0000-4000-8000-000000000001", requestId = "00000000-0000-4000-8000-000000000002", reservationId = "00000000-0000-4000-8000-000000000003";
 const key = randomBytes(32).toString("base64url"), origin = "https://booking.example";
 const receipt = { id: reservationId, spot_id: spot, name: "Test Restaurant", guest_name: "Ada", party_size: 2, starts_at: "2030-10-27T18:00:00+00:00", ends_at: "2030-10-27T20:00:00+00:00", status: "confirmed", revision: 0, cancellation_deadline: "2030-10-27T16:00:00+00:00" };
-const create = { operation: "create", spotId: spot, requestId, policyRevision: 1, startsAt: receipt.starts_at, partySize: 2, name: "Ada", email: "ada@example.test", key, note: "", challenge: "synthetic-challenge" };
+const create = { operation: "create", acceptedPolicy: true, spotId: spot, requestId, policyRevision: 1, startsAt: receipt.starts_at, partySize: 2, name: "Ada", email: "ada@example.test", key, note: "", challenge: "synthetic-challenge" };
 const read = { operation: "read", reservationId, key };
 const cancel = { operation: "cancel", reservationId, requestId, revision: 0, key };
 const availability = { spot_id: spot, name: receipt.name, date: "2030-10-27", party_size: 2, policy_revision: 1, notice_minutes: 60, horizon_days: 90, cancellation_minutes: 120, confirmation_status: "confirmed", privacy_contact: "privacy@example.test", guest_notice: "Bitte pünktlich kommen.\nDanke!", slots: [{ starts_at: receipt.starts_at, ends_at: receipt.ends_at }] };

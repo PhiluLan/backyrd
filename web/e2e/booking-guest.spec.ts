@@ -106,3 +106,49 @@ test("duplicate or malformed fragment credentials never trigger a guest lookup",
   await expect(page).toHaveURL(/\/booking\/manage$/);
   expect(calls).toHaveLength(0);
 });
+test("a cancellation cannot be sent when its durable tab intent cannot be stored", async ({ page }) => {
+  const calls = await mock(page); await page.goto(link);
+  await expect(page.getByText("Reservierung bestätigt", { exact: true })).toBeVisible();
+  await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException("synthetic blocked storage"); }; });
+  await page.getByRole("button", { name: "Reservierung stornieren", exact: true }).click();
+  await page.getByRole("button", { name: "Ja, stornieren", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText(/speichern|Speicher/);
+  expect(calls.filter(c => c.operation === "cancel")).toHaveLength(0);
+});
+test("opening another reservation never discards the first reservation's uncertain cancellation", async ({ page }) => {
+  const calls = await mock(page, { unknown: true }); await page.goto(link);
+  await page.getByRole("button", { name: "Reservierung stornieren", exact: true }).click();
+  await page.getByRole("button", { name: "Ja, stornieren", exact: true }).click();
+  await expect(page.getByText(/Der Ausgang der Stornierung ist noch unklar/)).toBeVisible();
+  const other = "00000000-0000-4000-8000-000000000004";
+  await page.route("**/api/booking/guest", async route => {
+    const input = route.request().postDataJSON() as { reservationId: string };
+    if (input.reservationId !== other) return route.fallback();
+    return route.fulfill({ json: { data: { ...receipt, id: other } } });
+  });
+  await page.goto(`/booking/manage#id=${other}&key=${"B".repeat(42)}A`);
+  await expect(page.getByText("Reservierung bestätigt", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Buchungslink aus diesem Tab entfernen", exact: true }).click();
+  await page.goto(link); await expect(page.getByText(/Ein früherer Stornierungsauftrag/)).toBeVisible();
+  await page.getByRole("button", { name: "Denselben Auftrag wiederholen", exact: true }).click();
+  await expect(page.getByText("Reservierung storniert", { exact: true })).toBeVisible();
+  const cancelled = calls.filter(c => c.operation === "cancel"); expect(cancelled).toHaveLength(2); expect(cancelled[1]).toEqual(cancelled[0]);
+});
+test("a temporary storage failure during an uncertain cancellation preserves its original in-memory nonce", async ({ page }) => {
+  const calls = await mock(page, { unknown: true }); await page.goto(link);
+  await page.getByRole("button", { name: "Reservierung stornieren", exact: true }).click();
+  await page.getByRole("button", { name: "Ja, stornieren", exact: true }).click();
+  await expect(page.getByText(/Der Ausgang der Stornierung ist noch unklar/)).toBeVisible();
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    Object.defineProperty(window, "restoreSyntheticStorage", { value: () => { Storage.prototype.setItem = original; } });
+    Storage.prototype.setItem = () => { throw new DOMException("synthetic blocked storage"); };
+  });
+  await page.getByRole("button", { name: "Denselben Auftrag wiederholen", exact: true }).click();
+  await expect(page.getByText(/Der Browser kann den Stornierungsauftrag nicht sicher speichern/)).toBeVisible();
+  expect(calls.filter(c => c.operation === "cancel")).toHaveLength(1);
+  await page.evaluate(() => { (window as unknown as { restoreSyntheticStorage: () => void }).restoreSyntheticStorage(); });
+  await page.getByRole("button", { name: "Denselben Auftrag wiederholen", exact: true }).click();
+  await expect(page.getByText("Reservierung storniert", { exact: true })).toBeVisible();
+  const cancelled = calls.filter(c => c.operation === "cancel"); expect(cancelled).toHaveLength(2); expect(cancelled[1]).toEqual(cancelled[0]);
+});

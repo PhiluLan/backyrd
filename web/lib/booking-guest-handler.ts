@@ -1,5 +1,5 @@
 import "server-only";
-import { parseGuestAvailability, parseGuestReceipt, parseGuestRequest, record, type GuestOperation, type GuestRequest } from "./booking-guest-contract";
+import { parseGuestAvailability, parseGuestCheckoutRecovery, parseGuestReceipt, parseGuestRequest, record, type GuestOperation, type GuestRequest } from "./booking-guest-contract";
 import { boundedJson, hashGuestKey } from "./booking-guest-security";
 import { BookingRpcRejection as GuestRpcRejection } from "./booking-service-rpc";
 export { BookingRpcRejection as GuestRpcRejection } from "./booking-service-rpc";
@@ -24,7 +24,7 @@ function databaseFailure(error: GuestRpcRejection, operation: GuestOperation) {
   if (message === "booking_slot_unavailable") return failure(409, "slot_unavailable");
   if (message === "booking_guest_cancel_unavailable") return failure(409, "cancellation_unavailable");
   if (message === "booking_guest_request_unavailable") return failure(429, "rate_limited");
-  if (error.databaseCode === "P0002" || error.databaseCode === "42501") return failure(404, operation === "read" || operation === "recover" || operation === "cancel" ? "link_unavailable" : "not_available");
+  if (error.databaseCode === "P0002" || error.databaseCode === "42501") return failure(404, operation === "read" || operation === "recover" || operation === "checkout_recover" || operation === "cancel" ? "link_unavailable" : "not_available");
   if (error.databaseCode === "22023") return failure(400, "bad_request");
   // An unrecognized server error does not prove that an intermediate proxy failed before commit.
   return failure(503, operation === "create" || operation === "cancel" ? "outcome_unknown" : "temporarily_unavailable", operation === "create" || operation === "cancel");
@@ -35,6 +35,7 @@ function rpcRequest(r: GuestRequest, d: GuestDependencies): [string, RpcArgument
     case "create": return ["booking_guest_create_v1", { p_spot_id: r.spotId, p_request_id: r.requestId, p_policy_revision: r.policyRevision, p_starts_at: r.startsAt, p_party_size: r.partySize, p_guest_name: r.name, p_email: r.email, p_key_hash: hashGuestKey(r.key), p_sealed_key: d.seal(r.key, r.spotId, r.requestId), p_note: r.note || null }];
     case "read": return ["booking_guest_read_v1", { p_reservation_id: r.reservationId, p_key_hash: hashGuestKey(r.key) }];
     case "recover": return ["booking_guest_recover_v1", { p_spot_id: r.spotId, p_request_id: r.requestId, p_key_hash: hashGuestKey(r.key) }];
+    case "checkout_recover": return ["booking_guest_checkout_recover_v1", { p_spot_id: r.spotId, p_request_id: r.requestId, p_key_hash: hashGuestKey(r.key), p_policy_revision: r.policyRevision, p_starts_at: r.startsAt }];
     case "cancel": return ["booking_guest_cancel_v1", { p_reservation_id: r.reservationId, p_request_id: r.requestId, p_expected_revision: r.revision, p_key_hash: hashGuestKey(r.key) }];
   }
 }
@@ -70,7 +71,7 @@ export async function handleGuestRequest(request: Request, d: GuestDependencies 
   const write = r.operation === "create" || r.operation === "cancel";
   try {
     const data = await d.rpc(...rpc);
-    const result = r.operation === "availability" ? parseGuestAvailability(data) : parseGuestReceipt(data);
+    const result = r.operation === "availability" ? parseGuestAvailability(data) : r.operation === "checkout_recover" ? parseGuestCheckoutRecovery(data, r) : parseGuestReceipt(data);
     // Fence accidental cross-entity responses before returning any guest details.
     if (("spotId" in r && result.spot_id !== r.spotId) || ("reservationId" in r && (!("id" in result) || result.id !== r.reservationId))) throw new Error("guest_response_mismatch");
     if (r.operation === "availability" && (!("date" in result) || result.date !== r.date || result.party_size !== r.partySize)) throw new Error("guest_response_mismatch");

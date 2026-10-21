@@ -175,7 +175,7 @@ test("common privileged transport rejects non-TLS/credential URLs and unknown RP
 });
 test("capability/provider ingress is independent of consumer Auth refresh; operator surfaces retain it", async () => {
   let calls = 0;
-  const proxy = compile("../proxy.ts", { "next/server": { NextResponse: { next: () => new Response(null) } }, "@/lib/supabase/proxy": { refreshSession: async () => { calls++; throw new Error("consumer Auth unavailable"); } } });
+  const proxy = compile("../proxy.ts", { "next/server": { NextResponse: { next: () => new Response(null) } }, "@/lib/booking-guest-routes": compile("../lib/booking-guest-routes.ts"), "@/lib/supabase/proxy": { refreshSession: async () => { calls++; throw new Error("consumer Auth unavailable"); } } });
   for (const path of ["/booking/manage", "/api/booking/guest", "/api/booking/mail/dispatch", "/api/booking/mail/events"]) {
     const response = await proxy.proxy({ nextUrl: new URL(`https://booking.example${path}`) });
     assert.match(response.headers.get("cache-control"), /no-store/); assert.equal(response.headers.get("referrer-policy"), "no-referrer");

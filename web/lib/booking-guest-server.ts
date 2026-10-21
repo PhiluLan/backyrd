@@ -3,7 +3,7 @@ import type { GuestDependencies } from "./booking-guest-handler";
 import { guestRateSubject, guestSealKeys, sealGuestKey, verifyGuestChallenge } from "./booking-guest-security";
 import { createBookingServiceRpc } from "./booking-service-rpc";
 
-const rpcNames = new Set(["backyrd_consume_launch_cost_boundary_v1", "booking_guest_availability_v1", "booking_guest_create_v1", "booking_guest_read_v1", "booking_guest_recover_v1", "booking_guest_cancel_v1"]);
+const rpcNames = new Set(["backyrd_consume_launch_cost_boundary_v1", "booking_guest_availability_v1", "booking_guest_create_v1", "booking_guest_read_v1", "booking_guest_recover_v1", "booking_guest_checkout_recover_v1", "booking_guest_cancel_v1"]);
 
 export function guestDependencies(): GuestDependencies | null {
   const origin = process.env.BOOKING_GUEST_ORIGIN;

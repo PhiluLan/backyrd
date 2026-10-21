@@ -1,5 +1,6 @@
 "use client";
 
+import { isGuestBookingPath } from "@/lib/booking-guest-routes";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -28,7 +29,7 @@ function current(pathname: string, href: string) {
 export function ConsumerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   // Capability-based guest management does not need the consumer's login/profile session.
-  if (pathname === "/booking/manage") return children;
+  if (isGuestBookingPath(pathname)) return children;
   return <ConsumerSessionShell>{children}</ConsumerSessionShell>;
 }
 function ConsumerSessionShell({ children }: { children: ReactNode }) {

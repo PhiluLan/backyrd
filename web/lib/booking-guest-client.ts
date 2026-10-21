@@ -1,5 +1,5 @@
 "use client";
-import { parseGuestAvailability, parseGuestReceipt, record, type GuestRequest } from "./booking-guest-contract";
+import { parseGuestAvailability, parseGuestCheckoutRecovery, parseGuestReceipt, record, type GuestRequest } from "./booking-guest-contract";
 
 export class GuestRequestError extends Error {
   constructor(readonly code: string, readonly uncertain: boolean) { super(code); }
@@ -15,7 +15,7 @@ export async function guestRequest(request: GuestRequest) {
       if (body.outcome !== "rejected" && body.outcome !== "unknown") throw new Error("invalid_guest_response");
       throw new GuestRequestError(code, body.outcome === "unknown");
     }
-    const result = request.operation === "availability" ? parseGuestAvailability(body.data) : parseGuestReceipt(body.data);
+    const result = request.operation === "availability" ? parseGuestAvailability(body.data) : request.operation === "checkout_recover" ? parseGuestCheckoutRecovery(body.data, request) : parseGuestReceipt(body.data);
     if (("reservationId" in request && (!("id" in result) || result.id !== request.reservationId)) || ("spotId" in request && result.spot_id !== request.spotId)) throw new Error("invalid_guest_response");
     if (request.operation === "availability" && (!("date" in result) || result.date !== request.date || result.party_size !== request.partySize)) throw new Error("invalid_guest_response");
     return result;
