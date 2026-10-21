@@ -541,13 +541,14 @@ export default function MapScreen() {
             <AppText role="label" tone="pink">{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
             <AppText role="screenTitle">Orte entdecken</AppText>
           </View>
-          <AppText role="caption" tone="secondary" style={styles.resultCount}>{filteredSpots.length} Orte</AppText>
+          <AppText role="caption" tone="secondary" style={styles.resultCount}>{filteredSpots.length} {filteredSpots.length === 1 ? "Ort" : "Orte"}</AppText>
         </View>
 
         <View style={styles.headerTopRow}>
           <View style={styles.searchBox}>
             <Ionicons name="search" size={19} color={theme.color.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
+              accessibilityLabel="Orte suchen"
               placeholder="Suchen"
               placeholderTextColor={theme.color.textMuted}
               value={search}
@@ -600,13 +601,12 @@ export default function MapScreen() {
             <View style={styles.filterSheetHeader}>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <AppText role="sectionTitle">Filter</AppText>
-                <AppText role="meta" tone="secondary">Nur das, was zu deinem Moment passt.</AppText>
               </View>
               <IconButton accessibilityLabel="Filter schließen" onPress={() => setFiltersOpen(false)}>
                 <Ionicons name="close" size={21} color={theme.color.textPrimary} />
               </IconButton>
             </View>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterSheetContent}>
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterSheetContent}>
               <AppText role="cardTitle">Welche Atmosphäre suchst du?</AppText>
               <AppText role="meta" tone="secondary">Die Moods stammen von Gästen. Ein Filter zeigt Orte mit diesem Eindruck; Orte ohne Mood-Angaben erscheinen dann nicht.</AppText>
               {moodCatalogState === "error" ? <Button label="Moods erneut laden" variant="tertiary" onPress={retryMoodCatalog} /> : null}
@@ -824,7 +824,7 @@ const styles = StyleSheet.create({
   sheetCtaPrimary: { backgroundColor: theme.color.pink, paddingVertical: 15, borderRadius: theme.radius.pill, alignItems: "center", marginTop: theme.spacing.sm },
   sheetCtaPrimaryText: { fontFamily: theme.type.bodyBold, color: theme.color.background, fontSize: 15 },
   filterBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.54)" },
-  filterSheet: { maxHeight: "82%", backgroundColor: theme.color.surfaceElevated, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: theme.color.border, paddingHorizontal: theme.spacing.xl },
+  filterSheet: { height: "82%", backgroundColor: theme.color.surfaceElevated, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: theme.color.border, paddingHorizontal: theme.spacing.xl },
   filterSheetHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.md },
   filterSheetContent: { gap: theme.spacing.sm, paddingBottom: theme.spacing.lg },
   filterChipGrid: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.xs },

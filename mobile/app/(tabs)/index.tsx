@@ -177,12 +177,12 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => { void load(true); setMomentRevision(value => value + 1); }} />} showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <View style={styles.greetingBlock}>
+          <View style={[styles.header, fontScale > 1.3 && styles.headerLargeType]}>
+            <View style={[styles.greetingBlock, fontScale > 1.3 && styles.greetingBlockLargeType]}>
               <AppText role="bodyStrong" maxFontSizeMultiplier={1.6} style={styles.greeting}>{user ? `Hey${firstName ? `, ${firstName}` : ""}` : "Willkommen bei Backyrd"}</AppText>
               <AppText role="meta" tone="secondary">{city}</AppText>
             </View>
-            <View style={styles.headerActions}>
+            <View style={[styles.headerActions, fontScale > 1.3 && styles.headerActionsLargeType]}>
               {user ? <>
                 <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)} style={styles.headerIcon}>
                   <Ionicons color={theme.color.textPrimary} name="notifications-outline" size={21} />
@@ -280,7 +280,10 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.color.background },
   content: { paddingTop: theme.spacing.lg, paddingBottom: theme.control.tabBar + theme.spacing.display },
   header: { minHeight: 60, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md },
+  headerLargeType: { flexDirection: "column", alignItems: "stretch", gap: theme.spacing.sm },
   greetingBlock: { flex: 1, minWidth: 0 },
+  greetingBlockLargeType: { flex: 0 },
+  headerActionsLargeType: { alignSelf: "flex-end" },
   greeting: { color: theme.color.textPrimary },
   pageTitle: { marginTop: theme.spacing.lg, marginHorizontal: theme.layout.pageGutter },
   intro: { marginTop: theme.spacing.sm, marginHorizontal: theme.layout.pageGutter },

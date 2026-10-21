@@ -12,6 +12,7 @@ const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const SHA = /^[0-9a-f]{40}$/;
 const HASH = /^[0-9a-f]{64}$/;
 const MAX_GIT_OUTPUT = 50 * 1024 * 1024;
+const DELIVERY_TARGETS = new Set(["PRODUCT", "IOS_OTA"]);
 const MODES = new Set(["PR_CANDIDATE", "POST_MERGE_MAIN"]);
 const REQUIRED_TESTS = Object.freeze([
   "decision-vnext-single-route",
@@ -169,7 +170,8 @@ export function verifyProductReleaseTestEvidence(evidence, identity) {
 const trackedFor = (root, sourceSha, paths) => git(root, ["ls-tree", "-r", "--name-only", sourceSha, "--", ...paths]).split("\n").filter(Boolean).sort();
 const readProductionState = (root, sourceSha) => JSON.parse(git(root, ["show", `${sourceSha}:delivery/production-state.json`]));
 
-export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDir, mobileBundle, identity, testEvidence, productionPlan }) {
+export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDir, mobileBundle, identity, testEvidence, productionPlan, deliveryTarget = "PRODUCT" }) {
+  requireValue(DELIVERY_TARGETS.has(deliveryTarget), "release_delivery_target_invalid");
   verifyProductReleaseIdentity(identity);
   requireValue(identity.sourceSha === git(root, ["rev-parse", `${sourceSha}^{commit}`]), "release_manifest_identity_source_mismatch");
   verifyProductReleaseTestEvidence(testEvidence, identity);
@@ -242,7 +244,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   ])
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
   let acceptedMigrationSet = currentRiskSet;
-  if (currentRiskSet.length !== 13) {
+  if (currentRiskSet.length !== 13 || deliveryTarget === "IOS_OTA") {
     // Once all accepted migrations are shipped, the risk acceptance remains
     // historical evidence. A separately bounded additive scope is required
     // for any newly pending SQL; the 13-migration acceptance cannot cover it.
@@ -257,7 +259,9 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     || (isExactPreappliedPriorityReceipt(actualPlan.additivePreappliedPriority)
       && JSON.stringify(actualPlan.additivePreappliedPriority) === JSON.stringify(additiveMigrationScope?.preappliedPriorityReceipt)
       && actualPlan.pendingMigrations.length === 1), "release_preapplied_priority_invalid");
-  if (currentRiskSet.length !== 13 && currentRiskSet.length > 0) {
+  // iOS attests pending SQL without granting backend delivery. Supabase consumers
+  // independently require PRODUCT before accepting any artifact for deployment.
+  if (deliveryTarget === "PRODUCT" && currentRiskSet.length !== 13 && currentRiskSet.length > 0) {
     requireValue(additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
       && additiveMigrationScope.projectRef === actualPlan.projectRef
       && additiveMigrationScope.executionAuthorized === false
@@ -305,6 +309,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   };
   const body = {
     contractVersion: "backyrd.product-release-manifest@3.0",
+    deliveryTarget,
     sourceSha: identity.sourceSha,
     sourceTreeSha: identity.sourceTreeSha,
     identity,
@@ -326,10 +331,13 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   return manifest;
 }
 
-export function verifyProductReleaseManifest({ artifactDir, expectedHash, expectedSourceSha, expectedMode, checkoutRoot }) {
+export function verifyProductReleaseManifest({ artifactDir, expectedHash, expectedSourceSha, expectedMode, checkoutRoot, expectedDeliveryTarget }) {
   const manifest = JSON.parse(readFileSync(resolve(artifactDir, "release-manifest.json"), "utf8"));
   const { manifestHash, ...body } = manifest;
   requireValue(manifest.contractVersion === "backyrd.product-release-manifest@3.0", "release_manifest_contract_invalid");
+  const deliveryTarget = manifest.deliveryTarget ?? "PRODUCT";
+  requireValue(DELIVERY_TARGETS.has(deliveryTarget), "release_delivery_target_invalid");
+  requireValue(!expectedDeliveryTarget || expectedDeliveryTarget === deliveryTarget, "release_delivery_target_mismatch");
   requireValue(sha256(JSON.stringify(body)) === manifestHash && manifestHash === expectedHash, "release_manifest_hash_mismatch");
   requireValue(manifest.sourceSha === expectedSourceSha, "release_manifest_source_mismatch");
   requireValue(!expectedMode || manifest.identity.mode === expectedMode, "release_manifest_mode_mismatch");
@@ -351,7 +359,7 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
       && JSON.stringify(manifest.productionPlan.additivePreappliedPriority)
         === JSON.stringify(manifest.productionPlan.additiveMigrationScope?.preappliedPriorityReceipt)
       && manifest.productionPlan.pendingMigrations.length === 1), "release_preapplied_priority_invalid");
-  requireValue(Array.isArray(acceptedMigrationSet) && (currentRiskSet.length === 13
+  const productPendingScopeAccepted = currentRiskSet.length === 13
     ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
     : !manifest.productionPlan.productPreappliedImport && (currentRiskSet.length === 0
       || (isExactProductAdditiveSet(currentRiskSet)
@@ -360,7 +368,8 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
         && manifest.productionPlan.additiveMigrationScope.executionAuthorized === false
         && manifest.productionPlan.additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
         && manifest.productionPlan.additiveMigrationScope.guaranteedDatabaseRollback === false
-        && JSON.stringify(currentRiskSet) === JSON.stringify(manifest.productionPlan.additiveMigrationScope.migrations)))), "release_recovery_pending_scope_invalid");
+        && JSON.stringify(currentRiskSet) === JSON.stringify(manifest.productionPlan.additiveMigrationScope.migrations)));
+  requireValue(Array.isArray(acceptedMigrationSet) && (deliveryTarget === "IOS_OTA" || productPendingScopeAccepted), "release_recovery_pending_scope_invalid");
   const sealedMigrations = new Map((manifest.components.database ?? []).map(({ path, sha256: migrationSha256 }) => [path, migrationSha256]));
   for (const entry of acceptedMigrationSet) requireValue(sealedMigrations.get(entry.path) === entry.sha256, "release_recovery_migration_bytes_invalid");
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
@@ -430,10 +439,10 @@ if (invoked) {
       process.stdout.write(`${JSON.stringify({ status: "PASS", sourceSha: result.sourceSha })}\n`);
     } else if (process.argv[2] === "build") {
       const identity = resolveProductReleaseIdentity({ root, mode: args.mode, sourceSha: args["source-sha"] ?? "HEAD", baseSha: args["base-sha"], checkoutSha: args["checkout-sha"] ?? "HEAD", canonicalMainSha: args["canonical-main-sha"], candidateHeadSha: args["candidate-head-sha"] });
-      const result = buildProductReleaseManifest({ root, sourceSha: identity.sourceSha, outputDir: resolve(args.output), mobileBundle: args["mobile-bundle"], identity, testEvidence: JSON.parse(readFileSync(resolve(args["test-evidence"]), "utf8")) });
+      const result = buildProductReleaseManifest({ root, sourceSha: identity.sourceSha, outputDir: resolve(args.output), mobileBundle: args["mobile-bundle"], identity, testEvidence: JSON.parse(readFileSync(resolve(args["test-evidence"]), "utf8")), deliveryTarget: args["delivery-target"] ?? "PRODUCT" });
       process.stdout.write(`${JSON.stringify({ status: "PASS", manifestHash: result.manifestHash, mode: result.identity.mode })}\n`);
     } else if (process.argv[2] === "verify") {
-      const result = verifyProductReleaseManifest({ artifactDir: resolve(args.artifact), expectedHash: args["expected-hash"], expectedSourceSha: args["expected-source-sha"], expectedMode: args["expected-mode"], checkoutRoot: args["checkout-root"] ? resolve(args["checkout-root"]) : undefined });
+      const result = verifyProductReleaseManifest({ artifactDir: resolve(args.artifact), expectedHash: args["expected-hash"], expectedSourceSha: args["expected-source-sha"], expectedMode: args["expected-mode"], expectedDeliveryTarget: args["expected-delivery-target"], checkoutRoot: args["checkout-root"] ? resolve(args["checkout-root"]) : undefined });
       process.stdout.write(`${JSON.stringify({ status: "PASS", manifestHash: result.manifestHash, mode: result.identity.mode })}\n`);
     } else throw new Error("release_manifest_command_invalid");
   } catch (error) {
