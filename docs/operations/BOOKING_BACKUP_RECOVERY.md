@@ -193,6 +193,11 @@ CLI 2.116.0. Newer provider runtimes need separate upgrade/restore acceptance,
 including the [official 17.11 extension/index/crypto/operator migration checks](https://supabase.com/changelog/postgres-15-19-17-11-breaking-changes);
 this drill neither upgrades nor certifies that runtime.
 
+The subsequent [PostgreSQL upgrade investigation](BOOKING_POSTGRES_UPGRADE.md)
+passes the existing Booking SQL and concurrency behavior on actual 17.11, but
+finds a missing default pg_graphql extension and stops at private-scope
+verification. It is not a replacement restore or canonical-runtime certificate.
+
 ## Earlier association-history restore acceptance
 
 The candidate at migration 214 has now completed the extended two-project drill.
