@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-guest-mail-dispatch-v1",
+  "previousEvidence": "booking-public-owner-cleanup-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "49ee7eea0f56a7973db5d443cc7dabe02935fecd352e34885ad6b8f62871112f",
+    "applicationSchemaSha256": "3fde02d4bb42fabfcf389c7b2b7ffd729b3b724b4eba905e5646bf2d1adbd35c"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020235203_booking_guest_mail_dispatch_v1.sql",
+      "sha256": "57d5daa33873e72b502cdaaa2f6c789c20da17bdf37dd836a387ec64d83a9dce"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_guest_mail_dispatch_v1.sql",
+      "sha256": "6ef20d5985a670fac6e61ce3d8559941b008cdc96897536339b46108f7d60743"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "726fdd0ab85a17ce2eca4ce693e003631efdd3504b07ec03fb4d54ae569deb96",
+    "applicationSchemaSha256": "b14d5947ecdd28e67981677e77be421cd597eae73802570ca32c0c068d0eb9f8"
+  }
+}
