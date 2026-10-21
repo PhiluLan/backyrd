@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-table-allocations-v1",
+  "previousEvidence": "booking-special-service-hours-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "98fe2267d38cf817ab053e4f391f06a9d63de4df17bd817b5377bf2cc39322ad",
+    "applicationSchemaSha256": "a9a0c031ffde01277f6a2ce9a36ca36b70f582a37d5de0532fb32417c8af285b"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020220109_booking_table_allocations_v1.sql",
+      "sha256": "c43f172d433909655893f5970157472fced8062f52c2210b56a4aee96f6b1737"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_table_allocations_safety_v1.sql",
+      "sha256": "e4cbeb17809a230ab7a6730c28c131102d965d7b518eecb4445414804fea3c72"
+    },
+    {
+      "path": "supabase/tests/booking_table_allocations_v1.sql",
+      "sha256": "9ca03121e4e065db062150433ef10d0aa64b6c6a26c3e978713ff4ccb1e0b227"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "98fe2267d38cf817ab053e4f391f06a9d63de4df17bd817b5377bf2cc39322ad",
+    "applicationSchemaSha256": "8071e259d0053111d84f9472daf7da8a7a1c72b9bf5260ecf5d880c41b7ee912"
+  }
+}

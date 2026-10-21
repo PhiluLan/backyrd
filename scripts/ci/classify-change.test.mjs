@@ -469,3 +469,12 @@ test("Spot event series approval is exact, candidate-bound, and does not authori
   assert.equal(isAuthorizedBoundedMigration(path, modified, {authorizedBoundedMigrations:[{...entry,sha256:createHash("sha256").update(modified).digest("hex")}]}), false);
   assert.equal(isAuthorizedBoundedMigration(path, sql, {authorizedBoundedMigrations:[]}), false);
 });
+
+test("private Booking evidence, observers and receipt changes always select the database gate", () => {
+  const realPolicy=JSON.parse(readFileSync(new URL("../../delivery/change-policy.json",import.meta.url),"utf8"));
+  for(const path of ["delivery/database-scopes/booking-private-v1.json","scripts/ci/booking-private-fingerprint.sql","scripts/ci/validate-booking-private-scope.mjs","scripts/ci/validate-booking-private-drift.mjs","scripts/ci/database-gate-receipt.mjs"]) {
+    const {root,base}=fixture();put(root,realPolicy.decisionTrustAnchor,readFileSync(join(root,"decision-lab/config/anchor.json"),"utf8"));put(root,path,"candidate\n");const head=commit(root,"private scope control");
+    const result=classifyChange({root,context:{baseSha:base,headSha:head},policy:realPolicy});
+    assert.equal(result.flags.database,true,path);assert.ok(result.requiredGates.includes("database"),path);assert.ok(result.requiredGates.includes("delivery-policy"),path);
+  }
+});

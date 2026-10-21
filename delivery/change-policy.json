@@ -17,6 +17,10 @@
   "databaseControlPrefixes": [
     "scripts/ci/application-schema-fingerprint.sql",
     "scripts/ci/public-acl-fingerprint.sql",
+    "scripts/ci/booking-private-fingerprint.sql",
+    "scripts/ci/validate-booking-private-",
+    "scripts/ci/database-gate-receipt",
+    "delivery/database-scopes/",
     "scripts/ci/validate-database-lineage.mjs",
     "scripts/ci/generate-database-release.mjs",
     "scripts/ci/validate-database-release",
