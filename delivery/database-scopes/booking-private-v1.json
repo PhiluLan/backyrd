@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "backyrd-booking-private-scope-v1",
+  "scope": "booking_private",
+  "inputs": {
+    "historicalVersions": [
+      "20260826120000",
+      "20260826210000"
+    ],
+    "historicalOperationsSha256": "8ca6e2bcdbf9c6059281d85a1f9f2f1a29fea920c0e26ee45f1eda8c6965f9f3",
+    "migrationCount": 215,
+    "migrationLedgerSha256": "38c889fb2dbeaf956046bc0753a9131b6b4d5f1bd70a9d0dd47418f3f3736cd4",
+    "migrationsSha256": "229f31b807ffb4ae7b6db2985ef9546bbb4bed97d43f43e194576f22c3ba94f8",
+    "querySha256": "5c88a74b986741917743a2ddb60e9eea3c2fd26557869c7b998db3b4cb2333bb",
+    "engineSha256": "95028fe8b77c47958ff441c2de2bd872681a19e86fa83d0f3ad974af28ba189e"
+  },
+  "entryCount": 1124,
+  "fingerprint": "937a04845c02226bc7367a89cab7923813ff5d9cb54ebab7b3f757d5273fbd62"
+}

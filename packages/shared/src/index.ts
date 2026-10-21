@@ -4,3 +4,4 @@ export * from "./dto/event";
 export * from "./presentation/event";
 export * from "./contracts/review";
 export * from "./contracts/mood";
+export * from "./contracts/booking-guest";

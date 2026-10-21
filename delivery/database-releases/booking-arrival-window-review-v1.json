@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-arrival-window-review-v1",
+  "previousEvidence": "booking-arrival-limit-console-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "69bcd311ab0096a22e9c7ce07edc52922c444c3eb6f805d7a90a7f5ab4e9b15b",
+    "applicationSchemaSha256": "9879636bae8c3c4a3ee84c0c6820eb2bbc496feb12b536d1ee72f0ec8dc440cb"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261021082352_booking_arrival_window_review_v1.sql",
+      "sha256": "4245c582624a7178b39e31fba2695def07609aca40102dda8eca354a5f9a1540"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_arrival_window_review_v1.sql",
+      "sha256": "9f127a31863955ad18f6b2646d7dcdd6683e764ec37d73b6598c0bc5ca86d82f"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "667f50dc521575226e0e9363ddbbc74c994f87d79add04d7f3f904b08c6b8232",
+    "applicationSchemaSha256": "800a2da6657a0ed817384c54a35382edb512138c466a0aafa23c063853f9beae"
+  }
+}
