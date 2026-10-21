@@ -44,6 +44,11 @@ before export/AWS configuration. The production outer manifest advances to v2;
 Storage-byte export and the existing S3 encryption verification remain in place.
 Daily Storage-only runs remain distinct from weekly logical database exports.
 
+Existing v1 archives retain their historical format and are not rewritten. Their
+missing private data/managed controls cannot be certified as complete Booking
+recovery by the v2 harness; generate and validate a new complete snapshot. No
+archive consumer in this repository silently upgrades an old backup.
+
 ## Reproducing the isolated drill
 
 Only use fresh disposable projects and synthetic fixtures. Never use Volta guest
