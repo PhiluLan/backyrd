@@ -1592,6 +1592,14 @@ test('the official home page can bind an address for a same-host hours page whos
  assert.equal(result.results[0].status,'REQUIRES_REVIEW');
  assert.equal(result.facts.filter(f=>f.state==='ACCEPTED'&&f.reason==='STRUCTURED_VENUE_HOURS').length,1);
 });
+test('hotel restaurant groups remain unresolved until an on-site relationship can be represented',()=>{
+ const hotel={...spot,existingValues:{...spot.existingValues,'classification.primary_category':{value:'STAY'}}};
+ const s=source('Das Hotel bietet Frühstück im NENI Restaurant. Die Cinchona Bar serviert Kaffee.');
+ const claimed=[{...fact('offering.groups','BREAKFAST','Das Hotel bietet Frühstück im NENI Restaurant.'),id:'f1',sourceId:s.id,state:'ACCEPTED'}];
+ const result=projectEvidenceLedger({spot:hotel,fields:[field('offering.groups')],facts:claimed,sources:[s],...deps})[0];
+ assert.equal(result.status,'UNRESOLVED');
+ assert.equal(result.reason,'HOTEL_ONSITE_OFFERING_RELATIONSHIP_REQUIRED');
+});
 test('a stored HTTP seed is probed only over HTTPS on the exact same host',async()=>{
  const insecure={...spot,existingValues:{...spot.existingValues,'contact.website':{value:'http://example.org/'}}};
  const requested=[];
@@ -2220,6 +2228,10 @@ test('hotel research prioritizes rooms over restaurant menus for missing room of
  const frontier=[{url:'https://example.org/menu',depth:1,topics:['menu']},{url:'https://example.org/rooms',depth:1,topics:['stay']}];
  assert.equal(rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'STAY'}])[0].url,'https://example.org/rooms');
 });
+test('hotel availability forms with dated booking parameters are not research sources',()=>{
+ const forms=[{url:'https://book.hotel.example/de/availability/hotel?checkin=2024-12-29&checkout=2024-12-30&hotelCode=langstrasse',depth:1,topics:['stay']},{url:'https://hotel.example/rooms/?arrival=2024-12-29',depth:1,topics:['stay']}];
+ assert.deepEqual(rankResearchFrontier(forms,[],[{...field('experience.profile'),profileCategory:'STAY'}]),[]);
+});
 test('a priced cocktail row contributes its exact name and ingredients, not wine producers or menu sections',()=>{
  const bar={...spot,name:'Amber Bar',existingValues:{...spot.existingValues,'classification.primary_category':{value:'DRINKS'}}};
  const body='<main><h1>Amber Menu</h1><h2>SIGNATURE COCKTAILS</h2><p>Nancy’s Blushes | 20.–</p><p>Gin, Lichie, Grenadine, Lavendel</p><p>Mezcal Gimlet | 20.–</p><p>Mezcal, Kiwi, Jalapeños</p><h2>WEINE</h2><p>Chardonnay (2023)</p><p>Winery Example | Basel</p><p>10cl 9.5 | 75cl 65.–</p><h2>BARFOOD</h2><p>Marinierte Oliven</p><p>mit Brot 7.5</p></main>';
@@ -2257,6 +2269,14 @@ test('plain-text hotel room cards yield eight literal review offers without day 
  assert.ok(result.value.offers.every(offer=>offer.kind==='OVERNIGHT_STAY'&&offer.prices.length===0));
  assert.deepEqual(rankResearchFrontier([{url:'https://hotel.example/de/rooms/economy/',depth:1,topics:['stay','experience']}],[],[{...field('experience.profile'),profileCategory:'STAY'}],[s]),[]);
  assert.deepEqual(structuredRoomLeads([{...s,text:s.text+' changed'}]),[]);
+});
+test('room amenities heading does not keep a complete hotel card overview open',()=>{
+ const names=['Medium','Large','Extra Large','Plaza Suite','Trainspotting Suite'];
+ const body=['rooms',...names.flatMap(name=>[name,`Das ${name} Zimmer bietet ein Bett und ein eigenes Bad für einen Aufenthalt.`]),'Zimmerausstattung','Kostenfreie Minibar'].join('\n\n');
+ const s={...source(body),url:'https://hotel.example/de/zurich/langstrasse/rooms/',headings:[{level:1,text:'rooms',offset:0},{level:2,text:'Zimmerausstattung',offset:body.indexOf('Zimmerausstattung')}]};
+ assert.deepEqual(structuredRoomLeads([s]).map(lead=>lead.name),names);
+ const frontier=[{url:'https://hotel.example/zurich/langstrasse/rooms/medium/',depth:2,topics:['stay']}];
+ assert.deepEqual(rankResearchFrontier(frontier,[],[{...field('experience.profile'),profileCategory:'STAY'}],[s]),[]);
 });
 test('a complete room-card overview skips direct detail URLs despite a promotional room heading',()=>{
  const body='<main><h1>Our Rooms</h1><h2>Find your perfect feel-good room</h2><h3>Design Standard Room</h3><p>Our Design Standard Room is a hotel bedroom with a double bed.</p><h3>Design Family Room</h3><p>Our Design Family Room is a hotel bedroom for overnight family stays.</p></main>';

@@ -1,4 +1,4 @@
-# Local Nuknuk Research v3.64
+# Local Nuknuk Research v3.67
 
 Status: experimental local evidence-backed review drafts for existing Spots. No automatic
 publication, production enrichment worker or import-ready batch.
@@ -131,6 +131,31 @@ request was a linked 30 MB menu PDF rejected by the source-size limit; eight
 literal dishes from the HTML menu entered the review draft. This is a repaired
 case, not a new blind pass or proof of autonomous research readiness.
 
+The independent v3.64 25hours Hotel Zürich Langstrasse run found all five
+current room categories from the exact operator room overview and did not
+mistake its NENI restaurant, Cinchona Bar, event rooms or other Zürich hotel
+for a room. The whole run still failed its time budget after seven requests
+and twelve model calls: `offering.groups` kept it searching for hotel-wide
+food/drink groups even though the evidence described embedded restaurant,
+bar and in-room services. v3.65 returns that flat field unresolved with
+`HOTEL_ONSITE_OFFERING_RELATIONSHIP_REQUIRED` and stops pursuing it for hotels.
+The current local adapter does not yet propose the scoped `offering.onsite`
+contract, so this is an honest limit, not full hotel research parity.
+An attempted v3.65 development replay was stopped after confirming that a
+generic “Zimmerausstattung” heading kept the complete German room overview
+open. Its interrupted report is not a successful validation run. v3.66 excludes
+room-amenity headings from inventory completeness and lets a complete official
+room-card overview end the hotel-profile crawl even if the semantic model has
+withheld some individual room facts; exact cards still enter only a review
+draft with source citations.
+The complete v3.66 local-model replay returned the same five literal hotel
+room names, no false rooms and the explicit scoped-field limitation after
+212 seconds, three requests and three model calls. Only the two official hotel
+pages supplied accepted source text. The third request followed a stale 2024
+availability form and returned empty; v3.67 filters booking/availability URLs
+and dated booking parameters from the research frontier. This final link
+filter has a deterministic regression test but no separate full-model replay.
+
 On 21 October 2026, a previously untouched Odelya Hotel run against a
 pre-recorded official-source reference failed: it found public phone and email,
 but missed the attic apartment and supported amenities, added a booking link
@@ -203,7 +228,7 @@ Invented facts, wrong branches, offer-to-Spot inference, silent overwrites and
 model self-approval are unacceptable. Grounding establishes where text came
 from, not that the source or its interpretation is correct.
 
-## Active architecture: Research v3.64
+## Active architecture: Research v3.67
 
 Task class: FAST_PR. Owned paths: the local research adapter, public-source
 reader, CLI, their tests and this document. No runtime client, shared catalog,

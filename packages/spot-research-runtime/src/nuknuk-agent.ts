@@ -14,7 +14,7 @@ import type {SearchLead} from './nuknuk-search.mjs';
 import {NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.64';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v3.67';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -1035,7 +1035,7 @@ function hotelInventoryCovered(facts:EvidenceFact[],sources:ResearchSource[]):bo
   if(sources.some(source=>{
     const cards=structuredRoomLeads([source]);
     if(cards.length<2||cards.length>8)return false;
-    const roomHeadings=(source.headings??[]).filter(h=>h.level>=2&&h.level<=3&&h.text.length<=70&&h.text.split(/\s+/u).length<=5&&!/[.!?:]/u.test(h.text)&&!/(?:^|\b)(?:find|discover|choose|finden|entdecken|w[aä]hlen)\b/iu.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!/^(?:(?:our|unsere|all|alle|design)\s+)?(?:rooms?|zimmer|suites?|chambres?|camere)(?:\s*(?:&|and|und)\s*(?:suites?|rooms?|zimmer))?$/iu.test(h.text));
+    const roomHeadings=(source.headings??[]).filter(h=>h.level>=2&&h.level<=3&&h.text.length<=70&&h.text.split(/\s+/u).length<=5&&!/[.!?:]/u.test(h.text)&&!/(?:^|\b)(?:find|discover|choose|finden|entdecken|w[aä]hlen)\b/iu.test(h.text)&&/(?:zimmer|chambre|camere|\b(?:rooms?|suites?)\b)/iu.test(h.text)&&!/^(?:(?:our|unsere|all|alle|design)\s+)?(?:rooms?|zimmer|suites?|chambres?|camere)(?:\s*(?:&|and|und)\s*(?:suites?|rooms?|zimmer))?$/iu.test(h.text)&&!/^(?:zimmerausstattung|zimmerausr[uü]stung|room amenities|room facilities|in-room amenities)$/iu.test(h.text));
     return roomHeadings.every(heading=>cards.some(card=>card.name.toLocaleLowerCase()===heading.text.trim().toLocaleLowerCase()));
   }))return true;
   return sources.some(source=>{
@@ -1216,7 +1216,7 @@ export function rankResearchFrontier(frontier:FrontierEntry[],facts:EvidenceFact
   const nonFood=open.some(field=>field.profileCategory&&!['EAT','DRINKS','COFFEE_DAYTIME'].includes(field.profileCategory));
   const stayProfileOnly=open.length===1&&open[0].attributeKey==='experience.profile'&&open[0].profileCategory==='STAY';
   const cultureResearch=fields.some(field=>field.profileCategory==='CULTURE_ARTS');
-  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|[^/]*reservierung(?:en)?|reservations?|booking|[^/]*(?:buchen|buchung|reservieren)|room-rental|raumvermietung|location-de-salle|ihr[-_]anlass|ihrevent|your[-_]?event|press|presse|media|medien|digital|video|videos|impressionen|gallery|galerie|aktuelles|news|events?|verein|association|friends|freunde(?:[-_][^/]*)?|datenschutzerklaerung|privacy|terms|agb|legal|impressum|imprint|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
+  const scopedPage=(url:string)=>/(?:^|\/)(?:group[-_]offers?|group[-_]tours?|school[-_]offers?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|[^/]*reservierung(?:en)?|reservations?|booking|availability|[^/]*(?:buchen|buchung|reservieren)|room-rental|raumvermietung|location-de-salle|ihr[-_]anlass|ihrevent|your[-_]?event|press|presse|media|medien|digital|video|videos|impressionen|gallery|galerie|aktuelles|news|events?|verein|association|friends|freunde(?:[-_][^/]*)?|datenschutzerklaerung|privacy|terms|agb|legal|impressum|imprint|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname)||[...new URL(url).searchParams.keys()].some(key=>/^(?:checkin|checkout|arrival|departure|rooms?\[|hotelCode)$/iu.test(key));
   const cultureFoodArea=(url:string)=>/(?:^|\/)(?:restaurant|bistro|caf[eé]|shop|kiosk)(?:\/|$)/iu.test(new URL(url).pathname);
   const stayAncillary=(url:string)=>/(?:^|\/)(?:sitzungszimmer|meeting[-_]?rooms?|meetings[-_]?seminars?|conference[-_]?rooms?|seminar[-_]?rooms?|events?[-_]?banquets?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
   const guestServices=(url:string)=>/(?:^|\/)(?:gaeste[-_]?services?|g[aä]ste[-_]?services?|guest[-_]?services?)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname);
@@ -1253,6 +1253,10 @@ function citation(f:EvidenceFact,sources:ResearchSource[]):Citation {
 export function projectEvidenceLedger({spot,fields,facts,sources,validateValue}:{spot:SpotContext;fields:ResearchField[];facts:EvidenceFact[];sources:ResearchSource[];validateValue:ValueValidator}):FieldResult[] {
   const closure=currentVenueClosure(spot,sources);
   return fields.map(field=>{
+    // Restaurant/bar groups inside a hotel need an on-site relationship. The
+    // flat offering.groups field cannot express that scope, so it must never
+    // turn NENI or a room minibar into a hotel-wide food/drink assertion.
+    if(field.attributeKey==='offering.groups'&&spot.existingValues?.['classification.primary_category']?.value==='STAY')return {attributeKey:field.attributeKey,status:'UNRESOLVED',reason:'HOTEL_ONSITE_OFFERING_RELATIONSHIP_REQUIRED'};
     if(closure&&closureBlockedFields.has(field.attributeKey))return {attributeKey:field.attributeKey,status:'UNRESOLVED',reason:'VENUE_TEMPORARILY_CLOSED',reviewEvidence:[closure]};
     const relevant=facts.filter(f=>{const source=sources.find(s=>s.id===f.sourceId);return f.field===field.attributeKey&&f.state==='ACCEPTED'&&source&&hash(source.text)===source.hash&&sourceQuote(source.text,f.quote)&&deterministicFactReason(f,source,field,spot)===null;});
     const affirmative=relevant.filter(f=>f.polarity==='AFFIRMATIVE'||field.attributeKey==='operation.laptop_policy');
@@ -1881,7 +1885,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
     const knownClosure=currentVenueClosure(spot,sources,new Date(now()));
     if(knownClosure&&fields.every(field=>closureBlockedFields.has(field.attributeKey))){stopReason='VENUE_TEMPORARILY_CLOSED';break;}
     const planned=projectEvidenceLedger({spot,fields,facts,sources,validateValue:deps.validateValue});
-    const pendingFields=fields.filter(f=>{if(knownClosure&&closureBlockedFields.has(f.attributeKey)||f.attributeKey==='experience.profile'&&f.profileCategory==='EAT'&&completeCourseMenuOverview(sources))return false;const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&((Array.isArray(proposal?.value)&&proposal.value.length<7&&!completeOfficialHoursSection(facts,sources))||hoursNeedCorroboration(facts,sources))||f.attributeKey==='experience.profile'&&profileNeedsMoreEvidence(f,facts,frontier,sources);});
+    const pendingFields=fields.filter(f=>{if(knownClosure&&closureBlockedFields.has(f.attributeKey)||f.attributeKey==='offering.groups'&&f.profileCategory==='STAY'||f.attributeKey==='experience.profile'&&f.profileCategory==='EAT'&&completeCourseMenuOverview(sources)||f.attributeKey==='experience.profile'&&f.profileCategory==='STAY'&&hotelInventoryCovered(facts,sources))return false;const proposal=planned.find(p=>p.attributeKey===f.attributeKey);return !['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(proposal?.status??'')||f.attributeKey==='hours.regular'&&((Array.isArray(proposal?.value)&&proposal.value.length<7&&!completeOfficialHoursSection(facts,sources))||hoursNeedCorroboration(facts,sources))||f.attributeKey==='experience.profile'&&profileNeedsMoreEvidence(f,facts,frontier,sources);});
     // A hard-to-find contact must not consume the whole budget while a
     // substantive experience question is still unanswered.
     const balancedFields=pendingFields.filter(f=>!(f.attributeKey.startsWith('contact.')&&(topicAttempts.get('contact')??0)>=3&&pendingFields.some(other=>other.attributeKey==='experience.profile')));
