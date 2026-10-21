@@ -91,8 +91,19 @@ minimization, event/cursor bounds and real microsecond ordering.
 
 Browser verification covers phone create/correct/copy, archive/restore, role
 controls, uncertain acknowledgement, pre-dispatch recovery failure, conflicts,
-offline drafts, pagination, logout and permissions. Record final results only
-after the corresponding run completes.
+offline drafts, pagination, logout, permissions and account switches while
+recovery is pending (both a late empty result and late denial).
+
+Final local candidate verification: 206 browser tests and 132 Web contract tests
+passed. The canonical database gate passed all 29 Booking SQL suites, the
+existing baseline/concurrency checks, five additional guest-card concurrency
+cases and 20 private-schema drift checks. An actual SQL negative case rejects
+an expected operator different from the JWT subject. Actual PostgreSQL JSON
+passed the Web codecs. The actor-bound gate receipt is
+`fd9ce5b4a9e8bae0ab3045a735ef8e0ba11b9ea2cdf4a3a28b86089a8fec8196`.
+Web type checking and the supported Webpack production build passed; lint had
+zero errors and 13 existing warnings. These use synthetic local fixtures, not
+production activation or restaurant/device pilot evidence.
 
 Remaining product work includes explicit reservation linkage and history,
 controlled identity merge/correction workflows, transparent preferences with

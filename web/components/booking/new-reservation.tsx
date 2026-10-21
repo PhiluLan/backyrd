@@ -7,8 +7,8 @@ import styles from "./console.module.css";
 
 export type CreatedBooking = { date: string; slot: BookingSlot };
 
-export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId = "", tableId = "", time = "", onCreated, onBusy, onClose }: {
-  spotId: string; date: string; snapshot: BookingSnapshot; serviceId?: string; areaId?: string; tableId?: string; time?: string;
+export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId = "", tableId = "", time = "", initialGuest, onCreated, onBusy, onClose }: {
+  spotId: string; date: string; snapshot: BookingSnapshot; serviceId?: string; areaId?: string; tableId?: string; time?: string; initialGuest?: { name: string; contact: string };
   onCreated: (booking: CreatedBooking) => Promise<void>; onBusy: (value: boolean) => void; onClose: (uncertain?: boolean, date?: string) => void;
 }) {
   const [bookingDate, setDate] = useState(date);
@@ -19,10 +19,10 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   const [slots, setSlots] = useState<BookingSlot[]>([]);
   const [selectedTime, setTime] = useState("");
   const [selected, setSelected] = useState("");
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
+  const [name, setName] = useState(initialGuest?.name ?? "");
+  const [contact, setContact] = useState(initialGuest?.contact ?? "");
   const [note, setNote] = useState("");
-  const [source, setSource] = useState<ConsoleBookingSource>("phone");
+  const [source, setSource] = useState<ConsoleBookingSource>(initialGuest ? "operator" : "phone");
   const [status, setStatus] = useState<"confirmed" | "pending">("confirmed");
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -31,7 +31,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slotError, setSlotError] = useState<string | null>(null);
-  const [edited, setEdited] = useState(false);
+  const [edited, setEdited] = useState(!!initialGuest);
   const generation = useRef(0);
   const inFlight = useRef(false);
   const request = useRef<{ key: string; id: string } | null>(null);
@@ -104,7 +104,7 @@ export function NewReservation({ spotId, date, snapshot, serviceId = "", areaId 
   return <ConsolePanel title="Neue Reservierung" dirty={edited} busy={busy} uncertain={uncertain} onClose={() => onClose(uncertain, frozen.current?.date)}>
     <form className={styles.editorForm} onSubmit={submit} onChange={() => setEdited(true)}>
       <fieldset disabled={busy || uncertain} className={styles.fieldset}>
-        <div className={styles.drawerBody}>
+        <div className={styles.drawerBody}>{initialGuest && <p className={styles.help}>Kontaktdaten aus einer Gästekarte übernommen. Prüfe die Angaben für diese Reservierung. Änderungen hier betreffen diese Buchung.</p>}
           <p className={styles.editorContext}>{snapshot.services.find((s) => s.id === service)?.name ?? "Alle Services"} · {snapshot.areas.find((a) => a.id === area)?.name ?? "Alle Bereiche"}{tableId ? " · " + snapshot.tables.find((t) => t.id === tableId)?.label : ""}</p>
           <div className={styles.fields}>
             <label>Gastname<input data-initial-focus required maxLength={120} placeholder="Für wen reservieren wir?" value={name} autoComplete="off" onChange={(e) => setName(e.target.value)} /></label>

@@ -18,7 +18,7 @@ export type BookingReservation = {
   table_ids?: string[]; combination_id?: string | null;
   allocation_starts_at?: string | null; allocation_ends_at?: string | null;
 };
-export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean; special_hours?: boolean; table_combinations?: boolean; seated_transfers?: boolean; guest_mail?: boolean; guest_link_reissue?: boolean; public_booking?: boolean; manual_guest_mail?: boolean; reservation_search?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[]; special_hours?: BookingSpecialHours[]; combinations?: BookingCombination[]; archived_combination_count?: number };
+export type BookingSnapshot = { capabilities?: { service_lifecycle: boolean; reservation_amendments?: boolean; current_seating?: boolean; walk_ins?: boolean; table_layouts?: boolean; week_planning?: boolean; team_access?: boolean; reservation_history?: boolean; special_hours?: boolean; table_combinations?: boolean; seated_transfers?: boolean; guest_mail?: boolean; guest_link_reissue?: boolean; public_booking?: boolean; manual_guest_mail?: boolean; reservation_search?: boolean; guest_cards?: boolean }; access?: BookingAccess; operating_date?: string; settings: { revision: number; duration_minutes: number; max_party_size: number } | null; areas: BookingArea[]; tables: BookingTable[]; services: BookingService[]; reservations: BookingReservation[]; unclosed_visits?: BookingReservation[]; closures?: BookingClosure[]; special_hours?: BookingSpecialHours[]; combinations?: BookingCombination[]; archived_combination_count?: number };
 export type BookingSlot = { service_id: string; table_id: string; starts_at: string; ends_at: string; table_ids?: string[]; combination_id?: string | null; allocation_label?: string };
 
 const statuses: BookingStatus[] = ["pending", "confirmed", "arrived", "seated", "completed", "cancelled", "declined", "no_show"];
@@ -54,7 +54,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   const walkIns = capabilities?.walk_ins == null ? false : boolean(capabilities.walk_ins);
   const reservation = (r: Record<string, unknown>): BookingReservation => ({ id: uuid(r.id), table_id: uuid(r.table_id), service_id: uuid(r.service_id), guest_name: string(r.guest_name), guest_contact: nullable(r.guest_contact), note: nullable(r.note), party_size: integer(r.party_size), starts_at: timestamp(r.starts_at), ends_at: timestamp(r.ends_at), status: enumeration(r.status, statuses), source: enumeration(r.source, sources), arrived_at: r.arrived_at == null ? null : timestamp(r.arrived_at), seated_at: r.seated_at == null ? null : timestamp(r.seated_at), completed_at: r.completed_at == null ? null : timestamp(r.completed_at), revision: r.revision == null && !amendments ? 0 : integer(r.revision), is_walk_in: r.is_walk_in == null && !walkIns ? false : boolean(r.is_walk_in), ...(transfers ? parseTransferWindow(r) : {}), ...(combinations ? { table_ids: parseTableIds(r.table_ids, uuid(r.table_id)), combination_id: r.combination_id === null ? null : uuid(r.combination_id) } : {}) });
   return {
-    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history), special_hours: specialHours, table_combinations: combinations, seated_transfers: transfers, guest_mail: capabilities?.guest_mail == null ? false : boolean(capabilities.guest_mail), guest_link_reissue: capabilities?.guest_link_reissue == null ? false : boolean(capabilities.guest_link_reissue), public_booking: capabilities?.public_booking == null ? false : boolean(capabilities.public_booking), manual_guest_mail: capabilities?.manual_guest_mail == null ? false : boolean(capabilities.manual_guest_mail), reservation_search: capabilities?.reservation_search == null ? false : boolean(capabilities.reservation_search) },
+    capabilities: { service_lifecycle: capabilities == null ? false : boolean(capabilities.service_lifecycle), reservation_amendments: amendments, current_seating: seating, walk_ins: walkIns, table_layouts: layouts, week_planning: planning, team_access: team, reservation_history: capabilities?.reservation_history == null ? false : boolean(capabilities.reservation_history), special_hours: specialHours, table_combinations: combinations, seated_transfers: transfers, guest_mail: capabilities?.guest_mail == null ? false : boolean(capabilities.guest_mail), guest_link_reissue: capabilities?.guest_link_reissue == null ? false : boolean(capabilities.guest_link_reissue), public_booking: capabilities?.public_booking == null ? false : boolean(capabilities.public_booking), manual_guest_mail: capabilities?.manual_guest_mail == null ? false : boolean(capabilities.manual_guest_mail), reservation_search: capabilities?.reservation_search == null ? false : boolean(capabilities.reservation_search), guest_cards: capabilities?.guest_cards == null ? false : boolean(capabilities.guest_cards) },
     access: team ? parseBookingAccess(row.access) : ownerBookingAccess,
     operating_date: row.operating_date == null && !seating ? undefined : calendarDate(row.operating_date),
     settings: settings ? { revision: integer(settings.revision), duration_minutes: integer(settings.duration_minutes), max_party_size: integer(settings.max_party_size) } : null,
@@ -75,7 +75,7 @@ export function parseBookingSnapshot(value: unknown): BookingSnapshot {
   };
 }
 
-async function bookingRpcPayload(method: "booking_console_search_v1" | "booking_console_public_settings_v2" | "booking_console_save_public_settings_v2" | "booking_console_public_settings_recover_v1" | "booking_console_mail_v1" | "booking_console_mail_v2" | "booking_console_transfer_choices_v1" | "booking_console_transfer_v1" | "booking_console_slots_v2" | "booking_console_create_v2" | "booking_console_amend_v2" | "booking_console_walk_in_v2" | "booking_console_walk_in_slots_v2" | "booking_console_save_combination_v1" | "booking_console_save_hours_v1" | "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+async function bookingRpcPayload(method: "booking_console_guests_v1" | "booking_console_guest_v1" | "booking_console_guest_write_v1" | "booking_console_search_v1" | "booking_console_public_settings_v2" | "booking_console_save_public_settings_v2" | "booking_console_public_settings_recover_v1" | "booking_console_mail_v1" | "booking_console_mail_v2" | "booking_console_transfer_choices_v1" | "booking_console_transfer_v1" | "booking_console_slots_v2" | "booking_console_create_v2" | "booking_console_amend_v2" | "booking_console_walk_in_v2" | "booking_console_walk_in_slots_v2" | "booking_console_save_combination_v1" | "booking_console_save_hours_v1" | "booking_console_history_v1" | "booking_console_read_v1" | "booking_console_week_v1" | "booking_console_save_closure_v1" | "booking_console_spots_v1" | "booking_console_access_v1" | "booking_console_team_v1" | "booking_console_invite_v1" | "booking_console_revoke_invite_v1" | "booking_console_member_v1" | "booking_console_invitation_v1", args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
   const controller = new AbortController();
   let abort = () => {};
   const cancelled = new Promise<never>((_resolve, reject) => { abort = () => { controller.abort(); reject(new Error("Booking-Anfrage abgebrochen oder Zeitgrenze erreicht.")); }; });
@@ -194,6 +194,9 @@ export function bookingWriteUncertain(error: unknown): boolean {
 }
 
 const errorCopy: Record<string, string> = {
+  booking_guest_invalid: "Prüfe Name, E-Mail und Telefon sowie den Suchbereich.",
+  booking_guest_changed: "Die Gästekarte wurde inzwischen geändert. Lade den aktuellen Stand, bevor du neue Änderungen speicherst.",
+  booking_guest_unavailable: "Diese Gästekarte ist nicht mehr verfügbar oder wurde archiviert. Lade die Gästeliste erneut.",
   invalid_booking_transfer_duration: "Wähle eine verbleibende Dauer zwischen 15 und 480 Minuten.",
   invalid_booking_transfer_request: "Prüfe die gewählten Tische und die verbleibende Dauer.",
   invalid_booking_combination: "Wähle zwei bis vier aktive Tische im selben Bereich und eine passende Gruppengrösse.",
@@ -565,4 +568,87 @@ export function parseBookingSearch(value: unknown, scope: BookingSearchScope, af
 export async function searchBookingReservations(spotId: string, scope: BookingSearchScope, after: BookingSearchCursor | null, signal?: AbortSignal): Promise<BookingSearchPage> {
   const valid = validateBookingSearchScope(scope);
   return parseBookingSearch(await bookingRpcPayload("booking_console_search_v1", { p_spot_id: spotId, p_query: valid.query, p_from: valid.from, p_to: valid.to, p_after_starts_at: after?.starts_at ?? null, p_after_id: after?.id ?? null }, signal), valid, after);
+}
+
+
+export type BookingGuestCard = { id: string; name: string; email: string | null; phone: string | null; revision: number; is_archived: boolean; created_at: string; updated_at: string };
+export type GuestCardCursor = { updated_at: string; id: string };
+export type GuestCardPage = { guests: BookingGuestCard[]; next_cursor: GuestCardCursor | null };
+export type GuestCardEvent = { id: string; actor_id: string | null; action: "created" | "updated" | "archived" | "restored"; changed_fields: ("name" | "email" | "phone" | "is_archived")[]; created_at: string };
+export type GuestCardDetails = { guest: BookingGuestCard; events: GuestCardEvent[] };
+export type GuestCardIntent = { kind: "save"; id: string; revision: number | null; name: string; email: string | null; phone: string | null } | { kind: "archive"; id: string; revision: number; archived: boolean };
+export type GuestCardOutcome = Pick<BookingGuestCard, "id" | "revision" | "is_archived" | "updated_at">;
+function guestCardText(value: unknown, max: number): string { const result = string(value); if ([...result].length > max || /[\u0000-\u001f\u007f]/.test(result)) return invalid(); return result; }
+// PostgreSQL orders six fractional digits; Date.parse alone loses microseconds.
+function guestCardInstant(value: string): bigint {
+  const match = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[.](\d{1,6}))?(?:Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!match || !Number.isFinite(Date.parse(value))) return invalid();
+  return BigInt(Math.floor(Date.parse(value) / 1000)) * BigInt(1000000) + BigInt((match[1] ?? "").padEnd(6, "0"));
+}
+export function parseGuestCard(value: unknown): BookingGuestCard {
+  const row = record(value), name = guestCardText(row.name, 120), revision = integer(row.revision);
+  if (!name.length || revision < 0) return invalid();
+  const created_at = timestamp(row.created_at), updated_at = timestamp(row.updated_at); guestCardInstant(created_at); guestCardInstant(updated_at);
+  return { id: uuid(row.id), name, email: row.email === null ? null : guestCardText(row.email, 320), phone: row.phone === null ? null : guestCardText(row.phone, 80), revision, is_archived: boolean(row.is_archived), created_at, updated_at };
+}
+export function parseGuestCardPage(value: unknown, archived: boolean, after: GuestCardCursor | null = null): GuestCardPage {
+  const row = record(value);
+  if (!Array.isArray(row.guests) || row.guests.length > 25 || !Object.hasOwn(row, "next_cursor")) return invalid();
+  let previous = after; const seen = new Set<string>();
+  if (after) { uuid(after.id); guestCardInstant(after.updated_at); }
+  const guests = row.guests.map(value => {
+    const card = parseGuestCard(value), time = guestCardInstant(card.updated_at), prior = previous && guestCardInstant(previous.updated_at);
+    if (card.is_archived !== archived || seen.has(card.id) || (previous && (time > prior! || (time === prior && card.id.toLowerCase() >= previous.id.toLowerCase())))) return invalid();
+    seen.add(card.id); previous = card; return card;
+  });
+  const cursor = row.next_cursor === null ? null : record(row.next_cursor);
+  const next_cursor = cursor ? { updated_at: timestamp(cursor.updated_at), id: uuid(cursor.id) } : null;
+  const last = guests.at(-1);
+  if (next_cursor && (guests.length !== 25 || !last || guestCardInstant(next_cursor.updated_at) !== guestCardInstant(last.updated_at) || next_cursor.id !== last.id)) return invalid();
+  return { guests, next_cursor };
+}
+export function parseGuestCardDetails(value: unknown, id: string): GuestCardDetails {
+  const row = record(value), guest = parseGuestCard(row.guest);
+  if (guest.id !== id || !Array.isArray(row.events) || row.events.length > 20) return invalid();
+  const seen = new Set<string>(); let previous: GuestCardEvent | null = null;
+  const events = row.events.map(value => {
+    const e = record(value);
+    if (!Array.isArray(e.changed_fields) || e.changed_fields.length < 1 || e.changed_fields.length > 4) return invalid();
+    const changed_fields = e.changed_fields.map(f => enumeration(f, ["name", "email", "phone", "is_archived"] as GuestCardEvent["changed_fields"]));
+    const event: GuestCardEvent = { id: uuid(e.id), actor_id: e.actor_id === null ? null : uuid(e.actor_id), action: enumeration(e.action, ["created", "updated", "archived", "restored"]), changed_fields, created_at: timestamp(e.created_at) };
+    const time = guestCardInstant(event.created_at), prior = previous && guestCardInstant(previous.created_at);
+    if (seen.has(event.id) || new Set(changed_fields).size !== changed_fields.length || (previous && (time > prior! || (time === prior && event.id.toLowerCase() >= previous.id.toLowerCase())))) return invalid();
+    previous = event; seen.add(event.id); return event;
+  });
+  return { guest, events };
+}
+export function validateGuestCardIntent(value: unknown): GuestCardIntent {
+  const row = record(value), kind = enumeration(row.kind, ["save", "archive"]), id = uuid(row.id);
+  const keys = Object.keys(row).sort().join(",");
+  if (keys !== (kind === "save" ? "email,id,kind,name,phone,revision" : "archived,id,kind,revision")) return invalid();
+  const revision = row.revision === null ? null : integer(row.revision);
+  if (revision !== null && revision < 0) return invalid();
+  if (kind === "archive") { if (revision === null) return invalid(); return { kind, id, revision, archived: boolean(row.archived) }; }
+  const name = guestCardText(row.name, 120).trim(), email = row.email === null ? null : guestCardText(row.email, 320).trim() || null, phone = row.phone === null ? null : guestCardText(row.phone, 80).trim() || null;
+  if (!name || (email && !/^[^\s@<>]+@[^\s@<>]+[.][^\s@<>]+$/.test(email))) return invalid();
+  return { kind, id, revision, name, email, phone };
+}
+export function parseGuestCardOutcome(value: unknown, intent: GuestCardIntent): GuestCardOutcome {
+  const row = record(value), result = { id: uuid(row.id), revision: integer(row.revision), is_archived: boolean(row.is_archived), updated_at: timestamp(row.updated_at) };
+  guestCardInstant(result.updated_at);
+  if (result.id !== intent.id || result.revision < (intent.revision ?? 0) || result.revision > (intent.revision === null ? 0 : intent.revision + 1)
+    || result.is_archived !== (intent.kind === "archive" ? intent.archived : false)) return invalid();
+  return result;
+}
+export async function readGuestCards(spotId: string, query: string, archived = false, after: GuestCardCursor | null = null, signal?: AbortSignal): Promise<GuestCardPage> {
+  const q = guestCardText(query, 320).trim();
+  return parseGuestCardPage(await bookingRpcPayload("booking_console_guests_v1", { p_spot_id: spotId, p_query: q, p_archived: archived, p_after_updated_at: after?.updated_at ?? null, p_after_id: after?.id ?? null }, signal), archived, after);
+}
+export async function readGuestCard(spotId: string, id: string, signal?: AbortSignal): Promise<GuestCardDetails> {
+  return parseGuestCardDetails(await bookingRpcPayload("booking_console_guest_v1", { p_spot_id: spotId, p_guest_id: id }, signal), id);
+}
+export async function writeGuestCard(spotId: string, requestId: string, intent: GuestCardIntent, actorId: string, recover = false): Promise<GuestCardOutcome | null> {
+  const valid = validateGuestCardIntent(intent);
+  const result = await bookingRpcPayload("booking_console_guest_write_v1", { p_spot_id: spotId, p_request_id: requestId, p_intent: valid, p_actor: uuid(actorId), p_recover: recover });
+  return recover && result === null ? null : parseGuestCardOutcome(result, valid);
 }

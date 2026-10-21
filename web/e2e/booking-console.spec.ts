@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { BookingCombination, BookingSlot, BookingSpecialHours, BookingSetup, BookingSnapshot, BookingRole, BookingTeamRole } from "../lib/booking-api";
+import type { BookingCombination, BookingSlot, BookingSpecialHours, BookingSetup, BookingSnapshot, BookingRole, BookingTeamRole, BookingGuestCard, GuestCardOutcome, GuestCardEvent } from "../lib/booking-api";
 
 const spot = "51000000-0000-4000-8000-000000000001";
 const owner = "51000000-0000-4000-8000-000000000099";
@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean; search?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean; overruns?: boolean; search?: boolean; guestCards?: boolean; guestCardUncertain?: boolean; guestCardMalformed?: boolean; guestCardConflict?: boolean; guestCardRecoverError?: boolean; guestCardPaged?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -490,6 +490,14 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     snapshot.reservations.push({ ...snapshot.reservations[0], id: "54000000-0000-4000-8000-000000000099", guest_name: "Testgast Morgen", guest_contact: "morgen@booking.invalid", note: "PRIVATE_SEARCH_NOTE", starts_at: "2026-10-21T18:00:00+02:00", ends_at: "2026-10-21T20:00:00+02:00" });
     for (let n = 1; n <= 30; n++) snapshot.reservations.push({ ...snapshot.reservations[0], id: `54000000-0000-4000-8000-${String(n).padStart(12, "0")}`, guest_name: "Testgast Wiederkehrend", status: "cancelled", starts_at: "2026-10-22T18:00:00+02:00", ends_at: "2026-10-22T20:00:00+02:00" });
   }
+  if (options.guestCards) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_cards: true };
+  const guestCardId = "56000000-0000-4000-8000-000000000001";
+  const guestCards: BookingGuestCard[] = [{ id: guestCardId, name: "Kartengast Beispiel", email: "karte@booking.invalid", phone: "+41 61 000 00 00", revision: 0, is_archived: false, created_at: "2026-10-20T10:00:00.000000Z", updated_at: "2026-10-20T11:00:00.000000Z" }];
+  if (options.guestCardPaged) for (let n = 2; n <= 30; n++) guestCards.push({ ...guestCards[0], id: `56000000-0000-4000-8000-${String(n).padStart(12, "0")}` });
+  let guestEventSequence = 0, guestWriteFailureUsed = false, guestRecoverFailureUsed = false;
+  const guestCardRequests: Record<string, unknown>[] = [];
+  const guestJournal = new Map<string, { intent: string; outcome: GuestCardOutcome }>();
+  const guestEvents = new Map<string, GuestCardEvent[]>([[guestCardId, [{ id: "56000000-0000-4000-8000-000000000099", actor_id: owner, action: "created", changed_fields: ["name", "email", "phone"], created_at: "2026-10-20T10:00:00.000000Z" }]]]);
   const searchRequests: Record<string, unknown>[] = [];
   const layoutRequests: Record<string, unknown>[] = [];
   let readCalls = 0;
@@ -592,6 +600,47 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       return route.fulfill({ json: { spot_id: spot, spot_name: "Restaurant Testbetrieb", role: "host", expires_at: "2026-10-27T12:00:00Z", accepted: joined } });
     }
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
+    if (["booking_console_guests_v1", "booking_console_guest_v1", "booking_console_guest_write_v1"].includes(method ?? "")) {
+      if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const manages = ["owner", "manager"].includes(currentTeamRole);
+      if (method === "booking_console_guests_v1") {
+        if (body.p_archived && !manages) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+        const q = body.p_query.toLowerCase(), digits = /^[+0-9 ()/.-]+$/.test(q) ? q.replace(/[^0-9]/g, "") : "";
+        const rows = guestCards.filter(c => c.is_archived === body.p_archived && (!q || c.name.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q) || (digits.length >= 3 && c.phone?.replace(/[^0-9]/g, "").includes(digits))))
+          .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || b.id.localeCompare(a.id))
+          .filter(c => !body.p_after_updated_at || c.updated_at < body.p_after_updated_at || (c.updated_at === body.p_after_updated_at && c.id < body.p_after_id));
+        const page = rows.slice(0, 25), last = page.at(-1);
+        return route.fulfill({ json: { guests: page, next_cursor: rows.length > 25 ? { id: last!.id, updated_at: last!.updated_at } : null } });
+      }
+      if (method === "booking_console_guest_v1") {
+        const card = guestCards.find(c => c.id === body.p_guest_id);
+        if (!card || (card.is_archived && !manages)) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_guest_unavailable" } });
+        return route.fulfill({ json: { guest: card, events: guestEvents.get(card.id) ?? [] } });
+      }
+      guestCardRequests.push(body);
+      if (body.p_actor !== actor) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      if (currentTeamRole === "viewer" || (body.p_intent.kind === "archive" && !manages)) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const prior = guestJournal.get(body.p_request_id);
+      if (prior && prior.intent !== JSON.stringify(body.p_intent)) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_request_reused" } });
+      if (body.p_recover) {
+        if (options.guestCardRecoverError && !guestRecoverFailureUsed) { guestRecoverFailureUsed = true; return route.fulfill({ status: 500, json: { message: "recovery_read_unavailable" } }); }
+        return route.fulfill({ json: prior?.outcome ?? null });
+      }
+      if (prior) return route.fulfill({ json: prior.outcome });
+      const intent = body.p_intent, existing = guestCards.find(c => c.id === intent.id);
+      if (options.guestCardConflict && existing && !guestWriteFailureUsed) { guestWriteFailureUsed = true; existing.name = "Extern geändert"; existing.revision++; return route.fulfill({ status: 409, json: { code: "40001", message: "booking_guest_changed" } }); }
+      if ((intent.revision === null && existing) || (intent.revision !== null && (!existing || existing.revision !== intent.revision))) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_guest_changed" } });
+      const stamp = `2026-10-20T12:00:00.${String(++guestEventSequence).padStart(6, "0")}Z`;
+      const card: BookingGuestCard = existing ?? { id: intent.id, name: intent.name, email: intent.email, phone: intent.phone, revision: 0, is_archived: false, created_at: stamp, updated_at: stamp };
+      if (existing) { if (intent.kind === "save") Object.assign(card, { name: intent.name, email: intent.email, phone: intent.phone }); else card.is_archived = intent.archived; card.revision++; card.updated_at = stamp; }
+      else guestCards.push(card);
+      const outcome = { id: card.id, revision: card.revision, is_archived: card.is_archived, updated_at: card.updated_at };
+      guestJournal.set(body.p_request_id, { intent: JSON.stringify(intent), outcome });
+      const event: GuestCardEvent = { id: `57000000-0000-4000-8000-${String(guestEventSequence).padStart(12, "0")}`, actor_id: actor, action: !existing ? "created" : intent.kind === "save" ? "updated" : intent.archived ? "archived" : "restored", changed_fields: intent.kind === "save" ? ["name", "email", "phone"] : ["is_archived"], created_at: stamp };
+      guestEvents.set(card.id, [event, ...(guestEvents.get(card.id) ?? [])].slice(0, 20));
+      if ((options.guestCardUncertain || options.guestCardMalformed) && !guestWriteFailureUsed) { guestWriteFailureUsed = true; return options.guestCardMalformed ? route.fulfill({ json: { ...outcome, id: "unexpected" } }) : route.fulfill({ status: 500, json: { message: "response_lost_after_commit" } }); }
+      return route.fulfill({ json: outcome });
+    }
     if (method === "booking_console_search_v1") {
       searchRequests.push(body);
       const matches = snapshot.reservations.filter(r => r.starts_at.slice(0, 10) >= body.p_from && r.starts_at.slice(0, 10) <= body.p_to && (r.guest_name.toLowerCase().includes(body.p_query.toLowerCase()) || r.guest_contact?.toLowerCase().includes(body.p_query.toLowerCase())))
@@ -821,7 +870,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { searchRequests: () => searchRequests, transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { guestCardRequests: () => guestCardRequests, guestCards: () => guestCards, searchRequests: () => searchRequests, transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -3107,3 +3156,308 @@ test("restaurant search is reachable from week planning and opens the current da
   await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("Testgast Morgen");
   await expect(page.getByRole("button", { name: "Tag", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
+
+async function openGuestDirectory(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Gästekarten", exact: true }).click();
+  return page.getByRole("dialog", { name: "Gästekarten", exact: true });
+}
+async function openDefaultGuestCard(page: Page) {
+  const directory = await openGuestDirectory(page);
+  await directory.getByRole("button", { name: "Gästekarte von Kartengast Beispiel öffnen", exact: true }).first().click();
+  return page.getByRole("dialog", { name: "Gästekarte", exact: true });
+}
+
+test("guest cards on a phone create and correct separate contacts with private change metadata", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, teams: true, publishing: true });
+  const directory = await openGuestDirectory(page);
+  await directory.getByRole("button", { name: "+ Gästekarte", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Neue Gästekarte", exact: true });
+  await expect(editor.getByRole("button", { name: "Gästekarte speichern", exact: true })).toBeDisabled();
+  await editor.getByLabel("Name", { exact: true }).fill("Li");
+  await editor.getByLabel("E-Mail", { exact: true }).fill("li@booking.invalid");
+  await editor.getByLabel("Telefon", { exact: true }).fill("061 000 00 00");
+  await editor.getByLabel("Telefon", { exact: true }).fill("");
+  await expect(editor.getByLabel("Telefon", { exact: true })).toHaveValue("");
+  await editor.getByLabel("Telefon", { exact: true }).fill("+41 61 000 00 00");
+  await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+  const view = page.getByRole("dialog", { name: "Gästekarte", exact: true });
+  await expect(view.getByRole("heading", { name: "Li", exact: true })).toBeVisible();
+  await view.screenshot({ path: test.info().outputPath("guest-card-phone.png") });
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  expect((await new AxeBuilder({ page }).include('dialog[aria-label="Gästekarte"]').analyze()).violations).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+  const edit = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+  await edit.getByLabel("E-Mail", { exact: true }).fill("korrigiert@booking.invalid");
+  await edit.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+  await expect(view).toContainText("korrigiert@booking.invalid");
+  await view.locator("summary").filter({ hasText: "Letzte Änderungen" }).click();
+  await expect(view.getByRole("region", { name: "Letzte Änderungen der Gästekarte" })).not.toContainText("li@booking.invalid");
+  expect(fixture.guestCards().find(card => card.name === "Li")?.revision).toBe(1);
+});
+
+test("guest card contacts are copied explicitly into an ordinary new reservation", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true });
+  const view = await openDefaultGuestCard(page);
+  await view.getByRole("radio", { name: "E-Mail", exact: true }).check();
+  await view.getByRole("button", { name: "Für Reservierung übernehmen", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Kartengast Beispiel");
+  await expect(editor.getByLabel("Telefon oder E-Mail (optional)", { exact: true })).toHaveValue("karte@booking.invalid");
+  await editor.getByLabel("Gastname", { exact: true }).fill("Für Begleitung");
+  await editor.getByLabel("Buchungsdatum", { exact: true }).fill("2026-10-21");
+  await editor.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ index: 1 });
+  await editor.getByRole("combobox", { name: "Tisch", exact: true }).selectOption({ index: 1 });
+  await editor.getByRole("button", { name: "Reservierung speichern", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Für Begleitung öffnen", exact: true })).toBeVisible();
+  expect(fixture.guestCards()[0].name).toBe("Kartengast Beispiel");
+  expect(fixture.guestCardRequests().filter(request => !request.p_recover)).toHaveLength(0);
+  expect(fixture.bookingCalls()).toBe(1);
+});
+
+test("guest card manager archive and restore preserve booking inventory", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, teams: true, teamRole: "manager" });
+  const view = await openDefaultGuestCard(page);
+  await view.getByRole("button", { name: "Archivieren", exact: true }).click();
+  expect(fixture.guestCardRequests().filter(request => !request.p_recover)).toHaveLength(0);
+  await view.getByRole("button", { name: "Archivieren bestätigen", exact: true }).click();
+  await expect(view).toContainText("Archiviert · Daten bleiben gespeichert");
+  await expect(view.getByRole("button", { name: "Für Reservierung übernehmen", exact: true })).toHaveCount(0);
+  await view.getByRole("button", { name: "Schliessen", exact: true }).click();
+  const directory = page.getByRole("dialog", { name: "Gästekarten", exact: true });
+  await expect(directory).toContainText("Keine Gästekarten für diese Auswahl vorhanden.");
+  await directory.getByRole("checkbox", { name: "Archivierte Karten anzeigen", exact: true }).check();
+  await directory.getByRole("button", { name: "Gästekarte von Kartengast Beispiel öffnen", exact: true }).click();
+  await view.getByRole("button", { name: "Wiederherstellen", exact: true }).click();
+  await view.getByRole("button", { name: "Wiederherstellen bestätigen", exact: true }).click();
+  await expect(view).toContainText("Aktive Gästekarte");
+  expect(fixture.statusRequests()).toHaveLength(0); expect(fixture.bookingCalls()).toBe(0);
+});
+
+test("guest card viewer can inspect but cannot create edit archive or copy into a booking", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, teams: true, teamRole: "viewer" });
+  const directory = await openGuestDirectory(page);
+  await expect(directory.getByRole("button", { name: "+ Gästekarte", exact: true })).toHaveCount(0);
+  await expect(directory.getByRole("checkbox")).toHaveCount(0);
+  await directory.getByRole("button", { name: "Gästekarte von Kartengast Beispiel öffnen", exact: true }).click();
+  const view = page.getByRole("dialog", { name: "Gästekarte", exact: true });
+  await expect(view).toContainText("karte@booking.invalid");
+  for (const name of ["Gästekarte bearbeiten", "Archivieren", "Für Reservierung übernehmen"]) await expect(view.getByRole("button", { name, exact: true })).toHaveCount(0);
+  expect(fixture.guestCardRequests()).toHaveLength(0);
+});
+
+test("guest card host can correct contacts while archive controls stay unavailable", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, teams: true, teamRole: "host" });
+  const view = await openDefaultGuestCard(page);
+  await expect(view.getByRole("button", { name: "Archivieren", exact: true })).toHaveCount(0);
+  await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+  await editor.getByLabel("Name", { exact: true }).fill("Vom Host korrigiert");
+  await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+  await expect(view).toContainText("Vom Host korrigiert");
+  expect(fixture.guestCardRequests().filter(request => !request.p_recover)).toHaveLength(1);
+});
+
+for (const malformed of [false, true]) {
+  test("guest card uncertain mutation retains one exact intent: " + (malformed ? "malformed acknowledgement" : "lost acknowledgement"), async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, guestCards: true, guestCardUncertain: !malformed, guestCardMalformed: malformed });
+    const view = await openDefaultGuestCard(page);
+    await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+    const editor = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+    await editor.getByLabel("Name", { exact: true }).fill("Einmal korrigiert");
+    await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+    await expect(editor.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+    await expect(editor.getByLabel("Name", { exact: true })).toBeDisabled();
+    await editor.getByRole("button", { name: "Anfrage prüfen", exact: true }).click();
+    await expect(view).toContainText("Einmal korrigiert");
+    const requests = fixture.guestCardRequests();
+    expect(requests.filter(request => !request.p_recover)).toHaveLength(1);
+    expect(new Set(requests.map(request => request.p_request_id)).size).toBe(1);
+    expect(fixture.guestCards()[0].revision).toBe(1);
+  });
+}
+
+test("guest card recovery-read failure before dispatch leaves the draft editable", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, guestCardRecoverError: true });
+  const view = await openDefaultGuestCard(page);
+  await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+  await editor.getByLabel("Name", { exact: true }).fill("Noch nicht geschrieben");
+  await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toBeVisible();
+  await expect(editor.getByLabel("Name", { exact: true })).toBeEnabled();
+  expect(fixture.guestCardRequests().filter(request => !request.p_recover)).toHaveLength(0);
+  await editor.getByLabel("Name", { exact: true }).fill("Nach Lesefehler korrigiert");
+  await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+  await expect(view).toContainText("Nach Lesefehler korrigiert");
+  expect(fixture.guestCardRequests().filter(request => !request.p_recover)).toHaveLength(1);
+});
+
+test("guest card CAS conflict preserves input until the operator discards it", async ({ page }) => {
+  await mockConsole(page, { seeded: true, guestCards: true, guestCardConflict: true });
+  const view = await openDefaultGuestCard(page);
+  await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+  await editor.getByLabel("Name", { exact: true }).fill("Mein Entwurf");
+  await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toContainText("inzwischen geändert");
+  await expect(editor.getByLabel("Name", { exact: true })).toHaveValue("Mein Entwurf");
+  await editor.getByRole("button", { name: "Entwurf verwerfen und aktuellen Stand öffnen", exact: true }).click();
+  await expect(view).toContainText("Extern geändert");
+});
+
+test("guest card offline draft survives while saving is disabled", async ({ page, context }) => {
+  await mockConsole(page, { seeded: true, guestCards: true });
+  const view = await openDefaultGuestCard(page);
+  await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+  await editor.getByLabel("Name", { exact: true }).fill("Offline Entwurf");
+  await context.setOffline(true);
+  await expect(editor).toContainText("Offline · deine Eingaben bleiben erhalten");
+  await expect(editor.getByRole("button", { name: "Gästekarte speichern", exact: true })).toBeDisabled();
+  await context.setOffline(false);
+  await expect(editor.getByLabel("Name", { exact: true })).toHaveValue("Offline Entwurf");
+  await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+  await expect(view).toContainText("Offline Entwurf");
+});
+
+test("guest card directory pages duplicate contacts without merging identities", async ({ page }) => {
+  await mockConsole(page, { seeded: true, guestCards: true, guestCardPaged: true });
+  const directory = await openGuestDirectory(page);
+  await expect(directory.getByRole("button", { name: "Gästekarte von Kartengast Beispiel öffnen", exact: true })).toHaveCount(25);
+  await directory.getByRole("button", { name: "Nächste 25 Karten", exact: true }).click();
+  await expect(directory.getByRole("button", { name: "Gästekarte von Kartengast Beispiel öffnen", exact: true })).toHaveCount(5);
+  await directory.getByRole("button", { name: "Liste neu laden", exact: true }).click();
+  await expect(directory.getByRole("button", { name: "Gästekarte von Kartengast Beispiel öffnen", exact: true })).toHaveCount(25);
+});
+
+test("guest card permission revocation clears the open contact directory", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, teams: true, teamRole: "host" });
+  const view = await openDefaultGuestCard(page);
+  await expect(view).toContainText("karte@booking.invalid");
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(view).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+  await expect(page.getByText("karte@booking.invalid", { exact: true })).toHaveCount(0);
+});
+
+test("guest card role downgrade discards private edit state and restores viewer-only controls", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, teams: true, teamRole: "host" });
+  const view = await openDefaultGuestCard(page);
+  await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+  await editor.getByLabel("Name", { exact: true }).fill("Privater Entwurf vor Rollenwechsel");
+  fixture.setTeamRole("viewer");
+  await page.clock.runFor(30_000);
+  await expect(editor).toHaveCount(0);
+  await page.getByRole("button", { name: "Gästekarten", exact: true }).click();
+  const directory = page.getByRole("dialog", { name: "Gästekarten", exact: true });
+  await expect(directory.getByRole("button", { name: "+ Gästekarte", exact: true })).toHaveCount(0);
+  expect(fixture.guestCardRequests().filter(request => !request.p_recover)).toHaveLength(0);
+});
+
+test("guest card late read after logout cannot restore private contact data", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true });
+  let release = () => {}, called = false;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/rest/v1/rpc/booking_console_guest_v1", async route => { called = true; await gate; try { await route.fulfill({ json: { guest: fixture.guestCards()[0], events: [] } }); } catch { /* read cancelled after logout */ } });
+  await openDefaultGuestCard(page);
+  await expect.poll(() => called).toBe(true);
+  await page.evaluate(() => { const c = new BroadcastChannel("sb-127-auth-token"); c.postMessage({ event: "SIGNED_OUT", session: null }); c.close(); });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden", exact: true })).toBeVisible();
+  release();
+  await expect(page.getByRole("dialog", { name: "Gästekarte", exact: true })).toHaveCount(0);
+  await expect(page.getByText("karte@booking.invalid", { exact: true })).toHaveCount(0);
+});
+
+for (const method of ["booking_console_guests_v1", "booking_console_guest_v1", "booking_console_guest_write_v1"]) {
+  test("guest card server denial removes the private workspace: " + method, async ({ page }) => {
+    await mockConsole(page, { seeded: true, guestCards: true });
+    await page.route("**/rest/v1/rpc/" + method, route => route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } }));
+    if (method === "booking_console_guests_v1") await openGuestDirectory(page);
+    else if (method === "booking_console_guest_v1") await openDefaultGuestCard(page);
+    else {
+      const view = await openDefaultGuestCard(page);
+      await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+      const editor = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+      await editor.getByLabel("Name", { exact: true }).fill("Verweigerte Änderung");
+      await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+    }
+    await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+    await expect(page.getByText("karte@booking.invalid", { exact: true })).toHaveCount(0);
+  });
+}
+
+test("guest card uncertain archive focuses exact-request recovery without offering a new action", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, guestCardUncertain: true });
+  const view = await openDefaultGuestCard(page);
+  await view.getByRole("button", { name: "Archivieren", exact: true }).click();
+  await view.getByRole("button", { name: "Archivieren bestätigen", exact: true }).click();
+  await expect(view.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  const retry = view.getByRole("button", { name: "Anfrage prüfen", exact: true });
+  await expect(retry).toBeFocused();
+  await expect(view.getByRole("button", { name: "Für Reservierung übernehmen", exact: true })).toHaveCount(0);
+  await expect(view.getByRole("button", { name: "Archivieren", exact: true })).toHaveCount(0);
+  await retry.click();
+  await expect(view).toContainText("Archiviert · Daten bleiben gespeichert");
+  expect(fixture.guestCardRequests().filter(request => !request.p_recover)).toHaveLength(1);
+  expect(fixture.guestCards()[0].revision).toBe(1);
+});
+
+test("guest card archive conflict reloads the current card before a fresh decision", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, guestCards: true, guestCardConflict: true });
+  const view = await openDefaultGuestCard(page);
+  await view.getByRole("button", { name: "Archivieren", exact: true }).click();
+  await view.getByRole("button", { name: "Archivieren bestätigen", exact: true }).click();
+  await expect(view.getByRole("alert")).toContainText("inzwischen geändert");
+  await view.getByRole("button", { name: "Gästekarte neu laden", exact: true }).click();
+  await expect(view.getByRole("heading", { name: "Extern geändert", exact: true })).toBeVisible();
+  await view.getByRole("button", { name: "Archivieren", exact: true }).click();
+  await view.getByRole("button", { name: "Archivieren bestätigen", exact: true }).click();
+  await expect(view).toContainText("Archiviert · Daten bleiben gespeichert");
+  expect(fixture.guestCards()[0].revision).toBe(2);
+});
+
+for (const denied of [false, true]) {
+  test("guest card pending recovery stays with its original account: " + (denied ? "late denial" : "late empty recovery"), async ({ page, context }) => {
+    const fixture = await mockConsole(page, { seeded: true, guestCards: true });
+    let release = () => {}, called = false, replied = false, mutations = 0;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    await page.route("**/rest/v1/rpc/booking_console_guest_write_v1", async route => {
+      if (!route.request().postDataJSON().p_recover) { mutations++; return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } }); }
+      called = true; await gate;
+      try { if (denied) await route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } }); else await route.fulfill({ json: null }); }
+      catch { /* old request was cancelled with the old editor */ }
+      finally { replied = true; }
+    });
+    const view = await openDefaultGuestCard(page);
+    await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+    const editor = page.getByRole("dialog", { name: "Gästekarte bearbeiten", exact: true });
+    await editor.getByLabel("Name", { exact: true }).fill("Alter Kontokontext");
+    await editor.getByRole("button", { name: "Gästekarte speichern", exact: true }).click();
+    await expect.poll(() => called).toBe(true);
+    const nextUser = { ...fixture.session.user, id: "58000000-0000-4000-8000-000000000099", email: "other@booking.invalid" };
+    const tokenParts = fixture.session.access_token.split(".");
+    const claims = JSON.parse(Buffer.from(tokenParts[1], "base64url").toString("utf8")); claims.sub = nextUser.id;
+    const nextSession = { ...fixture.session, user: nextUser, access_token: tokenParts[0] + "." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".local-signature" };
+    await page.route("**/auth/v1/user", route => route.fulfill({ json: nextUser }));
+    await context.addCookies([{ name: "sb-127-auth-token", value: "base64-" + Buffer.from(JSON.stringify(nextSession)).toString("base64url"), domain: "127.0.0.1", path: "/" }]);
+    await page.evaluate(session => { const c = new BroadcastChannel("sb-127-auth-token"); c.postMessage({ event: "SIGNED_IN", session }); c.close(); }, nextSession);
+    await expect(editor).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Gästekarten", exact: true })).toBeVisible();
+    release();
+    await expect.poll(() => replied).toBe(true);
+    await page.getByRole("button", { name: "Gästekarten", exact: true }).click();
+    const directory = page.getByRole("dialog", { name: "Gästekarten", exact: true });
+    await directory.getByRole("button", { name: "Gästekarte von Kartengast Beispiel öffnen", exact: true }).click();
+    await view.getByRole("button", { name: "Gästekarte bearbeiten", exact: true }).click();
+    await editor.getByLabel("Name", { exact: true }).fill("Neuer Kontokontext");
+    await expect(editor.getByLabel("Name", { exact: true })).toHaveValue("Neuer Kontokontext");
+    expect(mutations).toBe(0);
+    expect(fixture.guestCards()[0].name).toBe("Kartengast Beispiel");
+  });
+}
