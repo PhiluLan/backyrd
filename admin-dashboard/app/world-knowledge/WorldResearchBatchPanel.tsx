@@ -5,7 +5,8 @@ import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-
 import { parseWorldResearchQueue, type WorldResearchQueue } from "@/lib/worldResearchQueue";
 import { findResearchPlaces, type ResearchPlace } from "./WorldAddressPicker";
 import { refreshResearchDocument } from "./researchBatchRefresh.mjs";
-import { NuknukDraftPreview, parseNuknukDraft, type NuknukDraft } from "./NuknukDraftPreview";
+import { NuknukDraftPreview } from "./NuknukDraftPreview";
+import { parseNuknukDraft, type NuknukDraft } from "@/lib/nuknukResearchDraft";
 import type { ResearchReview } from "@backyrd/world-knowledge-core";
 import styles from "./WorldResearchBatchPanel.module.css";
 
@@ -13,6 +14,7 @@ type Spot = ProductAdminSpotSearch["spots"][number];
 type Report = { batchId: string; mode: string; totals: Record<string, number>; perSpot: Array<{ spotId: string; name: string; ready: string[]; readyClaims: Array<{ attributeKey: string; value: unknown; source: { evidence: string; url: string } }>; declined: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; unresolvedDetails: Array<{ attributeKey: string; reason: string }>; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; reviewCompleted?: boolean; reviewCompletionError?: string; location?: { message: string; automatic: string | null; query?: string; candidates: Array<{ placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; sourceUrl: string }> } }> };
 type ResearchJob = { jobId: string; spotId: string; spotName: string; status: "QUEUED" | "RUNNING" | "READY_FOR_REVIEW" | "FAILED"; attempts: number; failureCode: string | null; createdAt: string; updatedAt: string; completedAt: string | null };
 type ResearchJobsResponse = { enabled: boolean; jobs: ResearchJob[] };
+type StoredDraft = { draftId: string; spotId: string; spotName: string; version: string; createdAt: string };
 
 export function WorldResearchBatchPanel(props: {
   search(query: string): Promise<ProductAdminSpotSearch>;
@@ -20,6 +22,8 @@ export function WorldResearchBatchPanel(props: {
   post(body: unknown): Promise<unknown>;
   jobsGet(jobId?: string): Promise<unknown>;
   jobsStart(spotIds: string[]): Promise<unknown>;
+  draftsGet(draftId?: string): Promise<unknown>;
+  draftsSave(report: NuknukDraft): Promise<unknown>;
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const [query, setQuery] = useState("");
@@ -27,6 +31,10 @@ export function WorldResearchBatchPanel(props: {
   const [selected, setSelected] = useState<Spot[]>([]);
   const [json, setJson] = useState("");
   const [nuknukDraft, setNuknukDraft] = useState<NuknukDraft | null>(null);
+  const [storedDrafts, setStoredDrafts] = useState<StoredDraft[]>([]);
+  const [savedDraftId, setSavedDraftId] = useState<string | null>(null);
+  const [draftsError, setDraftsError] = useState("");
+  const [draftSaving, setDraftSaving] = useState(false);
   const [preview, setPreview] = useState<Report | null>(null);
   const [reviewOptions, setReviewOptions] = useState<Record<string, ResearchReview[]>>({});
   const [locations, setLocations] = useState<Record<string, string>>({});
@@ -47,6 +55,36 @@ export function WorldResearchBatchPanel(props: {
   const [jobsError, setJobsError] = useState("");
   const queueRequest = props.queue;
   const jobsGet = props.jobsGet;
+  const draftsGet = props.draftsGet;
+
+  useEffect(() => {
+    let active = true;
+    void draftsGet().then((response) => {
+      if (!active) return;
+      setStoredDrafts((response as { drafts: StoredDraft[] }).drafts);
+      setDraftsError("");
+    }).catch(() => { if (active) setDraftsError("Gespeicherte Prüfentwürfe konnten nicht geladen werden."); });
+    return () => { active = false; };
+  }, [draftsGet]);
+
+  const openStoredDraft = (draftId: string) => run(async () => {
+    const response = await draftsGet(draftId) as { report: unknown };
+    const report = parseNuknukDraft(response.report);
+    if (!report) throw new Error("Der gespeicherte Prüfentwurf ist ungültig.");
+    setNuknukDraft(report); setSavedDraftId(draftId); setDraftsError("");
+    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  const saveDraft = async () => {
+    if (!nuknukDraft || draftSaving) return;
+    setDraftSaving(true); setDraftsError("");
+    try {
+      const response = await props.draftsSave(nuknukDraft) as { draft: StoredDraft };
+      setSavedDraftId(response.draft.draftId);
+      setStoredDrafts((current) => [response.draft, ...current.filter(item => item.draftId !== response.draft.draftId)]);
+    } catch { setDraftsError("Der Prüfentwurf konnte nicht gespeichert werden. Bitte erneut versuchen."); }
+    finally { setDraftSaving(false); }
+  };
 
   useEffect(() => {
     let active = true;
@@ -143,7 +181,12 @@ export function WorldResearchBatchPanel(props: {
     setActiveJobId(jobId);
     panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  const previewBatch = (choices = confirmations, preserveReviews = false) => run(() => loadPreview(parse(), choices, preserveReviews));
+  const previewBatch = (choices = confirmations, preserveReviews = false) => run(async () => {
+    const document = parse();
+    const draft = parseNuknukDraft(document);
+    if (draft) { setNuknukDraft(draft); setSavedDraftId(null); setDraftsError(""); setJson(""); return; }
+    await loadPreview(document, choices, preserveReviews);
+  });
   const refreshBatch = () => run(async () => {
     const previous = parse() as { batch?: { spots?: Array<{ spotId: string }> } };
     const spotIds = previous.batch?.spots?.map((spot) => spot.spotId);
@@ -219,7 +262,7 @@ export function WorldResearchBatchPanel(props: {
 
   return <section className={styles.shell} ref={panelRef}>
     <header className={styles.header}><span className={styles.eyebrow}>RECHERCHE SPOT</span><h2>Wissen ergänzen.</h2><p>Spots automatisch oder per Datei recherchieren. Neue Angaben und Konflikte werden erst nach deiner Prüfung übernommen.</p></header>
-    {nuknukDraft ? <NuknukDraftPreview draft={nuknukDraft} onClose={() => setNuknukDraft(null)} /> : <>
+    {nuknukDraft ? <NuknukDraftPreview draft={nuknukDraft} onClose={() => { setNuknukDraft(null); setSavedDraftId(null); }} onSave={() => void saveDraft()} saved={!!savedDraftId} saving={draftSaving} error={draftsError} /> : <>
     <nav className={styles.steps} aria-label="Fortschritt"><span className={!json ? styles.activeStep : ""}>1 <b>Auswählen</b></span><span className={json && !preview ? styles.activeStep : ""}>2 <b>Prüfen</b></span><span className={preview || completion ? styles.activeStep : ""}>3 <b>Übernehmen</b></span></nav>
     {completion ? <div className={styles.outcome} role="status"><span className={styles.outcomeIcon} aria-hidden="true">✓</span><h3>Alles erledigt.</h3><p>{completion.imported > 0 ? `${completion.imported} ${completion.imported === 1 ? "Angabe" : "Angaben"} für ${completion.spots} ${completion.spots === 1 ? "Spot" : "Spots"} übernommen und im World-Reader verifiziert. Der Rechercheauftrag ist abgeschlossen.` : "Deine Prüfung ist abgeschlossen. Es gab keine neuen Angaben zu übernehmen; bestehendes Wissen bleibt unverändert."}</p><button className={styles.primary} onClick={startNewBatch}>Neue Recherche starten</button></div> : <>
       {!json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>01</span><h3>Welche Spots?</h3></div><span>{selected.length} von 10 ausgewählt</span></div><p>Wähle bis zu zehn Spots. Der Export enthält den aktuellen World-Stand, nicht alte Spot-Felder.</p>
@@ -227,7 +270,10 @@ export function WorldResearchBatchPanel(props: {
         {queueError && <p className={styles.error} role="alert">{queueError}</p>}
         <div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Anderen Spot nach Namen suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= 10} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length || !automationEnabled} onClick={() => void startAutomatic()}>Recherche automatisch starten</button><button className={styles.secondary} disabled={busy || !selected.length} onClick={() => void exportBatch()}>Recherche-Datei herunterladen <span aria-hidden="true">↗</span></button><p className={styles.note}>Automatische Recherche liefert nur Vorschläge. Quellen, ungelöste Angaben und Konflikte musst du vor der Übernahme prüfen.</p>{jobsError && <p className={styles.error} role="alert">{jobsError}</p>}{!automationEnabled && !jobsError && <p className={styles.note}>Automatische Recherche ist noch nicht freigeschaltet. Die manuelle Datei bleibt verfügbar.</p>}</div>}
       {!!jobs.length && !json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>↻</span><h3>Rechercheaufträge</h3></div></div><div className={styles.queueList}>{jobs.map((job) => <div key={job.jobId}><strong>{job.spotName}</strong><p>{job.status === "READY_FOR_REVIEW" ? "Vorschlag zur Prüfung bereit" : job.status === "RUNNING" ? "Recherche läuft" : job.status === "QUEUED" ? "Wartet auf Recherche" : `Recherche fehlgeschlagen: ${job.failureCode ?? "unbekannter Fehler"}`}</p>{job.status === "READY_FOR_REVIEW" && <button className={styles.secondary} disabled={busy} onClick={() => void openJob(job.jobId)}>Vorschlag prüfen</button>}</div>)}</div></div>}
-      {!preview && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>02</span><h3>Recherche einfügen</h3></div></div><p>Die exportierte Datei extern recherchieren lassen. Nicht belegte Angaben bleiben offen.</p><label className={styles.upload}>Recherchierte JSON-Datei auswählen<input key={uploadKey} type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { let parsed: unknown; try { parsed = JSON.parse(text); } catch { parsed = null; } const draft = parseNuknukDraft(parsed); setCompletion(null); setActiveJobId(null); setNuknukDraft(draft); setJson(draft ? "" : text); setPreview(null); setReviewOptions({}); setConfirmations({}); }); }} /></label>{!!json && <p className={styles.note}>Datei geladen. Die Recherche wird erst nach deiner Prüfung gespeichert.</p>}<details className={styles.details}><summary>JSON stattdessen einfügen oder ansehen</summary><textarea className={styles.json} value={json} onChange={(event) => { setCompletion(null); setActiveJobId(null); setJson(event.target.value); setPreview(null); setReviewOptions({}); setConfirmations({}); }} placeholder="Vollständiges Recherche-JSON einfügen …" spellCheck={false} /></details>{!!json && <><button className={styles.primary} disabled={busy} onClick={() => void previewBatch()}>JSON prüfen</button><button className={styles.secondary} onClick={startNewBatch}>Andere Spots auswählen</button></>}</div>}
+      {!preview && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>02</span><h3>Recherche einfügen</h3></div></div>
+        {!!storedDrafts.length && <div className={styles.queueList}><h4>Gespeicherte Nuknuk-Prüfentwürfe</h4>{storedDrafts.map((draft) => <div key={draft.draftId}><strong>{draft.spotName}</strong><p>{draft.version} · Nur zur Prüfung, nicht importierbar</p><button className={styles.secondary} disabled={busy} onClick={() => void openStoredDraft(draft.draftId)}>Prüfentwurf öffnen</button></div>)}</div>}
+        {draftsError && <p className={styles.error} role="alert">{draftsError}</p>}
+        <p>Die exportierte Datei extern recherchieren lassen. Nicht belegte Angaben bleiben offen.</p><label className={styles.upload}>Recherchierte JSON-Datei auswählen<input key={uploadKey} type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { let parsed: unknown; try { parsed = JSON.parse(text); } catch { parsed = null; } const draft = parseNuknukDraft(parsed); setCompletion(null); setActiveJobId(null); setSavedDraftId(null); setDraftsError(""); setNuknukDraft(draft); setJson(draft ? "" : text); setPreview(null); setReviewOptions({}); setConfirmations({}); }); }} /></label>{!!json && <p className={styles.note}>Datei geladen. Die Recherche wird erst nach deiner Prüfung gespeichert.</p>}<details className={styles.details}><summary>JSON stattdessen einfügen oder ansehen</summary><textarea className={styles.json} value={json} onChange={(event) => { setCompletion(null); setActiveJobId(null); setJson(event.target.value); setPreview(null); setReviewOptions({}); setConfirmations({}); }} placeholder="Vollständiges Recherche-JSON einfügen …" spellCheck={false} /></details>{!!json && <><button className={styles.primary} disabled={busy} onClick={() => void previewBatch()}>JSON prüfen</button><button className={styles.secondary} onClick={startNewBatch}>Andere Spots auswählen</button></>}</div>}
       {message && !alreadyCurrent && <p className={styles.message} role="status">{message}</p>}
       {preview && <div className={styles.report}>
         {!driftedSpots.length && preview.perSpot.map((spot) => spot.unresolvedDetails.length ? <details className={styles.details} key={`gaps-${spot.spotId}`}><summary>{spot.name}: {spot.unresolvedDetails.length} bewusst offene Angaben mit Gründen</summary><ul>{spot.unresolvedDetails.map((gap) => <li key={gap.attributeKey}><b>{fieldLabel(gap.attributeKey)}</b>: {gap.reason}</li>)}</ul></details> : null)}

@@ -42,13 +42,15 @@ export async function GET(request: Request) {
       ? "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,export_document,result_document"
       : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome";
     let query = service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id", authorization.userId);
-    query = jobId ? query.eq("id", jobId).limit(1) : query.order("created_at", { ascending: false }).limit(30);
+    query = jobId ? query.eq("id", jobId).limit(1)
+      : query.not("export_document", "cs", '{"kind":"NUKNUK_RESEARCH_DRAFT"}').order("created_at", { ascending: false }).limit(30);
     const { data, error } = await query;
     if (error) throw new Error("WORLD_RESEARCH_JOBS_UNAVAILABLE");
     const rows = (data ?? []) as unknown as JobRow[];
     if (jobId) {
       const row = rows[0];
       if (!row) return Response.json({ error: "WORLD_RESEARCH_JOB_NOT_FOUND" }, { status: 404, headers: noStore });
+      if ((row.export_document as { kind?: string } | null)?.kind === "NUKNUK_RESEARCH_DRAFT") return Response.json({ error: "WORLD_RESEARCH_JOB_NOT_FOUND" }, { status: 404, headers: noStore });
       if (row.status !== "READY_FOR_REVIEW" || !row.result_document) return Response.json({ job: summary(row) }, { headers: noStore });
       const document = parseWorldResearchBatch(normalizeAutomatedWorldResearchBatch(row.result_document as WorldResearchBatchDocument));
       const exportDocument = row.export_document as { exportHash?: string; research?: { instructions?: unknown } };

@@ -3,7 +3,7 @@
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
 import "@backyrd/world-knowledge-authoring-ui/styles.css";
 import { supabase } from "@/lib/supabaseClient";
-import { authorizedWorldKnowledgeSpotSearch, authorizedWorldResearchBatchPost, authorizedWorldResearchJobs, authorizedWorldResearchQueue } from "@/lib/worldKnowledgeSession";
+import { authorizedWorldKnowledgeSpotSearch, authorizedWorldResearchBatchPost, authorizedWorldResearchDrafts, authorizedWorldResearchJobs, authorizedWorldResearchQueue } from "@/lib/worldKnowledgeSession";
 import { WorldResearchBatchPanel } from "./WorldResearchBatchPanel";
 
 const searchSpots = (query: string) => authorizedWorldKnowledgeSpotSearch({ auth: supabase.auth, query }) as Promise<ProductAdminSpotSearch>;
@@ -11,5 +11,7 @@ const searchSpots = (query: string) => authorizedWorldKnowledgeSpotSearch({ auth
 export default function AdminSpotResearchPage() {
   return <WorldResearchBatchPanel search={searchSpots} queue={(page) => authorizedWorldResearchQueue({ auth: supabase.auth, page })} post={(body) => authorizedWorldResearchBatchPost({ auth: supabase.auth, body })}
     jobsGet={(jobId) => authorizedWorldResearchJobs({ auth: supabase.auth, jobId })}
-    jobsStart={(spotIds) => authorizedWorldResearchJobs({ auth: supabase.auth, spotIds })} />;
+    jobsStart={(spotIds) => authorizedWorldResearchJobs({ auth: supabase.auth, spotIds })}
+    draftsGet={(draftId) => authorizedWorldResearchDrafts({ auth: supabase.auth, draftId })}
+    draftsSave={(report) => authorizedWorldResearchDrafts({ auth: supabase.auth, report })} />;
 }
