@@ -85,6 +85,7 @@ reset role;
 update public.booking_team_members set revoked_at=clock_timestamp() where spot_id=pg_temp.mail_id('spot') and user_id=pg_temp.mail_id('host');
 set local role service_role;
 do $$ begin begin perform pg_temp.summary('host-pending',0,'pending@booking.invalid','host','pending');raise exception 'revoked host replay';exception when insufficient_privilege then null;end;end $$;
+reset role;
 select pg_temp.mail_assert((select booking_private.mail_snapshot_for_outbox_v1(o) is null from booking_private.guest_mail_outbox_v1 o where id=(:'host_message'::jsonb->>'message_id')::uuid),'revoked host could dispatch');
 reset role;
 insert into public.safety_account_measures(user_id,measure_type,reason_code) values(pg_temp.mail_id('owner'),'write_suspension','summary_fixture');
@@ -95,6 +96,7 @@ update public.safety_account_measures set status='revoked' where reason_code='su
 update public.spots set owner_id=pg_temp.mail_id('new-owner') where id=pg_temp.mail_id('spot');
 set local role service_role;
 do $$ begin begin perform pg_temp.summary('first',0,'guest@booking.invalid');raise exception 'old owner replay';exception when insufficient_privilege then null;end;end $$;
+reset role;
 select pg_temp.mail_assert((select booking_private.mail_snapshot_for_outbox_v1(o) is null from booking_private.guest_mail_outbox_v1 o where id=(:'corrected'::jsonb->>'message_id')::uuid),'former manager dispatch after transfer');
 reset role;
 rollback;
