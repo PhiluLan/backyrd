@@ -132,7 +132,7 @@ Console runtime did not change; the prior 111 Console journeys are inherited
 evidence, not a fresh mail acceptance run. The official Svix known signature
 vector is tested in addition to forged/modified/stale/rotated callbacks.
 
-Real sender/callback/scheduler acceptance, staff delivery/review UI, secure guest
+Real sender/callback/scheduler acceptance, staff review actions, secure guest
 link reissue, reminders, public checkout/publishing, private schema/ACL drift,
 the full recovery rehearsal and restaurant/device acceptance remain open.
 Separate integration approvals for #557/#565/#567 and production migration/
@@ -146,3 +146,7 @@ Primary integration references:
 - [Resend webhook readiness](https://resend.com/docs/api-reference/webhooks/get-webhook)
 - [Resend delivered-event contract](https://resend.com/docs/webhooks/emails/delivered)
 - [Svix raw-body signature protocol and known vector](https://docs.svix.com/receiving/verifying-payloads/how-manual)
+
+## Staff delivery evidence follow-up
+
+The dependent 207 candidate adds a privacy-safe, role-scoped, on-demand Console overview of message intents and actual delivery evidence. See [BOOKING_MAIL_OVERVIEW.md](BOOKING_MAIL_OVERVIEW.md). It introduces no resend or guest-key reissue operation and does not activate dispatch.
