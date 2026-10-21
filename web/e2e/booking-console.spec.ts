@@ -435,7 +435,7 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; publishing?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean; publicGuest?: boolean; mail?: boolean; reissue?: boolean; manual?: boolean; publishing?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
   const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
@@ -463,6 +463,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   if (options.reissue) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_link_reissue: true }; snapshot.reservations = snapshot.reservations.map(r => ({ ...r, guest_contact: "reissue@booking.invalid" })); }
   if (options.publishing) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, public_booking: true };
   if (options.mail) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_mail: true };
+  if (options.manual) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, guest_mail: true, manual_guest_mail: true }; snapshot.reservations = snapshot.reservations.map(r => ({ ...r, revision: 0, guest_contact: r.id === reservationId ? "+41 61 000 00 00" : r.guest_contact })); }
   if (options.publicGuest) snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, source: "website", note: null }));
   if (options.lifecycle) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true };
   if (options.amendments) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
@@ -2662,4 +2663,162 @@ for (const role of ["host", "viewer"] as const) test(`${role} cannot open public
   await publicRules(page, "normal", role);
   await expect(page.getByRole("heading", { name: "Restaurant Testbetrieb", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Online-Buchungen", exact: true })).toHaveCount(0);
+});
+
+async function openManualSummary(page: Page, guest = "Testgast Abend") {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: `Reservierung von ${guest} öffnen`, exact: true }).click();
+  return page.getByRole("region", { name: "Manuelle Gastnachricht", exact: true });
+}
+async function reviewManualSummary(page: Page, guest = "Testgast Abend") {
+  const region = await openManualSummary(page, guest);
+  await region.getByRole("button", { name: "E-Mail vorbereiten", exact: true }).click();
+  await region.getByLabel("E-Mail-Adresse des Gasts").fill("reviewed@booking.invalid");
+  await region.getByRole("button", { name: "Nachricht prüfen", exact: true }).click();
+  return region;
+}
+async function mockManualHistory(page: Page) {
+  await page.route("**/rest/v1/rpc/booking_console_mail_v2", route => route.fulfill({ json: mailPage([
+    mailMessage(1, "pending", { kind: "changed", attempts: 0, prepared: false, first_attempt_at: null, message_mode: "manual_summary", recipient: "reviewed@booking.invalid" }),
+  ], { guest_access: "none" }) }));
+}
+
+test("manual summary requires reviewed recipient at revision zero and preserves phone and private notes on a narrow screen", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, manual: true, amendments: true });
+  await mockManualHistory(page);
+  const calls: Record<string, unknown>[] = [];
+  await page.route("**/api/booking/mail/summary", route => { const body = route.request().postDataJSON(); calls.push(body); expect(route.request().headers().authorization).toContain("Bearer "); return route.fulfill({ json: reissueReply(body) }); });
+  const region = await reviewManualSummary(page);
+  expect(calls).toHaveLength(0);
+  await expect(region).toContainText("reviewed@booking.invalid");
+  await expect(region).toContainText("Testgast Abend · 2 Personen");
+  await expect(region).toContainText("18:00 GMT+2");
+  await region.screenshot({ path: test.info().outputPath("manual-summary-review-phone.png") });
+  const { default: AxeBuilder } = await import("@axe-core/playwright");
+  expect((await new AxeBuilder({ page }).include('section[aria-label="Manuelle Gastnachricht"]').analyze()).violations).toEqual([]);
+  expect(await region.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true }).click();
+  const history = page.getByRole("region", { name: "Gastnachrichten", exact: true });
+  await expect(history).toContainText("Empfänger: reviewed@booking.invalid");
+  await expect(history).toContainText("Es wurde noch kein Versandversuch gestartet");
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("+41 61 000 00 00");
+  expect(calls).toHaveLength(1); expect(calls[0]).toMatchObject({ operation: "prepare", revision: 0, email: "reviewed@booking.invalid" });
+  expect(Object.keys(calls[0]).sort()).toEqual(["email", "operation", "requestId", "reservationId", "revision", "spotId"]);
+  expect(JSON.stringify(calls)).not.toMatch(/Synthetischer Hinweis|guest_key|key_hash|sealed_key/);
+  expect(fixture.amendRequests()).toHaveLength(0);
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith("booking.manual-summary.v1:")).length)).toBe(0);
+});
+
+test("manual summary explains that a pending request does not confirm a table", async ({ page }) => {
+  await mockConsole(page, { seeded: true, manual: true });
+  const region = await reviewManualSummary(page, "Testgast Terrasse");
+  await expect(region).toContainText("Der Platz ist noch nicht bestätigt");
+  await expect(region).not.toContainText("Diese Nachricht bestätigt den gespeicherten Buchungsstand");
+  await region.getByRole("button", { name: "Empfänger ändern", exact: true }).click();
+  await expect(region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true })).toHaveCount(0);
+});
+
+test("manual summary lost acknowledgement survives reload and frozen recovery only repeats the original intent", async ({ page }) => {
+  await mockConsole(page, { seeded: true, manual: true, amendments: true }); await mockManualHistory(page);
+  const calls: Record<string, unknown>[] = [];
+  await page.route("**/api/booking/mail/summary", route => { const body = route.request().postDataJSON(); calls.push(body); return calls.length === 1 ? route.fulfill({ status: 503, json: { error: "outcome_unknown", outcome: "unknown" } }) : body.operation === "recover" ? route.fulfill({ json: { data: null } }) : route.fulfill({ json: reissueReply(body) }); });
+  let region = await reviewManualSummary(page);
+  await region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true }).click();
+  await expect(region).toContainText("Der frühere Auftrag bleibt gespeichert");
+  await expect(page.getByRole("button", { name: "Reservierung bearbeiten", exact: true })).toHaveCount(0);
+  region = await openManualSummary(page);
+  await region.getByRole("button", { name: "Auftragsstatus prüfen", exact: true }).click();
+  await expect(region).toContainText("Noch kein sicheres Ergebnis gefunden");
+  await expect(region.getByLabel("E-Mail-Adresse des Gasts")).toHaveCount(0);
+  await region.getByRole("button", { name: "Denselben Nachrichtenauftrag wiederholen", exact: true }).click();
+  await expect(region).toContainText("Die Gastnachricht wurde vorbereitet");
+  expect(calls).toHaveLength(3); expect({ ...calls[0], operation: "recover" }).toEqual(calls[1]); expect(calls[2]).toEqual(calls[0]);
+});
+
+test("manual summary canonical noncommit unlocks only a newly reviewed request", async ({ page }) => {
+  await mockConsole(page, { seeded: true, manual: true });
+  const calls: Record<string, unknown>[] = [];
+  await page.route("**/api/booking/mail/summary", route => { const body = route.request().postDataJSON(); calls.push(body); return calls.length === 1 ? route.fulfill({ status: 503, json: { error: "outcome_unknown", outcome: "unknown" } }) : route.fulfill({ json: { data: { not_committed: true, id: reservationId, revision: 2 } } }); });
+  const region = await reviewManualSummary(page);
+  await region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true }).click();
+  await region.getByRole("button", { name: "Auftragsstatus prüfen", exact: true }).click();
+  await expect(region).toContainText("Dein Auftrag wurde nicht ausgeführt");
+  await expect(region.getByRole("button", { name: "Nachricht prüfen", exact: true })).toBeVisible();
+  await expect(region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true })).toHaveCount(0);
+  expect(calls.map(c => c.operation)).toEqual(["prepare", "recover"]);
+});
+
+for (const error of ["sender_unavailable", "recipient_blocked", "changed"] as const) {
+  test("manual summary refuses " + error + " without inventing queued success", async ({ page }) => {
+    await mockConsole(page, { seeded: true, manual: true });
+    await page.route("**/api/booking/mail/summary", route => route.fulfill({ status: error === "sender_unavailable" ? 503 : 409, json: { error, outcome: "rejected" } }));
+    const region = await reviewManualSummary(page);
+    await region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true }).click();
+    await expect(region).toContainText(error === "sender_unavailable" ? "noch nicht betriebsbereit" : error === "recipient_blocked" ? "Zustellsperre" : "inzwischen geändert");
+    await expect(region.getByRole("button", { name: "Auftragsstatus prüfen", exact: true })).toHaveCount(0);
+    await expect(region.getByRole("button", { name: "Nachricht prüfen", exact: true })).toBeVisible();
+    await expect(region).not.toContainText("Die Gastnachricht wurde vorbereitet");
+  });
+}
+
+test("manual summary is hidden from Viewer and denial clears Host private state", async ({ page }) => {
+  await mockConsole(page, { seeded: true, manual: true, teams: true, teamRole: "viewer" });
+  await page.goto("/booking/console"); await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Manuelle Gastnachricht", exact: true })).toHaveCount(0);
+  await mockConsole(page, { seeded: true, manual: true, teams: true, teamRole: "host" });
+  await page.route("**/api/booking/mail/summary", route => route.fulfill({ status: 403, json: { error: "access_denied", outcome: "rejected" } }));
+  const region = await reviewManualSummary(page); await region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+});
+
+test("manual summary refuses unavailable tab storage before a network write", async ({ page }) => {
+  await mockConsole(page, { seeded: true, manual: true }); let calls = 0;
+  await page.route("**/api/booking/mail/summary", route => { calls++; return route.fulfill({ status: 500 }); });
+  const region = await reviewManualSummary(page);
+  await page.evaluate(() => { const original = Storage.prototype.setItem; Storage.prototype.setItem = function(key: string, value: string) { if (key.startsWith("booking.manual-summary.v1:")) throw new Error("synthetic_storage_denied"); original.call(this, key, value); }; });
+  await region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true }).click();
+  await expect(region).toContainText("Browser kann den Auftrag nicht sicher speichern"); expect(calls).toBe(0);
+});
+
+test("manual summary corrupted saved intent cannot become a fresh message", async ({ page }) => {
+  await mockConsole(page, { seeded: true, manual: true, amendments: true });
+  await page.addInitScript(({ actor, spotId, id }) => sessionStorage.setItem(`booking.manual-summary.v1:${actor}:${spotId}:${id}`, "malformed-intent"), { actor: owner, spotId: spot, id: reservationId });
+  const region = await openManualSummary(page);
+  await expect(region.getByRole("alert")).toContainText("gespeicherter Nachrichtenauftrag konnte nicht gelesen werden");
+  await expect(region.getByRole("button", { name: "E-Mail vorbereiten", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung bearbeiten", exact: true })).toHaveCount(0);
+});
+
+test("manual summary late reply after logout cannot overwrite a new private draft", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, manual: true, amendments: true });
+  let received = false, release = () => {}; const gate = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/booking/mail/summary", async route => { received = true; const body = route.request().postDataJSON(); await gate; await route.fulfill({ json: reissueReply(body) }).catch(() => {}); });
+  const region = await reviewManualSummary(page); await region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true }).click();
+  await expect.poll(() => received).toBe(true);
+  await page.evaluate(() => { const c = new BroadcastChannel("sb-127-auth-token"); c.postMessage({ event: "SIGNED_OUT", session: null }); c.close(); });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden" })).toBeVisible();
+  await page.evaluate(session => { const c = new BroadcastChannel("sb-127-auth-token"); c.postMessage({ event: "SIGNED_IN", session }); c.close(); }, fixture.session);
+  await page.getByRole("button", { name: "Reservierung von Testgast Terrasse öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Reservierung bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Reservierung bearbeiten", exact: true }); await editor.getByLabel("Gastname", { exact: true }).fill("Neuer privater Entwurf");
+  const response = page.waitForResponse(r => r.url().endsWith("/api/booking/mail/summary")); release(); await (await response).finished();
+  await expect(editor.getByLabel("Gastname", { exact: true })).toHaveValue("Neuer privater Entwurf");
+  await expect(page.getByText("Die Gastnachricht wurde vorbereitet.", { exact: false })).toHaveCount(0);
+});
+
+test("manual summary known acknowledgement stays settled when the metadata reload fails", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, manual: true }); await mockManualHistory(page);
+  await page.route("**/api/booking/mail/summary", route => { fixture.setReadError("network"); return route.fulfill({ json: reissueReply(route.request().postDataJSON()) }); });
+  const region = await reviewManualSummary(page); await region.getByRole("button", { name: "Ja, Buchungsstand vorbereiten", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith("booking.manual-summary.v1:")).length)).toBe(0);
+  fixture.setReadError(null);
+  await page.getByRole("button", { name: "Neu laden", exact: true }).click();
+  await expect(region).toBeVisible();
+  await expect(region.getByRole("button", { name: "Auftragsstatus prüfen", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Gastnachrichten anzeigen", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Gastnachrichten", exact: true })).toContainText("Empfänger: reviewed@booking.invalid");
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith("booking.manual-summary.v1:")).length)).toBe(0);
 });
