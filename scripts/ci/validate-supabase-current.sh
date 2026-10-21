@@ -22,6 +22,7 @@ else
 fi
 "$repo_root/scripts/ci/validate-migrations.sh"
 "$repo_root/scripts/ci/validate-trust-platform-consumers.sh"
+node --test "$repo_root/scripts/ci/validate-booking-private-scope.test.mjs" "$repo_root/scripts/ci/database-gate-receipt.test.mjs"
 
 validation_root="$(mktemp -d "${TMPDIR:-/tmp}/backyrd-current-db.XXXXXX")"
 project_suffix="${GITHUB_RUN_ID:-$$}"
@@ -193,6 +194,9 @@ DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-world-knowledge-rebuild-ra
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-review-same-day-race.sh"
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-founder-live-idempotency-race.sh"
 DB_URL="$DB_URL" BACKYRD_BOOKING_RACE_EPHEMERAL=1 bash "$repo_root/scripts/ci/validate-booking-closure-race.sh"
+
+DB_URL="$DB_URL" BACKYRD_BOOKING_DRIFT_EPHEMERAL=1 node "$repo_root/scripts/ci/validate-booking-private-drift.mjs"
+BACKYRD_BOOKING_SCOPE_DB_URL="$DB_URL" node "$repo_root/scripts/ci/validate-booking-private-scope.mjs" --mode verify
 
 lint_json="$validation_root/db-lint.json"
 "$supabase_cli" db lint --workdir "$validation_root" --local --schema public --level error --fail-on none --agent=no >"$lint_json"

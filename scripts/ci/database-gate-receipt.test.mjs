@@ -27,6 +27,8 @@ test("migration, SQL test, harness or toolchain drift requires a full rerun", ()
     (root) => put(root, "supabase/migrations/20260101000000_fixture.sql", "select 2;\n"),
     (root) => put(root, "supabase/tests/fixture.sql", "select 2;\n"),
     (root) => put(root, "scripts/ci/validate-supabase-current.sh", "changed gate\n"),
+    (root) => put(root, "scripts/ci/booking-private-fingerprint.sql", "changed private query\n"),
+    (root) => put(root, "delivery/database-scopes/booking-private-v1.json", "changed expected private scope\n"),
   ]) {
     const root = fixture();
     const receipt = recordDatabaseGateReceipt({ root, output: join(root, ".local/receipt.json"), snapshot, supabaseCliVersion: "2.80.0", databaseImage: "postgres:17" });
