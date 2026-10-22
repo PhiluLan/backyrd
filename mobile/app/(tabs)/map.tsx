@@ -561,7 +561,7 @@ export default function MapScreen() {
             </View>
           </View>
         </View>
-        <HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="," /></HomeTypographyProvider>
+        <View style={styles.placesTitle}><HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="," /></HomeTypographyProvider></View>
 
         <View style={styles.headerTopRow}>
           <View style={styles.searchBox}>
@@ -784,6 +784,7 @@ const styles = StyleSheet.create({
   headerControls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
   headerEyebrow: { flexShrink: 1 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
+  placesTitle: { width: "100%", minHeight: 60 },
   headerTopRow: { marginTop: theme.spacing.md },
   searchBox: { width: "100%", flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
   searchInput: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15, minHeight: theme.control.standard },
