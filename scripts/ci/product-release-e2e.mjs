@@ -318,11 +318,11 @@ try {
 
   state.unavailable = false;
   await page.goto(appUrl, {waitUntil:"domcontentloaded"});
-  await page.getByText("backyrd Momente",{exact:true}).waitFor();
+  await page.getByText("backyrd Momente,",{exact:true}).waitFor();
   await page.getByRole("button",{name:/Moment bei Café Aktualisiert/}).waitFor();
   assert.equal(await page.getByText("Verborgener Ort",{exact:true}).count(),0,"Home never displays safety-hidden Moments");
   await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
-  await page.getByText("DEINE LETZTE SUCHE",{exact:true}).waitFor();
+  await page.getByText("Deine letzte Suche,",{exact:true}).waitFor();
   await page.getByText("ruhiges Café nach Reload",{exact:true}).waitFor();
   const recentRail = page.getByLabel("Deine letzte Suche: ruhiges Café nach Reload",{exact:true});
   await recentRail.getByRole("button",{name:/Café Aktualisiert öffnen/}).first().waitFor();
