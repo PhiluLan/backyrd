@@ -54,7 +54,6 @@ export default function HomeScreen() {
   const [city, setCity] = useState("Basel");
   const [firstName, setFirstName] = useState<string | null>(null);
   const [measuredGreeting, setMeasuredGreeting] = useState<{ name: string; width: number } | null>(null);
-  const [measuredNearbyTitle, setMeasuredNearbyTitle] = useState<{ baseSize: number; width: number } | null>(null);
   const [profileAvatar, setProfileAvatar] = useState<{ userId: string; uri: string | null } | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
   const [newSpots, setNewSpots] = useState<DiscoverySpot[]>([]);
@@ -81,14 +80,6 @@ export default function HomeScreen() {
     fontSize: greetingDisplaySize,
     lineHeight: Math.round(greetingDisplaySize * 1.06),
     letterSpacing: greetingDisplaySize * -0.075,
-  };
-  const nearbyTitleSize = measuredNearbyTitle?.baseSize === greetingBaseSize
-    ? Math.max(28, Math.min(greetingDisplaySize, Math.floor(greetingBaseSize * greetingAvailableWidth / measuredNearbyTitle.width)))
-    : greetingDisplaySize;
-  const nearbyTitleMetrics = {
-    fontSize: nearbyTitleSize,
-    lineHeight: Math.round(nearbyTitleSize * 1.06),
-    letterSpacing: nearbyTitleSize * -0.075,
   };
   const openingStatuses: Record<string, SpotOpeningStatus> = Object.fromEntries(Object.entries(openingSchedules).map(([id, schedule]) => [id, spotOpeningStatusNow(schedule.rows, now, schedule.missingDayIsUnknown)]));
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
@@ -263,15 +254,7 @@ export default function HomeScreen() {
           <View style={[styles.sectionHeader, currentLocation && styles.nearbySectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
             <View style={currentLocation ? styles.nearbyTitleBlock : styles.sectionTitleBlock}>
               {currentLocation && useSFPro
-                ? <>
-                    <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayXL" style={[styles.greetingMeasure, styles.cockpitGreeting, { fontSize: greetingBaseSize, lineHeight: Math.round(greetingBaseSize * 1.06), letterSpacing: greetingBaseSize * -0.075 }]} onTextLayout={event => {
-                      const measuredWidth = event.nativeEvent.lines[0]?.width ?? 0;
-                      if (measuredWidth > 0 && (measuredNearbyTitle?.baseSize !== greetingBaseSize || Math.abs(measuredNearbyTitle.width - measuredWidth) > 1)) {
-                        setMeasuredNearbyTitle({ baseSize: greetingBaseSize, width: measuredWidth });
-                      }
-                    }}>Orte{"  "}in{"  "}deiner{"  "}Nähe</AppText>
-                    <AppText accessibilityLabel="Orte in deiner Nähe" numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.cockpitGreeting, nearbyTitleMetrics]}>Orte{"  "}in{"  "}deiner{"  "}<Text style={styles.pinkAccent}>Nähe</Text></AppText>
-                  </>
+                ? <HomeDisplayHeading title="Orte in deiner " displayTitle="Orte  in  deiner  " accent="Nähe" />
                 : <AppText role="sectionTitle">{currentLocation ? "Orte in deiner Nähe" : `Orte in ${city} entdecken`}</AppText>}
               {!loading && !currentLocation ? <AppText role="meta" tone="secondary">Ohne aktuellen Standort · Auswahl nach Stadt</AppText> : null}
             </View>
