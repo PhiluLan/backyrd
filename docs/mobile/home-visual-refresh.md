@@ -1,6 +1,6 @@
 # iOS Home visual refresh
 
-The iOS app uses the native system font throughout its UI. Home applies a bold, tightly tracked display treatment to the greeting, nearby heading, spot-card names, and Moments heading. Those titles scale to the available width; long spot names may use two lines. The greeting uses the profile's first available name, while the profile action shows the stored avatar or a smiley outline.
+The iOS Home screen uses the native system font; other screens retain their existing typography. Home applies a bold, tightly tracked display treatment to the greeting, nearby heading, spot-card names, and Moments heading. Those titles scale to the available width; long spot names may use two lines. The greeting uses the profile's first available name, while the profile action shows the stored avatar or a smiley outline.
 
 Home's second line reflects local device time: Morgen 05:00–09:00, Vormittag 09:01–11:59, Mittag 12:00–14:00, Nachmittag 14:01–17:00, Abend 17:01–22:00, and Nacht 22:01–04:59. The daypart underline and question mark use the pink accent.
 

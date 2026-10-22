@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { AppText, ProductTextInput as TextInput } from "../../components/foundation/AppText";
+import { AppText, HomeTypographyProvider, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
@@ -205,6 +205,7 @@ export default function HomeScreen() {
   }
 
   return (
+    <HomeTypographyProvider>
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => { void load(true); setMomentRevision(value => value + 1); }} />} showsVerticalScrollIndicator={false}>
@@ -314,6 +315,7 @@ export default function HomeScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </HomeTypographyProvider>
   );
 }
 
