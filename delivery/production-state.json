@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "3341709f51510c213956202e5d6ba3f0bc15ffcd",
+      "sourceSha": "3f3f4c91d5f86c7d80d02836dc11553ec7df13e8",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "99466184-1ce6-48c0-8b73-c0e76be7094a",
-      "iosUpdateId": "01a162c3-8696-711d-ac50-d510408d79b8",
+      "otaGroupId": "2cb4c315-b22f-44d3-ab97-2b6a3abd8fd5",
+      "iosUpdateId": "01a162eb-84a5-7a3a-bd95-067dd04f5008",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "iOS Home design from PR #595 and release-journey correction from PR #596. Exact Main IOS_OTA certification run 39748540216 passed. The certified artifact manifest hash ed8b7054f3ed5216278a975ad88dbd0d817d1045c271b36b6bb77ed1c2d3d44a verified locally, EAS production points to this iOS update, and its public manifest launch hash matched the certified 5,155,104-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
+      "note": "iOS Home event and new-spots headings from PR #598. Exact Main IOS_OTA certification run 39753965543 passed. The certified artifact manifest hash 04528e5e695cf2d886662e4a64ef24fc241830c62206c4de1f8792a27153ee93 verified locally, EAS production points to this iOS update, and its public manifest launch hash matched the certified 5,153,297-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
     }
   },
   "reviewMediaIncident": {
