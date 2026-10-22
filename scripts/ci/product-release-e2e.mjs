@@ -318,7 +318,7 @@ try {
 
   state.unavailable = false;
   await page.goto(appUrl, {waitUntil:"domcontentloaded"});
-  await page.getByText("Hier entstehen Momente",{exact:true}).waitFor();
+  await page.getByText("backyrd Momente",{exact:true}).waitFor();
   await page.getByRole("button",{name:/Moment bei Café Aktualisiert/}).waitFor();
   assert.equal(await page.getByText("Verborgener Ort",{exact:true}).count(),0,"Home never displays safety-hidden Moments");
   await page.getByText("ackyrd",{exact:true}).waitFor({state:"detached"});
