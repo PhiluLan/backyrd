@@ -29,7 +29,7 @@ export function HomeMomentsSection({ city, revision }: { city: string; revision:
   const current = state?.actor === actorId && state.city === city && state.revision === revision ? state : null;
   return <View style={styles.section}>
     <View style={styles.heading}>
-      <HomeDisplayHeading title="backyrd " accent="Momente" />
+      <HomeDisplayHeading title="backyrd Momente" accent="," />
     </View>
     {!current ? <AppText role="meta" tone="secondary" style={styles.state}>Momente werden geladen …</AppText> : current.posts.length ? <ScrollView horizontal contentContainerStyle={styles.rail} showsHorizontalScrollIndicator={false}>
       {current.posts.map(post => <MomentPreview key={post.post_id} post={post} onOpen={() => router.push(`/spot/${post.spot_id}` as never)} />)}

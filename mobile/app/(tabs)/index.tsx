@@ -227,8 +227,8 @@ export default function HomeScreen() {
             if (measuredWidth > 0 && (measuredGreeting?.name !== headlineName || Math.abs(measuredGreeting.width - measuredWidth) > 1)) {
               setMeasuredGreeting({ name: headlineName, width: measuredWidth });
             }
-          }}>Hey,{"  "}{headlineName}</AppText> : null}
-          <AppText accessibilityLabel={headlineName ? `Hey, ${headlineName}` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics]}>{headlineName ? <>Hey,{useSFPro ? "  " : " "}<Text style={styles.pinkAccent}>{headlineName}</Text></> : "Hey"}</AppText>
+          }}>Hey{"  "}{headlineName},</AppText> : null}
+          <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics]}>{headlineName ? <>Hey{useSFPro ? "  " : " "}<Text style={styles.pinkAccent}>{headlineName},</Text></> : "Hey"}</AppText>
           <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayM" style={styles.daypartMeasure} onLayout={event => {
             const measuredWidth = event.nativeEvent.layout.width;
             if (measuredWidth > 0 && (measuredDaypartTitle?.daypart !== daypart || Math.abs(measuredDaypartTitle.width - measuredWidth) > 1)) {
@@ -253,8 +253,8 @@ export default function HomeScreen() {
 
           <View style={[styles.sectionHeader, currentLocation && styles.nearbySectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
             <View style={currentLocation ? styles.nearbyTitleBlock : styles.sectionTitleBlock}>
-              {currentLocation && useSFPro
-                ? <HomeDisplayHeading title="Orte in deiner " displayTitle="Orte  in  deiner  " accent="Nähe" />
+              {currentLocation
+                ? <HomeDisplayHeading title="Orte in deiner Nähe" displayTitle="Orte  in  deiner  Nähe" accent="," />
                 : <AppText role="sectionTitle">{currentLocation ? "Orte in deiner Nähe" : `Orte in ${city} entdecken`}</AppText>}
               {!loading && !currentLocation ? <AppText role="meta" tone="secondary">Ohne aktuellen Standort · Auswahl nach Stadt</AppText> : null}
             </View>
@@ -276,7 +276,7 @@ export default function HomeScreen() {
 
           {!loading && !error ? (
             <View>
-              <View style={styles.newSpotsHeading}><HomeDisplayHeading title="Neu auf Backyrd" accent="." /></View>
+              <View style={styles.newSpotsHeading}><HomeDisplayHeading title="Neu auf backyrd" accent="," /></View>
               {newError ? <View style={styles.stateWrap}><StateView kind="error" title="Neue Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
                 : newSpots.length ? <HomeSpotRail spots={newSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label="Neu auf Backyrd" />
                 : <View style={styles.stateWrap}><StateView kind="empty" title="Hier kommt bald Neues dazu" message="Sobald neue Orte in dieser Gegend auf Backyrd sind, findest du sie hier." /></View>}
@@ -284,10 +284,10 @@ export default function HomeScreen() {
           ) : null}
 
           {!loading && activeRecent ? <View>
-            <View style={styles.sectionHeader}><View style={styles.sectionTitleBlock}>
-              <AppText role="label" tone="secondary" style={styles.eyebrow}>DEINE LETZTE SUCHE</AppText>
-              <AppText role="sectionTitle">{activeRecent.query}</AppText>
-            </View></View>
+            <View style={styles.newSpotsHeading}>
+              <HomeDisplayHeading title="Deine letzte Suche" accent="," />
+              <AppText role="sectionTitle" style={styles.recentQuery}>{activeRecent.query}</AppText>
+            </View>
             {recentError ? <View style={styles.stateWrap}><StateView kind="error" title="Deine Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
               : recentSpots.length ? <HomeSpotRail spots={recentSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label={`Deine letzte Suche: ${activeRecent.query}`} />
               : <View style={styles.stateWrap}><StateView kind="empty" title="Keine Orte zum Anzeigen" message="Zu dieser Suche sind gerade keine Orte verfügbar." /></View>}
@@ -329,6 +329,7 @@ const styles = StyleSheet.create({
   sectionHeader: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
   nearbySectionHeader: { flexDirection: "column", alignItems: "stretch", gap: 0 },
   newSpotsHeading: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.layout.pageGutter },
+  recentQuery: { marginTop: theme.spacing.sm },
   heroSkeleton: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, borderRadius: theme.radius.xl, backgroundColor: theme.color.surfaceElevated },
   stateWrap: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl },
 });

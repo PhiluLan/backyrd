@@ -47,7 +47,7 @@ export function HomeEventsSection() {
   return (
     <View style={styles.section}>
       <View style={styles.heading}>
-        <HomeDisplayHeading title="Was läuft" accent="?" />
+        <HomeDisplayHeading title="Was läuft" accent="," />
         <Pressable accessibilityRole="button" onPress={() => router.push("/events" as never)} hitSlop={10} style={styles.allEventsAction}>
           <Text style={styles.allEventsText}>Alle ansehen</Text>
         </Pressable>

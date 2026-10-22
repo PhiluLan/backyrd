@@ -9,7 +9,7 @@ export function HomeDisplayHeading({ title, accent, displayTitle }: { title: str
   const [measured, setMeasured] = useState<{ baseSize: number; width: number } | null>(null);
   const label = `${title}${accent}`;
   // The longest Home section title sets one shared type size on each device.
-  const referenceTitle = "Orte  in  deiner  Nähe";
+  const referenceTitle = "Orte  in  deiner  Nähe,";
   const baseSize = Math.max(56, Math.min(72, Math.round(width * 0.18)));
   const availableWidth = width - 2 * theme.layout.pageGutter - 8;
   const size = measured?.baseSize === baseSize
@@ -26,7 +26,7 @@ export function HomeDisplayHeading({ title, accent, displayTitle }: { title: str
         }
       }}>{referenceTitle}</AppText>
       <AppText accessibilityLabel={label} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.title, metrics]}>{displayTitle ?? title}<Text style={styles.accent}>{accent}</Text></AppText>
-    </> : <AppText role="sectionTitle">{label}</AppText>}
+    </> : <AppText role="sectionTitle">{title}<Text style={styles.accent}>{accent}</Text></AppText>}
   </View>;
 }
 
