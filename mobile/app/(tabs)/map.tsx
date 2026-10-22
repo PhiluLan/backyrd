@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
   listCardImage: { width: "100%", height: 164 },
   listCardImageShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 100 },
   listCardBody: { paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.md },
-  listCardTitle: { color: theme.color.textPrimary, fontSize: 42, lineHeight: 45, letterSpacing: -3.15, marginTop: -34 },
+  listCardTitle: { color: theme.color.textPrimary, fontSize: 42, lineHeight: 45, letterSpacing: -3.15, marginTop: -13 },
   listCardAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginTop: 4 },
   listCardMoodCount: { marginTop: theme.spacing.md },
   listCardMoods: { flexDirection: "row", flexWrap: "wrap", columnGap: theme.spacing.sm, rowGap: 1, marginTop: theme.spacing.xxs },
