@@ -1,3 +1,8 @@
+import { Platform } from "react-native";
+
+// Use native SF Pro consistently on iOS, including production OTA updates.
+export const useSFPro = Platform.OS === "ios";
+
 export const backyrdTheme = {
   color: {
     background: "#050505",
@@ -33,10 +38,10 @@ export const backyrdTheme = {
   border: { hairline: 1, standard: 1 },
   motion: { image: 180, pressScale: 0.98 },
   type: {
-    display: "DMSerifDisplay_400Regular",
-    body: "LibreFranklin_400Regular",
-    bodyMedium: "LibreFranklin_600SemiBold",
-    bodyBold: "LibreFranklin_700Bold",
+    display: useSFPro ? "System" : "DMSerifDisplay_400Regular",
+    body: useSFPro ? "System" : "LibreFranklin_400Regular",
+    bodyMedium: useSFPro ? "System" : "LibreFranklin_600SemiBold",
+    bodyBold: useSFPro ? "System" : "LibreFranklin_700Bold",
   },
   typeScale: {
     displayXL: { fontSize: 54, lineHeight: 59, letterSpacing: -1.3 },

@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import { type StyleProp, type TextInputProps, type TextProps, type TextStyle, StyleSheet, Text, TextInput, useWindowDimensions } from "react-native";
 
-import { backyrdTheme as theme } from "../../theme/backyrd";
+import { backyrdTheme as theme, useSFPro } from "../../theme/backyrd";
 
 export type TextRole = "displayXL" | "displayL" | "displayM" | "screenTitle" | "sectionTitle" | "cardTitle" | "body" | "bodyStrong" | "meta" | "label" | "caption";
 
@@ -22,6 +22,7 @@ const roles: Record<TextRole, TextStyle> = {
 };
 
 const maximumScale: Record<TextRole, number> = { displayXL: 1.4, displayL: 1.4, displayM: 1.4, screenTitle: 1.8, sectionTitle: 1.8, cardTitle: 1.8, body: 2, bodyStrong: 2, meta: 2, label: 2, caption: 2 };
+const sfProWeight: Record<TextRole, TextStyle["fontWeight"]> = { displayXL: "700", displayL: "700", displayM: "600", screenTitle: "700", sectionTitle: "700", cardTitle: "600", body: "400", bodyStrong: "600", meta: "500", label: "700", caption: "500" };
 const tones = { primary: theme.color.textPrimary, secondary: theme.color.textSecondary, muted: theme.color.textMuted, pink: theme.color.pink, lime: theme.color.lime, error: theme.color.danger } as const;
 
 function responsiveDisplay(role: TextRole, width: number): TextStyle | undefined {
@@ -39,16 +40,16 @@ function uiFont(style: StyleProp<TextStyle>, fallback: string) {
   return weight >= 700 ? theme.type.bodyBold : weight >= 600 ? theme.type.bodyMedium : fallback;
 }
 
-/** Canonical Libre Franklin UI typography with deliberately scarce DM Serif display roles. */
+/** Canonical typography, using native SF Pro on iOS and the existing families elsewhere. */
 export function AppText({ role = "body", tone = "primary", maxFontSizeMultiplier, style, ...props }: Props) {
   const { width } = useWindowDimensions();
-  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? maximumScale[role]} style={[{ color: tones[tone] }, roles[role], responsiveDisplay(role, width), style, { fontFamily: uiFont(style, roles[role].fontFamily as string), fontWeight: "normal" }]} />;
+  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? maximumScale[role]} style={[{ color: tones[tone] }, roles[role], responsiveDisplay(role, width), style, { fontFamily: uiFont(style, roles[role].fontFamily as string), fontWeight: useSFPro ? sfProWeight[role] : "normal" }]} />;
 }
 
 /** For legacy layouts: keeps their sizing while replacing mixed system/Inter fonts with Home's UI family. */
 export function ProductText({ style, maxFontSizeMultiplier, ...props }: TextProps) {
   const flattened = StyleSheet.flatten(style);
-  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[{ color: theme.color.textPrimary, fontFamily: theme.type.body, ...theme.typeScale.body, lineHeight: flattened?.fontSize ? undefined : theme.typeScale.body.lineHeight }, style, { fontFamily: uiFont(style, theme.type.body), fontWeight: "normal" }]} />;
+  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[{ color: theme.color.textPrimary, fontFamily: theme.type.body, ...theme.typeScale.body, lineHeight: flattened?.fontSize ? undefined : theme.typeScale.body.lineHeight }, style, { fontFamily: uiFont(style, theme.type.body), fontWeight: useSFPro ? flattened?.fontWeight ?? "400" : "normal" }]} />;
 }
 
 /** Native input behavior and refs remain intact; only the UI font is normalized. */
