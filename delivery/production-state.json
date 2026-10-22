@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "e0e7ee09c2e0789c25fe794abfa75e211ee1ed42",
+      "sourceSha": "5d6f4c472c8551937c13697c1495c85c027dd37b",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "60b38028-1bc5-4dcf-84d6-a2a1f6bc818c",
-      "iosUpdateId": "01a16536-eab0-7501-8539-80197e6fb401",
+      "otaGroupId": "3d8075be-cab7-48d6-b5c1-7ac93bb1607e",
+      "iosUpdateId": "01a16547-bfaa-7034-9e1f-513275846b94",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Places list card refinement from PR #608: the redundant ORTE eyebrow is removed, spot names overlap the image edge with a readable gradient, addresses sit directly below names, and mood count and the three strongest public moods have separate lines. The exact Main IOS_OTA certification run 39844666458 passed. Certified artifact manifest hash d0fb3f4331940d5e76f0bfa1ee93c90616ca227c7a4ff12b836d5299b0aed617 verified locally; EAS production points to this iOS update and the public manifest launch hash matched the certified 5,151,653-byte bundle. The real Basel Volta Bräu card was visually checked in the local iOS live preview. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
+      "note": "Larger image-edge Places card titles from PR #610 use the section-heading visual scale and an expanded gradient. Volta Bräu and the long Naturhistorisches Museum Basel title were visually checked in the local iOS live preview. Exact Main IOS_OTA certification run 39847456598 passed. Certified artifact manifest hash ecf9512a9a612946ff88c163d482d821f5aaf42bf5bd0661204831437edb48c2 verified locally; EAS production points to this iOS update and its public manifest launch hash matched the certified 5,151,653-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
     }
   },
   "reviewMediaIncident": {
