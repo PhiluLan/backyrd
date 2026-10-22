@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "5d6f4c472c8551937c13697c1495c85c027dd37b",
+      "sourceSha": "ec5db8e20b3ffe7b3e105b5371f2bdb46eeb108b",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "3d8075be-cab7-48d6-b5c1-7ac93bb1607e",
-      "iosUpdateId": "01a16547-bfaa-7034-9e1f-513275846b94",
+      "otaGroupId": "a317b58a-3138-43b0-b90e-7d6bf528aebb",
+      "iosUpdateId": "01a16554-c3ba-7fe0-b738-1545f3af744c",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Larger image-edge Places card titles from PR #610 use the section-heading visual scale and an expanded gradient. Volta Bräu and the long Naturhistorisches Museum Basel title were visually checked in the local iOS live preview. Exact Main IOS_OTA certification run 39847456598 passed. Certified artifact manifest hash ecf9512a9a612946ff88c163d482d821f5aaf42bf5bd0661204831437edb48c2 verified locally; EAS production points to this iOS update and its public manifest launch hash matched the certified 5,151,653-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
+      "note": "Places card title overlap refined in PR #612: only the upper part of the large spot name crosses the image edge, with the remaining text on the dark card body. Volta Bräu and the long Naturhistorisches Museum Basel title were visually checked in the local iOS live preview. Exact Main IOS_OTA certification run 39849376482 passed. Certified artifact manifest hash f0d9bb0520ac56b5d3543f7df22fcbbdfe09f9663563cbd1542559c5f61eb576 verified locally; EAS production points to this iOS update and the public manifest launch hash matched the certified 5,151,653-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
     }
   },
   "reviewMediaIncident": {
