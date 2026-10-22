@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "59f0d8fb86e2bf98bde1cc3ea72846076b6510a1",
+      "sourceSha": "059dc2ae4c9d80ccf39ce0253b748b090a010e1f",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "a9bbc43e-36f2-4ba2-b7fa-f28db6e57022",
-      "iosUpdateId": "01a164ea-2e42-710b-a1a4-6787b8b26de7",
+      "otaGroupId": "adb69660-ca6b-4e23-ade2-4eb6ea8b1277",
+      "iosUpdateId": "01a1651e-f124-7d83-a903-41d476e9eee7",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Pink trailing commas and unified last-search heading on iOS Home from PR #603. Exact Main IOS_OTA certification run 39832519605 passed. The certified artifact manifest hash 8250c3675c202aefbb0af4d260b30eba43222194f147739634a6d2a1c357f69a verified locally, EAS production points to this iOS update, and its public manifest launch hash matched the certified 5,150,696-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
+      "note": "Native iOS Places header, full-width search, top filter/list/map controls and pink spot categories from PR #605, with simulator-verified heading layout correction from PR #606. Exact Main IOS_OTA certification run 39840829270 passed. The certified artifact manifest hash 75ced3ecefeb0288bc069bad41eac639d63c988359a8795d19778c1321e226b4 verified locally, EAS production points to this iOS update, and its public manifest launch hash matched the certified 5,150,478-byte bundle. List and map layouts were visually checked in the local iOS live preview. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
     }
   },
   "reviewMediaIncident": {
