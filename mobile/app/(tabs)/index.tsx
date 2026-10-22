@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
 import { HomeMomentsSection } from "../../components/HomeMomentsSection";
+import { HomeDisplayHeading } from "../../components/HomeDisplayHeading";
 import Avatar from "../../components/Avatar";
 import { IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
@@ -292,11 +293,7 @@ export default function HomeScreen() {
 
           {!loading && !error ? (
             <View>
-              <View style={styles.sectionHeader}><View style={styles.sectionTitleBlock}>
-                <AppText role="label" tone="secondary" style={styles.eyebrow}>GERADE DAZUGEKOMMEN</AppText>
-                <AppText role="sectionTitle">Neu auf Backyrd</AppText>
-                <AppText role="meta" tone="secondary">{currentLocation ? `In deinem Umkreis · bis ${HOME_NEARBY_RADIUS_KM} km` : `In ${city}`}</AppText>
-              </View></View>
+              <View style={styles.newSpotsHeading}><HomeDisplayHeading title="Neu auf Backyrd" accent="." /></View>
               {newError ? <View style={styles.stateWrap}><StateView kind="error" title="Neue Orte konnten nicht geladen werden" actionLabel="Noch einmal" onAction={() => void load()} /></View>
                 : newSpots.length ? <HomeSpotRail spots={newSpots} moods={spotMoods} moodCounts={moodCounts} openingStatuses={openingStatuses} location={currentLocation} label="Neu auf Backyrd" />
                 : <View style={styles.stateWrap}><StateView kind="empty" title="Hier kommt bald Neues dazu" message="Sobald neue Orte in dieser Gegend auf Backyrd sind, findest du sie hier." /></View>}
@@ -348,6 +345,7 @@ const styles = StyleSheet.create({
   eyebrow: { letterSpacing: 1.15, marginBottom: 6 },
   sectionHeader: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
   nearbySectionHeader: { flexDirection: "column", alignItems: "stretch", gap: 0 },
+  newSpotsHeading: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.layout.pageGutter },
   heroSkeleton: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, borderRadius: theme.radius.xl, backgroundColor: theme.color.surfaceElevated },
   stateWrap: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl },
 });
