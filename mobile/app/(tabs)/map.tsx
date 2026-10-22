@@ -24,6 +24,7 @@ import { hasActiveConsent } from "../../lib/consent";
 import { useSpotMoodCounts, loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { MoodSignature } from "../../components/spot/MoodSignature";
+import { moodCountCopy } from "../../../packages/shared/src/presentation/mood";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
@@ -538,7 +539,7 @@ export default function MapScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.headerControls}>
-          <AppText role="label" tone="pink" numberOfLines={1} style={styles.headerEyebrow}>{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
+          {viewMode === "map" ? <AppText role="label" tone="pink" numberOfLines={1} style={styles.headerEyebrow}>{mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText> : null}
           <View style={styles.headerActions}>
             <Pressable
               accessibilityRole="button"
@@ -684,18 +685,25 @@ export default function MapScreen() {
                 router.push(`/spot/${item.id}`);
               }}
             >
-              <SpotArtwork
-                imageUrl={item.header_photo_url}
-                spotId={item.id}
-                spotName={item.name}
-                style={styles.listCardImage}
-                showFallbackName={false}
-              />
+              <View style={styles.listCardMedia}>
+                <SpotArtwork
+                  imageUrl={item.header_photo_url}
+                  spotId={item.id}
+                  spotName={item.name}
+                  style={styles.listCardImage}
+                  showFallbackName={false}
+                  attributionPosition="top"
+                />
+                <LinearGradient pointerEvents="none" colors={["transparent", "rgba(5,5,5,0.78)"]} style={styles.listCardImageShade} />
+              </View>
               <View style={styles.listCardBody}>
                 <HomeTypographyProvider><AppText role="displayXL" style={styles.listCardTitle}>{item.name}</AppText></HomeTypographyProvider>
-                <MoodSignature labels={spotMoods[item.id] ?? []} moodCount={moodCounts[item.id]} compact />
-                <Text style={styles.listCardContext}>{item.categories?.name || item.city || "Ort"}</Text>
                 <Text style={styles.listCardAddress}>{item.address || "Adresse noch nicht hinterlegt"}</Text>
+                {moodCountCopy(moodCounts[item.id]) ? <AppText role="meta" tone="secondary" style={styles.listCardMoodCount}>{moodCountCopy(moodCounts[item.id])}</AppText> : null}
+                {(spotMoods[item.id] ?? []).length > 0 ? <HomeTypographyProvider><View style={styles.listCardMoods}>
+                  {[...new Set(spotMoods[item.id])].slice(0, 3).map(label => <AppText key={label} role="displayXL" tone="pink" style={styles.listCardMood}>{label}</AppText>)}
+                </View></HomeTypographyProvider> : null}
+                <Text style={styles.listCardContext}>{item.categories?.name || item.city || "Ort"}</Text>
                 <OpeningStatusBadge status={openingStatus(item.id)} style={{ marginTop: theme.spacing.sm }} />
               </View>
             </Pressable>
@@ -781,7 +789,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.color.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.color.background },
   header: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, backgroundColor: theme.color.background },
-  headerControls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
+  headerControls: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
   headerEyebrow: { flexShrink: 1 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   placesTitle: { width: "100%", minHeight: 60 },
@@ -805,11 +813,16 @@ const styles = StyleSheet.create({
   list: { backgroundColor: theme.color.background },
   listContent: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl + theme.control.tabBar },
   listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
+  listCardMedia: { position: "relative" },
   listCardImage: { width: "100%", height: 164 },
-  listCardBody: { padding: theme.spacing.md },
-  listCardTitle: { color: theme.color.textPrimary, fontSize: 25, lineHeight: 29, letterSpacing: -1.2 },
-  listCardContext: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.xs },
-  listCardAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginTop: 3 },
+  listCardImageShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 76 },
+  listCardBody: { paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.md },
+  listCardTitle: { color: theme.color.textPrimary, fontSize: 32, lineHeight: 38, letterSpacing: -1.7, marginTop: -25 },
+  listCardAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginTop: 4 },
+  listCardMoodCount: { marginTop: theme.spacing.md },
+  listCardMoods: { flexDirection: "row", flexWrap: "wrap", columnGap: theme.spacing.sm, rowGap: 1, marginTop: theme.spacing.xxs },
+  listCardMood: { fontSize: 18, lineHeight: 23, letterSpacing: -0.65 },
+  listCardContext: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.sm },
   recenterBtn: { position: "absolute", bottom: 114, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
   sheetContainer: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40 },
   sheetBlur: { flex: 1, backgroundColor: "rgba(5,5,6,0.82)", borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
