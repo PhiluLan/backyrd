@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "a4881cf61360567115ef67f1d7c4bad2deec7c67",
+      "sourceSha": "59f0d8fb86e2bf98bde1cc3ea72846076b6510a1",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "b664c6b9-df10-4a6a-9f3d-9379d74a1974",
-      "iosUpdateId": "01a1648e-312e-7eb7-ae22-12ca0fefa6c9",
+      "otaGroupId": "a9bbc43e-36f2-4ba2-b7fa-f28db6e57022",
+      "iosUpdateId": "01a164ea-2e42-710b-a1a4-6787b8b26de7",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Unified iOS Home section typography and image spacing from PR #600, with release-journey copy correction from PR #601. Exact Main IOS_OTA certification run 39817889416 passed. The certified artifact manifest hash f44b3d7fae156cdc95a5f1748e433068ecbc611b3c310e1246366d553899c3f5 verified locally, EAS production points to this iOS update, and its public manifest launch hash matched the certified 5,150,638-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
+      "note": "Pink trailing commas and unified last-search heading on iOS Home from PR #603. Exact Main IOS_OTA certification run 39832519605 passed. The certified artifact manifest hash 8250c3675c202aefbb0af4d260b30eba43222194f147739634a6d2a1c357f69a verified locally, EAS production points to this iOS update, and its public manifest launch hash matched the certified 5,150,696-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
     }
   },
   "reviewMediaIncident": {
