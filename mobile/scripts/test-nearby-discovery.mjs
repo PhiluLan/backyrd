@@ -64,7 +64,7 @@ const ports={ loadDiscoveryOpeningSchedules:async()=>({}),user:{id:"actor"},load
  getPrivacySafeLocation:async options=>{assert.equal(options.requestPermission,false);assert.equal(options.allowLastKnown,false);assert.equal(options.forceConsentRefresh,true);return location;},
  readRecentDecisionSearch:async()=>null,loadDiscoverySpotsByIds:async()=>[],loadNewestCitySpots:async()=>cityRows,validDiscoveryLocation,loadHomeNearbySpots:async p=>{nearCalls.push(p);return pendingNear?pendingNear:{nearest:[near],newest:[near]};},loadDiscoverySpots:async city=>{assert.equal(city,"Bern");return cityRows;},loadMoodContext:async rows=>{view.moods=rows;},
 };
-for(const name of ["OpeningSchedules","CurrentLocation","Spots","NewSpots","RecentSearch","RecentSpots","RecentError","NewError","SpotMoods","PopularMoods","Loading","Refreshing","Error","City","FirstName"])ports[`set${name}`]=value=>{view[name]=value;};
+for(const name of ["OpeningSchedules","CurrentLocation","Spots","NewSpots","RecentSearch","RecentSpots","RecentError","NewError","SpotMoods","Loading","Refreshing","Error","City","FirstName","ProfileAvatar"])ports[`set${name}`]=value=>{view[name]=value;};
 const homeModule={exports:{}};
 new Function(...Object.keys(ports),"exports",callback)(...Object.values(ports),homeModule.exports);
 await homeModule.exports.load();

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { backyrdTheme as theme } from "../theme/backyrd";
 import { AppText } from "./foundation/AppText";
 
-export default function Avatar({ uri, name, size = 36 }: { uri?: string | null; name?: string | null; size?: number }) {
+export default function Avatar({ uri, name, size = 36, fallback = "initials" }: { uri?: string | null; name?: string | null; size?: number; fallback?: "initials" | "smiley" }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [uri]);
   const initials = useMemo(() => (name ?? "?")
@@ -20,7 +21,9 @@ export default function Avatar({ uri, name, size = 36 }: { uri?: string | null; 
   }
   return (
     <View accessibilityLabel={`${name?.trim() || "Backyrd"} Profilbild-Platzhalter`} style={[styles.fallback, frame]}>
-      <AppText role="label" style={{ fontSize: Math.max(12, Math.round(size * 0.32)) }}>{initials}</AppText>
+      {fallback === "smiley"
+        ? <Ionicons name="happy-outline" size={Math.round(size * 0.55)} color={theme.color.textPrimary} />
+        : <AppText role="label" style={{ fontSize: Math.max(12, Math.round(size * 0.32)) }}>{initials}</AppText>}
     </View>
   );
 }

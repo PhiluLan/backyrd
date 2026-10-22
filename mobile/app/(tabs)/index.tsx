@@ -11,17 +11,17 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from "react-native";
-import { AppText, ProductTextInput as TextInput } from "../../components/foundation/AppText";
+import { AppText, HomeTypographyProvider, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
 import { HomeMomentsSection } from "../../components/HomeMomentsSection";
-import { atmosphereWish } from "../../lib/discovery-journey";
 import Avatar from "../../components/Avatar";
-import { Button, IconButton } from "../../components/foundation/Button";
+import { IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
 import { loadDiscoveryOpeningSchedules } from "../../lib/discovery-opening-hours";
 import { spotOpeningStatusNow, type SpotOpeningStatus } from "../../lib/spot-opening-status";
@@ -36,7 +36,8 @@ import { loadHomeNearbySpots, loadNewestCitySpots, loadDiscoverySpotsByIds, vali
 import { withRequestDeadline } from "../../lib/requestDeadline";
 import { supabase } from "../../lib/supabase";
 import { homeRailCardWidth } from "../../lib/home-rail";
-import { backyrdTheme as theme } from "../../theme/backyrd";
+import { homeDaypart } from "../../lib/home-daypart";
+import { backyrdTheme as theme, useSFPro } from "../../theme/backyrd";
 
 function cleanName(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -47,9 +48,13 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { width, fontScale } = useWindowDimensions();
   const [query, setQuery] = useState("");
+  const [searchHint, setSearchHint] = useState<string | null>(null);
   const [momentRevision, setMomentRevision] = useState(0);
   const [city, setCity] = useState("Basel");
   const [firstName, setFirstName] = useState<string | null>(null);
+  const [measuredGreeting, setMeasuredGreeting] = useState<{ name: string; width: number } | null>(null);
+  const [measuredNearbyTitle, setMeasuredNearbyTitle] = useState<{ baseSize: number; width: number } | null>(null);
+  const [profileAvatar, setProfileAvatar] = useState<{ userId: string; uri: string | null } | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
   const [newSpots, setNewSpots] = useState<DiscoverySpot[]>([]);
   const [recentSearch, setRecentSearch] = useState<(RecentDecisionSearch & { actorId: string }) | null>(null);
@@ -58,10 +63,35 @@ export default function HomeScreen() {
   const [newError, setNewError] = useState(false);
   const [openingSchedules, setOpeningSchedules] = useState<Record<string, OpeningSchedule>>({});
   const now = useMinuteClock();
+  const daypart = homeDaypart(now);
+  const [measuredDaypartTitle, setMeasuredDaypartTitle] = useState<{ daypart: string; width: number } | null>(null);
+  const daypartTitleWidth = width - 2 * theme.layout.pageGutter - 8;
+  const daypartTitleSize = measuredDaypartTitle?.daypart === daypart
+    ? Math.min(31, Math.floor(31 * daypartTitleWidth / measuredDaypartTitle.width))
+    : 31;
+  const daypartTextStyle = { fontSize: daypartTitleSize, lineHeight: Math.round(daypartTitleSize * 38 / 31) };
+  const headlineName = user ? firstName ?? "du" : null;
+  const greetingBaseSize = Math.max(56, Math.min(72, Math.round(width * 0.18)));
+  const greetingAvailableWidth = width - 2 * theme.layout.pageGutter - 8;
+  const greetingDisplaySize = measuredGreeting?.name === headlineName
+    ? Math.max(28, Math.min(greetingBaseSize, Math.floor(greetingBaseSize * greetingAvailableWidth / measuredGreeting.width)))
+    : greetingBaseSize;
+  const cockpitGreetingMetrics = {
+    fontSize: greetingDisplaySize,
+    lineHeight: Math.round(greetingDisplaySize * 1.06),
+    letterSpacing: greetingDisplaySize * -0.075,
+  };
+  const nearbyTitleSize = measuredNearbyTitle?.baseSize === greetingBaseSize
+    ? Math.max(28, Math.min(greetingDisplaySize, Math.floor(greetingBaseSize * greetingAvailableWidth / measuredNearbyTitle.width)))
+    : greetingDisplaySize;
+  const nearbyTitleMetrics = {
+    fontSize: nearbyTitleSize,
+    lineHeight: Math.round(nearbyTitleSize * 1.06),
+    letterSpacing: nearbyTitleSize * -0.075,
+  };
   const openingStatuses: Record<string, SpotOpeningStatus> = Object.fromEntries(Object.entries(openingSchedules).map(([id, schedule]) => [id, spotOpeningStatusNow(schedule.rows, now, schedule.missingDayIsUnknown)]));
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
   const moodCounts = useSpotMoodCounts([...spots, ...newSpots, ...recentSpots].map(spot => spot.id));
-  const [popularMoods, setPopularMoods] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,16 +102,12 @@ export default function HomeScreen() {
   const loadMoodContext = useCallback(async (catalog: DiscoverySpot[]) => {
     const requestId = ++moodRequest.current;
     setSpotMoods({});
-    setPopularMoods([]);
     try {
       const rows = await loadSpotBrowseMoods(catalog.map(spot => spot.id));
       if (requestId !== moodRequest.current) return;
       const labels: Record<string, string[]> = {};
       for (const row of rows) (labels[row.spot_id] ??= []).push(row.label);
       setSpotMoods(labels);
-      const availability = new Map<string, number>();
-      for (const row of rows) availability.set(row.label, (availability.get(row.label) ?? 0) + 1);
-      setPopularMoods([...availability].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "de")).slice(0, 5).map(([label]) => label));
     } catch { /* Moods enrich discovery without blocking the catalog. */ }
   }, []);
 
@@ -97,14 +123,13 @@ export default function HomeScreen() {
     setRecentError(false);
     setNewError(false);
     setSpotMoods({});
-    setPopularMoods([]);
     setLoading(true);
     setRefreshing(refresh);
     setError(null);
     try {
       const [profile, location] = await Promise.all([
         user?.id ? withRequestDeadline(async signal => {
-          const result = await supabase.from("profiles").select("city,first_name,display_name,username").eq("id", user.id).abortSignal(signal).maybeSingle();
+          const result = await supabase.from("profiles").select("city,first_name,display_name,username,avatar_url").eq("id", user.id).abortSignal(signal).maybeSingle();
           return result.data;
         }, 5_000).catch(() => null) : Promise.resolve(null),
         withRequestDeadline(() => getPrivacySafeLocation({ purpose: "nearby_discovery", requestPermission: false, forceConsentRefresh: true, allowLastKnown: false, timeoutMs: 5_000 }), 6_500).catch(() => null),
@@ -112,6 +137,7 @@ export default function HomeScreen() {
       if (requestId !== loadRequest.current) return;
       const productCity = cleanName(profile?.city) ?? "Basel";
       setCity(productCity);
+      setProfileAvatar(user?.id ? { userId: user.id, uri: cleanName(profile?.avatar_url) } : null);
       const profileName = cleanName(profile?.first_name) ?? cleanName(profile?.display_name) ?? cleanName(profile?.username);
       setFirstName(profileName ? profileName.split(/\s+/)[0] : null);
       const point = location?.ok && location.source === "current" ? { latitude: location.location.coords.latitude, longitude: location.location.coords.longitude } : null;
@@ -165,7 +191,12 @@ export default function HomeScreen() {
 
   function submitDecision(value = query) {
     const normalized = value.trim();
-    if (normalized.length < (user ? 3 : 2)) return;
+    const minimumLength = user ? 3 : 2;
+    if (normalized.length < minimumLength) {
+      setSearchHint(`Bitte gib mindestens ${minimumLength} Zeichen ein.`);
+      return;
+    }
+    setSearchHint(null);
     if (!user) {
       router.push({ pathname: "/(tabs)/map", params: { view: "list", search: normalized } } as never);
       return;
@@ -174,21 +205,24 @@ export default function HomeScreen() {
   }
 
   return (
+    <HomeTypographyProvider>
     <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => { void load(true); setMomentRevision(value => value + 1); }} />} showsVerticalScrollIndicator={false}>
           <View style={[styles.header, fontScale > 1.3 && styles.headerLargeType]}>
             <View style={[styles.greetingBlock, fontScale > 1.3 && styles.greetingBlockLargeType]}>
-              <AppText role="bodyStrong" maxFontSizeMultiplier={1.6} style={styles.greeting}>{user ? `Hey${firstName ? `, ${firstName}` : ""}` : "Willkommen bei Backyrd"}</AppText>
-              <AppText role="meta" tone="secondary">{city}</AppText>
+              <View style={styles.locationRow}>
+                <Ionicons name="location-sharp" size={21} color={theme.color.textSecondary} />
+                <AppText role="bodyStrong" tone="secondary" style={styles.locationText}>{city}</AppText>
+              </View>
             </View>
             <View style={[styles.headerActions, fontScale > 1.3 && styles.headerActionsLargeType]}>
               {user ? <>
-                <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)} style={styles.headerIcon}>
-                  <Ionicons color={theme.color.textPrimary} name="notifications-outline" size={21} />
+                <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)}>
+                  <Ionicons color={theme.color.textPrimary} name="notifications-outline" size={30} />
                 </IconButton>
                 <Pressable accessibilityLabel="Profil öffnen" accessibilityRole="button" hitSlop={8} onPress={() => router.push("/(tabs)/profile" as never)}>
-                  <Avatar uri={user.user_metadata?.avatar_url} name={firstName ?? user.email ?? "backyrd"} size={42} />
+                  <Avatar uri={profileAvatar?.userId === user.id ? profileAvatar.uri : null} name={firstName ?? user.email ?? "backyrd"} size={50} fallback="smiley" />
                 </Pressable>
               </> : <Pressable accessibilityRole="button" accessibilityLabel="Anmelden" onPress={() => router.push("/auth/login" as never)} style={styles.guestLogin}>
                 <AppText role="label" tone="pink">Anmelden</AppText>
@@ -196,41 +230,50 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <AppText role="displayM" style={styles.pageTitle}>Dein nächster Moment</AppText>
-          <AppText role="body" tone="secondary" style={styles.intro}>Worauf hast du Lust?</AppText>
-          <View style={styles.searchShell}>
-            <Ionicons color={theme.color.textSecondary} name="search-outline" size={20} />
-            <TextInput accessibilityLabel={user ? "Was hast du heute vor?" : "Orte suchen"} onChangeText={setQuery} onSubmitEditing={() => submitDecision()} placeholder={user ? "Dein Wunsch" : "Orte suchen"} placeholderTextColor={theme.color.textSecondary} returnKeyType="go" style={styles.searchInput} value={query} />
-
+          {useSFPro && headlineName ? <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayXL" style={[styles.greetingMeasure, styles.cockpitGreeting, { fontSize: greetingBaseSize, lineHeight: Math.round(greetingBaseSize * 1.06), letterSpacing: greetingBaseSize * -0.075 }]} onTextLayout={event => {
+            const measuredWidth = event.nativeEvent.lines[0]?.width ?? 0;
+            if (measuredWidth > 0 && (measuredGreeting?.name !== headlineName || Math.abs(measuredGreeting.width - measuredWidth) > 1)) {
+              setMeasuredGreeting({ name: headlineName, width: measuredWidth });
+            }
+          }}>Hey,{"  "}{headlineName}</AppText> : null}
+          <AppText accessibilityLabel={headlineName ? `Hey, ${headlineName}` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics]}>{headlineName ? <>Hey,{useSFPro ? "  " : " "}<Text style={styles.pinkAccent}>{headlineName}</Text></> : "Hey"}</AppText>
+          <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayM" style={styles.daypartMeasure} onLayout={event => {
+            const measuredWidth = event.nativeEvent.layout.width;
+            if (measuredWidth > 0 && (measuredDaypartTitle?.daypart !== daypart || Math.abs(measuredDaypartTitle.width - measuredWidth) > 1)) {
+              setMeasuredDaypartTitle({ daypart, width: measuredWidth });
+            }
+          }}>Heute {daypart} schon was vor?</AppText>
+          <View accessible accessibilityLabel={`Heute ${daypart} schon was vor?`} accessibilityRole="text" style={styles.daypartTitleRow}>
+            <AppText numberOfLines={1} role="displayM" style={daypartTextStyle}>Heute </AppText>
+            <View style={styles.daypartAccent}>
+              <AppText numberOfLines={1} role="displayM" style={daypartTextStyle}>{daypart}{" "}</AppText>
+              <View pointerEvents="none" style={styles.daypartUnderline} />
+            </View>
+            <AppText numberOfLines={1} role="displayM" style={daypartTextStyle}>schon was vor<Text style={styles.pinkAccent}>?</Text></AppText>
           </View>
+          <View style={styles.searchShell}>
+            <TextInput accessibilityLabel="Was willst du machen?" onChangeText={value => { setQuery(value); setSearchHint(null); }} onSubmitEditing={event => submitDecision(event.nativeEvent.text)} placeholder="was willst du machen?" placeholderTextColor={theme.color.textSecondary} returnKeyType="search" style={styles.searchInput} value={query} />
+            {query.length > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Suche starten" accessibilityHint="Sucht passende Orte für deine Eingabe" onPress={() => submitDecision()} style={styles.searchAction}>
+              <Ionicons name="search" size={26} color={theme.color.pink} />
+            </Pressable> : null}
+          </View>
+          {searchHint ? <AppText role="caption" tone="error" style={styles.searchHint}>{searchHint}</AppText> : null}
 
-          <Button label="Passenden Ort finden" onPress={() => {
-            if (query.trim().length >= (user ? 3 : 2)) submitDecision();
-            else router.push(user ? "/(tabs)/wohin" : { pathname: "/(tabs)/map", params: { view: "list" } });
-          }} style={styles.findButton} />
-
-          {popularMoods.length ? (
-            <View style={styles.moodSection}>
-              <AppText role="label" tone="secondary" style={[styles.eyebrow, styles.moodSectionTitle]}>WIE SOLL ES SICH ANFÜHLEN?</AppText>
-              <ScrollView horizontal contentContainerStyle={styles.moodRow} showsHorizontalScrollIndicator={false}>
-                {popularMoods.map((mood) => (
-                  <Pressable accessibilityRole="button" accessibilityHint={user ? "Sucht Orte mit dieser Atmosphäre" : "Zeigt Orte mit diesem Eindruck"} accessibilityLabel={`Atmosphäre ${mood}`} key={mood} onPress={() => user ? submitDecision(atmosphereWish([mood], city)) : router.push({ pathname: "/(tabs)/map", params: { view: "list", mood } } as never)} style={({ pressed }) => [styles.moodLink, pressed && styles.pressed]}>
-                    <View style={styles.moodDot} />
-                    <AppText role="meta" numberOfLines={1}>{mood}</AppText>
-                  </Pressable>
-                ))}
-              </ScrollView>
+          <View style={[styles.sectionHeader, currentLocation && styles.nearbySectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
+            <View style={currentLocation ? styles.nearbyTitleBlock : styles.sectionTitleBlock}>
+              {currentLocation && useSFPro
+                ? <>
+                    <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayXL" style={[styles.greetingMeasure, styles.cockpitGreeting, { fontSize: greetingBaseSize, lineHeight: Math.round(greetingBaseSize * 1.06), letterSpacing: greetingBaseSize * -0.075 }]} onTextLayout={event => {
+                      const measuredWidth = event.nativeEvent.lines[0]?.width ?? 0;
+                      if (measuredWidth > 0 && (measuredNearbyTitle?.baseSize !== greetingBaseSize || Math.abs(measuredNearbyTitle.width - measuredWidth) > 1)) {
+                        setMeasuredNearbyTitle({ baseSize: greetingBaseSize, width: measuredWidth });
+                      }
+                    }}>Orte{"  "}in{"  "}deiner{"  "}Nähe</AppText>
+                    <AppText accessibilityLabel="Orte in deiner Nähe" numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.cockpitGreeting, nearbyTitleMetrics]}>Orte{"  "}in{"  "}deiner{"  "}<Text style={styles.pinkAccent}>Nähe</Text></AppText>
+                  </>
+                : <AppText role="sectionTitle">{currentLocation ? "Orte in deiner Nähe" : `Orte in ${city} entdecken`}</AppText>}
+              {!loading && !currentLocation ? <AppText role="meta" tone="secondary">Ohne aktuellen Standort · Auswahl nach Stadt</AppText> : null}
             </View>
-          ) : null}
-
-          <View style={[styles.sectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <AppText role="sectionTitle">{currentLocation ? "Orte in deiner Nähe" : `Orte in ${city} entdecken`}</AppText>
-              {!loading ? <AppText role="meta" tone="secondary">{currentLocation ? `Nächste zuerst · bis ${HOME_NEARBY_RADIUS_KM} km Luftlinie` : "Ohne aktuellen Standort · Auswahl nach Stadt"}</AppText> : null}
-            </View>
-            <Pressable accessibilityRole="button" style={[styles.sectionLink, fontScale > 1.3 && { maxWidth: "100%" }]} onPress={() => router.push({ pathname: "/(tabs)/map", params: currentLocation ? { view: "map", lat: String(currentLocation.latitude), lng: String(currentLocation.longitude) } : { view: "list" } } as never)}>
-              <AppText role="label" tone="pink">Alle ansehen</AppText>
-            </Pressable>
           </View>
 
           {loading ? (
@@ -272,36 +315,39 @@ export default function HomeScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </HomeTypographyProvider>
   );
 }
 
 const styles = StyleSheet.create({
   sectionTitleBlock: { flex: 1, minWidth: 0 },
+  nearbyTitleBlock: { alignSelf: "stretch", minWidth: 0 },
   root: { flex: 1, backgroundColor: theme.color.background },
   content: { paddingTop: theme.spacing.lg, paddingBottom: theme.control.tabBar + theme.spacing.display },
-  header: { minHeight: 60, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md },
+  header: { minHeight: 60, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md },
   headerLargeType: { flexDirection: "column", alignItems: "stretch", gap: theme.spacing.sm },
   greetingBlock: { flex: 1, minWidth: 0 },
   greetingBlockLargeType: { flex: 0 },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  locationText: { fontSize: 18, lineHeight: 24 },
   headerActionsLargeType: { alignSelf: "flex-end" },
-  greeting: { color: theme.color.textPrimary },
-  pageTitle: { marginTop: theme.spacing.lg, marginHorizontal: theme.layout.pageGutter },
-  intro: { marginTop: theme.spacing.sm, marginHorizontal: theme.layout.pageGutter },
-  findButton: { marginHorizontal: theme.layout.pageGutter, marginTop: theme.spacing.sm },
+  pageTitle: { marginTop: theme.spacing.lg, marginHorizontal: theme.layout.pageGutter, textAlign: "left" },
+  greetingMeasure: { position: "absolute", left: 0, top: 0, width: 10000, opacity: 0 },
+  cockpitGreeting: { color: "#F8F8F8", fontWeight: "700" },
+  daypartMeasure: { position: "absolute", left: 0, top: 0, opacity: 0, fontSize: 31, lineHeight: 38 },
+  daypartTitleRow: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, flexDirection: "row", flexWrap: "nowrap", alignItems: "baseline" },
+  daypartAccent: { position: "relative" },
+  daypartUnderline: { position: "absolute", left: 1, right: 6, bottom: -2, height: 9, borderBottomWidth: 3, borderBottomColor: theme.color.pink, borderBottomLeftRadius: 28, borderBottomRightRadius: 18, transform: [{ rotate: "-2deg" }] },
+  pinkAccent: { color: theme.color.pink },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
-  headerIcon: { backgroundColor: "rgba(246,240,232,0.06)", borderWidth: 1, borderColor: theme.color.border },
   guestLogin: { minHeight: 44, justifyContent: "center", paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border },
-  searchShell: { marginTop: theme.spacing.md, marginHorizontal: theme.spacing.xl, minHeight: theme.control.standard, paddingHorizontal: theme.spacing.md, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill, backgroundColor: "rgba(246,240,232,0.055)" },
-  searchInput: { flex: 1, minWidth: 0, minHeight: theme.control.standard, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 15, paddingVertical: 10 },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
-  moodSection: { marginTop: theme.spacing.xxl },
+  searchShell: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, minHeight: 68, paddingHorizontal: theme.spacing.lg, paddingRight: theme.spacing.xs, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, backgroundColor: theme.color.surfaceElevated },
+  searchInput: { flex: 1, minWidth: 0, minHeight: 68, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 18, paddingVertical: 12 },
+  searchAction: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: theme.radius.pill },
+  searchHint: { marginHorizontal: theme.layout.pageGutter, marginTop: theme.spacing.xs },
   eyebrow: { letterSpacing: 1.15, marginBottom: 6 },
-  moodSectionTitle: { paddingHorizontal: theme.spacing.xl },
-  moodRow: { paddingHorizontal: theme.spacing.xl, gap: theme.spacing.lg },
-  moodLink: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
-  moodDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.color.pink },
   sectionHeader: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
-  sectionLink: { minHeight: theme.control.compact, maxWidth: "42%", minWidth: theme.control.compact, justifyContent: "center" },
+  nearbySectionHeader: { flexDirection: "column", alignItems: "stretch", gap: 0 },
   heroSkeleton: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, borderRadius: theme.radius.xl, backgroundColor: theme.color.surfaceElevated },
   stateWrap: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl },
 });

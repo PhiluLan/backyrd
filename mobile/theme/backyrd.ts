@@ -1,3 +1,8 @@
+import { Platform } from "react-native";
+
+// Native SF Pro is available for the Home presentation on iOS.
+export const useSFPro = Platform.OS === "ios";
+
 export const backyrdTheme = {
   color: {
     background: "#050505",
