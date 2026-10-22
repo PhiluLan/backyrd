@@ -97,7 +97,7 @@ export function HomeEventsSection() {
 
 const styles = StyleSheet.create({
   section: { marginTop: theme.spacing.xxxl },
-  heading: { paddingHorizontal: theme.layout.pageGutter },
+  heading: { paddingHorizontal: theme.layout.pageGutter, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.sm },
   allEventsAction: { minHeight: 44, alignSelf: "flex-end", justifyContent: "center" },
   allEventsText: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 13 },
   state: {
@@ -116,8 +116,9 @@ const styles = StyleSheet.create({
   stateCopy: { flex: 1 },
   stateTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15 },
   stateText: { color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 13, lineHeight: 19 },
-  singleCard: { marginHorizontal: HOME_RAIL.horizontalInset },
+  singleCard: { marginHorizontal: HOME_RAIL.horizontalInset, marginTop: theme.spacing.lg },
   carouselContent: {
+    paddingTop: theme.spacing.lg,
     paddingHorizontal: HOME_RAIL.horizontalInset,
     paddingBottom: 2,
   },
