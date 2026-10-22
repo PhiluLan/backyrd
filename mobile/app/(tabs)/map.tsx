@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { View, Alert, RefreshControl, Platform, Pressable, ScrollView, StyleSheet, Dimensions, Animated, FlatList, PanResponder, Modal, useWindowDimensions, type ViewToken } from "react-native";
-import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
+import { AppText, HomeTypographyProvider, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
+import { HomeDisplayHeading } from "../../components/HomeDisplayHeading";
 
 import ClusteredMapView from "react-native-map-clustering";
 import { Marker, PROVIDER_GOOGLE } from "react-native-maps";
@@ -536,13 +537,31 @@ export default function MapScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* HEADER */}
       <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <View style={[styles.titleCopy, fontScale > 1.3 && { flexBasis: "100%" }]}>
-            <AppText role="label" tone="pink">{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
-            <AppText role="screenTitle">Orte entdecken</AppText>
+        <View style={styles.headerControls}>
+          <AppText role="label" tone="pink" numberOfLines={1} style={styles.headerEyebrow}>{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
+          <View style={styles.headerActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Filter öffnen"
+              style={({ pressed }) => [styles.headerButton, activeFilters.length > 0 && styles.headerButtonActive, pressed && styles.pressed]}
+              onPress={() => setFiltersOpen(true)}
+            >
+              <Ionicons name="options-outline" size={20} color={activeFilters.length ? theme.color.background : theme.color.textPrimary} />
+            </Pressable>
+
+            <View accessibilityRole="tablist" style={styles.perspectiveSwitch}>
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "list" }} accessibilityLabel="Listenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "list" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("list")}>
+                <Ionicons name="list-outline" size={18} color={viewMode === "list" ? theme.color.background : theme.color.textPrimary} />
+                <AppText role="caption" style={{ color: viewMode === "list" ? theme.color.background : theme.color.textPrimary }}>Liste</AppText>
+              </Pressable>
+              <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "map" }} accessibilityLabel="Kartenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "map" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("map")}>
+                <Ionicons name="map-outline" size={18} color={viewMode === "map" ? theme.color.background : theme.color.textPrimary} />
+                <AppText role="caption" style={{ color: viewMode === "map" ? theme.color.background : theme.color.textPrimary }}>Karte</AppText>
+              </Pressable>
+            </View>
           </View>
-          <AppText role="caption" tone="secondary" style={styles.resultCount}>{filteredSpots.length} {filteredSpots.length === 1 ? "Ort" : "Orte"}</AppText>
         </View>
+        <HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="," /></HomeTypographyProvider>
 
         <View style={styles.headerTopRow}>
           <View style={styles.searchBox}>
@@ -565,25 +584,6 @@ export default function MapScreen() {
             )}
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Filter öffnen"
-            style={({ pressed }) => [styles.headerButton, activeFilters.length > 0 && styles.headerButtonActive, pressed && styles.pressed]}
-            onPress={() => setFiltersOpen(true)}
-          >
-            <Ionicons name="options-outline" size={20} color={activeFilters.length ? theme.color.background : theme.color.textPrimary} />
-          </Pressable>
-
-          <View accessibilityRole="tablist" style={styles.perspectiveSwitch}>
-            <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "list" }} accessibilityLabel="Listenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "list" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("list")}>
-              <Ionicons name="list-outline" size={18} color={viewMode === "list" ? theme.color.background : theme.color.textPrimary} />
-              <AppText role="caption" style={{ color: viewMode === "list" ? theme.color.background : theme.color.textPrimary }}>Liste</AppText>
-            </Pressable>
-            <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "map" }} accessibilityLabel="Kartenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "map" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("map")}>
-              <Ionicons name="map-outline" size={18} color={viewMode === "map" ? theme.color.background : theme.color.textPrimary} />
-              <AppText role="caption" style={{ color: viewMode === "map" ? theme.color.background : theme.color.textPrimary }}>Karte</AppText>
-            </Pressable>
-          </View>
         </View>
 
         {moodProfilesFailed || moodResolverFailed ? <View style={{ padding: 12 }}><AppText role="meta">Die Mood-Eindrücke konnten gerade nicht geladen werden.</AppText><Button label="Erneut laden" variant="tertiary" onPress={() => { setMoodRevision(v => v + 1); retryMoodCatalog(); }} /></View> : null}
@@ -692,7 +692,7 @@ export default function MapScreen() {
                 showFallbackName={false}
               />
               <View style={styles.listCardBody}>
-                <Text style={styles.listCardTitle}>{item.name}</Text>
+                <HomeTypographyProvider><AppText role="displayXL" style={styles.listCardTitle}>{item.name}</AppText></HomeTypographyProvider>
                 <MoodSignature labels={spotMoods[item.id] ?? []} moodCount={moodCounts[item.id]} compact />
                 <Text style={styles.listCardContext}>{item.categories?.name || item.city || "Ort"}</Text>
                 <Text style={styles.listCardAddress}>{item.address || "Adresse noch nicht hinterlegt"}</Text>
@@ -781,16 +781,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.color.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.color.background },
   header: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, backgroundColor: theme.color.background },
-  titleRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.sm },
-  titleCopy: { flex: 1, minWidth: 0, gap: 1 },
-  resultCount: { marginTop: theme.spacing.xs, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radius.pill, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border },
-  headerTopRow: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.xs, alignItems: "center" },
-  searchBox: { flex: 1, minWidth: 120, flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
+  headerControls: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
+  headerEyebrow: { flexShrink: 1 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
+  headerTopRow: { marginTop: theme.spacing.md },
+  searchBox: { width: "100%", flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
   searchInput: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15, minHeight: theme.control.standard },
   searchClear: { minWidth: theme.control.compact, minHeight: theme.control.compact },
   headerButton: { width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill },
   headerButtonActive: { backgroundColor: theme.color.pink, borderColor: theme.color.pink },
-  perspectiveSwitch: { flexDirection: "row", flexShrink: 1, minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, padding: 3 },
+  perspectiveSwitch: { flexDirection: "row", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, padding: 3 },
   perspectiveOption: { minWidth: 58, minHeight: theme.control.compact, paddingVertical: theme.spacing.xs, paddingHorizontal: theme.spacing.xs, borderRadius: theme.radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
   perspectiveOptionActive: { backgroundColor: theme.color.pink },
   pressed: { opacity: 0.8, transform: [{ scale: theme.motion.pressScale }] },
@@ -806,8 +806,8 @@ const styles = StyleSheet.create({
   listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
   listCardImage: { width: "100%", height: 164 },
   listCardBody: { padding: theme.spacing.md },
-  listCardTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 21, lineHeight: 26, letterSpacing: -0.3 },
-  listCardContext: { color: theme.color.lime, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.xs },
+  listCardTitle: { color: theme.color.textPrimary, fontSize: 25, lineHeight: 29, letterSpacing: -1.2 },
+  listCardContext: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.xs },
   listCardAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginTop: 3 },
   recenterBtn: { position: "absolute", bottom: 114, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
   sheetContainer: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40 },
