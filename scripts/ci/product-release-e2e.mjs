@@ -190,7 +190,7 @@ try {
 
   const appUrl = `http://127.0.0.1:${address.port}`;
   await page.goto(appUrl, { waitUntil: "domcontentloaded" });
-  await page.getByRole("textbox", { name: "Was hast du heute vor?", exact: true }).waitFor({ timeout: 30000 }).catch(async (error) => {
+  await page.getByRole("textbox", { name: "Was willst du machen?", exact: true }).waitFor({ timeout: 30000 }).catch(async (error) => {
     throw new Error(`Authenticated home did not appear at ${page.url()}: ${(await page.locator("body").innerText()).slice(0, 1200)}`, { cause: error });
   });
   // The prominent Plus opens the draft directly; location refusal does not block manual entry.
@@ -212,7 +212,7 @@ try {
   await page.getByRole("button",{name:"Gemütlich entfernen",exact:true}).waitFor();
   page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button",{name:"Moment schließen",exact:true}).click();
-  await page.getByRole("textbox",{name:"Was hast du heute vor?",exact:true}).waitFor();
+  await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).waitFor({ timeout: 30000 });
   await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("Sonntag gemütlich Kaffee trinken");
@@ -411,7 +411,7 @@ try {
     await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/connected-shared-430.png`});
   }
   await page.getByRole("button",{name:"Zur Startseite",exact:true}).click();
-  await page.getByRole("textbox",{name:"Was hast du heute vor?",exact:true}).waitFor();
+  await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
 
   const loginContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await loginContext.route(`${endpoint}/**`, remoteFixture);
@@ -491,6 +491,10 @@ try {
   const guestPage = await guestContext.newPage();
   await guestPage.goto(appUrl, { waitUntil: "domcontentloaded" });
   await guestPage.getByText("Erst einmal Orte entdecken", { exact: true }).click();
+  const guestSearch = guestPage.getByRole("textbox", { name: "Was willst du machen?", exact: true });
+  await guestSearch.waitFor();
+  await guestSearch.fill("Café");
+  await guestSearch.press("Enter");
   await guestPage.getByRole("textbox", { name: "Orte suchen", exact: true }).waitFor();
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
