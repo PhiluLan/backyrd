@@ -9,7 +9,7 @@ import { loadEvents } from "../../lib/events-v1";
 import { HOME_RAIL, homeRailCardWidth } from "../../lib/home-rail";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 import { EventCard } from "./EventCard";
-import { EditorialSectionHeader } from "../brand/Editorial";
+import { HomeDisplayHeading } from "../HomeDisplayHeading";
 
 export function HomeEventsSection() {
   const router = useRouter();
@@ -46,12 +46,12 @@ export function HomeEventsSection() {
 
   return (
     <View style={styles.section}>
-      <EditorialSectionHeader
-        actionLabel="Alle ansehen"
-        actionVariant="quietPink"
-        onAction={() => router.push("/events" as never)}
-        title="Was läuft?"
-      />
+      <View style={styles.heading}>
+        <HomeDisplayHeading title="Was läuft" accent="?" />
+        <Pressable accessibilityRole="button" onPress={() => router.push("/events" as never)} hitSlop={10} style={styles.allEventsAction}>
+          <Text style={styles.allEventsText}>Alle ansehen</Text>
+        </Pressable>
+      </View>
       {state === "loading" ? (
         <View accessibilityLabel="Events werden geladen" style={styles.state}>
           <ActivityIndicator color={theme.color.pink} />
@@ -97,6 +97,9 @@ export function HomeEventsSection() {
 
 const styles = StyleSheet.create({
   section: { marginTop: theme.spacing.xxxl },
+  heading: { paddingHorizontal: theme.layout.pageGutter },
+  allEventsAction: { minHeight: 44, alignSelf: "flex-end", justifyContent: "center" },
+  allEventsText: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 13 },
   state: {
     minHeight: 94,
     marginHorizontal: theme.spacing.xxl,
