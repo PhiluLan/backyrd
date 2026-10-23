@@ -18,6 +18,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
 import { cityCenterFor, normalizeLocationCity, resolveLocationContext } from "../../lib/locationContext";
+import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
 import { hasActiveConsent } from "../../lib/consent";
 import { useSpotMoodCounts, loadSpotBrowseMoods, useMoodCatalog } from "../../lib/mood-catalog";
 import { trackAnalyticsEvent } from "../../lib/analytics";
@@ -27,7 +28,7 @@ import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-import { hasMapRegionChanged, selectMapDiscoverySpots } from "../../lib/mapDiscoveryPolicy";
+import { hasMapRegionChanged, mapDistanceMeters, selectMapDiscoverySpots, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
 import { spotMatchesSearch } from "../../lib/spot-search";
 
 import { loadDiscoveryOpeningSchedules, type OpeningSchedule } from "../../lib/discovery-opening-hours";
@@ -46,6 +47,16 @@ function displayMoodLabel(value: string) {
     "klassisch französisch": "Klassisch französisch",
   };
   return localized[normalized] ?? normalized.replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
+
+function mapDistanceLabel(meters: number) {
+  if (meters < 50) return "Direkt bei dir";
+  if (meters < 1_000) return `${Math.round(meters / 50) * 50} m`;
+  return `${new Intl.NumberFormat("de-CH", { maximumFractionDigits: 1 }).format(meters / 1_000)} km`;
+}
+
+function userDistanceLabel(meters: number) {
+  return meters < 50 ? "Direkt bei dir" : `ca. ${mapDistanceLabel(meters)} von dir`;
 }
 type DbCategory = {
   id: string;
@@ -111,6 +122,8 @@ export default function MapScreen() {
     longitudeDelta: 0.05,
   }));
   const [appliedRegion, setAppliedRegion] = useState(region);
+  const [userLocation, setUserLocation] = useState<{ coordinates: MapCoordinates; source: "current" | "last_known" } | null>(null);
+  const [mapOriginMode, setMapOriginMode] = useState<"user" | "viewport">("viewport");
 
   // Auswahl: Mood über Chip
   const [selectedMood, setSelectedMood] = useState<string | null>(params.mood ?? null);
@@ -141,10 +154,14 @@ export default function MapScreen() {
   const mapRef = useRef<MapView | null>(null);
   const railRef = useRef<FlatList<Spot> | null>(null);
   const centeredProfileCity = useRef<string | null>(null);
+  const centeredOnUser = useRef(false);
+  const manuallyExploredMap = useRef(false);
+  const programmaticCenter = useRef<MapCoordinates | null>(null);
   const listRef = useRef<FlatList<Spot> | null>(null);
   const [refreshingPlaces, setRefreshingPlaces] = useState(false);
   const listScrollOffset = useRef(0);
   const [locationConsentGranted, setLocationConsentGranted] = useState(false);
+  const [locationResolution, setLocationResolution] = useState<"pending" | "settled">("pending");
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -164,6 +181,7 @@ export default function MapScreen() {
       setMapCity(null);
       return;
     }
+    if (centeredOnUser.current || manuallyExploredMap.current) return;
     if (!profileCity) {
       centeredProfileCity.current = null;
       setMapCity(null);
@@ -182,24 +200,62 @@ export default function MapScreen() {
     centeredProfileCity.current = profileCity;
     setMapCity(profileCity);
     const next = { ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+    programmaticCenter.current = center;
     setRegion(next);
     setAppliedRegion(next);
     mapRef.current?.animateToRegion(next, 400);
   }, [profileCity, globalSpots, params.lat, params.lng]);
 
   const refreshLocationConsent = React.useCallback(async () => {
-    const granted = await hasActiveConsent("precise_location", {
+    return hasActiveConsent("precise_location", {
       forceRefresh: true,
     });
-    setLocationConsentGranted(granted);
-    return granted;
   }, []);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      void refreshLocationConsent();
-    }, [refreshLocationConsent]),
-  );
+  useFocusEffect(React.useCallback(() => {
+    let active = true;
+    setLocationResolution("pending");
+    void (async () => {
+      try {
+        const result = await getPrivacySafeLocation({
+          purpose: "nearby_discovery",
+          requestPermission: false,
+          forceConsentRefresh: true,
+          timeoutMs: 4_000,
+          allowLastKnown: true,
+        });
+        if (!active) return;
+        if (!result.ok) {
+          setLocationConsentGranted(false);
+          setUserLocation(null);
+          setMapOriginMode("viewport");
+          return;
+        }
+        const coordinates = {
+          latitude: result.location.coords.latitude,
+          longitude: result.location.coords.longitude,
+        };
+        setLocationConsentGranted(true);
+        setUserLocation({ coordinates, source: result.source });
+        if ((params.lat && params.lng) || manuallyExploredMap.current) return;
+        centeredOnUser.current = true;
+        setMapOriginMode("user");
+        const next = { ...coordinates, latitudeDelta: 0.035, longitudeDelta: 0.035 };
+        programmaticCenter.current = coordinates;
+        setRegion(next);
+        setAppliedRegion(next);
+        mapRef.current?.animateToRegion(next, 450);
+      } catch {
+        if (!active) return;
+        setLocationConsentGranted(false);
+        setUserLocation(null);
+        setMapOriginMode("viewport");
+      } finally {
+        if (active) setLocationResolution("settled");
+      }
+    })();
+    return () => { active = false; };
+  }, [params.lat, params.lng]));
 
   /* =============================================================
      LOAD DATA
@@ -306,7 +362,8 @@ export default function MapScreen() {
     searchMoodId,
   ]);
 
-  const mapSpots = useMemo(() => selectMapDiscoverySpots(filteredSpots, appliedRegion), [filteredSpots, appliedRegion]);
+  const mapOrigin = mapOriginMode === "user" && userLocation ? userLocation.coordinates : appliedRegion;
+  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectMapDiscoverySpots(filteredSpots, appliedRegion, mapOrigin), [filteredSpots, appliedRegion, mapOrigin, locationResolution]);
   const mapNeedsSearch = hasMapRegionChanged(region, appliedRegion);
 
   useEffect(() => {
@@ -334,6 +391,10 @@ export default function MapScreen() {
 
   const handleRegionChangeComplete = useCallback((nextRegion: typeof region) => {
     setRegion(nextRegion);
+    if (programmaticCenter.current && mapDistanceMeters(programmaticCenter.current, nextRegion) < 100) {
+      programmaticCenter.current = null;
+      setAppliedRegion(nextRegion);
+    }
   }, []);
 
   const selectMapSpot = useCallback((spot: Spot, scrollRail = true) => {
@@ -345,6 +406,10 @@ export default function MapScreen() {
   }, [mapSpots, railCardWidth]);
 
   const searchThisArea = useCallback(() => {
+    manuallyExploredMap.current = true;
+    programmaticCenter.current = null;
+    setMapOriginMode("viewport");
+    setMapCity(null);
     setAppliedRegion(region);
     setSelectedSpot(null);
     railRef.current?.scrollToOffset({ offset: 0, animated: false });
@@ -424,6 +489,9 @@ export default function MapScreen() {
     const consentGranted = await refreshLocationConsent();
 
     if (!consentGranted) {
+      setLocationConsentGranted(false);
+      setUserLocation(null);
+      setMapOriginMode("viewport");
       Alert.alert(
         "Standort ist ausgeschaltet",
         "Backyrd verwendet deinen präzisen Standort nur, wenn du ihn im Privacy Center aktivierst.",
@@ -447,6 +515,9 @@ export default function MapScreen() {
     });
 
     if (!context.coordinates) {
+      setLocationConsentGranted(false);
+      setUserLocation(null);
+      setMapOriginMode("viewport");
       const message =
         context.failureReason === "services_disabled"
           ? "Die Ortungsdienste sind auf deinem iPhone ausgeschaltet. Aktiviere sie in den iOS-Einstellungen, um die Karte auf dich zu zentrieren."
@@ -459,6 +530,13 @@ export default function MapScreen() {
     }
 
     setLocationConsentGranted(true);
+    setUserLocation({
+      coordinates: context.coordinates,
+      source: context.source === "current" ? "current" : "last_known",
+    });
+    centeredOnUser.current = true;
+    manuallyExploredMap.current = false;
+    setMapOriginMode("user");
 
     const next = {
       ...region,
@@ -466,6 +544,7 @@ export default function MapScreen() {
       longitude: context.coordinates.longitude,
     };
 
+    programmaticCenter.current = context.coordinates;
     setRegion(next);
     setAppliedRegion(next);
     mapRef.current?.animateToRegion(next, 500);
@@ -494,7 +573,7 @@ export default function MapScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.headerControls}>
-          {viewMode === "map" ? <AppText role="label" tone="pink" numberOfLines={1} style={styles.headerEyebrow}>{mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText> : null}
+          {viewMode === "map" ? <AppText role="label" tone="pink" numberOfLines={1} style={styles.headerEyebrow}>{mapOriginMode === "user" && userLocation ? (userLocation.source === "current" ? "DEIN STANDORT" : "LETZTER STANDORT") : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText> : null}
           <View style={styles.headerActions}>
             <Pressable
               accessibilityRole="button"
@@ -599,6 +678,7 @@ export default function MapScreen() {
           showsUserLocation={locationConsentGranted}
           customMapStyle={DARK_MAP_STYLE}
           onRegionChangeComplete={handleRegionChangeComplete}
+          onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; }}
           >
             {renderedMarkers}
           </MapView>
@@ -606,10 +686,14 @@ export default function MapScreen() {
             <Ionicons name="search" size={17} color={theme.color.background} />
             <Text style={styles.searchAreaText}>Hier suchen</Text>
           </Pressable> : null}
+          {locationResolution === "pending" ? <View style={styles.locationLoading}><StateView kind="loading" title="Orte in deiner Nähe werden geladen" /></View> : null}
           {mapSpots.length > 0 ? <View style={styles.railWrap}>
             <View style={styles.railHeading}>
-              <AppText role="label" tone="pink" numberOfLines={1}>IN DEINEM AUSSCHNITT</AppText>
-              <AppText role="meta" tone="secondary" numberOfLines={1}>Alle Orte in der Liste</AppText>
+              <AppText role="label" tone="pink" numberOfLines={1} style={styles.railHeadingTitle}>{mapOriginMode === "user" && userLocation ? userLocation.source === "current" ? "IN DEINER NÄHE" : "LETZTER STANDORT" : "IN DIESEM AUSSCHNITT"}</AppText>
+              <Pressable accessibilityRole="button" accessibilityLabel="Alle Orte als Liste ansehen" onPress={() => changeViewMode("list")} style={styles.railListLink}>
+                <AppText role="meta" tone="secondary">Alle Orte</AppText>
+                <Ionicons name="arrow-forward" size={14} color={theme.color.textSecondary} />
+              </Pressable>
             </View>
             <FlatList
               ref={railRef}
@@ -636,20 +720,27 @@ export default function MapScreen() {
                   void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: item.id, spotId: item.id, properties: { source: "map_rail" } });
                   router.push(`/spot/${item.id}`);
                 }}>
-                <SpotArtwork imageUrl={item.header_photo_url} spotId={item.id} spotName={item.name} showFallbackName={false} style={styles.railImage} />
-                <View style={styles.railCardCopy}>
-                  <AppText role="cardTitle" numberOfLines={1}>{item.name}</AppText>
-                  <AppText role="meta" tone="secondary" numberOfLines={1}>{item.categories?.name || item.city || "Ort"}{item.address ? ` · ${item.address}` : ""}</AppText>
-                  <AppText role="meta" tone="pink" numberOfLines={1}>{(spotMoods[item.id] ?? []).slice(0, 2).map(displayMoodLabel).join(" · ") || "Ort ansehen"}</AppText>
+                <View style={styles.railMedia}>
+                  <SpotArtwork imageUrl={item.header_photo_url} spotId={item.id} spotName={item.name} showFallbackName={false} attributionPosition="top" style={styles.railImage} />
+                  <LinearGradient pointerEvents="none" colors={["transparent", "rgba(0,0,0,0.88)"]} style={styles.railImageShade}>
+                    <HomeTypographyProvider><AppText role="displayXL" numberOfLines={2} style={styles.railCardTitle}>{item.name}</AppText></HomeTypographyProvider>
+                  </LinearGradient>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={theme.color.textSecondary} />
+                <View style={styles.railCardBody}>
+                  <View style={styles.railMetaRow}>
+                    <Text style={styles.railCategory} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
+                    {userLocation?.source === "current" ? <Text style={styles.railDistance}>{userDistanceLabel(mapDistanceMeters(userLocation.coordinates, { latitude: item.lat, longitude: item.lng }))}</Text> : null}
+                  </View>
+                  {item.address ? <Text style={styles.railAddress} numberOfLines={1}>{item.address}</Text> : null}
+                  <Text style={styles.railMoods} numberOfLines={1}>{(spotMoods[item.id] ?? []).slice(0, 2).map(displayMoodLabel).join(" · ") || "Noch keine Mood-Eindrücke"}</Text>
+                </View>
               </Pressable>}
             />
           </View> : null}
-          {!filteredSpots.length && !(selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed)) && <View pointerEvents="box-none" style={styles.emptyOverlay}>
+          {locationResolution === "settled" && !filteredSpots.length && !(selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed)) && <View pointerEvents="box-none" style={styles.emptyOverlay}>
             <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />
           </View>}
-          {filteredSpots.length > 0 && mapSpots.length === 0 && !mapNeedsSearch ? <View style={styles.areaEmpty}>
+          {locationResolution === "settled" && filteredSpots.length > 0 && mapSpots.length === 0 && !mapNeedsSearch ? <View style={styles.areaEmpty}>
             <Text style={styles.areaEmptyTitle}>Hier noch keine Orte</Text>
             <Text style={styles.areaEmptyBody}>Verschiebe die Karte oder entdecke alle Treffer in der Liste.</Text>
             <Button label="Liste ansehen" variant="tertiary" onPress={() => changeViewMode("list")} />
@@ -739,16 +830,27 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8, transform: [{ scale: theme.motion.pressScale }] },
   activeFilters: { gap: theme.spacing.xs, paddingTop: theme.spacing.sm, paddingRight: theme.spacing.xs },
   mapStage: { flex: 1 },
+  locationLoading: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: "rgba(15,15,17,0.94)", borderRadius: theme.radius.lg },
   emptyOverlay: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl },
   searchAreaButton: { position: "absolute", alignSelf: "center", top: theme.spacing.md, zIndex: 3, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: theme.color.pink, borderRadius: theme.radius.pill, minHeight: 44, paddingHorizontal: theme.spacing.md, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   searchAreaText: { color: theme.color.background, fontFamily: theme.type.bodyBold, fontSize: 14 },
   railWrap: { position: "absolute", left: 0, right: 0, bottom: theme.control.tabBar + theme.spacing.sm, zIndex: 2 },
   railHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.xs, gap: theme.spacing.xs },
+  railHeadingTitle: { flexShrink: 1 },
+  railListLink: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: theme.spacing.sm },
   railContent: { paddingHorizontal: theme.spacing.xl, gap: 10, paddingBottom: 5 },
-  railCard: { height: 92, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, padding: 8, paddingRight: theme.spacing.sm, backgroundColor: "rgba(15,15,17,0.96)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
+  railCard: { minHeight: 225, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
   railCardSelected: { borderColor: theme.color.pink },
-  railImage: { width: 76, height: 76, borderRadius: theme.radius.md },
-  railCardCopy: { flex: 1, justifyContent: "center", gap: 2 },
+  railMedia: { position: "relative", height: 132 },
+  railImage: { width: "100%", height: 132 },
+  railImageShade: { position: "absolute", left: 0, right: 0, bottom: 0, minHeight: 100, justifyContent: "flex-end", paddingHorizontal: theme.spacing.md, paddingBottom: theme.spacing.xs },
+  railCardTitle: { color: theme.color.textPrimary, fontSize: 29, lineHeight: 31, letterSpacing: -1.5 },
+  railCardBody: { minHeight: 91, paddingHorizontal: theme.spacing.md, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, gap: 3 },
+  railMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.sm },
+  railCategory: { flexShrink: 1, color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase" },
+  railDistance: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 12 },
+  railAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19 },
+  railMoods: { color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 13, lineHeight: 18 },
   areaEmpty: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: "rgba(15,15,17,0.94)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, padding: theme.spacing.md, gap: theme.spacing.xs },
   areaEmptyTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 17 },
   areaEmptyBody: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14 },
@@ -770,7 +872,7 @@ const styles = StyleSheet.create({
   listCardMood: { fontSize: 18, lineHeight: 23, letterSpacing: -0.65 },
   listCardContext: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.sm },
   recenterBtn: { position: "absolute", bottom: theme.control.tabBar + theme.spacing.md, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
-  recenterAboveRail: { bottom: theme.control.tabBar + 146 },
+  recenterAboveRail: { bottom: theme.control.tabBar + 310 },
   sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 3, backgroundColor: "rgba(247,243,233,0.3)", marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm },
   filterBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.54)" },
   filterSheet: { height: "82%", backgroundColor: theme.color.surfaceElevated, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: theme.color.border, paddingHorizontal: theme.spacing.xl },

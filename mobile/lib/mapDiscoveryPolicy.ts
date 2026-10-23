@@ -6,7 +6,18 @@ export type MapRegion = {
 };
 
 export type MappableSpot = { id: string; lat: number; lng: number };
+export type MapCoordinates = { latitude: number; longitude: number };
 export const MAP_SPOT_LIMIT = 10;
+
+export function mapDistanceMeters(a: MapCoordinates, b: MapCoordinates): number {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const latitudeDelta = radians(b.latitude - a.latitude);
+  const longitudeDelta = radians(b.longitude - a.longitude);
+  const sinLatitude = Math.sin(latitudeDelta / 2);
+  const sinLongitude = Math.sin(longitudeDelta / 2);
+  const arc = sinLatitude ** 2 + Math.cos(radians(a.latitude)) * Math.cos(radians(b.latitude)) * sinLongitude ** 2;
+  return 6_371_000 * 2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc));
+}
 
 export function hasMapRegionChanged(current: MapRegion, applied: MapRegion): boolean {
   const latThreshold = Math.max(applied.latitudeDelta * 0.12, 0.001);
@@ -17,8 +28,9 @@ export function hasMapRegionChanged(current: MapRegion, applied: MapRegion): boo
     || Math.abs(current.longitudeDelta - applied.longitudeDelta) > lngThreshold;
 }
 
-// Spread a small preview over the viewport; the list retains every matching place.
-export function selectMapDiscoverySpots<T extends MappableSpot>(spots: T[], region: MapRegion, limit = MAP_SPOT_LIMIT): T[] {
+// The preview is ordered by real distance from the user's permitted location (or
+// the map centre after a manual area search). The list retains every match.
+export function selectMapDiscoverySpots<T extends MappableSpot>(spots: T[], region: MapRegion, origin: MapCoordinates = region, limit = MAP_SPOT_LIMIT): T[] {
   if (limit <= 0 || region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return [];
   const halfLat = region.latitudeDelta / 2;
   const halfLng = region.longitudeDelta / 2;
@@ -27,28 +39,7 @@ export function selectMapDiscoverySpots<T extends MappableSpot>(spots: T[], regi
     && Math.abs(spot.lat) <= 90 && Math.abs(spot.lng) <= 180
     && Math.abs(spot.lat - region.latitude) <= halfLat
     && Math.abs(spot.lng - region.longitude) <= halfLng,
-  ).sort((a, b) => {
-    const distance = (spot: T) => ((spot.lat - region.latitude) / halfLat) ** 2
-      + ((spot.lng - region.longitude) / halfLng) ** 2;
-    return distance(a) - distance(b) || a.id.localeCompare(b.id);
-  });
-
-  const selected: T[] = [];
-  const usedCells = new Set<string>();
-  for (const spot of candidates) {
-    const column = Math.min(3, Math.floor((spot.lng - region.longitude + halfLng) / region.longitudeDelta * 4));
-    const row = Math.min(2, Math.floor((spot.lat - region.latitude + halfLat) / region.latitudeDelta * 3));
-    const cell = `${row}:${column}`;
-    if (usedCells.has(cell)) continue;
-    selected.push(spot);
-    usedCells.add(cell);
-    if (selected.length === limit) return selected;
-  }
-  const selectedIds = new Set(selected.map((spot) => spot.id));
-  for (const spot of candidates) {
-    if (selectedIds.has(spot.id)) continue;
-    selected.push(spot);
-    if (selected.length === limit) break;
-  }
-  return selected;
+  ).sort((a, b) => mapDistanceMeters(origin, { latitude: a.lat, longitude: a.lng })
+    - mapDistanceMeters(origin, { latitude: b.lat, longitude: b.lng }) || a.id.localeCompare(b.id));
+  return candidates.slice(0, limit);
 }
