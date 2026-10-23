@@ -94,7 +94,10 @@ assert.match(tabs, /const isGuest = !user/, "guest navigation must identify sign
 assert.match(tabs, /href: isGuest \? null : undefined/, "guest navigation must not advertise signed-in tabs");
 assert.match(home, /if \(!user\) \{[\s\S]*search: normalized/, "guest home search must use public catalog rather than Decision");
 assert.match(map, /spotMatchesSearch\(s, debouncedSearch, spotMoods\[s\.id\]/, "map search must include catalog context");
-assert.match(map, /viewMode === "map" && selectedSpot \? <Animated\.View/, "map preview sheet must appear only for a selected spot");
+assert.match(map, /const mapSpots = useMemo\(\(\) => selectMapDiscoverySpots\(filteredSpots, appliedRegion\)/, "map preview must use the bounded viewport selection");
+assert.match(map, /mapNeedsSearch \? <Pressable[\s\S]*?Hier suchen/, "a moved map must offer an explicit search action");
+assert.match(map, /<FlatList[\s\S]*?data=\{mapSpots\}[\s\S]*?onMomentumScrollEnd/, "map preview cards must select their matching marker when swiped");
+assert.doesNotMatch(map, /ClusteredMapView|clusterPolicyFor/, "map must not render numeric clusters");
 assert.doesNotMatch(map, /Tippe auf einen Marker/, "map must not retain the empty marker instruction");
 assert.match(profileScreen, /<Modal animationType="slide" presentationStyle="fullScreen" visible=\{showEdit\}/, "profile editor must cover the tab bar");
 assert.match(profileScreen, /visible=\{showEdit\}[\s\S]*?<SafeAreaProvider>\s*<SafeAreaView/, "profile modal must measure its own iPhone safe area");
