@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "ec5db8e20b3ffe7b3e105b5371f2bdb46eeb108b",
+      "sourceSha": "e59a66d0dc4cb8e3ca096e498184826f61a21196",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "a317b58a-3138-43b0-b90e-7d6bf528aebb",
-      "iosUpdateId": "01a16554-c3ba-7fe0-b738-1545f3af744c",
+      "otaGroupId": "70c01d57-3d92-4b20-821a-cc3e258fd83d",
+      "iosUpdateId": "01a1683e-8bf3-7ea8-9c98-4a3ec91e7717",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Places card title overlap refined in PR #612: only the upper part of the large spot name crosses the image edge, with the remaining text on the dark card body. Volta Bräu and the long Naturhistorisches Museum Basel title were visually checked in the local iOS live preview. Exact Main IOS_OTA certification run 39849376482 passed. Certified artifact manifest hash f0d9bb0520ac56b5d3543f7df22fcbbdfe09f9663563cbd1542559c5f61eb576 verified locally; EAS production points to this iOS update and the public manifest launch hash matched the certified 5,151,653-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Physical-device installation and full VoiceOver review remain unverified."
+      "note": "Places map in PR #614 replaces numeric clusters with up to ten spatially distributed pins, a swipeable spot preview rail, and explicit Hier suchen refresh after panning; the list retains all matching spots. Exact Main IOS_OTA certification run 39936484309 passed. Certified artifact manifest hash 879283dfe4d53ff425630edd0d6425dc159d717da8edd8d5851a53a5dc12892a verified locally; EAS production points to this iOS update and the public manifest launch hash matched the certified 5,109,969-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Simulator visual review was blocked by the locked Mac; physical-device installation and full VoiceOver review remain unverified."
     }
   },
   "reviewMediaIncident": {
