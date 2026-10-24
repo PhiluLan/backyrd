@@ -9,6 +9,7 @@ import { matchesAutomatedReviewJob, reviewCanFinish, type ReviewableJob } from "
 import { parseNuknukDraft } from "@/lib/nuknukResearchDraft";
 import { prepareNuknukDraftImport, supplementResearchValue } from "@/lib/nuknukDraftImport";
 
+import { ResearchSaveError } from "@/lib/researchSaveFeedback";
 import { researchFieldEdit, type ResearchFieldEdit } from "@/lib/server/researchFieldEdit";
 
 const noStore = { "cache-control": "no-store" };
@@ -207,6 +208,6 @@ export async function POST(request: Request) {
       }, perSpot,
     }, { headers: noStore });
   } catch (cause) {
-    return Response.json({ error: message(cause) }, { status: 400, headers: noStore });
+    return Response.json({ error: message(cause), ...(cause instanceof ResearchSaveError ? {saveState:cause.saveState} : {}) }, { status: 400, headers: noStore });
   }
 }

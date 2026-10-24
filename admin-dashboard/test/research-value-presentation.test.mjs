@@ -17,6 +17,8 @@ async function compile(name){
  let output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  output=output.replace('"@backyrd/world-knowledge-core/browser"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/browser-runtime.js',import.meta.url).href))
   .replace('"@/lib/nuknukDraftImport"',JSON.stringify(pathToFileURL(join(dir,'supplement.mjs')).href))
+  .replace('"@/lib/researchSaveFeedback"',JSON.stringify(pathToFileURL(join(dir,'feedback.mjs')).href))
+  .replace('"./ResearchActionFeedback"',JSON.stringify(pathToFileURL(join(dir,'ResearchActionFeedback.mjs')).href))
   .replace('"./ResearchFieldEditor"',JSON.stringify(pathToFileURL(join(dir,'ResearchFieldEditor.mjs')).href))
   .replace('"@backyrd/world-knowledge-authoring-ui"','"'+pathToFileURL(join(dir,'field-input.mjs')).href+'"')
   .replace('"./ResearchValue"',JSON.stringify(pathToFileURL(join(dir,'ResearchValue.mjs')).href));
@@ -25,6 +27,9 @@ async function compile(name){
 }
 await writeFile(join(dir,'supplement.mjs'),'export const supplementResearchValue=()=>undefined;');
 await writeFile(join(dir,'field-input.mjs'),'export const FieldInput=()=>null;');
+const feedbackSource=await readFile(new URL('../lib/researchSaveFeedback.ts',import.meta.url),'utf8');
+await writeFile(join(dir,'feedback.mjs'),ts.transpileModule(feedbackSource,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText);
+const {ResearchActionFeedback}=await compile('ResearchActionFeedback');
 const {ResearchValue}=await compile('ResearchValue');
 const {researchFieldHasPendingEdits}=await compile('ResearchFieldEditor');
 const {NuknukDraftPreview}=await compile('NuknukDraftPreview');
@@ -76,4 +81,14 @@ test('the structured experience editor retains its own dirty tracking',()=>{
  const staged={knowledgeState:'KNOWN_VALUE',value:profile,visibleFingerprint:''};
  assert.equal(researchFieldHasPendingEdits('EXPERIENCE_PROFILE','experience.profile',staged,{value:profile,validUntil:''},false),false);
  assert.equal(researchFieldHasPendingEdits('EXPERIENCE_PROFILE','experience.profile',staged,{value:profile,validUntil:''},true),true);
+});
+
+
+test('save feedback exposes distinct accessible success, warning and error states',()=>{
+ for(const kind of ['success','warning','error','pending']){
+  const html=renderToStaticMarkup(createElement(ResearchActionFeedback,{feedback:{kind,title:'Visible title',message:'Visible explanation'}}));
+  assert.ok(html.includes(`role="${['warning','error'].includes(kind)?'alert':'status'}"`));
+  assert.ok(html.includes('aria-atomic="true"'));assert.ok(html.includes('tabindex="-1"'));
+  assert.ok(html.includes('Visible title'));assert.ok(html.includes('Visible explanation'));
+ }
 });

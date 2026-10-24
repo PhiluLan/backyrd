@@ -1,3 +1,5 @@
+import { ResearchSaveError } from "./researchSaveFeedback";
+
 type Session = { access_token: string; refresh_token?: string; expires_at?: number; user?: { id: string } };
 type AuthResult = { data: { session: Session | null }; error: { message: string } | null };
 
@@ -73,11 +75,12 @@ export async function authorizedWorldResearchBatchPost(input: { auth: WorldKnowl
     return fetcher("/api/world-knowledge/research-batch", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(input.body) });
   };
   let response = await send(false);
-  let result = await response.json().catch(() => ({ error: "invalid_server_response" })) as { error?: string };
+  let result = await response.json().catch(() => ({ error: "invalid_server_response" })) as { error?: string; saveState?:unknown };
   if (response.status === 401 && ["invalid_session", "authentication_required"].includes(result.error ?? "")) {
     response = await send(true);
-    result = await response.json().catch(() => ({ error: "invalid_server_response" })) as { error?: string };
+    result = await response.json().catch(() => ({ error: "invalid_server_response" })) as { error?: string; saveState?:unknown };
   }
+  if (!response.ok && result.saveState === "SAVED_UNVERIFIED") throw new ResearchSaveError(result.error ?? "Die Angabe ist gespeichert; die Ansicht ist noch nicht bestätigt.","SAVED_UNVERIFIED");
   if (!response.ok) throw new Error(result.error ?? "world_research_action_failed");
   return result;
 }
