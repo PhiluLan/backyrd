@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { BookingSetup, BookingSnapshot } from "../lib/booking-api";
+import type { BookingCombination, BookingSlot, BookingSpecialHours, BookingSetup, BookingSnapshot, BookingRole, BookingTeamRole } from "../lib/booking-api";
 
 const spot = "51000000-0000-4000-8000-000000000001";
 const owner = "51000000-0000-4000-8000-000000000099";
@@ -9,6 +9,9 @@ const area2 = "51000000-0000-4000-8000-000000000031";
 const table1 = "51000000-0000-4000-8000-000000000040";
 const table2 = "51000000-0000-4000-8000-000000000041";
 const dinner = "51000000-0000-4000-8000-000000000050";
+const groupAB = "53000000-0000-4000-8000-000000000010";
+const groupBC = "53000000-0000-4000-8000-000000000011";
+const table3 = "53000000-0000-4000-8000-000000000042";
 const lunch = "51000000-0000-4000-8000-000000000051";
 
 test.beforeEach(async ({ page }) => {
@@ -432,27 +435,41 @@ function seededSnapshot(): BookingSnapshot {
   };
 }
 
-async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean } = {}) {
+async function mockConsole(page: Page, options: { missingBackend?: boolean; noSpots?: boolean; conflict?: boolean; seeded?: boolean; slowFirstSlots?: boolean; uncertainCreate?: boolean; slotConflict?: boolean; lifecycle?: boolean; statusConflict?: boolean; uncertainStatus?: boolean; amendments?: boolean; amendSlotConflict?: boolean; amendRevisionConflict?: boolean; uncertainAmend?: boolean; slowAmendSlots?: boolean; unclosed?: boolean; walkIns?: boolean; walkInConflict?: boolean; uncertainWalkIn?: boolean; walkInClosed?: boolean; slowWalkInSlots?: boolean; deferWalkInWrite?: boolean; layouts?: boolean; layoutConflict?: boolean; uncertainLayout?: boolean; longSession?: boolean; sharedContext?: boolean; planning?: boolean; closureConflict?: boolean; uncertainClosure?: boolean; malformedWeek?: boolean; slowFirstWeek?: boolean; foldSlots?: boolean; deferClosureResponse?: boolean; teams?: boolean; teamRole?: BookingRole; requireJoin?: boolean; uncertainTeamInvite?: boolean; uncertainInviteAccept?: boolean; memberConflict?: boolean; teamSpotsDenied?: boolean; incompleteTeamBackend?: boolean; history?: boolean; hours?: boolean; uncertainHours?: boolean; hoursConflict?: boolean; hoursAffected?: number; deferHours?: boolean; combinations?: boolean; combinedSeed?: boolean; emptyCombinations?: boolean; uncertainCombination?: boolean; combinationConfigConflict?: boolean; malformedCombinedCreate?: boolean; transfers?: boolean; uncertainTransfer?: boolean; malformedTransfer?: boolean; transferConflict?: boolean; staleTransferPreview?: boolean; transferNoChoices?: boolean; staleTransferWrite?: boolean } = {}) {
   const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
   const expires = Math.floor(Date.now() / 1000) + (options.longSession ? 7 * 86400 : 3600);
-  const user = { id: owner, email: "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
-  const session = { access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: owner, role: "authenticated", exp: expires })}.local-signature`, refresh_token: "booking-test", token_type: "bearer", expires_in: 3600, expires_at: expires, user };
+  const actor = options.requireJoin || (options.teamRole && options.teamRole !== "owner") ? "51000000-0000-4000-8000-000000000111" : owner;
+  const user = { id: actor, email: options.requireJoin ? "service@booking.invalid" : "operator@booking.invalid", aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-01-01T00:00:00Z" };
+  const session = { access_token: `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: actor, role: "authenticated", exp: expires })}.local-signature`, refresh_token: "booking-test", token_type: "bearer", expires_in: 3600, expires_at: expires, user };
   await page.context().addCookies([{ name: "sb-127-auth-token", value: `base64-${encode(session)}`, domain: "127.0.0.1", path: "/" }]);
   const routing = options.sharedContext ? page.context() : page;
   await routing.route("**/auth/v1/user", (route) => route.fulfill({ json: user }));
   await routing.route("**/rest/v1/profiles?*", (route) => route.fulfill({ json: { display_name: "Test Operator", first_name: "Test", avatar_url: null } }));
   let snapshot: BookingSnapshot = options.seeded ? seededSnapshot() : { settings: null, areas: [], tables: [], services: [], reservations: [] };
   if (options.layouts) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!options.lifecycle, table_layouts: true }; snapshot.tables = snapshot.tables.map((table) => ({ ...table, layout: null })); }
+  if (options.planning) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, week_planning: true }; snapshot.closures = []; }
+  if (options.hours) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, special_hours: true }; snapshot.special_hours = []; snapshot.services = snapshot.services.map((row) => ({ ...row, ends_next_day: false })); }
+  if (options.foldSlots && snapshot.settings) snapshot.settings.duration_minutes = 60;
+  let currentTeamRole: BookingRole = options.teamRole ?? (options.requireJoin ? "host" : "owner");
+  let teamRevoked = false, joined = !options.requireJoin, legacyOwnerCalls = 0;
+  const access = () => ({ role: currentTeamRole, can_write: currentTeamRole !== "viewer", can_manage: ["owner", "manager"].includes(currentTeamRole), can_manage_team: currentTeamRole === "owner" });
+  if (options.teams) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, team_access: true };
+  const teamMembers = [{ user_id: "51000000-0000-4000-8000-000000000111", email: "service@booking.invalid", role: "host" as BookingTeamRole, revision: 0, revoked_at: null as string | null }];
+  const teamInvitations: { id: string; email: string; role: BookingTeamRole; expires_at: string; accepted_at: string | null; revoked_at: string | null }[] = [];
+  const teamInviteRequests: Record<string, unknown>[] = [], memberRequests: Record<string, unknown>[] = [], invitationRequests: Record<string, unknown>[] = [], accessRequests: Record<string, unknown>[] = [];
+  const inviteBodies = new Map<string, string>();
   let savedSetup: BookingSetup | null = null;
-  if (options.lifecycle) snapshot.capabilities = { service_lifecycle: true };
-  if (options.amendments) { snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
+  if (options.history) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: !!snapshot.capabilities?.service_lifecycle, reservation_history: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 1 })); }
+  if (options.lifecycle) snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true };
+  if (options.amendments) { snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true }; snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0 })); }
   if (options.walkIns) {
-    snapshot.capabilities = { service_lifecycle: true, reservation_amendments: true, current_seating: true, walk_ins: true };
+    snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true, current_seating: true, walk_ins: true };
     snapshot.operating_date = "2026-10-20";
     snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, revision: 0, is_walk_in: false }));
     snapshot.services = snapshot.services.map((service) => service.id === lunch ? { ...service, closes_at: "17:00" } : service);
     if (options.slowWalkInSlots) snapshot.tables = snapshot.tables.map((table) => table.id === table1 ? { ...table, seats: 2 } : table);
   }
+  if (options.incompleteTeamBackend && snapshot.capabilities) snapshot.capabilities.team_access = false;
   if (options.unclosed) {
     snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, current_seating: true };
     snapshot.operating_date = "2026-10-20";
@@ -464,7 +481,48 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   let holdRead = false;
   let releaseRead = () => {};
   let readGate = Promise.resolve();
+  let releaseClosureResponse = () => {};
+  const closureResponseGate = new Promise<void>((resolve) => { releaseClosureResponse = resolve; });
+  const closureRequests: Record<string, unknown>[] = [];
+  const weekRequests: Record<string, unknown>[] = [];
+  const weekReplies: string[] = [];
+  // The synthetic calendar fixtures use October 2026; DST SQL acceptance uses real timezone rules.
+  const fixtureInstant = (date: string, time: string) => {
+    const actualDate = time === "24:00" ? new Date(Date.parse(date + "T12:00:00Z") + 86400_000).toISOString().slice(0, 10) : date;
+    return new Date(Date.parse(actualDate + "T" + (time === "24:00" ? "00:00" : time) + ":00Z") - (actualDate <= "2026-10-25" ? 120 : 60) * 60_000).toISOString();
+  };
   let statusCalls = 0;
+  const hoursRequests: Record<string, unknown>[] = [];
+  const hoursBodies = new Map<string, string>();
+  let releaseHours = () => {};
+  const hoursGate = new Promise<void>((resolve) => { releaseHours = resolve; });
+  const combinationConfigRequests: Record<string, unknown>[] = [];
+  const combinedWrites: Record<string, unknown>[] = [];
+  const combinedOps = new Map<string, { body: string; result: unknown }>();
+  if (options.combinations || options.transfers) {
+    snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, reservation_amendments: true, current_seating: true, walk_ins: true, table_combinations: true };
+    snapshot.operating_date = "2026-10-20";
+    snapshot.tables = [...snapshot.tables.map((t) => ({ ...t, seats: 4, area_id: area1 })), { id: table3, label: "Fenster 3", area_id: area1, seats: 4, is_active: true }];
+    snapshot.combinations = options.emptyCombinations ? [] : [
+      { id: groupAB, name: "Familientisch", primary_table_id: table1, table_ids: [table1, table2], max_party_size: 8, is_active: true, is_available: true },
+      { id: groupBC, name: "Gruppentisch", primary_table_id: table2, table_ids: [table2, table3], max_party_size: 8, is_active: true, is_available: true },
+    ];
+    snapshot.archived_combination_count = 0;
+    snapshot.reservations = (options.combinedSeed || options.transfers) ? [{ ...snapshot.reservations[0], table_ids: [table1, table2], combination_id: groupAB, party_size: 6, revision: 0, is_walk_in: false }] : [];
+  }
+  const combinedChoices = (party: number, service: string, start: string, duration: number, amend = false): BookingSlot[] => {
+    const end = new Date(Date.parse(start) + duration * 60_000).toISOString();
+    const singles: BookingSlot[] = party <= 4 ? snapshot.tables.map((t) => ({ table_id: t.id, table_ids: [t.id], combination_id: null, service_id: service, starts_at: start, ends_at: end, allocation_label: t.label })) : [];
+    const groups = (snapshot.combinations ?? []).filter((g) => g.is_active && g.max_party_size >= party && (!amend || g.id === groupBC)).map((g) => ({ table_id: g.primary_table_id, table_ids: g.table_ids, combination_id: g.id, service_id: service, starts_at: start, ends_at: end, allocation_label: g.name + " · " + g.table_ids.map((id) => snapshot.tables.find((t) => t.id === id)?.label).join(" + ") }));
+    return [...singles, ...groups];
+  };
+  if (options.transfers) {
+    snapshot.capabilities = { ...snapshot.capabilities, service_lifecycle: true, seated_transfers: true };
+    snapshot.reservations = snapshot.reservations.map((r) => ({ ...r, status: "seated", starts_at: "2026-10-20T12:00:00+02:00", ends_at: "2026-10-20T13:00:00+02:00", seated_at: "2026-10-20T10:00:00Z", arrived_at: "2026-10-20T10:00:00Z", allocation_starts_at: null, allocation_ends_at: null }));
+  }
+  let transferPreviews = 0;
+  const transferWrites: Record<string, unknown>[] = [];
+  const transferOps = new Map<string, { body: string; result: unknown }>();
   const statusRequests: object[] = [];
   const amendRequests: Record<string, unknown>[] = [];
   const amendParties: number[] = [];
@@ -483,16 +541,160 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
   await routing.route("**/rest/v1/rpc/*", async (route) => {
     const method = route.request().url().split("/").pop();
     const body = route.request().postDataJSON();
-    if (method === "get_owner_spots_v1") return route.fulfill({ json: options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", address: null, category_name: "Restaurant", status: "approved", website: null }] });
+    if (method === "get_owner_spots_v1") { legacyOwnerCalls++; return route.fulfill({ json: options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", address: null, category_name: "Restaurant", status: "approved", website: null }] }); }
+    if (method === "booking_console_spots_v1") {
+      if (!options.teams) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
+      if (options.teamSpotsDenied) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      return route.fulfill({ json: !joined || teamRevoked || options.noSpots ? [] : [{ spot_id: spot, name: "Restaurant Testbetrieb", city: "Basel", access_role: currentTeamRole }] });
+    }
+    if (method === "booking_console_access_v1") {
+      accessRequests.push(body);
+      if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      return route.fulfill({ json: access() });
+    }
+    if (method === "booking_console_team_v1") return currentTeamRole === "owner" ? route.fulfill({ json: { members: teamMembers, invitations: teamInvitations } }) : route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+    if (method === "booking_console_invite_v1") {
+      teamInviteRequests.push(body);
+      const previous = inviteBodies.get(body.p_request_id);
+      if (previous && previous !== JSON.stringify(body)) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_request_reused" } });
+      if (!previous) { inviteBodies.set(body.p_request_id, JSON.stringify(body)); teamInvitations.push({ id: body.p_request_id, email: body.p_email, role: body.p_role, expires_at: "2026-10-27T12:00:00Z", accepted_at: null, revoked_at: null }); }
+      if (options.uncertainTeamInvite && teamInviteRequests.length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
+      return route.fulfill({ json: { id: body.p_request_id, expires_at: "2026-10-27T12:00:00Z" } });
+    }
+    if (method === "booking_console_member_v1") {
+      memberRequests.push(body); const member = teamMembers.find((row) => row.user_id === body.p_user_id)!;
+      if (options.memberConflict) { member.role = "manager"; member.revision++; return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } }); }
+      if (body.p_role === null) member.revoked_at = "2026-10-20T12:00:00Z"; else member.role = body.p_role;
+      member.revision++; return route.fulfill({ json: member.revision });
+    }
+    if (method === "booking_console_revoke_invite_v1") { const invitation = teamInvitations.find((row) => row.id === body.p_id); if (invitation) invitation.revoked_at = "2026-10-20T12:00:00Z"; return route.fulfill({ status: 204 }); }
+    if (method === "booking_console_invitation_v1") {
+      invitationRequests.push(body);
+      if (body.p_token !== "e".repeat(64)) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_invitation_unavailable" } });
+      if (body.p_accept) joined = true;
+      if (options.uncertainInviteAccept && body.p_accept && invitationRequests.filter((row) => row.p_accept).length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
+      return route.fulfill({ json: { spot_id: spot, spot_name: "Restaurant Testbetrieb", role: "host", expires_at: "2026-10-27T12:00:00Z", accepted: joined } });
+    }
     if (options.missingBackend) return route.fulfill({ status: 404, json: { code: "PGRST202", message: "function not found" } });
     if (method === "booking_console_read_v1") {
       readCalls++;
-      const data = { ...snapshot, reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] };
+      if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const data = { ...snapshot, special_hours: (snapshot.special_hours ?? []).filter((h) => h.book_date <= body.p_date && h.book_date >= new Date(Date.parse(body.p_date + "T12:00:00Z") - 86400_000).toISOString().slice(0, 10)), ...(options.teams ? { access: access() } : {}), closures: (snapshot.closures ?? []).filter((row) => row.book_date === body.p_date), reservations: snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === body.p_date), unclosed_visits: options.unclosed && body.p_date === snapshot.operating_date ? snapshot.reservations.filter((row) => row.status === "seated" && row.starts_at.slice(0, 10) < body.p_date) : [] };
       if (holdRead) await readGate;
       if (readError === "safety") return route.fulfill({ status: 400, json: { code: "P0001", message: "SAFETY_OWNER_EDIT_RESTRICTED" } });
       if (readError === "denied") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
       if (readError === "network") return route.fulfill({ status: 503, json: { message: "temporarily unavailable" } });
       return route.fulfill({ json: data });
+    }
+    if (method === "booking_console_week_v1") {
+      weekRequests.push(body);
+      if (options.slowFirstWeek && weekRequests.length === 1) await new Promise((resolve) => setTimeout(resolve, 800));
+      if (readError === "safety") return route.fulfill({ status: 400, json: { code: "P0001", message: "SAFETY_OWNER_EDIT_RESTRICTED" } });
+      if (readError === "denied") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      if (readError === "network") return route.fulfill({ status: 503, json: { message: "temporarily unavailable" } });
+      const days = Array.from({ length: options.malformedWeek && weekRequests.length === 1 ? 6 : 7 }, (_, index) => {
+        const date = new Date(Date.parse(body.p_start_date + "T12:00:00Z") + index * 86400_000).toISOString().slice(0, 10);
+        const rows = snapshot.reservations.filter((row) => row.starts_at.slice(0, 10) === date && (!body.p_service_id || row.service_id === body.p_service_id) && (!body.p_area_id || snapshot.tables.some((table) => table.id === row.table_id && table.area_id === body.p_area_id)));
+        const active = rows.filter((row) => ["pending", "confirmed", "arrived", "seated"].includes(row.status));
+        const closures = (snapshot.closures ?? []).filter((closure) => closure.book_date === date && (!body.p_service_id || !closure.service_id || closure.service_id === body.p_service_id) && (!body.p_area_id || !closure.area_id || closure.area_id === body.p_area_id));
+        return { date, active_reservations: active.length, active_guests: active.reduce((sum, row) => sum + row.party_size, 0), pending: rows.filter((row) => row.status === "pending").length, completed: rows.filter((row) => row.status === "completed").length, cancelled: rows.filter((row) => ["cancelled", "declined"].includes(row.status)).length, no_show: rows.filter((row) => row.status === "no_show").length, special_hours: (snapshot.special_hours ?? []).filter((h) => h.book_date === date && (!body.p_service_id || h.service_id === body.p_service_id)), closed: closures.some((closure) => !closure.start_time && !closure.area_id && !closure.service_id), closures };
+      });
+      weekReplies.push(body.p_area_id ?? "all");
+      return route.fulfill({ json: { start_date: body.p_start_date, revision: snapshot.settings!.revision, observed_at: "2026-10-20T12:00:00Z", days } });
+    }
+    if (method === "booking_console_save_closure_v1") {
+      closureRequests.push(body);
+      const existing = snapshot.closures?.find((closure) => closure.id === body.p_id);
+      if (options.closureConflict) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
+      const start = fixtureInstant(body.p_date, body.p_start_time || "00:00");
+      const next = new Date(Date.parse(body.p_date + "T12:00:00Z") + 86400_000).toISOString().slice(0, 10);
+      const end = fixtureInstant(body.p_start_time ? body.p_date : next, body.p_end_time || "00:00");
+      const affected = snapshot.reservations.filter((row) => ["pending", "confirmed", "arrived", "seated"].includes(row.status) && (!body.p_service_id || row.service_id === body.p_service_id) && (!body.p_area_id || snapshot.tables.some((table) => table.id === row.table_id && table.area_id === body.p_area_id)) && Date.parse(row.starts_at) < Date.parse(end) && Date.parse(row.ends_at) > Date.parse(start)).length;
+      const closure = { id: body.p_id, book_date: body.p_date, start_time: body.p_start_time, end_time: body.p_end_time, service_id: body.p_service_id, area_id: body.p_area_id, note: body.p_note || null, starts_at: start, ends_at: end, affected_reservations: affected };
+      const same = existing && JSON.stringify(existing) === JSON.stringify(closure);
+      if (body.p_remove && !existing) return route.fulfill({ json: { revision: snapshot.settings!.revision, existing_reservations: 0 } });
+      if (!same && snapshot.settings!.revision !== body.p_revision) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
+      if (!body.p_remove && !same && affected > 0 && !body.p_keep_existing) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_closure_has_reservations", details: String(affected) } });
+      if (!same || body.p_remove) {
+        snapshot.closures = (snapshot.closures ?? []).filter((closure) => closure.id !== body.p_id);
+        if (!body.p_remove) snapshot.closures.push(closure);
+        snapshot.settings!.revision++;
+      }
+      if (options.deferClosureResponse && closureRequests.length === 1) await closureResponseGate;
+      if (options.uncertainClosure && closureRequests.length === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
+      return route.fulfill({ json: { revision: snapshot.settings!.revision, existing_reservations: affected } });
+    }
+    if (method === "booking_console_save_hours_v1") {
+      hoursRequests.push(body);
+      if (teamRevoked) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const same = hoursBodies.get(body.p_id) === JSON.stringify(body);
+      if (same) return route.fulfill({ json: { revision: snapshot.settings!.revision, existing_reservations: 0 } });
+      if (options.hoursConflict || body.p_revision !== snapshot.settings!.revision) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
+      if (options.hoursAffected && !body.p_keep_existing) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_hours_has_reservations", details: String(options.hoursAffected) } });
+      const endDate = body.p_next_day ? new Date(Date.parse(body.p_date + "T12:00:00Z") + 86400_000).toISOString().slice(0, 10) : body.p_date;
+      const h: BookingSpecialHours = { id: body.p_id, service_id: body.p_service_id, book_date: body.p_date, opens_at: body.p_opens_at, closes_at: body.p_closes_at, next_day: body.p_next_day, is_closed: body.p_closed, interval_minutes: body.p_interval, starts_at: body.p_closed ? null : fixtureInstant(body.p_date, body.p_opens_at), ends_at: body.p_closed ? null : fixtureInstant(endDate, body.p_closes_at), note: body.p_note || null };
+      snapshot.special_hours = (snapshot.special_hours ?? []).filter((row) => row.id !== body.p_id);
+      if (!body.p_archive) snapshot.special_hours.push(h);
+      snapshot.settings!.revision++; hoursBodies.set(body.p_id, JSON.stringify(body));
+      if (options.deferHours && hoursRequests.length === 1) await hoursGate;
+      if (options.uncertainHours && hoursRequests.length === 1) return route.fulfill({ status: 503, json: { message: "saved_response_lost" } });
+      return route.fulfill({ json: { revision: snapshot.settings!.revision, existing_reservations: options.hoursAffected ?? 0 } });
+    }
+    if (method === "booking_console_transfer_choices_v1") {
+      if (teamRevoked || currentTeamRole === "viewer") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const r = snapshot.reservations.find((r) => r.id === body.p_reservation_id)!;
+      transferPreviews++;
+      if (options.staleTransferPreview && transferPreviews === 1) r.revision = (r.revision ?? 0) + 1;
+      return route.fulfill({ json: { reservation_id: r.id, revision: r.revision ?? 0, observed_at: "2026-10-20T12:00:00Z", ends_at: new Date(Date.parse("2026-10-20T12:00:00Z") + body.p_duration_minutes * 60_000).toISOString(), choices: options.transferNoChoices ? [] : [{ table_id: table2, table_ids: [table2, table3], combination_id: groupBC, allocation_label: "Gruppentisch · Terrasse 2 + Fenster 3", area_id: area1, seats: 8 }] } });
+    }
+    if (method === "booking_console_transfer_v1") {
+      transferWrites.push(body);
+      if (teamRevoked || currentTeamRole === "viewer") return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const previous = transferOps.get(body.p_request_id);
+      if (previous) return previous.body === JSON.stringify(body) ? route.fulfill({ json: previous.result }) : route.fulfill({ status: 400, json: { code: "22023", message: "booking_request_reused" } });
+      const r = snapshot.reservations.find((r) => r.id === body.p_reservation_id)!;
+      if (options.staleTransferWrite && transferWrites.length === 1) r.revision = (r.revision ?? 0) + 1;
+      if (options.transferConflict) return route.fulfill({ status: 409, json: { code: "22023", message: "booking_slot_unavailable" } });
+      if (r.revision !== body.p_expected_revision) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } });
+      const result = { id: r.id, revision: body.p_expected_revision + 1, table_id: body.p_table_id, table_ids: body.p_table_ids, combination_id: body.p_combination_id, allocation_starts_at: "2026-10-20T12:02:00Z", allocation_ends_at: new Date(Date.parse("2026-10-20T12:02:00Z") + body.p_duration_minutes * 60_000).toISOString() };
+      Object.assign(r, result);
+      transferOps.set(body.p_request_id, { body: JSON.stringify(body), result });
+      if (options.uncertainTransfer && transferWrites.length === 1) return route.fulfill({ status: 503, json: { message: "saved_response_lost" } });
+      if (options.malformedTransfer && transferWrites.length === 1) return route.fulfill({ json: { ...result, revision: 0 } });
+      return route.fulfill({ json: result });
+    }
+    if (method === "booking_console_save_combination_v1") {
+      combinationConfigRequests.push(body);
+      if (teamRevoked || !["owner", "manager"].includes(currentTeamRole)) return route.fulfill({ status: 403, json: { code: "42501", message: "booking_operator_required" } });
+      const g: BookingCombination = { id: body.p_id, name: body.p_name, primary_table_id: body.p_primary_table_id, table_ids: body.p_table_ids, max_party_size: body.p_max_party_size, is_active: body.p_active, is_available: body.p_active };
+      const old = snapshot.combinations?.find((row) => row.id === body.p_id);
+      const same = old && JSON.stringify(old) === JSON.stringify(g);
+      if (options.combinationConfigConflict || (!same && body.p_revision !== snapshot.settings!.revision)) return route.fulfill({ status: 409, json: { code: "40001", message: "booking_setup_changed_reload" } });
+      if (!same) { snapshot.combinations = [...(snapshot.combinations ?? []).filter((row) => row.id !== body.p_id), g]; snapshot.settings!.revision++; snapshot.archived_combination_count = snapshot.combinations.filter((row) => !row.is_active).length; }
+      if (options.uncertainCombination && combinationConfigRequests.length === 1) return route.fulfill({ status: 503, json: { message: "saved_response_lost" } });
+      return route.fulfill({ json: snapshot.settings!.revision });
+    }
+    if (method === "booking_console_slots_v2") return route.fulfill({ json: combinedChoices(body.p_party_size, body.p_service_id || dinner, body.p_date + "T" + (body.p_time || (body.p_reservation_id ? "19:00" : "18:00")) + ":00+02:00", body.p_duration_minutes || snapshot.settings!.duration_minutes, !!body.p_reservation_id) });
+    if (method === "booking_console_walk_in_slots_v2") {
+      const observed = "2026-10-20T12:00:00Z";
+      const slots = combinedChoices(body.p_party_size, lunch, observed, body.p_duration_minutes).map((slot) => ({ ...slot, table_label: slot.allocation_label, seats: slot.combination_id ? snapshot.combinations!.find((g) => g.id === slot.combination_id)!.max_party_size : 4, area_id: area1, area_name: "Gastraum", service_name: "Mittag" }));
+      return route.fulfill({ json: { observed_at: observed, services: [{ id: lunch, name: "Mittag" }], slots } });
+    }
+    if (["booking_console_create_v2", "booking_console_amend_v2", "booking_console_walk_in_v2"].includes(method!)) {
+      combinedWrites.push(body);
+      const saved = combinedOps.get(body.p_request_id);
+      if (saved) return saved.body === JSON.stringify(body) ? route.fulfill({ json: saved.result }) : route.fulfill({ status: 400, json: { code: "22023", message: "booking_request_reused" } });
+      if (options.amendRevisionConflict && method === "booking_console_amend_v2") return route.fulfill({ status: 409, json: { code: "40001", message: "booking_changed_reload" } });
+      if (options.slotConflict) return route.fulfill({ status: 409, json: { code: "22023", message: "booking_slot_unavailable" } });
+      const instant = method === "booking_console_walk_in_v2" ? "2026-10-20T12:02:00Z" : body.p_starts_at;
+      const outcome = { id: body.p_reservation_id || (method === "booking_console_walk_in_v2" ? "53000000-0000-4000-8000-000000000060" : reservationId), service_id: body.p_service_id, table_id: body.p_table_id, table_ids: body.p_table_ids, combination_id: body.p_combination_id, starts_at: instant, ends_at: new Date(Date.parse(instant) + body.p_duration_minutes * 60_000).toISOString() };
+      if (method === "booking_console_amend_v2") snapshot.reservations = snapshot.reservations.map((r) => r.id === body.p_reservation_id ? { ...r, ...outcome, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, revision: (r.revision ?? 0) + 1 } : r);
+      else snapshot.reservations.push({ ...outcome, guest_name: body.p_guest_name?.trim() || "Walk-in", guest_contact: body.p_guest_contact || null, note: body.p_note || null, party_size: body.p_party_size, source: method === "booking_console_walk_in_v2" ? "walk_in" : body.p_source, status: method === "booking_console_walk_in_v2" ? "seated" : body.p_status, revision: 0, is_walk_in: method === "booking_console_walk_in_v2" });
+      const result: unknown = method === "booking_console_amend_v2" ? body.p_reservation_id : outcome;
+      combinedOps.set(body.p_request_id, { body: JSON.stringify(body), result });
+      if ((options.uncertainCreate || options.uncertainAmend || options.uncertainWalkIn) && combinedWrites.length === 1) return route.fulfill({ status: 503, json: { message: "saved_response_lost" } });
+      if (options.malformedCombinedCreate && combinedWrites.length === 1) return route.fulfill({ json: { ...outcome, table_ids: [body.p_table_id] } });
+      return route.fulfill({ json: result });
     }
     if (method === "booking_console_save_layout_v1") {
       layoutRequests.push(body);
@@ -511,6 +713,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     if (method === "booking_console_slots_v1") {
       slotParties.push(body.p_party_size);
+      if (options.foldSlots) return route.fulfill({ json: ["+02:00", "+01:00"].map((offset) => ({ service_id: dinner, table_id: table1, starts_at: body.p_date + "T02:00:00" + offset, ends_at: new Date(Date.parse(body.p_date + "T02:00:00" + offset) + 60 * 60_000).toISOString() })) });
       if (options.slowFirstSlots && slotParties.length === 1) {
         await new Promise((resolve) => setTimeout(resolve, 800));
         slotReplies.push(body.p_party_size);
@@ -523,7 +726,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
       bookingCalls++;
       requestIds.push(body.p_request_id);
       if (options.slotConflict && bookingCalls === 1) return route.fulfill({ status: 409, json: { code: "22023", message: "booking_slot_unavailable" } });
-      snapshot.reservations = [{ id: reservationId, table_id: body.p_table_id, service_id: body.p_service_id, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, starts_at: body.p_starts_at, ends_at: new Date(Date.parse(body.p_starts_at) + 120 * 60 * 1000).toISOString(), status: body.p_status, source: body.p_source, revision: 0, is_walk_in: false }];
+      snapshot.reservations = [{ id: reservationId, table_id: body.p_table_id, service_id: body.p_service_id, guest_name: body.p_guest_name, guest_contact: body.p_guest_contact, note: body.p_note, party_size: body.p_party_size, starts_at: body.p_starts_at, ends_at: new Date(Date.parse(body.p_starts_at) + (options.foldSlots ? 60 : 120) * 60 * 1000).toISOString(), status: body.p_status, source: body.p_source, revision: 0, is_walk_in: false }];
       if (options.uncertainCreate && bookingCalls === 1) return route.fulfill({ status: 500, json: { message: "response_lost_after_accept" } });
       return route.fulfill({ json: reservationId });
     }
@@ -593,7 +796,7 @@ async function mockConsole(page: Page, options: { missingBackend?: boolean; noSp
     }
     return route.fulfill({ status: 400, json: { message: "unexpected RPC" } });
   });
-  return { readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
+  return { transferWrites: () => transferWrites, combinationConfigRequests: () => combinationConfigRequests, combinedWrites: () => combinedWrites, hoursRequests: () => hoursRequests, releaseHours, teamInviteRequests: () => teamInviteRequests, memberRequests: () => memberRequests, invitationRequests: () => invitationRequests, accessRequests: () => accessRequests, setTeamRole: (role: BookingRole) => { currentTeamRole = role; }, revokeTeam: () => { teamRevoked = true; }, legacyOwnerCalls: () => legacyOwnerCalls, releaseClosureResponse, closureRequests: () => closureRequests, weekRequests: () => weekRequests, weekReplies: () => weekReplies, readCalls: () => readCalls, setReadError: (error: typeof readError) => { readError = error; }, holdRead: () => { holdRead = true; readGate = new Promise<void>((resolve) => { releaseRead = () => { holdRead = false; resolve(); }; }); }, releaseRead: () => releaseRead(), layoutRequests: () => layoutRequests, setup: () => savedSetup, bookingCalls: () => bookingCalls, slotParties: () => slotParties, slotReplies: () => slotReplies, requestIds: () => requestIds, statusRequests: () => statusRequests, amendRequests: () => amendRequests, amendParties: () => amendParties, walkInRequests: () => walkInRequests, walkInParties: () => walkInParties, walkInReplies: () => walkInReplies, releaseWalkInWrite, session };
 }
 
 async function configure(page: Page) {
@@ -1074,4 +1277,980 @@ test("a hung automatic read times out without overlapping requests and can recov
   await page.clock.runFor(15_000);
   await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toBeEnabled();
   expect(fixture.readCalls()).toBe(before + 2);
+});
+
+
+test("weekly planning preserves service and room scope and opens the selected day on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, planning: true });
+  await page.goto("/booking/console");
+  await page.getByRole("combobox", { name: "Service", exact: true }).selectOption(dinner);
+  await page.getByRole("combobox", { name: "Bereich", exact: true }).selectOption(area2);
+  await page.getByRole("button", { name: "Woche", exact: true }).click();
+  const week = page.getByRole("region", { name: "Wochenübersicht", exact: true });
+  const day = week.getByRole("article", { name: "Di., 20. Okt.", exact: true });
+  await expect(day).toContainText("4 Gäste · 1 aktive Reservierung");
+  await expect(day).toContainText("1 Anfrage");
+  expect(fixture.weekRequests().at(-1)).toMatchObject({ p_start_date: "2026-10-19", p_service_id: dinner, p_area_id: area2 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("week-phone.png"), fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const positions = await Promise.all((await week.getByRole("article").all()).map((card) => card.boundingBox()));
+  expect(new Set(positions.map((position) => position?.y)).size).toBe(1);
+  await page.screenshot({ path: test.info().outputPath("week-desktop.png"), fullPage: true });
+  await page.setViewportSize({ width: 320, height: 820 });
+  await week.getByRole("button", { name: /Mi., 21. Okt.*Tagesbuch öffnen/ }).click();
+  await expect(page.getByLabel("Datum · Europe/Zurich")).toHaveValue("2026-10-21");
+  await expect(page.getByRole("combobox", { name: "Service", exact: true })).toHaveValue(dinner);
+  await expect(page.getByRole("combobox", { name: "Bereich", exact: true })).toHaveValue(area2);
+  await expect(page.getByRole("region", { name: "Reservierungen", exact: true })).toBeVisible();
+});
+
+test("closing a booked day requires explicit preservation and can be safely removed", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, planning: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Buchungssperre", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Buchungssperre", exact: true });
+  await panel.getByLabel("Organisatorischer Grund (optional)").fill("Geschlossene Gesellschaft");
+  await panel.getByRole("button", { name: "Buchungssperre speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("bestehende Reservierungen");
+  await expect(panel.getByRole("button", { name: "Buchungssperre speichern", exact: true })).toBeDisabled();
+  await panel.getByRole("checkbox", { name: "Bestehende Reservierungen ausdrücklich beibehalten", exact: true }).check();
+  await panel.getByRole("button", { name: "Buchungssperre speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  await page.getByRole("region", { name: "Buchungssperren dieses Tages" }).getByRole("button").click();
+  await panel.getByRole("button", { name: "Sperre aufheben", exact: true }).click();
+  await panel.getByRole("button", { name: "Aufheben bestätigen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toBeEnabled();
+  expect(fixture.closureRequests()).toHaveLength(3);
+  expect(fixture.bookingCalls()).toBe(0);
+  expect(fixture.statusRequests()).toHaveLength(0);
+});
+
+test("an uncertain scoped closure freezes its exact payload for an identical retry", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, planning: true, uncertainClosure: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Buchungssperre", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Buchungssperre", exact: true });
+  await panel.getByLabel("Datum der Sperre", { exact: true }).fill("2026-10-21");
+  await panel.getByRole("checkbox", { name: "Ganzer Tag", exact: true }).uncheck();
+  await panel.getByLabel("Beginn der Sperre", { exact: true }).fill("18:00");
+  await panel.getByLabel("Ende der Sperre", { exact: true }).fill("19:00");
+  await panel.getByRole("combobox", { name: "Service der Sperre", exact: true }).selectOption(dinner);
+  await panel.getByRole("combobox", { name: "Bereich der Sperre", exact: true }).selectOption(area2);
+  await panel.getByRole("button", { name: "Buchungssperre speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  await expect(panel.getByLabel("Datum der Sperre", { exact: true })).toBeDisabled();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.closureRequests()).toHaveLength(2);
+  expect(fixture.closureRequests()[0]).toEqual(fixture.closureRequests()[1]);
+  expect(fixture.closureRequests()[0]).toMatchObject({ p_service_id: dinner, p_area_id: area2, p_start_time: "18:00", p_end_time: "19:00" });
+});
+
+test("a stale closure save preserves input and an incomplete week never appears empty", async ({ page }) => {
+  await mockConsole(page, { seeded: true, planning: true, closureConflict: true, malformedWeek: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Woche", exact: true }).click();
+  const week = page.getByRole("region", { name: "Wochenübersicht", exact: true });
+  await expect(week.getByRole("alert")).toBeVisible();
+  await expect(week.getByRole("article")).toHaveCount(0);
+  await week.getByRole("button", { name: "Woche erneut laden", exact: true }).click();
+  await expect(week.getByRole("article")).toHaveCount(7);
+  await week.getByRole("article", { name: "Mi., 21. Okt.", exact: true }).getByRole("button", { name: "+ Buchungssperre", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Buchungssperre", exact: true });
+  await panel.getByLabel("Organisatorischer Grund (optional)").fill("Entwurf beibehalten");
+  await panel.getByRole("button", { name: "Buchungssperre speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("inzwischen");
+  await expect(panel.getByLabel("Organisatorischer Grund (optional)")).toHaveValue("Entwurf beibehalten");
+  await page.keyboard.press("Escape");
+  await expect(panel.getByText("Ungespeicherte Eingaben verwerfen?", { exact: true })).toBeVisible();
+});
+
+test("the repeated autumn hour offers two distinct local times and sends the chosen instant", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, foldSlots: true });
+  await page.goto("/booking/console");
+  await page.getByLabel("Datum · Europe/Zurich").fill("2026-10-25");
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await panel.getByLabel("Gastname", { exact: true }).fill("Zeitumstellung Testgast");
+  await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "02:00 (UTC+2)" });
+  await expect(panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).getByRole("option", { name: "02:00 (UTC+1)", exact: true })).toHaveCount(1);
+  await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+  await panel.getByRole("button", { name: "Reservierung speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.bookingCalls()).toBe(1);
+  await expect(page.getByRole("button", { name: "Reservierung von Zeitumstellung Testgast öffnen", exact: true })).toHaveAccessibleDescription(/UTC\+2.*UTC\+1/);
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByLabel("Belegung um").fill("02:30");
+  await expect(page.getByRole("button", { name: /02:00 \(UTC\+2\) · Zeitumstellung Testgast/ })).toBeVisible();
+  await page.getByLabel("Belegung um").fill("03:00");
+  await expect(page.getByRole("button", { name: /Zeitumstellung Testgast/ })).toHaveCount(0);
+});
+
+
+test("leaving an uncertain closure reviews the possibly saved target date without claiming success", async ({ page }) => {
+  await mockConsole(page, { seeded: true, planning: true, uncertainClosure: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Buchungssperre", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Buchungssperre", exact: true });
+  await panel.getByLabel("Datum der Sperre", { exact: true }).fill("2026-10-21");
+  await panel.getByRole("button", { name: "Buchungssperre speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  await page.keyboard.press("Escape");
+  await panel.getByRole("button", { name: "Anfrage verlassen", exact: true }).click();
+  await expect(page.getByLabel("Datum · Europe/Zurich")).toHaveValue("2026-10-21");
+  await expect(page.getByRole("region", { name: "Buchungssperren dieses Tages", exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("kann bereits gespeichert sein");
+  await expect(page.getByText("Die Buchungssperre wurde gespeichert.", { exact: false })).toHaveCount(0);
+});
+
+test("a late weekly response cannot replace a newer room scope", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, planning: true, slowFirstWeek: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Woche", exact: true }).click();
+  await expect.poll(() => fixture.weekRequests().length).toBe(1);
+  await page.getByRole("combobox", { name: "Bereich", exact: true }).selectOption(area2);
+  const day = page.getByRole("region", { name: "Wochenübersicht", exact: true }).getByRole("article", { name: "Di., 20. Okt.", exact: true });
+  await expect(day).toContainText("4 Gäste · 1 aktive Reservierung");
+  await expect.poll(() => fixture.weekReplies()).toContain("all");
+  await expect(day).toContainText("4 Gäste · 1 aktive Reservierung");
+  await expect(day).not.toContainText("8 Gäste");
+  const before = fixture.readCalls();
+  await day.getByRole("button", { name: /Tagesbuch öffnen/ }).click();
+  await expect.poll(() => fixture.readCalls()).toBeGreaterThan(before);
+});
+
+test("a Safety denial from the week endpoint clears the whole private workspace", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, planning: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  fixture.setReadError("safety");
+  await page.getByRole("button", { name: "Woche", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Betreiberzugriff");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Wochenübersicht", exact: true })).toHaveCount(0);
+});
+
+
+test("a phone planning block can end at midnight with a reachable save action", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, planning: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Buchungssperre", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Buchungssperre", exact: true });
+  await panel.getByLabel("Datum der Sperre", { exact: true }).fill("2026-10-21");
+  await panel.getByRole("checkbox", { name: "Ganzer Tag", exact: true }).uncheck();
+  await panel.getByRole("checkbox", { name: "Bis Tagesende", exact: true }).check();
+  await expect(panel.getByText("Bis 00:00 des Folgetags", { exact: true })).toBeVisible();
+  await panel.screenshot({ path: test.info().outputPath("closure-editor-phone.png") });
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await panel.getByRole("button", { name: "Buchungssperre speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.closureRequests()[0]).toMatchObject({ p_start_time: "18:00", p_end_time: "24:00" });
+  await expect(page.getByRole("region", { name: "Buchungssperren dieses Tages", exact: true })).toContainText("18:00–24:00");
+});
+
+
+test("a closure response timeout releases busy state and retries only its original saved patch", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, planning: true, deferClosureResponse: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Buchungssperre", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Buchungssperre", exact: true });
+  await panel.getByLabel("Datum der Sperre", { exact: true }).fill("2026-10-21");
+  await panel.getByRole("button", { name: "Buchungssperre speichern", exact: true }).click();
+  await expect.poll(() => fixture.closureRequests().length).toBe(1);
+  await page.clock.runFor(15_001);
+  await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  await expect(panel.getByRole("button", { name: "Schliessen", exact: true })).toBeEnabled();
+  fixture.releaseClosureResponse();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.closureRequests()).toHaveLength(2);
+  expect(fixture.closureRequests()[0]).toEqual(fixture.closureRequests()[1]);
+});
+
+
+for (const role of ["viewer", "host", "manager"] as const) {
+  test("the " + role + " role exposes only its Booking actions", async ({ page }) => {
+    await mockConsole(page, { seeded: true, teams: true, teamRole: role, amendments: true, layouts: true, planning: true });
+    await page.goto("/booking/console");
+    await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Team verwalten", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Einrichtung", exact: true })).toHaveCount(role === "manager" ? 1 : 0);
+    await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toHaveCount(role === "viewer" ? 0 : 1);
+    await expect(page.getByRole("button", { name: "+ Buchungssperre", exact: true })).toHaveCount(role === "manager" ? 1 : 0);
+    await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+    const panel = page.getByRole("dialog", { name: "Reservierung", exact: true });
+    await expect(panel.getByRole("button", { name: "Reservierung bearbeiten", exact: true })).toHaveCount(role === "viewer" ? 0 : 1);
+    await expect(panel.getByRole("button", { name: "Stornieren", exact: true })).toHaveCount(role === "viewer" ? 0 : 1);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+    await page.getByRole("button", { name: "Tischplan", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Tischplan bearbeiten", exact: true })).toHaveCount(role === "manager" ? 1 : 0);
+  });
+}
+
+test("a changed team role closes an open guest draft and reloads read-only access", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, teamRole: "host" });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await panel.getByLabel("Gastname", { exact: true }).fill("Nicht unter alten Rechten speichern");
+  fixture.setTeamRole("viewer");
+  await page.clock.runFor(30_000);
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByText("Dein Zugang: Nur lesen", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toHaveCount(0);
+  expect(fixture.bookingCalls()).toBe(0);
+});
+
+test("revocation is checked while a private reservation dialog is open", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, teamRole: "host" });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("Betreiberzugriff");
+  expect(fixture.accessRequests().length).toBeGreaterThan(0);
+});
+
+test("an uncertain team invite retries one secret and exposes no token in the request URL", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, teams: true, uncertainTeamInvite: true });
+  const urls: string[] = []; page.on("request", (request) => urls.push(request.url()));
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Team verwalten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Teamzugänge", exact: true });
+  await panel.getByLabel("E-Mail der eingeladenen Person", { exact: true }).fill("new@booking.invalid");
+  await panel.getByRole("combobox", { name: "Rolle der Einladung", exact: true }).selectOption("manager");
+  await panel.getByRole("button", { name: "Einladungslink erstellen", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Ausgang ist unklar");
+  await expect(panel.getByLabel("E-Mail der eingeladenen Person", { exact: true })).toBeDisabled();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  const link = await panel.getByLabel("Einladungslink", { exact: true }).inputValue();
+  expect(new URL(link).search).toBe(""); expect(new URL(link).hash).toMatch(/^#invite=[0-9a-f]{64}$/);
+  expect(fixture.teamInviteRequests()).toHaveLength(2);
+  expect(fixture.teamInviteRequests()[0]).toEqual(fixture.teamInviteRequests()[1]);
+  expect(urls.some((url) => url.includes(String(fixture.teamInviteRequests()[0].p_token)))).toBe(false);
+  await panel.screenshot({ path: test.info().outputPath("team-phone.png") });
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
+test("a stale team role keeps the captured revision until the owner discards the draft", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, memberConflict: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Team verwalten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Teamzugänge", exact: true });
+  await panel.getByRole("combobox", { name: "Rolle für service@booking.invalid", exact: true }).selectOption("viewer");
+  await panel.getByRole("button", { name: "Rolle speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toBeVisible();
+  await expect(panel.getByRole("combobox", { name: "Rolle für service@booking.invalid", exact: true })).toHaveValue("viewer");
+  await expect(panel.getByRole("button", { name: "Team aktualisieren", exact: true })).toBeDisabled();
+  expect(fixture.memberRequests()[0]).toMatchObject({ p_revision: 0, p_role: "viewer" });
+  await panel.getByRole("button", { name: "Rollenentwurf verwerfen", exact: true }).click();
+  await panel.getByRole("button", { name: "Team aktualisieren", exact: true }).click();
+  await expect(panel.getByRole("combobox", { name: "Rolle für service@booking.invalid", exact: true })).toHaveValue("manager");
+});
+
+test("an invitation survives login in its tab without a token in login URLs", async ({ page, context }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, requireJoin: true });
+  await context.clearCookies();
+  const token = "e".repeat(64);
+  const urls: string[] = []; page.on("request", (request) => urls.push(request.url()));
+  await page.goto("/booking/console#invite=" + token);
+  await expect(page.getByRole("link", { name: "Mit Backyrd anmelden", exact: true })).toHaveAttribute("href", "/login?next=%2Fbooking%2Fconsole");
+  expect(new URL(page.url()).hash).toBe("");
+  expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toContain(token);
+  await context.addCookies([{ name: "sb-127-auth-token", value: "base64-" + Buffer.from(JSON.stringify(fixture.session)).toString("base64url"), domain: "127.0.0.1", path: "/" }]);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Restaurant Testbetrieb", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Einladung annehmen", exact: true })).toBeVisible();
+  expect(fixture.invitationRequests().filter((row) => row.p_accept)).toHaveLength(0);
+  await page.getByRole("button", { name: "Einladung annehmen", exact: true }).click();
+  await expect(page.getByText("Dein Zugang: Service", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toBe(null);
+  expect(urls.some((url) => url.includes(token))).toBe(false);
+});
+
+test("an uncertain invitation acceptance repeats the same link and never grants owner controls", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, requireJoin: true, uncertainInviteAccept: true });
+  await page.goto("/booking/console#invite=" + "e".repeat(64));
+  await page.getByRole("button", { name: "Einladung annehmen", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("kann bereits gespeichert sein");
+  await page.getByRole("button", { name: "Annahme unverändert wiederholen", exact: true }).click();
+  await expect(page.getByText("Dein Zugang: Service", { exact: true })).toBeVisible();
+  const writes = fixture.invitationRequests().filter((row) => row.p_accept);
+  expect(writes).toHaveLength(2); expect(writes[0]).toEqual(writes[1]);
+  await expect(page.getByRole("button", { name: "Team verwalten", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Einrichtung", exact: true })).toHaveCount(0);
+});
+
+test("a denied new team spot endpoint never falls back to Owner discovery", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, teamSpotsDenied: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("heading", { name: "Zugang konnte nicht geladen werden.", exact: true })).toBeVisible();
+  expect(fixture.legacyOwnerCalls()).toBe(0);
+});
+
+
+test("an incomplete delegated backend never renders Owner permissions for a staff account", async ({ page }) => {
+  await mockConsole(page, { seeded: true, teams: true, teamRole: "host", incompleteTeamBackend: true });
+  await page.goto("/booking/console");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("noch nicht vollständig");
+  await expect(page.getByRole("button", { name: "+ Neue Reservierung", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+});
+
+
+test("the owner explicitly revokes a member and a pending invitation", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Team verwalten", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Teamzugänge", exact: true });
+  await panel.getByRole("button", { name: "Zugang für service@booking.invalid entziehen", exact: true }).click();
+  expect(fixture.memberRequests()).toHaveLength(0);
+  await panel.getByRole("button", { name: "Entzug bestätigen", exact: true }).click();
+  await expect(panel.getByRole("article", { name: "service@booking.invalid", exact: true })).toContainText("Zugang entzogen");
+  expect(fixture.memberRequests()[0]).toMatchObject({ p_revision: 0, p_role: null });
+  await panel.getByLabel("E-Mail der eingeladenen Person", { exact: true }).fill("pending@booking.invalid");
+  await panel.getByRole("button", { name: "Einladungslink erstellen", exact: true }).click();
+  await panel.getByRole("button", { name: "Link für pending@booking.invalid widerrufen", exact: true }).click();
+  await panel.getByRole("button", { name: "Entzug bestätigen", exact: true }).click();
+  await expect(panel.getByText("Der Einladungslink wurde widerrufen.", { exact: true })).toBeVisible();
+});
+
+test("expired tab credentials are discarded and an active invitation handoff expires after an hour", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, teams: true, teamRole: "host" });
+  await page.addInitScript(() => sessionStorage.setItem("backyrd.booking.pending-invitation.v1", JSON.stringify({ token: "e".repeat(64), receivedAt: 0 })));
+  await page.goto("/booking/console");
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+  expect(fixture.invitationRequests()).toHaveLength(0);
+  expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toBe(null);
+  await page.goto("/booking/console#invite=" + "e".repeat(64));
+  await expect(page.getByRole("button", { name: "Zur Booking Console", exact: true })).toBeVisible();
+  await page.clock.fastForward("01:00:01");
+  await expect(page.getByRole("heading", { name: "Einladung erneut öffnen.", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("backyrd.booking.pending-invitation.v1"))).toBe(null);
+});
+
+function historyEvent(index: number, detailed = false) {
+  const state = { revision: 0, status: "confirmed", party_size: 2, starts_at: "2026-10-20T16:00:00Z", ends_at: "2026-10-20T18:00:00Z", table_id: table1, table_label: "Fenster 1", service_id: dinner, service_name: "Abendservice", arrived_at: null, seated_at: null, completed_at: null };
+  return { id: `52000000-0000-4000-8000-${String(index).padStart(12, "0")}`, at: "2026-10-20T11:00:00Z", action: detailed ? "reservation_amended" : "reservation_created", actor_id: owner, actor_is_you: true, details: detailed ? { schema: "reservation_history_v1", actor_role: "owner", before: { ...state, party_size: 4, revision: 0, table_id: table2, table_label: "Garten 2" }, after: { ...state, revision: 1 }, changed_fields: ["guest_contact", "note"] } : null };
+}
+function historyPage(events: ReturnType<typeof historyEvent>[], next: string | null = null, revision = 1) {
+  return { reservation_id: reservationId, revision, observed_at: "2026-10-20T12:00:00Z", events, next_cursor: next };
+}
+async function openHistory(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Änderungsverlauf anzeigen", exact: true }).click();
+  return page.getByRole("region", { name: "Änderungsverlauf", exact: true });
+}
+
+test("history loads on demand and shows actual changes and honest legacy entries on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, history: true });
+  const requests: object[] = [];
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", async (route) => { requests.push(route.request().postDataJSON()); await route.fulfill({ json: historyPage([historyEvent(2, true), historyEvent(1)]) }); });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  expect(requests).toHaveLength(0);
+  await page.getByRole("button", { name: "Änderungsverlauf anzeigen", exact: true }).click();
+  const history = page.getByRole("region", { name: "Änderungsverlauf", exact: true });
+  await expect(history.getByRole("heading", { name: "Reservierung bearbeitet", exact: true })).toBeVisible();
+  await expect(history).toContainText("Vorher: 4");
+  await expect(history).toContainText("Jetzt: 2");
+  await expect(history).toContainText("Vorher: Garten 2");
+  await expect(history).toContainText("Jetzt: Fenster 1");
+  await expect(history).toContainText("Kontakt aktualisiert · Interne Notiz aktualisiert");
+  await expect(history).toContainText("Für diesen älteren Eintrag sind keine Detailwerte gespeichert.");
+  expect(requests).toEqual([{ p_spot_id: spot, p_reservation_id: reservationId, p_before_id: null }]);
+  expect(fixture.bookingCalls()).toBe(0);
+  expect(await history.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await history.screenshot({ path: test.info().outputPath("history-phone.png") });
+});
+
+test("history keyset pagination appends once and retry retains existing entries honestly", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true, teams: true, teamRole: "viewer" });
+  const rows = Array.from({ length: 50 }, (_, i) => historyEvent(100 - i));
+  const calls: Record<string, unknown>[] = [];
+  let fail = true;
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", async (route) => {
+    const body = route.request().postDataJSON(); calls.push(body);
+    if (!body.p_before_id) return route.fulfill({ json: historyPage(rows, rows.at(-1)!.id) });
+    if (fail) { fail = false; return route.fulfill({ status: 503, json: { message: "network error" } }); }
+    return route.fulfill({ json: historyPage([historyEvent(50), historyEvent(49)]) });
+  });
+  const history = await openHistory(page);
+  await expect(history.getByRole("listitem")).toHaveCount(50);
+  await history.getByRole("button", { name: "Ältere Einträge laden", exact: true }).click();
+  await expect(history.getByRole("alert")).toContainText("Die bisherigen Einträge bleiben sichtbar");
+  await expect(history.getByRole("listitem")).toHaveCount(50);
+  await history.getByRole("button", { name: "Ältere Einträge laden", exact: true }).click();
+  await expect(history.getByRole("listitem")).toHaveCount(52);
+  await expect(history.getByRole("button", { name: "Ältere Einträge laden", exact: true })).toHaveCount(0);
+  expect(calls[1]).toEqual(calls[2]);
+  expect(calls[1].p_before_id).toBe(rows.at(-1)!.id);
+  await expect(page.getByRole("button", { name: "Stornieren", exact: true })).toHaveCount(0);
+});
+
+for (const reason of ["denied", "safety"] as const) {
+  test("history " + reason + " clears the whole private reservation workspace", async ({ page }) => {
+    await mockConsole(page, { seeded: true, history: true });
+    await page.route("**/rest/v1/rpc/booking_console_history_v1", (route) => route.fulfill({ status: reason === "denied" ? 403 : 400, json: reason === "denied" ? { code: "42501", message: "booking_operator_required" } : { code: "P0001", message: "SAFETY_ACCOUNT_RESTRICTED" } }));
+    await openHistory(page);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Betreiberzugriff");
+  });
+}
+
+test("history failure and a malformed reply never become a fabricated empty history", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true });
+  let calls = 0;
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", (route) => {
+    calls++;
+    return calls === 1 ? route.fulfill({ status: 503, json: { message: "network error" } }) : calls === 2 ? route.fulfill({ json: { ...historyPage([historyEvent(1)]), reservation_id: table2 } }) : route.fulfill({ json: historyPage([]) });
+  });
+  const history = await openHistory(page);
+  await expect(history.getByRole("alert")).toContainText("Es konnte kein Verlauf geladen werden");
+  await expect(history.getByText("Für diese Reservierung sind noch keine Einträge vorhanden.", { exact: true })).toHaveCount(0);
+  await history.getByRole("button", { name: "Verlauf aktualisieren", exact: true }).click();
+  await expect(history.getByRole("alert")).toContainText("ungültige Antwort");
+  await history.getByRole("button", { name: "Verlauf aktualisieren", exact: true }).click();
+  await expect(history.getByText("Für diese Reservierung sind noch keine Einträge vorhanden.", { exact: true })).toBeVisible();
+});
+
+test("a newer canonical history revision asks for a reservation reload", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true, amendments: true });
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", (route) => route.fulfill({ json: historyPage([historyEvent(2, true)], null, 2) }));
+  const history = await openHistory(page);
+  await expect(history).toContainText("Die Reservierung wurde inzwischen geändert.");
+  await expect(history.getByRole("button", { name: "Reservierung neu laden", exact: true })).toBeVisible();
+});
+
+test("a history reply after logout cannot restore private content", async ({ page }) => {
+  await mockConsole(page, { seeded: true, history: true });
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let called = false;
+  await page.route("**/rest/v1/rpc/booking_console_history_v1", async (route) => { called = true; await gate; try { await route.fulfill({ json: historyPage([historyEvent(2, true)]) }); } catch { /* cancelled request after sign-out */ } });
+  await openHistory(page);
+  await expect.poll(() => called).toBe(true);
+  await page.evaluate(() => { const channel = new BroadcastChannel("sb-127-auth-token"); channel.postMessage({ event: "SIGNED_OUT", session: null }); channel.close(); });
+  await expect(page.getByRole("link", { name: "Zur Booking Console anmelden", exact: true })).toBeVisible();
+  release();
+  await expect(page.getByRole("region", { name: "Änderungsverlauf", exact: true })).toHaveCount(0);
+  await expect(page.getByText("Kontakt aktualisiert", { exact: false })).toHaveCount(0);
+});
+
+async function openHours(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Sonderzeiten", exact: true }).click();
+  return page.getByRole("dialog", { name: "Sonderzeiten", exact: true });
+}
+
+test("a phone operator configures a regular weekly overnight service", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, hours: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Einrichtung", exact: true }).click();
+  await page.getByRole("button", { name: "Servicezeiten", exact: false }).click();
+  await page.getByRole("checkbox", { name: "Ende am Folgetag für Service 1", exact: true }).check();
+  await page.getByLabel("Ende für Service 1", { exact: true }).fill("02:00");
+  await page.getByRole("button", { name: "Einrichtung speichern", exact: true }).click();
+  await expect(page.getByText("Die Einrichtung wurde gespeichert.", { exact: true })).toBeVisible();
+  expect(fixture.setup()?.services[0]).toMatchObject({ closes_at: "02:00", ends_next_day: true });
+  await page.reload();
+  await page.getByRole("button", { name: "Einrichtung", exact: true }).click();
+  await page.getByRole("button", { name: "Servicezeiten", exact: false }).click();
+  await expect(page.getByRole("checkbox", { name: "Ende am Folgetag für Service 1", exact: true })).toBeChecked();
+  await expect(page.getByLabel("Ende für Service 1", { exact: true })).toHaveValue("02:00");
+});
+
+test("special service hours save a night window and show its carryover on the next actual calendar day", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, hours: true, planning: true });
+  const panel = await openHours(page);
+  await panel.getByRole("checkbox", { name: "Ende am Folgetag", exact: true }).check();
+  await panel.getByLabel("Serviceende", { exact: true }).fill("02:00");
+  await panel.getByLabel("Buchungsintervall in Minuten", { exact: true }).fill("");
+  await expect(panel.getByLabel("Buchungsintervall in Minuten", { exact: true })).toHaveValue("");
+  await expect(panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true })).toBeDisabled();
+  await panel.getByLabel("Buchungsintervall in Minuten", { exact: true }).fill("30");
+  await panel.screenshot({ path: test.info().outputPath("special-hours-phone.png") });
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.hoursRequests()[0]).toMatchObject({ p_date: "2026-10-20", p_opens_at: "18:00", p_closes_at: "02:00", p_next_day: true, p_closed: false, p_interval: 30 });
+  await page.getByRole("button", { name: "Nächster Tag", exact: true }).click();
+  const context = page.getByRole("region", { name: "Sonderzeiten im Tageskontext", exact: true });
+  await expect(context).toContainText("18:00–02:00 am Folgetag");
+  await page.getByRole("button", { name: "Woche", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Wochenübersicht", exact: true })).toContainText("18:00–02:00 am Folgetag");
+});
+
+test("a closed special service keeps guests only after explicit acknowledgement and archives back to weekly hours", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, hours: true, hoursAffected: 2 });
+  const panel = await openHours(page);
+  await panel.getByRole("checkbox", { name: "Service mit diesem Beginn entfällt", exact: true }).check();
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Bestätige ausdrücklich");
+  await expect(panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true })).toBeDisabled();
+  await panel.getByRole("checkbox", { name: "Bestehende Reservierungen ausdrücklich beibehalten", exact: true }).check();
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole("region", { name: "Sonderzeiten im Tageskontext", exact: true }).getByRole("button", { name: /Service entfällt/ }).click();
+  const existing = page.getByRole("dialog", { name: "Sonderzeiten", exact: true });
+  await existing.getByLabel("Buchungsintervall in Minuten", { exact: true }).fill("");
+  await existing.getByRole("button", { name: "Wochenzeiten wieder verwenden", exact: true }).click();
+  await expect(existing.getByRole("status")).toContainText("archiviert");
+  await existing.getByRole("checkbox", { name: "Bestehende Reservierungen ausdrücklich beibehalten", exact: true }).check();
+  await existing.getByRole("button", { name: "Wochenzeiten bestätigen", exact: true }).click();
+  await expect(existing).toHaveCount(0);
+  expect(fixture.hoursRequests().at(-1)).toMatchObject({ p_archive: true, p_keep_existing: true });
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toBeVisible();
+});
+
+test("uncertain special hours freeze and repeat exactly one configuration patch", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, hours: true, uncertainHours: true });
+  const panel = await openHours(page);
+  await panel.getByLabel("Organisatorischer Hinweis (optional)", { exact: true }).fill("Synthetischer Sonderanlass");
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  await expect(panel.getByLabel("Servicebeginn", { exact: true })).toBeDisabled();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.hoursRequests()).toHaveLength(2);
+  expect(fixture.hoursRequests()[0]).toEqual(fixture.hoursRequests()[1]);
+});
+
+test("special-hours deadlines preserve an identical retry and stale configuration cannot fake success", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, hours: true, deferHours: true });
+  const panel = await openHours(page);
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect.poll(() => fixture.hoursRequests().length).toBe(1);
+  await page.clock.runFor(15_001);
+  await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+  fixture.releaseHours();
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.hoursRequests()[0]).toEqual(fixture.hoursRequests()[1]);
+});
+
+test("a stale hours revision preserves the editor and never reports saved special hours", async ({ page }) => {
+  await mockConsole(page, { seeded: true, hours: true, hoursConflict: true });
+  const panel = await openHours(page);
+  await panel.getByLabel("Organisatorischer Hinweis (optional)", { exact: true }).fill("Nicht verlieren");
+  await panel.getByRole("button", { name: "Sonderzeiten speichern", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("inzwischen geändert");
+  await expect(panel.getByLabel("Organisatorischer Hinweis (optional)", { exact: true })).toHaveValue("Nicht verlieren");
+  await expect(page.getByText("Die Sonderzeiten wurden gespeichert. Bestehende Reservierungen bleiben erhalten.", { exact: true })).toHaveCount(0);
+});
+
+for (const role of ["viewer", "host"] as const) {
+  test(role + " reads special hours without configuration actions", async ({ page }) => {
+    await mockConsole(page, { seeded: true, hours: true, teams: true, teamRole: role });
+    await page.goto("/booking/console");
+    await expect(page.getByRole("region", { name: "Sonderzeiten im Tageskontext", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "+ Sonderzeiten", exact: true })).toHaveCount(0);
+  });
+}
+
+test("revoked management rights close a private special-hours draft", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, hours: true, teams: true, teamRole: "manager" });
+  const panel = await openHours(page);
+  await panel.getByLabel("Organisatorischer Hinweis (optional)", { exact: true }).fill("Nicht nach Rechteentzug speichern");
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(panel).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Sonderzeiten im Tageskontext", exact: true })).toHaveCount(0);
+  expect(fixture.hoursRequests()).toHaveLength(0);
+});
+
+
+test("a midnight-crossing reservation names the following day in its editor, book and details", async ({ page }) => {
+  await mockConsole(page, { seeded: true, hours: true });
+  await page.route("**/rest/v1/rpc/booking_console_slots_v1", (route) => route.fulfill({ json: [{ service_id: dinner, table_id: table1, starts_at: "2026-10-20T23:30:00+02:00", ends_at: "2026-10-21T01:30:00+02:00" }] }));
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "23:30" });
+  await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+  await panel.getByLabel("Gastname", { exact: true }).fill("Synthetischer Nachtgast");
+  await expect(panel).toContainText("01:30 (+1 Tag)");
+  await panel.getByRole("button", { name: "Reservierung speichern", exact: true }).click();
+  const row = page.getByRole("button", { name: "Reservierung von Synthetischer Nachtgast öffnen", exact: true });
+  await expect(row).toContainText("01:30 (+1 Tag)");
+  await row.click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("01:30 (+1 Tag)");
+});
+
+test("a phone manager configures a compatible table combination with editable numeric drafts", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, emptyCombinations: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true }).click();
+  await page.getByRole("button", { name: "Neue Kombination", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Neue Tischkombination", exact: true });
+  await editor.getByLabel("Name der Kombination", { exact: true }).fill("Gemeinsamer Tisch");
+  await editor.getByRole("checkbox", { name: "Fenster 1 · 4 Plätze", exact: true }).check();
+  await editor.getByRole("checkbox", { name: "Terrasse 2 · 4 Plätze", exact: true }).check();
+  await editor.getByLabel("Maximale Personen dieser Kombination", { exact: true }).fill("");
+  await expect(editor.getByLabel("Maximale Personen dieser Kombination", { exact: true })).toHaveValue("");
+  await expect(editor.getByRole("button", { name: "Kombination speichern", exact: true })).toBeDisabled();
+  await editor.getByLabel("Maximale Personen dieser Kombination", { exact: true }).fill("6");
+  await editor.screenshot({ path: test.info().outputPath("combination-phone.png") });
+  expect(await editor.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await editor.getByRole("button", { name: "Kombination speichern", exact: true }).click();
+  const list = page.getByRole("dialog", { name: "Tischkombinationen", exact: true });
+  await expect(list).toContainText("Gemeinsamer Tisch");
+  expect(fixture.combinationConfigRequests()[0]).toMatchObject({ p_name: "Gemeinsamer Tisch", p_max_party_size: 6, p_active: true });
+  expect(fixture.combinationConfigRequests()[0].p_table_ids).toEqual([table1, table2]);
+  await list.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Aktualisieren", exact: true })).toBeEnabled();
+});
+
+async function enterCombinedBooking(page: Page, guest = "Synthetische Tischgruppe") {
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await panel.getByRole("button", { name: "6 Personen", exact: true }).click();
+  await panel.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "18:00" });
+  await panel.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+  await panel.getByLabel("Gastname", { exact: true }).fill(guest);
+  return panel;
+}
+
+test("a six-person reservation books every table but counts its guests once", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true });
+  await page.goto("/booking/console");
+  const panel = await enterCombinedBooking(page);
+  await expect(panel).toContainText("Familientisch · Fenster 1 + Terrasse 2");
+  await panel.getByRole("button", { name: "Reservierung speichern", exact: true }).click();
+  const row = page.getByRole("button", { name: "Reservierung von Synthetische Tischgruppe öffnen", exact: true });
+  await expect(row).toContainText("Fenster 1 + Terrasse 2");
+  await expect(page.getByLabel("Buchungsübersicht der Auswahl", { exact: true }).getByText("6", { exact: true })).toHaveCount(1);
+  expect(fixture.combinedWrites()[0]).toMatchObject({ p_table_id: table1, p_table_ids: [table1, table2], p_combination_id: groupAB, p_party_size: 6 });
+  await row.click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("Fenster 1 + Terrasse 2");
+});
+
+test("seating and departure appear on every physical member of a table combination", async ({ page }) => {
+  await mockConsole(page, { seeded: true, combinations: true, combinedSeed: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await details.getByRole("button", { name: "Am Tisch platzieren", exact: true }).click();
+  await details.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  for (const name of ["Fenster 1", "Terrasse 2"]) {
+    const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name, exact: true }) });
+    await expect(card.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toBeVisible();
+    await expect(card).toContainText("6 Personen in der Tischgruppe");
+  }
+  await page.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true }).first().click();
+  await details.getByRole("button", { name: "Besuch beenden", exact: true }).click();
+  await details.getByRole("button", { name: "Status speichern", exact: true }).click();
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+});
+
+test("a combined amendment changes the complete member set including its primary", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, combinedSeed: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Reservierung bearbeiten", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Reservierung bearbeiten", exact: true });
+  await expect(editor).toContainText("Fenster 1 + Terrasse 2");
+  await editor.getByRole("checkbox", { name: "Zeit, Personen oder Tisch ändern", exact: true }).check();
+  await editor.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "19:00" });
+  await editor.getByRole("combobox", { name: "Tisch", exact: true }).selectOption("0");
+  await editor.getByRole("button", { name: "Änderungen speichern", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Reservierung", exact: true })).toContainText("Terrasse 2 + Fenster 3");
+  expect(fixture.combinedWrites()[0]).toMatchObject({ p_table_id: table2, p_table_ids: [table2, table3], p_combination_id: groupBC, p_expected_revision: 0 });
+});
+
+for (const malformed of [false, true]) {
+  test("an uncertain combined creation preserves its exact members: " + (malformed ? "malformed response" : "lost response"), async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, combinations: true, uncertainCreate: !malformed, malformedCombinedCreate: malformed });
+    await page.goto("/booking/console");
+    const panel = await enterCombinedBooking(page);
+    await panel.getByRole("button", { name: "Reservierung speichern", exact: true }).click();
+    await expect(panel.getByRole("alert")).toContainText("Speicherstatus ist unklar");
+    await expect(panel.getByRole("combobox", { name: "Tisch", exact: true })).toBeDisabled();
+    await panel.getByRole("button", { name: "Reservierung speichern", exact: true }).click();
+    await expect(panel).toHaveCount(0);
+    expect(fixture.combinedWrites()).toHaveLength(2);
+    expect(fixture.combinedWrites()[0]).toEqual(fixture.combinedWrites()[1]);
+    await expect(page.getByRole("button", { name: "Reservierung von Synthetische Tischgruppe öffnen", exact: true })).toHaveCount(1);
+  });
+}
+
+test("an uncertain combination definition is retried without changing its selected tables", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, uncertainCombination: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true }).click();
+  await page.getByRole("button", { name: /Familientisch/, exact: false }).click();
+  const editor = page.getByRole("dialog", { name: "Kombination bearbeiten", exact: true });
+  await editor.getByLabel("Name der Kombination", { exact: true }).fill("Geänderter Gruppentisch");
+  await editor.getByRole("button", { name: "Kombination speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toContainText("Ausgang ist unklar");
+  await expect(editor.getByLabel("Name der Kombination", { exact: true })).toBeDisabled();
+  await editor.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Tischkombinationen", exact: true })).toContainText("Geänderter Gruppentisch");
+  expect(fixture.combinationConfigRequests()[0]).toEqual(fixture.combinationConfigRequests()[1]);
+});
+
+for (const role of ["viewer", "host"] as const) {
+  test(role + " reads full table membership without combination management rights", async ({ page }) => {
+    await mockConsole(page, { seeded: true, combinations: true, combinedSeed: true, teams: true, teamRole: role });
+    await page.goto("/booking/console");
+    await expect(page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toContainText("Fenster 1 + Terrasse 2");
+  });
+}
+
+test("a combined walk-in retains both tables through an uncertain admission retry", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, uncertainWalkIn: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Walk-in für jetzt", exact: true }).click();
+  const panel = page.getByRole("dialog", { name: "Walk-in platzieren", exact: true });
+  await panel.getByRole("button", { name: "6 Personen", exact: true }).click();
+  await panel.getByRole("button", { name: /Familientisch.*wählen/ }).click();
+  await panel.getByRole("button", { name: "Walk-in platzieren", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
+  await panel.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  expect(fixture.combinedWrites()[0]).toEqual(fixture.combinedWrites()[1]);
+  expect(fixture.combinedWrites()[0]).toMatchObject({ p_table_ids: [table1, table2], p_combination_id: groupAB });
+  await expect(page.getByRole("button", { name: "Reservierung von Walk-in öffnen", exact: true })).toContainText("Fenster 1 + Terrasse 2");
+});
+
+test("archiving a combination ignores an unfinished numeric draft and preserves its booked members", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, combinedSeed: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true }).click();
+  await page.getByRole("button", { name: /Familientisch/ }).click();
+  const editor = page.getByRole("dialog", { name: "Kombination bearbeiten", exact: true });
+  await editor.getByLabel("Maximale Personen dieser Kombination", { exact: true }).fill("");
+  await editor.getByRole("button", { name: "Kombination aufheben", exact: true }).click();
+  await editor.getByRole("button", { name: "Aufheben bestätigen", exact: true }).click();
+  const list = page.getByRole("dialog", { name: "Tischkombinationen", exact: true });
+  await expect(list).toBeVisible();
+  expect(fixture.combinationConfigRequests()[0]).toMatchObject({ p_name: "Familientisch", p_max_party_size: 8, p_active: false, p_table_ids: [table1, table2] });
+  await list.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toContainText("Fenster 1 + Terrasse 2");
+});
+
+test("a stale combination configuration keeps its draft without a saved result", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, combinationConfigConflict: true });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true }).click();
+  await page.getByRole("button", { name: /Familientisch/ }).click();
+  const editor = page.getByRole("dialog", { name: "Kombination bearbeiten", exact: true });
+  await editor.getByLabel("Name der Kombination", { exact: true }).fill("Nicht überschreiben");
+  await editor.getByRole("button", { name: "Kombination speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toContainText("Die Einrichtung wurde inzwischen geändert");
+  await expect(editor.getByLabel("Name der Kombination", { exact: true })).toHaveValue("Nicht überschreiben");
+  expect(fixture.combinationConfigRequests()).toHaveLength(1);
+});
+
+test("a revoked manager loses an open combination draft before saving", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, combinations: true, teams: true, teamRole: "manager" });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Tischkombinationen verwalten", exact: true }).click();
+  await page.getByRole("button", { name: /Familientisch/ }).click();
+  const editor = page.getByRole("dialog", { name: "Kombination bearbeiten", exact: true });
+  await editor.getByLabel("Name der Kombination", { exact: true }).fill("Privater Entwurf");
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByText("Privater Entwurf", { exact: true })).toHaveCount(0);
+  expect(fixture.combinationConfigRequests()).toHaveLength(0);
+});
+
+test("a large combination availability scope can recover by narrowing its requested minute", async ({ page }) => {
+  await mockConsole(page, { seeded: true, combinations: true });
+  const requests: Record<string, unknown>[] = [];
+  await page.route("**/rest/v1/rpc/booking_console_slots_v2", async (route) => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    if (!body.p_time) return route.fulfill({ status: 400, json: { code: "22023", message: "booking_availability_scope_too_large" } });
+    return route.fallback();
+  });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "+ Neue Reservierung", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Neue Reservierung", exact: true });
+  await expect(editor.getByRole("alert")).toContainText("Grenze die Auswahl");
+  await editor.getByLabel("Uhrzeit eingrenzen (optional)", { exact: true }).fill("18:00");
+  await editor.getByRole("combobox", { name: "Uhrzeit", exact: true }).selectOption({ label: "18:00" });
+  expect(requests.at(-1)).toMatchObject({ p_time: "18:00" });
+  await expect(editor.getByRole("alert")).toHaveCount(0);
+});
+
+async function openTransfer(page: Page) {
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Gast umplatzieren", exact: true }).click();
+  return page.getByRole("dialog", { name: "Gast umplatzieren", exact: true });
+}
+
+test("a phone seated transfer preserves planned time and relocates every physical table", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 820 });
+  const fixture = await mockConsole(page, { seeded: true, transfers: true });
+  const editor = await openTransfer(page);
+  await editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true }).fill("");
+  await expect(editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true })).toHaveValue("");
+  await expect(editor.getByRole("button", { name: "Tischwechsel speichern", exact: true })).toBeDisabled();
+  await editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true }).fill("60");
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  await editor.screenshot({ path: test.info().outputPath("seated-transfer-phone.png") });
+  expect(await editor.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  await expect(page.getByText("Der Gast wurde umplatziert.", { exact: true })).toBeVisible();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await expect(details).toContainText("12:00–13:00");
+  await expect(details).toContainText("Tischwechsel um 14:02");
+  await expect(details).toContainText("15:02");
+  await expect(details).toContainText("Terrasse 2 + Fenster 3");
+  expect(fixture.transferWrites()[0]).toMatchObject({ p_expected_revision: 0, p_duration_minutes: 60, p_table_ids: [table2, table3], p_combination_id: groupBC });
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  const old = page.getByRole("article").filter({ has: page.getByRole("heading", { name: "Fenster 1", exact: true }) });
+  await expect(old.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toHaveCount(0);
+  for (const name of ["Terrasse 2", "Fenster 3"]) {
+    const card = page.getByRole("article").filter({ has: page.getByRole("heading", { name, exact: true }) });
+    await expect(card.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toBeVisible();
+  }
+});
+
+for (const malformed of [false, true]) {
+  test("an uncertain seated transfer freezes one exact request: " + (malformed ? "malformed response" : "lost response"), async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, transfers: true, uncertainTransfer: !malformed, malformedTransfer: malformed });
+    const editor = await openTransfer(page);
+    await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+    await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+    await expect(editor.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
+    await expect(editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true })).toBeDisabled();
+    await editor.getByRole("button", { name: "Unverändert erneut versuchen", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    expect(fixture.transferWrites()).toHaveLength(2);
+    expect(fixture.transferWrites()[0]).toEqual(fixture.transferWrites()[1]);
+  });
+}
+
+test("a conflicting seated transfer keeps its duration and reports no successful move", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, transferConflict: true });
+  const editor = await openTransfer(page);
+  await editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true }).fill("45");
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toContainText("inzwischen belegt");
+  await expect(editor.getByLabel("Verbleibende Dauer (Minuten)", { exact: true })).toHaveValue("45");
+  await expect(page.getByText("Der Gast wurde umplatziert.", { exact: true })).toHaveCount(0);
+  expect(fixture.transferWrites()).toHaveLength(1);
+});
+
+test("a stale seated transfer preview cannot overwrite a changed reservation", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, staleTransferPreview: true });
+  const editor = await openTransfer(page);
+  await expect(editor.getByRole("alert")).toContainText("inzwischen geändert");
+  await expect(editor.getByRole("button", { name: "Tischwechsel speichern", exact: true })).toBeDisabled();
+  expect(fixture.transferWrites()).toHaveLength(0);
+});
+
+test("a seated transfer with no compatible target has an honest unavailable state", async ({ page }) => {
+  await mockConsole(page, { seeded: true, transfers: true, transferNoChoices: true });
+  const editor = await openTransfer(page);
+  await expect(editor.getByRole("status")).toContainText("kein anderer Tisch verfügbar");
+  await expect(editor.getByRole("button", { name: "Tischwechsel speichern", exact: true })).toBeDisabled();
+});
+
+test("a viewer cannot transfer a seated party", async ({ page }) => {
+  await mockConsole(page, { seeded: true, transfers: true, teams: true, teamRole: "viewer" });
+  await page.goto("/booking/console");
+  await page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Gast umplatzieren", exact: true })).toHaveCount(0);
+});
+
+test("revoked access clears an open seated transfer without submitting it", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, teams: true, teamRole: "host" });
+  const editor = await openTransfer(page);
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  fixture.revokeTeam();
+  await page.clock.runFor(30_000);
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByText("Testgast Abend", { exact: true })).toHaveCount(0);
+  expect(fixture.transferWrites()).toHaveLength(0);
+});
+
+test("leaving an uncertain seated transfer reloads the actual current assignment", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, uncertainTransfer: true });
+  const editor = await openTransfer(page);
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  await expect(editor.getByRole("alert")).toContainText("Speicherergebnis ist unklar");
+  await editor.getByRole("button", { name: "Schliessen", exact: true }).click();
+  await editor.getByRole("button", { name: "Anfrage verlassen", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true })).toContainText("Terrasse 2 + Fenster 3");
+  expect(fixture.transferWrites()).toHaveLength(1);
+});
+
+test("table-time filtering uses the remaining seated transfer window while the book keeps original time", async ({ page }) => {
+  await mockConsole(page, { seeded: true, transfers: true });
+  const editor = await openTransfer(page);
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Reservierung", exact: true });
+  await details.getByRole("button", { name: "Schliessen", exact: true }).click();
+  const row = page.getByRole("button", { name: "Reservierung von Testgast Abend öffnen", exact: true });
+  await expect(row).toContainText("12:00");
+  await expect(row).toContainText("Umplatziert · Belegung bis 15:02");
+  await page.getByRole("button", { name: "Tischübersicht", exact: true }).click();
+  await page.getByLabel("Belegung um", { exact: true }).fill("14:30");
+  await expect(page.getByRole("button", { name: /14:02 · Testgast Abend/ })).toHaveCount(2);
+  await page.getByLabel("Belegung um", { exact: true }).fill("12:30");
+  await expect(page.getByRole("button", { name: /14:02 · Testgast Abend/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Laufenden Besuch von Testgast Abend öffnen", exact: true })).toHaveCount(2);
+});
+
+for (const duringWrite of [false, true]) {
+  test("a changed seated transfer recovers only after explicitly discarding its draft: " + (duringWrite ? "write" : "preview"), async ({ page }) => {
+    const fixture = await mockConsole(page, { seeded: true, transfers: true, staleTransferWrite: duringWrite, staleTransferPreview: !duringWrite });
+    const editor = await openTransfer(page);
+    if (duringWrite) {
+      await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+      await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+    }
+    await expect(editor.getByRole("alert")).toContainText("inzwischen geändert");
+    await editor.getByRole("button", { name: "Aktuelle Reservierung laden", exact: true }).click();
+    await editor.getByRole("button", { name: "Weiter bearbeiten", exact: true }).click();
+    await expect(editor).toBeVisible();
+    await editor.getByRole("button", { name: "Aktuelle Reservierung laden", exact: true }).click();
+    await editor.getByRole("button", { name: "Entwurf verwerfen und neu laden", exact: true }).click();
+    await expect(editor).toHaveCount(0);
+    await page.getByRole("button", { name: "Gast umplatzieren", exact: true }).click();
+    await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+    await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+    await expect(page.getByText("Der Gast wurde umplatziert.", { exact: true })).toBeVisible();
+    expect(fixture.transferWrites().at(-1)).toMatchObject({ p_expected_revision: 1 });
+  });
+}
+
+test("a server-denied seated transfer immediately removes private guest content", async ({ page }) => {
+  const fixture = await mockConsole(page, { seeded: true, transfers: true, teams: true, teamRole: "host" });
+  const editor = await openTransfer(page);
+  await editor.getByRole("combobox", { name: "Neuer Tisch", exact: true }).selectOption("0");
+  fixture.revokeTeam();
+  await editor.getByRole("button", { name: "Tischwechsel speichern", exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(page.getByText("Testgast Abend", { exact: true })).toHaveCount(0);
 });
