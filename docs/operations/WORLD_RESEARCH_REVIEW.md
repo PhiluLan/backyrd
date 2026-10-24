@@ -18,11 +18,40 @@ After a partial import, export again: the new manifest/current values become the
 base and the researcher only supplements remaining fields. Never edit a bound
 manifest/hash to make an old document appear current.
 
-The Admin research page can also open a local Nuknuk `report.json` as a
-read-only draft. It shows proposed offers, original citations, unresolved
-fields and source failures without sending the file to the import API. That
-view has no preview or commit control and cannot turn an unreviewed partial
-profile into a canonical claim.
+## Nuknuk reports and current profile comparison
+
+The Admin page reads local Nuknuk `report.json` files as proposals, never as
+canonical knowledge. Search and status filters separate proposals from unresolved
+fields; schedules, offers and rooms are rendered as readable values. Saving a
+report does not save its facts into the Spot profile.
+
+An Admin explicitly selects the facts and evidence they have reviewed, then
+chooses **Auswahl mit Spotprofil abgleichen**. This read-only step binds the
+report to a fresh export of the same real Spot and enters the existing preview
+and commit flow. No checkbox is selected automatically. Current values, new
+proposals and unresolved fields remain distinct; replacements need a separate
+choice. The final import is a separate action.
+
+Partial experience profiles supplement the current profile: existing entities,
+properties, area links, prices and schedules remain intact. Ambiguous entity
+matches and incompatible values are held for editor review. Missing weekdays
+preserve existing schedules and never imply closed. Preview and commit both
+repeat this merge against current values so a refreshed partial report cannot
+erase newer additions.
+
+Each citation retains its URL, evidence and observation time. Additional sources
+are carried as `supportingSources` and stored with the immutable claim evidence.
+Missing observation times and sources outside the confirmed website host are
+held. Older saved reports that lost these times must be reloaded from their
+original file. The source trust level is determined from the confirmed website,
+not accepted from the report. Credential text is rejected; email literals are
+allowed only for the exact proposed public venue email field.
+
+Migration `20261024113000_world_research_current_profile_import_v3.sql` upgrades
+the existing v2 import RPC to the current v6 writer and adds supporting evidence.
+Explicit supersession does not create a concurrent-conflict note for its own
+ancestor; unrelated contradictory assertions still do. Existing historical
+conflict notes are not automatically removed. Decision behavior is unchanged.
 
 Confirmed country CH permits the deterministic proposal Europe/Zurich, visibly
 labelled as a geographic derivation with IANA provenance. It is not inferred
@@ -69,6 +98,6 @@ Nuknuk-Research-Berichte können im Admin als reine Prüfentwürfe gespeichert w
 Der Admin-geschützte Entwurfsweg speichert nur die angezeigten Vorschläge,
 Belege und offenen Punkte in der bestehenden service-role-only-Tabelle für
 Recherchevorschläge; rohe Modelltraces bleiben lokal. Gespeicherte Entwürfe
-sind für Admins geräteübergreifend sichtbar. Sie haben keinen Import- oder
-World-Knowledge-Schreibpfad. Die Übernahme belegter Angaben erfordert weiter
-den bestehenden World-Research-Prüf- und Importweg.
+sind für Admins geräteübergreifend sichtbar. Der Entwurfsspeicher schreibt
+keine Profilangaben. Ausgewählte und ausdrücklich geprüfte Inhalte gelangen
+über den Profilabgleich in den bestehenden World-Research-Prüf- und Importweg.
