@@ -192,6 +192,7 @@ fi
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-world-knowledge-rebuild-race.sh"
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-review-same-day-race.sh"
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-founder-live-idempotency-race.sh"
+DB_URL="$DB_URL" BACKYRD_BOOKING_RACE_EPHEMERAL=1 bash "$repo_root/scripts/ci/validate-booking-closure-race.sh"
 
 lint_json="$validation_root/db-lint.json"
 "$supabase_cli" db lint --workdir "$validation_root" --local --schema public --level error --fail-on none --agent=no >"$lint_json"
