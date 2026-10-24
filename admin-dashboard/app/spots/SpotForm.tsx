@@ -677,9 +677,18 @@ export function SpotForm({
 
     try {
       if (mode === "create") {
+        if (normalized.lat === null || normalized.lng === null
+          || !Number.isFinite(normalized.lat) || !Number.isFinite(normalized.lng)
+          || Math.abs(normalized.lat) > 90 || Math.abs(normalized.lng) > 180) {
+          throw new Error("Bitte wähle die Adresse aus den Standortvorschlägen oder ergänze gültige Kartenkoordinaten.");
+        }
+        const { data: actor, error: actorError } = await supabase.auth.getUser();
+        if (actorError || !actor.user) {
+          throw new Error("Deine Anmeldung konnte nicht bestätigt werden. Bitte melde dich erneut an.");
+        }
         const { data, error } = await supabase
           .from("spots")
-          .insert(payload)
+          .insert({ ...payload, created_by: actor.user.id })
           .select("id")
           .single();
 

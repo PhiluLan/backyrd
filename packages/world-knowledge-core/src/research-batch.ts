@@ -33,16 +33,16 @@ export type WorldResearchFieldCatalogEntry = {
   valueExample?: unknown;
 };
 
+export type WorldResearchSource = {
+  url: string; evidence: string; observedAt: string; trust: WorldResearchTrustLevel;
+};
+
 export type WorldResearchClaim = {
   attributeKey: string;
   knowledgeState: "KNOWN_TRUE" | "KNOWN_FALSE" | "KNOWN_VALUE";
   value: unknown;
-  source: {
-    url: string;
-    evidence: string;
-    observedAt: string;
-    trust: WorldResearchTrustLevel;
-  };
+  source: WorldResearchSource;
+  supportingSources?: WorldResearchSource[];
 };
 
 export type WorldResearchUnresolved = { attributeKey: string; reason: string };
@@ -69,6 +69,31 @@ const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
 const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const safeText = (value: unknown, max: number): string | null => typeof value === "string" && value.trim().length > 0 && value.trim().length <= max ? value.trim() : null;
 const hasSensitiveMaterial = (value: string) => /(?:bearer\s+[a-z0-9._-]+|api[_-]?key|service[_-]?role|access[_-]?token|refresh[_-]?token|password\s*[:=]|[\w.+-]+@[\w.-]+\.[a-z]{2,})/i.test(value);
+
+/** Public venue email is permitted only for that exact validated contact field. */
+export function researchEvidenceAllowed(evidence: string, attributeKey: string, value: unknown): boolean {
+  if (/(?:bearer\s+[a-z0-9._-]+|api[_-]?key|service[_-]?role|access[_-]?token|refresh[_-]?token|password\s*[:=])/i.test(evidence)) return false;
+  const emails = evidence.match(/[\w.+%-]+@[\w.-]+\.[a-z]{2,}/gi) ?? [];
+  return emails.length === 0 || (attributeKey === "contact.public_email" && typeof value === "string"
+    && emails.every(email => email.toLowerCase() === value.toLowerCase()));
+}
+
+function parseResearchSource(input: unknown, attributeKey: string, value: unknown): WorldResearchSource {
+  const source = object(input);
+  const urlText = safeText(source.url, 800);
+  const evidence = safeText(source.evidence, 1200);
+  const observedAt = safeText(source.observedAt, 40);
+  let url: URL;
+  try { url = new URL(urlText ?? ""); } catch { throw new Error(`world_research_source_url_invalid:${attributeKey}`); }
+  if (url.protocol !== "https:" || url.username || url.password
+    || [...url.searchParams.keys()].some(key => /token|secret|key|auth|session|email/i.test(key))
+    || !evidence || !researchEvidenceAllowed(evidence, attributeKey, value)
+    || !observedAt || !ISO_INSTANT.test(observedAt)
+    || !WORLD_RESEARCH_TRUST_LEVELS.includes(source.trust as WorldResearchTrustLevel)) {
+    throw new Error(`world_research_claim_invalid:${attributeKey}`);
+  }
+  return { url: url.toString(), evidence, observedAt, trust: source.trust as WorldResearchTrustLevel };
+}
 
 function exportCore(document: Pick<WorldResearchBatchDocument, "contractVersion" | "purpose" | "batch" | "fieldCatalog">) {
   return { contractVersion: document.contractVersion, purpose: document.purpose, batch: document.batch, fieldCatalog: document.fieldCatalog };
@@ -225,22 +250,19 @@ export function parseWorldResearchBatch(input: unknown): ParsedWorldResearchBatc
     for (const rawClaim of claims) {
       const claim = object(rawClaim);
       const attributeKey = safeText(claim.attributeKey, 120);
-      const source = object(claim.source);
-      const urlText = safeText(source.url, 800);
-      const evidence = safeText(source.evidence, 1200);
-      const observedAt = safeText(source.observedAt, 40);
-      const trust = source.trust;
-      let url: URL;
-      try { url = new URL(urlText ?? ""); } catch { throw new Error("world_research_source_url_invalid"); }
-      if (!attributeKey || seenFields.has(attributeKey) || url.protocol !== "https:" || url.username || url.password
-        || [...url.searchParams.keys()].some((key) => /token|secret|key|auth|session|email/i.test(key))
-        || !evidence || hasSensitiveMaterial(evidence) || !observedAt || !ISO_INSTANT.test(observedAt)
-        || !WORLD_RESEARCH_TRUST_LEVELS.includes(trust as WorldResearchTrustLevel)) throw new Error(`world_research_claim_invalid:${attributeKey ?? "unknown"}`);
+      if (!attributeKey || seenFields.has(attributeKey)) throw new Error("world_research_claim_invalid");
       const validated = validateAuthoringSubmission(attributeKey, claim.knowledgeState, claim.value);
       if (attributeKey === "state.current") throw new Error("world_research_current_state_requires_editor_validity");
       if (!validated.ok || claim.knowledgeState === "UNKNOWN") throw new Error(`world_research_value_invalid:${attributeKey}`);
       seenFields.add(attributeKey);
-      parsedClaims.push({ attributeKey, knowledgeState: claim.knowledgeState as WorldResearchClaim["knowledgeState"], value: validated.value, source: { url: url.toString(), evidence, observedAt, trust: trust as WorldResearchTrustLevel } });
+      const source = parseResearchSource(claim.source, attributeKey, validated.value);
+      if (claim.supportingSources !== undefined && (!Array.isArray(claim.supportingSources) || claim.supportingSources.length > 30)) {
+        throw new Error(`world_research_supporting_sources_invalid:${attributeKey}`);
+      }
+      const supportingSources = Array.isArray(claim.supportingSources)
+        ? claim.supportingSources.map(item => parseResearchSource(item, attributeKey, validated.value)) : undefined;
+      parsedClaims.push({ attributeKey, knowledgeState: claim.knowledgeState as WorldResearchClaim["knowledgeState"], value: validated.value,
+        source, ...(supportingSources ? { supportingSources } : {}) });
     }
     for (const rawGap of unresolved) {
       const gap = object(rawGap);

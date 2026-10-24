@@ -6,10 +6,13 @@ import { locationBinding, validateBrowserLocations, signLocation, verifyLocation
 import { createAdminWorldResearchExport, readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID, type WorldResearchDetail } from "@/lib/server/worldResearchExport";
 import { matchesAutomatedReviewJob, reviewCanFinish, type ReviewableJob } from "@/lib/server/worldResearchJobReview";
 
+import { parseNuknukDraft } from "@/lib/nuknukResearchDraft";
+import { prepareNuknukDraftImport, supplementResearchValue } from "@/lib/nuknukDraftImport";
+
 const noStore = { "cache-control": "no-store" };
 type Accepted = { spotId: string; manifestHash: string; claim: ReviewedResearchClaim };
 type LocationCandidate = { placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; exact: boolean };
-type SpotReport = { spotId: string; name: string; ready: string[]; readyClaims: ReviewedResearchClaim[]; declined: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; unresolvedDetails: Array<{ attributeKey: string; reason: string }>; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; reviewCompleted?: boolean; reviewCompletionError?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
+type SpotReport = { spotId: string; name: string; ready: string[]; readyClaims: ReviewedResearchClaim[]; storedClaims: Array<{ attributeKey: string; value: unknown }>; declined: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; unresolvedDetails: Array<{ attributeKey: string; reason: string }>; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; reviewCompleted?: boolean; reviewCompletionError?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "world_research_action_failed";
 
@@ -23,7 +26,7 @@ export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   const actor = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
   const readDetail = (spotId: string) => readWorldResearchDetail(actor, spotId);
-  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; recordExport?: unknown; jobId?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>>; declined?: Record<string, string[]> };
+  const body = await request.json().catch(() => null) as null | { action?: string; draftReport?: unknown; reviewedKeys?: unknown; spotIds?: unknown; recordExport?: unknown; jobId?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>>; declined?: Record<string, string[]> };
 
   try {
     if (body?.action === "export") {
@@ -37,6 +40,14 @@ export async function POST(request: Request) {
       return Response.json(document, { headers: noStore });
     }
 
+    if (body?.action === "prepare-draft") {
+      const draft = parseNuknukDraft(body.draftReport);
+      if (!draft || !Array.isArray(body.reviewedKeys) || body.reviewedKeys.length > 12
+        || body.reviewedKeys.some(key => typeof key !== "string")) throw new Error("world_research_draft_selection_invalid");
+      const current = await createAdminWorldResearchExport(actor, [draft.spotId]);
+      return Response.json(prepareNuknukDraftImport(draft, current, body.reviewedKeys as string[]), { headers: noStore });
+    }
+
     if (body?.action !== "preview" && body?.action !== "commit") throw new Error("world_research_action_invalid");
     const document = parseWorldResearchBatch(body.document);
     if (body.jobId !== undefined && (body.action !== "commit" || typeof body.jobId !== "string" || !WORLD_RESEARCH_SPOT_ID.test(body.jobId))) throw new Error("world_research_review_job_invalid");
@@ -44,18 +55,23 @@ export async function POST(request: Request) {
     const accepted: Accepted[] = [];
     for (const exported of document.batch.spots) {
       const unresolvedDetails = document.research.spots.find((spot) => spot.spotId === exported.spotId)?.unresolved ?? [];
-      const report: SpotReport = { spotId: exported.spotId, name: exported.name, ready: [], readyClaims: [], declined: [], imported: [], skipped: [], conflicts: [], invalid: [], reviews: [], blocked: [], derived: [], unresolved: unresolvedDetails.map((gap) => gap.attributeKey), unresolvedDetails };
+      const report: SpotReport = { spotId: exported.spotId, name: exported.name, ready: [], readyClaims: [], storedClaims: [], declined: [], imported: [], skipped: [], conflicts: [], invalid: [], reviews: [], blocked: [], derived: [], unresolved: unresolvedDetails.map((gap) => gap.attributeKey), unresolvedDetails };
       reports.set(exported.spotId, report);
       let detail: WorldResearchDetail;
       try { detail = await readDetail(exported.spotId); }
       catch (cause) { report.invalid.push(message(cause)); continue; }
       if (detail.name !== exported.name || detail.manifest?.manifestHash !== exported.manifestHash) { report.conflicts.push("EXPORT_OR_MANIFEST_DRIFT"); continue; }
       const current = Object.fromEntries(Object.entries(detail.answers ?? {}).filter((entry): entry is [string, WorldResearchExistingValue] => typeof entry[1].claimId === "string" && typeof entry[1].knowledgeState === "string"));
-      const allClaims = document.validatedClaims.get(exported.spotId) ?? [];
+      let allClaims: WorldResearchClaim[];
+      try {
+        allClaims = (document.validatedClaims.get(exported.spotId) ?? []).map(claim => ({ ...claim,
+          value: supplementResearchValue(claim.attributeKey, current[claim.attributeKey], claim.value) }));
+      } catch (cause) { report.invalid.push(message(cause)); continue; }
       const declined = body.declined?.[exported.spotId] ?? [];
       if (!Array.isArray(declined) || declined.some((key) => typeof key !== "string" || !allClaims.some((claim) => claim.attributeKey === key))) throw new Error("world_research_declined_invalid");
       report.declined = [...new Set(declined)];
       const plan = planWorldResearchSpot({ claims: allClaims.filter((claim) => !report.declined.includes(claim.attributeKey)), current, confirmations: body.confirmations?.[exported.spotId] ?? {}, observedAt: document.batch.createdAt });
+      report.storedClaims = plan.skipped.map(attributeKey => ({ attributeKey, value: current[attributeKey]?.value }));
       report.skipped = plan.skipped; report.reviews = plan.reviews; report.blocked = plan.blocked; report.derived = plan.derived;
       report.conflicts = plan.reviews.map((review) => review.attributeKey);
       for (const claim of plan.accepted) {

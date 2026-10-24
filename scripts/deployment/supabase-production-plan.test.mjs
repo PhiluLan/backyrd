@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { buildProductionPlan } from "./supabase-production-plan.mjs";
@@ -243,4 +243,19 @@ test("Product pre-applied observation cannot skip a middle migration", () => {
   }
   write(f.repo,"supabase/production/preapplied-product-migrations-v1.json",`${JSON.stringify({version:"backyrd-preapplied-product-migrations-v1",projectRef:"hjgcrrzfjchzqoegcywn",canonicalBaseSha:f.base,observation:"READ_ONLY_PRODUCTION_LEDGER_NOT_APPLY_RECEIPT",observedAt:"2026-09-19T12:51:40Z",remoteMigrationCount:152,remoteMigrationTip:"20260919090423",backupRunId:35443861446,restoreProbe:"NOT_PERFORMED_FOUNDER_RISK_ACCEPTED",migrations})}\n`);
   assert.throws(()=>plan(f,commit(f.repo,"gap")),/product_preapplied_scope_mismatch/);
+});
+
+test('isolated research deployment and its verified receipt never mark deferred Booking as shipped', async()=>{
+ const {RESEARCH_MIGRATION:target,DEFERRED_BOOKING_MIGRATIONS:deferred}=await import('./isolated-research-migration.mjs');
+ const f=fixture();
+ for(const item of [...deferred,target])write(f.repo,item.path,readFileSync(new URL('../../'+item.path,import.meta.url)));
+ const scope={contractVersion:'backyrd.isolated-research-migration-scope@1.0',baseSha:f.base,migrations:[target],deferredMigrations:deferred,backupRunId:1,executionAuthorized:false};
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({isolatedResearchMigrationScope:scope}));
+ const selectedHead=commit(f.repo,'isolated research candidate');
+ const selected=plan(f,selectedHead);assert.deepEqual(selected.pendingMigrations,[target]);assert.deepEqual(selected.deferredMigrations,deferred);
+ assert.equal(selected.migrations.length,5);assert.equal(selected.deployFunctions.length,0);
+ write(f.repo,'delivery/production-state.json',JSON.stringify({supabase:{isolatedResearchRelease:{status:'APPLIED_AND_VERIFIED',migration:target,sourceSha:selectedHead,deploymentRunId:1,manifestHash:'a'.repeat(64)}}}));
+ const observed=plan(f,commit(f.repo,'verified isolated receipt'));assert.deepEqual(observed.pendingMigrations,[]);assert.deepEqual(observed.deferredMigrations,deferred);
+ write(f.repo,'delivery/product-authority-v1.json','{}');
+ assert.deepEqual(plan(f,commit(f.repo,'later Booking release still needs approval')).pendingMigrations,deferred);
 });

@@ -1,0 +1,88 @@
+import assert from "node:assert/strict";
+import {readFile,writeFile,mkdtemp} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {fileURLToPath,pathToFileURL} from "node:url";
+import ts from "typescript";
+import {createWorldResearchBatch,emptyExperienceProfile,emptyExperienceConditions,parseWorldResearchBatch} from "../../packages/world-knowledge-core/dist/index.js";
+import test from "node:test";
+const dir=await mkdtemp(join(tmpdir(),"nuknuk-import-"));
+const source=await readFile(new URL('../lib/nuknukDraftImport.ts',import.meta.url),'utf8');
+const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText
+ .replace('"@backyrd/world-knowledge-core"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href));
+await writeFile(join(dir,'import.mjs'),compiled);
+const {mergeResearchProfile,prepareNuknukDraftImport}=await import(pathToFileURL(join(dir,'import.mjs')).href);
+const id='174cfd79-d10d-434d-be8f-1a7e39047e82';
+const citation={url:'https://example.org/menu',evidence:'Getränke und Restaurant mit 50 Plätzen',observedAt:'2026-10-24T10:00:00Z'};
+const claim=(value)=>({claimId:'11111111-1111-4111-8111-111111111111',knowledgeState:'KNOWN_VALUE',value});
+const batch=(values={})=>createWorldResearchBatch({batchId:id,createdAt:'2026-10-24T10:00:00Z',spots:[{spotId:id,name:'Fixture',locality:'Basel',manifestHash:'a'.repeat(64),existingValues:{'contact.website':claim('https://example.org'),...values}}]});
+const result=(attributeKey,value,extra={})=>({attributeKey,value,status:'REQUIRES_REVIEW',citations:[citation],...extra});
+const draft=(results)=>({version:'nuknuk-research-v4.16',spotId:id,name:'Fixture',canonicalWrite:false,importable:false,results});
+const area=(id,name='Restaurant')=>({id,kind:'DINING_AREA',name,properties:[{key:'offer.capacity',label:null,state:'KNOWN',value:50,conditions:emptyExperienceConditions()}]});
+const offer=(id,areaIds=[])=>({id,kind:'DRINKS',name:'Getränke',properties:[],prices:[],schedule:[],validFrom:null,validUntil:null,areaIds});
+
+test('partial profiles preserve existing entities and map researched links to existing IDs',()=>{
+ const existing={...emptyExperienceProfile('EAT'),reviewed:true,areas:[area('real'),{...area('garden','Garten'),kind:'TERRACE'}],offers:[offer('real-offer',['garden'])]};
+ const incoming={...emptyExperienceProfile('EAT'),areas:[area('researched')],offers:[offer('research-offer',['researched'])]};
+ const actual=mergeResearchProfile(existing,incoming);
+ assert.equal(actual.areas.length,2);assert.equal(actual.offers.length,1);
+ assert.deepEqual(actual.offers[0].areaIds,['garden','real']);assert.equal(actual.areas[0].id,'real');
+ assert.equal(incoming.reviewed,false);assert.equal(actual.reviewed,true);
+});
+test('partial profiles never replace contradictory properties, ambiguous names or changed categories',()=>{
+ const existing={...emptyExperienceProfile('EAT'),areas:[area('real')]};
+ const changed={...area('different'),properties:[{...area('different').properties[0],value:40}]};
+ assert.throws(()=>mergeResearchProfile(existing,{...emptyExperienceProfile('EAT'),areas:[changed]}),/widerspricht/);
+ assert.throws(()=>mergeResearchProfile({...existing,areas:[area('one'),area('two')]},{...emptyExperienceProfile('EAT'),areas:[area('other')]}),/eindeutig/);
+ assert.throws(()=>mergeResearchProfile(existing,emptyExperienceProfile('STAY')),/Profilkategorie/);
+ assert.throws(()=>mergeResearchProfile(existing,{...emptyExperienceProfile('EAT'),areas:[{...area('real'),name:'Another room'}]}),/eindeutig/);
+});
+test('unknown future offer details do not erase saved prices or schedules',()=>{
+ const existing={...emptyExperienceProfile('EAT'),offers:[{...offer('saved'),schedule:[{weekday:1,start:'12:00',end:'14:00'}]}]};
+ const incoming={...emptyExperienceProfile('EAT'),offers:[offer('new')]};
+ assert.deepEqual(mergeResearchProfile(existing,incoming).offers[0].schedule,existing.offers[0].schedule);
+ assert.throws(()=>mergeResearchProfile(existing,{...incoming,offers:[{...offer('new'),schedule:[{weekday:1,start:'18:00',end:'23:00'}]}]}),/Zeiten/);
+});
+test('a partial weekly plan retains existing weekends and never invents closure',()=>{
+ const saturday={day:'SATURDAY',intervals:[{start:'10:00',end:'12:00'}]};
+ const monday={day:'MONDAY',intervals:[{start:'12:00',end:'14:00'}]};
+ const prepared=prepareNuknukDraftImport(draft([result('hours.regular',[monday],{partialHours:true})]),batch({'hours.regular':claim([saturday])}),['hours.regular']);
+ assert.deepEqual(prepared.document.research.spots[0].claims[0].value,[saturday,monday]);
+ assert.equal(prepared.document.research.spots[0].claims[0].value.some(day=>day.day==='SUNDAY'),false);
+});
+test('preparation is bound to a real current spot and an explicit human selection',()=>{
+ assert.throws(()=>prepareNuknukDraftImport(draft([result('contact.website','https://example.org')]),batch(),[]),/mindestens/);
+ assert.throws(()=>prepareNuknukDraftImport({...draft([]),spotId:'11111111-1111-4111-8111-aaaaaaaaaaaa'},batch(),['contact.website']),/gehört nicht/);
+ const duplicated=result('contact.website','https://example.org');
+ assert.throws(()=>prepareNuknukDraftImport(draft([duplicated,duplicated]),batch(),['contact.website']),/mehrfach/);
+});
+test('missing source times and unconfirmed external domains are held without guessing trust or timestamps',()=>{
+ const missing=result('contact.website','https://example.org',{citations:[{url:'https://example.org',evidence:'Public website'}]});
+ const external=result('contact.website','https://example.org',{citations:[{...citation,url:'https://unrelated.org'}]});
+ for(const item of [missing,external]){
+  const prepared=prepareNuknukDraftImport(draft([item]),batch(),['contact.website']);
+  assert.equal(prepared.document.research.spots[0].claims.length,0);assert.equal(prepared.held.length,1);
+ }
+});
+test('supplementary citations preserve each source, quote and observed time',()=>{
+ const d=draft([result('experience.profile',{...emptyExperienceProfile('EAT'),areas:[area('restaurant')],offers:[offer('drinks')]},{partialProfile:true,citations:[citation,{...citation,url:'https://example.org/drinks',evidence:'Weinkarte'}]})]);
+ const prepared=prepareNuknukDraftImport(d,batch(),['experience.profile']);
+ const proposed=prepared.document.research.spots[0].claims[0];
+ assert.equal(proposed.value.reviewed,true);assert.deepEqual(proposed.supportingSources,[{url:'https://example.org/drinks',evidence:'Weinkarte',observedAt:citation.observedAt,trust:'OFFICIAL_PRIMARY'}]);
+ assert.equal(d.results[0].value.reviewed,false);
+ assert.equal(parseWorldResearchBatch(prepared.document).validatedClaims.get(id).length,1);
+});
+test('the public email exception is limited to the exact field value in every citation',()=>{
+ const make=(key,value,evidence)=>prepareNuknukDraftImport(draft([result(key,value,{citations:[{...citation,evidence}]})]),batch(),[key]);
+ assert.equal(make('contact.public_email','tobias@example.org','Kontakt: tobias@example.org').held.length,0);
+ assert.equal(make('contact.public_email','tobias@example.org','other@example.org').held.length,1);
+ assert.equal(make('contact.public_email','tobias@example.org','tobias@example.org; api_key=secret').held.length,1);
+ assert.equal(make('contact.website','https://example.org','tobias@example.org').held.length,1);
+});
+test('source validation also applies to extra citations and unknown data never becomes a false claim',()=>{
+ const unknown={attributeKey:'amenity.features',status:'UNRESOLVED',reason:'NO_SUPPORTED_TARGET_FACT'};
+ const value=result('contact.public_email','tobias@example.org',{citations:[{...citation,evidence:'tobias@example.org'},{...citation,evidence:'other@example.org'}]});
+ const prepared=prepareNuknukDraftImport(draft([unknown,value]),batch(),['contact.public_email']);
+ assert.deepEqual(prepared.document.research.spots[0].claims,[]);
+ assert.equal(prepared.document.research.spots[0].unresolved.find(item=>item.attributeKey==='amenity.features')?.reason.includes('unverändert'),true);
+});

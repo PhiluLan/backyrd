@@ -1,5 +1,5 @@
-export type Citation = { url: string; evidence: string; layoutReviewRequired?: boolean };
-export type ResearchResult = { attributeKey: string; status: string; reason?: string; value?: unknown; citations?: Citation[]; partialProfile?: boolean };
+export type Citation = { url: string; evidence: string; layoutReviewRequired?: boolean; observedAt?: string };
+export type ResearchResult = { attributeKey: string; status: string; reason?: string; value?: unknown; citations?: Citation[]; partialProfile?: boolean; partialHours?: boolean };
 export type NuknukDraft = {
   version: string; spotId: string; name: string; canonicalWrite: false; importable: false;
   results: ResearchResult[]; requests?: number; modelCalls?: number;
@@ -25,11 +25,14 @@ export function parseNuknukDraft(value: unknown): NuknukDraft | null {
     for (const citation of (item.citations ?? []) as unknown[]) {
       if (!record(citation) || !bounded(citation.url, 2048) || !publicLink(citation.url)
         || !bounded(citation.evidence, 2000)) return null;
-      citations.push({ url: citation.url, evidence: citation.evidence, layoutReviewRequired: citation.layoutReviewRequired === true });
+      if (citation.observedAt !== undefined && (!bounded(citation.observedAt, 40) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(citation.observedAt))) return null;
+      citations.push({ url: citation.url, evidence: citation.evidence, layoutReviewRequired: citation.layoutReviewRequired === true,
+        ...(typeof citation.observedAt === "string" ? { observedAt: citation.observedAt } : {}) });
     }
     const result: ResearchResult = { attributeKey: item.attributeKey, status: item.status, citations };
     if (typeof item.reason === "string") result.reason = item.reason;
     if (item.partialProfile === true) result.partialProfile = true;
+    if (item.partialHours === true) result.partialHours = true;
     if (item.value !== undefined) {
       if (JSON.stringify(item.value).length > 30_000) return null;
       result.value = item.value;

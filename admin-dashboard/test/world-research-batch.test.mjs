@@ -60,7 +60,7 @@ test("a verified complete import clears the form and shows a visible finish stat
   assert.match(panel, /setCompletion\(\{ imported: report\.totals\.imported/);
   assert.match(panel, /setQuery\(""\); setResults\(\[\]\); setSelected\(\[\]\); setJson\(""\); setPreview\(null\)/);
   assert.match(panel, /scrollIntoView/);
-  assert.match(panel, /Alles erledigt/);
+  assert.match(panel, /Angaben gespeichert/);
   assert.match(panel, /setPreview\(report\);\s*setMessage\(report\.perSpot\.find\(\(spot\) => spot\.reviewCompletionError\)/);
 });
 
@@ -79,7 +79,7 @@ test("automated research remains admin-only, proposal-only and uses the same pre
   assert.match(jobsRoute, /parseWorldResearchBatch\(normalizeAutomatedWorldResearchBatch\(row\.result_document/);
   assert.doesNotMatch(jobsRoute, /world_product_admin_import_research_spot_v2|world_product_rebuild_spot_v1/);
   assert.match(panel, /await loadPreview\(result\.document, \{\}, false, \{\}\)/);
-  assert.match(panel, /claim\.source\.evidence/);
-  assert.match(panel, /claim\.source\.url/);
+  assert.match(panel, /claim\.supportingSources/);
+  assert.match(panel, /source\.url/);
   assert.match(panel, /Diesen Vorschlag nicht übernehmen/);
 });
