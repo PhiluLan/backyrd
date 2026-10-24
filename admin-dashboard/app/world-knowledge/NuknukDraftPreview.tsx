@@ -80,6 +80,6 @@ export function NuknukDraftPreview({ draft, onClose, onSave, saved, saving, erro
       {error && <p className={styles.error} role="alert">{error}</p>}
       <button type="button" className={styles.secondary} disabled={busy} onClick={onClose}>Zurück zur Recherche</button>
     </section>
-    {onPrepare && <div className={styles.footer}><span>{selected.length} Angaben ausgewählt · der Abgleich speichert noch nichts</span><button type="button" className={styles.primary} disabled={busy || !selected.length} onClick={() => onPrepare(selected)}>{preparing ? "Profil wird abgeglichen …" : "Auswahl mit Spotprofil abgleichen"}</button></div>}
+    {onPrepare && editing === null && <div className={styles.footer}><span>{selected.length} Angaben ausgewählt · der Abgleich speichert noch nichts</span><button type="button" className={styles.primary} disabled={busy || !selected.length} onClick={() => onPrepare(selected)}>{preparing ? "Profil wird abgeglichen …" : "Auswahl mit Spotprofil abgleichen"}</button></div>}
   </div>;
 }
