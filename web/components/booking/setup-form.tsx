@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import type { BookingSetup, BookingSnapshot } from "@/lib/booking-api";
+import type { BookingSetup, BookingSnapshot, BookingService } from "@/lib/booking-api";
 import styles from "./console.module.css";
 
+const validServiceTime = (s: BookingService) => s.ends_next_day ? s.closes_at <= s.opens_at && s.closes_at !== "24:00" : s.closes_at > s.opens_at;
 const weekdays = [[1, "Mo"], [2, "Di"], [3, "Mi"], [4, "Do"], [5, "Fr"], [6, "Sa"], [0, "So"]] as const;
 
 // Keep editable text separate from the numeric RPC contract. An empty field is
@@ -25,7 +26,7 @@ export function setupFromSnapshot(snapshot: BookingSnapshot): BookingSetup {
     max_party_size: snapshot.settings?.max_party_size ?? 8,
     areas: snapshot.areas,
     tables: snapshot.tables,
-    services: snapshot.services,
+    services: snapshot.services.map((s) => snapshot.capabilities?.special_hours && s.closes_at === "24:00" ? { ...s, closes_at: "00:00", ends_next_day: true } : s),
   };
 }
 
@@ -50,8 +51,8 @@ export function SetupForm({ snapshot, busy, onSave, onDirty }: {
       window.requestAnimationFrame(() => { invalid.focus(); invalid.reportValidity(); });
       return;
     }
-    if (setup.services.some((service) => !service.weekdays.length || service.opens_at >= service.closes_at)) {
-      setSection("services"); setValidation("Wähle die Wochentage und eine Endzeit nach dem Beginn."); return;
+    if (setup.services.some((service) => !service.weekdays.length || !validServiceTime(service))) {
+      setSection("services"); setValidation("Wähle die Wochentage und ein gültiges Zeitfenster. Für Nachtservices wähle «Ende am Folgetag»."); return;
     }
     setValidation(null);
     await onSave({ ...setup, duration_minutes: Number(setup.duration_minutes), max_party_size: Number(setup.max_party_size), tables: setup.tables.map((table) => ({ ...table, seats: Number(table.seats) })) });
@@ -114,7 +115,8 @@ export function SetupForm({ snapshot, busy, onSave, onDirty }: {
               <label>Ende für Service {index + 1}<input type="time" required value={service.closes_at} onChange={(e) => setSetup((s) => ({ ...s, services: s.services.map((x) => x.id === service.id ? { ...x, closes_at: e.target.value } : x) }))} /></label>
               <label>Buchungstakt für Service {index + 1}<select value={service.interval_minutes} onChange={(e) => setSetup((s) => ({ ...s, services: s.services.map((x) => x.id === service.id ? { ...x, interval_minutes: Number(e.target.value) } : x) }))}>{[15, 30, 45, 60, 90, 120].map((m) => <option key={m} value={m}>{m} Minuten</option>)}</select></label>
             </div>
-            {service.opens_at >= service.closes_at && <p className={styles.help}>Das Ende muss nach dem Beginn liegen.</p>}
+            {snapshot.capabilities?.special_hours && <><label className={styles.checkbox}><input type="checkbox" checked={!!service.ends_next_day} onChange={(event) => setSetup((s) => ({ ...s, services: s.services.map((x) => x.id !== service.id ? x : { ...x, ends_next_day: event.target.checked, closes_at: event.target.checked ? (x.closes_at <= x.opens_at && x.closes_at !== "24:00" ? x.closes_at : "00:00") : (x.closes_at > x.opens_at ? x.closes_at : "23:59") }) }))} />Ende am Folgetag für Service {index + 1}</label><p className={styles.help}>Die Wochentage beziehen sich auf den Servicebeginn. Buchungen nach Mitternacht erscheinen im Tagesbuch des Folgetags.</p></>}
+            {!validServiceTime(service) && <p className={styles.help}>Prüfe Beginn, Ende und Folgetag. Ein Service umfasst höchstens 24 Ortsstunden.</p>}
           </div>)}
         </div>
         <div className={styles.saveBar}><span>{dirty ? "Ungespeicherte Änderungen" : snapshot.settings ? "Einrichtung gespeichert" : "Einrichtung noch nicht gespeichert"}</span><div className={styles.actions}>

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-restaurant-team-access-v1",
+  "previousEvidence": "booking-restaurant-week-planning-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "3f22b2f58fc690bf08ed84c86fa031c9f0495177d6db3d675637b175ecc2d4aa",
+    "applicationSchemaSha256": "fb667a1d7bf354e41169231744aabd778737fd2e900fccac9ea2fba13fc45928"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020204929_booking_restaurant_team_access_v1.sql",
+      "sha256": "29987bca5d0f84c0b5b7122135a2c5c86adf6e15dd332b798ca2b07e9cfc4f1a"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_restaurant_team_access_v1.sql",
+      "sha256": "80af87363c622c9db21e88fb9eacb84e2c4caccd7302e0c4f40240b934557096"
+    },
+    {
+      "path": "supabase/tests/booking_restaurant_team_safety_v1.sql",
+      "sha256": "a7d21290924fe158cfe5a271ba1b3db3c867f9f517127959ec1d0866fc280760"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "2109c959ffba71150b81074de98b0219c2fcf3b5f6765237d071ebe424f58dd2",
+    "applicationSchemaSha256": "72a5815b867517a69a9b54d71661edd3ca62e1d909c76b1290c30ea1495c7ee3"
+  }
+}
