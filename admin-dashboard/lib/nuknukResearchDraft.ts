@@ -1,5 +1,5 @@
-export type Citation = { url: string; evidence: string; layoutReviewRequired?: boolean };
-export type ResearchResult = { attributeKey: string; status: string; reason?: string; value?: unknown; citations?: Citation[]; partialProfile?: boolean };
+export type Citation = { url: string; evidence: string; layoutReviewRequired?: boolean; observedAt?: string };
+export type ResearchResult = { attributeKey: string; status: string; reason?: string; value?: unknown; citations?: Citation[]; partialProfile?: boolean; partialHours?: boolean };
 export type NuknukDraft = {
   version: string; spotId: string; name: string; canonicalWrite: false; importable: false;
   results: ResearchResult[]; requests?: number; modelCalls?: number;
@@ -25,11 +25,14 @@ export function parseNuknukDraft(value: unknown): NuknukDraft | null {
     for (const citation of (item.citations ?? []) as unknown[]) {
       if (!record(citation) || !bounded(citation.url, 2048) || !publicLink(citation.url)
         || !bounded(citation.evidence, 2000)) return null;
-      citations.push({ url: citation.url, evidence: citation.evidence, layoutReviewRequired: citation.layoutReviewRequired === true });
+      if (citation.observedAt !== undefined && (!bounded(citation.observedAt, 40) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(citation.observedAt))) return null;
+      citations.push({ url: citation.url, evidence: citation.evidence, layoutReviewRequired: citation.layoutReviewRequired === true,
+        ...(typeof citation.observedAt === "string" ? { observedAt: citation.observedAt } : {}) });
     }
     const result: ResearchResult = { attributeKey: item.attributeKey, status: item.status, citations };
     if (typeof item.reason === "string") result.reason = item.reason;
     if (item.partialProfile === true) result.partialProfile = true;
+    if (item.partialHours === true) result.partialHours = true;
     if (item.value !== undefined) {
       if (JSON.stringify(item.value).length > 30_000) return null;
       result.value = item.value;
@@ -49,4 +52,20 @@ export function parseNuknukDraft(value: unknown): NuknukDraft | null {
   if (Array.isArray(value.sourceFailures)) draft.sourceFailures = value.sourceFailures.map(item => ({ url: item.url, reason: item.reason }));
   if (Array.isArray(value.limitations)) draft.limitations = [...value.limitations];
   return JSON.stringify(draft).length <= 100_000 ? draft : null;
+}
+
+const stable = (value: unknown): string => JSON.stringify(value, (_key, item: unknown) =>
+  record(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+
+/** Repair the old parser's metadata loss from an otherwise identical original report. */
+export function recoverDraftObservations(stored: NuknukDraft, original: NuknukDraft): NuknukDraft {
+  const identity = (draft: NuknukDraft) => ({ ...draft, name: "", results: draft.results.map(result => ({
+    ...result, partialHours: undefined, citations: result.citations?.map(citation => ({ ...citation, observedAt: undefined })),
+  })) });
+  if (stable(identity(stored)) !== stable(identity(original))) throw new Error("Der Originalbericht passt nicht zu diesem Entwurf. Inhalte, Spot und Belege müssen unverändert sein.");
+  return { ...stored, results: stored.results.map((result,index) => ({ ...result, citations: result.citations?.map((citation,citationIndex) => {
+    const timestamp = original.results[index].citations?.[citationIndex]?.observedAt;
+    if (citation.observedAt && timestamp !== citation.observedAt) throw new Error("Ein vorhandener Abrufzeitpunkt darf nicht ersetzt werden.");
+    return { ...citation, ...(timestamp ? { observedAt: timestamp } : {}) };
+  }) })) };
 }

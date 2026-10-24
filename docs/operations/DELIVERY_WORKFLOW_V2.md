@@ -173,3 +173,22 @@ An iOS certificate must never be used as database or Edge Function authority.
 Routine Risk Gate certification uses `IOS_OTA` while retaining all Product and
 Edge-runtime tests. A backend deployment requires a separate exact-Main manual
 `PRODUCT` certification and its unchanged migration-specific approval gates.
+
+### Isolated research migration release (2026-10-24)
+
+Founder authorized the exact current-profile research import migration and its
+untested recovery risk, and explicitly requested isolation from four pending
+Booking migrations. The source-aware plan binds both the selected and deferred
+file hashes. No Auth or Function deployment may join this scope. Preflight and
+apply use a disposable migration directory excluding only the four deferred
+files; the Git checkout and remote migration history are never rewritten.
+Manual exact-Main release, certified Product artifact and Production environment
+remain required. A successful encrypted backup less than 24 hours old is checked.
+
+The full shipped baseline must not advance past deferred migrations. After apply,
+record the separate verified release receipt under
+`supabase.isolatedResearchRelease` in `delivery/production-state.json`, with the
+exact migration, source SHA, deployment run and manifest hash. The planner only
+excludes that exact research migration; deferred Booking migrations stay visible
+and require their own scope approval. Removing the isolated scope later does not
+mark Booking as applied. Missing/mismatched receipts fail closed in dry-run.

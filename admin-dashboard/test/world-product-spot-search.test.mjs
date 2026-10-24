@@ -7,8 +7,12 @@ import ts from "typescript";
 
 async function importTypeScript(path) {
   const source = await readFile(new URL(path, import.meta.url), "utf8");
-  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 }, fileName: path }).outputText;
+  let output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 }, fileName: path }).outputText;
   const directory = await mkdtemp(join(tmpdir(), "backyrd-product-search-test-"));
+  const feedbackSource=await readFile(new URL("../lib/researchSaveFeedback.ts",import.meta.url),"utf8");
+  const feedbackPath=join(directory,"researchSaveFeedback.mjs");
+  await writeFile(feedbackPath,ts.transpileModule(feedbackSource,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText);
+  output=output.replace('"./researchSaveFeedback"',JSON.stringify(feedbackPath));
   const modulePath = join(directory, "module.mjs");
   await writeFile(modulePath, output, { mode: 0o600 });
   return import(modulePath);

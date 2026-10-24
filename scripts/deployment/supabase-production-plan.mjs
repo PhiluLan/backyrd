@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
+import { researchAppliedReceipt, scopeResearchMigrations } from "./isolated-research-migration.mjs";
+
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
 const stable = (value) => {
@@ -451,8 +453,16 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     }
   }
   const preappliedPaths = new Set([...preappliedMigrations.map((entry) => entry.path), ...(priorityReceipt ? [priorityReceipt.path] : [])]);
-  const pendingMigrations = migrations.filter((entry) => !preappliedPaths.has(entry.path));
+  const state = head.files.has("delivery/production-state.json") ? JSON.parse(head.text("delivery/production-state.json")) : null;
+  const appliedResearch = researchAppliedReceipt(state, head.read, source => {
+    try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
+  });
+  if (appliedResearch) preappliedPaths.add(appliedResearch.migration.path);
+  const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
+  const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
+  const scoped = scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch});
+  const {pendingMigrations,deferredMigrations,isolatedResearchScope} = scoped;
   const plan = {
     version: "backyrd-supabase-production-deployment-plan-v1",
     projectRef: "hjgcrrzfjchzqoegcywn",
@@ -464,6 +474,9 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     deployFunctions,
     migrations,
     pendingMigrations,
+    deferredMigrations,
+    isolatedResearchScope,
+    appliedResearch,
     additivePreappliedPriority: priorityReceipt,
     preappliedMigrationImport: preappliedMigrationImport ? {
       path: preappliedMigrationImport.path,

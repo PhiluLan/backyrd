@@ -6,8 +6,8 @@ export const WORLD_RESEARCH_SPOT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}
 
 export type WorldResearchDetail = {
   spotId: string; name: string; status: string;
-  actor?: { role?: string };
-  answers?: Record<string, { claimId?: string; knowledgeState?: string; value?: unknown; visibility?: string }>;
+  actor?: { role?: string; allowedAttributeKeys?: string[] };
+  answers?: Record<string, { claimId?: string; knowledgeState?: string; value?: unknown; visibility?: string; validUntil?: string | null }>;
   manifest?: null | { manifestHash?: string; worldSnapshot?: { spotId?: string } };
 };
 

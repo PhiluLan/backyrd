@@ -18,11 +18,40 @@ After a partial import, export again: the new manifest/current values become the
 base and the researcher only supplements remaining fields. Never edit a bound
 manifest/hash to make an old document appear current.
 
-The Admin research page can also open a local Nuknuk `report.json` as a
-read-only draft. It shows proposed offers, original citations, unresolved
-fields and source failures without sending the file to the import API. That
-view has no preview or commit control and cannot turn an unreviewed partial
-profile into a canonical claim.
+## Nuknuk reports and current profile comparison
+
+The Admin page reads local Nuknuk `report.json` files as proposals, never as
+canonical knowledge. Search and status filters separate proposals from unresolved
+fields; schedules, offers and rooms are rendered as readable values. Saving a
+report does not save its facts into the Spot profile.
+
+An Admin explicitly selects the facts and evidence they have reviewed, then
+chooses **Auswahl mit Spotprofil abgleichen**. This read-only step binds the
+report to a fresh export of the same real Spot and enters the existing preview
+and commit flow. No checkbox is selected automatically. Current values, new
+proposals and unresolved fields remain distinct; replacements need a separate
+choice. The final import is a separate action.
+
+Partial experience profiles supplement the current profile: existing entities,
+properties, area links, prices and schedules remain intact. Ambiguous entity
+matches and incompatible values are held for editor review. Missing weekdays
+preserve existing schedules and never imply closed. Preview and commit both
+repeat this merge against current values so a refreshed partial report cannot
+erase newer additions.
+
+Each citation retains its URL, evidence and observation time. Additional sources
+are carried as `supportingSources` and stored with the immutable claim evidence.
+Missing observation times and sources outside the confirmed website host are
+held. Older saved reports that lost these times must be reloaded from their
+original file. The source trust level is determined from the confirmed website,
+not accepted from the report. Credential text is rejected; email literals are
+allowed only for the exact proposed public venue email field.
+
+Migration `20261024113000_world_research_current_profile_import_v3.sql` upgrades
+the existing v2 import RPC to the current v6 writer and adds supporting evidence.
+Explicit supersession does not create a concurrent-conflict note for its own
+ancestor; unrelated contradictory assertions still do. Existing historical
+conflict notes are not automatically removed. Decision behavior is unchanged.
 
 Confirmed country CH permits the deterministic proposal Europe/Zurich, visibly
 labelled as a geographic derivation with IANA provenance. It is not inferred
@@ -69,6 +98,22 @@ Nuknuk-Research-Berichte können im Admin als reine Prüfentwürfe gespeichert w
 Der Admin-geschützte Entwurfsweg speichert nur die angezeigten Vorschläge,
 Belege und offenen Punkte in der bestehenden service-role-only-Tabelle für
 Recherchevorschläge; rohe Modelltraces bleiben lokal. Gespeicherte Entwürfe
-sind für Admins geräteübergreifend sichtbar. Sie haben keinen Import- oder
-World-Knowledge-Schreibpfad. Die Übernahme belegter Angaben erfordert weiter
-den bestehenden World-Research-Prüf- und Importweg.
+sind für Admins geräteübergreifend sichtbar. Der Entwurfsspeicher schreibt
+keine Profilangaben. Ausgewählte und ausdrücklich geprüfte Inhalte gelangen
+über den Profilabgleich in den bestehenden World-Research-Prüf- und Importweg.
+
+
+## Rechercheentwurf bearbeiten und fehlende Abrufzeitpunkte ergänzen
+
+In der Nuknuk-Übersicht lassen sich Vorschläge über **Angabe bearbeiten** und offene Felder über **Angabe selbst ergänzen** öffnen. Der Editor lädt zuerst den aktuellen, freigegebenen Profilstand. Teilprofile werden vor der Bearbeitung mit vorhandenen Angeboten und Bereichen zusammengeführt; bei Widersprüchen startet die Bearbeitung vom gespeicherten Stand. Die ursprünglichen Recherchewerte und Belege bleiben unverändert sichtbar.
+
+Die Formularaktion merkt den eigenen Wert zunächst vor. **Eigene Angabe im Profil speichern** bestätigt ihn über `world_product_admin_submit_claim_v1` als menschliche Admin-Angabe. Es werden keine offiziellen Quellenbelege für geänderte Werte erfunden. Der Abrufzeitpunkt einer Webseite wird dabei nicht durch das aktuelle Datum ersetzt: Der neue Claim erhält den Zeitpunkt der menschlichen Bestätigung. Der aktuelle Claim wird vor dem Schreiben abgeglichen. Nach dem Schreiben werden Projektion und tatsächlicher Rücklesewert geprüft. Ein Fehler beim Rebuild wird ausdrücklich als bereits gespeicherte Angabe mit noch nicht bestätigter Ansicht gemeldet; der unveränderte Wiederholungsversuch erzeugt keinen doppelten Claim.
+
+Historische Entwürfe ohne `citation.observedAt` bleiben lesbar, sind aber vor dem Profilabgleich erkennbar gesperrt. **Originalbericht laden** ergänzt ausschliesslich fehlende Zeitpunkte aus einem inhaltlich identischen Bericht: Spot-ID, Aussagen, Werte, Quellen-URLs und Belegtexte müssen übereinstimmen. Bereits vorhandene Zeitpunkte dürfen nicht verändert werden. Name und das früher nicht erhaltene `partialHours`-Metadatum werden beim Identitätsvergleich ignoriert; sie werden nicht überschrieben. Die Admin-API sichert die Wiederherstellung mit einem Vergleich des Änderungsstands und dokumentiert Actor, Reparaturzeitpunkt sowie Hashes des vorherigen und hochgeladenen Berichts. Die Wiederherstellung selbst schreibt keine Profilangaben.
+
+
+### Rückmeldungen beim Speichern
+
+Die Bestätigung einzelner Angaben zeigt zunächst einen laufenden Speicherstatus. Erst eine Antwort mit passendem öffentlichem Claim, Wissenszustand und Wert löst die fokussierte Erfolgsmeldung aus. Diese steht ausserhalb der Filterliste und bleibt daher auch sichtbar, wenn ein ergänztes Feld aus „Offen“ verschwindet. Statusmeldungen verwenden `role=status`, Fehler und Warnungen `role=alert`; Farbe ist nie der einzige Hinweis.
+
+Fehler erhalten den Formularentwurf und die Speicherkennung für einen sicheren Wiederholungsversuch. Nach erfolgreichem Claim-Schreiben meldet ein fehlgeschlagener Neuaufbau oder Rücklesevorgang ausdrücklich `saveState=SAVED_UNVERIFIED`: Die Oberfläche zeigt „Gespeichert · Profilansicht noch nicht bestätigt“. Ein Netzwerkfehler behauptet dagegen weder Erfolg noch einen sicher fehlgeschlagenen Schreibvorgang. Reine Vormerkungen sind als „noch nicht gespeichert“ bezeichnet.

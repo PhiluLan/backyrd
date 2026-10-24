@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "world-research-current-profile-import-v3",
+  "previousEvidence": "booking-restaurant-table-layout-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "717c6beeeeac06627769814de2633f7059315ab4d21ab7a71610d84b9307a592"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261024113000_world_research_current_profile_import_v3.sql",
+      "sha256": "7be9ad6a4ee3c824fe8017cd5a29d7250833f9a44c8a24fef32e287f5cc3ce8b"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_research_current_profile_import_v3.sql",
+      "sha256": "943c2825d4dc60940be42dee413b538998986231d4b7f938a0fff9473bb36830"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  }
+}

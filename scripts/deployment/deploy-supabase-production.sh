@@ -46,13 +46,21 @@ if test "${#planned_migrations[@]}" -gt 0; then
       --plan "$plan_path" --listing deployment-audit/migrations-already-applied.txt \
       > deployment-audit/migrations-preapplied-verification.json
   else
-  supabase link --project-ref hjgcrrzfjchzqoegcywn
+  scoped_workdir=""
+  if jq -e '.isolatedResearchScope != null' "$plan_path" >/dev/null; then
+    scoped_workdir="$(mktemp -d)"
+    node scripts/deployment/isolated-research-migration.mjs "$plan_path" "$scoped_workdir"
+    trap 'rm -rf "$scoped_workdir"' EXIT
+  fi
+  migration_cli=(supabase)
+  if test -n "$scoped_workdir"; then migration_cli+=(--workdir "$scoped_workdir"); fi
+  "${migration_cli[@]}" link --project-ref hjgcrrzfjchzqoegcywn
   if jq -e '.productPreappliedImport != null' "$plan_path" >/dev/null; then
     node scripts/deployment/verify-preapplied-product-ledger.mjs "$plan_path" deployment-audit/product-preapplied-ledger.json
   fi
-  supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
+  "${migration_cli[@]}" db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
     node scripts/deployment/verify-supabase-migration-dry-run.mjs "$plan_path" deployment-audit/migration-dry-run.txt
-    supabase db push --yes 2>&1 | tee deployment-audit/migration-apply.txt
+    "${migration_cli[@]}" db push --yes 2>&1 | tee deployment-audit/migration-apply.txt
   fi
 fi
 
