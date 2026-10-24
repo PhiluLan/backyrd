@@ -20,7 +20,7 @@ export async function researchFieldEdit(actor: SupabaseClient, service: Supabase
   if (field.attributeKey === "state.current" && !input.validUntil) throw new Error("Bitte ein Gültig-bis-Datum angeben.");
   if (!service) throw new Error("Die Profilaktualisierung ist derzeit nicht verfügbar. Es wurde nichts gespeichert.");
   const current = detail.answers?.[field.attributeKey];
-  const alreadySaved = current?.knowledgeState === input.knowledgeState && sameValue(current?.value,validated.value) && (current?.validUntil ?? null) === (input.validUntil ?? null);
+  const alreadySaved = current?.visibility === "PUBLIC" && current?.knowledgeState === input.knowledgeState && sameValue(current?.value,validated.value) && (current?.validUntil ?? null) === (input.validUntil ?? null);
   if (!alreadySaved) {
     if ((current?.claimId ?? null) !== input.expectedClaimId) throw new Error("Diese Angabe wurde inzwischen geändert. Bitte den Editor neu öffnen und erneut prüfen.");
     const submitted = await actor.rpc("world_product_admin_submit_claim_v1",{
@@ -35,6 +35,6 @@ export async function researchFieldEdit(actor: SupabaseClient, service: Supabase
   const after = await readWorldResearchDetail(actor,input.spotId).catch(()=>{throw new Error("Die Angabe ist gespeichert; das aktuelle Profil konnte noch nicht zurückgelesen werden. Bitte erneut versuchen.");});
   const persisted = after.answers?.[field.attributeKey];
   if (!rebuilt.data?.manifestHash || after.manifest?.worldSnapshot?.spotId !== input.spotId || rebuilt.data.worldSnapshot?.spotId !== input.spotId || after.manifest?.manifestHash !== rebuilt.data.manifestHash || !sameValue(after.manifest?.worldSnapshot,rebuilt.data.worldSnapshot)
-    || persisted?.knowledgeState !== input.knowledgeState || !sameValue(persisted?.value,validated.value)) throw new Error("Die Angabe ist gespeichert; das Zurücklesen konnte noch nicht bestätigt werden. Bitte den Editor neu öffnen.");
+    || persisted?.visibility !== "PUBLIC" || persisted?.knowledgeState !== input.knowledgeState || !sameValue(persisted?.value,validated.value)) throw new Error("Die Angabe ist gespeichert; das Zurücklesen konnte noch nicht bestätigt werden. Bitte den Editor neu öffnen.");
   return { answer:persisted, answers:Object.fromEntries(Object.entries(after.answers ?? {}).filter(([,answer]) => answer.visibility === "PUBLIC")) };
 }

@@ -56,3 +56,10 @@ test('missing rebuild configuration fails before writing',async()=>{
  const f=fixture();await assert.rejects(()=>researchFieldEdit(f.actor,null,'admin',input,true),/nichts gespeichert/);
  assert.equal(f.calls.filter(([name])=>name==='world_product_admin_submit_claim_v1').length,0);
 });
+
+
+test('an equal private value is never reported as a saved public confirmation',async()=>{
+ const f=fixture();f.answers['contact.phone']={claimId:'private-claim',knowledgeState:'KNOWN_VALUE',value:input.value,visibility:'PRIVATE'};
+ await assert.rejects(()=>researchFieldEdit(f.actor,f.service,'admin',input,true),/inzwischen geändert/);
+ assert.equal(f.calls.filter(([name])=>name==='world_product_admin_submit_claim_v1').length,0);
+});
