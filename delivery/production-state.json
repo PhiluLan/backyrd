@@ -21,14 +21,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "2b82a7f5753c1c171844d7169afbe68a3d1f34a0",
+      "sourceSha": "6802c9a4d7c4ac196419884f37f9cb32bc4e935c",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "4fb5523f-795a-4355-b44f-e7e42db43165",
-      "iosUpdateId": "01a169eb-183f-7d15-96c7-14d16405edd7",
+      "otaGroupId": "75dad838-dd11-415b-9937-a1407a3e670b",
+      "iosUpdateId": "01a16d2f-f8b6-70dd-9c50-7738e151cc13",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Places map in PR #616 now centers on the existing consented current or recent location and shows the nearest visible spots first; after an explicit area search it orders by viewport center. Larger preview cards show place imagery, address, Moods and approximate current-location distance. Exact Main IOS_OTA certification run 39998807454 passed. Certified artifact manifest hash 88cc3cdda73656162a33701166c8cbe88d8bc211c4e96701701f54593b5c2d26 verified locally; EAS production points to this iOS update and the public manifest launch hash matched the certified 5,115,312-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Simulator visual review was blocked by the locked Mac; physical-device installation and full VoiceOver review remain unverified."
+      "note": "Places map in PR #618 replaces black circular markers with compact light location pins and a slightly larger pink selected pin, preserving the 44-point touch target and coordinate anchoring. Exact Main IOS_OTA certification run 40080712716 passed. Certified artifact manifest hash 3a91e1603d58b4e7323c8f3d7703b487c0ec4eb17229b5a5932aac8552dc79b1 verified locally; EAS production points to this iOS update and the public manifest launch hash matched the certified 5,115,071-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Simulator visual review passed with the live preview app; physical-device installation and full VoiceOver review remain unverified."
     }
   },
   "reviewMediaIncident": {
