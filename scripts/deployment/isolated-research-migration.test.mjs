@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,existsSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
 import {RESEARCH_MIGRATION as target,DEFERRED_BOOKING_MIGRATIONS as deferred,scopeResearchMigrations,researchAppliedReceipt,prepareResearchMigrationWorkspace} from './isolated-research-migration.mjs';
 const base='a'.repeat(40);
 const scope={contractVersion:'backyrd.isolated-research-migration-scope@1.0',baseSha:base,migrations:[target],deferredMigrations:deferred,backupRunId:1,executionAuthorized:false};
@@ -50,4 +51,13 @@ test('the real isolated workspace retains exact SQL and leaves all four Booking 
  assert.equal(readFileSync(join(output,target.path),'utf8'),readFileSync(join(root,target.path),'utf8'));
  for(const item of deferred){assert.equal(existsSync(join(output,item.path)),false);assert.equal(existsSync(join(root,item.path)),true);}
  assert.throws(()=>prepareResearchMigrationWorkspace({...plan,pendingMigrations:[{...target,sha256:'b'.repeat(64)}]},root,join(output,'bad')),/isolated_research/);
+});
+
+test('deployment audit names applied research separately from the four deferred Booking migrations',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'backyrd-isolated-audit-'));
+ const plan={canonicalMainSha:base,planHash:'c'.repeat(64),deployFunctions:[],functions:[],migrations:[...deferred,target],pendingMigrations:[target],deferredMigrations:deferred,authConfig:null};
+ for(const [name,value] of Object.entries({plan,before:[],after:[]}))writeFileSync(join(dir,name+'.json'),JSON.stringify(value));
+ execFileSync(process.execPath,[new URL('./verify-supabase-production-audit.mjs',import.meta.url).pathname,'--plan',join(dir,'plan.json'),'--before',join(dir,'before.json'),'--after',join(dir,'after.json'),'--output',join(dir,'audit.json')]);
+ const result=JSON.parse(readFileSync(join(dir,'audit.json'),'utf8'));
+ assert.deepEqual(result.appliedMigrations,[target]);assert.deepEqual(result.deferredMigrations,deferred);assert.equal(result.result,'PASS');
 });
