@@ -6,10 +6,13 @@ import {pathToFileURL} from "node:url";
 import test from "node:test";
 import ts from "typescript";
 const dir=await mkdtemp(join(tmpdir(),"research-edit-"));
+const feedbackSource=await readFile(new URL('../lib/researchSaveFeedback.ts',import.meta.url),'utf8');
+await writeFile(join(dir,'researchSaveFeedback.mjs'),ts.transpileModule(feedbackSource,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText);
 for(const name of ["worldResearchExport","researchFieldEdit"]){
  const source=await readFile(new URL(`../lib/server/${name}.ts`,import.meta.url),'utf8');
  const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replace('import "server-only";','')
   .replace('"@backyrd/world-knowledge-core"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href))
+  .replace('"../researchSaveFeedback"',JSON.stringify(pathToFileURL(join(dir,'researchSaveFeedback.mjs')).href))
   .replace('"./worldResearchExport"',JSON.stringify(pathToFileURL(join(dir,'worldResearchExport.mjs')).href));
  await writeFile(join(dir,name+'.mjs'),code);
 }
@@ -48,7 +51,7 @@ test('stale edits, unauthorized keys and invalid input cannot overwrite the curr
  }
 });
 test('rebuild failure is reported honestly and retry does not submit the same claim twice',async()=>{
- const f=fixture();await assert.rejects(()=>researchFieldEdit(f.actor,{rpc:async()=>({error:{message:'offline'}})},'admin',input,true),/ist gespeichert/);
+ const f=fixture();await assert.rejects(()=>researchFieldEdit(f.actor,{rpc:async()=>({error:{message:'offline'}})},'admin',input,true),error=>error.saveState === "SAVED_UNVERIFIED" && /ist gespeichert/.test(error.message));
  await researchFieldEdit(f.actor,f.service,'admin',input,true);
  assert.equal(f.calls.filter(([name])=>name==='world_product_admin_submit_claim_v1').length,1);
 });

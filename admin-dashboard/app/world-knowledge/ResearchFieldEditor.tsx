@@ -4,6 +4,8 @@ import { FieldInput } from "@backyrd/world-knowledge-authoring-ui";
 import { AUTHORING_FIELDS, validateAuthoringSubmission } from "@backyrd/world-knowledge-core/browser";
 import type { ResearchResult } from "@/lib/nuknukResearchDraft";
 import { supplementResearchValue } from "@/lib/nuknukDraftImport";
+import { isResearchSaveConfirmation, researchFailureFeedback, type ResearchFeedback } from "@/lib/researchSaveFeedback";
+import { ResearchActionFeedback } from "./ResearchActionFeedback";
 import { ResearchValue } from "./ResearchValue";
 import styles from "./WorldResearchBatchPanel.module.css";
 
@@ -17,7 +19,7 @@ export function researchFieldHasPendingEdits(control:string,attributeKey:string,
     : !visibleValidation?.ok || JSON.stringify(visibleValidation.value) !== JSON.stringify(staged.value) || (staged.validUntil ?? "") !== visibleDraft.validUntil);
 }
 
-export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId:string;result:ResearchResult;post(body:unknown):Promise<unknown>;onSaved(value:unknown):void;onClose():void}) {
+export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId:string;result:ResearchResult;post(body:unknown):Promise<unknown>;onSaved(value:unknown,knowledgeState:string):void;onClose():void}) {
   const [answers,setAnswers] = useState<Record<string,Answer> | null>(null);
   const [seed,setSeed] = useState<unknown>();
   const [staged,setStaged] = useState<Staged | null>(null);
@@ -25,6 +27,7 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
   const onDraftValueChange = useCallback((value:unknown,validUntil:string)=>setVisibleDraft({value,validUntil}),[]);
   const [busy,setBusy] = useState(false);
   const [error,setError] = useState("");
+  const [saveFeedback,setSaveFeedback] = useState<ResearchFeedback | null>(null);
   const [notice,setNotice] = useState("");
   const [dirty,setDirty] = useState(false);
   const [key] = useState(() => `research-edit:${crypto.randomUUID()}`);
@@ -56,11 +59,12 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
   const close = () => {if ((!dirty && !staged) || window.confirm("Ungespeicherte Änderungen verwerfen?")) onClose();};
   const save = async () => {
     if(!staged || !answers || busy || pendingEdits) return;
-    setBusy(true);setError("");
+    setBusy(true);setError("");setSaveFeedback(null);
     try {
-      await post({action:"save-field",spotId,attributeKey:field.attributeKey,knowledgeState:staged.knowledgeState,value:staged.value,validUntil:staged.validUntil,expectedClaimId:answers[field.attributeKey]?.claimId ?? null,idempotencyKey:saveKey});
-      window.dispatchEvent(new Event("backyrd:spot-profile-updated"));onSaved(staged.value);
-    } catch(cause) {setError(cause instanceof Error ? cause.message : "Die Angabe konnte nicht gespeichert werden.");}
+      const response=await post({action:"save-field",spotId,attributeKey:field.attributeKey,knowledgeState:staged.knowledgeState,value:staged.value,validUntil:staged.validUntil,expectedClaimId:answers[field.attributeKey]?.claimId ?? null,idempotencyKey:saveKey});
+      if(!isResearchSaveConfirmation(response,staged.knowledgeState,staged.value)) throw new Error("Die vollständige Speicherbestätigung fehlt. Bitte erneut versuchen.");
+      window.dispatchEvent(new Event("backyrd:spot-profile-updated"));onSaved(staged.value,staged.knowledgeState);
+    } catch(cause) {setSaveFeedback(researchFailureFeedback(cause));}
     finally {setBusy(false);}
   };
   return <section className={`wk-app ${styles.fieldEditor}`} aria-label={`${field.label} bearbeiten`}>
@@ -72,10 +76,12 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
       onSave={async(knowledgeState,value,validUntil) => {
         const valid=validateAuthoringSubmission(field.attributeKey,knowledgeState,value);
         if(!valid.ok) throw new Error(valid.message);
-        setSaveKey(`research-edit:${crypto.randomUUID()}`);setStaged({knowledgeState,value:valid.value,validUntil,visibleFingerprint});setDirty(false);setError("");
+        setSaveKey(`research-edit:${crypto.randomUUID()}`);setStaged({knowledgeState,value:valid.value,validUntil,visibleFingerprint});setDirty(false);setError("");setSaveFeedback(null);
       }}/>: !error && <p role="status">Aktuelle Profilangaben werden geladen …</p>}
-    {staged && <div className={styles.partialNote}><strong>Für deine Bestätigung vorgemerkt</strong><ResearchValue attributeKey={field.attributeKey} value={staged.value}/>{pendingEdits && <p>Weitere Änderungen zuerst oben übernehmen.</p>}</div>}
-    {error && <p role="alert" className={styles.error}>{error}</p>}
-    <div className={styles.editorActions}><button type="button" className={`${styles.secondary} wk-secondary`} disabled={busy} onClick={close}>Editor schliessen</button><button type="button" className={styles.primary} disabled={busy || !staged || pendingEdits} onClick={() => void save()}>{busy ? "Wird gespeichert …" : "Eigene Angabe im Profil speichern"}</button></div>
+    {staged && <div className={styles.partialNote} role="status" aria-atomic="true"><strong>Vorgemerkt · noch nicht gespeichert</strong><ResearchValue attributeKey={field.attributeKey} value={staged.value}/>{pendingEdits && <p>Weitere Änderungen zuerst oben übernehmen.</p>}</div>}
+    {error && <ResearchActionFeedback feedback={{kind:"error",title:"Profil konnte nicht geladen werden",message:error}} focus/>}
+    {busy && <ResearchActionFeedback feedback={{kind:"pending",title:"Angabe wird gespeichert …",message:"Wir prüfen danach, ob sie im aktuellen Profil angekommen ist."}}/>}
+    {saveFeedback && <ResearchActionFeedback feedback={saveFeedback} focus/>}
+    <div className={styles.editorActions}><button type="button" className={`${styles.secondary} wk-secondary`} disabled={busy} onClick={close}>Editor schliessen</button><button type="button" className={styles.primary} disabled={busy || !staged || pendingEdits} onClick={() => void save()}>{busy ? "Wird gespeichert …" : saveFeedback ? "Erneut versuchen" : "Eigene Angabe im Profil speichern"}</button></div>
   </section>;
 }

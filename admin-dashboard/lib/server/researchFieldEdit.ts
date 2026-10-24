@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AUTHORING_FIELDS, validateAuthoringSubmission } from "@backyrd/world-knowledge-core";
+import { ResearchSaveError } from "../researchSaveFeedback";
 import { readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID } from "./worldResearchExport";
 
 export type ResearchFieldEdit = { spotId?: unknown; attributeKey?: unknown; knowledgeState?: unknown; value?: unknown; validUntil?: unknown; expectedClaimId?: unknown; idempotencyKey?: unknown };
@@ -31,10 +32,10 @@ export async function researchFieldEdit(actor: SupabaseClient, service: Supabase
     if (submitted.error) throw new Error("Die eigene Angabe konnte nicht gespeichert werden. Bitte erneut versuchen.");
   }
   const rebuilt = await service.rpc("world_product_rebuild_spot_v1",{p_actor_user_id:actorId,p_spot_id:input.spotId,p_as_of:new Date().toISOString(),p_idempotency_key:`${input.idempotencyKey}:rebuild`}).then(result=>result,()=>({data:null,error:{message:"unavailable"}}));
-  if (rebuilt.error) throw new Error("Die Angabe ist gespeichert; die Profilansicht konnte noch nicht aktualisiert werden. Bitte erneut versuchen.");
-  const after = await readWorldResearchDetail(actor,input.spotId).catch(()=>{throw new Error("Die Angabe ist gespeichert; das aktuelle Profil konnte noch nicht zurückgelesen werden. Bitte erneut versuchen.");});
+  if (rebuilt.error) throw new ResearchSaveError("Die Angabe ist gespeichert; die Profilansicht konnte noch nicht aktualisiert werden. Bitte erneut versuchen.","SAVED_UNVERIFIED");
+  const after = await readWorldResearchDetail(actor,input.spotId).catch(()=>{throw new ResearchSaveError("Die Angabe ist gespeichert; das aktuelle Profil konnte noch nicht zurückgelesen werden. Bitte erneut versuchen.","SAVED_UNVERIFIED");});
   const persisted = after.answers?.[field.attributeKey];
   if (!rebuilt.data?.manifestHash || after.manifest?.worldSnapshot?.spotId !== input.spotId || rebuilt.data.worldSnapshot?.spotId !== input.spotId || after.manifest?.manifestHash !== rebuilt.data.manifestHash || !sameValue(after.manifest?.worldSnapshot,rebuilt.data.worldSnapshot)
-    || persisted?.visibility !== "PUBLIC" || persisted?.knowledgeState !== input.knowledgeState || !sameValue(persisted?.value,validated.value)) throw new Error("Die Angabe ist gespeichert; das Zurücklesen konnte noch nicht bestätigt werden. Bitte den Editor neu öffnen.");
+    || persisted?.visibility !== "PUBLIC" || persisted?.knowledgeState !== input.knowledgeState || !sameValue(persisted?.value,validated.value)) throw new ResearchSaveError("Die Angabe ist gespeichert; das Zurücklesen konnte noch nicht bestätigt werden. Bitte den Editor neu öffnen.","SAVED_UNVERIFIED");
   return { answer:persisted, answers:Object.fromEntries(Object.entries(after.answers ?? {}).filter(([,answer]) => answer.visibility === "PUBLIC")) };
 }

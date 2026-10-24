@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import styles from "./WorldResearchBatchPanel.module.css";
 import { type NuknukDraft } from "@/lib/nuknukResearchDraft";
+import { ResearchActionFeedback } from "./ResearchActionFeedback";
+import type { ResearchFeedback } from "@/lib/researchSaveFeedback";
 import { ResearchFieldEditor } from "./ResearchFieldEditor";
 import { AUTHORING_FIELDS } from "@backyrd/world-knowledge-core/browser";
 import { ResearchValue, researchFieldLabel, researchGapReason } from "./ResearchValue";
@@ -19,6 +21,7 @@ export function NuknukDraftPreview({ draft, onClose, onSave, saved, saving, erro
     void post({action:"edit-field",spotId:draft.spotId}).then(value=>{if(active){setProfileAnswers((value as {answers:typeof profileAnswers}).answers);setProfileError(false);}}).catch(()=>{if(active)setProfileError(true);});
     return ()=>{active=false;};
   },[post,draft.spotId]);
+  const [saveNotice,setSaveNotice] = useState<ResearchFeedback | null>(null);
   const [editing,setEditing] = useState<string | null>(null);
   const [ownSaved,setOwnSaved] = useState<Record<string,unknown>>({});
   const [recovering,setRecovering] = useState(false);
@@ -45,6 +48,7 @@ export function NuknukDraftPreview({ draft, onClose, onSave, saved, saving, erro
         setRecovering(true);setRecoveryError("");try{await onRecover(file);setSelected([]);}catch(cause){setRecoveryError(cause instanceof Error?cause.message:"Originalbericht konnte nicht geladen werden.");}finally{setRecovering(false);}
       }}/></label>}{recovering && <p role="status">Originalbelege werden geprüft …</p>}{recoveryError && <p role="alert">{recoveryError}</p>}</section>}
     {profileError && <p className={styles.partialNote}>Der gespeicherte Profilstand konnte nicht geladen werden. Die Anzeige zeigt den Recherchebericht; beim Bearbeiten und Profilabgleich wird der aktuelle Stand erneut geprüft.</p>}
+    {saveNotice && <ResearchActionFeedback feedback={saveNotice} focus/>}
     <div className={styles.knowledgeToolbar}>
       <label>Wissen durchsuchen<input type="search" disabled={busy} value={query} onChange={event => setQuery(event.target.value)} placeholder="Zum Beispiel Öffnungszeiten"/></label>
       <div role="group" aria-label="Angaben filtern">{([['ALL','Alle'],['PROPOSED','Vorschläge'],['OPEN','Offen']] as const).map(([key,label]) => <button key={key} type="button" aria-pressed={filter === key} disabled={busy} onClick={() => setFilter(key)}>{label} {key === "ALL" ? draft.results.length : key === "PROPOSED" ? proposed.length : open.length}</button>)}</div>
@@ -65,8 +69,8 @@ export function NuknukDraftPreview({ draft, onClose, onSave, saved, saving, erro
           {!!citations.length && <details className={styles.sourceDetails}><summary>Quellen & Belege ({citations.length})</summary>{citations.map((citation,index) => <blockquote key={index}><p>{citation.evidence}</p><a href={citation.url} target="_blank" rel="noreferrer">Originalquelle öffnen ↗</a>{citation.observedAt && <small>Abruf: {citation.observedAt.slice(0,10)}</small>}{citation.layoutReviewRequired && <small>Bild- oder PDF-Layout im Original prüfen.</small>}</blockquote>)}</details>}
           {own && <div className={styles.partialNote}><strong>Eigene Angabe im Profil gespeichert</strong><ResearchValue attributeKey={result.attributeKey} value={ownSaved[result.attributeKey]}/><p>Der Recherchevorschlag darüber bleibt als ursprünglicher Bericht erhalten.</p></div>}
           {post && AUTHORING_FIELDS.some(field => field.attributeKey === result.attributeKey) && (editing === result.attributeKey ? <ResearchFieldEditor spotId={draft.spotId} result={result} post={post}
-            onClose={() => setEditing(null)} onSaved={value => {setOwnSaved(current=>({...current,[result.attributeKey]:value}));setSelected(current=>current.filter(key=>key!==result.attributeKey));setEditing(null);}}/>
-            : <button type="button" className={styles.secondary} disabled={busy} onClick={()=>setEditing(result.attributeKey)}>{eligible || own ? "Angabe bearbeiten" : "Angabe selbst ergänzen"}</button>)}
+            onClose={() => setEditing(null)} onSaved={(value,knowledgeState) => {setSaveNotice({kind:"success",title:`${title} gespeichert`,message:knowledgeState === "UNKNOWN" ? `Die Angabe ist im Profil von ${draft.name} bewusst als unbekannt hinterlegt.` : `Die Angabe ist jetzt im Profil von ${draft.name} hinterlegt. Der gespeicherte Wert wurde erfolgreich zurückgelesen.`});setOwnSaved(current=>({...current,[result.attributeKey]:value}));setSelected(current=>current.filter(key=>key!==result.attributeKey));setEditing(null);}}/>
+            : <button type="button" className={styles.secondary} disabled={busy} onClick={()=>{setSaveNotice(null);setEditing(result.attributeKey);}}>{eligible || own ? "Angabe bearbeiten" : "Angabe selbst ergänzen"}</button>)}
           {eligible && onPrepare && !own && <label className={styles.reviewSelection}><input type="checkbox" disabled={busy || missingTime} checked={selected.includes(result.attributeKey)} onChange={event => setSelected(current => event.target.checked ? [...current,result.attributeKey] : current.filter(key => key !== result.attributeKey))}/><span>{missingTime ? "Originalbelege mit Abrufzeitpunkt zuerst ergänzen" : "Inhalt und Belege geprüft · für den Profilabgleich auswählen"}</span></label>}
         </article>;
       })}
@@ -76,7 +80,7 @@ export function NuknukDraftPreview({ draft, onClose, onSave, saved, saving, erro
       <p className={styles.note}>{draft.version} · {draft.requests ?? "?"} Quellenabrufe · {draft.modelCalls ?? "?"} Modellaufrufe</p>
       {!!draft.sourceFailures?.length && <details className={styles.details}><summary>Nicht erreichbare Quellen ({draft.sourceFailures.length})</summary><ul>{draft.sourceFailures.map((failure,index) => <li key={index}><a href={failure.url} target="_blank" rel="noreferrer">Quelle öffnen</a> · {researchGapReason(failure.reason)}</li>)}</ul></details>}
       {!!draft.limitations?.length && <p className={styles.note}>Die Recherche ist kein Nachweis vollständiger Angaben. Nicht ausgewertete Bilder und PDF-Layouts können weitere Informationen enthalten.</p>}
-      {saved ? <p className={styles.note} role="status">Recherchebericht im Admin gespeichert. Das Profil wird dadurch noch nicht geändert.</p> : <button type="button" className={styles.secondary} disabled={busy} onClick={onSave}>{saving ? "Bericht wird gespeichert …" : "Bericht im Admin sichern"}</button>}
+      {saved ? <p className={styles.note} role="status">Recherchebericht gesichert. Profilangaben werden erst mit ihrer jeweiligen Bestätigung gespeichert.</p> : <button type="button" className={styles.secondary} disabled={busy} onClick={onSave}>{saving ? "Bericht wird gespeichert …" : "Bericht im Admin sichern"}</button>}
       {error && <p className={styles.error} role="alert">{error}</p>}
       <button type="button" className={styles.secondary} disabled={busy} onClick={onClose}>Zurück zur Recherche</button>
     </section>

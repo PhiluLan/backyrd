@@ -7,17 +7,21 @@ import ts from "typescript";
 
 async function importTypeScript(path) {
   const source = await readFile(new URL(path, import.meta.url), "utf8");
-  const output = ts.transpileModule(source, {
+  let output = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
     fileName: path,
   }).outputText;
   const directory = await mkdtemp(join(tmpdir(), "backyrd-world-session-test-"));
+  const feedbackSource=await readFile(new URL("../lib/researchSaveFeedback.ts",import.meta.url),"utf8");
+  const feedbackPath=join(directory,"researchSaveFeedback.mjs");
+  await writeFile(feedbackPath,ts.transpileModule(feedbackSource,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText);
+  output=output.replace('"./researchSaveFeedback"',JSON.stringify(feedbackPath));
   const modulePath = join(directory, "module.mjs");
   await writeFile(modulePath, output, { mode: 0o600 });
   return import(modulePath);
 }
 
-const { assertWorldKnowledgeLocalEndpoints, authorizedWorldKnowledgePost, recoverWorldKnowledgeSession } = await importTypeScript("../lib/worldKnowledgeSession.ts");
+const { assertWorldKnowledgeLocalEndpoints, authorizedWorldKnowledgePost, authorizedWorldResearchBatchPost, recoverWorldKnowledgeSession } = await importTypeScript("../lib/worldKnowledgeSession.ts");
 const { sessionRecoveringAuthoringClient } = await importTypeScript("../../packages/world-knowledge-authoring-ui/src/session.ts");
 
 const response = (status, body) => ({ status, ok: status >= 200 && status < 300, async json() { return body; } });
@@ -100,4 +104,11 @@ test("both local authoring surfaces allow the canonical 127.0.0.1 dev origin", a
     assert.match(source, /allowedDevOrigins:\s*\["127\.0\.0\.1"\]/);
     assert.doesNotMatch(source, /allowedDevOrigins:\s*\["\*"\]/);
   }
+});
+
+
+test('a saved but unverified research response retains its partial-success marker',async()=>{
+ const auth={getSession:async()=>({data:{session:{access_token:'fixture'}},error:null}),refreshSession:async()=>{throw new Error('not needed');}};
+ await assert.rejects(()=>authorizedWorldResearchBatchPost({auth,body:{action:'save-field'},fetcher:async()=>response(400,{error:'Die Angabe ist gespeichert; die Ansicht fehlt.',saveState:'SAVED_UNVERIFIED'})}),error=>error.saveState==='SAVED_UNVERIFIED');
+ await assert.rejects(()=>authorizedWorldResearchBatchPost({auth,body:{action:'save-field'},fetcher:async()=>response(400,{error:'Ungültiger Wert',saveState:'invented'})}),error=>error.saveState===undefined);
 });
