@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 new Function("exports", "require", "module", compiled)(policyModule.exports, undefined, policyModule);
-const { mapDistanceMeters, paddedMapPinRegion, retainMapPinRegion, selectMapDiscoverySpots, selectRetainedMapDiscoverySpots, shouldRefreshMapPinRegion } = policyModule.exports;
+const { groupMapSpotsByCoordinate, mapDistanceMeters, paddedMapPinRegion, retainMapPinRegion, selectMapDiscoverySpots, selectRetainedMapDiscoverySpots, shouldRefreshMapPinRegion } = policyModule.exports;
 
 const region = { latitude: 47.5596, longitude: 7.5886, latitudeDelta: 0.12, longitudeDelta: 0.12 };
 const spots = Array.from({ length: 5000 }, (_, index) => ({
@@ -56,4 +56,13 @@ const panSpots = [...edgeSpots, { id: "further-ahead", lat: visible.latitude, ln
 assert.deepEqual(selectRetainedMapDiscoverySpots(panSpots, retainedRegions).map((spot) => spot.id), ["ahead", "behind", "further-ahead"], "a new buffer adds pins without removing existing ones");
 assert.equal(retainMapPinRegion(retainedRegions, cached), retainedRegions, "panning back reuses the existing pin buffer");
 assert.deepEqual(selectRetainedMapDiscoverySpots(panSpots, [shifted, cached]).map((spot) => spot.id), ["ahead", "behind", "further-ahead"], "pin order stays fixed when regions arrive in a different order");
+const sameAddress = [
+  { id: "pong", lat: 47.571175840560464, lng: 7.5801917 },
+  { id: "braeu", lat: 47.571175840560464, lng: 7.5801917 },
+  { id: "neighbor", lat: 47.571175840560464, lng: 7.5803 },
+];
+const groups = groupMapSpotsByCoordinate(sameAddress);
+assert.equal(groups.length, 2, "spots with identical coordinates share one selectable marker");
+assert.deepEqual(groups.find((group) => group.spots.length === 2)?.spots.map((spot) => spot.id), ["braeu", "pong"]);
+assert.deepEqual(groupMapSpotsByCoordinate([...sameAddress].reverse()), groups, "group order stays stable when spot data arrives in a different order");
 console.log("All visible spots remain pinned in stable order while the map moves.");

@@ -28,7 +28,7 @@ import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-import { mapDistanceMeters, paddedMapPinRegion, retainMapPinRegion, selectMapDiscoverySpots, selectRetainedMapDiscoverySpots, shouldRefreshMapPinRegion, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
+import { groupMapSpotsByCoordinate, mapDistanceMeters, paddedMapPinRegion, retainMapPinRegion, selectMapDiscoverySpots, selectRetainedMapDiscoverySpots, shouldRefreshMapPinRegion, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
 import { spotMatchesSearch } from "../../lib/spot-search";
 
 import { loadDiscoveryOpeningSchedules, type OpeningSchedule } from "../../lib/discovery-opening-hours";
@@ -171,6 +171,7 @@ export default function MapScreen() {
   useEffect(() => { if (params.mood !== undefined) setSelectedMood(params.mood); }, [params.mood]);
 
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
+  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const now = useMinuteClock();
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const [openingSchedules, setOpeningSchedules] = useState<Record<string, OpeningSchedule>>({});
@@ -400,10 +401,15 @@ export default function MapScreen() {
   ]);
 
   const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectRetainedMapDiscoverySpots(filteredSpots, pinRegions), [filteredSpots, pinRegions, locationResolution]);
+  const markerGroups = useMemo(() => groupMapSpotsByCoordinate(mapSpots), [mapSpots]);
+  const selectedGroup = useMemo(() => markerGroups.find((group) => group.key === selectedGroupKey && group.spots.length > 1) ?? null, [markerGroups, selectedGroupKey]);
   const visibleMapSpots = useMemo(() => selectMapDiscoverySpots(filteredSpots, region), [filteredSpots, region]);
   useEffect(() => {
     if (selectedSpot && !mapSpots.some((spot) => spot.id === selectedSpot.id)) setSelectedSpot(null);
   }, [mapSpots, selectedSpot]);
+  useEffect(() => {
+    if (selectedGroupKey && !selectedGroup) setSelectedGroupKey(null);
+  }, [selectedGroupKey, selectedGroup]);
 
   const openingCandidates = useMemo(() => viewMode === "map" ? [] : filteredSpots.filter((spot, index) => visibleIds.length ? visibleIds.includes(spot.id) : index < 8), [viewMode, filteredSpots, visibleIds]);
   useEffect(() => {
@@ -436,7 +442,8 @@ export default function MapScreen() {
 
   const changeViewMode = useCallback((nextView: "map" | "list") => {
     if (nextView === viewMode) return;
-    if (nextView === "map") setSelectedSpot(null);
+    setSelectedSpot(null);
+    setSelectedGroupKey(null);
     setViewMode(nextView);
   }, [viewMode]);
 
@@ -444,19 +451,27 @@ export default function MapScreen() {
      MAP RENDERING
   ============================================================= */
 
-  const renderedMarkers = mapSpots.map((spot) => {
-    const isSelected = selectedSpot?.id === spot.id;
-    const pinColor = mapPinColor(spot.categories?.name);
+  const renderedMarkers = markerGroups.map((group) => {
+    const spot = group.spots[0];
+    const isShared = group.spots.length > 1;
+    const isSelected = selectedGroupKey === group.key || group.spots.some((item) => item.id === selectedSpot?.id);
+    const pinColor = isShared ? theme.color.pink : mapPinColor(spot.categories?.name);
     return (
         <Marker
-          key={spot.id}
-          coordinate={{ latitude: spot.lat, longitude: spot.lng }}
+          key={group.key}
+          coordinate={{ latitude: group.lat, longitude: group.lng }}
           anchor={{ x: 0.5, y: 1 }}
           tracksViewChanges={isSelected}
-          accessibilityLabel={`${spot.name}, ${spot.categories?.name || "Ort"} auf der Karte`}
+          accessibilityLabel={isShared ? `${group.spots.length} Orte an diesem Standort auf der Karte` : `${spot.name}, ${spot.categories?.name || "Ort"} auf der Karte`}
           accessibilityState={{ selected: isSelected }}
           onPress={(e) => {
             e.stopPropagation();
+            if (isShared) {
+              setSelectedSpot(null);
+              setSelectedGroupKey(group.key);
+              return;
+            }
+            setSelectedGroupKey(null);
             setSelectedSpot(spot);
             void trackAnalyticsEvent({
               eventName: "map_marker_opened",
@@ -474,6 +489,7 @@ export default function MapScreen() {
               size={isSelected ? 34 : 28}
               color={pinColor}
             />
+            {isShared ? <View style={styles.markerCount}><Text style={styles.markerCountText}>{group.spots.length}</Text></View> : null}
           </View>
         </Marker>
       );
@@ -707,14 +723,36 @@ export default function MapScreen() {
           showsUserLocation={locationConsentGranted}
           showsPointsOfInterest={false}
           customMapStyle={DARK_MAP_STYLE}
-          onPress={() => setSelectedSpot(null)}
+          onPress={() => { setSelectedSpot(null); setSelectedGroupKey(null); }}
           onRegionChange={handleRegionChange}
           onRegionChangeComplete={handleRegionChangeComplete}
-          onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; setMapOriginMode("viewport"); setMapCity(null); setSelectedSpot(null); }}
+          onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; setMapOriginMode("viewport"); setMapCity(null); setSelectedSpot(null); setSelectedGroupKey(null); }}
           >
             {renderedMarkers}
           </MapView>
           {locationResolution === "pending" ? <View style={styles.locationLoading}><StateView kind="loading" title="Orte in deiner Nähe werden geladen" /></View> : null}
+          {selectedGroup ? <View style={styles.railWrap}>
+            <View style={styles.groupCard}>
+              <Text style={styles.groupTitle}>{selectedGroup.spots.length} Orte an diesem Standort</Text>
+              <ScrollView style={styles.groupSpotList}>{selectedGroup.spots.map((spot) => <Pressable
+                key={spot.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${spot.name} auswählen`}
+                style={styles.groupSpotRow}
+                onPress={() => {
+                  setSelectedGroupKey(null);
+                  setSelectedSpot(spot);
+                  void trackAnalyticsEvent({ eventName: "map_marker_opened", screenName: "map", entityType: "spot", entityId: spot.id, spotId: spot.id, properties: { view_mode: viewMode, shared_location: true } });
+                }}>
+                <View style={[styles.groupSpotDot, { backgroundColor: mapPinColor(spot.categories?.name) }]} />
+                <View style={styles.groupSpotCopy}>
+                  <Text style={styles.groupSpotName} numberOfLines={1}>{spot.name}</Text>
+                  <Text style={styles.groupSpotCategory} numberOfLines={1}>{spot.categories?.name || "Ort"}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={19} color={theme.color.textSecondary} />
+              </Pressable>)}</ScrollView>
+            </View>
+          </View> : null}
           {selectedSpot && mapSpots.some((spot) => spot.id === selectedSpot.id) ? <View style={styles.railWrap}>
               <Pressable
                 accessibilityRole="button"
@@ -803,7 +841,7 @@ export default function MapScreen() {
 
       {/* RECENTER BUTTON */}
       {viewMode === "map" && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Karte auf meinen Standort zentrieren" style={[styles.recenterBtn, selectedSpot && styles.recenterAboveRail]} onPress={recenterToMe}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Karte auf meinen Standort zentrieren" style={[styles.recenterBtn, selectedSpot && styles.recenterAboveRail, selectedGroup && styles.recenterAboveGroup]} onPress={recenterToMe}>
           <Ionicons name="locate-outline" size={22} color={theme.color.textPrimary} />
         </Pressable>
       )}
@@ -838,6 +876,14 @@ const styles = StyleSheet.create({
   locationLoading: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: "rgba(15,15,17,0.94)", borderRadius: theme.radius.lg },
   emptyOverlay: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl },
   railWrap: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, bottom: theme.control.tabBar + theme.spacing.sm, zIndex: 2, alignItems: "center" },
+  groupCard: { width: "100%", maxWidth: 350, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.pink, paddingHorizontal: theme.spacing.md, paddingVertical: theme.spacing.sm, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
+  groupTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 17, marginBottom: theme.spacing.xs },
+  groupSpotList: { maxHeight: 250 },
+  groupSpotRow: { flexDirection: "row", alignItems: "center", minHeight: 58, gap: theme.spacing.sm, borderTopWidth: 1, borderTopColor: theme.color.border },
+  groupSpotDot: { width: 9, height: 9, borderRadius: 5 },
+  groupSpotCopy: { flex: 1 },
+  groupSpotName: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 15 },
+  groupSpotCategory: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 12 },
   railCard: { width: "100%", maxWidth: 350, minHeight: 225, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
   railCardSelected: { borderColor: theme.color.pink },
   railMedia: { position: "relative", height: 132 },
@@ -855,6 +901,8 @@ const styles = StyleSheet.create({
   areaEmptyBody: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14 },
   marker: { width: 44, height: 44, alignItems: "center", justifyContent: "flex-end", paddingBottom: 2, shadowColor: "#000", shadowOpacity: 0.8, shadowRadius: 4, elevation: 5 },
   markerSelected: { shadowOpacity: 0.65, shadowRadius: 8, elevation: 8 },
+  markerCount: { position: "absolute", top: 0, right: 0, minWidth: 19, height: 19, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, backgroundColor: theme.color.background, borderWidth: 1, borderColor: theme.color.pink },
+  markerCountText: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 11, lineHeight: 14 },
   list: { backgroundColor: theme.color.background },
   listContent: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl + theme.control.tabBar },
   listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
@@ -870,6 +918,7 @@ const styles = StyleSheet.create({
   listCardContext: { color: theme.color.pink, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.sm },
   recenterBtn: { position: "absolute", bottom: theme.control.tabBar + theme.spacing.md, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
   recenterAboveRail: { bottom: theme.control.tabBar + 310 },
+  recenterAboveGroup: { bottom: theme.control.tabBar + 250 },
   sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 3, backgroundColor: "rgba(247,243,233,0.3)", marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm },
   filterBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.54)" },
   filterSheet: { height: "82%", backgroundColor: theme.color.surfaceElevated, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: theme.color.border, paddingHorizontal: theme.spacing.xl },
