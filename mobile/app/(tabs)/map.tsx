@@ -430,6 +430,7 @@ export default function MapScreen() {
         <Marker
           key={spot.id}
           coordinate={{ latitude: spot.lat, longitude: spot.lng }}
+          anchor={{ x: 0.5, y: 1 }}
           tracksViewChanges={isSelected}
           accessibilityLabel={`${spot.name} auf der Karte`}
           accessibilityState={{ selected: isSelected }}
@@ -447,7 +448,11 @@ export default function MapScreen() {
           }}
         >
           <View style={[styles.marker, isSelected && styles.markerSelected]}>
-            <View style={[styles.markerCore, isSelected && styles.markerCoreSelected]} />
+            <Ionicons
+              name="location-sharp"
+              size={isSelected ? 34 : 28}
+              color={isSelected ? theme.color.pink : theme.color.textPrimary}
+            />
           </View>
         </Marker>
       );
@@ -854,10 +859,8 @@ const styles = StyleSheet.create({
   areaEmpty: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: "rgba(15,15,17,0.94)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, padding: theme.spacing.md, gap: theme.spacing.xs },
   areaEmptyTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 17 },
   areaEmptyBody: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14 },
-  marker: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1.5, borderColor: "rgba(247,243,233,0.72)" },
-  markerCore: { width: 7, height: 7, borderRadius: 999, backgroundColor: theme.color.lime },
-  markerSelected: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.color.pink, borderColor: theme.color.textPrimary, borderWidth: 2.5, shadowColor: theme.color.pink, shadowOpacity: 0.7, shadowRadius: 10, elevation: 8 },
-  markerCoreSelected: { width: 10, height: 10, backgroundColor: theme.color.background },
+  marker: { width: 44, height: 44, alignItems: "center", justifyContent: "flex-end", paddingBottom: 2, shadowColor: "#000", shadowOpacity: 0.8, shadowRadius: 4, elevation: 5 },
+  markerSelected: { shadowColor: theme.color.pink, shadowOpacity: 0.65, shadowRadius: 8, elevation: 8 },
   list: { backgroundColor: theme.color.background },
   listContent: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl + theme.control.tabBar },
   listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
