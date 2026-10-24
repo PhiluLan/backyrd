@@ -28,7 +28,7 @@ import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-import { mapDistanceMeters, paddedMapPinRegion, selectMapDiscoverySpots, shouldRefreshMapPinRegion, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
+import { mapDistanceMeters, paddedMapPinRegion, retainMapPinRegion, selectMapDiscoverySpots, selectRetainedMapDiscoverySpots, shouldRefreshMapPinRegion, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
 import { spotMatchesSearch } from "../../lib/spot-search";
 
 import { loadDiscoveryOpeningSchedules, type OpeningSchedule } from "../../lib/discovery-opening-hours";
@@ -146,12 +146,12 @@ export default function MapScreen() {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   }));
-  const [pinRegion, setPinRegion] = useState(() => paddedMapPinRegion({
+  const [pinRegions, setPinRegions] = useState(() => [paddedMapPinRegion({
     latitude: Number(params.lat) || BASEL.latitude,
     longitude: Number(params.lng) || BASEL.longitude,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
-  }));
+  })]);
   const [userLocation, setUserLocation] = useState<{ coordinates: MapCoordinates; source: "current" | "last_known" } | null>(null);
   const [mapOriginMode, setMapOriginMode] = useState<"user" | "viewport">("viewport");
 
@@ -186,12 +186,12 @@ export default function MapScreen() {
   const centeredOnUser = useRef(false);
   const manuallyExploredMap = useRef(false);
   const programmaticCenter = useRef<MapCoordinates | null>(null);
-  const pinRegionRef = useRef(pinRegion);
+  const pinRegionRef = useRef(pinRegions[0]);
   const updatePinRegion = useCallback((visibleRegion: typeof region, force = false) => {
     if (!force && !shouldRefreshMapPinRegion(pinRegionRef.current, visibleRegion)) return;
     const next = paddedMapPinRegion(visibleRegion);
     pinRegionRef.current = next;
-    setPinRegion(next);
+    setPinRegions((current) => force ? [next] : retainMapPinRegion(current, next));
   }, []);
   const listRef = useRef<FlatList<Spot> | null>(null);
   const [refreshingPlaces, setRefreshingPlaces] = useState(false);
@@ -399,7 +399,8 @@ export default function MapScreen() {
     searchMoodId,
   ]);
 
-  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectMapDiscoverySpots(filteredSpots, pinRegion), [filteredSpots, pinRegion, locationResolution]);
+  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectRetainedMapDiscoverySpots(filteredSpots, pinRegions), [filteredSpots, pinRegions, locationResolution]);
+  const visibleMapSpots = useMemo(() => selectMapDiscoverySpots(filteredSpots, region), [filteredSpots, region]);
   useEffect(() => {
     if (selectedSpot && !mapSpots.some((spot) => spot.id === selectedSpot.id)) setSelectedSpot(null);
   }, [mapSpots, selectedSpot]);
@@ -742,7 +743,7 @@ export default function MapScreen() {
           {locationResolution === "settled" && !filteredSpots.length && !(selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed)) && <View pointerEvents="box-none" style={styles.emptyOverlay}>
             <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />
           </View>}
-          {locationResolution === "settled" && filteredSpots.length > 0 && mapSpots.length === 0 ? <View style={styles.areaEmpty}>
+          {locationResolution === "settled" && filteredSpots.length > 0 && visibleMapSpots.length === 0 ? <View style={styles.areaEmpty}>
             <Text style={styles.areaEmptyTitle}>Hier noch keine Orte</Text>
             <Text style={styles.areaEmptyBody}>Verschiebe die Karte oder entdecke alle Treffer in der Liste.</Text>
             <Button label="Liste ansehen" variant="tertiary" onPress={() => changeViewMode("list")} />

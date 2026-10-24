@@ -19,6 +19,18 @@ export function paddedMapPinRegion(region: MapRegion): MapRegion {
   };
 }
 
+function mapRegionContains(outer: MapRegion, inner: MapRegion): boolean {
+  return Math.abs(inner.latitude - outer.latitude) + inner.latitudeDelta / 2 <= outer.latitudeDelta / 2
+    && Math.abs(inner.longitude - outer.longitude) + inner.longitudeDelta / 2 <= outer.longitudeDelta / 2;
+}
+
+// Keep previously visited pins mounted while moving the map. Remove only
+// redundant regions, so panning back and forth does not grow this cache.
+export function retainMapPinRegion(regions: MapRegion[], next: MapRegion): MapRegion[] {
+  if (regions.some((region) => mapRegionContains(region, next))) return regions;
+  return [...regions.filter((region) => !mapRegionContains(next, region)), next];
+}
+
 // Keep native annotations stable during short pans. Refresh while there is
 // still a margin, so newly visible pins are ready before the drag ends.
 export function shouldRefreshMapPinRegion(pinRegion: MapRegion, visibleRegion: MapRegion): boolean {
@@ -55,4 +67,12 @@ export function selectMapDiscoverySpots<T extends MappableSpot>(spots: T[], regi
     && Math.abs(spot.lng - region.longitude) <= halfLng,
   ).sort((a, b) => a.id.localeCompare(b.id));
   return candidates;
+}
+
+export function selectRetainedMapDiscoverySpots<T extends MappableSpot>(spots: T[], regions: MapRegion[]): T[] {
+  const retained = new Map<string, T>();
+  for (const region of regions) {
+    for (const spot of selectMapDiscoverySpots(spots, region)) retained.set(spot.id, spot);
+  }
+  return [...retained.values()].sort((a, b) => a.id.localeCompare(b.id));
 }

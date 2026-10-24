@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 new Function("exports", "require", "module", compiled)(policyModule.exports, undefined, policyModule);
-const { mapDistanceMeters, paddedMapPinRegion, selectMapDiscoverySpots, shouldRefreshMapPinRegion } = policyModule.exports;
+const { mapDistanceMeters, paddedMapPinRegion, retainMapPinRegion, selectMapDiscoverySpots, selectRetainedMapDiscoverySpots, shouldRefreshMapPinRegion } = policyModule.exports;
 
 const region = { latitude: 47.5596, longitude: 7.5886, latitudeDelta: 0.12, longitudeDelta: 0.12 };
 const spots = Array.from({ length: 5000 }, (_, index) => ({
@@ -48,5 +48,12 @@ const edgeSpots = [
 assert.deepEqual(selectMapDiscoverySpots(edgeSpots, cached).map((spot) => spot.id), ["ahead", "behind"], "pins near both viewport edges stay mounted during a short pan");
 assert.equal(shouldRefreshMapPinRegion(cached, { ...visible, longitude: visible.longitude + 0.0015 }), true, "load the next pin region before visible spots reach its edge");
 assert.equal(shouldRefreshMapPinRegion(cached, { ...visible, longitude: visible.longitude + 0.003 }), true, "a larger pan loads the next area");
-assert.equal(shouldRefreshMapPinRegion(cached, { ...visible, latitudeDelta: 0.001, longitudeDelta: 0.001 }), true, "zooming in drops distant annotations");
+assert.equal(shouldRefreshMapPinRegion(cached, { ...visible, latitudeDelta: 0.001, longitudeDelta: 0.001 }), true, "zooming in refreshes the nearby pin buffer");
+const shifted = paddedMapPinRegion({ ...visible, longitude: visible.longitude + 0.003 });
+const retainedRegions = retainMapPinRegion([cached], shifted);
+assert.equal(retainedRegions.length, 2);
+const panSpots = [...edgeSpots, { id: "further-ahead", lat: visible.latitude, lng: visible.longitude + 0.006 }];
+assert.deepEqual(selectRetainedMapDiscoverySpots(panSpots, retainedRegions).map((spot) => spot.id), ["ahead", "behind", "further-ahead"], "a new buffer adds pins without removing existing ones");
+assert.equal(retainMapPinRegion(retainedRegions, cached), retainedRegions, "panning back reuses the existing pin buffer");
+assert.deepEqual(selectRetainedMapDiscoverySpots(panSpots, [shifted, cached]).map((spot) => spot.id), ["ahead", "behind", "further-ahead"], "pin order stays fixed when regions arrive in a different order");
 console.log("All visible spots remain pinned in stable order while the map moves.");
