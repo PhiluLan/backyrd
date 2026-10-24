@@ -568,7 +568,7 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* HEADER */}
-      <View style={styles.header}>
+      <View style={[styles.header, viewMode === "map" && styles.mapHeader]}>
         <View style={styles.headerControls}>
           {viewMode === "map" ? <AppText role="label" tone="pink" numberOfLines={1} style={styles.headerEyebrow}>{mapOriginMode === "user" && userLocation ? (userLocation.source === "current" ? "DEIN STANDORT" : "LETZTER STANDORT") : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText> : null}
           <View style={styles.headerActions}>
@@ -593,9 +593,9 @@ export default function MapScreen() {
             </View>
           </View>
         </View>
-        <View style={styles.placesTitle}><HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="," /></HomeTypographyProvider></View>
+        {viewMode === "list" ? <View style={styles.placesTitle}><HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="," /></HomeTypographyProvider></View> : null}
 
-        <View style={styles.headerTopRow}>
+        <View style={[styles.headerTopRow, viewMode === "map" && styles.mapSearchRow]}>
           <View style={styles.searchBox}>
             <Ionicons name="search" size={19} color={theme.color.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
@@ -618,7 +618,7 @@ export default function MapScreen() {
 
         </View>
 
-        {moodProfilesFailed || moodResolverFailed ? <View style={{ padding: 12 }}><AppText role="meta">Die Mood-Eindrücke konnten gerade nicht geladen werden.</AppText><Button label="Erneut laden" variant="tertiary" onPress={() => { setMoodRevision(v => v + 1); retryMoodCatalog(); }} /></View> : null}
+        {(moodProfilesFailed || moodResolverFailed) && (viewMode === "list" || selectedMood || searchMoodId) ? <View style={{ padding: 12 }}><AppText role="meta">Die Mood-Eindrücke konnten gerade nicht geladen werden.</AppText><Button label="Erneut laden" variant="tertiary" onPress={() => { setMoodRevision(v => v + 1); retryMoodCatalog(); }} /></View> : null}
         {selectedMood && moodProfilesLoading ? <AppText role="meta" tone="secondary">Mood-Eindrücke werden geladen …</AppText> : null}
         {activeFilters.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilters}>
           {activeFilters.map((filter) => <Chip key={filter.id} label={`${filter.label} ×`} kind="selected" onPress={filter.onRemove} />)}
@@ -789,11 +789,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.color.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.color.background },
   header: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, backgroundColor: theme.color.background },
+  mapHeader: { paddingTop: 0, paddingBottom: theme.spacing.xs },
   headerControls: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
   headerEyebrow: { flexShrink: 1 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   placesTitle: { width: "100%", minHeight: 60 },
   headerTopRow: { marginTop: theme.spacing.md },
+  mapSearchRow: { marginTop: theme.spacing.xs },
   searchBox: { width: "100%", flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
   searchInput: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15, minHeight: theme.control.standard },
   searchClear: { minWidth: theme.control.compact, minHeight: theme.control.compact },
