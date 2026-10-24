@@ -46,6 +46,7 @@ const edgeSpots = [
   { id: "ahead", lat: visible.latitude, lng: visible.longitude + 0.003 },
 ];
 assert.deepEqual(selectMapDiscoverySpots(edgeSpots, cached).map((spot) => spot.id), ["ahead", "behind"], "pins near both viewport edges stay mounted during a short pan");
+assert.equal(shouldRefreshMapPinRegion(cached, { ...visible, longitude: visible.longitude + 0.0015 }), true, "load the next pin region before visible spots reach its edge");
 assert.equal(shouldRefreshMapPinRegion(cached, { ...visible, longitude: visible.longitude + 0.003 }), true, "a larger pan loads the next area");
 assert.equal(shouldRefreshMapPinRegion(cached, { ...visible, latitudeDelta: 0.001, longitudeDelta: 0.001 }), true, "zooming in drops distant annotations");
 console.log("All visible spots remain pinned in stable order while the map moves.");

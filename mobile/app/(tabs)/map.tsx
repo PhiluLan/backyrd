@@ -186,6 +186,13 @@ export default function MapScreen() {
   const centeredOnUser = useRef(false);
   const manuallyExploredMap = useRef(false);
   const programmaticCenter = useRef<MapCoordinates | null>(null);
+  const pinRegionRef = useRef(pinRegion);
+  const updatePinRegion = useCallback((visibleRegion: typeof region, force = false) => {
+    if (!force && !shouldRefreshMapPinRegion(pinRegionRef.current, visibleRegion)) return;
+    const next = paddedMapPinRegion(visibleRegion);
+    pinRegionRef.current = next;
+    setPinRegion(next);
+  }, []);
   const listRef = useRef<FlatList<Spot> | null>(null);
   const [refreshingPlaces, setRefreshingPlaces] = useState(false);
   const listScrollOffset = useRef(0);
@@ -231,9 +238,9 @@ export default function MapScreen() {
     const next = { ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 };
     programmaticCenter.current = center;
     setRegion(next);
-    setPinRegion(paddedMapPinRegion(next));
+    updatePinRegion(next, true);
     mapRef.current?.animateToRegion(next, 400);
-  }, [profileCity, globalSpots, params.lat, params.lng]);
+  }, [profileCity, globalSpots, params.lat, params.lng, updatePinRegion]);
 
   const refreshLocationConsent = React.useCallback(async () => {
     return hasActiveConsent("precise_location", {
@@ -273,7 +280,7 @@ export default function MapScreen() {
         const next = { ...coordinates, latitudeDelta: USER_MAP_ZOOM_DELTA, longitudeDelta: USER_MAP_ZOOM_DELTA };
         programmaticCenter.current = coordinates;
         setRegion(next);
-        setPinRegion(paddedMapPinRegion(next));
+        updatePinRegion(next, true);
         mapRef.current?.animateToRegion(next, 450);
       } catch {
         if (!active) return;
@@ -285,7 +292,7 @@ export default function MapScreen() {
       }
     })();
     return () => { active = false; };
-  }, [params.lat, params.lng]));
+  }, [params.lat, params.lng, updatePinRegion]));
 
   /* =============================================================
      LOAD DATA
@@ -414,13 +421,17 @@ export default function MapScreen() {
     }
   }, [viewMode]);
 
+  const handleRegionChange = useCallback((nextRegion: typeof region) => {
+    updatePinRegion(nextRegion);
+  }, [updatePinRegion]);
+
   const handleRegionChangeComplete = useCallback((nextRegion: typeof region) => {
     setRegion(nextRegion);
-    setPinRegion((current) => shouldRefreshMapPinRegion(current, nextRegion) ? paddedMapPinRegion(nextRegion) : current);
+    updatePinRegion(nextRegion);
     if (programmaticCenter.current && mapDistanceMeters(programmaticCenter.current, nextRegion) < 100) {
       programmaticCenter.current = null;
     }
-  }, []);
+  }, [updatePinRegion]);
 
   const changeViewMode = useCallback((nextView: "map" | "list") => {
     if (nextView === viewMode) return;
@@ -562,7 +573,7 @@ export default function MapScreen() {
 
     programmaticCenter.current = context.coordinates;
     setRegion(next);
-    setPinRegion(paddedMapPinRegion(next));
+    updatePinRegion(next, true);
     mapRef.current?.animateToRegion(next, 500);
   }
 
@@ -696,6 +707,7 @@ export default function MapScreen() {
           showsPointsOfInterest={false}
           customMapStyle={DARK_MAP_STYLE}
           onPress={() => setSelectedSpot(null)}
+          onRegionChange={handleRegionChange}
           onRegionChangeComplete={handleRegionChangeComplete}
           onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; setMapOriginMode("viewport"); setMapCity(null); setSelectedSpot(null); }}
           >

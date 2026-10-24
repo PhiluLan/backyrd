@@ -9,6 +9,7 @@ export type MappableSpot = { id: string; lat: number; lng: number };
 export type MapCoordinates = { latitude: number; longitude: number };
 
 const PIN_REGION_PADDING = 2;
+const PIN_REFRESH_THRESHOLD = 0.8;
 
 export function paddedMapPinRegion(region: MapRegion): MapRegion {
   return {
@@ -18,15 +19,15 @@ export function paddedMapPinRegion(region: MapRegion): MapRegion {
   };
 }
 
-// Keep the same native annotations during short pans. Refresh before any part
-// of the visible viewport leaves the cached pin region, or after a large zoom.
+// Keep native annotations stable during short pans. Refresh while there is
+// still a margin, so newly visible pins are ready before the drag ends.
 export function shouldRefreshMapPinRegion(pinRegion: MapRegion, visibleRegion: MapRegion): boolean {
   if (visibleRegion.latitudeDelta <= 0 || visibleRegion.longitudeDelta <= 0) return false;
   if (pinRegion.latitudeDelta <= 0 || pinRegion.longitudeDelta <= 0) return true;
   const visibleLatEdge = Math.abs(visibleRegion.latitude - pinRegion.latitude) + visibleRegion.latitudeDelta / 2;
   const visibleLngEdge = Math.abs(visibleRegion.longitude - pinRegion.longitude) + visibleRegion.longitudeDelta / 2;
-  return visibleLatEdge >= pinRegion.latitudeDelta / 2
-    || visibleLngEdge >= pinRegion.longitudeDelta / 2
+  return visibleLatEdge >= pinRegion.latitudeDelta / 2 * PIN_REFRESH_THRESHOLD
+    || visibleLngEdge >= pinRegion.longitudeDelta / 2 * PIN_REFRESH_THRESHOLD
     || visibleRegion.latitudeDelta < pinRegion.latitudeDelta / 4
     || visibleRegion.longitudeDelta < pinRegion.longitudeDelta / 4;
 }
