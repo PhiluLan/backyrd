@@ -35,6 +35,7 @@ import { loadDiscoveryOpeningSchedules, type OpeningSchedule } from "../../lib/d
 import { useMinuteClock } from "../../hooks/useMinuteClock";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
+const USER_MAP_ZOOM_DELTA = 0.012;
 
 function displayMoodLabel(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -79,8 +80,7 @@ type Spot = {
 };
 
 export default function MapScreen() {
-  const { fontScale, width: screenWidth } = useWindowDimensions();
-  const railCardWidth = Math.min(screenWidth - 56, 350);
+  const { fontScale } = useWindowDimensions();
   const { spots: globalSpots, refresh, loading, error: spotsError } = useSpotsStore();
   const { user } = useAuth();
   const router = useRouter();
@@ -152,7 +152,6 @@ export default function MapScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const mapRef = useRef<MapView | null>(null);
-  const railRef = useRef<FlatList<Spot> | null>(null);
   const centeredProfileCity = useRef<string | null>(null);
   const centeredOnUser = useRef(false);
   const manuallyExploredMap = useRef(false);
@@ -240,7 +239,8 @@ export default function MapScreen() {
         if ((params.lat && params.lng) || manuallyExploredMap.current) return;
         centeredOnUser.current = true;
         setMapOriginMode("user");
-        const next = { ...coordinates, latitudeDelta: 0.035, longitudeDelta: 0.035 };
+        setSelectedSpot(null);
+        const next = { ...coordinates, latitudeDelta: USER_MAP_ZOOM_DELTA, longitudeDelta: USER_MAP_ZOOM_DELTA };
         programmaticCenter.current = coordinates;
         setRegion(next);
         setAppliedRegion(next);
@@ -367,9 +367,7 @@ export default function MapScreen() {
   const mapNeedsSearch = hasMapRegionChanged(region, appliedRegion);
 
   useEffect(() => {
-    if (selectedSpot && mapSpots.some((spot) => spot.id === selectedSpot.id)) return;
-    setSelectedSpot(mapSpots[0] ?? null);
-    railRef.current?.scrollToOffset({ offset: 0, animated: false });
+    if (selectedSpot && !mapSpots.some((spot) => spot.id === selectedSpot.id)) setSelectedSpot(null);
   }, [mapSpots, selectedSpot]);
 
   const openingCandidates = useMemo(() => viewMode === "map" ? mapSpots : filteredSpots.filter((spot, index) => visibleIds.length ? visibleIds.includes(spot.id) : index < 8), [viewMode, mapSpots, filteredSpots, visibleIds]);
@@ -397,14 +395,6 @@ export default function MapScreen() {
     }
   }, []);
 
-  const selectMapSpot = useCallback((spot: Spot, scrollRail = true) => {
-    setSelectedSpot(spot);
-    if (scrollRail) {
-      const index = mapSpots.findIndex((item) => item.id === spot.id);
-      if (index >= 0) railRef.current?.scrollToOffset({ offset: index * (railCardWidth + 10), animated: true });
-    }
-  }, [mapSpots, railCardWidth]);
-
   const searchThisArea = useCallback(() => {
     manuallyExploredMap.current = true;
     programmaticCenter.current = null;
@@ -412,11 +402,11 @@ export default function MapScreen() {
     setMapCity(null);
     setAppliedRegion(region);
     setSelectedSpot(null);
-    railRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [region]);
 
   const changeViewMode = useCallback((nextView: "map" | "list") => {
     if (nextView === viewMode) return;
+    if (nextView === "map") setSelectedSpot(null);
     setViewMode(nextView);
   }, [viewMode]);
 
@@ -436,7 +426,7 @@ export default function MapScreen() {
           accessibilityState={{ selected: isSelected }}
           onPress={(e) => {
             e.stopPropagation();
-            selectMapSpot(spot);
+            setSelectedSpot(spot);
             void trackAnalyticsEvent({
               eventName: "map_marker_opened",
               screenName: "map",
@@ -542,11 +532,13 @@ export default function MapScreen() {
     centeredOnUser.current = true;
     manuallyExploredMap.current = false;
     setMapOriginMode("user");
+    setSelectedSpot(null);
 
     const next = {
-      ...region,
       latitude: context.coordinates.latitude,
       longitude: context.coordinates.longitude,
+      latitudeDelta: USER_MAP_ZOOM_DELTA,
+      longitudeDelta: USER_MAP_ZOOM_DELTA,
     };
 
     programmaticCenter.current = context.coordinates;
@@ -677,11 +669,14 @@ export default function MapScreen() {
           <MapView
           ref={mapRef}
           provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+          mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
           userInterfaceStyle="dark"
           style={{ flex: 1 }}
           initialRegion={region}
           showsUserLocation={locationConsentGranted}
+          showsPointsOfInterest={false}
           customMapStyle={DARK_MAP_STYLE}
+          onPress={() => setSelectedSpot(null)}
           onRegionChangeComplete={handleRegionChangeComplete}
           onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; }}
           >
@@ -692,55 +687,30 @@ export default function MapScreen() {
             <Text style={styles.searchAreaText}>Hier suchen</Text>
           </Pressable> : null}
           {locationResolution === "pending" ? <View style={styles.locationLoading}><StateView kind="loading" title="Orte in deiner Nähe werden geladen" /></View> : null}
-          {mapSpots.length > 0 ? <View style={styles.railWrap}>
-            <View style={styles.railHeading}>
-              <AppText role="label" tone="pink" numberOfLines={1} style={styles.railHeadingTitle}>{mapOriginMode === "user" && userLocation ? userLocation.source === "current" ? "IN DEINER NÄHE" : "LETZTER STANDORT" : "IN DIESEM AUSSCHNITT"}</AppText>
-              <Pressable accessibilityRole="button" accessibilityLabel="Alle Orte als Liste ansehen" onPress={() => changeViewMode("list")} style={styles.railListLink}>
-                <AppText role="meta" tone="secondary">Alle Orte</AppText>
-                <Ionicons name="arrow-forward" size={14} color={theme.color.textSecondary} />
-              </Pressable>
-            </View>
-            <FlatList
-              ref={railRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={mapSpots}
-              keyExtractor={(spot) => spot.id}
-              contentContainerStyle={styles.railContent}
-              snapToInterval={railCardWidth + 10}
-              decelerationRate="fast"
-              initialNumToRender={3}
-              maxToRenderPerBatch={3}
-              onMomentumScrollEnd={(event) => {
-                const index = Math.round(event.nativeEvent.contentOffset.x / (railCardWidth + 10));
-                const spot = mapSpots[Math.min(Math.max(index, 0), mapSpots.length - 1)];
-                if (spot) selectMapSpot(spot, false);
-              }}
-              renderItem={({ item }) => <Pressable
+          {selectedSpot && mapSpots.some((spot) => spot.id === selectedSpot.id) ? <View style={styles.railWrap}>
+              <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name} ansehen`}
-                accessibilityState={{ selected: selectedSpot?.id === item.id }}
-                style={[styles.railCard, { width: railCardWidth }, selectedSpot?.id === item.id && styles.railCardSelected]}
+                accessibilityLabel={`${selectedSpot.name} ansehen`}
+                style={[styles.railCard, styles.railCardSelected]}
                 onPress={() => {
-                  void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: item.id, spotId: item.id, properties: { source: "map_rail" } });
-                  router.push(`/spot/${item.id}`);
+                  void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: selectedSpot.id, spotId: selectedSpot.id, properties: { source: "map_card" } });
+                  router.push(`/spot/${selectedSpot.id}`);
                 }}>
                 <View style={styles.railMedia}>
-                  <SpotArtwork imageUrl={item.header_photo_url} spotId={item.id} spotName={item.name} showFallbackName={false} attributionPosition="top" style={styles.railImage} />
+                  <SpotArtwork imageUrl={selectedSpot.header_photo_url} spotId={selectedSpot.id} spotName={selectedSpot.name} showFallbackName={false} attributionPosition="top" style={styles.railImage} />
                   <LinearGradient pointerEvents="none" colors={["transparent", "rgba(0,0,0,0.88)"]} style={styles.railImageShade}>
-                    <HomeTypographyProvider><AppText role="displayXL" numberOfLines={2} style={styles.railCardTitle}>{item.name}</AppText></HomeTypographyProvider>
+                    <HomeTypographyProvider><AppText role="displayXL" numberOfLines={2} style={styles.railCardTitle}>{selectedSpot.name}</AppText></HomeTypographyProvider>
                   </LinearGradient>
                 </View>
                 <View style={styles.railCardBody}>
                   <View style={styles.railMetaRow}>
-                    <Text style={styles.railCategory} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
-                    {userLocation?.source === "current" ? <Text style={styles.railDistance}>{userDistanceLabel(mapDistanceMeters(userLocation.coordinates, { latitude: item.lat, longitude: item.lng }))}</Text> : null}
+                    <Text style={styles.railCategory} numberOfLines={1}>{selectedSpot.categories?.name || selectedSpot.city || "Ort"}</Text>
+                    {userLocation?.source === "current" ? <Text style={styles.railDistance}>{userDistanceLabel(mapDistanceMeters(userLocation.coordinates, { latitude: selectedSpot.lat, longitude: selectedSpot.lng }))}</Text> : null}
                   </View>
-                  {item.address ? <Text style={styles.railAddress} numberOfLines={1}>{item.address}</Text> : null}
-                  <Text style={styles.railMoods} numberOfLines={1}>{(spotMoods[item.id] ?? []).slice(0, 2).map(displayMoodLabel).join(" · ") || "Noch keine Mood-Eindrücke"}</Text>
+                  {selectedSpot.address ? <Text style={styles.railAddress} numberOfLines={1}>{selectedSpot.address}</Text> : null}
+                  <Text style={styles.railMoods} numberOfLines={1}>{(spotMoods[selectedSpot.id] ?? []).slice(0, 2).map(displayMoodLabel).join(" · ") || "Noch keine Mood-Eindrücke"}</Text>
                 </View>
-              </Pressable>}
-            />
+              </Pressable>
           </View> : null}
           {locationResolution === "settled" && !filteredSpots.length && !(selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed)) && <View pointerEvents="box-none" style={styles.emptyOverlay}>
             <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />
@@ -805,7 +775,7 @@ export default function MapScreen() {
 
       {/* RECENTER BUTTON */}
       {viewMode === "map" && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Karte auf meinen Standort zentrieren" style={[styles.recenterBtn, mapSpots.length > 0 && styles.recenterAboveRail]} onPress={recenterToMe}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Karte auf meinen Standort zentrieren" style={[styles.recenterBtn, selectedSpot && styles.recenterAboveRail]} onPress={recenterToMe}>
           <Ionicons name="locate-outline" size={22} color={theme.color.textPrimary} />
         </Pressable>
       )}
@@ -839,12 +809,8 @@ const styles = StyleSheet.create({
   emptyOverlay: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl },
   searchAreaButton: { position: "absolute", alignSelf: "center", top: theme.spacing.md, zIndex: 3, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: theme.color.pink, borderRadius: theme.radius.pill, minHeight: 44, paddingHorizontal: theme.spacing.md, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   searchAreaText: { color: theme.color.background, fontFamily: theme.type.bodyBold, fontSize: 14 },
-  railWrap: { position: "absolute", left: 0, right: 0, bottom: theme.control.tabBar + theme.spacing.sm, zIndex: 2 },
-  railHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.xs, gap: theme.spacing.xs },
-  railHeadingTitle: { flexShrink: 1 },
-  railListLink: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: theme.spacing.sm },
-  railContent: { paddingHorizontal: theme.spacing.xl, gap: 10, paddingBottom: 5 },
-  railCard: { minHeight: 225, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
+  railWrap: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, bottom: theme.control.tabBar + theme.spacing.sm, zIndex: 2, alignItems: "center" },
+  railCard: { width: "100%", maxWidth: 350, minHeight: 225, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
   railCardSelected: { borderColor: theme.color.pink },
   railMedia: { position: "relative", height: 132 },
   railImage: { width: "100%", height: 132 },
