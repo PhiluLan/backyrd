@@ -77,6 +77,9 @@ export type ProductFieldInputProps = {
   field: AuthoringField;
   answer?: Answer;
   candidate?: { candidateId: string; value: unknown };
+  initialDraft?: { key: string; value: unknown };
+  onDiscardDraft?(): void;
+  onDraftValueChange?(value: unknown, validUntil: string): void;
   applicability?: string;
   referenceValue?: unknown;
   existingAnswers?: Readonly<Record<string,unknown>>;

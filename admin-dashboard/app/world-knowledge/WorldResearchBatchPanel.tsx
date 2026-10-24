@@ -24,7 +24,7 @@ export function WorldResearchBatchPanel(props: {
   jobsGet(jobId?: string): Promise<unknown>;
   jobsStart(spotIds: string[]): Promise<unknown>;
   draftsGet(draftId?: string): Promise<unknown>;
-  draftsSave(report: NuknukDraft): Promise<unknown>;
+  draftsSave(report: unknown): Promise<unknown>;
 }) {
   const panelRef = useRef<HTMLElement>(null);
   const [query, setQuery] = useState("");
@@ -75,6 +75,16 @@ export function WorldResearchBatchPanel(props: {
     setNuknukDraft(report); setSavedDraftId(draftId); setDraftsError("");
     panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
+
+  const recoverDraft = async (file:File) => {
+    if(!nuknukDraft || file.size > 200_000) throw new Error("Bitte einen gültigen Originalbericht bis 200 KB auswählen.");
+    const {recoverDraftObservations} = await import("@/lib/nuknukResearchDraft");
+    const original = parseNuknukDraft(JSON.parse(await file.text()));
+    if(!original) throw new Error("Die Datei ist kein gültiger Nuknuk-Originalbericht.");
+    const recovered = recoverDraftObservations(nuknukDraft,original);
+    if(savedDraftId) await props.draftsSave({recoverDraftId:savedDraftId,original});
+    setNuknukDraft(recovered);setDraftsError("");setMessage("Originalbelege ergänzt. Bitte die Angaben erneut prüfen und auswählen.");
+  };
 
   const saveDraft = async () => {
     if (!nuknukDraft || draftSaving) return;
@@ -269,7 +279,7 @@ export function WorldResearchBatchPanel(props: {
 
   return <section className={styles.shell} ref={panelRef}>
     <header className={styles.header}><span className={styles.eyebrow}>RECHERCHE SPOT</span><h2>Wissen ergänzen.</h2><p>Spots automatisch oder per Datei recherchieren. Neue Angaben und Konflikte werden erst nach deiner Prüfung übernommen.</p></header>
-    {nuknukDraft ? <NuknukDraftPreview draft={nuknukDraft} onClose={() => { setNuknukDraft(null); setSavedDraftId(null); }} onSave={() => void saveDraft()} saved={!!savedDraftId} saving={draftSaving} error={draftsError || message} onPrepare={prepareDraft} preparing={busy} /> : <>
+    {nuknukDraft ? <NuknukDraftPreview key={savedDraftId ?? nuknukDraft.spotId} draft={nuknukDraft} post={props.post} onRecover={recoverDraft} onClose={() => { setNuknukDraft(null); setSavedDraftId(null); }} onSave={() => void saveDraft()} saved={!!savedDraftId} saving={draftSaving} error={draftsError || message} onPrepare={prepareDraft} preparing={busy} /> : <>
     <nav className={styles.steps} aria-label="Fortschritt"><span className={!json ? styles.activeStep : ""}>1 <b>Auswählen</b></span><span className={json && !preview ? styles.activeStep : ""}>2 <b>Prüfen</b></span><span className={preview || completion ? styles.activeStep : ""}>3 <b>Übernehmen</b></span></nav>
     {completion ? <div className={styles.outcome} role="status"><span className={styles.outcomeIcon} aria-hidden="true">✓</span><h3>Angaben gespeichert.</h3><p>{completion.imported > 0 ? `${completion.imported} ${completion.imported === 1 ? "Angabe" : "Angaben"} für ${completion.spots} ${completion.spots === 1 ? "Spot" : "Spots"} übernommen und mit dem gespeicherten Profil abgeglichen.` : "Deine Prüfung ist abgeschlossen. Es gab keine neuen Angaben zu übernehmen; bestehendes Wissen bleibt unverändert."}</p>{completion.unresolved > 0 && <p>{completion.unresolved} Angaben bleiben offen. Der Spot ist dadurch nicht automatisch vollständig ausgefüllt.</p>}<button className={styles.primary} onClick={startNewBatch}>Neue Recherche starten</button></div> : <>
       {!json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>01</span><h3>Welche Spots?</h3></div><span>{selected.length} von 10 ausgewählt</span></div><p>Wähle bis zu zehn Spots. Der Export enthält den aktuellen World-Stand, nicht alte Spot-Felder.</p>

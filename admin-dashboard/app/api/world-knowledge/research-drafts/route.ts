@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
-import { parseNuknukDraft } from "@/lib/nuknukResearchDraft";
+import { parseNuknukDraft, recoverDraftObservations } from "@/lib/nuknukResearchDraft";
 
 const noStore = { "cache-control": "no-store" };
 const uuid = /^[0-9a-f-]{36}$/i;
@@ -57,10 +57,34 @@ export async function POST(request: Request) {
   const text = await request.text().catch(() => "");
   if (text.length > 200_000) return Response.json({ error: "WORLD_RESEARCH_DRAFT_TOO_LARGE" }, { status: 413, headers: noStore });
   const input: unknown = (() => { try { return JSON.parse(text); } catch { return null; } })();
-  const draft = parseNuknukDraft(input);
+  const recovery = input && typeof input === "object" && "recoverDraftId" in input ? input as { recoverDraftId?: unknown; original?: unknown } : null;
+  const draft = parseNuknukDraft(recovery ? recovery.original : input);
   if (!draft) return Response.json({ error: "WORLD_RESEARCH_DRAFT_INVALID" }, { status: 400, headers: noStore });
   try {
     const service = serviceClient();
+    if (recovery) {
+      if (typeof recovery.recoverDraftId !== "string" || !uuid.test(recovery.recoverDraftId)) return Response.json({ error: "WORLD_RESEARCH_DRAFT_ID_INVALID" }, { status: 400, headers: noStore });
+      const found = await service.from("world_research_automation_jobs_v1")
+        .select("id,spot_id,spot_name,actor_id,created_at,updated_at,export_document,result_document")
+        .eq("id", recovery.recoverDraftId).contains("export_document", { kind }).eq("status", "READY_FOR_REVIEW").is("reviewed_at", null).maybeSingle();
+      const stored = parseNuknukDraft(found.data?.result_document);
+      if (found.error || !found.data || !stored || stored.spotId !== found.data.spot_id) return Response.json({ error: "WORLD_RESEARCH_DRAFT_NOT_FOUND" }, { status: 404, headers: noStore });
+      let report;
+      try { report = recoverDraftObservations(stored, draft); }
+      catch (cause) { return Response.json({ error: cause instanceof Error ? cause.message : "Originalbericht ungültig" }, { status: 409, headers: noStore }); }
+      if (JSON.stringify(report) === JSON.stringify(stored)) return Response.json({draft:summary(found.data as DraftRow),report}, {headers:noStore});
+      const digest = createHash("sha256").update(JSON.stringify(report)).digest("hex");
+      const previous = found.data.export_document;
+      const now = new Date().toISOString();
+      const updated = await service.from("world_research_automation_jobs_v1").update({ result_document: report, updated_at: now,
+        export_document: { ...previous, digest, observationRecovery: { actorId: authorization.userId, recoveredAt: now,
+          previousDigest: previous.digest ?? createHash("sha256").update(JSON.stringify(stored)).digest("hex"),
+          originalDigest: createHash("sha256").update(JSON.stringify(draft)).digest("hex") } },
+      }).eq("id", found.data.id).eq("updated_at", found.data.updated_at).eq("status", "READY_FOR_REVIEW").is("reviewed_at", null)
+        .select("id,spot_id,spot_name,actor_id,created_at,export_document").maybeSingle();
+      if (updated.error || !updated.data) return Response.json({ error: "Der Entwurf wurde inzwischen geändert. Bitte neu öffnen." }, { status: 409, headers: noStore });
+      return Response.json({ draft: summary(updated.data as DraftRow), report }, { headers: noStore });
+    }
     const { data: spot, error: spotError } = await service.from("spots").select("id,name").eq("id", draft.spotId).maybeSingle();
     if (spotError) throw new Error("WORLD_RESEARCH_SPOT_UNAVAILABLE");
     if (!spot) return Response.json({ error: "WORLD_RESEARCH_SPOT_NOT_FOUND" }, { status: 404, headers: noStore });
