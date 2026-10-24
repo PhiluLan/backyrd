@@ -63,7 +63,7 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
     } catch(cause) {setError(cause instanceof Error ? cause.message : "Die Angabe konnte nicht gespeichert werden.");}
     finally {setBusy(false);}
   };
-  return <section className="wk-field" aria-label={`${field.label} bearbeiten`}>
+  return <section className={`wk-app ${styles.fieldEditor}`} aria-label={`${field.label} bearbeiten`}>
     <p className={styles.note}>Eigene Angabe: Prüfe oder ergänze den Inhalt. „Übernehmen“ merkt ihn hier vor. Erst „Im Profil speichern“ speichert deine Admin-Bestätigung. Die Recherchebelege bleiben unverändert.</p>
     {notice && <p className={styles.partialNote}>{notice}</p>}
     {answers ? <FieldInput field={field} initialDraft={seed !== undefined ? {key,value:seed} : undefined} onDiscardDraft={() => {setStaged(null);setDirty(false);}} existingAnswers={answers}
@@ -76,6 +76,6 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
       }}/>: !error && <p role="status">Aktuelle Profilangaben werden geladen …</p>}
     {staged && <div className={styles.partialNote}><strong>Für deine Bestätigung vorgemerkt</strong><ResearchValue attributeKey={field.attributeKey} value={staged.value}/>{pendingEdits && <p>Weitere Änderungen zuerst oben übernehmen.</p>}</div>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    <div className={styles.footer}><button type="button" className={styles.secondary} disabled={busy} onClick={close}>Editor schliessen</button><button type="button" className={styles.primary} disabled={busy || !staged || pendingEdits} onClick={() => void save()}>{busy ? "Wird gespeichert …" : "Eigene Angabe im Profil speichern"}</button></div>
+    <div className={styles.editorActions}><button type="button" className={`${styles.secondary} wk-secondary`} disabled={busy} onClick={close}>Editor schliessen</button><button type="button" className={styles.primary} disabled={busy || !staged || pendingEdits} onClick={() => void save()}>{busy ? "Wird gespeichert …" : "Eigene Angabe im Profil speichern"}</button></div>
   </section>;
 }
