@@ -20,6 +20,7 @@ export async function proxy(request: NextRequest) {
     "/search",
     "/owner",
     "/booking/console",
+    "/booking/manage",
   ];
   if (privatePrefixes.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
     response.headers.set("X-Robots-Tag", "noindex, nofollow");

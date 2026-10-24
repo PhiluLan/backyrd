@@ -27,6 +27,12 @@ function current(pathname: string, href: string) {
 }
 export function ConsumerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // Capability-based guest management does not need the consumer's login/profile session.
+  if (pathname === "/booking/manage") return children;
+  return <ConsumerSessionShell>{children}</ConsumerSessionShell>;
+}
+function ConsumerSessionShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<{
     email?: string | null;
