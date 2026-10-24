@@ -7,7 +7,6 @@ export type MapRegion = {
 
 export type MappableSpot = { id: string; lat: number; lng: number };
 export type MapCoordinates = { latitude: number; longitude: number };
-export const MAP_SPOT_LIMIT = 10;
 
 export function mapDistanceMeters(a: MapCoordinates, b: MapCoordinates): number {
   const radians = (degrees: number) => degrees * Math.PI / 180;
@@ -19,19 +18,10 @@ export function mapDistanceMeters(a: MapCoordinates, b: MapCoordinates): number 
   return 6_371_000 * 2 * Math.atan2(Math.sqrt(arc), Math.sqrt(1 - arc));
 }
 
-export function hasMapRegionChanged(current: MapRegion, applied: MapRegion): boolean {
-  const latThreshold = Math.max(applied.latitudeDelta * 0.12, 0.001);
-  const lngThreshold = Math.max(applied.longitudeDelta * 0.12, 0.001);
-  return Math.abs(current.latitude - applied.latitude) > latThreshold
-    || Math.abs(current.longitude - applied.longitude) > lngThreshold
-    || Math.abs(current.latitudeDelta - applied.latitudeDelta) > latThreshold
-    || Math.abs(current.longitudeDelta - applied.longitudeDelta) > lngThreshold;
-}
-
-// The preview is ordered by real distance from the user's permitted location (or
-// the map centre after a manual area search). The list retains every match.
-export function selectMapDiscoverySpots<T extends MappableSpot>(spots: T[], region: MapRegion, origin: MapCoordinates = region, limit = MAP_SPOT_LIMIT): T[] {
-  if (limit <= 0 || region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return [];
+// Every eligible spot in the visible region receives a pin. Ordering remains
+// deterministic for marker rendering and any selected-spot presentation.
+export function selectMapDiscoverySpots<T extends MappableSpot>(spots: T[], region: MapRegion, origin: MapCoordinates = region): T[] {
+  if (region.latitudeDelta <= 0 || region.longitudeDelta <= 0) return [];
   const halfLat = region.latitudeDelta / 2;
   const halfLng = region.longitudeDelta / 2;
   const candidates = spots.filter((spot) =>
@@ -41,5 +31,5 @@ export function selectMapDiscoverySpots<T extends MappableSpot>(spots: T[], regi
     && Math.abs(spot.lng - region.longitude) <= halfLng,
   ).sort((a, b) => mapDistanceMeters(origin, { latitude: a.lat, longitude: a.lng })
     - mapDistanceMeters(origin, { latitude: b.lat, longitude: b.lng }) || a.id.localeCompare(b.id));
-  return candidates.slice(0, limit);
+  return candidates;
 }

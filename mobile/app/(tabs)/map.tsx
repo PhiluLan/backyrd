@@ -28,14 +28,39 @@ import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-import { hasMapRegionChanged, mapDistanceMeters, selectMapDiscoverySpots, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
+import { mapDistanceMeters, selectMapDiscoverySpots, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
 import { spotMatchesSearch } from "../../lib/spot-search";
 
 import { loadDiscoveryOpeningSchedules, type OpeningSchedule } from "../../lib/discovery-opening-hours";
 import { useMinuteClock } from "../../hooks/useMinuteClock";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
-const USER_MAP_ZOOM_DELTA = 0.012;
+const USER_MAP_ZOOM_DELTA = 0.0045;
+
+const MAP_PIN_COLORS = {
+  food: "#FF5B9A",
+  cafe: "#F5BA73",
+  nightlife: "#B59AF7",
+  stay: "#8CB9F4",
+  activity: "#6BD6BE",
+  culture: "#D9D391",
+  experience: "#FF9988",
+  viewpoint: "#78CEDA",
+  fallback: "#F2F2F7",
+} as const;
+
+function mapPinColor(categoryName: string | null | undefined) {
+  const name = categoryName?.trim().toLocaleLowerCase("de-CH") ?? "";
+  if (/café|cafe|coffee|kaffee|bäckerei|bakery|brunch/.test(name)) return MAP_PIN_COLORS.cafe;
+  if (/bar|pub|club|nightlife|nachtleben|brauerei|brewery/.test(name)) return MAP_PIN_COLORS.nightlife;
+  if (/hotel|hostel|unterkunft|übernacht|stay/.test(name)) return MAP_PIN_COLORS.stay;
+  if (/restaurant|bistro|essen|food|imbiss|pizzeria/.test(name)) return MAP_PIN_COLORS.food;
+  if (/museum|galerie|kultur/.test(name)) return MAP_PIN_COLORS.culture;
+  if (/erlebnis|theater|kino|konzert|event/.test(name)) return MAP_PIN_COLORS.experience;
+  if (/aktivität|activity|freizeit|sport|wellness|ausflug/.test(name)) return MAP_PIN_COLORS.activity;
+  if (/aussicht|view|natur|park/.test(name)) return MAP_PIN_COLORS.viewpoint;
+  return MAP_PIN_COLORS.fallback;
+}
 
 function displayMoodLabel(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -121,7 +146,6 @@ export default function MapScreen() {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   }));
-  const [appliedRegion, setAppliedRegion] = useState(region);
   const [userLocation, setUserLocation] = useState<{ coordinates: MapCoordinates; source: "current" | "last_known" } | null>(null);
   const [mapOriginMode, setMapOriginMode] = useState<"user" | "viewport">("viewport");
 
@@ -201,7 +225,6 @@ export default function MapScreen() {
     const next = { ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 };
     programmaticCenter.current = center;
     setRegion(next);
-    setAppliedRegion(next);
     mapRef.current?.animateToRegion(next, 400);
   }, [profileCity, globalSpots, params.lat, params.lng]);
 
@@ -243,7 +266,6 @@ export default function MapScreen() {
         const next = { ...coordinates, latitudeDelta: USER_MAP_ZOOM_DELTA, longitudeDelta: USER_MAP_ZOOM_DELTA };
         programmaticCenter.current = coordinates;
         setRegion(next);
-        setAppliedRegion(next);
         mapRef.current?.animateToRegion(next, 450);
       } catch {
         if (!active) return;
@@ -362,15 +384,13 @@ export default function MapScreen() {
     searchMoodId,
   ]);
 
-  const mapOrigin = mapOriginMode === "user" && userLocation ? userLocation.coordinates : appliedRegion;
-  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectMapDiscoverySpots(filteredSpots, appliedRegion, mapOrigin), [filteredSpots, appliedRegion, mapOrigin, locationResolution]);
-  const mapNeedsSearch = hasMapRegionChanged(region, appliedRegion);
-
+  const mapOrigin = mapOriginMode === "user" && userLocation ? userLocation.coordinates : region;
+  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectMapDiscoverySpots(filteredSpots, region, mapOrigin), [filteredSpots, region, mapOrigin, locationResolution]);
   useEffect(() => {
     if (selectedSpot && !mapSpots.some((spot) => spot.id === selectedSpot.id)) setSelectedSpot(null);
   }, [mapSpots, selectedSpot]);
 
-  const openingCandidates = useMemo(() => viewMode === "map" ? mapSpots : filteredSpots.filter((spot, index) => visibleIds.length ? visibleIds.includes(spot.id) : index < 8), [viewMode, mapSpots, filteredSpots, visibleIds]);
+  const openingCandidates = useMemo(() => viewMode === "map" ? [] : filteredSpots.filter((spot, index) => visibleIds.length ? visibleIds.includes(spot.id) : index < 8), [viewMode, filteredSpots, visibleIds]);
   useEffect(() => {
     let active = true;
     void loadDiscoveryOpeningSchedules(openingCandidates.map(spot => ({ id: spot.id, hours: spot.spot_hours ?? [] }))).then(schedules => { if (active) setOpeningSchedules(schedules); });
@@ -391,18 +411,8 @@ export default function MapScreen() {
     setRegion(nextRegion);
     if (programmaticCenter.current && mapDistanceMeters(programmaticCenter.current, nextRegion) < 100) {
       programmaticCenter.current = null;
-      setAppliedRegion(nextRegion);
     }
   }, []);
-
-  const searchThisArea = useCallback(() => {
-    manuallyExploredMap.current = true;
-    programmaticCenter.current = null;
-    setMapOriginMode("viewport");
-    setMapCity(null);
-    setAppliedRegion(region);
-    setSelectedSpot(null);
-  }, [region]);
 
   const changeViewMode = useCallback((nextView: "map" | "list") => {
     if (nextView === viewMode) return;
@@ -416,13 +426,14 @@ export default function MapScreen() {
 
   const renderedMarkers = mapSpots.map((spot) => {
     const isSelected = selectedSpot?.id === spot.id;
+    const pinColor = mapPinColor(spot.categories?.name);
     return (
         <Marker
           key={spot.id}
           coordinate={{ latitude: spot.lat, longitude: spot.lng }}
           anchor={{ x: 0.5, y: 1 }}
           tracksViewChanges={isSelected}
-          accessibilityLabel={`${spot.name} auf der Karte`}
+          accessibilityLabel={`${spot.name}, ${spot.categories?.name || "Ort"} auf der Karte`}
           accessibilityState={{ selected: isSelected }}
           onPress={(e) => {
             e.stopPropagation();
@@ -437,11 +448,11 @@ export default function MapScreen() {
             });
           }}
         >
-          <View style={[styles.marker, isSelected && styles.markerSelected]}>
+          <View style={[styles.marker, isSelected && styles.markerSelected, isSelected && { shadowColor: pinColor }]}>
             <Ionicons
               name="location-sharp"
               size={isSelected ? 34 : 28}
-              color={isSelected ? theme.color.pink : theme.color.textPrimary}
+              color={pinColor}
             />
           </View>
         </Marker>
@@ -543,7 +554,6 @@ export default function MapScreen() {
 
     programmaticCenter.current = context.coordinates;
     setRegion(next);
-    setAppliedRegion(next);
     mapRef.current?.animateToRegion(next, 500);
   }
 
@@ -678,14 +688,10 @@ export default function MapScreen() {
           customMapStyle={DARK_MAP_STYLE}
           onPress={() => setSelectedSpot(null)}
           onRegionChangeComplete={handleRegionChangeComplete}
-          onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; }}
+          onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; setMapOriginMode("viewport"); setMapCity(null); setSelectedSpot(null); }}
           >
             {renderedMarkers}
           </MapView>
-          {mapNeedsSearch ? <Pressable accessibilityRole="button" accessibilityLabel="Orte in diesem Kartenausschnitt suchen" style={styles.searchAreaButton} onPress={searchThisArea}>
-            <Ionicons name="search" size={17} color={theme.color.background} />
-            <Text style={styles.searchAreaText}>Hier suchen</Text>
-          </Pressable> : null}
           {locationResolution === "pending" ? <View style={styles.locationLoading}><StateView kind="loading" title="Orte in deiner Nähe werden geladen" /></View> : null}
           {selectedSpot && mapSpots.some((spot) => spot.id === selectedSpot.id) ? <View style={styles.railWrap}>
               <Pressable
@@ -715,7 +721,7 @@ export default function MapScreen() {
           {locationResolution === "settled" && !filteredSpots.length && !(selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed)) && <View pointerEvents="box-none" style={styles.emptyOverlay}>
             <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />
           </View>}
-          {locationResolution === "settled" && filteredSpots.length > 0 && mapSpots.length === 0 && !mapNeedsSearch ? <View style={styles.areaEmpty}>
+          {locationResolution === "settled" && filteredSpots.length > 0 && mapSpots.length === 0 ? <View style={styles.areaEmpty}>
             <Text style={styles.areaEmptyTitle}>Hier noch keine Orte</Text>
             <Text style={styles.areaEmptyBody}>Verschiebe die Karte oder entdecke alle Treffer in der Liste.</Text>
             <Button label="Liste ansehen" variant="tertiary" onPress={() => changeViewMode("list")} />
@@ -809,8 +815,6 @@ const styles = StyleSheet.create({
   mapStage: { flex: 1 },
   locationLoading: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: "rgba(15,15,17,0.94)", borderRadius: theme.radius.lg },
   emptyOverlay: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl },
-  searchAreaButton: { position: "absolute", alignSelf: "center", top: theme.spacing.md, zIndex: 3, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: theme.color.pink, borderRadius: theme.radius.pill, minHeight: 44, paddingHorizontal: theme.spacing.md, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
-  searchAreaText: { color: theme.color.background, fontFamily: theme.type.bodyBold, fontSize: 14 },
   railWrap: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, bottom: theme.control.tabBar + theme.spacing.sm, zIndex: 2, alignItems: "center" },
   railCard: { width: "100%", maxWidth: 350, minHeight: 225, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
   railCardSelected: { borderColor: theme.color.pink },
@@ -828,7 +832,7 @@ const styles = StyleSheet.create({
   areaEmptyTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 17 },
   areaEmptyBody: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14 },
   marker: { width: 44, height: 44, alignItems: "center", justifyContent: "flex-end", paddingBottom: 2, shadowColor: "#000", shadowOpacity: 0.8, shadowRadius: 4, elevation: 5 },
-  markerSelected: { shadowColor: theme.color.pink, shadowOpacity: 0.65, shadowRadius: 8, elevation: 8 },
+  markerSelected: { shadowOpacity: 0.65, shadowRadius: 8, elevation: 8 },
   list: { backgroundColor: theme.color.background },
   listContent: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl + theme.control.tabBar },
   listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },

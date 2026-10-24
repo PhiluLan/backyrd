@@ -94,10 +94,7 @@ assert.match(tabs, /const isGuest = !user/, "guest navigation must identify sign
 assert.match(tabs, /href: isGuest \? null : undefined/, "guest navigation must not advertise signed-in tabs");
 assert.match(home, /if \(!user\) \{[\s\S]*search: normalized/, "guest home search must use public catalog rather than Decision");
 assert.match(map, /spotMatchesSearch\(s, debouncedSearch, spotMoods\[s\.id\]/, "map search must include catalog context");
-assert.match(map, /const mapSpots = useMemo\(\(\) => locationResolution === "pending" \? \[\] : selectMapDiscoverySpots\(filteredSpots, appliedRegion, mapOrigin\)/, "map preview must prioritize distance from its declared origin after location resolution");
 assert.match(map, /getPrivacySafeLocation\(\{[\s\S]*?requestPermission: false/, "automatic map centering must reuse existing location permission without prompting");
-assert.match(map, /mapNeedsSearch \? <Pressable[\s\S]*?Hier suchen/, "a moved map must offer an explicit search action");
-assert.match(map, /<FlatList[\s\S]*?data=\{mapSpots\}[\s\S]*?onMomentumScrollEnd/, "map preview cards must select their matching marker when swiped");
 assert.doesNotMatch(map, /ClusteredMapView|clusterPolicyFor/, "map must not render numeric clusters");
 assert.doesNotMatch(map, /Tippe auf einen Marker/, "map must not retain the empty marker instruction");
 assert.match(profileScreen, /<Modal animationType="slide" presentationStyle="fullScreen" visible=\{showEdit\}/, "profile editor must cover the tab bar");
