@@ -8,14 +8,15 @@ test("Production migration deployment links the bound project and reuses exact s
     "utf8",
   );
   const link = script.indexOf("supabase link --project-ref hjgcrrzfjchzqoegcywn");
-  const dryRun = script.indexOf("supabase db push --dry-run");
+  const dryRun = script.indexOf('"${migration_cli[@]}" db push --dry-run');
   const verify = script.indexOf("verify-supabase-migration-dry-run.mjs");
-  const apply = script.indexOf("supabase db push --yes");
+  const apply = script.indexOf('"${migration_cli[@]}" db push --yes');
 
   assert.ok(link >= 0);
   assert.ok(link < dryRun);
   assert.ok(dryRun < verify);
   assert.ok(verify < apply);
+  assert.match(script, /isolated-research-migration\.mjs/);
   assert.match(script, /\.pendingMigrations \/\/ \.migrations/);
 });
 

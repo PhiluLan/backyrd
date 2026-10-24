@@ -296,6 +296,8 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     planHash: actualPlan.planHash,
     migrationSet: actualPlan.migrations,
     pendingMigrations: actualPlan.pendingMigrations,
+    deferredMigrations: actualPlan.deferredMigrations,
+    isolatedResearchScope: actualPlan.isolatedResearchScope,
     additivePreappliedPriority: actualPlan.additivePreappliedPriority,
     productPreappliedImport: actualPlan.productPreappliedImport,
     deployFunctions: actualPlan.deployFunctions,
