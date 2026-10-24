@@ -28,7 +28,7 @@ import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-import { mapDistanceMeters, selectMapDiscoverySpots, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
+import { mapDistanceMeters, paddedMapPinRegion, selectMapDiscoverySpots, shouldRefreshMapPinRegion, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
 import { spotMatchesSearch } from "../../lib/spot-search";
 
 import { loadDiscoveryOpeningSchedules, type OpeningSchedule } from "../../lib/discovery-opening-hours";
@@ -146,6 +146,12 @@ export default function MapScreen() {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   }));
+  const [pinRegion, setPinRegion] = useState(() => paddedMapPinRegion({
+    latitude: Number(params.lat) || BASEL.latitude,
+    longitude: Number(params.lng) || BASEL.longitude,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  }));
   const [userLocation, setUserLocation] = useState<{ coordinates: MapCoordinates; source: "current" | "last_known" } | null>(null);
   const [mapOriginMode, setMapOriginMode] = useState<"user" | "viewport">("viewport");
 
@@ -225,6 +231,7 @@ export default function MapScreen() {
     const next = { ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 };
     programmaticCenter.current = center;
     setRegion(next);
+    setPinRegion(paddedMapPinRegion(next));
     mapRef.current?.animateToRegion(next, 400);
   }, [profileCity, globalSpots, params.lat, params.lng]);
 
@@ -266,6 +273,7 @@ export default function MapScreen() {
         const next = { ...coordinates, latitudeDelta: USER_MAP_ZOOM_DELTA, longitudeDelta: USER_MAP_ZOOM_DELTA };
         programmaticCenter.current = coordinates;
         setRegion(next);
+        setPinRegion(paddedMapPinRegion(next));
         mapRef.current?.animateToRegion(next, 450);
       } catch {
         if (!active) return;
@@ -384,8 +392,7 @@ export default function MapScreen() {
     searchMoodId,
   ]);
 
-  const mapOrigin = mapOriginMode === "user" && userLocation ? userLocation.coordinates : region;
-  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectMapDiscoverySpots(filteredSpots, region, mapOrigin), [filteredSpots, region, mapOrigin, locationResolution]);
+  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectMapDiscoverySpots(filteredSpots, pinRegion), [filteredSpots, pinRegion, locationResolution]);
   useEffect(() => {
     if (selectedSpot && !mapSpots.some((spot) => spot.id === selectedSpot.id)) setSelectedSpot(null);
   }, [mapSpots, selectedSpot]);
@@ -409,6 +416,7 @@ export default function MapScreen() {
 
   const handleRegionChangeComplete = useCallback((nextRegion: typeof region) => {
     setRegion(nextRegion);
+    setPinRegion((current) => shouldRefreshMapPinRegion(current, nextRegion) ? paddedMapPinRegion(nextRegion) : current);
     if (programmaticCenter.current && mapDistanceMeters(programmaticCenter.current, nextRegion) < 100) {
       programmaticCenter.current = null;
     }
@@ -554,6 +562,7 @@ export default function MapScreen() {
 
     programmaticCenter.current = context.coordinates;
     setRegion(next);
+    setPinRegion(paddedMapPinRegion(next));
     mapRef.current?.animateToRegion(next, 500);
   }
 
