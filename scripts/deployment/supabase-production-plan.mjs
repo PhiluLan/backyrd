@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { researchAppliedReceipt, scopeResearchMigrations } from "./isolated-research-migration.mjs";
+import { researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -458,11 +458,18 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   });
   if (appliedResearch) preappliedPaths.add(appliedResearch.migration.path);
+  const appliedVolta = voltaAppliedReceipt(state, head.read, source => {
+    try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
+  });
+  for (const migration of appliedVolta?.migrations ?? []) preappliedPaths.add(migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
-  const scoped = scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch});
-  const {pendingMigrations,deferredMigrations,isolatedResearchScope} = scoped;
+  if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
+  const scoped = authority?.isolatedVoltaMigrationScope
+    ? scopeVoltaMigrations({pending:allPending,scope:authority.isolatedVoltaMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedResearch,appliedVolta})
+    : scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch});
+  const {pendingMigrations,deferredMigrations,isolatedResearchScope,isolatedVoltaScope} = scoped;
   const plan = {
     version: "backyrd-supabase-production-deployment-plan-v1",
     projectRef: "hjgcrrzfjchzqoegcywn",
@@ -475,8 +482,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     migrations,
     pendingMigrations,
     deferredMigrations,
-    isolatedResearchScope,
+    isolatedResearchScope: isolatedResearchScope ?? null,
+    isolatedVoltaScope: isolatedVoltaScope ?? null,
     appliedResearch,
+    appliedVolta,
     additivePreappliedPriority: priorityReceipt,
     preappliedMigrationImport: preappliedMigrationImport ? {
       path: preappliedMigrationImport.path,

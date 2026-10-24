@@ -4,7 +4,7 @@ import {mkdtempSync,mkdirSync,writeFileSync,existsSync,readFileSync} from 'node:
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {RESEARCH_MIGRATION as target,DEFERRED_BOOKING_MIGRATIONS as deferred,scopeResearchMigrations,researchAppliedReceipt,prepareResearchMigrationWorkspace} from './isolated-research-migration.mjs';
+import {RESEARCH_MIGRATION as target,VOLTA_MIGRATIONS as volta,DEFERRED_BOOKING_MIGRATIONS as deferred,scopeResearchMigrations,scopeVoltaMigrations,researchAppliedReceipt,voltaAppliedReceipt,prepareResearchMigrationWorkspace} from './isolated-research-migration.mjs';
 const base='a'.repeat(40);
 const scope={contractVersion:'backyrd.isolated-research-migration-scope@1.0',baseSha:base,migrations:[target],deferredMigrations:deferred,backupRunId:1,executionAuthorized:false};
 const input=()=>({pending:[...deferred,target],scope:structuredClone(scope),baseSha:base,deployFunctions:[],authDeploy:false,applied:null});
@@ -60,4 +60,36 @@ test('deployment audit names applied research separately from the four deferred 
  execFileSync(process.execPath,[new URL('./verify-supabase-production-audit.mjs',import.meta.url).pathname,'--plan',join(dir,'plan.json'),'--before',join(dir,'before.json'),'--after',join(dir,'after.json'),'--output',join(dir,'audit.json')]);
  const result=JSON.parse(readFileSync(join(dir,'audit.json'),'utf8'));
  assert.deepEqual(result.appliedMigrations,[target]);assert.deepEqual(result.deferredMigrations,deferred);assert.equal(result.result,'PASS');
+});
+
+const voltaScope={contractVersion:'backyrd.isolated-volta-migration-scope@1.0',baseSha:base,migrations:volta,deferredMigrations:deferred,backupRunId:2,executionAuthorized:false};
+const voltaInput=()=>({pending:[...deferred,...volta],scope:structuredClone(voltaScope),baseSha:base,deployFunctions:[],authDeploy:false,appliedResearch:{migration:target},appliedVolta:null});
+test('the Volta release selects only the two data corrections after the verified research release',()=>{
+ const selected=scopeVoltaMigrations(voltaInput());
+ assert.deepEqual(selected.pendingMigrations,volta);
+ assert.deepEqual(selected.deferredMigrations,deferred);
+ for(const patch of [
+  {pending:[...deferred,volta[0]]},
+  {pending:[...deferred,...volta,{path:'supabase/migrations/20261025000000_other.sql',sha256:'c'.repeat(64)}]},
+  {pending:[...deferred,{...volta[0],sha256:'b'.repeat(64)},volta[1]]},
+  {appliedResearch:null},{deployFunctions:['decision-v13']},{authDeploy:true},{baseSha:'b'.repeat(40)},
+  {scope:{...voltaScope,executionAuthorized:true}},
+ ])assert.throws(()=>scopeVoltaMigrations({...voltaInput(),...patch}),/isolated_volta/);
+});
+test('an applied Volta receipt excludes both map migrations but not Booking',()=>{
+ const selected=scopeVoltaMigrations({...voltaInput(),pending:deferred,appliedVolta:{migrations:volta}});
+ assert.deepEqual(selected.pendingMigrations,[]);
+ assert.deepEqual(selected.deferredMigrations,deferred);
+ const receipt={status:'APPLIED_AND_VERIFIED',migrations:volta,sourceSha:'b'.repeat(40),deploymentRunId:3,manifestHash:'c'.repeat(64)};
+ assert.equal(voltaAppliedReceipt({},()=>'',()=>true),null);
+ assert.throws(()=>voltaAppliedReceipt({supabase:{isolatedVoltaRelease:receipt}},()=>'',()=>true),/receipt_invalid/);
+ assert.throws(()=>voltaAppliedReceipt({supabase:{isolatedVoltaRelease:{...receipt,migrations:[volta[0]]}}},()=>'',()=>true),/receipt_invalid/);
+});
+test('the isolated Volta workspace includes both map migrations and excludes Booking',()=>{
+ const root=new URL('../..',import.meta.url).pathname;
+ const output=mkdtempSync(join(tmpdir(),'backyrd-isolated-volta-'));
+ const plan={...scopeVoltaMigrations(voltaInput()),baseSha:base,deployFunctions:[],authConfig:null,appliedResearch:{migration:target},appliedVolta:null};
+ prepareResearchMigrationWorkspace(plan,root,output);
+ for(const item of volta)assert.equal(readFileSync(join(output,item.path),'utf8'),readFileSync(join(root,item.path),'utf8'));
+ for(const item of deferred)assert.equal(existsSync(join(output,item.path)),false);
 });

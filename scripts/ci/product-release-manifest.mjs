@@ -261,7 +261,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
       && actualPlan.pendingMigrations.length === 1), "release_preapplied_priority_invalid");
   // iOS attests pending SQL without granting backend delivery. Supabase consumers
   // independently require PRODUCT before accepting any artifact for deployment.
-  if (deliveryTarget === "PRODUCT" && currentRiskSet.length !== 13 && currentRiskSet.length > 0) {
+  if (deliveryTarget === "PRODUCT" && currentRiskSet.length !== 13 && currentRiskSet.length > 0 && !actualPlan.isolatedVoltaScope) {
     requireValue(additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
       && additiveMigrationScope.projectRef === actualPlan.projectRef
       && additiveMigrationScope.executionAuthorized === false
@@ -298,6 +298,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     pendingMigrations: actualPlan.pendingMigrations,
     deferredMigrations: actualPlan.deferredMigrations,
     isolatedResearchScope: actualPlan.isolatedResearchScope,
+    isolatedVoltaScope: actualPlan.isolatedVoltaScope,
     additivePreappliedPriority: actualPlan.additivePreappliedPriority,
     productPreappliedImport: actualPlan.productPreappliedImport,
     deployFunctions: actualPlan.deployFunctions,
@@ -361,9 +362,15 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
       && JSON.stringify(manifest.productionPlan.additivePreappliedPriority)
         === JSON.stringify(manifest.productionPlan.additiveMigrationScope?.preappliedPriorityReceipt)
       && manifest.productionPlan.pendingMigrations.length === 1), "release_preapplied_priority_invalid");
+  const isolatedVoltaAccepted = manifest.productionPlan.isolatedVoltaScope?.contractVersion === "backyrd.isolated-volta-migration-scope@1.0"
+    && manifest.productionPlan.isolatedVoltaScope.executionAuthorized === false
+    && JSON.stringify(currentRiskSet) === JSON.stringify(manifest.productionPlan.isolatedVoltaScope.migrations)
+    && manifest.productionPlan.deployFunctions.length === 0
+    && manifest.productionPlan.authDeploy === false;
   const productPendingScopeAccepted = currentRiskSet.length === 13
     ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
     : !manifest.productionPlan.productPreappliedImport && (currentRiskSet.length === 0
+      || isolatedVoltaAccepted
       || (isExactProductAdditiveSet(currentRiskSet)
         && manifest.productionPlan.additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
         && manifest.productionPlan.additiveMigrationScope.projectRef === "hjgcrrzfjchzqoegcywn"
