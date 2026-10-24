@@ -192,3 +192,19 @@ exact migration, source SHA, deployment run and manifest hash. The planner only
 excludes that exact research migration; deferred Booking migrations stay visible
 and require their own scope approval. Removing the isolated scope later does not
 mark Booking as applied. Missing/mismatched receipts fail closed in dry-run.
+
+### Isolated Volta coordinate release
+
+The two Volta coordinate corrections use a separate, hash-bound migration scope.
+The planner requires the verified research receipt, a successful Production Backup
+less than 24 hours old, and the exact two SQL files. It keeps all four Booking
+migrations deferred and permits no Auth or Function deployment. Preflight and
+apply use the same disposable migration directory containing only the selected
+pending SQL. The iOS map update is certified and published separately as an
+`IOS_OTA` artifact; that artifact cannot authorize database deployment.
+
+After verifying both `public.spots` rows at the approved shared coordinates,
+record the source SHA, deployment run, manifest hash, and exact two migration
+hashes under `supabase.isolatedVoltaRelease` in `delivery/production-state.json`.
+This receipt excludes only those two migrations from future source-aware plans;
+Booking remains pending.

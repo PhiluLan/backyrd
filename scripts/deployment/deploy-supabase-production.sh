@@ -47,7 +47,7 @@ if test "${#planned_migrations[@]}" -gt 0; then
       > deployment-audit/migrations-preapplied-verification.json
   else
   scoped_workdir=""
-  if jq -e '.isolatedResearchScope != null' "$plan_path" >/dev/null; then
+  if jq -e '.isolatedResearchScope != null or .isolatedVoltaScope != null' "$plan_path" >/dev/null; then
     scoped_workdir="$(mktemp -d)"
     node scripts/deployment/isolated-research-migration.mjs "$plan_path" "$scoped_workdir"
     trap 'rm -rf "$scoped_workdir"' EXIT

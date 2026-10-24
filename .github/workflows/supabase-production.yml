@@ -139,8 +139,8 @@ jobs:
             backup_run="$(jq -r '.productPreappliedImport.backupRunId' supabase-production-plan.json)"
             test "$(gh run view "$backup_run" --json status,conclusion,workflowName --jq 'select(.status=="completed" and .conclusion=="success" and .workflowName=="Production Backup") | .conclusion')" = success
           fi
-          if jq -e '.isolatedResearchScope != null' supabase-production-plan.json >/dev/null; then
-            backup_run="$(jq -r '.isolatedResearchScope.backupRunId' supabase-production-plan.json)"
+          if jq -e '.isolatedResearchScope != null or .isolatedVoltaScope != null' supabase-production-plan.json >/dev/null; then
+            backup_run="$(jq -r '.isolatedVoltaScope.backupRunId // .isolatedResearchScope.backupRunId' supabase-production-plan.json)"
             gh run view "$backup_run" --json status,conclusion,workflowName,createdAt > isolated-backup.json
             node - <<'NODE'
           const fs=require('node:fs'); const b=JSON.parse(fs.readFileSync('isolated-backup.json','utf8'));
@@ -150,7 +150,7 @@ jobs:
           fi
           supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json | jq -e '.[] | select(.slug=="decision-v13" and .status=="ACTIVE" and .verify_jwt==true)'
           migration_cli=(supabase)
-          if jq -e '.isolatedResearchScope != null' supabase-production-plan.json >/dev/null; then
+          if jq -e '.isolatedResearchScope != null or .isolatedVoltaScope != null' supabase-production-plan.json >/dev/null; then
             scoped_workdir="$(mktemp -d)"
             node scripts/deployment/isolated-research-migration.mjs supabase-production-plan.json "$scoped_workdir"
             migration_cli+=(--workdir "$scoped_workdir")
