@@ -260,7 +260,7 @@ function ContextualInput({ field, value, onChange }: { field: AuthoringField; va
   </div>;
 }
 
-export function FieldInput({ field, answer, candidate, initialDraft, onDiscardDraft, applicability, referenceValue, existingAnswers, onDraftChange, onContinue, experienceWorkspace, onPrepareDiscovery, onSave, onSaveCandidate, onApplicability, onConfirm, onError, disabled, disabledReason }: ProductFieldInputProps) {
+export function FieldInput({ field, answer, candidate, initialDraft, onDiscardDraft, onDraftValueChange, applicability, referenceValue, existingAnswers, onDraftChange, onContinue, experienceWorkspace, onPrepareDiscovery, onSave, onSaveCandidate, onApplicability, onConfirm, onError, disabled, disabledReason }: ProductFieldInputProps) {
   const initialValue = answer?.value ?? initialDraft?.value ?? candidate?.value ?? emptyFieldValue(field.control);
   const [value, setValue] = useState<unknown>(initialValue);
   const [saving, setSaving] = useState(false);
@@ -273,6 +273,9 @@ export function FieldInput({ field, answer, candidate, initialDraft, onDiscardDr
     setValue(answer?.value ?? initialDraft?.value ?? candidate?.value ?? emptyFieldValue(field.control));
     setValidUntil(answer?.validUntil ?? "");
   }, [answer?.claimId, candidate?.candidateId, initialDraft?.key, field.control]);
+  useEffect(() => {
+    if(field.control!=="EXPERIENCE_PROFILE")onDraftValueChange?.(value,validUntil);
+  },[value,validUntil,field.control,onDraftValueChange]);
   const currentDraft = JSON.stringify([value,validUntil]);
   const savedDraft = JSON.stringify([initialValue,answer?.validUntil??""]);
   useEffect(() => {
