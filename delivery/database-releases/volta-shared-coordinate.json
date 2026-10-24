@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "volta-shared-coordinate",
+  "previousEvidence": "volta-venue-coordinate-correction",
+  "previousFingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261024162056_align_volta_spots_to_verified_location.sql",
+      "sha256": "686acecb3ef27cfdb4407000cfdc8a31711df19f2913cd475556ecbf82fd35af"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/align_volta_spots_to_verified_location.sql",
+      "sha256": "54de5d02236f019cf218a7c5948f449c2ad6e3c579678178a63802872af3fa13"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  }
+}

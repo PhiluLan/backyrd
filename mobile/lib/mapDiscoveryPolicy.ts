@@ -7,6 +7,7 @@ export type MapRegion = {
 
 export type MappableSpot = { id: string; lat: number; lng: number };
 export type MapCoordinates = { latitude: number; longitude: number };
+export type MapSpotGroup<T extends MappableSpot> = { key: string; lat: number; lng: number; spots: T[] };
 
 const PIN_REGION_PADDING = 2;
 const PIN_REFRESH_THRESHOLD = 0.8;
@@ -75,4 +76,20 @@ export function selectRetainedMapDiscoverySpots<T extends MappableSpot>(spots: T
     for (const spot of selectMapDiscoverySpots(spots, region)) retained.set(spot.id, spot);
   }
   return [...retained.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+// One geographic point gets one marker. Its spots remain distinct and can be
+// chosen from the map instead of hiding behind overlapping native markers.
+export function groupMapSpotsByCoordinate<T extends MappableSpot>(spots: T[]): MapSpotGroup<T>[] {
+  const groups = new Map<string, MapSpotGroup<T>>();
+  for (const spot of spots) {
+    const key = `${spot.lat}:${spot.lng}`;
+    const group = groups.get(key);
+    if (group) group.spots.push(spot);
+    else groups.set(key, { key, lat: spot.lat, lng: spot.lng, spots: [spot] });
+  }
+  return [...groups.values()].map((group) => ({
+    ...group,
+    spots: group.spots.sort((a, b) => a.id.localeCompare(b.id)),
+  })).sort((a, b) => a.key.localeCompare(b.key));
 }
