@@ -53,3 +53,19 @@ export function parseNuknukDraft(value: unknown): NuknukDraft | null {
   if (Array.isArray(value.limitations)) draft.limitations = [...value.limitations];
   return JSON.stringify(draft).length <= 100_000 ? draft : null;
 }
+
+const stable = (value: unknown): string => JSON.stringify(value, (_key, item: unknown) =>
+  record(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+
+/** Repair the old parser's metadata loss from an otherwise identical original report. */
+export function recoverDraftObservations(stored: NuknukDraft, original: NuknukDraft): NuknukDraft {
+  const identity = (draft: NuknukDraft) => ({ ...draft, name: "", results: draft.results.map(result => ({
+    ...result, partialHours: undefined, citations: result.citations?.map(citation => ({ ...citation, observedAt: undefined })),
+  })) });
+  if (stable(identity(stored)) !== stable(identity(original))) throw new Error("Der Originalbericht passt nicht zu diesem Entwurf. Inhalte, Spot und Belege müssen unverändert sein.");
+  return { ...stored, results: stored.results.map((result,index) => ({ ...result, citations: result.citations?.map((citation,citationIndex) => {
+    const timestamp = original.results[index].citations?.[citationIndex]?.observedAt;
+    if (citation.observedAt && timestamp !== citation.observedAt) throw new Error("Ein vorhandener Abrufzeitpunkt darf nicht ersetzt werden.");
+    return { ...citation, ...(timestamp ? { observedAt: timestamp } : {}) };
+  }) })) };
+}

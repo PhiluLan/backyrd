@@ -9,6 +9,8 @@ import { matchesAutomatedReviewJob, reviewCanFinish, type ReviewableJob } from "
 import { parseNuknukDraft } from "@/lib/nuknukResearchDraft";
 import { prepareNuknukDraftImport, supplementResearchValue } from "@/lib/nuknukDraftImport";
 
+import { researchFieldEdit, type ResearchFieldEdit } from "@/lib/server/researchFieldEdit";
+
 const noStore = { "cache-control": "no-store" };
 type Accepted = { spotId: string; manifestHash: string; claim: ReviewedResearchClaim };
 type LocationCandidate = { placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; exact: boolean };
@@ -26,9 +28,14 @@ export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   const actor = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
   const readDetail = (spotId: string) => readWorldResearchDetail(actor, spotId);
-  const body = await request.json().catch(() => null) as null | { action?: string; draftReport?: unknown; reviewedKeys?: unknown; spotIds?: unknown; recordExport?: unknown; jobId?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>>; declined?: Record<string, string[]> };
+  const body = await request.json().catch(() => null) as null | (ResearchFieldEdit & { action?: string; draftReport?: unknown; reviewedKeys?: unknown; spotIds?: unknown; recordExport?: unknown; jobId?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>>; declined?: Record<string, string[]> });
 
   try {
+    if (body?.action === "edit-field" || body?.action === "save-field") {
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const service = body.action === "save-field" && serviceKey ? createClient(url,serviceKey,{auth:{autoRefreshToken:false,persistSession:false}}) : null;
+      return Response.json(await researchFieldEdit(actor,service,authorization.userId,body,body.action === "save-field"), {headers:noStore});
+    }
     if (body?.action === "export") {
       const spotIds = Array.isArray(body.spotIds) ? body.spotIds.filter((value): value is string => typeof value === "string") : [];
       if (spotIds.some((id) => !WORLD_RESEARCH_SPOT_ID.test(id))) throw new Error("world_research_export_selection_invalid");

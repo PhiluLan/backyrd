@@ -16,11 +16,17 @@ async function compile(name){
  source=source.replace(/import styles from "\.\/WorldResearchBatchPanel.module.css";/,'const styles = new Proxy({}, { get: (_target, key) => String(key) }) as Record<string,string>;');
  let output=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  output=output.replace('"@backyrd/world-knowledge-core/browser"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/browser-runtime.js',import.meta.url).href))
+  .replace('"@/lib/nuknukDraftImport"',JSON.stringify(pathToFileURL(join(dir,'supplement.mjs')).href))
+  .replace('"./ResearchFieldEditor"',JSON.stringify(pathToFileURL(join(dir,'ResearchFieldEditor.mjs')).href))
+  .replace('"@backyrd/world-knowledge-authoring-ui"','"'+pathToFileURL(join(dir,'field-input.mjs')).href+'"')
   .replace('"./ResearchValue"',JSON.stringify(pathToFileURL(join(dir,'ResearchValue.mjs')).href));
  for(const specifier of ['react/jsx-runtime','react'])output=output.replaceAll(`"${specifier}"`,JSON.stringify(pathToFileURL(require.resolve(specifier)).href));
  const path=join(dir,name+'.mjs');await writeFile(path,output);return import(pathToFileURL(path).href);
 }
+await writeFile(join(dir,'supplement.mjs'),'export const supplementResearchValue=()=>undefined;');
+await writeFile(join(dir,'field-input.mjs'),'export const FieldInput=()=>null;');
 const {ResearchValue}=await compile('ResearchValue');
+await compile('ResearchFieldEditor');
 const {NuknukDraftPreview}=await compile('NuknukDraftPreview');
 const render=(key,value)=>renderToStaticMarkup(createElement(ResearchValue,{attributeKey:key,value}));
 const profile={...emptyExperienceProfile('EAT'),areas:[{id:'room',name:'Restaurant',kind:'DINING_AREA',properties:[{key:'offer.capacity',state:'KNOWN',value:50,label:null,conditions:emptyExperienceConditions()}]}],offers:[{id:'drinks',kind:'DRINKS',name:'Getränke',areaIds:[],prices:[],schedule:[],properties:[],validFrom:null,validUntil:null}]};

@@ -101,3 +101,12 @@ Recherchevorschläge; rohe Modelltraces bleiben lokal. Gespeicherte Entwürfe
 sind für Admins geräteübergreifend sichtbar. Der Entwurfsspeicher schreibt
 keine Profilangaben. Ausgewählte und ausdrücklich geprüfte Inhalte gelangen
 über den Profilabgleich in den bestehenden World-Research-Prüf- und Importweg.
+
+
+## Rechercheentwurf bearbeiten und fehlende Abrufzeitpunkte ergänzen
+
+In der Nuknuk-Übersicht lassen sich Vorschläge über **Angabe bearbeiten** und offene Felder über **Angabe selbst ergänzen** öffnen. Der Editor lädt zuerst den aktuellen, freigegebenen Profilstand. Teilprofile werden vor der Bearbeitung mit vorhandenen Angeboten und Bereichen zusammengeführt; bei Widersprüchen startet die Bearbeitung vom gespeicherten Stand. Die ursprünglichen Recherchewerte und Belege bleiben unverändert sichtbar.
+
+Die Formularaktion merkt den eigenen Wert zunächst vor. **Eigene Angabe im Profil speichern** bestätigt ihn über `world_product_admin_submit_claim_v1` als menschliche Admin-Angabe. Es werden keine offiziellen Quellenbelege für geänderte Werte erfunden. Der Abrufzeitpunkt einer Webseite wird dabei nicht durch das aktuelle Datum ersetzt: Der neue Claim erhält den Zeitpunkt der menschlichen Bestätigung. Der aktuelle Claim wird vor dem Schreiben abgeglichen. Nach dem Schreiben werden Projektion und tatsächlicher Rücklesewert geprüft. Ein Fehler beim Rebuild wird ausdrücklich als bereits gespeicherte Angabe mit noch nicht bestätigter Ansicht gemeldet; der unveränderte Wiederholungsversuch erzeugt keinen doppelten Claim.
+
+Historische Entwürfe ohne `citation.observedAt` bleiben lesbar, sind aber vor dem Profilabgleich erkennbar gesperrt. **Originalbericht laden** ergänzt ausschliesslich fehlende Zeitpunkte aus einem inhaltlich identischen Bericht: Spot-ID, Aussagen, Werte, Quellen-URLs und Belegtexte müssen übereinstimmen. Bereits vorhandene Zeitpunkte dürfen nicht verändert werden. Name und das früher nicht erhaltene `partialHours`-Metadatum werden beim Identitätsvergleich ignoriert; sie werden nicht überschrieben. Die Admin-API sichert die Wiederherstellung mit einem Vergleich des Änderungsstands und dokumentiert Actor, Reparaturzeitpunkt sowie Hashes des vorherigen und hochgeladenen Berichts. Die Wiederherstellung selbst schreibt keine Profilangaben.
