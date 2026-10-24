@@ -28,13 +28,39 @@ import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-import { hasMapRegionChanged, mapDistanceMeters, selectMapDiscoverySpots, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
+import { mapDistanceMeters, paddedMapPinRegion, retainMapPinRegion, selectMapDiscoverySpots, selectRetainedMapDiscoverySpots, shouldRefreshMapPinRegion, type MapCoordinates } from "../../lib/mapDiscoveryPolicy";
 import { spotMatchesSearch } from "../../lib/spot-search";
 
 import { loadDiscoveryOpeningSchedules, type OpeningSchedule } from "../../lib/discovery-opening-hours";
 import { useMinuteClock } from "../../hooks/useMinuteClock";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
+const USER_MAP_ZOOM_DELTA = 0.0045;
+
+const MAP_PIN_COLORS = {
+  food: "#FF5B9A",
+  cafe: "#F5BA73",
+  nightlife: "#B59AF7",
+  stay: "#8CB9F4",
+  activity: "#6BD6BE",
+  culture: "#D9D391",
+  experience: "#FF9988",
+  viewpoint: "#78CEDA",
+  fallback: "#F2F2F7",
+} as const;
+
+function mapPinColor(categoryName: string | null | undefined) {
+  const name = categoryName?.trim().toLocaleLowerCase("de-CH") ?? "";
+  if (/café|cafe|coffee|kaffee|bäckerei|bakery|brunch/.test(name)) return MAP_PIN_COLORS.cafe;
+  if (/bar|pub|club|nightlife|nachtleben|brauerei|brewery/.test(name)) return MAP_PIN_COLORS.nightlife;
+  if (/hotel|hostel|unterkunft|übernacht|stay/.test(name)) return MAP_PIN_COLORS.stay;
+  if (/restaurant|bistro|essen|food|imbiss|pizzeria/.test(name)) return MAP_PIN_COLORS.food;
+  if (/museum|galerie|kultur/.test(name)) return MAP_PIN_COLORS.culture;
+  if (/erlebnis|theater|kino|konzert|event/.test(name)) return MAP_PIN_COLORS.experience;
+  if (/aktivität|activity|freizeit|sport|wellness|ausflug/.test(name)) return MAP_PIN_COLORS.activity;
+  if (/aussicht|view|natur|park/.test(name)) return MAP_PIN_COLORS.viewpoint;
+  return MAP_PIN_COLORS.fallback;
+}
 
 function displayMoodLabel(value: string) {
   const normalized = value.trim().toLowerCase();
@@ -79,8 +105,7 @@ type Spot = {
 };
 
 export default function MapScreen() {
-  const { fontScale, width: screenWidth } = useWindowDimensions();
-  const railCardWidth = Math.min(screenWidth - 56, 350);
+  const { fontScale } = useWindowDimensions();
   const { spots: globalSpots, refresh, loading, error: spotsError } = useSpotsStore();
   const { user } = useAuth();
   const router = useRouter();
@@ -121,7 +146,12 @@ export default function MapScreen() {
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   }));
-  const [appliedRegion, setAppliedRegion] = useState(region);
+  const [pinRegions, setPinRegions] = useState(() => [paddedMapPinRegion({
+    latitude: Number(params.lat) || BASEL.latitude,
+    longitude: Number(params.lng) || BASEL.longitude,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  })]);
   const [userLocation, setUserLocation] = useState<{ coordinates: MapCoordinates; source: "current" | "last_known" } | null>(null);
   const [mapOriginMode, setMapOriginMode] = useState<"user" | "viewport">("viewport");
 
@@ -152,11 +182,17 @@ export default function MapScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const mapRef = useRef<MapView | null>(null);
-  const railRef = useRef<FlatList<Spot> | null>(null);
   const centeredProfileCity = useRef<string | null>(null);
   const centeredOnUser = useRef(false);
   const manuallyExploredMap = useRef(false);
   const programmaticCenter = useRef<MapCoordinates | null>(null);
+  const pinRegionRef = useRef(pinRegions[0]);
+  const updatePinRegion = useCallback((visibleRegion: typeof region, force = false) => {
+    if (!force && !shouldRefreshMapPinRegion(pinRegionRef.current, visibleRegion)) return;
+    const next = paddedMapPinRegion(visibleRegion);
+    pinRegionRef.current = next;
+    setPinRegions((current) => force ? [next] : retainMapPinRegion(current, next));
+  }, []);
   const listRef = useRef<FlatList<Spot> | null>(null);
   const [refreshingPlaces, setRefreshingPlaces] = useState(false);
   const listScrollOffset = useRef(0);
@@ -202,9 +238,9 @@ export default function MapScreen() {
     const next = { ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 };
     programmaticCenter.current = center;
     setRegion(next);
-    setAppliedRegion(next);
+    updatePinRegion(next, true);
     mapRef.current?.animateToRegion(next, 400);
-  }, [profileCity, globalSpots, params.lat, params.lng]);
+  }, [profileCity, globalSpots, params.lat, params.lng, updatePinRegion]);
 
   const refreshLocationConsent = React.useCallback(async () => {
     return hasActiveConsent("precise_location", {
@@ -240,10 +276,11 @@ export default function MapScreen() {
         if ((params.lat && params.lng) || manuallyExploredMap.current) return;
         centeredOnUser.current = true;
         setMapOriginMode("user");
-        const next = { ...coordinates, latitudeDelta: 0.035, longitudeDelta: 0.035 };
+        setSelectedSpot(null);
+        const next = { ...coordinates, latitudeDelta: USER_MAP_ZOOM_DELTA, longitudeDelta: USER_MAP_ZOOM_DELTA };
         programmaticCenter.current = coordinates;
         setRegion(next);
-        setAppliedRegion(next);
+        updatePinRegion(next, true);
         mapRef.current?.animateToRegion(next, 450);
       } catch {
         if (!active) return;
@@ -255,7 +292,7 @@ export default function MapScreen() {
       }
     })();
     return () => { active = false; };
-  }, [params.lat, params.lng]));
+  }, [params.lat, params.lng, updatePinRegion]));
 
   /* =============================================================
      LOAD DATA
@@ -362,17 +399,13 @@ export default function MapScreen() {
     searchMoodId,
   ]);
 
-  const mapOrigin = mapOriginMode === "user" && userLocation ? userLocation.coordinates : appliedRegion;
-  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectMapDiscoverySpots(filteredSpots, appliedRegion, mapOrigin), [filteredSpots, appliedRegion, mapOrigin, locationResolution]);
-  const mapNeedsSearch = hasMapRegionChanged(region, appliedRegion);
-
+  const mapSpots = useMemo(() => locationResolution === "pending" ? [] : selectRetainedMapDiscoverySpots(filteredSpots, pinRegions), [filteredSpots, pinRegions, locationResolution]);
+  const visibleMapSpots = useMemo(() => selectMapDiscoverySpots(filteredSpots, region), [filteredSpots, region]);
   useEffect(() => {
-    if (selectedSpot && mapSpots.some((spot) => spot.id === selectedSpot.id)) return;
-    setSelectedSpot(mapSpots[0] ?? null);
-    railRef.current?.scrollToOffset({ offset: 0, animated: false });
+    if (selectedSpot && !mapSpots.some((spot) => spot.id === selectedSpot.id)) setSelectedSpot(null);
   }, [mapSpots, selectedSpot]);
 
-  const openingCandidates = useMemo(() => viewMode === "map" ? mapSpots : filteredSpots.filter((spot, index) => visibleIds.length ? visibleIds.includes(spot.id) : index < 8), [viewMode, mapSpots, filteredSpots, visibleIds]);
+  const openingCandidates = useMemo(() => viewMode === "map" ? [] : filteredSpots.filter((spot, index) => visibleIds.length ? visibleIds.includes(spot.id) : index < 8), [viewMode, filteredSpots, visibleIds]);
   useEffect(() => {
     let active = true;
     void loadDiscoveryOpeningSchedules(openingCandidates.map(spot => ({ id: spot.id, hours: spot.spot_hours ?? [] }))).then(schedules => { if (active) setOpeningSchedules(schedules); });
@@ -389,34 +422,21 @@ export default function MapScreen() {
     }
   }, [viewMode]);
 
+  const handleRegionChange = useCallback((nextRegion: typeof region) => {
+    updatePinRegion(nextRegion);
+  }, [updatePinRegion]);
+
   const handleRegionChangeComplete = useCallback((nextRegion: typeof region) => {
     setRegion(nextRegion);
+    updatePinRegion(nextRegion);
     if (programmaticCenter.current && mapDistanceMeters(programmaticCenter.current, nextRegion) < 100) {
       programmaticCenter.current = null;
-      setAppliedRegion(nextRegion);
     }
-  }, []);
-
-  const selectMapSpot = useCallback((spot: Spot, scrollRail = true) => {
-    setSelectedSpot(spot);
-    if (scrollRail) {
-      const index = mapSpots.findIndex((item) => item.id === spot.id);
-      if (index >= 0) railRef.current?.scrollToOffset({ offset: index * (railCardWidth + 10), animated: true });
-    }
-  }, [mapSpots, railCardWidth]);
-
-  const searchThisArea = useCallback(() => {
-    manuallyExploredMap.current = true;
-    programmaticCenter.current = null;
-    setMapOriginMode("viewport");
-    setMapCity(null);
-    setAppliedRegion(region);
-    setSelectedSpot(null);
-    railRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [region]);
+  }, [updatePinRegion]);
 
   const changeViewMode = useCallback((nextView: "map" | "list") => {
     if (nextView === viewMode) return;
+    if (nextView === "map") setSelectedSpot(null);
     setViewMode(nextView);
   }, [viewMode]);
 
@@ -426,17 +446,18 @@ export default function MapScreen() {
 
   const renderedMarkers = mapSpots.map((spot) => {
     const isSelected = selectedSpot?.id === spot.id;
+    const pinColor = mapPinColor(spot.categories?.name);
     return (
         <Marker
           key={spot.id}
           coordinate={{ latitude: spot.lat, longitude: spot.lng }}
           anchor={{ x: 0.5, y: 1 }}
           tracksViewChanges={isSelected}
-          accessibilityLabel={`${spot.name} auf der Karte`}
+          accessibilityLabel={`${spot.name}, ${spot.categories?.name || "Ort"} auf der Karte`}
           accessibilityState={{ selected: isSelected }}
           onPress={(e) => {
             e.stopPropagation();
-            selectMapSpot(spot);
+            setSelectedSpot(spot);
             void trackAnalyticsEvent({
               eventName: "map_marker_opened",
               screenName: "map",
@@ -447,11 +468,11 @@ export default function MapScreen() {
             });
           }}
         >
-          <View style={[styles.marker, isSelected && styles.markerSelected]}>
+          <View style={[styles.marker, isSelected && styles.markerSelected, isSelected && { shadowColor: pinColor }]}>
             <Ionicons
               name="location-sharp"
               size={isSelected ? 34 : 28}
-              color={isSelected ? theme.color.pink : theme.color.textPrimary}
+              color={pinColor}
             />
           </View>
         </Marker>
@@ -542,16 +563,18 @@ export default function MapScreen() {
     centeredOnUser.current = true;
     manuallyExploredMap.current = false;
     setMapOriginMode("user");
+    setSelectedSpot(null);
 
     const next = {
-      ...region,
       latitude: context.coordinates.latitude,
       longitude: context.coordinates.longitude,
+      latitudeDelta: USER_MAP_ZOOM_DELTA,
+      longitudeDelta: USER_MAP_ZOOM_DELTA,
     };
 
     programmaticCenter.current = context.coordinates;
     setRegion(next);
-    setAppliedRegion(next);
+    updatePinRegion(next, true);
     mapRef.current?.animateToRegion(next, 500);
   }
 
@@ -576,7 +599,7 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* HEADER */}
-      <View style={styles.header}>
+      <View style={[styles.header, viewMode === "map" && styles.mapHeader]}>
         <View style={styles.headerControls}>
           {viewMode === "map" ? <AppText role="label" tone="pink" numberOfLines={1} style={styles.headerEyebrow}>{mapOriginMode === "user" && userLocation ? (userLocation.source === "current" ? "DEIN STANDORT" : "LETZTER STANDORT") : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText> : null}
           <View style={styles.headerActions}>
@@ -601,9 +624,9 @@ export default function MapScreen() {
             </View>
           </View>
         </View>
-        <View style={styles.placesTitle}><HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="," /></HomeTypographyProvider></View>
+        {viewMode === "list" ? <View style={styles.placesTitle}><HomeTypographyProvider><HomeDisplayHeading title="Orte entdecken" accent="," /></HomeTypographyProvider></View> : null}
 
-        <View style={styles.headerTopRow}>
+        <View style={[styles.headerTopRow, viewMode === "map" && styles.mapSearchRow]}>
           <View style={styles.searchBox}>
             <Ionicons name="search" size={19} color={theme.color.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
@@ -626,7 +649,7 @@ export default function MapScreen() {
 
         </View>
 
-        {moodProfilesFailed || moodResolverFailed ? <View style={{ padding: 12 }}><AppText role="meta">Die Mood-Eindrücke konnten gerade nicht geladen werden.</AppText><Button label="Erneut laden" variant="tertiary" onPress={() => { setMoodRevision(v => v + 1); retryMoodCatalog(); }} /></View> : null}
+        {(moodProfilesFailed || moodResolverFailed) && (viewMode === "list" || selectedMood || searchMoodId) ? <View style={{ padding: 12 }}><AppText role="meta">Die Mood-Eindrücke konnten gerade nicht geladen werden.</AppText><Button label="Erneut laden" variant="tertiary" onPress={() => { setMoodRevision(v => v + 1); retryMoodCatalog(); }} /></View> : null}
         {selectedMood && moodProfilesLoading ? <AppText role="meta" tone="secondary">Mood-Eindrücke werden geladen …</AppText> : null}
         {activeFilters.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilters}>
           {activeFilters.map((filter) => <Chip key={filter.id} label={`${filter.label} ×`} kind="selected" onPress={filter.onRemove} />)}
@@ -677,75 +700,50 @@ export default function MapScreen() {
           <MapView
           ref={mapRef}
           provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+          mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
           userInterfaceStyle="dark"
           style={{ flex: 1 }}
           initialRegion={region}
           showsUserLocation={locationConsentGranted}
+          showsPointsOfInterest={false}
           customMapStyle={DARK_MAP_STYLE}
+          onPress={() => setSelectedSpot(null)}
+          onRegionChange={handleRegionChange}
           onRegionChangeComplete={handleRegionChangeComplete}
-          onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; }}
+          onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; setMapOriginMode("viewport"); setMapCity(null); setSelectedSpot(null); }}
           >
             {renderedMarkers}
           </MapView>
-          {mapNeedsSearch ? <Pressable accessibilityRole="button" accessibilityLabel="Orte in diesem Kartenausschnitt suchen" style={styles.searchAreaButton} onPress={searchThisArea}>
-            <Ionicons name="search" size={17} color={theme.color.background} />
-            <Text style={styles.searchAreaText}>Hier suchen</Text>
-          </Pressable> : null}
           {locationResolution === "pending" ? <View style={styles.locationLoading}><StateView kind="loading" title="Orte in deiner Nähe werden geladen" /></View> : null}
-          {mapSpots.length > 0 ? <View style={styles.railWrap}>
-            <View style={styles.railHeading}>
-              <AppText role="label" tone="pink" numberOfLines={1} style={styles.railHeadingTitle}>{mapOriginMode === "user" && userLocation ? userLocation.source === "current" ? "IN DEINER NÄHE" : "LETZTER STANDORT" : "IN DIESEM AUSSCHNITT"}</AppText>
-              <Pressable accessibilityRole="button" accessibilityLabel="Alle Orte als Liste ansehen" onPress={() => changeViewMode("list")} style={styles.railListLink}>
-                <AppText role="meta" tone="secondary">Alle Orte</AppText>
-                <Ionicons name="arrow-forward" size={14} color={theme.color.textSecondary} />
-              </Pressable>
-            </View>
-            <FlatList
-              ref={railRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={mapSpots}
-              keyExtractor={(spot) => spot.id}
-              contentContainerStyle={styles.railContent}
-              snapToInterval={railCardWidth + 10}
-              decelerationRate="fast"
-              initialNumToRender={3}
-              maxToRenderPerBatch={3}
-              onMomentumScrollEnd={(event) => {
-                const index = Math.round(event.nativeEvent.contentOffset.x / (railCardWidth + 10));
-                const spot = mapSpots[Math.min(Math.max(index, 0), mapSpots.length - 1)];
-                if (spot) selectMapSpot(spot, false);
-              }}
-              renderItem={({ item }) => <Pressable
+          {selectedSpot && mapSpots.some((spot) => spot.id === selectedSpot.id) ? <View style={styles.railWrap}>
+              <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name} ansehen`}
-                accessibilityState={{ selected: selectedSpot?.id === item.id }}
-                style={[styles.railCard, { width: railCardWidth }, selectedSpot?.id === item.id && styles.railCardSelected]}
+                accessibilityLabel={`${selectedSpot.name} ansehen`}
+                style={[styles.railCard, styles.railCardSelected]}
                 onPress={() => {
-                  void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: item.id, spotId: item.id, properties: { source: "map_rail" } });
-                  router.push(`/spot/${item.id}`);
+                  void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: selectedSpot.id, spotId: selectedSpot.id, properties: { source: "map_card" } });
+                  router.push(`/spot/${selectedSpot.id}`);
                 }}>
                 <View style={styles.railMedia}>
-                  <SpotArtwork imageUrl={item.header_photo_url} spotId={item.id} spotName={item.name} showFallbackName={false} attributionPosition="top" style={styles.railImage} />
+                  <SpotArtwork imageUrl={selectedSpot.header_photo_url} spotId={selectedSpot.id} spotName={selectedSpot.name} showFallbackName={false} attributionPosition="top" style={styles.railImage} />
                   <LinearGradient pointerEvents="none" colors={["transparent", "rgba(0,0,0,0.88)"]} style={styles.railImageShade}>
-                    <HomeTypographyProvider><AppText role="displayXL" numberOfLines={2} style={styles.railCardTitle}>{item.name}</AppText></HomeTypographyProvider>
+                    <HomeTypographyProvider><AppText role="displayXL" numberOfLines={2} style={styles.railCardTitle}>{selectedSpot.name}</AppText></HomeTypographyProvider>
                   </LinearGradient>
                 </View>
                 <View style={styles.railCardBody}>
                   <View style={styles.railMetaRow}>
-                    <Text style={styles.railCategory} numberOfLines={1}>{item.categories?.name || item.city || "Ort"}</Text>
-                    {userLocation?.source === "current" ? <Text style={styles.railDistance}>{userDistanceLabel(mapDistanceMeters(userLocation.coordinates, { latitude: item.lat, longitude: item.lng }))}</Text> : null}
+                    <Text style={styles.railCategory} numberOfLines={1}>{selectedSpot.categories?.name || selectedSpot.city || "Ort"}</Text>
+                    {userLocation?.source === "current" ? <Text style={styles.railDistance}>{userDistanceLabel(mapDistanceMeters(userLocation.coordinates, { latitude: selectedSpot.lat, longitude: selectedSpot.lng }))}</Text> : null}
                   </View>
-                  {item.address ? <Text style={styles.railAddress} numberOfLines={1}>{item.address}</Text> : null}
-                  <Text style={styles.railMoods} numberOfLines={1}>{(spotMoods[item.id] ?? []).slice(0, 2).map(displayMoodLabel).join(" · ") || "Noch keine Mood-Eindrücke"}</Text>
+                  {selectedSpot.address ? <Text style={styles.railAddress} numberOfLines={1}>{selectedSpot.address}</Text> : null}
+                  <Text style={styles.railMoods} numberOfLines={1}>{(spotMoods[selectedSpot.id] ?? []).slice(0, 2).map(displayMoodLabel).join(" · ") || "Noch keine Mood-Eindrücke"}</Text>
                 </View>
-              </Pressable>}
-            />
+              </Pressable>
           </View> : null}
           {locationResolution === "settled" && !filteredSpots.length && !(selectedMood && (moodProfilesLoading || moodProfilesFailed || moodResolverFailed)) && <View pointerEvents="box-none" style={styles.emptyOverlay}>
             <StateView kind="empty" title={selectedMood ? "Noch kein passender Mood-Eindruck" : "Hier ist gerade nichts dabei"} message={selectedMood ? "Für diese Suche ist dieser Mood noch nicht hinterlegt. Entferne den Mood-Filter, um auch Orte ohne Eindrücke zu sehen." : "Passe deine Suche oder Filter an und entdecke weitere Orte."} actionLabel="Filter zurücksetzen" onAction={clearFilters} />
           </View>}
-          {locationResolution === "settled" && filteredSpots.length > 0 && mapSpots.length === 0 && !mapNeedsSearch ? <View style={styles.areaEmpty}>
+          {locationResolution === "settled" && filteredSpots.length > 0 && visibleMapSpots.length === 0 ? <View style={styles.areaEmpty}>
             <Text style={styles.areaEmptyTitle}>Hier noch keine Orte</Text>
             <Text style={styles.areaEmptyBody}>Verschiebe die Karte oder entdecke alle Treffer in der Liste.</Text>
             <Button label="Liste ansehen" variant="tertiary" onPress={() => changeViewMode("list")} />
@@ -805,7 +803,7 @@ export default function MapScreen() {
 
       {/* RECENTER BUTTON */}
       {viewMode === "map" && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Karte auf meinen Standort zentrieren" style={[styles.recenterBtn, mapSpots.length > 0 && styles.recenterAboveRail]} onPress={recenterToMe}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Karte auf meinen Standort zentrieren" style={[styles.recenterBtn, selectedSpot && styles.recenterAboveRail]} onPress={recenterToMe}>
           <Ionicons name="locate-outline" size={22} color={theme.color.textPrimary} />
         </Pressable>
       )}
@@ -819,11 +817,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.color.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.color.background },
   header: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, backgroundColor: theme.color.background },
+  mapHeader: { paddingTop: 0, paddingBottom: theme.spacing.xs },
   headerControls: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
   headerEyebrow: { flexShrink: 1 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   placesTitle: { width: "100%", minHeight: 60 },
   headerTopRow: { marginTop: theme.spacing.md },
+  mapSearchRow: { marginTop: theme.spacing.xs },
   searchBox: { width: "100%", flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
   searchInput: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15, minHeight: theme.control.standard },
   searchClear: { minWidth: theme.control.compact, minHeight: theme.control.compact },
@@ -837,14 +837,8 @@ const styles = StyleSheet.create({
   mapStage: { flex: 1 },
   locationLoading: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl, backgroundColor: "rgba(15,15,17,0.94)", borderRadius: theme.radius.lg },
   emptyOverlay: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl },
-  searchAreaButton: { position: "absolute", alignSelf: "center", top: theme.spacing.md, zIndex: 3, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: theme.color.pink, borderRadius: theme.radius.pill, minHeight: 44, paddingHorizontal: theme.spacing.md, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
-  searchAreaText: { color: theme.color.background, fontFamily: theme.type.bodyBold, fontSize: 14 },
-  railWrap: { position: "absolute", left: 0, right: 0, bottom: theme.control.tabBar + theme.spacing.sm, zIndex: 2 },
-  railHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: theme.spacing.xl, paddingBottom: theme.spacing.xs, gap: theme.spacing.xs },
-  railHeadingTitle: { flexShrink: 1 },
-  railListLink: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: theme.spacing.sm },
-  railContent: { paddingHorizontal: theme.spacing.xl, gap: 10, paddingBottom: 5 },
-  railCard: { minHeight: 225, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
+  railWrap: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, bottom: theme.control.tabBar + theme.spacing.sm, zIndex: 2, alignItems: "center" },
+  railCard: { width: "100%", maxWidth: 350, minHeight: 225, backgroundColor: "rgba(15,15,17,0.98)", borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.borderStrong, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, elevation: 5 },
   railCardSelected: { borderColor: theme.color.pink },
   railMedia: { position: "relative", height: 132 },
   railImage: { width: "100%", height: 132 },
@@ -860,7 +854,7 @@ const styles = StyleSheet.create({
   areaEmptyTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 17 },
   areaEmptyBody: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14 },
   marker: { width: 44, height: 44, alignItems: "center", justifyContent: "flex-end", paddingBottom: 2, shadowColor: "#000", shadowOpacity: 0.8, shadowRadius: 4, elevation: 5 },
-  markerSelected: { shadowColor: theme.color.pink, shadowOpacity: 0.65, shadowRadius: 8, elevation: 8 },
+  markerSelected: { shadowOpacity: 0.65, shadowRadius: 8, elevation: 8 },
   list: { backgroundColor: theme.color.background },
   listContent: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl + theme.control.tabBar },
   listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
