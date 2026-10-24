@@ -11,7 +11,8 @@
     "lint": "eslint",
     "test:contracts": "node --test test/*.test.mjs",
     "pretypecheck": "npm run prepare:world-knowledge",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pretest:contracts": "npm run prepare:world-knowledge"
   },
   "dependencies": {
     "@backyrd/canonical-semantics": "file:../packages/canonical-semantics",
