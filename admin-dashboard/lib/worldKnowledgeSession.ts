@@ -141,9 +141,9 @@ export async function authorizedWorldResearchJobs(input: { auth: WorldKnowledgeB
   return result;
 }
 
-export async function authorizedWorldResearchDrafts(input: { auth: WorldKnowledgeBrowserAuth; draftId?: string; report?: unknown; fetcher?: typeof fetch }): Promise<unknown> {
+export async function authorizedWorldResearchDrafts(input: { auth: WorldKnowledgeBrowserAuth; draftId?: string; view?: "archive"; report?: unknown; fetcher?: typeof fetch }): Promise<unknown> {
   const fetcher = input.fetcher ?? fetch;
-  const path = `/api/world-knowledge/research-drafts${input.draftId ? `?draftId=${encodeURIComponent(input.draftId)}` : ""}`;
+  const path = `/api/world-knowledge/research-drafts${input.draftId ? `?draftId=${encodeURIComponent(input.draftId)}` : input.view === "archive" ? "?view=archive" : ""}`;
   const send = async (forceRefresh: boolean) => {
     const token = await accessToken(input.auth, forceRefresh);
     return fetcher(path, {

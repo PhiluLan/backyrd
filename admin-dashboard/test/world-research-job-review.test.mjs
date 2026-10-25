@@ -10,7 +10,7 @@ const output = ts.transpileModule(source, { compilerOptions: { module: ts.Module
 const directory = await mkdtemp(join(tmpdir(), "backyrd-research-job-review-test-"));
 const modulePath = join(directory, "module.mjs");
 await writeFile(modulePath, output, { mode: 0o600 });
-const { matchesAutomatedReviewJob, reviewCanFinish, visibleResearchJobs } = await import(modulePath);
+const { matchesAutomatedReviewJob, reviewCanFinish, visibleResearchJobs, researchDeclinedKeys } = await import(modulePath);
 
 const job = {
   id: "job-1", spot_id: "spot-1", actor_id: "admin-1", status: "READY_FOR_REVIEW",
@@ -50,3 +50,11 @@ test("imported jobs and older proposals for the same Spot leave the actionable l
   ];
   assert.deepEqual(visibleResearchJobs(jobs), [jobs[2], jobs[3]]);
 });
+
+ test("KEEP resolves a review while unanswered and foreign choices never silently discard a claim",()=>{
+  assert.deepEqual(researchDeclinedKeys(['identity.name','hours.regular'],[],{'identity.name':''}),['identity.name']);
+  assert.deepEqual(researchDeclinedKeys(['identity.name'],[],{}),[]);
+  assert.deepEqual(researchDeclinedKeys(['identity.name'],[],{'identity.name':'expected-current-claim'}),[]);
+  assert.deepEqual(researchDeclinedKeys(['identity.name'],[],{'foreign':''}),[]);
+  assert.throws(()=>researchDeclinedKeys(['identity.name'],['foreign']),/declined_invalid/);
+ });

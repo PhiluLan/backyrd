@@ -86,3 +86,41 @@ test('source validation also applies to extra citations and unknown data never b
  assert.deepEqual(prepared.document.research.spots[0].claims,[]);
  assert.equal(prepared.document.research.spots[0].unresolved.find(item=>item.attributeKey==='amenity.features')?.reason.includes('unverändert'),true);
 });
+
+const {assessNuknukDraftReview,finishNuknukDraftReview}=await import(pathToFileURL(join(dir,'import.mjs')).href);
+const publicAnswer=value=>({...claim(value),visibility:'PUBLIC'});
+test('review completion uses persisted coverage and retains extra existing details',()=>{
+ const incoming={...emptyExperienceProfile('EAT'),offers:[offer('research')]};
+ const existing={...incoming,reviewed:true,areas:[area('existing')]};
+ const d=draft([result('experience.profile',incoming),result('classification.place_types',['BAR']),{attributeKey:'contact.tiktok',status:'UNRESOLVED'}]);
+ const answers={'experience.profile':publicAnswer(existing),'classification.place_types':publicAnswer(['BAR','RESTAURANT'])};
+ assert.ok(assessNuknukDraftReview(d,answers).every(field=>field.covered));
+ const finished=finishNuknukDraftReview(d,answers,{});assert.deepEqual(finished.pending,[]);assert.equal(finished.decisions.length,2);
+ assert.ok(finished.decisions.every(field=>field.outcome==='PROFILE_VERIFIED'));
+});
+test('partial review never archives unselected fields and does not infer rejection from unknown',()=>{
+ const d=draft([result('identity.name','Fixture'),result('hours.regular',[{day:'MONDAY',intervals:[{start:'11:00',end:'00:00'}]}])]);
+ const answers={'identity.name':publicAnswer('Fixture'),'hours.regular':publicAnswer([{day:'MONDAY',intervals:[{start:'11:00',end:'23:00'}]}])};
+ assert.deepEqual(finishNuknukDraftReview(d,answers,{}).pending,['hours.regular']);
+ assert.deepEqual(finishNuknukDraftReview(d,answers,{'hours.regular':answers['hours.regular'].claimId}).pending,[]);
+ assert.equal(finishNuknukDraftReview(d,answers,{'hours.regular':answers['hours.regular'].claimId}).decisions[1].outcome,'KEPT_PROFILE');
+ assert.deepEqual(finishNuknukDraftReview(d,answers,{'hours.regular':'stale-claim'}).pending,['hours.regular']);
+ assert.deepEqual(finishNuknukDraftReview(d,{},{}).pending,['identity.name','hours.regular']);
+});
+test('declining a missing proposal is explicit, private values are not exposed, foreign decisions fail',()=>{
+ const d=draft([result('contact.phone','+41612725415')]);
+ assert.deepEqual(assessNuknukDraftReview(d,{'contact.phone':{...publicAnswer('secret'),visibility:'PRIVATE'}}),[{attributeKey:'contact.phone',covered:false,claimId:null,currentValue:undefined}]);
+ assert.equal(finishNuknukDraftReview(d,{}, {'contact.phone':null}).decisions[0].outcome,'DECLINED');
+ assert.throws(()=>finishNuknukDraftReview(d,{}, {'another.field':null}),/fremdes Feld/);
+});
+
+test('empty catalog selections do not assert subset coverage; empty partial schedules preserve saved days',()=>{
+ const d=draft([result('hours.regular',[])]);
+ const existing={'hours.regular':publicAnswer([{day:'MONDAY',intervals:[{start:'11:00',end:'23:00'}]}])};
+ // Empty partial weekly plans may supplement nothing; that must not assert closure or overwrite the saved schedule.
+ const fields=assessNuknukDraftReview(d,existing);
+ assert.equal(fields[0].covered,true); // supplement semantics preserve the entire existing plan
+ assert.equal(existing['hours.regular'].value[0].intervals[0].end,'23:00');
+ const dietDraft=draft([result('classification.place_types',[])]);
+ assert.equal(assessNuknukDraftReview(dietDraft,{'classification.place_types':publicAnswer(['RESTAURANT'])})[0].covered,false);
+});

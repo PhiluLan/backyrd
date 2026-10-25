@@ -11,7 +11,7 @@ export async function researchFieldEdit(actor: SupabaseClient, service: Supabase
   if (typeof input.spotId !== "string" || !WORLD_RESEARCH_SPOT_ID.test(input.spotId)) throw new Error("Ungültiger Ort.");
   const detail = await readWorldResearchDetail(actor,input.spotId);
   const answers = Object.fromEntries(Object.entries(detail.answers ?? {}).filter(([,answer]) => answer.visibility === "PUBLIC"));
-  if (!save) return { answers };
+  if (!save) return { answers, manifestHash:detail.manifest?.manifestHash };
   const field = AUTHORING_FIELDS.find(field => field.attributeKey === input.attributeKey);
   if (!field || !detail.actor?.allowedAttributeKeys?.includes(field.attributeKey) || typeof input.knowledgeState !== "string") throw new Error("Dieses Feld ist nicht freigegeben.");
   const validated = validateAuthoringSubmission(field.attributeKey,input.knowledgeState,input.value);
@@ -37,5 +37,5 @@ export async function researchFieldEdit(actor: SupabaseClient, service: Supabase
   const persisted = after.answers?.[field.attributeKey];
   if (!rebuilt.data?.manifestHash || after.manifest?.worldSnapshot?.spotId !== input.spotId || rebuilt.data.worldSnapshot?.spotId !== input.spotId || after.manifest?.manifestHash !== rebuilt.data.manifestHash || !sameValue(after.manifest?.worldSnapshot,rebuilt.data.worldSnapshot)
     || persisted?.visibility !== "PUBLIC" || persisted?.knowledgeState !== input.knowledgeState || !sameValue(persisted?.value,validated.value)) throw new ResearchSaveError("Die Angabe ist gespeichert; das Zurücklesen konnte noch nicht bestätigt werden. Bitte den Editor neu öffnen.","SAVED_UNVERIFIED");
-  return { answer:persisted, answers:Object.fromEntries(Object.entries(after.answers ?? {}).filter(([,answer]) => answer.visibility === "PUBLIC")) };
+  return { answer:persisted, manifestHash:after.manifest?.manifestHash, answers:Object.fromEntries(Object.entries(after.answers ?? {}).filter(([,answer]) => answer.visibility === "PUBLIC")) };
 }

@@ -117,3 +117,47 @@ Historische Entwürfe ohne `citation.observedAt` bleiben lesbar, sind aber vor d
 Die Bestätigung einzelner Angaben zeigt zunächst einen laufenden Speicherstatus. Erst eine Antwort mit passendem öffentlichem Claim, Wissenszustand und Wert löst die fokussierte Erfolgsmeldung aus. Diese steht ausserhalb der Filterliste und bleibt daher auch sichtbar, wenn ein ergänztes Feld aus „Offen“ verschwindet. Statusmeldungen verwenden `role=status`, Fehler und Warnungen `role=alert`; Farbe ist nie der einzige Hinweis.
 
 Fehler erhalten den Formularentwurf und die Speicherkennung für einen sicheren Wiederholungsversuch. Nach erfolgreichem Claim-Schreiben meldet ein fehlgeschlagener Neuaufbau oder Rücklesevorgang ausdrücklich `saveState=SAVED_UNVERIFIED`: Die Oberfläche zeigt „Gespeichert · Profilansicht noch nicht bestätigt“. Ein Netzwerkfehler behauptet dagegen weder Erfolg noch einen sicher fehlgeschlagenen Schreibvorgang. Reine Vormerkungen sind als „noch nicht gespeichert“ bezeichnet.
+
+### Admin review completion and archive (2026-10-25)
+
+Task class: FAST_PR. Owned surface: Admin research review, existing authenticated
+Admin API, contract tests. No schema, grant, RLS, model, Decision or public profile
+policy changes. Existing reviewed_at/reviewed_by/review_outcome columns and the
+private draft export metadata hold the completion receipt; reports are not deleted.
+
+The KEEP control previously sent an empty confirmation that the backend treated
+as unanswered. Research review now treats an explicit KEEP as a declined incoming
+proposal while retaining the current profile. Unanswered fields remain conflicts.
+After a partial commit the UI refreshes the current export and preview, allowing
+remaining choices instead of leaving disabled COMMIT-state controls. The result
+shows imported/already-present/pending/blocked/error counts; final successful
+counts include verified earlier partial steps in the current review session.
+
+Saved NukNuk drafts are checked against the public, current profile. Partial
+profiles count as covered only if merging adds/changes nothing; primitive catalog
+arrays may be a subset of a larger saved array. Missing/unresolved data is never
+silently treated as a rejection or a negative fact. A different proposal needs
+an explicit claim-ID-bound KEEP (or explicit decline when no public claim exists).
+Completion rechecks the manifest and every proposed field on the server. Metadata
+updates compare updated_at, fail honestly on storage/concurrency errors, and
+retain actor/time, verified manifest, field outcomes and observed claim IDs.
+A partial selection cannot close the rest of the report. Automatic completion
+after import uses the same check; manual completion handles older already-edited
+reports. This closes the review, not a claim of profile completeness.
+
+Completed reports leave the open list and remain readable in the archive. Admins
+can reopen them without changing profile values or losing the original report and
+completion receipt. Both active and archived routes retain existing Admin auth;
+private answers are not exposed in coverage results. Report creation and ordinary
+profile imports keep their existing authorization and canonical writer paths.
+
+Validation: 129 Admin contract tests, including real route handlers with isolated
+metadata storage, allow/deny authorization, partial coverage, stale claim/manifest,
+write/CAS failures, archive visibility and restoration. Browser QA uses actual
+components and synthetic data with no Production connection: partial write,
+still-enabled decision, KEEP, zero-write completion, disappearance from open
+list, archive read and restoration; direct completion of an older edited report
+also passes. Admin TypeScript, affected-file lint and production build pass.
+The full pre-existing repository ESLint baseline has unrelated failures; it is not
+represented as passing. No existing Production report is automatically closed
+without a fresh profile comparison and any necessary explicit KEEP decisions.

@@ -51,3 +51,9 @@ export function visibleResearchJobs<T extends Pick<ReviewableJob, "spot_id" | "c
   }
   return jobs.filter((job) => !job.reviewed_at && Date.parse(job.created_at) > (latestReviewed.get(job.spot_id) ?? 0));
 }
+
+/** An explicit KEEP choice is a completed decision, not an unanswered conflict. */
+export function researchDeclinedKeys(claimKeys: readonly string[], declined: unknown, confirmations: Record<string,string> = {}): string[] {
+  if (!Array.isArray(declined) || declined.some(key => typeof key !== "string" || !claimKeys.includes(key))) throw new Error("world_research_declined_invalid");
+  return [...new Set([...declined, ...claimKeys.filter(key => Object.hasOwn(confirmations,key) && confirmations[key] === "")])];
+}
