@@ -40,6 +40,46 @@
         }
       ],
       "note": "Only the approved research import migration was applied. The full shipped baseline remains at 191 migrations because four Booking migrations are still deferred. Live schema, current v6 writer, private evidence privileges and Admin file-to-profile preview were verified; no production test claims were inserted. Existing security-advisor findings did not increase. Database restore remains untested; Founder accepted the exact disclosed migration risk."
+    },
+    "isolatedVoltaRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migrations": [
+        {
+          "path": "supabase/migrations/20261024160151_correct_volta_venue_coordinates.sql",
+          "sha256": "dffad38aaf3155538b0f1a8a6c258ef7f0dfe12d747ed9cc36022bae1973241b"
+        },
+        {
+          "path": "supabase/migrations/20261024162056_align_volta_spots_to_verified_location.sql",
+          "sha256": "686acecb3ef27cfdb4407000cfdc8a31711df19f2913cd475556ecbf82fd35af"
+        }
+      ],
+      "sourceSha": "4d260eee9e8f9d43df70404fb3581e1225fb5572",
+      "deploymentRunId": 40215948382,
+      "certificationRunId": 40215513818,
+      "manifestHash": "d438da71df80d5b9ffb0268709cf357b55559fef1559a5e8e4222b7a1ae27285",
+      "backupRunId": 40214751704,
+      "verifiedAt": "2026-10-25T17:21:58Z",
+      "remoteMigrationCount": 194,
+      "remoteMigrationTip": "20261024162056",
+      "deferredMigrations": [
+        {
+          "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
+          "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
+        },
+        {
+          "path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql",
+          "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"
+        },
+        {
+          "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
+          "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
+        },
+        {
+          "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
+          "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+        }
+      ],
+      "note": "Production audit passed with exactly the two Volta migrations and no Function/Auth deployment. Read-only live verification confirmed both approved spots at 47.5711758405605, 7.5801917. The four Booking migrations remain absent from the Production migration ledger."
     }
   },
   "mobile": {
@@ -55,14 +95,14 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "6802c9a4d7c4ac196419884f37f9cb32bc4e935c",
+      "sourceSha": "7532eca12fd33c04e049fe5384cd122c6faa1bc0",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "75dad838-dd11-415b-9937-a1407a3e670b",
-      "iosUpdateId": "01a16d2f-f8b6-70dd-9c50-7738e151cc13",
+      "otaGroupId": "a331d14e-4210-4c88-9977-fd8e50636d14",
+      "iosUpdateId": "01a16ed5-7f8e-733b-8dd2-9146597adf1e",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Places map in PR #618 replaces black circular markers with compact light location pins and a slightly larger pink selected pin, preserving the 44-point touch target and coordinate anchoring. Exact Main IOS_OTA certification run 40080712716 passed. Certified artifact manifest hash 3a91e1603d58b4e7323c8f3d7703b487c0ec4eb17229b5a5932aac8552dc79b1 verified locally; EAS production points to this iOS update and the public manifest launch hash matched the certified 5,115,071-byte bundle. No Decision behavior change, migration, backend deployment or production test write. Simulator visual review passed with the live preview app; physical-device installation and full VoiceOver review remain unverified."
+      "note": "Places map shares the founder-approved Volta position and opens a chooser for coincident spots. Exact Main IOS_OTA certification run 40113149226 passed with manifest hash a9c3dbb086c1649e7c442d1257346a0eb83745037cae062f5120a8620d6d0c82. EAS production update and public manifest were confirmed for runtime 1.1.0 and the Production Supabase project. The iOS tree matches the certified Main tree. Physical-device installation remains unverified."
     }
   },
   "reviewMediaIncident": {
