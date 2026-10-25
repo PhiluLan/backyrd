@@ -53,15 +53,16 @@ test("manifest drift is explained and offers a read-only refresh instead of a di
 });
 
 test("a verified complete import clears the form and shows a visible finish state", () => {
-  assert.match(panel, /report\.mode === "COMMIT" && \(report\.totals\.imported > 0 \|\| !!activeJobId\)/);
+  assert.match(panel, /report\.mode === "COMMIT" && \(report\.totals\.imported > 0 \|\| !!activeJobId \|\| !!savedDraftId/);
   assert.match(panel, /report\.totals\.invalid === 0 && report\.totals\.conflicts === 0 && report\.totals\.blocked === 0/);
   assert.match(panel, /spot\.imported\.length === 0 \|\| !!spot\.manifestHash/);
   assert.match(panel, /!activeJobId \|\| spot\.reviewCompleted/);
-  assert.match(panel, /setCompletion\(\{ imported: report\.totals\.imported/);
+  assert.match(panel, /setCompletion\(\{ archive, archived, imported:/);
   assert.match(panel, /setQuery\(""\); setResults\(\[\]\); setSelected\(\[\]\); setJson\(""\); setPreview\(null\)/);
   assert.match(panel, /scrollIntoView/);
   assert.match(panel, /Angaben gespeichert/);
-  assert.match(panel, /setPreview\(report\);\s*setMessage\(report\.perSpot\.find\(\(spot\) => spot\.reviewCompletionError\)/);
+  assert.match(panel, /await loadPreview\(refreshed,\{\},false,\{\}\)/);
+  assert.match(panel, /Aktuellen Stand laden und weiterprüfen/);
 });
 
 test("research export starts from canonical World values, never old Spot attributes", () => {

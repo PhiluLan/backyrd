@@ -12,6 +12,6 @@ export default function AdminSpotResearchPage() {
   return <WorldResearchBatchPanel search={searchSpots} queue={(page) => authorizedWorldResearchQueue({ auth: supabase.auth, page })} post={(body) => authorizedWorldResearchBatchPost({ auth: supabase.auth, body })}
     jobsGet={(jobId) => authorizedWorldResearchJobs({ auth: supabase.auth, jobId })}
     jobsStart={(spotIds) => authorizedWorldResearchJobs({ auth: supabase.auth, spotIds })}
-    draftsGet={(draftId) => authorizedWorldResearchDrafts({ auth: supabase.auth, draftId })}
+    draftsGet={(draftId, view) => authorizedWorldResearchDrafts({ auth: supabase.auth, draftId, view })}
     draftsSave={(report) => authorizedWorldResearchDrafts({ auth: supabase.auth, report })} />;
 }

@@ -4,7 +4,7 @@ import { normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, planWorl
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { locationBinding, validateBrowserLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
 import { createAdminWorldResearchExport, readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID, type WorldResearchDetail } from "@/lib/server/worldResearchExport";
-import { matchesAutomatedReviewJob, reviewCanFinish, type ReviewableJob } from "@/lib/server/worldResearchJobReview";
+import { matchesAutomatedReviewJob, reviewCanFinish, researchDeclinedKeys, type ReviewableJob } from "@/lib/server/worldResearchJobReview";
 
 import { parseNuknukDraft } from "@/lib/nuknukResearchDraft";
 import { prepareNuknukDraftImport, supplementResearchValue } from "@/lib/nuknukDraftImport";
@@ -75,9 +75,7 @@ export async function POST(request: Request) {
         allClaims = (document.validatedClaims.get(exported.spotId) ?? []).map(claim => ({ ...claim,
           value: supplementResearchValue(claim.attributeKey, current[claim.attributeKey], claim.value) }));
       } catch (cause) { report.invalid.push(message(cause)); continue; }
-      const declined = body.declined?.[exported.spotId] ?? [];
-      if (!Array.isArray(declined) || declined.some((key) => typeof key !== "string" || !allClaims.some((claim) => claim.attributeKey === key))) throw new Error("world_research_declined_invalid");
-      report.declined = [...new Set(declined)];
+      report.declined = researchDeclinedKeys(allClaims.map(claim=>claim.attributeKey),body.declined?.[exported.spotId] ?? [],body.confirmations?.[exported.spotId] ?? {});
       const plan = planWorldResearchSpot({ claims: allClaims.filter((claim) => !report.declined.includes(claim.attributeKey)), current, confirmations: body.confirmations?.[exported.spotId] ?? {}, observedAt: document.batch.createdAt });
       report.storedClaims = plan.skipped.map(attributeKey => ({ attributeKey, value: current[attributeKey]?.value }));
       report.skipped = plan.skipped; report.reviews = plan.reviews; report.blocked = plan.blocked; report.derived = plan.derived;

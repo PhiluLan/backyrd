@@ -121,3 +121,33 @@ export function prepareNuknukDraftImport(draft: NuknukDraft, current: WorldResea
   parseWorldResearchBatch(document);
   return { document, held };
 }
+
+export type DraftProfileAnswer = { claimId?: string; knowledgeState?: string; value?: unknown; visibility?: string };
+export type DraftReviewField = { attributeKey: string; covered: boolean; claimId: string | null; currentValue?: unknown };
+
+/** Coverage is a read-back fact, not a claim that a user accepted every proposal. */
+export function assessNuknukDraftReview(draft: NuknukDraft, answers: Record<string, DraftProfileAnswer>): DraftReviewField[] {
+  return draft.results.filter(result => result.status === "REQUIRES_REVIEW" && result.value !== undefined).map(result => {
+    const candidate = answers[result.attributeKey];
+    const answer = candidate?.visibility === "PUBLIC" ? candidate : undefined;
+    let covered = false;
+    if (answer?.claimId && answer.visibility === "PUBLIC" && answer.knowledgeState === "KNOWN_VALUE") {
+      try {
+        if (Array.isArray(result.value) && result.value.every(item => typeof item === "string") && Array.isArray(answer.value)) {
+          covered = result.value.every(item => (answer.value as unknown[]).includes(item));
+        } else covered = same(supplementResearchValue(result.attributeKey, answer as { knowledgeState: string; value: unknown }, result.value), answer.value);
+      } catch { /* An unresolved merge is a difference for human review. */ }
+    }
+    return { attributeKey: result.attributeKey, covered, claimId: answer?.claimId ?? null, currentValue: answer?.value };
+  });
+}
+
+export function finishNuknukDraftReview(draft: NuknukDraft, answers: Record<string, DraftProfileAnswer>, kept: Record<string, unknown>) {
+  const fields = assessNuknukDraftReview(draft, answers);
+  if (Object.keys(kept).some(key => !fields.some(field => field.attributeKey === key))) throw new Error("Die Abschlussauswahl enthält ein fremdes Feld.");
+  const pending = fields.filter(field => !field.covered && (!Object.hasOwn(kept, field.attributeKey) || kept[field.attributeKey] !== field.claimId));
+  return { pending: pending.map(field => field.attributeKey), decisions: fields.map(field => ({
+    attributeKey: field.attributeKey, claimId: field.claimId,
+    outcome: field.covered ? "PROFILE_VERIFIED" : Object.hasOwn(kept,field.attributeKey) && kept[field.attributeKey] === field.claimId ? field.claimId ? "KEPT_PROFILE" : "DECLINED" : "PENDING",
+  })) };
+}
