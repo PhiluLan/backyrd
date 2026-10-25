@@ -151,7 +151,7 @@ completion receipt. Both active and archived routes retain existing Admin auth;
 private answers are not exposed in coverage results. Report creation and ordinary
 profile imports keep their existing authorization and canonical writer paths.
 
-Validation: 128 Admin contract tests, including real route handlers with isolated
+Validation: 129 Admin contract tests, including real route handlers with isolated
 metadata storage, allow/deny authorization, partial coverage, stale claim/manifest,
 write/CAS failures, archive visibility and restoration. Browser QA uses actual
 components and synthetic data with no Production connection: partial write,

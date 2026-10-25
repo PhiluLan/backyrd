@@ -113,3 +113,14 @@ test('declining a missing proposal is explicit, private values are not exposed, 
  assert.equal(finishNuknukDraftReview(d,{}, {'contact.phone':null}).decisions[0].outcome,'DECLINED');
  assert.throws(()=>finishNuknukDraftReview(d,{}, {'another.field':null}),/fremdes Feld/);
 });
+
+test('empty catalog selections do not assert subset coverage; empty partial schedules preserve saved days',()=>{
+ const d=draft([result('hours.regular',[])]);
+ const existing={'hours.regular':publicAnswer([{day:'MONDAY',intervals:[{start:'11:00',end:'23:00'}]}])};
+ // Empty partial weekly plans may supplement nothing; that must not assert closure or overwrite the saved schedule.
+ const fields=assessNuknukDraftReview(d,existing);
+ assert.equal(fields[0].covered,true); // supplement semantics preserve the entire existing plan
+ assert.equal(existing['hours.regular'].value[0].intervals[0].end,'23:00');
+ const dietDraft=draft([result('classification.place_types',[])]);
+ assert.equal(assessNuknukDraftReview(dietDraft,{'classification.place_types':publicAnswer(['RESTAURANT'])})[0].covered,false);
+});

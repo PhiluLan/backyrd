@@ -133,7 +133,7 @@ export function assessNuknukDraftReview(draft: NuknukDraft, answers: Record<stri
     let covered = false;
     if (answer?.claimId && answer.visibility === "PUBLIC" && answer.knowledgeState === "KNOWN_VALUE") {
       try {
-        if (Array.isArray(result.value) && result.value.every(item => typeof item === "string") && Array.isArray(answer.value)) {
+        if (Array.isArray(result.value) && result.value.length > 0 && result.value.every(item => typeof item === "string") && Array.isArray(answer.value)) {
           covered = result.value.every(item => (answer.value as unknown[]).includes(item));
         } else covered = same(supplementResearchValue(result.attributeKey, answer as { knowledgeState: string; value: unknown }, result.value), answer.value);
       } catch { /* An unresolved merge is a difference for human review. */ }
