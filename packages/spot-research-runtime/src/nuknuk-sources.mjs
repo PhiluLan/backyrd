@@ -657,7 +657,7 @@ export function discoverResearchLinks(page,{spotProfile=false,onExcluded=()=>{}}
       // bounded Spot-research budget crawling individual event/news pages.
       const pathname=decodeURI(new URL(url).pathname).replace(/\/+$/u,'');
       if(/(?:^|\/)node\/\d+$/iu.test(pathname)||/(?:^|\/)content-access-denied$/iu.test(pathname))continue;
-      if(/(?:^|\/)(?:[^/]*[-_])?(?:gewinnspiel|contest|competition|special|promotion|limited)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)|(?:^|\/)(?:win|firmen(?:angebote)?|corporate)(?:\/|$)/iu.test(pathname))continue;
+      if(/(?:^|\/)(?:[^/]*[-_])?(?:gewinnspiel|contest|competition|special|promotion|limited)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)|(?:^|\/)(?:win|firmen(?:angebote)?|corporate)(?:\/|$)/iu.test(pathname)){onExcluded({url,reason:'CAMPAIGN_OR_TIME_BOUND_OFFER_PAGE'});continue;}
       if(/(?:^|\/)(?:ihr[-_]anlass|ihrevent|your-event|votre.?[eé]v[eé]nement|room[-_]hire)(?:\/|$)/iu.test(pathname))continue;
       if(/(?:^|\/)(?:press|presse|media|medien|digital|videos?)(?:[-_][^/]*)?(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(pathname))continue;
       // Some museums place a permanent-exhibition overview behind an
