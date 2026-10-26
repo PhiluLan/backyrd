@@ -161,6 +161,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run world-knowledge:typecheck
       - run: npm run world-knowledge:test
+      - run: npm test --workspace=@backyrd/spot-research-runtime
 
   decision:
     name: Decision vNext focused gate
