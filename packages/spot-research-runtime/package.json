@@ -5,6 +5,11 @@
   "type": "module",
   "exports": "./src/index.mjs",
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "build": "tsc --project tsconfig.nuknuk.json",
+    "typecheck": "tsc --project tsconfig.nuknuk.json --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "optionalDependencies": {
+    "playwright": "1.62.1"
   }
 }

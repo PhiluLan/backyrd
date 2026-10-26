@@ -30,7 +30,7 @@ export const EXPERIENCE_QUESTIONS: readonly ExperienceQuestion[] = Object.freeze
   q("participation.prerequisite", "Voraussetzungen und nötige Begleitung", "Teilnahme", "TEXT", ["OFFER"]),
   q("participation.permission", "Zutrittsregeln und Ausnahmen", "Teilnahme", "TEXT", ["SPOT", "OFFER", "AREA"]),
   q("participation.entry_mode", "Ticket nötig oder unabhängig zugänglich?", "Teilnahme", "TEXT", ["OFFER", "AREA"]),
-  q("participation.booking", "Reservation, Anmeldung oder Vorbestellung", "Teilnahme", "TEXT", ["OFFER"]),
+  q("participation.booking", "Reservation, Anmeldung oder Vorbestellung", "Teilnahme", "TEXT", ["OFFER", "AREA"]),
   q("participation.consumption_obligation", "Mindestkonsumation oder Bestellpflicht", "Teilnahme", "TEXT", ["OFFER"], food),
   q("food.cuisine", "Küche", "Essen und Trinken", "TEXT", ["OFFER"], all, null, ["LUNCH", "DINNER", "BREAKFAST", "GASTRONOMY", "CAFE", "FULL_MEAL", "PRIVATE_CELEBRATION"]),
   q("food.dish", "Gerichte und Spezialitäten", "Essen und Trinken", "TEXT", ["OFFER"], all, null, ["LUNCH", "DINNER", "BREAKFAST", "GASTRONOMY", "CAFE", "FULL_MEAL", "APERITIF", "PRIVATE_CELEBRATION"]),

@@ -44,3 +44,11 @@ test('a meal with only repeated defaults does not expose an empty details panel'
  const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[{id:'a',kind:'LUNCH',name:'Mittagessen',prices:[],schedule:[],properties:[{key:'experience.activity',state:'KNOWN',value:'essen gehen',conditions:{}},{key:'food.meal_extent',state:'KNOWN',value:'Essen',conditions:{}}],areaIds:[]}],areas:[],properties:[]};
  const html=renderToStaticMarkup(createElement(SpotExperience,{profile}));assert.match(html,/Mittagessen/);assert.doesNotMatch(html,/<details|Mehr erfahren/);
 });
+
+test('area booking rules remain in their own area in the shared consumer presentation',()=>{
+ const prop=value=>({key:'participation.booking',state:'KNOWN',value,conditions:{}});
+ const profile={contractVersion:'backyrd.world-knowledge.experience-profile@1.0',reviewed:true,offers:[],properties:[],areas:[{id:'inside',kind:'INDOOR',name:'Innenbereich',properties:[prop('Im Innenbereich reservieren wir Plätze für 4 bis 30 Personen.')]},{id:'outside',kind:'TERRACE',name:'Dach-Terrasse',properties:[prop('Auf der Terrasse nehmen wir keine Reservationen an.')]}]};
+ const html=renderToStaticMarkup(createElement(SpotExperience,{profile}));
+ assert.match(html,/4 bis 30 Personen/);assert.match(html,/keine Reservationen/);
+ const presented=adapter.presentSpotExperience(profile);assert.equal(presented.shared.length,0);assert.equal(presented.areas[0].facts.length,1);assert.equal(presented.areas[1].facts.length,1);
+});

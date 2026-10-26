@@ -34,8 +34,8 @@ test('hotel combines stay, food and bar without assigning their facts to the ven
 });
 test('subtype proofs are directed and do not manufacture facilities',()=>{assert.ok(w.spotTypeSupports('BOUTIQUE_HOTEL','HOTEL'));assert.equal(w.spotTypeSupports('HOTEL','BOUTIQUE_HOTEL'),false);assert.equal(w.spotTypeSupports('HOTEL','SPA'),false);assert.equal(w.spotTypeSupports('EXCURSION_RAILWAY','LANDMARK'),false);});
 test('migration has exactly the shared schema and keeps the old validator and registry immutable',()=>{
- const source=readFileSync(new URL('../../../supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql',import.meta.url),'utf8');
+ const source=readFileSync(new URL('../../../supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql',import.meta.url),'utf8');
  assert.deepEqual(JSON.parse(source.match(/experience_json_schema_matches_v1\('(.*?)'::jsonb/s)[1]),w.EXPERIENCE_PROFILE_SCHEMA);
- assert.ok(source.includes('experience_profile_valid_v2'));assert.ok(!source.includes('create or replace function world_knowledge_private.experience_profile_valid_v1('));
+ assert.ok(source.includes('experience_profile_valid_v3'));assert.ok(!source.includes('create or replace function world_knowledge_private.experience_profile_valid_v2('));assert.ok(!source.includes('create or replace function world_knowledge_private.experience_profile_valid_v1('));
  assert.ok(!/update\s+world_knowledge_private\.(claims|registry_releases)/i.test(source));
 });
