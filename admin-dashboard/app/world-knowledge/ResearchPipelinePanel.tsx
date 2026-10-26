@@ -50,11 +50,11 @@ export function ResearchPipelinePanel({
         ),
         a = document.createElement("a");
       a.href = url;
-      a.download = `backyrd-grundinformationen-${spot.spotId}.json`;
+      a.download = `backyrd-recherche-${spot.spotId}.json`;
       a.click();
       URL.revokeObjectURL(url);
       setMessage(
-        "Auftrag für die 16 Grundinformationen erstellt. Die vollständige recherchierte Datei anschliessend hier laden.",
+        "Auftrag für die vollständige Spot-Recherche erstellt. Die vollständige recherchierte Datei anschliessend hier laden.",
       );
     });
   const process = () =>
@@ -64,22 +64,25 @@ export function ResearchPipelinePanel({
         report: PipelineReport;
       };
       setReport(result.report);
-      await onProcessed().catch(() => setMessage("Die Auftragsliste konnte noch nicht aktualisiert werden. Das Verarbeitungsergebnis steht oben; bitte die Seite neu laden."));
+      await onProcessed().catch(() =>
+        setMessage(
+          "Die Auftragsliste konnte noch nicht aktualisiert werden. Das Verarbeitungsergebnis steht oben; bitte die Seite neu laden.",
+        ),
+      );
     });
   return (
     <div className={styles.stage}>
       <h3>Recherche mit sicherer Übernahme</h3>
       <p>
-        Die 16 Grundinformationen recherchieren lassen. Eindeutig belegte neue
-        Kontaktangaben werden zusätzlich an der offiziellen Website geprüft,
-        gespeichert und im Profil zurückgelesen. Alle übrigen Vorschläge kommen
-        in die Prüfliste.
+        Belegte Angaben werden mit ihren Quellen geprüft, gespeichert und im
+        Profil bestätigt. Kleine sprachliche Unterschiede oder geringe
+        Restunsicherheit verhindern die Übernahme nicht. Erhebliche Zweifel
+        kommen zur Prüfung.
       </p>
       <p className={styles.note}>
-        Bestehende Angaben werden nicht automatisch ersetzt. Zunächst
-        freigegeben: öffentliche E-Mail, Telefon und offiziell verlinkte
-        Socialprofile. Keine automatische Übernahme aufgrund einer
-        KI-Vertrauenszahl.
+        Belegte Korrekturen ersetzen gezielt die bisherige Angabe. Fehlende
+        Informationen bleiben offen. Jede Entscheidung hält Grund und Beleg
+        fest; eine KI-Vertrauenszahl allein reicht nicht.
       </p>
       <button
         className={styles.secondary}
@@ -172,9 +175,9 @@ export function ResearchPipelinePanel({
           </p>
           {!!report.sourceFailures?.length && (
             <p>
-              Die offizielle Website konnte nicht gelesen werden. Es wurde
-              daraus nichts automatisch übernommen; die Angaben bleiben zur
-              Prüfung erhalten.
+              Einzelne Quellen konnten nicht gelesen werden. Davon betroffene
+              Angaben bleiben zur Prüfung erhalten; bestätigte Quellen wurden
+              unabhängig verarbeitet.
             </p>
           )}
           {!!report.errors.length && (
@@ -190,11 +193,12 @@ export function ResearchPipelinePanel({
               {report.review.map((item) => (
                 <li key={item.attributeKey}>
                   {researchFieldLabel(item.attributeKey)}:{" "}
-                  {item.reason === "EXISTING_VALUE_PROTECTED"
-                    ? "Die bestehende Angabe bleibt erhalten; bitte den Unterschied prüfen."
-                    : item.reason === "FIELD_REQUIRES_REVIEW"
-                      ? "Für dieses Feld ist eine Prüfung vorgesehen."
-                      : "Quelle oder Zuordnung konnte nicht eindeutig bestätigt werden."}
+                  {item.explanation ||
+                    (item.reason === "EXISTING_VALUE_PROTECTED"
+                      ? "Die bestehende Angabe bleibt erhalten; bitte den Unterschied prüfen."
+                      : item.reason === "FIELD_REQUIRES_REVIEW"
+                        ? "Für dieses Feld ist eine Prüfung vorgesehen."
+                        : "Quelle oder Zuordnung konnte nicht eindeutig bestätigt werden.")}
                 </li>
               ))}
             </ul>

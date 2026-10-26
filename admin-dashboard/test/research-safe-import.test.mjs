@@ -64,6 +64,15 @@ const code = ts
     ),
   )
   .replace(
+    '"../../../packages/spot-research-runtime/src/research-evidence-policy.mjs"',
+    JSON.stringify(
+      new URL(
+        "../../packages/spot-research-runtime/src/research-evidence-policy.mjs",
+        import.meta.url,
+      ).href,
+    ),
+  )
+  .replace(
     '"../researchSaveFeedback"',
     JSON.stringify(pathToFileURL(join(dir, "feedback.mjs")).href),
   );
@@ -456,4 +465,97 @@ test("an interrupted proof cannot insert an old contact after its observation ex
   });
   assert.ok(result.report.errors.includes("research_pipeline_proof_expired"));
   assert.equal(f.saved.size, 0);
+});
+
+test("v2 imports a grounded lunch synonym, corrects the exact old claim, and completes with honest gaps", async () => {
+  const proposal = {
+    ...claim("offering.groups", ["DINNER", "LUNCH"]),
+    source: { ...originalSource, evidence: "Mittag und Abendessen" },
+  };
+  const f = fixture([proposal]);
+  f.answers["offering.groups"] = {
+    claimId: "old-offers",
+    knowledgeState: "KNOWN_VALUE",
+    visibility: "PUBLIC",
+    value: ["DINNER"],
+  };
+  f.document.research.assessments = [
+    {
+      attributeKey: "offering.groups",
+      uncertainty: "MINOR",
+      reason: "Mittag ist hier das ausdrücklich angebotene Mittagessen.",
+      bindings: {},
+    },
+  ];
+  const repository = {
+    ...f.repository,
+    readSpot: async (id) => {
+      const detail = await f.repository.readSpot(id);
+      return {
+        ...detail,
+        actor: {
+          ...detail.actor,
+          allowedAttributeKeys: [
+            ...detail.actor.allowedAttributeKeys,
+            "offering.groups",
+          ],
+        },
+      };
+    },
+    importClaims: async (_id, _batch, _manifest, claims) => {
+      assert.equal(claims.length, 1);
+      assert.equal(claims[0].supersedesClaimId, "old-offers");
+      f.answers["offering.groups"] = {
+        claimId: "new-offers",
+        knowledgeState: "KNOWN_VALUE",
+        visibility: "PUBLIC",
+        value: claims[0].value,
+      };
+    },
+  };
+  const fetchPage = async () => ({
+    ...(await f.fetchPage()),
+    body: "<h1>Fixture Restaurant</h1><p>Gerbergasse 11, Basel</p><p>Mittag und Abendessen</p>",
+  });
+  const result = await processSafeResearchDocument(f.document, {
+    actorId: "admin",
+    repository,
+    fetchPage,
+    now,
+  });
+  assert.equal(result.report.policy, "backyrd.research-evidence@2");
+  assert.deepEqual(result.report.stored, ["offering.groups"]);
+  assert.equal(result.report.state, "COMPLETE");
+  assert.ok(result.report.unresolved.length > 0);
+  assert.equal(result.report.review.length, 0);
+  assert.equal(result.report.decisions[0].uncertainty, "MINOR");
+  assert.deepEqual(
+    result.document.research.assessments,
+    f.document.research.assessments,
+  );
+});
+
+test("v2 major uncertainty creates an actionable review and never writes", async () => {
+  const f = fixture([
+    {
+      ...claim("contact.public_email", "info@example.org"),
+      source: { ...originalSource, evidence: "info@example.org" },
+    },
+  ]);
+  f.document.research.assessments = [
+    {
+      attributeKey: "contact.public_email",
+      uncertainty: "MAJOR",
+      reason: "Die Adresse könnte zum Nachbarbetrieb gehören.",
+      bindings: {},
+    },
+  ];
+  const result = await f.run();
+  assert.equal(
+    result.report.state,
+    "REVIEW_REQUIRED",
+    JSON.stringify(result.report),
+  );
+  assert.equal(result.report.review[0].reason, "MAJOR_UNCERTAINTY");
+  assert.equal(f.calls.includes("import"), false);
 });
