@@ -76,7 +76,7 @@
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved the exact 20261026215735 migration and disclosed recovery risk on 2026-10-26. Only this SQL release is selected; the four Booking migrations remain deferred. Historical applied Volta and research receipts in production-state.json remain unchanged."
+    "source": "Founder explicitly approved the exact 20261026215735 migration and disclosed recovery risk on 2026-10-26. Only this SQL release is selected; the four Booking migrations remain deferred. Historical applied Volta and research receipts in production-state.json remain unchanged. Founder additionally confirmed explicit exclusion of 20261024171707 on 2026-10-26 after automatic approval review requested it. Only the safety migration may be applied."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -120,6 +120,10 @@
       {
         "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+      },
+      {
+        "path": "supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",
+        "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
       }
     ],
     "backupRunId": 40287797032,

@@ -14,6 +14,9 @@ export const VOLTA_MIGRATIONS = Object.freeze([
 ]);
 export const DEFERRED_BOOKING_MIGRATIONS = Object.freeze([{"path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql", "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"}, {"path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql", "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"}, {"path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql", "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"}, {"path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql", "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"}]);
 const equal = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+export const SAFETY_DEFERRED_MIGRATIONS = Object.freeze([...DEFERRED_BOOKING_MIGRATIONS,
+  Object.freeze({path:"supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",sha256:"b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"}),
+]);
 const canonicalRows = rows => rows.map(({path,sha256})=>({path,sha256})).sort((a,b)=>a.path.localeCompare(b.path));
 export function researchAppliedReceipt(state, read, isAncestor, safety = false) {
   const target = safety ? RESEARCH_SAFETY_MIGRATION : RESEARCH_MIGRATION;
@@ -30,6 +33,7 @@ export function researchAppliedReceipt(state, read, isAncestor, safety = false) 
 export function scopeResearchMigrations({pending,scope,baseSha,deployFunctions,authDeploy,applied,appliedSafety}) {
   if (!scope) return {pendingMigrations:pending, deferredMigrations:[], isolatedResearchScope:null};
   const target = equal(scope.migrations,[RESEARCH_SAFETY_MIGRATION]) ? RESEARCH_SAFETY_MIGRATION : RESEARCH_MIGRATION;
+  const deferred = target === RESEARCH_SAFETY_MIGRATION ? SAFETY_DEFERRED_MIGRATIONS : DEFERRED_BOOKING_MIGRATIONS;
   if (scope.deferredFunctionChanges?.length && (target !== RESEARCH_SAFETY_MIGRATION
     || !equal(scope.deferredFunctionChanges,RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES))) throw new Error("isolated_research_deferred_function_binding_invalid");
   if (target === RESEARCH_SAFETY_MIGRATION && !applied) throw new Error("isolated_research_prerequisite_missing");
@@ -38,14 +42,14 @@ export function scopeResearchMigrations({pending,scope,baseSha,deployFunctions,a
   if (scope.contractVersion !== "backyrd.isolated-research-migration-scope@1.0"
     || scope.executionAuthorized !== false || scope.baseSha !== baseSha
     || !equal(scope.migrations,[target])
-    || !equal(scope.deferredMigrations,DEFERRED_BOOKING_MIGRATIONS)
+    || !equal(scope.deferredMigrations,deferred)
     || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
     || deployFunctions.length || authDeploy)
     throw new Error("isolated_research_scope_invalid");
   const selected = (target === RESEARCH_SAFETY_MIGRATION ? appliedSafety : applied) ? [] : [target];
-  if (!equal(canonicalRows(pending),canonicalRows([...DEFERRED_BOOKING_MIGRATIONS,...selected])))
+  if (!equal(canonicalRows(pending),canonicalRows([...deferred,...selected])))
     throw new Error("isolated_research_pending_scope_changed");
-  return {pendingMigrations:selected, deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,
+  return {pendingMigrations:selected, deferredMigrations:deferred,
     isolatedResearchScope:scope};
 }
 export function scopeVoltaMigrations({pending,scope,baseSha,deployFunctions,authDeploy,appliedResearch,appliedVolta}) {

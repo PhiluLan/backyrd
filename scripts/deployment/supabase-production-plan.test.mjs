@@ -246,7 +246,7 @@ test("Product pre-applied observation cannot skip a middle migration", () => {
 });
 
 test('isolated safety release preserves earlier research and Volta receipts and never deploys Booking', async()=>{
- const {RESEARCH_MIGRATION:research,RESEARCH_SAFETY_MIGRATION:safety,VOLTA_MIGRATIONS:volta,DEFERRED_BOOKING_MIGRATIONS:deferred}=await import('./isolated-research-migration.mjs');
+ const {RESEARCH_MIGRATION:research,RESEARCH_SAFETY_MIGRATION:safety,VOLTA_MIGRATIONS:volta,SAFETY_DEFERRED_MIGRATIONS:deferred}=await import('./isolated-research-migration.mjs');
  const f=fixture();
  for(const item of [...deferred,research,...volta,safety])write(f.repo,item.path,readFileSync(new URL('../../'+item.path,import.meta.url)));
  const prior=commit(f.repo,'existing canonical migrations');
