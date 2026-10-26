@@ -493,7 +493,7 @@ export function matchesExistingWebsite(sourceUrl, existingWebsite) {
   } catch { return false; }
 }
 
-export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFTOTEXT??'pdftotext',ocrCommand=process.env.NUKNUK_TESSERACT??'tesseract',ocrLanguages=process.env.NUKNUK_OCR_LANGUAGES??'eng',preferMain=false}={}) {
+export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFTOTEXT??'pdftotext',ocrCommand=process.env.NUKNUK_TESSERACT??'tesseract',ocrLanguages=process.env.NUKNUK_OCR_LANGUAGES??'eng',preferMain=false,pdfOcr}={}) {
   if(/^application\/json\b/i.test(page.contentType??''))return jsonSourceText(page,id);
   const image=/^image\/(jpeg|png)$/i.test(page.contentType??'');
   if(image) {
@@ -513,7 +513,24 @@ export async function readSourceText(page,id,{pdfCommand=process.env.NUKNUK_PDFT
     child.stdin.on('error',()=>{});child.stdin.end(page.body);
   });
   const text=body.replace(/\r\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
-  if(!text)throw new Error('source_pdf_needs_ocr');
+  if(!text) {
+    // Scanned menus have no text layer. Reuse the bounded page audit instead
+    // of rejecting them before the existing OCR/layout reader can run.
+    const assetHash=createHash('sha256').update(page.body).digest('hex');
+    const reader=pdfOcr??(await import('./nuknuk-menu-media.mjs')).auditMenuPdf;
+    const audit=await reader(page,{maxPages:20,maxDurationMs:180000,ocrLanguages});
+    if(audit.officialMenuUrl!==page.url||audit.documentAssetHash!==assetHash||!Array.isArray(audit.images))throw new Error('source_pdf_ocr_provenance_invalid');
+    const pages=audit.images.filter(image=>Number.isInteger(image.pageNumber)&&image.pageNumber>=1&&image.pageNumber<=20);
+    const ocrText=pages.map(image=>{
+      const lines=(image.tesseractLines??[]).filter(line=>typeof line==='string'&&line.trim());
+      return lines.length?'[Page '+image.pageNumber+']\n'+lines.join('\n'):'';
+    }).filter(Boolean).join('\n\n').trim();
+    if(!ocrText)throw new Error('source_pdf_ocr_empty');
+    const excerpt=ocrText.slice(0,12000);
+    return {id,url:page.url,observedAt:page.observedAt,text:excerpt,truncated:ocrText.length>12000||audit.layoutCheckComplete!==true,
+      format:'PDF_TEXT',extractionOrder:'PAGE_OCR',layoutReviewRequired:true,pageLimit:20,ocrLanguage:ocrLanguages,
+      assetHash,hash:createHash('sha256').update(excerpt).digest('hex'),pdfLayoutAudit:audit};
+  }
   const excerpt=text.slice(0,12000);
   // Preserve a second reading order for multi-column menus. It only guides
   // which literal rows to inspect; citations still point into `text` above.
@@ -571,6 +588,57 @@ export function discoverMenuImages(page,{maxImages=4}={}) {
 
 // Public menu documents may be hosted by a CDN. Identity comes from the actual
 // embedding official page; the caller must preserve and validate that parent.
+// Parse inert published configuration only. Never evaluate the surrounding script.
+function assignedJson(script,offset) {
+  let start=offset;while(/\s/u.test(script[start]??'')&&start<script.length)start++;
+  if(!['{','['].includes(script[start]))return null;
+  let depth=0,quoted=false,escaped=false;
+  for(let i=start;i<script.length&&i-start<=2000000;i++){
+    const ch=script[i];
+    if(quoted){if(escaped)escaped=false;else if(ch==='\\')escaped=true;else if(ch==='"')quoted=false;continue;}
+    if(ch==='"'){quoted=true;continue;}
+    if(ch==='{'||ch==='[')depth++;
+    if(ch==='}'||ch===']'){depth--;if(depth===0){try{return JSON.parse(script.slice(start,i+1));}catch{return null;}}}
+  }
+  return null;
+}
+function publishedDownloadWidgets(page) {
+  if(typeof page.body!=='string')return [];
+  const html=visibleSourceHtml(page.body),visible=new Map(),downloads=[];
+  const attr=(tag,name)=>new RegExp('\\b'+name+'\\s*=\\s*["\']([^"\']+)["\']','iu').exec(tag)?.[1];
+  const plain=value=>value.replace(/<[^>]*>/gu,' ').replace(/&amp;/giu,'&').replace(/\s+/gu,' ').trim();
+  for(const tag of html.matchAll(/<div\b[^>]*>/giu)){
+    if(attr(tag[0],'data-name')!=='filedownload')continue;
+    const id=attr(tag[0],'id'),uniqueId=attr(tag[0],'data-uniqueid');if(!id||!uniqueId)continue;
+    const tail=html.slice(tag.index+tag[0].length,tag.index+tag[0].length+4000);
+    const button=/<button\b[^>]*\bclass\s*=\s*["'][^"']*\bjs-file-btn\b[^"']*["'][^>]*>([\s\S]*?)<\/button>/iu.exec(tail.split(/<\/div\s*>/iu)[0]);
+    if(button)visible.set(id,{uniqueId,label:plain(button[1])});
+    if(visible.size>=500)break;
+  }
+  for(const match of page.body.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/giu)){
+    if(match[1].length>2000000)continue;
+    for(const assignment of match[1].matchAll(/\bServer\.(?:components|widgetsOnPage)\s*=\s*/gu)){
+      const data=assignedJson(match[1],assignment.index+assignment[0].length);
+      if(!data||typeof data!=='object')continue;
+      for(const widget of Object.values(data).slice(0,500)){
+        if(!widget||typeof widget!=='object'||widget.type!=='widget.filedownload'||!widget.data||typeof widget.data!=='object')continue;
+        const button=visible.get(widget.uniqueHTMLId);
+        if(!button||button.uniqueId!==widget.uniqueId||typeof widget.data.text!=='string'||plain(widget.data.text)!==button.label||typeof widget.data.url!=='string')continue;
+        if(!downloads.some(item=>item.href===widget.data.url))downloads.push({href:widget.data.url,label:button.label,fileName:typeof widget.data.fileName==='string'?widget.data.fileName:''});
+        if(downloads.length>=20)return downloads;
+      }
+    }
+  }
+  return downloads;
+}
+function observedDocumentUrl(href,base) {
+  const observed=new URL(href.replace(/&amp;/g,'&'),base);
+  // Probe only the explicitly published asset host/path over TLS. Never fetch
+  // HTTP, invent a CDN alias or relax the public-URL/DNS checks.
+  if(observed.protocol==='http:'&&!observed.port&&!observed.username&&!observed.password&&/\.pdf$/iu.test(observed.pathname))observed.protocol='https:';
+  return publicSourceUrl(observed.href);
+}
+
 function observedPdfDocuments(page,kind) {
   if(typeof page.body!=='string')return [];
   const documents=[],pageBase=observedPageBase(page);
@@ -579,8 +647,19 @@ function observedPdfDocuments(page,kind) {
     const label=m[2].replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
     if(!label||/datenschutz|privacy|agb|terms|impressum|annual report|jahresbericht|presse|press kit/iu.test(label))continue;
     if(kind==='menu'?!/menu|menü|karte|alla[ -]carta|carta[ -]dei[ -]vini/iu.test(label):!practical.test(label))continue;
-    try{const url=publicSourceUrl(new URL(m[1].replace(/&amp;/g,'&'),pageBase).href);if(!/\.pdf(?:[?#]|$)/iu.test(url)&&!(kind==='menu'&&/(?:^|\/)pdfdownload\/[^/]+\/?$/iu.test(new URL(url).pathname))||documents.some(d=>d.url===url))continue;documents.push({url,discoveredOn:page.url,label});}catch{}
+    try{const url=observedDocumentUrl(m[1],pageBase);if(!/\.pdf(?:[?#]|$)/iu.test(url)&&!(kind==='menu'&&/(?:^|\/)pdfdownload\/[^/]+\/?$/iu.test(new URL(url).pathname))||documents.some(d=>d.url===url))continue;documents.push({url,discoveredOn:page.url,label});}catch{}
     if(documents.length===4)break;
+  }
+  for(const widget of publishedDownloadWidgets(page)){
+    if(documents.length>=4)break;
+    const purpose=widget.label+' '+widget.fileName;
+    if(/datenschutz|privacy|agb|terms|impressum|annual report|jahresbericht|presse|press kit/iu.test(purpose))continue;
+    if(kind==='menu'?!/menu|menü|menue|karte|alla[ -]carta|carta[ -]dei[ -]vini/iu.test(purpose):!practical.test(purpose))continue;
+    try{
+      const url=observedDocumentUrl(widget.href,pageBase);
+      if(!/\.pdf(?:[?#]|$)/iu.test(url)||documents.some(item=>item.url===url))continue;
+      documents.push({url,discoveredOn:page.url,label:widget.label,discovery:'PUBLISHED_CMS_DOWNLOAD_WIDGET',observedUrl:widget.href});
+    }catch{}
   }
   return documents;
 }
