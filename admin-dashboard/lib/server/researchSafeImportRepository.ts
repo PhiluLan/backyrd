@@ -133,11 +133,11 @@ export function safeImportRepository(
       );
       if (result.error) throw new Error("CANONICAL_IMPORT_REJECTED");
     },
-    async rebuild(spotId, key) {
+    async rebuild(spotId, key, asOf) {
       const result = await service.rpc("world_product_rebuild_spot_v1", {
         p_actor_user_id: actorId,
         p_spot_id: spotId,
-        p_as_of: new Date().toISOString(),
+        p_as_of: asOf,
         p_idempotency_key: key,
       });
       if (result.error || !result.data?.manifestHash)

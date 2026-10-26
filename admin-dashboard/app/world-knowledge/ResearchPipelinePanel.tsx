@@ -158,13 +158,15 @@ export function ResearchPipelinePanel({
           role={report.errors.length ? "alert" : "status"}
         >
           <h3>
-            {report.saveState === "SAVED_UNVERIFIED"
-              ? "Speicherstand noch nicht bestätigt"
-              : report.stored.length
-                ? `${report.stored.length} ${report.stored.length === 1 ? "Angabe" : "Angaben"} gespeichert und im Profil bestätigt`
-                : report.state === "FAILED"
-                  ? "Verarbeitung nicht abgeschlossen"
-                  : "Keine neuen sicheren Angaben zu speichern"}
+            {report.saveState === "HELD_FOR_REVIEW"
+              ? "Zur Sicherheitsprüfung gespeichert – noch nicht öffentlich"
+              : report.saveState === "SAVED_UNVERIFIED"
+                ? "Speicherstand noch nicht bestätigt"
+                : report.stored.length
+                  ? `${report.stored.length} ${report.stored.length === 1 ? "Angabe" : "Angaben"} gespeichert und im Profil bestätigt`
+                  : report.state === "FAILED"
+                    ? "Verarbeitung nicht abgeschlossen"
+                    : "Keine neuen sicheren Angaben zu speichern"}
           </h3>
           {!!report.stored.length && (
             <p>{report.stored.map(researchFieldLabel).join(" · ")}</p>

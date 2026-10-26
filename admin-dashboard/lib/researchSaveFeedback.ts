@@ -34,6 +34,7 @@ export function researchEvidenceReason(reason: string): string {
     SUPPORTED_WITH_MINOR_UNCERTAINTY: "Belegt; die geringe Restunsicherheit verhindert die Übernahme nicht.",
     CURRENT_VALUE_IDENTICAL: "Bereits identisch im Profil vorhanden.",
     OBSERVED_WEBSITE_REDIRECT_EQUIVALENT: "Dieselbe Website mit beobachteter Weiterleitung; die bisherige Adresse bleibt erhalten.",
+    CONTENT_SAFETY_HELD: "Vom Sicherheitsfilter zur Prüfung zurückgehalten. Die bisherige öffentliche Angabe bleibt erhalten.",
     MAJOR_UNCERTAINTY: "Erhebliche fachliche Unsicherheit: bitte die Zuordnung entscheiden.",
     ASSESSMENT_REQUIRED: "Die fachliche Einordnung zur Restunsicherheit fehlt in der Recherchedatei.",
     QUOTE_NOT_IN_SOURCE: "Der angegebene Beleg konnte im neu gelesenen Quellentext nicht wiedergefunden werden.",
