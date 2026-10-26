@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {discoverResearchLinks} from '../src/nuknuk-sources.mjs';
-import {parseFlatFieldFacts,applyScopedVerdicts,researchFieldAnswered} from '../dist/nuknuk-spot-plan.js';
+import {parseScopedCandidates,parseFlatFieldFacts,applyScopedVerdicts,researchFieldAnswered} from '../dist/nuknuk-spot-plan.js';
 import {createRestaurantResearchContext} from '../dist/nuknuk-research-context.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 const field=attributeKey=>({attributeKey,...researchValueContract(attributeKey),profileCategory:'EAT'});
@@ -34,4 +34,21 @@ test('restaurant critic receives the meaning of category codes as vocabulary rat
 test('discarded observed links retain a policy reason instead of silently vanishing',()=>{
  const excluded=[];discoverResearchLinks({url:'https://example.org/',contentType:'text/html',body:'<a href="/special-offers">Aktionen</a><a href="/reservation/checkout">Buchen</a>'},{spotProfile:true,onExcluded:entry=>excluded.push(entry)});
  assert.ok(excluded.some(e=>e.url.endsWith('/special-offers')&&e.reason==='CAMPAIGN_OR_TIME_BOUND_OFFER_PAGE'));assert.ok(excluded.some(e=>e.url.endsWith('/reservation/checkout')&&e.reason==='TRANSACTION_ACCOUNT_OR_SOURCE_BOUNDARY'));
+});
+
+test('house-specialities containing a real main dish reach semantic review without a dish-name allowlist',()=>{
+ const text='Unsere Hausspezialitäten - auch Take away\n\nAdana Kebap Spiess aus Rindsfleisch vom Holzkohlegrill';
+ const source={id:'s1',url:'https://example.org/angebot',text,hash:createHash('sha256').update(text).digest('hex'),observedAt:'2026-10-26T12:00:00Z'};
+ for(const [kind,name] of [['LUNCH','Mittagessen'],['DINNER','Abendessen']]){
+  const input={field:'experience.profile',scope:'OFFER',entityKind:kind,entityName:name,propertyKey:'',valueJson:'null',blockId:'b0',belongsTo:'TARGET',applicability:'CURRENT',condition:''};
+  const [c]=parseScopedCandidates({candidates:[input]},source,[field('experience.profile')],[{id:'b0',text}],0);assert.equal(c.reason,'SEMANTIC_CHECK_PENDING');assert.equal(c.state,'HELD');
+  applyScopedVerdicts({verdicts:[{id:c.id,verdict:'UNSUPPORTED',reasonCode:'NOT_ENTAILED',explanation:'This fixture models a semantic rejection.',evidenceQuote:text}]},[c],source);assert.equal(c.state,'REJECTED');
+ }
+});
+test('dining section admission retains negation and explicit meal daypart exclusions',()=>{
+ for(const text of ['Keine Hausspezialitäten oder warmen Speisen bei uns erhältlich.','Nur Mittagessen: Unsere Hausspezialitäten vom Holzkohlegrill sind mittags erhältlich.']){
+  const source={id:'s1',url:'https://example.org/angebot',text,hash:createHash('sha256').update(text).digest('hex'),observedAt:'2026-10-26T12:00:00Z'};
+  const input={field:'experience.profile',scope:'OFFER',entityKind:'DINNER',entityName:'Abendessen',propertyKey:'',valueJson:'null',blockId:'b0',belongsTo:'TARGET',applicability:'CURRENT',condition:''};
+  const [c]=parseScopedCandidates({candidates:[input]},source,[field('experience.profile')],[{id:'b0',text}],0);assert.notEqual(c.reason,'SEMANTIC_CHECK_PENDING');
+ }
 });

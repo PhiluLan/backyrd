@@ -19,7 +19,7 @@ import type {ResearchDecision,SpotResearchCandidate} from './nuknuk-spot-plan.js
 import {hasPublishedKitchenSchedule,NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,researchPhoneCountry,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v4.41';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v4.42';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
