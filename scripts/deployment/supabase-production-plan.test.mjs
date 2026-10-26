@@ -245,6 +245,25 @@ test("Product pre-applied observation cannot skip a middle migration", () => {
   assert.throws(()=>plan(f,commit(f.repo,"gap")),/product_preapplied_scope_mismatch/);
 });
 
+test('isolated safety release preserves earlier research and Volta receipts and never deploys Booking', async()=>{
+ const {RESEARCH_MIGRATION:research,RESEARCH_SAFETY_MIGRATION:safety,VOLTA_MIGRATIONS:volta,DEFERRED_BOOKING_MIGRATIONS:deferred}=await import('./isolated-research-migration.mjs');
+ const f=fixture();
+ for(const item of [...deferred,research,...volta,safety])write(f.repo,item.path,readFileSync(new URL('../../'+item.path,import.meta.url)));
+ const prior=commit(f.repo,'existing canonical migrations');
+ const receipt={status:'APPLIED_AND_VERIFIED',sourceSha:prior,deploymentRunId:1,manifestHash:'a'.repeat(64)};
+ const state={supabase:{isolatedResearchRelease:{...receipt,migration:research},isolatedVoltaRelease:{...receipt,migrations:volta}}};
+ write(f.repo,'delivery/production-state.json',JSON.stringify(state));
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({isolatedResearchMigrationScope:{contractVersion:'backyrd.isolated-research-migration-scope@1.0',baseSha:f.base,migrations:[safety],deferredMigrations:deferred,backupRunId:1,executionAuthorized:false}}));
+ const candidate=commit(f.repo,'approved isolated safety scope');
+ const selected=plan(f,candidate);
+ assert.deepEqual(selected.pendingMigrations,[safety]);assert.deepEqual(selected.deferredMigrations,deferred);assert.deepEqual(selected.deployFunctions,[]);
+ state.supabase.isolatedResearchSafetyRelease={...receipt,sourceSha:candidate,migration:safety};
+ write(f.repo,'delivery/production-state.json',JSON.stringify(state));
+ const after=plan(f,commit(f.repo,'verified isolated safety receipt'));
+ assert.deepEqual(after.pendingMigrations,[]);assert.deepEqual(after.deferredMigrations,deferred);
+ assert.equal(after.appliedResearch.migration.path,research.path);assert.deepEqual(after.appliedVolta.migrations,volta);
+});
+
 test('isolated research deployment and its verified receipt never mark deferred Booking as shipped', async()=>{
  const {RESEARCH_MIGRATION:target,DEFERRED_BOOKING_MIGRATIONS:deferred}=await import('./isolated-research-migration.mjs');
  const f=fixture();

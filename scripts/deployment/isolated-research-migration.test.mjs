@@ -8,6 +8,25 @@ import {RESEARCH_MIGRATION as target,VOLTA_MIGRATIONS as volta,DEFERRED_BOOKING_
 const base='a'.repeat(40);
 const scope={contractVersion:'backyrd.isolated-research-migration-scope@1.0',baseSha:base,migrations:[target],deferredMigrations:deferred,backupRunId:1,executionAuthorized:false};
 const input=()=>({pending:[...deferred,target],scope:structuredClone(scope),baseSha:base,deployFunctions:[],authDeploy:false,applied:null});
+test('safety correction uses the exact approved SQL and its own receipt without losing research history', async()=>{
+ const {RESEARCH_SAFETY_MIGRATION:safety}=await import('./isolated-research-migration.mjs');
+ const request={...input(),scope:{...scope,migrations:[safety]},pending:[...deferred,safety],applied:{migration:target},appliedSafety:null};
+ assert.deepEqual(scopeResearchMigrations(request).pendingMigrations,[safety]);
+ assert.deepEqual(scopeResearchMigrations({...request,pending:deferred,appliedSafety:{migration:safety}}).pendingMigrations,[]);
+ for(const patch of [{applied:null},{pending:[safety]},{pending:[...deferred,{...safety,sha256:'b'.repeat(64)}]},{deployFunctions:['decision-v13']},{authDeploy:true}])
+  assert.throws(()=>scopeResearchMigrations({...request,...patch}),/isolated_research/);
+ const receipt={status:'APPLIED_AND_VERIFIED',migration:safety,sourceSha:'b'.repeat(40),deploymentRunId:3,manifestHash:'c'.repeat(64)};
+ const root=new URL('../..',import.meta.url).pathname;
+ const read=path=>readFileSync(join(root,path));
+ assert.equal(researchAppliedReceipt({supabase:{isolatedResearchSafetyRelease:receipt}},read,()=>true,true),receipt);
+ assert.equal(researchAppliedReceipt({supabase:{isolatedResearchSafetyRelease:receipt}},read,()=>true),null);
+ assert.throws(()=>researchAppliedReceipt({supabase:{isolatedResearchSafetyRelease:{...receipt,migration:target}}},read,()=>true,true),/receipt_invalid/);
+ const output=mkdtempSync(join(tmpdir(),'backyrd-isolated-research-safety-'));
+ const plan={...scopeResearchMigrations(request),baseSha:base,deployFunctions:[],authConfig:null,appliedResearch:request.applied,appliedResearchSafety:null};
+ prepareResearchMigrationWorkspace(plan,root,output);
+ assert.equal(readFileSync(join(output,safety.path),'utf8'),readFileSync(join(root,safety.path),'utf8'));
+ for(const item of deferred)assert.equal(existsSync(join(output,item.path)),false);
+});
 test('the isolated scope selects exactly research and keeps every Booking migration explicitly deferred',()=>{
  const selected=scopeResearchMigrations(input());
  assert.deepEqual(selected.pendingMigrations,[target]);assert.deepEqual(selected.deferredMigrations,deferred);

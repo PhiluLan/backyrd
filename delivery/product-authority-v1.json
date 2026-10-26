@@ -69,14 +69,14 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261024113000_world_research_current_profile_import_v3.sql",
-        "sha256": "7be9ad6a4ee3c824fe8017cd5a29d7250833f9a44c8a24fef32e287f5cc3ce8b"
+        "path": "supabase/migrations/20261026215735_world_research_text_safety_word_boundary_v1.sql",
+        "sha256": "0b2060539b9ce2ef3dc7455870579b5c8df43fe64f56ce3b046aee87e2998fe3"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved migration 20261024113000 and the disclosed untested recovery risk on 2026-10-24 in the research-import conversation. Founder requested a separate release; the four Booking migrations remain deferred and are not authorized."
+    "source": "Founder explicitly approved the exact 20261026215735 migration and disclosed recovery risk on 2026-10-26. Only this SQL release is selected; the four Booking migrations remain deferred. Historical applied Volta and research receipts in production-state.json remain unchanged."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -95,17 +95,13 @@
       "supabase/functions/decision-v13/vnext-only.ts"
     ]
   },
-  "isolatedVoltaMigrationScope": {
-    "contractVersion": "backyrd.isolated-volta-migration-scope@1.0",
+  "isolatedResearchMigrationScope": {
+    "contractVersion": "backyrd.isolated-research-migration-scope@1.0",
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261024160151_correct_volta_venue_coordinates.sql",
-        "sha256": "dffad38aaf3155538b0f1a8a6c258ef7f0dfe12d747ed9cc36022bae1973241b"
-      },
-      {
-        "path": "supabase/migrations/20261024162056_align_volta_spots_to_verified_location.sql",
-        "sha256": "686acecb3ef27cfdb4407000cfdc8a31711df19f2913cd475556ecbf82fd35af"
+        "path": "supabase/migrations/20261026215735_world_research_text_safety_word_boundary_v1.sql",
+        "sha256": "0b2060539b9ce2ef3dc7455870579b5c8df43fe64f56ce3b046aee87e2998fe3"
       }
     ],
     "deferredMigrations": [
@@ -126,7 +122,7 @@
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
       }
     ],
-    "backupRunId": 40214751704,
+    "backupRunId": 40287797032,
     "executionAuthorized": false
   }
 }

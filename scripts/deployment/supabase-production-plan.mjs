@@ -462,13 +462,17 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   });
   for (const migration of appliedVolta?.migrations ?? []) preappliedPaths.add(migration.path);
+  const appliedResearchSafety = researchAppliedReceipt(state, head.read, source => {
+    try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
+  }, true);
+  if (appliedResearchSafety) preappliedPaths.add(appliedResearchSafety.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
   const scoped = authority?.isolatedVoltaMigrationScope
     ? scopeVoltaMigrations({pending:allPending,scope:authority.isolatedVoltaMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedResearch,appliedVolta})
-    : scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch});
+    : scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch,appliedSafety:appliedResearchSafety});
   const {pendingMigrations,deferredMigrations,isolatedResearchScope,isolatedVoltaScope} = scoped;
   const plan = {
     version: "backyrd-supabase-production-deployment-plan-v1",
@@ -485,6 +489,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     isolatedResearchScope: isolatedResearchScope ?? null,
     isolatedVoltaScope: isolatedVoltaScope ?? null,
     appliedResearch,
+    appliedResearchSafety,
     appliedVolta,
     additivePreappliedPriority: priorityReceipt,
     preappliedMigrationImport: preappliedMigrationImport ? {
