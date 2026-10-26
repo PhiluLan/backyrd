@@ -19,7 +19,7 @@ import type {ResearchDecision,SpotResearchCandidate} from './nuknuk-spot-plan.js
 import {hasPublishedKitchenSchedule,NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,researchPhoneCountry,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v4.40';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v4.41';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -2391,7 +2391,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       }
       const pageData=options.discoverLinks!==false&&!next.delegatedBy?discoverPublicDataSources(page):[];
       if(options.discoverLinks!==false&&!next.delegatedBy&&(next.depth<maxDepth||source.format==='JSON_TEXT'&&next.depth===maxDepth||pageData.length>0)) {
-        links=discoverResearchLinks(page,{spotProfile:true});
+        links=discoverResearchLinks(page,{spotProfile:true,onExcluded:entry=>{actions.push({stage:'SOURCE_LINK_EXCLUDED',discoveredOn:page.url,...entry});}});
         if(workingContext&&typeof page.body==='string'){
           const tags=page.body.match(/<link\b[^>]*>/giu)??[];
           const editions=tags.flatMap(tag=>{const attr=(key:string)=>new RegExp('\\b'+key+'=["\']([^"\']+)["\']','iu').exec(tag)?.[1];const lang=attr('hreflang'),href=attr('href');return lang&&href&&attr('rel')==='alternate'?[{lang,href}]:[];});

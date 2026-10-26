@@ -596,7 +596,7 @@ export function standingExperiencePath(url) {
   const leaf=path.split('/').filter(Boolean).at(-1)??'';
   return !/\b(?:19|20)\d{2}\b/u.test(leaf)&&/(?:atelier|workshops?|f(?:ü|ue|u)hrungen?|guided[-_]?tours?|education|vermittlung)/iu.test(leaf);
 }
-export function discoverResearchLinks(page,{spotProfile=false}={}) {
+export function discoverResearchLinks(page,{spotProfile=false,onExcluded=()=>{}}={}) {
   if(/^application\/json\b/iu.test(page.contentType??'')&&typeof page.body==='string') {
     let data;try{data=JSON.parse(page.body);}catch{return [];}
     const language=new URL(page.url).pathname.match(/\/Website\/(de|en|fr)\//iu)?.[1]?.toLowerCase()??'de';
@@ -611,7 +611,7 @@ export function discoverResearchLinks(page,{spotProfile=false}={}) {
     };
     walk(data);
     const escape=value=>value.replace(/&/gu,'&amp;').replace(/"/gu,'&quot;').replace(/</gu,'&lt;').replace(/>/gu,'&gt;');
-    return discoverResearchLinks({...page,contentType:'text/html',body:observed.map(({href,label})=>`<a href="${escape(href)}">${escape(label)}</a>`).join('\n')});
+    return discoverResearchLinks({...page,contentType:'text/html',body:observed.map(({href,label})=>`<a href="${escape(href)}">${escape(label)}</a>`).join('\n')},{spotProfile,onExcluded});
   }
   if(typeof page.body!=='string'||!/^(text\/html|application\/xhtml\+xml)/i.test(page.contentType??''))return [];
   const links=[];
@@ -636,12 +636,21 @@ export function discoverResearchLinks(page,{spotProfile=false}={}) {
       // group services too. This only admits observed public GET pages; account,
       // payment, booking transactions and calendar detail URLs remain excluded.
       const profileUrl=new URL(url);
-      const profileDescription=spotProfile&&!/\b(?:19|20)\d{2}\b|\d{1,2}[._-]\d{1,2}[._-]\d{2,4}/u.test(profileUrl.pathname+' '+label)&&/(?:^|\/)(?:feier(?:e|n)?(?:[-_][^/]+)?|anl[aä]sse|eventlocation|private[-_]events|celebrations|r[aä]ume|raeume|spaces|terrasse|terrace|garten|garden|room[-_]hire|room[-_]rental|raumvermietung|location-de-salle|angebote|offers|group[-_]offers|group[-_]tours|school[-_]offers|ihr[-_]anlass|your[-_]event)(?:[/.]|$)/iu.test(profileUrl.pathname);
+      const profileDescription=spotProfile&&!/\b(?:19|20)\d{2}\b|\d{1,2}[._-]\d{1,2}[._-]\d{2,4}/u.test(profileUrl.pathname+' '+label)&&/(?:^|\/)(?:feier(?:e|n)?(?:[-_][^/]+)?|anl[aä]sse|eventlocation|private[-_]events|celebrations|r[aä]ume|raeume|spaces|terrasse|terrace|garten|garden|room[-_]hire|room[-_]rental|raumvermietung|location-de-salle|angebote?|offers?|group[-_]offers|group[-_]tours|school[-_]offers|ihr[-_]anlass|your[-_]event)(?:[/.]|$)/iu.test(profileUrl.pathname);
+      // Reading an observed public reservations information page never submits a
+      // booking. Only the exact informational leaf is admitted; checkout,
+      // account, calendar/detail queries and nested transaction paths stay out.
+      const reservationInfo=spotProfile&&!profileUrl.search&&/\/(?:reservations?|reservierungen?|reservieren|book-a-table)(?:\.html)?\/?$/iu.test(profileUrl.pathname)
+        &&!/(?:^|\/)(?:checkout|login|account|payment|confirm|cancel)(?:\/|$)/iu.test(profileUrl.pathname);
+      if(reservationInfo&&matchesExistingWebsite(url,page.url)&&url!==page.url){
+        if(!links.some(link=>link.url===url)&&links.length<500)links.push({url,label,topics:['visit','access']});
+        continue;
+      }
       if(profileDescription&&matchesExistingWebsite(url,page.url)&&url!==page.url&&!profileUrl.search&&!/login|logout|sign.?in|checkout|booking|reservation|register|privacy|datenschutz|shop|warenkorb|(?:^|\/)(?:cart|shopping-cart)(?:[/.]|$)|membership|donate/iu.test(profileUrl.pathname)){
         if(!links.some(link=>link.url===url)&&links.length<500)links.push({url,label,topics:['experience','areas','visit','access']});
         continue;
       }
-      if(!matchesExistingWebsite(url,page.url)||url===page.url||/(?:^|\/)[&;]+(?:\/|$)/u.test(new URL(url).pathname)||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|(?:^|\/)(?:cart|shopping-cart)(?:[/.]|$)|privacy|datenschutz|(?:^|\/)(?:shop|jobs?|stellenangebote|karriere|careers?|buchen|[^/]*-buchen|anmeldung(?:-[^/]*)?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|room-rental|raumvermietung|location-de-salle|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname))continue;
+      if(!matchesExistingWebsite(url,page.url)||url===page.url||/(?:^|\/)[&;]+(?:\/|$)/u.test(new URL(url).pathname)||/login|logout|sign.?in|register|checkout|booking|reservation|reservieren|warenkorb|(?:^|\/)(?:cart|shopping-cart)(?:[/.]|$)|privacy|datenschutz|(?:^|\/)(?:shop|jobs?|stellenangebote|karriere|careers?|buchen|[^/]*-buchen|anmeldung(?:-[^/]*)?|request-for[^/]*|demande-de[^/]*|anfrage[^/]*|formular[^/]*|room-rental|raumvermietung|location-de-salle|mitglied(?:-werden)?|membership|members?|unterstuetzen|unterstützen|spenden|donate|fundraising)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname)){onExcluded({url,reason:'TRANSACTION_ACCOUNT_OR_SOURCE_BOUNDARY'});continue;}
       if(/\.(?:pdf|jpe?g|png|webp|gif)(?:[?#]|$)/iu.test(url))continue;
       // Dated events are useful to a different product flow, but cannot prove
       // a permanent venue offering or regular opening hours. Do not spend the
@@ -662,7 +671,7 @@ export function discoverResearchLinks(page,{spotProfile=false}={}) {
       if(/(?:^|\/)(?:ausstellungen?|exhibitions?|expositions?|group[-_]offers?|group[-_]tours?|school[-_]offers?|press|presse|media|medien)(?:\.[a-z0-9]+)?(?:\/|$)/iu.test(new URL(url).pathname))continue;
       // Campaigns, member deals and artist programmes do not establish a
       // permanent venue profile, and their contact details may be departmental.
-      if(/(?:^|\/)(?:offers?|angebote?|deals?|specials?|special-offers?|promotions?|stay-for-goods|artist-in-(?:hotel-)?residence)(?:\/|$)/iu.test(pathname))continue;
+      if(/(?:^|\/)(?:offers?|angebote?|deals?|specials?|special-offers?|promotions?|stay-for-goods|artist-in-(?:hotel-)?residence)(?:\/|$)/iu.test(pathname)){onExcluded({url,reason:'CAMPAIGN_OR_TIME_BOUND_OFFER_PAGE'});continue;}
       // Parent paths name a site section, not necessarily the linked page.
       // /informationen/pv-anlage.html is not visitor information merely
       // because it sits under /informationen/.

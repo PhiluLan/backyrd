@@ -2280,3 +2280,7 @@ remain ignored under `.local/nuknuk-research/`; no customer/admin exports enter 
 ## v4.40 publication boundary
 
 This release publishes the local draft-only research CLI and its versioned method. It does not deploy an unattended worker, change model weights, or write Spot profiles. The AREA booking catalog migration is included for coordinated review but requires its own production release approval before application. Until applied, area-scoped booking proposals may be reviewed as research evidence but must not be treated as successfully imported canonical profile data. Admin UI changes are a separate release.
+
+## v4.41 source completeness repair
+
+Observed singular/plural offer overview links are visitor research sources. Exact same-site reservation information paths may be fetched read-only, with no query, transaction submission or external booking traversal. Excluded transaction and campaign links retain their policy reason in SOURCE_LINK_EXCLUDED actions. Proximity text and postcode/city alone cannot complete a street-address field; incomplete addresses remain reviewable and discovery stays open. The fixed restaurant lexicon explains EAT as a category code, not a provider. The Marmaris v4.40 run is a failed quality fixture, not approved training data.
