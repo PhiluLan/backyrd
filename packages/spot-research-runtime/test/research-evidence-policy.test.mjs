@@ -257,3 +257,16 @@ test("official observed PDF redirects are followed, arbitrary same-host files ar
   });
   assert.equal(denied.pages.has(injected.source.url), false);
 });
+
+test('legal pages are read only for missing public contact evidence, never for offers or terms',async()=>{
+ const root={url:site,contentType:'text/html',observedAt:at,body:'<h1>Correct Restaurant</h1><p>Gerbergasse 11 Basel</p><a href="/impressum">Impressum</a><a href="/datenschutz">Datenschutz</a><a href="/agb">AGB</a>'};
+ const contact={...claim,attributeKey:'contact.public_email',value:'info@example.org',source:{...source,url:site+'impressum',evidence:'info@example.org'}};
+ let count=0;
+ const fetchPage=async url=>{count++;assert.equal(url,site+'impressum');return {...root,url,body:'<p>info@example.org</p>'};};
+ const contactEvidence=await collectResearchEvidence({page:root,website:site,name:'Correct Restaurant',locality:'Basel',address:'Gerbergasse 11',claims:[contact],fetchPage});
+ assert.equal(count,1);assert.equal(contactEvidence.pages.has(site+'impressum'),true);
+ const offer={...claim,source:{...source,url:site+'impressum'}};
+ const offerEvidence=await collectResearchEvidence({page:root,website:site,name:'Correct Restaurant',locality:'Basel',address:'Gerbergasse 11',claims:[offer],fetchPage});
+ assert.equal(count,1);assert.equal(offerEvidence.pages.has(site+'impressum'),false);
+ for(const path of ['agb','datenschutz']){const c={...contact,source:{...source,url:site+path}};const e=await collectResearchEvidence({page:root,website:site,name:'Correct Restaurant',locality:'Basel',address:'Gerbergasse 11',claims:[c],fetchPage});assert.equal(e.pages.has(site+path),false);}
+});

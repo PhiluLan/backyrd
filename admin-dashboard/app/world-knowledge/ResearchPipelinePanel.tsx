@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { PipelineReport } from "@/lib/server/researchSafeImport";
+import { researchEvidenceReason } from "@/lib/researchSaveFeedback";
 import { researchFieldLabel } from "./ResearchValue";
 import styles from "./WorldResearchBatchPanel.module.css";
 export function ResearchPipelinePanel({
@@ -193,16 +194,34 @@ export function ResearchPipelinePanel({
               {report.review.map((item) => (
                 <li key={item.attributeKey}>
                   {researchFieldLabel(item.attributeKey)}:{" "}
-                  {item.explanation ||
-                    (item.reason === "EXISTING_VALUE_PROTECTED"
-                      ? "Die bestehende Angabe bleibt erhalten; bitte den Unterschied prüfen."
-                      : item.reason === "FIELD_REQUIRES_REVIEW"
-                        ? "Für dieses Feld ist eine Prüfung vorgesehen."
-                        : "Quelle oder Zuordnung konnte nicht eindeutig bestätigt werden.")}
+                  {researchEvidenceReason(item.reason)}
+                  {item.explanation && <p>{item.explanation}</p>}
+                  <small>Prüfgrund: {item.reason}</small>
                 </li>
               ))}
             </ul>
           )}
+          <details className={styles.details}>
+            <summary>Entscheidungen und Quellen ansehen</summary>
+            <ul>
+              {report.decisions.map((item) => (
+                <li key={item.attributeKey}>
+                  <strong>{researchFieldLabel(item.attributeKey)}</strong>:{" "}
+                  {researchEvidenceReason(item.reason)}
+                  {item.explanation && <p>{item.explanation}</p>}
+                  {item.sourceUrl && (
+                    <a
+                      href={item.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Quelle öffnen
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
           {(report.review.length > 0 || report.unresolved.length > 0) &&
             !report.errors.length && (
               <button

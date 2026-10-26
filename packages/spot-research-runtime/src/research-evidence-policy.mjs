@@ -89,6 +89,11 @@ export async function collectResearchEvidence({
   fetchPage,
   readPdf,
 }) {
+  const contactOnlyKeys = [
+    "contact.public_email",
+    "contact.phone",
+    "location.address_line1",
+  ];
   const pages = new Map(),
     failures = [],
     documentLinks = new Set();
@@ -131,7 +136,9 @@ export async function collectResearchEvidence({
         try {
           if (
             host(link.url) === host(website) &&
-            researchLegalPage(link.url, link.label) === "VISITOR"
+            (researchLegalPage(link.url, link.label) === "VISITOR" ||
+              (researchLegalPage(link.url, link.label) === "CONTACT_ONLY" &&
+                claims.some((c) => contactOnlyKeys.includes(c.attributeKey))))
           ) {
             allowed.add(uri(link.url));
             if (/pdfdownload|\.pdf(?:$|[?#])/iu.test(link.url))
@@ -697,6 +704,7 @@ export function proveResearchEvidence({
 }) {
   const hold = (reason) => ({
     eligible: false,
+    url: claim.source.url,
     reason,
     uncertainty: assessment?.uncertainty ?? "UNASSESSED",
     explanation:
@@ -719,6 +727,15 @@ export function proveResearchEvidence({
       return hold("SOURCE_URL_INVALID");
     }
     if (!p) return hold("SOURCE_NOT_IN_OFFICIAL_GRAPH");
+    if (
+      researchLegalPage(p.url) === "CONTACT_ONLY" &&
+      ![
+        "contact.public_email",
+        "contact.phone",
+        "location.address_line1",
+      ].includes(claim.attributeKey)
+    )
+      return hold("SOURCE_CONTACT_ONLY");
     if (
       !Number.isFinite(Date.parse(source.observedAt)) ||
       now - Date.parse(source.observedAt) > 86400000 ||
