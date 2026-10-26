@@ -79,7 +79,7 @@ test('hidden historical questions remain parseable and are not silently reclassi
 test('the forward SQL validator uses exactly the current scoped JSON schema',async()=>{
  const {readFileSync}=await import('node:fs');
  const {EXPERIENCE_PROFILE_SCHEMA}=await import('../dist/index.js');
- const source=readFileSync(new URL('../../../supabase/migrations/20261015110000_universal_spot_catalog_v2_5.sql',import.meta.url),'utf8');
+ const source=readFileSync(new URL('../../../supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql',import.meta.url),'utf8');
  const schema=source.match(/experience_json_schema_matches_v1\('(.*?)'::jsonb/s)?.[1];
  assert.ok(schema);
  assert.deepEqual(JSON.parse(schema),EXPERIENCE_PROFILE_SCHEMA);

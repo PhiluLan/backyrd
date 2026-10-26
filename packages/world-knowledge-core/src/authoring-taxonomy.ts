@@ -3,7 +3,7 @@ import { hashBody } from "./canonical.js";
 import { AMENITY_FEATURES, CUISINES, FOOD_SPECIALITIES, OFFERING_GROUPS, PLACE_TYPES, PRIMARY_CATEGORIES, type PrimaryCategory } from "./registry.js";
 
 export const AUTHORING_TAXONOMY_VERSION = "backyrd.world-knowledge.authoring-taxonomy@5.0" as const;
-export const AUTHORING_GUIDANCE_VERSION = "backyrd.world-knowledge.authoring-guidance@1.0" as const;
+export const AUTHORING_GUIDANCE_VERSION = "backyrd.world-knowledge.authoring-guidance@1.1" as const;
 export type AuthoringTaxonomyState = "CANONICAL" | "NOT_CONFIGURED";
 export interface AuthoringTaxonomyOption {
   readonly value: string;
@@ -43,6 +43,7 @@ const categoryPlaceTypeExtensions: Readonly<Partial<Record<PrimaryCategory, read
 
 const cuisinePlaceTypes = Object.freeze(["RESTAURANT", "BRASSERIE", "BISTRO", "FOOD_HALL", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD"]);
 const foodOfferingPlaceTypes = Object.freeze([...cuisinePlaceTypes, "CAFE", "BAKERY", "PATISSERIE", "BAR", "PUB", "BREWERY", "TAPROOM", "WINE_BAR", "COCKTAIL_BAR", "LOUNGE"]);
+const stayFoodOfferingPlaceTypes = Object.freeze(["HOTEL", "HOSTEL", "GUESTHOUSE"]);
 const kitchenPlaceTypes = Object.freeze([...cuisinePlaceTypes]);
 const servicePlaceTypes = Object.freeze([...foodOfferingPlaceTypes]);
 const seatedPlaceTypes = Object.freeze([...foodOfferingPlaceTypes, "THEATRE", "CINEMA", "CONCERT_VENUE", "COMEDY_CLUB", "EVENT_VENUE"]);
@@ -65,7 +66,8 @@ export function isAuthoringAttributeRelevant(attributeKey: string, context?: Aut
   const selected = selectedPlaceTypes(context);
   if (!selected.length) return true;
   if (attributeKey === "offering.cuisines") return hasAnyType(selected, cuisinePlaceTypes);
-  if (["offering.food_specialities", "offering.groups"].includes(attributeKey)) return hasAnyType(selected, foodOfferingPlaceTypes);
+  if (attributeKey === "offering.food_specialities") return hasAnyType(selected, foodOfferingPlaceTypes);
+  if (attributeKey === "offering.groups") return hasAnyType(selected, [...foodOfferingPlaceTypes, ...stayFoodOfferingPlaceTypes]);
   if (["operation.service_model", "operation.service_format", "operation.takeaway"].includes(attributeKey)) return hasAnyType(selected, servicePlaceTypes);
   if (["hours.kitchen", "hours.kitchen_special"].includes(attributeKey)) return hasAnyType(selected, kitchenPlaceTypes);
   if (["capacity.seats_indoor", "capacity.seats_outdoor", "capacity.seats_total"].includes(attributeKey)) return hasAnyType(selected, seatedPlaceTypes);
@@ -121,4 +123,4 @@ export const assessPlaceTypeCompatibility = (category: PrimaryCategory | null | 
 };
 
 export const AUTHORING_TAXONOMY_HASH = hashBody({ version: AUTHORING_TAXONOMY_VERSION, categoryMatrix: CATEGORY_AUTHORING_MATRIX, placeTypes: PLACE_TYPE_AUTHORING_OPTIONS, cuisines: CUISINE_AUTHORING_OPTIONS, foodSpecialities: FOOD_SPECIALITY_AUTHORING_OPTIONS, offerings: OFFERING_AUTHORING_OPTIONS, amenities: AMENITY_AUTHORING_OPTIONS }, []);
-export const AUTHORING_GUIDANCE_HASH = hashBody({ version: AUTHORING_GUIDANCE_VERSION, categoryPlaceTypeExtensions, fieldRules: { cuisinePlaceTypes, foodOfferingPlaceTypes, kitchenPlaceTypes, servicePlaceTypes, seatedPlaceTypes, bookablePlaceTypes, laptopPlaceTypes, stayPolicyPlaceTypes } }, []);
+export const AUTHORING_GUIDANCE_HASH = hashBody({ version: AUTHORING_GUIDANCE_VERSION, categoryPlaceTypeExtensions, fieldRules: { cuisinePlaceTypes, foodOfferingPlaceTypes, stayFoodOfferingPlaceTypes, kitchenPlaceTypes, servicePlaceTypes, seatedPlaceTypes, bookablePlaceTypes, laptopPlaceTypes, stayPolicyPlaceTypes } }, []);

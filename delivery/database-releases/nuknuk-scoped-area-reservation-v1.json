@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "nuknuk-scoped-area-reservation-v1",
+  "previousEvidence": "volta-shared-coordinate",
+  "previousFingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",
+      "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_knowledge_area_reservation_v1.sql",
+      "sha256": "74e78fbd0ce31671dcf76348dff8c9afe9c392597546c7750d431dd8eb5dad6b"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  }
+}
