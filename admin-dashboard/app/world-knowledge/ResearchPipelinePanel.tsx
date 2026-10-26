@@ -7,10 +7,12 @@ export function ResearchPipelinePanel({
   spot,
   post,
   openReview,
+  onProcessed,
 }: {
   spot: { spotId: string; name: string } | null;
   post: (body: unknown) => Promise<unknown>;
   openReview: (jobId: string) => void;
+  onProcessed: () => Promise<void>;
 }) {
   const [text, setText] = useState(""),
     [busy, setBusy] = useState(false),
@@ -62,6 +64,7 @@ export function ResearchPipelinePanel({
         report: PipelineReport;
       };
       setReport(result.report);
+      await onProcessed().catch(() => setMessage("Die Auftragsliste konnte noch nicht aktualisiert werden. Das Verarbeitungsergebnis steht oben; bitte die Seite neu laden."));
     });
   return (
     <div className={styles.stage}>

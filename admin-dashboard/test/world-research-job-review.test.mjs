@@ -10,7 +10,7 @@ const output = ts.transpileModule(source, { compilerOptions: { module: ts.Module
 const directory = await mkdtemp(join(tmpdir(), "backyrd-research-job-review-test-"));
 const modulePath = join(directory, "module.mjs");
 await writeFile(modulePath, output, { mode: 0o600 });
-const { matchesAutomatedReviewJob, reviewCanFinish, visibleResearchJobs, researchDeclinedKeys } = await import(modulePath);
+const { matchesAutomatedReviewJob, reviewCanFinish, visibleResearchJobs, researchDeclinedKeys, researchPipelineSummary } = await import(modulePath);
 
 const job = {
   id: "job-1", spot_id: "spot-1", actor_id: "admin-1", status: "READY_FOR_REVIEW",
@@ -70,4 +70,12 @@ test('completed automatic jobs leave the open list without fabricating a human r
 test('manual review cannot race a pipeline before its automatic processing finishes',()=>{
   for(const phase of ['RECEIVED','PROVED'])assert.equal(matchesAutomatedReviewJob({...job,export_document:{...job.export_document,pipeline:{phase}}},document,'admin-1'),false);
   assert.equal(matchesAutomatedReviewJob({...job,export_document:{...job.export_document,pipeline:{phase:'FINISHED'}}},document,'admin-1'),true);
+});
+
+test('an active pipeline lease is processing, an expired one is recoverable, and completed counts are authoritative',()=>{
+ const now=Date.parse('2026-10-26T20:00:00Z');
+ assert.deepEqual(researchPipelineSummary({phase:'PROVED'},'2026-10-26T20:01:00Z',now),{state:'PROCESSING',stored:0,review:0,errors:[]});
+ assert.deepEqual(researchPipelineSummary({phase:'PROVED'},'2026-10-26T19:59:00Z',now),{state:'INCOMPLETE',stored:0,review:0,errors:['research_pipeline_processing_interrupted']});
+ assert.deepEqual(researchPipelineSummary({phase:'FINISHED',report:{state:'REVIEW_REQUIRED',stored:['a','b'],review:[1,2,3,4,5],unresolved:[1,2],errors:[]}},null,now),{state:'REVIEW_REQUIRED',stored:2,review:7,errors:[]});
+ assert.equal(researchPipelineSummary(undefined,null,now),undefined);
 });
