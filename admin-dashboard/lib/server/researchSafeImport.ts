@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import {
   AUTHORING_STEPS,
+  AUTHORING_FIELDS,
   canonicalJson,
   createWorldResearchBatch,
   parseWorldResearchBatch,
@@ -15,16 +16,34 @@ import {
   SAFE_RESEARCH_KEYS,
   SAFE_RESEARCH_POLICY,
 } from "../../../packages/spot-research-runtime/src/research-safe-properties.mjs";
+import {
+  collectResearchEvidence,
+  parseResearchAssessments,
+  proveResearchEvidence,
+  RESEARCH_EVIDENCE_POLICY,
+  type ResearchAssessment,
+} from "../../../packages/spot-research-runtime/src/research-evidence-policy.mjs";
 import { ResearchSaveError } from "../researchSaveFeedback";
 import type { WorldResearchDetail } from "./worldResearchExport";
 
 export const BASIC_RESEARCH_KEYS = AUTHORING_STEPS.find(
   (step) => step.id === "basics",
 )!.attributeKeys;
+export const COMPLETE_RESEARCH_KEYS = AUTHORING_FIELDS.map(
+  (field) => field.attributeKey,
+).filter((key) => key !== "state.current");
+type AssessedDocument = WorldResearchBatchDocument & {
+  research: WorldResearchBatchDocument["research"] & {
+    assessments?: ResearchAssessment[];
+  };
+};
 export type PipelineDecision = {
   attributeKey: string;
   outcome: "AUTO_READY" | "REVIEW" | "UNCHANGED";
   reason: string;
+  uncertainty?: string;
+  explanation?: string;
+  sourceProofs?: Array<{ url: string; hash: string; observedAt: string }>;
   sourceHash?: string;
   sourceUrl?: string;
 };
@@ -121,7 +140,13 @@ function currentDocument(
   });
   return {
     ...current,
-    research: { ...current.research, spots: document.research.spots },
+    research: {
+      ...current.research,
+      ...((document as AssessedDocument).research.assessments
+        ? { assessments: (document as AssessedDocument).research.assessments }
+        : {}),
+      spots: document.research.spots,
+    },
   };
 }
 export async function processSafeResearchDocument(
@@ -131,11 +156,13 @@ export async function processSafeResearchDocument(
     repository,
     fetchPage = fetchPublicSource,
     now = () => Date.now(),
+    readPdf,
   }: {
     actorId: string;
     repository: SafeImportRepository;
     fetchPage?: typeof fetchPublicSource;
     now?: () => number;
+    readPdf?: (body: Uint8Array) => Promise<string>;
   },
 ): Promise<{ report: PipelineReport; document: WorldResearchBatchDocument }> {
   const parsed = parseWorldResearchBatch(input);
@@ -144,20 +171,31 @@ export async function processSafeResearchDocument(
   const exported = parsed.batch.spots[0],
     research = parsed.research.spots[0],
     claims = parsed.validatedClaims.get(exported.spotId) ?? [];
+  const rawResearch =
+    input && typeof input === "object" && "research" in input
+      ? (input as { research?: { assessments?: unknown } }).research
+      : undefined;
+  const assessments = parseResearchAssessments(
+    rawResearch?.assessments,
+    claims,
+  );
+  const policy = assessments ? RESEARCH_EVIDENCE_POLICY : SAFE_RESEARCH_POLICY;
   if (
+    !assessments &&
     [...claims, ...research.unresolved].some(
       (item) => !BASIC_RESEARCH_KEYS.includes(item.attributeKey),
     )
   )
     throw new Error("research_pipeline_basics_only");
   // Do not persist the parser's runtime Map or unvalidated extra client members.
-  const document: WorldResearchBatchDocument = {
+  const document: AssessedDocument = {
     contractVersion: parsed.contractVersion,
     purpose: parsed.purpose,
     batch: parsed.batch,
     fieldCatalog: parsed.fieldCatalog,
     research: {
       instructions: parsed.research.instructions,
+      ...(assessments ? { assessments } : {}),
       spots: [
         { spotId: exported.spotId, claims, unresolved: research.unresolved },
       ],
@@ -179,7 +217,7 @@ export async function processSafeResearchDocument(
     spotId: exported.spotId,
     document,
     metadata: {
-      policy: SAFE_RESEARCH_POLICY,
+      policy,
       inputHash: sha256(document),
       phase: "RECEIVED",
       accepted: [],
@@ -190,7 +228,7 @@ export async function processSafeResearchDocument(
     job.actorId !== actorId ||
     job.spotId !== exported.spotId ||
     job.metadata.inputHash !== sha256(document) ||
-    job.metadata.policy !== SAFE_RESEARCH_POLICY
+    job.metadata.policy !== policy
   )
     throw new Error("research_pipeline_job_binding_invalid");
   if (
@@ -203,7 +241,7 @@ export async function processSafeResearchDocument(
   if (!(await repository.acquire(job.id, lease)))
     throw new Error("research_pipeline_already_processing");
   const report: PipelineReport = {
-    policy: SAFE_RESEARCH_POLICY,
+    policy,
     jobId: job.id,
     spotId: exported.spotId,
     name: exported.name,
@@ -230,11 +268,12 @@ export async function processSafeResearchDocument(
         website?.knowledgeState === "KNOWN_VALUE" &&
         website.visibility === "PUBLIC" &&
         typeof website.value === "string" &&
-        claims.some(
-          (claim) =>
-            SAFE_RESEARCH_KEYS.includes(claim.attributeKey) &&
-            !detail.answers?.[claim.attributeKey],
-        )
+        (assessments ||
+          claims.some(
+            (claim) =>
+              SAFE_RESEARCH_KEYS.includes(claim.attributeKey) &&
+              !detail.answers?.[claim.attributeKey],
+          ))
       ) {
         // Fetch only the server-read canonical URL, never a client-supplied source.
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -262,6 +301,28 @@ export async function processSafeResearchDocument(
           }
         }
       }
+      const evidence =
+        assessments && page && typeof website?.value === "string"
+          ? await collectResearchEvidence({
+              page,
+              website: website.value,
+              name: detail.name,
+              locality: String(
+                detail.answers?.["location.locality"]?.value ?? "",
+              ),
+              address: String(
+                detail.answers?.["location.address_line1"]?.value ?? "",
+              ),
+              claims: claims.filter(
+                (claim) =>
+                  !detail.answers?.[claim.attributeKey] ||
+                  !equal(detail.answers[claim.attributeKey].value, claim.value),
+              ),
+              fetchPage,
+              readPdf,
+            })
+          : null;
+      if (evidence) report.sourceFailures.push(...evidence.failures);
       const decisions: PipelineDecision[] = [],
         accepted: ReviewedResearchClaim[] = [];
       for (const claim of claims) {
@@ -278,7 +339,30 @@ export async function processSafeResearchDocument(
           });
           continue;
         }
-        if (current) {
+        if (
+          assessments &&
+          claim.attributeKey === "contact.website" &&
+          current?.value &&
+          page
+        ) {
+          const normalize = (url: string) =>
+            new URL(url).href.replace(/\/$/u, "");
+          if (
+            typeof claim.value === "string" &&
+            [website?.value, page.url, ...(page.redirectedFrom ?? [])]
+              .filter((url): url is string => typeof url === "string")
+              .map(normalize)
+              .includes(normalize(claim.value))
+          ) {
+            decisions.push({
+              attributeKey: claim.attributeKey,
+              outcome: "UNCHANGED",
+              reason: "OBSERVED_WEBSITE_REDIRECT_EQUIVALENT",
+            });
+            continue;
+          }
+        }
+        if (current && !assessments) {
           decisions.push({
             attributeKey: claim.attributeKey,
             outcome: "REVIEW",
@@ -304,6 +388,38 @@ export async function processSafeResearchDocument(
                 : "OFFICIAL_SOURCE_NOT_VERIFIED"
               : "FIELD_REQUIRES_REVIEW",
           });
+          continue;
+        }
+        if (assessments && evidence) {
+          const proof = proveResearchEvidence({
+            claim,
+            assessment: assessments.find(
+              (a) => a.attributeKey === claim.attributeKey,
+            ),
+            evidence,
+            current,
+            website: website.value,
+            page,
+            claims,
+            now: now(),
+          });
+          decisions.push({
+            attributeKey: claim.attributeKey,
+            outcome: proof.eligible ? "AUTO_READY" : "REVIEW",
+            reason: proof.reason,
+            uncertainty: proof.uncertainty,
+            explanation: proof.explanation,
+            sourceProofs: proof.sourceProofs,
+            sourceHash: proof.sourceHash,
+            sourceUrl: proof.url,
+          });
+          if (proof.eligible && proof.source)
+            accepted.push({
+              ...claim,
+              source: proof.source,
+              supportingSources: proof.supportingSources ?? [],
+              supersedesClaimId: current?.claimId ?? null,
+            });
           continue;
         }
         const proof = proveSafeResearchProperty({
@@ -363,7 +479,9 @@ export async function processSafeResearchDocument(
     const mentioned = new Set(
       [...claims, ...report.unresolved].map((item) => item.attributeKey),
     );
-    for (const key of BASIC_RESEARCH_KEYS)
+    for (const key of assessments
+      ? COMPLETE_RESEARCH_KEYS
+      : BASIC_RESEARCH_KEYS)
       if (!mentioned.has(key) && !detail.answers?.[key])
         report.unresolved.push({
           attributeKey: key,
@@ -372,7 +490,7 @@ export async function processSafeResearchDocument(
         });
     if (job.metadata.accepted.length) {
       // Re-read and the existing transactional RPC rechecks the latest claim ID
-      // while holding the Spot row lock. No supersedes identity is supplied.
+      // while holding the Spot row lock. Corrections bind the exact superseded claim.
       latest = await repository.readSpot(exported.spotId);
       if (
         latest.name !== detail.name ||
@@ -440,7 +558,7 @@ export async function processSafeResearchDocument(
       report.manifestHash = rebuilt.manifestHash;
     }
     report.state =
-      report.review.length || report.unresolved.length
+      report.review.length || (!assessments && report.unresolved.length)
         ? "REVIEW_REQUIRED"
         : "COMPLETE";
   } catch (cause) {

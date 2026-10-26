@@ -6,10 +6,11 @@ import {
   WORLD_RESEARCH_SPOT_ID,
 } from "@/lib/server/worldResearchExport";
 import {
-  BASIC_RESEARCH_KEYS,
+  COMPLETE_RESEARCH_KEYS,
   processSafeResearchDocument,
 } from "@/lib/server/researchSafeImport";
 import { safeImportRepository } from "@/lib/server/researchSafeImportRepository";
+import { readResearchPdf } from "@/lib/server/researchPdf";
 import { ResearchSaveError } from "@/lib/researchSaveFeedback";
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -70,14 +71,15 @@ export async function POST(request: Request) {
       ]);
       document.research.instructions = [
         ...document.research.instructions,
-        "Auftrag: ausschließlich die 16 folgenden Grundinformationen recherchieren: " +
-          BASIC_RESEARCH_KEYS.join(", ") +
-          ". Keine Zeiten, Preise, Angebote oder Bereiche bearbeiten. Zuerst offizielle Startseite inklusive Footer, Kontakt-Widgets, Metadaten und sichtbarer Telefon-/E-Mail-/Social-Links lesen. Fehlende Felder gezielt weiterrecherchieren. Originalbeleg, URL und tatsächliche Abrufzeit angeben; unbekannt bleibt offen. Keine Erfolgs- oder Vertrauensprozentzahl erfinden.",
+        "Auftrag: vollständige Spot-Recherche anhand des Feldkatalogs. Reihenfolge: Grunddaten und Kontakt, Öffnungszeiten, Angebote und Bereiche, praktische Eigenschaften. Offizielle Seiten inklusive Footer und verlinkter PDF-Karten lesen. Datenschutz und AGB nie lesen; Impressum nur für fehlende Kontaktdaten. Quellen, wörtliche Belege und tatsächliche Abrufzeit erhalten. Nicht belegte Angaben bleiben unresolved; keine negativen Eigenschaften erfinden.",
+        "Zusätzlich research.assessments liefern: je Claim {attributeKey, uncertainty: NONE|MINOR|MAJOR, reason, bindings:{}}. reason begründet die fachliche Einordnung konkret. Beleg plus geringe Restunsicherheit wird übernommen; erhebliche Unsicherheit kommt zur Prüfung. Synonyme wie Mittag/Mittagsmenü/Lunch und Mittagessen sind gleichwertig. Keine Vertrauensprozentzahlen.",
+        "Für experience.profile muss bindings jeden Bereich, jedes Angebot und jede Eigenschaft/Preisposition an eine konkrete Quelle binden: JSON-Pfad -> Index in [source,...supportingSources], z.B. /offers/0:0 oder /offers/0/prices/0:1. Ausprägungen, räumliche Zuordnung, Preisbasis und Gültigkeit nicht verallgemeinern. reviewed darf erst nach dieser fachlichen Quellenprüfung true werden; dies ist die delegierte Admin-Übernahme, keine erfundene persönliche Prüfung.",
+        "Bestehende Angaben nur mit klar belegter Korrektur ersetzen; erhebliche Quellenkonflikte als MAJOR einordnen. Standortdaten nur aus einer eindeutigen Adresssuche, nicht aus Kartenmittelpunkten ableiten. Beobachtete Website-Weiterleitungen gelten als gleichwertig. state.current bleibt ausserhalb der automatischen Recherche.",
       ];
       return Response.json(
         {
           document,
-          requestedFields: BASIC_RESEARCH_KEYS,
+          requestedFields: COMPLETE_RESEARCH_KEYS,
           automaticImportEnabled:
             process.env.WORLD_RESEARCH_SAFE_IMPORT_ENABLED === "true",
         },
@@ -134,6 +136,7 @@ export async function POST(request: Request) {
     }
     const result = await processSafeResearchDocument(document, {
       actorId: authorization.userId,
+      readPdf: readResearchPdf,
       repository: safeImportRepository(actor, service, authorization.userId),
     });
     return Response.json(result, { headers });

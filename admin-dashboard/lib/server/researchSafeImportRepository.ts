@@ -25,9 +25,9 @@ function decode(row: Row): PipelineJob {
     row.export_document?.kind !== kind ||
     !m ||
     !Array.isArray(m.accepted) ||
-    m.accepted.length > 6 ||
+    m.accepted.length > 80 ||
     !Array.isArray(m.decisions) ||
-    m.decisions.length > 16 ||
+    m.decisions.length > 80 ||
     !["RECEIVED", "PROVED", "FINISHED"].includes(m.phase)
   )
     throw new Error("research_pipeline_stored_job_invalid");
