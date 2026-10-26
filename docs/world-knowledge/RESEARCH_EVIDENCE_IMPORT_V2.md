@@ -58,3 +58,11 @@ Quell-URL und Quellenhash. Originalzitate und Abrufzeiten bleiben im kanonischen
 Claim erhalten. `reviewed: true` bei einem Angebotsprofil bedeutet hier die
 explizit delegierte fachliche Admin-Übernahme nach diesen Prüfungen; es wird
 keine persönliche Prüfung eines Menschen erfunden.
+
+Bei mehreren Quellen bewahrt `sourceProofs` im Entscheidungsjournal für jede
+frisch gelesene Primär- und Zusatzquelle URL, Rohdaten-Hash und Abrufzeit auf.
+Eine Raumdokumentation bleibt auch mit einer schlichten Linkbeschriftung wie
+„Räume“ eine beobachtete Quelle; ihre Auffindbarkeit hängt nicht vom
+Themenklassifikator des Recherchemodells ab. Zahlen in Textdetails müssen
+zusätzlich im gebundenen Beleg vorkommen. Bestuhlungsabhängige Plätze bleiben
+am konkreten Raum, ohne eine allgemeine Gesamtkapazität daraus abzuleiten.

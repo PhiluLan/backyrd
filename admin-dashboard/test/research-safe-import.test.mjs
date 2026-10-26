@@ -559,3 +559,63 @@ test("v2 major uncertainty creates an actionable review and never writes", async
   assert.equal(result.report.review[0].reason, "MAJOR_UNCERTAINTY");
   assert.equal(f.calls.includes("import"), false);
 });
+
+test("v2 persists the fresh hash of every supporting source, including observed subpages", async () => {
+  const proposal = {
+    ...claim("offering.groups", ["DINNER", "LUNCH"]),
+    source: { ...originalSource, evidence: "Mittag" },
+    supportingSources: [
+      { ...originalSource, url: site + "restaurant", evidence: "Abendessen" },
+    ],
+  };
+  const f = fixture([proposal]);
+  f.document.research.assessments = [
+    {
+      attributeKey: "offering.groups",
+      uncertainty: "MINOR",
+      reason: "Mittag und Abendessen sind auf den offiziellen Seiten belegt.",
+      bindings: {},
+    },
+  ];
+  const repository = {
+    ...f.repository,
+    readSpot: async (id) => {
+      const detail = await f.repository.readSpot(id);
+      return {
+        ...detail,
+        actor: {
+          ...detail.actor,
+          allowedAttributeKeys: [
+            ...detail.actor.allowedAttributeKeys,
+            "offering.groups",
+          ],
+        },
+      };
+    },
+  };
+  const fetchPage = async (url) => ({
+    url,
+    contentType: "text/html",
+    observedAt: at,
+    body:
+      url === site
+        ? '<h1>Fixture Restaurant</h1><p>Gerbergasse 11 Basel</p><p>Mittag</p><a href="/restaurant">Restaurant</a>'
+        : "<h1>Abendessen</h1>",
+  });
+  const result = await processSafeResearchDocument(f.document, {
+    actorId: "admin",
+    repository,
+    fetchPage,
+    now,
+  });
+  assert.deepEqual(result.report.errors, []);
+  assert.deepEqual(result.report.stored, ["offering.groups"]);
+  const proofs = result.report.decisions[0].sourceProofs;
+  assert.equal(proofs.length, 2);
+  assert.notEqual(proofs[0].hash, proofs[1].hash);
+  assert.deepEqual(
+    proofs.map((p) => p.url),
+    [site, site + "restaurant"],
+  );
+  assert.ok(proofs.every((p) => p.observedAt === at));
+});
