@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {discoverResearchLinks} from '../src/nuknuk-sources.mjs';
 import {parseScopedCandidates,parseFlatFieldFacts,applyScopedVerdicts,researchFieldAnswered} from '../dist/nuknuk-spot-plan.js';
-import {createRestaurantResearchContext} from '../dist/nuknuk-research-context.js';
+import {restaurantCriticClaim,createRestaurantResearchContext} from '../dist/nuknuk-research-context.js';
 import {researchValueContract} from '../../world-knowledge-core/dist/research-value-schema.js';
 const field=attributeKey=>({attributeKey,...researchValueContract(attributeKey),profileCategory:'EAT'});
 test('observed singular/plural service overviews and reservation information survive discovery',()=>{
@@ -51,4 +51,15 @@ test('dining section admission retains negation and explicit meal daypart exclus
   const input={field:'experience.profile',scope:'OFFER',entityKind:'DINNER',entityName:'Abendessen',propertyKey:'',valueJson:'null',blockId:'b0',belongsTo:'TARGET',applicability:'CURRENT',condition:''};
   const [c]=parseScopedCandidates({candidates:[input]},source,[field('experience.profile')],[{id:'b0',text}],0);assert.notEqual(c.reason,'SEMANTIC_CHECK_PENDING');
  }
+});
+
+test('independent critic verifies ordinary food service while software retains canonical meal mapping',()=>{
+ const text='Unsere Hausspezialitäten - auch Take away\nAdana Kebap vom Holzkohlegrill mit Beilagen';
+ const source={id:'s1',url:'https://example.org/angebot',text,hash:createHash('sha256').update(text).digest('hex'),observedAt:'2026-10-26T12:00:00Z'};
+ const raw={field:'experience.profile',scope:'OFFER',entityKind:'LUNCH',entityName:'Mittagessen',propertyKey:'',valueJson:'null',blockId:'b0',belongsTo:'TARGET',applicability:'CURRENT',condition:''};
+ const [c]=parseScopedCandidates({candidates:[raw]},source,[field('experience.profile')],[{id:'b0',text}],0);
+ assert.deepEqual(c.serviceEvidenceMapping,{rule:'ORDINARY_MAIN_MEAL_TO_CATALOG',canonicalKind:'LUNCH'});
+ const claim=restaurantCriticClaim(c);assert.equal(claim.claimType,'MAIN_MEAL_DINING_EXISTS');assert.equal(claim.entityKind,undefined);assert.equal(claim.entityName,undefined);
+ assert.equal(c.entityKind,'LUNCH');assert.equal(c.state,'HELD');
+ applyScopedVerdicts({verdicts:[{id:c.id,verdict:'SUPPORTED',reasonCode:'DIRECT_SUPPORT',explanation:'The menu offers prepared main meals to restaurant guests.',evidenceQuote:text}]},[c],source);assert.equal(c.state,'ACCEPTED');
 });

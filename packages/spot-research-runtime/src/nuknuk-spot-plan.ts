@@ -8,7 +8,7 @@ import { sourceQuote, parseHoursRow, hasExplicitKitchenContext } from './nuknuk-
 import type { SpotContext, ResearchField, FieldResult, ValueValidator, Citation } from './nuknuk-research.mjs';
 import { researchLegalPage } from './nuknuk-sources.mjs';
 import type { ResearchSource } from './nuknuk-sources.mjs';
-export const SPOT_RESEARCH_REVISION = 'backyrd.spot-research@4.42';
+export const SPOT_RESEARCH_REVISION = 'backyrd.spot-research@4.43';
 /** A stated, source-grounded justification, never a claim to expose model internals. */
 export const DECISION_REASON_CODES = ['DIRECT_SUPPORT','CONTRADICTED','WRONG_VENUE','WRONG_SCOPE','NOT_CURRENT','NOT_ENTAILED','INSUFFICIENT_CONTEXT'] as const;
 export interface ResearchDecision {
@@ -81,6 +81,7 @@ export interface SpotResearchCandidate {
     conditionNormalization?: {rule:string;original:string};
     valueNormalization?: {rule:string;originalValueJson:string};
     evidenceBinding?: {rule:string;originalQuote:string;originalOffset?:number};
+    serviceEvidenceMapping?: {rule:'ORDINARY_MAIN_MEAL_TO_CATALOG';canonicalKind:'LUNCH'|'DINNER'};
     id: string;
     field: string;
     scope: 'SPOT' | 'OFFER' | 'AREA';
@@ -818,6 +819,7 @@ export function parseScopedCandidates(raw: unknown, source: ResearchSource, fiel
         normalizeGenericService(c, source);
         const establishedOffer=c.scope==='OFFER'&&!!c.propertyKey&&OFFER_CATALOG.some(entry=>entry.kind===c.entityKind&&normalized(entry.label)===normalized(c.entityName))&&establishedNodes.some(node=>node.scope===c.scope&&node.entityKind===c.entityKind&&normalized(node.entityName)===normalized(c.entityName)&&(node.state==='ACCEPTED'||node.reason==='SEMANTIC_CHECK_PENDING'));
         const reason = wholeVenueArea(c,targetName) ? 'WHOLE_VENUE_IS_NOT_A_SEPARATE_AREA' : candidateReason(c, fields, source, establishedOffer);
+        if(!reason&&c.scope==='OFFER'&&!c.propertyKey&&['LUNCH','DINNER'].includes(c.entityKind)&&!positiveMealClause(c.quote,c.entityKind)&&genericDiningEvidence(c,source))c.serviceEvidenceMapping={rule:'ORDINARY_MAIN_MEAL_TO_CATALOG',canonicalKind:c.entityKind as 'LUNCH'|'DINNER'};
         if (reason) {
             c.state = 'HELD';
             c.reason = reason;

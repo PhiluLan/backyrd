@@ -61,9 +61,12 @@ export function restaurantEvidenceWindows(text:string,claims:{quote:string;sourc
 
 /** Give the critic a positive assertion to check, not empty storage columns.
  * No extraction verdict or expected answer is included. */
+export const MAIN_MEAL_CLAIM_INSTRUCTIONS='MAIN_MEAL_DINING_EXISTS checks whether the original source offers prepared main meals to visitors. It does not claim literal lunch/dinner wording, any opening time, price or meal property. Backyrd maps that verified ordinary dining service to its meal categories separately, subject to explicit daypart restrictions. Reject a drinks-only list, recipe, ingredients alone or an unrelated venue; do not reject merely because LUNCH or DINNER is not written on the page.';
 export function restaurantCriticClaim(candidate: Readonly<Record<string,unknown>>) {
   const {id,field,scope,entityKind,entityName,propertyKey,valueJson,condition,applicability,belongsTo}=candidate;
   const subject={id,field,scope,entityKind,entityName,condition,applicability,belongsTo};
+  const mapping=candidate.serviceEvidenceMapping;
+  if(field==='experience.profile'&&scope==='OFFER'&&propertyKey===''&&mapping&&typeof mapping==='object'&&'rule' in mapping&&mapping.rule==='ORDINARY_MAIN_MEAL_TO_CATALOG'&&['LUNCH','DINNER'].includes(String(entityKind)))return {id,field,scope,condition,applicability,belongsTo,claimType:'MAIN_MEAL_DINING_EXISTS',assertion:'The source offers prepared main meals to visitors.'};
   if(field==='experience.profile'&&scope!=='SPOT'&&propertyKey==='')return {...subject,claimType:scope==='AREA'?'PHYSICAL_AREA_EXISTS':'VISITOR_SERVICE_EXISTS',assertion:scope==='AREA'?'The source describes this physical space at the venue.':'The source offers this visitor service at the venue.'};
   if(typeof valueJson!=='string')throw new Error('CRITIC_VALUE_JSON_REQUIRED');
   return {...subject,claimType:propertyKey==='$area'?'SERVICE_IN_AREA':field==='experience.profile'?'SCOPED_PROPERTY_VALUE':'VENUE_FIELD_VALUE',...(propertyKey?{propertyKey}:{}),value:JSON.parse(valueJson) as unknown};
