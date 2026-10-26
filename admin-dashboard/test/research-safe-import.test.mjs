@@ -619,3 +619,93 @@ test("v2 persists the fresh hash of every supporting source, including observed 
   );
   assert.ok(proofs.every((p) => p.observedAt === at));
 });
+
+test("v2 enriches an existing offer profile through the exact superseding transaction", async () => {
+  const previous = {
+    contractVersion: "backyrd.world-knowledge.experience-profile@1.0",
+    category: "EAT",
+    reviewed: true,
+    properties: [],
+    areas: [
+      { id: "restaurant", kind: "INDOOR", name: "Restaurant", properties: [] },
+    ],
+    offers: [
+      {
+        id: "lunch",
+        kind: "LUNCH",
+        name: "Mittagessen",
+        properties: [],
+        areaIds: [],
+        prices: [],
+        schedule: [],
+        validFrom: null,
+        validUntil: null,
+      },
+    ],
+  };
+  const value = structuredClone(previous);
+  value.offers[0].areaIds = ["restaurant"];
+  const f = fixture([
+    {
+      ...claim("experience.profile", value),
+      source: { ...originalSource, evidence: "Restaurant zum Mittagessen" },
+    },
+  ]);
+  f.answers["experience.profile"] = {
+    claimId: "existing-profile",
+    visibility: "PUBLIC",
+    knowledgeState: "KNOWN_VALUE",
+    value: previous,
+  };
+  f.document.research.assessments = [
+    {
+      attributeKey: "experience.profile",
+      uncertainty: "MINOR",
+      reason:
+        "Mittagessen ist ausdrücklich im Restaurant verfügbar; bisherige Details bleiben erhalten.",
+      bindings: { "/offers/0/areaIds": 0 },
+    },
+  ];
+  const repository = {
+    ...f.repository,
+    readSpot: async (id) => {
+      const detail = await f.repository.readSpot(id);
+      return {
+        ...detail,
+        actor: {
+          ...detail.actor,
+          allowedAttributeKeys: [
+            ...detail.actor.allowedAttributeKeys,
+            "experience.profile",
+          ],
+        },
+      };
+    },
+    importClaims: async (_id, _batch, _hash, claims) => {
+      assert.equal(claims.length, 1);
+      assert.equal(claims[0].supersedesClaimId, "existing-profile");
+      f.answers["experience.profile"] = {
+        claimId: "enriched-profile",
+        visibility: "PUBLIC",
+        knowledgeState: "KNOWN_VALUE",
+        value: claims[0].value,
+      };
+    },
+  };
+  const fetchPage = async () => ({
+    ...(await f.fetchPage()),
+    body: "<h1>Fixture Restaurant</h1><p>Gerbergasse 11 Basel</p><p>Restaurant zum Mittagessen</p>",
+  });
+  const result = await processSafeResearchDocument(f.document, {
+    actorId: "admin",
+    repository,
+    fetchPage,
+    now,
+  });
+  assert.deepEqual(result.report.errors, []);
+  assert.deepEqual(result.report.stored, ["experience.profile"]);
+  assert.equal(result.report.review.length, 0);
+  assert.deepEqual(f.answers["experience.profile"].value.offers[0].areaIds, [
+    "restaurant",
+  ]);
+});

@@ -384,3 +384,143 @@ test("a textual room detail cannot invent an unquoted capacity", () => {
   const a = { ...assessment, bindings: { "/areas/0": 0 } };
   assert.equal(prove(c, a).eligible, false);
 });
+
+const existingProfile = () => ({
+  contractVersion: "backyrd.world-knowledge.experience-profile@1.0",
+  category: "EAT",
+  reviewed: true,
+  properties: [],
+  areas: [
+    {
+      id: "restaurant",
+      kind: "INDOOR",
+      name: "Restaurant",
+      properties: [
+        {
+          key: "custom.detail",
+          label: "WLAN",
+          state: "UNKNOWN",
+          value: null,
+          conditions: {
+            weekdays: [],
+            dayparts: [],
+            event: null,
+            validFrom: null,
+            validUntil: null,
+          },
+        },
+      ],
+    },
+  ],
+  offers: [
+    {
+      id: "lunch",
+      kind: "LUNCH",
+      name: "Mittagessen",
+      properties: [],
+      areaIds: [],
+      prices: [],
+      schedule: [],
+      validFrom: null,
+      validUntil: null,
+    },
+  ],
+});
+const existingState = (value) => ({
+  visibility: "PUBLIC",
+  knowledgeState: "KNOWN_VALUE",
+  value,
+});
+test("a grounded new area relation enriches an existing offer without re-proving untouched details", () => {
+  const previous = existingProfile(),
+    value = structuredClone(previous);
+  value.offers[0].areaIds = ["restaurant"];
+  const c = {
+    ...claim,
+    attributeKey: "experience.profile",
+    value,
+    source: { ...source, evidence: "Restaurant zum Mittagessen" },
+  };
+  const a = { ...assessment, bindings: { "/offers/0/areaIds": 0 } };
+  assert.equal(
+    prove(c, a, c.source.evidence, existingState(previous)).eligible,
+    true,
+  );
+  assert.deepEqual(value.areas[0].properties, previous.areas[0].properties);
+});
+test("an ungrounded new relation is not accepted merely because the offer already exists", () => {
+  const previous = existingProfile(),
+    value = structuredClone(previous);
+  value.offers[0].areaIds = ["restaurant"];
+  const c = {
+    ...claim,
+    attributeKey: "experience.profile",
+    value,
+    source: { ...source, evidence: "Restaurant" },
+  };
+  assert.match(
+    prove(
+      c,
+      { ...assessment, bindings: { "/offers/0/areaIds": 0 } },
+      c.source.evidence,
+      existingState(previous),
+    ).reason,
+    /PROFILE_RELATION_NOT_SUPPORTED/u,
+  );
+});
+test("an existing detail slot can receive a freshly grounded correction", () => {
+  const previous = existingProfile();
+  previous.areas[0].properties = [
+    {
+      key: "offer.capacity",
+      label: null,
+      state: "KNOWN",
+      value: 20,
+      conditions: {
+        weekdays: [],
+        dayparts: [],
+        event: null,
+        validFrom: null,
+        validUntil: null,
+      },
+    },
+  ];
+  const value = structuredClone(previous);
+  value.areas[0].properties[0].value = 30;
+  const c = {
+    ...claim,
+    attributeKey: "experience.profile",
+    value,
+    source: { ...source, evidence: "30 Personen" },
+  };
+  assert.equal(
+    prove(
+      c,
+      { ...assessment, bindings: { "/areas/0/properties/0": 0 } },
+      c.source.evidence,
+      existingState(previous),
+    ).eligible,
+    true,
+  );
+});
+test("enrichment cannot silently remove an existing detail or assigned area", () => {
+  const previous = existingProfile(),
+    value = structuredClone(previous);
+  value.areas[0].properties = [];
+  let c = {
+    ...claim,
+    attributeKey: "experience.profile",
+    value,
+    source: { ...source, evidence: "Restaurant Mittagessen" },
+  };
+  assert.equal(
+    prove(c, assessment, c.source.evidence, existingState(previous)).reason,
+    "EXISTING_PROFILE_CONTENT_PROTECTED",
+  );
+  previous.offers[0].areaIds = ["restaurant"];
+  value.areas[0].properties = structuredClone(previous.areas[0].properties);
+  assert.equal(
+    prove(c, assessment, c.source.evidence, existingState(previous)).reason,
+    "EXISTING_PROFILE_CONTENT_PROTECTED",
+  );
+});
