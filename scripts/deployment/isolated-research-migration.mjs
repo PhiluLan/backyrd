@@ -5,6 +5,9 @@ import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 export const RESEARCH_MIGRATION = Object.freeze({"path": "supabase/migrations/20261024113000_world_research_current_profile_import_v3.sql", "sha256": "7be9ad6a4ee3c824fe8017cd5a29d7250833f9a44c8a24fef32e287f5cc3ce8b"});
 export const RESEARCH_SAFETY_MIGRATION = Object.freeze({path:"supabase/migrations/20261026215735_world_research_text_safety_word_boundary_v1.sql",sha256:"0b2060539b9ce2ef3dc7455870579b5c8df43fe64f56ce3b046aee87e2998fe3"});
+export const RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES = Object.freeze([
+  Object.freeze({slug:"decision-v13",previousSourceSetHash:"0317d2a74fac0849f7ec52d7b14c55af07aceb8b841f71eba44394e6c7ea8961",sourceSetHash:"8cb7795a2e0e357640290a699fa144dd0d983f12acea65205df01358c879548e"}),
+]);
 export const VOLTA_MIGRATIONS = Object.freeze([
   { path: "supabase/migrations/20261024160151_correct_volta_venue_coordinates.sql", sha256: "dffad38aaf3155538b0f1a8a6c258ef7f0dfe12d747ed9cc36022bae1973241b" },
   { path: "supabase/migrations/20261024162056_align_volta_spots_to_verified_location.sql", sha256: "686acecb3ef27cfdb4407000cfdc8a31711df19f2913cd475556ecbf82fd35af" },
@@ -27,7 +30,11 @@ export function researchAppliedReceipt(state, read, isAncestor, safety = false) 
 export function scopeResearchMigrations({pending,scope,baseSha,deployFunctions,authDeploy,applied,appliedSafety}) {
   if (!scope) return {pendingMigrations:pending, deferredMigrations:[], isolatedResearchScope:null};
   const target = equal(scope.migrations,[RESEARCH_SAFETY_MIGRATION]) ? RESEARCH_SAFETY_MIGRATION : RESEARCH_MIGRATION;
+  if (scope.deferredFunctionChanges?.length && (target !== RESEARCH_SAFETY_MIGRATION
+    || !equal(scope.deferredFunctionChanges,RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES))) throw new Error("isolated_research_deferred_function_binding_invalid");
   if (target === RESEARCH_SAFETY_MIGRATION && !applied) throw new Error("isolated_research_prerequisite_missing");
+  if (deployFunctions.length) throw new Error(`isolated_research_function_deployment_not_authorized:${deployFunctions.join(",")}`);
+  if (authDeploy) throw new Error("isolated_research_auth_deployment_not_authorized");
   if (scope.contractVersion !== "backyrd.isolated-research-migration-scope@1.0"
     || scope.executionAuthorized !== false || scope.baseSha !== baseSha
     || !equal(scope.migrations,[target])

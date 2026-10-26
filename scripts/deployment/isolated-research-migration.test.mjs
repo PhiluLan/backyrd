@@ -9,9 +9,11 @@ const base='a'.repeat(40);
 const scope={contractVersion:'backyrd.isolated-research-migration-scope@1.0',baseSha:base,migrations:[target],deferredMigrations:deferred,backupRunId:1,executionAuthorized:false};
 const input=()=>({pending:[...deferred,target],scope:structuredClone(scope),baseSha:base,deployFunctions:[],authDeploy:false,applied:null});
 test('safety correction uses the exact approved SQL and its own receipt without losing research history', async()=>{
- const {RESEARCH_SAFETY_MIGRATION:safety}=await import('./isolated-research-migration.mjs');
+ const {RESEARCH_SAFETY_MIGRATION:safety,RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES:bindings}=await import('./isolated-research-migration.mjs');
  const request={...input(),scope:{...scope,migrations:[safety]},pending:[...deferred,safety],applied:{migration:target},appliedSafety:null};
  assert.deepEqual(scopeResearchMigrations(request).pendingMigrations,[safety]);
+ assert.deepEqual(scopeResearchMigrations({...request,scope:{...request.scope,deferredFunctionChanges:bindings}}).pendingMigrations,[safety]);
+ assert.throws(()=>scopeResearchMigrations({...request,scope:{...request.scope,deferredFunctionChanges:[{...bindings[0],sourceSetHash:'a'.repeat(64)}]}}),/binding_invalid/);
  assert.deepEqual(scopeResearchMigrations({...request,pending:deferred,appliedSafety:{migration:safety}}).pendingMigrations,[]);
  for(const patch of [{applied:null},{pending:[safety]},{pending:[...deferred,{...safety,sha256:'b'.repeat(64)}]},{deployFunctions:['decision-v13']},{authDeploy:true}])
   assert.throws(()=>scopeResearchMigrations({...request,...patch}),/isolated_research/);
@@ -26,6 +28,13 @@ test('safety correction uses the exact approved SQL and its own receipt without 
  prepareResearchMigrationWorkspace(plan,root,output);
  assert.equal(readFileSync(join(output,safety.path),'utf8'),readFileSync(join(root,safety.path),'utf8'));
  for(const item of deferred)assert.equal(existsSync(join(output,item.path)),false);
+});
+test('a SQL-only deployment audit rejects an unplanned bundle change even at the same version',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'backyrd-isolated-function-audit-'));
+ const plan={canonicalMainSha:base,planHash:'c'.repeat(64),deployFunctions:[],functions:[{slug:'decision-v13',verifyJwt:true,sourceSetHash:'b'.repeat(64)}],migrations:[],pendingMigrations:[],authConfig:null};
+ const before=[{slug:'decision-v13',version:1,verify_jwt:true,ezbr_sha256:'a'.repeat(64)}];
+ for(const [name,value] of Object.entries({plan,before,after:[{...before[0],ezbr_sha256:'b'.repeat(64)}]}))writeFileSync(join(dir,name+'.json'),JSON.stringify(value));
+ assert.throws(()=>execFileSync(process.execPath,[new URL('./verify-supabase-production-audit.mjs',import.meta.url).pathname,'--plan',join(dir,'plan.json'),'--before',join(dir,'before.json'),'--after',join(dir,'after.json'),'--output',join(dir,'audit.json')],{stdio:'pipe'}),/unplanned_function_bundle_changed/);
 });
 test('the isolated scope selects exactly research and keeps every Booking migration explicitly deferred',()=>{
  const selected=scopeResearchMigrations(input());

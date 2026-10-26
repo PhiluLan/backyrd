@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt } from "./isolated-research-migration.mjs";
+import { researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -467,8 +467,20 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }, true);
   if (appliedResearchSafety) preappliedPaths.add(appliedResearchSafety.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
-  const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
+  const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
+  const deferredFunctionChanges = authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
+  if (deferredFunctionChanges.length) {
+    if (JSON.stringify(authority.isolatedResearchMigrationScope.migrations) !== JSON.stringify([RESEARCH_SAFETY_MIGRATION])
+      || JSON.stringify(deferredFunctionChanges) !== JSON.stringify(RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES)
+      || JSON.stringify(functionChanges) !== JSON.stringify(deferredFunctionChanges)) throw new Error("isolated_research_deferred_function_binding_changed");
+    for (const item of functions.filter(item=>item.deploy)) {
+      item.deploy=false; item.reason="EXACT_SOURCE_CHANGE_DEFERRED_BY_ISOLATED_SQL_SCOPE";
+    }
+  } else if (authority?.isolatedResearchMigrationScope && functionChanges.length) {
+    throw new Error(`isolated_research_unbound_function_changes:${JSON.stringify(functionChanges)}`);
+  }
+  const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
   const scoped = authority?.isolatedVoltaMigrationScope
     ? scopeVoltaMigrations({pending:allPending,scope:authority.isolatedVoltaMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedResearch,appliedVolta})
@@ -483,6 +495,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     functions,
     retiredFunctions,
     deployFunctions,
+    deferredFunctionChanges,
     migrations,
     pendingMigrations,
     deferredMigrations,

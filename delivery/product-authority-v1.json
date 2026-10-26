@@ -123,6 +123,13 @@
       }
     ],
     "backupRunId": 40287797032,
-    "executionAuthorized": false
+    "executionAuthorized": false,
+    "deferredFunctionChanges": [
+      {
+        "slug": "decision-v13",
+        "previousSourceSetHash": "0317d2a74fac0849f7ec52d7b14c55af07aceb8b841f71eba44394e6c7ea8961",
+        "sourceSetHash": "8cb7795a2e0e357640290a699fa144dd0d983f12acea65205df01358c879548e"
+      }
+    ]
   }
 }
