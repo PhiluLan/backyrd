@@ -11,6 +11,7 @@ type JobRow = {
   id: string; spot_id: string; spot_name: string; status: string; attempts: number; failure_code: string | null;
   created_at: string; updated_at: string; completed_at: string | null;
   reviewed_at: string | null; review_outcome: string | null;
+  pipeline?: {phase?:string;report?:{state?:string;stored?:string[];review?:unknown[];unresolved?:unknown[];errors?:string[]}};
   export_document?: unknown; result_document?: unknown;
 };
 
@@ -28,6 +29,7 @@ function clients(token: string) {
 const summary = (row: JobRow) => ({
   jobId: row.id, spotId: row.spot_id, spotName: row.spot_name, status: row.status, attempts: row.attempts,
   failureCode: row.failure_code, createdAt: row.created_at, updatedAt: row.updated_at,
+  pipeline: row.pipeline ? {state:row.pipeline.report?.state??"INCOMPLETE",stored:row.pipeline.report?.stored?.length??0,review:(row.pipeline.report?.review?.length??0)+(row.pipeline.report?.unresolved?.length??0),errors:row.pipeline.report?.errors??["research_pipeline_processing_interrupted"]} : undefined,
   completedAt: row.completed_at, reviewedAt: row.reviewed_at, reviewOutcome: row.review_outcome,
 });
 
@@ -39,8 +41,8 @@ export async function GET(request: Request) {
     const jobId = new URL(request.url).searchParams.get("jobId");
     if (jobId && !UUID.test(jobId)) return Response.json({ error: "WORLD_RESEARCH_JOB_ID_INVALID" }, { status: 400, headers: noStore });
     const columns = jobId
-      ? "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,export_document,result_document"
-      : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome";
+      ? "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,export_document,result_document,pipeline:export_document->pipeline"
+      : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,pipeline:export_document->pipeline";
     let query = service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id", authorization.userId);
     query = jobId ? query.eq("id", jobId).limit(1)
       : query.not("export_document", "cs", '{"kind":"NUKNUK_RESEARCH_DRAFT"}').order("created_at", { ascending: false }).limit(30);
@@ -51,6 +53,7 @@ export async function GET(request: Request) {
       const row = rows[0];
       if (!row) return Response.json({ error: "WORLD_RESEARCH_JOB_NOT_FOUND" }, { status: 404, headers: noStore });
       if ((row.export_document as { kind?: string } | null)?.kind === "NUKNUK_RESEARCH_DRAFT") return Response.json({ error: "WORLD_RESEARCH_JOB_NOT_FOUND" }, { status: 404, headers: noStore });
+      if (row.pipeline && row.pipeline.phase !== "FINISHED") return Response.json({job:summary(row),processing:true},{headers:noStore});
       if (row.status !== "READY_FOR_REVIEW" || !row.result_document) return Response.json({ job: summary(row) }, { headers: noStore });
       const document = parseWorldResearchBatch(normalizeAutomatedWorldResearchBatch(row.result_document as WorldResearchBatchDocument));
       const exportDocument = row.export_document as { exportHash?: string; research?: { instructions?: unknown } };
