@@ -77,6 +77,12 @@ Raumzuordnung oder eine belegte Korrektur innerhalb eines bestehenden
 Detailfelds ist keine Löschung. Entfernte Angebote, Bereiche, Detailfelder,
 Preispositionen oder Zuordnungen bleiben dagegen zur Prüfung zurückgehalten.
 
+Beim manuellen Abschluss bleiben unterschiedlich benannte freie Raumdetails
+getrennt: etwa Bestuhlung, Bildschirm und Stehtische. Der gemeinsame technische
+Schlüssel `custom.detail` macht daraus keinen Widerspruch. Derselbe Detailname
+mit abweichendem Wert bleibt dagegen prüfpflichtig. Ein identischer vorhandener
+Stand muss ohne erneute Profiländerung abgeschlossen werden können.
+
 ## Sicherheitsprüfung und wiederaufnehmbare Projektion
 
 `SHADOW_HELD` bedeutet: im geschützten Speicher vorhanden, aber nicht öffentlich.

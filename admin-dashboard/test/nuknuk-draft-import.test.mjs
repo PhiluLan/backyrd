@@ -37,6 +37,15 @@ test('partial profiles never replace contradictory properties, ambiguous names o
  assert.throws(()=>mergeResearchProfile(existing,emptyExperienceProfile('STAY')),/Profilkategorie/);
  assert.throws(()=>mergeResearchProfile(existing,{...emptyExperienceProfile('EAT'),areas:[{...area('real'),name:'Another room'}]}),/eindeutig/);
 });
+test('separately named room details remain independent during repeat and partial research review',()=>{
+ const detail=(label,value)=>({key:'custom.detail',label,state:'KNOWN',value,conditions:emptyExperienceConditions()});
+ const room={...area('hall','Saal'),properties:[detail('Bestuhlung','50 Sitzplätze'),detail('Bildschirm','Ein grosser Bildschirm')]};
+ const existing={...emptyExperienceProfile('EAT'),reviewed:true,areas:[room]};
+ assert.deepEqual(mergeResearchProfile(existing,structuredClone(existing)),existing);
+ const added=mergeResearchProfile(existing,{...emptyExperienceProfile('EAT'),areas:[{...room,id:'research-hall',properties:[detail('Stehtische','Für einen Apéro geeignet')]}]});
+ assert.deepEqual(added.areas[0].properties,[...room.properties,detail('Stehtische','Für einen Apéro geeignet')]);
+ assert.throws(()=>mergeResearchProfile(existing,{...emptyExperienceProfile('EAT'),areas:[{...room,properties:[detail('Bildschirm','Kein Bildschirm')]}]}),/widerspricht/);
+});
 test('unknown future offer details do not erase saved prices or schedules',()=>{
  const existing={...emptyExperienceProfile('EAT'),offers:[{...offer('saved'),schedule:[{weekday:1,start:'12:00',end:'14:00'}]}]};
  const incoming={...emptyExperienceProfile('EAT'),offers:[offer('new')]};
