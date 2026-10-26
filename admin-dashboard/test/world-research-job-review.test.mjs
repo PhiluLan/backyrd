@@ -58,3 +58,16 @@ test("imported jobs and older proposals for the same Spot leave the actionable l
   assert.deepEqual(researchDeclinedKeys(['identity.name'],[],{'foreign':''}),[]);
   assert.throws(()=>researchDeclinedKeys(['identity.name'],['foreign']),/declined_invalid/);
  });
+
+test('completed automatic jobs leave the open list without fabricating a human review',()=>{
+  const complete={...job,pipeline:{phase:'FINISHED',report:{state:'COMPLETE',errors:[]}}};
+  const pending={...job,pipeline:{phase:'FINISHED',report:{state:'REVIEW_REQUIRED',errors:[]}}};
+  const interrupted={...job,pipeline:{phase:'PROVED'}};
+  assert.deepEqual(visibleResearchJobs([complete,pending,interrupted]),[pending,interrupted]);
+  assert.equal(complete.reviewed_at,null);
+});
+
+test('manual review cannot race a pipeline before its automatic processing finishes',()=>{
+  for(const phase of ['RECEIVED','PROVED'])assert.equal(matchesAutomatedReviewJob({...job,export_document:{...job.export_document,pipeline:{phase}}},document,'admin-1'),false);
+  assert.equal(matchesAutomatedReviewJob({...job,export_document:{...job.export_document,pipeline:{phase:'FINISHED'}}},document,'admin-1'),true);
+});

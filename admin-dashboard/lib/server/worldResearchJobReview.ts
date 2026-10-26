@@ -9,6 +9,7 @@ export type ReviewableJob = {
   reviewed_at: string | null;
   export_document?: unknown;
   result_document?: unknown;
+  pipeline?: {phase?:string; report?:{state?:string;errors?:string[]}};
 };
 
 type ResearchDocument = {
@@ -26,7 +27,8 @@ export function matchesAutomatedReviewJob(job: ReviewableJob, document: Research
   const original = object(job.result_document);
   const originalBatch = object(original?.batch);
   const originalResearch = object(original?.research);
-  return job.actor_id === actorId && job.status === "READY_FOR_REVIEW"
+  const pipeline=object(exported?.pipeline);
+  return (!pipeline || pipeline.phase === "FINISHED") && job.actor_id === actorId && job.status === "READY_FOR_REVIEW"
     && document.batch.spots.length === 1 && document.batch.spots[0].spotId === job.spot_id
     && Array.isArray(originalResearch?.spots)
     && typeof batch?.batchId === "string" && batch.batchId === originalBatch?.batchId
@@ -42,14 +44,14 @@ export function reviewCanFinish(report: {
     && (report.imported.length === 0 || !!report.manifestHash);
 }
 
-export function visibleResearchJobs<T extends Pick<ReviewableJob, "spot_id" | "created_at" | "reviewed_at">>(jobs: T[]): T[] {
+export function visibleResearchJobs<T extends Pick<ReviewableJob, "spot_id" | "created_at" | "reviewed_at"> & {pipeline?:ReviewableJob["pipeline"]}>(jobs: T[]): T[] {
   const latestReviewed = new Map<string, number>();
   for (const job of jobs) {
     if (!job.reviewed_at) continue;
     const created = Date.parse(job.created_at);
     latestReviewed.set(job.spot_id, Math.max(latestReviewed.get(job.spot_id) ?? 0, created));
   }
-  return jobs.filter((job) => !job.reviewed_at && Date.parse(job.created_at) > (latestReviewed.get(job.spot_id) ?? 0));
+  return jobs.filter((job) => !(job.pipeline?.phase === "FINISHED" && job.pipeline.report?.state === "COMPLETE" && job.pipeline.report.errors?.length === 0) && !job.reviewed_at && Date.parse(job.created_at) > (latestReviewed.get(job.spot_id) ?? 0));
 }
 
 /** An explicit KEEP choice is a completed decision, not an unanswered conflict. */
