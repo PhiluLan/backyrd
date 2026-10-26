@@ -11,7 +11,8 @@ const same = (left: unknown, right: unknown) => canonicalJson(left) === canonica
 function mergeProperties(existing: readonly ExperienceProperty[], incoming: readonly ExperienceProperty[]): ExperienceProperty[] {
   const result = [...existing];
   for (const property of incoming) {
-    const previous = result.find(item => item.key === property.key && same(item.conditions, property.conditions));
+    const previous = result.find(item => item.key === property.key && same(item.conditions, property.conditions)
+      && (item.key !== "custom.detail" || sameName(item.label ?? "") === sameName(property.label ?? "")));
     if (previous && !same(previous, property)) throw new Error("Ein recherchiertes Merkmal widerspricht einer vorhandenen Angabe. Bitte im Profil-Editor prüfen.");
     if (!previous) result.push(property);
   }
