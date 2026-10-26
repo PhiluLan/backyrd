@@ -79,6 +79,27 @@ export function parseResearchAssessments(input, claims) {
     };
   });
 }
+// Grounding follows observed document anchors even when their label is not
+// classified as menu/access content (for example a room documentation PDF).
+function observedDocuments(page) {
+  if (typeof page.body !== "string") return [];
+  const html = visibleSourceHtml(page.body)
+    .replace(/<(script|style|template)\b[\s\S]*?<\/\1>/giu, "")
+    .replace(/<!--[\s\S]*?-->/gu, "");
+  const links = [];
+  for (const match of html.matchAll(
+    /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/giu,
+  )) {
+    try {
+      const url = new URL(match[1].replace(/&amp;/gu, "&"), page.url).href;
+      if (/\.pdf(?:$|[?#])|\/pdfdownload\//iu.test(url))
+        links.push({ url, label: match[2].replace(/<[^>]*>/gu, " ") });
+    } catch {
+      /* Invalid external markup is not authority. */
+    }
+  }
+  return links;
+}
 export async function collectResearchEvidence({
   page,
   website,
@@ -132,6 +153,7 @@ export async function collectResearchEvidence({
         ...discoverResearchLinks(p),
         ...discoverMenuDocuments(p),
         ...discoverPracticalDocuments(p),
+        ...observedDocuments(p),
       ]) {
         try {
           if (
@@ -188,7 +210,8 @@ export async function collectResearchEvidence({
               throw Error("SOURCE_IDENTITY_MISMATCH");
             await register(p, url);
           } catch {
-            failures.push({ url, reason: "OFFICIAL_SOURCE_UNAVAILABLE" });
+            if (wanted.has(url))
+              failures.push({ url, reason: "OFFICIAL_SOURCE_UNAVAILABLE" });
           }
         }),
       );
@@ -451,6 +474,16 @@ function scalarMeaning(value, text, key) {
         new RegExp(`\\b${day}\\.?\\s*${months[month - 1]}`, "iu").test(text))
     );
   }
+  const numberTokens = value.match(/\d+(?:[.,]\d+)?/gu) ?? [];
+  const sourceNumbers = (String(text).match(/\d+(?:[.,]\d+)?/gu) ?? []).map(
+    (n) => Number(n.replace(",", ".")),
+  );
+  if (
+    numberTokens.some(
+      (n) => !sourceNumbers.includes(Number(n.replace(",", "."))),
+    )
+  )
+    return false;
   if (/^[A-Z_]+$/u.test(value)) return matchesResearchMeaning(value, text);
   if (evidenceText(text).includes(evidenceText(value))) return has(text, value);
   // A factual paraphrase is a recorded researcher judgement, not a lexical
