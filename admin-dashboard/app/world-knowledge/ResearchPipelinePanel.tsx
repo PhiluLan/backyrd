@@ -161,7 +161,7 @@ export function ResearchPipelinePanel({
             {report.saveState === "SAVED_UNVERIFIED"
               ? "Speicherstand noch nicht bestätigt"
               : report.stored.length
-                ? `${report.stored.length} Angaben gespeichert und im Profil bestätigt`
+                ? `${report.stored.length} ${report.stored.length === 1 ? "Angabe" : "Angaben"} gespeichert und im Profil bestätigt`
                 : report.state === "FAILED"
                   ? "Verarbeitung nicht abgeschlossen"
                   : "Keine neuen sicheren Angaben zu speichern"}
