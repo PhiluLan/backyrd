@@ -79,3 +79,8 @@ test('an active pipeline lease is processing, an expired one is recoverable, and
  assert.deepEqual(researchPipelineSummary({phase:'FINISHED',report:{state:'REVIEW_REQUIRED',stored:['a','b'],review:[1,2,3,4,5],unresolved:[1,2],errors:[]}},null,now),{state:'REVIEW_REQUIRED',stored:2,review:7,errors:[]});
  assert.equal(researchPipelineSummary(undefined,null,now),undefined);
 });
+
+test('v2 missing optional information is not counted as a mandatory review',()=>{
+ const summary=researchPipelineSummary({policy:'backyrd.research-evidence@2',phase:'FINISHED',report:{state:'REVIEW_REQUIRED',stored:[],review:[{reason:'CONTENT_SAFETY_HELD'}],unresolved:Array(33).fill({reason:'not found'}),errors:[]}},null);
+ assert.equal(summary.review,1);assert.equal(summary.state,'REVIEW_REQUIRED');
+});

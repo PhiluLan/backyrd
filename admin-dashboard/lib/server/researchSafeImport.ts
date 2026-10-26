@@ -53,7 +53,8 @@ export type PipelineReport = {
   spotId: string;
   name: string;
   state: "COMPLETE" | "REVIEW_REQUIRED" | "SAVED_UNVERIFIED" | "FAILED";
-  saveState: "STORED_VERIFIED" | "NOT_WRITTEN" | "SAVED_UNVERIFIED";
+  saveState:
+    "STORED_VERIFIED" | "NOT_WRITTEN" | "SAVED_UNVERIFIED" | "HELD_FOR_REVIEW";
   stored: string[];
   unchanged: string[];
   review: PipelineDecision[];
@@ -68,6 +69,7 @@ export type PipelineMetadata = {
   policy: string;
   inputHash: string;
   phase: "RECEIVED" | "PROVED" | "FINISHED";
+  rebuildAsOf?: string;
   accepted: ReviewedResearchClaim[];
   decisions: PipelineDecision[];
   report?: PipelineReport;
@@ -93,6 +95,7 @@ export interface SafeImportRepository {
   rebuild(
     spotId: string,
     idempotencyKey: string,
+    asOf: string,
   ): Promise<{ manifestHash: string; worldSnapshot?: unknown }>;
   finish(
     job: PipelineJob,
@@ -257,7 +260,8 @@ export async function processSafeResearchDocument(
     completedAt: new Date(now()).toISOString(),
   };
   let latest = detail,
-    writeAttempted = false;
+    writeAttempted =
+      job.metadata.phase === "PROVED" && job.metadata.accepted.length > 0;
   try {
     if (job.metadata.phase === "RECEIVED") {
       if (detail.manifest.manifestHash !== exported.manifestHash)
@@ -503,37 +507,49 @@ export async function processSafeResearchDocument(
         )
       )
         throw new Error("research_pipeline_identity_drift");
-      const alreadyPresent = job.metadata.accepted.every((claim) => {
+      const alreadyRecorded = job.metadata.accepted.every((claim) => {
         const saved = latest.answers?.[claim.attributeKey];
         return (
-          saved?.visibility === "PUBLIC" &&
+          (saved?.visibility === "PUBLIC" ||
+            saved?.visibility === "SHADOW_HELD") &&
           saved.knowledgeState === claim.knowledgeState &&
           equal(saved.value, claim.value)
         );
       });
       if (
-        !alreadyPresent &&
+        !alreadyRecorded &&
         latest.manifest?.manifestHash !== exported.manifestHash
       )
         throw new Error("research_pipeline_manifest_drift");
       if (
-        !alreadyPresent &&
+        !alreadyRecorded &&
         job.metadata.accepted.some(
           (claim) => now() - Date.parse(claim.source.observedAt) > 300000,
         )
       )
         throw new Error("research_pipeline_proof_expired");
       writeAttempted = true;
-      if (!alreadyPresent)
+      if (!alreadyRecorded)
         await repository.importClaims(
           exported.spotId,
           document.batch.batchId,
           latest.manifest!.manifestHash!,
           job.metadata.accepted,
         );
+      if (!job.metadata.rebuildAsOf) {
+        job = {
+          ...job,
+          metadata: {
+            ...job.metadata,
+            rebuildAsOf: new Date(now()).toISOString(),
+          },
+        };
+        await repository.checkpoint(job, lease);
+      }
       const rebuilt = await repository.rebuild(
         exported.spotId,
-        `research:${document.batch.batchId}:${exported.spotId}:safe-rebuild`,
+        `research:${document.batch.batchId}:${exported.spotId}:safe-rebuild:v2`,
+        job.metadata.rebuildAsOf!,
       );
       latest = await repository.readSpot(exported.spotId);
       if (
@@ -543,8 +559,18 @@ export async function processSafeResearchDocument(
         !equal(latest.manifest.worldSnapshot, rebuilt.worldSnapshot)
       )
         throw new Error("PROFILE_READBACK_FAILED");
+      const held = new Set<string>();
       for (const claim of job.metadata.accepted) {
         const saved = latest.answers?.[claim.attributeKey];
+        if (
+          saved?.claimId &&
+          saved.visibility === "SHADOW_HELD" &&
+          saved.knowledgeState === claim.knowledgeState &&
+          equal(saved.value, claim.value)
+        ) {
+          held.add(claim.attributeKey);
+          continue;
+        }
         if (
           !saved?.claimId ||
           saved.visibility !== "PUBLIC" ||
@@ -553,8 +579,28 @@ export async function processSafeResearchDocument(
         )
           throw new Error("FIELD_READBACK_FAILED");
       }
-      report.stored = job.metadata.accepted.map((claim) => claim.attributeKey);
-      report.saveState = "STORED_VERIFIED";
+      report.stored = job.metadata.accepted
+        .filter((claim) => !held.has(claim.attributeKey))
+        .map((claim) => claim.attributeKey);
+      if (held.size) {
+        report.decisions = report.decisions.map((decision) =>
+          held.has(decision.attributeKey)
+            ? {
+                ...decision,
+                outcome: "REVIEW" as const,
+                reason: "CONTENT_SAFETY_HELD",
+                explanation:
+                  "Die Angabe wurde gespeichert, aber vom Sicherheitsfilter zurückgehalten. Sie ist nicht öffentlich. Bitte die Sicherheitsprüfung im Admin abschliessen.",
+              }
+            : decision,
+        );
+        report.review = report.decisions.filter(
+          (decision) => decision.outcome === "REVIEW",
+        );
+      }
+      report.saveState = report.stored.length
+        ? "STORED_VERIFIED"
+        : "HELD_FOR_REVIEW";
       report.manifestHash = rebuilt.manifestHash;
     }
     report.state =

@@ -61,6 +61,7 @@ export function researchDeclinedKeys(claimKeys: readonly string[], declined: unk
 }
 
 export type ResearchPipelineStatus = {
+  policy?: string;
   phase?: string;
   report?: { state?: string; stored?: string[]; review?: unknown[]; unresolved?: unknown[]; errors?: string[] };
 };
@@ -71,7 +72,7 @@ export function researchPipelineSummary(pipeline: ResearchPipelineStatus | undef
   return {
     state: pipeline.report?.state ?? (running ? "PROCESSING" : "INCOMPLETE"),
     stored: pipeline.report?.stored?.length ?? 0,
-    review: (pipeline.report?.review?.length ?? 0) + (pipeline.report?.unresolved?.length ?? 0),
+    review: (pipeline.report?.review?.length ?? 0) + (pipeline.policy === "backyrd.research-evidence@2" ? 0 : (pipeline.report?.unresolved?.length ?? 0)),
     errors: pipeline.report?.errors ?? (running ? [] : ["research_pipeline_processing_interrupted"]),
   };
 }

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "world-research-text-safety-word-boundary-v1",
+  "previousEvidence": "nuknuk-scoped-area-reservation-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261026215735_world_research_text_safety_word_boundary_v1.sql",
+      "sha256": "0b2060539b9ce2ef3dc7455870579b5c8df43fe64f56ce3b046aee87e2998fe3"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_research_text_safety_word_boundary_v1.sql",
+      "sha256": "d433c6bd21c66ec4ac891f9fcc159882f5cc598aa41cf0543855b6f2a0b6b7a9"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  }
+}

@@ -111,7 +111,8 @@ function fixture(
     receiptFailure = false,
     sourceFailure = false,
     concurrent = false,
-    readbackMismatch = false;
+    readbackMismatch = false,
+    safetyHeld = false;
   const answers = {
     "contact.website": {
       claimId: "website",
@@ -166,6 +167,8 @@ function fixture(
   const repository = {
     readSpot: async () => {
       const s = snapshot();
+      if (safetyHeld && epoch)
+        s.answers["contact.public_email"].visibility = "SHADOW_HELD";
       if (readbackMismatch && epoch)
         s.answers["contact.public_email"].value = "wrong@example.org";
       return s;
@@ -257,6 +260,7 @@ function fixture(
       sourceFailure = v.sourceFailure ?? sourceFailure;
       concurrent = v.concurrent ?? concurrent;
       readbackMismatch = v.readbackMismatch ?? readbackMismatch;
+      safetyHeld = v.safetyHeld ?? safetyHeld;
     },
     release() {
       leased = false;
@@ -708,4 +712,47 @@ test("v2 enriches an existing offer profile through the exact superseding transa
   assert.deepEqual(f.answers["experience.profile"].value.offers[0].areaIds, [
     "restaurant",
   ]);
+});
+
+test("a confirmed safety hold becomes a review, never a generic failed readback or public success", async () => {
+  const f = fixture([claim("contact.public_email", "info@example.org")]);
+  f.flags({ safetyHeld: true });
+  const result = await f.run();
+  assert.equal(result.report.state, "REVIEW_REQUIRED");
+  assert.equal(result.report.saveState, "HELD_FOR_REVIEW");
+  assert.deepEqual(result.report.stored, []);
+  assert.deepEqual(result.report.errors, []);
+  assert.equal(result.report.review[0].reason, "CONTENT_SAFETY_HELD");
+  assert.equal(f.job.metadata.phase, "FINISHED");
+});
+
+test("projection retries reuse the durable timestamp and never duplicate canonical writes", async () => {
+  const f = fixture([claim("contact.public_email", "info@example.org")]);
+  f.flags({ rebuildFailure: true });
+  const requests = [];
+  const repository = {
+    ...f.repository,
+    rebuild: async (spot, key, asOf) => {
+      requests.push({ spot, key, asOf });
+      return f.repository.rebuild(spot, key, asOf);
+    },
+  };
+  const first = await processSafeResearchDocument(f.document, {
+    actorId: "admin",
+    repository,
+    fetchPage: f.fetchPage,
+    now,
+  });
+  assert.equal(first.report.saveState, "SAVED_UNVERIFIED");
+  f.flags({ rebuildFailure: false });
+  const second = await processSafeResearchDocument(f.document, {
+    actorId: "admin",
+    repository,
+    fetchPage: f.fetchPage,
+    now: () => now() + 10000,
+  });
+  assert.equal(second.report.saveState, "STORED_VERIFIED");
+  assert.deepEqual(requests[0], requests[1]);
+  assert.equal(f.calls.filter((c) => c === "import").length, 1);
+  assert.match(requests[0].key, /safe-rebuild:v2$/u);
 });
