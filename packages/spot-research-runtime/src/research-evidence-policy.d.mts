@@ -53,6 +53,7 @@ export function proveResearchEvidence(input: {
   reason: string;
   uncertainty: string;
   explanation: string;
+  sourceProofs?: Array<{ url: string; hash: string; observedAt: string }>;
   sourceHash?: string;
   url?: string;
   observedAt?: string;

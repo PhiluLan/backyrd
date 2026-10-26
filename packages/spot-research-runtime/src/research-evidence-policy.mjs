@@ -877,6 +877,11 @@ export function proveResearchEvidence({
         : "SUPPORTED_EVIDENCE",
     uncertainty: assessment.uncertainty,
     explanation: assessment.reason,
+    sourceProofs: verified.map((s) => ({
+      url: s.url,
+      hash: s.sourceHash,
+      observedAt: s.observedAt,
+    })),
     sourceHash: verified[0].sourceHash,
     url: verified[0].url,
     observedAt: verified[0].observedAt,

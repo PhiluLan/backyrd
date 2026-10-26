@@ -43,6 +43,7 @@ export type PipelineDecision = {
   reason: string;
   uncertainty?: string;
   explanation?: string;
+  sourceProofs?: Array<{ url: string; hash: string; observedAt: string }>;
   sourceHash?: string;
   sourceUrl?: string;
 };
@@ -408,6 +409,7 @@ export async function processSafeResearchDocument(
             reason: proof.reason,
             uncertainty: proof.uncertainty,
             explanation: proof.explanation,
+            sourceProofs: proof.sourceProofs,
             sourceHash: proof.sourceHash,
             sourceUrl: proof.url,
           });
