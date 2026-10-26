@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { createAdminWorldResearchExport, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
-import { visibleResearchJobs } from "@/lib/server/worldResearchJobReview";
+import { researchPipelineSummary, visibleResearchJobs } from "@/lib/server/worldResearchJobReview";
 
 const noStore = { "cache-control": "no-store" };
 const UUID = WORLD_RESEARCH_SPOT_ID;
@@ -12,6 +12,7 @@ type JobRow = {
   created_at: string; updated_at: string; completed_at: string | null;
   reviewed_at: string | null; review_outcome: string | null;
   pipeline?: {phase?:string;report?:{state?:string;stored?:string[];review?:unknown[];unresolved?:unknown[];errors?:string[]}};
+  lease_expires_at?: string | null;
   export_document?: unknown; result_document?: unknown;
 };
 
@@ -29,7 +30,7 @@ function clients(token: string) {
 const summary = (row: JobRow) => ({
   jobId: row.id, spotId: row.spot_id, spotName: row.spot_name, status: row.status, attempts: row.attempts,
   failureCode: row.failure_code, createdAt: row.created_at, updatedAt: row.updated_at,
-  pipeline: row.pipeline ? {state:row.pipeline.report?.state??"INCOMPLETE",stored:row.pipeline.report?.stored?.length??0,review:(row.pipeline.report?.review?.length??0)+(row.pipeline.report?.unresolved?.length??0),errors:row.pipeline.report?.errors??["research_pipeline_processing_interrupted"]} : undefined,
+  pipeline: researchPipelineSummary(row.pipeline, row.lease_expires_at),
   completedAt: row.completed_at, reviewedAt: row.reviewed_at, reviewOutcome: row.review_outcome,
 });
 
@@ -41,8 +42,8 @@ export async function GET(request: Request) {
     const jobId = new URL(request.url).searchParams.get("jobId");
     if (jobId && !UUID.test(jobId)) return Response.json({ error: "WORLD_RESEARCH_JOB_ID_INVALID" }, { status: 400, headers: noStore });
     const columns = jobId
-      ? "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,export_document,result_document,pipeline:export_document->pipeline"
-      : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,pipeline:export_document->pipeline";
+      ? "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,lease_expires_at,export_document,result_document,pipeline:export_document->pipeline"
+      : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,lease_expires_at,pipeline:export_document->pipeline";
     let query = service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id", authorization.userId);
     query = jobId ? query.eq("id", jobId).limit(1)
       : query.not("export_document", "cs", '{"kind":"NUKNUK_RESEARCH_DRAFT"}').order("created_at", { ascending: false }).limit(30);

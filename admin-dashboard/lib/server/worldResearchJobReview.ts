@@ -59,3 +59,19 @@ export function researchDeclinedKeys(claimKeys: readonly string[], declined: unk
   if (!Array.isArray(declined) || declined.some(key => typeof key !== "string" || !claimKeys.includes(key))) throw new Error("world_research_declined_invalid");
   return [...new Set([...declined, ...claimKeys.filter(key => Object.hasOwn(confirmations,key) && confirmations[key] === "")])];
 }
+
+export type ResearchPipelineStatus = {
+  phase?: string;
+  report?: { state?: string; stored?: string[]; review?: unknown[]; unresolved?: unknown[]; errors?: string[] };
+};
+
+export function researchPipelineSummary(pipeline: ResearchPipelineStatus | undefined, leaseExpiresAt: string | null | undefined, now = Date.now()) {
+  if (!pipeline) return undefined;
+  const running = pipeline.phase !== "FINISHED" && !!leaseExpiresAt && Date.parse(leaseExpiresAt) > now;
+  return {
+    state: pipeline.report?.state ?? (running ? "PROCESSING" : "INCOMPLETE"),
+    stored: pipeline.report?.stored?.length ?? 0,
+    review: (pipeline.report?.review?.length ?? 0) + (pipeline.report?.unresolved?.length ?? 0),
+    errors: pipeline.report?.errors ?? (running ? [] : ["research_pipeline_processing_interrupted"]),
+  };
+}
