@@ -66,3 +66,13 @@ Eine Raumdokumentation bleibt auch mit einer schlichten Linkbeschriftung wie
 Themenklassifikator des Recherchemodells ab. Zahlen in Textdetails müssen
 zusätzlich im gebundenen Beleg vorkommen. Bestuhlungsabhängige Plätze bleiben
 am konkreten Raum, ohne eine allgemeine Gesamtkapazität daraus abzuleiten.
+
+## Bestehende Angebotsprofile ergänzen
+
+Die Belegprüfung untersucht geänderte und neue Details. Unverändert übernommene
+Details, auch bestehende unbekannte Angaben, bleiben mit ihrem bisherigen
+Kontext erhalten und verlangen keinen erfundenen neuen Beleg. IDs bestehender
+Angebote und Bereiche müssen wiederverwendet werden. Eine neue belegte
+Raumzuordnung oder eine belegte Korrektur innerhalb eines bestehenden
+Detailfelds ist keine Löschung. Entfernte Angebote, Bereiche, Detailfelder,
+Preispositionen oder Zuordnungen bleiben dagegen zur Prüfung zurückgehalten.

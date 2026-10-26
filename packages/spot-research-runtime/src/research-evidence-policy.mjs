@@ -1,6 +1,7 @@
 // Research judgements remain AI judgements. This policy independently checks the
 // fetched evidence and schema bindings; it does not pretend to prove all meaning.
 import { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import {
   publicSourceUrl,
   visibleSourceHtml,
@@ -325,10 +326,13 @@ const terms = {
   APERITIF: ["apéro", "apero", "aperitif", "barfood", "snacks"],
   PRIVATE_CELEBRATION: [
     "hochzeit",
+    "hochzeiten",
     "familienfeier",
+    "familienfeiern",
     "feiern",
     "festessen",
     "bankett",
+    "bankette",
   ],
   EVENT: [
     "seminar",
@@ -613,7 +617,61 @@ function conditionsSupported(c, text) {
     (date) => !date || scalarMeaning(date, text, "date"),
   );
 }
-function profileMeaning(value, sources, assessment) {
+// A profile is a complete document. Preserve existing subjects and detail slots,
+// while allowing a freshly grounded correction or enrichment within a slot.
+function preservesSlots(previous, next, identity) {
+  const available = new Map();
+  for (const item of next) {
+    const id = identity(item);
+    available.set(id, (available.get(id) ?? 0) + 1);
+  }
+  for (const item of previous) {
+    const id = identity(item),
+      count = available.get(id) ?? 0;
+    if (!count) return false;
+    available.set(id, count - 1);
+  }
+  return true;
+}
+const propertySlot = (property) =>
+  JSON.stringify([property.key, property.label]);
+function preservesProfile(previous, next) {
+  if (
+    previous.category !== next.category ||
+    !preservesSlots(previous.properties ?? [], next.properties, propertySlot)
+  )
+    return false;
+  for (const collection of ["areas", "offers"])
+    for (const old of previous[collection] ?? []) {
+      const item = next[collection].find(
+        (item) => item.id === old.id && item.kind === old.kind,
+      );
+      if (
+        !item ||
+        !preservesSlots(old.properties, item.properties, propertySlot)
+      )
+        return false;
+      if (collection === "offers") {
+        if (old.areaIds.some((id) => !item.areaIds.includes(id))) return false;
+        if (
+          !preservesSlots(old.prices, item.prices, (price) =>
+            JSON.stringify([price.label, price.currency, price.basis]),
+          )
+        )
+          return false;
+        if (
+          !preservesSlots(
+            old.schedule,
+            item.schedule,
+            (interval) => interval.weekday,
+          )
+        )
+          return false;
+      }
+    }
+  return true;
+}
+function profileMeaning(value, sources, assessment, previous) {
   const bindings = assessment.bindings;
   const boundIndex = (path) => {
     let match = "",
@@ -633,17 +691,28 @@ function profileMeaning(value, sources, assessment) {
     for (let i = 0; i < items.length; i++) {
       const item = items[i],
         prefix = `/${collection}/${i}`,
-        text = bound(prefix);
+        text = bound(prefix),
+        old = previous?.[collection]?.find(
+          (candidate) => candidate.id === item.id,
+        );
+      if (old && isDeepStrictEqual(old, item)) continue;
       if (
-        !text ||
-        !scalarMeaning(item.name, text, "name") ||
-        (item.kind !== "OTHER" && !matchesResearchMeaning(item.kind, text))
+        (!old || old.name !== item.name || old.kind !== item.kind) &&
+        (!text ||
+          !scalarMeaning(item.name, text, "name") ||
+          (item.kind !== "OTHER" && !matchesResearchMeaning(item.kind, text)))
       )
         return `PROFILE_SCOPE_NOT_SUPPORTED:${prefix}`;
       for (let n = 0; n < item.properties.length; n++) {
         const property = item.properties[n],
           p = `${prefix}/properties/${n}`,
           quote = bound(p);
+        if (
+          old?.properties.some((candidate) =>
+            isDeepStrictEqual(candidate, property),
+          )
+        )
+          continue;
         if (
           !quote ||
           property.state !== "KNOWN" ||
@@ -654,6 +723,7 @@ function profileMeaning(value, sources, assessment) {
       }
       if (collection === "offers") {
         for (const areaId of item.areaIds) {
+          if (old?.areaIds.includes(areaId)) continue;
           const area = value.areas.find((a) => a.id === areaId);
           const quote = bound(`${prefix}/areaIds`);
           if (
@@ -664,7 +734,10 @@ function profileMeaning(value, sources, assessment) {
           )
             return `PROFILE_RELATION_NOT_SUPPORTED:${prefix}`;
         }
-        if (item.schedule.length) {
+        if (
+          item.schedule.length &&
+          !isDeepStrictEqual(item.schedule, old?.schedule)
+        ) {
           const quote = bound(`${prefix}/schedule`);
           if (
             !quote ||
@@ -682,6 +755,8 @@ function profileMeaning(value, sources, assessment) {
         for (let n = 0; n < item.prices.length; n++) {
           const p = item.prices[n],
             quote = bound(`${prefix}/prices/${n}`);
+          if (old?.prices.some((candidate) => isDeepStrictEqual(candidate, p)))
+            continue;
           if (
             !quote ||
             !conditionsSupported(p.conditions, quote) ||
@@ -708,13 +783,21 @@ function profileMeaning(value, sources, assessment) {
               return "PRICE_VALIDITY_NOT_SUPPORTED";
         }
         for (const date of [item.validFrom, item.validUntil])
-          if (date && !scalarMeaning(date, text, "date"))
+          if (
+            date &&
+            ![old?.validFrom, old?.validUntil].includes(date) &&
+            (!text || !scalarMeaning(date, text, "date"))
+          )
             return "OFFER_VALIDITY_NOT_SUPPORTED";
       }
     }
   for (let i = 0; i < value.properties.length; i++) {
     const p = value.properties[i],
       text = bound(`/properties/${i}`);
+    if (
+      previous?.properties?.some((candidate) => isDeepStrictEqual(candidate, p))
+    )
+      continue;
     if (
       !text ||
       p.state !== "KNOWN" ||
@@ -819,21 +902,15 @@ export function proveResearchEvidence({
     );
     if (!observed.includes(uri(claim.value))) reason = "WEBSITE_NOT_OBSERVED";
   } else if (claim.attributeKey === "experience.profile") {
-    if (!matchesResearchMeaning(claim.value.category, text))
-      reason = "PROFILE_CATEGORY_NOT_SUPPORTED";
-    else if (
-      current?.value &&
-      ["areas", "offers", "properties"].some((key) =>
-        (current.value[key] ?? []).some(
-          (old) =>
-            !(claim.value[key] ?? []).some(
-              (next) => JSON.stringify(old) === JSON.stringify(next),
-            ),
-        ),
-      )
+    if (
+      (!current?.value || current.value.category !== claim.value.category) &&
+      !matchesResearchMeaning(claim.value.category, text)
     )
+      reason = "PROFILE_CATEGORY_NOT_SUPPORTED";
+    else if (current?.value && !preservesProfile(current.value, claim.value))
       reason = "EXISTING_PROFILE_CONTENT_PROTECTED";
-    else reason = profileMeaning(claim.value, sources, assessment);
+    else
+      reason = profileMeaning(claim.value, sources, assessment, current?.value);
   } else if (claim.attributeKey.startsWith("hours.")) {
     if (!["hours.regular", "hours.kitchen"].includes(claim.attributeKey))
       reason = "DATED_EXCEPTION_REQUIRES_SPECIFIC_RULE";
