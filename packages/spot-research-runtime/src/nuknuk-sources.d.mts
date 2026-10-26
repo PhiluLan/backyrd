@@ -5,7 +5,7 @@ export function publicSourceUrl(value:string):string;
 export function matchesExistingWebsite(sourceUrl:string,existingWebsite:unknown):boolean;
 export function fetchPublicSource(value:string,options?:{timeoutMs?:number;maxRedirects?:number;maxBytes?:number;allowObservedPdfRedirect?:boolean;allowedWebsite?:string}):Promise<PublicPage>;
 export function readSourceText(page:PublicPage,id:string,options?:{preferMain?:boolean}):Promise<ResearchSource>;
-export function discoverResearchLinks(page:PublicPage,options?:{spotProfile?:boolean}):ResearchLink[];
+export function discoverResearchLinks(page:PublicPage,options?:{spotProfile?:boolean;onExcluded?:(entry:{url:string;reason:string})=>void}):ResearchLink[];
 export function discoverDelegatedExperienceLinks(page:PublicPage,spotName:string):ResearchLink[];
 export function standingExperiencePath(url:string):boolean;
 export function discoverPublicDataSources(page:PublicPage):ResearchLink[];

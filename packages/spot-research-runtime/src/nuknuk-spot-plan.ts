@@ -8,7 +8,7 @@ import { sourceQuote, parseHoursRow, hasExplicitKitchenContext } from './nuknuk-
 import type { SpotContext, ResearchField, FieldResult, ValueValidator, Citation } from './nuknuk-research.mjs';
 import { researchLegalPage } from './nuknuk-sources.mjs';
 import type { ResearchSource } from './nuknuk-sources.mjs';
-export const SPOT_RESEARCH_REVISION = 'backyrd.spot-research@4.40';
+export const SPOT_RESEARCH_REVISION = 'backyrd.spot-research@4.43';
 /** A stated, source-grounded justification, never a claim to expose model internals. */
 export const DECISION_REASON_CODES = ['DIRECT_SUPPORT','CONTRADICTED','WRONG_VENUE','WRONG_SCOPE','NOT_CURRENT','NOT_ENTAILED','INSUFFICIENT_CONTEXT'] as const;
 export interface ResearchDecision {
@@ -81,6 +81,7 @@ export interface SpotResearchCandidate {
     conditionNormalization?: {rule:string;original:string};
     valueNormalization?: {rule:string;originalValueJson:string};
     evidenceBinding?: {rule:string;originalQuote:string;originalOffset?:number};
+    serviceEvidenceMapping?: {rule:'ORDINARY_MAIN_MEAL_TO_CATALOG';canonicalKind:'LUNCH'|'DINNER'};
     id: string;
     field: string;
     scope: 'SPOT' | 'OFFER' | 'AREA';
@@ -425,9 +426,14 @@ function mealBodyEvidence(text: string): boolean {
 function genericDiningEvidence(c:Pick<SpotResearchCandidate,'scope'|'entityKind'|'quote'>,source:ResearchSource):boolean {
     if(c.scope!=='OFFER'||!['LUNCH','DINNER'].includes(c.entityKind)||c.quote.includes('?')||lodgingPackageAssertion(c.quote))return false;
     const material=c.quote;
-    if(!/(?<![\p{L}\p{N}])(?:pizza|pasta|burger|hauptgerichte?|main courses?|warme speisen|speisekarte|men[uü](?:karte)?|mahlzeiten?|meals?)(?![\p{L}\p{N}])/iu.test(material))return false;
     const at=source.text.indexOf(material),path=headingPathAt(source,at).map(h=>h.text).join('\n');
     const context=path+'\n'+material;
+    // A published main-dish/house-specialities section is a dining lead too.
+    // Do not require its dishes to occur in a hard-coded pizza/pasta list.
+    // This only admits the assertion to the independent semantic critic.
+    const diningSection=/(?:hausspezialit[aä]ten|haus[ -]spezialit[aä]ten|our (?:house )?specialities|house specialities|main dishes|hauptspeisen)/iu.test(context)
+        && material.trim().split(/\s+/u).length>=5;
+    if(!diningSection&&!/(?<![\p{L}\p{N}])(?:pizza|pasta|burger|hauptgerichte?|main courses?|warme speisen|speisekarte|men[uü](?:karte)?|mahlzeiten?|meals?)(?![\p{L}\p{N}])/iu.test(material))return false;
     if(/\b(?:kein\w*|nicht|no|not|without|ohne)\b|rezept|recipe|archiv|archive|history|geschichte/iu.test(context))return false;
     if(c.entityKind==='DINNER'&&(/\b(?:nur|only|ausschliesslich|ausschließlich)\b[^\n.!?]{0,60}(?:mittag|lunch)/iu.test(context)||MEAL_ALIASES.LUNCH.test(path)&&!MEAL_ALIASES.DINNER.test(path)))return false;
     if(c.entityKind==='LUNCH'&&(/\b(?:nur|only|ausschliesslich|ausschließlich)\b[^\n.!?]{0,60}(?:abend|dinner)/iu.test(context)||MEAL_ALIASES.DINNER.test(path)&&!MEAL_ALIASES.LUNCH.test(path)))return false;
@@ -667,6 +673,7 @@ function candidateReason(c: SpotResearchCandidate, fields: ResearchField[], sour
     if (c.field !== 'experience.profile') {
         if (c.scope !== 'SPOT' || c.entityKind || c.propertyKey) return 'FLAT_FIELD_SCOPE_INVALID';
         if (Array.isArray(value) && !value.length) return 'EMPTY_VALUE_NOT_EVIDENCE';
+        if(c.field==='location.address_line1'&&!researchStreetAddressComplete(value))return 'ADDRESS_STREET_DETAIL_REQUIRES_REVIEW';
         if (c.field === 'rule.reservation' && object(value) && value.mode === 'REQUIRED' && !/pflicht|obligator|zwingend|erforderlich|nur mit reserv|must|required|mandatory/iu.test(c.quote)) return 'RESERVATION_REQUIREMENT_NOT_EXPLICIT';
         if (c.field === 'hours.regular' && Array.isArray(value) && !/montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|monday|tuesday|wednesday|thursday|friday|saturday|sunday|t[aä]glich|daily|jeden tag|\b(?:Mo|Di|Mi|Do|Fr|Sa|So)\.?\s*[-–:]/iu.test(c.quote)) return 'VENUE_WEEKDAYS_NOT_LITERAL';
         if (c.field === 'hours.kitchen' && Array.isArray(value) && !/montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|monday|tuesday|wednesday|thursday|friday|saturday|sunday|t[aä]glich|daily|jeden tag|\b(?:Mo|Di|Mi|Do|Fr|Sa|So)\.?\s*[-–:]/iu.test(c.quote)) return 'KITCHEN_WEEKDAYS_NOT_LITERAL';
@@ -812,6 +819,7 @@ export function parseScopedCandidates(raw: unknown, source: ResearchSource, fiel
         normalizeGenericService(c, source);
         const establishedOffer=c.scope==='OFFER'&&!!c.propertyKey&&OFFER_CATALOG.some(entry=>entry.kind===c.entityKind&&normalized(entry.label)===normalized(c.entityName))&&establishedNodes.some(node=>node.scope===c.scope&&node.entityKind===c.entityKind&&normalized(node.entityName)===normalized(c.entityName)&&(node.state==='ACCEPTED'||node.reason==='SEMANTIC_CHECK_PENDING'));
         const reason = wholeVenueArea(c,targetName) ? 'WHOLE_VENUE_IS_NOT_A_SEPARATE_AREA' : candidateReason(c, fields, source, establishedOffer);
+        if(!reason&&c.scope==='OFFER'&&!c.propertyKey&&['LUNCH','DINNER'].includes(c.entityKind)&&!positiveMealClause(c.quote,c.entityKind)&&genericDiningEvidence(c,source))c.serviceEvidenceMapping={rule:'ORDINARY_MAIN_MEAL_TO_CATALOG',canonicalKind:c.entityKind as 'LUNCH'|'DINNER'};
         if (reason) {
             c.state = 'HELD';
             c.reason = reason;
@@ -989,10 +997,20 @@ export function applyPublishedKitchenConflicts(results:FieldResult[],sources:Res
 }
 /** One answered-field predicate for restaurant source selection and extraction.
  * Admin review is not missing evidence; actual conflicts/partial schedules stay open. */
+/** A proximity hint or city/postcode is not a completed street address.
+ * Incomplete rural/unusual addresses stay reviewable instead of closing discovery. */
+export function researchStreetAddressComplete(value:unknown):boolean {
+    if(typeof value!=='string')return false;
+    const address=value.trim();
+    if(/^(?:beim|bei der|bei dem|nahe|near|next to|gegen[uü]ber|in der n[aä]he)\b/iu.test(address))return false;
+    if(/^\d{4,6}\s+[\p{L} .'-]+$/u.test(address))return false;
+    return /\p{L}/u.test(address)&&/\d/u.test(address);
+}
 export function researchFieldAnswered(field:ResearchField,result:FieldResult|undefined):boolean {
     if(field.attributeKey==='experience.profile')return false;
     if(!result)return false;if(result.status==='SKIPPED')return true;
     if(!['REQUIRES_REVIEW','AUTO_VERIFIED'].includes(result.status)||result.value===undefined||result.value===null)return false;
+    if(field.attributeKey==='location.address_line1')return researchStreetAddressComplete(result.value);
     if(field.attributeKey.startsWith('hours.'))return result.partialHours!==true&&Array.isArray(result.value)&&new Set(result.value.filter(row=>object(row)&&typeof row.day==='string').map(row=>(row as Record<string,unknown>).day)).size===7;
     return true;
 }
