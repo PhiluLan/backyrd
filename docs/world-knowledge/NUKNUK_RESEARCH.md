@@ -45,6 +45,35 @@ no minimum/maximum meal budget is calculated from unrelated menu prices.
 installed llguidance decoder cannot compile it. Canonical validation still checks
 uniqueness. A decoder/schema error is a visible failure, never successful research.
 
+## v4.44: compatible diets and published PDF download widgets
+
+Positive, current, unconditional vegan and vegetarian options in the same offer
+are additive. Projection retains both original statements and their citations;
+coverage uses the same compatibility rule instead of reporting a false conflict.
+Negations, exclusivity and conditions still require separate review. This does
+not infer a diet from ingredients. The founder's Marmaris clarification accepts
+a meat-quality description as a cuisine hint; this repair does not remove it.
+
+Menu discovery also reads inert JSON for visible CMS file-download buttons.
+The widget identity and label must match the actual page button. No website
+script is executed. Only the published asset URL is used; an HTTP PDF asset may
+be requested at the identical HTTPS host/path, with existing public-URL and DNS
+checks preserved. Private, authenticated and legal-document targets stay excluded.
+
+A PDF without embedded text now reaches the existing bounded page OCR/layout
+audit (at most 20 pages, 180 seconds per document) instead of failing before OCR.
+Page markers, source URL, timestamp, PDF hash and audit are retained. The agent
+reuses an audit only for the exact URL and document hash, avoiding duplicate OCR.
+Partial reads remain marked truncated. Layout review remains required; OCR and
+item-price pairs are review evidence, not certified offer budgets or automatic
+canonical writes. The local OCR tools and language data remain prerequisites.
+
+Validation: 811 runtime tests plus strict build; replay of the immutable Marmaris
+v4.43 accepted ledger preserves vegan and vegetarian options with citations.
+The official German (4 pages) and English (6 pages) scanned menus were downloaded
+and OCR/layout-read in full. This is a real source-tool test and frozen-fact replay,
+not a new model research run or a quality claim about all restaurant PDFs.
+
 ## Quality and readiness
 
 Reports expose `spotCoverage`: visitor offers, physical areas, scoped properties,

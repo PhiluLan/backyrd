@@ -19,7 +19,7 @@ import type {ResearchDecision,SpotResearchCandidate} from './nuknuk-spot-plan.js
 import {hasPublishedKitchenSchedule,NUKNUK_MODEL_REVISION,localModelEndpoint,sourceQuote,normalizePhone,researchPhoneCountry,parseHoursRow,fieldCandidates,emailCandidates,enumFactCandidates,extractedProposal,projectOffers,verifyResearchProposal} from './nuknuk-research.mjs';
 import type {SpotContext,ResearchField,FieldResult,ValueValidator,Citation} from './nuknuk-research.mjs';
 
-export const NUKNUK_AGENT_VERSION='nuknuk-research-v4.43';
+export const NUKNUK_AGENT_VERSION='nuknuk-research-v4.44';
 export const NUKNUK_RESEARCH_MODELS=[
   {id:'qwen3.5-9b-4bit',repo:'mlx-community/Qwen3.5-9B-4bit',revision:NUKNUK_MODEL_REVISION,requestTimeoutMs:90000},
   {id:'qwen3.5-27b-4bit',repo:'mlx-community/Qwen3.5-27B-4bit',revision:'45797d2985a12c55e6473686e9ea91b95e959553',requestTimeoutMs:240000},
@@ -2477,7 +2477,7 @@ export async function researchSpotV2(options:AgentOptions,deps:AgentDependencies
       if(bookingRule.length)await progress({stage:'SOURCE_RULE',url:source.url,sourceId:source.id,field:'rule.reservation',rule:'PUBLISHED_TABLE_BUTTON_RECOMMENDED',candidates:bookingRule.map(c=>c.id),humanReviewRequired:true});
       const sourceScopedFields=scopedFields.filter(field=>(!sharedMenuScope||sharedMenuScope.scope==='LOCAL'&&field.attributeKey==='experience.profile')&&!bookingRule.some(c=>c.field===field.attributeKey)&&(!workingContext||restaurantFieldHasEvidence(field.attributeKey,source.text))&&(!contactOnly||relevant(field))&&(field.attributeKey==='experience.profile'||pendingFields.some(pending=>pending.attributeKey===field.attributeKey)));
       if(source.format==='PDF_TEXT'&&source.layoutReviewRequired&&options.inspectMenuImages===true&&linkedBranchDocument){
-        try { await progress({stage:'PDF_LAYOUT_STARTED',sourceId:source.id,url:source.url});const audit=await auditMenuPdf(page,{maxPages:20,maxDurationMs:180000});menuMediaAudits.push(audit);await progress({stage:'PDF_LAYOUT_CHECK',sourceId:source.id,url:source.url,totalPages:audit.totalDocumentPages,inspectedPages:audit.layoutPagesInspected,complete:audit.layoutCheckComplete,elapsedMs:audit.latencyMs,matchedItemPrices:audit.candidateRows,documentAssetHash:audit.documentAssetHash}); }
+        try { await progress({stage:'PDF_LAYOUT_STARTED',sourceId:source.id,url:source.url});const cached=source.pdfLayoutAudit;const audit=cached&&cached.officialMenuUrl===page.url&&Buffer.isBuffer(page.body)&&cached.documentAssetHash===createHash('sha256').update(page.body).digest('hex')?cached:await auditMenuPdf(page,{maxPages:20,maxDurationMs:180000});menuMediaAudits.push(audit);await progress({stage:'PDF_LAYOUT_CHECK',sourceId:source.id,url:source.url,totalPages:audit.totalDocumentPages,inspectedPages:audit.layoutPagesInspected,complete:audit.layoutCheckComplete,elapsedMs:audit.latencyMs,matchedItemPrices:audit.candidateRows,documentAssetHash:audit.documentAssetHash}); }
         catch(error){await progress({stage:'PDF_LAYOUT_ERROR',sourceId:source.id,url:source.url,reason:error instanceof Error?error.message:'PDF_LAYOUT_FAILED'});}
       }
       const layoutExtractionDeferred=source.layoutReviewRequired&&['EAT','DRINKS','COFFEE_DAYTIME'].includes(String(category));

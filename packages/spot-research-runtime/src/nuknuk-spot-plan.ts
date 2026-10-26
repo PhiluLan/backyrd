@@ -8,7 +8,7 @@ import { sourceQuote, parseHoursRow, hasExplicitKitchenContext } from './nuknuk-
 import type { SpotContext, ResearchField, FieldResult, ValueValidator, Citation } from './nuknuk-research.mjs';
 import { researchLegalPage } from './nuknuk-sources.mjs';
 import type { ResearchSource } from './nuknuk-sources.mjs';
-export const SPOT_RESEARCH_REVISION = 'backyrd.spot-research@4.43';
+export const SPOT_RESEARCH_REVISION = 'backyrd.spot-research@4.44';
 /** A stated, source-grounded justification, never a claim to expose model internals. */
 export const DECISION_REASON_CODES = ['DIRECT_SUPPORT','CONTRADICTED','WRONG_VENUE','WRONG_SCOPE','NOT_CURRENT','NOT_ENTAILED','INSUFFICIENT_CONTEXT'] as const;
 export interface ResearchDecision {
@@ -885,6 +885,24 @@ function mergedMenuInventory(facts:SpotResearchCandidate[]):string|null {
     const combined=[...new Set(values)].join('\n');
     return combined.length<=1000?combined:null;
 }
+/** Positive dietary options are additive; incompatible claims and qualifications
+ * remain reviewable. Keep their original wording and all source citations. */
+function mergedDietOptions(facts:SpotResearchCandidate[]):string|null {
+    if(facts.length<2||facts.some(c=>c.condition||c.applicability!=='CURRENT'))return null;
+    const values=facts.map(c=>JSON.parse(c.valueJson) as unknown);
+    if(!values.every((value):value is string=>typeof value==='string'&&/\b(?:vegan\w*|vegetari\w*|vegi(?:[ -]|$)|plant[ -]based)\b/iu.test(value)
+        && !/\?|\b(?:kein\w*|nicht|no|not|without|ohne|nur|only|ausschlie(?:ss|ß)lich|exclusively|all|alle(?:s|n)?)\b|100\s*%/iu.test(value)))return null;
+    const combined=[...new Set(values)].join('\n');return combined.length<=1000?combined:null;
+}
+/** Projection and diagnostics must agree on which values can coexist. */
+function mergedAdditiveProperty(facts:SpotResearchCandidate[]):string|null {
+    const first=facts[0];if(!first)return null;
+    if(first.propertyKey==='food.diet')return mergedDietOptions(facts);
+    if(['food.dish','food.drink'].includes(first.propertyKey))return mergedMenuInventory(facts);
+    if(first.scope==='SPOT'&&first.propertyKey==='travel.mode')return mergedTravelDirections(facts);
+    if(first.scope==='SPOT'&&first.propertyKey==='location.setting')return mergedSettingDescriptions(facts);
+    return null;
+}
 export function projectScopedResearch(spot: SpotContext, fields: ResearchField[], ledger: SpotResearchCandidate[], sources: ResearchSource[], validateValue: ValueValidator): FieldResult[] {
     const establishedOffers=ledger.filter(c=>c.scope==='OFFER'&&!c.propertyKey&&c.state==='ACCEPTED'&&sources.some(s=>s.id===c.sourceId&&hash(s.text)===s.hash&&sourceQuote(s.text,c.quote)&&candidateReason(c,fields,s)===null));
     const eligible = ledger.filter(c => { const s = sources.find(s => s.id === c.sourceId); const established=c.scope==='OFFER'&&!!c.propertyKey&&OFFER_CATALOG.some(entry=>entry.kind===c.entityKind&&normalized(entry.label)===normalized(c.entityName))&&establishedOffers.some(node=>node.entityKind===c.entityKind&&normalized(node.entityName)===normalized(c.entityName));return c.state === 'ACCEPTED' && !wholeVenueArea(c,spot.name) && s && hash(s.text) === s.hash && sourceQuote(s.text, c.quote) && candidateReason(c, fields, s, established) === null; });
@@ -921,7 +939,7 @@ export function projectScopedResearch(spot: SpotContext, fields: ResearchField[]
                     const selected = facts.filter(c => c.scope === scope && c.propertyKey && !c.propertyKey.startsWith('$') && (!entity || c.entityKind === entity.entityKind && normalized(identityName(c)) === normalized(identityName(entity))));
                     const travel = scope === 'SPOT' ? mergedTravelDirections(selected.filter(c=>c.propertyKey==='travel.mode')) : null;
                     const setting = scope === 'SPOT' ? mergedSettingDescriptions(selected.filter(c=>c.propertyKey==='location.setting')) : null;
-                    const inventory=new Map(['food.dish','food.drink'].map(key=>[key,mergedMenuInventory(selected.filter(c=>c.propertyKey===key))]));
+                    const inventory=new Map(['food.dish','food.drink','food.diet'].map(key=>[key,mergedAdditiveProperty(selected.filter(c=>c.propertyKey===key))]));
                     const conflicts = new Set(selected.filter(c => !(travel && c.propertyKey==='travel.mode'||setting && c.propertyKey==='location.setting'||inventory.get(c.propertyKey)) && selected.some(other => other.propertyKey === c.propertyKey && JSON.stringify([JSON.parse(other.valueJson), other.condition]) !== JSON.stringify([JSON.parse(c.valueJson), c.condition]))).map(c => c.propertyKey));
                     for(const candidate of selected.filter(c=>conflicts.has(c.propertyKey)))projectionReviewEvidence.push({...citation(candidate),reviewReason:'PROPERTY_VALUES_REQUIRE_REVIEW',reviewExplanation:'Mehrere belegte Formulierungen für dieselbe Eigenschaft. Bitte gemeinsam prüfen; ergänzende Aussagen sind nicht automatisch ein Widerspruch.',propertyKey:candidate.propertyKey,entityName:candidate.entityName||'Gesamter Ort',scope:candidate.scope});
                     return [...new Map(selected.filter(c => !conflicts.has(c.propertyKey)).map(c => [c.propertyKey, { key: c.propertyKey, label: null, state: 'KNOWN', value: c.propertyKey==='travel.mode' && travel ? travel : c.propertyKey==='location.setting' && setting ? setting : inventory.get(c.propertyKey)??JSON.parse(c.valueJson) as unknown, conditions: {...emptyConditions(), event: scopedCapacityCondition(c) ? c.condition : null} }])).values()];
@@ -964,7 +982,7 @@ export function scopedCoverage(results: FieldResult[], ledger: SpotResearchCandi
         }
         catch { }
     }
-    return { visitorOffers: offers, physicalAreas: areas, scopedProperties: properties, explicitRelationships: relationships, proposedFields: results.filter(r => r.status === 'REQUIRES_REVIEW').length, unresolvedFields: results.filter(r => r.status === 'UNRESOLVED').length, conflictingProperties: ledger.filter(c => c.state === 'ACCEPTED' && c.propertyKey && ledger.some(other => other !== c && other.state === 'ACCEPTED' && other.field === c.field && other.scope === c.scope && other.entityKind === c.entityKind && normalized(other.entityName) === normalized(c.entityName) && other.propertyKey === c.propertyKey && other.valueJson !== c.valueJson) && (c.propertyKey !== '$schedule' || mergedSchedules(ledger.filter(other => other.state === 'ACCEPTED' && other.field === c.field && other.scope === c.scope && other.entityKind === c.entityKind && normalized(other.entityName) === normalized(c.entityName) && other.propertyKey === '$schedule')) === null)).map(c => ({ candidateId: c.id, key: c.propertyKey, scope: c.scope, entity: c.entityName, reason: 'CONFLICT_REQUIRES_REVIEW' })), heldCandidates: ledger.filter(c => c.state === 'HELD').length, rejectedCandidates: ledger.filter(c => c.state === 'REJECTED').length, complete: false, readinessCertified: false, menuItemCountIsSuccessMetric: false };
+    return { visitorOffers: offers, physicalAreas: areas, scopedProperties: properties, explicitRelationships: relationships, proposedFields: results.filter(r => r.status === 'REQUIRES_REVIEW').length, unresolvedFields: results.filter(r => r.status === 'UNRESOLVED').length, conflictingProperties: ledger.filter(c => c.state === 'ACCEPTED' && c.propertyKey && ledger.some(other => other !== c && other.state === 'ACCEPTED' && other.field === c.field && other.scope === c.scope && other.entityKind === c.entityKind && normalized(other.entityName) === normalized(c.entityName) && other.propertyKey === c.propertyKey && other.valueJson !== c.valueJson) && mergedAdditiveProperty(ledger.filter(other=>other.state==='ACCEPTED'&&other.field===c.field&&other.scope===c.scope&&other.entityKind===c.entityKind&&normalized(other.entityName)===normalized(c.entityName)&&other.propertyKey===c.propertyKey))===null && (c.propertyKey !== '$schedule' || mergedSchedules(ledger.filter(other => other.state === 'ACCEPTED' && other.field === c.field && other.scope === c.scope && other.entityKind === c.entityKind && normalized(other.entityName) === normalized(c.entityName) && other.propertyKey === '$schedule')) === null)).map(c => ({ candidateId: c.id, key: c.propertyKey, scope: c.scope, entity: c.entityName, reason: 'CONFLICT_REQUIRES_REVIEW' })), heldCandidates: ledger.filter(c => c.state === 'HELD').length, rejectedCandidates: ledger.filter(c => c.state === 'REJECTED').length, complete: false, readinessCertified: false, menuItemCountIsSuccessMetric: false };
 }
 /** Reconcile published kitchen service windows even after a planning question
  * was answered. Same service and same venue-week scope, not unrelated rooms,
