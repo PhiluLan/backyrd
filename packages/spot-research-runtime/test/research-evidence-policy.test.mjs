@@ -524,3 +524,7 @@ test("enrichment cannot silently remove an existing detail or assigned area", ()
     "EXISTING_PROFILE_CONTENT_PROTECTED",
   );
 });
+
+for (const word of ["Bankette", "Hochzeiten"])
+  test(`celebration plural remains the same catalog meaning: ${word}`, () =>
+    assert.equal(matchesResearchMeaning("PRIVATE_CELEBRATION", word), true));

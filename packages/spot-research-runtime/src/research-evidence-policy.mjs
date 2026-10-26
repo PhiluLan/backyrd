@@ -326,10 +326,13 @@ const terms = {
   APERITIF: ["apéro", "apero", "aperitif", "barfood", "snacks"],
   PRIVATE_CELEBRATION: [
     "hochzeit",
+    "hochzeiten",
     "familienfeier",
+    "familienfeiern",
     "feiern",
     "festessen",
     "bankett",
+    "bankette",
   ],
   EVENT: [
     "seminar",
