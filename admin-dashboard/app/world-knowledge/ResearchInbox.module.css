@@ -3,3 +3,5 @@
 @media(max-width:600px){.header .actions button{flex:1 1 130px;font-size:14px;padding:10px 12px}.header .actions{gap:10px}}
 
 .toast{position:fixed;z-index:70;bottom:96px;left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 32px));margin:0;box-shadow:0 16px 50px #000b;max-height:40vh;overflow:auto}.toast.success{background:#203d2f}.toast.error{background:#482532}@media(min-width:900px){.toast{bottom:28px;left:calc(50% + 120px)}}
+
+.toast{display:flex;align-items:flex-start;gap:12px}.toast>span{flex:1}.toast button{flex-shrink:0;width:44px;min-height:44px;padding:0;background:transparent;border-color:currentColor;font-size:22px}
