@@ -69,14 +69,14 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261026215735_world_research_text_safety_word_boundary_v1.sql",
-        "sha256": "0b2060539b9ce2ef3dc7455870579b5c8df43fe64f56ce3b046aee87e2998fe3"
+        "path": "supabase/migrations/20261027112800_world_research_rhassoul_safety_v1.sql",
+        "sha256": "09504c02d45df9a4de803714479bcb99c3f03d582e2570d3c9cef0630ac38d0d"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved the exact 20261026215735 migration and disclosed recovery risk on 2026-10-26. Only this SQL release is selected; the four Booking migrations remain deferred. Historical applied Volta and research receipts in production-state.json remain unchanged. Founder additionally confirmed explicit exclusion of 20261024171707 on 2026-10-26 after automatic approval review requested it. Only the safety migration may be applied."
+    "source": "Founder explicitly approved this exact Rhassoul migration, the bounded isolated release path and subsequent regular Admin review of the held aquabasilea profile, with disclosed untested database recovery risk, on 2026-10-27. Preserve all historical applied receipts. The five deferred migrations and all Function/Auth/Decision changes remain excluded."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -100,8 +100,8 @@
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261026215735_world_research_text_safety_word_boundary_v1.sql",
-        "sha256": "0b2060539b9ce2ef3dc7455870579b5c8df43fe64f56ce3b046aee87e2998fe3"
+        "path": "supabase/migrations/20261027112800_world_research_rhassoul_safety_v1.sql",
+        "sha256": "09504c02d45df9a4de803714479bcb99c3f03d582e2570d3c9cef0630ac38d0d"
       }
     ],
     "deferredMigrations": [
@@ -126,7 +126,7 @@
         "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
       }
     ],
-    "backupRunId": 40287797032,
+    "backupRunId": 40469411196,
     "executionAuthorized": false,
     "deferredFunctionChanges": [
       {

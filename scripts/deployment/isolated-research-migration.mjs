@@ -5,6 +5,7 @@ import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 export const RESEARCH_MIGRATION = Object.freeze({"path": "supabase/migrations/20261024113000_world_research_current_profile_import_v3.sql", "sha256": "7be9ad6a4ee3c824fe8017cd5a29d7250833f9a44c8a24fef32e287f5cc3ce8b"});
 export const RESEARCH_SAFETY_MIGRATION = Object.freeze({path:"supabase/migrations/20261026215735_world_research_text_safety_word_boundary_v1.sql",sha256:"0b2060539b9ce2ef3dc7455870579b5c8df43fe64f56ce3b046aee87e2998fe3"});
+export const RESEARCH_RHASSOUL_MIGRATION = Object.freeze({path:"supabase/migrations/20261027112800_world_research_rhassoul_safety_v1.sql",sha256:"09504c02d45df9a4de803714479bcb99c3f03d582e2570d3c9cef0630ac38d0d"});
 export const RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES = Object.freeze([
   Object.freeze({slug:"decision-v13",previousSourceSetHash:"0317d2a74fac0849f7ec52d7b14c55af07aceb8b841f71eba44394e6c7ea8961",sourceSetHash:"8cb7795a2e0e357640290a699fa144dd0d983f12acea65205df01358c879548e"}),
 ]);
@@ -18,9 +19,8 @@ export const SAFETY_DEFERRED_MIGRATIONS = Object.freeze([...DEFERRED_BOOKING_MIG
   Object.freeze({path:"supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",sha256:"b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"}),
 ]);
 const canonicalRows = rows => rows.map(({path,sha256})=>({path,sha256})).sort((a,b)=>a.path.localeCompare(b.path));
-export function researchAppliedReceipt(state, read, isAncestor, safety = false) {
-  const target = safety ? RESEARCH_SAFETY_MIGRATION : RESEARCH_MIGRATION;
-  const receipt = state?.supabase?.[safety ? "isolatedResearchSafetyRelease" : "isolatedResearchRelease"];
+function exactResearchReceipt(state,read,isAncestor,target,key) {
+  const receipt=state?.supabase?.[key];
   if (!receipt) return null;
   if (receipt.status !== "APPLIED_AND_VERIFIED" || !equal(receipt.migration,target)
     || !/^[0-9a-f]{40}$/.test(receipt.sourceSha ?? "") || !isAncestor(receipt.sourceSha)
@@ -30,13 +30,22 @@ export function researchAppliedReceipt(state, read, isAncestor, safety = false) 
     throw new Error("isolated_research_receipt_invalid");
   return receipt;
 }
-export function scopeResearchMigrations({pending,scope,baseSha,deployFunctions,authDeploy,applied,appliedSafety}) {
+export function researchAppliedReceipt(state,read,isAncestor,safety=false) {
+  return exactResearchReceipt(state,read,isAncestor,safety?RESEARCH_SAFETY_MIGRATION:RESEARCH_MIGRATION,
+    safety?"isolatedResearchSafetyRelease":"isolatedResearchRelease");
+}
+export function researchRhassoulAppliedReceipt(state,read,isAncestor) {
+  return exactResearchReceipt(state,read,isAncestor,RESEARCH_RHASSOUL_MIGRATION,"isolatedResearchRhassoulRelease");
+}
+export function scopeResearchMigrations({pending,scope,baseSha,deployFunctions,authDeploy,applied,appliedSafety,appliedRhassoul}) {
   if (!scope) return {pendingMigrations:pending, deferredMigrations:[], isolatedResearchScope:null};
-  const target = equal(scope.migrations,[RESEARCH_SAFETY_MIGRATION]) ? RESEARCH_SAFETY_MIGRATION : RESEARCH_MIGRATION;
-  const deferred = target === RESEARCH_SAFETY_MIGRATION ? SAFETY_DEFERRED_MIGRATIONS : DEFERRED_BOOKING_MIGRATIONS;
-  if (scope.deferredFunctionChanges?.length && (target !== RESEARCH_SAFETY_MIGRATION
+  const target = equal(scope.migrations,[RESEARCH_RHASSOUL_MIGRATION]) ? RESEARCH_RHASSOUL_MIGRATION
+    : equal(scope.migrations,[RESEARCH_SAFETY_MIGRATION]) ? RESEARCH_SAFETY_MIGRATION : RESEARCH_MIGRATION;
+  const safety = target !== RESEARCH_MIGRATION;
+  const deferred = safety ? SAFETY_DEFERRED_MIGRATIONS : DEFERRED_BOOKING_MIGRATIONS;
+  if (scope.deferredFunctionChanges?.length && (!safety
     || !equal(scope.deferredFunctionChanges,RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES))) throw new Error("isolated_research_deferred_function_binding_invalid");
-  if (target === RESEARCH_SAFETY_MIGRATION && !applied) throw new Error("isolated_research_prerequisite_missing");
+  if (safety && (!applied || (target === RESEARCH_RHASSOUL_MIGRATION && !appliedSafety))) throw new Error("isolated_research_prerequisite_missing");
   if (deployFunctions.length) throw new Error(`isolated_research_function_deployment_not_authorized:${deployFunctions.join(",")}`);
   if (authDeploy) throw new Error("isolated_research_auth_deployment_not_authorized");
   if (scope.contractVersion !== "backyrd.isolated-research-migration-scope@1.0"
@@ -46,7 +55,7 @@ export function scopeResearchMigrations({pending,scope,baseSha,deployFunctions,a
     || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
     || deployFunctions.length || authDeploy)
     throw new Error("isolated_research_scope_invalid");
-  const selected = (target === RESEARCH_SAFETY_MIGRATION ? appliedSafety : applied) ? [] : [target];
+  const selected = (target === RESEARCH_RHASSOUL_MIGRATION ? appliedRhassoul : safety ? appliedSafety : applied) ? [] : [target];
   if (!equal(canonicalRows(pending),canonicalRows([...deferred,...selected])))
     throw new Error("isolated_research_pending_scope_changed");
   return {pendingMigrations:selected, deferredMigrations:deferred,
@@ -84,7 +93,7 @@ export function prepareResearchMigrationWorkspace(plan,root,output) {
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,
       appliedResearch:plan.appliedResearch,appliedVolta:plan.appliedVolta})
     : scopeResearchMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
-      baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,applied:plan.appliedResearch,appliedSafety:plan.appliedResearchSafety});
+      baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,applied:plan.appliedResearch,appliedSafety:plan.appliedResearchSafety,appliedRhassoul:plan.appliedResearchRhassoul});
   if (!(scoped.isolatedResearchScope||scoped.isolatedVoltaScope) || !equal(plan.deferredMigrations,scoped.deferredMigrations)
     || !equal(plan.pendingMigrations,scoped.pendingMigrations)) throw new Error("isolated_research_workspace_plan_invalid");
   const digest=path=>createHash("sha256").update(readFileSync(resolve(root,path))).digest("hex");

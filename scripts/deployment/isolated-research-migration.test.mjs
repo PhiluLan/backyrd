@@ -121,3 +121,24 @@ test('the isolated Volta workspace includes both map migrations and excludes Boo
  for(const item of volta)assert.equal(readFileSync(join(output,item.path),'utf8'),readFileSync(join(root,item.path),'utf8'));
  for(const item of deferred)assert.equal(existsSync(join(output,item.path)),false);
 });
+
+test('Rhassoul release requires both historical receipts and selects only its exact migration',async()=>{
+ const {RESEARCH_RHASSOUL_MIGRATION:rhassoul,RESEARCH_SAFETY_MIGRATION:safety,SAFETY_DEFERRED_MIGRATIONS:remaining,RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES:bindings,researchRhassoulAppliedReceipt}=await import('./isolated-research-migration.mjs');
+ const request={...input(),scope:{...scope,migrations:[rhassoul],deferredMigrations:remaining,deferredFunctionChanges:bindings},pending:[...remaining,rhassoul],applied:{migration:target},appliedSafety:{migration:safety},appliedRhassoul:null};
+ assert.deepEqual(scopeResearchMigrations(request).pendingMigrations,[rhassoul]);
+ for(const patch of [{applied:null},{appliedSafety:null},{pending:[rhassoul]},{pending:[...remaining,rhassoul,safety]},{deployFunctions:['decision-v13']},{authDeploy:true},{scope:{...request.scope,migrations:[{...rhassoul,sha256:'0'.repeat(64)}]}}])
+  assert.throws(()=>scopeResearchMigrations({...request,...patch}),/isolated_research/);
+ const receipt={status:'APPLIED_AND_VERIFIED',migration:rhassoul,sourceSha:'b'.repeat(40),deploymentRunId:5,manifestHash:'c'.repeat(64)};
+ const root=new URL('../..',import.meta.url).pathname,read=path=>readFileSync(join(root,path));
+ const state={supabase:{isolatedResearchSafetyRelease:{...receipt,migration:safety},isolatedResearchRhassoulRelease:receipt}};
+ assert.equal(researchRhassoulAppliedReceipt(state,read,()=>true),receipt);
+ assert.equal(researchAppliedReceipt(state,read,()=>true,true),state.supabase.isolatedResearchSafetyRelease);
+ assert.throws(()=>researchRhassoulAppliedReceipt({...state,supabase:{...state.supabase,isolatedResearchRhassoulRelease:{...receipt,migration:safety}}},read,()=>true),/receipt_invalid/);
+ assert.throws(()=>researchRhassoulAppliedReceipt(state,read,()=>false),/receipt_invalid/);
+ const selected=scopeResearchMigrations({...request,pending:remaining,appliedRhassoul:receipt});
+ assert.deepEqual(selected.pendingMigrations,[]);assert.deepEqual(selected.deferredMigrations,remaining);
+ const output=mkdtempSync(join(tmpdir(),'backyrd-rhassoul-release-'));
+ prepareResearchMigrationWorkspace({...scopeResearchMigrations(request),baseSha:base,deployFunctions:[],authConfig:null,appliedResearch:request.applied,appliedResearchSafety:request.appliedSafety,appliedResearchRhassoul:null},root,output);
+ assert.equal(readFileSync(join(output,rhassoul.path),'utf8'),readFileSync(join(root,rhassoul.path),'utf8'));
+ for(const item of remaining)assert.equal(existsSync(join(output,item.path)),false);
+});
