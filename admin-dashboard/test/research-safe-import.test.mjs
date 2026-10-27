@@ -527,7 +527,7 @@ test("v2 imports a grounded lunch synonym, corrects the exact old claim, and com
     fetchPage,
     now,
   });
-  assert.equal(result.report.policy, "backyrd.research-evidence@2");
+  assert.equal(result.report.policy, "backyrd.research-evidence@2.1");
   assert.deepEqual(result.report.stored, ["offering.groups"]);
   assert.equal(result.report.state, "COMPLETE");
   assert.ok(result.report.unresolved.length > 0);
@@ -755,4 +755,177 @@ test("projection retries reuse the durable timestamp and never duplicate canonic
   assert.deepEqual(requests[0], requests[1]);
   assert.equal(f.calls.filter((c) => c === "import").length, 1);
   assert.match(requests[0].key, /safe-rebuild:v2$/u);
+});
+
+test("restaurant catalogue evidence stores automatically while a major holiday ambiguity remains persisted", async () => {
+  const quote =
+    "Restaurant mit italienischen Spezialitäten. Hausgemachte Pasta und Rindsentrecôte. Calamari. Desserts. Unser Garten mit Boulevardfläche. Mittagsmenü CHF 29 bis 36.";
+  const schedule =
+    "Montag bis Samstag 11:30–14:00 und 18:30–23:00\nSonntag geschlossen";
+  const rows = [
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
+  ].map((day) => ({
+    day,
+    intervals:
+      day === "SUNDAY"
+        ? []
+        : [
+            { start: "11:30", end: "14:00" },
+            { start: "18:30", end: "23:00" },
+          ],
+  }));
+  const conditions = {
+    weekdays: [],
+    dayparts: [],
+    event: null,
+    validFrom: null,
+    validUntil: null,
+  };
+  const proposals = [
+    {
+      ...claim(
+        "description.highlight",
+        "Restaurant mit italienischen Spezialitäten.",
+      ),
+      source: { ...originalSource, evidence: quote },
+    },
+    {
+      ...claim("hours.kitchen", rows),
+      source: { ...originalSource, evidence: schedule },
+    },
+    {
+      ...claim("offering.groups", ["FULL_MEALS", "DESSERTS", "LUNCH"]),
+      source: { ...originalSource, evidence: quote },
+    },
+    {
+      ...claim("experience.profile", {
+        contractVersion: "backyrd.world-knowledge.experience-profile@1.0",
+        category: "EAT",
+        reviewed: true,
+        properties: [],
+        areas: [],
+        offers: [
+          {
+            id: "lunch",
+            name: "Mittagsmenü",
+            kind: "LUNCH",
+            areaIds: [],
+            properties: [],
+            prices: [
+              {
+                min: 29,
+                max: 36,
+                currency: "CHF",
+                basis: "PER_ITEM",
+                label: "Mittagsmenü",
+                minimumAge: null,
+                maximumAge: null,
+                mandatoryFeesIncluded: null,
+                includes: "",
+                conditions,
+              },
+            ],
+            schedule: [],
+            validFrom: null,
+            validUntil: null,
+          },
+        ],
+      }),
+      source: { ...originalSource, evidence: quote },
+    },
+    {
+      ...claim("offering.cuisines", ["ITALIAN"]),
+      source: { ...originalSource, evidence: quote },
+    },
+    {
+      ...claim("offering.food_specialities", [
+        "PASTA",
+        "STEAK",
+        "SEAFOOD",
+        "DESSERTS",
+      ]),
+      source: { ...originalSource, evidence: quote },
+    },
+    {
+      ...claim("amenity.features", ["GARDEN", "OUTDOOR_SEATING"]),
+      source: { ...originalSource, evidence: quote },
+    },
+    {
+      ...claim("hours.special", [
+        { date: "2026-12-24", status: "CLOSED", intervals: [] },
+      ]),
+      source: {
+        ...originalSource,
+        evidence: "Partnerrestaurant Betriebsferien am 24.12.2026",
+      },
+    },
+  ];
+  const f = fixture(proposals);
+  f.document.research.assessments = proposals.map((c) => ({
+    attributeKey: c.attributeKey,
+    uncertainty: c.attributeKey === "hours.special" ? "MAJOR" : "MINOR",
+    reason:
+      c.attributeKey === "hours.special"
+        ? "Der Ferienhinweis könnte dem Partnerrestaurant gehören."
+        : "Die konkrete Restaurantangabe ist in der offiziellen Quelle belegt.",
+    bindings: c.attributeKey === "experience.profile" ? { "/offers/0": 0 } : {},
+  }));
+  const repository = {
+    ...f.repository,
+    readSpot: async (id) => {
+      const d = await f.repository.readSpot(id);
+      return {
+        ...d,
+        actor: {
+          ...d.actor,
+          allowedAttributeKeys: [
+            ...d.actor.allowedAttributeKeys,
+            ...proposals.map((c) => c.attributeKey),
+          ],
+        },
+      };
+    },
+  };
+  const result = await processSafeResearchDocument(f.document, {
+    actorId: "admin",
+    repository,
+    now,
+    fetchPage: async () => ({
+      ...(await f.fetchPage()),
+      body:
+        "<h1>Fixture Restaurant</h1><p>Gerbergasse 11 Basel</p><p>" +
+        quote +
+        "</p><p>" +
+        schedule +
+        "</p>",
+    }),
+  });
+  assert.deepEqual(result.report.stored, [
+    "description.highlight",
+    "hours.kitchen",
+    "offering.groups",
+    "experience.profile",
+    "offering.cuisines",
+    "offering.food_specialities",
+    "amenity.features",
+  ]);
+  assert.equal(result.report.saveState, "STORED_VERIFIED");
+  assert.equal(result.report.review.length, 1);
+  assert.equal(result.report.review[0].reason, "MAJOR_UNCERTAINTY");
+  assert.equal(f.job.metadata.report.review[0].attributeKey, "hours.special");
+  assert.equal(f.answers["hours.special"], undefined);
+  const repeated = await processSafeResearchDocument(f.document, {
+    actorId: "admin",
+    repository,
+    now,
+    fetchPage: f.fetchPage,
+  });
+  assert.deepEqual(repeated.report, result.report);
+  assert.equal(f.saved.size, 7);
 });

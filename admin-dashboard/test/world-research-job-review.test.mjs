@@ -84,3 +84,9 @@ test('v2 missing optional information is not counted as a mandatory review',()=>
  const summary=researchPipelineSummary({policy:'backyrd.research-evidence@2',phase:'FINISHED',report:{state:'REVIEW_REQUIRED',stored:[],review:[{reason:'CONTENT_SAFETY_HELD'}],unresolved:Array(33).fill({reason:'not found'}),errors:[]}},null);
  assert.equal(summary.review,1);assert.equal(summary.state,'REVIEW_REQUIRED');
 });
+
+test('policy 2.1 keeps unresolved gaps separate from actionable review',()=>{
+ const summary=researchPipelineSummary({policy:'backyrd.research-evidence@2.1',phase:'FINISHED',report:{state:'REVIEW_REQUIRED',stored:['hours.kitchen'],review:[{reason:'MAJOR_UNCERTAINTY'}],unresolved:Array(32).fill({reason:'not found'}),errors:[]}},null);
+ assert.equal(summary.review,1);
+ assert.equal(summary.stored,1);
+});

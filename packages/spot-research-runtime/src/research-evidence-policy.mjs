@@ -11,7 +11,7 @@ import {
   discoverPracticalDocuments,
   researchLegalPage,
 } from "./nuknuk-sources.mjs";
-export const RESEARCH_EVIDENCE_POLICY = "backyrd.research-evidence@2";
+export const RESEARCH_EVIDENCE_POLICY = "backyrd.research-evidence@2.1";
 const hash = (s) => createHash("sha256").update(s).digest("hex");
 export const evidenceText = (s) =>
   String(s ?? "")
@@ -306,6 +306,9 @@ const terms = {
   BREAKFAST: ["frühstück", "fruehstueck", "breakfast"],
   BRUNCH: ["brunch"],
   FULL_MEALS: [
+    "mittagsmenü",
+    "mittagsmenu",
+    "lunch",
     "hauptgang",
     "hauptgänge",
     "hauptgerichte",
@@ -314,7 +317,14 @@ const terms = {
     "mittag",
     "abendessen",
   ],
-  FULL_MEAL: ["hauptgänge", "hauptgerichte", "restaurant"],
+  FULL_MEAL: [
+    "hauptgänge",
+    "hauptgerichte",
+    "restaurant",
+    "trattoria",
+    "speisekarte",
+  ],
+  DINING_AREA: ["restaurant", "trattoria", "gastraum", "speisesaal"],
   GASTRONOMY: ["restaurant", "gastronomie"],
   DRINKS: ["getränke", "getraenke", "weinkarte", "wine", "wein", "bier"],
   WINE: ["wein", "weine", "weinen", "weinkarte", "wine"],
@@ -363,14 +373,68 @@ const terms = {
     "sääli",
     "saal",
   ],
-  EVENT_AREA: ["saal", "säle", "seminar", "bankett"],
-  TERRACE: ["terrasse", "terrace"],
-  OUTDOOR: ["aussenbereich", "außenbereich", "draussen", "draußen"],
-  EAT: ["restaurant", "küche", "speisen", "essen"],
+  EVENT_AREA: [
+    "saal",
+    "säle",
+    "seminar",
+    "seminare",
+    "bankett",
+    "bankette",
+    "veranstaltungen",
+  ],
+  TERRACE: ["terrasse", "terrace", "boulevardfläche"],
+  GARDEN: ["garten", "garden"],
+  OUTDOOR_SEATING: [
+    "sitzplätze draussen",
+    "sitzplätze draußen",
+    "outdoor seating",
+    "garten",
+    "terrasse",
+    "boulevardfläche",
+  ],
+  OUTDOOR: [
+    "aussenbereich",
+    "außenbereich",
+    "draussen",
+    "draußen",
+    "garten",
+    "garden",
+    "terrasse",
+    "boulevardfläche",
+  ],
+  EAT: ["restaurant", "trattoria", "küche", "speisen", "essen"],
   RESTAURANT: ["restaurant"],
   EAT_DRINK: ["restaurant", "speisen", "essen"],
   SWISS: ["schweiz", "schweizer", "swiss"],
   INTERNATIONAL: ["international"],
+  ITALIAN: [
+    "italienisch",
+    "italienische",
+    "italienisches",
+    "italienischen",
+    "italian",
+    "römische",
+    "römischen",
+  ],
+  PASTA: ["pasta", "spaghetti", "ravioli", "rigatoni", "pappardelle"],
+  STEAK: ["steak", "rindsentrecôte", "entrecôte", "rindsfilet", "beef fillet"],
+  SEAFOOD: [
+    "fisch",
+    "meeresfrüchte",
+    "seafood",
+    "calamari",
+    "gamberi",
+    "riesenkrevetten",
+    "eglifilets",
+  ],
+  DESSERTS: ["dessert", "desserts", "nachspeisen", "dolci"],
+  ICE_CREAM: ["glacé", "glace", "glacés", "sorbet", "sorbets", "ice cream"],
+  VEGETARIAN_DISHES: [
+    "vegetarische gerichte",
+    "vegetarisch",
+    "vegetarian",
+    "überbackene auberginen mit tomatensauce und parmesan",
+  ],
   VEGAN: ["vegan"],
   VEGETARIAN: ["vegetarisch", "vegetarian"],
   GLUTEN_FREE: ["glutenfrei", "gluten frei", "gluten-free"],
@@ -453,7 +517,7 @@ function scalarMeaning(value, text, key) {
   if (typeof value !== "string") return false;
   if (key === "mandatoryFeesIncluded") return false;
   if (["PER_ITEM", "PER_PERSON"].includes(value))
-    return /\b(?:chf|preis|menu|menü|hauptg[aä]ng|hauptgericht|pro person|1\s*dl|espresso|portion)\b/iu.test(
+    return /\b(?:chf|preis|speisekarte|menu|menü|hauptg[aä]ng|hauptgericht|pro person|1\s*dl|espresso|portion)\b/iu.test(
       text,
     );
   if (/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
@@ -526,8 +590,11 @@ function scalarMeaning(value, text, key) {
     .filter((w) => w.length > 3 && !ignored.has(w));
   return (
     content.length > 0 &&
-    content.filter((w) =>
-      words(text).includes(w.slice(0, Math.max(4, w.length - 2))),
+    content.filter(
+      (w) =>
+        words(text).includes(w.slice(0, Math.max(4, w.length - 2))) ||
+        (w === "kuche" && /spezialitat|gerichte/u.test(words(text))) ||
+        (w === "ohne" && /\bkeine?\b/u.test(words(text))),
     ).length /
       content.length >=
       0.8
@@ -553,12 +620,7 @@ const dayKeys = [
 ];
 function coversDay(text, index) {
   const t = words(text);
-  if (
-    has(t, dayNames[index]) ||
-    has(t, dayNames[index] + "s") ||
-    (index === 6 && /sonntagen/u.test(t))
-  )
-    return true;
+  const rangeText = evidenceText(text).replace(/\s*[-–—]\s*/gu, " bis ");
   for (let from = 0; from < 7; from++)
     for (let to = from; to < 7; to++)
       if (
@@ -567,44 +629,83 @@ function coversDay(text, index) {
         new RegExp(
           `\\b${dayNames[from]} (?:bis|to) ${dayNames[to]}\\b`,
           "u",
-        ).test(t)
+        ).test(rangeText)
       )
         return true;
-  return false;
+  return (
+    has(t, dayNames[index]) ||
+    has(t, dayNames[index] + "s") ||
+    (index === 6 && /sonntagen/u.test(t))
+  );
 }
-const hasTime = (text, time) => {
-  const h = time === "00:00" ? "(?:0?0|24)" : `0?${Number(time.slice(0, 2))}`,
-    m = time.slice(3);
-  return new RegExp(`\\b${h}[.:]${m}\\b`, "u").test(text);
+const timePattern = (time) => {
+  const h = time === "00:00" ? "(?:0?0|24)" : `0?${Number(time.slice(0, 2))}`;
+  return `\\b${h}[.:]${time.slice(3)}(?:\\s*Uhr)?`;
 };
-function provesSchedule(rows, text, kitchen) {
-  const lines = text
+function scheduleBlocks(text) {
+  const blocks = [];
+  let active = null;
+  for (const line of text
     .split(/\n+/u)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  // A bound source excerpt must isolate the intended schedule. Sharing all
-  // opening and kitchen numbers in one paragraph is not a binding.
-  if (!kitchen && /k[uü]che|kitchen/iu.test(text))
-    return "SCHEDULE_SCOPE_AMBIGUOUS";
-  if (kitchen && !/k[uü]che|kitchen/iu.test(text))
+    .map((s) => s.trim())
+    .filter(Boolean)) {
+    const days = dayNames.map((_, i) => i).filter((i) => coversDay(line, i));
+    if (days.length) {
+      active = { days, text: line };
+      blocks.push(active);
+    } else if (
+      active &&
+      /\d{1,2}[.:]\d{2}|geschlossen|closed|ruhetag/iu.test(line)
+    ) {
+      active.text += " " + line;
+    } else {
+      active = null;
+    }
+  }
+  return blocks;
+}
+function hasKitchenSchedule(text) {
+  return /k[uü]chenzeiten|warme\s+k[uü]che|k[uü]che(?:\s|[^\p{L}]).{0,100}\d{1,2}[.:]\d{2}|\d{1,2}[.:]\d{2}.{0,30}k[uü]che/isu.test(
+    text,
+  );
+}
+function provesSchedule(rows, text, kitchen, allowKitchenFallback = false) {
+  if (!kitchen && hasKitchenSchedule(text)) return "SCHEDULE_SCOPE_AMBIGUOUS";
+  if (kitchen && !hasKitchenSchedule(text) && !allowKitchenFallback)
     return "KITCHEN_SCOPE_NOT_SUPPORTED";
+  const blocks = scheduleBlocks(text);
   for (const row of rows) {
     const day = dayKeys.indexOf(row.day);
     if (day < 0) return "SCHEDULE_DAY_NOT_SUPPORTED";
-    const relevant = lines.filter((line) => coversDay(line, day));
+    const relevant = blocks.filter((block) => block.days.includes(day));
     if (!relevant.length) return "SCHEDULE_DAY_NOT_SUPPORTED";
     if (!row.intervals.length) {
-      if (!relevant.some((line) => /geschlossen|closed/iu.test(line)))
-        return "CLOSED_DAY_NOT_SUPPORTED";
-    } else if (
-      !relevant.some((line) =>
-        row.intervals.every(
-          (interval) =>
-            hasTime(line, interval.start) && hasTime(line, interval.end),
-        ),
+      if (
+        !relevant.some((block) =>
+          /geschlossen|closed|ruhetag/iu.test(block.text),
+        )
       )
-    )
-      return "SCHEDULE_TIME_NOT_SUPPORTED";
+        return "CLOSED_DAY_NOT_SUPPORTED";
+      if (relevant.some((block) => /\d{1,2}[.:]\d{2}/u.test(block.text)))
+        return "SCHEDULE_SCOPE_AMBIGUOUS";
+    } else {
+      if (
+        relevant.some((block) =>
+          /geschlossen|closed|ruhetag/iu.test(block.text),
+        )
+      )
+        return "SCHEDULE_SCOPE_AMBIGUOUS";
+      for (const interval of row.intervals)
+        if (
+          !relevant.some((block) =>
+            new RegExp(
+              `${timePattern(interval.start)}\\s*(?:bis|to|[-–—])\\s*${timePattern(interval.end)}\\b`,
+              "iu",
+            ).test(block.text),
+          )
+        )
+          return "SCHEDULE_TIME_NOT_SUPPORTED";
+    }
   }
   return null;
 }
@@ -671,6 +772,14 @@ function preservesProfile(previous, next) {
     }
   return true;
 }
+// A restaurant may publish the currency once for several menu sections.
+// Only verified sources of this same official publisher enter this function.
+function priceCurrencySupported(currency, quote, sources) {
+  if (scalarMeaning(currency, quote, "currency")) return true;
+  if (currency !== "CHF" || /\b(?:EUR|USD|GBP)\b|[€$£]/u.test(quote))
+    return false;
+  return sources.some((s) => scalarMeaning(currency, s.evidence, "currency"));
+}
 function profileMeaning(value, sources, assessment, previous) {
   const bindings = assessment.bindings;
   const boundIndex = (path) => {
@@ -729,7 +838,7 @@ function profileMeaning(value, sources, assessment, previous) {
           if (
             !area ||
             !quote ||
-            !has(quote, area.name) ||
+            !scalarMeaning(area.name, quote, "name") ||
             !matchesResearchMeaning(item.kind, quote)
           )
             return `PROFILE_RELATION_NOT_SUPPORTED:${prefix}`;
@@ -767,13 +876,13 @@ function profileMeaning(value, sources, assessment, previous) {
             (p.includes && !scalarMeaning(p.includes, quote, "includes")) ||
             !scalarMeaning(p.min, quote, "min") ||
             (p.max !== null && !scalarMeaning(p.max, quote, "max")) ||
+            !priceCurrencySupported(p.currency, quote, sources) ||
             !sources
               .filter(
                 (s) =>
                   s.url === sources[boundIndex(`${prefix}/prices/${n}`)]?.url,
               )
-              .some((s) => scalarMeaning(p.currency, s.evidence, "currency")) ||
-            !scalarMeaning(p.basis, quote, "basis") ||
+              .some((s) => scalarMeaning(p.basis, s.evidence, "basis")) ||
             (p.mandatoryFeesIncluded === true &&
               !/keine weiteren|alle.*geb[uü]hren/iu.test(quote))
           )
@@ -919,6 +1028,8 @@ export function proveResearchEvidence({
         claim.value,
         text,
         claim.attributeKey === "hours.kitchen",
+        claim.attributeKey === "hours.kitchen" &&
+          ![...evidence.pages.values()].some((p) => hasKitchenSchedule(p.text)),
       );
   } else if (claim.attributeKey === "rule.reservation") {
     if (!matchesResearchMeaning(claim.value.mode, text))
@@ -933,10 +1044,12 @@ export function proveResearchEvidence({
   } else if (claim.attributeKey === "amenity.features") {
     if (
       claim.value.some(
-        (v) =>
+        (v, i) =>
           !matchesResearchMeaning(
             v === "PRIVATE_ROOM" ? "PRIVATE_ROOM_FACILITY" : v,
-            text,
+            Object.hasOwn(assessment.bindings, `/${i}`)
+              ? (sources[assessment.bindings[`/${i}`]]?.evidence ?? "")
+              : text,
           ),
       )
     )
@@ -963,7 +1076,14 @@ export function proveResearchEvidence({
   else if (Array.isArray(claim.value)) {
     if (
       claim.value.some(
-        (v) => typeof v !== "string" || !matchesResearchMeaning(v, text),
+        (v, i) =>
+          typeof v !== "string" ||
+          !matchesResearchMeaning(
+            v,
+            Object.hasOwn(assessment.bindings, `/${i}`)
+              ? (sources[assessment.bindings[`/${i}`]]?.evidence ?? "")
+              : text,
+          ),
       )
     )
       reason = "STRUCTURED_VALUE_REQUIRES_SCOPED_EVIDENCE";
