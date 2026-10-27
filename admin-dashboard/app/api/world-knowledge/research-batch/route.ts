@@ -1,13 +1,13 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, planWorldResearchSpot, type WorldResearchBatchDocument, type WorldResearchClaim, type ReviewedResearchClaim, type ResearchReview, type WorldResearchExistingValue } from "@backyrd/world-knowledge-core";
+import { normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument, type WorldResearchClaim, type ReviewedResearchClaim, type WorldResearchExistingValue } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { locationBinding, validateBrowserLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
 import { createAdminWorldResearchExport, readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID, type WorldResearchDetail } from "@/lib/server/worldResearchExport";
 import { matchesAutomatedReviewJob, reviewCanFinish, researchDeclinedKeys, type ReviewableJob } from "@/lib/server/worldResearchJobReview";
 
 import { parseNuknukDraft } from "@/lib/nuknukResearchDraft";
-import { prepareNuknukDraftImport, supplementResearchValue } from "@/lib/nuknukDraftImport";
+import { prepareNuknukDraftImport, planAdminResearchReview, type AdminResearchReview } from "@/lib/nuknukDraftImport";
 
 import { ResearchSaveError } from "@/lib/researchSaveFeedback";
 import { researchFieldEdit, type ResearchFieldEdit } from "@/lib/server/researchFieldEdit";
@@ -15,7 +15,7 @@ import { researchFieldEdit, type ResearchFieldEdit } from "@/lib/server/research
 const noStore = { "cache-control": "no-store" };
 type Accepted = { spotId: string; manifestHash: string; claim: ReviewedResearchClaim };
 type LocationCandidate = { placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; exact: boolean };
-type SpotReport = { spotId: string; name: string; ready: string[]; readyClaims: ReviewedResearchClaim[]; storedClaims: Array<{ attributeKey: string; value: unknown }>; declined: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; unresolvedDetails: Array<{ attributeKey: string; reason: string }>; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; reviewCompleted?: boolean; reviewCompletionError?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
+type SpotReport = { spotId: string; name: string; ready: string[]; readyClaims: ReviewedResearchClaim[]; storedClaims: Array<{ attributeKey: string; value: unknown }>; declined: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; unresolvedDetails: Array<{ attributeKey: string; reason: string }>; reviews: AdminResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; reviewCompleted?: boolean; reviewCompletionError?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "world_research_action_failed";
 
@@ -70,13 +70,18 @@ export async function POST(request: Request) {
       catch (cause) { report.invalid.push(message(cause)); continue; }
       if (detail.name !== exported.name || detail.manifest?.manifestHash !== exported.manifestHash) { report.conflicts.push("EXPORT_OR_MANIFEST_DRIFT"); continue; }
       const current = Object.fromEntries(Object.entries(detail.answers ?? {}).filter((entry): entry is [string, WorldResearchExistingValue] => typeof entry[1].claimId === "string" && typeof entry[1].knowledgeState === "string"));
-      let allClaims: WorldResearchClaim[];
-      try {
-        allClaims = (document.validatedClaims.get(exported.spotId) ?? []).map(claim => ({ ...claim,
-          value: supplementResearchValue(claim.attributeKey, current[claim.attributeKey], claim.value) }));
-      } catch (cause) { report.invalid.push(message(cause)); continue; }
+      const allClaims = document.validatedClaims.get(exported.spotId) ?? [];
       report.declined = researchDeclinedKeys(allClaims.map(claim=>claim.attributeKey),body.declined?.[exported.spotId] ?? [],body.confirmations?.[exported.spotId] ?? {});
-      const plan = planWorldResearchSpot({ claims: allClaims.filter((claim) => !report.declined.includes(claim.attributeKey)), current, confirmations: body.confirmations?.[exported.spotId] ?? {}, observedAt: document.batch.createdAt });
+      const rawAssessments = (document.research as unknown as { assessments?: unknown }).assessments;
+      const majorKeys = Array.isArray(rawAssessments) ? rawAssessments.flatMap((item: unknown) => {
+        if (!item || typeof item !== "object") return [];
+        const assessment = item as { attributeKey?: unknown; uncertainty?: unknown };
+        return assessment.uncertainty === "MAJOR" && typeof assessment.attributeKey === "string" ? [assessment.attributeKey] : [];
+      }) : [];
+      let plan: ReturnType<typeof planAdminResearchReview>;
+      try {
+        plan = planAdminResearchReview({ claims: allClaims, current, confirmations: body.confirmations?.[exported.spotId] ?? {}, declined: report.declined, majorKeys, observedAt: document.batch.createdAt });
+      } catch (cause) { report.invalid.push(message(cause)); continue; }
       report.storedClaims = plan.skipped.map(attributeKey => ({ attributeKey, value: current[attributeKey]?.value }));
       report.skipped = plan.skipped; report.reviews = plan.reviews; report.blocked = plan.blocked; report.derived = plan.derived;
       report.conflicts = plan.reviews.map((review) => review.attributeKey);
