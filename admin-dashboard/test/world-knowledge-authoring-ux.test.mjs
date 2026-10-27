@@ -153,7 +153,7 @@ test("authoring writes rebuild and read the canonical snapshot without a normal-
     read("web/app/api/world-knowledge/shadow/route.ts"),
   ]);
   assert.match(source, /await rebuildAndReload\(detail\.spotId/);
-  assert.match(source, /Kanonisch gelesener Snapshot ist aktuell/);
+  assert.match(source, /Das Ortprofil ist aktuell/);
   assert.match(source, /Technischen Spot-Export erstellen/);
   assert.doesNotMatch(source, /className="wk-tools"><button[^>]+>Spot exportieren/);
   for (const route of [adminRoute, ownerRoute]) {

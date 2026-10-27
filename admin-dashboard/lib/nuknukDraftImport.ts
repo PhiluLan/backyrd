@@ -11,6 +11,7 @@ const same = (left: unknown, right: unknown) => canonicalJson(left) === canonica
 function mergeProperties(existing: readonly ExperienceProperty[], incoming: readonly ExperienceProperty[]): ExperienceProperty[] {
   const result = [...existing];
   for (const property of incoming) {
+    if (result.some(item => same(item, property))) continue;
     const previous = result.find(item => item.key === property.key && same(item.conditions, property.conditions)
       && (item.key !== "custom.detail" || sameName(item.label ?? "") === sameName(property.label ?? "")));
     if (previous && !same(previous, property)) throw new Error("Ein recherchiertes Merkmal widerspricht einer vorhandenen Angabe. Bitte im Profil-Editor prüfen.");
@@ -83,6 +84,14 @@ export function supplementResearchValue(attributeKey: string, existing: { knowle
     const days = new Map(proposed.value.map(day => [day.day, day]));
     return [...previous.value.filter(day => !days.has(day.day)), ...proposed.value];
   }
+  if (["hours.special", "hours.kitchen_special"].includes(attributeKey) && existing?.knowledgeState === "KNOWN_VALUE") {
+    const proposed=validateAuthoringSubmission(attributeKey,"KNOWN_VALUE",incoming);
+    const previous=validateAuthoringSubmission(attributeKey,"KNOWN_VALUE",existing.value);
+    if(!proposed.ok || !previous.ok || !Array.isArray(proposed.value) || !Array.isArray(previous.value))throw new Error("Bitte prüfe die besonderen Öffnungszeiten vor dem Speichern.");
+    if(!proposed.value.length && previous.value.length)throw new Error("Im Profil stehen bereits besondere Öffnungszeiten. Bitte prüfe über Ändern bewusst, ob sie entfernt werden sollen.");
+    const dates=new Set(proposed.value.map(item=>item.date));
+    return [...previous.value.filter(item=>!dates.has(item.date)),...proposed.value].sort((a,b)=>a.date.localeCompare(b.date));
+  }
   return incoming;
 }
 
@@ -132,7 +141,7 @@ export function assessNuknukDraftReview(draft: NuknukDraft, answers: Record<stri
     const candidate = answers[result.attributeKey];
     const answer = candidate?.visibility === "PUBLIC" ? candidate : undefined;
     let covered = false;
-    if (answer?.claimId && answer.visibility === "PUBLIC" && answer.knowledgeState === "KNOWN_VALUE") {
+    if (answer?.claimId && answer.visibility === "PUBLIC" && ["KNOWN_VALUE","KNOWN_TRUE","KNOWN_FALSE"].includes(answer.knowledgeState ?? "")) {
       try {
         if (Array.isArray(result.value) && result.value.length > 0 && result.value.every(item => typeof item === "string") && Array.isArray(answer.value)) {
           covered = result.value.every(item => (answer.value as unknown[]).includes(item));

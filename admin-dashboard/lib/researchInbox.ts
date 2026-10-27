@@ -44,6 +44,10 @@ export function buildInboxSpot(rows: InboxRow[], answers: Record<string,InboxAns
       const answer=answers[result.attributeKey];
       const publicAnswer=answer?.visibility === "PUBLIC" ? answer : undefined;
       const missing=result.value===undefined;
+      const profile=answers["experience.profile"];
+      const hasProfile=profile?.visibility==="PUBLIC" && profile.knowledgeState==="KNOWN_VALUE" && profile.value && typeof profile.value==="object" && "offers" in profile.value && Array.isArray(profile.value.offers) && profile.value.offers.length>0;
+      if(missing && hasProfile && ["discovery.profile","offering.onsite","operation.price_options"].includes(result.attributeKey) && result.reason==="Die belegten Angebote, Bereiche und konkreten Preise sind im strukturierten Angebotsprofil erfasst; kein zweiter abweichender Datensatz wird erzeugt.")continue;
+      if(missing && result.attributeKey==="state.current" && result.reason==="Momentanen Zustand nicht dauerhaft aus einer Recherche ableiten.")continue;
       const questionsExisting=missing && /(?:bisherige?.*(?:plan|zeit)|widerspr|abweich|(?:vorhandene|bisherige).*(?:nicht.*bestätigt|falsch)|kein(?:en|e)? plausibl|nicht als aktueller)/i.test(result.reason ?? "");
       if(missing && !questionsExisting && publicAnswer && publicAnswer.knowledgeState && publicAnswer.knowledgeState!=="UNKNOWN") continue;
       if(!missing && covered(result)) continue;

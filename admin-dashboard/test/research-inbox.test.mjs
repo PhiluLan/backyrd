@@ -77,3 +77,11 @@ test("an archived exact proposal settles earlier duplicates while preserving unr
  assert.deepEqual(buildInboxSpot([archived,older],{},()=>false).tasks.map(item=>item.attributeKey),["contact.phone"]);
  assert.equal(buildInboxSpot([archived,older,row("new",[proposal],{created_at:"2026-10-27T20:00:00Z"})],{},()=>false).tasks.length,2);
 });
+
+test("a report note about an already stored offering profile is not an invented Admin decision",()=>{
+ const note={attributeKey:"discovery.profile",status:"UNKNOWN",reason:"Die belegten Angebote, Bereiche und konkreten Preise sind im strukturierten Angebotsprofil erfasst; kein zweiter abweichender Datensatz wird erzeugt."};
+ const source=row("note",[note]);
+ assert.equal(buildInboxSpot([source],{"experience.profile":{visibility:"PUBLIC",knowledgeState:"KNOWN_VALUE",value:{offers:[{name:"Mittagessen"}]}}},()=>false).tasks.length,0);
+ assert.equal(buildInboxSpot([source],{},()=>false).tasks.length,1);
+ assert.equal(source.result_document.results.length,1);
+});
