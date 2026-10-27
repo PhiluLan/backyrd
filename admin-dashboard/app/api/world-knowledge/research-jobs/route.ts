@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,lease_expires_at,pipeline:export_document->pipeline";
     let query = service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id", authorization.userId);
     query = jobId ? query.eq("id", jobId).limit(1)
-      : query.not("export_document", "cs", '{"kind":"NUKNUK_RESEARCH_DRAFT"}').order("created_at", { ascending: false }).limit(30);
+      : query.not("export_document", "cs", '{"kind":"NUKNUK_RESEARCH_DRAFT"}').not("export_document", "cs", '{"kind":"ADMIN_RESEARCH_FOLLOWUP"}').order("created_at", { ascending: false }).limit(30);
     const { data, error } = await query;
     if (error) throw new Error("WORLD_RESEARCH_JOBS_UNAVAILABLE");
     const rows = (data ?? []) as unknown as JobRow[];

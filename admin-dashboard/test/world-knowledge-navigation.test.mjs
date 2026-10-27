@@ -15,7 +15,7 @@ test("spot research is the only workflow on its navigation page; editing stays u
   assert.match(layout, /<IntelligenceSidebar\s*\/>/);
   assert.match(
     sidebar,
-    /href:\s*"\/world-knowledge",\s*label:\s*"Recherche Spot"/,
+    /href:\s*"\/world-knowledge",\s*label:\s*"Aufgaben & Recherche"/,
   );
   assert.equal(
     [...sidebar.matchAll(/<NavigationLinks/g)].length,

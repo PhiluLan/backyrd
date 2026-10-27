@@ -12,6 +12,8 @@ import { prepareNuknukDraftImport, planAdminResearchReview, type AdminResearchRe
 import { ResearchSaveError } from "@/lib/researchSaveFeedback";
 import { researchFieldEdit, type ResearchFieldEdit } from "@/lib/server/researchFieldEdit";
 
+import { persistResearchFollowups } from "@/lib/server/researchFollowups";
+
 const noStore = { "cache-control": "no-store" };
 type Accepted = { spotId: string; manifestHash: string; claim: ReviewedResearchClaim };
 type LocationCandidate = { placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; exact: boolean };
@@ -197,9 +199,16 @@ export async function POST(request: Request) {
     }
 
     const perSpot = [...reports.values()];
+    let followupError: string | undefined;
+    if(body.action === "commit") {
+      try {
+        const service=createClient(url,process.env.SUPABASE_SERVICE_ROLE_KEY!,{auth:{persistSession:false,autoRefreshToken:false}});
+        await persistResearchFollowups(service,authorization.userId,document,perSpot);
+      } catch { followupError="Die Profiländerungen wurden verarbeitet, aber die offenen Aufgaben konnten nicht gesichert werden. Bitte den Import erneut abschliessen."; }
+    }
     return Response.json({
       contractVersion: body.action === "commit" ? "backyrd.world-research-import-report@1.0" : "backyrd.world-research-preview@1.0",
-      batchId: document.batch.batchId, mode: body.action === "commit" ? "COMMIT" : "PREVIEW",
+      followupError, batchId: document.batch.batchId, mode: body.action === "commit" ? "COMMIT" : "PREVIEW",
       totals: {
         imported: perSpot.reduce((sum, item) => sum + item.imported.length, 0),
         ready: perSpot.reduce((sum, item) => sum + item.ready.length, 0),
