@@ -30,7 +30,7 @@ await writeFile(join(dir,'field-input.mjs'),'export const FieldInput=()=>null;')
 const feedbackSource=await readFile(new URL('../lib/researchSaveFeedback.ts',import.meta.url),'utf8');
 await writeFile(join(dir,'feedback.mjs'),ts.transpileModule(feedbackSource,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText);
 const {ResearchActionFeedback}=await compile('ResearchActionFeedback');
-const {ResearchValue}=await compile('ResearchValue');
+const {ResearchValue,researchGapReason}=await compile('ResearchValue');
 const {researchFieldHasPendingEdits}=await compile('ResearchFieldEditor');
 const {NuknukDraftPreview}=await compile('NuknukDraftPreview');
 const render=(key,value)=>renderToStaticMarkup(createElement(ResearchValue,{attributeKey:key,value}));
@@ -146,4 +146,15 @@ test('discovery descriptions preserve scoped absences, source quotes, prices and
  const html=render('discovery.profile',value);
  for(const term of ['Pizza: Im Restaurant','17–23 CHF pro Person','nicht vollständig','Nicht vorhanden: Lieferung','Gilt für Pizza','Keine Lieferung.','Nur vor Ort','31. Dezember 2026'])assert.ok(html.includes(term),term);
  assert.ok(!html.includes('offeringId'));
+});
+
+test('repeated identical citations are shown once and absent reasons explain the actual comparison',()=>{
+ const citation={url:'https://example.org',evidence:'Name des Ortes',observedAt:'2026-10-27T00:00:00.000Z'};
+ const task={attributeKey:'identity.name',kind:'REVIEW',fingerprint:'fixture',claimId:'old',currentValue:'Alter Name',jobIds:[],status:'REQUIRES_REVIEW',value:'Neuer Name',citations:[citation,citation]};
+ const html=renderToStaticMarkup(createElement(ResearchTaskReview,{spotId:'fixture',task,request(){},post(){},onDecision(){},onEditingChange(){}}));
+ assert.equal((html.match(/example.org öffnen/g)??[]).length,1);assert.match(html,/weicht von der bisher gespeicherten Angabe ab/);
+});
+
+test('catalogue codes inside an otherwise readable explanation use ordinary words',()=>{
+ assert.equal(researchGapReason('Ergänzt wird nur WINE; alle stabilen IDs bleiben erhalten.'),'Ergänzt wird nur Wein; alle bisherigen Zuordnungen bleiben erhalten.');
 });

@@ -138,5 +138,5 @@ export function researchGapReason(reason?: string): string {
   if(reasons[reason])return reasons[reason];
   if(/^[A-Z][A-Z_:.@0-9-]+$/.test(reason))return researchEvidenceReason(reason).replaceAll("strukturierten Auswahlfeldern","passenden Angaben im Formular").replaceAll("Übernahmeregel","automatische Prüfung");
   if(/research_|world_|manifest|claimId/.test(reason))return "Die automatische Prüfung konnte den Vorschlag noch nicht eindeutig zuordnen. Vergleiche ihn mit der Quelle und entscheide, was richtig ist.";
-  return reason.replaceAll("Profil-Editor","Bearbeitung").replaceAll("Spotprofil","Ortprofil").replaceAll("kanonisch","bestätigt");
+  return reason.replaceAll("Profil-Editor","Bearbeitung").replaceAll("Spotprofil","Ortprofil").replaceAll("kanonisch","bestätigt").replaceAll("stabilen IDs","bisherigen Zuordnungen").replaceAll("Eigentümerschaft des Hinweises administrativ klären","Bitte prüfe, für welchen Ort der Hinweis gilt").replaceAll("generische Angebot","Angebot").replace(/\b[A-Z][A-Z_]+\b/g,token=>terms[token] ?? token);
 }
