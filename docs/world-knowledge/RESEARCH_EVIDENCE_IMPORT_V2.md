@@ -167,3 +167,10 @@ diesen Wert nicht nochmals und hebt bestehende Schutzregeln nicht auf. Für ein
 zusammengesetztes Angebotsprofil muss der Review-Vorschlag den gesamten sicheren
 Stand samt IDs erhalten und die unsicheren Ergänzungen vollständig enthalten;
 eine verkürzte Ersatzfassung würde sichere Inhalte entfernen und bleibt blockiert.
+
+Die Folgemigration `20261027112800_world_research_rhassoul_safety_v1.sql`
+behebt den belegten Fehlalarm „hass“ im eigenständigen Behandlungsnamen
+„Rhassoul“. Nur dieses vollständige Wort wird vor der ansonsten unveränderten
+Sicherheitsprüfung ausgenommen. „Hass“, „Rassenhass“ und weitere Schutzsignale
+auch neben „Rhassoul“ bleiben wirksam. Die Migration gibt keine vorhandenen
+gehaltenen Claims frei; diese benötigen weiterhin eine ausdrückliche Adminprüfung.
