@@ -528,3 +528,227 @@ test("enrichment cannot silently remove an existing detail or assigned area", ()
 for (const word of ["Bankette", "Hochzeiten"])
   test(`celebration plural remains the same catalog meaning: ${word}`, () =>
     assert.equal(matchesResearchMeaning("PRIVATE_CELEBRATION", word), true));
+
+for (const [value, quote] of [
+  ["ITALIAN", "authentische italienische und römische Spezialitäten"],
+  ["STEAK", "Rindsentrecôte auf Rucolabett"],
+  ["SEAFOOD", "Knusprig frittierte Calamari, Gamberi und Gemüse"],
+  ["DESSERTS", "DOLCI / NACHSPEISEN / DESSERTS"],
+  ["GARDEN", "der idyllische Garten"],
+  ["OUTDOOR_SEATING", "unsere Boulevardfläche und der idyllische Garten"],
+  ["DINING_AREA", "Ihr italienisches Restaurant"],
+])
+  test(`catalogue meaning supports ${value} without manual scope review`, () => {
+    const c = {
+      ...claim,
+      value: [value],
+      source: { ...source, evidence: quote },
+    };
+    assert.equal(prove(c).eligible, true);
+  });
+
+const multilineSchedule =
+  "Öffnungszeiten\nDienstag - Freitag\nMittagessen 11:30 Uhr - 14:00 Uhr\nMontag – Samstag\nAbendessen 18:30 Uhr bis 23:00 Uhr\nSonntag Geschlossen";
+const multilineRows = dayKeysForTest();
+function dayKeysForTest() {
+  return [
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
+  ].map((day, i) => ({
+    day,
+    intervals:
+      i === 6
+        ? []
+        : i === 0 || i === 5
+          ? [{ start: "18:30", end: "23:00" }]
+          : [
+              { start: "11:30", end: "14:00" },
+              { start: "18:30", end: "23:00" },
+            ],
+  }));
+}
+test("multiline weekday ranges combine lunch and evening blocks per day", () => {
+  const c = {
+    ...claim,
+    attributeKey: "hours.regular",
+    value: multilineRows,
+    source: { ...source, evidence: multilineSchedule },
+  };
+  assert.equal(prove(c).eligible, true);
+  c.value = structuredClone(multilineRows);
+  c.value[0].intervals.unshift({ start: "11:30", end: "14:00" });
+  assert.equal(prove(c).reason, "SCHEDULE_TIME_NOT_SUPPORTED");
+});
+test("kitchen fallback follows verified regular times, never generic kitchen marketing", () => {
+  const c = {
+    ...claim,
+    attributeKey: "hours.kitchen",
+    value: multilineRows,
+    source: { ...source, evidence: multilineSchedule },
+  };
+  assert.equal(
+    prove(c, assessment, multilineSchedule + "\nUnser Küchenteam freut sich.")
+      .eligible,
+    true,
+  );
+  assert.equal(
+    prove(
+      c,
+      assessment,
+      multilineSchedule + "\nKüchenzeiten: Dienstag bis Freitag 12:00–13:30",
+    ).reason,
+    "KITCHEN_SCOPE_NOT_SUPPORTED",
+  );
+});
+test("disjoint windows never prove one continuous opening interval", () => {
+  const c = scheduleClaim();
+  c.value[0].intervals = [{ start: "11:00", end: "00:00" }];
+  assert.equal(prove(c).reason, "SCHEDULE_TIME_NOT_SUPPORTED");
+});
+test("a day heading and following Ruhetag remain a closed day", () => {
+  const c = {
+    ...claim,
+    attributeKey: "hours.regular",
+    value: [{ day: "MONDAY", intervals: [] }],
+    source: {
+      ...source,
+      evidence: "Montag und Dienstag und Mittwoch:\nRuhetag",
+    },
+  };
+  assert.equal(prove(c).eligible, true);
+});
+test("an explicit array binding cannot borrow a different value from sibling evidence", () => {
+  const c = {
+    ...claim,
+    value: ["ITALIAN"],
+    source: { ...source, evidence: "Italienische Küche" },
+    supportingSources: [{ ...source, evidence: "Französische Küche" }],
+  };
+  assert.equal(
+    prove(
+      c,
+      { ...assessment, bindings: { "/0": 1 } },
+      "Italienische Küche Französische Küche",
+    ).eligible,
+    false,
+  );
+});
+test("a profile heading alone never proves prices", () => {
+  const c = {
+    ...claim,
+    attributeKey: "experience.profile",
+    value: {
+      category: "EAT",
+      properties: [],
+      areas: [],
+      offers: [
+        {
+          id: "lunch",
+          name: "Mittagsmenü",
+          kind: "LUNCH",
+          properties: [],
+          areaIds: [],
+          schedule: [],
+          prices: [
+            {
+              min: 29,
+              max: 36,
+              basis: "PER_ITEM",
+              currency: "CHF",
+              conditions: {
+                weekdays: [],
+                dayparts: [],
+                event: null,
+                validFrom: null,
+                validUntil: null,
+              },
+              minimumAge: null,
+              maximumAge: null,
+            },
+          ],
+        },
+      ],
+    },
+    source: { ...source, evidence: "Restaurant Mittagsmenü / Lunch CHF" },
+  };
+  assert.match(
+    prove(c, { ...assessment, bindings: { "/offers/0": 0 } }).reason,
+    /PROFILE_PRICE_NOT_SUPPORTED/,
+  );
+});
+
+for (const [value, quote] of [
+  ["ITALIAN", "Keine italienische Küche"],
+  ["GARDEN", "Kein Garten"],
+  ["OUTDOOR_SEATING", "Keine Terrasse"],
+  ["STEAK", "Kein Rindsentrecôte"],
+  ["SEAFOOD", "Keine Calamari"],
+])
+  test(`negated catalogue evidence stays review-only: ${quote}`, () =>
+    assert.equal(
+      prove({
+        ...claim,
+        value: [value],
+        source: { ...source, evidence: quote },
+      }).eligible,
+      false,
+    ));
+
+test("menu currency may be stated once by the official restaurant, but an explicit foreign price is not relabelled", () => {
+  const profile = {
+    category: "EAT",
+    properties: [],
+    areas: [],
+    offers: [
+      {
+        id: "lunch",
+        name: "Mittagsmenü",
+        kind: "LUNCH",
+        properties: [],
+        areaIds: [],
+        schedule: [],
+        prices: [
+          {
+            min: 29,
+            max: 36,
+            basis: "PER_ITEM",
+            currency: "CHF",
+            conditions: {
+              weekdays: [],
+              dayparts: [],
+              event: null,
+              validFrom: null,
+              validUntil: null,
+            },
+            minimumAge: null,
+            maximumAge: null,
+          },
+        ],
+      },
+    ],
+  };
+  const c = {
+    ...claim,
+    attributeKey: "experience.profile",
+    value: profile,
+    source: { ...source, evidence: "Restaurant Mittagsmenü 29 bis 36" },
+    supportingSources: [{ ...source, evidence: "Unsere Preise in CHF" }],
+  };
+  const a = { ...assessment, bindings: { "/offers/0": 0 } };
+  assert.equal(
+    prove(c, a, "Restaurant Mittagsmenü 29 bis 36 Unsere Preise in CHF")
+      .eligible,
+    true,
+  );
+  c.source.evidence = "Restaurant Mittagsmenü EUR 29 bis 36";
+  assert.match(
+    prove(c, a, "Restaurant Mittagsmenü EUR 29 bis 36 Unsere Preise in CHF")
+      .reason,
+    /PROFILE_PRICE_NOT_SUPPORTED/,
+  );
+});

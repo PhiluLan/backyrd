@@ -101,3 +101,38 @@ behebt ausschliesslich den nachgewiesenen Teilwort-Fehlalarm: „hate“ innerha
 von „Chateaubriand“/„Chateau“. Explizite hate-Wortformen und die übrigen bisherigen
 Schutzbegriffe bleiben wirksam. Bestehende gehaltene Angaben werden dadurch nicht
 automatisch freigegeben; ihre Veröffentlichung verlangt die explizite Adminprüfung.
+
+## Automatische Kontextprüfung 2.1
+
+Die versionierte Belegprüfung erkennt gängige Restaurantbegriffe wie italienische
+Küche, Pasta, Entrecôte, Calamari, Desserts, Garten und Boulevardfläche als
+Katalogbedeutungen. Verneinungen bleiben wirksam. Explizite Belegbindungen von
+Auswahllisten werden pro Wert geprüft; ein anderer Listeneintrag ersetzt keinen
+fehlenden Beleg.
+
+Mehrzeilige Wochenpläne mit Tagesbereich als Überschrift und Mittag-/Abendfenster
+in Folgezeilen werden gemeinsam ausgewertet. Unterschiedliche Zeitfenster dürfen
+nicht zu einer durchgehenden Öffnung zusammengezogen werden. Ruhetag bedeutet
+für den genannten Tag geschlossen. Ein Konflikt wird weiterhin zur Prüfung
+gehalten und darf nicht durch Zusammenkleben zweier Quellen aufgelöst werden.
+
+Für Küchenzeiten gilt die freigegebene Ersatzregel: Ohne abweichenden Küchenplan
+auf den frisch gelesenen Quellen können die belegten regulären Zeitfenster
+übernommen werden. Ein konkret veröffentlichter Küchenplan verhindert diesen
+Fallback; generelle Texte über das Küchenteam sind kein abweichender Plan. Die
+Ableitung ist im fachlichen Grund ausdrücklich zu nennen.
+
+Recherchedateien müssen vollständige wörtliche Belegpassagen liefern, nicht nur
+Überschriften: Für Preise gehören Beträge, Währung, Preisbasis und gegebenenfalls
+Gültigkeit in die zugeordneten Belege, für Zeiten Tagesbereich und Zeitfenster.
+Die Währung kann einmalig auf einer verifizierten offiziellen Karte desselben
+Restaurants belegt sein; eine ausdrücklich andere Währung im zugeordneten
+Preisausschnitt darf dadurch nicht umgedeutet werden. Der Kartenkontext derselben
+Seite belegt die Preisbasis, die konkreten Beträge bleiben am einzelnen
+Ausschnitt gebunden. Jeder Beleg bleibt ein zusammenhängender Quellenausschnitt. Zusätzliche Ausschnitte
+werden als supportingSources mit eigenen JSON-Pfadbindungen geliefert; keine
+zusammengesetzten angeblichen Originalzitate. Technisch unzureichende Belege
+werden korrigiert und erneut eingereicht, nicht manuell als sichere Werte am
+Prüfer vorbei bestätigt. Bereits gespeicherte identische Angaben werden nicht
+für einen Live-Test umgeschrieben; der vollständige Import wird zusätzlich gegen
+einen isolierten Ausgangszustand geprüft.
