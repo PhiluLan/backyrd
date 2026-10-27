@@ -70,3 +70,10 @@ test("manual imports persist unresolved questions once and preserve an Admin rec
  saved.export_document.taskDecisions=[{outcome:"LEFT_UNKNOWN"}];await persistResearchFollowups(service,"admin",document);assert.equal(records.size,1);assert.equal(saved.export_document.taskDecisions.length,1);
  fail=true;await assert.rejects(persistResearchFollowups(service,"another-admin",document),/Aufgaben konnten nicht gespeichert/);
 });
+
+test("an archived exact proposal settles earlier duplicates while preserving unrelated older work and later proposals",()=>{
+ const archived=row("archived",[proposal],{reviewed_at:"2026-10-27T19:00:00Z",created_at:"2026-10-27T18:00:00Z"});
+ const older=row("older",[proposal,gap],{created_at:"2026-10-27T17:00:00Z"});
+ assert.deepEqual(buildInboxSpot([archived,older],{},()=>false).tasks.map(item=>item.attributeKey),["contact.phone"]);
+ assert.equal(buildInboxSpot([archived,older,row("new",[proposal],{created_at:"2026-10-27T20:00:00Z"})],{},()=>false).tasks.length,2);
+});

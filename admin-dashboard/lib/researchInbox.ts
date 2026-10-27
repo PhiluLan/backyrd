@@ -32,6 +32,12 @@ export function buildInboxSpot(rows: InboxRow[], answers: Record<string,InboxAns
   const sorted=[...rows].sort((a,b)=>b.created_at.localeCompare(a.created_at));
   const tasks=new Map<string,InboxTask>();
   const receipts=sorted.flatMap(row=>row.export_document.taskDecisions ?? []);
+  const archivedProposals=new Map<string,string>();
+  for(const row of sorted.filter(row=>row.reviewed_at))for(const result of resultsFromInboxRow(row)) {
+    if(result.value===undefined)continue;
+    const fingerprint=taskFingerprint(result);
+    if(row.created_at>(archivedProposals.get(fingerprint) ?? ""))archivedProposals.set(fingerprint,row.created_at);
+  }
   for(const row of sorted) {
     if(row.reviewed_at) continue;
     for(const result of resultsFromInboxRow(row)) {
@@ -42,6 +48,7 @@ export function buildInboxSpot(rows: InboxRow[], answers: Record<string,InboxAns
       if(missing && !questionsExisting && publicAnswer && publicAnswer.knowledgeState && publicAnswer.knowledgeState!=="UNKNOWN") continue;
       if(!missing && covered(result)) continue;
       const fingerprint=taskFingerprint(result),claimId=publicAnswer?.claimId ?? null;
+      if(row.created_at<=(archivedProposals.get(fingerprint) ?? ""))continue;
       if(receipts.some(receipt=>receipt.fingerprint===fingerprint && receipt.claimId===claimId)) continue;
       const existing=tasks.get(fingerprint);
       if(existing) { if(!existing.jobIds.includes(row.id))existing.jobIds.push(row.id);continue; }
