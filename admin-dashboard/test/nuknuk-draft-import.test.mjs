@@ -11,7 +11,7 @@ const source=await readFile(new URL('../lib/nuknukDraftImport.ts',import.meta.ur
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText
  .replace('"@backyrd/world-knowledge-core"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href));
 await writeFile(join(dir,'import.mjs'),compiled);
-const {mergeResearchProfile,prepareNuknukDraftImport,planAdminResearchReview}=await import(pathToFileURL(join(dir,'import.mjs')).href);
+const {mergeResearchProfile,prepareNuknukDraftImport,planAdminResearchReview,supplementResearchValue}=await import(pathToFileURL(join(dir,'import.mjs')).href);
 const id='174cfd79-d10d-434d-be8f-1a7e39047e82';
 const citation={url:'https://example.org/menu',evidence:'Getränke und Restaurant mit 50 Plätzen',observedAt:'2026-10-24T10:00:00Z'};
 const claim=(value)=>({claimId:'11111111-1111-4111-8111-111111111111',knowledgeState:'KNOWN_VALUE',value});
@@ -158,4 +158,25 @@ test('MAJOR identical values remain actionable until an explicit current-claim d
  const confirmed=planAdminResearchReview({...input,confirmations:{'rule.reservation':current['rule.reservation'].claimId}});
  assert.equal(confirmed.reviews.length,0);assert.deepEqual(confirmed.skipped,['rule.reservation']);assert.equal(confirmed.accepted.length,0);
  const normal=planAdminResearchReview({...input,majorKeys:[]});assert.equal(normal.reviews.length,0);assert.deepEqual(normal.skipped,['rule.reservation']);
+});
+
+test('confirmed yes and no proposals are covered by boolean profile claims',()=>{
+ for(const value of [true,false])assert.equal(assessNuknukDraftReview(draft([result('operation.takeaway',value)]),{'operation.takeaway':{claimId:'confirmed',visibility:'PUBLIC',knowledgeState:value?'KNOWN_TRUE':'KNOWN_FALSE',value}})[0].covered,true);
+});
+test('accepting special dates preserves existing dates outside the proposal',()=>{
+ const old={date:'2026-11-01',status:'CLOSED',intervals:[]},proposed={date:'2026-12-24',status:'CLOSED',intervals:[]};
+ const value=supplementResearchValue('hours.special',{knowledgeState:'KNOWN_VALUE',value:[old]},[proposed]);assert.deepEqual(value,[old,proposed]);
+});
+test('an already-present second property is not mistaken for a conflicting first property',()=>{
+ const p=(value)=>({key:'custom.detail',label:'Spezialität',state:'KNOWN',value,conditions:emptyExperienceConditions()});
+ const current={...emptyExperienceProfile('EAT'),properties:[p('First'),p('Second')]};
+ assert.deepEqual(mergeResearchProfile(current,{...emptyExperienceProfile('EAT'),properties:[p('Second')]}).properties,current.properties);
+ assert.throws(()=>mergeResearchProfile(current,{...emptyExperienceProfile('EAT'),properties:[p('Third')]}),/widerspricht/);
+});
+
+test('an empty special-hours proposal cannot silently retain or remove existing dates',()=>{
+ for(const key of ['hours.special','hours.kitchen_special']){
+  assert.throws(()=>supplementResearchValue(key,{knowledgeState:'KNOWN_VALUE',value:[{date:'2026-12-24',status:'CLOSED',intervals:[]}]},[]),/bereits besondere Öffnungszeiten/);
+  assert.deepEqual(supplementResearchValue(key,{knowledgeState:'KNOWN_VALUE',value:[]},[]),[]);
+ }
 });

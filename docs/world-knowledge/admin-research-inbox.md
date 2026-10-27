@@ -13,3 +13,13 @@ A decision to retain the profile or leave a fact unknown is recorded with actor,
 The inbox refreshes on opening, window focus, returning to the visible tab, after a decision, and every 30 seconds while visible. Background refresh pauses while a field editor is open. Explicit loading, stale-data errors and save confirmations are shown. At most 1,000 job rows are scanned; exceeding that bound produces an explicit error rather than a silently incomplete count.
 
 Regression tests: `admin-dashboard/test/research-inbox.test.mjs`. Manual validation covers current data, duplicate runs, recovery of prior file-import gaps, desktop/mobile layout, existing field editing and authentication denial.
+
+## Guided review
+
+Opening a spot now shows one question at a time, with an explicit task, reason, readable proposed/current values, source quote and decision. Consecutive special closures are grouped only for display; original dates and evidence remain unchanged. Missing days remain unknown and different opening times or gaps are not folded into a single closure. All supported structured fields have domain-specific descriptions; unknown object shapes display an explicit correction instruction rather than raw keys.
+
+`accept` confirms the exact proposal read from the acting Admin's own stored job. The browser sends its fingerprint, current claim binding and idempotency key, never the value to write. It uses the existing Admin writer, moderation and projection verification. Human confirmation is unchecked initially. Conflicting profile supplements require editing; existing unrelated offers, areas and special dates are preserved. Accepting a boolean uses its actual true/false knowledge state and does not leave a duplicate pending question.
+
+Skipping a question leaves it open. Rejecting retains the existing field; explicitly closing an unknown question does not invent a fact. Older report notes that expressly say their information is already stored in a confirmed offering profile do not create duplicate work. Original report notes remain preserved.
+
+The current-profile check reads at most four independent spot profiles in parallel. Background polling pauses during a spot review, and changes are rechecked on save; stale claims cannot be overwritten.

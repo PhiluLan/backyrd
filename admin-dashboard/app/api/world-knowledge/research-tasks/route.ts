@@ -6,6 +6,8 @@ import { readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/wo
 import { assessNuknukDraftReview } from "@/lib/nuknukDraftImport";
 import { buildInboxSpot, resultsFromInboxRow, taskFingerprint, type InboxRow, type InboxDecision } from "@/lib/researchInbox";
 import { persistResearchFollowups } from "@/lib/server/researchFollowups";
+import { acceptResearchTask } from "@/lib/server/researchTaskAcceptance";
+import { ResearchSaveError } from "@/lib/researchSaveFeedback";
 const headers={"cache-control":"no-store"};
 function clients(request:Request) {
   const url=process.env.NEXT_PUBLIC_SUPABASE_URL!,anon=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,key=process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -31,15 +33,19 @@ export async function GET(request:Request) {
     const grouped=new Map<string,InboxRow[]>();
     for(const row of rows)grouped.set(row.spot_id,[...(grouped.get(row.spot_id) ?? []),row]);
     const spots=[];
-    for(const [spotId,items] of grouped) {
+    const entries=[...grouped];
+    for(let index=0;index<entries.length;index+=4) {
+      const checked=await Promise.all(entries.slice(index,index+4).map(async([spotId,items])=>{
       try {
         const detail=await readWorldResearchDetail(actor,spotId);
         const answers=detail.answers ?? {};
         const covered=(result:ReturnType<typeof resultsFromInboxRow>[number])=>assessNuknukDraftReview({version:"nuknuk-research-v1",spotId,name:detail.name,canonicalWrite:false,importable:false,results:[{...result,status:"REQUIRES_REVIEW"}]},answers)[0]?.covered===true;
         const spot=buildInboxSpot(items,answers,covered);
         spot.tasks=spot.tasks.filter(task=>allowed.has(task.attributeKey));spot.name=detail.name;
-        spots.push(spot);
-      } catch { spots.push({...buildInboxSpot(items,{},()=>false),unavailable:true}); }
+        return spot;
+      } catch { return {...buildInboxSpot(items,{},()=>false),unavailable:true}; }
+      }));
+      spots.push(...checked);
     }
     return Response.json({spots,checkedAt:new Date().toISOString()},{headers});
   } catch(cause){return Response.json({error:cause instanceof Error?cause.message:"Die Aufgaben konnten nicht geladen werden."},{status:503,headers});}
@@ -50,7 +56,7 @@ export async function POST(request:Request) {
   const text=await request.text();
   if(text.length>2_000_000)return Response.json({error:"Die Datei ist zu gross."},{status:413,headers});
   try {
-    const body=JSON.parse(text) as {action?:unknown;document?:unknown;spotId?:unknown;fingerprint?:unknown;claimId?:unknown;jobIds?:unknown};
+    const body=JSON.parse(text) as {action?:unknown;idempotencyKey?:unknown;document?:unknown;spotId?:unknown;fingerprint?:unknown;claimId?:unknown;jobIds?:unknown};
     const {service,actor}=clients(request);
     if(body.action === "recover") {
       const document=parseWorldResearchBatch(body.document);
@@ -58,10 +64,11 @@ export async function POST(request:Request) {
       await persistResearchFollowups(service,auth.userId,document);
       return Response.json({saved:true,message:"Offene Angaben sind jetzt in deinen Aufgaben. Die Profile wurden nicht verändert."},{headers});
     }
-    if(body.action!=="keep" || typeof body.spotId!=="string" || !WORLD_RESEARCH_SPOT_ID.test(body.spotId) || typeof body.fingerprint!=="string" || body.fingerprint.length>50_000 || !Array.isArray(body.jobIds) || !body.jobIds.length || body.jobIds.length>100 || body.jobIds.some(id=>typeof id!=="string" || !WORLD_RESEARCH_SPOT_ID.test(id)))throw new Error("Bitte die Aufgabe neu öffnen.");
+    if(!["keep","accept"].includes(String(body.action)) || typeof body.spotId!=="string" || !WORLD_RESEARCH_SPOT_ID.test(body.spotId) || typeof body.fingerprint!=="string" || body.fingerprint.length>200_000 || !Array.isArray(body.jobIds) || !body.jobIds.length || body.jobIds.length>100 || body.jobIds.some(id=>typeof id!=="string" || !WORLD_RESEARCH_SPOT_ID.test(id)))throw new Error("Bitte die Aufgabe neu öffnen.");
     const detail=await readWorldResearchDetail(actor,body.spotId);
     const found=await service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id",auth.userId).eq("spot_id",body.spotId).in("id",body.jobIds);
     if(found.error || found.data.length!==new Set(body.jobIds).size)throw new Error("Die Aufgabe wurde nicht gefunden.");
+    if(body.action === "accept")return Response.json(await acceptResearchTask(actor,service,auth.userId,found.data as InboxRow[],detail,{fingerprint:body.fingerprint,claimId:body.claimId,idempotencyKey:body.idempotencyKey}),{headers});
     for(const row of found.data as InboxRow[]) {
       const result=resultsFromInboxRow(row).find(item=>taskFingerprint(item)===body.fingerprint);
       if(!result || !allowed.has(result.attributeKey))throw new Error("Der Vorschlag wurde inzwischen geändert. Bitte neu laden.");
@@ -74,5 +81,5 @@ export async function POST(request:Request) {
       if(updated.error || !updated.data)throw new Error("Die Entscheidung konnte nicht vollständig gespeichert werden. Bitte neu laden und erneut versuchen.");
     }
     return Response.json({saved:true,message:"Entscheidung gespeichert. Das Profil bleibt unverändert."},{headers});
-  } catch(cause){return Response.json({error:cause instanceof Error?cause.message:"Die Entscheidung konnte nicht gespeichert werden."},{status:409,headers});}
+  } catch(cause){return Response.json({error:cause instanceof Error?cause.message:"Die Entscheidung konnte nicht gespeichert werden.",...(cause instanceof ResearchSaveError?{saveState:cause.saveState}:{})},{status:409,headers});}
 }

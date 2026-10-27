@@ -6,7 +6,7 @@ import type { ResearchResult } from "@/lib/nuknukResearchDraft";
 import { supplementResearchValue } from "@/lib/nuknukDraftImport";
 import { isResearchSaveConfirmation, researchFailureFeedback, type ResearchFeedback } from "@/lib/researchSaveFeedback";
 import { ResearchActionFeedback } from "./ResearchActionFeedback";
-import { ResearchValue } from "./ResearchValue";
+import { ResearchValue, researchFieldLabel } from "./ResearchValue";
 import styles from "./WorldResearchBatchPanel.module.css";
 
 type Answer = { claimId?: string; knowledgeState: string; value: unknown; visibility?: string };
@@ -19,7 +19,7 @@ export function researchFieldHasPendingEdits(control:string,attributeKey:string,
     : !visibleValidation?.ok || JSON.stringify(visibleValidation.value) !== JSON.stringify(staged.value) || (staged.validUntil ?? "") !== visibleDraft.validUntil);
 }
 
-export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId:string;result:ResearchResult;post(body:unknown):Promise<unknown>;onSaved(value:unknown,knowledgeState:string):void;onClose():void}) {
+export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId:string;result:ResearchResult;post(body:unknown):Promise<unknown>;onSaved(value:unknown,knowledgeState:string,claimId?:string):void;onClose():void}) {
   const [answers,setAnswers] = useState<Record<string,Answer> | null>(null);
   const [seed,setSeed] = useState<unknown>();
   const [staged,setStaged] = useState<Staged | null>(null);
@@ -32,7 +32,8 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
   const [dirty,setDirty] = useState(false);
   const [key] = useState(() => `research-edit:${crypto.randomUUID()}`);
   const [saveKey,setSaveKey] = useState(() => `research-edit:${crypto.randomUUID()}`);
-  const field = AUTHORING_FIELDS.find(item => item.attributeKey === result.attributeKey);
+  const baseField = AUTHORING_FIELDS.find(item => item.attributeKey === result.attributeKey);
+  const field=baseField?{...baseField,label:researchFieldLabel(baseField.attributeKey)}:undefined;
   useEffect(() => {
     let active=true;
     void post({action:"edit-field",spotId}).then(value => {
@@ -42,7 +43,7 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
       let initial = current[result.attributeKey]?.value;
       if(result.status === "REQUIRES_REVIEW" && result.value !== undefined) {
         try { initial = supplementResearchValue(result.attributeKey,current[result.attributeKey],result.value); }
-        catch { setNotice("Der Vorschlag weicht vom bestehenden Profil ab. Du bearbeitest die gespeicherte Angabe; der Recherchevorschlag bleibt darüber sichtbar."); }
+        catch { setNotice("Der Vorschlag enthält andere Angaben als das bisherige Profil. Hier bearbeitest du die bisherige Angabe. Übertrage nur das, was du in der Quelle geprüft hast."); }
       }
       setSeed(initial);
     }).catch(() => {if(active)setError("Das aktuelle Profil konnte nicht geladen werden. Schliesse den Editor und versuche es erneut.");});
@@ -63,12 +64,12 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
     try {
       const response=await post({action:"save-field",spotId,attributeKey:field.attributeKey,knowledgeState:staged.knowledgeState,value:staged.value,validUntil:staged.validUntil,expectedClaimId:answers[field.attributeKey]?.claimId ?? null,idempotencyKey:saveKey});
       if(!isResearchSaveConfirmation(response,staged.knowledgeState,staged.value)) throw new Error("Die vollständige Speicherbestätigung fehlt. Bitte erneut versuchen.");
-      window.dispatchEvent(new Event("backyrd:spot-profile-updated"));onSaved(staged.value,staged.knowledgeState);
+      window.dispatchEvent(new Event("backyrd:spot-profile-updated"));onSaved(staged.value,staged.knowledgeState,(response as {answer:{claimId:string}}).answer.claimId);
     } catch(cause) {setSaveFeedback(researchFailureFeedback(cause));}
     finally {setBusy(false);}
   };
   return <section className={`wk-app ${styles.fieldEditor}`} aria-label={`${field.label} bearbeiten`}>
-    <p className={styles.note}>Eigene Angabe: Prüfe oder ergänze den Inhalt. „Übernehmen“ merkt ihn hier vor. Erst „Im Profil speichern“ speichert deine Admin-Bestätigung. Die Recherchebelege bleiben unverändert.</p>
+    <p className={styles.note}>Trage hier die richtige Angabe ein. Mit „Übernehmen“ erscheint zuerst eine Vorschau. Prüfe sie und bestätige anschliessend mit „Jetzt speichern“. Vorher wird das Ortprofil nicht geändert.</p>
     {notice && <p className={styles.partialNote}>{notice}</p>}
     {answers ? <FieldInput field={field} initialDraft={seed !== undefined ? {key,value:seed} : undefined} onDiscardDraft={() => {setStaged(null);setDirty(false);}} existingAnswers={answers}
       referenceValue={field.attributeKey === "hours.kitchen" ? answers["hours.regular"]?.value : undefined}
@@ -78,10 +79,10 @@ export function ResearchFieldEditor({spotId,result,post,onSaved,onClose}:{spotId
         if(!valid.ok) throw new Error(valid.message);
         setSaveKey(`research-edit:${crypto.randomUUID()}`);setStaged({knowledgeState,value:valid.value,validUntil,visibleFingerprint});setDirty(false);setError("");setSaveFeedback(null);
       }}/>: !error && <p role="status">Aktuelle Profilangaben werden geladen …</p>}
-    {staged && <div className={styles.partialNote} role="status" aria-atomic="true"><strong>Vorgemerkt · noch nicht gespeichert</strong><ResearchValue attributeKey={field.attributeKey} value={staged.value}/>{pendingEdits && <p>Weitere Änderungen zuerst oben übernehmen.</p>}</div>}
+    {staged && <div className={styles.partialNote} role="status" aria-atomic="true"><strong>Deine Änderung · bitte vor dem Speichern prüfen</strong><ResearchValue attributeKey={field.attributeKey} value={staged.value}/>{pendingEdits && <p>Weitere Änderungen zuerst oben übernehmen.</p>}</div>}
     {error && <ResearchActionFeedback feedback={{kind:"error",title:"Profil konnte nicht geladen werden",message:error}} focus/>}
     {busy && <ResearchActionFeedback feedback={{kind:"pending",title:"Angabe wird gespeichert …",message:"Wir prüfen danach, ob sie im aktuellen Profil angekommen ist."}}/>}
     {saveFeedback && <ResearchActionFeedback feedback={saveFeedback} focus/>}
-    <div className={styles.editorActions}><button type="button" className={`${styles.secondary} wk-secondary`} disabled={busy} onClick={close}>Editor schliessen</button><button type="button" className={styles.primary} disabled={busy || !staged || pendingEdits} onClick={() => void save()}>{busy ? "Wird gespeichert …" : saveFeedback ? "Erneut versuchen" : "Eigene Angabe im Profil speichern"}</button></div>
+    <div className={styles.editorActions}><button type="button" className={`${styles.secondary} wk-secondary`} disabled={busy} onClick={close}>Bearbeitung abbrechen</button><button type="button" className={styles.primary} disabled={busy || !staged || pendingEdits} onClick={() => void save()}>{busy ? "Wird gespeichert …" : saveFeedback ? "Erneut versuchen" : "Jetzt speichern"}</button></div>
   </section>;
 }
