@@ -178,3 +178,10 @@ export async function authorizedWorldResearchDrafts(input: { auth: WorldKnowledg
   if (!response.ok) throw new Error(result.error ?? "WORLD_RESEARCH_DRAFTS_UNAVAILABLE");
   return result;
 }
+
+export async function authorizedWorldResearchTasks(input:{auth:WorldKnowledgeBrowserAuth;body?:unknown;fetcher?:typeof fetch}):Promise<unknown> {
+  const send=async(forceRefresh:boolean)=>(input.fetcher ?? fetch)("/api/world-knowledge/research-tasks",{method:input.body?"POST":"GET",cache:"no-store",headers:{authorization:`Bearer ${await accessToken(input.auth,forceRefresh)}`,...(input.body?{"content-type":"application/json"}:{})},...(input.body?{body:JSON.stringify(input.body)}:{})});
+  let response=await send(false);let result=await response.json() as {error?:string};
+  if(response.status===401 && ["invalid_session","authentication_required"].includes(result.error ?? "")){response=await send(true);result=await response.json() as {error?:string};}
+  if(!response.ok)throw new Error(result.error ?? "Die Aufgaben konnten nicht geladen werden.");return result;
+}
