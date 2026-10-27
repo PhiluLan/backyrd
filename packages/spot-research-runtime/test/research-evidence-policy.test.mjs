@@ -752,3 +752,241 @@ test("menu currency may be stated once by the official restaurant, but an explic
     /PROFILE_PRICE_NOT_SUPPORTED/,
   );
 });
+
+for (const [kind, label] of [
+  ["WELLNESS_RELAXATION", "Wellness"],
+  ["HAMMAM", "Hamam"],
+  ["POOL_AREA", "Badewelten"],
+  ["SAUNA_AREA", "Saunawelt"],
+  ["SPA_TREATMENT", "Massage"],
+  ["BATHING", "Erlebnisbad"],
+])
+  test(`wellness catalogue meaning: ${kind}`, () => {
+    assert.equal(matchesResearchMeaning(kind, label), true);
+    assert.equal(matchesResearchMeaning(kind, `Kein ${label}`), false);
+  });
+
+async function collectedProof(c, a, body, { pdfText } = {}) {
+  const page = {
+    url: site,
+    body: `<p>Test Basel Teststrasse 1</p>${body}`,
+    contentType: "text/html",
+    observedAt: at,
+    redirectedFrom: [],
+  };
+  const evidence = await collectResearchEvidence({
+    page,
+    website: site,
+    name: "Test",
+    locality: "Basel",
+    address: "Teststrasse 1",
+    claims: [c],
+    fetchPage: async (url) => ({
+      url,
+      body: new Uint8Array([1, 2, 3]),
+      contentType: "application/pdf",
+      observedAt: at,
+      redirectedFrom: [],
+    }),
+    readPdf: async () => pdfText,
+  });
+  return proveResearchEvidence({
+    claim: c,
+    assessment: a,
+    evidence,
+    website: site,
+    page,
+    claims: [c],
+    now,
+  });
+}
+for (const variant of ["Picknick", "Pick-\nnick", "Pick\u0002nick"])
+  test(`PDF word wrapping preserves the same quote: ${JSON.stringify(variant)}`, async () => {
+    const c = {
+      ...claim,
+      attributeKey: "rule.external_food",
+      value: {
+        policy: "CONDITIONAL",
+        exceptions: ["Nur in der Picknick Ecke"],
+      },
+      source: {
+        ...source,
+        url: site + "rules.pdf",
+        evidence: `Mitgebrachte Esswaren sind nur in der ${variant} Ecke gestattet.`,
+      },
+    };
+    const result = await collectedProof(
+      c,
+      assessment,
+      '<a href="rules.pdf">Hausordnung</a>',
+      {
+        pdfText:
+          "Mitgebrachte Esswaren sind nur in der Pick-\nnick Ecke gestattet.",
+      },
+    );
+    assert.equal(result.eligible, true, JSON.stringify(result));
+  });
+test("PDF normalization cannot remove negation or alter a number", async () => {
+  for (const quote of ["Esswaren sind gestattet.", "Eintritt ab 12 Jahren."]) {
+    const c = {
+      ...claim,
+      source: { ...source, url: site + "rules.pdf", evidence: quote },
+    };
+    const result = await collectedProof(
+      c,
+      assessment,
+      '<a href="rules.pdf">Hausordnung</a>',
+      { pdfText: "Esswaren sind nicht-\ngestattet. Eintritt ab 16 Jahren." },
+    );
+    assert.equal(result.reason, "QUOTE_NOT_IN_SOURCE");
+  }
+});
+test("conditional permission does not authorize an unconditional food policy", () => {
+  const c = {
+    ...claim,
+    attributeKey: "rule.external_food",
+    value: { policy: "ALLOWED", exceptions: [] },
+    source: {
+      ...source,
+      evidence: "Esswaren sind nur in der Picknick Ecke gestattet.",
+    },
+  };
+  assert.equal(prove(c).reason, "CONSUMPTION_SCOPE_NOT_SUPPORTED");
+});
+test("individual relation bindings preserve a second area's actual evidence", () => {
+  const previous = existingProfile(),
+    value = structuredClone(previous);
+  value.offers[0].areaIds = ["restaurant"];
+  const c = {
+    ...claim,
+    attributeKey: "experience.profile",
+    value,
+    source: { ...source, evidence: "Restaurant zum Mittagessen" },
+  };
+  assert.equal(
+    prove(
+      c,
+      { ...assessment, bindings: { "/offers/0/areaIds/0": 0 } },
+      c.source.evidence,
+      existingState(previous),
+    ).eligible,
+    true,
+  );
+});
+const wellnessProfile = () => ({
+  ...existingProfile(),
+  category: "WELLNESS_RELAXATION",
+  areas: [],
+  offers: [
+    {
+      ...existingProfile().offers[0],
+      id: "pool",
+      kind: "BATHING",
+      name: "Badewelt",
+      schedule: Array.from({ length: 7 }, (_, i) => ({
+        weekday: i + 1,
+        start: "10:00",
+        end: "22:00",
+      })),
+    },
+  ],
+});
+const hoursTable =
+  "<table><tr><th>Bereich</th><th>Tag</th><th>Uhrzeit</th></tr><tr><td>Badewelten</td><td>täglich</td><td>10:00–22:00</td></tr><tr><td>Saunawelt</td><td><p>Mo–Do &amp; So</p><p>Fr–Sa</p><p>XXL letzter Samstag im Monat</p></td><td><p>10:00–22:00</p><p>10:00–23:00</p><p>10:00–00:00</p></td></tr></table>";
+const hoursQuote =
+  "Wellness Bereich Tag Uhrzeit Badewelten täglich 10:00–22:00 Saunawelt Mo–Do & So Fr–Sa XXL letzter Samstag im Monat 10:00–22:00 10:00–23:00 10:00–00:00";
+test("parallel table columns retain daily and sauna weekday schedules", async () => {
+  for (const sauna of [false, true]) {
+    const value = wellnessProfile();
+    if (sauna)
+      Object.assign(value.offers[0], {
+        kind: "SAUNA",
+        name: "Saunawelt",
+        schedule: Array.from({ length: 7 }, (_, i) => ({
+          weekday: i + 1,
+          start: "10:00",
+          end: i === 4 || i === 5 ? "23:00" : "22:00",
+        })),
+      });
+    const c = {
+      ...claim,
+      attributeKey: "experience.profile",
+      value,
+      source: { ...source, evidence: hoursQuote },
+    };
+    const a = { ...assessment, bindings: { "/offers/0": 0 } };
+    const result = await collectedProof(c, a, "<p>Wellness</p>" + hoursTable);
+    assert.equal(result.eligible, true, JSON.stringify(result));
+    value.offers[0].schedule[0].end = "23:00";
+    assert.equal(
+      (await collectedProof(c, a, "<p>Wellness</p>" + hoursTable)).reason,
+      "OFFER_SCHEDULE_NOT_SUPPORTED",
+    );
+  }
+});
+test("wraparound abbreviated days include Sunday through Thursday", () => {
+  const c = {
+    ...claim,
+    attributeKey: "hours.regular",
+    value: [
+      { day: "SUNDAY", intervals: [{ start: "10:00", end: "22:00" }] },
+      { day: "THURSDAY", intervals: [{ start: "10:00", end: "22:00" }] },
+    ],
+    source: { ...source, evidence: "So.–Do. 10:00–22:00" },
+  };
+  assert.equal(prove(c).eligible, true);
+});
+
+const tariffTable =
+  '<table><tr><th>Dauer pro Person</th><th colspan="2">Jugendliche 6–15 Jahre</th><th colspan="2">Badewelt ab 16 Jahre</th><th colspan="2">Badewelt + Sauna ab 16 Jahre</th></tr><tr><td></td><td>Mo–Fr</td><td>Sa &amp; So*</td><td>Mo–Fr</td><td>Sa &amp; So*</td><td>Mo–Fr</td><td>Sa &amp; So*</td></tr><tr><td>2 Stunden</td><td>CHF 31</td><td>CHF 33.50</td><td>CHF 36</td><td>CHF 38.50</td><td>CHF 38</td><td>CHF 40.50</td></tr></table>';
+const tariffQuote =
+  "Wellness Badewelt Dauer pro Person Jugendliche 6–15 Jahre Badewelt ab 16 Jahre Badewelt + Sauna ab 16 Jahre Mo–Fr Sa & So* Mo–Fr Sa & So* Mo–Fr Sa & So* 2 Stunden CHF 31 CHF 33.50 CHF 36 CHF 38.50 CHF 38 CHF 40.50";
+test("tariff columns bind amount to duration, age, area and weekday", async () => {
+  const value = wellnessProfile();
+  value.offers[0].schedule = [];
+  const price = {
+    label: "2 Stunden · Erwachsene · Mo–Fr",
+    currency: "CHF",
+    min: 36,
+    max: 36,
+    basis: "PER_PERSON",
+    minimumAge: 16,
+    maximumAge: null,
+    mandatoryFeesIncluded: null,
+    includes: "",
+    conditions: {
+      weekdays: [],
+      dayparts: [],
+      event: "Mo–Fr",
+      validFrom: null,
+      validUntil: null,
+    },
+  };
+  value.offers[0].prices = [price];
+  const c = {
+    ...claim,
+    attributeKey: "experience.profile",
+    value,
+    source: { ...source, evidence: tariffQuote },
+  };
+  const a = { ...assessment, bindings: { "/offers/0": 0 } };
+  assert.equal(
+    (await collectedProof(c, a, "<p>Wellness Badewelt</p>" + tariffTable))
+      .eligible,
+    true,
+  );
+  for (const changes of [
+    { min: 33.5, max: 33.5 },
+    { minimumAge: 6, maximumAge: 15 },
+    { conditions: { ...price.conditions, event: "Sa & So*" } },
+    { label: "2 Stunden · Badewelt + Sauna · Mo–Fr" },
+  ]) {
+    const wrong = structuredClone(c);
+    Object.assign(wrong.value.offers[0].prices[0], changes);
+    assert.match(
+      (await collectedProof(wrong, a, "<p>Wellness Badewelt</p>" + tariffTable))
+        .reason,
+      /PROFILE_PRICE_NOT_SUPPORTED/u,
+    );
+  }
+});

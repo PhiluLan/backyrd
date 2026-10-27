@@ -48,6 +48,8 @@ export function researchEvidenceReason(reason: string): string {
     SCOPE_OR_AGGREGATION_REQUIRES_REVIEW: "Die Angabe lässt sich noch nicht eindeutig auf den gesamten Ort beziehen.",
     STRUCTURED_VALUE_REQUIRES_SCOPED_EVIDENCE: "Der Beleg ist vorhanden, aber die Zuordnung zu den strukturierten Auswahlfeldern ist noch nicht vollständig bestätigt.",
     ATTRIBUTE_NOT_AUTHORIZED: "Für dieses Feld fehlt die Schreibberechtigung.",
+    CONSUMPTION_SCOPE_NOT_SUPPORTED: "Die Erlaubnis für eigene Speisen oder Getränke ist noch nicht gemeinsam mit ihren Einschränkungen belegt.",
+    SOURCE_TEXT_UNREADABLE: "Die Quelle ist erreichbar, ihr Text konnte aber nicht zuverlässig ausgelesen werden.",
     SOURCE_CONTACT_ONLY: "Diese Quelle darf nur zum Ergänzen fehlender Kontaktdaten dienen.",
   };
   if (messages[reason]) return messages[reason];
