@@ -174,3 +174,22 @@ behebt den belegten Fehlalarm „hass“ im eigenständigen Behandlungsnamen
 Sicherheitsprüfung ausgenommen. „Hass“, „Rassenhass“ und weitere Schutzsignale
 auch neben „Rhassoul“ bleiben wirksam. Die Migration gibt keine vorhandenen
 gehaltenen Claims frei; diese benötigen weiterhin eine ausdrückliche Adminprüfung.
+
+## Verbindlicher Live-Testweg
+
+Für einen Test der automatischen Übernahme in `/world-knowledge` ausschliesslich
+„Recherche mit sicherer Übernahme“ und dessen Aktion „Quellen prüfen und sichere
+Angaben speichern“ verwenden. Der separate manuelle Dateiimport mit „JSON prüfen“,
+Konfliktbestätigung und „geprüfte Angaben übernehmen“ ist kein Test der
+automatischen Pipeline. Ein deaktivierter Automatik-Schalter wird gemeldet und
+niemals durch einen Wechsel zum manuellen Import umgangen.
+
+Den frischen Export dieses Panels verwenden und im Ergebnis die Policy, die
+Entscheidungen und das nach Reload persistente Journal prüfen. Ein Export enthält
+nur öffentliche Angaben; ein fehlender Eintrag beweist deshalb nicht, dass kein
+gehaltener Claim existiert. Eine Erfolgsmeldung oder gespeicherte Editorprojektion
+beweist ebenfalls keine öffentliche Veröffentlichung. Abschliessend den
+kanonischen Claimstatus und den öffentlichen Mobile/Web-Produktabruf vergleichen.
+Bei `SHADOW_HELD` keine Inhalte umformulieren oder entfernen, um den Filter zu
+umgehen. Den konkreten Detector-Befund protokollieren und die normale
+Sicherheitsprüfung beziehungsweise eine freigegebene Korrektur abwarten.
