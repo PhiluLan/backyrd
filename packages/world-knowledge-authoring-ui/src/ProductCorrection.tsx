@@ -414,10 +414,14 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     if (field.attributeKey === "experience.profile") {
       const persisted = refreshed.answers[field.attributeKey];
       if (persisted?.visibility === "SHADOW_HELD") {
-        throw new Error("Das Angebotsprofil ist gespeichert, aber weiterhin zur Sicherheitsprüfung zurückgehalten und nicht öffentlich. Es wurde nicht freigegeben.");
+        const notice="Das Angebotsprofil ist gespeichert, aber weiterhin zur Sicherheitsprüfung zurückgehalten und nicht öffentlich. Es wurde nicht freigegeben.";
+        setMessage(notice);setMessageIsError(true);
+        throw new Error(notice);
       }
       if (persisted?.visibility !== "PUBLIC") {
-        throw new Error("Die öffentliche Speicherung des Angebotsprofils konnte nicht bestätigt werden. Bitte lade den Ort neu.");
+        const notice="Die öffentliche Speicherung des Angebotsprofils konnte nicht bestätigt werden. Bitte lade den Ort neu.";
+        setMessage(notice);setMessageIsError(true);
+        throw new Error(notice);
       }
       const stable = (input: unknown) => JSON.stringify(input, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
       if (persisted?.knowledgeState !== knowledgeState || stable(persisted.value) !== stable(validated.value)) {
@@ -537,7 +541,8 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
           <span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span>
           <span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span>
         </div></details>}
-        {field.control === "DISCOVERY_PROFILE" ? <section className="wk-source-preparation" aria-label="KI-Ausfüllhilfe">{heldReview}{editor}</section> : editor}
+        {heldReview}
+        {field.control === "DISCOVERY_PROFILE" ? <section className="wk-source-preparation" aria-label="KI-Ausfüllhilfe">{editor}</section> : editor}
       </div>;
     })}</section>);
 
