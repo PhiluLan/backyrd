@@ -278,3 +278,20 @@ test('isolated research deployment and its verified receipt never mark deferred 
  write(f.repo,'delivery/product-authority-v1.json','{}');
  assert.deepEqual(plan(f,commit(f.repo,'later Booking release still needs approval')).pendingMigrations,deferred);
 });
+
+test('Rhassoul isolated plan preserves every historical applied receipt and all five exclusions',async()=>{
+ const {RESEARCH_MIGRATION:research,RESEARCH_SAFETY_MIGRATION:safety,RESEARCH_RHASSOUL_MIGRATION:rhassoul,VOLTA_MIGRATIONS:volta,SAFETY_DEFERRED_MIGRATIONS:deferred}=await import('./isolated-research-migration.mjs');
+ const f=fixture();
+ for(const item of [...deferred,research,...volta,safety,rhassoul])write(f.repo,item.path,readFileSync(new URL('../../'+item.path,import.meta.url)));
+ const prior=commit(f.repo,'canonical migration history');
+ const receipt={status:'APPLIED_AND_VERIFIED',sourceSha:prior,deploymentRunId:1,manifestHash:'a'.repeat(64)};
+ const state={supabase:{isolatedResearchRelease:{...receipt,migration:research},isolatedVoltaRelease:{...receipt,migrations:volta},isolatedResearchSafetyRelease:{...receipt,migration:safety}}};
+ write(f.repo,'delivery/production-state.json',JSON.stringify(state));
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({isolatedResearchMigrationScope:{contractVersion:'backyrd.isolated-research-migration-scope@1.0',baseSha:f.base,migrations:[rhassoul],deferredMigrations:deferred,backupRunId:1,executionAuthorized:false}}));
+ const candidate=commit(f.repo,'bounded Rhassoul authority');const selected=plan(f,candidate);
+ assert.deepEqual(selected.pendingMigrations,[rhassoul]);assert.deepEqual(selected.deferredMigrations,deferred);assert.deepEqual(selected.deployFunctions,[]);
+ state.supabase.isolatedResearchRhassoulRelease={...receipt,sourceSha:candidate,migration:rhassoul};write(f.repo,'delivery/production-state.json',JSON.stringify(state));
+ const after=plan(f,commit(f.repo,'verified Rhassoul receipt'));
+ assert.deepEqual(after.pendingMigrations,[]);assert.deepEqual(after.deferredMigrations,deferred);
+ assert.equal(after.appliedResearch.migration.path,research.path);assert.equal(after.appliedResearchSafety.migration.path,safety.path);assert.equal(after.appliedResearchRhassoul.migration.path,rhassoul.path);assert.deepEqual(after.appliedVolta.migrations,volta);
+});

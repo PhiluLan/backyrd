@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "world-research-rhassoul-safety-v1",
+  "previousEvidence": "world-research-text-safety-word-boundary-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261027112800_world_research_rhassoul_safety_v1.sql",
+      "sha256": "09504c02d45df9a4de803714479bcb99c3f03d582e2570d3c9cef0630ac38d0d"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_research_rhassoul_safety_v1.sql",
+      "sha256": "0dd44287f37277a0f32ef3a935f1ef233c3376b0fde96db792cc4212c66feef6"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  }
+}

@@ -167,3 +167,29 @@ diesen Wert nicht nochmals und hebt bestehende Schutzregeln nicht auf. Für ein
 zusammengesetztes Angebotsprofil muss der Review-Vorschlag den gesamten sicheren
 Stand samt IDs erhalten und die unsicheren Ergänzungen vollständig enthalten;
 eine verkürzte Ersatzfassung würde sichere Inhalte entfernen und bleibt blockiert.
+
+Die Folgemigration `20261027112800_world_research_rhassoul_safety_v1.sql`
+behebt den belegten Fehlalarm „hass“ im eigenständigen Behandlungsnamen
+„Rhassoul“. Nur dieses vollständige Wort wird vor der ansonsten unveränderten
+Sicherheitsprüfung ausgenommen. „Hass“, „Rassenhass“ und weitere Schutzsignale
+auch neben „Rhassoul“ bleiben wirksam. Die Migration gibt keine vorhandenen
+gehaltenen Claims frei; diese benötigen weiterhin eine ausdrückliche Adminprüfung.
+
+## Verbindlicher Live-Testweg
+
+Für einen Test der automatischen Übernahme in `/world-knowledge` ausschliesslich
+„Recherche mit sicherer Übernahme“ und dessen Aktion „Quellen prüfen und sichere
+Angaben speichern“ verwenden. Der separate manuelle Dateiimport mit „JSON prüfen“,
+Konfliktbestätigung und „geprüfte Angaben übernehmen“ ist kein Test der
+automatischen Pipeline. Ein deaktivierter Automatik-Schalter wird gemeldet und
+niemals durch einen Wechsel zum manuellen Import umgangen.
+
+Den frischen Export dieses Panels verwenden und im Ergebnis die Policy, die
+Entscheidungen und das nach Reload persistente Journal prüfen. Ein Export enthält
+nur öffentliche Angaben; ein fehlender Eintrag beweist deshalb nicht, dass kein
+gehaltener Claim existiert. Eine Erfolgsmeldung oder gespeicherte Editorprojektion
+beweist ebenfalls keine öffentliche Veröffentlichung. Abschliessend den
+kanonischen Claimstatus und den öffentlichen Mobile/Web-Produktabruf vergleichen.
+Bei `SHADOW_HELD` keine Inhalte umformulieren oder entfernen, um den Filter zu
+umgehen. Den konkreten Detector-Befund protokollieren und die normale
+Sicherheitsprüfung beziehungsweise eine freigegebene Korrektur abwarten.

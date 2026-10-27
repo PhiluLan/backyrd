@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
+import { researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -466,12 +466,16 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   }, true);
   if (appliedResearchSafety) preappliedPaths.add(appliedResearchSafety.migration.path);
+  const appliedResearchRhassoul = researchRhassoulAppliedReceipt(state, head.read, source => {
+    try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
+  });
+  if (appliedResearchRhassoul) preappliedPaths.add(appliedResearchRhassoul.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
   const deferredFunctionChanges = authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
   if (deferredFunctionChanges.length) {
-    if (JSON.stringify(authority.isolatedResearchMigrationScope.migrations) !== JSON.stringify([RESEARCH_SAFETY_MIGRATION])
+    if (![RESEARCH_SAFETY_MIGRATION,RESEARCH_RHASSOUL_MIGRATION].some(target => JSON.stringify(authority.isolatedResearchMigrationScope.migrations) === JSON.stringify([target]))
       || JSON.stringify(deferredFunctionChanges) !== JSON.stringify(RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES)
       || JSON.stringify(functionChanges) !== JSON.stringify(deferredFunctionChanges)) throw new Error("isolated_research_deferred_function_binding_changed");
     for (const item of functions.filter(item=>item.deploy)) {
@@ -484,7 +488,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
   const scoped = authority?.isolatedVoltaMigrationScope
     ? scopeVoltaMigrations({pending:allPending,scope:authority.isolatedVoltaMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedResearch,appliedVolta})
-    : scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch,appliedSafety:appliedResearchSafety});
+    : scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch,appliedSafety:appliedResearchSafety,appliedRhassoul:appliedResearchRhassoul});
   const {pendingMigrations,deferredMigrations,isolatedResearchScope,isolatedVoltaScope} = scoped;
   const plan = {
     version: "backyrd-supabase-production-deployment-plan-v1",
@@ -503,6 +507,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     isolatedVoltaScope: isolatedVoltaScope ?? null,
     appliedResearch,
     appliedResearchSafety,
+    appliedResearchRhassoul,
     appliedVolta,
     additivePreappliedPriority: priorityReceipt,
     preappliedMigrationImport: preappliedMigrationImport ? {
