@@ -16,6 +16,7 @@ type Answer = {
   validUntil?: string | null;
   observedAt?: string;
   confirmationDueAt?: string;
+  visibility?: string;
 };
 type Detail = {
   contractVersion: string;
@@ -27,6 +28,26 @@ type Detail = {
   openConflicts: Array<{ class: string; attributeKey: string | null; reasonCodes: string[] }>;
   manifest: null | { manifestHash: string; worldSnapshot: unknown };
 };
+/** Explicit Admin review retries the normal writer; it never releases a hold itself. */
+export function HeldExperienceReview({answer,role,canWrite,onConfirm}:{answer?:Answer;role?:string;canWrite:boolean;onConfirm:()=>Promise<void>}) {
+  const [confirmed,setConfirmed]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState("");
+  const inFlight=useRef(false);
+  if (role!=="ADMIN" || !canWrite || answer?.visibility!=="SHADOW_HELD" || answer.knowledgeState!=="KNOWN_VALUE") return null;
+  const retry=async()=>{
+    if (!confirmed || inFlight.current) return;
+    inFlight.current=true;setSaving(true);setError("");
+    try { await onConfirm(); }
+    catch(cause) {setError(cause instanceof Error?cause.message:"Die Bestätigung konnte nicht abgeschlossen werden. Bitte lade den Ort neu.");}
+    finally {inFlight.current=false;setSaving(false);}
+  };
+  return <section className="wk-panel" aria-label="Gehaltenes Angebotsprofil prüfen">
+    <h3>Angebotsprofil noch nicht öffentlich</h3>
+    <p>Die Angaben sind gespeichert und wurden zur Sicherheitsprüfung zurückgehalten. Nach deiner Prüfung kannst du den unveränderten Stand erneut speichern. Der Sicherheitsfilter bleibt dabei aktiv.</p>
+    <label><input type="checkbox" checked={confirmed} disabled={saving} onChange={event=>setConfirmed(event.target.checked)}/> Ich habe das vollständige Profil und seine Belege geprüft und bestätige diese Angaben.</label>
+    <button type="button" disabled={!confirmed||saving} onClick={()=>void retry()}>{saving?"Wird erneut geprüft …":"Geprüftes Profil erneut speichern"}</button>
+    {error&&<p role="alert">{error}</p>}
+  </section>;
+}
 type SnapshotConflict = { severity?: string; attributeKeys?: string[] };
 const snapshotConflicts = (detail: Detail | null): SnapshotConflict[] => {
   const snapshot = detail?.manifest?.worldSnapshot;
@@ -389,14 +410,20 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
     if (!result?.manifestHash || !result.readerSnapshot) throw new Error("Die Angabe wurde gespeichert, aber der World-Reader hat die Datenvorschau nicht bestätigt. Bitte lade den Spot neu.");
     const refreshed = await readDetail(detail.spotId);
     if (refreshed.manifest?.manifestHash !== result.manifestHash) throw new Error("Die Angabe wurde gespeichert, aber Datenvorschau und Spot-Ansicht stimmen nicht überein. Bitte lade den Spot neu.");
+    setDetail(refreshed);
     if (field.attributeKey === "experience.profile") {
       const persisted = refreshed.answers[field.attributeKey];
+      if (persisted?.visibility === "SHADOW_HELD") {
+        throw new Error("Das Angebotsprofil ist gespeichert, aber weiterhin zur Sicherheitsprüfung zurückgehalten und nicht öffentlich. Es wurde nicht freigegeben.");
+      }
+      if (persisted?.visibility !== "PUBLIC") {
+        throw new Error("Die öffentliche Speicherung des Angebotsprofils konnte nicht bestätigt werden. Bitte lade den Ort neu.");
+      }
       const stable = (input: unknown) => JSON.stringify(input, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
       if (persisted?.knowledgeState !== knowledgeState || stable(persisted.value) !== stable(validated.value)) {
         throw new Error("Die gespeicherten Angebote konnten nicht vollständig zurückgelesen werden. Dein Entwurf bleibt erhalten. Bitte lade den Spot vor einem erneuten Versuch neu.");
       }
     }
-    setDetail(refreshed);
     window.dispatchEvent(new Event("backyrd:spot-profile-updated"));
     const blocking = snapshotConflicts(refreshed).some((conflict) =>
       conflict.severity === "BLOCKING" && conflict.attributeKeys?.includes(field.attributeKey));
@@ -502,13 +529,15 @@ export function WorldProductCorrection({ client, rebuild, prepareDiscovery, sear
         onSave={(state, value, until) => saveField(field, state, value, until)}
         onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} />;
       if(field.control==="DISCOVERY_PROFILE" && experienceWorkspace!=="OFFERS")return null;
+      const heldAnswer=detail?.answers[field.attributeKey];
+      const heldReview=field.attributeKey==="experience.profile"?<HeldExperienceReview key={heldAnswer?.claimId} answer={heldAnswer} role={detail?.actor.role} canWrite={!busy&&!!detail?.actor.allowedAttributeKeys.includes(field.attributeKey)} onConfirm={()=>saveField(field,heldAnswer!.knowledgeState,heldAnswer!.value)}/>:null;
       return <div className="wk-field-with-usage" id={`wk-editor-${field.attributeKey}`} tabIndex={-1} key={`${detail?.spotId}:${field.attributeKey}`}>
         {surface === "ADMIN" && <details className="wk-field-usage-details"><summary>Verwendung in Backyrd</summary><div className="wk-field-usage" aria-label="Verwendung dieser Angabe">
           <span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span>
           <span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span>
           <span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span>
         </div></details>}
-        {field.control === "DISCOVERY_PROFILE" ? <section className="wk-source-preparation" aria-label="KI-Ausfüllhilfe">{editor}</section> : editor}
+        {field.control === "DISCOVERY_PROFILE" ? <section className="wk-source-preparation" aria-label="KI-Ausfüllhilfe">{heldReview}{editor}</section> : editor}
       </div>;
     })}</section>);
 
