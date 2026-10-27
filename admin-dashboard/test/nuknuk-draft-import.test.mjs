@@ -11,7 +11,7 @@ const source=await readFile(new URL('../lib/nuknukDraftImport.ts',import.meta.ur
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText
  .replace('"@backyrd/world-knowledge-core"',JSON.stringify(new URL('../../packages/world-knowledge-core/dist/index.js',import.meta.url).href));
 await writeFile(join(dir,'import.mjs'),compiled);
-const {mergeResearchProfile,prepareNuknukDraftImport}=await import(pathToFileURL(join(dir,'import.mjs')).href);
+const {mergeResearchProfile,prepareNuknukDraftImport,planAdminResearchReview}=await import(pathToFileURL(join(dir,'import.mjs')).href);
 const id='174cfd79-d10d-434d-be8f-1a7e39047e82';
 const citation={url:'https://example.org/menu',evidence:'Getränke und Restaurant mit 50 Plätzen',observedAt:'2026-10-24T10:00:00Z'};
 const claim=(value)=>({claimId:'11111111-1111-4111-8111-111111111111',knowledgeState:'KNOWN_VALUE',value});
@@ -132,4 +132,30 @@ test('empty catalog selections do not assert subset coverage; empty partial sche
  assert.equal(existing['hours.regular'].value[0].intervals[0].end,'23:00');
  const dietDraft=draft([result('classification.place_types',[])]);
  assert.equal(assessNuknukDraftReview(dietDraft,{'classification.place_types':publicAnswer(['RESTAURANT'])})[0].covered,false);
+});
+
+
+test('conflicting profile supplements remain reviewable and cannot bypass the editor via confirmation',()=>{
+ const existing={...emptyExperienceProfile('EAT'),reviewed:true,areas:[area('real')],offers:[offer('drink',['real'])]};
+ const incoming=structuredClone(existing);incoming.areas[0].properties[0].value=75;
+ const current={'experience.profile':claim(existing)};
+ const proposal={attributeKey:'experience.profile',knowledgeState:'KNOWN_VALUE',value:incoming,source:{...citation,trust:'OFFICIAL_PRIMARY'}};
+ for(const confirmations of [{},{'experience.profile':current['experience.profile'].claimId}]){
+  const plan=planAdminResearchReview({claims:[proposal],current,confirmations,declined:[],majorKeys:['experience.profile'],observedAt:citation.observedAt});
+  assert.equal(plan.accepted.length,0);assert.equal(plan.reviews.length,1);assert.ok(plan.reviews[0].editorRequired);
+  assert.deepEqual(plan.reviews[0].current.value,existing);assert.deepEqual(plan.reviews[0].proposed.value,incoming);
+ }
+ const kept=planAdminResearchReview({claims:[proposal],current,confirmations:{},declined:['experience.profile'],majorKeys:[],observedAt:citation.observedAt});
+ assert.equal(kept.accepted.length,0);assert.equal(kept.reviews.length,0);
+ assert.equal(existing.areas[0].properties[0].value,50);
+});
+
+test('MAJOR identical values remain actionable until an explicit current-claim decision',()=>{
+ const current={'rule.reservation':claim({status:'REQUIRED',details:null})};
+ const proposal={attributeKey:'rule.reservation',knowledgeState:'KNOWN_VALUE',value:current['rule.reservation'].value,source:{...citation,trust:'OFFICIAL_PRIMARY'}};
+ const input={claims:[proposal],current,confirmations:{},declined:[],majorKeys:['rule.reservation'],observedAt:citation.observedAt};
+ const pending=planAdminResearchReview(input);assert.equal(pending.reviews.length,1);assert.equal(pending.skipped.length,0);assert.equal(pending.accepted.length,0);
+ const confirmed=planAdminResearchReview({...input,confirmations:{'rule.reservation':current['rule.reservation'].claimId}});
+ assert.equal(confirmed.reviews.length,0);assert.deepEqual(confirmed.skipped,['rule.reservation']);assert.equal(confirmed.accepted.length,0);
+ const normal=planAdminResearchReview({...input,majorKeys:[]});assert.equal(normal.reviews.length,0);assert.deepEqual(normal.skipped,['rule.reservation']);
 });

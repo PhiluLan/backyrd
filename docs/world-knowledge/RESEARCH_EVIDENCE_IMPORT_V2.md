@@ -193,3 +193,15 @@ kanonischen Claimstatus und den öffentlichen Mobile/Web-Produktabruf vergleiche
 Bei `SHADOW_HELD` keine Inhalte umformulieren oder entfernen, um den Filter zu
 umgehen. Den konkreten Detector-Befund protokollieren und die normale
 Sicherheitsprüfung beziehungsweise eine freigegebene Korrektur abwarten.
+
+
+### Manuelle Prüfung widersprüchlicher Ergänzungen
+
+Der Vorschlagsprüfer zeigt widersprüchliche Profilergänzungen mit bisherigem
+Wert, vollständigem Vorschlag und Originalbeleg. Solche Ergänzungen werden nicht
+automatisch zusammengeführt und können auch durch eine übermittelte Bestätigung
+nicht als ungeprüfter Ersatz geschrieben werden. Der Admin bearbeitet den
+bestehenden Stand über „Profil bearbeiten“ oder behält ihn ausdrücklich bei.
+Andere gültige Felder desselben Auftrags bleiben prüfbar. Eine MAJOR-Neubewertung
+eines identischen Werts verlangt ebenfalls eine ausdrückliche Entscheidung;
+eine Bestätigung erzeugt dann keinen zusätzlichen Claim.

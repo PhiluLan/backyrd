@@ -1,7 +1,7 @@
 import {
-  canonicalJson, parseExperienceProfile, parseWorldResearchBatch, validateAuthoringSubmission,
+  canonicalJson, parseExperienceProfile, parseWorldResearchBatch, planWorldResearchSpot, validateAuthoringSubmission,
   type ExperienceProfile, type ExperienceProperty, type WorldResearchBatchDocument,
-  type WorldResearchClaim, type WorldResearchSource,
+  type WorldResearchClaim, type WorldResearchSource, type WorldResearchExistingValue, type ResearchReview,
 } from "@backyrd/world-knowledge-core";
 import type { NuknukDraft, ResearchResult } from "./nuknukResearchDraft";
 
@@ -151,4 +151,38 @@ export function finishNuknukDraftReview(draft: NuknukDraft, answers: Record<stri
     attributeKey: field.attributeKey, claimId: field.claimId,
     outcome: field.covered ? "PROFILE_VERIFIED" : Object.hasOwn(kept,field.attributeKey) && kept[field.attributeKey] === field.claimId ? field.claimId ? "KEPT_PROFILE" : "DECLINED" : "PENDING",
   })) };
+}
+
+
+export type AdminResearchReview = ResearchReview & { editorRequired?: string };
+
+/** Conflicting supplements must remain inspectable without becoming replacements. */
+export function planAdminResearchReview(input: {
+  claims: readonly WorldResearchClaim[];
+  current: Record<string, WorldResearchExistingValue>;
+  confirmations: Record<string, string>;
+  declined: readonly string[];
+  majorKeys: readonly string[];
+  observedAt: string;
+}) {
+  const claims: WorldResearchClaim[] = [];
+  const held: AdminResearchReview[] = [];
+  for (const claim of input.claims) {
+    if (input.declined.includes(claim.attributeKey)) continue;
+    const current = input.current[claim.attributeKey];
+    try {
+      const value = supplementResearchValue(claim.attributeKey, current, claim.value);
+      // An identical value explicitly submitted for reevaluation still needs a decision.
+      if (current && input.majorKeys.includes(claim.attributeKey)
+        && same(current.value, value) && input.confirmations[claim.attributeKey] !== current.claimId) {
+        held.push({ attributeKey: claim.attributeKey, current, proposed: { ...claim, value } });
+      } else claims.push({ ...claim, value });
+    } catch (cause) {
+      if (!current || claim.attributeKey !== "experience.profile") throw cause;
+      held.push({ attributeKey: claim.attributeKey, current, proposed: claim,
+        editorRequired: cause instanceof Error ? cause.message : "Bitte im Profil-Editor prüfen." });
+    }
+  }
+  const plan = planWorldResearchSpot({ ...input, claims });
+  return { ...plan, reviews: [...held, ...plan.reviews] as AdminResearchReview[] };
 }
