@@ -527,7 +527,7 @@ test("v2 imports a grounded lunch synonym, corrects the exact old claim, and com
     fetchPage,
     now,
   });
-  assert.equal(result.report.policy, "backyrd.research-evidence@2.2");
+  assert.equal(result.report.policy, "backyrd.research-evidence@2.3");
   assert.deepEqual(result.report.stored, ["offering.groups"]);
   assert.equal(result.report.state, "COMPLETE");
   assert.ok(result.report.unresolved.length > 0);

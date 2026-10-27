@@ -990,3 +990,24 @@ test("tariff columns bind amount to duration, age, area and weekday", async () =
     );
   }
 });
+
+
+test("catalogue place-type evidence supports its own profile category without inventing category words", () => {
+  const c={...claim,attributeKey:"experience.profile",value:{category:"ACTIVITIES_PLAY",properties:[],areas:[],offers:[]},source:{...source,evidence:"Unsere Spielhalle bietet Spiel und Spass."}};
+  assert.equal(prove(c).eligible,true);
+  for(const text of ["Keine Spielhalle vorhanden.","Unser Restaurant bietet Mittagessen.","Nur Kontakt und Begleitpflicht."]){
+    const wrong={...c,source:{...source,evidence:text}};
+    assert.equal(prove(wrong).reason,"PROFILE_CATEGORY_NOT_SUPPORTED");
+  }
+  assert.equal(prove({...c,value:{...c.value,category:"STAY"}}).reason,"PROFILE_CATEGORY_NOT_SUPPORTED");
+});
+
+test("international optional trunk notation preserves the actual phone digits",()=>{
+ for(const text of ["T +41(0)61 681 95 65", "Telefon +41 (0) 61 681 95 65", "Telefon +41 61 681 95 65"]){
+   const c={...claim,attributeKey:"contact.phone",value:"+41616819565",source:{...source,evidence:text}};
+   assert.equal(prove(c).eligible,true);
+   assert.equal(prove({...c,value:"+41616819566"}).reason,"PHONE_NOT_SUPPORTED");
+ }
+ const wrong={...claim,attributeKey:"contact.phone",value:"+41616819565",source:{...source,evidence:"Telefon +41 61 681 95 56"}};
+ assert.equal(prove(wrong).reason,"PHONE_NOT_SUPPORTED");
+});
