@@ -95,3 +95,9 @@ test('policy 2.2 keeps uncertainty reviews distinct from unfilled catalogue fiel
  assert.equal(summary.review,1);
  assert.equal(summary.stored,1);
 });
+
+
+test('policy 2.3 keeps gaps separate from actionable review',()=>{
+ const summary=researchPipelineSummary({policy:'backyrd.research-evidence@2.3',phase:'FINISHED',report:{state:'REVIEW_REQUIRED',stored:[],review:[{}],unresolved:Array(30).fill({}),errors:[]}},null);
+ assert.equal(summary.review,1);
+});

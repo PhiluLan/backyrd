@@ -18,7 +18,7 @@ import {
   OFFER_CATALOG,
   AREA_CATALOG,
 } from "../../world-knowledge-core/dist/index.js";
-export const RESEARCH_EVIDENCE_POLICY = "backyrd.research-evidence@2.2";
+export const RESEARCH_EVIDENCE_POLICY = "backyrd.research-evidence@2.3";
 /** PDF extractors disagree about discretionary hyphens, not about words. */
 function pdfEvidenceText(text) {
   return String(text ?? "")
@@ -730,6 +730,15 @@ export const matchesResearchMeaning = (value, text) =>
   [...(terms[value] ?? []), ...(catalogueTerms.get(value) ?? []), value].some(
     (t) => has(text, t),
   );
+// A catalogue place type is evidence for its own parent category, never for
+// unrelated categories. Keep the ordinary negation-aware meaning matcher.
+const matchesProfileCategory = (category, text) =>
+  matchesResearchMeaning(category, text) || SPOT_TYPE_CATALOG.some(type =>
+    type.group === category && matchesResearchMeaning(type.kind, text));
+const phoneEvidenceDigits = value => String(value)
+  .replace(/\(\s*0\s*\)/gu, "")
+  .replace(/[^+0-9]/gu, "");
+
 function scalarMeaning(value, text, key) {
   if (value === null) return true;
   if (typeof value === "number")
@@ -1360,7 +1369,7 @@ export function proveResearchEvidence({
   } else if (claim.attributeKey === "experience.profile") {
     if (
       (!current?.value || current.value.category !== claim.value.category) &&
-      !matchesResearchMeaning(claim.value.category, text)
+      !matchesProfileCategory(claim.value.category, text)
     )
       reason = "PROFILE_CATEGORY_NOT_SUPPORTED";
     else if (current?.value && !preservesProfile(current.value, claim.value))
@@ -1465,9 +1474,7 @@ export function proveResearchEvidence({
       reason = "STRUCTURED_VALUE_REQUIRES_SCOPED_EVIDENCE";
   } else if (claim.attributeKey === "contact.phone") {
     if (
-      !text
-        .replace(/[^+0-9]/gu, "")
-        .includes(claim.value.replace(/[^+0-9]/gu, ""))
+      !phoneEvidenceDigits(text).includes(phoneEvidenceDigits(claim.value))
     )
       reason = "PHONE_NOT_SUPPORTED";
   } else if (typeof claim.value === "object")

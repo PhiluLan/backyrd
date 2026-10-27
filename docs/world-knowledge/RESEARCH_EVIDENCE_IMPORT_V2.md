@@ -205,3 +205,16 @@ bestehenden Stand über „Profil bearbeiten“ oder behält ihn ausdrücklich b
 Andere gültige Felder desselben Auftrags bleiben prüfbar. Eine MAJOR-Neubewertung
 eines identischen Werts verlangt ebenfalls eine ausdrückliche Entscheidung;
 eine Bestätigung erzeugt dann keinen zusätzlichen Claim.
+
+
+### Belegprüfung 2.3: Kategorie und internationale Telefonnummern
+
+Ein ausdrücklich belegter Ortstyp stützt seine eigene übergeordnete Kategorie
+anhand des kanonischen Spotkatalogs (beispielsweise Spielhalle → Aktivitäten &
+Spiel). Es werden keine frei erfundenen Synonyme oder fremden Kategorien
+akzeptiert; die bestehende Negationsprüfung und sämtliche Detailbindungen
+bleiben erhalten. Bei internationalen Telefonnummern wird die in Klammern
+angegebene optionale nationale Null normalisiert (+41(0)61… → +4161…).
+Abweichende eigentliche Rufnummernziffern bleiben unbestätigt. Die Änderungen
+sind als backyrd.research-evidence@2.3 nachvollziehbar; ältere Journalstände
+bleiben lesbar. Weder Quellenvalidierung noch MAJOR-Prüfung werden übersprungen.

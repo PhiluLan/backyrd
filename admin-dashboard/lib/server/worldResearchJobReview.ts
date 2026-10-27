@@ -72,7 +72,7 @@ export function researchPipelineSummary(pipeline: ResearchPipelineStatus | undef
   return {
     state: pipeline.report?.state ?? (running ? "PROCESSING" : "INCOMPLETE"),
     stored: pipeline.report?.stored?.length ?? 0,
-    review: (pipeline.report?.review?.length ?? 0) + (["backyrd.research-evidence@2", "backyrd.research-evidence@2.1", "backyrd.research-evidence@2.2"].includes(pipeline.policy ?? "") ? 0 : (pipeline.report?.unresolved?.length ?? 0)),
+    review: (pipeline.report?.review?.length ?? 0) + (["backyrd.research-evidence@2", "backyrd.research-evidence@2.1", "backyrd.research-evidence@2.2", "backyrd.research-evidence@2.3"].includes(pipeline.policy ?? "") ? 0 : (pipeline.report?.unresolved?.length ?? 0)),
     errors: pipeline.report?.errors ?? (running ? [] : ["research_pipeline_processing_interrupted"]),
   };
 }
