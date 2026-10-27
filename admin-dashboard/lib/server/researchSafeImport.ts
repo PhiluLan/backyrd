@@ -332,6 +332,8 @@ export async function processSafeResearchDocument(
       for (const claim of claims) {
         const current = detail.answers?.[claim.attributeKey];
         if (
+          assessments?.find((a) => a.attributeKey === claim.attributeKey)
+            ?.uncertainty !== "MAJOR" &&
           current?.visibility === "PUBLIC" &&
           current.knowledgeState === claim.knowledgeState &&
           equal(current.value, claim.value)
@@ -345,6 +347,8 @@ export async function processSafeResearchDocument(
         }
         if (
           assessments &&
+          assessments.find((a) => a.attributeKey === claim.attributeKey)
+            ?.uncertainty !== "MAJOR" &&
           claim.attributeKey === "contact.website" &&
           current?.value &&
           page

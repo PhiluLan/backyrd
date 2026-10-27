@@ -136,3 +136,34 @@ werden korrigiert und erneut eingereicht, nicht manuell als sichere Werte am
 Prüfer vorbei bestätigt. Bereits gespeicherte identische Angaben werden nicht
 für einen Live-Test umgeschrieben; der vollständige Import wird zusätzlich gegen
 einen isolierten Ausgangszustand geprüft.
+
+## Katalog, PDF-Text und Bereichstabellen (Policy 2.2)
+
+Die Begriffsprüfung verwendet die kanonischen Labels und Aliase der Orts-,
+Angebots- und Bereichskataloge zusätzlich zu den belegten Synonymen. Damit sind
+auch Badewelten, Sauna, Hamam und Spa Teil desselben Imports. Ein Katalogtreffer
+belegt weiterhin weder einen erfundenen Namen noch eine fremde Bereichszuordnung.
+Jede neue Zuordnung kann ihren eigenen Belegpfad erhalten, auch bei mehreren
+Bereichen pro Angebot.
+
+PDF-Zitate werden nur für den Vergleich von Worttrennungen am Zeilenende und
+bekannten Trennzeichen bereinigt. Originalzitat, Abrufzeit und Rohdatenhash
+bleiben erhalten. Verneinungen, Zahlen und zusammengefügte getrennte Absätze
+werden dadurch nicht gleichgesetzt. Erreichbare, aber unlesbare Quellen erhalten
+einen eigenen Fehlergrund.
+
+Bei eindeutig aufgebauten HTML-Tabellen bleiben Bereich, Wochentag und Uhrzeit
+sowie Preis, Dauer, Altersgruppe und Tarifspalte miteinander verbunden. Die
+Prüfung verwendet nur vollständig zitierte Tabellenzeilen beziehungsweise
+Tarifmatrizen. Fehlende oder mehrdeutige Zuordnungen bleiben zur Prüfung. Täglich,
+Wochentagskürzel und über das Wochenende laufende Tagesbereiche werden erkannt;
+monatliche Sondertermine werden nicht als reguläre Wochenzeiten übernommen.
+Bedingte Erlaubnis für eigene Speisen oder Getränke verlangt die belegte
+Einschränkung und darf nicht zu einer allgemeinen Erlaubnis werden.
+
+Eine ausdrücklich als MAJOR eingereichte Neubewertung bleibt auch dann zur
+Prüfung sichtbar, wenn ihr Wert bereits identisch im Profil steht. Sie schreibt
+diesen Wert nicht nochmals und hebt bestehende Schutzregeln nicht auf. Für ein
+zusammengesetztes Angebotsprofil muss der Review-Vorschlag den gesamten sicheren
+Stand samt IDs erhalten und die unsicheren Ergänzungen vollständig enthalten;
+eine verkürzte Ersatzfassung würde sichere Inhalte entfernen und bleibt blockiert.

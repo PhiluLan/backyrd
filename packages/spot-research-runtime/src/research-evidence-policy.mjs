@@ -6,15 +6,36 @@ import {
   publicSourceUrl,
   visibleSourceHtml,
   readSourceText,
+  sourceText,
   discoverResearchLinks,
   discoverMenuDocuments,
   discoverPracticalDocuments,
   researchLegalPage,
 } from "./nuknuk-sources.mjs";
-export const RESEARCH_EVIDENCE_POLICY = "backyrd.research-evidence@2.1";
+import {
+  SPOT_GROUPS,
+  SPOT_TYPE_CATALOG,
+  OFFER_CATALOG,
+  AREA_CATALOG,
+} from "../../world-knowledge-core/dist/index.js";
+export const RESEARCH_EVIDENCE_POLICY = "backyrd.research-evidence@2.2";
+/** PDF extractors disagree about discretionary hyphens, not about words. */
+function pdfEvidenceText(text) {
+  return String(text ?? "")
+    .replace(
+      /([\p{L}]+)[-\u00ad][ \t]*\r?\n[ \t]*(?=\p{Ll})/gu,
+      (match, left) =>
+        /^(?:nicht|kein\w*|ohne|no|not|without)$/iu.test(left) ? match : left,
+    )
+    .replace(/([\p{L}]+)\u0002(?=\p{Ll})/gu, (_match, left) =>
+      /^(?:nicht|kein\w*|ohne|no|not|without)$/iu.test(left)
+        ? left + " "
+        : left,
+    );
+}
 const hash = (s) => createHash("sha256").update(s).digest("hex");
-export const evidenceText = (s) =>
-  String(s ?? "")
+export const evidenceText = (s, format) =>
+  (format === "PDF" ? pdfEvidenceText(s) : String(s ?? ""))
     .normalize("NFKC")
     .replace(/&nbsp;|\u00a0/gu, " ")
     .replace(/\u00ad/gu, "")
@@ -101,6 +122,113 @@ function observedDocuments(page) {
   }
   return links;
 }
+/** Preserve day/time column associations that plain HTML text flattens. */
+function tableSchedules(page) {
+  if (typeof page.body !== "string") return [];
+  const result = [];
+  const text = (html) => {
+    try {
+      return sourceText(
+        { ...page, body: `<div>${html}</div>` },
+        "table-cell",
+      ).text.trim();
+    } catch (error) {
+      if (error.message === "source_empty") return "";
+      throw error;
+    }
+  };
+  const lines = (html) =>
+    text(html)
+      .split(/\n+/u)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  for (const table of visibleSourceHtml(page.body).matchAll(
+    /<table\b[\s\S]*?<\/table>/giu,
+  ))
+    for (const row of table[0].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/giu)) {
+      const cells = [
+        ...row[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/giu),
+      ].map((m) => m[1]);
+      if (cells.length !== 3) continue;
+      const days = lines(cells[1]),
+        times = lines(cells[2]),
+        scope = text(cells[0]);
+      if (
+        !scope ||
+        !days.length ||
+        days.length !== times.length ||
+        days.length > 14
+      )
+        continue;
+      for (let i = 0; i < days.length; i++)
+        if (
+          /\d{1,2}[.:]\d{2}/u.test(times[i]) &&
+          !/letzte|jeden|jeweils|monat|ferien|feiertag|xxl/iu.test(
+            days[i].replace(/\([^)]*\)/gu, ""),
+          )
+        )
+          result.push({ scope, days: days[i], time: times[i] });
+    }
+  return result;
+}
+/** Read tariff cells with their duration, age and weekday headers intact. */
+function tableTariffs(page) {
+  if (typeof page.body !== "string") return [];
+  const result = [];
+  const plain = (html) => {
+    try {
+      return sourceText(
+        { ...page, body: `<div>${html}</div>` },
+        "tariff-cell",
+      ).text.trim();
+    } catch (error) {
+      if (error.message === "source_empty") return "";
+      throw error;
+    }
+  };
+  for (const table of visibleSourceHtml(page.body).matchAll(
+    /<table\b[\s\S]*?<\/table>/giu,
+  )) {
+    const rows = [...table[0].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/giu)].map(
+      (row) =>
+        [...row[1].matchAll(/<t[dh]\b([^>]*)>([\s\S]*?)<\/t[dh]>/giu)].flatMap(
+          (cell) =>
+            Array(
+              Math.min(
+                20,
+                Number(cell[1].match(/colspan=["']?(\d+)/iu)?.[1] ?? 1),
+              ),
+            ).fill(plain(cell[2])),
+        ),
+    );
+    const header = rows[0];
+    if (
+      !header ||
+      !/dauer|duration/iu.test(header[0]) ||
+      header.length < 3 ||
+      !header.some((cell) => /jahre|years/iu.test(cell))
+    )
+      continue;
+    const days = rows[1];
+    if (days?.length !== header.length) continue;
+    const entries = [];
+    for (const row of rows.slice(2)) {
+      if (row.length !== header.length) continue;
+      for (let i = 1; i < row.length; i++) {
+        const amount = row[i].match(/CHF\s*(\d+(?:[.,]\d+)?)/u)?.[1];
+        if (amount)
+          entries.push({
+            duration: row[0],
+            audience: header[i],
+            days: days[i],
+            amount: Number(amount.replace(",", ".")),
+          });
+      }
+    }
+    if (entries.length) result.push({ text: plain(table[0]), entries });
+  }
+  return result;
+}
 export async function collectResearchEvidence({
   page,
   website,
@@ -181,6 +309,8 @@ export async function collectResearchEvidence({
       observedAt: p.observedAt,
       hash: hash(p.body),
       format: /application\/pdf/iu.test(p.contentType) ? "PDF" : "HTML",
+      schedules: tableSchedules(p),
+      tariffs: tableTariffs(p),
     };
     for (const u of [requestUrl, p.url, ...(p.redirectedFrom ?? [])])
       pages.set(uri(u), entry);
@@ -210,9 +340,20 @@ export async function collectResearchEvidence({
             if (host(p.url) !== host(website))
               throw Error("SOURCE_IDENTITY_MISMATCH");
             await register(p, url);
-          } catch {
+          } catch (error) {
             if (wanted.has(url))
-              failures.push({ url, reason: "OFFICIAL_SOURCE_UNAVAILABLE" });
+              failures.push({
+                url,
+                reason: [
+                  "SOURCE_TEXT_UNREADABLE",
+                  "PDF_READER_UNAVAILABLE",
+                  "research_pdf_unreadable",
+                  "research_pdf_too_large",
+                  "research_pdf_too_many_pages",
+                ].includes(error?.message)
+                  ? "SOURCE_TEXT_UNREADABLE"
+                  : "OFFICIAL_SOURCE_UNAVAILABLE",
+              });
           }
         }),
       );
@@ -324,9 +465,82 @@ const terms = {
     "trattoria",
     "speisekarte",
   ],
-  DINING_AREA: ["restaurant", "trattoria", "gastraum", "speisesaal"],
-  GASTRONOMY: ["restaurant", "gastronomie"],
-  DRINKS: ["getränke", "getraenke", "weinkarte", "wine", "wein", "bier"],
+  DINING_AREA: [
+    "restaurant",
+    "trattoria",
+    "gastraum",
+    "speisesaal",
+    "gastronomie",
+    "saunarestaurant",
+    "poolbar",
+  ],
+  WELLNESS_RELAXATION: [
+    "wellness",
+    "wellnesswelt",
+    "wellness welt",
+    "entspannung",
+    "saunawelt",
+    "spa",
+    "hamam",
+    "hammam",
+  ],
+  HAMMAM: ["hamam", "hammam"],
+  SAUNA: ["sauna", "saunawelt", "saunalandschaft"],
+  SPA: ["spa", "wellness spa"],
+  SWIMMING_POOL: [
+    "schwimmbad",
+    "erlebnisbad",
+    "badewelt",
+    "badewelten",
+    "wellenbad",
+  ],
+  BATHING: [
+    "baden",
+    "schwimmen",
+    "schwimmbad",
+    "erlebnisbad",
+    "badewelt",
+    "badewelten",
+    "hamam",
+    "hammam",
+  ],
+  POOL_AREA: [
+    "pool",
+    "becken",
+    "badewelt",
+    "badewelten",
+    "actionwelt",
+    "vitalbad",
+    "wellenbad",
+  ],
+  SAUNA_AREA: ["sauna", "saunawelt", "saunalandschaft"],
+  TREATMENT_ROOM: [
+    "spa",
+    "behandlungsraum",
+    "behandlungsräume",
+    "behandlungsräumen",
+  ],
+  SPA_TREATMENT: [
+    "spa",
+    "massage",
+    "massagen",
+    "kosmetik",
+    "behandlung",
+    "behandlungen",
+  ],
+  PLAY: ["spielen", "spiel", "spielbereich", "actionwelt", "kinderland"],
+  GASTRONOMY: ["restaurant", "gastronomie", "saunarestaurant", "poolbar"],
+  DRINKS: [
+    "getränke",
+    "getraenke",
+    "drinks",
+    "cocktails",
+    "poolbar",
+    "weinkarte",
+    "wine",
+    "wein",
+    "bier",
+  ],
   WINE: ["wein", "weine", "weinen", "weinkarte", "wine"],
   BEER: ["bier", "beer"],
   COFFEE: ["kaffee", "coffee", "espresso"],
@@ -498,8 +712,24 @@ const has = (text, term) => {
   }
   return false;
 };
+const catalogueTerms = new Map();
+for (const item of [
+  ...SPOT_GROUPS,
+  ...SPOT_TYPE_CATALOG,
+  ...OFFER_CATALOG,
+  ...AREA_CATALOG,
+]) {
+  const key = item.id ?? item.kind;
+  catalogueTerms.set(key, [
+    ...(catalogueTerms.get(key) ?? []),
+    item.label,
+    ...(item.aliases ?? []),
+  ]);
+}
 export const matchesResearchMeaning = (value, text) =>
-  (terms[value] ?? [value]).some((t) => has(text, t));
+  [...(terms[value] ?? []), ...(catalogueTerms.get(value) ?? []), value].some(
+    (t) => has(text, t),
+  );
 function scalarMeaning(value, text, key) {
   if (value === null) return true;
   if (typeof value === "number")
@@ -553,7 +783,14 @@ function scalarMeaning(value, text, key) {
   )
     return false;
   if (/^[A-Z_]+$/u.test(value)) return matchesResearchMeaning(value, text);
-  if (evidenceText(text).includes(evidenceText(value))) return has(text, value);
+  if (evidenceText(text).includes(evidenceText(value))) {
+    if (has(text, value)) return true;
+    const phrase = words(value).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    // A negated complete phrase cannot become a positive paraphrase. A mere
+    // substring (Badewelt/Badewelten) still reaches grammatical comparison.
+    if (new RegExp(`(?:^| )${phrase}(?= |$)`, "u").test(words(text)))
+      return false;
+  }
   // A factual paraphrase is a recorded researcher judgement, not a lexical
   // identity test. Every content word must be traceable; stylistic words vary.
   const ignored = new Set([
@@ -619,13 +856,22 @@ const dayKeys = [
   "SUNDAY",
 ];
 function coversDay(text, index) {
-  const t = words(text);
-  const rangeText = evidenceText(text).replace(/\s*[-–—]\s*/gu, " bis ");
+  const abbreviated = evidenceText(text).replace(
+    /\b(mo|di|mi|do|fr|sa|so)\b\.?/giu,
+    (_word, day) =>
+      dayNames[
+        ["mo", "di", "mi", "do", "fr", "sa", "so"].indexOf(day.toLowerCase())
+      ],
+  );
+  const t = words(abbreviated);
+  if (/\bt[aä]glich\b|\bevery day\b|\bdaily\b/iu.test(abbreviated)) return true;
+  const rangeText = abbreviated.replace(/\s*[-–—]\s*/gu, " bis ");
   for (let from = 0; from < 7; from++)
-    for (let to = from; to < 7; to++)
+    for (let to = 0; to < 7; to++)
       if (
-        index >= from &&
-        index <= to &&
+        (from <= to
+          ? index >= from && index <= to
+          : index >= from || index <= to) &&
         new RegExp(
           `\\b${dayNames[from]} (?:bis|to) ${dayNames[to]}\\b`,
           "u",
@@ -709,11 +955,73 @@ function provesSchedule(rows, text, kitchen, allowKitchenFallback = false) {
   }
   return null;
 }
+function tariffExceptionSupported(value, text) {
+  const match = value.match(/^(Mo[–—-]Fr)\s+(?:ausser|außer)\s+(.+)$/iu);
+  const footnote = text.match(/\*\s*(?:und|auch|sowie)\s+[^\n]+/iu)?.[0];
+  return !!(
+    match &&
+    footnote &&
+    /Sa\s*&\s*So\*/iu.test(text) &&
+    words(text).includes(words(match[1])) &&
+    scalarMeaning(match[2], footnote, "event") &&
+    [...match[2].matchAll(/\b[A-Z]{2}\b/gu)].every(([code]) =>
+      new RegExp(`\\b${code}\\b`, "u").test(footnote),
+    )
+  );
+}
+function tariffCellSupported(price, quote, page, offer) {
+  const tables = page?.tariffs?.filter((table) =>
+    evidenceText(quote).includes(evidenceText(table.text)),
+  );
+  const duration = price.label?.split("·")[0].trim();
+  const referencedMatrix = page?.tariffs?.some((table) =>
+    table.entries.some(
+      (row) =>
+        scalarMeaning(duration, row.duration, "duration") &&
+        scalarMeaning(duration, quote, "duration"),
+    ),
+  );
+  if (!tables?.length) return !referencedMatrix;
+  if (price.min !== price.max) return false;
+
+  const rows = tables
+    .flatMap((table) => table.entries)
+    .filter((row) => scalarMeaning(duration, row.duration, "duration"));
+  // Non-table supplements (for example a child flat fee) have their own quotes.
+  if (!rows.length) return true;
+  const combined = words(`${offer.name} ${price.label}`);
+  const wantsHamam = /hamam|hammam/u.test(combined),
+    wantsSauna = /sauna/u.test(combined);
+  const event = price.conditions.event ?? "";
+  const weekend = /^sa\s*[/&]\s*so/iu.test(event),
+    workday = /^mo[–—-]fr/iu.test(event);
+  return rows.some((row) => {
+    const age = row.audience.match(/(\d+)\s*[–—-]\s*(\d+)\s*(?:jahre|years)/iu);
+    const minimum = age
+      ? Number(age[1])
+      : Number(row.audience.match(/ab\s+(\d+)/iu)?.[1]);
+    const maximum = age ? Number(age[2]) : null;
+    return (
+      row.amount === price.min &&
+      minimum === price.minimumAge &&
+      maximum === price.maximumAge &&
+      /hamam|hammam/iu.test(row.audience) === wantsHamam &&
+      (wantsHamam || /sauna/iu.test(row.audience) === wantsSauna) &&
+      (!weekend || /sa.*so/iu.test(row.days)) &&
+      (!workday || /mo.*fr/iu.test(row.days))
+    );
+  });
+}
 function conditionsSupported(c, text) {
   if (c.weekdays.some((day) => !coversDay(text, day - 1))) return false;
   if (c.dayparts.some((daypart) => !matchesResearchMeaning(daypart, text)))
     return false;
-  if (c.event && !scalarMeaning(c.event, text, "event")) return false;
+  if (
+    c.event &&
+    !scalarMeaning(c.event, text, "event") &&
+    !tariffExceptionSupported(c.event, text)
+  )
+    return false;
   return [c.validFrom, c.validUntil].every(
     (date) => !date || scalarMeaning(date, text, "date"),
   );
@@ -780,7 +1088,7 @@ function priceCurrencySupported(currency, quote, sources) {
     return false;
   return sources.some((s) => scalarMeaning(currency, s.evidence, "currency"));
 }
-function profileMeaning(value, sources, assessment, previous) {
+function profileMeaning(value, sources, assessment, previous, evidence) {
   const bindings = assessment.bindings;
   const boundIndex = (path) => {
     let match = "",
@@ -831,10 +1139,10 @@ function profileMeaning(value, sources, assessment, previous) {
           return `PROFILE_PROPERTY_NOT_SUPPORTED:${p}`;
       }
       if (collection === "offers") {
-        for (const areaId of item.areaIds) {
+        for (const [areaIndex, areaId] of item.areaIds.entries()) {
           if (old?.areaIds.includes(areaId)) continue;
           const area = value.areas.find((a) => a.id === areaId);
-          const quote = bound(`${prefix}/areaIds`);
+          const quote = bound(`${prefix}/areaIds/${areaIndex}`);
           if (
             !area ||
             !quote ||
@@ -848,14 +1156,36 @@ function profileMeaning(value, sources, assessment, previous) {
           !isDeepStrictEqual(item.schedule, old?.schedule)
         ) {
           const quote = bound(`${prefix}/schedule`);
+          const scheduleSource = sources[boundIndex(`${prefix}/schedule`)];
+          const page =
+            scheduleSource && evidence?.pages.get(uri(scheduleSource.url));
+          const scope = item.name.replace(/\s*\(.*$/u, "");
+          const scoped = page?.schedules?.filter((row) =>
+            scalarMeaning(scope, row.scope, "name"),
+          );
+          const quotedRows =
+            page?.schedules?.filter(
+              (row) =>
+                evidenceText(quote).includes(evidenceText(row.scope)) &&
+                evidenceText(quote).includes(evidenceText(row.days)) &&
+                evidenceText(quote).includes(evidenceText(row.time)),
+            ) ?? [];
+          const scheduleQuote = scoped?.length
+            ? quotedRows
+                .filter((row) => scoped.includes(row))
+                .map((row) => `${row.days} ${row.time}`)
+                .join("\n")
+            : quotedRows.length
+              ? null
+              : quote;
           if (
-            !quote ||
+            !scheduleQuote ||
             provesSchedule(
               item.schedule.map((s) => ({
                 day: dayKeys[s.weekday - 1],
                 intervals: [{ start: s.start, end: s.end }],
               })),
-              quote,
+              scheduleQuote,
               false,
             )
           )
@@ -877,6 +1207,14 @@ function profileMeaning(value, sources, assessment, previous) {
             !scalarMeaning(p.min, quote, "min") ||
             (p.max !== null && !scalarMeaning(p.max, quote, "max")) ||
             !priceCurrencySupported(p.currency, quote, sources) ||
+            !tariffCellSupported(
+              p,
+              quote,
+              evidence?.pages.get(
+                uri(sources[boundIndex(`${prefix}/prices/${n}`)].url),
+              ),
+              item,
+            ) ||
             !sources
               .filter(
                 (s) =>
@@ -975,7 +1313,9 @@ export function proveResearchEvidence({
       return hold("PRIMARY_SOURCE_REQUIRED");
     if (
       p.format !== "ADDRESS" &&
-      !evidenceText(p.text).includes(evidenceText(source.evidence))
+      !evidenceText(p.text, p.format).includes(
+        evidenceText(source.evidence, p.format),
+      )
     )
       return hold("QUOTE_NOT_IN_SOURCE");
     verified.push({
@@ -985,7 +1325,14 @@ export function proveResearchEvidence({
       sourceHash: p.hash,
     });
   }
-  const text = sources.map((s) => s.evidence).join("\n");
+  const meaningSources = sources.map((source) => ({
+    ...source,
+    evidence:
+      evidence.pages.get(uri(source.url))?.format === "PDF"
+        ? pdfEvidenceText(source.evidence)
+        : source.evidence,
+  }));
+  const text = meaningSources.map((s) => s.evidence).join("\n");
   let reason = null;
   if (
     ["location.latitude", "location.longitude"].includes(claim.attributeKey)
@@ -1019,7 +1366,13 @@ export function proveResearchEvidence({
     else if (current?.value && !preservesProfile(current.value, claim.value))
       reason = "EXISTING_PROFILE_CONTENT_PROTECTED";
     else
-      reason = profileMeaning(claim.value, sources, assessment, current?.value);
+      reason = profileMeaning(
+        claim.value,
+        meaningSources,
+        assessment,
+        current?.value,
+        evidence,
+      );
   } else if (claim.attributeKey.startsWith("hours.")) {
     if (!["hours.regular", "hours.kitchen"].includes(claim.attributeKey))
       reason = "DATED_EXCEPTION_REQUIRES_SPECIFIC_RULE";
@@ -1031,6 +1384,29 @@ export function proveResearchEvidence({
         claim.attributeKey === "hours.kitchen" &&
           ![...evidence.pages.values()].some((p) => hasKitchenSchedule(p.text)),
       );
+  } else if (
+    ["rule.external_food", "rule.external_drink"].includes(claim.attributeKey)
+  ) {
+    const subject =
+      claim.attributeKey === "rule.external_food"
+        ? /esswaren|speisen|essen|food/iu
+        : /getr[aä]nke|drinks|beverages/iu;
+    const permitted =
+      /gestattet|erlaubt|allowed|permitted/iu.test(text) &&
+      !/nicht\s+(?:gestattet|erlaubt)|not\s+(?:allowed|permitted)/iu.test(
+        text.split(/\n|\./u).find((line) => subject.test(line)) ?? "",
+      );
+    if (
+      !subject.test(text) ||
+      claim.value.policy !== "CONDITIONAL" ||
+      !permitted ||
+      !/\bnur\b|ausschliesslich|ausschließlich|only|except/iu.test(text) ||
+      !claim.value.exceptions.length ||
+      claim.value.exceptions.some(
+        (value) => !scalarMeaning(value, text, "exception"),
+      )
+    )
+      reason = "CONSUMPTION_SCOPE_NOT_SUPPORTED";
   } else if (claim.attributeKey === "rule.reservation") {
     if (!matchesResearchMeaning(claim.value.mode, text))
       reason = "RESERVATION_MODE_NOT_SUPPORTED";

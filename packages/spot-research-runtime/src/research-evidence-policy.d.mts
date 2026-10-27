@@ -17,6 +17,16 @@ export type EvidencePage = {
   observedAt: string;
   hash: string;
   format: string;
+  schedules?: Array<{ scope: string; days: string; time: string }>;
+  tariffs?: Array<{
+    text: string;
+    entries: Array<{
+      duration: string;
+      audience: string;
+      days: string;
+      amount: number;
+    }>;
+  }>;
   coordinates?: { latitude: number; longitude: number };
 };
 export type EvidenceSet = {
@@ -27,7 +37,7 @@ export function parseResearchAssessments(
   input: unknown,
   claims: readonly WorldResearchClaim[],
 ): ResearchAssessment[] | null;
-export function evidenceText(s: unknown): string;
+export function evidenceText(s: unknown, format?: string): string;
 export function matchesResearchMeaning(value: string, text: string): boolean;
 export function collectResearchEvidence(input: {
   page: PublicPage;

@@ -527,7 +527,7 @@ test("v2 imports a grounded lunch synonym, corrects the exact old claim, and com
     fetchPage,
     now,
   });
-  assert.equal(result.report.policy, "backyrd.research-evidence@2.1");
+  assert.equal(result.report.policy, "backyrd.research-evidence@2.2");
   assert.deepEqual(result.report.stored, ["offering.groups"]);
   assert.equal(result.report.state, "COMPLETE");
   assert.ok(result.report.unresolved.length > 0);
@@ -928,4 +928,35 @@ test("restaurant catalogue evidence stores automatically while a major holiday a
   });
   assert.deepEqual(repeated.report, result.report);
   assert.equal(f.saved.size, 7);
+});
+
+test("an explicitly uncertain identical existing value remains actionable without overwriting it", async () => {
+  const proposal = {
+    ...claim("contact.public_email", "info@example.org"),
+    source: { ...originalSource, evidence: "info@example.org" },
+  };
+  const f = fixture([proposal]);
+  f.answers["contact.public_email"] = {
+    claimId: "current-email",
+    knowledgeState: "KNOWN_VALUE",
+    value: "info@example.org",
+    visibility: "PUBLIC",
+  };
+  f.document.research.assessments = [
+    {
+      attributeKey: "contact.public_email",
+      uncertainty: "MAJOR",
+      reason: "Die vorhandene Adresse könnte zum Nachbarbetrieb gehören.",
+      bindings: {},
+    },
+  ];
+  const result = await f.run();
+  assert.equal(
+    result.report.review[0]?.reason,
+    "MAJOR_UNCERTAINTY",
+    JSON.stringify(result.report),
+  );
+  assert.equal(result.report.unchanged.includes("contact.public_email"), false);
+  assert.equal(f.calls.includes("import"), false);
+  assert.equal(f.answers["contact.public_email"].value, "info@example.org");
 });
