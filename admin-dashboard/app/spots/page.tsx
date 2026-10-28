@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminPageHeader, EmptyState, ErrorState, FilterBar, LoadingState, StatusBadge } from "@/components/admin/AdminUi";
 import { DateRangeSelector } from "@/components/intelligence/DateRangeSelector";
 import { number, rangeFor, type Preset } from "@/lib/intelligence";
+import { ProfileCompleteness } from "./ProfileCompleteness";
 import { spotProfileStatus, type SpotProfileStatus } from "@/lib/spotProfileStatus";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -93,7 +94,11 @@ export default function SpotsPage() {
     void Promise.all(Array.from({length:Math.min(4,visibleRows.length)},()=>worker()));
     return ()=>{cancelled=true;};
   },[visibleRows,profileKey]);
-  const profileCell=(spot:Spot)=>{const entry=profiles[spot.spot_id];const profile=entry?.key===profileKey?entry.status:undefined;return <Link className="admin-profileStatus" href={`/spots/${spot.spot_id}/edit`}><strong>{profile?.label??"Profilstatus wird geladen …"}</strong><small>{profile?.detail??"Aktuelle Angaben werden geprüft"}</small></Link>;};
+  const profileCell = (spot: Spot) => {
+    const entry = profiles[spot.spot_id];
+    const profile = entry?.key === profileKey ? entry.status : undefined;
+    return <ProfileCompleteness profile={profile} spotId={spot.spot_id} name={spot.name} />;
+  };
 
   const detailsHref = (spot: Spot) => `/spots/${spot.spot_id}?from=${encodeURIComponent(rangeFor(preset).from)}&to=${encodeURIComponent(rangeFor(preset).to)}`;
 
@@ -116,7 +121,7 @@ export default function SpotsPage() {
           {rows.length === 0 ? <EmptyState title="Keine Spots gefunden" description="Passe Suche oder Filter an." /> : <>
             <div className="admin-desktopTable"><table><thead><tr><th>Spot</th><th>Status</th><th>Profilstand</th><th>Aufrufe</th><th>Decision CTR</th><th>Reviews</th><th>Aktionen</th></tr></thead><tbody>{visibleRows.map((spot) => { return <tr key={spot.spot_id}><td><strong>{spot.name}</strong><small>{spot.city || "Ort unbekannt"}{spot.partner ? " · Owner verwaltet" : ""}</small></td><td><StatusBadge tone={spot.status === "approved" ? "success" : spot.status === "pending" ? "warning" : spot.status === "rejected" ? "danger" : "neutral"}>{statusLabels[spot.status ?? ""] ?? "Unbekannt"}</StatusBadge></td><td>{profileCell(spot)}</td><td>{number(spot.views)}</td><td>{number(spot.ctr, 1)}%</td><td>{number(spot.reviews)}</td><td><div className="admin-rowActions"><Link href={detailsHref(spot)}>Öffnen</Link><Link href={`/spots/${spot.spot_id}/edit`}>Pflegen</Link></div></td></tr>})}</tbody></table></div>
             <div className="admin-mobileList">{visibleRows.map((spot) => { return <article className="admin-spotCard" key={spot.spot_id}><div className="admin-cardTop"><div className="admin-spotThumb" aria-hidden="true">{spot.name.slice(0, 1).toUpperCase()}</div><div><h2>{spot.name}</h2><p>{spot.city || "Ort unbekannt"}{spot.partner ? " · Owner verwaltet" : ""}</p></div><StatusBadge tone={spot.status === "approved" ? "success" : spot.status === "pending" ? "warning" : "neutral"}>{statusLabels[spot.status ?? ""] ?? "Unbekannt"}</StatusBadge></div>{profileCell(spot)}<dl><div><dt>Aufrufe</dt><dd>{number(spot.views)}</dd></div><div><dt>Decision CTR</dt><dd>{number(spot.ctr,1)}%</dd></div><div><dt>Reviews</dt><dd>{number(spot.reviews)}</dd></div></dl><div className="admin-cardActions"><Link href={detailsHref(spot)}>Öffnen</Link><Link href={`/spots/${spot.spot_id}/edit`}>Bearbeiten</Link><Link href={`/spot-quality/${spot.spot_id}/enrichment`}>Prüfen</Link></div></article>})}</div>
-            <div className="admin-profilePagination"><button type="button" onClick={()=>setProfileRevision(value=>value+1)}>Profilstatus aktualisieren</button><span>Seite {activePage+1} von {totalPages}</span><button type="button" disabled={activePage===0} onClick={()=>setPage(activePage-1)}>Zurück</button><button type="button" disabled={activePage+1>=totalPages} onClick={()=>setPage(activePage+1)}>Weiter</button></div>
+            <div className="admin-profilePagination"><button type="button" onClick={()=>setProfileRevision(value=>value+1)}>Profilstand aktualisieren</button><span>Seite {activePage+1} von {totalPages}</span><button type="button" disabled={activePage===0} onClick={()=>setPage(activePage-1)}>Zurück</button><button type="button" disabled={activePage+1>=totalPages} onClick={()=>setPage(activePage+1)}>Weiter</button></div>
           </>}
         </section>
       </> : null}

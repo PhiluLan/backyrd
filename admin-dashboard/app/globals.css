@@ -1770,4 +1770,31 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .bi-shell:has(.spot-editor-page) .bi-mobileQuickNav{display:none}
 }
 
-.admin-profileStatus{display:grid;gap:5px;text-decoration:none;color:inherit;padding:4px 0}.admin-profileStatus strong{font-size:13px;font-weight:550}.admin-profileStatus small{font-size:12px;color:var(--muted);line-height:1.45}.admin-profileStatus:hover strong{text-decoration:underline}.admin-profilePagination{display:flex;gap:12px;align-items:center;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}.admin-profilePagination button{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;min-height:40px}.admin-profilePagination button:disabled{opacity:.4}.admin-mobileList .admin-profileStatus{margin:12px 0}@media(max-width:700px){.admin-profilePagination{flex-wrap:wrap;padding:16px;justify-content:flex-start}}
+.admin-profileStatus{display:grid;gap:5px;text-decoration:none;color:inherit;padding:4px 0}.admin-profileStatus strong{font-size:13px;font-weight:550}.admin-profileStatus small{font-size:12px;color:var(--muted);line-height:1.45}.admin-profileStatus a:hover{text-decoration:underline}.admin-profilePagination{display:flex;gap:12px;align-items:center;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}.admin-profilePagination button{padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;min-height:40px}.admin-profilePagination button:disabled{opacity:.4}.admin-mobileList .admin-profileStatus{margin:12px 0}@media(max-width:700px){.admin-profilePagination{flex-wrap:wrap;padding:16px;justify-content:flex-start}}
+
+/* Saved factual profile coverage; independent of approval and engagement. */
+.admin-profileCoverage{max-width:420px;min-width:220px;gap:9px;padding:12px 0}
+.admin-profileCoverageHeader{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;align-items:baseline;font-size:13px}
+.admin-profileCoverage .admin-profileCoverageHeader strong{margin-left:auto;font-size:26px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.admin-profileCoverageHeader strong span{font-size:16px;margin-left:2px}
+.admin-profileCoverageTrack{height:6px;border-radius:6px;background:var(--line);overflow:hidden}
+.admin-profileCoverageTrack>span{display:block;height:100%;background:#ff408d;border-radius:inherit}
+.admin-profileCoverageNext,.admin-profileCoverageNotice{font-size:12px;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.admin-profileCoverageNotice{color:#ffb5d4}
+.admin-profileCoverageDetails summary{cursor:pointer;min-height:44px;display:flex;align-items:center;color:#ff70aa;font-size:13px;font-weight:600;gap:8px}
+.admin-profileCoverageDetails summary::before{content:"+";font-size:18px}
+.admin-profileCoverageDetails[open]>summary::before,.admin-profileCoverageSection[open]>summary::before{content:"−"}
+.admin-profileCoverageDetails p,.admin-profileCoverageDetails li{font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere;white-space:normal}
+.admin-profileCoverageDetails ul{padding-left:18px;margin:8px 0}
+.admin-profileCoverageSection{padding:12px 0;border-top:1px solid var(--line)}
+.admin-profileCoverageDetails .admin-profileCoverageSection>summary{display:flex;justify-content:space-between;gap:12px;margin:0;font-size:13px;font-weight:600;white-space:normal}
+.admin-profileCoverageSection>summary span{font-variant-numeric:tabular-nums;flex-shrink:0;color:var(--muted)}
+.admin-profileCoverageAction{display:inline-flex;min-height:44px;align-items:center;font-weight:600;color:#ff70aa;font-size:13px}
+.admin-profileCoverageDetails summary:focus-visible,.admin-profileCoverage a:focus-visible{outline:2px solid #ff70aa;outline-offset:3px;border-radius:4px}
+@media(max-width:700px){.admin-profileCoverage{max-width:none;min-width:0}.admin-profileCoverageHeader{font-size:14px}.admin-profileCoverage .admin-profileCoverageHeader strong{font-size:30px}}
+
+@media(max-width:700px){
+  .admin-spotCard .admin-cardTop{grid-template-columns:43px minmax(0,1fr)}
+  .admin-spotCard .admin-cardTop>.admin-statusBadge{grid-column:2;justify-self:start;white-space:normal;text-align:left}
+  .admin-spotCard .admin-cardTop>.admin-spotThumb{grid-row:1 / span 2}
+}
