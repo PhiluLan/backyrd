@@ -69,14 +69,14 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261027112800_world_research_rhassoul_safety_v1.sql",
-        "sha256": "09504c02d45df9a4de803714479bcb99c3f03d582e2570d3c9cef0630ac38d0d"
+        "path": "supabase/migrations/20261028200651_admin_spots_primary_category_v1.sql",
+        "sha256": "eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved this exact Rhassoul migration, the bounded isolated release path and subsequent regular Admin review of the held aquabasilea profile, with disclosed untested database recovery risk, on 2026-10-27. Preserve all historical applied receipts. The five deferred migrations and all Function/Auth/Decision changes remain excluded."
+    "source": "Founder explicitly approved the exact Admin category read migration, its bounded release path and the disclosed untested database recovery risk on 2026-10-28. Backup run 40656793451 succeeded. Preserve all historical receipts. All five deferred migrations and Function/Auth/Decision changes remain excluded. No spot data writes are authorized by this release."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -100,8 +100,8 @@
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261027112800_world_research_rhassoul_safety_v1.sql",
-        "sha256": "09504c02d45df9a4de803714479bcb99c3f03d582e2570d3c9cef0630ac38d0d"
+        "path": "supabase/migrations/20261028200651_admin_spots_primary_category_v1.sql",
+        "sha256": "eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d"
       }
     ],
     "deferredMigrations": [
@@ -126,7 +126,7 @@
         "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
       }
     ],
-    "backupRunId": 40469411196,
+    "backupRunId": 40656793451,
     "executionAuthorized": false,
     "deferredFunctionChanges": [
       {
