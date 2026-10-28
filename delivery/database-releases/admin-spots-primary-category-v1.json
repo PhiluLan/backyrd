@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "admin-spots-primary-category-v1",
+  "previousEvidence": "world-research-rhassoul-safety-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "f65dacecbdb7d9d58f2ef9c873ae2882924c70f93d4f5b40d45d135ccc290d1f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261028200651_admin_spots_primary_category_v1.sql",
+      "sha256": "eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/admin_spots_primary_category_v1.sql",
+      "sha256": "f541cd1d06f05e6ebe681db8808bf26df6bab2f5fb012d99fd3234d199d7ec9b"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "c0b04c03ff38069f3f2328f5957fcc0344bdf24676658004192e7554e1fd5fd1"
+  }
+}
