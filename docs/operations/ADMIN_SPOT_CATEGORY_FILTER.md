@@ -10,7 +10,7 @@ The UI only enables category filtering when the response marker and all row cate
 
 Required forward migration: `20261028200651_admin_spots_primary_category_v1.sql`. This updates only a read function; it does not write or delete spot data or touch Decision. Deployment must apply this exact migration through the approved migration release process before enabling the new UI. Until then the previous list still works and category filtering remains unavailable.
 
-Validation: executable filtering/rendering tests; TypeScript; targeted ESLint; production build. The actual SQL is also tested with synthetic fixtures in a temporary local PostgreSQL database: whole-catalogue/later-page categories, unsafe successors, byte-equivalent existing metrics/summary, preserved anonymous denial, authenticated Admin success, ordinary/missing-identity denial. Run that opt-in integration test with:
+Validation: `supabase/tests/admin_spots_primary_category_v1.sql` exercises the real canonical writer and actual Admin/non-Admin authorization against the full schema; executable filtering/rendering tests; TypeScript; targeted ESLint; production build. The actual SQL is also tested with synthetic fixtures in a temporary local PostgreSQL database: whole-catalogue/later-page categories, unsafe successors, byte-equivalent existing metrics/summary, preserved anonymous denial, authenticated Admin success, ordinary/missing-identity denial. Run that opt-in integration test with:
 
 ```
 BACKYRD_ADMIN_CATEGORY_DB_CONTAINER=<local-supabase-db-container> node --test admin-dashboard/test/spot-category-filter-db.test.mjs
