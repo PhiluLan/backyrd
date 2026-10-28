@@ -120,7 +120,7 @@ export default function SpotsPage() {
           <Summary label="Alle Spots" value={data.summary.spots} /><Summary label="Mit Aufrufen" value={data.summary.viewed} /><Summary label="Owner-Spots" value={data.summary.partner_spots} /><Summary label="Aufrufe" value={data.summary.views} />
         </section>
         <section className="admin-listPanel">
-          <FilterBar resultLabel={`${rows.length} ${rows.length === 1 ? "Spot" : "Spots"}`}>
+          <FilterBar resultLabel={category !== "all" && !categoriesAvailable ? loading ? "Hauptkategorien werden geladen …" : "Hauptkategorien nicht verfügbar" : `${rows.length} ${rows.length === 1 ? "Spot" : "Spots"}`}>
             <label className="admin-searchField"><span className="sr-only">Spot suchen</span><input value={search} onChange={(event) => {setSearch(event.target.value);setPage(0);}} placeholder="Spot oder Stadt suchen" /></label>
             <label><span className="sr-only">Status filtern</span><select value={status} onChange={(event) => {setStatus(event.target.value);setPage(0);}}><option value="all">Alle Status</option><option value="approved">Freigegeben</option><option value="pending">In Prüfung</option><option value="archived">Archiviert</option><option value="rejected">Abgelehnt</option></select></label>
             <CategoryFilter value={category} counts={counts} disabled={!categoriesAvailable || loading} onChange={value => { setCategory(value); setPage(0); }} />
