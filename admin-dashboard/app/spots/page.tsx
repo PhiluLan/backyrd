@@ -6,12 +6,15 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminPageHeader, EmptyState, ErrorState, FilterBar, LoadingState, StatusBadge } from "@/components/admin/AdminUi";
 import { DateRangeSelector } from "@/components/intelligence/DateRangeSelector";
 import { number, rangeFor, type Preset } from "@/lib/intelligence";
+import { CategoryFilter } from "./CategoryFilter";
+import { categoryFilter, categoryCounts, filterSpots, hasCategoryMetadata, loadAllSpotPages, spotListQuery, type CategoryFilter as CategoryFilterValue } from "@/lib/spotListFilters";
+import { PRIMARY_CATEGORY_LABELS, type PrimaryCategory } from "@backyrd/world-knowledge-core/browser";
 import { ProfileCompleteness } from "./ProfileCompleteness";
 import { spotProfileStatus, type SpotProfileStatus } from "@/lib/spotProfileStatus";
 import { supabase } from "@/lib/supabaseClient";
 
-type Spot = { spot_id:string; name:string; city:string|null; status:string|null; partner:boolean; views:number; users:number; decision_impressions:number; decision_opens:number; ctr:number; reviews:number; favorites:number; route_clicks:number; website_clicks:number; phone_clicks:number };
-type Response = { summary:{ spots:number; viewed:number; partner_spots:number; views:number }; spots:Spot[] };
+type Spot = { spot_id:string; name:string; city:string|null; status:string|null; partner:boolean; primary_category?:PrimaryCategory|null; views:number; users:number; decision_impressions:number; decision_opens:number; ctr:number; reviews:number; favorites:number; route_clicks:number; website_clicks:number; phone_clicks:number };
+type Response = { categorySource?: "WORLD_AUTHORING_CURRENT_V1"; summary:{ spots:number; viewed:number; partner_spots:number; views:number }; spots:Spot[] };
 
 const statusLabels: Record<string, string> = { approved: "Freigegeben", pending: "In Prüfung", archived: "Archiviert", rejected: "Abgelehnt" };
 const presetValues: Preset[] = ["today", "yesterday", "week", "last_week", "month", "last_month", "year", "last_year"];
@@ -27,6 +30,7 @@ export default function SpotsPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState(params.get("suche") ?? "");
   const [status, setStatus] = useState(params.get("status") ?? "all");
+  const [category, setCategory] = useState<CategoryFilterValue>(() => categoryFilter(params.get("kategorie")));
   const [profiles, setProfiles] = useState<Record<string, {key:string; status:SpotProfileStatus}>>({});
   const [page, setPage] = useState(0);
   const [profileRevision, setProfileRevision] = useState(0);
@@ -44,32 +48,32 @@ export default function SpotsPage() {
     async function load() {
       setLoading(true);
       const range = rangeFor(preset);
-      const result = await supabase.rpc("admin_spots_intelligence_v1", { p_from:range.from, p_to:range.to, p_limit:1000, p_offset:0, p_search:null });
-      if (cancelled) return;
-      if (result.error) { setError(result.error.message); setData(null); }
-      else {
-        const response = result.data as Response;
-        setError(""); setData(response);
+      try {
+        const response = await loadAllSpotPages<Response>(async offset => {
+          if (cancelled) throw new Error("Anfrage abgebrochen");
+          const result = await supabase.rpc("admin_spots_intelligence_v1", { p_from:range.from, p_to:range.to, p_limit:2000, p_offset:offset, p_search:null });
+          if (result.error) throw new Error(result.error.message);
+          return result.data as Response;
+        });
+        if (!cancelled) { setError(""); setData(response); }
+      } catch (cause) {
+        if (!cancelled) { setError(cause instanceof Error ? cause.message : "Die Spotübersicht konnte nicht geladen werden. Bitte versuche es erneut."); setData(null); }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     }
     void load();
     return () => { cancelled = true; };
-  }, [preset]);
+  }, [preset, profileRevision]);
 
   useEffect(() => {
-    const next = new URLSearchParams();
-    if (search) next.set("suche", search);
-    if (status !== "all") next.set("status", status);
-    if (preset !== "month") next.set("zeitraum", preset);
-    const query = next.toString();
+    const query = spotListQuery({ search, status, category }, preset);
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll:false });
-  }, [pathname, preset, router, search, status]);
+  }, [category, pathname, preset, router, search, status]);
 
-  const rows = useMemo(() => {
-    const query = search.toLowerCase().trim();
-    return (data?.spots ?? []).filter((spot) => (status === "all" || spot.status === status) && (!query || `${spot.name} ${spot.city ?? ""}`.toLowerCase().includes(query)));
-  }, [data, search, status]);
+  const categoriesAvailable = hasCategoryMetadata(data);
+  const counts = useMemo(() => categoryCounts(data?.spots ?? [], { search, status }), [data, search, status]);
+  const rows = useMemo(() => filterSpots(data?.spots ?? [], { search, status, category }), [category, data, search, status]);
 
   const pageSize=25;
   const totalPages=Math.max(1,Math.ceil(rows.length/pageSize));
@@ -100,6 +104,9 @@ export default function SpotsPage() {
     return <ProfileCompleteness profile={profile} spotId={spot.spot_id} name={spot.name} />;
   };
 
+  const categoryLabel = (spot: Spot) => categoriesAvailable
+    ? spot.primary_category ? PRIMARY_CATEGORY_LABELS[spot.primary_category].de : "Ohne Hauptkategorie"
+    : null;
   const detailsHref = (spot: Spot) => `/spots/${spot.spot_id}?from=${encodeURIComponent(rangeFor(preset).from)}&to=${encodeURIComponent(rangeFor(preset).to)}`;
 
   return (
@@ -116,11 +123,13 @@ export default function SpotsPage() {
           <FilterBar resultLabel={`${rows.length} ${rows.length === 1 ? "Spot" : "Spots"}`}>
             <label className="admin-searchField"><span className="sr-only">Spot suchen</span><input value={search} onChange={(event) => {setSearch(event.target.value);setPage(0);}} placeholder="Spot oder Stadt suchen" /></label>
             <label><span className="sr-only">Status filtern</span><select value={status} onChange={(event) => {setStatus(event.target.value);setPage(0);}}><option value="all">Alle Status</option><option value="approved">Freigegeben</option><option value="pending">In Prüfung</option><option value="archived">Archiviert</option><option value="rejected">Abgelehnt</option></select></label>
-            {(search || status !== "all") ? <button type="button" className="admin-clearButton" onClick={() => { setSearch(""); setStatus("all"); }}>Filter löschen</button> : null}
+            <CategoryFilter value={category} counts={counts} disabled={!categoriesAvailable || loading} onChange={value => { setCategory(value); setPage(0); }} />
+            {(search || status !== "all" || category !== "all") ? <button type="button" className="admin-clearButton" onClick={() => { setSearch(""); setStatus("all"); setCategory("all"); setPage(0); }}>Filter löschen</button> : null}
           </FilterBar>
-          {rows.length === 0 ? <EmptyState title="Keine Spots gefunden" description="Passe Suche oder Filter an." /> : <>
-            <div className="admin-desktopTable"><table><thead><tr><th>Spot</th><th>Status</th><th>Profilstand</th><th>Aufrufe</th><th>Decision CTR</th><th>Reviews</th><th>Aktionen</th></tr></thead><tbody>{visibleRows.map((spot) => { return <tr key={spot.spot_id}><td><strong>{spot.name}</strong><small>{spot.city || "Ort unbekannt"}{spot.partner ? " · Owner verwaltet" : ""}</small></td><td><StatusBadge tone={spot.status === "approved" ? "success" : spot.status === "pending" ? "warning" : spot.status === "rejected" ? "danger" : "neutral"}>{statusLabels[spot.status ?? ""] ?? "Unbekannt"}</StatusBadge></td><td>{profileCell(spot)}</td><td>{number(spot.views)}</td><td>{number(spot.ctr, 1)}%</td><td>{number(spot.reviews)}</td><td><div className="admin-rowActions"><Link href={detailsHref(spot)}>Öffnen</Link><Link href={`/spots/${spot.spot_id}/edit`}>Pflegen</Link></div></td></tr>})}</tbody></table></div>
-            <div className="admin-mobileList">{visibleRows.map((spot) => { return <article className="admin-spotCard" key={spot.spot_id}><div className="admin-cardTop"><div className="admin-spotThumb" aria-hidden="true">{spot.name.slice(0, 1).toUpperCase()}</div><div><h2>{spot.name}</h2><p>{spot.city || "Ort unbekannt"}{spot.partner ? " · Owner verwaltet" : ""}</p></div><StatusBadge tone={spot.status === "approved" ? "success" : spot.status === "pending" ? "warning" : "neutral"}>{statusLabels[spot.status ?? ""] ?? "Unbekannt"}</StatusBadge></div>{profileCell(spot)}<dl><div><dt>Aufrufe</dt><dd>{number(spot.views)}</dd></div><div><dt>Decision CTR</dt><dd>{number(spot.ctr,1)}%</dd></div><div><dt>Reviews</dt><dd>{number(spot.reviews)}</dd></div></dl><div className="admin-cardActions"><Link href={detailsHref(spot)}>Öffnen</Link><Link href={`/spots/${spot.spot_id}/edit`}>Bearbeiten</Link><Link href={`/spot-quality/${spot.spot_id}/enrichment`}>Prüfen</Link></div></article>})}</div>
+          {!loading && !categoriesAvailable ? <p className="admin-categoryNotice" role="status">Die Hauptkategorien sind gerade nicht verfügbar. Bitte aktualisiere die Übersicht. Ohne Kategorie-Filter kannst du alle Spots weiterhin ansehen.</p> : null}
+          {category !== "all" && !categoriesAvailable ? <EmptyState title="Hauptkategorien nicht verfügbar" description="Aktualisiere die Übersicht oder lösche den Kategorie-Filter. Die fehlenden Daten bedeuten nicht, dass es keine passenden Spots gibt." /> : rows.length === 0 ? <EmptyState title="Keine Spots gefunden" description="Passe Suche oder Filter an." /> : <>
+            <div className="admin-desktopTable"><table><thead><tr><th>Spot</th><th>Status</th><th>Profilstand</th><th>Aufrufe</th><th>Decision CTR</th><th>Reviews</th><th>Aktionen</th></tr></thead><tbody>{visibleRows.map((spot) => { return <tr key={spot.spot_id}><td><strong>{spot.name}</strong><small>{spot.city || "Ort unbekannt"}{spot.partner ? " · Owner verwaltet" : ""}</small>{categoryLabel(spot) && <small>{categoryLabel(spot)}</small>}</td><td><StatusBadge tone={spot.status === "approved" ? "success" : spot.status === "pending" ? "warning" : spot.status === "rejected" ? "danger" : "neutral"}>{statusLabels[spot.status ?? ""] ?? "Unbekannt"}</StatusBadge></td><td>{profileCell(spot)}</td><td>{number(spot.views)}</td><td>{number(spot.ctr, 1)}%</td><td>{number(spot.reviews)}</td><td><div className="admin-rowActions"><Link href={detailsHref(spot)}>Öffnen</Link><Link href={`/spots/${spot.spot_id}/edit`}>Pflegen</Link></div></td></tr>})}</tbody></table></div>
+            <div className="admin-mobileList">{visibleRows.map((spot) => { return <article className="admin-spotCard" key={spot.spot_id}><div className="admin-cardTop"><div className="admin-spotThumb" aria-hidden="true">{spot.name.slice(0, 1).toUpperCase()}</div><div><h2>{spot.name}</h2><p>{spot.city || "Ort unbekannt"}{spot.partner ? " · Owner verwaltet" : ""}</p>{categoryLabel(spot) && <p>{categoryLabel(spot)}</p>}</div><StatusBadge tone={spot.status === "approved" ? "success" : spot.status === "pending" ? "warning" : "neutral"}>{statusLabels[spot.status ?? ""] ?? "Unbekannt"}</StatusBadge></div>{profileCell(spot)}<dl><div><dt>Aufrufe</dt><dd>{number(spot.views)}</dd></div><div><dt>Decision CTR</dt><dd>{number(spot.ctr,1)}%</dd></div><div><dt>Reviews</dt><dd>{number(spot.reviews)}</dd></div></dl><div className="admin-cardActions"><Link href={detailsHref(spot)}>Öffnen</Link><Link href={`/spots/${spot.spot_id}/edit`}>Bearbeiten</Link><Link href={`/spot-quality/${spot.spot_id}/enrichment`}>Prüfen</Link></div></article>})}</div>
             <div className="admin-profilePagination"><button type="button" onClick={()=>setProfileRevision(value=>value+1)}>Profilstand aktualisieren</button><span>Seite {activePage+1} von {totalPages}</span><button type="button" disabled={activePage===0} onClick={()=>setPage(activePage-1)}>Zurück</button><button type="button" disabled={activePage+1>=totalPages} onClick={()=>setPage(activePage+1)}>Weiter</button></div>
           </>}
         </section>
