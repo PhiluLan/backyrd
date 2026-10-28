@@ -26,6 +26,9 @@ insert into public.profiles(id,is_admin) values(pg_temp.category_id('category-fi
  on conflict(id) do update set is_admin=excluded.is_admin;
 insert into public.spots(id,name,city,lat,lng,status,data_origin)
  select pg_temp.category_id('category-filter-spot-'||i),'CategoryFilterFixture '||lpad(i::text,2,'0'),'Basel',47.55,7.58,'approved','REAL' from generate_series(1,32)i;
+insert into public.spots(id,name,city,lat,lng,status,data_origin) values
+ (pg_temp.category_id('category-tie-1'),'CategoryTieFixture','Basel',47.55,7.58,'approved','REAL'),
+ (pg_temp.category_id('category-tie-2'),'CategoryTieFixture','Basel',47.55,7.58,'approved','REAL');
 select pg_temp.category_actor(pg_temp.category_id('category-filter-admin'));
 -- Seed through the existing validated canonical writer. No stubbed permissions,
 -- bypassed triggers, guessed legacy categories or modified production fixtures.
@@ -58,6 +61,10 @@ begin
  later:=public.admin_spots_intelligence_v1('2026-10-01','2026-11-01',7,25,'CategoryFilterFixture ');
  perform pg_temp.category_assert(jsonb_array_length(later->'spots')=7 and not exists(select 1 from jsonb_array_elements(later->'spots')s where not(s?'primary_category')),'later page lacks category metadata');
  perform pg_temp.category_assert(not exists(select 1 from jsonb_array_elements(data->'spots')s where s?'claimId' or s?'actorId' or s?'value'),'private claim metadata leaked');
+ perform pg_temp.category_assert(
+  (public.admin_spots_intelligence_v1('2026-10-01','2026-11-01',1,0,'CategoryTieFixture')->'spots'->0->>'spot_id')
+  < (public.admin_spots_intelligence_v1('2026-10-01','2026-11-01',1,1,'CategoryTieFixture')->'spots'->0->>'spot_id'),
+  'equal names and metrics need a deterministic ID tie-breaker across backend pages');
 end$$;
 -- Ordinary authenticated and missing-identity callers remain denied.
 select pg_temp.category_actor(pg_temp.category_id('category-filter-user'));

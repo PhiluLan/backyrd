@@ -27,7 +27,7 @@ begin
     group by s.id,s.name,s.city,s.status,s.owner_id
   ), page as(
     select *,case when decision_impressions>0 then round(decision_opens*100.0/decision_impressions,1) else 0 end ctr
-    from b order by views desc,name limit greatest(1,least(p_limit,2000)) offset greatest(p_offset,0)
+    from b order by views desc,name,spot_id limit greatest(1,least(p_limit,2000)) offset greatest(p_offset,0)
   )
   select jsonb_build_object('summary',jsonb_build_object('spots',(select count(*) from b),'viewed',(select count(*) from b where views>0),'partner_spots',(select count(*) from b where partner),'views',(select coalesce(sum(views),0) from b)),'categorySource','WORLD_AUTHORING_CURRENT_V1','spots',coalesce((
     select jsonb_agg(to_jsonb(page) || jsonb_build_object('primary_category',
