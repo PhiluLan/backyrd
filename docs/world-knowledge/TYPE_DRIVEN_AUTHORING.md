@@ -23,3 +23,9 @@ Knowledge states remain distinct:
 - absent, meaning no claim was made.
 
 The versioned `AUTHORING_GUIDANCE_VERSION` and hash bind the cross-category authoring extension and the field rules. The persisted World taxonomy and existing claims remain unchanged.
+
+## Input continuity
+
+An empty scoped property and its first local answer must retain the same React identity. Property input keys use the canonical question key and occurrence within that question, never the answer’s changing global array position or value. Editing another question must not remount existing inputs. Special-day row keys likewise exclude the editable date. This applies to the shared Admin/Owner editor and the historical Admin question editor. Preserve existing save actions: typing only changes the local draft.
+
+Regression coverage: `admin-dashboard/test/authoring-input-focus.test.mjs` exercises empty-to-first-value transitions, later edits, unrelated answer insertions/removals and multiple same-question answers. Manual browser validation uses the actual React components with synthetic local data: reproduce first-digit blur with the old key, then verify retained focus for first numeric/name input, subsequent individual keystrokes and both special-date editors.

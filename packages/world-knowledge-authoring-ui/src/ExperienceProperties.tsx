@@ -24,7 +24,10 @@ export function Properties({category,scope,offerKind,areaKind,group,values,onCha
  const update=(index:number,patch:Partial<ExperienceProperty>,key:string)=>onChange(index<0?[...values,{key,label:null,state:"UNKNOWN",value:null,conditions:emptyExperienceConditions(),...patch}]:values.map((v,i)=>i===index?{...v,...patch}:v));
  const row=(p:ExperienceProperty,index:number,q?:ExperienceQuestion)=>{
   const spec=q?experienceAnswerGuidance(p.key,category,offerKind,areaKind,existingAnswers):null;
-  return <section className="wk-experience-property" key={index} aria-label={q?.label??p.label??"Bisherige Angabe"}>
+  // A blank answer and its first draft must keep the same identity. Global
+  // array positions change when another question gains or loses an answer.
+  const occurrence=values.slice(0,Math.max(index,0)).filter(value=>value.key===p.key).length;
+  return <section className="wk-experience-property" key={`${p.key}:${occurrence}`} aria-label={q?.label??p.label??"Bisherige Angabe"}>
    <h4>{q?.label??p.label??"Bisherige Angabe"}</h4>
    {spec&&<p>{spec.help}</p>}
    {q?.control==="YES_NO"&&<div className="wk-choices" aria-label={`${q.label} Antworten`}>{[true,false].map(v=><button type="button" key={String(v)} aria-pressed={p.state==="KNOWN"&&p.value===v} className={p.state==="KNOWN"&&p.value===v?"selected":"wk-secondary"} onClick={()=>update(index,{state:"KNOWN",value:v},p.key)}>{v?"Ja":"Nein"}</button>)}</div>}

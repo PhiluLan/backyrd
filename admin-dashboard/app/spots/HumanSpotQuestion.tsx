@@ -98,7 +98,7 @@ export function HumanSpotQuestion({ question, value, archetypes, changed, proven
         const intervals = Array.isArray(entry.intervals) ? entry.intervals : [];
         const interval = intervals[0] && typeof intervals[0] === "object" ? intervals[0] as Record<string, unknown> : {};
         const update = (next: Record<string, unknown>) => onChange({ overrides: specialHours.map((item, itemIndex) => itemIndex === index ? { ...item, ...next } : item) });
-        return <div className="hsi-special-hour-row" key={`${String(entry.date ?? 'new')}-${index}`}>
+        return <div className="hsi-special-hour-row" key={index}>
           <label><span>Datum</span><input type="date" value={String(entry.date ?? "")} onChange={(event) => update({ date: event.target.value })} /></label>
           <label><span>Status</span><select value={String(entry.status ?? "CLOSED")} onChange={(event) => update({ status: event.target.value, intervals: event.target.value === "OPEN" ? [{ open: "12:00", close: "22:00" }] : [] })}><option value="CLOSED">Geschlossen</option><option value="OPEN">Geöffnet</option></select></label>
           {entry.status === "OPEN" && <><label><span>Von</span><input type="time" value={String(interval.open ?? "")} onChange={(event) => update({ intervals: [{ ...interval, open: event.target.value }] })} /></label><label><span>Bis</span><input type="time" value={String(interval.close ?? "")} onChange={(event) => update({ intervals: [{ ...interval, close: event.target.value }] })} /></label></>}
