@@ -17,3 +17,7 @@ BACKYRD_ADMIN_CATEGORY_DB_CONTAINER=<local-supabase-db-container> node --test ad
 ```
 
 The integration runner creates and removes only its own randomly named synthetic database. It never targets the production database.
+
+## Bounded publication
+
+The existing isolated SQL release planner supports this exact migration and SHA-256 only (`eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d`). Activation requires migration-specific recovery-risk acceptance in `delivery/product-authority-v1.json`, a verified backup run and the normal certified Product artifact/manual workflow. All five previously deferred migrations and the exact outstanding Decision function change remain excluded. Historical research, Volta and safety receipts must remain valid. After deployment, verify the category marker, totals and actual Admin UI, then record the applied migration receipt without advancing the deferred whole-database baseline.

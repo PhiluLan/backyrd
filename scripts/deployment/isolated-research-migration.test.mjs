@@ -142,3 +142,24 @@ test('Rhassoul release requires both historical receipts and selects only its ex
  assert.equal(readFileSync(join(output,rhassoul.path),'utf8'),readFileSync(join(root,rhassoul.path),'utf8'));
  for(const item of remaining)assert.equal(existsSync(join(output,item.path)),false);
 });
+
+test('Admin category release requires historical receipts and selects only its exact read migration',async()=>{
+ const {ADMIN_CATEGORY_MIGRATION:category,RESEARCH_RHASSOUL_MIGRATION:rhassoul,RESEARCH_SAFETY_MIGRATION:safety,SAFETY_DEFERRED_MIGRATIONS:remaining,RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES:bindings,adminCategoryAppliedReceipt}=await import('./isolated-research-migration.mjs');
+ const request={...input(),scope:{...scope,migrations:[category],deferredMigrations:remaining,deferredFunctionChanges:bindings},pending:[...remaining,category],applied:{migration:target},appliedSafety:{migration:safety},appliedRhassoul:{migration:rhassoul},appliedAdminCategory:null};
+ assert.deepEqual(scopeResearchMigrations(request).pendingMigrations,[category]);
+ for(const patch of [{applied:null},{appliedSafety:null},{appliedRhassoul:null},{pending:[category]},{pending:[...remaining,category,safety]},{deployFunctions:['decision-v13']},{authDeploy:true},{scope:{...request.scope,migrations:[{...category,sha256:'0'.repeat(64)}]}}])
+  assert.throws(()=>scopeResearchMigrations({...request,...patch}),/isolated_research/);
+ const receipt={status:'APPLIED_AND_VERIFIED',migration:category,sourceSha:'b'.repeat(40),deploymentRunId:5,manifestHash:'c'.repeat(64)};
+ const root=new URL('../..',import.meta.url).pathname,read=path=>readFileSync(join(root,path));
+ const state={supabase:{isolatedResearchSafetyRelease:{...receipt,migration:safety},isolatedAdminCategoryRelease:receipt}};
+ assert.equal(adminCategoryAppliedReceipt(state,read,()=>true),receipt);
+ assert.equal(researchAppliedReceipt(state,read,()=>true,true),state.supabase.isolatedResearchSafetyRelease);
+ assert.throws(()=>adminCategoryAppliedReceipt({...state,supabase:{...state.supabase,isolatedAdminCategoryRelease:{...receipt,migration:safety}}},read,()=>true),/receipt_invalid/);
+ assert.throws(()=>adminCategoryAppliedReceipt(state,read,()=>false),/receipt_invalid/);
+ const selected=scopeResearchMigrations({...request,pending:remaining,appliedAdminCategory:receipt});
+ assert.deepEqual(selected.pendingMigrations,[]);assert.deepEqual(selected.deferredMigrations,remaining);
+ const output=mkdtempSync(join(tmpdir(),'backyrd-category-release-'));
+ prepareResearchMigrationWorkspace({...scopeResearchMigrations(request),baseSha:base,deployFunctions:[],authConfig:null,appliedResearch:request.applied,appliedResearchSafety:request.appliedSafety,appliedResearchRhassoul:request.appliedRhassoul,appliedAdminCategory:null},root,output);
+ assert.equal(readFileSync(join(output,category.path),'utf8'),readFileSync(join(root,category.path),'utf8'));
+ for(const item of remaining)assert.equal(existsSync(join(output,item.path)),false);
+});
