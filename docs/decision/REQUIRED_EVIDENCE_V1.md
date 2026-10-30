@@ -141,6 +141,22 @@ request-local search observer is retained from the diagnostic branch; its route
 test proves it observes once without an additional model call/read or a changed
 answer. Ordinary clients do not install an observer.
 
-A separate candidate diagnostic bundle and genuine control calls are required
-before claiming prompt-7 compliance. This section does not claim those calls
-have passed or that the consumer engine has been deployed.
+Ten genuine candidate control calls then completed in 85.54 seconds of summed
+server runtime, explicitly labelled CANDIDATE_FIX_VALIDATION (diagnostic v8,
+source b3271956, prompt 7, matching 17). They display 14 recommendations with
+no unresolved hard conditions: Kaphi, eight vegan-lunch results, and five
+child/outdoor results. The date is context, children are a required activity,
+and wheelchair access remains required alongside live jazz. Empty results
+are retained for absent dates, capacity or scoped evidence, not filled with
+unproven substitutes. This is a bounded ten-case trial, not a general accuracy
+claim or a consumer deployment.
+
+Eight model plans are clean. Two still mark the original time quotation as a
+second REQUIRED condition (table tennis and flea market), despite separately
+preserving the actual date/day phase. Prompt/schema revision 8 constrains
+time.original to CONTEXT in the active structured model contract and validates
+it at the provider boundary. Nonconforming output fails before search; no
+modality is silently demoted, no retry is added, and historical meaning plans
+and the frozen base schema remain unchanged. Genuine revision-8 validation
+needs two additional calls beyond the approved twenty, separately requested.
+Automated tests establish the boundary, not yet the live model outcome.

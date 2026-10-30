@@ -4,7 +4,7 @@ import { contentHash } from '../../dist/canonical.js';
 import { readFileSync } from 'node:fs';
 import {
   LUNA_LIBRARIAN_CONFIGURATION, LUNA_LIBRARIAN_CONTRACT_VERSION,
-  buildLunaLibrarianModelRequest, parseLunaMeaningOutput, prepareLibrarianRequest,
+  buildLunaLibrarianModelRequest,validateActiveLunaMeaningOutput, parseLunaMeaningOutput, prepareLibrarianRequest,
 } from '../../dist/product-luna-librarian.js';
 import { LUNA_LIBRARIAN_CATALOG, LUNA_LIBRARIAN_FACT_KEYS } from '../../dist/product-luna-librarian-assets.js';
 const fixtures=JSON.parse(readFileSync(new URL('./luna-librarian-fixtures.json',import.meta.url),'utf8'));
@@ -14,15 +14,15 @@ const simple=()=>({entities:[],facts:[{id:'f1',modality:'REQUIRED',basis:'EXPLIC
 const fact=(id,key,value,modality='REQUIRED',subjectIds=[])=>({id,key,value,modality,subjectIds,basis:'EXPLICIT'});
 const flatten=node=>node.kind==='FACT'?[node.factId]:node.kind==='IF'?[node.conditionFactId,...flatten(node.then),...(node.else?flatten(node.else):[])]:node.kind==='FALLBACK'?node.options.flatMap(flatten):node.children.flatMap(flatten);
 
-test('revision 7 retains the frozen base, schema, catalog, model and reasoning',()=>{
+test('revision 8 constrains source echoes while preserving the frozen base, catalog, model and reasoning',()=>{
  const cfg=LUNA_LIBRARIAN_CONFIGURATION;
  assert.equal(cfg.model,'gpt-5.6-luna');assert.equal(cfg.reasoningEffort,'low');assert.equal(cfg.store,false);
- assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@7');
- assert.equal(cfg.schemaHash,'9261d8d2b0605e203e928af92de83697d3df33539e2621424b5cf6cbf45ea8cc');
+ assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@8');
+ assert.equal(cfg.baseSchemaHash,'9261d8d2b0605e203e928af92de83697d3df33539e2621424b5cf6cbf45ea8cc');assert.notEqual(cfg.schemaHash,cfg.baseSchemaHash);
  assert.equal(cfg.catalogHash,'7216d0011879d1e6b78e6186146305755111ceea87fa0992ee051b2b613e927c');
  const body=buildLunaLibrarianModelRequest({sourceText:'Heute Abend etwas trinken',reference:ref});
  assert.equal(contentHash(body.instructions),cfg.promptHash);
- assert.equal(body.text.format.name,'backyrd_luna_meaning_v7');assert.equal(body.text.format.strict,true);
+ assert.equal(body.text.format.name,'backyrd_luna_meaning_v8');assert.equal(body.text.format.strict,true);
  assert.deepEqual(Object.keys(body).sort(),['model','reasoning','store','max_output_tokens','instructions','input','text'].sort());
  assert.equal(JSON.stringify(body).includes('apiKey'),false);
 });
@@ -147,4 +147,13 @@ for (const [now, today, tomorrow] of [
  const input=JSON.parse(body.input);assert.equal(input.calendar.today,today);assert.equal(input.calendar.tomorrow,tomorrow);
  assert.equal(input.calendar.days.length,14);assert.equal(new Set(input.calendar.days.map(d=>d.date)).size,14);
  assert.deepEqual(input.explicitContext,{targetCity:'Basel'});assert.equal(input.reference.now,now);
+});
+
+test('source time echoes are context-only at the active provider boundary; historical plans remain intact',()=>{
+ const body=buildLunaLibrarianModelRequest({sourceText:'diesen Sonntag',reference:ref});
+ const variants=body.text.format.schema.$defs.fact.anyOf.filter(v=>v.properties.key.enum.includes('time.original'));
+ assert.equal(variants.length,1);assert.deepEqual(variants[0].properties.key.enum,['time.original']);assert.deepEqual(variants[0].properties.modality.enum,['CONTEXT']);
+ const output=simple();output.facts.push(fact('wording','time.original',{text:'diesen Sonntag'},'CONTEXT'));assert.doesNotThrow(()=>prepare(output));
+ for(const modality of ['REQUIRED','PREFERRED','EXCLUDED','NOT_REQUIRED']){const bad=structuredClone(output);bad.facts[1].modality=modality;assert.throws(()=>validateActiveLunaMeaningOutput(bad));}
+ const date={...simple(),facts:[fact('date','time.date',{date:'2026-11-01',operator:'EQ',timezone:'Europe/Zurich'},'REQUIRED')]};assert.equal(prepare(date).facts[0].modality,'REQUIRED');
 });

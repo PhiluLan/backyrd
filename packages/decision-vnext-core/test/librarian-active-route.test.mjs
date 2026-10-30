@@ -35,6 +35,15 @@ test('unauthenticated requests never reach Luna or the catalog',async()=>{const 
 test('a forged or rebound meaning plan never reaches evaluation',async()=>{const r=await exercise({text:'Original request',meaning:plan([meal()]),catalog:[],understandOverride:async()=>plan([meal()])});assert.equal(r.status,503);assert.equal(r.reads,0);});
 test('truncated model output never produces fallback recommendations or a second call',async()=>{let count=0;const r=await exercise({text:'Original request',meaning:plan([meal()]),catalog:[],fetchImpl:async()=>{count++;return new Response(JSON.stringify({status:'incomplete',output:[]}));}});assert.equal(r.status,503);assert.equal(count,1);assert.equal(r.reads,0);});
 
+test('a required source-time echo fails before search without silently demoting it or retrying',async()=>{
+ const meaning=plan([meal(),date(),fact('quote','time.original','morgen','REQUIRED')]);
+ const before=structuredClone(meaning.raw);
+ const r=await exercise({text:'Morgen essen in Basel',meaning,catalog:[binding(1,profile())]});
+ assert.equal(r.status,503);assert.equal(r.calls,1);assert.equal(r.reads,0);
+ assert.deepEqual(meaning.raw,before);
+ assert.ok(r.diagnostics.some(d=>d.code==='product_luna_meaning_invalid'));
+});
+
 test('a required either/or is not flattened into two duties by HTTP presentation',async()=>{
  const q=plan([fact('meal','experience.activity','essen gehen'),fact('coffee','offer.kind','Café')],{logic:{kind:'ANY',strength:'REQUIRED',children:[{kind:'FACT',factId:'meal'},{kind:'FACT',factId:'coffee'}]}});
  const r=await exercise({text:'Ein Café oder etwas essen in Basel',meaning:q,catalog:[binding(1,profile())]});

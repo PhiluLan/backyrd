@@ -204,9 +204,41 @@ export function parseLunaMeaningOutput(input: unknown): Readonly<LunaMeaningOutp
   return deepFreeze(output);
 }
 
+/** Apply the active provider rule without rewriting historical meaning plans. */
+export function validateActiveLunaMeaningOutput(value: unknown) {
+  const output = parseLunaMeaningOutput(value);
+  output.facts.forEach((fact, index) => {
+    if (fact.key === "time.original" && fact.modality !== "CONTEXT") fail("source_echo_must_be_context", `$.facts[${index}].modality`);
+  });
+  return output;
+}
+
 /** Versioned clarification of executable duties versus visit context. The
  * frozen schema, catalog, model and original prompt remain intact. */
-export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@7" as const;
+export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@8" as const;
+/** Preserve the frozen base schema. Constrain source metadata in the active
+ * provider contract so the model cannot emit it as a second hard condition. */
+const modelSchemaObject = (value: unknown): Readonly<Record<string, unknown>> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("luna_model_schema_invalid");
+  return value as Readonly<Record<string, unknown>>;
+};
+function contextOnlySourceSchema() {
+  const definitions = modelSchemaObject(LUNA_LIBRARIAN_MODEL_SCHEMA.$defs);
+  const factDefinition = modelSchemaObject(definitions.fact);
+  if (!Array.isArray(factDefinition.anyOf)) throw new Error("luna_model_schema_invalid");
+  const variants = factDefinition.anyOf.flatMap(raw => {
+    const variant = modelSchemaObject(raw), properties = modelSchemaObject(variant.properties);
+    const keyDefinition = modelSchemaObject(properties.key), keys = keyDefinition.enum;
+    if (!Array.isArray(keys) || !keys.every((key): key is string => typeof key === "string")) throw new Error("luna_model_schema_invalid");
+    return keys.includes("time.original") ? [
+      { ...variant, properties: { ...properties, key: { type: "string", enum: keys.filter(key => key !== "time.original") } } },
+      { ...variant, properties: { ...properties, key: { type: "string", enum: ["time.original"] }, modality: { type: "string", enum: ["CONTEXT"] } } },
+    ] : [variant];
+  });
+  return deepFreeze({ ...LUNA_LIBRARIAN_MODEL_SCHEMA, $defs: { ...definitions, fact: { ...factDefinition, anyOf: variants } } });
+}
+export const LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA = contextOnlySourceSchema();
+
 const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARER AUFTRAG:\n"
   + "Eigenständig prüfbare Tätigkeiten getrennt als experience.activity ausgeben. Echte gemeinsame Pflichten bleiben REQUIRED, Alternativen ANY. Ein gewünschtes Erleben oder allgemeiner Besuchszweck ist keine zusätzliche Leistung: bloßes Geniessen, Zeit verbringen oder einen schönen Abend haben als experience.purpose CONTEXT erhalten. Konkrete Eigenschaften wie romantisch, ruhig oder am Rhein bleiben eigenständige verbindliche Fakten; keine davon abschwächen. Konkrete Tätigkeiten wie Tanzen, Klettern oder Lernen bleiben prüfbar und dürfen nicht in CONTEXT verschwinden. Eine reine Zweckanfrage ohne konkrete Tätigkeit nicht durch eine erfundene Aktivität ersetzen.\n"
   + "Begleitung ausschließlich people.relationship CONTEXT, Alter einer mitkommenden Person immer als people.age CONTEXT mit genau ihrem PERSON-Bezug, niemals EXCLUDED, PREFERRED oder NOT_REQUIRED; ein Ausschlusswort für Angebote gilt nicht für ihr Alter. Auch Kinderalter ist Besuchskontext, kein Ausschluss dieser Person. participation.partner bezeichnet eine Anforderung an die Durchführungsform (z.B. ohne eigenen Spielpartner teilnehmen), niemals mitgebrachte Freunde, Kinder oder Ehepartner. Keine Personengruppe mit unvollständiger Mitgliederliste als vollständige Gruppe darstellen: bei nur einer benannten Begleitperson genügt ihre PERSON-Entity, Beziehung global. Gruppenmitglieder sind keine automatisch vollständige Personenzahl. Tätigkeits-Entities sind keine Personen; Alters- und Tätigkeitsfakten über subjectIds gezielt zuordnen, wenn unterschiedliche Personen unterschiedliche Leistungen nutzen.\n"
@@ -220,11 +252,11 @@ const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARER AUFTRAG:\n"
   + "ANLASS UND BESUCH: Ein Date, Geburtstag oder Treffen beschreibt unter experience.occasion den CONTEXT, solange keine organisierte Leistung verlangt wird. Eine Geburtstagsfeier buchen oder einen Raum für eine Feier mieten bleibt dagegen eine konkrete REQUIRED Leistung. Eigenschaften wie gemütlich, ruhig oder gut unterhalten können bleiben unabhängig davon REQUIRED; den Anlass niemals als Ersatz dafür verwenden. Unspezifische Besuchsverben wie besuchen, stöbern oder durch eine Ausstellung schlendern erzeugen keine zusätzliche Bewegungs- oder Gehpflicht. Die konkrete Ausstellung, Marktart oder Leistung bleibt vollständig erhalten. Ausdrücklich gewünschtes Wandern, Spazieren oder Joggen bleibt eine eigenständige Tätigkeit.\n"
   + "PERSÖNLICHE VORAUSSETZUNGEN: people.mobility_aid, people.capability und people.experience beschreiben ausschliesslich Personen und bleiben CONTEXT. Daraus notwendige Anforderungen separat erhalten: Wer einen Rollstuhl nutzt und einen Ort sucht, braucht participation.accessibility text=rollstuhlgängig REQUIRED (basis INFERRED), zusätzlich zum unveränderten konkreten Erlebnis. Den Rollstuhl selbst niemals als REQUIRED Eigenschaft eines Ortes behandeln. Persönlicher Kontext ersetzt niemals die daraus notwendige Zugangsprüfung.\n"
   + "ERLEBNIS UND ZUGANG: Eine Unternehmung mit Kindern verlangt ein passendes Kindererlebnis (condition.children text=children_activity REQUIRED), nicht bloss eine familienfreundliche Gastronomie. Kinderzahl und gesamte Gruppenzahl unterscheiden: zwei Kinder sind nicht automatisch eine Gruppe von zwei Personen. Explizite vollständige Gruppengrösse als people.count REQUIRED mit GROUP-Bezug erhalten; das ist eine Kapazitätsanforderung, keine Aussage über freie Buchungstermine. Unvollständige Teilgruppen bleiben CONTEXT. Live-Jazz als live_jazz REQUIRED erhalten: Jazz allein und allgemeine Live-Musik ersetzen diesen Wunsch nicht. Spontaner Besuch ohne Buchung als participation.booking text=spontaneous REQUIRED; ohne Hotelübernachtung verlangt participation.permission text=public_day_access REQUIRED. Diese Wünsche nicht als NOT_REQUIRED verlieren. Gratis, kostenlos und free sind budget.maximum MONEY amount=0 operator=LTE; möglichst oder bevorzugt kostenlos bleibt PREFERRED, ohne diese Einschränkung REQUIRED. Ohne ausdrücklich genannte Währung currency=UNSPECIFIED, niemals eine Währung aus dem Ort ergänzen; kein Ausschluss einer unspezifischen Kostenvokabel. Preisbasis und Kostenumfang nur bei ausdrücklicher Nennung ergänzen.\n"
-  + "KALENDER: calendar wird serverseitig aus reference.now in reference.timezone berechnet. today und tomorrow sind lokale Kalendertage, niemals das UTC-Datum abschneiden. Relative Tage und eindeutig bevorstehende Wochentage als time.date normalisieren; calendar.days enthält heute und die folgenden 13 lokalen Tage. Bei heute passender künftiger Tagesphase bleibt der Wochentag heute. Ohne Datumswunsch kein Datum ergänzen. Beispiele sind Übersetzungsmuster, keine zusätzlichen Wünsche.\nABSCHLIESSENDE PRÄZISION: Spezifische Mahlzeiten niemals zu meal verallgemeinern: Mittagessen => lunch, Abendessen => dinner, Frühstück => breakfast (jeweils experience.activity und food.meal, soweit beide ausgegeben werden). Ein Mahlzeitname allein erzeugt keine zusätzliche Tagesphase, kein Datum und keine Uhrzeit. Ein ausdrücklich verlangter Zielort (in Basel, in Zürich) bleibt location.destination REQUIRED, niemals CONTEXT. Kanonische Werte dürfen weder Genauigkeit noch Verbindlichkeit reduzieren oder einen allgemeineren Wunsch verengen: Klettern => climbing, nur ausdrücklich Bouldern => bouldering. Die gerichtete Beziehung Bouldern erfüllt Klettern wird erst beim Spotabgleich geprüft; sie ist keine Synonymie. Atmosphäre (etwa romantisch => romantic) gehört ausschließlich unter atmosphere.character, nicht experience.character.";
+  + "KALENDER: calendar wird serverseitig aus reference.now in reference.timezone berechnet. today und tomorrow sind lokale Kalendertage, niemals das UTC-Datum abschneiden. Relative Tage und eindeutig bevorstehende Wochentage als time.date normalisieren; calendar.days enthält heute und die folgenden 13 lokalen Tage. Bei heute passender künftiger Tagesphase bleibt der Wochentag heute. Ohne Datumswunsch kein Datum ergänzen. Beispiele sind Übersetzungsmuster, keine zusätzlichen Wünsche.\nABSCHLIESSENDE PRÄZISION: Spezifische Mahlzeiten niemals zu meal verallgemeinern: Mittagessen => lunch, Abendessen => dinner, Frühstück => breakfast (jeweils experience.activity und food.meal, soweit beide ausgegeben werden). Ein Mahlzeitname allein erzeugt keine zusätzliche Tagesphase, kein Datum und keine Uhrzeit. time.original ist ausschliesslich das unveränderte Wortlaut-Zitat als CONTEXT; die tatsächliche Besuchsbedingung steht separat unter time.date, time.clock oder time.day_phase und behält ihre Verbindlichkeit. Ein ausdrücklich verlangter Zielort (in Basel, in Zürich) bleibt location.destination REQUIRED, niemals CONTEXT. Kanonische Werte dürfen weder Genauigkeit noch Verbindlichkeit reduzieren oder einen allgemeineren Wunsch verengen: Klettern => climbing, nur ausdrücklich Bouldern => bouldering. Die gerichtete Beziehung Bouldern erfüllt Klettern wird erst beim Spotabgleich geprüft; sie ist keine Synonymie. Atmosphäre (etwa romantisch => romantic) gehört ausschließlich unter atmosphere.character, nicht experience.character.";
 export const LUNA_LIBRARIAN_CONFIGURATION = deepFreeze({
   contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, model: LUNA_LIBRARIAN_MODEL,
   reasoningEffort: LUNA_LIBRARIAN_REASONING, store: false, maxOutputTokens: 7500,
-  basePromptHash: contentHash(LUNA_LIBRARIAN_PROMPT), promptRevision: LUNA_LIBRARIAN_PROMPT_REVISION, promptHash: contentHash(activePrompt), schemaHash: contentHash(LUNA_LIBRARIAN_MODEL_SCHEMA),
+  basePromptHash: contentHash(LUNA_LIBRARIAN_PROMPT), promptRevision: LUNA_LIBRARIAN_PROMPT_REVISION, promptHash: contentHash(activePrompt), baseSchemaHash: contentHash(LUNA_LIBRARIAN_MODEL_SCHEMA), schemaHash: contentHash(LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA),
   catalogHash: contentHash(LUNA_LIBRARIAN_CATALOG), sourceFreeze: LUNA_LIBRARIAN_FREEZE,
 });
 /** Body only: credentials, transport, authentication and rate limits belong to
@@ -246,7 +278,7 @@ export function buildLunaLibrarianModelRequest(input: { readonly sourceText: str
   return deepFreeze({ model: LUNA_LIBRARIAN_MODEL, reasoning: { effort: LUNA_LIBRARIAN_REASONING }, store: false,
     max_output_tokens: 7500, instructions: activePrompt,
     input: JSON.stringify({ request: parsed.sourceText, reference: parsed.reference, calendar: localCalendar(parsed.reference), ...(input.explicitContext === undefined ? {} : { explicitContext: input.explicitContext }) }),
-    text: { format: { type: "json_schema", name: "backyrd_luna_meaning_v7", strict: true, schema: LUNA_LIBRARIAN_MODEL_SCHEMA } },
+    text: { format: { type: "json_schema", name: "backyrd_luna_meaning_v8", strict: true, schema: LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA } },
   });
 }
 export type LibrarianDiagnostic = {
