@@ -17,7 +17,7 @@ export const DIAGNOSTIC_EXPIRES_AT = '2026-11-02T00:00:00.000Z';
 /** Founder-approved extra twenty calls on this UTC date only. Existing counters
  * and operation identity remain unchanged; subsequent days retain the old cap. */
 export const adminDiagnosticDailyLimit = (now: Date = new Date()): number =>
-  now.toISOString().slice(0, 10) === '2026-10-30' ? 40 : 20;
+  now.toISOString().slice(0, 10) === '2026-10-30' ? 42 : 20;
 const allowedOrigins = new Set(['https://intelligence.backyrd.ch','http://127.0.0.1:3017']);
 
 export interface AdminDiagnosticPorts {
