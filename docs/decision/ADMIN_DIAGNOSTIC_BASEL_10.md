@@ -15,3 +15,5 @@ Deployment must include the new compiled `admin-diagnostic.js`, the additive obs
 Validation: `npm run decision-vnext:build`, `node --test packages/decision-vnext-core/test/admin-diagnostic.test.mjs`, Deno entrypoint check, Admin type/lint checks, unauthenticated denial, authenticated non-admin denial where a suitable test account is available, and ten real admin requests. Never label fixture tests as real model runs.
 
 Live validation (30 October): ten authenticated requests completed against diagnostic v2 with the consumer v217 runtime plus the additive search observer. All 444 candidates per request were captured. Runtime-only totals were 66.0 seconds; this is not a semantic acceptance result. The initial duplicate-search draft was rejected by Edge CPU limits.
+
+Founder explicitly approved up to twenty additional calls for 30 October 2026. Only that UTC day has subject/global daily caps of 40 instead of 20. Minute caps, operation identity, existing counters, authentication, Admin authorization and expiry remain unchanged. The cap automatically returns to 20 on 31 October. No counter is reset or removed.

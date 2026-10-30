@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES} from '../dist/admin-diagnostic.js';
+import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES,adminDiagnosticDailyLimit} from '../dist/admin-diagnostic.js';
 const actor={userId:'actor',subjectBindingHash:'hash',sessionId:'session',sessionBindingHash:'session-hash',authenticationContextHash:'auth-hash'};
 function setup(overrides={}){const calls=[];const h=createAdminDiagnosticHandler({now:()=>new Date('2026-10-30T01:00:00Z'),authenticate:async()=>{calls.push('auth');return actor;},isAdmin:async()=>{calls.push('admin');return true;},consume:async()=>{calls.push('quota');return true;},diagnose:async(index,value)=>{calls.push(['diagnose',index,value.userId]);return {index};},...overrides});return {h,calls};}
 const request=(body={caseIndex:0},headers={})=>new Request('https://example.test/diagnostic',{method:'POST',headers:{authorization:'Bearer user-session','content-type':'application/json',...headers},body:JSON.stringify(body)});
@@ -14,3 +14,5 @@ test('arbitrary prompts actors model parameters and invalid indices rejected',as
 test('expired suite rejects before authentication',async()=>{const {h,calls}=setup({now:()=>new Date('2026-11-02T00:00:00Z')});assert.equal((await h(request())).status,410);assert.deepEqual(calls,[]);});
 test('foreign origins and oversized bodies cannot invoke a model',async()=>{let s=setup();assert.equal((await s.h(request({}, {origin:'https://foreign.test'}))).status,403);assert.deepEqual(s.calls,[]);s=setup();assert.equal((await s.h(request({caseIndex:0,extra:'x'.repeat(200)}))).status,413);assert.deepEqual(s.calls,['auth','admin']);});
 test('safe preflight never invokes auth or model',async()=>{const {h,calls}=setup();const r=await h(new Request('https://example.test',{method:'OPTIONS',headers:{origin:'https://intelligence.backyrd.ch'}}));assert.equal(r.status,204);assert.deepEqual(calls,[]);});
+
+test("extra budget expires automatically at the approved UTC boundary",()=>{assert.equal(adminDiagnosticDailyLimit(new Date("2026-10-29T23:59:59.999Z")),20);assert.equal(adminDiagnosticDailyLimit(new Date("2026-10-30T00:00:00.000Z")),40);assert.equal(adminDiagnosticDailyLimit(new Date("2026-10-30T23:59:59.999Z")),40);assert.equal(adminDiagnosticDailyLimit(new Date("2026-10-31T00:00:00.000Z")),20);});

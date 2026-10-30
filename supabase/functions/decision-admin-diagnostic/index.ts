@@ -1,5 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.112.4';
-import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES,DIAGNOSTIC_REFERENCE} from '../../../packages/decision-vnext-core/dist/admin-diagnostic.js';
+import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES,DIAGNOSTIC_REFERENCE,adminDiagnosticDailyLimit} from '../../../packages/decision-vnext-core/dist/admin-diagnostic.js';
 import {createDecisionProductProductionPorts,createDecisionProductRpcEvaluationProvider,createDecisionProductRpcInteractionAuthorityProvider,createDecisionProductRpcLearningPort,type DecisionProductRpcClient,type DecisionProductProductionConfiguration} from '../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js';
 import {createDecisionProductLunaProvider} from '../../../packages/decision-vnext-core/dist/product-luna-provider.js';
 import {buildDecisionProductExecution} from '../../../packages/decision-vnext-core/dist/product-decision.js';
@@ -8,7 +8,7 @@ import type {LibrarianSearchResult} from '../../../packages/decision-vnext-core/
 
 const required=(name:string):string=>{const value=Deno.env.get(name);if(!value)throw Error('diagnostic_configuration_missing');return value;};
 function configuration():DecisionProductProductionConfiguration{
- return {identity:{releaseHash:required('BACKYRD_DECISION_VNEXT_RELEASE_HASH'),artifactHash:required('BACKYRD_DECISION_VNEXT_ARTIFACT_HASH'),sourceSetHash:required('BACKYRD_DECISION_VNEXT_SOURCE_SET_HASH'),controlGeneration:Number(Deno.env.get('BACKYRD_DECISION_VNEXT_CONTROL_GENERATION')??'1')},rateLimitOperation:'decision_admin_diag_v1',rateLimitSubjectKeyVersion:required('BACKYRD_DECISION_VNEXT_RATE_LIMIT_KEY_VERSION'),rateLimitSubjectKey:required('BACKYRD_DECISION_VNEXT_RATE_LIMIT_KEY'),idempotencyKeyVersion:required('BACKYRD_DECISION_VNEXT_IDEMPOTENCY_KEY_VERSION'),idempotencyKey:required('BACKYRD_DECISION_VNEXT_IDEMPOTENCY_KEY'),subjectMinuteLimit:20,subjectDayLimit:20,globalMinuteLimit:20,globalDayLimit:20,timeoutMilliseconds:30000,maxRequestBytes:1024};
+ return {identity:{releaseHash:required('BACKYRD_DECISION_VNEXT_RELEASE_HASH'),artifactHash:required('BACKYRD_DECISION_VNEXT_ARTIFACT_HASH'),sourceSetHash:required('BACKYRD_DECISION_VNEXT_SOURCE_SET_HASH'),controlGeneration:Number(Deno.env.get('BACKYRD_DECISION_VNEXT_CONTROL_GENERATION')??'1')},rateLimitOperation:'decision_admin_diag_v1',rateLimitSubjectKeyVersion:required('BACKYRD_DECISION_VNEXT_RATE_LIMIT_KEY_VERSION'),rateLimitSubjectKey:required('BACKYRD_DECISION_VNEXT_RATE_LIMIT_KEY'),idempotencyKeyVersion:required('BACKYRD_DECISION_VNEXT_IDEMPOTENCY_KEY_VERSION'),idempotencyKey:required('BACKYRD_DECISION_VNEXT_IDEMPOTENCY_KEY'),subjectMinuteLimit:20,subjectDayLimit:adminDiagnosticDailyLimit(),globalMinuteLimit:20,globalDayLimit:adminDiagnosticDailyLimit(),timeoutMilliseconds:30000,maxRequestBytes:1024};
 }
 
 Deno.serve(async(request:Request)=>{
