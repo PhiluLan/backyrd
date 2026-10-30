@@ -1,4 +1,5 @@
 "use client";
+import { authoringRpcErrorMessage } from "./authoring-rpc-errors";
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import {
@@ -163,13 +164,7 @@ const messageOf = (error: unknown) => {
 };
 const backendMissing = (error: { code?: string; message?: string } | null) =>
   error?.code === "PGRST202" || error?.code === "42883" || error?.code === "42P01";
-const safeRpcMessage = (error: { code?: string; message?: string } | null): string => {
-  if (backendMissing(error)) return "World Knowledge ist hier noch nicht vollständig verfügbar.";
-  if (error?.message?.includes("world_product_authoring_authority_off") || error?.message?.includes("world_product_admin_authoring_off")) return "Die Spot-Pflege ist derzeit ausgeschaltet. Deine Eingaben bleiben erhalten.";
-  if (error?.code === "42501") return "Du bist für diesen Spot nicht berechtigt.";
-  if (error?.code === "40001" || error?.code === "23505" || error?.message?.includes("conflict")) return "Die Angabe hat sich zwischenzeitlich geändert. Bitte lade den Spot erneut und prüfe den Konflikt.";
-  return "World Knowledge ist derzeit nicht erreichbar. Deine Eingaben bleiben erhalten.";
-};
+const safeRpcMessage = authoringRpcErrorMessage;
 const searchFailure = (error: unknown): SearchState => {
   const code = errorCode(error);
   return code === "WORLD_BACKEND_NOT_PUBLISHED" ? "BACKEND_NOT_PUBLISHED"

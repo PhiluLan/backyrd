@@ -163,3 +163,19 @@ test('Admin category release requires historical receipts and selects only its e
  assert.equal(readFileSync(join(output,category.path),'utf8'),readFileSync(join(root,category.path),'utf8'));
  for(const item of remaining)assert.equal(existsSync(join(output,item.path)),false);
 });
+
+test('area reservation repair selects only its exact migration and retains the four booking exclusions',async()=>{
+ const {AREA_RESERVATION_MIGRATION:area,areaReservationAppliedReceipt,ADMIN_CATEGORY_MIGRATION:category}=await import('./isolated-research-migration.mjs');
+ const request={...input(),scope:{...scope,migrations:[area],deferredMigrations:deferred},pending:[...deferred,area],applied:{migration:target},appliedSafety:{},appliedRhassoul:{},appliedAdminCategory:{migration:category},appliedAreaReservation:null};
+ assert.deepEqual(scopeResearchMigrations(request).pendingMigrations,[area]);
+ assert.deepEqual(scopeResearchMigrations(request).deferredMigrations,deferred);
+ for(const patch of [{appliedAdminCategory:null},{appliedRhassoul:null},{pending:[area]},{deployFunctions:['decision-v13']},{authDeploy:true},{scope:{...request.scope,migrations:[{...area,sha256:'f'.repeat(64)}]}}])assert.throws(()=>scopeResearchMigrations({...request,...patch}),/isolated_research/);
+ const receipt={status:'APPLIED_AND_VERIFIED',migration:area,sourceSha:'b'.repeat(40),deploymentRunId:3,manifestHash:'c'.repeat(64)};
+ const root=new URL('../..',import.meta.url).pathname,read=path=>readFileSync(join(root,path));
+ assert.equal(areaReservationAppliedReceipt({supabase:{isolatedAreaReservationRelease:receipt}},read,()=>true),receipt);
+ assert.throws(()=>areaReservationAppliedReceipt({supabase:{isolatedAreaReservationRelease:{...receipt,migration:category}}},read,()=>true),/receipt_invalid/);
+ assert.deepEqual(scopeResearchMigrations({...request,pending:deferred,appliedAreaReservation:receipt}).pendingMigrations,[]);
+ const output=mkdtempSync(join(tmpdir(),'backyrd-area-reservation-'));
+ prepareResearchMigrationWorkspace({...scopeResearchMigrations(request),baseSha:base,deployFunctions:[],authConfig:null,appliedResearch:request.applied,appliedResearchSafety:{},appliedResearchRhassoul:{},appliedAdminCategory:request.appliedAdminCategory,appliedAreaReservation:null},root,output);
+ assert.equal(readFileSync(join(output,area.path),'utf8'),read(area.path).toString());for(const entry of deferred)assert.equal(existsSync(join(output,entry.path)),false);
+});
