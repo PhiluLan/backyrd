@@ -24,3 +24,11 @@ more controls for the source-time metadata schema correction (fixed cases 2 and
 The page supports an individual fixed-case selection; it does not accept new
 prompts or automatically retry failed calls. Preserve counters and all access
 checks, and restore the baseline diagnostic bundle after the candidate trial.
+
+Both approved final controls completed against candidate diagnostic v10,
+prompt/schema 8, Decision source 15cefe44 and diagnostic source c9d1ddab.
+The time source quotations are CONTEXT and actual date/day-phase duties remain
+REQUIRED. Baseline diagnostic v11 was then restored (hash
+6bcb6b69d90d9b6feb6ab44dd497c543eec1785dac3dc43e275c1709deac2e60),
+retaining only the approved 42/day exception. The global count is 42 with one
+earlier blocked attempt; consumer decision-v13 remains v217.
