@@ -2,35 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AUTHORING_FIELDS, evaluateAuthoringReadiness, validateAuthoringSubmission } from "../dist/index.js";
 
-const samples = {
-  EXPERIENCE_PROFILE: {contractVersion:"backyrd.world-knowledge.experience-profile@1.0",category:"RESTAURANT",properties:[],areas:[],offers:[],reviewed:true},
-  DISCOVERY_PROFILE: {contractVersion:"backyrd.world-knowledge.discovery-profile@1.0",description:"Synthetic source",offerings:[],assertions:[],reviewed:true},
-  TEXT: "Volta Bräu",
-  EMAIL: "kontakt@volta.example",
-  URL: "https://volta.example",
-  PHONE: "+41781234567",
-  COUNTRY_CODE: "CH",
-  IANA_TIMEZONE: "Europe/Zurich",
-  DECIMAL: 7.588,
-  INTEGER: 40,
-  BOOLEAN: true,
-  ENUM: null,
-  ENUM_SET: null,
-  PRICE_OPTIONS: [{ purposes: ["MEAL"], allOfferingsCovered: true, basis: "PER_PERSON", currency: "CHF", min: 10, max: 20, minimumAge: null, maximumAge: null, mandatoryFeesIncluded: true, conditions: { dayparts: [], days: [], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: null } }],
-  INTEGER_RANGE: { min: 1, max: 12 },
-  WEEKLY_SCHEDULE: [{ day: "TUESDAY", intervals: [{ start: "17:00", end: "23:00" }, { start: "23:30", end: "02:00" }] }],
-  SPECIAL_HOURS: [{ date: "2026-12-24", status: "OPEN", intervals: [{ start: "11:00", end: "15:00" }] }, { date: "2026-12-25", status: "CLOSED", intervals: [] }],
-  RESERVATION_RULE: { mode: "CONDITIONAL", minimumPartySize: 6, days: ["FRIDAY", "SATURDAY"], fromTime: "18:00", toTime: "22:00" },
-  CONSUMPTION_RULE: { policy: "CONDITIONAL", exceptions: ["Babynahrung"] },
-  PET_ACCESS_RULE: { indoor: "NOT_ALLOWED", outdoor: "ALLOWED", assistanceAnimals: "ALLOWED", notes: null },
-  AGE_ACCESS_RULE: { policy: "MINIMUM_AGE", minimumAge: 18, appliesFromTime: "22:00" },
-  AGE_ACCESS_RULE_V2: { rules: [{ mode: "UNACCOMPANIED_MINIMUM", minimumAge: 12, accompaniment: "ADULT", appliesFromTime: null, days: [], area: null, event: null }, { mode: "GENERAL_MINIMUM", minimumAge: 18, accompaniment: "NONE", appliesFromTime: "22:00", days: [], area: null, event: null }] },
-  CURRENT_STATE: { kind: "AREA_CLOSED", scope: "TERRACE" },
-  ONSITE_OFFERINGS: [{ kind: "CAFE", relationship: "EMBEDDED_FACILITY", area: "Foyer" }],
-  VISIT_SITUATIONS: [{ situation: "FAMILY", conditions: { dayparts: ["AFTERNOON"], days: [], area: null, occasion: null, groupSize: null, ageContext: "MIXED_AGES", accompaniment: "ADULT", eventMode: null } }],
-  ATMOSPHERE_CONTEXTS: [{ atmosphere: "LIVELY", conditions: { dayparts: ["EVENING"], days: ["FRIDAY"], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: "NORMAL_OPERATION" } }],
-  DAYPART_CONTEXTS: [{ daypart: "EVENING", conditions: { days: ["FRIDAY"], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: "NORMAL_OPERATION" } }],
-};
+import {AUTHORING_VALUE_SAMPLES as samples} from './authoring-value-fixtures.mjs';
 
 test("every exposed authoring field produces a registry-valid canonical value", () => {
   for (const field of AUTHORING_FIELDS) {
@@ -86,3 +58,10 @@ test("review readiness counts each actionable problem once and never accepts unk
   assert.equal(report.sectionStates.offering, "INTENTIONALLY_INCOMPLETE");
   assert.deepEqual(report.blocking.map((issue) => issue.id), [...new Set(report.blocking.map((issue) => issue.id))]);
 });
+
+ test('age rule write normalisation preserves read compatibility and supplies explicit nullable notes',()=>{
+  const input=samples.AGE_ACCESS_RULE_V2;
+  const checked=validateAuthoringSubmission('rule.age_access_conditions','KNOWN_VALUE',input);
+  assert.equal(checked.ok,true);assert.deepEqual(checked.value,{...input,notes:null});assert.equal('notes' in input,false);
+  assert.equal(validateAuthoringSubmission('rule.age_access_conditions','KNOWN_VALUE',{...input,notes:'Abends ab 18'}).value.notes,'Abends ab 18');
+ });

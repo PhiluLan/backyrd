@@ -11,6 +11,8 @@ begin
  if not world_knowledge_private.experience_profile_valid_v3(scoped) then raise exception 'area booking rejected';end if;
  if world_knowledge_private.experience_profile_valid_v2(scoped) then raise exception 'historic validator was changed';end if;
  if not world_knowledge_private.attribute_value_valid_v7('backyrd.world-knowledge.registry@2.5','experience.profile','KNOWN_VALUE',scoped) then raise exception 'active dispatcher rejected area booking';end if;
+ if not world_knowledge_private.experience_profile_valid_v3(jsonb_set(jsonb_set(scoped,'{areas,0,properties,0,state}','"UNKNOWN"'::jsonb),'{areas,0,properties,0,value}','null'::jsonb)) then raise exception 'unknown area booking rejected';end if;
+ if not world_knowledge_private.experience_profile_valid_v3(jsonb_set(jsonb_set(scoped,'{areas,0,properties,0,state}','"NOT_APPLICABLE"'::jsonb),'{areas,0,properties,0,value}','null'::jsonb)) then raise exception 'not applicable area booking rejected';end if;
  if world_knowledge_private.experience_profile_valid_v3(jsonb_set(scoped,'{areas,0,properties,0,value}','true'::jsonb)) then raise exception 'wrong booking type accepted';end if;
  if world_knowledge_private.experience_profile_valid_v3(jsonb_set(scoped,'{properties}',scoped#>'{areas,0,properties}')) then raise exception 'area-only property accepted at spot scope';end if;
 -- backyrd:authorization-negative

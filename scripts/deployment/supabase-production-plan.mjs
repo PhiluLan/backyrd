@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
+import { AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -474,12 +474,16 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   });
   if (appliedAdminCategory) preappliedPaths.add(appliedAdminCategory.migration.path);
+  const appliedAreaReservation = areaReservationAppliedReceipt(state, head.read, source => {
+    try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
+  });
+  if (appliedAreaReservation) preappliedPaths.add(appliedAreaReservation.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
   const deferredFunctionChanges = authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
   if (deferredFunctionChanges.length) {
-    if (![RESEARCH_SAFETY_MIGRATION,RESEARCH_RHASSOUL_MIGRATION,ADMIN_CATEGORY_MIGRATION].some(target => JSON.stringify(authority.isolatedResearchMigrationScope.migrations) === JSON.stringify([target]))
+    if (![RESEARCH_SAFETY_MIGRATION,RESEARCH_RHASSOUL_MIGRATION,ADMIN_CATEGORY_MIGRATION,AREA_RESERVATION_MIGRATION].some(target => JSON.stringify(authority.isolatedResearchMigrationScope.migrations) === JSON.stringify([target]))
       || JSON.stringify(deferredFunctionChanges) !== JSON.stringify(RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES)
       || JSON.stringify(functionChanges) !== JSON.stringify(deferredFunctionChanges)) throw new Error("isolated_research_deferred_function_binding_changed");
     for (const item of functions.filter(item=>item.deploy)) {
@@ -492,7 +496,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
   const scoped = authority?.isolatedVoltaMigrationScope
     ? scopeVoltaMigrations({pending:allPending,scope:authority.isolatedVoltaMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedResearch,appliedVolta})
-    : scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch,appliedSafety:appliedResearchSafety,appliedRhassoul:appliedResearchRhassoul,appliedAdminCategory});
+    : scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch,appliedSafety:appliedResearchSafety,appliedRhassoul:appliedResearchRhassoul,appliedAdminCategory,appliedAreaReservation});
   const {pendingMigrations,deferredMigrations,isolatedResearchScope,isolatedVoltaScope} = scoped;
   const plan = {
     version: "backyrd-supabase-production-deployment-plan-v1",
@@ -507,6 +511,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     migrations,
     pendingMigrations,
     deferredMigrations,
+    appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,
     isolatedVoltaScope: isolatedVoltaScope ?? null,
     appliedResearch,
