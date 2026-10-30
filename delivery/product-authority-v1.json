@@ -69,14 +69,14 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261028200651_admin_spots_primary_category_v1.sql",
-        "sha256": "eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d"
+        "path": "supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",
+        "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved the exact Admin category read migration, its bounded release path and the disclosed untested database recovery risk on 2026-10-28. Backup run 40656793451 succeeded. Preserve all historical receipts. All five deferred migrations and Function/Auth/Decision changes remain excluded. No spot data writes are authorized by this release."
+    "source": "Founder explicitly approved exactly 20261024171707_scoped_area_reservation_rules_v1.sql and its bounded release path with the disclosed untested recovery risk on 2026-10-30 in this release conversation: Ja, genau diesen Umfang mit dem beschriebenen Risiko veröffentlichen. Successful encrypted backup run 40984503636. Four Booking migrations and Function/Auth/Decision remain excluded. No production spot test writes."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -100,8 +100,8 @@
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261028200651_admin_spots_primary_category_v1.sql",
-        "sha256": "eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d"
+        "path": "supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",
+        "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
       }
     ],
     "deferredMigrations": [
@@ -120,13 +120,9 @@
       {
         "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
-      },
-      {
-        "path": "supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",
-        "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
       }
     ],
-    "backupRunId": 40656793451,
+    "backupRunId": 40984503636,
     "executionAuthorized": false,
     "deferredFunctionChanges": [
       {
