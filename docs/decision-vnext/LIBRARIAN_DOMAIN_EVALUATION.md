@@ -109,11 +109,16 @@ to improve result coverage.
 Current replay evidence: 419 venue profiles plus 25 event occurrences; ten
 recorded requests plus the exact dinner request. Café, vegan lunch and family
 matches remain available; the first-date bar request resolves to Volta Bräu and
-Alchemist. Seven of ten requests still have no confirmed result, with specific
+Alchemist. A separate replay of the current Main evaluator (matching@18)
+confirms that all ten presented result lists are unchanged by matching@19; the
+older recorded response alone is not used to attribute improvements to this PR. Six of ten requests still have no confirmed result, with specific
 evidence gaps retained. For the dinner request the recommended reservation rule
 now proves “without booking obligation”; the qualitative price remains a
 clarification. Volta's recorded whole-venue closure remains effective for that
-dated request. These results do not justify a blanket production-ready claim.
+dated request. A manually modified control plan with an explicit 40 CHF per
+person budget confirms Gifthüttli under matching@19; matching@18 remains partial
+because of booking. This control is labelled synthetic, not a new AI interpretation.
+These results do not justify a blanket production-ready claim.
 
 No migrations, Spot edits, Auth, consent or moderation changes belong to this
 candidate. Publish only through the normal certified release after acceptance
