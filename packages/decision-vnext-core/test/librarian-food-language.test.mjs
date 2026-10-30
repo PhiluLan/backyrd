@@ -63,9 +63,10 @@ test('recorded Luna output reaches catalog matching unchanged, including date, c
     return b;
   });
   const result = searchLibrarianCatalog({request: q, catalog: candidates, authority: {city: 'Baden', now: '2026-10-14T08:00:00Z'}});
-  assert.equal(result.ranked[0].status, 'CONFIRMED');
-  assert.deepEqual(result.ranked[0].unknownFactIds, []);
-  assert.equal(result.ranked[1].status, 'PARTIAL');
+  assert.equal(result.ranked.length, 0);
+  assert.equal(result.unresolved[0].status, 'PARTIAL');
+  assert.ok(result.unresolved[0].unknownFactIds.length > 0);
+  assert.equal(result.unresolved[0].status, 'PARTIAL');
   assert.equal(q.source.sourceText, fixture.request);
   assert.deepEqual(q.raw, fixture.output);
 });
@@ -90,16 +91,16 @@ test('an undated vegan dinner keeps its daypart without claiming calendar openin
  const p=profile([{...offer('dinner','DINNER',['inside'],[prop('food.diet','vegan')]),schedule:[]}]);
  const q=request([fact('meal','food.meal','dinner'),fact('diet','food.diet','vegan'),phase()]);
  const r=search(q,[binding(701,p)]);
- assert.equal(r.ranked[0]?.status,'CONFIRMED');
- assert.equal(r.ranked[0].facts.find(f=>f.factId==='phase').state,'CONTEXT');
- assert.equal(r.ranked[0].facts.find(f=>f.factId==='phase').reason,'UNDATED_DAYPART_NO_OPENING_CLAIM');
+ assert.equal(r.unresolved[0]?.status,'PARTIAL');
+ assert.equal(r.unresolved[0].facts.find(f=>f.factId==='phase').state,'UNKNOWN');
+ assert.equal(r.unresolved[0].facts.find(f=>f.factId==='phase').reason,'UNDATED_DAYPART_NO_OPENING_CLAIM');
  assert.equal(q.facts.find(f=>f.id==='phase').modality,'REQUIRED');
 });
 test('undated lunch retains its actual per-person price and budget',()=>{
  const p=profile([{...offer('lunch','LUNCH',['inside'],[],[price(26)]),schedule:[]}]);
  const r=search(request([fact('meal','food.meal','lunch'),phase('MIDDAY'),...budget(30)]),[binding(701,p)]);
- assert.equal(r.ranked[0]?.status,'CONFIRMED');
- assert.equal(r.ranked[0].facts.find(f=>f.factId==='money').state,'MET');
+ assert.equal(r.unresolved[0]?.status,'PARTIAL');
+ assert.equal(r.unresolved[0].facts.find(f=>f.factId==='money').state,'MET');
  const expensive=search(request([fact('meal','food.meal','lunch'),phase('MIDDAY'),...budget(20)]),[binding(701,p)]);
  assert.equal(expensive.excluded[0]?.failedFactIds.includes('money'),true);
 });
@@ -111,8 +112,8 @@ test('a documented morning-only offer cannot serve an undated evening wish',()=>
 test('a real date with no offer schedule preserves fit without claiming opening',()=>{
  const p=profile([{...offer(),schedule:[]}]);
  const r=search(request([fact('meal','food.meal','dinner'),phase(),fact('date','time.date',{date:'2026-10-15',operator:'EQ',timezone:'Europe/Zurich'},'REQUIRED',[])]),[binding(701,p)]);
- assert.equal(r.ranked[0]?.status,'CONFIRMED');
- assert.equal(r.ranked[0].facts.find(f=>f.factId==='date').reason,'VISIT_TIME_UNCONFIRMED');
+ assert.equal(r.unresolved[0]?.status,'PARTIAL');
+ assert.equal(r.unresolved[0].facts.find(f=>f.factId==='date').reason,'VISIT_TIME_UNCONFIRMED');
 });
 test('an undated clock or weekday is not silently converted to a generic daypart',()=>{
  for(const f of [fact('clock','time.clock',{time:'19:00',operator:'EQ',timezone:'Europe/Zurich'},'REQUIRED',[]),fact('weekday','time.weekday','Donnerstag','REQUIRED',[])]) {
@@ -153,7 +154,7 @@ test('a partial group is not an authoritative headcount for a total budget',()=>
  const entities=[{id:'p1',kind:'PERSON',label:'Frau',members:[]},{id:'g1',kind:'GROUP',label:'Paar',members:['p1']}];
  const q=request([fact('meal','food.meal','dinner','REQUIRED',['g1']),fact('money','budget.maximum',{amount:50,operator:'LTE',currency:'CHF'},'REQUIRED',['g1']),fact('scope','budget.scope',{scope:'GROUP_TOTAL'},'CONTEXT',['g1'])],{entities});
  const r=search(q,[binding(701,profile())]);
- assert.ok(r.ranked[0]?.facts.some(f=>f.reason==='GROUP_PRICE_HEADCOUNT_UNKNOWN'));
+ assert.ok(r.unresolved[0]?.facts.some(f=>f.reason==='GROUP_PRICE_HEADCOUNT_UNKNOWN'));
 });
 test('location.setting indoor binds to the activity, not an unrelated indoor cafe',()=>{
  const p=profile([offer('climb','CLIMBING',['terrace']),offer('cafe','CAFE',['inside'])],[area('terrace'),area()],'SPORT');
@@ -174,15 +175,15 @@ test('venue-wide geographic setting is not mistaken for an activity room require
 test('undated night includes the post-midnight part of an overnight offer',()=>{
  const p=profile([{...offer('dance','EVENT',['inside'],[prop('experience.activity','dancing')]),schedule:[{weekday:4,start:'21:00',end:'02:00'}]}]);
  const r=search(request([fact('dance','experience.activity','dancing'),phase('NIGHT')]),[binding(701,p)]);
- assert.equal(r.ranked[0]?.status,'CONFIRMED');
- assert.equal(r.ranked[0].facts.find(f=>f.factId==='phase').state,'CONTEXT');
+ assert.equal(r.unresolved[0]?.status,'PARTIAL');
+ assert.equal(r.unresolved[0].facts.find(f=>f.factId==='phase').state,'UNKNOWN');
 });
 
 test('an undated generic daypart does not invent a visit during the current opening state',()=>{
  const closed=worldFact('state.current',{kind:'CLOSED',scope:'VENUE'},{validityVerified:true,validFrom:'2026-10-14T07:00:00Z',validUntil:'2026-10-15T12:00:00Z'});
  const r=search(request([fact('meal','food.meal','dinner'),phase()]),[binding(701,profile(),[closed])]);
- assert.equal(r.ranked[0]?.status,'CONFIRMED');
- assert.equal(r.ranked[0].facts.find(f=>f.factId==='phase').reason,'UNDATED_DAYPART_NO_OPENING_CLAIM');
+ assert.equal(r.unresolved[0]?.status,'PARTIAL');
+ assert.equal(r.unresolved[0].facts.find(f=>f.factId==='phase').reason,'UNDATED_DAYPART_NO_OPENING_CLAIM');
 });
 test('classification without discovery authority cannot prove a venue match',async()=>{
  const {assessLibrarianPlaceType}=await import('../dist/product-librarian-world-language.js');

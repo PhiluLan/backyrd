@@ -36,7 +36,7 @@ const situationalExperienceCategories = new Set([
 
 type RankableCandidate = DecisionProductResponse["candidates"][number];
 type ProductReason = RankableCandidate["reasons"][number];
-type CandidateForRanking = Pick<RankableCandidate, "spotId" | "tier" | "coreIntentCoverage" | "actualAvailability" | "unknownHardConstraints" | "contextualReject" | "rankVector">;
+type CandidateForRanking = Pick<RankableCandidate, "spotId" | "tier" | "coreIntentCoverage" | "actualAvailability" | "unknownHardConstraints" | "failedHardConstraints" | "contextualReject" | "rankVector">;
 type RankedCandidate = CandidateForRanking & {
   readonly assessment: DecisionProductCandidateAssessment;
   readonly presentation: DecisionProductPresentation;
@@ -128,15 +128,13 @@ function compareCandidates(left: CandidateForRanking, right: CandidateForRanking
 }
 
 function rankable(candidate: CandidateForRanking, situationalIds: ReadonlySet<string> | null = null): boolean {
-  // A supported visit with incomplete details is a real fallback. Typed UI
-  // guards and unproven core activities retain their separate gates.
-  const supportedUnknown = candidate.coreIntentCoverage === "CONFIRMED"
-    && candidate.unknownHardConstraints.every(code => code.startsWith("LBR:") || code === "LIBRARIAN_VISIT_NOT_FULLY_PROVEN" || code === "OPEN_ON_REQUESTED_DAY");
+  // Final independent gate: ranking and personal signals cannot repair a duty.
   return (situationalIds === null || situationalIds.has(candidate.spotId))
-    && candidate.tier !== "INELIGIBLE"
-    && (candidate.rankVector.hardConstraintState === "PASS" || supportedUnknown)
-    && candidate.coreIntentCoverage !== "INCOMPATIBLE"
-    && candidate.coreIntentCoverage !== "DISPUTED"
+    && candidate.tier === "ELIGIBLE_CONFIRMED"
+    && candidate.rankVector.hardConstraintState === "PASS"
+    && candidate.unknownHardConstraints.length === 0
+    && candidate.failedHardConstraints.length === 0
+    && candidate.coreIntentCoverage === "CONFIRMED"
     && !candidate.contextualReject;
 }
 
@@ -159,7 +157,7 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
     return {
       assessment: candidate, spotId: candidate.candidateId, presentation, tier: candidate.tier, rank: null,
       coreIntentCoverage: candidate.coreIntentCoverage.state, actualAvailability: candidate.actualAvailability.status,
-      unknownHardConstraints: candidate.unknownHardConstraints, rankVector,
+      unknownHardConstraints: candidate.unknownHardConstraints, failedHardConstraints: candidate.failedHardConstraints, rankVector,
       contextualReject: candidate.rejectionClass === "SITUATIONAL_REJECT", comparativeReason: null,
     };
   }).sort(compareCandidates);
@@ -183,7 +181,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
   const assessment = candidate.assessment;
   const reasons: ProductReason[] = [
     ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-    { code: "product-ranking-policy-v6", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    { code: "product-ranking-policy-v7", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
   ];
   return DecisionProductCandidateSchema.parse(withContentHash({
@@ -237,7 +235,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const situation = evaluation.interpretation.group.companionType;
   const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
     && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
-  const situationalIds = ["decision-vnext-librarian-evaluator@1", "decision-vnext-librarian-evaluator@3"].includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
+  const situationalIds = ["decision-vnext-librarian-evaluator@1", "decision-vnext-librarian-evaluator@3", "decision-vnext-librarian-evaluator@4", "decision-vnext-librarian-evaluator@5"].includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
     situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );

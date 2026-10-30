@@ -1,3 +1,5 @@
+import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
+import { librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
 import { projectDecisionEventOccurrences } from "./product-event-candidates.js";
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, librarianConcept, parseExperienceProfile } from "@backyrd/world-knowledge-core";
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
@@ -5,13 +7,12 @@ import { contentHash, deepFreeze, withContentHash } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LibrarianFact, type LunaExpression } from "./product-luna-librarian.js";
 import { searchLibrarianCatalogWithWorlds, type LibrarianCandidate, type LibrarianFactAssessment } from "./product-librarian-matching.js";
 import { type ProductWorldView } from "./product-world-resolver-binding.js";
-import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
 import { evaluateProductWorldViews, userTasteMatches } from "./product-v1-evaluator.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY } from "./product-v1-authority.js";
 import { DecisionProductContextSchema, DecisionProductCandidateAssessmentSchema, DecisionProductEvaluationSchema, DecisionProductPresentationSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS, type DecisionProductContext, type DecisionProductRequest } from "./product-v1-contracts.js";
 
-export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@1" as const;
-export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@3" as const;
+export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@4" as const;
+export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@5" as const;
 const cityKey = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").trim().toLowerCase();
 
 export function canonicalLibrarianCity(city: string): string {
@@ -68,7 +69,7 @@ const familyLabels: Readonly<Record<string, string>> = {
   "participation.accessibility": "die gewünschte Zugänglichkeit",
   "eligibility": "die Besuchsbedingungen", "binding": "die Kombination deiner Wünsche",
 };
-const duty = (f: LibrarianFactAssessment) => !["PREFERRED", "CONTEXT", "NOT_REQUIRED"].includes(f.modality) && !["CONTEXT", "NOT_REQUIRED"].includes(f.state);
+const duty = (f: LibrarianFactAssessment) => f.modality === "REQUIRED" || f.modality === "EXCLUDED";
 const codes = (values: readonly string[]) => values.length <= 30 ? values : [...values.slice(0, 29), "ADDITIONAL_LIBRARIAN_REQUIREMENTS"];
 const factCode = (f: LibrarianFactAssessment) => `LBR:${contentHash({ id: f.factId, family: f.family }).slice(0, 24)}`;
 
@@ -85,7 +86,11 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   if (candidate.status === "PARTIAL" && !unknown.length) unknown.push("LIBRARIAN_VISIT_NOT_FULLY_PROVEN");
   if (!hasVisitEvidence) unknown.push("LIBRARIAN_CORE_NOT_PROVEN");
   if (candidate.status === "INELIGIBLE" && !failed.length) failed.push("LIBRARIAN_VISIT_CONTRADICTED");
-  const coverage = hasVisitEvidence ? "CONFIRMED" : "UNKNOWN";
+  // Independently reject an inconsistent matcher admission before projection.
+  const obligationsProven = candidate.conditionalPlans.length
+    ? candidate.conditionalPlans.every(plan => plan.status === "CONFIRMED" && librarianMandatoryEvidenceSatisfied(plan.facts))
+    : librarianMandatoryEvidenceSatisfied(candidate.facts);
+  const coverage = hasVisitEvidence && obligationsProven && !unknown.length && !failed.length ? "CONFIRMED" : "UNKNOWN";
   const proofHashes = new Set(candidate.facts.flatMap(f => f.evidenceHashes));
   const core = { intentId: null, state: coverage, mappingIds: ["lossless-luna-plan"], worldFactKeys: world.facts.filter(f => proofHashes.has(f.entryHash)).map(f => f.key).slice(0,20), evidenceSourceHash: candidate.candidateHash };
   const contextual = (state: "CONFIRMED" | "NOT_APPLICABLE") => ({ state, mappingIds: [], evidenceSourceHash: candidate.candidateHash });
@@ -133,7 +138,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     ...(event?.matchedSpotId ? {relatedSpotId:event.matchedSpotId}:{}),
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: candidate.spotId, snapshotHash: candidate.snapshotHash,
-    tier: rejected || failed.length ? "INELIGIBLE" : candidate.status === "CONFIRMED" && hasVisitEvidence ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK",
+    tier: rejected || failed.length ? "INELIGIBLE" : candidate.status === "CONFIRMED" && coverage === "CONFIRMED" ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK",
     coreIntentCoverage: core, secondaryIntentCoverage: { ...core, state: "NOT_APPLICABLE" },
     worldClassification: { primaryVisitPurpose: null, primaryCategory: world.spot.classification.primaryCategory, placeTypes: world.spot.classification.placeTypes, evidenceSourceHash: world.snapshotHash },
     primaryVisitPurpose: contextual("NOT_APPLICABLE"), specificCoreClassification: { ...contextual("NOT_APPLICABLE"), state: coverage },
@@ -188,16 +193,8 @@ export function evaluateLibrarianProduct(input: {
     const scopedBudgetRetained = uiBudget?.state === "KNOWN" && requiredInEveryAlternative(meaning.logic, meaning, f =>
       f.key === "budget.maximum" && f.value.kind === "MONEY" && ["LTE", "EQ"].includes(f.value.operator)
       && f.value.amount === uiBudget.amount && f.value.currency === uiBudget.currency);
-    // Older clients may call a ranking preference a hard constraint. The
-    // current policy keeps equipment, atmosphere and excluded content soft.
-    const guardExplicit = { ...explicit, hardConstraints: explicit.hardConstraints?.filter(code =>
-      code !== "INDOOR_REQUIRED" && (() => {
-        const constraint = decodeWorldQueryConstraint(code);
-        if (!constraint) return true;
-        if (["context.atmosphere", "amenity.features"].includes(constraint.key)) return false;
-        return constraint.role !== "EXCLUDED" || ["classification.place_types", "classification.primary_category"].includes(constraint.key);
-      })()) };
-    const guardRequest = { ...input.request, naturalLanguage: " ", explicit: guardExplicit };
+    // Explicit UI duties are binding too; never demote them by field family.
+    const guardRequest = { ...input.request, naturalLanguage: " ", explicit };
     const guards = evaluateProductWorldViews(guardRequest, input.authority, input.projection, worlds, candidateSetHash).evaluation.candidates;
     candidates = candidates.map(c => {
       const guard = guards.find(g => g.candidateId === c.candidateId);
@@ -206,7 +203,7 @@ export function evaluateLibrarianProduct(input: {
       // This guard may not apply its implicit "today" to a future Luna visit.
       // Time eligibility belongs to Luna unless an older UI explicitly sets it.
       const uiRequestsTime = !!explicit.dateTime || explicit.hardConstraints?.some(code => ["OPEN_NOW", "OPEN_ON_REQUESTED_DAY"].includes(code));
-      const applicableGuard = (code: string) => (code !== "INDOOR_REQUIRED") && (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime && !byId.get(c.candidateId)?.eventOccurrence)
+      const applicableGuard = (code: string) => (code !== "ACTUAL_AVAILABILITY" || uiRequestsTime && !byId.get(c.candidateId)?.eventOccurrence)
         && (code !== "BUDGET_MAXIMUM" || !scopedBudgetRetained);
       const failed = [...c.failedHardConstraints, ...guard.failedHardConstraints.filter(applicableGuard)];
       const event = byId.get(c.candidateId)?.eventOccurrence;

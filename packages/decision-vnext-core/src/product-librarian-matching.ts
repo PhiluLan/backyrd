@@ -1,5 +1,5 @@
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
-import { librarianRankingOnlyFamily } from "./product-librarian-language.js";
+import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
@@ -139,7 +139,7 @@ function offerDuty(fact: LibrarianFact): boolean {
     return fact.key === "food.meal" && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
         || fact.key === "food.drink" && concept === "drinks";
 }
-const contextual = (fact: LibrarianFact) => fact.modality === "CONTEXT" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "CONTEXT";
+const contextual = (fact: LibrarianFact) => fact.modality === "CONTEXT";
 const neutral = (fact: LibrarianFact) => contextual(fact) || fact.modality === "NOT_REQUIRED";
 function assignments(request: LibrarianRequest, fact: LibrarianFact, offerId: string | null, areaId: string | null): Readonly<Record<string, string>> {
     const result: Record<string, string> = {};
@@ -233,6 +233,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         return report("NOT_REQUIRED", "NO_MATCHING_DUTY");
     if (contextual(fact))
         return report("CONTEXT", "RETAINED_AS_REQUEST_CONTEXT");
+    if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "CONTEXT")
+        return report("UNKNOWN", "REQUEST_PARAMETER_NOT_VERIFIABLE_AS_REQUIREMENT");
     if (world.eventOccurrence && eventFactMatch(world.eventOccurrence,fact))
         return report(fact.modality === "EXCLUDED" ? "FAILED" : "MET", "EXPLICIT_EVENT_FEATURE", [{evidenceHashes:[world.snapshotHash],offerIds:profile?.offers.map(o=>o.id)??[],areaIds:[],assignments:assignments(request,fact,profile?.offers[0]?.id??null,null),conditionUnresolved:false,chargeable:true}]);
     if (fact.key === "location.destination" || fact.key === "location.country") {
@@ -485,10 +487,6 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
     const referenced = new Set(collectFacts(request.logic));
     const branchEntities = new Set(request.facts.filter(f => scenario.ids.includes(f.id)).flatMap(f => f.subjectIds));
     const selected = request.facts.filter(f => scenario.ids.includes(f.id) || f.modality === "CONTEXT" && !referenced.has(f.id) && (!f.subjectIds.some(id => ["ACTIVITY", "OFFER", "AREA"].includes(request.entities.find(e => e.id === id)?.kind ?? "")) || f.subjectIds.some(id => branchEntities.has(id))));
-    const rankingOnly = (report: Pick<LibrarianFactAssessment, "factId" | "family" | "modality">) => {
-        const source = request.facts.find(f => f.id === report.factId);
-        return librarianRankingOnlyFamily(report.family, report.modality, source ? requestedLibrarianPlaceType(source) !== null : false);
-    };
     const activeRequest = { ...request, facts: selected.map(f => preferenceIds.has(f.id) ? { ...f, modality: "PREFERRED" as const } : f) };
     const visit = createLibrarianVisitWindow(selected.filter(f => f.modality !== "PREFERRED" && !preferenceIds.has(f.id)), world.spot.location.timezone);
     const source = profileFor(world, visit, now), profile = source?.profile ?? null;
@@ -518,7 +516,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         allAtoms.push(a);
         reports.push(a.report);
         const deferred = LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL";
-        if (!neutral(fact) && fact.modality !== "PREFERRED" && !preferenceIds.has(fact.id) && !deferred && !librarianRankingOnlyFamily(fact.key, fact.modality, requestedLibrarianPlaceType(fact) !== null) && a.report.state === "MET") {
+        if (!neutral(fact) && fact.modality !== "PREFERRED" && !preferenceIds.has(fact.id) && !deferred && !librarianRankingPreference(fact.modality) && a.report.state === "MET") {
             // Retain exactly the same traversal prefix, but stop constructing
             // discarded Cartesian combinations as soon as overflow is proven.
             const joined: State[] = [];
@@ -547,19 +545,19 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL") {
                 const temporalVisit = temporalVisits.get(fact.id)!;
                 if (temporalVisit.undatedDayPhase)
-                    return { ...r, state: "CONTEXT" as const, reason: "UNDATED_DAYPART_NO_OPENING_CLAIM", evidenceHashes: [], offerIds: state.offerIds, areaIds: state.areaIds };
+                    return { ...r, state: "UNKNOWN" as const, reason: "UNDATED_DAYPART_NO_OPENING_CLAIM", evidenceHashes: [], offerIds: state.offerIds, areaIds: state.areaIds };
                 const availability = state.offerIds.map(id => offerAvailability(profile!.offers.find(o => o.id === id)!, world, temporalVisit));
                 // A venue-only request uses venue hours. It must not invent an
                 // offer schedule merely because a scoped profile exists.
                 if (!state.offerIds.length && !allAtoms.some(atom => selected.some(f => f.id === atom.report.factId && offerDuty(f)) && atom.report.offerIds.length > 0)) availability.push(world.eventOccurrence ? eventVisitAvailability(world.eventOccurrence, temporalVisit) : librarianVenueAvailability(world, temporalVisit));
                 const stateValue: MatchTruth = !temporalVisit.complete || !availability.length ? "UNKNOWN" : availability.some(a => a.state === "FAILED") ? "FAILED" : availability.some(a => a.state === "UNKNOWN") ? "UNKNOWN" : "MET";
                 if (stateValue === "UNKNOWN" && temporalVisit.complete)
-                    return { ...r, state: "CONTEXT" as const, reason: "VISIT_TIME_UNCONFIRMED", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
+                    return { ...r, state: "UNKNOWN" as const, reason: "VISIT_TIME_UNCONFIRMED", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
                 return { ...r, state: stateValue, reason: stateValue === "MET" ? "JOINT_VISIT_TIME_CONFIRMED" : "VISIT_TIME_OR_AVAILABILITY_NOT_PROVEN", evidenceHashes: sorted(availability.flatMap(a => a.hashes)), offerIds: state.offerIds, areaIds: state.areaIds };
             }
             const sourceAtom = allAtoms.find(a => a.report.factId === r.factId);
             if (sourceAtom && r.state === "MET") {
-                if (librarianRankingOnlyFamily(fact.key, fact.modality, requestedLibrarianPlaceType(fact) !== null)) {
+                if (librarianRankingPreference(fact.modality)) {
                     const compatible = sourceAtom.witnesses.filter(w => join(state, w) !== null);
                     if (!compatible.length && sourceAtom.witnesses.length)
                         return { ...r, state: "UNKNOWN" as const, reason: "RANKING_DETAIL_NOT_PROVEN_FOR_SELECTED_OFFER", evidenceHashes: [], offerIds: [], areaIds: [] };
@@ -586,13 +584,13 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         for (const b of active)
             if (b.kind !== "SAME_PLACE")
                 next.push({ factId: `binding:${contentHash(b).slice(0, 12)}`, family: "binding", modality: "REQUIRED", state: "UNKNOWN", reason: b.kind === "SEQUENCE" ? "MULTI_VISIT_SEQUENCE_NOT_SUPPORTED" : "SIMULTANEOUS_CAPACITY_NOT_PROVEN", evidenceHashes: [], offerIds: state.offerIds, areaIds: state.areaIds });
-        const hard = next.filter(r => !["CONTEXT", "NOT_REQUIRED", "PREFERRED"].includes(r.state) && r.modality !== "PREFERRED");
-        const failures = hard.filter(r => r.state === "FAILED" && !rankingOnly(r)), unknown = hard.filter(r => r.state === "UNKNOWN");
+        const hard = next.filter(r => r.modality === "REQUIRED" || r.modality === "EXCLUDED");
+        const failures = hard.filter(r => r.state === "FAILED"), unknown = hard.filter(r => r.state === "UNKNOWN");
         const preferenceMatches = next.filter(r => r.modality === "PREFERRED" && r.state === "MET" && (!allAtoms.find(a => a.report.factId === r.factId)?.witnesses.length || allAtoms.find(a => a.report.factId === r.factId)!.witnesses.some(w => join(state, w) !== null))).map(r => r.factId);
         return { state, next, failures, unknown, preferences: preferenceMatches, tieBreaker: contentHash(state) };
     }).sort((a, b) => a.failures.length - b.failures.length || a.unknown.length - b.unknown.length || b.preferences.length - a.preferences.length || a.tieBreaker.localeCompare(b.tieBreaker));
     const best = scored[0], facts = (best?.next ?? reports).map(r => limited && r.state === "FAILED" && !["LOCATION", "eligibility"].includes(r.family) ? { ...r, state: "UNKNOWN" as const, reason: "WITNESS_SEARCH_LIMIT" } : r);
-    const failed = facts.filter(r => r.modality !== "PREFERRED" && r.state === "FAILED" && !rankingOnly(r)).map(r => r.factId), unknown = facts.filter(r => r.modality !== "PREFERRED" && (r.state === "UNKNOWN" || r.state === "FAILED" && rankingOnly(r))).map(r => r.factId);
+    const failed = facts.filter(r => (r.modality === "REQUIRED" || r.modality === "EXCLUDED") && r.state === "FAILED").map(r => r.factId), unknown = facts.filter(r => (r.modality === "REQUIRED" || r.modality === "EXCLUDED") && r.state !== "MET" && r.state !== "FAILED").map(r => r.factId);
     const unresolved = request.diagnostics.filter(d => d.code !== "UNUSED_ENTITY" && (d.code === "CROSS_BRANCH_BINDING" ? d.relatedIds.every(id => scenario.ids.includes(id)) : d.relatedIds.some(id => scenario.ids.includes(id))));
     const core = selected.some(f => !neutral(f) && !["PRICE", "TEMPORAL", "LOCATION"].includes(LIBRARIAN_FAMILY_STRATEGIES[f.key]));
     const status = failed.length ? "INELIGIBLE" : unknown.length || limited || unresolved.length || !core || best?.state.uncertain ? "PARTIAL" : "CONFIRMED";
@@ -687,26 +685,20 @@ function runLibrarianCatalogSearch(input: {
     });
     const catalogHash = contentHash(worlds.map(w => ({ spotId: w.spot.spotId, snapshotHash: w.snapshotHash })).sort((a, b) => a.spotId.localeCompare(b.spotId)));
     const hasScenarioVisitEvidence = (facts: readonly LibrarianFactAssessment[]) => {
-        // Every mandatory venue identity must be proved. A matching drink,
-        // mood or unrelated activity cannot substitute for a requested type.
-        const venue = facts.filter(assessment => {
-            const fact = request.facts.find(fact => fact.id === assessment.factId);
-            return fact && requestedLibrarianPlaceType(fact) !== null && assessment.modality === "REQUIRED";
-        });
-        if (venue.some(fact => fact.state !== "MET")) return false;
-        // Keep the existing source-use authorization gate for an excluded
-        // type. Missing labels are not proof of absence; an unapproved
-        // exclusion comparison cannot become a positive recommendation.
-        if (facts.some(f => f.modality === "EXCLUDED" && f.reason === "SPOT_TYPE_USE_NOT_AUTHORIZED")) return false;
-        const activity = facts.filter(f => ["experience.activity", "offer.kind"].includes(f.family) && f.modality !== "PREFERRED" && f.modality !== "EXCLUDED" && !["CONTEXT", "NOT_REQUIRED"].includes(f.state));
-        const positive = (f: LibrarianFactAssessment) => f.state === "MET" || f.state === "UNKNOWN" && (f.reason === "LEGACY_TYPED_DISCOVERY_SUPPORT" || f.reason === "CONDITIONS_OR_AVAILABILITY_UNKNOWN" && f.offerIds.length > 0);
-        return activity.length ? activity.some(positive) : facts.some(f => positive(f) && !["LOCATION", "TEMPORAL", "PRICE", "CONTEXT"].includes(LIBRARIAN_FAMILY_STRATEGIES[f.family as keyof typeof LIBRARIAN_FAMILY_STRATEGIES] ?? "CONTEXT"));
+        if (!librarianMandatoryEvidenceSatisfied(facts)) return false;
+        // Geography, time and price alone do not establish an experience.
+        return facts.some(f => f.state === "MET" && f.modality === "REQUIRED"
+            && !["LOCATION", "TEMPORAL", "PRICE", "CONTEXT"].includes(
+                LIBRARIAN_FAMILY_STRATEGIES[f.family as keyof typeof LIBRARIAN_FAMILY_STRATEGIES] ?? "CONTEXT"));
     };
-    const hasVisitEvidence = (c: LibrarianCandidate) => c.conditionalPlans.length
-        ? c.conditionalPlans.some(plan => plan.status !== "INELIGIBLE" && hasScenarioVisitEvidence(plan.facts))
-        : hasScenarioVisitEvidence(c.facts);
+    const hasVisitEvidence = (c: LibrarianCandidate) => c.status === "CONFIRMED"
+        && c.unknownFactIds.length === 0 && c.failedFactIds.length === 0
+        && (c.conditionalPlans.length
+            ? c.conditionalPlans.every(plan => plan.status === "CONFIRMED" && hasScenarioVisitEvidence(plan.facts))
+            : hasScenarioVisitEvidence(c.facts));
     const unresolved = candidates.filter(c => c.status !== "INELIGIBLE" && !hasVisitEvidence(c)).sort(compareCandidates);
-    const ranked = candidates.filter(c => c.status !== "INELIGIBLE" && hasVisitEvidence(c)).sort(compareCandidates).slice(0, limit), excluded = candidates.filter(c => c.status === "INELIGIBLE").sort(compareCandidates);
+    const ranked = candidates.filter(hasVisitEvidence).sort(compareCandidates).slice(0, limit);
+    const excluded = candidates.filter(c => c.status === "INELIGIBLE").sort(compareCandidates);
     const body = { unresolved, contractVersion: LIBRARIAN_MATCHING_VERSION, requestHash: request.requestHash, languageHash: semantics ? contentHash({ builtIn: LIBRARIAN_LANGUAGE.hash, worldLanguage: LIBRARIAN_WORLD_LANGUAGE_VERSION, placeTypes: LIBRARIAN_PLACE_TYPE_LANGUAGE, meaningRegistry: semantics.registry.registryHash }) : contentHash({ builtIn: LIBRARIAN_LANGUAGE.hash, worldLanguage: LIBRARIAN_WORLD_LANGUAGE_VERSION, placeTypes: LIBRARIAN_PLACE_TYPE_LANGUAGE }), catalogHash, evaluatedAt: input.authority.now, ranked, excluded, unresolvedFamilyKeys: sorted(candidates.flatMap(c => [...c.facts, ...c.conditionalPlans.flatMap(p => p.facts)].filter(f => f.state === "UNKNOWN").map(f => f.family))), conditionEvidenceHash: contentHash(input.conditionEvidence ?? []), conditionUnknownIds: sorted([...unknownConditions]) };
     return { result: deepFreeze({ ...body, resultHash: contentHash(body) }), worlds };
 }

@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@14" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@15" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 export const LIBRARIAN_LANGUAGE = deepFreeze({ version: LIBRARIAN_MATCHING_VERSION, concepts: EXPERIENCE_LANGUAGE_CONCEPTS, hash: contentHash(EXPERIENCE_LANGUAGE_DATA) });
@@ -12,9 +12,15 @@ export type LibrarianFamilyStrategy = "CONTEXT" | "TEMPORAL" | "PRICE" | "LOCATI
  * support produces UNKNOWN, never a replacement family or silent omission. */
 export const LIBRARIAN_FAMILY_STRATEGIES: Readonly<Record<LunaFactKey, LibrarianFamilyStrategy>> = Object.freeze(Object.fromEntries(Object.values(LUNA_LIBRARIAN_FACT_KEYS).flat().map(key => [key, inputOnly.has(key) ? "CONTEXT" : temporal.has(key) ? "TEMPORAL" : ["budget.maximum", "budget.target", "budget.amount"].includes(key) ? "PRICE" : ["location.destination", "location.country"].includes(key) ? "LOCATION" : ["experience.activity", "offer.kind", "offer.area", "offer.facility", "offer.feature", "participation.accessibility", "time.duration", "route.length", "offer.capacity"].includes(key) ? "STRUCTURED" : "SCOPED_PROPERTY"])) as Record<LunaFactKey, LibrarianFamilyStrategy>);
 
-/** These wishes affect ordering, never admission. Their evidence still stays
- * scoped to the requested offer and is never relabelled as confirmed. */
-export const librarianRankingOnlyFamily = (family: string, modality?: string, venueType = false): boolean =>
-    modality === "EXCLUDED" && !venueType
-    || family.startsWith("atmosphere.") || family.startsWith("amenity.")
-    || ["experience.character", "offer.area", "location.setting", "offer.feature", "offer.facility", "offer.shade", "condition.weather_protection", "time.duration"].includes(family);
+/** Only an explicit preference may affect ordering without blocking admission.
+ * Field families never override the modality supplied by the meaning plan. */
+export const librarianRankingPreference = (modality: string): boolean => modality === "PREFERRED";
+
+/** Shared admission invariant, checked again when building Product assessments.
+ * Context and NOT_REQUIRED are not duties; unsupported duties stay UNKNOWN. */
+export function librarianMandatoryEvidenceSatisfied(facts: readonly {
+    readonly modality: string; readonly state: string;
+}[]): boolean {
+    return facts.filter(f => f.modality === "REQUIRED" || f.modality === "EXCLUDED")
+        .every(f => f.state === "MET");
+}
