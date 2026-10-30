@@ -510,6 +510,11 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     deferredFunctionChanges,
     migrations,
     pendingMigrations,
+    // This approved migration predates the remote tip. Only the exact isolated
+    // scope may insert it; the CLI dry-run must still match the single SQL file.
+    migrationPushFlags: isolatedResearchScope
+      && JSON.stringify(pendingMigrations) === JSON.stringify([AREA_RESERVATION_MIGRATION])
+      ? ["--include-all"] : [],
     deferredMigrations,
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,

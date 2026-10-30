@@ -58,9 +58,10 @@ if test "${#planned_migrations[@]}" -gt 0; then
   if jq -e '.productPreappliedImport != null' "$plan_path" >/dev/null; then
     node scripts/deployment/verify-preapplied-product-ledger.mjs "$plan_path" deployment-audit/product-preapplied-ledger.json
   fi
-  "${migration_cli[@]}" db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
+  mapfile -t migration_push_flags < <(jq -r '.migrationPushFlags[]?' "$plan_path")
+  "${migration_cli[@]}" db push --dry-run "${migration_push_flags[@]}" 2>&1 | tee deployment-audit/migration-dry-run.txt
     node scripts/deployment/verify-supabase-migration-dry-run.mjs "$plan_path" deployment-audit/migration-dry-run.txt
-    "${migration_cli[@]}" db push --yes 2>&1 | tee deployment-audit/migration-apply.txt
+    "${migration_cli[@]}" db push --yes "${migration_push_flags[@]}" 2>&1 | tee deployment-audit/migration-apply.txt
   fi
 fi
 
