@@ -51,3 +51,13 @@ test("production cannot reintroduce broad barrels or synthetic initialization", 
     assert.throws(() => verifyEdgeDeployClosure(root), /edge_non_runtime_module/);
   }
 });
+
+test("Admin diagnostic closes over the same canonical runtime and its own import map", () => {
+  const root = fixture();
+  put(root, "supabase/functions/decision-admin-diagnostic/index.ts", 'import "../../../packages/decision-vnext-core/dist/admin-diagnostic.js"; import "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js"; import "../../../packages/decision-vnext-core/dist/product-decision.js";\n');
+  put(root, "supabase/functions/decision-admin-diagnostic/deno.json", JSON.stringify({ imports: { "@backyrd/user-intelligence-vnext-core": "../../../packages/user-intelligence-vnext-core/dist/server-runtime.js", "@backyrd/world-knowledge-core": "../../../packages/world-knowledge-core/dist/server-runtime.js" } }));
+  put(root, "packages/decision-vnext-core/dist/admin-diagnostic.js", "export const admin = true;\n");
+  assert.equal(verifyEdgeDeployClosure(root, "decision-admin-diagnostic").status, "PASS");
+  put(root, "packages/decision-vnext-core/dist/admin-diagnostic.js", 'import "./absent.js";\n');
+  assert.throws(() => verifyEdgeDeployClosure(root, "decision-admin-diagnostic"), /edge_import_unresolved/);
+});

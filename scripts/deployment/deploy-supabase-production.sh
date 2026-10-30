@@ -69,7 +69,7 @@ mapfile -t functions < <(jq -r '.functions[] | select(.deploy) | .slug' "$plan_p
 for slug in "${functions[@]}"; do
   verify_jwt="$(jq -r --arg slug "$slug" '.functions[] | select(.slug==$slug) | .verifyJwt' "$plan_path")"
   args=(functions deploy "$slug" --project-ref hjgcrrzfjchzqoegcywn --use-api)
-  if test "$slug" = "decision-v13" || test "$slug" = "decision-engine-worker"; then
+  if test "$slug" = "decision-v13" || test "$slug" = "decision-engine-worker" || test "$slug" = "decision-admin-diagnostic"; then
     test -n "${BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR:-}" || { echo "verified Product release artifact directory required" >&2; exit 1; }
     entrypoint="index.ts"
     if test "$slug" = "decision-v13"; then entrypoint="index.deploy.ts"; fi

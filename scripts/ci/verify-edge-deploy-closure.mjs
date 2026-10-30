@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const ENTRYPOINTS = Object.freeze({
+  "decision-admin-diagnostic": "supabase/functions/decision-admin-diagnostic/index.ts",
   "decision-v13": "supabase/functions/decision-v13/index.deploy.ts",
   "decision-engine-worker": "supabase/functions/decision-engine-worker/index.ts",
 });
@@ -16,7 +17,7 @@ export function verifyEdgeDeployClosure(bundleRoot, slug = "decision-v13") {
   const entrypoint = ENTRYPOINTS[slug];
   requireValue(entrypoint, "edge_function_slug_invalid");
   const configPath = resolve(root, `supabase/functions/${slug}/deno.json`);
-  const imports = slug === "decision-v13" ? (JSON.parse(readFileSync(configPath, "utf8")).imports ?? {}) : {};
+  const imports = slug !== "decision-engine-worker" ? (JSON.parse(readFileSync(configPath, "utf8")).imports ?? {}) : {};
   requireValue(typeof imports === "object" && !Array.isArray(imports), "edge_import_map_invalid");
   const visited = new Set();
   const queue = [resolve(root, entrypoint)];
@@ -26,7 +27,7 @@ export function verifyEdgeDeployClosure(bundleRoot, slug = "decision-v13") {
     requireValue(path && path !== ".." && !path.startsWith(`..${sep}`), `edge_import_outside_artifact:${path}`);
     requireValue(existsSync(file), `edge_import_unresolved:${path}`);
     if (visited.has(path)) continue;
-    if (slug === "decision-v13") {
+    if (slug !== "decision-engine-worker") {
       // Production may use the canonical implementations, never initialize
       // the historical package barrels or synthetic evaluation modules.
       requireValue(!/^packages\/(?:world-knowledge-core|user-intelligence-vnext-core)\/dist\/index\.js$/.test(path)
@@ -44,8 +45,8 @@ export function verifyEdgeDeployClosure(bundleRoot, slug = "decision-v13") {
       queue.push(target);
     }
   }
-  const requiredModules = slug === "decision-v13" ? [
-    "supabase/functions/decision-v13/vnext-only.ts",
+  const requiredModules = slug !== "decision-engine-worker" ? [
+    ...(slug === "decision-v13" ? ["supabase/functions/decision-v13/vnext-only.ts"] : ["packages/decision-vnext-core/dist/admin-diagnostic.js"]),
     "packages/decision-vnext-core/dist/product-decision-production-adapter.js",
     "packages/decision-vnext-core/dist/product-decision.js",
     "packages/user-intelligence-vnext-core/dist/server-runtime.js",

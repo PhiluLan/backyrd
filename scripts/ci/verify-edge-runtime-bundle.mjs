@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds = 90_000, slug = "decision-v13" } = {}) {
   const root = resolve(bundleRoot);
-  if (!["decision-v13", "decision-engine-worker"].includes(slug)) throw new Error("edge_function_slug_invalid");
+  if (!["decision-v13", "decision-engine-worker", "decision-admin-diagnostic"].includes(slug)) throw new Error("edge_function_slug_invalid");
   const child = spawn("supabase", ["--workdir", root, "functions", "serve", slug, "--no-verify-jwt"], {
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -29,6 +29,9 @@ export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds 
           }
           if (slug === "decision-engine-worker" && response.status === 503 && body?.error === "server_configuration_missing") {
             return { status: "PASS", slug, httpStatus: 503, workerStatus: body.error };
+          }
+          if (slug === "decision-admin-diagnostic" && response.status === 503 && body?.error === "diagnostic_configuration_unavailable") {
+            return { status: "PASS", slug, httpStatus: 503, diagnosticStatus: body.error };
           }
           throw new Error(`edge_runtime_unexpected_response:${response.status}:${JSON.stringify(body).slice(0, 400)}`);
         }
