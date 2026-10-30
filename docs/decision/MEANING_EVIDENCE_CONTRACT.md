@@ -90,5 +90,11 @@ prior report's explanation of a missing conversation record is corrected;
 the historical real-call exports are preserved as evidence of the fault.
 
 Matching is version 18 and World experience language version 9. Consumer
-decision-v13 remains v217. The existing isolated SQL release authority still
-blocks a changed engine artifact; it was not widened by this work.
+decision-v13 remains v217 pending publication. The Founder subsequently asked
+to remove obsolete release/diagnostic obstacles. `codeOnlyDeliveryScope` now
+allows tested Function changes independently of the historical isolated SQL
+release. It applies no migrations or Auth changes, retains the four exact
+deferred Booking migrations, and does not need a new backup confirmation or an
+unrelated historical deep-recertification run. Exact current-artifact tests,
+identity checks, JWT verification and source-aware deployment remain binding.
+Regular backups continue; this code delivery does not perform a database write.

@@ -44,6 +44,12 @@ jobs:
       - name: Require a recent green deep recertification
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
+          # A code-only release is certified against its exact current artifact.
+          # Do not additionally depend on an unrelated historical nightly run.
+          # The planner below rejects SQL/Auth/retirement in this delivery mode.
+          if jq -e '.codeOnlyDeliveryScope != null' delivery/product-authority-v1.json >/dev/null; then
+            exit 0
+          fi
           # GitHub's Actions API occasionally returns transient 503/504 errors.
           # Retry only the read; every release invariant below remains mandatory.
           latest=""
