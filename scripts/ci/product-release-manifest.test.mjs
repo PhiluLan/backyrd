@@ -326,3 +326,16 @@ test("iOS-only certification preserves pending SQL without granting backend deli
   put(output,`bundle/${path}`,"tampered pending SQL\n");
   assert.throws(()=>verifyProductReleaseManifest({...verify,expectedDeliveryTarget:"IOS_OTA"}),/release_artifact_file_mismatch/);
 });
+
+test("Admin diagnostic source is sealed in the deployable Product artifact", () => {
+  const { root, base } = fixture();
+  put(root, "supabase/functions/decision-admin-diagnostic/index.ts", "export const diagnostic = true;\n");
+  const head = commit(root, "add Admin diagnostic");
+  const output = join(root, "release");
+  const identity = resolveProductReleaseIdentity({ root, mode: "PR_CANDIDATE", sourceSha: head, baseSha: base, checkoutSha: head, canonicalMainSha: base });
+  const manifest = buildProductReleaseManifest({ root, sourceSha: head, outputDir: output, mobileBundle: join(root, "mobile-export"), identity, testEvidence: buildProductReleaseTestEvidence({ root, sourceSha: head }), productionPlan: plan(base, head) });
+  assert.ok(manifest.components.productRuntime.some(entry => entry.path === "supabase/functions/decision-admin-diagnostic/index.ts"));
+  assert.equal(verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, checkoutRoot: root }).manifestHash, manifest.manifestHash);
+  put(output, "bundle/supabase/functions/decision-admin-diagnostic/index.ts", "tampered");
+  assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_artifact_file_mismatch/);
+});
