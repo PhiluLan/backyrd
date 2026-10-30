@@ -492,3 +492,8 @@ entrypoint = "./functions/semantic-bridge-decision/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/enrich-spot-description/index.ts"
+
+[functions.decision-admin-diagnostic]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/decision-admin-diagnostic/index.ts"

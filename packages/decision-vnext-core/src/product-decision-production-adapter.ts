@@ -508,7 +508,7 @@ export function createDecisionProductLibrarianRpcEvaluationProvider(
 }
 
 /** Canonical Product composition over service-only World/User RPCs. */
-export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient, options: { readonly meaningRequired: boolean } = { meaningRequired: false }): DecisionProductCanonicalEvaluationProvider {
+export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient, options: { readonly meaningRequired: boolean; readonly onSearch?: (result: LibrarianSearchResult) => void } = { meaningRequired: false }): DecisionProductCanonicalEvaluationProvider {
   type Prepared = Awaited<ReturnType<typeof readDecisionProductRuntimeContext>>;
   const prepared = new WeakMap<DecisionProductRequest, {
     readonly bindingHash: string; readonly city: string; readonly signal: AbortSignal;
@@ -553,7 +553,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       if (input.meaning) {
         if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
         const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
-        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], eventOccurrences: context.eventOccurrences, authority: { authorizedCity: targetCity, serverTime }, projection }));
+        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], eventOccurrences: context.eventOccurrences, authority: { authorizedCity: targetCity, serverTime }, projection, ...(options.onSearch ? {onSearch: options.onSearch} : {}) }));
         return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: evaluated.evaluation.worldCohort.candidateSetHash }) }, evaluatorContractVersion: evaluated.evaluation.evaluatorVersion };
       }
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];

@@ -160,12 +160,14 @@ export function evaluateLibrarianProduct(input: {
   readonly request: DecisionProductRequest; readonly meaning: LibrarianRequest;
   readonly catalog: readonly unknown[]; readonly eventOccurrences?: unknown; readonly authority: { readonly authorizedCity: string; readonly serverTime: string };
   readonly projection: RelevantUserProjection;
+  readonly onSearch?: (result: ReturnType<typeof searchLibrarianCatalogWithWorlds>["result"]) => void;
 }) {
   const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.meaning.raw, sourceText: input.meaning.source.sourceText, reference: input.meaning.source.reference });
   if (meaning.source.sourceText !== input.request.naturalLanguage || meaning.requestHash !== input.meaning.requestHash) throw new Error("product_librarian_source_binding_invalid");
   if (librarianTargetCity(input.request, meaning) !== input.authority.authorizedCity) throw new Error("product_librarian_city_binding_invalid");
   const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime) : [];
   const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime }, limit: 1500 });
+  input.onSearch?.(result);
   const byId = new Map(worlds.map(w => [w.spot.spotId, w]));
   const ids = [...byId.keys()].sort();
   if (!ids.length) throw new Error("product_world_candidate_set_invalid");

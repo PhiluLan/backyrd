@@ -6,7 +6,7 @@ import { contentHash } from "../dist/canonical.js";
 import { reference, authority } from "./librarian-matching-fixtures.mjs";
 const baseActor = {userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
 const identity = {releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};
-export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[],userId=baseActor.userId}) {
+export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[],userId=baseActor.userId,onSearch}) {
   const actor={...baseActor,userId};
   let calls=0,reads=0,stored,diagnostics=[];
   const provider=createDecisionProductLunaProvider({apiKey:'synthetic-key',now:()=>new Date(reference.now),fetchImpl:fetchImpl??(async(_url,options)=>{
@@ -17,7 +17,7 @@ export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel
   const rpc={async rpc(name,parameters){reads++;assert.equal(name,request.includeEvents === true ? 'backyrd_decision_vnext_product_context_v6' : 'backyrd_decision_vnext_product_context_v5');assert.equal(parameters.p_auth_user_id,actor.userId);assert.equal(JSON.stringify(parameters).includes(text),false);
     return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',serverTime:authority.now,worldSnapshots:catalog,...(request.includeEvents === true ? {eventOccurrences} : {})}};
   }};
-  const evaluation=createDecisionProductRpcEvaluationProvider(rpc,{meaningRequired:true});
+  const evaluation=createDecisionProductRpcEvaluationProvider(rpc,{meaningRequired:true,...(onSearch?{onSearch}:{})});
   const handler=createDecisionProductHttpHandler({
     auth:{async authenticate(){return auth?actor:null;}},rateLimit:{async consume(){return true;}},control:{timeoutMilliseconds:2000,maxRequestBytes:16384,async assertBoundary(){}},
     understand:understandOverride??(prefetch ? async(request,actor,signal)=>{
