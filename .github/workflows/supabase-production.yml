@@ -159,7 +159,8 @@ jobs:
           if jq -e '.productPreappliedImport != null' supabase-production-plan.json >/dev/null; then
             node scripts/deployment/verify-preapplied-product-ledger.mjs supabase-production-plan.json product-preapplied-ledger-audit.json
           fi
-          "${migration_cli[@]}" db push --dry-run 2>&1 | tee production-migration-dry-run.txt
+          mapfile -t migration_push_flags < <(jq -r '.migrationPushFlags[]?' supabase-production-plan.json)
+          "${migration_cli[@]}" db push --dry-run "${migration_push_flags[@]}" 2>&1 | tee production-migration-dry-run.txt
           node scripts/deployment/verify-supabase-migration-dry-run.mjs supabase-production-plan.json production-migration-dry-run.txt
       - name: Retain deployment plan and gate audit
         if: always()

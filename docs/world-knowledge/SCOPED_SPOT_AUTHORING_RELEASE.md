@@ -594,3 +594,14 @@ found AREA booking and missing age notes mismatches. After write normalization
 and the exact area migration all 362 pass. Run the area-reservation and universal
 catalog SQL authorization suites in the same isolated environment, then roll back.
 Never insert synthetic verification claims into production.
+
+## Applying the deferred area reservation correction
+
+The approved `20261024171707_scoped_area_reservation_rules_v1.sql` predates the
+current remote migration tip. The isolated plan therefore seals
+`migrationPushFlags: ["--include-all"]` only while this exact migration is pending.
+Both preflight and application use those same flags. The scoped workspace still
+excludes the four Booking migrations, and dry-run output must list exactly the
+approved file before any SQL is applied. Once a verified receipt is recorded, the
+flag and pending migration disappear. No migration is renamed or marked applied
+without execution.
