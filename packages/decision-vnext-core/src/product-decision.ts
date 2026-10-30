@@ -1,3 +1,4 @@
+import { LIBRARIAN_EVALUATOR_VERSIONS } from "./product-librarian-language.js";
 import { isEventCandidateId } from "./product-event-candidates.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
 import { Buffer } from "node:buffer";
@@ -237,7 +238,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const situation = evaluation.interpretation.group.companionType;
   const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
     && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
-  const situationalIds = ["decision-vnext-librarian-evaluator@1", "decision-vnext-librarian-evaluator@3", "decision-vnext-librarian-evaluator@4", "decision-vnext-librarian-evaluator@5", "decision-vnext-librarian-evaluator@6", "decision-vnext-librarian-evaluator@7"].includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
+  const situationalIds = LIBRARIAN_EVALUATOR_VERSIONS.includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
     situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );

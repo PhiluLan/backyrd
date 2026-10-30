@@ -2,6 +2,17 @@ import { SPOT_TYPE_CATALOG, OFFER_CATALOG, AREA_CATALOG } from "./spot-catalog.j
 /** Finite product concepts, not a German-language parser. Exact labels only;
  * whole prose, substring similarity and model confidence are never truth. */
 export const librarianTerm = (text: string): string => text.normalize("NFKC").trim().toLocaleLowerCase("de-CH").replace(/\s+/gu, " ");
+/** Boundary normalization of established catalogue values. A recommendation
+ * and an obligation are different modes, not synonyms of spontaneous access. */
+export type ExperienceBookingMode = "NOT_REQUIRED" | "RECOMMENDED" | "REQUIRED" | "CONDITIONAL";
+const bookingLabels: Readonly<Record<ExperienceBookingMode, readonly string[]>> = {
+    NOT_REQUIRED: ["NOT_REQUIRED", "Nicht erforderlich", "Keine Reservation nötig", "Keine Reservierung nötig", "Ohne Reservation", "Ohne Reservierung", "Ohne Buchung", "Keine Reservation möglich", "not required", "no reservation required", "walk-in", "walk in", "spontaneous", "Spontan", "sans réservation"],
+    RECOMMENDED: ["RECOMMENDED", "Empfohlen", "Reservation empfohlen", "Reservierung empfohlen", "Buchung empfohlen", "reservation recommended", "booking recommended", "réservation conseillée"],
+    REQUIRED: ["REQUIRED", "Erforderlich", "Reservation erforderlich", "Reservierung erforderlich", "Buchung erforderlich", "Anmeldung erforderlich", "booking_required", "reservation required", "booking required", "réservation obligatoire"],
+    CONDITIONAL: ["CONDITIONAL", "Bedingt", "bedingt erforderlich", "conditional"],
+};
+const bookingByLabel = new Map(Object.entries(bookingLabels).flatMap(([mode, labels]) => labels.map(label => [librarianTerm(label), mode as ExperienceBookingMode] as const)));
+export const experienceBookingMode = (value: unknown): ExperienceBookingMode | null => typeof value === "string" ? bookingByLabel.get(librarianTerm(value)) ?? null : null;
 export type LibrarianConcept = {
     readonly id: string;
     readonly labels: readonly string[];
@@ -119,7 +130,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@9" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@10" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),
@@ -167,4 +178,4 @@ for (const values of Object.values(WORLD_OFFER_CONCEPTS))
     Object.freeze(values);
 Object.freeze(WORLD_VALUE_LABELS);
 Object.freeze(WORLD_OFFER_CONCEPTS);
-export const EXPERIENCE_LANGUAGE_DATA = Object.freeze({ version: EXPERIENCE_LANGUAGE_VERSION, catalogue: {places:SPOT_TYPE_CATALOG,offers:OFFER_CATALOG,areas:AREA_CATALOG}, concepts, worldValueLabels: WORLD_VALUE_LABELS, worldOfferConcepts: WORLD_OFFER_CONCEPTS, activityRelations: EXPERIENCE_ACTIVITY_RELATIONS, offeringConcepts:OFFER_CONCEPTS, areaConcepts:AREA_CONCEPTS, booleanConcepts:BOOLEAN_CONCEPTS });
+export const EXPERIENCE_LANGUAGE_DATA = Object.freeze({ version: EXPERIENCE_LANGUAGE_VERSION, catalogue: {places:SPOT_TYPE_CATALOG,offers:OFFER_CATALOG,areas:AREA_CATALOG}, concepts, bookingModes: bookingLabels, worldValueLabels: WORLD_VALUE_LABELS, worldOfferConcepts: WORLD_OFFER_CONCEPTS, activityRelations: EXPERIENCE_ACTIVITY_RELATIONS, offeringConcepts:OFFER_CONCEPTS, areaConcepts:AREA_CONCEPTS, booleanConcepts:BOOLEAN_CONCEPTS });

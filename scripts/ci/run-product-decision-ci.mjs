@@ -13,6 +13,7 @@ const productTests = [
   "packages/decision-vnext-core/test/librarian-runtime-imports.test.mjs",
   "packages/decision-vnext-core/test/librarian-required-evidence.test.mjs",
   "packages/decision-vnext-core/test/librarian-semantic-improvements.test.mjs",
+  "packages/decision-vnext-core/test/librarian-domain-evaluation.test.mjs",
 ];
 
 function run(label, command, args) {

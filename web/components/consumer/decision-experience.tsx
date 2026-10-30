@@ -367,7 +367,7 @@ export function DecisionExperience() {
         ) : status === "empty" ? (
           <StateView
             title="Noch kein passender Treffer"
-            message="Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Streiche wichtige Bedingungen nicht nur für einen Treffer."
+            message={run?.limitations.includes("REQUEST_NEEDS_CLARIFICATION") ? "Ergänze bitte ein Budget pro Person, zum Beispiel bis 40 CHF. So können wir die Preise zu deinem Wunsch prüfen." : run?.limitations.includes("REQUEST_REQUIREMENT_UNSUPPORTED") ? "Einen Teil deines Wunsches können wir noch nicht zuverlässig prüfen. Das bedeutet nicht, dass es keinen passenden Ort gibt." : "Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Streiche wichtige Bedingungen nicht nur für einen Treffer."}
             actionLabel="Auswahl anpassen"
             onAction={() => setStatus("input")}
           />
