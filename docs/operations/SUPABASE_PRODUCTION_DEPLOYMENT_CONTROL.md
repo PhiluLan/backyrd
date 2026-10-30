@@ -51,3 +51,28 @@ After an audited Production deployment, update the shipped baseline from the
 actual deployment result in a separate evidence change. Do not advance it in
 anticipation of deployment. World-Admin authoring is a separate default-OFF
 control; Decision Product remains OFF until its own release gate passes.
+
+
+## 2026-10-30 code-only Decision delivery
+
+`codeOnlyDeliveryScope` in `delivery/product-authority-v1.json` permits only
+`decision-v13` and `decision-admin-diagnostic` updates while the four exact Booking
+migrations remain deferred. New SQL, Auth changes, unrelated Functions and JWT
+relaxations are rejected. This scope requires current artifact tests and a sealed
+POST_MERGE_MAIN PRODUCT artifact; the old deep-nightly age and database backup /
+linked dry-run dependency do not apply when pending SQL is empty and Auth is unchanged.
+Regular scheduled backups continue. This does not grant any new database authority.
+
+Both Functions deploy from the same sealed artifact, including the Admin diagnostic
+entrypoint, import map and compiled canonical core. Its import closure and actual
+Edge Runtime startup are checked before deployment. The Admin diagnostic retains
+verified login, Admin authorization and runtime control, but does not consume a
+minute/day test quota or expire on a calendar date. Consumer quotas are unchanged.
+
+The audited Main `a7481daf9334a29acd8dcdf660f24f1e34ce95ca` release is recorded in
+`supabase.codeOnlyDecisionRelease` in the production-state ledger. It is a code-only
+receipt and does not advance the full shipped database baseline. The authenticated
+post-deployment bar/conversation control confirmed Volta Bräu and Alchemist with
+all mandatory facts proven. A separate presentation follow-up remains: the Volta
+selected-offer reason uses the label “Führung”, which is not a useful explanation
+for this bar request. No Spot or learning data were changed by the control.
