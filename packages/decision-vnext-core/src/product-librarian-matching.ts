@@ -1,5 +1,5 @@
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
-import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
+import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianPropertySourceKeys } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
@@ -19,6 +19,13 @@ export type LibrarianFactAssessment = {
     readonly evidenceHashes: readonly string[];
     readonly offerIds: readonly string[];
     readonly areaIds: readonly string[];
+    readonly propertyRead?: {
+        readonly sourceKeys: readonly string[];
+        readonly observedKeys: readonly string[];
+        readonly knownValueChecks: number;
+        readonly unknownValueChecks: number;
+        readonly outsideConditionChecks: number;
+    };
 };
 export type LibrarianCandidate = {
     readonly spotId: string;
@@ -128,7 +135,6 @@ function collectFacts(node: LunaExpression): readonly string[] {
         return sorted([...collectFacts(node.then), ...(node.else ? collectFacts(node.else) : [])]);
     return sorted((node.kind === "FALLBACK" ? node.options : node.children).flatMap(collectFacts));
 }
-const semanticPropertyKeys: Readonly<Record<string, readonly string[]>> = { "atmosphere.conversation": ["atmosphere.character"], "participation.entry_mode": ["participation.booking"], "experience.activity": ["experience.activity", "food.drink"] , "food.drink": ["food.drink", "experience.activity"], "experience.character": ["atmosphere.character"], "offer.facility": ["offer.feature"], "offer.kind": ["offer.kind", "stay.room_type"], "offer.area": ["offer.area", "location.setting"], "participation.accessibility": ["participation.accessibility", "amenity.step_free", "amenity.stroller"], "offer.feature": ["offer.feature", "atmosphere.music", "experience.activity", ...Object.keys(BOOLEAN_CONCEPTS)], "atmosphere.music": ["atmosphere.music", "experience.activity"], "condition.children": ["condition.children", "experience.activity"] };
 /** Catalogued offer duties may arrive in a domain family. Preserve the
  * emitted family; only establish which typed offer can witness it. Specific
  * drinks (wine, beer, etc.) still need their own property evidence. */
@@ -236,7 +242,8 @@ function profileFor(world: ProductWorldView, visit: VisitWindow, now: string): {
     return { profile: parseExperienceProfile(row.value), hash: row.entryHash };
 }
 function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorldView, profile: ExperienceProfile | null, profileHash: string | null, visit: VisitWindow, preferenceOnly = false, semantics: LibrarianSemanticIndex | null = null, offerAvailability = librarianOfferAvailability): Atom {
-    const report = (state: LibrarianFactAssessment["state"], reason: string, witnesses: readonly Witness[] = []): Atom => ({ report: { factId: fact.id, family: fact.key, modality: preferenceOnly ? "PREFERRED" : fact.modality, state, reason, evidenceHashes: sorted(witnesses.flatMap(w => w.evidenceHashes)), offerIds: sorted(witnesses.flatMap(w => w.offerIds)), areaIds: sorted(witnesses.flatMap(w => w.areaIds)) }, witnesses });
+    let propertyRead: LibrarianFactAssessment["propertyRead"];
+    const report = (state: LibrarianFactAssessment["state"], reason: string, witnesses: readonly Witness[] = []): Atom => ({ report: { factId: fact.id, family: fact.key, modality: preferenceOnly ? "PREFERRED" : fact.modality, state, reason, evidenceHashes: sorted(witnesses.flatMap(w => w.evidenceHashes)), offerIds: sorted(witnesses.flatMap(w => w.offerIds)), areaIds: sorted(witnesses.flatMap(w => w.areaIds)), ...(propertyRead ? {propertyRead} : {}) }, witnesses });
     if (fact.modality === "NOT_REQUIRED")
         return report("NOT_REQUIRED", "NO_MATCHING_DUTY");
     if (contextual(fact))
@@ -334,12 +341,18 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                     add("MET", offer, area.id, area, offer.kind === "VISIT" && offer.areaIds.length > 1);
             }
     }
-    const keys = sorted([...(semanticPropertyKeys[fact.key] ?? [fact.key]), ...(semantics?.sourceKeys(fact) ?? [])]);
+    const keys = librarianPropertySourceKeys(fact.key, semantics?.sourceKeys(fact));
+    const observedKeys = new Set<string>();
+    let knownValueChecks = 0, unknownValueChecks = 0, outsideConditionChecks = 0;
     const inspect = (properties: readonly ExperienceProperty[], offer: ExperienceOffer | null, areaId: string | null, areaScoped = false) => {
         for (const property of properties.filter(p => keys.includes(p.key))) {
+            observedKeys.add(property.key);
             const condition = librarianConditions(property.conditions, visit);
-            if (condition === "FAILED")
+            if (condition === "FAILED") {
+                outsideConditionChecks++;
                 continue;
+            }
+            if (property.state === "KNOWN") knownValueChecks++; else unknownValueChecks++;
             const translated = semantics?.resolve(fact, property);
             const offeredActivity = typeof property.value === "string" ? librarianConcept(property.value) : null;
             const derivedActivity = fact.key === "experience.activity" && property.key === "experience.activity"
@@ -359,6 +372,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         else
             inspect(area.properties, null, area.id, true);
     }
+    propertyRead = {sourceKeys: keys, observedKeys: sorted([...observedKeys]), knownValueChecks, unknownValueChecks, outsideConditionChecks};
     const unique = (rows: readonly Witness[]) => [...new Map(rows.map(w => [contentHash(w), w])).values()];
     if (fact.modality === "EXCLUDED") {
         const certainAbsences = negatives.filter(n => !positives.some(p => contentHash(n.assignments) === contentHash(p.assignments)));
@@ -374,7 +388,10 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         return report("MET", "SCOPED_EVIDENCE_CONFIRMED", unique(positives));
     if (negatives.length && !uncertain.length)
         return report("FAILED", "SCOPED_REQUIREMENT_CONTRADICTED", unique(negatives));
-    return report("UNKNOWN", uncertain.length ? "CONDITIONS_OR_AVAILABILITY_UNKNOWN" : "FAMILY_OR_VALUE_NOT_PROVEN", unique(uncertain));
+    const unresolvedReason = !observedKeys.size ? "PROPERTY_FAMILY_NOT_RECORDED"
+        : !knownValueChecks && outsideConditionChecks && !unknownValueChecks ? "PROPERTY_OUTSIDE_REQUESTED_CONDITIONS"
+        : !knownValueChecks ? "PROPERTY_VALUE_NOT_KNOWN" : "PROPERTY_VALUE_NOT_PROVEN";
+    return report("UNKNOWN", uncertain.length ? "CONDITIONS_OR_AVAILABILITY_UNKNOWN" : unresolvedReason, unique(uncertain));
 }
 function countPeople(facts: readonly LibrarianFact[], request: LibrarianRequest): number | null {
     const counts = facts.filter(f => f.key === "people.count" && !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.value.kind === "COUNT" && f.value.operator === "EQ");

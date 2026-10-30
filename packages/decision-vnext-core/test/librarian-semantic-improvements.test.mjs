@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {declaredExperienceConcepts,librarianConcept,EXPERIENCE_LANGUAGE_CONCEPTS} from '@backyrd/world-knowledge-core';
+import {declaredExperienceConcepts,librarianConcept,EXPERIENCE_LANGUAGE_CONCEPTS,EXPERIENCE_QUESTIONS} from '@backyrd/world-knowledge-core';
+import {LUNA_LIBRARIAN_FACT_KEYS} from '../dist/product-luna-librarian-assets.js';
+import {librarianPropertySourceKeys} from '../dist/product-librarian-language.js';
 import {fact,request,profile,offer,area,prop,binding as originalBinding,search,meal,date,evening,price,worldFact} from './librarian-matching-fixtures.mjs';
 import {exercise} from './librarian-active-route-fixtures.mjs';
 const binding=(id,p)=>{const b=originalBinding(id,p);return {...b,decisionProjection:{...b.decisionProjection,facts:b.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,[({SPORT:'SPORTS_CENTRE',ACTIVITIES_PLAY:'ESCAPE_ROOM',WELLNESS_RELAXATION:'SAUNA',OUTDOOR_NATURE:'PARK'})[p.category]??p.category]):f)}};};
@@ -25,6 +27,56 @@ test('conversation uses explicit scoped atmosphere evidence, never quiet or anot
  assert.equal(state(search(q,[quiet]),'talk'),'UNKNOWN');
  const split=binding(983,profile([offer('lunch','LUNCH',['inside'])],[area('inside'),area('other',[prop('atmosphere.character','Unterhaltung gut möglich')])]));
  assert.equal(search(q,[split]).ranked.length,0);
+});
+
+test('the real conversation field survives aliases and reaches HTTP ranking',async()=>{
+ const q=request([fact('bar','offer.kind','BAR'),fact('cozy','atmosphere.character','cozy'),fact('talk','atmosphere.conversation','conversation'),fact('occasion','experience.occasion','erstes Date','CONTEXT')]);
+ const p=profile([offer('drink','DRINKS')],[area('inside',[prop('atmosphere.character','gemütlich'),prop('atmosphere.conversation','Unterhaltung gut möglich')])],'BAR');
+ const b=binding(990,p),r=search(q,[b]);
+ assert.equal(r.ranked.length,1);
+ const talk=candidate(r).facts.find(f=>f.factId==='talk');
+ assert.equal(talk.state,'MET');assert.ok(talk.propertyRead.observedKeys.includes('atmosphere.conversation'));
+ const http=await exercise({text:'Gemütliche Bar fürs erste Date, gut unterhalten können',meaning:q,catalog:[b]});
+ assert.equal(http.status,200);assert.equal(http.body.primaryCandidateId,b.decisionProjection.spotId);
+ assert.deepEqual(http.body.candidates[0].unknownHardConstraints,[]);
+});
+
+test('all request families retain their own source field when aliases or accepted links exist',()=>{
+ for(const key of Object.values(LUNA_LIBRARIAN_FACT_KEYS).flat()){
+  assert.ok(librarianPropertySourceKeys(key).includes(key),key);
+  assert.ok(librarianPropertySourceKeys(key,['custom.detail']).includes(key),key);
+ }
+});
+
+// Authoring -> request -> matching: exercise actual catalogue fields, not a
+// second hand-written list of expected property names.
+for(const question of EXPERIENCE_QUESTIONS.filter(q=>q.control==='TEXT'&&LUNA_LIBRARIAN_FACT_KEYS.TEXT.includes(q.key)))test(`authoring field roundtrip: ${question.key}`,()=>{
+ const value=['stay.check_in','stay.check_out'].includes(question.key)?'14:00':'Belegter Prüfwert';
+ const property=prop(question.key,value),scope=question.scopes.includes('SPOT')?'SPOT':question.scopes.includes('OFFER')?'OFFER':'AREA';
+ const p=profile([offer('dinner','DINNER',['inside'],scope==='OFFER'?[property]:[])],[area('inside',scope==='AREA'?[property]:[])]);
+ if(scope==='SPOT')p.properties=[property];
+ const r=search(request([fact('value',question.key,value)]),[binding(991,p)]);
+ assert.equal(state(r,'value'),'MET',JSON.stringify(candidate(r).facts));
+ assert.equal(r.ranked.length,1);
+ for(const [valueState,stored] of [['KNOWN',value==='14:00'?'15:00':'Anderer Prüfwert'],['UNKNOWN',null],['NOT_APPLICABLE',null]]){
+  const changed=structuredClone(p),properties=scope==='SPOT'?changed.properties:scope==='OFFER'?changed.offers[0].properties:changed.areas[0].properties;
+  properties[0]={...property,state:valueState,value:stored};
+  const unsupported=search(request([fact('value',question.key,value)]),[binding(991,changed)]);
+  assert.equal(state(unsupported,'value'),'UNKNOWN',`${question.key}: ${valueState}`);
+  assert.equal(unsupported.ranked.length,0);
+ }
+});
+
+test('conversation evidence distinguishes absence, unreadable meaning, unknown values and visit conditions',()=>{
+ const q=request([fact('talk','atmosphere.conversation','conversation')]);
+ const evaluate=properties=>candidate(search(q,[binding(992,profile([offer()],[area('inside',properties)]))])).facts[0];
+ assert.equal(evaluate([]).reason,'PROPERTY_FAMILY_NOT_RECORDED');
+ assert.equal(evaluate([prop('atmosphere.conversation',null,{state:'UNKNOWN'})]).reason,'PROPERTY_VALUE_NOT_KNOWN');
+ assert.equal(evaluate([prop('atmosphere.conversation','Besonders')]).reason,'PROPERTY_VALUE_NOT_PROVEN');
+ const dated=request([fact('talk','atmosphere.conversation','conversation'),date()]);
+ const excluded=prop('atmosphere.conversation','Unterhaltung gut möglich',{conditions:{weekdays:[1],dayparts:[],event:null,validFrom:null,validUntil:null}});
+ const r=search(dated,[binding(993,profile([offer()],[area('inside',[excluded])]))]);
+ assert.equal(candidate(r).facts.find(f=>f.factId==='talk').reason,'PROPERTY_OUTSIDE_REQUESTED_CONDITIONS');
 });
 
 test('entry-mode and booking share exact meaning without admitting a required reservation',()=>{

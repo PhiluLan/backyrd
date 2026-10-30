@@ -180,3 +180,14 @@ the approved date-bound quota change. Bundle hash:
 The 30 October global count is 42, with one earlier blocked attempt. Counters,
 operation identity, minute caps, auth/admin checks and expiry remain unchanged;
 the daily cap returns to 20 on 31 October UTC. No further model calls were made.
+
+## Native field audit and correction
+
+The conversation case exposed an error in the earlier explanation: Volta Bräu
+already records `Unterhaltung gut möglich` in its actual conversation fields.
+The additive-family map incorrectly replaced that native field, producing a
+false UNKNOWN. Strict admission did not fix that upstream reading error.
+`MEANING_EVIDENCE_CONTRACT.md` specifies the corrected general rules, the
+source-field preservation invariant, all-field roundtrip tests and the exact
+ten-case recorded-output replay. This supersedes the earlier missing-data
+explanation for this case. Historical live exports remain unchanged.
