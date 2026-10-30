@@ -149,6 +149,11 @@ jobs:
           NODE
           fi
           supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json | jq -e '.[] | select(.slug=="decision-v13" and .status=="ACTIVE" and .verify_jwt==true)'
+          # Function-only releases have no database operation and need neither
+          # a migration connection/dry-run nor a new backup approval.
+          if jq -e '.codeOnlyDeliveryScope != null and (.pendingMigrations | length) == 0 and (.authConfig.deploy // false) == false' supabase-production-plan.json >/dev/null; then
+            exit 0
+          fi
           migration_cli=(supabase)
           if jq -e '.isolatedResearchScope != null or .isolatedVoltaScope != null' supabase-production-plan.json >/dev/null; then
             scoped_workdir="$(mktemp -d)"

@@ -57,6 +57,38 @@ test("manual release binds the requested Main ancestor, not the newer dispatch e
 });
 
 test("Decision source changed -> deploy", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`import { value } from "../../../packages/shared/runtime.mjs";\nconsole.log(value + 1);\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
+
+const codeOnlyFixture=()=>{
+ const f=fixture(),path='supabase/migrations/20261001000000_deferred.sql',bytes='select 1;\n';
+ write(f.repo,path,bytes);
+ const deferredMigrations=[{path,sha256:createHash('sha256').update(bytes).digest('hex')}];
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({
+  isolatedResearchMigrationScope:{deferredFunctionChanges:[{slug:'decision-v13',previousSourceSetHash:'old',sourceSetHash:'obsolete'}]},
+  codeOnlyDeliveryScope:{contractVersion:'backyrd.code-only-delivery-scope@1.0',functions:['decision-v13'],deferredMigrations},
+ }));
+ write(f.repo,'packages/shared/runtime.mjs','export const value = 2;\n');
+ return f;
+};
+test('code-only delivery removes obsolete SQL Function freeze without applying pending SQL or requiring a backup',()=>{
+ const f=codeOnlyFixture(),p=plan(f,commit(f.repo));
+ assert.deepEqual(p.deployFunctions,['decision-v13']);assert.deepEqual(p.pendingMigrations,[]);
+ assert.equal(p.deferredMigrations.length,1);assert.equal(p.isolatedResearchScope,null);
+ assert.deepEqual(p.deferredFunctionChanges,[]);assert.equal(p.codeOnlyDeliveryScope.backupRunId,undefined);
+ assert.ok(p.runtimeDeploymentRequired);
+});
+test('code-only delivery cannot include new SQL, unrelated functions or weaker JWT verification',()=>{
+ for(const edit of [
+  f=>write(f.repo,'supabase/migrations/20261002000000_new.sql','select 2;\n'),
+  f=>write(f.repo,'supabase/functions/other/index.ts','console.log("changed");\n'),
+  f=>write(f.repo,'supabase/config.toml',readFileSync(join(f.repo,'supabase/config.toml'),'utf8').replace('verify_jwt = true','verify_jwt = false')),
+ ]){const f=codeOnlyFixture();edit(f);assert.throws(()=>plan(f,commit(f.repo)),/code_only_delivery_scope_invalid/);}
+});
+test('code-only delivery cannot include Auth configuration changes',()=>{
+ const f=fixture();write(f.repo,'supabase/production/auth-config.json',authConfig(8));f.base=commit(f.repo,'auth baseline');
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({codeOnlyDeliveryScope:{contractVersion:'backyrd.code-only-delivery-scope@1.0',functions:['decision-v13'],deferredMigrations:[]}}));
+ write(f.repo,'supabase/production/auth-config.json',authConfig(12));
+ assert.throws(()=>plan(f,commit(f.repo)),/code_only_delivery_scope_invalid/);
+});
 test("Decision transitive source changed -> deploy", () => { const f=fixture(); write(f.repo,"packages/shared/runtime.mjs",`export const value = 2;\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
 test("TypeScript source imports with emitted .js extensions resolve to tracked .ts files", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`import { value } from "../../../packages/shared/runtime.js";\nconsole.log(value);\n`); write(f.repo,"packages/shared/runtime.ts",`export const value = 2;\n`); const head=commit(f.repo); assert.deepEqual(plan(f,head).deployFunctions,["decision-v13"]); });
 test("deploy-only dist imports and function-scoped Deno aliases bind tracked TypeScript sources", () => {
