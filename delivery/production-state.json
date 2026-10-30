@@ -232,6 +232,39 @@
         }
       ],
       "note": "Only the explicitly approved area-reservation validator migration was applied, using the certified isolated --include-all plan because this migration predates the remote tip. Read-only live validation accepts all 362 canonical field/scope/state cases. Private validator access remains denied to anon/authenticated; all four Booking migrations remain absent. No Function/Auth/Decision deployment or production test/spot writes. All function versions and bundles are unchanged (decision-v13 remains 217), and the security-advisor aggregate is unchanged. Admin and Web production builds succeeded. Historical receipts and global shipped baseline remain unchanged. Database restore remains untested; Founder accepted the exact disclosed risk."
+    },
+    "codeOnlyDecisionRelease": {
+      "status": "LIVE_AND_VERIFIED",
+      "sourceSha": "a7481daf9334a29acd8dcdf660f24f1e34ce95ca",
+      "certificationRunId": 41105212393,
+      "deploymentRunId": 41106054400,
+      "manifestHash": "4889d4936717b2671e220689bce9b89a8317a7845e88215028f11c752cc601e6",
+      "auditHash": "82b2665dea26d19151aced5c65bbd58d2190011c829c66ceeec843239b93844a",
+      "planHash": "73f69e26df91ebc809ba0dcb37c505808cd5e5665f6cff84f2b6576f3edbb65e",
+      "verifiedAt": "2026-10-30T18:22:43.354Z",
+      "functions": [
+        {
+          "slug": "decision-admin-diagnostic",
+          "version": 13,
+          "verifyJwt": true,
+          "bundleHash": "7dc27b45355f482f2a6fd1d43548c50522847d8a7c77aa40ebc3bb0bcdc8d923",
+          "sourceSetHash": "cb6f9db49c3f3cf8a9812340913bdbb164d672302e5fd59bd290bc04ae92c2be",
+          "deferredCandidateSourceSetHash": null
+        },
+        {
+          "slug": "decision-v13",
+          "version": 218,
+          "verifyJwt": true,
+          "bundleHash": "43897207a585f311047cb4522ad0f2ebdc01cfc88e1e30a9150f6cc9cf79f97e",
+          "sourceSetHash": "2a742cbe93dc651b0110bab6a6a194a9b443360c3bdbbdbb45c2210fa90cf78c",
+          "deferredCandidateSourceSetHash": null
+        }
+      ],
+      "appliedMigrationCount": 0,
+      "deferredMigrationCount": 4,
+      "authChanged": false,
+      "adminDiagnosticQuotaApplied": false,
+      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Bräu and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as Führung, which is not a suitable bar recommendation explanation."
     }
   },
   "mobile": {
