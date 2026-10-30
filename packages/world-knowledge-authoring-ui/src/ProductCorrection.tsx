@@ -162,8 +162,6 @@ const messageOf = (error: unknown) => {
   return code.startsWith("Bitte ") || code.startsWith("Der ") || code.startsWith("Die ") || code.startsWith("Du ") || code.startsWith("Für ") || code.startsWith("World ")
     ? code : "Die Aktion konnte nicht abgeschlossen werden. Deine Eingaben bleiben erhalten.";
 };
-const backendMissing = (error: { code?: string; message?: string } | null) =>
-  error?.code === "PGRST202" || error?.code === "42883" || error?.code === "42P01";
 const safeRpcMessage = authoringRpcErrorMessage;
 const searchFailure = (error: unknown): SearchState => {
   const code = errorCode(error);
