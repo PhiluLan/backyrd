@@ -1,4 +1,4 @@
-import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
+import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, validateActiveLunaMeaningOutput, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 import type { DecisionProductAuthenticatedActor } from "./product-decision.js";
 
@@ -58,7 +58,7 @@ export function createDecisionProductLunaProvider(input: {
     const output = modelOutput(await response.json());
     if (signal.aborted) throw new Error("product_luna_aborted");
     try {
-      const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output, sourceText: request.naturalLanguage, reference });
+      const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: validateActiveLunaMeaningOutput(output), sourceText: request.naturalLanguage, reference });
       assertExplicitContext(request, meaning);
       return meaning;
     } catch { throw new Error("product_luna_meaning_invalid"); }

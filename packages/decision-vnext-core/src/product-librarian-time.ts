@@ -1,3 +1,4 @@
+import { contentHash } from "./canonical.js";
 import { ACCEPTED_SOURCE_POLICY, type ExperienceConditions, type ExperienceOffer } from "@backyrd/world-knowledge-core";
 import { evaluateOpeningDay } from "./opening-state.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
@@ -192,12 +193,12 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
         });
         return { state: compatible ? "MET" : "FAILED", hashes: [], reason: compatible ? "UNDATED_OFFER_DAYPART_COMPATIBLE" : "OFFER_OUTSIDE_REQUESTED_DAYPART" };
     }
+    const day = visit.dates[0];
+    if (visit.complete && day && (offer.validFrom && day < offer.validFrom || offer.validUntil && day > offer.validUntil))
+        return { state: "FAILED", hashes: [contentHash({ offerId: offer.id, validFrom: offer.validFrom, validUntil: offer.validUntil })], reason: "OFFER_OUTSIDE_VALIDITY" };
     const venue = librarianVenueAvailability(world, visit);
-    if (venue.state !== "MET")
-        return venue;
-    const day = visit.dates[0]!;
-    if (offer.validFrom && day < offer.validFrom || offer.validUntil && day > offer.validUntil)
-        return { state: "FAILED", hashes: [], reason: "OFFER_OUTSIDE_VALIDITY" };
+    if (venue.state !== "MET") return venue;
+    if (!day) return { state: "UNKNOWN", hashes: venue.hashes, reason: "VISIT_DATE_UNKNOWN" };
     const today = offer.schedule.filter(s => s.weekday === visitWeekday(day));
     if (!today.length)
         return { state: "UNKNOWN", hashes: venue.hashes, reason: "OFFER_WEEKDAY_UNKNOWN" };
