@@ -1,4 +1,5 @@
 "use client";
+import { isAuthoringRpcMessage } from "./authoring-rpc-errors";
 import { SPOT_TYPE_CATALOG, SPOT_GROUPS } from "@backyrd/world-knowledge-core/browser";
 import { ExperienceInput } from "./ExperienceInput";
 import { DiscoveryInput } from "./DiscoveryInput";
@@ -33,6 +34,7 @@ const sha256 = async (value: unknown) => Array.from(new Uint8Array(await crypto.
 const technicalCode = (error: unknown): string => error instanceof Error ? error.message : typeof error === "string" ? error : "unknown_error";
 export function translateAuthoringError(error: unknown, label?: string): string {
   const raw = technicalCode(error);
+  if (isAuthoringRpcMessage(raw)) return raw;
   if (raw.includes(": Bitte ") || /^(Bitte |Die Angabe wurde gespeichert|Die Spot-Pflege|World Knowledge ist|Du bist für diesen Spot)/.test(raw)) return raw;
   const code = raw.toLowerCase();
   const prefix = label ? `${label}: ` : "";
@@ -281,7 +283,7 @@ export function FieldInput({ field, answer, candidate, initialDraft, onDiscardDr
   useEffect(() => {
     if(field.control!=="EXPERIENCE_PROFILE")onDraftChange?.(currentDraft!==savedDraft);
   }, [currentDraft,savedDraft,field.control,onDraftChange]);
-  const save = async (state: string, next: unknown = value, validUntilValue?: string) => { if(state === "KNOWN_VALUE" && field.control === "AGE_ACCESS_RULE_V2")next={...objectValue(next),notes:objectValue(next).notes??null}; setSaving(true); setError(""); onError(null); try { await onSave(state, next, validUntilValue); } catch (cause) { const message = translateAuthoringError(cause, field.label); setError(message); onError(message); } finally { setSaving(false); } };
+  const save = async (state: string, next: unknown = value, validUntilValue?: string) => { setSaving(true); setError(""); onError(null); try { await onSave(state, next, validUntilValue); } catch (cause) { const message = translateAuthoringError(cause, field.label); setError(message); onError(message); } finally { setSaving(false); } };
   const safeSecondaryAction = async (action: () => Promise<void>) => { setSaving(true); setError(""); onError(null); try { await action(); } catch (cause) { const message = translateAuthoringError(cause, field.label); setError(message); onError(message); } finally { setSaving(false); } };
   const selected = Array.isArray(value) ? value as string[] : [];
   const availableValues = new Set(field.allowedValues.map((option) => option.value));

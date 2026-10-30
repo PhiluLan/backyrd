@@ -563,3 +563,45 @@ specific choices; existing stored price purposes remain visible and are never
 silently rewritten. Admin and Owner share the correction. Mobile-width browser
 tests cover selecting Essen, saving and reloading both Brunch and Tasting.
 No migration or production Spot data edits are involved.
+
+## Saving compatibility and diagnostics
+
+The canonical scoped profile and the active SQL validator must be released
+coherently. `20261024171707_scoped_area_reservation_rules_v1.sql` enables
+`participation.booking` on AREA. It preserves the historical v2 validator and
+replaces only the active dispatcher with v3; actor entitlements, private function
+ACLs, moderation and append-only claims remain unchanged. Publishing the editor
+without that migration causes a valid area booking answer to reject the whole
+profile. The isolated release path may select this exact migration while keeping
+the four Booking product migrations and Function/Auth/Decision changes deferred.
+Release authorization and recovery-risk acceptance remain separate requirements.
+
+`validateAuthoringSubmission` supplies `notes: null` for age/accompaniment writes
+that omit it, matching the SQL writer. Historical read/hash parsing stays
+unchanged. This normalization belongs to the shared write boundary, not one UI.
+
+RPC errors distinguish a rejected value, stale/session authorization, a concurrent
+change, connection failure and internal failure. Unknown SQL/provider payloads
+are never rendered as user messages. A server rejection does not become an
+outage; an unconfirmed write does not become a success. The experience editor
+keeps the draft notice once, including for partially saved/unconfirmed previews.
+
+To reproduce compatibility checks, build World core, run
+`node scripts/world-knowledge/authoring-validation-cases.mjs /tmp/authoring-cases.json`,
+and evaluate every generated `key/state/value` with the active
+`attribute_value_valid_v7` in an isolated transaction. The initial 362-case matrix
+found AREA booking and missing age notes mismatches. After write normalization
+and the exact area migration all 362 pass. Run the area-reservation and universal
+catalog SQL authorization suites in the same isolated environment, then roll back.
+Never insert synthetic verification claims into production.
+
+## Applying the deferred area reservation correction
+
+The approved `20261024171707_scoped_area_reservation_rules_v1.sql` predates the
+current remote migration tip. The isolated plan therefore seals
+`migrationPushFlags: ["--include-all"]` only while this exact migration is pending.
+Both preflight and application use those same flags. The scoped workspace still
+excludes the four Booking migrations, and dry-run output must list exactly the
+approved file before any SQL is applied. Once a verified receipt is recorded, the
+flag and pending migration disappear. No migration is renamed or marked applied
+without execution.

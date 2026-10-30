@@ -247,6 +247,10 @@ export function validateAuthoringSubmission(attributeKey: unknown, knowledgeStat
     const value = parseAttributeValue(field.attributeKey, rawValue, `$.${field.attributeKey}`);
     if ((knowledgeState === "KNOWN_TRUE" && value !== true) || (knowledgeState === "KNOWN_FALSE" && value !== false)) throw new Error("BOOLEAN_STATE_MISMATCH");
     if ((knowledgeState === "KNOWN_TRUE" || knowledgeState === "KNOWN_FALSE") && field.valueType !== "BOOLEAN") throw new Error("BOOLEAN_ATTRIBUTE_REQUIRED");
+    // The SQL writer requires an explicit nullable notes member. Normalise at
+    // the shared write boundary; keep historical read/hash parsing unchanged.
+    if (field.valueType === "AGE_ACCESS_RULE_V2" && value && typeof value === "object" && !Array.isArray(value) && !("notes" in value))
+      return { ok: true, value: { ...value, notes: null } };
     return { ok: true, value };
   } catch {
     return { ok: false, code: `INVALID_${field.valueType}`, message: `${field.label}: ${correctionFor(field.valueType)}` };
