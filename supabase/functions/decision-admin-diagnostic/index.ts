@@ -1,5 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.112.4';
-import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES,DIAGNOSTIC_REFERENCE,adminDiagnosticDailyLimit} from '../../../packages/decision-vnext-core/dist/admin-diagnostic.js';
+import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES,DIAGNOSTIC_REFERENCE} from '../../../packages/decision-vnext-core/dist/admin-diagnostic.js';
 import {createDecisionProductProductionPorts,createDecisionProductRpcEvaluationProvider,createDecisionProductRpcInteractionAuthorityProvider,createDecisionProductRpcLearningPort,type DecisionProductRpcClient,type DecisionProductProductionConfiguration} from '../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js';
 import {createDecisionProductLunaProvider} from '../../../packages/decision-vnext-core/dist/product-luna-provider.js';
 import {buildDecisionProductExecution} from '../../../packages/decision-vnext-core/dist/product-decision.js';
@@ -8,7 +8,9 @@ import type {LibrarianSearchResult} from '../../../packages/decision-vnext-core/
 
 const required=(name:string):string=>{const value=Deno.env.get(name);if(!value)throw Error('diagnostic_configuration_missing');return value;};
 function configuration():DecisionProductProductionConfiguration{
- return {identity:{releaseHash:required('BACKYRD_DECISION_VNEXT_RELEASE_HASH'),artifactHash:required('BACKYRD_DECISION_VNEXT_ARTIFACT_HASH'),sourceSetHash:required('BACKYRD_DECISION_VNEXT_SOURCE_SET_HASH'),controlGeneration:Number(Deno.env.get('BACKYRD_DECISION_VNEXT_CONTROL_GENERATION')??'1')},rateLimitOperation:'decision_admin_diag_v1',rateLimitSubjectKeyVersion:required('BACKYRD_DECISION_VNEXT_RATE_LIMIT_KEY_VERSION'),rateLimitSubjectKey:required('BACKYRD_DECISION_VNEXT_RATE_LIMIT_KEY'),idempotencyKeyVersion:required('BACKYRD_DECISION_VNEXT_IDEMPOTENCY_KEY_VERSION'),idempotencyKey:required('BACKYRD_DECISION_VNEXT_IDEMPOTENCY_KEY'),subjectMinuteLimit:20,subjectDayLimit:adminDiagnosticDailyLimit(),globalMinuteLimit:20,globalDayLimit:adminDiagnosticDailyLimit(),timeoutMilliseconds:30000,maxRequestBytes:1024};
+ // Shared production ports require numeric quota configuration. Their quota
+ // port is never called by this Admin-only diagnostic; consumer policy is unchanged.
+ return {identity:{releaseHash:required('BACKYRD_DECISION_VNEXT_RELEASE_HASH'),artifactHash:required('BACKYRD_DECISION_VNEXT_ARTIFACT_HASH'),sourceSetHash:required('BACKYRD_DECISION_VNEXT_SOURCE_SET_HASH'),controlGeneration:Number(Deno.env.get('BACKYRD_DECISION_VNEXT_CONTROL_GENERATION')??'1')},rateLimitOperation:'decision_admin_diag_v1',rateLimitSubjectKeyVersion:required('BACKYRD_DECISION_VNEXT_RATE_LIMIT_KEY_VERSION'),rateLimitSubjectKey:required('BACKYRD_DECISION_VNEXT_RATE_LIMIT_KEY'),idempotencyKeyVersion:required('BACKYRD_DECISION_VNEXT_IDEMPOTENCY_KEY_VERSION'),idempotencyKey:required('BACKYRD_DECISION_VNEXT_IDEMPOTENCY_KEY'),subjectMinuteLimit:20,subjectDayLimit:20,globalMinuteLimit:20,globalDayLimit:20,timeoutMilliseconds:30000,maxRequestBytes:1024};
 }
 
 Deno.serve(async(request:Request)=>{
@@ -40,7 +42,7 @@ Deno.serve(async(request:Request)=>{
    const caller=createClient(url,required('SUPABASE_ANON_KEY'),{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${token}`}}});
    const result=await caller.rpc('admin_is_admin_v1').abortSignal(signal);
    return !result.error&&result.data===true;
-  },consume:async(actor,signal)=>{await ports.control.assertBoundary('RATE_LIMIT',signal);return ports.rateLimit.consume(actor.subjectBindingHash,signal);},diagnose:async(index,actor,signal)=>{
+  },checkControl:async(signal)=>{await ports.control.assertBoundary('RATE_LIMIT',signal);},diagnose:async(index,actor,signal)=>{
    const started=performance.now();const id=crypto.randomUUID();
    const productRequest={contractVersion:'backyrd.decision-vnext.product-request@1.0' as const,requestId:id,idempotencyKey:id,naturalLanguage:BASEL_DIAGNOSTIC_QUERIES[index]!,includeEvents:true,explicit:{targetCity:'Basel',moods:[]},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
    await ports.control.assertBoundary('INTERPRETATION',signal);
@@ -65,7 +67,7 @@ Deno.serve(async(request:Request)=>{
    if(search.ranked.length+search.excluded.length+search.unresolved.length!==evaluation.candidates.length)throw Error('diagnostic_candidate_trace_mismatch');
    const projection=execution.response.personalization;
    await ports.control.assertBoundary('FINAL_OUTPUT',signal);
-   return {contractVersion:'backyrd.admin-decision-diagnostic@1.0',caseIndex:index,query:productRequest.naturalLanguage,reference:DIAGNOSTIC_REFERENCE,request:productRequest,meaning,search,response:execution.response,projection,usage,timings:{modelMs,evaluationMs,rankingMs,totalDiagnosticMs:performance.now()-started},runtime:{sourceSetHash:config.identity.sourceSetHash,evaluatorVersion:evaluation.evaluatorVersion,catalogProfiles:context.worldSnapshots.length,eventOccurrences:Array.isArray(context.eventOccurrences)?context.eventOccurrences.length:0,evaluatedCandidates:evaluation.candidates.length},boundaries:{adminAuthorized:true,learningPersisted:false,decisionPersisted:false,spotDataChanged:false,searchObservedWithoutRepeat:true,authenticationAndQuotaExecuted:true}};
+   return {contractVersion:'backyrd.admin-decision-diagnostic@1.0',caseIndex:index,query:productRequest.naturalLanguage,reference:DIAGNOSTIC_REFERENCE,request:productRequest,meaning,search,response:execution.response,projection,usage,timings:{modelMs,evaluationMs,rankingMs,totalDiagnosticMs:performance.now()-started},runtime:{sourceSetHash:config.identity.sourceSetHash,evaluatorVersion:evaluation.evaluatorVersion,catalogProfiles:context.worldSnapshots.length,eventOccurrences:Array.isArray(context.eventOccurrences)?context.eventOccurrences.length:0,evaluatedCandidates:evaluation.candidates.length},boundaries:{adminAuthorized:true,learningPersisted:false,decisionPersisted:false,spotDataChanged:false,searchObservedWithoutRepeat:true,authenticationExecuted:true,adminTestQuotaApplied:false}};
   }});
   return await handler(request);
  }catch{return new Response(JSON.stringify({error:'diagnostic_configuration_unavailable'}),{status:503,headers:{'content-type':'application/json','cache-control':'no-store'}});}

@@ -31,7 +31,7 @@ export default function DecisionDiagnostics(){
  return <div style={{maxWidth:980,margin:'32px auto',padding:24}}>
   <h1>Decision prüfen</h1>
   <p>Zehn festgelegte Basel-Anfragen. Hier siehst du, was die KI versteht, was die Suche prüft und welche Orte sie auswählt.</p>
-  <p>Die Tests verändern keine Orte und werden nicht als deine persönlichen Interessen gelernt. Der Zeitbezug bleibt für den Vergleich auf dem 30. Oktober 2026. Dieser begrenzte Zugang läuft am 2. November aus.</p>
+  <p>Die Tests verändern keine Orte und werden nicht als deine persönlichen Interessen gelernt. Der Zeitbezug bleibt für den Vergleich auf dem 30. Oktober 2026. Nur für angemeldete Admins, ohne Anfragekontingent oder Ablaufdatum.</p>
   <button disabled={busy||runs.length>0} onClick={()=>void start()} style={{minHeight:48,padding:'12px 24px',background:'#ff448c',color:'#111',borderRadius:18,fontWeight:700}}>{busy?'Tests laufen …':'Zehn Tests starten'}</button>
   <div style={{marginTop:16,display:'flex',gap:12,flexWrap:'wrap'}}>
    <select aria-label="Einzelnen Test auswählen" disabled={busy} value={selected} onChange={event=>setSelected(Number(event.target.value))} style={{minHeight:48}}>{Array.from({length:10},(_,i)=><option key={i} value={i}>Test {i+1}</option>)}</select>

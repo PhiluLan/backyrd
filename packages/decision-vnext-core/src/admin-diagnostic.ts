@@ -13,22 +13,17 @@ export const BASEL_DIAGNOSTIC_QUERIES = Object.freeze([
   'Ich bin mit dem Rollstuhl unterwegs und suche in Basel einen Ort für Live-Jazz.',
 ]);
 export const DIAGNOSTIC_REFERENCE = Object.freeze({now:'2026-10-29T23:49:00.000Z',timezone:'Europe/Zurich' as const});
-export const DIAGNOSTIC_EXPIRES_AT = '2026-11-02T00:00:00.000Z';
-/** Founder-approved extra twenty calls on this UTC date only. Existing counters
- * and operation identity remain unchanged; subsequent days retain the old cap. */
-export const adminDiagnosticDailyLimit = (now: Date = new Date()): number =>
-  now.toISOString().slice(0, 10) === '2026-10-30' ? 42 : 20;
 const allowedOrigins = new Set(['https://intelligence.backyrd.ch','http://127.0.0.1:3017']);
 
 export interface AdminDiagnosticPorts {
   authenticate(token:string,signal:AbortSignal):Promise<DecisionProductAuthenticatedActor|null>;
   isAdmin(token:string,signal:AbortSignal):Promise<boolean>;
-  consume(actor:DecisionProductAuthenticatedActor,signal:AbortSignal):Promise<boolean>;
+  checkControl(signal:AbortSignal):Promise<void>;
   diagnose(index:number,actor:DecisionProductAuthenticatedActor,signal:AbortSignal):Promise<unknown>;
-  now?:()=>Date;
 }
 
-/** Fixed, expiring admin suite; never accepts prompts, actor IDs or model settings. */
+/** Fixed Admin suite without request quotas or calendar expiry. Authentication,
+ * Admin authorization, request validation and runtime control remain mandatory. */
 export function createAdminDiagnosticHandler(ports:AdminDiagnosticPorts) {
   return async(request:Request):Promise<Response>=>{
     const origin=request.headers.get('origin');
@@ -38,7 +33,6 @@ export function createAdminDiagnosticHandler(ports:AdminDiagnosticPorts) {
     if(origin){headers['access-control-allow-origin']=origin;headers.vary='origin';headers['access-control-allow-headers']='authorization,apikey,content-type,x-client-info,x-region';headers['access-control-allow-methods']='POST, OPTIONS';}
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
     if(request.method!=='POST')return reply(405,{error:'method_not_allowed'});
-    if((ports.now?.()??new Date()).getTime()>=Date.parse(DIAGNOSTIC_EXPIRES_AT))return reply(410,{error:'diagnostic_expired'});
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),30000);
     try{
@@ -56,7 +50,7 @@ export function createAdminDiagnosticHandler(ports:AdminDiagnosticPorts) {
       const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
       let body:unknown;try{body=JSON.parse(new TextDecoder().decode(bytes));}catch{return reply(400,{error:'invalid_request'});}
       if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==1||!('caseIndex'in body)||!Number.isInteger(body.caseIndex)||typeof body.caseIndex!=='number'||body.caseIndex<0||body.caseIndex>=BASEL_DIAGNOSTIC_QUERIES.length)return reply(400,{error:'fixed_case_required'});
-      if(!await ports.consume(actor,controller.signal))return reply(429,{error:'diagnostic_quota_reached'});
+      await ports.checkControl(controller.signal);
       const result=await ports.diagnose(body.caseIndex,actor,controller.signal);
       if(controller.signal.aborted)return reply(504,{error:'diagnostic_timeout'});
       return reply(200,result);
