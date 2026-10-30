@@ -109,3 +109,38 @@ a software demotion of a duty already emitted by the model.
   `2f082693d82220fb10f7e1846760f5d5c69d76558b190faf36e48e37cdeb6c34`.
   Consumer `decision-v13` remains version 217. No spot data, consent/auth rules,
   learning data or normal consumer decisions were written by these trials.
+
+## Fresh ten-case diagnostic, 30 October (matching 17, prompt 7)
+
+Ten new authenticated model calls completed against diagnostic v7 and the
+unchanged consumer-v217 program in 75.86 seconds of summed server runtime.
+Each searched 419 current Spot profiles and 25 event occurrences. The daily
+budget extension to 40 is separately Founder-approved for this UTC day only.
+All ten transports completed; that is not a semantic pass. The recorded export
+contains 53 displayed recommendations. Thirty-seven have an unresolved hard
+constraint or unconfirmed requested availability. Child activity was omitted
+from the mandatory meaning plan; a first date was emitted as a required service.
+A seasonal market in Merian Gärten was incorrectly presented for a flea market.
+
+The new recorded answers were replayed through this branch without new model
+calls, with neutral replay personalization and each recorded evaluation time.
+The recorded facts were unchanged; their envelope was rebound to the current
+configuration hash. Strict admission removes unresolved duties, confirms Kaphi
+for the cafe request and 18 vegan-lunch candidates. The old child meaning still
+admits restaurants, demonstrating why matcher changes alone cannot repair an
+omitted model duty. It must be fixed at interpretation, not invented downstream.
+
+Prompt 7 distinguishes occasion context from an explicitly requested organised
+service, and generic visit verbs from independently requested physical activity.
+Concrete requested atmosphere, activity and service conditions remain duties.
+The matcher bridges atmosphere.conversation to the same scoped, explicitly
+recorded atmosphere concept, and participation.entry_mode to matching booking
+meaning. Quiet alone does not establish conversation; a different room does not
+supply its evidence. Three regression tests cover these boundaries. The optional
+request-local search observer is retained from the diagnostic branch; its route
+test proves it observes once without an additional model call/read or a changed
+answer. Ordinary clients do not install an observer.
+
+A separate candidate diagnostic bundle and genuine control calls are required
+before claiming prompt-7 compliance. This section does not claim those calls
+have passed or that the consumer engine has been deployed.

@@ -7,6 +7,35 @@ const binding=(id,p)=>{const b=originalBinding(id,p);return {...b,decisionProjec
 const candidate=r=>[...r.ranked,...r.unresolved,...r.excluded][0];
 const state=(r,id)=>candidate(r).facts.find(f=>f.factId===id)?.state;
 
+test('occasion context does not require an organised service, but an emitted duty stays binding',()=>{
+ const b=binding(980,profile());
+ const context=request([meal(),fact('occasion','experience.occasion','erstes Date','CONTEXT')]);
+ assert.equal(search(context,[b]).ranked.length,1);
+ const duty=request([meal(),fact('occasion','experience.occasion','erstes Date','REQUIRED')]);
+ assert.equal(search(duty,[b]).ranked.length,0);
+ assert.equal(state(search(duty,[b]),'occasion'),'UNKNOWN');
+});
+
+test('conversation uses explicit scoped atmosphere evidence, never quiet or another room alone',()=>{
+ const q=request([meal(),fact('talk','atmosphere.conversation','conversation')]);
+ const good=binding(981,profile([offer()],[area('inside',[prop('atmosphere.character','Unterhaltung gut möglich')])]));
+ assert.equal(state(search(q,[good]),'talk'),'MET');
+ assert.equal(search(q,[good]).ranked.length,1);
+ const quiet=binding(982,profile([offer()],[area('inside',[prop('atmosphere.character','ruhig')])]));
+ assert.equal(state(search(q,[quiet]),'talk'),'UNKNOWN');
+ const split=binding(983,profile([offer('lunch','LUNCH',['inside'])],[area('inside'),area('other',[prop('atmosphere.character','Unterhaltung gut möglich')])]));
+ assert.equal(search(q,[split]).ranked.length,0);
+});
+
+test('entry-mode and booking share exact meaning without admitting a required reservation',()=>{
+ const q=request([meal(),fact('entry','participation.entry_mode','spontaneous')]);
+ const good=binding(984,profile([offer('meal','LUNCH',[],[prop('participation.booking','Keine Reservation nötig')])]));
+ assert.equal(state(search(q,[good]),'entry'),'MET');
+ assert.equal(search(q,[good]).ranked.length,1);
+ const booked=binding(985,profile([offer('meal','LUNCH',[],[prop('participation.booking','Reservation erforderlich')])]));
+ assert.equal(search(q,[booked]).ranked.length,0);
+});
+
 test('all canonical language IDs roundtrip',()=>{for(const c of EXPERIENCE_LANGUAGE_CONCEPTS)assert.equal(librarianConcept(c.id),c.id);});
 for(const [text,mode,expected] of [
  ['Ping Pong mit Onlinebuchung','OFFER_NAME',['table_tennis']],

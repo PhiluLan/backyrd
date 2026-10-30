@@ -250,3 +250,14 @@ test('all authenticated account identities reach Luna without an account allowli
     assert.notEqual(result.body.primaryCandidateId,null);
   }
 });
+
+// Diagnostics observe the same search; they must not add reads or change ranking.
+test('request-local search observer captures once without changing the product answer',async()=>{
+ const args={text:'Abendessen in Basel',meaning:plan([meal()]),catalog:[binding(1,profile()),binding(2,profile([offer('bar','DRINKS')]))]};
+ const baseline=await exercise(args);let seen=[];
+ const observed=await exercise({...args,onSearch:result=>seen.push(result)});
+ assert.equal(observed.status,200);assert.equal(seen.length,1);
+ assert.equal(seen[0].ranked.length+seen[0].excluded.length+seen[0].unresolved.length,2);
+ assert.equal(observed.calls,baseline.calls);assert.equal(observed.reads,baseline.reads);
+ assert.deepEqual(observed.body,baseline.body);
+});
