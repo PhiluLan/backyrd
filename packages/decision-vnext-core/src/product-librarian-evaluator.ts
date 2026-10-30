@@ -11,8 +11,8 @@ import { evaluateProductWorldViews, userTasteMatches } from "./product-v1-evalua
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY } from "./product-v1-authority.js";
 import { DecisionProductContextSchema, DecisionProductCandidateAssessmentSchema, DecisionProductEvaluationSchema, DecisionProductPresentationSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS, type DecisionProductContext, type DecisionProductRequest } from "./product-v1-contracts.js";
 
-export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@4" as const;
-export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@5" as const;
+export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@6" as const;
+export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@7" as const;
 const cityKey = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").trim().toLowerCase();
 
 export function canonicalLibrarianCity(city: string): string {
@@ -73,7 +73,7 @@ const duty = (f: LibrarianFactAssessment) => f.modality === "REQUIRED" || f.moda
 const codes = (values: readonly string[]) => values.length <= 30 ? values : [...values.slice(0, 29), "ADDITIONAL_LIBRARIAN_REQUIREMENTS"];
 const factCode = (f: LibrarianFactAssessment) => `LBR:${contentHash({ id: f.factId, family: f.family }).slice(0, 24)}`;
 
-function assessment(candidate: LibrarianCandidate, world: ProductWorldView, context: DecisionProductContext, request: DecisionProductRequest, projection: RelevantUserProjection, hasVisitEvidence: boolean) {
+function assessment(candidate: LibrarianCandidate, world: ProductWorldView, context: DecisionProductContext, request: DecisionProductRequest, projection: RelevantUserProjection, hasVisitEvidence: boolean, meaning: LibrarianRequest) {
   const hard = candidate.facts.filter(duty);
   const rejected = request.rejectedCandidateIds.includes(candidate.spotId);
   const codeForId = (id: string) => {
@@ -94,10 +94,18 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   const proofHashes = new Set(candidate.facts.flatMap(f => f.evidenceHashes));
   const core = { intentId: null, state: coverage, mappingIds: ["lossless-luna-plan"], worldFactKeys: world.facts.filter(f => proofHashes.has(f.entryHash)).map(f => f.key).slice(0,20), evidenceSourceHash: candidate.candidateHash };
   const contextual = (state: "CONFIRMED" | "NOT_APPLICABLE") => ({ state, mappingIds: [], evidenceSourceHash: candidate.candidateHash });
+  const semanticKey = (id: string) => {
+    const f = meaning.facts.find(f => f.id === id);
+    if (!f) return contentHash({ family: candidate.facts.find(f => f.factId === id)?.family, id });
+    const value = f.value.kind === "TEXT" ? librarianConcept(f.value.text) ?? f.value.text.trim().toLowerCase() : f.value;
+    // Repeated meal/activity aliases express one wish, not two ranking votes.
+    const family = ["experience.activity", "food.meal"].includes(f.key) && ["meal", "lunch", "dinner", "breakfast"].includes(String(value)) ? "meal" : f.key;
+    return contentHash({ family, value, subjects: [...f.subjectIds].sort(), modality: f.modality });
+  };
   const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state)).slice(0, 50).map(f => {
     const proven = f.state === "MET";
     const label = familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
-    return { reasonCode: factCode(f), domain: proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
+    return { reasonCode: proven ? `LBR_EVIDENCE:${semanticKey(f.factId)}` : factCode(f), domain: proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
       statementDe: proven ? f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : `Noch nicht bestätigt: ${label}.`,
       confirmed: proven };
   });
@@ -128,6 +136,8 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     && f.reason !== "UNDATED_DAYPART_NO_OPENING_CLAIM" && f.reason !== "RETAINED_AS_REQUEST_CONTEXT");
   const availability = temporal.length ? temporal.some(f => f.state === "FAILED") ? "closed" : temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";
   if (temporal.some(f => f.reason === "VISIT_TIME_UNCONFIRMED")) reasons.push({reasonCode:"librarian-visit-time-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,statementDe:"Der Spot passt zu deinem Wunsch. Öffnungs- und Angebotszeiten für den gewünschten Besuch sind noch nicht bestätigt.",confirmed:false});
+  if (candidate.facts.some(f => f.reason === "SCOPED_GROUP_CAPACITY_CONFIRMED_NOT_A_BOOKING"))
+    reasons.push({ reasonCode: "librarian-capacity-not-booking", domain: "LIMITATION", sourceHash: candidate.candidateHash, statementDe: "Die Gruppengrösse passt zum Angebot. Freie Plätze für einen konkreten Termin sind damit nicht bestätigt.", confirmed: false });
   const event = world.eventOccurrence;
   if (event) {
     if (!["PUBLISHED","SCHEDULED"].includes(event.eventStatus) || event.occurrenceStatus !== "SCHEDULED" || event.ticketStatus === "SOLD_OUT") failed.push("EVENT_NOT_SCHEDULED");
@@ -146,10 +156,10 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     visitSituation: contextual("NOT_APPLICABLE"), atmosphere: contextual(candidate.facts.some(f => f.family.startsWith("atmosphere.") && f.state === "MET") ? "CONFIRMED" : "NOT_APPLICABLE"),
     typicalDaypart: contextual("NOT_APPLICABLE"), actualAvailability: { status: availability, evidenceSourceHash: candidate.candidateHash },
     confirmedHardConstraints: codes(confirmed), unknownHardConstraints: codes(unknown), failedHardConstraints: codes(failed),
-    matchedSoftPreferences: codes(candidate.matchedPreferences.map(id => `LBR_PREF:${contentHash(id).slice(0, 24)}`)), userTasteMatches: tastes,
+    matchedSoftPreferences: codes([...new Set(candidate.matchedPreferences.map(id => `LBR_PREF:${semanticKey(id).slice(0, 24)}`))]), userTasteMatches: tastes,
     conflicts: world.conflicts.map(c => c.code), reasons, limitations: [...new Set([...candidate.limitations, ...(unknown.length ? ["HARD_CONSTRAINT_EVIDENCE_UNKNOWN"] : []), ...(candidate.facts.length > 50 ? ["DISPLAY_REASONS_SUMMARIZED"] : [])])].slice(0, 30),
     rejectionClass: rejected ? "SITUATIONAL_REJECT" : "NONE", userIntelligenceInvolved: tastes.length > 0, userIntelligenceAffectsEligibility: false,
-    neutralTieBreakerHash: contentHash({ spotId: candidate.spotId, snapshotHash: world.snapshotHash }),
+    neutralTieBreakerHash: contentHash({ spotId: candidate.spotId }),
   }, "assessmentHash"));
 }
 
@@ -183,7 +193,7 @@ export function evaluateLibrarianProduct(input: {
     spotBindings: worlds.filter(w => !w.eventOccurrence).map(w => ({ spotId: w.spot.spotId, snapshotHash: w.snapshotHash })).sort((a,b) => a.spotId.localeCompare(b.spotId)), candidateSetHash, limitations: [], commercialSignalsPresent: false, fixtureSourceUsed: false,
   }, "cohortHash"));
   const admitted = new Set(result.ranked.map(c => c.spotId));
-  let candidates = [...result.ranked, ...result.excluded, ...result.unresolved].map(c => assessment(c, byId.get(c.spotId)!, context, input.request, input.projection, admitted.has(c.spotId)));
+  let candidates = [...result.ranked, ...result.excluded, ...result.unresolved].map(c => assessment(c, byId.get(c.spotId)!, context, input.request, input.projection, admitted.has(c.spotId), input.meaning));
   // Typed controls from older clients remain binding. This compatibility guard
   // reads explicit fields only, never re-parses the source or replaces Luna's
   // plan with the old facet language. Missing legacy evidence fails closed.

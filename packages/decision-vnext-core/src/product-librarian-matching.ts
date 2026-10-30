@@ -3,7 +3,7 @@ import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied } from 
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
-import { spotTypeSupports, experienceActivitySupports, parseExperienceProfile, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
+import { spotTypeSupports, experienceActivitySupports, declaredExperienceConcepts, parseExperienceProfile, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianFact, type LibrarianRequest, type LunaExpression } from "./product-luna-librarian.js";
 import { parseProductWorldResolverBinding, type ProductWorldView } from "./product-world-resolver-binding.js";
@@ -128,7 +128,7 @@ function collectFacts(node: LunaExpression): readonly string[] {
         return sorted([...collectFacts(node.then), ...(node.else ? collectFacts(node.else) : [])]);
     return sorted((node.kind === "FALLBACK" ? node.options : node.children).flatMap(collectFacts));
 }
-const semanticPropertyKeys: Readonly<Record<string, readonly string[]>> = { "experience.activity": ["experience.activity", "food.drink"], "experience.character": ["atmosphere.character"], "offer.facility": ["offer.feature"], "offer.kind": ["offer.kind", "stay.room_type"], "offer.area": ["offer.area", "location.setting"], "participation.accessibility": ["participation.accessibility", "amenity.step_free", "amenity.stroller"], "offer.feature": ["offer.feature", ...Object.keys(BOOLEAN_CONCEPTS)] };
+const semanticPropertyKeys: Readonly<Record<string, readonly string[]>> = { "experience.activity": ["experience.activity", "food.drink"] , "food.drink": ["food.drink", "experience.activity"], "experience.character": ["atmosphere.character"], "offer.facility": ["offer.feature"], "offer.kind": ["offer.kind", "stay.room_type"], "offer.area": ["offer.area", "location.setting"], "participation.accessibility": ["participation.accessibility", "amenity.step_free", "amenity.stroller"], "offer.feature": ["offer.feature", "atmosphere.music", "experience.activity", ...Object.keys(BOOLEAN_CONCEPTS)], "atmosphere.music": ["atmosphere.music", "experience.activity"], "condition.children": ["condition.children", "experience.activity"] };
 /** Catalogued offer duties may arrive in a domain family. Preserve the
  * emitted family; only establish which typed offer can witness it. Specific
  * drinks (wine, beer, etc.) still need their own property evidence. */
@@ -192,8 +192,16 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
         }
         if (typeof property.value !== "string")
             return "UNKNOWN";
-        if (sameLibrarianText(property.value, fact.value.text))
-            return "MET";
+        if (sameLibrarianText(property.value, fact.value.text)) return "MET";
+        if (fact.key === "food.drink" && property.key === "experience.activity")
+            return desired === "coffee" && librarianConcept(property.value) === "coffee" ? "MET" : "UNKNOWN";
+        if (["food.drink", "food.dish", "food.cuisine", "food.diet"].includes(fact.key) && property.key === fact.key
+            && desired && declaredExperienceConcepts(property.value, "ITEM_LIST").includes(desired)) return "MET";
+        if (["offer.feature", "atmosphere.music", "condition.children"].includes(fact.key)
+            && ["experience.activity", "atmosphere.music"].includes(property.key)) {
+            const actual = librarianConcept(property.value);
+            if (actual && desired && experienceActivitySupports(actual, desired)) return "MET";
+        }
         if (fact.key === "experience.activity" && property.key === "experience.activity") {
             const actual = librarianConcept(property.value);
             if (actual && desired && experienceActivitySupports(actual, desired)) return "MET";
@@ -233,6 +241,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         return report("NOT_REQUIRED", "NO_MATCHING_DUTY");
     if (contextual(fact))
         return report("CONTEXT", "RETAINED_AS_REQUEST_CONTEXT");
+    if (fact.key === "people.count" && fact.value.kind === "COUNT")
+        return report("UNKNOWN", "DEFERRED_TO_SCOPED_GROUP_CAPACITY");
     if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "CONTEXT")
         return report("UNKNOWN", "REQUEST_PARAMETER_NOT_VERIFIABLE_AS_REQUIREMENT");
     if (world.eventOccurrence && eventFactMatch(world.eventOccurrence,fact))
@@ -279,11 +289,9 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 || spatialActivities.some(a => a.report.state !== "MET" || !supportsArea(a))) return;
         }
         const availability = offer ? offerAvailability(offer, world, visit) : { state: "MET" as const, hashes: [], reason: "AREA_FACT" };
-        const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional || availability.state === "UNKNOWN" && !visit.complete, chargeable: fact.key !== "offer.facility" };
+        const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional, chargeable: fact.key !== "offer.facility" };
         if (fact.modality === "EXCLUDED" && availability.state !== "MET")
             uncertain.push(witness);
-        else if (availability.state === "FAILED")
-            negatives.push(witness);
         else if (truth === "MET" && !witness.conditionUnresolved)
             positives.push(witness);
         else if (truth === "FAILED" && !conditional)
@@ -306,6 +314,16 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 for (const areaId of derived ? [null] : offer.areaIds.length ? offer.areaIds : [null])
                     add("MET", offer, areaId, { kind: offer.kind, name: offer.name, activityRelation: derived ? { offered, requested: desired } : null, classificationHash: classification?.entryHash ?? null });
             }
+        }
+    }
+    if (desired && ["experience.activity", "offer.feature", "atmosphere.music", "condition.children"].includes(fact.key)) {
+        for (const offer of profile.offers) {
+            const declared = declaredExperienceConcepts(offer.name, "OFFER_NAME");
+            if (declared.some(actual => experienceActivitySupports(actual, desired)))
+                for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {declaredOfferName: offer.name});
+            if (fact.key === "condition.children" && desired === "children_activity"
+                && (OFFER_CONCEPTS[offer.kind] ?? []).some(actual => experienceActivitySupports(actual, desired)))
+                for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {kind: offer.kind});
         }
     }
     if (["offer.area", "location.setting"].includes(fact.key) && desired && ["indoor", "outdoor", "terrace"].includes(desired)) {
@@ -371,6 +389,20 @@ function countPeople(facts: readonly LibrarianFact[], request: LibrarianRequest)
     // authority for quantities, prices and capacity.
     return null;
 }
+/** A party size is a minimum required offer capacity, not an exact capacity
+ * and not proof of a bookable slot. Prices and unrelated rooms are no proof. */
+function jointCapacity(fact: LibrarianFact, profile: ExperienceProfile | null, state: State, visit: VisitWindow): LibrarianFactAssessment {
+    const result = (status: MatchTruth, reason: string, hashes: readonly string[] = []): LibrarianFactAssessment => ({ factId: fact.id, family: fact.key, modality: fact.modality, state: status, reason, evidenceHashes: hashes, offerIds: state.offerIds, areaIds: state.areaIds });
+    if (fact.value.kind !== "COUNT" || fact.value.operator !== "EQ" || fact.modality === "EXCLUDED" || !profile || !state.offerIds.length)
+        return result("UNKNOWN", "GROUP_CAPACITY_SCOPE_UNRESOLVED");
+    const needed = fact.value.amount;
+    const capacities = state.offerIds.map(id => profile.offers.find(o => o.id === id)!.properties.filter(p => p.key === "offer.capacity" && p.state === "KNOWN" && typeof p.value === "number" && librarianConditions(p.conditions, visit) === "MET"));
+    const hashes = capacities.flatMap(ps => ps.map(p => contentHash(p)));
+    if (capacities.some(ps => ps.length !== 1)) return result("UNKNOWN", "SCOPED_GROUP_CAPACITY_UNKNOWN_OR_CONFLICTING", hashes);
+    return capacities.every(ps => (ps[0]!.value as number) >= needed)
+        ? result("MET", "SCOPED_GROUP_CAPACITY_CONFIRMED_NOT_A_BOOKING", hashes)
+        : result("FAILED", "SCOPED_GROUP_CAPACITY_TOO_SMALL", hashes);
+}
 function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], request: LibrarianRequest, profile: ExperienceProfile | null, state: State, visit: VisitWindow, eventEntry = false): LibrarianFactAssessment {
     const money = fact.value;
     const base = { factId: fact.id, family: fact.key, modality: fact.modality, evidenceHashes: [] as readonly string[], offerIds: state.offerIds, areaIds: state.areaIds };
@@ -401,6 +433,22 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
         });
         if (paid.length)
             return result(fact.modality === "EXCLUDED" ? "MET" : "FAILED", "SCOPED_EVENT_ENTRY_NOT_FREE", paid.map(p => contentHash(p)));
+    }
+    // A documented zero full tariff needs neither currency conversion nor
+    // group-size division. Partial items, fees and age-limited tariffs do not
+    // establish that the requested activity as a whole is free.
+    if (!eventEntry && money.amount === 0 && ["EQ", "LTE"].includes(money.operator)
+        && !facts.some(f => ["budget.coverage", "budget.cost_treatment"].includes(f.key))) {
+        const tariffs = scopedOfferIds.map(id => {
+            const offer = profile.offers.find(o => o.id === id)!;
+            const concepts = OFFER_CONCEPTS[offer.kind] ?? [];
+            const relevant = offer.prices.filter(p =>
+                concepts.includes(librarianConcept(p.includes) ?? "") || librarianConcept(p.includes) === "entry" && !["CAFE", "LUNCH", "DINNER", "BREAKFAST", "DRINKS", "FULL_MEAL", "APERITIF"].includes(offer.kind));
+            if (relevant.some(p => librarianConditions(p.conditions, visit) !== "FAILED" && (p.minimumAge !== null || p.maximumAge !== null || p.mandatoryFeesIncluded !== true || librarianConditions(p.conditions, visit) === "UNKNOWN"))) return [];
+            return relevant.filter(p => ["PER_PERSON", "PER_GROUP"].includes(p.basis) && librarianConditions(p.conditions, visit) === "MET");
+        });
+        if (tariffs.every(ps => ps.length > 0 && ps.every(p => p.min === 0 && p.max === 0)))
+            return result(fact.modality === "EXCLUDED" ? "FAILED" : "MET", "SCOPED_FREE_ACTIVITY_CONFIRMED", tariffs.flatMap(ps => ps.map(p => contentHash(p))));
     }
     const scopes = facts.filter(f => f.key === "budget.scope" && f.value.kind === "BUDGET_SCOPE" && (!f.subjectIds.length || f.subjectIds.some(id => fact.subjectIds.includes(id)))), scope = scopes.length === 1 && scopes[0]!.value.kind === "BUDGET_SCOPE" ? scopes[0]!.value.scope : null;
     if (!scope || !["PER_PERSON", "GROUP_TOTAL"].includes(scope) || money.currency === "UNSPECIFIED")
@@ -515,7 +563,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         const a = atom(activeRequest, fact, world, profile, source?.hash ?? null, visit, preferenceIds.has(fact.id), semantics, offerAvailability);
         allAtoms.push(a);
         reports.push(a.report);
-        const deferred = LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL";
+        const deferred = LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL" || fact.key === "people.count";
         if (!neutral(fact) && fact.modality !== "PREFERRED" && !preferenceIds.has(fact.id) && !deferred && !librarianRankingPreference(fact.modality) && a.report.state === "MET") {
             // Retain exactly the same traversal prefix, but stop constructing
             // discarded Cartesian combinations as soon as overflow is proven.
@@ -540,6 +588,8 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             const fact = selected.find(f => f.id === r.factId);
             if (!fact)
                 return r;
+            if (fact.key === "people.count" && !["CONTEXT", "NOT_REQUIRED"].includes(r.modality))
+                return { ...jointCapacity(fact, profile, state, visit), modality: r.modality };
             if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE")
                 return { ...jointPrice(fact, selected, request, profile, state, visit, world.eventOccurrence !== undefined), modality: r.modality };
             if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL") {
@@ -573,6 +623,10 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         if (!profile && next.some(r => ["LEGACY_TYPED_DISCOVERY_SUPPORT", "LEGACY_TYPED_PRESENCE_CONFIRMED"].includes(r.reason)) && visit.requested) {
             const gate = librarianVenueAvailability(world, visit);
             next.push({ factId: "legacy:venue-time", family: "eligibility", modality: "REQUIRED", state: gate.state, reason: gate.reason, evidenceHashes: gate.hashes, offerIds: [], areaIds: [] });
+        }
+        if (visit.requested && profile) for (const id of state.offerIds) {
+            const availability = offerAvailability(profile.offers.find(o => o.id === id)!, world, visit);
+            if (availability.state !== "MET") next.push({ factId: `availability:${id}`, family: "eligibility", modality: "REQUIRED", state: availability.state, reason: availability.reason, evidenceHashes: availability.hashes, offerIds: [id], areaIds: state.areaIds });
         }
         const offerParticipants = Object.fromEntries(state.offerIds.map(id => [id, sorted(selected.filter(f =>
             offerDuty(f) && f.modality === "REQUIRED"

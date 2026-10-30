@@ -40,6 +40,15 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "cozy", labels: ["gemütlich", "gemuetlich", "cozy"] },
     { id: "vegan", labels: ["vegan", "vegane gerichte", "vegane gerichte möglich"] },
     { id: "vegetarian", labels: ["vegetarisch", "vegetarische gerichte"] },
+    { id: "jazz", labels: ["Jazz", "Jazz hören", "jazz music"] },
+    { id: "live_jazz", labels: ["Live-Jazz", "Live Jazz", "Live-Jazz hören", "live_jazz"] },
+    { id: "conversation", labels: ["Unterhaltung gut möglich", "sich gut unterhalten können", "gut unterhalten", "conversation"] },
+    { id: "children_activity", labels: ["Kinderaktivität", "Kinderangebote", "children_activity"] },
+    { id: "public_day_access", labels: ["Öffentlicher Tageszugang", "Tagesgäste willkommen", "ohne Hotelübernachtung", "public_day_access"] },
+    { id: "spontaneous", labels: ["Spontan", "spontaneous", "Ohne Reservation", "Ohne Buchung", "Keine Reservation nötig", "Keine Reservation möglich"] },
+    { id: "booking_required", labels: ["Buchung erforderlich", "Reservation erforderlich", "Anmeldung erforderlich", "booking_required"] },
+    { id: "hotel_stay", labels: ["Hotelübernachtung", "Übernachtung erforderlich", "hotel_stay"] },
+    { id: "free", labels: ["gratis", "kostenlos", "free"] },
     { id: "music", labels: ["musik", "music"] }, { id: "no_music", labels: ["keine musik", "ohne musik"] },
     { id: "live_music", labels: ["live-musik", "livemusik", "live musik"] },
     { id: "background_music", labels: ["hintergrundmusik", "background music"] },
@@ -71,11 +80,38 @@ for(const offer of OFFER_CATALOG) for(const label of [offer.concept, offer.kind,
  const term=librarianTerm(label); if(!byTerm.has(term))byTerm.set(term,offer.concept);
 }
 export const librarianConcept = (text: string): string | null => byTerm.get(librarianTerm(text)) ?? null;
+/** Interpret only declared item lists and known offer captions. Negation and
+ * qualifications that change availability/access cannot become positive proof. */
+export function declaredExperienceConcepts(text: string, mode: "ITEM_LIST" | "OFFER_NAME"): readonly string[] {
+    if (/(?:^|[\s,;])(kein(?:e|en|er|es)?|nicht|ohne|ausverkauft|geschlossen)(?:[\s,;]|$)/iu.test(text)) return [];
+    if (/\b(?:nur|falls|sofern|Vorbestellung|Voranmeldung)\b|auf\s+Anfrage|je\s+nach/iu.test(text)) return [];
+    const direct = librarianConcept(text);
+    if (direct) return [direct];
+    if (mode === "OFFER_NAME") {
+        const caption = text.replace(/\s+(?:mit Onlinebuchung|nach Onlinebuchung|im Team spielen|im Team)$/iu, "");
+        const concept = librarianConcept(caption);
+        return concept ? [concept] : [];
+    }
+    return [...new Set(text.split(/\s*[,;]\s*|\s+und\s+/iu).flatMap(item => {
+        const exact = librarianConcept(item);
+        if (exact) return [exact];
+        // Origin qualifies the item, not its existence. Other prose is unknown.
+        const origin = /^(.*?)\s+(?:aus|vom|von)\s+\S.*$/iu.exec(item);
+        const concept = origin ? librarianConcept(origin[1]!) : null;
+        return concept ? [concept] : [];
+    }))];
+}
 export const sameLibrarianText = (a: string, b: string): boolean => librarianTerm(a) === librarianTerm(b) || (librarianConcept(a) !== null && librarianConcept(a) === librarianConcept(b));
 /** Directed product knowledge: an offered visit can support an activity.
  * This is not synonym equivalence and never infers venue identity backwards. */
 export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
     Object.freeze({ offered: "zoo", requested: "animals" }),
+    Object.freeze({ offered: "coffee", requested: "drinks" }),
+    Object.freeze({ offered: "live_jazz", requested: "jazz" }),
+    Object.freeze({ offered: "live_jazz", requested: "live_music" }),
+    Object.freeze({ offered: "live_jazz", requested: "music_event" }),
+    Object.freeze({ offered: "children_course", requested: "children_activity" }),
+    Object.freeze({ offered: "movement_play", requested: "children_activity" }),
     Object.freeze({ offered: "bouldering", requested: "climbing" }),
     Object.freeze({ offered: "bouldering", requested: "movement" }),
     Object.freeze({ offered: "climbing", requested: "movement" }),
@@ -83,7 +119,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@7" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@8" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),

@@ -29,3 +29,83 @@ This implementation does not deploy or activate a new production artifact. Relea
 The recorded ten real model outputs from 30 October were replayed locally, without new model calls or production writes, against the saved 419-profile/25-event snapshot with neutral personalization and frozen authority time. This is not a new live model test or an identical database rerun. Admitted counts before/after: cafe 91/0; free table tennis 0/0; swimming 3/0; vegan lunch 173/15; date bar 50/0; children outdoors 121/0; escape room 1/0; sauna 8/0; flea market 0/0; Jazz/access 11/0. The eight displayed vegan-lunch results remain. All other unresolved requirements remain visible in the evaluation, without recommendation ranks.
 
 The reduced coverage is intentional under the mandatory-evidence rule, not a claim that the outstanding search problems are solved. Vocabulary alignment, the model's treatment of children and prerequisites, programme evidence, capacity verification and incomplete schedules still require separate work. Never restore silent fallback admission to hide those gaps.
+
+## Semantic alignment and ranking follow-up (matching 16, prompt 6)
+
+The follow-up keeps the admission invariant above. It changes these four parts:
+
+1. **Shared meaning and scope.** The finite language adds explicit live jazz,
+   conversation, child activity and public day access concepts. A declared offer
+   caption can establish the named activity; only known captions and a small set
+   of booking/team suffixes are accepted. Negated or conditional prose remains
+   unproven. Typed drink/item lists support exact catalog terms and origin
+   qualifiers. Coffee recorded as an activity can prove the requested drink in
+   that same offer. Offer/area joins still prevent borrowing a quiet room from
+   an unrelated offer. `table_tennis` already existed; this change does not claim
+   to introduce its canonical ID.
+2. **Model handover.** Prompt revision 6 explicitly distinguishes child activities
+   from family-friendly dining, a child subgroup from the complete party, live
+   jazz from generic music, and public/spontaneous access from an optional hotel
+   stay. Complete explicit party size is a capacity requirement; partial party
+   counts remain context. Numeric zero prices express free access without
+   inventing a currency or group size. Prompt compliance must also be evaluated
+   with real model responses; fixtures alone do not prove it.
+3. **Time and capacity.** An activity can be documented while its requested date
+   fails. These are now separate fact and eligibility assessments. Offer validity
+   bounds supply an explicit out-of-season rejection independently of missing
+   venue hours. Existing typed offer schedules remain authoritative: an empty
+   schedule does not inherit venue hours. A required party size is compared with
+   the selected offer's known numeric capacity (at least the requested number),
+   respecting property conditions. Prices, another room and unrelated offers do
+   not establish capacity. Static capacity is explicitly explained as distinct
+   from available booking slots. A full zero tariff with included mandatory fees
+   may prove free access; partial items and missing fees cannot.
+4. **Ranking.** Only admitted candidates are ranked. Matched preferences and
+   confirmed request evidence use semantic identities instead of raw fact IDs.
+   Repeated meal/activity aliases do not create extra votes. Unrelated profile
+   content and offer-count explanations do not improve evidence rank. Genuine
+   ties use a stable spot identity independent of profile edits, catalog order,
+   names, popularity and payments. Existing rank-vector JSON shape is retained
+   for Mobile/Web compatibility. Ranking policy 8 and evaluation release 15 bind
+   the change; evaluator versions 6/7 identify spot/event execution.
+
+No profile data is backfilled and no opening schedule, child suitability, public
+access or booking inventory is fabricated. A frozen replay tests the matcher
+against recorded model answers; it does not test the new prompt. A separate
+admin-only prompt trial must be labelled accordingly and must not be confused
+with deployment of the consumer engine.
+
+A real five-case prompt-5 trial found a missing inferred wheelchair-access duty.
+Prompt 6 therefore explicitly keeps personal mobility aids as context and emits
+the required access fact separately; zero-price requests retain unspecified
+currency when the user has not named one. This is a prompt correction, never
+a software demotion of a duty already emitted by the model.
+
+### Follow-up validation
+
+- 496 Decision core tests and 374 World tests pass, including 27 targeted
+  semantic/capacity/time/ranking regressions. The full Product CI chain passes
+  with strict TypeScript, Mobile/Web contracts, route invariants and the existing
+  isolated app E2E (zero production actions).
+- The recorded ten-case matcher replay now finds Kaphi and 18 proven vegan-lunch
+  candidates. It still uses prompt-4 meanings, so it cannot establish the new
+  interpretation quality.
+- Five real prompt-5 calls tested children, sauna, live jazz, six-person escape
+  room and free table tennis. Children became an explicit required activity,
+  sauna retained required public/spontaneous access, and the complete group
+  size remained required. Live-jazz lost its inferred wheelchair-access duty;
+  that regression caused the prompt-6 correction above.
+- A real prompt-6 retry preserves live jazz REQUIRED and wheelchair access
+  REQUIRED/INFERRED, with the mobility aid CONTEXT. A second retry was blocked
+  by the existing global daily quota (20 requests, one blocked attempt); the
+  quota was neither reset nor widened. This is not repeated-run statistical
+  certification of the model or a fresh ten-case trial of prompt 6.
+- Replaying the five updated case meanings (four prompt-5, one prompt-6) against
+  the frozen catalog yields five child/outdoor candidates: St. Johanns-Park,
+  Kannenfeldpark, Schützenmattpark, Hoppolino and Robi Bachgraben. Date-specific
+  pingpong, swimming, escape, sauna, flea market and jazz/access stay unresolved
+  or excluded where the required evidence is absent or contradicts the visit.
+- The temporary admin prompt trial was restored to its exact prior source hash
+  `2f082693d82220fb10f7e1846760f5d5c69d76558b190faf36e48e37cdeb6c34`.
+  Consumer `decision-v13` remains version 217. No spot data, consent/auth rules,
+  learning data or normal consumer decisions were written by these trials.

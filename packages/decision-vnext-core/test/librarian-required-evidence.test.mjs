@@ -38,7 +38,7 @@ test('mandatory atmosphere is binding while explicit preference remains optional
 test('unverifiable required participant count is not converted to harmless context',()=>{
  const r=search(request([meal(),fact('party','people.count',{amount:6,operator:'EQ',unit:'PEOPLE'},'REQUIRED',['g1'])]),[binding(903,profile())]);
  assert.equal(r.ranked.length,0);const count=r.unresolved[0].facts.find(f=>f.factId==='party');
- assert.equal(count.modality,'REQUIRED');assert.equal(count.state,'UNKNOWN');assert.equal(count.reason,'REQUEST_PARAMETER_NOT_VERIFIABLE_AS_REQUIREMENT');
+ assert.equal(count.modality,'REQUIRED');assert.equal(count.state,'UNKNOWN');assert.equal(count.reason,'SCOPED_GROUP_CAPACITY_UNKNOWN_OR_CONFLICTING');
 });
 
 test('a requested date with no offer schedule stays an unknown duty',async()=>{

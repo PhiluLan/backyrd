@@ -90,7 +90,9 @@ function vector(candidate: DecisionProductCandidateAssessment, projection: Relev
     },
     worldEvidence: {
       conflictFree: candidate.conflicts.length === 0,
-      confirmedReasonCount: candidate.reasons.filter((reason) => reason.domain === "WORLD" && reason.confirmed && !reason.reasonCode.startsWith("primary-purpose-")).length,
+      confirmedReasonCount: candidate.reasons.some(reason => reason.reasonCode.startsWith("LBR_EVIDENCE:"))
+        ? new Set(candidate.reasons.filter(reason => reason.confirmed && reason.domain === "WORLD" && reason.reasonCode.startsWith("LBR_EVIDENCE:")).map(reason => reason.reasonCode)).size
+        : candidate.reasons.filter(reason => reason.domain === "WORLD" && reason.confirmed && !reason.reasonCode.startsWith("primary-purpose-")).length,
     },
     neutralIdentity: candidate.neutralTieBreakerHash,
   };
@@ -181,7 +183,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
   const assessment = candidate.assessment;
   const reasons: ProductReason[] = [
     ...assessment.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-    { code: "product-ranking-policy-v7", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
+    { code: "product-ranking-policy-v8", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Zuerst zählen belegte Eignung und der Wunsch für diesen Moment; persönliche Vorlieben kommen danach.", confirmed: true },
     ...(candidate.comparativeReason ? [candidate.comparativeReason] : []),
   ];
   return DecisionProductCandidateSchema.parse(withContentHash({
@@ -235,7 +237,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const situation = evaluation.interpretation.group.companionType;
   const situationRequested = situation !== null && ["DATE_PAIR", "FRIENDS_GROUP", "FAMILY", "ALONE"].includes(situation)
     && evaluation.interpretation.softPreferences.includes(`WK:context.visit_situations:${situation}`);
-  const situationalIds = ["decision-vnext-librarian-evaluator@1", "decision-vnext-librarian-evaluator@3", "decision-vnext-librarian-evaluator@4", "decision-vnext-librarian-evaluator@5"].includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
+  const situationalIds = ["decision-vnext-librarian-evaluator@1", "decision-vnext-librarian-evaluator@3", "decision-vnext-librarian-evaluator@4", "decision-vnext-librarian-evaluator@5", "decision-vnext-librarian-evaluator@6", "decision-vnext-librarian-evaluator@7"].includes(evaluation.evaluatorVersion) || evaluation.interpretation.primaryIntent !== null ? null : new Set(
     situationRequested ? evaluation.candidates.filter((candidate) => candidate.visitSituation.state === "CONFIRMED"
       && situationalExperienceCategories.has(candidate.worldClassification.primaryCategory ?? "")).map((candidate) => candidate.candidateId) : [],
   );
