@@ -11,6 +11,8 @@ const productTests = [
   "packages/decision-vnext-core/test/product-runtime-composition.test.mjs",
   "packages/decision-vnext-core/test/isolation.test.mjs",
   "packages/decision-vnext-core/test/librarian-runtime-imports.test.mjs",
+  "packages/decision-vnext-core/test/librarian-required-evidence.test.mjs",
+  "packages/decision-vnext-core/test/librarian-semantic-improvements.test.mjs",
 ];
 
 function run(label, command, args) {

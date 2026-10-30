@@ -117,7 +117,7 @@ test("an unresolved main wish never turns a random catalog slice into recommenda
   assert.equal(built.response.candidates.filter((candidate) => candidate.rank !== null).length, 0);
 });
 
-test("an open-ended social wish ranks only verified situation matches, never a hotel or an unverified venue", async () => {
+test("a verified social context cannot override unconfirmed core eligibility", async () => {
   const input = await fixture(productRequest("Ein schöner Ort für unser erstes Date", "situation-only"), "NO_CONSENT");
   const { interpretationHash: _interpretationHash, ...context } = input.evaluation.interpretation;
   const interpretation = DecisionProductContextSchema.parse(withContentHash({
@@ -140,8 +140,8 @@ test("an open-ended social wish ranks only verified situation matches, never a h
   const { evaluationHash: _evaluationHash, ...evaluationBody } = input.evaluation;
   const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({ ...evaluationBody, interpretation, candidates }, "evaluationHash"));
   const built = buildDecisionProductExecution({ ...input, evaluation });
-  assert.equal(built.response.primaryCandidateId, "product-spot-cafe");
-  assert.deepEqual(built.response.candidates.filter((candidate) => candidate.rank !== null).map((candidate) => candidate.spotId), ["product-spot-cafe"]);
+  assert.equal(built.response.primaryCandidateId, null);
+  assert.deepEqual(built.response.candidates.filter((candidate) => candidate.rank !== null).map((candidate) => candidate.spotId), []);
   assert.equal(built.response.candidates.find((candidate) => candidate.spotId === "product-spot-cafe")?.tier, "UNCONFIRMED_FALLBACK");
   const noSituation = DecisionProductContextSchema.parse(withContentHash({ ...context,
     primaryIntent: null, intentCompatibility: "UNKNOWN", occasion: "DATE",
@@ -355,7 +355,7 @@ test("hard constraints and core intent always precede consented user relevance",
   assert.ok(ranked.length > 0);
   assert.ok(ranked.every((candidate) => candidate.failedHardConstraints.length === 0 && candidate.unknownHardConstraints.length === 0 && candidate.coreIntentCoverage !== "INCOMPATIBLE"));
   assert.ok(ranked.slice(0, -1).every((candidate) => candidate.reasons.some((reason) => reason.code === "product-rank-versus-next-v1")), "every ranked candidate with a follower has a server-authored comparative reason");
-  assert.match(ranked[0].reasons.find((reason) => reason.code === "product-rank-versus-next-v1")?.statement ?? "", /Hauptabsicht|Eignungsklasse|World-Gründe|Tie-Breakers/);
+  if (ranked.length > 1) assert.match(ranked[0].reasons.find((reason) => reason.code === "product-rank-versus-next-v1")?.statement ?? "", /Hauptabsicht|Eignungsklasse|World-Gründe|Tie-Breakers/);
   assert.ok(built.response.candidates.filter((candidate) => candidate.tier === "INELIGIBLE").every((candidate) => candidate.rank === null));
   assert.equal(built.response.legacyEngineUsed, false);
   assert.equal(built.response.fallbackUsed, false);
@@ -404,7 +404,7 @@ test("an unproven hard constraint cannot enter Product ranking", async () => {
   assert.equal(row?.rank, null);
 });
 
-test("unknown requested-day hours remain an explicit fallback while confirmed closure still excludes", async () => {
+test("unknown requested-day hours stay unranked pending verification", async () => {
   const input = await fixture(productRequest("Sonntag ruhig Kaffee trinken", "unknown-sunday-hours"), "NO_CONSENT");
   const candidate = input.evaluation.candidates[0];
   const { assessmentHash: _assessmentHash, ...candidateBody } = candidate;
@@ -418,7 +418,7 @@ test("unknown requested-day hours remain an explicit fallback while confirmed cl
   const evaluation = withContentHash({ ...evaluationBody, candidates: [fallback, ...input.evaluation.candidates.slice(1)] }, "evaluationHash");
   const result = buildDecisionProductExecution({ ...input, evaluation });
   const row = result.response.candidates.find((item) => item.spotId === candidate.candidateId);
-  assert.notEqual(row?.rank, null);
+  assert.equal(row?.rank, null);
   assert.equal(row?.actualAvailability, "unknown");
   assert.deepEqual(row?.unknownHardConstraints, ["OPEN_ON_REQUESTED_DAY"]);
 });
@@ -777,4 +777,21 @@ test("active product module has no legacy, founder allowlist, dual-run or fallba
   const contracts = await readFile(new URL("../src/product-v1-contracts.ts", import.meta.url), "utf8");
   const evaluator = await readFile(new URL("../src/product-v1-evaluator.ts", import.meta.url), "utf8");
   assert.doesNotMatch(contracts + evaluator, /FounderLab|FOUNDER_WORLD_COHORT|SYNTHETIC_FALLBACK|decision-learning-event@1\.0|DecisionLearningEventSchema/);
+});
+
+test('final output cannot rank incomplete duties even with a forged confirmed core or tier',async()=>{
+ for(const patch of [
+  {unknownHardConstraints:['LBR:required-programme']},
+  {unknownHardConstraints:['OPEN_ON_REQUESTED_DAY']},
+  {failedHardConstraints:['LBR:required-access']},
+  {tier:'UNCONFIRMED_FALLBACK'},
+ ]){
+  const input=await fixture(productRequest('Pflichten bleiben verbindlich','final-duty-gate'),'ACTIVE');
+  const original=input.evaluation.candidates[0];const {assessmentHash,...candidate}=original;
+  const changed=DecisionProductCandidateAssessmentSchema.parse(withContentHash({...candidate,tier:'ELIGIBLE_CONFIRMED',coreIntentCoverage:{...candidate.coreIntentCoverage,state:'CONFIRMED'},unknownHardConstraints:[],failedHardConstraints:[],...patch},'assessmentHash'));
+  const {evaluationHash,...evaluation}=input.evaluation;
+  const altered=DecisionProductEvaluationSchema.parse(withContentHash({...evaluation,candidates:[changed]},'evaluationHash'));
+  const built=buildDecisionProductExecution({...input,evaluation:altered,presentations:input.presentations.filter(p=>p.spotId===changed.candidateId)});
+  assert.equal(built.response.primaryCandidateId,null);assert.ok(built.response.candidates.every(c=>c.rank===null));
+ }
 });

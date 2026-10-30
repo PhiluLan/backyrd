@@ -45,7 +45,7 @@ test('sold out is excluded; unknown ticket availability still admits the event',
 });
 test('specific genres and live format need structured evidence',()=>{
  const jazz=fact('genre','atmosphere.music','Jazz');
- const without=run([music(),jazz]).result.ranked[0];
+ const without=run([music(),jazz]).result.unresolved[0];
  const withJazz=run([music(),jazz],{tags:['JAZZ']}).result.ranked[0];
  assert.ok(without);assert.ok(withJazz);
  assert.equal(without.facts.find(f=>f.factId==='genre').state,'UNKNOWN');
@@ -104,11 +104,11 @@ test('a typed OPEN_NOW cannot admit an event that has not started',async()=>{
  const r=await exercise({text,meaning:request([music()]),catalog:[],eventOccurrences:[occurrence],requestOverride:req});
  assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.primaryCandidateId,null);
 });
-test('entry budget excludes a known minimum over budget; free and unknown prices remain usable',async()=>{
+test('entry budget excludes a known minimum over budget; free prices remain eligible and unknown prices remain unresolved',async()=>{
  const {budget}=await import('./librarian-matching-fixtures.mjs');
  assert.equal(run([music(),...budget(20)],{priceMin:30,currency:'CHF'}).result.ranked.length,0);
  assert.equal(run([music(),...budget(20)],{isFree:true}).result.ranked.length,1);
- assert.equal(run([music(),...budget(20)]).result.ranked.length,1);
+ assert.equal(run([music(),...budget(20)]).result.ranked.length,0);assert.equal(run([music(),...budget(20)]).result.unresolved.length,1);
 });
 test('overnight events use the actual occurrence interval across midnight',()=>{
  const event={...occurrence,startAt:'2026-10-15T22:00:00+02:00',endAt:'2026-10-16T02:00:00+02:00'};
