@@ -303,6 +303,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     productPreappliedImport: actualPlan.productPreappliedImport,
     deployFunctions: actualPlan.deployFunctions,
     deferredFunctionChanges: actualPlan.deferredFunctionChanges,
+    codeOnlyDeliveryScope: actualPlan.codeOnlyDeliveryScope ?? null,
     retiredFunctions: actualPlan.retiredFunctions ?? [],
     recoveryRiskAcceptance: recoveryRisk,
     recoveryRiskMigrationSet: acceptedMigrationSet,

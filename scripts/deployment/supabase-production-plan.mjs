@@ -481,7 +481,26 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
-  const deferredFunctionChanges = authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
+  // Code delivery is independent from historical, already applied SQL releases.
+  // Keep their receipts, but do not reuse their old Function hashes as a freeze.
+  const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
+  if (codeOnlyScope) {
+    const canonical = rows => rows.map(({path,sha256})=>({path,sha256})).sort((a,b)=>a.path.localeCompare(b.path));
+    if (codeOnlyScope.contractVersion !== "backyrd.code-only-delivery-scope@1.0"
+      || !Array.isArray(codeOnlyScope.functions) || !codeOnlyScope.functions.length
+      || new Set(codeOnlyScope.functions).size !== codeOnlyScope.functions.length
+      || codeOnlyScope.functions.some(slug=>!["decision-v13","decision-admin-diagnostic"].includes(slug))
+      || functionChanges.some(change=>!codeOnlyScope.functions.includes(change.slug))
+      || functions.some(item=>item.deploy && item.verifyJwt !== true)
+      || !Array.isArray(codeOnlyScope.deferredMigrations)
+      || JSON.stringify(canonical(allPending)) !== JSON.stringify(canonical(codeOnlyScope.deferredMigrations))
+      || authConfig?.deploy === true || retiredFunctions.length || migrationRecovery
+      || preappliedMigrationImport || productPreappliedImport)
+      throw new Error("code_only_delivery_scope_invalid");
+    // The source plan still binds exact bytes for all deferred migrations.
+    // A new/changed migration is a data release, never silently included here.
+  }
+  const deferredFunctionChanges = codeOnlyScope ? [] : authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
   if (deferredFunctionChanges.length) {
     if (![RESEARCH_SAFETY_MIGRATION,RESEARCH_RHASSOUL_MIGRATION,ADMIN_CATEGORY_MIGRATION,AREA_RESERVATION_MIGRATION].some(target => JSON.stringify(authority.isolatedResearchMigrationScope.migrations) === JSON.stringify([target]))
       || JSON.stringify(deferredFunctionChanges) !== JSON.stringify(RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES)
@@ -489,12 +508,14 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     for (const item of functions.filter(item=>item.deploy)) {
       item.deploy=false; item.reason="EXACT_SOURCE_CHANGE_DEFERRED_BY_ISOLATED_SQL_SCOPE";
     }
-  } else if (authority?.isolatedResearchMigrationScope && functionChanges.length) {
+  } else if (!codeOnlyScope && authority?.isolatedResearchMigrationScope && functionChanges.length) {
     throw new Error(`isolated_research_unbound_function_changes:${JSON.stringify(functionChanges)}`);
   }
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
-  const scoped = authority?.isolatedVoltaMigrationScope
+  const scoped = codeOnlyScope
+    ? {pendingMigrations:[],deferredMigrations:allPending,isolatedResearchScope:null,isolatedVoltaScope:null}
+    : authority?.isolatedVoltaMigrationScope
     ? scopeVoltaMigrations({pending:allPending,scope:authority.isolatedVoltaMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedResearch,appliedVolta})
     : scopeResearchMigrations({pending:allPending,scope:authority?.isolatedResearchMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,applied:appliedResearch,appliedSafety:appliedResearchSafety,appliedRhassoul:appliedResearchRhassoul,appliedAdminCategory,appliedAreaReservation});
   const {pendingMigrations,deferredMigrations,isolatedResearchScope,isolatedVoltaScope} = scoped;
@@ -508,6 +529,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     retiredFunctions,
     deployFunctions,
     deferredFunctionChanges,
+    codeOnlyDeliveryScope: codeOnlyScope,
     migrations,
     pendingMigrations,
     // This approved migration predates the remote tip. Only the exact isolated
