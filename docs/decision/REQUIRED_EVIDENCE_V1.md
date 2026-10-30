@@ -158,5 +158,25 @@ time.original to CONTEXT in the active structured model contract and validates
 it at the provider boundary. Nonconforming output fails before search; no
 modality is silently demoted, no retry is added, and historical meaning plans
 and the frozen base schema remain unchanged. Genuine revision-8 validation
-needs two additional calls beyond the approved twenty, separately requested.
-Automated tests establish the boundary, not yet the live model outcome.
+needed two additional calls beyond the approved twenty. The Founder explicitly
+approved exactly those two controls. Both real revision-8 calls completed:
+table tennis preserves Basel, table_tennis, 30 October, EVENING and zero maximum
+price as REQUIRED; flea market preserves Basel, Flohmarkt and 1 November as
+REQUIRED. Both original time quotations are CONTEXT. Neither result invents a
+matching date or admits an unresolved candidate. Server totals were 9.54 and
+8.17 seconds. This validates those two cases, not a fresh ten-case revision-8
+trial or repeated-run statistical reliability.
+
+All 502 Decision tests pass, as do Product TypeScript, route invariants,
+Mobile/Web contracts and isolated app E2E (zero production actions). The E2E
+needed a permitted loopback server after the first sandbox bind was denied.
+GitHub release certification remains blocked by the existing isolated research
+authority's exact deferred Function binding; no release control was widened.
+Consumer decision-v13 remains version 217.
+
+The temporary candidate diagnostic v10 was restored to baseline v11 with only
+the approved date-bound quota change. Bundle hash:
+6bcb6b69d90d9b6feb6ab44dd497c543eec1785dac3dc43e275c1709deac2e60.
+The 30 October global count is 42, with one earlier blocked attempt. Counters,
+operation identity, minute caps, auth/admin checks and expiry remain unchanged;
+the daily cap returns to 20 on 31 October UTC. No further model calls were made.
