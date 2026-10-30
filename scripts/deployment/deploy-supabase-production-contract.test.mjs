@@ -52,3 +52,16 @@ test("Production workflow is manual-only and retains the source-aware plan", asy
   assert.match(workflow, /Retain deployment plan and gate audit/);
   assert.equal((workflow.match(/run: bash scripts\/deployment\/deploy-supabase-production\.sh/g) ?? []).length, 1);
 });
+
+ test("Older approved SQL uses the same sealed push flags in dry-run and apply", async () => {
+  const deploy=await readFile(new URL("./deploy-supabase-production.sh",import.meta.url),"utf8");
+  const workflow=await readFile(new URL("../../.github/workflows/supabase-production.yml",import.meta.url),"utf8");
+  assert.match(deploy,/db push --dry-run "\$\{migration_push_flags\[@\]\}"/);
+  assert.match(deploy,/db push --yes "\$\{migration_push_flags\[@\]\}"/);
+  assert.match(workflow,/db push --dry-run "\$\{migration_push_flags\[@\]\}"/);
+  for(const text of [deploy,workflow]) {
+    assert.match(text,/\.migrationPushFlags\[\]\?/);
+    assert.match(text,/verify-supabase-migration-dry-run\.mjs/);
+    assert.doesNotMatch(text,/db push[^\n]*--include-all/);
+  }
+ });

@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import {AUTHORING_VALUE_SAMPLES as samples} from '../../packages/world-knowledge-core/test/authoring-value-fixtures.mjs';
+import {AUTHORING_FIELDS,validateAuthoringSubmission,EXPERIENCE_QUESTIONS,emptyExperienceProfile,emptyExperienceConditions} from '../../packages/world-knowledge-core/dist/index.js';
+const rows=[];
+for(const f of AUTHORING_FIELDS){const value=f.valueType==='ENUM'?f.allowedValues[0].value:f.valueType==='ENUM_SET'?[f.allowedValues[0].value]:samples[f.valueType];const state=f.valueType==='BOOLEAN'?'KNOWN_TRUE':'KNOWN_VALUE';const result=validateAuthoringSubmission(f.attributeKey,state,value);if(!result.ok)throw Error(f.attributeKey);rows.push({id:f.attributeKey,key:f.attributeKey,state,value:result.value});if(f.valueType==='BOOLEAN')rows.push({id:f.attributeKey+':false',key:f.attributeKey,state:'KNOWN_FALSE',value:false});rows.push({id:f.attributeKey+':unknown',key:f.attributeKey,state:'UNKNOWN',value:null});}
+for(const q of EXPERIENCE_QUESTIONS)for(const scope of q.scopes)for(const state of ['KNOWN','UNKNOWN','NOT_APPLICABLE']){
+ const value=state!=='KNOWN'?null:q.control==='YES_NO'?true:q.control==='NUMBER'?50:q.key==='custom.detail'?'Synthetischer Hinweis':q.key==='stay.check_in'||q.key==='stay.check_out'?'17:00':q.key==='participation.booking'?'Empfohlen':'Synthetische Angabe';
+ const property={key:q.key,label:q.key==='custom.detail'?'Hinweis':null,state,value,conditions:emptyExperienceConditions()};let p={...emptyExperienceProfile('RESTAURANT'),reviewed:true};if(scope==='SPOT')p.properties=[property];if(scope==='AREA')p.areas=[{id:'inside',name:'Innenbereich',kind:'INDOOR',properties:[property]}];if(scope==='OFFER')p.offers=[{id:'offer',name:'Angebot',kind:'OTHER',properties:[property],areaIds:[],prices:[],schedule:[],validFrom:null,validUntil:null}];
+ const valid=validateAuthoringSubmission('experience.profile','KNOWN_VALUE',p);if(!valid.ok)throw Error(q.key+':'+scope);rows.push({id:`${scope}:${q.key}:${state}`,key:'experience.profile',state:'KNOWN_VALUE',value:valid.value});}
+const output=process.argv[2];if(!output)throw Error('output_path_required');
+fs.writeFileSync(output,JSON.stringify(rows));console.log(JSON.stringify({cases:rows.length,output}));

@@ -1,4 +1,5 @@
 "use client";
+import { experienceSaveErrorMessage } from "./authoring-rpc-errors";
 import { useRef, useState } from "react";
 import { clubActivity, clubOfferChoice, offerHelp, offerLabel, selectableOffers } from "./experience-offer-guidance";
 import { ExperienceReferences } from "./ExperienceReferences";
@@ -69,7 +70,7 @@ export function ExperienceInput({value,onChange,onSave,disabled,existingAnswers=
   catch{setError("Bitte prüfe Namen, Werte, Preisgrenzen und Verknüpfungen. Deine Eingaben bleiben erhalten.");return false;}
   saving.current=true;setBusy(true);setError(null);
   try{await onSave(checked);setProfile(checked);onChange(checked);setBaseline(checked);setDirty(false);onDirtyChange?.(false);setSaved(true);return true;}
-  catch(cause){setError(cause instanceof Error ? `Speichern fehlgeschlagen: ${cause.message} Deine Eingaben bleiben als Entwurf erhalten.` : "Speichern fehlgeschlagen. Deine Eingaben bleiben erhalten; bitte versuche es erneut.");return false;}
+  catch(cause){setError(experienceSaveErrorMessage(cause));return false;}
   finally{saving.current=false;setBusy(false);}
  };
  const continueNext=async()=>{if(await save())onContinue?.();};
