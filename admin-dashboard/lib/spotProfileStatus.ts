@@ -1,8 +1,9 @@
 import {
   AUTHORING_STEPS, getAuthoringFieldsForContext, evaluateAuthoringReadiness,
-  getExperienceQuestions, parseExperienceProfile, validateAuthoringSubmission,
+  parseExperienceProfile, validateAuthoringSubmission,
   type ExperienceProfile, type ExperienceProperty,
 } from "@backyrd/world-knowledge-core/browser";
+import { getExperienceAuthoringQuestions } from "@backyrd/world-knowledge-authoring-ui/experience-authoring";
 
 export type ProfileCheck = { id: string; label: string; complete: boolean };
 export type ProfileSection = { id: string; label: string; checks: ProfileCheck[] };
@@ -83,7 +84,7 @@ function coverage(answers: Record<string, Answer>, allowed: string[], conflicts:
     const base = experience.checks.find(check => check.id === "experience.profile");
     if (base) base.complete = !!profile && profile.offers.length > 0;
     if (profile) {
-      const addProperties = (prefix: string, name: string, questions: ReturnType<typeof getExperienceQuestions>, properties: readonly ExperienceProperty[]) => {
+      const addProperties = (prefix: string, name: string, questions: ReturnType<typeof getExperienceAuthoringQuestions>, properties: readonly ExperienceProperty[]) => {
         for (const question of questions) {
           const values = properties.filter(property => property.key === question.key);
           // Explicitly not applicable is an answered question. Unknown isn't.
@@ -91,9 +92,12 @@ function coverage(answers: Record<string, Answer>, allowed: string[], conflicts:
             complete: values.length > 0 && values.every(property => property.state === "NOT_APPLICABLE" || (property.state === "KNOWN" && meaningful(property.value))) });
         }
       };
-      addProperties("spot", "Allgemein", getExperienceQuestions(profile.category, "SPOT"), profile.properties);
-      for (const offer of profile.offers) addProperties(`offer:${offer.id}`, offer.name, getExperienceQuestions(profile.category, "OFFER", offer.kind), offer.properties);
-      for (const area of profile.areas) addProperties(`area:${area.id}`, area.name, getExperienceQuestions(profile.category, "AREA", undefined, area.kind), area.properties);
+      // Count the same questions (and labels) the editor actually presents.
+      // The storage catalogue also permits historical and differently scoped
+      // answers; those must not create duplicate, unanswerable admin tasks.
+      addProperties("spot", "Allgemein", getExperienceAuthoringQuestions(profile.category, "SPOT", undefined, undefined, answers), profile.properties);
+      for (const offer of profile.offers) addProperties(`offer:${offer.id}`, offer.name, getExperienceAuthoringQuestions(profile.category, "OFFER", offer.kind, undefined, answers), offer.properties);
+      for (const area of profile.areas) addProperties(`area:${area.id}`, area.name, getExperienceAuthoringQuestions(profile.category, "AREA", undefined, area.kind, answers), area.properties);
     }
   }
   const order = ["basics", "classification", "hours", "discovery", "offering", "price", "objective", "amenities", "context"];

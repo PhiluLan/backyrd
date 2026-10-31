@@ -11,8 +11,12 @@ const require=createRequire(import.meta.url);
 const dir=await mkdtemp(join(tmpdir(),'profile-completeness-'));
 const runtime=new URL('../../packages/world-knowledge-core/dist/browser-runtime.js',import.meta.url).href;
 const statusPath=join(dir,'status.mjs');
+const questionsPath=join(dir,'questions.mjs');
+const questionsSource=await readFile(new URL('../../packages/world-knowledge-authoring-ui/src/experience-authoring.ts',import.meta.url),'utf8');
+await writeFile(questionsPath,ts.transpileModule(questionsSource,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replace('"@backyrd/world-knowledge-core/browser"',JSON.stringify(runtime)));
+const {getExperienceAuthoringQuestions}=await import(pathToFileURL(questionsPath).href);
 let source=await readFile(new URL('../lib/spotProfileStatus.ts',import.meta.url),'utf8');
-await writeFile(statusPath,ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replace('"@backyrd/world-knowledge-core/browser"',JSON.stringify(runtime)));
+await writeFile(statusPath,ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ES2022,target:ts.ScriptTarget.ES2022}}).outputText.replace('"@backyrd/world-knowledge-core/browser"',JSON.stringify(runtime)).replace('"@backyrd/world-knowledge-authoring-ui/experience-authoring"',JSON.stringify(pathToFileURL(questionsPath).href)));
 const {spotProfileStatus}=await import(pathToFileURL(statusPath).href);
 const id='fixture';
 const answer=(value,knowledgeState='KNOWN_VALUE',extra={})=>({value,knowledgeState,...extra});
@@ -80,6 +84,25 @@ test('empty/unreviewed profiles stay open; scoped details and explicit non-appli
  assert.equal(check(filled,'offering.cuisines'),undefined,'scoped food details replace the redundant flat field');
  profile.offers[0].properties[0]={...profile.offers[0].properties[0],state:'UNKNOWN',value:null};
  assert.equal(score(detail({'experience.profile':answer(profile)})).completed,filled.completed-1);
+});
+
+test('coverage follows editable scopes and central amenities without losing genuine area tasks',()=>{
+ const profile=foodProfile();
+ profile.areas=[{id:'inside',kind:'INDOOR',name:'Innenbereich',properties:[]}];
+ const answers={'experience.profile':answer(profile),'amenity.features':answer(['TOILET'])};
+ const initial=score(detail(answers,['experience.profile']));
+ for(const id of ['spot:participation.accessibility','spot:location.setting','spot:offer.feature','spot:amenity.toilet','offer:lunch:atmosphere.music','offer:lunch:offer.feature','area:inside:participation.entry_mode','area:inside:condition.children','area:inside:amenity.toilet','area:inside:amenity.changing_table'])assert.equal(check(initial,id),undefined,id);
+ assert.equal(check(initial,'area:inside:amenity.step_free').complete,false,'global access must not invent area access');
+ assert.equal(check(initial,'area:inside:atmosphere.music').complete,false);
+ const fill=questions=>questions.map(q=>({key:q.key,label:null,state:'NOT_APPLICABLE',value:null,conditions:emptyExperienceConditions()}));
+ profile.properties=fill(getExperienceAuthoringQuestions('EAT','SPOT',undefined,undefined,answers));
+ profile.offers[0].properties=fill(getExperienceAuthoringQuestions('EAT','OFFER','LUNCH',undefined,answers));
+ profile.areas[0].properties=fill(getExperienceAuthoringQuestions('EAT','AREA',undefined,'INDOOR',answers));
+ assert.equal(score(detail(answers,['experience.profile'])).percent,100);
+ profile.areas[0].properties.find(p=>p.key==='amenity.step_free').state='UNKNOWN';
+ assert.ok(score(detail(answers,['experience.profile'])).percent<100);
+ const noCentral={...answers,'amenity.features':answer(null,'UNKNOWN')};
+ assert.equal(check(score(detail(noCentral,['experience.profile'])),'spot:amenity.toilet').complete,false,'unknown central amenities still need an answer');
 });
 
 // Render the real component: percentage, accessible progress, missing work and
