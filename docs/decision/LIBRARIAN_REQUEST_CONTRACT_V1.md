@@ -708,3 +708,7 @@ The authored option labels “Glutenfreie Option” and “Laktosefreie Option�
 ### Prompt 21 / meaning roles 5: no invented missing child age
 
 A daughter/son without an age produces no age fact. In particular APPROX 0 is not an encoding of unknown age. The source-bound provider detects this placeholder when the request does not mention zero and asks the single bounded correction to remove only the diagnosed placeholder. Other facts and logic remain immutable; unsafe linked removals fail understanding validation. The prompt also reiterates that rain alone supplies no visit date. This is not a claim of complete source grounding for every possible numeric/date output; the genuine museum query is retained as development evidence.
+
+### Matcher 40: an accompanying adult cannot hide a child's age notice
+
+A typed child/family participation context remains relevant when Luna omitted a separate child entity or attached the relationship globally. The known/assumed accompanying adult's age alone cannot establish that a documented offer minimum is met by the child. An unknown child age retains the existing non-blocking, source-bound minimum-age notice. Explicitly younger children remain excluded; a known eligible child does not acquire an unnecessary notice. The three historical founder-approved playground meanings retain the same seven results and now all show ELYS's documented minimum of one year. The fixture's historical open-issue record is preserved, not rewritten as if its original runs already contained the notice.

@@ -84,7 +84,13 @@ export function librarianGlobalEligibility(input: {
     const count = counts.length === 1 && counts[0]!.value.kind === "COUNT" ? counts[0]!.value.amount : null;
     const participantIds = [...new Set([...ageFacts.flatMap(f => f.subjectIds), ...facts.filter(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality))
         .flatMap(f => f.subjectIds).filter(id => request.entities.some(e => e.id === id && e.kind === "PERSON")), ...activeGroups.flatMap(group => group.members)])];
-    const agesCoverKnownParticipants = (minimum: number) => minimum <= 0 || participantIds.length > 0
+    // A globally mentioned child still participates even if the model emitted
+    // no separate person entity. An adult's known age cannot cover that child.
+    const childParticipantContext = familyCompanionship || hasCompanionTerm(["tochter","daughter","sohn","son","kind","child"])
+        || facts.some(f => f.key === "condition.children" && !["EXCLUDED","NOT_REQUIRED","PREFERRED"].includes(f.modality));
+    const childAgeDocumented = (minimum:number) => !childParticipantContext || ageFacts.some(f =>
+        f.subjectIds.some(id => !selfIds.includes(id)) && (range(f)?.[0] ?? -1) >= minimum);
+    const agesCoverKnownParticipants = (minimum: number) => minimum <= 0 || childAgeDocumented(minimum) && participantIds.length > 0
         && (count === null || count === participantIds.length)
         && participantIds.every(id => ageFacts.some(f => f.subjectIds.includes(id) && (range(f)?.[0] ?? -1) >= minimum)
             || minimum <= 18 && adultAccompaniment && selfIds.includes(id));
@@ -142,10 +148,11 @@ export function librarianGlobalEligibility(input: {
         const minimum = minimums[0]!;
         const participants = input.offerParticipants[offer.id] ?? [];
         const relevantParticipants = participants.length ? participants : participantIds;
-        const missingParticipantAge = relevantParticipants.length
+        const missingChildAge = childParticipantContext && !participantAges.some(f => f.subjectIds.some(id => !selfIds.includes(id)) && (range(f)?.[0] ?? -1) >= minimum);
+        const missingParticipantAge = missingChildAge || (relevantParticipants.length
             ? relevantParticipants.some(id => !participantAges.some(f => f.subjectIds.includes(id))
                 && !(minimum <= 18 && adultAccompaniment && selfIds.includes(id)))
-            : !participantAges.length;
+            : !participantAges.length);
         if (minimum > 0 && missingParticipantAge)
             results.push({state:"UNKNOWN",modality:"CONTEXT",reason:"AGE_REQUIREMENT_TO_CHECK",hashes:[profileRow.entryHash],offerIds:[offer.id],
                 ageRequirement:{minimumAge:minimum,scope:"OFFER",label:offer.name}});

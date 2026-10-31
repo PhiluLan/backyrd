@@ -37,6 +37,8 @@ test('founder-approved playground-with-daughter case preserves seven relevant re
   const ranked=r.body.candidates.filter(c=>c.rank!==null);
   assert.deepEqual(ranked.map(c=>c.spotId).sort(),expected,run.runId);
   assert.ok(ranked.every(c=>c.unknownHardConstraints.length===0&&c.failedHardConstraints.length===0));
+  const elys=ranked.find(c=>/ELYS/.test(c.presentation.name));
+  assert.ok(elys.reasons.some(r=>r.code==='librarian-age-requirement'&&r.statement.includes('ab 1 Jahr')),run.runId);
   // The absent age notice is not an approved target. Do not freeze an absent
   // warning or a universal spot order as desired behavior.
  }
