@@ -91,6 +91,21 @@ test('the real corrected model OR accepts meals-only and snacks-only venues with
  }
  assert.equal(search(request([fact('food','experience.activity','Klettern')]),[binding(1,familyVenue('snacks'))]).ranked.length,0);
 });
+test('recorded small-snack lists support snacks but generic gastronomy does not turn them into meals',()=>{
+ const recorded=JSON.parse(readFileSync(new URL('./fixtures/family-food-live-or.json',import.meta.url),'utf8'));
+ const q=request(recorded.raw.facts,recorded.raw);
+ for(const extent of ['Kleine Snacks','Gerichte und kleine Snacks','small snacks']){
+  const p=familyVenue(extent);p.offers[1].kind='GASTRONOMY';
+  const catalog=[binding(1,p)];
+  const result=search(q,catalog);
+  assert.equal(result.ranked[0]?.status,'CONFIRMED',JSON.stringify(result.unresolved));
+  assert.deepEqual(result.ranked[0].selectedFactIds,['f1','f4','f5']);
+  assert.equal(search(request([fact('food','food.meal','meal')]),catalog).ranked.length,0);
+ }
+ for(const extent of ['keine Snacks','nur nach Vorbestellung Snacks']){
+  assert.equal(search(request([fact('food','food.meal','snacks')]),[binding(1,familyVenue(extent))]).ranked.length,0);
+ }
+});
 
 // Expected outcomes describe product duties, independently of the matching implementation.
 // The source sentence is not interpreted by this deterministic stage.
