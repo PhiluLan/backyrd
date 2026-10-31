@@ -1,3 +1,4 @@
+import { LUNA_MEANING_ROLE_CONTRACT, LUNA_MEANING_ROLE_INSTRUCTIONS } from './product-luna-meaning-contract.js';
 import { EXPERIENCE_LANGUAGE_CONCEPTS, SPOT_TYPE_CATALOG, WORLD_VALUE_LABELS, librarianConcept } from "@backyrd/world-knowledge-core";
 import { createHash } from "node:crypto";
 import { contentHash, deepFreeze } from "./canonical.js";
@@ -222,7 +223,7 @@ export function validateActiveLunaMeaningOutput(value: unknown) {
 
 /** Versioned clarification of executable duties versus visit context. The
  * frozen schema, catalog, model and original prompt remain intact. */
-export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@15" as const;
+export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@16" as const;
 /** Preserve the frozen base schema. Constrain source metadata in the active
  * provider contract so the model cannot emit it as a second hard condition. */
 const modelSchemaObject = (value: unknown): Readonly<Record<string, unknown>> => {
@@ -254,7 +255,7 @@ function contextOnlySourceSchema() {
 }
 export const LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA = contextOnlySourceSchema();
 
-const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARER AUFTRAG:\n"
+const activePrompt = LUNA_LIBRARIAN_PROMPT + LUNA_MEANING_ROLE_INSTRUCTIONS + "\nAUSFÜHRBARER AUFTRAG:\n"
   + "WETTERREGEL (präzisiert und ersetzt Basisregel 6): weatherConditions enthält zwei strikt getrennte Rollen. role=CONTEXT bewahrt vom Nutzer für den Besuch angegebenes Wetter ('es regnet', 'Regenwetter heute', 'heute ist es heiss') als Nutzerangabe, nicht als verifizierte Wettervorhersage. Diese IDs niemals in IF oder FACT verwenden. role=CONDITIONAL gilt ausschliesslich bei echter offener Fallunterscheidung ('wenn es regnet X, sonst Y'); nur diese IDs stehen in IF.conditionFactId. Ein blosses Regenwort erzeugt keine Bedingung. Wunsch und Besuchsdatum bleiben bei Wetterkontext unbedingt aktiv. Wetterzustände: RAIN, DRY, SNOW, SUN, HEAT, COLD, WIND, THUNDERSTORM, sonst OTHER mit detail. Kontext nicht in unprüfbare Pflichttexte umwandeln.\n"
   + "WETTERBEDARF: Bei einer allgemeinen Unternehmung bei angegebenem Regen ist zusätzlich offer.weather_suitability text=rain_suitable REQUIRED basis=INFERRED am selben ACTIVITY-Bezug wie die Unternehmung zu erhalten. Nicht zusätzlich indoor verlangen: auch ein belegter regengeschützter Aussenbereich kann genügen. Ausdrücklich drinnen bleibt offer.area indoor REQUIRED; ausdrücklich draussen bleibt outdoor REQUIRED. Explizit Regen erleben, im Regen spazieren oder nass werden wollen verlangt dagegen keinen abgeleiteten Schutz; ausdrücklich keine Überdachung benötigen bleibt NOT_REQUIRED. Keine Wettervorhersage erfinden. Hitze, Kälte, Wind, Schnee, Gewitter und Sonne zunächst als Wetterkontext erhalten; konkrete Wünsche separat: Schatten=offer.shade shade, beheizt/klimatisiert=offer.temperature mit benanntem Wert, ausdrückliche Eignung für solches Wetter=offer.weather_suitability mit diesem konkreten Wunsch. Aus Innenraum weder Kühlung noch Heizung, aus Dach weder Wind-, Kälte- noch Gewitterschutz ableiten. Explizite Outdoor-Wünsche niemals wegen schlechtem Wetter in indoor umschreiben. Bei Wetterbedingungen bleibt die vollständig benannte Folge in ihrem jeweiligen IF-Zweig.\n"
   + "KOMBINATIONEN UND ALTERNATIVEN: X oder Y ist eine erforderliche ANY-Alternative, nicht zwei globale Pflichten; X und Y bleibt ALL. Alle alternativen Fakten ausdrücklich in logic referenzieren, sonst werden sie globale Pflichten. Ein zusätzliches Verpflegungsangebot bei einer Aktivität ist eine eigene ACTIVITY-Entity: Aktivität a1, Essen/Snacks a2; das verlangt denselben Ort, nicht denselben Raum oder dasselbe Angebot. Nutze SAME_PLACE zwischen den gleichzeitig aktiven Aktivitäts- und Verpflegungsfakten, nicht SIMULTANEOUS. Keine ungenannte zeitliche Reihenfolge hinzufügen. Eigenschaften einer konkreten Mahlzeit (vegan, Preis, drinnen essen) behalten dagegen deren Entity-Bezug. Familienaktivität ist condition.children text=children_activity REQUIRED; keine zweite gleichbedeutende experience.activity-Pflicht ergänzen. Essen oder Snacks vor Ort: food.meal text=meal ODER food.meal text=snacks unter ANY strength=REQUIRED. Beides nur bei ausdrücklich verlangtem und fordern. Keine bestimmte Familienaktivität, Kinderalter, Innenraum oder Besuchszeit aus dem Familienwort erfinden.\n"
@@ -282,7 +283,7 @@ export const LUNA_LIBRARIAN_CONFIGURATION = deepFreeze({
   contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, model: LUNA_LIBRARIAN_MODEL,
   reasoningEffort: LUNA_LIBRARIAN_REASONING, store: false, maxOutputTokens: 7500,
   basePromptHash: contentHash(LUNA_LIBRARIAN_PROMPT), promptRevision: LUNA_LIBRARIAN_PROMPT_REVISION, promptHash: contentHash(activePrompt), baseSchemaHash: contentHash(LUNA_LIBRARIAN_MODEL_SCHEMA), schemaHash: contentHash(LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA),
-  catalogHash: contentHash(LUNA_LIBRARIAN_CATALOG), sourceFreeze: LUNA_LIBRARIAN_FREEZE,
+  meaningRoleContractHash: contentHash(LUNA_MEANING_ROLE_CONTRACT), catalogHash: contentHash(LUNA_LIBRARIAN_CATALOG), sourceFreeze: LUNA_LIBRARIAN_FREEZE,
 });
 /** Body only: credentials, transport, authentication and rate limits belong to
  * the existing server orchestration. No client SDK or second model call. */

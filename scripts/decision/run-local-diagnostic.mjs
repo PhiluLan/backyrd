@@ -29,10 +29,10 @@ export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,
  const request={contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:id,idempotencyKey:id,naturalLanguage:query,includeEvents:events!==undefined,explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT',moods:[]},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
  const actor={userId:crypto.randomUUID(),subjectBindingHash:contentHash('LOCAL_DIAGNOSTIC_NO_REAL_USER'),authenticationContextHash:contentHash('LOCAL_DIAGNOSTIC_NOT_A_PRODUCTION_SESSION'),sessionBindingHash:contentHash(id),sessionId:crypto.randomUUID()};
  const identity={releaseHash:contentHash('LOCAL_NOT_RELEASED'),artifactHash:contentHash({local:true}),sourceSetHash:contentHash(LIBRARIAN_MATCHING_VERSION),controlGeneration:1};
- let usage=null;let modelCalls=0;let search=null;
+ let usage=null;let usages=[];let translationAttempts=[];let modelCalls=0;let search=null;
  let meaning;let signal=AbortSignal.timeout(30000);let modelMs;
  if(recordedMeaning){
-  if(recordedMeaning.contractVersion!=='backyrd.local-decision-diagnostic@1'||!['REAL_SERVER_PREVIEW_MODEL_CALL','REAL_MODEL_CALL'].includes(recordedMeaning.providerMode)||recordedMeaning.modelCalls!==1||recordedMeaning.query!==query)throw Error('local_recorded_meaning_invalid');
+  if(recordedMeaning.contractVersion!=='backyrd.local-decision-diagnostic@1'||!['REAL_SERVER_PREVIEW_MODEL_CALL','REAL_MODEL_CALL'].includes(recordedMeaning.providerMode)||![1,2].includes(recordedMeaning.modelCalls)||recordedMeaning.query!==query)throw Error('local_recorded_meaning_invalid');
   const {prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION}=await import('../../packages/decision-vnext-core/dist/product-luna-librarian.js');
   const {requestHash:originalHash,...originalBody}=recordedMeaning.meaning;
   if(contentHash(originalBody)!==originalHash||originalBody.source.sourceText!==query||contentHash(originalBody.source.reference)!==contentHash(recordedMeaning.reference))throw Error('local_recorded_meaning_mismatch');
@@ -44,13 +44,13 @@ export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,
   if(serverMeaning.contractVersion!=='backyrd.internal-meaning-preview@1'||serverMeaning.query!==query||serverMeaning.codeIdentity?.coreBundleHash!==await internalRuntimeHash())throw Error('local_server_preview_code_mismatch');
   meaning=prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,sourceText:query,reference:serverMeaning.reference,output:serverMeaning.meaning.raw});
   if(meaning.requestHash!==serverMeaning.meaning.requestHash)throw Error('local_server_preview_meaning_mismatch');
-  reference.now=serverMeaning.reference.now;usage=serverMeaning.usage;modelCalls=1;modelMs=serverMeaning.modelMs;
+  reference.now=serverMeaning.reference.now;usage=serverMeaning.usage;usages=serverMeaning.usages??[usage];translationAttempts=serverMeaning.translationAttempts??[];modelCalls=serverMeaning.modelCalls??1;modelMs=serverMeaning.modelMs;
  }else{
-  const understand=createDecisionProductLunaProvider({apiKey,now:()=>now,fetchImpl:async(url,options)=>{
+  const understand=createDecisionProductLunaProvider({apiKey,onTranslationAttempt:attempt=>translationAttempts.push(attempt),now:()=>now,fetchImpl:async(url,options)=>{
    if(url!=='https://api.openai.com/v1/responses')throw Error('local_provider_destination_invalid');
-   modelCalls++;if(modelCalls!==1)throw Error('local_model_call_limit');
+   modelCalls++;if(modelCalls>2)throw Error('local_model_call_limit');
    const response=await (fetchImpl??fetch)(url,options);
-   if(response.ok){const payload=await response.clone().json();usage=payload.usage??null;}
+   if(response.ok){const payload=await response.clone().json();usage=payload.usage??null;usages.push(usage);}
    return response;
   }});
   meaning=await understand(request,actor,signal);modelMs=performance.now()-started;
@@ -68,7 +68,7 @@ export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,
  const execution=buildDecisionProductExecution({request,actor,...evaluated});
  const rankingMs=performance.now()-rankingStarted;
  if(!search)throw Error('local_search_trace_missing');
- return {contractVersion:'backyrd.local-decision-diagnostic@1',query,reference,providerMode:recordedMeaning?'RECORDED_MEANING_REPLAY':serverMeaning?'REAL_SERVER_PREVIEW_MODEL_CALL':fetchImpl?'INJECTED_PROVIDER_TEST':'REAL_MODEL_CALL',modelCalls,...(recordedMeaning?{replaySource:{requestHash:recordedMeaning.meaning.requestHash,rawMeaningHash:contentHash(recordedMeaning.meaning.raw),promptRevision:recordedMeaning.meaning.configuration.promptRevision,matchingVersion:recordedMeaning.runtime.matchingVersion,catalogHash:recordedMeaning.boundaries.catalogHash}}:{}),meaning,search,response:execution.response,usage,timings:{modelMs,evaluationMs,rankingMs,totalMs:modelMs+evaluationMs+rankingMs},runtime:{matchingVersion:LIBRARIAN_MATCHING_VERSION,source:'LOCAL_CURRENT_BUILD',profiles:catalog.length,events:events?.length??0},boundaries:{productionExecution:false,productionDataChanged:false,decisionPersisted:false,learningPersisted:false,personalization:'NEUTRAL_LOCAL_TEST_IDENTITY',catalogScope:events===undefined?'SPOTS_ONLY':'SPOTS_AND_EVENTS',catalogHash:contentHash(catalog)}};
+ return {contractVersion:'backyrd.local-decision-diagnostic@1',query,reference,providerMode:recordedMeaning?'RECORDED_MEANING_REPLAY':serverMeaning?'REAL_SERVER_PREVIEW_MODEL_CALL':fetchImpl?'INJECTED_PROVIDER_TEST':'REAL_MODEL_CALL',modelCalls,...(recordedMeaning?{replaySource:{requestHash:recordedMeaning.meaning.requestHash,rawMeaningHash:contentHash(recordedMeaning.meaning.raw),promptRevision:recordedMeaning.meaning.configuration.promptRevision,matchingVersion:recordedMeaning.runtime.matchingVersion,catalogHash:recordedMeaning.boundaries.catalogHash}}:{}),meaning,search,response:execution.response,usage,usages,translationAttempts,timings:{modelMs,evaluationMs,rankingMs,totalMs:modelMs+evaluationMs+rankingMs},runtime:{matchingVersion:LIBRARIAN_MATCHING_VERSION,source:'LOCAL_CURRENT_BUILD',profiles:catalog.length,events:events?.length??0},boundaries:{productionExecution:false,productionDataChanged:false,decisionPersisted:false,learningPersisted:false,personalization:'NEUTRAL_LOCAL_TEST_IDENTITY',catalogScope:events===undefined?'SPOTS_ONLY':'SPOTS_AND_EVENTS',catalogHash:contentHash(catalog)}};
 }
 
 async function main(){

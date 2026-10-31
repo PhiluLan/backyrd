@@ -480,3 +480,42 @@ inferred. HIGH alternatives remain eligible when price is only a preference,
 but receive no positive price-preference match. Missing price knowledge remains
 unknown. The relative level and its limitation are rendered in Mobile and Web;
 required undefined qualitative ceilings still need clarification.
+
+
+### Translation admission: meaning roles v1 (prompt 16 / provider 4)
+
+Schema-valid model output is not necessarily executable meaning. The canonical
+`product-luna-meaning-contract.ts` now supplies both the model instructions and
+pre-search checks for exact shared catalogue concepts: activities, food, mood,
+facility, access/permission and booking. The frozen historical schema and raw
+historical meaning plans are unchanged. An animal-observation activity is
+separate from animal-keeping/contact conditions and bringing a pet. Unknown
+wording is never coerced into a known activity by substring matching.
+
+Normal requests use one model call. A diagnosed concept/family mismatch allows
+one correction under the same abort deadline. Only the diagnosed fact keys may
+change to the listed executable families. IDs, values, basis, modality, scopes,
+entities, logic, alternatives, weather and uncertainty records must remain
+unchanged. If correction fails or a required/excluded family has no
+built-in evaluator, return an understanding-unresolved error before catalog
+search. This is not an empty result and not evidence that no suitable places
+exist. Context and NOT_REQUIRED are not matching duties. Historical replay and
+the separate reviewed semantic-registry matcher remain lossless and unchanged.
+The active product provider uses the built-in capability contract; custom
+registry execution requires explicit provider-capability integration before it
+can be enabled there.
+
+The private internal preview records both model outputs and diagnosed issues
+in memory, actual model-call count and every usage record. Neither source text
+nor intermediate meaning is added to public product responses or persistent
+learning. The local runner preserves these diagnostics. Consumers are not
+released by updating the isolated server-only internal preview.
+
+Regression validation must include independent real model calls for identical
+requests, semantic paraphrases and contrasting meanings. Compare required
+meaning and eligibility sets against one unchanged catalog and clock context;
+ranking tie order may vary. Unit fixtures alone, caching, a single successful
+call or deterministic JSON shape do not establish interpretation stability.
+This guard diagnoses known role/capability errors; it does not prove that every
+possible natural-language wish was retained correctly. Repeated real-call
+results and remaining semantic variance must be reported explicitly.

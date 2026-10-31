@@ -20,7 +20,7 @@ test('internal server preview uses current canonical prompt and returns no crede
  }});
  const response=await handler(http());assert.equal(response.status,200);
  const text=await response.text();assert.ok(!text.includes('provider-secret'));assert.ok(!text.includes('internal-operator'));
- const result=JSON.parse(text);assert.equal(result.meaning.configuration.promptRevision,'backyrd.luna-prompt@15');
+ const result=JSON.parse(text);assert.equal(result.meaning.configuration.promptRevision,'backyrd.luna-prompt@16');
  assert.equal(result.meaning.facts.find(f=>f.id==='companion').value.text,'adult_accompanied');
  assert.deepEqual(result.boundaries,{providerKeyExposed:false,productionSearchExecuted:false,spotDataChanged:false,learningPersisted:false});assert.equal(calls,1);
 });
@@ -36,13 +36,13 @@ test('ordinary users, browsers and caller-provided prompts cannot invoke interna
 });
 test('invalid model output never becomes a successful internal run',async()=>{
  const handler=createInternalMeaningPreviewHandler({authorize:()=>true,apiKey:'provider-secret',codeIdentity:{mode:'INTERNAL_PREVIEW_CURRENT_BUILD'},fetchImpl:async()=>new Response(JSON.stringify({status:'completed',output:[]}))});
- const r=await handler(http());assert.equal(r.status,503);assert.deepEqual(await r.json(),{error:'internal_model_unavailable'});
+ const r=await handler(http());assert.equal(r.status,503);assert.deepEqual(await r.json(),{error:'internal_model_unavailable',modelCalls:1,translationAttempts:[]});
 });
 test('local full chain reuses canonical evaluation and clearly labels injected provider tests',async()=>{
  const p=profile([offer('play','MOVEMENT_PLAY',['playroom']),offer('snacks','CAFE',['cafe'],[prop('food.meal_extent','Snacks')])],[area('playroom'),area('cafe')]);
  const r=await runLocalDiagnostic({query,catalog:[binding(1,p)],apiKey:'provider-secret',fetchImpl:async()=>providerResponse()});
  assert.equal(r.providerMode,'INJECTED_PROVIDER_TEST');assert.equal(r.modelCalls,1);
- assert.equal(r.meaning.configuration.promptRevision,'backyrd.luna-prompt@15');
+ assert.equal(r.meaning.configuration.promptRevision,'backyrd.luna-prompt@16');
  assert.equal(r.runtime.matchingVersion,'backyrd.decision-vnext.librarian-matching@31');
  assert.equal(r.response.candidates.filter(c=>c.rank!==null).length,1);
  assert.equal(r.boundaries.productionDataChanged,false);
