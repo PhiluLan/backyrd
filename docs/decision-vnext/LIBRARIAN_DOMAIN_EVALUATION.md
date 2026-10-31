@@ -29,6 +29,28 @@ subjects, alternatives and exclusions. Ranking cannot repair a failed duty.
 
 ## Domain semantics
 
+### Opening-hours inheritance (Founder rule, 31 October 2026)
+
+An offer without its own weekly calendar inherits the verified venue opening
+hours. This is an explicit product default, not a newly researched timetable.
+Own calendars remain binding; a missing weekday in an existing calendar does
+not activate inheritance. Venue closures, special hours, validity, kitchen hours
+for food and all other eligibility / booking rules still apply. Missing venue
+hours remain unknown. Source hashes include the inheritance policy and venue
+provenance. Consumer details explain the inherited source and do not promise
+free places, a booking or course admission.
+
+Areas currently have no separate calendar in the shared profile contract. Their
+linked offers use the rule above; area-only venue availability continues to use
+venue hours. This change adds no parallel area calendar and writes no inferred
+hours into stored profiles. Event occurrences keep their own dated availability
+path and do not receive venue-inheritance copy.
+
+Replay of the latest exact parent/child indoor request with updated canonical
+profiles confirms ELYS Boulderloft, Basso and Hoppolino. All 444 canonical snapshot
+hashes match the preceding live diagnostic. This is a deterministic candidate
+replay, not an additional AI call or a production publication.
+
 ### Booking
 
 Typed `rule.reservation` and scoped `participation.booking` / `entry_mode` are
@@ -106,7 +128,7 @@ production deployment. Compare prior successful requests as well as failures.
 No candidate with an unknown/failed required condition may become ranked merely
 to improve result coverage.
 
-Current replay evidence: 419 venue profiles plus 25 event occurrences; ten
+Pre-inheritance replay evidence (matching@19): 419 venue profiles plus 25 event occurrences; ten
 recorded requests plus the exact dinner request. Café, vegan lunch and family
 matches remain available; the first-date bar request resolves to Volta Bräu and
 Alchemist. A separate replay of the current Main evaluator (matching@18)

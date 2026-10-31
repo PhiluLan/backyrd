@@ -126,9 +126,10 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       statementDe: [yes.length ? `Als zugänglich erfasst: ${yes.join(", ")}.` : "", no.length ? `Als nicht vorhanden oder nicht zugänglich erfasst: ${no.join(", ")}.` : ""].filter(Boolean).join(" ").slice(0,500), confirmed: false });
   }
   const profileEntry = world.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"));
+  const explanatoryProfile = profileEntry ? parseExperienceProfile(profileEntry.value) : null;
   if (profileEntry && candidate.offerIds.length) {
     const activityIds = new Set(candidate.facts.filter(f => f.state === "MET" && (["experience.activity", "offer.kind"].includes(f.family) || f.family.startsWith("food."))).flatMap(f => f.offerIds));
-    const offers = parseExperienceProfile(profileEntry.value).offers.filter(o => activityIds.has(o.id));
+    const offers = explanatoryProfile!.offers.filter(o => activityIds.has(o.id));
     const conditional = candidate.conditionalPlans.length > 0 || candidate.status !== "CONFIRMED";
     if (offers.length) reasons.unshift({ reasonCode: "librarian-selected-offers", domain: conditional ? "LIMITATION" : "WORLD", sourceHash: contentHash({ entryHash: profileEntry.entryHash, offerIds: offers.map(o => o.id) }),
       statementDe: `${conditional ? "Mögliche Angebote" : "Passende Angebote"}: ${offers.map(o => o.name).join(", ")}`.slice(0,500), confirmed: !conditional });
@@ -138,6 +139,11 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     && f.reason !== "UNDATED_DAYPART_NO_OPENING_CLAIM" && f.reason !== "RETAINED_AS_REQUEST_CONTEXT");
   const availability = temporal.length ? temporal.some(f => f.state === "FAILED") ? "closed" : temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";
   if (temporal.some(f => f.reason === "VISIT_TIME_UNCONFIRMED")) reasons.push({reasonCode:"librarian-visit-time-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,statementDe:"Der Spot passt zu deinem Wunsch. Öffnungs- und Angebotszeiten für den gewünschten Besuch sind noch nicht bestätigt.",confirmed:false});
+  // Inherited hours are an explicit product rule, not a separately researched
+  // timetable or confirmation of a free slot / course admission.
+  const inheritedOffers = explanatoryProfile?.offers.filter(o => candidate.offerIds.includes(o.id) && o.schedule.length === 0).map(o => o.id) ?? [];
+  if (!world.eventOccurrence && availability === "open" && inheritedOffers.length)
+    reasons.push({ reasonCode: "librarian-inherited-spot-hours", domain: "LIMITATION", sourceHash: contentHash({candidateHash:candidate.candidateHash,offerIds:inheritedOffers}), statementDe: "Für dieses Angebot gelten die allgemeinen Öffnungszeiten des Ortes, da keine eigenen Zeiten hinterlegt sind. Freie Plätze oder eine Teilnahme sind damit nicht garantiert.", confirmed: false });
   if (candidate.facts.some(f => f.reason === "SCOPED_GROUP_CAPACITY_CONFIRMED_NOT_A_BOOKING"))
     reasons.push({ reasonCode: "librarian-capacity-not-booking", domain: "LIMITATION", sourceHash: candidate.candidateHash, statementDe: "Die Gruppengrösse passt zum Angebot. Freie Plätze für einen konkreten Termin sind damit nicht bestätigt.", confirmed: false });
   const event = world.eventOccurrence;

@@ -83,7 +83,7 @@ const librarianNotes: Record<string, string> = {
 
 export function wohinConsiderations(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
   const notes: string[] = candidate.reasons.flatMap(reason => {
-    if (reason.code === "event-ticket-availability") return [reason.statement];
+    if (["event-ticket-availability", "librarian-inherited-spot-hours"].includes(reason.code)) return [reason.statement];
     if (reason.confirmed || reason.domain !== "LIMITATION") return [];
     if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt|Diesen Wunsch können wir|Welches Budget)/.test(reason.statement)) return [librarianNotes[reason.statement] ?? reason.statement];
     if (reason.code === "librarian-access-details") return [librarianNotes[reason.statement] ?? reason.statement];

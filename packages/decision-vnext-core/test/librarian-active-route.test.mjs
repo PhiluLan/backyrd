@@ -131,13 +131,13 @@ test('overlapped city preparation preserves complete responses for all ten domai
  }
 });
 
-test('a dated dinner with missing offer time remains unranked pending verification',async()=>{
+test('a dated dinner without its own timetable inherits venue hours and explains the source',async()=>{
  const b=binding(810,profile([{...offer(),schedule:[]}]));
  const r=await exercise({text:'Morgen Abend essen in Basel',meaning:plan([meal(),date(),evening()]),catalog:[b]});
- assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);
- const c=r.body.candidates[0];assert.equal(c.tier,'UNCONFIRMED_FALLBACK');assert.equal(c.rank,null);assert.equal(c.actualAvailability,'unknown');
- assert.ok(c.unknownHardConstraints.length>0);
- assert.ok(c.reasons.some(reason=>reason.code==='librarian-visit-time-unconfirmed'&&!reason.confirmed));
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
+ const c=r.body.candidates[0];assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.equal(c.rank,1);assert.equal(c.actualAvailability,'open');
+ assert.equal(c.unknownHardConstraints.length,0);
+ assert.ok(c.reasons.some(reason=>reason.code==='librarian-inherited-spot-hours'&&!reason.confirmed));
 });
 test('without user time, closed regular hours and the current day never filter a fitting offer',async()=>{
  const b=binding(811,profile([{...offer(),schedule:[{weekday:7,start:'10:00',end:'11:00'}]}]));

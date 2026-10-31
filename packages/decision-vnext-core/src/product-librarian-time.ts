@@ -209,10 +209,13 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
     const venue = librarianVenueAvailability(world, visit);
     if (venue.state !== "MET") return venue;
     if (!day) return { state: "UNKNOWN", hashes: venue.hashes, reason: "VISIT_DATE_UNKNOWN" };
+    const inherited = offer.schedule.length === 0;
     const today = offer.schedule.filter(s => s.weekday === visitWeekday(day));
-    if (!today.length)
+    // Only an absent calendar inherits. An existing offer calendar must not be
+    // extended to an unlisted weekday by the venue's more permissive hours.
+    if (!inherited && !today.length)
         return { state: "UNKNOWN", hashes: venue.hashes, reason: "OFFER_WEEKDAY_UNKNOWN" };
-    const intervals = today.map(s => [minute(s.start), minute(s.end) <= minute(s.start) ? 1440 : minute(s.end)] as const);
+    const intervals = inherited ? venue.intervals : today.map(s => [minute(s.start), minute(s.end) <= minute(s.start) ? 1440 : minute(s.end)] as const);
     let venueIntervals = venue.intervals;
     let kitchenHashes: readonly string[] = [];
     if ((OFFER_CONCEPTS[offer.kind] ?? []).includes("meal")) {
@@ -230,7 +233,7 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
             return from <= visit.start && visit.end <= to && !visit.excludedMinutes.includes(visit.start);
         return from < to && to - from > visit.excludedMinutes.filter(n => from <= n && n < to).length;
     }));
-    return { state: compatible ? "MET" : "FAILED", hashes: [...new Set([...venue.hashes, ...kitchenHashes])], reason: compatible ? "OFFER_AND_VENUE_OPEN" : "OFFER_NOT_AVAILABLE_AT_REQUESTED_TIME" };
+    return { state: compatible ? "MET" : "FAILED", hashes: [...new Set([...venue.hashes, ...kitchenHashes, ...(inherited ? [contentHash({policy: "backyrd.librarian-hours-inheritance@1", offerId: offer.id, source: "SPOT_HOURS", basis: venue.hashes})] : [])])], reason: compatible ? inherited ? "OFFER_HOURS_INHERITED_FROM_VENUE" : "OFFER_AND_VENUE_OPEN" : "OFFER_NOT_AVAILABLE_AT_REQUESTED_TIME" };
 }
 
 /** The venue, kitchen and offer schedule must overlap. Existing venue hours

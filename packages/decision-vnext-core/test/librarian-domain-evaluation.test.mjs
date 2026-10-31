@@ -139,3 +139,49 @@ test('a reservation wish for the party applies to its meal, not a nonexistent gr
  assert.equal(result.ranked.length,1);
  assert.deepEqual(assessment(result,'booking').offerIds,['dinner']);
 });
+
+test('missing offer hours inherit venue hours with traceable provenance',()=>{
+ const data=profile([{...offer(),schedule:[]}]);
+ const world=parseProductWorldResolverBinding(binding(1021,data),'Basel');
+ const visit=createLibrarianVisitWindow(request([date(),evening()]).facts,'Europe/Zurich');
+ const result=librarianOfferAvailability(data.offers[0],world,visit);
+ assert.equal(result.state,'MET');
+ assert.equal(result.reason,'OFFER_HOURS_INHERITED_FROM_VENUE');
+ assert.ok(world.operationalRules.filter(r=>r.key==='hours.regular').every(r=>result.hashes.includes(r.entryHash)));
+});
+test('an explicit offer calendar does not inherit an unlisted weekday',()=>{
+ const data=profile([{...offer(),schedule:[{weekday:3,start:'11:00',end:'23:00'}]}]);
+ const world=parseProductWorldResolverBinding(binding(1022,data),'Basel');
+ const result=librarianOfferAvailability(data.offers[0],world,createLibrarianVisitWindow(request([date(),evening()]).facts,'Europe/Zurich'));
+ assert.equal(result.state,'UNKNOWN');
+ assert.equal(result.reason,'OFFER_WEEKDAY_UNKNOWN');
+});
+test('venue fallback cannot extend an explicit morning-only offer into the evening',()=>{
+ const data=profile([{...offer(),schedule:[{weekday:4,start:'08:00',end:'10:00'}]}]);
+ const world=parseProductWorldResolverBinding(binding(1023,data),'Basel');
+ assert.equal(librarianOfferAvailability(data.offers[0],world,createLibrarianVisitWindow(request([date(),evening()]).facts,'Europe/Zurich')).state,'FAILED');
+});
+test('inherited hours cannot reopen a closed venue or replace unknown venue hours',()=>{
+ const data=profile([{...offer(),schedule:[]}]);
+ const b=binding(1024,data);
+ const check=()=>librarianOfferAvailability(data.offers[0],parseProductWorldResolverBinding(b,'Basel'),createLibrarianVisitWindow(request([date(),evening()]).facts,'Europe/Zurich'));
+ b.decisionProjection.facts=b.decisionProjection.facts.filter(f=>f.key!=='hours.regular');
+ assert.equal(check().state,'UNKNOWN');
+ b.decisionProjection.facts.push(worldFact('hours.regular',[{day:'THURSDAY',intervals:[]}]));
+ assert.equal(check().state,'FAILED');
+});
+test('a linked indoor area uses venue hours when its activity has no calendar',()=>{
+ const data=profile([{...offer('play','MOVEMENT_PLAY'),schedule:[]}],[area('inside')],'SPORT');
+ const b=binding(1025,data);
+ b.decisionProjection.facts=b.decisionProjection.facts.map(f=>f.key==='classification.place_types'?worldFact(f.key,['SPORTS_CENTRE']):f);
+ const result=search(request([fact('play','experience.activity','Bewegungsspiel'),fact('inside','offer.area','indoor'),date()]),[b]);
+ assert.equal(result.ranked.length,1);
+ assert.deepEqual(result.ranked[0].areaIds,['inside']);
+});
+test('meal inheritance still respects a separate kitchen closure',()=>{
+ const data=profile([{...offer(),schedule:[]}]);
+ const b=binding(1026,data,[worldFact('hours.kitchen',[{day:'THURSDAY',intervals:[{start:'11:00',end:'16:00'}]}])]);
+ const result=search(request([meal(),date(),evening()]),[b]);
+ assert.equal(result.ranked.length,0);
+ assert.ok(result.excluded[0].facts.some(f=>f.reason==='KITCHEN_CLOSED_AT_REQUESTED_TIME'));
+});
