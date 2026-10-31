@@ -200,3 +200,31 @@ is deliberately retained in that replay. It proves facility matching, not the
 new prompt behavior. Location provenance is separately checked at the real
 provider input and routing boundaries; a fresh new-prompt server call requires
 deployment of the versioned backend. No Spot data is rewritten to force results.
+
+### Production verification, 31 October 2026
+
+PR #663 published the approved regional context migration and the domain changes;
+PR #664 activated contextual cities in Mobile/Web and retained the already deployed
+custom Admin diagnostic support. Backend certification 41191634988 and deployment
+41192073700 passed from Main `c58e3440cc74258e0d3b0881262ee40b7d0b8d71`.
+The iOS OTA from Main CI 41191625315 is group
+`08df5b99-deb6-4733-ab35-716a6a4d1c33`, runtime 1.1.0. The production update
+endpoint serves the same launch asset hash as the certified Hermes file. This is
+publication verification, not an observed installed-iPhone smoke.
+
+The fresh original query “Spielplatz draussen mit meiner familie” completed in
+8.04 seconds against 432 canonical profiles and 25 events, with no Spot, decision
+or learning writes. Basel was correctly absent from the model's required facts.
+However, the model expressed “Spielplatz” as `offer.kind` rather than the recorded
+fixture's `offer.facility`. The current matcher cannot prove the equivalent
+requirement: **zero ranked recommendations**, with unresolved candidates only.
+Do not describe this as a successful recommendation test or replace its evidence
+with another model run. The next semantic correction must cover equivalent
+catalog concepts across permitted fact families and retain the actual failing
+output as a regression case.
+
+The fixed family/outdoor control completed successfully in 7.57 seconds on the
+same live engine. Thus the transport, authorization, regional retrieval and
+runtime binding passed; robust playground interpretation remains open.
+The exact live diagnostic hash, release identities, configured versions and the
+explicit unresolved result are recorded in `delivery/production-state.json`.

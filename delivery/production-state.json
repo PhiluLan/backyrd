@@ -235,36 +235,71 @@
     },
     "codeOnlyDecisionRelease": {
       "status": "LIVE_AND_VERIFIED",
-      "sourceSha": "a7481daf9334a29acd8dcdf660f24f1e34ce95ca",
-      "certificationRunId": 41105212393,
-      "deploymentRunId": 41106054400,
-      "manifestHash": "4889d4936717b2671e220689bce9b89a8317a7845e88215028f11c752cc601e6",
-      "auditHash": "82b2665dea26d19151aced5c65bbd58d2190011c829c66ceeec843239b93844a",
-      "planHash": "73f69e26df91ebc809ba0dcb37c505808cd5e5665f6cff84f2b6576f3edbb65e",
-      "verifiedAt": "2026-10-30T18:22:43.354Z",
+      "sourceSha": "c58e3440cc74258e0d3b0881262ee40b7d0b8d71",
+      "certificationRunId": 41191634988,
+      "deploymentRunId": 41192073700,
+      "manifestHash": "eb02f083405b533287636a48ccb83b46d7257daa4f65552a2945fd12e4abe328",
+      "auditHash": "65fc692e245f094d7fad1e0b56b7a7f487015f2f913af8dbb128a64ef295b8b5",
+      "planHash": "b7c20455d133e87db1946b40d3a3385a244a2c121c4c058bc2dab4c44be68d43",
+      "verifiedAt": "2026-10-31T10:21:36.072186+00:00",
       "functions": [
         {
           "slug": "decision-admin-diagnostic",
-          "version": 13,
+          "version": 17,
           "verifyJwt": true,
-          "bundleHash": "7dc27b45355f482f2a6fd1d43548c50522847d8a7c77aa40ebc3bb0bcdc8d923",
-          "sourceSetHash": "cb6f9db49c3f3cf8a9812340913bdbb164d672302e5fd59bd290bc04ae92c2be",
+          "bundleHash": "7c6e05fb7a0c5fef205a22687110e443ffc1c796b3b57651359e5a220eea01e1",
+          "sourceSetHash": "86dc023d6fa8b501dac125b4a4f545ac58754f5d423a904c407b8d68872b71d4",
           "deferredCandidateSourceSetHash": null
         },
         {
           "slug": "decision-v13",
-          "version": 218,
+          "version": 221,
           "verifyJwt": true,
-          "bundleHash": "43897207a585f311047cb4522ad0f2ebdc01cfc88e1e30a9150f6cc9cf79f97e",
-          "sourceSetHash": "2a742cbe93dc651b0110bab6a6a194a9b443360c3bdbbdbb45c2210fa90cf78c",
+          "bundleHash": "fb5f7f4a362ae73794b68ca6aa6552e345eb31eb3ade38bb6d2835526722a291",
+          "sourceSetHash": "27e22b0755fb38fa371618c7247a4a0742eaac7911ffb90754103344a367ebe0",
           "deferredCandidateSourceSetHash": null
         }
       ],
+      "runtimeBinding": {
+        "releaseHash": "eb02f083405b533287636a48ccb83b46d7257daa4f65552a2945fd12e4abe328",
+        "artifactHash": "8089a31bb904b2f2c96b1cbd201f2641d922a3df18ccb794dff2080d968547dd",
+        "sourceSetHash": "27e22b0755fb38fa371618c7247a4a0742eaac7911ffb90754103344a367ebe0",
+        "generation": 39,
+        "authorityHash": "fb2ce015f7d394a04c4fbe4fa56b2a550aea4003daad24bf7f519795c23df82c"
+      },
       "appliedMigrationCount": 0,
       "deferredMigrationCount": 4,
       "authChanged": false,
-      "adminDiagnosticQuotaApplied": false,
-      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Br\u00e4u and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as F\u00fchrung, which is not a suitable bar recommendation explanation."
+      "spotDataChanged": false,
+      "learningPersisted": false,
+      "finalConfiguredFunctionVersions": {
+        "decision-v13": 222,
+        "decision-admin-diagnostic": 18
+      },
+      "iosOta": {
+        "groupId": "08df5b99-deb6-4733-ab35-716a6a4d1c33",
+        "updateId": "01a19177-adaf-785f-8efd-09ea876f2f7f",
+        "runtimeVersion": "1.1.0",
+        "sourceSha": "c58e3440cc74258e0d3b0881262ee40b7d0b8d71",
+        "certificationRunId": 41191625315,
+        "manifestHash": "2b00999b362e4d1069eb1527c22ee5a32d05929e2a94b3218586d136858afd08",
+        "mobileArtifactHash": "a78ae1fac1f31469ca15034c2f3b9b466a4e921006fdac162018cfea1e6e2dab",
+        "servedLaunchAssetMatchesCertifiedBytes": true,
+        "productionPublicConfigurationVerified": true,
+        "installedIPhoneSmoke": "NOT_OBSERVED"
+      },
+      "liveDiagnostic": {
+        "query": "Spielplatz draussen mit meiner familie",
+        "status": "AVAILABLE",
+        "totalMilliseconds": 8043.295064,
+        "catalogProfiles": 432,
+        "eventOccurrences": 25,
+        "rankedRecommendations": 0,
+        "outcome": "TRANSPORT_AND_AUTHORITY_PASS_SEMANTIC_GAP_OPEN",
+        "gap": "Model emits Spielplatz as offer.kind instead of offer.facility. Current matcher cannot prove this equivalent requirement; no ranked recommendation. Profile city is correctly not promoted to a destination duty.",
+        "evidenceSha256": "ff5132db1c606d547a96878779ab9d6e94a67eb35d47f40e04971ab80bed9f73"
+      },
+      "note": "Final Main and required CI gates passed. Two Function bundles were deployed; no additional SQL/Auth/Spot changes. Supabase global release-identity configuration updates advanced every Edge Function version twice across the two release phases, with all unrelated bundle hashes and JWT settings unchanged. Deployment audit records versions before the last configuration refresh; final configured versions are recorded separately. Historical regional SQL receipt and the full database baseline are retained. No installed-device acceptance is claimed."
     },
     "regionalDecisionRelease": {
       "status": "APPLIED_AND_VERIFIED",
