@@ -696,3 +696,7 @@ A dietary need during a typed food visit must be executable, not context that si
 ### Matcher 38: co-diner diet belongs to the requested meal
 
 Brunch, snacks and apéritif use the same meal-witness join as breakfast, lunch and dinner. A person's dietary requirement inherits the sole explicitly requested meal activity when no separate activity scope is given. An explicit separate activity scope remains authoritative. A vegan lunch elsewhere in the venue cannot prove a vegan brunch. This was reproduced by the third sequential discovery query and is checked with both person-only and person-plus-activity dietary scopes.
+
+### Prompt 20 / meaning roles 4: field identifiers are not content
+
+A TEXT value equal to a known request field identifier is an invalid placeholder, not a genuine activity with no matching spots. It triggers the same bounded single correction before retrieval. Only the diagnosed placeholder TEXT value may be repaired from the original request; its family, subject, modality and all other facts remain unchanged. Still-invalid placeholders stop as an understanding failure, never a fabricated zero-result search.

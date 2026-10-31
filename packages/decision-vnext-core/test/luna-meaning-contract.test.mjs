@@ -126,3 +126,11 @@ test('diet of a co-diner cannot silently disappear into context during a food vi
  const changed=structuredClone(after);changed.facts[0].modality='PREFERRED';assert.throws(()=>assertLunaMeaningCorrection(before,changed,issues));
  const unrelated=structuredClone(before);unrelated.facts[0].value.text='museum';assert.deepEqual(inspectLunaMeaning(unrelated),[]);
 });
+
+test('a field name used as a content placeholder is corrected before retrieval, preserving all other facts',async()=>{
+ const before=raw('experience.activity','experience.activity');const after=raw('experience.activity','meal');
+ const issues=inspectLunaMeaning(before);assert.equal(issues[0].code,'FIELD_NAME_AS_VALUE');
+ assert.throws(()=>assertLunaMeaningCorrection(before,before,issues));
+ const p=provide([before,after]);assert.deepEqual((await p.run()).raw,after);assert.equal(p.calls(),2);
+ const bad=structuredClone(after);bad.facts[0].subjectIds=[];assert.throws(()=>assertLunaMeaningCorrection(before,bad,issues));
+});
