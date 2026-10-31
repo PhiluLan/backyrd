@@ -69,6 +69,8 @@ const familyLabels: Readonly<Record<string, string>> = {
   "atmosphere.character": "die gewünschte Atmosphäre", "atmosphere.music": "die gewünschte Musiksituation",
   "atmosphere.noise": "der gewünschte Geräuschpegel", "location.destination": "der gewünschte Ort",
   "participation.accessibility": "die gewünschte Zugänglichkeit",
+  "offer.weather_suitability": "die gewünschte Wettereignung", "condition.weather_protection": "der Regenschutz",
+  "offer.shade": "der gewünschte Schatten", "offer.temperature": "die gewünschte Temperaturausstattung",
   "participation.booking": "die gewünschte Reservationsregel", "participation.entry_mode": "die gewünschte Teilnahme ohne Voranmeldung",
   "eligibility": "die Besuchsbedingungen", "binding": "die Kombination deiner Wünsche",
 };

@@ -196,6 +196,10 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
         return "UNKNOWN";
     if (fact.value.kind === "TEXT") {
         const desired = librarianConcept(fact.value.text);
+        if (fact.key === "offer.weather_suitability" && desired === "rain_suitable") {
+            if (property.key === "condition.weather_protection" && typeof property.value === "boolean") return property.value ? "MET" : "FAILED";
+            if (property.key === "location.setting") return typeof property.value === "string" && librarianConcept(property.value) === "indoor" ? "MET" : "UNKNOWN";
+        }
         // A documented consumable coffee proves coffee drinking in that same
         // offer. This does not turn a beverage into a venue, workshop or meal.
         if (fact.key === "experience.activity" && property.key === "food.drink")
@@ -298,7 +302,8 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     }
     // A global spatial requirement applies to the requested activities, not
     // an unrelated cafe or facility elsewhere at the same spot.
-    const physicalArea = fact.key === "offer.area" || fact.key === "location.setting" && ["indoor", "outdoor", "terrace"].includes(concept ?? "");
+    const rainSuitability = fact.key === "offer.weather_suitability" && concept === "rain_suitable";
+    const physicalArea = fact.key === "offer.area" || rainSuitability || fact.key === "location.setting" && ["indoor", "outdoor", "terrace"].includes(concept ?? "");
     const spatialActivities = physicalArea && (!fact.subjectIds.length || fact.subjectIds.every(id => request.entities.some(e => e.id === id && e.kind === "GROUP")))
         ? request.facts.filter(f => offerDuty(f) && ["REQUIRED"].includes(f.modality)
             && collectFacts(request.logic).includes(f.id))
@@ -395,9 +400,9 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             }
         }
     }
-    if (["offer.area", "location.setting"].includes(fact.key) && desired && ["indoor", "outdoor", "terrace"].includes(desired)) {
+    if (rainSuitability || ["offer.area", "location.setting"].includes(fact.key) && desired && ["indoor", "outdoor", "terrace"].includes(desired)) {
         for (const area of profile.areas)
-            if ((AREA_CONCEPTS[area.kind] ?? []).includes(desired)
+            if ((AREA_CONCEPTS[area.kind] ?? []).includes(rainSuitability ? "indoor" : desired!)
                 && !area.properties.some(p => p.key === "location.setting" && (p.state !== "KNOWN"
                     || typeof p.value === "string" && ["indoor", "outdoor", "terrace"].includes(librarianConcept(p.value) ?? "")))) {
                 const offers = profile.offers.filter(o => o.areaIds.includes(area.id));
@@ -411,6 +416,10 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     let typedWorldLimitation: string | null = null;
     const inspect = (properties: readonly ExperienceProperty[], offer: ExperienceOffer | null, areaId: string | null, areaScoped = false) => {
         for (const property of properties.filter(p => keys.includes(p.key))) {
+            // Protection must locate the selected activity. A venue-wide roof
+            // or an unrelated cafe cannot establish a rain-safe playground.
+            if (rainSuitability && ["condition.weather_protection", "location.setting"].includes(property.key)
+                && (!areaId || property.key === "condition.weather_protection" && !areaScoped)) continue;
             observedKeys.add(property.key);
             const condition = librarianConditions(property.conditions, visit);
             if (condition === "FAILED") {
@@ -814,7 +823,7 @@ function runLibrarianCatalogSearch(input: {
     if ((input.eventViews?.length ?? 0) > 500 || worlds.length > 1500) failure("catalog_limit");
     if (new Set(worlds.map(w => w.spot.spotId)).size !== worlds.length)
         failure("duplicate_spot");
-    const conditionIds = sorted(request.weatherConditions.map(c => c.id)), unknownConditions = new Set<string>();
+    const conditionIds = sorted(request.weatherConditions.filter(c => c.role !== "CONTEXT").map(c => c.id)), unknownConditions = new Set<string>();
     const candidates: readonly LibrarianCandidate[] = worlds.map(world => {
         if (world.eventOccurrence && (!["PUBLISHED","SCHEDULED"].includes(world.eventOccurrence.eventStatus) || world.eventOccurrence.occurrenceStatus !== "SCHEDULED" || world.eventOccurrence.ticketStatus === "SOLD_OUT")) {
             const body = {spotId:world.spot.spotId,name:world.spot.identity.name,status:"INELIGIBLE" as const,facts:[],selectedFactIds:[],inactiveFactIds:[],matchedPreferences:[],unknownFactIds:[],failedFactIds:["EVENT_NOT_SCHEDULED"],offerIds:[],areaIds:[],limitations:["EVENT_NOT_SCHEDULED"],snapshotHash:world.snapshotHash,alternativeOrder:[],conditionalPlans:[]};

@@ -274,6 +274,36 @@ at an outdoor food area (rejected). No venue-specific exception is introduced.
 
 ## Internal preview of unpublished understanding and matching
 
+### Weather policy (prompt 13, matching 28, experience language 13; development)
+
+Weather entries have an explicit `role`: CONTEXT means weather stated by the user
+for their visit, CONDITIONAL means a genuine unresolved if/else trigger. Context
+is not a verified forecast and never gates the entire request. It cannot be an IF
+or FACT reference. Historical entries without a role remain conditional; the new
+provider schema requires the role and its validator enforces that boundary.
+The evaluation plan records USER_VISIT_CONTEXT versus EXTERNAL_EVIDENCE_REQUIRED.
+Actual conditional alternatives still require bound, fresh weather evidence;
+without it their separate plans remain unresolved rather than guessing a branch.
+
+For a general outing in stated rain, the model retains the weather context and
+derives `offer.weather_suitability=rain_suitable` as an inferred requirement at the
+requested activity. Explicit intent to experience rain/get wet overrides this
+default. An explicit outdoor requirement is retained. Indoor use is not invented.
+The matcher proves rain suitability through a documented indoor area/setting or
+known rain protection at the activity's area. An unrelated indoor cafe, shade,
+unknown protection, out-of-condition protection, or an ambiguous area type cannot
+provide proof. Explicitly contradictory evidence remains unresolved or fails.
+The shared language contains the finite `rain_suitable` concept; the matcher does
+not parse user prose, alter incoming duties or invent catalogue values.
+
+SUN, HEAT, COLD, WIND, SNOW and THUNDERSTORM are distinct contexts. Their presence
+alone does not fabricate cooling, heating, shade, wind or storm safety. Explicit
+requests for shade, temperature equipment or further weather suitability retain
+their separate requirements; missing evidence stays unknown. This change does
+not add a weather API or claim real-time forecast or safety verification.
+No consumer deployment, SQL or spot data modification is part of the internal
+preview. A later combined release must include the shared language and matcher.
+
 `scripts/decision/run-local-diagnostic.mjs` executes the canonical current evaluator
 and ranker against an exported, verified regional catalog. It does not persist
 decisions or learning and uses a neutral local identity, not an app user's profile.

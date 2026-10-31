@@ -46,7 +46,9 @@ export function compileLibrarianPlan(request: LibrarianRequest, semantics: Libra
         return { factId: fact.id, family: family ?? "extension", modality: fact.modality, subjects: fact.subjectIds, operator, support,
             sourceKeys: [...new Set(sources)].sort() };
     });
-    const body = { contractVersion: "backyrd.librarian-evaluation-plan@1" as const, requestHash: request.requestHash, policyVersion: LIBRARIAN_KNOWLEDGE_POLICY, meaningRegistryHash: semantics?.registry.registryHash ?? null, qualitativePricePolicy: QUALITATIVE_PRICE_POLICY, requirements };
+    const weather = request.weatherConditions.map(condition => ({ ...condition, role: condition.role ?? "CONDITIONAL",
+        authority: condition.role === "CONTEXT" ? "USER_VISIT_CONTEXT" : "EXTERNAL_EVIDENCE_REQUIRED" }));
+    const body = { contractVersion: "backyrd.librarian-evaluation-plan@1" as const, requestHash: request.requestHash, policyVersion: LIBRARIAN_KNOWLEDGE_POLICY, meaningRegistryHash: semantics?.registry.registryHash ?? null, qualitativePricePolicy: QUALITATIVE_PRICE_POLICY, requirements, weather };
     return deepFreeze({ ...body, planHash: contentHash(body) });
 }
 
