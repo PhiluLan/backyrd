@@ -1,9 +1,13 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LibrarianFact, LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@33" as const;
-import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept } from "@backyrd/world-knowledge-core";
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@34" as const;
+import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept, librarianTerm, type ExperienceProperty } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
+/** Suitability is explicit product knowledge, not a venue-type heuristic. */
+export const librarianAllAgesSuitability = (property: ExperienceProperty): boolean =>
+    property.key === "participation.age_suitability" && property.state === "KNOWN" && typeof property.value === "string"
+    && ["alle altersgruppen", "all ages", "tous ages", "tous âges"].includes(librarianTerm(property.value));
 /** Additional compatible evidence fields, never replacements for the original
  * field. Value meaning, scope, conditions and authority are checked separately. */
 export const LIBRARIAN_PROPERTY_SOURCE_ALIASES: Readonly<Partial<Record<LunaFactKey, readonly string[]>>> = deepFreeze({
@@ -51,6 +55,8 @@ export function librarianFactPropertySourceKeys(fact: LibrarianFact, acceptedSem
     const facility = librarianFacilityConcept(fact);
     return [...new Set([...librarianPropertySourceKeys(fact.key, acceptedSemanticKeys),
         ...(librarianMealExtentConcept(fact) ? ["food.meal_extent"] : []),
+        ...(fact.value.kind === "TEXT" && librarianConcept(fact.value.text) === "children_activity"
+            && ["condition.children", "experience.activity", "offer.kind"].includes(fact.key) ? ["participation.age_suitability"] : []),
         ...(facility ? ["offer.facility", "offer.feature", ...Object.entries(BOOLEAN_CONCEPTS).filter(([,concept]) => concept === facility).map(([key]) => key)] : [])])].sort();
 }
 const inputOnly = new Set<string>(["people.identity", "people.relationship", "people.role", "people.age", "people.age_bounds", "people.count", "people.pet", "people.mobility_aid", "people.experience", "people.capability", "people.participation", "budget.scope", "budget.coverage", "budget.cost_treatment", "budget.flexibility", "time.original", "time.reference", "time.relation", "time.timezone", "location.return", "location.transport_after_visit", "ranking.requested_evidence"]);

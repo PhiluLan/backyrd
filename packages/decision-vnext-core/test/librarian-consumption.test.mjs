@@ -86,15 +86,16 @@ test('scope and conditions prevent borrowing another area permission',()=>{
  assert.equal(search(q,[binding(1,p)]).ranked.length,0);
 });
 
-test('a verified Zoo VISIT needs child/all-ages and family evidence; food or classification alone is not enough',()=>{
+test('all-ages suitability needs no family tag and never invents animals or other activities',()=>{
  const p=profile([offer('visit','VISIT',['outside'],[prop('participation.age_suitability','Alle Altersgruppen')])],[{...area('outside',[prop('atmosphere.character','familienfreundlich')]),kind:'OUTDOOR'}],'ZOO');
  assert.equal(result(p).ranked.length,1);
  p.offers[0].properties=[];
  assert.equal(result(p).ranked.length,0);
  const noClassification=structuredClone(captured);noClassification.decisionProjection.facts=noClassification.decisionProjection.facts.filter(f=>f.key!=='classification.place_types');
- assert.equal(search(query(),[noClassification]).ranked.length,0);
+ assert.equal(search(query(),[noClassification]).ranked.length,1,'all-ages suitability does not need a venue-type whitelist');
  const restaurant=profile([offer('meal','DINNER',['inside'],[prop('participation.age_suitability','Alle Altersgruppen')])],[area('inside',[prop('atmosphere.character','familienfreundlich')])]);
- assert.equal(result(restaurant).ranked.length,0);
+ assert.equal(result(restaurant).ranked.length,1,'explicit all-ages suitability also applies to meals');
+ assert.equal(search(request([...query().raw.facts,fact('animals','experience.activity','Tiere beobachten')]),[binding(2,restaurant,[rule()])]).ranked.length,0,'all ages cannot invent animals');
 });
 
 test('active model validation rejects converting brought food into a supplied dish, retaining historical plans unchanged',()=>{

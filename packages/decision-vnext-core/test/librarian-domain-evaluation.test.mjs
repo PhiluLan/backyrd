@@ -200,9 +200,9 @@ test('child outings distinguish child menus from a documented family museum visi
  const noAge=structuredClone(museum);noAge.offers[0].properties=noAge.offers[0].properties.filter(p=>p.key!=='participation.age_suitability');
  assert.equal(search(q,[binding(1102,noAge)]).ranked.length,0);
  const noFamily=structuredClone(museum);noFamily.areas[0].properties=[];
- assert.equal(search(q,[binding(1103,noFamily)]).ranked.length,0);
+ assert.equal(search(q,[binding(1103,noFamily)]).ranked.length,1,'all ages needs no additional family label');
  const wrongArea=structuredClone(museum);wrongArea.areas[0].properties=[];wrongArea.areas.push(area('terrace',[prop('atmosphere.character','familienfreundlich')]));
- assert.equal(search(q,[binding(1104,wrongArea)]).ranked.length,0);
+ assert.equal(search(q,[binding(1104,wrongArea)]).ranked.length,1,'family atmosphere in another area is irrelevant to the offer age declaration');
  const adult=structuredClone(museum);adult.offers[0].properties.push(prop('participation.minimum_age',18));
  assert.equal(search(request([...q.raw.facts,fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p1'])]),[binding(1105,adult)]).ranked.length,0);
 });

@@ -3,6 +3,7 @@ import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { hasOfferModule, librarianConcept, librarianTerm, type ExperienceProfile, type ExperienceOffer } from "@backyrd/world-knowledge-core";
 import { librarianConditions, visitWeekday, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
 import { contentHash } from "./canonical.js";
+import { librarianAllAgesSuitability } from "./product-librarian-language.js";
 export type LibrarianEligibility = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -122,6 +123,8 @@ export function librarianGlobalEligibility(input: {
             results.push({state:"UNKNOWN",reason:"RESTRICTED_OFFER_ACCESS_NOT_PROVEN",hashes:[profileRow.entryHash],offerIds:[offer.id]});
 
         const participantAges = ageFacts.filter(f => !input.offerParticipants[offer.id]?.length || input.offerParticipants[offer.id]!.includes(f.subjectIds[0]!));
+        if (offer.properties.some(p => librarianAllAgesSuitability(p) && librarianConditions(p.conditions, visit) === "MET"))
+            for (const fact of participantAges) scopedAgeCovered.add(`${offer.id}:${fact.id}`);
         if (participantAges.length && offer.properties.some(p => p.key === "participation.minimum_age" && p.state === "UNKNOWN"
             && librarianConditions(p.conditions, visit) !== "FAILED"))
             results.push({state:"UNKNOWN",modality:"CONTEXT",reason:"OFFER_MINIMUM_AGE_NOT_DOCUMENTED",hashes:[profileRow.entryHash],offerIds:[offer.id]});

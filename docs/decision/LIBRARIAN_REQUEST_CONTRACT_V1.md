@@ -572,3 +572,22 @@ age-compliance proof nor a positive ranking signal. Known younger participants,
 conflicting minimums, unknown applicability, missing required supervision and
 booking-person restrictions retain their existing checks. No catalogue data,
 prompt, schema or public deployment is changed by this local revision.
+
+
+### Explicit all-ages suitability (matching 34; development)
+
+`participation.age_suitability=Alle Altersgruppen` (including the accepted
+English/French labels) is positive child/age-suitability evidence without an
+additional family-atmosphere tag or an offer-type whitelist. It introduces no
+minimum or maximum participant age. The property must be KNOWN and applicable
+to the visit. Its witness stays attached to the actual offer and linked area;
+the canonical age-suitability property is offer-scoped, so another offer
+cannot inherit its age proof even when both share an area. An unrelated cafe
+cannot qualify an animal activity. This establishes suitability, not the presence of animals,
+a playground or food; those requested activities still need independent,
+coherent evidence. Documented admission minimums, adult supervision, booking,
+opening and other restrictions keep their own checks. No Spot facts are edited.
+
+This supersedes the former FAMILY_LEISURE_ALL_AGES shortcut, which required
+both all-ages suitability and family atmosphere and excluded unlisted activity
+types such as ANIMAL_OBSERVATION.

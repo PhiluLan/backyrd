@@ -2,7 +2,7 @@ import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-g
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDecisionProof, combineLibrarianDecisionProof, librarianFacilityIsVisit, librarianFacilityVisitAreaKinds, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
 import { bookingEvidence, externalConsumptionEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
-import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept, librarianMealExtentConcept } from "./product-librarian-language.js";
+import { librarianAllAgesSuitability, librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept, librarianMealExtentConcept } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
@@ -323,6 +323,19 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         ? request.facts.filter(f => offerDuty(f) && ["REQUIRED"].includes(f.modality)
             && collectFacts(request.logic).includes(f.id))
             .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability)) : [];
+    // An age declaration for a cafe must not qualify an animal activity in
+    // that same room. Use the actual active activity witnesses, not new text
+    // matching, and keep separately requested food as a supporting offer.
+    const childSuitability = fact.value.kind === "TEXT" && librarianConcept(fact.value.text) === "children_activity"
+        && ["condition.children", "experience.activity", "offer.kind"].includes(fact.key);
+    const relatedActivities = childSuitability ? request.facts.filter(f => f.id !== fact.id && f.modality === "REQUIRED"
+        && ["experience.activity", "offer.kind"].includes(f.key) && f.value.kind === "TEXT"
+        && librarianConcept(f.value.text) !== "children_activity"
+        && (!fact.subjectIds.length || !f.subjectIds.length || f.subjectIds.some(id => fact.subjectIds.includes(id)))) : [];
+    const primaryActivities = relatedActivities.filter(f => f.value.kind === "TEXT"
+        && !["meal", "lunch", "dinner", "breakfast", "brunch", "snacks", "aperitif", "drinks", "coffee"].includes(librarianConcept(f.value.text) ?? ""));
+    const suitabilityActivities = (primaryActivities.length ? primaryActivities : relatedActivities)
+        .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability));
     const positives: Witness[] = [], negatives: Witness[] = [], uncertain: Witness[] = [];
     const add = (truth: MatchTruth, offer: ExperienceOffer | null, areaId: string | null, evidence: unknown, conditional = false, sourceHashes: readonly string[] = []) => {
         // A nonmatching/unknown value is not evidence of semantic support.
@@ -382,24 +395,15 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             if (!genericChildMeal && declared.some(actual => experienceActivitySupports(actual, desired)))
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {declaredOfferName: offer.name});
             if (["condition.children", "experience.activity", "offer.kind"].includes(fact.key) && desired === "children_activity") {
-                // A documented family exhibition is a child-compatible outing,
-                // even though it is not labelled as a dedicated children's course.
-                const activities = OFFER_CONCEPTS[offer.kind] ?? [];
-                const zooClassification = world.facts.find(row => row.key === "classification.place_types" && Array.isArray(row.value)
-                    && row.value.some(type => typeof type === "string" && spotTypeSupports(type, "ZOO")) && row.authorizedUseCases?.includes("DISCOVERY"));
-                const zooVisit = offer.kind === "VISIT" && zooClassification !== undefined;
-                const leisure = zooVisit || activities.some(a => ["exhibition", "museum", "zoo", "movement_play", "children_course"].includes(a));
-                const allAges = offer.properties.filter(p => p.key === "participation.age_suitability" && p.state === "KNOWN"
-                    && typeof p.value === "string" && ["alle altersgruppen", "all ages", "tous ages"].includes(librarianTerm(p.value)));
-                for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) {
-                    const properties = [...profile.properties, ...offer.properties, ...(profile.areas.find(a => a.id === areaId)?.properties ?? [])];
-                    const family = properties.filter(p => p.key === "atmosphere.character" && p.state === "KNOWN" && typeof p.value === "string"
-                        && ["familienfreundlich", "family friendly", "family_friendly"].includes(librarianTerm(p.value)));
-                    const evidence = [...allAges, ...family];
-                    if (leisure && allAges.length && family.length) {
-                        const states = evidence.map(p => librarianConditions(p.conditions, visit));
-                        if (!states.includes("FAILED")) add("MET", offer, areaId, {policy:"FAMILY_LEISURE_ALL_AGES", properties:evidence}, states.includes("UNKNOWN"), zooVisit ? [zooClassification!.entryHash] : []);
-                    }
+                // "All ages" is explicit suitability, independent of offer
+                // type or family atmosphere. The canonical property belongs to
+                // an OFFER: keep its proof on that offer and its linked areas.
+                for (const property of offer.properties.filter(librarianAllAgesSuitability)) {
+                    if (suitabilityActivities.length && !suitabilityActivities.some(a => a.witnesses.some(w => w.offerIds.includes(offer.id)))) continue;
+                    const condition = librarianConditions(property.conditions, visit);
+                    if (condition === "FAILED") continue;
+                    for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
+                        add("MET", offer, areaId, {policy:"DOCUMENTED_ALL_AGES_SUITABILITY", property}, condition === "UNKNOWN");
                 }
             }
             if (fact.key === "condition.children" && desired === "children_activity"
