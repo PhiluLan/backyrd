@@ -680,3 +680,7 @@ levels; Zoo Basel, aquabasilea and Bachgraben on unbound gastronomy price scope.
 The vegan person's requirement stays person-scoped and does not require the
 whole restaurant to be exclusively vegan. Regression coverage lives in
 `librarian-relative-price.test.mjs` in the existing core test command.
+
+### Matcher 37: explicit products in authored food-offer titles
+
+Food/drink offer titles may establish explicitly named products through the existing bounded item-list grammar, preserving offer and area scope. “Kaffee und Kuchen aus eigener Bio-Backstube” proves coffee and cake. Generic bakery goods do not prove cake; negated or qualified availability does not become unconditional product evidence. Missing atmosphere remains unknown. The first sequential discovery case reproduced the previous missed product evidence; same-meaning replay confirms the correction without inventing a cozy atmosphere or changing spot data.

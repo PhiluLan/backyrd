@@ -406,6 +406,14 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             }
         }
     }
+    // An authored food/drink offer can explicitly list its products in its
+    // title. Reuse the bounded item-list grammar (including negation and
+    // qualification guards), without upgrading generic pastry into cake.
+    if (desired && ["food.drink", "food.dish"].includes(fact.key))
+        for (const offer of profile.offers.filter(o => hasOfferModule(o.kind,"food")))
+            if (declaredExperienceConcepts(offer.name,"ITEM_LIST").includes(desired))
+                for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
+                    add("MET",offer,areaId,{declaredProductTitle:offer.name});
     if (desired && ["experience.activity", "offer.feature", "atmosphere.music", "condition.children"].includes(fact.key)) {
         for (const offer of profile.offers) {
             const declared = declaredExperienceConcepts(offer.name, "OFFER_NAME");

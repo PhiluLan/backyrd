@@ -187,3 +187,12 @@ test('conditional group capacity is not applied outside its documented validity'
  const r=search(q,[binding(974,profile([offer('escape','ESCAPE_GAME',['inside'],[capacity])],undefined,'ACTIVITIES_PLAY'))]);
  assert.equal(state(r,'count'),'UNKNOWN');assert.equal(r.ranked.length,0);
 });
+
+
+test('explicit coffee and cake in a food offer title are scoped product evidence, not generic bakery inference',()=>{
+ const q=request([fact('coffee','food.drink','COFFEE'),fact('cake','food.dish','CAKE')]);
+ const make=name=>profile([{...offer('cafe','CAFE'),name}]);
+ assert.equal(search(q,[binding(1990,make('Kaffee und Kuchen aus eigener Bio-Backstube'))]).ranked.length,1);
+ for(const name of ['Kaffee und süsse Backwaren','Kaffee und kein Kuchen','Kaffee und Kuchen nur auf Anfrage'])
+  assert.equal(search(q,[binding(1991,make(name))]).ranked.length,0,name);
+});
