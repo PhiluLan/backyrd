@@ -1,5 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.112.4';
-import {createAdminDiagnosticHandler,BASEL_DIAGNOSTIC_QUERIES,DIAGNOSTIC_REFERENCE} from '../../../packages/decision-vnext-core/dist/admin-diagnostic.js';
+import {createAdminDiagnosticHandler,resolveAdminDiagnosticCase,DIAGNOSTIC_REFERENCE} from '../../../packages/decision-vnext-core/dist/admin-diagnostic.js';
 import {createDecisionProductProductionPorts,createDecisionProductRpcEvaluationProvider,createDecisionProductRpcInteractionAuthorityProvider,createDecisionProductRpcLearningPort,type DecisionProductRpcClient,type DecisionProductProductionConfiguration} from '../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js';
 import {createDecisionProductLunaProvider} from '../../../packages/decision-vnext-core/dist/product-luna-provider.js';
 import {buildDecisionProductExecution} from '../../../packages/decision-vnext-core/dist/product-decision.js';
@@ -20,6 +20,7 @@ Deno.serve(async(request:Request)=>{
   const config=configuration();
   let capturedContext:Record<string,unknown>|null=null;
   let usage:unknown=null;
+  let reference:{now:string;timezone:'Europe/Zurich'}=DIAGNOSTIC_REFERENCE;
   let searchTrace:LibrarianSearchResult|null=null;
   const rpc:DecisionProductRpcClient={async rpc(name,parameters,signal){
    const result=await service.rpc(name,parameters as Record<string,unknown>).abortSignal(signal);
@@ -30,7 +31,7 @@ Deno.serve(async(request:Request)=>{
    return {data:result.data,error:result.error?{message:'diagnostic_rpc_unavailable'}:null};
   }};
   const evaluationProvider=createDecisionProductRpcEvaluationProvider(rpc,{meaningRequired:true,onSearch:(result)=>{searchTrace=result;}});
-  const ports=createDecisionProductProductionPorts({rpc,configuration:config,evaluationProvider,interactionAuthority:createDecisionProductRpcInteractionAuthorityProvider(rpc),learningPort:createDecisionProductRpcLearningPort(rpc,config.identity),authClient:{async getUser(token,signal){const r=await service.auth.getUser(token);if(signal.aborted)return {user:null,error:{message:'aborted'}};return {user:r.data.user?{id:r.data.user.id,role:r.data.user.role,is_anonymous:r.data.user.is_anonymous,banned_until:r.data.user.banned_until}:null,error:r.error?{message:'invalid_session'}:null};}},understandingProvider:createDecisionProductLunaProvider({apiKey:required('OPENAI_API_KEY'),now:()=>new Date(DIAGNOSTIC_REFERENCE.now),fetchImpl:async(url,options)=>{
+  const ports=createDecisionProductProductionPorts({rpc,configuration:config,evaluationProvider,interactionAuthority:createDecisionProductRpcInteractionAuthorityProvider(rpc),learningPort:createDecisionProductRpcLearningPort(rpc,config.identity),authClient:{async getUser(token,signal){const r=await service.auth.getUser(token);if(signal.aborted)return {user:null,error:{message:'aborted'}};return {user:r.data.user?{id:r.data.user.id,role:r.data.user.role,is_anonymous:r.data.user.is_anonymous,banned_until:r.data.user.banned_until}:null,error:r.error?{message:'invalid_session'}:null};}},understandingProvider:createDecisionProductLunaProvider({apiKey:required('OPENAI_API_KEY'),now:()=>new Date(reference.now),fetchImpl:async(url,options)=>{
    if(url!=='https://api.openai.com/v1/responses')throw Error('diagnostic_provider_destination_invalid');
    const response=await fetch(url,options);
    const payload:unknown=await response.json();
@@ -42,9 +43,11 @@ Deno.serve(async(request:Request)=>{
    const caller=createClient(url,required('SUPABASE_ANON_KEY'),{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:`Bearer ${token}`}}});
    const result=await caller.rpc('admin_is_admin_v1').abortSignal(signal);
    return !result.error&&result.data===true;
-  },checkControl:async(signal)=>{await ports.control.assertBoundary('RATE_LIMIT',signal);},diagnose:async(index,actor,signal)=>{
+  },checkControl:async(signal)=>{await ports.control.assertBoundary('RATE_LIMIT',signal);},diagnose:async(input,actor,signal)=>{
+   const selected=resolveAdminDiagnosticCase(input);reference=selected.reference;
+   const index=selected.caseIndex;
    const started=performance.now();const id=crypto.randomUUID();
-   const productRequest={contractVersion:'backyrd.decision-vnext.product-request@1.0' as const,requestId:id,idempotencyKey:id,naturalLanguage:BASEL_DIAGNOSTIC_QUERIES[index]!,includeEvents:true,explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT' as const,moods:[]},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
+   const productRequest={contractVersion:'backyrd.decision-vnext.product-request@1.0' as const,requestId:id,idempotencyKey:id,naturalLanguage:selected.query,includeEvents:true,explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT' as const,moods:[]},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
    await ports.control.assertBoundary('INTERPRETATION',signal);
    const modelStarted=performance.now();
    if(!ports.understand)throw Error('diagnostic_provider_missing');
@@ -67,7 +70,7 @@ Deno.serve(async(request:Request)=>{
    if(search.ranked.length+search.excluded.length+search.unresolved.length!==evaluation.candidates.length)throw Error('diagnostic_candidate_trace_mismatch');
    const projection=execution.response.personalization;
    await ports.control.assertBoundary('FINAL_OUTPUT',signal);
-   return {contractVersion:'backyrd.admin-decision-diagnostic@1.0',caseIndex:index,query:productRequest.naturalLanguage,reference:DIAGNOSTIC_REFERENCE,request:productRequest,meaning,search,response:execution.response,projection,usage,timings:{modelMs,evaluationMs,rankingMs,totalDiagnosticMs:performance.now()-started},runtime:{sourceSetHash:config.identity.sourceSetHash,evaluatorVersion:evaluation.evaluatorVersion,catalogProfiles:context.worldSnapshots.length,eventOccurrences:Array.isArray(context.eventOccurrences)?context.eventOccurrences.length:0,evaluatedCandidates:evaluation.candidates.length},boundaries:{adminAuthorized:true,learningPersisted:false,decisionPersisted:false,spotDataChanged:false,searchObservedWithoutRepeat:true,authenticationExecuted:true,adminTestQuotaApplied:false}};
+   return {contractVersion:'backyrd.admin-decision-diagnostic@1.0',caseIndex:index,query:productRequest.naturalLanguage,reference,request:productRequest,meaning,search,response:execution.response,projection,usage,timings:{modelMs,evaluationMs,rankingMs,totalDiagnosticMs:performance.now()-started},runtime:{sourceSetHash:config.identity.sourceSetHash,evaluatorVersion:evaluation.evaluatorVersion,catalogProfiles:context.worldSnapshots.length,eventOccurrences:Array.isArray(context.eventOccurrences)?context.eventOccurrences.length:0,evaluatedCandidates:evaluation.candidates.length},boundaries:{adminAuthorized:true,learningPersisted:false,decisionPersisted:false,spotDataChanged:false,searchObservedWithoutRepeat:true,authenticationExecuted:true,adminTestQuotaApplied:false}};
   }});
   return await handler(request);
  }catch{return new Response(JSON.stringify({error:'diagnostic_configuration_unavailable'}),{status:503,headers:{'content-type':'application/json','cache-control':'no-store'}});}

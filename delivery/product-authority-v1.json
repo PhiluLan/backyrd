@@ -95,14 +95,11 @@
       "supabase/functions/decision-v13/vnext-only.ts"
     ]
   },
-  "regionalDecisionDeliveryScope": {
-    "contractVersion": "backyrd.regional-decision-delivery-scope@1.0",
-    "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
-    "migrations": [
-      {
-        "path": "supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",
-        "sha256": "403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"
-      }
+  "codeOnlyDeliveryScope": {
+    "contractVersion": "backyrd.code-only-delivery-scope@1.0",
+    "functions": [
+      "decision-v13",
+      "decision-admin-diagnostic"
     ],
     "deferredMigrations": [
       {
@@ -122,12 +119,6 @@
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
       }
     ],
-    "functions": [
-      "decision-v13",
-      "decision-admin-diagnostic"
-    ],
-    "backupRunId": 41184399431,
-    "executionAuthorized": false,
-    "source": "Founder explicitly approved exactly 20261031090327_decision_regional_catalog_v1.sql, the bounded release path, both Decision functions and subsequent App/Web delivery with disclosed untested recovery risk on 2026-10-31: Ja, genau diesen Umfang mit dem beschriebenen Risiko ver\u00f6ffentlichen. Successful encrypted backup run 41184399431. Four Booking migrations and Auth changes remain excluded."
+    "source": "Founder approved bounded regional release completed and independently verified on 2026-10-31. The separate regional receipt preserves exact SQL identity and deployed source lineage. Subsequent code-only releases include no SQL/Auth changes; the same four Booking migrations remain deferred."
   }
 }

@@ -264,7 +264,69 @@
       "deferredMigrationCount": 4,
       "authChanged": false,
       "adminDiagnosticQuotaApplied": false,
-      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Bräu and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as Führung, which is not a suitable bar recommendation explanation."
+      "note": "Audited code-only release of Decision v218 and Admin diagnostic v13. Global shipped SQL baseline stays unchanged because four Booking migrations remain deferred. Real authenticated diagnostic confirms Volta Br\u00e4u and Alchemist with no unknown or failed mandatory facts. No learning or Spot writes. Admin test quota and calendar expiry removed; JWT/Admin/runtime controls remain. Presentation follow-up: selected-offer reason labels Volta offer as F\u00fchrung, which is not a suitable bar recommendation explanation."
+    },
+    "regionalDecisionRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",
+        "sha256": "403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"
+      },
+      "sourceSha": "e8ddeccfb71e048051f804488f5e030a9d89e12a",
+      "deploymentRunId": 41190914692,
+      "certificationRunId": 41190508146,
+      "manifestHash": "adc7bfc70b3b0c69b3d95082c273e9559e49110f70b3247ffdfff3539b4f3d24",
+      "auditHash": "b48425ef9dc4e2457c18d46227116619991534ab1e00e7a80e550bd3d3c17beb",
+      "planHash": "9144a425e072bd38473a09c3262af8bb24a78e122af63f6dbcd09d48758369ee",
+      "backupRunId": 41184399431,
+      "verifiedAt": "2026-10-31T10:02:12.015911+00:00",
+      "remoteMigrationCount": 199,
+      "remoteMigrationTip": "20261031090327",
+      "deferredMigrations": [
+        {
+          "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
+          "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
+        },
+        {
+          "path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql",
+          "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"
+        },
+        {
+          "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
+          "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
+        },
+        {
+          "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
+          "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+        }
+      ],
+      "functions": [
+        {
+          "slug": "decision-admin-diagnostic",
+          "version": 15,
+          "verifyJwt": true,
+          "bundleHash": "1b52e14db31901ec7691a067c6dcf37fddc63960f22434c24eed99bc4ca78c29",
+          "sourceSetHash": "6245c962b16ffeb52b5b270b606b94dc4cee7cf0316480d4a299c417b91f8b6d",
+          "deferredCandidateSourceSetHash": null
+        },
+        {
+          "slug": "decision-v13",
+          "version": 219,
+          "verifyJwt": true,
+          "bundleHash": "fb5f7f4a362ae73794b68ca6aa6552e345eb31eb3ade38bb6d2835526722a291",
+          "sourceSetHash": "27e22b0755fb38fa371618c7247a4a0742eaac7911ffb90754103344a367ebe0",
+          "deferredCandidateSourceSetHash": null
+        }
+      ],
+      "runtimeBinding": {
+        "releaseHash": "adc7bfc70b3b0c69b3d95082c273e9559e49110f70b3247ffdfff3539b4f3d24",
+        "artifactHash": "d32f38661aafec6df9b00a15780abfe262cd43b50795f99a4107892ce07b7253",
+        "sourceSetHash": "27e22b0755fb38fa371618c7247a4a0742eaac7911ffb90754103344a367ebe0",
+        "generation": 37,
+        "authorityHash": "d10d17b3fb0f0d1d25411b209fba3ee551fccb4a3e6615a2675ada047d02f421"
+      },
+      "authChanged": false,
+      "note": "Exact approved regional context migration and two authenticated Decision functions applied from the certified Main artifact. Live ledger confirms 199 migrations and all four deferred Booking migrations absent. Context v7 EXECUTE denied to anon/authenticated and allowed only to service_role. Operator activation and continuity authorization bind generation 37 to the certified runtime. No Spot or user-interest writes. Full baseline and historical receipts retained; database restore remains untested."
     }
   },
   "mobile": {

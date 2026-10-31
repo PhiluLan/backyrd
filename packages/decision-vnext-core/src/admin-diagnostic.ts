@@ -15,14 +15,20 @@ export const BASEL_DIAGNOSTIC_QUERIES = Object.freeze([
 export const DIAGNOSTIC_REFERENCE = Object.freeze({now:'2026-10-29T23:49:00.000Z',timezone:'Europe/Zurich' as const});
 const allowedOrigins = new Set(['https://intelligence.backyrd.ch','http://127.0.0.1:3017']);
 
+export type AdminDiagnosticInput = {readonly caseIndex:number} | {readonly query:string};
+export function resolveAdminDiagnosticCase(input:AdminDiagnosticInput, now:Date=new Date()) {
+  return 'caseIndex' in input
+    ? {caseIndex:input.caseIndex,query:BASEL_DIAGNOSTIC_QUERIES[input.caseIndex]!,reference:DIAGNOSTIC_REFERENCE}
+    : {caseIndex:-1,query:input.query,reference:{now:now.toISOString(),timezone:'Europe/Zurich' as const}};
+}
 export interface AdminDiagnosticPorts {
   authenticate(token:string,signal:AbortSignal):Promise<DecisionProductAuthenticatedActor|null>;
   isAdmin(token:string,signal:AbortSignal):Promise<boolean>;
   checkControl(signal:AbortSignal):Promise<void>;
-  diagnose(index:number,actor:DecisionProductAuthenticatedActor,signal:AbortSignal):Promise<unknown>;
+  diagnose(input:AdminDiagnosticInput,actor:DecisionProductAuthenticatedActor,signal:AbortSignal):Promise<unknown>;
 }
 
-/** Fixed Admin suite without request quotas or calendar expiry. Authentication,
+/** Admin diagnostics without request quotas or calendar expiry. Authentication,
  * Admin authorization, request validation and runtime control remain mandatory. */
 export function createAdminDiagnosticHandler(ports:AdminDiagnosticPorts) {
   return async(request:Request):Promise<Response>=>{
@@ -46,12 +52,16 @@ export function createAdminDiagnosticHandler(ports:AdminDiagnosticPorts) {
       const reader=request.body?.getReader();
       if(!reader)return reply(400,{error:'invalid_request'});
       const chunks:Uint8Array[]=[];let size=0;
-      while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>128){await reader.cancel();return reply(413,{error:'request_too_large'});}chunks.push(part.value);}
+      while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>16384){await reader.cancel();return reply(413,{error:'request_too_large'});}chunks.push(part.value);}
       const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
       let body:unknown;try{body=JSON.parse(new TextDecoder().decode(bytes));}catch{return reply(400,{error:'invalid_request'});}
-      if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==1||!('caseIndex'in body)||!Number.isInteger(body.caseIndex)||typeof body.caseIndex!=='number'||body.caseIndex<0||body.caseIndex>=BASEL_DIAGNOSTIC_QUERIES.length)return reply(400,{error:'fixed_case_required'});
+      if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).length!==1)return reply(400,{error:'diagnostic_request_invalid'});
+      let input:AdminDiagnosticInput;
+      if('caseIndex' in body && typeof body.caseIndex==='number' && Number.isInteger(body.caseIndex) && body.caseIndex>=0 && body.caseIndex<BASEL_DIAGNOSTIC_QUERIES.length) input={caseIndex:body.caseIndex};
+      else if('query' in body && typeof body.query==='string' && body.query.trim().length>0 && body.query.length<=2000) input={query:body.query};
+      else return reply(400,{error:'diagnostic_request_invalid'});
       await ports.checkControl(controller.signal);
-      const result=await ports.diagnose(body.caseIndex,actor,controller.signal);
+      const result=await ports.diagnose(input,actor,controller.signal);
       if(controller.signal.aborted)return reply(504,{error:'diagnostic_timeout'});
       return reply(200,result);
     }catch{return reply(controller.signal.aborted?504:503,{error:controller.signal.aborted?'diagnostic_timeout':'diagnostic_unavailable'});}
