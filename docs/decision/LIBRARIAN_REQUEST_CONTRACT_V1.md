@@ -704,3 +704,7 @@ A TEXT value equal to a known request field identifier is an invalid placeholder
 ### Matcher 39 / experience language 16: dietary option labels
 
 The authored option labels “Glutenfreie Option” and “Laktosefreie Option” express the corresponding dietary option and may witness food.diet at the same offer. The mapping is finite and shared, not fuzzy prose matching. Generic ingredient information or adaptation on request proves neither option. A separate lunch option cannot qualify dinner. This mapping does not assert allergy safety, cross-contamination protection or a wholly free-from kitchen.
+
+### Prompt 21 / meaning roles 5: no invented missing child age
+
+A daughter/son without an age produces no age fact. In particular APPROX 0 is not an encoding of unknown age. The source-bound provider detects this placeholder when the request does not mention zero and asks the single bounded correction to remove only the diagnosed placeholder. Other facts and logic remain immutable; unsafe linked removals fail understanding validation. The prompt also reiterates that rain alone supplies no visit date. This is not a claim of complete source grounding for every possible numeric/date output; the genuine museum query is retained as development evidence.

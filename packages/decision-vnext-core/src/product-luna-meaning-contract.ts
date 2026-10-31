@@ -36,19 +36,23 @@ for (const [key, concept] of Object.entries(BOOLEAN_CONCEPTS)) {
   rules[concept] = families;
 }
 export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
-export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@4', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
+export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@5', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
 export type LunaMeaningIssue = {
   readonly factId: string;
-  readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE';
+  readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE' | 'UNKNOWN_AGE_PLACEHOLDER';
   readonly allowedFamilies: readonly LunaFactKey[];
   readonly repairPlaceholderValue?: true;
+  readonly allowRemoval?: true;
   readonly allowedModalities?: readonly LunaMeaningOutput["facts"][number]["modality"][];
 };
-export function inspectLunaMeaning(output: LunaMeaningOutput): readonly LunaMeaningIssue[] {
+export function inspectLunaMeaning(output: LunaMeaningOutput, sourceText?: string): readonly LunaMeaningIssue[] {
   const foodVisit = output.facts.some(f => ['experience.activity','food.meal','offer.kind'].includes(f.key)
     && ['REQUIRED','PREFERRED'].includes(f.modality) && 'text' in f.value
     && ['meal','breakfast','brunch','lunch','dinner','snacks','aperitif'].includes(librarianConcept(f.value.text) ?? ''));
   return output.facts.flatMap<LunaMeaningIssue>(fact => {
+    if (fact.key === 'people.age' && 'amount' in fact.value && fact.value.amount === 0 && fact.value.operator === 'APPROX'
+      && sourceText !== undefined && !/\b(?:0|null|zero|zéro)\b/iu.test(sourceText))
+      return [{factId:fact.id,code:'UNKNOWN_AGE_PLACEHOLDER',allowedFamilies:['people.age'],allowRemoval:true}];
     if ('text' in fact.value && Object.keys(LIBRARIAN_FAMILY_STRATEGIES).includes(fact.value.text.trim()))
       return [{factId:fact.id,code:'FIELD_NAME_AS_VALUE',allowedFamilies:[fact.key],repairPlaceholderValue:true}];
     if (foodVisit && fact.key === 'food.diet' && fact.modality === 'CONTEXT')
@@ -68,14 +72,14 @@ export function inspectLunaMeaning(output: LunaMeaningOutput): readonly LunaMean
  * A correction that drops a wish or narrows it is rejected before any search. */
 export function assertLunaMeaningCorrection(before: LunaMeaningOutput, after: LunaMeaningOutput, issues: readonly LunaMeaningIssue[]): void {
   const permitted = new Map(issues.map(issue => [issue.factId, issue]));
-  const strip = (output: LunaMeaningOutput) => ({...output, facts:output.facts.map(fact => {
+  const strip = (output: LunaMeaningOutput) => ({...output, facts:output.facts.filter(fact => !permitted.get(fact.id)?.allowRemoval).map(fact => {
     const {key,...rest}=fact;
     if (!permitted.has(fact.id)) return fact;
     if (permitted.get(fact.id)!.repairPlaceholderValue) { const {value,...stable}=rest; return stable; }
     if (permitted.get(fact.id)!.allowedModalities) { const {modality,...stable}=rest; return stable; }
     return rest;
   })});
-  if (contentHash(strip(before)) !== contentHash(strip(after)) || after.facts.some(fact => permitted.has(fact.id) && (!permitted.get(fact.id)!.allowedFamilies.includes(fact.key) || permitted.get(fact.id)!.repairPlaceholderValue && (!('text' in fact.value) || Object.keys(LIBRARIAN_FAMILY_STRATEGIES).includes(fact.value.text.trim()) || !fact.value.text.trim()) || permitted.get(fact.id)!.allowedModalities && !permitted.get(fact.id)!.allowedModalities!.includes(fact.modality)))) {
+  if (after.facts.some(f=>permitted.get(f.id)?.allowRemoval) || contentHash(strip(before)) !== contentHash(strip(after)) || after.facts.some(fact => permitted.has(fact.id) && (!permitted.get(fact.id)!.allowedFamilies.includes(fact.key) || permitted.get(fact.id)!.repairPlaceholderValue && (!('text' in fact.value) || Object.keys(LIBRARIAN_FAMILY_STRATEGIES).includes(fact.value.text.trim()) || !fact.value.text.trim()) || permitted.get(fact.id)!.allowedModalities && !permitted.get(fact.id)!.allowedModalities!.includes(fact.modality)))) {
     throw new Error('product_luna_correction_changed_meaning');
   }
 }
@@ -87,6 +91,7 @@ export const LUNA_MEANING_ROLE_INSTRUCTIONS = '\nVERBINDLICHE BEDEUTUNGSROLLEN (
   + '. Kontextfamilien dürfen ausschliesslich CONTEXT sein: ' + LUNA_CONTEXT_ONLY_FAMILIES.join(', ')
   + '. Eine zeitliche Reihenfolge gehört zwischen mehrere konkret benannte Tätigkeiten in SEQUENCE; ein alleinstehendes zuerst oder danach erzeugt keine zusätzliche erfüllbare Ortsanforderung. '
   + 'VERNEINTE VORAUSSETZUNGEN: Eine Voraussetzung nicht erfüllen wollen bedeutet, dass der Ort ohne diese Voraussetzung nutzbar sein muss. Ohne Reservierung, ohne Anmeldung, ohne Vorbuchung => participation.booking spontaneous REQUIRED; möglichst ohne Vorbuchung => spontaneous PREFERRED. NOT_REQUIRED bedeutet dagegen ausdrücklich egal ob eine Buchung nötig ist. Dafür spontaneous NOT_REQUIRED verwenden. booking_required NOT_REQUIRED ist eine mehrdeutige Doppelverneinung und nicht erlaubt. Dasselbe Prinzip für Zugang ohne Hotelaufenthalt: public_day_access REQUIRED statt Hotelaufenthalt als unverbindlich wegzulassen. Den Wunsch niemals verlieren. '
+  + 'FEHLENDE ANGABEN: Tochter, Sohn und Kind ohne genanntes Alter erzeugen KEIN people.age. Unbekanntes Alter ist weder 0 noch APPROX 0. Bei Regen ist eine Wetterbedingung ohne Besuchsdatum: ohne heute, morgen, Datum oder anderen konkreten Datumsbezug KEIN time.date. reference.now ist kein Nutzerwunsch. '
   + 'Feldnamen wie experience.activity sind niemals Inhaltswerte. Benenne die tatsächlich gewünschte Tätigkeit (z.B. meal), nicht den Schlüssel als Text. '
   + 'ERNÄHRUNG BEIM GEMEINSAMEN ESSEN: Ein genanntes Ernährungsbedürfnis einer Begleitperson (vegan, vegetarisch, glutenfrei, Allergie) muss beim konkret gewünschten Essen erfüllbar sein: food.diet mit Personenbezug REQUIRED. Es bedeutet eine passende Option für diese Person, niemals ausschliesslich veganes Lokal. Nur ausdrücklich optionale Bedürfnisse sind PREFERRED oder NOT_REQUIRED. food.diet CONTEXT ist bei einem Essenswunsch nicht ausführbar und verliert das Bedürfnis. '
   + 'Unbekannte Wünsche vollständig erhalten, nicht auf einen ähnlichen bekannten Begriff zwingen. Niemals eine Pflicht abschwächen, eine Negation entfernen, ein Datum erfinden oder eine Alternative in mehrere Pflichten verwandeln. Vor Ausgabe jede Zuordnung gegen diesen Vertrag prüfen.';

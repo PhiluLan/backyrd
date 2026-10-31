@@ -134,3 +134,11 @@ test('a field name used as a content placeholder is corrected before retrieval, 
  const p=provide([before,after]);assert.deepEqual((await p.run()).raw,after);assert.equal(p.calls(),2);
  const bad=structuredClone(after);bad.facts[0].subjectIds=[];assert.throws(()=>assertLunaMeaningCorrection(before,bad,issues));
 });
+
+test('an unknown child age must not be encoded as approximate zero',()=>{
+ const before=structuredClone(plan([fact('museum','experience.activity','museum'),fact('age','people.age',{amount:0,operator:'APPROX',unit:'YEARS'},'CONTEXT',['p2'])]).raw);
+ const issues=inspectLunaMeaning(before,'mit meiner Tochter ins Museum');assert.equal(issues[0].code,'UNKNOWN_AGE_PLACEHOLDER');
+ const after=structuredClone(before);after.facts.pop();assert.doesNotThrow(()=>assertLunaMeaningCorrection(before,after,issues));
+ assert.throws(()=>assertLunaMeaningCorrection(before,before,issues));
+ assert.deepEqual(inspectLunaMeaning(before,'ungefähr 0 Jahre alt'),[]);
+});

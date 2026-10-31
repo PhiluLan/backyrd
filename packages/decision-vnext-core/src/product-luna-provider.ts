@@ -72,7 +72,7 @@ export function createDecisionProductLunaProvider(input: {
     catch { throw new Error("product_luna_meaning_invalid"); }
     const preferredLogic = (node: import('./product-luna-librarian.js').LunaExpression | null):boolean => node !== null && (node.kind === 'ANY' && node.strength === 'PREFERRED' || node.kind === 'IF' && (preferredLogic(node.then) || preferredLogic(node.else)) || node.kind === 'FALLBACK' && node.options.some(preferredLogic) || (node.kind === 'ALL' || node.kind === 'ANY') && node.children.some(preferredLogic));
     if (!explicitPreferenceEvidence(request.naturalLanguage).length && ([...output.facts,...output.extensions].some(f=>f.modality==='PREFERRED') || preferredLogic(output.logic))) throw new Error('product_luna_understanding_unresolved');
-    const issues = inspectLunaMeaning(output);
+    const issues = inspectLunaMeaning(output, request.naturalLanguage);
     try { input.onTranslationAttempt?.({output, issues}); } catch { /* Diagnostics cannot affect a decision. */ }
     if (issues.length) {
       if (issues.some(issue => !issue.allowedFamilies.length)) throw new Error("product_luna_understanding_unresolved");
@@ -80,12 +80,12 @@ export function createDecisionProductLunaProvider(input: {
       // no retry on network, refusal, truncation or an unsupported capability.
       const correctionBody = {...body, input: JSON.stringify({
         originalRequest: JSON.parse(body.input) as unknown, previousMeaning: output, correctionIssues: issues,
-        correctionInstruction: "Korrigiere ausschliesslich die key-Felder der genannten factIds auf eine allowedFamily. Nur bei repairPlaceholderValue darf der text-Wert dieses Fakts durch die tatsächlich im ursprünglichen Wunsch genannte Bedeutung ersetzt werden; niemals einen Feldnamen als Inhaltswert ausgeben. Nur wenn ein Problem allowedModalities nennt, bestimme für dieses Ernährungsbedürfnis anhand des ursprünglichen Wunsches die passende Modalität aus allowedModalities; ein nicht optional genanntes Bedürfnis einer mitessenden Person ist REQUIRED. Behalte alle übrigen Fakten und alle Werte, IDs, Modalitäten, Bezüge, Entitäten, Logik, Unsicherheiten und Alternativen exakt unverändert. Antworte im selben vollständigen Schema.",
+        correctionInstruction: "Korrigiere ausschliesslich die key-Felder der genannten factIds auf eine allowedFamily. Nur bei allowRemoval muss der als unbelegter Unbekannt-Platzhalter diagnostizierte Fakt entfernt werden; keine anderen Fakten oder Logik ändern. Nur bei repairPlaceholderValue darf der text-Wert dieses Fakts durch die tatsächlich im ursprünglichen Wunsch genannte Bedeutung ersetzt werden; niemals einen Feldnamen als Inhaltswert ausgeben. Nur wenn ein Problem allowedModalities nennt, bestimme für dieses Ernährungsbedürfnis anhand des ursprünglichen Wunsches die passende Modalität aus allowedModalities; ein nicht optional genanntes Bedürfnis einer mitessenden Person ist REQUIRED. Behalte alle übrigen Fakten und alle Werte, IDs, Modalitäten, Bezüge, Entitäten, Logik, Unsicherheiten und Alternativen exakt unverändert. Antworte im selben vollständigen Schema.",
       })};
       const correctionValue=await call(correctionBody);
       try {
         const corrected = validateActiveLunaMeaningOutput(correctionValue);
-        const remaining = inspectLunaMeaning(corrected);
+        const remaining = inspectLunaMeaning(corrected, request.naturalLanguage);
         try { input.onTranslationAttempt?.({output:corrected, issues:remaining}); } catch { /* Diagnostics cannot affect a decision. */ }
         assertLunaMeaningCorrection(output, corrected, issues);
         if (remaining.length) throw new Error("product_luna_understanding_unresolved");
