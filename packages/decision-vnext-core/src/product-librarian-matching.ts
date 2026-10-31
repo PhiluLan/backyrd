@@ -24,6 +24,7 @@ export type LibrarianFactAssessment = {
     readonly areaIds: readonly string[];
     readonly diagnosis?: LibrarianDiagnosis;
     readonly domainEvidence?: readonly DomainEvidence[];
+    readonly ageRequirement?: {readonly minimumAge:number;readonly scope:"OFFER"|"SPOT";readonly label:string|null};
     readonly propertyRead?: {
         readonly sourceKeys: readonly string[];
         readonly observedKeys: readonly string[];
@@ -795,7 +796,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         const offerSubjects = Object.fromEntries(state.offerIds.map(id => [id, sorted(selected.filter(f =>
             next.some(r => r.factId === f.id && r.state === "MET" && r.offerIds.includes(id))).flatMap(f => f.subjectIds))]));
         for (const gate of librarianGlobalEligibility({ request, facts: selected, world, visit, profile, offerIds: state.offerIds, offerParticipants, offerSubjects, areaIds: state.areaIds, now }))
-            next.push({ factId: `eligibility:${gate.reason}`, family: "eligibility", modality: gate.modality ?? "REQUIRED", state: gate.state, reason: gate.reason, evidenceHashes: gate.hashes, offerIds: gate.offerIds ?? state.offerIds, areaIds: state.areaIds });
+            next.push({ factId: `eligibility:${gate.reason}${gate.ageRequirement ? `:${contentHash({rule:gate.ageRequirement,offers:gate.offerIds??[]}).slice(0,16)}` : ""}`, family: "eligibility", modality: gate.modality ?? "REQUIRED", state: gate.state, reason: gate.reason, evidenceHashes: gate.hashes, offerIds: gate.offerIds ?? state.offerIds, areaIds: state.areaIds, ...(gate.ageRequirement ? {ageRequirement:gate.ageRequirement} : {}) });
         const active = request.bindings.filter(b => b.factIds.every(id => scenario.ids.includes(id)));
         for (const b of active)
             if (b.kind !== "SAME_PLACE")

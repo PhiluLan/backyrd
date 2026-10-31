@@ -99,7 +99,7 @@ test('documented age rules use the known party, not an invented duty for a compl
  assert.equal(rejected.ranked.length,0);assert.ok(rejected.excluded[0].facts.some(f=>f.reason==='PARTICIPANT_BELOW_VERIFIED_MINIMUM_AGE'));
  const extraPerson=request([...q.raw.facts,fact('other','people.relationship','son','CONTEXT',['p3'])],{entities:[...q.raw.entities,{id:'p3',kind:'PERSON',label:'weiteres Kind',members:[]}]});
  const incomplete=search(extraPerson,[binding(1413,profile(),[restriction(3)])]);
- assert.equal(incomplete.ranked.length,0);assert.ok(incomplete.unresolved[0].facts.some(f=>f.reason==='PARTICIPANT_AGE_COVERAGE_INCOMPLETE'));
+ assert.equal(incomplete.ranked.length,1);assert.ok(incomplete.ranked[0].facts.some(f=>f.reason==='AGE_REQUIREMENT_TO_CHECK'&&f.ageRequirement.minimumAge===3&&f.state==='UNKNOWN'));assert.ok(incomplete.ranked[0].decisionProof.entries.some(e=>e.reason==='AGE_REQUIREMENT_TO_CHECK'&&!e.blocking));
 });
 
 test('venue-hour fallback preserves the meaning of meal services without inventing precise opening times',()=>{
@@ -146,4 +146,28 @@ test('optional price qualifiers preserve the same relative-price evidence withou
  }
  const required=search(request([meal(),fact('price','budget.qualitative','nicht zu teuer','REQUIRED')]),[b]);
  assert.equal(required.ranked.length,0);assert.equal(required.unresolved[0].facts.find(f=>f.factId==='price').state,'UNKNOWN');
+});
+
+
+test('documented offer minimum permits discovery with a visible scoped rule, while a known younger child is excluded',async()=>{
+ const play=fact('play','experience.activity','Bewegungsspiel');
+ const p=profile([{...offer('play','MOVEMENT_PLAY',['inside'],[prop('participation.minimum_age',1)]),name:'Bewegungslandschaft für Kinder'}]);
+ const catalog=[binding(1450,p)];
+ const unknown=search(request([play]),catalog).ranked[0];
+ assert.ok(unknown);
+ const notice=unknown.facts.find(f=>f.reason==='AGE_REQUIREMENT_TO_CHECK');
+ assert.deepEqual(notice.ageRequirement,{minimumAge:1,scope:'OFFER',label:'Bewegungslandschaft für Kinder'});
+ assert.equal(notice.state,'UNKNOWN');assert.equal(notice.modality,'CONTEXT');assert.ok(notice.evidenceHashes.length);
+ assert.ok(unknown.decisionProof.entries.some(e=>e.reason==='AGE_REQUIREMENT_TO_CHECK'&&!e.blocking));
+ const known=search(request([play,child()]),catalog).ranked[0];
+ assert.ok(known);assert.ok(!known.facts.some(f=>f.reason==='AGE_REQUIREMENT_TO_CHECK'));
+ const baby=fact('baby','people.age',{amount:0,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2']);
+ const rejected=search(request([play,baby,fact('parent','people.relationship','adult_accompanied','CONTEXT',[])]),catalog);
+ assert.equal(rejected.ranked.length,0);assert.ok(rejected.excluded[0].facts.some(f=>f.reason==='PARTICIPANT_BELOW_OFFER_MINIMUM_AGE'));
+ const http=await exercise({text:'Bewegungsspiel als Familienausflug',meaning:request([play]),catalog});
+ assert.equal(http.status,200);assert.ok(http.body.primaryCandidateId);
+ const publicNotice=http.body.candidates[0].reasons.find(r=>r.code==='librarian-age-requirement');
+ assert.ok(publicNotice);assert.equal(publicNotice.confirmed,false);assert.equal(publicNotice.domain,'LIMITATION');
+ assert.match(publicNotice.statement,/Bewegungslandschaft für Kinder: ab 1 Jahr/);
+ assert.doesNotMatch(publicNotice.statement,/Altersgrenze wird .* erfüllt/);
 });

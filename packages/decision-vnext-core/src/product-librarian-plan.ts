@@ -141,7 +141,7 @@ export function compileLibrarianPlan(request: LibrarianRequest, semantics: Libra
     const weather = request.weatherConditions.map(condition => ({ ...condition, role: condition.role ?? "CONDITIONAL",
         authority: condition.role === "CONTEXT" ? "USER_VISIT_CONTEXT" : "EXTERNAL_EVIDENCE_REQUIRED" }));
     const body = { contractVersion: "backyrd.librarian-evaluation-plan@2" as const, requestHash: request.requestHash, proofPolicy: LIBRARIAN_PROOF_POLICY,
-        contextPolicy: { participantAttributes: "APPLY_DOCUMENTED_RESTRICTIONS", missingRestriction: "INFORM_WITHOUT_ASSERTING_ACCESS", missingRequestedProperty: "UNRESOLVED", missingRequestedHours: "UNRESOLVED" },
+        contextPolicy: { participantAttributes: "APPLY_DOCUMENTED_RESTRICTIONS", missingRestriction: "INFORM_WITHOUT_ASSERTING_ACCESS", missingParticipantAge: "SHOW_DOCUMENTED_LIMIT_WITHOUT_ASSERTING_AGE_COMPLIANCE", missingRequestedProperty: "UNRESOLVED", missingRequestedHours: "UNRESOLVED" },
         policyVersion: LIBRARIAN_KNOWLEDGE_POLICY, meaningRegistryHash: semantics?.registry.registryHash ?? null, qualitativePricePolicy: QUALITATIVE_PRICE_POLICY, qualitativePricePreferencePolicy: "PRICE_LEVEL", requirements, weather };
     return deepFreeze({ ...body, planHash: contentHash(body) });
 }

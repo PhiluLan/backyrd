@@ -404,13 +404,16 @@ a new mandatory demand to prove unrestricted admission. It produces an honest
 non-confirmed notice, never an assertion of age suitability or unrestricted
 entry. A documented minimum age, unresolved condition on that restriction,
 members/guest-only access, or a specific user request for suitability still
-requires evidence. A known positive minimum with no participant ages remains
-unresolved. Adult accompaniment satisfies only an accompaniment rule, never a
-general minimum age.
+requires source evidence. With unknown participant ages, an applicable documented
+minimum permits discovery with an unconfirmed, non-blocking limitation naming
+the exact minimum and its offer or venue scope. This does not assert age
+compliance. A known age below the minimum remains ineligible; uncertain age
+ranges and restriction applicability remain unresolved. Adult accompaniment
+satisfies only an accompaniment rule, never a general minimum age.
 
 Known participant ages are checked against the actual identified party; an
 otherwise sufficient party does not need an invented exact headcount form.
-Unnamed ages for explicitly mentioned participants remain unresolved. If a
+Unnamed ages for explicitly mentioned participants disclose the documented limit without claiming compliance. If a
 documented conditional restriction would be satisfied whether it applies or
 not, uncertainty about its trigger creates no additional failure. Generated
 mandatory entry checks require non-empty source evidence in their TypeScript
@@ -453,8 +456,8 @@ checks added age/date context across meals, museums, play and parks; supporting
 facilities; missing vs documented age restrictions; preserved prohibitions;
 unknown schedules vs known closure; active alternatives and weather branches.
 The historical child-entry tests intentionally changed: they had encoded the
-invented universal duty as expected behavior. The event minimum-age case now
-requires participant evidence instead of silently admitting an unknown age.
+invented universal duty as expected behavior. The event minimum-age case now discloses its documented minimum for unknown ages,
+while a known age below that minimum still excludes the event.
 No production spot data, schema or consumer deployment accompanies this change.
 Mobile and Web explicitly render the deterministic age-documentation notice and
 own-consumption exceptions, including for otherwise confirmed candidates.
@@ -555,3 +558,17 @@ monetary ceiling is introduced. The 20-call prompt-18 repetition suite is
 retained with its exact matching-31 identity; recorded-meaning replays validate
 the deterministic matching-32 change separately. Provider/network errors also
 remain distinguishable from rejected model interpretations.
+
+
+### Documented minimum-age discovery (matching 33; development)
+
+Approved product policy: an unknown participant age does not hide an otherwise
+matching offer. The shared eligibility assessment emits `AGE_REQUIREMENT_TO_CHECK`
+as UNKNOWN/CONTEXT, with the verified minimum and selected offer label (or venue
+scope), retaining its source hash. Presentation says e.g. “Bewegungslandschaft
+für Kinder: ab 1 Jahr. Bitte prüfe die Altersgrenze vor dem Besuch.” Mobile and Web
+keep this limitation visible even on a confirmed recommendation. It is neither
+age-compliance proof nor a positive ranking signal. Known younger participants,
+conflicting minimums, unknown applicability, missing required supervision and
+booking-person restrictions retain their existing checks. No catalogue data,
+prompt, schema or public deployment is changed by this local revision.

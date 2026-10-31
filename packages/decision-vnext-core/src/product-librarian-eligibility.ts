@@ -7,6 +7,7 @@ export type LibrarianEligibility = {
     readonly state: MatchTruth;
     readonly reason: string;
     readonly offerIds?: readonly string[];
+    readonly ageRequirement?: {readonly minimumAge:number;readonly scope:"OFFER"|"SPOT";readonly label:string|null};
 } & (
     // A generated mandatory prerequisite must cite its actual source. Missing
     // restriction documentation belongs to context, never an unsourced duty.
@@ -136,9 +137,15 @@ export function librarianGlobalEligibility(input: {
         }
         if (!minimums.length) continue;
         const minimum = minimums[0]!;
-        if (minimum > 0 && !participantAges.length)
-            results.push({state:"UNKNOWN",reason:"PARTICIPANT_AGE_NOT_PROVEN",hashes:[profileRow.entryHash],offerIds:[offer.id]});
         const participants = input.offerParticipants[offer.id] ?? [];
+        const relevantParticipants = participants.length ? participants : participantIds;
+        const missingParticipantAge = relevantParticipants.length
+            ? relevantParticipants.some(id => !participantAges.some(f => f.subjectIds.includes(id))
+                && !(minimum <= 18 && adultAccompaniment && selfIds.includes(id)))
+            : !participantAges.length;
+        if (minimum > 0 && missingParticipantAge)
+            results.push({state:"UNKNOWN",modality:"CONTEXT",reason:"AGE_REQUIREMENT_TO_CHECK",hashes:[profileRow.entryHash],offerIds:[offer.id],
+                ageRequirement:{minimumAge:minimum,scope:"OFFER",label:offer.name}});
         for (const fact of ageFacts.filter(f => !participants.length || participants.includes(f.subjectIds[0]!))) {
             const bounds = range(fact);
             if (!bounds) continue;
@@ -245,8 +252,16 @@ export function librarianGlobalEligibility(input: {
                 results.push({ state: "UNKNOWN", reason: "REQUIRED_ACCOMPANIMENT_NOT_PROVEN", hashes: [row.entryHash] });
                 continue;
             }
-            if (!agesCoverKnownParticipants(rule.minimumAge))
-                results.push({ state: "UNKNOWN", reason: "PARTICIPANT_AGE_COVERAGE_INCOMPLETE", hashes: [row.entryHash] });
+            if (!agesCoverKnownParticipants(rule.minimumAge)) {
+                // Missing ages permit discovery with the exact documented
+                // limit. Known contradictions, uncertain age ranges, unknown
+                // applicability and missing accompaniment stay separate gates.
+                const knownAgesMeetMinimum = ages.every(bounds => bounds !== null && bounds[0] >= rule.minimumAge!);
+                if (rule.mode === "GENERAL_MINIMUM" && knownAgesMeetMinimum)
+                    results.push({state:"UNKNOWN",modality:"CONTEXT",reason:"AGE_REQUIREMENT_TO_CHECK",hashes:[row.entryHash],
+                        ageRequirement:{minimumAge:rule.minimumAge,scope:"SPOT",label:null}});
+                else results.push({ state: "UNKNOWN", reason: "PARTICIPANT_AGE_COVERAGE_INCOMPLETE", hashes: [row.entryHash] });
+            }
         }
     }
     return results;
