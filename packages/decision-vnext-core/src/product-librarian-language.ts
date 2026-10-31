@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LibrarianFact, LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@24" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@25" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 /** Additional compatible evidence fields, never replacements for the original
@@ -33,9 +33,18 @@ export function librarianFacilityConcept(fact: LibrarianFact): string | null {
     const concept = librarianConcept(fact.value.text);
     return concept && Object.values(BOOLEAN_CONCEPTS).includes(concept) ? concept : null;
 }
+/** A meal/snack extent may be expressed as the consumption activity or its
+ * catering field. Only these exact concepts share this evidence source. */
+export const LIBRARIAN_MEAL_EXTENT_REQUEST_FAMILIES = Object.freeze(["experience.activity", "offer.kind", "food.meal", "food.option"]);
+export function librarianMealExtentConcept(fact: LibrarianFact): string | null {
+    if (fact.value.kind !== "TEXT" || !LIBRARIAN_MEAL_EXTENT_REQUEST_FAMILIES.includes(fact.key)) return null;
+    const concept = librarianConcept(fact.value.text);
+    return concept === "meal" || concept === "snacks" ? concept : null;
+}
 export function librarianFactPropertySourceKeys(fact: LibrarianFact, acceptedSemanticKeys: readonly string[] = []): readonly string[] {
     const facility = librarianFacilityConcept(fact);
     return [...new Set([...librarianPropertySourceKeys(fact.key, acceptedSemanticKeys),
+        ...(librarianMealExtentConcept(fact) ? ["food.meal_extent"] : []),
         ...(facility ? ["offer.facility", "offer.feature", ...Object.entries(BOOLEAN_CONCEPTS).filter(([,concept]) => concept === facility).map(([key]) => key)] : [])])].sort();
 }
 const inputOnly = new Set<string>(["people.identity", "people.relationship", "people.role", "people.age", "people.age_bounds", "people.count", "people.pet", "people.mobility_aid", "people.experience", "people.capability", "people.participation", "budget.scope", "budget.coverage", "budget.cost_treatment", "budget.flexibility", "time.original", "time.reference", "time.relation", "time.timezone", "location.return", "location.transport_after_visit", "ranking.requested_evidence"]);
@@ -73,7 +82,7 @@ export function librarianMandatoryEvidenceSatisfied(facts: readonly {
 }
 
 export const LIBRARIAN_LANGUAGE = deepFreeze({ version: LIBRARIAN_MATCHING_VERSION, concepts: EXPERIENCE_LANGUAGE_CONCEPTS,
-    hash: contentHash({version: LIBRARIAN_MATCHING_VERSION, experienceLanguage: EXPERIENCE_LANGUAGE_DATA, propertySourceAliases: LIBRARIAN_PROPERTY_SOURCE_ALIASES, facilityRequestFamilies: LIBRARIAN_FACILITY_REQUEST_FAMILIES, strategies: LIBRARIAN_FAMILY_STRATEGIES}) });
+    hash: contentHash({version: LIBRARIAN_MATCHING_VERSION, experienceLanguage: EXPERIENCE_LANGUAGE_DATA, propertySourceAliases: LIBRARIAN_PROPERTY_SOURCE_ALIASES, facilityRequestFamilies: LIBRARIAN_FACILITY_REQUEST_FAMILIES, mealExtentRequestFamilies: LIBRARIAN_MEAL_EXTENT_REQUEST_FAMILIES, strategies: LIBRARIAN_FAMILY_STRATEGIES}) });
 
 // Ranking and evaluation use one version authority. New evaluator versions must
 // never silently fall back to the unrelated legacy situation-only filter.

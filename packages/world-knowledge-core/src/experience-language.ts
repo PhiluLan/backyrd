@@ -25,7 +25,7 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "course", labels: ["kurs", "einführungskurs", "course"] },
     { id: "movement_play", labels: ["bewegungsspiel", "bewegungslandschaft"] },
     { id: "children_course", labels: ["kinderkurs", "children_course"] },
-    { id: "snacks", labels: ["snacks", "snack", "kleinigkeit essen"] },
+    { id: "snacks", labels: ["snacks", "snack", "kleinigkeit essen", "kleine Snacks", "kleiner Snack", "Häppchen", "small snacks", "light snacks"] },
     { id: "entry", labels: ["eintritt", "entry", "admission"] },
     { id: "meal", labels: ["essen", "essen gehen", "etwas essen", "vollständige mahlzeit", "vollstaendige mahlzeit", "full_meals", "full_meal"] },
     { id: "drinks", labels: ["trinken", "etwas trinken", "etwas trinken gehen", "trinken gehen", "getränke", "drinks"] },
@@ -130,7 +130,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@11" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@12" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),

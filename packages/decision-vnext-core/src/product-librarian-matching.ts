@@ -2,7 +2,7 @@ import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-g
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
 import { bookingEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
-import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept } from "./product-librarian-language.js";
+import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept, librarianMealExtentConcept } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
@@ -223,8 +223,8 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
             if (actual && desired && experienceActivitySupports(actual, desired)) return "MET";
         }
         const actual = librarianConcept(property.value);
-        if (["food.meal", "food.option"].includes(fact.key) && property.key === "food.meal_extent"
-            && desired && ["meal", "snacks"].includes(desired) && actual === desired) return "MET";
+        if (property.key === "food.meal_extent" && librarianMealExtentConcept(fact) !== null
+            && desired && declaredExperienceConcepts(property.value, "ITEM_LIST").includes(desired)) return "MET";
         if (["offer.area", "location.setting"].includes(fact.key) && property.key === "location.setting") {
             if (desired === "outdoor" && actual === "terrace") return "MET";
         }
@@ -335,6 +335,12 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         const categoryProof = desired === "zoo" ? place?.some(type=>spotTypeSupports(type,"ZOO")) : desired === "museum" ? place?.some(type=>spotTypeSupports(type,"MUSEUM")) : desired === "restaurant" ? (LIBRARIAN_PLACE_TYPE_LANGUAGE.children.RESTAURANT ?? []).some(type => place?.includes(type)) : desired === "bar" ? (LIBRARIAN_PLACE_TYPE_LANGUAGE.children.BAR ?? []).some(type => place?.includes(type)) : null;
         for (const offer of profile.offers) {
             const offered = sorted([...(OFFER_CONCEPTS[offer.kind] ?? []), ...(offer.kind === "VISIT" && place?.some(type=>spotTypeSupports(type,"ZOO")) ? ["zoo"] : [])]);
+            // Generic gastronomy is weaker than its recorded extent. A snack
+            // counter must not become a full meal merely through that kind.
+            const extents = offer.properties.filter(p => p.key === "food.meal_extent" && p.state === "KNOWN"
+                && typeof p.value === "string" && librarianConditions(p.conditions, visit) === "MET")
+                .flatMap(p => declaredExperienceConcepts(p.value as string, "ITEM_LIST"));
+            if (desired === "meal" && offer.kind === "GASTRONOMY" && extents.includes("snacks") && !extents.includes("meal")) continue;
             const matches = desired === "zoo" ? categoryProof && offer.kind === "VISIT" : offered.some(concept => experienceActivitySupports(concept, desired)) && (categoryProof === null || categoryProof === true);
             if (matches) {
                 // Zoo-wide activity support does not place animals in every

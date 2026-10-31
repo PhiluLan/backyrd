@@ -1,0 +1,133 @@
+{
+  "query": "familienaktivität wo es auch was zum Essen oder Snacks gibt",
+  "reference": {
+    "now": "2026-10-31T11:56:48.237Z",
+    "timezone": "Europe/Zurich"
+  },
+  "raw": {
+    "entities": [
+      {
+        "id": "a1",
+        "kind": "ACTIVITY",
+        "label": "Familienaktivität",
+        "members": []
+      },
+      {
+        "id": "a2",
+        "kind": "ACTIVITY",
+        "label": "Essen oder Snacks",
+        "members": []
+      }
+    ],
+    "facts": [
+      {
+        "id": "f1",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "a1"
+        ],
+        "key": "condition.children",
+        "value": {
+          "text": "children_activity"
+        }
+      },
+      {
+        "id": "f2",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "a2"
+        ],
+        "key": "experience.activity",
+        "value": {
+          "text": "meal"
+        }
+      },
+      {
+        "id": "f3",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "a2"
+        ],
+        "key": "food.meal",
+        "value": {
+          "text": "meal"
+        }
+      },
+      {
+        "id": "f4",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "a2"
+        ],
+        "key": "experience.activity",
+        "value": {
+          "text": "snacks"
+        }
+      },
+      {
+        "id": "f5",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "a2"
+        ],
+        "key": "food.meal",
+        "value": {
+          "text": "snacks"
+        }
+      }
+    ],
+    "logic": {
+      "kind": "ANY",
+      "strength": "REQUIRED",
+      "children": [
+        {
+          "kind": "ALL",
+          "children": [
+            {
+              "kind": "FACT",
+              "factId": "f2"
+            },
+            {
+              "kind": "FACT",
+              "factId": "f3"
+            }
+          ]
+        },
+        {
+          "kind": "ALL",
+          "children": [
+            {
+              "kind": "FACT",
+              "factId": "f4"
+            },
+            {
+              "kind": "FACT",
+              "factId": "f5"
+            }
+          ]
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "kind": "SAME_PLACE",
+        "factIds": [
+          "f1",
+          "f2",
+          "f3",
+          "f4",
+          "f5"
+        ]
+      }
+    ],
+    "extensions": [],
+    "uncertainties": [],
+    "weatherConditions": []
+  },
+  "recordedPromptRevision": "backyrd.luna-prompt@10"
+}

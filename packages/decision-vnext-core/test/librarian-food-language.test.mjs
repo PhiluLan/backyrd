@@ -72,6 +72,40 @@ test('recorded malformed live meaning remains unchanged; matching never invents 
  assert.equal(search(q,[binding(1,familyVenue('meal'))]).ranked.length,0);
  assert.deepEqual(q.raw,original);
 });
+test('the real corrected model OR accepts meals-only and snacks-only venues without altering its extra activity facts',async()=>{
+ const recorded=JSON.parse(readFileSync(new URL('./fixtures/family-food-live-or.json',import.meta.url),'utf8'));
+ const q=request(recorded.raw.facts,recorded.raw);
+ for(const food of ['meal','snacks']){
+  const catalog=[binding(1,familyVenue(food)),binding(2,familyVenue(null))];
+  const result=search(q,catalog);
+  assert.equal(result.ranked.length,1,JSON.stringify(result.unresolved));
+  assert.ok(result.ranked[0].facts.every(f=>!['REQUIRED','EXCLUDED'].includes(f.modality)||f.state==='MET'));
+  const http=await exercise({text:recorded.query,meaning:q,catalog});
+  assert.equal(http.status,200);
+  assert.equal(http.body.primaryCandidateId,catalog[0].decisionProjection.spotId);
+  assert.equal(http.body.candidates.find(c=>c.rank===1).rankVector.worldEvidence.confirmedReasonCount,2,'duplicate consumption aliases are one ranking reason');
+ }
+ assert.deepEqual(q.raw,recorded.raw);
+ for(const key of ['experience.activity','offer.kind','food.meal','food.option']){
+  assert.equal(search(request([fact('food',key,'snacks')]),[binding(1,familyVenue('snacks'))]).ranked[0]?.status,'CONFIRMED');
+ }
+ assert.equal(search(request([fact('food','experience.activity','Klettern')]),[binding(1,familyVenue('snacks'))]).ranked.length,0);
+});
+test('recorded small-snack lists support snacks but generic gastronomy does not turn them into meals',()=>{
+ const recorded=JSON.parse(readFileSync(new URL('./fixtures/family-food-live-or.json',import.meta.url),'utf8'));
+ const q=request(recorded.raw.facts,recorded.raw);
+ for(const extent of ['Kleine Snacks','Gerichte und kleine Snacks','small snacks']){
+  const p=familyVenue(extent);p.offers[1].kind='GASTRONOMY';
+  const catalog=[binding(1,p)];
+  const result=search(q,catalog);
+  assert.equal(result.ranked[0]?.status,'CONFIRMED',JSON.stringify(result.unresolved));
+  assert.deepEqual(result.ranked[0].selectedFactIds,['f1','f4','f5']);
+  assert.equal(search(request([fact('food','food.meal','meal')]),catalog).ranked.length,0);
+ }
+ for(const extent of ['keine Snacks','nur nach Vorbestellung Snacks']){
+  assert.equal(search(request([fact('food','food.meal','snacks')]),[binding(1,familyVenue(extent))]).ranked.length,0);
+ }
+});
 
 // Expected outcomes describe product duties, independently of the matching implementation.
 // The source sentence is not interpreted by this deterministic stage.
