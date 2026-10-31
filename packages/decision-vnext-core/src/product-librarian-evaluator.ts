@@ -114,7 +114,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(String(value)) ? "meal" : f.key;
     return contentHash({ family, value, subjects: [...f.subjectIds].sort(), modality: f.modality });
   };
-  const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state)).slice(0, 50).map(f => {
+  const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state) && !(f.family === "atmosphere.character" && f.modality === "PREFERRED" && f.state !== "MET")).slice(0, 50).map(f => {
     const proven = f.state === "MET";
     const ageRequirement = f.reason === "AGE_REQUIREMENT_TO_CHECK" ? f.ageRequirement : undefined;
     const ageRequirementText = ageRequirement ? `${ageRequirement.scope === "OFFER" ? ageRequirement.label ?? "Dieses Angebot" : "Dieser Ort"}: ab ${ageRequirement.minimumAge} ${ageRequirement.minimumAge === 1 ? "Jahr" : "Jahren"}. Bitte prüfe die Altersgrenze vor dem Besuch.` : null;
