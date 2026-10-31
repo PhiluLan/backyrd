@@ -3,6 +3,26 @@ import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+export const REGIONAL_DECISION_MIGRATION = Object.freeze({path:"supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",sha256:"403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"});
+export function regionalDecisionAppliedReceipt(state,read,isAncestor) {
+  return exactResearchReceipt(state,read,isAncestor,REGIONAL_DECISION_MIGRATION,"regionalDecisionRelease");
+}
+/** Reuse the isolated SQL workspace for this exact SQL plus two authenticated runtimes. */
+export function scopeRegionalDecisionMigrations({pending,scope,baseSha,deployFunctions,authDeploy,appliedRegionalDecision}) {
+  if (scope?.contractVersion !== "backyrd.regional-decision-delivery-scope@1.0"
+    || scope.executionAuthorized !== false || scope.baseSha !== baseSha
+    || !equal(scope.migrations,[REGIONAL_DECISION_MIGRATION])
+    || !equal(scope.deferredMigrations,DEFERRED_BOOKING_MIGRATIONS)
+    || !equal(scope.functions,["decision-v13","decision-admin-diagnostic"])
+    || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
+    || new Set(deployFunctions).size !== deployFunctions.length
+    || deployFunctions.some(slug=>!scope.functions.includes(slug)) || authDeploy)
+    throw new Error("regional_decision_scope_invalid");
+  const selected=appliedRegionalDecision ? [] : [REGIONAL_DECISION_MIGRATION];
+  if (!equal(canonicalRows(pending),canonicalRows([...DEFERRED_BOOKING_MIGRATIONS,...selected])))
+    throw new Error("regional_decision_pending_scope_changed");
+  return {pendingMigrations:selected,deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
+}
 export const AREA_RESERVATION_MIGRATION = Object.freeze({path:"supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",sha256:"b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"});
 export const ADMIN_CATEGORY_MIGRATION = Object.freeze({path:"supabase/migrations/20261028200651_admin_spots_primary_category_v1.sql",sha256:"eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d"});
 export const RESEARCH_MIGRATION = Object.freeze({"path": "supabase/migrations/20261024113000_world_research_current_profile_import_v3.sql", "sha256": "7be9ad6a4ee3c824fe8017cd5a29d7250833f9a44c8a24fef32e287f5cc3ce8b"});
@@ -100,7 +120,10 @@ export function voltaAppliedReceipt(state, read, isAncestor) {
 }
 /** Copy config + exact tracked migrations; remove only the four explicitly deferred files. */
 export function prepareResearchMigrationWorkspace(plan,root,output) {
-  const scoped=plan.isolatedVoltaScope
+  const scoped=plan.isolatedResearchScope?.contractVersion === "backyrd.regional-decision-delivery-scope@1.0"
+    ? scopeRegionalDecisionMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
+      baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,appliedRegionalDecision:plan.appliedRegionalDecision})
+    : plan.isolatedVoltaScope
     ? scopeVoltaMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedVoltaScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,
       appliedResearch:plan.appliedResearch,appliedVolta:plan.appliedVolta})

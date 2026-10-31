@@ -208,3 +208,31 @@ record the source SHA, deployment run, manifest hash, and exact two migration
 hashes under `supabase.isolatedVoltaRelease` in `delivery/production-state.json`.
 This receipt excludes only those two migrations from future source-aware plans;
 Booking remains pending.
+
+### Bounded regional Decision release
+
+`regionalDecisionDeliveryScope` is a separate migration-specific authority proposal,
+not an extension of code-only delivery. It binds exactly
+`20261031090327_decision_regional_catalog_v1.sql` and its registered SHA256, the
+four deferred Booking migrations and their SHA256 values, the shipped baseline,
+a recent successful backup run, and only the authenticated `decision-v13` and
+`decision-admin-diagnostic` functions. It cannot coexist with another active
+isolated or code-only scope, deploy Auth changes, retire functions, or include
+additional SQL. The artifact still binds the exact changed Function source sets.
+
+The planner represents this bounded scope in `isolatedResearchScope` to reuse
+the established disposable migration workspace, backup check, exact-set dry-run
+and deployment audit. Its distinct contract version is checked before reuse.
+The SQL needs its own explicit Founder risk acceptance in the additive scope;
+registering its hash in source is not execution authority.
+
+Publish the backend before enabling the new optional client request field.
+Keep the old client request builders during the backend release, then activate
+`SEARCH_CONTEXT` in Web and the certified iOS OTA. Verify the active backend
+identity and a regular authenticated diagnostic before calling the release live.
+
+After verified application, record `supabase.regionalDecisionRelease` with
+`APPLIED_AND_VERIFIED`, the exact migration, source SHA, deployment run ID and
+manifest hash. Return to code-only delivery with the four Booking exclusions;
+the independently validated receipt excludes only this SQL. Do not advance the
+full database baseline across deferred Booking migrations or invent receipts.

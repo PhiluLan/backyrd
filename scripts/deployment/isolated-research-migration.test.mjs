@@ -179,3 +179,26 @@ test('area reservation repair selects only its exact migration and retains the f
  prepareResearchMigrationWorkspace({...scopeResearchMigrations(request),baseSha:base,deployFunctions:[],authConfig:null,appliedResearch:request.applied,appliedResearchSafety:{},appliedResearchRhassoul:{},appliedAdminCategory:request.appliedAdminCategory,appliedAreaReservation:null},root,output);
  assert.equal(readFileSync(join(output,area.path),'utf8'),read(area.path).toString());for(const entry of deferred)assert.equal(existsSync(join(output,entry.path)),false);
 });
+
+test('regional Decision delivery binds one migration, two authenticated runtimes and four deferred Booking migrations',async()=>{
+ const {REGIONAL_DECISION_MIGRATION:regional,scopeRegionalDecisionMigrations:select,regionalDecisionAppliedReceipt:receiptFor}=await import('./isolated-research-migration.mjs');
+ const regionalScope={contractVersion:'backyrd.regional-decision-delivery-scope@1.0',baseSha:base,migrations:[regional],deferredMigrations:deferred,
+   functions:['decision-v13','decision-admin-diagnostic'],backupRunId:1,executionAuthorized:false};
+ const request={pending:[...deferred,regional],scope:regionalScope,baseSha:base,deployFunctions:['decision-v13','decision-admin-diagnostic'],authDeploy:false};
+ assert.deepEqual(select(request).pendingMigrations,[regional]);
+ for(const patch of [{authDeploy:true},{deployFunctions:['other']},{deployFunctions:['decision-v13','decision-v13']},
+   {pending:[regional]},{pending:[...deferred,{...regional,sha256:'f'.repeat(64)}]},
+   {scope:{...regionalScope,functions:['decision-v13']}},{scope:{...regionalScope,executionAuthorized:true}},
+   {scope:{...regionalScope,backupRunId:0}},{baseSha:'b'.repeat(40)}])
+   assert.throws(()=>select({...request,...patch}),/regional_decision/);
+ const root=new URL('../..',import.meta.url).pathname;
+ const receipt={status:'APPLIED_AND_VERIFIED',migration:regional,sourceSha:'b'.repeat(40),deploymentRunId:3,manifestHash:'c'.repeat(64)};
+ assert.equal(receiptFor({supabase:{regionalDecisionRelease:receipt}},path=>readFileSync(join(root,path)),()=>true),receipt);
+ assert.throws(()=>receiptFor({supabase:{regionalDecisionRelease:receipt}},path=>readFileSync(join(root,path)),()=>false),/receipt_invalid/);
+ assert.deepEqual(select({...request,pending:deferred,appliedRegionalDecision:receipt}).pendingMigrations,[]);
+ const output=mkdtempSync(join(tmpdir(),'backyrd-regional-decision-'));
+ prepareResearchMigrationWorkspace({...select(request),baseSha:base,deployFunctions:request.deployFunctions,authConfig:null},root,output);
+ assert.equal(readFileSync(join(output,regional.path),'utf8'),readFileSync(join(root,regional.path),'utf8'));
+ for(const item of deferred)assert.equal(existsSync(join(output,item.path)),false);
+ assert.throws(()=>prepareResearchMigrationWorkspace({...select(request),baseSha:base,deployFunctions:['other'],authConfig:null},root,mkdtempSync(join(tmpdir(),'backyrd-regional-denied-'))),/scope_invalid/);
+});

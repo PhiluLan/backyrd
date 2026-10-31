@@ -356,3 +356,23 @@ test('area reservation save repair has a complete isolated plan and independentl
  state.supabase.isolatedAreaReservationRelease={...receipt,sourceSha:candidate,migration:area};write(f.repo,'delivery/production-state.json',JSON.stringify(state));const after=plan(f,commit(f.repo,'verified area reservation receipt'));
  assert.deepEqual(after.migrationPushFlags,[]);assert.deepEqual(after.pendingMigrations,[]);assert.deepEqual(after.deferredMigrations,deferred);assert.equal(after.appliedAreaReservation.migration.path,area.path);assert.equal(after.appliedAdminCategory.migration.path,category.path);assert.equal(after.appliedResearchRhassoul.migration.path,rhassoul.path);assert.deepEqual(after.appliedVolta.migrations,volta);
 });
+
+test('regional Decision plan includes exact SQL plus runtime changes and verified receipt enables subsequent code-only delivery',async()=>{
+ const {REGIONAL_DECISION_MIGRATION:regional,DEFERRED_BOOKING_MIGRATIONS:deferred}=await import('./isolated-research-migration.mjs');
+ const f=fixture();
+ for(const item of [...deferred,regional])write(f.repo,item.path,readFileSync(new URL('../../'+item.path,import.meta.url)));
+ write(f.repo,'packages/shared/runtime.mjs','export const revision = 2;\n');
+ const scope={contractVersion:'backyrd.regional-decision-delivery-scope@1.0',baseSha:f.base,migrations:[regional],deferredMigrations:deferred,
+   functions:['decision-v13','decision-admin-diagnostic'],backupRunId:1,executionAuthorized:false};
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({regionalDecisionDeliveryScope:scope}));
+ const candidate=commit(f.repo,'regional Decision release fixture');const selected=plan(f,candidate);
+ assert.deepEqual(selected.pendingMigrations,[regional]);assert.deepEqual(selected.deferredMigrations,deferred);
+ assert.deepEqual(selected.deployFunctions,['decision-v13']);assert.deepEqual(selected.migrationPushFlags,[]);
+ assert.deepEqual(selected.isolatedResearchScope,scope);
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({regionalDecisionDeliveryScope:scope,codeOnlyDeliveryScope:{}}));
+ assert.throws(()=>plan(f,commit(f.repo,'conflicting scope fixture')),/release_scope_conflict/);
+ write(f.repo,'delivery/production-state.json',JSON.stringify({supabase:{regionalDecisionRelease:{status:'APPLIED_AND_VERIFIED',migration:regional,sourceSha:candidate,deploymentRunId:1,manifestHash:'a'.repeat(64)}}}));
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({codeOnlyDeliveryScope:{contractVersion:'backyrd.code-only-delivery-scope@1.0',functions:scope.functions,deferredMigrations:deferred}}));
+ const after=plan(f,commit(f.repo,'verified regional receipt fixture'));
+ assert.deepEqual(after.pendingMigrations,[]);assert.deepEqual(after.deferredMigrations,deferred);assert.equal(after.appliedRegionalDecision.migration.path,regional.path);
+});
