@@ -331,3 +331,10 @@ test('self-barbecue vocabulary reads an explicit grill-use offer without turning
  const conditional={...grill,name:'Öffentliche Grillstellen nutzen nur auf Anfrage'};
  assert.equal(search(q,[binding(1142,profile([conditional]))]).ranked.length,0);
 });
+
+test('one sufficient coffee-and-cake offer does not acquire an unrelated drinks offer through a hash tie-break',()=>{
+ const coffee=offer('coffee','CAFE');coffee.name='Kaffee und Kuchen';
+ const extra=offer('extra','DRINKS');extra.name='After-Work-Drinks';
+ const q=request([fact('drinks','experience.activity','drinks'),fact('coffee','food.drink','COFFEE'),fact('cake','food.dish','CAKE')]);
+ const r=search(q,[binding(1150,profile([extra,coffee]))]);assert.equal(r.ranked.length,1);assert.deepEqual(r.ranked[0].offerIds,['coffee']);
+});

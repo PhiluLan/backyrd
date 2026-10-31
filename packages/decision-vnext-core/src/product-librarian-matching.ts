@@ -876,7 +876,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         const failures = next.filter(r => proof.failedFactIds.includes(r.factId)), unknown = next.filter(r => proof.unknownFactIds.includes(r.factId));
         const preferenceMatches = next.filter(r => r.modality === "PREFERRED" && r.state === "MET" && (!allAtoms.find(a => a.report.factId === r.factId)?.witnesses.length || allAtoms.find(a => a.report.factId === r.factId)!.witnesses.some(w => join(state, w) !== null))).map(r => r.factId);
         return { state, next, failures, unknown, preferences: preferenceMatches, tieBreaker: contentHash(state) };
-    }).sort((a, b) => a.failures.length - b.failures.length || a.unknown.length - b.unknown.length || b.preferences.length - a.preferences.length || a.tieBreaker.localeCompare(b.tieBreaker));
+    }).sort((a, b) => a.failures.length - b.failures.length || a.unknown.length - b.unknown.length || b.preferences.length - a.preferences.length || a.state.offerIds.length - b.state.offerIds.length || a.state.areaIds.length - b.state.areaIds.length || a.tieBreaker.localeCompare(b.tieBreaker));
     const best = scored[0], facts = (best?.next ?? reports).map(r => limited && r.state === "FAILED" && !["LOCATION", "eligibility"].includes(r.family) ? { ...r, state: "UNKNOWN" as const, reason: "WITNESS_SEARCH_LIMIT" } : r).map(r => {
         const diagnosis = r.state === "UNKNOWN" ? librarianDiagnosis(r.reason) : undefined;
         return diagnosis ? { ...r, diagnosis } : r;

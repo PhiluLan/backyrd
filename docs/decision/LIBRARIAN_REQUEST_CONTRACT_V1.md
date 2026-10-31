@@ -770,3 +770,6 @@ Grillieren, selber grillen and explicitly declared public grill use share self_b
 
 ### Descriptive versus functional quiet (prompt 29)
 A descriptive quiet café/venue is a source-grounded atmosphere preference, with unknown noise explicitly disclosed. Functional need for quiet, emphatic requirements and noise sensitivity remain mandatory. Conversation suitability stays mandatory and is not inferred from quiet. Source-word evidence is now checked for every implicit atmosphere preference; an unrelated request cannot acquire invented cozy/quiet preference. WLAN and work permission still require independent evidence.
+
+### Minimal sufficient offer witnesses (matching 52)
+Among equally valid scoped plans with identical failures, unknowns and preference fulfilment, select fewer offers and then fewer areas before the stable hash tie-break. This avoids adding an unrelated drink/snack offer when one coffee-and-cake offer proves the whole request. Requirements, alternative order, availability and preferred matches retain precedence.
