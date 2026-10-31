@@ -537,6 +537,14 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             }
         }
     }
+    // Parking is a venue amenity, not equipment located inside a hotel room.
+    // An authored scoped value (including explicit unknown) remains authoritative.
+    // General parking presence does not establish a requested indoor/covered area.
+    if (librarianFacilityConcept(fact) === "parking" && observedKeys.size === 0
+        && !request.facts.some(f=>f.modality === "REQUIRED" && ["offer.area","location.setting","condition.weather_protection"].includes(f.key))) {
+        const legacy = assessLegacyLibrarianFact(preferenceOnly ? {...fact,modality:"PREFERRED"} : fact,world,visit);
+        if (legacy.state === "MET") add("MET",null,null,{typedWorldInheritance:fact.key,scope:"SPOT_PARKING"},false,legacy.hashes);
+    }
     propertyRead = {sourceKeys: keys, observedKeys: sorted([...observedKeys]), knownValueChecks, unknownValueChecks, outsideConditionChecks};
     const unique = (rows: readonly Witness[]) => [...new Map(rows.map(w => [contentHash(w), w])).values()];
     if (fact.modality === "EXCLUDED") {

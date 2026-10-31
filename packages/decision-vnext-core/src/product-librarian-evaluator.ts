@@ -159,7 +159,8 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       && /\b(?:externe? (?:teilnahme|gäste)|external (?:guests|participation))\b/iu.test(p.value)
       && /\b(?:erfragen|prüfen|unklar|unbekannt|nicht bestätigt|check|unconfirmed)\b/iu.test(p.value))
     .map(p => ({offerId:o.id, text:String(p.value)}))) ?? [];
-  if (admissionNotes.length) reasons.push({reasonCode:"librarian-external-admission-unconfirmed",domain:"LIMITATION",
+  const selectedStay = explanatoryProfile?.offers.some(o=>candidate.offerIds.includes(o.id) && o.kind === "OVERNIGHT_STAY");
+  if (admissionNotes.length && !selectedStay) reasons.push({reasonCode:"librarian-external-admission-unconfirmed",domain:"LIMITATION",
     sourceHash:contentHash({entryHash:profileEntry!.entryHash,admissionNotes}),
     statementDe:`Teilnahme externer Gäste bitte vorab klären. Hinweis des Angebots: ${[...new Set(admissionNotes.map(n=>n.text))].join(" ")}`.slice(0,500),confirmed:false});
   if (!reasons.length) reasons.push({ reasonCode: "librarian-no-visit-evidence", domain: "LIMITATION", sourceHash: candidate.candidateHash, statementDe: "Für diesen Wunsch fehlen bestätigte Angaben zum passenden Angebot.", confirmed: false });

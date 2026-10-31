@@ -256,3 +256,14 @@ test('explicit zero admission survives missing optional fee metadata without wai
  for(const p of [{...tariff,mandatoryFeesIncluded:false},{...tariff,minimumAge:6},{...tariff,label:'Gratis Probelektion'}])assert.equal(search(q,[make([p])]).ranked.length,0);
  assert.equal(search(q,[make([tariff,price(10,{includes:'Eintritt'})])]).ranked.length,0);
 });
+
+test('general venue parking survives a detailed offer profile without manufacturing parking inside its area',()=>{
+ const q=request([meal(),fact('parking','offer.feature','parking')]);
+ const extra=[worldFact('amenity.features',['PARKING'])];
+ const p=profile();assert.equal(search(q,[originalBinding(2006,p,extra)]).ranked.length,1);
+ assert.equal(search(q,[originalBinding(2007,p)]).ranked.length,0);
+ const unknown=profile();unknown.properties=[{...prop('amenity.parking',true),state:'UNKNOWN',value:null}];
+ assert.equal(search(q,[originalBinding(2008,unknown,extra)]).ranked.length,0);
+ const covered=request([meal(),fact('parking','offer.feature','parking'),fact('covered','condition.weather_protection','covered')]);
+ assert.equal(search(covered,[originalBinding(2009,p,extra)]).ranked.length,0);
+});

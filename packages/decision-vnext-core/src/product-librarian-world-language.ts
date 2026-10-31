@@ -4,7 +4,7 @@ import { librarianFacilityConcept } from "./product-librarian-language.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { librarianConditions, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
-export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@6" as const;
+export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@7" as const;
 export type LegacyLanguageAssessment = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -128,6 +128,10 @@ export function assessLegacyLibrarianFact(fact: LibrarianFact, world: ProductWor
     const preferred = fact.modality === "PREFERRED";
     if (active.some(e => e.conditions === "MET" && (preferred ? e.discovery : e.hard)))
         return { state: "MET", reason: "LEGACY_TYPED_PRESENCE_CONFIRMED", hashes };
+    // Positive venue parking presence is an authorized discovery attribute,
+    // like venue type, not a legal/admission or accessibility guarantee.
+    if (librarianFacilityConcept(fact) === "parking" && active.some(e=>e.conditions === "MET" && e.discovery))
+        return {state:"MET",reason:"VERIFIED_VENUE_PARKING_PRESENCE",hashes};
     if (active.some(e => e.conditions === "MET" && e.discovery))
         return unknown("LEGACY_TYPED_DISCOVERY_SUPPORT", hashes);
     return unknown(active.some(e => e.conditions !== "MET") ? "LEGACY_CONDITIONS_OR_AREA_UNRESOLVED" : "LEGACY_SOURCE_USE_NOT_AUTHORIZED", hashes);

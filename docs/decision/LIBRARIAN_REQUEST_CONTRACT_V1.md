@@ -732,3 +732,9 @@ food.delivery with the finite take-away/to-go concept reads the existing authori
 ### Matcher 45: authored free admission is evidence, optional metadata is not a veto
 
 A selected passive admission-based visit can use its own explicit zero admission tariff even when fee-completeness metadata was not filled in. Admission wording may be in the tariff label when includes is empty. The rule is bounded to admission-based visit offers and exact admission labels; age-limited prices, partial/sample services, explicitly excluded mandatory fees and contradictory positive tariffs do not qualify. Mobile/Web display that the selected admission is free and optional extras are not included. No free price is copied from another activity or inferred from an absent tariff. Reproduced at Tierpark Lange Erlen.
+
+### Matcher 46: venue parking remains visible with an authored profile
+
+A verified, DISCOVERY-authorized amenity.features PARKING fact can establish general parking presence even when an experience profile exists. A profile no longer hides this existing venue source. Explicit scoped parking values, including unknown, retain priority; no indoor/covered parking location is inferred. Positive parking presence uses its authorized discovery purpose, like venue type; exclusions, admission and accessibility guarantees are not inferred from it. The source proves neither a free bay, reservation, fee level nor parking inside the selected room. Reproduced in the overnight/breakfast/parking query at Ibis, Wettstein and other hotels.
+
+When an overnight-stay offer is actually selected at the same hotel, the separate warning about external breakfast guests is not shown: the planned visitor is a hotel guest. Breakfast-only discovery retains that warning. Both paths are covered through the active Product chain.

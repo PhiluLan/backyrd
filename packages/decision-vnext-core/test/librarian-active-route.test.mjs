@@ -301,4 +301,8 @@ test('an explicitly selected destination still reaches the model and explicit so
  const b=binding(1911,p);const r=await exercise({text:'Frühstücken in Basel',meaning:plan([fact('breakfast','experience.activity','breakfast')]),catalog:[b]});
  assert.equal(r.status,200);const c=r.body.candidates[0];assert.equal(c.rank,1);
  assert.ok(c.reasons.some(x=>x.code==='librarian-external-admission-unconfirmed'&&!x.confirmed&&x.statement.includes('externe Teilnahme')));
+ const staying=profile([...p.offers,offer('stay','OVERNIGHT_STAY')]);
+ const overnight=await exercise({text:'Übernachten und frühstücken',meaning:plan([fact('breakfast','experience.activity','breakfast'),fact('stay','experience.activity','overnight_stay','REQUIRED',['a2'])]),catalog:[binding(1912,staying)]});
+ assert.equal(overnight.status,200);assert.equal(overnight.body.candidates[0].rank,1);
+ assert.ok(!overnight.body.candidates[0].reasons.some(x=>x.code==='librarian-external-admission-unconfirmed'));
  });
