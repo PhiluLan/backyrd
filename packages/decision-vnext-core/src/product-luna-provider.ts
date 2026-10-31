@@ -1,3 +1,4 @@
+import { explicitPreferenceEvidence } from './product-luna-preference-evidence.js';
 import { inspectLunaMeaning, assertLunaMeaningCorrection, type LunaMeaningIssue } from './product-luna-meaning-contract.js';
 import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, parseLunaMeaningOutput, validateActiveLunaMeaningOutput, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LunaMeaningOutput } from "./product-luna-librarian.js";
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
@@ -68,6 +69,8 @@ export function createDecisionProductLunaProvider(input: {
     let output;
     try { output = parseLunaMeaningOutput(await call(body)); }
     catch { throw new Error("product_luna_meaning_invalid"); }
+    const preferredLogic = (node: import('./product-luna-librarian.js').LunaExpression | null):boolean => node !== null && (node.kind === 'ANY' && node.strength === 'PREFERRED' || node.kind === 'IF' && (preferredLogic(node.then) || preferredLogic(node.else)) || node.kind === 'FALLBACK' && node.options.some(preferredLogic) || (node.kind === 'ALL' || node.kind === 'ANY') && node.children.some(preferredLogic));
+    if (!explicitPreferenceEvidence(request.naturalLanguage).length && ([...output.facts,...output.extensions].some(f=>f.modality==='PREFERRED') || preferredLogic(output.logic))) throw new Error('product_luna_understanding_unresolved');
     const issues = inspectLunaMeaning(output);
     try { input.onTranslationAttempt?.({output, issues}); } catch { /* Diagnostics cannot affect a decision. */ }
     if (issues.length) {

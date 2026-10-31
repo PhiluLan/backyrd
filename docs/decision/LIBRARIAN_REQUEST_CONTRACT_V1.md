@@ -482,7 +482,7 @@ unknown. The relative level and its limitation are rendered in Mobile and Web;
 required undefined qualitative ceilings still need clarification.
 
 
-### Translation admission: meaning roles v2 (prompt 17 / provider 4)
+### Translation admission: meaning roles v2 (prompt 18 / provider 4)
 
 Schema-valid model output is not necessarily executable meaning. The canonical
 `product-luna-meaning-contract.ts` now supplies both the model instructions and
@@ -529,3 +529,19 @@ positive spontaneous-access duty; NOT_REQUIRED/spontaneous is reserved for
 explicit indifference. Historical plans are not modified. This closes two
 additional variants found by the first real repetition suite, which is retained
 as a failed stability baseline rather than presented as all-green.
+
+Prompt 18 adds a versioned explicit-preference evidence vocabulary, shared by
+provider schema and runtime admission. Without an explicit supported optionality
+marker, PREFERRED is removed from the request-specific model schema (including
+ANY strength). Concrete wishes, including unquantified relative price wishes,
+may not be relaxed solely because they are hard to prove. No numeric budget is
+invented and the existing required qualitative-budget clarification remains.
+The full base active schema hash plus preference policy hash and source bind
+this deterministic schema derivation. A marker only authorizes the corresponding
+optional clause, not weakening unrelated requirements. The finite vocabulary is
+German/English/French/Italian; unfamiliar optionality phrasing remains an
+explicit limitation and must not be claimed universally understood. The first
+18-call suite exposed a final restaurant call with a relaxed budget; that failed
+baseline is preserved. Re-test against fresh independent calls before claiming
+stability. This rule is evidence for relaxation, not a substitute for language
+understanding or an assurance that all omissions can be detected.

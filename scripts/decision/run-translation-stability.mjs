@@ -1,3 +1,4 @@
+import {translationLogicSignature} from './translation-stability-analysis.mjs';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -21,6 +22,7 @@ const cases=[
  {id:'animals-paraphrases',queries:['Mit meiner Tochter Tiere anschauen als Familienausflug.','Familienunternehmung: Meine Tochter möchte Tiere beobachten.']},
  {id:'family-indoor',queries:Array(2).fill('Heute mit meiner 4 jährigen Tochter indoor etwas unternehmen, wo es auch Snacks oder Essen gibt')},
  {id:'restaurant',queries:Array(5).fill('Heute Abend zuerst gemütlich was essen, ohne Reservierung und nicht zu teuer')},
+ {id:'price-preference',queries:Array(2).fill('Heute Abend möglichst gemütlich was essen, ohne Reservierung, möglichst nicht zu teuer')},
  {id:'jazz-access',queries:Array(2).fill('Live-Jazz in Basel, ich nutze einen Rollstuhl')},
  {id:'own-food',queries:Array(2).fill('Morgen einen Familienausflug machen, egal ob drinnen oder draussen, wir bringen unser eigenes Essen mit')},
 ];
@@ -29,20 +31,7 @@ const duties=meaning=>[...new Set(meaning.facts.filter(f=>['REQUIRED','EXCLUDED'
  const key=c?LUNA_MEANING_ROLE_CONTRACT.rules[c]?.[0]??f.key:f.key;
  return JSON.stringify([key,f.modality,c??f.value]);
 }))].sort();
-// Compare branch structure as well: meal OR snack must never look equivalent
-// to meal AND snack merely because both plans contain the same fact values.
-function logicSignature(meaning) {
- const atom=id=>{const f=meaning.facts.find(f=>f.id===id);if(!f)return {extension:true};const c=f.value.kind==='TEXT'?librarianConcept(f.value.text):null;return [c?LUNA_MEANING_ROLE_CONTRACT.rules[c]?.[0]??f.key:f.key,f.modality,c??f.value];};
- const walk=n=>{
-  if(n.kind==='FACT')return atom(n.factId);
-  if(n.kind==='IF'){const condition=meaning.weatherConditions.find(c=>c.id===n.conditionFactId);return ['IF',condition?{state:condition.state,role:condition.role}:atom(n.conditionFactId),walk(n.then),n.else?walk(n.else):null];}
-  if(n.kind==='FALLBACK')return ['FALLBACK',n.options.map(walk)];
-  const children=n.children.map(walk).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
-  return children.length===1?children[0]:[n.kind,n.strength??null,children];
- };
- const bindings=meaning.bindings.map(b=>[b.kind,b.factIds.map(atom)]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)));
- return {logic:walk(meaning.logic),bindings};
-}
+const logicSignature=meaning=>translationLogicSignature(meaning,{conceptFor:librarianConcept,rules:LUNA_MEANING_ROLE_CONTRACT.rules});
 const groups=[];
 for(const group of cases){const runs=[];
  for(let i=0;i<group.queries.length;i++){

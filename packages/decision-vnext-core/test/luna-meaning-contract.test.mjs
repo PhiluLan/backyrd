@@ -89,3 +89,24 @@ test('permission misfiled as food is diagnosed before the active semantic valida
  const p=provide([raw('food.dish','own_food'),raw('participation.permission','own_food')]);
  assert.equal((await p.run()).facts[0].key,'participation.permission');assert.equal(p.calls(),2);
 });
+test('preference admission needs explicit source evidence across supported languages',async()=>{
+ const {buildLunaLibrarianModelRequest}=await import('../dist/product-luna-librarian.js');
+ const {explicitPreferenceEvidence}=await import('../dist/product-luna-preference-evidence.js');
+ for(const text of ['gemütlich essen und nicht zu teuer','Live Jazz mit Rollstuhl','unmöglichst optionality']){
+  assert.deepEqual(explicitPreferenceEvidence(text),[]);
+  const body=buildLunaLibrarianModelRequest({sourceText:text,reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
+  const enums=[];const walk=v=>{if(v&&typeof v==='object'){if(Array.isArray(v.enum))enums.push(...v.enum);for(const child of Object.values(v))walk(child);}};walk(body.text.format.schema);assert.ok(!enums.includes('PREFERRED'));
+ }
+ for(const text of ['möglichst gemütlich','preferably quiet','si possible au calme','se possibile tranquillo','Es wäre schön, wenn es ruhig ist']){
+  assert.ok(explicitPreferenceEvidence(text).length,text);
+  const body=buildLunaLibrarianModelRequest({sourceText:text,reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
+  assert.ok(JSON.stringify(body.text.format.schema).includes('PREFERRED'),text);
+ }
+});
+test('unqualified price wish cannot silently become a preference even if a provider ignores its schema',async()=>{
+ const output=raw('budget.qualitative','nicht zu teuer');output.facts[0].modality='PREFERRED';
+ const p=provide([output]);await assert.rejects(p.run(),/product_luna_understanding_unresolved/);assert.equal(p.calls(),1);
+ const provider=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(output)});
+ const result=await provider({...req,naturalLanguage:'Möglichst nicht zu teuer essen'},{},new AbortController().signal);
+ assert.equal(result.facts[0].modality,'PREFERRED');
+});
