@@ -295,3 +295,10 @@ test('an explicitly selected destination still reaches the model and explicit so
  }});assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.candidates.filter(c=>c.rank!==null).length,1);
  assert.equal(meaning.facts.find(f=>f.id==='city').modality,'REQUIRED');
 });
+
+ test('selected offer preserves explicit uncertainty about external guests without rejecting discovery',async()=>{
+ const p=profile([offer('breakfast','BREAKFAST',['inside'],[prop('custom.detail','Frühstück ist bestätigt; Zeiten, Preis und externe Teilnahme beim Hotel erfragen.',{label:'Frühstück'})])]);
+ const b=binding(1911,p);const r=await exercise({text:'Frühstücken in Basel',meaning:plan([fact('breakfast','experience.activity','breakfast')]),catalog:[b]});
+ assert.equal(r.status,200);const c=r.body.candidates[0];assert.equal(c.rank,1);
+ assert.ok(c.reasons.some(x=>x.code==='librarian-external-admission-unconfirmed'&&!x.confirmed&&x.statement.includes('externe Teilnahme')));
+ });

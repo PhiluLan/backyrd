@@ -684,3 +684,7 @@ whole restaurant to be exclusively vegan. Regression coverage lives in
 ### Matcher 37: explicit products in authored food-offer titles
 
 Food/drink offer titles may establish explicitly named products through the existing bounded item-list grammar, preserving offer and area scope. “Kaffee und Kuchen aus eigener Bio-Backstube” proves coffee and cake. Generic bakery goods do not prove cake; negated or qualified availability does not become unconditional product evidence. Missing atmosphere remains unknown. The first sequential discovery case reproduced the previous missed product evidence; same-meaning replay confirms the correction without inventing a cozy atmosphere or changing spot data.
+
+### Explicit external-participation uncertainty
+
+Selected offer notes that explicitly require checking external guest participation remain visible as a sourced limitation in the canonical response, Mobile and Web. This does not prohibit hotel breakfasts or infer a guest-only rule. It preserves the recorded uncertainty rather than presenting external admission as confirmed. Discovery may still suggest the offer with the check-before-visiting notice.

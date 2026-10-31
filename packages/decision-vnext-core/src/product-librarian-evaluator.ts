@@ -152,6 +152,16 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     if (offers.length) reasons.unshift({ reasonCode: "librarian-selected-offers", domain: conditional ? "LIMITATION" : "WORLD", sourceHash: contentHash({ entryHash: profileEntry.entryHash, offerIds: offers.map(o => o.id) }),
       statementDe: `${conditional ? "Mögliche Angebote" : "Passende Angebote"}: ${offers.map(o => o.name).join(", ")}`.slice(0,500), confirmed: !conditional });
   }
+  // Preserve explicit admission uncertainty from the selected offer. A hotel
+  // breakfast is not proof that an external visitor can participate.
+  const admissionNotes = explanatoryProfile?.offers.filter(o => candidate.offerIds.includes(o.id)).flatMap(o => o.properties
+    .filter(p => p.state === "KNOWN" && p.key === "custom.detail" && typeof p.value === "string"
+      && /\b(?:externe? (?:teilnahme|gäste)|external (?:guests|participation))\b/iu.test(p.value)
+      && /\b(?:erfragen|prüfen|unklar|unbekannt|nicht bestätigt|check|unconfirmed)\b/iu.test(p.value))
+    .map(p => ({offerId:o.id, text:String(p.value)}))) ?? [];
+  if (admissionNotes.length) reasons.push({reasonCode:"librarian-external-admission-unconfirmed",domain:"LIMITATION",
+    sourceHash:contentHash({entryHash:profileEntry!.entryHash,admissionNotes}),
+    statementDe:`Teilnahme externer Gäste bitte vorab klären. Hinweis des Angebots: ${[...new Set(admissionNotes.map(n=>n.text))].join(" ")}`.slice(0,500),confirmed:false});
   if (!reasons.length) reasons.push({ reasonCode: "librarian-no-visit-evidence", domain: "LIMITATION", sourceHash: candidate.candidateHash, statementDe: "Für diesen Wunsch fehlen bestätigte Angaben zum passenden Angebot.", confirmed: false });
   const temporal = candidate.facts.filter(f => f.family.startsWith("time.") && !["CONTEXT", "PREFERRED", "NOT_REQUIRED"].includes(f.modality)
     && f.reason !== "UNDATED_DAYPART_NO_OPENING_CLAIM" && f.reason !== "RETAINED_AS_REQUEST_CONTEXT");
