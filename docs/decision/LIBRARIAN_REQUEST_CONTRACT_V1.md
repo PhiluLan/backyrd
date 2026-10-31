@@ -716,3 +716,7 @@ A typed child/family participation context remains relevant when Luna omitted a 
 ### Matcher 41 / prompt 22 / meaning roles 6: free activity and price parameters
 
 budget.scope is a context-only price parameter in the active structured-output contract, never a second venue duty. Zero full activity cost is independent of currency conversion or group division. A selected, applicable, unrestricted full tariff with a positive minimum cannot satisfy a free request and is marked failed rather than hidden as missing currency. Missing tariffs, partial prices, age restrictions and fee uncertainty remain unconfirmed; missing price does not mean free. The actual Pingpong query exposed the parameter-as-duty failure and an absent Kannenfeldpark activity tariff.
+
+### Matcher 42 / prompt 23 / meaning roles 7: companion count versus group-capacity request
+
+Incidental companion headcount (“wir beide”, “mit einer Freundin”) is people.count CONTEXT. It remains available for prices, known capacity limits and participation, without inventing a separate demand for a bookable group slot. An expressly requested group booking or minimum number of places remains REQUIRED and uses the existing capacity proof. Explicit offer capacities apply independently even to contextual headcount; missing capacity is not assumed to mean sold out. This overrides the older overly broad instruction that every complete headcount must be a required group-capacity request.

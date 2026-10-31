@@ -222,3 +222,10 @@ test('zero activity budget fails a documented paid tariff regardless of missing 
  const p=profile([offer('ping','BALL_SPORT',['inside'],[prop('experience.activity','table_tennis')],[price(18,{includes:'Eintritt'})])]);
  const r=search(q,[binding(1997,p)]);assert.equal(r.ranked.length,0);assert.ok(r.excluded[0].facts.some(f=>f.reason==='SCOPED_ACTIVITY_NOT_FREE'));
 });
+
+test('incidental companion headcount needs no invented capacity but respects an explicit offer limit',()=>{
+ const q=request([fact('sport','experience.activity','bouldering'),fact('count','people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},'CONTEXT',['g1'])]);
+ assert.equal(search(q,[binding(1998,profile([offer('boulder','BOULDERING')]))]).ranked.length,1);
+ const r=search(q,[binding(1999,profile([offer('boulder','BOULDERING',['inside'],[prop('offer.capacity',1)])]))]);
+ assert.equal(r.ranked.length,0);assert.ok(r.excluded[0].facts.some(f=>f.reason==='PARTY_EXCEEDS_OFFER_CAPACITY'));
+});

@@ -128,6 +128,12 @@ export function librarianGlobalEligibility(input: {
         if(audience.some(p=>p.value==="Nur für Hotelgäste" || p.value==="Nur für Mitglieder"))
             results.push({state:"UNKNOWN",reason:"RESTRICTED_OFFER_ACCESS_NOT_PROVEN",hashes:[profileRow.entryHash],offerIds:[offer.id]});
 
+        // Companion headcount is context, but a documented physical offer
+        // limit still applies. Missing capacity is not proof of a full venue.
+        if (count !== null) for (const capacity of offer.properties.filter(p => p.key === "offer.capacity" && p.state === "KNOWN"
+            && typeof p.value === "number" && librarianConditions(p.conditions,visit) === "MET"))
+            if (count > (capacity.value as number)) results.push({state:"FAILED",reason:"PARTY_EXCEEDS_OFFER_CAPACITY",hashes:[profileRow.entryHash],offerIds:[offer.id]});
+
         const participantAges = ageFacts.filter(f => !input.offerParticipants[offer.id]?.length || input.offerParticipants[offer.id]!.includes(f.subjectIds[0]!));
         if (offer.properties.some(p => librarianAllAgesSuitability(p) && librarianConditions(p.conditions, visit) === "MET"))
             for (const fact of participantAges) scopedAgeCovered.add(`${offer.id}:${fact.id}`);
