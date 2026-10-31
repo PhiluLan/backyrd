@@ -591,3 +591,32 @@ opening and other restrictions keep their own checks. No Spot facts are edited.
 This supersedes the former FAMILY_LEISURE_ALL_AGES shortcut, which required
 both all-ages suitability and family atmosphere and excluded unlisted activity
 types such as ANIMAL_OBSERVATION.
+
+### Founder-accepted discovery references
+
+The active Product librarian retains human-accepted development references in
+its existing domain-evaluation fixtures and tests. These are feedback about
+recommendation quality, not app-user taste signals, online weight updates or
+automatic model training. Historical Decision Lab golden scenarios and Nuknuk
+research-training intake have different purposes and are not used as runtime
+learning paths for these references.
+
+`test/fixtures/founder-approved-playground-daughter.json` records the founder's
+explicit 2026-10-31 acceptance of “Spielplatz mit meiner tochter”: one unique
+request, three real model runs, seven accepted positive spots. It retains the
+original structured outputs, code/prompt configuration, source-report hashes,
+catalogue hash, frozen public knowledge for those seven spots, and the approval
+quote. The record hash detects accidental changes; it is not authentication or
+permission to change production.
+
+`librarian-domain-evaluation.test.mjs` replays all three recorded meanings through
+the active Product composition and asserts that all seven accepted spots remain
+confirmed without an invented child age. This portable positive-only replay
+does not recheck all 432 spots or 25 events from the original runs and cannot
+certify all exclusions. The observed order is retained as evidence, not a
+universal ranking target. These repeats are not three independent accepted
+requests or a blind holdout.
+
+The missing ELYS “ab 1 Jahr” notice in runs 1 and 3 remains an OPEN issue. The
+founder accepted the recommendations; the missing warning must not become an
+approved training target or a requirement that future code preserve the bug.
