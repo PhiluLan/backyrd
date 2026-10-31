@@ -621,6 +621,22 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
     // establish that the requested activity as a whole is free.
     if (!eventEntry && money.amount === 0 && ["EQ", "LTE"].includes(money.operator)
         && !facts.some(f => ["budget.coverage", "budget.cost_treatment"].includes(f.key))) {
+        // A clearly labelled zero admission tariff is real evidence even when
+        // the author did not populate the optional fee-completeness metadata.
+        // Only admission-based passive visits qualify; paid guided services,
+        // rentals, meals and a different offer's free entry cannot borrow it.
+        const freeAdmissions = scopedOfferIds.map(id => {
+            const offer = profile.offers.find(o=>o.id===id)!;
+            if (!["WALK","VISIT","ANIMAL_OBSERVATION","PERMANENT_EXHIBITION","SELF_GUIDED_VISIT"].includes(offer.kind)) return [];
+            const prices = offer.prices.filter(p => p.min === 0 && p.max === 0 && ["PER_PERSON","PER_GROUP"].includes(p.basis)
+                && p.minimumAge === null && p.maximumAge === null && p.mandatoryFeesIncluded !== false
+                && librarianConditions(p.conditions,visit) === "MET"
+                && (librarianConcept(p.includes) === "entry" || !p.includes.trim()
+                    && /^(?:(?:park|tierpark)?eintritt|eintritt (?:tierpark|park|zoo|dauerausstellung)|admission|entry)$/iu.test(p.label.trim())));
+            return offer.prices.some(p=>librarianConditions(p.conditions,visit)!=="FAILED" && p.min>0) ? [] : prices;
+        });
+        if (freeAdmissions.every(ps=>ps.length === 1))
+            return result(fact.modality === "EXCLUDED" ? "FAILED" : "MET","SCOPED_FREE_ADMISSION_CONFIRMED",freeAdmissions.flatMap(ps=>ps.map(p=>contentHash(p))));
         const tariffs = scopedOfferIds.map(id => {
             const offer = profile.offers.find(o => o.id === id)!;
             const concepts = OFFER_CONCEPTS[offer.kind] ?? [];

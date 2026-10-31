@@ -163,6 +163,8 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     sourceHash:contentHash({entryHash:profileEntry!.entryHash,admissionNotes}),
     statementDe:`Teilnahme externer Gäste bitte vorab klären. Hinweis des Angebots: ${[...new Set(admissionNotes.map(n=>n.text))].join(" ")}`.slice(0,500),confirmed:false});
   if (!reasons.length) reasons.push({ reasonCode: "librarian-no-visit-evidence", domain: "LIMITATION", sourceHash: candidate.candidateHash, statementDe: "Für diesen Wunsch fehlen bestätigte Angaben zum passenden Angebot.", confirmed: false });
+  if (candidate.facts.some(f=>f.state === "MET" && f.reason === "SCOPED_FREE_ADMISSION_CONFIRMED"))
+    reasons.push({reasonCode:"librarian-free-admission",domain:"LIMITATION",sourceHash:contentHash(candidate.facts.filter(f=>f.reason === "SCOPED_FREE_ADMISSION_CONFIRMED")),statementDe:"Der Eintritt für das ausgewählte Angebot ist kostenlos. Optionale Zusatzleistungen sind damit nicht eingeschlossen.",confirmed:false});
   const temporal = candidate.facts.filter(f => f.family.startsWith("time.") && !["CONTEXT", "PREFERRED", "NOT_REQUIRED"].includes(f.modality)
     && f.reason !== "UNDATED_DAYPART_NO_OPENING_CLAIM" && f.reason !== "RETAINED_AS_REQUEST_CONTEXT");
   const availability = temporal.length ? temporal.some(f => f.state === "FAILED") ? "closed" : temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";

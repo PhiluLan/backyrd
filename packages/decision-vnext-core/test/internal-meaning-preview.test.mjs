@@ -43,7 +43,7 @@ test('local full chain reuses canonical evaluation and clearly labels injected p
  const r=await runLocalDiagnostic({query,catalog:[binding(1,p)],apiKey:'provider-secret',fetchImpl:async()=>providerResponse()});
  assert.equal(r.providerMode,'INJECTED_PROVIDER_TEST');assert.equal(r.modelCalls,1);
  assert.equal(r.meaning.configuration.promptRevision,'backyrd.luna-prompt@23');
- assert.equal(r.runtime.matchingVersion,'backyrd.decision-vnext.librarian-matching@44');
+ assert.equal(r.runtime.matchingVersion,'backyrd.decision-vnext.librarian-matching@45');
  assert.equal(r.response.candidates.filter(c=>c.rank!==null).length,1);
  assert.equal(r.boundaries.productionDataChanged,false);
  assert.ok(!JSON.stringify(r).includes('provider-secret'));

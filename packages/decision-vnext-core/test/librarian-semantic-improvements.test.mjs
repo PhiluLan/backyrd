@@ -247,3 +247,12 @@ test('takeaway reads authorized operation evidence only for the selected food of
  const delivery=request([meal(),fact('delivery','food.delivery','Lieferung nach Hause')]);
  assert.equal(search(delivery,[originalBinding(2004,p,[worldFact('operation.takeaway',true,{resolution:'KNOWN_TRUE'})])]).ranked.length,0);
 });
+
+test('explicit zero admission survives missing optional fee metadata without waiving real mandatory costs',()=>{
+ const q=request([fact('visit','experience.activity','animals'),fact('zero','budget.maximum',{amount:0,operator:'LTE',currency:'UNSPECIFIED'})]);
+ const tariff=price(0,{label:'Eintritt Tierpark',includes:'',mandatoryFeesIncluded:null});
+ const make=(prices,kind='ANIMAL_OBSERVATION')=>originalBinding(2005,profile([offer('visit',kind,['inside'],[],prices)]));
+ assert.equal(search(q,[make([tariff])]).ranked.length,1);
+ for(const p of [{...tariff,mandatoryFeesIncluded:false},{...tariff,minimumAge:6},{...tariff,label:'Gratis Probelektion'}])assert.equal(search(q,[make([p])]).ranked.length,0);
+ assert.equal(search(q,[make([tariff,price(10,{includes:'Eintritt'})])]).ranked.length,0);
+});

@@ -728,3 +728,7 @@ A selected offer with a documented minimum at least as high as the venue's unacc
 ### Matcher 44 / experience language 17: take-away is an executable service requirement
 
 food.delivery with the finite take-away/to-go concept reads the existing authorized operation.takeaway fact, deferred until the actual food/drink offer is selected. A verified gastronomy venue default may qualify its selected food offers; an unrelated hotel/museum service does not. False and missing facts remain false/unknown. Take-away does not establish home delivery. This adds the missing canonical reader rather than discarding the user's coffee-to-go requirement.
+
+### Matcher 45: authored free admission is evidence, optional metadata is not a veto
+
+A selected passive admission-based visit can use its own explicit zero admission tariff even when fee-completeness metadata was not filled in. Admission wording may be in the tariff label when includes is empty. The rule is bounded to admission-based visit offers and exact admission labels; age-limited prices, partial/sample services, explicitly excluded mandatory fees and contradictory positive tariffs do not qualify. Mobile/Web display that the selected admission is free and optional extras are not included. No free price is copied from another activity or inferred from an absent tariff. Reproduced at Tierpark Lange Erlen.
