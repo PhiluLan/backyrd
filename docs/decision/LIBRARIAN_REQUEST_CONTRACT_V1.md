@@ -237,3 +237,12 @@ cold-import samples, median process CPU was 291 ms through the full barrels and
 51 ms through the production entrypoints (Node measurement, not hosted CPU).
 Hosted acceptance must be repeated after deployment. The production-state file
 records only the already verified f60bccf deployment/OTA, not this pending fix.
+
+
+### Occasion-bound offer eligibility (matching revision 26, development only)
+
+An offer type proves its activity, but does not erase a prerequisite in the offer's caption. Organised birthday, wedding, company and private-celebration service packages cannot establish a confirmed general outing without a compatible explicit `experience.occasion` fact (or explicitly requested celebration activity/kind) in the active request branch. This does not invent an occasion requirement in the original meaning plan. The selected offer receives an auditable `OFFER_OCCASION_CONTEXT_NOT_PROVEN` eligibility assessment and stays outside confirmed recommendations. An explicitly excluded matching occasion receives `OFFER_OCCASION_EXCLUDED`.
+
+The finite caption vocabulary applies to service/package catalogue modules (instructed, movement, sport, food, work, plus private celebrations). Exhibition/programme themes do not imply a private booking. Optional or negated occasion examples do not establish restrictions. Registration alone never establishes an occasion restriction. A regular course remains eligible, and a venue with both birthday packages and regular play can be confirmed through the regular offer. Occasion facts attached to a different activity do not authorise the selected offer; inactive alternatives cannot supply the occasion either.
+
+Product explanations name the selected family activity as well as its food offer and describe the unresolved special occasion in plain language. No new schema, model call, production write, ranking weight or spot-specific exception is used. Unknown prose remains outside this bounded caption recognition; this is not a universal event-language parser. This revision is developed and verified locally, pending a later combined release.

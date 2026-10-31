@@ -757,7 +757,9 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
             offerDuty(f) && f.modality === "REQUIRED"
             && next.some(r => r.factId === f.id && r.offerIds.includes(id))).flatMap(f => f.subjectIds)
             .filter(personId => request.entities.some(e => e.id === personId && e.kind === "PERSON")))]));
-        for (const gate of librarianGlobalEligibility({ request, facts: selected, world, visit, profile, offerIds: state.offerIds, offerParticipants, areaIds: state.areaIds, now }))
+        const offerSubjects = Object.fromEntries(state.offerIds.map(id => [id, sorted(selected.filter(f =>
+            next.some(r => r.factId === f.id && r.state === "MET" && r.offerIds.includes(id))).flatMap(f => f.subjectIds))]));
+        for (const gate of librarianGlobalEligibility({ request, facts: selected, world, visit, profile, offerIds: state.offerIds, offerParticipants, offerSubjects, areaIds: state.areaIds, now }))
             next.push({ factId: `eligibility:${gate.reason}`, family: "eligibility", modality: "REQUIRED", state: gate.state, reason: gate.reason, evidenceHashes: gate.hashes, offerIds: gate.offerIds ?? state.offerIds, areaIds: state.areaIds });
         const active = request.bindings.filter(b => b.factIds.every(id => scenario.ids.includes(id)));
         for (const b of active)

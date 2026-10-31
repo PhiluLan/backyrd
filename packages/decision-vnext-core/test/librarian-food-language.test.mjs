@@ -297,3 +297,75 @@ test('classification without discovery authority cannot prove a venue match',asy
  assert.equal(assessLibrarianPlaceType(f,world).state,'UNKNOWN');
  assert.equal(assessLibrarianPlaceType(f,world).reason,'SPOT_TYPE_USE_NOT_AUTHORIZED');
 });
+
+
+// An organised birthday package is real evidence, but not a general outing.
+const birthdayProfile=()=>JSON.parse(readFileSync(new URL('./fixtures/family-birthday-offer.json',import.meta.url),'utf8')).profile;
+const birthdayBinding=(p=birthdayProfile())=>{const b=binding(1,p);b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['BAKERY'];return b;};
+const familyRequest=(extra=[])=>request([fact('family','condition.children','children_activity'),fact('meal','food.meal','meal','REQUIRED',['a2']),...extra],{bindings:[{kind:'SAME_PLACE',factIds:['family','meal']}]});
+test('recorded family-food meaning does not promote a birthday-only course to a regular outing',async()=>{
+ const recorded=JSON.parse(readFileSync(new URL('./fixtures/family-food-live-or.json',import.meta.url),'utf8'));
+ const q=request(recorded.raw.facts,recorded.raw);
+ const catalog=[birthdayBinding(),binding(2,familyVenue())];
+ const r=search(q,catalog);
+ assert.deepEqual(r.ranked.map(c=>c.spotId),[catalog[1].decisionProjection.spotId]);
+ const held=r.unresolved.find(c=>c.spotId===catalog[0].decisionProjection.spotId);
+ assert.equal(held.status,'PARTIAL');
+ assert.ok(held.facts.some(f=>f.reason==='OFFER_OCCASION_CONTEXT_NOT_PROVEN'&&f.offerIds.includes('gk-birthday')));
+ assert.deepEqual(q.raw,recorded.raw,'do not rewrite the model request');
+ const http=await exercise({text:recorded.query,meaning:q,catalog});
+ assert.equal(http.status,200);
+ assert.equal(http.body.primaryCandidateId,catalog[1].decisionProjection.spotId);
+ const item=http.body.candidates.find(c=>c.spotId===catalog[0].decisionProjection.spotId);
+ assert.equal(item.rank,null);
+ assert.ok(item.reasons.some(r=>r.statement.includes('besonderen Anlass')));
+ assert.ok(item.reasons.some(r=>r.statement.includes('Cupcakes dekorieren zum Kindergeburtstag')));
+});
+test('explicit birthday context permits the birthday package, but a different or unrelated occasion does not',()=>{
+ const b=birthdayBinding();
+ assert.equal(search(familyRequest([fact('occasion','experience.occasion','Kindergeburtstag','CONTEXT')]),[b]).ranked.length,1);
+ for(const [value,subjects] of [['Hochzeit',['a1']],['Kindergeburtstag',['a2']]]){
+  assert.equal(search(familyRequest([fact('occasion','experience.occasion',value,'CONTEXT',subjects)]),[b]).ranked.length,0);
+ }
+ const negative=search(familyRequest([fact('occasion','experience.occasion','Kindergeburtstag','EXCLUDED')]),[b]);
+ assert.ok(negative.excluded[0].facts.some(f=>f.reason==='OFFER_OCCASION_EXCLUDED'));
+});
+test('a venue with both regular play and birthday packages can use the regular offer',()=>{
+ const p=birthdayProfile();p.offers.push(offer('play','MOVEMENT_PLAY',['gk-cafe']));
+ const r=search(familyRequest(),[birthdayBinding(p)]);
+ assert.equal(r.ranked.length,1);
+ assert.ok(r.ranked[0].offerIds.includes('play'));
+ assert.ok(!r.ranked[0].offerIds.includes('gk-birthday'));
+});
+test('booking a normal course is not an occasion restriction and optional birthdays do not restrict regular play',()=>{
+ for(const name of ['Kinderkurs mit Anmeldung','Klettern auch für Kindergeburtstage','Kinderkurs ohne Geburtstagsfeier']){
+  const o={...offer('course','CHILDREN_COURSE'),name,properties:[prop('participation.booking','Erforderlich')]};
+  assert.equal(search(request([fact('family','condition.children','children_activity')]),[binding(1,profile([o]))]).ranked.length,1,name);
+ }
+});
+test('special-occasion restrictions apply to wedding and corporate packages without blocking other offers',()=>{
+ for(const name of ['Kreativkurs für die Hochzeitsfeier','Kinderprogramm beim Firmenanlass']){
+  const p=profile([{...offer('special','CHILDREN_COURSE'),name}]);
+  assert.equal(search(request([fact('family','condition.children','children_activity')]),[binding(1,p)]).ranked.length,0,name);
+ }
+});
+
+test('an exhibition about birthdays is not a birthday booking package',()=>{
+ const p=profile([{...offer('exhibition','PERMANENT_EXHIBITION'),name:'Geburtstagsfeier im Wandel der Zeit'}],[area()],'MUSEUM');
+ assert.equal(search(request([fact('visit','experience.activity','museum')]),[binding(1,p)]).ranked.length,1);
+});
+
+test('a service offered for several occasions accepts the matching one, not an unrelated outing',()=>{
+ const o={...offer('special','CHILDREN_COURSE'),name:'Kreativkurs für Kindergeburtstage oder Hochzeitsfeiern'};
+ const b=binding(1,profile([o]));
+ const family=fact('family','condition.children','children_activity');
+ for(const label of ['Kindergeburtstag','Hochzeit'])assert.equal(search(request([family,fact('occasion','experience.occasion',label,'CONTEXT')]),[b]).ranked.length,1,label);
+ assert.equal(search(request([family]),[b]).ranked.length,0);
+});
+
+test('unrelated optional or negative wording does not erase the actual birthday restriction',()=>{
+ for(const name of ['Kindergeburtstag ohne Voranmeldung','Kindergeburtstag auch für Teenies']){
+  const p=profile([{...offer('special','CHILDREN_COURSE'),name}]);
+  assert.equal(search(request([fact('family','condition.children','children_activity')]),[binding(1,p)]).ranked.length,0,name);
+ }
+});

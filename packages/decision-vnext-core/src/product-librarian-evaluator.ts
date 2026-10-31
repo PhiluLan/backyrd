@@ -110,7 +110,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     const proven = f.state === "MET";
     const label = familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
     return { reasonCode: proven ? `LBR_EVIDENCE:${semanticKey(f.factId)}` : factCode(f), domain: proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
-      statementDe: proven ? f.reason === "BOOKING_RECOMMENDED_NOT_MANDATORY" ? "Eine Reservation ist empfohlen, aber nicht vorgeschrieben. Freie Plätze sind nicht bestätigt." : f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : f.diagnosis === "UNSUPPORTED_REQUIREMENT" ? `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.` : f.diagnosis === "REQUEST_NEEDS_CLARIFICATION" ? "Welches Budget pro Person passt für dich?" : `Noch nicht bestätigt: ${label}.`,
+      statementDe: f.reason === "OFFER_OCCASION_CONTEXT_NOT_PROVEN" ? "Dieses Angebot ist für einen besonderen Anlass vorgesehen. Dass dieser Anlass zu deiner Suche passt, ist nicht bestätigt." : f.reason === "OFFER_OCCASION_EXCLUDED" ? "Dieses Angebot gehört zu einem Anlass, den du ausgeschlossen hast." : proven ? f.reason === "BOOKING_RECOMMENDED_NOT_MANDATORY" ? "Eine Reservation ist empfohlen, aber nicht vorgeschrieben. Freie Plätze sind nicht bestätigt." : f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : f.diagnosis === "UNSUPPORTED_REQUIREMENT" ? `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.` : f.diagnosis === "REQUEST_NEEDS_CLARIFICATION" ? "Welches Budget pro Person passt für dich?" : `Noch nicht bestätigt: ${label}.`,
       confirmed: proven };
   });
   if (candidate.facts.some(f => f.reason === "DOCUMENTED_WHEELCHAIR_ACCESS_DETAILS")) {
@@ -131,7 +131,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   const profileEntry = world.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"));
   const explanatoryProfile = profileEntry ? parseExperienceProfile(profileEntry.value) : null;
   if (profileEntry && candidate.offerIds.length) {
-    const activityIds = new Set(candidate.facts.filter(f => f.state === "MET" && (["experience.activity", "offer.kind"].includes(f.family) || f.family.startsWith("food."))).flatMap(f => f.offerIds));
+    const activityIds = new Set(candidate.facts.filter(f => f.state === "MET" && (["experience.activity", "offer.kind", "condition.children"].includes(f.family) || f.family.startsWith("food."))).flatMap(f => f.offerIds));
     const offers = explanatoryProfile!.offers.filter(o => activityIds.has(o.id));
     const conditional = candidate.conditionalPlans.length > 0 || candidate.status !== "CONFIRMED";
     if (offers.length) reasons.unshift({ reasonCode: "librarian-selected-offers", domain: conditional ? "LIMITATION" : "WORLD", sourceHash: contentHash({ entryHash: profileEntry.entryHash, offerIds: offers.map(o => o.id) }),

@@ -1,6 +1,6 @@
 import type { LibrarianFact, LibrarianRequest } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
-import type { ExperienceProfile } from "@backyrd/world-knowledge-core";
+import { hasOfferModule, librarianConcept, librarianTerm, type ExperienceProfile, type ExperienceOffer } from "@backyrd/world-knowledge-core";
 import { librarianConditions, visitWeekday, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
 export type LibrarianEligibility = {
     readonly state: MatchTruth;
@@ -9,6 +9,31 @@ export type LibrarianEligibility = {
     readonly offerIds?: readonly string[];
 };
 const weekdays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+// Offer prerequisites, not invented user requirements. Read explicit offer
+// captions and typed occasion facts, never the raw user query.
+const occasionTerms = {
+    BIRTHDAY: /\b(?:kindergeburtstag(?:e|en)?|geburtstags[- ]?(?:feier(?:n)?|fest(?:e)?|part(?:y|ies)|anlass|event(?:s)?|paket(?:e)?)|geburtstag|birthday(?: party)?)\b/iu,
+    WEDDING: /\b(?:hochzeit(?:en|sfeier(?:n)?|sbankett(?:e)?|spaket(?:e)?)?|wedding(?: reception)?)\b/iu,
+    COMPANY: /\b(?:firmen(?:feier|anlass|event)|betriebsausflug|company event|corporate event)\b/iu,
+    PRIVATE: /\b(?:private(?:n|r)? (?:feier(?:n)?|anlass|anlässe(?:n)?|veranstaltung(?:en)?)|private (?:party|celebration))\b/iu,
+} as const;
+type OfferOccasion = keyof typeof occasionTerms;
+function occasionsIn(text: string): readonly OfferOccasion[] {
+    const normalized = librarianTerm(text);
+    // Qualify the occasion itself, not unrelated words later in the caption:
+    // "also for birthdays" is optional; "birthday without registration" is not.
+    return (Object.keys(occasionTerms) as OfferOccasion[]).filter(key =>
+        [...normalized.matchAll(new RegExp(occasionTerms[key].source, "giu"))].some(match =>
+            !/\b(?:auch(?: für)?|beispielsweise|optional(?: für)?|kein(?:e|en|er)?|ohne|nicht(?: für)?|not|without)\s*(?:(?:einen?|a|the)\s*)?$/iu.test(normalized.slice(0, match.index))));
+}
+function offerOccasions(offer: ExperienceOffer): readonly OfferOccasion[] {
+    // A wedding exhibition or a play titled "Birthday" is a programme theme,
+    // not a request to organise that occasion. Restrict service/package offers.
+    if (!["instructed", "movement", "sport", "food", "work"].some(module => hasOfferModule(offer.kind, module))
+        && offer.kind !== "PRIVATE_CELEBRATION") return [];
+    const declared = occasionsIn(offer.name);
+    return declared.length ? declared : offer.kind === "PRIVATE_CELEBRATION" ? ["PRIVATE"] : [];
+}
 const range = (fact: LibrarianFact): readonly [
     number,
     number
@@ -27,6 +52,7 @@ export function librarianGlobalEligibility(input: {
     readonly areaIds: readonly string[];
     readonly offerIds: readonly string[];
     readonly offerParticipants: Readonly<Record<string, readonly string[]>>;
+    readonly offerSubjects: Readonly<Record<string, readonly string[]>>;
     readonly now: string;
 }): readonly LibrarianEligibility[] {
     const { facts, world, visit, request } = input;
@@ -53,6 +79,20 @@ export function librarianGlobalEligibility(input: {
     const profileRow = world.facts.find(r => r.key === "experience.profile" && r.trust === "VERIFIED"
         && r.freshness === "CURRENT" && r.authorizedUseCases?.includes("HARD_CONSTRAINTS"));
     if (input.profile && profileRow) for (const offer of input.profile.offers.filter(o => input.offerIds.includes(o.id))) {
+        const occasions = offerOccasions(offer);
+        if (occasions.length) {
+            const subjects = input.offerSubjects[offer.id] ?? [];
+            const relevant = facts.filter(f => ["experience.occasion", "experience.activity", "offer.kind"].includes(f.key) && f.value.kind === "TEXT"
+                && (!f.subjectIds.some(id => request.entities.some(e => e.id === id && ["ACTIVITY", "OFFER", "AREA"].includes(e.kind)))
+                    || f.subjectIds.some(id => subjects.includes(id))));
+            const sameOccasion = (f: LibrarianFact, occasion: OfferOccasion) => f.value.kind === "TEXT" && (occasionsIn(f.value.text).includes(occasion)
+                || occasion === "PRIVATE" && (occasionsIn(f.value.text).length > 0 || librarianConcept(f.value.text) === "party"));
+            const remaining = occasions.filter(occasion => !relevant.some(f => f.modality === "EXCLUDED" && sameOccasion(f, occasion)));
+            if (!remaining.length)
+                results.push({state:"FAILED",reason:"OFFER_OCCASION_EXCLUDED",hashes:[profileRow.entryHash],offerIds:[offer.id]});
+            else if (!remaining.some(occasion => relevant.some(f => ["REQUIRED", "CONTEXT"].includes(f.modality) && sameOccasion(f, occasion))))
+                results.push({state:"UNKNOWN",reason:"OFFER_OCCASION_CONTEXT_NOT_PROVEN",hashes:[profileRow.entryHash],offerIds:[offer.id]});
+        }
         if(offer.properties.some(p=>p.key==="stay.minimum_booking_age" && p.state==="KNOWN" && typeof p.value==="number" && librarianConditions(p.conditions,visit)==="MET"))
             results.push({state:"UNKNOWN",reason:"BOOKING_PERSON_AGE_NOT_VERIFIED",hashes:[profileRow.entryHash],offerIds:[offer.id]});
         const audience = offer.properties.filter(p=>p.key==="participation.audience" && p.state==="KNOWN"
