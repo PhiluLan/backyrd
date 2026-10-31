@@ -385,3 +385,76 @@ Reports distinguish `REAL_SERVER_PREVIEW_MODEL_CALL`, `REAL_MODEL_CALL`, and
 `INJECTED_PROVIDER_TEST`. Historical meaning replays and manually amended meaning
 are not proof of current prompt behavior. Record model output, exclusions,
 ranking, timing, usage and catalog provenance separately from fixture tests.
+
+### Independent fit, eligibility and proof obligations (matching 30)
+
+The canonical evaluator now uses `backyrd.librarian-proof-policy@1` and evaluation
+plan version 2. Every candidate carries a hashed decision proof, with separate
+experience, semantic criteria, additional requirements, availability and access
+verdicts. Each entry records the original user-plan or visit-check origin,
+modality, inference basis, participant/activity scope, selected offers/areas,
+blocking status, exact reason and evidence hashes. The matcher uses this ledger
+to determine failed and unknown duties; the Product projection independently
+checks that every required/excluded duty is MET before ranking. Personal taste
+cannot repair a failed or unknown duty.
+
+Participant age is context for applying documented rules. An absent restriction
+record, including an empty UNKNOWN minimum-age authoring field, does not create
+a new mandatory demand to prove unrestricted admission. It produces an honest
+non-confirmed notice, never an assertion of age suitability or unrestricted
+entry. A documented minimum age, unresolved condition on that restriction,
+members/guest-only access, or a specific user request for suitability still
+requires evidence. A known positive minimum with no participant ages remains
+unresolved. Adult accompaniment satisfies only an accompaniment rule, never a
+general minimum age.
+
+Known participant ages are checked against the actual identified party; an
+otherwise sufficient party does not need an invented exact headcount form.
+Unnamed ages for explicitly mentioned participants remain unresolved. If a
+documented conditional restriction would be satisfied whether it applies or
+not, uncertainty about its trigger creates no additional failure. Generated
+mandatory entry checks require non-empty source evidence in their TypeScript
+contract. Positive context checks do not purchase extra World ranking votes.
+
+A facility used as the visit itself needs scoped activity evidence. An amenity
+flag alone can qualify another requested experience but cannot turn its meal
+into a playground visit. Catalogued visit areas or the specific facility together
+with an actual compatible play/children offering provide that evidence. Roles
+come from active typed activity scopes and the shared area catalogue, not query
+text, venue names or candidate-specific exceptions. No indoor/outdoor preference
+is invented when the request does not contain one.
+
+Availability remains independent of semantic fit: a dated matching experience
+with missing opening hours has confirmed experience coverage, unknown actual
+availability, an unconfirmed tier and no rank. It is not labelled closed or
+semantically irrelevant, nor silently promoted to an open recommendation. A
+known venue closure, offer validity/weekday/time restriction or kitchen closure
+is evaluated before returning an unrelated missing timetable. Opening hours
+still inherit only under the existing explicit fallback policy.
+
+Conditional weather plans retain separate branch proofs. An unresolved external
+condition cannot combine mutually exclusive activities into an AND, and a
+failure in only one possible branch is not universal rejection. No forecast
+provider has been added.
+
+Use `run-local-diagnostic.mjs --recorded <original-report>` instead of
+`--server-env` for a controlled software comparison. It validates the source
+query, reference time and original meaning hash, retains the full raw plan,
+makes zero model calls and labels output `RECORDED_MEANING_REPLAY`. The report
+includes both original and current catalogue provenance; a replay does not
+certify a new model interpretation. When the prompt configuration changed, the
+original hashed record is verified first and its unchanged raw meaning is bound
+to the current evaluator configuration; both provenance values are retained.
+Prefer an unchanged catalogue when measuring
+software effects, and fresh real model runs to evaluate understanding.
+
+The cross-category acceptance suite is `librarian-proof-policy.test.mjs`. It
+checks added age/date context across meals, museums, play and parks; supporting
+facilities; missing vs documented age restrictions; preserved prohibitions;
+unknown schedules vs known closure; active alternatives and weather branches.
+The historical child-entry tests intentionally changed: they had encoded the
+invented universal duty as expected behavior. The event minimum-age case now
+requires participant evidence instead of silently admitting an unknown age.
+No production spot data, schema or consumer deployment accompanies this change.
+Mobile and Web explicitly render the deterministic age-documentation notice and
+own-consumption exceptions, including for otherwise confirmed candidates.

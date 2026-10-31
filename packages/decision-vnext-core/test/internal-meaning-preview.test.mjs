@@ -43,9 +43,21 @@ test('local full chain reuses canonical evaluation and clearly labels injected p
  const r=await runLocalDiagnostic({query,catalog:[binding(1,p)],apiKey:'provider-secret',fetchImpl:async()=>providerResponse()});
  assert.equal(r.providerMode,'INJECTED_PROVIDER_TEST');assert.equal(r.modelCalls,1);
  assert.equal(r.meaning.configuration.promptRevision,'backyrd.luna-prompt@15');
- assert.equal(r.runtime.matchingVersion,'backyrd.decision-vnext.librarian-matching@29');
+ assert.equal(r.runtime.matchingVersion,'backyrd.decision-vnext.librarian-matching@30');
  assert.equal(r.response.candidates.filter(c=>c.rank!==null).length,1);
  assert.equal(r.boundaries.productionDataChanged,false);
  assert.ok(!JSON.stringify(r).includes('provider-secret'));
  await assert.rejects(runLocalDiagnostic({query,catalog:[binding(1,p)],serverMeaning:{contractVersion:'backyrd.internal-meaning-preview@1',query,codeIdentity:{coreBundleHash:'b'.repeat(64)}}}),/local_server_preview_code_mismatch/);
+});
+test('recorded meaning replays are hash-bound, make no provider call and never claim a new model result',async()=>{
+ const source=await runLocalDiagnostic({query,catalog:[binding(1,profile())],apiKey:'synthetic',fetchImpl:async()=>providerResponse()});
+ // Synthetic source for this unit test only. The replay boundary also refuses
+ // records explicitly labelled injected; it cannot certify a historical file.
+ await assert.rejects(runLocalDiagnostic({query,catalog:[binding(1,profile())],recordedMeaning:source}),/local_recorded_meaning_invalid/);
+ const historical={...source,providerMode:'REAL_MODEL_CALL'};
+ const replay=await runLocalDiagnostic({query,catalog:[binding(1,profile())],recordedMeaning:historical,fetchImpl:()=>{throw Error('must not call provider');}});
+ assert.equal(replay.providerMode,'RECORDED_MEANING_REPLAY');assert.equal(replay.modelCalls,0);assert.equal(replay.usage,null);
+ assert.equal(replay.meaning.requestHash,source.meaning.requestHash);assert.equal(replay.reference.now,source.reference.now);
+ await assert.rejects(runLocalDiagnostic({query:query+' anders',catalog:[binding(1,profile())],recordedMeaning:historical}),/local_recorded_meaning_invalid/);
+ await assert.rejects(runLocalDiagnostic({query,catalog:[binding(1,profile())],recordedMeaning:{...historical,meaning:{...historical.meaning,requestHash:'0'.repeat(64)}}}),/local_recorded_meaning_mismatch/);
 });

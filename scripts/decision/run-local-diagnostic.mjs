@@ -10,8 +10,9 @@ const root=fileURLToPath(new URL('../../',import.meta.url));
 /** Internal developer execution using the canonical provider, evaluation and
  * ranking. The catalog is an exported reader snapshot, not a synthetic fixture.
  * There is no production write, learning port or browser-visible provider key. */
-export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,serverMeaning,now=new Date()}){
- if(!serverMeaning&&(typeof apiKey!=='string'||!apiKey.trim()))throw Error('local_openai_key_missing');
+export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,serverMeaning,recordedMeaning,now=new Date()}){
+ if(serverMeaning&&recordedMeaning)throw Error('local_meaning_sources_conflict');
+ if(!serverMeaning&&!recordedMeaning&&(typeof apiKey!=='string'||!apiKey.trim()))throw Error('local_openai_key_missing');
  if(typeof query!=='string'||!query.trim()||query.length>2000)throw Error('local_query_invalid');
  if(!Array.isArray(catalog)||!catalog.length||catalog.length>1000)throw Error('local_catalog_invalid');
  if(events!==undefined&&!Array.isArray(events))throw Error('local_events_invalid');
@@ -30,7 +31,15 @@ export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,
  const identity={releaseHash:contentHash('LOCAL_NOT_RELEASED'),artifactHash:contentHash({local:true}),sourceSetHash:contentHash(LIBRARIAN_MATCHING_VERSION),controlGeneration:1};
  let usage=null;let modelCalls=0;let search=null;
  let meaning;let signal=AbortSignal.timeout(30000);let modelMs;
- if(serverMeaning){
+ if(recordedMeaning){
+  if(recordedMeaning.contractVersion!=='backyrd.local-decision-diagnostic@1'||!['REAL_SERVER_PREVIEW_MODEL_CALL','REAL_MODEL_CALL'].includes(recordedMeaning.providerMode)||recordedMeaning.modelCalls!==1||recordedMeaning.query!==query)throw Error('local_recorded_meaning_invalid');
+  const {prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION}=await import('../../packages/decision-vnext-core/dist/product-luna-librarian.js');
+  const {requestHash:originalHash,...originalBody}=recordedMeaning.meaning;
+  if(contentHash(originalBody)!==originalHash||originalBody.source.sourceText!==query||contentHash(originalBody.source.reference)!==contentHash(recordedMeaning.reference))throw Error('local_recorded_meaning_mismatch');
+  meaning=prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,sourceText:query,reference:recordedMeaning.reference,output:recordedMeaning.meaning.raw});
+  if(contentHash(meaning.raw)!==contentHash(recordedMeaning.meaning.raw))throw Error('local_recorded_meaning_mismatch');
+  reference.now=recordedMeaning.reference.now;modelMs=0;
+ }else if(serverMeaning){
   const {prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION}=await import('../../packages/decision-vnext-core/dist/product-luna-librarian.js');
   if(serverMeaning.contractVersion!=='backyrd.internal-meaning-preview@1'||serverMeaning.query!==query||serverMeaning.codeIdentity?.coreBundleHash!==await internalRuntimeHash())throw Error('local_server_preview_code_mismatch');
   meaning=prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,sourceText:query,reference:serverMeaning.reference,output:serverMeaning.meaning.raw});
@@ -59,13 +68,14 @@ export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,
  const execution=buildDecisionProductExecution({request,actor,...evaluated});
  const rankingMs=performance.now()-rankingStarted;
  if(!search)throw Error('local_search_trace_missing');
- return {contractVersion:'backyrd.local-decision-diagnostic@1',query,reference,providerMode:serverMeaning?'REAL_SERVER_PREVIEW_MODEL_CALL':fetchImpl?'INJECTED_PROVIDER_TEST':'REAL_MODEL_CALL',modelCalls,meaning,search,response:execution.response,usage,timings:{modelMs,evaluationMs,rankingMs,totalMs:modelMs+evaluationMs+rankingMs},runtime:{matchingVersion:LIBRARIAN_MATCHING_VERSION,source:'LOCAL_CURRENT_BUILD',profiles:catalog.length,events:events?.length??0},boundaries:{productionExecution:false,productionDataChanged:false,decisionPersisted:false,learningPersisted:false,personalization:'NEUTRAL_LOCAL_TEST_IDENTITY',catalogScope:events===undefined?'SPOTS_ONLY':'SPOTS_AND_EVENTS',catalogHash:contentHash(catalog)}};
+ return {contractVersion:'backyrd.local-decision-diagnostic@1',query,reference,providerMode:recordedMeaning?'RECORDED_MEANING_REPLAY':serverMeaning?'REAL_SERVER_PREVIEW_MODEL_CALL':fetchImpl?'INJECTED_PROVIDER_TEST':'REAL_MODEL_CALL',modelCalls,...(recordedMeaning?{replaySource:{requestHash:recordedMeaning.meaning.requestHash,rawMeaningHash:contentHash(recordedMeaning.meaning.raw),promptRevision:recordedMeaning.meaning.configuration.promptRevision,matchingVersion:recordedMeaning.runtime.matchingVersion,catalogHash:recordedMeaning.boundaries.catalogHash}}:{}),meaning,search,response:execution.response,usage,timings:{modelMs,evaluationMs,rankingMs,totalMs:modelMs+evaluationMs+rankingMs},runtime:{matchingVersion:LIBRARIAN_MATCHING_VERSION,source:'LOCAL_CURRENT_BUILD',profiles:catalog.length,events:events?.length??0},boundaries:{productionExecution:false,productionDataChanged:false,decisionPersisted:false,learningPersisted:false,personalization:'NEUTRAL_LOCAL_TEST_IDENTITY',catalogScope:events===undefined?'SPOTS_ONLY':'SPOTS_AND_EVENTS',catalogHash:contentHash(catalog)}};
 }
 
 async function main(){
  const args=process.argv.slice(2);const options={};
- for(let i=0;i<args.length;i+=2){if(!['--query','--catalog','--events','--output','--server-env'].includes(args[i])||!args[i+1])throw Error('local_arguments_invalid');options[args[i]]=args[i+1];}
- if(!options['--server-env']&&!process.env.OPENAI_API_KEY)throw Error('local_openai_key_missing');
+ for(let i=0;i<args.length;i+=2){if(!['--query','--catalog','--events','--output','--server-env','--recorded'].includes(args[i])||!args[i+1])throw Error('local_arguments_invalid');options[args[i]]=args[i+1];}
+ if(options['--recorded']&&options['--server-env'])throw Error('local_meaning_sources_conflict');
+ if(!options['--server-env']&&!options['--recorded']&&!process.env.OPENAI_API_KEY)throw Error('local_openai_key_missing');
  if(!options['--output'])throw Error('local_output_required');
  const catalog=JSON.parse(await readFile(resolve(options['--catalog']??''),'utf8'));
  const events=options['--events']?JSON.parse(await readFile(resolve(options['--events']),'utf8')):undefined;
@@ -80,7 +90,8 @@ async function main(){
   if(!response.ok)throw Error('local_server_preview_unavailable');
   serverMeaning=await response.json();
  }
- const report=await runLocalDiagnostic({query:options['--query'],catalog,events,apiKey:process.env.OPENAI_API_KEY,serverMeaning});
+ const recordedMeaning=options['--recorded']?JSON.parse(await readFile(resolve(options['--recorded']),'utf8')):undefined;
+ const report=await runLocalDiagnostic({query:options['--query'],catalog,events,apiKey:process.env.OPENAI_API_KEY,serverMeaning,recordedMeaning});
  report.runtime.codeHeadSha=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
  report.runtime.workingTreeDirty=execFileSync('git',['status','--porcelain'],{cwd:root,encoding:'utf8'}).trim().length>0;
  await writeFile(resolve(options['--output']),JSON.stringify(report,null,2));

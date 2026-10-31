@@ -111,3 +111,10 @@ test("an event card shows its real date and venue without a Spot-hours claim", (
  assert.match(wohinRecommendation(candidate),/Vielleicht/);
  assert.doesNotMatch(wohinRecommendation(candidate),/geöffnet/);
 });
+
+test("non-blocking age uncertainty and consumption exceptions remain visible on confirmed results", () => {
+ const age="Die konkrete Alterseignung ist hier nicht vollständig dokumentiert. Bekannte Alters- und Begleitregeln werden berücksichtigt.";
+ const food="Eigene Speisen: Nicht in den Restaurants.";
+ const candidate={coreIntentCoverage:"CONFIRMED",unknownHardConstraints:[],reasons:[{code:"librarian-age-rules-unconfirmed",domain:"LIMITATION",confirmed:false,statement:age},{code:"librarian-external-consumption-exceptions",domain:"LIMITATION",confirmed:false,statement:food}]};
+ assert.deepEqual(wohinConsiderations(candidate,false),[age,food]);
+});

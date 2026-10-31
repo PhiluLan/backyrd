@@ -160,12 +160,14 @@ test('known closure at the requested date is still an exclusion',async()=>{
  assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);assert.equal(r.body.candidates[0].tier,'INELIGIBLE');
 });
 
-test('unknown child admission remains unranked and documented age exclusion remains excluded',async()=>{
+test('absent child restriction is an honest notice while documented age exclusion remains excluded',async()=>{
  const child=profile([offer('visit','VISIT',['inside'],[prop('experience.activity','Tiere beobachten')])],[area()],'ZOO');
  const unknown=binding(820,child),barred=binding(821,child,[worldFact('rule.age_access',{policy:'MINIMUM_AGE',minimumAge:18,appliesFromTime:null})]);
  const r=await exercise({text:'Tiere beobachten mit vierjährigem Kind',meaning:plan([fact('animals','experience.activity','Tiere beobachten'),fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p2'])]),catalog:[unknown,barred]});
- assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);
- assert.equal(r.body.candidates.find(c=>c.spotId===unknown.decisionProjection.spotId).tier,'UNCONFIRMED_FALLBACK');
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,unknown.decisionProjection.spotId);
+ const admitted=r.body.candidates.find(c=>c.spotId===unknown.decisionProjection.spotId);
+ assert.equal(admitted.tier,'ELIGIBLE_CONFIRMED');
+ assert.ok(admitted.reasons.some(reason=>!reason.confirmed&&reason.statement.includes('Alterseignung ist hier nicht vollständig dokumentiert')));
  assert.equal(r.body.candidates.find(c=>c.spotId===barred.decisionProjection.spotId).rank,null);
 });
 test('overlapping meal prices confirm budget without a price warning; known excess stays excluded',async()=>{

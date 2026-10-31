@@ -160,11 +160,6 @@ export function librarianVenueAvailability(world: ProductWorldView, visit: Visit
     const temporal = [...world.operationalRules, ...world.currentStates].filter(r => r.key.startsWith("hours.") || r.key === "state.current");
     if (temporal.some(r => !r.authorizedUseCases?.includes("OPENING_HOURS_ELIGIBILITY")))
         return { intervals: [], state: "UNKNOWN", hashes: [], reason: "OPENING_NOT_AUTHORIZED" };
-    const venue = evaluateOpeningDay(world, day, { version: ACCEPTED_SOURCE_POLICY.policyVersion, configured: true, authorizedTrustStates: ["VERIFIED"] });
-    if (venue.status === "closed")
-        return { intervals: [], state: "FAILED", hashes: venue.basisEntryHashes, reason: "VENUE_CLOSED" };
-    if (venue.status !== "open")
-        return { intervals: [], state: "UNKNOWN", hashes: venue.basisEntryHashes, reason: "VENUE_HOURS_UNKNOWN" };
     const current = world.currentStates.find(r => r.key === "state.current");
     if (current && current.value && typeof current.value === "object" && !Array.isArray(current.value) && "scope" in current.value && "kind" in current.value) {
         const s = current.value as {
@@ -179,6 +174,11 @@ export function librarianVenueAvailability(world: ProductWorldView, visit: Visit
                 return { intervals: [], state: "UNKNOWN", hashes: [current.entryHash], reason: "CLOSURE_TIME_BOUNDARY_UNRESOLVED" };
         }
     }
+    const venue = evaluateOpeningDay(world, day, { version: ACCEPTED_SOURCE_POLICY.policyVersion, configured: true, authorizedTrustStates: ["VERIFIED"] });
+    if (venue.status === "closed")
+        return { intervals: [], state: "FAILED", hashes: venue.basisEntryHashes, reason: "VENUE_CLOSED" };
+    if (venue.status !== "open")
+        return { intervals: [], state: "UNKNOWN", hashes: venue.basisEntryHashes, reason: "VENUE_HOURS_UNKNOWN" };
     const intervals = venue.intervals.map(s => [minute(s.start), minute(s.end) <= minute(s.start) ? 1440 : minute(s.end)] as const);
     const compatible = intervals.some(([start, end]) => { const from = Math.max(start, visit.start), to = Math.min(end, visit.end); return visit.exact ? from <= visit.start && visit.end <= to && !visit.excludedMinutes.includes(visit.start) : from < to && to - from > visit.excludedMinutes.filter(n => from <= n && n < to).length; });
     return { intervals, state: compatible ? "MET" : "FAILED", hashes: venue.basisEntryHashes, reason: compatible ? "VENUE_OPEN_AT_REQUESTED_TIME" : "VENUE_NOT_OPEN_AT_REQUESTED_TIME" };
@@ -203,16 +203,24 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
     const day = visit.dates[0];
     if (visit.complete && day && (offer.validFrom && day < offer.validFrom || offer.validUntil && day > offer.validUntil))
         return { state: "FAILED", hashes: [contentHash({ offerId: offer.id, validFrom: offer.validFrom, validUntil: offer.validUntil })], reason: "OFFER_OUTSIDE_VALIDITY" };
-    const venue = librarianVenueAvailability(world, visit);
-    if (venue.state !== "MET") return venue;
-    if (!day) return { state: "UNKNOWN", hashes: venue.hashes, reason: "VISIT_DATE_UNKNOWN" };
     // Structured activity conditions are independent restrictions even when the
     // schedule array is empty. Venue hours cannot erase a Sunday-only offering.
     const activities = offer.properties.filter(p => p.key === "experience.activity" && p.state === "KNOWN");
     if (activities.length && activities.every(p => librarianConditions({...p.conditions, event: null}, visit) === "FAILED"))
-        return {state: "FAILED", hashes: [...venue.hashes, contentHash(activities)], reason: "OFFER_ACTIVITY_OUTSIDE_CONDITIONS"};
+        return {state: "FAILED", hashes: [contentHash(activities)], reason: "OFFER_ACTIVITY_OUTSIDE_CONDITIONS"};
     const inherited = offer.schedule.length === 0;
-    const today = offer.schedule.filter(s => s.weekday === visitWeekday(day));
+    const today = day ? offer.schedule.filter(s => s.weekday === visitWeekday(day)) : [];
+    // Evaluate documented contradictions before returning an unrelated missing
+    // timetable. Unknown venue hours cannot hide an offer's actual time limit.
+    if (visit.complete && day && today.length && !today.some(slot => {
+        const start = minute(slot.start), end = minute(slot.end) <= start ? 1440 : minute(slot.end);
+        return visit.exact ? start <= visit.start && visit.end <= end : Math.max(start, visit.start) < Math.min(end, visit.end);
+    })) return {state: "FAILED", hashes: [contentHash({offerId: offer.id, schedule: today})], reason: "OFFER_NOT_AVAILABLE_AT_REQUESTED_TIME"};
+    const kitchen = (OFFER_CONCEPTS[offer.kind] ?? []).includes("meal") ? librarianKitchenAvailability(world, visit) : null;
+    if (kitchen?.state === "FAILED") return kitchen;
+    const venue = librarianVenueAvailability(world, visit);
+    if (venue.state !== "MET") return venue;
+    if (!day) return { state: "UNKNOWN", hashes: venue.hashes, reason: "VISIT_DATE_UNKNOWN" };
     // Only an absent calendar inherits. An existing offer calendar must not be
     // extended to an unlisted weekday by the venue's more permissive hours.
     if (!inherited && !today.length)
@@ -229,8 +237,7 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
     let venueIntervals = venue.intervals;
     let kitchenHashes: readonly string[] = [];
     if ((OFFER_CONCEPTS[offer.kind] ?? []).includes("meal")) {
-        const kitchen = librarianKitchenAvailability(world, visit);
-        if (kitchen.state !== "MET") return kitchen;
+        if (!kitchen || kitchen.state !== "MET") return kitchen ?? {state:"UNKNOWN", hashes:[], reason:"KITCHEN_HOURS_UNKNOWN"};
         kitchenHashes = kitchen.hashes;
         venueIntervals = venueIntervals.flatMap(v => kitchen.intervals.flatMap(k => {
             const from = Math.max(v[0], k[0]), to = Math.min(v[1], k[1]);

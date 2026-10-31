@@ -155,7 +155,10 @@ test('zero price remains bound to the requested event activity and published occ
  const facts=[fact('ping','experience.activity','Pingpong spielen'),gratis()];
  assert.equal(run(facts,{...tableTennis,occurrenceStatus:'CANCELLED'}).result.ranked.length,0);
  assert.equal(run([...facts,date('2026-10-16')],tableTennis).result.ranked.length,0);
- assert.equal(run(facts,{...tableTennis,minimumAge:18}).result.ranked.length,1);
+ const restricted=run(facts,{...tableTennis,minimumAge:18}).result;
+ assert.equal(restricted.ranked.length,0);
+ assert.ok(restricted.unresolved[0].facts.some(f=>f.reason==='PARTICIPANT_AGE_NOT_PROVEN'));
+ assert.equal(run([...facts,fact('adult','people.age',{amount:25,operator:'EQ',unit:'YEARS'},'CONTEXT',['p1'])],{...tableTennis,minimumAge:18}).result.ranked.length,1);
 });
 test('free entry does not silently satisfy a separately specified cost component',()=>{
  const r=run([fact('ping','experience.activity','Pingpong'),gratis(),fact('coverage','budget.coverage','equipment rental','CONTEXT',[])],tableTennis).result;

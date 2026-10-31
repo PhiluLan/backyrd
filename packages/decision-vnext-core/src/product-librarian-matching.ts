@@ -1,12 +1,12 @@
 import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
-import { compileLibrarianPlan, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
+import { compileLibrarianPlan, librarianDecisionProof, combineLibrarianDecisionProof, librarianFacilityIsVisit, librarianFacilityVisitAreaKinds, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
 import { bookingEvidence, externalConsumptionEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
 import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept, librarianMealExtentConcept } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
-import { experienceBookingMode, spotTypeSupports, experienceActivitySupports, declaredExperienceConcepts, parseExperienceProfile, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
+import { experienceBookingMode, spotTypeSupports, experienceActivitySupports, declaredExperienceConcepts, parseExperienceProfile, hasOfferModule, type ExperienceProfile, type ExperienceProperty, type ExperienceOffer, type ExperiencePrice } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianFact, type LibrarianRequest, type LunaExpression } from "./product-luna-librarian.js";
 import { parseProductWorldResolverBinding, type ProductWorldView } from "./product-world-resolver-binding.js";
@@ -58,6 +58,7 @@ export type LibrarianCandidate = {
         readonly offerIds: readonly string[];
         readonly areaIds: readonly string[];
     }[];
+    readonly decisionProof: ReturnType<typeof librarianDecisionProof>;
 };
 export type LibrarianSearchResult = {
     readonly contractVersion: typeof LIBRARIAN_MATCHING_VERSION;
@@ -444,6 +445,14 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             }
             if (property.state === "KNOWN") knownValueChecks++; else unknownValueChecks++;
             const translated = semantics?.resolve(fact, property);
+            // An amenity flag establishes presence, not a dedicated visit.
+            // Supporting facilities can still qualify a restaurant/museum;
+            // when the facility itself is the visit it needs actual scoped
+            // experience evidence (an authored activity or a catalogued area).
+            if (typeof property.value === "boolean" && property.value === true && BOOLEAN_CONCEPTS[property.key]
+                && librarianFacilityIsVisit(request, fact, request.facts)
+                && !(areaScoped && !offer && profile.areas.some(a => a.id === areaId && librarianFacilityVisitAreaKinds(fact).includes(a.kind)))
+                && !(offer && ["movement", "children"].some(module => hasOfferModule(offer.kind, module)))) continue;
             const offeredActivity = typeof property.value === "string" ? librarianConcept(property.value) : null;
             const derivedActivity = fact.key === "experience.activity" && property.key === "experience.activity"
                 && desired && offeredActivity && desired !== offeredActivity && experienceActivitySupports(offeredActivity, desired);
@@ -786,13 +795,13 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         const offerSubjects = Object.fromEntries(state.offerIds.map(id => [id, sorted(selected.filter(f =>
             next.some(r => r.factId === f.id && r.state === "MET" && r.offerIds.includes(id))).flatMap(f => f.subjectIds))]));
         for (const gate of librarianGlobalEligibility({ request, facts: selected, world, visit, profile, offerIds: state.offerIds, offerParticipants, offerSubjects, areaIds: state.areaIds, now }))
-            next.push({ factId: `eligibility:${gate.reason}`, family: "eligibility", modality: "REQUIRED", state: gate.state, reason: gate.reason, evidenceHashes: gate.hashes, offerIds: gate.offerIds ?? state.offerIds, areaIds: state.areaIds });
+            next.push({ factId: `eligibility:${gate.reason}`, family: "eligibility", modality: gate.modality ?? "REQUIRED", state: gate.state, reason: gate.reason, evidenceHashes: gate.hashes, offerIds: gate.offerIds ?? state.offerIds, areaIds: state.areaIds });
         const active = request.bindings.filter(b => b.factIds.every(id => scenario.ids.includes(id)));
         for (const b of active)
             if (b.kind !== "SAME_PLACE")
                 next.push({ factId: `binding:${contentHash(b).slice(0, 12)}`, family: "binding", modality: "REQUIRED", state: "UNKNOWN", reason: b.kind === "SEQUENCE" ? "MULTI_VISIT_SEQUENCE_NOT_SUPPORTED" : "SIMULTANEOUS_CAPACITY_NOT_PROVEN", evidenceHashes: [], offerIds: state.offerIds, areaIds: state.areaIds });
-        const hard = next.filter(r => r.modality === "REQUIRED" || r.modality === "EXCLUDED");
-        const failures = hard.filter(r => r.state === "FAILED"), unknown = hard.filter(r => r.state === "UNKNOWN");
+        const proof = librarianDecisionProof(request, next, selected.map(f => f.id));
+        const failures = next.filter(r => proof.failedFactIds.includes(r.factId)), unknown = next.filter(r => proof.unknownFactIds.includes(r.factId));
         const preferenceMatches = next.filter(r => r.modality === "PREFERRED" && r.state === "MET" && (!allAtoms.find(a => a.report.factId === r.factId)?.witnesses.length || allAtoms.find(a => a.report.factId === r.factId)!.witnesses.some(w => join(state, w) !== null))).map(r => r.factId);
         return { state, next, failures, unknown, preferences: preferenceMatches, tieBreaker: contentHash(state) };
     }).sort((a, b) => a.failures.length - b.failures.length || a.unknown.length - b.unknown.length || b.preferences.length - a.preferences.length || a.tieBreaker.localeCompare(b.tieBreaker));
@@ -800,11 +809,12 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         const diagnosis = r.state === "UNKNOWN" ? librarianDiagnosis(r.reason) : undefined;
         return diagnosis ? { ...r, diagnosis } : r;
     });
-    const failed = facts.filter(r => (r.modality === "REQUIRED" || r.modality === "EXCLUDED") && r.state === "FAILED").map(r => r.factId), unknown = facts.filter(r => (r.modality === "REQUIRED" || r.modality === "EXCLUDED") && r.state !== "MET" && r.state !== "FAILED").map(r => r.factId);
+    const decisionProof = librarianDecisionProof(request, facts, selected.map(f => f.id));
+    const failed = decisionProof.failedFactIds, unknown = decisionProof.unknownFactIds;
     const unresolved = request.diagnostics.filter(d => d.code !== "UNUSED_ENTITY" && (d.code === "CROSS_BRANCH_BINDING" ? d.relatedIds.every(id => scenario.ids.includes(id)) : d.relatedIds.some(id => scenario.ids.includes(id))));
-    const core = selected.some(f => !neutral(f) && !["PRICE", "TEMPORAL", "LOCATION"].includes(LIBRARIAN_FAMILY_STRATEGIES[f.key]));
+    const core = decisionProof.semanticFit === "SUPPORTED";
     const status = failed.length ? "INELIGIBLE" : unknown.length || limited || unresolved.length || !core || best?.state.uncertain ? "PARTIAL" : "CONFIRMED";
-    return { spotId: world.spot.spotId, name: world.spot.identity.name, status, facts, selectedFactIds: selected.map(f => f.id), inactiveFactIds: sorted([...request.facts, ...request.extensions].filter(f => !selected.some(s => s.id === f.id) && !scenario.ids.includes(f.id)).map(f => f.id)), matchedPreferences: sorted(best?.preferences ?? []), unknownFactIds: sorted(unknown), failedFactIds: sorted(failed), offerIds: best?.state.offerIds ?? [], areaIds: best?.state.areaIds ?? [], limitations: sorted([...(limited ? ["WITNESS_SEARCH_LIMIT"] : []), ...(!core ? ["NO_EXPERIENCE_REQUEST"] : []), ...unresolved.map(d => d.code)]), snapshotHash: world.snapshotHash, alternativeOrder: scenario.order, conditionalPlans: [] };
+    return { spotId: world.spot.spotId, name: world.spot.identity.name, status, facts, decisionProof, selectedFactIds: selected.map(f => f.id), inactiveFactIds: sorted([...request.facts, ...request.extensions].filter(f => !selected.some(s => s.id === f.id) && !scenario.ids.includes(f.id)).map(f => f.id)), matchedPreferences: sorted(best?.preferences ?? []), unknownFactIds: sorted(unknown), failedFactIds: sorted(failed), offerIds: best?.state.offerIds ?? [], areaIds: best?.state.areaIds ?? [], limitations: sorted([...(limited ? ["WITNESS_SEARCH_LIMIT"] : []), ...(!core ? ["NO_EXPERIENCE_REQUEST"] : []), ...unresolved.map(d => d.code)]), snapshotHash: world.snapshotHash, alternativeOrder: scenario.order, conditionalPlans: [] };
 }
 const compareCandidates = (a: Pick<LibrarianCandidate, "status" | "matchedPreferences" | "unknownFactIds" | "spotId">, b: Pick<LibrarianCandidate, "status" | "matchedPreferences" | "unknownFactIds" | "spotId">) => ({ CONFIRMED: 0, PARTIAL: 1, INELIGIBLE: 2 }[a.status] - { CONFIRMED: 0, PARTIAL: 1, INELIGIBLE: 2 }[b.status] || a.unknownFactIds.length - b.unknownFactIds.length || b.matchedPreferences.length - a.matchedPreferences.length || a.spotId.localeCompare(b.spotId));
 /** No input prose or spot descriptions are interpreted. Receives the frozen
@@ -844,7 +854,8 @@ function runLibrarianCatalogSearch(input: {
     const candidates: readonly LibrarianCandidate[] = worlds.map(world => {
         if (world.eventOccurrence && (!["PUBLISHED","SCHEDULED"].includes(world.eventOccurrence.eventStatus) || world.eventOccurrence.occurrenceStatus !== "SCHEDULED" || world.eventOccurrence.ticketStatus === "SOLD_OUT")) {
             const body = {spotId:world.spot.spotId,name:world.spot.identity.name,status:"INELIGIBLE" as const,facts:[],selectedFactIds:[],inactiveFactIds:[],matchedPreferences:[],unknownFactIds:[],failedFactIds:["EVENT_NOT_SCHEDULED"],offerIds:[],areaIds:[],limitations:["EVENT_NOT_SCHEDULED"],snapshotHash:world.snapshotHash,alternativeOrder:[],conditionalPlans:[]};
-            return {...body,candidateHash:contentHash(body)};
+            const assessed = {...body, decisionProof: librarianDecisionProof(request, body.facts, body.selectedFactIds)};
+            return {...assessed,candidateHash:contentHash(assessed)};
         }
         const dateFacts = request.facts.filter(f => f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED");
         const date = dateFacts.length === 1 && dateFacts[0]!.value.kind === "DATE" ? dateFacts[0]!.value.date : null;
@@ -862,7 +873,8 @@ function runLibrarianCatalogSearch(input: {
         }
         if (unknown.length > 6) {
             const body = { spotId: world.spot.spotId, name: world.spot.identity.name, status: "PARTIAL" as const, facts: [], selectedFactIds: [], inactiveFactIds: request.facts.map(f => f.id), matchedPreferences: [], unknownFactIds: request.facts.filter(f => !neutral(f)).map(f => f.id), failedFactIds: [], offerIds: [], areaIds: [], limitations: ["WEATHER_BRANCH_LIMIT"], snapshotHash: world.snapshotHash, alternativeOrder: [], conditionalPlans: [] };
-            return { ...body, candidateHash: contentHash(body) };
+            const assessed = {...body, decisionProof: librarianDecisionProof(request, body.facts, body.selectedFactIds)};
+            return { ...assessed, candidateHash: contentHash(assessed) };
         }
         const outcomes: Omit<LibrarianCandidate, "candidateHash">[] = [];
         const conditionsByOutcome: {
@@ -897,7 +909,8 @@ function runLibrarianCatalogSearch(input: {
             matchedPreferences: multiple ? common(outcomes.map(o => o.matchedPreferences)) : best.matchedPreferences,
             conditionalPlans: multiple ? outcomes.map((o, i) => ({ conditions: conditionsByOutcome[i]!, status: o.status, facts: o.facts, offerIds: o.offerIds, areaIds: o.areaIds })) : [],
             limitations: sorted([...outcomes.flatMap(o => o.limitations), ...(unknown.length && status !== "CONFIRMED" ? ["WEATHER_CONDITION_UNKNOWN"] : [])]) };
-        return { ...body, candidateHash: contentHash(body) };
+        const assessed = {...body, decisionProof: multiple ? combineLibrarianDecisionProof(outcomes.map(o => o.decisionProof), status === "CONFIRMED" ? [] : unknown) : best.decisionProof};
+        return { ...assessed, candidateHash: contentHash(assessed) };
     });
     const catalogHash = contentHash(worlds.map(w => ({ spotId: w.spot.spotId, snapshotHash: w.snapshotHash })).sort((a, b) => a.spotId.localeCompare(b.spotId)));
     const hasScenarioVisitEvidence = (facts: readonly LibrarianFactAssessment[]) => {

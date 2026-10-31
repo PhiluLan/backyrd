@@ -96,7 +96,12 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   const obligationsProven = candidate.conditionalPlans.length
     ? candidate.conditionalPlans.every(plan => plan.status === "CONFIRMED" && librarianMandatoryEvidenceSatisfied(plan.facts))
     : librarianMandatoryEvidenceSatisfied(candidate.facts);
-  const coverage = hasVisitEvidence && obligationsProven && !unknown.length && !failed.length ? "CONFIRMED" : "UNKNOWN";
+  // Semantic fit and visit readiness are independent. An unknown timetable
+  // does not erase a proven playground/meal/concert; it still blocks admission
+  // below and may never be represented as a confirmed opening or booking.
+  const experienceProven = (candidate.decisionProof.experience === "NOT_REQUESTED"
+    ? candidate.decisionProof.semanticFit : candidate.decisionProof.experience) === "SUPPORTED";
+  const coverage = experienceProven ? "CONFIRMED" : "UNKNOWN";
   const proofHashes = new Set(candidate.facts.flatMap(f => f.evidenceHashes));
   const core = { intentId: null, state: coverage, mappingIds: ["lossless-luna-plan"], worldFactKeys: world.facts.filter(f => proofHashes.has(f.entryHash)).map(f => f.key).slice(0,20), evidenceSourceHash: candidate.candidateHash };
   const contextual = (state: "CONFIRMED" | "NOT_APPLICABLE") => ({ state, mappingIds: [], evidenceSourceHash: candidate.candidateHash });
@@ -111,11 +116,12 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   };
   const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state)).slice(0, 50).map(f => {
     const proven = f.state === "MET";
+    const ageNotice = ["CHILD_ENTRY_RULE_NOT_DOCUMENTED", "OFFER_MINIMUM_AGE_NOT_DOCUMENTED"].includes(f.reason);
     const label = familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
-    return { reasonCode: proven ? `LBR_EVIDENCE:${semanticKey(f.factId)}` : factCode(f), domain: f.reason === "ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED" ? "CONTEXT" : proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
-      statementDe: f.reason === "ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED" ? "Die nötige erwachsene Begleitung wird aus deinem Besuchskontext berücksichtigt." : f.reason === "REQUIRED_ADULT_ACCOMPANIMENT_EXPLICITLY_ABSENT" ? "Für das genannte Kinderalter ist erwachsene Begleitung erforderlich; die Kinder sollen aber allein teilnehmen." : f.reason === "OFFER_OCCASION_CONTEXT_NOT_PROVEN" ? "Dieses Angebot ist für einen besonderen Anlass vorgesehen. Dass dieser Anlass zu deiner Suche passt, ist nicht bestätigt." : f.reason === "OFFER_OCCASION_EXCLUDED" ? "Dieses Angebot gehört zu einem Anlass, den du ausgeschlossen hast." : proven ? f.reason === "BOOKING_RECOMMENDED_NOT_MANDATORY" ? "Eine Reservation ist empfohlen, aber nicht vorgeschrieben. Freie Plätze sind nicht bestätigt." : f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : f.diagnosis === "UNSUPPORTED_REQUIREMENT" ? `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.` : f.diagnosis === "REQUEST_NEEDS_CLARIFICATION" ? "Welches Budget pro Person passt für dich?" : `Noch nicht bestätigt: ${label}.`,
+    return { reasonCode: ageNotice ? "librarian-age-rules-unconfirmed" : proven ? `LBR_EVIDENCE:${semanticKey(f.factId)}` : factCode(f), domain: proven && f.family === "eligibility" ? "CONTEXT" : proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
+      statementDe: f.reason === "PARTICIPANT_AGES_MEET_VERIFIED_MINIMUM" ? "Die hinterlegte Altersgrenze wird von den berücksichtigten Personen erfüllt." : ageNotice ? "Die konkrete Alterseignung ist hier nicht vollständig dokumentiert. Bekannte Alters- und Begleitregeln werden berücksichtigt." : f.reason === "ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED" ? "Die nötige erwachsene Begleitung wird aus deinem Besuchskontext berücksichtigt." : f.reason === "REQUIRED_ADULT_ACCOMPANIMENT_EXPLICITLY_ABSENT" ? "Für das genannte Kinderalter ist erwachsene Begleitung erforderlich; die Kinder sollen aber allein teilnehmen." : f.reason === "OFFER_OCCASION_CONTEXT_NOT_PROVEN" ? "Dieses Angebot ist für einen besonderen Anlass vorgesehen. Dass dieser Anlass zu deiner Suche passt, ist nicht bestätigt." : f.reason === "OFFER_OCCASION_EXCLUDED" ? "Dieses Angebot gehört zu einem Anlass, den du ausgeschlossen hast." : proven ? f.reason === "BOOKING_RECOMMENDED_NOT_MANDATORY" ? "Eine Reservation ist empfohlen, aber nicht vorgeschrieben. Freie Plätze sind nicht bestätigt." : f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : f.diagnosis === "UNSUPPORTED_REQUIREMENT" ? `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.` : f.diagnosis === "REQUEST_NEEDS_CLARIFICATION" ? "Welches Budget pro Person passt für dich?" : `Noch nicht bestätigt: ${label}.`,
       confirmed: proven };
-  });
+  }).filter((reason, index, rows) => reason.reasonCode !== "librarian-age-rules-unconfirmed" || rows.findIndex(row => row.reasonCode === reason.reasonCode) === index);
   if (candidate.facts.some(f => f.reason === "DOCUMENTED_WHEELCHAIR_ACCESS_DETAILS")) {
     const labels: Readonly<Record<string, string>> = {
       "accessibility.accessible_indoor": "Innenbereich", "accessibility.accessible_outdoor": "Aussenbereich",
@@ -166,7 +172,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     ...(event?.matchedSpotId ? {relatedSpotId:event.matchedSpotId}:{}),
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: candidate.spotId, snapshotHash: candidate.snapshotHash,
-    tier: rejected || failed.length ? "INELIGIBLE" : candidate.status === "CONFIRMED" && coverage === "CONFIRMED" ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK",
+    tier: rejected || failed.length ? "INELIGIBLE" : candidate.status === "CONFIRMED" && hasVisitEvidence && obligationsProven && coverage === "CONFIRMED" ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK",
     coreIntentCoverage: core, secondaryIntentCoverage: { ...core, state: "NOT_APPLICABLE" },
     worldClassification: { primaryVisitPurpose: null, primaryCategory: world.spot.classification.primaryCategory, placeTypes: world.spot.classification.placeTypes, evidenceSourceHash: world.snapshotHash },
     primaryVisitPurpose: contextual("NOT_APPLICABLE"), specificCoreClassification: { ...contextual("NOT_APPLICABLE"), state: coverage },

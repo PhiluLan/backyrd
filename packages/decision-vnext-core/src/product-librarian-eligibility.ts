@@ -6,9 +6,13 @@ import { contentHash } from "./canonical.js";
 export type LibrarianEligibility = {
     readonly state: MatchTruth;
     readonly reason: string;
-    readonly hashes: readonly string[];
     readonly offerIds?: readonly string[];
-};
+} & (
+    // A generated mandatory prerequisite must cite its actual source. Missing
+    // restriction documentation belongs to context, never an unsourced duty.
+    { readonly modality?: "REQUIRED"; readonly hashes: readonly [string, ...string[]] }
+    | { readonly modality: "CONTEXT"; readonly hashes: readonly string[] }
+);
 const weekdays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 // Offer prerequisites, not invented user requirements. Read explicit offer
 // captions and typed occasion facts, never the raw user query.
@@ -76,6 +80,12 @@ export function librarianGlobalEligibility(input: {
     const adultAccompaniment = !unaccompanied && (explicitAdult || familyCompanionship && !selfKnownMinor);
     const counts = facts.filter(f => f.key === "people.count" && !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.value.kind === "COUNT" && f.value.operator === "EQ");
     const count = counts.length === 1 && counts[0]!.value.kind === "COUNT" ? counts[0]!.value.amount : null;
+    const participantIds = [...new Set([...ageFacts.flatMap(f => f.subjectIds), ...facts.filter(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality))
+        .flatMap(f => f.subjectIds).filter(id => request.entities.some(e => e.id === id && e.kind === "PERSON")), ...activeGroups.flatMap(group => group.members)])];
+    const agesCoverKnownParticipants = (minimum: number) => minimum <= 0 || participantIds.length > 0
+        && (count === null || count === participantIds.length)
+        && participantIds.every(id => ageFacts.some(f => f.subjectIds.includes(id) && (range(f)?.[0] ?? -1) >= minimum)
+            || minimum <= 18 && adultAccompaniment && selfIds.includes(id));
     const capacity = world.facts.find(r => r.key === "capacity.group_size_supported" && r.trust === "VERIFIED" && r.freshness === "CURRENT");
     if (capacity && count !== null && typeof capacity.value === "object" && capacity.value !== null && "min" in capacity.value && "max" in capacity.value) {
         const c = capacity.value as {
@@ -103,13 +113,20 @@ export function librarianGlobalEligibility(input: {
             else if (!remaining.some(occasion => relevant.some(f => ["REQUIRED", "CONTEXT"].includes(f.modality) && sameOccasion(f, occasion))))
                 results.push({state:"UNKNOWN",reason:"OFFER_OCCASION_CONTEXT_NOT_PROVEN",hashes:[profileRow.entryHash],offerIds:[offer.id]});
         }
-        if(offer.properties.some(p=>p.key==="stay.minimum_booking_age" && p.state==="KNOWN" && typeof p.value==="number" && librarianConditions(p.conditions,visit)==="MET"))
+        if(offer.properties.some(p=>p.key==="stay.minimum_booking_age" && p.state==="KNOWN" && typeof p.value==="number" && p.value > 0 && librarianConditions(p.conditions,visit)!=="FAILED"))
             results.push({state:"UNKNOWN",reason:"BOOKING_PERSON_AGE_NOT_VERIFIED",hashes:[profileRow.entryHash],offerIds:[offer.id]});
         const audience = offer.properties.filter(p=>p.key==="participation.audience" && p.state==="KNOWN"
-            && librarianConditions(p.conditions,visit)==="MET");
+            && librarianConditions(p.conditions,visit)!=="FAILED");
         if(audience.some(p=>p.value==="Nur für Hotelgäste" || p.value==="Nur für Mitglieder"))
             results.push({state:"UNKNOWN",reason:"RESTRICTED_OFFER_ACCESS_NOT_PROVEN",hashes:[profileRow.entryHash],offerIds:[offer.id]});
 
+        const participantAges = ageFacts.filter(f => !input.offerParticipants[offer.id]?.length || input.offerParticipants[offer.id]!.includes(f.subjectIds[0]!));
+        if (participantAges.length && offer.properties.some(p => p.key === "participation.minimum_age" && p.state === "UNKNOWN"
+            && librarianConditions(p.conditions, visit) !== "FAILED"))
+            results.push({state:"UNKNOWN",modality:"CONTEXT",reason:"OFFER_MINIMUM_AGE_NOT_DOCUMENTED",hashes:[profileRow.entryHash],offerIds:[offer.id]});
+        if (offer.properties.some(p => p.key === "participation.minimum_age" && p.state === "KNOWN" && typeof p.value === "number"
+            && librarianConditions(p.conditions, visit) === "UNKNOWN"))
+            results.push({state:"UNKNOWN",reason:"OFFER_MINIMUM_AGE_CONDITIONS_UNRESOLVED",hashes:[profileRow.entryHash],offerIds:[offer.id]});
         const limits = offer.properties.filter(p => p.key === "participation.minimum_age" && p.state === "KNOWN"
             && typeof p.value === "number" && librarianConditions(p.conditions, visit) === "MET");
         const minimums = [...new Set(limits.map(p => p.value as number))];
@@ -119,6 +136,8 @@ export function librarianGlobalEligibility(input: {
         }
         if (!minimums.length) continue;
         const minimum = minimums[0]!;
+        if (minimum > 0 && !participantAges.length)
+            results.push({state:"UNKNOWN",reason:"PARTICIPANT_AGE_NOT_PROVEN",hashes:[profileRow.entryHash],offerIds:[offer.id]});
         const participants = input.offerParticipants[offer.id] ?? [];
         for (const fact of ageFacts.filter(f => !participants.length || participants.includes(f.subjectIds[0]!))) {
             const bounds = range(fact);
@@ -134,7 +153,7 @@ export function librarianGlobalEligibility(input: {
     if (!rows.length) {
         if (ageFacts.some(f => { const bounds = range(f); return bounds && bounds[1] < 18
             && (!input.offerIds.length || input.offerIds.some(id => (!(input.offerParticipants[id]?.length) || input.offerParticipants[id]!.includes(f.subjectIds[0]!)) && !scopedAgeCovered.has(`${id}:${f.id}`))); }))
-            results.push({ state: "UNKNOWN", reason: "CHILD_ENTRY_RULE_NOT_DOCUMENTED", hashes: [] });
+            results.push({ state: "UNKNOWN", modality: "CONTEXT", reason: "CHILD_ENTRY_RULE_NOT_DOCUMENTED", hashes: [] });
         return results;
     }
     for (const row of rows) {
@@ -187,8 +206,16 @@ export function librarianGlobalEligibility(input: {
             }
             if (rule.mode === "NO_MINIMUM")
                 continue;
-            if (applicability === "UNKNOWN" || rule.minimumAge === null) {
+            if (rule.minimumAge === null) {
                 results.push({ state: "UNKNOWN", reason: "ENTRY_RULE_CONDITIONS_UNRESOLVED", hashes: [row.entryHash] });
+                continue;
+            }
+            // A restriction is an implication: if it applies, every known
+            // participant must satisfy it. Unknown applicability is harmless
+            // only when the consequence is already proven. No invented exact
+            // headcount or extra ages are required for an identified party.
+            if (["GENERAL_MINIMUM", "UNACCOMPANIED_MINIMUM"].includes(rule.mode) && agesCoverKnownParticipants(rule.minimumAge)) {
+                results.push({state:"MET",reason:"PARTICIPANT_AGES_MEET_VERIFIED_MINIMUM",hashes:[row.entryHash,contentHash({ageFacts,selfIds,adultAccompaniment,participantIds,count})]});
                 continue;
             }
             // A minimum age for going alone is not a minimum admission age.
@@ -196,6 +223,10 @@ export function librarianGlobalEligibility(input: {
             // exact age or a demand for a complete passenger manifest.
             if (rule.mode === "UNACCOMPANIED_MINIMUM" && rule.accompaniment === "ADULT" && adultAccompaniment) {
                 results.push({state:"MET",reason:"ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED",hashes:[row.entryHash,contentHash({companionFacts,selfIds,ageFacts})]});
+                continue;
+            }
+            if (applicability === "UNKNOWN") {
+                results.push({ state: "UNKNOWN", reason: "ENTRY_RULE_CONDITIONS_UNRESOLVED", hashes: [row.entryHash] });
                 continue;
             }
             const ages = ageFacts.map(range), below = ages.some(bounds => bounds !== null && bounds[1] < rule.minimumAge!);
@@ -214,7 +245,7 @@ export function librarianGlobalEligibility(input: {
                 results.push({ state: "UNKNOWN", reason: "REQUIRED_ACCOMPANIMENT_NOT_PROVEN", hashes: [row.entryHash] });
                 continue;
             }
-            if (count === null || ageFacts.length !== count || new Set(ageFacts.flatMap(f => f.subjectIds)).size !== count || ages.some(bounds => bounds === null || bounds[0] < rule.minimumAge!))
+            if (!agesCoverKnownParticipants(rule.minimumAge))
                 results.push({ state: "UNKNOWN", reason: "PARTICIPANT_AGE_COVERAGE_INCOMPLETE", hashes: [row.entryHash] });
         }
     }
