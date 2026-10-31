@@ -27,7 +27,9 @@ test('founder-approved playground-with-daughter case preserves seven relevant re
  for(const run of accepted.runs){
   assert.equal(contentHash(run.output),run.rawOutputHash);
   const meaning=prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,sourceText:accepted.query,reference:run.reference,output:run.output});
-  assert.equal(meaning.requestHash,run.requestHash);
+  // Preserve historical provenance while replaying against the current prompt contract.
+  const {requestHash,...currentBody}=meaning;
+  assert.equal(contentHash({...currentBody,configuration:run.configuration}),run.requestHash);
   assert.ok(!meaning.facts.some(f=>f.key==='people.age'),'no age may be invented from daughter');
   assert.ok(meaning.facts.some(f=>f.key==='people.relationship'&&f.modality==='CONTEXT'&&f.value.kind==='TEXT'&&f.value.text==='adult_accompanied'));
   const r=await exercise({text:accepted.query,meaning,catalog:accepted.catalog});

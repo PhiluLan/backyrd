@@ -80,7 +80,7 @@ export function createDecisionProductLunaProvider(input: {
       // no retry on network, refusal, truncation or an unsupported capability.
       const correctionBody = {...body, input: JSON.stringify({
         originalRequest: JSON.parse(body.input) as unknown, previousMeaning: output, correctionIssues: issues,
-        correctionInstruction: "Korrigiere ausschliesslich die key-Felder der genannten factIds auf eine allowedFamily. Behalte alle anderen Fakten und alle Werte, IDs, Modalitäten, Bezüge, Entitäten, Logik, Unsicherheiten und Alternativen exakt unverändert. Antworte im selben vollständigen Schema.",
+        correctionInstruction: "Korrigiere ausschliesslich die key-Felder der genannten factIds auf eine allowedFamily. Nur wenn ein Problem allowedModalities nennt, bestimme für dieses Ernährungsbedürfnis anhand des ursprünglichen Wunsches die passende Modalität aus allowedModalities; ein nicht optional genanntes Bedürfnis einer mitessenden Person ist REQUIRED. Behalte alle übrigen Fakten und alle Werte, IDs, Modalitäten, Bezüge, Entitäten, Logik, Unsicherheiten und Alternativen exakt unverändert. Antworte im selben vollständigen Schema.",
       })};
       const correctionValue=await call(correctionBody);
       try {

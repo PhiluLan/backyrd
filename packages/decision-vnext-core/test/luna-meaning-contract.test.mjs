@@ -116,3 +116,13 @@ test('provider network failures remain distinct from interpretation failures and
  calls=0;const repair=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>++calls===1?response(raw('condition.animals')):new Response('',{status:503})});
  await assert.rejects(repair(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,2);
 });
+
+test('diet of a co-diner cannot silently disappear into context during a food visit',async()=>{
+ const before=structuredClone(plan([fact('meal','experience.activity','brunch'),fact('diet','food.diet','vegan','CONTEXT',['p1'])]).raw);
+ const after=structuredClone(before);after.facts[1].modality='REQUIRED';
+ const issues=inspectLunaMeaning(before);assert.equal(issues[0].code,'DIET_CONTEXT_NOT_EXECUTABLE');
+ assert.doesNotThrow(()=>assertLunaMeaningCorrection(before,after,issues));
+ const p=provide([before,after]);assert.deepEqual((await p.run()).raw,after);assert.equal(p.calls(),2);
+ const changed=structuredClone(after);changed.facts[0].modality='PREFERRED';assert.throws(()=>assertLunaMeaningCorrection(before,changed,issues));
+ const unrelated=structuredClone(before);unrelated.facts[0].value.text='museum';assert.deepEqual(inspectLunaMeaning(unrelated),[]);
+});
