@@ -752,3 +752,6 @@ Ordinary cozy, relaxed and romantic atmosphere requests remain explicit ranking 
 
 ### Primary gastronomy purpose ranking (matching 48)
 A food/drink-only request gives positive primary-purpose evidence to verified EAT/DRINKS/COFFEE_DAYTIME venues. Other venues with proven food remain eligible; this is ordering, never an exclusion or proof of independent access. A simultaneous non-food activity (including a playground or children activity) disables this gastronomy priority. Existing meals, diets, access and availability still require their own scoped evidence.
+
+### Concrete activity with a child (prompt 27)
+A named museum visit, animal observation, playground, bathing or sport retains that activity and typed companions/ages. Child accompaniment alone must not add a separate generic children_activity requirement: existing age and admission rules assess the actual activity. Generic family outings without a specified activity still require children_activity; an explicitly requested special child programme also remains mandatory. No age, date or child suitability is fabricated.
