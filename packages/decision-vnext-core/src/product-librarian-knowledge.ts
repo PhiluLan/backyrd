@@ -1,12 +1,12 @@
 import { LUNA_PREFERENCE_EVIDENCE_POLICY } from './product-luna-preference-evidence.js';
-import { experienceBookingMode, hasAreaModule, hasOfferModule, librarianConcept, type ConsumptionRule, type ExperienceBookingMode, type ExperienceProfile, type ExperienceProperty, type ReservationRule } from "@backyrd/world-knowledge-core";
+import { SPOT_TYPE_CATALOG, experienceBookingMode, hasAreaModule, hasOfferModule, librarianConcept, type ConsumptionRule, type ExperienceBookingMode, type ExperienceProfile, type ExperienceProperty, type ReservationRule } from "@backyrd/world-knowledge-core";
 import { contentHash } from "./canonical.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { librarianConditions, visitWeekday, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
 import { librarianExternalConsumptionKind, librarianTerm } from "./product-librarian-language.js";
 
-export const LIBRARIAN_KNOWLEDGE_POLICY = "backyrd.librarian-knowledge-policy@2" as const;
+export const LIBRARIAN_KNOWLEDGE_POLICY = "backyrd.librarian-knowledge-policy@3" as const;
 export type DomainEvidence = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -17,7 +17,7 @@ export type DomainEvidence = {
     readonly details: Readonly<Record<string, string | number | boolean | null>>;
 };
 type BookingObservation = { readonly mode: ExperienceBookingMode | null; readonly condition: MatchTruth; readonly sourceKey: string; readonly hash: string };
-const authorized = (row: ProductWorldView["facts"][number], use: "PRICE" | "HARD_CONSTRAINTS") => row.trust === "VERIFIED" && row.freshness === "CURRENT" && row.resolution === "KNOWN_VALUE" && row.authorizedUseCases?.includes(use);
+const authorized = (row: ProductWorldView["facts"][number], use: "PRICE" | "HARD_CONSTRAINTS" | "DISCOVERY") => row.trust === "VERIFIED" && row.freshness === "CURRENT" && row.resolution === "KNOWN_VALUE" && row.authorizedUseCases?.includes(use);
 const dedupe = <T,>(values: readonly T[]): T[] => [...new Set(values)];
 const minute = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3));
 
@@ -138,11 +138,10 @@ export function bookingEvidence(fact: LibrarianFact, facts: readonly LibrarianFa
 export type QualitativePricePolicy = "CLARIFY" | "PRICE_LEVEL";
 /** Product policy, distinct from the user's explicit monetary limit. No
  * amount, currency conversion or personal budget is manufactured here. */
-export const QUALITATIVE_PRICE_POLICY: QualitativePricePolicy = "CLARIFY";
-/** A preference can use the verified relative price level for ranking; it
- * cannot manufacture a monetary ceiling or satisfy a required cash budget. */
-export const qualitativePricePolicyFor = (fact: Pick<LibrarianFact, "modality">): QualitativePricePolicy =>
-    fact.modality === "PREFERRED" ? "PRICE_LEVEL" : QUALITATIVE_PRICE_POLICY;
+export const QUALITATIVE_PRICE_POLICY: QualitativePricePolicy = "PRICE_LEVEL";
+/** Required and preferred qualitative wishes use the same relative meaning.
+ * Modality still decides eligibility versus ranking; no cash limit is inferred. */
+export const qualitativePricePolicyFor = (_fact: Pick<LibrarianFact, "modality">): QualitativePricePolicy => QUALITATIVE_PRICE_POLICY;
 const priceLevels = ["VERY_LOW", "LOW", "MEDIUM", "HIGH", "PREMIUM"] as const;
 const priceWishes: Readonly<Record<string, number>> = {
     "günstig": 1, "guenstig": 1, "preiswert": 1, "cheap": 1, "inexpensive": 1, "low": 1,
@@ -161,11 +160,29 @@ export function qualitativePriceEvidence(fact: LibrarianFact, world: ProductWorl
         .find(value => value !== undefined) : undefined;
     const maximum = priceWishes[priceTerm] ?? qualified;
     const rows = [...world.facts, ...world.operationalRules].filter(row => row.key === "operation.price_level" && authorized(row, "PRICE"));
+    // A venue-wide price level can describe the core gastronomy of an actual
+    // restaurant/cafe/bar. It cannot price the cafe embedded in a zoo, pool,
+    // hotel or museum merely because that venue also serves food.
+    const classification = world.facts.filter(row => ["classification.primary_category", "classification.place_types"].includes(row.key)
+        && authorized(row,"DISCOVERY"));
+    const foodGroups: readonly string[] = ["EAT", "DRINKS", "COFFEE_DAYTIME"];
+    const primary = classification.find(row => row.key === "classification.primary_category");
+    const types = classification.find(row => row.key === "classification.place_types");
+    const groups = Array.isArray(types?.value) ? types.value.map(type => SPOT_TYPE_CATALOG.find(entry => entry.kind === type)?.group ?? null) : [];
+    const foodVenue = (!primary || typeof primary.value === "string" && foodGroups.includes(primary.value))
+        && groups.length > 0 && groups.every(group => group !== null && foodGroups.includes(group));
     const make = (offerId: string | null): DomainEvidence => {
-        const base = { offerId, areaId: null, sourceKeys: ["operation.price_level"], sourceHashes: rows.map(row => row.entryHash), details: { policy: LIBRARIAN_KNOWLEDGE_POLICY, qualitativePricePolicy: policy, optionalityQualifierRemoved:priceWishes[priceTerm] === undefined && qualified !== undefined, monetaryBudgetInferred: false, evidenceScope: "SPOT" } };
+        const offer = profile?.offers.find(o => o.id === offerId);
+        const foodOffer = offer !== undefined && hasOfferModule(offer.kind,"food");
+        const scopeBound = !foodOffer || foodVenue;
+        const base = { offerId, areaId: null, sourceKeys: dedupe(["operation.price_level", ...(foodOffer ? classification.map(row => row.key) : [])]),
+            sourceHashes: dedupe([...rows.map(row => row.entryHash), ...(foodOffer ? classification.map(row => row.entryHash) : [])]),
+            details: { policy: LIBRARIAN_KNOWLEDGE_POLICY, qualitativePricePolicy: policy, optionalityQualifierRemoved:priceWishes[priceTerm] === undefined && qualified !== undefined,
+                monetaryBudgetInferred: false, evidenceScope: foodOffer ? "GASTRONOMY_VENUE_DEFAULT" : "SPOT", scopeBound } };
         if (maximum === undefined) return { ...base, state: "UNKNOWN", reason: "QUALITATIVE_PRICE_MEANING_UNSUPPORTED" };
         if (policy === "CLARIFY") return { ...base, state: "UNKNOWN", reason: "QUALITATIVE_PRICE_POLICY_UNDEFINED" };
         if (rows.length !== 1 || typeof rows[0]!.value !== "string") return { ...base, state: "UNKNOWN", reason: rows.length > 1 ? "QUALITATIVE_PRICE_EVIDENCE_CONFLICT" : "QUALITATIVE_PRICE_EVIDENCE_MISSING" };
+        if (!scopeBound) return { ...base, state: "UNKNOWN", reason: "QUALITATIVE_PRICE_SCOPE_UNBOUND" };
         const actual = priceLevels.indexOf(rows[0]!.value as typeof priceLevels[number]);
         return { ...base, state: actual < 0 ? "UNKNOWN" : actual <= maximum ? "MET" : "FAILED", reason: actual < 0 ? "QUALITATIVE_PRICE_VALUE_UNSUPPORTED" : "QUALITATIVE_PRICE_LEVEL_COMPARED", details: { ...base.details, actualLevel: rows[0]!.value, maximumLevel: priceLevels[maximum]! } };
     };

@@ -115,7 +115,7 @@ test('qualitative price requires an explicit product policy and never invents a 
  const evidence=qualitativePriceEvidence(f,world,p([]),'PRICE_LEVEL')[0];
  assert.equal(evidence.state,'MET');
  assert.equal(evidence.details.monetaryBudgetInferred,false);
- assert.equal(evidence.details.evidenceScope,'SPOT');
+ assert.equal(evidence.details.evidenceScope,'GASTRONOMY_VENUE_DEFAULT');
 });
 test('today evening cannot be satisfied by a kitchen that closed before the real request time',()=>{
  const b=binding(1014,p([]),[worldFact('hours.kitchen',[{day:'THURSDAY',intervals:[{start:'11:00',end:'19:00'}]}])]);

@@ -645,3 +645,38 @@ closure and St. Jakob's season restriction still exclude them; Eglisee's winter
 swimming offer is understood but remains unresolved on the requested opening
 date. These checks are independent of the activity relation. The rules are
 covered by `librarian-water-activities.test.mjs` in the existing core test command.
+
+### Required relative price (matching 36, knowledge policy 3; development)
+
+Required and preferred qualitative price wishes use the same existing relative
+mapping: “günstig”/“preiswert” up to LOW; “nicht zu teuer”/“bezahlbar” up to MEDIUM.
+Required wishes retain REQUIRED modality: HIGH/PREMIUM fail, and missing,
+conflicting or unsupported evidence stays unknown for that candidate. Optional
+wishes still influence ranking rather than exclude alternatives. No currency,
+personal monetary ceiling or affordability guarantee is inferred. Explicit
+monetary budgets keep their separate actual-price evaluation.
+
+This supersedes the earlier policy that forced clarification for every REQUIRED
+qualitative price phrase even when the phrase and venue price level were known.
+The active default is PRICE_LEVEL; the old CLARIFY override is not selected by
+request modality. An unknown candidate no longer prevents otherwise proven
+alternatives from being recommended. Presentation distinguishes missing price
+evidence from an unbound price scope instead of always asking for CHF/person.
+
+For a selected food/drink offer, the general venue price level is usable as a
+gastronomy default only when verified discovery classification identifies a
+food/drink/cafe venue without contradictory non-food venue types. The authorized
+price-level evidence remains mandatory and its classification provenance is
+included in the assessment. A zoo, pool, museum or hotel price level cannot
+qualify its embedded restaurant. No new offer-price fields or cash-to-relative
+thresholds are fabricated; embedded gastronomy without its own usable relative
+price context remains unknown. Concrete dish prices alone do not acquire an
+invented LOW/MEDIUM label.
+
+For “essen gehen, nicht zu teuer, und wir haben einen veganer dabei”, the original
+meaning/catalogue replay yields five confirmed food-and-vegan candidates with
+usable relative price evidence. VITO/Tibits remain unresolved on missing price
+levels; Zoo Basel, aquabasilea and Bachgraben on unbound gastronomy price scope.
+The vegan person's requirement stays person-scoped and does not require the
+whole restaurant to be exclusively vegan. Regression coverage lives in
+`librarian-relative-price.test.mjs` in the existing core test command.

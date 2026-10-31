@@ -130,7 +130,7 @@ test('a relative price preference uses known price levels without inventing a ca
  assert.equal(r.evaluationPlan.requirements.find(row=>row.factId==='price').support,'SUPPORTED');
  const proof=r.ranked[0].facts.find(f=>f.factId==='price');assert.equal(proof.state,'MET');assert.equal(proof.domainEvidence[0].details.monetaryBudgetInferred,false);
  assert.ok(r.ranked.find(c=>c.spotId===high.decisionProjection.spotId).facts.some(f=>f.factId==='price'&&f.state==='FAILED'&&f.modality==='PREFERRED'));
- assert.equal(search(request([meal(),fact('price','budget.qualitative','nicht zu teuer')]),[good]).ranked.length,0,'a required undefined price ceiling still needs clarification');
+ assert.equal(search(request([meal(),fact('price','budget.qualitative','nicht zu teuer')]),[good]).ranked.length,1,'a required relative price wish uses the same defined price-level policy');
 });
 
 test('optional price qualifiers preserve the same relative-price evidence without weakening hard wishes',()=>{
@@ -145,7 +145,7 @@ test('optional price qualifiers preserve the same relative-price evidence withou
   assert.equal(result.ranked[0].facts.find(f=>f.factId==='price').state,'UNKNOWN',value);
  }
  const required=search(request([meal(),fact('price','budget.qualitative','nicht zu teuer','REQUIRED')]),[b]);
- assert.equal(required.ranked.length,0);assert.equal(required.unresolved[0].facts.find(f=>f.factId==='price').state,'UNKNOWN');
+ assert.equal(required.ranked.length,1);assert.equal(required.ranked[0].facts.find(f=>f.factId==='price').state,'MET');
 });
 
 
