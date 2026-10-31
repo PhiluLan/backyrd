@@ -253,3 +253,31 @@ Product explanations name the selected family activity as well as its food offer
 Backyrd interprets a family outing as adults accompanying children. The meaning contract retains this as `people.relationship=adult_accompanied`, CONTEXT, INFERRED. A caller undertaking an activity with their child is retained as a separate PERSON (`people.role=self`); the child's age keeps its own PERSON scope. No exact adult age or complete party count is fabricated. Mere co-presence is not an arbitrary person's adulthood: explicit minor companions and explicitly unaccompanied children take precedence. Existing structured family relationship labels also carry the product default; generic `children_activity` alone does not.
 
 The librarian can satisfy an adult-accompaniment exception to `UNACCOMPANIED_MINIMUM` from this context without requiring everyone's exact age and a headcount. It records the request evidence and an `ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED` assessment. Product explanations identify this as CONTEXT, so the additional gate cannot inflate venue evidence or ranking. `GENERAL_MINIMUM`, scoped offer admission ages, uncertain time/area applicability, and explicit absence of required adult supervision remain enforced. This is developed locally for a later combined release, not deployed.
+# Internal preview of unpublished understanding and matching
+
+`scripts/decision/run-local-diagnostic.mjs` executes the canonical current evaluator
+and ranker against an exported, verified regional catalog. It does not persist
+decisions or learning and uses a neutral local identity, not an app user's profile.
+
+For a real model call while the provider key remains in Supabase, build the isolated
+`decision-internal-meaning-preview` artifact with
+`node scripts/decision/build-internal-preview.mjs /tmp/backyrd-internal-preview-current`
+after `npm run decision-vnext:build`. Deploy only that named function from the
+generated temporary project. The consumer release configuration disables it.
+JWT verification remains enabled; the handler additionally requires the genuine
+server service credential and rejects browser origins. It accepts only a query,
+uses the canonical provider and prompt, and exposes no prompt or model override.
+Each invocation makes one bounded model call with a 30-second timeout. Treat this
+as a privileged developer operation with provider usage charges, not a public API.
+
+Run the local diagnostic with `--query`, `--catalog`, optional `--events`,
+`--server-env` pointing to a private server environment file, and `--output`.
+The runner verifies the remote runtime hash against its current compiled modules
+and verifies the untouched meaning hash before evaluation. A mismatch fails the
+test. No SQL migration, authorization grant, consumer function or runtime control
+is changed by this workflow. Never expose the server environment to a browser.
+
+Reports distinguish `REAL_SERVER_PREVIEW_MODEL_CALL`, `REAL_MODEL_CALL`, and
+`INJECTED_PROVIDER_TEST`. Historical meaning replays and manually amended meaning
+are not proof of current prompt behavior. Record model output, exclusions,
+ranking, timing, usage and catalog provenance separately from fixture tests.

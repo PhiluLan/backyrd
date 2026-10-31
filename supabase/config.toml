@@ -497,3 +497,9 @@ entrypoint = "./functions/enrich-spot-description/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/decision-admin-diagnostic/index.ts"
+
+# Dedicated developer preview; never included in the consumer release plan.
+[functions.decision-internal-meaning-preview]
+enabled = false
+verify_jwt = true
+entrypoint = "./functions/decision-internal-meaning-preview/index.ts"
