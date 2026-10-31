@@ -44,7 +44,7 @@ Deno.serve(async(request:Request)=>{
    return !result.error&&result.data===true;
   },checkControl:async(signal)=>{await ports.control.assertBoundary('RATE_LIMIT',signal);},diagnose:async(index,actor,signal)=>{
    const started=performance.now();const id=crypto.randomUUID();
-   const productRequest={contractVersion:'backyrd.decision-vnext.product-request@1.0' as const,requestId:id,idempotencyKey:id,naturalLanguage:BASEL_DIAGNOSTIC_QUERIES[index]!,includeEvents:true,explicit:{targetCity:'Basel',moods:[]},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
+   const productRequest={contractVersion:'backyrd.decision-vnext.product-request@1.0' as const,requestId:id,idempotencyKey:id,naturalLanguage:BASEL_DIAGNOSTIC_QUERIES[index]!,includeEvents:true,explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT' as const,moods:[]},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
    await ports.control.assertBoundary('INTERPRETATION',signal);
    const modelStarted=performance.now();
    if(!ports.understand)throw Error('diagnostic_provider_missing');

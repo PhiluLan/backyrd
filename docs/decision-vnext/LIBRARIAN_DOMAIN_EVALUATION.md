@@ -172,3 +172,31 @@ Replay of the recorded 31 October child-indoor request against 432 current
 regional profiles admits ELYS, JUMP Factory, Hoppolino and Spielzeug Welten Museum;
 Basso is unresolved and not recommended. This is a deterministic candidate replay,
 not a production deployment or a fresh model invocation. No Spot edits are made.
+
+
+## Playground facilities and location provenance (matching @22, prompt @9)
+
+`offer.facility` reads the catalogue's Boolean amenity keys as well as textual
+features. A PLAYGROUND area with a compatible movement-play/children offering
+can establish a playground without a duplicated amenity flag. A legacy billiards
+or darts room is not sufficient merely because it has that area kind. Playground
+and indoor/outdoor obligations join on the actual area. A global facility flag
+cannot locate the playground in an unrelated outdoor area. Explicit scoped
+setting values or unknowns take precedence over catalogue setting defaults.
+
+`explicit.targetCityRole` is optional and is either SEARCH_CONTEXT or
+REQUIRED_DESTINATION. Mobile profile cities, Web search defaults and the Basel
+diagnostic use SEARCH_CONTEXT. This city remains server-side retrieval context
+and is removed from the model's explicitContext; Web no longer appends it to
+the user's prose. A source-named destination remains required and wins over the
+profile default. Explicitly selected/legacy cities retain their exact-city
+retrieval and mismatch protection. All original model facts remain unchanged;
+no mandatory destination is demoted by the matcher. Deploy the backend accepting
+the optional field before releasing clients that send it.
+
+Recorded playground query replay now selects St. Johanns-Park, Kannenfeldpark,
+Schützenmattpark, Zoo Basel and Robi Bachgraben. The historical model's Basel duty
+is deliberately retained in that replay. It proves facility matching, not the
+new prompt behavior. Location provenance is separately checked at the real
+provider input and routing boundaries; a fresh new-prompt server call requires
+deployment of the versioned backend. No Spot data is rewritten to force results.

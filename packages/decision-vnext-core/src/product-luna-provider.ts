@@ -2,7 +2,7 @@ import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, validateActive
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 import type { DecisionProductAuthenticatedActor } from "./product-decision.js";
 
-export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@2" as const;
+export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@3" as const;
 
 
 function modelOutput(value: unknown): unknown {
@@ -48,7 +48,11 @@ export function createDecisionProductLunaProvider(input: {
     const request = DecisionProductRequestSchema.parse(requestValue);
     if (signal.aborted) throw new Error("product_luna_aborted");
     const reference = { now: (input.now?.() ?? new Date()).toISOString(), timezone: "Europe/Zurich" as const };
-    const body = buildLunaLibrarianModelRequest({ sourceText: request.naturalLanguage, reference, explicitContext: request.explicit });
+    // Profile/device/default cities authorize retrieval, not an additional
+    // user wish. Do not send them to the language model as explicit input.
+    const {targetCityRole, ...explicitContext} = request.explicit;
+    if (targetCityRole === "SEARCH_CONTEXT") delete explicitContext.targetCity;
+    const body = buildLunaLibrarianModelRequest({ sourceText: request.naturalLanguage, reference, explicitContext });
     const response = await fetchImpl("https://api.openai.com/v1/responses", {
       method: "POST", signal, headers: { authorization: `Bearer ${input.apiKey}`, "content-type": "application/json" },
       body: JSON.stringify(body),

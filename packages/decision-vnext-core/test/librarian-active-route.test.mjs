@@ -270,3 +270,26 @@ test('request-local search observer captures once without changing the product a
  assert.equal(observed.calls,baseline.calls);assert.equal(observed.reads,baseline.reads);
  assert.deepEqual(observed.body,baseline.body);
 });
+
+
+test('the language model never receives a profile/default city as an explicit wish',async()=>{
+ const text='Spielplatz draussen mit meiner familie';
+ const meaning=plan([fact('play','offer.facility','playground'),fact('outside','offer.area','outdoor')]);
+ const data=profile([offer('play','MOVEMENT_PLAY',['playground'])],[{...area('playground'),kind:'PLAYGROUND'}],'OUTDOOR_NATURE');
+ const seen=[];
+ const r=await exercise({text,meaning,catalog:[binding(1,data)],explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'},fetchImpl:async(_url,options)=>{
+  const body=JSON.parse(options.body);const modelInput=JSON.parse(body.input);seen.push(modelInput);
+  assert.equal(modelInput.request,text);assert.equal('targetCity' in modelInput.explicitContext,false);assert.equal('targetCityRole' in modelInput.explicitContext,false);
+  return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));
+ }});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.candidates.filter(c=>c.rank!==null).length,1);assert.equal(seen.length,1);
+});
+test('an explicitly selected destination still reaches the model and explicit source city is not demoted',async()=>{
+ const text='Spielplatz in Basel';const meaning=plan([fact('city','location.destination','Basel'),fact('play','offer.facility','playground')]);
+ const data=profile([offer('play','MOVEMENT_PLAY',['playground'])],[{...area('playground'),kind:'PLAYGROUND'}],'OUTDOOR_NATURE');
+ const r=await exercise({text,meaning,catalog:[binding(1,data)],explicit:{targetCity:'Basel',targetCityRole:'REQUIRED_DESTINATION'},fetchImpl:async(_url,options)=>{
+  assert.equal(JSON.parse(JSON.parse(options.body).input).explicitContext.targetCity,'Basel');
+  return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));
+ }});assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.candidates.filter(c=>c.rank!==null).length,1);
+ assert.equal(meaning.facts.find(f=>f.id==='city').modality,'REQUIRED');
+});

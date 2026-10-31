@@ -237,3 +237,36 @@ test('an empty offer calendar inherits only within its documented activity daypa
  const visit=createLibrarianVisitWindow(request([date(),evening()]).facts,'Europe/Zurich','2026-10-14T08:00:00Z');
  assert.equal(librarianOfferAvailability(data.offers[0],world,visit).state,'FAILED');
 });
+
+
+test('an outdoor playground is read from its typed area or its explicit amenity, in one actual area',()=>{
+ const q=request([fact('playground','offer.facility','playground'),fact('outside','offer.area','outdoor')]);
+ const typed=profile([offer('play','MOVEMENT_PLAY',['playground'])],[{...area('playground'),kind:'PLAYGROUND'}],'OUTDOOR_NATURE');
+ const result=search(q,[binding(1200,typed)]);assert.equal(result.ranked.length,1);assert.deepEqual(candidate(result).areaIds,['playground']);
+ const amenity=profile([offer('play','MOVEMENT_PLAY',['garden'])],[{...area('garden',[prop('amenity.playground',true)]),kind:'OUTDOOR'}],'OUTDOOR_NATURE');
+ assert.equal(search(q,[binding(1201,amenity)]).ranked.length,1);
+ const absent=structuredClone(amenity);absent.areas[0].properties[0].value=false;assert.equal(search(q,[binding(1202,absent)]).ranked.length,0);
+ const inside=structuredClone(typed);inside.areas[0].properties.push(prop('location.setting','drinnen'));inside.areas.push({...area('garden'),kind:'OUTDOOR'});inside.offers.push(offer('walk','WALK',['garden']));
+ assert.equal(search(q,[binding(1203,inside)]).ranked.length,0,'outdoor elsewhere cannot relocate an indoor playground');
+ const billiards=structuredClone(typed);billiards.offers[0].kind='OTHER';billiards.offers[0].name='Billard spielen';
+ assert.equal(search(q,[binding(1204,billiards)]).ranked.length,0,'a legacy game-room area does not prove a playground');
+ const unlocated=profile([offer('play','MOVEMENT_PLAY',['garden'])],[{...area('garden'),kind:'OUTDOOR'}],'OUTDOOR_NATURE');unlocated.properties.push(prop('offer.feature','Spielplatz'));
+ assert.equal(search(q,[binding(1205,unlocated)]).ranked.length,0,'whole-venue facility presence does not locate it outdoors');
+ const unknown=structuredClone(typed);unknown.areas[0].properties.push(prop('location.setting',null,{state:'UNKNOWN'}));
+ assert.equal(search(q,[binding(1206,unknown)]).ranked.length,0);
+});
+test('a profile city is retrieval context while a genuinely required destination is retained',async()=>{
+ const {librarianTargetCity}=await import('../dist/product-librarian-evaluator.js');
+ const base={explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'}};
+ assert.equal(librarianTargetCity(base,request([fact('play','offer.facility','playground')])),'Basel');
+ const elsewhere=request([fact('destination','location.destination','Zürich')]);
+ assert.equal(librarianTargetCity(base,elsewhere),'Zurich');
+ assert.throws(()=>librarianTargetCity({explicit:{targetCity:'Basel',targetCityRole:'REQUIRED_DESTINATION'}},elsewhere),/explicit_city_mismatch/);
+ assert.throws(()=>librarianTargetCity({explicit:{targetCity:'Basel'}},elsewhere),/explicit_city_mismatch/);
+});
+
+test('a city-only retrieval cannot silently admit a neighboring locality',()=>{
+ const b=binding(1210,profile());b.decisionProjection.facts.find(f=>f.key==='location.locality').value='Muttenz';
+ assert.throws(()=>search(request([meal()]),[b],{authority:{city:'Basel',now:'2026-10-14T08:00:00Z',authorizedLocalities:['Basel']}}),/locality_invalid/);
+ assert.throws(()=>search(request([meal()]),[binding(1211,profile())],{authority:{city:'Basel',now:'2026-10-14T08:00:00Z',authorizedLocalities:['Zürich']}}),/authority_region_invalid/);
+});

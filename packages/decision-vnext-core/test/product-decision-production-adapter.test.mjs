@@ -140,7 +140,7 @@ test("prepared catalog reuse remains bound to actor, session, release, city and 
   const { createDecisionProductRpcEvaluationProvider, contentHash } = await import('../dist/index.js');
   const { request: plan, meal, binding, profile, authority } = await import('./librarian-matching-fixtures.mjs');
   const actor = {userId, sessionId, subjectBindingHash:hash('d'), sessionBindingHash:hash('e'), authenticationContextHash:hash('f')};
-  const request = {contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'prefetch-test',idempotencyKey:'prefetch-test',naturalLanguage:'Synthetischer Wunsch, wird nicht als Suchtext interpretiert.',explicit:{targetCity:'Basel'},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
+  const request = {contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'prefetch-test',idempotencyKey:'prefetch-test',naturalLanguage:'Synthetischer Wunsch, wird nicht als Suchtext interpretiert.',explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
   for (const mutation of [null, 'actor', 'session', 'release', 'request', 'abort']) {
     let reads=0;
     const evaluator = createDecisionProductRpcEvaluationProvider({async rpc(){reads++;return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',authorizedLocalities:BASEL_DISCOVERY_LOCALITIES,serverTime:authority.now,worldSnapshots:[binding(1,profile())]}};}},{meaningRequired:true});

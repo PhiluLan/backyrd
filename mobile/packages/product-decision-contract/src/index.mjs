@@ -44,8 +44,9 @@ export function validateDecisionProductRequest(value) {
   requireValue(ID.test(value.requestId) && ID.test(value.idempotencyKey), "decision_request_identity_invalid");
   requireValue(typeof value.naturalLanguage === "string" && value.naturalLanguage.trim().length > 0 && value.naturalLanguage.length <= 2_000, "decision_natural_language_invalid");
   requireValue(value.explicit && typeof value.explicit === "object" && !Array.isArray(value.explicit), "decision_explicit_invalid");
-  const allowedExplicit = new Set(["primaryIntent", "secondaryIntent", "occasion", "moods", "targetCity", "hardConstraints", "softPreferences"]);
+  const allowedExplicit = new Set(["primaryIntent", "secondaryIntent", "occasion", "moods", "targetCity", "targetCityRole", "hardConstraints", "softPreferences"]);
   requireValue(Object.keys(value.explicit).every((key) => allowedExplicit.has(key)), "decision_explicit_authority_invalid");
+  if ("targetCityRole" in value.explicit) requireValue(["SEARCH_CONTEXT", "REQUIRED_DESTINATION"].includes(value.explicit.targetCityRole), "decision_explicit_targetCityRole_invalid");
   for (const key of ["primaryIntent", "secondaryIntent", "occasion", "targetCity"]) if (key in value.explicit) requireValue(value.explicit[key] === null || ID.test(value.explicit[key]), `decision_explicit_${key}_invalid`);
   for (const key of ["moods", "hardConstraints", "softPreferences"]) if (key in value.explicit) stringArray(value.explicit[key], key === "moods" ? 12 : 30, `decision_explicit_${key}_invalid`);
   requireValue(typeof value.alternativeRequested === "boolean", "decision_alternative_invalid");

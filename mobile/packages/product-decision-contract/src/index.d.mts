@@ -10,6 +10,7 @@ export type DecisionProductRequest = {
     occasion?: string | null;
     moods?: string[];
     targetCity?: string | null;
+    targetCityRole?: "SEARCH_CONTEXT" | "REQUIRED_DESTINATION";
     hardConstraints?: string[];
     softPreferences?: string[];
   };

@@ -467,7 +467,7 @@ async function readDecisionProductRuntimeContext(rpc: DecisionProductRpcClient, 
   if (input.regional && localityKey(input.targetCity) === "basel"
     && (!Array.isArray(context.authorizedLocalities) || canonicalJson(context.authorizedLocalities) !== canonicalJson(librarianDiscoveryLocalities(input.targetCity))))
     throw new Error("product_runtime_region_invalid");
-  return { context, serverTime: new Date(context.serverTime).toISOString() };
+  return { context, serverTime: new Date(context.serverTime).toISOString(), authorizedLocalities: input.regional ? librarianDiscoveryLocalities(input.targetCity) : [input.targetCity] };
 }
 
 /** Lossless matching boundary, not an HTTP route or release activation. The
@@ -507,7 +507,7 @@ export function createDecisionProductLibrarianRpcEvaluationProvider(
         retrievalHint: "EAT", regional: true, signal: input.signal,
       });
       if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
-      return matcher({ request, catalog: context.worldSnapshots, authority: { city: input.authorizedCity, now: serverTime } });
+      return matcher({ request, catalog: context.worldSnapshots, authority: { city: input.authorizedCity, now: serverTime, authorizedLocalities: librarianDiscoveryLocalities(input.authorizedCity) } });
     },
   });
 }
@@ -529,7 +529,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
       const city = canonicalLibrarianCity(input.request.explicit.targetCity);
       const outcome = readDecisionProductRuntimeContext(rpc, {
-        actor: input.actor, identity: input.identity, includeEvents: input.request.includeEvents === true, targetCity: city, retrievalHint: "EAT", regional: true, signal: input.signal,
+        actor: input.actor, identity: input.identity, includeEvents: input.request.includeEvents === true, targetCity: city, retrievalHint: "EAT", regional: input.request.explicit.targetCityRole === "SEARCH_CONTEXT", signal: input.signal,
       }).then(context => ({ context }), error => ({ error }));
       prepared.set(input.request, { bindingHash: bindingHash(input), city, signal: input.signal, outcome });
       await outcome;
@@ -550,7 +550,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       } else {
         runtimeContext = await readDecisionProductRuntimeContext(rpc, {
           actor: input.actor, identity: input.identity, includeEvents: input.request.includeEvents === true, targetCity,
-          retrievalHint: input.meaning ? "EAT" : productRetrievalIntent(input.request), regional: Boolean(input.meaning), signal: input.signal,
+          retrievalHint: input.meaning ? "EAT" : productRetrievalIntent(input.request), regional: Boolean(input.meaning) && input.request.explicit.targetCityRole === "SEARCH_CONTEXT", signal: input.signal,
         });
       }
       if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
@@ -558,7 +558,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       if (input.meaning) {
         if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
         const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
-        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], eventOccurrences: context.eventOccurrences, authority: { authorizedCity: targetCity, serverTime }, projection, ...(options.onSearch ? {onSearch: options.onSearch} : {}) }));
+        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], eventOccurrences: context.eventOccurrences, authority: { authorizedCity: targetCity, serverTime, authorizedLocalities: runtimeContext.authorizedLocalities }, projection, ...(options.onSearch ? {onSearch: options.onSearch} : {}) }));
         return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: evaluated.evaluation.worldCohort.candidateSetHash }) }, evaluatorContractVersion: evaluated.evaluation.evaluatorVersion };
       }
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];

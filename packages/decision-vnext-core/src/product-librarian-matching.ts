@@ -1,4 +1,4 @@
-import { librarianDiscoveryLocalities } from "./product-librarian-geography.js";
+import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
 import { bookingEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
@@ -149,15 +149,16 @@ function offerDuty(fact: LibrarianFact): boolean {
     if (fact.value.kind !== "TEXT") return false;
     const concept = librarianConcept(fact.value.text);
     return fact.key === "food.meal" && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
-        || fact.key === "food.drink" && concept === "drinks";
+        || fact.key === "food.drink" && concept === "drinks"
+        || fact.key === "offer.facility" && concept === "playground";
 }
 const contextual = (fact: LibrarianFact) => fact.modality === "CONTEXT";
 const neutral = (fact: LibrarianFact) => contextual(fact) || fact.modality === "NOT_REQUIRED";
 function assignments(request: LibrarianRequest, fact: LibrarianFact, offerId: string | null, areaId: string | null): Readonly<Record<string, string>> {
     const result: Record<string, string> = {};
-    if (fact.key === "offer.facility")
-        return result;
     const concept = fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null;
+    if (fact.key === "offer.facility" && concept !== "playground")
+        return result;
     if (offerId && (fact.key.startsWith("food.") && fact.key !== "food.drink" || fact.key === "experience.activity" && ["meal", "lunch", "dinner", "breakfast"].includes(concept ?? ""))) {
         for (const id of fact.subjectIds)
             result[`meal:${id}`] = offerId;
@@ -221,6 +222,9 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
             if (actual && desired && experienceActivitySupports(actual, desired)) return "MET";
         }
         const actual = librarianConcept(property.value);
+        if (["offer.area", "location.setting"].includes(fact.key) && property.key === "location.setting") {
+            if (desired === "outdoor" && actual === "terrace") return "MET";
+        }
         if (fact.key === "atmosphere.music" && desired === "music")
             return actual === "no_music" ? "FAILED" : ["music", "live_music", "background_music", "music_event"].includes(actual ?? "") ? "MET" : "UNKNOWN";
         if (fact.key === "atmosphere.music" && desired === "no_music")
@@ -307,6 +311,9 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             if (!offer || !spatialActivities.some(a => a.witnesses.some(w => w.offerIds.includes(offer.id)))
                 || spatialActivities.some(a => a.report.state !== "MET" || !supportsArea(a))) return;
         }
+        // A whole-venue amenity does not locate that facility outdoors/indoors.
+        if (fact.key === "offer.facility" && concept === "playground" && areaId === null
+            && request.facts.some(f => f.modality === "REQUIRED" && ["offer.area", "location.setting"].includes(f.key))) conditional = true;
         const availability = offer ? offerAvailability(offer, world, visit) : { state: "MET" as const, hashes: [], reason: "AREA_FACT" };
         const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...sourceHashes, ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional, chargeable: offerDuty(fact) || fact.key.startsWith("food.") };
         if (fact.modality === "EXCLUDED" && availability.state !== "MET")
@@ -365,9 +372,22 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {kind: offer.kind});
         }
     }
+    if (fact.key === "offer.facility" && desired === "playground") {
+        for (const area of profile.areas.filter(a => a.kind === "PLAYGROUND")) {
+            const offers = profile.offers.filter(o => o.areaIds.includes(area.id));
+            for (const offer of offers.length ? offers : [null]) {
+                // Legacy game rooms can also carry PLAYGROUND. Their actual
+                // darts/billiards offering does not establish a children's playground.
+                if (offer && !(OFFER_CONCEPTS[offer.kind] ?? []).some(c => ["movement_play", "children_course"].includes(c))) continue;
+                add("MET", offer, area.id, {catalogAreaKind: area.kind, requestedFacility: desired});
+            }
+        }
+    }
     if (["offer.area", "location.setting"].includes(fact.key) && desired && ["indoor", "outdoor", "terrace"].includes(desired)) {
         for (const area of profile.areas)
-            if ((AREA_CONCEPTS[area.kind] ?? []).includes(desired)) {
+            if ((AREA_CONCEPTS[area.kind] ?? []).includes(desired)
+                && !area.properties.some(p => p.key === "location.setting" && (p.state !== "KNOWN"
+                    || typeof p.value === "string" && ["indoor", "outdoor", "terrace"].includes(librarianConcept(p.value) ?? "")))) {
                 const offers = profile.offers.filter(o => o.areaIds.includes(area.id));
                 for (const offer of offers)
                     add("MET", offer, area.id, area, offer.kind === "VISIT" && offer.areaIds.length > 1);
@@ -755,6 +775,7 @@ function runLibrarianCatalogSearch(input: {
     readonly authority: {
         readonly city: string;
         readonly now: string;
+        readonly authorizedLocalities?: readonly string[];
     };
     readonly eventViews?: readonly ProductWorldView[];
     readonly conditionEvidence?: readonly LibrarianConditionEvidence[];
@@ -770,8 +791,12 @@ function runLibrarianCatalogSearch(input: {
     const limit = input.limit ?? 6;
     if (!Number.isInteger(limit) || limit < 1 || limit > 1500)
         failure("result_limit");
+    const policyLocalities = librarianDiscoveryLocalities(input.authority.city);
+    const localities = input.authority.authorizedLocalities ?? policyLocalities;
+    if (!localities.length || localities.some(city => !policyLocalities.some(allowed => localityKey(city) === localityKey(allowed))))
+        failure("authority_region_invalid");
     const evaluationPlan = compileLibrarianPlan(request, semantics);
-    const worlds = [...input.catalog.map(binding => parseProductWorldResolverBinding(binding, input.authority.city, librarianDiscoveryLocalities(input.authority.city))), ...(input.eventViews ?? [])];
+    const worlds = [...input.catalog.map(binding => parseProductWorldResolverBinding(binding, input.authority.city, input.authority.authorizedLocalities ?? librarianDiscoveryLocalities(input.authority.city))), ...(input.eventViews ?? [])];
     if ((input.eventViews?.length ?? 0) > 500 || worlds.length > 1500) failure("catalog_limit");
     if (new Set(worlds.map(w => w.spot.spotId)).size !== worlds.length)
         failure("duplicate_spot");

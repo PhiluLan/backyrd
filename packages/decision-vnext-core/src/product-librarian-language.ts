@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@21" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@22" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 /** Additional compatible evidence fields, never replacements for the original
@@ -12,7 +12,7 @@ export const LIBRARIAN_PROPERTY_SOURCE_ALIASES: Readonly<Partial<Record<LunaFact
     "experience.activity": ["food.drink"],
     "food.drink": ["experience.activity"],
     "experience.character": ["atmosphere.character"],
-    "offer.facility": ["offer.feature"],
+    "offer.facility": ["offer.feature", ...Object.keys(EXPERIENCE_LANGUAGE_DATA.booleanConcepts)],
     "offer.kind": ["stay.room_type"],
     "offer.area": ["location.setting"],
     "participation.accessibility": ["amenity.step_free", "amenity.stroller"],

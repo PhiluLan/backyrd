@@ -102,7 +102,7 @@ type DecisionProductRequest = {
   idempotencyKey: string;
   naturalLanguage: string;
   includeEvents?: boolean;
-  explicit: { targetCity?: string | null; moods?: string[] };
+  explicit: { targetCity?: string | null; targetCityRole?: "SEARCH_CONTEXT" | "REQUIRED_DESTINATION"; moods?: string[] };
   alternativeRequested: boolean;
   previouslyPresentedCandidateIds: string[];
   rejectedCandidateIds: string[];
@@ -217,7 +217,6 @@ function buildNaturalLanguage(input: DecisionRequest) {
   const query = free
     ? [
         free,
-        `Ort in ${city}`,
         directionLabel ? `Gewünschte Richtung: ${directionLabel}` : null,
         audienceLabel ? `Situation: ${audienceLabel}` : null,
         moodText ? `Stimmung: ${moodText}` : null,
@@ -233,7 +232,6 @@ function buildNaturalLanguage(input: DecisionRequest) {
           ...hints(AUDIENCE_OPTIONS, input.audiences),
           ...hints(MOOD_OPTIONS, input.moods),
         ]).join(", ") || null,
-        `Ort in ${city}`,
       ]
         .filter(Boolean)
         .join("\n");
@@ -251,7 +249,7 @@ export function buildCanonicalDecisionRequest(
   const explicit: DecisionProductRequest["explicit"] = {
     moods: uniqueIdentifiers(input.moods),
   };
-  if (IDENTIFIER.test(city)) explicit.targetCity = city;
+  if (IDENTIFIER.test(city)) { explicit.targetCity = city; explicit.targetCityRole = "SEARCH_CONTEXT"; }
   return {
     contractVersion: REQUEST_VERSION,
     requestId,

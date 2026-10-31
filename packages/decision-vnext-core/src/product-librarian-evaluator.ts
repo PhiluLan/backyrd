@@ -30,9 +30,10 @@ export function librarianTargetCity(request: DecisionProductRequest, meaning: Li
   // The deployed context RPC currently authorizes one city per request. A
   // cross-city alternative is not flattened into the first city in its list.
   if (choices.length > 1) throw new Error("product_librarian_multiple_cities_unavailable");
-  const city = request.explicit.targetCity ?? choices[0];
+  const contextualCity = request.explicit.targetCityRole === "SEARCH_CONTEXT";
+  const city = contextualCity ? choices[0] ?? request.explicit.targetCity : request.explicit.targetCity ?? choices[0];
   if (!city) throw new Error("product_target_area_required");
-  if (choices.length && cityKey(city) !== cityKey(choices[0]!)) throw new Error("product_librarian_explicit_city_mismatch");
+  if (!contextualCity && choices.length && cityKey(city) !== cityKey(choices[0]!)) throw new Error("product_librarian_explicit_city_mismatch");
   return canonicalLibrarianCity(city);
 }
 
@@ -182,15 +183,15 @@ function requiredInEveryAlternative(node: LunaExpression, meaning: LibrarianRequ
 
 export function evaluateLibrarianProduct(input: {
   readonly request: DecisionProductRequest; readonly meaning: LibrarianRequest;
-  readonly catalog: readonly unknown[]; readonly eventOccurrences?: unknown; readonly authority: { readonly authorizedCity: string; readonly serverTime: string };
+  readonly catalog: readonly unknown[]; readonly eventOccurrences?: unknown; readonly authority: { readonly authorizedCity: string; readonly serverTime: string; readonly authorizedLocalities?: readonly string[] };
   readonly projection: RelevantUserProjection;
   readonly onSearch?: (result: ReturnType<typeof searchLibrarianCatalogWithWorlds>["result"]) => void;
 }) {
   const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.meaning.raw, sourceText: input.meaning.source.sourceText, reference: input.meaning.source.reference });
   if (meaning.source.sourceText !== input.request.naturalLanguage || meaning.requestHash !== input.meaning.requestHash) throw new Error("product_librarian_source_binding_invalid");
   if (librarianTargetCity(input.request, meaning) !== input.authority.authorizedCity) throw new Error("product_librarian_city_binding_invalid");
-  const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime, librarianDiscoveryLocalities(input.authority.authorizedCity)) : [];
-  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime }, limit: 1500 });
+  const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime, input.authority.authorizedLocalities ?? librarianDiscoveryLocalities(input.authority.authorizedCity)) : [];
+  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime, ...(input.authority.authorizedLocalities ? {authorizedLocalities: input.authority.authorizedLocalities} : {}) }, limit: 1500 });
   input.onSearch?.(result);
   const byId = new Map(worlds.map(w => [w.spot.spotId, w]));
   const ids = [...byId.keys()].sort();
@@ -215,7 +216,7 @@ export function evaluateLibrarianProduct(input: {
       f.key === "budget.maximum" && f.value.kind === "MONEY" && ["LTE", "EQ"].includes(f.value.operator)
       && f.value.amount === uiBudget.amount && f.value.currency === uiBudget.currency);
     // Explicit UI duties are binding too; never demote them by field family.
-    const guardRequest = { ...input.request, naturalLanguage: " ", explicit };
+    const guardRequest = { ...input.request, naturalLanguage: " ", explicit: explicit.targetCityRole === "SEARCH_CONTEXT" ? {...explicit, targetCity: input.authority.authorizedCity} : explicit };
     const guards = evaluateProductWorldViews(guardRequest, input.authority, input.projection, worlds, candidateSetHash).evaluation.candidates;
     candidates = candidates.map(c => {
       const guard = guards.find(g => g.candidateId === c.candidateId);
