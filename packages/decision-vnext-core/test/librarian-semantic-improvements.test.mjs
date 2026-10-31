@@ -321,3 +321,13 @@ test('a separate walk and takeaway reports the missing multi-place planner, not 
  const solo=await exercise({text:'Kaffee trinken',meaning:request([fact('coffee','food.drink','coffee')]),catalog:[binding(1130,profile())]});
  assert.ok(!solo.body.limitations.includes('MULTI_PLACE_SEARCH_UNSUPPORTED'));
 });
+
+test('self-barbecue vocabulary reads an explicit grill-use offer without turning a restaurant into a public grill',()=>{
+ const grill=offer('grill','PLAY');grill.name='Öffentliche Grillstellen nutzen';
+ const q=request([fact('grill','experience.activity','grillieren')]);
+ assert.equal(search(q,[binding(1140,profile([grill]))]).ranked.length,1);
+ const restaurant=offer('restaurant','GASTRONOMY');restaurant.name='Grillrestaurant';
+ assert.equal(search(q,[binding(1141,profile([restaurant]))]).ranked.length,0);
+ const conditional={...grill,name:'Öffentliche Grillstellen nutzen nur auf Anfrage'};
+ assert.equal(search(q,[binding(1142,profile([conditional]))]).ranked.length,0);
+});

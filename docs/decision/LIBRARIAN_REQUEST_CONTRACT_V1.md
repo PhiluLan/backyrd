@@ -764,3 +764,6 @@ HTTP 502/503/504 may consume one retry across the entire translation, including 
 
 ### Separate takeaway and route requests (prompt 28 / matching 50)
 A route activity plus takeaway does not imply that the walk must take place in the café. Preserve distinct activities; do not invent SAME_PLACE without an explicit common venue. If no single-venue result exists, the current engine reports MULTI_PLACE_SEARCH_UNSUPPORTED instead of disguising the missing multi-stop planner as ordinary absence of places. This is an honest capability boundary, not implementation of multi-stop recommendations or a successful matching result.
+
+### Self-barbecue vocabulary (shared language 20 / matching 51)
+Grillieren, selber grillen and explicitly declared public grill use share self_barbecue. A grill restaurant or meat dish does not prove a self-use grill facility. Offer/area and own-food permission remain independently required. Held source profiles remain unavailable and are never bypassed by this vocabulary.
