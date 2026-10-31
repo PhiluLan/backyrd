@@ -120,6 +120,7 @@ export const sameLibrarianText = (a: string, b: string): boolean => librarianTer
  * This is not synonym equivalence and never infers venue identity backwards. */
 export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
     Object.freeze({ offered: "zoo", requested: "animals" }),
+    Object.freeze({ offered: "swimming", requested: "bathing" }),
     Object.freeze({ offered: "coffee", requested: "drinks" }),
     Object.freeze({ offered: "live_jazz", requested: "jazz" }),
     Object.freeze({ offered: "live_jazz", requested: "live_music" }),
@@ -133,7 +134,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@14" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@15" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),

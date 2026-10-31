@@ -262,6 +262,19 @@ function profileFor(world: ProductWorldView, visit: VisitWindow, now: string): {
         return null;
     return { profile: parseExperienceProfile(row.value), hash: row.entryHash };
 }
+/** A broad legacy BATHING tag does not turn a steam/sauna treatment into
+ * immersion bathing. Interpret declared offer/linked-area captions only; a
+ * different pool elsewhere at the venue cannot rescue this witness. */
+function steamBathScope(offer: ExperienceOffer, areaId: string | null, profile: ExperienceProfile, visit: VisitWindow): boolean {
+    const area = profile.areas.find(a => a.id === areaId);
+    if (area?.kind === "POOL_AREA") return false;
+    if (area?.kind === "SAUNA_AREA" || area?.kind === "TREATMENT_ROOM") return true;
+    const declaredSteam = (text: string) => [...text.matchAll(/\b(?:hamam|hammam|dampfbad|dampfbäder|steam bath|bain de vapeur)\b/giu)]
+        .some(match => !/\b(?:ohne|kein(?:e|en|er|es)?|nicht|without|no|sans)\s*$/iu.test(text.slice(0,match.index)));
+    return declaredSteam(offer.name) || area !== undefined && declaredSteam(area.name)
+        || offer.properties.some(p => p.key === "experience.activity" && p.state === "KNOWN" && typeof p.value === "string"
+            && librarianConditions(p.conditions,visit) === "MET" && declaredSteam(p.value));
+}
 function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorldView, profile: ExperienceProfile | null, profileHash: string | null, visit: VisitWindow, preferenceOnly = false, semantics: LibrarianSemanticIndex | null = null, offerAvailability = librarianOfferAvailability): Atom {
     let propertyRead: LibrarianFactAssessment["propertyRead"];
     const report = (state: LibrarianFactAssessment["state"], reason: string, witnesses: readonly Witness[] = []): Atom => ({ report: { factId: fact.id, family: fact.key, modality: preferenceOnly ? "PREFERRED" : fact.modality, state, reason, evidenceHashes: sorted(witnesses.flatMap(w => w.evidenceHashes)), offerIds: sorted(witnesses.flatMap(w => w.offerIds)), areaIds: sorted(witnesses.flatMap(w => w.areaIds)), ...(propertyRead ? {propertyRead} : {}) }, witnesses });
@@ -336,10 +349,16 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         && !["meal", "lunch", "dinner", "breakfast", "brunch", "snacks", "aperitif", "drinks", "coffee"].includes(librarianConcept(f.value.text) ?? ""));
     const suitabilityActivities = (primaryActivities.length ? primaryActivities : relatedActivities)
         .map(f => atom(request, f, world, profile, profileHash, visit, false, semantics, offerAvailability));
+    let steamBathNotImmersion = false;
     const positives: Witness[] = [], negatives: Witness[] = [], uncertain: Witness[] = [];
     const add = (truth: MatchTruth, offer: ExperienceOffer | null, areaId: string | null, evidence: unknown, conditional = false, sourceHashes: readonly string[] = []) => {
         // A nonmatching/unknown value is not evidence of semantic support.
         if (truth === "UNKNOWN") return;
+        if (truth === "MET" && offer && ["bathing", "swimming"].includes(concept ?? "")
+            && steamBathScope(offer, areaId, profile, visit)) {
+            steamBathNotImmersion = true;
+            return;
+        }
         if (truth === "MET" && spatialActivities.length) {
             const supportsArea = (a: Atom) => a.witnesses.some(w => w.offerIds.some(id =>
                 profile.offers.some(o => o.id === id && areaId !== null && o.areaIds.includes(areaId)))
@@ -382,7 +401,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 // A child-compatible play/course still takes place in its
                 // recorded room. Do not drop that scope when generalizing it
                 // to a family activity, or it could borrow an unrelated cafe.
-                for (const areaId of derived && desired !== "children_activity" ? [null] : offer.areaIds.length ? offer.areaIds : [null])
+                for (const areaId of derived && !["children_activity", "bathing"].includes(desired) ? [null] : offer.areaIds.length ? offer.areaIds : [null])
                     add("MET", offer, areaId, { kind: offer.kind, name: offer.name, activityRelation: derived ? { offered, requested: desired } : null, classificationHash: classification?.entryHash ?? null });
             }
         }
@@ -461,7 +480,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
             const offeredActivity = typeof property.value === "string" ? librarianConcept(property.value) : null;
             const derivedActivity = fact.key === "experience.activity" && property.key === "experience.activity"
                 && desired && offeredActivity && desired !== offeredActivity && experienceActivitySupports(offeredActivity, desired);
-            add(translated?.state ?? propertyTruth(property, fact), offer, derivedActivity && !areaScoped ? null : areaId, translated ? { property, meaningLinkHash: translated.evidenceHash } : property, condition === "UNKNOWN");
+            add(translated?.state ?? propertyTruth(property, fact), offer, derivedActivity && !areaScoped && desired !== "bathing" ? null : areaId, translated ? { property, meaningLinkHash: translated.evidenceHash } : property, condition === "UNKNOWN");
         }
     };
     inspect(profile.properties, null, null);
@@ -518,7 +537,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         return report("MET", "SCOPED_EVIDENCE_CONFIRMED", unique(positives));
     if (negatives.length && !uncertain.length)
         return report("FAILED", "SCOPED_REQUIREMENT_CONTRADICTED", unique(negatives));
-    const unresolvedReason = !observedKeys.size && typedWorldLimitation ? typedWorldLimitation : !observedKeys.size ? "PROPERTY_FAMILY_NOT_RECORDED"
+    const unresolvedReason = steamBathNotImmersion ? "STEAM_BATH_NOT_IMMERSION_EVIDENCE" : !observedKeys.size && typedWorldLimitation ? typedWorldLimitation : !observedKeys.size ? "PROPERTY_FAMILY_NOT_RECORDED"
         : !knownValueChecks && outsideConditionChecks && !unknownValueChecks ? "PROPERTY_OUTSIDE_REQUESTED_CONDITIONS"
         : !knownValueChecks ? "PROPERTY_VALUE_NOT_KNOWN" : "PROPERTY_VALUE_NOT_PROVEN";
     return report("UNKNOWN", uncertain.length ? "CONDITIONS_OR_AVAILABILITY_UNKNOWN" : unresolvedReason, unique(uncertain));

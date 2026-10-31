@@ -620,3 +620,28 @@ requests or a blind holdout.
 The missing ELYS “ab 1 Jahr” notice in runs 1 and 3 remains an OPEN issue. The
 founder accepted the recommendations; the missing warning must not become an
 approved training target or a requirement that future code preserve the bug.
+
+### Immersion bathing versus steam treatment (matching 35, experience language 15; development)
+
+An actual `SWIMMING` offer can satisfy ordinary `bathing`; this is a directed
+activity relation, not synonym equivalence. A shallow/thermal bathing offer does
+not establish sports swimming in the reverse direction. The derived bathing
+witness retains its actual linked area.
+
+The broad historical `BATHING` kind and an additional generic “Baden” property
+cannot by themselves establish immersion bathing for an offer explicitly
+scoped to a sauna/treatment room or declared as Hamam/Dampfbad. Every positive
+witness passes the same scope check, including type, property and caption
+matches. A `POOL_AREA` linked to that exact witness supports actual water bathing;
+a different pool elsewhere at the spot cannot rescue its steam-treatment offer.
+No venue-name exception, new user obligation, invented child age or production
+profile edit is introduced. Negated steam captions are not positive steam proof.
+
+For the recorded request “morgen baden mit meiner tochter”, the unchanged
+meaning/catalogue replay now selects aquabasilea's Badewelt and Hallenbad Rialto's
+swimming offer. DAMPF°BAD remains outside recommendations with
+`STEAM_BATH_NOT_IMMERSION_EVIDENCE`, not a fabricated closure. Bachgraben's recorded
+closure and St. Jakob's season restriction still exclude them; Eglisee's winter
+swimming offer is understood but remains unresolved on the requested opening
+date. These checks are independent of the activity relation. The rules are
+covered by `librarian-water-activities.test.mjs` in the existing core test command.
