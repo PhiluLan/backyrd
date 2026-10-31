@@ -2,7 +2,7 @@ import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-g
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
 import { bookingEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
-import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianPropertySourceKeys } from "./product-librarian-language.js";
+import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
 import { librarianGlobalEligibility } from "./product-librarian-eligibility.js";
@@ -150,7 +150,7 @@ function offerDuty(fact: LibrarianFact): boolean {
     const concept = librarianConcept(fact.value.text);
     return fact.key === "food.meal" && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
         || fact.key === "food.drink" && concept === "drinks"
-        || fact.key === "offer.facility" && concept === "playground";
+        || librarianFacilityConcept(fact) === "playground";
 }
 const contextual = (fact: LibrarianFact) => fact.modality === "CONTEXT";
 const neutral = (fact: LibrarianFact) => contextual(fact) || fact.modality === "NOT_REQUIRED";
@@ -287,7 +287,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     const concept = fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null;
     const scopedKind = profile && concept && offerDuty(fact)
         && profile.offers.some(offer => concept === "zoo" && offer.kind === "VISIT" || (OFFER_CONCEPTS[offer.kind] ?? []).includes(concept));
-    const placeType = !scopedKind ? assessLibrarianPlaceType(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world) : null;
+    const placeType = !scopedKind && !librarianFacilityConcept(fact) ? assessLibrarianPlaceType(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world) : null;
     if (placeType) return report(placeType.state, placeType.reason, placeType.hashes.length ? [{ evidenceHashes: placeType.hashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: placeType.state === "UNKNOWN", chargeable: false }] : []);
     if (!profile || !profileHash) {
         const legacy = assessLegacyLibrarianFact(preferenceOnly ? { ...fact, modality: "PREFERRED" } : fact, world, visit);
@@ -312,7 +312,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 || spatialActivities.some(a => a.report.state !== "MET" || !supportsArea(a))) return;
         }
         // A whole-venue amenity does not locate that facility outdoors/indoors.
-        if (fact.key === "offer.facility" && concept === "playground" && areaId === null
+        if (librarianFacilityConcept(fact) === "playground" && areaId === null
             && request.facts.some(f => f.modality === "REQUIRED" && ["offer.area", "location.setting"].includes(f.key))) conditional = true;
         const availability = offer ? offerAvailability(offer, world, visit) : { state: "MET" as const, hashes: [], reason: "AREA_FACT" };
         const witness: Witness = { evidenceHashes: sorted([profileHash, contentHash(evidence), ...sourceHashes, ...availability.hashes]), offerIds: offer ? [offer.id] : [], areaIds: areaId ? [areaId] : [], assignments: assignments(request, fact, offer?.id ?? null, areaId), conditionUnresolved: conditional, chargeable: offerDuty(fact) || fact.key.startsWith("food.") };
@@ -372,7 +372,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {kind: offer.kind});
         }
     }
-    if (fact.key === "offer.facility" && desired === "playground") {
+    if (librarianFacilityConcept(fact) === "playground") {
         for (const area of profile.areas.filter(a => a.kind === "PLAYGROUND")) {
             const offers = profile.offers.filter(o => o.areaIds.includes(area.id));
             for (const offer of offers.length ? offers : [null]) {
@@ -393,7 +393,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                     add("MET", offer, area.id, area, offer.kind === "VISIT" && offer.areaIds.length > 1);
             }
     }
-    const keys = librarianPropertySourceKeys(fact.key, semantics?.sourceKeys(fact));
+    const keys = librarianFactPropertySourceKeys(fact, semantics?.sourceKeys(fact));
     const observedKeys = new Set<string>();
     let knownValueChecks = 0, unknownValueChecks = 0, outsideConditionChecks = 0;
     let typedWorldLimitation: string | null = null;
