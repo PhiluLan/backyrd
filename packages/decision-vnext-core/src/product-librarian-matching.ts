@@ -1,7 +1,7 @@
 import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDecisionProof, combineLibrarianDecisionProof, librarianFacilityIsVisit, librarianFacilityVisitAreaKinds, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
-import { bookingEvidence, externalConsumptionEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
+import { bookingEvidence, takeawayEvidence, externalConsumptionEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
 import { librarianAllAgesSuitability, librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept, librarianMealExtentConcept } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
@@ -323,7 +323,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     }
     if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE")
         return report("UNKNOWN", "DEFERRED_TO_JOINT_VISIT_EVALUATION");
-    if (fact.key === "budget.qualitative" || ["participation.booking", "participation.entry_mode"].includes(fact.key) && fact.value.kind === "TEXT" && ["NOT_REQUIRED", "REQUIRED"].includes(experienceBookingMode(fact.value.text) ?? ""))
+    if (fact.key === "food.delivery" || fact.key === "budget.qualitative" || ["participation.booking", "participation.entry_mode"].includes(fact.key) && fact.value.kind === "TEXT" && ["NOT_REQUIRED", "REQUIRED"].includes(experienceBookingMode(fact.value.text) ?? ""))
         return report("UNKNOWN", "DEFERRED_TO_SCOPED_DOMAIN_EVALUATION");
     // Overlapping words such as Café can denote an actual embedded offer.
     // Its real scoped witness takes precedence over whole-venue classification.
@@ -783,7 +783,7 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
                 const owned = physicalSubjects.length ? state.chargeOfferIds.filter(id => physicalSubjects.some(subject => state.assignments[`owner:${subject}:offer:${id}`] === id)) : state.chargeOfferIds;
                 const relevantIds = owned.length ? owned : state.chargeOfferIds.length ? [] : state.offerIds;
                 const selectedProfile = profile ? { ...profile, offers: profile.offers.filter(offer => relevantIds.includes(offer.id)) } : null;
-                const domain = fact.key === "budget.qualitative" ? qualitativePriceEvidence(fact, world, selectedProfile) : bookingEvidence(fact, selected, world, selectedProfile, visit);
+                const domain = fact.key === "food.delivery" ? takeawayEvidence(fact,world,selectedProfile) : fact.key === "budget.qualitative" ? qualitativePriceEvidence(fact, world, selectedProfile) : bookingEvidence(fact, selected, world, selectedProfile, visit);
                 const rows = (profile && !relevantIds.length ? [] : domain ?? []).filter(row => (!row.offerId || relevantIds.includes(row.offerId)) && (!row.areaId || !state.areaIds.length || state.areaIds.includes(row.areaId)));
                 const truths = rows.map(row => fact.modality === "EXCLUDED" ? row.state === "MET" ? "FAILED" : row.state === "FAILED" ? "MET" : "UNKNOWN" : row.state);
                 const truth: MatchTruth = truths.some(value => value === "FAILED") ? "FAILED" : !truths.length || truths.includes("UNKNOWN") ? "UNKNOWN" : "MET";

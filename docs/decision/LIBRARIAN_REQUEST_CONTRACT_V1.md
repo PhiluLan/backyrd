@@ -724,3 +724,7 @@ Incidental companion headcount (“wir beide”, “mit einer Freundin”) is pe
 ### Matcher 43: coherent offer and unaccompanied age prerequisites
 
 A selected offer with a documented minimum at least as high as the venue's unaccompanied threshold already entails that lower threshold. The offer's exact non-blocking age notice remains visible when ages are unknown; the same missing age must not additionally block discovery under a weaker supervision rule. This does not waive any minimum, override a known younger participant or substitute a lower minimum from another offer. Reproduced at ELYS: selected bouldering minimum 14 and venue unaccompanied threshold 13.
+
+### Matcher 44 / experience language 17: take-away is an executable service requirement
+
+food.delivery with the finite take-away/to-go concept reads the existing authorized operation.takeaway fact, deferred until the actual food/drink offer is selected. A verified gastronomy venue default may qualify its selected food offers; an unrelated hotel/museum service does not. False and missing facts remain false/unknown. Take-away does not establish home delivery. This adds the missing canonical reader rather than discarding the user's coffee-to-go requirement.

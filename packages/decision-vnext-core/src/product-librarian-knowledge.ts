@@ -188,3 +188,22 @@ export function qualitativePriceEvidence(fact: LibrarianFact, world: ProductWorl
     };
     return profile?.offers.length ? profile.offers.map(offer => make(offer.id)) : [make(null)];
 }
+
+/** Only the canonical take-away operation establishes collection. It does not
+ * prove delivery service or extend a hotel's other facilities to takeaway. */
+export function takeawayEvidence(fact:LibrarianFact,world:ProductWorldView,profile:ExperienceProfile|null):readonly DomainEvidence[]|null {
+    if (fact.key !== "food.delivery") return null;
+    const recognized = fact.value.kind === "TEXT" && librarianConcept(fact.value.text) === "takeaway";
+    const rows = world.facts.filter(row=>row.key === "operation.takeaway" && row.trust === "VERIFIED" && row.freshness === "CURRENT"
+        && ["KNOWN_TRUE","KNOWN_FALSE","KNOWN_VALUE"].includes(row.resolution) && row.authorizedUseCases?.includes("HARD_CONSTRAINTS"));
+    const classification = world.facts.filter(row=>["classification.primary_category","classification.place_types"].includes(row.key) && authorized(row,"DISCOVERY"));
+    const primary = classification.find(row=>row.key === "classification.primary_category");
+    const types = classification.find(row=>row.key === "classification.place_types");
+    const foodGroups = ["EAT","DRINKS","COFFEE_DAYTIME"];
+    const groups = Array.isArray(types?.value) ? types.value.map(type=>SPOT_TYPE_CATALOG.find(t=>t.kind===type)?.group??null) : [];
+    const bound = (!primary || typeof primary.value === "string" && foodGroups.includes(primary.value)) && groups.length>0 && groups.every(g=>g!==null&&foodGroups.includes(g));
+    return (profile?.offers.filter(o=>hasOfferModule(o.kind,"food"))??[]).map(offer=>({offerId:offer.id,areaId:null,
+        state:!recognized||!bound||rows.length!==1||typeof rows[0]!.value!=="boolean"?"UNKNOWN":rows[0]!.value?"MET":"FAILED",
+        reason:!recognized?"DELIVERY_MODE_NOT_IMPLEMENTED":!bound?"TAKEAWAY_SCOPE_UNBOUND":rows.length!==1?"TAKEAWAY_EVIDENCE_MISSING":rows[0]!.value===true?"TAKEAWAY_CONFIRMED":rows[0]!.value===false?"TAKEAWAY_NOT_AVAILABLE":"TAKEAWAY_EVIDENCE_MISSING",
+        sourceKeys:["operation.takeaway",...classification.map(r=>r.key)],sourceHashes:[...rows.map(r=>r.entryHash),...classification.map(r=>r.entryHash)],details:{scope:"GASTRONOMY_VENUE_DEFAULT",deliveryInferred:false}}));
+}

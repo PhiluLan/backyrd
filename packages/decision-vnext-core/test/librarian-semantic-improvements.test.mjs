@@ -239,3 +239,11 @@ test('documented offer minimum entails a lower unaccompanied threshold without l
  const weaker=originalBinding(2001,profile([offer('boulder','BOULDERING',['inside'],[prop('participation.minimum_age',1)])]),[rule]);
  assert.equal(search(q,[weaker]).ranked.length,0);
 });
+
+test('takeaway reads authorized operation evidence only for the selected food offer and does not mean delivery',()=>{
+ const q=request([meal(),fact('take','food.delivery','zum Mitnehmen')]);const p=profile();
+ for(const [value,expected] of [[true,1],[false,0]]) assert.equal(search(q,[originalBinding(2002,p,[worldFact('operation.takeaway',value,{resolution:value?'KNOWN_TRUE':'KNOWN_FALSE'})])]).ranked.length,expected);
+ assert.equal(search(q,[originalBinding(2003,p)]).ranked.length,0);
+ const delivery=request([meal(),fact('delivery','food.delivery','Lieferung nach Hause')]);
+ assert.equal(search(delivery,[originalBinding(2004,p,[worldFact('operation.takeaway',true,{resolution:'KNOWN_TRUE'})])]).ranked.length,0);
+});
