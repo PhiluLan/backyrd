@@ -304,6 +304,16 @@ not add a weather API or claim real-time forecast or safety verification.
 No consumer deployment, SQL or spot data modification is part of the internal
 preview. A later combined release must include the shared language and matcher.
 
+Deferred at the founder's explicit request (2026-10-31): connect a real weather
+provider later; continue request diagnostics first. Preferred candidate is
+Open-Meteo (https://open-meteo.com/en/docs; commercial terms at
+https://open-meteo.com/en/pricing). Future integration must fetch weather for the
+destination and requested visit window server-side, cache by location/time,
+retain source and retrieval timestamp, preserve forecast uncertainty, and supply
+bound condition evidence to the current librarian. A provider failure must not
+invent weather or override user-stated visit context. No subscription, provider
+credentials or live weather adapter has been created; this remains deferred.
+
 `scripts/decision/run-local-diagnostic.mjs` executes the canonical current evaluator
 and ranker against an exported, verified regional catalog. It does not persist
 decisions or learning and uses a neutral local identity, not an app user's profile.
