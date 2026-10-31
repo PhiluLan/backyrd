@@ -482,7 +482,7 @@ unknown. The relative level and its limitation are rendered in Mobile and Web;
 required undefined qualitative ceilings still need clarification.
 
 
-### Translation admission: meaning roles v1 (prompt 16 / provider 4)
+### Translation admission: meaning roles v2 (prompt 17 / provider 4)
 
 Schema-valid model output is not necessarily executable meaning. The canonical
 `product-luna-meaning-contract.ts` now supplies both the model instructions and
@@ -519,3 +519,13 @@ call or deterministic JSON shape do not establish interpretation stability.
 This guard diagnoses known role/capability errors; it does not prove that every
 possible natural-language wish was retained correctly. Repeated real-call
 results and remaining semantic variance must be reported explicitly.
+
+Active prompt 17 also constrains all declared person/source/purpose context
+families to CONTEXT in the provider schema and validator. A source ordering
+word is not a venue requirement; real ordering uses SEQUENCE between concrete
+activities. Booking's ambiguous NOT_REQUIRED/booking_required combination is
+excluded by the active schema. Absence of a booking prerequisite means a
+positive spontaneous-access duty; NOT_REQUIRED/spontaneous is reserved for
+explicit indifference. Historical plans are not modified. This closes two
+additional variants found by the first real repetition suite, which is retained
+as a failed stability baseline rather than presented as all-green.

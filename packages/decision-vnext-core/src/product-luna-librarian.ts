@@ -1,4 +1,4 @@
-import { LUNA_MEANING_ROLE_CONTRACT, LUNA_MEANING_ROLE_INSTRUCTIONS } from './product-luna-meaning-contract.js';
+import { LUNA_CONTEXT_ONLY_FAMILIES, LUNA_MEANING_ROLE_CONTRACT, LUNA_MEANING_ROLE_INSTRUCTIONS } from './product-luna-meaning-contract.js';
 import { EXPERIENCE_LANGUAGE_CONCEPTS, SPOT_TYPE_CATALOG, WORLD_VALUE_LABELS, librarianConcept } from "@backyrd/world-knowledge-core";
 import { createHash } from "node:crypto";
 import { contentHash, deepFreeze } from "./canonical.js";
@@ -212,8 +212,10 @@ export function parseLunaMeaningOutput(input: unknown): Readonly<LunaMeaningOutp
 export function validateActiveLunaMeaningOutput(value: unknown) {
   const output = parseLunaMeaningOutput(value);
   output.facts.forEach((fact, index) => {
+    if (fact.key === "participation.booking" && fact.modality === "NOT_REQUIRED" && "text" in fact.value && librarianConcept(fact.value.text) === "booking_required") fail("ambiguous_negated_prerequisite", `$.facts[${index}]`);
     if (fact.key === "time.original" && fact.modality !== "CONTEXT") fail("source_echo_must_be_context", `$.facts[${index}].modality`);
     if (fact.key === "people.relationship" && fact.modality !== "CONTEXT") fail("companion_must_be_context", `$.facts[${index}].modality`);
+    if (LUNA_CONTEXT_ONLY_FAMILIES.includes(fact.key) && fact.modality !== "CONTEXT") fail("context_role_must_be_context", `$.facts[${index}].modality`);
     if (["food.dish", "food.meal", "experience.activity"].includes(fact.key) && fact.value && "text" in fact.value
         && ["own_food", "own_drinks"].includes(librarianConcept(fact.value.text) ?? "") && fact.modality !== "CONTEXT") fail("brought_consumption_is_permission_not_supply", `$.facts[${index}]`);
   });
@@ -223,7 +225,7 @@ export function validateActiveLunaMeaningOutput(value: unknown) {
 
 /** Versioned clarification of executable duties versus visit context. The
  * frozen schema, catalog, model and original prompt remain intact. */
-export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@16" as const;
+export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@17" as const;
 /** Preserve the frozen base schema. Constrain source metadata in the active
  * provider contract so the model cannot emit it as a second hard condition. */
 const modelSchemaObject = (value: unknown): Readonly<Record<string, unknown>> => {
@@ -238,24 +240,35 @@ function contextOnlySourceSchema() {
     const variant = modelSchemaObject(raw), properties = modelSchemaObject(variant.properties);
     const keyDefinition = modelSchemaObject(properties.key), keys = keyDefinition.enum;
     if (!Array.isArray(keys) || !keys.every((key): key is string => typeof key === "string")) throw new Error("luna_model_schema_invalid");
-    const contextKeys = keys.filter(key => ["time.original", "people.relationship"].includes(key));
+    const contextKeys = keys.filter(key => LUNA_CONTEXT_ONLY_FAMILIES.includes(key as LunaFactKey));
     const otherKeys = keys.filter(key => !contextKeys.includes(key));
     return contextKeys.length ? [
       ...(otherKeys.length ? [{ ...variant, properties: { ...properties, key: { type: "string", enum: otherKeys } } }] : []),
       ...contextKeys.map(key => ({ ...variant, properties: { ...properties, key: { type: "string", enum: [key] }, modality: { type: "string", enum: ["CONTEXT"] } } })),
     ] : [variant];
   });
+  const executableVariants = variants.flatMap(variant => {
+    const props = modelSchemaObject(variant.properties), keys = modelSchemaObject(props.key).enum;
+    if (!Array.isArray(keys) || !keys.includes("participation.booking")) return [variant];
+    const others = keys.filter(key => key !== "participation.booking");
+    const value = modelSchemaObject(definitions.textValue), valueProps = modelSchemaObject(value.properties);
+    return [
+      ...(others.length ? [{...variant,properties:{...props,key:{type:"string",enum:others}}}] : []),
+      {...variant,properties:{...props,key:{type:"string",enum:["participation.booking"]},modality:{type:"string",enum:["REQUIRED","PREFERRED","EXCLUDED","CONTEXT"]}}},
+      {...variant,properties:{...props,key:{type:"string",enum:["participation.booking"]},modality:{type:"string",enum:["NOT_REQUIRED"]},value:{...value,properties:{...valueProps,text:{type:"string",enum:["spontaneous"]}}}}},
+    ];
+  });
   const weatherDefinition = modelSchemaObject(definitions.weatherCondition);
   const weatherProperties = modelSchemaObject(weatherDefinition.properties);
   if (!Array.isArray(weatherDefinition.required)) throw new Error("luna_model_schema_invalid");
-  return deepFreeze({ ...LUNA_LIBRARIAN_MODEL_SCHEMA, $defs: { ...definitions, fact: { ...factDefinition, anyOf: variants },
+  return deepFreeze({ ...LUNA_LIBRARIAN_MODEL_SCHEMA, $defs: { ...definitions, fact: { ...factDefinition, anyOf: executableVariants },
     weatherCondition: { ...weatherDefinition, properties: { ...weatherProperties,
       role: { type: "string", enum: ["CONTEXT", "CONDITIONAL"] }, state: { type: "string", enum: weatherStates } },
       required: [...weatherDefinition.required, "role"] } } });
 }
 export const LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA = contextOnlySourceSchema();
 
-const activePrompt = LUNA_LIBRARIAN_PROMPT + LUNA_MEANING_ROLE_INSTRUCTIONS + "\nAUSFÜHRBARER AUFTRAG:\n"
+const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARER AUFTRAG:\n"
   + "WETTERREGEL (präzisiert und ersetzt Basisregel 6): weatherConditions enthält zwei strikt getrennte Rollen. role=CONTEXT bewahrt vom Nutzer für den Besuch angegebenes Wetter ('es regnet', 'Regenwetter heute', 'heute ist es heiss') als Nutzerangabe, nicht als verifizierte Wettervorhersage. Diese IDs niemals in IF oder FACT verwenden. role=CONDITIONAL gilt ausschliesslich bei echter offener Fallunterscheidung ('wenn es regnet X, sonst Y'); nur diese IDs stehen in IF.conditionFactId. Ein blosses Regenwort erzeugt keine Bedingung. Wunsch und Besuchsdatum bleiben bei Wetterkontext unbedingt aktiv. Wetterzustände: RAIN, DRY, SNOW, SUN, HEAT, COLD, WIND, THUNDERSTORM, sonst OTHER mit detail. Kontext nicht in unprüfbare Pflichttexte umwandeln.\n"
   + "WETTERBEDARF: Bei einer allgemeinen Unternehmung bei angegebenem Regen ist zusätzlich offer.weather_suitability text=rain_suitable REQUIRED basis=INFERRED am selben ACTIVITY-Bezug wie die Unternehmung zu erhalten. Nicht zusätzlich indoor verlangen: auch ein belegter regengeschützter Aussenbereich kann genügen. Ausdrücklich drinnen bleibt offer.area indoor REQUIRED; ausdrücklich draussen bleibt outdoor REQUIRED. Explizit Regen erleben, im Regen spazieren oder nass werden wollen verlangt dagegen keinen abgeleiteten Schutz; ausdrücklich keine Überdachung benötigen bleibt NOT_REQUIRED. Keine Wettervorhersage erfinden. Hitze, Kälte, Wind, Schnee, Gewitter und Sonne zunächst als Wetterkontext erhalten; konkrete Wünsche separat: Schatten=offer.shade shade, beheizt/klimatisiert=offer.temperature mit benanntem Wert, ausdrückliche Eignung für solches Wetter=offer.weather_suitability mit diesem konkreten Wunsch. Aus Innenraum weder Kühlung noch Heizung, aus Dach weder Wind-, Kälte- noch Gewitterschutz ableiten. Explizite Outdoor-Wünsche niemals wegen schlechtem Wetter in indoor umschreiben. Bei Wetterbedingungen bleibt die vollständig benannte Folge in ihrem jeweiligen IF-Zweig.\n"
   + "KOMBINATIONEN UND ALTERNATIVEN: X oder Y ist eine erforderliche ANY-Alternative, nicht zwei globale Pflichten; X und Y bleibt ALL. Alle alternativen Fakten ausdrücklich in logic referenzieren, sonst werden sie globale Pflichten. Ein zusätzliches Verpflegungsangebot bei einer Aktivität ist eine eigene ACTIVITY-Entity: Aktivität a1, Essen/Snacks a2; das verlangt denselben Ort, nicht denselben Raum oder dasselbe Angebot. Nutze SAME_PLACE zwischen den gleichzeitig aktiven Aktivitäts- und Verpflegungsfakten, nicht SIMULTANEOUS. Keine ungenannte zeitliche Reihenfolge hinzufügen. Eigenschaften einer konkreten Mahlzeit (vegan, Preis, drinnen essen) behalten dagegen deren Entity-Bezug. Familienaktivität ist condition.children text=children_activity REQUIRED; keine zweite gleichbedeutende experience.activity-Pflicht ergänzen. Essen oder Snacks vor Ort: food.meal text=meal ODER food.meal text=snacks unter ANY strength=REQUIRED. Beides nur bei ausdrücklich verlangtem und fordern. Keine bestimmte Familienaktivität, Kinderalter, Innenraum oder Besuchszeit aus dem Familienwort erfinden.\n"
@@ -278,7 +291,7 @@ const activePrompt = LUNA_LIBRARIAN_PROMPT + LUNA_MEANING_ROLE_INSTRUCTIONS + "\
   + 'STRUKTURBEISPIEL (nur auf tatsächlich vorhandene Wünsche anwenden): Unternehmung mit Kindern im Inneren, dazu Essen oder Snacks vor Ort. entities enthalten {id:"a1",kind:"ACTIVITY",label:"Unternehmung",members:[]} und {id:"a2",kind:"ACTIVITY",label:"Verpflegung",members:[]}. Fakten: kids=condition.children/children_activity REQUIRED subjectIds:["a1"]; inside=offer.area/indoor REQUIRED subjectIds:["a1"]; meal=food.meal/meal REQUIRED subjectIds:["a2"]; snack=food.meal/snacks REQUIRED subjectIds:["a2"]; companion=people.relationship/adult_accompanied CONTEXT basis:INFERRED subjectIds:[]. logic=ALL(kids,inside,ANY REQUIRED(meal,snack)); bindings=SAME_PLACE(kids,meal) und SAME_PLACE(kids,snack). Keine Doppelpflicht aus Familie oder Begleitung. Bei ausdrücklich nur allein teilnehmenden Kindern companion=unaccompanied CONTEXT statt adult_accompanied. Bei einer anderen Unternehmung deren konkreten Inhalt statt kids erhalten; Eigenschaften ihrer Verpflegung bleiben an a2.'
   + "\nWETTERABSCHLUSS: 'Regenwetter heute, etwas mit meinem Kind unternehmen' ist weatherConditions:[{id:w1,role:CONTEXT,state:RAIN,basis:EXPLICIT,subjectIds:[a1],detail:null}], Kinderaktivität und rain_suitable REQUIRED an a1, Alter des Kindes und erwachsene Begleitung CONTEXT, heutiges Datum REQUIRED. Kein IF, kein zusätzlicher Indoor-Zwang. Dagegen 'Wenn es regnet ins Museum, sonst in den Park' hat role:CONDITIONAL und IF mit den beiden erhaltenen Folgen. Allgemeines Schlechtwetter ohne benannte Art als OTHER erhalten; keine konkrete Gefahr oder Schutzleistung erfinden.\n"
   + "ALLGEMEINER AUSFLUGSZWECK: 'Ausflug machen', 'Familienausflug', 'etwas unternehmen' und 'einen Tag verbringen' benennen ohne konkretisierte Tätigkeit einen Besuchszweck: wenn als eigenes Faktum erhalten, ausschliesslich experience.purpose CONTEXT. Niemals zusätzlich experience.activity text=Ausflug/Unternehmung/Familienausflug REQUIRED erzeugen. Beim Familienausflug ist die ausführbare Pflicht bereits condition.children text=children_activity REQUIRED; Erwachsenenbegleitung bleibt people.relationship adult_accompanied CONTEXT. Das gilt unabhängig von Datum, Lage oder Verpflegung. Konkrete verlangte Tätigkeiten oder Leistungen wie Wandern, Bootsausflug, geführte Exkursion oder Museum bleiben dagegen REQUIRED unter ihrer passenden Familie und dürfen nicht als allgemeiner Besuchszweck verschwinden. Beispiel: 'Mit der Familie einen Ausflug machen und Tiere beobachten' => children_activity REQUIRED und animals REQUIRED; 'Ausflug machen' ist keine dritte Pflicht. Unverändert alle weiteren Anforderungen erhalten.\n"
-  + "MITGEBRACHTE VERPFLEGUNG: Wir bringen eigenes Essen mit => ausschliesslich participation.permission text=own_food REQUIRED. Eigene Getränke entsprechend own_drinks. Keine zusätzliche food.dish-, food.meal- oder experience.activity-Pflicht für own_food/own_drinks, keine Kaufpflicht und kein gastronomisches Angebot ergänzen. Die Mitnahme-Erlaubnis auf die tatsächlich besuchte ACTIVITY beziehen; kein separates gastronomisches Angebot erfinden, nur um Mitbringen abzubilden. Bei einem Restaurantbesuch muss die Erlaubnis für den besuchten Gastronomiebereich gelten, nicht für irgendeinen Aussenbereich am selben Ort. Benannte eigene Speisen dürfen als CONTEXT erhalten bleiben; nur ausdrücklich benötigte Leistungen wie Aufwärmen oder Kühlmöglichkeit separat als Anforderung erhalten. Keine eigene Verpflegung mitbringen bedeutet keine Mitnahmepflicht (NOT_REQUIRED), nicht ein Verbot von Orten mit Mitnahme-Erlaubnis.";
+  + "MITGEBRACHTE VERPFLEGUNG: Wir bringen eigenes Essen mit => ausschliesslich participation.permission text=own_food REQUIRED. Eigene Getränke entsprechend own_drinks. Keine zusätzliche food.dish-, food.meal- oder experience.activity-Pflicht für own_food/own_drinks, keine Kaufpflicht und kein gastronomisches Angebot ergänzen. Die Mitnahme-Erlaubnis auf die tatsächlich besuchte ACTIVITY beziehen; kein separates gastronomisches Angebot erfinden, nur um Mitbringen abzubilden. Bei einem Restaurantbesuch muss die Erlaubnis für den besuchten Gastronomiebereich gelten, nicht für irgendeinen Aussenbereich am selben Ort. Benannte eigene Speisen dürfen als CONTEXT erhalten bleiben; nur ausdrücklich benötigte Leistungen wie Aufwärmen oder Kühlmöglichkeit separat als Anforderung erhalten. Keine eigene Verpflegung mitbringen bedeutet keine Mitnahmepflicht (NOT_REQUIRED), nicht ein Verbot von Orten mit Mitnahme-Erlaubnis." + LUNA_MEANING_ROLE_INSTRUCTIONS;
 export const LUNA_LIBRARIAN_CONFIGURATION = deepFreeze({
   contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, model: LUNA_LIBRARIAN_MODEL,
   reasoningEffort: LUNA_LIBRARIAN_REASONING, store: false, maxOutputTokens: 7500,

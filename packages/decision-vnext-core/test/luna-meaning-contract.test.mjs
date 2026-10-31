@@ -67,3 +67,25 @@ test('both formerly divergent representations reach identical eligibility throug
  }
  assert.ok(results[0].length);assert.deepEqual(results[0],results[1]);
 });
+
+test('context roles cannot become hard venue duties in the active schema',async()=>{
+ const {buildLunaLibrarianModelRequest,validateActiveLunaMeaningOutput}=await import('../dist/product-luna-librarian.js');
+ const {LUNA_CONTEXT_ONLY_FAMILIES}=await import('../dist/product-luna-meaning-contract.js');
+ const body=buildLunaLibrarianModelRequest({sourceText:'zuerst gemütlich essen',reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
+ for(const key of LUNA_CONTEXT_ONLY_FAMILIES){const variants=body.text.format.schema.$defs.fact.anyOf.filter(v=>v.properties.key.enum.includes(key));assert.equal(variants.length,1,key);assert.deepEqual(variants[0].properties.modality.enum,['CONTEXT'],key);}
+ const before=raw('time.relation','zuerst');assert.throws(()=>validateActiveLunaMeaningOutput(before),/context_role_must_be_context/);
+ assert.equal(before.facts[0].modality,'REQUIRED');
+});
+test('negated prerequisites cannot be represented as ignored booking duties',async()=>{
+ const {buildLunaLibrarianModelRequest,validateActiveLunaMeaningOutput}=await import('../dist/product-luna-librarian.js');
+ const body=buildLunaLibrarianModelRequest({sourceText:'Ohne Anmeldung essen',reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
+ const variants=body.text.format.schema.$defs.fact.anyOf.filter(v=>v.properties.key.enum.includes('participation.booking'));
+ const ignored=variants.find(v=>v.properties.modality.enum.includes('NOT_REQUIRED'));assert.deepEqual(ignored.properties.value.properties.text.enum,['spontaneous']);
+ const output=raw('participation.booking','booking_required');output.facts[0].modality='NOT_REQUIRED';assert.throws(()=>validateActiveLunaMeaningOutput(output),/ambiguous_negated_prerequisite/);
+ output.facts[0].value.text='spontaneous';assert.doesNotThrow(()=>validateActiveLunaMeaningOutput(output));
+ output.facts[0].modality='REQUIRED';assert.doesNotThrow(()=>validateActiveLunaMeaningOutput(output));
+});
+test('permission misfiled as food is diagnosed before the active semantic validator rejects it',async()=>{
+ const p=provide([raw('food.dish','own_food'),raw('participation.permission','own_food')]);
+ assert.equal((await p.run()).facts[0].key,'participation.permission');assert.equal(p.calls(),2);
+});

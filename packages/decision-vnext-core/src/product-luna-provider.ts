@@ -1,5 +1,5 @@
 import { inspectLunaMeaning, assertLunaMeaningCorrection, type LunaMeaningIssue } from './product-luna-meaning-contract.js';
-import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, validateActiveLunaMeaningOutput, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LunaMeaningOutput } from "./product-luna-librarian.js";
+import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, parseLunaMeaningOutput, validateActiveLunaMeaningOutput, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LunaMeaningOutput } from "./product-luna-librarian.js";
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 import type { DecisionProductAuthenticatedActor } from "./product-decision.js";
 
@@ -66,7 +66,7 @@ export function createDecisionProductLunaProvider(input: {
       return modelOutput(await response.json());
     };
     let output;
-    try { output = validateActiveLunaMeaningOutput(await call(body)); }
+    try { output = parseLunaMeaningOutput(await call(body)); }
     catch { throw new Error("product_luna_meaning_invalid"); }
     const issues = inspectLunaMeaning(output);
     try { input.onTranslationAttempt?.({output, issues}); } catch { /* Diagnostics cannot affect a decision. */ }
@@ -89,7 +89,7 @@ export function createDecisionProductLunaProvider(input: {
     }
     if (signal.aborted) throw new Error("product_luna_aborted");
     try {
-      const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output, sourceText: request.naturalLanguage, reference });
+      const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: validateActiveLunaMeaningOutput(output), sourceText: request.naturalLanguage, reference });
       assertExplicitContext(request, meaning);
       return meaning;
     } catch { throw new Error("product_luna_meaning_invalid"); }

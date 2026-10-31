@@ -35,7 +35,8 @@ for (const [key, concept] of Object.entries(BOOLEAN_CONCEPTS)) {
   if (key in LIBRARIAN_FAMILY_STRATEGIES) families.push(key as LunaFactKey);
   rules[concept] = families;
 }
-export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@1', rules});
+export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
+export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@2', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
 export type LunaMeaningIssue = {
   readonly factId: string;
   readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT';
@@ -69,4 +70,7 @@ export const LUNA_MEANING_ROLE_INSTRUCTIONS = '\nVERBINDLICHE BEDEUTUNGSROLLEN (
   + 'condition.animals ist NICHT die gewünschte Tierbeobachtung; es bezeichnet nur besondere Tierhaltungs-/Tierzugangsbedingungen, deren genaue Bedeutung erhalten bleiben muss. Hund mitbringen ist keine Tierbeobachtung. '
   + 'Die folgenden bekannten Begriffe dürfen als Wunsch nur in den jeweils angegebenen Familien stehen: '
   + Object.entries(rules).map(([concept,families])=>`${concept}=>${families.join('|')}`).join('; ')
-  + '. Unbekannte Wünsche vollständig erhalten, nicht auf einen ähnlichen bekannten Begriff zwingen. Niemals eine Pflicht abschwächen, eine Negation entfernen, ein Datum erfinden oder eine Alternative in mehrere Pflichten verwandeln. Vor Ausgabe jede Zuordnung gegen diesen Vertrag prüfen.';
+  + '. Kontextfamilien dürfen ausschliesslich CONTEXT sein: ' + LUNA_CONTEXT_ONLY_FAMILIES.join(', ')
+  + '. Eine zeitliche Reihenfolge gehört zwischen mehrere konkret benannte Tätigkeiten in SEQUENCE; ein alleinstehendes zuerst oder danach erzeugt keine zusätzliche erfüllbare Ortsanforderung. '
+  + 'VERNEINTE VORAUSSETZUNGEN: Eine Voraussetzung nicht erfüllen wollen bedeutet, dass der Ort ohne diese Voraussetzung nutzbar sein muss. Ohne Reservierung, ohne Anmeldung, ohne Vorbuchung => participation.booking spontaneous REQUIRED; möglichst ohne Vorbuchung => spontaneous PREFERRED. NOT_REQUIRED bedeutet dagegen ausdrücklich egal ob eine Buchung nötig ist. Dafür spontaneous NOT_REQUIRED verwenden. booking_required NOT_REQUIRED ist eine mehrdeutige Doppelverneinung und nicht erlaubt. Dasselbe Prinzip für Zugang ohne Hotelaufenthalt: public_day_access REQUIRED statt Hotelaufenthalt als unverbindlich wegzulassen. Den Wunsch niemals verlieren. '
+  + 'Unbekannte Wünsche vollständig erhalten, nicht auf einen ähnlichen bekannten Begriff zwingen. Niemals eine Pflicht abschwächen, eine Negation entfernen, ein Datum erfinden oder eine Alternative in mehrere Pflichten verwandeln. Vor Ausgabe jede Zuordnung gegen diesen Vertrag prüfen.';
