@@ -746,3 +746,6 @@ Finite laptop-work labels map to the actual COWORKING offer concept. A café or 
 ### Prompt 25 / meaning roles 9: known duplicates are not unsupported new duties
 
 A required/excluded extension whose exact finite concept is already represented by a fact with identical subjects, modality and basis is diagnosed as a redundant extension. The existing single correction may remove only that diagnosed duplicate; all real facts and unknown extra needs remain immutable. Different participants, different modality or an unmapped description is not a duplicate. The model does not silently lose genuine unsupported wishes. Reproduced when correctly emitted coworking was duplicated as “Arbeiten mit dem eigenen Laptop” in case 30.
+
+### General atmosphere preference policy (prompt 26)
+Ordinary cozy, relaxed and romantic atmosphere requests remain explicit ranking preferences. They are not confirmed without scoped mood evidence. Emphatic must/only wording disables this default. Noise, conversation, music, activities, meals, diet, price, location, access and time remain mandatory unless explicitly softened. The schema and provider both enforce the bounded exception. No spot data is inferred or edited.

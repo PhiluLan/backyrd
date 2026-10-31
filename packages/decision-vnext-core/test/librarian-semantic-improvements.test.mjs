@@ -276,3 +276,18 @@ test('laptop work needs a real work offer, and venue WiFi does not manufacture p
  assert.equal(search(q,[originalBinding(2011,p)]).ranked.length,0);
  assert.equal(search(q,[originalBinding(2012,profile([offer('coffee','CAFE')]),wifi)]).ranked.length,0);
 });
+
+test('ordinary mood retains an honest notice without suppressing proven coffee and cake; required mood still gates',async()=>{
+ const coffee=offer('coffee','CAFE');coffee.name='Kaffee und Kuchen aus eigener Backstube';
+ const b=binding(1101,profile([coffee],[area()]));
+ const facts=[fact('coffee','food.drink','COFFEE'),fact('cake','food.dish','CAKE'),fact('mood','atmosphere.character','cozy','PREFERRED')];
+ const result=await exercise({text:'Gemütlich Kaffee und Kuchen',meaning:request(facts),catalog:[b]});
+ assert.equal(result.status,200);
+ const selected=result.body.candidates.filter(c=>c.rank!==null);assert.equal(selected.length,1);
+ assert.ok(selected[0].reasons.some(r=>r.code==='librarian-atmosphere-unconfirmed'&&!r.confirmed));
+ assert.ok(!selected[0].reasons.some(r=>r.confirmed&&r.statement==='Bestätigt: die gewünschte Atmosphäre.'));
+ const strict=await exercise({text:'Unbedingt gemütlich Kaffee und Kuchen',meaning:request(facts.map(f=>f.id==='mood'?{...f,modality:'REQUIRED'}:f)),catalog:[b]});
+ assert.equal(strict.body.candidates.filter(c=>c.rank!==null).length,0);
+ const onlyCoffee=offer('coffee','CAFE');onlyCoffee.name='Kaffee';
+ assert.equal(search(request(facts),[binding(1102,profile([onlyCoffee],[area()]))]).ranked.length,0);
+});

@@ -95,7 +95,7 @@ test('preference admission needs explicit source evidence across supported langu
  for(const text of ['gemütlich essen und nicht zu teuer','Live Jazz mit Rollstuhl','unmöglichst optionality']){
   assert.deepEqual(explicitPreferenceEvidence(text),[]);
   const body=buildLunaLibrarianModelRequest({sourceText:text,reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
-  const enums=[];const walk=v=>{if(v&&typeof v==='object'){if(Array.isArray(v.enum))enums.push(...v.enum);for(const child of Object.values(v))walk(child);}};walk(body.text.format.schema);assert.ok(!enums.includes('PREFERRED'));
+  const variants=[];const walk=v=>{if(v&&typeof v==='object'){if(v.properties?.modality?.enum?.includes('PREFERRED'))variants.push(v);for(const child of Object.values(v))walk(child);}};walk(body.text.format.schema);assert.ok(variants.length);for(const v of variants)assert.deepEqual(v.properties.key.enum,['atmosphere.character']);
  }
  for(const text of ['möglichst gemütlich','preferably quiet','si possible au calme','se possibile tranquillo','Es wäre schön, wenn es ruhig ist']){
   assert.ok(explicitPreferenceEvidence(text).length,text);
@@ -150,4 +150,16 @@ test('an exact known extension duplicate is removed by bounded correction, unkno
  const p=provide([before,after]);assert.equal((await p.run()).extensions.length,0);assert.equal(p.calls(),2);
  const other=structuredClone(before);other.extensions[0].description='Eigener Bildschirm mit HDMI';assert.equal(inspectLunaMeaning(other)[0].code,'UNSUPPORTED_REQUIREMENT');
  other.extensions[0].description=before.extensions[0].description;other.extensions[0].subjectIds=['a2'];assert.equal(inspectLunaMeaning(other)[0].code,'UNSUPPORTED_REQUIREMENT');
+});
+
+test('ordinary general atmosphere is a preference but emphatic mood and concrete duties cannot be softened',async()=>{
+ const output=raw('atmosphere.character','cozy');output.facts[0].modality='PREFERRED';
+ const provider=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(output)});
+ assert.equal((await provider({...req,naturalLanguage:'Gemütlich Kaffee und Kuchen'},{},new AbortController().signal)).facts[0].modality,'PREFERRED');
+ for(const text of ['Unbedingt gemütlich Kaffee und Kuchen','Es muss gemütlich sein'])await assert.rejects(provider({...req,naturalLanguage:text},{},new AbortController().signal),/understanding_unresolved/);
+ for(const [key,value] of [['atmosphere.noise','quiet'],['food.diet','vegan'],['participation.accessibility','step_free'],['atmosphere.music','live_jazz']]){
+  const bad=raw(key,value);bad.facts[0].modality='PREFERRED';
+  const p=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(bad)});
+  await assert.rejects(p({...req,naturalLanguage:'Gemütlich Kaffee und Kuchen'},{},new AbortController().signal),/understanding_unresolved/);
+ }
 });

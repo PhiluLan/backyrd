@@ -48,7 +48,7 @@ function resultCopy(spot: DecisionResult): { highlights: string[]; consideration
   const highlights = Object.entries(visibleReasonCopy)
     .filter(([code]) => confirmed.has(code) && !(code === "primary-purpose-confirmed" && confirmed.has("core-intent-confirmed")))
     .map(([, label]) => label).slice(0, 2);
-  const considerations: string[] = spot.reasons.filter(reason => ["librarian-inherited-spot-hours", "librarian-external-admission-unconfirmed", "librarian-free-admission", "librarian-age-rules-unconfirmed", "librarian-age-requirement", "librarian-external-consumption-exceptions", "librarian-relative-price-level"].includes(reason.code)).map(reason => reason.statement);
+  const considerations: string[] = spot.reasons.filter(reason => ["librarian-atmosphere-unconfirmed", "librarian-inherited-spot-hours", "librarian-external-admission-unconfirmed", "librarian-free-admission", "librarian-age-rules-unconfirmed", "librarian-age-requirement", "librarian-external-consumption-exceptions", "librarian-relative-price-level"].includes(reason.code)).map(reason => reason.statement);
   if (spot.coreIntentCoverage !== "CONFIRMED") considerations.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
   if (spot.reasons.some((reason) => reason.code === "visit-unconfirmed")) considerations.push("Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.");
   if (spot.reasons.some((reason) => reason.code === "price-level-unconfirmed")) considerations.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
