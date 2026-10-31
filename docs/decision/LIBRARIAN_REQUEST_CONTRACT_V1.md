@@ -16,6 +16,12 @@ availability, diet and budget constraints retain their scopes and authority.
 The failed live model output is retained as a regression fixture. Acceptance
 requires a fresh model run, not only a hand-authored corrected meaning plan.
 
+Matching revision 25 also reads the same meal/snack extent when the model emits
+an equivalent consumption activity alongside `food.meal`. The real revision-10
+model output is replayed unchanged against meals-only and snacks-only venues
+through matching and the active HTTP route. Non-food activities do not gain
+catering evidence, and the original OR branches and subject scopes are retained.
+
 Status (2026-10-16): single-route implementation candidate; production activation pending.
 Task class: PRODUCT_RELEASE because the existing production adapter shares its
 catalog read with the new library boundary.

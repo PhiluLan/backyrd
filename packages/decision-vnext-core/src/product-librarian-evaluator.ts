@@ -102,7 +102,8 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     if (!f) return contentHash({ family: candidate.facts.find(f => f.factId === id)?.family, id });
     const value = f.value.kind === "TEXT" ? librarianConcept(f.value.text) ?? f.value.text.trim().toLowerCase() : f.value;
     // Repeated meal/activity aliases express one wish, not two ranking votes.
-    const family = ["experience.activity", "food.meal"].includes(f.key) && ["meal", "lunch", "dinner", "breakfast"].includes(String(value)) ? "meal" : f.key;
+    const family = ["experience.activity", "offer.kind", "food.meal", "food.option"].includes(f.key)
+      && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(String(value)) ? "meal" : f.key;
     return contentHash({ family, value, subjects: [...f.subjectIds].sort(), modality: f.modality });
   };
   const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state)).slice(0, 50).map(f => {
