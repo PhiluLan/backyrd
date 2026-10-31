@@ -17,7 +17,7 @@ const flatten=node=>node.kind==='FACT'?[node.factId]:node.kind==='IF'?[node.cond
 test('revision 15 preserves the frozen base and source-echo schema while separating ancillary food alternatives',()=>{
  const cfg=LUNA_LIBRARIAN_CONFIGURATION;
  assert.equal(cfg.model,'gpt-5.6-luna');assert.equal(cfg.reasoningEffort,'low');assert.equal(cfg.store,false);
- assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@23');
+ assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@24');
  assert.equal(cfg.baseSchemaHash,'9261d8d2b0605e203e928af92de83697d3df33539e2621424b5cf6cbf45ea8cc');assert.notEqual(cfg.schemaHash,cfg.baseSchemaHash);
  assert.equal(cfg.catalogHash,'7216d0011879d1e6b78e6186146305755111ceea87fa0992ee051b2b613e927c');
  const body=buildLunaLibrarianModelRequest({sourceText:'Heute Abend etwas trinken',reference:ref});

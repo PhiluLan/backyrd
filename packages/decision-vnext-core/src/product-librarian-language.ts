@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LibrarianFact, LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@46" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@47" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept, librarianTerm, type ExperienceProperty } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 /** Suitability is explicit product knowledge, not a venue-type heuristic. */
@@ -42,7 +42,7 @@ export const LIBRARIAN_FACILITY_REQUEST_FAMILIES = Object.freeze(["offer.kind", 
 export function librarianFacilityConcept(fact: LibrarianFact): string | null {
     if (fact.value.kind !== "TEXT" || !LIBRARIAN_FACILITY_REQUEST_FAMILIES.includes(fact.key)) return null;
     const concept = librarianConcept(fact.value.text);
-    return concept && Object.values(BOOLEAN_CONCEPTS).includes(concept) ? concept : null;
+    return concept && (Object.values(BOOLEAN_CONCEPTS).includes(concept) || concept === "wifi") ? concept : null;
 }
 /** A meal/snack extent may be expressed as the consumption activity or its
  * catering field. Only these exact concepts share this evidence source. */

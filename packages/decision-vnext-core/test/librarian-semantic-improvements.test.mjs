@@ -267,3 +267,12 @@ test('general venue parking survives a detailed offer profile without manufactur
  const covered=request([meal(),fact('parking','offer.feature','parking'),fact('covered','condition.weather_protection','covered')]);
  assert.equal(search(covered,[originalBinding(2009,p,extra)]).ranked.length,0);
 });
+
+test('laptop work needs a real work offer, and venue WiFi does not manufacture permission to work',()=>{
+ const q=request([fact('work','experience.activity','mit dem Laptop arbeiten'),fact('wifi','offer.facility','WLAN')]);
+ const p=profile([offer('work','COWORKING')]);
+ const wifi=[worldFact('amenity.features',['WIFI'])];
+ assert.equal(search(q,[originalBinding(2010,p,wifi)]).ranked.length,1);
+ assert.equal(search(q,[originalBinding(2011,p)]).ranked.length,0);
+ assert.equal(search(q,[originalBinding(2012,profile([offer('coffee','CAFE')]),wifi)]).ranked.length,0);
+});

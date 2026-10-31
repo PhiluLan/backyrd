@@ -4,7 +4,7 @@ import { librarianFacilityConcept } from "./product-librarian-language.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { librarianConditions, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
-export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@7" as const;
+export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@8" as const;
 export type LegacyLanguageAssessment = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -44,7 +44,7 @@ export function assessLibrarianPlaceType(fact: LibrarianFact, world: ProductWorl
     if (!authorized) return { state: "UNKNOWN", reason: "SPOT_TYPE_USE_NOT_AUTHORIZED", hashes };
     return { state: fact.modality === "EXCLUDED" ? "FAILED" : "MET", reason: fact.modality === "EXCLUDED" ? "EXCLUDED_SPOT_TYPE_PRESENT" : "VERIFIED_SPOT_TYPE", hashes };
 }
-const amenityConcepts: Readonly<Record<string, string>> = { TOILET: "toilet", HIGH_CHAIR: "high_chair", CHANGING_TABLE: "changing_table", PARKING: "parking", PLAY_AREA: "playground", COVERED_OUTDOOR: "covered", TERRACE: "terrace", STROLLER_SPACE: "stroller" };
+const amenityConcepts: Readonly<Record<string, string>> = { TOILET: "toilet", HIGH_CHAIR: "high_chair", CHANGING_TABLE: "changing_table", PARKING: "parking", WIFI:"wifi", PLAY_AREA: "playground", COVERED_OUTDOOR: "covered", TERRACE: "terrace", STROLLER_SPACE: "stroller" };
 const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 /** Translation of typed, validated World values only. No source prose, venue
  * names, inferred areas, fabricated offerings or changed authorization. */
@@ -128,10 +128,10 @@ export function assessLegacyLibrarianFact(fact: LibrarianFact, world: ProductWor
     const preferred = fact.modality === "PREFERRED";
     if (active.some(e => e.conditions === "MET" && (preferred ? e.discovery : e.hard)))
         return { state: "MET", reason: "LEGACY_TYPED_PRESENCE_CONFIRMED", hashes };
-    // Positive venue parking presence is an authorized discovery attribute,
+    // Positive venue parking/WiFi presence is an authorized discovery attribute,
     // like venue type, not a legal/admission or accessibility guarantee.
-    if (librarianFacilityConcept(fact) === "parking" && active.some(e=>e.conditions === "MET" && e.discovery))
-        return {state:"MET",reason:"VERIFIED_VENUE_PARKING_PRESENCE",hashes};
+    if (["parking","wifi"].includes(librarianFacilityConcept(fact) ?? "") && active.some(e=>e.conditions === "MET" && e.discovery))
+        return {state:"MET",reason:"VERIFIED_VENUE_AMENITY_PRESENCE",hashes};
     if (active.some(e => e.conditions === "MET" && e.discovery))
         return unknown("LEGACY_TYPED_DISCOVERY_SUPPORT", hashes);
     return unknown(active.some(e => e.conditions !== "MET") ? "LEGACY_CONDITIONS_OR_AREA_UNRESOLVED" : "LEGACY_SOURCE_USE_NOT_AUTHORIZED", hashes);

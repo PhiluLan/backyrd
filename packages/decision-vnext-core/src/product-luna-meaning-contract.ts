@@ -11,6 +11,7 @@ function assign(concepts: readonly string[], families: readonly LunaFactKey[]) {
   for (const concept of concepts) rules[concept] = families;
 }
 assign([...new Set(OFFER_CATALOG.map(offer => offer.concept)), 'table_tennis', 'bouldering', 'climbing', 'training', 'course', 'movement_play', 'children_course', 'guided', 'workshop', 'animals', 'exhibition', 'party', 'dancing', 'movement'], ['experience.activity', 'offer.kind']);
+assign(['wifi'],['offer.facility','offer.feature']);
 assign(['guided'], ['experience.activity', 'offer.kind', 'participation.format']);
 assign(['meal', 'lunch', 'dinner', 'breakfast', 'snacks', 'aperitif'], ['experience.activity', 'offer.kind', 'food.meal', 'food.option']);
 assign(['drinks'], ['experience.activity', 'offer.kind', 'food.drink']);
@@ -36,7 +37,7 @@ for (const [key, concept] of Object.entries(BOOLEAN_CONCEPTS)) {
   rules[concept] = families;
 }
 export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['budget.scope','time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
-export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@7', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
+export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@8', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
 export type LunaMeaningIssue = {
   readonly factId: string;
   readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE' | 'UNKNOWN_AGE_PLACEHOLDER';
@@ -91,6 +92,7 @@ export const LUNA_MEANING_ROLE_INSTRUCTIONS = '\nVERBINDLICHE BEDEUTUNGSROLLEN (
   + '. Kontextfamilien dürfen ausschliesslich CONTEXT sein: ' + LUNA_CONTEXT_ONLY_FAMILIES.join(', ')
   + '. Eine zeitliche Reihenfolge gehört zwischen mehrere konkret benannte Tätigkeiten in SEQUENCE; ein alleinstehendes zuerst oder danach erzeugt keine zusätzliche erfüllbare Ortsanforderung. '
   + 'VERNEINTE VORAUSSETZUNGEN: Eine Voraussetzung nicht erfüllen wollen bedeutet, dass der Ort ohne diese Voraussetzung nutzbar sein muss. Ohne Reservierung, ohne Anmeldung, ohne Vorbuchung => participation.booking spontaneous REQUIRED; möglichst ohne Vorbuchung => spontaneous PREFERRED. NOT_REQUIRED bedeutet dagegen ausdrücklich egal ob eine Buchung nötig ist. Dafür spontaneous NOT_REQUIRED verwenden. booking_required NOT_REQUIRED ist eine mehrdeutige Doppelverneinung und nicht erlaubt. Dasselbe Prinzip für Zugang ohne Hotelaufenthalt: public_day_access REQUIRED statt Hotelaufenthalt als unverbindlich wegzulassen. Den Wunsch niemals verlieren. '
+  + 'TÄTIGKEIT IN EINER EINRICHTUNG: Bei im Café arbeiten beziehen sich die Arbeitsaktivität, das gewünschte Café, Ruhe und WLAN auf dieselbe räumliche ACTIVITY-Entity. Kein unabhängiges Büro neben einem ruhigen Café konstruieren. Ein konkret getrennter Mehr-Orte-Wunsch bleibt getrennt. '
   + 'PERSONENZAHL: Die beiläufig genannte Begleitung (wir beide, mit einer Freundin) ist people.count CONTEXT und kein Auftrag, eine buchbare Gruppenkapazität nachzuweisen. REQUIRED nur bei ausdrücklich verlangten Plätzen/Kapazität für eine Gruppe oder gemeinsamer Gruppenbuchung. Zahl und Bezug trotzdem erhalten; bestehende dokumentierte Kapazitätsgrenzen bleiben zu beachten. '
   + 'budget.scope ist ausschliesslich CONTEXT: ein Preisparameter, keine weitere Pflicht des Ortes. Bei gratis keinen unnötigen Pro-Person-Umfang ergänzen; der Geldbetrag 0 ist die verbindliche Forderung. '
   + 'FEHLENDE ANGABEN: Tochter, Sohn und Kind ohne genanntes Alter erzeugen KEIN people.age. Unbekanntes Alter ist weder 0 noch APPROX 0. Bei Regen ist eine Wetterbedingung ohne Besuchsdatum: ohne heute, morgen, Datum oder anderen konkreten Datumsbezug KEIN time.date. reference.now ist kein Nutzerwunsch. '
