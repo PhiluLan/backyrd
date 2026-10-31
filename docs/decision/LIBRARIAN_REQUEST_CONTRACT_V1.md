@@ -274,6 +274,18 @@ at an outdoor food area (rejected). No venue-specific exception is introduced.
 
 ## Internal preview of unpublished understanding and matching
 
+### General outing purpose (prompt 14; development)
+
+Generic wording such as making an outing or spending a day is visit purpose
+(`experience.purpose`, CONTEXT), not a second required offer named "Ausflug".
+A family outing retains its required child-compatible activity. Explicit concrete
+activities such as hiking, a boat excursion, a guided excursion or a museum remain
+binding. The model instruction changes; the matcher never silently relaxes a
+previously emitted required activity. At the founder's request this correction
+does not change own-food permission matching, legacy descriptive evidence, spot
+data, weather rules or consumer deployment. Own-food permission remains required
+when the user brings food and may still be unproven after this isolated fix.
+
 ### Weather policy (prompt 13, matching 28, experience language 13; development)
 
 Weather entries have an explicit `role`: CONTEXT means weather stated by the user

@@ -51,6 +51,20 @@ test('food is still a duty: an activity alone, a family restaurant alone, or foo
   assert.equal(search(q,catalog).ranked.length,0);
  assert.equal(search(foodAlternative(true),[binding(1,familyVenue('meal'))]).ranked.length,0,'AND must not become OR');
 });
+test('a general outing purpose adds no second service duty, while own-food permission and concrete activities stay binding',()=>{
+ const facts=[fact('family','condition.children','children_activity'),fact('purpose','experience.purpose','Ausflug machen','CONTEXT'),fact('own','participation.permission','eigenes Essen mitbringen')];
+ const q=request(facts),p=familyVenue(null);
+ const withoutPermission=search(q,[binding(1,p)]);
+ assert.equal(withoutPermission.ranked.length,0);
+ assert.equal(withoutPermission.unresolved[0].facts.find(f=>f.factId==='family').state,'MET');
+ assert.equal(withoutPermission.unresolved[0].facts.find(f=>f.factId==='own').reason,'PROPERTY_FAMILY_NOT_RECORDED','point 2 remains unchanged');
+ p.offers[0].properties.push(prop('participation.permission','eigenes Essen mitbringen'));
+ assert.equal(search(q,[binding(1,p)]).ranked.length,1);
+ const concrete=request([...facts,fact('animals','experience.activity','animals')]);
+ assert.equal(search(concrete,[binding(1,p)]).ranked.length,0,'a specific additional activity is still required');
+ const historical=request([...facts,fact('extra','experience.activity','Ausflug')]);
+ assert.equal(search(historical,[binding(1,p)]).ranked.length,0,'matching never silently rewrites an emitted required fact');
+});
 test('properties attached to the same activity still cannot borrow a different cafe room',()=>{
  const q=request([fact('play','condition.children','children_activity'),fact('food','food.meal','meal')]);
  assert.equal(search(q,[binding(1,familyVenue())]).ranked.length,0);

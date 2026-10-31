@@ -14,10 +14,10 @@ const simple=()=>({entities:[],facts:[{id:'f1',modality:'REQUIRED',basis:'EXPLIC
 const fact=(id,key,value,modality='REQUIRED',subjectIds=[])=>({id,key,value,modality,subjectIds,basis:'EXPLICIT'});
 const flatten=node=>node.kind==='FACT'?[node.factId]:node.kind==='IF'?[node.conditionFactId,...flatten(node.then),...(node.else?flatten(node.else):[])]:node.kind==='FALLBACK'?node.options.flatMap(flatten):node.children.flatMap(flatten);
 
-test('revision 13 preserves the frozen base and source-echo schema while separating ancillary food alternatives',()=>{
+test('revision 14 preserves the frozen base and source-echo schema while separating ancillary food alternatives',()=>{
  const cfg=LUNA_LIBRARIAN_CONFIGURATION;
  assert.equal(cfg.model,'gpt-5.6-luna');assert.equal(cfg.reasoningEffort,'low');assert.equal(cfg.store,false);
- assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@13');
+ assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@14');
  assert.equal(cfg.baseSchemaHash,'9261d8d2b0605e203e928af92de83697d3df33539e2621424b5cf6cbf45ea8cc');assert.notEqual(cfg.schemaHash,cfg.baseSchemaHash);
  assert.equal(cfg.catalogHash,'7216d0011879d1e6b78e6186146305755111ceea87fa0992ee051b2b613e927c');
  const body=buildLunaLibrarianModelRequest({sourceText:'Heute Abend etwas trinken',reference:ref});
@@ -177,4 +177,14 @@ test('companion context cannot become a venue requirement at the model schema or
   }
  }
  assert.match(body.instructions,/VERBINDLICHE RÄUMLICHE ÜBERGABE/);
+});
+
+test('generic outing wording is purpose context while concrete excursions stay executable',()=>{
+ const body=buildLunaLibrarianModelRequest({sourceText:'Mit der Familie einen Ausflug machen und Tiere beobachten',reference:ref});
+ assert.match(body.instructions,/ALLGEMEINER AUSFLUGSZWECK/);
+ assert.match(body.instructions,/Bootsausflug, geführte Exkursion oder Museum bleiben dagegen REQUIRED/);
+ const output=simple();output.facts=[fact('kids','condition.children',{text:'children_activity'}),fact('purpose','experience.purpose',{text:'Ausflug machen'},'CONTEXT'),fact('animals','experience.activity',{text:'animals'})];
+ const plan=prepare(output);
+ assert.deepEqual(flatten(plan.logic).sort(),['animals','kids']);
+ assert.equal(plan.facts.find(f=>f.id==='purpose').modality,'CONTEXT');
 });
