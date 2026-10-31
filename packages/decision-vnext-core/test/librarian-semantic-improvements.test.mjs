@@ -216,3 +216,9 @@ test('catalogued gluten-free and lactose-free options prove the matching diet on
  assert.equal(search(q,[binding(1996,profile([offer('dinner','DINNER'),offer('lunch','LUNCH',['inside'],[prop('food.option',label)])]))]).ranked.length,0);
  }
 });
+
+test('zero activity budget fails a documented paid tariff regardless of missing currency or headcount',()=>{
+ const q=request([fact('play','experience.activity','table_tennis'),fact('zero','budget.maximum',{amount:0,operator:'LTE',currency:'UNSPECIFIED'})]);
+ const p=profile([offer('ping','BALL_SPORT',['inside'],[prop('experience.activity','table_tennis')],[price(18,{includes:'Eintritt'})])]);
+ const r=search(q,[binding(1997,p)]);assert.equal(r.ranked.length,0);assert.ok(r.excluded[0].facts.some(f=>f.reason==='SCOPED_ACTIVITY_NOT_FREE'));
+});

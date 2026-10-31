@@ -631,6 +631,8 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
         });
         if (tariffs.every(ps => ps.length > 0 && ps.every(p => p.min === 0 && p.max === 0)))
             return result(fact.modality === "EXCLUDED" ? "FAILED" : "MET", "SCOPED_FREE_ACTIVITY_CONFIRMED", tariffs.flatMap(ps => ps.map(p => contentHash(p))));
+        const paid = tariffs.filter(ps => ps.length > 0 && ps.every(p => p.min > 0));
+        if (paid.length) return result(fact.modality === "EXCLUDED" ? "MET" : "FAILED", "SCOPED_ACTIVITY_NOT_FREE", paid.flatMap(ps => ps.map(p => contentHash(p))));
     }
     const scopes = facts.filter(f => f.key === "budget.scope" && f.value.kind === "BUDGET_SCOPE" && (!f.subjectIds.length || f.subjectIds.some(id => fact.subjectIds.includes(id)))), scope = scopes.length === 1 && scopes[0]!.value.kind === "BUDGET_SCOPE" ? scopes[0]!.value.scope : null;
     if (!scope || !["PER_PERSON", "GROUP_TOTAL"].includes(scope) || money.currency === "UNSPECIFIED")

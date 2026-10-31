@@ -712,3 +712,7 @@ A daughter/son without an age produces no age fact. In particular APPROX 0 is no
 ### Matcher 40: an accompanying adult cannot hide a child's age notice
 
 A typed child/family participation context remains relevant when Luna omitted a separate child entity or attached the relationship globally. The known/assumed accompanying adult's age alone cannot establish that a documented offer minimum is met by the child. An unknown child age retains the existing non-blocking, source-bound minimum-age notice. Explicitly younger children remain excluded; a known eligible child does not acquire an unnecessary notice. The three historical founder-approved playground meanings retain the same seven results and now all show ELYS's documented minimum of one year. The fixture's historical open-issue record is preserved, not rewritten as if its original runs already contained the notice.
+
+### Matcher 41 / prompt 22 / meaning roles 6: free activity and price parameters
+
+budget.scope is a context-only price parameter in the active structured-output contract, never a second venue duty. Zero full activity cost is independent of currency conversion or group division. A selected, applicable, unrestricted full tariff with a positive minimum cannot satisfy a free request and is marked failed rather than hidden as missing currency. Missing tariffs, partial prices, age restrictions and fee uncertainty remain unconfirmed; missing price does not mean free. The actual Pingpong query exposed the parameter-as-duty failure and an absent Kannenfeldpark activity tariff.

@@ -35,8 +35,8 @@ for (const [key, concept] of Object.entries(BOOLEAN_CONCEPTS)) {
   if (key in LIBRARIAN_FAMILY_STRATEGIES) families.push(key as LunaFactKey);
   rules[concept] = families;
 }
-export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
-export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@5', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
+export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['budget.scope','time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
+export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@6', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
 export type LunaMeaningIssue = {
   readonly factId: string;
   readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE' | 'UNKNOWN_AGE_PLACEHOLDER';
@@ -91,6 +91,7 @@ export const LUNA_MEANING_ROLE_INSTRUCTIONS = '\nVERBINDLICHE BEDEUTUNGSROLLEN (
   + '. Kontextfamilien dürfen ausschliesslich CONTEXT sein: ' + LUNA_CONTEXT_ONLY_FAMILIES.join(', ')
   + '. Eine zeitliche Reihenfolge gehört zwischen mehrere konkret benannte Tätigkeiten in SEQUENCE; ein alleinstehendes zuerst oder danach erzeugt keine zusätzliche erfüllbare Ortsanforderung. '
   + 'VERNEINTE VORAUSSETZUNGEN: Eine Voraussetzung nicht erfüllen wollen bedeutet, dass der Ort ohne diese Voraussetzung nutzbar sein muss. Ohne Reservierung, ohne Anmeldung, ohne Vorbuchung => participation.booking spontaneous REQUIRED; möglichst ohne Vorbuchung => spontaneous PREFERRED. NOT_REQUIRED bedeutet dagegen ausdrücklich egal ob eine Buchung nötig ist. Dafür spontaneous NOT_REQUIRED verwenden. booking_required NOT_REQUIRED ist eine mehrdeutige Doppelverneinung und nicht erlaubt. Dasselbe Prinzip für Zugang ohne Hotelaufenthalt: public_day_access REQUIRED statt Hotelaufenthalt als unverbindlich wegzulassen. Den Wunsch niemals verlieren. '
+  + 'budget.scope ist ausschliesslich CONTEXT: ein Preisparameter, keine weitere Pflicht des Ortes. Bei gratis keinen unnötigen Pro-Person-Umfang ergänzen; der Geldbetrag 0 ist die verbindliche Forderung. '
   + 'FEHLENDE ANGABEN: Tochter, Sohn und Kind ohne genanntes Alter erzeugen KEIN people.age. Unbekanntes Alter ist weder 0 noch APPROX 0. Bei Regen ist eine Wetterbedingung ohne Besuchsdatum: ohne heute, morgen, Datum oder anderen konkreten Datumsbezug KEIN time.date. reference.now ist kein Nutzerwunsch. '
   + 'Feldnamen wie experience.activity sind niemals Inhaltswerte. Benenne die tatsächlich gewünschte Tätigkeit (z.B. meal), nicht den Schlüssel als Text. '
   + 'ERNÄHRUNG BEIM GEMEINSAMEN ESSEN: Ein genanntes Ernährungsbedürfnis einer Begleitperson (vegan, vegetarisch, glutenfrei, Allergie) muss beim konkret gewünschten Essen erfüllbar sein: food.diet mit Personenbezug REQUIRED. Es bedeutet eine passende Option für diese Person, niemals ausschliesslich veganes Lokal. Nur ausdrücklich optionale Bedürfnisse sind PREFERRED oder NOT_REQUIRED. food.diet CONTEXT ist bei einem Essenswunsch nicht ausführbar und verliert das Bedürfnis. '
