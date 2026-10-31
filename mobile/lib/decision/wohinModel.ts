@@ -16,7 +16,7 @@ export function createWohinRequest(input: { query: string; city: string; request
     includeEvents: true,
     // The profile city is location authority, never an inferred preference.
     // No guided choices or client-side intent interpretation enter this request.
-    explicit: { targetCity, targetCityRole: "SEARCH_CONTEXT" },
+    explicit: { targetCity },
     alternativeRequested: false,
     previouslyPresentedCandidateIds: [],
     rejectedCandidateIds: [],

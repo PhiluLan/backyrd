@@ -249,7 +249,7 @@ export function buildCanonicalDecisionRequest(
   const explicit: DecisionProductRequest["explicit"] = {
     moods: uniqueIdentifiers(input.moods),
   };
-  if (IDENTIFIER.test(city)) { explicit.targetCity = city; explicit.targetCityRole = "SEARCH_CONTEXT"; }
+  if (IDENTIFIER.test(city)) explicit.targetCity = city;
   return {
     contractVersion: REQUEST_VERSION,
     requestId,

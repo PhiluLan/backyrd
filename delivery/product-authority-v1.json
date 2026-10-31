@@ -69,14 +69,14 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",
-        "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
+        "path": "supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",
+        "sha256": "403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"
       }
     ],
     "executionAuthorized": false,
     "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved exactly 20261024171707_scoped_area_reservation_rules_v1.sql and its bounded release path with the disclosed untested recovery risk on 2026-10-30 in this release conversation: Ja, genau diesen Umfang mit dem beschriebenen Risiko veröffentlichen. Successful encrypted backup run 40984503636. Four Booking migrations and Function/Auth/Decision remain excluded. No production spot test writes."
+    "source": "Founder explicitly approved exactly 20261031090327_decision_regional_catalog_v1.sql, the bounded release path, both Decision functions and subsequent App/Web delivery with disclosed untested recovery risk on 2026-10-31: Ja, genau diesen Umfang mit dem beschriebenen Risiko ver\u00f6ffentlichen. Successful encrypted backup run 41184399431. Four Booking migrations and Auth changes remain excluded."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -95,13 +95,13 @@
       "supabase/functions/decision-v13/vnext-only.ts"
     ]
   },
-  "isolatedResearchMigrationScope": {
-    "contractVersion": "backyrd.isolated-research-migration-scope@1.0",
+  "regionalDecisionDeliveryScope": {
+    "contractVersion": "backyrd.regional-decision-delivery-scope@1.0",
     "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
     "migrations": [
       {
-        "path": "supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",
-        "sha256": "b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"
+        "path": "supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",
+        "sha256": "403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"
       }
     ],
     "deferredMigrations": [
@@ -122,40 +122,12 @@
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
       }
     ],
-    "backupRunId": 40984503636,
-    "executionAuthorized": false,
-    "deferredFunctionChanges": [
-      {
-        "slug": "decision-v13",
-        "previousSourceSetHash": "0317d2a74fac0849f7ec52d7b14c55af07aceb8b841f71eba44394e6c7ea8961",
-        "sourceSetHash": "8cb7795a2e0e357640290a699fa144dd0d983f12acea65205df01358c879548e"
-      }
-    ]
-  },
-  "codeOnlyDeliveryScope": {
-    "contractVersion": "backyrd.code-only-delivery-scope@1.0",
     "functions": [
       "decision-v13",
       "decision-admin-diagnostic"
     ],
-    "deferredMigrations": [
-      {
-        "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
-        "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
-      },
-      {
-        "path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql",
-        "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"
-      },
-      {
-        "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
-        "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
-      },
-      {
-        "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
-        "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
-      }
-    ],
-    "source": "Founder instruction 2026-10-30: remove obsolete release freezes and artificial Admin diagnostic quotas; code-only releases are independent of SQL/backup approvals. Historical SQL receipts are retained. No Auth changes or pending Booking migrations are included."
+    "backupRunId": 41184399431,
+    "executionAuthorized": false,
+    "source": "Founder explicitly approved exactly 20261031090327_decision_regional_catalog_v1.sql, the bounded release path, both Decision functions and subsequent App/Web delivery with disclosed untested recovery risk on 2026-10-31: Ja, genau diesen Umfang mit dem beschriebenen Risiko ver\u00f6ffentlichen. Successful encrypted backup run 41184399431. Four Booking migrations and Auth changes remain excluded."
   }
 }
