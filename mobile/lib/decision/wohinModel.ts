@@ -83,9 +83,9 @@ const librarianNotes: Record<string, string> = {
 
 export function wohinConsiderations(candidate: DecisionProductCandidate, personalizationActive: boolean): string[] {
   const notes: string[] = candidate.reasons.flatMap(reason => {
-    if (reason.code === "event-ticket-availability") return [reason.statement];
+    if (["event-ticket-availability", "librarian-inherited-spot-hours"].includes(reason.code)) return [reason.statement];
     if (reason.confirmed || reason.domain !== "LIMITATION") return [];
-    if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt)/.test(reason.statement)) return [librarianNotes[reason.statement] ?? reason.statement];
+    if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt|Diesen Wunsch können wir|Welches Budget)/.test(reason.statement)) return [librarianNotes[reason.statement] ?? reason.statement];
     if (reason.code === "librarian-access-details") return [librarianNotes[reason.statement] ?? reason.statement];
     return [];
   });
@@ -109,6 +109,8 @@ export function wohinLimitations(limitations: readonly string[], visibleCount: n
       ? "Für deinen Wunsch haben wir gerade einen Vorschlag."
       : "Der bisher gefundene Ort passt leider nicht zu deinem Wunsch.",
     CANDIDATE_WINDOW_LIMITED: "Einige Orte passen nicht zu deinem Wunsch und werden deshalb nicht gezeigt.",
+    REQUEST_NEEDS_CLARIFICATION: "Ergänze bitte ein Budget pro Person, zum Beispiel bis 40 CHF. So können wir die Preise zu deinem Wunsch prüfen.",
+    REQUEST_REQUIREMENT_UNSUPPORTED: "Einen Teil deines Wunsches können wir noch nicht zuverlässig prüfen. Das bedeutet nicht, dass es keinen passenden Ort gibt.",
     CORE_INTENT_REQUIRES_CLARIFICATION: "Wir haben deinen Wunsch noch nicht ganz verstanden. Beschreibe kurz, was du machen möchtest.",
   };
   return [...new Set(limitations.map((code) => labels[code] ?? "Bei dieser Auswahl gibt es noch offene Fragen. Prüfe wichtige Details vor deinem Besuch."))];

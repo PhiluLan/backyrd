@@ -109,11 +109,11 @@ test('a documented morning-only offer cannot serve an undated evening wish',()=>
  const r=search(request([fact('meal','food.meal','dinner'),phase()]),[binding(701,p)]);
  assert.equal(r.excluded[0]?.status,'INELIGIBLE');
 });
-test('a real date with no offer schedule preserves fit without claiming opening',()=>{
+test('a real date with no offer schedule uses the venue opening fallback',()=>{
  const p=profile([{...offer(),schedule:[]}]);
  const r=search(request([fact('meal','food.meal','dinner'),phase(),fact('date','time.date',{date:'2026-10-15',operator:'EQ',timezone:'Europe/Zurich'},'REQUIRED',[])]),[binding(701,p)]);
- assert.equal(r.unresolved[0]?.status,'PARTIAL');
- assert.equal(r.unresolved[0].facts.find(f=>f.factId==='date').reason,'VISIT_TIME_UNCONFIRMED');
+ assert.equal(r.ranked[0]?.status,'CONFIRMED');
+ assert.equal(r.ranked[0].facts.find(f=>f.factId==='date').state,'MET');
 });
 test('an undated clock or weekday is not silently converted to a generic daypart',()=>{
  for(const f of [fact('clock','time.clock',{time:'19:00',operator:'EQ',timezone:'Europe/Zurich'},'REQUIRED',[]),fact('weekday','time.weekday','Donnerstag','REQUIRED',[])]) {

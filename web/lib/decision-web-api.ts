@@ -102,7 +102,7 @@ type DecisionProductRequest = {
   idempotencyKey: string;
   naturalLanguage: string;
   includeEvents?: boolean;
-  explicit: { targetCity?: string | null; moods?: string[] };
+  explicit: { targetCity?: string | null; targetCityRole?: "SEARCH_CONTEXT" | "REQUIRED_DESTINATION"; moods?: string[] };
   alternativeRequested: boolean;
   previouslyPresentedCandidateIds: string[];
   rejectedCandidateIds: string[];
@@ -217,7 +217,6 @@ function buildNaturalLanguage(input: DecisionRequest) {
   const query = free
     ? [
         free,
-        `Ort in ${city}`,
         directionLabel ? `Gewünschte Richtung: ${directionLabel}` : null,
         audienceLabel ? `Situation: ${audienceLabel}` : null,
         moodText ? `Stimmung: ${moodText}` : null,
@@ -233,7 +232,6 @@ function buildNaturalLanguage(input: DecisionRequest) {
           ...hints(AUDIENCE_OPTIONS, input.audiences),
           ...hints(MOOD_OPTIONS, input.moods),
         ]).join(", ") || null,
-        `Ort in ${city}`,
       ]
         .filter(Boolean)
         .join("\n");
@@ -359,7 +357,7 @@ async function validateCandidate(value: unknown, expectedRank: number | null): P
     const date=(v:unknown)=>typeof v === "string" && Number.isFinite(Date.parse(v));
     if(event.kind!=="EVENT" || !uuid(event.eventId) || !uuid(event.occurrenceId) || item.spotId!==`event:${event.occurrenceId}` || !date(event.startAt) || event.endAt!==null && (!date(event.endAt) || Date.parse(event.endAt as string)<Date.parse(event.startAt as string)) || event.venueSpotId!==null && !uuid(event.venueSpotId) || ![event.venueName,event.address].every(v=>v===null || typeof v === "string" && v.length<=500) || event.ticketUrl!==null && (typeof event.ticketUrl!=="string" || !event.ticketUrl.startsWith("https://")) || event.imageStoragePath!==null && (typeof event.imageStoragePath!=="string" || event.imageStoragePath.length>500 || event.imageStoragePath.startsWith("/") || event.imageStoragePath.includes("..") || /[?#:\\]/.test(event.imageStoragePath))) throw unavailable();
   } else if ((item.spotId as string).startsWith("event:")) throw unavailable();
-  if (presentation.contractVersion !== PRESENTATION_VERSION || presentation.spotId !== item.spotId || typeof presentation.name !== "string" || presentation.name.length < 1 || presentation.name.length > 160 || (presentation.locality !== null && !identifier(presentation.locality)) || (presentation.categoryLabel !== null && typeof presentation.categoryLabel !== "string") || (presentation.imageUrl !== null && (typeof presentation.imageUrl !== "string" || !presentation.imageUrl.startsWith("https://"))) || !hash(presentation.sourceHash)) throw unavailable();
+  if (presentation.contractVersion !== PRESENTATION_VERSION || presentation.spotId !== item.spotId || typeof presentation.name !== "string" || presentation.name.length < 1 || presentation.name.length > 160 || (presentation.locality !== null && (typeof presentation.locality !== "string" || !/^[^\u0000-\u001f\u007f]{1,160}$/.test(presentation.locality))) || (presentation.categoryLabel !== null && typeof presentation.categoryLabel !== "string") || (presentation.imageUrl !== null && (typeof presentation.imageUrl !== "string" || !presentation.imageUrl.startsWith("https://"))) || !hash(presentation.sourceHash)) throw unavailable();
   await assertContentHash(presentation, "presentationHash");
   const rankVector = record(item.rankVector);
   exactKeys(rankVector, ["hardConstraintState", "eligibilityTier", "coreIntentState", "primaryVisitPurposeState", "actualAvailability", "userRelevance", "contextFit", "worldEvidence", "neutralIdentity", "vectorHash"]);

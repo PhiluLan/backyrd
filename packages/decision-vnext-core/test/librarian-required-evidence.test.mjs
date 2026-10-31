@@ -41,11 +41,11 @@ test('unverifiable required participant count is not converted to harmless conte
  assert.equal(count.modality,'REQUIRED');assert.equal(count.state,'UNKNOWN');assert.equal(count.reason,'SCOPED_GROUP_CAPACITY_UNKNOWN_OR_CONFLICTING');
 });
 
-test('a requested date with no offer schedule stays an unknown duty',async()=>{
+test('a requested date with no offer schedule inherits verified venue hours',async()=>{
  const b=binding(904,profile([{...offer(),schedule:[]} ]));const meaning=request([meal(),date(),evening()]);
- const r=search(meaning,[b]);assert.equal(r.ranked.length,0);assert.ok(r.unresolved[0].unknownFactIds.includes('date'));
- assert.equal(r.unresolved[0].facts.find(f=>f.factId==='date').state,'UNKNOWN');
- const http=await exercise({text:'Morgen Abend essen',meaning,catalog:[b]});assert.equal(http.status,200);assert.equal(http.body.primaryCandidateId,null);
+ const r=search(meaning,[b]);assert.equal(r.ranked.length,1);
+ assert.equal(r.ranked[0].facts.find(f=>f.factId==='date').state,'MET');
+ const http=await exercise({text:'Morgen Abend essen',meaning,catalog:[b]});assert.equal(http.status,200);assert.equal(http.body.primaryCandidateId,b.decisionProjection.spotId);
 });
 
 test('a real either-or admits the fully proved branch without demanding the other',async()=>{

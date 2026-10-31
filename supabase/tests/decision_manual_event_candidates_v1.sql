@@ -40,6 +40,17 @@ select pg_temp.assert((public.backyrd_decision_vnext_product_activate_v1(
 set local role service_role;
 select pg_temp.assert(jsonb_array_length(pg_temp.context()->'eventOccurrences')=3,'only published occurrences; cancellation retained for explicit exclusion');
 select pg_temp.assert(pg_temp.context()->>'status'='NO_CONSENT','no consent produces neutral context');
+reset role;
+select pg_temp.assert(not has_function_privilege('anon','public.backyrd_decision_vnext_product_context_v7(uuid,text,text,text,text,text,text,bigint)','execute') and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_context_v7(uuid,text,text,text,text,text,text,bigint)','execute'),'regional context remains server-only');
+insert into public.event_venues_v1(id,source_id,source_venue_id,name,normalized_name,city,last_seen_at)
+values('de000000-0000-4000-8000-000000000099','manual_admin','regional-fixture','Regional venue','regional venue','Muttenz',now());
+insert into public.event_occurrences_v1(id,event_id,venue_id,start_at,end_at,status,source_url,dedupe_key,last_seen_at,published_at,ticket_status)
+values('de000000-0000-4000-8000-000000000098','de000000-0000-4000-8000-000000000003','de000000-0000-4000-8000-000000000099',now()+interval '1 day',now()+interval '1 day 2 hours','SCHEDULED','https://example.test/regional','regional-fixture',now(),now(),'UNKNOWN');
+set local role service_role;
+select pg_temp.assert(jsonb_array_length(pg_temp.context()->'eventOccurrences')=3,'old city RPC remains unchanged');
+select pg_temp.assert(exists(select 1 from jsonb_array_elements(public.backyrd_decision_vnext_product_context_v7('de000000-0000-4000-8000-000000000001',repeat('a',64),'Basel',null,repeat('a',64),repeat('b',64),repeat('c',64),1)->'eventOccurrences') e where e->>'city'='Muttenz'),'regional RPC includes Muttenz without renaming it Basel');
+select pg_temp.assert(public.backyrd_decision_vnext_product_context_v7('de000000-0000-4000-8000-000000000001',repeat('a',64),'Basel',null,repeat('a',64),repeat('b',64),repeat('c',64),1)->>'status'='NO_CONSENT','regional retrieval does not grant personalization consent');
+
 select pg_temp.assert(jsonb_array_length(pg_temp.context()->'worldSnapshots')=0,'events do not require an existing Spot');
 select pg_temp.assert((pg_temp.context()->'eventOccurrences'->0)->>'imageStoragePath' is null,'unverified image rights never leak');
 select pg_temp.assert((pg_temp.context()->'eventOccurrences'->0)->'tags'='["JAZZ"]','explicit genres preserved');

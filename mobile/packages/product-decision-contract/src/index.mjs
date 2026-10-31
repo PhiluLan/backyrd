@@ -44,8 +44,9 @@ export function validateDecisionProductRequest(value) {
   requireValue(ID.test(value.requestId) && ID.test(value.idempotencyKey), "decision_request_identity_invalid");
   requireValue(typeof value.naturalLanguage === "string" && value.naturalLanguage.trim().length > 0 && value.naturalLanguage.length <= 2_000, "decision_natural_language_invalid");
   requireValue(value.explicit && typeof value.explicit === "object" && !Array.isArray(value.explicit), "decision_explicit_invalid");
-  const allowedExplicit = new Set(["primaryIntent", "secondaryIntent", "occasion", "moods", "targetCity", "hardConstraints", "softPreferences"]);
+  const allowedExplicit = new Set(["primaryIntent", "secondaryIntent", "occasion", "moods", "targetCity", "targetCityRole", "hardConstraints", "softPreferences"]);
   requireValue(Object.keys(value.explicit).every((key) => allowedExplicit.has(key)), "decision_explicit_authority_invalid");
+  if ("targetCityRole" in value.explicit) requireValue(["SEARCH_CONTEXT", "REQUIRED_DESTINATION"].includes(value.explicit.targetCityRole), "decision_explicit_targetCityRole_invalid");
   for (const key of ["primaryIntent", "secondaryIntent", "occasion", "targetCity"]) if (key in value.explicit) requireValue(value.explicit[key] === null || ID.test(value.explicit[key]), `decision_explicit_${key}_invalid`);
   for (const key of ["moods", "hardConstraints", "softPreferences"]) if (key in value.explicit) stringArray(value.explicit[key], key === "moods" ? 12 : 30, `decision_explicit_${key}_invalid`);
   requireValue(typeof value.alternativeRequested === "boolean", "decision_alternative_invalid");
@@ -67,7 +68,7 @@ function validatePresentation(value, spotId) {
   } else requireValue(!spotId.startsWith("event:"), "decision_event_presentation_missing");
   requireValue(value.contractVersion === PRESENTATION_VERSION && value.spotId === spotId, "decision_presentation_binding_invalid");
   requireValue(typeof value.name === "string" && value.name.trim().length > 0 && value.name.length <= 160, "decision_presentation_name_invalid");
-  requireValue(value.locality === null || ID.test(value.locality), "decision_presentation_locality_invalid");
+  requireValue(value.locality === null || typeof value.locality === "string" && /^[^\u0000-\u001f\u007f]{1,160}$/.test(value.locality), "decision_presentation_locality_invalid");
   requireValue(value.categoryLabel === null || typeof value.categoryLabel === "string", "decision_presentation_category_invalid");
   requireValue(value.imageUrl === null || (typeof value.imageUrl === "string" && value.imageUrl.startsWith("https://")), "decision_presentation_image_invalid");
   requireValue(HASH.test(value.sourceHash) && HASH.test(value.presentationHash), "decision_presentation_hash_invalid");

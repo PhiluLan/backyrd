@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
+import { regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -478,12 +478,20 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   });
   if (appliedAreaReservation) preappliedPaths.add(appliedAreaReservation.migration.path);
+  const appliedRegionalDecision = regionalDecisionAppliedReceipt(state, head.read, source => {
+    try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
+  });
+  if (appliedRegionalDecision) preappliedPaths.add(appliedRegionalDecision.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
   // Code delivery is independent from historical, already applied SQL releases.
   // Keep their receipts, but do not reuse their old Function hashes as a freeze.
+  const regionalScope = authority?.regionalDecisionDeliveryScope ?? null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
+  if (regionalScope && (codeOnlyScope || authority?.isolatedResearchMigrationScope || authority?.isolatedVoltaMigrationScope
+    || authConfig?.deploy === true || retiredFunctions.length || migrationRecovery || preappliedMigrationImport || productPreappliedImport
+    || functions.some(item=>item.deploy && item.verifyJwt !== true))) throw new Error("regional_decision_release_scope_conflict");
   if (codeOnlyScope) {
     const canonical = rows => rows.map(({path,sha256})=>({path,sha256})).sort((a,b)=>a.path.localeCompare(b.path));
     if (codeOnlyScope.contractVersion !== "backyrd.code-only-delivery-scope@1.0"
@@ -513,7 +521,9 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
-  const scoped = codeOnlyScope
+  const scoped = regionalScope
+    ? scopeRegionalDecisionMigrations({pending:allPending,scope:regionalScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedRegionalDecision})
+    : codeOnlyScope
     ? {pendingMigrations:[],deferredMigrations:allPending,isolatedResearchScope:null,isolatedVoltaScope:null}
     : authority?.isolatedVoltaMigrationScope
     ? scopeVoltaMigrations({pending:allPending,scope:authority.isolatedVoltaMigrationScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedResearch,appliedVolta})
@@ -538,6 +548,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       && JSON.stringify(pendingMigrations) === JSON.stringify([AREA_RESERVATION_MIGRATION])
       ? ["--include-all"] : [],
     deferredMigrations,
+    appliedRegionalDecision,
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,
     isolatedVoltaScope: isolatedVoltaScope ?? null,

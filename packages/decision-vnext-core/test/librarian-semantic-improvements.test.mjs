@@ -139,9 +139,9 @@ test('capacity in another offering cannot prove the selected activity',()=>{
  assert.equal(state(search(q,[binding(961,p)]),'count'),'UNKNOWN');
 });
 
-test('venue hours never stand in for missing offering hours',()=>{
+test('venue hours are the authorized fallback only for absent offering hours',()=>{
  const q=request([meal(),date(),evening()]);
- assert.equal(search(q,[binding(962,profile([{...offer(),schedule:[]}]))]).ranked.length,0);
+ assert.equal(search(q,[binding(962,profile([{...offer(),schedule:[]}]))]).ranked.length,1);
  assert.equal(search(q,[binding(962,profile([offer()]))]).ranked.length,1);
 });
 test('an out of season offer keeps its activity proof while failing availability',()=>{

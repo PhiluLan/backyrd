@@ -1,5 +1,7 @@
+import { librarianDiscoveryLocalities } from "./product-librarian-geography.js";
+import { requiredRequestIssue } from "./product-librarian-plan.js";
 import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
-import { librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
+import { PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION, librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
 import { projectDecisionEventOccurrences } from "./product-event-candidates.js";
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, librarianConcept, parseExperienceProfile } from "@backyrd/world-knowledge-core";
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
@@ -11,8 +13,7 @@ import { evaluateProductWorldViews, userTasteMatches } from "./product-v1-evalua
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY } from "./product-v1-authority.js";
 import { DecisionProductContextSchema, DecisionProductCandidateAssessmentSchema, DecisionProductEvaluationSchema, DecisionProductPresentationSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS, type DecisionProductContext, type DecisionProductRequest } from "./product-v1-contracts.js";
 
-export const PRODUCT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@6" as const;
-export const PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION = "decision-vnext-librarian-evaluator@7" as const;
+export { PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION } from "./product-librarian-language.js";
 const cityKey = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").trim().toLowerCase();
 
 export function canonicalLibrarianCity(city: string): string {
@@ -29,9 +30,10 @@ export function librarianTargetCity(request: DecisionProductRequest, meaning: Li
   // The deployed context RPC currently authorizes one city per request. A
   // cross-city alternative is not flattened into the first city in its list.
   if (choices.length > 1) throw new Error("product_librarian_multiple_cities_unavailable");
-  const city = request.explicit.targetCity ?? choices[0];
+  const contextualCity = request.explicit.targetCityRole === "SEARCH_CONTEXT";
+  const city = contextualCity ? choices[0] ?? request.explicit.targetCity : request.explicit.targetCity ?? choices[0];
   if (!city) throw new Error("product_target_area_required");
-  if (choices.length && cityKey(city) !== cityKey(choices[0]!)) throw new Error("product_librarian_explicit_city_mismatch");
+  if (!contextualCity && choices.length && cityKey(city) !== cityKey(choices[0]!)) throw new Error("product_librarian_explicit_city_mismatch");
   return canonicalLibrarianCity(city);
 }
 
@@ -67,6 +69,7 @@ const familyLabels: Readonly<Record<string, string>> = {
   "atmosphere.character": "die gewünschte Atmosphäre", "atmosphere.music": "die gewünschte Musiksituation",
   "atmosphere.noise": "der gewünschte Geräuschpegel", "location.destination": "der gewünschte Ort",
   "participation.accessibility": "die gewünschte Zugänglichkeit",
+  "participation.booking": "die gewünschte Reservationsregel", "participation.entry_mode": "die gewünschte Teilnahme ohne Voranmeldung",
   "eligibility": "die Besuchsbedingungen", "binding": "die Kombination deiner Wünsche",
 };
 const duty = (f: LibrarianFactAssessment) => f.modality === "REQUIRED" || f.modality === "EXCLUDED";
@@ -106,7 +109,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     const proven = f.state === "MET";
     const label = familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
     return { reasonCode: proven ? `LBR_EVIDENCE:${semanticKey(f.factId)}` : factCode(f), domain: proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
-      statementDe: proven ? f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : `Noch nicht bestätigt: ${label}.`,
+      statementDe: proven ? f.reason === "BOOKING_RECOMMENDED_NOT_MANDATORY" ? "Eine Reservation ist empfohlen, aber nicht vorgeschrieben. Freie Plätze sind nicht bestätigt." : f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : f.diagnosis === "UNSUPPORTED_REQUIREMENT" ? `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.` : f.diagnosis === "REQUEST_NEEDS_CLARIFICATION" ? "Welches Budget pro Person passt für dich?" : `Noch nicht bestätigt: ${label}.`,
       confirmed: proven };
   });
   if (candidate.facts.some(f => f.reason === "DOCUMENTED_WHEELCHAIR_ACCESS_DETAILS")) {
@@ -125,8 +128,10 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       statementDe: [yes.length ? `Als zugänglich erfasst: ${yes.join(", ")}.` : "", no.length ? `Als nicht vorhanden oder nicht zugänglich erfasst: ${no.join(", ")}.` : ""].filter(Boolean).join(" ").slice(0,500), confirmed: false });
   }
   const profileEntry = world.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"));
+  const explanatoryProfile = profileEntry ? parseExperienceProfile(profileEntry.value) : null;
   if (profileEntry && candidate.offerIds.length) {
-    const offers = parseExperienceProfile(profileEntry.value).offers.filter(o => candidate.offerIds.includes(o.id));
+    const activityIds = new Set(candidate.facts.filter(f => f.state === "MET" && (["experience.activity", "offer.kind"].includes(f.family) || f.family.startsWith("food."))).flatMap(f => f.offerIds));
+    const offers = explanatoryProfile!.offers.filter(o => activityIds.has(o.id));
     const conditional = candidate.conditionalPlans.length > 0 || candidate.status !== "CONFIRMED";
     if (offers.length) reasons.unshift({ reasonCode: "librarian-selected-offers", domain: conditional ? "LIMITATION" : "WORLD", sourceHash: contentHash({ entryHash: profileEntry.entryHash, offerIds: offers.map(o => o.id) }),
       statementDe: `${conditional ? "Mögliche Angebote" : "Passende Angebote"}: ${offers.map(o => o.name).join(", ")}`.slice(0,500), confirmed: !conditional });
@@ -136,6 +141,11 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     && f.reason !== "UNDATED_DAYPART_NO_OPENING_CLAIM" && f.reason !== "RETAINED_AS_REQUEST_CONTEXT");
   const availability = temporal.length ? temporal.some(f => f.state === "FAILED") ? "closed" : temporal.every(f => f.state === "MET") ? "open" : "unknown" : "not_requested";
   if (temporal.some(f => f.reason === "VISIT_TIME_UNCONFIRMED")) reasons.push({reasonCode:"librarian-visit-time-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,statementDe:"Der Spot passt zu deinem Wunsch. Öffnungs- und Angebotszeiten für den gewünschten Besuch sind noch nicht bestätigt.",confirmed:false});
+  // Inherited hours are an explicit product rule, not a separately researched
+  // timetable or confirmation of a free slot / course admission.
+  const inheritedOffers = explanatoryProfile?.offers.filter(o => candidate.offerIds.includes(o.id) && o.schedule.length === 0).map(o => o.id) ?? [];
+  if (!world.eventOccurrence && availability === "open" && inheritedOffers.length)
+    reasons.push({ reasonCode: "librarian-inherited-spot-hours", domain: "LIMITATION", sourceHash: contentHash({candidateHash:candidate.candidateHash,offerIds:inheritedOffers}), statementDe: "Für dieses Angebot gelten die allgemeinen Öffnungszeiten des Ortes, da keine eigenen Zeiten hinterlegt sind. Freie Plätze oder eine Teilnahme sind damit nicht garantiert.", confirmed: false });
   if (candidate.facts.some(f => f.reason === "SCOPED_GROUP_CAPACITY_CONFIRMED_NOT_A_BOOKING"))
     reasons.push({ reasonCode: "librarian-capacity-not-booking", domain: "LIMITATION", sourceHash: candidate.candidateHash, statementDe: "Die Gruppengrösse passt zum Angebot. Freie Plätze für einen konkreten Termin sind damit nicht bestätigt.", confirmed: false });
   const event = world.eventOccurrence;
@@ -173,15 +183,15 @@ function requiredInEveryAlternative(node: LunaExpression, meaning: LibrarianRequ
 
 export function evaluateLibrarianProduct(input: {
   readonly request: DecisionProductRequest; readonly meaning: LibrarianRequest;
-  readonly catalog: readonly unknown[]; readonly eventOccurrences?: unknown; readonly authority: { readonly authorizedCity: string; readonly serverTime: string };
+  readonly catalog: readonly unknown[]; readonly eventOccurrences?: unknown; readonly authority: { readonly authorizedCity: string; readonly serverTime: string; readonly authorizedLocalities?: readonly string[] };
   readonly projection: RelevantUserProjection;
   readonly onSearch?: (result: ReturnType<typeof searchLibrarianCatalogWithWorlds>["result"]) => void;
 }) {
   const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.meaning.raw, sourceText: input.meaning.source.sourceText, reference: input.meaning.source.reference });
   if (meaning.source.sourceText !== input.request.naturalLanguage || meaning.requestHash !== input.meaning.requestHash) throw new Error("product_librarian_source_binding_invalid");
   if (librarianTargetCity(input.request, meaning) !== input.authority.authorizedCity) throw new Error("product_librarian_city_binding_invalid");
-  const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime) : [];
-  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime }, limit: 1500 });
+  const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime, input.authority.authorizedLocalities ?? librarianDiscoveryLocalities(input.authority.authorizedCity)) : [];
+  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime, ...(input.authority.authorizedLocalities ? {authorizedLocalities: input.authority.authorizedLocalities} : {}) }, limit: 1500 });
   input.onSearch?.(result);
   const byId = new Map(worlds.map(w => [w.spot.spotId, w]));
   const ids = [...byId.keys()].sort();
@@ -206,7 +216,7 @@ export function evaluateLibrarianProduct(input: {
       f.key === "budget.maximum" && f.value.kind === "MONEY" && ["LTE", "EQ"].includes(f.value.operator)
       && f.value.amount === uiBudget.amount && f.value.currency === uiBudget.currency);
     // Explicit UI duties are binding too; never demote them by field family.
-    const guardRequest = { ...input.request, naturalLanguage: " ", explicit };
+    const guardRequest = { ...input.request, naturalLanguage: " ", explicit: explicit.targetCityRole === "SEARCH_CONTEXT" ? {...explicit, targetCity: input.authority.authorizedCity} : explicit };
     const guards = evaluateProductWorldViews(guardRequest, input.authority, input.projection, worlds, candidateSetHash).evaluation.candidates;
     candidates = candidates.map(c => {
       const guard = guards.find(g => g.candidateId === c.candidateId);
@@ -231,7 +241,7 @@ export function evaluateLibrarianProduct(input: {
   const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.evaluation, evaluationId: `product-evaluation-${contentHash({ requestId: input.request.requestId, cohortHash: cohort.cohortHash }).slice(0,24)}`,
     createdAt: input.authority.serverTime, requestHash: contentHash(input.request), interpretation: context, worldCohort: cohort,
-    userProjectionHash: input.projection.projectionHash, candidates, limitations: [], evaluatorVersion: input.request.includeEvents === true ? PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION : PRODUCT_LIBRARIAN_EVALUATOR_VERSION,
+    userProjectionHash: input.projection.projectionHash, candidates, limitations: [...new Set(result.evaluationPlan.requirements.filter(r => requiredRequestIssue(r, r.support)).map(r => r.support === "NEEDS_POLICY" ? "REQUEST_NEEDS_CLARIFICATION" : "REQUEST_REQUIREMENT_UNSUPPORTED"))], evaluatorVersion: input.request.includeEvents === true ? PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION : PRODUCT_LIBRARIAN_EVALUATOR_VERSION,
     evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash, evaluationReleaseHash: DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash, intentPolicyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash,
     sourceKind: "CANONICAL_PRODUCT_PORTS", productSemanticsApproved: true, productRankingAuthorized: true, fixtureSourceUsed: false,
   }, "evaluationHash"));

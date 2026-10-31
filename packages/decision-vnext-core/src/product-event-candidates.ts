@@ -62,7 +62,7 @@ const activities:Readonly<Record<string,string>>={MUSIC:"Musikveranstaltung",THE
  * ledger write or fabricated World resolver binding. Event provenance stays
  * separate in eventBindings and the EVENT presentation. No venue facts bleed
  * into an event's age, cuisine, ticket, atmosphere or accessibility evidence. */
-export function projectDecisionEventOccurrences(raw:unknown, city:string, now:string): readonly ProductWorldView[] {
+export function projectDecisionEventOccurrences(raw:unknown, city:string, now:string, authorizedLocalities: readonly string[] = [city]): readonly ProductWorldView[] {
   if(!Array.isArray(raw)||raw.length>500)throw new Error("product_event_catalog_invalid");
   const seen=new Set<string>(), key=(s:string)=>s.normalize("NFKD").replace(/\p{M}/gu,"").toLowerCase();
   return raw.map(value=>{
@@ -74,7 +74,7 @@ export function projectDecisionEventOccurrences(raw:unknown, city:string, now:st
     }
     const event=DecisionEventOccurrenceSchema.parse(normalized), id=eventCandidateId(event.occurrenceId);
     if(event.imageStoragePath && (event.imageStoragePath.startsWith("/") || event.imageStoragePath.includes("..") || /[?#:\\]/.test(event.imageStoragePath)))throw new Error("product_event_image_path_invalid");
-    if(seen.has(id)||key(city)!==key(event.city)||Date.parse(event.publishedAt)>Date.parse(now)||Date.parse(event.occurrencePublishedAt)>Date.parse(now)
+    if(seen.has(id)||!authorizedLocalities.some(locality=>key(locality)===key(event.city))||Date.parse(event.publishedAt)>Date.parse(now)||Date.parse(event.occurrencePublishedAt)>Date.parse(now)
       || event.endAt!==null && Date.parse(event.endAt)<Date.parse(event.startAt)
       || event.isFree===true && event.priceMin!==null && event.priceMin>0
       || (event.priceMin===null)!==(event.currency===null))throw new Error("product_event_binding_invalid");

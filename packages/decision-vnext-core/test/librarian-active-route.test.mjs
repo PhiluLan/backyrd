@@ -131,13 +131,13 @@ test('overlapped city preparation preserves complete responses for all ten domai
  }
 });
 
-test('a dated dinner with missing offer time remains unranked pending verification',async()=>{
+test('a dated dinner without its own timetable inherits venue hours and explains the source',async()=>{
  const b=binding(810,profile([{...offer(),schedule:[]}]));
  const r=await exercise({text:'Morgen Abend essen in Basel',meaning:plan([meal(),date(),evening()]),catalog:[b]});
- assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,null);
- const c=r.body.candidates[0];assert.equal(c.tier,'UNCONFIRMED_FALLBACK');assert.equal(c.rank,null);assert.equal(c.actualAvailability,'unknown');
- assert.ok(c.unknownHardConstraints.length>0);
- assert.ok(c.reasons.some(reason=>reason.code==='librarian-visit-time-unconfirmed'&&!reason.confirmed));
+ assert.equal(r.status,200);assert.equal(r.body.primaryCandidateId,b.decisionProjection.spotId);
+ const c=r.body.candidates[0];assert.equal(c.tier,'ELIGIBLE_CONFIRMED');assert.equal(c.rank,1);assert.equal(c.actualAvailability,'open');
+ assert.equal(c.unknownHardConstraints.length,0);
+ assert.ok(c.reasons.some(reason=>reason.code==='librarian-inherited-spot-hours'&&!reason.confirmed));
 });
 test('without user time, closed regular hours and the current day never filter a fitting offer',async()=>{
  const b=binding(811,profile([{...offer(),schedule:[{weekday:7,start:'10:00',end:'11:00'}]}]));
@@ -269,4 +269,27 @@ test('request-local search observer captures once without changing the product a
  assert.equal(seen[0].ranked.length+seen[0].excluded.length+seen[0].unresolved.length,2);
  assert.equal(observed.calls,baseline.calls);assert.equal(observed.reads,baseline.reads);
  assert.deepEqual(observed.body,baseline.body);
+});
+
+
+test('the language model never receives a profile/default city as an explicit wish',async()=>{
+ const text='Spielplatz draussen mit meiner familie';
+ const meaning=plan([fact('play','offer.facility','playground'),fact('outside','offer.area','outdoor')]);
+ const data=profile([offer('play','MOVEMENT_PLAY',['playground'])],[{...area('playground'),kind:'PLAYGROUND'}],'OUTDOOR_NATURE');
+ const seen=[];
+ const r=await exercise({text,meaning,catalog:[binding(1,data)],explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'},fetchImpl:async(_url,options)=>{
+  const body=JSON.parse(options.body);const modelInput=JSON.parse(body.input);seen.push(modelInput);
+  assert.equal(modelInput.request,text);assert.equal('targetCity' in modelInput.explicitContext,false);assert.equal('targetCityRole' in modelInput.explicitContext,false);
+  return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));
+ }});
+ assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.candidates.filter(c=>c.rank!==null).length,1);assert.equal(seen.length,1);
+});
+test('an explicitly selected destination still reaches the model and explicit source city is not demoted',async()=>{
+ const text='Spielplatz in Basel';const meaning=plan([fact('city','location.destination','Basel'),fact('play','offer.facility','playground')]);
+ const data=profile([offer('play','MOVEMENT_PLAY',['playground'])],[{...area('playground'),kind:'PLAYGROUND'}],'OUTDOOR_NATURE');
+ const r=await exercise({text,meaning,catalog:[binding(1,data)],explicit:{targetCity:'Basel',targetCityRole:'REQUIRED_DESTINATION'},fetchImpl:async(_url,options)=>{
+  assert.equal(JSON.parse(JSON.parse(options.body).input).explicitContext.targetCity,'Basel');
+  return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));
+ }});assert.equal(r.status,200,JSON.stringify(r.diagnostics));assert.equal(r.body.candidates.filter(c=>c.rank!==null).length,1);
+ assert.equal(meaning.facts.find(f=>f.id==='city').modality,'REQUIRED');
 });
