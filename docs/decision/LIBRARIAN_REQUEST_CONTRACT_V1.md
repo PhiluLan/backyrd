@@ -742,3 +742,7 @@ When an overnight-stay offer is actually selected at the same hotel, the separat
 ### Matcher 47 / experience language 18 / prompt 24 / meaning roles 8: laptop work and WiFi
 
 Finite laptop-work labels map to the actual COWORKING offer concept. A café or WiFi alone never proves permission to work. Verified venue WIFI is a positive discovery amenity alongside parking, retained when an experience profile exists unless explicit scoped knowledge overrides it. It does not guarantee signal quality or invent another room's facilities. The meaning instruction keeps work in a café, café type, quiet and WiFi on the same spatial activity rather than constructing an independent office beside a café. Reproduced in sequential case 30.
+
+### Prompt 25 / meaning roles 9: known duplicates are not unsupported new duties
+
+A required/excluded extension whose exact finite concept is already represented by a fact with identical subjects, modality and basis is diagnosed as a redundant extension. The existing single correction may remove only that diagnosed duplicate; all real facts and unknown extra needs remain immutable. Different participants, different modality or an unmapped description is not a duplicate. The model does not silently lose genuine unsupported wishes. Reproduced when correctly emitted coworking was duplicated as “Arbeiten mit dem eigenen Laptop” in case 30.

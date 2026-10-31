@@ -37,10 +37,10 @@ for (const [key, concept] of Object.entries(BOOLEAN_CONCEPTS)) {
   rules[concept] = families;
 }
 export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['budget.scope','time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
-export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@8', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
+export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@9', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
 export type LunaMeaningIssue = {
   readonly factId: string;
-  readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE' | 'UNKNOWN_AGE_PLACEHOLDER';
+  readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE' | 'UNKNOWN_AGE_PLACEHOLDER' | 'REDUNDANT_EXTENSION';
   readonly allowedFamilies: readonly LunaFactKey[];
   readonly repairPlaceholderValue?: true;
   readonly allowRemoval?: true;
@@ -64,7 +64,14 @@ export function inspectLunaMeaning(output: LunaMeaningOutput, sourceText?: strin
     if (allowed && !allowed.includes(fact.key)) return [{factId:fact.id,code:'CONCEPT_FAMILY_MISMATCH' as const,allowedFamilies:allowed}];
     if (['REQUIRED', 'EXCLUDED'].includes(fact.modality) && LIBRARIAN_FAMILY_STRATEGIES[fact.key] === 'UNSUPPORTED') return [{factId:fact.id,code:'UNSUPPORTED_REQUIREMENT' as const,allowedFamilies:[]}];
     return [];
-  }).concat(output.extensions.filter(extension => ['REQUIRED', 'EXCLUDED'].includes(extension.modality)).map(extension => ({factId:extension.id,code:'UNSUPPORTED_REQUIREMENT' as const,allowedFamilies:[]})));
+  }).concat(output.extensions.filter(extension => ['REQUIRED', 'EXCLUDED'].includes(extension.modality)).map<LunaMeaningIssue>(extension => {
+    const concept=librarianConcept(extension.description);
+    const duplicate=concept ? output.facts.find(f=>'text' in f.value && librarianConcept(f.value.text) === concept
+      && f.modality === extension.modality && f.basis === extension.basis
+      && contentHash([...f.subjectIds].sort()) === contentHash([...extension.subjectIds].sort())) : undefined;
+    return duplicate ? {factId:extension.id,code:'REDUNDANT_EXTENSION',allowedFamilies:[duplicate.key],allowRemoval:true}
+      : {factId:extension.id,code:'UNSUPPORTED_REQUIREMENT',allowedFamilies:[]};
+  }));
 }
 /** Only diagnosed keys may change in the bounded correction. A context-only
  * diet during a food visit may additionally be classified by the model into
@@ -73,14 +80,14 @@ export function inspectLunaMeaning(output: LunaMeaningOutput, sourceText?: strin
  * A correction that drops a wish or narrows it is rejected before any search. */
 export function assertLunaMeaningCorrection(before: LunaMeaningOutput, after: LunaMeaningOutput, issues: readonly LunaMeaningIssue[]): void {
   const permitted = new Map(issues.map(issue => [issue.factId, issue]));
-  const strip = (output: LunaMeaningOutput) => ({...output, facts:output.facts.filter(fact => !permitted.get(fact.id)?.allowRemoval).map(fact => {
+  const strip = (output: LunaMeaningOutput) => ({...output, extensions:output.extensions.filter(e=>!permitted.get(e.id)?.allowRemoval), facts:output.facts.filter(fact => !permitted.get(fact.id)?.allowRemoval).map(fact => {
     const {key,...rest}=fact;
     if (!permitted.has(fact.id)) return fact;
     if (permitted.get(fact.id)!.repairPlaceholderValue) { const {value,...stable}=rest; return stable; }
     if (permitted.get(fact.id)!.allowedModalities) { const {modality,...stable}=rest; return stable; }
     return rest;
   })});
-  if (after.facts.some(f=>permitted.get(f.id)?.allowRemoval) || contentHash(strip(before)) !== contentHash(strip(after)) || after.facts.some(fact => permitted.has(fact.id) && (!permitted.get(fact.id)!.allowedFamilies.includes(fact.key) || permitted.get(fact.id)!.repairPlaceholderValue && (!('text' in fact.value) || Object.keys(LIBRARIAN_FAMILY_STRATEGIES).includes(fact.value.text.trim()) || !fact.value.text.trim()) || permitted.get(fact.id)!.allowedModalities && !permitted.get(fact.id)!.allowedModalities!.includes(fact.modality)))) {
+  if ([...after.facts,...after.extensions].some(f=>permitted.get(f.id)?.allowRemoval) || contentHash(strip(before)) !== contentHash(strip(after)) || after.facts.some(fact => permitted.has(fact.id) && (!permitted.get(fact.id)!.allowedFamilies.includes(fact.key) || permitted.get(fact.id)!.repairPlaceholderValue && (!('text' in fact.value) || Object.keys(LIBRARIAN_FAMILY_STRATEGIES).includes(fact.value.text.trim()) || !fact.value.text.trim()) || permitted.get(fact.id)!.allowedModalities && !permitted.get(fact.id)!.allowedModalities!.includes(fact.modality)))) {
     throw new Error('product_luna_correction_changed_meaning');
   }
 }
@@ -92,6 +99,7 @@ export const LUNA_MEANING_ROLE_INSTRUCTIONS = '\nVERBINDLICHE BEDEUTUNGSROLLEN (
   + '. Kontextfamilien dürfen ausschliesslich CONTEXT sein: ' + LUNA_CONTEXT_ONLY_FAMILIES.join(', ')
   + '. Eine zeitliche Reihenfolge gehört zwischen mehrere konkret benannte Tätigkeiten in SEQUENCE; ein alleinstehendes zuerst oder danach erzeugt keine zusätzliche erfüllbare Ortsanforderung. '
   + 'VERNEINTE VORAUSSETZUNGEN: Eine Voraussetzung nicht erfüllen wollen bedeutet, dass der Ort ohne diese Voraussetzung nutzbar sein muss. Ohne Reservierung, ohne Anmeldung, ohne Vorbuchung => participation.booking spontaneous REQUIRED; möglichst ohne Vorbuchung => spontaneous PREFERRED. NOT_REQUIRED bedeutet dagegen ausdrücklich egal ob eine Buchung nötig ist. Dafür spontaneous NOT_REQUIRED verwenden. booking_required NOT_REQUIRED ist eine mehrdeutige Doppelverneinung und nicht erlaubt. Dasselbe Prinzip für Zugang ohne Hotelaufenthalt: public_day_access REQUIRED statt Hotelaufenthalt als unverbindlich wegzulassen. Den Wunsch niemals verlieren. '
+  + 'KEINE DOPPELTEN PFLICHTEN: Eine bekannte, bereits vollständig in facts repräsentierte Bedeutung nicht zusätzlich als erforderliche extension wiederholen. Laptoparbeit als coworking und WLAN als wifi sind bekannte Inhalte. Echte unbekannte Zusatzbedürfnisse trotzdem vollständig erhalten. '
   + 'TÄTIGKEIT IN EINER EINRICHTUNG: Bei im Café arbeiten beziehen sich die Arbeitsaktivität, das gewünschte Café, Ruhe und WLAN auf dieselbe räumliche ACTIVITY-Entity. Kein unabhängiges Büro neben einem ruhigen Café konstruieren. Ein konkret getrennter Mehr-Orte-Wunsch bleibt getrennt. '
   + 'PERSONENZAHL: Die beiläufig genannte Begleitung (wir beide, mit einer Freundin) ist people.count CONTEXT und kein Auftrag, eine buchbare Gruppenkapazität nachzuweisen. REQUIRED nur bei ausdrücklich verlangten Plätzen/Kapazität für eine Gruppe oder gemeinsamer Gruppenbuchung. Zahl und Bezug trotzdem erhalten; bestehende dokumentierte Kapazitätsgrenzen bleiben zu beachten. '
   + 'budget.scope ist ausschliesslich CONTEXT: ein Preisparameter, keine weitere Pflicht des Ortes. Bei gratis keinen unnötigen Pro-Person-Umfang ergänzen; der Geldbetrag 0 ist die verbindliche Forderung. '

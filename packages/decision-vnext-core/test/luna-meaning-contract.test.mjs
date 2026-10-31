@@ -142,3 +142,12 @@ test('an unknown child age must not be encoded as approximate zero',()=>{
  assert.throws(()=>assertLunaMeaningCorrection(before,before,issues));
  assert.deepEqual(inspectLunaMeaning(before,'ungefähr 0 Jahre alt'),[]);
 });
+
+test('an exact known extension duplicate is removed by bounded correction, unknown extra needs are retained',async()=>{
+ const before=raw('experience.activity','coworking');before.extensions=[{id:'x1',description:'Arbeiten mit dem eigenen Laptop',modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']}];
+ const issues=inspectLunaMeaning(before);assert.equal(issues[0].code,'REDUNDANT_EXTENSION');
+ const after=structuredClone(before);after.extensions=[];assert.doesNotThrow(()=>assertLunaMeaningCorrection(before,after,issues));
+ const p=provide([before,after]);assert.equal((await p.run()).extensions.length,0);assert.equal(p.calls(),2);
+ const other=structuredClone(before);other.extensions[0].description='Eigener Bildschirm mit HDMI';assert.equal(inspectLunaMeaning(other)[0].code,'UNSUPPORTED_REQUIREMENT');
+ other.extensions[0].description=before.extensions[0].description;other.extensions[0].subjectIds=['a2'];assert.equal(inspectLunaMeaning(other)[0].code,'UNSUPPORTED_REQUIREMENT');
+});

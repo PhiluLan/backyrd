@@ -226,7 +226,7 @@ export function validateActiveLunaMeaningOutput(value: unknown) {
 
 /** Versioned clarification of executable duties versus visit context. The
  * frozen schema, catalog, model and original prompt remain intact. */
-export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@24" as const;
+export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@25" as const;
 /** Preserve the frozen base schema. Constrain source metadata in the active
  * provider contract so the model cannot emit it as a second hard condition. */
 const modelSchemaObject = (value: unknown): Readonly<Record<string, unknown>> => {
