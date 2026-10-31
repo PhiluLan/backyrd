@@ -700,3 +700,7 @@ Brunch, snacks and apéritif use the same meal-witness join as breakfast, lunch 
 ### Prompt 20 / meaning roles 4: field identifiers are not content
 
 A TEXT value equal to a known request field identifier is an invalid placeholder, not a genuine activity with no matching spots. It triggers the same bounded single correction before retrieval. Only the diagnosed placeholder TEXT value may be repaired from the original request; its family, subject, modality and all other facts remain unchanged. Still-invalid placeholders stop as an understanding failure, never a fabricated zero-result search.
+
+### Matcher 39 / experience language 16: dietary option labels
+
+The authored option labels “Glutenfreie Option” and “Laktosefreie Option” express the corresponding dietary option and may witness food.diet at the same offer. The mapping is finite and shared, not fuzzy prose matching. Generic ingredient information or adaptation on request proves neither option. A separate lunch option cannot qualify dinner. This mapping does not assert allergy safety, cross-contamination protection or a wholly free-from kitchen.

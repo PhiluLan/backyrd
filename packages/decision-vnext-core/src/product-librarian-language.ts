@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LibrarianFact, LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@38" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@39" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept, librarianTerm, type ExperienceProperty } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 /** Suitability is explicit product knowledge, not a venue-type heuristic. */
@@ -24,7 +24,8 @@ export const LIBRARIAN_PROPERTY_SOURCE_ALIASES: Readonly<Partial<Record<LunaFact
     "atmosphere.music": ["experience.activity"],
     "condition.children": ["experience.activity"],
     "food.meal": ["food.meal_extent"],
-    "food.option": ["food.meal_extent"],
+    "food.option": ["food.meal_extent", "food.diet"],
+    "food.diet": ["food.option"],
     "offer.weather_suitability": ["location.setting", "condition.weather_protection"],
 });
 export const librarianPropertySourceKeys = (family: LunaFactKey, acceptedSemanticKeys: readonly string[] = []): readonly string[] =>

@@ -206,3 +206,13 @@ test('brunch and a co-diner diet require the same meal offer, including person-o
  assert.equal(search(q,[binding(1993,good)]).ranked.length,1);
  }
 });
+
+test('catalogued gluten-free and lactose-free options prove the matching diet on the selected meal only',()=>{
+ for(const [wanted,label] of [['glutenfrei','Glutenfreie Option'],['laktosefrei','Laktosefreie Option']]){
+ const q=request([fact('meal','experience.activity','dinner'),fact('diet','food.diet',wanted)]);
+ assert.equal(search(q,[binding(1994,profile([offer('dinner','DINNER',['inside'],[prop('food.option',label)])]))]).ranked.length,1);
+ for(const label of ['Zutateninformation verfügbar','Anpassung auf Anfrage','Nicht glutenfrei'])
+ assert.equal(search(q,[binding(1995,profile([offer('dinner','DINNER',['inside'],[prop('food.option',label)])]))]).ranked.length,0);
+ assert.equal(search(q,[binding(1996,profile([offer('dinner','DINNER'),offer('lunch','LUNCH',['inside'],[prop('food.option',label)])]))]).ranked.length,0);
+ }
+});
