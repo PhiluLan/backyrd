@@ -458,3 +458,25 @@ requires participant evidence instead of silently admitting an unknown age.
 No production spot data, schema or consumer deployment accompanies this change.
 Mobile and Web explicitly render the deterministic age-documentation notice and
 own-consumption exceptions, including for otherwise confirmed candidates.
+
+### Service semantics and relative price preferences (matching 31)
+
+The restaurant control exposed another conjunction error: general venue hours
+could substantiate an inherited LUNCH offering in the evening. Inherited hours
+now intersect with the semantic service period of BREAKFAST (MORNING), BRUNCH
+(MORNING/MIDDAY), LUNCH (MIDDAY) or DINNER (EVENING), using the existing daypart
+policy. These defaults are not stored as researched hours. Outside that default,
+the offering remains unconfirmed rather than being declared closed. An explicit
+offer schedule or authored service dayparts can substantiate atypical periods,
+such as all-day breakfast. Generic gastronomy and snacks acquire no invented
+meal-time restriction.
+
+Required monetary budgets still need actual price evidence. A PREFERRED
+qualitative price wish now uses the already defined PRICE_LEVEL policy against
+verified venue-level price knowledge, instead of asking for a cash ceiling as
+if it were mandatory. The canonical vocabulary maps inexpensive to LOW and not
+too expensive to MEDIUM; no francs, currency conversion or offer-level price is
+inferred. HIGH alternatives remain eligible when price is only a preference,
+but receive no positive price-preference match. Missing price knowledge remains
+unknown. The relative level and its limitation are rendered in Mobile and Web;
+required undefined qualitative ceilings still need clarification.

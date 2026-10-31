@@ -1,6 +1,6 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LIBRARIAN_FAMILY_STRATEGIES, librarianFactPropertySourceKeys, librarianExternalConsumptionKind, librarianFacilityConcept, librarianConcept } from "./product-librarian-language.js";
-import { LIBRARIAN_KNOWLEDGE_POLICY, QUALITATIVE_PRICE_POLICY } from "./product-librarian-knowledge.js";
+import { LIBRARIAN_KNOWLEDGE_POLICY, QUALITATIVE_PRICE_POLICY, qualitativePricePolicyFor } from "./product-librarian-knowledge.js";
 import type { LibrarianSemanticIndex } from "./product-librarian-semantics.js";
 import type { LibrarianFact, LibrarianRequest } from "./product-luna-librarian.js";
 import { AREA_CATALOG } from "@backyrd/world-knowledge-core";
@@ -132,7 +132,7 @@ export function compileLibrarianPlan(request: LibrarianRequest, semantics: Libra
             : "key" in fact ? [...librarianFactPropertySourceKeys(fact, semanticKeys), ...(worldSources[fact.key] ?? [])] : [];
         const inputOnly = fact.modality === "CONTEXT" || fact.modality === "NOT_REQUIRED";
         const support = inputOnly ? "INPUT" as const : operator === "UNSUPPORTED" ? "UNSUPPORTED" as const
-            : operator === "QUALITATIVE_PRICE" && QUALITATIVE_PRICE_POLICY === "CLARIFY" ? "NEEDS_POLICY" as const : "SUPPORTED" as const;
+            : operator === "QUALITATIVE_PRICE" && qualitativePricePolicyFor(fact) === "CLARIFY" ? "NEEDS_POLICY" as const : "SUPPORTED" as const;
         return { factId: fact.id, family: family ?? "extension", modality: fact.modality, subjects: fact.subjectIds, operator, support,
             proofRule: inputOnly ? "CONTEXT_APPLIES_TO_DOCUMENTED_RULES" : fact.modality === "PREFERRED" ? "OPTIONAL_MATCH"
                 : fact.modality === "EXCLUDED" ? "EXCLUSION_MUST_BE_PROVEN" : "POSITIVE_EVIDENCE_REQUIRED",
@@ -142,7 +142,7 @@ export function compileLibrarianPlan(request: LibrarianRequest, semantics: Libra
         authority: condition.role === "CONTEXT" ? "USER_VISIT_CONTEXT" : "EXTERNAL_EVIDENCE_REQUIRED" }));
     const body = { contractVersion: "backyrd.librarian-evaluation-plan@2" as const, requestHash: request.requestHash, proofPolicy: LIBRARIAN_PROOF_POLICY,
         contextPolicy: { participantAttributes: "APPLY_DOCUMENTED_RESTRICTIONS", missingRestriction: "INFORM_WITHOUT_ASSERTING_ACCESS", missingRequestedProperty: "UNRESOLVED", missingRequestedHours: "UNRESOLVED" },
-        policyVersion: LIBRARIAN_KNOWLEDGE_POLICY, meaningRegistryHash: semantics?.registry.registryHash ?? null, qualitativePricePolicy: QUALITATIVE_PRICE_POLICY, requirements, weather };
+        policyVersion: LIBRARIAN_KNOWLEDGE_POLICY, meaningRegistryHash: semantics?.registry.registryHash ?? null, qualitativePricePolicy: QUALITATIVE_PRICE_POLICY, qualitativePricePreferencePolicy: "PRICE_LEVEL", requirements, weather };
     return deepFreeze({ ...body, planHash: contentHash(body) });
 }
 

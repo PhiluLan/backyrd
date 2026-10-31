@@ -101,3 +101,34 @@ test('documented age rules use the known party, not an invented duty for a compl
  const incomplete=search(extraPerson,[binding(1413,profile(),[restriction(3)])]);
  assert.equal(incomplete.ranked.length,0);assert.ok(incomplete.unresolved[0].facts.some(f=>f.reason==='PARTICIPANT_AGE_COVERAGE_INCOMPLETE'));
 });
+
+test('venue-hour fallback preserves the meaning of meal services without inventing precise opening times',()=>{
+ const q=request([meal(),date(),evening()]);
+ for(const kind of ['LUNCH','BREAKFAST','BRUNCH']){
+  const p=profile([{...offer('service',kind),schedule:[]}]);
+  const c=all(search(q,[binding(1420,p)]))[0];
+  assert.equal(c.status,'PARTIAL',kind);assert.equal(c.decisionProof.experience,'SUPPORTED');
+  assert.ok(c.facts.some(f=>f.reason==='INHERITED_HOURS_DO_NOT_CONFIRM_SERVICE_PERIOD'),kind);
+ }
+ const dinner=profile([{...offer('dinner','DINNER'),schedule:[]}]);
+ assert.equal(search(q,[binding(1421,dinner)]).ranked.length,1);
+ const allDay=profile([offer('all-day-breakfast','BREAKFAST')]);
+ assert.equal(search(q,[binding(1422,allDay)]).ranked.length,1,'an explicit schedule can substantiate an unusual service period');
+ const specified=profile([{...offer('service','BREAKFAST',['inside'],[prop('experience.activity','essen gehen',{conditions:{weekdays:[],dayparts:['EVENING'],validFrom:null,validUntil:null,event:null}})]),schedule:[]}]);
+ assert.equal(search(q,[binding(1423,specified)]).ranked.length,1,'explicit authored service dayparts take precedence');
+ const both=profile([{...offer('lunch','LUNCH'),schedule:[]},{...offer('dinner','DINNER'),schedule:[]}]);
+ const c=search(q,[binding(1424,both)]).ranked[0];assert.ok(c);assert.deepEqual(c.offerIds,['dinner']);
+});
+
+test('a relative price preference uses known price levels without inventing a cash limit or rejecting expensive alternatives',()=>{
+ const q=request([meal(),fact('price','budget.qualitative','nicht zu teuer','PREFERRED')]);
+ const good=binding(1430,profile(),[worldFact('operation.price_level','MEDIUM')]);
+ const high=binding(1431,profile(),[worldFact('operation.price_level','HIGH')]);
+ const missing=binding(1432,profile());
+ const r=search(q,[high,missing,good]);assert.equal(r.ranked.length,3);
+ assert.equal(r.ranked[0].spotId,good.decisionProjection.spotId);
+ assert.equal(r.evaluationPlan.requirements.find(row=>row.factId==='price').support,'SUPPORTED');
+ const proof=r.ranked[0].facts.find(f=>f.factId==='price');assert.equal(proof.state,'MET');assert.equal(proof.domainEvidence[0].details.monetaryBudgetInferred,false);
+ assert.ok(r.ranked.find(c=>c.spotId===high.decisionProjection.spotId).facts.some(f=>f.factId==='price'&&f.state==='FAILED'&&f.modality==='PREFERRED'));
+ assert.equal(search(request([meal(),fact('price','budget.qualitative','nicht zu teuer')]),[good]).ranked.length,0,'a required undefined price ceiling still needs clarification');
+});

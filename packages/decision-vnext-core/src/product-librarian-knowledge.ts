@@ -138,12 +138,16 @@ export type QualitativePricePolicy = "CLARIFY" | "PRICE_LEVEL";
 /** Product policy, distinct from the user's explicit monetary limit. No
  * amount, currency conversion or personal budget is manufactured here. */
 export const QUALITATIVE_PRICE_POLICY: QualitativePricePolicy = "CLARIFY";
+/** A preference can use the verified relative price level for ranking; it
+ * cannot manufacture a monetary ceiling or satisfy a required cash budget. */
+export const qualitativePricePolicyFor = (fact: Pick<LibrarianFact, "modality">): QualitativePricePolicy =>
+    fact.modality === "PREFERRED" ? "PRICE_LEVEL" : QUALITATIVE_PRICE_POLICY;
 const priceLevels = ["VERY_LOW", "LOW", "MEDIUM", "HIGH", "PREMIUM"] as const;
 const priceWishes: Readonly<Record<string, number>> = {
     "günstig": 1, "guenstig": 1, "preiswert": 1, "cheap": 1, "inexpensive": 1, "low": 1,
     "nicht zu teuer": 2, "nicht teuer": 2, "bezahlbar": 2, "not too expensive": 2, "affordable": 2, "moderate": 2, "medium": 2,
 };
-export function qualitativePriceEvidence(fact: LibrarianFact, world: ProductWorldView, profile: ExperienceProfile | null, policy: QualitativePricePolicy = QUALITATIVE_PRICE_POLICY): readonly DomainEvidence[] | null {
+export function qualitativePriceEvidence(fact: LibrarianFact, world: ProductWorldView, profile: ExperienceProfile | null, policy: QualitativePricePolicy = qualitativePricePolicyFor(fact)): readonly DomainEvidence[] | null {
     if (fact.key !== "budget.qualitative" || fact.value.kind !== "TEXT") return null;
     const maximum = priceWishes[librarianTerm(fact.value.text)];
     const rows = [...world.facts, ...world.operationalRules].filter(row => row.key === "operation.price_level" && authorized(row, "PRICE"));
