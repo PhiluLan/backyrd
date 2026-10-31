@@ -1,5 +1,21 @@
 # Lossless Luna and Spot matching boundary
 
+## Family activities with additional catering (2026-10-31)
+
+Prompt revision 10 represents an activity and its additional catering as separate
+activity entities at the same venue. Required food alternatives remain `ANY`;
+explicit conjunctions remain `ALL`. Shared anchors bound to one alternative do
+not create a cross-branch conflict. The matcher never repairs a missing model OR
+or silently moves a requirement to another entity.
+
+Matching revision 24 recognizes catalogue family-activity synonyms and bounded
+meal/snack concepts in `food.meal` or `food.option`, including the editor's
+`food.meal_extent` evidence. A child's menu alone does not prove an activity;
+separate venues do not satisfy same-place requirements. Existing room, age,
+availability, diet and budget constraints retain their scopes and authority.
+The failed live model output is retained as a regression fixture. Acceptance
+requires a fresh model run, not only a hand-authored corrected meaning plan.
+
 Status (2026-10-16): single-route implementation candidate; production activation pending.
 Task class: PRODUCT_RELEASE because the existing production adapter shares its
 catalog read with the new library boundary.

@@ -1,6 +1,77 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fact, request, profile, offer, area, prop, price, binding, search, budget, worldFact } from './librarian-matching-fixtures.mjs';
+import {exercise} from './librarian-active-route-fixtures.mjs';
+import {readFileSync} from 'node:fs';
+
+const foodAlternative = (both=false) => request([
+  fact('family','condition.children','children_activity','REQUIRED',['a1']),
+  fact('meal','food.meal','meal','REQUIRED',['a2']),
+  fact('snack','food.meal','snacks','REQUIRED',['a2']),
+],{logic:{kind:'ALL',children:[{kind:'FACT',factId:'family'},{kind:both?'ALL':'ANY',...(both?{}:{strength:'REQUIRED'}),children:[{kind:'FACT',factId:'meal'},{kind:'FACT',factId:'snack'}]}]},bindings:[{kind:'SAME_PLACE',factIds:['family','meal']},{kind:'SAME_PLACE',factIds:['family','snack']}]});
+const familyVenue = (food='meal') => profile([
+  offer('play','MOVEMENT_PLAY',['playroom']),
+  ...(food ? [offer('cafe','CAFE',['cafe'],[prop('food.meal_extent',food==='meal'?'Essen':food==='snacks'?'Snacks':food)])] : []),
+],[area('playroom'),area('cafe')]);
+
+test('family activity plus either food option can use a separate cafe at the same venue',()=>{
+ const q=foodAlternative();
+ assert.equal(q.diagnostics.some(d=>d.code==='CROSS_BRANCH_BINDING'),false,'a shared anchor and an active ANY branch coexist');
+ for(const food of ['meal','snacks']){
+  const p=familyVenue(food), result=search(q,[binding(1,p)]);
+  assert.equal(result.ranked[0]?.status,'CONFIRMED',JSON.stringify(result.unresolved));
+  assert.deepEqual(result.ranked[0].offerIds,['cafe','play']);
+  assert.equal(result.ranked[0].selectedFactIds.includes(food==='meal'?'snack':'meal'),false);
+ }
+});
+test('food is still a duty: an activity alone, a family restaurant alone, or food at another venue cannot satisfy it',()=>{
+ const q=foodAlternative();
+ const onlyFood=profile([offer('dinner','DINNER',['inside'],[prop('condition.children','Kinderangebote')])],[area('inside',[prop('atmosphere.character','familienfreundlich')])]);
+ for(const catalog of [[binding(1,familyVenue(null))],[binding(2,onlyFood)],[binding(1,familyVenue(null)),binding(2,onlyFood)],[binding(1,familyVenue('drinks'))]])
+  assert.equal(search(q,catalog).ranked.length,0);
+ assert.equal(search(foodAlternative(true),[binding(1,familyVenue('meal'))]).ranked.length,0,'AND must not become OR');
+});
+test('properties attached to the same activity still cannot borrow a different cafe room',()=>{
+ const q=request([fact('play','condition.children','children_activity'),fact('food','food.meal','meal')]);
+ assert.equal(search(q,[binding(1,familyVenue())]).ranked.length,0);
+});
+test('family activity remains a priced activity; a cheap cafe cannot prove the whole outing budget',()=>{
+ const original=foodAlternative().raw;
+ const facts=[...original.facts,fact('budget','budget.maximum',{amount:5,operator:'LTE',currency:'CHF'},'REQUIRED',[]),fact('scope','budget.scope',{scope:'PER_PERSON'},'CONTEXT',[])];
+ const costed=request(facts,{...original,facts});
+ const p=familyVenue('meal');
+ p.offers[0].prices=[price(50,{includes:'Eintritt'})];
+ p.offers[1].prices=[price(1)];
+ assert.equal(search(costed,[binding(1,p)]).ranked.length,0);
+});
+test('family activity aliases retain meaning without making a child menu an activity',()=>{
+ for(const value of ['Familienaktivität','family activity','activité en famille']){
+  const q=request([fact('family','experience.activity',value)]);
+  assert.equal(search(q,[binding(1,familyVenue(null))]).ranked[0]?.status,'CONFIRMED');
+  assert.equal(search(q,[binding(2,profile([offer('Kinderangebote','DINNER',['inside'],[prop('condition.children','Kinderangebote')])]))]).ranked.length,0);
+ }
+});
+test('a catalogued snack can arrive in food.option without admitting unrelated dietary options',()=>{
+ for(const key of ['food.meal','food.option']){
+  const q=request([fact('food',key,'snacks')]);
+  assert.equal(search(q,[binding(1,familyVenue('snacks'))]).ranked[0]?.status,'CONFIRMED');
+  assert.equal(search(q,[binding(1,familyVenue('meal'))]).ranked.length,0);
+ }
+ assert.equal(search(request([fact('food','food.option','vegan')]),[binding(1,familyVenue('snacks'))]).ranked.length,0);
+});
+test('active HTTP chain preserves family plus food-or-snacks and rejects unconfirmed alternatives',async()=>{
+ const result=await exercise({text:'familienaktivität wo es auch was zum Essen oder Snacks gibt',meaning:foodAlternative(),catalog:[binding(1,familyVenue('snacks')),binding(2,familyVenue(null))]});
+ assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+ assert.equal(result.body.primaryCandidateId,binding(1,familyVenue('snacks')).decisionProjection.spotId);
+ assert.equal(result.body.candidates.find(c=>c.spotId===binding(2,familyVenue(null)).decisionProjection.spotId)?.rank,null);
+});
+test('recorded malformed live meaning remains unchanged; matching never invents an OR or changes activity scope',()=>{
+ const recorded=JSON.parse(readFileSync(new URL('./fixtures/family-food-live-failure.json',import.meta.url),'utf8'));
+ const original=structuredClone(recorded.raw);
+ const q=request(recorded.raw.facts,recorded.raw);
+ assert.equal(search(q,[binding(1,familyVenue('meal'))]).ranked.length,0);
+ assert.deepEqual(q.raw,original);
+});
 
 // Expected outcomes describe product duties, independently of the matching implementation.
 // The source sentence is not interpreted by this deterministic stage.

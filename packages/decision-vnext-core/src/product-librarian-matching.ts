@@ -148,8 +148,9 @@ function offerDuty(fact: LibrarianFact): boolean {
     if (["experience.activity", "offer.kind"].includes(fact.key)) return true;
     if (fact.value.kind !== "TEXT") return false;
     const concept = librarianConcept(fact.value.text);
-    return fact.key === "food.meal" && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
+    return ["food.meal", "food.option"].includes(fact.key) && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
         || fact.key === "food.drink" && concept === "drinks"
+        || fact.key === "condition.children" && concept === "children_activity"
         || librarianFacilityConcept(fact) === "playground";
 }
 const contextual = (fact: LibrarianFact) => fact.modality === "CONTEXT";
@@ -222,6 +223,8 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
             if (actual && desired && experienceActivitySupports(actual, desired)) return "MET";
         }
         const actual = librarianConcept(property.value);
+        if (["food.meal", "food.option"].includes(fact.key) && property.key === "food.meal_extent"
+            && desired && ["meal", "snacks"].includes(desired) && actual === desired) return "MET";
         if (["offer.area", "location.setting"].includes(fact.key) && property.key === "location.setting") {
             if (desired === "outdoor" && actual === "terrace") return "MET";
         }
@@ -337,7 +340,10 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 // Zoo-wide activity support does not place animals in every
                 // linked room, terrace or cafe. Preserve the actual offer only.
                 const derived = !offered.includes(desired);
-                for (const areaId of derived ? [null] : offer.areaIds.length ? offer.areaIds : [null])
+                // A child-compatible play/course still takes place in its
+                // recorded room. Do not drop that scope when generalizing it
+                // to a family activity, or it could borrow an unrelated cafe.
+                for (const areaId of derived && desired !== "children_activity" ? [null] : offer.areaIds.length ? offer.areaIds : [null])
                     add("MET", offer, areaId, { kind: offer.kind, name: offer.name, activityRelation: derived ? { offered, requested: desired } : null, classificationHash: classification?.entryHash ?? null });
             }
         }
@@ -345,11 +351,11 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     if (desired && ["experience.activity", "offer.feature", "atmosphere.music", "condition.children"].includes(fact.key)) {
         for (const offer of profile.offers) {
             const declared = declaredExperienceConcepts(offer.name, "OFFER_NAME");
-            const genericChildMeal = fact.key === "condition.children" && desired === "children_activity"
+            const genericChildMeal = ["condition.children", "experience.activity", "offer.kind"].includes(fact.key) && desired === "children_activity"
                 && (OFFER_CONCEPTS[offer.kind] ?? []).some(activity => ["meal", "drinks", "snacks"].includes(activity));
             if (!genericChildMeal && declared.some(actual => experienceActivitySupports(actual, desired)))
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {declaredOfferName: offer.name});
-            if (fact.key === "condition.children" && desired === "children_activity") {
+            if (["condition.children", "experience.activity", "offer.kind"].includes(fact.key) && desired === "children_activity") {
                 // A documented family exhibition is a child-compatible outing,
                 // even though it is not labelled as a dedicated children's course.
                 const activities = OFFER_CONCEPTS[offer.kind] ?? [];

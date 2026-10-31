@@ -1,7 +1,7 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LibrarianFact, LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@23" as const;
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@24" as const;
 import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
 /** Additional compatible evidence fields, never replacements for the original
@@ -19,6 +19,8 @@ export const LIBRARIAN_PROPERTY_SOURCE_ALIASES: Readonly<Partial<Record<LunaFact
     "offer.feature": ["atmosphere.music", "experience.activity", ...Object.keys(EXPERIENCE_LANGUAGE_DATA.booleanConcepts)],
     "atmosphere.music": ["experience.activity"],
     "condition.children": ["experience.activity"],
+    "food.meal": ["food.meal_extent"],
+    "food.option": ["food.meal_extent"],
 });
 export const librarianPropertySourceKeys = (family: LunaFactKey, acceptedSemanticKeys: readonly string[] = []): readonly string[] =>
     [...new Set([family, ...(LIBRARIAN_PROPERTY_SOURCE_ALIASES[family] ?? []), ...acceptedSemanticKeys])].sort();
