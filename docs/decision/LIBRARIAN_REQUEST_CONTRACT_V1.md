@@ -545,3 +545,13 @@ explicit limitation and must not be claimed universally understood. The first
 baseline is preserved. Re-test against fresh independent calls before claiming
 stability. This rule is evidence for relaxation, not a substitute for language
 understanding or an assurance that all omissions can be detected.
+
+Matching 32 accepts a leading declared optionality qualifier in a PREFERRED
+relative-price value only when the entire remainder is an already recognized
+price meaning. For example, `möglichst nicht zu teuer` and `nicht zu teuer`
+then read the same verified price-level evidence. Hard wishes are not relaxed,
+negations are not removed, unrelated prose stays unknown, and no currency or
+monetary ceiling is introduced. The 20-call prompt-18 repetition suite is
+retained with its exact matching-31 identity; recorded-meaning replays validate
+the deterministic matching-32 change separately. Provider/network errors also
+remain distinguishable from rejected model interpretations.

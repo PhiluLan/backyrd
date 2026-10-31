@@ -66,8 +66,9 @@ export function createDecisionProductLunaProvider(input: {
       if (!response.ok) throw new Error("product_luna_provider_unavailable");
       return modelOutput(await response.json());
     };
+    const initialValue=await call(body);
     let output;
-    try { output = parseLunaMeaningOutput(await call(body)); }
+    try { output = parseLunaMeaningOutput(initialValue); }
     catch { throw new Error("product_luna_meaning_invalid"); }
     const preferredLogic = (node: import('./product-luna-librarian.js').LunaExpression | null):boolean => node !== null && (node.kind === 'ANY' && node.strength === 'PREFERRED' || node.kind === 'IF' && (preferredLogic(node.then) || preferredLogic(node.else)) || node.kind === 'FALLBACK' && node.options.some(preferredLogic) || (node.kind === 'ALL' || node.kind === 'ANY') && node.children.some(preferredLogic));
     if (!explicitPreferenceEvidence(request.naturalLanguage).length && ([...output.facts,...output.extensions].some(f=>f.modality==='PREFERRED') || preferredLogic(output.logic))) throw new Error('product_luna_understanding_unresolved');
@@ -81,8 +82,9 @@ export function createDecisionProductLunaProvider(input: {
         originalRequest: JSON.parse(body.input) as unknown, previousMeaning: output, correctionIssues: issues,
         correctionInstruction: "Korrigiere ausschliesslich die key-Felder der genannten factIds auf eine allowedFamily. Behalte alle anderen Fakten und alle Werte, IDs, Modalitäten, Bezüge, Entitäten, Logik, Unsicherheiten und Alternativen exakt unverändert. Antworte im selben vollständigen Schema.",
       })};
+      const correctionValue=await call(correctionBody);
       try {
-        const corrected = validateActiveLunaMeaningOutput(await call(correctionBody));
+        const corrected = validateActiveLunaMeaningOutput(correctionValue);
         const remaining = inspectLunaMeaning(corrected);
         try { input.onTranslationAttempt?.({output:corrected, issues:remaining}); } catch { /* Diagnostics cannot affect a decision. */ }
         assertLunaMeaningCorrection(output, corrected, issues);

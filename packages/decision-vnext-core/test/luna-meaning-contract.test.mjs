@@ -110,3 +110,9 @@ test('unqualified price wish cannot silently become a preference even if a provi
  const result=await provider({...req,naturalLanguage:'Möglichst nicht zu teuer essen'},{},new AbortController().signal);
  assert.equal(result.facts[0].modality,'PREFERRED');
 });
+test('provider network failures remain distinct from interpretation failures and are not retried',async()=>{
+ let calls=0;const p=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>{calls++;return new Response('',{status:503});}});
+ await assert.rejects(p(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,1);
+ calls=0;const repair=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>++calls===1?response(raw('condition.animals')):new Response('',{status:503})});
+ await assert.rejects(repair(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,2);
+});

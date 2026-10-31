@@ -1,3 +1,4 @@
+import { LUNA_PREFERENCE_EVIDENCE_POLICY } from './product-luna-preference-evidence.js';
 import { experienceBookingMode, hasAreaModule, hasOfferModule, librarianConcept, type ConsumptionRule, type ExperienceBookingMode, type ExperienceProfile, type ExperienceProperty, type ReservationRule } from "@backyrd/world-knowledge-core";
 import { contentHash } from "./canonical.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
@@ -149,10 +150,19 @@ const priceWishes: Readonly<Record<string, number>> = {
 };
 export function qualitativePriceEvidence(fact: LibrarianFact, world: ProductWorldView, profile: ExperienceProfile | null, policy: QualitativePricePolicy = qualitativePricePolicyFor(fact)): readonly DomainEvidence[] | null {
     if (fact.key !== "budget.qualitative" || fact.value.kind !== "TEXT") return null;
-    const maximum = priceWishes[librarianTerm(fact.value.text)];
+    const priceTerm=librarianTerm(fact.value.text);
+    // The model may preserve an explicit optionality marker in a free-text
+    // price value. It is metadata, not part of the economic meaning. Strip
+    // only a leading declared marker on PREFERRED facts, and only when the
+    // entire remaining value is already a recognized price meaning.
+    const qualified = fact.modality === "PREFERRED" ? LUNA_PREFERENCE_EVIDENCE_POLICY.markers
+        .filter(marker => priceTerm.startsWith(`${marker} `))
+        .map(marker => priceWishes[priceTerm.slice(marker.length).trim()])
+        .find(value => value !== undefined) : undefined;
+    const maximum = priceWishes[priceTerm] ?? qualified;
     const rows = [...world.facts, ...world.operationalRules].filter(row => row.key === "operation.price_level" && authorized(row, "PRICE"));
     const make = (offerId: string | null): DomainEvidence => {
-        const base = { offerId, areaId: null, sourceKeys: ["operation.price_level"], sourceHashes: rows.map(row => row.entryHash), details: { policy: LIBRARIAN_KNOWLEDGE_POLICY, qualitativePricePolicy: policy, monetaryBudgetInferred: false, evidenceScope: "SPOT" } };
+        const base = { offerId, areaId: null, sourceKeys: ["operation.price_level"], sourceHashes: rows.map(row => row.entryHash), details: { policy: LIBRARIAN_KNOWLEDGE_POLICY, qualitativePricePolicy: policy, optionalityQualifierRemoved:priceWishes[priceTerm] === undefined && qualified !== undefined, monetaryBudgetInferred: false, evidenceScope: "SPOT" } };
         if (maximum === undefined) return { ...base, state: "UNKNOWN", reason: "QUALITATIVE_PRICE_MEANING_UNSUPPORTED" };
         if (policy === "CLARIFY") return { ...base, state: "UNKNOWN", reason: "QUALITATIVE_PRICE_POLICY_UNDEFINED" };
         if (rows.length !== 1 || typeof rows[0]!.value !== "string") return { ...base, state: "UNKNOWN", reason: rows.length > 1 ? "QUALITATIVE_PRICE_EVIDENCE_CONFLICT" : "QUALITATIVE_PRICE_EVIDENCE_MISSING" };

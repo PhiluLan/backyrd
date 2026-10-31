@@ -41,12 +41,17 @@ for(const group of cases){const runs=[];
    const serverMeaning=await response.json();
    if(!response.ok){await writeFile(path,JSON.stringify({query,status:response.status,diagnostic:serverMeaning},null,2));runs.push({query,status:'UNDERSTANDING_ERROR',error:serverMeaning.error,modelCalls:serverMeaning.modelCalls});continue;}
    const report=await runLocalDiagnostic({query,catalog,events,serverMeaning});
+   report.runtime.codeHeadSha=serverMeaning.codeIdentity.gitHead;report.runtime.coreBundleHash=serverMeaning.codeIdentity.coreBundleHash;
    await writeFile(path,JSON.stringify(report,null,2));
-   runs.push({query,status:'COMPLETE',modelCalls:report.modelCalls,modelMs:report.timings.modelMs,duties:duties(report.meaning),logicStructure:logicSignature(report.meaning),ranked:report.response.candidates.filter(c=>c.rank!==null).map(c=>({id:c.spotId,name:c.presentation.name})),attempts:report.translationAttempts.map(a=>a.issues)});
+   runs.push({query,status:'COMPLETE',modelCalls:report.modelCalls,modelMs:report.timings.modelMs,duties:duties(report.meaning),logicStructure:logicSignature(report.meaning),eligibleIds:report.search.ranked.map(c=>c.spotId).sort(),ranked:report.response.candidates.filter(c=>c.rank!==null).map(c=>({id:c.spotId,name:c.presentation.name})),attempts:report.translationAttempts.map(a=>a.issues)});
   }catch(error){runs.push({query,status:'FAILED',error:error instanceof Error&&/^[a-z_]+$/.test(error.message)?error.message:'stability_run_failed'});}
   console.log(JSON.stringify({group:group.id,run:i+1,...runs.at(-1)}));
  }
- const eligible=r=>JSON.stringify((r.ranked??[]).map(c=>c.id).sort());
+ const eligible=r=>JSON.stringify(r.eligibleIds??[]);
  groups.push({id:group.id,allCompleted:runs.every(r=>r.status==='COMPLETE'),stableEligibility:runs.every(r=>r.status==='COMPLETE'&&eligible(r)===eligible(runs[0])),stableLogic:runs.every(r=>r.status==='COMPLETE'&&JSON.stringify(r.logicStructure)===JSON.stringify(runs[0].logicStructure)),stableMandatoryMeaning:runs.every(r=>r.status==='COMPLETE'&&JSON.stringify(r.duties)===JSON.stringify(runs[0].duties)),runs});
  await writeFile(resolve(options['--output'],'summary.json'),JSON.stringify({scope:'REAL_INDEPENDENT_MODEL_CALLS_CURRENT_INTERNAL_BUILD_SAVED_CATALOG_NEUTRAL_USER',groups},null,2));
 }
+
+const passed=groups.every(g=>g.allCompleted&&g.stableEligibility&&g.stableMandatoryMeaning&&g.stableLogic);
+console.log(JSON.stringify({acceptance:passed?'PASS':'FAIL',independentQueries:groups.reduce((n,g)=>n+g.runs.length,0)}));
+if(!passed)process.exitCode=1;
