@@ -215,7 +215,7 @@ export function validateActiveLunaMeaningOutput(value: unknown) {
 
 /** Versioned clarification of executable duties versus visit context. The
  * frozen schema, catalog, model and original prompt remain intact. */
-export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@9" as const;
+export const LUNA_LIBRARIAN_PROMPT_REVISION = "backyrd.luna-prompt@10" as const;
 /** Preserve the frozen base schema. Constrain source metadata in the active
  * provider contract so the model cannot emit it as a second hard condition. */
 const modelSchemaObject = (value: unknown): Readonly<Record<string, unknown>> => {
@@ -240,6 +240,7 @@ function contextOnlySourceSchema() {
 export const LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA = contextOnlySourceSchema();
 
 const activePrompt = LUNA_LIBRARIAN_PROMPT + "\nAUSFÜHRBARER AUFTRAG:\n"
+  + "KOMBINATIONEN UND ALTERNATIVEN: X oder Y ist eine erforderliche ANY-Alternative, nicht zwei globale Pflichten; X und Y bleibt ALL. Alle alternativen Fakten ausdrücklich in logic referenzieren, sonst werden sie globale Pflichten. Ein zusätzliches Verpflegungsangebot bei einer Aktivität ist eine eigene ACTIVITY-Entity: Aktivität a1, Essen/Snacks a2; das verlangt denselben Ort, nicht denselben Raum oder dasselbe Angebot. Nutze SAME_PLACE zwischen den gleichzeitig aktiven Aktivitäts- und Verpflegungsfakten, nicht SIMULTANEOUS. Keine ungenannte zeitliche Reihenfolge hinzufügen. Eigenschaften einer konkreten Mahlzeit (vegan, Preis, drinnen essen) behalten dagegen deren Entity-Bezug. Familienaktivität ist condition.children text=children_activity REQUIRED; keine zweite gleichbedeutende experience.activity-Pflicht ergänzen. Essen oder Snacks vor Ort: food.meal text=meal ODER food.meal text=snacks unter ANY strength=REQUIRED. Beides nur bei ausdrücklich verlangtem und fordern. Keine bestimmte Familienaktivität, Kinderalter, Innenraum oder Besuchszeit aus dem Familienwort erfinden.\n"
   + "Ortsvorgaben nur aus request oder einem ausdrücklich übergebenen explicitContext.targetCity übernehmen. Ohne solche Vorgabe keinen Zielort erfinden. Eine serverseitige Suchumgebung ist keine zusätzliche Nutzerpflicht; ein in request ausdrücklich gewünschter Zielort bleibt REQUIRED.\n"
   + "Eigenständig prüfbare Tätigkeiten getrennt als experience.activity ausgeben. Echte gemeinsame Pflichten bleiben REQUIRED, Alternativen ANY. Ein gewünschtes Erleben oder allgemeiner Besuchszweck ist keine zusätzliche Leistung: bloßes Geniessen, Zeit verbringen oder einen schönen Abend haben als experience.purpose CONTEXT erhalten. Konkrete Eigenschaften wie romantisch, ruhig oder am Rhein bleiben eigenständige verbindliche Fakten; keine davon abschwächen. Konkrete Tätigkeiten wie Tanzen, Klettern oder Lernen bleiben prüfbar und dürfen nicht in CONTEXT verschwinden. Eine reine Zweckanfrage ohne konkrete Tätigkeit nicht durch eine erfundene Aktivität ersetzen.\n"
   + "Begleitung ausschließlich people.relationship CONTEXT, Alter einer mitkommenden Person immer als people.age CONTEXT mit genau ihrem PERSON-Bezug, niemals EXCLUDED, PREFERRED oder NOT_REQUIRED; ein Ausschlusswort für Angebote gilt nicht für ihr Alter. Auch Kinderalter ist Besuchskontext, kein Ausschluss dieser Person. participation.partner bezeichnet eine Anforderung an die Durchführungsform (z.B. ohne eigenen Spielpartner teilnehmen), niemals mitgebrachte Freunde, Kinder oder Ehepartner. Keine Personengruppe mit unvollständiger Mitgliederliste als vollständige Gruppe darstellen: bei nur einer benannten Begleitperson genügt ihre PERSON-Entity, Beziehung global. Gruppenmitglieder sind keine automatisch vollständige Personenzahl. Tätigkeits-Entities sind keine Personen; Alters- und Tätigkeitsfakten über subjectIds gezielt zuordnen, wenn unterschiedliche Personen unterschiedliche Leistungen nutzen.\n"
@@ -332,7 +333,11 @@ export function prepareLibrarianRequest(input: {
   const facts = raw.facts.map(fact => ({ ...fact, value: { ...fact.value, kind: keyKinds.get(fact.key)! } }) as LibrarianFact);
   const diagnostics: LibrarianDiagnostic[] = raw.bindings.flatMap(binding => {
     const branches = new Set(binding.factIds.flatMap(ref => [...(paths.get(ref) ?? [])]));
-    return branches.size > 1 ? [{ code: "CROSS_BRANCH_BINDING" as const, relatedIds: binding.factIds }] : [];
+    // A shared ALL anchor and one alternative coexist. Only distinct,
+    // non-ancestor paths describe potentially incompatible branches.
+    const branchPaths = [...branches];
+    const crosses = branchPaths.some((a, i) => branchPaths.slice(i + 1).some(b => a !== b && !a.startsWith(`${b}/`) && !b.startsWith(`${a}/`)));
+    return crosses ? [{ code: "CROSS_BRANCH_BINDING" as const, relatedIds: binding.factIds }] : [];
   });
   for (const fact of raw.facts) if (fact.key === "location.distance" && (fact.value.referenceEntityId === null || !fact.subjectIds.length)) diagnostics.push({ code: "DISTANCE_ENDPOINTS_UNRESOLVED", relatedIds: [fact.id] });
   const referencedEntities = new Set([

@@ -1,0 +1,74 @@
+{
+  "query": "familienaktivität wo es auch was zum Essen oder Snacks gibt",
+  "reference": {
+    "now": "2026-10-31T11:25:19.800Z",
+    "timezone": "Europe/Zurich"
+  },
+  "raw": {
+    "entities": [
+      {
+        "id": "a1",
+        "kind": "ACTIVITY",
+        "label": "Familienaktivität",
+        "members": []
+      }
+    ],
+    "facts": [
+      {
+        "id": "f1",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "a1"
+        ],
+        "key": "experience.activity",
+        "value": {
+          "text": "Familienaktivität"
+        }
+      },
+      {
+        "id": "f2",
+        "modality": "REQUIRED",
+        "basis": "INFERRED",
+        "subjectIds": [
+          "a1"
+        ],
+        "key": "condition.children",
+        "value": {
+          "text": "children_activity"
+        }
+      },
+      {
+        "id": "f3",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "a1"
+        ],
+        "key": "food.meal",
+        "value": {
+          "text": "meal"
+        }
+      },
+      {
+        "id": "f4",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "a1"
+        ],
+        "key": "food.option",
+        "value": {
+          "text": "snacks"
+        }
+      }
+    ],
+    "logic": null,
+    "bindings": [],
+    "extensions": [],
+    "uncertainties": [],
+    "weatherConditions": []
+  },
+  "recordedPromptRevision": "backyrd.luna-prompt@9",
+  "result": "ZERO_CONFIRMED"
+}

@@ -148,7 +148,7 @@ function offerDuty(fact: LibrarianFact): boolean {
     if (["experience.activity", "offer.kind"].includes(fact.key)) return true;
     if (fact.value.kind !== "TEXT") return false;
     const concept = librarianConcept(fact.value.text);
-    return fact.key === "food.meal" && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
+    return ["food.meal", "food.option"].includes(fact.key) && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
         || fact.key === "food.drink" && concept === "drinks"
         || librarianFacilityConcept(fact) === "playground";
 }
@@ -222,6 +222,8 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
             if (actual && desired && experienceActivitySupports(actual, desired)) return "MET";
         }
         const actual = librarianConcept(property.value);
+        if (["food.meal", "food.option"].includes(fact.key) && property.key === "food.meal_extent"
+            && desired && ["meal", "snacks"].includes(desired) && actual === desired) return "MET";
         if (["offer.area", "location.setting"].includes(fact.key) && property.key === "location.setting") {
             if (desired === "outdoor" && actual === "terrace") return "MET";
         }
@@ -349,7 +351,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 && (OFFER_CONCEPTS[offer.kind] ?? []).some(activity => ["meal", "drinks", "snacks"].includes(activity));
             if (!genericChildMeal && declared.some(actual => experienceActivitySupports(actual, desired)))
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {declaredOfferName: offer.name});
-            if (fact.key === "condition.children" && desired === "children_activity") {
+            if (["condition.children", "experience.activity", "offer.kind"].includes(fact.key) && desired === "children_activity") {
                 // A documented family exhibition is a child-compatible outing,
                 // even though it is not labelled as a dedicated children's course.
                 const activities = OFFER_CONCEPTS[offer.kind] ?? [];
