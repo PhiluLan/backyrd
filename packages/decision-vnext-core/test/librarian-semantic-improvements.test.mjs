@@ -312,3 +312,12 @@ test('an actual escape room is selected instead of a portable puzzle box under t
  assert.deepEqual(search(q,[binding(1120,profile([box,room]))]).ranked[0].offerIds,['room']);
  assert.equal(search(q,[binding(1121,profile([box]))]).ranked.length,0);
 });
+
+test('a separate walk and takeaway reports the missing multi-place planner, not an ordinary empty local search',async()=>{
+ const q=request([fact('walk','experience.activity','walk','REQUIRED',['a1']),fact('coffee','food.drink','coffee','REQUIRED',['a2']),fact('to-go','food.delivery','takeaway','REQUIRED',['a2'])]);
+ const r=await exercise({text:'Spazieren und Kaffee mitnehmen',meaning:q,catalog:[binding(1130,profile())]});
+ assert.equal(r.status,200);assert.equal(r.body.candidates.filter(c=>c.rank!==null).length,0);
+ assert.ok(r.body.limitations.includes('MULTI_PLACE_SEARCH_UNSUPPORTED'));
+ const solo=await exercise({text:'Kaffee trinken',meaning:request([fact('coffee','food.drink','coffee')]),catalog:[binding(1130,profile())]});
+ assert.ok(!solo.body.limitations.includes('MULTI_PLACE_SEARCH_UNSUPPORTED'));
+});

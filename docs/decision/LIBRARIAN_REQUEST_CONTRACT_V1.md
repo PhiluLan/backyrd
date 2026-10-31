@@ -761,3 +761,6 @@ The ESCAPE_GAME catalogue kind is labelled Escape Room. An offer explicitly name
 
 ### Bounded transport recovery (provider 5)
 HTTP 502/503/504 may consume one retry across the entire translation, including an optional meaning correction. All calls share the existing abort budget. Permanent HTTP failures, rate limits, network ambiguity, refusal and malformed outputs are not retried by this transport policy. The protected internal diagnostic records HTTP statuses and a sanitised failure code without provider response bodies, keys or public exposure.
+
+### Separate takeaway and route requests (prompt 28 / matching 50)
+A route activity plus takeaway does not imply that the walk must take place in the café. Preserve distinct activities; do not invent SAME_PLACE without an explicit common venue. If no single-venue result exists, the current engine reports MULTI_PLACE_SEARCH_UNSUPPORTED instead of disguising the missing multi-stop planner as ordinary absence of places. This is an honest capability boundary, not implementation of multi-stop recommendations or a successful matching result.

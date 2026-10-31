@@ -32,7 +32,7 @@ export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,
  let usage=null;let usages=[];let translationAttempts=[];let modelCalls=0;let search=null;
  let meaning;let signal=AbortSignal.timeout(30000);let modelMs;
  if(recordedMeaning){
-  if(recordedMeaning.contractVersion!=='backyrd.local-decision-diagnostic@1'||!['REAL_SERVER_PREVIEW_MODEL_CALL','REAL_MODEL_CALL'].includes(recordedMeaning.providerMode)||![1,2].includes(recordedMeaning.modelCalls)||recordedMeaning.query!==query)throw Error('local_recorded_meaning_invalid');
+  if(recordedMeaning.contractVersion!=='backyrd.local-decision-diagnostic@1'||!['REAL_SERVER_PREVIEW_MODEL_CALL','REAL_MODEL_CALL'].includes(recordedMeaning.providerMode)||![1,2,3].includes(recordedMeaning.modelCalls)||recordedMeaning.query!==query)throw Error('local_recorded_meaning_invalid');
   const {prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION}=await import('../../packages/decision-vnext-core/dist/product-luna-librarian.js');
   const {requestHash:originalHash,...originalBody}=recordedMeaning.meaning;
   if(contentHash(originalBody)!==originalHash||originalBody.source.sourceText!==query||contentHash(originalBody.source.reference)!==contentHash(recordedMeaning.reference))throw Error('local_recorded_meaning_mismatch');
@@ -48,7 +48,7 @@ export async function runLocalDiagnostic({query,catalog,events,apiKey,fetchImpl,
  }else{
   const understand=createDecisionProductLunaProvider({apiKey,onTranslationAttempt:attempt=>translationAttempts.push(attempt),now:()=>now,fetchImpl:async(url,options)=>{
    if(url!=='https://api.openai.com/v1/responses')throw Error('local_provider_destination_invalid');
-   modelCalls++;if(modelCalls>2)throw Error('local_model_call_limit');
+   modelCalls++;if(modelCalls>3)throw Error('local_model_call_limit');
    const response=await (fetchImpl??fetch)(url,options);
    if(response.ok){const payload=await response.clone().json();usage=payload.usage??null;usages.push(usage);}
    return response;

@@ -283,10 +283,17 @@ export function evaluateLibrarianProduct(input: {
       return DecisionProductCandidateAssessmentSchema.parse(withContentHash({ ...body, failedHardConstraints: codes(failed), unknownHardConstraints: codes(unknown), tier: failed.length || c.tier === "INELIGIBLE" ? "INELIGIBLE" : unknown.length ? "UNCONFIRMED_FALLBACK" : c.tier }, "assessmentHash"));
     });
   }
+  const routeFacts = meaning.facts.filter(f => f.modality === "REQUIRED" && f.key === "experience.activity" && f.value.kind === "TEXT" && ["walk","hiking","cycling"].includes(librarianConcept(f.value.text) ?? ""));
+  const takeawayFacts = meaning.facts.filter(f => f.modality === "REQUIRED" && f.key === "food.delivery" && f.value.kind === "TEXT" && librarianConcept(f.value.text) === "takeaway");
+  const separateTakeawayRoute = !result.ranked.length && routeFacts.some(route => takeawayFacts.some(takeaway =>
+    route.subjectIds.length > 0 && takeaway.subjectIds.length > 0 && !route.subjectIds.some(id => takeaway.subjectIds.includes(id))
+    && !meaning.bindings.some(b => b.kind === "SAME_PLACE" && b.factIds.some(id=>meaning.facts.some(f=>f.id===id && f.subjectIds.some(s=>route.subjectIds.includes(s)))) && b.factIds.some(id=>meaning.facts.some(f=>f.id===id && f.subjectIds.some(s=>takeaway.subjectIds.includes(s)))))))
+    && requiredInEveryAlternative(meaning.logic,meaning,f=>routeFacts.some(r=>r.id===f.id))
+    && requiredInEveryAlternative(meaning.logic,meaning,f=>takeawayFacts.some(r=>r.id===f.id));
   const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.evaluation, evaluationId: `product-evaluation-${contentHash({ requestId: input.request.requestId, cohortHash: cohort.cohortHash }).slice(0,24)}`,
     createdAt: input.authority.serverTime, requestHash: contentHash(input.request), interpretation: context, worldCohort: cohort,
-    userProjectionHash: input.projection.projectionHash, candidates, limitations: [...new Set(result.evaluationPlan.requirements.filter(r => requiredRequestIssue(r, r.support)).map(r => r.support === "NEEDS_POLICY" ? "REQUEST_NEEDS_CLARIFICATION" : "REQUEST_REQUIREMENT_UNSUPPORTED"))], evaluatorVersion: input.request.includeEvents === true ? PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION : PRODUCT_LIBRARIAN_EVALUATOR_VERSION,
+    userProjectionHash: input.projection.projectionHash, candidates, limitations: [...new Set([...(separateTakeawayRoute ? ["MULTI_PLACE_SEARCH_UNSUPPORTED"] : []), ...result.evaluationPlan.requirements.filter(r => requiredRequestIssue(r, r.support)).map(r => r.support === "NEEDS_POLICY" ? "REQUEST_NEEDS_CLARIFICATION" : "REQUEST_REQUIREMENT_UNSUPPORTED")])], evaluatorVersion: input.request.includeEvents === true ? PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION : PRODUCT_LIBRARIAN_EVALUATOR_VERSION,
     evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash, evaluationReleaseHash: DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash, intentPolicyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash,
     sourceKind: "CANONICAL_PRODUCT_PORTS", productSemanticsApproved: true, productRankingAuthorized: true, fixtureSourceUsed: false,
   }, "evaluationHash"));

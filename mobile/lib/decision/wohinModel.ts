@@ -110,6 +110,7 @@ export function wohinLimitations(limitations: readonly string[], visibleCount: n
       : "Der bisher gefundene Ort passt leider nicht zu deinem Wunsch.",
     CANDIDATE_WINDOW_LIMITED: "Einige Orte passen nicht zu deinem Wunsch und werden deshalb nicht gezeigt.",
     REQUEST_NEEDS_CLARIFICATION: "Ergänze bitte ein Budget pro Person, zum Beispiel bis 40 CHF. So können wir die Preise zu deinem Wunsch prüfen.",
+    MULTI_PLACE_SEARCH_UNSUPPORTED: "Kaffee holen und einen Spaziergang können wir noch nicht als Ausflug mit mehreren Orten planen. Suche die beiden Schritte einzeln.",
     REQUEST_REQUIREMENT_UNSUPPORTED: "Einen Teil deines Wunsches können wir noch nicht zuverlässig prüfen. Das bedeutet nicht, dass es keinen passenden Ort gibt.",
     CORE_INTENT_REQUIRES_CLARIFICATION: "Wir haben deinen Wunsch noch nicht ganz verstanden. Beschreibe kurz, was du machen möchtest.",
   };
