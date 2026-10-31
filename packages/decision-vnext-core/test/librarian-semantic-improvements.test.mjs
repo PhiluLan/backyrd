@@ -229,3 +229,13 @@ test('incidental companion headcount needs no invented capacity but respects an 
  const r=search(q,[binding(1999,profile([offer('boulder','BOULDERING',['inside'],[prop('offer.capacity',1)])]))]);
  assert.equal(r.ranked.length,0);assert.ok(r.excluded[0].facts.some(f=>f.reason==='PARTY_EXCEEDS_OFFER_CAPACITY'));
 });
+
+test('documented offer minimum entails a lower unaccompanied threshold without losing age notice',()=>{
+ const rule=worldFact('rule.age_access_conditions',{notes:null,rules:[{mode:'UNACCOMPANIED_MINIMUM',minimumAge:13,accompaniment:'ADULT',area:null,days:[],event:null,appliesFromTime:null}]});
+ const p=profile([offer('boulder','BOULDERING',['inside'],[prop('participation.minimum_age',14)])]);
+ const q=request([fact('sport','experience.activity','bouldering')]);
+ const b=originalBinding(2000,p,[rule]);let r=search(q,[b]);assert.equal(r.ranked.length,1);assert.ok(r.ranked[0].facts.some(f=>f.reason==='AGE_REQUIREMENT_TO_CHECK'));
+ r=search(request([fact('sport','experience.activity','bouldering'),fact('age','people.age',{amount:10,operator:'EQ',unit:'YEARS'},'CONTEXT',['p1'])]),[b]);assert.equal(r.ranked.length,0);
+ const weaker=originalBinding(2001,profile([offer('boulder','BOULDERING',['inside'],[prop('participation.minimum_age',1)])]),[rule]);
+ assert.equal(search(q,[weaker]).ranked.length,0);
+});

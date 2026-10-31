@@ -720,3 +720,7 @@ budget.scope is a context-only price parameter in the active structured-output c
 ### Matcher 42 / prompt 23 / meaning roles 7: companion count versus group-capacity request
 
 Incidental companion headcount (“wir beide”, “mit einer Freundin”) is people.count CONTEXT. It remains available for prices, known capacity limits and participation, without inventing a separate demand for a bookable group slot. An expressly requested group booking or minimum number of places remains REQUIRED and uses the existing capacity proof. Explicit offer capacities apply independently even to contextual headcount; missing capacity is not assumed to mean sold out. This overrides the older overly broad instruction that every complete headcount must be a required group-capacity request.
+
+### Matcher 43: coherent offer and unaccompanied age prerequisites
+
+A selected offer with a documented minimum at least as high as the venue's unaccompanied threshold already entails that lower threshold. The offer's exact non-blocking age notice remains visible when ages are unknown; the same missing age must not additionally block discovery under a weaker supervision rule. This does not waive any minimum, override a known younger participant or substitute a lower minimum from another offer. Reproduced at ELYS: selected bouldering minimum 14 and venue unaccompanied threshold 13.

@@ -233,6 +233,19 @@ export function librarianGlobalEligibility(input: {
                 results.push({ state: "UNKNOWN", reason: "ENTRY_RULE_CONDITIONS_UNRESOLVED", hashes: [row.entryHash] });
                 continue;
             }
+            // A selected offer's stricter documented minimum already carries
+            // its own discovery notice. It entails the lower threshold for
+            // visiting unaccompanied; unknown ages must not become a second,
+            // contradictory block. This never overrides a known younger age.
+            const selectedOfferMinimums = input.offerIds.map(id => input.profile?.offers.find(o=>o.id===id)?.properties.filter(p=>
+                p.key === "participation.minimum_age" && p.state === "KNOWN" && typeof p.value === "number"
+                && librarianConditions(p.conditions,visit) === "MET") ?? []);
+            if (rule.mode === "UNACCOMPANIED_MINIMUM" && selectedOfferMinimums.length > 0
+                && selectedOfferMinimums.every(ps => ps.length === 1 && (ps[0]!.value as number) >= rule.minimumAge!)) {
+                results.push({state:"MET",modality:"CONTEXT",reason:"OFFER_MINIMUM_COVERS_UNACCOMPANIED_THRESHOLD",
+                    hashes:[row.entryHash,...selectedOfferMinimums.flatMap(ps=>ps.map(p=>contentHash(p)))]});
+                continue;
+            }
             // A restriction is an implication: if it applies, every known
             // participant must satisfy it. Unknown applicability is harmless
             // only when the consequence is already proven. No invented exact
