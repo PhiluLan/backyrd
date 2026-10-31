@@ -270,3 +270,65 @@ test('a city-only retrieval cannot silently admit a neighboring locality',()=>{
  assert.throws(()=>search(request([meal()]),[b],{authority:{city:'Basel',now:'2026-10-14T08:00:00Z',authorizedLocalities:['Basel']}}),/locality_invalid/);
  assert.throws(()=>search(request([meal()]),[binding(1211,profile())],{authority:{city:'Basel',now:'2026-10-14T08:00:00Z',authorizedLocalities:['Zürich']}}),/authority_region_invalid/);
 });
+
+test('known facility concepts share scoped evidence across model families without rewriting the request',async()=>{
+ const {librarianFactPropertySourceKeys}=await import('../dist/product-librarian-language.js');
+ for(const family of ['offer.kind','experience.activity','offer.facility','offer.feature']) for(const word of ['Spielplatz','playground']){
+  const q=request([fact('play',family,word),fact('out','offer.area','outdoor')]);
+  const original=JSON.stringify(q);
+  const data=profile([offer('play','MOVEMENT_PLAY',['play'])],[{...area('play'),kind:'PLAYGROUND'}],'OUTDOOR_NATURE');
+  const result=search(q,[binding(1300,data)]);
+  assert.equal(result.ranked.length,1,`${family}: ${word}`);
+  const evidence=assessment(result,'play');assert.equal(evidence.family,family);assert.equal(evidence.modality,'REQUIRED');assert.equal(evidence.state,'MET');
+  assert.deepEqual(candidate(result).areaIds,['play']);assert.equal(JSON.stringify(q),original);
+  assert.ok(librarianFactPropertySourceKeys(q.facts[0]).includes('amenity.playground'));
+  assert.ok(result.evaluationPlan.requirements.find(r=>r.factId==='play').sourceKeys.includes('amenity.playground'));
+  for(const [label,negative] of [
+   ['indoor',{...data,areas:[{...data.areas[0],properties:[prop('location.setting','drinnen')]},{...area('garden'),kind:'OUTDOOR'}],offers:[...data.offers,offer('walk','WALK',['garden'])]}],
+   ['billiards',{...data,offers:[{...data.offers[0],kind:'OTHER',name:'Billard spielen'}]}],
+   ['unknown',{...data,areas:[{...data.areas[0],properties:[prop('location.setting',null,{state:'UNKNOWN'})]}]}],
+   ['unlocated',{...data,areas:[{...area('garden'),kind:'OUTDOOR'}],properties:[prop('offer.feature','Spielplatz')],offers:[offer('play','MOVEMENT_PLAY',['garden'])]}],
+  ]) assert.equal(search(q,[binding(1301,negative)]).ranked.length,0,`${family}: ${label}`);
+ }
+});
+test('facility equivalence uses the canonical concept and explicit truth, not an open cross-family alias',()=>{
+ const data=profile([offer('play','MOVEMENT_PLAY',['garden'])],[{...area('garden',[prop('amenity.playground',true)]),kind:'OUTDOOR'}],'OUTDOOR_NATURE');
+ for(const key of ['offer.kind','experience.activity','offer.facility','offer.feature']){
+  const q=request([fact('play',key,'Spielplatz'),fact('out','offer.area','outdoor')]);
+  assert.equal(search(q,[binding(1302,data)]).ranked.length,1,key);
+  for(const value of [false,null]){
+   const absent=structuredClone(data);absent.areas[0].properties=[prop('amenity.playground',value,value===null?{state:'UNKNOWN'}:{})];
+   assert.equal(search(q,[binding(1303,absent)]).ranked.length,0,`${key}: ${value}`);
+  }
+ }
+ const toilet=structuredClone(data);toilet.areas[0].properties=[prop('amenity.toilet',true)];
+ assert.equal(search(request([fact('wc','offer.kind','WC')]),[binding(1304,toilet)]).ranked.length,1);
+ for(const value of ['Weinbar','Unbekanntes Spezialangebot'])
+  assert.equal(search(request([fact('kind','offer.kind',value)]),[binding(1305,data)]).ranked.length,0,value);
+});
+test('the exact failed live Playground kind output reaches ranked presentation through the active product route',async()=>{
+ const {readFileSync}=await import('node:fs');const {prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION}=await import('../dist/product-luna-librarian.js');
+ const recorded=JSON.parse(readFileSync(new URL('./fixtures/playground-offer-kind-live.json',import.meta.url),'utf8'));
+ const meaning=prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,...recorded});
+ assert.equal(meaning.facts[0].key,'offer.kind');assert.equal(meaning.facts[0].value.text,'Spielplatz');
+ const data=profile([offer('play','MOVEMENT_PLAY',['play'])],[{...area('play'),kind:'PLAYGROUND'}],'OUTDOOR_NATURE');
+ const result=await exercise({text:recorded.sourceText,meaning,catalog:[binding(1306,data)],explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'}});
+ assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+ const ranked=result.body.candidates.filter(c=>c.rank!==null);assert.equal(ranked.length,1,JSON.stringify(result.body));
+ assert.deepEqual(ranked[0].unknownHardConstraints,[]);assert.deepEqual(ranked[0].failedHardConstraints,[]);
+});
+
+test('facility cross-family matching preserves exclusions, optional preferences and contradictory evidence',()=>{
+ for(const family of ['offer.kind','experience.activity','offer.facility','offer.feature']){
+  const data=profile([offer('dinner','DINNER',['garden'])],[{...area('garden',[prop('amenity.playground',true)]),kind:'OUTDOOR'}]);
+  const noPlay=request([meal(),fact('play',family,'Spielplatz','EXCLUDED')]);
+  assert.equal(search(noPlay,[binding(1310,data)]).ranked.length,0,family);
+  const absent=structuredClone(data);absent.areas[0].properties=[prop('amenity.playground',false)];
+  const excluded=search(noPlay,[binding(1311,absent)]);assert.equal(excluded.ranked.length,1,family);
+  assert.equal(assessment(excluded,'play').modality,'EXCLUDED');
+  const preferred=search(request([meal(),fact('play',family,'Spielplatz','PREFERRED')]),[binding(1312,absent)]);
+  assert.equal(preferred.ranked.length,1,family);assert.equal(assessment(preferred,'play').modality,'PREFERRED');
+  const conflict=profile([offer('play','MOVEMENT_PLAY',['play'])],[{...area('play',[prop('amenity.playground',false)]),kind:'PLAYGROUND'}],'OUTDOOR_NATURE');
+  assert.equal(search(request([fact('play',family,'Spielplatz')]),[binding(1313,conflict)]).ranked.length,0,family);
+ }
+});

@@ -1,5 +1,5 @@
 import { contentHash, deepFreeze } from "./canonical.js";
-import { LIBRARIAN_FAMILY_STRATEGIES, librarianPropertySourceKeys } from "./product-librarian-language.js";
+import { LIBRARIAN_FAMILY_STRATEGIES, librarianFactPropertySourceKeys } from "./product-librarian-language.js";
 import { LIBRARIAN_KNOWLEDGE_POLICY, QUALITATIVE_PRICE_POLICY } from "./product-librarian-knowledge.js";
 import type { LibrarianSemanticIndex } from "./product-librarian-semantics.js";
 import type { LibrarianFact, LibrarianRequest } from "./product-luna-librarian.js";
@@ -39,7 +39,7 @@ export function compileLibrarianPlan(request: LibrarianRequest, semantics: Libra
             : operator === "QUALITATIVE_PRICE" ? ["operation.price_level"]
             : operator === "PRICE" ? ["experience.profile.offers.prices"]
             : operator === "TEMPORAL" ? ["hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "state.current", "experience.profile.offers.schedule"]
-            : family ? [...librarianPropertySourceKeys(family, semanticKeys), ...(worldSources[family] ?? [])] : [];
+            : "key" in fact ? [...librarianFactPropertySourceKeys(fact, semanticKeys), ...(worldSources[fact.key] ?? [])] : [];
         const inputOnly = fact.modality === "CONTEXT" || fact.modality === "NOT_REQUIRED";
         const support = inputOnly ? "INPUT" as const : operator === "UNSUPPORTED" ? "UNSUPPORTED" as const
             : operator === "QUALITATIVE_PRICE" && QUALITATIVE_PRICE_POLICY === "CLARIFY" ? "NEEDS_POLICY" as const : "SUPPORTED" as const;

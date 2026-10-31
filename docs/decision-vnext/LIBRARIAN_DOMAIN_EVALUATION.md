@@ -2,6 +2,35 @@
 
 Status: candidate implementation, not a declaration of production completeness.
 
+
+## Facility concepts across request families
+
+Matching revision 23 preserves the model's original family, modality, subjects
+and logic while sharing evidence vocabulary for canonical boolean facility
+concepts. A known concept such as playground may arrive as `offer.kind`,
+`experience.activity`, `offer.facility` or `offer.feature`. Only the corresponding
+catalogued amenity keys and facility/feature values are admitted; an arbitrary
+kind never gains access to all unrelated property fields. Evaluation plans list
+the compatible evidence keys explicitly. Legacy amenity facts use the same
+bounded concept mapping.
+
+Playground type evidence still needs a compatible authored play offering;
+legacy billiards/darts rooms do not qualify. Outdoor requirements still bind to
+the actual playground area. Indoor, explicit unknown, false and contradictory
+properties retain their existing effect. A whole-venue mention does not locate
+a playground outside. Mandatory requirements, exclusions and optional
+preferences keep their original strength; no model output is rewritten.
+
+The exact failed live output is retained in
+`test/fixtures/playground-offer-kind-live.json` and exercised through the active
+Product route. Its deterministic regional replay moves from zero to six
+confirmed results, with zero unresolved/failed required constraints on ranked
+results. All six recommended venue snapshot hashes match the failed live run;
+427 of 432 total profiles match, while five unrelated profiles changed between
+catalog captures. This replay makes no new model calls, uses a neutral user
+projection and does not itself prove deployment. The matching/language hash is
+versioned; a fresh authenticated Live Admin control follows publication.
+
 The Librarian combines the structured Luna meaning with canonical World and
 experience-profile evidence. It must preserve the request's family, modality,
 subjects, alternatives and exclusions. Ranking cannot repair a failed duty.

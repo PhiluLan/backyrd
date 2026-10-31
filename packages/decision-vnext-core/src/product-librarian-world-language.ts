@@ -1,9 +1,10 @@
 import { SPOT_TYPE_CATALOG, spotTypeSupports, experienceActivitySupports, PLACE_TYPE_AUTHORING_OPTIONS, librarianTerm, emptyExperienceConditions, WORLD_OFFER_CONCEPTS, WORLD_VALUE_LABELS, librarianConcept, sameLibrarianText, type AtmosphereContext, type ExperienceConditions } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
+import { librarianFacilityConcept } from "./product-librarian-language.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { librarianConditions, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
-export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@5" as const;
+export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@6" as const;
 export type LegacyLanguageAssessment = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -48,7 +49,7 @@ const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"
 /** Translation of typed, validated World values only. No source prose, venue
  * names, inferred areas, fabricated offerings or changed authorization. */
 export function assessLegacyLibrarianFact(fact: LibrarianFact, world: ProductWorldView, visit: VisitWindow): LegacyLanguageAssessment {
-    const placeType = assessLibrarianPlaceType(fact, world);
+    const placeType = librarianFacilityConcept(fact) ? null : assessLibrarianPlaceType(fact, world);
     if (placeType) return placeType;
     const unknown = (reason = "LEGACY_FAMILY_OR_VALUE_UNPROVEN", hashes: readonly string[] = []): LegacyLanguageAssessment => ({ state: "UNKNOWN", reason, hashes });
     if (fact.value.kind !== "TEXT")
@@ -69,7 +70,7 @@ export function assessLegacyLibrarianFact(fact: LibrarianFact, world: ProductWor
         if (row.key === "classification.place_types" && fact.key === "experience.activity" && concept
             && Array.isArray(row.value) && row.value.includes("ZOO") && experienceActivitySupports("zoo", concept))
             add(row, { key: row.key, token: "ZOO", activityRelation: { offered: "zoo", requested: concept }, scope: "SPOT_TYPE_DISCOVERY" });
-        if (row.key === "amenity.features" && Array.isArray(row.value) && concept && ["offer.feature", "offer.facility"].includes(fact.key))
+        if (row.key === "amenity.features" && Array.isArray(row.value) && concept && librarianFacilityConcept(fact))
             for (const token of row.value)
                 if (typeof token === "string" && amenityConcepts[token] === concept)
                     add(row, { key: row.key, token, scope: "SPOT" });

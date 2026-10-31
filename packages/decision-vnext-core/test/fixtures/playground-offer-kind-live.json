@@ -1,0 +1,66 @@
+{
+  "sourceText": "Spielplatz draussen mit meiner familie",
+  "reference": {
+    "now": "2026-10-31T10:18:42.214Z",
+    "timezone": "Europe/Zurich"
+  },
+  "output": {
+    "entities": [
+      {
+        "id": "p1",
+        "kind": "PLACE",
+        "label": "Spielplatz",
+        "members": []
+      },
+      {
+        "id": "g1",
+        "kind": "GROUP",
+        "label": "Familie",
+        "members": []
+      }
+    ],
+    "facts": [
+      {
+        "id": "f1",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "p1"
+        ],
+        "key": "offer.kind",
+        "value": {
+          "text": "Spielplatz"
+        }
+      },
+      {
+        "id": "f2",
+        "modality": "REQUIRED",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "p1"
+        ],
+        "key": "offer.area",
+        "value": {
+          "text": "outdoor"
+        }
+      },
+      {
+        "id": "f3",
+        "modality": "CONTEXT",
+        "basis": "EXPLICIT",
+        "subjectIds": [
+          "g1"
+        ],
+        "key": "people.relationship",
+        "value": {
+          "text": "family"
+        }
+      }
+    ],
+    "logic": null,
+    "bindings": [],
+    "extensions": [],
+    "uncertainties": [],
+    "weatherConditions": []
+  }
+}
