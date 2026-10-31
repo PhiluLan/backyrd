@@ -692,3 +692,7 @@ Selected offer notes that explicitly require checking external guest participati
 ### Prompt 19 / meaning roles 3: co-diner dietary needs
 
 A dietary need during a typed food visit must be executable, not context that silently disappears. The provider asks Luna to preserve the person and desired food option, normally REQUIRED unless the user explicitly made it optional. A meal with a vegan companion does not mean a wholly vegan venue. A CONTEXT food.diet next to a known meal intent triggers the existing single bounded correction: the model may classify only that diet into an executable modality using the original request. Values, people, logic, other duties and all unrelated modalities remain immutable. No raw-query keyword rewriting or automatic promotion by the librarian occurs. Diet context without a food visit is not turned into a venue requirement.
+
+### Matcher 38: co-diner diet belongs to the requested meal
+
+Brunch, snacks and apéritif use the same meal-witness join as breakfast, lunch and dinner. A person's dietary requirement inherits the sole explicitly requested meal activity when no separate activity scope is given. An explicit separate activity scope remains authoritative. A vegan lunch elsewhere in the venue cannot prove a vegan brunch. This was reproduced by the third sequential discovery query and is checked with both person-only and person-plus-activity dietary scopes.

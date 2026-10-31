@@ -196,3 +196,13 @@ test('explicit coffee and cake in a food offer title are scoped product evidence
  for(const name of ['Kaffee und süsse Backwaren','Kaffee und kein Kuchen','Kaffee und Kuchen nur auf Anfrage'])
   assert.equal(search(q,[binding(1991,make(name))]).ranked.length,0,name);
 });
+
+test('brunch and a co-diner diet require the same meal offer, including person-only diet scope',()=>{
+ for(const subjects of [['a1','p1'],['p1']]){
+ const q=request([fact('brunch','experience.activity','brunch'),fact('diet','food.diet','vegan','REQUIRED',subjects)]);
+ const bad=profile([offer('brunch','BRUNCH'),offer('lunch','LUNCH',['inside'],[prop('food.diet','vegan')])]);
+ const good=profile([offer('brunch','BRUNCH',['inside'],[prop('food.diet','vegan')])]);
+ assert.equal(search(q,[binding(1992,bad)]).ranked.length,0);
+ assert.equal(search(q,[binding(1993,good)]).ranked.length,1);
+ }
+});

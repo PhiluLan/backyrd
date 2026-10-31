@@ -162,8 +162,16 @@ function assignments(request: LibrarianRequest, fact: LibrarianFact, offerId: st
     const concept = fact.value.kind === "TEXT" ? librarianConcept(fact.value.text) : null;
     if (fact.key === "offer.facility" && concept !== "playground")
         return result;
-    if (offerId && (fact.key.startsWith("food.") && fact.key !== "food.drink" || fact.key === "experience.activity" && ["meal", "lunch", "dinner", "breakfast"].includes(concept ?? ""))) {
-        for (const id of fact.subjectIds)
+    if (offerId && (fact.key.startsWith("food.") && fact.key !== "food.drink" || fact.key === "experience.activity" && ["meal", "lunch", "dinner", "breakfast", "brunch", "snacks", "aperitif"].includes(concept ?? ""))) {
+        const activitySubjects = fact.subjectIds.filter(id => request.entities.some(e => e.id === id && ["ACTIVITY","OFFER"].includes(e.kind)));
+        const mealActivities = request.facts.filter(f => f.id !== fact.id && !["EXCLUDED","CONTEXT","NOT_REQUIRED"].includes(f.modality)
+            && ["experience.activity","food.meal","offer.kind"].includes(f.key) && f.value.kind === "TEXT"
+            && ["meal","lunch","dinner","breakfast","brunch","snacks","aperitif"].includes(librarianConcept(f.value.text) ?? ""))
+            .flatMap(f => f.subjectIds.filter(id => request.entities.some(e => e.id === id && ["ACTIVITY","OFFER"].includes(e.kind))));
+        // A co-diner's diet belongs to the sole requested meal, even when Luna
+        // attaches it only to the person. Separate explicit activities stay separate.
+        const inherited = fact.key === "food.diet" && !activitySubjects.length && sorted(mealActivities).length === 1 ? sorted(mealActivities) : [];
+        for (const id of [...fact.subjectIds,...inherited])
             result[`meal:${id}`] = offerId;
         if (!fact.subjectIds.length)
             result["meal:*"] = offerId;
