@@ -1,3 +1,4 @@
+import {BASEL_DISCOVERY_LOCALITIES} from "../dist/product-librarian-geography.js";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyExperienceProfile, emptyExperienceConditions, REGISTRY_VERSION, REGISTRY_HASH, ACCEPTED_SOURCE_POLICY } from '@backyrd/world-knowledge-core';
@@ -92,10 +93,10 @@ test('server adapter uses one existing authorized catalog read and preserves the
  const {createDecisionProductLibrarianRpcEvaluationProvider}=await import('../dist/product-decision-production-adapter.js');
  const calls=[],identity={releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};
  const actor={userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
- const rpc={async rpc(name,parameters,signal){calls.push({name,parameters,aborted:signal.aborted});return{error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',authorizedCity:'Basel',serverTime:authority.now,worldSnapshots:[zoo()]}};}};
+ const rpc={async rpc(name,parameters,signal){calls.push({name,parameters,aborted:signal.aborted});return{error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',authorizedCity:'Basel',authorizedLocalities:BASEL_DISCOVERY_LOCALITIES,serverTime:authority.now,worldSnapshots:[zoo()]}};}};
  const provider=createDecisionProductLibrarianRpcEvaluationProvider(rpc,identity),q=request([fact('zoo','offer.kind','Zoo')]);
  const result=await provider.evaluate({request:q,actor,authorizedCity:'Basel',signal:new AbortController().signal});
- assert.equal(result.ranked[0].status,'CONFIRMED');assert.equal(calls.length,1);assert.equal(calls[0].name,'backyrd_decision_vnext_product_context_v5');
+ assert.equal(result.ranked[0].status,'CONFIRMED');assert.equal(calls.length,1);assert.equal(calls[0].name,'backyrd_decision_vnext_product_context_v7');
  assert.equal(calls[0].parameters.p_auth_user_id,actor.userId);assert.equal(calls[0].parameters.p_source_set_hash,identity.sourceSetHash);assert.equal(JSON.stringify(calls).includes(q.source.sourceText),false);
 });
 test('server adapter rejects cancellation and malformed authority before catalog access',async()=>{
@@ -110,7 +111,7 @@ test('server adapter rejects cancellation and malformed authority before catalog
 test('server adapter checks city binding and does not substitute an empty malformed catalog',async()=>{
  const {createDecisionProductLibrarianRpcEvaluationProvider}=await import('../dist/product-decision-production-adapter.js');
  const identity={releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};const actor={userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
- for(const data of [{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',authorizedCity:'Luzern',serverTime:authority.now,worldSnapshots:[]},{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',authorizedCity:'Basel',serverTime:authority.now}]){
+ for(const data of [{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',authorizedCity:'Luzern',serverTime:authority.now,worldSnapshots:[]},{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',authorizedCity:'Basel',authorizedLocalities:BASEL_DISCOVERY_LOCALITIES,serverTime:authority.now}]){
  const provider=createDecisionProductLibrarianRpcEvaluationProvider({async rpc(){return{data,error:null};}},identity);await assert.rejects(provider.evaluate({request:request([meal()]),actor,authorizedCity:'Basel',signal:new AbortController().signal}),/context_invalid/);}
 });
 

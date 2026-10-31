@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "decision-regional-catalog-v1",
+  "previousEvidence": "admin-spots-primary-category-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "25aecf8667caaa95377db770a9b208c1f31af53b37aac3c83abbb4ba0074441a",
+    "applicationSchemaSha256": "c0b04c03ff38069f3f2328f5957fcc0344bdf24676658004192e7554e1fd5fd1"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",
+      "sha256": "403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_manual_event_candidates_v1.sql",
+      "sha256": "8a8325719c8957db058256c036e1825cd1ae3e92a9ce260e91f7e65a795e0381"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "ec35ba80605a6e278fb53d79f56ebd95fba2946233e9180dbf19bd48166acf05",
+    "applicationSchemaSha256": "5207e017312c9fb0b411d217e0708dd42fcb098c236e94e5b40f2a7b7ea9ede4"
+  }
+}

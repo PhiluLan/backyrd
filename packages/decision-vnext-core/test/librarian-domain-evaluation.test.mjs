@@ -185,3 +185,55 @@ test('meal inheritance still respects a separate kitchen closure',()=>{
  assert.equal(result.ranked.length,0);
  assert.ok(result.excluded[0].facts.some(f=>f.reason==='KITCHEN_CLOSED_AT_REQUESTED_TIME'));
 });
+
+
+test('child outings distinguish child menus from a documented family museum visit',()=>{
+ const q=request([fact('children','condition.children','children_activity'),fact('inside','offer.area','indoor')]);
+ const brunch=profile([offer('brunch','BRUNCH',['inside'],[prop('condition.children','Kinderangebote')])]);
+ assert.equal(search(q,[binding(1100,brunch)]).ranked.length,0);
+ brunch.offers[0].name='Kinderangebote';
+ assert.equal(search(q,[binding(1100,brunch)]).ranked.length,0);
+ const museum=profile([offer('exhibition','PERMANENT_EXHIBITION',['inside'],[prop('experience.activity','Ausstellung besuchen'),prop('participation.age_suitability','Alle Altersgruppen')])],[area('inside',[prop('atmosphere.character','familienfreundlich')])],'MUSEUM');
+ const result=search(q,[binding(1101,museum)]);
+ assert.equal(result.ranked.length,1);
+ assert.deepEqual(candidate(result).facts.find(f=>f.factId==='children').offerIds,['exhibition']);
+ const noAge=structuredClone(museum);noAge.offers[0].properties=noAge.offers[0].properties.filter(p=>p.key!=='participation.age_suitability');
+ assert.equal(search(q,[binding(1102,noAge)]).ranked.length,0);
+ const noFamily=structuredClone(museum);noFamily.areas[0].properties=[];
+ assert.equal(search(q,[binding(1103,noFamily)]).ranked.length,0);
+ const wrongArea=structuredClone(museum);wrongArea.areas[0].properties=[];wrongArea.areas.push(area('terrace',[prop('atmosphere.character','familienfreundlich')]));
+ assert.equal(search(q,[binding(1104,wrongArea)]).ranked.length,0);
+ const adult=structuredClone(museum);adult.offers[0].properties.push(prop('participation.minimum_age',18));
+ assert.equal(search(request([...q.raw.facts,fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p1'])]),[binding(1105,adult)]).ranked.length,0);
+});
+test('venue hours cannot erase structured recurring offer restrictions',()=>{
+ const data=profile([{...offer('brunch','BRUNCH',['inside'],[prop('experience.activity','essen gehen',{conditions:{weekdays:[7],dayparts:['MORNING'],validFrom:null,validUntil:null,event:'Brunch'}})]),schedule:[]}]);
+ const world=parseProductWorldResolverBinding(binding(1110,data),'Basel');
+ const visit=createLibrarianVisitWindow(request([date()]).facts,'Europe/Zurich','2026-10-14T08:00:00Z');
+ assert.equal(librarianOfferAvailability(data.offers[0],world,visit).state,'FAILED');
+ assert.equal(librarianOfferAvailability(data.offers[0],world,visit).reason,'OFFER_ACTIVITY_OUTSIDE_CONDITIONS');
+});
+test('Basel region retains the real locality and does not erase a required exact destination',()=>{
+ const q=request([fact('inside','offer.area','indoor')]);
+ const b=binding(1120,profile());b.decisionProjection.facts.find(f=>f.key==='location.locality').value='Muttenz';
+ assert.equal(search(q,[b]).ranked.length,1);
+ assert.throws(()=>parseProductWorldResolverBinding(b,'Basel'),/locality_invalid/);
+ assert.equal(search(request([...q.raw.facts,fact('destination','location.destination','Basel')]),[b]).ranked.length,0);
+ const unrelated=structuredClone(b);unrelated.decisionProjection.facts.find(f=>f.key==='location.locality').value='Zürich';
+ assert.throws(()=>search(q,[unrelated]),/locality_invalid/);
+});
+
+test('SQL and runtime authorize the identical bounded region',async()=>{
+ const {readFile}=await import('node:fs/promises');
+ const {BASEL_DISCOVERY_LOCALITIES}=await import('../dist/product-librarian-geography.js');
+ const sql=await readFile(new URL('../../../supabase/migrations/20261031090327_decision_regional_catalog_v1.sql',import.meta.url),'utf8');
+ const declared=sql.match(/then array\[([^\]]+)\]::text\[\]/)[1].split(',').map(s=>s.slice(1,-1));
+ assert.deepEqual(declared,BASEL_DISCOVERY_LOCALITIES);
+});
+
+test('an empty offer calendar inherits only within its documented activity daypart',()=>{
+ const data=profile([{...offer('brunch','BRUNCH',['inside'],[prop('experience.activity','essen gehen',{conditions:{weekdays:[4],dayparts:['MORNING'],validFrom:null,validUntil:null,event:null}})]),schedule:[]}]);
+ const world=parseProductWorldResolverBinding(binding(1111,data),'Basel');
+ const visit=createLibrarianVisitWindow(request([date(),evening()]).facts,'Europe/Zurich','2026-10-14T08:00:00Z');
+ assert.equal(librarianOfferAvailability(data.offers[0],world,visit).state,'FAILED');
+});

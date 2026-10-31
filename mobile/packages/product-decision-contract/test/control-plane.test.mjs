@@ -98,3 +98,13 @@ test("Event opt-in remains an optional boolean and never grants client authority
     assert.throws(()=>validateDecisionProductRequest({...request,includeEvents:true,[field]:true}),/decision_request_shape_invalid/);
   }
 });
+
+
+test("real locality names with umlauts and spaces remain readable",()=>{
+ for(const locality of ['Münchenstein','Weil am Rhein','Saint-Louis']) {
+  const r=response();r.candidates=[{...candidate,presentation:{...candidate.presentation,locality}}];
+  assert.equal(validateDecisionProductResponse(r,request).candidates[0].presentation.locality,locality);
+ }
+ const r=response();r.candidates=[{...candidate,presentation:{...candidate.presentation,locality:'Bad\nTown'}}];
+ assert.throws(()=>validateDecisionProductResponse(r,request),/locality_invalid/);
+});

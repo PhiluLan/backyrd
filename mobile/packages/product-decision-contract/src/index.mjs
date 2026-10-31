@@ -67,7 +67,7 @@ function validatePresentation(value, spotId) {
   } else requireValue(!spotId.startsWith("event:"), "decision_event_presentation_missing");
   requireValue(value.contractVersion === PRESENTATION_VERSION && value.spotId === spotId, "decision_presentation_binding_invalid");
   requireValue(typeof value.name === "string" && value.name.trim().length > 0 && value.name.length <= 160, "decision_presentation_name_invalid");
-  requireValue(value.locality === null || ID.test(value.locality), "decision_presentation_locality_invalid");
+  requireValue(value.locality === null || typeof value.locality === "string" && /^[^\u0000-\u001f\u007f]{1,160}$/.test(value.locality), "decision_presentation_locality_invalid");
   requireValue(value.categoryLabel === null || typeof value.categoryLabel === "string", "decision_presentation_category_invalid");
   requireValue(value.imageUrl === null || (typeof value.imageUrl === "string" && value.imageUrl.startsWith("https://")), "decision_presentation_image_invalid");
   requireValue(HASH.test(value.sourceHash) && HASH.test(value.presentationHash), "decision_presentation_hash_invalid");

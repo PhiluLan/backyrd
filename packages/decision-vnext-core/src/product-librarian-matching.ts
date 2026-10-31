@@ -1,3 +1,4 @@
+import { librarianDiscoveryLocalities } from "./product-librarian-geography.js";
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
 import { bookingEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
@@ -203,6 +204,8 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
         }
         if (typeof property.value !== "string")
             return "UNKNOWN";
+        if (fact.key === "condition.children" && desired === "children_activity" && property.key === "condition.children")
+            return "UNKNOWN"; // Generic Kinderangebote can mean a child's menu or price.
         if (sameLibrarianText(property.value, fact.value.text)) return "MET";
         if (fact.key === "food.drink" && property.key === "experience.activity")
             return desired === "coffee" && librarianConcept(property.value) === "coffee" ? "MET" : "UNKNOWN";
@@ -335,8 +338,28 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     if (desired && ["experience.activity", "offer.feature", "atmosphere.music", "condition.children"].includes(fact.key)) {
         for (const offer of profile.offers) {
             const declared = declaredExperienceConcepts(offer.name, "OFFER_NAME");
-            if (declared.some(actual => experienceActivitySupports(actual, desired)))
+            const genericChildMeal = fact.key === "condition.children" && desired === "children_activity"
+                && (OFFER_CONCEPTS[offer.kind] ?? []).some(activity => ["meal", "drinks", "snacks"].includes(activity));
+            if (!genericChildMeal && declared.some(actual => experienceActivitySupports(actual, desired)))
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {declaredOfferName: offer.name});
+            if (fact.key === "condition.children" && desired === "children_activity") {
+                // A documented family exhibition is a child-compatible outing,
+                // even though it is not labelled as a dedicated children's course.
+                const activities = OFFER_CONCEPTS[offer.kind] ?? [];
+                const leisure = activities.some(a => ["exhibition", "museum", "zoo", "movement_play", "children_course"].includes(a));
+                const allAges = offer.properties.filter(p => p.key === "participation.age_suitability" && p.state === "KNOWN"
+                    && typeof p.value === "string" && ["alle altersgruppen", "all ages", "tous ages"].includes(librarianTerm(p.value)));
+                for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) {
+                    const properties = [...profile.properties, ...offer.properties, ...(profile.areas.find(a => a.id === areaId)?.properties ?? [])];
+                    const family = properties.filter(p => p.key === "atmosphere.character" && p.state === "KNOWN" && typeof p.value === "string"
+                        && ["familienfreundlich", "family friendly", "family_friendly"].includes(librarianTerm(p.value)));
+                    const evidence = [...allAges, ...family];
+                    if (leisure && allAges.length && family.length) {
+                        const states = evidence.map(p => librarianConditions(p.conditions, visit));
+                        if (!states.includes("FAILED")) add("MET", offer, areaId, {policy:"FAMILY_LEISURE_ALL_AGES", properties:evidence}, states.includes("UNKNOWN"));
+                    }
+                }
+            }
             if (fact.key === "condition.children" && desired === "children_activity"
                 && (OFFER_CONCEPTS[offer.kind] ?? []).some(actual => experienceActivitySupports(actual, desired)))
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {kind: offer.kind});
@@ -748,7 +771,7 @@ function runLibrarianCatalogSearch(input: {
     if (!Number.isInteger(limit) || limit < 1 || limit > 1500)
         failure("result_limit");
     const evaluationPlan = compileLibrarianPlan(request, semantics);
-    const worlds = [...input.catalog.map(binding => parseProductWorldResolverBinding(binding, input.authority.city)), ...(input.eventViews ?? [])];
+    const worlds = [...input.catalog.map(binding => parseProductWorldResolverBinding(binding, input.authority.city, librarianDiscoveryLocalities(input.authority.city))), ...(input.eventViews ?? [])];
     if ((input.eventViews?.length ?? 0) > 500 || worlds.length > 1500) failure("catalog_limit");
     if (new Set(worlds.map(w => w.spot.spotId)).size !== worlds.length)
         failure("duplicate_spot");

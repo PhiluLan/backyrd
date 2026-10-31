@@ -1,3 +1,4 @@
+import {BASEL_DISCOVERY_LOCALITIES} from "../dist/product-librarian-geography.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -142,7 +143,7 @@ test("prepared catalog reuse remains bound to actor, session, release, city and 
   const request = {contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'prefetch-test',idempotencyKey:'prefetch-test',naturalLanguage:'Synthetischer Wunsch, wird nicht als Suchtext interpretiert.',explicit:{targetCity:'Basel'},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
   for (const mutation of [null, 'actor', 'session', 'release', 'request', 'abort']) {
     let reads=0;
-    const evaluator = createDecisionProductRpcEvaluationProvider({async rpc(){reads++;return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',serverTime:authority.now,worldSnapshots:[binding(1,profile())]}};}},{meaningRequired:true});
+    const evaluator = createDecisionProductRpcEvaluationProvider({async rpc(){reads++;return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',authorizedLocalities:BASEL_DISCOVERY_LOCALITIES,serverTime:authority.now,worldSnapshots:[binding(1,profile())]}};}},{meaningRequired:true});
     const q=structuredClone(request),abort=new AbortController(),input={request:q,actor:{...actor},identity:{...identity},signal:abort.signal,meaning:plan([meal()])};
     await evaluator.prefetch(input);
     assert.equal(reads,1);

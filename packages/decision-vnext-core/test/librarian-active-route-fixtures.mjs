@@ -1,3 +1,4 @@
+import { BASEL_DISCOVERY_LOCALITIES } from "../dist/product-librarian-geography.js";
 import assert from "node:assert/strict";
 import { createDecisionProductHttpHandler } from "../dist/product-decision.js";
 import { createDecisionProductLunaProvider } from "../dist/product-luna-provider.js";
@@ -14,8 +15,8 @@ export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel
     assert.equal(JSON.parse(body.input).request,text);
     return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));
   })});
-  const rpc={async rpc(name,parameters){reads++;assert.equal(name,request.includeEvents === true ? 'backyrd_decision_vnext_product_context_v6' : 'backyrd_decision_vnext_product_context_v5');assert.equal(parameters.p_auth_user_id,actor.userId);assert.equal(JSON.stringify(parameters).includes(text),false);
-    return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',serverTime:authority.now,worldSnapshots:catalog,...(request.includeEvents === true ? {eventOccurrences} : {})}};
+  const rpc={async rpc(name,parameters){reads++;assert.equal(name,'backyrd_decision_vnext_product_context_v7');assert.equal(parameters.p_auth_user_id,actor.userId);assert.equal(JSON.stringify(parameters).includes(text),false);
+    return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',authorizedLocalities:BASEL_DISCOVERY_LOCALITIES,serverTime:authority.now,worldSnapshots:catalog,...(request.includeEvents === true ? {eventOccurrences} : {})}};
   }};
   const evaluation=createDecisionProductRpcEvaluationProvider(rpc,{meaningRequired:true,...(onSearch?{onSearch}:{})});
   const handler=createDecisionProductHttpHandler({

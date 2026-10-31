@@ -75,8 +75,10 @@ and provider output are neither public response fields nor durable decision
 records. The old `product-ai-interpretation.ts` remains compatibility/test
 coverage only and is not imported by the installed Edge composition.
 
-The existing context v5 RPC supplies one authorized, manifest-bound full-city
-cohort and the consent-bound User projection. The Bibliothekar preserves offers,
+Context v7 supplies the authorized, manifest-bound Basel municipality region;
+other cities retain their full-city cohort. Original localities and exact
+destination requirements are preserved. The existing v5/v6 RPCs remain compatible.
+The context supplies the cohort and the consent-bound User projection. The Bibliothekar preserves offers,
 linked areas, participant scope, alternatives, conditions, price coverage and
 source-use permission. Unsupported knowledge remains unknown. Known hard
 contradictions exclude before ranking. The whole cohort (up to 1,000) is assessed
@@ -106,7 +108,7 @@ There is no broad-plan cache yet: the narrower legacy cache cannot safely store
 this different contract or omit reference-date/participant bindings. Existing
 sealed idempotency and consent-bound learning controls remain enforced.
 
-Limitations: the authorized context currently handles one city per request;
+Limitations: the authorized context handles one destination area per request;
 a cross-city alternative is not silently reduced to its first city. Unobserved
 weather, unsupported bindings and missing scoped facts remain unresolved.
 Exact-hour confirmation requires joint verified venue and offer schedules.

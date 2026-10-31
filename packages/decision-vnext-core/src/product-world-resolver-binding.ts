@@ -1,3 +1,4 @@
+import { localityKey } from "./product-librarian-geography.js";
 import { REGISTRY_V2_4_PLACE_TYPES, EXPERIENCE_TEMPLATES, parseExperienceProfile, REGISTRY_V2_4_VERSION, REGISTRY_V2_4_HASH, ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, REGISTRY_V2_3_HASH, REGISTRY_V2_3_VERSION, REGISTRY_V2_2_HASH, REGISTRY_V2_2_VERSION, REGISTRY_V2_1_HASH, REGISTRY_V2_1_VERSION, getAttributeDefinition, parseAttributeValue, type SourceUseCase, type PortKnowledgeEntry, type WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 
@@ -30,10 +31,9 @@ const factKey = (value: unknown, previous = false, supportsExperience = true): s
   return value;
 };
 const decisionRelevant = (key: string) => !key.startsWith("contact.") && key !== "operation.payment_methods";
-const city = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH").replaceAll("ä", "a").replaceAll("ö", "o").replaceAll("ü", "u");
 
 /** Validates the SQL resolver's manifest-bound Product projection; never relabels it as a TS World port. */
-export function parseProductWorldResolverBinding(value: unknown, targetCity: string): ProductWorldView {
+export function parseProductWorldResolverBinding(value: unknown, targetCity: string, authorizedLocalities: readonly string[] = [targetCity]): ProductWorldView {
   const binding = object(value);
   if (binding.contractVersion !== "backyrd.world-knowledge.product-resolver-binding@1.0" || typeof binding.manifestHash !== "string" || !HASH.test(binding.manifestHash)) throw new Error("product_world_manifest_binding_invalid");
   const raw = object(binding.decisionProjection);
@@ -97,7 +97,7 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
   });
   const byKey = (key: string): unknown => parsed.find((item) => item.key === key)?.value ?? null;
   const locality = byKey("location.locality");
-  if (typeof locality !== "string" || city(locality) !== city(targetCity)) throw new Error("product_world_locality_invalid");
+  if (typeof locality !== "string" || !authorizedLocalities.some(allowed => localityKey(locality) === localityKey(allowed))) throw new Error("product_world_locality_invalid");
   if (typeof byKey("identity.name") !== "string") throw new Error("product_world_identity_name_unavailable");
   const conflictRows = rows(raw.conflicts, 100).flatMap((item) => { const row = object(item); const key = factKey(row.key, previous, current || previous24); if (!decisionRelevant(key)) return []; if (row.scope !== "SPOT" || seen.get(key) !== "DISPUTED" || !Array.isArray(row.claimHashes) || row.claimHashes.length < 2) throw new Error("product_world_conflict_invalid"); return [{ code: "OVERLAPPING_CONTRADICTORY_CLAIMS", severity: "BLOCKING" as const, attributeKeys: [key] }]; });
   const unknownRows = rows(raw.explicitUnknowns, 200).flatMap((item) => { const row = object(item); const key = factKey(row.key, previous, current || previous24); if (!decisionRelevant(key)) return []; if (row.scope !== "SPOT" || seen.get(key) !== "UNKNOWN") throw new Error("product_world_unknown_invalid"); return [{ key, scope: "SPOT" }]; });
@@ -108,7 +108,7 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
   const spot: WorldKnowledgeSnapshot["spot"] = {
     spotId: raw.spotId,
     identity: { name: byKey("identity.name") as string | null },
-    location: { addressLine1: null, locality: targetCity, neighborhood: null, countryCode: null, latitude: null, longitude: null, timezone: byKey("location.timezone") as string | null },
+    location: { addressLine1: null, locality, neighborhood: null, countryCode: null, latitude: null, longitude: null, timezone: byKey("location.timezone") as string | null },
     classification: { primaryCategory: byKey("classification.primary_category") as WorldKnowledgeSnapshot["spot"]["classification"]["primaryCategory"], placeTypes: (byKey("classification.place_types") ?? []) as WorldKnowledgeSnapshot["spot"]["classification"]["placeTypes"] },
     publicContact: { publicEmail: null, website: null, phone: null, instagram: null, facebook: null, linkedin: null, tiktok: null },
   };

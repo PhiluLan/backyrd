@@ -1,3 +1,4 @@
+import { librarianDiscoveryLocalities } from "./product-librarian-geography.js";
 import { requiredRequestIssue } from "./product-librarian-plan.js";
 import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
 import { PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION, librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
@@ -188,7 +189,7 @@ export function evaluateLibrarianProduct(input: {
   const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.meaning.raw, sourceText: input.meaning.source.sourceText, reference: input.meaning.source.reference });
   if (meaning.source.sourceText !== input.request.naturalLanguage || meaning.requestHash !== input.meaning.requestHash) throw new Error("product_librarian_source_binding_invalid");
   if (librarianTargetCity(input.request, meaning) !== input.authority.authorizedCity) throw new Error("product_librarian_city_binding_invalid");
-  const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime) : [];
+  const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime, librarianDiscoveryLocalities(input.authority.authorizedCity)) : [];
   const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime }, limit: 1500 });
   input.onSearch?.(result);
   const byId = new Map(worlds.map(w => [w.spot.spotId, w]));

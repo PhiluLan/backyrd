@@ -17,6 +17,7 @@ export type VisitWindow = {
     readonly excludedMinutes: readonly number[];
     readonly expired?: boolean;
 };
+const DAYPART_RANGES: Readonly<Record<string, readonly [number, number]>> = { MORNING: [360, 720], MIDDAY: [660, 900], AFTERNOON: [720, 1080], EVENING: [1020, 1440], NIGHT: [0, 360] };
 const minute = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
 export const visitWeekday = (day: string) => ((new Date(day + "T12:00:00Z").getUTCDay() + 6) % 7) + 1;
 export function createLibrarianVisitWindow(facts: readonly LibrarianFact[], timezone: string | null, now?: string): VisitWindow {
@@ -131,11 +132,7 @@ export function librarianConditions(conditions: ExperienceConditions, visit: Vis
     if (conditions.dayparts.length) {
         if (!visit.requested)
             return "UNKNOWN";
-        const ranges: Readonly<Record<string, readonly [
-            number,
-            number
-        ]>> = { MORNING: [360, 720], MIDDAY: [660, 900], AFTERNOON: [720, 1080], EVENING: [1020, 1440], NIGHT: [0, 360] };
-        const fits = conditions.dayparts.some(phase => { const r = ranges[phase]!; return r[0] <= visit.start && visit.end <= r[1]; });
+        const fits = conditions.dayparts.some(phase => { const r = DAYPART_RANGES[phase]!; return r[0] <= visit.start && visit.end <= r[1]; });
         if (!fits)
             return "UNKNOWN"; // overlap with only part of an imprecise phase proves nothing universal
     }
@@ -209,13 +206,26 @@ export function librarianOfferAvailability(offer: ExperienceOffer, world: Produc
     const venue = librarianVenueAvailability(world, visit);
     if (venue.state !== "MET") return venue;
     if (!day) return { state: "UNKNOWN", hashes: venue.hashes, reason: "VISIT_DATE_UNKNOWN" };
+    // Structured activity conditions are independent restrictions even when the
+    // schedule array is empty. Venue hours cannot erase a Sunday-only offering.
+    const activities = offer.properties.filter(p => p.key === "experience.activity" && p.state === "KNOWN");
+    if (activities.length && activities.every(p => librarianConditions({...p.conditions, event: null}, visit) === "FAILED"))
+        return {state: "FAILED", hashes: [...venue.hashes, contentHash(activities)], reason: "OFFER_ACTIVITY_OUTSIDE_CONDITIONS"};
     const inherited = offer.schedule.length === 0;
     const today = offer.schedule.filter(s => s.weekday === visitWeekday(day));
     // Only an absent calendar inherits. An existing offer calendar must not be
     // extended to an unlisted weekday by the venue's more permissive hours.
     if (!inherited && !today.length)
         return { state: "UNKNOWN", hashes: venue.hashes, reason: "OFFER_WEEKDAY_UNKNOWN" };
-    const intervals = inherited ? venue.intervals : today.map(s => [minute(s.start), minute(s.end) <= minute(s.start) ? 1440 : minute(s.end)] as const);
+    const scheduleIntervals = inherited ? venue.intervals : today.map(s => [minute(s.start), minute(s.end) <= minute(s.start) ? 1440 : minute(s.end)] as const);
+    const activityIntervals: readonly (readonly [number, number])[] = activities.length ? activities.flatMap(p => {
+        if (librarianConditions({...p.conditions, event: null, dayparts: []}, visit) === "FAILED") return [];
+        return p.conditions.dayparts.length ? p.conditions.dayparts.map(phase => DAYPART_RANGES[phase]!) : [[0, 1440] as const];
+    }) : [[0, 1440]];
+    const intervals = scheduleIntervals.flatMap(slot => activityIntervals.flatMap(activity => {
+        const from = Math.max(slot[0], activity[0]), to = Math.min(slot[1], activity[1]);
+        return from < to ? [[from, to] as const] : [];
+    }));
     let venueIntervals = venue.intervals;
     let kitchenHashes: readonly string[] = [];
     if ((OFFER_CONCEPTS[offer.kind] ?? []).includes("meal")) {

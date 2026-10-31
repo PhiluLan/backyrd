@@ -23,7 +23,7 @@ Deno.serve(async(request:Request)=>{
   let searchTrace:LibrarianSearchResult|null=null;
   const rpc:DecisionProductRpcClient={async rpc(name,parameters,signal){
    const result=await service.rpc(name,parameters as Record<string,unknown>).abortSignal(signal);
-   if(!result.error&&name==='backyrd_decision_vnext_product_context_v6'){
+   if(!result.error&&['backyrd_decision_vnext_product_context_v6','backyrd_decision_vnext_product_context_v7'].includes(name)){
     if(!result.data||typeof result.data!=='object'||Array.isArray(result.data))throw Error('diagnostic_context_invalid');
     capturedContext=result.data as Record<string,unknown>;
    }

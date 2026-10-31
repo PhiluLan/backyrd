@@ -145,3 +145,30 @@ These results do not justify a blanket production-ready claim.
 No migrations, Spot edits, Auth, consent or moderation changes belong to this
 candidate. Publish only through the normal certified release after acceptance
 of the product behaviour and the outstanding qualitative-price policy.
+
+
+## Child outings and regional retrieval (matching @21)
+
+Generic `condition.children = Kinderangebote` does not establish an activity:
+it may describe a children's meal or discount. A typed leisure offering such as
+an exhibition can establish a family outing when its same-scope verified facts
+jointly document all-age suitability and family-friendly atmosphere. Neither
+family atmosphere alone nor admission alone is sufficient. Existing minimum-age,
+accompaniment, indoor and time checks remain independent obligations.
+Structured recurring activity conditions constrain an offering even when its
+schedule is empty; inheriting venue hours cannot erase a Sunday-only activity.
+Description text is not silently interpreted as an authoritative calendar.
+
+Context/default Basel retrieves the versioned municipality cohort in
+`product-librarian-geography.ts` through service-only context v7. It makes no
+radius/distance claim. Required exact destinations still compare actual
+localities; Muttenz is never renamed Basel. Other cities retain city retrieval.
+The SQL and runtime region lists must match exactly; outside-region bindings,
+missing region authority, invalid manifests, disabled releases and unauthorized
+actors fail closed. Legacy context v5/v6 remain unchanged. Events follow the
+same cohort, preserving their original locality and publication controls.
+
+Replay of the recorded 31 October child-indoor request against 432 current
+regional profiles admits ELYS, JUMP Factory, Hoppolino and Spielzeug Welten Museum;
+Basso is unresolved and not recommended. This is a deterministic candidate replay,
+not a production deployment or a fresh model invocation. No Spot edits are made.
