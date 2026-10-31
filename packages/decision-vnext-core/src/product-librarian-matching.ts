@@ -347,7 +347,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     if (desired && ["experience.activity", "offer.feature", "atmosphere.music", "condition.children"].includes(fact.key)) {
         for (const offer of profile.offers) {
             const declared = declaredExperienceConcepts(offer.name, "OFFER_NAME");
-            const genericChildMeal = fact.key === "condition.children" && desired === "children_activity"
+            const genericChildMeal = ["condition.children", "experience.activity", "offer.kind"].includes(fact.key) && desired === "children_activity"
                 && (OFFER_CONCEPTS[offer.kind] ?? []).some(activity => ["meal", "drinks", "snacks"].includes(activity));
             if (!genericChildMeal && declared.some(actual => experienceActivitySupports(actual, desired)))
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) add("MET", offer, areaId, {declaredOfferName: offer.name});

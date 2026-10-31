@@ -39,7 +39,7 @@ test('family activity aliases retain meaning without making a child menu an acti
  for(const value of ['Familienaktivität','family activity','activité en famille']){
   const q=request([fact('family','experience.activity',value)]);
   assert.equal(search(q,[binding(1,familyVenue(null))]).ranked[0]?.status,'CONFIRMED');
-  assert.equal(search(q,[binding(2,profile([offer('food','DINNER',['inside'],[prop('condition.children','Kinderangebote')])]))]).ranked.length,0);
+  assert.equal(search(q,[binding(2,profile([offer('Kinderangebote','DINNER',['inside'],[prop('condition.children','Kinderangebote')])]))]).ranked.length,0);
  }
 });
 test('a catalogued snack can arrive in food.option without admitting unrelated dietary options',()=>{
