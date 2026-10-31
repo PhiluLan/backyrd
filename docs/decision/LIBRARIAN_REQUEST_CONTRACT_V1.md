@@ -748,7 +748,7 @@ Finite laptop-work labels map to the actual COWORKING offer concept. A café or 
 A required/excluded extension whose exact finite concept is already represented by a fact with identical subjects, modality and basis is diagnosed as a redundant extension. The existing single correction may remove only that diagnosed duplicate; all real facts and unknown extra needs remain immutable. Different participants, different modality or an unmapped description is not a duplicate. The model does not silently lose genuine unsupported wishes. Reproduced when correctly emitted coworking was duplicated as “Arbeiten mit dem eigenen Laptop” in case 30.
 
 ### General atmosphere preference policy (prompt 26)
-Ordinary cozy, relaxed and romantic atmosphere requests remain explicit ranking preferences. They are not confirmed without scoped mood evidence. Emphatic must/only wording disables this default. Noise, conversation, music, activities, meals, diet, price, location, access and time remain mandatory unless explicitly softened. The schema and provider both enforce the bounded exception. No spot data is inferred or edited.
+Ordinary cozy, relaxed and romantic atmosphere requests remain explicit ranking preferences. They are not confirmed without scoped mood evidence. Emphatic must/only wording disables this default. Functional quiet needs, conversation, music, activities, meals, diet, price, location, access and time remain mandatory unless explicitly softened. See descriptive quiet refinement below. The schema and provider both enforce the bounded exception. No spot data is inferred or edited.
 
 ### Primary gastronomy purpose ranking (matching 48)
 A food/drink-only request gives positive primary-purpose evidence to verified EAT/DRINKS/COFFEE_DAYTIME venues. Other venues with proven food remain eligible; this is ordering, never an exclusion or proof of independent access. A simultaneous non-food activity (including a playground or children activity) disables this gastronomy priority. Existing meals, diets, access and availability still require their own scoped evidence.
@@ -767,3 +767,6 @@ A route activity plus takeaway does not imply that the walk must take place in t
 
 ### Self-barbecue vocabulary (shared language 20 / matching 51)
 Grillieren, selber grillen and explicitly declared public grill use share self_barbecue. A grill restaurant or meat dish does not prove a self-use grill facility. Offer/area and own-food permission remain independently required. Held source profiles remain unavailable and are never bypassed by this vocabulary.
+
+### Descriptive versus functional quiet (prompt 29)
+A descriptive quiet café/venue is a source-grounded atmosphere preference, with unknown noise explicitly disclosed. Functional need for quiet, emphatic requirements and noise sensitivity remain mandatory. Conversation suitability stays mandatory and is not inferred from quiet. Source-word evidence is now checked for every implicit atmosphere preference; an unrelated request cannot acquire invented cozy/quiet preference. WLAN and work permission still require independent evidence.

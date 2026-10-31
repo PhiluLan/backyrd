@@ -95,7 +95,7 @@ test('preference admission needs explicit source evidence across supported langu
  for(const text of ['gemütlich essen und nicht zu teuer','Live Jazz mit Rollstuhl','unmöglichst optionality']){
   assert.deepEqual(explicitPreferenceEvidence(text),[]);
   const body=buildLunaLibrarianModelRequest({sourceText:text,reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
-  const variants=[];const walk=v=>{if(v&&typeof v==='object'){if(v.properties?.modality?.enum?.includes('PREFERRED'))variants.push(v);for(const child of Object.values(v))walk(child);}};walk(body.text.format.schema);assert.ok(variants.length);for(const v of variants)assert.deepEqual(v.properties.key.enum,['atmosphere.character']);
+  const variants=[];const walk=v=>{if(v&&typeof v==='object'){if(v.properties?.modality?.enum?.includes('PREFERRED'))variants.push(v);for(const child of Object.values(v))walk(child);}};walk(body.text.format.schema);assert.ok(variants.length);for(const v of variants)assert.deepEqual(v.properties.key.enum,['atmosphere.character','atmosphere.noise']);
  }
  for(const text of ['möglichst gemütlich','preferably quiet','si possible au calme','se possibile tranquillo','Es wäre schön, wenn es ruhig ist']){
   assert.ok(explicitPreferenceEvidence(text).length,text);
@@ -164,4 +164,11 @@ test('ordinary general atmosphere is a preference but emphatic mood and concrete
   const p=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(bad)});
   await assert.rejects(p({...req,naturalLanguage:'Gemütlich Kaffee und Kuchen'},{},new AbortController().signal),/understanding_unresolved/);
  }
+});
+
+test('descriptive quiet may rank with an honest notice; functional quiet and absent mood wording remain binding',async()=>{
+ const output=raw('atmosphere.noise','quiet');output.facts[0].modality='PREFERRED';
+ const p=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(output)});
+ assert.equal((await p({...req,naturalLanguage:'In einem ruhigen Café arbeiten, ich brauche WLAN'},{},new AbortController().signal)).facts[0].modality,'PREFERRED');
+ for(const text of ['Ich brauche Ruhe im Café','Unbedingt ruhig arbeiten','Kaffee und Kuchen','Ein Café, ich bin lärmempfindlich'])await assert.rejects(p({...req,naturalLanguage:text},{},new AbortController().signal),/understanding_unresolved/);
 });
