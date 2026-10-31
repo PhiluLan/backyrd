@@ -291,3 +291,15 @@ test('ordinary mood retains an honest notice without suppressing proven coffee a
  const onlyCoffee=offer('coffee','CAFE');onlyCoffee.name='Kaffee';
  assert.equal(search(request(facts),[binding(1102,profile([onlyCoffee],[area()]))]).ranked.length,0);
 });
+
+test('pure dining gives primary gastronomy priority without excluding secondary dining or changing mixed family visits',async()=>{
+ const food=offer('food','GASTRONOMY');food.name='Restaurant';
+ const cafe=originalBinding(1110,profile([food],[area()],'RESTAURANT'),[worldFact('classification.primary_category','EAT')]);
+ const auxiliary=originalBinding(1111,profile([food],[area()],'MUSEUM'),[worldFact('classification.primary_category','CULTURE_ARTS')]);
+ const dining=await exercise({text:'Essen gehen',meaning:request([meal()]),catalog:[auxiliary,cafe]});
+ assert.equal(dining.status,200);assert.equal(dining.body.candidates.filter(c=>c.rank!==null).length,2);
+ assert.equal(dining.body.candidates[0].presentation.name,cafe.decisionProjection.facts.find(f=>f.key==='identity.name').value);
+ assert.ok(dining.body.candidates[0].reasons.some(r=>r.code==='primary-purpose-gastronomy'));
+ const family=await exercise({text:'Familienaktivität mit Essen',meaning:request([meal(),fact('family','condition.children','children_activity')]),catalog:[cafe,auxiliary]});
+ assert.ok(family.body.candidates.every(c=>!c.reasons.some(r=>r.code==='primary-purpose-gastronomy')));
+});

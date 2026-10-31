@@ -749,3 +749,6 @@ A required/excluded extension whose exact finite concept is already represented 
 
 ### General atmosphere preference policy (prompt 26)
 Ordinary cozy, relaxed and romantic atmosphere requests remain explicit ranking preferences. They are not confirmed without scoped mood evidence. Emphatic must/only wording disables this default. Noise, conversation, music, activities, meals, diet, price, location, access and time remain mandatory unless explicitly softened. The schema and provider both enforce the bounded exception. No spot data is inferred or edited.
+
+### Primary gastronomy purpose ranking (matching 48)
+A food/drink-only request gives positive primary-purpose evidence to verified EAT/DRINKS/COFFEE_DAYTIME venues. Other venues with proven food remain eligible; this is ordering, never an exclusion or proof of independent access. A simultaneous non-food activity (including a playground or children activity) disables this gastronomy priority. Existing meals, diets, access and availability still require their own scoped evidence.

@@ -186,6 +186,19 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     reasons.unshift({reasonCode:"event-occurrence",domain:"WORLD",sourceHash:world.snapshotHash,statementDe:"Der Termin für diese Veranstaltung ist veröffentlicht.",confirmed:true});
     reasons.push({reasonCode:"event-ticket-availability",domain:"LIMITATION",sourceHash:world.snapshotHash,statementDe:"Ob du ein Ticket oder eine Anmeldung brauchst und noch teilnehmen kannst, bitte vorab prüfen.",confirmed:false});
   }
+  // A genuine restaurant/café/bar visit outranks incidental catering at a
+  // different primary venue. Positive classification evidence affects order
+  // only, never proves meals, access or availability and never excludes a café
+  // inside a museum. A requested non-food activity disables this preference.
+  const foodConcepts = new Set(["meal","lunch","dinner","breakfast","brunch","snacks","aperitif","drinks","coffee"]);
+  const activeDuties = meaning.facts.filter(f => f.modality === "REQUIRED");
+  const foodCore = activeDuties.some(f => ["experience.activity","offer.kind","food.meal","food.drink","food.dish"].includes(f.key));
+  const otherCore = activeDuties.some(f => ["experience.activity","offer.kind","condition.children"].includes(f.key)
+    && (f.value.kind !== "TEXT" || !foodConcepts.has(librarianConcept(f.value.text) ?? "")))
+    || activeDuties.some(f => ["offer.feature","offer.facility"].includes(f.key) && f.value.kind === "TEXT" && librarianConcept(f.value.text) === "playground");
+  const primaryGastronomy = !event && foodCore && !otherCore && ["EAT","DRINKS","COFFEE_DAYTIME"].includes(world.spot.classification.primaryCategory ?? "");
+  if (primaryGastronomy) reasons.push({reasonCode:"primary-purpose-gastronomy",domain:"WORLD",sourceHash:world.snapshotHash,
+    statementDe:"Der Ort ist als Gastronomie eingeordnet und passt damit zum gewünschten Essens- oder Getränkebesuch.",confirmed:true});
   const tastes = event ? [] : userTasteMatches(world, context, projection);
   return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     ...(event?.matchedSpotId ? {relatedSpotId:event.matchedSpotId}:{}),
@@ -193,7 +206,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     tier: rejected || failed.length ? "INELIGIBLE" : candidate.status === "CONFIRMED" && hasVisitEvidence && obligationsProven && coverage === "CONFIRMED" ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK",
     coreIntentCoverage: core, secondaryIntentCoverage: { ...core, state: "NOT_APPLICABLE" },
     worldClassification: { primaryVisitPurpose: null, primaryCategory: world.spot.classification.primaryCategory, placeTypes: world.spot.classification.placeTypes, evidenceSourceHash: world.snapshotHash },
-    primaryVisitPurpose: contextual("NOT_APPLICABLE"), specificCoreClassification: { ...contextual("NOT_APPLICABLE"), state: coverage },
+    primaryVisitPurpose: contextual(primaryGastronomy ? "CONFIRMED" : "NOT_APPLICABLE"), specificCoreClassification: { ...contextual("NOT_APPLICABLE"), state: coverage },
     onsiteOfferings: { ...contextual("NOT_APPLICABLE"), availableKinds: [], matchedKinds: [], relationships: [], confirmsCoreIntent: false },
     visitSituation: contextual("NOT_APPLICABLE"), atmosphere: contextual(candidate.facts.some(f => f.family.startsWith("atmosphere.") && f.state === "MET") ? "CONFIRMED" : "NOT_APPLICABLE"),
     typicalDaypart: contextual("NOT_APPLICABLE"), actualAvailability: { status: availability, evidenceSourceHash: candidate.candidateHash },
