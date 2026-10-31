@@ -2,6 +2,7 @@ import type { LibrarianFact, LibrarianRequest } from "./product-luna-librarian.j
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { hasOfferModule, librarianConcept, librarianTerm, type ExperienceProfile, type ExperienceOffer } from "@backyrd/world-knowledge-core";
 import { librarianConditions, visitWeekday, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
+import { contentHash } from "./canonical.js";
 export type LibrarianEligibility = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -64,6 +65,15 @@ export function librarianGlobalEligibility(input: {
     const activeGroups = request.entities.filter(e => e.kind === "GROUP" && facts.some(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.subjectIds.includes(e.id)));
     // A partial GROUP must never hide an explicitly mentioned participant's age.
     const ageFacts = facts.filter(f => f.key === "people.age" && !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.subjectIds.length === 1);
+    const companionFacts = facts.filter(f => f.key === "people.relationship" && ["CONTEXT", "REQUIRED"].includes(f.modality) && f.value.kind === "TEXT");
+    const hasCompanionTerm = (terms: readonly string[]) => companionFacts.some(f => f.value.kind === "TEXT" && terms.includes(librarianTerm(f.value.text)));
+    const unaccompanied = hasCompanionTerm(["unaccompanied", "children_alone", "ohne begleitung", "kinder allein"]);
+    const familyCompanionship = hasCompanionTerm(["adult_accompanied", "family_outing", "familie", "familienausflug", "familienaktivität", "mit meiner tochter", "mit meinem sohn"]);
+    const selfIds = facts.filter(f => f.key === "people.role" && ["CONTEXT", "REQUIRED"].includes(f.modality)
+        && f.value.kind === "TEXT" && ["self", "requester", "ich"].includes(librarianTerm(f.value.text))).flatMap(f => f.subjectIds);
+    const selfKnownMinor = ageFacts.some(f => selfIds.includes(f.subjectIds[0]!) && (range(f)?.[1] ?? 130) < 18);
+    const explicitAdult = ageFacts.some(f => (range(f)?.[0] ?? 0) >= 18) && (activeGroups.length === 1 || familyCompanionship);
+    const adultAccompaniment = !unaccompanied && (explicitAdult || familyCompanionship && !selfKnownMinor);
     const counts = facts.filter(f => f.key === "people.count" && !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality) && f.value.kind === "COUNT" && f.value.operator === "EQ");
     const count = counts.length === 1 && counts[0]!.value.kind === "COUNT" ? counts[0]!.value.amount : null;
     const capacity = world.facts.find(r => r.key === "capacity.group_size_supported" && r.trust === "VERIFIED" && r.freshness === "CURRENT");
@@ -181,12 +191,23 @@ export function librarianGlobalEligibility(input: {
                 results.push({ state: "UNKNOWN", reason: "ENTRY_RULE_CONDITIONS_UNRESOLVED", hashes: [row.entryHash] });
                 continue;
             }
+            // A minimum age for going alone is not a minimum admission age.
+            // Family/parent accompaniment is visit context, not an invented
+            // exact age or a demand for a complete passenger manifest.
+            if (rule.mode === "UNACCOMPANIED_MINIMUM" && rule.accompaniment === "ADULT" && adultAccompaniment) {
+                results.push({state:"MET",reason:"ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED",hashes:[row.entryHash,contentHash({companionFacts,selfIds,ageFacts})]});
+                continue;
+            }
             const ages = ageFacts.map(range), below = ages.some(bounds => bounds !== null && bounds[1] < rule.minimumAge!);
             if (rule.mode === "GENERAL_MINIMUM" && below) {
                 results.push({ state: "FAILED", reason: "PARTICIPANT_BELOW_VERIFIED_MINIMUM_AGE", hashes: [row.entryHash] });
                 continue;
             }
             if (rule.mode === "UNACCOMPANIED_MINIMUM" && below) {
+                if (unaccompanied && rule.accompaniment === "ADULT") {
+                    results.push({state:"FAILED",reason:"REQUIRED_ADULT_ACCOMPANIMENT_EXPLICITLY_ABSENT",hashes:[row.entryHash,contentHash(companionFacts)]});
+                    continue;
+                }
                 const adult = activeGroups.length === 1 && ages.some(bounds => bounds !== null && bounds[0] >= 18);
                 if (rule.accompaniment === "ADULT" && adult && count !== null && ageFacts.length === count)
                     continue;

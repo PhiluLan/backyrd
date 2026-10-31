@@ -369,3 +369,49 @@ test('unrelated optional or negative wording does not erase the actual birthday 
   assert.equal(search(request([fact('family','condition.children','children_activity')]),[binding(1,p)]).ranked.length,0,name);
  }
 });
+
+
+const childEntryRule=(mode='UNACCOMPANIED_MINIMUM',minimumAge=13)=>worldFact('rule.age_access_conditions',{notes:null,rules:[{area:null,days:[],mode,event:null,minimumAge,accompaniment:mode==='UNACCOMPANIED_MINIMUM'?'ADULT':'NONE',appliesFromTime:null}]});
+const companionRequest=(extras=[])=>request([fact('family','condition.children','children_activity'),...extras]);
+const accompany=(value='adult_accompanied')=>fact('companion','people.relationship',value,'CONTEXT',[]);
+test('family accompaniment satisfies an unaccompanied minimum without invented ages or headcount',async()=>{
+ const catalog=[binding(1,familyVenue('snacks'),[childEntryRule()])];
+ for(const label of ['adult_accompanied','Familie','Familienausflug']){
+  const q=companionRequest([accompany(label)]);
+  const r=search(q,catalog);
+  assert.equal(r.ranked.length,1,label);
+  assert.ok(r.ranked[0].facts.some(f=>f.reason==='ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED'));
+  assert.ok(!q.facts.some(f=>['people.age','people.count'].includes(f.key)));
+ }
+ const q=companionRequest([accompany()]);
+ const http=await exercise({text:'Familienaktivität',meaning:q,catalog});
+ assert.equal(http.status,200);
+ const c=http.body.candidates.find(c=>c.rank===1);
+ assert.ok(c.reasons.some(r=>r.domain==='CONTEXT'&&r.statement.includes('Begleitung')));
+ assert.equal(c.rankVector.worldEvidence.confirmedReasonCount,1,'accompaniment does not add a venue-ranking vote');
+});
+test('a four-year-old accompanied by a parent fits the under-thirteen accompaniment rule',()=>{
+ const q=companionRequest([child(),accompany()]);
+ assert.equal(search(q,[binding(1,familyVenue(),[childEntryRule()])]).ranked.length,1);
+});
+test('children alone override the family default and cannot satisfy required adult accompaniment',()=>{
+ const q=companionRequest([child(),accompany(),fact('alone','people.relationship','unaccompanied','CONTEXT',['p2'])]);
+ const r=search(q,[binding(1,familyVenue(),[childEntryRule()])]);
+ assert.equal(r.ranked.length,0);
+ assert.ok(r.excluded[0].facts.some(f=>f.reason==='REQUIRED_ADULT_ACCOMPANIMENT_EXPLICITLY_ABSENT'));
+});
+test('an explicitly minor requester does not become an adult through the family default',()=>{
+ const q=companionRequest([child(),accompany(),fact('self','people.role','self','CONTEXT',['p1']),fact('self-age','people.age',{amount:12,operator:'EQ',unit:'YEARS'},'CONTEXT',['p1'])]);
+ assert.equal(search(q,[binding(1,familyVenue(),[childEntryRule()])]).ranked.length,0);
+});
+test('adult accompaniment does not override an actual minimum admission age',()=>{
+ const q=companionRequest([child(),accompany()]);
+ const r=search(q,[binding(1,familyVenue(),[childEntryRule('GENERAL_MINIMUM',6)])]);
+ assert.equal(r.ranked.length,0);
+ assert.ok(r.excluded[0].facts.some(f=>f.reason==='PARTICIPANT_BELOW_VERIFIED_MINIMUM_AGE'));
+});
+test('a children activity alone is not evidence that an adult accompanies the visit',()=>{
+ const r=search(companionRequest(),[binding(1,familyVenue(),[childEntryRule()])]);
+ assert.equal(r.ranked.length,0);
+ assert.ok(r.unresolved[0].facts.some(f=>f.reason==='PARTICIPANT_AGE_COVERAGE_INCOMPLETE'));
+});
