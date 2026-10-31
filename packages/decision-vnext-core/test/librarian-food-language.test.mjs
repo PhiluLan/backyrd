@@ -35,6 +35,15 @@ test('properties attached to the same activity still cannot borrow a different c
  const q=request([fact('play','condition.children','children_activity'),fact('food','food.meal','meal')]);
  assert.equal(search(q,[binding(1,familyVenue())]).ranked.length,0);
 });
+test('family activity remains a priced activity; a cheap cafe cannot prove the whole outing budget',()=>{
+ const original=foodAlternative().raw;
+ const facts=[...original.facts,fact('budget','budget.maximum',{amount:5,operator:'LTE',currency:'CHF'},'REQUIRED',[]),fact('scope','budget.scope',{scope:'PER_PERSON'},'CONTEXT',[])];
+ const costed=request(facts,{...original,facts});
+ const p=familyVenue('meal');
+ p.offers[0].prices=[price(50,{includes:'Eintritt'})];
+ p.offers[1].prices=[price(1)];
+ assert.equal(search(costed,[binding(1,p)]).ranked.length,0);
+});
 test('family activity aliases retain meaning without making a child menu an activity',()=>{
  for(const value of ['Familienaktivität','family activity','activité en famille']){
   const q=request([fact('family','experience.activity',value)]);

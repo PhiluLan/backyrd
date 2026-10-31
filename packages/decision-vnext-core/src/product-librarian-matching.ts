@@ -150,6 +150,7 @@ function offerDuty(fact: LibrarianFact): boolean {
     const concept = librarianConcept(fact.value.text);
     return ["food.meal", "food.option"].includes(fact.key) && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
         || fact.key === "food.drink" && concept === "drinks"
+        || fact.key === "condition.children" && concept === "children_activity"
         || librarianFacilityConcept(fact) === "playground";
 }
 const contextual = (fact: LibrarianFact) => fact.modality === "CONTEXT";
@@ -339,7 +340,10 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 // Zoo-wide activity support does not place animals in every
                 // linked room, terrace or cafe. Preserve the actual offer only.
                 const derived = !offered.includes(desired);
-                for (const areaId of derived ? [null] : offer.areaIds.length ? offer.areaIds : [null])
+                // A child-compatible play/course still takes place in its
+                // recorded room. Do not drop that scope when generalizing it
+                // to a family activity, or it could borrow an unrelated cafe.
+                for (const areaId of derived && desired !== "children_activity" ? [null] : offer.areaIds.length ? offer.areaIds : [null])
                     add("MET", offer, areaId, { kind: offer.kind, name: offer.name, activityRelation: derived ? { offered, requested: desired } : null, classificationHash: classification?.entryHash ?? null });
             }
         }
