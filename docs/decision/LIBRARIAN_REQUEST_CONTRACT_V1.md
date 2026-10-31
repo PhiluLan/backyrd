@@ -758,3 +758,6 @@ A named museum visit, animal observation, playground, bathing or sport retains t
 
 ### Escape-room offer format (matching 49)
 The ESCAPE_GAME catalogue kind is labelled Escape Room. An offer explicitly named as a portable puzzle box/Rätselkiste cannot prove that room activity even if stored under the same broad kind. Other actual escape-room offers at the venue remain eligible. No venue names or preferred result IDs are encoded.
+
+### Bounded transport recovery (provider 5)
+HTTP 502/503/504 may consume one retry across the entire translation, including an optional meaning correction. All calls share the existing abort budget. Permanent HTTP failures, rate limits, network ambiguity, refusal and malformed outputs are not retried by this transport policy. The protected internal diagnostic records HTTP statuses and a sanitised failure code without provider response bodies, keys or public exposure.

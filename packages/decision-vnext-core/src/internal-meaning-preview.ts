@@ -31,11 +31,11 @@ export function createInternalMeaningPreviewHandler(input:{
         const productRequest={contractVersion:'backyrd.decision-vnext.product-request@1.0' as const,requestId:id,idempotencyKey:id,naturalLanguage:value.query,explicit:{targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT' as const},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
         const actor={userId:crypto.randomUUID(),subjectBindingHash:contentHash('INTERNAL_SERVICE_OPERATOR_NOT_APP_USER'),authenticationContextHash:contentHash('SERVER_SERVICE_AUTHORIZATION'),sessionBindingHash:contentHash(id),sessionId:crypto.randomUUID()};
         const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),30000);const started=performance.now();
-        let modelCalls=0;const usages:unknown[]=[];const translationAttempts:{readonly output:LunaMeaningOutput;readonly issues:readonly LunaMeaningIssue[]}[]=[];
+        let modelCalls=0;const providerResponses:{readonly status:number}[]=[];const usages:unknown[]=[];const translationAttempts:{readonly output:LunaMeaningOutput;readonly issues:readonly LunaMeaningIssue[]}[]=[];
         try{
             let usage:unknown=null;
-            const provider=createDecisionProductLunaProvider({apiKey:input.apiKey,onTranslationAttempt:attempt=>translationAttempts.push(attempt),now:()=>new Date(reference.now),fetchImpl:async(url,options)=>{
-                modelCalls++;if(modelCalls>2)throw Error('internal_model_call_limit');
+            const provider=createDecisionProductLunaProvider({apiKey:input.apiKey,onProviderResponse:attempt=>providerResponses.push(attempt),onTranslationAttempt:attempt=>translationAttempts.push(attempt),now:()=>new Date(reference.now),fetchImpl:async(url,options)=>{
+                modelCalls++;if(modelCalls>3)throw Error('internal_model_call_limit');
                 if(url!=='https://api.openai.com/v1/responses')throw Error('internal_provider_destination_invalid');
                 const response=await (input.fetchImpl??fetch)(url,options);
                 if(response.ok){const payload:unknown=await response.clone().json();if(payload&&typeof payload==='object'&&'usage'in payload){usage=payload.usage;usages.push(usage);}}
@@ -43,9 +43,9 @@ export function createInternalMeaningPreviewHandler(input:{
             }});
             const meaning=await provider(productRequest,actor,controller.signal);
             if(controller.signal.aborted)return reply(504,{error:'internal_model_timeout'});
-            return reply(200,{contractVersion:'backyrd.internal-meaning-preview@1',query:value.query,reference,meaning,usage,usages,modelCalls,translationAttempts,modelMs:performance.now()-started,codeIdentity:input.codeIdentity,
+            return reply(200,{contractVersion:'backyrd.internal-meaning-preview@1',query:value.query,reference,meaning,usage,usages,modelCalls,translationAttempts,providerResponses,modelMs:performance.now()-started,codeIdentity:input.codeIdentity,
                 boundaries:{providerKeyExposed:false,productionSearchExecuted:false,spotDataChanged:false,learningPersisted:false}});
-        }catch(error){return reply(controller.signal.aborted?504:503,{error:controller.signal.aborted?'internal_model_timeout':error instanceof Error&&error.message==='product_luna_understanding_unresolved'?'internal_understanding_unresolved':'internal_model_unavailable',modelCalls,translationAttempts});}
+        }catch(error){return reply(controller.signal.aborted?504:503,{error:controller.signal.aborted?'internal_model_timeout':error instanceof Error&&error.message==='product_luna_understanding_unresolved'?'internal_understanding_unresolved':'internal_model_unavailable',modelCalls,translationAttempts,providerResponses,failureCode:error instanceof Error&&/^product_luna_[a-z_]+$/.test(error.message)?error.message:'internal_provider_failure',codeIdentity:input.codeIdentity});}
         finally{clearTimeout(timer);controller.abort();}
     };
 }

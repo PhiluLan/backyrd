@@ -110,11 +110,13 @@ test('unqualified price wish cannot silently become a preference even if a provi
  const result=await provider({...req,naturalLanguage:'Möglichst nicht zu teuer essen'},{},new AbortController().signal);
  assert.equal(result.facts[0].modality,'PREFERRED');
 });
-test('provider network failures remain distinct from interpretation failures and are not retried',async()=>{
+test('transient HTTP failures retry once across translation and correction, permanent failures never retry',async()=>{
  let calls=0;const p=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>{calls++;return new Response('',{status:503});}});
- await assert.rejects(p(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,1);
+ await assert.rejects(p(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,2);
  calls=0;const repair=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>++calls===1?response(raw('condition.animals')):new Response('',{status:503})});
- await assert.rejects(repair(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,2);
+ await assert.rejects(repair(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,3);
+ for(const status of [400,401,403,429]){let n=0;const permanent=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>{n++;return new Response('',{status});}});await assert.rejects(permanent(req,{},new AbortController().signal),/provider_unavailable/);assert.equal(n,1);}
+ let n=0;const recovering=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>++n===1?new Response('',{status:503}):response(raw('experience.activity'))});assert.ok((await recovering(req,{},new AbortController().signal)).facts.length);assert.equal(n,2);
 });
 
 test('diet of a co-diner cannot silently disappear into context during a food visit',async()=>{

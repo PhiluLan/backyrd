@@ -4,7 +4,7 @@ import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, parseLunaMeani
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 import type { DecisionProductAuthenticatedActor } from "./product-decision.js";
 
-export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@4" as const;
+export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@5" as const;
 
 
 function modelOutput(value: unknown): unknown {
@@ -38,11 +38,13 @@ function assertExplicitContext(request: DecisionProductRequest, meaning: Librari
 }
 
 /** One normal call and at most one meaning-preserving field correction.
+ * One shared HTTP 502/503/504 retry is allowed within the same abort budget.
  * Source and intermediate meaning remain request-local; no cache or persistence. */
 export function createDecisionProductLunaProvider(input: {
   readonly apiKey: string;
   readonly fetchImpl?: typeof fetch;
   readonly now?: () => Date;
+  readonly onProviderResponse?: (attempt:{readonly status:number}) => void;
   /** Private in-memory diagnostic only. Never sent to public product responses. */
   readonly onTranslationAttempt?: (attempt: {readonly output: LunaMeaningOutput; readonly issues: readonly LunaMeaningIssue[]}) => void;
 }) {
@@ -57,12 +59,18 @@ export function createDecisionProductLunaProvider(input: {
     const {targetCityRole, ...explicitContext} = request.explicit;
     if (targetCityRole === "SEARCH_CONTEXT") delete explicitContext.targetCity;
     const body = buildLunaLibrarianModelRequest({ sourceText: request.naturalLanguage, reference, explicitContext });
-    const call = async (requestBody: typeof body) => {
+    let transientRetries=0;
+    const call = async (requestBody: typeof body):Promise<unknown> => {
       const response = await fetchImpl("https://api.openai.com/v1/responses", {
         method: "POST", signal, headers: { authorization: `Bearer ${input.apiKey}`, "content-type": "application/json" },
         body: JSON.stringify(requestBody),
       });
+      try {input.onProviderResponse?.({status:response.status});} catch { /* Diagnostic-only. */ }
       if (signal.aborted) throw new Error("product_luna_aborted");
+      if ([502,503,504].includes(response.status) && transientRetries===0) {
+        transientRetries++; await response.body?.cancel();
+        return call(requestBody);
+      }
       if (!response.ok) throw new Error("product_luna_provider_unavailable");
       return modelOutput(await response.json());
     };
@@ -89,6 +97,7 @@ export function createDecisionProductLunaProvider(input: {
         try { input.onTranslationAttempt?.({output:corrected, issues:remaining}); } catch { /* Diagnostics cannot affect a decision. */ }
         assertLunaMeaningCorrection(output, corrected, issues);
         if (remaining.length) throw new Error("product_luna_understanding_unresolved");
+        if (!explicitPreferenceEvidence(request.naturalLanguage).length && ([...corrected.facts,...corrected.extensions].some(f=>f.modality==='PREFERRED' && (!('key' in f) || !implicitAtmospherePreferenceAllowed(request.naturalLanguage,f))) || preferredLogic(corrected.logic))) throw new Error('product_luna_understanding_unresolved');
         output = corrected;
       } catch { throw new Error("product_luna_understanding_unresolved"); }
     }

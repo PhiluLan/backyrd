@@ -36,7 +36,7 @@ test('ordinary users, browsers and caller-provided prompts cannot invoke interna
 });
 test('invalid model output never becomes a successful internal run',async()=>{
  const handler=createInternalMeaningPreviewHandler({authorize:()=>true,apiKey:'provider-secret',codeIdentity:{mode:'INTERNAL_PREVIEW_CURRENT_BUILD'},fetchImpl:async()=>new Response(JSON.stringify({status:'completed',output:[]}))});
- const r=await handler(http());assert.equal(r.status,503);assert.deepEqual(await r.json(),{error:'internal_model_unavailable',modelCalls:1,translationAttempts:[]});
+ const r=await handler(http());assert.equal(r.status,503);assert.deepEqual(await r.json(),{error:'internal_model_unavailable',modelCalls:1,translationAttempts:[],providerResponses:[{status:200}],failureCode:'product_luna_response_invalid',codeIdentity:{mode:'INTERNAL_PREVIEW_CURRENT_BUILD'}});
 });
 test('local full chain reuses canonical evaluation and clearly labels injected provider tests',async()=>{
  const p=profile([offer('play','MOVEMENT_PLAY',['playroom']),offer('snacks','CAFE',['cafe'],[prop('food.meal_extent','Snacks')])],[area('playroom'),area('cafe')]);
