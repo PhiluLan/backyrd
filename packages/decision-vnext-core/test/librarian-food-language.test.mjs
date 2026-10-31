@@ -24,6 +24,26 @@ test('family activity plus either food option can use a separate cafe at the sam
   assert.equal(result.ranked[0].selectedFactIds.includes(food==='meal'?'snack':'meal'),false);
  }
 });
+test('indoor outing plus food at the same venue keeps activity and dining areas separate',()=>{
+ const original=foodAlternative().raw;
+ const inside=fact('inside','offer.area','indoor','REQUIRED',['a1']);
+ const companion=fact('companion','people.relationship','adult_accompanied','CONTEXT',[]);
+ const q=request([...original.facts,inside,companion],{...original,facts:[...original.facts,inside,companion],logic:{kind:'ALL',children:[original.logic,{kind:'FACT',factId:'inside'}]}});
+ for(const food of ['meal','snacks']){
+  const p=familyVenue(food);
+  const good=search(q,[binding(1,p)]);
+  assert.equal(good.ranked.length,1,JSON.stringify(good.unresolved));
+  assert.deepEqual(good.ranked[0].offerIds,['cafe','play']);
+  // An indoor cafe does not make the actual outdoor activity an indoor outing.
+  p.areas[0].kind='OUTDOOR';
+  assert.equal(search(q,[binding(1,p)]).ranked.length,0);
+ }
+ const p=familyVenue('snacks');p.areas[1].kind='OUTDOOR';
+ assert.equal(search(q,[binding(1,p)]).ranked.length,1,'only the activity was requested indoors');
+ const diningInside=fact('diningInside','offer.area','indoor','REQUIRED',['a2']);
+ const bothInside=request([...q.raw.facts,diningInside],{...q.raw,facts:[...q.raw.facts,diningInside],logic:{kind:'ALL',children:[q.raw.logic,{kind:'FACT',factId:'diningInside'}]}});
+ assert.equal(search(bothInside,[binding(1,p)]).ranked.length,0,'explicit indoor dining remains binding');
+});
 test('food is still a duty: an activity alone, a family restaurant alone, or food at another venue cannot satisfy it',()=>{
  const q=foodAlternative();
  const onlyFood=profile([offer('dinner','DINNER',['inside'],[prop('condition.children','Kinderangebote')])],[area('inside',[prop('atmosphere.character','familienfreundlich')])]);

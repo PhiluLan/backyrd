@@ -14,10 +14,10 @@ const simple=()=>({entities:[],facts:[{id:'f1',modality:'REQUIRED',basis:'EXPLIC
 const fact=(id,key,value,modality='REQUIRED',subjectIds=[])=>({id,key,value,modality,subjectIds,basis:'EXPLICIT'});
 const flatten=node=>node.kind==='FACT'?[node.factId]:node.kind==='IF'?[node.conditionFactId,...flatten(node.then),...(node.else?flatten(node.else):[])]:node.kind==='FALLBACK'?node.options.flatMap(flatten):node.children.flatMap(flatten);
 
-test('revision 10 preserves the frozen base and source-echo schema while separating ancillary food alternatives',()=>{
+test('revision 12 preserves the frozen base and source-echo schema while separating ancillary food alternatives',()=>{
  const cfg=LUNA_LIBRARIAN_CONFIGURATION;
  assert.equal(cfg.model,'gpt-5.6-luna');assert.equal(cfg.reasoningEffort,'low');assert.equal(cfg.store,false);
- assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@11');
+ assert.equal(cfg.basePromptHash,'712fe522d0cf4c4004d62c3efcf6a611d0db4024be0ca13479828b7cb00daef0');assert.equal(cfg.promptRevision,'backyrd.luna-prompt@12');
  assert.equal(cfg.baseSchemaHash,'9261d8d2b0605e203e928af92de83697d3df33539e2621424b5cf6cbf45ea8cc');assert.notEqual(cfg.schemaHash,cfg.baseSchemaHash);
  assert.equal(cfg.catalogHash,'7216d0011879d1e6b78e6186146305755111ceea87fa0992ee051b2b613e927c');
  const body=buildLunaLibrarianModelRequest({sourceText:'Heute Abend etwas trinken',reference:ref});
@@ -159,4 +159,22 @@ test('source time echoes are context-only at the active provider boundary; histo
  const output=simple();output.facts.push(fact('wording','time.original',{text:'diesen Sonntag'},'CONTEXT'));assert.doesNotThrow(()=>prepare(output));
  for(const modality of ['REQUIRED','PREFERRED','EXCLUDED','NOT_REQUIRED']){const bad=structuredClone(output);bad.facts[1].modality=modality;assert.throws(()=>validateActiveLunaMeaningOutput(bad));}
  const date={...simple(),facts:[fact('date','time.date',{date:'2026-11-01',operator:'EQ',timezone:'Europe/Zurich'},'REQUIRED')]};assert.equal(prepare(date).facts[0].modality,'REQUIRED');
+});
+
+test('companion context cannot become a venue requirement at the model schema or validator',()=>{
+ const body=buildLunaLibrarianModelRequest({sourceText:'Ausflug mit Kindern',reference:ref});
+ const variants=body.text.format.schema.$defs.fact.anyOf.filter(v=>v.properties.key.enum.includes('people.relationship'));
+ assert.equal(variants.length,1);
+ assert.deepEqual(variants[0].properties.key.enum,['people.relationship']);
+ assert.deepEqual(variants[0].properties.modality.enum,['CONTEXT']);
+ for(const text of ['adult_accompanied','unaccompanied','mit meiner Tochter']){
+  const output=simple();output.facts.push(fact('companion','people.relationship',{text},'CONTEXT'));
+  assert.doesNotThrow(()=>validateActiveLunaMeaningOutput(output));
+  for(const modality of ['REQUIRED','EXCLUDED','PREFERRED','NOT_REQUIRED']){
+   const invalid=structuredClone(output);invalid.facts[1].modality=modality;
+   assert.throws(()=>validateActiveLunaMeaningOutput(invalid),/companion_must_be_context/);
+   assert.equal(prepare(invalid).raw.facts[1].modality,modality,'historical plans are not silently rewritten');
+  }
+ }
+ assert.match(body.instructions,/VERBINDLICHE RÄUMLICHE ÜBERGABE/);
 });

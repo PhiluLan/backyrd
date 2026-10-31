@@ -253,7 +253,26 @@ Product explanations name the selected family activity as well as its food offer
 Backyrd interprets a family outing as adults accompanying children. The meaning contract retains this as `people.relationship=adult_accompanied`, CONTEXT, INFERRED. A caller undertaking an activity with their child is retained as a separate PERSON (`people.role=self`); the child's age keeps its own PERSON scope. No exact adult age or complete party count is fabricated. Mere co-presence is not an arbitrary person's adulthood: explicit minor companions and explicitly unaccompanied children take precedence. Existing structured family relationship labels also carry the product default; generic `children_activity` alone does not.
 
 The librarian can satisfy an adult-accompaniment exception to `UNACCOMPANIED_MINIMUM` from this context without requiring everyone's exact age and a headcount. It records the request evidence and an `ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED` assessment. Product explanations identify this as CONTEXT, so the additional gate cannot inflate venue evidence or ranking. `GENERAL_MINIMUM`, scoped offer admission ages, uncertain time/area applicability, and explicit absence of required adult supervision remain enforced. This is developed locally for a later combined release, not deployed.
-# Internal preview of unpublished understanding and matching
+
+### Provider boundary and activity scope (prompt revision 12; development only)
+
+The first real prompt-11 preview of a family indoor outing with food returned no
+confirmed matches: the model emitted `people.relationship` as REQUIRED and omitted
+the separate physical ACTIVITY entities. Historical meaning remains immutable.
+The active model schema now permits `people.relationship` only as CONTEXT; the
+active validator independently rejects a violation instead of silently weakening
+a requirement. Explicit companion exclusions are represented as context such as
+`unaccompanied`; actual venue admission and supervision rules remain enforced.
+
+The prompt specifies separate ACTIVITY subjects for the outing and its additional
+food offer, including an explicit structural example. Indoor applies to the
+outing's subject, food-or-snacks to a separate subject, joined by SAME_PLACE.
+The matcher is unchanged: it still requires evidence for every requested duty.
+Tests cover indoor play plus a separate cafe, snacks-only versus meals-only,
+an outdoor activity with an indoor cafe (rejected), and explicitly indoor dining
+at an outdoor food area (rejected). No venue-specific exception is introduced.
+
+## Internal preview of unpublished understanding and matching
 
 `scripts/decision/run-local-diagnostic.mjs` executes the canonical current evaluator
 and ranker against an exported, verified regional catalog. It does not persist
