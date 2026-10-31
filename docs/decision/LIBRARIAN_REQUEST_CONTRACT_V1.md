@@ -274,6 +274,39 @@ at an outdoor food area (rejected). No venue-specific exception is introduced.
 
 ## Internal preview of unpublished understanding and matching
 
+### Own consumption and family Zoo visits (prompt 15, matching 29, knowledge policy 2; development)
+
+Own food/drinks are `participation.permission=own_food/own_drinks`, not a supplied
+dish, meal or priced service. The active model validator rejects that erroneous
+additional supply duty; historical meaning plans remain unchanged. Permission
+uses the actual visited activity's scope, so a restaurant request cannot borrow
+permission from an unrelated outside area. Explicitly needed heating/storage
+services remain separate requirements. The source plan names `rule.external_food`
+or `rule.external_drink` as appropriate, separately from scoped permissions.
+
+Matching reads current verified HARD_CONSTRAINTS-authorized canonical consumption
+rules and recognized scoped permissions. Missing rules stay unknown; explicit
+denials, conflicting statements and unresolved conditions do not become permission.
+A general permission does not erase a scoped restriction. Food and drink rules
+remain independent. Own consumption does not prove venue food supply or introduce
+a food purchase/price. Arbitrary custom-detail prose is not promoted to a rule.
+
+The bounded exception grammar recognizes exclusions of dining establishments,
+optionally followed by named dining examples. A selected dining offer/area is
+excluded; known separate visit areas remain usable. Unknown areas, qualifications,
+fees, time conditions or other uninterpretable exceptions stay unknown. Canonical
+offer/area modules locate dining; no venue-name-specific exception is installed.
+Exceptions remain visible in product explanations and traceable to their source.
+
+A verified Zoo classification plus a VISIT offer participates in the existing
+family-leisure proof: documented all-ages suitability and family atmosphere must
+still hold at that offer's actual area and visit conditions. Zoo classification
+or family-friendly food alone cannot establish a child experience. Admission and
+opening rules retain their independent gates. The regression fixture is an
+unchanged public canonical Zoo Basel projection, not amended test venue knowledge.
+These changes are internal development; no spot data, SQL or consumer deployment
+is changed by this fix.
+
 ### General outing purpose (prompt 14; development)
 
 Generic wording such as making an outing or spending a day is visit purpose

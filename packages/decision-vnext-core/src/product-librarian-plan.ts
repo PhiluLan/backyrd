@@ -1,5 +1,5 @@
 import { contentHash, deepFreeze } from "./canonical.js";
-import { LIBRARIAN_FAMILY_STRATEGIES, librarianFactPropertySourceKeys } from "./product-librarian-language.js";
+import { LIBRARIAN_FAMILY_STRATEGIES, librarianFactPropertySourceKeys, librarianExternalConsumptionKind } from "./product-librarian-language.js";
 import { LIBRARIAN_KNOWLEDGE_POLICY, QUALITATIVE_PRICE_POLICY } from "./product-librarian-knowledge.js";
 import type { LibrarianSemanticIndex } from "./product-librarian-semantics.js";
 import type { LibrarianFact, LibrarianRequest } from "./product-luna-librarian.js";
@@ -35,7 +35,9 @@ export function compileLibrarianPlan(request: LibrarianRequest, semantics: Libra
         const family = "key" in fact ? fact.key : null;
         const nativeOperator = family ? LIBRARIAN_FAMILY_STRATEGIES[family] : "UNSUPPORTED";
         const operator = nativeOperator === "UNSUPPORTED" && semanticKeys.length ? "SCOPED_PROPERTY" : nativeOperator;
-        const sources = operator === "BOOKING" ? ["rule.reservation", "participation.booking", "participation.entry_mode"]
+        const consumption = "key" in fact ? librarianExternalConsumptionKind(fact) : null;
+        const sources = consumption ? [consumption === "FOOD" ? "rule.external_food" : "rule.external_drink", "participation.permission"]
+            : operator === "BOOKING" ? ["rule.reservation", "participation.booking", "participation.entry_mode"]
             : operator === "QUALITATIVE_PRICE" ? ["operation.price_level"]
             : operator === "PRICE" ? ["experience.profile.offers.prices"]
             : operator === "TEMPORAL" ? ["hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "state.current", "experience.profile.offers.schedule"]

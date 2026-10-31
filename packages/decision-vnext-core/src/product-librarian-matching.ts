@@ -1,7 +1,7 @@
 import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
-import { bookingEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
+import { bookingEvidence, externalConsumptionEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
 import { librarianRankingPreference, librarianMandatoryEvidenceSatisfied, librarianFactPropertySourceKeys, librarianFacilityConcept, librarianMealExtentConcept } from "./product-librarian-language.js";
 import { assessLibrarianAccessibility, assessLegacyLibrarianFact, assessLibrarianPlaceType, requestedLibrarianPlaceType, LIBRARIAN_PLACE_TYPE_LANGUAGE, LIBRARIAN_WORLD_LANGUAGE_VERSION } from "./product-librarian-world-language.js";
 import { LibrarianSemanticIndex, parseAcceptedLibrarianMeaningRegistry } from "./product-librarian-semantics.js";
@@ -285,6 +285,19 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
     }
     const accessibility = assessLibrarianAccessibility(fact, world);
     if (accessibility) return report(accessibility.state, accessibility.reason, accessibility.hashes.length ? [{ evidenceHashes: accessibility.hashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: accessibility.state === "UNKNOWN", chargeable: false }] : []);
+    const consumption = externalConsumptionEvidence(fact, world, profile, visit);
+    if (consumption) {
+        const positive = consumption.filter(row => row.state === (fact.modality === "EXCLUDED" ? "FAILED" : "MET"));
+        const unknown = consumption.some(row => row.state === "UNKNOWN");
+        const state: MatchTruth = positive.length ? "MET" : unknown || !consumption.length ? "UNKNOWN" : "FAILED";
+        const decisive = positive.length ? positive : consumption;
+        const witnesses: Witness[] = positive.map(row => ({ evidenceHashes: sorted([...row.sourceHashes, contentHash(row)]), offerIds: row.offerId ? [row.offerId] : [], areaIds: row.areaId ? [row.areaId] : [], assignments: assignments(request, fact, row.offerId, row.areaId), conditionUnresolved: false, chargeable: false }));
+        const assessed = report(state, decisive[0]?.reason ?? "EXTERNAL_CONSUMPTION_RULE_NOT_RECORDED", witnesses);
+        return { ...assessed, report: {
+            ...assessed.report,
+            evidenceHashes: sorted(decisive.flatMap(row => [...row.sourceHashes, contentHash(row)])), domainEvidence: decisive,
+        } };
+    }
     if (LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "TEMPORAL" || LIBRARIAN_FAMILY_STRATEGIES[fact.key] === "PRICE")
         return report("UNKNOWN", "DEFERRED_TO_JOINT_VISIT_EVALUATION");
     if (fact.key === "budget.qualitative" || ["participation.booking", "participation.entry_mode"].includes(fact.key) && fact.value.kind === "TEXT" && ["NOT_REQUIRED", "REQUIRED"].includes(experienceBookingMode(fact.value.text) ?? ""))
@@ -370,7 +383,10 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 // A documented family exhibition is a child-compatible outing,
                 // even though it is not labelled as a dedicated children's course.
                 const activities = OFFER_CONCEPTS[offer.kind] ?? [];
-                const leisure = activities.some(a => ["exhibition", "museum", "zoo", "movement_play", "children_course"].includes(a));
+                const zooClassification = world.facts.find(row => row.key === "classification.place_types" && Array.isArray(row.value)
+                    && row.value.some(type => typeof type === "string" && spotTypeSupports(type, "ZOO")) && row.authorizedUseCases?.includes("DISCOVERY"));
+                const zooVisit = offer.kind === "VISIT" && zooClassification !== undefined;
+                const leisure = zooVisit || activities.some(a => ["exhibition", "museum", "zoo", "movement_play", "children_course"].includes(a));
                 const allAges = offer.properties.filter(p => p.key === "participation.age_suitability" && p.state === "KNOWN"
                     && typeof p.value === "string" && ["alle altersgruppen", "all ages", "tous ages"].includes(librarianTerm(p.value)));
                 for (const areaId of offer.areaIds.length ? offer.areaIds : [null]) {
@@ -380,7 +396,7 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                     const evidence = [...allAges, ...family];
                     if (leisure && allAges.length && family.length) {
                         const states = evidence.map(p => librarianConditions(p.conditions, visit));
-                        if (!states.includes("FAILED")) add("MET", offer, areaId, {policy:"FAMILY_LEISURE_ALL_AGES", properties:evidence}, states.includes("UNKNOWN"));
+                        if (!states.includes("FAILED")) add("MET", offer, areaId, {policy:"FAMILY_LEISURE_ALL_AGES", properties:evidence}, states.includes("UNKNOWN"), zooVisit ? [zooClassification!.entryHash] : []);
                     }
                 }
             }
@@ -748,7 +764,8 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
                     && (!(fact.key.startsWith("atmosphere.") || fact.key === "experience.character") || !state.chargeOfferIds.length || w.offerIds.every(id => state.chargeOfferIds.includes(id))));
                 if (sourceAtom.witnesses.length && !witnesses.length)
                     return {...r, state: "UNKNOWN" as const, reason: "REQUIRED_DETAIL_NOT_PROVEN_FOR_SELECTED_OFFER", evidenceHashes: [], offerIds: [], areaIds: []};
-                return { ...r, evidenceHashes: sorted(witnesses.flatMap(w => w.evidenceHashes)), offerIds: sorted(witnesses.flatMap(w => w.offerIds)), areaIds: sorted(witnesses.flatMap(w => w.areaIds)) };
+                return { ...r, evidenceHashes: sorted(witnesses.flatMap(w => w.evidenceHashes)), offerIds: sorted(witnesses.flatMap(w => w.offerIds)), areaIds: sorted(witnesses.flatMap(w => w.areaIds)),
+                    ...(r.domainEvidence ? { domainEvidence: r.domainEvidence.filter(row => (!row.offerId || state.offerIds.includes(row.offerId)) && (!row.areaId || state.areaIds.includes(row.areaId))) } : {}) };
             }
             return r;
         });

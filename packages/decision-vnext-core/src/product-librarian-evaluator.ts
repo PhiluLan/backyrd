@@ -71,6 +71,7 @@ const familyLabels: Readonly<Record<string, string>> = {
   "participation.accessibility": "die gewünschte Zugänglichkeit",
   "offer.weather_suitability": "die gewünschte Wettereignung", "condition.weather_protection": "der Regenschutz",
   "offer.shade": "der gewünschte Schatten", "offer.temperature": "die gewünschte Temperaturausstattung",
+  "participation.permission": "die gewünschte Erlaubnis",
   "participation.booking": "die gewünschte Reservationsregel", "participation.entry_mode": "die gewünschte Teilnahme ohne Voranmeldung",
   "eligibility": "die Besuchsbedingungen", "binding": "die Kombination deiner Wünsche",
 };
@@ -130,6 +131,10 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     if (rows.length) reasons.push({ reasonCode: "librarian-access-details", domain: "LIMITATION", sourceHash: contentHash(rows.map(f => f.entryHash)),
       statementDe: [yes.length ? `Als zugänglich erfasst: ${yes.join(", ")}.` : "", no.length ? `Als nicht vorhanden oder nicht zugänglich erfasst: ${no.join(", ")}.` : ""].filter(Boolean).join(" ").slice(0,500), confirmed: false });
   }
+  const consumptionExceptions = candidate.facts.filter(f => f.state === "MET" && f.reason === "EXTERNAL_CONSUMPTION_ALLOWED")
+    .flatMap(f => f.domainEvidence ?? []).filter(row => typeof row.details.exceptions === "string" && row.details.exceptions.length > 0);
+  if (consumptionExceptions.length) reasons.push({ reasonCode: "librarian-external-consumption-exceptions", domain: "LIMITATION", sourceHash: contentHash(consumptionExceptions),
+    statementDe: [...new Set(consumptionExceptions.map(row => `${row.details.consumption === "DRINK" ? "Eigene Getränke" : "Eigene Speisen"}: ${row.details.exceptions}`))].join(" ").slice(0,500), confirmed: false });
   const profileEntry = world.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"));
   const explanatoryProfile = profileEntry ? parseExperienceProfile(profileEntry.value) : null;
   if (profileEntry && candidate.offerIds.length) {

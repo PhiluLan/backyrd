@@ -57,7 +57,7 @@ test('a general outing purpose adds no second service duty, while own-food permi
  const withoutPermission=search(q,[binding(1,p)]);
  assert.equal(withoutPermission.ranked.length,0);
  assert.equal(withoutPermission.unresolved[0].facts.find(f=>f.factId==='family').state,'MET');
- assert.equal(withoutPermission.unresolved[0].facts.find(f=>f.factId==='own').reason,'PROPERTY_FAMILY_NOT_RECORDED','point 2 remains unchanged');
+ assert.equal(withoutPermission.unresolved[0].facts.find(f=>f.factId==='own').reason,'EXTERNAL_CONSUMPTION_RULE_NOT_RECORDED','permission remains required when no rule is recorded');
  p.offers[0].properties.push(prop('participation.permission','eigenes Essen mitbringen'));
  assert.equal(search(q,[binding(1,p)]).ranked.length,1);
  const concrete=request([...facts,fact('animals','experience.activity','animals')]);

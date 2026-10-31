@@ -1,11 +1,11 @@
-import { experienceBookingMode, type ExperienceBookingMode, type ExperienceProfile, type ExperienceProperty, type ReservationRule } from "@backyrd/world-knowledge-core";
+import { experienceBookingMode, hasAreaModule, hasOfferModule, librarianConcept, type ConsumptionRule, type ExperienceBookingMode, type ExperienceProfile, type ExperienceProperty, type ReservationRule } from "@backyrd/world-knowledge-core";
 import { contentHash } from "./canonical.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { librarianConditions, visitWeekday, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
-import { librarianTerm } from "./product-librarian-language.js";
+import { librarianExternalConsumptionKind, librarianTerm } from "./product-librarian-language.js";
 
-export const LIBRARIAN_KNOWLEDGE_POLICY = "backyrd.librarian-knowledge-policy@1" as const;
+export const LIBRARIAN_KNOWLEDGE_POLICY = "backyrd.librarian-knowledge-policy@2" as const;
 export type DomainEvidence = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -19,6 +19,67 @@ type BookingObservation = { readonly mode: ExperienceBookingMode | null; readonl
 const authorized = (row: ProductWorldView["facts"][number], use: "PRICE" | "HARD_CONSTRAINTS") => row.trust === "VERIFIED" && row.freshness === "CURRENT" && row.resolution === "KNOWN_VALUE" && row.authorizedUseCases?.includes(use);
 const dedupe = <T,>(values: readonly T[]): T[] => [...new Set(values)];
 const minute = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3));
+
+/** Bounded administrative rule grammar. Unknown qualifications stay unknown;
+ * examples after a category heading never become unrestricted permission. */
+function diningException(value: string): boolean {
+    const normalized = librarianTerm(value).replace(/\.$/u, "");
+    const [heading, ...rest] = normalized.split(":");
+    if (!["nicht in den restaurationsbetrieben", "nicht in restaurants", "nicht in den restaurants", "nicht im restaurant", "nicht in gastronomiebereichen", "nicht in den gastronomiebereichen", "except in restaurants"].includes(heading!.trim())) return false;
+    if (!rest.length) return true;
+    if (rest.length !== 1 || /[;!?]|\b(?:nur|wenn|falls|sofern|ausser|außer|auch|nicht|uhr|ab|bis|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)\b/u.test(rest[0]!)) return false;
+    return rest[0]!.split(/,\s*|\s+und\s+/u).every(example => /^(?:cafeteria|café|cafe|bistro|selbstbedienungsrestaurant|restaurant)(?=\s|$)/u.test(example.trim()));
+}
+
+export function externalConsumptionEvidence(fact: LibrarianFact, world: ProductWorldView, profile: ExperienceProfile | null, visit: VisitWindow): readonly DomainEvidence[] | null {
+    const kind = librarianExternalConsumptionKind(fact);
+    if (!kind) return null;
+    const key = kind === "FOOD" ? "rule.external_food" : "rule.external_drink";
+    const concept = kind === "FOOD" ? "own_food" : "own_drinks";
+    const defaults = [...world.operationalRules, ...world.facts].filter(row => row.key === key && authorized(row, "HARD_CONSTRAINTS"));
+    const profileHash = world.facts.find(row => row.key === "experience.profile")?.entryHash;
+    const forbidden = kind === "FOOD" ? ["eigene speisen nicht erlaubt", "eigenes essen nicht erlaubt", "eigenes essen verboten", "own_food_not_allowed"]
+        : ["eigene getränke nicht erlaubt", "eigene getränke verboten", "own_drinks_not_allowed"];
+    type Observation = { state: MatchTruth; reason: string; sourceKey: string; hash: string; exceptions: string };
+    const scoped = (properties: readonly ExperienceProperty[]): Observation[] => properties.flatMap(property => {
+        if (property.key !== "participation.permission") return [];
+        const labelMatches = property.label !== null && librarianConcept(property.label) === concept;
+        const value = typeof property.value === "string" ? librarianTerm(property.value) : null;
+        const positive = value !== null && (librarianConcept(value) === concept || labelMatches && ["erlaubt", "allowed"].includes(value));
+        const negative = value !== null && (forbidden.includes(value) || labelMatches && ["nicht erlaubt", "verboten", "not allowed"].includes(value));
+        if (!labelMatches && !positive && !negative) return [];
+        const condition = librarianConditions(property.conditions, visit);
+        if (condition === "FAILED") return [];
+        const state: MatchTruth = property.state !== "KNOWN" || condition !== "MET" || !positive && !negative ? "UNKNOWN" : negative ? "FAILED" : "MET";
+        return [{ state, reason: state === "UNKNOWN" ? "EXTERNAL_CONSUMPTION_SCOPED_RULE_UNRESOLVED" : negative ? "EXTERNAL_CONSUMPTION_NOT_ALLOWED" : "EXTERNAL_CONSUMPTION_ALLOWED", sourceKey: property.key, hash: contentHash(property), exceptions: "" }];
+    });
+    const outcome = (offerId: string | null, areaId: string | null): DomainEvidence => {
+        if (world.conflicts.some(conflict => conflict.attributeKeys.includes(key))) return {
+            state: "UNKNOWN", reason: "EXTERNAL_CONSUMPTION_RULE_CONFLICT", offerId, areaId,
+            sourceKeys: [key], sourceHashes: [world.snapshotHash], details: { policy: LIBRARIAN_KNOWLEDGE_POLICY, consumption: kind, suppliedByVenue: false },
+        };
+        const offer = profile?.offers.find(o => o.id === offerId), area = profile?.areas.find(a => a.id === areaId);
+        const rows: Observation[] = defaults.map(row => {
+            const rule = row.value as ConsumptionRule;
+            const dining = !!(offer && hasOfferModule(offer.kind, "food") || area && (hasAreaModule(area.kind, "dining")
+                || profile?.offers.some(o => o.areaIds.includes(area.id) && hasOfferModule(o.kind, "food"))));
+            const scopeKnown = dining || !!area && area.kind !== "OTHER";
+            const understood = rule.exceptions.every(diningException);
+            const state: MatchTruth = rule.policy === "CONDITIONAL" || rule.exceptions.length > 0 && (!understood || !scopeKnown || rule.policy !== "ALLOWED") ? "UNKNOWN"
+                : rule.policy === "NOT_ALLOWED" || rule.exceptions.length > 0 && dining ? "FAILED" : "MET";
+            return {state, reason: state === "UNKNOWN" ? "EXTERNAL_CONSUMPTION_EXCEPTION_UNRESOLVED" : state === "FAILED" ? "EXTERNAL_CONSUMPTION_NOT_ALLOWED" : "EXTERNAL_CONSUMPTION_ALLOWED", sourceKey: row.key, hash: row.entryHash, exceptions: rule.exceptions.join(" ")};
+        });
+        const local = [...scoped(profile?.properties ?? []), ...scoped(offer?.properties ?? []), ...scoped(area?.properties ?? [])];
+        const all = [...rows, ...local];
+        const denied = all.some(r => r.state === "FAILED"), allowed = all.some(r => r.state === "MET"), unknown = all.some(r => r.state === "UNKNOWN");
+        const conflict = denied && allowed && (rows.some(r => r.state === "FAILED") && local.some(r => r.state === "MET") || local.some(r => r.state === "FAILED") && local.some(r => r.state === "MET"));
+        const state: MatchTruth = !all.length || unknown || conflict ? "UNKNOWN" : denied ? "FAILED" : "MET";
+        const reason = !all.length ? "EXTERNAL_CONSUMPTION_RULE_NOT_RECORDED" : conflict ? "EXTERNAL_CONSUMPTION_RULE_CONFLICT" : unknown ? all.find(r => r.state === "UNKNOWN")!.reason : state === "FAILED" ? "EXTERNAL_CONSUMPTION_NOT_ALLOWED" : "EXTERNAL_CONSUMPTION_ALLOWED";
+        return {state, reason, offerId, areaId, sourceKeys: dedupe(all.map(r => r.sourceKey)), sourceHashes: dedupe([...all.map(r => r.hash), ...(local.length && profileHash ? [profileHash] : [])]),
+            details: { policy: LIBRARIAN_KNOWLEDGE_POLICY, consumption: kind, exceptions: dedupe(all.map(r => r.exceptions).filter(Boolean)).join(" "), suppliedByVenue: false }};
+    };
+    return profile?.offers.length ? profile.offers.flatMap(offer => (offer.areaIds.length ? offer.areaIds : [null]).map(areaId => outcome(offer.id, areaId))) : [outcome(null, null)];
+}
 
 function reservationCondition(rule: ReservationRule, facts: readonly LibrarianFact[], visit: VisitWindow): MatchTruth {
     if (rule.days.length && (!visit.dates.length || visit.dates.some(day => !rule.days.includes((["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const)[visitWeekday(day) - 1]!)))) return "UNKNOWN";
