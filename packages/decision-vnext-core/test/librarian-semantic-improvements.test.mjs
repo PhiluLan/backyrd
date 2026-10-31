@@ -303,3 +303,12 @@ test('pure dining gives primary gastronomy priority without excluding secondary 
  const family=await exercise({text:'Familienaktivität mit Essen',meaning:request([meal(),fact('family','condition.children','children_activity')]),catalog:[cafe,auxiliary]});
  assert.ok(family.body.candidates.every(c=>!c.reasons.some(r=>r.code==='primary-purpose-gastronomy')));
 });
+
+test('an actual escape room is selected instead of a portable puzzle box under the same catalogue kind',()=>{
+ const box=offer('box','ESCAPE_GAME');box.name='Rätselkiste spielen';
+ const room=offer('room','ESCAPE_GAME');room.name='Escape Room im Team spielen';
+ const q=request([fact('escape','experience.activity','escape_game')]);
+ assert.equal(search(q,[binding(1120,profile([box,room]))]).ranked.length,1);
+ assert.deepEqual(search(q,[binding(1120,profile([box,room]))]).ranked[0].offerIds,['room']);
+ assert.equal(search(q,[binding(1121,profile([box]))]).ranked.length,0);
+});

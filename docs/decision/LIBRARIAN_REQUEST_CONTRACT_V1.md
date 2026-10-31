@@ -755,3 +755,6 @@ A food/drink-only request gives positive primary-purpose evidence to verified EA
 
 ### Concrete activity with a child (prompt 27)
 A named museum visit, animal observation, playground, bathing or sport retains that activity and typed companions/ages. Child accompaniment alone must not add a separate generic children_activity requirement: existing age and admission rules assess the actual activity. Generic family outings without a specified activity still require children_activity; an explicitly requested special child programme also remains mandatory. No age, date or child suitability is fabricated.
+
+### Escape-room offer format (matching 49)
+The ESCAPE_GAME catalogue kind is labelled Escape Room. An offer explicitly named as a portable puzzle box/Rätselkiste cannot prove that room activity even if stored under the same broad kind. Other actual escape-room offers at the venue remain eligible. No venue names or preferred result IDs are encoded.

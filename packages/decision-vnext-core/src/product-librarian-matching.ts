@@ -401,6 +401,12 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
                 && typeof p.value === "string" && librarianConditions(p.conditions, visit) === "MET")
                 .flatMap(p => declaredExperienceConcepts(p.value as string, "ITEM_LIST"));
             if (desired === "meal" && offer.kind === "GASTRONOMY" && extents.includes("snacks") && !extents.includes("meal")) continue;
+            // The catalogue calls ESCAPE_GAME an Escape Room. An explicitly
+            // portable puzzle box is a different format even when imported
+            // under that broad kind. Do not select it for a room experience.
+            const portablePuzzle = (text:string) => [...text.matchAll(/\b(?:rätselkiste|raetselkiste|rätselbox|raetselbox|puzzle ?box|escape ?box)\b/giu)]
+                .some(m=>!/\b(?:kein(?:e|en|er|es)?|nicht|ohne|no|without)\s*$/iu.test(text.slice(0,m.index)));
+            if (desired === "escape_game" && portablePuzzle(offer.name)) continue;
             const matches = desired === "zoo" ? categoryProof && offer.kind === "VISIT" : offered.some(concept => experienceActivitySupports(concept, desired)) && (categoryProof === null || categoryProof === true);
             if (matches) {
                 // Zoo-wide activity support does not place animals in every
