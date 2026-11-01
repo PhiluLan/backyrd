@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
+import { seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -482,13 +482,21 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   });
   if (appliedRegionalDecision) preappliedPaths.add(appliedRegionalDecision.migration.path);
+  const appliedSeasonalEvent = seasonalEventAppliedReceipt(state, head.read, source => {
+    try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
+  });
+  if (appliedSeasonalEvent) preappliedPaths.add(appliedSeasonalEvent.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
   // Code delivery is independent from historical, already applied SQL releases.
   // Keep their receipts, but do not reuse their old Function hashes as a freeze.
+  const seasonalScope = authority?.seasonalEventDeliveryScope ?? null;
   const regionalScope = authority?.regionalDecisionDeliveryScope ?? null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
+  if (seasonalScope && (regionalScope || codeOnlyScope || authority?.isolatedResearchMigrationScope || authority?.isolatedVoltaMigrationScope
+    || authConfig?.deploy === true || retiredFunctions.length || migrationRecovery || preappliedMigrationImport || productPreappliedImport
+    || functions.some(item=>item.deploy && item.verifyJwt !== true))) throw new Error("seasonal_event_release_scope_conflict");
   if (regionalScope && (codeOnlyScope || authority?.isolatedResearchMigrationScope || authority?.isolatedVoltaMigrationScope
     || authConfig?.deploy === true || retiredFunctions.length || migrationRecovery || preappliedMigrationImport || productPreappliedImport
     || functions.some(item=>item.deploy && item.verifyJwt !== true))) throw new Error("regional_decision_release_scope_conflict");
@@ -521,7 +529,9 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
-  const scoped = regionalScope
+  const scoped = seasonalScope
+    ? scopeSeasonalEventMigrations({pending:allPending,scope:seasonalScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedSeasonalEvent})
+    : regionalScope
     ? scopeRegionalDecisionMigrations({pending:allPending,scope:regionalScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedRegionalDecision})
     : codeOnlyScope
     ? {pendingMigrations:[],deferredMigrations:allPending,isolatedResearchScope:null,isolatedVoltaScope:null}
@@ -549,6 +559,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       ? ["--include-all"] : [],
     deferredMigrations,
     appliedRegionalDecision,
+    appliedSeasonalEvent,
     appliedAreaReservation,
     isolatedResearchScope: isolatedResearchScope ?? null,
     isolatedVoltaScope: isolatedVoltaScope ?? null,

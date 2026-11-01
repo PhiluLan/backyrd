@@ -98,7 +98,7 @@ jobs:
         with:
           version: 2.98.2
       - name: Verify fail-closed deployment planner
-        run: node --test scripts/deployment/isolated-research-migration.test.mjs scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/apply-supabase-auth-config.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/verify-already-applied-product-migrations.test.mjs scripts/deployment/verify-preapplied-product-ledger.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs scripts/ci/validate-production-state.test.mjs
+        run: node --test scripts/deployment/seasonal-event-release.test.mjs scripts/deployment/isolated-research-migration.test.mjs scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/apply-supabase-auth-config.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/verify-already-applied-product-migrations.test.mjs scripts/deployment/verify-preapplied-product-ledger.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs scripts/ci/validate-production-state.test.mjs
       - name: Validate shipped Production baseline
         run: node scripts/ci/validate-production-state.mjs
       - name: Build auditable deployment plan

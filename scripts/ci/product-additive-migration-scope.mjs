@@ -43,6 +43,7 @@ export const PRODUCT_ADDITIVE_MIGRATIONS = Object.freeze([
   Object.freeze({path:"supabase/migrations/20261028200651_admin_spots_primary_category_v1.sql",sha256:"eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d"}),
   Object.freeze({path:"supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",sha256:"b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"}),
   Object.freeze({path:"supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",sha256:"403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"}),
+  Object.freeze({path:"supabase/migrations/20261101162452_seasonal_event_editions_v1.sql",sha256:"a4e1961dbbca4c283c45b3f1d901cc9df2abd2f41b6b6acd82bd6dd30855380b"}),
 ]);
 
 export function isExactProductAdditiveSet(migrations) {
