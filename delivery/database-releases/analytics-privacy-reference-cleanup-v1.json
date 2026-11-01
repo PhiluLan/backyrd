@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "analytics-privacy-reference-cleanup-v1",
+  "previousEvidence": "beta-security-boundaries-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "0a554cd61d5912ee0a014b6e0f14a7cbec1383e273f949e4318c81be568156a3",
+    "applicationSchemaSha256": "e199d7d73526597a0e49775fce7970e4eabe8cff0b51770b910adad4af0606e6"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",
+      "sha256": "c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/analytics_privacy_reference_cleanup_v1.sql",
+      "sha256": "46e0690e6f3d7ec1682b95daefee37c3adb36e82f7f650b9f1bb609c1235a918"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "0a554cd61d5912ee0a014b6e0f14a7cbec1383e273f949e4318c81be568156a3",
+    "applicationSchemaSha256": "0d33375449d8fce94f75a2fad47e95d3fb9105a2c184f46df46dac7c019e42b5"
+  }
+}

@@ -175,6 +175,7 @@ core_tests=(
   events_v1_basel_pilot.sql events_v1_manual_recurrence_horizon.sql
   restaurant_information_v1_positive.sql restaurant_information_v1_negative.sql review_media_atomic_v1.sql
   founder_live_durable_idempotency_v1.sql
+  beta_security_boundaries_v1.sql analytics_privacy_reference_cleanup_v1.sql
 )
 executed_tests="$validation_root/executed-tests.txt"
 : >"$executed_tests"
