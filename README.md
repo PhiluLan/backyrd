@@ -235,13 +235,19 @@ npm --prefix admin-dashboard run lint
 npm --prefix admin-dashboard run build
 ```
 
-Das Repository enthält derzeit keine automatisierte Test-Suite und keine CI-Workflows. Das ist insbesondere für Datenbank-, Berechtigungs- und Trust-&-Safety-Änderungen eine relevante Qualitätssicherungslücke.
+Automatisierte Domain-, Vertrags-, Datenbank- und Berechtigungsprüfungen sowie
+die risikobasierte CI liegen unter `packages/`, `scripts/ci/` und
+`.github/workflows/`. Die passenden Befehle stehen in den jeweiligen
+`package.json`-Dateien. Für Produktänderungen ergänzen manuelle Ablaufprüfungen
+auf echten Geräten die automatisierten Prüfungen.
 
 `AGENTS.md` ist die aktuelle Source of Truth für Produkt- und Implementierungsprinzipien. Vor einer Öffnung für externe Contributions sollte ein separates `CONTRIBUTING.md` Branch-, Review-, Test- und Release-Konventionen dokumentieren, statt diese README weiter auszubauen.
 
 ## Weiterführende Dokumentation
 
 - [`AGENTS.md`](./AGENTS.md) – Produktphilosophie und verbindliche Engineering-Regeln
+- [`docs/readiness/BETA_PRODUCT_READINESS.md`](./docs/readiness/BETA_PRODUCT_READINESS.md) – aktueller Beta-Arbeitsumfang und Abnahme je Nutzerablauf
+- [`docs/decision-vnext/CURRENT_PRODUCT_RUNTIME.md`](./docs/decision-vnext/CURRENT_PRODUCT_RUNTIME.md) – aktiver Decision-Ablauf, Ranking, Learning und Erklärung für einen Pitch
 - [`docs/safety/MODERATION_SOP.md`](./docs/safety/MODERATION_SOP.md) – operativer Moderationsablauf
 - [`docs/safety/TRANSPARENCY_MONITORING.md`](./docs/safety/TRANSPARENCY_MONITORING.md) – Transparenz und Monitoring
 - [`legal/safety/COMMUNITY_GUIDELINES.md`](./legal/safety/COMMUNITY_GUIDELINES.md) – Community Guidelines

@@ -1,6 +1,9 @@
 # Decision vNext single-route product domain handoff
 
-Status: domain patch for Integration; no deployment or runtime activation.
+Historical integration handoff. For the active production implementation and
+ranking order, use [Current product runtime](CURRENT_PRODUCT_RUNTIME.md).
+The pending-integration statements below describe the original handoff, not
+current deployment readiness.
 
 ## Fixed architecture
 
