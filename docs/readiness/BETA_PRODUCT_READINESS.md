@@ -95,9 +95,11 @@ Produktion. Absolute Unangreifbarkeit wird nicht versprochen.
 
 - Aktueller Decision-Ablauf: [Decision Runtime](../decision-vnext/CURRENT_PRODUCT_RUNTIME.md).
 - Backup: [bestehender AWS-Workflow](../../.github/workflows/production-backup.yml),
-  vollständiger manueller Lauf `41335894428`, Modus `weekly`, nach dem
-  Herbstmesse-Release gestartet. Der Abschluss wird anhand des Workflow-Ergebnisses
-  und der Exportprüfung bestätigt.
+  [vollständiger manueller Lauf 41335894428](https://github.com/PhiluLan/backyrd/actions/runs/41335894428),
+  Modus `weekly`, am 1. November um 18:26 UTC erfolgreich abgeschlossen.
+  Bestätigt sind Datenbankexport, 140 Storage-Dateien, erfolgreicher AWS-Upload
+  und die bestehende KMS-Verschlüsselungsprüfung. Der gesicherte Quellstand ist
+  `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
 - [Wiederherstellungsablauf](../operations/DATABASE_AND_MEDIA_RECOVERY_RUNBOOK.md):
   Ein erfolgreicher Export ist kein frisch bestandener Wiederherstellungstest.
 - Die Live-Launch-Übersicht enthält überwiegend August-Einträge. Alte Statuswerte
