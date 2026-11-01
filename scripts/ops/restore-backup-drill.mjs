@@ -25,24 +25,63 @@ export function copySections(sql) {
  if(active||!sections.length)throw Error('backup_copy_sections_incomplete');
  return sections;
 }
+export function requireManagedColumns(sections,columns) {
+ const available=new Set(columns.map(c=>c.table_schema+'.'+c.table_name+'.'+c.column_name));
+ for(const section of sections.filter(s=>['auth','storage'].includes(s.schema)))for(const column of section.columns){
+  const key=section.schema+'.'+section.table+'.'+column;
+  if(!available.has(key))throw Error('restore_platform_schema_missing:'+key);
+ }
+}
 export function normalizedSchema(sql) {
  return sql.split('\n').filter(line=>!line.startsWith('--')&&!/^\\(?:un)?restrict\b/.test(line)&&line.trim()!=='').join('\n');
 }
+// pg_dump may wrap a CHECK across lines. Read the complete balanced expression
+// rather than treating its first line as executable SQL.
+function checkExpression(lines,start,first) {
+ const input=[first,...lines.slice(start+1)].join('\n');
+ if(!input.startsWith('('))return null;
+ let depth=0,quote=null,dollar=null,block=false,lineComment=false;
+ for(let i=0;i<input.length;i++){
+  const c=input[i],next=input[i+1];
+  if(lineComment){if(c==='\n')lineComment=false;continue;}
+  if(block){if(c==='*'&&next==='/'){block=false;i++;}continue;}
+  if(dollar){if(input.startsWith(dollar,i)){i+=dollar.length-1;dollar=null;}continue;}
+  if(quote){if(c==='\\'&&quote==="'"){i++;continue;}if(c===quote){if(next===quote)i++;else quote=null;}continue;}
+  if(c==='-'&&next==='-'){lineComment=true;i++;continue;}
+  if(c==='/'&&next==='*'){block=true;i++;continue;}
+  if(c==="'"||c==='"'){quote=c;continue;}
+  if(c==='$'){const match=/^\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?\$/.exec(input.slice(i));if(match){dollar=match[0];i+=dollar.length-1;continue;}}
+  if(c==='(')depth++;
+  if(c===')'&&--depth===0){
+   const expression=input.slice(0,i+1),suffix=input.slice(i+1).split('\n')[0];
+   if(!/^(?: NOT VALID)?[,]?$/.test(suffix))return null;
+   return {expression,suffix,lines:expression.split('\n').length};
+  }
+ }
+ return null;
+}
 export function compareSchema(source,target,compareCheck) {
  const a=normalizedSchema(source).split('\n'),b=normalizedSchema(target).split('\n');
- if(a.length!==b.length)return {matches:false,normalizedChecks:0};
  const tableHeader=new RegExp(`^CREATE TABLE IF NOT EXISTS (${atom})\\.(${atom}) \\($`);
  const checkLine=new RegExp(`^CONSTRAINT (${atom}) CHECK (.+)$`);
- let table=null,normalizedChecks=0;
- for(let i=0;i<a.length;i++){
+ let table=null,normalizedChecks=0,i=0,j=0;
+ while(i<a.length&&j<b.length){
   const header=tableHeader.exec(a[i]);if(header)table={schema:unquote(header[1]),name:unquote(header[2])};
   if(a[i]===');')table=null;
-  if(a[i]===b[i])continue;
-  const left=checkLine.exec(a[i].trim().replace(/,$/,'')),right=checkLine.exec(b[i].trim().replace(/,$/,''));
-  if(!table||!left||!right||left[1]!==right[1]||!compareCheck({...table,constraint:unquote(left[1]),expression:left[2]}))return {matches:false,normalizedChecks};
-  normalizedChecks++;
+  const left=table&&checkLine.exec(a[i].trim()),right=table&&checkLine.exec(b[j].trim());
+  if(left&&right&&left[1]===right[1]){
+   const l=checkExpression(a,i,left[2]),r=checkExpression(b,j,right[2]);
+   if(!l||!r||l.suffix!==r.suffix)return {matches:false,normalizedChecks};
+   if(l.expression!==r.expression){
+    if(!compareCheck({...table,constraint:unquote(left[1]),expression:l.expression}))return {matches:false,normalizedChecks};
+    normalizedChecks++;
+   }
+   i+=l.lines;j+=r.lines;continue;
+  }
+  if(a[i]!==b[j])return {matches:false,normalizedChecks};
+  i++;j++;
  }
- return {matches:true,normalizedChecks};
+ return {matches:i===a.length&&j===b.length,normalizedChecks};
 }
 export function safeCommandFailure(command,status,stderr,input) {
  const errorLine=stderr.split('\n').find(line=>/ERROR:\s+[0-9A-Z]{5}:/.test(line))??'';
@@ -124,9 +163,11 @@ async function restore(snapshot,reportPath) {
  if(metadata.version!=='backyrd-production-backup-v2'||metadata.databaseIncluded!==true)throw Error('complete_v2_backup_required');
  const database=join(snapshot,'database');verifyManifest(database,'files-sha256.txt');verifyManifest(snapshot,'database-sha256.txt');const mediaCount=verifyManifest(snapshot,'storage-sha256.txt');assert.equal(mediaCount,metadata.storageFiles);
  const scope=JSON.parse(readFileSync(join(database,'scope.json'),'utf8'));assert.equal(scope.version,'backyrd-database-snapshot-v2');assert.equal(scope.scope,'all-non-platform-application-schemas');
- const cli=process.env.BACKYRD_RESTORE_SUPABASE_CLI||'supabase';assert.equal(run(cli,['--version']).trim(),'2.116.0');
+ const cli=process.env.BACKYRD_RESTORE_SUPABASE_CLI||'supabase';assert.equal(run(cli,['--version']).trim(),'2.122.0');
  const part=name=>readFileSync(join(database,name),'utf8');
  const evidence=await isolatedTarget(cli,'database',async({sql,dumpSchema})=>{
+  const platformColumns=JSON.parse(sql("select coalesce(json_agg(t),'[]') from (select table_schema,table_name,column_name from information_schema.columns where table_schema in ('auth','storage'))t;"));
+  requireManagedColumns(copySections(part('data.sql')),platformColumns);
   sql(buildRestoreSql(part));console.log('Restore phase: database loaded; comparing schema and tables.');
   const restoredSchema=dumpSchema();
   const comparison=compareSchema(part('schema.sql'),restoredSchema,check=>{
