@@ -44,11 +44,21 @@ export function compareSchema(source,target,compareCheck) {
  }
  return {matches:true,normalizedChecks};
 }
+export function safeCommandFailure(command,status,stderr,input) {
+ const errorLine=stderr.split('\n').find(line=>/ERROR:\s+[0-9A-Z]{5}:/.test(line))??'';
+ const state=/ERROR:\s+([0-9A-Z]{5}):/.exec(errorLine)?.[1];
+ const line=/psql:<stdin>:(\d+):/.exec(errorLine)?.[1];
+ const identifiers=[...errorLine.matchAll(/(?:column|relation|schema|role|type) "([a-z_][a-z0-9_]{0,62})"/g)].slice(0,4).map(m=>m[1]);
+ const before=line?input.split('\n').slice(0,Number(line)).join('\n'):'';
+ const parts=[...before.matchAll(/^-- backyrd-restore-part:(roles|schema|migration-schema|data|migration-data|managed-controls)\.sql$/gm)];
+ const part=parts.at(-1)?.[1];
+ return 'restore_command_failed:'+command+':'+status+(state?':sqlstate='+state:'')+(line?':line='+line:'')+(part?':part='+part:'')+(identifiers.length?':identifiers='+identifiers.join(','):'');
+}
 function run(command,args,{input,env,timeout=120000}={}) {
  try{return execFileSync(command,args,{input,encoding:'utf8',env:{...process.env,...env},timeout,maxBuffer:256*1024*1024,stdio:['pipe','pipe','pipe']});}
  catch(error){
   if(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE)writeFileSync(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE,error.stderr??'',{mode:0o600});
-  throw Error('restore_command_failed:'+command+':'+(error.status??error.code??'unknown'));
+  throw Error(safeCommandFailure(command,error.status??error.code??'unknown',String(error.stderr??''),String(input??'')));
  }
 }
 function verifyManifest(directory,name) {
@@ -58,12 +68,13 @@ function verifyManifest(directory,name) {
  return lines.length;
 }
 export function buildRestoreSql(part) {
- return `begin;set local session_replication_role=replica;${part('roles.sql')}\nset local role postgres;\nalter default privileges for role postgres in schema public revoke all on functions from anon,authenticated,service_role;\nalter default privileges for role postgres in schema public revoke all on tables from anon,authenticated,service_role;\nalter default privileges for role postgres in schema public revoke all on sequences from anon,authenticated,service_role;\n${part('schema.sql')}\n${part('migration-schema.sql')}\nreset role;\n${part('data.sql')}\n${part('migration-data.sql')}\nset local session_replication_role=replica;\n${part('managed-controls.sql')}\nreset role;\ncommit;`;
+ const section=name=>'\n-- backyrd-restore-part:'+name+'\n'+part(name);
+ return `begin;set local session_replication_role=replica;${section('roles.sql')}\nset local role postgres;\nalter default privileges for role postgres in schema public revoke all on functions from anon,authenticated,service_role;\nalter default privileges for role postgres in schema public revoke all on tables from anon,authenticated,service_role;\nalter default privileges for role postgres in schema public revoke all on sequences from anon,authenticated,service_role;\n${section('schema.sql')}\n${section('migration-schema.sql')}\nreset role;\n${section('data.sql')}\n${section('migration-data.sql')}\nset local session_replication_role=replica;\n${section('managed-controls.sql')}\nreset role;\ncommit;`;
 }
 async function isolatedTarget(cli,phase,operation) {
  const workdir=mkdtempSync(join(tmpdir(),'backyrd-isolated-restore-'));
  const project='backyrd-restore-'+randomUUID().slice(0,12),network=project+'-isolated';let networkCreated=false,started=false;
- const sql=body=>run('docker',['exec','-i','supabase_db_'+project,'psql','-U','supabase_admin','-d','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1'],{input:body});
+ const sql=body=>run('docker',['exec','-i','supabase_db_'+project,'psql','-U','supabase_admin','-d','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-f','-'],{input:body});
  try {
   run(cli,['init','--workdir',workdir,'--yes','--agent=no']);
   const configPath=join(workdir,'supabase/config.toml');let config=readFileSync(configPath,'utf8');
