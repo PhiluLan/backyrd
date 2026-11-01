@@ -25,6 +25,13 @@ export function copySections(sql) {
  if(active||!sections.length)throw Error('backup_copy_sections_incomplete');
  return sections;
 }
+export function requireManagedColumns(sections,columns) {
+ const available=new Set(columns.map(c=>c.table_schema+'.'+c.table_name+'.'+c.column_name));
+ for(const section of sections.filter(s=>['auth','storage'].includes(s.schema)))for(const column of section.columns){
+  const key=section.schema+'.'+section.table+'.'+column;
+  if(!available.has(key))throw Error('restore_platform_schema_missing:'+key);
+ }
+}
 export function normalizedSchema(sql) {
  return sql.split('\n').filter(line=>!line.startsWith('--')&&!/^\\(?:un)?restrict\b/.test(line)&&line.trim()!=='').join('\n');
 }
@@ -124,9 +131,11 @@ async function restore(snapshot,reportPath) {
  if(metadata.version!=='backyrd-production-backup-v2'||metadata.databaseIncluded!==true)throw Error('complete_v2_backup_required');
  const database=join(snapshot,'database');verifyManifest(database,'files-sha256.txt');verifyManifest(snapshot,'database-sha256.txt');const mediaCount=verifyManifest(snapshot,'storage-sha256.txt');assert.equal(mediaCount,metadata.storageFiles);
  const scope=JSON.parse(readFileSync(join(database,'scope.json'),'utf8'));assert.equal(scope.version,'backyrd-database-snapshot-v2');assert.equal(scope.scope,'all-non-platform-application-schemas');
- const cli=process.env.BACKYRD_RESTORE_SUPABASE_CLI||'supabase';assert.equal(run(cli,['--version']).trim(),'2.116.0');
+ const cli=process.env.BACKYRD_RESTORE_SUPABASE_CLI||'supabase';assert.equal(run(cli,['--version']).trim(),'2.122.0');
  const part=name=>readFileSync(join(database,name),'utf8');
  const evidence=await isolatedTarget(cli,'database',async({sql,dumpSchema})=>{
+  const platformColumns=JSON.parse(sql("select coalesce(json_agg(t),'[]') from (select table_schema,table_name,column_name from information_schema.columns where table_schema in ('auth','storage'))t;"));
+  requireManagedColumns(copySections(part('data.sql')),platformColumns);
   sql(buildRestoreSql(part));console.log('Restore phase: database loaded; comparing schema and tables.');
   const restoredSchema=dumpSchema();
   const comparison=compareSchema(part('schema.sql'),restoredSchema,check=>{

@@ -49,3 +49,10 @@ test('restore failure reports SQLSTATE and structural identifiers without privat
  assert.doesNotMatch(output,/private@|PRIVATE_|COPY|DETAIL/);
  assert.equal(safeCommandFailure('docker',1,'PRIVATE_ARBITRARY_PROCESS_ERROR',''), 'restore_command_failed:docker:1');
 });
+
+test('managed Auth/Storage compatibility is checked before replaying original data',async()=>{
+ const {requireManagedColumns}=await import('./restore-backup-drill.mjs');
+ const sections=copySections('COPY auth.one_time_tokens (id, expires_at) FROM stdin;\n\\.\nCOPY public.application_table (id) FROM stdin;\n\\.\n');
+ assert.throws(()=>requireManagedColumns(sections,[{table_schema:'auth',table_name:'one_time_tokens',column_name:'id'}]),/restore_platform_schema_missing:auth.one_time_tokens.expires_at/);
+ assert.doesNotThrow(()=>requireManagedColumns(sections,['id','expires_at'].map(column_name=>({table_schema:'auth',table_name:'one_time_tokens',column_name}))));
+});
