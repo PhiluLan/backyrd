@@ -11,8 +11,11 @@ bleibt Paket 6. Unveröffentlichte Korrekturen schützen Produktion noch nicht.
   im Modus `weekly`: am 1. November um 18:26 UTC erfolgreich. Datenbank und
   140 Storage-Dateien, bestehende private KMS-verschlüsselte Ablage geprüft.
 - Der Backup-Quellstand ist `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
-  Ein frischer Wiederherstellungstest dieses Exports steht aus. Frühere
-  Wiederherstellungsnachweise sind kein Nachweis für genau diesen Export.
+  Der echte Export wurde im isolierten Lauf 41348866544 wiederhergestellt:
+  376 Tabellen, 226190 Zeilen, 40 Sequenzen und alle 140 Mediendateien wurden
+  abgeglichen. Die Quelle enthält 37 alte ungültige Profilverknüpfungen; deren
+  exakt begrenzte Korrektur wurde nur auf der Kopie erprobt. Das ist noch keine
+  saubere Produktionsdatenbank und keine geprobte Notfall-Umschaltung.
 - Release-Identität und tatsächliche Decision-Verarbeitung sind in
   [CURRENT_PRODUCT_RUNTIME.md](../decision-vnext/CURRENT_PRODUCT_RUNTIME.md)
   dokumentiert. Die aktuelle Arbeit ändert weder Ranking noch Interpretation.
@@ -166,8 +169,7 @@ Der synthetische Vorabtest ist bestanden: 391 Tabellen, 3370 Zeilen,
 39 Sequenzen und eine Mediendatei. Zehn CHECK-Ausdrücke unterscheiden sich
 nur durch PostgreSQL-normalisierte AND-Klammerung; der Parser hat die
 Gleichheit bestätigt. ACL-/Funktions-/Standardwert-Unterschiede bleiben
-Fehler. Dieser Vorabtest ersetzt ausdrücklich nicht den ausstehenden
-Nachweis für das echte aktuelle AWS-Archiv.
+Fehler. Der echte AWS-Nachweis ist unten mit seiner ehrlichen Abgrenzung dokumentiert.
 
 ## Weitere Supabase-Hinweise
 
@@ -201,6 +203,65 @@ bestätigten Datenlecks:
   Reproduzierbarer vollständiger Datenbank-Neuaufbau gehört zum PR-Nachweis.
 
 Die vier zurückgestellten Booking-Migrationen bleiben ausserhalb dieses Umfangs.
-Keine Auth-Konfiguration, Edge Function, Nutzerinteressen oder echten Spotdaten
-wurden durch diese Arbeit verändert. Eine Veröffentlichung der neuen SQL-Datei
-braucht den konkreten begrenzten Releaseplan und dessen bestehende Risikofreigabe.
+Die Produktions-Auth-Konfiguration, Edge Functions, Nutzerinteressen und echten
+Spotdaten bleiben bisher unverändert. Die beiden SQL-Dateien und der
+Passwortschutz benötigen die konkrete, migrationsspezifische Freigabe unten.
+
+## Konkreter Produktionsplan zur Freigabe
+
+Status: **vorbereitet, nicht für Produktion freigegeben**. Paket 2 bleibt offen.
+PR [679](https://github.com/PhiluLan/backyrd/pull/679) enthält den begrenzten Weg.
+Web und Admin sind veröffentlicht. Das iOS-Sicherheitsupdate ist veröffentlicht
+und am Produktionsendpunkt bytegenau als zertifiziertes Paket geprüft:
+Update `01a198c8-d127-7a47-88a0-1e59ded947ea`, Gruppe
+`4dea6585-ac77-4b43-9435-015029d05341`, Runtime 1.1.0,
+Quellstand `9b04fd2651c185de26694d5a1763b6398e84f91b`.
+Eine physische Geräteabnahme wird daraus nicht abgeleitet.
+
+Der beantragte Umfang besteht ausschliesslich aus:
+
+1. `20261101183602_beta_security_boundaries_v1.sql`, SHA-256
+   `60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a`:
+   zehn interne Aufträge für normale API-Konten sperren, 46 Suchpfade festlegen
+   und die öffentliche Mood-Anzeige auf zugelassene echte Orte begrenzen.
+2. `20261101203100_analytics_privacy_reference_cleanup_v1.sql`, SHA-256
+   `c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df`:
+   das alleinige Entfernen einer Nutzerverknüpfung auch ohne optionale
+   Analytik-Einwilligung erlauben. Neue Ereignisse und Inhaltsänderungen bleiben
+   gesperrt. Die exakt ermittelten 37 Ereignisse aus Juli verlieren nur ihre
+   ungültige Verknüpfung zu einem sowohl aus Profilen als auch Auth verschwundenen
+   Konto. Kein Ereignis, Inhalt oder aktuelles Konto wird gelöscht. Ein anderer
+   Zieldatensatz bricht ab; alle übrigen Felder werden vor/nachher gehasht.
+3. Ausschliesslich `password_hibp_enabled=true` im bestehenden Auth-Dienst.
+   SMTP, E-Mail-Texte, Weiterleitungen, bestehende Sitzungen und Anmeldearten
+   werden nicht geändert.
+
+Die vier Booking-Migrationen bleiben ausgeschlossen; keine Edge Function wird
+neu veröffentlicht. Der aktuelle Decision-Code bleibt unverändert. Das Schema
+und die Zugriffsrechte beider SQL-Dateien sind durch vollständigen Neuaufbau und
+positive/negative SQL-Prüfungen abgesichert. Die historische Entstehung der
+37 ungültigen Verknüpfungen ist nicht belegt. Reproduziert ist, dass der alte
+Einwilligungstrigger eine echte FK-Bereinigung ohne Einwilligung blockiert.
+
+Der [echte AWS-Probelauf](https://github.com/PhiluLan/backyrd/actions/runs/41348866544)
+hat zunächst sämtliche Originaldaten, Schema/Rechte, Sequenzen und Medien
+abgeglichen und erst danach genau die vorgeschlagene Korrektur auf der
+Wegwerfkopie angewandt. Danach bestehen sämtliche geprüften Fremdschlüssel.
+Der versiegelte [Beleg](../../delivery/recovery/beta-security-rehearsal-v1.json)
+behauptet ausdrücklich **nicht**, die Originalquelle sei bereits fehlerfrei:
+`foreignKeysValidated:false`, getrennt davon
+`foreignKeysAfterRehearsedRepairValidated:true`. Produktionsschreibzugriffe: 0.
+Beleg-SHA-256:
+`221c12c857be67bd0e6f90ec624a700ad48c3c527dc80062e2e99b231c44c7f6`.
+
+Nach ausdrücklicher Freigabe: exaktes Main-Artefakt zertifizieren, nur diesen
+SQL/Auth-Umfang anwenden, Rechte und Passwortschutz live prüfen. Anschliessend
+frisches vollständiges AWS-Backup erzeugen und ohne Korrekturmodus wiederherstellen.
+**Erst der saubere anschliessende Lauf und die Live-Prüfungen schliessen Paket 1 ab.**
+Eine Notfall-Umschaltung der echten Produktion und externe Provider-/Signierschlüssel
+sind nicht geprobt; ein garantierter vollständiger Rollback wird nicht zugesichert.
+
+Nach Übernahme von PR 674 sind GitHubs verbleibende hohen/kritischen Meldungen
+auf das historische, nicht ausgelieferte `mobu/package-lock.json` begrenzt.
+Die tatsächlich verwendeten Lockfiles haben diese Schweregrade nicht mehr.
+Die Meldungen werden nicht pauschal geschlossen oder verborgen.
