@@ -10,7 +10,7 @@ const git = (root, args) => execFileSync("git", args, {
   maxBuffer: 20 * 1024 * 1024,
 }).trim();
 
-const packageSections = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies", "overrides", "resolutions", "packageManager"];
+const packageSections = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies", "overrides", "resolutions", "packageManager", "workspaces"];
 const normalize = (value) => {
   if (Array.isArray(value)) return value.map(normalize);
   if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map((key) => [key, normalize(value[key])]));
@@ -18,12 +18,14 @@ const normalize = (value) => {
 };
 const stable = (value) => JSON.stringify(normalize(value));
 const packagePolicy = (document) => Object.fromEntries(packageSections.map((key) => [key, document?.[key] ?? null]));
-const lockForManifest = (path) => {
-  if (path === "package.json" || path.startsWith("packages/")) return "package-lock.json";
-  return `${dirname(path)}/package-lock.json`;
-};
-const installRootForManifest = (path) => {
-  if (path === "package.json" || path.startsWith("packages/")) return ".";
+const installRootForManifest = (path, workspaces) => {
+  const folder = dirname(path);
+  const isWorkspace = workspaces.some((pattern) => {
+    // A workspace wildcard matches one directory segment, never across '/'.
+    const expression = pattern.split("*").map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[^/]+");
+    return new RegExp(`^${expression}$`).test(folder);
+  });
+  if (path === "package.json" || isWorkspace) return ".";
   return dirname(path);
 };
 const readJsonAt = (root, revision, path) => JSON.parse(git(root, ["show", `${revision}:${path}`]));
@@ -47,6 +49,8 @@ export function validateSupplyChainChange({ root, baseSha, headSha }) {
   const changes = git(root, ["diff", "--name-only", `${baseSha}..${headSha}`]).split("\n").filter(Boolean);
   const changed = new Set(changes);
   const manifests = changes.filter((path) => /(?:^|\/)package\.json$/.test(path));
+  const rootManifest = readJsonAt(root, headSha, "package.json");
+  const workspaces = Array.isArray(rootManifest.workspaces) ? rootManifest.workspaces : [];
   const installRoots = new Set();
   const failures = validateActionPins(root);
 
@@ -56,10 +60,11 @@ export function validateSupplyChainChange({ root, baseSha, headSha }) {
     try { before = readJsonAt(root, baseSha, path); } catch { before = {}; }
     try { after = readJsonAt(root, headSha, path); } catch { after = {}; }
     if (stable(packagePolicy(before)) === stable(packagePolicy(after))) continue;
-    const lock = lockForManifest(path);
+    const installRoot = installRootForManifest(path, workspaces);
+    const lock = installRoot === "." ? "package-lock.json" : `${installRoot}/package-lock.json`;
     if (!changed.has(lock)) failures.push(`${path}:dependency_change_without_${lock}`);
     if (!existsSync(resolve(root, lock))) failures.push(`${path}:missing_lockfile_${lock}`);
-    installRoots.add(installRootForManifest(path));
+    installRoots.add(installRoot);
   }
 
   for (const path of changes.filter((candidate) => /(?:^|\/)package-lock\.json$/.test(candidate))) {

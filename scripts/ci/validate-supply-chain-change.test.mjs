@@ -39,3 +39,31 @@ test("third-party Actions must use a full commit SHA", () => {
   put(root, ".github/workflows/ci.yml", "jobs:\n  test:\n    steps:\n      - uses: actions/checkout@v4\n      - uses: ./.github/actions/local\n");
   assert.deepEqual(validateActionPins(root), [".github/workflows/ci.yml:4:action_not_pinned_to_commit"]);
 });
+
+test("declared Web workspace uses root lock, separate Admin keeps its own lock", () => {
+  const { root } = fixture();
+  put(root, "package.json", '{"workspaces":["web","packages/*"]}\n');
+  put(root, "web/package.json", '{"dependencies":{"next":"16.3.3"}}\n');
+  put(root, "admin-dashboard/package.json", '{"dependencies":{"next":"16.3.3"}}\n');
+  put(root, "admin-dashboard/package-lock.json", '{"lockfileVersion":3}\n');
+  const base = commit(root, "workspace baseline");
+  put(root, "web/package.json", '{"dependencies":{"next":"16.4.3"}}\n');
+  put(root, "admin-dashboard/package.json", '{"dependencies":{"next":"16.4.3"}}\n');
+  put(root, "package-lock.json", '{"lockfileVersion":3,"patched":true}\n');
+  const head = commit(root, "patched root workspace only");
+  assert.deepEqual(validateSupplyChainChange({ root, baseSha: base, headSha: head }), {
+    failures: ["admin-dashboard/package.json:dependency_change_without_admin-dashboard/package-lock.json"],
+    installRoots: [".", "admin-dashboard"],
+  });
+});
+
+test("adding a workspace cannot bypass root lock coupling", () => {
+  const { root, base } = fixture();
+  put(root, "package.json", '{"dependencies":{"a":"1.0.0"},"workspaces":["web"]}\n');
+  put(root, "web/package.json", '{"dependencies":{"next":"16.4.3"}}\n');
+  const head = commit(root, "workspace without root lock");
+  assert.deepEqual(validateSupplyChainChange({ root, baseSha: base, headSha: head }).failures, [
+    "package.json:dependency_change_without_package-lock.json",
+    "web/package.json:dependency_change_without_package-lock.json",
+  ]);
+});

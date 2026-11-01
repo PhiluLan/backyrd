@@ -33,6 +33,12 @@ Die betroffenen optionalen Anwendungswege wurden im kanonischen App-Code nicht
 gefunden. Die Aktualisierung beseitigt die betroffenen Bibliotheksversionen,
 ohne einen erfolgreichen Angriff zu behaupten.
 
+Die Lieferkettenprüfung ordnet deklarierte npm-Workspaces nun dem tatsächlichen
+Root-Lockfile zu. Zuvor verlangte sie für Web fälschlich ein separates Lockfile,
+obwohl CI die Root-Workspace-Installation verwendet. Getrennte Admin-/Mobile-
+Installationen behalten ihre eigenen Lockfiles. Änderungen an der Workspace-
+Zuordnung selbst benötigen ebenfalls ein aktualisiertes Root-Lockfile.
+
 ### Datenbank: interne Hintergrundaufträge
 
 Zehn ältere Definer-Funktionen waren über die API auch für `anon` und
