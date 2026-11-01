@@ -257,6 +257,10 @@ Beleg-SHA-256:
 Nach ausdrücklicher Freigabe: exaktes Main-Artefakt zertifizieren, nur diesen
 SQL/Auth-Umfang anwenden, Rechte und Passwortschutz live prüfen. Anschliessend
 frisches vollständiges AWS-Backup erzeugen und ohne Korrekturmodus wiederherstellen.
+Der abschliessende Lauf muss zusätzlich die vollständige Übereinstimmung
+zwischen Storage-Metadateneinträgen und gesicherten Dateipfaden bestätigen
+(`storageInventoryMatches:true`); fehlende, zusätzliche und doppelte Dateien
+werden abgewiesen.
 **Erst der saubere anschliessende Lauf und die Live-Prüfungen schliessen Paket 1 ab.**
 Eine Notfall-Umschaltung der echten Produktion und externe Provider-/Signierschlüssel
 sind nicht geprobt; ein garantierter vollständiger Rollback wird nicht zugesichert.

@@ -76,3 +76,12 @@ test('a rehearsed correction never claims the original source foreign keys were 
  assert.equal(receipt.status,'PASS_WITH_REHEARSED_INTEGRITY_REPAIR');assert.equal(receipt.foreignKeysValidated,false);
  assert.equal(receipt.foreignKeysAfterRehearsedRepairValidated,true);assert.deepEqual(receipt.proposedIntegrityRepair,proposed);
 });
+
+test('every original Storage object needs exactly one archived file, including unknown MIME types',async()=>{
+ const {verifyMediaInventory}=await import('./restore-backup-drill.mjs');
+ const original={'private/a.jpg':'image/jpeg','private/b.bin':null};
+ assert.doesNotThrow(()=>verifyMediaInventory(original,['private/b.bin','private/a.jpg']));
+ assert.throws(()=>verifyMediaInventory(original,['private/a.jpg']),/inventory_mismatch/);
+ assert.throws(()=>verifyMediaInventory(original,['private/a.jpg','private/b.bin','private/untracked.jpg']),/inventory_mismatch/);
+ assert.throws(()=>verifyMediaInventory(original,['private/a.jpg','private/a.jpg']),/inventory_mismatch/);
+});
