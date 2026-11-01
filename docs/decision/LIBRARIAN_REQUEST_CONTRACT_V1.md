@@ -773,3 +773,36 @@ A descriptive quiet café/venue is a source-grounded atmosphere preference, with
 
 ### Minimal sufficient offer witnesses (matching 52)
 Among equally valid scoped plans with identical failures, unknowns and preference fulfilment, select fewer offers and then fewer areas before the stable hash tie-break. This avoids adding an unrelated drink/snack offer when one coffee-and-cake offer proves the whole request. Requirements, alternative order, availability and preferred matches retain precedence.
+
+## Seasonal event editions
+
+A durable `event_series_v1` identity groups annual editions. Each edition is an
+ordinary `events_v1` row with a series reference and a bounded date range; its
+actual places remain `event_venues_v1` rows. Each place/day is a separate
+`event_occurrences_v1` interval in Europe/Zurich. A date span never proves that a
+fair is open overnight. The same public invoker view feeds mobile, web and maps;
+the authenticated Decision context enriches those same occurrences with their
+explicit place environment. No new parallel event transport is introduced.
+
+The first prepared edition is Basler Herbstmesse 2026: the seven main places
+listed by the official visitor guide, 114 daily intervals, opening-day noon
+exception, winter-time conversion and Petersplatz continuing through November 10.
+The official event map supplies area geometry; displayed coordinates are derived
+orientation points inside those areas, not verified accessible entrances. No
+external images are copied. Individual ride prices, height/age limits, ticket
+availability and access remain unknown unless separately evidenced.
+
+`admin_save_seasonal_edition_v1` requires a real authenticated Admin, performs the
+whole edit transactionally, checks the expected previous update timestamp and
+records an immutable private audit. Drafts are private. Repeated saves preserve
+occurrence IDs and explicit cancellations. Removed ordinary intervals are kept
+as unpublished records. Public cards group only annual editions; ordinary
+concert dates retain their current behavior. The existing Decision result
+selection chooses a matching place/day before collapsing the edition to one
+recommendation, so an indoor request cannot inherit an outdoor fairground.
+
+Next-year preparation copies the identity but clears dates, daily times and
+exceptions. It creates no automatic public recurrence. An Admin must verify the
+new official information before publication. The local SQL test runs against an
+explicit isolated container and rolls its migration, synthetic actors and data
+back: `BACKYRD_SEASONAL_TEST_CONTAINER=<local-container> node scripts/events/test-seasonal-edition.mjs`.

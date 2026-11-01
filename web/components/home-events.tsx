@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { events, imageUrl, type EventRow } from "@/lib/events-public";
 import styles from "./home-events.module.css";
 
+import { seasonalDateLabel } from "../../packages/shared/src/seasonal-events";
+
 type State = "loading" | "ready" | "error";
 
 export function HomeEvents() {
@@ -32,7 +34,7 @@ export function HomeEvents() {
       <div className={styles.header}>
         <div>
           <small className={styles.eyebrow}>
-            KOMMENDE EVENTS IN BASEL
+            GERADE UND BALD IN BASEL
           </small>
           <h2 className={styles.title}>Was läuft?</h2>
         </div>
@@ -68,7 +70,7 @@ export function EventCards({ rows }: { rows: EventRow[] }) {
             style={image ? { backgroundImage: `linear-gradient(transparent, rgba(5,5,6,.92)), url(${image})` } : undefined}
           >
             <small className={styles.date}>
-              {new Date(event.start_at).toLocaleDateString("de-CH", {
+              {seasonalDateLabel(event) ?? new Date(event.start_at).toLocaleDateString("de-CH", {
                 timeZone: "Europe/Zurich",
                 weekday: "short",
                 day: "2-digit",
@@ -77,7 +79,7 @@ export function EventCards({ rows }: { rows: EventRow[] }) {
             </small>
             <h3>{event.title}</h3>
             <span className={styles.venue}>
-              {event.venue_name ?? "Venue noch nicht bestätigt"}
+              {event.series_id ? "Mehrere Schauplätze · Basel" : event.venue_name ?? "Ort noch nicht bestätigt"}
             </span>
           </Link>
         );

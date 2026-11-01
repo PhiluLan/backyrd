@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensio
 import { ProductText as Text } from "../foundation/AppText";
 
 import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
+import { groupSeasonalEvents } from "../../../packages/shared/src/seasonal-events";
 import { loadEvents } from "../../lib/events-v1";
 import { HOME_RAIL, homeRailCardWidth } from "../../lib/home-rail";
 import { backyrdTheme as theme } from "../../theme/backyrd";
@@ -22,11 +23,11 @@ export function HomeEventsSection() {
     try {
       const rows = await loadEvents({ filter: "all" });
       setEvents(
-        rows
+        groupSeasonalEvents(rows
           .filter(
             (row) =>
-              row.event_status !== "CANCELLED" && row.occurrence_status !== "CANCELLED",
-          )
+              row.event_status !== "CANCELLED" && row.occurrence_status !== "CANCELLED" && (row.end_at ? Date.parse(row.end_at)>Date.now() : Date.parse(row.start_at)>=Date.now()),
+          ))
           .slice(0, 8),
       );
       setState("ready");

@@ -210,3 +210,21 @@ test('admin-approved Owner events preserve source and match explicit activity',(
  assert.equal(result.ranked.length,1);
  assert.doesNotThrow(()=>views({source:'manual_owner'}));
 });
+
+test('seasonal place environment belongs to its occurrence, not every fairground',()=>{
+ const indoor=fact('where','offer.area','drinnen');
+ const fair=fact('fair','experience.activity','Jahrmarkt besuchen');
+ const changes={title:'Saisonale Messe',categories:['MARKET','FAMILY'],activities:['Jahrmarkt besuchen'],familyFriendly:true};
+ assert.equal(run([fair,indoor],{...changes,placeEnvironment:'INDOOR'}).result.ranked.length,1);
+ assert.equal(run([fair,indoor],{...changes,placeEnvironment:'OUTDOOR'}).result.ranked.length,0);
+ assert.equal(run([fair,indoor],{...changes,placeEnvironment:null}).result.ranked.length,0);
+});
+test('seasonal family activity does not prove free rides, age permissions or a musical event',()=>{
+ const family=fact('family','condition.children','children_activity');
+ const changes={title:'Saisonale Messe',categories:['MARKET','FAMILY'],activities:['Jahrmarkt besuchen'],familyFriendly:true};
+ assert.equal(run([family],changes).result.ranked.length,1);
+ assert.equal(run([family],{...changes,familyFriendly:null}).result.ranked.length,0);
+ assert.equal(run([music()],changes).result.ranked.length,0);
+ assert.equal(views(changes)[0].eventOccurrence.isFree,null);
+ assert.equal(views(changes)[0].eventOccurrence.minimumAge,null);
+});

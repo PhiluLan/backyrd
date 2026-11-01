@@ -8,6 +8,8 @@ import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
 import { eventImageUrl } from "../../lib/events-v1";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
+import { seasonalDateLabel } from "../../../packages/shared/src/seasonal-events";
+
 function when(startAt: string): string {
   return new Intl.DateTimeFormat("de-CH", {
     timeZone: "Europe/Zurich",
@@ -25,7 +27,7 @@ export function EventCard({ event, style }: { event: EventDiscoveryDTO; style?: 
 
   return (
     <Pressable
-      accessibilityLabel={`${event.title}, ${when(event.start_at)}`}
+      accessibilityLabel={`${event.title}, ${seasonalDateLabel(event) ?? when(event.start_at)}`}
       accessibilityRole="button"
       onPress={() =>
         router.push({
@@ -42,14 +44,14 @@ export function EventCard({ event, style }: { event: EventDiscoveryDTO; style?: 
           style={StyleSheet.absoluteFillObject}
         />
         <View style={styles.imageCopy}>
-          <Text style={styles.kicker}>{when(event.start_at).toUpperCase()}</Text>
+          <Text style={styles.kicker}>{(seasonalDateLabel(event) ?? when(event.start_at)).toUpperCase()}</Text>
           <Text numberOfLines={2} style={styles.title}>{event.title.toUpperCase()}</Text>
         </View>
       </View>
       <View style={styles.meta}>
         <View style={styles.metaLine}>
           <Ionicons color={theme.color.textSecondary} name="location-outline" size={16} />
-          <Text numberOfLines={1} style={styles.metaText}>{event.venue_name ?? "Ort noch nicht bestätigt"}</Text>
+          <Text numberOfLines={1} style={styles.metaText}>{event.series_id ? "Mehrere Schauplätze · Basel" : event.venue_name ?? "Ort noch nicht bestätigt"}</Text>
         </View>
         <View style={styles.freeBadge}>
           <Text style={styles.freeText}>{event.is_free ? "GRATIS" : "EVENT"}</Text>

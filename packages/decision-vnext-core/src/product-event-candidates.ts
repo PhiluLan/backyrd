@@ -1,5 +1,5 @@
 import { EVENT_DECISION_TAGS } from "../../shared/src/event-decision.mjs";
-import { librarianTerm, sameLibrarianText } from "@backyrd/world-knowledge-core";
+import { librarianConcept, librarianTerm, sameLibrarianText } from "@backyrd/world-knowledge-core";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import { emptyExperienceProfile, emptyExperienceConditions, parseExperienceProfile, type ExperienceProperty } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
@@ -24,6 +24,7 @@ export const DecisionEventOccurrenceSchema = schema.object({
   sourceUrl:nullableUrl,ticketUrl:nullableUrl,imageUrl:nullableUrl,
   activities:schema.optional(schema.array(schema.string({min:1,max:160,pattern:/\S/u}),{max:32})),
   tags:schema.optional(schema.array(schema.enum(["LIVE_MUSIC","DJ","JAZZ","CLASSICAL","ROCK","POP","ELECTRONIC","TECHNO","PUB_QUIZ","KARAOKE"] as const),{max:10})),
+  placeEnvironment:schema.optional(schema.union([schema.enum(["INDOOR","OUTDOOR","UNKNOWN"] as const),schema.literal(null)] as const)),
   ticketStatus:schema.optional(schema.enum(["UNKNOWN","AVAILABLE","SOLD_OUT"] as const)),
   imageStoragePath:schema.optional(nullableText),
 });
@@ -85,7 +86,7 @@ export function projectDecisionEventOccurrences(raw:unknown, city:string, now:st
     for (const activity of event.activities ?? []) properties.push({key:"experience.activity",value:activity,label:null,state:"KNOWN",conditions});
     if(event.minimumAge!==null)properties.push({key:"participation.minimum_age",value:event.minimumAge,label:null,state:"KNOWN",conditions});
     const amount=event.isFree===true?0:event.priceMin;
-    const profile={...emptyExperienceProfile("TEMPORARY_PLACES"),reviewed:true,offers:[{id:event.occurrenceId,kind:categoryOffer[event.categories[0]!]??"EVENT",name:event.title.slice(0,160),areaIds:[],properties,
+    const profile={...emptyExperienceProfile("TEMPORARY_PLACES"),reviewed:true,areas:event.placeEnvironment && event.placeEnvironment!=="UNKNOWN" ? [{id:event.occurrenceId,kind:event.placeEnvironment,name:event.venueName??event.title,properties:[]}] : [],offers:[{id:event.occurrenceId,kind:categoryOffer[event.categories[0]!]??"EVENT",name:event.title.slice(0,160),areaIds:event.placeEnvironment && event.placeEnvironment!=="UNKNOWN" ? [event.occurrenceId] : [],properties,
       prices:amount===null?[]:[{label:event.isFree===true?"Eintritt frei":"Eintritt ab",currency:event.currency??"CHF",min:amount,max:event.isFree===true?0:null,basis:"PER_PERSON" as const,minimumAge:null,maximumAge:null,mandatoryFeesIncluded:event.isFree===true?true:null,includes:"Eintritt",conditions}],schedule:[],validFrom:null,validUntil:null}]};
     const entry=(key:string,value:ProductWorldView["facts"][number]["value"]):ProductWorldView["facts"][number]=>({key,value,resolution:"KNOWN_VALUE",freshness:"CURRENT",trust:"VERIFIED",entryHash:contentHash({snapshotHash,key,value}),validFrom:null,validUntil:null,authorizedUseCases:["GENERAL_WORLD","DISCOVERY","HARD_CONSTRAINTS","EXPLANATION"]});
     const facts=[entry("identity.name",event.title),entry("location.locality",event.city),entry("location.timezone","Europe/Zurich"),entry("experience.profile",parseExperienceProfile(profile))];
@@ -100,6 +101,7 @@ export function projectDecisionEventOccurrences(raw:unknown, city:string, now:st
 /** Only declared structured tags prove a specific genre/format. A broad MUSIC
  * category or a familiar venue must never fabricate live music, Jazz or a DJ. */
 export function eventFactMatch(event:DecisionEventOccurrence, fact:LibrarianFact): boolean {
+  if (fact.value.kind === "TEXT" && ["condition.children","experience.activity"].includes(fact.key) && librarianTerm(fact.value.text) && librarianConcept(fact.value.text)==="children_activity" && event.familyFriendly===true) return true;
   if (fact.value.kind === "TEXT" && fact.key === "atmosphere.character" && event.familyFriendly === true && sameLibrarianText(fact.value.text,"familienfreundlich")) return true;
   if (fact.value.kind !== "TEXT" || !["experience.activity","experience.theme","atmosphere.music","offer.kind"].includes(fact.key)) return false;
   if (["experience.activity","offer.kind"].includes(fact.key) && sameLibrarianText(fact.value.text,"Veranstaltung")) return true;

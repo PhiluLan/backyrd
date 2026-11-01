@@ -23,6 +23,26 @@ export function scopeRegionalDecisionMigrations({pending,scope,baseSha,deployFun
     throw new Error("regional_decision_pending_scope_changed");
   return {pendingMigrations:selected,deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
 }
+export const SEASONAL_EVENT_MIGRATION = Object.freeze({path:"supabase/migrations/20261101162452_seasonal_event_editions_v1.sql",sha256:"a4e1961dbbca4c283c45b3f1d901cc9df2abd2f41b6b6acd82bd6dd30855380b"});
+export function seasonalEventAppliedReceipt(state,read,isAncestor) {
+  return exactResearchReceipt(state,read,isAncestor,SEASONAL_EVENT_MIGRATION,"seasonalEventRelease");
+}
+/** Reuse the isolated SQL workspace for this exact SQL plus two authenticated runtimes. */
+export function scopeSeasonalEventMigrations({pending,scope,baseSha,deployFunctions,authDeploy,appliedSeasonalEvent}) {
+  if (scope?.contractVersion !== "backyrd.seasonal-event-delivery-scope@1.0"
+    || scope.executionAuthorized !== false || scope.baseSha !== baseSha
+    || !equal(scope.migrations,[SEASONAL_EVENT_MIGRATION])
+    || !equal(scope.deferredMigrations,DEFERRED_BOOKING_MIGRATIONS)
+    || !equal(scope.functions,["decision-v13","decision-admin-diagnostic"])
+    || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
+    || new Set(deployFunctions).size !== deployFunctions.length
+    || deployFunctions.some(slug=>!scope.functions.includes(slug)) || authDeploy)
+    throw new Error("seasonal_event_scope_invalid");
+  const selected=appliedSeasonalEvent ? [] : [SEASONAL_EVENT_MIGRATION];
+  if (!equal(canonicalRows(pending),canonicalRows([...DEFERRED_BOOKING_MIGRATIONS,...selected])))
+    throw new Error("seasonal_event_pending_scope_changed");
+  return {pendingMigrations:selected,deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
+}
 export const AREA_RESERVATION_MIGRATION = Object.freeze({path:"supabase/migrations/20261024171707_scoped_area_reservation_rules_v1.sql",sha256:"b8f539a7f1335754f1c8fac8810218600a2b1d37f4f2d19bda2b087dafad2ebb"});
 export const ADMIN_CATEGORY_MIGRATION = Object.freeze({path:"supabase/migrations/20261028200651_admin_spots_primary_category_v1.sql",sha256:"eef85179eaf31c5c06d8bc1b90f88459c12f5d5c69c62ccbbcdac1198207b25d"});
 export const RESEARCH_MIGRATION = Object.freeze({"path": "supabase/migrations/20261024113000_world_research_current_profile_import_v3.sql", "sha256": "7be9ad6a4ee3c824fe8017cd5a29d7250833f9a44c8a24fef32e287f5cc3ce8b"});
@@ -120,7 +140,10 @@ export function voltaAppliedReceipt(state, read, isAncestor) {
 }
 /** Copy config + exact tracked migrations; remove only the four explicitly deferred files. */
 export function prepareResearchMigrationWorkspace(plan,root,output) {
-  const scoped=plan.isolatedResearchScope?.contractVersion === "backyrd.regional-decision-delivery-scope@1.0"
+  const scoped=plan.isolatedResearchScope?.contractVersion === "backyrd.seasonal-event-delivery-scope@1.0"
+    ? scopeSeasonalEventMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
+      baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,appliedSeasonalEvent:plan.appliedSeasonalEvent})
+    : plan.isolatedResearchScope?.contractVersion === "backyrd.regional-decision-delivery-scope@1.0"
     ? scopeRegionalDecisionMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,appliedRegionalDecision:plan.appliedRegionalDecision})
     : plan.isolatedVoltaScope

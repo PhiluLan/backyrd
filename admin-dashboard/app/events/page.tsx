@@ -8,6 +8,7 @@ type EventSummary = {
   id: string;
   primary_source_id: string;
   authoring_spot_id: string | null;
+  series_id: string | null;
   provenance: { submissionStatus?: string };
   title: string;
   status: string;
@@ -26,7 +27,7 @@ export default function EventsPage() {
     let active = true;
     void supabase
       .from("events_v1")
-      .select("id,title,status,categories,organizer,updated_at,primary_source_id,authoring_spot_id,provenance")
+      .select("id,title,status,categories,organizer,updated_at,primary_source_id,authoring_spot_id,provenance,series_id")
       .in("primary_source_id", ["manual_admin", "manual_owner"])
       .order("updated_at", { ascending: false })
       .then(({ data, error: loadError }) => {
@@ -60,6 +61,7 @@ export default function EventsPage() {
           <h1>Events</h1>
           <p>Basler Events anlegen, terminieren und veröffentlichen.</p>
         </div>
+        <Link className="bi-secondaryButton" href="/events/seasonal">Herbstmesse vorbereiten</Link>
         <Link className="bi-primaryButton" href="/events/new">
           Neues Event
         </Link>
@@ -117,7 +119,7 @@ export default function EventsPage() {
                   </td>
                   <td>{event.organizer ?? "—"}</td>
                   <td>
-                    <Link className="bi-action" href={event.authoring_spot_id ? `/spots/${event.authoring_spot_id}/edit#events` : `/events/${event.id}/edit`}>
+                    <Link className="bi-action" href={event.series_id ? `/events/seasonal/${event.id}` : event.authoring_spot_id ? `/spots/${event.authoring_spot_id}/edit#events` : `/events/${event.id}/edit`}>
                       Bearbeiten →
                     </Link>
                   </td>

@@ -1,3 +1,5 @@
+import type { SeasonalEventFields } from "../../packages/shared/src/seasonal-events";
+import { groupSeasonalEvents } from "../../packages/shared/src/seasonal-events";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -5,7 +7,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-export type EventRow = {
+export type EventRow = SeasonalEventFields & {
   event_id: string;
   occurrence_id: string;
   source: string;
@@ -54,10 +56,11 @@ export async function events(limit = 100): Promise<EventRow[]> {
     .from("event_discovery_v1")
     .select("*")
     .gte("end_at", new Date().toISOString())
+    .in("event_status",["PUBLISHED","SCHEDULED"]).eq("occurrence_status","SCHEDULED")
     .order("start_at")
-    .limit(limit);
+    .limit(500);
   if (error) throw error;
-  return (data ?? []) as EventRow[];
+  return groupSeasonalEvents((data ?? []) as EventRow[]).slice(0,limit);
 }
 
 export async function eventDetail(
@@ -70,9 +73,13 @@ export async function eventDetail(
     .eq("event_id", id)
     .order("start_at");
   if (occurrenceId) query = query.eq("occurrence_id", occurrenceId);
+  else {const now=new Date().toISOString();query=query.or(`end_at.gt.${now},and(end_at.is.null,start_at.gte.${now})`);}
   const { data, error } = await query.limit(1).maybeSingle();
   if (error) throw error;
-  return data as EventRow | null;
+  if(data||occurrenceId)return data as EventRow | null;
+  const archived=await supabase.from("event_discovery_v1").select("*").eq("event_id",id).order("start_at",{ascending:false}).limit(1).maybeSingle();
+  if(archived.error)throw archived.error;
+  return archived.data as EventRow | null;
 }
 
 export function imageUrl(
@@ -90,4 +97,9 @@ export async function spotEvents(spotId: string): Promise<EventRow[]> {
     .order("start_at").limit(500);
   if (error) throw error;
   return (data ?? []) as EventRow[];
+}
+
+export async function editionPlaces(eventId:string):Promise<EventRow[]> {
+ const {data,error}=await supabase.from("event_discovery_v1").select("*").eq("event_id",eventId).order("start_at").limit(500);
+ if(error)throw error;return (data??[]) as EventRow[];
 }

@@ -24,8 +24,11 @@ import {
   eventImageUrl,
   loadEventOccurrence,
   loadUpcomingEvents,
+  loadEditionPlaces,
   type UpcomingEventGroups,
 } from "../../lib/events-v1";
+
+import { seasonalDateLabel, seasonalPlaceRows } from "../../../packages/shared/src/seasonal-events";
 
 function safeExternalUrl(value: string | null): string | null {
   if (!value) return null;
@@ -45,6 +48,9 @@ export default function EventDetailScreen() {
     ? params.occurrenceId[0]
     : params.occurrenceId;
   const [event, setEvent] = useState<EventDiscoveryDTO | null>(null);
+  const [expandedPlace,setExpandedPlace]=useState<string|null>(null);
+  const [editionRows,setEditionRows]=useState<EventDiscoveryDTO[]>([]);
+  const [editionError,setEditionError]=useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [upcoming, setUpcoming] = useState<UpcomingEventGroups>({
@@ -65,7 +71,10 @@ export default function EventDetailScreen() {
     try {
       const loaded = await withRequestDeadline(() => loadEventOccurrence(eventId, occurrenceId), 12_000);
       if (generation !== request.current) return;
-      setEvent(loaded);
+      setEvent(loaded); setEditionRows([]); setEditionError(false);
+      if(loaded?.series_id){
+        try { const rows=await withRequestDeadline(()=>loadEditionPlaces(loaded.event_id),8000); if(generation===request.current)setEditionRows(rows); } catch { if(generation===request.current)setEditionError(true); }
+      }
       setUpcoming({ sameEvent: [], sameVenue: [] });
       setLoading(false);
       const related = loaded ? await withRequestDeadline(() => loadUpcomingEvents(loaded), 8_000).catch(() => ({ sameEvent: [], sameVenue: [] })) : { sameEvent: [], sameVenue: [] };
@@ -94,6 +103,8 @@ export default function EventDetailScreen() {
     );
   }
 
+  const editionLabel=seasonalDateLabel(event);
+  const places=seasonalPlaceRows(editionRows);
   const ticketUrl = safeExternalUrl(event.ticket_url);
 
   const cancelled = event.event_status === "CANCELLED" || event.occurrence_status === "CANCELLED";
@@ -149,6 +160,7 @@ export default function EventDetailScreen() {
             {!cancelled && postponed ? <View style={styles.postponed}><Text style={styles.postponedText}>VERSCHOBEN</Text></View> : null}
           </View>
           <Text style={styles.title}>{event.title}</Text>
+          {editionLabel?<Text style={styles.kicker}>{editionLabel}</Text>:null}
           <View style={styles.badges}>{event.categories.map(category => <Text key={category} style={styles.category}>{eventCategoryLabel(category)}</Text>)}</View>
           <View style={styles.factCard}>
             <View style={styles.factRow}>
@@ -163,6 +175,8 @@ export default function EventDetailScreen() {
             {event.is_free === true || event.price_min !== null ? <><View style={styles.divider} /><View style={styles.factRow}><Ionicons name="ticket-outline" size={21} color="#FF4F91" /><View style={styles.factCopy}><Text style={styles.factLabel}>Eintritt</Text><Text style={styles.factValue}>{event.is_free === true ? "Kostenlos" : `ab ${event.price_currency} ${event.price_min?.toFixed(2)}`}</Text></View></View></> : null}
           </View>
 
+          {event.admission_note ? <Text style={styles.description}>{event.admission_note}</Text>:null}
+          {event.series_id ? <View style={styles.section}><Text style={styles.sectionTitle}>Die Schauplätze</Text><Text style={styles.description}>Wähle einen Platz für seine Tageszeiten und die Route. Die Zeiten gelten nur während dieser Ausgabe.</Text>{editionError?<Text style={styles.description}>Die Schauplätze konnten nicht geladen werden. Bitte lade die Seite erneut.</Text>:places.map(place=><View key={place.venue_id} style={styles.factCard}><Text style={styles.sectionTitle}>{place.venue_name}</Text><Text style={styles.description}>{place.place_environment==='INDOOR'?'Drinnen':place.place_environment==='OUTDOOR'?'Draussen':'Bereich noch nicht bestätigt'}</Text><Text style={styles.description}>{formatEventDateTime(place.start_at,place.end_at)}{place.occurrence_status==='CANCELLED'?' · Abgesagt':''}</Text><Pressable accessibilityRole="button" accessibilityState={{expanded:expandedPlace===place.venue_id}} onPress={()=>setExpandedPlace(current=>current===place.venue_id?null:place.venue_id)}><Text style={styles.backLink}>Alle Tageszeiten {expandedPlace===place.venue_id?'ausblenden':'ansehen'}</Text></Pressable>{expandedPlace===place.venue_id?editionRows.filter(row=>row.venue_id===place.venue_id).map(row=><Text key={row.occurrence_id} style={styles.description}>{formatEventDateTime(row.start_at,row.end_at)}{row.occurrence_status==='CANCELLED'?' · Abgesagt':''}</Text>):null}<Pressable accessibilityRole="button" style={styles.primaryButton} onPress={()=>void openExternalUrl(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address_line??`${place.venue_name}, Basel`)}`)}><Text style={styles.primaryButtonText}>Route zu diesem Platz</Text></Pressable></View>)}</View>:null}
           {recurrence ? <View style={styles.recurrence}><Ionicons name="repeat-outline" size={18} color="#FF9ABA" /><Text style={styles.recurrenceText}>{recurrence}</Text></View> : null}
           {properties.length ? <View style={styles.properties}>{properties.map(property => <View key={property} style={styles.property}><Text style={styles.propertyText}>{property}</Text></View>)}</View> : null}
 

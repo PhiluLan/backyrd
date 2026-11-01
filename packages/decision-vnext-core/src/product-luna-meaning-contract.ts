@@ -10,7 +10,7 @@ const rules: Record<string, readonly LunaFactKey[]> = {};
 function assign(concepts: readonly string[], families: readonly LunaFactKey[]) {
   for (const concept of concepts) rules[concept] = families;
 }
-assign([...new Set(OFFER_CATALOG.map(offer => offer.concept)), 'table_tennis', 'bouldering', 'climbing', 'training', 'course', 'movement_play', 'children_course', 'guided', 'workshop', 'animals', 'exhibition', 'party', 'dancing', 'movement'], ['experience.activity', 'offer.kind']);
+assign([...new Set(OFFER_CATALOG.map(offer => offer.concept)), 'fairground', 'table_tennis', 'bouldering', 'climbing', 'training', 'course', 'movement_play', 'children_course', 'guided', 'workshop', 'animals', 'exhibition', 'party', 'dancing', 'movement'], ['experience.activity', 'offer.kind']);
 assign(['self_barbecue'], ['experience.activity','offer.feature']);
 assign(['wifi'],['offer.facility','offer.feature']);
 assign(['guided'], ['experience.activity', 'offer.kind', 'participation.format']);
@@ -38,7 +38,7 @@ for (const [key, concept] of Object.entries(BOOLEAN_CONCEPTS)) {
   rules[concept] = families;
 }
 export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['budget.scope','time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
-export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@10', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
+export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@11', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
 export type LunaMeaningIssue = {
   readonly factId: string;
   readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE' | 'UNKNOWN_AGE_PLACEHOLDER' | 'REDUNDANT_EXTENSION';

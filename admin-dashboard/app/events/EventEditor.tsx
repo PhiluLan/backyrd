@@ -76,6 +76,7 @@ export default function EventEditor({ eventId }: { eventId?: string }) {
         setError(formatAdminError(eventError, "Das Event konnte nicht geladen werden."));
         return;
       }
+      if (event.series_id) { router.replace(`/events/seasonal/${event.id}`); return; }
       if (event.authoring_spot_id) {
         router.replace(`/spots/${event.authoring_spot_id}/edit#events`);
         return;
