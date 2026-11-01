@@ -384,7 +384,7 @@ test('Beta security release binds one SQL, one password flag and verified restor
  const document=JSON.parse(authConfig());document.config.password_hibp_enabled=true;
  const bytes=JSON.stringify(document);write(f.repo,'supabase/production/auth-config.json',bytes);
  const receipt={status:'PASS',sourceType:'VERIFIED_AWS_ARCHIVE',sourceArchiveSha256:'a'.repeat(64),sourceMainSha:f.base,sourceCreatedAt:'2026-11-01T18:26:00Z',productionWrites:0,productionCutoverTested:false};
- for(const key of ['schemaAndAclMatch','allCopiedRowsMatch','foreignKeysValidated','sequencesMatch','allMediaBytesMatch','bucketControlsRestored','outboundNetworkDisabled','independentDatabaseAndMediaTargets','disposableTargetsRemoved'])receipt[key]=true;
+ for(const key of ['schemaAndAclMatch','allCopiedRowsMatch','databaseServicesStopped','foreignKeysValidated','sequencesMatch','allMediaBytesMatch','bucketControlsRestored','outboundNetworkDisabled','independentDatabaseAndMediaTargets','disposableTargetsRemoved'])receipt[key]=true;
  const path='delivery/recovery/beta-security-restore-v1.json',restoreBytes=JSON.stringify(receipt);write(f.repo,path,restoreBytes);
  const scope={contractVersion:'backyrd.beta-security-delivery-scope@1.0',executionAuthorized:false,baseSha:f.base,migrations:[target],deferredMigrations:deferred,backupRunId:1,restoreDrill:{path,sha256:createHash('sha256').update(restoreBytes).digest('hex'),runId:2},authConfig:{path:'supabase/production/auth-config.json',sha256:createHash('sha256').update(bytes).digest('hex'),keys:['password_hibp_enabled']},deferredFunctionChanges:[]};
  write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({betaSecurityDeliveryScope:scope}));

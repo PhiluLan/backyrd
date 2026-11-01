@@ -511,7 +511,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       || receipt.sourceType!=="VERIFIED_AWS_ARCHIVE" || !/^[a-f0-9]{64}$/.test(receipt.sourceArchiveSha256??"")
       || !Number.isFinite(Date.parse(receipt.sourceCreatedAt)) || !/^[a-f0-9]{40}$/.test(receipt.sourceMainSha??"")
       || receipt.productionWrites!==0 || receipt.productionCutoverTested!==false
-      || ["schemaAndAclMatch","allCopiedRowsMatch","foreignKeysValidated","sequencesMatch","allMediaBytesMatch","bucketControlsRestored","outboundNetworkDisabled","independentDatabaseAndMediaTargets","disposableTargetsRemoved"].some(key=>receipt[key]!==true))
+      || ["schemaAndAclMatch","allCopiedRowsMatch","databaseServicesStopped","foreignKeysValidated","sequencesMatch","allMediaBytesMatch","bucketControlsRestored","outboundNetworkDisabled","independentDatabaseAndMediaTargets","disposableTargetsRemoved"].some(key=>receipt[key]!==true))
       throw new Error("beta_security_restore_evidence_invalid");
     for(const item of functions.filter(item=>item.deploy)){item.deploy=false;item.reason="EXACT_SHIPPED_RUNTIME_DEFERRED_BY_SECURITY_SCOPE";}
   }
