@@ -18,7 +18,7 @@ export async function buildInternalPreview(output){
  await mkdir(target,{recursive:true});
  for(const name of packages)await cp(resolve(root,'packages',name,'dist'),resolve(target,'packages',name,'dist'),{recursive:true});
  await cp(resolve(root,'packages/shared/src'),resolve(target,'packages/shared/src'),{recursive:true});
- await cp(resolve(root,'supabase/functions',previewSlug),resolve(target,'supabase/functions',previewSlug),{recursive:true});
+ await cp(resolve(root,'scripts/decision-diagnostics/internal-preview'),resolve(target,'supabase/functions',previewSlug),{recursive:true});
  const identity={mode:'INTERNAL_PREVIEW_CURRENT_BUILD',gitHead:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),coreBundleHash:await internalRuntimeHash()};
  await writeFile(resolve(target,'supabase/functions',previewSlug,'build-identity.json'),JSON.stringify(identity,null,2));
  await writeFile(resolve(target,'supabase/config.toml'),`project_id = "backyrd-internal-preview"\n[functions.${previewSlug}]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/${previewSlug}/index.ts"\n`);

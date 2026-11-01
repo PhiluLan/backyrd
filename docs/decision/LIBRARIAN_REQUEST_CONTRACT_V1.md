@@ -359,13 +359,13 @@ bound condition evidence to the current librarian. A provider failure must not
 invent weather or override user-stated visit context. No subscription, provider
 credentials or live weather adapter has been created; this remains deferred.
 
-`scripts/decision/run-local-diagnostic.mjs` executes the canonical current evaluator
+`scripts/decision-diagnostics/run-local-diagnostic.mjs` executes the canonical current evaluator
 and ranker against an exported, verified regional catalog. It does not persist
 decisions or learning and uses a neutral local identity, not an app user's profile.
 
 For a real model call while the provider key remains in Supabase, build the isolated
 `decision-internal-meaning-preview` artifact with
-`node scripts/decision/build-internal-preview.mjs /tmp/backyrd-internal-preview-current`
+`node scripts/decision-diagnostics/build-internal-preview.mjs /tmp/backyrd-internal-preview-current`
 after `npm run decision-vnext:build`. Deploy only that named function from the
 generated temporary project. The consumer release configuration disables it.
 JWT verification remains enabled; the handler additionally requires the genuine

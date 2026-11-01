@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createInternalMeaningPreviewHandler} from '../dist/internal-meaning-preview.js';
-import {runLocalDiagnostic} from '../../../scripts/decision/run-local-diagnostic.mjs';
+import {runLocalDiagnostic} from '../../../scripts/decision-diagnostics/run-local-diagnostic.mjs';
 import {fact,request,profile,offer,area,prop,binding} from './librarian-matching-fixtures.mjs';
 const query='Familienausflug drinnen mit was zum knabbern oder essen';
 const meaning=request([
