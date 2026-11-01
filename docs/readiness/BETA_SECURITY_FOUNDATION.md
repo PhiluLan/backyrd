@@ -108,13 +108,21 @@ nicht als erledigt. Eine App-Sicherheitsfreigabe folgt daraus noch nicht.
 Der zusätzliche Voll-Audit einschliesslich Entwicklungswerkzeugen ist vom oben
 genannten produktiven Web-/Admin-Audit zu trennen. Weitere kompatible Patches
 für Archiv-, YAML-, Browserlisten-, Prüf- und Kryptografie-Werkzeuge wurden
-eingespielt. Im Root verbleibt dennoch ein kritischer `tar`-Befund über alte
-CLI-Installationsketten sowie hohe Meldungen aus deren fest gebundenen Paketen.
-Das ist ein offener Befund, keine abgeschlossene Härtung des Buildrechners.
-Keine nicht vertrauenswürdigen Archive oder Projekte mit diesen Werkzeugen
-verarbeiten. CLI-Aktualisierung beziehungsweise geprüfter Backport ist vor
-der finalen Sicherheitsabnahme erforderlich; die für Datenbank-Negativtests
-festgelegte CLI-Version wird nicht ungeprüft ausgetauscht.
+eingespielt. Die lokale EAS-CLI wurde zusätzlich von 16.20.1 auf exakt
+[27.2.0](https://github.com/expo/eas-cli/releases/tag/v27.2.0) aktualisiert.
+Gezielte Patch-Overrides binden ihre Archiv-/Signaturbibliotheken an Tar 7.5.22
+und Forge 1.4.2 sowie den Supabase-Installer an Tar 7.5.22. Die für Datenbank-
+Negativtests festgelegte Supabase-CLI bleibt 2.80.0; das native App-SDK bleibt 54.
+EAS Build-/Update-Befehle laden, die tatsächliche EAS-App-Archiv-Extraktion sowie
+gültige und manipulierte Signaturen wurden mit synthetischen Daten geprüft.
+
+Der Voll-Audit des Root-Baums sinkt damit von 51 betroffenen Paketen (kritisch 1,
+hoch 16) auf 40 (kritisch 0, hoch 4). Admin einschliesslich Entwicklungswerkzeugen:
+von 17 (kritisch 1, hoch 7) auf 17 (kritisch 0, hoch 0, mittel 17). Verbleibende
+hohe Root-Meldungen betreffen Joi, Nanoid und Minimatch sowie deren EAS-Elternpaket.
+Diese sind ausdrücklich offen. Keine nicht vertrauenswürdigen Archive oder
+Projekte mit den Entwicklungswerkzeugen verarbeiten; weitere kompatible Patches
+beziehungsweise geprüfte Backports vor der finalen Sicherheitsabnahme prüfen.
 
 Der GitHub-Ausgangsstand meldet 311 offene Einträge über fünf Lockfiles,
 einschliesslich des nicht mehr verwendeten Web-Lockfiles und `mobu/`. Das
