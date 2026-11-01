@@ -6,6 +6,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync }
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan, parseSupabaseFunctionConfig } from "../deployment/supabase-production-plan.mjs";
+import { BETA_SECURITY_MIGRATION } from "../deployment/isolated-research-migration.mjs";
 import { isExactProductAdditiveSet, isExactPreappliedPriorityReceipt } from "./product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -36,7 +37,7 @@ const SOURCE_SETS = Object.freeze({
     "mobile/lib/decision/wohinModel.ts",
     "web/lib/decision-web-api.ts",
   ],
-  productPolicy: ["delivery/product-authority-v1.json", "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md"],
+  productPolicy: ["delivery/product-authority-v1.json", "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md", "delivery/recovery/beta-security-restore-v1.json"],
 });
 const EDGE_BUILD_DIRS = Object.freeze([
   "packages/decision-vnext-core/dist",
@@ -167,6 +168,21 @@ export function verifyProductReleaseTestEvidence(evidence, identity) {
   return true;
 }
 
+export function verifiedBetaSecurityRecovery(plan,additive,currentRiskSet) {
+  const scope=plan.isolatedResearchScope;
+  return scope?.contractVersion==="backyrd.beta-security-delivery-scope@1.0"
+    && scope.executionAuthorized===false && plan.deployFunctions.length===0
+    && (plan.authDeploy===true || plan.authConfig?.deploy===true)
+    && JSON.stringify(currentRiskSet)===JSON.stringify([BETA_SECURITY_MIGRATION])
+    && JSON.stringify(scope.migrations)===JSON.stringify(currentRiskSet)
+    && JSON.stringify(scope.authConfig?.keys)===JSON.stringify(["password_hibp_enabled"])
+    && additive?.restoreDrillStatus==="ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS"
+    && Number.isSafeInteger(scope.restoreDrill?.runId) && scope.restoreDrill.runId>0
+    && scope.restoreDrill.path==="delivery/recovery/beta-security-restore-v1.json"
+    && HASH.test(scope.restoreDrill.sha256??"")
+    && JSON.stringify(additive.restoreDrillReceipt)===JSON.stringify(scope.restoreDrill);
+}
+
 const trackedFor = (root, sourceSha, paths) => git(root, ["ls-tree", "-r", "--name-only", sourceSha, "--", ...paths]).split("\n").filter(Boolean).sort();
 const readProductionState = (root, sourceSha) => JSON.parse(git(root, ["show", `${sourceSha}:delivery/production-state.json`]));
 
@@ -175,7 +191,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   verifyProductReleaseIdentity(identity);
   requireValue(identity.sourceSha === git(root, ["rev-parse", `${sourceSha}^{commit}`]), "release_manifest_identity_source_mismatch");
   verifyProductReleaseTestEvidence(testEvidence, identity);
-  const deployable = trackedFor(root, identity.sourceSha, ["supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", "supabase/functions/decision-admin-diagnostic", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production"]);
+  const deployable = trackedFor(root, identity.sourceSha, ["supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", "supabase/functions/decision-admin-diagnostic", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-restore-v1.json"]);
   const sourceSetPaths = Object.fromEntries(Object.entries(SOURCE_SETS).map(([name, paths]) => [name, trackedFor(root, identity.sourceSha, paths)]));
   const tracked = [...new Set([...deployable, ...Object.values(sourceSetPaths).flat()])].sort();
   const bundleRoot = resolve(outputDir, "bundle");
@@ -240,6 +256,10 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   const authority = JSON.parse(git(root, ["show", `${identity.sourceSha}:delivery/product-authority-v1.json`]));
   requireValue(authority.status === "ACTIVE" && authority.productRoute === "DECISION_VNEXT_SINGLE_ROUTE" && authority.legacyDecisionAuthority === false, "release_product_authority_invalid");
   requireValue(authority.runtimeScope?.activeTransport === "decision-v13" && (authority.runtimeScope?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
+  if(actualPlan.isolatedResearchScope?.contractVersion==="backyrd.beta-security-delivery-scope@1.0") {
+    const proof=actualPlan.isolatedResearchScope.restoreDrill;
+    requireValue(fileIndex.get(proof.path)?.sha256===proof.sha256,"release_restore_receipt_not_sealed");
+  }
   const recoveryRisk = authority.founderRecoveryRiskAcceptance;
   const currentRiskSet = (actualPlan.productPreappliedImport?.migrations ?? [
     ...(actualPlan.additivePreappliedPriority ? [actualPlan.additivePreappliedPriority] : []),
@@ -268,10 +288,12 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     requireValue(additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
       && additiveMigrationScope.projectRef === actualPlan.projectRef
       && additiveMigrationScope.executionAuthorized === false
-      && additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+      && (additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+        || verifiedBetaSecurityRecovery(actualPlan,additiveMigrationScope,currentRiskSet))
       && additiveMigrationScope.guaranteedDatabaseRollback === false
       && JSON.stringify(currentRiskSet) === JSON.stringify(additiveMigrationScope.migrations)
-      && isExactProductAdditiveSet(currentRiskSet),
+      && (isExactProductAdditiveSet(currentRiskSet)
+        || verifiedBetaSecurityRecovery(actualPlan,additiveMigrationScope,currentRiskSet)),
     "release_recovery_risk_acceptance_invalid");
   }
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
@@ -376,14 +398,19 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
     ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
     : !manifest.productionPlan.productPreappliedImport && (currentRiskSet.length === 0
       || isolatedVoltaAccepted
-      || (isExactProductAdditiveSet(currentRiskSet)
+      || ((isExactProductAdditiveSet(currentRiskSet) || verifiedBetaSecurityRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet))
         && manifest.productionPlan.additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
         && manifest.productionPlan.additiveMigrationScope.projectRef === "hjgcrrzfjchzqoegcywn"
         && manifest.productionPlan.additiveMigrationScope.executionAuthorized === false
-        && manifest.productionPlan.additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+        && (manifest.productionPlan.additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+          || verifiedBetaSecurityRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet))
         && manifest.productionPlan.additiveMigrationScope.guaranteedDatabaseRollback === false
         && JSON.stringify(currentRiskSet) === JSON.stringify(manifest.productionPlan.additiveMigrationScope.migrations)));
   requireValue(Array.isArray(acceptedMigrationSet) && (deliveryTarget === "IOS_OTA" || productPendingScopeAccepted), "release_recovery_pending_scope_invalid");
+  if(manifest.productionPlan.isolatedResearchScope?.contractVersion==="backyrd.beta-security-delivery-scope@1.0") {
+    const proof=manifest.productionPlan.isolatedResearchScope.restoreDrill;
+    requireValue(Object.values(manifest.components).flat().some(file=>file.path===proof.path && file.sha256===proof.sha256),"release_restore_receipt_not_sealed");
+  }
   const sealedMigrations = new Map((manifest.components.database ?? []).map(({ path, sha256: migrationSha256 }) => [path, migrationSha256]));
   for (const entry of acceptedMigrationSet) requireValue(sealedMigrations.get(entry.path) === entry.sha256, "release_recovery_migration_bytes_invalid");
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"

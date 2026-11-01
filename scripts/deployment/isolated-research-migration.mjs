@@ -3,6 +3,30 @@ import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+export const BETA_SECURITY_MIGRATION = Object.freeze({path:"supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",sha256:"60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"});
+export function betaSecurityAppliedReceipt(state,read,isAncestor) {
+  return exactResearchReceipt(state,read,isAncestor,BETA_SECURITY_MIGRATION,"betaSecurityRelease");
+}
+/** Exactly one security migration and one password flag; all runtime changes stay deferred. */
+export function scopeBetaSecurityMigrations({pending,scope,baseSha,deployFunctions,authConfig,appliedBetaSecurity}) {
+  if (scope?.contractVersion !== "backyrd.beta-security-delivery-scope@1.0"
+    || scope.executionAuthorized !== false || scope.baseSha !== baseSha
+    || !equal(scope.migrations,[BETA_SECURITY_MIGRATION])
+    || !equal(scope.deferredMigrations,DEFERRED_BOOKING_MIGRATIONS)
+    || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
+    || !Number.isSafeInteger(scope.restoreDrill?.runId) || scope.restoreDrill.runId < 1
+    || scope.restoreDrill.path !== "delivery/recovery/beta-security-restore-v1.json"
+    || !/^[a-f0-9]{64}$/.test(scope.restoreDrill.sha256??"")
+    || deployFunctions.length || authConfig?.deploy !== true
+    || !equal(authConfig.keys,["password_hibp_enabled"])
+    || authConfig.values.password_hibp_enabled !== true
+    || !equal(scope.authConfig,{path:authConfig.path,sha256:authConfig.sha256,keys:authConfig.keys}))
+    throw new Error("beta_security_scope_invalid");
+  const selected=appliedBetaSecurity ? [] : [BETA_SECURITY_MIGRATION];
+  if (!equal(canonicalRows(pending),canonicalRows([...DEFERRED_BOOKING_MIGRATIONS,...selected])))
+    throw new Error("beta_security_pending_scope_changed");
+  return {pendingMigrations:selected,deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
+}
 export const REGIONAL_DECISION_MIGRATION = Object.freeze({path:"supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",sha256:"403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"});
 export function regionalDecisionAppliedReceipt(state,read,isAncestor) {
   return exactResearchReceipt(state,read,isAncestor,REGIONAL_DECISION_MIGRATION,"regionalDecisionRelease");
@@ -140,7 +164,10 @@ export function voltaAppliedReceipt(state, read, isAncestor) {
 }
 /** Copy config + exact tracked migrations; remove only the four explicitly deferred files. */
 export function prepareResearchMigrationWorkspace(plan,root,output) {
-  const scoped=plan.isolatedResearchScope?.contractVersion === "backyrd.seasonal-event-delivery-scope@1.0"
+  const scoped=plan.isolatedResearchScope?.contractVersion === "backyrd.beta-security-delivery-scope@1.0"
+    ? scopeBetaSecurityMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
+      baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authConfig:plan.authConfig,appliedBetaSecurity:plan.appliedBetaSecurity})
+    : plan.isolatedResearchScope?.contractVersion === "backyrd.seasonal-event-delivery-scope@1.0"
     ? scopeSeasonalEventMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,appliedSeasonalEvent:plan.appliedSeasonalEvent})
     : plan.isolatedResearchScope?.contractVersion === "backyrd.regional-decision-delivery-scope@1.0"
