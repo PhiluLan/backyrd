@@ -327,6 +327,68 @@
       },
       "authChanged": false,
       "note": "Exact approved regional context migration and two authenticated Decision functions applied from the certified Main artifact. Live ledger confirms 199 migrations and all four deferred Booking migrations absent. Context v7 EXECUTE denied to anon/authenticated and allowed only to service_role. Operator activation and continuity authorization bind generation 37 to the certified runtime. No Spot or user-interest writes. Full baseline and historical receipts retained; database restore remains untested."
+    },
+    "seasonalEventRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "migration": {
+        "path": "supabase/migrations/20261101162452_seasonal_event_editions_v1.sql",
+        "sha256": "a4e1961dbbca4c283c45b3f1d901cc9df2abd2f41b6b6acd82bd6dd30855380b"
+      },
+      "sourceSha": "053e684a25e0e0c7cf227da4437f01233a19a55f",
+      "deploymentRunId": 41331498101,
+      "certificationRunId": 41330873126,
+      "manifestHash": "db4ea24eb9a037ded14fe90f2eb9562b79230a3e0265ea970742f01481e46f87",
+      "backupRunId": 41292146328,
+      "verifiedAt": "2026-11-01T17:31:14.495354+00:00",
+      "remoteMigrationCount": 200,
+      "remoteMigrationTip": "20261101162452",
+      "deferredMigrations": [
+        {
+          "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
+          "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
+        },
+        {
+          "path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql",
+          "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"
+        },
+        {
+          "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
+          "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
+        },
+        {
+          "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
+          "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+        }
+      ],
+      "functions": [
+        {
+          "slug": "decision-admin-diagnostic",
+          "version": 27,
+          "verifyJwt": true,
+          "bundleHash": "3703d0074061b8e1fa51cac5bc97eb0b98d837894843cc72e07cb919537065ce",
+          "sourceSetHash": "a4774fa7fd339aa4b3fea058995af38340c98aabd825f51b106b91ee564310a9",
+          "deferredCandidateSourceSetHash": null
+        },
+        {
+          "slug": "decision-v13",
+          "version": 231,
+          "verifyJwt": true,
+          "bundleHash": "ccb1c51effb559f24ac3b973642f51788d3d4e325e9d844e0926239c9db3e172",
+          "sourceSetHash": "61d39b6fa73456a085e81baaac79394c96dda517febda5c36f2be9491c7752dd",
+          "deferredCandidateSourceSetHash": null
+        }
+      ],
+      "runtimeBinding": {
+        "releaseHash": "db4ea24eb9a037ded14fe90f2eb9562b79230a3e0265ea970742f01481e46f87",
+        "artifactHash": "7a2cf16abfbf4778f70df770fddf4f06e77a9263060a6bdfe946c00bd6aee749",
+        "sourceSetHash": "61d39b6fa73456a085e81baaac79394c96dda517febda5c36f2be9491c7752dd",
+        "expectedPreviousGeneration": 47,
+        "offGeneration": 48,
+        "generation": 49,
+        "authorityHash": "f515ec96618c5a4ffdbeeed7ff907b500777a6ad7da7a0e1fae8e0d22187dbb0"
+      },
+      "authChanged": false,
+      "note": "Only the exact Founder-approved seasonal event SQL and two authenticated Decision functions applied from certified Main. Runtime activated and continuity authorized at generation 49. All four Booking migrations remain absent. Seven researched Herbstmesse venues and 114 intervals published through the regular Admin session. No permanent Spot profiles changed. Full database baseline remains unchanged; restore untested as disclosed and accepted."
     }
   },
   "mobile": {
