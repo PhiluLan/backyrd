@@ -4,7 +4,7 @@ import styles from "./seasonal.module.css";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { formatAdminError } from "@/lib/adminErrors";
-import preset from "../../../../data/events/basler-herbstmesse-2026.json";
+import preset from "../../../data/events/basler-herbstmesse-2026.json";
 import type {
   SeasonalEditionInput,
   SeasonalPlace,

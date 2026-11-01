@@ -67,7 +67,7 @@ test("each place selects its current/next actual interval, not the first day of 
 });
 
 test('researched Herbstmesse fixture has seven evidenced places and 114 bounded daily intervals',()=>{
- const fixture=JSON.parse(fs.readFileSync(new URL('../../data/events/basler-herbstmesse-2026.json',import.meta.url),'utf8'));
+ const fixture=JSON.parse(fs.readFileSync(new URL('../../admin-dashboard/data/events/basler-herbstmesse-2026.json',import.meta.url),'utf8'));
  assert.equal(fixture.places.length,7);let count=0;
  for(const place of fixture.places){
   assert.match(place.sourceUrl,/^https:\/\/www\.herbstmesse\.ch\/fairgrounds\//);
