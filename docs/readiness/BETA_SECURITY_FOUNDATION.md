@@ -81,55 +81,93 @@ Hinweis zur Definer-View bleibt deshalb eine dokumentierte Ausnahme, deren
 erlaubte und verbotene Zugriffe getestet werden. Die öffentliche Zwei-Personen-
 Schwelle und die davon getrennte interne Decision-Schwelle bleiben erhalten.
 
-## App-Abhängigkeiten: behoben und verbleibend
+## App-Abhängigkeiten und verbleibende Werkzeughinweise
 
-Kompatible Sicherheitsupdates wurden unter anderem für `compression`,
-`fast-uri`, `js-yaml`, `node-forge`, `source-map-js`, `undici` und
-`brace-expansion` innerhalb der bestehenden SDK-Version aufgelöst.
+Die nativen SDKs bleiben auf ihrem bisherigen Stand. Zusätzlich zu kompatiblen
+Transitiven sind `decode-uri-component` 0.5.1, PostCSS 8.5.32 und image-size
+2.0.3 gebunden. Zwei versionierte `patch-package`-Patches erhalten die
+Aufrufverträge von query-string 7 und Metro 0.83: ESM-Decoder laden sowie
+Bilddaten als Buffer an den neuen Parser übergeben. Eine frische `npm ci`
+wendet beide Patches mit `--error-on-fail` an; Versionsabweichungen dürfen
+nicht stillschweigend ohne Patch weiterlaufen.
 
-Der produktive npm-Audit sinkt von 50 betroffenen Paketen (hoch 16, mittel 33,
-niedrig 1) auf 42 (hoch 6, mittel 35, niedrig 1). Die Zahl zählt auch
-übergeordnete Abhängigkeiten derselben Ursache mehrfach und enthält Expo-/Metro-
-Werkzeuge. Sie ist keine Anzahl nachgewiesener Angriffswege.
+UTF-8-/Mehrfachparameter, ein langer ungültiger Linkparameter, ein beschädigter
+ICNS-Eintrag, Bilddaten von Datei und Buffer sowie unerlaubtes Lesen einer
+lokalen CSS-Source-Map sind gezielt geprüft. Vollständige iOS- und Android-
+Hermes-Exporte mit Source-Maps sind bestanden. Der tatsächlich ausgelieferte
+Decoder ist gepatcht. Die verbleibenden unten genannten Werkzeugursachen
+enthalten beide nativen Bundles nicht.
 
-| Verbleibende Ursache | Betroffenheit und nächster Schritt |
-| --- | --- |
-| `decode-uri-component` 0.2.2 über `query-string`, Router und Navigation | Potenziell relevant für manipulierte Links. Hohe Priorität bei Paket 2: gepatchte Dekodierung mit Router-/Metro-Kompatibilität prüfen. Version 0.5.1 ist ESM; ein blindes Override aus dem CommonJS-Aufrufer ist kein geprüfter Fix. [Primärhinweis](https://github.com/advisories/GHSA-qr28-fpjm-wq7f). |
-| PostCSS 8.4.49 | Vom Expo-Metro-Werkzeug auf die 8.4-Reihe begrenzt. Verarbeitung nicht vertrauenswürdiger CSS-/Source-Map-Dateien ist separat vom nativen Laufzeitcode zu beurteilen; kompatiblen Werkzeug-Patch prüfen. |
-| image-size 1.2.1 | Bild-Metadaten im Metro-Buildwerkzeug. Keine ungeprüften fremden Bilddateien in den Build aufnehmen; gepatchten Parser mit Metro-Aufrufvertrag prüfen. Version 2 wechselt den Exportvertrag. |
-| glob/minimatch, uuid und deepmerge | Verbleibende mittlere/niedrige Meldungen überwiegend in Build-/CLI-Ketten. Mit der Werkzeugmodernisierung und vor Paket 6 auf Erreichbarkeit und kompatible Patches prüfen. |
+| Bereich | Aktueller Audit | Einordnung |
+| --- | --- | --- |
+| Web/Admin produktive Pakete | jeweils 0 | Betroffene Serverbibliotheken aktualisiert. |
+| Mobile einschliesslich Expo-/Metro-Werkzeugen | 36: hoch 0, kritisch 0, mittel 35, niedrig 1 | Mehrfachzählung transitiver Eltern; vier verbleibende Ursachen unten. |
+| Root einschliesslich EAS/Entwicklungswerkzeugen | 40: hoch 0, kritisch 0, mittel 38, niedrig 2 | Kein produktiver Web-Befund; Werkzeugrisiken bleiben getrennt sichtbar. |
+| Admin einschliesslich Entwicklungswerkzeugen | 17 mittel, hoch/kritisch 0 | Nicht mit dem produktiven Admin-Baum verwechseln. |
 
-Kein `npm audit fix --force`, kein stilles SDK-Major-Upgrade oder Downgrade der
-nativen Update-Bibliothek. Die verbleibenden hohen Meldungen gelten ausdrücklich
-nicht als erledigt. Eine App-Sicherheitsfreigabe folgt daraus noch nicht.
+Triage der verbleibenden Ursachen für Paket 1:
 
-## Entwicklungswerkzeuge und GitHub-Gesamtmeldungen
+- **glob/minimatch:** Datei-/Mustersuche in Expo-, EAS-, Prüf- und Buildketten.
+  Keine Module dieser Pakete in den vollständigen iOS-/Android-Source-Maps;
+  kein entsprechender produktiver Web-/Admin-Befund. Keine fremden Projekte,
+  Archive oder Muster als Build-Eingabe ausführen. Keine ungeprüften Major-
+  Overrides über inkompatible alte APIs.
+- **uuid:** xcode-Buildwerkzeug, nicht im nativen Bundle. Der tatsächliche
+  Aufruf ist `uuid.v4()`; die gemeldeten anderen Erzeugungs-/Bufferwege sind
+  dort nicht verwendet. Weitere transitive Werkzeugketten bleiben im Audit.
+- **deepmerge:** Expo-Konfiguration/Entwicklungswerkzeuge, nicht im nativen
+  Bundle. Die Konfiguration ist versionierter Betreiber-Code; keine fremden
+  Konfigurationsobjekte als Code oder privilegierte Build-Eingabe akzeptieren.
+- **ajv, diff, ts-deepmerge, yaml:** verbleibende Root-Prüf-/CLI-Ketten,
+  nicht produktive Web-/Admin-Abhängigkeiten. Daten aus einem PR sind keine
+  vertrauenswürdige Berechtigung zur Verwendung von Produktions-Secrets.
 
-Der zusätzliche Voll-Audit einschliesslich Entwicklungswerkzeugen ist vom oben
-genannten produktiven Web-/Admin-Audit zu trennen. Weitere kompatible Patches
-für Archiv-, YAML-, Browserlisten-, Prüf- und Kryptografie-Werkzeuge wurden
-eingespielt. Die lokale EAS-CLI wurde zusätzlich von 16.20.1 auf exakt
-[27.2.0](https://github.com/expo/eas-cli/releases/tag/v27.2.0) aktualisiert.
-Gezielte Patch-Overrides binden ihre Archiv-/Signaturbibliotheken an Tar 7.5.22
-und Forge 1.4.2 sowie den Supabase-Installer an Tar 7.5.22. Die für Datenbank-
-Negativtests festgelegte Supabase-CLI bleibt 2.80.0; das native App-SDK bleibt 54.
-EAS Build-/Update-Befehle laden, die tatsächliche EAS-App-Archiv-Extraktion sowie
-gültige und manipulierte Signaturen wurden mit synthetischen Daten geprüft.
+Diese Einordnung schliesst die Ausgangs-Triage ab, nicht jede spätere
+Sicherheitsprüfung. Die Advisory-Einträge werden nicht unterdrückt. Die
+abschliessende Prüfung neuer Laufzeit-/Upload-/Deep-Link-Wege bleibt Paket 6.
+Keine Aussage allgemeiner Unangreifbarkeit und kein `npm audit fix --force`.
 
-Der Voll-Audit des Root-Baums sinkt damit von 51 betroffenen Paketen (kritisch 1,
-hoch 16) auf 40 (kritisch 0, hoch 4). Admin einschliesslich Entwicklungswerkzeugen:
-von 17 (kritisch 1, hoch 7) auf 17 (kritisch 0, hoch 0, mittel 17). Verbleibende
-hohe Root-Meldungen betreffen Joi, Nanoid und Minimatch sowie deren EAS-Elternpaket.
-Diese sind ausdrücklich offen. Keine nicht vertrauenswürdigen Archive oder
-Projekte mit den Entwicklungswerkzeugen verarbeiten; weitere kompatible Patches
-beziehungsweise geprüfte Backports vor der finalen Sicherheitsabnahme prüfen.
+Die EAS-CLI ist auf 27.2.0 aktualisiert; Tar 7.5.22, Forge 1.4.2, Joi 17.13.9,
+Nanoid 3.3.20 und Minimatch 5.1.9 sind in ihren kompatiblen Werkzeugketten
+gebunden. Die für SQL-Negativtests festgelegte Supabase-CLI bleibt 2.80.0.
+EAS-Archivierung und Signaturprüfung wurden mit synthetischen Daten geprüft.
+Der GitHub-Ausgangsstand mit 311 Meldungen umfasst auch das entfernte, nie
+verwendete Web-Lockfile und das historische `mobu/`; er ist kein aktueller
+Audit des tatsächlich installierten produktiven Baums.
 
-Der GitHub-Ausgangsstand meldet 311 offene Einträge über fünf Lockfiles,
-einschliesslich des nicht mehr verwendeten Web-Lockfiles und `mobu/`. Das
-historische `mobu/` ist keine Implementierungsquelle der kanonischen App.
-Die GitHub-Liste wird erst nach Übernahme der Änderungen neu ausgewertet und
-ist nicht identisch mit einem aktuellen Audit des tatsächlich installierten
-produktiven Baums. Offene Einträge werden dadurch nicht pauschal entkräftet.
+## Passwortschutz und Wiederherstellungsnachweis
+
+Eine kompromittierte-Passwort-Ablehnung bekommt in App und Web einen klaren
+Text. Er erscheint ausschliesslich bei `weak_password` mit Grund `pwned`,
+nicht aufgrund eines beliebigen Fehlers. Die Konfiguration des echten
+Passwortschutzes ist weiterhin **nicht aktiviert**. Der vorbereitete Deployer
+kann genau `password_hibp_enabled=true` setzen, ohne SMTP-Zugangsdaten,
+E-Mail-Vorlagen oder Weiterleitungen anzufassen. Die Aktivierung braucht den
+konkreten begrenzten Produktionsplan und anschliessende Verifikation.
+
+Der AWS-Workflow bekommt einen manuellen Modus `restore-drill`. Er verwendet
+nur den bisherigen Main/OIDC-/KMS-Zugang und liest das neueste vollständige
+Datenbank-/Medienarchiv. SHA-256 und sichere Archivstruktur werden vor der
+Wiederherstellung geprüft. Daten und Geheimnisse bleiben im kurzlebigen
+Runner; als Artefakt bleibt nur der nicht sensible Ergebnisbeleg.
+
+Zwei unabhängige Wegwerfziele entsprechen dem Recovery-Runbook:
+
+1. Datenbank einschliesslich Auth-/Storage-Metadaten und Migrationshistorie:
+   Tabelleninhalte, Schema/Rechte, Sequenzen und Fremdschlüssel vergleichen.
+2. Medien in einem leeren Storage-Dienst: jede Datei hochladen, zurücklesen,
+   SHA-256 vergleichen und die ursprünglichen Bucket-Regeln wiederherstellen.
+
+Alle Dienste werden vor dem Einspielen auf ein internes Docker-Netz ohne
+externen Netzweg begrenzt; Cron-Ausführung ist deaktiviert. Beide Ziele werden
+anschliessend entfernt. Der Test schaltet keine Produktionsverbindung um und
+prüft keine Wiederherstellung externer Provider-/Signierschlüssel.
+Der synthetische Vorabtest ist bestanden: 391 Tabellen, 3370 Zeilen,
+39 Sequenzen und eine Mediendatei. Zehn CHECK-Ausdrücke unterscheiden sich
+nur durch PostgreSQL-normalisierte AND-Klammerung; der Parser hat die
+Gleichheit bestätigt. ACL-/Funktions-/Standardwert-Unterschiede bleiben
+Fehler. Dieser Vorabtest ersetzt ausdrücklich nicht den ausstehenden
+Nachweis für das echte aktuelle AWS-Archiv.
 
 ## Weitere Supabase-Hinweise
 
@@ -143,15 +181,15 @@ bestätigten Datenlecks:
 | GraphQL-Sichtbarkeit: anon 79, authenticated 131 | SELECT-Grants machen Tabellen im Schema auffindbar; Zeilenzugriff hängt zusätzlich von RLS ab. Sensible Tabellen und fremde Datensätze in Paket 2/3 sowie Paket 6 explizit negativ prüfen. |
 | Definer ausführbar: anon 115, authenticated 410 | Umfasst beabsichtigte Produkt-RPCs, Triggerfunktionen und tatsächliche interne Endpunkte. Zehn bestätigte interne Endpunkte werden mit dieser Migration geschlossen; die restliche Liste ist damit nicht vollständig freigegeben. |
 | Extensions in public: 5 | Nicht ungeprüft verschieben: gespeicherte Typen, Operatoren und Abhängigkeiten benötigen eine eigene kompatible Migration. |
-| Schutz gegen kompromittierte Passwörter | Laut Advisor noch nicht aktiv. In Paket 2 zusammen mit Passwortregeln und verständlicher Ablehnung aktivieren und im echten Registrierungsablauf prüfen. |
+| Schutz gegen kompromittierte Passwörter | Laut Advisor noch nicht aktiv. Vor Abschluss von Paket 1 aktivieren und serverseitig verifizieren; verständliche Ablehnung ist vorbereitet. |
 
 ## Validierung und Releasegrenze
 
 - Web/Admin: Typecheck, bestehende Ablaufverträge und Produktionsbuild mit lokalen
   Platzhaltern für öffentliche Build-Konfiguration. Kein Produktionsschlüssel
   wurde in den Build kopiert.
-- Mobile: Typecheck und bestehende Vertrags-/Deep-Link-Prüfungen; native
-  Geräteabnahme und Sicherheitsprüfung manipulierter Links bleiben ausstehend.
+- Mobile: Typecheck und bestehende Vertrags-/Deep-Link-Prüfungen; iOS-/Android-Hermes-Build und gezielte manipulierte Eingaben geprüft. Die
+  vollständige Geräteabnahme bleibt Paket 6.
 - Client-Secret-Grenze und kanonischer Secret-Scan bestanden.
 - Web-Lint: keine Fehler, 13 bestehende Warnungen; Mobile-Lint: keine Fehler,
   eine bestehende Warnung. Admin-Gesamtlint meldet 81 Fehler und 24 Warnungen
