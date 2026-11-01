@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "beta-security-boundaries-v1",
+  "previousEvidence": "seasonal-event-editions-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "2d88285be971d3c19e2e0fd6b5bf7b748b278704e413ef1384adf964a7e619a9",
+    "applicationSchemaSha256": "f03a3fbc5ad5d46dcdc99c9a54fb4d1b47becff0e119db9bcb85d308b92de23e"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",
+      "sha256": "60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/beta_security_boundaries_v1.sql",
+      "sha256": "a8e0f2403b51469bbb1b29e1e318ef76e1e1655129ad9dc6aa011891d1a1176d"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "0a554cd61d5912ee0a014b6e0f14a7cbec1383e273f949e4318c81be568156a3",
+    "applicationSchemaSha256": "e199d7d73526597a0e49775fce7970e4eabe8cff0b51770b910adad4af0606e6"
+  }
+}
