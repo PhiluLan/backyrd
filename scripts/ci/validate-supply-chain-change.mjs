@@ -68,7 +68,7 @@ export function validateSupplyChainChange({ root, baseSha, headSha }) {
   }
 
   for (const path of changes.filter((candidate) => /(?:^|\/)package-lock\.json$/.test(candidate))) {
-    installRoots.add(dirname(path) === "." ? "." : dirname(path));
+    installRoots.add(installRootForManifest(path.replace(/package-lock\.json$/, "package.json"), workspaces));
   }
   return { failures: [...new Set(failures)].sort(), installRoots: [...installRoots].sort() };
 }

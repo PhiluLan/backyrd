@@ -38,6 +38,9 @@ Root-Lockfile zu. Zuvor verlangte sie für Web fälschlich ein separates Lockfil
 obwohl CI die Root-Workspace-Installation verwendet. Getrennte Admin-/Mobile-
 Installationen behalten ihre eigenen Lockfiles. Änderungen an der Workspace-
 Zuordnung selbst benötigen ebenfalls ein aktualisiertes Root-Lockfile.
+Das nicht verwendete separate Web-Lockfile ist entfernt; README und CI verwenden
+bereits die Root-Workspace-Installation. Historische Sicherheitsmeldungen dieses
+alten Lockfiles dürfen nicht mit dem jetzt installierten Web-Baum verwechselt werden.
 
 ### Datenbank: interne Hintergrundaufträge
 
