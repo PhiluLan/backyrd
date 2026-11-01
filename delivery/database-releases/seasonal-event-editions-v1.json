@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "seasonal-event-editions-v1",
+  "previousEvidence": "decision-regional-catalog-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "ec35ba80605a6e278fb53d79f56ebd95fba2946233e9180dbf19bd48166acf05",
+    "applicationSchemaSha256": "5207e017312c9fb0b411d217e0708dd42fcb098c236e94e5b40f2a7b7ea9ede4"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261101162452_seasonal_event_editions_v1.sql",
+      "sha256": "a4e1961dbbca4c283c45b3f1d901cc9df2abd2f41b6b6acd82bd6dd30855380b"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/seasonal_event_editions_v1.sql",
+      "sha256": "50a7292bf9b3bc13142b7dcaac0e9a62dcd59ba3149a62b5701a985a93a08b85"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "2d88285be971d3c19e2e0fd6b5bf7b748b278704e413ef1384adf964a7e619a9",
+    "applicationSchemaSha256": "f03a3fbc5ad5d46dcdc99c9a54fb4d1b47becff0e119db9bcb85d308b92de23e"
+  }
+}
