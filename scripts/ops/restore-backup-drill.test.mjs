@@ -56,3 +56,15 @@ test('managed Auth/Storage compatibility is checked before replaying original da
  assert.throws(()=>requireManagedColumns(sections,[{table_schema:'auth',table_name:'one_time_tokens',column_name:'id'}]),/restore_platform_schema_missing:auth.one_time_tokens.expires_at/);
  assert.doesNotThrow(()=>requireManagedColumns(sections,['id','expires_at'].map(column_name=>({table_schema:'auth',table_name:'one_time_tokens',column_name}))));
 });
+
+test('complete multiline CHECK expressions reach PostgreSQL, including quoted parentheses',async()=>{
+ const {compareSchema}=await import('./restore-backup-drill.mjs');
+ const start='CREATE TABLE IF NOT EXISTS "public"."probe" (\n';
+ const source=start+' CONSTRAINT "boundary" CHECK (((day +\n interval \'1 day\') > day) AND (note <> \')\'))\n);';
+ const target=start+' CONSTRAINT "boundary" CHECK ((day + interval \'1 day\') > day AND note <> \')\')\n);';
+ let complete=false;
+ assert.equal(compareSchema(source,target,check=>{complete=check.expression.includes("interval '1 day'")&&check.expression.endsWith("'))");return true;}).matches,true);
+ assert.equal(complete,true);
+ assert.equal(compareSchema(source,target,()=>false).matches,false);
+ assert.equal(compareSchema(source,target+'\nGRANT ALL ON public.probe TO anon;',()=>true).matches,false);
+});
