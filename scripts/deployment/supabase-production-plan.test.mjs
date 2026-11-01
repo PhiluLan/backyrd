@@ -390,6 +390,12 @@ test('Beta security release binds one SQL, one password flag and verified restor
  write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({betaSecurityDeliveryScope:scope}));
  const accepted=plan(f,commit(f.repo,'bounded security release'));
  assert.deepEqual(accepted.pendingMigrations,[target]);assert.deepEqual(accepted.deferredMigrations,deferred);assert.deepEqual(accepted.deployFunctions,[]);assert.deepEqual(accepted.authConfig.keys,['password_hibp_enabled']);
+ const {prepareResearchMigrationWorkspace}=await import('./isolated-research-migration.mjs');
+ const output=mkdtempSync(join(tmpdir(),'backyrd-security-workspace-'));
+ prepareResearchMigrationWorkspace(accepted,f.repo,output);
+ assert.equal(readFileSync(join(output,target.path),'utf8'),readFileSync(new URL('../../'+target.path,import.meta.url),'utf8'));
+ const {existsSync}=await import('node:fs');for(const item of deferred)assert.equal(existsSync(join(output,item.path)),false);
+
  write(f.repo,path,JSON.stringify({...receipt,allMediaBytesMatch:false}));assert.throws(()=>plan(f,commit(f.repo,'tampered restore')),/restore_evidence_invalid/);
  write(f.repo,path,restoreBytes);document.config.mailer_subjects_recovery='Unapproved changed subject';write(f.repo,'supabase/production/auth-config.json',JSON.stringify(document));assert.throws(()=>plan(f,commit(f.repo,'unbound auth change')),/beta_security_scope_invalid/);
  write(f.repo,'supabase/production/auth-config.json',bytes);write(f.repo,'packages/shared/runtime.mjs','export const value = 999;\n');assert.throws(()=>plan(f,commit(f.repo,'unbound runtime change')),/release_scope_conflict/);
