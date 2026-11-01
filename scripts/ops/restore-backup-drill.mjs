@@ -25,30 +25,79 @@ export function copySections(sql) {
  if(active||!sections.length)throw Error('backup_copy_sections_incomplete');
  return sections;
 }
+export function requireManagedColumns(sections,columns) {
+ const available=new Set(columns.map(c=>c.table_schema+'.'+c.table_name+'.'+c.column_name));
+ for(const section of sections.filter(s=>['auth','storage'].includes(s.schema)))for(const column of section.columns){
+  const key=section.schema+'.'+section.table+'.'+column;
+  if(!available.has(key))throw Error('restore_platform_schema_missing:'+key);
+ }
+}
 export function normalizedSchema(sql) {
  return sql.split('\n').filter(line=>!line.startsWith('--')&&!/^\\(?:un)?restrict\b/.test(line)&&line.trim()!=='').join('\n');
 }
+// pg_dump may wrap a CHECK across lines. Read the complete balanced expression
+// rather than treating its first line as executable SQL.
+function checkExpression(lines,start,first) {
+ const input=[first,...lines.slice(start+1)].join('\n');
+ if(!input.startsWith('('))return null;
+ let depth=0,quote=null,dollar=null,block=false,lineComment=false;
+ for(let i=0;i<input.length;i++){
+  const c=input[i],next=input[i+1];
+  if(lineComment){if(c==='\n')lineComment=false;continue;}
+  if(block){if(c==='*'&&next==='/'){block=false;i++;}continue;}
+  if(dollar){if(input.startsWith(dollar,i)){i+=dollar.length-1;dollar=null;}continue;}
+  if(quote){if(c==='\\'&&quote==="'"){i++;continue;}if(c===quote){if(next===quote)i++;else quote=null;}continue;}
+  if(c==='-'&&next==='-'){lineComment=true;i++;continue;}
+  if(c==='/'&&next==='*'){block=true;i++;continue;}
+  if(c==="'"||c==='"'){quote=c;continue;}
+  if(c==='$'){const match=/^\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?\$/.exec(input.slice(i));if(match){dollar=match[0];i+=dollar.length-1;continue;}}
+  if(c==='(')depth++;
+  if(c===')'&&--depth===0){
+   const expression=input.slice(0,i+1),suffix=input.slice(i+1).split('\n')[0];
+   if(!/^(?: NOT VALID)?[,]?$/.test(suffix))return null;
+   return {expression,suffix,lines:expression.split('\n').length};
+  }
+ }
+ return null;
+}
 export function compareSchema(source,target,compareCheck) {
  const a=normalizedSchema(source).split('\n'),b=normalizedSchema(target).split('\n');
- if(a.length!==b.length)return {matches:false,normalizedChecks:0};
  const tableHeader=new RegExp(`^CREATE TABLE IF NOT EXISTS (${atom})\\.(${atom}) \\($`);
  const checkLine=new RegExp(`^CONSTRAINT (${atom}) CHECK (.+)$`);
- let table=null,normalizedChecks=0;
- for(let i=0;i<a.length;i++){
+ let table=null,normalizedChecks=0,i=0,j=0;
+ while(i<a.length&&j<b.length){
   const header=tableHeader.exec(a[i]);if(header)table={schema:unquote(header[1]),name:unquote(header[2])};
   if(a[i]===');')table=null;
-  if(a[i]===b[i])continue;
-  const left=checkLine.exec(a[i].trim().replace(/,$/,'')),right=checkLine.exec(b[i].trim().replace(/,$/,''));
-  if(!table||!left||!right||left[1]!==right[1]||!compareCheck({...table,constraint:unquote(left[1]),expression:left[2]}))return {matches:false,normalizedChecks};
-  normalizedChecks++;
+  const left=table&&checkLine.exec(a[i].trim()),right=table&&checkLine.exec(b[j].trim());
+  if(left&&right&&left[1]===right[1]){
+   const l=checkExpression(a,i,left[2]),r=checkExpression(b,j,right[2]);
+   if(!l||!r||l.suffix!==r.suffix)return {matches:false,normalizedChecks};
+   if(l.expression!==r.expression){
+    if(!compareCheck({...table,constraint:unquote(left[1]),expression:l.expression}))return {matches:false,normalizedChecks};
+    normalizedChecks++;
+   }
+   i+=l.lines;j+=r.lines;continue;
+  }
+  if(a[i]!==b[j])return {matches:false,normalizedChecks};
+  i++;j++;
  }
- return {matches:true,normalizedChecks};
+ return {matches:i===a.length&&j===b.length,normalizedChecks};
+}
+export function safeCommandFailure(command,status,stderr,input) {
+ const errorLine=stderr.split('\n').find(line=>/ERROR:\s+[0-9A-Z]{5}:/.test(line))??'';
+ const state=/ERROR:\s+([0-9A-Z]{5}):/.exec(errorLine)?.[1];
+ const line=/psql:<stdin>:(\d+):/.exec(errorLine)?.[1];
+ const identifiers=[...errorLine.matchAll(/(?:column|relation|schema|role|type) "([a-z_][a-z0-9_]{0,62})"/g)].slice(0,4).map(m=>m[1]);
+ const before=line?input.split('\n').slice(0,Number(line)).join('\n'):'';
+ const parts=[...before.matchAll(/^-- backyrd-restore-part:(roles|schema|migration-schema|data|migration-data|managed-controls)\.sql$/gm)];
+ const part=parts.at(-1)?.[1];
+ return 'restore_command_failed:'+command+':'+status+(state?':sqlstate='+state:'')+(line?':line='+line:'')+(part?':part='+part:'')+(identifiers.length?':identifiers='+identifiers.join(','):'');
 }
 function run(command,args,{input,env,timeout=120000}={}) {
  try{return execFileSync(command,args,{input,encoding:'utf8',env:{...process.env,...env},timeout,maxBuffer:256*1024*1024,stdio:['pipe','pipe','pipe']});}
  catch(error){
   if(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE)writeFileSync(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE,error.stderr??'',{mode:0o600});
-  throw Error('restore_command_failed:'+command+':'+(error.status??error.code??'unknown'));
+  throw Error(safeCommandFailure(command,error.status??error.code??'unknown',String(error.stderr??''),String(input??'')));
  }
 }
 function verifyManifest(directory,name) {
@@ -58,12 +107,13 @@ function verifyManifest(directory,name) {
  return lines.length;
 }
 export function buildRestoreSql(part) {
- return `begin;set local session_replication_role=replica;${part('roles.sql')}\nset local role postgres;\nalter default privileges for role postgres in schema public revoke all on functions from anon,authenticated,service_role;\nalter default privileges for role postgres in schema public revoke all on tables from anon,authenticated,service_role;\nalter default privileges for role postgres in schema public revoke all on sequences from anon,authenticated,service_role;\n${part('schema.sql')}\n${part('migration-schema.sql')}\nreset role;\n${part('data.sql')}\n${part('migration-data.sql')}\nset local session_replication_role=replica;\n${part('managed-controls.sql')}\nreset role;\ncommit;`;
+ const section=name=>'\n-- backyrd-restore-part:'+name+'\n'+part(name);
+ return `begin;set local session_replication_role=replica;${section('roles.sql')}\nset local role postgres;\nalter default privileges for role postgres in schema public revoke all on functions from anon,authenticated,service_role;\nalter default privileges for role postgres in schema public revoke all on tables from anon,authenticated,service_role;\nalter default privileges for role postgres in schema public revoke all on sequences from anon,authenticated,service_role;\n${section('schema.sql')}\n${section('migration-schema.sql')}\nreset role;\n${section('data.sql')}\n${section('migration-data.sql')}\nset local session_replication_role=replica;\n${section('managed-controls.sql')}\nreset role;\ncommit;`;
 }
 async function isolatedTarget(cli,phase,operation) {
  const workdir=mkdtempSync(join(tmpdir(),'backyrd-isolated-restore-'));
  const project='backyrd-restore-'+randomUUID().slice(0,12),network=project+'-isolated';let networkCreated=false,started=false;
- const sql=body=>run('docker',['exec','-i','supabase_db_'+project,'psql','-U','supabase_admin','-d','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1'],{input:body});
+ const sql=body=>run('docker',['exec','-i','supabase_db_'+project,'psql','-U','supabase_admin','-d','postgres','-X','-q','-t','-A','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-f','-'],{input:body});
  try {
   run(cli,['init','--workdir',workdir,'--yes','--agent=no']);
   const configPath=join(workdir,'supabase/config.toml');let config=readFileSync(configPath,'utf8');
@@ -100,6 +150,14 @@ async function isolatedTarget(cli,phase,operation) {
   // Wait for the restarted Storage process and its new local DB connection.
   let ready=false;for(let attempt=0;attempt<30;attempt++){try{await storage('/bucket');ready=true;break;}catch{await new Promise(resolve=>setTimeout(resolve,500));}}
   if(!ready)throw Error('isolated_storage_not_ready');
+  if(phase==='database') {
+   // Restored Auth sessions must remain a snapshot. Network isolation alone
+   // does not stop local Auth maintenance from expiring tokens during checks.
+   for(const container of containers.filter(name=>name!=='supabase_db_'+project)){
+    run('docker',['stop',container],{timeout:120000});
+    assert.equal(run('docker',['inspect',container,'--format','{{.State.Running}}']).trim(),'false');
+   }
+  }
   console.log('Restore phase: '+phase+' target isolated and empty.');
   return await operation({sql,storage,dumpSchema:()=>run('docker',['exec','-i','supabase_db_'+project,'bash'],{input:dumpScript,timeout:120000})});
  } finally {
@@ -113,9 +171,11 @@ async function restore(snapshot,reportPath) {
  if(metadata.version!=='backyrd-production-backup-v2'||metadata.databaseIncluded!==true)throw Error('complete_v2_backup_required');
  const database=join(snapshot,'database');verifyManifest(database,'files-sha256.txt');verifyManifest(snapshot,'database-sha256.txt');const mediaCount=verifyManifest(snapshot,'storage-sha256.txt');assert.equal(mediaCount,metadata.storageFiles);
  const scope=JSON.parse(readFileSync(join(database,'scope.json'),'utf8'));assert.equal(scope.version,'backyrd-database-snapshot-v2');assert.equal(scope.scope,'all-non-platform-application-schemas');
- const cli=process.env.BACKYRD_RESTORE_SUPABASE_CLI||'supabase';assert.equal(run(cli,['--version']).trim(),'2.116.0');
+ const cli=process.env.BACKYRD_RESTORE_SUPABASE_CLI||'supabase';assert.equal(run(cli,['--version']).trim(),'2.122.0');
  const part=name=>readFileSync(join(database,name),'utf8');
  const evidence=await isolatedTarget(cli,'database',async({sql,dumpSchema})=>{
+  const platformColumns=JSON.parse(sql("select coalesce(json_agg(t),'[]') from (select table_schema,table_name,column_name from information_schema.columns where table_schema in ('auth','storage'))t;"));
+  requireManagedColumns(copySections(part('data.sql')),platformColumns);
   sql(buildRestoreSql(part));console.log('Restore phase: database loaded; comparing schema and tables.');
   const restoredSchema=dumpSchema();
   const comparison=compareSchema(part('schema.sql'),restoredSchema,check=>{
@@ -126,8 +186,8 @@ async function restore(snapshot,reportPath) {
   });
   if(!comparison.matches){if(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE)writeFileSync(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE+'.schema.sql',restoredSchema,{mode:0o600});throw Error('restored_schema_or_acl_mismatch');}
   const sections=[...copySections(part('data.sql')),...copySections(part('migration-data.sql'))];let rowCount=0,checked=0;
-  for(const section of sections){const body=sql(`COPY ${identifier(section.schema)}.${identifier(section.table)} (${section.columns.map(identifier).join(',')}) TO STDOUT;`);const rows=body.endsWith('\n')?body.slice(0,-1).split('\n'):body?body.split('\n'):[];
-   if(rows.length!==section.count||sha(rows.sort().join('\n'))!==section.digest)throw Error('restored_table_mismatch');rowCount+=rows.length;checked++;if(checked%100===0)console.log('Restore phase: '+checked+' tables verified.');}
+  for(const section of sections){const body=sql(`set extra_float_digits=3;COPY ${identifier(section.schema)}.${identifier(section.table)} (${section.columns.map(identifier).join(',')}) TO STDOUT;`);const rows=body.endsWith('\n')?body.slice(0,-1).split('\n'):body?body.split('\n'):[];
+   if(rows.length!==section.count||sha(rows.sort().join('\n'))!==section.digest)throw Error('restored_table_mismatch:'+section.schema+'.'+section.table+':expectedRows='+section.count+':actualRows='+rows.length);rowCount+=rows.length;checked++;if(checked%100===0)console.log('Restore phase: '+checked+' tables verified.');}
   let sequenceCount=0;
   for(const m of part('data.sql').matchAll(/^SELECT pg_catalog\.setval\('((?:[^']|'')+)', ([0-9]+), (true|false)\);$/gm)){
    const relation=new RegExp(`^(${atom})\\.(${atom})$`).exec(m[1].replaceAll("''","'"));if(!relation)throw Error('sequence_identifier_invalid');
@@ -154,7 +214,7 @@ async function restore(snapshot,reportPath) {
   const buckets=JSON.parse((await storage('/bucket')).toString()).map(b=>Object.fromEntries(['id','name','public','file_size_limit','allowed_mime_types'].map(k=>[k,b[k]]))).sort((a,b)=>a.id.localeCompare(b.id,'en'));
   const expected=[...evidence.buckets].sort((a,b)=>a.id.localeCompare(b.id,'en'));assert.deepEqual(buckets,expected);assert.equal(count,mediaCount);return count;
  });
- writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',status:'PASS',sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,foreignKeysValidated:true,sequencesMatch:true,allMediaBytesMatch:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
+ writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',status:'PASS',sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,databaseServicesStopped:true,foreignKeysValidated:true,sequencesMatch:true,allMediaBytesMatch:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
  console.log('Isolated restore: PASS; database and '+restoredFiles+' media files verified in independent targets.');
 }
 
