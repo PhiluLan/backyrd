@@ -5,25 +5,29 @@ import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 export const ANALYTICS_PRIVACY_REPAIR_MIGRATION = Object.freeze({path:"supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",sha256:"c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"});
 export const BETA_SECURITY_MIGRATION = Object.freeze({path:"supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",sha256:"60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"});
+export const BETA_SECURITY_MIGRATIONS = Object.freeze([BETA_SECURITY_MIGRATION,ANALYTICS_PRIVACY_REPAIR_MIGRATION]);
+export function analyticsPrivacyAppliedReceipt(state,read,isAncestor) {
+ return exactResearchReceipt(state,read,isAncestor,ANALYTICS_PRIVACY_REPAIR_MIGRATION,"analyticsPrivacyReferenceRelease");
+}
 export function betaSecurityAppliedReceipt(state,read,isAncestor) {
   return exactResearchReceipt(state,read,isAncestor,BETA_SECURITY_MIGRATION,"betaSecurityRelease");
 }
-/** Exactly one security migration and one password flag; all runtime changes stay deferred. */
-export function scopeBetaSecurityMigrations({pending,scope,baseSha,deployFunctions,authConfig,appliedBetaSecurity}) {
+/** Exactly the security/privacy migrations and one password flag; all runtime changes stay deferred. */
+export function scopeBetaSecurityMigrations({pending,scope,baseSha,deployFunctions,authConfig,appliedBetaSecurity,appliedAnalyticsPrivacy}) {
   if (scope?.contractVersion !== "backyrd.beta-security-delivery-scope@1.0"
     || scope.executionAuthorized !== false || scope.baseSha !== baseSha
-    || !equal(scope.migrations,[BETA_SECURITY_MIGRATION])
+    || !equal(scope.migrations,BETA_SECURITY_MIGRATIONS)
     || !equal(scope.deferredMigrations,DEFERRED_BOOKING_MIGRATIONS)
     || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId < 1
     || !Number.isSafeInteger(scope.restoreDrill?.runId) || scope.restoreDrill.runId < 1
-    || scope.restoreDrill.path !== "delivery/recovery/beta-security-restore-v1.json"
+    || scope.restoreDrill.path !== "delivery/recovery/beta-security-rehearsal-v1.json"
     || !/^[a-f0-9]{64}$/.test(scope.restoreDrill.sha256??"")
     || deployFunctions.length || authConfig?.deploy !== true
     || !equal(authConfig.keys,["password_hibp_enabled"])
     || authConfig.values.password_hibp_enabled !== true
     || !equal(scope.authConfig,{path:authConfig.path,sha256:authConfig.sha256,keys:authConfig.keys}))
     throw new Error("beta_security_scope_invalid");
-  const selected=appliedBetaSecurity ? [] : [BETA_SECURITY_MIGRATION];
+  const selected=[...(!appliedBetaSecurity?[BETA_SECURITY_MIGRATION]:[]),...(!appliedAnalyticsPrivacy?[ANALYTICS_PRIVACY_REPAIR_MIGRATION]:[])];
   if (!equal(canonicalRows(pending),canonicalRows([...DEFERRED_BOOKING_MIGRATIONS,...selected])))
     throw new Error("beta_security_pending_scope_changed");
   return {pendingMigrations:selected,deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
@@ -167,7 +171,7 @@ export function voltaAppliedReceipt(state, read, isAncestor) {
 export function prepareResearchMigrationWorkspace(plan,root,output) {
   const scoped=plan.isolatedResearchScope?.contractVersion === "backyrd.beta-security-delivery-scope@1.0"
     ? scopeBetaSecurityMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
-      baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authConfig:plan.authConfig,appliedBetaSecurity:plan.appliedBetaSecurity})
+      baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authConfig:plan.authConfig,appliedBetaSecurity:plan.appliedBetaSecurity,appliedAnalyticsPrivacy:plan.appliedAnalyticsPrivacy})
     : plan.isolatedResearchScope?.contractVersion === "backyrd.seasonal-event-delivery-scope@1.0"
     ? scopeSeasonalEventMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true,appliedSeasonalEvent:plan.appliedSeasonalEvent})

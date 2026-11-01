@@ -340,15 +340,17 @@ test("Admin diagnostic source is sealed in the deployable Product artifact", () 
   assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_artifact_file_mismatch/);
 });
 
-test('verified recovery permits only the exact Beta security migration and password flag',async()=>{
+test('verified recovery permits only the exact Beta security/privacy pair and password flag',async()=>{
  const {verifiedBetaSecurityRecovery:verify}=await import('./product-release-manifest.mjs');
- const {BETA_SECURITY_MIGRATION:target}=await import('../deployment/isolated-research-migration.mjs');
- const restore={path:'delivery/recovery/beta-security-restore-v1.json',sha256:'a'.repeat(64),runId:1};
- const scope={contractVersion:'backyrd.beta-security-delivery-scope@1.0',executionAuthorized:false,migrations:[target],authConfig:{keys:['password_hibp_enabled']},restoreDrill:restore};
+ const {BETA_SECURITY_MIGRATIONS:targets}=await import('../deployment/isolated-research-migration.mjs');
+ const restore={path:'delivery/recovery/beta-security-rehearsal-v1.json',sha256:'a'.repeat(64),runId:1};
+ const scope={contractVersion:'backyrd.beta-security-delivery-scope@1.0',executionAuthorized:false,migrations:targets,authConfig:{keys:['password_hibp_enabled']},restoreDrill:restore};
  const p={isolatedResearchScope:scope,deployFunctions:[],authDeploy:true};const a={restoreDrillStatus:'ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS',restoreDrillReceipt:restore};
- assert.equal(verify(p,a,[target]),true);
- assert.equal(verify(p,a,[{...target,sha256:'b'.repeat(64)}]),false);
- assert.equal(verify({...p,deployFunctions:['decision-v13']},a,[target]),false);
- assert.equal(verify({...p,isolatedResearchScope:{...scope,authConfig:{keys:['password_hibp_enabled','site_url']}}},a,[target]),false);
- assert.equal(verify(p,{...a,restoreDrillReceipt:{...restore,sha256:'b'.repeat(64)}},[target]),false);
+ assert.equal(verify(p,a,targets),true);
+ assert.equal(verify(p,{...a,restoreDrillStatus:'ISOLATED_SOURCE_RESTORE_AND_EXACT_REPAIR_REHEARSAL_PASS'},targets),true);
+ assert.equal(verify(p,{...a,restoreDrillStatus:'UNKNOWN'},targets),false);
+ assert.equal(verify(p,a,[{...targets[0],sha256:'b'.repeat(64)},targets[1]]),false);
+ assert.equal(verify({...p,deployFunctions:['decision-v13']},a,targets),false);
+ assert.equal(verify({...p,isolatedResearchScope:{...scope,authConfig:{keys:['password_hibp_enabled','site_url']}}},a,targets),false);
+ assert.equal(verify(p,{...a,restoreDrillReceipt:{...restore,sha256:'b'.repeat(64)}},targets),false);
 });

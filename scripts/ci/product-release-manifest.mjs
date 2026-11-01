@@ -6,7 +6,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync }
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan, parseSupabaseFunctionConfig } from "../deployment/supabase-production-plan.mjs";
-import { BETA_SECURITY_MIGRATION } from "../deployment/isolated-research-migration.mjs";
+import { BETA_SECURITY_MIGRATIONS } from "../deployment/isolated-research-migration.mjs";
 import { isExactProductAdditiveSet, isExactPreappliedPriorityReceipt } from "./product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -37,7 +37,7 @@ const SOURCE_SETS = Object.freeze({
     "mobile/lib/decision/wohinModel.ts",
     "web/lib/decision-web-api.ts",
   ],
-  productPolicy: ["delivery/product-authority-v1.json", "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md", "delivery/recovery/beta-security-restore-v1.json"],
+  productPolicy: ["delivery/product-authority-v1.json", "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md", "delivery/recovery/beta-security-rehearsal-v1.json"],
 });
 const EDGE_BUILD_DIRS = Object.freeze([
   "packages/decision-vnext-core/dist",
@@ -173,12 +173,12 @@ export function verifiedBetaSecurityRecovery(plan,additive,currentRiskSet) {
   return scope?.contractVersion==="backyrd.beta-security-delivery-scope@1.0"
     && scope.executionAuthorized===false && plan.deployFunctions.length===0
     && (plan.authDeploy===true || plan.authConfig?.deploy===true)
-    && JSON.stringify(currentRiskSet)===JSON.stringify([BETA_SECURITY_MIGRATION])
+    && JSON.stringify(currentRiskSet)===JSON.stringify(BETA_SECURITY_MIGRATIONS)
     && JSON.stringify(scope.migrations)===JSON.stringify(currentRiskSet)
     && JSON.stringify(scope.authConfig?.keys)===JSON.stringify(["password_hibp_enabled"])
-    && additive?.restoreDrillStatus==="ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS"
+    && ["ISOLATED_DATABASE_AND_MEDIA_RESTORE_PASS","ISOLATED_SOURCE_RESTORE_AND_EXACT_REPAIR_REHEARSAL_PASS"].includes(additive?.restoreDrillStatus)
     && Number.isSafeInteger(scope.restoreDrill?.runId) && scope.restoreDrill.runId>0
-    && scope.restoreDrill.path==="delivery/recovery/beta-security-restore-v1.json"
+    && scope.restoreDrill.path==="delivery/recovery/beta-security-rehearsal-v1.json"
     && HASH.test(scope.restoreDrill.sha256??"")
     && JSON.stringify(additive.restoreDrillReceipt)===JSON.stringify(scope.restoreDrill);
 }
@@ -191,7 +191,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   verifyProductReleaseIdentity(identity);
   requireValue(identity.sourceSha === git(root, ["rev-parse", `${sourceSha}^{commit}`]), "release_manifest_identity_source_mismatch");
   verifyProductReleaseTestEvidence(testEvidence, identity);
-  const deployable = trackedFor(root, identity.sourceSha, ["supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", "supabase/functions/decision-admin-diagnostic", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-restore-v1.json"]);
+  const deployable = trackedFor(root, identity.sourceSha, ["supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", "supabase/functions/decision-admin-diagnostic", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-rehearsal-v1.json"]);
   const sourceSetPaths = Object.fromEntries(Object.entries(SOURCE_SETS).map(([name, paths]) => [name, trackedFor(root, identity.sourceSha, paths)]));
   const tracked = [...new Set([...deployable, ...Object.values(sourceSetPaths).flat()])].sort();
   const bundleRoot = resolve(outputDir, "bundle");
