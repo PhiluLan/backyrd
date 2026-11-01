@@ -103,6 +103,26 @@ Kein `npm audit fix --force`, kein stilles SDK-Major-Upgrade oder Downgrade der
 nativen Update-Bibliothek. Die verbleibenden hohen Meldungen gelten ausdrücklich
 nicht als erledigt. Eine App-Sicherheitsfreigabe folgt daraus noch nicht.
 
+## Entwicklungswerkzeuge und GitHub-Gesamtmeldungen
+
+Der zusätzliche Voll-Audit einschliesslich Entwicklungswerkzeugen ist vom oben
+genannten produktiven Web-/Admin-Audit zu trennen. Weitere kompatible Patches
+für Archiv-, YAML-, Browserlisten-, Prüf- und Kryptografie-Werkzeuge wurden
+eingespielt. Im Root verbleibt dennoch ein kritischer `tar`-Befund über alte
+CLI-Installationsketten sowie hohe Meldungen aus deren fest gebundenen Paketen.
+Das ist ein offener Befund, keine abgeschlossene Härtung des Buildrechners.
+Keine nicht vertrauenswürdigen Archive oder Projekte mit diesen Werkzeugen
+verarbeiten. CLI-Aktualisierung beziehungsweise geprüfter Backport ist vor
+der finalen Sicherheitsabnahme erforderlich; die für Datenbank-Negativtests
+festgelegte CLI-Version wird nicht ungeprüft ausgetauscht.
+
+Der GitHub-Ausgangsstand meldet 311 offene Einträge über fünf Lockfiles,
+einschliesslich des nicht mehr verwendeten Web-Lockfiles und `mobu/`. Das
+historische `mobu/` ist keine Implementierungsquelle der kanonischen App.
+Die GitHub-Liste wird erst nach Übernahme der Änderungen neu ausgewertet und
+ist nicht identisch mit einem aktuellen Audit des tatsächlich installierten
+produktiven Baums. Offene Einträge werden dadurch nicht pauschal entkräftet.
+
 ## Weitere Supabase-Hinweise
 
 Produktionsprojekt beim Abgleich: `ACTIVE_HEALTHY`. Die Bestandsaufnahme vom
