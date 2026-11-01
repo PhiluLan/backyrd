@@ -33,6 +33,7 @@ Implementierung, nicht automatisch einen nachgewiesenen Fehler.
 | Moderation, Sperren und Einspruch | Admin-Safety und Nutzeransichten für Meldungen/Massnahmen vorhanden. | Melden → verständliche Rückmeldung → menschliche Prüfung → begründete Massnahme → Einspruch → Entscheidung. Zugriff und Schutz müssen auch serverseitig gelten. |
 | Owner | Einstieg, Ortszuordnung, Pflege und Einblicke vorhanden. Ohne verbundenen Ort verweist der aktuelle Einstieg auf eine persönliche Zugangsanfrage. | Anspruch anmelden, Identität prüfen, Zuordnung bearbeiten, Ablehnung/erneute Prüfung und erste Profilpflege verständlich abschliessen. Fremde Orte und Ranking bleiben geschützt. |
 | Gestaltung und Sprache | Gemeinsame Komponenten existieren; daneben bestehen ältere Texte und unterschiedliche Oberflächen. | Alle Routen mit Typografie, Abständen, Zuständen und Begriffen abgleichen. „Moment“ und „Ort“ konsistent; keine technischen Fehlertexte im normalen Nutzerfluss. |
+| Android | Gemeinsame Expo-/React-Native-Basis, Android-Konfiguration und EAS-Produktionsprofil vorhanden. Das beweist keine aktuelle Android-Geräte- oder Store-Abnahme. | Native Android-Version mit korrekter Anmeldung, Berechtigungen, Kamera/Uploads, Tastatur, Zurück-Navigation, Karten, Links, Push und Updates prüfen. Signierung, Testverteilung und Google-Play-Einreichung separat abschliessen. |
 
 ## Reihenfolge
 
@@ -50,10 +51,44 @@ Implementierung, nicht automatisch einen nachgewiesenen Fehler.
    aus den vorherigen Paketen werden bereits dort erledigt.
 6. **Beta-Abnahme:** vollständige Geräteprüfung, Berechtigungs-Negativtests,
    aktuelle Last-/Kostenprüfung und abschliessende Sicherheitsprüfung.
+7. **Android-Version:** vorhandene gemeinsame App-Basis vervollständigen,
+   Android-spezifische Funktionen und Darstellung prüfen, signierten Testbuild
+   bereitstellen und die Veröffentlichung über Google Play vorbereiten.
+
+Android wird bei gemeinsamen Komponenten ab Paket 2 mitgeprüft. Paket 7 bündelt
+die nativen Restarbeiten und die Verteilung. Die gemeinsame Beta-Freigabe aus
+Paket 6 ist erst abgeschlossen, wenn auch die Android-Abnahme bestanden ist.
 
 Jedes Paket endet mit einer Vorher-Nachher-Darstellung, den tatsächlich
 geänderten Abläufen, geprüften Normal-/Fehlerfällen und den verbleibenden
 Punkten. Ein Paket wird nicht durch die Anzahl bestandener Unit-Tests abgenommen.
+
+## Zusammenarbeit und nötige Entscheidungen
+
+Der Ablauf je Paket ist Bestandsprüfung → konkrete Änderung → Normal- und
+Fehlerfälle prüfen → verständliche Vorher-Nachher-Abnahme → Veröffentlichung
+nach vereinbartem Releaseumfang. Neue Befunde werden nach Auswirkung eingeordnet;
+sie erweitern nicht stillschweigend den Funktionsumfang. Gemeinsame Komponenten,
+Sprache und Sicherheitsgrenzen werden bereits im jeweiligen Paket mitgeführt.
+
+Vorhandene Berechtigungen und Zugänge werden weiter genutzt. Passwörter,
+Provider-Schlüssel, Signierschlüssel und Zertifikate gehören nicht in den Chat.
+Benötigte Anmeldungen erfolgen im regulären Konto; Secrets nur im dafür
+vorgesehenen Secret-System. Für jede Entscheidung kommt eine konkrete Vorlage,
+keine unvorbereitete Technikfrage.
+
+| Paket | Benötigter Beitrag des Founders |
+| --- | --- |
+| 1 Sicherheit und Ausgangsstand | Bestehende Betreiberzugänge bei Bedarf erneuern; konkrete sicherheitsrelevante Produktionsänderungen und verbleibende Risiken prüfen. Ein frischer vollständiger AWS-Export und die Decision-Dokumentation sind bereits vorhanden. |
+| 2 Einstieg und Kontrolle | Zielgruppe/Mindestalter, sinnvolle Pflichtangaben, gewünschte Anmeldearten und Darstellung öffentlicher Profildaten festlegen. Ein neues Testkonto auf einem echten Gerät durchspielen; notwendige Rechtstexte fachlich verantworten. |
+| 3 Moments und Social | Sichtbarkeit, Kontakt-/Nachrichtenregeln, Unterschied Freunde/Folgen und Personenmarkierungen entscheiden. Zwei getrennte Testkonten bereitstellen bzw. deren Anlage autorisieren; Moderationszuständigkeit und Kommunikationsstil festlegen. |
+| 4 Wetter und ÖV | Konkreten Nutzernutzen und Budget entscheiden. Neue Providerkonten bei Bedarf selbst eröffnen und Zugänge sicher hinterlegen. ÖV bleibt bis zur Nutzen-/Aufwandsentscheidung optional. |
+| 5 Owner und Gestaltung | Zwei reale Owner-Anwendungsfälle und gewünschte Markenwirkung beurteilen. Entscheiden, welche Angaben ein Owner selbst veröffentlichen darf und welche Prüfung brauchen. |
+| 6 Beta-Abnahme | Zielgruppe und Verteilungsweg der Beta festlegen, unabhängige Testpersonen organisieren und an der Geräteabnahme teilnehmen. Zuständigkeit für Support und Moderation bestätigen. |
+| 7 Android | Vorhandenen Google-Play-Console-Status und Kontoinhaber klären; ein echtes Android-Testgerät und Testpersonen organisieren. Store-Texte, Anbieterangaben und finale Einreichung abnehmen; bestehende Signierung bewahren. |
+
+Entscheidungen werden erst beim betroffenen Paket angefragt. Routinemässige
+Entwicklung, Tests und reversible Korrekturen brauchen keine erneute Zustimmung.
 
 ## Konkrete Sicherheitsbefunde vom 1 November
 
