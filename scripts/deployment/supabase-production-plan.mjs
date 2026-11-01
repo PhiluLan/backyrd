@@ -103,7 +103,7 @@ const productionAuthConfig = (tree) => {
     "mailer_templates_recovery_content",
   ];
   const smtpKeys = ["smtp_admin_email", "smtp_host", "smtp_port", "smtp_user", "smtp_sender_name"];
-  const allowedKeys = new Set([...baseKeys, ...smtpKeys]);
+  const allowedKeys = new Set([...baseKeys, ...smtpKeys, "password_hibp_enabled"]);
   if (document.version !== "backyrd-production-auth-config-v1") throw new Error("unsupported_production_auth_config_version");
   if (document.projectRef !== "hjgcrrzfjchzqoegcywn") throw new Error("production_auth_project_mismatch");
   if (!document.config || Array.isArray(document.config) || typeof document.config !== "object") throw new Error("production_auth_config_object_required");
@@ -115,7 +115,8 @@ const productionAuthConfig = (tree) => {
   if (smtpKeys.some((key) => key in document.config)) {
     if (document.config.smtp_admin_email !== "hello@backyrd.ch" || document.config.smtp_host !== "smtp.resend.com" || document.config.smtp_port !== "465" || document.config.smtp_user !== "resend" || document.config.smtp_sender_name !== "backyrd") throw new Error("production_auth_smtp_identity_invalid");
   }
-  for (const key of [...allowedKeys].filter((value) => value !== "password_min_length")) {
+  if ("password_hibp_enabled" in document.config && document.config.password_hibp_enabled !== true) throw new Error("production_auth_leaked_password_protection_must_be_enabled");
+  for (const key of [...allowedKeys].filter((value) => !["password_min_length", "password_hibp_enabled"].includes(value))) {
     if (key in document.config && (typeof document.config[key] !== "string" || !document.config[key].trim())) throw new Error(`production_auth_config_value_invalid:${key}`);
   }
   return { path, sha256: sha256(tree.read(path)), values: document.config };
@@ -363,6 +364,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
         ...afterAuthConfig,
         deploy: !beforeAuthConfig || beforeAuthConfig.sha256 !== afterAuthConfig.sha256,
         previousSha256: beforeAuthConfig?.sha256 ?? null,
+        keys: Object.keys(afterAuthConfig.values).filter((key) => !beforeAuthConfig || JSON.stringify(beforeAuthConfig.values[key]) !== JSON.stringify(afterAuthConfig.values[key])),
       }
     : null;
 
