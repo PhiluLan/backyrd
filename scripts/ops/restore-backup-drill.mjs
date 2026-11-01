@@ -150,6 +150,14 @@ async function isolatedTarget(cli,phase,operation) {
   // Wait for the restarted Storage process and its new local DB connection.
   let ready=false;for(let attempt=0;attempt<30;attempt++){try{await storage('/bucket');ready=true;break;}catch{await new Promise(resolve=>setTimeout(resolve,500));}}
   if(!ready)throw Error('isolated_storage_not_ready');
+  if(phase==='database') {
+   // Restored Auth sessions must remain a snapshot. Network isolation alone
+   // does not stop local Auth maintenance from expiring tokens during checks.
+   for(const container of containers.filter(name=>name!=='supabase_db_'+project)){
+    run('docker',['stop',container],{timeout:120000});
+    assert.equal(run('docker',['inspect',container,'--format','{{.State.Running}}']).trim(),'false');
+   }
+  }
   console.log('Restore phase: '+phase+' target isolated and empty.');
   return await operation({sql,storage,dumpSchema:()=>run('docker',['exec','-i','supabase_db_'+project,'bash'],{input:dumpScript,timeout:120000})});
  } finally {
@@ -178,8 +186,8 @@ async function restore(snapshot,reportPath) {
   });
   if(!comparison.matches){if(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE)writeFileSync(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE+'.schema.sql',restoredSchema,{mode:0o600});throw Error('restored_schema_or_acl_mismatch');}
   const sections=[...copySections(part('data.sql')),...copySections(part('migration-data.sql'))];let rowCount=0,checked=0;
-  for(const section of sections){const body=sql(`COPY ${identifier(section.schema)}.${identifier(section.table)} (${section.columns.map(identifier).join(',')}) TO STDOUT;`);const rows=body.endsWith('\n')?body.slice(0,-1).split('\n'):body?body.split('\n'):[];
-   if(rows.length!==section.count||sha(rows.sort().join('\n'))!==section.digest)throw Error('restored_table_mismatch');rowCount+=rows.length;checked++;if(checked%100===0)console.log('Restore phase: '+checked+' tables verified.');}
+  for(const section of sections){const body=sql(`set extra_float_digits=3;COPY ${identifier(section.schema)}.${identifier(section.table)} (${section.columns.map(identifier).join(',')}) TO STDOUT;`);const rows=body.endsWith('\n')?body.slice(0,-1).split('\n'):body?body.split('\n'):[];
+   if(rows.length!==section.count||sha(rows.sort().join('\n'))!==section.digest)throw Error('restored_table_mismatch:'+section.schema+'.'+section.table+':expectedRows='+section.count+':actualRows='+rows.length);rowCount+=rows.length;checked++;if(checked%100===0)console.log('Restore phase: '+checked+' tables verified.');}
   let sequenceCount=0;
   for(const m of part('data.sql').matchAll(/^SELECT pg_catalog\.setval\('((?:[^']|'')+)', ([0-9]+), (true|false)\);$/gm)){
    const relation=new RegExp(`^(${atom})\\.(${atom})$`).exec(m[1].replaceAll("''","'"));if(!relation)throw Error('sequence_identifier_invalid');
@@ -206,7 +214,7 @@ async function restore(snapshot,reportPath) {
   const buckets=JSON.parse((await storage('/bucket')).toString()).map(b=>Object.fromEntries(['id','name','public','file_size_limit','allowed_mime_types'].map(k=>[k,b[k]]))).sort((a,b)=>a.id.localeCompare(b.id,'en'));
   const expected=[...evidence.buckets].sort((a,b)=>a.id.localeCompare(b.id,'en'));assert.deepEqual(buckets,expected);assert.equal(count,mediaCount);return count;
  });
- writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',status:'PASS',sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,foreignKeysValidated:true,sequencesMatch:true,allMediaBytesMatch:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
+ writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',status:'PASS',sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,databaseServicesStopped:true,foreignKeysValidated:true,sequencesMatch:true,allMediaBytesMatch:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
  console.log('Isolated restore: PASS; database and '+restoredFiles+' media files verified in independent targets.');
 }
 
