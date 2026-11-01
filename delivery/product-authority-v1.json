@@ -156,8 +156,12 @@
       {
         "path": "supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",
         "sha256": "60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"
+      },
+      {
+        "path": "supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",
+        "sha256": "c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"
       }
     ],
-    "source": "Founder-approved seasonal release completed and verified on 2026-11-01. The immutable seasonal receipt records exact SQL and deployment identity. Subsequent code-only releases contain no SQL/Auth changes; four Booking migrations remain excluded. The reviewed Beta security migration is also explicitly deferred until its own bounded SQL/Auth release; this code-only artifact does not authorize applying it."
+    "source": "Founder-approved seasonal release completed and verified on 2026-11-01. The immutable seasonal receipt records exact SQL and deployment identity. Subsequent code-only releases contain no SQL/Auth changes; four Booking migrations remain excluded. The reviewed Beta security migration is also explicitly deferred until its own bounded SQL/Auth release; this code-only artifact does not authorize applying it. The exact analytics privacy-reference correction is also deferred pending its separately reviewed release; no production data correction is authorized by this code merge."
   }
 }

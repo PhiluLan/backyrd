@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // A restore drill is never a Production cutover. All restored data is disposable.
 import assert from 'node:assert/strict';
+import {ANALYTICS_PRIVACY_REPAIR_MIGRATION} from '../deployment/isolated-research-migration.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
@@ -31,6 +32,11 @@ export function requireManagedColumns(sections,columns) {
   const key=section.schema+'.'+section.table+'.'+column;
   if(!available.has(key))throw Error('restore_platform_schema_missing:'+key);
  }
+}
+export function integrityReceiptFields(repair) {
+ return repair
+  ? {status:'PASS_WITH_REHEARSED_INTEGRITY_REPAIR',foreignKeysValidated:false,foreignKeysAfterRehearsedRepairValidated:true,proposedIntegrityRepair:repair}
+  : {status:'PASS',foreignKeysValidated:true,foreignKeysAfterRehearsedRepairValidated:false,proposedIntegrityRepair:null};
 }
 export function normalizedSchema(sql) {
  return sql.split('\n').filter(line=>!line.startsWith('--')&&!/^\\(?:un)?restrict\b/.test(line)&&line.trim()!=='').join('\n');
@@ -193,11 +199,24 @@ async function restore(snapshot,reportPath) {
    const relation=new RegExp(`^(${atom})\\.(${atom})$`).exec(m[1].replaceAll("''","'"));if(!relation)throw Error('sequence_identifier_invalid');
    const result=sql(`select last_value::text||','||is_called::text from ${identifier(unquote(relation[1]))}.${identifier(unquote(relation[2]))};`).trim();if(result!==m[2]+','+m[3])throw Error('restored_sequence_mismatch');sequenceCount++;
   }
+  let integrityRepair=null;
+  if(process.env.BACKYRD_RESTORE_REHEARSE_INTEGRITY_REPAIR==='1') {
+   const before=Number(sql("select count(*) from public.analytics_events e where e.user_id is not null and not exists(select 1 from public.profiles p where p.id=e.user_id);").trim());
+   assert.equal(before,37,'rehearsal_requires_exact_original_legacy_scope');
+   const candidate=readFileSync(join(root,ANALYTICS_PRIVACY_REPAIR_MIGRATION.path),'utf8');
+   assert.equal(sha(candidate),ANALYTICS_PRIVACY_REPAIR_MIGRATION.sha256,'rehearsal_migration_bytes_changed');
+   // Original schema, ACL, every row and sequence have already matched. This
+   // next operation is explicitly a proposed correction on the isolated copy.
+   sql(candidate);
+   assert.equal(sql("select count(*) from public.analytics_events e where e.user_id is not null and not exists(select 1 from public.profiles p where p.id=e.user_id);").trim(),'0');
+   integrityRepair={migration:ANALYTICS_PRIVACY_REPAIR_MIGRATION,removedDeadReferences:37,sourceConstraint:'public.analytics_events.analytics_events_user_id_fkey'};
+   console.log('Restore phase: original snapshot matched; exact proposed privacy repair rehearsed in isolated copy.');
+  }
   sql(`begin;do $$ declare r record;begin for r in select c.conname,c.conrelid::regclass relation,pg_get_constraintdef(c.oid) definition from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where c.contype='f' and c.convalidated and (n.nspname in ('auth','storage') or n.nspname not in ('information_schema','extensions','cron','net','realtime','vault','supabase_functions','supabase_migrations') and n.nspname !~ '^pg_' and n.nspname !~ '^_') loop execute format('alter table %s drop constraint %I',r.relation,r.conname);execute format('alter table %s add constraint %I %s not valid',r.relation,r.conname,r.definition);execute format('alter table %s validate constraint %I',r.relation,r.conname);end loop;end $$;rollback;`);
   const buckets=JSON.parse(sql("select coalesce(json_agg(json_build_object('id',id,'name',name,'public',public,'file_size_limit',file_size_limit,'allowed_mime_types',allowed_mime_types) order by id),'[]') from storage.buckets;"));
   const contentTypes=JSON.parse(sql("select coalesce(json_object_agg(bucket_id||'/'||name,metadata->>'mimetype'),'{}') from storage.objects;"));
   console.log('Restore phase: database rows, schema, ACL, sequences and foreign keys verified.');
-  return {tableCount:sections.length,rowCount,sequenceCount,normalizedChecks:comparison.normalizedChecks,buckets,contentTypes};
+  return {tableCount:sections.length,rowCount,sequenceCount,normalizedChecks:comparison.normalizedChecks,buckets,contentTypes,integrityRepair};
  });
  const restoredFiles=await isolatedTarget(cli,'independent media',async({storage})=>{
   // Follow the runbook: media API replay uses an independent empty target, so
@@ -214,8 +233,8 @@ async function restore(snapshot,reportPath) {
   const buckets=JSON.parse((await storage('/bucket')).toString()).map(b=>Object.fromEntries(['id','name','public','file_size_limit','allowed_mime_types'].map(k=>[k,b[k]]))).sort((a,b)=>a.id.localeCompare(b.id,'en'));
   const expected=[...evidence.buckets].sort((a,b)=>a.id.localeCompare(b.id,'en'));assert.deepEqual(buckets,expected);assert.equal(count,mediaCount);return count;
  });
- writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',status:'PASS',sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,databaseServicesStopped:true,foreignKeysValidated:true,sequencesMatch:true,allMediaBytesMatch:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
- console.log('Isolated restore: PASS; database and '+restoredFiles+' media files verified in independent targets.');
+ writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',...integrityReceiptFields(evidence.integrityRepair),sourceSchemaAndRowsComparedBeforeAnyRepair:true,sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,databaseServicesStopped:true,sequencesMatch:true,allMediaBytesMatch:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
+ console.log('Isolated restore: '+integrityReceiptFields(evidence.integrityRepair).status+'; database and '+restoredFiles+' media files verified in independent targets.');
 }
 
 if(process.argv[1]===fileURLToPath(import.meta.url)) {

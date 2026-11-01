@@ -68,3 +68,11 @@ test('complete multiline CHECK expressions reach PostgreSQL, including quoted pa
  assert.equal(compareSchema(source,target,()=>false).matches,false);
  assert.equal(compareSchema(source,target+'\nGRANT ALL ON public.probe TO anon;',()=>true).matches,false);
 });
+
+test('a rehearsed correction never claims the original source foreign keys were valid',async()=>{
+ const {integrityReceiptFields}=await import('./restore-backup-drill.mjs');
+ assert.equal(integrityReceiptFields(null).status,'PASS');assert.equal(integrityReceiptFields(null).foreignKeysValidated,true);
+ const proposed={migration:{path:'synthetic'},removedDeadReferences:37};const receipt=integrityReceiptFields(proposed);
+ assert.equal(receipt.status,'PASS_WITH_REHEARSED_INTEGRITY_REPAIR');assert.equal(receipt.foreignKeysValidated,false);
+ assert.equal(receipt.foreignKeysAfterRehearsedRepairValidated,true);assert.deepEqual(receipt.proposedIntegrityRepair,proposed);
+});
