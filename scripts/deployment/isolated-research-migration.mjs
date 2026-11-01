@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+export const ANALYTICS_PRIVACY_REPAIR_MIGRATION = Object.freeze({path:"supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",sha256:"c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"});
 export const REGIONAL_DECISION_MIGRATION = Object.freeze({path:"supabase/migrations/20261031090327_decision_regional_catalog_v1.sql",sha256:"403ddba7836468e26cea5b09a6f63cbb248a59150d616150ff1d2cd21c343d98"});
 export function regionalDecisionAppliedReceipt(state,read,isAncestor) {
   return exactResearchReceipt(state,read,isAncestor,REGIONAL_DECISION_MIGRATION,"regionalDecisionRelease");
