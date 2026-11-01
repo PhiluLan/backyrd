@@ -1,3 +1,4 @@
+import type { SeasonalEventFields } from "../seasonal-events";
 export type EventCategoryDTO =
   | "MUSIC"
   | "NIGHTLIFE"
@@ -16,7 +17,7 @@ export type EventCategoryDTO =
 
 export type EventTimeFilter = "today" | "tomorrow" | "weekend" | "all";
 
-export type EventDiscoveryDTO = {
+export type EventDiscoveryDTO = SeasonalEventFields & {
   event_id: string;
   occurrence_id: string;
   source: string;

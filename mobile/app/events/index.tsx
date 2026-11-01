@@ -15,6 +15,8 @@ import type {
 import { eventCategoryLabel } from "../../../packages/shared/src/presentation/event";
 import { eventImageUrl, loadEvents } from "../../lib/events-v1";
 
+import { groupSeasonalEvents, seasonalDateLabel } from "../../../packages/shared/src/seasonal-events";
+
 const timeFilters: { key: EventTimeFilter; label: string }[] = [
   { key: "today", label: "Heute" },
   { key: "tomorrow", label: "Morgen" },
@@ -69,7 +71,7 @@ function EventCard({ event }: { event: EventDiscoveryDTO }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${event.title}, ${formatWhen(event.start_at)}`}
+      accessibilityLabel={`${event.title}, ${seasonalDateLabel(event) ?? formatWhen(event.start_at)}`}
       onPress={() =>
         router.push({
           pathname: "/events/[id]",
@@ -120,7 +122,7 @@ function EventCard({ event }: { event: EventDiscoveryDTO }) {
           ) : null}
         </View>
         <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
-        <Text style={styles.when}>{formatWhen(event.start_at)}</Text>
+        <Text style={styles.when}>{seasonalDateLabel(event) ?? formatWhen(event.start_at)}</Text>
         <View style={styles.metaRow}>
           <Ionicons name="location-outline" size={15} color="#A9A5A0" />
           <Text style={styles.metaText} numberOfLines={1}>
@@ -153,7 +155,7 @@ export default function EventsScreen() {
     setError(null);
     try {
       const rows = await withRequestDeadline(() => loadEvents({ filter: timeFilter, category }), 12_000);
-      if (generation === request.current) setEvents(rows);
+      if (generation === request.current) setEvents(groupSeasonalEvents(rows));
     } catch {
       if (generation !== request.current) return;
       setEvents([]);

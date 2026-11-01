@@ -10,11 +10,14 @@ import {
 } from "@backyrd/shared";
 import {
   eventDetail,
+  editionPlaces,
   events,
   imageUrl,
   type EventRow,
 } from "@/lib/events-public";
 import styles from "../events.module.css";
+
+import { seasonalDateLabel, seasonalPlaceRows } from "../../../../packages/shared/src/seasonal-events";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +91,8 @@ export default async function EventDetailPage({
     );
   }
 
+  const placeRows=event.series_id?await editionPlaces(event.event_id).catch(()=>null):null;
+  const places=seasonalPlaceRows(placeRows??[]);
   const more = upcoming(event, allEvents);
   const recurrence = humanizeRecurrence(event.recurrence_summary);
   const properties = eventPropertyLabels(event.minimum_age, event.family_friendly);
@@ -118,6 +123,7 @@ export default async function EventDetailPage({
         <article className={styles.panel}>
           <div className={styles.pink}>{event.organizer ?? "BACKYRD EVENT"}</div>
           <h1>{event.title}</h1>
+          {event.series_id&&<p>{seasonalDateLabel(event)}</p>}
           <div className={styles.tags}>
             {event.categories.map((category) => (
               <span key={category}>{eventCategoryLabel(category)}</span>
@@ -147,6 +153,8 @@ export default async function EventDetailPage({
             <p>{event.short_description}</p>
           </div>
 
+          {event.admission_note&&<p>{event.admission_note}</p>}
+          {event.series_id&&<section><h2>Die Schauplätze</h2><p>Jeder Platz hat eigene Tageszeiten und eine eigene Route.</p>{placeRows===null?<p role="alert">Die Schauplätze konnten gerade nicht geladen werden.</p>:places.map(place=><article key={place.venue_id} className={styles.facts}><h3>{place.venue_name}</h3><p>{place.place_environment==='INDOOR'?'Drinnen':place.place_environment==='OUTDOOR'?'Draussen':'Bereich noch nicht bestätigt'}</p><p>{formatEventDateTime(place.start_at,place.end_at)}</p><a href={routeUrl(place)} target="_blank" rel="noreferrer">Route zu diesem Platz ↗</a><details><summary>Alle Tageszeiten ansehen</summary>{placeRows.filter(row=>row.venue_id===place.venue_id).map(row=><p key={row.occurrence_id}>{formatEventDateTime(row.start_at,row.end_at)}{row.occurrence_status==='CANCELLED'?' · Abgesagt':''}</p>)}</details></article>)}</section>}
           {event.matched_spot_id && (
             <div className={styles.spot}>
               {event.matched_spot_photo && (

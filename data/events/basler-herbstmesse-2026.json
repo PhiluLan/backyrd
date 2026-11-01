@@ -1,0 +1,328 @@
+{
+  "id": "60993b43-8e5a-4cbf-980b-e701a47d11da",
+  "seriesKey": "basler-herbstmesse",
+  "seriesName": "Basler Herbstmesse",
+  "year": 2026,
+  "title": "Basler Herbstmesse 2026",
+  "description": "Die Basler Herbstmesse verteilt sich auf sieben Messeplätze. Entdecke Fahrgeschäfte, Marktstände und Verpflegung. Die Plätze haben unterschiedliche Öffnungszeiten; der Petersplatz dauert zwei Tage länger. Alters- und Grössenregeln gelten je Fahrgeschäft.",
+  "city": "Basel",
+  "organizer": "Präsidialdepartement des Kantons Basel-Stadt",
+  "sourceUrl": "https://www.herbstmesse.ch/besucherinfos",
+  "checkedAt": "2026-11-01T08:55:00Z",
+  "admissionNote": "Preise und Teilnahmebedingungen gelten je Fahrgeschäft, Spiel und Verpflegungsangebot. Ein Messebesuch bedeutet nicht, dass alle Angebote kostenlos oder für jedes Alter geeignet sind.",
+  "places": [
+    {
+      "key": "barfuesserplatz",
+      "name": "Barfüsserplatz",
+      "address": "Barfüsserplatz, Basel",
+      "city": "Basel",
+      "latitude": 47.55470598627057,
+      "longitude": 7.589646334123825,
+      "environment": "OUTDOOR",
+      "startDate": "2026-10-24",
+      "endDate": "2026-11-08",
+      "sourceUrl": "https://www.herbstmesse.ch/fairgrounds/barfuesserplatz",
+      "description": "Fahr- und Spielgeschäfte mit Verpflegung.",
+      "hours": [
+        {
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            7
+          ],
+          "start": "12:00",
+          "end": "22:00"
+        },
+        {
+          "weekdays": [
+            5,
+            6
+          ],
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "exceptions": [
+        {
+          "date": "2026-10-24",
+          "closed": false,
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "coordinateSourceUrl": "https://www.herbstmesse.ch/messeplaetze-angebot",
+      "coordinateMethod": "AREAL_CENTROID_ORIENTATION"
+    },
+    {
+      "key": "muensterplatz",
+      "name": "Münsterplatz",
+      "address": "Münsterplatz, Basel",
+      "city": "Basel",
+      "latitude": 47.55660205034455,
+      "longitude": 7.591587805245875,
+      "environment": "OUTDOOR",
+      "startDate": "2026-10-24",
+      "endDate": "2026-11-08",
+      "sourceUrl": "https://www.herbstmesse.ch/fairgrounds/muensterplatz",
+      "description": "Traditionsbahnen und Verpflegungsstände.",
+      "hours": [
+        {
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            7
+          ],
+          "start": "12:00",
+          "end": "22:00"
+        },
+        {
+          "weekdays": [
+            5,
+            6
+          ],
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "exceptions": [
+        {
+          "date": "2026-10-24",
+          "closed": false,
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "coordinateSourceUrl": "https://www.herbstmesse.ch/messeplaetze-angebot",
+      "coordinateMethod": "AREAL_CENTROID_ORIENTATION"
+    },
+    {
+      "key": "messeplatz",
+      "name": "Messeplatz",
+      "address": "Messeplatz, Basel",
+      "city": "Basel",
+      "latitude": 47.56421624507791,
+      "longitude": 7.600559971574587,
+      "environment": "OUTDOOR",
+      "startDate": "2026-10-24",
+      "endDate": "2026-11-08",
+      "sourceUrl": "https://www.herbstmesse.ch/fairgrounds/messeplatz",
+      "description": "Fahr- und Spielgeschäfte sowie eine Verpflegungsmeile.",
+      "hours": [
+        {
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            7
+          ],
+          "start": "11:00",
+          "end": "22:00"
+        },
+        {
+          "weekdays": [
+            5,
+            6
+          ],
+          "start": "11:00",
+          "end": "23:00"
+        }
+      ],
+      "exceptions": [
+        {
+          "date": "2026-10-24",
+          "closed": false,
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "coordinateSourceUrl": "https://www.herbstmesse.ch/messeplaetze-angebot",
+      "coordinateMethod": "AREAL_CENTROID_ORIENTATION"
+    },
+    {
+      "key": "rosentalanlage",
+      "name": "Rosentalanlage",
+      "address": "Rosentalanlage, Basel",
+      "city": "Basel",
+      "latitude": 47.563950759819214,
+      "longitude": 7.602878612658725,
+      "environment": "OUTDOOR",
+      "startDate": "2026-10-24",
+      "endDate": "2026-11-08",
+      "sourceUrl": "https://www.herbstmesse.ch/fairgrounds/rosentalanlage",
+      "description": "Fahr-, Spiel- und Verpflegungsgeschäfte.",
+      "hours": [
+        {
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            7
+          ],
+          "start": "11:00",
+          "end": "22:00"
+        },
+        {
+          "weekdays": [
+            5,
+            6
+          ],
+          "start": "11:00",
+          "end": "23:00"
+        }
+      ],
+      "exceptions": [
+        {
+          "date": "2026-10-24",
+          "closed": false,
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "coordinateSourceUrl": "https://www.herbstmesse.ch/messeplaetze-angebot",
+      "coordinateMethod": "AREAL_CENTROID_ORIENTATION"
+    },
+    {
+      "key": "kasernenareal",
+      "name": "Kasernenareal",
+      "address": "Kasernenareal, Basel",
+      "city": "Basel",
+      "latitude": 47.56315400663917,
+      "longitude": 7.5904825001808005,
+      "environment": "OUTDOOR",
+      "startDate": "2026-10-24",
+      "endDate": "2026-11-08",
+      "sourceUrl": "https://www.herbstmesse.ch/fairgrounds/kasernenareal",
+      "description": "Fahrgeschäfte und Angebote für jüngere Gäste.",
+      "hours": [
+        {
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            7
+          ],
+          "start": "12:00",
+          "end": "22:00"
+        },
+        {
+          "weekdays": [
+            5,
+            6
+          ],
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "exceptions": [
+        {
+          "date": "2026-10-24",
+          "closed": false,
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "coordinateSourceUrl": "https://www.herbstmesse.ch/messeplaetze-angebot",
+      "coordinateMethod": "AREAL_CENTROID_ORIENTATION"
+    },
+    {
+      "key": "hallenmesse",
+      "name": "Hallenmesse – Messehalle 1",
+      "address": "Messehalle 1, Messeplatz, Basel",
+      "city": "Basel",
+      "latitude": 47.56511721211939,
+      "longitude": 7.599381145873156,
+      "environment": "INDOOR",
+      "startDate": "2026-10-24",
+      "endDate": "2026-11-08",
+      "sourceUrl": "https://www.herbstmesse.ch/fairgrounds/hallenmesse",
+      "description": "Fahrgeschäfte und Attraktionen in der Messehalle 1.",
+      "hours": [
+        {
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            7
+          ],
+          "start": "12:00",
+          "end": "22:00"
+        },
+        {
+          "weekdays": [
+            5,
+            6
+          ],
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "exceptions": [
+        {
+          "date": "2026-10-24",
+          "closed": false,
+          "start": "12:00",
+          "end": "23:00"
+        }
+      ],
+      "coordinateSourceUrl": "https://www.herbstmesse.ch/messeplaetze-angebot",
+      "coordinateMethod": "AREAL_CENTROID_ORIENTATION"
+    },
+    {
+      "key": "petersplatz",
+      "name": "Petersplatz mit Hääfelimäärt",
+      "address": "Petersplatz, Basel",
+      "city": "Basel",
+      "latitude": 47.55923441740297,
+      "longitude": 7.58322924155907,
+      "environment": "OUTDOOR",
+      "startDate": "2026-10-24",
+      "endDate": "2026-11-10",
+      "sourceUrl": "https://www.herbstmesse.ch/fairgrounds/petersplatz-and-haeaefelimaeaert",
+      "description": "Marktstände und Verpflegung im herbstlichen Baumhain.",
+      "hours": [
+        {
+          "weekdays": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+          ],
+          "start": "11:00",
+          "end": "20:00"
+        }
+      ],
+      "exceptions": [
+        {
+          "date": "2026-10-24",
+          "closed": false,
+          "start": "12:00",
+          "end": "20:00"
+        }
+      ],
+      "coordinateSourceUrl": "https://www.herbstmesse.ch/messeplaetze-angebot",
+      "coordinateMethod": "AREAL_CENTROID_ORIENTATION"
+    }
+  ],
+  "familyFriendly": true,
+  "activities": [
+    "Jahrmarkt besuchen",
+    "Essen",
+    "Snacks"
+  ],
+  "mapSourceUrl": "https://www.herbstmesse.ch/messeplaetze-angebot",
+  "categories": [
+    "MARKET",
+    "FAMILY"
+  ]
+}

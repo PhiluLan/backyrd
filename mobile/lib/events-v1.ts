@@ -90,6 +90,13 @@ export function eventDateRange(
 function normalizeRow(row: Record<string, unknown>): EventDiscoveryDTO {
   return {
     event_id: String(row.event_id),
+    series_id: typeof row.series_id === "string" ? row.series_id : null,
+    series_name: typeof row.series_name === "string" ? row.series_name : null,
+    edition_year: typeof row.edition_year === "number" ? row.edition_year : null,
+    edition_start_date: typeof row.edition_start_date === "string" ? row.edition_start_date : null,
+    edition_end_date: typeof row.edition_end_date === "string" ? row.edition_end_date : null,
+    admission_note: typeof row.admission_note === "string" ? row.admission_note : null,
+    place_environment: row.place_environment === "INDOOR" || row.place_environment === "OUTDOOR" ? row.place_environment : null,
     occurrence_id: String(row.occurrence_id),
     source: String(row.source),
     source_event_id: String(row.source_event_id),
@@ -163,19 +170,16 @@ export async function loadEvents(input: {
   return (data ?? []).map((row) => normalizeRow(row as Record<string, unknown>));
 }
 
-export async function loadEventOccurrence(
-  eventId: string,
-  occurrenceId?: string,
-): Promise<EventDiscoveryDTO | null> {
-  let query = supabase
-    .from("event_discovery_v1")
-    .select("*")
-    .eq("event_id", eventId)
-    .order("start_at", { ascending: true });
-  if (occurrenceId) query = query.eq("occurrence_id", occurrenceId);
-  const { data, error } = await query.limit(1).maybeSingle();
-  if (error) throw new Error(error.message);
-  return data ? normalizeRow(data as Record<string, unknown>) : null;
+export async function loadEventOccurrence(eventId: string, occurrenceId?: string): Promise<EventDiscoveryDTO | null> {
+  let query=supabase.from("event_discovery_v1").select("*").eq("event_id",eventId).order("start_at");
+  if(occurrenceId)query=query.eq("occurrence_id",occurrenceId);
+  else {const now=new Date().toISOString();query=query.or(`end_at.gt.${now},and(end_at.is.null,start_at.gte.${now})`);}
+  const {data,error}=await query.limit(1).maybeSingle();
+  if(error)throw new Error(error.message);
+  if(data||occurrenceId)return data?normalizeRow(data as Record<string,unknown>):null;
+  const archived=await supabase.from("event_discovery_v1").select("*").eq("event_id",eventId).order("start_at",{ascending:false}).limit(1).maybeSingle();
+  if(archived.error)throw new Error(archived.error.message);
+  return archived.data?normalizeRow(archived.data as Record<string,unknown>):null;
 }
 
 export function eventImageUrl(path: string | null): string | null {
@@ -229,4 +233,10 @@ export async function loadUpcomingEvents(current: EventDiscoveryDTO): Promise<Up
     sameEvent: available(sameEventResult.data),
     sameVenue: available(sameVenueResult.data),
   };
+}
+
+export async function loadEditionPlaces(eventId:string):Promise<EventDiscoveryDTO[]> {
+ const {data,error}=await supabase.from("event_discovery_v1").select("*").eq("event_id",eventId).order("start_at").limit(500);
+ if(error)throw new Error(error.message);
+ return (data??[]).map(row=>normalizeRow(row as Record<string,unknown>));
 }

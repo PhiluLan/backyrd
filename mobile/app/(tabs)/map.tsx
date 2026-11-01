@@ -1,3 +1,6 @@
+import { loadEvents } from "../../lib/events-v1";
+import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
+import { seasonalPlaceRows } from "../../../packages/shared/src/seasonal-events";
 // backyrd/mobile/app/map.tsx
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
@@ -173,6 +176,11 @@ export default function MapScreen() {
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
   const now = useMinuteClock();
+  const [seasonalEvents,setSeasonalEvents]=useState<EventDiscoveryDTO[]>([]);
+  const [seasonalLoadedDay,setSeasonalLoadedDay]=useState<string|null>(null);
+  const [seasonalError,setSeasonalError]=useState(false);
+  const seasonalDay=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Zurich',year:'numeric',month:'2-digit',day:'2-digit'}).format(now);
+  useFocusEffect(useCallback(()=>{let active=true;void loadEvents({filter:'today'}).then(rows=>{if(active){setSeasonalEvents(rows.filter(row=>Boolean(row.series_id)));setSeasonalLoadedDay(seasonalDay);setSeasonalError(false);}}).catch(()=>{if(active){setSeasonalEvents([]);setSeasonalError(true);}});return()=>{active=false;};},[seasonalDay]));
   const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const [openingSchedules, setOpeningSchedules] = useState<Record<string, OpeningSchedule>>({});
   const onVisibleChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Spot>[] }) => {
@@ -713,6 +721,7 @@ export default function MapScreen() {
       {/* MAP or LIST */}
       {viewMode === "map" ? (
         <View style={styles.mapStage}>
+          {seasonalError?<Text accessibilityRole="alert" style={{color:theme.color.textSecondary,padding:8}}>Saisonale Veranstaltungen konnten gerade nicht geladen werden.</Text>:null}
           <MapView
           ref={mapRef}
           provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
@@ -729,6 +738,7 @@ export default function MapScreen() {
           onPanDrag={() => { manuallyExploredMap.current = true; programmaticCenter.current = null; setMapOriginMode("viewport"); setMapCity(null); setSelectedSpot(null); setSelectedGroupKey(null); }}
           >
             {renderedMarkers}
+            {seasonalLoadedDay===seasonalDay && activeFilters.length===0 && (!search.trim() || seasonalEvents.some(event=>`${event.title} ${event.venue_name}`.toLocaleLowerCase('de-CH').includes(search.trim().toLocaleLowerCase('de-CH')))) ? seasonalPlaceRows(seasonalEvents.filter(event=>(!search.trim()||`${event.title} ${event.venue_name}`.toLocaleLowerCase('de-CH').includes(search.trim().toLocaleLowerCase('de-CH')))&&event.event_status!=='CANCELLED'&&event.occurrence_status==='SCHEDULED'&&event.end_at!==null&&Date.parse(event.end_at)>now.getTime()),now).filter(event=>event.latitude!==null&&event.longitude!==null&&Number.isFinite(event.latitude)&&Number.isFinite(event.longitude)).map(event=><Marker key={`seasonal:${event.venue_id}`} coordinate={{latitude:event.latitude!,longitude:event.longitude!}} title={event.title} description={event.venue_name??undefined} accessibilityLabel={`${event.title}, ${event.venue_name}, saisonale Veranstaltung`} pinColor={theme.color.pink} onPress={e=>{e.stopPropagation();router.push({pathname:'/events/[id]',params:{id:event.event_id,occurrenceId:event.occurrence_id}});}}/>):null}
           </MapView>
           {locationResolution === "pending" ? <View style={styles.locationLoading}><StateView kind="loading" title="Orte in deiner Nähe werden geladen" /></View> : null}
           {selectedGroup ? <View style={styles.railWrap}>
