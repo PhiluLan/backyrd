@@ -29,6 +29,10 @@ test "$encryption" = $'aws:kms\t'"$AWS_BACKUP_KMS_KEY_ARN" || { echo "S3 KMS enc
 expiration="$(aws s3api get-bucket-lifecycle-configuration --bucket "$AWS_BACKUP_BUCKET" --query 'Rules[?Status==`Enabled`].Expiration.Days' --output text)"
 test "$expiration" = "30" || { echo "S3 30-day retention contract mismatch" >&2; exit 1; }
 
+if test "${BACKUP_MODE:-daily}" = restore-drill; then
+  exec bash "$repo_root/scripts/ops/restore-production-backup-drill.sh"
+fi
+
 umask 077
 snapshot_root="$(mktemp -d)"
 trap 'rm -rf "$snapshot_root"' EXIT

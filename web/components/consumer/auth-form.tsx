@@ -5,12 +5,15 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "./ui";
+import { compromisedPasswordMessage } from "@backyrd/shared";
 
 type Mode = "login" | "signup" | "forgot" | "reset";
 function nextPath(value: string | null) {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
 }
 function human(error: unknown, mode: Mode) {
+  const compromised = compromisedPasswordMessage(error);
+  if (compromised) return compromised;
   const value = error instanceof Error ? error.message.toLowerCase() : "";
   if (value.includes("invalid login"))
     return "E-Mail oder Passwort stimmen nicht.";

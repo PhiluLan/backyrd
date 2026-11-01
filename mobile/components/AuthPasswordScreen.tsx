@@ -4,6 +4,7 @@ import { ProductText as Text } from "./foundation/AppText";
 import { AuthScreen, AuthField, AuthSubmit } from "./auth/AuthScreen";
 import { useRouter } from "expo-router";
 import { supabase } from "../lib/supabase";
+import { compromisedPasswordMessage } from "../../packages/shared/src/auth-errors";
 
 export function AuthPasswordScreen({ mode }: { mode: "forgot" | "reset" }) {
   const router = useRouter();
@@ -33,8 +34,8 @@ export function AuthPasswordScreen({ mode }: { mode: "forgot" | "reset" }) {
         await supabase.auth.signOut({ scope: "local" });
         router.replace("/auth/login" as never);
       }
-    } catch {
-      setError(mode === "forgot" ? "Der Link konnte gerade nicht angefordert werden. Bitte versuche es später erneut." : "Das Passwort konnte nicht gespeichert werden. Fordere bitte einen neuen Link an.");
+    } catch (cause: unknown) {
+      setError(compromisedPasswordMessage(cause) ?? (mode === "forgot" ? "Der Link konnte gerade nicht angefordert werden. Bitte versuche es später erneut." : "Das Passwort konnte nicht gespeichert werden. Fordere bitte einen neuen Link an."));
     } finally { pending.current = false; setBusy(false); }
   }
   return (

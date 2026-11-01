@@ -14,7 +14,12 @@ on:
         options:
           - daily
           - weekly
+          - restore-drill
           - restore-drill-reminder
+      restore_snapshot_key:
+        description: Optional exact backup object key; empty selects newest complete database/media backup
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -34,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Verify backup export contract
-        run: node --test scripts/ops/verify-production-backup-contract.test.mjs
+        run: node --test scripts/ops/verify-production-backup-contract.test.mjs scripts/ops/restore-backup-drill.test.mjs
       - name: Validate canonical-main execution
         run: |
           test "$GITHUB_REF" = "refs/heads/main"
@@ -62,8 +67,18 @@ jobs:
           AWS_BACKUP_KMS_KEY_ARN: ${{ vars.AWS_BACKUP_KMS_KEY_ARN }}
           AWS_BACKUP_REGION: ${{ vars.AWS_BACKUP_REGION }}
           BACKUP_MODE: ${{ inputs.mode || 'daily' }}
+          BACKYRD_RESTORE_SNAPSHOT_KEY: ${{ inputs.restore_snapshot_key }}
+          BACKYRD_RESTORE_REPORT: ${{ runner.temp }}/backyrd-restore-drill-report.json
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: bash scripts/ops/export-production-backup.sh
+      - name: Retain only the non-sensitive restore receipt
+        if: success() && inputs.mode == 'restore-drill'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backyrd-restore-drill-receipt
+          path: ${{ runner.temp }}/backyrd-restore-drill-report.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Alert Philipp on backup failure
         if: failure()
         env:

@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:contracts": "node ./scripts/test-home-daypart.mjs && node ./scripts/test-mobile-product-contracts.mjs && node --test ./scripts/test-registration-outcome.mjs && node --test ./scripts/test-wohin-model.mjs && node ./scripts/test-environment-isolation.mjs && npm run test:canonical-spot-images && npm run test:moments-presentation && npm run test:moment-media-upload && npm run test:review-media-upload && npm run test:native-intent && npm run test:moment-place-match",
+    "test:contracts": "node ./scripts/test-home-daypart.mjs && node ./scripts/test-mobile-product-contracts.mjs && node --test ./scripts/test-registration-outcome.mjs && node --test ./scripts/test-wohin-model.mjs && node ./scripts/test-environment-isolation.mjs && npm run test:canonical-spot-images && npm run test:moments-presentation && npm run test:moment-media-upload && npm run test:review-media-upload && npm run test:native-intent && npm run test:moment-place-match && npm run test:security",
     "test:map-discovery": "node ./scripts/test-map-discovery-scale.mjs && node --test ./scripts/test-request-deadline.mjs",
     "test:canonical-spot-images": "node ./scripts/test-canonical-spot-images.mjs",
     "test:moments-presentation": "node ./scripts/test-moments-presentation.mjs",
@@ -25,7 +25,9 @@
     "release:ota:production": "BACKYRD_RELEASE_BUILD=1 APP_VARIANT=prod npm run release:validate && eas update --channel production --environment production",
     "release:build:ios": "BACKYRD_RELEASE_BUILD=1 APP_VARIANT=prod npm run release:validate && eas build --platform ios --profile production",
     "eas-build-post-install": "node ./scripts/eas-build-post-install.mjs",
-    "test:moment-place-match": "node --test ./scripts/test-moment-place-match.mjs"
+    "test:moment-place-match": "node --test ./scripts/test-moment-place-match.mjs",
+    "postinstall": "patch-package --error-on-fail",
+    "test:security": "node --test scripts/test-security-dependencies.mjs"
   },
   "dependencies": {
     "@backyrd/product-decision-contract": "file:packages/product-decision-contract",
@@ -91,10 +93,16 @@
     "@types/react-dom": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "patch-package": "8.0.1",
     "typescript": "~5.9.2"
   },
   "private": true,
   "volta": {
     "node": "20.19.4"
+  },
+  "overrides": {
+    "decode-uri-component": "0.5.1",
+    "postcss": "8.5.32",
+    "image-size": "2.0.3"
   }
 }

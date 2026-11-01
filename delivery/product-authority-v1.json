@@ -152,8 +152,12 @@
       {
         "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+      },
+      {
+        "path": "supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",
+        "sha256": "60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"
       }
     ],
-    "source": "Founder-approved seasonal release completed and verified on 2026-11-01. The immutable seasonal receipt records exact SQL and deployment identity. Subsequent code-only releases contain no SQL/Auth changes; four Booking migrations remain excluded."
+    "source": "Founder-approved seasonal release completed and verified on 2026-11-01. The immutable seasonal receipt records exact SQL and deployment identity. Subsequent code-only releases contain no SQL/Auth changes; four Booking migrations remain excluded. The reviewed Beta security migration is also explicitly deferred until its own bounded SQL/Auth release; this code-only artifact does not authorize applying it."
   }
 }

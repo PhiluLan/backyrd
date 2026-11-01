@@ -15,6 +15,7 @@ import { ensureProfile } from "../../lib/profile";
 import { signInWithGoogle } from "../../lib/googleSignIn";
 import { registrationOutcome, type RegistrationOutcome } from "../../lib/auth/registrationOutcome";
 import { AuthDivider, AuthField, AuthProviderButton, AuthScreen, AuthSubmit, authStyles } from "../../components/auth/AuthScreen";
+import { compromisedPasswordMessage } from "../../../packages/shared/src/auth-errors";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -25,8 +26,10 @@ function cleanEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
-function getAuthErrorMessage(error: any) {
-  const message = error?.message ?? String(error);
+function getAuthErrorMessage(error: unknown) {
+  const compromised = compromisedPasswordMessage(error);
+  if (compromised) return compromised;
+  const message = error instanceof Error ? error.message : "";
 
   if (message.toLowerCase().includes("password")) {
     return "Bitte verwende ein stärkeres Passwort.";

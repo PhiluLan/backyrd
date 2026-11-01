@@ -86,3 +86,12 @@ test("Production Auth emails keep the lowercase brand and styled recovery action
   }
   assert.match(config.mailer_templates_recovery_content, /href="{{ \.ConfirmationURL }}"/);
 });
+
+test('a scoped password-protection update changes no SMTP, redirect or mail fields',()=>{
+ const paths=fixture();const document=JSON.parse(readFileSync(paths.configPath,'utf8'));document.config.password_hibp_enabled=true;
+ const source=JSON.stringify(document);writeFileSync(paths.configPath,source);
+ const plan=JSON.parse(readFileSync(paths.planPath,'utf8'));plan.authConfig.sha256=createHash('sha256').update(source).digest('hex');plan.authConfig.keys=['password_hibp_enabled'];writeFileSync(paths.planPath,JSON.stringify(plan));
+ writeFileSync(paths.mockPath,`let current={site_url:'unchanged',smtp_host:'unchanged'};globalThis.fetch=async(_url,options)=>{if(options.method==='PATCH'){const patch=JSON.parse(options.body);if(JSON.stringify(patch)!==JSON.stringify({password_hibp_enabled:true}))throw Error('unrelated_auth_change');current={...current,...patch};}return {ok:true,json:async()=>current};};`);
+ const result=run(paths,'');assert.equal(result.status,0,result.stderr);
+ const audit=JSON.parse(readFileSync(paths.auditPath,'utf8'));assert.equal(audit.smtpCredentialApplied,false);assert.deepEqual(audit.changedKeys,['password_hibp_enabled']);assert.deepEqual(audit.verified,{password_hibp_enabled:true});
+});

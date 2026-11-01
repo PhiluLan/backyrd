@@ -128,6 +128,11 @@ Produktion. Absolute Unangreifbarkeit wird nicht versprochen.
 
 ## Nachweise und Arbeitsgrenzen
 
+- Paket 1: [Sicherheits-Ausgangsstand und erste Korrekturen](BETA_SECURITY_FOUNDATION.md).
+  Backup und Runtime-Dokumentation sind vorhanden; die Sicherheitskorrekturen
+  werden getrennt von ihrer Produktionsveröffentlichung nachgewiesen. Offene
+  App-Abhängigkeiten und die spätere vollständige Sicherheitsabnahme bleiben
+  ausdrücklich sichtbar.
 - Aktueller Decision-Ablauf: [Decision Runtime](../decision-vnext/CURRENT_PRODUCT_RUNTIME.md).
 - Backup: [bestehender AWS-Workflow](../../.github/workflows/production-backup.yml),
   [vollständiger manueller Lauf 41335894428](https://github.com/PhiluLan/backyrd/actions/runs/41335894428),

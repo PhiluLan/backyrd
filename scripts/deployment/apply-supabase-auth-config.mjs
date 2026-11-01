@@ -17,8 +17,11 @@ if (sourceHash !== auth.sha256) throw new Error("auth config source identity mis
 const document = JSON.parse(source);
 if (document.projectRef !== plan.projectRef) throw new Error("auth config project mismatch");
 const smtpPassword = process.env.BACKYRD_RESEND_AUTH_SMTP_KEY;
-if (!smtpPassword) throw new Error("BACKYRD_RESEND_AUTH_SMTP_KEY required");
 if (Object.hasOwn(document.config, "smtp_pass")) throw new Error("smtp password must not be stored in auth config");
+const keys = auth.keys ?? Object.keys(document.config);
+if (!Array.isArray(keys) || !keys.length || new Set(keys).size !== keys.length || keys.some((key) => typeof key !== "string" || !Object.hasOwn(document.config, key))) throw new Error("auth config field scope invalid");
+const applySmtpCredential = keys.some((key) => key.startsWith("smtp_"));
+if (applySmtpCredential && !smtpPassword) throw new Error("BACKYRD_RESEND_AUTH_SMTP_KEY required");
 const endpoint = `https://api.supabase.com/v1/projects/${plan.projectRef}/config/auth`;
 const request = async (method, body) => {
   const response = await fetch(endpoint, {
@@ -30,9 +33,9 @@ const request = async (method, body) => {
   return response.json();
 };
 const before = await request("GET");
-const expected = document.config;
+const expected = Object.fromEntries(keys.map((key) => [key, document.config[key]]));
 const changedKeys = Object.keys(expected).filter((key) => before[key] !== expected[key]);
-await request("PATCH", { ...expected, smtp_pass: smtpPassword });
+await request("PATCH", applySmtpCredential ? { ...expected, smtp_pass: smtpPassword } : expected);
 const after = await request("GET");
 for (const [key, value] of Object.entries(expected)) {
   if (after[key] !== value) throw new Error(`auth config verification failed:${key}`);
@@ -43,6 +46,6 @@ writeFileSync(args.audit, `${JSON.stringify({
   planHash: plan.planHash,
   sourceHash,
   changedKeys,
-  smtpCredentialApplied: true,
+  smtpCredentialApplied: applySmtpCredential,
   verified: Object.fromEntries(Object.keys(expected).map((key) => [key, after[key]])),
 }, null, 2)}\n`, { flag: "wx" });
