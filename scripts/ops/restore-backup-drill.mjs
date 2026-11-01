@@ -186,7 +186,7 @@ async function restore(snapshot,reportPath) {
   });
   if(!comparison.matches){if(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE)writeFileSync(process.env.BACKYRD_RESTORE_DIAGNOSTIC_FILE+'.schema.sql',restoredSchema,{mode:0o600});throw Error('restored_schema_or_acl_mismatch');}
   const sections=[...copySections(part('data.sql')),...copySections(part('migration-data.sql'))];let rowCount=0,checked=0;
-  for(const section of sections){const body=sql(`COPY ${identifier(section.schema)}.${identifier(section.table)} (${section.columns.map(identifier).join(',')}) TO STDOUT;`);const rows=body.endsWith('\n')?body.slice(0,-1).split('\n'):body?body.split('\n'):[];
+  for(const section of sections){const body=sql(`set extra_float_digits=3;COPY ${identifier(section.schema)}.${identifier(section.table)} (${section.columns.map(identifier).join(',')}) TO STDOUT;`);const rows=body.endsWith('\n')?body.slice(0,-1).split('\n'):body?body.split('\n'):[];
    if(rows.length!==section.count||sha(rows.sort().join('\n'))!==section.digest)throw Error('restored_table_mismatch:'+section.schema+'.'+section.table+':expectedRows='+section.count+':actualRows='+rows.length);rowCount+=rows.length;checked++;if(checked%100===0)console.log('Restore phase: '+checked+' tables verified.');}
   let sequenceCount=0;
   for(const m of part('data.sql').matchAll(/^SELECT pg_catalog\.setval\('((?:[^']|'')+)', ([0-9]+), (true|false)\);$/gm)){
