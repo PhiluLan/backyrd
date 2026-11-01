@@ -24,12 +24,46 @@ test('family activity plus either food option can use a separate cafe at the sam
   assert.equal(result.ranked[0].selectedFactIds.includes(food==='meal'?'snack':'meal'),false);
  }
 });
+test('indoor outing plus food at the same venue keeps activity and dining areas separate',()=>{
+ const original=foodAlternative().raw;
+ const inside=fact('inside','offer.area','indoor','REQUIRED',['a1']);
+ const companion=fact('companion','people.relationship','adult_accompanied','CONTEXT',[]);
+ const q=request([...original.facts,inside,companion],{...original,facts:[...original.facts,inside,companion],logic:{kind:'ALL',children:[original.logic,{kind:'FACT',factId:'inside'}]}});
+ for(const food of ['meal','snacks']){
+  const p=familyVenue(food);
+  const good=search(q,[binding(1,p)]);
+  assert.equal(good.ranked.length,1,JSON.stringify(good.unresolved));
+  assert.deepEqual(good.ranked[0].offerIds,['cafe','play']);
+  // An indoor cafe does not make the actual outdoor activity an indoor outing.
+  p.areas[0].kind='OUTDOOR';
+  assert.equal(search(q,[binding(1,p)]).ranked.length,0);
+ }
+ const p=familyVenue('snacks');p.areas[1].kind='OUTDOOR';
+ assert.equal(search(q,[binding(1,p)]).ranked.length,1,'only the activity was requested indoors');
+ const diningInside=fact('diningInside','offer.area','indoor','REQUIRED',['a2']);
+ const bothInside=request([...q.raw.facts,diningInside],{...q.raw,facts:[...q.raw.facts,diningInside],logic:{kind:'ALL',children:[q.raw.logic,{kind:'FACT',factId:'diningInside'}]}});
+ assert.equal(search(bothInside,[binding(1,p)]).ranked.length,0,'explicit indoor dining remains binding');
+});
 test('food is still a duty: an activity alone, a family restaurant alone, or food at another venue cannot satisfy it',()=>{
  const q=foodAlternative();
  const onlyFood=profile([offer('dinner','DINNER',['inside'],[prop('condition.children','Kinderangebote')])],[area('inside',[prop('atmosphere.character','familienfreundlich')])]);
  for(const catalog of [[binding(1,familyVenue(null))],[binding(2,onlyFood)],[binding(1,familyVenue(null)),binding(2,onlyFood)],[binding(1,familyVenue('drinks'))]])
   assert.equal(search(q,catalog).ranked.length,0);
  assert.equal(search(foodAlternative(true),[binding(1,familyVenue('meal'))]).ranked.length,0,'AND must not become OR');
+});
+test('a general outing purpose adds no second service duty, while own-food permission and concrete activities stay binding',()=>{
+ const facts=[fact('family','condition.children','children_activity'),fact('purpose','experience.purpose','Ausflug machen','CONTEXT'),fact('own','participation.permission','eigenes Essen mitbringen')];
+ const q=request(facts),p=familyVenue(null);
+ const withoutPermission=search(q,[binding(1,p)]);
+ assert.equal(withoutPermission.ranked.length,0);
+ assert.equal(withoutPermission.unresolved[0].facts.find(f=>f.factId==='family').state,'MET');
+ assert.equal(withoutPermission.unresolved[0].facts.find(f=>f.factId==='own').reason,'EXTERNAL_CONSUMPTION_RULE_NOT_RECORDED','permission remains required when no rule is recorded');
+ p.offers[0].properties.push(prop('participation.permission','eigenes Essen mitbringen'));
+ assert.equal(search(q,[binding(1,p)]).ranked.length,1);
+ const concrete=request([...facts,fact('animals','experience.activity','animals')]);
+ assert.equal(search(concrete,[binding(1,p)]).ranked.length,0,'a specific additional activity is still required');
+ const historical=request([...facts,fact('extra','experience.activity','Ausflug')]);
+ assert.equal(search(historical,[binding(1,p)]).ranked.length,0,'matching never silently rewrites an emitted required fact');
 });
 test('properties attached to the same activity still cannot borrow a different cafe room',()=>{
  const q=request([fact('play','condition.children','children_activity'),fact('food','food.meal','meal')]);
@@ -296,4 +330,122 @@ test('classification without discovery authority cannot prove a venue match',asy
  const world={facts:[{key:'classification.place_types',value:['WINE_BAR'],freshness:'CURRENT',trust:'VERIFIED',resolution:'KNOWN_VALUE',authorizedUseCases:[],entryHash:'a'.repeat(64)}]};
  assert.equal(assessLibrarianPlaceType(f,world).state,'UNKNOWN');
  assert.equal(assessLibrarianPlaceType(f,world).reason,'SPOT_TYPE_USE_NOT_AUTHORIZED');
+});
+
+
+// An organised birthday package is real evidence, but not a general outing.
+const birthdayProfile=()=>JSON.parse(readFileSync(new URL('./fixtures/family-birthday-offer.json',import.meta.url),'utf8')).profile;
+const birthdayBinding=(p=birthdayProfile())=>{const b=binding(1,p);b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['BAKERY'];return b;};
+const familyRequest=(extra=[])=>request([fact('family','condition.children','children_activity'),fact('meal','food.meal','meal','REQUIRED',['a2']),...extra],{bindings:[{kind:'SAME_PLACE',factIds:['family','meal']}]});
+test('recorded family-food meaning does not promote a birthday-only course to a regular outing',async()=>{
+ const recorded=JSON.parse(readFileSync(new URL('./fixtures/family-food-live-or.json',import.meta.url),'utf8'));
+ const q=request(recorded.raw.facts,recorded.raw);
+ const catalog=[birthdayBinding(),binding(2,familyVenue())];
+ const r=search(q,catalog);
+ assert.deepEqual(r.ranked.map(c=>c.spotId),[catalog[1].decisionProjection.spotId]);
+ const held=r.unresolved.find(c=>c.spotId===catalog[0].decisionProjection.spotId);
+ assert.equal(held.status,'PARTIAL');
+ assert.ok(held.facts.some(f=>f.reason==='OFFER_OCCASION_CONTEXT_NOT_PROVEN'&&f.offerIds.includes('gk-birthday')));
+ assert.deepEqual(q.raw,recorded.raw,'do not rewrite the model request');
+ const http=await exercise({text:recorded.query,meaning:q,catalog});
+ assert.equal(http.status,200);
+ assert.equal(http.body.primaryCandidateId,catalog[1].decisionProjection.spotId);
+ const item=http.body.candidates.find(c=>c.spotId===catalog[0].decisionProjection.spotId);
+ assert.equal(item.rank,null);
+ assert.ok(item.reasons.some(r=>r.statement.includes('besonderen Anlass')));
+ assert.ok(item.reasons.some(r=>r.statement.includes('Cupcakes dekorieren zum Kindergeburtstag')));
+});
+test('explicit birthday context permits the birthday package, but a different or unrelated occasion does not',()=>{
+ const b=birthdayBinding();
+ assert.equal(search(familyRequest([fact('occasion','experience.occasion','Kindergeburtstag','CONTEXT')]),[b]).ranked.length,1);
+ for(const [value,subjects] of [['Hochzeit',['a1']],['Kindergeburtstag',['a2']]]){
+  assert.equal(search(familyRequest([fact('occasion','experience.occasion',value,'CONTEXT',subjects)]),[b]).ranked.length,0);
+ }
+ const negative=search(familyRequest([fact('occasion','experience.occasion','Kindergeburtstag','EXCLUDED')]),[b]);
+ assert.ok(negative.excluded[0].facts.some(f=>f.reason==='OFFER_OCCASION_EXCLUDED'));
+});
+test('a venue with both regular play and birthday packages can use the regular offer',()=>{
+ const p=birthdayProfile();p.offers.push(offer('play','MOVEMENT_PLAY',['gk-cafe']));
+ const r=search(familyRequest(),[birthdayBinding(p)]);
+ assert.equal(r.ranked.length,1);
+ assert.ok(r.ranked[0].offerIds.includes('play'));
+ assert.ok(!r.ranked[0].offerIds.includes('gk-birthday'));
+});
+test('booking a normal course is not an occasion restriction and optional birthdays do not restrict regular play',()=>{
+ for(const name of ['Kinderkurs mit Anmeldung','Klettern auch für Kindergeburtstage','Kinderkurs ohne Geburtstagsfeier']){
+  const o={...offer('course','CHILDREN_COURSE'),name,properties:[prop('participation.booking','Erforderlich')]};
+  assert.equal(search(request([fact('family','condition.children','children_activity')]),[binding(1,profile([o]))]).ranked.length,1,name);
+ }
+});
+test('special-occasion restrictions apply to wedding and corporate packages without blocking other offers',()=>{
+ for(const name of ['Kreativkurs für die Hochzeitsfeier','Kinderprogramm beim Firmenanlass']){
+  const p=profile([{...offer('special','CHILDREN_COURSE'),name}]);
+  assert.equal(search(request([fact('family','condition.children','children_activity')]),[binding(1,p)]).ranked.length,0,name);
+ }
+});
+
+test('an exhibition about birthdays is not a birthday booking package',()=>{
+ const p=profile([{...offer('exhibition','PERMANENT_EXHIBITION'),name:'Geburtstagsfeier im Wandel der Zeit'}],[area()],'MUSEUM');
+ assert.equal(search(request([fact('visit','experience.activity','museum')]),[binding(1,p)]).ranked.length,1);
+});
+
+test('a service offered for several occasions accepts the matching one, not an unrelated outing',()=>{
+ const o={...offer('special','CHILDREN_COURSE'),name:'Kreativkurs für Kindergeburtstage oder Hochzeitsfeiern'};
+ const b=binding(1,profile([o]));
+ const family=fact('family','condition.children','children_activity');
+ for(const label of ['Kindergeburtstag','Hochzeit'])assert.equal(search(request([family,fact('occasion','experience.occasion',label,'CONTEXT')]),[b]).ranked.length,1,label);
+ assert.equal(search(request([family]),[b]).ranked.length,0);
+});
+
+test('unrelated optional or negative wording does not erase the actual birthday restriction',()=>{
+ for(const name of ['Kindergeburtstag ohne Voranmeldung','Kindergeburtstag auch für Teenies']){
+  const p=profile([{...offer('special','CHILDREN_COURSE'),name}]);
+  assert.equal(search(request([fact('family','condition.children','children_activity')]),[binding(1,p)]).ranked.length,0,name);
+ }
+});
+
+
+const childEntryRule=(mode='UNACCOMPANIED_MINIMUM',minimumAge=13)=>worldFact('rule.age_access_conditions',{notes:null,rules:[{area:null,days:[],mode,event:null,minimumAge,accompaniment:mode==='UNACCOMPANIED_MINIMUM'?'ADULT':'NONE',appliesFromTime:null}]});
+const companionRequest=(extras=[])=>request([fact('family','condition.children','children_activity'),...extras]);
+const accompany=(value='adult_accompanied')=>fact('companion','people.relationship',value,'CONTEXT',[]);
+test('family accompaniment satisfies an unaccompanied minimum without invented ages or headcount',async()=>{
+ const catalog=[binding(1,familyVenue('snacks'),[childEntryRule()])];
+ for(const label of ['adult_accompanied','Familie','Familienausflug']){
+  const q=companionRequest([accompany(label)]);
+  const r=search(q,catalog);
+  assert.equal(r.ranked.length,1,label);
+  assert.ok(r.ranked[0].facts.some(f=>f.reason==='ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED'));
+  assert.ok(!q.facts.some(f=>['people.age','people.count'].includes(f.key)));
+ }
+ const q=companionRequest([accompany()]);
+ const http=await exercise({text:'Familienaktivität',meaning:q,catalog});
+ assert.equal(http.status,200);
+ const c=http.body.candidates.find(c=>c.rank===1);
+ assert.ok(c.reasons.some(r=>r.domain==='CONTEXT'&&r.statement.includes('Begleitung')));
+ assert.equal(c.rankVector.worldEvidence.confirmedReasonCount,1,'accompaniment does not add a venue-ranking vote');
+});
+test('a four-year-old accompanied by a parent fits the under-thirteen accompaniment rule',()=>{
+ const q=companionRequest([child(),accompany()]);
+ assert.equal(search(q,[binding(1,familyVenue(),[childEntryRule()])]).ranked.length,1);
+});
+test('children alone override the family default and cannot satisfy required adult accompaniment',()=>{
+ const q=companionRequest([child(),accompany(),fact('alone','people.relationship','unaccompanied','CONTEXT',['p2'])]);
+ const r=search(q,[binding(1,familyVenue(),[childEntryRule()])]);
+ assert.equal(r.ranked.length,0);
+ assert.ok(r.excluded[0].facts.some(f=>f.reason==='REQUIRED_ADULT_ACCOMPANIMENT_EXPLICITLY_ABSENT'));
+});
+test('an explicitly minor requester does not become an adult through the family default',()=>{
+ const q=companionRequest([child(),accompany(),fact('self','people.role','self','CONTEXT',['p1']),fact('self-age','people.age',{amount:12,operator:'EQ',unit:'YEARS'},'CONTEXT',['p1'])]);
+ assert.equal(search(q,[binding(1,familyVenue(),[childEntryRule()])]).ranked.length,0);
+});
+test('adult accompaniment does not override an actual minimum admission age',()=>{
+ const q=companionRequest([child(),accompany()]);
+ const r=search(q,[binding(1,familyVenue(),[childEntryRule('GENERAL_MINIMUM',6)])]);
+ assert.equal(r.ranked.length,0);
+ assert.ok(r.excluded[0].facts.some(f=>f.reason==='PARTICIPANT_BELOW_VERIFIED_MINIMUM_AGE'));
+});
+test('a children activity alone is not evidence that an adult accompanies the visit',()=>{
+ const r=search(companionRequest(),[binding(1,familyVenue(),[childEntryRule()])]);
+ assert.equal(r.ranked.length,0);
+ assert.ok(r.unresolved[0].facts.some(f=>f.reason==='PARTICIPANT_AGE_COVERAGE_INCOMPLETE'));
 });

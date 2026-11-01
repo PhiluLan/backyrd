@@ -11,6 +11,39 @@ const optional=()=>fact('booking','participation.booking','spontaneous','REQUIRE
 const rule=mode=>worldFact('rule.reservation',{mode,minimumPartySize:null,days:[],fromTime:null,toTime:null});
 const p=properties=>profile([offer('dinner','DINNER',['inside'],properties)],[area('inside',[prop('atmosphere.character','gemütlich')])]);
 
+test('founder-approved playground-with-daughter case preserves seven relevant results across the three recorded meanings',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {contentHash}=await import('../dist/canonical.js');
+ const {prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION}=await import('../dist/product-luna-librarian.js');
+ const {caseHash,...accepted}=JSON.parse(readFileSync(new URL('./fixtures/founder-approved-playground-daughter.json',import.meta.url),'utf8'));
+ assert.equal(contentHash(accepted),caseHash);
+ assert.equal(contentHash(accepted.catalog),accepted.provenance.selectedCatalogHash);
+ assert.equal(accepted.approval.status,'ACCEPTED_FOR_RECOMMENDATION_RELEVANCE');
+ assert.equal(accepted.split,'DEVELOPMENT_REGRESSION');
+ assert.equal(accepted.uniqueRequestCount,1);assert.equal(accepted.runs.length,3);
+ assert.equal(accepted.usage.automaticModelTraining,false);assert.equal(accepted.usage.productionUserTasteWrite,false);
+ assert.ok(accepted.knownIssues.some(i=>i.id==='MISSING_PARTICIPANT_LINK_CAN_HIDE_AGE_NOTICE'&&i.status==='OPEN'));
+ const expected=accepted.expectations.acceptedSpots.map(s=>s.spotId).sort();
+ for(const run of accepted.runs){
+  assert.equal(contentHash(run.output),run.rawOutputHash);
+  const meaning=prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,sourceText:accepted.query,reference:run.reference,output:run.output});
+  // Preserve historical provenance while replaying against the current prompt contract.
+  const {requestHash,...currentBody}=meaning;
+  assert.equal(contentHash({...currentBody,configuration:run.configuration}),run.requestHash);
+  assert.ok(!meaning.facts.some(f=>f.key==='people.age'),'no age may be invented from daughter');
+  assert.ok(meaning.facts.some(f=>f.key==='people.relationship'&&f.modality==='CONTEXT'&&f.value.kind==='TEXT'&&f.value.text==='adult_accompanied'));
+  const r=await exercise({text:accepted.query,meaning,catalog:accepted.catalog});
+  assert.equal(r.status,200,run.runId);
+  const ranked=r.body.candidates.filter(c=>c.rank!==null);
+  assert.deepEqual(ranked.map(c=>c.spotId).sort(),expected,run.runId);
+  assert.ok(ranked.every(c=>c.unknownHardConstraints.length===0&&c.failedHardConstraints.length===0));
+  const elys=ranked.find(c=>/ELYS/.test(c.presentation.name));
+  assert.ok(elys.reasons.some(r=>r.code==='librarian-age-requirement'&&r.statement.includes('ab 1 Jahr')),run.runId);
+  // The absent age notice is not an approved target. Do not freeze an absent
+  // warning or a universal spot order as desired behavior.
+ }
+});
+
 test('optional booking understands the actual authoring enum and three languages without promising a free seat',()=>{
  for(const label of ['Empfohlen','RECOMMENDED','reservation recommended','réservation conseillée']){
   const result=search(request([meal(),optional()]),[binding(1000,p([prop('participation.booking',label)]))]);
@@ -86,7 +119,7 @@ test('qualitative price requires an explicit product policy and never invents a 
  const evidence=qualitativePriceEvidence(f,world,p([]),'PRICE_LEVEL')[0];
  assert.equal(evidence.state,'MET');
  assert.equal(evidence.details.monetaryBudgetInferred,false);
- assert.equal(evidence.details.evidenceScope,'SPOT');
+ assert.equal(evidence.details.evidenceScope,'GASTRONOMY_VENUE_DEFAULT');
 });
 test('today evening cannot be satisfied by a kitchen that closed before the real request time',()=>{
  const b=binding(1014,p([]),[worldFact('hours.kitchen',[{day:'THURSDAY',intervals:[{start:'11:00',end:'19:00'}]}])]);
@@ -200,9 +233,9 @@ test('child outings distinguish child menus from a documented family museum visi
  const noAge=structuredClone(museum);noAge.offers[0].properties=noAge.offers[0].properties.filter(p=>p.key!=='participation.age_suitability');
  assert.equal(search(q,[binding(1102,noAge)]).ranked.length,0);
  const noFamily=structuredClone(museum);noFamily.areas[0].properties=[];
- assert.equal(search(q,[binding(1103,noFamily)]).ranked.length,0);
+ assert.equal(search(q,[binding(1103,noFamily)]).ranked.length,1,'all ages needs no additional family label');
  const wrongArea=structuredClone(museum);wrongArea.areas[0].properties=[];wrongArea.areas.push(area('terrace',[prop('atmosphere.character','familienfreundlich')]));
- assert.equal(search(q,[binding(1104,wrongArea)]).ranked.length,0);
+ assert.equal(search(q,[binding(1104,wrongArea)]).ranked.length,1,'family atmosphere in another area is irrelevant to the offer age declaration');
  const adult=structuredClone(museum);adult.offers[0].properties.push(prop('participation.minimum_age',18));
  assert.equal(search(request([...q.raw.facts,fact('age','people.age',{amount:4,operator:'EQ',unit:'YEARS'},'CONTEXT',['p1'])]),[binding(1105,adult)]).ranked.length,0);
 });

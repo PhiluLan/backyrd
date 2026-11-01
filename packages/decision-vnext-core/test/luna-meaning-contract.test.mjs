@@ -1,0 +1,174 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {LUNA_MEANING_ROLE_CONTRACT,inspectLunaMeaning,assertLunaMeaningCorrection} from '../dist/product-luna-meaning-contract.js';
+import {createDecisionProductLunaProvider} from '../dist/product-luna-provider.js';
+import {LIBRARIAN_FAMILY_STRATEGIES} from '../dist/product-librarian-language.js';
+import {fact,request as plan,profile,offer,area,prop,binding} from './librarian-matching-fixtures.mjs';
+import {exercise} from './librarian-active-route-fixtures.mjs';
+const raw=(key,value='animals')=>structuredClone(plan([fact('want',key,value)]).raw);
+const response=output=>new Response(JSON.stringify({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(output)}]}]}));
+const req={contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'r',idempotencyKey:'i',naturalLanguage:'Familientag, meine Tochter will was mit Tieren.',explicit:{},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
+const provide=(outputs,onTranslationAttempt)=>{
+ let calls=0;
+ const provider=createDecisionProductLunaProvider({apiKey:'synthetic',onTranslationAttempt,fetchImpl:async(_url,options)=>{
+  const body=JSON.parse(options.body);assert.equal(body.store,false);
+  if(calls===1){const correction=JSON.parse(body.input);assert.equal(correction.originalRequest.request,req.naturalLanguage);assert.deepEqual(correction.previousMeaning,outputs[0]);}
+  return response(outputs[calls++]);
+ }});
+ return {run:()=>provider(req,{},new AbortController().signal),calls:()=>calls};
+};
+test('every advertised concept destination has an executable family strategy',()=>{
+ assert.ok(Object.keys(LUNA_MEANING_ROLE_CONTRACT.rules).length>60);
+ for(const [concept,families] of Object.entries(LUNA_MEANING_ROLE_CONTRACT.rules))for(const key of families)assert.notEqual(LIBRARIAN_FAMILY_STRATEGIES[key],'UNSUPPORTED',`${concept}: ${key}`);
+});
+for(const [value,bad,good] of [
+ ['animals','condition.animals','experience.activity'],['climbing','condition.children','experience.activity'],
+ ['cozy','experience.activity','atmosphere.character'],['conversation','experience.character','atmosphere.conversation'],
+ ['own_food','condition.animals','participation.permission'],['indoor','experience.activity','offer.area'],
+ ['snacks','condition.children','food.meal'],['playground','condition.animals','offer.feature'],
+ ['vegan','experience.activity','food.diet'],['spontaneous','experience.activity','participation.booking'],
+])test(`concept-role guard and bounded correction: ${value}`,async()=>{
+ const before=raw(bad,value),after=raw(good,value);
+ const issues=inspectLunaMeaning(before);assert.equal(issues[0].code,'CONCEPT_FAMILY_MISMATCH');
+ assert.deepEqual(inspectLunaMeaning(after),[]);
+ assert.doesNotThrow(()=>assertLunaMeaningCorrection(before,after,issues));
+ const attempts=[];const p=provide([before,after],a=>attempts.push(a));
+ const result=await p.run();assert.equal(p.calls(),2);assert.deepEqual(result.raw,after);
+ assert.deepEqual(attempts.map(a=>a.issues.length),[1,0]);assert.deepEqual(attempts[0].output,before);
+});
+test('already valid output stays unchanged and needs only one call',async()=>{
+ const output=raw('experience.activity');const p=provide([output]);assert.deepEqual((await p.run()).raw,output);assert.equal(p.calls(),1);
+});
+test('a correction may not remove, soften, negate, narrow or move the wish to another person',async()=>{
+ for(const mutate of [o=>o.facts.pop(),o=>o.facts[0].modality='PREFERRED',o=>o.facts[0].modality='EXCLUDED',o=>o.facts[0].value.text='zoo',o=>o.facts[0].subjectIds=[]]){
+  const before=raw('condition.animals'),after=raw('experience.activity');mutate(after);
+  const p=provide([before,after]);await assert.rejects(p.run(),/product_luna_understanding_unresolved/);assert.equal(p.calls(),2);
+ }
+});
+test('unknown animal rules and pet admission never become an animal-observation activity',async()=>{
+ for(const text of ['Hund mitbringen','kein Tierkontakt','nur artgerechte Tierhaltung']){
+  const output=raw('condition.animals',text);assert.equal(inspectLunaMeaning(output)[0].code,'UNSUPPORTED_REQUIREMENT');
+  const p=provide([output]);await assert.rejects(p.run(),/product_luna_understanding_unresolved/);assert.equal(p.calls(),1);
+ }
+});
+test('still invalid correction stops after two calls without searching or claiming zero matches',async()=>{
+ let calls=0;
+ const output=raw('condition.animals');
+ const r=await exercise({text:req.naturalLanguage,meaning:plan([fact('want','condition.animals','animals')]),catalog:[binding(1,profile())],fetchImpl:async()=>{calls++;return response(output);}});
+ assert.equal(calls,2);assert.equal(r.reads,0);assert.equal(r.status,503);assert.match(r.body.error.message,/zuverlässig zugeordnet/);
+});
+test('both formerly divergent representations reach identical eligibility through the real provider boundary',async()=>{
+ const catalog=[binding(1,profile([offer('animals','ANIMAL_OBSERVATION')],[area()],'ZOO'))];
+ const results=[];
+ for(const key of ['experience.activity','condition.animals']){
+  let calls=0;const output=raw(key);
+  const r=await exercise({text:req.naturalLanguage,meaning:plan([fact('want',key,'animals')]),catalog,fetchImpl:async()=>response(calls++===0?output:raw('experience.activity'))});
+  assert.equal(r.status,200,JSON.stringify(r.body));results.push(r.body.candidates.filter(c=>c.rank!==null).map(c=>c.spotId));
+ }
+ assert.ok(results[0].length);assert.deepEqual(results[0],results[1]);
+});
+
+test('context roles cannot become hard venue duties in the active schema',async()=>{
+ const {buildLunaLibrarianModelRequest,validateActiveLunaMeaningOutput}=await import('../dist/product-luna-librarian.js');
+ const {LUNA_CONTEXT_ONLY_FAMILIES}=await import('../dist/product-luna-meaning-contract.js');
+ const body=buildLunaLibrarianModelRequest({sourceText:'zuerst gemütlich essen',reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
+ for(const key of LUNA_CONTEXT_ONLY_FAMILIES){const variants=body.text.format.schema.$defs.fact.anyOf.filter(v=>v.properties.key.enum.includes(key));assert.equal(variants.length,1,key);assert.deepEqual(variants[0].properties.modality.enum,['CONTEXT'],key);}
+ const before=raw('time.relation','zuerst');assert.throws(()=>validateActiveLunaMeaningOutput(before),/context_role_must_be_context/);
+ assert.equal(before.facts[0].modality,'REQUIRED');
+});
+test('negated prerequisites cannot be represented as ignored booking duties',async()=>{
+ const {buildLunaLibrarianModelRequest,validateActiveLunaMeaningOutput}=await import('../dist/product-luna-librarian.js');
+ const body=buildLunaLibrarianModelRequest({sourceText:'Ohne Anmeldung essen',reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
+ const variants=body.text.format.schema.$defs.fact.anyOf.filter(v=>v.properties.key.enum.includes('participation.booking'));
+ const ignored=variants.find(v=>v.properties.modality.enum.includes('NOT_REQUIRED'));assert.deepEqual(ignored.properties.value.properties.text.enum,['spontaneous']);
+ const output=raw('participation.booking','booking_required');output.facts[0].modality='NOT_REQUIRED';assert.throws(()=>validateActiveLunaMeaningOutput(output),/ambiguous_negated_prerequisite/);
+ output.facts[0].value.text='spontaneous';assert.doesNotThrow(()=>validateActiveLunaMeaningOutput(output));
+ output.facts[0].modality='REQUIRED';assert.doesNotThrow(()=>validateActiveLunaMeaningOutput(output));
+});
+test('permission misfiled as food is diagnosed before the active semantic validator rejects it',async()=>{
+ const p=provide([raw('food.dish','own_food'),raw('participation.permission','own_food')]);
+ assert.equal((await p.run()).facts[0].key,'participation.permission');assert.equal(p.calls(),2);
+});
+test('preference admission needs explicit source evidence across supported languages',async()=>{
+ const {buildLunaLibrarianModelRequest}=await import('../dist/product-luna-librarian.js');
+ const {explicitPreferenceEvidence}=await import('../dist/product-luna-preference-evidence.js');
+ for(const text of ['gemütlich essen und nicht zu teuer','Live Jazz mit Rollstuhl','unmöglichst optionality']){
+  assert.deepEqual(explicitPreferenceEvidence(text),[]);
+  const body=buildLunaLibrarianModelRequest({sourceText:text,reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
+  const variants=[];const walk=v=>{if(v&&typeof v==='object'){if(v.properties?.modality?.enum?.includes('PREFERRED'))variants.push(v);for(const child of Object.values(v))walk(child);}};walk(body.text.format.schema);assert.ok(variants.length);for(const v of variants)assert.deepEqual(v.properties.key.enum,['atmosphere.character','atmosphere.noise']);
+ }
+ for(const text of ['möglichst gemütlich','preferably quiet','si possible au calme','se possibile tranquillo','Es wäre schön, wenn es ruhig ist']){
+  assert.ok(explicitPreferenceEvidence(text).length,text);
+  const body=buildLunaLibrarianModelRequest({sourceText:text,reference:{now:'2026-10-31T12:00:00Z',timezone:'Europe/Zurich'}});
+  assert.ok(JSON.stringify(body.text.format.schema).includes('PREFERRED'),text);
+ }
+});
+test('unqualified price wish cannot silently become a preference even if a provider ignores its schema',async()=>{
+ const output=raw('budget.qualitative','nicht zu teuer');output.facts[0].modality='PREFERRED';
+ const p=provide([output]);await assert.rejects(p.run(),/product_luna_understanding_unresolved/);assert.equal(p.calls(),1);
+ const provider=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(output)});
+ const result=await provider({...req,naturalLanguage:'Möglichst nicht zu teuer essen'},{},new AbortController().signal);
+ assert.equal(result.facts[0].modality,'PREFERRED');
+});
+test('transient HTTP failures retry once across translation and correction, permanent failures never retry',async()=>{
+ let calls=0;const p=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>{calls++;return new Response('',{status:503});}});
+ await assert.rejects(p(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,2);
+ calls=0;const repair=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>++calls===1?response(raw('condition.animals')):new Response('',{status:503})});
+ await assert.rejects(repair(req,{},new AbortController().signal),/product_luna_provider_unavailable/);assert.equal(calls,3);
+ for(const status of [400,401,403,429]){let n=0;const permanent=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>{n++;return new Response('',{status});}});await assert.rejects(permanent(req,{},new AbortController().signal),/provider_unavailable/);assert.equal(n,1);}
+ let n=0;const recovering=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>++n===1?new Response('',{status:503}):response(raw('experience.activity'))});assert.ok((await recovering(req,{},new AbortController().signal)).facts.length);assert.equal(n,2);
+});
+
+test('diet of a co-diner cannot silently disappear into context during a food visit',async()=>{
+ const before=structuredClone(plan([fact('meal','experience.activity','brunch'),fact('diet','food.diet','vegan','CONTEXT',['p1'])]).raw);
+ const after=structuredClone(before);after.facts[1].modality='REQUIRED';
+ const issues=inspectLunaMeaning(before);assert.equal(issues[0].code,'DIET_CONTEXT_NOT_EXECUTABLE');
+ assert.doesNotThrow(()=>assertLunaMeaningCorrection(before,after,issues));
+ const p=provide([before,after]);assert.deepEqual((await p.run()).raw,after);assert.equal(p.calls(),2);
+ const changed=structuredClone(after);changed.facts[0].modality='PREFERRED';assert.throws(()=>assertLunaMeaningCorrection(before,changed,issues));
+ const unrelated=structuredClone(before);unrelated.facts[0].value.text='museum';assert.deepEqual(inspectLunaMeaning(unrelated),[]);
+});
+
+test('a field name used as a content placeholder is corrected before retrieval, preserving all other facts',async()=>{
+ const before=raw('experience.activity','experience.activity');const after=raw('experience.activity','meal');
+ const issues=inspectLunaMeaning(before);assert.equal(issues[0].code,'FIELD_NAME_AS_VALUE');
+ assert.throws(()=>assertLunaMeaningCorrection(before,before,issues));
+ const p=provide([before,after]);assert.deepEqual((await p.run()).raw,after);assert.equal(p.calls(),2);
+ const bad=structuredClone(after);bad.facts[0].subjectIds=[];assert.throws(()=>assertLunaMeaningCorrection(before,bad,issues));
+});
+
+test('an unknown child age must not be encoded as approximate zero',()=>{
+ const before=structuredClone(plan([fact('museum','experience.activity','museum'),fact('age','people.age',{amount:0,operator:'APPROX',unit:'YEARS'},'CONTEXT',['p2'])]).raw);
+ const issues=inspectLunaMeaning(before,'mit meiner Tochter ins Museum');assert.equal(issues[0].code,'UNKNOWN_AGE_PLACEHOLDER');
+ const after=structuredClone(before);after.facts.pop();assert.doesNotThrow(()=>assertLunaMeaningCorrection(before,after,issues));
+ assert.throws(()=>assertLunaMeaningCorrection(before,before,issues));
+ assert.deepEqual(inspectLunaMeaning(before,'ungefähr 0 Jahre alt'),[]);
+});
+
+test('an exact known extension duplicate is removed by bounded correction, unknown extra needs are retained',async()=>{
+ const before=raw('experience.activity','coworking');before.extensions=[{id:'x1',description:'Arbeiten mit dem eigenen Laptop',modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']}];
+ const issues=inspectLunaMeaning(before);assert.equal(issues[0].code,'REDUNDANT_EXTENSION');
+ const after=structuredClone(before);after.extensions=[];assert.doesNotThrow(()=>assertLunaMeaningCorrection(before,after,issues));
+ const p=provide([before,after]);assert.equal((await p.run()).extensions.length,0);assert.equal(p.calls(),2);
+ const other=structuredClone(before);other.extensions[0].description='Eigener Bildschirm mit HDMI';assert.equal(inspectLunaMeaning(other)[0].code,'UNSUPPORTED_REQUIREMENT');
+ other.extensions[0].description=before.extensions[0].description;other.extensions[0].subjectIds=['a2'];assert.equal(inspectLunaMeaning(other)[0].code,'UNSUPPORTED_REQUIREMENT');
+});
+
+test('ordinary general atmosphere is a preference but emphatic mood and concrete duties cannot be softened',async()=>{
+ const output=raw('atmosphere.character','cozy');output.facts[0].modality='PREFERRED';
+ const provider=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(output)});
+ assert.equal((await provider({...req,naturalLanguage:'Gemütlich Kaffee und Kuchen'},{},new AbortController().signal)).facts[0].modality,'PREFERRED');
+ for(const text of ['Unbedingt gemütlich Kaffee und Kuchen','Es muss gemütlich sein'])await assert.rejects(provider({...req,naturalLanguage:text},{},new AbortController().signal),/understanding_unresolved/);
+ for(const [key,value] of [['atmosphere.noise','quiet'],['food.diet','vegan'],['participation.accessibility','step_free'],['atmosphere.music','live_jazz']]){
+  const bad=raw(key,value);bad.facts[0].modality='PREFERRED';
+  const p=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(bad)});
+  await assert.rejects(p({...req,naturalLanguage:'Gemütlich Kaffee und Kuchen'},{},new AbortController().signal),/understanding_unresolved/);
+ }
+});
+
+test('descriptive quiet may rank with an honest notice; functional quiet and absent mood wording remain binding',async()=>{
+ const output=raw('atmosphere.noise','quiet');output.facts[0].modality='PREFERRED';
+ const p=createDecisionProductLunaProvider({apiKey:'synthetic',fetchImpl:async()=>response(output)});
+ assert.equal((await p({...req,naturalLanguage:'In einem ruhigen Café arbeiten, ich brauche WLAN'},{},new AbortController().signal)).facts[0].modality,'PREFERRED');
+ for(const text of ['Ich brauche Ruhe im Café','Unbedingt ruhig arbeiten','Kaffee und Kuchen','Ein Café, ich bin lärmempfindlich'])await assert.rejects(p({...req,naturalLanguage:text},{},new AbortController().signal),/understanding_unresolved/);
+});

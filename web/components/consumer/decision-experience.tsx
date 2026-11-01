@@ -48,7 +48,7 @@ function resultCopy(spot: DecisionResult): { highlights: string[]; consideration
   const highlights = Object.entries(visibleReasonCopy)
     .filter(([code]) => confirmed.has(code) && !(code === "primary-purpose-confirmed" && confirmed.has("core-intent-confirmed")))
     .map(([, label]) => label).slice(0, 2);
-  const considerations: string[] = spot.reasons.filter(reason => reason.code === "librarian-inherited-spot-hours").map(reason => reason.statement);
+  const considerations: string[] = spot.reasons.filter(reason => ["librarian-atmosphere-unconfirmed", "librarian-inherited-spot-hours", "librarian-external-admission-unconfirmed", "librarian-free-admission", "librarian-age-rules-unconfirmed", "librarian-age-requirement", "librarian-external-consumption-exceptions", "librarian-relative-price-level"].includes(reason.code)).map(reason => reason.statement);
   if (spot.coreIntentCoverage !== "CONFIRMED") considerations.push("Ob dieser Ort genau zu deinem Wunsch passt, ist noch nicht bestätigt.");
   if (spot.reasons.some((reason) => reason.code === "visit-unconfirmed")) considerations.push("Ob der Ort für deine Begleitung und Situation geeignet ist, ist noch nicht bestätigt.");
   if (spot.reasons.some((reason) => reason.code === "price-level-unconfirmed")) considerations.push("Ein niedriges Preisniveau ist für diesen Ort nicht bestätigt.");
@@ -367,7 +367,7 @@ export function DecisionExperience() {
         ) : status === "empty" ? (
           <StateView
             title="Noch kein passender Treffer"
-            message={run?.limitations.includes("REQUEST_NEEDS_CLARIFICATION") ? "Ergänze bitte ein Budget pro Person, zum Beispiel bis 40 CHF. So können wir die Preise zu deinem Wunsch prüfen." : run?.limitations.includes("REQUEST_REQUIREMENT_UNSUPPORTED") ? "Einen Teil deines Wunsches können wir noch nicht zuverlässig prüfen. Das bedeutet nicht, dass es keinen passenden Ort gibt." : "Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Streiche wichtige Bedingungen nicht nur für einen Treffer."}
+            message={run?.limitations.includes("MULTI_PLACE_SEARCH_UNSUPPORTED") ? "Kaffee holen und einen Spaziergang können wir noch nicht als Ausflug mit mehreren Orten planen. Suche die beiden Schritte einzeln." : run?.limitations.includes("REQUEST_NEEDS_CLARIFICATION") ? "Ergänze bitte ein Budget pro Person, zum Beispiel bis 40 CHF. So können wir die Preise zu deinem Wunsch prüfen." : run?.limitations.includes("REQUEST_REQUIREMENT_UNSUPPORTED") ? "Einen Teil deines Wunsches können wir noch nicht zuverlässig prüfen. Das bedeutet nicht, dass es keinen passenden Ort gibt." : "Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Streiche wichtige Bedingungen nicht nur für einen Treffer."}
             actionLabel="Auswahl anpassen"
             onAction={() => setStatus("input")}
           />

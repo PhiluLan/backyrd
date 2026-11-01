@@ -1,9 +1,13 @@
 import { contentHash, deepFreeze } from "./canonical.js";
 import { LUNA_LIBRARIAN_FACT_KEYS } from "./product-luna-librarian-assets.js";
 import type { LibrarianFact, LunaFactKey } from "./product-luna-librarian.js";
-export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@25" as const;
-import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept } from "@backyrd/world-knowledge-core";
+export const LIBRARIAN_MATCHING_VERSION = "backyrd.decision-vnext.librarian-matching@52" as const;
+import { EXPERIENCE_LANGUAGE_CONCEPTS, EXPERIENCE_LANGUAGE_DATA, EXPERIENCE_QUESTIONS, BOOLEAN_CONCEPTS, librarianConcept, librarianTerm, type ExperienceProperty } from "@backyrd/world-knowledge-core";
 export { librarianTerm, librarianConcept, sameLibrarianText, OFFER_CONCEPTS, AREA_CONCEPTS, BOOLEAN_CONCEPTS } from "@backyrd/world-knowledge-core";
+/** Suitability is explicit product knowledge, not a venue-type heuristic. */
+export const librarianAllAgesSuitability = (property: ExperienceProperty): boolean =>
+    property.key === "participation.age_suitability" && property.state === "KNOWN" && typeof property.value === "string"
+    && ["alle altersgruppen", "all ages", "tous ages", "tous âges"].includes(librarianTerm(property.value));
 /** Additional compatible evidence fields, never replacements for the original
  * field. Value meaning, scope, conditions and authority are checked separately. */
 export const LIBRARIAN_PROPERTY_SOURCE_ALIASES: Readonly<Partial<Record<LunaFactKey, readonly string[]>>> = deepFreeze({
@@ -20,10 +24,17 @@ export const LIBRARIAN_PROPERTY_SOURCE_ALIASES: Readonly<Partial<Record<LunaFact
     "atmosphere.music": ["experience.activity"],
     "condition.children": ["experience.activity"],
     "food.meal": ["food.meal_extent"],
-    "food.option": ["food.meal_extent"],
+    "food.option": ["food.meal_extent", "food.diet"],
+    "food.diet": ["food.option"],
+    "offer.weather_suitability": ["location.setting", "condition.weather_protection"],
 });
 export const librarianPropertySourceKeys = (family: LunaFactKey, acceptedSemanticKeys: readonly string[] = []): readonly string[] =>
     [...new Set([family, ...(LIBRARIAN_PROPERTY_SOURCE_ALIASES[family] ?? []), ...acceptedSemanticKeys])].sort();
+export function librarianExternalConsumptionKind(fact: LibrarianFact): "FOOD" | "DRINK" | null {
+    if (fact.key !== "participation.permission" || fact.value.kind !== "TEXT") return null;
+    const concept = librarianConcept(fact.value.text);
+    return concept === "own_food" ? "FOOD" : concept === "own_drinks" ? "DRINK" : null;
+}
 /** Known facility concepts may be expressed as a kind, activity or feature.
  * Preserve the original fact/family/modality; only its evidence vocabulary is
  * shared. This is bounded by the canonical boolean catalogue, not free prose. */
@@ -31,7 +42,7 @@ export const LIBRARIAN_FACILITY_REQUEST_FAMILIES = Object.freeze(["offer.kind", 
 export function librarianFacilityConcept(fact: LibrarianFact): string | null {
     if (fact.value.kind !== "TEXT" || !LIBRARIAN_FACILITY_REQUEST_FAMILIES.includes(fact.key)) return null;
     const concept = librarianConcept(fact.value.text);
-    return concept && Object.values(BOOLEAN_CONCEPTS).includes(concept) ? concept : null;
+    return concept && (Object.values(BOOLEAN_CONCEPTS).includes(concept) || concept === "wifi") ? concept : null;
 }
 /** A meal/snack extent may be expressed as the consumption activity or its
  * catering field. Only these exact concepts share this evidence source. */
@@ -45,11 +56,13 @@ export function librarianFactPropertySourceKeys(fact: LibrarianFact, acceptedSem
     const facility = librarianFacilityConcept(fact);
     return [...new Set([...librarianPropertySourceKeys(fact.key, acceptedSemanticKeys),
         ...(librarianMealExtentConcept(fact) ? ["food.meal_extent"] : []),
+        ...(fact.value.kind === "TEXT" && librarianConcept(fact.value.text) === "children_activity"
+            && ["condition.children", "experience.activity", "offer.kind"].includes(fact.key) ? ["participation.age_suitability"] : []),
         ...(facility ? ["offer.facility", "offer.feature", ...Object.entries(BOOLEAN_CONCEPTS).filter(([,concept]) => concept === facility).map(([key]) => key)] : [])])].sort();
 }
 const inputOnly = new Set<string>(["people.identity", "people.relationship", "people.role", "people.age", "people.age_bounds", "people.count", "people.pet", "people.mobility_aid", "people.experience", "people.capability", "people.participation", "budget.scope", "budget.coverage", "budget.cost_treatment", "budget.flexibility", "time.original", "time.reference", "time.relation", "time.timezone", "location.return", "location.transport_after_visit", "ranking.requested_evidence"]);
 const temporal = new Set<string>(["time.date", "time.date_start", "time.date_end", "time.clock", "time.clock_start", "time.clock_end", "time.clock_bounds", "time.day_phase", "time.weekday"]);
-export type LibrarianFamilyStrategy = "CONTEXT" | "TEMPORAL" | "PRICE" | "LOCATION" | "STRUCTURED" | "SCOPED_PROPERTY" | "BOOKING" | "QUALITATIVE_PRICE" | "UNSUPPORTED";
+export type LibrarianFamilyStrategy = "CONTEXT" | "TEMPORAL" | "PRICE" | "LOCATION" | "STRUCTURED" | "SCOPED_PROPERTY" | "BOOKING" | "QUALITATIVE_PRICE" | "TAKEAWAY" | "UNSUPPORTED";
 const propertyKeys = new Set(EXPERIENCE_QUESTIONS.map(question => question.key));
 const structuredKeys = new Set(["experience.activity", "offer.kind", "food.meal", "offer.area", "offer.facility", "offer.feature", "participation.accessibility", "time.duration", "route.length", "offer.capacity", "people.count"]);
 function familyStrategy(key: LunaFactKey): LibrarianFamilyStrategy {
@@ -58,6 +71,7 @@ function familyStrategy(key: LunaFactKey): LibrarianFamilyStrategy {
     if (["budget.maximum", "budget.target", "budget.amount"].includes(key)) return "PRICE";
     if (["location.destination", "location.country"].includes(key)) return "LOCATION";
     if (["participation.booking", "participation.entry_mode"].includes(key)) return "BOOKING";
+    if (key === "food.delivery") return "TAKEAWAY";
     if (key === "budget.qualitative") return "QUALITATIVE_PRICE";
     if (structuredKeys.has(key)) return "STRUCTURED";
     // A valid request field is not automatically an implemented capability.

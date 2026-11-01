@@ -19,6 +19,7 @@ export type LibrarianConcept = {
 };
 const concepts: readonly LibrarianConcept[] = [
     { id: "table_tennis", labels: ["Tischtennis", "Tischtennis spielen", "Pingpong", "Ping Pong", "Ping-Pong", "Pingpong spielen", "Ping Pong spielen", "Ping-Pong spielen", "Table tennis", "play table tennis", "playing table tennis", "pingpöngle", "pingpoengle"] },
+    { id: "self_barbecue", labels: ["grillieren", "selber grillieren", "grillen", "selbst grillen", "Grillstellen nutzen", "Grillplatz nutzen", "Öffentliche Grillstellen nutzen", "use a barbecue grill"] },
     { id: "bouldering", labels: ["bouldern", "bouldering"] },
     { id: "climbing", labels: ["klettern", "climbing"] },
     { id: "training", labels: ["training", "trainieren", "freies training"] },
@@ -50,6 +51,11 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "relaxed", labels: ["entspannt", "entspannte atmosphäre", "relaxed"] },
     { id: "cozy", labels: ["gemütlich", "gemuetlich", "cozy"] },
     { id: "vegan", labels: ["vegan", "vegane gerichte", "vegane gerichte möglich"] },
+    { id: "coworking", labels: ["Arbeiten", "mit dem Laptop arbeiten", "Arbeiten mit dem eigenen Laptop", "am Laptop arbeiten", "Laptop-Arbeitsplatz", "working on a laptop", "laptop work"] },
+    { id: "wifi", labels: ["WLAN", "WiFi", "Wi-Fi", "Wireless LAN"] },
+    { id: "takeaway", labels: ["Take-away", "Takeaway", "Take away", "zum Mitnehmen", "mitnehmen", "to go"] },
+    { id: "gluten_free", labels: ["glutenfrei", "Glutenfreie Option", "gluten-free", "gluten free option"] },
+    { id: "lactose_free", labels: ["laktosefrei", "Laktosefreie Option", "lactose-free", "lactose free option"] },
     { id: "vegetarian", labels: ["vegetarisch", "vegetarische gerichte"] },
     { id: "jazz", labels: ["Jazz", "Jazz hören", "jazz music"] },
     { id: "live_jazz", labels: ["Live-Jazz", "Live Jazz", "Live-Jazz hören", "live_jazz"] },
@@ -68,6 +74,9 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "outdoor", labels: ["draußen", "draussen", "außen", "outdoor"] },
     { id: "terrace", labels: ["terrasse", "terrace"] },
     { id: "covered", labels: ["überdacht", "regengeschützt", "covered"] },
+    { id: "rain_suitable", labels: ["regentauglich", "bei Regen geeignet", "regensicher", "rain suitable", "rain_suitable"] },
+    { id: "own_food", labels: ["eigenes Essen mitbringen", "eigene Speisen", "eigene Speisen erlaubt", "mitgebrachte Speisen erlaubt", "eigenes Essen erlaubt", "bring own food", "own_food"] },
+    { id: "own_drinks", labels: ["eigene Getränke mitbringen", "eigene Getränke", "eigene Getränke erlaubt", "mitgebrachte Getränke erlaubt", "bring own drinks", "own_drinks"] },
     { id: "shade", labels: ["schatten", "schattig"] },
     { id: "playground", labels: ["spielplatz", "playground"] },
     { id: "toilet", labels: ["wc", "toilette", "toilet"] },
@@ -117,6 +126,7 @@ export const sameLibrarianText = (a: string, b: string): boolean => librarianTer
  * This is not synonym equivalence and never infers venue identity backwards. */
 export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
     Object.freeze({ offered: "zoo", requested: "animals" }),
+    Object.freeze({ offered: "swimming", requested: "bathing" }),
     Object.freeze({ offered: "coffee", requested: "drinks" }),
     Object.freeze({ offered: "live_jazz", requested: "jazz" }),
     Object.freeze({ offered: "live_jazz", requested: "live_music" }),
@@ -130,7 +140,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@12" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@20" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const ENTRYPOINTS = Object.freeze({
+  "decision-internal-meaning-preview": "supabase/functions/decision-internal-meaning-preview/index.ts",
   "decision-admin-diagnostic": "supabase/functions/decision-admin-diagnostic/index.ts",
   "decision-v13": "supabase/functions/decision-v13/index.deploy.ts",
   "decision-engine-worker": "supabase/functions/decision-engine-worker/index.ts",
@@ -45,7 +46,10 @@ export function verifyEdgeDeployClosure(bundleRoot, slug = "decision-v13") {
       queue.push(target);
     }
   }
-  const requiredModules = slug !== "decision-engine-worker" ? [
+  const requiredModules = slug === "decision-internal-meaning-preview" ? [
+    "packages/decision-vnext-core/dist/internal-meaning-preview.js",
+    "packages/decision-vnext-core/dist/product-luna-provider.js",
+  ] : slug !== "decision-engine-worker" ? [
     ...(slug === "decision-v13" ? ["supabase/functions/decision-v13/vnext-only.ts"] : ["packages/decision-vnext-core/dist/admin-diagnostic.js"]),
     "packages/decision-vnext-core/dist/product-decision-production-adapter.js",
     "packages/decision-vnext-core/dist/product-decision.js",

@@ -537,7 +537,8 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       reportTimings("SUCCESS");
       return new Response(JSON.stringify(resolved.response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
     } catch (error) {
-      const known = error instanceof DecisionProductError ? error : new DecisionProductError("DECISION_UNAVAILABLE", 503, "Decision ist momentan nicht verfügbar. Bitte versuche es später erneut.");
+      const known = error instanceof DecisionProductError ? error : error instanceof Error && error.message === "product_luna_understanding_unresolved"
+        ? new DecisionProductError("DECISION_UNAVAILABLE", 503, "Deine Anfrage konnte noch nicht zuverlässig zugeordnet werden. Bitte formuliere sie anders oder versuche es erneut.") : new DecisionProductError("DECISION_UNAVAILABLE", 503, "Decision ist momentan nicht verfügbar. Bitte versuche es später erneut.");
       const internalCode = error instanceof Error && /^product_[a-z0-9_]{1,75}$/.test(error.message) ? error.message : known.code;
       try { ports.diagnostics?.reportFailure(stage, internalCode); } catch { /* Diagnostics may never change the fail-closed response. */ }
       reportTimings("ERROR");

@@ -187,3 +187,154 @@ test('conditional group capacity is not applied outside its documented validity'
  const r=search(q,[binding(974,profile([offer('escape','ESCAPE_GAME',['inside'],[capacity])],undefined,'ACTIVITIES_PLAY'))]);
  assert.equal(state(r,'count'),'UNKNOWN');assert.equal(r.ranked.length,0);
 });
+
+
+test('explicit coffee and cake in a food offer title are scoped product evidence, not generic bakery inference',()=>{
+ const q=request([fact('coffee','food.drink','COFFEE'),fact('cake','food.dish','CAKE')]);
+ const make=name=>profile([{...offer('cafe','CAFE'),name}]);
+ assert.equal(search(q,[binding(1990,make('Kaffee und Kuchen aus eigener Bio-Backstube'))]).ranked.length,1);
+ for(const name of ['Kaffee und süsse Backwaren','Kaffee und kein Kuchen','Kaffee und Kuchen nur auf Anfrage'])
+  assert.equal(search(q,[binding(1991,make(name))]).ranked.length,0,name);
+});
+
+test('brunch and a co-diner diet require the same meal offer, including person-only diet scope',()=>{
+ for(const subjects of [['a1','p1'],['p1']]){
+ const q=request([fact('brunch','experience.activity','brunch'),fact('diet','food.diet','vegan','REQUIRED',subjects)]);
+ const bad=profile([offer('brunch','BRUNCH'),offer('lunch','LUNCH',['inside'],[prop('food.diet','vegan')])]);
+ const good=profile([offer('brunch','BRUNCH',['inside'],[prop('food.diet','vegan')])]);
+ assert.equal(search(q,[binding(1992,bad)]).ranked.length,0);
+ assert.equal(search(q,[binding(1993,good)]).ranked.length,1);
+ }
+});
+
+test('catalogued gluten-free and lactose-free options prove the matching diet on the selected meal only',()=>{
+ for(const [wanted,label] of [['glutenfrei','Glutenfreie Option'],['laktosefrei','Laktosefreie Option']]){
+ const q=request([fact('meal','experience.activity','dinner'),fact('diet','food.diet',wanted)]);
+ assert.equal(search(q,[binding(1994,profile([offer('dinner','DINNER',['inside'],[prop('food.option',label)])]))]).ranked.length,1);
+ for(const label of ['Zutateninformation verfügbar','Anpassung auf Anfrage','Nicht glutenfrei'])
+ assert.equal(search(q,[binding(1995,profile([offer('dinner','DINNER',['inside'],[prop('food.option',label)])]))]).ranked.length,0);
+ assert.equal(search(q,[binding(1996,profile([offer('dinner','DINNER'),offer('lunch','LUNCH',['inside'],[prop('food.option',label)])]))]).ranked.length,0);
+ }
+});
+
+test('zero activity budget fails a documented paid tariff regardless of missing currency or headcount',()=>{
+ const q=request([fact('play','experience.activity','table_tennis'),fact('zero','budget.maximum',{amount:0,operator:'LTE',currency:'UNSPECIFIED'})]);
+ const p=profile([offer('ping','BALL_SPORT',['inside'],[prop('experience.activity','table_tennis')],[price(18,{includes:'Eintritt'})])]);
+ const r=search(q,[binding(1997,p)]);assert.equal(r.ranked.length,0);assert.ok(r.excluded[0].facts.some(f=>f.reason==='SCOPED_ACTIVITY_NOT_FREE'));
+});
+
+test('incidental companion headcount needs no invented capacity but respects an explicit offer limit',()=>{
+ const q=request([fact('sport','experience.activity','bouldering'),fact('count','people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},'CONTEXT',['g1'])]);
+ assert.equal(search(q,[binding(1998,profile([offer('boulder','BOULDERING')]))]).ranked.length,1);
+ const r=search(q,[binding(1999,profile([offer('boulder','BOULDERING',['inside'],[prop('offer.capacity',1)])]))]);
+ assert.equal(r.ranked.length,0);assert.ok(r.excluded[0].facts.some(f=>f.reason==='PARTY_EXCEEDS_OFFER_CAPACITY'));
+});
+
+test('documented offer minimum entails a lower unaccompanied threshold without losing age notice',()=>{
+ const rule=worldFact('rule.age_access_conditions',{notes:null,rules:[{mode:'UNACCOMPANIED_MINIMUM',minimumAge:13,accompaniment:'ADULT',area:null,days:[],event:null,appliesFromTime:null}]});
+ const p=profile([offer('boulder','BOULDERING',['inside'],[prop('participation.minimum_age',14)])]);
+ const q=request([fact('sport','experience.activity','bouldering')]);
+ const b=originalBinding(2000,p,[rule]);let r=search(q,[b]);assert.equal(r.ranked.length,1);assert.ok(r.ranked[0].facts.some(f=>f.reason==='AGE_REQUIREMENT_TO_CHECK'));
+ r=search(request([fact('sport','experience.activity','bouldering'),fact('age','people.age',{amount:10,operator:'EQ',unit:'YEARS'},'CONTEXT',['p1'])]),[b]);assert.equal(r.ranked.length,0);
+ const weaker=originalBinding(2001,profile([offer('boulder','BOULDERING',['inside'],[prop('participation.minimum_age',1)])]),[rule]);
+ assert.equal(search(q,[weaker]).ranked.length,0);
+});
+
+test('takeaway reads authorized operation evidence only for the selected food offer and does not mean delivery',()=>{
+ const q=request([meal(),fact('take','food.delivery','zum Mitnehmen')]);const p=profile();
+ for(const [value,expected] of [[true,1],[false,0]]) assert.equal(search(q,[originalBinding(2002,p,[worldFact('operation.takeaway',value,{resolution:value?'KNOWN_TRUE':'KNOWN_FALSE'})])]).ranked.length,expected);
+ assert.equal(search(q,[originalBinding(2003,p)]).ranked.length,0);
+ const delivery=request([meal(),fact('delivery','food.delivery','Lieferung nach Hause')]);
+ assert.equal(search(delivery,[originalBinding(2004,p,[worldFact('operation.takeaway',true,{resolution:'KNOWN_TRUE'})])]).ranked.length,0);
+});
+
+test('explicit zero admission survives missing optional fee metadata without waiving real mandatory costs',()=>{
+ const q=request([fact('visit','experience.activity','animals'),fact('zero','budget.maximum',{amount:0,operator:'LTE',currency:'UNSPECIFIED'})]);
+ const tariff=price(0,{label:'Eintritt Tierpark',includes:'',mandatoryFeesIncluded:null});
+ const make=(prices,kind='ANIMAL_OBSERVATION')=>originalBinding(2005,profile([offer('visit',kind,['inside'],[],prices)]));
+ assert.equal(search(q,[make([tariff])]).ranked.length,1);
+ for(const p of [{...tariff,mandatoryFeesIncluded:false},{...tariff,minimumAge:6},{...tariff,label:'Gratis Probelektion'}])assert.equal(search(q,[make([p])]).ranked.length,0);
+ assert.equal(search(q,[make([tariff,price(10,{includes:'Eintritt'})])]).ranked.length,0);
+});
+
+test('general venue parking survives a detailed offer profile without manufacturing parking inside its area',()=>{
+ const q=request([meal(),fact('parking','offer.feature','parking')]);
+ const extra=[worldFact('amenity.features',['PARKING'])];
+ const p=profile();assert.equal(search(q,[originalBinding(2006,p,extra)]).ranked.length,1);
+ assert.equal(search(q,[originalBinding(2007,p)]).ranked.length,0);
+ const unknown=profile();unknown.properties=[{...prop('amenity.parking',true),state:'UNKNOWN',value:null}];
+ assert.equal(search(q,[originalBinding(2008,unknown,extra)]).ranked.length,0);
+ const covered=request([meal(),fact('parking','offer.feature','parking'),fact('covered','condition.weather_protection','covered')]);
+ assert.equal(search(covered,[originalBinding(2009,p,extra)]).ranked.length,0);
+});
+
+test('laptop work needs a real work offer, and venue WiFi does not manufacture permission to work',()=>{
+ const q=request([fact('work','experience.activity','mit dem Laptop arbeiten'),fact('wifi','offer.facility','WLAN')]);
+ const p=profile([offer('work','COWORKING')]);
+ const wifi=[worldFact('amenity.features',['WIFI'])];
+ assert.equal(search(q,[originalBinding(2010,p,wifi)]).ranked.length,1);
+ assert.equal(search(q,[originalBinding(2011,p)]).ranked.length,0);
+ assert.equal(search(q,[originalBinding(2012,profile([offer('coffee','CAFE')]),wifi)]).ranked.length,0);
+});
+
+test('ordinary mood retains an honest notice without suppressing proven coffee and cake; required mood still gates',async()=>{
+ const coffee=offer('coffee','CAFE');coffee.name='Kaffee und Kuchen aus eigener Backstube';
+ const b=binding(1101,profile([coffee],[area()]));
+ const facts=[fact('coffee','food.drink','COFFEE'),fact('cake','food.dish','CAKE'),fact('mood','atmosphere.character','cozy','PREFERRED')];
+ const result=await exercise({text:'Gemütlich Kaffee und Kuchen',meaning:request(facts),catalog:[b]});
+ assert.equal(result.status,200);
+ const selected=result.body.candidates.filter(c=>c.rank!==null);assert.equal(selected.length,1);
+ assert.ok(selected[0].reasons.some(r=>r.code==='librarian-atmosphere-unconfirmed'&&!r.confirmed));
+ assert.ok(!selected[0].reasons.some(r=>r.confirmed&&r.statement==='Bestätigt: die gewünschte Atmosphäre.'));
+ const strict=await exercise({text:'Unbedingt gemütlich Kaffee und Kuchen',meaning:request(facts.map(f=>f.id==='mood'?{...f,modality:'REQUIRED'}:f)),catalog:[b]});
+ assert.equal(strict.body.candidates.filter(c=>c.rank!==null).length,0);
+ const onlyCoffee=offer('coffee','CAFE');onlyCoffee.name='Kaffee';
+ assert.equal(search(request(facts),[binding(1102,profile([onlyCoffee],[area()]))]).ranked.length,0);
+});
+
+test('pure dining gives primary gastronomy priority without excluding secondary dining or changing mixed family visits',async()=>{
+ const food=offer('food','GASTRONOMY');food.name='Restaurant';
+ const cafe=originalBinding(1110,profile([food],[area()],'RESTAURANT'),[worldFact('classification.primary_category','EAT')]);
+ const auxiliary=originalBinding(1111,profile([food],[area()],'MUSEUM'),[worldFact('classification.primary_category','CULTURE_ARTS')]);
+ const dining=await exercise({text:'Essen gehen',meaning:request([meal()]),catalog:[auxiliary,cafe]});
+ assert.equal(dining.status,200);assert.equal(dining.body.candidates.filter(c=>c.rank!==null).length,2);
+ assert.equal(dining.body.candidates[0].presentation.name,cafe.decisionProjection.facts.find(f=>f.key==='identity.name').value);
+ assert.ok(dining.body.candidates[0].reasons.some(r=>r.code==='primary-purpose-gastronomy'));
+ const family=await exercise({text:'Familienaktivität mit Essen',meaning:request([meal(),fact('family','condition.children','children_activity')]),catalog:[cafe,auxiliary]});
+ assert.ok(family.body.candidates.every(c=>!c.reasons.some(r=>r.code==='primary-purpose-gastronomy')));
+});
+
+test('an actual escape room is selected instead of a portable puzzle box under the same catalogue kind',()=>{
+ const box=offer('box','ESCAPE_GAME');box.name='Rätselkiste spielen';
+ const room=offer('room','ESCAPE_GAME');room.name='Escape Room im Team spielen';
+ const q=request([fact('escape','experience.activity','escape_game')]);
+ assert.equal(search(q,[binding(1120,profile([box,room]))]).ranked.length,1);
+ assert.deepEqual(search(q,[binding(1120,profile([box,room]))]).ranked[0].offerIds,['room']);
+ assert.equal(search(q,[binding(1121,profile([box]))]).ranked.length,0);
+});
+
+test('a separate walk and takeaway reports the missing multi-place planner, not an ordinary empty local search',async()=>{
+ const q=request([fact('walk','experience.activity','walk','REQUIRED',['a1']),fact('coffee','food.drink','coffee','REQUIRED',['a2']),fact('to-go','food.delivery','takeaway','REQUIRED',['a2'])]);
+ const r=await exercise({text:'Spazieren und Kaffee mitnehmen',meaning:q,catalog:[binding(1130,profile())]});
+ assert.equal(r.status,200);assert.equal(r.body.candidates.filter(c=>c.rank!==null).length,0);
+ assert.ok(r.body.limitations.includes('MULTI_PLACE_SEARCH_UNSUPPORTED'));
+ const solo=await exercise({text:'Kaffee trinken',meaning:request([fact('coffee','food.drink','coffee')]),catalog:[binding(1130,profile())]});
+ assert.ok(!solo.body.limitations.includes('MULTI_PLACE_SEARCH_UNSUPPORTED'));
+});
+
+test('self-barbecue vocabulary reads an explicit grill-use offer without turning a restaurant into a public grill',()=>{
+ const grill=offer('grill','PLAY');grill.name='Öffentliche Grillstellen nutzen';
+ const q=request([fact('grill','experience.activity','grillieren')]);
+ assert.equal(search(q,[binding(1140,profile([grill]))]).ranked.length,1);
+ const restaurant=offer('restaurant','GASTRONOMY');restaurant.name='Grillrestaurant';
+ assert.equal(search(q,[binding(1141,profile([restaurant]))]).ranked.length,0);
+ const conditional={...grill,name:'Öffentliche Grillstellen nutzen nur auf Anfrage'};
+ assert.equal(search(q,[binding(1142,profile([conditional]))]).ranked.length,0);
+});
+
+test('one sufficient coffee-and-cake offer does not acquire an unrelated drinks offer through a hash tie-break',()=>{
+ const coffee=offer('coffee','CAFE');coffee.name='Kaffee und Kuchen';
+ const extra=offer('extra','DRINKS');extra.name='After-Work-Drinks';
+ const q=request([fact('drinks','experience.activity','drinks'),fact('coffee','food.drink','COFFEE'),fact('cake','food.dish','CAKE')]);
+ const r=search(q,[binding(1150,profile([extra,coffee]))]);assert.equal(r.ranked.length,1);assert.deepEqual(r.ranked[0].offerIds,['coffee']);
+});

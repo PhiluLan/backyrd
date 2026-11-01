@@ -1,8 +1,10 @@
-import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, validateActiveLunaMeaningOutput, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
+import { explicitPreferenceEvidence, implicitAtmospherePreferenceAllowed } from './product-luna-preference-evidence.js';
+import { inspectLunaMeaning, assertLunaMeaningCorrection, type LunaMeaningIssue } from './product-luna-meaning-contract.js';
+import { buildLunaLibrarianModelRequest, prepareLibrarianRequest, parseLunaMeaningOutput, validateActiveLunaMeaningOutput, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LunaMeaningOutput } from "./product-luna-librarian.js";
 import { DecisionProductRequestSchema, type DecisionProductRequest } from "./product-v1-contracts.js";
 import type { DecisionProductAuthenticatedActor } from "./product-decision.js";
 
-export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@3" as const;
+export const PRODUCT_LUNA_PROVIDER_VERSION = "backyrd.luna-provider@5" as const;
 
 
 function modelOutput(value: unknown): unknown {
@@ -35,12 +37,16 @@ function assertExplicitContext(request: DecisionProductRequest, meaning: Librari
   }
 }
 
-/** One bounded model call. Source and meaning stay request-local; no legacy
- * facet cache, provider-response persistence or repair call is used. */
+/** One normal call and at most one meaning-preserving field correction.
+ * One shared HTTP 502/503/504 retry is allowed within the same abort budget.
+ * Source and intermediate meaning remain request-local; no cache or persistence. */
 export function createDecisionProductLunaProvider(input: {
   readonly apiKey: string;
   readonly fetchImpl?: typeof fetch;
   readonly now?: () => Date;
+  readonly onProviderResponse?: (attempt:{readonly status:number}) => void;
+  /** Private in-memory diagnostic only. Never sent to public product responses. */
+  readonly onTranslationAttempt?: (attempt: {readonly output: LunaMeaningOutput; readonly issues: readonly LunaMeaningIssue[]}) => void;
 }) {
   if (!input.apiKey) throw new Error("product_luna_configuration_invalid");
   const fetchImpl = input.fetchImpl ?? fetch;
@@ -53,13 +59,48 @@ export function createDecisionProductLunaProvider(input: {
     const {targetCityRole, ...explicitContext} = request.explicit;
     if (targetCityRole === "SEARCH_CONTEXT") delete explicitContext.targetCity;
     const body = buildLunaLibrarianModelRequest({ sourceText: request.naturalLanguage, reference, explicitContext });
-    const response = await fetchImpl("https://api.openai.com/v1/responses", {
-      method: "POST", signal, headers: { authorization: `Bearer ${input.apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (signal.aborted) throw new Error("product_luna_aborted");
-    if (!response.ok) throw new Error("product_luna_provider_unavailable");
-    const output = modelOutput(await response.json());
+    let transientRetries=0;
+    const call = async (requestBody: typeof body):Promise<unknown> => {
+      const response = await fetchImpl("https://api.openai.com/v1/responses", {
+        method: "POST", signal, headers: { authorization: `Bearer ${input.apiKey}`, "content-type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      try {input.onProviderResponse?.({status:response.status});} catch { /* Diagnostic-only. */ }
+      if (signal.aborted) throw new Error("product_luna_aborted");
+      if ([502,503,504].includes(response.status) && transientRetries===0) {
+        transientRetries++; await response.body?.cancel();
+        return call(requestBody);
+      }
+      if (!response.ok) throw new Error("product_luna_provider_unavailable");
+      return modelOutput(await response.json());
+    };
+    const initialValue=await call(body);
+    let output;
+    try { output = parseLunaMeaningOutput(initialValue); }
+    catch { throw new Error("product_luna_meaning_invalid"); }
+    const preferredLogic = (node: import('./product-luna-librarian.js').LunaExpression | null):boolean => node !== null && (node.kind === 'ANY' && node.strength === 'PREFERRED' || node.kind === 'IF' && (preferredLogic(node.then) || preferredLogic(node.else)) || node.kind === 'FALLBACK' && node.options.some(preferredLogic) || (node.kind === 'ALL' || node.kind === 'ANY') && node.children.some(preferredLogic));
+    if (!explicitPreferenceEvidence(request.naturalLanguage).length && ([...output.facts,...output.extensions].some(f=>f.modality==='PREFERRED' && (!('key' in f) || !implicitAtmospherePreferenceAllowed(request.naturalLanguage,f))) || preferredLogic(output.logic))) throw new Error('product_luna_understanding_unresolved');
+    const issues = inspectLunaMeaning(output, request.naturalLanguage);
+    try { input.onTranslationAttempt?.({output, issues}); } catch { /* Diagnostics cannot affect a decision. */ }
+    if (issues.length) {
+      if (issues.some(issue => !issue.allowedFamilies.length)) throw new Error("product_luna_understanding_unresolved");
+      // Same request, clock and abort budget. One narrowly constrained repair;
+      // no retry on network, refusal, truncation or an unsupported capability.
+      const correctionBody = {...body, input: JSON.stringify({
+        originalRequest: JSON.parse(body.input) as unknown, previousMeaning: output, correctionIssues: issues,
+        correctionInstruction: "Korrigiere ausschliesslich die key-Felder der genannten factIds auf eine allowedFamily. Nur bei allowRemoval muss der als unbelegter Unbekannt-Platzhalter oder exaktes bekanntes Duplikat diagnostizierte Fakt bzw. die extension entfernt werden; keine anderen Fakten oder Logik ändern. Nur bei repairPlaceholderValue darf der text-Wert dieses Fakts durch die tatsächlich im ursprünglichen Wunsch genannte Bedeutung ersetzt werden; niemals einen Feldnamen als Inhaltswert ausgeben. Nur wenn ein Problem allowedModalities nennt, bestimme für dieses Ernährungsbedürfnis anhand des ursprünglichen Wunsches die passende Modalität aus allowedModalities; ein nicht optional genanntes Bedürfnis einer mitessenden Person ist REQUIRED. Behalte alle übrigen Fakten und alle Werte, IDs, Modalitäten, Bezüge, Entitäten, Logik, Unsicherheiten und Alternativen exakt unverändert. Antworte im selben vollständigen Schema.",
+      })};
+      const correctionValue=await call(correctionBody);
+      try {
+        const corrected = validateActiveLunaMeaningOutput(correctionValue);
+        const remaining = inspectLunaMeaning(corrected, request.naturalLanguage);
+        try { input.onTranslationAttempt?.({output:corrected, issues:remaining}); } catch { /* Diagnostics cannot affect a decision. */ }
+        assertLunaMeaningCorrection(output, corrected, issues);
+        if (remaining.length) throw new Error("product_luna_understanding_unresolved");
+        if (!explicitPreferenceEvidence(request.naturalLanguage).length && ([...corrected.facts,...corrected.extensions].some(f=>f.modality==='PREFERRED' && (!('key' in f) || !implicitAtmospherePreferenceAllowed(request.naturalLanguage,f))) || preferredLogic(corrected.logic))) throw new Error('product_luna_understanding_unresolved');
+        output = corrected;
+      } catch { throw new Error("product_luna_understanding_unresolved"); }
+    }
     if (signal.aborted) throw new Error("product_luna_aborted");
     try {
       const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: validateActiveLunaMeaningOutput(output), sourceText: request.naturalLanguage, reference });

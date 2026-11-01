@@ -1,0 +1,364 @@
+{
+  "name": "Glutenfreie Köstlichkeiten",
+  "profile": {
+    "areas": [
+      {
+        "id": "gk-cafe",
+        "kind": "CAFE",
+        "name": "Café und Bäckerei an der Tellstrasse",
+        "properties": []
+      }
+    ],
+    "offers": [
+      {
+        "id": "gk-cafe",
+        "kind": "CAFE",
+        "name": "Glutenfreie und laktosefreie Backwaren im Café",
+        "prices": [],
+        "areaIds": [
+          "gk-cafe"
+        ],
+        "schedule": [],
+        "validFrom": null,
+        "properties": [
+          {
+            "key": "food.diet",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Glutenfreie und laktosefreie Backwaren; vegane Auswahl separat",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          },
+          {
+            "key": "food.dish",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Linzerli, Brownies, Rüeblitörtli, Cupcakes, Torten und Saisongebäck",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          }
+        ],
+        "validUntil": null
+      },
+      {
+        "id": "gk-breakfast",
+        "kind": "BREAKFAST",
+        "name": "Brot und Kaffee zum Frühstück",
+        "prices": [],
+        "areaIds": [
+          "gk-cafe"
+        ],
+        "schedule": [],
+        "validFrom": null,
+        "properties": [
+          {
+            "key": "participation.booking",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Einzelne spontan, grössere Gruppen per WhatsApp oder E-Mail reservieren",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          }
+        ],
+        "validUntil": null
+      },
+      {
+        "id": "gk-brunch",
+        "kind": "BRUNCH",
+        "name": "Brunch auf Vorbestellung",
+        "prices": [],
+        "areaIds": [
+          "gk-cafe"
+        ],
+        "schedule": [],
+        "validFrom": null,
+        "properties": [
+          {
+            "key": "food.dish",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Käseplättli, gekochter Porridge und Rührei",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          },
+          {
+            "key": "participation.booking",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Mindestens zwei Tage im Voraus bestellen",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          }
+        ],
+        "validUntil": null
+      },
+      {
+        "id": "gk-afternoontea",
+        "kind": "CAFE",
+        "name": "Afternoon Tea für zwei",
+        "prices": [
+          {
+            "max": 69,
+            "min": 69,
+            "basis": "PER_GROUP",
+            "label": "Afternoon Tea für zwei",
+            "currency": "CHF",
+            "includes": "",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            },
+            "maximumAge": null,
+            "minimumAge": null,
+            "mandatoryFeesIncluded": null
+          }
+        ],
+        "areaIds": [
+          "gk-cafe"
+        ],
+        "schedule": [],
+        "validFrom": null,
+        "properties": [
+          {
+            "key": "participation.booking",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Sieben Tage Vorbestellung",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          },
+          {
+            "key": "custom.detail",
+            "label": "Enthalten",
+            "state": "KNOWN",
+            "value": "Etagere mit Fingersandwiches und süssen Kleinigkeiten sowie alle Kaffee- und Teegetränke für zwei Personen. Zusätzliche Getränkepakete CHF 10 je Person.",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          }
+        ],
+        "validUntil": null
+      },
+      {
+        "id": "gk-vegan",
+        "kind": "SHOPPING",
+        "name": "Vegane Brote und Gebäck auf Bestellung",
+        "prices": [],
+        "areaIds": [
+          "gk-cafe"
+        ],
+        "schedule": [],
+        "validFrom": null,
+        "properties": [
+          {
+            "key": "food.diet",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Veganes Gebäck am Donnerstag auf Bestellung; mehrere Brotsorten von Natur aus vegan",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          },
+          {
+            "key": "participation.booking",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Gebäck bis Mittwoch 12 Uhr per SMS oder WhatsApp bestellen; Name und Filiale angeben",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          }
+        ],
+        "validUntil": null
+      },
+      {
+        "id": "gk-birthday",
+        "kind": "CHILDREN_COURSE",
+        "name": "Cupcakes dekorieren zum Kindergeburtstag",
+        "prices": [
+          {
+            "max": 250,
+            "min": 250,
+            "basis": "PER_GROUP",
+            "label": "Geburtstagsanlass bis zehn Kinder",
+            "currency": "CHF",
+            "includes": "",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            },
+            "maximumAge": null,
+            "minimumAge": null,
+            "mandatoryFeesIncluded": null
+          }
+        ],
+        "areaIds": [
+          "gk-cafe"
+        ],
+        "schedule": [],
+        "validFrom": null,
+        "properties": [
+          {
+            "key": "participation.audience",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Ab acht Jahren oder zweiter Klasse; Programm auch für Teenager anpassbar",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          },
+          {
+            "key": "offer.capacity",
+            "label": null,
+            "state": "KNOWN",
+            "value": 10,
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          },
+          {
+            "key": "custom.detail",
+            "label": "Dauer und Umfang",
+            "state": "KNOWN",
+            "value": "Zwei Stunden, fertig gebackene glutenfreie Cupcakes dekorieren, Unterhaltung und Zvieri. Allergien im Voraus besprechen.",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          },
+          {
+            "key": "participation.booking",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Anfrage per E-Mail erforderlich",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          }
+        ],
+        "validUntil": null
+      },
+      {
+        "id": "gk-rental",
+        "kind": "ROOM_HIRE",
+        "name": "Café für private Anlässe mieten",
+        "prices": [],
+        "areaIds": [
+          "gk-cafe"
+        ],
+        "schedule": [],
+        "validFrom": null,
+        "properties": [
+          {
+            "key": "custom.detail",
+            "label": "Kapazität",
+            "state": "KNOWN",
+            "value": "Etwa 50 Personen, davon 30 Sitzplätze; für Feiern, Lesungen und Vorträge anfragbar",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          },
+          {
+            "key": "participation.booking",
+            "label": null,
+            "state": "KNOWN",
+            "value": "Räumlichkeit und Verpflegung individuell vereinbaren",
+            "conditions": {
+              "event": null,
+              "dayparts": [],
+              "weekdays": [],
+              "validFrom": null,
+              "validUntil": null
+            }
+          }
+        ],
+        "validUntil": null
+      }
+    ],
+    "category": "SHOPPING_MARKETS",
+    "reviewed": true,
+    "properties": [
+      {
+        "key": "custom.detail",
+        "label": "Feiertage",
+        "state": "KNOWN",
+        "value": "An allen Feiertagen im Kanton Basel-Stadt geschlossen.",
+        "conditions": {
+          "event": null,
+          "dayparts": [],
+          "weekdays": [],
+          "validFrom": null,
+          "validUntil": null
+        }
+      }
+    ],
+    "contractVersion": "backyrd.world-knowledge.experience-profile@1.0"
+  }
+}

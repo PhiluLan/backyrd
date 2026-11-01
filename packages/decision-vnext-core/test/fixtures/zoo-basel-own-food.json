@@ -1,0 +1,2436 @@
+{
+  "source": "Read-only canonical public projection, captured 2026-10-31; no fixture facts added.",
+  "binding": {
+    "resolvedAt": "2026-10-29T09:18:02.304+00:00",
+    "manifestHash": "4705bb9e9389625b184f7dc566a6ee106ebf32fced0cb5f2d8153c2206ecfb8a",
+    "registryHash": "c1c33e5c10d3b419d6192ba85fc798d9f30ed4d3c8999decbb322b747c6d19c1",
+    "contractVersion": "backyrd.world-knowledge.product-resolver-binding@1.0",
+    "decisionProjection": {
+      "facts": [
+        {
+          "key": "accessibility.accessible_indoor",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": true,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_TRUE",
+          "basisClaimHashes": [
+            "ed05c70b7145a248cb68ec691321f73b3b26cd1764af46e9dc7bafd1f3ac4b0e"
+          ]
+        },
+        {
+          "key": "accessibility.accessible_outdoor",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": true,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_TRUE",
+          "basisClaimHashes": [
+            "317dff86c7a889eddc9d17fdc7044d3421d79e27e4c1dbbd26d7ffe93691074f"
+          ]
+        },
+        {
+          "key": "accessibility.accessible_seating",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": true,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_TRUE",
+          "basisClaimHashes": [
+            "970a93624519607eef198cdcd6b6e851d99b5b64a692fa7525071282e4d6bcca"
+          ]
+        },
+        {
+          "key": "accessibility.accessible_toilet",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": true,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_TRUE",
+          "basisClaimHashes": [
+            "8a40287c23ee5de44b1ade622ed358015502e9e4c2512853583ad49eacfb7968"
+          ]
+        },
+        {
+          "key": "accessibility.elevator",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": false,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_FALSE",
+          "basisClaimHashes": [
+            "a5a8c60fb5f37f63f8d0a4630f0a91743696cba9616ec15dacce5c81655bad29"
+          ]
+        },
+        {
+          "key": "accessibility.step_free_entrance",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": true,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_TRUE",
+          "basisClaimHashes": [
+            "646670fd1276a804dae4891b2b747bcb8afb28b825f435f61b1184d2e96366df"
+          ]
+        },
+        {
+          "key": "accessibility.wheelchair_paths",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": true,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_TRUE",
+          "basisClaimHashes": [
+            "fc28f20c4c32c26b3a27e2a1ba1c74f93a2bd3820251e9d911998f4560b5a9ff"
+          ]
+        },
+        {
+          "key": "amenity.features",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            "BICYCLE_PARKING",
+            "CHANGING_TABLE",
+            "COVERED_OUTDOOR",
+            "GARDEN",
+            "LOCKERS",
+            "OUTDOOR_SEATING",
+            "PARKING",
+            "PLAY_AREA",
+            "PUBLIC_TRANSPORT_NEARBY",
+            "STROLLER_SPACE",
+            "TERRACE",
+            "TOILET"
+          ],
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "9cfa9d2422605c6dacf70d8c35db98045af6c938fda44bff16c77d258e227896"
+          ]
+        },
+        {
+          "key": "capacity.group_size_supported",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": null,
+          "freshness": "CURRENT",
+          "resolution": "UNKNOWN",
+          "basisClaimHashes": [
+            "311412ad75bf2ec2f82aea0ab7416c1c3ed7d4b173dc8d2c1b645be17ee2a8e4"
+          ]
+        },
+        {
+          "key": "capacity.seats_indoor",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": null,
+          "freshness": "CURRENT",
+          "resolution": "UNKNOWN",
+          "basisClaimHashes": [
+            "13bfb86d66ec5f10c9fc8f0cf1ac97541ad84a4d3fa95f6bafe767a8bfce61e7"
+          ]
+        },
+        {
+          "key": "capacity.seats_outdoor",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": null,
+          "freshness": "CURRENT",
+          "resolution": "UNKNOWN",
+          "basisClaimHashes": [
+            "c1e3b1f46982fb7172d1fc36376808862e2e485e57f4f73562537fd295b042db"
+          ]
+        },
+        {
+          "key": "capacity.seats_total",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": null,
+          "freshness": "CURRENT",
+          "resolution": "UNKNOWN",
+          "basisClaimHashes": [
+            "61e9a0b2a135aed9d35c8f995a0b19c1d9ee88be112c8a3a0a2c59ceb460ecef"
+          ]
+        },
+        {
+          "key": "classification.place_types",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            "ZOO"
+          ],
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "9e17e968a5d10ffdde247905c4d89e429759400e75c9ef740319d1ba16f82de3"
+          ]
+        },
+        {
+          "key": "classification.primary_category",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "ATTRACTIONS_LANDMARKS",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "8df6957577aed434095585c7670b59b86c04bb75ed74f98275ec41f94a16873a"
+          ]
+        },
+        {
+          "key": "context.atmosphere",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            {
+              "atmosphere": "CASUAL",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            },
+            {
+              "atmosphere": "CREATIVE",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            },
+            {
+              "atmosphere": "FAMILY_FRIENDLY",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            },
+            {
+              "atmosphere": "LIVELY",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            },
+            {
+              "atmosphere": "QUIET",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            },
+            {
+              "atmosphere": "RELAXED",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            }
+          ],
+          "freshness": "CURRENT",
+          "validFrom": null,
+          "resolution": "KNOWN_VALUE",
+          "validUntil": null,
+          "basisClaimHashes": [
+            "cf732d24db01aed432ddaf72ca87caf73816e622c468aeb1307906c80922c4e6"
+          ],
+          "validityVerified": true,
+          "hardConstraintAuthorized": false
+        },
+        {
+          "key": "context.typical_dayparts",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            {
+              "daypart": "AFTERNOON",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            },
+            {
+              "daypart": "MIDDAY",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            },
+            {
+              "daypart": "MORNING",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            }
+          ],
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "af756d2a95e91f712bcdaaf4f84d14c29d27b28b10dcd8a4689c5185dabcfb4b"
+          ]
+        },
+        {
+          "key": "context.visit_situations",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            {
+              "situation": "ALONE",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            },
+            {
+              "situation": "FAMILY",
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              }
+            }
+          ],
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "183b20a8fd24e8e9bc8b9f30cad706751b20e76717d9a18a2332e5c52457b69d"
+          ]
+        },
+        {
+          "key": "experience.profile",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": {
+            "areas": [
+              {
+                "id": "f9cd7eaf-7dfc-4a6a-89a7-c939c60f6265",
+                "kind": "OUTDOOR",
+                "name": "Außengelände",
+                "properties": [
+                  {
+                    "key": "offer.capacity",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.setting",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "draussen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.setting",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Park",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.view",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Parkblick",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.waterbody",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "ruhig",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "entspannt",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "lebhaft",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "familienfreundlich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.noise",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "ruhig",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.music",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "keine Musik",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.privacy",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Öffentlich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.conversation",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Unterhaltung gut möglich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.shade",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "condition.weather_protection",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": false,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.temperature",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Unbeheizt",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.feature",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.usage",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Sitzplätze",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.usage",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Stehplätze",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.playground",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.rest_seating",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.stroller",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.step_free",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "7c8e1965-77fd-42ff-b825-38dad8086c7f",
+                "kind": "INDOOR",
+                "name": "Tierhaus",
+                "properties": [
+                  {
+                    "key": "offer.capacity",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.setting",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "drinnen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.view",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.waterbody",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "lebhaft",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "familienfreundlich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "gesellig",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.noise",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "ruhig",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.music",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "keine Musik",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.privacy",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Öffentlich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.conversation",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Unterhaltung gut möglich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.temperature",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Unbeheizt",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.feature",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.usage",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Sitzplätze",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.usage",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Stehplätze",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.playground",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": false,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.rest_seating",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.stroller",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.step_free",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "b41998f3-e5e5-4291-97fe-90cb8588267c",
+                "kind": "CAFE",
+                "name": "Gastronomiebereich",
+                "properties": [
+                  {
+                    "key": "offer.capacity",
+                    "label": null,
+                    "state": "UNKNOWN",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.setting",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "drinnen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.setting",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "draussen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.view",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Parkblick",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "location.waterbody",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "lebhaft",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.character",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "familienfreundlich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.noise",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "ruhig",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.music",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "keine Musik",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.privacy",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Öffentlich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "atmosphere.conversation",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Unterhaltung gut möglich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.temperature",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Unbeheizt",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.feature",
+                    "label": null,
+                    "state": "NOT_APPLICABLE",
+                    "value": null,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.usage",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Sitzplätze",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.usage",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Stehplätze",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.high_chair",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.playground",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.rest_seating",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.stroller",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "amenity.step_free",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": true,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  }
+                ]
+              }
+            ],
+            "offers": [
+              {
+                "id": "faef45fa-5432-4f14-8351-f8ff306bcef3",
+                "kind": "VISIT",
+                "name": "Zoobesuch",
+                "prices": [
+                  {
+                    "max": 22,
+                    "min": 22,
+                    "basis": "PER_PERSON",
+                    "label": "Einzeleintritt Erwachsene (ab 20 Jahren)",
+                    "currency": "CHF",
+                    "includes": "Eintritt",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    },
+                    "maximumAge": 63,
+                    "minimumAge": 20,
+                    "mandatoryFeesIncluded": true
+                  },
+                  {
+                    "max": 20,
+                    "min": 20,
+                    "basis": "PER_PERSON",
+                    "label": "Einzeleintritt Senioren/Seniorinnen (ab 64/65 Jahren)",
+                    "currency": "CHF",
+                    "includes": "Eintritt",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    },
+                    "maximumAge": 99,
+                    "minimumAge": 64,
+                    "mandatoryFeesIncluded": true
+                  },
+                  {
+                    "max": 16,
+                    "min": 16,
+                    "basis": "PER_PERSON",
+                    "label": "Einzeleintritt Jugendliche (16 bis und mit 19 Jahre)",
+                    "currency": "CHF",
+                    "includes": "Eintritt",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    },
+                    "maximumAge": 19,
+                    "minimumAge": 16,
+                    "mandatoryFeesIncluded": true
+                  },
+                  {
+                    "max": 10,
+                    "min": 10,
+                    "basis": "PER_PERSON",
+                    "label": "Einzeleintritt 1. + 2. Kind (6 bis und mit 15 Jahre)",
+                    "currency": "CHF",
+                    "includes": "",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    },
+                    "maximumAge": 15,
+                    "minimumAge": 6,
+                    "mandatoryFeesIncluded": null
+                  }
+                ],
+                "areaIds": [
+                  "f9cd7eaf-7dfc-4a6a-89a7-c939c60f6265",
+                  "7c8e1965-77fd-42ff-b825-38dad8086c7f"
+                ],
+                "schedule": [],
+                "validFrom": null,
+                "properties": [
+                  {
+                    "key": "experience.activity",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Zoo besuchen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "experience.activity",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Besichtigung",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.audience",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Öffentlich zugänglich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.age_suitability",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Kinder",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.age_suitability",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Jugendliche",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.age_suitability",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Erwachsene",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.age_suitability",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Alle Altersgruppen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.entry_mode",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Ticket erforderlich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.booking",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Erforderlich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "time.duration",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": 120,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.minimum_age",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": 0,
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "custom.detail",
+                    "label": "Saisonale Besuchszeiten",
+                    "state": "KNOWN",
+                    "value": "Täglich ab 08 Uhr: Januar/Februar und November/Dezember bis 17:30, März/April und September/Oktober bis 18 Uhr, Mai–August bis 18:30. Tierhäuser zehn Minuten, Kassen 30 Minuten früher geschlossen.",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "custom.detail",
+                    "label": "Eintritt und Naturschutzfranken",
+                    "state": "KNOWN",
+                    "value": "Erwachsene CHF 22, Senioren CHF 20, Jugendliche CHF 16, Kinder CHF 10. Darin ist CHF 1 freiwilliger Naturschutzbeitrag enthalten; ohne diesen Beitrag an der Kasse je CHF 1 günstiger.",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  }
+                ],
+                "validUntil": null
+              },
+              {
+                "id": "9a5123c1-22db-4551-bca7-77ab71eff55c",
+                "kind": "GUIDED_TOUR",
+                "name": "Führung",
+                "prices": [],
+                "areaIds": [],
+                "schedule": [],
+                "validFrom": null,
+                "properties": [
+                  {
+                    "key": "experience.activity",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Führung",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  }
+                ],
+                "validUntil": null
+              },
+              {
+                "id": "1b78eaa9-cd0e-4572-a000-d132b697046e",
+                "kind": "GASTRONOMY",
+                "name": "Gastronomie",
+                "prices": [
+                  {
+                    "max": 35,
+                    "min": 15,
+                    "basis": "PER_PERSON",
+                    "label": "Essen",
+                    "currency": "CHF",
+                    "includes": "Essen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    },
+                    "maximumAge": null,
+                    "minimumAge": null,
+                    "mandatoryFeesIncluded": true
+                  }
+                ],
+                "areaIds": [
+                  "b41998f3-e5e5-4291-97fe-90cb8588267c"
+                ],
+                "schedule": [],
+                "validFrom": null,
+                "properties": [
+                  {
+                    "key": "experience.activity",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "essen gehen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.audience",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Öffentlich zugänglich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.booking",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Keine Reservation möglich",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "participation.consumption_obligation",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Keine Mindestkonsumation",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.cuisine",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Schweizerisch",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.diet",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "vegan",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.diet",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "vegetarisch",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.option",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Glutenfreie Option",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.option",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Laktosefreie Option",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.option",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Zutateninformation verfügbar",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.option",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Anpassung auf Anfrage",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.meal_extent",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Essen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.drink",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Bier",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.drink",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Wein",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.drink",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "alkoholfreie Getränke",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.drink",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Kaffee",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "food.drink",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Tee",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "condition.children",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Kinderportionen",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "condition.children",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Kindermenü",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "offer.service",
+                    "label": null,
+                    "state": "KNOWN",
+                    "value": "Selbstbedienung",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  },
+                  {
+                    "key": "custom.detail",
+                    "label": "Restaurantzeiten im Herbst und Winter",
+                    "state": "KNOWN",
+                    "value": "Selbstbedienungsrestaurant September/Oktober 09–17:30, November–Februar 09–17 Uhr; warme Menüs jeweils bis 14:30. Restaurant Elefantenblick täglich 11–15 Uhr. Café Sautergarten 09–16 Uhr, Wochenende/Feiertage bis 16:30.",
+                    "conditions": {
+                      "event": null,
+                      "dayparts": [],
+                      "weekdays": [],
+                      "validFrom": null,
+                      "validUntil": null
+                    }
+                  }
+                ],
+                "validUntil": null
+              }
+            ],
+            "category": "ZOO",
+            "reviewed": true,
+            "properties": [
+              {
+                "key": "travel.mode",
+                "label": null,
+                "state": "KNOWN",
+                "value": "ÖV",
+                "conditions": {
+                  "event": null,
+                  "dayparts": [],
+                  "weekdays": [],
+                  "validFrom": null,
+                  "validUntil": null
+                }
+              },
+              {
+                "key": "travel.mode",
+                "label": null,
+                "state": "KNOWN",
+                "value": "Auto",
+                "conditions": {
+                  "event": null,
+                  "dayparts": [],
+                  "weekdays": [],
+                  "validFrom": null,
+                  "validUntil": null
+                }
+              },
+              {
+                "key": "travel.mode",
+                "label": null,
+                "state": "KNOWN",
+                "value": "Zu Fuss",
+                "conditions": {
+                  "event": null,
+                  "dayparts": [],
+                  "weekdays": [],
+                  "validFrom": null,
+                  "validUntil": null
+                }
+              },
+              {
+                "key": "travel.mode",
+                "label": null,
+                "state": "KNOWN",
+                "value": "Velo",
+                "conditions": {
+                  "event": null,
+                  "dayparts": [],
+                  "weekdays": [],
+                  "validFrom": null,
+                  "validUntil": null
+                }
+              }
+            ],
+            "contractVersion": "backyrd.world-knowledge.experience-profile@1.0"
+          },
+          "freshness": "CURRENT",
+          "validFrom": null,
+          "resolution": "KNOWN_VALUE",
+          "validUntil": null,
+          "basisClaimHashes": [
+            "1d05b79ce26073a8120f36dbfeb54666fe792a8586b71eb5aad565ce656ea6d1"
+          ],
+          "validityVerified": true,
+          "hardConstraintAuthorized": true
+        },
+        {
+          "key": "hours.kitchen",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": null,
+          "freshness": "CURRENT",
+          "resolution": "UNKNOWN",
+          "basisClaimHashes": [
+            "635905b14cd9e25a65e537c8148996ea72e32071554b9a55168b98182a323275"
+          ]
+        },
+        {
+          "key": "hours.regular",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            {
+              "day": "MONDAY",
+              "intervals": [
+                {
+                  "end": "18:00",
+                  "start": "08:00"
+                }
+              ]
+            },
+            {
+              "day": "TUESDAY",
+              "intervals": [
+                {
+                  "end": "18:00",
+                  "start": "08:00"
+                }
+              ]
+            },
+            {
+              "day": "WEDNESDAY",
+              "intervals": [
+                {
+                  "end": "18:00",
+                  "start": "08:00"
+                }
+              ]
+            },
+            {
+              "day": "THURSDAY",
+              "intervals": [
+                {
+                  "end": "18:00",
+                  "start": "08:00"
+                }
+              ]
+            },
+            {
+              "day": "FRIDAY",
+              "intervals": [
+                {
+                  "end": "18:00",
+                  "start": "08:00"
+                }
+              ]
+            },
+            {
+              "day": "SATURDAY",
+              "intervals": [
+                {
+                  "end": "18:00",
+                  "start": "08:00"
+                }
+              ]
+            },
+            {
+              "day": "SUNDAY",
+              "intervals": [
+                {
+                  "end": "18:00",
+                  "start": "08:00"
+                }
+              ]
+            }
+          ],
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "82d33608a657f16ad1bd73d68ad5c2f6f2b9e7fe70092d733ddde5f303dde7cb"
+          ]
+        },
+        {
+          "key": "hours.special",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [],
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "ca27145aebac19b39e0da2afdc1c2d10bd91f36a456e55a9d8cbf3ce558e85e0"
+          ]
+        },
+        {
+          "key": "identity.name",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "Zoo Basel",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "52059eb15e3c000b3a99f28ee099751e8812f117225e1f333d12f50609d5cde3"
+          ]
+        },
+        {
+          "key": "location.address_line1",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "Binningerstrasse 40",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "f462b25b509c50d05d7fc447949a0c2ed0a326bcde5c44da4d5b9fe4d4eb6779"
+          ]
+        },
+        {
+          "key": "location.country_code",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "CH",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "43a911d7bdc021a349fc0daae1f35efcf2ff778c1af091abf516d0bbba7a6b0f"
+          ]
+        },
+        {
+          "key": "location.latitude",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": 47.54591629999999,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "7960f9cacd943daefa7090aa9c51ce91ae0af0d87ee5d56abd2ad0c554beb3d2"
+          ]
+        },
+        {
+          "key": "location.locality",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "Basel",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "d149b5e98fd2ccc70fd078cf9bfecc2c63818d754e73a380ff7dee9a2c75dfbf"
+          ]
+        },
+        {
+          "key": "location.longitude",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": 7.576994300000001,
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "9ad9fe6139ea3936657399beb48142eb1756cbbcaf03d739290676a60ef7d39f"
+          ]
+        },
+        {
+          "key": "location.timezone",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "Europe/Zurich",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "ea69d57d0cc760b034923fd3cb733ba12b52f1afa804199a146c1a5f84629b14"
+          ]
+        },
+        {
+          "key": "offering.onsite",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            {
+              "area": null,
+              "kind": "KIOSK",
+              "relationship": "PART_OF_SPOT"
+            },
+            {
+              "area": null,
+              "kind": "RESTAURANT",
+              "relationship": "PART_OF_SPOT"
+            }
+          ],
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "5e2464c7d92e48632a77d4889c82d96da26c49c91aa36dd072a574de11337bbd"
+          ]
+        },
+        {
+          "key": "operation.laptop_policy",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": null,
+          "freshness": "CURRENT",
+          "resolution": "UNKNOWN",
+          "basisClaimHashes": [
+            "6e13ec3de389ba0e11708980bb73463fa5517976eb5208f1b097cb5f1a4a19cb"
+          ]
+        },
+        {
+          "key": "operation.price_level",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "LOW",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "ae3a768d45fc9340d0a7d8f66b793871961933f6a4332246bc8df44401b2428a"
+          ]
+        },
+        {
+          "key": "operation.price_options",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            {
+              "max": 22,
+              "min": 22,
+              "basis": "PER_PERSON",
+              "currency": "CHF",
+              "purposes": [
+                "ADMISSION"
+              ],
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              },
+              "maximumAge": 63,
+              "minimumAge": 20,
+              "allOfferingsCovered": true,
+              "mandatoryFeesIncluded": true
+            },
+            {
+              "max": 20,
+              "min": 20,
+              "basis": "PER_PERSON",
+              "currency": "CHF",
+              "purposes": [
+                "ADMISSION"
+              ],
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              },
+              "maximumAge": null,
+              "minimumAge": 64,
+              "allOfferingsCovered": true,
+              "mandatoryFeesIncluded": true
+            },
+            {
+              "max": 16,
+              "min": 16,
+              "basis": "PER_PERSON",
+              "currency": "CHF",
+              "purposes": [
+                "ADMISSION"
+              ],
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              },
+              "maximumAge": 19,
+              "minimumAge": 16,
+              "allOfferingsCovered": true,
+              "mandatoryFeesIncluded": true
+            },
+            {
+              "max": 10,
+              "min": 10,
+              "basis": "PER_PERSON",
+              "currency": "CHF",
+              "purposes": [
+                "ADMISSION"
+              ],
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              },
+              "maximumAge": 15,
+              "minimumAge": 6,
+              "allOfferingsCovered": true,
+              "mandatoryFeesIncluded": true
+            }
+          ],
+          "freshness": "CURRENT",
+          "validFrom": null,
+          "resolution": "KNOWN_VALUE",
+          "validUntil": null,
+          "basisClaimHashes": [
+            "826dcc341b6d1a6adc6fd496bf4072abe767510c53a8967ed87c23246cdf8a82"
+          ],
+          "validityVerified": true
+        },
+        {
+          "key": "operation.price_options",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": [
+            {
+              "max": 22,
+              "min": 22,
+              "basis": "PER_PERSON",
+              "currency": "CHF",
+              "purposes": [
+                "ADMISSION"
+              ],
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              },
+              "maximumAge": 63,
+              "minimumAge": 20,
+              "allOfferingsCovered": true,
+              "mandatoryFeesIncluded": true
+            },
+            {
+              "max": 20,
+              "min": 20,
+              "basis": "PER_PERSON",
+              "currency": "CHF",
+              "purposes": [
+                "ADMISSION"
+              ],
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              },
+              "maximumAge": null,
+              "minimumAge": 64,
+              "allOfferingsCovered": true,
+              "mandatoryFeesIncluded": true
+            },
+            {
+              "max": 16,
+              "min": 16,
+              "basis": "PER_PERSON",
+              "currency": "CHF",
+              "purposes": [
+                "ADMISSION"
+              ],
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              },
+              "maximumAge": 19,
+              "minimumAge": 16,
+              "allOfferingsCovered": true,
+              "mandatoryFeesIncluded": true
+            },
+            {
+              "max": 10,
+              "min": 10,
+              "basis": "PER_PERSON",
+              "currency": "CHF",
+              "purposes": [
+                "ADMISSION"
+              ],
+              "conditions": {
+                "area": null,
+                "days": [],
+                "dayparts": [],
+                "occasion": null,
+                "eventMode": null,
+                "groupSize": null,
+                "ageContext": null,
+                "accompaniment": null
+              },
+              "maximumAge": 15,
+              "minimumAge": 6,
+              "allOfferingsCovered": true,
+              "mandatoryFeesIncluded": true
+            }
+          ],
+          "freshness": "CURRENT",
+          "validFrom": null,
+          "resolution": "KNOWN_VALUE",
+          "validUntil": null,
+          "basisClaimHashes": [
+            "826dcc341b6d1a6adc6fd496bf4072abe767510c53a8967ed87c23246cdf8a82"
+          ],
+          "validityVerified": true
+        },
+        {
+          "key": "operation.stay_policy",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "ALLOWED",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "0becc8271106e4e37523b0d933cee90a6d2b8297aeb90bdd455a23b68531266d"
+          ]
+        },
+        {
+          "key": "purpose.primary_visit",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": "NATURE_ANIMAL_EXPERIENCE",
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "90477c76fe39a09534cd24390c2dcea170650209781034fa5fefd8d2cd8080ed"
+          ]
+        },
+        {
+          "key": "rule.age_access_conditions",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": {
+            "notes": null,
+            "rules": [
+              {
+                "area": null,
+                "days": [],
+                "mode": "NO_MINIMUM",
+                "event": null,
+                "minimumAge": null,
+                "accompaniment": "NONE",
+                "appliesFromTime": null
+              }
+            ]
+          },
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "483130eba00532eaf94cb376b9628dccdf31c202960ce19ac8d348fe0cf88d26"
+          ]
+        },
+        {
+          "key": "rule.external_drink",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": {
+            "policy": "ALLOWED",
+            "exceptions": [
+              "Nicht in den Restaurationsbetrieben: Cafeteria beim Eingang, Selbstbedienungsrestaurant und Restaurant «Elefantenblick»."
+            ]
+          },
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "c261e751221e61b800bbf53fe42359ffdda2ac6416100fd6917be34a9aea1884"
+          ]
+        },
+        {
+          "key": "rule.external_food",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": {
+            "policy": "ALLOWED",
+            "exceptions": [
+              "Nicht in den Restaurationsbetrieben: Cafeteria beim Eingang, Selbstbedienungsrestaurant und Restaurant «Elefantenblick»."
+            ]
+          },
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "41f0dd0e3acc3e68a16bf9787340226d805937e671a07d505c3511da8a2d96ef"
+          ]
+        },
+        {
+          "key": "rule.pet_access",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": {
+            "notes": null,
+            "indoor": "NOT_ALLOWED",
+            "outdoor": "NOT_ALLOWED",
+            "assistanceAnimals": "ALLOWED"
+          },
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "8668dd62632375e60c64715dfdb1d204bb62dd88d9ee9e8aa464e47c3a52c102"
+          ]
+        },
+        {
+          "key": "rule.reservation",
+          "scope": "SPOT",
+          "trust": "VERIFIED",
+          "value": {
+            "days": [
+              "FRIDAY",
+              "MONDAY",
+              "SATURDAY",
+              "SUNDAY",
+              "THURSDAY",
+              "TUESDAY",
+              "WEDNESDAY"
+            ],
+            "mode": "CONDITIONAL",
+            "toTime": null,
+            "fromTime": null,
+            "minimumPartySize": null
+          },
+          "freshness": "CURRENT",
+          "resolution": "KNOWN_VALUE",
+          "basisClaimHashes": [
+            "22058b5c0036f5a46e1e4132061036416f8b8971057e7695aeb6dedd9f9ce69c"
+          ]
+        }
+      ],
+      "spotId": "0da020ba-2ef3-4840-9c07-f2376774e14f",
+      "conflicts": [],
+      "policyVersion": "backyrd.world-knowledge.source-policy@4f.1",
+      "contractVersion": "backyrd.world-knowledge.product-decision-projection@1.0",
+      "registryVersion": "backyrd.world-knowledge.registry@2.5",
+      "explicitUnknowns": [
+        {
+          "key": "capacity.group_size_supported",
+          "scope": "SPOT"
+        },
+        {
+          "key": "capacity.seats_indoor",
+          "scope": "SPOT"
+        },
+        {
+          "key": "capacity.seats_outdoor",
+          "scope": "SPOT"
+        },
+        {
+          "key": "capacity.seats_total",
+          "scope": "SPOT"
+        },
+        {
+          "key": "hours.kitchen",
+          "scope": "SPOT"
+        },
+        {
+          "key": "operation.laptop_policy",
+          "scope": "SPOT"
+        }
+      ]
+    }
+  }
+}
