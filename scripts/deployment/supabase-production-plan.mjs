@@ -339,8 +339,29 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const changes = diffEntries(repo, baseSha, headSha);
   const changedPaths = new Set(changes.flatMap((entry) => entry.paths));
   if (baseConfig.globalHash !== headConfig.globalHash) throw new Error("ambiguous_global_supabase_config_change");
-  const beforeAuthConfig = productionAuthConfig(base);
+  const state = head.files.has("delivery/production-state.json") ? JSON.parse(head.text("delivery/production-state.json")) : null;
+  let beforeAuthConfig = productionAuthConfig(base);
   const afterAuthConfig = productionAuthConfig(head);
+  // A scoped Auth deployment must not advance the global SQL/Function baseline.
+  // Bind its independent receipt to the exact previously deployed source bytes.
+  const appliedAuth = state?.supabase?.betaSecurityAuthRelease;
+  if (appliedAuth) {
+    let historical = null;
+    try {
+      if (!/^[0-9a-f]{40}$/.test(appliedAuth.sourceSha ?? "")) throw new Error();
+      git(repo, ["merge-base", "--is-ancestor", appliedAuth.sourceSha, headSha]);
+      historical = productionAuthConfig(repositoryAt(repo, appliedAuth.sourceSha));
+    } catch { throw new Error("applied_auth_receipt_invalid"); }
+    if (appliedAuth.status !== "APPLIED_AND_VERIFIED"
+      || !historical || appliedAuth.path !== historical.path
+      || appliedAuth.sha256 !== historical.sha256
+      || JSON.stringify(appliedAuth.keys) !== JSON.stringify(["password_hibp_enabled"])
+      || historical.values.password_hibp_enabled !== true
+      || appliedAuth.verified?.password_hibp_enabled !== true
+      || !Number.isSafeInteger(appliedAuth.deploymentRunId) || appliedAuth.deploymentRunId < 1
+      || !HASH.test(appliedAuth.manifestHash ?? "")) throw new Error("applied_auth_receipt_invalid");
+    beforeAuthConfig = historical;
+  }
   const recoveryPath = "supabase/production/pending-migration-recovery.json";
   const preappliedImportPath = "supabase/production/preapplied-migration-import.json";
   const productPreappliedPath = "supabase/production/preapplied-product-migrations-v1.json";
@@ -455,7 +476,6 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     }
   }
   const preappliedPaths = new Set([...preappliedMigrations.map((entry) => entry.path), ...(priorityReceipt ? [priorityReceipt.path] : [])]);
-  const state = head.files.has("delivery/production-state.json") ? JSON.parse(head.text("delivery/production-state.json")) : null;
   const appliedResearch = researchAppliedReceipt(state, head.read, source => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   });

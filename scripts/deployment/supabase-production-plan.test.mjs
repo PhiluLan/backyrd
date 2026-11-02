@@ -409,3 +409,30 @@ test('Beta security release binds exact SQL pair, one password flag and verified
  write(f.repo,path,restoreBytes);document.config.mailer_subjects_recovery='Unapproved changed subject';write(f.repo,'supabase/production/auth-config.json',JSON.stringify(document));assert.throws(()=>plan(f,commit(f.repo,'unbound auth change')),/beta_security_scope_invalid/);
  write(f.repo,'supabase/production/auth-config.json',bytes);write(f.repo,'packages/shared/runtime.mjs','export const value = 999;\n');assert.throws(()=>plan(f,commit(f.repo,'unbound runtime change')),/release_scope_conflict/);
 });
+
+const appliedAuthFixture = () => {
+ const f=fixture(), path='supabase/production/auth-config.json';
+ const document=JSON.parse(authConfig());document.config.password_hibp_enabled=true;
+ const bytes=JSON.stringify(document,null,2)+'\n';write(f.repo,path,bytes);
+ const sourceSha=commit(f.repo,'deployed password protection');
+ const receipt={status:'APPLIED_AND_VERIFIED',path,sha256:createHash('sha256').update(bytes).digest('hex'),keys:['password_hibp_enabled'],sourceSha,deploymentRunId:123,manifestHash:'a'.repeat(64),verified:{password_hibp_enabled:true}};
+ const save=()=>write(f.repo,'delivery/production-state.json',JSON.stringify({supabase:{betaSecurityAuthRelease:receipt}}));
+ return {f,document,receipt,save};
+};
+test('verified scoped Auth receipt prevents reapplying Auth without advancing global baseline',()=>{
+ const {f,save}=appliedAuthFixture();save();const result=plan(f,commit(f.repo,'record live Auth receipt'));
+ assert.equal(result.authConfig.deploy,false);assert.deepEqual(result.authConfig.keys,[]);assert.equal(result.runtimeDeploymentRequired,false);assert.equal(result.baseSha,f.base);
+});
+test('later Auth change is compared with the independently verified deployment',()=>{
+ const {f,save,document}=appliedAuthFixture();save();commit(f.repo,'record live Auth receipt');
+ document.config.mailer_subjects_confirmation='Updated confirmation';write(f.repo,'supabase/production/auth-config.json',JSON.stringify(document));
+ const result=plan(f,commit(f.repo,'new mail subject'));assert.equal(result.authConfig.deploy,true);assert.deepEqual(result.authConfig.keys,['mailer_subjects_confirmation']);
+});
+test('scoped Auth receipt cannot hide tampered source bytes',()=>{
+ const {f,save,receipt}=appliedAuthFixture();receipt.sha256='b'.repeat(64);save();assert.throws(()=>plan(f,commit(f.repo)),/applied_auth_receipt_invalid/);
+});
+test('scoped Auth receipt rejects unverified flags and non-ancestor sources',()=>{
+ for (const mutate of [r=>{r.verified.password_hibp_enabled=false;},r=>{r.sourceSha='f'.repeat(40);},r=>{r.keys.push('smtp_host');}]) {
+  const {f,save,receipt}=appliedAuthFixture();mutate(receipt);save();assert.throws(()=>plan(f,commit(f.repo)),/applied_auth_receipt_invalid/);
+ }
+});

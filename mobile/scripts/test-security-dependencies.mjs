@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,symlink,lstat,readlink,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createRequire} from 'node:module';
@@ -37,5 +37,19 @@ test('PostCSS does not disclose a local source map supplied through an absolute 
   const map=join(dir,'private.map');await writeFile(map,JSON.stringify({version:3,sources:['private.txt'],sourcesContent:['SYNTHETIC_PRIVATE_CANARY'],names:[],mappings:''}));
   const result=await postcss([]).process(`a{color:red}/*# sourceMappingURL=${map} */`,{from:undefined,map:{inline:false,annotation:false}});
   assert.ok(!JSON.stringify(result.map?.toJSON()).includes('SYNTHETIC_PRIVATE_CANARY'));
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+
+test('lint filesystem recursive copy preserves a symlink instead of copying external file bytes',async()=>{
+ const {NodeHfs}=await import('@humanfs/node');
+ const dir=await mkdtemp(join(tmpdir(),'backyrd-lint-copy-security-'));
+ try {
+  const source=join(dir,'source'),destination=join(dir,'destination'),outside=join(dir,'outside.txt');
+  await mkdir(source);await writeFile(outside,'SYNTHETIC_OUTSIDE_CANARY');
+  await symlink(outside,join(source,'link.txt'));
+  await new NodeHfs().copyAll(source,destination);
+  assert.equal((await lstat(join(destination,'link.txt'))).isSymbolicLink(),true);
+  assert.equal(await readlink(join(destination,'link.txt')),outside);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
