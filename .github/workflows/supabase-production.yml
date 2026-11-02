@@ -154,6 +154,12 @@ jobs:
           if(b.status!=='completed'||b.conclusion!=='success'||b.workflowName!=='Production Backup'||!Number.isFinite(age)||age<0||age>24*60*60*1000)process.exit(1);
           NODE
           fi
+          if jq -e '.isolatedResearchScope.contractVersion == "backyrd.beta-security-delivery-scope@1.0"' supabase-production-plan.json >/dev/null; then
+            restore_run="$(jq -r '.isolatedResearchScope.restoreDrill.runId' supabase-production-plan.json)"
+            test "$(gh run view "$restore_run" --json status,conclusion,workflowName,headBranch --jq 'select(.status=="completed" and .conclusion=="success" and .workflowName=="Production Backup" and .headBranch=="main") | .conclusion')" = success
+            gh run download "$restore_run" --name backyrd-restore-drill-receipt --dir "$RUNNER_TEMP/verified-restore-proof"
+            test "$(sha256sum "$RUNNER_TEMP/verified-restore-proof/backyrd-restore-drill-report.json" | cut -d ' ' -f1)" = "$(jq -r '.isolatedResearchScope.restoreDrill.sha256' supabase-production-plan.json)"
+          fi
           supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json | jq -e '.[] | select(.slug=="decision-v13" and .status=="ACTIVE" and .verify_jwt==true)'
           # Function-only releases have no database operation and need neither
           # a migration connection/dry-run nor a new backup approval.

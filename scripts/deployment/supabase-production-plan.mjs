@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
+import { ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -488,14 +488,44 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try { git(repo,["merge-base","--is-ancestor",source,headSha]); return true; } catch { return false; }
   });
   if (appliedSeasonalEvent) preappliedPaths.add(appliedSeasonalEvent.migration.path);
+  const appliedBetaSecurity = betaSecurityAppliedReceipt(state,head.read,source=>{
+    try {git(repo,["merge-base","--is-ancestor",source,headSha]);return true;}catch{return false;}
+  });
+  if(appliedBetaSecurity)preappliedPaths.add(appliedBetaSecurity.migration.path);
+  const appliedAnalyticsPrivacy=analyticsPrivacyAppliedReceipt(state,head.read,source=>{
+    try {git(repo,["merge-base","--is-ancestor",source,headSha]);return true;}catch{return false;}
+  });
+  if(appliedAnalyticsPrivacy)preappliedPaths.add(appliedAnalyticsPrivacy.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
   // Code delivery is independent from historical, already applied SQL releases.
   // Keep their receipts, but do not reuse their old Function hashes as a freeze.
+  const securityScope = authority?.betaSecurityDeliveryScope ?? null;
   const seasonalScope = authority?.seasonalEventDeliveryScope ?? null;
   const regionalScope = authority?.regionalDecisionDeliveryScope ?? null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
+  if(securityScope) {
+    if(seasonalScope || regionalScope || codeOnlyScope || authority?.isolatedResearchMigrationScope || authority?.isolatedVoltaMigrationScope
+      || retiredFunctions.length || migrationRecovery || preappliedMigrationImport || productPreappliedImport
+      || JSON.stringify(functionChanges)!==JSON.stringify(securityScope.deferredFunctionChanges))throw new Error("beta_security_release_scope_conflict");
+    const receiptBytes=head.read(securityScope.restoreDrill?.path??"");
+    const receipt=JSON.parse(receiptBytes.toString());
+    const cleanSource=receipt.status==="PASS" && receipt.foreignKeysValidated===true && !receipt.proposedIntegrityRepair;
+    const rehearsed=receipt.status==="PASS_WITH_REHEARSED_INTEGRITY_REPAIR" && receipt.foreignKeysValidated===false
+      && receipt.foreignKeysAfterRehearsedRepairValidated===true
+      && JSON.stringify(receipt.proposedIntegrityRepair?.migration)===JSON.stringify(ANALYTICS_PRIVACY_REPAIR_MIGRATION)
+      && receipt.proposedIntegrityRepair.removedDeadReferences===37
+      && receipt.proposedIntegrityRepair.sourceConstraint==="public.analytics_events.analytics_events_user_id_fkey";
+    if(sha256(receiptBytes)!==securityScope.restoreDrill.sha256 || !(cleanSource||rehearsed)
+      || receipt.version!=="backyrd-backup-restore-drill-v1"
+      || receipt.sourceType!=="VERIFIED_AWS_ARCHIVE" || !/^[a-f0-9]{64}$/.test(receipt.sourceArchiveSha256??"")
+      || !Number.isFinite(Date.parse(receipt.sourceCreatedAt)) || !/^[a-f0-9]{40}$/.test(receipt.sourceMainSha??"")
+      || receipt.productionWrites!==0 || receipt.productionCutoverTested!==false
+      || ["schemaAndAclMatch","allCopiedRowsMatch","databaseServicesStopped","sourceSchemaAndRowsComparedBeforeAnyRepair","sequencesMatch","allMediaBytesMatch","bucketControlsRestored","outboundNetworkDisabled","independentDatabaseAndMediaTargets","disposableTargetsRemoved"].some(key=>receipt[key]!==true))
+      throw new Error("beta_security_restore_evidence_invalid");
+    for(const item of functions.filter(item=>item.deploy)){item.deploy=false;item.reason="EXACT_SHIPPED_RUNTIME_DEFERRED_BY_SECURITY_SCOPE";}
+  }
   if (seasonalScope && (regionalScope || codeOnlyScope || authority?.isolatedResearchMigrationScope || authority?.isolatedVoltaMigrationScope
     || authConfig?.deploy === true || retiredFunctions.length || migrationRecovery || preappliedMigrationImport || productPreappliedImport
     || functions.some(item=>item.deploy && item.verifyJwt !== true))) throw new Error("seasonal_event_release_scope_conflict");
@@ -518,8 +548,8 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     // The source plan still binds exact bytes for all deferred migrations.
     // A new/changed migration is a data release, never silently included here.
   }
-  const deferredFunctionChanges = codeOnlyScope ? [] : authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
-  if (deferredFunctionChanges.length) {
+  const deferredFunctionChanges = securityScope ? securityScope.deferredFunctionChanges : codeOnlyScope ? [] : authority?.isolatedResearchMigrationScope?.deferredFunctionChanges ?? [];
+  if (deferredFunctionChanges.length && !securityScope) {
     if (![RESEARCH_SAFETY_MIGRATION,RESEARCH_RHASSOUL_MIGRATION,ADMIN_CATEGORY_MIGRATION,AREA_RESERVATION_MIGRATION].some(target => JSON.stringify(authority.isolatedResearchMigrationScope.migrations) === JSON.stringify([target]))
       || JSON.stringify(deferredFunctionChanges) !== JSON.stringify(RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES)
       || JSON.stringify(functionChanges) !== JSON.stringify(deferredFunctionChanges)) throw new Error("isolated_research_deferred_function_binding_changed");
@@ -531,7 +561,9 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
-  const scoped = seasonalScope
+  const scoped = securityScope
+    ? scopeBetaSecurityMigrations({pending:allPending,scope:securityScope,baseSha,deployFunctions,authConfig,appliedBetaSecurity,appliedAnalyticsPrivacy})
+    : seasonalScope
     ? scopeSeasonalEventMigrations({pending:allPending,scope:seasonalScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedSeasonalEvent})
     : regionalScope
     ? scopeRegionalDecisionMigrations({pending:allPending,scope:regionalScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedRegionalDecision})
@@ -560,6 +592,8 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       && JSON.stringify(pendingMigrations) === JSON.stringify([AREA_RESERVATION_MIGRATION])
       ? ["--include-all"] : [],
     deferredMigrations,
+    appliedBetaSecurity,
+    appliedAnalyticsPrivacy,
     appliedRegionalDecision,
     appliedSeasonalEvent,
     appliedAreaReservation,

@@ -376,3 +376,36 @@ test('regional Decision plan includes exact SQL plus runtime changes and verifie
  const after=plan(f,commit(f.repo,'verified regional receipt fixture'));
  assert.deepEqual(after.pendingMigrations,[]);assert.deepEqual(after.deferredMigrations,deferred);assert.equal(after.appliedRegionalDecision.migration.path,regional.path);
 });
+
+test('Beta security release binds exact SQL pair, one password flag and verified restore bytes',async()=>{
+ const {BETA_SECURITY_MIGRATION:target,ANALYTICS_PRIVACY_REPAIR_MIGRATION:repair,DEFERRED_BOOKING_MIGRATIONS:deferred}=await import('./isolated-research-migration.mjs');
+ const targets=[target,repair];
+ const f=fixture();write(f.repo,'supabase/production/auth-config.json',authConfig());f.base=commit(f.repo,'existing auth baseline');
+ for(const item of [...deferred,...targets])write(f.repo,item.path,readFileSync(new URL('../../'+item.path,import.meta.url)));
+ const document=JSON.parse(authConfig());document.config.password_hibp_enabled=true;
+ const bytes=JSON.stringify(document);write(f.repo,'supabase/production/auth-config.json',bytes);
+ const receipt={version:'backyrd-backup-restore-drill-v1',status:'PASS',foreignKeysValidated:true,sourceType:'VERIFIED_AWS_ARCHIVE',sourceArchiveSha256:'a'.repeat(64),sourceMainSha:f.base,sourceCreatedAt:'2026-11-01T18:26:00Z',productionWrites:0,productionCutoverTested:false};
+ for(const key of ['schemaAndAclMatch','allCopiedRowsMatch','databaseServicesStopped','sourceSchemaAndRowsComparedBeforeAnyRepair','sequencesMatch','allMediaBytesMatch','bucketControlsRestored','outboundNetworkDisabled','independentDatabaseAndMediaTargets','disposableTargetsRemoved'])receipt[key]=true;
+ const path='delivery/recovery/beta-security-rehearsal-v1.json';let restoreBytes=JSON.stringify(receipt);write(f.repo,path,restoreBytes);
+ const scope={contractVersion:'backyrd.beta-security-delivery-scope@1.0',executionAuthorized:false,baseSha:f.base,migrations:targets,deferredMigrations:deferred,backupRunId:1,restoreDrill:{path,sha256:createHash('sha256').update(restoreBytes).digest('hex'),runId:2},authConfig:{path:'supabase/production/auth-config.json',sha256:createHash('sha256').update(bytes).digest('hex'),keys:['password_hibp_enabled']},deferredFunctionChanges:[]};
+ write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({betaSecurityDeliveryScope:scope}));
+ const accepted=plan(f,commit(f.repo,'bounded security release'));
+ assert.deepEqual(accepted.pendingMigrations,targets);assert.deepEqual(accepted.deferredMigrations,deferred);assert.deepEqual(accepted.deployFunctions,[]);assert.deepEqual(accepted.authConfig.keys,['password_hibp_enabled']);
+ const {prepareResearchMigrationWorkspace}=await import('./isolated-research-migration.mjs');
+ const output=mkdtempSync(join(tmpdir(),'backyrd-security-workspace-'));
+ prepareResearchMigrationWorkspace(accepted,f.repo,output);
+ assert.equal(readFileSync(join(output,target.path),'utf8'),readFileSync(new URL('../../'+target.path,import.meta.url),'utf8'));
+ const {existsSync}=await import('node:fs');for(const item of deferred)assert.equal(existsSync(join(output,item.path)),false);
+ Object.assign(receipt,{status:'PASS_WITH_REHEARSED_INTEGRITY_REPAIR',foreignKeysValidated:false,foreignKeysAfterRehearsedRepairValidated:true,proposedIntegrityRepair:{migration:repair,removedDeadReferences:37,sourceConstraint:'public.analytics_events.analytics_events_user_id_fkey'}});
+ restoreBytes=JSON.stringify(receipt);scope.restoreDrill.sha256=createHash('sha256').update(restoreBytes).digest('hex');
+ write(f.repo,path,restoreBytes);write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({betaSecurityDeliveryScope:scope}));
+ assert.deepEqual(plan(f,commit(f.repo,'honest exact-repair rehearsal')).pendingMigrations,targets);
+ const forged=JSON.stringify({...receipt,status:'PASS'});scope.restoreDrill.sha256=createHash('sha256').update(forged).digest('hex');
+ write(f.repo,path,forged);write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({betaSecurityDeliveryScope:scope}));
+ assert.throws(()=>plan(f,commit(f.repo,'false original-source integrity claim')),/restore_evidence_invalid/);
+ scope.restoreDrill.sha256=createHash('sha256').update(restoreBytes).digest('hex');write(f.repo,'delivery/product-authority-v1.json',JSON.stringify({betaSecurityDeliveryScope:scope}));
+
+ write(f.repo,path,JSON.stringify({...receipt,allMediaBytesMatch:false}));assert.throws(()=>plan(f,commit(f.repo,'tampered restore')),/restore_evidence_invalid/);
+ write(f.repo,path,restoreBytes);document.config.mailer_subjects_recovery='Unapproved changed subject';write(f.repo,'supabase/production/auth-config.json',JSON.stringify(document));assert.throws(()=>plan(f,commit(f.repo,'unbound auth change')),/beta_security_scope_invalid/);
+ write(f.repo,'supabase/production/auth-config.json',bytes);write(f.repo,'packages/shared/runtime.mjs','export const value = 999;\n');assert.throws(()=>plan(f,commit(f.repo,'unbound runtime change')),/release_scope_conflict/);
+});

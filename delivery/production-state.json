@@ -404,14 +404,18 @@
     "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
     "productionVerified": true,
     "latestPublishedIos": {
-      "sourceSha": "7532eca12fd33c04e049fe5384cd122c6faa1bc0",
+      "sourceSha": "9b04fd2651c185de26694d5a1763b6398e84f91b",
       "runtimeVersion": "1.1.0",
       "channel": "production",
-      "otaGroupId": "a331d14e-4210-4c88-9977-fd8e50636d14",
-      "iosUpdateId": "01a16ed5-7f8e-733b-8dd2-9146597adf1e",
+      "otaGroupId": "4dea6585-ac77-4b43-9435-015029d05341",
+      "iosUpdateId": "01a198c8-d127-7a47-88a0-1e59ded947ea",
+      "certificationRunId": 41345750518,
+      "manifestHash": "3fb6552f0f0e1cb61afdd6c8c437bd41eb6d9c46d590cadccfd8eda740466520",
       "technicalStatus": "PUBLISHED_CERTIFIED_ARTIFACT",
       "installedDeviceVerified": false,
-      "note": "Places map shares the founder-approved Volta position and opens a chooser for coincident spots. Exact Main IOS_OTA certification run 40113149226 passed with manifest hash a9c3dbb086c1649e7c442d1257346a0eb83745037cae062f5120a8620d6d0c82. EAS production update and public manifest were confirmed for runtime 1.1.0 and the Production Supabase project. The iOS tree matches the certified Main tree. Physical-device installation remains unverified."
+      "servedBundleMatchesCertifiedArtifact": true,
+      "productionPublicConfigurationVerified": true,
+      "note": "Beta security dependency corrections and clear compromised-password errors. The production Expo manifest serves the exact certified Hermes bundle and expected public configuration. Physical-device installation is not claimed; Android identity remains historical."
     }
   },
   "reviewMediaIncident": {

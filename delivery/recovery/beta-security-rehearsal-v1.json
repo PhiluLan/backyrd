@@ -1,0 +1,35 @@
+{
+  "version": "backyrd-backup-restore-drill-v1",
+  "status": "PASS_WITH_REHEARSED_INTEGRITY_REPAIR",
+  "foreignKeysValidated": false,
+  "foreignKeysAfterRehearsedRepairValidated": true,
+  "proposedIntegrityRepair": {
+    "migration": {
+      "path": "supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",
+      "sha256": "c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"
+    },
+    "removedDeadReferences": 37,
+    "sourceConstraint": "public.analytics_events.analytics_events_user_id_fkey"
+  },
+  "sourceSchemaAndRowsComparedBeforeAnyRepair": true,
+  "sourceType": "VERIFIED_AWS_ARCHIVE",
+  "sourceMainSha": "b7d263fb39ed9b9bb16290b7dc565c737d82cb35",
+  "sourceCreatedAt": "2026-11-01T18:25:47Z",
+  "sourceArchiveSha256": "487cf47386603f83ec5a1480f9a5649414d834dfeea5547f07c033022331a484",
+  "tableCount": 376,
+  "rowCount": 226190,
+  "sequenceCount": 40,
+  "storageFiles": 140,
+  "schemaAndAclMatch": true,
+  "postgresNormalizedChecks": 5,
+  "allCopiedRowsMatch": true,
+  "databaseServicesStopped": true,
+  "sequencesMatch": true,
+  "allMediaBytesMatch": true,
+  "bucketControlsRestored": true,
+  "outboundNetworkDisabled": true,
+  "independentDatabaseAndMediaTargets": true,
+  "disposableTargetsRemoved": true,
+  "productionWrites": 0,
+  "productionCutoverTested": false
+}

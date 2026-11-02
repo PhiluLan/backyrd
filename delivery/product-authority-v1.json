@@ -69,14 +69,23 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261101162452_seasonal_event_editions_v1.sql",
-        "sha256": "a4e1961dbbca4c283c45b3f1d901cc9df2abd2f41b6b6acd82bd6dd30855380b"
+        "path": "supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",
+        "sha256": "60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"
+      },
+      {
+        "path": "supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",
+        "sha256": "c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"
       }
     ],
     "executionAuthorized": false,
-    "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
+    "restoreDrillStatus": "ISOLATED_SOURCE_RESTORE_AND_EXACT_REPAIR_REHEARSAL_PASS",
+    "restoreDrillReceipt": {
+      "path": "delivery/recovery/beta-security-rehearsal-v1.json",
+      "sha256": "221c12c857be67bd0e6f90ec624a700ad48c3c527dc80062e2e99b231c44c7f6",
+      "runId": 41348866544
+    },
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicit publication instruction on 2026-11-01 after disclosure of the exact seasonal-event migration, bounded release path, public Herbstmesse edition and untested database recovery risk. Only the pinned SQL, Admin/App/Web and two Decision functions are authorized; four Booking migrations and Auth remain excluded."
+    "source": "Founder explicitly approved the exact two SQL migrations, bounded release path and breached-password flag on 2026-11-02, including the disclosed remaining recovery risk. Original AWS rows/schema/ACL and all 140 media files match; the exact 37-reference privacy correction passed only on the isolated copy. Production cutover remains untested; a fresh clean backup/restore is required after production correction."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -130,11 +139,18 @@
     "executionAuthorized": false,
     "source": "Founder explicit publication instruction on 2026-11-01 after disclosure of the exact seasonal-event migration, bounded release path, public Herbstmesse edition and untested database recovery risk. Only the pinned SQL, Admin/App/Web and two Decision functions are authorized; four Booking migrations and Auth remain excluded."
   },
-  "codeOnlyDeliveryScope": {
-    "contractVersion": "backyrd.code-only-delivery-scope@1.0",
-    "functions": [
-      "decision-v13",
-      "decision-admin-diagnostic"
+  "betaSecurityDeliveryScope": {
+    "contractVersion": "backyrd.beta-security-delivery-scope@1.0",
+    "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
+    "migrations": [
+      {
+        "path": "supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",
+        "sha256": "60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"
+      },
+      {
+        "path": "supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",
+        "sha256": "c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"
+      }
     ],
     "deferredMigrations": [
       {
@@ -152,16 +168,34 @@
       {
         "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
-      },
-      {
-        "path": "supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",
-        "sha256": "60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"
-      },
-      {
-        "path": "supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",
-        "sha256": "c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"
       }
     ],
-    "source": "Founder-approved seasonal release completed and verified on 2026-11-01. The immutable seasonal receipt records exact SQL and deployment identity. Subsequent code-only releases contain no SQL/Auth changes; four Booking migrations remain excluded. The reviewed Beta security migration is also explicitly deferred until its own bounded SQL/Auth release; this code-only artifact does not authorize applying it. The exact analytics privacy-reference correction is also deferred pending its separately reviewed release; no production data correction is authorized by this code merge."
+    "backupRunId": 41335894428,
+    "restoreDrill": {
+      "path": "delivery/recovery/beta-security-rehearsal-v1.json",
+      "sha256": "221c12c857be67bd0e6f90ec624a700ad48c3c527dc80062e2e99b231c44c7f6",
+      "runId": 41348866544
+    },
+    "authConfig": {
+      "path": "supabase/production/auth-config.json",
+      "sha256": "cb05de563727c1f23eff2049e4d920bc0e92d81a998f3f1d3e5f349fa19d6753",
+      "keys": [
+        "password_hibp_enabled"
+      ]
+    },
+    "deferredFunctionChanges": [
+      {
+        "slug": "decision-admin-diagnostic",
+        "previousSourceSetHash": null,
+        "sourceSetHash": "a4774fa7fd339aa4b3fea058995af38340c98aabd825f51b106b91ee564310a9"
+      },
+      {
+        "slug": "decision-v13",
+        "previousSourceSetHash": "0317d2a74fac0849f7ec52d7b14c55af07aceb8b841f71eba44394e6c7ea8961",
+        "sourceSetHash": "61d39b6fa73456a085e81baaac79394c96dda517febda5c36f2be9491c7752dd"
+      }
+    ],
+    "executionAuthorized": false,
+    "source": "Founder explicit exact-scope approval in this release conversation on 2026-11-02: only the two hash-bound security/privacy migrations and password_hibp_enabled=true; four Booking migrations and all Edge Function changes excluded. The plan remains non-executing; the authenticated production workflow enforces this scope."
   }
 }

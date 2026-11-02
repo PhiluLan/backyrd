@@ -33,6 +33,11 @@ export function requireManagedColumns(sections,columns) {
   if(!available.has(key))throw Error('restore_platform_schema_missing:'+key);
  }
 }
+export function verifyMediaInventory(contentTypes,paths) {
+ const expected=Object.keys(contentTypes).sort();
+ if(new Set(paths).size!==paths.length || JSON.stringify([...paths].sort())!==JSON.stringify(expected))
+  throw Error('backup_storage_inventory_mismatch');
+}
 export function integrityReceiptFields(repair) {
  return repair
   ? {status:'PASS_WITH_REHEARSED_INTEGRITY_REPAIR',foreignKeysValidated:false,foreignKeysAfterRehearsedRepairValidated:true,proposedIntegrityRepair:repair}
@@ -199,6 +204,12 @@ async function restore(snapshot,reportPath) {
    const relation=new RegExp(`^(${atom})\\.(${atom})$`).exec(m[1].replaceAll("''","'"));if(!relation)throw Error('sequence_identifier_invalid');
    const result=sql(`select last_value::text||','||is_called::text from ${identifier(unquote(relation[1]))}.${identifier(unquote(relation[2]))};`).trim();if(result!==m[2]+','+m[3])throw Error('restored_sequence_mismatch');sequenceCount++;
   }
+  const buckets=JSON.parse(sql("select coalesce(json_agg(json_build_object('id',id,'name',name,'public',public,'file_size_limit',file_size_limit,'allowed_mime_types',allowed_mime_types) order by id),'[]') from storage.buckets;"));
+  const contentTypes=JSON.parse(sql("select coalesce(json_object_agg(bucket_id||'/'||name,metadata->>'mimetype'),'{}') from storage.objects;"));
+  const mediaPaths=readFileSync(join(snapshot,'storage-sha256.txt'),'utf8').trim().split('\n').map(line=>{
+   const match=/^[a-f0-9]{64}  storage\/(.+)$/.exec(line);if(!match)throw Error('media_manifest_invalid');return match[1];
+  });
+  verifyMediaInventory(contentTypes,mediaPaths);
   let integrityRepair=null;
   if(process.env.BACKYRD_RESTORE_REHEARSE_INTEGRITY_REPAIR==='1') {
    const before=Number(sql("select count(*) from public.analytics_events e where e.user_id is not null and not exists(select 1 from public.profiles p where p.id=e.user_id);").trim());
@@ -213,8 +224,6 @@ async function restore(snapshot,reportPath) {
    console.log('Restore phase: original snapshot matched; exact proposed privacy repair rehearsed in isolated copy.');
   }
   sql(`begin;do $$ declare r record;begin for r in select c.conname,c.conrelid::regclass relation,pg_get_constraintdef(c.oid) definition from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where c.contype='f' and c.convalidated and (n.nspname in ('auth','storage') or n.nspname not in ('information_schema','extensions','cron','net','realtime','vault','supabase_functions','supabase_migrations') and n.nspname !~ '^pg_' and n.nspname !~ '^_') loop execute format('alter table %s drop constraint %I',r.relation,r.conname);execute format('alter table %s add constraint %I %s not valid',r.relation,r.conname,r.definition);execute format('alter table %s validate constraint %I',r.relation,r.conname);end loop;end $$;rollback;`);
-  const buckets=JSON.parse(sql("select coalesce(json_agg(json_build_object('id',id,'name',name,'public',public,'file_size_limit',file_size_limit,'allowed_mime_types',allowed_mime_types) order by id),'[]') from storage.buckets;"));
-  const contentTypes=JSON.parse(sql("select coalesce(json_object_agg(bucket_id||'/'||name,metadata->>'mimetype'),'{}') from storage.objects;"));
   console.log('Restore phase: database rows, schema, ACL, sequences and foreign keys verified.');
   return {tableCount:sections.length,rowCount,sequenceCount,normalizedChecks:comparison.normalizedChecks,buckets,contentTypes,integrityRepair};
  });
@@ -233,7 +242,7 @@ async function restore(snapshot,reportPath) {
   const buckets=JSON.parse((await storage('/bucket')).toString()).map(b=>Object.fromEntries(['id','name','public','file_size_limit','allowed_mime_types'].map(k=>[k,b[k]]))).sort((a,b)=>a.id.localeCompare(b.id,'en'));
   const expected=[...evidence.buckets].sort((a,b)=>a.id.localeCompare(b.id,'en'));assert.deepEqual(buckets,expected);assert.equal(count,mediaCount);return count;
  });
- writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',...integrityReceiptFields(evidence.integrityRepair),sourceSchemaAndRowsComparedBeforeAnyRepair:true,sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,databaseServicesStopped:true,sequencesMatch:true,allMediaBytesMatch:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
+ writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',...integrityReceiptFields(evidence.integrityRepair),sourceSchemaAndRowsComparedBeforeAnyRepair:true,sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,databaseServicesStopped:true,sequencesMatch:true,allMediaBytesMatch:true,storageInventoryMatches:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
  console.log('Isolated restore: '+integrityReceiptFields(evidence.integrityRepair).status+'; database and '+restoredFiles+' media files verified in independent targets.');
 }
 
