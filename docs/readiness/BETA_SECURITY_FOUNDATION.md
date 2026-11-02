@@ -296,3 +296,24 @@ Keine App-Funktion, SDK-Version, Rankingregel oder SQL-Datei wurde dafür geänd
 Die produktiven Web-/Admin-Audits vom 2. November bleiben jeweils bei null.
 Die übrigen mittleren/niedrigen Werkzeugbefunde bleiben sichtbar und getrennt
 von der späteren vollständigen Beta-Sicherheitsabnahme.
+
+## Gefundene Archivpfad-Abweichung
+
+Der neue vollständige Export 41404678473 ist in AWS gesichert. Der anschliessende
+Lauf 41406973392 wurde jedoch mit `backup_storage_inventory_mismatch` abgewiesen.
+Der Export erstellte das lokale Bucket-Ziel vorab; die gepinnte CLI 2.116.0 hängt
+bei existierendem Ziel den Bucket-Namen nochmals an. Das frühere Medien-Rehearsal
+prüfte Bytes und Bucket-Regeln, aber noch nicht die ursprünglichen Objektschlüssel.
+Sein unveränderter historischer Beleg ist deshalb kein vollständiger Nachweis
+korrekter Dateischlüssel.
+
+Neue Exporte erzeugen das Ziel erst beim Kopieren und kennzeichnen ihre Struktur
+explizit. Ältere v2-Archive der exakt betroffenen CLI können ohne Änderung am
+Archiv gelesen werden: Nur eine vollständige, eindeutige Zuordnung von
+`bucket/bucket/key` zu sämtlichen ursprünglichen Datenbankschlüsseln ist erlaubt.
+Keine Datei darf fehlen, zusätzlich sein oder zweimal verwendet werden. Neue,
+explizit kanonische Archive erhalten diese Kompatibilitätsbehandlung nicht.
+Der eigentliche Medien-Replay liest die unveränderten archivierten Bytes und
+schreibt sie unter den verifizierten **Originalschlüsseln**, inklusive SHA-256-
+Rückleseprüfung. Das verändert keine Produktionsdaten und repariert keine
+Datenbankzeilen. Paket 1 bleibt bis zum vollständigen echten Nachweis offen.

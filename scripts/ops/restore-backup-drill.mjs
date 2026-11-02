@@ -38,6 +38,26 @@ export function verifyMediaInventory(contentTypes,paths) {
  if(new Set(paths).size!==paths.length || JSON.stringify([...paths].sort())!==JSON.stringify(expected))
   throw Error('backup_storage_inventory_mismatch');
 }
+// The 2.116.0 CLI adds base(source) to an existing destination. Legacy v2
+// archives therefore contain bucket/bucket/key. Recover only that exact,
+// reversible transport layout, with a complete bijection to original DB keys.
+export function resolveMediaInventory(contentTypes,paths,{allowLegacyBucketNesting=false}={}) {
+ const canonical=paths.map(archivePath=>({archivePath,objectPath:archivePath}));
+ try {verifyMediaInventory(contentTypes,paths);return {layout:'BUCKET_OBJECT_KEY',entries:canonical};}
+ catch(error) {if(error.message!=='backup_storage_inventory_mismatch')throw error;}
+ if(allowLegacyBucketNesting && new Set(paths).size===paths.length) {
+  const entries=paths.map(archivePath=>{
+   const [bucket,nested,...key]=archivePath.split('/');
+   return bucket===nested && key.length ? {archivePath,objectPath:[bucket,...key].join('/')} : null;
+  });
+  if(entries.every(Boolean)) {
+   try {verifyMediaInventory(contentTypes,entries.map(entry=>entry.objectPath));return {layout:'LEGACY_DUPLICATED_BUCKET_PREFIX',entries};}
+   catch(error) {if(error.message!=='backup_storage_inventory_mismatch')throw error;}
+  }
+ }
+ const expected=new Set(Object.keys(contentTypes)),actual=new Set(paths);
+ throw Error('backup_storage_inventory_mismatch:expected='+expected.size+':archived='+paths.length+':missing='+[...expected].filter(key=>!actual.has(key)).length+':unexpected='+[...actual].filter(key=>!expected.has(key)).length);
+}
 export function integrityReceiptFields(repair) {
  return repair
   ? {status:'PASS_WITH_REHEARSED_INTEGRITY_REPAIR',foreignKeysValidated:false,foreignKeysAfterRehearsedRepairValidated:true,proposedIntegrityRepair:repair}
@@ -206,10 +226,14 @@ async function restore(snapshot,reportPath) {
   }
   const buckets=JSON.parse(sql("select coalesce(json_agg(json_build_object('id',id,'name',name,'public',public,'file_size_limit',file_size_limit,'allowed_mime_types',allowed_mime_types) order by id),'[]') from storage.buckets;"));
   const contentTypes=JSON.parse(sql("select coalesce(json_object_agg(bucket_id||'/'||name,metadata->>'mimetype'),'{}') from storage.objects;"));
-  const mediaPaths=readFileSync(join(snapshot,'storage-sha256.txt'),'utf8').trim().split('\n').map(line=>{
-   const match=/^[a-f0-9]{64}  storage\/(.+)$/.exec(line);if(!match)throw Error('media_manifest_invalid');return match[1];
+  const mediaRows=readFileSync(join(snapshot,'storage-sha256.txt'),'utf8').replace(/\n$/,'').split('\n').map(line=>{
+   const match=/^([a-f0-9]{64})  storage\/(.+)$/.exec(line);if(!match)throw Error('media_manifest_invalid');return {sha256:match[1],path:match[2]};
   });
-  verifyMediaInventory(contentTypes,mediaPaths);
+  if(metadata.storageArchiveLayout!==undefined && metadata.storageArchiveLayout!=='BUCKET_OBJECT_KEY')throw Error('backup_storage_layout_unknown');
+  const inventory=resolveMediaInventory(contentTypes,mediaRows.map(row=>row.path),{
+   allowLegacyBucketNesting:metadata.storageArchiveLayout===undefined && metadata.supabaseCliVersion==='2.116.0',
+  });
+  const mediaEntries=inventory.entries.map((entry,index)=>({...entry,sha256:mediaRows[index].sha256}));
   let integrityRepair=null;
   if(process.env.BACKYRD_RESTORE_REHEARSE_INTEGRITY_REPAIR==='1') {
    const before=Number(sql("select count(*) from public.analytics_events e where e.user_id is not null and not exists(select 1 from public.profiles p where p.id=e.user_id);").trim());
@@ -225,24 +249,23 @@ async function restore(snapshot,reportPath) {
   }
   sql(`begin;do $$ declare r record;begin for r in select c.conname,c.conrelid::regclass relation,pg_get_constraintdef(c.oid) definition from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace where c.contype='f' and c.convalidated and (n.nspname in ('auth','storage') or n.nspname not in ('information_schema','extensions','cron','net','realtime','vault','supabase_functions','supabase_migrations') and n.nspname !~ '^pg_' and n.nspname !~ '^_') loop execute format('alter table %s drop constraint %I',r.relation,r.conname);execute format('alter table %s add constraint %I %s not valid',r.relation,r.conname,r.definition);execute format('alter table %s validate constraint %I',r.relation,r.conname);end loop;end $$;rollback;`);
   console.log('Restore phase: database rows, schema, ACL, sequences and foreign keys verified.');
-  return {tableCount:sections.length,rowCount,sequenceCount,normalizedChecks:comparison.normalizedChecks,buckets,contentTypes,integrityRepair};
+  return {tableCount:sections.length,rowCount,sequenceCount,normalizedChecks:comparison.normalizedChecks,buckets,contentTypes,mediaEntries,storageArchiveLayout:inventory.layout,integrityRepair};
  });
  const restoredFiles=await isolatedTarget(cli,'independent media',async({storage})=>{
   // Follow the runbook: media API replay uses an independent empty target, so
   // new transport metadata cannot overwrite the database evidence just checked.
   for(const bucket of evidence.buckets){assert.equal(bucket.id,bucket.name);await storage('/bucket',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:bucket.id,name:bucket.name,public:false,file_size_limit:1073741824,allowed_mime_types:null})});}
   let count=0;
-  for(const line of readFileSync(join(snapshot,'storage-sha256.txt'),'utf8').trim().split('\n')){
-   const m=/^([a-f0-9]{64})  storage\/([^/]+)\/(.+)$/.exec(line);if(!m)throw Error('media_manifest_invalid');
-   const url='/object/'+encodeURIComponent(m[2])+'/'+m[3].split('/').map(encodeURIComponent).join('/');
-   await storage(url,{method:'POST',headers:{'Content-Type':evidence.contentTypes[m[2]+'/'+m[3]]||'application/octet-stream'},body:readFileSync(join(snapshot,'storage',m[2],m[3]))});
-   if(sha(await storage(url))!==m[1])throw Error('restored_media_digest_mismatch');count++;
+  for(const entry of evidence.mediaEntries){
+   const url='/object/'+entry.objectPath.split('/').map(encodeURIComponent).join('/');
+   await storage(url,{method:'POST',headers:{'Content-Type':evidence.contentTypes[entry.objectPath]||'application/octet-stream'},body:readFileSync(join(snapshot,'storage',entry.archivePath))});
+   if(sha(await storage(url))!==entry.sha256)throw Error('restored_media_digest_mismatch');count++;
   }
   for(const bucket of evidence.buckets)await storage('/bucket/'+encodeURIComponent(bucket.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:bucket.id,name:bucket.name,public:bucket.public,file_size_limit:bucket.file_size_limit,allowed_mime_types:bucket.allowed_mime_types})});
   const buckets=JSON.parse((await storage('/bucket')).toString()).map(b=>Object.fromEntries(['id','name','public','file_size_limit','allowed_mime_types'].map(k=>[k,b[k]]))).sort((a,b)=>a.id.localeCompare(b.id,'en'));
   const expected=[...evidence.buckets].sort((a,b)=>a.id.localeCompare(b.id,'en'));assert.deepEqual(buckets,expected);assert.equal(count,mediaCount);return count;
  });
- writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',...integrityReceiptFields(evidence.integrityRepair),sourceSchemaAndRowsComparedBeforeAnyRepair:true,sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,databaseServicesStopped:true,sequencesMatch:true,allMediaBytesMatch:true,storageInventoryMatches:true,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
+ writeFileSync(reportPath,JSON.stringify({version:'backyrd-backup-restore-drill-v1',...integrityReceiptFields(evidence.integrityRepair),sourceSchemaAndRowsComparedBeforeAnyRepair:true,sourceType:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256?'VERIFIED_AWS_ARCHIVE':'SYNTHETIC_LOCAL',sourceMainSha:metadata.canonicalMainSha,sourceCreatedAt:metadata.createdAt,sourceArchiveSha256:process.env.BACKYRD_RESTORE_ARCHIVE_SHA256||null,tableCount:evidence.tableCount,rowCount:evidence.rowCount,sequenceCount:evidence.sequenceCount,storageFiles:restoredFiles,schemaAndAclMatch:true,postgresNormalizedChecks:evidence.normalizedChecks,allCopiedRowsMatch:true,databaseServicesStopped:true,sequencesMatch:true,allMediaBytesMatch:true,storageInventoryMatches:true,storageOriginalKeysVerified:true,storageArchiveLayout:evidence.storageArchiveLayout,bucketControlsRestored:true,outboundNetworkDisabled:true,independentDatabaseAndMediaTargets:true,disposableTargetsRemoved:true,productionWrites:0,productionCutoverTested:false},null,2)+'\n',{mode:0o600});
  console.log('Isolated restore: '+integrityReceiptFields(evidence.integrityRepair).status+'; database and '+restoredFiles+' media files verified in independent targets.');
 }
 
