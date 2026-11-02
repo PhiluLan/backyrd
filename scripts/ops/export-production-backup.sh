@@ -43,8 +43,10 @@ supabase link --project-ref hjgcrrzfjchzqoegcywn >/dev/null
 mapfile -t buckets < <(supabase storage ls ss:/// --linked --experimental | sed -nE 's#^([A-Za-z0-9._-]+)/$#\1#p')
 test "${#buckets[@]}" -gt 0 || { echo "Production Storage bucket inventory is empty or unreadable" >&2; exit 1; }
 for bucket in "${buckets[@]}"; do
-  mkdir -p "$snapshot/storage/$bucket"
+  # The pinned CLI nests base(source) when destination already exists.
+  # Let it create the bucket target so archived keys remain bucket/object.
   supabase storage cp --linked --experimental --recursive "ss:///$bucket" "$snapshot/storage/$bucket" >/dev/null
+  mkdir -p "$snapshot/storage/$bucket"
 done
 
 (
@@ -76,7 +78,7 @@ jq -n \
   --argjson storageFiles "$storage_files" \
   --argjson storageBytes "$storage_bytes" \
   --argjson databaseIncluded "$include_database" \
-  '{version:$version,createdAt:$createdAt,canonicalMainSha:$canonicalMainSha,projectRef:$projectRef,supabaseCliVersion:$supabaseCliVersion,storageFiles:$storageFiles,storageBytes:$storageBytes,databaseIncluded:$databaseIncluded}' \
+  '{version:$version,createdAt:$createdAt,canonicalMainSha:$canonicalMainSha,projectRef:$projectRef,supabaseCliVersion:$supabaseCliVersion,storageFiles:$storageFiles,storageBytes:$storageBytes,databaseIncluded:$databaseIncluded,storageArchiveLayout:"BUCKET_OBJECT_KEY"}' \
   > "$snapshot/metadata.json"
 
 archive="$snapshot_root/$snapshot_id.tar.gz"

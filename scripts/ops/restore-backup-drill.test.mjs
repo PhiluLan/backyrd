@@ -85,3 +85,23 @@ test('every original Storage object needs exactly one archived file, including u
  assert.throws(()=>verifyMediaInventory(original,['private/a.jpg','private/b.bin','private/untracked.jpg']),/inventory_mismatch/);
  assert.throws(()=>verifyMediaInventory(original,['private/a.jpg','private/a.jpg']),/inventory_mismatch/);
 });
+
+
+test('legacy CLI bucket nesting requires an explicit complete one-to-one match to original keys',async()=>{
+ const {resolveMediaInventory}=await import('./restore-backup-drill.mjs');
+ const original={'private/a photo.jpg':'image/jpeg','private/private/real.bin':null};
+ const archived=['private/private/a photo.jpg','private/private/private/real.bin'];
+ assert.throws(()=>resolveMediaInventory(original,archived),/inventory_mismatch/);
+ const result=resolveMediaInventory(original,archived,{allowLegacyBucketNesting:true});
+ assert.equal(result.layout,'LEGACY_DUPLICATED_BUCKET_PREFIX');
+ assert.deepEqual(result.entries.map(entry=>entry.objectPath),Object.keys(original));
+ assert.deepEqual(result.entries.map(entry=>entry.archivePath),archived);
+ for(const invalid of [archived.slice(0,1),[...archived,'private/private/extra'],[archived[0],archived[0]],['other/private/a photo.jpg',archived[1]]])
+  assert.throws(()=>resolveMediaInventory(original,invalid,{allowLegacyBucketNesting:true}),/inventory_mismatch/);
+});
+test('canonical original keys are never stripped even when they contain a bucket-named directory',async()=>{
+ const {resolveMediaInventory}=await import('./restore-backup-drill.mjs');
+ const original={'private/private/a.jpg':'image/jpeg'};
+ const result=resolveMediaInventory(original,Object.keys(original),{allowLegacyBucketNesting:true});
+ assert.equal(result.layout,'BUCKET_OBJECT_KEY');assert.equal(result.entries[0].objectPath,'private/private/a.jpg');
+});

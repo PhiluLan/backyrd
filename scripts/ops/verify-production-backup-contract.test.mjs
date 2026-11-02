@@ -101,3 +101,25 @@ test('disabled Storage protection cannot produce a completed backup',()=>{const 
 test('a source with only private functions is backed up without inventing missing table data',()=>{const f=exportFixture({noTables:true});try{assert.equal(f.result.status,0,f.result.stderr);assert.deepEqual(JSON.parse(readFileSync(join(f.output,'scope.json'))).bookingTables,[]);}finally{f.cleanup();}});
 test('every actually installed private table needs its own COPY section',()=>{const f=exportFixture({data:false});try{assert.notEqual(f.result.status,0);assert.match(f.result.stderr,/Private Booking data sections are missing/);assert.equal(existsSync(join(f.output,'scope.json')),false);}finally{f.cleanup();}});
 test('a private-schema reference in public functions does not prove that the private schema was exported',()=>{const f=exportFixture({schemaReference:true});try{assert.notEqual(f.result.status,0);assert.match(f.result.stderr,/Private Booking schema is missing/);}finally{f.cleanup();}});
+
+
+test('recursive Storage export leaves destination absent until the CLI copies it',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'backyrd-storage-layout-'));
+ try {
+  const bin=join(dir,'bin'),snapshot=join(dir,'snapshot');mkdirSync(bin);mkdirSync(join(snapshot,'storage'),{recursive:true});
+  const stub=join(bin,'supabase');
+  writeFileSync(stub,`#!/usr/bin/env node
+const fs=require('node:fs'),path=require('node:path');
+const destination=process.argv.at(-1),bucket=process.argv.at(-2).split('/').at(-1);
+const target=fs.existsSync(destination)?path.join(destination,bucket):destination;
+fs.mkdirSync(target,{recursive:true});fs.writeFileSync(path.join(target,'photo with space.jpg'),'SYNTHETIC_BYTES');
+`,{mode:0o700});
+  const fragment=/for bucket in "\$\{buckets\[@\]\}"; do[\s\S]*?\ndone/.exec(read('scripts/ops/export-production-backup.sh'))?.[0];
+  assert.ok(fragment);
+  const result=spawnSync('bash',['-c','set -euo pipefail; snapshot="$SNAPSHOT_TARGET"; buckets=(probe);\n'+fragment],{encoding:'utf8',env:{...process.env,PATH:bin+':'+process.env.PATH,SNAPSHOT_TARGET:snapshot}});
+  assert.equal(result.status,0,result.stderr);
+  assert.equal(readFileSync(join(snapshot,'storage','probe','photo with space.jpg'),'utf8'),'SYNTHETIC_BYTES');
+  assert.equal(existsSync(join(snapshot,'storage','probe','probe')),false);
+  assert.match(read('scripts/ops/export-production-backup.sh'),/storageArchiveLayout:"BUCKET_OBJECT_KEY"/);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
