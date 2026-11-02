@@ -1,6 +1,6 @@
 // mobile/app/legal-consent.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../components/foundation/AppText";
 import { Stack, useRouter } from "expo-router";
@@ -9,21 +9,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   acceptLegalDocument,
   getMyPendingLegalDocuments,
+  getMyLegalGateStatus,
 } from "@/lib/consent";
 import { StateView } from "@/components/foundation/StateView";
 
-type PendingDocument = {
-  document_id: string;
-  document_type: string;
-  version: string;
-  title: string;
-  summary: string | null;
-  content_markdown: string;
-  effective_at: string;
-};
+import type { PendingLegalDocument as PendingDocument } from "../../packages/shared/src/consent-presentation";
 
 export default function LegalConsentScreen() {
   const router = useRouter();
+  const pending = useRef(false);
   const [documents, setDocuments] = useState<PendingDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
@@ -34,10 +28,12 @@ export default function LegalConsentScreen() {
   }, []);
 
   async function load() {
+    setLoading(true); setErrorMessage(null);
     try {
-      setDocuments(
-        (await getMyPendingLegalDocuments()) as PendingDocument[],
-      );
+      const documents = await getMyPendingLegalDocuments();
+      const status = await getMyLegalGateStatus();
+      if (typeof status?.gate_required !== "boolean" || (documents.length === 0 && status.gate_required)) throw new Error("legal_status_unavailable");
+      setDocuments(documents);
     } catch {
       setErrorMessage("Dokumente konnten gerade nicht geladen werden. Bitte versuche es erneut.");
     } finally {
@@ -46,15 +42,20 @@ export default function LegalConsentScreen() {
   }
 
   async function acceptAll() {
+    if (pending.current) return;
+    pending.current = true; setErrorMessage(null);
     setAccepting(true);
     try {
       for (const document of documents) {
-        await acceptLegalDocument(document.document_id);
+        if (!(await acceptLegalDocument(document.document_id))) throw new Error("legal_acceptance_not_confirmed");
       }
-      router.replace("/(tabs)" as never);
+      const status = await getMyLegalGateStatus();
+      if (status?.gate_required !== false) throw new Error("legal_gate_not_clear");
+      router.replace("/gate" as never);
     } catch {
       setErrorMessage("Die Bestätigung konnte nicht gespeichert werden. Bitte versuche es nochmals.");
     } finally {
+      pending.current = false;
       setAccepting(false);
     }
   }
@@ -68,7 +69,7 @@ export default function LegalConsentScreen() {
   }
 
   if (documents.length === 0) {
-    return <StateView kind="empty" title="Alles bestätigt" message="Du hast alle aktuell erforderlichen Dokumente bestätigt." actionLabel="Weiter zu Backyrd" onAction={() => router.replace("/(tabs)" as never)} />;
+    return <StateView kind="empty" title="Alles bestätigt" message="Du hast alle aktuell erforderlichen Dokumente bestätigt." actionLabel="Weiter zu Backyrd" onAction={() => void acceptAll()} />;
   }
 
   return (

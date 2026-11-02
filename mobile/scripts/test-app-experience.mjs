@@ -33,7 +33,7 @@ const before=opened.length;await links.openInAppleMaps(999,7);assert.equal(opene
 await links.sharePlace('test/id','Café');assert.equal(shared[0].url,'https://www.backyrd.ch/spots/test%2Fid');
 fail=true;assert.equal(await links.openExternalUrl('https://example.ch'),false);assert.equal(alerts.at(-1)[0],'Öffnen nicht möglich');
 let prevented,dispatches=[],effectCleanup;const navigation={dispatch:action=>dispatches.push(action)};
-const hooks=load('hooks/useUnsavedMoment.ts',{'@react-navigation/native':{useNavigation:()=>navigation,usePreventRemove:(dirty,callback)=>{if(dirty)prevented=callback;}},react:{useEffect:callback=>{effectCleanup=callback();}},'react-native':native});
+const hooks=load('hooks/useUnsavedMoment.ts',{'@react-navigation/native':{useNavigation:()=>navigation,usePreventRemove:(dirty,callback)=>{if(dirty)prevented=callback;}},react:{useRef:value=>({current:value}),useEffect:callback=>{effectCleanup=callback();}},'react-native':native});
 hooks.useUnsavedMoment(true,false);prevented({data:{action:'BACK'}});const choices=alerts.at(-1)[2];assert.equal(choices[0].style,'cancel');assert.deepEqual(dispatches,[]);choices[1].onPress();assert.deepEqual(dispatches,['BACK']);
 hooks.useUnsavedMoment(true,true);prevented({data:{action:'BACK'}});assert.equal(dispatches.length,1,'a pending upload must not be discarded');assert.equal(alerts.at(-1)[0],'Moment wird geteilt');
 native.Platform.OS='web';let accepted=false;const events=new Map();globalThis.window={confirm:()=>accepted,addEventListener:(name,fn)=>events.set(name,fn),removeEventListener:name=>events.delete(name)};

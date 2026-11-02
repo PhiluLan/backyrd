@@ -14,12 +14,7 @@ import {
 } from "@/lib/consent";
 import { StateView } from "@/components/foundation/StateView";
 
-const LABELS: Record<string, string> = {
-  consent_granted: "Einwilligung erteilt",
-  consent_renewed: "Einwilligung erneuert",
-  consent_withdrawn: "Einwilligung widerrufen",
-  document_accepted: "Dokument bestätigt",
-};
+import { consentEventLabel } from "../../packages/shared/src/consent-presentation";
 
 export default function PrivacyHistoryScreen() {
   const router = useRouter();
@@ -97,7 +92,7 @@ export default function PrivacyHistoryScreen() {
                         : row.document_title ?? "Rechtsdokument"}
                     </Text>
                     <Text style={styles.eventLabel}>
-                      {LABELS[row.event_type] ?? "Datenschutz aktualisiert"}
+                      {consentEventLabel(row.event_type)}
                     </Text>
                     <Text style={styles.meta}>
                       {new Date(row.occurred_at).toLocaleString("de-CH")}

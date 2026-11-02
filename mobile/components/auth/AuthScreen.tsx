@@ -38,7 +38,7 @@ export function AuthField({ label, secureTextEntry, style, ...props }: TextInput
     <AppText role="label" tone="secondary" style={styles.fieldLabel}>{label}</AppText>
     <View style={{ position: "relative" }}>
       <ProductTextInput {...props} accessibilityLabel={label} secureTextEntry={Boolean(secureTextEntry && !revealed)} placeholderTextColor={theme.color.textMuted} style={[styles.input, secureTextEntry && { paddingRight: 56 }, style]} />
-      {secureTextEntry ? <Pressable accessibilityRole="button" accessibilityLabel={revealed ? "Passwort verbergen" : "Passwort anzeigen"} accessibilityState={{ selected: revealed }} onPress={() => setRevealed(value => !value)} style={{ position: "absolute", right: 4, top: 4, minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name={revealed ? "eye-off-outline" : "eye-outline"} size={22} color={theme.color.textSecondary} /></Pressable> : null}
+      {secureTextEntry ? <Pressable accessibilityRole="button" accessibilityLabel={revealed ? "Passwort verbergen" : "Passwort anzeigen"} disabled={props.editable === false} accessibilityState={{ selected: revealed, disabled: props.editable === false }} onPress={() => setRevealed(value => !value)} style={{ position: "absolute", right: 4, top: 4, minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}><Ionicons name={revealed ? "eye-off-outline" : "eye-outline"} size={22} color={theme.color.textSecondary} /></Pressable> : null}
     </View>
   </View>;
 }

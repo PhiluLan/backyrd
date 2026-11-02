@@ -1,5 +1,6 @@
 // mobile/lib/consent.ts
 
+import { parsePendingLegalDocuments } from "../../packages/shared/src/consent-presentation";
 import Constants from "expo-constants";
 
 import { supabase } from "./supabase";
@@ -16,7 +17,7 @@ export type ConsentPurposeKey =
 export const CONSENT_PURPOSE_TITLES: Record<ConsentPurposeKey, string> = {
   personalized_recommendations: "Persönliche Vorschläge",
   optional_product_analytics: "Optionale Produktanalyse",
-  precise_location: "Präziser Standort für Smart Review",
+  precise_location: "Präziser Standort",
   push_notifications: "Push-Benachrichtigungen",
   marketing_messages: "Marketing-Nachrichten",
   photo_ai_processing: "KI-Verarbeitung von Fotos",
@@ -109,18 +110,29 @@ export async function setMyConsent(
   granted: boolean,
   documentId: string | null = null,
 ) {
-  const { data, error } = await supabase.rpc("set_my_consent_v1", {
-    p_purpose_key: purposeKey,
-    p_granted: granted,
-    p_document_id: documentId,
-    p_source: "mobile",
-    p_app_version: appVersion(),
-    p_locale: "de-CH",
-  });
-
-  if (error) throw error;
   clearConsentCache(purposeKey);
-  return data;
+  try {
+    const { data, error } = await supabase.rpc("set_my_consent_v1", {
+      p_purpose_key: purposeKey,
+      p_granted: granted,
+      p_document_id: documentId,
+      p_source: "mobile",
+      p_app_version: appVersion(),
+      p_locale: "de-CH",
+    });
+
+    if (error) throw error;
+    const saved = Array.isArray(data) ? data.find((row: unknown) =>
+      typeof row === "object" && row !== null && "purpose_key" in row && row.purpose_key === purposeKey,
+    ) : null;
+    if (!saved || saved.status !== (granted ? "granted" : "withdrawn")) {
+      throw new Error("consent_save_not_confirmed");
+    }
+    return data;
+  } finally {
+    // A failed response may follow a committed withdrawal. Never reuse an old grant.
+    clearConsentCache(purposeKey);
+  }
 }
 
 export async function getMyLegalGateStatus() {
@@ -139,7 +151,7 @@ export async function getMyPendingLegalDocuments() {
   );
 
   if (error) throw error;
-  return Array.isArray(data) ? data : [];
+  return parsePendingLegalDocuments(data);
 }
 
 export async function acceptLegalDocument(documentId: string) {

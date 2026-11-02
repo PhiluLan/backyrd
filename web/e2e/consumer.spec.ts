@@ -43,6 +43,8 @@ async function openAuthenticatedMomentsFixture(page: Page) {
       }),
     });
   });
+  // This synthetic signed-in account has already accepted required documents.
+  await page.route("**/rest/v1/rpc/get_my_legal_gate_status_v1", (route) => route.fulfill({ status: 200, json: { gate_required: false } }));
   await page.route("**/auth/v1/user", (route) =>
     route.fulfill({
       status: signedIn ? 200 : 401,
@@ -373,6 +375,8 @@ test("login updates the shell, opens Profile, survives refresh and logout closes
       }),
     });
   });
+  // This synthetic signed-in account has already accepted required documents.
+  await page.route("**/rest/v1/rpc/get_my_legal_gate_status_v1", (route) => route.fulfill({ status: 200, json: { gate_required: false } }));
   await page.route("**/auth/v1/user", async (route) => {
     await route.fulfill({
       status: signedIn ? 200 : 401,

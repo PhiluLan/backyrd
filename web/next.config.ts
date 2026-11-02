@@ -7,6 +7,7 @@ const privateRoutePrefixes = [
   "signup",
   "verify",
   "onboarding",
+  "legal-consent",
   "profile",
   "users",
   "messages",

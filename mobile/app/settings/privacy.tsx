@@ -20,22 +20,23 @@ export default function ProfilePrivacySettingsScreen() {
     setLoading(true);
     setError(false);
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
       const userId = userData.user?.id;
-      if (!userId) return;
+      if (!userId) { router.replace("/auth/login"); return; }
       const { data, error: profileError } = await supabase
         .from("profiles")
         .select("is_private")
         .eq("id", userId)
-        .maybeSingle();
-      if (profileError) throw profileError;
+        .single();
+      if (profileError || !data) throw profileError ?? new Error("profile_missing");
       setIsPrivate(Boolean(data?.is_private));
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {

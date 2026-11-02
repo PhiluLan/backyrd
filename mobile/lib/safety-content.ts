@@ -31,10 +31,7 @@ export async function registerSafetySnapshot(
   );
 
   if (error) {
-    console.log(
-      "registerSafetySnapshot failed",
-      error,
-    );
+    console.warn("registerSafetySnapshot failed", { code: error.code });
     return;
   }
 
@@ -61,14 +58,12 @@ export async function registerSafetySnapshot(
     );
 
   if (evaluationError) {
-    console.log(
-      "automatic image safety evaluation failed",
-      evaluationError,
-    );
+    console.warn("automatic image safety evaluation not confirmed");
   }
 }
 
 export function buildProfileSafetyText(profile: {
+  display_name?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   username?: string | null;
@@ -83,6 +78,7 @@ export function buildProfileSafetyText(profile: {
   contact_email?: string | null;
 }) {
   return [
+    profile.display_name,
     profile.first_name,
     profile.last_name,
     profile.username
