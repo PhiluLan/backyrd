@@ -1,12 +1,22 @@
 # Backyrd Beta Arbeitsumfang und Abnahme
 
-Stand: 1. November 2026. Ausgangspunkt ist Main `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
+Stand: 2. November 2026. Ausgangspunkt ist Main `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
 
 Die Beta soll den gesamten Weg vom ersten Einstieg bis zum echten Erlebnis und
 anschliessenden Moment verständlich und zuverlässig unterstützen. Der Umfang
 umfasst App, Consumer Web, Owner und Admin. Vorhandene Bildschirme gelten erst
 nach einer vollständigen Ablaufprüfung als abgenommen. Eine grüne technische
 Prüfung ersetzt diese Abnahme nicht.
+
+## Paketstatus
+
+**Paket 1 ist abgeschlossen und grün.** Die freigegebenen Sicherheitskorrekturen
+sind live. Das frische vollständige AWS-Backup vom 2. November ist auf zwei
+isolierten Zielen tatsächlich wiederhergestellt und mit Datenbank, Rechten,
+Fremdschlüsseln, Original-Medienschlüsseln und Bytes abgeglichen.
+[Abschluss und Belege](BETA_SECURITY_FOUNDATION.md#abschluss-paket-1-grün-am-2-november-2026).
+Paket 2 wurde auf ausdrücklichen Wunsch bis zu diesem Abschluss nicht begonnen.
+Die vollständige Beta-Sicherheits-/Geräteabnahme bleibt Paket 6.
 
 ## Erfasster Umfang
 
@@ -90,10 +100,11 @@ keine unvorbereitete Technikfrage.
 Entscheidungen werden erst beim betroffenen Paket angefragt. Routinemässige
 Entwicklung, Tests und reversible Korrekturen brauchen keine erneute Zustimmung.
 
-## Konkrete Sicherheitsbefunde vom 1 November
+## Historische Sicherheitsbefunde der ersten Inventur vom 1. November
 
-Die erste Inventur ist kein Penetrationstest und kein Nachweis einer Ausnutzung.
-Die folgenden Befunde sind vor der Beta zu bearbeiten:
+Die erste Inventur war kein Penetrationstest und kein Nachweis einer Ausnutzung.
+Die folgenden Werte beschreiben den damaligen Ausgangspunkt, nicht den jetzigen
+Stand. Bearbeitung und aktuelle Ergebnisse stehen im verlinkten P1-Abschluss:
 
 - `npm audit --omit=dev` meldet im Root/Consumer-Web-Kontext 4 betroffene
   Abhängigkeiten: 1 kritisch, 2 hoch, 1 mittel. Im separaten Admin-Lockfile sind
@@ -129,19 +140,20 @@ Produktion. Absolute Unangreifbarkeit wird nicht versprochen.
 ## Nachweise und Arbeitsgrenzen
 
 - Paket 1: [Sicherheits-Ausgangsstand und erste Korrekturen](BETA_SECURITY_FOUNDATION.md).
-  Backup und Runtime-Dokumentation sind vorhanden; die Sicherheitskorrekturen
-  werden getrennt von ihrer Produktionsveröffentlichung nachgewiesen. Offene
-  App-Abhängigkeiten und die spätere vollständige Sicherheitsabnahme bleiben
-  ausdrücklich sichtbar.
+  Live-Release und saubere echte Wiederherstellung sind mit unveränderlichen
+  Nachweisen abgeschlossen. Verbleibende mittlere/niedrige Werkzeughinweise und
+  die spätere vollständige Sicherheitsabnahme bleiben ausdrücklich sichtbar.
 - Aktueller Decision-Ablauf: [Decision Runtime](../decision-vnext/CURRENT_PRODUCT_RUNTIME.md).
 - Backup: [bestehender AWS-Workflow](../../.github/workflows/production-backup.yml),
-  [vollständiger manueller Lauf 41335894428](https://github.com/PhiluLan/backyrd/actions/runs/41335894428),
-  Modus `weekly`, am 1. November um 18:26 UTC erfolgreich abgeschlossen.
+  [vollständiger manueller Lauf 41404678473](https://github.com/PhiluLan/backyrd/actions/runs/41404678473),
+  Modus `weekly`, am 2. November um 07:31 UTC erfolgreich abgeschlossen.
   Bestätigt sind Datenbankexport, 140 Storage-Dateien, erfolgreicher AWS-Upload
   und die bestehende KMS-Verschlüsselungsprüfung. Der gesicherte Quellstand ist
-  `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
+  `81f25c6b6ee147b4f97ac66498343c5f7030976f`.
 - [Wiederherstellungsablauf](../operations/DATABASE_AND_MEDIA_RECOVERY_RUNBOOK.md):
-  Ein erfolgreicher Export ist kein frisch bestandener Wiederherstellungstest.
+  Ein erfolgreicher Export allein ist kein Wiederherstellungstest. Der echte
+  [Lauf 41408295475](https://github.com/PhiluLan/backyrd/actions/runs/41408295475)
+  besteht einschliesslich aller Original-Medienschlüssel und SHA-256-Rückleseprüfungen.
 - Die Live-Launch-Übersicht enthält überwiegend August-Einträge. Alte Statuswerte
   nicht als neue Fehler oder aktuelle Abnahme behandeln; nach den tatsächlichen
   Paketprüfungen mit Nachweisen aktualisieren.
