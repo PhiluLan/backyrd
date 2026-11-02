@@ -85,7 +85,7 @@
       "runId": 41348866544
     },
     "guaranteedDatabaseRollback": false,
-    "source": "Prepared for migration-specific Founder approval. Original AWS rows/schema/ACL and all 140 media files match; the exact 37-reference privacy correction and subsequent foreign-key validation passed only on the isolated copy. Original source integrity was not falsely marked clean. Production cutover is not tested; a fresh clean backup/restore is required after the approved production correction."
+    "source": "Founder explicitly approved the exact two SQL migrations, bounded release path and breached-password flag on 2026-11-02, including the disclosed remaining recovery risk. Original AWS rows/schema/ACL and all 140 media files match; the exact 37-reference privacy correction passed only on the isolated copy. Production cutover remains untested; a fresh clean backup/restore is required after production correction."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -196,6 +196,6 @@
       }
     ],
     "executionAuthorized": false,
-    "source": "PREPARED FOR FOUNDER REVIEW ONLY. Exact security/privacy SQL pair and breached-password flag; no Production dispatch is authorized by this document."
+    "source": "Founder explicit exact-scope approval in this release conversation on 2026-11-02: only the two hash-bound security/privacy migrations and password_hibp_enabled=true; four Booking migrations and all Edge Function changes excluded. The plan remains non-executing; the authenticated production workflow enforces this scope."
   }
 }

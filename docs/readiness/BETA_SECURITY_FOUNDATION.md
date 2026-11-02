@@ -1,6 +1,6 @@
 # Beta: Sicherheits-Ausgangsstand
 
-Stand: 1. November 2026. Basis: `d53cd3bca508c5803395d967d32286ab106672cf`.
+Stand: 2. November 2026. Basis: `d53cd3bca508c5803395d967d32286ab106672cf`.
 Dies ist die Bestandsaufnahme und erste Härtung aus Paket 1, keine vollständige
 Sicherheitsabnahme der Beta. Die abschliessende Ablauf- und Sicherheitsabnahme
 bleibt Paket 6. Unveröffentlichte Korrekturen schützen Produktion noch nicht.
@@ -209,7 +209,7 @@ Passwortschutz benötigen die konkrete, migrationsspezifische Freigabe unten.
 
 ## Konkreter Produktionsplan zur Freigabe
 
-Status: **vorbereitet, nicht für Produktion freigegeben**. Paket 2 bleibt offen.
+Status: **am 2. November 2026 vom Founder für genau den nachstehenden Umfang freigegeben; Produktionsausführung noch ausstehend**. Paket 2 bleibt offen.
 PR [679](https://github.com/PhiluLan/backyrd/pull/679) enthält den begrenzten Weg.
 Web und Admin sind veröffentlicht. Das iOS-Sicherheitsupdate ist veröffentlicht
 und am Produktionsendpunkt bytegenau als zertifiziertes Paket geprüft:
