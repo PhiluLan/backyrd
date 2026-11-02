@@ -1,6 +1,6 @@
 # Aktueller Ablauf der Backyrd Decision Engine
 
-Stand: 1. November 2026. Dieses Dokument beschreibt den aktiven Produktpfad für
+Stand: 2. November 2026. Dieses Dokument beschreibt den aktiven Produktpfad für
 Weiterentwicklung, Prüfung und die sachliche Erklärung gegenüber Investoren.
 
 ## Produktprinzip
@@ -31,8 +31,8 @@ flowchart LR
 | --- | --- |
 | Funktionaler Release | `053e684a25e0e0c7cf227da4437f01233a19a55f`, PR 671 |
 | Zugehöriger Release-Nachweis | Main `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`, PR 672 |
-| Aktiver Transport | `decision-v13`, Version 231; JWT-Prüfung aktiv |
-| Admin-Diagnose | `decision-admin-diagnostic`, Version 27; JWT- und Admin-Prüfung |
+| Aktiver Transport | `decision-v13`, Version 232; JWT-Prüfung aktiv |
+| Admin-Diagnose | `decision-admin-diagnostic`, Version 28; JWT- und Admin-Prüfung |
 | Runtime | Generation 49, ON; Kontinuitätsautorisierung bestätigt |
 | Modell | `gpt-5.6-luna`, Reasoning `low`, Responses API |
 | Provider | `backyrd.luna-provider@5` |
@@ -41,6 +41,17 @@ flowchart LR
 | Matching | `backyrd.decision-vnext.librarian-matching@53` |
 | Evaluatoren | Orte `decision-vnext-librarian-evaluator@11`, Events `@12` |
 | Kontext | Basel-Region über `backyrd_decision_vnext_product_context_v7` |
+
+Der Sicherheitsrelease vom 2. November (`81f25c6b6ee147b4f97ac66498343c5f7030976f`,
+Produktionslauf 41404437996) verändert weder die Engine noch ihre Interpretation
+oder ihr Ranking. Alle 30 Edge-Function-Versionen, Bundle-Hashes und JWT-Einstellungen
+sind vor/nach diesem Release identisch; oben stehen die am 2. November tatsächlich
+abgelesenen Function-Versionen. Generation 49 ist weiterhin ON.
+Das veröffentlichte iOS-Sicherheitsupdate ist `01a198c8-d127-7a47-88a0-1e59ded947ea`,
+Gruppe `4dea6585-ac77-4b43-9435-015029d05341`, Runtime 1.1.0, Quellstand
+`9b04fd2651c185de26694d5a1763b6398e84f91b`. Es wurde am öffentlichen Produktionsendpunkt
+bytegenau mit dem zertifizierten Hermes-Paket abgeglichen; das ist keine
+Bestätigung einer Installation auf einem konkreten Gerät.
 
 Die spätere Dokumentationsänderung ist keine neue Engine-Version. Historische
 Phase-/Lab-Berichte beschreiben frühere Zustände; ihre damaligen Rankings und

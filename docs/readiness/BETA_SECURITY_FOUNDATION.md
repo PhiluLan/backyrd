@@ -104,9 +104,9 @@ enthalten beide nativen Bundles nicht.
 | Bereich | Aktueller Audit | Einordnung |
 | --- | --- | --- |
 | Web/Admin produktive Pakete | jeweils 0 | Betroffene Serverbibliotheken aktualisiert. |
-| Mobile einschliesslich Expo-/Metro-Werkzeugen | 36: hoch 0, kritisch 0, mittel 35, niedrig 1 | Mehrfachzählung transitiver Eltern; vier verbleibende Ursachen unten. |
+| Mobile einschliesslich Expo-/Metro-Werkzeugen | 50: hoch 0, kritisch 0, mittel 49, niedrig 1 | Mehrfachzählung transitiver Eltern; vier verbleibende Ursachen unten. |
 | Root einschliesslich EAS/Entwicklungswerkzeugen | 40: hoch 0, kritisch 0, mittel 38, niedrig 2 | Kein produktiver Web-Befund; Werkzeugrisiken bleiben getrennt sichtbar. |
-| Admin einschliesslich Entwicklungswerkzeugen | 17 mittel, hoch/kritisch 0 | Nicht mit dem produktiven Admin-Baum verwechseln. |
+| Admin einschliesslich Entwicklungswerkzeugen | 16 mittel, hoch/kritisch 0 | Nicht mit dem produktiven Admin-Baum verwechseln. |
 
 Triage der verbleibenden Ursachen für Paket 1:
 
@@ -142,11 +142,11 @@ Audit des tatsächlich installierten produktiven Baums.
 
 Eine kompromittierte-Passwort-Ablehnung bekommt in App und Web einen klaren
 Text. Er erscheint ausschliesslich bei `weak_password` mit Grund `pwned`,
-nicht aufgrund eines beliebigen Fehlers. Die Konfiguration des echten
-Passwortschutzes ist weiterhin **nicht aktiviert**. Der vorbereitete Deployer
-kann genau `password_hibp_enabled=true` setzen, ohne SMTP-Zugangsdaten,
-E-Mail-Vorlagen oder Weiterleitungen anzufassen. Die Aktivierung braucht den
-konkreten begrenzten Produktionsplan und anschliessende Verifikation.
+nicht aufgrund eines beliebigen Fehlers. Der echte Passwortschutz ist seit dem 2. November **aktiviert und durch einen
+anschliessenden GET des Auth-Dienstes verifiziert**. Geändert wurde ausschliesslich
+`password_hibp_enabled=true`. SMTP-Zugangsdaten, E-Mail-Vorlagen und Weiterleitungen
+wurden nicht angefasst. Der versiegelte Produktionsnachweis nennt genau diesen
+einen geänderten Schlüssel und `smtpCredentialApplied:false`.
 
 Der AWS-Workflow bekommt einen manuellen Modus `restore-drill`. Er verwendet
 nur den bisherigen Main/OIDC-/KMS-Zugang und liest das neueste vollständige
@@ -174,7 +174,7 @@ Fehler. Der echte AWS-Nachweis ist unten mit seiner ehrlichen Abgrenzung dokumen
 ## Weitere Supabase-Hinweise
 
 Produktionsprojekt beim Abgleich: `ACTIVE_HEALTHY`. Die Bestandsaufnahme vom
-1. November meldet weiterhin folgende Gruppen; sie sind keine pauschal
+1. November meldete folgende Gruppen; sie sind keine pauschal
 bestätigten Datenlecks:
 
 | Hinweis | Einordnung und offene Prüfung |
@@ -203,13 +203,24 @@ bestätigten Datenlecks:
   Reproduzierbarer vollständiger Datenbank-Neuaufbau gehört zum PR-Nachweis.
 
 Die vier zurückgestellten Booking-Migrationen bleiben ausserhalb dieses Umfangs.
-Die Produktions-Auth-Konfiguration, Edge Functions, Nutzerinteressen und echten
-Spotdaten bleiben bisher unverändert. Die beiden SQL-Dateien und der
-Passwortschutz benötigen die konkrete, migrationsspezifische Freigabe unten.
+Der am 2. November freigegebene und veröffentlichte Umfang enthält nur die beiden
+SQL-Dateien und den einzelnen Passwortschutz-Schalter. Edge Functions,
+Nutzerinteressen und echte Spotdaten bleiben unverändert. Der Live-Abgleich
+bestätigt 46 feste Suchpfade, zehn geschützte interne Worker, null ungültige
+Profilreferenzen sowie null unzulässige öffentliche Mood-Zeilen. Der vorhandene
+SELECT-Grant für `authenticated` auf dem rohen Mood-Aggregat hebt dessen RLS nicht
+auf: die Prüfung unter dieser Rolle ohne Admin-Berechtigung liefert null Zeilen.
+Alle 584 geprüften Quell-Fremdschlüssel haben im anschliessenden Live-Abgleich
+null verwaiste Referenzen.
 
 ## Konkreter Produktionsplan zur Freigabe
 
-Status: **am 2. November 2026 vom Founder für genau den nachstehenden Umfang freigegeben; Produktionsausführung noch ausstehend**. Paket 2 bleibt offen.
+Status: **am 2. November 2026 freigegeben, veröffentlicht und live geprüft**.
+Produktionslauf [41404437996](https://github.com/PhiluLan/backyrd/actions/runs/41404437996),
+Quellstand `81f25c6b6ee147b4f97ac66498343c5f7030976f`, Zertifizierung 41403791795,
+Manifest `070ac17a5ed28aa699d89f90c40d2f98bc9bbd29e7ee8b80521ebf10eac65a44`.
+Paket 1 bleibt bis zum neuen sauberen Wiederherstellungsnachweis offen; Paket 2
+wurde nicht begonnen.
 PR [679](https://github.com/PhiluLan/backyrd/pull/679) enthält den begrenzten Weg.
 Web und Admin sind veröffentlicht. Das iOS-Sicherheitsupdate ist veröffentlicht
 und am Produktionsendpunkt bytegenau als zertifiziertes Paket geprüft:
@@ -254,9 +265,9 @@ behauptet ausdrücklich **nicht**, die Originalquelle sei bereits fehlerfrei:
 Beleg-SHA-256:
 `221c12c857be67bd0e6f90ec624a700ad48c3c527dc80062e2e99b231c44c7f6`.
 
-Nach ausdrücklicher Freigabe: exaktes Main-Artefakt zertifizieren, nur diesen
-SQL/Auth-Umfang anwenden, Rechte und Passwortschutz live prüfen. Anschliessend
-frisches vollständiges AWS-Backup erzeugen und ohne Korrekturmodus wiederherstellen.
+Freigabe, Zertifizierung, genau dieser SQL/Auth-Umfang sowie die Live-Prüfung
+sind abgeschlossen. Als letzter Schritt wird das frische vollständige AWS-Backup
+41404678473 erstellt und anschliessend ohne Korrekturmodus wiederhergestellt.
 Der abschliessende Lauf muss zusätzlich die vollständige Übereinstimmung
 zwischen Storage-Metadateneinträgen und gesicherten Dateipfaden bestätigen
 (`storageInventoryMatches:true`); fehlende, zusätzliche und doppelte Dateien
@@ -269,3 +280,19 @@ Nach Übernahme von PR 674 sind GitHubs verbleibende hohen/kritischen Meldungen
 auf das historische, nicht ausgelieferte `mobu/package-lock.json` begrenzt.
 Die tatsächlich verwendeten Lockfiles haben diese Schweregrade nicht mehr.
 Die Meldungen werden nicht pauschal geschlossen oder verborgen.
+
+## Werkzeugabgleich vom 2. November
+
+Der frische Abgleich meldete zusätzlich das ESLint-Dateiwerkzeug `@humanfs/node`
+0.16.7 in den separaten Mobile-/Admin-Lockfiles. Es ist eine Entwicklungsabhängigkeit,
+kein App- oder Server-Laufzeitmodul. Beide Lockfiles sind innerhalb des erlaubten
+Patchbereichs auf 0.16.8 aktualisiert; Root verwendete diese Version bereits.
+Frische Installationen, Typprüfungen und ein gezielter synthetischer Symlink-Test
+bestätigen, dass `copyAll()` externe Dateiinhalte nicht mehr als reguläre Dateien
+in die Kopie übernimmt. Die verbleibenden Links sind keine freigegebenen Uploads;
+der Backup-Importer weist Links weiterhin ab. Quelle:
+[Hersteller-Advisory](https://github.com/advisories/GHSA-p498-v437-472g).
+Keine App-Funktion, SDK-Version, Rankingregel oder SQL-Datei wurde dafür geändert.
+Die produktiven Web-/Admin-Audits vom 2. November bleiben jeweils bei null.
+Die übrigen mittleren/niedrigen Werkzeugbefunde bleiben sichtbar und getrennt
+von der späteren vollständigen Beta-Sicherheitsabnahme.
