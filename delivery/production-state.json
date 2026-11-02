@@ -431,6 +431,27 @@
         "validatedForeignKeysAudited": 584,
         "orphanReferences": 0,
         "productionDeploymentAuditHash": "5e8ee0d65259b83eb1b5f7806fc81d0a1efabd0fa7241588f5651d6dfcf59e18"
+      },
+      "recovery": {
+        "status": "PASS",
+        "backupRunId": 41404678473,
+        "restoreRunId": 41408295475,
+        "receipt": {
+          "path": "delivery/recovery/beta-security-restore-v1.json",
+          "sha256": "37b87d181ef09faba0df580ba034709ebd53ab887976d82c7ca5172e190c4c93"
+        },
+        "sourceMainSha": "81f25c6b6ee147b4f97ac66498343c5f7030976f",
+        "sourceArchiveSha256": "5e1cc668e1de3848320479e0b0969d9cf5c607ce027e08bdd54ee8a0f7d8a175",
+        "sourceCreatedAt": "2026-11-02T07:31:07Z",
+        "tableCount": 376,
+        "rowCount": 226267,
+        "sequenceCount": 40,
+        "storageFiles": 140,
+        "foreignKeysValidated": true,
+        "storageOriginalKeysVerified": true,
+        "storageArchiveLayout": "LEGACY_DUPLICATED_BUCKET_PREFIX",
+        "productionWrites": 0,
+        "productionCutoverTested": false
       }
     },
     "analyticsPrivacyReferenceRelease": {

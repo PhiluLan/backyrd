@@ -14,8 +14,10 @@ bleibt Paket 6. Unveröffentlichte Korrekturen schützen Produktion noch nicht.
   Der echte Export wurde im isolierten Lauf 41348866544 wiederhergestellt:
   376 Tabellen, 226190 Zeilen, 40 Sequenzen und alle 140 Mediendateien wurden
   abgeglichen. Die Quelle enthält 37 alte ungültige Profilverknüpfungen; deren
-  exakt begrenzte Korrektur wurde nur auf der Kopie erprobt. Das ist noch keine
-  saubere Produktionsdatenbank und keine geprobte Notfall-Umschaltung.
+  exakt begrenzte Korrektur wurde nur auf der Kopie erprobt. Dieser damalige
+  Probelauf war noch kein sauberer Produktionsstand. Der vollständige aktuelle
+  Nachweis nach der Live-Korrektur steht im Abschluss unten; eine echte
+  Notfall-Umschaltung bleibt ungeprobt.
 - Release-Identität und tatsächliche Decision-Verarbeitung sind in
   [CURRENT_PRODUCT_RUNTIME.md](../decision-vnext/CURRENT_PRODUCT_RUNTIME.md)
   dokumentiert. Die aktuelle Arbeit ändert weder Ranking noch Interpretation.
@@ -183,7 +185,7 @@ bestätigten Datenlecks:
 | GraphQL-Sichtbarkeit: anon 79, authenticated 131 | SELECT-Grants machen Tabellen im Schema auffindbar; Zeilenzugriff hängt zusätzlich von RLS ab. Sensible Tabellen und fremde Datensätze in Paket 2/3 sowie Paket 6 explizit negativ prüfen. |
 | Definer ausführbar: anon 115, authenticated 410 | Umfasst beabsichtigte Produkt-RPCs, Triggerfunktionen und tatsächliche interne Endpunkte. Zehn bestätigte interne Endpunkte werden mit dieser Migration geschlossen; die restliche Liste ist damit nicht vollständig freigegeben. |
 | Extensions in public: 5 | Nicht ungeprüft verschieben: gespeicherte Typen, Operatoren und Abhängigkeiten benötigen eine eigene kompatible Migration. |
-| Schutz gegen kompromittierte Passwörter | Laut Advisor noch nicht aktiv. Vor Abschluss von Paket 1 aktivieren und serverseitig verifizieren; verständliche Ablehnung ist vorbereitet. |
+| Schutz gegen kompromittierte Passwörter | Ausgangsbefund 1. November: nicht aktiv. Am 2. November aktiviert und per Auth-GET verifiziert; der Advisor-Hinweis ist danach verschwunden. |
 
 ## Validierung und Releasegrenze
 
@@ -219,8 +221,8 @@ Status: **am 2. November 2026 freigegeben, veröffentlicht und live geprüft**.
 Produktionslauf [41404437996](https://github.com/PhiluLan/backyrd/actions/runs/41404437996),
 Quellstand `81f25c6b6ee147b4f97ac66498343c5f7030976f`, Zertifizierung 41403791795,
 Manifest `070ac17a5ed28aa699d89f90c40d2f98bc9bbd29e7ee8b80521ebf10eac65a44`.
-Paket 1 bleibt bis zum neuen sauberen Wiederherstellungsnachweis offen; Paket 2
-wurde nicht begonnen.
+**Paket 1 ist mit dem erfolgreichen echten Wiederherstellungsnachweis vom
+2. November abgeschlossen und grün. Paket 2 wurde nicht begonnen.**
 PR [679](https://github.com/PhiluLan/backyrd/pull/679) enthält den begrenzten Weg.
 Web und Admin sind veröffentlicht. Das iOS-Sicherheitsupdate ist veröffentlicht
 und am Produktionsendpunkt bytegenau als zertifiziertes Paket geprüft:
@@ -265,14 +267,15 @@ behauptet ausdrücklich **nicht**, die Originalquelle sei bereits fehlerfrei:
 Beleg-SHA-256:
 `221c12c857be67bd0e6f90ec624a700ad48c3c527dc80062e2e99b231c44c7f6`.
 
-Freigabe, Zertifizierung, genau dieser SQL/Auth-Umfang sowie die Live-Prüfung
-sind abgeschlossen. Als letzter Schritt wird das frische vollständige AWS-Backup
-41404678473 erstellt und anschliessend ohne Korrekturmodus wiederhergestellt.
-Der abschliessende Lauf muss zusätzlich die vollständige Übereinstimmung
-zwischen Storage-Metadateneinträgen und gesicherten Dateipfaden bestätigen
-(`storageInventoryMatches:true`); fehlende, zusätzliche und doppelte Dateien
-werden abgewiesen.
-**Erst der saubere anschliessende Lauf und die Live-Prüfungen schliessen Paket 1 ab.**
+Freigabe, Zertifizierung, genau dieser SQL/Auth-Umfang und Live-Prüfung sind
+abgeschlossen. Das neue vollständige AWS-Backup 41404678473 vom 2. November
+wurde im Lauf 41408295475 ohne Datenbank-Reparaturmodus erfolgreich
+wiederhergestellt. Der aktuelle vollständige Nachweis folgt im Abschluss unten.
+Der abschliessende Lauf bestätigt `storageInventoryMatches:true` und
+`storageOriginalKeysVerified:true`. Das archivierte alte Transportlayout wird
+unverändert gelesen und vollständig auf die Originalschlüssel abgebildet; keine
+Datei fehlt oder wird zusätzlich akzeptiert. Zusammen mit den Live-Prüfungen
+schliesst dieser Nachweis Paket 1 ab.
 Eine Notfall-Umschaltung der echten Produktion und externe Provider-/Signierschlüssel
 sind nicht geprobt; ein garantierter vollständiger Rollback wird nicht zugesichert.
 
@@ -316,4 +319,35 @@ explizit kanonische Archive erhalten diese Kompatibilitätsbehandlung nicht.
 Der eigentliche Medien-Replay liest die unveränderten archivierten Bytes und
 schreibt sie unter den verifizierten **Originalschlüsseln**, inklusive SHA-256-
 Rückleseprüfung. Das verändert keine Produktionsdaten und repariert keine
-Datenbankzeilen. Paket 1 bleibt bis zum vollständigen echten Nachweis offen.
+Datenbankzeilen. Der anschliessende echte Lauf 41408295475 hat diesen
+vollständigen Nachweis erbracht.
+
+## Abschluss Paket 1: grün am 2. November 2026
+
+- Sicherheitsrelease live: [41404437996](https://github.com/PhiluLan/backyrd/actions/runs/41404437996).
+  Genau die beiden genehmigten SQL-Dateien und der eine Auth-Schalter; 202
+  Produktionsmigrationen, die vier Booking-Migrationen weiterhin ausgeschlossen.
+- Frisches vollständiges verschlüsseltes AWS-Backup:
+  [41404678473](https://github.com/PhiluLan/backyrd/actions/runs/41404678473),
+  erstellt 2. November 2026, 07:31:07 UTC; Quelle `81f25c6b6ee147b4f97ac66498343c5f7030976f`.
+- Echter isolierter Restore: [41408295475](https://github.com/PhiluLan/backyrd/actions/runs/41408295475),
+  **PASS**, keine nachträgliche Datenbankkorrektur. 376 Tabellen, 226267 Zeilen,
+  40 Sequenzen, Schema/Rechte und Original-Fremdschlüssel stimmen. Alle 140
+  Mediendateien unter ihren Originalschlüsseln hochgeladen, zurückgelesen und
+  SHA-256-geprüft; Bucket-Regeln wiederhergestellt. Das bekannte verschachtelte
+  Archivlayout ist im Beleg ausdrücklich ausgewiesen, keine Datei im Archiv
+  wurde verändert. Beide Ziele ohne externen Netzweg; anschliessend entfernt.
+- Unveränderter [Originalbeleg](../../delivery/recovery/beta-security-restore-v1.json),
+  SHA-256 `37b87d181ef09faba0df580ba034709ebd53ab887976d82c7ca5172e190c4c93`.
+  Archiv-SHA-256 `5e1cc668e1de3848320479e0b0969d9cf5c607ce027e08bdd54ee8a0f7d8a175`.
+  `foreignKeysValidated:true`, `proposedIntegrityRepair:null`,
+  `storageOriginalKeysVerified:true`, `productionWrites:0`.
+- App/Web/Admin-Sicherheitskorrekturen und der aktuelle Decision-Ablauf sind
+  dokumentiert. Die live geprüfte Runtime bleibt Generation 49 ON; keine
+  Function-/Rankingänderung dieses Sicherheitsreleases.
+- P1 umfasst den gesicherten Ausgangsstand und die dokumentierte Triage. Eine
+  echte Produktionsumschaltung, externe Provider-/Signierschlüssel sowie die
+  vollständige Geräte-/Ablauf- und Sicherheitsabnahme sind damit nicht getestet;
+  die Beta-Abnahme bleibt Paket 6. Ein garantierter vollständiger Rollback wird
+  nicht behauptet. Die mittleren/niedrigen Werkzeughinweise, historische
+  `mobu`-Meldungen und bestehende unveränderte Admin-Lintaltlasten bleiben sichtbar.

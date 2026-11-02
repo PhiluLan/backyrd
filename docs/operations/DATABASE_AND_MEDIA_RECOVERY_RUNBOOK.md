@@ -55,9 +55,11 @@ artifacts are not the durable launch backup destination.
 ## Isolated database restore drill
 
 1. Create a new local Supabase project with a unique project id and ports.
-2. Use the current pinned CLI/runtime and PostgreSQL major version 17. A restore
-   with CLI 2.98.2 failed because its local Auth schema lacked the Production
-   `custom_claims_allowlist` column; CLI 2.116.0 restored successfully.
+2. Use the workflow-pinned restore CLI 2.122.0 and PostgreSQL major version 17.
+   Export remains pinned independently to 2.116.0. The restore preflight checks
+   every original Auth/Storage COPY column against the disposable target before
+   replay; never omit managed columns to make a version mismatch pass. The older
+   Gate-1 CLI 2.116.0 success does not certify later Auth schema compatibility.
 3. Disable outbound and Product-like services: Edge Functions, webhooks, cron
    targets, Realtime, Auth delivery, email/SMS, push, and external workers.
 4. Restore roles, schema, then data in one transaction with
@@ -119,3 +121,47 @@ merge, Product-truth rewrite, or history rewrite to the Founder.
 ## Independent export coverage correction
 
 The v2 exporter is isolated from the pending Booking feature chain. It preserves the existing approved AWS/Main/OIDC/retention/encryption boundary and includes schema-derived private table inventory, original migration history and actually installed managed controls. The full later-candidate synthetic logical restore is separate evidence in PR #575, not a dependency or proof that a current cloud archive is restorable. Keep cron/webhooks, apps/intake and external workers disabled during recovery until target compatibility and lost/external operations are reconciled. See [export scope and limits](BOOKING_BACKUP_EXPORT.md).
+
+## Original Storage keys and archive layout
+
+The byte-only rehearsal of 1 November 2026 did not prove original object keys.
+The stricter 2 November check rejected the nested layout with
+`backup_storage_inventory_mismatch`. Keep that historical receipt unchanged and
+label its limitation; do not retrospectively call it an original-key verification.
+
+The pinned export CLI appends the source basename when the local destination
+already exists ([upstream implementation](https://github.com/supabase/cli/blob/v2.116.0/apps/cli/src/legacy/commands/storage/cp/cp.handler.ts#L222)).
+The exporter now leaves each destination absent until the copy and records
+`storageArchiveLayout: BUCKET_OBJECT_KEY`. Existing v2 exports of exactly CLI
+2.116.0 without that explicit marker may contain `bucket/bucket/key`.
+
+Recovery permits only a complete bijection between that known legacy layout and
+**every** original `storage.objects` key in the restored database. A canonical
+key is never stripped; unknown layouts, extra/missing/duplicate files or an
+incomplete mapping fail. The archive is immutable: read each original archived
+file and upload its bytes under the verified original key, then download from
+that key and compare SHA-256. Preserve MIME types when recorded and all bucket
+controls. New explicitly canonical archives cannot use the legacy exception.
+A successful receipt records the actual layout and `storageOriginalKeysVerified`;
+normal database-integrity validation remains independent and cannot be bypassed
+by the Storage compatibility mapping.
+
+
+## Latest verified off-provider recovery: 2 November 2026
+
+Full encrypted AWS export: [41404678473](https://github.com/PhiluLan/backyrd/actions/runs/41404678473).
+Actual isolated replay: [41408295475](https://github.com/PhiluLan/backyrd/actions/runs/41408295475).
+The immutable [receipt](../../delivery/recovery/beta-security-restore-v1.json)
+(SHA-256 `37b87d181ef09faba0df580ba034709ebd53ab887976d82c7ca5172e190c4c93`)
+reports PASS: 376 tables, 226267 rows, 40 sequences, schema/ACL/source foreign
+keys and all 140 Storage files under original keys verified. The archive's
+known legacy bucket nesting is explicitly recorded; original archive bytes are
+unchanged. No database repair was needed. Both independently isolated targets
+were removed; Production writes were zero. The source snapshot was created
+2026-11-02T07:31:07Z after the approved security/privacy release.
+
+This completes the isolated database/media control, including the Q4 restore
+exercise (#419) and the corrected inventory failure tracked by #204. It does
+not certify a live Production cutover, external providers/signing secrets or a
+guaranteed rollback. The earlier receipt without original-key validation is
+retained as historical evidence, not promoted to this stronger result.
