@@ -1,6 +1,6 @@
 # Backyrd Beta Arbeitsumfang und Abnahme
 
-Stand: 2. November 2026. Ausgangspunkt ist Main `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
+Stand: 3. November 2026. Ausgangspunkt ist Main `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
 
 Die Beta soll den gesamten Weg vom ersten Einstieg bis zum echten Erlebnis und
 anschliessenden Moment verständlich und zuverlässig unterstützen. Der Umfang
@@ -15,7 +15,14 @@ sind live. Das frische vollständige AWS-Backup vom 2. November ist auf zwei
 isolierten Zielen tatsächlich wiederhergestellt und mit Datenbank, Rechten,
 Fremdschlüsseln, Original-Medienschlüsseln und Bytes abgeglichen.
 [Abschluss und Belege](BETA_SECURITY_FOUNDATION.md#abschluss-paket-1-grün-am-2-november-2026).
-Paket 2 wurde auf ausdrücklichen Wunsch bis zu diesem Abschluss nicht begonnen.
+Paket 2: [Einstieg und Kontrolle](BETA_ENTRY_AND_CONTROL.md). Die lokale
+Ablaufprüfung ist bestanden. Der Founder hat am 3. November nach Installation
+von iOS-Build 60 alle zehn vorgelegten Geräte-Abnahmepunkte als bestanden
+bestätigt. Die Website-Zuordnung für Password AutoFill ist über PR #684 live
+und auch auf Apples CDN verifiziert. Anschliessend hat der Founder den
+gezielten AutoFill-Test mit gespeicherten Zugangsdaten und erfolgreicher
+Anmeldung ausdrücklich als bestanden bestätigt. Offen bleibt der produktive
+Release der übrigen Paket-2-Änderungen. Paket 2 ist noch nicht vollständig grün.
 Die vollständige Beta-Sicherheits-/Geräteabnahme bleibt Paket 6.
 
 ## Erfasster Umfang
@@ -143,6 +150,8 @@ Produktion. Absolute Unangreifbarkeit wird nicht versprochen.
   Live-Release und saubere echte Wiederherstellung sind mit unveränderlichen
   Nachweisen abgeschlossen. Verbleibende mittlere/niedrige Werkzeughinweise und
   die spätere vollständige Sicherheitsabnahme bleiben ausdrücklich sichtbar.
+- Paket 2: [Einstieg, Profil und Einwilligungen](BETA_ENTRY_AND_CONTROL.md),
+  einschliesslich tatsächlich geprüfter Abläufe und noch offener Gerätefälle.
 - Aktueller Decision-Ablauf: [Decision Runtime](../decision-vnext/CURRENT_PRODUCT_RUNTIME.md).
 - Backup: [bestehender AWS-Workflow](../../.github/workflows/production-backup.yml),
   [vollständiger manueller Lauf 41404678473](https://github.com/PhiluLan/backyrd/actions/runs/41404678473),

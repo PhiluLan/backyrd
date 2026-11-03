@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Alert, StyleSheet, Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
@@ -15,11 +15,13 @@ export default function ProfilePrivacyCard({
   initialPrivate,
   onChanged,
 }: Props) {
+  const pending = useRef(false);
   const [isPrivate, setIsPrivate] = useState(initialPrivate);
   const [busy, setBusy] = useState(false);
 
   const apply = async (next: boolean) => {
-    setBusy(true);
+    if (pending.current) return;
+    pending.current = true; setBusy(true);
     try {
       const { data, error } = await supabase.rpc(
         "set_my_profile_privacy_v1",
@@ -27,25 +29,26 @@ export default function ProfilePrivacyCard({
       );
       if (error) throw error;
 
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.is_private !== next) throw new Error("privacy_save_not_confirmed");
       setIsPrivate(next);
       onChanged(next);
 
-      const row = Array.isArray(data) ? data[0] : data;
       if (next) {
         Alert.alert(
           "Konto ist privat",
           `Dein Profil und deine Momente sind nicht mehr öffentlich. ${
             Number(row?.removed_follower_count ?? 0)
-          } Follower wurden entfernt.`,
+          } Follower und ${Number(row?.removed_following_count ?? 0)} Folge-Verbindungen wurden entfernt.`,
         );
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       Alert.alert(
         "Privatstatus konnte nicht geändert werden",
         userFacingError(error, "Deine Sichtbarkeit konnte gerade nicht geändert werden."),
       );
     } finally {
-      setBusy(false);
+      pending.current = false; setBusy(false);
     }
   };
 
@@ -57,7 +60,7 @@ export default function ProfilePrivacyCard({
 
     Alert.alert(
       "Konto privat setzen?",
-      "Dein Profil verschwindet aus der Suche, bestehende Follower werden entfernt und deine Momente sind für andere nicht mehr sichtbar. Reviews bleiben auf Spotseiten sichtbar.",
+      "Dein Profil verschwindet aus der Suche, bestehende Follower und deine Folge-Verbindungen werden entfernt und deine Momente sind für andere nicht mehr sichtbar. Deine Momente mit Ortsbezug bleiben gegebenenfalls auf den Ortsseiten sichtbar. Das erneute Öffentlichstellen stellt die Verbindungen nicht wieder her.",
       [
         { text: "Abbrechen", style: "cancel" },
         {

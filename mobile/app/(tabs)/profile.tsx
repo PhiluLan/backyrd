@@ -32,6 +32,9 @@ import Avatar from "@/components/Avatar";
 import { StateView } from "@/components/foundation/StateView";
 import { ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
 import { backyrdTheme as theme } from "@/theme/backyrd";
+import type { User } from "@supabase/supabase-js";
+import { isMissingAuthSession } from "../../../packages/shared/src/auth-errors";
+import { isAccountUsername, profilePhotoObjectKey } from "../../../packages/shared/src/account-entry";
 import { signOutWithPushCleanup } from "@/lib/signOut";
 
 const { width } = Dimensions.get("window");
@@ -40,6 +43,7 @@ type ProfileTab = "posts" | "favorites" | "badges";
 
 type ProfileRow = {
   id: string;
+  display_name?: string | null;
   first_name?: string | null;
   last_name?: string | null;
   username?: string | null;
@@ -202,7 +206,7 @@ function formatSince(value?: string | null) {
 
 function profileName(profile: ProfileRow | null) {
   const full = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim();
-  return full || profile?.username || "Backyrd User";
+  return profile?.display_name?.trim() || full || profile?.username || "Backyrd-Mitglied";
 }
 
 function splitChips(value?: string | string[] | null) {
@@ -218,9 +222,6 @@ function getSpotPhoto(item: FavoriteRow) {
   return selectSpotImageUrl({ headerPhotoPath: item.spots?.header_photo_path });
 }
 
-function errorText(error: any) {
-  return "Das hat gerade nicht geklappt. Bitte versuche es erneut.";
-}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -230,7 +231,14 @@ export default function ProfileScreen() {
   const [checkedAuth, setCheckedAuth] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const profileRequest = useRef(0);
+  const authReadVersion = useRef(0);
+  const profileOwner = useRef<string | null>(null);
+  const authIdentity = useRef<string | null>(null);
+  const identityEpoch = useRef(0);
+  const profileMounted = useRef(true);
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
 
   const [posts, setPosts] = useState<SocialFeedPost[]>([]);
@@ -241,6 +249,10 @@ export default function ProfileScreen() {
   const [followingCount, setFollowingCount] = useState(0);
 
   const [tab, setTab] = useState<ProfileTab>("posts");
+  const profileSavePending = useRef(false);
+  const avatarPending = useRef(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [draft, setDraft] = useState<ProfileRow | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -264,7 +276,14 @@ export default function ProfileScreen() {
   const personalityChips = useMemo(() => splitChips(profile?.personality).slice(0, 4), [profile?.personality]);
 
   const loadForUser = useCallback(
-    async (currentUser: any) => {
+    async (currentUser: User | null) => {
+      const request = ++profileRequest.current;
+      setProfileLoadFailed(false);
+      if (profileOwner.current !== (currentUser?.id ?? null)) {
+        profileOwner.current = currentUser?.id ?? null;
+        setDraft(null); setShowEdit(false); setProfile(null);
+        setPosts([]); setFavorites([]); setBadges([]); setFollowersCount(0); setFollowingCount(0);
+      }
       setUser(currentUser);
 
       if (!currentUser) {
@@ -323,7 +342,8 @@ export default function ProfileScreen() {
             .eq("follower", currentUser.id),
         ]);
 
-        if (profileRes.error) console.log("profile load failed", profileRes.error);
+        if (request !== profileRequest.current) return;
+        if (profileRes.error || !profileRes.data) throw profileRes.error ?? new Error("profile_missing");
         if (feedRes.error) console.log("profile posts load failed", feedRes.error);
         if (favoritesRes.error) console.log("favorites load failed", favoritesRes.error);
         if (badgesRes.error) console.log("badges load failed", badgesRes.error);
@@ -340,6 +360,7 @@ export default function ProfileScreen() {
         );
         const visibleOwnPosts =
           await filterSafetyVisiblePosts(ownPosts);
+        if (request !== profileRequest.current) return;
 
         setPosts(visibleOwnPosts);
 
@@ -347,12 +368,10 @@ export default function ProfileScreen() {
         setBadges((badgesRes.data ?? []) as BadgeRow[]);
         setFollowersCount(followerRes.count ?? 0);
         setFollowingCount(followingRes.count ?? 0);
-      } catch (error: any) {
-        console.log("profile bootstrap failed", error?.message ?? error);
-        setPosts([]);
-        Alert.alert("Profil konnte nicht geladen werden", errorText(error));
+      } catch {
+        if (request === profileRequest.current) setProfileLoadFailed(true);
       } finally {
-        setLoading(false);
+        if (request === profileRequest.current) setLoading(false);
       }
     },
     [router]
@@ -360,155 +379,146 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     let active = true;
+    profileMounted.current = true;
 
-    supabase.auth
-      .getUser()
-      .then(async ({ data }) => {
-        if (!active) return;
-        await loadForUser(data.user ?? null);
-      })
-      .finally(() => {
-        if (active) setCheckedAuth(true);
-      });
+    const initialVersion = ++authReadVersion.current;
+    supabase.auth.getUser().then(async ({ data, error }) => {
+      if (!active || initialVersion !== authReadVersion.current) return;
+      if (error && !isMissingAuthSession(error)) throw error;
+      authIdentity.current = data.user?.id ?? null;
+      await loadForUser(data.user ?? null);
+    }).catch(() => { if (active && initialVersion === authReadVersion.current) setProfileLoadFailed(true); })
+      .finally(() => { if (active && initialVersion === authReadVersion.current) setCheckedAuth(true); });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      const nextIdentity = session?.user.id ?? null;
+      if (authIdentity.current !== nextIdentity) {
+        identityEpoch.current += 1; profileRequest.current += 1;
+        setCheckedAuth(false); setDraft(null); setShowEdit(false);
+        profileSavePending.current = false; avatarPending.current = false;
+        setSaving(false); setAvatarSaving(false);
+      }
+      authIdentity.current = nextIdentity;
+      const version = ++authReadVersion.current;
       // Supabase dispatches auth events while holding its client lock. A
       // database request in this callback can deadlock every later request.
       setTimeout(() => {
-        if (!active) return;
+        if (!active || version !== authReadVersion.current) return;
         void loadForUser(session?.user ?? null).then(() => {
-          if (active) setCheckedAuth(true);
+          if (active && version === authReadVersion.current) setCheckedAuth(true);
         });
       }, 0);
     });
 
     return () => {
       active = false;
+      profileMounted.current = false;
       listener?.subscription.unsubscribe();
     };
   }, [loadForUser]);
 
   async function pickImageAndUploadAvatar() {
-    if (!user) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.9,
-      base64: true,
-    });
-
-    if (result.canceled) return;
-
-    const asset = result.assets[0];
-    if (!asset.base64) return;
-
-    const fileName = `${user.id}/avatar`;
-    const arrayBuffer = decode(asset.base64);
-
-    const { error: uploadError } = await supabase.storage
-      .from("profile-photos")
-      .upload(fileName, arrayBuffer, {
-        contentType: asset.mimeType ?? "image/jpeg",
-        upsert: true,
+    if (!user || avatarPending.current || profileSavePending.current) return;
+    const actorId = user.id, epoch = identityEpoch.current;
+    const stillCurrent = () => profileMounted.current && identityEpoch.current === epoch && authIdentity.current === actorId;
+    avatarPending.current = true; setAvatarSaving(true);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.9, base64: true,
       });
+      if (result.canceled || !stillCurrent()) return;
+      const asset = result.assets[0];
+      if (!asset?.base64) throw new Error("image_missing");
+      const fileName = profilePhotoObjectKey(user.id, String(Date.now()));
+      const { error: uploadError } = await supabase.storage.from("profile-photos").upload(fileName, decode(asset.base64), { contentType: asset.mimeType ?? "image/jpeg", upsert: false });
+      if (uploadError) throw uploadError;
+      if (!stillCurrent()) return;
+      const { data: urlData } = supabase.storage.from("profile-photos").getPublicUrl(fileName);
+      const url = urlData.publicUrl;
+      const { data, error: updateError } = await supabase.from("profiles").update({ avatar_url: url, header_photo_url: url }).eq("id", user.id).select("id").single();
+      if (updateError || data?.id !== user.id) throw updateError ?? new Error("avatar_save_not_confirmed");
+      if (!stillCurrent()) return;
+      setProfile((current) => ({ ...(current ?? { id: user.id }), avatar_url: url, header_photo_url: url }));
+      setDraft((current) => current ? { ...current, avatar_url: url, header_photo_url: url } : current);
+      await registerSafetySnapshot({
+        entityType: "profile", entityId: user.id, contentType: "profile", actorUserId: user.id,
+        textContent: buildProfileSafetyText(profile ?? {}), imageUrls: [url], sourceSurface: "profile_avatar_upload",
+        sourceContext: { screen: "profile", media_role: "avatar_and_header" },
+      });
+      if (!stillCurrent()) return;
+      Alert.alert("Profilfoto gespeichert", "Dein neues Profilfoto wurde übernommen.");
+    } catch {
+      if (!stillCurrent()) return;
+      Alert.alert("Profilfoto nicht bestätigt", "Dein neues Profilfoto konnte nicht vollständig gespeichert werden. Bitte prüfe deine Verbindung und versuche es erneut.");
+    } finally { if (stillCurrent()) { avatarPending.current = false; setAvatarSaving(false); } }
+  }
 
-    if (uploadError) {
-      Alert.alert("Upload-Fehler", "Dein Profilbild konnte gerade nicht hochgeladen werden. Bitte versuche es erneut.");
-      return;
-    }
-
-    const { data } = supabase.storage.from("profile-photos").getPublicUrl(fileName);
-    const url = data.publicUrl;
-
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({
-        avatar_url: url,
-        header_photo_url: url,
-      })
-      .eq("id", user.id);
-
-    if (updateError) {
-      Alert.alert("Fehler beim Speichern", "Dein Profil konnte gerade nicht gespeichert werden. Bitte versuche es erneut.");
-      return;
-    }
-
-    const nextProfile = {
-      ...(profile ?? { id: user.id }),
-      avatar_url: url,
-      header_photo_url: url,
-    } as ProfileRow;
-
-    setProfile(nextProfile);
-
-    await registerSafetySnapshot({
-      entityType: "profile",
-      entityId: user.id,
-      contentType: "profile",
-      actorUserId: user.id,
-      textContent: buildProfileSafetyText(nextProfile),
-      imageUrls: [url],
-      sourceSurface: "profile_avatar_upload",
-      sourceContext: {
-        screen: "profile",
-        media_role: "avatar_and_header",
-      },
-    });
+  function closeProfileEditor() {
+    if (profileSavePending.current || avatarPending.current) return;
+    const discard = () => { setDraft(null); setShowEdit(false); };
+    if (draft && profile && Object.keys(draft).some((key) => draft[key as keyof ProfileRow] !== { ...profile, display_name: profileName(profile) }[key as keyof ProfileRow])) {
+      Alert.alert("Änderungen verwerfen?", "Deine Änderungen sind noch nicht gespeichert.", [
+        { text: "Weiter bearbeiten", style: "cancel" }, { text: "Verwerfen", style: "destructive", onPress: discard },
+      ]);
+    } else discard();
   }
 
   async function saveProfile() {
+    if (profileSavePending.current || avatarPending.current || !user || !draft) return;
+    if (!draft.display_name?.trim() || draft.display_name.trim().length < 2 || draft.display_name.trim().length > 60) { Alert.alert("Öffentlicher Name fehlt", "Bitte gib einen öffentlichen Namen mit 2 bis 60 Zeichen ein."); return; }
+    if (!isAccountUsername(draft.username ?? "")) { Alert.alert("Benutzername prüfen", "Verwende 3 bis 24 Zeichen: Buchstaben ohne Umlaute, Zahlen, Punkt oder Unterstrich."); return; }
+    const actorId = user.id, epoch = identityEpoch.current;
+    const stillCurrent = () => profileMounted.current && identityEpoch.current === epoch && authIdentity.current === actorId;
+    profileSavePending.current = true; setSaving(true);
     void trackAnalyticsEvent({ eventName: "profile_update_started", screenName: "profile" });
-    if (!user || !profile) return;
-
-    setSaving(true);
-
-    const { error } = await supabase
-      .from("profiles")
+    try {
+      const { data, error } = await supabase.from("profiles")
       .update({
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        bio: profile.bio,
-        city: profile.city,
-        since_date: profile.since_date,
-        username: profile.username,
-        pronouns: profile.pronouns,
-        country: profile.country,
-        birthdate: profile.birthdate,
-        instagram: profile.instagram,
-        tiktok: profile.tiktok,
-        website: profile.website,
-        contact_email: profile.contact_email,
-        interests: profile.interests,
-        personality: profile.personality,
+        display_name: draft.display_name.trim(),
+        first_name: draft.first_name,
+        last_name: draft.last_name,
+        bio: draft.bio,
+        city: draft.city,
+        since_date: draft.since_date,
+        username: draft.username?.trim().toLowerCase(),
+        pronouns: draft.pronouns,
+        country: draft.country,
+        birthdate: draft.birthdate,
+        instagram: draft.instagram,
+        tiktok: draft.tiktok,
+        website: draft.website,
+        contact_email: draft.contact_email,
+        interests: draft.interests,
+        personality: draft.personality,
       })
-      .eq("id", user.id);
-
-    setSaving(false);
-
-    if (error) {
-      Alert.alert("Nicht gespeichert", "Dein Profil konnte gerade nicht gespeichert werden. Bitte versuche es erneut.");
-      return;
-    }
-
-    await registerSafetySnapshot({
-      entityType: "profile",
-      entityId: user.id,
-      contentType: "profile",
-      actorUserId: user.id,
-      textContent: buildProfileSafetyText(profile),
-      imageUrls: [
-        profile.avatar_url,
-        profile.header_photo_url,
-      ].filter((value): value is string => Boolean(value)),
-      sourceSurface: "profile_edit",
-      sourceContext: {
-        screen: "profile",
-      },
-    });
-
-    setShowEdit(false);
+      .eq("id", user.id).select("*").single();
+      if (!stillCurrent()) return;
+      if (error || !data || data.id !== user.id) {
+        Alert.alert("Nicht gespeichert", error?.code === "23505" ? "Dieser Benutzername ist bereits vergeben." : "Dein Profil konnte nicht gespeichert werden. Deine Eingaben bleiben erhalten.");
+        return;
+      }
+      const saved = data as ProfileRow;
+      setProfile(saved);
+      try {
+        await registerSafetySnapshot({
+          entityType: "profile", entityId: user.id, contentType: "profile", actorUserId: user.id,
+          textContent: buildProfileSafetyText(saved),
+          imageUrls: [saved.avatar_url, saved.header_photo_url].filter((value): value is string => Boolean(value)),
+          sourceSurface: "profile_edit", sourceContext: { screen: "profile" },
+        });
+      } catch {
+        // The canonical profile write already succeeded. Do not ask for a duplicate save.
+        Alert.alert("Profil gespeichert", "Die Inhaltsprüfung konnte noch nicht bestätigt werden. Bitte versuche es später erneut.");
+        return;
+      }
+      if (!stillCurrent()) return;
+      setShowEdit(false); setDraft(null);
+      Alert.alert("Profil gespeichert", "Deine Änderungen wurden übernommen.");
+    } catch {
+      if (!stillCurrent()) return;
+      Alert.alert("Speichern nicht bestätigt", "Prüfe deine Verbindung. Deine Eingaben bleiben erhalten; du kannst es erneut versuchen.");
+    } finally { if (stillCurrent()) { profileSavePending.current = false; setSaving(false); } }
   }
 
   async function toggleReaction(postId: string, reactionType: "like" | "save", active: boolean) {
@@ -570,6 +580,16 @@ export default function ProfileScreen() {
       </View>
     );
   }
+
+  if (profileLoadFailed) return <View style={styles.center}><StateView kind="error" title="Profil nicht geladen" message="Deine gespeicherten Angaben sind gerade nicht verfügbar." actionLabel="Erneut versuchen" onAction={() => {
+    setCheckedAuth(false); setProfileLoadFailed(false);
+    const version = authReadVersion.current;
+    void supabase.auth.getUser().then(async ({ data, error }) => {
+      if (version !== authReadVersion.current) return;
+      if (error && !isMissingAuthSession(error)) throw error;
+      await loadForUser(data.user ?? null);
+    }).catch(() => { if (version === authReadVersion.current) setProfileLoadFailed(true); }).finally(() => { if (version === authReadVersion.current) setCheckedAuth(true); });
+  }} /></View>;
 
   if (!user) {
     return (
@@ -671,6 +691,7 @@ export default function ProfileScreen() {
 
           <Pressable accessibilityRole="button" accessibilityLabel="Profil bearbeiten" style={styles.editProfileButton} onPress={() => {
             void trackAnalyticsEvent({ eventName: "profile_edit_started", screenName: "profile" });
+            setDraft(profile ? { ...profile, display_name: profileName(profile) } : null);
             setShowEdit(true);
           }}>
             <Ionicons accessibilityElementsHidden name="pencil" size={17} color={theme.color.textPrimary} />
@@ -819,7 +840,7 @@ export default function ProfileScreen() {
         )}
       </Animated.ScrollView>
 
-      <Modal animationType="slide" presentationStyle="fullScreen" visible={showEdit} onRequestClose={() => setShowEdit(false)}>
+      <Modal animationType="slide" presentationStyle="fullScreen" visible={showEdit} onRequestClose={closeProfileEditor}>
         <SafeAreaProvider>
         <SafeAreaView style={styles.editOverlay} edges={["top", "bottom"]}>
           <KeyboardAvoidingView
@@ -829,57 +850,66 @@ export default function ProfileScreen() {
             <View style={styles.editSheet}>
               <View style={styles.editHeader}>
                 <Text style={styles.editTitle}>Profil bearbeiten</Text>
-                <Pressable accessibilityRole="button" accessibilityLabel="Profilbearbeitung schließen" onPress={() => setShowEdit(false)} style={styles.editClose}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Profilbearbeitung schliessen" disabled={saving || avatarSaving} onPress={closeProfileEditor} style={styles.editClose}>
                   <Ionicons name="close" size={23} color={theme.color.textPrimary} />
                 </Pressable>
               </View>
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.editContent}>
 
-                <Pressable onPress={pickImageAndUploadAvatar} style={styles.editAvatarWrap}>
+                <Pressable onPress={pickImageAndUploadAvatar} disabled={saving || avatarSaving} style={styles.editAvatarWrap}>
                   <Avatar uri={avatarImage} name={displayName} size={110} />
                   <View style={styles.editAvatarIcon}>
                     <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
                   </View>
                 </Pressable>
 
-                <FieldLabel label="Basis" />
+                <Text accessibilityLiveRegion="polite" style={styles.fieldLabel}>{avatarSaving ? "Profilfoto wird gespeichert …" : "Ein neues Profilfoto wird sofort gespeichert."}</Text>
+                <FieldLabel label="Öffentlicher Name" />
+                <ProfileInput editable={!saving} accessibilityLabel="Öffentlicher Name" value={draft?.display_name ?? ""} maxLength={60} onChangeText={(text) => setDraft((current) => current ? { ...current, display_name: text } : current)} placeholder="Dein Name auf Backyrd" autoComplete="nickname" />
+                <FieldLabel label="Kontodaten" />
                 <View style={styles.inputRow}>
                   <ProfileInput
-                    value={profile?.first_name ?? ""}
-                    onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), first_name: text }))}
+                    editable={!saving}
+                    value={draft?.first_name ?? ""}
+                    onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), first_name: text }))}
                     placeholder="Vorname"
                     style={{ flex: 1 }}
                   />
                   <ProfileInput
-                    value={profile?.last_name ?? ""}
-                    onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), last_name: text }))}
+                    editable={!saving}
+                    value={draft?.last_name ?? ""}
+                    onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), last_name: text }))}
                     placeholder="Nachname"
                     style={{ flex: 1 }}
                   />
                 </View>
 
                 <ProfileInput
-                  value={profile?.username ?? ""}
-                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), username: text }))}
-                  placeholder="Username"
+                  editable={!saving}
+                  value={draft?.username ?? ""}
+                  onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), username: text }))}
+                  placeholder="Benutzername"
                   autoCapitalize="none"
                 />
 
                 <FieldLabel label="Ort & Bio" />
                 <ProfileInput
-                  value={profile?.city ?? ""}
-                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), city: text }))}
+                  editable={!saving}
+                  value={draft?.city ?? ""}
+                  onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), city: text }))}
                   placeholder="Stadt"
                 />
                 <ProfileInput
-                  value={profile?.since_date ?? ""}
-                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), since_date: text }))}
+                  editable={!saving}
+                  value={draft?.since_date ?? ""}
+                  onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), since_date: text }))}
                   placeholder="Seit wann kennst du deine Stadt? (JJJJ-MM-TT)"
                 />
                 <ProfileInput
-                  value={profile?.bio ?? ""}
-                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), bio: text }))}
+                  editable={!saving}
+                  value={draft?.bio ?? ""}
+                  onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), bio: text }))}
                   placeholder="Bio"
                   multiline
                   style={styles.bioInput}
@@ -887,35 +917,39 @@ export default function ProfileScreen() {
 
                 <FieldLabel label="Vorlieben" />
                 <ProfileInput
-                  value={profile?.interests ?? ""}
-                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), interests: text }))}
+                  editable={!saving}
+                  value={draft?.interests ?? ""}
+                  onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), interests: text }))}
                   placeholder="Interessen, kommagetrennt"
                 />
                 <ProfileInput
-                  value={profile?.personality ?? ""}
-                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), personality: text }))}
+                  editable={!saving}
+                  value={draft?.personality ?? ""}
+                  onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), personality: text }))}
                   placeholder="Stimmungen, kommagetrennt"
                 />
 
                 <FieldLabel label="Social" />
                 <ProfileInput
-                  value={profile?.instagram ?? ""}
-                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), instagram: text }))}
+                  editable={!saving}
+                  value={draft?.instagram ?? ""}
+                  onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), instagram: text }))}
                   placeholder="Instagram ohne @"
                   autoCapitalize="none"
                 />
                 <ProfileInput
-                  value={profile?.website ?? ""}
-                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), website: text }))}
+                  editable={!saving}
+                  value={draft?.website ?? ""}
+                  onChangeText={(text) => setDraft((prev) => ({ ...(prev as ProfileRow), website: text }))}
                   placeholder="Website"
                   autoCapitalize="none"
                 />
 
-                <Pressable style={styles.saveButton} onPress={saveProfile} disabled={saving}>
+                <Pressable style={styles.saveButton} onPress={saveProfile} disabled={saving || avatarSaving}>
                   <Text style={styles.saveButtonText}>{saving ? "Speichern..." : "Speichern"}</Text>
                 </Pressable>
 
-                <Pressable style={styles.cancelButton} onPress={() => setShowEdit(false)}>
+                <Pressable style={styles.cancelButton} disabled={saving || avatarSaving} onPress={closeProfileEditor}>
                   <Text style={styles.cancelText}>Abbrechen</Text>
                 </Pressable>
               </ScrollView>

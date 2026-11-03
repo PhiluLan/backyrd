@@ -6,3 +6,6 @@ export * from "./contracts/review";
 export * from "./contracts/mood";
 export * from "./seasonal-events";
 export * from "./auth-errors";
+export * from "./account-entry";
+export * from "./registration-outcome";
+export * from "./consent-presentation";

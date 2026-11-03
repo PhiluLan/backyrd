@@ -1,9 +1,9 @@
 // mobile/app/privacy-consents.tsx
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as Location from "expo-location";
+import { requestLocationDevicePermissionAfterConsent } from "@/lib/locationPrivacy";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -102,6 +102,8 @@ function presentPurpose(row: ConsentStateRow) {
 
 export default function PrivacyConsentScreen() {
   const router = useRouter();
+  const pending = useRef(false);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [rows, setRows] = useState<ConsentStateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<ConsentPurposeKey | null>(null);
@@ -155,12 +157,12 @@ export default function PrivacyConsentScreen() {
   }
 
   async function toggle(row: ConsentStateRow, nextValue: boolean) {
-    if (
-      row.purpose_key === "precise_location" &&
-      !nextValue
-    ) {
+    if (pending.current || row.is_required) return;
+    pending.current = true;
+    setSavedMessage(null);
+    if (row.purpose_key === "precise_location" && !nextValue) {
       const confirmed = await confirmDisablePreciseLocation();
-      if (!confirmed) return;
+      if (!confirmed) { pending.current = false; return; }
     }
     setSavingKey(row.purpose_key);
 
@@ -172,9 +174,9 @@ export default function PrivacyConsentScreen() {
         nextValue &&
         Platform.OS !== "web"
       ) {
-        const permission = await Location.requestForegroundPermissionsAsync();
+        const permission = await requestLocationDevicePermissionAfterConsent();
 
-        if (permission.status !== "granted") {
+        if (!permission.granted) {
           await setMyConsent("precise_location", false, row.document_id);
           Alert.alert(
             "Standort nicht aktiviert",
@@ -187,7 +189,7 @@ export default function PrivacyConsentScreen() {
         } else {
           Alert.alert(
             "Standort aktiviert",
-            "Smart Review ist jetzt freigeschaltet. Backyrd darf deinen aktuellen Standort außerdem für aktive Standortfunktionen wie die Standorttaste verwenden.",
+            "Backyrd darf deinen Standort jetzt für Orte in deiner Nähe und die Ortsauswahl deines Moments verwenden.",
           );
         }
       }
@@ -216,12 +218,14 @@ export default function PrivacyConsentScreen() {
       }
 
       await load();
+      setSavedMessage("Deine Einstellungen wurden gespeichert.");
     } catch {
       Alert.alert(
         "Änderung nicht möglich",
         "Die Änderung konnte gerade nicht gespeichert werden. Bitte versuche es erneut.",
       );
     } finally {
+      pending.current = false;
       setSavingKey(null);
     }
   }
@@ -317,12 +321,11 @@ export default function PrivacyConsentScreen() {
             <Text style={styles.introTitle}>Du entscheidest.</Text>
             <Text style={styles.introText}>
               Du kannst Backyrd ohne Standort durchsuchen und Spots entdecken.
-              Für Smart Review ist der präzise Standort erforderlich, weil der Spot
-              während der Aufnahme automatisch erkannt wird. Du kannst die
-              Freigabe jederzeit widerrufen; Smart Review wird dann deaktiviert.
+              Der Standort hilft dabei, Orte in deiner Nähe und den Ort deines Moments zu finden. Du kannst ihn auch selbst auswählen und die Freigabe jederzeit widerrufen.
             </Text>
           </View>
 
+          {savedMessage ? <Text accessibilityLiveRegion="polite" style={styles.introText}>{savedMessage}</Text> : null}
           <Text style={styles.sectionTitle}>FUNKTIONEN & EINWILLIGUNGEN</Text>
 
           {optionalRows.map((row) => {
@@ -349,7 +352,7 @@ export default function PrivacyConsentScreen() {
                     {row.purpose_key === "precise_location" ? (
                       <View style={styles.smartReviewBadge}>
                         <Text style={styles.smartReviewBadgeText}>
-                          Smart Review
+                          Moment-Ortsauswahl
                         </Text>
                       </View>
                     ) : null}
@@ -360,8 +363,8 @@ export default function PrivacyConsentScreen() {
                   <Text style={styles.statusText}>
                     {row.purpose_key === "precise_location"
                       ? enabled
-                        ? "Smart Review freigeschaltet"
-                        : "Smart Review deaktiviert"
+                        ? "Standort freigegeben"
+                        : "Standort nicht freigegeben"
                       : enabled
                         ? "Aktiv"
                         : "Nicht aktiv"}
@@ -376,6 +379,8 @@ export default function PrivacyConsentScreen() {
                 ) : (
                   <Switch
                     value={enabled}
+                    accessibilityLabel={presentation.title}
+                    disabled={savingKey !== null}
                     onValueChange={(value) => void toggle(row, value)}
                     trackColor={{
                       false: "rgba(255,255,255,0.16)",
@@ -422,6 +427,8 @@ export default function PrivacyConsentScreen() {
             </Text>
           </View>
 
+          <Pressable accessibilityRole="link" style={{ minHeight: 44, justifyContent: "center" }} onPress={() => router.push("/privacy-history")}><AppText role="bodyStrong" tone="pink">Meine Entscheidungen ansehen</AppText></Pressable>
+          <Pressable accessibilityRole="link" style={{ minHeight: 44, justifyContent: "center" }} onPress={() => router.push("/privacy-legal-documents")}><AppText role="bodyStrong" tone="pink">Dokumente lesen</AppText></Pressable>
           <Text style={styles.footerText}>
             Du kannst optionale Einwilligungen jederzeit ändern. Notwendige
             Konto- und Sicherheitsfunktionen bleiben davon unberührt.

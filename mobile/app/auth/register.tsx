@@ -1,6 +1,6 @@
 // mobile/app/auth/register.tsx
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Alert, Platform, Pressable, View } from "react-native";
 import { AppText } from "../../components/foundation/AppText";
 import { Link, useRouter } from "expo-router";
@@ -13,9 +13,10 @@ import * as Crypto from "expo-crypto";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
 import { signInWithGoogle } from "../../lib/googleSignIn";
-import { registrationOutcome, type RegistrationOutcome } from "../../lib/auth/registrationOutcome";
+import { registrationOutcome, type RegistrationOutcome } from "../../../packages/shared/src/registration-outcome";
 import { AuthDivider, AuthField, AuthProviderButton, AuthScreen, AuthSubmit, authStyles } from "../../components/auth/AuthScreen";
-import { compromisedPasswordMessage } from "../../../packages/shared/src/auth-errors";
+import { isAccountEmail } from "../../../packages/shared/src/account-entry";
+import { accountAuthError, compromisedPasswordMessage } from "../../../packages/shared/src/auth-errors";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -35,15 +36,16 @@ function getAuthErrorMessage(error: unknown) {
     return "Bitte verwende ein stärkeres Passwort.";
   }
 
-  if (message.toLowerCase().includes("unacceptable audience")) {
+  if (__DEV__ && isExpoGo && message.toLowerCase().includes("unacceptable audience")) {
     return "Apple Registrierung kann in Expo Go nicht korrekt getestet werden. Bitte nutze dafür einen Development Build.";
   }
 
-  return "Registrieren ist gerade nicht möglich. Bitte versuche es erneut.";
+  return accountAuthError(error, "Registrieren ist gerade nicht möglich. Bitte versuche es erneut.");
 }
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const pending = useRef(false);
 
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
@@ -55,6 +57,7 @@ export default function RegisterScreen() {
   const [registrationState, setRegistrationState] = useState<Exclude<RegistrationOutcome, "signed_in"> | null>(null);
 
   async function onRegister() {
+    if (pending.current) return;
     const firstName = first.trim();
     const lastName = last.trim();
     const normalizedEmail = cleanEmail(email);
@@ -64,13 +67,19 @@ export default function RegisterScreen() {
       setFormError("Fülle bitte alle Angaben aus.");
       return;
     }
+    if (!isAccountEmail(normalizedEmail)) {
+      setFormError("Bitte gib eine gültige E-Mail-Adresse ein.");
+      return;
+    }
     if (password.length < 8) {
       setFormError("Das Passwort braucht mindestens 8 Zeichen.");
       return;
     }
 
+    pending.current = true;
     try {
       setLoading(true);
+      setFormError(null);
 
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
@@ -105,9 +114,10 @@ export default function RegisterScreen() {
 
       const outcome = registrationOutcome(data);
       setRegistrationState(outcome === "signed_in" ? "uncertain" : outcome);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setFormError(getAuthErrorMessage(e));
     } finally {
+      pending.current = false;
       setLoading(false);
     }
   }
@@ -146,6 +156,8 @@ export default function RegisterScreen() {
   }
 
   async function onGoogleRegister() {
+    if (pending.current) return;
+    pending.current = true;
     try {
       setSocialLoading(true);
 
@@ -153,14 +165,17 @@ export default function RegisterScreen() {
 
       await ensureProfile();
       router.replace("/gate" as any);
-    } catch (e: any) {
+    } catch (e: unknown) {
       Alert.alert("Google Registrierung fehlgeschlagen", getAuthErrorMessage(e));
     } finally {
+      pending.current = false;
       setSocialLoading(false);
     }
   }
 
   async function onAppleRegister() {
+    if (pending.current) return;
+    pending.current = true;
     try {
       if (isSimulator) {
         Alert.alert("Nicht im Simulator", "Apple Registrierung funktioniert nur auf einem echten Gerät.");
@@ -210,10 +225,11 @@ export default function RegisterScreen() {
       });
 
       router.replace("/gate" as any);
-    } catch (e: any) {
-      if (e?.code === "ERR_CANCELED") return;
+    } catch (e: unknown) {
+      if (e && typeof e === "object" && "code" in e && e.code === "ERR_CANCELED") return;
       Alert.alert("Apple Registrierung fehlgeschlagen", getAuthErrorMessage(e));
     } finally {
+      pending.current = false;
       setSocialLoading(false);
     }
   }
@@ -222,10 +238,10 @@ export default function RegisterScreen() {
     <AuthScreen eyebrow="BACKYRD · ACCOUNT ERSTELLEN" title="Hier beginnt dein Backyrd." description="Ein Account, viele Möglichkeiten für deinen nächsten Moment.">
       {formError ? <AppText accessibilityLiveRegion="polite" role="meta" style={authStyles.error}>{formError}</AppText> : null}
       <View style={authStyles.form}>
-        <AuthField label="Vorname" placeholder="Dein Vorname" value={first} onChangeText={(value) => { setFirst(value); setFormError(null); }} autoCapitalize="words" textContentType="givenName" />
-        <AuthField label="Nachname" placeholder="Dein Nachname" value={last} onChangeText={(value) => { setLast(value); setFormError(null); }} autoCapitalize="words" textContentType="familyName" />
-        <AuthField label="E-Mail" placeholder="deine@email.ch" value={email} onChangeText={(value) => { setEmail(value); setFormError(null); }} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" />
-        <AuthField label="Passwort" placeholder="Mindestens 8 Zeichen" value={pw} onChangeText={(value) => { setPw(value); setFormError(null); }} secureTextEntry textContentType="newPassword" returnKeyType="go" onSubmitEditing={() => void onRegister()} />
+        <AuthField label="Vorname" placeholder="Dein Vorname" value={first} onChangeText={(value) => { setFirst(value); setFormError(null); }} autoCapitalize="words" textContentType="givenName" editable={!loading && !socialLoading} />
+        <AuthField label="Nachname" placeholder="Dein Nachname" value={last} onChangeText={(value) => { setLast(value); setFormError(null); }} autoCapitalize="words" textContentType="familyName" editable={!loading && !socialLoading} />
+        <AuthField label="E-Mail" placeholder="deine@email.ch" value={email} onChangeText={(value) => { setEmail(value); setFormError(null); }} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" autoComplete="email" editable={!loading && !socialLoading} />
+        <AuthField label="Passwort" placeholder="Mindestens 8 Zeichen" value={pw} onChangeText={(value) => { setPw(value); setFormError(null); }} secureTextEntry textContentType="newPassword" autoComplete="new-password" autoCapitalize="none" autoCorrect={false} editable={!loading && !socialLoading} returnKeyType="go" onSubmitEditing={() => void onRegister()} />
       </View>
       <AuthSubmit label="Account erstellen" loading={loading} disabled={loading || socialLoading} onPress={() => void onRegister()} />
       <AuthDivider />

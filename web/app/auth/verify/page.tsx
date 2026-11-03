@@ -20,8 +20,8 @@ export default function AppEmailVerifyPage() {
             Falls die App nicht geöffnet wird, starte Backyrd selbst und wähle
             „E-Mail bestätigen“.
           </p>
-          <Link className="b-button b-button-secondary" href="/login" style={{ marginTop: 22 }}>
-            Zur Anmeldung
+          <Link className="b-button b-button-secondary" href="/verify" style={{ marginTop: 22 }}>
+            Code im Browser eingeben
           </Link>
         </div>
       </div>

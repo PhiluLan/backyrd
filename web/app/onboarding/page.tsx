@@ -1,7 +1,9 @@
 "use client";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 import { supabase } from "@/lib/supabase/client";
+import { isAccountUsername, parseAccountAge, suggestAccountUsername } from "@backyrd/shared";
 import { Button, StateView } from "@/components/consumer/ui";
 export default function OnboardingPage() {
   const router = useRouter();
@@ -12,31 +14,45 @@ export default function OnboardingPage() {
   const [country, setCountry] = useState("Schweiz");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [baseline, setBaseline] = useState("");
+  const { allowLeave } = useUnsavedChanges(Boolean(baseline) && JSON.stringify([name, username, age, city, country]) !== baseline);
+  const pending = useRef(false);
+  const usernameEdited = useRef(false);
+  const [loadError, setLoadError] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    void supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) router.replace("/login?next=/onboarding");
-      setLoading(false);
-    });
+  const load = useCallback(async () => {
+    setLoading(true); setLoadError(false);
+    try {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!auth.user) { router.replace("/login?next=/onboarding"); return; }
+      const { data, error: profileError } = await supabase.from("profiles")
+        .select("display_name,first_name,username,birthdate,city,home_city,country")
+        .eq("id", auth.user.id).single();
+      if (profileError || !data) throw profileError ?? new Error("profile_missing");
+      const displayName = data.display_name ?? data.first_name ?? "";
+      setName(displayName);
+      setUsername(data.username ?? suggestAccountUsername(displayName));
+      usernameEdited.current = Boolean(data.username);
+      setAge(data.birthdate ? String(new Date().getFullYear() - Number(data.birthdate.slice(0, 4))) : "");
+      setCity(data.city ?? data.home_city ?? "Basel");
+      setCountry(data.country ?? "Schweiz");
+      setBaseline(JSON.stringify([displayName, data.username ?? suggestAccountUsername(displayName), data.birthdate ? String(new Date().getFullYear() - Number(data.birthdate.slice(0, 4))) : "", data.city ?? data.home_city ?? "Basel", data.country ?? "Schweiz"]));
+    } catch { setLoadError(true); }
+    finally { setLoading(false); }
   }, [router]);
+  useEffect(() => { void load(); }, [load]);
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (pending.current) return;
     setError(null);
-    const cleanUser = username
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9._]/g, "");
-    const numeric = Number.parseInt(age, 10);
-    if (
-      name.trim().length < 2 ||
-      cleanUser.length < 3 ||
-      !Number.isFinite(numeric) ||
-      numeric < 13 ||
-      city.trim().length < 2
-    ) {
-      setError("Bitte fülle alle Angaben vollständig und gültig aus.");
-      return;
-    }
+    const cleanUser = username.trim().toLowerCase();
+    const numeric = parseAccountAge(age);
+    if (name.trim().length < 2 || name.trim().length > 60) { setError("Bitte gib einen Namen mit 2 bis 60 Zeichen ein."); return; }
+    if (!isAccountUsername(cleanUser)) { setError("Dein Benutzername braucht 3 bis 24 Zeichen: Buchstaben ohne Umlaute, Zahlen, Punkt oder Unterstrich."); return; }
+    if (numeric === null) { setError("Bitte gib dein Alter als ganze Zahl zwischen 13 und 120 ein."); return; }
+    if (!city.trim() || !country.trim() || city.trim().length > 80 || country.trim().length > 80) { setError("Bitte gib Stadt und Land mit jeweils höchstens 80 Zeichen ein."); return; }
+    pending.current = true;
     setBusy(true);
     try {
       const { data, error } = await supabase.rpc(
@@ -51,6 +67,7 @@ export default function OnboardingPage() {
       );
       if (error || !data || typeof data !== "object" || data.ok !== true)
         throw error ?? new Error();
+      allowLeave();
       router.replace("/decision");
       router.refresh();
     } catch (err) {
@@ -60,6 +77,7 @@ export default function OnboardingPage() {
           : "Dein Profil konnte gerade nicht gespeichert werden.";
       setError(message);
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -72,6 +90,7 @@ export default function OnboardingPage() {
         />
       </div>
     );
+  if (loadError) return <div className="b-narrow b-main"><StateView title="Profil nicht geladen" message="Deine bestehenden Angaben konnten nicht geladen werden. Bitte versuche es erneut, bevor du Änderungen machst." actionLabel="Erneut versuchen" onAction={() => void load()} /></div>;
   return (
     <div className="b-narrow b-main">
       <p className="b-kicker">1 von 2 · Dein Backyrd</p>
@@ -80,18 +99,18 @@ export default function OnboardingPage() {
       </h1>
       <div className="b-marker" />
       <p className="b-muted">
-        Kurz dein Profil anlegen. Danach kannst du deinen ersten Moment für
-        Decision beschreiben.
+        Kurz dein Profil anlegen. Danach kannst du deinen nächsten Moment bei
+        Backyrd beschreiben.
       </p>
       <form
         className="b-form b-surface"
         onSubmit={submit}
         style={{ padding: "clamp(22px,4vw,42px)", marginTop: 30 }}
       >
-        <div className="b-form-row">
+        <fieldset className="b-form-fields" disabled={busy}><div className="b-form-row">
           <div className="b-input-group">
             <label className="b-label" htmlFor="ob-name">
-              Name
+              Öffentlicher Name
             </label>
             <input
               id="ob-name"
@@ -99,12 +118,10 @@ export default function OnboardingPage() {
               value={name}
               onChange={(event) => {
                 setName(event.target.value);
-                if (!username)
-                  setUsername(
-                    event.target.value.toLowerCase().replace(/\s+/g, ""),
-                  );
+                if (!usernameEdited.current) setUsername(suggestAccountUsername(event.target.value));
               }}
-              autoComplete="name"
+              autoComplete="given-name"
+              maxLength={60}
             />
           </div>
           <div className="b-input-group">
@@ -115,8 +132,9 @@ export default function OnboardingPage() {
               id="ob-user"
               className="b-input"
               value={username}
-              onChange={(event) => setUsername(event.target.value)}
+              onChange={(event) => { usernameEdited.current = true; setUsername(event.target.value); }}
               autoComplete="username"
+              maxLength={24}
             />
           </div>
         </div>
@@ -158,6 +176,8 @@ export default function OnboardingPage() {
             autoComplete="country-name"
           />
         </div>
+        <p className="b-meta">Dein Alter wird nicht öffentlich angezeigt. Du kannst deine Stadt selbst eingeben; eine Standortfreigabe ist dafür nicht nötig.</p>
+        </fieldset>
         {error ? (
           <p className="b-field-error" role="alert">
             {error}

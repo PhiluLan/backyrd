@@ -127,7 +127,7 @@ export async function getPrivacySafeLocation(
       await Location.getForegroundPermissionsAsync();
 
     const permission =
-      existingPermission.status === "granted" || !requestPermission
+      existingPermission.status === "granted" || !requestPermission || !existingPermission.canAskAgain
         ? existingPermission
         : await Location.requestForegroundPermissionsAsync();
 
@@ -220,7 +220,7 @@ export async function requestLocationDevicePermissionAfterConsent(): Promise<{
 
   const existing = await Location.getForegroundPermissionsAsync();
   const permission =
-    existing.status === "granted"
+    existing.status === "granted" || !existing.canAskAgain
       ? existing
       : await Location.requestForegroundPermissionsAsync();
 

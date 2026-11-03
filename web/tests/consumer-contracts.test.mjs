@@ -195,9 +195,9 @@ test("successful auth synchronizes the persistent shell and server-visible navig
   assert.match(form, /if \(!data\.session\) throw/);
   assert.match(form, /window\.location\.replace\(next\)/);
   assert.match(shell, /event === "SIGNED_IN"/);
-  assert.match(shell, /void syncUser\(\)\.finally/);
+  assert.match(shell, /void syncUser\(\)\.catch\([\s\S]*?\.finally/);
   assert.match(shell, /setUser\(\{[\s\S]*email:[\s\S]*avatar:[\s\S]*name:/);
-  assert.match(account, /await supabase\.auth\.signOut\(\)/);
+  assert.match(account, /await supabase\.auth\.signOut\(\{ scope: "local" \}\)/);
   assert.match(account, /window\.location\.replace\("\/"\)/);
 });
 

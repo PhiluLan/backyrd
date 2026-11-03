@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Avatar, ButtonLink } from "./ui";
 import {
@@ -27,6 +27,7 @@ function current(pathname: string, href: string) {
 }
 export function ConsumerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const userRequest = useRef(0);
   const router = useRouter();
   const [user, setUser] = useState<{
     email?: string | null;
@@ -36,8 +37,9 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
     async function syncUser() {
+      const request = ++userRequest.current;
       const { data } = await supabase.auth.getUser();
-      if (!active) return;
+      if (!active || request !== userRequest.current) return;
       if (!data.user) {
         setUser(null);
         return;
@@ -47,19 +49,20 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
         .select("display_name,first_name,avatar_url")
         .eq("id", data.user.id)
         .maybeSingle();
-      if (!active) return;
+      if (!active || request !== userRequest.current) return;
       setUser({
         email: data.user.email,
         avatar: profile?.avatar_url,
         name: profile?.display_name || profile?.first_name,
       });
     }
-    void syncUser();
+    void syncUser().catch(() => { /* Keep the last known header during a transient failure. */ });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (!session) {
+        userRequest.current += 1;
         setUser(null);
         router.refresh();
         return;
@@ -69,12 +72,14 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
         event === "INITIAL_SESSION" ||
         event === "USER_UPDATED"
       ) {
+        const eventRequest = ++userRequest.current;
+        setUser(null);
         // Supabase advises keeping auth callbacks synchronous. Run the profile
         // refresh after the callback so the persistent shell cannot retain its
         // pre-login guest state.
         window.setTimeout(() => {
-          if (!active) return;
-          void syncUser().finally(() => {
+          if (!active || eventRequest !== userRequest.current) return;
+          void syncUser().catch(() => { /* Private screens show their own retry state. */ }).finally(() => {
             if (active) router.refresh();
           });
         }, 0);
@@ -126,6 +131,7 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
               </Link>
             ) : (
               <ButtonLink
+                ariaLabel="Anmelden"
                 href={`/login?next=${encodeURIComponent(pathname)}`}
                 variant="secondary"
               >

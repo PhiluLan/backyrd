@@ -5,40 +5,43 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "./ui";
-import { compromisedPasswordMessage } from "@backyrd/shared";
+import { accountAuthError, isAccountEmail, registrationOutcome, safeAccountReturnPath } from "@backyrd/shared";
 
 type Mode = "login" | "signup" | "forgot" | "reset";
-function nextPath(value: string | null) {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
-}
 function human(error: unknown, mode: Mode) {
-  const compromised = compromisedPasswordMessage(error);
-  if (compromised) return compromised;
-  const value = error instanceof Error ? error.message.toLowerCase() : "";
-  if (value.includes("invalid login"))
-    return "E-Mail oder Passwort stimmen nicht.";
-  if (value.includes("password"))
-    return "Das Passwort erfüllt die aktuellen Sicherheitsanforderungen nicht.";
-  if (value.includes("rate"))
-    return "Zu viele Versuche. Bitte warte einen Moment.";
-  return mode === "login"
-    ? "Die Anmeldung hat gerade nicht funktioniert."
-    : "Die Anfrage konnte gerade nicht abgeschlossen werden.";
+  return accountAuthError(error, mode === "login"
+    ? "Die Anmeldung hat gerade nicht funktioniert. Bitte versuche es erneut."
+    : "Die Anfrage konnte gerade nicht abgeschlossen werden. Bitte versuche es erneut.");
 }
 export function AuthForm({ mode }: { mode: Mode }) {
   const router = useRouter();
   const params = useSearchParams();
-  const next = useMemo(() => nextPath(params.get("next")), [params]);
-  const [email, setEmail] = useState("");
+  const next = useMemo(() => safeAccountReturnPath(params.get("next")), [params]);
+  const [email, setEmail] = useState(params.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [resetReady, setResetReady] = useState(mode !== "reset");
+  const [checkingReset, setCheckingReset] = useState(mode === "reset");
+  const pending = useRef(false);
+  useEffect(() => {
+    if (mode !== "reset") return;
+    let active = true;
+    void supabase.auth.getUser().then(({ data, error: authError }) => {
+      if (!active) return;
+      setResetReady(!authError && Boolean(data.user));
+      if (authError || !data.user) setError("Dein Link ist abgelaufen oder fehlt. Fordere bitte einen neuen Link an.");
+    }).catch(() => { if (active) setError("Deine Anmeldung konnte nicht geprüft werden. Prüfe deine Verbindung und öffne den Link erneut."); })
+      .finally(() => { if (active) setCheckingReset(false); });
+    return () => { active = false; };
+  }, [mode]);
   const redirecting = useRef(false);
   const loginAttempted = useRef(false);
   useEffect(() => {
+    if (params.get("status") === "password-updated") setSuccess("Dein Passwort ist gespeichert. Melde dich jetzt damit an.");
     if (params.get("status") === "invalid") {
       setError("Der sichere Link ist abgelaufen, wurde bereits verwendet oder ist unvollständig. Fordere bitte einen neuen Link an.");
     }
@@ -86,24 +89,27 @@ export function AuthForm({ mode }: { mode: Mode }) {
   }, [busy]);
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (pending.current || (mode === "reset" && !resetReady)) return;
     setError(null);
     setSuccess(null);
     const cleanEmail = email.trim().toLowerCase();
-    if (mode !== "reset" && !/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+    if (mode !== "reset" && !isAccountEmail(cleanEmail)) {
       setError("Bitte gib eine gültige E-Mail-Adresse ein.");
       return;
     }
     if (
-      (mode === "login" || mode === "signup" || mode === "reset") &&
+      (mode === "signup" || mode === "reset") &&
       password.length < 8
     ) {
       setError("Das Passwort braucht mindestens 8 Zeichen.");
       return;
     }
+    if (mode === "login" && !password) { setError("Bitte gib dein Passwort ein."); return; }
     if ((mode === "signup" || mode === "reset") && password !== confirm) {
       setError("Die Passwörter stimmen nicht überein.");
       return;
     }
+    pending.current = true;
     setBusy(true);
     try {
       if (mode === "login") {
@@ -121,7 +127,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           window.location.replace(next);
         }
       } else if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
           options: {
@@ -132,7 +138,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
           const detail = error.message.toLowerCase();
           if (!detail.includes("already registered") && !detail.includes("already been registered")) throw error;
         }
-        router.replace(`/verify?email=${encodeURIComponent(cleanEmail)}`);
+        if (data.session) { window.location.replace("/onboarding"); return; }
+        const outcome = registrationOutcome(data);
+        if (outcome === "confirmation_requested") router.replace(`/verify?email=${encodeURIComponent(cleanEmail)}`);
+        else if (outcome === "not_created" || error) setSuccess("Für diese E-Mail wurde kein neuer Account angelegt. Melde dich mit deinem bestehenden Zugang an oder fordere ein neues Passwort an.");
+        else setError("Die Kontoerstellung konnte noch nicht bestätigt werden. Prüfe dein Postfach oder versuche es erneut.");
       } else if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(
           cleanEmail,
@@ -145,13 +155,19 @@ export function AuthForm({ mode }: { mode: Mode }) {
       } else {
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
-        setSuccess("Dein Passwort ist aktualisiert.");
-        window.setTimeout(() => router.replace("/"), 1000);
+        setPassword(""); setConfirm(""); setResetReady(false);
+        setSuccess("Dein Passwort ist gespeichert. Melde dich jetzt damit an.");
+        try {
+          const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+          if (signOutError) throw signOutError;
+          window.location.replace("/login?status=password-updated");
+        } catch { setSuccess("Dein Passwort ist gespeichert. Deine Abmeldung konnte noch nicht bestätigt werden. Gehe zur Anmeldung, um dich mit deinem neuen Passwort anzumelden."); }
       }
     } catch (err) {
       if (mode === "login") loginAttempted.current = false;
       setError(human(err, mode));
     } finally {
+      pending.current = false;
       setBusy(false);
     }
   }
@@ -181,7 +197,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </h1>
           <div className="b-marker" />
           <p className="b-muted">{copy}</p>
-          <form className="b-form" onSubmit={submit} style={{ marginTop: 30 }}>
+          <form className="b-form" onSubmit={submit} aria-busy={busy} style={{ marginTop: 30 }}>
             {mode !== "reset" ? (
               <div className="b-input-group">
                 <label className="b-label" htmlFor="auth-email">
@@ -190,22 +206,28 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 <input
                   id="auth-email"
                   className="b-input"
+                  disabled={busy}
                   type="email"
-                  autoComplete="email"
+                  autoComplete={mode === "login" ? "username" : "email"}
+                  name="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="du@example.ch"
                 />
               </div>
             ) : null}
-            {mode !== "forgot" ? (
+            {mode !== "forgot" && (mode !== "reset" || resetReady) ? (
               <div className="b-input-group">
                 <label className="b-label" htmlFor="auth-password">
                   Passwort
                 </label>
                 <input
                   id="auth-password"
+                  name="password"
                   className="b-input"
+                  disabled={busy}
                   type="password"
                   autoComplete={
                     mode === "login" ? "current-password" : "new-password"
@@ -216,14 +238,16 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 />
               </div>
             ) : null}
-            {mode === "signup" || mode === "reset" ? (
+            {mode === "signup" || (mode === "reset" && resetReady) ? (
               <div className="b-input-group">
                 <label className="b-label" htmlFor="auth-confirm">
                   Passwort bestätigen
                 </label>
                 <input
                   id="auth-confirm"
+                  name="confirm"
                   className="b-input"
+                  disabled={busy}
                   type="password"
                   autoComplete="new-password"
                   value={confirm}
@@ -234,6 +258,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             {error ? (
               <p className="b-field-error" role="alert">
                 {error}
+                {mode === "login" ? <> <Link href={`/verify?email=${encodeURIComponent(email.trim())}`}>E-Mail bestätigen</Link></> : null}
               </p>
             ) : null}
             {success ? (
@@ -243,13 +268,15 @@ export function AuthForm({ mode }: { mode: Mode }) {
             ) : null}
             {slow ? (
               <div role="status">
-                <p className="b-muted">Die Anmeldung dauert länger als üblich. Prüfe deine Verbindung und lade die Seite neu.</p>
+                <p className="b-muted">Die Anfrage dauert länger als üblich. Prüfe bitte deine Verbindung. Du kannst die Seite neu laden und es erneut versuchen.</p>
                 <Button variant="secondary" onClick={() => window.location.reload()}>
                   Seite neu laden
                 </Button>
               </div>
             ) : null}
-            <Button type="submit" disabled={busy}>
+            {checkingReset ? <p role="status">Dein sicherer Link wird geprüft …</p> : null}
+            {mode === "reset" && !resetReady && !checkingReset && !success ? <Link href="/forgot-password">Neuen Link anfordern</Link> : null}
+            <Button type="submit" disabled={busy || (mode === "reset" && !resetReady)}>
               {busy
                 ? "Einen Moment …"
                 : mode === "login"
@@ -275,7 +302,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
               Schon dabei?{" "}
               <Link href={`/login?next=${encodeURIComponent(next)}`}>
                 Anmelden
-              </Link>
+              </Link> · <Link href="/forgot-password">Passwort vergessen?</Link>
             </p>
           ) : (
             <p className="b-meta">

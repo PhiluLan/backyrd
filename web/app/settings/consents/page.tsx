@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SettingsShell } from "@/components/consumer/settings-shell";
 import { StateView, Toast } from "@/components/consumer/ui";
 import { supabase } from "@/lib/supabase/client";
@@ -24,7 +25,7 @@ const labels: Record<string, { title: string; description: string }> = {
   precise_location: {
     title: "Präziser Standort",
     description:
-      "Erlaubt aktive Standortfunktionen. Im Browser wird keine native App-Berechtigung vorgetäuscht.",
+      "Zeigt Orte in deiner Nähe. Dein Browser fragt zusätzlich nach deiner Erlaubnis. Du kannst deine Stadt auch selbst eingeben.",
   },
   push_notifications: {
     title: "Push-Benachrichtigungen",
@@ -47,6 +48,7 @@ const labels: Record<string, { title: string; description: string }> = {
   },
 };
 export default function ConsentsPage() {
+  const pending = useRef(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -54,31 +56,36 @@ export default function ConsentsPage() {
   const [toast, setToast] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("get_my_consent_state_v1", {
-      p_locale: "de-CH",
-    });
-    setError(Boolean(error));
-    setRows((Array.isArray(data) ? data : []) as Row[]);
-    setLoading(false);
+    setError(false);
+    try {
+      const { data, error: loadError } = await supabase.rpc("get_my_consent_state_v1", { p_locale: "de-CH" });
+      if (loadError || !Array.isArray(data) || data.length === 0) throw loadError ?? new Error("consents_missing");
+      setRows(data as Row[]);
+    } catch { setError(true); }
+    finally { setLoading(false); }
   }, []);
   useEffect(() => {
     void load();
   }, [load]);
   async function toggle(row: Row) {
-    if (row.is_required) return;
+    if (row.is_required || pending.current) return;
     const granted = row.current_status !== "granted";
-    setSaving(row.purpose_key);
-    const { error } = await supabase.rpc("set_my_consent_v1", {
-      p_purpose_key: row.purpose_key,
-      p_granted: granted,
-      p_document_id: row.document_id,
-      p_source: "web",
-      p_app_version: "consumer-web",
-      p_locale: "de-CH",
-    });
-    if (error) setToast("Die Einwilligung konnte nicht gespeichert werden.");
-    await load();
-    setSaving(null);
+    pending.current = true; setSaving(row.purpose_key); setToast(null);
+    try {
+      const { data, error: saveError } = await supabase.rpc("set_my_consent_v1", {
+        p_purpose_key: row.purpose_key, p_granted: granted, p_document_id: row.document_id,
+        p_source: "web", p_app_version: "consumer-web", p_locale: "de-CH",
+      });
+      if (saveError) throw saveError;
+      const saved = Array.isArray(data) ? data.find((item: Row & { status?: string }) => item.purpose_key === row.purpose_key) : null;
+      const expected = granted ? "granted" : "withdrawn";
+      if (!saved || saved.status !== expected) throw new Error("consent_not_confirmed");
+      setRows((current) => current.map((item) => item.purpose_key === row.purpose_key ? { ...item, current_status: expected } : item));
+      const title = labels[row.purpose_key]?.title ?? row.title_de;
+      setToast(`${title}: ${granted ? "aktiviert" : "deaktiviert"} und gespeichert.`);
+    } catch {
+      setToast("Die Änderung konnte nicht bestätigt werden. Bitte lade die Einstellungen erneut und prüfe den gespeicherten Stand.");
+    } finally { pending.current = false; setSaving(null); }
   }
   return (
     <SettingsShell
@@ -125,10 +132,11 @@ export default function ConsentsPage() {
                   className="b-switch"
                   role="switch"
                   aria-label={text.title}
+                  aria-busy={saving === row.purpose_key}
                   aria-checked={
-                    row.current_status === "granted" || row.is_required
+                    row.current_status === "granted"
                   }
-                  disabled={row.is_required || saving === row.purpose_key}
+                  disabled={row.is_required || saving !== null}
                   onClick={() => void toggle(row)}
                 />
               </div>
@@ -136,6 +144,7 @@ export default function ConsentsPage() {
           })}
         </div>
       )}
+      <p className="b-meta"><Link href="/settings/history">Meine Entscheidungen und Dokumente ansehen</Link></p>
       {toast ? (
         <Toast message={toast} onDismiss={() => setToast(null)} />
       ) : null}

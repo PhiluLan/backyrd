@@ -9,6 +9,7 @@ export async function proxy(request: NextRequest) {
     "/signup",
     "/verify",
     "/onboarding",
+    "/legal-consent",
     "/profile",
     "/users",
     "/messages",

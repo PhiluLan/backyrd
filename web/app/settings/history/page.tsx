@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SettingsShell } from "@/components/consumer/settings-shell";
 import { StateView } from "@/components/consumer/ui";
+import { consentEventLabel, consentSourceLabel } from "@backyrd/shared";
 import { supabase } from "@/lib/supabase/client";
 type History = {
   event_id: string;
@@ -26,6 +27,8 @@ export default function HistoryPage() {
   const [error, setError] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
+    setError(false);
+    try {
     const [h, d] = await Promise.all([
       supabase.rpc("get_my_consent_history_v1", { p_limit: 100 }),
       supabase.rpc("get_my_legal_documents_overview_v1", { p_locale: "de-CH" }),
@@ -33,7 +36,8 @@ export default function HistoryPage() {
     setError(Boolean(h.error || d.error));
     setHistory((Array.isArray(h.data) ? h.data : []) as History[]);
     setDocs((Array.isArray(d.data) ? d.data : []) as Doc[]);
-    setLoading(false);
+    } catch { setError(true); }
+    finally { setLoading(false); }
   }, []);
   useEffect(() => {
     void load();
@@ -45,7 +49,9 @@ export default function HistoryPage() {
       ) : error ? (
         <StateView
           title="Verlauf nicht geladen"
-          message="Versuch es gleich nochmals."
+          message="Deine gespeicherten Entscheidungen konnten gerade nicht geladen werden."
+          actionLabel="Erneut versuchen"
+          onAction={() => void load()}
         />
       ) : (
         <>
@@ -88,7 +94,7 @@ export default function HistoryPage() {
                       className="b-meta"
                       style={{ display: "block", marginTop: 4 }}
                     >
-                      {row.event_type} · {row.source}
+                      {consentEventLabel(row.event_type)}{consentSourceLabel(row.source) ? ` · ${consentSourceLabel(row.source)}` : ""}
                     </span>
                   </span>
                   <time className="b-meta">

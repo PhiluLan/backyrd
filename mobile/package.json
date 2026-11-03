@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:contracts": "node ./scripts/test-home-daypart.mjs && node ./scripts/test-mobile-product-contracts.mjs && node --test ./scripts/test-registration-outcome.mjs && node --test ./scripts/test-wohin-model.mjs && node ./scripts/test-environment-isolation.mjs && npm run test:canonical-spot-images && npm run test:moments-presentation && npm run test:moment-media-upload && npm run test:review-media-upload && npm run test:native-intent && npm run test:moment-place-match && npm run test:security",
+    "test:contracts": "node ./scripts/test-home-daypart.mjs && node ./scripts/test-mobile-product-contracts.mjs && node --test ./scripts/test-registration-outcome.mjs && node --test ./scripts/test-wohin-model.mjs && node ./scripts/test-environment-isolation.mjs && npm run test:canonical-spot-images && npm run test:moments-presentation && npm run test:moment-media-upload && npm run test:review-media-upload && npm run test:native-intent && npm run test:moment-place-match && npm run test:security && npm run test:account-entry",
     "test:map-discovery": "node ./scripts/test-map-discovery-scale.mjs && node --test ./scripts/test-request-deadline.mjs",
     "test:canonical-spot-images": "node ./scripts/test-canonical-spot-images.mjs",
     "test:moments-presentation": "node ./scripts/test-moments-presentation.mjs",
@@ -27,7 +27,8 @@
     "eas-build-post-install": "node ./scripts/eas-build-post-install.mjs",
     "test:moment-place-match": "node --test ./scripts/test-moment-place-match.mjs",
     "postinstall": "patch-package --error-on-fail",
-    "test:security": "node --test scripts/test-security-dependencies.mjs"
+    "test:security": "node --test scripts/test-security-dependencies.mjs",
+    "test:account-entry": "node --test scripts/test-location-entry-privacy.mjs scripts/test-account-consent-receipts.mjs scripts/test-registration-outcome.mjs scripts/test-password-autofill-association.mjs"
   },
   "dependencies": {
     "@backyrd/product-decision-contract": "file:packages/product-decision-contract",

@@ -1,6 +1,6 @@
 // mobile/app/onboarding/index.tsx
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TouchableWithoutFeedback, View } from "react-native";
 import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { LinearGradient } from "expo-linear-gradient";
@@ -10,6 +10,9 @@ import type * as Location from "expo-location";
 import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "../../lib/locationPrivacy";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
+import { isMissingAuthSession } from "../../../packages/shared/src/auth-errors";
+import { parseAccountAge } from "../../../packages/shared/src/account-entry";
+import { useUnsavedDraft } from "../../hooks/useUnsavedMoment";
 import { StateView } from "../../components/foundation/StateView";
 
 type ProfileRow = {
@@ -40,9 +43,9 @@ function usernameFrom(value: string) {
 }
 
 function birthdateFromAge(ageText: string) {
-  const age = Number.parseInt(ageText.trim(), 10);
+  const age = parseAccountAge(ageText);
 
-  if (!Number.isFinite(age) || age < 13 || age > 120) {
+  if (age === null) {
     return null;
   }
 
@@ -82,16 +85,16 @@ function isUsernameDuplicateError(error: unknown) {
 async function getVerifiedUserOrSignOut() {
   const { data, error } = await supabase.auth.getUser();
 
-  if (error && error.status !== 401 && error.status !== 403) {
+  if (error && !isMissingAuthSession(error)) {
     throw error;
   }
 
   if (error || !data.user?.id) {
-    console.log("profile onboarding stale/invalid auth user", error?.message ?? "No user");
+    console.log("profile onboarding auth session invalid");
     try {
       await supabase.auth.signOut();
-    } catch (signOutError) {
-      console.log("signOut after invalid auth user failed", signOutError);
+    } catch {
+      console.log("signOut after invalid auth user not confirmed");
     }
     return null;
   }
@@ -104,6 +107,12 @@ export default function ProfileOnboardingScreen() {
   const params = useLocalSearchParams<{ preview?: string }>();
   const previewMode = __DEV__ && params.preview === "1";
 
+  const pending = useRef(false);
+  const locationPending = useRef(false);
+  const [baseline, setBaseline] = useState("");
+  const usernameEdited = useRef(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -115,12 +124,18 @@ export default function ProfileOnboardingScreen() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [formError, setFormError] = useState("");
 
+  const { allowLeave } = useUnsavedDraft(Boolean(baseline) && JSON.stringify([firstName, username, age, city, country]) !== baseline, saving, {
+    title: "Änderungen verwerfen?", message: "Deine Profilangaben sind noch nicht gespeichert.",
+    webMessage: "Deine Profilangaben sind noch nicht gespeichert. Wirklich verlassen?", busyTitle: "Profil wird gespeichert",
+    busyMessage: "Bitte warte kurz, bis das Speichern abgeschlossen ist.",
+  });
   const birthdate = useMemo(() => birthdateFromAge(age), [age]);
 
   useEffect(() => {
     let alive = true;
 
     async function load() {
+      setLoading(true); setLoadFailed(false);
       if (previewMode) {
         setFirstName("");
         setUsername("");
@@ -156,11 +171,13 @@ export default function ProfileOnboardingScreen() {
         const nextFirstName = clean(profile?.first_name) || clean(profile?.display_name) || clean(user.email?.split("@")[0]);
         setFirstName(nextFirstName);
         setUsername(usernameFrom(profile?.username || nextFirstName));
+        usernameEdited.current = Boolean(profile?.username);
         setAge(ageFromBirthdate(profile?.birthdate));
         setCity(clean(profile?.city) || clean(profile?.home_city) || "Basel");
         setCountry(clean(profile?.country) || "Schweiz");
-      } catch (error) {
-        console.log("profile onboarding load failed", error);
+        setBaseline(JSON.stringify([nextFirstName, usernameFrom(profile?.username || nextFirstName), ageFromBirthdate(profile?.birthdate), clean(profile?.city) || clean(profile?.home_city) || "Basel", clean(profile?.country) || "Schweiz"]));
+      } catch {
+        if (alive) setLoadFailed(true);
       } finally {
         if (alive) setLoading(false);
       }
@@ -171,9 +188,11 @@ export default function ProfileOnboardingScreen() {
     return () => {
       alive = false;
     };
-  }, [previewMode, router]);
+  }, [previewMode, router, loadAttempt]);
 
   async function detectLocation() {
+    if (locationPending.current || pending.current) return;
+    locationPending.current = true;
     try {
       setLocationLoading(true);
 
@@ -204,11 +223,14 @@ export default function ProfileOnboardingScreen() {
     } catch {
       Alert.alert("Standort fehlgeschlagen", "Dein Standort konnte gerade nicht ermittelt werden. Bitte gib deine Stadt manuell ein.");
     } finally {
+      locationPending.current = false;
       setLocationLoading(false);
     }
   }
 
   async function saveProfile() {
+    if (pending.current) return;
+    if (locationPending.current) { setFormError("Die Stadt wird noch ermittelt. Bitte warte einen Moment."); return; }
     const cleanedFirstName = clean(firstName);
     const cleanedUsername = usernameFrom(username);
     const cleanedCity = clean(city);
@@ -241,6 +263,7 @@ export default function ProfileOnboardingScreen() {
     }
 
     try {
+      pending.current = true;
       setSaving(true);
 
       const user = await getVerifiedUserOrSignOut();
@@ -264,9 +287,10 @@ export default function ProfileOnboardingScreen() {
       }
 
       Keyboard.dismiss();
+      allowLeave();
       router.replace("/gate" as any);
     } catch (error: unknown) {
-      console.log("profile onboarding save failed", error);
+      console.log("profile onboarding save not confirmed");
 
       if (isUsernameDuplicateError(error)) {
         setFormError("Dieser Benutzername ist schon vergeben. Bitte nimm eine kleine Variante, zum Beispiel mit Punkt oder Zahl.");
@@ -275,6 +299,7 @@ export default function ProfileOnboardingScreen() {
 
       setFormError("Dein Profil konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal.");
     } finally {
+      pending.current = false;
       setSaving(false);
     }
   }
@@ -282,6 +307,8 @@ export default function ProfileOnboardingScreen() {
   if (loading) {
     return <StateView kind="loading" title="Profil wird vorbereitet" />;
   }
+
+  if (loadFailed) return <StateView kind="error" title="Profil nicht geladen" message="Deine bestehenden Angaben konnten nicht geladen werden. Bitte versuche es erneut, bevor du Änderungen machst." actionLabel="Erneut versuchen" onAction={() => setLoadAttempt((value) => value + 1)} />;
 
   return (
     <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -302,7 +329,7 @@ export default function ProfileOnboardingScreen() {
                 <Text style={styles.titlePink}>Backyrd.</Text>
               </Text>
               <Text style={styles.subtitle}>
-                Kurz dein Profil anlegen. Danach baust du deinen ersten Geschmack auf.
+                Kurz dein Profil anlegen. Dein Alter ist nicht öffentlich. Deine Stadt kannst du selbst eingeben.
               </Text>
             </View>
 
@@ -321,10 +348,11 @@ export default function ProfileOnboardingScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Name</Text>
                 <TextInput
+                  editable={!saving}
                   value={firstName}
                   onChangeText={(value) => {
                     setFirstName(value);
-                    if (!username) setUsername(usernameFrom(value));
+                    if (!usernameEdited.current) setUsername(usernameFrom(value));
                   }}
                   placeholder="Philipp"
                   placeholderTextColor="rgba(255,255,255,0.34)"
@@ -338,8 +366,9 @@ export default function ProfileOnboardingScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Benutzername</Text>
                 <TextInput
+                  editable={!saving}
                   value={username}
-                  onChangeText={(value) => setUsername(usernameFrom(value))}
+                  onChangeText={(value) => { usernameEdited.current = true; setUsername(usernameFrom(value)); }}
                   placeholder="philipp"
                   placeholderTextColor="rgba(255,255,255,0.34)"
                   autoCapitalize="none"
@@ -353,6 +382,7 @@ export default function ProfileOnboardingScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Alter</Text>
                 <TextInput
+                  editable={!saving}
                   value={age}
                   onChangeText={setAge}
                   placeholder="31"
@@ -366,6 +396,7 @@ export default function ProfileOnboardingScreen() {
                 <Text style={styles.label}>Stadt</Text>
                 <View style={styles.cityRow}>
                   <TextInput
+                  editable={!saving}
                     value={city}
                     onChangeText={setCity}
                     placeholder="Basel"
@@ -377,7 +408,7 @@ export default function ProfileOnboardingScreen() {
 
                   <Pressable
                     onPress={detectLocation}
-                    disabled={locationLoading}
+                    disabled={locationLoading || saving}
                     style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}
                   >
                     {locationLoading ? (
@@ -392,6 +423,7 @@ export default function ProfileOnboardingScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Land</Text>
                 <TextInput
+                  editable={!saving}
                   value={country}
                   onChangeText={setCountry}
                   placeholder="Schweiz"
@@ -405,7 +437,7 @@ export default function ProfileOnboardingScreen() {
 
               <Pressable
                 onPress={saveProfile}
-                disabled={saving}
+                disabled={saving || locationLoading}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: saving, busy: saving }}
                 style={({ pressed }) => [styles.primaryButton, saving && styles.disabled, pressed && styles.pressed]}

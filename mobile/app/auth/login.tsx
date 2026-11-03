@@ -1,6 +1,6 @@
 // mobile/app/auth/login.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Alert, Platform, Pressable, View } from "react-native";
 import { AppText } from "../../components/foundation/AppText";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
@@ -10,6 +10,7 @@ import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 import * as Crypto from "expo-crypto";
 
+import { accountAuthError } from "../../../packages/shared/src/auth-errors";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
 import { signInWithGoogle } from "../../lib/googleSignIn";
@@ -24,8 +25,8 @@ function cleanEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
-function getAuthErrorMessage(error: any) {
-  const message = error?.message ?? String(error);
+function getAuthErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
 
   if (message.toLowerCase().includes("invalid login credentials")) {
     return "E-Mail oder Passwort ist nicht korrekt.";
@@ -35,34 +36,38 @@ function getAuthErrorMessage(error: any) {
     return "Bitte bestätige zuerst deine E-Mail-Adresse.";
   }
 
-  if (message.toLowerCase().includes("unacceptable audience")) {
+  if (__DEV__ && isExpoGo && message.toLowerCase().includes("unacceptable audience")) {
     return "Apple Login kann in Expo Go nicht korrekt getestet werden. Bitte nutze dafür einen Development Build oder eine echte App-Installation.";
   }
 
-  return "Einloggen ist gerade nicht möglich. Bitte versuche es erneut.";
+  return accountAuthError(error, "Anmelden ist gerade nicht möglich. Bitte versuche es erneut.");
 }
 
 export default function LoginScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ preview?: string }>();
+  const pending = useRef(false);
+  const params = useLocalSearchParams<{ preview?: string; status?: string }>();
 
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
+  const [formNotice, setFormNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (params.status === "password-updated") setFormNotice("Dein Passwort ist gespeichert. Melde dich jetzt damit an.");
     if (__DEV__ && params.preview === "invalid") {
       setFormError("E-Mail oder Passwort ist nicht korrekt.");
     }
-  }, [params.preview]);
+  }, [params.preview, params.status]);
 
   function goGate() {
     router.replace("/gate" as any);
   }
 
   async function onLogin() {
+    if (pending.current) return;
     const normalizedEmail = cleanEmail(email);
     const password = pw;
 
@@ -71,26 +76,32 @@ export default function LoginScreen() {
       return;
     }
 
+    pending.current = true;
     try {
       setLoading(true);
+      setFormError(null);
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
 
       if (error) throw error;
+      if (!data.session) throw new Error("auth_session_missing");
 
       await ensureProfile();
       goGate();
-    } catch (e: any) {
+    } catch (e: unknown) {
       setFormError(getAuthErrorMessage(e));
     } finally {
+      pending.current = false;
       setLoading(false);
     }
   }
 
   async function onGoogleLogin() {
+    if (pending.current) return;
+    pending.current = true;
     try {
       setSocialLoading(true);
 
@@ -98,14 +109,17 @@ export default function LoginScreen() {
 
       await ensureProfile();
       goGate();
-    } catch (e: any) {
+    } catch (e: unknown) {
       Alert.alert("Google Login fehlgeschlagen", getAuthErrorMessage(e));
     } finally {
+      pending.current = false;
       setSocialLoading(false);
     }
   }
 
   async function onAppleLogin() {
+    if (pending.current) return;
+    pending.current = true;
     try {
       if (isSimulator) {
         Alert.alert("Nicht im Simulator", "Apple Login funktioniert nur auf einem echten Gerät.");
@@ -155,20 +169,22 @@ export default function LoginScreen() {
       });
 
       goGate();
-    } catch (e: any) {
-      if (e?.code === "ERR_CANCELED") return;
+    } catch (e: unknown) {
+      if (e && typeof e === "object" && "code" in e && e.code === "ERR_CANCELED") return;
       Alert.alert("Apple Login fehlgeschlagen", getAuthErrorMessage(e));
     } finally {
+      pending.current = false;
       setSocialLoading(false);
     }
   }
 
   return (
     <AuthScreen eyebrow="BACKYRD · EINLOGGEN" title="Schön, dass du wieder da bist." description="Melde dich an und finde den nächsten Ort, der zu dir passt.">
+      {formNotice ? <AppText accessibilityLiveRegion="polite" role="body">{formNotice}</AppText> : null}
       {formError ? <AppText accessibilityLiveRegion="polite" role="meta" style={authStyles.error}>{formError}</AppText> : null}
       <View style={authStyles.form}>
-        <AuthField label="E-Mail" placeholder="deine@email.ch" value={email} onChangeText={(value) => { setEmail(value); setFormError(null); }} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" />
-        <AuthField label="Passwort" placeholder="Dein Passwort" value={pw} onChangeText={(value) => { setPw(value); setFormError(null); }} secureTextEntry textContentType="password" returnKeyType="go" onSubmitEditing={() => void onLogin()} />
+        <AuthField label="E-Mail" placeholder="deine@email.ch" value={email} onChangeText={(value) => { setEmail(value); setFormError(null); }} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="username" autoComplete="username" editable={!loading && !socialLoading} />
+        <AuthField label="Passwort" placeholder="Dein Passwort" value={pw} onChangeText={(value) => { setPw(value); setFormError(null); }} secureTextEntry textContentType="password" autoComplete="current-password" autoCapitalize="none" autoCorrect={false} editable={!loading && !socialLoading} returnKeyType="go" onSubmitEditing={() => void onLogin()} />
       </View>
       <AuthSubmit label="Einloggen" loading={loading} disabled={loading || socialLoading} onPress={() => void onLogin()} />
       <AuthDivider />
@@ -179,7 +195,7 @@ export default function LoginScreen() {
       <View style={authStyles.footer}>
         <Link href="/auth/register" asChild><Pressable accessibilityRole="link" style={authStyles.footerLink}><AppText role="label" tone="pink">Noch kein Account? Registrieren</AppText></Pressable></Link>
         <Link href="/auth/forgot-password" asChild><Pressable accessibilityRole="link" style={authStyles.footerLink}><AppText role="label" tone="secondary">Passwort vergessen?</AppText></Pressable></Link>
-        <Link href="/auth/verify" asChild><Pressable accessibilityRole="link" style={authStyles.footerLink}><AppText role="label" tone="secondary">E-Mail bestätigen</AppText></Pressable></Link>
+        <Link href={{ pathname: "/auth/verify", params: { email: cleanEmail(email) } }} asChild><Pressable accessibilityRole="link" style={authStyles.footerLink}><AppText role="label" tone="secondary">E-Mail bestätigen</AppText></Pressable></Link>
       </View>
     </AuthScreen>
   );

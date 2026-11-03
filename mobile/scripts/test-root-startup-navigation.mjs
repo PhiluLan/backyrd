@@ -108,5 +108,5 @@ test("a pathname transition starts a fresh Legal Gate check", () => {
   assert.match(legalGuardSource, /useEffect\(\(\) => \{/);
   assert.match(legalGuardSource, /let cancelled = false/);
   assert.match(legalGuardSource, /if \(cancelled\) return/);
-  assert.match(legalGuardSource, /\}, \[pathname, router\]\)/);
+  assert.match(legalGuardSource, /\}, \[pathname, router, attempt\]\)/);
 });

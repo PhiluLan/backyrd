@@ -72,9 +72,9 @@ export default (context = { config: {} }) => {
       bundleIdentifier: isDev
         ? IOS_DEVELOPMENT_BUNDLE_IDENTIFIER
         : IOS_PRODUCTION_BUNDLE_IDENTIFIER,
-      // The confirmation email opens the code-entry screen as a Universal Link.
+      // Universal Links open code entry; webcredentials enables shared Password AutoFill.
       // Development builds must not claim the Production domain.
-      associatedDomains: isDev ? [] : ["applinks:www.backyrd.ch"],
+      associatedDomains: isDev ? [] : ["applinks:www.backyrd.ch", "webcredentials:www.backyrd.ch"],
       usesAppleSignIn: true,
       supportsTablet: false,
       config: {
@@ -83,11 +83,13 @@ export default (context = { config: {} }) => {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
-          "Backyrd nutzt deinen Standort, um passende Spots in deiner Nähe vorzuschlagen.",
+          "Backyrd nutzt deinen Standort, um passende Orte in deiner Nähe vorzuschlagen.",
         NSCameraUsageDescription:
-          "Backyrd benötigt die Kamera, um Fotos für Reviews aufzunehmen.",
+          "Backyrd benötigt die Kamera für Fotos deiner Momente.",
+        NSPhotoLibraryUsageDescription:
+          "Backyrd verwendet ausgewählte Fotos für dein Profil und deine Momente.",
         NSPhotoLibraryAddUsageDescription:
-          "Backyrd speichert deine Review-Fotos in der Mediathek.",
+          "Backyrd kann Fotos deiner Momente in deiner Mediathek speichern.",
       },
     },
 
