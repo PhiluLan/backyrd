@@ -1,7 +1,7 @@
 import { createContext, forwardRef, type ReactNode, useContext } from "react";
 import { type StyleProp, type TextInputProps, type TextProps, type TextStyle, StyleSheet, Text, TextInput, useWindowDimensions } from "react-native";
 
-import { backyrdTheme as theme, useSFPro } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme, useSFPro } from "../../theme/backyrd";
 
 export type TextRole = "displayXL" | "displayL" | "displayM" | "screenTitle" | "sectionTitle" | "cardTitle" | "body" | "bodyStrong" | "meta" | "label" | "caption";
 
@@ -24,8 +24,6 @@ const roles: Record<TextRole, TextStyle> = {
 const maximumScale: Record<TextRole, number> = { displayXL: 1.4, displayL: 1.4, displayM: 1.4, screenTitle: 1.8, sectionTitle: 1.8, cardTitle: 1.8, body: 2, bodyStrong: 2, meta: 2, label: 2, caption: 2 };
 const sfProWeight: Record<TextRole, TextStyle["fontWeight"]> = { displayXL: "700", displayL: "700", displayM: "600", screenTitle: "700", sectionTitle: "700", cardTitle: "600", body: "400", bodyStrong: "600", meta: "500", label: "700", caption: "500" };
 const HomeTypographyContext = createContext(false);
-const tones = { primary: theme.color.textPrimary, secondary: theme.color.textSecondary, muted: theme.color.textMuted, pink: theme.color.pink, lime: theme.color.lime, error: theme.color.danger } as const;
-
 function responsiveDisplay(role: TextRole, width: number): TextStyle | undefined {
   if (!role.startsWith("display")) return undefined;
   const base = roles[role];
@@ -49,6 +47,8 @@ export function HomeTypographyProvider({ children }: { children: ReactNode }) {
 export function AppText({ role = "body", tone = "primary", maxFontSizeMultiplier, style, ...props }: Props) {
   const { width } = useWindowDimensions();
   const homeSFPro = useContext(HomeTypographyContext);
+  const { color } = useBackyrdTheme();
+  const tones = { primary: color.textPrimary, secondary: color.textSecondary, muted: color.textMuted, pink: color.pink, lime: color.lime, error: color.danger } as const;
   return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? maximumScale[role]} style={[{ color: tones[tone] }, roles[role], responsiveDisplay(role, width), style, { fontFamily: homeSFPro ? "System" : uiFont(style, roles[role].fontFamily as string), fontWeight: homeSFPro ? sfProWeight[role] : "normal" }]} />;
 }
 
@@ -56,11 +56,13 @@ export function AppText({ role = "body", tone = "primary", maxFontSizeMultiplier
 export function ProductText({ style, maxFontSizeMultiplier, ...props }: TextProps) {
   const flattened = StyleSheet.flatten(style);
   const homeSFPro = useContext(HomeTypographyContext);
-  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[{ color: theme.color.textPrimary, fontFamily: theme.type.body, ...theme.typeScale.body, lineHeight: flattened?.fontSize ? undefined : theme.typeScale.body.lineHeight }, style, { fontFamily: homeSFPro ? "System" : uiFont(style, theme.type.body), fontWeight: homeSFPro ? flattened?.fontWeight ?? "400" : "normal" }]} />;
+  const { color } = useBackyrdTheme();
+  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[{ color: color.textPrimary, fontFamily: theme.type.body, ...theme.typeScale.body, lineHeight: flattened?.fontSize ? undefined : theme.typeScale.body.lineHeight }, style, { fontFamily: homeSFPro ? "System" : uiFont(style, theme.type.body), fontWeight: homeSFPro ? flattened?.fontWeight ?? "400" : "normal" }]} />;
 }
 
 /** Native input behavior and refs remain intact; only the UI font is normalized. */
-export const ProductTextInput = forwardRef<TextInput, TextInputProps>(function ProductTextInput({ style, maxFontSizeMultiplier, ...props }, ref) {
+export const ProductTextInput = forwardRef<TextInput, TextInputProps>(function ProductTextInput({ style, maxFontSizeMultiplier, placeholderTextColor, ...props }, ref) {
   const homeSFPro = useContext(HomeTypographyContext);
-  return <TextInput ref={ref} {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[style, { fontFamily: homeSFPro ? "System" : theme.type.body }]} />;
+  const { color } = useBackyrdTheme();
+  return <TextInput ref={ref} {...props} placeholderTextColor={placeholderTextColor ?? color.textMuted} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 2} style={[{ color: color.textPrimary }, style, { fontFamily: homeSFPro ? "System" : theme.type.body }]} />;
 });

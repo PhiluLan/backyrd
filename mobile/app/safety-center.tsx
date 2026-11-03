@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
@@ -170,7 +171,7 @@ export default function SafetyCenterScreen() {
           <Ionicons
             name="chevron-back"
             size={22}
-            color="#fff"
+            color={backyrdTheme.color.textPrimary}
           />
         </Pressable>
 
@@ -194,7 +195,7 @@ export default function SafetyCenterScreen() {
           <Ionicons
             name="notifications-outline"
             size={22}
-            color="#FFFFFF"
+            color={backyrdTheme.color.textPrimary}
           />
         </Pressable>
       </View>
@@ -282,7 +283,7 @@ export default function SafetyCenterScreen() {
                 <Ionicons
                   name="shield-checkmark-outline"
                   size={30}
-                  color="#fff"
+                  color={backyrdTheme.color.textPrimary}
                 />
               </View>
               <Text style={styles.emptyTitle}>
@@ -438,7 +439,7 @@ export default function SafetyCenterScreen() {
                     <Ionicons
                       name="flag-outline"
                       size={30}
-                      color="#fff"
+                      color={backyrdTheme.color.textPrimary}
                     />
                   </View>
                   <Text style={styles.emptyTitle}>
@@ -570,7 +571,7 @@ export default function SafetyCenterScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
   },
   header: {
     flexDirection: "row",
@@ -579,7 +580,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.08)",
+    borderBottomColor: backyrdTheme.color.border,
   },
   notificationButton: {
     width: 44,
@@ -599,7 +600,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.08)",
+    borderTopColor: backyrdTheme.color.border,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -615,9 +616,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
   eyebrow: {
     color: "#FF4F91",
@@ -627,7 +628,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: "700",
@@ -641,9 +642,9 @@ const styles = StyleSheet.create({
     padding: 4,
     borderRadius: 27,
     flexDirection: "row",
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
   tabButton: {
     flex: 1,
@@ -655,7 +656,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   tabButtonActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: backyrdTheme.color.pink,
   },
   tabText: {
     color: "#91919A",
@@ -663,7 +664,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   tabTextActive: {
-    color: "#050506",
+    color: backyrdTheme.color.onAccent,
   },
   tabBadge: {
     minWidth: 20,
@@ -675,12 +676,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF4F91",
   },
   tabBadgeText: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.onAccent,
     fontSize: 10,
     fontWeight: "900",
   },
   intro: {
-    color: "#9B9BA4",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     lineHeight: 21,
     marginBottom: 20,
@@ -693,9 +694,9 @@ const styles = StyleSheet.create({
   card: {
     padding: 17,
     borderRadius: 23,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
     marginBottom: 14,
   },
   cardHeader: {
@@ -711,7 +712,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   actionTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 19,
     lineHeight: 24,
     fontWeight: "800",
@@ -740,7 +741,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: "rgba(0,0,0,0.24)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: backyrdTheme.color.border,
   },
   previewText: {
     color: "#DCDCE1",
@@ -783,9 +784,9 @@ const styles = StyleSheet.create({
     marginTop: 18,
     paddingHorizontal: 13,
     borderRadius: 14,
-    backgroundColor: "rgba(255,255,255,0.035)",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: backyrdTheme.color.border,
   },
   appealNoticeText: {
     flex: 1,
@@ -798,9 +799,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 28,
     borderRadius: 23,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
   emptyIcon: {
     width: 60,
@@ -808,11 +809,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     marginBottom: 16,
   },
   emptyTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 19,
     fontWeight: "800",
     textAlign: "center",

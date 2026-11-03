@@ -39,13 +39,14 @@ import { withRequestDeadline } from "../../lib/requestDeadline";
 import { supabase } from "../../lib/supabase";
 import { homeRailCardWidth } from "../../lib/home-rail";
 import { homeDaypart } from "../../lib/home-daypart";
-import { backyrdTheme as theme, useSFPro } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme, useSFPro } from "../../theme/backyrd";
 
 function cleanName(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 export default function HomeScreen() {
+  const { color } = useBackyrdTheme();
   const router = useRouter();
   const { user } = useAuth();
   const { width, fontScale } = useWindowDimensions();
@@ -193,44 +194,44 @@ export default function HomeScreen() {
 
   return (
     <HomeTypographyProvider>
-    <SafeAreaView style={styles.root} edges={["top", "left", "right"]}>
-      <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => { void load(true); setMomentRevision(value => value + 1); }} />} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[styles.root, { backgroundColor: color.background }]} edges={["top", "left", "right"]}>
+      <KeyboardAvoidingView style={[styles.root, { backgroundColor: color.background }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={color.pink} onRefresh={() => { void load(true); setMomentRevision(value => value + 1); }} />} showsVerticalScrollIndicator={false}>
           <View style={[styles.header, fontScale > 1.3 && styles.headerLargeType]}>
             <View style={[styles.greetingBlock, fontScale > 1.3 && styles.greetingBlockLargeType]}>
               <View style={styles.locationRow}>
-                <Ionicons name="location-sharp" size={21} color={theme.color.textSecondary} />
+                <Ionicons name="location-sharp" size={21} color={color.textSecondary} />
                 <AppText role="bodyStrong" tone="secondary" style={styles.locationText}>{city}</AppText>
               </View>
             </View>
             <View style={[styles.headerActions, fontScale > 1.3 && styles.headerActionsLargeType]}>
               {user ? <>
                 <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)}>
-                  <Ionicons color={theme.color.textPrimary} name="notifications-outline" size={30} />
+                  <Ionicons color={color.textPrimary} name="notifications-outline" size={30} />
                 </IconButton>
                 <Pressable accessibilityLabel="Profil öffnen" accessibilityRole="button" hitSlop={8} onPress={() => router.push("/(tabs)/profile" as never)}>
                   <Avatar uri={profileAvatar?.userId === user.id ? profileAvatar.uri : null} name={firstName ?? user.email ?? "backyrd"} size={50} fallback="smiley" />
                 </Pressable>
-              </> : <Pressable accessibilityRole="button" accessibilityLabel="Anmelden" onPress={() => router.push("/auth/login" as never)} style={styles.guestLogin}>
+              </> : <Pressable accessibilityRole="button" accessibilityLabel="Anmelden" onPress={() => router.push("/auth/login" as never)} style={[styles.guestLogin, { borderColor: color.border }]}>
                 <AppText role="label" tone="pink">Anmelden</AppText>
               </Pressable>}
             </View>
           </View>
 
-          {useSFPro && headlineName ? <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayXL" style={[styles.greetingMeasure, styles.cockpitGreeting, { fontSize: greetingBaseSize, lineHeight: Math.round(greetingBaseSize * 1.06), letterSpacing: greetingBaseSize * -0.075 }]} onTextLayout={event => {
+          {useSFPro && headlineName ? <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayXL" style={[styles.greetingMeasure, styles.cockpitGreeting, { color: color.textPrimary, fontSize: greetingBaseSize, lineHeight: Math.round(greetingBaseSize * 1.06), letterSpacing: greetingBaseSize * -0.075 }]} onTextLayout={event => {
             const measuredWidth = event.nativeEvent.lines[0]?.width ?? 0;
             if (measuredWidth > 0 && (measuredGreeting?.name !== headlineName || Math.abs(measuredGreeting.width - measuredWidth) > 1)) {
               setMeasuredGreeting({ name: headlineName, width: measuredWidth });
             }
           }}>Hey{"  "}{headlineName},</AppText> : null}
-          <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics]}>{headlineName ? <>Hey{useSFPro ? "  " : " "}<Text style={styles.pinkAccent}>{headlineName},</Text></> : "Hey"}</AppText>
+          <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics, { color: color.textPrimary }]}>{headlineName ? <>Hey{useSFPro ? "  " : " "}<Text style={{ color: color.pink }}>{headlineName},</Text></> : "Hey"}</AppText>
           <AppText testID="home-daypart-title" accessibilityRole="header" role="displayM" style={styles.daypartTitle}>
-            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={styles.pinkAccent}>?</Text>
+            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={{ color: color.pink }}>?</Text>
           </AppText>
-          <View style={styles.searchShell}>
-            <TextInput accessibilityLabel="Was willst du machen?" onChangeText={value => { setQuery(value); setSearchHint(null); }} onSubmitEditing={event => submitDecision(event.nativeEvent.text)} placeholder="was willst du machen?" placeholderTextColor={theme.color.textSecondary} returnKeyType="search" style={styles.searchInput} value={query} />
+          <View style={[styles.searchShell, { borderColor: color.border, backgroundColor: color.surfaceElevated }]}>
+            <TextInput accessibilityLabel="Was willst du machen?" onChangeText={value => { setQuery(value); setSearchHint(null); }} onSubmitEditing={event => submitDecision(event.nativeEvent.text)} placeholder="was willst du machen?" placeholderTextColor={color.textSecondary} returnKeyType="search" style={[styles.searchInput, { color: color.textPrimary }]} value={query} />
             {query.length > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Suche starten" accessibilityHint="Sucht passende Orte für deine Eingabe" onPress={() => submitDecision()} style={styles.searchAction}>
-              <Ionicons name="search" size={26} color={theme.color.pink} />
+              <Ionicons name="search" size={26} color={color.pink} />
             </Pressable> : null}
           </View>
           {searchHint ? <AppText role="caption" tone="error" style={styles.searchHint}>{searchHint}</AppText> : null}
@@ -246,7 +247,7 @@ export default function HomeScreen() {
           </View>
 
           {loading ? (
-            <View accessibilityLabel="Orte werden geladen" style={[styles.heroSkeleton, { width: heroCardWidth, height: heroCardHeight }]} />
+            <View accessibilityLabel="Orte werden geladen" style={[styles.heroSkeleton, { width: heroCardWidth, height: heroCardHeight, backgroundColor: color.surfaceElevated }]} />
           ) : error ? (
             <View style={styles.stateWrap}><StateView actionLabel="Noch einmal" kind="error" message={error} onAction={() => void load()} title="Kurz den Faden verloren." /></View>
           ) : topSpots.length ? (
@@ -301,7 +302,6 @@ const styles = StyleSheet.create({
   cockpitGreeting: { color: "#F8F8F8", fontWeight: "700" },
   daypartTitle: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 31, lineHeight: 38 },
   daypartAccent: { textDecorationLine: "underline", textDecorationStyle: "solid", textDecorationColor: theme.color.pink },
-  pinkAccent: { color: theme.color.pink },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   guestLogin: { minHeight: 44, justifyContent: "center", paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border },
   searchShell: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, minHeight: 68, paddingHorizontal: theme.spacing.lg, paddingRight: theme.spacing.xs, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, backgroundColor: theme.color.surfaceElevated },

@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 // mobile/app/messages/[id].tsx
 
 import "react-native-get-random-values";
@@ -579,7 +580,7 @@ export default function ChatScreen() {
           <Ionicons
             name="chevron-back"
             size={28}
-            color="#FFFFFF"
+            color={backyrdTheme.color.textPrimary}
           />
         </Pressable>
 
@@ -610,7 +611,7 @@ export default function ChatScreen() {
               <Ionicons
                 name="chevron-forward"
                 size={17}
-                color="#909099"
+                color={backyrdTheme.color.textMuted}
               />
             </View>
 
@@ -635,7 +636,7 @@ export default function ChatScreen() {
           <Ionicons
             name="ban-outline"
             size={22}
-            color="#FFFFFF"
+            color={backyrdTheme.color.textPrimary}
           />
         </Pressable>
       </View>
@@ -799,7 +800,7 @@ export default function ChatScreen() {
 
                       {item.text ? (
                         <Text
-                          style={styles.messageText}
+                          style={[styles.messageText, mine && styles.messageTextMine]}
                         >
                           {item.text}
                         </Text>
@@ -842,15 +843,15 @@ export default function ChatScreen() {
               accessibilityState={{ disabled: composerBusy }}
               disabled={composerBusy}
             >
-              {imageSending ? <ActivityIndicator color="#FFFFFF" /> : (
-                <Ionicons name="camera" size={22} color="#FFFFFF" />
+              {imageSending ? <ActivityIndicator color={backyrdTheme.color.onAccent} /> : (
+                <Ionicons name="camera" size={22} color={backyrdTheme.color.onAccent} />
               )}
             </Pressable>
 
             <TextInput
               style={styles.input}
               placeholder="Nachricht schreiben …"
-              placeholderTextColor="#85858E"
+              placeholderTextColor={backyrdTheme.color.textMuted}
               value={text}
               onChangeText={updateText}
               multiline
@@ -893,7 +894,7 @@ export default function ChatScreen() {
                   <Ionicons
                     name="image-outline"
                     size={24}
-                    color="#FFFFFF"
+                    color={backyrdTheme.color.textPrimary}
                   />
                 </Pressable>
               </View>
@@ -908,7 +909,7 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
   },
   keyboardView: {
     flex: 1,
@@ -921,9 +922,8 @@ const styles = StyleSheet.create({
     gap: 11,
     borderBottomWidth:
       StyleSheet.hairlineWidth,
-    borderBottomColor:
-      "rgba(255,255,255,0.08)",
-    backgroundColor: "#050506",
+    borderBottomColor: backyrdTheme.color.border,
+    backgroundColor: backyrdTheme.color.background,
   },
   headerCircle: {
     width: 47,
@@ -931,10 +931,9 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#15171B",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor:
-      "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
   },
   profileHeader: {
     flex: 1,
@@ -954,13 +953,13 @@ const styles = StyleSheet.create({
   },
   headerName: {
     maxWidth: "88%",
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 17,
     fontWeight: "900",
   },
   headerMeta: {
     marginTop: 2,
-    color: "#9A9AA3",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -985,13 +984,13 @@ const styles = StyleSheet.create({
   },
   emptyName: {
     marginTop: 14,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 21,
     fontWeight: "900",
   },
   emptyCopy: {
     marginTop: 6,
-    color: "#8D8D96",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
   },
   dateWrap: {
@@ -999,7 +998,7 @@ const styles = StyleSheet.create({
     marginVertical: 18,
   },
   dateText: {
-    color: "#7D7D86",
+    color: backyrdTheme.color.textMuted,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase",
@@ -1038,7 +1037,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 7,
   },
   bubbleOther: {
-    backgroundColor: "#23262B",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderBottomLeftRadius: 7,
   },
   bubbleMineTop: {
@@ -1048,14 +1047,15 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
   },
   messageText: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     lineHeight: 21,
     fontWeight: "500",
   },
+  messageTextMine: { color: backyrdTheme.color.onAccent },
   messageTime: {
     marginTop: 4,
-    color: "#9999A2",
+    color: backyrdTheme.color.textMuted,
     fontSize: 9,
     fontWeight: "700",
     alignSelf: "flex-end",
@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
     marginTop: 4,
     marginRight: 4,
-    color: "#787881",
+    color: backyrdTheme.color.textMuted,
     fontSize: 10,
     fontWeight: "700",
   },
@@ -1084,9 +1084,8 @@ const styles = StyleSheet.create({
       Platform.OS === "ios" ? 8 : 10,
     borderTopWidth:
       StyleSheet.hairlineWidth,
-    borderTopColor:
-      "rgba(255,255,255,0.08)",
-    backgroundColor: "#050506",
+    borderTopColor: backyrdTheme.color.border,
+    backgroundColor: backyrdTheme.color.background,
   },
   composer: {
     minHeight: 54,
@@ -1095,10 +1094,9 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1D1F23",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor:
-      "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
   cameraButton: {
     width: 44,
@@ -1117,7 +1115,7 @@ const styles = StyleSheet.create({
       Platform.OS === "ios" ? 12 : 9,
     paddingBottom:
       Platform.OS === "ios" ? 10 : 8,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     lineHeight: 21,
   },

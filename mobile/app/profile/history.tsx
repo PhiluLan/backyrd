@@ -298,7 +298,7 @@ export default function DecisionHistoryScreen() {
       ) : (
         <ScrollView
           refreshControl={
-            <RefreshControl tintColor="#FFFFFF" refreshing={refreshing} onRefresh={() => load("refresh")} />
+            <RefreshControl tintColor={theme.color.pink} refreshing={refreshing} onRefresh={() => load("refresh")} />
           }
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -389,7 +389,7 @@ function CandidateCard({
     <View style={[styles.candidateCard, done && styles.candidateCardDone]}>
       <View style={styles.candidateTop}>
         <View style={[styles.statusIcon, done && styles.statusIconDone]}>
-          <Ionicons name={copy.icon} size={19} color={done ? "#050506" : "#FFFFFF"} />
+          <Ionicons name={copy.icon} size={19} color={done ? theme.color.onAccent : theme.color.textPrimary} />
         </View>
 
         <View style={{ flex: 1 }}>
@@ -427,13 +427,13 @@ function CandidateCard({
         {done ? (
           <Pressable accessibilityRole="button" accessibilityLabel={`${row.spot_name} ansehen`} style={styles.primaryButton} onPress={onOpenSpot}>
             <Text style={styles.primaryButtonText}>Moment ansehen</Text>
-            <Ionicons name="arrow-forward" size={18} color="#050506" />
+            <Ionicons name="arrow-forward" size={18} color={theme.color.onAccent} />
           </Pressable>
         ) : (
           <>
             <Pressable accessibilityRole="button" accessibilityLabel={`${row.spot_name} kurz bewerten`} style={styles.primaryButton} onPress={onReview}>
               <Text style={styles.primaryButtonText}>Kurz bewerten</Text>
-              <Ionicons name="arrow-forward" size={18} color="#050506" />
+              <Ionicons name="arrow-forward" size={18} color={theme.color.onAccent} />
             </Pressable>
 
             <Pressable accessibilityRole="button" accessibilityLabel={`Smart Review für ${row.spot_name} öffnen`} style={styles.secondaryButton} onPress={onSmartReview}>
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   segmentTextActive: {
-    color: "#050506",
+    color: theme.color.onAccent,
   },
   loading: {
     flex: 1,
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
   },
   groupTitle: {
     marginTop: 3,
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 19,
     fontWeight: "900",
     letterSpacing: -0.3,
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
   },
   candidateCardDone: {
     borderColor: "rgba(154,230,180,0.28)",
-    backgroundColor: "#0E1411",
+    backgroundColor: theme.color.surfaceElevated,
   },
   candidateTop: {
     flexDirection: "row",
@@ -640,15 +640,15 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "#1B1B22",
+    backgroundColor: theme.color.surfaceElevated,
     borderWidth: 1,
     borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
   },
   statusIconDone: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#FFFFFF",
+    backgroundColor: theme.color.pink,
+    borderColor: theme.color.pink,
   },
   statusEyebrow: {
     color: "#8F8F98",

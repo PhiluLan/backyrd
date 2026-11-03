@@ -1,35 +1,51 @@
-import { Platform } from "react-native";
+import { DynamicColorIOS, Platform, PlatformColor, useColorScheme } from "react-native";
+import appearanceColors from "./appearance-colors.json";
+
+type AppearanceColorName = keyof typeof appearanceColors.dark;
+
+/** Native dynamic colors keep module-level StyleSheets in sync with the OS appearance. */
+function appearanceColor(name: AppearanceColorName): string {
+  if (Platform.OS === "ios") {
+    return DynamicColorIOS({ light: appearanceColors.light[name], dark: appearanceColors.dark[name] }) as unknown as string;
+  }
+  if (Platform.OS === "android") {
+    const resourceName = name.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    return PlatformColor(`@color/backyrd_${resourceName}`) as unknown as string;
+  }
+  return appearanceColors.dark[name];
+}
 
 // Native SF Pro is available for the Home presentation on iOS.
 export const useSFPro = Platform.OS === "ios";
 
 export const backyrdTheme = {
   color: {
-    background: "#050505",
+    background: appearanceColor("background"),
     backgroundLight: "#ECECEA",
-    surface: "#101010",
-    surfaceElevated: "#171719",
+    surface: appearanceColor("surface"),
+    surfaceElevated: appearanceColor("surfaceElevated"),
     surfaceLight: "#F5F3EE",
     surfaceLightElevated: "#FFFFFF",
-    textPrimary: "#F6F0E8",
+    textPrimary: appearanceColor("textPrimary"),
     textPrimaryLight: "#17161A",
-    textSecondary: "#9B9B9F",
+    textSecondary: appearanceColor("textSecondary"),
     textSecondaryLight: "#827D77",
-    textMuted: "#8C8C92",
-    pink: "#FF4F91",
-    blue: "#A9C2FF",
-    openGreen: "#9AE67A",
+    textMuted: appearanceColor("textMuted"),
+    pink: appearanceColor("pink"),
+    blue: appearanceColor("blue"),
+    openGreen: appearanceColor("openGreen"),
     /** @deprecated New Phase-1 surfaces use `blue` for context. */
-    lime: "#9AE67A",
+    lime: appearanceColor("lime"),
     /** @deprecated Prefer `openGreen` for status or `blue` for context. */
-    acid: "#9AE67A",
-    border: "rgba(246,240,232,0.14)",
-    borderStrong: "rgba(246,240,232,0.30)",
+    acid: appearanceColor("acid"),
+    border: appearanceColor("border"),
+    borderStrong: appearanceColor("borderStrong"),
     borderLight: "rgba(23,22,26,0.14)",
-    success: "#9AE67A",
-    warning: "#F7C65C",
-    closingSoon: "#FF9B5E",
-    danger: "#FF6868",
+    success: appearanceColor("success"),
+    warning: appearanceColor("warning"),
+    closingSoon: appearanceColor("closingSoon"),
+    danger: appearanceColor("danger"),
+    onAccent: appearanceColor("onAccent"),
   },
   spacing: { xxs: 4, xs: 8, sm: 12, md: 16, lg: 20, xl: 24, xxl: 32, xxxl: 40, display: 48 },
   layout: { pageGutter: 24, sectionGap: 32, contentGap: 16 },
@@ -58,3 +74,15 @@ export const backyrdTheme = {
 } as const;
 
 export type BackyrdTheme = typeof backyrdTheme;
+
+/** Semantic colors for the iPhone appearance selected in iOS Settings. */
+export const backyrdLightColors = {
+  ...backyrdTheme.color,
+  ...appearanceColors.light,
+} as const;
+
+export const backyrdLightTheme = { ...backyrdTheme, color: backyrdLightColors } as const;
+
+export function useBackyrdTheme() {
+  return useColorScheme() === "light" ? backyrdLightTheme : backyrdTheme;
+}

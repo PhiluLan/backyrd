@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -294,11 +295,11 @@ const styles = StyleSheet.create({
   sheet: {
     height: "92%",
     maxHeight: "94%",
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
     overflow: "hidden",
   },
   handle: {
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
     marginBottom: 7,
   },
   title: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 25,
     lineHeight: 30,
     fontWeight: "800",
@@ -414,7 +415,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: backyrdTheme.color.border,
     backgroundColor: "rgba(255,255,255,0.035)",
     color: "#F6F6F8",
     fontSize: 14,
@@ -451,7 +452,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E93678",
   },
   submitText: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     fontWeight: "800",
   },

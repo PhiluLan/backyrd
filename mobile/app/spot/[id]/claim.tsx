@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../../theme/backyrd";
 // mobile/app/spot/[id]/claim.tsx
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -301,7 +302,7 @@ export default function SpotClaimScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={styles.iconButton} hitSlop={10}>
-              <Ionicons name="chevron-back" size={22} color="#fff" />
+              <Ionicons name="chevron-back" size={22} color={backyrdTheme.color.textPrimary} />
             </Pressable>
             <Text style={styles.headerTitle}>Spot beanspruchen</Text>
             <View style={{ width: 42 }} />
@@ -368,7 +369,7 @@ export default function SpotClaimScreen() {
                 autoCorrect={false}
                 keyboardType="email-address"
                 placeholder="name@unternehmen.ch"
-                placeholderTextColor="rgba(255,255,255,0.35)"
+                placeholderTextColor={backyrdTheme.color.textMuted}
                 style={styles.input}
               />
 
@@ -377,7 +378,7 @@ export default function SpotClaimScreen() {
                 value={claimantName}
                 onChangeText={setClaimantName}
                 placeholder="z. B. Philipp Langer"
-                placeholderTextColor="rgba(255,255,255,0.35)"
+                placeholderTextColor={backyrdTheme.color.textMuted}
                 style={styles.input}
               />
 
@@ -386,7 +387,7 @@ export default function SpotClaimScreen() {
                 value={claimantRole}
                 onChangeText={setClaimantRole}
                 placeholder="z. B. Betreiber, Manager, Inhaber"
-                placeholderTextColor="rgba(255,255,255,0.35)"
+                placeholderTextColor={backyrdTheme.color.textMuted}
                 style={styles.input}
               />
 
@@ -396,7 +397,7 @@ export default function SpotClaimScreen() {
                 onChangeText={setNote}
                 multiline
                 placeholder="Kurze Info für die Prüfung…"
-                placeholderTextColor="rgba(255,255,255,0.35)"
+                placeholderTextColor={backyrdTheme.color.textMuted}
                 style={[styles.input, styles.textarea]}
               />
 
@@ -406,7 +407,7 @@ export default function SpotClaimScreen() {
                 style={[styles.primaryButton, sending && styles.disabled]}
               >
                 {sending ? (
-                  <ActivityIndicator color="#000" />
+                  <ActivityIndicator color={backyrdTheme.color.onAccent} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Code senden</Text>
                 )}
@@ -419,7 +420,7 @@ export default function SpotClaimScreen() {
               <Text style={styles.cardTitle}>Code eingeben</Text>
               <Text style={styles.cardText}>
                 Wir haben einen 6-stelligen Code an{" "}
-                <Text style={{ color: "#fff", fontWeight: "800" }}>
+                <Text style={{ color: backyrdTheme.color.textPrimary, fontWeight: "800" }}>
                   {businessEmail}
                 </Text>{" "}
                 gesendet.
@@ -437,7 +438,7 @@ export default function SpotClaimScreen() {
                 onChangeText={(v) => setCode(v.replace(/[^0-9]/g, "").slice(0, 6))}
                 keyboardType="number-pad"
                 placeholder="123456"
-                placeholderTextColor="rgba(255,255,255,0.35)"
+                placeholderTextColor={backyrdTheme.color.textMuted}
                 maxLength={6}
                 style={[styles.input, styles.codeInput]}
               />
@@ -448,7 +449,7 @@ export default function SpotClaimScreen() {
                 style={[styles.primaryButton, verifying && styles.disabled]}
               >
                 {verifying ? (
-                  <ActivityIndicator color="#000" />
+                  <ActivityIndicator color={backyrdTheme.color.onAccent} />
                 ) : (
                   <Text style={styles.primaryButtonText}>Code bestätigen</Text>
                 )}
@@ -474,11 +475,11 @@ export default function SpotClaimScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
   },
   center: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -497,23 +498,23 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: backyrdTheme.color.border,
     alignItems: "center",
     justifyContent: "center",
   },
   headerTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     fontWeight: "900",
   },
   heroCard: {
     borderRadius: 28,
     padding: 20,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: backyrdTheme.color.border,
     marginBottom: 16,
   },
   badge: {
@@ -535,34 +536,34 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   title: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 28,
     lineHeight: 32,
     fontWeight: "900",
     marginBottom: 10,
   },
   subtitle: {
-    color: "rgba(255,255,255,0.68)",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
   card: {
     borderRadius: 26,
     padding: 18,
-    backgroundColor: "#1B1B21",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
     marginTop: 12,
   },
   cardTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 20,
     fontWeight: "900",
     marginTop: 8,
     marginBottom: 8,
   },
   cardText: {
-    color: "rgba(255,255,255,0.68)",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 16,
@@ -574,7 +575,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   label: {
-    color: "rgba(255,255,255,0.82)",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 13,
     fontWeight: "800",
     marginBottom: 8,
@@ -585,10 +586,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#fff",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    color: backyrdTheme.color.textPrimary,
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: backyrdTheme.color.border,
     fontSize: 15,
     marginBottom: 8,
   },
@@ -605,13 +606,13 @@ const styles = StyleSheet.create({
   primaryButton: {
     minHeight: 54,
     borderRadius: 999,
-    backgroundColor: "#fff",
+    backgroundColor: backyrdTheme.color.pink,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 14,
   },
   primaryButtonText: {
-    color: "#000",
+    color: backyrdTheme.color.onAccent,
     fontWeight: "900",
     fontSize: 15,
   },
@@ -619,13 +620,13 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
+    borderColor: backyrdTheme.color.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 12,
   },
   secondaryButtonText: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontWeight: "800",
   },
   backLink: {
@@ -633,7 +634,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   backLinkText: {
-    color: "rgba(255,255,255,0.65)",
+    color: backyrdTheme.color.textSecondary,
     fontWeight: "800",
     textDecorationLine: "underline",
   },

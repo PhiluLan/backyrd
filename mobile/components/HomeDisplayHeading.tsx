@@ -2,9 +2,10 @@ import React, { useState } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 
 import { AppText } from "./foundation/AppText";
-import { backyrdTheme as theme, useSFPro } from "../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme, useSFPro } from "../theme/backyrd";
 
 export function HomeDisplayHeading({ title, accent, displayTitle }: { title: string; accent: string; displayTitle?: string }) {
+  const { color } = useBackyrdTheme();
   const { width } = useWindowDimensions();
   const [measured, setMeasured] = useState<{ baseSize: number; width: number } | null>(null);
   const label = `${title}${accent}`;
@@ -19,14 +20,14 @@ export function HomeDisplayHeading({ title, accent, displayTitle }: { title: str
 
   return <View style={styles.container}>
     {useSFPro ? <>
-      <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayXL" style={[styles.measure, styles.title, { fontSize: baseSize, lineHeight: Math.round(baseSize * 1.06), letterSpacing: baseSize * -0.075 }]} onTextLayout={event => {
+      <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayXL" style={[styles.measure, styles.title, { color: color.textPrimary, fontSize: baseSize, lineHeight: Math.round(baseSize * 1.06), letterSpacing: baseSize * -0.075 }]} onTextLayout={event => {
         const measuredWidth = event.nativeEvent.lines[0]?.width ?? 0;
         if (measuredWidth > 0 && (measured?.baseSize !== baseSize || Math.abs(measured.width - measuredWidth) > 1)) {
           setMeasured({ baseSize, width: measuredWidth });
         }
       }}>{referenceTitle}</AppText>
-      <AppText accessibilityLabel={label} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.title, metrics]}>{displayTitle ?? title}<Text style={styles.accent}>{accent}</Text></AppText>
-    </> : <AppText role="sectionTitle">{title}<Text style={styles.accent}>{accent}</Text></AppText>}
+      <AppText accessibilityLabel={label} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.title, metrics, { color: color.textPrimary }]}>{displayTitle ?? title}<Text style={{ color: color.pink }}>{accent}</Text></AppText>
+    </> : <AppText role="sectionTitle">{title}<Text style={{ color: color.pink }}>{accent}</Text></AppText>}
   </View>;
 }
 

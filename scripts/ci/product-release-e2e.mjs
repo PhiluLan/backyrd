@@ -313,6 +313,17 @@ try {
   const cards = page.getByTestId("wohin-result-card");
   const dock = page.getByRole("button", {name:"Mit NukNuk chatten",exact:true});
   await dock.waitFor();
+  const paletteCard = cards.first();
+  for (const [mode, expected] of [["light", "rgb(255, 249, 246)"], ["dark", "rgb(43, 27, 38)"]]) {
+    await page.emulateMedia({ colorScheme: mode });
+    await paletteCard.evaluate(async (card, background) => {
+      for (let tick = 0; tick < 30; tick++) {
+        if (getComputedStyle(card).backgroundColor === background) return;
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
+      throw new Error("Wohin did not adopt the system appearance");
+    }, expected);
+  }
   assert.deepEqual(await cards.getByRole("heading").allTextContents(), spots.map(spot => spot.name()), "the list keeps the server order");
   for (let attempt=0; attempt<40 && !state.interactions.some(row=>row.eventType === "candidate_impression"); attempt++) await page.waitForTimeout(100);
   assert.ok(state.interactions.some(row => row.eventType === "candidate_impression" && row.candidateId === spots[0].spotId));

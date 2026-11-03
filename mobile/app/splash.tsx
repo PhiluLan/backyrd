@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
+import { backyrdTheme } from "../theme/backyrd";
 
 type SplashScreenProps = {
   compact?: boolean;
@@ -113,10 +114,10 @@ export default function SplashScreen({ compact = false, onAnimationSettled, onRe
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#050505", alignItems: "center", justifyContent: "center" },
+  container: { flex: 1, backgroundColor: backyrdTheme.color.background, alignItems: "center", justifyContent: "center" },
   markStage: { width: MARK_STAGE_WIDTH, height: 64, position: "relative" },
-  brandGlyph: { position: "absolute", top: 0, color: "#F3EDE5", fontSize: 46, lineHeight: 56, fontWeight: "700", letterSpacing: 1.2 },
+  brandGlyph: { position: "absolute", top: 0, color: backyrdTheme.color.textPrimary, fontSize: 46, lineHeight: 56, fontWeight: "700", letterSpacing: 1.2 },
   bGlyph: { left: INITIAL_B_LEFT },
   tailGlyph: { left: INITIAL_TAIL_LEFT },
-  brandDot: { left: INITIAL_DOT_LEFT, color: "#FF4F91", letterSpacing: 0 },
+  brandDot: { left: INITIAL_DOT_LEFT, color: backyrdTheme.color.pink, letterSpacing: 0 },
 });

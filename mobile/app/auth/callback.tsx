@@ -42,16 +42,16 @@ export default function AuthCallbackScreen() {
           </Pressable>
         </>
       ) : (
-        <><ActivityIndicator color="#fff" /><Text style={styles.copy}>Dein sicherer Link wird geprüft …</Text></>
+        <><ActivityIndicator color={backyrdTheme.color.pink} /><Text style={styles.copy}>Dein sicherer Link wird geprüft …</Text></>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#050506", padding: 28, justifyContent: "center", alignItems: "center" },
-  title: { color: "#fff", ...backyrdTheme.typeScale.screenTitle, fontWeight: "700", textAlign: "center", marginBottom: 14 },
-  copy: { color: "#A6A8AD", ...backyrdTheme.typeScale.body, textAlign: "center", marginTop: 14 },
-  button: { marginTop: 26, backgroundColor: "#fff", borderRadius: 17, paddingHorizontal: 24, paddingVertical: 16 },
-  buttonText: { color: "#111", fontSize: 16, fontWeight: "900" },
+  root: { flex: 1, backgroundColor: backyrdTheme.color.background, padding: 28, justifyContent: "center", alignItems: "center" },
+  title: { color: backyrdTheme.color.textPrimary, ...backyrdTheme.typeScale.screenTitle, fontWeight: "700", textAlign: "center", marginBottom: 14 },
+  copy: { color: backyrdTheme.color.textSecondary, ...backyrdTheme.typeScale.body, textAlign: "center", marginTop: 14 },
+  button: { marginTop: 26, backgroundColor: backyrdTheme.color.pink, borderRadius: 17, paddingHorizontal: 24, paddingVertical: 16 },
+  buttonText: { color: backyrdTheme.color.onAccent, fontSize: 16, fontWeight: "900" },
 });

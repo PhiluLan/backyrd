@@ -45,16 +45,16 @@ import {
 
 const theme = {
   colors: {
-    background: "#050506",
-    surface: "#111113",
-    card: "rgba(255,255,255,0.045)",
-    border: "rgba(255,255,255,0.09)",
-    text: "#fff",
-    textMuted: "rgba(255,255,255,0.56)",
-    textSoft: "rgba(255,255,255,0.72)",
-    primary: "#FF4F91",
+    background: foundationTheme.color.background,
+    surface: foundationTheme.color.surface,
+    card: foundationTheme.color.surfaceElevated,
+    border: foundationTheme.color.border,
+    text: foundationTheme.color.textPrimary,
+    textMuted: foundationTheme.color.textMuted,
+    textSoft: foundationTheme.color.textSecondary,
+    primary: foundationTheme.color.pink,
     pinkSoft: "#FFC5DA",
-    ink: "#111113",
+    ink: foundationTheme.color.onAccent,
   },
   radius: { lg: 16, pill: 999 },
   spacing: (n: number) => n * 8,
@@ -594,7 +594,7 @@ export default function SmartReviewScreen() {
       <SafeAreaView style={styles.gateSafe}>
         <View style={styles.header}>
           <Pressable accessibilityRole="button" accessibilityLabel="Moment vor Ort schließen" onPress={() => router.back()} hitSlop={10}>
-            <Ionicons name="chevron-back" size={26} color="#fff" />
+            <Ionicons name="chevron-back" size={26} color={foundationTheme.color.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>Moment vor Ort</Text>
           <View style={{ width: 26 }} />
@@ -764,7 +764,7 @@ export default function SmartReviewScreen() {
       >
         <View style={styles.header}>
           <Pressable accessibilityRole="button" accessibilityLabel="Moment vor Ort schließen" onPress={() => router.back()} hitSlop={10}>
-            <Ionicons name="chevron-back" size={26} color="#fff" />
+            <Ionicons name="chevron-back" size={26} color={foundationTheme.color.textPrimary} />
           </Pressable>
           <Text style={styles.headerTitle}>{headerTitle}</Text>
           <View style={{ width: 26 }} />
@@ -796,7 +796,7 @@ export default function SmartReviewScreen() {
                   accessibilityLabel="Text zum Moment"
                   style={[styles.input, { minHeight: 88, textAlignVertical: "top" }]}
                   placeholder="Was sollte man wissen?"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  placeholderTextColor={foundationTheme.color.textMuted}
                   value={text}
                   onChangeText={setText}
                   multiline
@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
     gap: 11,
     padding: 15,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.045)",
+    backgroundColor: foundationTheme.color.surfaceElevated,
     borderWidth: 1,
     borderColor: theme.colors.border,
     marginBottom: 22,

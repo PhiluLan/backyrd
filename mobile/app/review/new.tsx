@@ -37,16 +37,16 @@ import {
 
 const theme = {
   colors: {
-    background: "#050506",
-    surface: "#111113",
-    surfaceElevated: "rgba(255,255,255,0.045)",
-    border: "rgba(255,255,255,0.09)",
-    text: "#FFFFFF",
-    textMuted: "rgba(255,255,255,0.56)",
-    textSoft: "rgba(255,255,255,0.72)",
-    primary: "#FF4F91",
+    background: foundationTheme.color.background,
+    surface: foundationTheme.color.surface,
+    surfaceElevated: foundationTheme.color.surfaceElevated,
+    border: foundationTheme.color.border,
+    text: foundationTheme.color.textPrimary,
+    textMuted: foundationTheme.color.textMuted,
+    textSoft: foundationTheme.color.textSecondary,
+    primary: foundationTheme.color.pink,
     accent: "#FFC5DA",
-    ink: "#111113",
+    ink: foundationTheme.color.onAccent,
   },
   radius: { md: 12, lg: 16, xl: 24, pill: 999 },
   spacing: (n: number) => n * 8,
@@ -352,7 +352,7 @@ export default function NewReviewScreen() {
                 hitSlop={10}
                 style={styles.headerBtn}
               >
-                <Ionicons name="chevron-back" size={24} color="#fff" />
+                <Ionicons name="chevron-back" size={24} color={foundationTheme.color.textPrimary} />
               </Pressable>
               <Text style={styles.headerTitle}>{isDecisionReview ? "Deinen Besuch teilen" : "Moment teilen"}</Text>
               <View style={styles.headerBtn} />
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: foundationTheme.color.surfaceElevated,
   },
   headerTitle: { color: foundationTheme.color.textPrimary, ...foundationTheme.typeScale.cardTitle, flex: 1, textAlign: "center" },
 

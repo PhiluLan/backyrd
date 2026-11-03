@@ -14,6 +14,7 @@ import { isMissingAuthSession } from "../../../packages/shared/src/auth-errors";
 import { parseAccountAge } from "../../../packages/shared/src/account-entry";
 import { useUnsavedDraft } from "../../hooks/useUnsavedMoment";
 import { StateView } from "../../components/foundation/StateView";
+import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 
 type ProfileRow = {
   id: string;
@@ -103,6 +104,7 @@ async function getVerifiedUserOrSignOut() {
 }
 
 export default function ProfileOnboardingScreen() {
+  const { color } = useBackyrdTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ preview?: string }>();
   const previewMode = __DEV__ && params.preview === "1";
@@ -313,7 +315,7 @@ export default function ProfileOnboardingScreen() {
   return (
     <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient colors={["#050506", "#050506", "#0D0D10"]} style={styles.container}>
+        <LinearGradient colors={[color.background, color.background, color.surface]} style={styles.container}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <View style={styles.topRow}>
               <Text numberOfLines={1} style={styles.location}>{clean(city) || "Basel"}</Text>
@@ -355,7 +357,7 @@ export default function ProfileOnboardingScreen() {
                     if (!usernameEdited.current) setUsername(usernameFrom(value));
                   }}
                   placeholder="Philipp"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  placeholderTextColor={theme.color.textMuted}
                   autoCapitalize="words"
                   textContentType="givenName"
                   returnKeyType="next"
@@ -370,7 +372,7 @@ export default function ProfileOnboardingScreen() {
                   value={username}
                   onChangeText={(value) => { usernameEdited.current = true; setUsername(usernameFrom(value)); }}
                   placeholder="philipp"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  placeholderTextColor={theme.color.textMuted}
                   autoCapitalize="none"
                   autoCorrect={false}
                   textContentType="username"
@@ -386,7 +388,7 @@ export default function ProfileOnboardingScreen() {
                   value={age}
                   onChangeText={setAge}
                   placeholder="31"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  placeholderTextColor={theme.color.textMuted}
                   keyboardType="number-pad"
                   style={styles.input}
                 />
@@ -400,7 +402,7 @@ export default function ProfileOnboardingScreen() {
                     value={city}
                     onChangeText={setCity}
                     placeholder="Basel"
-                    placeholderTextColor="rgba(255,255,255,0.34)"
+                    placeholderTextColor={theme.color.textMuted}
                     autoCapitalize="words"
                     textContentType="addressCity"
                     style={[styles.input, styles.cityInput]}
@@ -412,7 +414,7 @@ export default function ProfileOnboardingScreen() {
                     style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}
                   >
                     {locationLoading ? (
-                      <ActivityIndicator size="small" color="#111113" />
+                      <ActivityIndicator size="small" color={theme.color.onAccent} />
                     ) : (
                       <Text style={styles.locationButtonText}>Aktuell</Text>
                     )}
@@ -427,7 +429,7 @@ export default function ProfileOnboardingScreen() {
                   value={country}
                   onChangeText={setCountry}
                   placeholder="Schweiz"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  placeholderTextColor={theme.color.textMuted}
                   autoCapitalize="words"
                   textContentType="countryName"
                   returnKeyType="done"
@@ -442,7 +444,7 @@ export default function ProfileOnboardingScreen() {
                 accessibilityState={{ disabled: saving, busy: saving }}
                 style={({ pressed }) => [styles.primaryButton, saving && styles.disabled, pressed && styles.pressed]}
               >
-                {saving ? <ActivityIndicator color="#111113" /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
+                {saving ? <ActivityIndicator color={theme.color.onAccent} /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
               </Pressable>
             </View>
 
@@ -459,7 +461,7 @@ export default function ProfileOnboardingScreen() {
 const styles = StyleSheet.create({
   keyboardRoot: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: theme.color.background,
   },
   container: {
     flex: 1,
@@ -477,7 +479,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   location: {
-    color: "rgba(255,255,255,0.92)",
+    color: theme.color.textPrimary,
     fontSize: 20,
     lineHeight: 24,
     fontWeight: "700",
@@ -487,14 +489,14 @@ const styles = StyleSheet.create({
     height: 34,
     paddingHorizontal: 13,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: theme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
   },
   stepText: {
-    color: "rgba(255,255,255,0.66)",
+    color: theme.color.textSecondary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -502,25 +504,25 @@ const styles = StyleSheet.create({
     marginBottom: 26,
   },
   kicker: {
-    color: "#FF4F91",
+    color: theme.color.pink,
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 4.2,
     marginBottom: 16,
   },
   title: {
-    color: "#fff",
+    color: theme.color.textPrimary,
     fontSize: 44,
     lineHeight: 49,
     fontWeight: "700",
     letterSpacing: -1,
   },
   titlePink: {
-    color: "#FF4F91",
+    color: theme.color.pink,
     fontWeight: "900",
   },
   subtitle: {
-    color: "rgba(255,255,255,0.66)",
+    color: theme.color.textSecondary,
     fontSize: 16,
     lineHeight: 23,
     marginTop: 14,
@@ -529,9 +531,9 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 28,
     padding: 16,
-    backgroundColor: "rgba(255,255,255,0.045)",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: theme.color.border,
   },
   formError: {
     borderRadius: 14,
@@ -542,7 +544,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   formErrorText: {
-    color: "#FFC0C0",
+    color: theme.color.danger,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -550,14 +552,14 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   cardTitle: {
-    color: "#fff",
+    color: theme.color.textPrimary,
     fontSize: 22,
     lineHeight: 27,
     fontWeight: "800",
     letterSpacing: -0.45,
   },
   cardHint: {
-    color: "rgba(255,255,255,0.48)",
+    color: theme.color.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "600",
@@ -567,7 +569,7 @@ const styles = StyleSheet.create({
     marginBottom: 13,
   },
   label: {
-    color: "rgba(255,255,255,0.48)",
+    color: theme.color.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.25,
@@ -576,13 +578,13 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: 56,
-    backgroundColor: "rgba(255,255,255,0.055)",
-    borderColor: "rgba(255,255,255,0.095)",
+    backgroundColor: theme.color.surfaceElevated,
+    borderColor: theme.color.border,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 18,
-    color: "#fff",
+    color: theme.color.textPrimary,
     fontSize: 16,
     fontWeight: "800",
   },
@@ -598,32 +600,32 @@ const styles = StyleSheet.create({
     minWidth: 94,
     height: 56,
     borderRadius: 18,
-    backgroundColor: "#FFC5DA",
+    backgroundColor: theme.color.pink,
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
   locationButtonText: {
-    color: "#111113",
+    color: theme.color.onAccent,
     fontWeight: "900",
     fontSize: 13,
   },
   primaryButton: {
     height: 58,
     borderRadius: 999,
-    backgroundColor: "#FF4F91",
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
   },
   primaryButtonText: {
-    color: "#111113",
+    color: theme.color.onAccent,
     fontSize: 16,
     fontWeight: "900",
   },
   footerNote: {
-    color: "rgba(255,255,255,0.42)",
+    color: theme.color.textMuted,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: "600",

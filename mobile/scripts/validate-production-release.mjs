@@ -25,7 +25,7 @@ if (process.env.APP_VARIANT !== "prod") {
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const eas = JSON.parse(fs.readFileSync(path.join(root, "eas.json"), "utf8"));
 if (eas.build?.production?.channel !== "production") failures.push("EAS production channel mismatch");
-if (packageJson.version !== "1.1.0") failures.push("Mobile release version mismatch");
+
 
 try {
   const expoConfig = JSON.parse(
@@ -36,6 +36,7 @@ try {
       stdio: ["ignore", "pipe", "pipe"],
     })
   );
+  if (expoConfig.version !== packageJson.version) failures.push("Mobile release version mismatch");
   if (expoConfig.ios?.bundleIdentifier !== expectedIosBundleIdentifier) {
     failures.push(
       `iOS Production bundle identifier must be ${expectedIosBundleIdentifier}, received ${expoConfig.ios?.bundleIdentifier ?? "missing"}`

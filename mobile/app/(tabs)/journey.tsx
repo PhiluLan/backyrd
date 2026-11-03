@@ -478,7 +478,7 @@ export default function JourneyScreen() {
             ]}
             disabled={loading || catalogLoading}
           >
-            <Ionicons name="sparkles" size={20} color="#fff" style={{ marginRight: 6 }} />
+            <Ionicons name="sparkles" size={20} color={backyrdTheme.color.textPrimary} style={{ marginRight: 6 }} />
             <Text style={styles.buttonText}>
               {loading ? "Wird generiert…" : catalogLoading ? "Lade Spots…" : "Vorschlag generieren"}
             </Text>
@@ -581,7 +581,7 @@ export default function JourneyScreen() {
                 <Ionicons name="remove-circle" size={32} color={theme.colors.primary} />
               </Pressable>
 
-              <Text style={{ color: "#fff", fontSize: 18 }}>{persons}</Text>
+              <Text style={{ color: backyrdTheme.color.textPrimary, fontSize: 18 }}>{persons}</Text>
 
               <Pressable onPress={() => setPersons(persons + 1)}>
                 <Ionicons name="add-circle" size={32} color={theme.colors.primary} />
@@ -593,7 +593,7 @@ export default function JourneyScreen() {
             </Pressable>
 
             <Pressable onPress={() => setBookingVisible(false)} style={{ marginTop: 12, alignItems: "center" }}>
-              <Text style={{ color: "#aaa" }}>Abbrechen</Text>
+              <Text style={{ color: backyrdTheme.color.textMuted }}>Abbrechen</Text>
             </Pressable>
           </View>
         </View>
@@ -607,15 +607,15 @@ const styles = StyleSheet.create({
   title: {
     ...backyrdTheme.typeScale.screenTitle,
     fontWeight: "700",
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     marginBottom: 4,
   },
-  subtitle: { color: "#ccc", marginBottom: 16, fontSize: 15 },
+  subtitle: { color: backyrdTheme.color.textSecondary, marginBottom: 16, fontSize: 15 },
   input: {
-    backgroundColor: "#111",
+    backgroundColor: backyrdTheme.color.surface,
     borderRadius: 12,
     padding: 14,
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     minHeight: 90,
     marginBottom: 12,
   },
@@ -629,9 +629,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 4,
   },
-  buttonText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  buttonText: { color: backyrdTheme.color.onAccent, fontWeight: "600", fontSize: 16 },
   greeting: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 18,
     marginTop: 22,
     fontWeight: "600",
@@ -651,13 +651,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardStep: { color: theme.colors.primary, fontSize: 13, marginBottom: 4 },
-  cardTitle: { color: "#fff", fontSize: 20, fontWeight: "600" },
+  cardTitle: { color: backyrdTheme.color.textPrimary, fontSize: 20, fontWeight: "600" },
   cardMeta: {
     color: theme.colors.textMuted,
     marginTop: 2,
     marginBottom: 8,
   },
-  cardReason: { color: "#fff", marginTop: 8, fontSize: 15 },
+  cardReason: { color: backyrdTheme.color.textPrimary, marginTop: 8, fontSize: 15 },
   chip: {
     backgroundColor: theme.colors.chip,
     borderColor: theme.colors.chipBorder,
@@ -666,29 +666,29 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: theme.radius.pill,
   },
-  chipText: { color: "#fff", fontSize: 12 },
+  chipText: { color: backyrdTheme.color.textPrimary, fontSize: 12 },
   detailButton: {
     paddingVertical: 10,
     borderRadius: theme.radius.md,
     alignItems: "center",
   },
-  detailButtonText: { color: "#fff", fontWeight: "600" },
+  detailButtonText: { color: backyrdTheme.color.textPrimary, fontWeight: "600" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#111",
+    backgroundColor: backyrdTheme.color.surface,
     padding: 20,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
   modalTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 12,
   },
-  modalLabel: { color: "#ccc", marginTop: 12, marginBottom: 4 },
+  modalLabel: { color: backyrdTheme.color.textSecondary, marginTop: 12, marginBottom: 4 },
 });
