@@ -5,8 +5,10 @@ Stand: 3. November 2026. Ausgangspunkt: Main `664509f7bf165caff3bdc1b67eb1de0f0d
 **Geräteabnahme von Build 60 durch den Founder bestanden.** Am 3. November
 bestätigte der Founder nach Installation des neuen Builds alle zehn ihm
 vorgelegten Abnahmepunkte. Das ist eine menschliche Abnahme, kein vom Agenten
-beobachteter Gerätetest. Die vollständige Website-/App-Verknüpfung für Password
-AutoFill und der produktive Release dieses Pakets sind noch offen; Paket 2 ist
+beobachteter Gerätetest. Die Website-/App-Verknüpfung für Password AutoFill ist
+über PR #684 live und auch bei Apple nachgewiesen. Der gezielte AutoFill-
+Gerätetest und der produktive Release der übrigen Paket-2-Änderungen sind noch
+offen; Paket 2 ist
 deshalb noch nicht vollständig grün. Paket 1 bleibt unverändert abgeschlossen.
 Weitere Beta-Pakete wurden hier nicht begonnen.
 
@@ -161,8 +163,14 @@ Jetzt sind `webcredentials:www.backyrd.ch` und der gleichnamige AASA-Dienst für
 Universal-Link-Pfade bleiben unverändert; Development-Builds beanspruchen die
 produktive Domain weiterhin nicht.
 
-Die AASA-Datei muss auf der produktiven Domain ausgeliefert werden und ein neu
-signierter iOS-Build muss die zusätzliche Associated-Domains-Angabe enthalten.
+Die AASA-Datei ist seit dem freigegebenen PR #684 auf der produktiven Domain
+ausgeliefert; der signierte Build 60 enthält die zusätzliche Associated-Domains-
+Angabe. Am 3. November wurden HTTP 200, JSON-Content-Type, keine Weiterleitung,
+der exakte geprüfte Inhalt und derselbe neue Inhalt auf Apples CDN verifiziert.
+Produktiver Merge: `1326ef02a1abb96a5117800c3d220cdf8db61d2f`. Beide
+Vercel-Produktionsdeployments sind erfolgreich. Veröffentlicht wurde allein die
+Domainzuordnung; keine weiteren Paket-2-Webänderungen, kein OTA und keine
+Datenbankänderung. Der gezielte AutoFill-Gerätetest ist beim Founder angefragt.
 Ein OTA-Update kann diese native Angabe nicht ergänzen. Die vorgeschlagenen
 JS-Änderungen bleiben mit dem bisherigen Runtime kompatibel; vollständiges
 Passwort-Autofill wird aber erst nach neuem Build, Domainprüfung und echtem
@@ -234,10 +242,10 @@ Der bestehende API-Zugang wurde weiterverwendet; keine neuen Testgruppen, kein
 Auto-Submit, kein OTA und keine öffentliche App-Store-Veröffentlichung.
 Der vorherige Befund (Build 59, TestFlight nicht installiert) ist durch die
 Bestätigung des Founders zur Installation von Build 60 überholt. Die öffentliche
-Website liefert die neue Password-AutoFill-Zuordnung weiterhin nicht aus
-(nach der Geräteabnahme am 3. November nochmals lesend geprüft). Die
-Veröffentlichung dieser Zuordnung und der anschliessende gezielte AutoFill-Test
-bleiben offen. Ein neuer Release oder Preview muss
+Website und Apples CDN liefern die neue Password-AutoFill-Zuordnung seit der
+ausdrücklich freigegebenen Veröffentlichung über PR #684 aus. Der anschliessende
+gezielte AutoFill-Test bleibt offen; er ist nicht durch die technische
+Veröffentlichungsprüfung ersetzt. Ein neuer Release oder Preview muss
 eindeutig auf den hier geprüften Stand zeigen; die bisherige produktive App
 beweist diese Änderungen nicht. Keine destruktive Privat-Umschaltung an einem echten Konto mit
 Folge-Verbindungen als Test verwenden. Die entsprechende Verhaltensprüfung bleibt

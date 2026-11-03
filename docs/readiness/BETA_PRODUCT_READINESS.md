@@ -18,9 +18,10 @@ Fremdschlüsseln, Original-Medienschlüsseln und Bytes abgeglichen.
 Paket 2: [Einstieg und Kontrolle](BETA_ENTRY_AND_CONTROL.md). Die lokale
 Ablaufprüfung ist bestanden. Der Founder hat am 3. November nach Installation
 von iOS-Build 60 alle zehn vorgelegten Geräte-Abnahmepunkte als bestanden
-bestätigt. Offen sind noch die Veröffentlichung der Website-Zuordnung für
-Password AutoFill, deren gezielter Gerätetest und der produktive Release des
-Pakets. Paket 2 ist noch nicht vollständig grün.
+bestätigt. Die Website-Zuordnung für Password AutoFill ist über PR #684 live
+und auch auf Apples CDN verifiziert. Offen sind deren gezielter Gerätetest und
+der produktive Release der übrigen Paket-2-Änderungen. Paket 2 ist noch nicht
+vollständig grün.
 Die vollständige Beta-Sicherheits-/Geräteabnahme bleibt Paket 6.
 
 ## Erfasster Umfang
