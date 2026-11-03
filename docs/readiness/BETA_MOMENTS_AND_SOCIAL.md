@@ -182,3 +182,21 @@ Ausschlussregel ist nun auch im Repository hinterlegt. Die frühere Aufnahme
 der Datei in Git ist damit nicht rückgängig gemacht; Gültigkeit und notwendige
 Ersetzung des Schlüssels müssen gesondert geprüft werden. Es wurde kein
 Schlüssel rotiert oder widerrufen.
+
+
+Build 61 ist am 3. November bei Expo erfolgreich abgeschlossen. Das heruntergeladene
+IPA besteht die Bundle-/Provisioning-Prüfung und `codesign --verify --deep --strict`.
+Version 1.1.0/61, App-Kennung `com.philipplanger.backyrd`, Team `7B3B8TL6J9`,
+`get-task-allow=false` und beide bisherigen Associated Domains sind am Paket geprüft.
+IPA-SHA-256: `fe7a827267555e1616a69510c9e2a7f02600c9de1b56c29597e1f1efc82f65b2`.
+Kein Auto-Submit, keine Übertragung an Apple, keine Installation und keine Verteilung.
+Der lokale Prüfbeleg liegt unter `/tmp/backyrd-p3-build61/receipt.json`.
+
+Die aktuelle GitHub-Datenbankausführung besteht inklusive neuem Social-SQL-Test,
+Berechtigungsprüfung und korrigiertem DB-Lint. Der Job ist dennoch noch nicht
+freigegeben: Der generierte Datenbank-Release-Nachweis für die neue Migration
+fehlt (`forward_migration_requires_exactly_one_generated_database_release`).
+Die Product-Zertifizierung und der Merge bleiben offen. Vor einer Geräteabnahme
+müssen die neuen Serververträge kontrolliert veröffentlicht und der TestFlight-
+Versand gesondert freigegeben werden. Ein fertiges IPA ist keine Server- oder
+Beta-Abnahme.
