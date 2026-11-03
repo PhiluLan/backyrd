@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../../theme/backyrd";
 import React, { useEffect, useMemo, useState } from "react";
 import { View, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { ProductText as Text, ProductTextInput as TextInput } from "../../../components/foundation/AppText";
@@ -250,7 +251,7 @@ export default function SpotManageScreen() {
   // ✅ Render Branches: INSIDE component, after hooks
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050506" }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: backyrdTheme.color.background }}>
         <StateView kind="loading" title="Spot wird geladen" />
       </View>
     );
@@ -258,12 +259,12 @@ export default function SpotManageScreen() {
 
   if (!ctx) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050506", padding: 20 }}>
-        <Text style={{ color: "white", opacity: 0.8, textAlign: "center" }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: backyrdTheme.color.background, padding: 20 }}>
+        <Text style={{ color: backyrdTheme.color.textPrimary, opacity: 0.8, textAlign: "center" }}>
           Spot konnte nicht geladen werden.
         </Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 14 }}>
-          <Text style={{ color: "white", textDecorationLine: "underline" }}>Zurück</Text>
+          <Text style={{ color: backyrdTheme.color.textPrimary, textDecorationLine: "underline" }}>Zurück</Text>
         </TouchableOpacity>
       </View>
     );
@@ -271,45 +272,45 @@ export default function SpotManageScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: "#050506" }}
+      style={{ flex: 1, backgroundColor: backyrdTheme.color.background }}
       contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
     >
-      <Text style={{ color: "white", fontSize: 26, marginBottom: 6 }}>Spot verwalten</Text>
-      <Text style={{ color: "rgba(255,255,255,0.7)", marginBottom: 18 }}>{ctx.spot_name}</Text>
+      <Text style={{ color: backyrdTheme.color.textPrimary, fontSize: 26, marginBottom: 6 }}>Spot verwalten</Text>
+      <Text style={{ color: backyrdTheme.color.textSecondary, marginBottom: 18 }}>{ctx.spot_name}</Text>
 
-      <Text style={{ color: "rgba(255,255,255,0.85)", marginBottom: 6 }}>Beschreibung</Text>
+      <Text style={{ color: backyrdTheme.color.textPrimary, marginBottom: 6 }}>Beschreibung</Text>
       <TextInput
         value={desc}
         onChangeText={setDesc}
         multiline
         placeholder="Beschreibe deinen Ort in 2–4 Sätzen (ehrlich, hilfreich, mit Keywords)…"
-        placeholderTextColor="rgba(255,255,255,0.4)"
+        placeholderTextColor={backyrdTheme.color.textMuted}
         style={{
           minHeight: 110,
           borderRadius: 12,
           padding: 12,
-          backgroundColor: "rgba(255,255,255,0.10)",
-          color: "white",
+          backgroundColor: backyrdTheme.color.surfaceElevated,
+          color: backyrdTheme.color.textPrimary,
           marginBottom: 12,
         }}
       />
 
-      <Text style={{ color: "rgba(255,255,255,0.85)", marginBottom: 6 }}>Keywords (Komma-getrennt)</Text>
+      <Text style={{ color: backyrdTheme.color.textPrimary, marginBottom: 6 }}>Keywords (Komma-getrennt)</Text>
       <TextInput
         value={keywordsRaw}
         onChangeText={setKeywordsRaw}
         placeholder="z.B. cocktails, international, gemütlich, lunch"
-        placeholderTextColor="rgba(255,255,255,0.4)"
+        placeholderTextColor={backyrdTheme.color.textMuted}
         style={{
           borderRadius: 12,
           padding: 12,
-          backgroundColor: "rgba(255,255,255,0.10)",
-          color: "white",
+          backgroundColor: backyrdTheme.color.surfaceElevated,
+          color: backyrdTheme.color.textPrimary,
           marginBottom: 12,
         }}
       />
 
-      <Text style={{ color: "rgba(255,255,255,0.85)", marginBottom: 6 }}>Kategorie</Text>
+      <Text style={{ color: backyrdTheme.color.textPrimary, marginBottom: 6 }}>Kategorie</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
         {categories.map((c) => (
           <TouchableOpacity
@@ -319,7 +320,7 @@ export default function SpotManageScreen() {
               paddingHorizontal: 10,
               paddingVertical: 8,
               borderRadius: 999,
-              backgroundColor: categoryId === c.id ? "white" : "rgba(255,255,255,0.10)",
+              backgroundColor: categoryId === c.id ? backyrdTheme.color.pink : backyrdTheme.color.surfaceElevated,
             }}
           >
             <Text style={{ color: categoryId === c.id ? "black" : "white" }}>{c.name}</Text>
@@ -327,43 +328,43 @@ export default function SpotManageScreen() {
         ))}
       </View>
 
-      <Text style={{ color: "rgba(255,255,255,0.85)", marginBottom: 6 }}>Preisniveau (1–4)</Text>
+      <Text style={{ color: backyrdTheme.color.textPrimary, marginBottom: 6 }}>Preisniveau (1–4)</Text>
       <TextInput
         value={priceLevel}
         onChangeText={setPriceLevel}
         keyboardType="number-pad"
         placeholder="z.B. 2"
-        placeholderTextColor="rgba(255,255,255,0.4)"
+        placeholderTextColor={backyrdTheme.color.textMuted}
         style={{
           borderRadius: 12,
           padding: 12,
-          backgroundColor: "rgba(255,255,255,0.10)",
-          color: "white",
+          backgroundColor: backyrdTheme.color.surfaceElevated,
+          color: backyrdTheme.color.textPrimary,
           marginBottom: 12,
         }}
       />
 
-      <Text style={{ color: "rgba(255,255,255,0.85)", marginBottom: 6 }}>Kontakt</Text>
+      <Text style={{ color: backyrdTheme.color.textPrimary, marginBottom: 6 }}>Kontakt</Text>
       <TextInput
         value={email}
         onChangeText={setEmail}
         placeholder="Email"
-        placeholderTextColor="rgba(255,255,255,0.4)"
-        style={{ borderRadius: 12, padding: 12, backgroundColor: "rgba(255,255,255,0.10)", color: "white", marginBottom: 10 }}
+        placeholderTextColor={backyrdTheme.color.textMuted}
+        style={{ borderRadius: 12, padding: 12, backgroundColor: backyrdTheme.color.surfaceElevated, color: backyrdTheme.color.textPrimary, marginBottom: 10 }}
       />
       <TextInput
         value={phone}
         onChangeText={setPhone}
         placeholder="Telefon"
-        placeholderTextColor="rgba(255,255,255,0.4)"
-        style={{ borderRadius: 12, padding: 12, backgroundColor: "rgba(255,255,255,0.10)", color: "white", marginBottom: 10 }}
+        placeholderTextColor={backyrdTheme.color.textMuted}
+        style={{ borderRadius: 12, padding: 12, backgroundColor: backyrdTheme.color.surfaceElevated, color: backyrdTheme.color.textPrimary, marginBottom: 10 }}
       />
       <TextInput
         value={website}
         onChangeText={setWebsite}
         placeholder="Website (https://...)"
-        placeholderTextColor="rgba(255,255,255,0.4)"
-        style={{ borderRadius: 12, padding: 12, backgroundColor: "rgba(255,255,255,0.10)", color: "white", marginBottom: 18 }}
+        placeholderTextColor={backyrdTheme.color.textMuted}
+        style={{ borderRadius: 12, padding: 12, backgroundColor: backyrdTheme.color.surfaceElevated, color: backyrdTheme.color.textPrimary, marginBottom: 18 }}
       />
 
       <TouchableOpacity
@@ -382,7 +383,7 @@ export default function SpotManageScreen() {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.back()} style={{ paddingVertical: 12, alignItems: "center" }}>
-        <Text style={{ color: "rgba(255,255,255,0.7)" }}>Zurück</Text>
+        <Text style={{ color: backyrdTheme.color.textSecondary }}>Zurück</Text>
       </TouchableOpacity>
     </ScrollView>
   );

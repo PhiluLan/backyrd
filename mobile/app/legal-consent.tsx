@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 // mobile/app/legal-consent.tsx
 
 import React, { useEffect, useRef, useState } from "react";
@@ -115,10 +116,10 @@ export default function LegalConsentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#050506" },
+  safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
   loading: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -131,19 +132,19 @@ const styles = StyleSheet.create({
     letterSpacing: 1.35,
   },
   title: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 32,
     fontWeight: "900",
     marginTop: 8,
   },
-  lead: { color: "#AFAFB7", fontSize: 16, lineHeight: 22, marginTop: 8 },
+  lead: { color: backyrdTheme.color.textSecondary, fontSize: 16, lineHeight: 22, marginTop: 8 },
   documentCard: {
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderRadius: 22,
     padding: 20,
     marginTop: 18,
   },
-  documentTitle: { color: "#FFFFFF", fontSize: 22, fontWeight: "900" },
+  documentTitle: { color: backyrdTheme.color.textPrimary, fontSize: 22, fontWeight: "900" },
   version: { color: "#FF4F91", fontWeight: "800", marginTop: 5 },
   summary: { color: "#BEBEC6", lineHeight: 20, marginTop: 12 },
   contentText: { color: "#A6A6AF", lineHeight: 21, marginTop: 18 },
@@ -157,6 +158,6 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#050506", fontWeight: "900", fontSize: 16 },
+  buttonText: { color: backyrdTheme.color.onAccent, fontWeight: "900", fontSize: 16 },
   inlineError: { marginTop: 16, padding: 12, borderRadius: 14, color: "#FFD1DF", backgroundColor: "rgba(255,79,145,0.13)", fontSize: 14, lineHeight: 20 },
 });

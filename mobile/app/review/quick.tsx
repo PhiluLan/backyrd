@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 import React, { useEffect, useRef, useState } from "react";
 import { View, StyleSheet, ActivityIndicator, Pressable, Alert, ScrollView, AccessibilityInfo } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
@@ -28,16 +29,16 @@ import {
 import { ReviewMediaValidationCoordinator } from "../../lib/review-media-validation";
 
 const theme = {
-  bg: "#050506",
-  surface: "#111113",
-  card: "rgba(255,255,255,0.045)",
-  border: "rgba(255,255,255,0.09)",
-  text: "#FFFFFF",
-  muted: "rgba(255,255,255,0.56)",
-  soft: "rgba(255,255,255,0.72)",
-  pink: "#FF4F91",
+  bg: backyrdTheme.color.background,
+  surface: backyrdTheme.color.surface,
+  card: backyrdTheme.color.surfaceElevated,
+  border: backyrdTheme.color.border,
+  text: backyrdTheme.color.textPrimary,
+  muted: backyrdTheme.color.textMuted,
+  soft: backyrdTheme.color.textSecondary,
+  pink: backyrdTheme.color.pink,
   pinkSoft: "#FFC5DA",
-  ink: "#111113",
+  ink: backyrdTheme.color.onAccent,
 };
 
 /* ======================================================
@@ -519,7 +520,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cameraTitle: {
-    color: theme.text,
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "800",
   },
@@ -599,7 +600,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.border,
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     paddingVertical: 11,
     paddingHorizontal: 10,
     alignItems: "center",

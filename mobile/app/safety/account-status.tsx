@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
@@ -78,7 +79,7 @@ export default function SafetyAccountStatusScreen() {
           <Ionicons
             name="chevron-back"
             size={24}
-            color="#fff"
+            color={backyrdTheme.color.textPrimary}
           />
         </Pressable>
 
@@ -214,7 +215,7 @@ export default function SafetyAccountStatusScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
   },
   header: {
     minHeight: 58,
@@ -229,12 +230,12 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
   },
   headerTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 17,
     fontWeight: "800",
   },
@@ -250,7 +251,7 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 12,
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 38,
     lineHeight: 41,
     fontWeight: "900",
@@ -266,9 +267,9 @@ const styles = StyleSheet.create({
     marginTop: 28,
     padding: 18,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
   },
   summaryLabel: {
     color: "#85858E",
@@ -279,19 +280,19 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     marginTop: 6,
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 22,
     fontWeight: "900",
   },
   divider: {
     height: 1,
     marginVertical: 16,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
   },
   sectionTitle: {
     marginTop: 28,
     marginBottom: 12,
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 21,
     fontWeight: "900",
   },
@@ -299,13 +300,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 28,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
   emptyTitle: {
     marginTop: 12,
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 17,
     fontWeight: "900",
   },
@@ -318,9 +319,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 17,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.035)",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
   measureTop: {
     flexDirection: "row",
@@ -329,7 +330,7 @@ const styles = StyleSheet.create({
   },
   measureTitle: {
     flex: 1,
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 17,
     fontWeight: "900",
   },

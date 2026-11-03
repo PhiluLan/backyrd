@@ -184,7 +184,7 @@ export default function MessagesScreen() {
           onPress={() => router.push("/users/search" as any)}
           accessibilityLabel="Neuen Chat starten"
         >
-          <Ionicons accessibilityElementsHidden name="person-add-outline" size={22} color="#FFFFFF" />
+          <Ionicons accessibilityElementsHidden name="person-add-outline" size={22} color={backyrdTheme.color.textPrimary} />
         </Pressable>
       </View>
 
@@ -288,7 +288,7 @@ export default function MessagesScreen() {
                         accessibilityElementsHidden
                         name="chevron-forward"
                         size={18}
-                        color="rgba(255,255,255,0.28)"
+                        color={backyrdTheme.color.textMuted}
                       />
                     )}
                   </View>
@@ -305,7 +305,7 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
   },
   header: {
     paddingHorizontal: backyrdTheme.layout.pageGutter,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     ...backyrdTheme.typeScale.screenTitle,
     fontWeight: "800",
   },
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: backyrdTheme.color.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.10)",
+    borderBottomColor: backyrdTheme.color.border,
   },
   chatText: {
     flex: 1,
@@ -361,12 +361,12 @@ const styles = StyleSheet.create({
   },
   chatName: {
     flex: 1,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     fontWeight: "600",
   },
   timeText: {
-    color: "rgba(255,255,255,0.42)",
+    color: backyrdTheme.color.textMuted,
     fontSize: 12,
   },
   previewRow: {
@@ -377,11 +377,11 @@ const styles = StyleSheet.create({
   },
   previewText: {
     flex: 1,
-    color: "rgba(255,255,255,0.48)",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
   },
   unreadText: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontWeight: "800",
   },
   unreadBadge: {
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   unreadBadgeText: {
-    color: "#121214",
+    color: backyrdTheme.color.onAccent,
     fontSize: 11,
     fontWeight: "900",
   },
@@ -414,14 +414,14 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   stateTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 20,
     fontWeight: "800",
     textAlign: "center",
     marginTop: 14,
   },
   stateText: {
-    color: "rgba(255,255,255,0.52)",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF4F91",
   },
   retryText: {
-    color: "#151216",
+    color: backyrdTheme.color.onAccent,
     fontSize: 14,
     fontWeight: "900",
   },

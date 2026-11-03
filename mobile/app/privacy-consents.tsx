@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   introTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 21,
     fontWeight: "900",
     marginTop: 12,
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   cardTitle: { flexShrink: 1 },
   cardText: { marginTop: 4 },
   statusText: {
-    color: "#777782",
+    color: theme.color.textMuted,
     fontSize: 11,
     fontWeight: "700",
     marginTop: 7,
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
   },
   testPushButtonDisabled: { opacity: 0.58 },
   testPushButtonText: {
-    color: "#050506",
+    color: theme.color.onAccent,
     fontSize: 15,
     fontWeight: "900",
   },
@@ -566,9 +566,9 @@ const styles = StyleSheet.create({
     marginTop: 15,
     borderRadius: 20,
     padding: 17,
-    backgroundColor: "rgba(255,255,255,0.045)",
+    backgroundColor: theme.color.surfaceElevated,
   },
-  necessaryTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  necessaryTitle: { color: theme.color.textPrimary, fontSize: 15, fontWeight: "800" },
   necessaryText: { color: "#A3A3AC", lineHeight: 19, marginTop: 7 },
   footerText: {
     color: "#73737D",

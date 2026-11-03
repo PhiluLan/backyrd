@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -523,11 +524,11 @@ const styles = StyleSheet.create({
   sheet: {
     maxHeight: "91%",
     minHeight: 430,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
     overflow: "hidden",
   },
   handle: {
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
   closeButtonPressed: {
     opacity: 0.65,
@@ -691,7 +692,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: backyrdTheme.color.border,
     backgroundColor: "rgba(255,255,255,0.035)",
     color: "#F6F6F8",
     fontSize: 15,
@@ -721,7 +722,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   submitButtonText: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     fontWeight: "800",
   },
@@ -765,7 +766,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E93678",
   },
   doneButtonText: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     fontWeight: "800",
   },

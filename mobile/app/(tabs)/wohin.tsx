@@ -23,14 +23,15 @@ import { userFacingError } from "@/lib/userFacingError";
 import { backyrdTheme } from "@/theme/backyrd";
 
 const color = {
-  background: "#050506",
-  card: "#1B1B1D",
-  text: "#FFFFFF",
-  muted: "#A5A5AA",
-  border: "#36363B",
-  pink: "#FF4F91",
-  lime: "#D8FF3E",
-  warning: "#FFC878",
+  background: backyrdTheme.color.background,
+  card: backyrdTheme.color.surfaceElevated,
+  text: backyrdTheme.color.textPrimary,
+  muted: backyrdTheme.color.textSecondary,
+  border: backyrdTheme.color.borderStrong,
+  pink: backyrdTheme.color.pink,
+  lime: backyrdTheme.color.lime,
+  warning: backyrdTheme.color.warning,
+  onAccent: backyrdTheme.color.onAccent,
 };
 
 async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> {
@@ -78,11 +79,11 @@ function DecisionResultCard({ candidate, imageUrl, compact, onOpen, onDetails }:
         </ScrollView>
         <Pressable accessibilityRole="button" onPress={onDetails} style={styles.detailsToggle}>
           <AppText role="meta" style={styles.detailsText}>Details & Hinweise</AppText>
-          <Ionicons name="add" size={19} color={color.pink} />
+          <Ionicons name="add" size={19} color="#FF4F91" />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`${candidate.presentation.name} entdecken`} onPress={onOpen} style={styles.openSpotButton}>
           <AppText role="label" style={styles.openSpotText}>{candidate.presentation.event ? "Event entdecken" : "Ort entdecken"}</AppText>
-          <Ionicons name="arrow-forward" size={20} color={color.background} />
+          <Ionicons name="arrow-forward" size={20} color={color.onAccent} />
         </Pressable>
       </View>
     </View>
@@ -315,7 +316,7 @@ export default function WohinScreen() {
               maxLength={2000}
               onChangeText={(value) => { setQuery(value); setError(null); }}
               placeholder="z. B. Sonntag gemütlich Kaffee trinken"
-              placeholderTextColor="#77777C"
+              placeholderTextColor={backyrdTheme.color.textMuted}
               style={{ color: color.text, fontSize: 21, minHeight: 110, marginTop: 16, textAlignVertical: "top", lineHeight: 29 }}
               value={query}
             />
@@ -326,7 +327,7 @@ export default function WohinScreen() {
               onPress={() => void run(query)}
               style={{ marginTop: 22, minHeight: backyrdTheme.control.standard, paddingVertical: backyrdTheme.spacing.sm, paddingHorizontal: backyrdTheme.spacing.md, borderRadius: backyrdTheme.radius.pill, backgroundColor: !loading && authenticated && city && query.trim().length >= 3 ? color.pink : "#48484C", alignItems: "center", justifyContent: "center" }}
             >
-              {loading ? <ActivityIndicator color={color.background} /> : <Text style={{ color: color.background, fontWeight: "900", fontSize: 16 }}>Orte finden</Text>}
+              {loading ? <ActivityIndicator color={color.onAccent} /> : <Text style={{ color: color.onAccent, fontWeight: "900", fontSize: 16 }}>Orte finden</Text>}
             </Pressable>
             <Text style={{ color: color.muted, fontSize: 12, lineHeight: 18, marginTop: 14 }}>Für die KI-Suche senden wir deinen Suchwunsch und gewählte Suchangaben an OpenAI. Bitte keine vertraulichen Daten eingeben.</Text>
             <Pressable accessibilityRole="link" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => { void Linking.openURL("https://www.backyrd.ch/legal#decision").catch(() => setError("Die Datenschutzinformation konnte nicht geöffnet werden. Versuche es erneut.")); }} style={{ minHeight: 44, justifyContent: "center" }}><Text style={{ color: color.pink, fontSize: 12 }}>Datenschutz zur KI-Suche</Text></Pressable>
@@ -383,13 +384,13 @@ const styles = StyleSheet.create({
   compactBottom: { maxHeight: "92%", padding: 16 },
   cardSummary: { flexShrink: 1 },
   cardSummaryContent: { gap: 10 },
-  resultTitle: { color: color.text },
+  resultTitle: { color: "#FFFFFF" },
   resultMeta: { color: "#D1CDD1", marginBottom: 4 },
   detailsToggle: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7, justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#FFFFFF40", marginTop: 14, marginBottom: 10 },
-  detailsText: { color: color.pink },
+  detailsText: { color: "#FF80AD" },
   recommendation: { fontSize: 22, lineHeight: 31, color: "#F7F2F5" },
   openSpotButton: { minHeight: 52, paddingVertical: 12, borderRadius: 999, backgroundColor: color.pink, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
-  openSpotText: { color: color.background },
+  openSpotText: { color: color.onAccent },
   pager: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingTop: 10, gap: 12 },
   pagerButton: { minWidth: 44, minHeight: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: color.card },
   disabled: { opacity: 0.3 },

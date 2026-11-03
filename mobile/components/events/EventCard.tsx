@@ -6,7 +6,7 @@ import { Image, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } fr
 import { ProductText as Text } from "../foundation/AppText";
 import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
 import { eventImageUrl } from "../../lib/events-v1";
-import { backyrdTheme as theme } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 
 import { seasonalDateLabel } from "../../../packages/shared/src/seasonal-events";
 
@@ -22,6 +22,7 @@ function when(startAt: string): string {
 }
 
 export function EventCard({ event, style }: { event: EventDiscoveryDTO; style?: StyleProp<ViewStyle> }) {
+  const { color } = useBackyrdTheme();
   const router = useRouter();
   const image = eventImageUrl(event.image_storage_path);
 
@@ -35,7 +36,7 @@ export function EventCard({ event, style }: { event: EventDiscoveryDTO; style?: 
           params: { id: event.event_id, occurrenceId: event.occurrence_id },
         })
       }
-      style={({ pressed }) => [styles.card, style, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.card, { borderColor: color.borderStrong, backgroundColor: color.surface }, style, pressed && styles.pressed]}
     >
       <View style={styles.imageWrap}>
         {image ? <Image resizeMode="cover" source={{ uri: image }} style={StyleSheet.absoluteFillObject} /> : null}
@@ -44,19 +45,19 @@ export function EventCard({ event, style }: { event: EventDiscoveryDTO; style?: 
           style={StyleSheet.absoluteFillObject}
         />
         <View style={styles.imageCopy}>
-          <Text style={styles.kicker}>{(seasonalDateLabel(event) ?? when(event.start_at)).toUpperCase()}</Text>
+          <Text style={[styles.kicker, { color: "#FF4F91" }]}>{(seasonalDateLabel(event) ?? when(event.start_at)).toUpperCase()}</Text>
           <Text numberOfLines={2} style={styles.title}>{event.title.toUpperCase()}</Text>
         </View>
       </View>
       <View style={styles.meta}>
         <View style={styles.metaLine}>
-          <Ionicons color={theme.color.textSecondary} name="location-outline" size={16} />
-          <Text numberOfLines={1} style={styles.metaText}>{event.series_id ? "Mehrere Schauplätze · Basel" : event.venue_name ?? "Ort noch nicht bestätigt"}</Text>
+          <Ionicons color={color.textSecondary} name="location-outline" size={16} />
+          <Text numberOfLines={1} style={[styles.metaText, { color: color.textSecondary }]}>{event.series_id ? "Mehrere Schauplätze · Basel" : event.venue_name ?? "Ort noch nicht bestätigt"}</Text>
         </View>
         <View style={styles.freeBadge}>
-          <Text style={styles.freeText}>{event.is_free ? "GRATIS" : "EVENT"}</Text>
+          <Text style={[styles.freeText, { color: color.pink }]}>{event.is_free ? "GRATIS" : "EVENT"}</Text>
         </View>
-        <Ionicons color={theme.color.textPrimary} name="arrow-forward" size={20} />
+        <Ionicons color={color.textPrimary} name="arrow-forward" size={20} />
       </View>
     </Pressable>
   );
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
   imageWrap: { height: 178, justifyContent: "flex-end", backgroundColor: theme.color.surfaceElevated },
   imageCopy: { padding: theme.spacing.md },
   kicker: { color: theme.color.pink, fontFamily: theme.type.bodyMedium, fontSize: 10, letterSpacing: 1.05 },
-  title: { marginTop: 6, color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 25, lineHeight: 27, letterSpacing: -0.65 },
+  title: { marginTop: 6, color: "#FFFFFF", fontFamily: theme.type.display, fontSize: 25, lineHeight: 27, letterSpacing: -0.65 },
   meta: { minHeight: 54, paddingHorizontal: theme.spacing.md, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   metaLine: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 6 },
   metaText: { flex: 1, color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 12 },

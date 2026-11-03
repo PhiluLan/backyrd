@@ -852,15 +852,15 @@ export default function SpotDetailScreen() {
             <View style={styles.heroContent} onLayout={(event) => setHeroContentHeight(event.nativeEvent.layout.height)}>
               <View style={styles.heroPills}>
                 <View style={[styles.statusPill, openingState === "open" ? styles.statusOpen : openingState === "openingSoon" ? styles.statusOpeningSoon : openingState === "closingSoon" ? styles.statusClosingSoon : openingUnknown ? styles.statusUnknown : styles.statusClosed]}>
-                  <View style={[styles.statusDot, { backgroundColor: openingState === "open" ? theme.colors.greenSoft : openingState === "openingSoon" ? foundationTheme.color.warning : openingState === "closingSoon" ? foundationTheme.color.closingSoon : openingUnknown ? theme.colors.textSoft : theme.colors.danger }]} />
-                  <Text style={[styles.statusText, { color: openingState === "open" ? theme.colors.greenSoft : openingState === "openingSoon" ? foundationTheme.color.warning : openingState === "closingSoon" ? foundationTheme.color.closingSoon : openingUnknown ? theme.colors.textSoft : "#FFB4B4" }]}>
+                  <View style={[styles.statusDot, { backgroundColor: openingState === "open" ? "#9AE67A" : openingState === "openingSoon" ? "#F7C65C" : openingState === "closingSoon" ? "#FF9B5E" : openingUnknown ? "#E4E4E8" : "#FFB4B4" }]} />
+                  <Text style={[styles.statusText, { color: openingState === "open" ? "#9AE67A" : openingState === "openingSoon" ? "#F7C65C" : openingState === "closingSoon" ? "#FF9B5E" : openingUnknown ? "#E4E4E8" : "#FFB4B4" }]}>
                     {SPOT_OPENING_STATUS_COPY[openingStatus]}
                   </Text>
                 </View>
                 {!canonicalWorldDetail && spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
               <AppText role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
-              <View style={{ marginTop: 10 }}><MoodSignature labels={moodProfileFailed || moodProfileLoading ? [] : rankMoodSupport(moodSummary).map(mood => mood.label)} moodCount={moodCounts[String(id)]} /></View>
+              <View style={{ marginTop: 10 }}><MoodSignature labels={moodProfileFailed || moodProfileLoading ? [] : rankMoodSupport(moodSummary).map(mood => mood.label)} moodCount={moodCounts[String(id)]} onImage /></View>
             </View>
           </Animated.View>
         </Animated.View>
@@ -1157,7 +1157,7 @@ export default function SpotDetailScreen() {
               }
               void openInAppleMaps(spot.lat, spot.lng, spot.name, [spot.address, spot.city].filter(Boolean).join(", "));
             }} accessibilityRole="button" accessibilityLabel="Route zu diesem Ort öffnen" style={styles.primaryAction}>
-              <Feather name="navigation" size={17} allowFontScaling={false} color="#111113" />
+              <Feather name="navigation" size={17} allowFontScaling={false} color={foundationTheme.color.onAccent} />
               <Text maxFontSizeMultiplier={1.5} style={styles.primaryActionText}>Route</Text>
             </Pressable>
             <Pressable
@@ -1330,7 +1330,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   heroTitle: {
-    color: foundationTheme.color.textPrimary,
+    color: "#FFFFFF",
     letterSpacing: -1,
   },
   content: {
@@ -1365,7 +1365,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryActionText: {
-    color: "#111113",
+    color: foundationTheme.color.onAccent,
     flexShrink: 1,
     textAlign: "center",
     fontSize: 15,
@@ -1463,7 +1463,7 @@ const styles = StyleSheet.create({
     minHeight: 38,
     paddingHorizontal: 12,
     borderRadius: theme.radius.pill,
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
@@ -1532,7 +1532,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: theme.colors.surfaceElevated,
   },
   contactLabel: { textAlign: "center", color: theme.colors.textSoft, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   factRow: {
@@ -1553,7 +1553,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: theme.radius.pill,
-    backgroundColor: "rgba(255,255,255,0.065)",
+    backgroundColor: theme.colors.surfaceElevated,
   },
   factTokenText: { color: theme.colors.text, fontSize: 14, lineHeight: 20, fontWeight: "600" },
   factLabel: {
@@ -1681,7 +1681,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
@@ -1777,7 +1777,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.12)",
   },
   distanceText: {
-    color: foundationTheme.color.textPrimary,
+    color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "800",
   },

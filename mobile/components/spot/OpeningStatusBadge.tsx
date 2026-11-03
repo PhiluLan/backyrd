@@ -8,4 +8,4 @@ export function OpeningStatusBadge({ status, style }: { status: SpotOpeningStatu
  const color = statusColor[status];
  return <View style={[styles.root, { borderColor: color }, style]}><View style={[styles.dot, { backgroundColor: color }]} /><AppText role="caption" style={{ color, flexShrink: 1 }}>{SPOT_OPENING_STATUS_COPY[status]}</AppText></View>;
 }
-const styles = StyleSheet.create({ root: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: theme.spacing.xs, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xxs, borderRadius: theme.radius.pill, borderWidth: 1, backgroundColor: "rgba(5,5,5,0.9)" }, dot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 } });
+const styles = StyleSheet.create({ root: { alignSelf: "flex-start", maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: theme.spacing.xs, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xxs, borderRadius: theme.radius.pill, borderWidth: 1, backgroundColor: theme.color.surface }, dot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 } });

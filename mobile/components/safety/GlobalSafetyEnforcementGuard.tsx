@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import React, { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
@@ -226,7 +227,7 @@ export default function GlobalSafetyEnforcementGuard({
 }
 
 const styles = StyleSheet.create({
-  lockRoot: { flex: 1, backgroundColor: "#050506" },
+  lockRoot: { flex: 1, backgroundColor: backyrdTheme.color.background },
   lockGlow: {
     position: "absolute", top: -120, alignSelf: "center", width: 360, height: 360,
     borderRadius: 180, backgroundColor: "rgba(255,79,139,0.08)",
@@ -238,17 +239,17 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,79,139,0.24)", marginBottom: 28,
   },
   kicker: { color: "#FF5E96", fontSize: 12, fontWeight: "900", letterSpacing: 2.4 },
-  title: { marginTop: 13, color: "#FFFFFF", fontSize: 38, lineHeight: 42, fontWeight: "900", letterSpacing: -1.2 },
+  title: { marginTop: 13, color: backyrdTheme.color.textPrimary, fontSize: 38, lineHeight: 42, fontWeight: "900", letterSpacing: -1.2 },
   body: { marginTop: 17, color: "#A1A1AA", fontSize: 16, lineHeight: 24 },
   primaryButton: {
     marginTop: 32, minHeight: 58, borderRadius: 19, flexDirection: "row", alignItems: "center",
     justifyContent: "center", gap: 10, backgroundColor: "#FF4F91",
   },
-  primaryButtonText: { color: "#050506", fontSize: 16, fontWeight: "900" },
+  primaryButtonText: { color: backyrdTheme.color.onAccent, fontSize: 16, fontWeight: "900" },
   secondaryButton: {
     marginTop: 12, minHeight: 56, borderRadius: 19, flexDirection: "row", alignItems: "center",
-    justifyContent: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.045)",
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
+    justifyContent: "center", gap: 10, backgroundColor: backyrdTheme.color.surfaceElevated,
+    borderWidth: 1, borderColor: backyrdTheme.color.border,
   },
-  secondaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
+  secondaryButtonText: { color: backyrdTheme.color.textPrimary, fontSize: 16, fontWeight: "900" },
 });

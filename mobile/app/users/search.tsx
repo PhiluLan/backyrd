@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, SafeAreaView, StyleSheet, View } from "react-native";
 import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
@@ -210,7 +211,7 @@ export default function UserSearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#050506" },
+  screen: { flex: 1, backgroundColor: backyrdTheme.color.background },
   header: {
     paddingHorizontal: 18,
     paddingTop: 8,
@@ -224,9 +225,9 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#17171B",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
   headerCopy: { flex: 1 },
   kicker: {
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 2,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 28,
     fontWeight: "900",
     letterSpacing: -0.5,
@@ -250,11 +251,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 11,
-    backgroundColor: "#17171B",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
   },
-  input: { flex: 1, color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  input: { flex: 1, color: backyrdTheme.color.textPrimary, fontSize: 16, fontWeight: "600" },
   list: { paddingHorizontal: 18, paddingBottom: 40 },
   row: {
     minHeight: 82,
@@ -262,12 +263,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 13,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.08)",
+    borderBottomColor: backyrdTheme.color.border,
   },
   userCopy: { flex: 1 },
-  name: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  meta: { marginTop: 2, color: "#9B9BA4", fontSize: 13, fontWeight: "600" },
-  stats: { marginTop: 4, color: "#676770", fontSize: 11, fontWeight: "700" },
+  name: { color: backyrdTheme.color.textPrimary, fontSize: 16, fontWeight: "800" },
+  meta: { marginTop: 2, color: backyrdTheme.color.textSecondary, fontSize: 13, fontWeight: "600" },
+  stats: { marginTop: 4, color: backyrdTheme.color.textMuted, fontSize: 11, fontWeight: "700" },
   followButton: {
     minWidth: 76,
     height: 38,
@@ -278,23 +279,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF4F91",
   },
   followButtonActive: {
-    backgroundColor: "#202026",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.11)",
+    borderColor: backyrdTheme.color.border,
   },
-  followText: { color: "#111113", fontSize: 13, fontWeight: "900" },
-  followTextActive: { color: "#FFFFFF" },
+  followText: { color: backyrdTheme.color.onAccent, fontSize: 13, fontWeight: "900" },
+  followTextActive: { color: backyrdTheme.color.textPrimary },
   empty: { alignItems: "center", paddingTop: 76, paddingHorizontal: 28 },
   emptyTitle: {
     marginTop: 16,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 19,
     fontWeight: "900",
     textAlign: "center",
   },
   emptyText: {
     marginTop: 8,
-    color: "#868690",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",

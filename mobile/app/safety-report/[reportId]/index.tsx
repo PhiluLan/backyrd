@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../../theme/backyrd";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
@@ -98,7 +99,7 @@ export default function SafetyReportDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={22} color={backyrdTheme.color.textPrimary} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.eyebrow}>DEINE MELDUNG</Text>
@@ -178,27 +179,27 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#050506" },
-  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.08)" },
-  backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.055)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  root: { flex: 1, backgroundColor: backyrdTheme.color.background },
+  header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: backyrdTheme.color.border },
+  backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: backyrdTheme.color.surfaceElevated, borderWidth: 1, borderColor: backyrdTheme.color.border },
   eyebrow: { color: "#FF4F91", fontSize: 10, fontWeight: "800", letterSpacing: 1.1 },
-  title: { color: "#FFFFFF", fontSize: 25, fontWeight: "800", marginTop: 4 },
+  title: { color: backyrdTheme.color.textPrimary, fontSize: 25, fontWeight: "800", marginTop: 4 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 20, gap: 14 },
   errorCard: { padding: 16, borderRadius: 16, backgroundColor: "rgba(255,82,82,0.10)" },
   errorText: { color: "#FF9C9C" },
-  heroCard: { padding: 20, borderRadius: 24, backgroundColor: "#111113", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)" },
+  heroCard: { padding: 20, borderRadius: 24, backgroundColor: backyrdTheme.color.surface, borderWidth: 1, borderColor: backyrdTheme.color.border },
   heroEyebrow: { color: "#85858E", fontSize: 10, fontWeight: "800", letterSpacing: 1 },
-  heroTitle: { color: "#FFFFFF", fontSize: 25, lineHeight: 31, fontWeight: "900", marginTop: 7 },
+  heroTitle: { color: backyrdTheme.color.textPrimary, fontSize: 25, lineHeight: 31, fontWeight: "900", marginTop: 7 },
   statusPill: { alignSelf: "flex-start", marginTop: 14, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: "rgba(255,184,84,0.08)", borderWidth: 1, borderColor: "rgba(255,184,84,0.18)" },
   statusText: { color: "#FFBD67", fontSize: 11, fontWeight: "800" },
   date: { color: "#85858E", marginTop: 12 },
-  section: { padding: 18, borderRadius: 20, backgroundColor: "#111113", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)" },
+  section: { padding: 18, borderRadius: 20, backgroundColor: backyrdTheme.color.surface, borderWidth: 1, borderColor: backyrdTheme.color.border },
   sectionTitle: { color: "#85858E", fontSize: 11, fontWeight: "800", letterSpacing: 1, marginBottom: 12, textTransform: "uppercase" },
   bodyText: { color: "#E2E2E6", fontSize: 16, lineHeight: 24 },
-  row: { flexDirection: "row", justifyContent: "space-between", gap: 20, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.07)" },
+  row: { flexDirection: "row", justifyContent: "space-between", gap: 20, paddingVertical: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: backyrdTheme.color.border },
   rowLabel: { color: "#85858E", flex: 1 },
-  rowValue: { color: "#FFFFFF", fontWeight: "700", flex: 1, textAlign: "right" },
+  rowValue: { color: backyrdTheme.color.textPrimary, fontWeight: "700", flex: 1, textAlign: "right" },
   infoCard: { padding: 17, borderRadius: 18, flexDirection: "row", gap: 12, backgroundColor: "rgba(255,79,139,0.07)", borderWidth: 1, borderColor: "rgba(255,79,139,0.18)" },
-  infoText: { flex: 1, color: "rgba(255,255,255,0.66)", lineHeight: 21 },
+  infoText: { flex: 1, color: backyrdTheme.color.textSecondary, lineHeight: 21 },
 });

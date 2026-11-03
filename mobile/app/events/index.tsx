@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 import { withRequestDeadline } from "../../lib/requestDeadline";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -124,7 +125,7 @@ function EventCard({ event }: { event: EventDiscoveryDTO }) {
         <Text style={styles.cardTitle} numberOfLines={2}>{event.title}</Text>
         <Text style={styles.when}>{seasonalDateLabel(event) ?? formatWhen(event.start_at)}</Text>
         <View style={styles.metaRow}>
-          <Ionicons name="location-outline" size={15} color="#A9A5A0" />
+          <Ionicons name="location-outline" size={15} color={backyrdTheme.color.textSecondary} />
           <Text style={styles.metaText} numberOfLines={1}>
             {event.venue_name || "Ort noch nicht bestätigt"}
           </Text>
@@ -133,7 +134,7 @@ function EventCard({ event }: { event: EventDiscoveryDTO }) {
           <Text style={styles.price}>{priceLabel(event)}</Text>
         ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={21} color="#747177" />
+      <Ionicons name="chevron-forward" size={21} color={backyrdTheme.color.textMuted} />
     </Pressable>
   );
 }
@@ -178,7 +179,7 @@ export default function EventsScreen() {
     <SafeAreaView style={styles.screen} edges={["top"]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.iconButton} accessibilityLabel="Zurück">
-          <Ionicons name="arrow-back" size={22} color="#F4EFE4" />
+          <Ionicons name="arrow-back" size={22} color={backyrdTheme.color.textPrimary} />
         </Pressable>
         <View style={styles.headerCopy}>
           <Text style={styles.kicker}>BASEL</Text>
@@ -256,50 +257,50 @@ export default function EventsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#080808" },
+  screen: { flex: 1, backgroundColor: backyrdTheme.color.background },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14, flexDirection: "row", alignItems: "center", gap: 14 },
-  iconButton: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)" },
+  iconButton: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: backyrdTheme.color.surface, borderWidth: 1, borderColor: backyrdTheme.color.border },
   headerCopy: { flex: 1 },
-  kicker: { color: "#FF9ABA", fontSize: 11, fontWeight: "900", letterSpacing: 2.4 },
-  title: { color: "#F4EFE4", fontSize: 28, lineHeight: 34, fontWeight: "700", letterSpacing: -0.45 },
+  kicker: { color: backyrdTheme.color.pink, fontSize: 11, fontWeight: "900", letterSpacing: 2.4 },
+  title: { color: backyrdTheme.color.textPrimary, fontSize: 28, lineHeight: 34, fontWeight: "700", letterSpacing: -0.45 },
   liveMark: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(187,199,160,0.08)", borderWidth: 1, borderColor: "rgba(187,199,160,0.16)" },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#BBC7A0" },
-  liveText: { color: "#BBC7A0", fontSize: 12, fontWeight: "800" },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: backyrdTheme.color.openGreen },
+  liveText: { color: backyrdTheme.color.openGreen, fontSize: 12, fontWeight: "800" },
   listContent: { paddingHorizontal: 20, paddingBottom: 48, gap: 13 },
   filters: { gap: 12, marginBottom: 18 },
   chipRow: { gap: 9 },
   categoryRow: { gap: 8 },
-  timeChip: { paddingHorizontal: 17, paddingVertical: 12, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.055)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
-  timeChipActive: { backgroundColor: "#F4EFE4", borderColor: "#F4EFE4" },
-  timeChipText: { color: "#B8B4B8", fontSize: 14, fontWeight: "800" },
-  timeChipTextActive: { color: "#171719" },
-  categoryChip: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999, backgroundColor: "transparent", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)" },
+  timeChip: { paddingHorizontal: 17, paddingVertical: 12, borderRadius: 999, backgroundColor: backyrdTheme.color.surfaceElevated, borderWidth: 1, borderColor: backyrdTheme.color.border },
+  timeChipActive: { backgroundColor: backyrdTheme.color.pink, borderColor: backyrdTheme.color.pink },
+  timeChipText: { color: backyrdTheme.color.textSecondary, fontSize: 14, fontWeight: "800" },
+  timeChipTextActive: { color: backyrdTheme.color.onAccent },
+  categoryChip: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 999, backgroundColor: "transparent", borderWidth: 1, borderColor: backyrdTheme.color.border },
   categoryChipActive: { backgroundColor: "rgba(255,125,167,0.12)", borderColor: "rgba(255,125,167,0.32)" },
-  categoryChipText: { color: "#8E8D8A", fontSize: 12, fontWeight: "700" },
-  categoryChipTextActive: { color: "#FFAAC4" },
-  card: { minHeight: 154, padding: 12, paddingRight: 15, flexDirection: "row", alignItems: "center", gap: 14, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.052)", borderWidth: 1, borderColor: "rgba(255,255,255,0.075)" },
+  categoryChipText: { color: backyrdTheme.color.textMuted, fontSize: 12, fontWeight: "700" },
+  categoryChipTextActive: { color: backyrdTheme.color.pink },
+  card: { minHeight: 154, padding: 12, paddingRight: 15, flexDirection: "row", alignItems: "center", gap: 14, borderRadius: 22, backgroundColor: backyrdTheme.color.surface, borderWidth: 1, borderColor: backyrdTheme.color.border },
   pressed: { opacity: 0.84, transform: [{ scale: 0.992 }] },
   cardVisual: { width: 88, height: 128, borderRadius: 17, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   visualGlow: { position: "absolute", width: 100, height: 100, borderRadius: 50, top: -45, left: -38, backgroundColor: "rgba(255,125,167,0.20)" },
   visualDay: { color: "#F4EFE4", fontSize: 33, lineHeight: 37, fontWeight: "900" },
-  visualMonth: { color: "#FF9ABA", fontSize: 11, fontWeight: "900", letterSpacing: 1.4 },
+  visualMonth: { color: backyrdTheme.color.pink, fontSize: 11, fontWeight: "900", letterSpacing: 1.4 },
   cardBody: { flex: 1, minWidth: 0 },
   badgeRow: { flexDirection: "row", gap: 7, marginBottom: 8 },
   categoryBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(255,125,167,0.10)" },
-  categoryText: { color: "#FFAAC4", fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.6 },
+  categoryText: { color: backyrdTheme.color.pink, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.6 },
   cancelledBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(248,113,113,0.12)" },
   cancelledText: { color: "#FCA5A5", fontSize: 10, fontWeight: "900" },
   postponedBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(201,177,244,0.12)" },
   postponedText: { color: "#C9B1F4", fontSize: 10, fontWeight: "900" },
-  cardTitle: { color: "#F4EFE4", fontSize: 18, lineHeight: 22, fontWeight: "900" },
-  when: { color: "#D6D0C7", fontSize: 13, fontWeight: "700", marginTop: 7 },
+  cardTitle: { color: backyrdTheme.color.textPrimary, fontSize: 18, lineHeight: 22, fontWeight: "900" },
+  when: { color: backyrdTheme.color.textSecondary, fontSize: 13, fontWeight: "700", marginTop: 7 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 7 },
-  metaText: { color: "#A9A5A0", fontSize: 12, flex: 1 },
-  price: { color: "#BBC7A0", fontSize: 12, fontWeight: "800", marginTop: 7 },
+  metaText: { color: backyrdTheme.color.textSecondary, fontSize: 12, flex: 1 },
+  price: { color: backyrdTheme.color.openGreen, fontSize: 12, fontWeight: "800", marginTop: 7 },
   state: { minHeight: 320, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 10 },
-  stateTitle: { color: "#F4EFE4", fontSize: 21, fontWeight: "900", marginTop: 4 },
-  stateText: { color: "#A9A5A0", fontSize: 14, lineHeight: 20, textAlign: "center" },
-  retryButton: { marginTop: 8, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 999, backgroundColor: "#F4EFE4" },
-  retryText: { color: "#171719", fontSize: 13, fontWeight: "900" },
-  allLink: { color: "#FF9ABA", fontSize: 13, fontWeight: "800", marginTop: 5 },
+  stateTitle: { color: backyrdTheme.color.textPrimary, fontSize: 21, fontWeight: "900", marginTop: 4 },
+  stateText: { color: backyrdTheme.color.textSecondary, fontSize: 14, lineHeight: 20, textAlign: "center" },
+  retryButton: { marginTop: 8, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 999, backgroundColor: backyrdTheme.color.pink },
+  retryText: { color: backyrdTheme.color.onAccent, fontSize: 13, fontWeight: "900" },
+  allLink: { color: backyrdTheme.color.pink, fontSize: 13, fontWeight: "800", marginTop: 5 },
 });
