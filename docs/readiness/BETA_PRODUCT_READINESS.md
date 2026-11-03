@@ -1,6 +1,6 @@
 # Backyrd Beta Arbeitsumfang und Abnahme
 
-Stand: 2. November 2026. Ausgangspunkt ist Main `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
+Stand: 3. November 2026. Ausgangspunkt ist Main `b7d263fb39ed9b9bb16290b7dc565c737d82cb35`.
 
 Die Beta soll den gesamten Weg vom ersten Einstieg bis zum echten Erlebnis und
 anschliessenden Moment verständlich und zuverlässig unterstützen. Der Umfang
@@ -15,9 +15,12 @@ sind live. Das frische vollständige AWS-Backup vom 2. November ist auf zwei
 isolierten Zielen tatsächlich wiederhergestellt und mit Datenbank, Rechten,
 Fremdschlüsseln, Original-Medienschlüsseln und Bytes abgeglichen.
 [Abschluss und Belege](BETA_SECURITY_FOUNDATION.md#abschluss-paket-1-grün-am-2-november-2026).
-Paket 2 ist jetzt in Arbeit: [Einstieg und Kontrolle](BETA_ENTRY_AND_CONTROL.md).
-Die lokale Ablaufprüfung ist dokumentiert; die native Geräteabnahme und der
-Release dieses Pakets sind noch offen. Paket 2 ist noch nicht vollständig grün.
+Paket 2: [Einstieg und Kontrolle](BETA_ENTRY_AND_CONTROL.md). Die lokale
+Ablaufprüfung ist bestanden. Der Founder hat am 3. November nach Installation
+von iOS-Build 60 alle zehn vorgelegten Geräte-Abnahmepunkte als bestanden
+bestätigt. Offen sind noch die Veröffentlichung der Website-Zuordnung für
+Password AutoFill, deren gezielter Gerätetest und der produktive Release des
+Pakets. Paket 2 ist noch nicht vollständig grün.
 Die vollständige Beta-Sicherheits-/Geräteabnahme bleibt Paket 6.
 
 ## Erfasster Umfang

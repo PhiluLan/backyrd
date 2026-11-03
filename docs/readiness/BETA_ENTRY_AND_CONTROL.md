@@ -1,11 +1,14 @@
 # Paket 2: Einstieg und Kontrolle
 
-Stand: 2. November 2026. Ausgangspunkt: Main `664509f7bf165caff3bdc1b67eb1de0f0d0c718a`.
+Stand: 3. November 2026. Ausgangspunkt: Main `664509f7bf165caff3bdc1b67eb1de0f0d0c718a`.
 
-**Noch nicht vollständig grün.** Die Änderungen und die lokale Ablaufprüfung sind
-vorbereitet. Die native Geräteabnahme und der produktive Release dieses Pakets
-sind noch offen. Paket 1 bleibt unverändert abgeschlossen. Weitere Beta-Pakete
-wurden hier nicht begonnen.
+**Geräteabnahme von Build 60 durch den Founder bestanden.** Am 3. November
+bestätigte der Founder nach Installation des neuen Builds alle zehn ihm
+vorgelegten Abnahmepunkte. Das ist eine menschliche Abnahme, kein vom Agenten
+beobachteter Gerätetest. Die vollständige Website-/App-Verknüpfung für Password
+AutoFill und der produktive Release dieses Pakets sind noch offen; Paket 2 ist
+deshalb noch nicht vollständig grün. Paket 1 bleibt unverändert abgeschlossen.
+Weitere Beta-Pakete wurden hier nicht begonnen.
 
 ## Was sich für Menschen ändert
 
@@ -170,9 +173,30 @@ verständlich „Moment“ und erklären auch die Verwendung ausgewählter Profi
 Referenzen: [Apple: Password AutoFill workflow](https://developer.apple.com/documentation/security/about-the-password-autofill-workflow),
 [Associated Domains](https://developer.apple.com/documentation/xcode/supporting-associated-domains).
 
-## Noch erforderliche Geräteabnahme
+## Geräteabnahme von Build 60
 
-Auf einem echten iPhone mit dem **neuen** Stand prüfen:
+Am 3. November meldet der Founder: „Alle Punkte sind bestanden“. Bezug ist die
+im Chat bereitgestellte Checkliste für Version 1.1.0, Build 60:
+
+1. Registrierung und Schutz gegen doppelte Anfragen;
+2. Code einfügen, automatische Bestätigung und verständlicher falscher Code;
+3. Dokumente, Onboarding, manuelle Stadt und freiwillige optionale Einwilligungen;
+4. gespeicherte Sitzung und Profilangaben nach vollständigem App-Neustart;
+5. Profilnamen speichern und Änderungen abbrechen;
+6. Profilfoto wählen, speichern, Neustart und Abbrechen;
+7. Passwort wiederherstellen und anschliessend damit anmelden;
+8. Apple-Anmeldung abbrechen und erfolgreich abschliessen;
+9. optionale Einwilligung erteilen, erneut öffnen und widerrufen;
+10. verständliche Bedienung mit vergrösserter Systemschrift.
+
+Die Checkliste schloss die destruktive Privat-Umschaltung am echten Konto aus.
+Sie nahm vollständiges Password AutoFill ausdrücklich von der endgültigen
+Abnahme aus, bis die Website-Zuordnung veröffentlicht ist. Diese beiden
+Ausnahmen werden durch „alle Punkte bestanden“ nicht als zusätzlich geprüft
+ausgegeben. Die Privat-Regel ist auf isolierten Konten geprüft; für Password
+AutoFill bleibt nach Domainveröffentlichung ein gezielter Gerätetest offen.
+
+Ursprüngliche technische Gerätecheckliste zur Zuordnung:
 
 - Passwortmanager: vorhandene Zugangsdaten anbieten, neuen Zugang speichern,
   Passwort ohne Grossschreibung/Korrektur übernehmen;
@@ -184,8 +208,9 @@ Auf einem echten iPhone mit dem **neuen** Stand prüfen:
 - Foto wählen/abbrechen/speichern, Profilentwurf abbrechen/erneut versuchen;
 - grosse Systemschrift und kleine/grosse Bildschirmdarstellung im nativen UI.
 
-Am 3. November ist das iPhone 16 verbunden; die App lässt sich über die
-iPhone-Synchronisierung öffnen. Installiert ist Version 1.1.0, Build 59, aus dem
+Zu Beginn der Geräteprüfung am 3. November war das iPhone 16 verbunden und
+über die iPhone-Synchronisierung bedienbar. Installiert war Version 1.1.0,
+Build 59 aus dem
 EAS-Build vom 29. September (Commit `52286323`). Das ist kein Abnahmebeleg für
 Paket 2. Der Founder hat die Übertragung des geprüften Codes an das bestehende
 Expo-Projekt und die Erstellung des Cloud-Builds ausdrücklich freigegeben.
@@ -201,18 +226,18 @@ sind am erzeugten Paket geprüft. IPA-SHA-256:
 Der Founder hat die anschliessende TestFlight-Übertragung gesondert freigegeben.
 [Einreichung 534a4e67](https://expo.dev/accounts/philipplanger/projects/backyrd/submissions/534a4e67-0503-4aaa-9a59-f7b69f534bdd)
 ist bei EAS erfolgreich abgeschlossen. App Store Connect bestätigt Build 60 mit
-`processingState=VALID`; die Apple-Verarbeitung ist damit bestanden. Die
-Installation und tatsächliche Tester-Verfügbarkeit werden erst auf dem Gerät
-abgenommen. Ziel ist die bestehende App-Store-Connect-App `6804831366`,
+`processingState=VALID`; die Apple-Verarbeitung ist damit bestanden. Die Installation von Build 60 und die erfolgreiche Geräteabnahme wurden
+anschliessend vom Founder bestätigt. Ziel ist die bestehende App-Store-Connect-App `6804831366`,
 belegt durch die drei bisherigen erfolgreichen Einreichungen (Builds 59/57/56).
 Diese bestehende Zuordnung ist nun ausdrücklich in `mobile/eas.json` hinterlegt.
 Der bestehende API-Zugang wurde weiterverwendet; keine neuen Testgruppen, kein
 Auto-Submit, kein OTA und keine öffentliche App-Store-Veröffentlichung.
-Auf dem iPhone ist weiterhin Build 59 und derzeit keine TestFlight-App
-installiert; Build 60 ist noch nicht als Geräteabnahme geprüft. Die öffentliche Website liefert die neue Password-AutoFill-
-Zuordnung noch nicht aus (am 3. November lesend geprüft). Diese Veröffentlichung
-und der TestFlight-Transfer sind von der reinen Build-Freigabe getrennte Schritte.
-Die eigentlichen nativen Abnahmefälle bleiben offen. Ein neuer Release oder Preview muss
+Der vorherige Befund (Build 59, TestFlight nicht installiert) ist durch die
+Bestätigung des Founders zur Installation von Build 60 überholt. Die öffentliche
+Website liefert die neue Password-AutoFill-Zuordnung weiterhin nicht aus
+(nach der Geräteabnahme am 3. November nochmals lesend geprüft). Die
+Veröffentlichung dieser Zuordnung und der anschliessende gezielte AutoFill-Test
+bleiben offen. Ein neuer Release oder Preview muss
 eindeutig auf den hier geprüften Stand zeigen; die bisherige produktive App
 beweist diese Änderungen nicht. Keine destruktive Privat-Umschaltung an einem echten Konto mit
 Folge-Verbindungen als Test verwenden. Die entsprechende Verhaltensprüfung bleibt
