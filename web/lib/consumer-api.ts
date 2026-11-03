@@ -1,3 +1,4 @@
+import { parseMomentMentions, type MentionPerson } from "../../packages/shared/src/presentation/social";
 import { supabase } from "@/lib/supabase/client";
 
 export type CatalogSpot = {
@@ -28,6 +29,7 @@ export type Moment = {
   category_name: string | null;
   caption: string | null;
   mood_tags: string[];
+  mentions?: MentionPerson[];
   occasion_tags: string[];
   media: MomentMedia[];
   like_count: number;
@@ -95,6 +97,28 @@ export async function getCatalog({
     header_photo_url: map.get(spot.id) ?? null,
   }));
 }
+async function hydrateMomentMentions(moments: Moment[]) {
+  if (!moments.length) return moments;
+  const batches = Array.from({length: Math.ceil(moments.length / 100)}, (_,i) => moments.slice(i*100,(i+1)*100));
+  const tags = (await Promise.all(batches.map(async batch => {
+    const {data,error}=await supabase.rpc("get_social_post_mentions_v1",{p_post_ids:batch.map(p=>p.post_id)});
+    if(error)throw safe();
+    return parseMomentMentions(data);
+  }))).flat();
+  return moments.map(p => ({ ...p, mentions: tags.filter(t => t.post_id === p.post_id) }));
+}
+export async function getSavedMoments(): Promise<Moment[]> {
+  const {data,error}=await supabase.rpc("get_my_saved_moments_v1",{p_limit:200});
+  if(error || !Array.isArray(data))throw safe();
+  return hydrateMomentMentions(data as Moment[]);
+}
+export async function getMoment(postId: string): Promise<Moment | null> {
+  const { data, error } = await supabase.rpc("get_social_post_v1", { p_post_id: postId });
+  if (error) throw safe();
+  if (!data) return null;
+  if (typeof data !== "object" || data.post_id !== postId || typeof data.user_id !== "string") throw safe();
+  return (await hydrateMomentMentions([data as Moment]))[0];
+}
 export async function getMoments(mode: "for_you" | "following" = "for_you") {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return [];
@@ -105,7 +129,7 @@ export async function getMoments(mode: "for_you" | "following" = "for_you") {
     p_feed_mode: mode,
   });
   if (error) throw safe();
-  return (Array.isArray(data) ? data : []) as Moment[];
+  return hydrateMomentMentions((Array.isArray(data) ? data : []) as Moment[]);
 }
 export async function getUserMoments(userId: string) {
   const { data, error } = await supabase.rpc("get_social_user_posts_v2", {
@@ -114,7 +138,7 @@ export async function getUserMoments(userId: string) {
     p_cursor: null,
   });
   if (error) throw safe();
-  return (Array.isArray(data) ? data : []) as Moment[];
+  return hydrateMomentMentions((Array.isArray(data) ? data : []) as Moment[]);
 }
 export async function getSocialProfile(userId: string) {
   const { data, error } = await supabase.rpc("get_social_profile_v2", {
@@ -129,19 +153,23 @@ export async function reactToMoment(
   kind: "like" | "save",
   active: boolean,
 ) {
-  const { error } = await supabase.rpc("react_to_social_post_v1", {
+  const { data, error } = await supabase.rpc("react_to_social_post_v1", {
     p_post_id: postId,
     p_reaction_type: kind,
     p_active: active,
   });
-  if (error) throw new Error("Die Aktion konnte nicht gespeichert werden.");
+  const receipt = Array.isArray(data) ? data[0] : data;
+  if (error || receipt?.post_id !== postId || receipt?.reaction_type !== kind || receipt?.active !== active || !Number.isInteger(receipt?.like_count))
+    throw new Error("Die Aktion konnte nicht bestätigt werden.");
+  return { active: receipt.active as boolean, likeCount: receipt.like_count as number };
 }
 export async function followUser(userId: string, following: boolean) {
-  const { error } = await supabase.rpc(
+  const { data, error } = await supabase.rpc(
     following ? "follow_user_v2" : "unfollow_user_v2",
     { p_user_id: userId },
   );
-  if (error) throw new Error("Der Follow-Status konnte nicht geändert werden.");
+  const receipt = Array.isArray(data) ? data[0] : data;
+  if (error || receipt?.following_id !== userId || receipt?.is_following !== following) throw new Error("Der Follow-Status konnte nicht bestätigt werden.");
 }
 export async function resolveMomentMedia(media: MomentMedia[]) {
   return Promise.all(
@@ -177,20 +205,25 @@ export async function createMomentComment(postId: string, body: string, requestI
     p_body: body.trim(),
     p_client_request_id: requestId,
   });
-  if (error)
-    throw new Error("Dein Kommentar konnte gerade nicht geteilt werden.");
-  return Array.isArray(data) ? data[0] : data;
+  const receipt = Array.isArray(data) ? data[0] : data;
+  if (error || !receipt?.comment_id || receipt?.post_id !== postId)
+    throw new Error("Dein Kommentar konnte nicht bestätigt werden. Dein Text bleibt erhalten.");
+  return receipt;
 }
 export async function createMoment({
   caption,
   spotId,
   file,
   requestId,
+  moods = [],
+  mentionedUserIds = [],
 }: {
   caption: string;
   spotId: string | null;
   file: File | null;
   requestId: string;
+  moods?: string[];
+  mentionedUserIds?: string[];
 }) {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user)
@@ -210,9 +243,9 @@ export async function createMoment({
     const path = `${userData.user.id}/${requestId}.${extension}`;
     const { error: uploadError } = await supabase.storage
       .from("social-post-media")
-      .upload(path, file, { contentType: file.type, upsert: true });
-    if (uploadError)
-      throw new Error("Das Bild konnte nicht hochgeladen werden.");
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError && String(uploadError.statusCode) !== "409")
+      throw new Error("Das Bild konnte nicht hochgeladen werden. Dein Entwurf bleibt erhalten.");
     media.push({
       storage_path: path,
       public_url: null,
@@ -222,37 +255,27 @@ export async function createMoment({
       sort_order: 0,
     });
   }
-  const { data, error } = await supabase.rpc("create_social_post_v2", {
+  const { data, error } = await supabase.rpc("create_social_post_v3", {
     p_spot_id: spotId,
     p_caption: caption.trim() || null,
     p_visibility: "public",
-    p_mood_tags: [],
+    p_mood_tags: moods,
+    p_mentioned_user_ids: mentionedUserIds,
+    p_expected_actor_id: userData.user.id,
     p_occasion_tags: [],
     p_media: media,
     p_client_request_id: requestId,
   });
-  if (error) throw new Error("Dein Moment konnte gerade nicht geteilt werden.");
+  if (error) throw new Error(error.message.includes("mention_not_available")
+    ? "Eine markierte Person ist inzwischen privat oder blockiert. Entferne ihre Markierung und versuche es erneut. Dein Entwurf bleibt erhalten."
+    : "Dein Moment konnte gerade nicht geteilt werden. Dein Entwurf bleibt erhalten.");
   const created = Array.isArray(data) ? data[0] : data;
   const id = created?.post_id ?? created?.id ?? null;
-  if (id) {
-    const { data: snapshot } = await supabase.rpc(
-      "safety_register_content_snapshot_v1",
-      {
-        p_entity_type: "social_post",
-        p_entity_id: id,
-        p_content_type: "moment",
-        p_actor_user_id: userData.user.id,
-        p_spot_id: spotId,
-        p_text_content: caption.trim() || null,
-        p_image_urls: [],
-        p_source_surface: "web_moments",
-        p_source_context: { client: "consumer_web" },
-      },
-    );
-    if (snapshot?.analysis_required === true && snapshot?.case_id)
-      void supabase.functions.invoke("safety-evaluate", {
-        body: { caseId: snapshot.case_id },
-      });
+  if (!id) throw new Error("Moment konnte nicht bestätigt werden. Dein Entwurf bleibt erhalten.");
+  const snapshot = created?.safety_snapshot;
+  if (snapshot?.analysis_required === true && typeof snapshot?.case_id === "string") {
+    void supabase.functions.invoke("safety-evaluate", {body:{caseId:snapshot.case_id}}).catch(() => undefined);
   }
+
   return id as string | null;
 }

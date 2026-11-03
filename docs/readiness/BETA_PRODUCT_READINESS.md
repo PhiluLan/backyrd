@@ -24,6 +24,12 @@ live geprüft. Native Auslieferung: TestFlight-Build 60; Consumer Web: live.
 [Abschluss und Belege](BETA_ENTRY_AND_CONTROL.md#abschluss-am-3-november-2026).
 Die vollständige Beta-Sicherheits-/Geräteabnahme bleibt Paket 6.
 
+**Paket 3 ist in Umsetzung und noch nicht grün.** Moments, Moods, Markierungen,
+Nachrichten und die sozialen Schutzregeln werden als gemeinsamer Ablauf
+überarbeitet. Der Entwicklungs- und Abnahmestand steht in
+[BETA_MOMENTS_AND_SOCIAL.md](BETA_MOMENTS_AND_SOCIAL.md). Es ist noch kein
+Paket-3-Release erfolgt.
+
 ## Erfasster Umfang
 
 „Vorhanden“ bedeutet hier im aktuellen Code nachvollzogen, nicht frisch auf

@@ -1,3 +1,4 @@
+import { canAutomaticallyEvaluateCase, resolveMomentSafetyImages } from "../_shared/safety/moment-media.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
 import {
@@ -315,6 +316,8 @@ Deno.serve(async (req) => {
         content:safety_content_items(
           id,
           content_type,
+          entity_type,
+          entity_id,
           text_content,
           image_urls,
           actor_user_id
@@ -365,6 +368,10 @@ Deno.serve(async (req) => {
     }
   }
 
+  if (!canAutomaticallyEvaluateCase(caseRow.case_status)) {
+    return json({ok:true,caseId,skipped:true,reason:"case_not_evaluable"});
+  }
+
   const boundary = await consumeLaunchCostBoundary(admin, {
     operation: "safety_evaluate",
     subjectKey: content.actor_user_id ?? authenticatedUserId ?? "internal-worker",
@@ -388,7 +395,7 @@ Deno.serve(async (req) => {
     })
     .eq("id", caseId);
 
-  const imageUrls =
+  let imageUrls =
     isTextOnlyEvaluation
       ? []
       : Array.isArray(content.image_urls)
@@ -397,6 +404,30 @@ Deno.serve(async (req) => {
             .filter(Boolean)
             .slice(0, 4)
         : [];
+
+  if (!isTextOnlyEvaluation && content.entity_type === "social_post" && imageUrls.length) {
+    const { data: post, error: postError } = await admin.from("social_posts")
+      .select("user_id,review_id,status").eq("id",content.entity_id).maybeSingle();
+    if (!postError && (!post || post.status === "deleted")) {
+      const held = await admin.from("safety_cases").update({case_status:"needs_review",explanation_code:"SOURCE_REMOVED",explanation_internal:"Source removed. Preserve the case for human review; no image was sent for automated evaluation.",updated_at:new Date().toISOString()}).eq("id",caseId).select("id").single();
+      if (held.error || held.data?.id !== caseId) return json({ok:false,error:"media_review_state_unavailable"},503);
+      return json({ok:true,caseId,pendingReview:true,reason:"source_removed"},202);
+    }
+    try {
+      if (postError || !post || post.user_id !== content.actor_user_id) throw new Error("media_source_mismatch");
+      imageUrls = await resolveMomentSafetyImages(imageUrls, {
+        actorId: post.user_id, reviewId: post.review_id, storageOrigin: Deno.env.get("SUPABASE_URL") ?? "",
+      }, async (bucket,path,expires) => {
+        const {data,error}=await admin.storage.from(bucket).createSignedUrl(path,expires);
+        if(error || !data?.signedUrl)throw new Error("media_signing_failed");
+        return data.signedUrl;
+      });
+    } catch {
+      const held = await admin.from("safety_cases").update({case_status:"needs_review",explanation_code:"MEDIA_UNAVAILABLE",explanation_internal:"Moment media could not be resolved securely. Human review required; no violation inferred.",updated_at:new Date().toISOString()}).eq("id",caseId).select("id").single();
+      if (held.error || held.data?.id !== caseId) return json({ok:false,error:"media_review_state_unavailable"},503);
+      return json({ok:true,caseId,pendingReview:true,reason:"media_unavailable"},202);
+    }
+  }
 
   const inputs: unknown[] = [];
 

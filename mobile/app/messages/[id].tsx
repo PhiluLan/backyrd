@@ -1,6 +1,7 @@
 // mobile/app/messages/[id].tsx
 
 import "react-native-get-random-values";
+import { chatImageObjectPath } from "../../../packages/shared/src/presentation/social";
 
 import React, {
   useCallback,
@@ -21,7 +22,7 @@ import * as ImagePicker from "expo-image-picker";
 import { v4 as uuidv4 } from "uuid";
 
 import Avatar from "../../components/Avatar";
-import { supabase } from "../../lib/supabase";
+import { supabase, supabaseRuntimeUrl } from "../../lib/supabase";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
 import { StateView } from "../../components/foundation/StateView";
@@ -61,17 +62,13 @@ async function hydrateChatMessageImage(
     return { ...message, image_render_url: null };
   }
 
-  if (
-    storedValue.startsWith("http://") ||
-    storedValue.startsWith("https://")
-  ) {
-    return { ...message, image_render_url: storedValue };
-  }
+  const path = chatImageObjectPath(storedValue,message.chat_id,supabaseRuntimeUrl);
+  if (!path) return { ...message, image_render_url: null };
 
   const { data, error } = await supabase.storage
     .from(CHAT_MEDIA_BUCKET)
     .createSignedUrl(
-      storedValue,
+      path,
       CHAT_SIGNED_URL_TTL_SECONDS,
     );
 
@@ -170,6 +167,7 @@ export default function ChatScreen() {
   const composerBusy = sendingKind !== null;
   const [uid, setUid] = useState<string | null>(null);
   const pendingTextRequest = useRef<{ body: string; id: string } | null>(null);
+  const pendingImageRequest = useRef<{ fingerprint: string; id: string; path: string; uploaded: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -206,6 +204,14 @@ export default function ChatScreen() {
   useEffect(() => {
     let active = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    const refreshMessages = async () => {
+      try {
+        const {data,error}=await withRequestDeadline(async signal=>await supabase.from("messages").select("*").eq("chat_id",id).order("created_at",{ascending:true}).abortSignal(signal),12000);
+        if(error)throw error;
+        const rows=await hydrateChatMessages((data??[]) as Message[]);
+        if(active)setMessages(normalizeMessages(rows));
+      } catch { /* Existing messages remain visible; a later reconnect retries. */ }
+    };
 
     const bootstrap = async () => {
       setLoading(true);
@@ -315,7 +321,7 @@ export default function ChatScreen() {
               });
             },
           )
-          .subscribe();
+          .subscribe(status=>{if(active && status==="SUBSCRIBED")void refreshMessages();});
       } catch (error: unknown) {
         if (active) setLoadError(userFacingError(error, "Der Chat konnte gerade nicht geladen werden. Bitte versuche es noch einmal."));
       } finally {
@@ -421,8 +427,12 @@ export default function ChatScreen() {
       try {
         const extension =
           uri.split(".").pop()?.toLowerCase() || "jpg";
-        const filePath =
-          `chat/${id}/${uuidv4()}.${extension}`;
+        const fingerprint = JSON.stringify([uid,id,uri,caption]);
+        const request = pendingImageRequest.current?.fingerprint === fingerprint
+          ? pendingImageRequest.current
+          : { fingerprint, id: uuidv4(), path: `chat/${id}/${uuidv4()}.${extension}`, uploaded: false };
+        pendingImageRequest.current = request;
+        const filePath = request.path;
 
         const uploadResponse = await fetch(uri);
 
@@ -443,26 +453,24 @@ export default function ChatScreen() {
                 ? "image/heic"
                 : "image/jpeg";
 
-        const { error: uploadError } =
-          await supabase.storage
-            .from(CHAT_MEDIA_BUCKET)
-            .upload(filePath, uploadBody, {
-              contentType,
-              upsert: false,
-            });
+        if (!request.uploaded) {
+          const { error: uploadError } = await withRequestDeadline(async () => await supabase.storage
+            .from(CHAT_MEDIA_BUCKET).upload(filePath,uploadBody,{contentType,upsert:false}),30000);
+          if (uploadError) throw uploadError;
+          request.uploaded = true;
+        }
 
-        if (uploadError) throw uploadError;
-
-        const messageResponse = await supabase.rpc("send_message_v2", {
+        const messageResponse = await withRequestDeadline(async signal => await supabase.rpc("send_message_v2", {
           p_chat_id: id,
           p_text: caption || null,
           p_image_url: filePath,
-          p_client_request_id: uuidv4(),
-        });
+          p_client_request_id: request.id,
+        }).abortSignal(signal),15000);
         const data = Array.isArray(messageResponse.data) ? messageResponse.data[0] : messageResponse.data;
         const error = messageResponse.error;
 
-        if (error) throw error;
+        if (error || !data || typeof data.id !== "string" || data.chat_id !== id || data.sender_id !== uid) throw error ?? new Error("missing_message_receipt");
+        pendingImageRequest.current = null;
         succeeded = true;
 
         appendServerMessage(
@@ -525,6 +533,28 @@ export default function ChatScreen() {
     },
     [sendImage],
   );
+
+  const blockingRef = useRef(false);
+  const blockPerson = () => {
+    if (!chatSummary?.other_user_id || blockingRef.current) return;
+    const target = chatSummary.other_user_id;
+    Alert.alert("Person blockieren?", "Ihr könnt euch danach keine weiteren Nachrichten senden. Du kannst die Blockierung in den Einstellungen aufheben.", [
+      { text: "Abbrechen", style: "cancel" },
+      { text: "Blockieren", style: "destructive", onPress: () => {
+        if (blockingRef.current) return;
+        blockingRef.current = true;
+        void (async () => {
+          try {
+            const { data, error } = await supabase.rpc("block_user_v1", { p_user_id: target });
+            const receipt = Array.isArray(data) ? data[0] : data;
+            if (error || receipt?.is_blocked !== true) throw error ?? new Error("missing_receipt");
+            Alert.alert("Person blockiert", "Weitere Nachrichten sind nicht möglich.");
+          } catch { Alert.alert("Blockieren fehlgeschlagen", "Bitte versuche es erneut."); }
+          finally { blockingRef.current = false; }
+        })();
+      } },
+    ]);
+  };
 
   const openOtherProfile = () => {
     if (!chatSummary?.other_user_id) return;
@@ -597,13 +627,13 @@ export default function ChatScreen() {
 
         <Pressable
           style={styles.headerCircle}
-          onPress={openOtherProfile}
+          onPress={blockPerson}
           accessibilityRole="button"
-          accessibilityLabel={`Profil von ${displayName} öffnen`}
+          accessibilityLabel="Person blockieren"
           disabled={!chatSummary?.other_user_id}
         >
           <Ionicons
-            name="person-outline"
+            name="ban-outline"
             size={22}
             color="#FFFFFF"
           />
@@ -757,15 +787,15 @@ export default function ChatScreen() {
                           styles.bubbleOtherTop,
                       ]}
                     >
-                      {item.image_url ? (
+                      {item.image_url && item.image_render_url ? (
                         <Image
                           source={{
-                            uri: item.image_render_url || item.image_url || "",
+                            uri: item.image_render_url || undefined,
                           }}
                           style={styles.messageImage}
                           resizeMode="cover"
                         />
-                      ) : null}
+                      ) : item.image_url ? <Text style={styles.messageText}>Foto gerade nicht verfügbar. Öffne den Chat erneut, um es zu laden.</Text> : null}
 
                       {item.text ? (
                         <Text

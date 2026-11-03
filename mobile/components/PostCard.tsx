@@ -1,6 +1,9 @@
+import { shareMoment } from "../lib/links";
+import { MomentEditor } from "./MomentEditor";
+import type { MentionPerson } from "../../packages/shared/src/presentation/social";
 // mobile/components/PostCard.tsx
-import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Image, Pressable, Share, StyleSheet, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, type AlertButton, Image, Pressable, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "./foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -32,6 +35,7 @@ export type SocialFeedPost = {
   caption: string | null;
   visibility: string | null;
   mood_tags: string[] | null;
+  mentions?: MentionPerson[];
   occasion_tags: string[] | null;
   source_type?: string | null;
   review_id?: string | null;
@@ -64,10 +68,11 @@ type Props = {
   ) => Promise<void>;
   onOpenSpot: (post: SocialFeedPost) => void;
   onOpenComments: (post: SocialFeedPost) => void;
-  onShare?: (post: SocialFeedPost) => void;
+  onShare?: (post: SocialFeedPost) => void | Promise<void>;
   onFollowChanged?: (userId: string, following: boolean) => void;
   /** Profile headers already own the relationship action. */
   showFollowAction?: boolean;
+  onChanged?: () => void;
 };
 
 function mediaUrls(post: SocialFeedPost) {
@@ -95,8 +100,10 @@ export default function SocialPostCard({
   onShare,
   onFollowChanged,
   showFollowAction = true,
+  onChanged,
 }: Props) {
   const router = useRouter();
+  const [editing, setEditing] = useState(false);
   const [liked, setLiked] = useState(Boolean(post.viewer_has_liked));
   const [saved, setSaved] = useState(Boolean(post.viewer_has_saved));
   const [following, setFollowing] = useState(
@@ -144,6 +151,7 @@ export default function SocialPostCard({
     primaryMedia?.height,
   );
   const hasImage = momentHasRenderableImage(imageUrl, mediaFailed);
+  const reactionInFlight = useRef(false);
   const ownPost = Boolean(currentUserId && post.user_id === currentUserId);
   const reviewMoment = isReviewMoment(post);
 
@@ -152,7 +160,8 @@ export default function SocialPostCard({
   };
 
   const toggleLike = async () => {
-    if (busyReaction) return;
+    if (reactionInFlight.current) return;
+    reactionInFlight.current = true;
     const next = !liked;
     setBusyReaction("like");
     setLiked(next);
@@ -165,12 +174,14 @@ export default function SocialPostCard({
       setLikeCount((value) => Math.max(0, value + (next ? -1 : 1)));
       Alert.alert("Reaktion fehlgeschlagen", userFacingError(error));
     } finally {
+      reactionInFlight.current = false;
       setBusyReaction(null);
     }
   };
 
   const toggleSave = async () => {
-    if (busyReaction) return;
+    if (reactionInFlight.current) return;
+    reactionInFlight.current = true;
     const next = !saved;
     setBusyReaction("save");
     setSaved(next);
@@ -181,6 +192,7 @@ export default function SocialPostCard({
       setSaved(!next);
       Alert.alert("Speichern fehlgeschlagen", userFacingError(error));
     } finally {
+      reactionInFlight.current = false;
       setBusyReaction(null);
     }
   };
@@ -208,19 +220,16 @@ export default function SocialPostCard({
 
   const sharePost = async () => {
     if (onShare) {
-      onShare(post);
+      await onShare(post);
       return;
     }
 
-    await Share.share({
-      message: post.spot_name
-        ? `${displayName} bei ${post.spot_name}: ${post.caption ?? ""}`
-        : `${displayName}: ${post.caption ?? ""}`,
-    });
+    await shareMoment(post.post_id, post.spot_name);
   };
 
   const openOwnPostMenu = () => {
-    const options: any[] = [
+    const options: AlertButton[] = [
+      { text: "Bearbeiten oder entfernen", onPress: () => setEditing(true) },
       {
         text: "Moment teilen",
         onPress: () => void sharePost(),
@@ -248,6 +257,7 @@ export default function SocialPostCard({
 
   return (
     <View style={styles.post}>
+      <MomentEditor postId={editing ? post.post_id : null} onClose={() => setEditing(false)} onChanged={() => { onChanged?.(); }} />
       <View style={styles.header}>
         <Pressable style={styles.author} onPress={openUser}>
           <View style={styles.avatarRing}>
@@ -454,6 +464,8 @@ export default function SocialPostCard({
             {likeCount} {likeCount === 1 ? "Gefällt mir" : "Gefällt mir"}
           </Text>
         ) : null}
+
+        {post.mentions?.length ? <View style={styles.tags}>{post.mentions.map(p => <Pressable key={p.user_id} accessibilityRole="link" accessibilityLabel={`Profil von ${p.display_name}`} onPress={() => router.push(`/user/${p.user_id}`)} style={{ minHeight: 44, justifyContent: "center" }}><Text style={{ color: theme.color.pink }}>Mit {p.display_name}</Text></Pressable>)}</View> : null}
 
         {hasImage && post.caption ? (
           <Text style={styles.caption}>

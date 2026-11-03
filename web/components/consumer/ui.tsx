@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import {
   useEffect,
   useId,
@@ -134,19 +135,24 @@ export function Dialog({
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const focusable = () =>
       Array.from(
         dialogRef.current?.querySelectorAll<HTMLElement>(
           'a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])',
         ) ?? [],
       );
-    window.requestAnimationFrame(() => focusable()[0]?.focus());
+    const frame = window.requestAnimationFrame(() => focusable()[0]?.focus());
     const handler = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        event.preventDefault();
+        closeRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -165,11 +171,13 @@ export function Dialog({
     window.addEventListener("keydown", handler);
     return () => {
       window.removeEventListener("keydown", handler);
-      previous?.focus();
+      window.cancelAnimationFrame(frame);
+      document.body.style.overflow = previousOverflow;
+      if (previous?.isConnected) previous.focus();
     };
-  }, [open, onClose]);
-  if (!open) return null;
-  return (
+  }, [open]);
+  if (!open || typeof document === "undefined") return null;
+  return createPortal(
     <div
       className="b-dialog-backdrop"
       role="presentation"
@@ -197,7 +205,8 @@ export function Dialog({
         </header>
         {children}
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 export function Toast({

@@ -1,4 +1,5 @@
 "use client";
+import { MessageRecipients } from "@/components/consumer/message-recipients";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Avatar, StateView } from "@/components/consumer/ui";
@@ -36,6 +37,7 @@ export default function MessagesPage() {
         NACHRICHTEN
       </h1>
       <div className="b-marker" />
+      <MessageRecipients />
       {loading ? (
         <div className="b-skeleton" style={{ height: 420, borderRadius: 22 }} />
       ) : error ? (
@@ -84,7 +86,7 @@ export default function MessagesPage() {
       ) : (
         <StateView
           title="Noch keine Nachrichten"
-          message="Öffne ein öffentliches Profil und starte einen persönlichen Backyrd-Chat."
+          message="Suche oben nach einer Person und schreibe deine erste Nachricht."
         />
       )}
     </div>

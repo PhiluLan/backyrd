@@ -1,3 +1,4 @@
+import { parseMomentMentions } from "../../packages/shared/src/presentation/social";
 import type { SocialFeedPost } from "../components/PostCard";
 import { supabase } from "./supabase";
 import { hydrateSocialMediaSignedUrls } from "./socialMedia";
@@ -250,5 +251,35 @@ export async function loadVisibleSocialFeed(options: { mode: "for_you" | "follow
   });
   if (error) throw error;
   const visiblePosts = await filterSafetyVisiblePosts(uniquePosts(normalizePosts(data)));
-  return hydrateSocialMediaSignedUrls(visiblePosts);
+  return hydrateSocialPosts(visiblePosts);
+}
+
+export async function hydrateSocialPostMentions(posts: SocialFeedPost[]): Promise<SocialFeedPost[]> {
+  if (!posts.length) return posts;
+  const batches=Array.from({length:Math.ceil(posts.length/100)},(_,i)=>posts.slice(i*100,(i+1)*100));
+  const tags=(await Promise.all(batches.map(async batch=>{
+    const {data,error}=await supabase.rpc("get_social_post_mentions_v1",{p_post_ids:batch.map(p=>p.post_id)});
+    if(error)throw error;
+    return parseMomentMentions(data);
+  }))).flat();
+  return posts.map(p => ({ ...p, mentions: tags.filter(t => t.post_id === p.post_id) }));
+}
+
+export async function loadVisibleSocialPost(postId: string): Promise<SocialFeedPost | null> {
+  const { data, error } = await supabase.rpc("get_social_post_v1", { p_post_id: postId });
+  if (error) throw error;
+  if (!data) return null;
+  const posts = normalizePosts([data]);
+  if (posts.length !== 1 || posts[0].post_id !== postId) throw new Error("invalid_moment");
+  return (await hydrateSocialPosts(posts))[0];
+}
+
+export async function loadMySavedMoments(): Promise<SocialFeedPost[]> {
+  const { data, error } = await supabase.rpc("get_my_saved_moments_v1", {p_limit:200});
+  if (error) throw error;
+  return hydrateSocialPosts(normalizePosts(data));
+}
+
+export async function hydrateSocialPosts(posts: SocialFeedPost[]): Promise<SocialFeedPost[]> {
+  return hydrateSocialPostMentions(await hydrateSocialMediaSignedUrls(posts));
 }

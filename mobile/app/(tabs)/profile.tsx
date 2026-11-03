@@ -1,3 +1,5 @@
+import { hydrateSocialPosts } from "../../lib/social-feed";
+import { SavedMoments } from "../../components/SavedMoments";
 // mobile/app/(tabs)/profile.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -242,6 +244,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
 
   const [posts, setPosts] = useState<SocialFeedPost[]>([]);
+  const [favoritesFailed, setFavoritesFailed] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteRow[]>([]);
   const [badges, setBadges] = useState<BadgeRow[]>([]);
 
@@ -278,7 +281,7 @@ export default function ProfileScreen() {
   const loadForUser = useCallback(
     async (currentUser: User | null) => {
       const request = ++profileRequest.current;
-      setProfileLoadFailed(false);
+      setProfileLoadFailed(false); setFavoritesFailed(false);
       if (profileOwner.current !== (currentUser?.id ?? null)) {
         profileOwner.current = currentUser?.id ?? null;
         setDraft(null); setShowEdit(false); setProfile(null);
@@ -312,12 +315,9 @@ export default function ProfileScreen() {
         ] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", currentUser.id).maybeSingle(),
 
-          // Uses the same social feed source as public profiles/feed.
-          // The client filters to the current user so the own profile and public profile feel identical.
-          supabase.rpc("get_social_feed_v2", {
+          supabase.rpc("get_social_user_posts_v2", {
+            p_user_id: currentUser.id,
             p_limit: 80,
-            p_feed_mode: "for_you",
-            p_city: null,
             p_cursor: null,
           }),
 
@@ -345,7 +345,7 @@ export default function ProfileScreen() {
         if (request !== profileRequest.current) return;
         if (profileRes.error || !profileRes.data) throw profileRes.error ?? new Error("profile_missing");
         if (feedRes.error) console.log("profile posts load failed", feedRes.error);
-        if (favoritesRes.error) console.log("favorites load failed", favoritesRes.error);
+        if (favoritesRes.error) setFavoritesFailed(true);
         if (badgesRes.error) console.log("badges load failed", badgesRes.error);
         if (followerRes.error) console.log("followers count failed", followerRes.error);
         if (followingRes.error) console.log("following count failed", followingRes.error);
@@ -358,13 +358,12 @@ export default function ProfileScreen() {
         const ownPosts = allFeedPosts.filter(
           (post) => post.user_id === currentUser.id,
         );
-        const visibleOwnPosts =
-          await filterSafetyVisiblePosts(ownPosts);
+        const visibleOwnPosts = await hydrateSocialPosts(await filterSafetyVisiblePosts(ownPosts));
         if (request !== profileRequest.current) return;
 
         setPosts(visibleOwnPosts);
 
-        setFavorites((favoritesRes.data ?? []) as FavoriteRow[]);
+        if (!favoritesRes.error) setFavorites((favoritesRes.data ?? []) as FavoriteRow[]);
         setBadges((badgesRes.data ?? []) as BadgeRow[]);
         setFollowersCount(followerRes.count ?? 0);
         setFollowingCount(followingRes.count ?? 0);
@@ -738,6 +737,7 @@ export default function ProfileScreen() {
                       key={post.post_id}
                       post={post}
                       currentUserId={user.id}
+                      onChanged={() => { void loadForUser(user); }}
                       onToggleReaction={toggleReaction}
                       onOpenSpot={openSpot}
                       onOpenComments={openComments}
@@ -749,10 +749,12 @@ export default function ProfileScreen() {
 
             {tab === "favorites" && (
               <>
-                {favorites.length === 0 ? (
+                <SavedMoments />
+                <Text style={styles.emptyTitle}>Gespeicherte Orte</Text>
+                {favoritesFailed ? <StateView kind="error" title="Gespeicherte Orte nicht geladen" actionLabel="Erneut versuchen" onAction={() => void loadForUser(user)} /> : favorites.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Ionicons name="bookmark-outline" size={34} color="rgba(255,255,255,0.42)" />
-                    <Text style={styles.emptyTitle}>Noch keine Favoriten</Text>
+                    <Text style={styles.emptyTitle}>Noch keine Orte gespeichert</Text>
                     <Text style={styles.emptyText}>Hier findest du deine gespeicherten Orte.</Text>
                   </View>
                 ) : (

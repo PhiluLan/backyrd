@@ -11,6 +11,7 @@ const privateRoutePrefixes = [
   "profile",
   "users",
   "messages",
+  "moments",
   "settings",
   "favorites",
   "achievements",

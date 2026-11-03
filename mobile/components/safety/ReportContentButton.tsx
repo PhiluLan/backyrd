@@ -220,8 +220,8 @@ export default function ReportContentButton({
           p_source_context: sourceContext,
         });
 
-      if (reportError) {
-        throw reportError;
+      if (reportError || !reportResult?.report_id) {
+        throw reportError ?? new Error("report_not_confirmed");
       }
 
       const isDuplicate = Boolean(reportResult?.duplicate);
