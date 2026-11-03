@@ -138,7 +138,10 @@ Verträge, vierzehn App-Einstiegs-/Datenschutzfälle und beide Hermes-Exporte be
 Der lokale Produktionsbuild besteht mit dem unterstützten Webpack-Bundler.
 Turbopack scheitert hier am Start seines lokalen CSS-Workers mit einer
 Port-Berechtigung; diese Umgebungsgrenze wird nicht als erfolgreicher
-Turbopack-Build ausgegeben. Der reguläre CI-Build ist davon getrennt zu prüfen.
+lokaler Turbopack-Build ausgegeben. Der reguläre Turbopack-Build und alle
+erforderlichen Prüfungen für Commit `f4a3896b` bestehen auf GitHub:
+[CI 41428077766](https://github.com/PhiluLan/backyrd/actions/runs/41428077766).
+[PR #683](https://github.com/PhiluLan/backyrd/pull/683) bleibt ein Entwurf.
 
 Die lokalen Audit-Daten verhindern teilweise eine beliebige Admin-Löschung der
 Testkonten. Deshalb wurde die ganze disposable Umgebung einschliesslich ihrer
@@ -181,10 +184,28 @@ Auf einem echten iPhone mit dem **neuen** Stand prüfen:
 - Foto wählen/abbrechen/speichern, Profilentwurf abbrechen/erneut versuchen;
 - grosse Systemschrift und kleine/grosse Bildschirmdarstellung im nativen UI.
 
-Xcode zeigte das bekannte iPhone bei der Vorbereitung als offline. Der Founder
-ist um Verbindung/Entsperren gebeten. Ein neuer Release oder Preview muss eindeutig
-auf den hier geprüften Stand zeigen; die bisherige produktive App beweist diese
-Änderungen nicht. Keine destruktive Privat-Umschaltung an einem echten Konto mit
+Am 3. November ist das iPhone 16 verbunden; die App lässt sich über die
+iPhone-Synchronisierung öffnen. Installiert ist Version 1.1.0, Build 59, aus dem
+EAS-Build vom 29. September (Commit `52286323`). Das ist kein Abnahmebeleg für
+Paket 2. Der Founder hat die Übertragung des geprüften Codes an das bestehende
+Expo-Projekt und die Erstellung des Cloud-Builds ausdrücklich freigegeben.
+Build **60** ist als Store-Artefakt ohne Auto-Submit erfolgreich fertiggestellt:
+[Expo-Build 654e347e](https://expo.dev/accounts/philipplanger/projects/backyrd/builds/654e347e-25d5-4173-9ebe-afc54ae6a9fe).
+Der Auftrag verwendet `--freeze-credentials`; keine neue Signierung, kein OTA
+und keine App-Store-Veröffentlichung sind beauftragt. Das heruntergeladene IPA besteht die bestehende Bundle-/Provisioning-Prüfung
+und `codesign --verify --deep --strict`. App-ID, Team, Version 1.1.0/Build 60,
+`get-task-allow=false`, beide Associated Domains und die neuen Kamera-/Foto-Texte
+sind am erzeugten Paket geprüft. IPA-SHA-256:
+`df37d898957d42fd6832e81968ae086324b1cbcfdfcb40315a7903379a0b2051`.
+
+Das Paket wurde nicht an Apple/TestFlight übermittelt und nicht auf dem Gerät
+installiert. Als Store-signiertes Paket benötigt es den TestFlight-Weg für die
+Geräteabnahme. Die öffentliche Website liefert die neue Password-AutoFill-
+Zuordnung noch nicht aus (am 3. November lesend geprüft). Diese Veröffentlichung
+und der TestFlight-Transfer sind von der reinen Build-Freigabe getrennte Schritte.
+Die eigentlichen nativen Abnahmefälle bleiben offen. Ein neuer Release oder Preview muss
+eindeutig auf den hier geprüften Stand zeigen; die bisherige produktive App
+beweist diese Änderungen nicht. Keine destruktive Privat-Umschaltung an einem echten Konto mit
 Folge-Verbindungen als Test verwenden. Die entsprechende Verhaltensprüfung bleibt
 auf isolierten Konten.
 
