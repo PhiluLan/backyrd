@@ -2,16 +2,15 @@
 
 Stand: 3. November 2026. Ausgangspunkt: Main `664509f7bf165caff3bdc1b67eb1de0f0d0c718a`.
 
-**Geräteabnahme von Build 60 durch den Founder bestanden.** Am 3. November
-bestätigte der Founder nach Installation des neuen Builds alle zehn ihm
-vorgelegten Abnahmepunkte. Das ist eine menschliche Abnahme, kein vom Agenten
-beobachteter Gerätetest. Die Website-/App-Verknüpfung für Password AutoFill ist
-über PR #684 live und auch bei Apple nachgewiesen. Anschliessend bestätigte
-der Founder ausdrücklich: „Ja, Autofill und Anmeldung funktionieren“. Damit
-ist auch der gezielte Gerätetest für gespeicherte Zugangsdaten bestanden.
-Offen bleibt der produktive Release der übrigen Paket-2-Änderungen; Paket 2 ist
-deshalb noch nicht vollständig grün. Paket 1 bleibt unverändert abgeschlossen.
-Weitere Beta-Pakete wurden hier nicht begonnen.
+**Paket 2 ist abgeschlossen und grün.** Der Founder hat am 3. November alle
+zehn vorgelegten Geräte-Abnahmepunkte auf iOS-Build 60 sowie anschliessend
+Autofill mit gespeicherten Zugangsdaten und erfolgreicher Anmeldung bestätigt.
+Das ist eine menschliche Abnahme, kein vom Agenten beobachteter Gerätetest.
+Die Website-/App-Verknüpfung ist über PR #684 live und bei Apple nachgewiesen;
+die übrigen Web-Änderungen sind über PR #683 veröffentlicht und live geprüft.
+Die native Beta wird als abgenommener TestFlight-Build 60 bereitgestellt.
+Ein öffentlicher App-Store-Release oder OTA wurde dabei nicht vorgenommen.
+Paket 1 bleibt abgeschlossen. Weitere Beta-Pakete wurden hier nicht begonnen.
 
 ## Was sich für Menschen ändert
 
@@ -147,7 +146,8 @@ Port-Berechtigung; diese Umgebungsgrenze wird nicht als erfolgreicher
 lokaler Turbopack-Build ausgegeben. Der reguläre Turbopack-Build und alle
 erforderlichen Prüfungen für Commit `f4a3896b` bestehen auf GitHub:
 [CI 41428077766](https://github.com/PhiluLan/backyrd/actions/runs/41428077766).
-[PR #683](https://github.com/PhiluLan/backyrd/pull/683) bleibt ein Entwurf.
+[PR #683](https://github.com/PhiluLan/backyrd/pull/683) ist nach bestandenen
+Pflichtprüfungen auf ausdrückliche Founder-Freigabe veröffentlicht.
 
 Die lokalen Audit-Daten verhindern teilweise eine beliebige Admin-Löschung der
 Testkonten. Deshalb wurde die ganze disposable Umgebung einschliesslich ihrer
@@ -261,3 +261,32 @@ auf isolierten Konten.
 Android-Hermes-Export und gemeinsame Eingabelogik werden in Paket 2 mitgeprüft.
 Die native Google-Anmeldung und vollständige Android-Verteilung bleiben als
 Geräte-/Store-Abnahme in Paket 7 und der gemeinsamen Beta-Abnahme in Paket 6 offen.
+
+
+## Abschluss am 3. November 2026
+
+- Paket-2-Release: [PR #683](https://github.com/PhiluLan/backyrd/pull/683),
+  Main `0a249404fa5e837126a680fa83ec9be0f0982a46`.
+- Sämtliche erforderlichen Prüfungen für den freigegebenen Stand `38f319b5`
+  bestehen: [CI 41688389417](https://github.com/PhiluLan/backyrd/actions/runs/41688389417).
+  Keine offenen Review-Kommentare waren vorhanden.
+- Vercel-Produktionsdeployments erfolgreich:
+  [Consumer Web](https://vercel.com/backyrd/backyrd-web/2pQ3kbUW73cGbZoG2uWqSVPB1bQy),
+  [Intelligence](https://vercel.com/backyrd/backyrd-intelligence/97zfBNgL1rR7Xe8oaV87Fg48iHg3).
+- Live im Browser geprüft: `/verify` zeigt die neue Code-Maske und
+  `autocomplete=one-time-code`; `/reset-password` ohne Wiederherstellungssitzung
+  zeigt den verständlichen Fehler und den neuen Link statt Passwortfeldern;
+  `/legal-consent` ohne Anmeldung führt zu `/login?next=%2Flegal-consent`.
+- Die private Dokumentenseite liefert `private, no-store` und `noindex, nofollow`.
+  Die produktive AASA-Datei enthält weiterhin exakt die freigegebene Produktions-App.
+- Dieser Live-Abgleich war lesend: keine Produktions-Testkonten, keine neuen
+  Passwörter, kein E-Mail-Versand, keine Profil-/Einwilligungsschreibvorgänge.
+  Die vollständigen positiven Schreibabläufe sind lokal isoliert und nativ
+  durch die Founder-Abnahme geprüft.
+- Der veröffentlichte Mobile-Laufzeitcode ist gegenüber dem tatsächlich signierten
+  und abgenommenen Build-60-Quellstand `f4a3896b` unverändert (Git-Abgleich von
+  App, Komponenten, Hooks, Bibliotheken, nativer App-Konfiguration und Shared-Quellen).
+- Auslieferung: Consumer Web live; native iOS-Beta Build 60 in TestFlight.
+  Keine Migration, keine Auth-Konfigurationsänderung, kein OTA und kein öffentlicher
+  App-Store-Release in diesem Veröffentlichungsschritt. Die vollständige Beta-
+  und Android-Geräte-/Store-Abnahme bleiben den Paketen 6 und 7 zugeordnet.

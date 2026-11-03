@@ -15,14 +15,13 @@ sind live. Das frische vollständige AWS-Backup vom 2. November ist auf zwei
 isolierten Zielen tatsächlich wiederhergestellt und mit Datenbank, Rechten,
 Fremdschlüsseln, Original-Medienschlüsseln und Bytes abgeglichen.
 [Abschluss und Belege](BETA_SECURITY_FOUNDATION.md#abschluss-paket-1-grün-am-2-november-2026).
-Paket 2: [Einstieg und Kontrolle](BETA_ENTRY_AND_CONTROL.md). Die lokale
-Ablaufprüfung ist bestanden. Der Founder hat am 3. November nach Installation
-von iOS-Build 60 alle zehn vorgelegten Geräte-Abnahmepunkte als bestanden
-bestätigt. Die Website-Zuordnung für Password AutoFill ist über PR #684 live
-und auch auf Apples CDN verifiziert. Anschliessend hat der Founder den
-gezielten AutoFill-Test mit gespeicherten Zugangsdaten und erfolgreicher
-Anmeldung ausdrücklich als bestanden bestätigt. Offen bleibt der produktive
-Release der übrigen Paket-2-Änderungen. Paket 2 ist noch nicht vollständig grün.
+**Paket 2 ist abgeschlossen und grün.** Die lokalen Abläufe sind bestanden;
+der Founder hat iOS-Build 60 einschliesslich der gezielten Autofill-Anmeldung
+abgenommen. Die Website-Zuordnung ist über PR #684 live und bei Apple verifiziert.
+Die übrigen Änderungen sind mit PR #683 veröffentlicht; Produktionsdeployments,
+neue Code-Eingabe, sichere Passwort-Wiederherstellung und Anmeldungsschutz sind
+live geprüft. Native Auslieferung: TestFlight-Build 60; Consumer Web: live.
+[Abschluss und Belege](BETA_ENTRY_AND_CONTROL.md#abschluss-am-3-november-2026).
 Die vollständige Beta-Sicherheits-/Geräteabnahme bleibt Paket 6.
 
 ## Erfasster Umfang
