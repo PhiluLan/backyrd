@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "beta-social-moments-v1",
+  "previousEvidence": "analytics-privacy-reference-cleanup-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "0a554cd61d5912ee0a014b6e0f14a7cbec1383e273f949e4318c81be568156a3",
+    "applicationSchemaSha256": "0d33375449d8fce94f75a2fad47e95d3fb9105a2c184f46df46dac7c019e42b5"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261103182149_beta_social_contact_and_mentions_v1.sql",
+      "sha256": "79c28e5de8abe18ad8c2b6f332c1f7555c2627102f1a1e0eecd0a614d0297383"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/beta_social_contact_and_mentions_v1.sql",
+      "sha256": "f9f678b3fee41254b7b0edff351320a7bd0801c42fab357fb5b0224986a55e99"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "01e6dfc9ef02e2bac385cc4c791cdf7087cf6755a5be9d63ac2cc2ca6b07fd96",
+    "applicationSchemaSha256": "95c7f39a2039fb1ac6b27ad6717ac8b0eee215635033d963d7120cbc25e4e9d6"
+  }
+}
