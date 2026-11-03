@@ -161,3 +161,24 @@ Migration und die beiden geänderten Funktionen, anschliessend Web und der
 passende native Teststand. Die vier zurückgestellten Booking-Migrationen sowie
 Auth- und Decision-Änderungen gehören nicht zu diesem Paket. Der bestehende
 Releaseweg und seine erforderlichen Freigaben werden nicht umgangen.
+
+
+## Freigegebener iOS-Buildauftrag
+
+Am 3. November wurde die Erstellung bei Expo aus Commit `2cfb90d7` ausdrücklich
+freigegeben. Build **61**, Version 1.1.0:
+https://expo.dev/accounts/philipplanger/projects/backyrd/builds/282797e5-5021-402c-834e-941480482125
+
+Die App-Dateien sind gegenüber dem nachfolgenden Snapshot-Wrapper-Refactoring
+unverändert. Der Auftrag verwendet bestehende Signierung mit
+`--freeze-credentials`, ohne Auto-Submit, OTA oder Verteilung. Ein erfolgreicher
+Build ersetzt weder Serverfreigabe noch TestFlight- und Geräteabnahme.
+
+Die lokale Archivprüfung fand eine private Apple-Schlüsseldatei unter `jwt/`.
+Vor dem Upload wurden diese Datei und die Git-Objekthistorie ausdrücklich über
+`.easignore` ausgeschlossen. Das erneut geprüfte Archiv enthielt 3010 Dateien
+und keine erkannten lokalen Schlüssel oder privilegierten Tokens. Diese
+Ausschlussregel ist nun auch im Repository hinterlegt. Die frühere Aufnahme
+der Datei in Git ist damit nicht rückgängig gemacht; Gültigkeit und notwendige
+Ersetzung des Schlüssels müssen gesondert geprüft werden. Es wurde kein
+Schlüssel rotiert oder widerrufen.
