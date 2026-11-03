@@ -200,8 +200,10 @@ sind am erzeugten Paket geprüft. IPA-SHA-256:
 
 Der Founder hat die anschliessende TestFlight-Übertragung gesondert freigegeben.
 [Einreichung 534a4e67](https://expo.dev/accounts/philipplanger/projects/backyrd/submissions/534a4e67-0503-4aaa-9a59-f7b69f534bdd)
-ist bei EAS erfolgreich abgeschlossen; Apples anschliessende Verarbeitung wird
-separat geprüft. Ziel ist die bestehende App-Store-Connect-App `6804831366`,
+ist bei EAS erfolgreich abgeschlossen. App Store Connect bestätigt Build 60 mit
+`processingState=VALID`; die Apple-Verarbeitung ist damit bestanden. Die
+Installation und tatsächliche Tester-Verfügbarkeit werden erst auf dem Gerät
+abgenommen. Ziel ist die bestehende App-Store-Connect-App `6804831366`,
 belegt durch die drei bisherigen erfolgreichen Einreichungen (Builds 59/57/56).
 Diese bestehende Zuordnung ist nun ausdrücklich in `mobile/eas.json` hinterlegt.
 Der bestehende API-Zugang wurde weiterverwendet; keine neuen Testgruppen, kein
