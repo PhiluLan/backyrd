@@ -67,7 +67,9 @@ kein bereits gespeichertes Foto überschreiben.
 
 Der Moderationsbeleg enthält den tatsächlichen Text, die Moods und die
 kanonischen Bildreferenzen. Ein Client kann Bilder nicht durch eine leere
-Snapshot-Liste aus der Prüfung entfernen. Private Bildpfade werden vom
+Snapshot-Liste aus der Prüfung entfernen. Die bestehende Snapshot-/Medienverwaltung
+bleibt unverändert in einer ausschliesslich intern aufrufbaren Funktion; der
+bestehende öffentliche Vertrag erhält eine vorgeschaltete Quellenprüfung. Private Bildpfade werden vom
 Safety-Dienst in kurz gültige Links umgewandelt. Fremde Ursprünge, andere
 Kontoverzeichnisse und nicht zugehörige Review-Pfade werden abgewiesen.
 Bei nicht auflösbaren Bildern bleibt ein begründeter menschlicher Prüffall;

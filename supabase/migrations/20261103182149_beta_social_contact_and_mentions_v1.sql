@@ -930,33 +930,18 @@ $$;
 revoke all on function public.get_my_saved_moments_v1(integer) from public,anon;
 grant execute on function public.get_my_saved_moments_v1(integer) to authenticated;
 
--- Snapshot registration keeps canonical private media references and Mood evidence.
+-- Preserve the existing snapshot/media bookkeeping verbatim, with no new purge.
+-- Only the wrapper below is callable by clients; it supplies canonical source data.
+alter function public.safety_register_content_snapshot_v1(text,uuid,text,uuid,uuid,text,text[],text,jsonb)
+ rename to safety_register_content_snapshot_internal_v1;
+revoke all on function public.safety_register_content_snapshot_internal_v1(text,uuid,text,uuid,uuid,text,text[],text,jsonb) from public,anon,authenticated,service_role;
 CREATE OR REPLACE FUNCTION "public"."safety_register_content_snapshot_v1"("p_entity_type" "text", "p_entity_id" "uuid", "p_content_type" "text", "p_actor_user_id" "uuid" DEFAULT NULL::"uuid", "p_spot_id" "uuid" DEFAULT NULL::"uuid", "p_text_content" "text" DEFAULT NULL::"text", "p_image_urls" "text"[] DEFAULT '{}'::"text"[], "p_source_surface" "text" DEFAULT NULL::"text", "p_source_context" "jsonb" DEFAULT '{}'::"jsonb") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public'
     AS $$
-declare
-  v_actor_user_id uuid;
-  v_content_item_id uuid;
-  v_case_id uuid;
-  v_policy_version_id uuid;
-  v_url text;
-  v_has_images boolean;
+declare v_actor_user_id uuid;
 begin
-  if auth.uid() is null then
-    raise exception 'not_authenticated';
-  end if;
-
-  v_actor_user_id := coalesce(
-    p_actor_user_id,
-    auth.uid()
-  );
-
-  if v_actor_user_id <> auth.uid()
-     and not public.safety_is_admin_v1() then
-    raise exception 'actor_mismatch';
-  end if;
-
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
   if p_entity_type = 'social_post' then
     if not public.social_post_is_visible_v1(p_entity_id) and not public.safety_is_admin_v1() then
       raise exception 'content_under_review' using errcode='42501';
@@ -971,233 +956,15 @@ begin
     p_content_type := 'moment';
   end if;
 
-  v_has_images :=
-    cardinality(
-      coalesce(p_image_urls, '{}'::text[])
-    ) > 0;
 
-  select item.id
-  into v_content_item_id
-  from public.safety_content_items item
-  where item.entity_type = p_entity_type
-    and item.entity_id = p_entity_id
-  order by item.created_at asc
-  limit 1;
-
-  if v_content_item_id is null then
-    insert into public.safety_content_items(
-      content_type,
-      entity_type,
-      entity_id,
-      actor_user_id,
-      spot_id,
-      text_content,
-      image_urls,
-      lifecycle_status
-    )
-    values(
-      p_content_type,
-      p_entity_type,
-      p_entity_id,
-      v_actor_user_id,
-      p_spot_id,
-      nullif(
-        trim(coalesce(p_text_content, '')),
-        ''
-      ),
-      coalesce(
-        p_image_urls,
-        '{}'::text[]
-      ),
-      'live'
-    )
-    returning id
-    into v_content_item_id;
-  else
-    update public.safety_content_items
-    set
-      content_type = p_content_type,
-      actor_user_id = v_actor_user_id,
-      spot_id = p_spot_id,
-      text_content = nullif(
-        trim(coalesce(p_text_content, '')),
-        ''
-      ),
-      image_urls = coalesce(
-        p_image_urls,
-        '{}'::text[]
-      )
-    where id = v_content_item_id;
-  end if;
-
-  delete from public.safety_media_items
-  where content_item_id = v_content_item_id
-    and not (
-      media_url = any(
-        coalesce(
-          p_image_urls,
-          '{}'::text[]
-        )
-      )
-    );
-
-  foreach v_url in array coalesce(
-    p_image_urls,
-    '{}'::text[]
-  )
-  loop
-    if nullif(trim(v_url), '') is not null then
-      insert into public.safety_media_items(
-        content_item_id,
-        entity_type,
-        entity_id,
-        actor_user_id,
-        spot_id,
-        media_url,
-        media_role,
-        lifecycle_status,
-        source_surface,
-        source_context
-      )
-      values(
-        v_content_item_id,
-        p_entity_type,
-        p_entity_id,
-        v_actor_user_id,
-        p_spot_id,
-        v_url,
-        case
-          when p_entity_type = 'profile'
-            then 'profile_image'
-          else 'content_image'
-        end,
-        'live',
-        p_source_surface,
-        coalesce(
-          p_source_context,
-          '{}'::jsonb
-        )
-      )
-      on conflict(content_item_id, media_url)
-      do update set
-        actor_user_id = excluded.actor_user_id,
-        spot_id = excluded.spot_id,
-        lifecycle_status = 'live',
-        source_surface = excluded.source_surface,
-        source_context = excluded.source_context,
-        updated_at = now();
-    end if;
-  end loop;
-
-  -- Every new or changed image snapshot gets an automated case.
-  -- Existing open/evaluating case is reused.
-  if v_has_images then
-    select safety_case.id
-    into v_case_id
-    from public.safety_cases safety_case
-    where safety_case.content_item_id =
-      v_content_item_id
-      and safety_case.case_status in (
-        'queued',
-        'evaluating',
-        'needs_review'
-      )
-      and safety_case.decision_source in (
-        'automated_shadow',
-        'automated_policy',
-        'image_upload'
-      )
-    order by safety_case.created_at desc
-    limit 1;
-
-    if v_case_id is null then
-      select policy_version.id
-      into v_policy_version_id
-      from public.safety_policy_versions policy_version
-      where policy_version.policy_key =
-        'backyrd-global'
-        and policy_version.status in (
-          'shadow',
-          'active'
-        )
-      order by
-        policy_version.activated_at desc nulls last,
-        policy_version.created_at desc
-      limit 1;
-
-      insert into public.safety_cases(
-        content_item_id,
-        policy_version_id,
-        case_status,
-        priority,
-        final_action,
-        decision_source,
-        explanation_code,
-        explanation_internal
-      )
-      values(
-        v_content_item_id,
-        v_policy_version_id,
-        'queued',
-        40,
-        'allow_log',
-        'image_upload',
-        'IMAGE_ANALYSIS_QUEUED',
-        concat(
-          'Automatic image analysis queued. source=',
-          coalesce(p_source_surface, 'unknown'),
-          '; image_count=',
-          cardinality(
-            coalesce(
-              p_image_urls,
-              '{}'::text[]
-            )
-          )
-        )
-      )
-      returning id
-      into v_case_id;
-    else
-      update public.safety_cases
-      set
-        case_status = 'queued',
-        final_action = 'allow_log',
-        explanation_code =
-          'IMAGE_ANALYSIS_REQUEUED',
-        explanation_internal = concat(
-          'Automatic image analysis requeued. source=',
-          coalesce(p_source_surface, 'unknown'),
-          '; image_count=',
-          cardinality(
-            coalesce(
-              p_image_urls,
-              '{}'::text[]
-            )
-          )
-        ),
-        updated_at = now()
-      where id = v_case_id;
-    end if;
-  end if;
-
-  return jsonb_build_object(
-    'ok', true,
-    'content_item_id',
-      v_content_item_id,
-    'case_id',
-      v_case_id,
-    'analysis_required',
-      v_has_images,
-    'media_count',
-      cardinality(
-        coalesce(
-          p_image_urls,
-          '{}'::text[]
-        )
-      )
+  return public.safety_register_content_snapshot_internal_v1(
+    p_entity_type,p_entity_id,p_content_type,coalesce(v_actor_user_id,p_actor_user_id),
+    p_spot_id,p_text_content,p_image_urls,p_source_surface,p_source_context
   );
 end;
 $$;
+revoke all on function public.safety_register_content_snapshot_v1(text,uuid,text,uuid,uuid,text,text[],text,jsonb) from public,anon;
+grant execute on function public.safety_register_content_snapshot_v1(text,uuid,text,uuid,uuid,text,text[],text,jsonb) to authenticated,service_role;
 
 -- Account exports include the new relation without exposing another person's caption or profile.
 grant select on public.social_post_mentions to service_role;

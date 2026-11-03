@@ -1,3 +1,5 @@
+-- backyrd:authorization-positive
+-- backyrd:authorization-negative
 begin;
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
 select '00000000-0000-0000-0000-000000000000', ('73000000-0000-0000-0000-00000000000'||n)::uuid,'authenticated','authenticated','p3-'||n||'@example.invalid','',now(),'{}','{}',now(),now() from generate_series(1,4) n;
@@ -184,6 +186,7 @@ do $$ begin
  if has_table_privilege('authenticated','public.social_posts','insert') or has_table_privilege('authenticated','public.social_post_media','insert') or has_table_privilege('authenticated','public.social_posts','update') then raise exception 'direct post/media mutation permitted'; end if;
  if has_function_privilege('authenticated','public.create_social_post_v1(uuid,text,text,text[],text[],jsonb)','execute') then raise exception 'legacy unvalidated media writer permitted'; end if;
  if has_table_privilege('authenticated','public.social_post_mentions','insert') then raise exception 'direct tag write grant'; end if;
+ if has_function_privilege('authenticated','public.safety_register_content_snapshot_internal_v1(text,uuid,text,uuid,uuid,text,text[],text,jsonb)','execute') then raise exception 'unguarded snapshot writer callable'; end if;
  if has_function_privilege('authenticated','public.account_person_mentions_export_v1(uuid)','execute') or has_function_privilege('anon','public.account_person_mentions_export_v1(uuid)','execute') then raise exception 'public personal-export access granted'; end if;
 end; $$;
 rollback;
