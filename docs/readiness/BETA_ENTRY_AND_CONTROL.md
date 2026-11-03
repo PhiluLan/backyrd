@@ -6,9 +6,10 @@ Stand: 3. November 2026. Ausgangspunkt: Main `664509f7bf165caff3bdc1b67eb1de0f0d
 bestätigte der Founder nach Installation des neuen Builds alle zehn ihm
 vorgelegten Abnahmepunkte. Das ist eine menschliche Abnahme, kein vom Agenten
 beobachteter Gerätetest. Die Website-/App-Verknüpfung für Password AutoFill ist
-über PR #684 live und auch bei Apple nachgewiesen. Der gezielte AutoFill-
-Gerätetest und der produktive Release der übrigen Paket-2-Änderungen sind noch
-offen; Paket 2 ist
+über PR #684 live und auch bei Apple nachgewiesen. Anschliessend bestätigte
+der Founder ausdrücklich: „Ja, Autofill und Anmeldung funktionieren“. Damit
+ist auch der gezielte Gerätetest für gespeicherte Zugangsdaten bestanden.
+Offen bleibt der produktive Release der übrigen Paket-2-Änderungen; Paket 2 ist
 deshalb noch nicht vollständig grün. Paket 1 bleibt unverändert abgeschlossen.
 Weitere Beta-Pakete wurden hier nicht begonnen.
 
@@ -154,7 +155,7 @@ Datenvolumes nach der Prüfung entfernt; verbleibende Testcontainer/-volumes: 0.
 Diese Suite verwendet niemals Produktion. Statusdateien enthalten ausschliesslich lokale Testschlüssel und
 gehören nicht ins Repository oder in Screenshots/Logs.
 
-## Passwortmanager: nativer Build erforderlich
+## Passwortmanager: Build, Domain und Geräteabnahme
 
 Zusätzlich zu Feldhinweisen benötigt Password AutoFill die gemeinsame Website-/
 App-Verknüpfung. In der bestehenden Konfiguration war nur `applinks` vorhanden.
@@ -170,11 +171,13 @@ der exakte geprüfte Inhalt und derselbe neue Inhalt auf Apples CDN verifiziert.
 Produktiver Merge: `1326ef02a1abb96a5117800c3d220cdf8db61d2f`. Beide
 Vercel-Produktionsdeployments sind erfolgreich. Veröffentlicht wurde allein die
 Domainzuordnung; keine weiteren Paket-2-Webänderungen, kein OTA und keine
-Datenbankänderung. Der gezielte AutoFill-Gerätetest ist beim Founder angefragt.
+Datenbankänderung. Der Founder bestätigte anschliessend den gezielten
+AutoFill-Gerätetest: Ein gespeicherter Backyrd-Zugang wird angeboten, E-Mail und
+Passwort werden korrekt eingefügt und die Anmeldung funktioniert.
 Ein OTA-Update kann diese native Angabe nicht ergänzen. Die vorgeschlagenen
-JS-Änderungen bleiben mit dem bisherigen Runtime kompatibel; vollständiges
-Passwort-Autofill wird aber erst nach neuem Build, Domainprüfung und echtem
-Gerät abgenommen. Dies ist kein Wechsel auf Passkeys und keine Ausweitung der
+JS-Änderungen bleiben mit dem bisherigen Runtime kompatibel. Neuer Build,
+Domainprüfung und erfolgreicher Gerätetest für gespeicherte Zugangsdaten sind
+nun nachgewiesen. Dies ist kein Wechsel auf Passkeys und keine Ausweitung der
 vertrauenswürdigen App-Identitäten. Die nativen Kamera-/Foto-Hinweise verwenden
 verständlich „Moment“ und erklären auch die Verwendung ausgewählter Profilfotos.
 
@@ -201,8 +204,11 @@ Die Checkliste schloss die destruktive Privat-Umschaltung am echten Konto aus.
 Sie nahm vollständiges Password AutoFill ausdrücklich von der endgültigen
 Abnahme aus, bis die Website-Zuordnung veröffentlicht ist. Diese beiden
 Ausnahmen werden durch „alle Punkte bestanden“ nicht als zusätzlich geprüft
-ausgegeben. Die Privat-Regel ist auf isolierten Konten geprüft; für Password
-AutoFill bleibt nach Domainveröffentlichung ein gezielter Gerätetest offen.
+ausgegeben. Die Privat-Regel ist auf isolierten Konten geprüft. Nach der
+Domainveröffentlichung bestätigte der Founder zusätzlich den gezielten
+AutoFill-Test mit gespeicherten Zugangsdaten und erfolgreicher Anmeldung.
+Dies ist eine ausdrückliche menschliche Abnahme dieses Ablaufs; daraus wird
+keine zusätzliche Prüfung anderer Passwortmanager oder Geräte abgeleitet.
 
 Ursprüngliche technische Gerätecheckliste zur Zuordnung:
 
@@ -244,8 +250,9 @@ Der vorherige Befund (Build 59, TestFlight nicht installiert) ist durch die
 Bestätigung des Founders zur Installation von Build 60 überholt. Die öffentliche
 Website und Apples CDN liefern die neue Password-AutoFill-Zuordnung seit der
 ausdrücklich freigegebenen Veröffentlichung über PR #684 aus. Der anschliessende
-gezielte AutoFill-Test bleibt offen; er ist nicht durch die technische
-Veröffentlichungsprüfung ersetzt. Ein neuer Release oder Preview muss
+gezielte AutoFill-Test ist durch die ausdrückliche Founder-Rückmeldung
+„Ja, Autofill und Anmeldung funktionieren“ bestanden; er wurde nicht allein
+aus der technischen Veröffentlichungsprüfung abgeleitet. Ein neuer Release oder Preview muss
 eindeutig auf den hier geprüften Stand zeigen; die bisherige produktive App
 beweist diese Änderungen nicht. Keine destruktive Privat-Umschaltung an einem echten Konto mit
 Folge-Verbindungen als Test verwenden. Die entsprechende Verhaltensprüfung bleibt
