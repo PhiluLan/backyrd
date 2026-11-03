@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
+import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View } from "react-native";
 import { DMSerifDisplay_400Regular } from "@expo-google-fonts/dm-serif-display/400Regular";
 import { LibreFranklin_400Regular } from "@expo-google-fonts/libre-franklin/400Regular";
@@ -19,10 +20,13 @@ import PushNotificationRouter from "../components/PushNotificationRouter";
 import { ProductLoading, ProductState } from "../components/ui/ProductState";
 import { runtimeConfigStatus } from "../lib/supabase";
 import SplashScreen from "./splash";
+import { useBackyrdTheme } from "../theme/backyrd";
+import { AppearancePreferenceProvider } from "../theme/appearancePreference";
 
 void ExpoSplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function RootStack() {
+  const { color } = useBackyrdTheme();
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="gate" />
@@ -47,10 +51,10 @@ function RootStack() {
         name="spot/[id]"
         options={{
           headerShown: true,
-          headerTintColor: "#FFFFFF",
+          headerTintColor: color.textPrimary,
           headerBackTitle: "Zurück",
           headerTitle: "",
-          headerStyle: { backgroundColor: "#050506" },
+          headerStyle: { backgroundColor: color.background },
           headerShadowVisible: false,
         }}
       />
@@ -106,6 +110,7 @@ function BootstrappedApp() {
 
   return (
     <AnalyticsProvider>
+      <StatusBar style="auto" />
       <View style={styles.root}>
         <GlobalSafetyEnforcementGuard
           authReady={!authLoading}
@@ -166,9 +171,11 @@ export default function RootLayout() {
 
   return (
     <AnalyticsErrorBoundary>
-      <AuthProvider>
-        <BootstrappedApp />
-      </AuthProvider>
+      <AppearancePreferenceProvider>
+        <AuthProvider>
+          <BootstrappedApp />
+        </AuthProvider>
+      </AppearancePreferenceProvider>
     </AnalyticsErrorBoundary>
   );
 }

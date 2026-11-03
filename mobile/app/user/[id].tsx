@@ -1,6 +1,7 @@
+import { backyrdTheme } from "../../theme/backyrd";
 // mobile/app/user/[id].tsx
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Dimensions, Image, Pressable, RefreshControl, SafeAreaView, StyleSheet, View } from "react-native";
+import { Alert, Animated, Dimensions, Image, Pressable, RefreshControl, SafeAreaView, StyleSheet, View, useColorScheme } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -169,6 +170,7 @@ function formatSince(value?: string | null) {
 }
 
 export default function UserProfileScreen() {
+  const isLight = useColorScheme() === "light";
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const userId = typeof params.id === "string" ? params.id : null;
@@ -735,7 +737,7 @@ export default function UserProfileScreen() {
       <Animated.View style={[styles.headerBackdrop, { height: headerHeight }]} pointerEvents="none">
         <Image source={{ uri: headerImage }} style={styles.headerImage} blurRadius={8} />
         <LinearGradient
-          colors={["rgba(0,0,0,0.08)", "rgba(10,10,11,0.72)", "#050506"]}
+          colors={isLight ? ["rgba(247,247,245,0.08)", "rgba(247,247,245,0.82)", "#F7F7F5"] : ["rgba(0,0,0,0.08)", "rgba(10,10,11,0.72)", "#050506"]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -779,7 +781,7 @@ export default function UserProfileScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            tintColor="#FFFFFF"
+            tintColor={backyrdTheme.color.pink}
             refreshing={refreshing}
             onRefresh={() => load("refresh")}
           />
@@ -804,7 +806,7 @@ export default function UserProfileScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
   },
   headerBackdrop: {
     position: "absolute",
@@ -825,7 +827,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    color: "#8E8E95",
+    color: backyrdTheme.color.textMuted,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -871,7 +873,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   displayName: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: "700",
@@ -879,7 +881,7 @@ const styles = StyleSheet.create({
   },
   handleText: {
     marginTop: 5,
-    color: "#8F8F98",
+    color: backyrdTheme.color.textMuted,
     fontSize: 18,
     fontWeight: "800",
   },
@@ -904,14 +906,14 @@ const styles = StyleSheet.create({
   },
   bioText: {
     marginTop: 18,
-    color: "#EDEDF2",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 17,
     lineHeight: 24,
     fontWeight: "600",
   },
   statsLine: {
     marginTop: 18,
-    color: "#C9C9CF",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: "700",
@@ -925,14 +927,14 @@ const styles = StyleSheet.create({
   softChip: {
     minHeight: 36,
     borderRadius: 999,
-    backgroundColor: "#19191F",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     paddingHorizontal: 13,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
   },
   softChipText: {
-    color: "#DADAE0",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -945,9 +947,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 52,
     borderRadius: 18,
-    backgroundColor: "#202026",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.13)",
+    borderColor: backyrdTheme.color.border,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -957,12 +959,12 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   messageButtonText: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 15,
     fontWeight: "900",
   },
   messageButtonTextDisabled: {
-    color: "#77777F",
+    color: backyrdTheme.color.textMuted,
   },
   followButton: {
     flex: 1,
@@ -973,31 +975,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   followButtonActive: {
-    backgroundColor: "#202026",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "#303039",
+    borderColor: backyrdTheme.color.border,
   },
   followButtonText: {
-    color: "#050506",
+    color: backyrdTheme.color.onAccent,
     fontSize: 16,
     fontWeight: "900",
   },
   followButtonTextActive: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
   },
   secondaryButton: {
     marginTop: 16,
     height: 52,
     borderRadius: 999,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "#303039",
+    borderColor: backyrdTheme.color.border,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 22,
   },
   secondaryButtonText: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     fontWeight: "900",
   },
@@ -1006,7 +1008,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionKicker: {
-    color: "#8E8E95",
+    color: backyrdTheme.color.textMuted,
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1.1,
@@ -1014,7 +1016,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginTop: 4,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 25,
     lineHeight: 30,
     fontWeight: "900",
@@ -1023,9 +1025,9 @@ const styles = StyleSheet.create({
   emptyCard: {
     marginTop: 4,
     borderRadius: 30,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "#222229",
+    borderColor: backyrdTheme.color.border,
     minHeight: 220,
     alignItems: "center",
     justifyContent: "center",
@@ -1033,14 +1035,14 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     marginTop: 12,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 22,
     fontWeight: "900",
     textAlign: "center",
   },
   emptyText: {
     marginTop: 8,
-    color: "#8E8E95",
+    color: backyrdTheme.color.textMuted,
     fontSize: 15,
     lineHeight: 21,
     fontWeight: "600",

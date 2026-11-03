@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../../theme/backyrd";
 // app/spot/new.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { View, Alert, Image, Pressable, ScrollView, ActivityIndicator, StyleSheet, Modal, FlatList } from "react-native";
@@ -345,11 +346,11 @@ export default function NewSpotScreen() {
 
   /* ========= UI ========= */
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#050506" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: backyrdTheme.color.background }} edges={["top"]}>
       {/* 🔙 Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="chevron-back" size={28} color="#fff" />
+          <Ionicons name="chevron-back" size={28} color={backyrdTheme.color.textPrimary} />
         </Pressable>
         <Text style={styles.headerTitle}>Neuen Spot hinzufügen</Text>
         <View style={{ width: 28 }} />
@@ -366,7 +367,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Name *</Text>
         <TextInput
           placeholder="Name"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={name}
           onChangeText={setName}
           style={styles.input}
@@ -376,7 +377,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Adresse *</Text>
         <TextInput
           placeholder="Adresse eingeben"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={address}
           onChangeText={onAddressChange}
           style={styles.input}
@@ -406,12 +407,12 @@ export default function NewSpotScreen() {
           onPress={() => setPickerOpen(true)}
           style={[styles.input, styles.categorySelect]}
         >
-          <Text style={{ color: categoryId ? "#fff" : "rgba(255,255,255,0.34)", fontWeight: "700" }}>
+          <Text style={{ color: categoryId ? backyrdTheme.color.textPrimary : backyrdTheme.color.textMuted, fontWeight: "700" }}>
             {categoryId
               ? categories.find((c) => c.id === categoryId)?.name
               : "Kategorie auswählen"}
           </Text>
-          <Ionicons name="chevron-down" size={18} color="rgba(255,255,255,0.56)" />
+          <Ionicons name="chevron-down" size={18} color={backyrdTheme.color.textSecondary} />
         </Pressable>
 
         {/* Foto */}
@@ -451,7 +452,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Beschreibung</Text>
         <TextInput
           placeholder="Was macht diesen Ort besonders? Stimmung, Angebot, Vibe…"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={description}
           onChangeText={setDescription}
           style={[styles.input, styles.textArea]}
@@ -461,7 +462,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Keywords</Text>
         <TextInput
           placeholder="z. B. ruhig, urban, Kaffee, Date, Regenwetter"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={keywords}
           onChangeText={setKeywords}
           style={[styles.input, styles.textAreaSmall]}
@@ -471,7 +472,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Gut für</Text>
         <TextInput
           placeholder="z. B. Date, Solo, Arbeiten, ruhiger Nachmittag"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={bestFor}
           onChangeText={setBestFor}
           style={[styles.input, styles.textAreaSmall]}
@@ -481,7 +482,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Atmosphäre</Text>
         <TextInput
           placeholder="z. B. warm, ruhig, lebhaft, inspirierend"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={atmosphereTags}
           onChangeText={setAtmosphereTags}
           style={[styles.input, styles.textAreaSmall]}
@@ -491,7 +492,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Eher nicht geeignet für</Text>
         <TextInput
           placeholder="z. B. grosse Gruppen, Party, schnelles Essen"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={avoidIfTags}
           onChangeText={setAvoidIfTags}
           style={[styles.input, styles.textAreaSmall]}
@@ -501,7 +502,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Gute Zeiten / Situationen</Text>
         <TextInput
           placeholder="z. B. Nachmittag, Abend, Wochenende, Regen"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={goodForTime}
           onChangeText={setGoodForTime}
           style={[styles.input, styles.textAreaSmall]}
@@ -535,7 +536,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Mood A (optional)</Text>
         <TextInput
           placeholder="z. B. romantisch"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={moodA}
           onChangeText={setMoodA}
           style={styles.input}
@@ -543,7 +544,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Mood B (optional)</Text>
         <TextInput
           placeholder="z. B. entspannt"
-          placeholderTextColor="rgba(255,255,255,0.34)"
+          placeholderTextColor={backyrdTheme.color.textMuted}
           value={moodB}
           onChangeText={setMoodB}
           style={styles.input}
@@ -552,7 +553,7 @@ export default function NewSpotScreen() {
         {/* Submit */}
         <Pressable onPress={submit} style={styles.submitBtn} disabled={loading}>
           {loading ? (
-            <ActivityIndicator color="#111113" />
+            <ActivityIndicator color={backyrdTheme.color.onAccent} />
           ) : (
             <Text style={styles.submitText}>Spot speichern</Text>
           )}
@@ -620,17 +621,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
   },
   headerTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 20,
     fontWeight: "800",
   },
   container: {
     paddingHorizontal: 20,
     paddingBottom: 120,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
   },
   hero: {
     marginTop: 6,
@@ -644,14 +645,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   heroTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 36,
     lineHeight: 41,
     fontWeight: "700",
     letterSpacing: -0.7,
   },
   heroText: {
-    color: "rgba(255,255,255,0.56)",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: "600",
@@ -659,7 +660,7 @@ const styles = StyleSheet.create({
     maxWidth: 330,
   },
   label: {
-    color: "rgba(255,255,255,0.56)",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     marginBottom: 7,
@@ -668,12 +669,12 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
     borderRadius: 18,
     paddingHorizontal: 15,
     paddingVertical: 14,
-    color: "#fff",
-    backgroundColor: "#111113",
+    color: backyrdTheme.color.textPrimary,
+    backgroundColor: backyrdTheme.color.surface,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -686,7 +687,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   sectionTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 22,
     lineHeight: 27,
     fontWeight: "900",
@@ -695,7 +696,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.45,
   },
   helperText: {
-    color: "rgba(255,255,255,0.56)",
+    color: backyrdTheme.color.textSecondary,
     marginBottom: 4,
     lineHeight: 20,
     fontWeight: "600",
@@ -707,22 +708,22 @@ const styles = StyleSheet.create({
   },
   segmentPill: {
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
   },
   segmentPillActive: {
     borderColor: "#FF4F91",
     backgroundColor: "#FF4F91",
   },
   segmentText: {
-    color: "rgba(255,255,255,0.72)",
+    color: backyrdTheme.color.textSecondary,
     fontWeight: "700",
   },
   segmentTextActive: {
-    color: "#111113",
+    color: backyrdTheme.color.onAccent,
   },
   categorySelect: {
     flexDirection: "row",
@@ -730,20 +731,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   suggestionBox: {
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderRadius: 18,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
     overflow: "hidden",
   },
   suggestionItem: {
     padding: 12,
     borderBottomWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: backyrdTheme.color.border,
   },
   suggestionText: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontWeight: "700",
     lineHeight: 19,
   },
@@ -752,20 +753,20 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 28,
     marginBottom: 12,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
   },
   photoEmpty: {
     height: 160,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
-    backgroundColor: "rgba(255,255,255,0.045)",
+    borderColor: backyrdTheme.color.border,
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
   photoEmptyText: {
-    color: "rgba(255,255,255,0.56)",
+    color: backyrdTheme.color.textSecondary,
     fontWeight: "700",
   },
   photoButtons: {
@@ -778,15 +779,15 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 999,
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
   },
   photoBtnAccent: {
     backgroundColor: "rgba(255,125,167,0.14)",
     borderColor: "rgba(255,125,167,0.28)",
   },
-  photoBtnText: { color: "#fff", fontWeight: "800" },
+  photoBtnText: { color: backyrdTheme.color.textPrimary, fontWeight: "800" },
   submitBtn: {
     marginTop: 28,
     backgroundColor: "#FF4F91",
@@ -795,7 +796,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   submitText: {
-    color: "#111113",
+    color: backyrdTheme.color.onAccent,
     fontWeight: "900",
     fontSize: 16,
   },
@@ -806,15 +807,15 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalCard: {
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderRadius: 28,
     padding: 16,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: backyrdTheme.color.border,
     borderWidth: 1,
     maxHeight: "70%",
   },
   modalTitle: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontWeight: "900",
     fontSize: 22,
     marginBottom: 12,
@@ -822,13 +823,13 @@ const styles = StyleSheet.create({
   modalItem: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderRadius: 18,
     padding: 12,
     borderWidth: 1,
   },
   modalItemText: {
-    color: "#fff",
+    color: backyrdTheme.color.textPrimary,
     fontWeight: "800",
   },
 });

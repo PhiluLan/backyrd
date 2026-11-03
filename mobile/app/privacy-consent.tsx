@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 // mobile/app/privacy-consent.tsx
 
 import React from "react";
@@ -129,7 +130,7 @@ export default function PrivacyCenterScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#050506" },
+  safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -144,7 +145,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     marginRight: 13,
   },
   headerCopy: { flex: 1 },
@@ -154,12 +155,12 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 1.3,
   },
-  title: { color: "#FFFFFF", fontSize: 22, fontWeight: "900", marginTop: 2 },
+  title: { color: backyrdTheme.color.textPrimary, fontSize: 22, fontWeight: "900", marginTop: 2 },
   content: { padding: 18, paddingBottom: 46 },
   hero: {
     padding: 22,
     borderRadius: 26,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.24)",
     marginBottom: 26,
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,125,167,0.11)",
   },
   heroTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 24,
     fontWeight: "900",
     marginTop: 18,
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 15,
     borderRadius: 21,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 10,
@@ -215,9 +216,9 @@ const styles = StyleSheet.create({
   tone_green: { backgroundColor: "rgba(82,205,151,0.18)" },
   tone_amber: { backgroundColor: "rgba(245,185,73,0.18)" },
   itemCopy: { flex: 1, paddingRight: 10 },
-  itemTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
+  itemTitle: { color: backyrdTheme.color.textPrimary, fontSize: 16, fontWeight: "900" },
   itemDescription: {
-    color: "#A7A7B0",
+    color: backyrdTheme.color.textSecondary,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 4,
@@ -226,11 +227,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 18,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.045)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     marginTop: 14,
   },
   contactCopy: { flex: 1, marginLeft: 13 },
-  contactTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "900" },
+  contactTitle: { color: backyrdTheme.color.textPrimary, fontSize: 15, fontWeight: "900" },
   contactText: { color: "#FF4F91", fontWeight: "800", marginTop: 6 },
   contactAddress: {
     color: "#868690",

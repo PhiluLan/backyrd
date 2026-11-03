@@ -556,7 +556,7 @@ export default function FeedScreen() {
             style={styles.createButton}
             onPress={() => setComposerVisible(true)}
           >
-            <Ionicons name="add" size={18} color={theme.color.background} />
+            <Ionicons name="add" size={18} color={theme.color.onAccent} />
             <Text style={styles.createButtonText}>Moment</Text>
           </Pressable>
         </View>
@@ -611,7 +611,7 @@ export default function FeedScreen() {
         <Ionicons
           name={mode === "following" ? "people-outline" : "sparkles-outline"}
           size={34}
-          color="#FFFFFF"
+          color={theme.color.textPrimary}
         />
       </View>
 
@@ -694,7 +694,7 @@ export default function FeedScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
-              tintColor="#FFFFFF"
+              tintColor={theme.color.pink}
               refreshing={refreshing}
               onRefresh={refreshCurrent}
             />
@@ -718,7 +718,7 @@ export default function FeedScreen() {
           >
             <View accessibilityViewIsModal style={styles.composerHeader}>
               <Pressable accessibilityRole="button" accessibilityLabel="Moment-Erstellung schließen" style={styles.composerClose} onPress={closeComposer}>
-                <Ionicons accessibilityElementsHidden name="close" size={24} color="#FFFFFF" />
+                <Ionicons accessibilityElementsHidden name="close" size={24} color={theme.color.textPrimary} />
               </Pressable>
 
               <Text style={styles.composerTitle}>Neuer Moment</Text>
@@ -732,7 +732,7 @@ export default function FeedScreen() {
                 disabled={creating || !canShareMoment}
               >
                 {creating ? (
-                  <ActivityIndicator size="small" color="#050506" />
+                  <ActivityIndicator size="small" color={theme.color.onAccent} />
                 ) : (
                   <Text style={styles.composerPostText}>Teilen</Text>
                 )}
@@ -759,7 +759,7 @@ export default function FeedScreen() {
                   value={caption}
                   onChangeText={setCaption}
                   placeholder="Erzähl von deinem Moment …"
-                  placeholderTextColor="#77777F"
+                  placeholderTextColor={theme.color.textMuted}
                   multiline
                   maxLength={500}
                   style={styles.captionInput}
@@ -785,12 +785,12 @@ export default function FeedScreen() {
 
                 <View style={styles.composerActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="Foto aufnehmen" style={styles.composerActionButton} onPress={takePhoto}>
-                    <Ionicons accessibilityElementsHidden name="camera-outline" size={21} color="#FFFFFF" />
+                    <Ionicons accessibilityElementsHidden name="camera-outline" size={21} color={theme.color.textPrimary} />
                     <Text style={styles.composerActionText}>Foto</Text>
                   </Pressable>
 
                   <Pressable accessibilityRole="button" accessibilityLabel="Foto aus Galerie wählen" style={styles.composerActionButton} onPress={pickFromLibrary}>
-                    <Ionicons accessibilityElementsHidden name="images-outline" size={21} color="#FFFFFF" />
+                    <Ionicons accessibilityElementsHidden name="images-outline" size={21} color={theme.color.textPrimary} />
                     <Text style={styles.composerActionText}>Galerie</Text>
                   </Pressable>
                 </View>
@@ -815,7 +815,7 @@ export default function FeedScreen() {
                         setSpotQuery("");
                       }}
                     >
-                      <Ionicons name="close" size={18} color="#FFFFFF" />
+                      <Ionicons name="close" size={18} color={theme.color.textPrimary} />
                     </Pressable>
                   )}
                 </View>
@@ -825,11 +825,11 @@ export default function FeedScreen() {
                   value={spotQuery}
                   onChangeText={searchSpots}
                   placeholder="Ort suchen …"
-                  placeholderTextColor="#77777F"
+                  placeholderTextColor={theme.color.textMuted}
                   style={styles.spotSearchInput}
                 />
 
-                {spotSearching && <ActivityIndicator color="#FFFFFF" style={{ marginTop: 12 }} />}
+                {spotSearching && <ActivityIndicator color={theme.color.textPrimary} style={{ marginTop: 12 }} />}
 
                 {spotSuggestions.length > 0 && (
                   <View style={styles.spotSuggestions}>
@@ -846,7 +846,7 @@ export default function FeedScreen() {
                         }}
                       >
                         <View style={styles.spotSuggestionIcon}>
-                          <Ionicons name="location" size={15} color="#050506" />
+                          <Ionicons name="location" size={15} color={theme.color.textPrimary} />
                         </View>
 
                         <View style={{ flex: 1, minWidth: 0 }}>
@@ -888,7 +888,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    color: "#8E8E95",
+    color: theme.color.textSecondary,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -935,7 +935,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   createButtonText: {
-    color: theme.color.background,
+    color: theme.color.onAccent,
     fontFamily: theme.type.bodyBold,
     fontSize: 13,
   },
@@ -1015,7 +1015,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emptyButtonText: {
-    color: theme.color.background,
+    color: theme.color.onAccent,
     fontFamily: theme.type.bodyBold,
     fontSize: 14,
   },
@@ -1028,7 +1028,7 @@ const styles = StyleSheet.create({
   discoveryMeta: { color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 13 },
   composerScreen: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: theme.color.background,
   },
   composerKeyboard: {
     flex: 1,
@@ -1037,7 +1037,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.09)",
+    borderBottomColor: theme.color.border,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1046,14 +1046,14 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
   },
   composerTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 18,
     fontWeight: "900",
   },
@@ -1062,7 +1062,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: 17,
     borderRadius: 22,
-    backgroundColor: "#FF4F91",
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   composerPostText: {
-    color: "#111113",
+    color: theme.color.onAccent,
     fontSize: 15,
     fontWeight: "900",
   },
@@ -1088,33 +1088,33 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   composerIntroKicker: {
-    color: "#8E8E95",
+    color: theme.color.textSecondary,
     fontSize: theme.typeScale.label.fontSize,
     fontWeight: "900",
     letterSpacing: 1.1,
     textTransform: "uppercase",
   },
   composerIntroTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     ...theme.typeScale.sectionTitle,
     fontWeight: "900",
     letterSpacing: -0.6,
   },
   composerIntroText: {
-    color: "#8E8E95",
+    color: theme.color.textSecondary,
     fontSize: 15,
     lineHeight: 23,
   },
   composerCard: {
     borderRadius: theme.radius.lg,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: theme.color.border,
     padding: 14,
   },
   captionInput: {
     minHeight: 132,
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 22,
     lineHeight: 29,
     fontWeight: "600",
@@ -1129,7 +1129,7 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: 22,
     overflow: "hidden",
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
   },
   mediaPreview: {
     width: "100%",
@@ -1155,16 +1155,16 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 8,
   },
   composerActionText: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 15,
     fontWeight: "900",
   },
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   spotCardKicker: {
-    color: "#8E8E95",
+    color: theme.color.textSecondary,
     fontSize: theme.typeScale.label.fontSize,
     fontWeight: "900",
     letterSpacing: 1.1,
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
   },
   spotCardTitle: {
     marginTop: 4,
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 18,
     lineHeight: 24,
     fontWeight: "900",
@@ -1195,7 +1195,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1203,10 +1203,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
-    color: "#FFFFFF",
+    borderColor: theme.color.border,
+    color: theme.color.textPrimary,
     paddingHorizontal: 16,
     fontSize: 16,
     fontWeight: "700",
@@ -1218,9 +1218,9 @@ const styles = StyleSheet.create({
   spotSuggestion: {
     minHeight: 56,
     borderRadius: 20,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#2B2B31",
+    borderColor: theme.color.borderStrong,
     paddingHorizontal: 10,
     flexDirection: "row",
     alignItems: "center",
@@ -1230,18 +1230,18 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.color.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
   },
   spotSuggestionName: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 15,
     fontWeight: "900",
   },
   spotSuggestionMeta: {
     marginTop: 2,
-    color: "#8E8E95",
+    color: theme.color.textSecondary,
     fontSize: 12,
     fontWeight: "700",
   },

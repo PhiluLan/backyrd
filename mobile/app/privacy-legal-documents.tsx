@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 // mobile/app/privacy-legal-documents.tsx
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -125,7 +126,7 @@ export default function PrivacyLegalDocumentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#050506" },
+  safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
 
   header: {
     flexDirection: "row",
@@ -141,11 +142,11 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     marginRight: 13,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 22,
     fontWeight: "900",
     flex: 1,
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 48 },
   card: {
     borderRadius: 21,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 11,
@@ -167,8 +168,8 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   cardCopy: { flex: 1, paddingRight: 12 },
-  cardTitle: { color: "#FFFFFF", fontSize: 17, fontWeight: "900" },
-  meta: { color: "#85858F", fontSize: 12, marginTop: 6 },
+  cardTitle: { color: backyrdTheme.color.textPrimary, fontSize: 17, fontWeight: "900" },
+  meta: { color: backyrdTheme.color.textMuted, fontSize: 12, marginTop: 6 },
   acceptance: { fontSize: 12, fontWeight: "900", marginTop: 8 },
   accepted: { color: "#55D59B" },
   notAccepted: { color: "#F5B949" },
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(255,255,255,0.09)",
   },
   summary: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontWeight: "800",
     lineHeight: 21,
     marginBottom: 15,
@@ -188,10 +189,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 30,
     borderRadius: 23,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
   },
   emptyTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 19,
     fontWeight: "900",
     textAlign: "center",

@@ -4,15 +4,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import React from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, useColorScheme, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { useAuth } from "../../hooks/useAuth";
-import { backyrdTheme as theme } from "../../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../../theme/backyrd";
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 
 function SmartReviewTabButton({ onPress, opening }: { onPress?: () => void; opening: boolean }) {
+  const { color } = useBackyrdTheme();
   return (
     <View style={styles.plusWrap}>
       <Pressable
@@ -24,16 +25,19 @@ function SmartReviewTabButton({ onPress, opening }: { onPress?: () => void; open
         onPress={onPress}
         style={({ pressed }) => [
           styles.plusButton,
+          { backgroundColor: color.pink },
           pressed && styles.plusButtonPressed,
         ]}
       >
-        {opening ? <ActivityIndicator color={theme.color.background} /> : <Ionicons name="add" size={27} color={theme.color.background} />}
+        {opening ? <ActivityIndicator color={color.onAccent} /> : <Ionicons name="add" size={27} color={color.onAccent} />}
       </Pressable>
     </View>
   );
 }
 
 export default function TabsLayout() {
+  const { color } = useBackyrdTheme();
+  const isLight = useColorScheme() === "light";
   const router = useRouter();
   const pathname = usePathname();
   const params = useGlobalSearchParams();
@@ -47,7 +51,7 @@ export default function TabsLayout() {
 
   const tabBarStyle = hideTabs
     ? ({ display: "none" } as const)
-    : [styles.tabBar, { bottom: Math.max(8, insets.bottom - 2) }];
+    : [styles.tabBar, { bottom: Math.max(8, insets.bottom - 2), borderColor: color.border, backgroundColor: color.surface }];
 
   return (
     <Tabs
@@ -56,10 +60,10 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarStyle,
         tabBarBackground: () => (
-          <BlurView intensity={54} tint="dark" style={styles.tabBarGlass} />
+          <BlurView intensity={54} tint={isLight ? "light" : "dark"} style={[styles.tabBarGlass, { backgroundColor: isLight ? "rgba(255,255,255,0.78)" : "rgba(8,8,9,0.72)" }]} />
         ),
-        tabBarActiveTintColor: theme.color.pink,
-        tabBarInactiveTintColor: "#808087",
+        tabBarActiveTintColor: color.pink,
+        tabBarInactiveTintColor: color.textMuted,
         tabBarHideOnKeyboard: true,
         tabBarLabel: ({ children, color }) => <AppText role="caption" maxFontSizeMultiplier={1.1} style={[styles.tabLabel, { color }]}>{children}</AppText>,
         tabBarItemStyle: styles.tabItem,

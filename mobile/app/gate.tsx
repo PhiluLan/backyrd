@@ -13,7 +13,7 @@ import { supabase } from "../lib/supabase";
 import { getMyProductEntryStatus } from "../lib/onboardingStatus";
 import { useAuth } from "../hooks/useAuth";
 import { rootStartupNavigationAuthority } from "../lib/root-startup-navigation";
-import { backyrdTheme as theme } from "../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../theme/backyrd";
 
 function normalizeRoute(route: string | null | undefined): string {
   if (!route) return "/(tabs)";
@@ -36,11 +36,12 @@ function LoadingFallback() {
 }
 
 function LoggedOutGate() {
+  const { color } = useBackyrdTheme();
   const router = useRouter();
 
   return (
     <SafeAreaView style={styles.authContainer} edges={["top", "bottom"]}>
-      <LinearGradient colors={["#050505", "#050505", "#190D15"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[color.background, color.background, color.surface]} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.authContent} showsVerticalScrollIndicator={false}>
       <View style={styles.brandRow}>
         <View style={styles.brandMark}><AppText role="cardTitle" style={styles.brandLetter}>B</AppText></View>
@@ -59,7 +60,7 @@ function LoggedOutGate() {
       <View style={styles.actions}>
         <Pressable accessibilityRole="button" onPress={() => router.push("/auth/login" as any)} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
           <AppText role="bodyStrong" style={styles.primaryText}>Einloggen</AppText>
-          <Ionicons name="arrow-forward" size={20} color={theme.color.background} />
+          <Ionicons name="arrow-forward" size={20} color={color.onAccent} />
         </Pressable>
 
         <Pressable accessibilityRole="button" onPress={() => router.push("/auth/register" as any)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
   },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   brandMark: { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.color.pink, alignItems: "center", justifyContent: "center" },
-  brandLetter: { color: theme.color.background, lineHeight: 25 },
+  brandLetter: { color: theme.color.onAccent, lineHeight: 25 },
   brandName: { letterSpacing: 3.2 },
   intro: { marginTop: 92, marginBottom: 62 },
   accentLine: { width: 36, height: 4, borderRadius: 2, backgroundColor: theme.color.pink, marginBottom: 22 },
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   primaryText: {
-    color: theme.color.background,
+    color: theme.color.onAccent,
   },
   secondaryButton: {
     minHeight: 56,

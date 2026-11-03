@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 import React, { ErrorInfo, PropsWithChildren } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "./foundation/AppText";
@@ -55,7 +56,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     paddingHorizontal: 28,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
   title: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 28,
     lineHeight: 34,
     fontWeight: "800",
@@ -98,5 +99,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   buttonPressed: { opacity: 0.86, transform: [{ scale: 0.98 }] },
-  buttonText: { color: "#050506", fontSize: 15, fontWeight: "800" },
+  buttonText: { color: backyrdTheme.color.onAccent, fontSize: 15, fontWeight: "800" },
 });

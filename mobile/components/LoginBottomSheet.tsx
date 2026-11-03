@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 // mobile/components/LoginBottomSheet.tsx
 import React, { useEffect } from "react";
 import { View, Pressable, StyleSheet, Dimensions } from "react-native";
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: backyrdTheme.color.border,
     backgroundColor: "rgba(255,255,255,0.06)",
   },
   grabber: {
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.25)",
     marginBottom: 12,
   },
-  title: { color: "#fff", fontSize: 20, fontWeight: "800", letterSpacing: 0.3, textAlign: "center" },
+  title: { color: backyrdTheme.color.textPrimary, fontSize: 20, fontWeight: "800", letterSpacing: 0.3, textAlign: "center" },
   subtitle: { color: "#A6A8AD", fontSize: 14, marginTop: 6, textAlign: "center" },
 
   btn: {
@@ -148,8 +149,8 @@ const styles = StyleSheet.create({
   },
   btnApple: { backgroundColor: "#111", borderColor: "#222" },
   btnGoogle: { backgroundColor: "#fff", borderColor: "#E5E7EB" },
-  btnEmail: { backgroundColor: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.16)" },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  btnEmail: { backgroundColor: backyrdTheme.color.surfaceElevated, borderColor: "rgba(255,255,255,0.16)" },
+  btnText: { color: backyrdTheme.color.textPrimary, fontWeight: "700", fontSize: 15 },
 
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 14 },
   divider: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.12)" },

@@ -1,3 +1,4 @@
+import { backyrdTheme } from "../theme/backyrd";
 // mobile/app/privacy-history.tsx
 
 import React, { useCallback, useEffect, useState } from "react";
@@ -111,7 +112,7 @@ export default function PrivacyHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#050506" },
+  safe: { flex: 1, backgroundColor: backyrdTheme.color.background },
 
   header: {
     flexDirection: "row",
@@ -127,11 +128,11 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     marginRight: 13,
   },
   headerTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 22,
     fontWeight: "900",
     flex: 1,
@@ -139,12 +140,12 @@ const styles = StyleSheet.create({
 
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 18, paddingBottom: 48 },
-  lead: { color: "#AFAFB7", lineHeight: 21, marginBottom: 18 },
+  lead: { color: backyrdTheme.color.textSecondary, lineHeight: 21, marginBottom: 18 },
   row: {
     flexDirection: "row",
     padding: 17,
     borderRadius: 19,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 10,
@@ -159,17 +160,17 @@ const styles = StyleSheet.create({
   dotOn: { backgroundColor: "#55D59B" },
   dotOff: { backgroundColor: "#FF7D87" },
   rowCopy: { flex: 1 },
-  rowTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
+  rowTitle: { color: backyrdTheme.color.textPrimary, fontSize: 16, fontWeight: "900" },
   eventLabel: { color: "#FF4F91", fontWeight: "800", marginTop: 5 },
   meta: { color: "#797984", fontSize: 12, lineHeight: 17, marginTop: 7 },
   empty: {
     alignItems: "center",
     padding: 28,
     borderRadius: 22,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
   },
   emptyTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 18,
     fontWeight: "900",
     marginTop: 12,

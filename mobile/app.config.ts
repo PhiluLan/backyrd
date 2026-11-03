@@ -61,6 +61,7 @@ export default (context = { config: {} }) => {
     },
 
     icon: "./assets/icon.png",
+    userInterfaceStyle: "automatic",
 
     splash: {
       image: "./assets/icon.png",
@@ -119,6 +120,7 @@ export default (context = { config: {} }) => {
       "expo-secure-store",
       "expo-web-browser",
       "expo-font",
+      "./plugins/with-appearance-colors",
       "./plugins/with-ios-link-handoff",
     ],
 

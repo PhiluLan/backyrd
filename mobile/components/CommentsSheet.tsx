@@ -298,7 +298,7 @@ export default function CommentsSheet({
               </View>
 
               <Pressable accessibilityRole="button" accessibilityLabel="Kommentare schließen" style={styles.closeButton} onPress={closeSheet}>
-                <Ionicons name="close" size={22} color="#FFFFFF" />
+                <Ionicons name="close" size={22} color={backyrdTheme.color.textPrimary} />
               </Pressable>
             </View>
 
@@ -314,7 +314,7 @@ export default function CommentsSheet({
               ) : comments.length === 0 ? (
                 <View style={styles.emptyState}>
                   <View style={styles.emptyIcon}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={25} color="#FFFFFF" />
+                    <Ionicons name="chatbubble-ellipses-outline" size={25} color={backyrdTheme.color.textPrimary} />
                   </View>
                   <Text style={styles.emptyTitle}>Noch keine Kommentare</Text>
                   <Text style={styles.emptyText}>
@@ -342,7 +342,7 @@ export default function CommentsSheet({
                   value={body}
                   onChangeText={setBody}
                   placeholder="Kommentieren…"
-                  placeholderTextColor="#77777F"
+                  placeholderTextColor={backyrdTheme.color.textMuted}
                   multiline
                   maxLength={280}
                   style={styles.input}
@@ -359,9 +359,9 @@ export default function CommentsSheet({
                   disabled={!canSend}
                 >
                   {sending ? (
-                    <ActivityIndicator color="#000000" size="small" />
+                    <ActivityIndicator color={backyrdTheme.color.onAccent} size="small" />
                   ) : (
-                    <Ionicons name="arrow-up" size={19} color="#000000" />
+                    <Ionicons name="arrow-up" size={19} color={backyrdTheme.color.onAccent} />
                   )}
                 </Pressable>
               </View>
@@ -390,11 +390,11 @@ const styles = StyleSheet.create({
     height: "56%",
     maxHeight: 520,
     minHeight: 430,
-    backgroundColor: "#050506",
+    backgroundColor: backyrdTheme.color.background,
     borderTopLeftRadius: 34,
     borderTopRightRadius: 34,
     borderWidth: 1,
-    borderColor: "#24242A",
+    borderColor: backyrdTheme.color.border,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOpacity: 0.35,
@@ -407,14 +407,14 @@ const styles = StyleSheet.create({
     width: 42,
     height: 5,
     borderRadius: 999,
-    backgroundColor: "#2A2A31",
+    backgroundColor: backyrdTheme.color.borderStrong,
   },
   header: {
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#222228",
+    borderBottomColor: backyrdTheme.color.border,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   kicker: {
-    color: "#8E8E95",
+    color: backyrdTheme.color.textMuted,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.1,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   },
   title: {
     marginTop: 4,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 24,
     lineHeight: 29,
     fontWeight: "800",
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   stateText: {
-    color: "#8E8E95",
+    color: backyrdTheme.color.textMuted,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -474,13 +474,13 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#16161B",
+    backgroundColor: backyrdTheme.color.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
   },
   emptyTitle: {
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 23,
     lineHeight: 28,
     fontWeight: "700",
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 9,
-    color: "#8E8E95",
+    color: backyrdTheme.color.textMuted,
     fontSize: 15,
     lineHeight: 21,
     fontWeight: "500",
@@ -527,18 +527,18 @@ const styles = StyleSheet.create({
   },
   commentName: {
     flexShrink: 1,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 15,
     fontWeight: "900",
   },
   commentTime: {
-    color: "#77777F",
+    color: backyrdTheme.color.textMuted,
     fontSize: 12,
     fontWeight: "800",
   },
   commentText: {
     marginTop: 4,
-    color: "#EAEAEE",
+    color: backyrdTheme.color.textPrimary,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: "500",
@@ -547,15 +547,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "#222228",
-    backgroundColor: "#050506",
+    borderTopColor: backyrdTheme.color.border,
+    backgroundColor: backyrdTheme.color.background,
   },
   inputShell: {
     minHeight: 52,
     borderRadius: 26,
-    backgroundColor: "#111113",
+    backgroundColor: backyrdTheme.color.surface,
     borderWidth: 1,
-    borderColor: "#2A2A31",
+    borderColor: backyrdTheme.color.border,
     flexDirection: "row",
     alignItems: "flex-end",
     paddingLeft: 16,
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
     flex: 1,
     maxHeight: 96,
     minHeight: 40,
-    color: "#FFFFFF",
+    color: backyrdTheme.color.textPrimary,
     fontFamily: backyrdTheme.type.body,
     fontSize: 16,
     lineHeight: 21,
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: backyrdTheme.color.pink,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   mediaCountText: {
-    color: theme.color.textPrimary,
+    color: "#FFFFFF",
     fontFamily: theme.type.bodyBold,
     fontSize: 12,
   },

@@ -9,7 +9,7 @@ import { useAuth } from "../hooks/useAuth";
 import { loadVisibleSocialFeed } from "../lib/social-feed";
 import { withRequestDeadline } from "../lib/requestDeadline";
 import { presentMomentTags } from "../lib/moment-presentation";
-import { backyrdTheme as theme } from "../theme/backyrd";
+import { backyrdTheme as theme, useBackyrdTheme } from "../theme/backyrd";
 
 export function HomeMomentsSection({ city, revision }: { city: string; revision: number }) {
   const { user } = useAuth();
@@ -37,11 +37,12 @@ export function HomeMomentsSection({ city, revision }: { city: string; revision:
   </View>;
 }
 function MomentPreview({ post, onOpen }: { post: SocialFeedPost; onOpen: () => void }) {
+  const { color } = useBackyrdTheme();
   const [failed, setFailed] = useState(false);
   const photo = post.media?.[0]?.public_url;
   const moods = presentMomentTags(post.mood_tags).slice(0, 2);
-  return <Pressable accessibilityRole="button" accessibilityLabel={`Moment bei ${post.spot_name}. ${moods.join(", ")}. Ort entdecken`} onPress={onOpen} style={styles.card}>
-    {photo && !failed ? <Image source={{ uri: photo }} onError={() => setFailed(true)} style={styles.photo} accessibilityLabel={`Moment bei ${post.spot_name}`} /> : <View style={styles.textPreview}><AppText role="body">{post.caption || moods.join(" · ") || "Ein Moment an diesem Ort"}</AppText></View>}
+  return <Pressable accessibilityRole="button" accessibilityLabel={`Moment bei ${post.spot_name}. ${moods.join(", ")}. Ort entdecken`} onPress={onOpen} style={[styles.card, { backgroundColor: color.surface }]}>
+    {photo && !failed ? <Image source={{ uri: photo }} onError={() => setFailed(true)} style={styles.photo} accessibilityLabel={`Moment bei ${post.spot_name}`} /> : <View style={[styles.textPreview, { borderLeftColor: color.pink }]}><AppText role="body">{post.caption || moods.join(" · ") || "Ein Moment an diesem Ort"}</AppText></View>}
     <View style={styles.copy}><AppText role="bodyStrong">{post.spot_name}</AppText>{moods.length ? <AppText role="meta" tone="pink">{moods.join(" · ")}</AppText> : null}<AppText role="caption" tone="secondary">{post.spot_city} · Ort entdecken →</AppText></View>
   </Pressable>;
 }
