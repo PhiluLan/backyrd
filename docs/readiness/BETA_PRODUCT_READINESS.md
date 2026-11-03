@@ -43,8 +43,8 @@ Implementierung, nicht automatisch einen nachgewiesenen Fehler.
 | Moods | Kanonische Mood-Verarbeitung, Moment-Angaben und Ortszusammenfassungen vorhanden. | Bedeutung, Auswahl, Änderung und Aggregation sind konsistent. Kein erfundenes Stimmungswissen, keine Sternelogik und keine widersprüchlichen Zählungen. |
 | User Learning | Die aktive Decision verarbeitet eine einwilligungsgebundene Nutzerprojektion und kanonische Lernereignisse. | Verständlich zeigen, was gelernt wird, welche Einwilligung gilt und wie Rücksetzen/Widerruf wirken. Neutraler Betrieb ohne Personalisierung bleibt möglich. |
 | Moments und Social | Moment-Fluss, Follow/Unfollow, Likes, Feed und Chat mit Text-/Bildversand vorhanden. | Erstellen, Abbrechen, Wiederholen, Bearbeiten, Löschen, Sichtbarkeit, Zähler und Push-Ziele mit zwei getrennten Testkonten durchspielen. Freundschaft ist nicht automatisch dasselbe wie Folgen. |
-| Markierungen und Empfehlungen | Ein vollständiger Ablauf für Personenmarkierungen ist noch nicht nachgewiesen. | Festlegen, ob nur Orte oder auch Personen markiert werden. Erwähnung darf keinen privaten Inhalt freigeben und muss Blockierungen respektieren. |
-| Chat | Direkte Chats und private Bildpfade mit signierten URLs vorhanden. | Kein fremder Chat-/Bildzugriff; kein Doppelversand; Entwürfe bleiben bei Fehlern erhalten. Sperren, Melden, Benachrichtigungen und erneute Verbindungen zusammen prüfen. |
+| Markierungen und Empfehlungen | Ein vollständiger Ablauf für Personenmarkierungen ist noch nicht nachgewiesen. | Jeder angemeldete Nutzer darf öffentliche Konten markieren. Private Konten dürfen nicht markiert werden; Blockierungen gelten zusätzlich. Erwähnungen geben keinen privaten Inhalt frei. |
+| Chat | Direkte Chats und private Bildpfade mit signierten URLs vorhanden. | Zum Beta-Start dürfen angemeldete Nutzer einander ohne gegenseitiges Folgen schreiben; Blockieren unterbindet weiteren Kontakt. Kein fremder Chat-/Bildzugriff, kein Doppelversand; Entwürfe bleiben bei Fehlern erhalten. Sperren, Melden und Benachrichtigungen zusammen prüfen. |
 | Datenschutz und Einwilligungen | Einstellungen, Datenrechte, Rechtstexte, Einwilligungsansichten und Sicherheitsstatus vorhanden. | Anmeldung, Widerruf, Export, Kontolöschung und Folgen für Medien, Learning und Sichtbarkeit vollständig abnehmen. Keine unnötige Bindung der Kernnutzung an Personalisierung. |
 | Moderation, Sperren und Einspruch | Admin-Safety und Nutzeransichten für Meldungen/Massnahmen vorhanden. | Melden → verständliche Rückmeldung → menschliche Prüfung → begründete Massnahme → Einspruch → Entscheidung. Zugriff und Schutz müssen auch serverseitig gelten. |
 | Owner | Einstieg, Ortszuordnung, Pflege und Einblicke vorhanden. Ohne verbundenen Ort verweist der aktuelle Einstieg auf eine persönliche Zugangsanfrage. | Anspruch anmelden, Identität prüfen, Zuordnung bearbeiten, Ablehnung/erneute Prüfung und erste Profilpflege verständlich abschliessen. Fremde Orte und Ranking bleiben geschützt. |
@@ -58,8 +58,10 @@ Implementierung, nicht automatisch einen nachgewiesenen Fehler.
    begleitet alle weiteren Pakete.
 2. **Einstieg und Kontrolle:** Auth, Autofill, Bestätigungscode, Onboarding,
    Standortablehnung, Profil und Einwilligungen als zusammenhängender Ablauf.
-3. **Erleben und soziale Nutzung:** Speichern, Teilen, Moments, Moods, Following,
-   Chat und Markierungen einschliesslich Sichtbarkeit und Moderation.
+3. **Erleben und soziale Nutzung:** Moments gestalterisch und technisch klar
+   positionieren; Moods als Hauptwährung und gemeinsame Erlebnissprache etablieren.
+   Dazu Speichern, Teilen, Following, Chat und Markierungen einschliesslich
+   Sichtbarkeit und Moderation vollständig abnehmen.
 4. **Kontextintegrationen:** Wetter zuerst; ÖV als klar begrenzte Integration mit
    eigener Quelle und Ausfallbehandlung. Keine neue Empfehlungsengine.
 5. **Owner und Oberflächen:** Owner-Onboarding und Pflege vereinfachen; App, Web,
@@ -79,6 +81,67 @@ Jedes Paket endet mit einer Vorher-Nachher-Darstellung, den tatsächlich
 geänderten Abläufen, geprüften Normal-/Fehlerfällen und den verbleibenden
 Punkten. Ein Paket wird nicht durch die Anzahl bestandener Unit-Tests abgenommen.
 
+## Paket 3: Positionierung und festgelegte Produktregeln
+
+Ergänzung und Founder-Entscheidungen vom 3. November 2026. Dies ist der
+Arbeitsauftrag für Paket 3; die folgenden Regeln und Gestaltungsziele sind
+noch kein Nachweis ihrer technischen Umsetzung oder Veröffentlichung.
+
+### Moments gestalterisch und technisch positionieren
+
+Moments sind festgehaltene reale Erlebnisse. Karten, Detailansicht, Erstellung
+und Bestätigung sollen diese Rolle mit einer wiedererkennbaren Hierarchie aus
+Erlebnis, Foto, Eindrücken, Ort und Person ausdrücken. Der Ablauf soll sich
+wie ein Teil von Backyrd anfühlen und zügig bedienbar sein. Gemeinsame vorhandene
+Komponenten und Tokens haben Vorrang vor weiteren parallelen Darstellungen.
+
+Abnahme: Ein neuer Nutzer versteht, was ein Moment ist, was er festhält und wo
+er danach weiterkommt. Erstellung, Foto-/Ortszuordnung, Abbrechen, Fehler,
+Veröffentlichung und anschliessende Darstellung passen zusammen. Ein Mood allein
+veröffentlicht nichts. Bestehende Safety-, Medien- und Sichtbarkeitsregeln gelten
+für sämtliche Einstiege. Vorher-/Nachher-Ansichten und der tatsächliche Ablauf
+werden auf Geräten beurteilt.
+
+### Moods als Hauptwährung von Backyrd
+
+„Hauptwährung“ bezeichnet die zentrale qualitative Sprache der Plattform:
+Menschen suchen ein Gefühl, erleben einen Ort und halten ihre Eindrücke in einem
+Moment fest. Mood-Auswahl und Darstellung sollen deshalb über Entdecken, Suche,
+Ortsprofil, Moments und Profil zusammenhängend verständlich und sichtbar sein.
+Ein gewünschtes Gefühl und ein tatsächlich beigetragener Ortseindruck bleiben
+als unterschiedliche Aussagen erkennbar.
+
+Abnahme: Moods prägen den Nutzerfluss und haben einen verständlichen Nutzen.
+Begriffe, Auswahl, Änderung und Darstellung sind konsistent. Es werden keine
+Eindrücke erfunden, Likes zu Mood-Stimmen erklärt oder Scores als Sternenersatz
+eingeführt. Der bestehende [kanonische Mood-Vertrag](../mood/MOOD_ENGINE_CANONICAL_PRODUCT_V1.md)
+bleibt die Grundlage; seine Trennung von Ortsfakten, Geschmack und Suchkontext
+sowie Einwilligung, Moderation und Veröffentlichungsregeln bleiben erhalten.
+
+### Festgelegt: Nachrichten und Personenmarkierungen
+
+| Fall | Regel für Paket 3 |
+| --- | --- |
+| Direktnachrichten | Zum Start darf jeder angemeldete Nutzer jedem anderen schreiben, ohne Freundschaft oder gegenseitiges Folgen. |
+| Privates Konto und Chat | Privatmodus allein verhindert keine Direktnachricht. Die Ausnahme vom Founder betrifft Personenmarkierungen. |
+| Blockieren | Nutzer können andere blockieren; eine Blockierung verhindert weitere Nachrichten zwischen den beteiligten Konten. |
+| Öffentliches Konto markieren | Jeder angemeldete Nutzer darf ein öffentliches Konto markieren, sofern keine Blockierung besteht. |
+| Privates Konto markieren | Ein privates Zielkonto darf nicht markiert werden. Die Regel bezieht sich auf das markierte Konto. |
+| Eigener Privatmodus | Ein privates Konto darf weiterhin öffentliche Konten markieren; es wird dadurch nicht selbst markierbar oder öffentlich. |
+
+Umsetzungsgarantien: Blockierungen und Privatmodus gelten auch serverseitig,
+nicht nur beim Anzeigen von Schaltflächen. Eine Änderung zwischen Auswahl und
+Absenden muss berücksichtigt werden. Gesperrte Markierungen dürfen weder durch
+freie Eingaben noch durch direkte API-Aufrufe oder Benachrichtigungen umgangen
+werden. Eine Erwähnung hebt keine Sichtbarkeitsgrenze auf. Melden und bestehende
+Moderationsregeln bleiben erhalten; bestehende Nachrichten werden durch diese
+Planergänzung nicht gelöscht.
+
+Die Begriffe und Beziehung zwischen „Freunde“ und „Folgen“ sind damit noch nicht
+entschieden. Sie dürfen nicht stillschweigend als zusätzliche Chat-Voraussetzung
+eingeführt werden. Prüfung und Abnahme erfolgen mit zwei getrennten Konten und
+klar getrennten erlaubten, blockierten und privaten Fällen.
+
 ## Zusammenarbeit und nötige Entscheidungen
 
 Der Ablauf je Paket ist Bestandsprüfung → konkrete Änderung → Normal- und
@@ -97,7 +160,7 @@ keine unvorbereitete Technikfrage.
 | --- | --- |
 | 1 Sicherheit und Ausgangsstand | Bestehende Betreiberzugänge bei Bedarf erneuern; konkrete sicherheitsrelevante Produktionsänderungen und verbleibende Risiken prüfen. Ein frischer vollständiger AWS-Export und die Decision-Dokumentation sind bereits vorhanden. |
 | 2 Einstieg und Kontrolle | Zielgruppe/Mindestalter, sinnvolle Pflichtangaben, gewünschte Anmeldearten und Darstellung öffentlicher Profildaten festlegen. Ein neues Testkonto auf einem echten Gerät durchspielen; notwendige Rechtstexte fachlich verantworten. |
-| 3 Moments und Social | Sichtbarkeit, Kontakt-/Nachrichtenregeln, Unterschied Freunde/Folgen und Personenmarkierungen entscheiden. Zwei getrennte Testkonten bereitstellen bzw. deren Anlage autorisieren; Moderationszuständigkeit und Kommunikationsstil festlegen. |
+| 3 Moments und Social | Nachrichten für alle mit Blockierfunktion sowie Markierungen nur öffentlicher Zielkonten sind festgelegt. Moments-Positionierung und Moods als Hauptwährung sind Teil des Auftrags. Offen bleiben insbesondere Freunde/Folgen, konkrete Designabnahme und Moderationszuständigkeit. Mit zwei getrennten Konten abnehmen. |
 | 4 Wetter und ÖV | Konkreten Nutzernutzen und Budget entscheiden. Neue Providerkonten bei Bedarf selbst eröffnen und Zugänge sicher hinterlegen. ÖV bleibt bis zur Nutzen-/Aufwandsentscheidung optional. |
 | 5 Owner und Gestaltung | Zwei reale Owner-Anwendungsfälle und gewünschte Markenwirkung beurteilen. Entscheiden, welche Angaben ein Owner selbst veröffentlichen darf und welche Prüfung brauchen. |
 | 6 Beta-Abnahme | Zielgruppe und Verteilungsweg der Beta festlegen, unabhängige Testpersonen organisieren und an der Geräteabnahme teilnehmen. Zuständigkeit für Support und Moderation bestätigen. |
