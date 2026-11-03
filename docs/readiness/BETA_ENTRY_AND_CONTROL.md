@@ -198,9 +198,16 @@ und `codesign --verify --deep --strict`. App-ID, Team, Version 1.1.0/Build 60,
 sind am erzeugten Paket geprüft. IPA-SHA-256:
 `df37d898957d42fd6832e81968ae086324b1cbcfdfcb40315a7903379a0b2051`.
 
-Das Paket wurde nicht an Apple/TestFlight übermittelt und nicht auf dem Gerät
-installiert. Als Store-signiertes Paket benötigt es den TestFlight-Weg für die
-Geräteabnahme. Die öffentliche Website liefert die neue Password-AutoFill-
+Der Founder hat die anschliessende TestFlight-Übertragung gesondert freigegeben.
+[Einreichung 534a4e67](https://expo.dev/accounts/philipplanger/projects/backyrd/submissions/534a4e67-0503-4aaa-9a59-f7b69f534bdd)
+ist bei EAS erfolgreich abgeschlossen; Apples anschliessende Verarbeitung wird
+separat geprüft. Ziel ist die bestehende App-Store-Connect-App `6804831366`,
+belegt durch die drei bisherigen erfolgreichen Einreichungen (Builds 59/57/56).
+Diese bestehende Zuordnung ist nun ausdrücklich in `mobile/eas.json` hinterlegt.
+Der bestehende API-Zugang wurde weiterverwendet; keine neuen Testgruppen, kein
+Auto-Submit, kein OTA und keine öffentliche App-Store-Veröffentlichung.
+Auf dem iPhone ist weiterhin Build 59 und derzeit keine TestFlight-App
+installiert; Build 60 ist noch nicht als Geräteabnahme geprüft. Die öffentliche Website liefert die neue Password-AutoFill-
 Zuordnung noch nicht aus (am 3. November lesend geprüft). Diese Veröffentlichung
 und der TestFlight-Transfer sind von der reinen Build-Freigabe getrennte Schritte.
 Die eigentlichen nativen Abnahmefälle bleiben offen. Ein neuer Release oder Preview muss
