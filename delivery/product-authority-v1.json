@@ -69,23 +69,14 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",
-        "sha256": "60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"
-      },
-      {
-        "path": "supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",
-        "sha256": "c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"
+        "path": "supabase/migrations/20261103182149_beta_social_contact_and_mentions_v1.sql",
+        "sha256": "79c28e5de8abe18ad8c2b6f332c1f7555c2627102f1a1e0eecd0a614d0297383"
       }
     ],
     "executionAuthorized": false,
-    "restoreDrillStatus": "ISOLATED_SOURCE_RESTORE_AND_EXACT_REPAIR_REHEARSAL_PASS",
-    "restoreDrillReceipt": {
-      "path": "delivery/recovery/beta-security-rehearsal-v1.json",
-      "sha256": "221c12c857be67bd0e6f90ec624a700ad48c3c527dc80062e2e99b231c44c7f6",
-      "runId": 41348866544
-    },
+    "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
     "guaranteedDatabaseRollback": false,
-    "source": "Founder explicitly approved the exact two SQL migrations, bounded release path and breached-password flag on 2026-11-02, including the disclosed remaining recovery risk. Original AWS rows/schema/ACL and all 140 media files match; the exact 37-reference privacy correction passed only on the isolated copy. Production cutover remains untested; a fresh clean backup/restore is required after production correction."
+    "source": "Founder explicitly accepted the exact Social migration recovery risk on 2026-11-04. Isolated SQL and authorization checks passed; productive rollback/cutover for this Social release remains untested and is not guaranteed."
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -139,7 +130,7 @@
     "executionAuthorized": false,
     "source": "Founder explicit publication instruction on 2026-11-01 after disclosure of the exact seasonal-event migration, bounded release path, public Herbstmesse edition and untested database recovery risk. Only the pinned SQL, Admin/App/Web and two Decision functions are authorized; four Booking migrations and Auth remain excluded."
   },
-  "codeOnlyDeliveryScope": {
+  "completedCodeOnlyDeliveryScope": {
     "contractVersion": "backyrd.code-only-delivery-scope@1.0",
     "functions": [
       "decision-v13",
@@ -164,5 +155,86 @@
       }
     ],
     "source": "Exact Founder-approved Beta security/privacy SQL and single Auth flag applied and verified on 2026-11-02. Independent immutable SQL/Auth receipts preserve their live source and manifest identities. The full historical baseline remains unchanged; four Booking migrations remain excluded. Future code-only plans cannot apply SQL or Auth; this record does not authorize any new runtime deployment."
+  },
+  "completedAdditiveProductMigrationScope": {
+    "contractVersion": "backyrd.product-v1-additive-migration-scope@1.0",
+    "projectRef": "hjgcrrzfjchzqoegcywn",
+    "migrations": [
+      {
+        "path": "supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",
+        "sha256": "60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"
+      },
+      {
+        "path": "supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",
+        "sha256": "c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"
+      }
+    ],
+    "executionAuthorized": false,
+    "restoreDrillStatus": "ISOLATED_SOURCE_RESTORE_AND_EXACT_REPAIR_REHEARSAL_PASS",
+    "restoreDrillReceipt": {
+      "path": "delivery/recovery/beta-security-rehearsal-v1.json",
+      "sha256": "221c12c857be67bd0e6f90ec624a700ad48c3c527dc80062e2e99b231c44c7f6",
+      "runId": 41348866544
+    },
+    "guaranteedDatabaseRollback": false,
+    "source": "Founder explicitly approved the exact two SQL migrations, bounded release path and breached-password flag on 2026-11-02, including the disclosed remaining recovery risk. Original AWS rows/schema/ACL and all 140 media files match; the exact 37-reference privacy correction passed only on the isolated copy. Production cutover remains untested; a fresh clean backup/restore is required after production correction."
+  },
+  "betaSocialDeliveryScope": {
+    "contractVersion": "backyrd.beta-social-delivery-scope@1.0",
+    "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
+    "executionAuthorized": false,
+    "migrations": [
+      {
+        "path": "supabase/migrations/20261103182149_beta_social_contact_and_mentions_v1.sql",
+        "sha256": "79c28e5de8abe18ad8c2b6f332c1f7555c2627102f1a1e0eecd0a614d0297383"
+      }
+    ],
+    "deferredMigrations": [
+      {
+        "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
+        "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
+      },
+      {
+        "path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql",
+        "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"
+      },
+      {
+        "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
+        "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
+      },
+      {
+        "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
+        "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+      }
+    ],
+    "functions": [
+      {
+        "slug": "generate-data-export",
+        "sourceSetHash": "9a6f0e96b0b03a62d23c0d2bab81c465e074faebbb65e9192d54448efa206c16"
+      },
+      {
+        "slug": "safety-evaluate",
+        "sourceSetHash": "f4a019960a26c463c5fb1a2cdfdc55848bb6c5ab23f34492107217257580a4d3"
+      }
+    ],
+    "deferredFunctionChanges": [
+      {
+        "slug": "decision-admin-diagnostic",
+        "previousSourceSetHash": null,
+        "sourceSetHash": "a4774fa7fd339aa4b3fea058995af38340c98aabd825f51b106b91ee564310a9"
+      },
+      {
+        "slug": "decision-v13",
+        "previousSourceSetHash": "0317d2a74fac0849f7ec52d7b14c55af07aceb8b841f71eba44394e6c7ea8961",
+        "sourceSetHash": "61d39b6fa73456a085e81baaac79394c96dda517febda5c36f2be9491c7752dd"
+      }
+    ],
+    "unchangedRuntimeSourceSha": "ead2c0d7e0f4b1c7616f05c976c77fe64d584400",
+    "backupRunId": 41714621454,
+    "founderApproval": {
+      "status": "EXPLICIT_SCOPE_AND_RECOVERY_RISK_ACCEPTED",
+      "source": "Founder explicitly approved the exact Social migration, bounded release path, two Functions, Web and TestFlight Build 61 on 2026-11-04, accepting the disclosed untested productive recovery risk."
+    },
+    "source": "Founder exact-scope and recovery-risk approval in this release conversation on 2026-11-04. Four Booking migrations, Decision and Auth remain excluded; execution uses the canonical manual production workflow."
   }
 }

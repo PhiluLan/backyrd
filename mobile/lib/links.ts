@@ -36,3 +36,15 @@ export async function sharePlace(id: string, name: string, address?: string | nu
   try { await Share.share({ message: [name, address, url].filter(Boolean).join("\n"), url }); }
   catch { Alert.alert("Teilen nicht möglich", "Der Ort konnte gerade nicht geteilt werden. Versuche es erneut."); }
 }
+
+/** Share a protected link, never a private caption or media URL. */
+export async function shareMoment(id: string, placeName?: string | null): Promise<boolean> {
+  const url = `https://www.backyrd.ch/moments/${encodeURIComponent(id)}`;
+  try {
+    const result = await Share.share({ message: [placeName ? `Ein Moment bei ${placeName} auf Backyrd` : "Ein Moment auf Backyrd", url].join("\n"), url });
+    return result.action === Share.sharedAction;
+  } catch {
+    Alert.alert("Teilen nicht möglich", "Der Moment konnte gerade nicht geteilt werden. Versuche es erneut.");
+    return false;
+  }
+}

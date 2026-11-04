@@ -176,6 +176,7 @@ core_tests=(
   restaurant_information_v1_positive.sql restaurant_information_v1_negative.sql review_media_atomic_v1.sql
   founder_live_durable_idempotency_v1.sql
   beta_security_boundaries_v1.sql analytics_privacy_reference_cleanup_v1.sql
+  beta_social_contact_and_mentions_v1.sql
 )
 executed_tests="$validation_root/executed-tests.txt"
 : >"$executed_tests"
@@ -198,7 +199,6 @@ lint_json="$validation_root/db-lint.json"
 "$supabase_cli" db lint --workdir "$validation_root" --local --schema public --level error --fail-on none --agent=no >"$lint_json"
 jq -r '.[] | .function as $function | .issues[] | [$function, .sqlState, .message] | @tsv' "$lint_json" | sort >"$validation_root/db-lint-actual.txt"
 printf '%s\n' \
-  $'public.follow_spot_v1\t42702\tcolumn reference "spot_id" is ambiguous' \
   $'public.upsert_my_owned_spot_content_v1\t42702\tcolumn reference "spot_id" is ambiguous' >"$validation_root/db-lint-expected.txt"
 diff -u "$validation_root/db-lint-expected.txt" "$validation_root/db-lint-actual.txt"
 node "$repo_root/scripts/ci/database-gate-receipt.mjs" record \

@@ -6,7 +6,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync }
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan, parseSupabaseFunctionConfig } from "../deployment/supabase-production-plan.mjs";
-import { BETA_SECURITY_MIGRATIONS } from "../deployment/isolated-research-migration.mjs";
+import { BETA_SOCIAL_MIGRATION, BETA_SECURITY_MIGRATIONS } from "../deployment/isolated-research-migration.mjs";
 import { isExactProductAdditiveSet, isExactPreappliedPriorityReceipt } from "./product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -183,6 +183,15 @@ export function verifiedBetaSecurityRecovery(plan,additive,currentRiskSet) {
     && JSON.stringify(additive.restoreDrillReceipt)===JSON.stringify(scope.restoreDrill);
 }
 
+function verifiedBetaSocialRecovery(plan, additive, migrations) {
+  const scope=plan.isolatedResearchScope;
+  return scope?.contractVersion==="backyrd.beta-social-delivery-scope@1.0"
+    && JSON.stringify(migrations)===JSON.stringify([BETA_SOCIAL_MIGRATION])
+    && JSON.stringify(scope.migrations)===JSON.stringify(migrations)
+    && additive?.restoreDrillStatus==="NOT_PERFORMED_BY_FOUNDER_DECISION"
+    && scope.founderApproval?.status==="EXPLICIT_SCOPE_AND_RECOVERY_RISK_ACCEPTED";
+}
+
 const trackedFor = (root, sourceSha, paths) => git(root, ["ls-tree", "-r", "--name-only", sourceSha, "--", ...paths]).split("\n").filter(Boolean).sort();
 const readProductionState = (root, sourceSha) => JSON.parse(git(root, ["show", `${sourceSha}:delivery/production-state.json`]));
 
@@ -191,7 +200,12 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   verifyProductReleaseIdentity(identity);
   requireValue(identity.sourceSha === git(root, ["rev-parse", `${sourceSha}^{commit}`]), "release_manifest_identity_source_mismatch");
   verifyProductReleaseTestEvidence(testEvidence, identity);
-  const deployable = trackedFor(root, identity.sourceSha, ["supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", "supabase/functions/decision-admin-diagnostic", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-rehearsal-v1.json"]);
+  const actualPlan = productionPlan ?? buildProductionPlan({
+    repo: root,
+    baseSha: readProductionState(root, identity.sourceSha).supabase.shippedSourceSha,
+    headSha: identity.sourceSha,
+  });
+  const deployable = trackedFor(root, identity.sourceSha, [...(actualPlan.functions ?? []).filter(item=>item.deploy).flatMap(item=>item.files.map(file=>file.path)),"supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", "supabase/functions/decision-admin-diagnostic", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production", "delivery/recovery/beta-security-rehearsal-v1.json"]);
   const sourceSetPaths = Object.fromEntries(Object.entries(SOURCE_SETS).map(([name, paths]) => [name, trackedFor(root, identity.sourceSha, paths)]));
   const tracked = [...new Set([...deployable, ...Object.values(sourceSetPaths).flat()])].sort();
   const bundleRoot = resolve(outputDir, "bundle");
@@ -215,8 +229,13 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     const diagnosticConfig = diagnostic ? `\n[functions.decision-admin-diagnostic]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-admin-diagnostic/index.ts"\n` : "";
     const minimal = `project_id = "backyrd"\n\n[functions.decision-v13]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-v13/index.deploy.ts"\n\n[functions.decision-engine-worker]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-engine-worker/index.ts"\n`;
     const target = resolve(bundleRoot, "supabase/config.toml");
-    writeFileSync(target, minimal + diagnosticConfig);
-    fileIndex.set("supabase/config.toml", { path: "supabase/config.toml", bytes: Buffer.byteLength(minimal + diagnosticConfig), sha256: sha256(minimal + diagnosticConfig) });
+    const additional=(actualPlan.functions ?? []).filter(item=>item.deploy && !["decision-v13","decision-engine-worker","decision-admin-diagnostic"].includes(item.slug)).map(item=>{
+      const config=full.functions.get(item.slug); requireValue(config?.enabled && config.verifyJwt,"release_additional_function_config_invalid");
+      return `\n[functions.${item.slug}]\n`+Object.entries(config.values).map(([key,value])=>`${key} = ${JSON.stringify(value)}\n`).join("");
+    }).join("");
+    const configuration=minimal+diagnosticConfig+additional;
+    writeFileSync(target,configuration);
+    fileIndex.set("supabase/config.toml",{path:"supabase/config.toml",bytes:Buffer.byteLength(configuration),sha256:sha256(configuration)});
   }
   const edgeBuildPaths = [];
   if (deployable.includes("supabase/functions/decision-v13/deno.json")) {
@@ -247,11 +266,6 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   verifyIosOtaBundle(bundleRoot, [...fileIndex.values()].filter(({ path }) => path.startsWith("mobile-update/")));
   const files = [...fileIndex.values()].sort((left, right) => left.path.localeCompare(right.path));
   const byPaths = (paths) => paths.map((path) => fileIndex.get(path));
-  const actualPlan = productionPlan ?? buildProductionPlan({
-    repo: root,
-    baseSha: readProductionState(root, identity.sourceSha).supabase.shippedSourceSha,
-    headSha: identity.sourceSha,
-  });
   requireValue(actualPlan?.canonicalMainSha === identity.sourceSha && HASH.test(actualPlan.planHash), "release_production_plan_identity_invalid");
   const authority = JSON.parse(git(root, ["show", `${identity.sourceSha}:delivery/product-authority-v1.json`]));
   requireValue(authority.status === "ACTIVE" && authority.productRoute === "DECISION_VNEXT_SINGLE_ROUTE" && authority.legacyDecisionAuthority === false, "release_product_authority_invalid");
@@ -289,11 +303,13 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
       && additiveMigrationScope.projectRef === actualPlan.projectRef
       && additiveMigrationScope.executionAuthorized === false
       && (additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
-        || verifiedBetaSecurityRecovery(actualPlan,additiveMigrationScope,currentRiskSet))
+        || verifiedBetaSecurityRecovery(actualPlan,additiveMigrationScope,currentRiskSet)
+        || verifiedBetaSocialRecovery(actualPlan,additiveMigrationScope,currentRiskSet))
       && additiveMigrationScope.guaranteedDatabaseRollback === false
       && JSON.stringify(currentRiskSet) === JSON.stringify(additiveMigrationScope.migrations)
       && (isExactProductAdditiveSet(currentRiskSet)
-        || verifiedBetaSecurityRecovery(actualPlan,additiveMigrationScope,currentRiskSet)),
+        || verifiedBetaSecurityRecovery(actualPlan,additiveMigrationScope,currentRiskSet)
+        || verifiedBetaSocialRecovery(actualPlan,additiveMigrationScope,currentRiskSet)),
     "release_recovery_risk_acceptance_invalid");
   }
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
@@ -306,7 +322,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     && recoveryRisk.guaranteedDatabaseRollback === false
     && recoveryRisk.productionDataCopyAuthorized === false, "release_recovery_risk_acceptance_invalid");
   const components = {
-    productRuntime: byPaths([...deployable.filter((path) => path.startsWith("supabase/functions/decision-v13/") || path.startsWith("supabase/functions/decision-engine-worker/") || path.startsWith("supabase/functions/decision-admin-diagnostic/") || WORKER_SOURCE_DIRS.some((dir) => path.startsWith(`${dir}/`))), ...edgeBuildPaths]),
+    productRuntime: byPaths([...deployable.filter((path) => path.startsWith("supabase/functions/") || WORKER_SOURCE_DIRS.some((dir) => path.startsWith(`${dir}/`))), ...edgeBuildPaths]),
     database: byPaths(deployable.filter((path) => path.startsWith("supabase/migrations/"))),
     releaseConfiguration: byPaths(deployable.filter((path) => path === "supabase/config.toml" || path.startsWith("supabase/production/"))),
     mobileUpdate: files.filter(({ path }) => path.startsWith("mobile-update/")),
@@ -398,12 +414,14 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
     ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
     : !manifest.productionPlan.productPreappliedImport && (currentRiskSet.length === 0
       || isolatedVoltaAccepted
-      || ((isExactProductAdditiveSet(currentRiskSet) || verifiedBetaSecurityRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet))
+      || ((isExactProductAdditiveSet(currentRiskSet) || verifiedBetaSecurityRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet)
+          || verifiedBetaSocialRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet))
         && manifest.productionPlan.additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
         && manifest.productionPlan.additiveMigrationScope.projectRef === "hjgcrrzfjchzqoegcywn"
         && manifest.productionPlan.additiveMigrationScope.executionAuthorized === false
         && (manifest.productionPlan.additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
-          || verifiedBetaSecurityRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet))
+          || verifiedBetaSecurityRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet)
+          || verifiedBetaSocialRecovery(manifest.productionPlan,manifest.productionPlan.additiveMigrationScope,currentRiskSet))
         && manifest.productionPlan.additiveMigrationScope.guaranteedDatabaseRollback === false
         && JSON.stringify(currentRiskSet) === JSON.stringify(manifest.productionPlan.additiveMigrationScope.migrations)));
   requireValue(Array.isArray(acceptedMigrationSet) && (deliveryTarget === "IOS_OTA" || productPendingScopeAccepted), "release_recovery_pending_scope_invalid");

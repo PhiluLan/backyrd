@@ -3,6 +3,20 @@ import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+export const BETA_SOCIAL_MIGRATION = Object.freeze({path:"supabase/migrations/20261103182149_beta_social_contact_and_mentions_v1.sql",sha256:"79c28e5de8abe18ad8c2b6f332c1f7555c2627102f1a1e0eecd0a614d0297383"});
+export const BETA_SOCIAL_FUNCTIONS = Object.freeze(["generate-data-export","safety-evaluate"]);
+export function scopeBetaSocialMigrations({pending,scope,baseSha,deployFunctions,authDeploy}) {
+  if(scope?.contractVersion!=="backyrd.beta-social-delivery-scope@1.0"
+    || scope.executionAuthorized!==false || scope.baseSha!==baseSha
+    || !equal(scope.migrations,[BETA_SOCIAL_MIGRATION])
+    || !equal(scope.deferredMigrations,DEFERRED_BOOKING_MIGRATIONS)
+    || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId<1
+    || !equal([...deployFunctions].sort(),BETA_SOCIAL_FUNCTIONS)
+    || authDeploy)throw new Error("beta_social_scope_invalid");
+  if(!equal(canonicalRows(pending),canonicalRows([BETA_SOCIAL_MIGRATION,...DEFERRED_BOOKING_MIGRATIONS])))
+    throw new Error("beta_social_pending_scope_changed");
+  return {pendingMigrations:[BETA_SOCIAL_MIGRATION],deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
+}
 export const ANALYTICS_PRIVACY_REPAIR_MIGRATION = Object.freeze({path:"supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",sha256:"c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"});
 export const BETA_SECURITY_MIGRATION = Object.freeze({path:"supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",sha256:"60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"});
 export const BETA_SECURITY_MIGRATIONS = Object.freeze([BETA_SECURITY_MIGRATION,ANALYTICS_PRIVACY_REPAIR_MIGRATION]);
@@ -169,7 +183,10 @@ export function voltaAppliedReceipt(state, read, isAncestor) {
 }
 /** Copy config + exact tracked migrations; remove only the four explicitly deferred files. */
 export function prepareResearchMigrationWorkspace(plan,root,output) {
-  const scoped=plan.isolatedResearchScope?.contractVersion === "backyrd.beta-security-delivery-scope@1.0"
+  const scoped=plan.isolatedResearchScope?.contractVersion === "backyrd.beta-social-delivery-scope@1.0"
+    ? scopeBetaSocialMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
+      baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authDeploy:plan.authConfig?.deploy===true})
+    : plan.isolatedResearchScope?.contractVersion === "backyrd.beta-security-delivery-scope@1.0"
     ? scopeBetaSecurityMigrations({pending:[...plan.pendingMigrations,...(plan.deferredMigrations??[])],scope:plan.isolatedResearchScope,
       baseSha:plan.baseSha,deployFunctions:plan.deployFunctions,authConfig:plan.authConfig,appliedBetaSecurity:plan.appliedBetaSecurity,appliedAnalyticsPrivacy:plan.appliedAnalyticsPrivacy})
     : plan.isolatedResearchScope?.contractVersion === "backyrd.seasonal-event-delivery-scope@1.0"

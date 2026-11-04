@@ -1,7 +1,9 @@
 "use client";
 
+import { ReportMoment } from "./report-moment";
+import { MomentEditor } from "./moment-editor";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type Moment,
   reactToMoment,
@@ -21,10 +23,19 @@ function relative(value: string) {
 export function MomentCard({
   moment,
   onComments,
+  currentUserId = null,
+  onChanged,
+  onUnsaved,
 }: {
   moment: Moment;
+  currentUserId?: string | null;
+  onChanged?: () => void;
+  onUnsaved?: (id: string) => void;
   onComments: (moment: Moment) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const busy = useRef({ like: false, save: false });
+  const [pending, setPending] = useState({ like: false, save: false });
   const [urls, setUrls] = useState<string[]>([]);
   const [mediaFailed, setMediaFailed] = useState(false);
   const [mediaLoading, setMediaLoading] = useState(Boolean(moment.media?.length));
@@ -66,7 +77,13 @@ export function MomentCard({
       active = false;
     };
   }, [moment.media]);
+  useEffect(() => {
+    if (!busy.current.like) { setLiked(moment.viewer_has_liked); setLikes(moment.like_count); }
+    if (!busy.current.save) setSaved(moment.viewer_has_saved);
+  }, [moment.post_id, moment.viewer_has_liked, moment.viewer_has_saved, moment.like_count]);
   async function react(kind: "like" | "save") {
+    if (busy.current[kind]) return;
+    busy.current[kind] = true; setPending(v => ({ ...v, [kind]: true }));
     const was = kind === "like" ? liked : saved;
     if (kind === "like") {
       setLiked(!was);
@@ -75,7 +92,8 @@ export function MomentCard({
       setSaved(!was);
     }
     try {
-      await reactToMoment(moment.post_id, kind, !was);
+      const receipt = await reactToMoment(moment.post_id, kind, !was);
+      if (kind === "like") { setLiked(receipt.active); setLikes(receipt.likeCount); } else { setSaved(receipt.active); if (!receipt.active) onUnsaved?.(moment.post_id); }
     } catch {
       if (kind === "like") {
         setLiked(was);
@@ -84,10 +102,20 @@ export function MomentCard({
         setSaved(was);
       }
       setToast("Die Aktion konnte nicht gespeichert werden.");
+    } finally { busy.current[kind] = false; setPending(v => ({ ...v, [kind]: false })); }
+  }
+  async function share() {
+    const url = `${window.location.origin}/moments/${moment.post_id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: "Ein Moment auf Backyrd", url });
+      else { await navigator.clipboard.writeText(url); setToast("Link kopiert. Die Sichtbarkeit des Moments bleibt geschützt."); }
+    } catch (e: unknown) {
+      if (!(e instanceof DOMException && e.name === "AbortError")) setToast("Der Moment konnte nicht geteilt werden. Bitte versuche es erneut.");
     }
   }
   return (
     <article className="b-moment" data-has-media={hasMedia}>
+      <MomentEditor postId={editing ? moment.post_id : null} onClose={() => setEditing(false)} onChanged={() => onChanged?.()} />
       {mediaLoading ? <div className="b-skeleton b-moment-media" /> : null}
       {urls[0] && !mediaFailed ? (
         <div className="b-moment-media">
@@ -110,6 +138,7 @@ export function MomentCard({
       ) : null}
       <div className="b-moment-content">
         {!hasMedia ? author : null}
+        {moment.mentions?.length ? <p className="b-moment-moods">Mit {moment.mentions.map(p => <Link className="b-chip" key={p.user_id} href={`/users/${p.user_id}`}>{p.display_name}</Link>)}</p> : null}
         {moment.caption ? <p className="b-moment-copy">{moment.caption}</p> : null}
         {moment.mood_tags?.length ? (
           <div className="b-moment-moods" aria-label="Stimmung">
@@ -130,11 +159,15 @@ export function MomentCard({
           ) : null
         ) : null}
       </div>
+      {currentUserId === moment.user_id ? <button type="button" className="b-action-button" onClick={() => setEditing(true)}>Bearbeiten oder entfernen</button> : null}
       <div className="b-moment-actions" aria-label="Momentaktionen">
+        <button type="button" className="b-action-button" onClick={() => void share()} aria-label="Moment teilen">↗</button>
         <button
           type="button"
           className="b-action-button"
           data-active={liked}
+          disabled={pending.like}
+          aria-busy={pending.like}
           onClick={() => void react("like")}
           aria-pressed={liked}
           aria-label={liked ? `Gefällt mir entfernen, ${likes} Likes` : `Gefällt mir, ${likes} Likes`}
@@ -155,12 +188,15 @@ export function MomentCard({
           type="button"
           className="b-action-button"
           data-active={saved}
+          disabled={pending.save}
+          aria-busy={pending.save}
           onClick={() => void react("save")}
           aria-pressed={saved}
           aria-label={saved ? "Nicht mehr speichern" : "Moment speichern"}
         >
           <BookmarkIcon />
         </button>
+        {currentUserId !== moment.user_id ? <ReportMoment moment={moment} /> : null}
       </div>
       {toast ? (
         <Toast message={toast} onDismiss={() => setToast(null)} />

@@ -469,3 +469,17 @@ test("Spot event series approval is exact, candidate-bound, and does not authori
   assert.equal(isAuthorizedBoundedMigration(path, modified, {authorizedBoundedMigrations:[{...entry,sha256:createHash("sha256").update(modified).digest("hex")}]}), false);
   assert.equal(isAuthorizedBoundedMigration(path, sql, {authorizedBoundedMigrations:[]}), false);
 });
+
+
+test("Expo archive exclusions receive Mobile and release-control certification", () => {
+  const actualPolicy = JSON.parse(readFileSync(new URL("../../delivery/change-policy.json", import.meta.url), "utf8"));
+  const { root, base } = fixture();
+  put(root, ".easignore", ".git\njwt/\n");
+  const head = commit(root, "archive exclusion policy");
+  const result = classifyChange({ root, context: {baseSha:base,headSha:head}, policy: {...actualPolicy,decisionTrustAnchor:policy.decisionTrustAnchor} });
+  assert.deepEqual(result.blockedReasons, []);
+  assert.equal(result.flags.mobile, true);
+  assert.equal(result.flags.productRelease, true);
+  assert.equal(result.flags.deliveryControl, true);
+  for (const gate of ["mobile", "release-certification", "repository-security", "delivery-policy"]) assert.ok(result.requiredGates.includes(gate));
+});

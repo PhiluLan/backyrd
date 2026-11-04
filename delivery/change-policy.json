@@ -2,7 +2,7 @@
   "schemaVersion": "backyrd-change-policy-v2",
   "decisionTrustAnchor": "delivery/product-authority-v1.json",
   "surfacePrefixes": {
-    "mobile": ["mobile/"],
+    "mobile": ["mobile/", ".easignore"],
     "web": ["web/", "packages/world-knowledge-authoring-ui/"],
     "admin": ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"],
     "shared": ["packages/shared/"],
@@ -76,6 +76,7 @@
     "scripts/ci/product-release-"
   ],
   "productReleasePrefixes": [
+    ".easignore",
     ".github/workflows/deep-recertification.yml",
     "mobile/app/auth/",
     "mobile/app/gate.tsx",
@@ -96,6 +97,7 @@
     "delivery/releases/"
   ],
   "knownRepositoryPrefixes": [
+    ".easignore",
     ".github/",
     ".gitleaks.toml",
     ".gitignore",
@@ -118,6 +120,7 @@
     "web/"
   ],
   "deliveryControlPrefixes": [
+    ".easignore",
     ".github/workflows/",
     ".gitleaks.toml",
     "delivery/",

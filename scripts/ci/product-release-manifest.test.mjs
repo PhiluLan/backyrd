@@ -354,3 +354,21 @@ test('verified recovery permits only the exact Beta security/privacy pair and pa
  assert.equal(verify({...p,isolatedResearchScope:{...scope,authConfig:{keys:['password_hibp_enabled','site_url']}}},a,targets),false);
  assert.equal(verify(p,{...a,restoreDrillReceipt:{...restore,sha256:'b'.repeat(64)}},targets),false);
 });
+
+
+test("a Social function and its private-media helper ship as sealed artifact bytes", async()=>{
+ const {getFunctionSourceIdentity}=await import('../deployment/supabase-production-plan.mjs');
+ const {root,base}=fixture();
+ const functionPath='supabase/functions/safety-evaluate/index.ts',helperPath='supabase/functions/_shared/safety/moment-media.ts';
+ put(root,'supabase/config.toml',readFileSync(join(root,'supabase/config.toml'),'utf8')+'\n[functions.safety-evaluate]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/safety-evaluate/index.ts"\n');
+ put(root,functionPath,"import '../_shared/safety/moment-media.ts';\n");put(root,helperPath,'export const privateMedia = true;\n');
+ const head=commit(root,'Social function'),output=join(root,'social-output');
+ const identity=resolveProductReleaseIdentity({root,mode:'PR_CANDIDATE',sourceSha:head,baseSha:base,checkoutSha:head,canonicalMainSha:base});
+ const planned=plan(base,head);planned.functions=[{...getFunctionSourceIdentity({repo:root,ref:head,slug:'safety-evaluate'}),deploy:true}];planned.deployFunctions=['safety-evaluate'];
+ const manifest=buildProductReleaseManifest({root,sourceSha:head,outputDir:output,mobileBundle:join(root,'mobile-export'),identity,testEvidence:buildProductReleaseTestEvidence({root,sourceSha:head}),productionPlan:planned});
+ for(const path of [functionPath,helperPath])assert.ok(manifest.components.productRuntime.some(file=>file.path===path));
+ assert.match(readFileSync(join(output,'bundle/supabase/config.toml'),'utf8'),/\[functions.safety-evaluate\]/);
+ verifyProductReleaseManifest({artifactDir:output,expectedHash:manifest.manifestHash,expectedSourceSha:head});
+ put(output,'bundle/'+helperPath,'tampered\n');
+ assert.throws(()=>verifyProductReleaseManifest({artifactDir:output,expectedHash:manifest.manifestHash,expectedSourceSha:head}),/release_artifact_file_mismatch/);
+});

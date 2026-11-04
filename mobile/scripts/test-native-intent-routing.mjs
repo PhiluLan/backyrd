@@ -80,6 +80,8 @@ test("accepts the canonical spot and user deep-link shapes", () => {
   assert.equal(resolveProductDeepLink(`backyrd://user/${userId}`), `/user/${userId}`);
   assert.equal(resolveProductDeepLink(`backyrd:///user/${userId}`), `/user/${userId}`);
   assert.equal(resolveProductDeepLink(`user/${userId}`), `/user/${userId}`);
+  assert.equal(resolveProductDeepLink(`backyrd://moment/${spotId}`), `/moment/${spotId}`);
+  assert.equal(resolveProductDeepLink(`/moment/${spotId}`), `/moment/${spotId}`);
 });
 
 test("fails closed for unknown, malformed, and ambiguous routes", () => {

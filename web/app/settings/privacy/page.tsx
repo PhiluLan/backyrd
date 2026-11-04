@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BlockedPeople } from "@/components/consumer/blocked-people";
 import { SettingsShell } from "@/components/consumer/settings-shell";
 import { Button, StateView, Toast } from "@/components/consumer/ui";
 import { supabase } from "@/lib/supabase/client";
@@ -41,11 +42,12 @@ export default function PrivacyPage() {
   }
   return <SettingsShell title="SICHTBARKEIT" kicker="DEIN PROFIL">
     {loading ? <div className="b-skeleton" style={{ height: 220, borderRadius: 22 }} /> : failed ? <StateView title="Sichtbarkeit nicht geladen" message="Deine gespeicherte Einstellung ist gerade nicht verfügbar." actionLabel="Erneut versuchen" onAction={() => void load()} /> : !user ? <StateView title="Anmeldung nötig" message="Melde dich an, um deine Sichtbarkeit zu ändern." actionLabel="Anmelden" onAction={() => location.assign("/login?next=/settings/privacy")} /> : <div className="b-surface" style={{ padding: 24 }}>
-      <div className="b-setting-row"><div><h2 className="b-card-title">Privates Profil</h2><p className="b-muted">Dein Profil ist dann nicht auffindbar und deine Momente sind für andere nicht mehr öffentlich. Bereits veröffentlichte Eindrücke können auf Ortsseiten sichtbar bleiben.</p></div>
+      <div className="b-setting-row"><div><h2 className="b-card-title">Privates Profil</h2><p className="b-muted">Dein Profil und deine Momente sind dann für andere verborgen. Du kannst nicht markiert werden. Wer deinen vollständigen Nutzernamen kennt, kann dir schreiben. Blockieren verhindert Kontakt. Bereits veröffentlichte Ortseindrücke können auf Ortsseiten sichtbar bleiben.</p></div>
         <button type="button" className="b-switch" role="switch" aria-checked={privateValue} aria-label="Privates Profil" disabled={busy || confirming} aria-busy={busy} onClick={() => privateValue ? void apply(false) : setConfirming(true)} />
       </div>
       {confirming ? <section aria-label="Privates Profil bestätigen"><h3>Konto privat setzen?</h3><p>Bestehende Follower und deine Folge-Verbindungen werden entfernt. Wenn du dein Profil später wieder öffentlich machst, werden diese Verbindungen nicht wiederhergestellt.</p><Button variant="secondary" disabled={busy} onClick={() => setConfirming(false)}>Abbrechen</Button> <Button disabled={busy} onClick={() => void apply(true)}>{busy ? "Wird gespeichert …" : "Privat setzen"}</Button></section> : null}
     </div>}
+    {user ? <BlockedPeople /> : null}
     {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
   </SettingsShell>;
 }

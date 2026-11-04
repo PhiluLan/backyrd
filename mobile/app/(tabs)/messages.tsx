@@ -181,7 +181,7 @@ export default function MessagesScreen() {
         <Pressable
           accessibilityRole="button"
           style={styles.headerIcon}
-          onPress={() => router.push("/users/search" as any)}
+          onPress={() => router.push("/users/search?mode=message" as any)}
           accessibilityLabel="Neuen Chat starten"
         >
           <Ionicons accessibilityElementsHidden name="person-add-outline" size={22} color="#FFFFFF" />

@@ -12,7 +12,7 @@ export function resolveEmailVerificationDeepLink(rawPath: string): string | null
 
 function productRoute(path: string): string | null {
   const normalized = path.replace(/^\/+/, "").replace(/\/+$/, "");
-  const match = /^(spot|user)\/([^/]+)$/.exec(normalized);
+  const match = /^(spot|user|moment)\/([^/]+)$/.exec(normalized);
 
   if (!match || !UUID_PATTERN.test(match[2])) return null;
 
@@ -20,7 +20,7 @@ function productRoute(path: string): string | null {
 }
 
 /**
- * Accept only the two public product deep-link contracts. Unknown or malformed
+ * Accept only the public product deep-link contracts. Unknown or malformed
  * paths return null so the caller can fail closed through the normal gate.
  */
 export function resolveProductDeepLink(rawPath: string): string | null {

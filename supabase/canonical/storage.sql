@@ -123,13 +123,7 @@ on storage."objects"
 as permissive
 for select
 to "authenticated"
-using ((bucket_id = 'social-post-media'::text) AND (EXISTS ( SELECT 1
-   FROM ((social_post_media sm
-     JOIN social_posts sp ON ((sp.id = sm.post_id)))
-     JOIN profiles author_profile ON ((author_profile.id = sp.user_id)))
-  WHERE ((sm.storage_path = objects.name) AND (sp.status = 'published'::text) AND ((sp.user_id = auth.uid()) OR ((author_profile.is_private = false) AND (NOT users_are_blocked_v1(auth.uid(), sp.user_id)) AND ((sp.visibility = 'public'::text) OR ((sp.visibility = 'followers'::text) AND (EXISTS ( SELECT 1
-           FROM follows f
-          WHERE ((f.follower = auth.uid()) AND (f.following = sp.user_id))))))))))));
+using (bucket_id='social-post-media' and public.social_media_object_is_visible_v1(name));
 
 drop policy if exists "social_post_media_user_delete" on storage."objects";
 create policy "social_post_media_user_delete"

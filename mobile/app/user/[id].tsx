@@ -1,3 +1,4 @@
+import { hydrateSocialPosts } from "../../lib/social-feed";
 // mobile/app/user/[id].tsx
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Dimensions, Image, Pressable, RefreshControl, SafeAreaView, StyleSheet, View } from "react-native";
@@ -303,7 +304,7 @@ export default function UserProfileScreen() {
         const visiblePosts =
           await filterSafetyVisiblePosts(rawPosts);
 
-        setPosts(visiblePosts);
+        setPosts(await hydrateSocialPosts(visiblePosts));
       } catch (error: any) {
         console.log("user profile load failed", error);
         setPosts([]);
@@ -393,14 +394,7 @@ export default function UserProfileScreen() {
     } catch (error: any) {
       const message = technicalErrorText(error);
 
-      if (
-        message.includes("private_profile_not_messageable")
-      ) {
-        Alert.alert(
-          "Nachricht nicht möglich",
-          "Dieses Konto ist privat und kann keine neuen Nachrichten erhalten.",
-        );
-      } else if (message.includes("interaction_blocked")) {
+      if (message.includes("interaction_blocked")) {
         Alert.alert(
           "Nachricht nicht möglich",
           "Zwischen diesen Konten sind keine Nachrichten möglich.",
@@ -746,6 +740,7 @@ export default function UserProfileScreen() {
         renderItem={({ item }) => (
           <SocialPostCard
             post={item}
+            onChanged={() => { void load("refresh"); }}
             currentUserId={meId}
             onToggleReaction={toggleReaction}
             onOpenSpot={openSpot}

@@ -448,6 +448,11 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/mobile-geocode/index.ts"
 
+[functions.generate-data-export]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/generate-data-export/index.ts"
+
 [functions.safety-evaluate]
 enabled = true
 verify_jwt = true

@@ -5,8 +5,9 @@ import { moodExpressionKey, parseMoodOptions, toggleMoodExpression, type MoodOpt
 import { MoodSignature } from "./mood-signature";
 import styles from "./mood-experience.module.css";
 
-export function MoodSelection({ values, onChange }: { values: readonly string[]; onChange: (values: string[]) => void }) {
+export function MoodSelection({ values, onChange, context = "place" }: { values: readonly string[]; onChange: (values: string[]) => void; context?: "place" | "moment" }) {
   const id = useId();
+  const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<MoodOption[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -38,20 +39,21 @@ export function MoodSelection({ values, onChange }: { values: readonly string[];
     if (!result.full) { onChange(result.values); setQuery(""); }
   }
   return <fieldset className={styles.selection}>
-    <legend>Deine Moods für diesen Ort</legend>
-    <div className={styles.intro}><p>Wähle bis zu zwei Begriffe, die deinen Besuch beschreiben.</p><span aria-label={`${selected.length} von 2 ausgewählt`}>{selected.length}/2</span></div>
+    <legend>{context === "moment" ? "Deine Moods" : "Deine Moods für diesen Ort"}</legend>
+    <div className={styles.intro}><p>{context === "moment" ? "Wie hat es sich angefühlt? Wähle bis zu zwei Eindrücke, wenn du magst." : "Wähle bis zu zwei Begriffe, die deinen Besuch beschreiben."}</p><span aria-label={`${selected.length} von 2 ausgewählt`}>{selected.length}/2</span></div>
     {selected.length > 0 ? <MoodSignature labels={selected} onRemove={choose} /> : null}
 
     <label htmlFor={id} className="b-label">Mood suchen oder selbst beschreiben</label>
     <input id={id} className="b-input" placeholder="Zum Beispiel gemütlich" maxLength={40} value={query} onChange={e => { setState("loading"); setOptions([]); setQuery(e.target.value); }} autoComplete="off" aria-describedby={`${id}-hint`} />
     {state === "loading" ? <p className={styles.hint} role="status">Moods werden geladen …</p> : null}
     {state === "error" ? <p className={styles.hint} role="status">Die Vorschläge sind gerade nicht verfügbar. Deine Auswahl bleibt erhalten. <button type="button" className={styles.textButton} onClick={() => setRevision(v => v + 1)}>Erneut laden</button></p> : null}
-    <div className={styles.chips} aria-label="Mood-Vorschläge">{options.map(option => {
+    <div className={styles.chips} aria-label="Mood-Vorschläge">{(query.trim() || expanded ? options : options.slice(0, 6)).map(option => {
       const active = selected.some(value => moodExpressionKey(value) === moodExpressionKey(option.label));
       return <button key={option.concept_key} type="button" aria-pressed={active} className={`${styles.chip} ${active ? styles.active : ""}`} onClick={() => choose(option.label)}>{active ? "✓ " : ""}{option.label}</button>;
     })}</div>
+    {!query.trim() && options.length > 6 ? <button type="button" className={styles.textButton} aria-expanded={expanded} onClick={() => setExpanded(v => !v)}>{expanded ? "Weniger Vorschläge" : "Mehr Moods entdecken"}</button> : null}
     {query.trim() && !exact && state === "ready" ? <button className={styles.textButton} type="button" onClick={() => choose(query)}>„{query.trim()}“ verwenden +</button> : null}
-    <p id={`${id}-hint`} className={styles.hint}>Eigene Begriffe bleiben bei deinem Beitrag erhalten. Für das gemeinsame Mood-Bild werden sie zuerst geprüft.</p>
+    <p id={`${id}-hint`} className={styles.hint}>{context === "moment" ? "Diese Eindrücke bleiben bei deinem Moment." : "Eigene Begriffe bleiben bei deinem Beitrag erhalten. Für das gemeinsame Mood-Bild werden sie zuerst geprüft."}</p>
     <p className={styles.notice} role="status">{notice}</p>
   </fieldset>;
 }

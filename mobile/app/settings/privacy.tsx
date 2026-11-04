@@ -1,5 +1,6 @@
+import { BlockedPeople } from "../../components/BlockedPeople";
 import React, { useCallback, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -46,6 +47,7 @@ export default function ProfilePrivacySettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={{paddingBottom:32}} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -78,6 +80,8 @@ export default function ProfilePrivacySettingsScreen() {
           onChanged={setIsPrivate}
         />
       )}
+      <BlockedPeople />
+      </ScrollView>
     </SafeAreaView>
   );
 }

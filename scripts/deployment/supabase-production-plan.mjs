@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
+import { scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -325,6 +325,13 @@ const expandFunctionSourceSet = (tree, config) => {
   };
 };
 
+/** Read-only exact identity for reviewing a bounded function deployment. */
+export function getFunctionSourceIdentity({repo,ref,slug}) {
+  const tree=repositoryAt(repo,ref); const config=parseSupabaseFunctionConfig(tree.text("supabase/config.toml")).functions.get(slug);
+  if(!config?.enabled)throw new Error(`function_not_enabled:${slug}`);
+  return {slug,...expandFunctionSourceSet(tree,config)};
+}
+
 const diffEntries = (repo, base, head) => git(repo, ["diff", "--name-status", "--find-renames", base, head])
   .split("\n").filter(Boolean).map((line) => {
     const [status, first, second] = line.split("\t");
@@ -521,10 +528,29 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
   // Code delivery is independent from historical, already applied SQL releases.
   // Keep their receipts, but do not reuse their old Function hashes as a freeze.
+  const socialScope = authority?.betaSocialDeliveryScope ?? null;
   const securityScope = authority?.betaSecurityDeliveryScope ?? null;
   const seasonalScope = authority?.seasonalEventDeliveryScope ?? null;
   const regionalScope = authority?.regionalDecisionDeliveryScope ?? null;
   const codeOnlyScope = authority?.codeOnlyDeliveryScope ?? null;
+  if(socialScope) {
+    if(securityScope || seasonalScope || regionalScope || codeOnlyScope || authority?.isolatedResearchMigrationScope || authority?.isolatedVoltaMigrationScope
+      || authConfig?.deploy===true || retiredFunctions.length || migrationRecovery || preappliedMigrationImport || productPreappliedImport)
+      throw new Error("beta_social_release_scope_conflict");
+    const deferred=functions.filter(item=>item.deploy && !BETA_SOCIAL_FUNCTIONS.includes(item.slug));
+    const changes=deferred.map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
+    if(JSON.stringify(changes)!==JSON.stringify(socialScope.deferredFunctionChanges)
+      || deferred.some(item=>!["decision-v13","decision-admin-diagnostic"].includes(item.slug)))throw new Error("beta_social_deferred_function_binding_invalid");
+    git(repo,["merge-base","--is-ancestor",socialScope.unchangedRuntimeSourceSha,headSha]);
+    for(const item of deferred) {
+      const verified=getFunctionSourceIdentity({repo,ref:socialScope.unchangedRuntimeSourceSha,slug:item.slug});
+      if(verified.sourceSetHash!==item.sourceSetHash)throw new Error("beta_social_deferred_runtime_changed");
+      item.deploy=false;item.reason="EXACT_EXISTING_RUNTIME_SOURCE_PRESERVED_BY_SOCIAL_SCOPE";
+    }
+    const selected=functions.filter(item=>item.deploy);
+    if(JSON.stringify(selected.map(({slug,sourceSetHash})=>({slug,sourceSetHash})))!==JSON.stringify(socialScope.functions)
+      || selected.some(item=>!item.verifyJwt))throw new Error("beta_social_function_source_binding_invalid");
+  }
   if(securityScope) {
     if(seasonalScope || regionalScope || codeOnlyScope || authority?.isolatedResearchMigrationScope || authority?.isolatedVoltaMigrationScope
       || retiredFunctions.length || migrationRecovery || preappliedMigrationImport || productPreappliedImport
@@ -581,7 +607,9 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
-  const scoped = securityScope
+  const scoped = socialScope
+    ? scopeBetaSocialMigrations({pending:allPending,scope:socialScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true})
+    : securityScope
     ? scopeBetaSecurityMigrations({pending:allPending,scope:securityScope,baseSha,deployFunctions,authConfig,appliedBetaSecurity,appliedAnalyticsPrivacy})
     : seasonalScope
     ? scopeSeasonalEventMigrations({pending:allPending,scope:seasonalScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedSeasonalEvent})

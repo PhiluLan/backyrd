@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { ActivityIndicator, Alert, FlatList, Pressable, SafeAreaView, StyleSheet, View } from "react-native";
 import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 import Avatar from "../../components/Avatar";
 import { supabase } from "../../lib/supabase";
@@ -23,6 +23,9 @@ type SearchUser = {
 
 export default function UserSearchScreen() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const forMessage = mode === "message";
+  const opening = useRef(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,27 +38,29 @@ export default function UserSearchScreen() {
       return;
     }
 
+    let active = true;
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase.rpc("search_social_users_v1", {
+        const { data, error } = await supabase.rpc(forMessage ? "search_message_recipients_v1" : "search_social_users_v1", {
           p_query: value,
           p_limit: 30,
         });
         if (error) throw error;
-        setResults((data ?? []) as SearchUser[]);
-      } catch (error: any) {
+        if (active) setResults((data ?? []) as SearchUser[]);
+      } catch (error: unknown) {
+        if (!active) return;
         Alert.alert(
           "Suche nicht verfügbar",
           userFacingError(error, "Die Personensuche ist gerade nicht erreichbar. Bitte versuche es noch einmal."),
         );
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }, 280);
 
-    return () => clearTimeout(timer);
-  }, [query]);
+    return () => { active = false; clearTimeout(timer); };
+  }, [query, forMessage]);
 
   const toggleFollow = useCallback(async (user: SearchUser) => {
     if (busyUser) return;
@@ -103,6 +108,16 @@ export default function UserSearchScreen() {
     }
   }, [busyUser]);
 
+  async function openChat(user: SearchUser) {
+    if (opening.current) return;
+    opening.current = true; setBusyUser(user.user_id);
+    try {
+      const { data, error } = await supabase.rpc("get_or_create_direct_chat_v2", { p_other_user_id: user.user_id });
+      if (error || typeof data !== "string" || !data) throw error ?? new Error("missing_chat");
+      router.replace(`/messages/${data}`);
+    } catch { Alert.alert("Chat nicht verfügbar", "Der Chat konnte nicht geöffnet werden. Zwischen blockierten Konten sind keine Nachrichten möglich."); }
+    finally { opening.current = false; setBusyUser(null); }
+  }
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
@@ -111,7 +126,7 @@ export default function UserSearchScreen() {
         </Pressable>
         <View style={styles.headerCopy}>
           <Text style={styles.kicker}>BACKYRD MENSCHEN</Text>
-          <Text style={styles.title}>Leute entdecken</Text>
+          <Text style={styles.title}>{forMessage ? "Neue Nachricht" : "Leute entdecken"}</Text>
         </View>
       </View>
 
@@ -147,19 +162,19 @@ export default function UserSearchScreen() {
               <Text style={styles.emptyTitle}>
                 {query.trim().length < 2
                   ? "Finde Menschen auf Backyrd"
-                  : "Keine öffentlichen Profile gefunden"}
+                  : forMessage ? "Kein Konto gefunden" : "Keine öffentlichen Profile gefunden"}
               </Text>
               <Text style={styles.emptyText}>
-                Private und blockierte Konten erscheinen nicht in der Suche.
+                {forMessage ? "Private Konten erreichst du mit ihrem vollständigen Nutzernamen. Blockierte Konten erscheinen nicht in der Suche." : "Private und blockierte Konten erscheinen nicht in der Suche."}
               </Text>
             </View>
           }
           renderItem={({ item }) => (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${item.display_name || item.username || "Backyrd User"} Profil öffnen`}
+              accessibilityLabel={`${item.display_name || item.username || "Backyrd Mitglied"} ${forMessage ? "Nachricht schreiben" : "Profil öffnen"}`}
               style={styles.row}
-              onPress={() => router.push(`/user/${item.user_id}` as any)}
+              onPress={() => forMessage ? void openChat(item) : router.push(`/user/${item.user_id}` as any)}
             >
               <Avatar
                 uri={item.avatar_url ?? undefined}
@@ -175,10 +190,10 @@ export default function UserSearchScreen() {
                   {item.city ? ` · ${item.city}` : ""}
                 </Text>
                 <Text style={styles.stats}>
-                  {item.follower_count} Follower
+                  {forMessage ? busyUser === item.user_id ? "Wird geöffnet …" : "Nachricht schreiben" : `${item.follower_count} Follower`}
                 </Text>
               </View>
-              <Pressable
+              {!forMessage ? <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={item.viewer_follows_user ? `${item.display_name || item.username || "Backyrd User"} nicht mehr folgen` : `${item.display_name || item.username || "Backyrd User"} folgen`}
                 accessibilityState={{ selected: item.viewer_follows_user, busy: busyUser === item.user_id }}
@@ -200,7 +215,7 @@ export default function UserSearchScreen() {
                 >
                   {item.viewer_follows_user ? "Gefolgt" : "Folgen"}
                 </Text>
-              </Pressable>
+              </Pressable> : null}
             </Pressable>
           )}
         />

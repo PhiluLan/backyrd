@@ -1,6 +1,6 @@
 // supabase/functions/generate-data-export/index.ts
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -13,7 +13,7 @@ function json(body: unknown, status = 200) {
 }
 
 async function selectBy(
-  client: ReturnType<typeof createClient>,
+  client: SupabaseClient,
   table: string,
   column: string,
   userId: string,
@@ -171,6 +171,8 @@ Deno.serve(async (request) => {
       .select("id, bucket_id, name, owner, created_at, updated_at, metadata")
       .or(`owner.eq.${user.id},name.like.${user.id}/%`);
 
+    const {data: personMentions,error: personMentionsError} = await admin.rpc("account_person_mentions_export_v1",{p_user_id:user.id});
+
     const warnings = [
       profile, reviews, reviewComments, reviewLikes, reviewPhotos,
       socialPosts, socialComments, socialReactions, messages, favorites,
@@ -182,6 +184,7 @@ Deno.serve(async (request) => {
       .map((entry) => entry.warning)
       .filter(Boolean);
 
+    if (personMentionsError) warnings.push(`person_mentions: ${personMentionsError.message}`);
     if (ownedSpotsError) warnings.push(`spots: ${ownedSpotsError.message}`);
     if (storageError) warnings.push(`storage.objects: ${storageError.message}`);
 
@@ -213,6 +216,7 @@ Deno.serve(async (request) => {
         social_posts: socialPosts.rows,
         social_comments: socialComments.rows,
         social_post_reactions: socialReactions.rows,
+        person_mentions: personMentions ?? [],
         messages_sent: messages.rows,
         favorites: favorites.rows,
         owned_or_created_spots: ownedSpots ?? [],

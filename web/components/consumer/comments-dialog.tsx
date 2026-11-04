@@ -19,9 +19,11 @@ function relative(value: string) {
 export function CommentsDialog({
   moment,
   onClose,
+  onCreated,
 }: {
   moment: Moment | null;
   onClose: () => void;
+  onCreated?: () => void;
 }) {
   const [comments, setComments] = useState<
     Array<{
@@ -37,6 +39,8 @@ export function CommentsDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [body, setBody] = useState("");
+  const sendingRef = useRef(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const pendingRequest = useRef<{ postId: string; body: string; id: string } | null>(null);
   const load = useCallback(async () => {
@@ -54,9 +58,13 @@ export function CommentsDialog({
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    setBody(""); setSendError(null); pendingRequest.current = null;
+  }, [moment?.post_id]);
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!moment || !body.trim()) return;
+    if (!moment || !body.trim() || sendingRef.current) return;
+    sendingRef.current = true; setSendError(null);
     setSending(true);
     try {
       const text = body.trim();
@@ -64,19 +72,21 @@ export function CommentsDialog({
         ? pendingRequest.current
         : { postId: moment.post_id, body: text, id: crypto.randomUUID() };
       pendingRequest.current = request;
-      const created = await createMomentComment(moment.post_id, text, request.id);
-      if (created?.comment_id) setComments((items) => [created, ...items]);
-      else await load();
+      await createMomentComment(moment.post_id, text, request.id);
       setBody("");
       pendingRequest.current = null;
+      await load();
+      onCreated?.();
     } catch {
-      setError(true);
+      setSendError("Dein Kommentar konnte nicht geteilt werden. Dein Text bleibt erhalten.");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }
   return (
-    <Dialog open={Boolean(moment)} title="Kommentare" onClose={onClose}>
+    <Dialog open={Boolean(moment)} title="Kommentare" onClose={() => { if (!sendingRef.current) onClose(); }}>
+      {sendError ? <p role="alert">{sendError}</p> : null}
       {loading ? (
         <div className="b-skeleton" style={{ height: 220, borderRadius: 16 }} />
       ) : error ? (
@@ -120,6 +130,7 @@ export function CommentsDialog({
           id="comment"
           className="b-textarea"
           value={body}
+          disabled={sending}
           onChange={(event) => setBody(event.target.value)}
           placeholder="Schreib etwas Echtes …"
         />

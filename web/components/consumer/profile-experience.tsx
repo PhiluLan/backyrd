@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CanonicalSpotImage } from "@/components/canonical-spot-image";
 import {
   followUser,
   getSocialProfile,
   getUserMoments,
+  getSavedMoments,
   type Moment,
   type SocialProfile,
 } from "@/lib/consumer-api";
@@ -42,9 +44,19 @@ type Badge = {
   } | null;
 };
 export function ProfileExperience({ userId }: { userId?: string }) {
+  const router = useRouter();
+  const loadRevision = useRef(0);
+  const profileOwner = useRef<string | null>(null);
+  const followPending = useRef(false);
+  const messagePending = useRef(false);
+  const [following, setFollowing] = useState(false);
+  const [messaging, setMessaging] = useState(false);
   const [target, setTarget] = useState<string | null>(userId ?? null);
   const [profile, setProfile] = useState<SocialProfile | null>(null);
   const [moments, setMoments] = useState<Moment[]>([]);
+  const [savedMoments, setSavedMoments] = useState<Moment[]>([]);
+  const [savedFailed, setSavedFailed] = useState(false);
+  const [favoritesFailed, setFavoritesFailed] = useState(false);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -54,11 +66,14 @@ export function ProfileExperience({ userId }: { userId?: string }) {
   const [selected, setSelected] = useState<Moment | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const load = useCallback(async () => {
+    const revision = ++loadRevision.current;
     setLoading(true);
-    setError(false);
+    setError(false); setSavedFailed(false); setFavoritesFailed(false);
     try {
       const { data: userData } = await supabase.auth.getUser();
+      if (revision !== loadRevision.current) return;
       const id = userId ?? userData.user?.id ?? null;
+      if (profileOwner.current !== id) { setTab("moments"); setSavedMoments([]); setFavorites([]); setReviews([]); setBadges([]); profileOwner.current = id; }
       setTarget(id);
       if (!id) {
         setProfile(null);
@@ -68,9 +83,11 @@ export function ProfileExperience({ userId }: { userId?: string }) {
         getSocialProfile(id),
         getUserMoments(id),
       ]);
+      if (revision !== loadRevision.current) return;
       setProfile(profileRow);
       setMoments(postRows);
       if (profileRow?.is_me) {
+        try { const saved = await getSavedMoments(); if (revision !== loadRevision.current) return; setSavedMoments(saved); } catch { if (revision !== loadRevision.current) return; setSavedMoments([]); setSavedFailed(true); }
         const [favs, reviewRows, badgeRows] = await Promise.all([
           supabase
             .from("favorites")
@@ -86,21 +103,24 @@ export function ProfileExperience({ userId }: { userId?: string }) {
             .select("achievements(name,icon_url,tier)")
             .eq("user_id", id),
         ]);
-        setFavorites((favs.data ?? []) as unknown as Favorite[]);
+        if (revision !== loadRevision.current) return;
+        if (favs.error) setFavoritesFailed(true); else setFavorites((favs.data ?? []) as unknown as Favorite[]);
         setReviews((reviewRows.data ?? []) as unknown as Review[]);
         setBadges((badgeRows.data ?? []) as unknown as Badge[]);
       }
     } catch {
-      setError(true);
+      if (revision === loadRevision.current) setError(true);
     } finally {
-      setLoading(false);
+      if (revision === loadRevision.current) setLoading(false);
     }
   }, [userId]);
   useEffect(() => {
     void load();
+    return () => { loadRevision.current += 1; };
   }, [load]);
   async function follow() {
-    if (!profile) return;
+    if (!profile || profile.can_follow === false || followPending.current) return;
+    followPending.current = true; setFollowing(true);
     const next = !profile.viewer_follows_user;
     setProfile({
       ...profile,
@@ -112,20 +132,21 @@ export function ProfileExperience({ userId }: { userId?: string }) {
     } catch {
       setProfile(profile);
       setToast("Der Follow-Status konnte nicht geändert werden.");
-    }
+    } finally { followPending.current = false; setFollowing(false); }
   }
   async function message() {
-    if (!profile || !target) return;
+    if (!profile || !target || profile.can_message === false || messagePending.current) return;
+    messagePending.current = true; setMessaging(true);
     try {
       const { data, error } = await supabase.rpc(
         "get_or_create_direct_chat_v2",
         { p_other_user_id: target },
       );
       if (error || typeof data !== "string") throw new Error();
-      location.assign(`/messages/${data}`);
+      router.push(`/messages/${data}`);
     } catch {
       setToast("Der Chat konnte gerade nicht geöffnet werden.");
-    }
+    } finally { messagePending.current = false; setMessaging(false); }
   }
   if (loading)
     return (
@@ -205,10 +226,10 @@ export function ProfileExperience({ userId }: { userId?: string }) {
               </>
             ) : (
               <>
-                <Button onClick={() => void follow()}>
+                <Button disabled={following || profile.can_follow === false} aria-busy={following} onClick={() => void follow()}>
                   {profile.viewer_follows_user ? "Gefolgt" : "Folgen"}
                 </Button>
-                <Button variant="secondary" onClick={() => void message()}>
+                <Button variant="secondary" disabled={messaging || profile.can_message === false} aria-busy={messaging} onClick={() => void message()}>
                   Nachricht
                 </Button>
               </>
@@ -236,7 +257,7 @@ export function ProfileExperience({ userId }: { userId?: string }) {
                 aria-selected={tab === "reviews"}
                 onClick={() => setTab("reviews")}
               >
-                Reviews
+                Eindrücke
               </button>
               <button
                 type="button"
@@ -259,13 +280,15 @@ export function ProfileExperience({ userId }: { userId?: string }) {
             </>
           ) : null}
         </div>
-        {tab === "moments" ? (
+        {tab === "moments" || !profile.is_me ? (
           moments.length ? (
             <div style={{ width: "min(100%,760px)" }}>
               {moments.map((moment) => (
                 <MomentCard
                   key={moment.post_id}
                   moment={moment}
+                  currentUserId={profile?.is_me ? profile.user_id : null}
+                  onChanged={() => { void load(); }}
                   onComments={setSelected}
                 />
               ))}
@@ -309,12 +332,17 @@ export function ProfileExperience({ userId }: { userId?: string }) {
             </div>
           ) : (
             <StateView
-              title="Noch keine Reviews"
-              message="Reviews bleiben eine eigene, rückblickende Erfahrung – getrennt von Momenten."
+              title="Noch keine Ortseindrücke"
+              message="Deine Eindrücke beschreiben erlebte Orte und prägen deren Moods."
             />
           )
-        ) : tab === "saved" ? (
-          favorites.length ? (
+        ) : tab === "saved" ? (<>
+          <section style={{marginBottom:32}}>
+            <h2 className="b-section-title">Gespeicherte Momente</h2>
+            {savedFailed ? <StateView title="Gespeicherte Momente nicht geladen" message="Bitte versuche es erneut. Deine gespeicherten Angaben bleiben erhalten." actionLabel="Erneut versuchen" onAction={()=>void load()} /> : savedMoments.length ? savedMoments.map(moment=><MomentCard key={moment.post_id} moment={moment} currentUserId={profile.user_id} onComments={setSelected} onChanged={()=>void load()} onUnsaved={id=>setSavedMoments(rows=>rows.filter(p=>p.post_id!==id))}/>) : <p className="b-muted">Tippe bei einem Moment auf das Lesezeichen, um ihn hier wiederzufinden.</p>}
+          </section>
+          <h2 className="b-section-title">Gespeicherte Orte</h2>
+          {favoritesFailed ? <StateView title="Gespeicherte Orte nicht geladen" message="Deine Auswahl bleibt erhalten. Bitte versuche es erneut." actionLabel="Erneut versuchen" onAction={()=>void load()} /> : favorites.length ? (
             <div className="b-grid b-grid-3">
               {favorites.map((item) =>
                 item.spots ? (
@@ -343,8 +371,7 @@ export function ProfileExperience({ userId }: { userId?: string }) {
               actionLabel="Orte entdecken"
               onAction={() => location.assign("/places")}
             />
-          )
-        ) : badges.length ? (
+          )}</>) : badges.length ? (
           <div className="b-grid b-grid-3">
             {badges.map((badge, index) => (
               <article
@@ -368,7 +395,7 @@ export function ProfileExperience({ userId }: { userId?: string }) {
           />
         )}
       </section>
-      <CommentsDialog moment={selected} onClose={() => setSelected(null)} />
+      <CommentsDialog onCreated={() => void load()} moment={selected} onClose={() => setSelected(null)} />
       {toast ? (
         <Toast message={toast} onDismiss={() => setToast(null)} />
       ) : null}

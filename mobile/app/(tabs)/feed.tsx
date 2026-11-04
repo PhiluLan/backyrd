@@ -1,7 +1,11 @@
+import { shareMoment } from "../../lib/links";
+import { PersonMentions } from "../../components/PersonMentions";
+import type { MentionPerson } from "../../../packages/shared/src/presentation/social";
+import { MoodSelection } from "../../components/MoodSelection";
 // mobile/app/(tabs)/feed.tsx
 import "react-native-get-random-values";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, Share, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, View } from "react-native";
 import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,7 +19,6 @@ import { supabase } from "../../lib/supabase";
 import { loadVisibleSocialFeed } from "../../lib/social-feed";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { filterDistributedSpots } from "../../lib/distributionTrust";
-import { registerSafetySnapshot } from "../../lib/safety-content";
 import { userFacingError } from "../../lib/userFacingError";
 import {
   MOMENT_MEDIA_BUCKET,
@@ -150,6 +153,10 @@ export default function FeedScreen() {
 
   const [composerVisible, setComposerVisible] = useState(false);
   const [caption, setCaption] = useState("");
+  const [mentions, setMentions] = useState<MentionPerson[]>([]);
+  const [moods, setMoods] = useState<string[]>([]);
+  const createInFlight = useRef(false);
+  const draftActor = useRef<string | null>(null);
   const [media, setMedia] = useState<PickedMedia[]>([]);
   const [creating, setCreating] = useState(false);
 
@@ -170,8 +177,8 @@ export default function FeedScreen() {
   }, [loading, feedError, forYouPosts.length, discoverySpots.length]);
 
   const hasDraft = useMemo(() => {
-    return caption.trim().length > 0 || media.length > 0 || Boolean(selectedSpot);
-  }, [caption, media.length, selectedSpot]);
+    return caption.trim().length > 0 || media.length > 0 || Boolean(selectedSpot) || moods.length > 0 || mentions.length > 0;
+  }, [caption, media.length, selectedSpot, moods.length, mentions.length]);
   const canShareMoment = caption.trim().length > 0 || media.length > 0;
 
   const updatePostsForMode = useCallback((feedMode: FeedMode, updater: (posts: SocialFeedPost[]) => SocialFeedPost[]) => {
@@ -297,15 +304,8 @@ export default function FeedScreen() {
   }, []);
 
   const sharePost = useCallback(async (post: SocialFeedPost) => {
-    try {
+    if (await shareMoment(post.post_id, post.spot_name)) {
       void trackAnalyticsEvent({ eventName: "feed_post_shared", screenName: "feed", entityType: "social_post", entityId: post.post_id, spotId: post.spot_id ?? null });
-      await Share.share({
-        message: post.spot_name
-          ? `${post.display_name ?? "Backyrd"} bei ${post.spot_name}: ${post.caption ?? ""}`
-          : `${post.display_name ?? "Backyrd"}: ${post.caption ?? ""}`,
-      });
-    } catch {
-      // ignored
     }
   }, []);
 
@@ -406,12 +406,26 @@ export default function FeedScreen() {
   }, []);
 
   const resetComposer = useCallback(() => {
+    setMoods([]);
+    setMentions([]);
     setCaption("");
     setMedia([]);
     setSelectedSpot(null);
     setSpotQuery("");
     setSpotSuggestions([]);
   }, []);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextActor = session?.user.id ?? null;
+      if (event === "SIGNED_OUT" || (draftActor.current && draftActor.current !== nextActor)) {
+        resetComposer(); setComposerVisible(false); setCommentsPost(null);
+        setForYouPosts([]); setFollowingPosts([]); pendingPostRequest.current = null;
+      }
+      draftActor.current = nextActor;
+    });
+    return () => data.subscription.unsubscribe();
+  }, [resetComposer]);
 
   const closeComposer = useCallback(() => {
     if (creating) return;
@@ -435,6 +449,7 @@ export default function FeedScreen() {
   }, [creating, hasDraft, resetComposer]);
 
   const createPost = useCallback(async () => {
+    if (createInFlight.current) return;
     const trimmedCaption = caption.trim();
     let createStage: MomentCreateStage = "auth";
 
@@ -443,6 +458,7 @@ export default function FeedScreen() {
       return;
     }
 
+    createInFlight.current = true;
     try {
       setCreating(true);
 
@@ -451,7 +467,7 @@ export default function FeedScreen() {
 
       const userId = userData.user?.id;
       if (!userId) throw new Error("Du bist nicht eingeloggt.");
-      const fingerprint = JSON.stringify({ caption: trimmedCaption, spotId: selectedSpot?.id ?? null, media: media.map((item) => item.uri) });
+      const fingerprint = JSON.stringify({ caption: trimmedCaption, moods, mentions: mentions.map(p => p.user_id).sort(), spotId: selectedSpot?.id ?? null, media: media.map((item) => item.uri) });
       const request = pendingPostRequest.current?.fingerprint === fingerprint
         ? pendingPostRequest.current
         : { fingerprint, id: uuidv4(), uploadedPaths: new Set<string>() };
@@ -475,11 +491,13 @@ export default function FeedScreen() {
 
       createStage = "moment_mutation";
       const { data: createdPostData, error } =
-        await supabase.rpc("create_social_post_v2", {
+        await supabase.rpc("create_social_post_v3", {
           p_spot_id: selectedSpot?.id ?? null,
           p_caption: trimmedCaption || null,
           p_visibility: "public",
-          p_mood_tags: [],
+          p_mood_tags: moods,
+          p_mentioned_user_ids: mentions.map(p => p.user_id),
+          p_expected_actor_id: userId,
           p_occasion_tags: [],
           p_media: uploadedMedia,
           p_client_request_id: requestId,
@@ -495,23 +513,11 @@ export default function FeedScreen() {
         createdPost?.id ??
         null;
 
-      if (createdPostId) {
+      if (!createdPostId) throw new Error("Moment konnte nicht bestätigt werden. Dein Entwurf bleibt erhalten.");
+      const snapshot = createdPost?.safety_snapshot;
+      if (snapshot?.analysis_required === true && typeof snapshot?.case_id === "string") {
         createStage = "safety_snapshot";
-        await registerSafetySnapshot({
-          entityType: "social_post",
-          entityId: createdPostId,
-          contentType: "moment",
-          actorUserId: userId,
-          spotId: selectedSpot?.id ?? null,
-          textContent: trimmedCaption || null,
-          imageUrls: uploadedMedia.flatMap((item) =>
-            typeof item.public_url === "string" && item.public_url ? [item.public_url] : []
-          ),
-          sourceSurface: "feed_composer",
-          sourceContext: {
-            screen: "feed",
-          },
-        });
+        void supabase.functions.invoke("safety-evaluate", {body:{caseId:snapshot.case_id}}).catch(() => undefined);
       }
 
       resetComposer();
@@ -528,12 +534,15 @@ export default function FeedScreen() {
       logMomentCreateFailure(createStage, error, media.length);
       Alert.alert(
         "Moment konnte nicht erstellt werden",
-        momentCreateErrorMessage(error),
+        error && typeof error === "object" && "message" in error && String(error.message).includes("mention_not_available")
+          ? "Eine markierte Person ist inzwischen privat oder blockiert. Entferne ihre Markierung und teile den Moment erneut. Dein Entwurf bleibt erhalten."
+          : momentCreateErrorMessage(error),
       );
     } finally {
+      createInFlight.current = false;
       setCreating(false);
     }
-  }, [caption, loadFeed, media, resetComposer, selectedSpot?.id]);
+  }, [caption, moods, mentions, loadFeed, media, resetComposer, selectedSpot?.id]);
 
   const renderHeader = (
     <View style={styles.headerWrap}>
@@ -560,6 +569,11 @@ export default function FeedScreen() {
             <Text style={styles.createButtonText}>Moment</Text>
           </Pressable>
         </View>
+      </View>
+
+      <View style={{ gap: 7, paddingBottom: 18 }}>
+        <Text style={{ color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 28 }}>Erlebt. Festgehalten.</Text>
+        <Text style={{ color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 15, lineHeight: 22 }}>Moods machen dein Erlebnis spürbar. Entdecke durch die Momente anderer deinen nächsten Ort.</Text>
       </View>
 
       <View style={styles.modeShell}>
@@ -675,6 +689,7 @@ export default function FeedScreen() {
             <View style={styles.fullWidthPost}>
               <SocialPostCard
                 post={item}
+                onChanged={() => { void loadFeed(mode); }}
                 currentUserId={currentUserId}
                 onToggleReaction={toggleReaction}
                 onOpenSpot={openSpot}
@@ -740,6 +755,7 @@ export default function FeedScreen() {
             </View>
 
             <ScrollView
+              pointerEvents={creating ? "none" : "auto"}
               style={styles.composerScroll}
               contentContainerStyle={styles.composerContent}
               keyboardShouldPersistTaps="handled"
@@ -795,6 +811,10 @@ export default function FeedScreen() {
                   </Pressable>
                 </View>
               </View>
+
+              <View style={styles.composerCard}><MoodSelection context="moment" values={moods} onChange={setMoods} /></View>
+
+              <View style={styles.composerCard}><PersonMentions values={mentions} onChange={setMentions} disabled={creating} /></View>
 
               <View style={styles.spotCard}>
                 <View style={styles.spotCardHeader}>

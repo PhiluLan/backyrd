@@ -89,7 +89,7 @@ export default function ProfilePrivacyCard({
         </AppText>
         <AppText role="caption" tone="secondary" style={styles.body}>
           {isPrivate
-            ? "Nicht auffindbar, keine neuen Follower und keine öffentlichen Momente."
+            ? "Dein Profil und deine Momente sind für andere verborgen. Keine neuen Follower oder Markierungen. Wer deinen vollständigen Nutzernamen kennt, kann dir schreiben. Blockieren verhindert Kontakt."
             : "Andere Nutzer können dich finden, dir folgen und deine Momente sehen."}
         </AppText>
       </View>

@@ -13,10 +13,15 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { PlusIcon, SparkIcon } from "./icons";
 import { Avatar, Button, Dialog, StateView, Toast } from "./ui";
+import { PersonMentions } from "./person-mentions";
+import type { MentionPerson } from "../../../packages/shared/src/presentation/social";
+import { MoodSelection } from "./mood-selection";
 import { MomentCard } from "./moment-card";
 import { CommentsDialog } from "./comments-dialog";
 export function MomentsExperience() {
   const pendingPostRequest = useRef<{ fingerprint: string; id: string } | null>(null);
+  const createInFlight = useRef(false);
+  const draftActor = useRef<string | null>(null);
   const router = useRouter();
   const [mode, setMode] = useState<"for_you" | "following">("for_you");
   const [items, setItems] = useState<Moment[]>([]);
@@ -26,17 +31,32 @@ export function MomentsExperience() {
   const [composer, setComposer] = useState(false);
   const [spots, setSpots] = useState<CatalogSpot[]>([]);
   const [caption, setCaption] = useState("");
+  const [mentions, setMentions] = useState<MentionPerson[]>([]);
+  const [moods, setMoods] = useState<string[]>([]);
   const [spotId, setSpotId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextActor = session?.user.id ?? null;
+      if (event === "SIGNED_OUT" || (draftActor.current && draftActor.current !== nextActor)) {
+        setCaption(""); setMoods([]); setMentions([]); setFile(null); setSpotId("");
+        setComposer(false); setItems([]); setSelected(null); pendingPostRequest.current = null;
+      }
+      draftActor.current = nextActor;
+      setSignedIn(Boolean(nextActor)); setCurrentUserId(nextActor);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
       const { data } = await supabase.auth.getUser();
-      setSignedIn(Boolean(data.user));
+      setSignedIn(Boolean(data.user)); setCurrentUserId(data.user?.id ?? null);
       setItems(await getMoments(mode));
     } catch {
       setError(true);
@@ -66,28 +86,38 @@ export function MomentsExperience() {
     return [...people.values()];
   }, [items]);
   async function submit() {
-    if (!caption.trim() && !file) return;
+    if (createInFlight.current || (!caption.trim() && !file)) return;
+    createInFlight.current = true;
     setCreating(true);
     try {
-      const fingerprint = JSON.stringify({ caption: caption.trim(), spotId: spotId || null, file: file ? [file.name, file.size, file.lastModified] : null });
+      const fingerprint = JSON.stringify({ caption: caption.trim(), moods, mentions: mentions.map(p => p.user_id).sort(), spotId: spotId || null, file: file ? [file.name, file.size, file.lastModified] : null });
       const request = pendingPostRequest.current?.fingerprint === fingerprint
         ? pendingPostRequest.current
         : { fingerprint, id: crypto.randomUUID() };
       pendingPostRequest.current = request;
       const requestId = request.id;
-      await createMoment({ caption, spotId: spotId || null, file, requestId });
+      await createMoment({ caption, spotId: spotId || null, file, requestId, moods, mentionedUserIds: mentions.map(p => p.user_id) });
       pendingPostRequest.current = null;
       setComposer(false);
       setCaption("");
+      setMoods([]); setMentions([]);
       setSpotId("");
       setFile(null);
       setToast("Dein Moment ist geteilt.");
       await load();
-    } catch {
-      setToast("Dein Moment konnte nicht geteilt werden.");
+    } catch (error: unknown) {
+      setToast(error instanceof Error ? error.message : "Dein Moment konnte nicht geteilt werden. Dein Entwurf bleibt erhalten.");
     } finally {
+      createInFlight.current = false;
       setCreating(false);
     }
+  }
+  function closeComposer() {
+    if (createInFlight.current) return;
+    if ((caption.trim() || file || spotId || moods.length || mentions.length) && !window.confirm("Entwurf verwerfen? Dein Moment wurde noch nicht geteilt.")) return;
+    setCaption(""); setFile(null); setSpotId(""); setMoods([]); setMentions([]);
+    pendingPostRequest.current = null;
+    setComposer(false);
   }
   return (
     <div className="b-container b-main b-moments-page">
@@ -100,8 +130,8 @@ export function MomentsExperience() {
                 MOMENTE
               </h1>
               <p className="b-moments-intro">
-                Echte Erlebnisse. Lokale Entdeckungen. Kleine Geschichten aus
-                deiner Stadt.
+                Erlebt. Festgehalten. Moods machen dein Erlebnis spürbar.
+                Entdecke durch die Momente anderer deinen nächsten Ort.
               </p>
             </div>
             {signedIn ? (
@@ -180,6 +210,8 @@ export function MomentsExperience() {
                   <MomentCard
                     key={moment.post_id}
                     moment={moment}
+                    currentUserId={currentUserId}
+                    onChanged={() => { void load(); }}
                     onComments={setSelected}
                   />
                 ))}
@@ -231,13 +263,13 @@ export function MomentsExperience() {
           </div>
         </aside>
       </div>
-      <CommentsDialog moment={selected} onClose={() => setSelected(null)} />
+      <CommentsDialog onCreated={() => void load()} moment={selected} onClose={() => setSelected(null)} />
       <Dialog
         open={composer}
         title="Moment teilen"
-        onClose={() => setComposer(false)}
+        onClose={closeComposer}
       >
-        <div className="b-form">
+        <fieldset className="b-form" disabled={creating}>
           <div className="b-input-group">
             <label className="b-label" htmlFor="moment-text">
               Was erlebst du?
@@ -281,8 +313,10 @@ export function MomentsExperience() {
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
           </div>
+          <MoodSelection context="moment" values={moods} onChange={setMoods} />
+          <PersonMentions values={mentions} onChange={setMentions} disabled={creating} />
           <div className="b-form-actions">
-            <Button variant="secondary" onClick={() => setComposer(false)}>
+            <Button variant="secondary" onClick={closeComposer}>
               Abbrechen
             </Button>
             <Button
@@ -292,7 +326,7 @@ export function MomentsExperience() {
               {creating ? "Wird geteilt …" : "Teilen"}
             </Button>
           </div>
-        </div>
+        </fieldset>
       </Dialog>
       {toast ? (
         <Toast message={toast} onDismiss={() => setToast(null)} />
