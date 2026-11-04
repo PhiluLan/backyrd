@@ -1,8 +1,8 @@
 # Paket 3: Moments, Moods und soziale Nutzung
 
-Stand: 3. November 2026. Entwicklung auf `codex/beta-moments-social`.
-Dieser Stand ist noch nicht veröffentlicht und noch nicht auf dem iPhone
-abgenommen. Der bestehende TestFlight-Build 60 gehört zu Paket 2.
+Stand: 4. November 2026. Backend, Web und Admin sind veröffentlicht. Build 61
+wurde erfolgreich an Apple TestFlight übertragen; die tatsächliche native
+Abnahme ist weiterhin offen. Build 60 gehört zu Paket 2.
 
 ## Produktverhalten
 
@@ -155,10 +155,11 @@ serverseitigen Modelllauf. Das ist kein abgeschlossener Beta-Release.
 
 ## Veröffentlichung
 
-Noch keine Migration, Edge Function, Web-Version oder native Version aus diesem
-Paket ist live. Für den Release gilt: exakt zertifizierter Commit, die neue
-Migration und die beiden geänderten Funktionen, anschliessend Web und der
-passende native Teststand. Die vier zurückgestellten Booking-Migrationen sowie
+Veröffentlicht aus Main `6093074366e21c1a4513e80b087e09dd2559c899`: die neue
+Migration, `safety-evaluate` Version 102 und `generate-data-export` Version 92,
+anschliessend die zugehörigen Web-/Admin-Produktionsbuilds und Build 61 an Apple.
+Zertifizierung: GitHub 41795034190; produktiver Release: 41795838097.
+Manifest: `349deab8cf4cd2b86bdd1dd240ad1c175c9a77c0cd0b57167030c08974de7c97`. Die vier zurückgestellten Booking-Migrationen sowie
 Auth- und Decision-Änderungen gehören nicht zu diesem Paket. Der bestehende
 Releaseweg und seine erforderlichen Freigaben werden nicht umgangen.
 
@@ -189,14 +190,31 @@ IPA besteht die Bundle-/Provisioning-Prüfung und `codesign --verify --deep --st
 Version 1.1.0/61, App-Kennung `com.philipplanger.backyrd`, Team `7B3B8TL6J9`,
 `get-task-allow=false` und beide bisherigen Associated Domains sind am Paket geprüft.
 IPA-SHA-256: `fe7a827267555e1616a69510c9e2a7f02600c9de1b56c29597e1f1efc82f65b2`.
-Kein Auto-Submit, keine Übertragung an Apple, keine Installation und keine Verteilung.
+Zum Zeitpunkt dieser lokalen Paketprüfung gab es noch keine Übertragung an Apple.
+Der spätere autorisierte TestFlight-Versand ist unten dokumentiert; eine Installation
+oder native Abnahme wird weiterhin nicht behauptet.
 Der lokale Prüfbeleg liegt unter `/tmp/backyrd-p3-build61/receipt.json`.
 
-Die aktuelle GitHub-Datenbankausführung besteht inklusive neuem Social-SQL-Test,
-Berechtigungsprüfung und korrigiertem DB-Lint. Der Job ist dennoch noch nicht
-freigegeben: Der generierte Datenbank-Release-Nachweis für die neue Migration
-fehlt (`forward_migration_requires_exactly_one_generated_database_release`).
-Die Product-Zertifizierung und der Merge bleiben offen. Vor einer Geräteabnahme
-müssen die neuen Serververträge kontrolliert veröffentlicht und der TestFlight-
-Versand gesondert freigegeben werden. Ein fertiges IPA ist keine Server- oder
-Beta-Abnahme.
+Der generierte Datenbanknachweis `delivery/database-releases/beta-social-moments-v1.json`
+und die Berechtigungsprüfungen sind bestanden. Der produktive Nachweis steht unter
+`supabase.betaSocialRelease` in `delivery/production-state.json`. RLS ist aktiv,
+anonymer Zugriff und direkte Clientänderungen sind gesperrt, interne Snapshot-
+und Exportverträge bleiben geschützt. Beide Funktionen antworten ohne Anmeldung
+mit HTTP 401. Die Produktionsdomains sind dem freigegebenen Main-Build zugeordnet.
+
+Die bei der ersten Produktionszertifizierung entdeckte Konfigurationsprüfung
+war auf Decision beschränkt. PR #689 ergänzt exakt die im versiegelten Plan
+gebundenen Funktionen; JWT-Konfigurationsmanipulation wird weiterhin abgewiesen.
+Es wurde kein Gate übersprungen. Web wurde bis zum Backend-Erfolg gestaffelt
+bereitgehalten; die ursprünglichen Vercel-Einstellungen sind wiederhergestellt.
+
+TestFlight-Übertragung `ef0c0a0d-7245-46a4-8303-4e29df471927` ist bei Expo
+`FINISHED`. Kein OTA und keine öffentliche App-Store-Einreichung. Optionale
+Testhinweise konnten wegen des bestehenden Expo-Tarifs nicht mitgesendet werden;
+der reine Upload wurde ohne Tarifänderung erfolgreich ausgeführt.
+
+Noch offen vor „Paket 3 grün“: native Abnahme mit zwei Konten und tatsächliche
+Provider-Ausführung der privaten Fotoprüfung. Ein bereits vorhandener
+Security-Definer-View-Befund bleibt unverändert. Die zusätzlichen Datenbank-
+Hinweise betreffen die bewusst authentifizierten Social-RPCs und die neue
+RLS-geschützte Markierungstabelle; es gibt keinen zusätzlichen anonymen Grant.

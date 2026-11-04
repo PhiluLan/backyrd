@@ -5,17 +5,21 @@ import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 export const BETA_SOCIAL_MIGRATION = Object.freeze({path:"supabase/migrations/20261103182149_beta_social_contact_and_mentions_v1.sql",sha256:"79c28e5de8abe18ad8c2b6f332c1f7555c2627102f1a1e0eecd0a614d0297383"});
 export const BETA_SOCIAL_FUNCTIONS = Object.freeze(["generate-data-export","safety-evaluate"]);
-export function scopeBetaSocialMigrations({pending,scope,baseSha,deployFunctions,authDeploy}) {
+export function scopeBetaSocialMigrations({pending,scope,baseSha,deployFunctions,authDeploy,appliedBetaSocial}) {
   if(scope?.contractVersion!=="backyrd.beta-social-delivery-scope@1.0"
     || scope.executionAuthorized!==false || scope.baseSha!==baseSha
     || !equal(scope.migrations,[BETA_SOCIAL_MIGRATION])
     || !equal(scope.deferredMigrations,DEFERRED_BOOKING_MIGRATIONS)
     || !Number.isSafeInteger(scope.backupRunId) || scope.backupRunId<1
-    || !equal([...deployFunctions].sort(),BETA_SOCIAL_FUNCTIONS)
+    || !equal([...deployFunctions].sort(),appliedBetaSocial ? [] : BETA_SOCIAL_FUNCTIONS)
     || authDeploy)throw new Error("beta_social_scope_invalid");
-  if(!equal(canonicalRows(pending),canonicalRows([BETA_SOCIAL_MIGRATION,...DEFERRED_BOOKING_MIGRATIONS])))
+  const selected=appliedBetaSocial ? [] : [BETA_SOCIAL_MIGRATION];
+  if(!equal(canonicalRows(pending),canonicalRows([...selected,...DEFERRED_BOOKING_MIGRATIONS])))
     throw new Error("beta_social_pending_scope_changed");
-  return {pendingMigrations:[BETA_SOCIAL_MIGRATION],deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
+  return {pendingMigrations:selected,deferredMigrations:DEFERRED_BOOKING_MIGRATIONS,isolatedResearchScope:scope};
+}
+export function betaSocialAppliedReceipt(state,read,isAncestor) {
+  return exactResearchReceipt(state,read,isAncestor,BETA_SOCIAL_MIGRATION,"betaSocialRelease");
 }
 export const ANALYTICS_PRIVACY_REPAIR_MIGRATION = Object.freeze({path:"supabase/migrations/20261101203100_analytics_privacy_reference_cleanup_v1.sql",sha256:"c4e2dade77e617da3204d4a7833d573d46d2b75fcd32a6806353284d4bb2d7df"});
 export const BETA_SECURITY_MIGRATION = Object.freeze({path:"supabase/migrations/20261101183602_beta_security_boundaries_v1.sql",sha256:"60269b6aca93a5fee2091d736978b85dc5ca64670efc7afe52cfb220449bdd3a"});

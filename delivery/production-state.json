@@ -504,6 +504,92 @@
         "password_hibp_enabled": true
       },
       "smtpCredentialApplied": false
+    },
+    "betaSocialRelease": {
+      "status": "APPLIED_AND_VERIFIED",
+      "sourceSha": "6093074366e21c1a4513e80b087e09dd2559c899",
+      "deploymentRunId": 41795838097,
+      "certificationRunId": 41795034190,
+      "manifestHash": "349deab8cf4cd2b86bdd1dd240ad1c175c9a77c0cd0b57167030c08974de7c97",
+      "backupRunId": 41714621454,
+      "verifiedAt": "2026-11-04T07:59:29.135538Z",
+      "remoteMigrationCount": 203,
+      "remoteMigrationTip": "20261103182149",
+      "migration": {
+        "path": "supabase/migrations/20261103182149_beta_social_contact_and_mentions_v1.sql",
+        "sha256": "79c28e5de8abe18ad8c2b6f332c1f7555c2627102f1a1e0eecd0a614d0297383"
+      },
+      "deferredMigrations": [
+        {
+          "path": "supabase/migrations/20261020184245_booking_restaurant_service_lifecycle_v1.sql",
+          "sha256": "281f102648d780ec6e4ca4fad8a22929747767f656a517288430ec1cfc3388b9"
+        },
+        {
+          "path": "supabase/migrations/20261020185443_booking_reservation_amendments_v1.sql",
+          "sha256": "23ec32e5ccac1f445ca143dd93e34b631bc939eacffb91538e37793b5c1300bc"
+        },
+        {
+          "path": "supabase/migrations/20261020192107_booking_restaurant_walk_ins_v1.sql",
+          "sha256": "69d98e0afa071cc4c531f3743d5fb79084b84cd7d8e324dfc3968b74cdc71bb2"
+        },
+        {
+          "path": "supabase/migrations/20261020195933_booking_restaurant_table_layout_v1.sql",
+          "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
+        }
+      ],
+      "functions": [
+        {
+          "slug": "generate-data-export",
+          "version": 92,
+          "verifyJwt": true,
+          "bundleHash": "dfe19bd411e7e21eb3e1edd60adb483253aa9462116f69fd09fbf49400dfc7f1",
+          "sourceSetHash": "9a6f0e96b0b03a62d23c0d2bab81c465e074faebbb65e9192d54448efa206c16",
+          "deferredCandidateSourceSetHash": null
+        },
+        {
+          "slug": "safety-evaluate",
+          "version": 102,
+          "verifyJwt": true,
+          "bundleHash": "3b7b0cf62811ea1058226480a53855840581c9ebf10a9ca69c3ce1ce3054c336",
+          "sourceSetHash": "f4a019960a26c463c5fb1a2cdfdc55848bb6c5ab23f34492107217257580a4d3",
+          "deferredCandidateSourceSetHash": null
+        }
+      ],
+      "productionDeploymentAuditHash": "e514d463ae61bc156b11ae4d6e1b6e9b6eea6dc98e7bffddde649ec41162ef11",
+      "liveVerification": {
+        "mentionsRls": true,
+        "anonymousMentionsRead": false,
+        "directMentionsWrite": false,
+        "anonymousCreate": false,
+        "authenticatedCreate": true,
+        "directInternalSnapshotAccess": false,
+        "directExportAccess": false,
+        "unchangedDecisionVersions": {
+          "decision-v13": 232,
+          "decision-admin-diagnostic": 28
+        },
+        "authChanged": false,
+        "productionTestContentCreated": false
+      },
+      "webDeployments": [
+        {
+          "projectId": "prj_XepjXWDUm60CnSdl0xhJFr6cwJZx",
+          "id": "dpl_9kNpzddiP2GT4HjTHBtJSfKrJwRn",
+          "url": "backyrd-intelligence-qc1eq1qcp-backyrd.vercel.app",
+          "state": "READY",
+          "target": "production",
+          "sha": "6093074366e21c1a4513e80b087e09dd2559c899"
+        },
+        {
+          "projectId": "prj_ZQTq8rOFKJ1ep6MEG8sY9AAA8wxO",
+          "id": "dpl_CFay4e48QkVPoZkX5Veg5FFYRkaD",
+          "url": "backyrd-j53potnvs-backyrd.vercel.app",
+          "state": "READY",
+          "target": "production",
+          "sha": "6093074366e21c1a4513e80b087e09dd2559c899"
+        }
+      ],
+      "note": "Only the Founder-approved Social SQL and two JWT-protected Functions were applied from the certified Main artifact. Exact production domains verified. The four Booking migrations remain absent. Historical full baseline is preserved. Native two-account acceptance and real provider execution are still pending; this receipt does not claim Paket 3 green."
     }
   },
   "mobile": {
