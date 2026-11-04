@@ -209,6 +209,10 @@ test('Social release applies only pinned SQL and two JWT-protected function name
  const request={pending:[...deferred,sql],scope:{contractVersion:'backyrd.beta-social-delivery-scope@1.0',executionAuthorized:false,baseSha:base,migrations:[sql],deferredMigrations:deferred,backupRunId:1},baseSha:base,deployFunctions:[...slugs],authDeploy:false};
  const accepted=check(request);assert.deepEqual(accepted.pendingMigrations,[sql]);assert.deepEqual(accepted.deferredMigrations,deferred);
  for(const patch of [{pending:[sql]},{pending:[...deferred,{...sql,sha256:'0'.repeat(64)}]},{pending:[...request.pending,{path:'extra.sql',sha256:'a'.repeat(64)}]},{authDeploy:true},{deployFunctions:[...slugs,'decision-v13']},{deployFunctions:[slugs[0]]},{scope:{...request.scope,executionAuthorized:true}},{scope:{...request.scope,backupRunId:0}},{scope:{...request.scope,migrations:[...deferred,sql]}}])assert.throws(()=>check({...request,...patch}),/beta_social/);
+ const applied={...request,pending:[...deferred],deployFunctions:[],appliedBetaSocial:{status:'APPLIED_AND_VERIFIED'}};
+ assert.deepEqual(check(applied).pendingMigrations,[]);
+ assert.throws(()=>check({...applied,pending:request.pending}),/beta_social_pending_scope_changed/);
+ assert.throws(()=>check({...applied,deployFunctions:[...slugs]}),/beta_social_scope_invalid/);
  const root=new URL('../..',import.meta.url).pathname,output=mkdtempSync(join(tmpdir(),'backyrd-social-workspace-'));
  prepareResearchMigrationWorkspace({...accepted,baseSha:base,deployFunctions:[...slugs],authConfig:null},root,output);
  assert.equal(readFileSync(join(output,sql.path),'utf8'),readFileSync(join(root,sql.path),'utf8'));

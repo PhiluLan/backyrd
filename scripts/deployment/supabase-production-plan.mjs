@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
-import { scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
+import { betaSocialAppliedReceipt, scopeBetaSocialMigrations, BETA_SOCIAL_FUNCTIONS, ANALYTICS_PRIVACY_REPAIR_MIGRATION, analyticsPrivacyAppliedReceipt, betaSecurityAppliedReceipt, scopeBetaSecurityMigrations, seasonalEventAppliedReceipt, scopeSeasonalEventMigrations, regionalDecisionAppliedReceipt, scopeRegionalDecisionMigrations, AREA_RESERVATION_MIGRATION, areaReservationAppliedReceipt, ADMIN_CATEGORY_MIGRATION, adminCategoryAppliedReceipt, researchAppliedReceipt, scopeResearchMigrations, scopeVoltaMigrations, voltaAppliedReceipt, RESEARCH_SAFETY_MIGRATION, RESEARCH_RHASSOUL_MIGRATION, researchRhassoulAppliedReceipt, RESEARCH_SAFETY_DEFERRED_FUNCTION_CHANGES } from "./isolated-research-migration.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -523,6 +523,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     try {git(repo,["merge-base","--is-ancestor",source,headSha]);return true;}catch{return false;}
   });
   if(appliedAnalyticsPrivacy)preappliedPaths.add(appliedAnalyticsPrivacy.migration.path);
+  const appliedBetaSocial=betaSocialAppliedReceipt(state,head.read,source=>{
+    try {git(repo,["merge-base","--is-ancestor",source,headSha]);return true;}catch{return false;}
+  });
+  if(appliedBetaSocial)preappliedPaths.add(appliedBetaSocial.migration.path);
   const allPending = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const authority = head.files.has("delivery/product-authority-v1.json") ? JSON.parse(head.text("delivery/product-authority-v1.json")) : null;
   const functionChanges = functions.filter(item=>item.deploy).map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
@@ -547,8 +551,17 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       if(verified.sourceSetHash!==item.sourceSetHash)throw new Error("beta_social_deferred_runtime_changed");
       item.deploy=false;item.reason="EXACT_EXISTING_RUNTIME_SOURCE_PRESERVED_BY_SOCIAL_SCOPE";
     }
+    if(appliedBetaSocial) {
+      for(const item of functions.filter(item=>BETA_SOCIAL_FUNCTIONS.includes(item.slug))) {
+        const released=getFunctionSourceIdentity({repo,ref:appliedBetaSocial.sourceSha,slug:item.slug});
+        if(released.sourceSetHash!==item.sourceSetHash
+          || !socialScope.functions.some(bound=>bound.slug===item.slug && bound.sourceSetHash===item.sourceSetHash))
+          throw new Error("beta_social_applied_function_source_changed");
+        item.deploy=false;item.reason="EXACT_APPLIED_SOCIAL_SOURCE_PRESERVED_BY_RECEIPT";
+      }
+    }
     const selected=functions.filter(item=>item.deploy);
-    if(JSON.stringify(selected.map(({slug,sourceSetHash})=>({slug,sourceSetHash})))!==JSON.stringify(socialScope.functions)
+    if(JSON.stringify(selected.map(({slug,sourceSetHash})=>({slug,sourceSetHash})))!==JSON.stringify(appliedBetaSocial ? [] : socialScope.functions)
       || selected.some(item=>!item.verifyJwt))throw new Error("beta_social_function_source_binding_invalid");
   }
   if(securityScope) {
@@ -608,7 +621,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
   const scoped = socialScope
-    ? scopeBetaSocialMigrations({pending:allPending,scope:socialScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true})
+    ? scopeBetaSocialMigrations({pending:allPending,scope:socialScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedBetaSocial})
     : securityScope
     ? scopeBetaSecurityMigrations({pending:allPending,scope:securityScope,baseSha,deployFunctions,authConfig,appliedBetaSecurity,appliedAnalyticsPrivacy})
     : seasonalScope
