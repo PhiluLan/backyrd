@@ -362,13 +362,24 @@ test("a Social function and its private-media helper ship as sealed artifact byt
  const functionPath='supabase/functions/safety-evaluate/index.ts',helperPath='supabase/functions/_shared/safety/moment-media.ts';
  put(root,'supabase/config.toml',readFileSync(join(root,'supabase/config.toml'),'utf8')+'\n[functions.safety-evaluate]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/safety-evaluate/index.ts"\n');
  put(root,functionPath,"import '../_shared/safety/moment-media.ts';\n");put(root,helperPath,'export const privateMedia = true;\n');
+ put(root,'supabase/functions/decision-v13/deno.json',JSON.stringify({imports:{}}));
+ for(const path of [
+  'packages/decision-vnext-core/dist/product-decision-production-adapter.js',
+  'packages/decision-vnext-core/dist/product-decision.js',
+  'packages/user-intelligence-vnext-core/dist/index.js',
+  'packages/world-knowledge-core/dist/index.js',
+ ])put(root,path,'export const sealed = true;\n');
  const head=commit(root,'Social function'),output=join(root,'social-output');
  const identity=resolveProductReleaseIdentity({root,mode:'PR_CANDIDATE',sourceSha:head,baseSha:base,checkoutSha:head,canonicalMainSha:base});
  const planned=plan(base,head);planned.functions=[{...getFunctionSourceIdentity({repo:root,ref:head,slug:'safety-evaluate'}),deploy:true}];planned.deployFunctions=['safety-evaluate'];
  const manifest=buildProductReleaseManifest({root,sourceSha:head,outputDir:output,mobileBundle:join(root,'mobile-export'),identity,testEvidence:buildProductReleaseTestEvidence({root,sourceSha:head}),productionPlan:planned});
  for(const path of [functionPath,helperPath])assert.ok(manifest.components.productRuntime.some(file=>file.path===path));
  assert.match(readFileSync(join(output,'bundle/supabase/config.toml'),'utf8'),/\[functions.safety-evaluate\]/);
- verifyProductReleaseManifest({artifactDir:output,expectedHash:manifest.manifestHash,expectedSourceSha:head});
+ verifyProductReleaseManifest({artifactDir:output,expectedHash:manifest.manifestHash,expectedSourceSha:head,checkoutRoot:root});
+ const configPath='supabase/config.toml',originalConfig=readFileSync(join(root,configPath),'utf8');
+ put(root,configPath,originalConfig.replace('[functions.safety-evaluate]\nenabled = true\nverify_jwt = true','[functions.safety-evaluate]\nenabled = true\nverify_jwt = false'));
+ assert.throws(()=>verifyProductReleaseManifest({artifactDir:output,expectedHash:manifest.manifestHash,expectedSourceSha:head,checkoutRoot:root}),/release_edge_function_config_mismatch/);
+ put(root,configPath,originalConfig);
  put(output,'bundle/'+helperPath,'tampered\n');
  assert.throws(()=>verifyProductReleaseManifest({artifactDir:output,expectedHash:manifest.manifestHash,expectedSourceSha:head}),/release_artifact_file_mismatch/);
 });

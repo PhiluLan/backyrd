@@ -464,7 +464,11 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
     if (checkoutRoot && file.path === "supabase/config.toml" && runtimePaths.has("supabase/functions/decision-v13/deno.json")) {
       const checkedOutConfig = parseSupabaseFunctionConfig(readFileSync(resolve(checkoutRoot, file.path), "utf8"));
       const bundledConfig = parseSupabaseFunctionConfig(content.toString("utf8"));
-      const expectedSlugs = ["decision-v13", "decision-engine-worker", ...(runtimePaths.has("supabase/functions/decision-admin-diagnostic/index.ts") ? ["decision-admin-diagnostic"] : [])];
+      const expectedSlugs = [...new Set([
+        "decision-v13", "decision-engine-worker",
+        ...(runtimePaths.has("supabase/functions/decision-admin-diagnostic/index.ts") ? ["decision-admin-diagnostic"] : []),
+        ...(manifest.productionPlan.deployFunctions ?? []),
+      ])];
       requireValue(bundledConfig.functions.size === expectedSlugs.length
         && expectedSlugs.every((slug) => bundledConfig.functions.get(slug)?.configHash === checkedOutConfig.functions.get(slug)?.configHash),
       "release_edge_function_config_mismatch");
