@@ -44,6 +44,17 @@ const parseScalar = (source) => {
   throw new Error(`unsupported_config_value:${value}`);
 };
 
+export function validateWeatherContextDeliveryScope({scope,appliedSocial,functions,authDeploy,retiredFunctions}) {
+  if(!scope)return null;
+  const selected=functions.find(item=>item.slug==="weather-context");
+  if(scope.contractVersion!=="backyrd.weather-context-delivery-scope@1.0" || scope.executionAuthorized!==false
+    || !appliedSocial || scope.appliedSocialSourceSha!==appliedSocial.sourceSha
+    || scope.function?.slug!=="weather-context" || !HASH.test(scope.function?.sourceSetHash??"")
+    || !selected?.deploy || selected.verifyJwt!==true || selected.sourceSetHash!==scope.function.sourceSetHash
+    || authDeploy || retiredFunctions.length)throw new Error("weather_context_delivery_scope_invalid");
+  return "weather-context";
+}
+
 export const parseSupabaseFunctionConfig = (source) => {
   const functions = new Map();
   const globalLines = [];
@@ -533,6 +544,9 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   // Code delivery is independent from historical, already applied SQL releases.
   // Keep their receipts, but do not reuse their old Function hashes as a freeze.
   const socialScope = authority?.betaSocialDeliveryScope ?? null;
+  const weatherScope = authority?.weatherContextDeliveryScope ?? null;
+  const weatherSlug=validateWeatherContextDeliveryScope({scope:weatherScope,appliedSocial:appliedBetaSocial,functions,authDeploy:authConfig?.deploy===true,retiredFunctions});
+  if(weatherScope && !socialScope)throw new Error("weather_context_requires_applied_social_scope");
   const securityScope = authority?.betaSecurityDeliveryScope ?? null;
   const seasonalScope = authority?.seasonalEventDeliveryScope ?? null;
   const regionalScope = authority?.regionalDecisionDeliveryScope ?? null;
@@ -541,7 +555,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     if(securityScope || seasonalScope || regionalScope || codeOnlyScope || authority?.isolatedResearchMigrationScope || authority?.isolatedVoltaMigrationScope
       || authConfig?.deploy===true || retiredFunctions.length || migrationRecovery || preappliedMigrationImport || productPreappliedImport)
       throw new Error("beta_social_release_scope_conflict");
-    const deferred=functions.filter(item=>item.deploy && !BETA_SOCIAL_FUNCTIONS.includes(item.slug));
+    const deferred=functions.filter(item=>item.deploy && !BETA_SOCIAL_FUNCTIONS.includes(item.slug) && item.slug!==weatherSlug);
     const changes=deferred.map(({slug,previousSourceSetHash,sourceSetHash})=>({slug,previousSourceSetHash,sourceSetHash}));
     if(JSON.stringify(changes)!==JSON.stringify(socialScope.deferredFunctionChanges)
       || deferred.some(item=>!["decision-v13","decision-admin-diagnostic"].includes(item.slug)))throw new Error("beta_social_deferred_function_binding_invalid");
@@ -560,7 +574,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
         item.deploy=false;item.reason="EXACT_APPLIED_SOCIAL_SOURCE_PRESERVED_BY_RECEIPT";
       }
     }
-    const selected=functions.filter(item=>item.deploy);
+    const selected=functions.filter(item=>item.deploy && item.slug!==weatherSlug);
     if(JSON.stringify(selected.map(({slug,sourceSetHash})=>({slug,sourceSetHash})))!==JSON.stringify(appliedBetaSocial ? [] : socialScope.functions)
       || selected.some(item=>!item.verifyJwt))throw new Error("beta_social_function_source_binding_invalid");
   }
@@ -621,7 +635,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   if (authority?.isolatedResearchMigrationScope && authority?.isolatedVoltaMigrationScope) throw new Error("isolated_migration_scopes_conflict");
   const scoped = socialScope
-    ? scopeBetaSocialMigrations({pending:allPending,scope:socialScope,baseSha,deployFunctions,authDeploy:authConfig?.deploy===true,appliedBetaSocial})
+    ? scopeBetaSocialMigrations({pending:allPending,scope:socialScope,baseSha,deployFunctions:deployFunctions.filter(slug=>slug!==weatherSlug),authDeploy:authConfig?.deploy===true,appliedBetaSocial})
     : securityScope
     ? scopeBetaSecurityMigrations({pending:allPending,scope:securityScope,baseSha,deployFunctions,authConfig,appliedBetaSecurity,appliedAnalyticsPrivacy})
     : seasonalScope
@@ -645,6 +659,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     deployFunctions,
     deferredFunctionChanges,
     codeOnlyDeliveryScope: codeOnlyScope,
+    weatherContextDeliveryScope: weatherScope,
     migrations,
     pendingMigrations,
     // This approved migration predates the remote tip. Only the exact isolated

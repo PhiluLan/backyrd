@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
 import { HomeMomentsSection } from "../../components/HomeMomentsSection";
 import { HomeDisplayHeading } from "../../components/HomeDisplayHeading";
+import { WeatherContext } from "../../components/WeatherContext";
 import Avatar from "../../components/Avatar";
 import { IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
@@ -250,6 +251,7 @@ export default function HomeScreen() {
             </Pressable> : null}
           </View>
           {searchHint ? <AppText role="caption" tone="error" style={styles.searchHint}>{searchHint}</AppText> : null}
+          {user?.id ? <WeatherContext city={city} actorId={user.id} revision={momentRevision} /> : null}
 
           <View style={[styles.sectionHeader, currentLocation && styles.nearbySectionHeader, fontScale > 1.3 && { flexDirection: "column", alignItems: "flex-start" }]}>
             <View style={currentLocation ? styles.nearbyTitleBlock : styles.sectionTitleBlock}>

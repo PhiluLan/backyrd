@@ -133,6 +133,7 @@ jobs:
         with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci --ignore-scripts
       - run: npm exec tsc -- --noEmit --pretty false -p packages/shared/tsconfig.json
+      - run: node --test scripts/ci/weather-context.test.mjs
 
   user:
     name: User Intelligence focused gate

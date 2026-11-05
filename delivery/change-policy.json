@@ -5,7 +5,7 @@
     "mobile": ["mobile/", ".easignore"],
     "web": ["web/", "packages/world-knowledge-authoring-ui/"],
     "admin": ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"],
-    "shared": ["packages/shared/"],
+    "shared": ["packages/shared/", "supabase/functions/_shared/weather", "supabase/functions/weather-context/", "scripts/ci/weather-context.test.mjs"],
     "user": ["packages/user-intelligence-vnext-core/", "scripts/user-intelligence/", "docs/user-intelligence-vnext/"],
     "world": ["packages/world-knowledge-core/", "scripts/world-knowledge/", "docs/world-knowledge/"]
   },

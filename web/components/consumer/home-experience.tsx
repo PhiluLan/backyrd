@@ -1,6 +1,7 @@
 "use client";
 
 import { MoodSignature } from "./mood-signature";
+import { WeatherContext } from "./weather-context";
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -89,6 +90,7 @@ export function HomeExperience() {
                 Für jetzt <ArrowIcon />
               </Button>
             </form>
+            <WeatherContext city="Basel" />
           </div>
           {hero ? (
             <CanonicalSpotImage
