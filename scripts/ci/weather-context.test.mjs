@@ -19,7 +19,7 @@ async function loadTs(path) {
 }
 const { WeatherKitService, signWeatherKitToken } = (await loadTs('../../supabase/functions/_shared/weatherkit.ts')).module;
 const { createWeatherHandler } = (await loadTs('../../supabase/functions/_shared/weather-handler.ts')).module;
-const { parseWeatherContext, weatherConditionLabel } = (await loadTs('../../packages/shared/src/weather-context.ts')).module;
+const { parseWeatherContext, weatherConditionLabel, appleWeatherUrl } = (await loadTs('../../packages/shared/src/weather-context.ts')).module;
 const { cityCenterFor } = (await loadTs('../../packages/shared/src/city-centers.ts')).module;
 
 const now = Date.parse('2026-11-05T10:15:00Z');
@@ -29,7 +29,7 @@ const credentials = { teamId: 'ABCDEFGHIJ', keyId: '0123456789', serviceId: 'ch.
   privateKey: `-----BEGIN PRIVATE KEY-----\n${Buffer.from(pkcs8).toString('base64')}\n-----END PRIVATE KEY-----` };
 const stamp = x => new Date(x).toISOString();
 function fixture(at = now) {
-  const metadata = { readTime: stamp(at - 60_000), expireTime: stamp(at + 30 * 60_000), attributionURL: 'https://weather-data.apple.com/legal-attribution.html' };
+  const metadata = { readTime: stamp(at - 60_000), expireTime: stamp(at + 30 * 60_000), attributionURL: 'https://developer.apple.com/weatherkit/data-source-attribution/' };
   return { currentWeather: { asOf: stamp(at - 120_000), temperature: 12, conditionCode: 'Cloudy', windSpeed: 10, metadata },
     forecastHourly: { metadata, hours: Array.from({ length: 169 }, (_, i) => ({ forecastStart: stamp(Math.floor(at / 3_600_000) * 3_600_000 + i * 3_600_000), temperature: 18, conditionCode: 'Rain', precipitationChance: 0.8, windSpeed: 12 })) } };
 }
@@ -108,6 +108,9 @@ test('provider failure, expired metadata and unsafe attribution remain honestly 
   assert.equal((await unsafe.get('Basel', undefined, now)).state, 'UNKNOWN');
 });
 test('client rejects expired, mismatched and malformed server values', async () => {
+  assert.equal(appleWeatherUrl('https://developer.apple.com/weatherkit/data-source-attribution/'), true);
+  assert.equal(appleWeatherUrl('https://developer.apple.com/unrelated/'), false);
+  assert.equal(appleWeatherUrl('https://developer.apple.com/weatherkit/data-source-attribution/?redirect=evil'), false);
   const result = await provider().service.get('Basel', undefined, now); assert.equal(result.state, 'KNOWN');
   assert.equal(parseWeatherContext(result, 'Bern', now), null);
   assert.equal(parseWeatherContext(result, 'Basel', now + 11 * 60_000), null);

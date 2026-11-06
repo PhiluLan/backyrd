@@ -1,7 +1,14 @@
 # Paket 4: WeatherKit-Grundlage
 
-Stand: 5. November 2026. Implementiert zur Prüfung, noch nicht veröffentlicht.
-Die echte Apple-Verbindung und die Geräteabnahme sind offen.
+Stand: 7. November 2026. Implementiert zur Prüfung, noch nicht veröffentlicht.
+Der ausdrücklich freigegebene WeatherKit-Schlüssel und die Service-ID sind
+angelegt; die fünf Konfigurationswerte liegen als Supabase-Server-Secrets vor.
+Der echte Abruf für Basel aktuell und 24 Stunden später bestand am
+6. November um 23:48 UTC (7. November, 00:48 Schweizer Zeit): Wetter und
+Attribution HTTP 200, beide Ergebnisse validiert, zweiter Abruf aus dem Cache.
+Der von Apple gelieferte offizielle Quellenpfad auf developer.apple.com wird
+gezielt akzeptiert. Beliebige andere Entwicklerseiten bleiben ausgeschlossen.
+Die Geräteabnahme ist weiterhin offen.
 
 ## Umfang und Grundeinstellungen
 
@@ -48,9 +55,8 @@ Stadt-/Datumsbindung, Sommerzeit, Cache-Ablauf, Apple-Fehler, Attribution,
 ungültige Antworten, Anmeldung, Kontobindung und Kostenbegrenzung mit isolierten
 Fixtures. Das ersetzt keine echte Apple-Anfrage.
 
-Offen: ausdrückliche Freigabe und Einrichtung des dauerhaften Apple-Schlüssels,
-echte Antworten für Basel heute und morgen, Quellenlink/Logo, manuelle mobile
-und Web-Abnahme, Produktionsfreigabe und neuer App-Build. Paket 4 bleibt offen.
+Offen: manuelle mobile und Web-Abnahme einschliesslich Darstellung des
+Quellenlogos/-links, Produktionsfreigabe und neuer App-Build. Paket 4 bleibt offen.
 
 ## ÖV als nächster separater Entscheid
 

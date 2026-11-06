@@ -58,7 +58,8 @@ export function appleWeatherUrl(value: unknown): value is string {
   try {
     const u = new URL(value);
     return u.protocol === "https:" && !u.username && !u.password && !u.port
-      && ["weatherkit.apple.com", "weather-data.apple.com"].includes(u.hostname);
+      && (["weatherkit.apple.com", "weather-data.apple.com"].includes(u.hostname)
+        || (u.hostname === "developer.apple.com" && u.pathname === "/weatherkit/data-source-attribution/" && !u.search && !u.hash));
   } catch { return false; }
 }
 
