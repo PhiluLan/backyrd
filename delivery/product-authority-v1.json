@@ -243,7 +243,7 @@
     "appliedSocialSourceSha": "6093074366e21c1a4513e80b087e09dd2559c899",
     "function": {
       "slug": "weather-context",
-      "sourceSetHash": "87bc52ea321d21e109cf443ad81b17a0e69cb9c72840088d31fe98d634d822cb"
+      "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
     },
     "source": "Founder requested WeatherKit implementation and initial defaults on 2026-11-05; this plan does not authorize a production execution."
   }
