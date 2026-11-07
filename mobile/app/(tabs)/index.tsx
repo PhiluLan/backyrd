@@ -225,7 +225,7 @@ export default function HomeScreen() {
           }}>Hey{"  "}{headlineName},</AppText> : null}
           <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics]}>{headlineName ? <>Hey{useSFPro ? "  " : " "}<Text style={styles.pinkAccent}>{headlineName},</Text></> : "Hey"}</AppText>
           <AppText testID="home-daypart-title" accessibilityRole="header" role="displayM" style={styles.daypartTitle}>
-            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was vor<Text style={styles.pinkAccent}>?</Text>
+            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={styles.pinkAccent}>?</Text>
           </AppText>
           <View style={styles.searchShell}>
             <TextInput accessibilityLabel="Was willst du machen?" onChangeText={value => { setQuery(value); setSearchHint(null); }} onSubmitEditing={event => submitDecision(event.nativeEvent.text)} placeholder="was willst du machen?" placeholderTextColor={theme.color.textSecondary} returnKeyType="search" style={styles.searchInput} value={query} />

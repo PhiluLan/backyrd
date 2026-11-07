@@ -223,7 +223,7 @@ try {
         const box = node.getBoundingClientRect(); const range = document.createRange(); range.selectNodeContents(node);
         return { text: node.textContent, box: {left:box.left,right:box.right,bottom:box.bottom}, glyphs:[...range.getClientRects()].map(r=>({left:r.left,right:r.right,bottom:r.bottom})) };
       });
-      assert.match(layout.text, /^Heute .+ schon was vor\?$/);
+      assert.match(layout.text, /^Heute .+ schon was\s+vor\?$/);
       assert.ok(layout.box.left >= 0 && layout.box.right <= width, `heading stays on screen at ${width}/${scale}`);
       assert.ok(layout.glyphs.every(r => r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1), `heading never clips horizontally at ${width}/${scale}: ${JSON.stringify(layout)}`);
       const searchBounds = await page.getByRole("textbox", {name:"Was willst du machen?",exact:true}).boundingBox();
