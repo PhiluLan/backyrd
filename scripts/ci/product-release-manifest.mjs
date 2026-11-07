@@ -345,6 +345,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     deployFunctions: actualPlan.deployFunctions,
     deferredFunctionChanges: actualPlan.deferredFunctionChanges,
     codeOnlyDeliveryScope: actualPlan.codeOnlyDeliveryScope ?? null,
+    weatherContextDeliveryScope: actualPlan.weatherContextDeliveryScope ?? null,
     retiredFunctions: actualPlan.retiredFunctions ?? [],
     recoveryRiskAcceptance: recoveryRisk,
     recoveryRiskMigrationSet: acceptedMigrationSet,

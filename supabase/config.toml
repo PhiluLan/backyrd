@@ -458,6 +458,11 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/safety-evaluate/index.ts"
 
+[functions.weather-context]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/weather-context/index.ts"
+
 [functions.send-spot-claim-code]
 enabled = true
 verify_jwt = true

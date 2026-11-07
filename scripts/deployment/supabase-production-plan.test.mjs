@@ -436,3 +436,10 @@ test('scoped Auth receipt rejects unverified flags and non-ancestor sources',()=
   const {f,save,receipt}=appliedAuthFixture();mutate(receipt);save();assert.throws(()=>plan(f,commit(f.repo)),/applied_auth_receipt_invalid/);
  }
 });
+test("WeatherKit delivery is bound to one exact authenticated function after verified Social release",async()=>{
+ const {validateWeatherContextDeliveryScope:check}=await import('./supabase-production-plan.mjs');
+ const sourceSha='a'.repeat(40),hash='b'.repeat(64);
+ const input={scope:{contractVersion:'backyrd.weather-context-delivery-scope@1.0',executionAuthorized:false,appliedSocialSourceSha:sourceSha,function:{slug:'weather-context',sourceSetHash:hash}},appliedSocial:{sourceSha},functions:[{slug:'weather-context',deploy:true,verifyJwt:true,sourceSetHash:hash}],authDeploy:false,retiredFunctions:[]};
+ assert.equal(check(input),'weather-context');
+ for(const patch of [{appliedSocial:null},{authDeploy:true},{retiredFunctions:[{slug:'other'}]},{functions:[{...input.functions[0],verifyJwt:false}]},{functions:[{...input.functions[0],sourceSetHash:'c'.repeat(64)}]},{scope:{...input.scope,executionAuthorized:true}},{scope:{...input.scope,function:{slug:'other',sourceSetHash:hash}}}])assert.throws(()=>check({...input,...patch}),/weather_context_delivery_scope_invalid/);
+});

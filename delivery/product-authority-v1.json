@@ -236,5 +236,15 @@
       "source": "Founder explicitly approved the exact Social migration, bounded release path, two Functions, Web and TestFlight Build 61 on 2026-11-04, accepting the disclosed untested productive recovery risk."
     },
     "source": "Founder exact-scope and recovery-risk approval in this release conversation on 2026-11-04. Four Booking migrations, Decision and Auth remain excluded; execution uses the canonical manual production workflow."
+  },
+  "weatherContextDeliveryScope": {
+    "contractVersion": "backyrd.weather-context-delivery-scope@1.0",
+    "executionAuthorized": false,
+    "appliedSocialSourceSha": "6093074366e21c1a4513e80b087e09dd2559c899",
+    "function": {
+      "slug": "weather-context",
+      "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
+    },
+    "source": "Founder explicitly requested WeatherKit integration in the app and live publication on 2026-11-07. Manual exact-Main deployment remains required; SQL, Auth, Decision and Booking remain excluded."
   }
 }

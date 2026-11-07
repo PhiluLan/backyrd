@@ -133,6 +133,7 @@ jobs:
         with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci --ignore-scripts
       - run: npm exec tsc -- --noEmit --pretty false -p packages/shared/tsconfig.json
+      - run: node --test scripts/ci/weather-context.test.mjs
 
   user:
     name: User Intelligence focused gate
@@ -294,6 +295,9 @@ jobs:
           supabase --workdir "$RUNNER_TEMP/edge-bundle-harness" start -x gotrue,realtime,storage-api,imgproxy,mailpit,postgrest,postgres-meta,studio,logflare,vector,supavisor
           node scripts/ci/verify-edge-runtime-bundle.mjs --bundle "$RUNNER_TEMP/product-release/bundle"
           node scripts/ci/verify-edge-runtime-bundle.mjs --bundle "$RUNNER_TEMP/product-release/bundle" --slug decision-admin-diagnostic
+          if test -f "$RUNNER_TEMP/product-release/bundle/supabase/functions/weather-context/index.ts"; then
+            node scripts/ci/verify-edge-runtime-bundle.mjs --bundle "$RUNNER_TEMP/product-release/bundle" --slug weather-context
+          fi
       - name: Retain the exact tested Product artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
