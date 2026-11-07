@@ -18,8 +18,10 @@ Stand: 7. November 2026. Server, Web und iOS-Update veröffentlicht.
 - Expos ausgeliefertes Produktionsmanifest benennt genau dieses Update. Sein
   SHA-256 für das App-Paket stimmt mit dem zertifizierten Paket überein.
   Der direkte Kontrollabruf der Paketdatei am Expo-CDN wurde durch Cloudflare
-  mit HTTP 403 abgewiesen. Eine Installation auf dem echten iPhone ist deshalb
-  ausdrücklich noch nicht als bestanden dokumentiert; Founder-Prüfung angefragt.
+  mit HTTP 403 abgewiesen. Der anschliessende Founder-Screenshot vom 7. November
+  um 16:22 bestätigt die installierte Wetteranzeige auf dem echten iPhone.
+  Dabei wurde ein überlaufender Startseitentitel sichtbar; dessen Layout wird
+  separat korrigiert. Der CLI-Abruf ist kein Beleg für einen iPhone-Downloadfehler.
 - Authentifizierte Live-Web-Prüfung bestanden: echte Temperatur, Wetterlage,
   Aktualisierungszeit und originales Apple-Logo mit Quellenlink sichtbar.
   Der Live-Endpunkt beantwortet OPTIONS mit 200 und verweigert einen nicht
@@ -32,7 +34,7 @@ Der echte Abruf für Basel aktuell und 24 Stunden später bestand am
 Attribution HTTP 200, beide Ergebnisse validiert, zweiter Abruf aus dem Cache.
 Der von Apple gelieferte offizielle Quellenpfad auf developer.apple.com wird
 gezielt akzeptiert. Beliebige andere Entwicklerseiten bleiben ausgeschlossen.
-Die Geräteabnahme ist weiterhin offen.
+Die Wetteranzeige auf dem echten iPhone ist durch den Founder-Screenshot bestätigt.
 
 ## Umfang und Grundeinstellungen
 
@@ -79,8 +81,9 @@ Stadt-/Datumsbindung, Sommerzeit, Cache-Ablauf, Apple-Fehler, Attribution,
 ungültige Antworten, Anmeldung, Kontobindung und Kostenbegrenzung mit isolierten
 Fixtures. Das ersetzt keine echte Apple-Anfrage.
 
-Offen: Bestätigung des Updates auf dem echten iPhone. Die manuelle Live-Web-
-Abnahme einschliesslich Quellenlogo/-link ist bestanden. Die Wettergrundlage
+Die Anzeige auf dem echten iPhone und die manuelle Live-Web-Abnahme
+einschliesslich Quellenlogo/-link sind bestätigt. Das im Screenshot sichtbare
+Layoutproblem des Startseitentitels wird separat behoben. Die Wettergrundlage
 ändert noch keine Decision-Empfehlungen; ÖV und weitere Kontextintegration
 bleiben separate Arbeit. Paket 4 ist insgesamt noch nicht abgeschlossen.
 

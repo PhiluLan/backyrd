@@ -210,6 +210,27 @@ try {
   await page.getByRole("button", { name: "Wetter aktualisieren", exact: true }).click();
   await page.getByText("12 °C · Bewölkt", { exact: true }).waitFor();
   await page.getByRole("link", { name: "Apple Weather: Datenquellen ansehen", exact: true }).waitFor();
+  // Check visible glyphs, not merely the enclosing box: clipped text also has a
+  // perfectly valid box. Stress the same flowing text at the native display
+  // role's maximum 1.4 scale without changing authentication clocks or data.
+  for (const width of [320, 430]) {
+    await page.setViewportSize({ width, height: width === 320 ? 568 : 932 });
+    const title = page.getByTestId("home-daypart-title");
+    for (const scale of [1, 1.4]) {
+      await title.evaluate((node, scale) => { node.style.fontSize = `${31 * scale}px`; node.style.lineHeight = `${38 * scale}px`; }, scale);
+      await page.waitForTimeout(100);
+      const layout = await title.evaluate(node => {
+        const box = node.getBoundingClientRect(); const range = document.createRange(); range.selectNodeContents(node);
+        return { text: node.textContent, box: {left:box.left,right:box.right,bottom:box.bottom}, glyphs:[...range.getClientRects()].map(r=>({left:r.left,right:r.right,bottom:r.bottom})) };
+      });
+      assert.match(layout.text, /^Heute .+ schon was vor\?$/);
+      assert.ok(layout.box.left >= 0 && layout.box.right <= width, `heading stays on screen at ${width}/${scale}`);
+      assert.ok(layout.glyphs.every(r => r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1 && r.bottom <= layout.box.bottom + 1), `all heading text remains visible at ${width}/${scale}`);
+      if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/home-heading-${width}-${scale}.png`});
+    }
+    await title.evaluate(node => { node.style.removeProperty("font-size"); node.style.removeProperty("line-height"); });
+  }
+  await page.setViewportSize({width:390,height:844});
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/weather-home.png`});
   await page.getByRole("button",{name:"Moment mit Foto festhalten",exact:true}).click();
   await page.getByText("Dein Moment",{exact:true}).waitFor();
