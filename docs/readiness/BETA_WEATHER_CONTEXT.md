@@ -1,6 +1,30 @@
 # Paket 4: WeatherKit-Grundlage
 
-Stand: 7. November 2026. Implementiert zur Prüfung, noch nicht veröffentlicht.
+Stand: 7. November 2026. Server, Web und iOS-Update veröffentlicht.
+
+## Live-Release
+
+- Quellstand: `422803e03b910db1770b7a44be1ea78f09a3e0bd`, [PR #691](https://github.com/PhiluLan/backyrd/pull/691).
+- [Server-Zertifizierung 42384778227](https://github.com/PhiluLan/backyrd/actions/runs/42384778227)
+  und [Produktionsrelease 42385325625](https://github.com/PhiluLan/backyrd/actions/runs/42385325625)
+  erfolgreich. Nur `weather-context` Version 1 wurde veröffentlicht; alle
+  bestehenden Funktionen blieben unverändert. Keine SQL- oder Auth-Änderung.
+- [iOS-Zertifizierung 42384758639](https://github.com/PhiluLan/backyrd/actions/runs/42384758639)
+  erfolgreich. Das versiegelte Paket wurde ohne Neubau auf den bestehenden
+  Produktionskanal veröffentlicht: Gruppe `54ca444b-7810-442f-b63f-32ebe60a95e8`,
+  Update `01a1b694-5648-71c1-bf14-735994076976`, Runtime `1.1.0`.
+  Native Konfiguration und Abhängigkeiten gegenüber Build 61 sind unverändert;
+  ein neuer TestFlight-Build ist für diese Änderung nicht nötig.
+- Expos ausgeliefertes Produktionsmanifest benennt genau dieses Update. Sein
+  SHA-256 für das App-Paket stimmt mit dem zertifizierten Paket überein.
+  Der direkte Kontrollabruf der Paketdatei am Expo-CDN wurde durch Cloudflare
+  mit HTTP 403 abgewiesen. Eine Installation auf dem echten iPhone ist deshalb
+  ausdrücklich noch nicht als bestanden dokumentiert; Founder-Prüfung angefragt.
+- Authentifizierte Live-Web-Prüfung bestanden: echte Temperatur, Wetterlage,
+  Aktualisierungszeit und originales Apple-Logo mit Quellenlink sichtbar.
+  Der Live-Endpunkt beantwortet OPTIONS mit 200 und verweigert einen nicht
+  angemeldeten POST mit 401.
+
 Der ausdrücklich freigegebene WeatherKit-Schlüssel und die Service-ID sind
 angelegt; die fünf Konfigurationswerte liegen als Supabase-Server-Secrets vor.
 Der echte Abruf für Basel aktuell und 24 Stunden später bestand am
@@ -55,8 +79,10 @@ Stadt-/Datumsbindung, Sommerzeit, Cache-Ablauf, Apple-Fehler, Attribution,
 ungültige Antworten, Anmeldung, Kontobindung und Kostenbegrenzung mit isolierten
 Fixtures. Das ersetzt keine echte Apple-Anfrage.
 
-Offen: manuelle mobile und Web-Abnahme einschliesslich Darstellung des
-Quellenlogos/-links, Produktionsfreigabe und neuer App-Build. Paket 4 bleibt offen.
+Offen: Bestätigung des Updates auf dem echten iPhone. Die manuelle Live-Web-
+Abnahme einschliesslich Quellenlogo/-link ist bestanden. Die Wettergrundlage
+ändert noch keine Decision-Empfehlungen; ÖV und weitere Kontextintegration
+bleiben separate Arbeit. Paket 4 ist insgesamt noch nicht abgeschlossen.
 
 ## ÖV als nächster separater Entscheid
 
