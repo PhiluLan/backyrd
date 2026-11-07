@@ -20,7 +20,7 @@ export function makeInterpretation(spec, group) {
       logic: spec.logic ?? (spec.choice ? { kind: 'ANY', strength: 'REQUIRED', children: spec.choice.map(index => ({ kind: 'FACT', factId: 'f' + index })) } : null),
       bindings: [...(spec.bindings ?? []), ...(spec.sequence ? [{ kind: 'SEQUENCE', factIds: spec.sequence.map(index => 'f' + index) }] : [])],
       extensions: [], uncertainties: [], weatherConditions: spec.weather ?? [] },
-    moment: { goal: { statement: spec.goal, evidence: [{ quote: spec.query }] }, hypotheses: [],
+    moment: { goal: { statement: spec.goal, evidence: [{ quote: spec.query }] }, hypotheses: spec.hypotheses ?? [],
       missing: spec.missing ?? [], clarification: spec.question ?? null },
   };
   validateNuknukUnderstanding(target, { query: spec.query, reference });

@@ -18,7 +18,7 @@ export const PILOT_PLAN_HASH = '44bc38ea9861361e84c132ec9f196a90541f5d954e04b9ef
 const planPath = new URL('./nuknuk-pilot-plan.json', import.meta.url);
 const readJson = async path => JSON.parse(await readFile(path, 'utf8'));
 
-async function worldCases(spec, byId) {
+export async function worldCases(spec, byId) {
   const result = [];
   for (let index = 0; index < spec.ids.length; index++) {
     const id = spec.ids[index], group = byId.get(id);
@@ -26,7 +26,8 @@ async function worldCases(spec, byId) {
     const source = makeInterpretation({ ...spec, id }, group);
     const understood = validateNuknukUnderstanding(source.content.target, source.content);
     const hasFeature = !!spec.bothEvidence || index === 1;
-    const offerProperties = spec.facts.filter(f => f.key === 'food.drink').map(f => prop(f.key, f.value.text));
+    const offerProperties = [...spec.facts.filter(f => f.key === 'food.drink').map(f => prop(f.key, f.value.text)),
+      ...(spec.offerProperties ?? []).map(p => prop(p.key,p.value))];
     const areaProperties = [];
     if (hasFeature && spec.feature) {
       const value = spec.feature === 'participation.booking' ? (index === 0 ? 'Empfohlen' : 'Nicht erforderlich') : spec.value;

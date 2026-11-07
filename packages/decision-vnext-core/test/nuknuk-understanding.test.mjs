@@ -226,3 +226,35 @@ test('unsupported software capability is retained as a need and cannot reach mat
   const noEvaluation = await evaluateNuknukAgainstCatalog(result, [], example.reference);
   assert.equal(noEvaluation.status, 'UNSUPPORTED_CAPABILITY'); assert.equal(noEvaluation.response, null);
 });
+
+test('expanded collection adds real model-visible tasks, preserves parent and never trains or auto-approves', async () => {
+  const { buildExpandedCohort } = await import('../../../scripts/decision-diagnostics/nuknuk-expanded-cohort.mjs');
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=()=>{throw Error('collection_must_remain_offline');};
+  try {
+    const first=await buildExpandedCohort(), second=await buildExpandedCohort();
+    assert.deepEqual(first.manifest.counts,{TRAIN:200,VALIDATION:10,TEST:14});
+    assert.deepEqual(first.manifest.trainingTasks,{INTERPRET_REQUEST:128,ASSESS_CANDIDATES:72});
+    assert.equal(first.manifest.datasetHash,second.manifest.datasetHash);
+    assert.equal(first.manifest.modelCalls,0); assert.equal(first.manifest.weightsTrained,false);
+    assert.equal(first.manifest.exportReady,false); assert.equal(first.manifest.semanticHumanApprovals,0);
+    assert.ok(first.dataset.cases.every(row=>row.reviews.length===0));
+    assert.equal(first.notes.length,160);
+    assert.ok(first.notes.every(note=>note.id.startsWith('expanded-')));
+    const newlyAuthored=first.dataset.cases.filter(row=>row.id.startsWith('expanded-'));
+    assert.ok(newlyAuthored.every(row=>row.split==='TRAIN' && row.content.trainingPermission==='PENDING'));
+    assert.equal(newlyAuthored.filter(row=>row.content.target.moment?.hypotheses.length).length,10);
+    for(const row of newlyAuthored) for(const hypothesis of row.content.target.moment?.hypotheses??[]) assert.equal(hypothesis.status,'HYPOTHESIS');
+  } finally { globalThis.fetch=originalFetch; }
+});
+
+test('expansion cannot silently replace a parent target or move its partitions', async () => {
+  const {buildPilotCohort}=await import('../../../scripts/decision-diagnostics/nuknuk-pilot-cohort.mjs');
+  const {buildExpandedCohort}=await import('../../../scripts/decision-diagnostics/nuknuk-expanded-cohort.mjs');
+  const original=await buildPilotCohort();
+  const tampered=structuredClone(original.dataset);
+  tampered.cases.pop();
+  await assert.rejects(()=>buildExpandedCohort({reviewedParent:tampered}),/nuknuk_expansion_parent_changed/);
+  const intact=await buildExpandedCohort({reviewedParent:original.dataset});
+  for(const row of original.dataset.cases) assert.deepEqual(intact.dataset.cases.find(c=>c.id===row.id),row);
+});

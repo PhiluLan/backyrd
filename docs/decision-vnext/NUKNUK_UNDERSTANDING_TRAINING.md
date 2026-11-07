@@ -315,3 +315,74 @@ Reproduzierbarkeit und Freigabegrenzen; sie belegt keine bessere Modellqualität
 Als Nächstes werden die neuen Sollantworten geprüft und korrigiert, bevor ein
 freigegebener Export, ein Baseline-Vergleich und der getrennte Adapterpilot
 gestartet werden.
+
+## Erweiterung auf 200 Trainingsbeispiele
+
+Der Founder hat am 7. November die zweite Prüfgruppe bestätigt, weitere
+Einzelabnahmen abgewählt und die Erstellung von mindestens 200 Beispielen
+beauftragt. Der vorbereitete Bestand enthält jetzt **200 TRAIN**, weiterhin
+**10 VALIDATION** und **14 TEST**. TRAIN besteht aus 128 Interpretationsaufgaben
+und 72 Aufgaben zur beleggebundenen Kandidateneinschätzung. Dazu kommen 100
+ausdrücklich formulierte neue Anfragen und 60 neue Evidenzübungen zum ersten
+Bestand. Diese 60 Übungen sind 30 bewusst verwandte Gegenbeispielpaare und
+werden nicht als 60 unabhängige Szenarien bezeichnet.
+
+Schwerpunkte: besondere/einzigartige/spezielle Wünsche mit und ohne Preisziel,
+Verneinungen dieser Wörter, Anlass und Empfängergeschmack, notwendige versus
+gewünschte Merkmale, Familienkontext, Essen, Alternativen und Abfolgen,
+Bereichsbezug, Zugang, Budgetumfang, Datum, Sprachwechsel und nicht vertrauenswürdige
+Anweisungen. Zehn neue Ziele enthalten ausdrücklich gekennzeichnete plausible
+Momentdeutungen; daraus entstehen keine neuen harten Pflichten. Ein gewünschtes
+einzigartiges Erlebnis ist kein Beleg für eine einzigartige Spoteigenschaft.
+
+Die Vorbereitung läuft über `nuknuk-expanded-cohort.mjs`, ergänzt den bestehenden
+Bestand und erhält dessen unveränderte Fälle, Aufteilung und vorhandene Reviews.
+Die Quelle ist synthetisch und im Auftrag der Gründung erstellt. **20 fachliche
+Menschenbestätigungen bleiben dokumentiert; für die neuen Inhalte werden keine
+individuellen Menschenprüfungen erfunden.** Der bestehende Exportprüfer bleibt
+unverändert. Dieser Schritt erstellt eine Trainingssammlung, keinen ungeprüft
+freigegebenen Trainingslauf. Keine Modelle, Gewichte oder Produktdaten werden
+verändert. Weitere Einzelfallabnahmen werden nicht beim Founder eingefordert.
+
+```sh
+node scripts/decision-diagnostics/nuknuk-expanded-cohort.mjs \
+  .local/nuknuk-understanding/NEUER_200ER_BESTAND \
+  /ABSOLUTER/PFAD/ZUM_BESTAETIGTEN_ELTERNBESTAND/cohort.json
+```
+
+Der aktuelle lokale Stand ist
+`.local/nuknuk-understanding/understanding-200-20261107-v2/`. Eine frühere lokale
+Vorbereitungsrevision wurde bei der inhaltlichen Nachprüfung korrigiert:
+unspezifisches „spielen“ erzeugt keine bestimmte Bewegungsspielart, und separat
+nutzbares Frühstück bleibt eine Zugangsanforderung statt blossem Kontext.
+Die alte Revision wird nicht überschrieben oder als aktueller Trainingsbestand
+verwendet. Manifest und Inhaltshashes erlauben den exakten Abgleich.
+
+## Externe Datensätze und Softwarebibliotheken
+
+Die recherchierte Auswahl und Importanforderungen sind maschinenlesbar in
+`scripts/decision-diagnostics/nuknuk-external-resources.json` festgehalten.
+Es wurden noch keine externen Beispiele importiert oder Pakete installiert.
+
+| Ressource | Nutzen und Grenze |
+| --- | --- |
+| [MASSIVE](https://huggingface.co/datasets/AmazonScience/massive) | Mehrsprachige Absichten und markierte Detailangaben, einschliesslich Deutsch. Datenkarte: CC BY 4.0. Erste Wahl für gefilterte Zusatzaufgaben; die Alexa-Taxonomie ist nicht der Backyrd-Katalog. |
+| [PAWS-X](https://github.com/google-research-datasets/paws/tree/master/pawsx) | Ähnlich klingende Satzpaare mit gleicher oder veränderter Bedeutung, auch Deutsch. Gute Kontrastaufgabe. Training maschinell übersetzt; Datenqualität filtern und Quellsatzgruppen trennen. [Publisher-Lizenz](https://raw.githubusercontent.com/google-research-datasets/paws/master/LICENSE) erlaubt freie Verwendung für beliebige Zwecke. |
+| [Schema-Guided Dialogue](https://github.com/google-research-datasets/dstc8-schema-guided-dialogue) | Annotierte englische Dialoge zum Aufgabenverständnis und zu Zustandsänderungen; über 20.000 Gespräche. CC BY-SA 4.0 verlangt separate Prüfung des konkreten abgeleiteten Artefakts. Für eine spätere Dialogaufgabe, kein direktes Importformat für unseren Einzelauftrag. |
+| [XNLI](https://github.com/facebookresearch/XNLI) | Mehrsprachige Entwicklungs-/Prüfaufgaben zu Schlussfolgerung, Widerspruch und Unbekanntem. Die veröffentlichten Prüfaufgaben gehören nicht in TRAIN. |
+
+Die Empfehlung lautet zunächst MASSIVE und PAWS-X als getrennte Hilfsaufgaben,
+mit Backyrd-Beispielen als Domänenkern. Das ist eine technische Auswahl, kein
+bereits gemessener Qualitätsgewinn und keine Lizenzfreigabe jedes beliebigen
+Downloads. Vor einem Import werden konkrete Revision, Bytehash, Quelle, Sprache,
+Zeilen-ID, Lizenz und Zuordnung zum Originalsplit erfasst. Keine automatische
+Übersetzung fremder Labels in unpassende Backyrd-Pflichten. Die vorhandenen
+Prüfaufgaben und externe Testsplit-Zeilen bleiben ausserhalb des Trainings.
+
+Bei der Software bleibt [MLX-VLM](https://github.com/Neywa-Labs/mlx-vlm) der
+vorhandene Mac-Trainingsweg. [Hugging Face Datasets](https://huggingface.co/docs/datasets/index)
+hilft beim Laden und Filtern externer Sammlungen. [PEFT](https://huggingface.co/docs/peft/index)
+und [TRL/SFTTrainer](https://huggingface.co/docs/trl/sft_trainer) sind eine Option
+für einen späteren kompatiblen Transformers-/GPU-Trainingsweg. Sie müssen nicht
+zusätzlich in die bestehende MLX-Laufzeit eingebaut werden. Die Installation
+einer Softwarebibliothek vermittelt dem Modell noch kein Wissen.
