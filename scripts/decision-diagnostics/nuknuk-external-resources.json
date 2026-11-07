@@ -1,7 +1,7 @@
 {
   "version": "backyrd.nuknuk-external-resources@1",
   "checkedAt": "2026-11-07",
-  "externalRowsImported": 0,
+  "externalRowsImported": 40,
   "datasets": [
     {
       "id": "amazon-massive",
@@ -12,7 +12,8 @@
       "recommendation": "FIRST_CANDIDATE_FOR_FILTERED_AUXILIARY_TRAINING",
       "adaptation": "Select discovery-related TRAIN examples; preserve literal slots and map only genuinely supported meanings. Preserve attribution and original split/utterance lineage.",
       "caution": "General voice-assistant taxonomy is not the Backyrd catalog. Version 1.1 advertises 52 languages; do not mix release counts. Legacy dataset loader scripts may be incompatible with current Datasets.",
-      "importStatus": "NOT_IMPORTED"
+      "importStatus": "CURATED_LOCAL_TRAINING_SELECTION",
+      "selectedTrainRows": 24
     },
     {
       "id": "google-paws-x",
@@ -23,7 +24,10 @@
       "recommendation": "SECOND_CANDIDATE_FOR_AUXILIARY_CONTRAST_TASKS",
       "adaptation": "Keep pair labels and source IDs; model the task separately from Backyrd meaning JSON. Machine-translated training pairs require quality filtering. Keep source-sentence groups together to avoid leakage.",
       "caution": "Its dev/test can share a sentence, though not the full pair. Do not merge PAWS-QQP, which has different source-use constraints. The publisher repository is archived.",
-      "importStatus": "NOT_IMPORTED"
+      "importStatus": "CURATED_LOCAL_TRAINING_SELECTION",
+      "selectedTrainRows": 16,
+      "mirror": "https://huggingface.co/datasets/google-research-datasets/paws-x",
+      "revision": "4cd8187c404bda33cb1f62b49b001115862acf37"
     },
     {
       "id": "google-schema-guided-dialogue",
@@ -46,10 +50,26 @@
     }
   ],
   "softwareLibraries": [
-    {"id":"mlx-vlm","source":"https://github.com/Neywa-Labs/mlx-vlm","role":"Existing local Mac fine-tuning runtime; keep the installed compatible version pinned"},
-    {"id":"huggingface-datasets","source":"https://huggingface.co/docs/datasets/index","role":"Loading, filtering, provenance and reproducible dataset preparation; not knowledge by installation"},
-    {"id":"huggingface-peft","source":"https://huggingface.co/docs/peft/index","role":"Adapter training for a future compatible Transformers/GPU runtime; not an additional requirement for the existing MLX path"},
-    {"id":"huggingface-trl","source":"https://huggingface.co/docs/trl/sft_trainer","role":"Supervised training tasks on a future compatible Transformers/GPU runtime; not a drop-in MLX trainer"}
+    {
+      "id": "mlx-vlm",
+      "source": "https://github.com/Neywa-Labs/mlx-vlm",
+      "role": "Existing local Mac fine-tuning runtime; keep the installed compatible version pinned"
+    },
+    {
+      "id": "huggingface-datasets",
+      "source": "https://huggingface.co/docs/datasets/index",
+      "role": "Loading, filtering, provenance and reproducible dataset preparation; not knowledge by installation"
+    },
+    {
+      "id": "huggingface-peft",
+      "source": "https://huggingface.co/docs/peft/index",
+      "role": "Adapter training for a future compatible Transformers/GPU runtime; not an additional requirement for the existing MLX path"
+    },
+    {
+      "id": "huggingface-trl",
+      "source": "https://huggingface.co/docs/trl/sft_trainer",
+      "role": "Supervised training tasks on a future compatible Transformers/GPU runtime; not a drop-in MLX trainer"
+    }
   ],
   "importRequirements": [
     "Pin exact upstream revision and downloaded byte hashes",
@@ -58,5 +78,6 @@
     "Separate external task labels from Backyrd domain labels unless mapping is actually supported",
     "Filter private data, broken translations and conflicting task semantics",
     "Quarantine unreviewed imports; no automatic promotion or model activation"
-  ]
+  ],
+  "importReceipt": "Local training-20261107-v1/external-lineage.json records frozen source byte hashes, selected original TRAIN IDs, licenses and attribution."
 }

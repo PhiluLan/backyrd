@@ -4,6 +4,7 @@ import { contentHash, deepFreeze } from './canonical.js';
 import { schema, type Infer } from './schema.js';
 import { buildLunaLibrarianModelRequest, validateActiveLunaMeaningOutput, prepareLibrarianRequest, LibrarianContractError, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianReference, type LibrarianRequest } from './product-luna-librarian.js';
 import { inspectLunaMeaning } from './product-luna-meaning-contract.js';
+import { LUNA_LIBRARIAN_FACT_KEYS } from './product-luna-librarian-assets.js';
 
 export const NUKNUK_UNDERSTANDING_VERSION = 'backyrd.nuknuk-understanding@1' as const;
 export const NUKNUK_UNDERSTANDING_POLICY = `Du bist NukNuk, Backyrds Verständnis-KI.
@@ -52,12 +53,40 @@ const jsMoment = record({
   clarification: { anyOf: [record({ question: jsText, dimension: dimensions, options: { type: 'array', minItems: 2, maxItems: 3, items: jsText } }), { type: 'null' }] },
 });
 
-export function buildNuknukUnderstandingRequest(input: { query: string; reference: LibrarianReference }) {
+export const NUKNUK_COMPACT_ADAPTER_POLICY = NUKNUK_UNDERSTANDING_POLICY + `
+Lokaler Adaptervertrag COMPACT_ADAPTER_V1. Dieselbe kanonische Bedeutung, kompakte Beschreibung.
+meaning hat entities, facts, logic, bindings, extensions, uncertainties, weatherConditions.
+entities: [{id,kind:ACTIVITY|PERSON|GROUP,label,members:[]}]. Keine unbekannten Personenanzahlen erfinden.
+facts: [{id,key,value,modality:REQUIRED|PREFERRED|EXCLUDED|NOT_REQUIRED|CONTEXT,basis:EXPLICIT|INFERRED,subjectIds:[]}].
+Subjekt-IDs müssen vorhandene entities referenzieren. Aktivitäten a1,a2; Personen p1,p2; Gruppen g1.
+Normaler Textwert: {text:"..."}. Beträge: {amount,operator:EQ|LT|LTE|GT|GTE|APPROX,currency:"CHF"}.
+Alter: {amount,operator,unit:"YEARS"}. Anzahl: {amount,operator,unit:"PEOPLE"}.
+Budgetumfang: {scope:"PER_PERSON"|"GROUP_TOTAL"}. Datum: {date:"YYYY-MM-DD",operator:"EQ",timezone:"Europe/Zurich"}.
+Uhrzeit: {time:"HH:MM",operator,timezone:"Europe/Zurich"}. Tagesphase: {phase:"MORNING"|"MIDDAY"|"AFTERNOON"|"EVENING"|"NIGHT",timezone:"Europe/Zurich"}.
+Dauer: {amount,operator,unit:"MINUTES",measurementScope:"VISIT",includes:["ACTIVITY"]}.
+Werte: meal/lunch/dinner/breakfast/snacks in food.meal; coffee/beer/craft beer in food.drink;
+playground/animals/swimming/table_tennis in experience.activity; cozy/relaxed in atmosphere.character;
+quiet in atmosphere.noise; indoor/outdoor in offer.area; vegan/vegetarian in food.diet.
+Anlass und relative Besonderheit sind CONTEXT, keine erfundene harte Ortskategorie.
+Funktional notwendige Ruhe/Zugang bleiben REQUIRED; möglichst und wäre schön sind PREFERRED.
+EXCLUDED heisst ausgeschlossen; NOT_REQUIRED heisst nicht benötigt, nicht verboten.
+Familienbegleitung ist people.relationship=adult_accompanied, CONTEXT, INFERRED. Konkretes Alter nur wenn genannt.
+logic null bei einfacher Verbindung; Alternative: {kind:"ANY",strength:"REQUIRED",children:[{kind:"FACT",factId:"f1"},{kind:"FACT",factId:"f2"}]}.
+bindings: [{kind:"SAME_PLACE"|"SEQUENCE",factIds:["f1","f2"]}]. Keine Reihenfolge oder Ortsbindung erfinden.
+extensions, uncertainties und weatherConditions bleiben [] wenn nicht benötigt.
+moment: {goal:{statement,evidence:[{quote}]},hypotheses:[{statement,evidence:[{quote}],status:"HYPOTHESIS"}],missing:[],clarification:null}.
+missing: [{dimension:DATE|BUDGET|RECIPIENT_TASTE|EXPERIENCE_DIRECTION|OTHER,whyItMatters}].
+clarification falls nötig: {question,dimension,options:[zwei bis drei Richtungen]}.
+Keine ausführliche Gedankenkette; die belegten Aussagen und markierten Hypothesen genügen.
+Erlaubte Faktenschlüssel: ` + Object.values(LUNA_LIBRARIAN_FACT_KEYS).flat().join(',');
+
+export type NuknukInstructionProfile = 'FULL' | 'COMPACT_ADAPTER_V1';
+export function buildNuknukUnderstandingRequest(input: { query: string; reference: LibrarianReference; instructionProfile?: NuknukInstructionProfile }) {
   const base = buildLunaLibrarianModelRequest({ sourceText: input.query, reference: input.reference });
   // Keep canonical #/$defs references at the root. Never flatten or translate facts.
   const { $defs, ...meaningSchema } = base.text.format.schema as Record<string, unknown>;
   const outputSchema = { ...record({ meaning: meaningSchema, moment: jsMoment }), $defs };
-  const instructions = base.instructions + '\n' + NUKNUK_UNDERSTANDING_POLICY
+  const instructions = input.instructionProfile === 'COMPACT_ADAPTER_V1' ? NUKNUK_COMPACT_ADAPTER_POLICY : base.instructions + '\n' + NUKNUK_UNDERSTANDING_POLICY
     + '\nAusgabeformat: {"meaning":{"entities":[],"facts":[],"logic":null,"bindings":[],"extensions":[],"uncertainties":[],"weatherConditions":[]},"moment":...}. '
     + 'meaning folgt exakt dem oben beschriebenen kanonischen Auftrag. moment folgt diesem JSON-Schema: ' + JSON.stringify(jsMoment);
   return deepFreeze({ instructions, input: base.input, outputSchema,
@@ -107,13 +136,16 @@ export const NUKNUK_BASE_MODELS = Object.freeze({
 });
 
 export type NuknukLocalModelOptions = { modelPath: string; expectedAdapterPath?: string; fetchImpl?: typeof fetch; signal: AbortSignal;
-  onRawOutput?: (raw: unknown) => void; onResponseMetadata?: (metadata: unknown) => void };
+  maxOutputTokens?: number;
+  onRawOutput?: (raw: unknown) => void; onRawText?: (raw: string) => void; onResponseMetadata?: (metadata: unknown) => void };
 
 /** Local-only inference: no credentials, remote host, hidden rewrite or model download. */
 export async function callNuknukLocal(input: NuknukLocalModelOptions & { request: { instructions: string; input: string; outputSchema: Record<string, unknown> } }) {
   const revision = input.modelPath.split('/').at(-1) ?? '';
   if (!input.modelPath.startsWith('/') || !Object.hasOwn(NUKNUK_BASE_MODELS, revision) || input.modelPath.includes('/../')) throw Error('nuknuk_pinned_model_required');
   if (input.expectedAdapterPath !== undefined && (!input.expectedAdapterPath.startsWith('/') || input.expectedAdapterPath.includes('/../'))) throw Error('nuknuk_adapter_path_invalid');
+  const maxOutputTokens = input.maxOutputTokens ?? 6000;
+  if (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 64 || maxOutputTokens > 6000) throw Error('nuknuk_output_budget_invalid');
   const fetcher = input.fetchImpl ?? fetch;
   const started = performance.now();
   const healthResponse = await fetcher('http://127.0.0.1:8088/health', { signal: input.signal, redirect: 'error' });
@@ -124,7 +156,7 @@ export async function callNuknukLocal(input: NuknukLocalModelOptions & { request
   const response = await fetcher('http://127.0.0.1:8088/v1/chat/completions', { method: 'POST', redirect: 'error', signal: input.signal,
     headers: { 'content-type': 'application/json' }, body: JSON.stringify({
       model: input.modelPath, messages: [{ role: 'system', content: request.instructions }, { role: 'user', content: request.input }],
-      temperature: 0, max_tokens: 6000, stream: false, enable_thinking: false, chat_template_kwargs: { enable_thinking: false },
+      temperature: 0, max_tokens: maxOutputTokens, stream: false, enable_thinking: false, chat_template_kwargs: { enable_thinking: false },
       // Grammar constrains structure; it does not certify semantic correctness.
       response_format: { type: 'json_schema', json_schema: { name: 'backyrd_nuknuk_understanding_v1', strict: true, schema: request.outputSchema } },
     }) });
@@ -133,6 +165,7 @@ export async function callNuknukLocal(input: NuknukLocalModelOptions & { request
   if (object(payload)) input.onResponseMetadata?.({ usage: payload.usage ?? null, durationMs: performance.now() - started });
   if (!object(payload) || !Array.isArray(payload.choices) || payload.choices.length !== 1) throw Error('nuknuk_response_invalid');
   const choice: unknown = payload.choices[0];
+  if (object(choice) && object(choice.message) && typeof choice.message.content === 'string' && choice.message.content.length <= 100000) input.onRawText?.(choice.message.content);
   if (!object(choice) || choice.finish_reason !== 'stop' || !object(choice.message) || typeof choice.message.content !== 'string' || choice.message.content.length > 100000) throw Error('nuknuk_response_incomplete');
   let raw: unknown;
   try { raw = JSON.parse(choice.message.content); } catch { throw Error('nuknuk_response_not_json'); }
@@ -143,7 +176,7 @@ export async function callNuknukLocal(input: NuknukLocalModelOptions & { request
       outputTokens: typeof payload.usage.completion_tokens === 'number' ? payload.usage.completion_tokens : null } : null };
 }
 
-export async function understandWithNuknuk(input: NuknukLocalModelOptions & { query: string; reference: LibrarianReference }) {
+export async function understandWithNuknuk(input: NuknukLocalModelOptions & { query: string; reference: LibrarianReference; instructionProfile?: NuknukInstructionProfile }) {
   const request = buildNuknukUnderstandingRequest(input);
   const response = await callNuknukLocal({ ...input, request });
   return { ...validateNuknukUnderstanding(response.raw, input), identity: { ...request.identity, ...response.identity }, durationMs: response.durationMs, usage: response.usage };

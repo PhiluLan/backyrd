@@ -93,7 +93,10 @@ Inhaltshash und Reviews binden sich an exakt diesen Inhalt. Jede Korrektur
 entwertet eine frühere Freigabe.
 
 Erforderliche lokale Reviews: Bedeutung/Angemessenheit sowie Datenschutz und
-Quellennutzung. Die Datei dokumentiert eine lokale Menschenentscheidung; sie
+Quellennutzung. Die Datei dokumentiert eine lokale Prüfung mit expliziter
+Urheberschaft. Historische Reviews ohne `reviewerKind` sind Menschenentscheidungen;
+beauftragte Assistenzprüfungen tragen `DELEGATED_ASSISTANT` und den Hash der
+konkreten menschlichen Beauftragung. Sie
 beweist keine authentifizierte Admin-Identität. Diese Metadaten sind keine
 Produktions-, Import- oder Deployment-Berechtigung.
 
@@ -202,7 +205,8 @@ verhindern den Export. Kein vorhandener Export wird überschrieben.
 speichert einen geänderten Lernfall und entfernt dessen bisherige Reviews.
 `review` mit Fall/Hash, `--kind SEMANTICS|PRIVACY_AND_SOURCE_USE`,
 `--verdict ACCEPT|REJECT`, `--reviewer` und `--note` dokumentiert die tatsächlich
-erfolgte lokale Menschenprüfung. Beide verlangen ebenfalls den eingefrorenen
+erfolgte lokale Prüfung. Beauftragte Assistenzarbeit muss gesondert ausgewiesen
+werden und darf keine persönliche Menschenprüfung behaupten. Beide verlangen ebenfalls den eingefrorenen
 `--split-hash` und schreiben in eine neue private `--output`-Datei. Eine
 Assistenz darf damit keine nicht erfolgte menschliche Prüfung behaupten.
 
@@ -362,7 +366,9 @@ verwendet. Manifest und Inhaltshashes erlauben den exakten Abgleich.
 
 Die recherchierte Auswahl und Importanforderungen sind maschinenlesbar in
 `scripts/decision-diagnostics/nuknuk-external-resources.json` festgehalten.
-Es wurden noch keine externen Beispiele importiert oder Pakete installiert.
+Bei dieser ersten Auswahl waren noch keine externen Beispiele importiert.
+Der anschliessende Auftrag zur Umsetzung von Punkt 1–4 ergänzt die unten
+dokumentierte geprüfte Auswahl. Zusätzliche Pakete wurden nicht installiert.
 
 | Ressource | Nutzen und Grenze |
 | --- | --- |
@@ -386,3 +392,70 @@ und [TRL/SFTTrainer](https://huggingface.co/docs/trl/sft_trainer) sind eine Opti
 für einen späteren kompatiblen Transformers-/GPU-Trainingsweg. Sie müssen nicht
 zusätzlich in die bestehende MLX-Laufzeit eingebaut werden. Die Installation
 einer Softwarebibliothek vermittelt dem Modell noch kein Wissen.
+
+## Beauftragter Trainingsdurchlauf mit externen Hilfsaufgaben
+
+Der explizite Auftrag „bitte komplett machen Punkt 1-4“ umfasst die fachliche
+Assistenzprüfung, Quellenprüfung, lokale Adaptererstellung und den internen
+Vergleich. Die Einzelabnahme weiterer synthetischer Beispiele wurde zuvor
+abgewählt. Dies ist keine Freigabe zur Änderung produktiver Profile oder Modelle.
+
+`nuknuk-training-bundle.mjs` dokumentiert diese Beauftragung und die zugehörigen
+Assistenzprüfungen mit Inhaltshash. Die historischen Founder-Bestätigungen bleiben
+im unveränderten Elternbestand erhalten. Durch Inhalts-/Freigabeänderungen
+entstehende neue Hashes bekommen neue, ehrlich zugeordnete Reviews.
+Die technischen Prüfungen auf Belegbindung, Aufteilung, unveränderte Inhalte,
+Quellennutzung und explizite Trainingsberechtigung werden weiterhin angewendet.
+
+Die Prüfung korrigiert drei Ziele: „unter 45“ wird `LT` statt `LTE`, aus dem
+Parkausflug entfällt der erfundene Pflicht-Spaziergang, und „uns beide“ erhält
+die ausdrücklich genannte Personenzahl. Die externen Übungen bleiben eigene
+Aufgaben mit Originalkategorien statt erfundenen Backyrd-Fakten.
+
+- 200 Backyrd-Ziele, darunter 128 Interpretations- und 72 Evidenzaufgaben.
+- 24 deutsche MASSIVE-1.1-Trainingszeilen mit passenden Original-Qualitätsurteilen
+  und wortwörtlich überprüften Detailangaben. Arbeiterkennungen werden nicht exportiert.
+- 16 geprüfte PAWS-X-Trainingspaare, acht gleichbedeutend und acht unterschiedlich.
+  Die Originalkategorie bleibt erhalten. Zweifelhafte Übersetzungs-/Labelpaare
+  wie 1235 und 3958 werden ausgeschlossen statt still korrigiert.
+- 10 Entwicklungsfälle und 14 zurückgehaltene Aufgaben bleiben getrennt.
+
+Der Download von Googles ursprünglicher PAWS-X-Datei lieferte HTTP 403. Verwendet
+wird der offizielle Google-Research-Datensatzspiegel auf Hugging Face, Revision
+`4cd8187c404bda33cb1f62b49b001115862acf37`; der SHA-256 der deutschen Trainingsdatei
+entspricht dem veröffentlichten LFS-Hash
+`b2fc8cdcbd926761a222c30f4f046a7cbae2ea1b14c2dbaf94f3d8a94aef1e45`.
+MASSIVE wird aus dem offiziellen versionierten 1.1-Archiv entnommen. Beide
+Lizenzen, MASSIVE-Notice, gewählte Zeilen-IDs und alle Quelldateihashes sind lokal
+gespeichert. Keine externen Testzeilen gehen ins Training.
+
+Der lokale Trainingsbestand liegt unter `.local/nuknuk-understanding/training-20261107-v1/`.
+Die Datei `manifest.json` hat den Bytehash
+`7f55297c0f98b257f615c809f2af895da43f5496e8641b2263c43e4e78153f8e`.
+Die tatsächliche MLX-Aufbereitung prüft alle 240 Trainings- und 10 Entwicklungszeilen;
+Maximum 2.364 bzw. 2.252 Tokens, keine abgeschnittenen Beispiele, echte Completion-Masken.
+
+Dieser Versuch verwendet explizit `COMPACT_ADAPTER_V1`: eine kurze Beschreibung
+derselben Felder, unveränderte kanonische Ausgabegrammatik und Eingabedaten.
+Der bisherige volle Auftrag bleibt Standard und der produktive Pfad unverändert.
+Ein Vergleich zwischen vollem altem Auftrag und kurzem neuen Auftrag würde
+Prompt- und Trainingswirkung vermischen. Deshalb benutzen Basis und Adapter
+denselben kurzen Auftrag, dieselben Eingaben und dieselbe Antwortgrenze.
+
+Konfiguration: vorhandenes 27B-4bit-Modell, Rang 8, Alpha 16, Lernrate 1e-5,
+Batch 1, Seed 7, ein Durchgang über alle 240 Zeilen. Nur q/v-Projektionen im
+letzten Full-Attention-Block werden angepasst: 188.416 Parameter. Das ist ein
+kleiner erster Adapter, kein vollständiges Neutraining aller Modellgewichte.
+Der frühere 20-Schritt-Technikpilot bleibt als CLI-Standard separat verfügbar.
+Gewichte, Konfiguration und Logs werden in einem neuen Adapterordner gespeichert.
+
+`nuknuk-run-comparison.py` startet Basis und Adapter nacheinander nur auf Loopback,
+prüft ihre Identität und beendet ausschliesslich die eigenen Server. Alle 14
+zurückgehaltenen Aufgaben verwenden identische Prompt-/Eingabe-/Zielhashes und
+2.048 Ausgabetokens. Unvollständige oder ungültige Antworten gelten nicht als Erfolg;
+Rohtext bleibt privat zur Diagnose erhalten. Wörtliche Faktendifferenzen sind
+Diagnosehinweise, keine automatische semantische Qualitätsnote. Die vier
+Evidenzaufgaben sind Einzelaufgaben mit vorgegebenem Moment und Kandidatenwissen,
+keine Tests eines vollständigen Live-Suchlaufs. Die Basisgewichtdateien werden
+abschliessend gegen ihre ursprünglichen Bytehashes geprüft. Keine automatische
+Aktivierung oder Qualitätsfreigabe nach niedrigerem Trainingsverlust.

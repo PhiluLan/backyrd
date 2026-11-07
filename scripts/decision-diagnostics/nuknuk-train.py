@@ -89,6 +89,8 @@ def main():
     parser.add_argument("--manifest-sha256", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--one-epoch", action="store_true", help="Visit every training row once; otherwise retain the 20-step technical pilot.")
+    parser.add_argument("--last-attention-layers", type=int, default=0, help="Restrict LoRA to the final N full-attention blocks; 0 retains all q/v projections.")
     args = parser.parse_args()
     model = args.model.resolve(strict=True)
     folder = args.data.resolve(strict=True)
@@ -101,20 +103,31 @@ def main():
     # Conservative pilot: attention projections only, no recurrent gates/vision.
     max_sequence = 32768
     measured = verify_preprocessing(model, splits, max_sequence)
+    if not 0 <= args.last_attention_layers <= 16:
+        raise ValueError("nuknuk_training_layer_count_invalid")
+    targets = ["q_proj", "v_proj"]
+    if args.last_attention_layers:
+        text_config = json.loads((model / "config.json").read_text())["text_config"]
+        layers = [i for i, kind in enumerate(text_config["layer_types"]) if kind == "full_attention"]
+        if len(layers) < args.last_attention_layers:
+            raise ValueError("nuknuk_training_layers_missing")
+        targets = [f"language_model.model.layers.{i}.self_attn.{name}"
+                   for i in layers[-args.last_attention_layers:] for name in ("q_proj", "v_proj")]
     config = {
         "task": "vlm", "algorithm": "sft", "model": str(model),
         "data": str(folder), "train_split": "train", "validation_split": "valid",
-        "train_type": "lora", "target_modules": ["q_proj", "v_proj"],
+        "train_type": "lora", "target_modules": targets,
         "lora_rank": 8, "lora_alpha": 16.0, "lora_dropout": 0.0,
-        "batch_size": 1, "iters": 20, "learning_rate": 0.00001,
+        "batch_size": 1, "iters": len(splits["train"]) if args.one_epoch else 20, "learning_rate": 0.00001,
         "grad_checkpoint": True, "max_seq_length": max_sequence,
         "train_on_completions": True, "assistant_id": None,
-        "steps_per_report": 1, "steps_per_eval": 5, "steps_per_save": 10,
+        "steps_per_report": 1, "steps_per_eval": 120 if args.one_epoch else 5, "steps_per_save": 40 if args.one_epoch else 10,
         "val_batches": -1, "seed": 7,
         "adapter_file": str(output / "adapters.safetensors"),
     }
     report = {"status": "PREFLIGHT_PASSED", "trainingExecuted": False, "baseWeightsChangedByThisTool": False,
               "manifestSha256": args.manifest_sha256, "preprocessing": measured,
+              "allTrainingRowsScheduled": args.one_epoch,
               "runtimeVersion": importlib.metadata.version("mlx-vlm"), "config": config,
               "limits": ["PILOT_NOT_QUALITY_APPROVAL", "NO_PRODUCTION_ACTIVATION"]}
     if not args.execute:

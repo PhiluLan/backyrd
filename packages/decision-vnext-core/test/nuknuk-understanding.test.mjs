@@ -258,3 +258,22 @@ test('expansion cannot silently replace a parent target or move its partitions',
   const intact=await buildExpandedCohort({reviewedParent:original.dataset});
   for(const row of original.dataset.cases) assert.deepEqual(intact.dataset.cases.find(c=>c.id===row.id),row);
 });
+
+test('compact adapter profile preserves the exact schema and input and remains opt-in', () => {
+  const full=buildNuknukUnderstandingRequest({query:example.query,reference:example.reference});
+  const compact=buildNuknukUnderstandingRequest({query:example.query,reference:example.reference,instructionProfile:'COMPACT_ADAPTER_V1'});
+  assert.deepEqual(compact.outputSchema,full.outputSchema);
+  assert.equal(compact.input,full.input);
+  assert.ok(compact.instructions.length<full.instructions.length/4);
+  assert.notEqual(compact.identity.promptHash,full.identity.promptHash);
+});
+
+test('assisted review attribution requires explicit delegation and cannot claim human provenance', () => {
+  const data=draftUnderstandingDataset();
+  const row=data.cases[0];
+  const input={id:row.id,expectedContentHash:row.contentHash,kind:'SEMANTICS',verdict:'ACCEPT',reviewer:'assistant-reviewer',reviewedAt:'2026-11-07T12:00:00Z',note:'Synthetic fixture for review attribution.',reviewerKind:'DELEGATED_ASSISTANT'};
+  assert.throws(()=>recordUnderstandingReview(data,input),/nuknuk_review_delegation_required/);
+  const reviewed=recordUnderstandingReview(data,{...input,delegationHash:contentHash('explicit test commission')});
+  assert.equal(reviewed.cases[0].reviews[0].reviewerKind,'DELEGATED_ASSISTANT');
+  assert.throws(()=>recordUnderstandingReview(data,{...input,reviewerKind:'HUMAN',delegationHash:contentHash('test')}),/nuknuk_review_delegation_misattributed/);
+});

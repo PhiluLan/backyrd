@@ -1,8 +1,8 @@
 /** Understanding examples are distinct from venue-research evidence and User learning.
- * Reviews here record local human decisions, not authenticated Admin authority. */
+ * Local review attribution is explicit; it never grants authenticated Admin authority. */
 import { contentHash, deepFreeze } from './canonical.js';
 import { schema, type Infer } from './schema.js';
-import { buildNuknukUnderstandingRequest, validateNuknukUnderstanding, NuknukMomentSchema, NUKNUK_UNDERSTANDING_VERSION } from './nuknuk-understanding.js';
+import { buildNuknukUnderstandingRequest, validateNuknukUnderstanding, NuknukMomentSchema, NUKNUK_UNDERSTANDING_VERSION, type NuknukInstructionProfile } from './nuknuk-understanding.js';
 import { buildNuknukAssessmentRequest, validateNuknukAssessment } from './nuknuk-grounded-assessment.js';
 
 export const NUKNUK_UNDERSTANDING_DATASET_VERSION = 'backyrd.nuknuk-understanding-dataset@1' as const;
@@ -29,6 +29,8 @@ const reviewSchema = schema.object({
   reviewer: id,
   reviewedAt: date,
   note: schema.string({ min: 1, max: 2000, pattern: /\S/u }),
+  reviewerKind: schema.optional(schema.enum(['HUMAN', 'DELEGATED_ASSISTANT'] as const)),
+  delegationHash: schema.optional(hash),
 });
 const caseSchema = schema.object({ id, scenarioGroup: id, split, content: contentSchema, contentHash: hash, reviews: schema.array(reviewSchema, { max: 2 }) });
 const datasetSchema = schema.object({
@@ -39,10 +41,10 @@ const datasetSchema = schema.object({
 export type NuknukUnderstandingDataset = Infer<typeof datasetSchema>;
 export type NuknukUnderstandingCaseContent = Infer<typeof contentSchema>;
 
-function taskPair(content: NuknukUnderstandingCaseContent) {
+function taskPair(content: NuknukUnderstandingCaseContent, instructionProfile?: NuknukInstructionProfile) {
   if (content.task === 'INTERPRET_REQUEST') {
     if (content.context !== null) throw Error('nuknuk_interpretation_context_must_be_null');
-    return { request: buildNuknukUnderstandingRequest(content), target: validateNuknukUnderstanding(content.target, content).output };
+    return { request: buildNuknukUnderstandingRequest({...content,...(instructionProfile ? {instructionProfile}:{})}), target: validateNuknukUnderstanding(content.target, content).output };
   }
   const context = schema.object({ response: opaque, moment: opaque }).parse(content.context);
   const request = buildNuknukAssessmentRequest(context);
@@ -56,8 +58,8 @@ export function understandingSplitHash(value: NuknukUnderstandingDataset['splitP
   return contentHash([...value].sort((a, b) => a.scenarioGroup.localeCompare(b.scenarioGroup)));
 }
 
-/** Local editor helpers. Caller must be the person actually making the review;
- * these records must never be mistaken for signed Admin authorizations. */
+/** Local review helpers. Attribute assisted work honestly and retain its explicit
+ * human commission. These records are not signed Admin authorizations. */
 export function reviseUnderstandingCase(raw: unknown, change: { id: string; expectedContentHash: string; target: unknown; trainingPermission: 'PENDING' | 'APPROVED' }) {
   const dataset = datasetSchema.parse(raw);
   const existing = dataset.cases.find(c => c.id === change.id);
@@ -70,11 +72,13 @@ export function reviseUnderstandingCase(raw: unknown, change: { id: string; expe
 }
 
 export function recordUnderstandingReview(raw: unknown, input: { id: string; expectedContentHash: string; kind: 'SEMANTICS' | 'PRIVACY_AND_SOURCE_USE';
-  verdict: 'ACCEPT' | 'REJECT'; reviewer: string; reviewedAt: string; note: string }) {
+  verdict: 'ACCEPT' | 'REJECT'; reviewer: string; reviewedAt: string; note: string;
+  reviewerKind?: 'HUMAN' | 'DELEGATED_ASSISTANT'; delegationHash?: string }) {
   const dataset = datasetSchema.parse(raw);
   const existing = dataset.cases.find(c => c.id === input.id);
   if (!existing || existing.contentHash !== input.expectedContentHash) throw Error('nuknuk_review_content_mismatch');
-  const review = reviewSchema.parse({ kind: input.kind, verdict: input.verdict, contentHash: existing.contentHash, reviewer: input.reviewer, reviewedAt: input.reviewedAt, note: input.note });
+  const review = reviewSchema.parse({ kind: input.kind, verdict: input.verdict, contentHash: existing.contentHash, reviewer: input.reviewer, reviewedAt: input.reviewedAt, note: input.note,
+    ...(input.reviewerKind ? {reviewerKind:input.reviewerKind}:{}), ...(input.delegationHash ? {delegationHash:input.delegationHash}:{}) });
   const updated = { ...dataset, cases: dataset.cases.map(c => c.id === input.id ? { ...c, reviews: [...c.reviews.filter(r => r.kind !== review.kind), review] } : c) };
   auditUnderstandingDataset(updated, understandingSplitHash(dataset.splitPlan));
   return updated;
@@ -118,6 +122,8 @@ export function auditUnderstandingDataset(raw: unknown, expectedSplitHash: strin
     const kinds = new Set<string>();
     const blockers: string[] = [];
     for (const review of row.reviews) {
+      if (review.reviewerKind === 'DELEGATED_ASSISTANT' && !review.delegationHash) throw Error('nuknuk_review_delegation_required');
+      if (review.delegationHash && review.reviewerKind !== 'DELEGATED_ASSISTANT') throw Error('nuknuk_review_delegation_misattributed');
       if (review.contentHash !== row.contentHash) throw Error('nuknuk_stale_review');
       if (!Number.isFinite(Date.parse(review.reviewedAt))) throw Error('nuknuk_review_date_invalid');
       if (kinds.has(review.kind)) throw Error('nuknuk_duplicate_review');
@@ -134,11 +140,11 @@ export function auditUnderstandingDataset(raw: unknown, expectedSplitHash: strin
     limitations: ['REVIEWS_ARE_LOCAL_RECORDS_NOT_AUTHENTICATED_ADMIN_DECISIONS', 'SEMANTIC_PARAPHRASE_LEAKAGE_REQUIRES_HUMAN_REVIEW', 'EXPORT_READY_DOES_NOT_MEAN_MODEL_READY'] });
 }
 
-export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: string) {
+export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: string, instructionProfile: NuknukInstructionProfile = 'FULL') {
   const audit = auditUnderstandingDataset(raw, expectedSplitHash);
   if (!audit.exportReady) throw Error('nuknuk_dataset_not_reviewed');
   const rows = (splitName: 'TRAIN' | 'VALIDATION' | 'TEST') => audit.dataset.cases.filter(c => c.split === splitName).map(row => {
-    const { request, target } = taskPair(row.content);
+    const { request, target } = taskPair(row.content,instructionProfile);
     return { messages: [{ role: 'system', content: request.instructions }, { role: 'user', content: request.input },
       { role: 'assistant', content: JSON.stringify(target) }] };
   });
@@ -147,7 +153,7 @@ export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: stri
     version: NUKNUK_UNDERSTANDING_DATASET_VERSION, datasetHash: contentHash(audit.dataset), splitPlanHash: audit.splitPlanHash,
     counts: audit.counts, filesHash: contentHash(files),
     purpose: 'SUPERVISED_UNDERSTANDING_ADAPTER_DATA_ONLY',
-    productionEnabled: false, weightsTrained: false,
+    productionEnabled: false, weightsTrained: false, instructionProfile,
     cases: audit.cases.map(({ id, contentHash, split }) => ({ id, contentHash, split })),
   } };
 }
