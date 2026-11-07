@@ -45,7 +45,7 @@ export function WeatherContext({ city, actorId, revision }: { city: string; acto
   </View>;
 }
 const styles = StyleSheet.create({
-  root: { paddingVertical: 12, gap: 4, borderTopWidth: 1, borderColor: theme.color.border },
+  root: { marginHorizontal: theme.layout.pageGutter, marginTop: theme.spacing.md, paddingVertical: 12, gap: 4, borderTopWidth: 1, borderColor: theme.color.border },
   heading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 },
   source: { flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" },
   action: { minHeight: 44, minWidth: 44, justifyContent: "center" },
