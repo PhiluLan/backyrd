@@ -65,12 +65,6 @@ export default function HomeScreen() {
   const [openingSchedules, setOpeningSchedules] = useState<Record<string, OpeningSchedule>>({});
   const now = useMinuteClock();
   const daypart = homeDaypart(now);
-  const [measuredDaypartTitle, setMeasuredDaypartTitle] = useState<{ daypart: string; width: number } | null>(null);
-  const daypartTitleWidth = width - 2 * theme.layout.pageGutter - 8;
-  const daypartTitleSize = measuredDaypartTitle?.daypart === daypart
-    ? Math.min(31, Math.floor(31 * daypartTitleWidth / measuredDaypartTitle.width))
-    : 31;
-  const daypartTextStyle = { fontSize: daypartTitleSize, lineHeight: Math.round(daypartTitleSize * 38 / 31) };
   const headlineName = user ? firstName ?? "du" : null;
   const greetingBaseSize = Math.max(56, Math.min(72, Math.round(width * 0.18)));
   const greetingAvailableWidth = width - 2 * theme.layout.pageGutter - 8;
@@ -230,20 +224,9 @@ export default function HomeScreen() {
             }
           }}>Hey{"  "}{headlineName},</AppText> : null}
           <AppText accessibilityLabel={headlineName ? `Hey ${headlineName},` : "Hey"} numberOfLines={1} ellipsizeMode="tail" role="displayXL" style={[styles.pageTitle, useSFPro && styles.cockpitGreeting, useSFPro && cockpitGreetingMetrics]}>{headlineName ? <>Hey{useSFPro ? "  " : " "}<Text style={styles.pinkAccent}>{headlineName},</Text></> : "Hey"}</AppText>
-          <AppText accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none" numberOfLines={1} role="displayM" style={styles.daypartMeasure} onLayout={event => {
-            const measuredWidth = event.nativeEvent.layout.width;
-            if (measuredWidth > 0 && (measuredDaypartTitle?.daypart !== daypart || Math.abs(measuredDaypartTitle.width - measuredWidth) > 1)) {
-              setMeasuredDaypartTitle({ daypart, width: measuredWidth });
-            }
-          }}>Heute {daypart} schon was vor?</AppText>
-          <View accessible accessibilityLabel={`Heute ${daypart} schon was vor?`} accessibilityRole="text" style={styles.daypartTitleRow}>
-            <AppText numberOfLines={1} role="displayM" style={daypartTextStyle}>Heute </AppText>
-            <View style={styles.daypartAccent}>
-              <AppText numberOfLines={1} role="displayM" style={daypartTextStyle}>{daypart}{" "}</AppText>
-              <View pointerEvents="none" style={styles.daypartUnderline} />
-            </View>
-            <AppText numberOfLines={1} role="displayM" style={daypartTextStyle}>schon was vor<Text style={styles.pinkAccent}>?</Text></AppText>
-          </View>
+          <AppText testID="home-daypart-title" accessibilityRole="header" role="displayM" style={styles.daypartTitle}>
+            Heute <Text style={styles.daypartAccent}>{daypart}</Text> schon was{"\u00a0"}vor<Text style={styles.pinkAccent}>?</Text>
+          </AppText>
           <View style={styles.searchShell}>
             <TextInput accessibilityLabel="Was willst du machen?" onChangeText={value => { setQuery(value); setSearchHint(null); }} onSubmitEditing={event => submitDecision(event.nativeEvent.text)} placeholder="was willst du machen?" placeholderTextColor={theme.color.textSecondary} returnKeyType="search" style={styles.searchInput} value={query} />
             {query.length > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Suche starten" accessibilityHint="Sucht passende Orte für deine Eingabe" onPress={() => submitDecision()} style={styles.searchAction}>
@@ -316,10 +299,8 @@ const styles = StyleSheet.create({
   pageTitle: { marginTop: theme.spacing.lg, marginHorizontal: theme.layout.pageGutter, textAlign: "left" },
   greetingMeasure: { position: "absolute", left: 0, top: 0, width: 10000, opacity: 0 },
   cockpitGreeting: { color: "#F8F8F8", fontWeight: "700" },
-  daypartMeasure: { position: "absolute", left: 0, top: 0, opacity: 0, fontSize: 31, lineHeight: 38 },
-  daypartTitleRow: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, flexDirection: "row", flexWrap: "nowrap", alignItems: "baseline" },
-  daypartAccent: { position: "relative" },
-  daypartUnderline: { position: "absolute", left: 1, right: 6, bottom: -2, height: 9, borderBottomWidth: 3, borderBottomColor: theme.color.pink, borderBottomLeftRadius: 28, borderBottomRightRadius: 18, transform: [{ rotate: "-2deg" }] },
+  daypartTitle: { marginTop: theme.spacing.xs, marginHorizontal: theme.layout.pageGutter, alignSelf: "stretch", fontSize: 31, lineHeight: 38 },
+  daypartAccent: { textDecorationLine: "underline", textDecorationStyle: "solid", textDecorationColor: theme.color.pink },
   pinkAccent: { color: theme.color.pink },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   guestLogin: { minHeight: 44, justifyContent: "center", paddingHorizontal: theme.spacing.md, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border },
