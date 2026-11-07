@@ -225,7 +225,9 @@ try {
       });
       assert.match(layout.text, /^Heute .+ schon was vor\?$/);
       assert.ok(layout.box.left >= 0 && layout.box.right <= width, `heading stays on screen at ${width}/${scale}`);
-      assert.ok(layout.glyphs.every(r => r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1 && r.bottom <= layout.box.bottom + 1), `all heading text remains visible at ${width}/${scale}`);
+      assert.ok(layout.glyphs.every(r => r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1), `heading never clips horizontally at ${width}/${scale}: ${JSON.stringify(layout)}`);
+      const searchBounds = await page.getByRole("textbox", {name:"Was willst du machen?",exact:true}).boundingBox();
+      assert.ok(searchBounds && layout.glyphs.every(r => r.bottom <= searchBounds.y), `heading glyphs never overlap the search field at ${width}/${scale}`);
       if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/home-heading-${width}-${scale}.png`});
     }
     await title.evaluate(node => { node.style.removeProperty("font-size"); node.style.removeProperty("line-height"); });
