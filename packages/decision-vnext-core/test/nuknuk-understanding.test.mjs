@@ -1,0 +1,185 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { contentHash } from '../dist/canonical.js';
+import { buildNuknukUnderstandingRequest, understandWithNuknuk, validateNuknukUnderstanding } from '../dist/nuknuk-understanding.js';
+import { auditUnderstandingDataset, exportUnderstandingDataset, understandingSplitHash, reviseUnderstandingCase, recordUnderstandingReview } from '../dist/nuknuk-understanding-learning.js';
+import { draftUnderstandingDataset, understandingDevelopmentCases } from '../../../scripts/decision-diagnostics/nuknuk-understanding-cases.mjs';
+import { evaluateNuknukAgainstCatalog } from '../../../scripts/decision-diagnostics/nuknuk-understanding.mjs';
+import { binding, profile } from './librarian-matching-fixtures.mjs';
+import { buildNuknukAssessmentRequest, validateNuknukAssessment, assessWithNuknuk } from '../dist/nuknuk-grounded-assessment.js';
+
+const example = understandingDevelopmentCases[0].content;
+const modelPath = '/models/45797d2985a12c55e6473686e9ea91b95e959553';
+const copy = () => structuredClone(example.target);
+
+test('uses current canonical meaning without installing a new Product provider', () => {
+  const body = buildNuknukUnderstandingRequest(example);
+  assert.ok(body.instructions.includes('experience.occasion'));
+  assert.ok(body.instructions.includes('HYPOTHESIS'));
+  assert.ok(body.outputSchema.$defs.fact);
+  assert.equal(body.outputSchema.properties.meaning.properties.facts.items.$ref, '#/$defs/fact');
+  assert.equal(body.identity.schemaHash, contentHash(body.outputSchema));
+  const result = validateNuknukUnderstanding(copy(), example);
+  assert.equal(result.plan.source.sourceText, example.query);
+  assert.equal(result.plan.facts.find(f => f.key === 'food.meal').value.text, 'dinner');
+});
+for (const item of understandingDevelopmentCases) test(`development target is structurally valid, not semantically approved: ${item.id}`, () => {
+  const result = validateNuknukUnderstanding(item.content.target, item.content);
+  assert.ok(result.limitations.includes('STRUCTURAL_VALIDATION_IS_NOT_SEMANTIC_PROOF'));
+  assert.equal(item.reviews.length, 0);
+});
+test('a plausible emotional interpretation never creates a mandatory fact', () => {
+  const raw = copy();
+  raw.moment.hypotheses.push({ statement: 'Vielleicht soll der Abend Wertschätzung ausdrücken.', evidence: [{ quote: 'Geburtstag' }], status: 'HYPOTHESIS' });
+  const parsed = validateNuknukUnderstanding(raw, example);
+  assert.deepEqual(parsed.output.meaning, example.target.meaning);
+  assert.equal(parsed.plan.facts.some(f => f.key === 'budget.maximum' || f.key === 'time.date'), false);
+});
+test('rejects made-up quotes, unexpected fields, invalid meanings and multiple questions', () => {
+  const fabricated = copy(); fabricated.moment.goal.evidence[0].quote = 'sie liebt Fine Dining';
+  assert.throws(() => validateNuknukUnderstanding(fabricated, example), /nuknuk_quote_not_in_query/);
+  const shifted = copy(); shifted.moment.goal.evidence[0].offset = 3;
+  assert.throws(() => validateNuknukUnderstanding(shifted, example));
+  const duty = copy(); duty.meaning.facts[0].modality = 'REQUIRED';
+  assert.throws(() => validateNuknukUnderstanding(duty, example));
+  const questions = copy(); questions.moment.clarification = [questions.moment.clarification, questions.moment.clarification];
+  assert.throws(() => validateNuknukUnderstanding(questions, example));
+});
+test('refuses a different local model or silently loaded adapter before inference', async () => {
+  for (const health of [{ loaded_model: '/other', loaded_adapter: null }, { loaded_model: modelPath, loaded_adapter: 'unknown' }]) {
+    const urls = [];
+    await assert.rejects(understandWithNuknuk({ ...example, modelPath, signal: AbortSignal.timeout(2000), fetchImpl: async url => { urls.push(url); return Response.json(health); } }), /nuknuk_model_identity_mismatch/);
+    assert.equal(urls.length, 1);
+  }
+});
+test('local model transport never forwards provider keys or follows redirects; no automatic output repair', async () => {
+  let calls = 0;
+  const result = await understandWithNuknuk({ ...example, modelPath, signal: AbortSignal.timeout(2000), fetchImpl: async (url, options) => {
+    assert.ok(url.startsWith('http://127.0.0.1:8088/')); assert.equal(options.redirect, 'error');
+    assert.equal(options.headers?.authorization, undefined);
+    if (++calls === 1) return Response.json({ loaded_model: modelPath, loaded_adapter: null });
+    const body = JSON.parse(options.body); assert.equal(body.temperature, 0); assert.equal(body.stream, false);
+    return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(example.target) } }], usage: { prompt_tokens: 12, completion_tokens: 25 } });
+  } });
+  assert.equal(calls, 2); assert.equal(result.usage.outputTokens, 25); assert.equal(result.identity.adapter, null);
+});
+test('an interrupted answer is not accepted even if its JSON parses', async () => {
+  let calls = 0;
+  await assert.rejects(understandWithNuknuk({ ...example, modelPath, signal: AbortSignal.timeout(2000), fetchImpl: async () => ++calls === 1
+    ? Response.json({ loaded_model: modelPath, loaded_adapter: null })
+    : Response.json({ choices: [{ finish_reason: 'length', message: { content: JSON.stringify(example.target) } }] }) }), /nuknuk_response_incomplete/);
+  assert.equal(calls, 2);
+});
+test('corrected birthday understanding reaches the same canonical dinner evaluator; hypotheses cannot invent eligibility', async () => {
+  const result = validateNuknukUnderstanding(copy(), example);
+  const evaluation = await evaluateNuknukAgainstCatalog({ ...result, identity: { local: true } }, [binding(1, profile())], example.reference);
+  assert.equal(evaluation.productionWrites, 0); assert.equal(evaluation.learningWrites, 0);
+  assert.equal(evaluation.momentUsedForRanking, false);
+  assert.equal(evaluation.response.primaryCandidateId, binding(1, profile()).decisionProjection.spotId);
+  const open = understandingDevelopmentCases.at(-1).content;
+  const clarification = await evaluateNuknukAgainstCatalog(validateNuknukUnderstanding(open.target, open), [], open.reference);
+  assert.equal(clarification.status, 'NEEDS_CLARIFICATION'); assert.equal(clarification.response, null);
+});
+async function assessmentFixture() {
+  const understood = validateNuknukUnderstanding(copy(), example);
+  const evaluation = await evaluateNuknukAgainstCatalog({ ...understood, identity: { local: true } }, [binding(1, profile())], example.reference);
+  const request = buildNuknukAssessmentRequest({ response: evaluation.response, moment: understood.moment });
+  const candidate = request.candidates[0];
+  const target = { assessments: [{ candidateId: candidate.candidateId, fit: 'POSSIBLE',
+    judgment: 'Ein Abendessen ist belegt; ob es für diesen Geburtstag besonders passt, ist noch offen.',
+    reasonCodes: [candidate.evidence[0].reasonCode], uncertainty: 'Die Vorlieben der Frau sind nicht bekannt.' }],
+    missingKnowledge: ['Es fehlen unterscheidende Belege für die besondere Anlasspassung.'] };
+  return { understood, evaluation, request, target };
+}
+test('structured evidence exercise receives only eligible candidates and public-safe reasons, no taste vectors', async () => {
+  const fixture = await assessmentFixture();
+  assert.equal(fixture.request.candidates.length, 1);
+  assert.equal(fixture.request.input.includes('userRelevance'), false);
+  assert.equal(fixture.request.input.includes('projectionHash'), false);
+  const excluded = structuredClone(fixture.evaluation.response);
+  excluded.candidates[0].rank = null;
+  assert.equal(buildNuknukAssessmentRequest({ response: excluded, moment: fixture.understood.moment }).candidates.length, 0);
+  const unknown = structuredClone(fixture.evaluation.response); unknown.candidates[0].unknownHardConstraints.push('unknown');
+  assert.equal(buildNuknukAssessmentRequest({ response: unknown, moment: fixture.understood.moment }).candidates.length, 0);
+});
+test('advisory assessment cannot cite another spot or invent an evidence code', async () => {
+  const { request, target } = await assessmentFixture();
+  assert.equal(validateNuknukAssessment(target, request).state, 'ADVISORY_REQUIRES_SEMANTIC_REVIEW');
+  const wrongSpot = structuredClone(target); wrongSpot.assessments[0].candidateId = 'not-in-input';
+  assert.throws(() => validateNuknukAssessment(wrongSpot, request), /candidate_not_authorized/);
+  const falseProof = structuredClone(target); falseProof.assessments[0].reasonCodes = ['invented-romantic'];
+  assert.throws(() => validateNuknukAssessment(falseProof, request), /evidence_not_authorized/);
+});
+test('grounded judgment can call the same pinned local model but never changes ranking', async () => {
+  const { evaluation, understood, target } = await assessmentFixture(); let calls = 0;
+  const result = await assessWithNuknuk({ response: evaluation.response, moment: understood.moment, modelPath, signal: AbortSignal.timeout(2000),
+    fetchImpl: async () => ++calls === 1 ? Response.json({ loaded_model: modelPath, loaded_adapter: null })
+      : Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(target) } }] }) });
+  assert.equal(result.modelCalls, 1); assert.equal(result.rankingChanged, false); assert.equal(calls, 2);
+});
+test('learning intake supports structured Bibliothekar exercises without mixing them into interpretation targets', async () => {
+  const { evaluation, understood, target } = await assessmentFixture();
+  const dataset = draftUnderstandingDataset(); const row = structuredClone(dataset.cases[0]);
+  row.id = 'birthday-evidence-exercise'; row.content.task = 'ASSESS_CANDIDATES';
+  row.content.context = { response: evaluation.response, moment: understood.moment }; row.content.target = target;
+  row.contentHash = contentHash(row.content); dataset.cases.push(row);
+  const audit = auditUnderstandingDataset(dataset, understandingSplitHash(dataset.splitPlan));
+  assert.equal(audit.cases.length, 7); assert.equal(audit.exportReady, false);
+  row.content.target.assessments[0].reasonCodes = ['invented-proof']; row.contentHash = contentHash(row.content);
+  assert.throws(() => auditUnderstandingDataset(dataset, understandingSplitHash(dataset.splitPlan)), /evidence_not_authorized/);
+});
+
+test('drafts and historic successful outputs cannot silently become training data', () => {
+  const dataset = draftUnderstandingDataset(), hash = understandingSplitHash(dataset.splitPlan);
+  const audit = auditUnderstandingDataset(dataset, hash);
+  assert.equal(audit.exportReady, false);
+  assert.equal(audit.cases.every(c => c.blockers.includes('SEMANTICS_REVIEW_MISSING')), true);
+  assert.throws(() => exportUnderstandingDataset(dataset, hash), /nuknuk_dataset_not_reviewed/);
+});
+test('correction invalidates review, and frozen scenario groups prevent split movement', () => {
+  const dataset = draftUnderstandingDataset(), hash = understandingSplitHash(dataset.splitPlan);
+  dataset.cases[0].content.trainingPermission = 'APPROVED';
+  assert.throws(() => auditUnderstandingDataset(dataset, hash), /nuknuk_case_content_changed/);
+  dataset.cases[0].contentHash = contentHash(dataset.cases[0].content);
+  dataset.cases[0].reviews.push({ kind: 'SEMANTICS', verdict: 'ACCEPT', contentHash: 'a'.repeat(64), reviewer: 'local-human', reviewedAt: '2026-11-07T13:00:00Z', note: 'test' });
+  assert.throws(() => auditUnderstandingDataset(dataset, hash), /nuknuk_stale_review/);
+  dataset.cases[0].reviews = []; dataset.cases[0].split = 'TEST';
+  assert.throws(() => auditUnderstandingDataset(dataset, hash), /nuknuk_group_split_mismatch/);
+  dataset.splitPlan[0].split = 'TEST';
+  assert.throws(() => auditUnderstandingDataset(dataset, hash), /nuknuk_split_plan_changed/);
+});
+test('local review records bind the exact correction; a later edit clears both reviews', () => {
+  let dataset = draftUnderstandingDataset(); const originalHash = dataset.cases[0].contentHash;
+  dataset = reviseUnderstandingCase(dataset, { id: dataset.cases[0].id, expectedContentHash: originalHash,
+    target: dataset.cases[0].content.target, trainingPermission: 'APPROVED' });
+  const revised = dataset.cases[0];
+  assert.notEqual(revised.contentHash, originalHash);
+  const review = { id: revised.id, expectedContentHash: revised.contentHash, kind: 'SEMANTICS', verdict: 'ACCEPT', reviewer: 'test-record-only', reviewedAt: '2026-11-07T13:00:00Z', note: 'Synthetic test record, not a real review.' };
+  dataset = recordUnderstandingReview(dataset, review);
+  assert.equal(dataset.cases[0].reviews.length, 1);
+  assert.throws(() => recordUnderstandingReview(dataset, { ...review, expectedContentHash: originalHash }), /review_content_mismatch/);
+  const target = structuredClone(dataset.cases[0].content.target); target.moment.goal.statement = 'Einen passenden Geburtstagsabend mit Abendessen finden.';
+  dataset = reviseUnderstandingCase(dataset, { id: revised.id, expectedContentHash: revised.contentHash, target, trainingPermission: 'APPROVED' });
+  assert.equal(dataset.cases[0].reviews.length, 0);
+});
+test('identical query leaks across different scenario IDs are rejected', () => {
+  const dataset = draftUnderstandingDataset();
+  const duplicate = structuredClone(dataset.cases[0]);
+  duplicate.id = 'different-id'; duplicate.scenarioGroup = 'different-group'; duplicate.split = 'TEST';
+  dataset.splitPlan.push({ scenarioGroup: duplicate.scenarioGroup, split: 'TEST' }); dataset.cases.push(duplicate);
+  assert.throws(() => auditUnderstandingDataset(dataset, understandingSplitHash(dataset.splitPlan)), /nuknuk_query_split_leakage/);
+});
+test('approved training export keeps validation/test targets in their own files and uses corrected targets only', () => {
+  const dataset = draftUnderstandingDataset();
+  dataset.cases[1].split = dataset.splitPlan[1].split = 'VALIDATION'; dataset.cases[2].split = dataset.splitPlan[2].split = 'TEST';
+  for (const row of dataset.cases) {
+    row.content.trainingPermission = 'APPROVED'; row.contentHash = contentHash(row.content);
+    row.reviews = ['SEMANTICS', 'PRIVACY_AND_SOURCE_USE'].map(kind => ({ kind, verdict: 'ACCEPT', contentHash: row.contentHash,
+      reviewer: 'synthetic-test-review-only', reviewedAt: '2026-11-07T13:00:00Z', note: 'Synthetic unit test, no actual human review.' }));
+  }
+  const bundle = exportUnderstandingDataset(dataset, understandingSplitHash(dataset.splitPlan));
+  assert.equal(bundle.files.train.length, 4); assert.equal(bundle.files.valid.length, 1); assert.equal(bundle.files.test.length, 1);
+  assert.equal(bundle.manifest.weightsTrained, false);
+  assert.equal(bundle.files.train.some(row => row.messages[1].content.includes(dataset.cases[2].content.query)), false);
+  assert.deepEqual(JSON.parse(bundle.files.train[0].messages[2].content), dataset.cases[0].content.target);
+});
