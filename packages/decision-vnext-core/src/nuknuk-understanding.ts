@@ -162,9 +162,9 @@ export async function callNuknukLocal(input: NuknukLocalModelOptions & { request
     }) });
   if (!response.ok) throw Error('nuknuk_local_provider_failed');
   const payload: unknown = await response.json();
-  if (object(payload)) input.onResponseMetadata?.({ usage: payload.usage ?? null, durationMs: performance.now() - started });
   if (!object(payload) || !Array.isArray(payload.choices) || payload.choices.length !== 1) throw Error('nuknuk_response_invalid');
   const choice: unknown = payload.choices[0];
+  input.onResponseMetadata?.({ usage: payload.usage ?? null, durationMs: performance.now() - started, finishReason: object(choice) ? choice.finish_reason ?? null : null });
   if (object(choice) && object(choice.message) && typeof choice.message.content === 'string' && choice.message.content.length <= 100000) input.onRawText?.(choice.message.content);
   if (!object(choice) || choice.finish_reason !== 'stop' || !object(choice.message) || typeof choice.message.content !== 'string' || choice.message.content.length > 100000) throw Error('nuknuk_response_incomplete');
   let raw: unknown;

@@ -39,3 +39,48 @@ Eine Bestätigung dieser Beispiele bestätigt deren fachliche Bedeutung.
 Sie bestätigt weder alle bisherigen Modellantworten noch eine ausreichende
 Modellqualität. Die eigentliche Auswertung des trainierten Adapters bleibt
 ein separater Vergleich an anderen, vorher getrennten Fällen.
+
+## Lokaler Adaptervergleich am 7. November 2026
+
+Die 200 Backyrd-Beispiele und 40 kuratierten externen Übungen wurden tatsächlich
+einmal trainiert. Anschliessend wurden Basis und Adapter mit denselben 20 vorher
+getrennten Aufgaben verglichen. Fachliche Sichtung durch die beauftragte Assistenz,
+keine neue persönliche Founder-Abnahme und kein unabhängiger Blindtest.
+Die folgenden Urteile lesen die tatsächlichen Antworten; reine Synonym- oder
+Schlüsselunterschiede werden nicht als bewiesener Suchfehler gewertet.
+
+| Fall | Basis → Adapter: konkretes Ergebnis |
+| --- | --- |
+| holdout-01: nach Streit mit Bruder ruhig essen und reden | Basisantwort abgeschnitten; Adapter vollständig, Essen/Ruhe/Gespräch und Anlass erhalten. Verbesserung. |
+| holdout-02: Bowling, dort essen nicht nötig | Beide machen aus nicht benötigtem Essen ein ausgeschlossenes Essen. Adapter nennt sogar Abendessen ohne Vorgabe. Klarer Bedeutungsfehler bleibt. |
+| holdout-03: Töpfern mit Papa, beide Anfänger | Adapter entfernt erfundene ruhige/gemütliche Präferenzen. Anfänger-Kontext landet weiterhin teilweise in einer Teilnahme-Pflicht. Zuordnung muss präziser werden. |
+| holdout-04: nach Dienstende 23 Uhr warm essen | Adapter ergänzt einen Beginn ab 23 Uhr, setzt aber wie die Basis den nicht genannten heutigen Tag als Pflicht. Nicht korrekt abgeschlossen. |
+| holdout-05: Ausstellung, 20-jähriger Sohn, Rollstuhl | Beide erhalten Ausstellung, Alter und Zugang. Unterschiedliche Rollen-/Altersschlüssel brauchen Anschlussprüfung; dieser Einzeltest belegt keinen konkreten Suchausschluss. |
+| holdout-06: Fisch erlaubt, kein Fleisch | Adapter behebt den ungültigen Beleg. Er nennt Fisch jedoch vegetarisch und verschiebt im Zieltext die persönliche Ernährung zu einem Restaurant, das überhaupt kein Fleisch serviert. Inhaltlich nicht ausreichend. |
+| holdout-07: französisch, Freundin danken mit Abendessen, kein Luxus | Beide verstehen den sprachlichen Kern. Dankbarkeit wird weiterhin als harte Ergebnis-Pflicht ausgegeben; die technische Abbildung von Luxus wechselt. Kein belegter vollständiger Übersetzungserfolg. |
+| holdout-08: Schweizerdeutsch, mit Kollegen trinken und reden, keine Disco | Beide erhalten die Kernwünsche korrekt. Adapter entfernt zusätzliche exakte Personenzahl, ergänzt dafür unbeauftragten Tages-/Datumskontext. Keine nachgewiesene harte heutige Besuchspflicht. |
+| holdout-09: bei Regen Kino, sonst Parkspaziergang | Basis verliert die Wetterbedingung. Adapter gibt zusätzlich Indoor und Outdoor als Pflichten aus und die eigentlichen Aktivitäten nur als Kontext. Verschlechterung; IF-Abdeckung fehlt im kompakten Auftrag/Training. |
+| holdout-10: privaten Raum für 30. Geburtstag mieten, kein Luxus | Beide beschreiben den Kern im Zieltext. Beim Adapter fehlt eine eigene Mietservice-Angabe, Raum wird allgemeines Merkmal. Kein Beleg, dass der produktive Bibliothekar dies korrekt abrufen würde. |
+| holdout-world-01: Mittag belegt, entspannte Atmosphäre unbekannt | Beide nur POSSIBLE, keine erfundene Bestätigung der Atmosphäre. Adapter argumentiert fokussierter. |
+| holdout-world-02: Mittag und entspannte Atmosphäre belegt | Basis bleibt POSSIBLE trotz bestätigter Wünsche; Adapter STRONG mit passenden Belegen und ohne freie Plätze zu versprechen. Sinnvolle Kalibrierungsverbesserung. |
+| holdout-world-03: ein belegter vegetarischer Brunch | Beide STRONG und an die bereitgestellten Belege gebunden. Kein Beweis für weltweite Einzigartigkeit des Kandidaten. |
+| holdout-world-04: zwei gleich belegte vegetarische Brunches | Beide Kandidaten bei beiden Varianten STRONG; Adapter erfindet keinen Unterschied oder Sieger. |
+| transfer-special-mother: besonderer Abend, gutes Essen, keine steifen Restaurants | Adapter entfernt zusätzliche harte Entspanntheit und gemütliche Präferenz. Besonderheit wird nicht automatisch Luxus. Die allgemeine Qualitäts-Pflicht „gut“ bleibt jedoch im Diagnosepfad nicht ausführbar; keine gelöste Übersetzung in belegte Merkmale. |
+| transfer-unique-open: einzigartig mit Partner, möglichst unter 30 pro Person | Beide machen den Partner zur harten Teilnahmeeigenschaft und erzeugen dadurch UNSUPPORTED_CAPABILITY. Das ist hier eine falsche Modellzuordnung, kein Beweis einer fehlenden Produktfähigkeit. Adapter formuliert das weiche Budget im Zieltext hart. |
+| transfer-special-vegetarian: spezielles Mittagessen, Freunde, kein Luxus, vegetarisch nötig | Beide erfassen den inhaltlichen Kern, verbinden aber getrennte Stellen zu einem angeblich wörtlichen Zitat. Belegvertrag verletzt. |
+| transfer-not-special: einfach Kaffee und Kuchen | Kernangebot bei beiden erhalten. Adapter erfindet im Zieltext heute Nachmittag; Rückfragedimension widerspricht der eigenen Lückenliste, daher ungültige Antwort. Regression. |
+| transfer-special-quiet: Besonderheit ist Ruhe, ausgefallene Küche egal | Adapter korrigiert Gourmet von EXCLUDED zu NOT_REQUIRED. Trotzdem zusätzliche harte Entspanntheit und Essen nur als Anlass-Kontext statt erforderlichem Angebot. Teilverbesserung, nicht vollständig korrekt. |
+| transfer-unique-not-required: Einzigartigkeit nicht nötig, Mittag unter 25 | Beide verbieten Einzigartigkeit statt sie freizustellen; beide verwenden höchstens 25 statt strikt unter 25. Klare Fehler bleiben. |
+
+**Entscheidung: Adapter lokal behalten, keine produktive Aktivierung.**
+18/20 formal brauchbare Antworten statt 17/20 sind kein ausreichender
+Verständnisnachweis. Besonders die wenigen Wörter „nicht nötig“, „egal“, „unter“
+und „wenn … sonst“ können weiterhin die eigentliche Suchabsicht verändern.
+Der Versuch zeigt echte, begrenzte Lernwirkung; er beweist weder ausreichende
+Produktqualität noch, dass das Modell diese Aufgaben grundsätzlich nicht lernen kann.
+
+Die unveränderten Rohantworten, konkreten Vertragsfehler, Laufzeiten und Hashes
+liegen lokal unter `.local/nuknuk-understanding/comparison-20261107-v2/`.
+Konfiguration, Grenzen und nächste Evaluationsregeln dokumentiert
+`NUKNUK_UNDERSTANDING_TRAINING.md`. Dieser Bericht verändert keine Trainingsziele
+und ist keine nachträgliche Anpassung des Adapters an seine Testantworten.

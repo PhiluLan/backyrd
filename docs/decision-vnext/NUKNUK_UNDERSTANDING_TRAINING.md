@@ -450,8 +450,9 @@ Der frühere 20-Schritt-Technikpilot bleibt als CLI-Standard separat verfügbar.
 Gewichte, Konfiguration und Logs werden in einem neuen Adapterordner gespeichert.
 
 `nuknuk-run-comparison.py` startet Basis und Adapter nacheinander nur auf Loopback,
-prüft ihre Identität und beendet ausschliesslich die eigenen Server. Alle 14
-zurückgehaltenen Aufgaben verwenden identische Prompt-/Eingabe-/Zielhashes und
+prüft ihre Identität und beendet ausschliesslich die eigenen Server. Die 14
+zurückgehaltenen Aufgaben und sechs zusätzlich vor dem Vergleich eingefrorene
+Formulierungsvarianten verwenden identische Prompt-/Eingabe-/Zielhashes und
 2.048 Ausgabetokens. Unvollständige oder ungültige Antworten gelten nicht als Erfolg;
 Rohtext bleibt privat zur Diagnose erhalten. Wörtliche Faktendifferenzen sind
 Diagnosehinweise, keine automatische semantische Qualitätsnote. Die vier
@@ -459,3 +460,59 @@ Evidenzaufgaben sind Einzelaufgaben mit vorgegebenem Moment und Kandidatenwissen
 keine Tests eines vollständigen Live-Suchlaufs. Die Basisgewichtdateien werden
 abschliessend gegen ihre ursprünglichen Bytehashes geprüft. Keine automatische
 Aktivierung oder Qualitätsfreigabe nach niedrigerem Trainingsverlust.
+
+### Tatsächliches Ergebnis vom 7. November 2026
+
+Die vier beauftragten Arbeitsschritte wurden ausgeführt, einschliesslich echtem
+Gewichtstraining und Vergleich. Das ist keine Freigabe als produktive Verständnis-KI.
+Alle 240 Trainingszeilen wurden einmal verarbeitet (240 Optimiererschritte,
+69 Minuten 5 Sekunden). Die Validierungsverluste nach 120/240 Schritten waren
+0,49923/0,44213. Ein vergleichbarer Verlust des unveränderten Basismodells wurde
+nicht gemessen; daraus folgt keine Qualitätsnote. Der maximale gemeldete
+Speicherbedarf betrug 24,276 GB.
+
+Der separate Adapter enthält vier endliche q/v-LoRA-Tensoren und tatsächlich
+gelernte, von null verschiedene B-Gewichte. SHA-256 von `adapters.safetensors`:
+`fcfa703eab226ecc7e0108bff703aa98a34087f37e52480c1547bc4d2c1765c8`.
+Die drei ursprünglichen Basisgewichtdateien stimmen nach dem Versuch mit ihren
+vorher gespeicherten Bytehashes überein. Der Adapter wurde weder fusioniert noch
+produktiv aktiviert. Die eigenen Vergleichsserver wurden beendet.
+
+Der vollständige Vergleich liegt lokal in
+`.local/nuknuk-understanding/comparison-20261107-v2/`. Beide Varianten bekamen
+dieselben 20 Eingaben, denselben kurzen Auftrag, Temperatur 0 und maximal 2.048
+Ausgabetokens. Die sechs Transferaufgaben tragen den Inhaltshash
+`62dc371f5d3cf51d651374757f09e7cee8da3d57d02cd6552e99fc0568a5f3f1`.
+Keine dieser Aufgaben wurde trainiert oder nach Betrachtung der Ergebnisse zum
+Nachtrainieren dieses Adapters verwendet. Die Aufgaben wurden von derselben
+Assistenz erstellt wie der Korpus; sie sind kein unabhängiger Blindtest.
+
+| Messung | Unveränderte Basis | Separater Adapter |
+| --- | --- | --- |
+| Strukturell gültig, einschliesslich Beleg-/Rückfragevertrag | 17/20 | 18/20 |
+| Gesamtdauer der 20 Modellaufrufe | 21 Min. 47 Sek. | 19 Min. 24 Sek. |
+| Median je Modellaufruf | 64,0 Sek. | 62,7 Sek. |
+
+Diese Zeiten sind ein einzelner lokaler Versuch ohne Wiederholungsmessung,
+keine Latenzzusage für eine vollständige Decision. Die Strukturquote ist ausdrücklich
+keine Quote korrekt verstandener Anfragen. Die Basis scheiterte an einer
+abgeschnittenen Antwort und zwei nicht wörtlichen Zitaten. Der Adapter scheiterte
+an einem nicht wörtlichen Zitat und einer Rückfrage, deren Dimension nicht zu den
+angegebenen Wissenslücken passt. Beide vollständigen Rohantworten bleiben erhalten.
+
+Die fachliche Einzelauswertung steht in `NUKNUK_UNDERSTANDING_REVIEW.md`.
+Nachgewiesen sind einzelne Verbesserungen bei Belegbewertung und Antwortabschluss,
+aber weiterhin Fehler bei Verneinung, Zeitbezug, Rollen und Bedingungslogik.
+Insbesondere ist der Adapter kein ausreichend zuverlässiger Ersatz für die
+produktive Interpretation. Auch die Daten-/Auftragsabdeckung ist noch lückenhaft:
+Der kompakte Auftrag erklärt ANY/SEQUENCE, aber nicht ausreichend IF und
+Wetterbedingungen; im Trainingsbestand fehlen passende echte Bedingungszweige.
+Der misslungene Wetterfall lässt deshalb keine isolierte Aussage über die
+grundsätzliche Fähigkeit des 27B-Modells zu.
+
+Für eine nächste, getrennt zu beauftragende Iteration sind gezielte Kontraste
+für NOT_REQUIRED/EXCLUDED, Rollen, Zeitbezug und Bedingungen sowie ein vollständiger
+kompakter Vertrag nötig. Adapterumfang und Trainingsdauer müssen an Entwicklungsfällen
+verglichen werden. Die jetzt gesehenen Testfälle sind danach bekannte Diagnosefälle;
+eine neue Qualitätsbewertung braucht frische zurückgehaltene Aufgaben. Allgemeine
+externe Sprachdaten ersetzen diese Backyrd-spezifischen Übersetzungsziele nicht.

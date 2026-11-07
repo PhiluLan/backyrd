@@ -140,7 +140,7 @@ def main():
     # Direct argv, no shell, remote uploads, model download, fusion or deployment.
     report["trainingExecuted"] = True
     try:
-        completed = subprocess.run([sys.executable, "-m", "mlx_vlm.train", "--config", str(config_path)],
+        completed = subprocess.run([sys.executable, "-u", "-m", "mlx_vlm.train", "--config", str(config_path)],
                                    check=False, timeout=7200)
     except subprocess.TimeoutExpired:
         report["status"] = "TRAINING_TIMED_OUT"

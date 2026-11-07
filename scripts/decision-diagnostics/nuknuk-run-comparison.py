@@ -20,6 +20,12 @@ def health():
 
 def run(args):
     model, adapter, data, output = [p.resolve() for p in (args.model, args.adapter, args.data, args.output)]
+    if args.wait_for_training:
+        deadline = time.monotonic() + 7200
+        while not (adapter / "training-result.json").is_file():
+            if time.monotonic() >= deadline:
+                raise ValueError("nuknuk_comparison_training_wait_expired")
+            time.sleep(2)
     if health() is not None:
         raise ValueError("nuknuk_comparison_service_already_running")
     result = json.loads((adapter / "training-result.json").read_text())
@@ -48,7 +54,7 @@ def run(args):
                 evaluation = ["node", "scripts/decision-diagnostics/nuknuk-adapter-evaluate.mjs", str(data), str(model), str(output / name)]
                 if active_adapter:
                     evaluation += [str(active_adapter)]
-                completed = subprocess.run(evaluation, env=env, timeout=3600, check=False)
+                completed = subprocess.run(evaluation, env=env, timeout=5400, check=False)
                 if completed.returncode:
                     raise ValueError("nuknuk_comparison_evaluation_failed")
             finally:
@@ -62,6 +68,8 @@ def run(args):
         (output / (name + "-server.log")).chmod(0o600)
     baseline = json.loads((output / "baseline/summary.json").read_text())
     adapted = json.loads((output / "adapter/summary.json").read_text())
+    if any(baseline[key] != adapted[key] for key in ["datasetHash", "profile", "transferCasesHash", "total"]):
+        raise ValueError("nuknuk_comparison_plan_changed")
     for before in baseline["cases"]:
         after = json.loads((output / "adapter" / (before["id"] + ".json")).read_text())
         original = json.loads((output / "baseline" / (before["id"] + ".json")).read_text())
@@ -88,4 +96,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for key in ["model", "adapter", "data", "output", "base-hashes"]:
         parser.add_argument("--" + key, type=Path, required=True)
+    parser.add_argument("--wait-for-training", action="store_true")
     run(parser.parse_args())

@@ -19,6 +19,8 @@ PAWS_IDS = [29, 220, 510, 775, 1099, 1766, 2644, 4802,
             204, 443, 495, 553, 562, 1863, 2630, 3881]
 PAWS_HASH = "b2fc8cdcbd926761a222c30f4f046a7cbae2ea1b14c2dbaf94f3d8a94aef1e45"
 PAWS_REVISION = "4cd8187c404bda33cb1f62b49b001115862acf37"
+MASSIVE_ARCHIVE_HASH = "4cba5faa11c71437928e17cb1b9b3d8b8e727e7ea363a3a9a8045e19c0491577"
+MASSIVE_GERMAN_HASH = "5e09cc550b38d37faf002e0ff42103acd330906e23032689e8f071e1cf3ff621"
 
 
 def sha(data):
@@ -33,6 +35,8 @@ def prepare(root):
         "massive-NOTICE.md", "pawsx-de-train.parquet", "pawsx-LICENSE.txt"]}
     if sha(files["pawsx-de-train.parquet"]) != PAWS_HASH:
         raise ValueError("nuknuk_paws_source_changed")
+    if sha(files["massive-1.1.tar.gz"]) != MASSIVE_ARCHIVE_HASH or sha(files["massive-de-DE.jsonl"]) != MASSIVE_GERMAN_HASH:
+        raise ValueError("nuknuk_massive_source_changed")
     repo = json.loads((root / "pawsx-repository.json").read_text())
     if repo["sha"] != PAWS_REVISION:
         raise ValueError("nuknuk_paws_revision_changed")
