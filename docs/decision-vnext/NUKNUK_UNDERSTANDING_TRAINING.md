@@ -247,8 +247,71 @@ diese Kompatibilitätsprüfung nicht.
 | Zweite Aufgabe: korrigierter Entwicklungsauftrag und ein synthetischer, bestätigter Dinner-Kandidat | 31,1 s; 560 Eingabe- und 395 Ausgabetokens; lediglich POSSIBLE, besondere Geburtstagseignung ausdrücklich nicht aus Dinner abgeleitet | Nützlicher enger Befund; Wort „Verfügbarkeit“ im Urteil bleibt missverständlich. Keine reale Empfehlungs-/Sprachqualitätsfreigabe |
 | Tatsächliche Datenvorbereitung mit Modellprozessor, zwei Entwicklungsbeispiele | 15.029 und 14.892 Tokens; Completion-Masken vorhanden, kein Abschneiden | Kompatibilität dieser Beispiele bestätigt, kein Training und kein Speicherbedarf eines Gradientenlaufs bewiesen |
 
-Es wurden **keine Gewichte trainiert**, keine Beispiele als menschlich geprüft
+In diesem ersten Messlauf wurden **keine Gewichte trainiert**, keine Beispiele als menschlich geprüft
 markiert und keine Produktdaten verändert. Der erste Entwicklungslauf beweist
 gerade noch keine ausreichende Modellqualität oder Echtzeitfähigkeit. Die
 Verständnisfehler werden als Korrekturaufgaben gesammelt statt durch einen
 Parser in vermeintlich richtige Antworten umgeschrieben.
+
+## Erster eingefrorener Pilotbestand, 7. November 2026
+
+Der nächste Vorbereitungsschritt ist umgesetzt: **40 Lernfälle, 10
+Entwicklungsfälle und 14 zurückgehaltene Prüfaufgaben**. Zusammen sind es
+44 Aufgaben zum Verstehen einer Anfrage und 20 zum Einschätzen bestätigten
+Spotwissens. Die sechs bereits gezeigten Beispiele gehören ausschliesslich
+zum Lernbestand. Die Zuordnung der neuen Fälle wurde vor ihrer Ausarbeitung
+in `scripts/decision-diagnostics/nuknuk-pilot-plan.json` festgelegt.
+
+Der Bestand deckt Anlass, Begleitung, funktional notwendige Ruhe, Budget,
+Alternativen, Abfolgen, Negationen, Ernährung und offene Wünsche ab.
+Die Spotübungen verwenden ausdrücklich fiktive Angaben durch den bestehenden
+kanonischen Bibliothekar. Bei derselben Anfrage ändern sich die tatsächlich
+an das Modell übergebenen Belege oder die Zahl gleich passender Kandidaten.
+Nur andere interne Kennnummern gelten nicht als neues Beispiel. Identische
+Eingaben und Kandidatenüberschneidungen zwischen den Teilbeständen werden
+erkannt. Verwandte Szenarien bleiben in derselben Aufteilung.
+
+Die Freigabe im Chat wurde nur für die **sechs ursprünglichen fachlichen
+Sollantworten mit identischem Inhaltshash** erfasst. Neue Sollantworten bleiben
+Entwürfe; Datenschutz-/Quellennutzungsprüfungen und Trainingsfreigaben bleiben
+offen. Daraus wird weder eine automatische Menschenprüfung noch eine
+Exportfreigabe abgeleitet. Die fünf lesbaren Prüfgruppen enthalten je zehn
+Lern-/Entwicklungsfälle. Die 14 Prüfaufgaben sind davon getrennt und wurden
+nicht an NukNuk gesendet oder zum Prompt-Tuning verwendet. Sie stammen aber
+von derselben Assistenz: Ein unabhängiger Blindtest wird nicht behauptet.
+
+Eine korrekt verstandene Anforderung, für die dem Bibliothekar eine Fähigkeit
+fehlt, bleibt im lokalen Auftrag erhalten und erhält
+`UNSUPPORTED_CAPABILITY`. Der Offline-Vergleich führt sie nicht aus und meldet
+die konkrete Lücke. Ungültige Familien, Referenzen und Belegstellen werden
+weiterhin abgelehnt. Das verhindert, dass wir zum Bestehen einer Softwaregrenze
+falsche Sprachziele trainieren. Der produktive Decision-Pfad bleibt unverändert.
+
+Reproduzieren (neues Ausgabeverzeichnis; ohne Freigabedatei bleiben alle Fälle
+ungeprüft):
+
+```sh
+npm run decision-vnext:build
+node scripts/decision-diagnostics/nuknuk-pilot-cohort.mjs \
+  .local/nuknuk-understanding/NEUER_PILOT_ORDNER \
+  /ABSOLUTER/PFAD/ZUR_TATSAECHLICHEN_SECHS_FALL_FREIGABE.json
+```
+
+Der gespeicherte Bestand liegt lokal unter
+`.local/nuknuk-understanding/pilot-20261107-v1/`. Er enthält Manifest,
+Inhaltshashes, Audit, separate Prüfdatensätze und lesbare Prüfseiten. Vorhandene
+Bestände werden nicht überschrieben. Korrekturen brauchen eine neue Revision;
+inhaltlich geänderte Beispiele verlieren ihre bisherigen Freigaben.
+
+| Beleg | SHA-256 |
+| --- | --- |
+| Eingefrorener Plan | `44bc38ea9861361e84c132ec9f196a90541f5d954e04b9ef00874c846955bdc9` |
+| Aufteilung | `669649b537fe63cdf38fa1a5c2ca8afebe2d4a0fa3ad56e20387ab189e230383` |
+| Bestand einschliesslich sechs fachlicher Freigaben | `24fe8206beb085d928d5b03bbf4830f23f704652eb7a41380cba4f40b0f852d5` |
+
+Für diesen Vorbereitungsschritt: **0 Modellaufrufe, keine trainierten Gewichte,
+keine Produktdatenänderungen**. Die technische Prüfung bestätigt Struktur,
+Reproduzierbarkeit und Freigabegrenzen; sie belegt keine bessere Modellqualität.
+Als Nächstes werden die neuen Sollantworten geprüft und korrigiert, bevor ein
+freigegebener Export, ein Baseline-Vergleich und der getrennte Adapterpilot
+gestartet werden.

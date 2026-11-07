@@ -90,21 +90,29 @@ export function auditUnderstandingDataset(raw: unknown, expectedSplitHash: strin
     if (groups.has(row.scenarioGroup)) throw Error('nuknuk_duplicate_split_group');
     groups.set(row.scenarioGroup, row.split);
   }
-  const ids = new Set<string>(), seen = new Map<string, string>(), taskQueries = new Set<string>();
+  const ids = new Set<string>(), seen = new Map<string, string>(), taskQueries = new Set<string>(), candidateSplits = new Map<string, string>();
   const cases = dataset.cases.map(row => {
     if (ids.has(row.id)) throw Error('nuknuk_duplicate_case');
     ids.add(row.id);
     if (groups.get(row.scenarioGroup) !== row.split) throw Error('nuknuk_group_split_mismatch');
     if (contentHash(row.content) !== row.contentHash) throw Error('nuknuk_case_content_changed');
     if (!Number.isFinite(Date.parse(row.content.reference.now))) throw Error('nuknuk_reference_date_invalid');
-    taskPair(row.content);
+    const pair = taskPair(row.content);
+    if ('candidates' in pair.request) for (const candidate of pair.request.candidates) {
+      const prior = candidateSplits.get(candidate.candidateId);
+      if (prior !== undefined && prior !== row.split) throw Error('nuknuk_candidate_split_leakage');
+      candidateSplits.set(candidate.candidateId, row.split);
+    }
     // Catch exact and superficial duplicate queries across splits. Semantically
     // equivalent paraphrases still need reviewed scenario grouping.
     const fingerprint = contentHash(row.content.query.normalize('NFKC').toLocaleLowerCase('de-CH').replace(/[\p{P}\p{S}\s]+/gu, ' ').trim());
     const priorSplit = seen.get(fingerprint);
     if (priorSplit !== undefined && priorSplit !== row.split) throw Error('nuknuk_query_split_leakage');
-    const taskQuery = row.content.task + ':' + fingerprint;
-    if (taskQueries.has(taskQuery)) throw Error('nuknuk_duplicate_query');
+    // Same sentence with genuinely different visible evidence is a necessary
+    // counterfactual exercise. Irrelevant response UUIDs must not create a new
+    // example; taskPair projects only the actual model-visible input.
+    const taskQuery = contentHash({ task: row.content.task, input: JSON.parse(pair.request.input) as unknown });
+    if (taskQueries.has(taskQuery)) throw Error('nuknuk_duplicate_query:' + row.id);
     taskQueries.add(taskQuery);
     seen.set(fingerprint, row.split);
     const kinds = new Set<string>();

@@ -7,6 +7,7 @@ import { draftUnderstandingDataset, understandingDevelopmentCases } from '../../
 import { evaluateNuknukAgainstCatalog } from '../../../scripts/decision-diagnostics/nuknuk-understanding.mjs';
 import { binding, profile } from './librarian-matching-fixtures.mjs';
 import { buildNuknukAssessmentRequest, validateNuknukAssessment, assessWithNuknuk } from '../dist/nuknuk-grounded-assessment.js';
+import { buildPilotCohort, pilotReviewMarkdown, PILOT_PLAN_HASH } from '../../../scripts/decision-diagnostics/nuknuk-pilot-cohort.mjs';
 
 const example = understandingDevelopmentCases[0].content;
 const modelPath = '/models/45797d2985a12c55e6473686e9ea91b95e959553';
@@ -182,4 +183,46 @@ test('approved training export keeps validation/test targets in their own files 
   assert.equal(bundle.manifest.weightsTrained, false);
   assert.equal(bundle.files.train.some(row => row.messages[1].content.includes(dataset.cases[2].content.query)), false);
   assert.deepEqual(JSON.parse(bundle.files.train[0].messages[2].content), dataset.cases[0].content.target);
+});
+
+test('pilot contains the frozen 40/10/14 inventory, no automatic approvals or model calls', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw Error('pilot-must-not-call-a-provider'); };
+  try {
+    const cohort = await buildPilotCohort();
+    assert.deepEqual(cohort.manifest.counts, { TRAIN: 40, VALIDATION: 10, TEST: 14 });
+    assert.deepEqual(cohort.manifest.taskCounts, { INTERPRET_REQUEST: 44, ASSESS_CANDIDATES: 20 });
+    assert.equal(cohort.manifest.planHash, PILOT_PLAN_HASH);
+    assert.equal(cohort.manifest.modelCalls, 0); assert.equal(cohort.manifest.exportReady, false);
+    assert.equal(cohort.dataset.cases.every(c => c.reviews.length === 0), true);
+    assert.equal(cohort.manifest.holdout.independentlyAuthored, false);
+    const review = pilotReviewMarkdown(cohort);
+    for (const row of cohort.dataset.cases.filter(c => c.split === 'TEST')) assert.equal(review.includes(row.content.query), false);
+    assert.equal(review.includes('holdout-01'), false);
+    assert.equal((await buildPilotCohort()).manifest.datasetHash, cohort.manifest.datasetHash);
+  } finally { globalThis.fetch = originalFetch; }
+});
+test('same query with changed visible evidence is valid; UUID-only copies remain duplicates', async () => {
+  const cohort = await buildPilotCohort();
+  const a = cohort.dataset.cases.find(c => c.id === 'world-birthday-basic');
+  const b = cohort.dataset.cases.find(c => c.id === 'world-birthday-atmosphere');
+  assert.equal(a.content.query, b.content.query);
+  const changed = structuredClone(cohort.dataset);
+  const copy = structuredClone(a); copy.id = 'same-input-new-uuid';
+  copy.content.context.response.decisionId = 'different-decision-id';
+  copy.contentHash = contentHash(copy.content); changed.cases.push(copy);
+  assert.throws(() => auditUnderstandingDataset(changed, cohort.manifest.splitPlanHash), /nuknuk_duplicate_query/);
+});
+test('unsupported software capability is retained as a need and cannot reach matching', async () => {
+  // Separate technical fixture, never consume a holdout target as a regression.
+  const query = 'Ein Café mit biologischem Kaffee.';
+  const target = copy();
+  target.meaning.facts = [{id:'quality',key:'food.quality',value:{text:'biologischer Anbau'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['a1']}];
+  target.moment = {goal:{statement:'Biologischen Kaffee trinken.',evidence:[{quote:query}]},hypotheses:[],missing:[],clarification:null};
+  const result = validateNuknukUnderstanding(target, {query,reference:example.reference});
+  assert.equal(result.requestState, 'UNSUPPORTED_CAPABILITY');
+  assert.ok(result.capabilityGaps.length > 0);
+  assert.ok(result.output.meaning.facts.some(f => f.key === 'food.quality' && f.modality === 'REQUIRED'));
+  const noEvaluation = await evaluateNuknukAgainstCatalog(result, [], example.reference);
+  assert.equal(noEvaluation.status, 'UNSUPPORTED_CAPABILITY'); assert.equal(noEvaluation.response, null);
 });

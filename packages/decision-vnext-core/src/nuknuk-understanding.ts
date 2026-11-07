@@ -69,7 +69,11 @@ export function validateNuknukUnderstanding(raw: unknown, input: { query: string
   if (!object(raw) || Object.keys(raw).sort().join(',') !== 'meaning,moment') throw Error('nuknuk_output_invalid');
   const output = validateActiveLunaMeaningOutput(raw.meaning);
   const issues = inspectLunaMeaning(output, input.query);
-  if (issues.length) throw Error('nuknuk_meaning_contract_failed');
+  // A correctly expressed need beyond today's evaluator is a software
+  // capability gap, not a target to mistranslate during language training.
+  // Family/polarity/reference errors remain invalid. No Product gate changes.
+  const capabilityGaps = issues.filter(issue => issue.code === 'UNSUPPORTED_REQUIREMENT');
+  if (issues.some(issue => issue.code !== 'UNSUPPORTED_REQUIREMENT')) throw Error('nuknuk_meaning_contract_failed');
   const moment = NuknukMomentSchema.parse(raw.moment);
   for (const entry of [moment.goal, ...moment.hypotheses]) for (const ref of entry.evidence) {
     if (!input.query.includes(ref.quote)) throw Error('nuknuk_quote_not_in_query');
@@ -91,7 +95,8 @@ export function validateNuknukUnderstanding(raw: unknown, input: { query: string
     for (let offset = input.query.indexOf(ref.quote); offset >= 0; offset = input.query.indexOf(ref.quote, offset + 1)) offsets.push(offset);
     return { quote: ref.quote, offsets };
   }));
-  return deepFreeze({ version: NUKNUK_UNDERSTANDING_VERSION, plan, moment, evidenceLocations, requestState: plan ? 'EXECUTABLE' : 'NEEDS_CLARIFICATION',
+  return deepFreeze({ version: NUKNUK_UNDERSTANDING_VERSION, plan, moment, evidenceLocations, capabilityGaps,
+    requestState: capabilityGaps.length ? 'UNSUPPORTED_CAPABILITY' : plan ? 'EXECUTABLE' : 'NEEDS_CLARIFICATION',
     output: { meaning: output, moment }, outputHash: contentHash({ meaning: output, moment }),
     limitations: ['STRUCTURAL_VALIDATION_IS_NOT_SEMANTIC_PROOF', 'HYPOTHESES_DO_NOT_CHANGE_ELIGIBILITY', 'NOT_A_PRODUCTION_RECOMMENDATION'] });
 }

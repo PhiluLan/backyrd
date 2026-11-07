@@ -1,7 +1,9 @@
 # Erste Lernbeispiele für NukNuk: fachliche Prüfung
 
-Diese sechs Beispiele sind vorbereitete Soll-Antworten. Sie sind noch nicht
-als Trainingsvorbilder bestätigt. Entscheidend ist die Bedeutung, nicht der
+Diese sechs Soll-Antworten hat der Founder am 7. November 2026 im Chat
+fachlich bestätigt. Das bestätigt ihre Bedeutung; eine separate Datenschutz- /
+Quellennutzungsprüfung und die Trainingsfreigabe sind damit nicht dokumentiert.
+Entscheidend ist die Bedeutung, nicht der
 technische Datenaufbau. Alle Fälle sind bekannte Entwicklungsbeispiele und
 werden nicht als späterer Blindtest verwendet.
 

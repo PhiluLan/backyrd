@@ -31,19 +31,22 @@ async function adapterPin(opts) {
 
 /** Same current evaluator and final ranking as Product, neutral synthetic actor.
  * Moment hypotheses are deliberately not added to required facts or World data. */
-export async function evaluateNuknukAgainstCatalog(result, catalog, reference) {
+export async function evaluateNuknukAgainstCatalog(result, catalog, reference, fixture = null) {
+  if (result.requestState === 'UNSUPPORTED_CAPABILITY') return { status: 'UNSUPPORTED_CAPABILITY', response: null, capabilityGaps: result.capabilityGaps, productionWrites: 0, learningWrites: 0 };
   if (!result.plan) return { status: 'NEEDS_CLARIFICATION', response: null, productionWrites: 0, learningWrites: 0 };
   if (!Array.isArray(catalog) || !catalog.length || catalog.length > 1000) throw Error('nuknuk_catalog_invalid');
   const { createDecisionProductRpcEvaluationProvider } = await import('../../packages/decision-vnext-core/dist/product-decision-production-adapter.js');
   const { buildDecisionProductExecution } = await import('../../packages/decision-vnext-core/dist/product-decision.js');
   const { BASEL_DISCOVERY_LOCALITIES } = await import('../../packages/decision-vnext-core/dist/product-librarian-geography.js');
   const { contentHash } = await import('../../packages/decision-vnext-core/dist/canonical.js');
-  const id = crypto.randomUUID();
+  if (fixture !== null && (typeof fixture.syntheticSeed !== 'string' || !/^[a-z0-9-]{1,100}$/u.test(fixture.syntheticSeed))) throw Error('nuknuk_fixture_seed_invalid');
+  const fixtureHash = fixture ? contentHash({ syntheticFixture: fixture.syntheticSeed }) : null;
+  const id = fixtureHash ? `${fixtureHash.slice(0,8)}-${fixtureHash.slice(8,12)}-4${fixtureHash.slice(13,16)}-8${fixtureHash.slice(17,20)}-${fixtureHash.slice(20,32)}` : crypto.randomUUID();
   const request = { contractVersion: 'backyrd.decision-vnext.product-request@1.0', requestId: id, idempotencyKey: id,
     naturalLanguage: result.plan.source.sourceText, includeEvents: false,
     explicit: { targetCity: 'Basel', targetCityRole: 'SEARCH_CONTEXT', moods: [] },
     alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
-  const actor = { userId: crypto.randomUUID(), subjectBindingHash: contentHash('NUKNUK_LOCAL_SYNTHETIC'), authenticationContextHash: contentHash('NO_REAL_SESSION'), sessionBindingHash: contentHash(id), sessionId: crypto.randomUUID() };
+  const actor = { userId: fixture ? id : crypto.randomUUID(), subjectBindingHash: contentHash('NUKNUK_LOCAL_SYNTHETIC'), authenticationContextHash: contentHash('NO_REAL_SESSION'), sessionBindingHash: contentHash(id), sessionId: fixture ? id : crypto.randomUUID() };
   const identity = { releaseHash: contentHash('LOCAL_NOT_RELEASED'), artifactHash: contentHash(result.identity), sourceSetHash: contentHash('NUKNUK_UNDERSTANDING'), controlGeneration: 1 };
   let search = null;
   const evaluator = createDecisionProductRpcEvaluationProvider({ async rpc(name) {
