@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds = 90_000, slug = "decision-v13" } = {}) {
   const root = resolve(bundleRoot);
-  if (!["decision-v13", "decision-engine-worker", "decision-admin-diagnostic"].includes(slug)) throw new Error("edge_function_slug_invalid");
+  if (!["decision-v13", "decision-engine-worker", "decision-admin-diagnostic", "weather-context"].includes(slug)) throw new Error("edge_function_slug_invalid");
   const child = spawn("supabase", ["--workdir", root, "functions", "serve", slug, "--no-verify-jwt"], {
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -24,6 +24,9 @@ export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds 
         }).catch(() => null);
         if (response) {
           const body = await response.json().catch(() => null);
+          if (slug === "weather-context" && response.status === 401 && body?.error === "authentication_required") {
+            return { status: "PASS", slug, httpStatus: 401, authenticationRequired: true };
+          }
           if (slug === "decision-v13" && response.status === 503 && body?.status === "UNAVAILABLE" && body.legacyFallbackUsed === false) {
             return { status: "PASS", slug, httpStatus: 503, productStatus: body.status, legacyFallbackUsed: false };
           }

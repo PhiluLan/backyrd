@@ -245,6 +245,6 @@
       "slug": "weather-context",
       "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
     },
-    "source": "Founder requested WeatherKit implementation and initial defaults on 2026-11-05; this plan does not authorize a production execution."
+    "source": "Founder explicitly requested WeatherKit integration in the app and live publication on 2026-11-07. Manual exact-Main deployment remains required; SQL, Auth, Decision and Booking remain excluded."
   }
 }

@@ -93,11 +93,21 @@ try {
   let momentPublishes = 0;
   const chatSends = [];
   let chatLoadFail = true;
+  let weatherUnavailable = true;
   let finishChatRequest;
   const remoteFixture = async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
+    if (path === "/functions/v1/weather-context") {
+      const body = JSON.parse(request.postData() ?? "{}");
+      assert.deepEqual(Object.keys(body), ["city"]);
+      assert.ok(["Basel", "Bern"].includes(body.city));
+      const stamp = new Date().toISOString();
+      return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(weatherUnavailable
+        ? {version:"backyrd.weather@1",state:"UNKNOWN",reason:"UNAVAILABLE"}
+        : {version:"backyrd.weather@1",state:"KNOWN",provider:"apple-weather",city:body.city,targetTime:stamp,fetchedAt:stamp,sourceUpdatedAt:stamp,validUntil:new Date(Date.now()+300000).toISOString(),observation:{kind:"current",time:stamp,temperatureC:12,condition:"Cloudy",precipitationChance:null,windKph:4},attribution:{name:"Apple Weather",logoUrl:"https://weatherkit.apple.com/fixture-weather-logo.png",legalUrl:"https://developer.apple.com/weatherkit/data-source-attribution/"}})});
+    }
     if (/\/rpc\/(reserve_review_media_upload_v2|finalize_review_with_media_v2|finalize_review_without_media_v1)$/.test(path)) {
       momentPublishes++;
       if (state.allowSyntheticMoment && path.endsWith("/finalize_review_without_media_v1")) {
@@ -187,6 +197,7 @@ try {
     return route.abort("blockedbyclient");
   };
   await context.route(`${endpoint}/**`, remoteFixture);
+  await context.route("https://weatherkit.apple.com/fixture-weather-logo.png", route => route.fulfill({status:200,contentType:"image/png",path:resolve(root,"mobile/assets/icon.png")}));
 
   const appUrl = `http://127.0.0.1:${address.port}`;
   await page.goto(appUrl, { waitUntil: "domcontentloaded" });
@@ -194,6 +205,12 @@ try {
     throw new Error(`Authenticated home did not appear at ${page.url()}: ${(await page.locator("body").innerText()).slice(0, 1200)}`, { cause: error });
   });
   // The prominent Plus opens the draft directly; location refusal does not block manual entry.
+  await page.getByText("Wetter gerade nicht verfügbar", { exact: true }).waitFor();
+  weatherUnavailable = false;
+  await page.getByRole("button", { name: "Wetter aktualisieren", exact: true }).click();
+  await page.getByText("12 °C · Bewölkt", { exact: true }).waitFor();
+  await page.getByRole("link", { name: "Apple Weather: Datenquellen ansehen", exact: true }).waitFor();
+  if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/weather-home.png`});
   await page.getByRole("button",{name:"Moment mit Foto festhalten",exact:true}).click();
   await page.getByText("Dein Moment",{exact:true}).waitFor();
   await page.getByRole("button",{name:"Gemütlich",exact:true}).click();
