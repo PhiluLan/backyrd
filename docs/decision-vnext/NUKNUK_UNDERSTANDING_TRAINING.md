@@ -516,3 +516,43 @@ kompakter Vertrag nötig. Adapterumfang und Trainingsdauer müssen an Entwicklun
 verglichen werden. Die jetzt gesehenen Testfälle sind danach bekannte Diagnosefälle;
 eine neue Qualitätsbewertung braucht frische zurückgehaltene Aufgaben. Allgemeine
 externe Sprachdaten ersetzen diese Backyrd-spezifischen Übersetzungsziele nicht.
+
+### Zweite beauftragte Runde am 8. November 2026
+
+Auftrag: „Perfekt, los gehts“ zur vorgeschlagenen zweiten Runde. Der Bestand wird
+additiv um 120 ausdrücklich formulierte Kontraste in zehn Themen ergänzt:
+Modalität, Personenrollen, Zeit, Budget, Besonderheit, Wetterbedingungen,
+Verknüpfung, Geltungsbereich, Nicht-Erfinden und Sprachwechsel. Die vorherigen
+200 Backyrd- und 40 externen Beispiele bleiben erhalten. Zwölf neue Entwicklungs-
+und zwölf neue zusammengesetzte Prüfaufgaben sind separat ausgewiesen. Historische
+Testantworten dienen nicht zur Adapterauswahl. Alle neuen Ziele sind beauftragte
+Assistenzarbeit, keine erfundene persönliche Founder- oder unabhängige Gold-Abnahme.
+
+`COMPACT_ADAPTER_V2` beschreibt die vorhandene kanonische Grammatik ohne den
+alten und neuen Auftrag doppelt hintereinander zu senden. IF-Zweige, Wetterrollen,
+Personenbezüge, exakte Belege und Rückfragedimensionen sind ausdrücklich enthalten.
+FULL und V1 bleiben reproduzierbar; der produktive Interpreter wird nicht verändert.
+Die Kalenderreferenz der Sammlung bleibt der 7. November 2026 in Europe/Zurich.
+Diese Runde ist deshalb kein Nachweis breiter Kalender- oder Zeitzonengeneralisierung.
+
+Der erste Einrichtungsversuch mit doppelt beschriebenem Auftrag wurde nach 106
+Sekunden kontrolliert beendet und aus dem Variantenvergleich ausgeschlossen.
+Sein Wächter erfasste nur normalen Speicherdruck und keinen Swap-Zuwachs.
+Der bereinigte Bestand liegt lokal in `training-20261108-v2-compact` mit Manifest-
+Bytehash `71d16f4c0fda441b50980fcbf32b816b22717cdbeca3f3f0f0262b16c5a3bca0`.
+Beide Varianten erhalten dieselben 360 Zeilen einmal, Seed 7, Rang 8, Alpha 16
+und Lernrate 1e-5: q/v im letzten einen bzw. letzten zwei Full-Attention-Blöcken.
+Sie starten beide vom unveränderten Basismodell, nicht voneinander oder vom alten
+Adapter. Auswahl nach fachlicher Sichtung derselben zwölf Entwicklungsantworten;
+erst danach neue Prüfaufgaben, Basisvergleich und Wiederholungen.
+
+**Ressourcenregel:** Docker bleibt aus. `nuknuk-resource-guard.py` überwacht seinen
+eigenen MLX-Prozess und den macOS-Speicherdruck alle fünf Sekunden. Kritischer
+Druck, drei Warnmessungen nacheinander oder mehr als 2 GiB neuer Swap stoppen
+den eigenen Prozessbaum. Bereits vorhandener Swap allein ist kein Abbruchgrund.
+Ausfall der Überwachung stoppt ebenfalls. Fremde Prozesse werden nicht beendet.
+Die MLX-Allocator-Richtlinie beträgt 32 GiB, der freie Cache maximal 512 MiB;
+dies sind keine harten Grenzen für den gesamten Mac. Ein erfolgreicher Lauf ist
+erst mit Ressourcenbeleg und tatsächlicher Auswertung abgeschlossen. Kontrolliert
+beendete Server erhalten einen Unterbrechungsbeleg statt eines erfundenen Erfolgs.
+Keine Gewichts-Fusion, produktive Aktivierung oder automatische Veröffentlichung.

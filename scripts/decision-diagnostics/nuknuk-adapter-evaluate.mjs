@@ -10,20 +10,25 @@ import {transferCases} from './nuknuk-transfer-cases.mjs';
 import {validateActiveLunaMeaningOutput} from '../../packages/decision-vnext-core/dist/product-luna-librarian.js';
 import {inspectLunaMeaning} from '../../packages/decision-vnext-core/dist/product-luna-meaning-contract.js';
 
-const [dataDirectory,modelPath,outputDirectory,adapterPath]=process.argv.slice(2);
+const argv=process.argv.slice(2);
+const planIndex=argv.indexOf('--cases-file');
+const [dataDirectory,modelPath,outputDirectory,adapterPath]=planIndex<0?argv:argv.slice(0,planIndex);
+const casesFile=planIndex<0?null:argv[planIndex+1];
 if(!dataDirectory||!modelPath||!outputDirectory) throw Error('nuknuk_eval_arguments_required');
 const folder=resolve(outputDirectory);await mkdir(folder,{mode:0o700});
 const data=JSON.parse(await readFile(resolve(dataDirectory,'reviewed-backyrd.json'),'utf8'));
 const manifest=JSON.parse(await readFile(resolve(dataDirectory,'manifest.json'),'utf8'));
-if(contentHash(data)!==manifest.datasetHash||manifest.instructionProfile!=='COMPACT_ADAPTER_V1') throw Error('nuknuk_eval_data_changed');
+if(contentHash(data)!==manifest.datasetHash||!['COMPACT_ADAPTER_V1','COMPACT_ADAPTER_V2'].includes(manifest.instructionProfile)) throw Error('nuknuk_eval_data_changed');
 const adapterHash=adapterPath?createHash('sha256').update(await readFile(resolve(adapterPath,'adapters.safetensors'))).digest('hex'):null;
-const rows=[...data.cases.filter(c=>c.split==='TEST'),...transferCases.map(test=>({id:test.id,testKind:'WORDING_TRANSFER_NOT_INDEPENDENT_HOLDOUT',expectation:test.expectation,
+const selection=casesFile?JSON.parse(await readFile(resolve(casesFile),'utf8')):null;
+if(selection&&(selection.datasetHash!==manifest.datasetHash||new Set(selection.caseIds).size!==selection.caseIds.length||selection.caseIds.some(id=>!data.cases.some(c=>c.id===id&&c.split===selection.split))))throw Error('nuknuk_eval_selection_invalid');
+const rows=selection?selection.caseIds.map(id=>data.cases.find(c=>c.id===id)):[...data.cases.filter(c=>c.split==='TEST'),...transferCases.map(test=>({id:test.id,testKind:'WORDING_TRANSFER_NOT_INDEPENDENT_HOLDOUT',expectation:test.expectation,
   content:{task:'INTERPRET_REQUEST',query:test.query,reference:data.cases[0].content.reference,target:{}},contentHash:contentHash(test)}))];
 const results=[];
 const fingerprint=f=>JSON.stringify({key:f.key,modality:f.modality,value:f.value});
 for(const row of rows){
   const request=row.content.task==='INTERPRET_REQUEST'
-    ?buildNuknukUnderstandingRequest({...row.content,instructionProfile:'COMPACT_ADAPTER_V1'})
+    ?buildNuknukUnderstandingRequest({...row.content,instructionProfile:manifest.instructionProfile})
     :buildNuknukAssessmentRequest(row.content.context);
   const start=performance.now();let raw=null,rawText=null,metadata=null;
   let result;
@@ -48,7 +53,7 @@ for(const row of rows){
   results.push(record);await writeFile(resolve(folder,row.id+'.json'),JSON.stringify(record,null,2)+'\n',{flag:'wx',mode:0o600});
   console.log(JSON.stringify({id:row.id,status:result.status,durationSeconds:Math.round(record.durationMs/1000)}));
 }
-const summary={datasetHash:manifest.datasetHash,transferCasesHash:contentHash(transferCases),profile:manifest.instructionProfile,modelPath:resolve(modelPath),adapterHash,
+const summary={datasetHash:manifest.datasetHash,transferCasesHash:selection?contentHash(selection):contentHash(transferCases),profile:manifest.instructionProfile,modelPath:resolve(modelPath),adapterHash,
   cases:results.map(({id,result,durationMs})=>({id,result,durationMs})),structurallyValid:results.filter(r=>r.result.status==='STRUCTURALLY_VALID').length,total:results.length,
   durationMs:results.reduce((s,r)=>s+r.durationMs,0),productionWrites:0,limitations:['ASSISTANT_AUTHORED_HOLDOUT','ADVISORY_READING_CASES_ARE_NOT_END_TO_END_DISCOVERY','STRUCTURAL_SUCCESS_IS_NOT_SEMANTIC_SUCCESS']};
 await writeFile(resolve(folder,'summary.json'),JSON.stringify(summary,null,2)+'\n',{flag:'wx',mode:0o600});

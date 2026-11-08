@@ -268,6 +268,29 @@ test('compact adapter profile preserves the exact schema and input and remains o
   assert.notEqual(compact.identity.promptHash,full.identity.promptHash);
 });
 
+test('second local profile preserves the wire contract and corpus partitions without activating Product', async () => {
+  const full=buildNuknukUnderstandingRequest(example);
+  const v1=buildNuknukUnderstandingRequest({...example,instructionProfile:'COMPACT_ADAPTER_V1'});
+  const v2=buildNuknukUnderstandingRequest({...example,instructionProfile:'COMPACT_ADAPTER_V2'});
+  assert.deepEqual(v2.outputSchema,full.outputSchema);
+  assert.equal(v2.input,full.input);
+  assert.notEqual(v2.identity.promptHash,v1.identity.promptHash);
+  assert.ok(v2.instructions.includes('conditionFactId'));
+  assert.ok(!full.instructions.includes('Präzisierung COMPACT_ADAPTER_V2'));
+  const {round2Train,round2Development,round2FreshTest}=await import('../../../scripts/decision-diagnostics/nuknuk-round2-cases.mjs');
+  const {makeInterpretation}=await import('../../../scripts/decision-diagnostics/nuknuk-pilot-authoring.mjs');
+  assert.deepEqual([round2Train.length,round2Development.length,round2FreshTest.length],[120,12,12]);
+  const querySplits=new Map();
+  for(const spec of [...round2Train,...round2Development,...round2FreshTest]){
+    const row=makeInterpretation(spec,spec);
+    assert.equal(row.reviews.length,0);
+    assert.equal(row.content.trainingPermission,'PENDING');
+    const prior=querySplits.get(spec.query);
+    assert.ok(prior===undefined||prior===spec.split);
+    querySplits.set(spec.query,spec.split);
+  }
+});
+
 test('assisted review attribution requires explicit delegation and cannot claim human provenance', () => {
   const data=draftUnderstandingDataset();
   const row=data.cases[0];

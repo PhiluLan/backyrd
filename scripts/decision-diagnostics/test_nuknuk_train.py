@@ -8,9 +8,19 @@ import unittest
 spec = importlib.util.spec_from_file_location("nuknuk_train", Path(__file__).with_name("nuknuk-train.py"))
 trainer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(trainer)
+guard_spec = importlib.util.spec_from_file_location("nuknuk_guard", Path(__file__).with_name("nuknuk-resource-guard.py"))
+guard = importlib.util.module_from_spec(guard_spec)
+guard_spec.loader.exec_module(guard)
 
 
 class TrainingBoundaryTests(unittest.TestCase):
+    def test_resource_guard_distinguishes_old_swap_from_new_pressure(self):
+        initial = {"pressure": 1, "swapUsedBytes": 13 * guard.GIB}
+        self.assertIsNone(guard.stop_reason(initial, initial, 0))
+        self.assertEqual(guard.stop_reason({**initial, "pressure": 4}, initial, 1), "CRITICAL_HOST_MEMORY_PRESSURE")
+        self.assertEqual(guard.stop_reason({**initial, "pressure": 2}, initial, 3), "SUSTAINED_HOST_MEMORY_PRESSURE")
+        self.assertEqual(guard.stop_reason({**initial, "swapUsedBytes": 16 * guard.GIB}, initial, 0), "SWAP_GROWTH_OVER_2_GIB")
+
     def fixture(self, folder):
         manifest = {"version": "backyrd.nuknuk-understanding-dataset@1",
                     "purpose": "SUPERVISED_UNDERSTANDING_ADAPTER_DATA_ONLY",
