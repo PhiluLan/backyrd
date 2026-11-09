@@ -771,3 +771,41 @@ wurde nicht gestartet und nicht über die kleine Diagnose umgangen. Deren
 Konfiguration weist mehr als drei Schritte ausdrücklich zurück. Der genaue
 anstehende Umfang steht in der lokalen `memory-diagnosis-next-run.json`.
 Keine produktive Aktivierung und kein automatischer Neustart.
+
+
+### Ausdrücklich freigegebener 20-Schritte-Kontrolllauf, 9. November 2026
+
+Nach der zusätzlichen Nutzerfreigabe „Ja bitte durchführen“ wurde genau der
+vorbereitete normale Kontrolllauf `adapter-20261109-resource-pilot-v5-wired24`
+ausgeführt. Keine zusätzlichen Diagnose-Vorwärtsläufe oder vmmap-Snapshots in
+diesem Lauf. Daten, Lernrate, Seed, Batchgrösse, Zielmodule und Maskierung sind
+gegenüber dem früheren 20-Schritte-Probelauf unverändert; ergänzt ist das lokale
+24-GiB-Residenzbudget neben allen bisherigen Abschaltregeln.
+
+**Ergebnis: Ressourcen-Probelauf bestanden.** Alle 20 Optimierungsschritte, zwei
+abschliessende Validierungsbatches und beide Adapter-Schreibabschlüsse wurden
+regulär beendet. Gesamtdauer inklusive Vorbereitung: 398,98 Sekunden (6:39 Min.).
+Der Wächter hat 308 Messungen gesichert, ausschliesslich Druckstufe 1. Kein
+zusätzlicher Swap; der bereits vor Start vorhandene Stand betrug 0,25 MiB.
+Der maximale gemessene physische Footprint war 24.842.466.096 Bytes (23,136 GiB),
+der letzte MLX-Spitzenwert 24,275 GB. Der angezeigte System-Kompressionsspeicher
+blieb im gesamten erfassten Lauf bei höchstens rund 3,327 GiB.
+
+Der finale Adapter und der gespeicherte Stand 20 sind bytegleich, enthalten vier
+Tensoren mit zusammen 188.416 Parametern und haben SHA-256
+`36ac59787cb14b0b5df306a75fd43b045f1275344d74cadee9fbf3eded1a77df`.
+Der Stand 10 ist ausserdem bytegleich mit dem früheren ungebundenen Probelauf
+(`a780e71ca1d03ee8930f6d2ce2ea869de25bcc1c19b868be5e0583defbcc04f2`).
+Alle drei Originalgewichte-Dateien wurden unverändert gegen die vor dem Training
+gespeicherten SHA-256-Werte geprüft. Der vollständige lokale Nachweis liegt im
+Ausgabeordner als `pilot-review.json`, neben Ressourcenjournal, Trainerlog und
+Trainingsresultat. Der Freigabe-/Laufplan wurde auf abgeschlossen gesetzt.
+
+Dies belegt einen stabilen normalen 20-Schritte-Lauf mit dieser Konfiguration,
+keine vollständige 360-Schritte-Epoche und noch keine fachliche Verbesserung der
+Antworten. Der Host-/Dateicachezustand war nicht identisch zu den früheren
+Fehlläufen; die Wirkung der Residenzsteuerung ist daher nicht als alleiniger
+Kausalnachweis aller früheren Abbrüche auszugeben. Die zwei vollständigen
+Adaptervarianten, Entwicklungsauswahl und frische Verständnisprüfung bleiben
+als nächste Arbeit offen. Keine automatische weitere Ausführung und keine
+produktive Modellaktivierung.
