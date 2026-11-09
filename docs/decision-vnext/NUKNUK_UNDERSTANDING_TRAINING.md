@@ -809,3 +809,25 @@ Kausalnachweis aller früheren Abbrüche auszugeben. Die zwei vollständigen
 Adaptervarianten, Entwicklungsauswahl und frische Verständnisprüfung bleiben
 als nächste Arbeit offen. Keine automatische weitere Ausführung und keine
 produktive Modellaktivierung.
+
+### Wiederholter 20-Schritte-Kontrolllauf, 9. November 2026
+
+Auf die ausdrückliche Begrenzung „Erstmal 20 Schritte durchführen“ wurde ein
+weiterer unabhängiger Lauf vom unveränderten Basismodell gestartet, keine
+Fortsetzung des vorherigen Adapters und keine vollständige Epoche. Ausgabe:
+`adapter-20261109-resource-pilot-v5-wired24-repeat1`. Daten, Seed und
+Trainingskonfiguration entsprechen dem vorherigen erfolgreichen Kontrolllauf.
+
+Alle 20 Schritte, zwei abschliessende Validierungsbatches und die Speicherung
+endeten regulär nach 399,16 Sekunden (6:39 Min.). Alle 308 Ressourcenmessungen
+zeigten Druckstufe 1; es entstand kein zusätzlicher Swap. Der maximale physische
+Footprint betrug 24.607.814.424 Bytes (22,918 GiB), die maximale gemessene
+Systemkompression rund 3,20 GiB. Der finale Adapter ist bytegleich mit dem
+vorherigen 20-Schritte-Ergebnis (SHA-256 `36ac59787cb14b0b5df306a75fd43b045f1275344d74cadee9fbf3eded1a77df`).
+Die drei Originalgewichtedateien wurden erneut unverändert bestätigt.
+
+Damit sind zwei normale kurze Ressourcenläufe mit gleichem Ergebnis belegt.
+Eine inhaltliche Qualitätsverbesserung und die Stabilität einer vollständigen
+360-Schritte-Epoche sind weiterhin nicht geprüft. Der vollständige Lauf bleibt
+zurückgestellt; keine produktive Aktivierung. Der lokale Nachweis steht im
+Ausgabeordner unter `pilot-review.json`.
