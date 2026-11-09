@@ -1419,3 +1419,103 @@ neuer Export einschliesslich `format-only-verification.json` und
 `exact-server-grammar-check.json`, `tiny-fit-spaced-score-comparison.json` sowie
 `comparison-20261109-tiny-fit-format/semantic-review.json` und alle Rohantworten.
 Build und 34 Verständnis-/Exporttests sowie vier Messausrichtungstests bestanden.
+
+### Runpod-Vorbereitung: Konto und erste GPU-Prüfung
+
+Stand: lokal vorbereitet, keine GPU gemietet, keine Dateien hochgeladen, keine
+Zahlung ausgeführt. CUDA-Laden, Rückwärtslauf und semantische Parität sind noch
+nicht auf echter NVIDIA-Hardware geprüft. Der Paketstatus behauptet deshalb
+ausdrücklich keine getestete GPU-Laufzeit.
+
+Der Nutzer erstellt ein normales Konto unter https://console.runpod.io/signup,
+lädt für den ersten Versuch 25 USD Guthaben unter Billing auf und lässt Auto-pay
+ausgeschaltet. Es wird zunächst nur ein öffentlicher SSH-Schlüssel unter
+Credentials → SSH Public Keys → Add SSH Key eingetragen. Lokal erstellt:
+`.local/nuknuk-gpu-access/id_ed25519.pub`, Fingerprint
+`SHA256:oxpRtfbWaG2O3MBVdMPvL624Ef4F3hKgHbAUgvptxD4`.
+Der private Schlüssel bleibt in diesem ignorierten lokalen Verzeichnis. Ein
+Runpod-API-Schlüssel und ein kostenpflichtiges Hugging-Face-Konto sind für
+diesen manuellen SSH-Weg nicht erforderlich.
+
+Erst unmittelbar vor dem Test einen Pod anlegen: eine H100 PCIe 80 GB, On-Demand,
+bevorzugt Secure Cloud, offizielles Runpod-PyTorch-Template, vollständiger
+SSH-Zugang mit öffentlicher IP und TCP-Port, 200 GB Speicher unter `/workspace`.
+Keine mehreren GPUs oder Serverless-Endpunkte. Die konkrete Region, Verfügbarkeit,
+Template-Version und angezeigte Stundenrate werden vor dem Start geprüft.
+Die GPU-Grundrate sollte für diesen Plan höchstens 3 USD/Stunde betragen;
+Speicher und Steuern sind zusätzlich zu berücksichtigen. Kein automatischer
+GPU-Start durch die vorbereiteten Skripte.
+
+Das Paket liegt lokal unter
+`.local/nuknuk-understanding/runpod-pilot-package.tar.gz` (714.015 Bytes),
+daneben die SHA-256-Prüfsumme. Es enthält genau neun freigegebene Dateien:
+Laufprogramm, gepinnte Bibliotheken, Startanweisung, Manifest, drei getrennte
+Datendateien und konvertierte Adaptermatrizen samt Übertragungsbeleg. Kein
+Repository-Checkout, keine .env, keine Produktionszugänge oder privaten Schlüssel.
+Der gesamte Modell-Download erfolgt später auf der GPU-Maschine, nicht auf dem Mac.
+
+`nuknuk-gpu-bundle.mjs` verwendet denselben geprüften Export und kontrolliert
+nochmals die sechs TRAIN-/zwei VALIDATION-/einen exponierten TEST-Fälle und ihre
+Dateihashes. Der CUDA-Trainer liest ausschliesslich TRAIN. Modell und Revision:
+`Qwen/Qwen3.5-27B`, `fc05daec18b0a78c049392ed2e771dde82bdf654`.
+Die öffentlichen Modellmetadaten wurden geprüft: nicht privat/nicht zugangsbeschränkt.
+
+Der Parent-Adapter `cd0735f6...` wird per exaktem Gewichtshash übernommen.
+MLX-A/B-Matrizen werden nach PEFT transponiert, mit Rank 8 und Skalierung 2
+(Alpha 16). Die numerische CPU-Prüfung der tatsächlichen q/v-Projektionszusätze
+ergab jeweils absolute Abweichung null. Der CUDA-Lader verlangt danach exakt
+vier eindeutige Zielparameter mit passenden Formen und kontrolliert das Kopieren.
+Das ist **kein** Nachweis gleichen Gesamtmodellverhaltens: MLX-Affine-4bit und
+CUDA-NF4 quantisieren das Basismodell unterschiedlich; auch die Übereinstimmung
+der ursprünglichen unquantisierten Modellrevision ist nicht bitweise belegt.
+Vor weiterem Training ist deshalb eine inhaltliche Übergabeprüfung nötig.
+
+Die GPU-Umgebung ist als Kandidat gepinnt: PyTorch 2.8.0 aus dem offiziellen
+CUDA-12.8-Index, Transformers 5.22.2, PEFT 0.21.2, bitsandbytes 0.50.2,
+Accelerate 1.15.0, safetensors 0.8.0, Hugging Face Hub 2.4.0, NumPy 2.2.6.
+Öffentliche Paketmetadaten wurden auf offensichtliche Abhängigkeitskonflikte
+geprüft. Ein erfolgreicher CUDA-Gesamttest wird erst auf dem Pod belegt; die
+vorbereitete Umgebung wird dafür isoliert unter `/workspace/backyrd-gpu-env`
+installiert, ohne die Mac-Umgebung umzubauen oder Docker lokal zu starten.
+
+Operator-Befehle nach dem gezielten Upload und Entpacken unter `/workspace`:
+
+```bash
+python3 -m venv /workspace/backyrd-gpu-env
+/workspace/backyrd-gpu-env/bin/pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu128
+/workspace/backyrd-gpu-env/bin/pip install -r requirements.txt
+/workspace/backyrd-gpu-env/bin/python -B nuknuk-gpu.py check --bundle .
+timeout --signal=TERM --kill-after=30s 3600 /workspace/backyrd-gpu-env/bin/python -B -u nuknuk-gpu.py train --bundle . --steps 2 --layers 1 --output /workspace/nuknuk-smoke
+```
+
+Zuerst nur der Zwei-Schritte-Test: tatsächliche Architekturpfade, Maskierung,
+übernommene Parameter, CUDA-Speicher und Rückwärtslauf prüfen. Anschliessend
+gesondert freie Antworten auf die gleichen bekannten Fälle auswerten. Erst nach
+diesem Nachweis wird ein 20-Schritte-Vergleich gewählt. Der vorbereitete Trainer
+erlaubt genau ein oder vier letzte Full-Attention-Blöcke mit q/v, weiterhin Rank 8,
+Lernrate 1e-5 und Seed 7. Zusätzliche LoRA-Blöcke starten ohne Projektionsänderung;
+die vier Parent-Matrizen werden übernommen. Keine Basisgewichts-Fusion oder
+Aktivierung in Product. Keine längeren Läufe oder automatischen Wiederholungen.
+
+Schutz: einzelne 80-GB-GPU erforderlich, 85-Prozent-PyTorch-Allocatorgrenze,
+Sequenzen über 4.096 Tokens werden abgewiesen statt abgeschnitten, Labels
+ignorieren vollständig den exakt erzeugten Non-Thinking-System-/Nutzerprefix,
+Diskreserve, endlicher Ablauf, Zwischenstände und keine automatische Rückkehr
+nach Fehlern. Der externe GNU-timeout begrenzt auch Hänger; er stoppt jedoch nur
+den Prozess und **nicht** die Runpod-Abrechnung. Nach Ergebnissicherung den Pod
+in Runpod stoppen/terminieren; verbliebener Speicher kann weiter Kosten verursachen.
+25 USD Prepaid ohne Auto-pay ersetzt keine genaue Gesamtkosten-/Abschaltgarantie.
+
+Lokal geprüft: fünf CPU-Tests für Matrixabbildung, ungültige Formen/NaN,
+Dateimanipulation/Pfadausbruch sowie Completion-Maske und Trunkierungsverbot;
+die tatsächliche Adapterkonvertierung, Paketdateihashes und Archiv-Allowlist.
+Noch ausstehend: Konto-/SSH-Einrichtung beim Anbieter, realer CUDA-Test und
+Verhaltensvergleich. Dafür werden keine Passwörter oder API-Schlüssel im Chat benötigt.
+
+Offizielle Betriebsquellen:
+https://docs.runpod.io/accounts-billing/billing,
+https://docs.runpod.io/get-started/credentials,
+https://docs.runpod.io/pods/configuration/use-ssh,
+https://docs.runpod.io/pods/templates/overview,
+https://huggingface.co/docs/peft/developer_guides/checkpoint,
+https://pytorch.org/get-started/previous-versions/.
