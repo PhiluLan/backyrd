@@ -14,7 +14,7 @@ assign([...new Set(OFFER_CATALOG.map(offer => offer.concept)), 'fairground', 'ta
 assign(['self_barbecue'], ['experience.activity','offer.feature']);
 assign(['wifi'],['offer.facility','offer.feature']);
 assign(['guided'], ['experience.activity', 'offer.kind', 'participation.format']);
-assign(['meal', 'lunch', 'dinner', 'breakfast', 'snacks', 'aperitif'], ['experience.activity', 'offer.kind', 'food.meal', 'food.option']);
+assign(['meal', 'lunch', 'dinner', 'breakfast', 'brunch', 'snacks', 'aperitif'], ['experience.activity', 'offer.kind', 'food.meal', 'food.option']);
 assign(['drinks'], ['experience.activity', 'offer.kind', 'food.drink']);
 assign(['coffee'], ['experience.activity', 'offer.kind', 'food.drink']);
 assign(['children_activity'], ['condition.children']);
@@ -38,7 +38,7 @@ for (const [key, concept] of Object.entries(BOOLEAN_CONCEPTS)) {
   rules[concept] = families;
 }
 export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['budget.scope','time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
-export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@11', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
+export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@12', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
 export type LunaMeaningIssue = {
   readonly factId: string;
   readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE' | 'UNKNOWN_AGE_PLACEHOLDER' | 'REDUNDANT_EXTENSION';

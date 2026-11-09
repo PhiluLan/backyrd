@@ -150,7 +150,7 @@ function offerDuty(fact: LibrarianFact): boolean {
     if (["experience.activity", "offer.kind"].includes(fact.key)) return true;
     if (fact.value.kind !== "TEXT") return false;
     const concept = librarianConcept(fact.value.text);
-    return ["food.meal", "food.option"].includes(fact.key) && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(concept ?? "")
+    return ["food.meal", "food.option"].includes(fact.key) && ["meal", "lunch", "dinner", "breakfast", "brunch", "snacks", "aperitif"].includes(concept ?? "")
         || fact.key === "food.drink" && concept === "drinks"
         || fact.key === "condition.children" && concept === "children_activity"
         || librarianFacilityConcept(fact) === "playground";
