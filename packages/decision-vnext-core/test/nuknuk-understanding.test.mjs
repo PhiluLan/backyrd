@@ -181,8 +181,26 @@ test('approved training export keeps validation/test targets in their own files 
   const bundle = exportUnderstandingDataset(dataset, understandingSplitHash(dataset.splitPlan));
   assert.equal(bundle.files.train.length, 4); assert.equal(bundle.files.valid.length, 1); assert.equal(bundle.files.test.length, 1);
   assert.equal(bundle.manifest.weightsTrained, false);
+  assert.equal(bundle.manifest.targetSerialization, 'mlx-llguidance-spaced-json@1');
+  assert.ok(bundle.files.train[0].messages[2].content.startsWith('{"meaning": '));
   assert.equal(bundle.files.train.some(row => row.messages[1].content.includes(dataset.cases[2].content.query)), false);
   assert.deepEqual(JSON.parse(bundle.files.train[0].messages[2].content), dataset.cases[0].content.target);
+});
+
+test('server-spaced targets preserve punctuation, quotes and Unicode inside reviewed text', () => {
+  const dataset = draftUnderstandingDataset();
+  dataset.cases[1].split = dataset.splitPlan[1].split = 'VALIDATION';
+  dataset.cases[2].split = dataset.splitPlan[2].split = 'TEST';
+  const statement = 'Ein Ort mit "Kaffee: Tee, Snacks", außerdem {Ruhe} und \\ Weg.';
+  dataset.cases[0].content.target.moment.goal.statement = statement;
+  for (const row of dataset.cases) {
+    row.content.trainingPermission = 'APPROVED'; row.contentHash = contentHash(row.content);
+    row.reviews = ['SEMANTICS', 'PRIVACY_AND_SOURCE_USE'].map(kind => ({ kind, verdict: 'ACCEPT', contentHash: row.contentHash,
+      reviewer: 'synthetic-test-review-only', reviewedAt: '2026-11-07T13:00:00Z', note: 'Synthetic unit test only.' }));
+  }
+  const bundle = exportUnderstandingDataset(dataset, understandingSplitHash(dataset.splitPlan));
+  assert.equal(JSON.parse(bundle.files.train[0].messages[2].content).moment.goal.statement, statement);
+  assert.ok(bundle.files.train[0].messages[2].content.includes('Kaffee: Tee, Snacks'));
 });
 
 test('pilot contains the frozen 40/10/14 inventory, no automatic approvals or model calls', async () => {

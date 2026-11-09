@@ -22,6 +22,14 @@ PROBES = {
 }
 
 
+def format_marker(marker, serialization):
+    if serialization is None:
+        return marker  # Historical frozen compact exports remain readable.
+    if serialization != "mlx-llguidance-spaced-json@1":
+        raise ValueError("nuknuk_fit_serialization_unknown")
+    return json.dumps(json.loads("{" + marker + "}"), ensure_ascii=False, separators=(", ", ": "))[1:-1]
+
+
 def span_positions(token_ids, tokenizer, needle, value, completion_start):
     text = tokenizer.decode(token_ids, skip_special_tokens=False)
     start = text.rfind(needle)
@@ -65,6 +73,7 @@ def main():
     if model_path.name not in boundary.REVISIONS:
         raise ValueError("nuknuk_fit_model_invalid")
     splits = boundary.verify_export(data_path, args.manifest_sha256)
+    serialization = json.loads((data_path / "manifest.json").read_text()).get("targetSerialization")
     training = json.loads((adapter_path / "training-config.json").read_text())
     boundary.verify_initial_adapter(adapter_path, args.adapter_sha256, model_path, training)
     data = json.loads((data_path / "reviewed-backyrd.json").read_text())
@@ -89,7 +98,8 @@ def main():
         ids = sample["input_ids"].reshape(-1).tolist()
         mask = sample["completion_mask"].reshape(-1).tolist()
         first = next(i for i, flag in enumerate(mask) if flag)
-        probes = [(needle, value, span_positions(ids, tokenizer, needle, value, first))
+        probes = [(format_marker(needle, serialization), value,
+                   span_positions(ids, tokenizer, format_marker(needle, serialization), value, first))
                   for needle, value in PROBES[row["id"]]]
         batch = {key: value[None, :] if isinstance(value, mx.array) and value.ndim == 1 else value
                  for key, value in sample.items()}
@@ -115,7 +125,8 @@ def main():
     if hashlib.sha256((adapter_path / "adapters.safetensors").read_bytes()).hexdigest() != args.adapter_sha256:
         raise ValueError("nuknuk_fit_adapter_changed")
     report = {"status": "READ_ONLY_SPAN_SCORES_FINISHED", "adapterSha256": args.adapter_sha256,
-              "manifestSha256": args.manifest_sha256, "cases": results, "productionActivation": False,
+              "manifestSha256": args.manifest_sha256, "targetSerialization": serialization,
+              "cases": results, "productionActivation": False,
               "limitation": "Teacher forcing supplies the correct preceding answer. These scores are not free-generation accuracy, semantic confidence or generalization evidence."}
     with args.output.open("x") as file:
         json.dump(report, file, ensure_ascii=False, indent=2)

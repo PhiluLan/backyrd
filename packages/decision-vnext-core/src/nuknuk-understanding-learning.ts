@@ -140,13 +140,25 @@ export function auditUnderstandingDataset(raw: unknown, expectedSplitHash: strin
     limitations: ['REVIEWS_ARE_LOCAL_RECORDS_NOT_AUTHENTICATED_ADMIN_DECISIONS', 'SEMANTIC_PARAPHRASE_LEAKAGE_REQUIRES_HUMAN_REVIEW', 'EXPORT_READY_DOES_NOT_MEAN_MODEL_READY'] });
 }
 
+// The local inference grammar requires exactly comma-space and colon-space.
+// Serialize JSON recursively so punctuation inside strings is never rewritten.
+function serverTargetJson(value: unknown): string {
+  if (Array.isArray(value)) return '[' + value.map(serverTargetJson).join(', ') + ']';
+  if (value !== null && typeof value === 'object') return '{' + Object.entries(value)
+    .map(([key, item]) => JSON.stringify(key) + ': ' + serverTargetJson(item)).join(', ') + '}';
+  if (typeof value === 'number' && !Number.isFinite(value)) throw Error('nuknuk_target_json_invalid');
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined) throw Error('nuknuk_target_json_invalid');
+  return encoded;
+}
+
 export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: string, instructionProfile: NuknukInstructionProfile = 'FULL') {
   const audit = auditUnderstandingDataset(raw, expectedSplitHash);
   if (!audit.exportReady) throw Error('nuknuk_dataset_not_reviewed');
   const rows = (splitName: 'TRAIN' | 'VALIDATION' | 'TEST') => audit.dataset.cases.filter(c => c.split === splitName).map(row => {
     const { request, target } = taskPair(row.content,instructionProfile);
     return { messages: [{ role: 'system', content: request.instructions }, { role: 'user', content: request.input },
-      { role: 'assistant', content: JSON.stringify(target) }] };
+      { role: 'assistant', content: serverTargetJson(target) }] };
   });
   const files = { train: rows('TRAIN'), valid: rows('VALIDATION'), test: rows('TEST') };
   return { files, manifest: {
@@ -154,6 +166,7 @@ export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: stri
     counts: audit.counts, filesHash: contentHash(files),
     purpose: 'SUPERVISED_UNDERSTANDING_ADAPTER_DATA_ONLY',
     productionEnabled: false, weightsTrained: false, instructionProfile,
+    targetSerialization: 'mlx-llguidance-spaced-json@1' as const,
     cases: audit.cases.map(({ id, contentHash, split }) => ({ id, contentHash, split })),
   } };
 }

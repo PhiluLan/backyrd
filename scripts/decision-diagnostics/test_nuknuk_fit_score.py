@@ -17,6 +17,13 @@ class Tokenizer:
 
 
 class SpanTests(unittest.TestCase):
+    def test_marker_follows_frozen_export_format_without_rewriting_string_punctuation(self):
+        marker = '"text":"Tee: Wasser, Snacks"'
+        self.assertEqual(score.format_marker(marker, None), marker)
+        self.assertEqual(score.format_marker(marker, 'mlx-llguidance-spaced-json@1'), '"text": "Tee: Wasser, Snacks"')
+        with self.assertRaisesRegex(ValueError, 'serialization_unknown'):
+            score.format_marker(marker, 'different-unverified-format')
+
     def test_repeated_instruction_marker_cannot_replace_completion(self):
         pieces = ['"modality":"NOT_REQUIRED"', ' prompt ', '"modality":"', 'NOT', '_REQUIRED', '"']
         self.assertEqual(score.span_positions(list(range(6)), Tokenizer(pieces),
