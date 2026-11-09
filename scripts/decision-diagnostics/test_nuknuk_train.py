@@ -99,6 +99,11 @@ class TrainingBoundaryTests(unittest.TestCase):
                         os.close(write_fd)
                     guard.terminate_owned(child, immediate=True)
 
+    def test_real_own_process_physical_footprint_is_readable(self):
+        import os
+        self.assertGreater(guard.physical_footprint(os.getpid()), 0)
+        self.assertEqual(__import__("ctypes").sizeof(guard.RusageV0), 96)
+
     def test_manual_stop_file_ends_process(self):
         with tempfile.TemporaryDirectory() as tmp:
             receipt = Path(tmp) / "receipt.json"
@@ -115,9 +120,12 @@ class TrainingBoundaryTests(unittest.TestCase):
 
     def test_host_reader_counts_owned_workers_and_output_volume(self):
         processes = "101 101 1024 /python\n102 101 2048 /python\n999 999 9000 /unrelated\n"
-        with patch.object(guard.subprocess, "check_output", side_effect=["1", "used = 0.00M", processes]), patch.object(guard.shutil, "disk_usage", side_effect=[type("Disk", (), {"free": 100 * guard.GIB})(), type("Disk", (), {"free": 29 * guard.GIB})()]):
+        with patch.object(guard.subprocess, "check_output", side_effect=["1", "used = 0.00M", processes, "PID COMMAND MEM CMPRS\n101 python 30G 1G"]), patch.object(guard, "physical_footprint", side_effect=[20 * guard.GIB, 9 * guard.GIB]), patch.object(guard.shutil, "disk_usage", side_effect=[type("Disk", (), {"free": 100 * guard.GIB})(), type("Disk", (), {"free": 29 * guard.GIB})()]):
             sample = guard.read_host(101, (Path("/synthetic-output"),))
             self.assertEqual(sample["modelRssBytes"], 3072 * 1024)
+            self.assertEqual(sample["modelPhysicalFootprintBytes"], 29 * guard.GIB)
+            self.assertEqual(guard.stop_reason(sample, self.healthy), "DISK_RESERVE_BELOW_30_GIB")
+            self.assertEqual(guard.stop_reason({**sample, "diskFreeBytes": 100 * guard.GIB}, self.healthy), "MODEL_GROUP_PHYSICAL_FOOTPRINT_OVER_28_GIB")
             self.assertEqual(sample["diskFreeBytes"], 29 * guard.GIB)
 
     def test_real_supervisor_death_and_freeze_kill_entire_owned_group(self):

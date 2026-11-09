@@ -616,3 +616,38 @@ Detailbelege liegen im Ausgabeordner (`host-memory.json`, fortlaufende Samples,
 `training-result.json`, `pilot-review.json`) und im zugehörigen Trainerlog.
 Vor einer Wiederholung muss die zusätzliche Hostlast eingegrenzt werden; die
 Warnschwelle wird nicht zur Erreichung eines erfolgreichen Status aufgeweicht.
+
+
+### Nachprüfung des Abbruchs vom 9. November
+
+Der tatsächlich benutzte Pfad ist `mlx_vlm.train -> Trainer.train ->
+trainer/common/engine.py`. Dort wird Schritt 20 zuerst berechnet und protokolliert;
+erst danach folgt die Abschlussvalidierung. Im Log fehlt der Bericht zu Schritt
+20. Der Abbruch lag daher vor dessen protokolliertem Abschluss; die These einer
+bereits laufenden Abschlussvalidierung ist nicht belegt. Vorbereitungs- und
+Berechnungsphase innerhalb dieses Schritts sind nicht einzeln zeitgestempelt.
+
+Der Ressourcenbeleg zeigt Warnstufe 2 bei 406,64 Sekunden und anschliessend
+Exit -9 durch unseren Wächter. Keine MLX-Out-of-memory-Ausnahme wurde protokolliert.
+Die Systemprotokolle enthalten um 10:05:49 einen Idle-Exit von `dirhelper`;
+dieser ist kein Nachweis eines OOM-Kills des Modells. Frühere Diagnoseberichte
+betreffen andere PIDs/Zeiten und dürfen diesem Versuch nicht zugerechnet werden.
+
+Die frühere Spotlight-Vermutung war als Ursache nicht belastbar: Bei der
+Nachprüfung zeigte `ps` für `mds_stores` bis über 29 GiB RSS, während Apples
+`top` nur etwa 921 MiB MEM und 854 MiB CMPRS auswies. Beide Werte stammen aus
+der Nachprüfung, nicht vom Warnzeitpunkt. Die direkte `proc_pid_rusage`-Abfrage
+für diesen geschützten Systemprozess war nicht erlaubt; der fehlende Wert wurde
+nicht als 0 Speicherverbrauch interpretiert. Es wurde kein Dienst beendet oder
+umkonfiguriert. Eine sichere Zuordnung des damaligen Engpasses zu Modell,
+Spotlight oder anderen Prozessen ist mit den alten Messungen nicht möglich.
+
+Der Wächter erfasst deshalb ab Belegversion 4 zusätzlich Apples
+`ri_phys_footprint` für die eigene Prozessgruppe und eine begrenzte `top`-Übersicht
+(PID, Programmname, MEM, CMPRS) bei jeder Messung. Der 28-GiB-Abbruch gilt nun
+zusätzlich für den physischen Footprint; RSS bleibt eine separate Messung.
+`libproc`-Messfehler stoppen den Lauf, statt fehlenden Speicher als 0 auszugeben;
+ein zwischenzeitlich beendeter Worker (ESRCH) wird ignoriert. Die Top-Abfrage hat
+zwei Sekunden Timeout. Warnschwelle, Swap- und SSD-Regeln bleiben unverändert.
+Das ergänzt die bisher fehlende Ursachenbeobachtung; es rekonstruiert keine
+verlorenen Messwerte und ist kein neuer Modelllauf.

@@ -5,6 +5,8 @@ watchdog kills the model group if monitoring dies or misses its heartbeat.
 Never kills unrelated apps, alters Docker settings, or restarts a stopped run.
 """
 import argparse
+import ctypes
+import errno
 import fcntl
 import json
 import os
@@ -27,6 +29,30 @@ BOOTSTRAP = ("import mlx.core as mx,runpy,sys;"
              "sys.argv=[sys.argv[1],*sys.argv[2:]];runpy.run_module(sys.argv[0],run_name='__main__')")
 
 
+class RusageV0(ctypes.Structure):
+    # Apple SDK sys/resource.h RUSAGE_INFO_V0. Includes compressed/charged
+    # footprint; ps RSS and MLX allocator peaks are different measurements.
+    _fields_ = [("uuid", ctypes.c_ubyte * 16)] + [
+        (name, ctypes.c_uint64) for name in (
+            "user_time", "system_time", "idle_wakes", "interrupt_wakes",
+            "pageins", "wired_size", "resident_size", "phys_footprint",
+            "start_time", "exit_time")]
+
+
+def physical_footprint(pid):
+    lib = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+    usage = RusageV0()
+    query = lib.proc_pid_rusage
+    query.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+    query.restype = ctypes.c_int
+    if query(pid, 0, ctypes.byref(usage)) != 0:
+        code = ctypes.get_errno()
+        if code == errno.ESRCH:
+            return 0  # Worker exited between ps and this query.
+        raise OSError(code, "nuknuk_physical_footprint_unavailable")
+    return usage.phys_footprint
+
+
 def read_host(model_pid=None, disk_paths=()):
     pressure = int(subprocess.check_output(
         ["/usr/sbin/sysctl", "-n", "kern.memorystatus_vm_pressure_level"], text=True, timeout=1).strip())
@@ -36,6 +62,7 @@ def read_host(model_pid=None, disk_paths=()):
         raise ValueError("nuknuk_host_swap_unreadable")
     processes = subprocess.check_output(["/bin/ps", "-axo", "pid=,pgid=,rss=,comm="], text=True, timeout=1)
     own_rss = 0
+    own_footprint = 0
     docker = False
     for line in processes.splitlines():
         fields = line.split(None, 3)
@@ -44,9 +71,15 @@ def read_host(model_pid=None, disk_paths=()):
         docker |= "/Docker.app/" in fields[3] or "com.docker.backend" in fields[3]
         if int(fields[1]) == model_pid:
             own_rss += int(fields[2]) * 1024
+            own_footprint += physical_footprint(int(fields[0]))
+    # top MEM uses the OS memory ledger, rather than ps RSS. Store bounded
+    # process names and figures only (no argv/user content) for attribution.
+    top = subprocess.check_output(["/usr/bin/top", "-l", "1", "-o", "mem", "-n", "8",
+                                   "-stats", "pid,command,mem,cmprs"], text=True, timeout=2)
     return {"pressure": pressure, "swapUsedBytes": int(float(match[1]) * 1024 ** 2),
             "diskFreeBytes": min(shutil.disk_usage(p).free for p in (Path.cwd(), *disk_paths)),
-            "modelRssBytes": own_rss, "dockerRunning": docker}
+            "modelRssBytes": own_rss, "modelPhysicalFootprintBytes": own_footprint,
+            "topMemorySnapshot": top[-4000:], "dockerRunning": docker}
 
 
 def stop_reason(sample, initial, warnings=0):
@@ -58,6 +91,8 @@ def stop_reason(sample, initial, warnings=0):
         return "DOCKER_RUNNING"
     if sample.get("diskFreeBytes", 100 * GIB) < 30 * GIB:
         return "DISK_RESERVE_BELOW_30_GIB"
+    if sample.get("modelPhysicalFootprintBytes", 0) > 28 * GIB:
+        return "MODEL_GROUP_PHYSICAL_FOOTPRINT_OVER_28_GIB"
     if sample.get("modelRssBytes", 0) > 28 * GIB:
         return "MODEL_GROUP_RSS_OVER_28_GIB"
     if sample["swapUsedBytes"] - initial["swapUsedBytes"] > GIB // 2:
@@ -226,7 +261,7 @@ def supervise_locked(module, arguments, receipt):
     try:
         with receipt.open("x") as file:
             receipt.chmod(0o600)
-            json.dump({"version": 3, "module": module, "pid": process.pid if process else None,
+            json.dump({"version": 4, "module": module, "pid": process.pid if process else None,
                        "allocatorGuidelineGiB": 24, "cacheLimitMiB": 256,
                        "status": status, "returncode": process.returncode if process else None,
                        "pollSeconds": POLL_SECONDS, "heartbeatTimeoutSeconds": HEARTBEAT_SECONDS,
