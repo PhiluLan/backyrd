@@ -1332,3 +1332,90 @@ Der generische Evaluator kennzeichnet TRAIN-Auswahlen jetzt ausdrücklich als
 IN_SAMPLE_TRAIN_DIAGNOSTIC_NOT_HOLDOUT; Eingaben und Ausgabevertrag bleiben
 dadurch unverändert. Ausrichtungstests der Tokenmessung und die bestehenden
 18 Wächter-/Trainingsgrenztests bestanden vor den echten Läufen.
+
+### Formatkorrektur umgesetzt und derselbe Versuch wiederholt
+
+Die explizit beauftragte Korrektur ist umgesetzt (Quellcommit `e06b54a1`).
+Der kanonische `exportUnderstandingDataset` schreibt neue Zielantworten nun mit
+Komma-Leerzeichen und Doppelpunkt-Leerzeichen. Die rekursive JSON-Serialisierung
+ändert keine Satzzeichen innerhalb von Textwerten und erhält Anführungszeichen,
+Backslashes und Unicode. Neue Manifeste kennzeichnen die Darstellung als
+`targetSerialization: mlx-llguidance-spaced-json@1`. Historische Exportdateien,
+ihre Hashes, Reviews und Adapter bleiben unverändert. Die Tokenmessung liest
+beide eingefrorenen Formate und lehnt unbekannte Formatkennungen ab.
+
+Der neue Export `training-20261109-tiny-fit-spaced` enthält exakt dieselben
+sechs TRAIN-, zwei VALIDATION- und einen bereits exponierten TEST-Fall.
+Jede System-/Nutzernachricht wurde unverändert abgeglichen; alle neun geparsten
+Zielobjekte sind identisch zum vorigen Export. Nur deren Schreibweise ändert
+sich. Alle neun Ziele wurden vor dem Training mit lokalem Tokenizer, installierter
+llguidance-Grammatik und exaktem anfragespezifischem outputSchema vollständig
+akzeptiert. Es werden keine TEST-Antworten trainiert oder neu bewertet.
+Manifest-SHA-256:
+`ae9b4b4e4314205eb4509692548d23ec67f8be27a9034e35924463bd16244969`.
+
+Die Wiederholung startet wieder vom unveränderten Parent `cd0735f6...`, nicht
+vom bereits zusätzlich trainierten Kompakt-Adapter. Wieder 20 Schritte, Batch 1,
+Lernrate 1e-5, Seed 7, dieselben q/v-Module/Rank/Alpha/Dropout. Der Abgleich der
+Trainingskonfigurationen findet ausschliesslich unterschiedliche Daten- und
+Ausgabepfade. Neuer Adapter-SHA-256:
+`a62ddb4f0b7047d62927571973b0a8244600abf51f54cef158fe84cdca321c12`.
+
+Vor und nach diesem Lauf wurden die entscheidenden Tokens innerhalb der neuen
+Schreibweise gemessen. Eingabetokens und Messpositionen sind pro Vorher-/Nachher-
+Paar identisch. Die früheren kompakten Prefix-Werte dürfen nicht unmittelbar
+als dieselbe bedingte Verteilung daneben gestellt werden.
+
+| Zielwert | Token-NLL vorher (neue Schreibweise) | Nachher |
+| --- | ---: | ---: |
+| NOT_REQUIRED | 0,5577 | 0,4195 |
+| EXCLUDED | 0,0480 | 0,0905 |
+| Getränke | 0,1027 | 0,1070 |
+| beer | 2,5229 | 1,7728 |
+| SAME_PLACE | 0,8718 | 0,7732 |
+| SEQUENCE | 0,000084 | 0,000093 |
+| GROUP_TOTAL | 0,004174 | 0,005032 |
+| PREFERRED | 0,2039 | 0,1835 |
+
+Bei NOT_REQUIRED werden unter der korrekten Musterantwort erstmals beide
+Zieltokens zur jeweils stärksten Wahl (zuvor eines von zwei). Das ist ein
+begrenztes teacher-forced Signal, keine bestandene freie Interpretation.
+
+Der anschliessende freie Vergleich benutzt den vorherigen 20-Schritte-Adapter
+mit kompakten Trainingsantworten als Kontrolle und den neuen 20-Schritte-Adapter
+als Behandlung: je dieselben sechs Eingaben, identischer V3-Prompt und identischer
+Ausgabefilter, zwölf echte Aufrufe. Damit unterscheidet die Trainingsbehandlung
+nur die Zielschreibweise, nicht zusätzliche Schritte oder Lernrate.
+
+**Inhaltliches Ergebnis: weiterhin zwei vollständig richtige Fälle von sechs,
+keine Korrektur der vier zuvor fehlerhaften Anfragen.** Allgemeine Getränke bzw.
+Bier beim Schach bleiben richtig; die nicht ausdrücklich verlangte zusätzliche
+SAME_PLACE-Bindung entfällt und wird nicht als Fehler gezählt. Beide Dart-Fälle
+erfinden weiter Kaffee, „nicht nötig“ bleibt EXCLUDED. Gesamtbudget bleibt
+`budget.coverage`-Freitext statt GROUP_TOTAL. Beim Museumsablauf entfällt zwar
+das falsche geografische „dort“, dafür entsteht eine ungenannte REQUIRED
+Indoor-Pflicht unter `location.setting`; die Familienprüfung lehnt diese mit
+CONCEPT_FAMILY_MISMATCH ab (erlaubte Familie wäre `offer.area`). Auch die andere
+Familie würde die ungenannte Pflicht nicht rechtfertigen. Ortsbindung und
+Reihenfolge selbst sind korrekt. Formale Akzeptanz fällt dadurch von 6/6 auf
+5/6. Kürzere Antworten und weniger Rückfragen kompensieren das nicht.
+
+**Folgerung:** Die nachgewiesene Formatabweichung ist behoben. Ihre Beseitigung
+allein reicht in diesem begrenzten 20-Schritte-Versuch nicht für korrekte freie
+Antworten. Weder ist damit eine grundsätzliche Modellunfähigkeit bewiesen noch
+der verbleibende Anteil von Lernstärke, Kapazität oder unterschiedlichen
+Antwort-Prefixen/Faktenreihenfolgen isoliert. Kein weiterer automatischer Lauf
+und keine Aktivierung dieses Adapters.
+
+Training regulär beendet: 627,8 Sekunden unter dem Wächter (10:28), maximal
+24,405 GiB physischer Modellspeicher, normaler Druck, zusätzlicher Swap null.
+Lesende Messungen vorher/nachher: 135,6/139,5 Sekunden. Freie Inferenz zusammen
+556,5 Sekunden (9:17), zuzüglich Laden und Hash-Prüfung. Basis-, Parent- und
+Kontrolladapter sind unverändert verifiziert; eigene Server anschliessend
+planmässig beendet. Keine Spotdaten oder Produktivsysteme verändert.
+
+Belege unter `.local/nuknuk-understanding/`: `tiny-fit-spaced-experiment-plan.json`,
+neuer Export einschliesslich `format-only-verification.json` und
+`exact-server-grammar-check.json`, `tiny-fit-spaced-score-comparison.json` sowie
+`comparison-20261109-tiny-fit-format/semantic-review.json` und alle Rohantworten.
+Build und 34 Verständnis-/Exporttests sowie vier Messausrichtungstests bestanden.
