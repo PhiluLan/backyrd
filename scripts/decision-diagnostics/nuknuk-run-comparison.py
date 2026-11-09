@@ -35,6 +35,14 @@ def run(args):
     env = {**os.environ, "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "HF_HUB_DISABLE_TELEMETRY": "1"}
     profile_comparison = args.compare_instruction_profile is not None
     variants = [("baseline", None), ("adapter", adapter)]
+    if args.baseline_adapter is not None:
+        if profile_comparison or args.development_adapter is not None:
+            raise ValueError("nuknuk_adapter_comparison_mode_ambiguous")
+        previous_adapter = args.baseline_adapter.resolve(strict=True)
+        previous_result = json.loads((previous_adapter / "training-result.json").read_text())
+        if previous_result.get("status") != "TRAINING_FINISHED_REQUIRES_EVALUATION" or not previous_result.get("trainingExecuted"):
+            raise ValueError("nuknuk_previous_training_not_finished")
+        variants = [("previous_adapter", previous_adapter), ("new_adapter", adapter)]
     if profile_comparison:
         if (args.instruction_profile is None or args.instruction_profile == args.compare_instruction_profile
                 or args.development_adapter is not None or args.cases_file is None
@@ -76,6 +84,9 @@ def run(args):
                 active_profile = args.compare_instruction_profile if name == "separated_input" else args.instruction_profile
                 if active_profile is not None:
                     evaluation += ["--instruction-profile", active_profile]
+                evaluation += ["--repeat-count", str(args.repeat_count)]
+                for case in args.repeat_case:
+                    evaluation += ["--repeat-case", case]
                 completed = subprocess.run(evaluation, env=env, timeout=5400, check=False)
                 if completed.returncode:
                     raise ValueError("nuknuk_comparison_evaluation_failed")
@@ -129,6 +140,9 @@ if __name__ == "__main__":
     parser.add_argument("--wait-for-training", action="store_true")
     parser.add_argument("--cases-file", type=Path)
     parser.add_argument("--development-adapter", type=Path)
+    parser.add_argument("--baseline-adapter", type=Path)
+    parser.add_argument("--repeat-count", type=int, choices=[1, 2, 3], default=1)
+    parser.add_argument("--repeat-case", action="append", default=[])
     parser.add_argument("--instruction-profile", choices=["COMPACT_ADAPTER_V1", "COMPACT_ADAPTER_V2", "COMPACT_ADAPTER_V3"])
     parser.add_argument("--compare-instruction-profile", choices=["COMPACT_ADAPTER_V1", "COMPACT_ADAPTER_V2", "COMPACT_ADAPTER_V3"])
     run(parser.parse_args())

@@ -245,6 +245,31 @@ class TrainingBoundaryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "nuknuk_training_manifest_changed"):
                 trainer.verify_export(folder, expected)
 
+    def test_continuation_requires_the_exact_completed_adapter_and_matching_base(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "base"
+            model.mkdir()
+            parent = root / "parent"
+            parent.mkdir()
+            config = {"model": str(model), "target_modules": ["q", "v"], "lora_rank": 8,
+                      "lora_alpha": 16.0, "lora_dropout": 0.0, "train_type": "lora"}
+            (parent / "training-config.json").write_text(json.dumps(config))
+            (parent / "training-result.json").write_text(json.dumps({"status": "TRAINING_FINISHED_REQUIRES_EVALUATION", "trainingExecuted": True}))
+            metadata = {"fine_tune_type": "lora", "lora_parameters": {"keys": ["q", "v"], "rank": 8, "scale": 2.0, "dropout": 0.0}}
+            (parent / "adapter_config.json").write_text(json.dumps(metadata))
+            weights = parent / "adapters.safetensors"
+            weights.write_bytes(b"synthetic adapter")
+            expected = trainer.sha(weights.read_bytes())
+            result = trainer.verify_initial_adapter(parent, expected, model, config)
+            self.assertEqual(result["file"], str(weights.resolve()))
+            self.assertFalse(result["optimizerStateResumed"])
+            with self.assertRaisesRegex(ValueError, "identity_changed"):
+                trainer.verify_initial_adapter(parent, expected, root / "wrong-base", config)
+            weights.write_bytes(b"changed adapter")
+            with self.assertRaisesRegex(ValueError, "identity_changed"):
+                trainer.verify_initial_adapter(parent, expected, model, config)
+
 
 if __name__ == "__main__":
     unittest.main()

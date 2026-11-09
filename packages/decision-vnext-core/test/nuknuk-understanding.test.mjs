@@ -339,3 +339,30 @@ test('assisted review attribution requires explicit delegation and cannot claim 
   assert.equal(reviewed.cases[0].reviews[0].reviewerKind,'DELEGATED_ASSISTANT');
   assert.throws(()=>recordUnderstandingReview(data,{...input,reviewerKind:'HUMAN',delegationHash:contentHash('test')}),/nuknuk_review_delegation_misattributed/);
 });
+
+test('focused continuation keeps open dates open across varied local reference dates and preserves the corpus boundary',async()=>{
+ const {round3Train,round3Development,round3FreshTest}=await import('../../../scripts/decision-diagnostics/nuknuk-round3-cases.mjs');
+ const {makeInterpretation}=await import('../../../scripts/decision-diagnostics/nuknuk-pilot-authoring.mjs');
+ assert.deepEqual([round3Train.length,round3Development.length,round3FreshTest.length],[96,12,12]);
+ const rows=[...round3Train,...round3Development,...round3FreshTest].map(spec=>makeInterpretation(spec,spec));
+ const queries=new Map();
+ for(const row of rows){
+  const previous=queries.get(row.content.query);
+  assert.ok(previous===undefined||previous===row.split,'the same literal query cannot move between train and held-out splits');
+  queries.set(row.content.query,row.split);
+  assert.equal(row.reviews.length,0);
+  assert.equal(row.content.trainingPermission,'PENDING');
+ }
+ const referenceRows=rows.filter(r=>r.scenarioGroup==='r3-train-reference');
+ const today=referenceRows.filter(r=>r.content.query.startsWith('Heute'));
+ assert.deepEqual(today.map(r=>r.content.target.meaning.facts.find(f=>f.key==='time.date').value.date),['2026-11-09','2026-11-16','2027-01-01','2027-03-28']);
+ for(const row of referenceRows.filter(r=>r.content.query.includes('offen'))){
+  assert.ok(!row.content.target.meaning.facts.some(f=>f.key==='time.date'));
+  assert.deepEqual(row.content.reference,round3Train.find(s=>s.id===row.id).reference);
+ }
+ const optional=rows.filter(r=>r.content.query.includes('Abendessen brauche ich nicht'));
+ assert.equal(optional.length,4);
+ for(const row of optional)assert.equal(row.content.target.meaning.facts.find(f=>f.key==='food.meal').modality,'NOT_REQUIRED');
+ const alternatives=rows.filter(r=>r.scenarioGroup==='r3-train-relations'&&r.content.query.includes(' oder '));
+ for(const row of alternatives){assert.equal(row.content.target.meaning.logic.kind,'ANY');assert.equal(row.content.target.meaning.facts.length,2);}
+});

@@ -1042,3 +1042,53 @@ bestehen. Der erste eingeschränkte CI-Aufruf konnte die Prozessliste für zwei
 Hosttests nicht lesen; der regulär autorisierte erneute Lauf bestand vollständig.
 Browser-/RPC-Daten waren synthetisch, keine produktiven Aktionen. Das belegt
 Verträglichkeit der Softwareänderung, keine behobenen offenen Modellfehler.
+
+
+### Beauftragte gezielte Fortsetzung, 9. November 2026
+
+Auf „Perfekt, los gehts“ folgt die vereinbarte nächste Trainingsrunde: 96 neue
+synthetische Kontrastbeispiele und 64 unveränderte frühere TRAIN-Interpretations-
+beispiele, über Szenariogruppen verteilt. Zwölf neue VALIDATION- und zwölf neue
+TEST-Fälle sind getrennt. Die früheren TEST-Fälle werden nicht zu TRAIN
+hochgestuft. Die Parent-Daten und externen Bibliotheksbeispiele bleiben erhalten;
+externe Klassifikationsübungen werden in dieser fokussierten Fortsetzung nicht
+zusätzlich gemischt. Die Assistenzprüfung ist beauftragt, aber keine unabhängige
+menschliche Goldprüfung. Die Grundmuster sind bekannt; neue Kombinationen sind
+kein Beweis für allgemeines Sprachverständnis.
+
+Quelle: `nuknuk-round3-cases.mjs`, Export über `nuknuk-training-bundle.mjs --round3`,
+Opt-in-Profil COMPACT_ADAPTER_V3. Die Autorierung unterstützt explizite Referenzen
+pro Fall; vier verschiedene Rechenzeitpunkte umfassen lokale Mitternacht,
+Jahreswechsel und Sommerzeitumstellung. Gegenbeispiele behandeln insbesondere
+nicht erforderlich vs. verboten, allgemeine Getränke ohne erfundene Sorte,
+Alternative vs. gemeinsame Pflicht, Reihenfolge vs. Ortsbindung, LT vs. LTE,
+Gruppenkosten ohne erfundene Beträge sowie verbindliche Begleitung als
+Besuchsgruppe. Die ausdrücklich genannte Begleitung bleibt erhalten.
+
+Eingefrorener Export: `training-20261109-v3-focused`, 160 TRAIN / 12 VALIDATION /
+12 TEST; Manifest-SHA-256
+`ce2347b3569b8e3684eaf7dada45b4861653e5a6e0e267c07375385f26cffe0e`.
+Die tatsächliche MLX-Datensatzaufbereitung prüfte alle TRAIN-/VALIDATION-Zeilen:
+maximal 2.826 bzw. 2.672 Tokens, vollständige Completion-Maskierung, keine
+Abschneidung. Frische Auswahl und drei dreifach zu wiederholende TEST-Fälle
+(r3-fresh-1, 5, 6) werden vor Trainingsbeginn fixiert.
+
+Startpunkt ist ausdrücklich der abgeschlossene kleine Adapter mit SHA-256
+`5d1b3400044f9029c3e6b60e89ffcc6691446db0dfa0693c5d893fbcd1e14feb`,
+nicht ein zufällig neu initialisierter Adapter. Das installierte MLX-VLM lädt ihn
+über resume_adapter_file. Die vorgeschaltete Prüfung verlangt beendetes Training,
+passendes Basismodell, exakt passende LoRA-Module/Rank/Alpha/Dropout und den
+vorgegebenen Gewichtshash. Der Optimierer startet neu; dies ist eine Fortsetzung
+der Gewichte, kein identischer Optimiererzustand. Basismodell und Parent-Adapter
+werden nicht überschrieben. Ein bewachter Null-Schritte-Lade-/Speichertest
+(`adapter-20261109-round3-restore-smoke`) bestätigte bytegenau denselben Adapter.
+
+Geplanter Ablauf: separater 20-Schritte-Ressourcenpilot, nur bei regulärem Erfolg
+anschliessend eine vollständige 160-Schritte-Runde, wiederum vom festgelegten
+Parent statt vom Pilot. Danach alter gegen neuen Adapter mit identischem
+V3-Profil auf den zwölf frischen Anfragen. Drei davon jeweils dreimal direkt
+nacheinander: 18 Aufrufe pro Adapter, 36 insgesamt. Wiederholungen sind keine
+zusätzlichen unabhängigen Fälle. Alle Rohantworten und Identitäten bleiben
+pro Aufruf erhalten. Keine Anpassung anhand dieser TEST-Antworten während des
+Vergleichs. Kein automatischer Wiederanlauf nach Abbruch, keine Aktivierung.
+Ressourcenwächter v5 und unabhängiger Watchdog bleiben unverändert.

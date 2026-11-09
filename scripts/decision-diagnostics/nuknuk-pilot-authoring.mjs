@@ -11,6 +11,7 @@ export const perPerson = F('budget.scope', { scope: 'PER_PERSON' }, 'CONTEXT', [
 export const family = F('people.relationship', 'adult_accompanied', 'CONTEXT', [], 'INFERRED');
 
 export function makeInterpretation(spec, group) {
+  const caseReference = spec.reference ?? reference;
   const facts = spec.facts.map((f, i) => ({ id: 'f' + (i + 1), ...f }));
   const ids = [...new Set(facts.flatMap(f => f.subjectIds))];
   const entities = ids.map(id => ({ id, kind: id.startsWith('a') ? 'ACTIVITY' : id.startsWith('g') ? 'GROUP' : 'PERSON',
@@ -23,8 +24,8 @@ export function makeInterpretation(spec, group) {
     moment: { goal: { statement: spec.goal, evidence: [{ quote: spec.query }] }, hypotheses: spec.hypotheses ?? [],
       missing: spec.missing ?? [], clarification: spec.question ?? null },
   };
-  validateNuknukUnderstanding(target, { query: spec.query, reference });
-  const content = { version: NUKNUK_UNDERSTANDING_VERSION, task: 'INTERPRET_REQUEST', query: spec.query, reference, target, context: null,
+  validateNuknukUnderstanding(target, { query: spec.query, reference: caseReference });
+  const content = { version: NUKNUK_UNDERSTANDING_VERSION, task: 'INTERPRET_REQUEST', query: spec.query, reference: caseReference, target, context: null,
     provenance: { kind: 'SYNTHETIC', reference: spec.id }, trainingPermission: 'PENDING' };
   return { id: spec.id, scenarioGroup: group.scenarioGroup, split: group.split, content, contentHash: contentHash(content), reviews: [] };
 }

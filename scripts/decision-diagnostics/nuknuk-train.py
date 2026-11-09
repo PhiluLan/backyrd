@@ -24,6 +24,29 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def verify_initial_adapter(folder, expected_hash, model, config):
+    folder = folder.resolve(strict=True)
+    result = json.loads((folder / "training-result.json").read_text())
+    previous = json.loads((folder / "training-config.json").read_text())
+    weights = folder / "adapters.safetensors"
+    metadata = json.loads((folder / "adapter_config.json").read_text())
+    parameters = metadata.get("lora_parameters", {})
+    if (result.get("status") != "TRAINING_FINISHED_REQUIRES_EVALUATION"
+            or not result.get("trainingExecuted")
+            or Path(previous.get("model", "")).resolve() != model.resolve()
+            or any(previous.get(k) != config[k] for k in ("target_modules", "lora_rank", "lora_alpha", "lora_dropout", "train_type"))
+            or metadata.get("fine_tune_type") != "lora"
+            or parameters.get("rank") != config["lora_rank"]
+            or parameters.get("keys") != config["target_modules"]
+            or parameters.get("scale") != config["lora_alpha"] / config["lora_rank"]
+            or parameters.get("dropout") != config["lora_dropout"]
+            or len(expected_hash) != 64 or sha(weights.read_bytes()) != expected_hash):
+        raise ValueError("nuknuk_initial_adapter_identity_changed")
+    return {"file": str(weights), "sha256": expected_hash,
+            "metadataSha256": sha((folder / "adapter_config.json").read_bytes()),
+            "optimizerStateResumed": False}
+
+
 def verify_export(folder, expected_manifest_hash):
     manifest_bytes = (folder / "manifest.json").read_bytes()
     if sha(manifest_bytes) != expected_manifest_hash:
@@ -90,8 +113,12 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--one-epoch", action="store_true", help="Visit every training row once; otherwise retain the 20-step technical pilot.")
+    parser.add_argument("--initial-adapter", type=Path)
+    parser.add_argument("--initial-adapter-sha256")
     parser.add_argument("--last-attention-layers", type=int, default=0, help="Restrict LoRA to the final N full-attention blocks; 0 retains all q/v projections.")
     args = parser.parse_args()
+    if (args.initial_adapter is None) != (args.initial_adapter_sha256 is None):
+        raise ValueError("nuknuk_initial_adapter_hash_required")
     model = args.model.resolve(strict=True)
     folder = args.data.resolve(strict=True)
     output = args.output.resolve()
@@ -125,10 +152,17 @@ def main():
         "val_batches": -1 if args.one_epoch else 2, "seed": 7,
         "adapter_file": str(output / "adapters.safetensors"),
     }
+    initial_adapter = None
+    if args.initial_adapter is not None:
+        initial_adapter = verify_initial_adapter(args.initial_adapter, args.initial_adapter_sha256, model, config)
+        if output == args.initial_adapter.resolve() or args.initial_adapter.resolve() in output.parents:
+            raise ValueError("nuknuk_training_path_invalid")
+        config["resume_adapter_file"] = initial_adapter["file"]
     report = {"status": "PREFLIGHT_PASSED", "trainingExecuted": False, "baseWeightsChangedByThisTool": False,
               "manifestSha256": args.manifest_sha256, "preprocessing": measured,
               "allTrainingRowsScheduled": args.one_epoch,
               "runtimeVersion": importlib.metadata.version("mlx-vlm"), "config": config,
+              "initialAdapter": initial_adapter,
               "limits": ["PILOT_NOT_QUALITY_APPROVAL", "NO_PRODUCTION_ACTIVATION"]}
     if not args.execute:
         print(json.dumps(report, indent=2))
