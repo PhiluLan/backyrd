@@ -3,6 +3,7 @@
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
+import {parseArgs} from 'node:util';
 import {contentHash} from '../../packages/decision-vnext-core/dist/canonical.js';
 import {buildNuknukUnderstandingRequest,callNuknukLocal,validateNuknukUnderstanding} from '../../packages/decision-vnext-core/dist/nuknuk-understanding.js';
 import {buildNuknukAssessmentRequest,validateNuknukAssessment} from '../../packages/decision-vnext-core/dist/nuknuk-grounded-assessment.js';
@@ -10,15 +11,17 @@ import {transferCases} from './nuknuk-transfer-cases.mjs';
 import {validateActiveLunaMeaningOutput} from '../../packages/decision-vnext-core/dist/product-luna-librarian.js';
 import {inspectLunaMeaning} from '../../packages/decision-vnext-core/dist/product-luna-meaning-contract.js';
 
-const argv=process.argv.slice(2);
-const planIndex=argv.indexOf('--cases-file');
-const [dataDirectory,modelPath,outputDirectory,adapterPath]=planIndex<0?argv:argv.slice(0,planIndex);
-const casesFile=planIndex<0?null:argv[planIndex+1];
-if(!dataDirectory||!modelPath||!outputDirectory) throw Error('nuknuk_eval_arguments_required');
+const {values,positionals}=parseArgs({allowPositionals:true,options:{'cases-file':{type:'string'},'instruction-profile':{type:'string'}}});
+const [dataDirectory,modelPath,outputDirectory,adapterPath]=positionals;
+const casesFile=values['cases-file'];
+if(!dataDirectory||!modelPath||!outputDirectory||positionals.length>4) throw Error('nuknuk_eval_arguments_required');
 const folder=resolve(outputDirectory);await mkdir(folder,{mode:0o700});
 const data=JSON.parse(await readFile(resolve(dataDirectory,'reviewed-backyrd.json'),'utf8'));
 const manifest=JSON.parse(await readFile(resolve(dataDirectory,'manifest.json'),'utf8'));
-if(contentHash(data)!==manifest.datasetHash||!['COMPACT_ADAPTER_V1','COMPACT_ADAPTER_V2'].includes(manifest.instructionProfile)) throw Error('nuknuk_eval_data_changed');
+const allowedProfiles=['COMPACT_ADAPTER_V1','COMPACT_ADAPTER_V2','COMPACT_ADAPTER_V3'];
+if(contentHash(data)!==manifest.datasetHash||!allowedProfiles.includes(manifest.instructionProfile)) throw Error('nuknuk_eval_data_changed');
+const inferenceProfile=values['instruction-profile']??manifest.instructionProfile;
+if(!allowedProfiles.includes(inferenceProfile))throw Error('nuknuk_eval_profile_invalid');
 const adapterHash=adapterPath?createHash('sha256').update(await readFile(resolve(adapterPath,'adapters.safetensors'))).digest('hex'):null;
 const selection=casesFile?JSON.parse(await readFile(resolve(casesFile),'utf8')):null;
 if(selection&&(selection.datasetHash!==manifest.datasetHash||new Set(selection.caseIds).size!==selection.caseIds.length||selection.caseIds.some(id=>!data.cases.some(c=>c.id===id&&c.split===selection.split))))throw Error('nuknuk_eval_selection_invalid');
@@ -28,7 +31,7 @@ const results=[];
 const fingerprint=f=>JSON.stringify({key:f.key,modality:f.modality,value:f.value});
 for(const row of rows){
   const request=row.content.task==='INTERPRET_REQUEST'
-    ?buildNuknukUnderstandingRequest({...row.content,instructionProfile:manifest.instructionProfile})
+    ?buildNuknukUnderstandingRequest({...row.content,instructionProfile:inferenceProfile})
     :buildNuknukAssessmentRequest(row.content.context);
   const start=performance.now();let raw=null,rawText=null,metadata=null;
   let result;
@@ -53,7 +56,7 @@ for(const row of rows){
   results.push(record);await writeFile(resolve(folder,row.id+'.json'),JSON.stringify(record,null,2)+'\n',{flag:'wx',mode:0o600});
   console.log(JSON.stringify({id:row.id,status:result.status,durationSeconds:Math.round(record.durationMs/1000)}));
 }
-const summary={datasetHash:manifest.datasetHash,transferCasesHash:selection?contentHash(selection):contentHash(transferCases),profile:manifest.instructionProfile,modelPath:resolve(modelPath),adapterHash,
+const summary={datasetHash:manifest.datasetHash,transferCasesHash:selection?contentHash(selection):contentHash(transferCases),profile:inferenceProfile,trainingProfile:manifest.instructionProfile,profileOverride:inferenceProfile!==manifest.instructionProfile,modelPath:resolve(modelPath),adapterHash,
   cases:results.map(({id,result,durationMs})=>({id,result,durationMs})),structurallyValid:results.filter(r=>r.result.status==='STRUCTURALLY_VALID').length,total:results.length,
   durationMs:results.reduce((s,r)=>s+r.durationMs,0),productionWrites:0,limitations:['ASSISTANT_AUTHORED_HOLDOUT','ADVISORY_READING_CASES_ARE_NOT_END_TO_END_DISCOVERY','STRUCTURAL_SUCCESS_IS_NOT_SEMANTIC_SUCCESS']};
 await writeFile(resolve(folder,'summary.json'),JSON.stringify(summary,null,2)+'\n',{flag:'wx',mode:0o600});

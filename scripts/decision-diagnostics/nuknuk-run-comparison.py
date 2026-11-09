@@ -33,7 +33,14 @@ def run(args):
         raise ValueError("nuknuk_comparison_training_not_finished")
     output.mkdir(mode=0o700)
     env = {**os.environ, "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "HF_HUB_DISABLE_TELEMETRY": "1"}
+    profile_comparison = args.compare_instruction_profile is not None
     variants = [("baseline", None), ("adapter", adapter)]
+    if profile_comparison:
+        if (args.instruction_profile is None or args.instruction_profile == args.compare_instruction_profile
+                or args.development_adapter is not None or args.cases_file is None
+                or json.loads(args.cases_file.read_text()).get("split") != "VALIDATION"):
+            raise ValueError("nuknuk_profile_comparison_requires_distinct_profiles_and_development_cases")
+        variants = [("previous_input", adapter), ("separated_input", adapter)]
     if args.development_adapter is not None:
         if args.cases_file is None or json.loads(args.cases_file.read_text()).get("split") != "VALIDATION":
             raise ValueError("nuknuk_selection_requires_development_cases")
@@ -66,6 +73,9 @@ def run(args):
                     evaluation += [str(active_adapter)]
                 if args.cases_file is not None:
                     evaluation += ["--cases-file", str(args.cases_file.resolve(strict=True))]
+                active_profile = args.compare_instruction_profile if name == "separated_input" else args.instruction_profile
+                if active_profile is not None:
+                    evaluation += ["--instruction-profile", active_profile]
                 completed = subprocess.run(evaluation, env=env, timeout=5400, check=False)
                 if completed.returncode:
                     raise ValueError("nuknuk_comparison_evaluation_failed")
@@ -81,12 +91,18 @@ def run(args):
     before_name, after_name = [name for name, _ in variants]
     baseline = json.loads((output / before_name / "summary.json").read_text())
     adapted = json.loads((output / after_name / "summary.json").read_text())
-    if any(baseline[key] != adapted[key] for key in ["datasetHash", "profile", "transferCasesHash", "total"]):
+    shared_keys = ["datasetHash", "transferCasesHash", "total"] + ([] if profile_comparison else ["profile"])
+    if any(baseline[key] != adapted[key] for key in shared_keys):
         raise ValueError("nuknuk_comparison_plan_changed")
+    if profile_comparison and (baseline["adapterHash"] != adapted["adapterHash"]
+                               or baseline["profile"] != args.instruction_profile
+                               or adapted["profile"] != args.compare_instruction_profile):
+        raise ValueError("nuknuk_profile_comparison_identity_changed")
     for before in baseline["cases"]:
         after = json.loads((output / after_name / (before["id"] + ".json")).read_text())
         original = json.loads((output / before_name / (before["id"] + ".json")).read_text())
-        if any(after[key] != original[key] for key in ["id", "task", "query", "inputHash", "promptHash", "targetHash", "maxOutputTokens"]):
+        paired_keys = ["id", "task", "query", "targetHash", "maxOutputTokens"] + ([] if profile_comparison else ["inputHash", "promptHash"])
+        if any(after[key] != original[key] for key in paired_keys):
             raise ValueError("nuknuk_comparison_inputs_differ")
     original_hashes = json.loads(args.base_hashes.read_text())
     for row in original_hashes:
@@ -96,7 +112,8 @@ def run(args):
                 h.update(chunk)
         if h.hexdigest() != row["sha256"]:
             raise ValueError("nuknuk_base_weights_changed")
-    report = {before_name: baseline, after_name: adapted, "sameInputsVerified": True,
+    report = {before_name: baseline, after_name: adapted, "sameInputsVerified": not profile_comparison,
+              "sameQueriesVerified": True, "profileComparison": profile_comparison,
               "baseWeightHashesVerified": True, "productionActivation": False,
               "semanticReviewRequired": True}
     with (output / "comparison.json").open("x") as file:
@@ -112,4 +129,6 @@ if __name__ == "__main__":
     parser.add_argument("--wait-for-training", action="store_true")
     parser.add_argument("--cases-file", type=Path)
     parser.add_argument("--development-adapter", type=Path)
+    parser.add_argument("--instruction-profile", choices=["COMPACT_ADAPTER_V1", "COMPACT_ADAPTER_V2", "COMPACT_ADAPTER_V3"])
+    parser.add_argument("--compare-instruction-profile", choices=["COMPACT_ADAPTER_V1", "COMPACT_ADAPTER_V2", "COMPACT_ADAPTER_V3"])
     run(parser.parse_args())

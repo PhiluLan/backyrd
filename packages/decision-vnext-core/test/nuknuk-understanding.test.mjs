@@ -291,6 +291,45 @@ test('second local profile preserves the wire contract and corpus partitions wit
   }
 });
 
+test('third local profile separates user wishes from normalization metadata without changing historical prompts', () => {
+  const query='Mit Kollegen bowlen, danach woanders essen.';
+  const reference={now:'2026-11-07T12:00:00Z',timezone:'Europe/Zurich'};
+  const v2=buildNuknukUnderstandingRequest({query,reference,instructionProfile:'COMPACT_ADAPTER_V2'});
+  assert.equal(v2.identity.promptHash,'34170e59805452de09700ef0cc5e7027a654a932c24db4ca332e0cf3188d2020');
+  const v3=buildNuknukUnderstandingRequest({query,reference,instructionProfile:'COMPACT_ADAPTER_V3'});
+  assert.deepEqual(v3.outputSchema,v2.outputSchema);
+  assert.deepEqual(JSON.parse(v3.input),{request:query});
+  assert.ok(!v3.input.includes(reference.now));
+  const metadata=JSON.parse(v3.instructions.split('NORMALIZATION_REFERENCE (nur Rechenhilfe, niemals Nutzerwunsch):\n')[1]);
+  assert.deepEqual(metadata.reference,reference);
+  assert.equal(metadata.calendar.today,'2026-11-07');
+  assert.equal(metadata.calendar.localTime,'13:00');
+  const changed=buildNuknukUnderstandingRequest({query,reference:{...reference,now:'2026-11-08T23:30:00Z'},instructionProfile:'COMPACT_ADAPTER_V3'});
+  assert.equal(changed.input,v3.input);
+  assert.notEqual(changed.identity.promptHash,v3.identity.promptHash);
+  assert.equal(JSON.parse(changed.instructions.split('NORMALIZATION_REFERENCE (nur Rechenhilfe, niemals Nutzerwunsch):\n')[1]).calendar.today,'2026-11-09');
+});
+
+test('third profile training export and inference use the same role separation', async () => {
+  // A reviewed fixture is created through the existing review path, not from a
+  // generated model answer or an implicitly promoted TEST result.
+  let data=draftUnderstandingDataset();
+  data.cases[1].split=data.splitPlan[1].split='VALIDATION';
+  data.cases[2].split=data.splitPlan[2].split='TEST';
+  for(const row of data.cases){
+    row.content.trainingPermission='APPROVED'; row.contentHash=contentHash(row.content);
+  }
+  for(const row of [...data.cases]){
+    for(const kind of ['SEMANTICS','PRIVACY_AND_SOURCE_USE']) data=recordUnderstandingReview(data,{id:row.id,expectedContentHash:row.contentHash,kind,verdict:'ACCEPT',reviewer:'test-human',reviewedAt:'2026-11-09T12:00:00Z',note:'Synthetic test fixture only.'});
+  }
+  const bundle=exportUnderstandingDataset(data,understandingSplitHash(data.splitPlan),'COMPACT_ADAPTER_V3');
+  const row=data.cases.find(c=>c.split==='TRAIN');
+  const request=buildNuknukUnderstandingRequest({...row.content,instructionProfile:'COMPACT_ADAPTER_V3'});
+  assert.equal(bundle.files.train[0].messages[0].content,request.instructions);
+  assert.equal(bundle.files.train[0].messages[1].content,request.input);
+  assert.ok(!buildNuknukUnderstandingRequest(row.content).instructions.includes('COMPACT_ADAPTER_V3'));
+});
+
 test('assisted review attribution requires explicit delegation and cannot claim human provenance', () => {
   const data=draftUnderstandingDataset();
   const row=data.cases[0];
