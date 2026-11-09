@@ -902,7 +902,7 @@ und `comparison.json`.
 | Fall | Basismodell | Adapter nach Training |
 | --- | --- | --- |
 | Vietnamesisch, Tante, aussergewöhnlich, kein Dresscode | Erfindet Besuchstag, Abendessen und ab 13 Uhr | Erfindet weiter Besuchstag, Abendessen und genau 13 Uhr; Zeitfeld jetzt ausführbar |
-| Bouldern, Dusche kein Muss, Schuhverleih nötig | Optionalität richtig; Verleih in nicht unterstütztem Pflichtfeld | Zeitkontext entfernt, aber Kollegen neu als participation.partner-Pflicht; Verleihfeld weiter ungeeignet |
+| Bouldern, Dusche kein Muss, Schuhverleih nötig | Optionalität richtig; Verleih in nicht unterstütztem Pflichtfeld | Zeitkontext entfernt; verbindliche Begleitung im falschen Feld participation.partner; Verleihfeld weiter ungeeignet |
 | Nudeln nach Konzert 22:45, Datum offen | Konzertende und Sequenz erhalten, Datum als Kontext erfunden | Sequenz erhalten; Datum weiter erfunden, jetzt nicht erforderlich statt Kontext |
 | Sushi, Mutter 57, möglichst unter CHF 70 zusammen | Gruppenbudget erkannt, aber falsch typisiert; heutiger Nachmittag und Mittagessen als Pflicht erfunden | Gruppenbudget korrekt typisiert und harte Zeit-/Mittagessenpflicht entfernt; falscher Zeitkontext und LTE statt LT bleiben |
 | Bei Sonne Boot, sonst Keramik | Wetterzweige richtig, Zeitkontext erfunden | Wetterzweige richtig; zusätzliche erfundene Uhrzeit und Nachmittag im Ziel |
@@ -936,3 +936,109 @@ Variante wurde nicht trainiert. Die zwölf Fälle sind nun eingesehen und müsse
 bei künftigem Tuning als bekannte Diagnosefälle gelten. Vor weiterer Aktivierung
 braucht es eine gezielte Prüfung der Referenzzeit-Verwechslung, der falschen
 Pflichtzuweisungen und der kanonischen Feldauswahl sowie neue ungesehene Tests.
+
+
+### Founder-Präzisierung und lokales Eingabeexperiment V3, 9. November 2026
+
+Der Founder hat präzisiert: „Bouldern mit Kollegen ist ja auch eine
+pflichtangabe.“ Diese Begleitung ist tatsächlich verbindlich und darf nicht
+als optionaler Wunsch behandelt werden. Korrigiert wird die Fehlerdiagnose:
+Nicht die Verbindlichkeit ist falsch, sondern participation.partner als
+Anforderung an die Durchführungsform des Anbieters. Der kanonische Vertrag
+speichert die tatsächliche mitgebrachte Besuchsgruppe unter people.relationship
+CONTEXT. CONTEXT bedeutet hier gegebenen Gruppenkontext, nicht verzichtbare
+Begleitung. Produktvertrag, Personengruppe und Zugangsregeln werden nicht
+abgeschwächt. Die lokale Einzelfallauswertung enthält diese Founder-Korrektur.
+
+Die fehlerhaften Zeitwerte stammen auffällig aus der technischen Eingabe:
+reference.now und calendar.today/localTime stehen bisher neben request in der
+User-Nachricht. Das ist ein belegter Herkunftszusammenhang, noch kein isolierter
+Kausalnachweis. COMPACT_ADAPTER_V3 verschiebt diese unverändert verfügbaren
+Normalisierungshilfen in einen ausdrücklich bezeichneten Systemblock. Die
+User-Nachricht enthält nur request. Schema, Faktentypen, Modellgewichte und
+historische V1-/V2-Profile bleiben unverändert. Zusätzliche lokale Anweisungen
+präzisieren Referenzzeit vs. Besuchszeit, generisches Essen vs. Mahlzeit,
+verbindliche Begleitung vs. Anbieterleistung, explizite OR-Strukturen, Ortswechsel
+und unbekannte Budgetbeträge. Keine nachträgliche automatische Umschreibung oder
+Entfernung einer Modellantwort; Fehler müssen in den Rohantworten sichtbar bleiben.
+
+Der Vergleichsrunner kann nun ausdrücklich zwei verschiedene Anweisungsprofile
+mit demselben Adapter und denselben VALIDATION-Anfragen vergleichen. Er nennt
+unterschiedliche Eingaben/Prompts dabei nicht identisch: sameQueriesVerified=true,
+sameInputsVerified=false, profileComparison=true. Alte Basismodell-/Adapterläufe
+verlangen weiterhin identische Eingaben und Anweisungen. Export und Inferenz
+verwenden denselben V3-Builder; bestehende eingefrorene Trainingsdateien werden
+nicht umgeschrieben. V3 ist opt-in und nicht produktiv aktiviert.
+
+Erster begrenzter Entwicklungsvergleich: r2-dev-1, 2, 3, 4, 8 und 9, jeweils
+V2 und V3 mit dem abgeschlossenen kleinen Adapter. Ausgabe
+`comparison-20261109-profile3-development`. Dies sind Entwicklungsbeispiele,
+keine neue unabhängige Erfolgsmessung; V3 wurde nicht in die Gewichte trainiert.
+Die Änderung kombiniert Eingaberollentrennung und Anweisungspräzisierungen. Ein
+beobachteter Effekt darf deshalb nicht allein der Rollentrennung zugeschrieben
+werden. Das vollständige längere Training wird nicht ungeprüft wiederholt.
+
+
+#### Gemessener Entwicklungsvergleich V2 / V3
+
+Zwölf echte lokale Aufrufe sind abgeschlossen: sechs identische VALIDATION-
+Anfragen, jeweils mit V2 und V3 auf exakt demselben Adapter. Keine neue
+Gewichtsanpassung. Alle Ein-/Ausgaben sind unter dem genannten Vergleichsordner
+gesichert. `semantic-review.json` trennt die qualitative Auswertung von der
+reinen Schemaauswertung; `runtime-before-rebuild.json` hält die tatsächlich im
+Vergleich verwendeten kompilierten Module fest.
+
+Erfundene Besuchstage in strukturierten Fakten sinken in diesen sechs Fällen
+von vier auf null. Der Besuch nach Schichtende 00:30 behält die Uhrzeit, lässt
+aber den ausdrücklich offenen Tag offen. Das Cousinen-Frühstück behält die
+persönliche laktosefreie Option und setzt unter CHF 16 jetzt korrekt als LT;
+Besuchstag, angeblicher Morgen und Gruppenbudget werden nicht ergänzt.
+Suppe oder Sandwich mit verpflichtendem Tee bleibt als ANY plus zusätzliche
+Pflicht erhalten und verliert die unbelegten Zeitdaten. Ausbildungsabschluss,
+Partnerbegleitung und besonderer Ort bleiben erhalten; Ramen steht weiterhin
+unter der unpassenden Küchen- statt Gerichtsfamilie.
+
+V3 ist **kein allgemein freigegebener Sieger**: Im Dart-Fall bleibt die
+Fehlinterpretation nicht nötig -> EXCLUDED; neu wird Getränke fälschlich auf
+Kaffee verengt. Dart als Aktivität fehlt in V2 und ist in V3 immerhin wieder
+explizit vorhanden. Im Brunch/Billard-Fall entfallen zwar die Zeitdaten, aber
+V3 erzeugt die unbekannte Faktreferenz b1 und bindet die Reihenfolge an die
+Innenraumeigenschaft. Diese Rohantwort bleibt zu Recht abgelehnt. Sie wird
+nicht durch geratenes Ersetzen der Referenz nachträglich als verstanden erklärt.
+Die gemessene Zeitverbesserung ist keine umfassende semantische Verbesserung.
+
+#### Separater Softwarefehler: Brunch als Mahlzeit
+
+Der kanonische Katalog kennt BRUNCH. Die Rollenprüfung erlaubte das Konzept
+jedoch nur unter experience.activity/offer.kind und der Zuordner behandelte
+food.meal/food.option brunch nicht als Angebotsbedarf. Das ist ein Software-
+Integrationsfehler und kein Anlass, eine zutreffende Essensinterpretation als
+Sprachfehler zu trainieren. Rollenvertrag @12 erlaubt dieselben Essensfamilien
+wie für andere Mahlzeiten; der Zuordner nutzt dafür den bereits vorhandenen
+Angebotsnachweis. Es werden keine Fakten umgeschrieben und keine Pflichten
+abgeschwächt. Brunch benötigt weiterhin einen passenden Angebotsbeleg:
+gewöhnliches Frühstück oder Abendessen genügt nicht.
+
+Der Test durch Übersetzungsgrenze und Suche bestätigt für die drei zulässigen
+Familien denselben BRUNCH-Treffer ohne Korrekturanruf. Negative Gegenbeispiele
+BREAKFAST und DINNER werden nicht akzeptiert. Eine gesonderte Wiedergabe der
+unveränderten gespeicherten Modellantworten (`brunch-boundary-replay.json`)
+bestätigt: V2-dev-9 wird nach dieser Softwarekorrektur ausführbar, V3-dev-9
+bleibt wegen b1 abgelehnt. Das sind keine neuen Modellaufrufe und keine
+nachträgliche Änderung der ursprünglichen Vergleichsergebnisse.
+
+Betriebsstand: V3 bleibt explizit wählbarer lokaler Versuch. Keine produktive
+Aktivierung, keine Veröffentlichung, kein neues langes Training. Weitere
+Trainingsdaten müssen besonders Negation, unveränderte allgemeine Wünsche,
+Gericht vs. Küchenrichtung und gültige Faktverknüpfungen abdecken. Bekannte
+TEST-Fehler bleiben Diagnosefälle, keine heimlich wieder ungesehenen Tests.
+
+
+Verifikation dieses Änderungsstands: kanonischer Build und TypeScript-Prüfung,
+Betroffenentests für Verständnis/Export, Essenssprache, Bedeutungsrollen und
+Produktisolation sowie die vollständige Product-Decision-CI einschliesslich
+Hostwächtertests, Single-Route-Invariante und isoliertem App-Web-Browserablauf
+bestehen. Der erste eingeschränkte CI-Aufruf konnte die Prozessliste für zwei
+Hosttests nicht lesen; der regulär autorisierte erneute Lauf bestand vollständig.
+Browser-/RPC-Daten waren synthetisch, keine produktiven Aktionen. Das belegt
+Verträglichkeit der Softwareänderung, keine behobenen offenen Modellfehler.
