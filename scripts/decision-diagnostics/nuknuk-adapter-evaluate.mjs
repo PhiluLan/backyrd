@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Same pinned held-out inputs/profile for baseline and adapter; no live Product.
+// Same pinned inputs/profile for baseline and adapter; no live Product.
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
@@ -64,12 +64,12 @@ for(const row of scheduled){
     if(raw?.meaning) try {contractIssues=inspectLunaMeaning(validateActiveLunaMeaningOutput(raw.meaning),row.content.query);}catch{ /* Schema error path remains separate. */ }
     result={status:'FAILED',code:error instanceof Error?error.message:'nuknuk_eval_failed',validationPath:typeof error?.path==='string'?error.path:null,contractIssues};
   }
-  const record={id:row.evaluationId,sourceCaseId:row.id,repetition:row.repetition,task:row.content.task,testKind:row.testKind??'AUTHOR_DEFINED_TEST',expectation:row.expectation??null,query:row.content.query,inputHash:contentHash(request.input),promptHash:contentHash(request.instructions),
+  const record={id:row.evaluationId,sourceCaseId:row.id,repetition:row.repetition,task:row.content.task,testKind:row.split==='TRAIN'?'IN_SAMPLE_TRAIN_DIAGNOSTIC':row.testKind??'AUTHOR_DEFINED_TEST',expectation:row.expectation??null,query:row.content.query,inputHash:contentHash(request.input),promptHash:contentHash(request.instructions),
     targetHash:row.contentHash,result,raw,rawText,metadata,maxOutputTokens:2048,durationMs:performance.now()-start,modelPath:resolve(modelPath),adapterPath:adapterPath?resolve(adapterPath):null,adapterHash};
   results.push(record);await writeFile(resolve(folder,row.evaluationId+'.json'),JSON.stringify(record,null,2)+'\n',{flag:'wx',mode:0o600});
   console.log(JSON.stringify({id:row.evaluationId,status:result.status,durationSeconds:Math.round(record.durationMs/1000)}));
 }
 const summary={datasetHash:manifest.datasetHash,transferCasesHash:selection?contentHash({selection,repeatCount,repeatIds:[...repeatIds]}):contentHash({transferCases,repeatCount,repeatIds:[...repeatIds]}),profile:inferenceProfile,trainingProfile:adapterTrainingProfile,evaluationDatasetProfile:manifest.instructionProfile,profileOverride:inferenceProfile!==manifest.instructionProfile,modelPath:resolve(modelPath),adapterHash,
   cases:results.map(({id,result,durationMs})=>({id,result,durationMs})),structurallyValid:results.filter(r=>r.result.status==='STRUCTURALLY_VALID').length,total:results.length,
-  durationMs:results.reduce((s,r)=>s+r.durationMs,0),productionWrites:0,limitations:['ASSISTANT_AUTHORED_HOLDOUT','ADVISORY_READING_CASES_ARE_NOT_END_TO_END_DISCOVERY','STRUCTURAL_SUCCESS_IS_NOT_SEMANTIC_SUCCESS']};
+  durationMs:results.reduce((s,r)=>s+r.durationMs,0),productionWrites:0,limitations:[selection?.split==='TRAIN'?'IN_SAMPLE_TRAIN_DIAGNOSTIC_NOT_HOLDOUT':'ASSISTANT_AUTHORED_HOLDOUT','ADVISORY_READING_CASES_ARE_NOT_END_TO_END_DISCOVERY','STRUCTURAL_SUCCESS_IS_NOT_SEMANTIC_SUCCESS']};
 await writeFile(resolve(folder,'summary.json'),JSON.stringify(summary,null,2)+'\n',{flag:'wx',mode:0o600});

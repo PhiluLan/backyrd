@@ -1235,3 +1235,100 @@ Entwicklungsmenge, bei der gezielt die Wahrscheinlichkeit der entscheidenden
 Wörter/Felder und die freie Ausgabe vor/nach dem Anpassen gemessen werden.
 Erst nach nachweislich gelerntem Muster ist eine neue Prüfung auf unbekannten
 Formulierungen aussagekräftig. Nicht unverändert die volle Runde verlängern.
+
+### Kontrollierter Sechs-Fälle-Versuch: 20 Schritte und Entscheidungs-Tokens
+
+Der anschliessend beauftragte kleine Lernversuch ist abgeschlossen. Startpunkt
+war der unveränderte Round-3-Adapter mit SHA-256
+`cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3`.
+Sechs frühere TRAIN-Fälle wurden ohne inhaltliche Änderung aus dem eingefrorenen
+Bestand ausgewählt: polarity-1/-2, specificity-1/-2, budget-4, relations-4.
+Zwei bestehende VALIDATION-Fälle und ein bereits exponierter TEST-Fall bleiben
+in ihren bisherigen Rollen; kein TEST wird trainiert, keine neue Holdout-Aussage.
+
+Der fokussierte Export `training-20261109-tiny-fit` hat Manifest-SHA-256
+`2235309e055510c2e6fad042ebede0cfc101a8f7649b1cfcff91b9974a7410b9`.
+Nur die Datenmischung wurde auf sechs wiederkehrende Muster eingegrenzt:
+20 Optimiererschritte, Batch 1, Lernrate 1e-5, Seed 7, Rank 8/Alpha 16,
+weiter nur q/v im letzten Full-Attention-Block. Optimierer neu gestartet,
+Parent- und Basisgewichte nicht überschrieben. Der neue Adapter hat SHA-256
+`8a7302f5cade18470d018f36cde97cd990b0b5a7922d0d1c675ca7fd2d4957ea`.
+
+Vor und nach dem Training wurden unter dem Ressourcenwächter die identischen
+entscheidenden Tokenpositionen der korrekten Musterantwort bewertet. Die
+Messung lädt keine fremden Daten, schreibt keine Gewichte und verwendet keine
+Gradienten. Sie gibt die korrekten vorherigen Antwort-Tokens vor (teacher
+forcing), während die späteren freien Antworten keinerlei Zielantwort erhalten.
+Das sind unterschiedliche Aufgaben; diese Tokenwerte sind keine kalibrierte
+Sicherheit und keine Quote korrekter Bedeutung. Ein anderes gleichbedeutendes
+Wort darf trotz niedriger Wahrscheinlichkeit des Zielworts korrekt sein.
+
+| Markierter Zielwert | Mittlerer Token-NLL vorher | Nachher |
+| --- | ---: | ---: |
+| NOT_REQUIRED | 0,7974 | 0,6152 |
+| EXCLUDED | 0,0297 | 0,0701 |
+| Getränke | 0,0756 | 0,0590 |
+| beer | 3,5525 | 2,2732 |
+| SAME_PLACE | 0,7231 | 0,5902 |
+| SEQUENCE | 0,000315 | 0,000286 |
+| GROUP_TOTAL | 0,003586 | 0,002997 |
+| PREFERRED | 0,1483 | 0,1799 |
+
+Niedriger bedeutet unter diesem vorgegebenen Kontext wahrscheinlicher. Sechs
+Spannen verbesserten sich, zwei verschlechterten sich. Bei keiner markierten
+Position änderte sich, ob das korrekte Token die stärkste Wahl war. Die Gewichte
+reagieren messbar, aber daraus folgt keine beherrschte Regel.
+
+Danach wurden beide Adapter mit identischem V3-Prompt auf den sechs Eingaben
+frei abgefragt: zwölf reale Modellantworten. **Keine der vier fehlerhaften
+Anfragen wurde vollständig korrigiert.** Die zwei bereits richtigen
+Schach-/Getränkefälle bleiben korrekt. Beide Dart-Fälle erfinden weiter Kaffee;
+„nicht nötig“ bleibt fälschlich EXCLUDED. Der Gesamtbudgetumfang bleibt Freitext
+statt GROUP_TOTAL. Beim Museumsablauf bleiben SEQUENCE/SAME_PLACE richtig,
+zusätzlich steht aber weiterhin REQUIRED location.destination = dort. Fünf
+meaning-Objekte sind sogar exakt identisch, das sechste unterscheidet nur
+gleichbedeutende Entitätsbeschriftungen. Formale Strukturprüfung: je 6/6;
+inhaltlich vollständig: je 2/6. Keine Verbesserungsquote daraus ableiten.
+
+#### Zusätzlich nachgewiesener Unterschied zwischen Training und Nutzung
+
+Eine explorative, nach dem eingefrorenen Versuch durchgeführte CPU-Prüfung
+reproduziert einen technischen Formatunterschied: Der Export speichert
+Musterantworten als kompaktes JSON. Der installierte lokale MLX-Ausgabefilter
+verwendet in `mlx_vlm.structured.build_json_schema_logits_processor` dagegen
+`JsonCompiler(separators=(", ", ": "), whitespace_pattern="")`.
+Die Antworterzeugung erlaubt damit eine andere Tokenfolge als das Training.
+
+Die Prüfung verwendete die tatsächlich installierte llguidance-Version, den
+lokalen Tokenizer und das exakte outputSchema **je Anfrage**, ohne Modellgewichte
+zu laden. Alle sechs kompakten TRAIN-Antworten werden bereits beim dritten Token
+abgewiesen. Dieselben sechs Zielobjekte mit ausschliesslich angepassten
+Leerzeichen werden vollständig akzeptiert, ebenso die sechs tatsächlichen
+Serverantworten. Eine Änderung der Schlüsselfolge war dafür nicht nötig.
+Der erste Einzel-Schema-Versuch ist ausdrücklich durch die per-Anfrage-Prüfung
+ersetzt: Die Schemaauswahl ist anfrageabhängig, unter anderem beim Budget.
+
+**Bewiesen ist die Formatabweichung, nicht ihr Anteil an den Bedeutungsfehlern.**
+Es wäre falsch, daraus bereits abzuleiten, dass Leerzeichen allein alle Fehler
+beheben. Auch die teacher-forced Messwerte wurden unter der kompakten
+Trainingsdarstellung ohne Grammatikmaske erhoben und sind deshalb nicht dieselbe
+bedingte Verteilung wie die strukturierte freie Ausgabe. Vor weiterer Variation
+von Lernrate oder Adapterkapazität muss diese vermeidbare Abweichung angeglichen
+und der begrenzte Versuch kontrolliert wiederholt werden. Der aktuelle Versuch
+wurde nicht nachträglich verändert und kein zusätzlicher Lauf gestartet.
+
+Ressourcen: Training 616 Sekunden unter dem Wächter (10:16), davor/danach
+133/136 Sekunden lesende Tokenmessung; freie Modellantworten zusammen 584 Sekunden
+(9:44), zuzüglich Laden und Hash-Prüfungen. Maximaler physischer Modellspeicher
+24,31 GiB, Druckmessungen normal, kein zusätzlicher Swap. Alle eigenen Prozesse
+regulär beendet, Basis- und Parent-Gewichte unverändert. Keine Aktivierung.
+
+Lokale Nachweise unter `.local/nuknuk-understanding/`:
+`tiny-fit-experiment-plan.json`, `tiny-fit-before-scores.json`,
+`tiny-fit-after-scores.json`, `tiny-fit-score-comparison.json`,
+`tiny-fit-grammar-replay-per-case.json` sowie
+`comparison-20261109-tiny-fit-20/semantic-review.json` und zwölf Rohantworten.
+Der generische Evaluator kennzeichnet TRAIN-Auswahlen jetzt ausdrücklich als
+IN_SAMPLE_TRAIN_DIAGNOSTIC_NOT_HOLDOUT; Eingaben und Ausgabevertrag bleiben
+dadurch unverändert. Ausrichtungstests der Tokenmessung und die bestehenden
+18 Wächter-/Trainingsgrenztests bestanden vor den echten Läufen.
