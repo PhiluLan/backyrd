@@ -546,13 +546,43 @@ Sie starten beide vom unveränderten Basismodell, nicht voneinander oder vom alt
 Adapter. Auswahl nach fachlicher Sichtung derselben zwölf Entwicklungsantworten;
 erst danach neue Prüfaufgaben, Basisvergleich und Wiederholungen.
 
-**Ressourcenregel:** Docker bleibt aus. `nuknuk-resource-guard.py` überwacht seinen
-eigenen MLX-Prozess und den macOS-Speicherdruck alle fünf Sekunden. Kritischer
-Druck, drei Warnmessungen nacheinander oder mehr als 2 GiB neuer Swap stoppen
-den eigenen Prozessbaum. Bereits vorhandener Swap allein ist kein Abbruchgrund.
-Ausfall der Überwachung stoppt ebenfalls. Fremde Prozesse werden nicht beendet.
-Die MLX-Allocator-Richtlinie beträgt 32 GiB, der freie Cache maximal 512 MiB;
-dies sind keine harten Grenzen für den gesamten Mac. Ein erfolgreicher Lauf ist
-erst mit Ressourcenbeleg und tatsächlicher Auswertung abgeschlossen. Kontrolliert
-beendete Server erhalten einen Unterbrechungsbeleg statt eines erfundenen Erfolgs.
-Keine Gewichts-Fusion, produktive Aktivierung oder automatische Veröffentlichung.
+**Ressourcenschutz, Stand 9. November 2026:** Docker bleibt aus. Der bestehende
+Trainingsstarter und der Basis-/Adapter-Vergleich starten MLX ausschliesslich über
+`nuknuk-resource-guard.py`. Ein exklusiver Benutzer-Lock verhindert zwei gleichzeitig
+geschützte Modellläufe. Direkt ausserhalb dieses Starters gestartete Programme
+werden dadurch nicht automatisch überwacht.
+
+Vor dem Modellstart und danach im Abstand von einer Sekunde prüft der Wächter den
+macOS-Speicherdruck, neuen Swap, die Summe des RSS der eigenen Prozessgruppe und
+freien Platz auf Arbeits- und Ausgabevolume. Messaufrufe haben jeweils eine Sekunde
+Timeout. Bereits die erste Speicherwarnung beendet die eigene Gruppe per SIGKILL;
+ebenso weniger als 30 GiB freie SSD, mehr als 28 GiB Gruppen-RSS, mehr als 512 MiB
+zusätzlicher Swap oder ein laufendes Docker Desktop. Vorhandener alter Swap allein
+verhindert den Start nicht. Grenzen sind konservative Betriebsregeln für diesen
+48-GiB-Mac, keine nachgewiesenen Mindestanforderungen des Modells. Die MLX-Richtlinie
+ist 24 GiB und der Cache auf 256 MiB begrenzt; dies ist kein hartes OS-Speicherlimit.
+RSS allein erfasst nicht verlässlich sämtliche Metal-/Systemspeicherlast.
+
+Ein separater kleiner Watchdog besitzt eine Pipe zum Hauptwächter. Stirbt dieser,
+führt das Pipe-Ende sofort zur Beendigung der Modellgruppe. Fehlt zehn Sekunden
+lang ein erfolgreicher Mess-/Journal-Heartbeat, wird die Gruppe ebenfalls beendet.
+Auch ein Ausfall des unabhängigen Watchdogs beendet den Modelllauf. Damit hängt die
+Notabschaltung nicht vom erfolgreichen Schreiben eines Abschlussberichts ab.
+Messwerte werden fortlaufend mit Flush und fsync in `*.samples.jsonl` gesichert;
+Abbruchgrund und Exitstatus kommen in den Ressourcenbeleg. Bei vollem/defektem
+Datenträger kann ein letzter Beleg fehlen; das darf keinen Prozess weiterlaufen lassen.
+
+Der Starter zeigt beim Start `manualStopFile`. Ein `touch` auf genau diesen Pfad
+(z.B. `touch /absoluter/ausgabepfad/host-memory.stop`) oder Ctrl-C/SIGTERM an den
+Wächter beendet nur die eigene Modellgruppe. Es gibt keinen automatischen Neustart.
+Eine Notabschaltung verwirft den laufenden Schritt; nur bereits geschriebene
+Checkpoints sind vorhanden. Fremde Anwendungen, Originalgewichte und Docker-Daten
+werden nicht gelöscht oder beendet. Nach 14.000 Sekunden endet ein unbeaufsichtigter
+MLX-Lauf ebenfalls, vor dem äusseren Timeout des Trainingsstarters.
+
+Die Prüfung verwendet kleine echte Prozesse mit simulierten Warnmesswerten, einen
+zusätzlichen Worker, SIGKILL und SIGSTOP des Hauptwächters sowie Journalfehler und
+manuellen Stopp. Sie überlastet den Mac nicht und lädt kein Modell. Ein weiterer
+kurzer gemessener Modelllauf bleibt vor längerem Training erforderlich. Eine
+absolute Garantie gegen Kernel-, Treiber- oder Hardwareabstürze ist damit nicht
+möglich. Keine Gewichts-Fusion, produktive Aktivierung oder Veröffentlichung.
