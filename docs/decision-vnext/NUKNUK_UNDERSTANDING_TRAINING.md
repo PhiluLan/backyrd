@@ -1092,3 +1092,82 @@ zusätzlichen unabhängigen Fälle. Alle Rohantworten und Identitäten bleiben
 pro Aufruf erhalten. Keine Anpassung anhand dieser TEST-Antworten während des
 Vergleichs. Kein automatischer Wiederanlauf nach Abbruch, keine Aktivierung.
 Ressourcenwächter v5 und unabhängiger Watchdog bleiben unverändert.
+
+### Ergebnis der fokussierten Fortsetzung vom 9. November 2026
+
+**Nicht zur Aktivierung geeignet: einzelne Verbesserungen, aber kein belastbarer
+Gesamtfortschritt gegenüber dem bisherigen Adapter.** Der eingefrorene Ablauf
+ist vollständig beendet: 20 Schritte Ressourcenpilot, 160 Schritte Fortsetzung,
+anschliessend 36 echte lokale Vergleichsaufrufe. Nach Sichtung der frischen
+Antworten wurden weder Prompt noch Trainingsdaten geändert. Der bisherige
+Adapter und alle drei Basisgewichtsdateien sind unverändert verifiziert.
+
+Die volle Fortsetzung dauerte 5.238 Sekunden (87:18), der Pilot 614 Sekunden
+(10:14), der Vergleich 1.915 Sekunden (31:55). Der Modellprozess belegte während
+des Trainings maximal 24,44 GiB physischen Speicher; alle Druckmessungen waren
+normal, zusätzlicher Swap: null. Der Trainingswächter endete mit FINISHED.
+Die Inferenzserver wurden nach ihrem jeweiligen Vergleich planmässig beendet;
+ihr Wächterstatus SUPERVISOR_INTERRUPTED ist hier kein Speicherabbruch.
+
+Neuer Adapter-SHA-256:
+`cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3`.
+Gespeichert unter `.local/nuknuk-understanding/adapter-20261109-round3-focused-epoch1`.
+Endvalidierung: loss 0,22255, Tokenübereinstimmung 0,94986 auf zwölf Beispielen.
+Diese Tokenmetrik ist **keine** Quote korrekt verstandener Nutzeranfragen.
+
+Beide Adapter erhielten dieselben zwölf neuen Anfragen mit identischem
+COMPACT_ADAPTER_V3-Profil. Die drei Wiederholungsfälle erzeugten je Adapter
+dreimal identische vollständige Antworten. Sie waren damit wiederholbar, aber
+jeweils weiterhin fehlerhaft. Wiederholungen zählen nicht als unabhängige Fälle.
+
+| Fall | Bisheriger Adapter | Neuer Adapter |
+| --- | --- | --- |
+| Tischtennis mit Schwester; Essen nicht nötig, Getränke schon | Essen fälschlich ausgeschlossen | Essen korrekt nicht erforderlich; dafür Getränke fälschlich zu Kaffee verengt |
+| Kartenspielen mit Onkel, kein Alkohol | Fakten korrekt; Zieltext verlangt zusätzlich einen Betrieb ohne Alkoholausschank | Bedeutung erhalten, überzogener Zieltext entfällt |
+| Nach Fotokurs trinken, Sorte egal | Allgemeine Getränke und vorheriger Kurs als Kontext korrekt | Gleichwertig korrekt |
+| Besonderes Dim Sum zur Beförderung, nicht automatisch teuer | Anlass und Wunsch erhalten; erfundener Nullbetrag als NOT_REQUIRED | Derselbe erfundene Nullbetrag; keine Pflicht zu kostenlos, trotzdem falsche Angabe |
+| Kletterkurs, danach woanders Suppe | Ungültiger FACT-Verweis b1 | Derselbe Fehler; woanders im Ziel bleibt korrekt |
+| Quiche oder Pasta, zwingend Mineralwasser | ANY verknüpft Essen mit Wasser als Alternative | Derselbe Fehler |
+| Sandwich unter 11 CHF, keine Sitzplätze nötig | LT11 korrekt, Sitzplätze fälschlich ausgeschlossen | Derselbe Fehler trotz korrektem Zieltext |
+| Gericht für beide zusammen höchstens 32 CHF | Betrag und Gesamtbezug sprachlich erhalten, kanonisches budget.scope fehlt | Gesamtumfang weiter nur Freitext, zusätzliche redundante Preisangabe |
+| Nach Training um 20:10 Gnocchi, Tag unbekannt | Reihenfolge/Uhrzeit akzeptabel; zusätzliche Dinner-Pflicht und erfundenes NOT_REQUIRED-Datum | Dieselben Zusatzangaben |
+| Morgen mit Nachbarin Tee | Morgen korrekt auf 17.11. normalisiert; doppelte Personenzahl | Wiederholt erfundene Altersgrenzen bis zum Ausgabelimit; unvollständige Antwort |
+| Frühstück mit Bruder, nur er vegetarisch | Zuordnung korrekt; zusätzlich unbelegte Altersgrenze 0 | Korrekte Zuordnung ohne erfundene Altersgrenze |
+| Kerzen gestalten, danach dort Kakao | Ortsbindung/Reihenfolge korrekt; FACT b1 ungültig | Weiter ungültig, zusätzlich Kaffee erfunden und Kakao als Gericht codiert |
+
+Die Preisbasis ist ein Übergabeproblem: `budget.coverage` mit freiem Text ist
+nicht gleich `budget.scope` mit GROUP_TOTAL. Der bestehende Matcher kann ohne
+strukturierte Basis keinen Gruppenpreis bestätigen und meldet
+BUDGET_BASIS_OR_CURRENCY_UNKNOWN; unstrukturierte Preisbestandteile ergeben
+BUDGET_COMPONENT_COVERAGE_NOT_STRUCTURED. Dies ist am Codepfad geprüft, kein
+durchgeführter Spot-Suchlauf. Eine formal als EXECUTABLE akzeptierte
+Interpretation ist deshalb noch kein Nachweis erfolgreicher Preisprüfung.
+
+Die Tee-Ausgabe endete nach 161,15 Sekunden mit finishReason length bei 2.048
+Ausgabetokens. Das war keine Speicherabschaltung und kein HTTP-Zeitlimit:
+das Modell wiederholte unbelegte Altersgrenzen 0 und 100 Jahre. Ein höheres
+Ausgabelimit wäre keine inhaltliche Korrektur dieser Schleife.
+
+Die Assistenzprüfung unterscheidet vollständige Fälle, kleinere Zusatzfehler,
+materielle Bedeutungs-/Codierungsfehler und ungültige Strukturen. Auf den zwölf
+einzigartigen Fällen: bisher 1 / 4 / 5 / 2, neu 3 / 1 / 5 / 3. Die zwei
+vollständiger gewordenen Fälle rechtfertigen angesichts der Rückschritte keine
+Beförderung. Keine pauschale Qualitätsprozentzahl daraus ableiten. Autorierung
+und Prüfung erfolgten durch dieselbe beauftragte Assistenz, nicht durch eine
+unabhängige menschliche Goldprüfung.
+
+Vollständige Belege liegen lokal unter
+`.local/nuknuk-understanding/comparison-20261109-round3-focused-fresh/`:
+Rohantworten pro Aufruf, Hash-Abgleich in `comparison.json`, Einzelfallbegründungen
+und Wiederholungsprüfung in `semantic-review.json`. Die Ressourcen-/Befehlsfolge
+steht in `.local/nuknuk-understanding/round3-execution.json`.
+
+**Folgerung für den nächsten Versuch:** Nicht unverändert länger trainieren.
+Zunächst an getrennten Entwicklungsfällen feststellen, ob der kleine Adapter
+mit nur q/v im letzten Attention-Block selbst trainierte Kontraste beherrscht
+oder schon daran scheitert. Erst danach Lernumfang/Verteilung und gegebenenfalls
+Trainingskapazität gezielt ändern, jeweils mit erneutem Ressourcenpilot.
+Die hier exponierten TEST-Fälle gelten ab jetzt als bekannt; für eine neue
+Qualitätsaussage werden neue, vorher nicht ausgewertete Fälle benötigt.
+Dieser Lauf beweist weder allgemeine Unfähigkeit des 27B-Basismodells noch
+Produktionsreife. Keine Live-Aktivierung, kein Providerwechsel, kein Release.
