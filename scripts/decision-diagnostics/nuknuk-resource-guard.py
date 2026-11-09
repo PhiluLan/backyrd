@@ -156,7 +156,7 @@ def supervisor_lock():
 
 
 def supervise(module, arguments, receipt):
-    if module not in ("mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe") or sys.platform != "darwin":
+    if module not in ("mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score") or sys.platform != "darwin":
         raise ValueError("nuknuk_guard_platform_or_module_invalid")
     lock_fd = supervisor_lock()
     try:
@@ -201,8 +201,8 @@ def supervise_locked(module, arguments, receipt):
             record(initial)
             previous = {s: signal.signal(s, interrupted) for s in (signal.SIGTERM, signal.SIGINT)}
             bootstrap = BOOTSTRAP
-            if module == "backyrd.nuknuk-memory-probe":
-                probe_path = str(Path(__file__).with_name("nuknuk-memory-probe.py").resolve())
+            if module in ("backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score"):
+                probe_path = str(Path(__file__).with_name(module.split(".")[-1] + ".py").resolve())
                 bootstrap = bootstrap.replace("runpy.run_module(sys.argv[0],run_name='__main__')",
                                               f"runpy.run_path({probe_path!r},run_name='__main__')")
             process = subprocess.Popen([sys.executable, "-u", "-c", bootstrap, module, *arguments], start_new_session=True)
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     else:
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument("--receipt", type=Path, required=True)
-        parser.add_argument("module", choices=["mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe"])
+        parser.add_argument("module", choices=["mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe", "backyrd.nuknuk-fit-score"])
         parser.add_argument("arguments", nargs=argparse.REMAINDER)
         args = parser.parse_args()
         try:
