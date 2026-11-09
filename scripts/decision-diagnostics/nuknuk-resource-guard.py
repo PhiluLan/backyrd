@@ -25,7 +25,7 @@ POLL_SECONDS = 1
 HEARTBEAT_SECONDS = 10
 MAX_RUN_SECONDS = 14000
 BOOTSTRAP = ("import mlx.core as mx,runpy,sys;"
-             "mx.set_memory_limit(24*1024**3);mx.set_cache_limit(256*1024**2);"
+             "mx.set_memory_limit(24*1024**3);mx.set_cache_limit(256*1024**2);mx.set_wired_limit(24*1024**3);"
              "sys.argv=[sys.argv[1],*sys.argv[2:]];runpy.run_module(sys.argv[0],run_name='__main__')")
 
 
@@ -156,7 +156,7 @@ def supervisor_lock():
 
 
 def supervise(module, arguments, receipt):
-    if module not in ("mlx_vlm.train", "mlx_vlm.server") or sys.platform != "darwin":
+    if module not in ("mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe") or sys.platform != "darwin":
         raise ValueError("nuknuk_guard_platform_or_module_invalid")
     lock_fd = supervisor_lock()
     try:
@@ -200,7 +200,12 @@ def supervise_locked(module, arguments, receipt):
                 os.fsync(journal.fileno())
             record(initial)
             previous = {s: signal.signal(s, interrupted) for s in (signal.SIGTERM, signal.SIGINT)}
-            process = subprocess.Popen([sys.executable, "-u", "-c", BOOTSTRAP, module, *arguments], start_new_session=True)
+            bootstrap = BOOTSTRAP
+            if module == "backyrd.nuknuk-memory-probe":
+                probe_path = str(Path(__file__).with_name("nuknuk-memory-probe.py").resolve())
+                bootstrap = bootstrap.replace("runpy.run_module(sys.argv[0],run_name='__main__')",
+                                              f"runpy.run_path({probe_path!r},run_name='__main__')")
+            process = subprocess.Popen([sys.executable, "-u", "-c", bootstrap, module, *arguments], start_new_session=True)
             watcher = subprocess.Popen([sys.executable, "-u", str(Path(__file__).resolve()), "--watchdog",
                                         str(process.pid), str(read_fd), str(event_path)],
                                        pass_fds=(read_fd,), start_new_session=True)
@@ -261,8 +266,9 @@ def supervise_locked(module, arguments, receipt):
     try:
         with receipt.open("x") as file:
             receipt.chmod(0o600)
-            json.dump({"version": 4, "module": module, "pid": process.pid if process else None,
+            json.dump({"version": 5, "module": module, "pid": process.pid if process else None,
                        "allocatorGuidelineGiB": 24, "cacheLimitMiB": 256,
+                       "wiredResidencyBudgetGiB": None if module == "backyrd.nuknuk-memory-probe" else 24,
                        "status": status, "returncode": process.returncode if process else None,
                        "pollSeconds": POLL_SECONDS, "heartbeatTimeoutSeconds": HEARTBEAT_SECONDS,
                        "samples": samples}, file, indent=2)
@@ -280,7 +286,7 @@ if __name__ == "__main__":
     else:
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument("--receipt", type=Path, required=True)
-        parser.add_argument("module", choices=["mlx_vlm.train", "mlx_vlm.server"])
+        parser.add_argument("module", choices=["mlx_vlm.train", "mlx_vlm.server", "backyrd.nuknuk-memory-probe"])
         parser.add_argument("arguments", nargs=argparse.REMAINDER)
         args = parser.parse_args()
         try:

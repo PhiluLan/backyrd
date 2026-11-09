@@ -198,6 +198,22 @@ class TrainingBoundaryTests(unittest.TestCase):
                 self.assertEqual(config["steps_per_eval"], 120 if full_epoch else 20)
                 self.assertEqual(config["val_batches"], -1 if full_epoch else 2)
 
+    def test_phase_probe_rejects_long_or_full_finetuning_runs(self):
+        spec = importlib.util.spec_from_file_location("probe", Path(__file__).with_name("nuknuk-memory-probe.py"))
+        probe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(probe)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            model = root / "model"
+            model.mkdir()
+            for change in ({"iters": 20}, {"train_type": "full"}, {"batch_size": 2}):
+                config = {"model": str(model), "adapter_file": str(root / "adapters.safetensors"), "iters": 3,
+                          "batch_size": 1, "train_on_completions": True, "train_type": "lora", **change}
+                path = root / "config.json"
+                path.write_text(json.dumps(config))
+                with self.assertRaisesRegex(ValueError, "configuration_invalid"):
+                    probe.validate_configuration(path, root / "events.jsonl")
+
     def fixture(self, folder):
         manifest = {"version": "backyrd.nuknuk-understanding-dataset@1",
                     "purpose": "SUPERVISED_UNDERSTANDING_ADAPTER_DATA_ONLY",

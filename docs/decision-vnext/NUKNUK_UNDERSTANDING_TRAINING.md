@@ -686,3 +686,88 @@ lief, bleiben offen. Kein dritter Lauf und keine Lockerung der Warnschwelle.
 Der nächste technische Schritt ist die Untersuchung und Reduktion der
 Trainings-Speicherspitzen, bevor die volle zweite Runde startet.
 Die lokalen vollständigen Messungen und Prüfsummen stehen in `pilot-review.json`.
+
+
+### Phasenweise Ursachenmessung vom 9. November 2026
+
+Die neue lokale Diagnose `nuknuk-memory-probe.py` wird ausschliesslich über den
+bestehenden Wächter gestartet. Sie begrenzt sich auf maximal drei Schritte,
+Batchgrösse 1, LoRA und den unveränderten eingefrorenen Datensatz. Sie verändert
+keine Dateien in der installierten Bibliothek. Zusätzliche Vorwärtsberechnungen,
+Synchronisationsbarrieren, Cache-Leerung und optionale macOS-Speichersnapshots
+ändern die Ausführungsplanung: Die Messung ist keine unveränderte Wiederholung
+des normalen Trainings und kein Geschwindigkeitsbenchmark.
+
+| Phase / Bestandteil | Gemessener Bedarf |
+| --- | --- |
+| Vollständig geladenes Modell | 14,953 GiB aktiv in MLX; etwa 15,4 GiB physischer Footprint |
+| Trainierbare Adapterparameter | 753.664 Bytes (188.416 Float32-Parameter) |
+| Finale Gradienten dieser Parameter | 753.664 Bytes |
+| Optimiererzustand nach Update | 1.507.340 Bytes |
+| Langes Beispiel, nur Vorwärtsrechnung und Loss | Peak 18,667–18,774 GiB MLX |
+| Langes Beispiel, Vorwärts- und Gradientenrechnung | Peak 22,074–22,287 GiB MLX |
+| Nach Gewichtsupdate und Bereinigung, Schritte 1–3 | etwa 14,955 GiB aktiv in MLX |
+
+Beim zweiten Beispiel wird auf `[1, 2208]` gepaddet. Die Vorhersage hat die Form
+`[1, 2207, 248320]` und wird im lokalen Bibliothekspfad ausdrücklich auf Float32
+konvertiert: 2.192.168.960 Bytes allein für diese Matrix. Obwohl nur 191 Tokens
+überwacht werden, berechnet der vorhandene Loss Vorhersagen und Cross-Entropy für
+alle Positionen und maskiert danach. Dies ist eine konkrete grosse temporäre
+Allokation. Ihr Vorwärts-/Rückwärtsgraph verursacht erheblich mehr Speicher als
+die kleinen Adapter- oder Optimierertensoren. Ein selektiver/chunkweiser Loss
+wäre ein gezielter Optimierungsansatz; er ist hier noch nicht implementiert.
+Keine Anweisung oder Referenzantwort wurde gekürzt.
+
+Die Speicherkarten des dritten Diagnoseversuchs ordnen den Grundbestand den
+`IOAccelerator (graphics)`-Regionen zu (etwa 15 GiB). Python-Malloc ist dagegen nur
+im Bereich von etwa 0,1 GiB. Beim Laden meldete die Karte noch etwa 9 GiB unter
+SWAPPED, nach der ersten GPU-Berechnung und begrenzter Residenz dagegen ungefähr
+0 in den Grafikregionen. SWAPPED enthält hier auch Kompression und ist kein
+Nachweis eines gleich grossen SSD-Swaps; der beobachtete SSD-Swap blieb bei rund
+0,25 MiB. GPU-Treiberzähler werden zusätzlich und getrennt protokolliert. Sie
+umfassen das Gerät, also auch andere GPU-Nutzer, und dürfen nicht einfach zum
+Prozess-Footprint addiert werden. Nach Schritt 2 lagen sie bei rund 16,8 GB
+in-use, nach Cleanup bei rund 16,3 GB. Nach Freigabe des Modells sank MLX aktiv
+nahe 0 und der GPU-Gerätezähler auf rund 0,58 GB; ein zu diesem Zeitpunkt höherer
+Footprint ist kein Beweis eines Tensor-Lecks. Optionale vmmap-Corpse-Snapshots
+und verzögerte Systembuchhaltung können die Beobachtung beeinflussen.
+
+**Residenzvergleich:** Der tatsächlich verwendete gemeinsame Trainingspfad setzt
+keine explizite GPU-Residenz; der gemessene Ausgangswert war 0. Das bisherige
+24-GiB-Allocatorbudget ist keine harte Obergrenze für den gesamten Mac und nicht
+identisch mit `set_wired_limit`. Laut offizieller MLX-Dokumentation hält Letzteres
+Speicher resident; die zulässige Systemempfehlung dieses Macs beträgt rund
+37,44 GiB, der untersuchte Prozesswert bleibt mit 24 GiB darunter:
+https://ml-explore.github.io/mlx/build/html/python/_autosummary/mlx.core.set_wired_limit.html
+
+Zwei sequenzielle, gleich instrumentierte Dreischrittversuche mit 0 bzw. 24 GiB
+Residenzbudget endeten beide ohne Warnung. Loss-Werte aller drei Updates waren
+identisch; beide Adapter haben SHA-256
+`ca393f1b1eb4f72c7ac29747b7771eb649c380759c3fa5733281ef7f3dff0875`.
+Das bestätigt gleiche Updates in diesen drei Beispielen, keine fachliche Güte.
+Die Laufzeiten waren 104,69 und 107,34 Sekunden, also keine nachgewiesene
+Beschleunigung. Nach Beginn der ersten eigentlichen Berechnung blieb die
+Kompression im gebundenen Versuch bei ungefähr 4–4,5 GiB; ohne Bindung stieg sie
+gegen Ende bis ungefähr 14 GiB. **Über den gesamten Start betrachtet** hatte der
+gebundene Versuch aber eine frühe Ladespitze von 19 GiB Kompression. Die frühere
+Zwischenmeldung über niedrigere Kompression bezog sich auf die laufende Rechnung,
+nicht auf den maximalen Gesamtwert. Unterschiedlicher Host-/Cachezustand und
+Messbarrieren verhindern eine alleinige Kausalzuweisung der alten Abbrüche.
+
+Ein zusätzlicher, auf zwei Schritte begrenzter Versuch mit GPU-Treiberzählern,
+vm_stat und vmmap schloss nach 70,30 Sekunden ab. Er ist in
+`memory-phases-20261109-driver-maps` dokumentiert. Der erste Vergleich liegt unter
+`memory-phase-comparison-20261109.json`; Rohdaten beider Dreischrittversuche liegen
+unter `memory-phases-20261109-default` und `memory-phases-20261109-wired24`.
+Die drei Originalgewichtedateien wurden danach unverändert per SHA-256 bestätigt.
+
+**Betriebsstand:** Belegversion 5 ergänzt lokal 24 GiB GPU-Residenzbudget neben
+unveränderten Warn-, Swap-, SSD- und Footprint-Abschaltungen. Die unabhängige
+Notüberwachung bleibt erhalten. Dies ist eine begründete Kandidatenkonfiguration,
+noch keine Bestätigung eines stabilen langen Trainings. Die automatische Prüfung
+lehnte den zusätzlichen normalen 20-Schritte-Bestätigungslauf wegen vorheriger
+Speicherwarnungen und nicht eindeutiger Freigabe dieses weiteren Laufs ab. Er
+wurde nicht gestartet und nicht über die kleine Diagnose umgangen. Deren
+Konfiguration weist mehr als drei Schritte ausdrücklich zurück. Der genaue
+anstehende Umfang steht in der lokalen `memory-diagnosis-next-run.json`.
+Keine produktive Aktivierung und kein automatischer Neustart.
