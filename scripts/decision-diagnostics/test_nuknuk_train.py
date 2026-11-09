@@ -167,6 +167,29 @@ class TrainingBoundaryTests(unittest.TestCase):
                         supervisor.terminate()
                     supervisor.communicate(timeout=5)
 
+    def test_resource_pilot_bounds_validation_without_reducing_full_epoch(self):
+        import sys
+        from types import SimpleNamespace
+        for full_epoch in (False, True):
+            with self.subTest(full_epoch=full_epoch), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                model = root / next(iter(trainer.REVISIONS))
+                model.mkdir()
+                (model / "config.json").write_text(json.dumps({"text_config": {"layer_types": ["full_attention"]}}))
+                data = root / "data"
+                data.mkdir()
+                output = root / "output"
+                argv = ["trainer", "--model", str(model), "--data", str(data), "--manifest-sha256", "synthetic", "--output", str(output), "--last-attention-layers", "1", "--execute"]
+                if full_epoch:
+                    argv.append("--one-epoch")
+                splits = {"train": [{}] * 360, "valid": [{}] * 22, "test": [{}] * 26}
+                with patch.object(sys, "argv", argv), patch.object(trainer, "verify_export", return_value=splits), patch.object(trainer, "verify_preprocessing", return_value={}), patch.object(trainer.importlib.metadata, "version", return_value="synthetic"), patch.object(trainer.subprocess, "run", return_value=SimpleNamespace(returncode=0)):
+                    trainer.main()
+                config = json.loads((output / "training-config.json").read_text())
+                self.assertEqual(config["iters"], 360 if full_epoch else 20)
+                self.assertEqual(config["steps_per_eval"], 120 if full_epoch else 20)
+                self.assertEqual(config["val_batches"], -1 if full_epoch else 2)
+
     def fixture(self, folder):
         manifest = {"version": "backyrd.nuknuk-understanding-dataset@1",
                     "purpose": "SUPERVISED_UNDERSTANDING_ADAPTER_DATA_ONLY",

@@ -582,7 +582,37 @@ MLX-Lauf ebenfalls, vor dem äusseren Timeout des Trainingsstarters.
 
 Die Prüfung verwendet kleine echte Prozesse mit simulierten Warnmesswerten, einen
 zusätzlichen Worker, SIGKILL und SIGSTOP des Hauptwächters sowie Journalfehler und
-manuellen Stopp. Sie überlastet den Mac nicht und lädt kein Modell. Ein weiterer
-kurzer gemessener Modelllauf bleibt vor längerem Training erforderlich. Eine
+manuellen Stopp. Sie überlastet den Mac nicht und lädt kein Modell. Der technische
+20-Schritte-Probelauf nutzt nur eine abschliessende Loss-Prüfung auf zwei
+Validierungsbatches; der volle Epoch-Lauf behält die vollständige Validierung.
+Das ist keine fachliche Auswertung der Antworten. Ein weiterer kurzer gemessener
+Modelllauf bleibt vor längerem Training erforderlich. Eine
 absolute Garantie gegen Kernel-, Treiber- oder Hardwareabstürze ist damit nicht
 möglich. Keine Gewichts-Fusion, produktive Aktivierung oder Veröffentlichung.
+
+
+### Echter Ressourcen-Probelauf vom 9. November 2026
+
+`adapter-20261109-resource-pilot-v3` startete vom unveränderten 27B-Basismodell mit
+dem eingefrorenen V2-Datensatz (360 Trainingsbeispiele), einem Attention-Block und
+20 geplanten Optimierungsschritten. Nach 410,2 Sekunden Gesamtzeit endete der
+Aufruf mit Fehlerstatus: 19 Schritte wurden im Trainerlog als abgeschlossen
+bestätigt; beim folgenden Abschnitt meldete macOS erstmals Warnstufe 2. Der
+Wächter beendete die Modellgruppe per SIGKILL. Dies ist ein bestandener realer
+Abschaltfall, aber **kein vollständig bestandener 20-Schritte-Trainingslauf**.
+
+384 Messungen wurden dauerhaft geschrieben. Swap blieb durchgehend bei 0;
+die kleinste freie SSD-Reserve betrug etwa 87,7 GiB. Der zuletzt vom Trainer
+gemeldete MLX-Spitzenwert war 24,045 GB (Allocator-Messung, nicht gesamter Mac).
+Das Gruppen-RSS blieb viel kleiner und darf ausdrücklich nicht als vollständiger
+Metal-/Prozessspeicherbedarf ausgegeben werden. Direkt nach dem Abbruch belegte
+Spotlights `mds_stores` rund 16,3 GiB RSS. Das zeigt zusätzliche Systemlast, belegt
+aber ohne gleichzeitige Prozessmessung am Warnzeitpunkt keine alleinige Ursache.
+Keine Docker-Prozesse wurden beobachtet; kein automatischer Wiederholungsstart.
+
+Ein Adapter-Zwischenstand von Schritt 10 wurde gespeichert; er ist weder der
+abgeschlossene 20-Schritte-Adapter noch fachlich freigegeben. Die lokalen
+Detailbelege liegen im Ausgabeordner (`host-memory.json`, fortlaufende Samples,
+`training-result.json`, `pilot-review.json`) und im zugehörigen Trainerlog.
+Vor einer Wiederholung muss die zusätzliche Hostlast eingegrenzt werden; die
+Warnschwelle wird nicht zur Erreichung eines erfolgreichen Status aufgeweicht.

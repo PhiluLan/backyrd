@@ -121,8 +121,8 @@ def main():
         "batch_size": 1, "iters": len(splits["train"]) if args.one_epoch else 20, "learning_rate": 0.00001,
         "grad_checkpoint": True, "max_seq_length": max_sequence,
         "train_on_completions": True, "assistant_id": None,
-        "steps_per_report": 1, "steps_per_eval": 120 if args.one_epoch else 5, "steps_per_save": 40 if args.one_epoch else 10,
-        "val_batches": -1, "seed": 7,
+        "steps_per_report": 1, "steps_per_eval": 120 if args.one_epoch else 20, "steps_per_save": 40 if args.one_epoch else 10,
+        "val_batches": -1 if args.one_epoch else 2, "seed": 7,
         "adapter_file": str(output / "adapters.safetensors"),
     }
     report = {"status": "PREFLIGHT_PASSED", "trainingExecuted": False, "baseWeightsChangedByThisTool": False,
