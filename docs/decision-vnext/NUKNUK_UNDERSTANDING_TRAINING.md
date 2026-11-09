@@ -831,3 +831,108 @@ Eine inhaltliche Qualitätsverbesserung und die Stabilität einer vollständigen
 360-Schritte-Epoche sind weiterhin nicht geprüft. Der vollständige Lauf bleibt
 zurückgestellt; keine produktive Aktivierung. Der lokale Nachweis steht im
 Ausgabeordner unter `pilot-review.json`.
+
+
+### Vollständige kleine Variante, 9. November 2026
+
+Nach ausdrücklicher Freigabe des längeren Trainings wurden alle 360 Schritte der
+kleinen Variante vom unveränderten Basismodell ausgeführt. Gesamtdauer inklusive
+Vorbereitung und Validierung: 7.788,65 Sekunden (2:09:49). Ausgabeordner:
+`adapter-20261109-round2-small-epoch1-v5`. Die Validierung über alle 22 Beispiele
+lief nach Schritt 120, 240 und 360; der Loss sank dabei von 0,39588 über 0,36413
+auf 0,34176. Das misst die Annäherung an vorgegebene Antworten, keine fachliche
+Freigabe und keinen Vergleich mit dem Basismodell.
+
+Alle 6.055 Ressourcenmessungen zeigten Druckstufe 1; kein zusätzlicher Swap.
+Der maximale physische Footprint betrug 23,142 GiB. Der finale Adapter ist mit
+Stand 360 bytegleich und hat SHA-256
+`5d1b3400044f9029c3e6b60e89ffcc6691446db0dfa0693c5d893fbcd1e14feb`.
+Alle drei Originalgewichtedateien wurden nach Abschluss gegen die gespeicherten
+SHA-256-Werte unverändert bestätigt. Nachweis: `epoch-review.json` im Ausgabeordner.
+
+Die grössere Variante wurde nicht trainiert. Auf anschliessenden Nutzerauftrag
+wird jetzt direkt diese abgeschlossene kleine Variante mit dem Basismodell auf
+den bereits eingefrorenen zwölf frischen TEST-Fällen verglichen. Dies ist eine
+bewusste Abweichung vom früheren Plan einer Auswahl zwischen zwei Varianten;
+es wird kein Sieger aus zwei trainierten Varianten behauptet. Nach Einsicht in
+diese TEST-Antworten dürfen sie nicht weiterhin als ungesehener Test für eine
+weitere Trainings-/Auswahlrunde bezeichnet werden. Keine produktive Aktivierung.
+
+
+### Direkter Verständnisvergleich nach vollständiger Epoche, 9. November 2026
+
+**Entscheidung: keine Freigabe für die produktive Verständnisrolle.** Es gibt
+punktuelle Verbesserungen und neue Fehler; zuverlässiges Backyrd-Verständnis
+ist mit diesem Adapter nicht nachgewiesen. Das Experiment beweist weder eine
+prinzipielle Unfähigkeit des Basismodells noch, dass weitere identische Epochen
+helfen würden. Die Ursachenanteile von Modellkapazität, Trainingsumfang,
+Beispielauswahl und Instruktion sind in diesem Vergleich nicht isoliert.
+
+Verglichen wurden unverändertes Basismodell und kleiner Adapter auf denselben
+zwölf vorher eingefrorenen frischen TEST-Fällen. Identische Eingaben, Anweisungen,
+Referenzzeit, Antwortschema, maximal 2.048 Ausgabetokens und temperature 0 wurden
+geprüft. Beide Server wurden nacheinander unter dem Ressourcenwächter betrieben;
+Adapteridentität wurde vor jedem Aufruf abgeglichen. Keine Anweisungsänderung,
+keine Wiederholung nach Fehlern und kein Nachtraining während der Auswertung.
+
+| Beobachtung (je zwölf Fälle) | Basismodell | Adapter |
+| --- | ---: | ---: |
+| Formal gültige Antworten | 12 | 12 |
+| Vom bestehenden Vertrag als ausführbar eingestuft | 7 | 10 |
+| Fälle mit nicht angefragten Zeitfakten | 10 | 9 |
+| Davon mit erfundenem Datum/Uhrzeit/Tagesphase als REQUIRED | 7 | 2 |
+| Mittlere Dauer pro Anfrage | 62,9 s | 61,4 s |
+
+Ausführbar bedeutet nur, dass der aktuelle Vertrag keinen unterstützungsbedingten
+Blocker meldet. Es bescheinigt keine richtige Bedeutung. Die beiden Zeitmetriken
+zählen nur strukturierte time.date/time.clock/time.window/time.day_phase-Fakten
+in Anfragen ohne Besuchstag; der explizite tomorrow-Fall ist ausgenommen.
+Zusätzliche erfundene Mahlzeitenpflichten, falsche Erklärungen oder Beziehungen
+sind darin nicht enthalten. Es wird keine allgemeine semantische Erfolgsquote
+aus formalen oder rein wörtlichen Zielvergleichen abgeleitet.
+
+Die qualitative Prüfung akzeptiert Synonyme, indirekt eindeutig dargestellte
+Personenzahlen und gleichwertige Zeit-/Sequenzdarstellungen. Sie unterscheidet
+falsche weiche Kontextangaben von falschen Pflichtbedingungen. Die vollständigen
+Einzelbelege und Dateihashes stehen lokal in
+`comparison-20261109-round2-small-fresh/semantic-review.json`; Rohantworten und
+unveränderte Ein-/Ausgabevergleiche liegen nebenan in `baseline/`, `adapter/`
+und `comparison.json`.
+
+| Fall | Basismodell | Adapter nach Training |
+| --- | --- | --- |
+| Vietnamesisch, Tante, aussergewöhnlich, kein Dresscode | Erfindet Besuchstag, Abendessen und ab 13 Uhr | Erfindet weiter Besuchstag, Abendessen und genau 13 Uhr; Zeitfeld jetzt ausführbar |
+| Bouldern, Dusche kein Muss, Schuhverleih nötig | Optionalität richtig; Verleih in nicht unterstütztem Pflichtfeld | Zeitkontext entfernt, aber Kollegen neu als participation.partner-Pflicht; Verleihfeld weiter ungeeignet |
+| Nudeln nach Konzert 22:45, Datum offen | Konzertende und Sequenz erhalten, Datum als Kontext erfunden | Sequenz erhalten; Datum weiter erfunden, jetzt nicht erforderlich statt Kontext |
+| Sushi, Mutter 57, möglichst unter CHF 70 zusammen | Gruppenbudget erkannt, aber falsch typisiert; heutiger Nachmittag und Mittagessen als Pflicht erfunden | Gruppenbudget korrekt typisiert und harte Zeit-/Mittagessenpflicht entfernt; falscher Zeitkontext und LTE statt LT bleiben |
+| Bei Sonne Boot, sonst Keramik | Wetterzweige richtig, Zeitkontext erfunden | Wetterzweige richtig; zusätzliche erfundene Uhrzeit und Nachmittag im Ziel |
+| Döner, Cousin, Besonderheit kein Muss, reden können | Gesprächswunsch erkannt; fehlende Besonderheit-Optionalität, harte Zeitvorgaben erfunden | Besonderheit jetzt NOT_REQUIRED; neue erfundene lunch-Pflicht, Zeitkontext bleibt |
+| Frühstück für drei, vegan nur für Freundin | Personen-/Ernährungszuordnung richtig; Besuchstag als Pflicht erfunden | Zuordnung weiter richtig; Besuchstag nur noch Kontext, bleibt unbelegt |
+| Crêpe oder Waffel, Schokolade, keine Musik | Alternativen als ein Textfeld statt expliziter ANY-Verknüpfung | Gleicher Fehler; Begründung erfindet zusätzlich eine genannte Uhrzeit |
+| Erst Schmuck, danach woanders essen | Reihenfolge richtig, anderer Ort in nicht unterstütztem Feld; Besuchstag erfunden | SAME_PLACE widerspricht woanders; zusätzliche nicht unterstützte Sequenzpflicht; Besuchstag/Nachmittag erfunden |
+| Bagel unter CHF 13, Sitzplätze egal | Sitzplätze optional richtig; LTE statt LT, heutiger Mittag als Pflicht erfunden | Harte Zeitpflicht entfällt; falscher Zeitkontext und Preisgrenze bleiben |
+| Memorable beer tasting for dad tomorrow, not necessarily expensive | Vater/Aktivität/morgen richtig; Preispräferenz und entspannt hinzugedacht | Vater/Aktivität/morgen richtig; Betrag 0 CHF als NOT_REQUIRED erfunden, keine harte Kostenlos-Pflicht |
+| Wind, Comic-Workshop, Nichte 12, Mittagessen nett | Wind/Alter/Aktivität/weiches Essen richtig; heute Nachmittag als Pflicht erfunden | Kern erhalten, harte Zeitpflicht entfällt; heutiger Mittag im Ziel, redundante Essens-/Altersangaben |
+
+Keine der zwölf Antworten ist in sämtlichen Angaben ohne die beschriebenen
+Restfehler. Das bedeutet ausdrücklich nicht, dass sämtliche Anliegen oder
+Teilinformationen falsch verstanden wurden. Die Wetteralternative und die
+personengebundene vegane Option sind beispielsweise schon vor dem Training
+korrekt und bleiben korrekt. Das Freigabehindernis sind wiederkehrende falsche
+Zusatzangaben und direkte Widersprüche wie SAME_PLACE bei woanders.
+
+Beide Server wurden nach der jeweiligen Auswertung regulär durch den Runner
+beendet. Der Ressourcenbeleg nennt deshalb SUPERVISOR_INTERRUPTED; das war das
+geplante SIGTERM beim Aufräumen, kein Speicherabbruch. Alle Messungen zeigten
+Druckstufe 1, kein zusätzlicher Swap, maximal 18,59 bzw. 18,70 GiB physischer
+Footprint. Beide Aufrufserien endeten vollständig; alle drei Basismodellgewichte
+wurden anschliessend erneut unverändert per SHA-256 bestätigt. Keine Aktivierung,
+keine Spotdatenänderung und keine produktive Suche.
+
+Grenzen: zwölf synthetische, im selben Entwicklungsprozess verfasste Beispiele,
+keine unabhängige menschliche Abnahme; je ein Durchlauf, keine Wiederholungs-
+stabilität; keine Ende-zu-Ende-Prüfung von Spotsuche oder Ranking. Die grössere
+Variante wurde nicht trainiert. Die zwölf Fälle sind nun eingesehen und müssen
+bei künftigem Tuning als bekannte Diagnosefälle gelten. Vor weiterer Aktivierung
+braucht es eine gezielte Prüfung der Referenzzeit-Verwechslung, der falschen
+Pflichtzuweisungen und der kanonischen Feldauswahl sowie neue ungesehene Tests.
