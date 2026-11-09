@@ -651,3 +651,38 @@ ein zwischenzeitlich beendeter Worker (ESRCH) wird ignoriert. Die Top-Abfrage ha
 zwei Sekunden Timeout. Warnschwelle, Swap- und SSD-Regeln bleiben unverändert.
 Das ergänzt die bisher fehlende Ursachenbeobachtung; es rekonstruiert keine
 verlorenen Messwerte und ist kein neuer Modelllauf.
+
+
+### Wiederholung mit Footprint-Messung (V4), 9. November 2026
+
+Der ausdrücklich beauftragte Wiederholungslauf
+`adapter-20261109-resource-pilot-v4` endete nach 63,6 Sekunden erneut mit
+`HOST_MEMORY_WARNING`, Prozess-Exit -9. Zwei Optimierungsschritte sind im Log
+bestätigt; kein neuer Adapter wurde gespeichert. Die Trainingskonfiguration ist
+bis auf den separaten Ausgabepfad identisch zum vorigen Probelauf. Hostzustand,
+Dateicaches und Zeitpunkt waren naturgemäss nicht eingefroren. V3 bleibt erhalten.
+
+Die korrigierte Messung erfasste maximal rund 21,3 GiB physischen Footprint der
+Modellgruppe. Beim Warnsignal waren es rund 19,6 GiB; der gleichzeitige RSS-Wert
+betrug nur rund 356 MiB und ist damit eindeutig kein geeigneter Gesamt-RAM-Wert
+für diesen Prozess. Der zuletzt abgeschlossene Schritt meldete einen MLX-Peak
+von 23,701 GB. Diese unterschiedlichen Messgrössen werden nicht addiert oder
+als identische Speicherbilanz ausgegeben.
+
+Im Abstand weniger Sekunden zeigte `top` zuerst 43G Systemspeicher und 5732M
+Kompressor, dann 47G und 17G Kompressor und beim Warnsignal 45G und 19G
+Kompressor. NukNuk war mit etwa 20G MEM/15G CMPRS mit Abstand der grösste sichtbare
+Anwendungsprozess. Spotlight blieb bei etwa 927M MEM, die übrigen Top-Prozesse
+jeweils unter 1G. Swap war immer 0, die SSD hatte mindestens rund 85 GiB frei,
+Docker war aus. Nach dem Abbruch war der Druck wieder normal; eine spätere
+Messung zeigte 30G Systemspeicher, 4460M Kompressor und 17G unbenutzt.
+
+Das belegt eine reale Host-Speicherwarnung im zeitlichen Zusammenhang mit der
+Modellberechnung und starker Kompressionslast. Eine dominante fremde Anwendung
+ist in diesen Messungen nicht sichtbar. Die erfassten Anwendungsbilanzen erklären
+aber nicht einzeln jede Kernel-/GPU-/Cache-Seite. Eine genaue Aufteilung nach
+GPU-Treiber und temporärer Trainingsoperation sowie der Grund, warum V3 länger
+lief, bleiben offen. Kein dritter Lauf und keine Lockerung der Warnschwelle.
+Der nächste technische Schritt ist die Untersuchung und Reduktion der
+Trainings-Speicherspitzen, bevor die volle zweite Runde startet.
+Die lokalen vollständigen Messungen und Prüfsummen stehen in `pilot-review.json`.
