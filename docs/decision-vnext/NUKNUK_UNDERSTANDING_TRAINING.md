@@ -1171,3 +1171,67 @@ Die hier exponierten TEST-Fälle gelten ab jetzt als bekannt; für eine neue
 Qualitätsaussage werden neue, vorher nicht ausgewertete Fälle benötigt.
 Dieser Lauf beweist weder allgemeine Unfähigkeit des 27B-Basismodells noch
 Produktionsreife. Keine Live-Aktivierung, kein Providerwechsel, kein Release.
+
+### Prüfung der eigenen Trainingsbeispiele: Lernen oder Übertragung?
+
+Die anschliessend beauftragte Diagnose ist abgeschlossen: zwölf tatsächlich
+trainierte Eingaben, jeweils einmal mit bisherigem und neuem Adapter, insgesamt
+24 Aufrufe. Vor den Aufrufen wurden Systemanweisung, Nutzernachricht und
+Referenz für jede Auswahl bytegleich mit der gespeicherten TRAIN-Zeile
+abgeglichen. Die Auswahl umfasst sechs Themen: Verneinung, Getränkespezifität,
+Verknüpfungen/Ortsbezug, Budget, Begleitperson und Datum. Keine Promptänderung,
+kein weiteres Training. Dies ist eine gezielte In-Sample-Stichprobe, kein
+unabhängiger Test und keine Prüfung aller 160 Trainingszeilen.
+
+**Befund: Die Probleme bestehen bereits bei den trainierten Eingaben selbst.**
+Es handelt sich nicht ausschliesslich um mangelnde Übertragung auf neue
+Formulierungen. Der neue Adapter erzeugt zwölf formal gültige Ausgaben gegenüber
+zehn beim bisherigen Adapter. Die zusätzlichen gültigen Ausgaben zeigen jedoch
+weiterhin nicht unterstützte oder falsche Übergaben an den Bibliothekar.
+
+| Trainierter Fall | Ergebnis des neuen Adapters |
+| --- | --- |
+| Dart; Abendessen brauche ich nicht; Getränke erforderlich | Abendessen weiter EXCLUDED statt NOT_REQUIRED, zusätzlich Kaffee erfunden |
+| Dart; Abendessen ausgeschlossen; Getränke erforderlich | Ausschluss richtig, Getränke weiter zu Kaffee verengt |
+| Schach mit Getränken / Schach mit Bier | Beide korrekt; auch bisheriger Adapter beherrscht diese Fälle |
+| Museum oder Mittagessen | ANY korrekt; unnötige Rückfrage stellt die klare Alternative erneut infrage |
+| Museum, danach Mittagessen an anderem Ort | Ungültiges b1 entfällt; Reihenfolge nun nur als experience.sequence-Freitext, UNSUPPORTED_CAPABILITY statt ausführbarer SEQUENCE |
+| Museum, danach dort Mittagessen | SEQUENCE und SAME_PLACE korrekt; zusätzlich REQUIRED location.destination = dort |
+| Samosa, nicht unbedingt teuer | Weiter erfundener Betrag 0 CHF NOT_REQUIRED, keine kostenlose Pflicht |
+| Samosa, möglichst unter 19 CHF für beide zusammen | Gericht und zwei Personen besser erfasst; GROUP_TOTAL fehlt trotz expliziter Musterantwort, Gesamtbezug nur Freitext |
+| Essen mit Bruder, vegetarische Option nur für ihn | Korrekt, ebenso beim bisherigen Adapter |
+| Pho, Besuchstag offen | Weiter erfundenes Datum als NOT_REQUIRED; erzwingt keinen Besuchstag |
+| Morgen Pho | Datum korrekt auf 17.11. normalisiert; zusätzliche ungenannte Pflicht für vietnamesische Küche |
+
+`location.destination = dort` ist nicht bloss eine andere Schreibweise von
+SAME_PLACE: Der aktuelle Ortsmatcher vergleicht destination mit
+`location.locality`. Der Fehler ist im Codepfad nachvollzogen; es wurde kein
+produktiver Suchlauf dafür ausgeführt. Bei Pho ist nicht das Wissen um die
+Herkunft falsch, sondern die zusätzlich erzwungene Küchenrichtung: Ein Anbieter
+mit bestätigtem Pho, aber ohne bestätigte vietnamesische Küche könnte dadurch
+ausgeschlossen werden. Synonyme, andere Entitäts-IDs und plausible Bindungen
+bei „dazu“ wurden ausdrücklich akzeptiert.
+
+Die 24 Aufrufe benötigten zusammen 1.121,33 Sekunden reine Inferenz (18:41),
+zuzüglich Laden und Hash-Prüfung. Maximaler physischer Modellspeicher 18,79 GiB,
+normaler Speicherdruck, kein zusätzlicher Swap. Die Basisgewichte sind erneut
+verifiziert unverändert. Beide Server wurden danach regulär durch den
+Vergleichsprozess beendet. Kein automatischer Wiederanlauf, keine Aktivierung.
+
+Lokale Nachweise: `round3-train-fit-plan.json` enthält die Auswahl und Hashes
+der passenden TRAIN-Zeilen; `round3-train-fit-selection.json` markiert explizit
+split TRAIN. Unter `comparison-20261109-round3-train-fit/` liegen alle 24
+Rohantworten, die Identitätsprüfung und `semantic-review.json` mit konkreten
+Einzelfallbegründungen. Diese Pfade liegen unter `.local/nuknuk-understanding/`.
+Die generische Evaluator-Metadatenzeile ASSISTANT_AUTHORED_HOLDOUT ist für diesen
+Aufruf nicht zutreffend; Auswahl, Plan und inhaltlicher Bericht kennzeichnen
+ihn ausdrücklich als In-Sample-TRAIN-Diagnose.
+
+**Ursache noch nicht isoliert:** Dieser Befund unterscheidet noch nicht zwischen
+zu geringer Lernstärke, begrenzter Adapterkapazität, ungünstiger Tokengewichtung
+und Komplexität des Ausgabevertrags. Er beweist keine prinzipielle Unfähigkeit
+des Basismodells. Nächster begrenzter Versuch wäre eine kleine feste
+Entwicklungsmenge, bei der gezielt die Wahrscheinlichkeit der entscheidenden
+Wörter/Felder und die freie Ausgabe vor/nach dem Anpassen gemessen werden.
+Erst nach nachweislich gelerntem Muster ist eine neue Prüfung auf unbekannten
+Formulierungen aussagekräftig. Nicht unverändert die volle Runde verlängern.
