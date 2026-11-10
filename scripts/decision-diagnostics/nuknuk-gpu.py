@@ -129,7 +129,21 @@ def host_check(folder):
             "limitation": "No weights loaded; CUDA load/backward still requires the smoke run."}
 
 
-def load_model(folder, layers):
+def select_targets(named_modules, layers, strategy):
+    import torch
+    if strategy == "language-linear":
+        selected = [name for name, module in named_modules if re.fullmatch(r"model\.language_model\.layers\.\d+\..+", name) and isinstance(module, torch.nn.Linear)]
+        if len(selected) < 200:
+            raise ValueError("nuknuk_gpu_linear_architecture_changed")
+        return selected
+    modules = [name for name, _ in named_modules if re.fullmatch(r"model\.language_model\.layers\.\d+\.self_attn\.(q_proj|v_proj)", name)]
+    indices = sorted({int(name.split(".")[3]) for name in modules})
+    if len(indices) != 16 or len(modules) != 32 or indices[-1] != 63 or layers not in (1, 4, 16):
+        raise ValueError("nuknuk_gpu_target_architecture_changed")
+    return [name for name in modules if int(name.split(".")[3]) in indices[-layers:]]
+
+
+def load_model(folder, layers, strategy="qv", adapter=None):
     import numpy as np
     import torch
     from transformers import AutoTokenizer, AutoModelForImageTextToText, BitsAndBytesConfig
@@ -144,11 +158,7 @@ def load_model(folder, layers):
     model.config.use_cache = False
     model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True,
         gradient_checkpointing_kwargs={"use_reentrant": False})
-    modules = [name for name, _ in model.named_modules() if re.fullmatch(r"model\.language_model\.layers\.\d+\.self_attn\.(q_proj|v_proj)", name)]
-    indices = sorted({int(name.split(".")[3]) for name in modules})
-    if len(indices) != 16 or indices[-1] != 63:
-        raise ValueError("nuknuk_gpu_target_architecture_changed")
-    selected = [name for name in modules if int(name.split(".")[3]) in indices[-layers:]]
+    selected = select_targets(list(model.named_modules()), layers, strategy)
     model = get_peft_model(model, LoraConfig(r=8, lora_alpha=16, lora_dropout=0,
         target_modules=selected, bias="none", task_type="CAUSAL_LM"))
     parameters = dict(model.named_parameters())
@@ -166,7 +176,15 @@ def load_model(folder, layers):
             copied.append(matches[0][0])
     if len(copied) != 4 or any(p.requires_grad and ".lora_" not in name for name, p in parameters.items()):
         raise ValueError("nuknuk_gpu_trainable_boundary_failed")
-    return model, tokenizer, {"targetModules": selected, "copiedParentMatrices": copied,
+    if adapter is not None:
+        from safetensors.torch import load_file
+        from peft import get_peft_model_state_dict, set_peft_model_state_dict
+        actual = load_file(str(adapter / "adapter_model.safetensors"))
+        expected = get_peft_model_state_dict(model)
+        if set(actual) != set(expected) or any(actual[k].shape != expected[k].shape for k in expected):
+            raise ValueError("nuknuk_gpu_evaluation_adapter_architecture_mismatch")
+        set_peft_model_state_dict(model, actual, adapter_name="default")
+    return model, tokenizer, {"strategy": strategy, "targetModules": selected, "copiedParentMatrices": copied,
         "trainableParameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "quantizationDifference": "MLX affine4bit -> CUDA NF4. Weight-delta mapping checked; behavior parity unproven."}
 
@@ -182,112 +200,113 @@ def consume_generated(matcher, tokens, cursor):
 
 
 def evaluate(args):
-    """Read-only, greedy, grammar-constrained parent-adapter comparison."""
+    """Frozen grammar-constrained generation. Targets never enter this process."""
     folder = args.bundle.resolve(strict=True)
-    host = host_check(folder)
-    manifest = verify_bundle(folder)
-    if "parity-cases.json" not in manifest["files"]:
-        raise ValueError("nuknuk_gpu_parity_plan_missing")
-    plan = json.loads((folder / "parity-cases.json").read_text())
-    if (plan["parentAdapterSha256"] != PARENT_SHA or len(plan["cases"]) != 6
-            or plan["maxOutputTokens"] != 2048 or plan["llguidanceVersion"] != "1.9.1"):
-        raise ValueError("nuknuk_gpu_parity_plan_invalid")
+    host, manifest = host_check(folder), verify_bundle(folder)
+    curriculum = args.plan_file is not None
+    plan_name = args.plan_file or 'parity-cases.json'
+    if plan_name not in manifest['files']:
+        raise ValueError('nuknuk_gpu_evaluation_plan_missing')
+    plan = json.loads((folder / plan_name).read_text())
+    if plan.get('llguidanceVersion') != '1.9.1' or plan.get('maxOutputTokens') != 2048:
+        raise ValueError('nuknuk_gpu_evaluation_plan_invalid')
+    if curriculum:
+        if manifest.get('purpose') != 'APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED' or plan.get('purpose') != 'FROZEN_CURRICULUM_EVALUATION_INPUTS_ONLY':
+            raise ValueError('nuknuk_gpu_curriculum_identity_invalid')
+        rows = [r for r in plan['cases'] if r['split']==args.split]
+        if args.one_per_group:
+            groups = set(); selected = []
+            for row in rows:
+                if row['scenarioGroup'] not in groups:
+                    selected.append(row); groups.add(row['scenarioGroup'])
+            rows = selected
+    else:
+        if plan.get('parentAdapterSha256') != PARENT_SHA or len(plan['cases']) != 6 or args.adapter is not None or args.batch_size != 1:
+            raise ValueError('nuknuk_gpu_parity_plan_invalid')
+        rows = plan['cases']
+    if not rows or len(rows)>300 or not 1<=args.batch_size<=4:
+        raise ValueError('nuknuk_gpu_evaluation_size_invalid')
     if args.output.exists() or folder == args.output.resolve() or folder in args.output.resolve().parents:
-        raise ValueError("nuknuk_gpu_output_must_be_new_outside_bundle")
+        raise ValueError('nuknuk_gpu_output_must_be_new_outside_bundle')
+    if args.adapter is not None and (not args.adapter_sha256 or file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256):
+        raise ValueError('nuknuk_gpu_evaluation_adapter_pin_required')
     args.output.mkdir(parents=True, mode=0o700)
-    os.environ.setdefault("HF_HOME", "/workspace/hf-cache")
-    os.environ.update(HF_HUB_DISABLE_TELEMETRY="1", WANDB_DISABLED="true", TOKENIZERS_PARALLELISM="false")
+    os.environ.setdefault('HF_HOME','/workspace/hf-cache')
+    os.environ.update(HF_HUB_DISABLE_TELEMETRY='1',WANDB_DISABLED='true',TOKENIZERS_PARALLELISM='false')
     import numpy as np
     import torch
     import llguidance
     from llguidance.hf import from_tokenizer
     from transformers import LogitsProcessor
-    if importlib.metadata.version("llguidance") != plan["llguidanceVersion"]:
-        raise ValueError("nuknuk_gpu_grammar_version_changed")
-    started = time.monotonic()
-    model, tokenizer, boundary = load_model(folder, 1)
-    model.gradient_checkpointing_disable()
-    model.requires_grad_(False)
-    model.eval()
-    model.config.use_cache = True
-    if any(p.requires_grad for p in model.parameters()):
-        raise ValueError("nuknuk_gpu_parity_requires_frozen_parameters")
-    ll_tokenizer = from_tokenizer(tokenizer)
-
+    if importlib.metadata.version('llguidance') != plan['llguidanceVersion']:
+        raise ValueError('nuknuk_gpu_grammar_version_changed')
+    started=time.monotonic()
+    model,tokenizer,boundary=load_model(folder,args.layers if curriculum else 1,args.strategy if curriculum else 'qv',args.adapter)
+    model.gradient_checkpointing_disable();model.requires_grad_(False);model.eval();model.config.use_cache=True
+    ll_tokenizer=from_tokenizer(tokenizer)
     class GrammarMask(LogitsProcessor):
-        def __init__(self, grammar, prefix_length):
-            self.matcher = llguidance.LLMatcher(ll_tokenizer, grammar)
-            self.prefix_length, self.cursor = prefix_length, 0
-            if self.matcher.get_error():
-                raise ValueError("nuknuk_gpu_grammar_invalid")
-
-        def __call__(self, input_ids, scores):
-            if input_ids.shape[0] != 1:
-                raise ValueError("nuknuk_gpu_parity_batch_invalid")
-            self.cursor = consume_generated(self.matcher, input_ids[0, self.prefix_length:].tolist(), self.cursor)
-            mask = np.frombuffer(self.matcher.compute_logit_bias(), dtype=np.uint8) == 200
-            if len(mask) > scores.shape[-1]:
-                raise ValueError("nuknuk_gpu_grammar_vocab_mismatch")
-            allowed = torch.zeros(scores.shape[-1], dtype=torch.bool, device=scores.device)
-            allowed[:len(mask)] = torch.as_tensor(mask.copy(), device=scores.device)
-            return scores.masked_fill(~allowed[None, :], float("-inf"))
-
+        def __init__(self,batch,prefix_length):
+            self.matchers=[llguidance.LLMatcher(ll_tokenizer,r.get('grammar') or plan['grammars'][r['schemaHash']]) for r in batch]
+            self.cursors=[0]*len(batch);self.ended=[False]*len(batch);self.prefix_length=prefix_length
+            if any(m.get_error() for m in self.matchers):raise ValueError('nuknuk_gpu_grammar_invalid')
+        def consume(self,index,tokens):
+            for token in tokens[self.cursors[index]:]:
+                if not self.ended[index]:
+                    if not self.matchers[index].consume_token(token) or self.matchers[index].get_error():raise ValueError('nuknuk_gpu_grammar_rejected_token')
+                    if token==tokenizer.eos_token_id:self.ended[index]=True
+                elif token!=tokenizer.eos_token_id:raise ValueError('nuknuk_gpu_nonpadding_after_eos')
+            self.cursors[index]=len(tokens)
+        def __call__(self,input_ids,scores):
+            if input_ids.shape[0]!=len(self.matchers):raise ValueError('nuknuk_gpu_generation_batch_changed')
+            allowed=torch.zeros_like(scores,dtype=torch.bool)
+            for index,matcher in enumerate(self.matchers):
+                self.consume(index,input_ids[index,self.prefix_length:].tolist())
+                if self.ended[index]:allowed[index,tokenizer.eos_token_id]=True;continue
+                mask=np.frombuffer(matcher.compute_logit_bias(),dtype=np.uint8)==200
+                if len(mask)>scores.shape[-1]:raise ValueError('nuknuk_gpu_grammar_vocab_mismatch')
+                allowed[index,:len(mask)]=torch.as_tensor(mask.copy(),device=scores.device)
+            return scores.masked_fill(~allowed,float('-inf'))
     def adapter_digest():
-        digest = hashlib.sha256()
-        for name, value in sorted(model.named_parameters()):
-            if ".lora_" in name:
-                digest.update(name.encode()); digest.update(value.detach().cpu().numpy().tobytes())
-        return digest.hexdigest()
-
-    before = adapter_digest()
-    write_json(args.output / "preflight.json", {**host, **boundary,
-        "mode": "READ_ONLY_PARENT_PARITY", "planSha256": file_sha(folder / "parity-cases.json"),
-        "allParametersFrozen": not any(p.requires_grad for p in model.parameters()),
-        "llguidanceVersion": plan["llguidanceVersion"], "optimizerCreated": False,
-        "trainingExecuted": False, "grammar": "Exact Mac-compiled grammar; comma-space and colon-space, no flexible whitespace"})
-    records = []
-    for row in plan["cases"]:
-        if time.monotonic() - started > 1500:
-            raise ValueError("nuknuk_gpu_parity_deadline")
-        prefix = tokenizer.apply_chat_template(row["messages"], tokenize=True, add_generation_prompt=True,
-            enable_thinking=False, return_dict=False)
-        if not isinstance(prefix, list) or len(prefix) > 4096:
-            raise ValueError("nuknuk_gpu_parity_prefix_invalid")
-        processor = GrammarMask(row["grammar"], len(prefix))
-        ids = torch.tensor([prefix], device="cuda")
-        call_started = time.monotonic()
-        record = {"id": row["id"], "query": row["query"], "promptHash": row["promptHash"],
-            "inputHash": row["inputHash"], "schemaHash": row["schemaHash"],
-            "inputTokens": len(prefix), "raw": None, "rawText": None, "status": "FAILED"}
-        try:
-            with torch.inference_mode():
-                output = model.generate(input_ids=ids, attention_mask=torch.ones_like(ids),
-                    max_new_tokens=2048, max_time=180, do_sample=False, use_cache=True,
-                    logits_processor=[processor], pad_token_id=tokenizer.eos_token_id,
-                    eos_token_id=tokenizer.eos_token_id)
-            tokens = output[0, len(prefix):].tolist()
-            record.update(outputTokens=len(tokens), rawText=tokenizer.decode(tokens, skip_special_tokens=True))
-            processor.cursor = consume_generated(processor.matcher, tokens, processor.cursor)
-            if not tokens or tokens[-1] != tokenizer.eos_token_id or not processor.matcher.is_accepting():
-                raise ValueError("nuknuk_gpu_parity_generation_incomplete")
-            record.update(raw=json.loads(record["rawText"]), status="GENERATED_REQUIRES_SEMANTIC_REVIEW")
-        except Exception as error:
-            record["error"] = str(error)
-        record.update(durationSeconds=time.monotonic() - call_started,
-            peakCudaAllocatedGiB=torch.cuda.max_memory_allocated() / 1024 ** 3)
-        if not re.fullmatch(r"[a-z0-9-]+", row["id"]):
-            raise ValueError("nuknuk_gpu_parity_case_id_invalid")
-        write_json(args.output / (row["id"] + ".json"), record)
-        records.append({key: record[key] for key in ("id", "status", "durationSeconds")})
-        print(json.dumps(records[-1]), flush=True)
-    after = adapter_digest()
-    if before != after:
-        raise ValueError("nuknuk_gpu_parity_changed_adapter")
-    write_json(args.output / "result.json", {"status": "PARITY_GENERATION_COMPLETE_REQUIRES_REVIEW",
-        "cases": records, "adapterUnchanged": True, "adapterParameterDigest": before,
-        "trainingExecuted": False, "productionActivation": False,
-        "elapsedSeconds": time.monotonic() - started, "providerBillingStopped": False})
-
+        h=hashlib.sha256()
+        for name,value in sorted(model.named_parameters()):
+            if '.lora_' in name:h.update(name.encode());h.update(value.detach().cpu().numpy().tobytes())
+        return h.hexdigest()
+    before=adapter_digest()
+    write_json(args.output/'preflight.json',{**host,**boundary,'mode':'CURRICULUM_GENERATION' if curriculum else 'READ_ONLY_PARENT_PARITY',
+        'planSha256':file_sha(folder/plan_name),'allParametersFrozen':True,'trainingExecuted':False,'batchSize':args.batch_size,
+        'adapterSha256':args.adapter_sha256,'split':args.split if curriculum else 'KNOWN_TRAIN','caseCount':len(rows)})
+    records=[]
+    for start in range(0,len(rows),args.batch_size):
+        if time.monotonic()-started>args.max_seconds:raise ValueError('nuknuk_gpu_evaluation_deadline')
+        batch=rows[start:start+args.batch_size]
+        prefixes=[tokenizer.apply_chat_template(r['messages'],tokenize=True,add_generation_prompt=True,enable_thinking=False,return_dict=False) for r in batch]
+        if any(not isinstance(p,list) or not p or len(p)>4096 for p in prefixes):raise ValueError('nuknuk_gpu_evaluation_prefix_invalid')
+        length=max(map(len,prefixes));ids=torch.full((len(batch),length),tokenizer.eos_token_id,dtype=torch.long,device='cuda');attention=torch.zeros_like(ids)
+        for index,prefix in enumerate(prefixes):ids[index,-len(prefix):]=torch.tensor(prefix,device='cuda');attention[index,-len(prefix):]=1
+        processor=GrammarMask(batch,length);call_started=time.monotonic()
+        with torch.inference_mode():
+            generated=model.generate(input_ids=ids,attention_mask=attention,max_new_tokens=2048,max_time=240,do_sample=False,use_cache=True,
+                logits_processor=[processor],pad_token_id=tokenizer.eos_token_id,eos_token_id=tokenizer.eos_token_id)
+        duration=time.monotonic()-call_started
+        for index,row in enumerate(batch):
+            tokens=generated[index,length:].tolist()
+            if tokenizer.eos_token_id in tokens:tokens=tokens[:tokens.index(tokenizer.eos_token_id)+1]
+            record={k:row[k] for k in ('id','query','promptHash','inputHash','schemaHash')}
+            record.update(inputTokens=len(prefixes[index]),outputTokens=len(tokens),rawText=tokenizer.decode(tokens,skip_special_tokens=True),raw=None,status='FAILED',
+                durationSeconds=duration,batchSize=len(batch),peakCudaAllocatedGiB=torch.cuda.max_memory_allocated()/1024**3)
+            try:
+                processor.consume(index,tokens)
+                if not tokens or tokens[-1]!=tokenizer.eos_token_id or not processor.matchers[index].is_accepting():raise ValueError('nuknuk_gpu_generation_incomplete')
+                record.update(raw=json.loads(record['rawText']),status='GENERATED_REQUIRES_SEMANTIC_REVIEW')
+            except Exception as error:record['error']=str(error)
+            if not re.fullmatch('[a-z0-9-]+',row['id']):raise ValueError('nuknuk_gpu_case_id_invalid')
+            write_json(args.output/(row['id']+'.json'),record)
+            records.append({k:record[k] for k in ('id','status','durationSeconds')});print(json.dumps(records[-1]),flush=True)
+        del generated,ids,attention
+    after=adapter_digest()
+    if before!=after:raise ValueError('nuknuk_gpu_evaluation_changed_adapter')
+    write_json(args.output/'result.json',{'status':'GENERATION_COMPLETE_REQUIRES_REVIEW','cases':records,'adapterUnchanged':True,'adapterParameterDigest':before,
+        'trainingExecuted':False,'productionActivation':False,'elapsedSeconds':time.monotonic()-started,'providerBillingStopped':False})
 
 def run(args):
     folder = args.bundle.resolve(strict=True)
@@ -297,20 +316,30 @@ def run(args):
     os.environ.setdefault("HF_HOME", "/workspace/hf-cache")
     os.environ.update(HF_HUB_DISABLE_TELEMETRY="1", WANDB_DISABLED="true", TOKENIZERS_PARALLELISM="false")
     # Independent GNU timeout (see runbook) must also bound download/load time.
-    if not 1 <= args.steps <= 20 or args.layers not in (1, 4):
+    broad = host.get("model") == MODEL_ID and verify_bundle(folder).get("purpose") == "APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED"
+    if not 1 <= args.steps <= (5000 if broad else 20) or args.layers not in (1, 4, 16) or (not broad and (args.strategy != "qv" or args.layers == 16)):
+        raise ValueError("nuknuk_gpu_pilot_bounds_invalid")
+    if not 30 <= args.max_seconds <= (12600 if broad else 3000) or not 0 < args.learning_rate <= 0.0001 or not 1 <= args.checkpoint_every <= 250:
         raise ValueError("nuknuk_gpu_pilot_bounds_invalid")
     if args.output.exists() or folder == args.output.resolve() or folder in args.output.resolve().parents:
         raise ValueError("nuknuk_gpu_output_must_be_new_outside_bundle")
     args.output.mkdir(parents=True, mode=0o700)
     started = time.monotonic()
     import torch
-    model, tokenizer, boundary = load_model(folder, args.layers)
+    model, tokenizer, boundary = load_model(folder, args.layers, args.strategy)
     versions = {p: importlib.metadata.version(p) for p in ("torch", "transformers", "peft", "bitsandbytes")}
     write_json(args.output / "preflight.json", {**host, **boundary, "versions": versions, "steps": args.steps,
-        "layers": args.layers, "learningRate": 1e-5, "seed": 7, "localSmokeTested": False})
+        "layers": args.layers, "strategy": args.strategy, "learningRate": args.learning_rate, "seed": 7, "maxSeconds": args.max_seconds, "localSmokeTested": False})
     raw = [json.loads(line) for line in (folder / "data/train.jsonl").read_text().splitlines()]
     encoded = [encode_row(row, tokenizer) for row in raw]
-    optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-5, weight_decay=0)
+    optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.learning_rate, weight_decay=0)
+    import random, math
+    order = list(range(len(encoded))); random.Random(7).shuffle(order)
+    warmup = max(2, min(60, args.steps // 20))
+    def lr_factor(step):
+        if step < warmup: return max(0.1, (step + 1) / warmup)
+        return 0.1 + 0.9 * (1 + math.cos(math.pi * (step-warmup) / max(1,args.steps-warmup))) / 2
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_factor)
     model.train()
     def interrupted(_signum, _frame):
         raise KeyboardInterrupt
@@ -320,9 +349,10 @@ def run(args):
     try:
         with (args.output / "steps.jsonl").open("x") as log:
             for step in range(args.steps):
-                if time.monotonic() - started > 3000 or shutil.disk_usage(args.output).free < 25 * 1024 ** 3:
-                    raise ValueError("nuknuk_gpu_run_reserve_reached")
-                ids, labels = encoded[step % len(encoded)]
+                if time.monotonic() - started > args.max_seconds or shutil.disk_usage(args.output).free < 25 * 1024 ** 3:
+                    status = "BUDGET_OR_DISK_BOUNDARY_CHECKPOINTED"
+                    break
+                ids, labels = encoded[order[step % len(encoded)]]
                 batch = {"input_ids": torch.tensor([ids], device="cuda"), "labels": torch.tensor([labels], device="cuda"),
                          "attention_mask": torch.ones((1, len(ids)), device="cuda", dtype=torch.long)}
                 optimizer.zero_grad(set_to_none=True)
@@ -331,16 +361,21 @@ def run(args):
                     raise ValueError("nuknuk_gpu_nonfinite_loss")
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], 1)
-                optimizer.step(); torch.cuda.synchronize(); completed = step + 1
+                optimizer.step(); scheduler.step(); torch.cuda.synchronize(); completed = step + 1
                 receipt = {"step": completed, "loss": float(loss.detach()), "elapsedSeconds": time.monotonic() - started,
-                           "peakCudaAllocatedGiB": torch.cuda.max_memory_allocated() / 1024 ** 3}
+                           "peakCudaAllocatedGiB": torch.cuda.max_memory_allocated() / 1024 ** 3, "trainingRow": order[step % len(encoded)],
+                           "learningRate": scheduler.get_last_lr()[0]}
                 log.write(json.dumps(receipt) + "\n"); log.flush(); print(json.dumps(receipt), flush=True)
                 del batch, loss
-                if completed % 10 == 0:
-                    model.save_pretrained(args.output / ("step-" + str(completed)), safe_serialization=True)
+                if completed % args.checkpoint_every == 0:
+                    checkpoint = args.output / ("step-" + str(completed))
+                    model.save_pretrained(checkpoint, safe_serialization=True)
+                    write_json(checkpoint / "checkpoint-complete.json", {"completedSteps":completed,"adapterSha256":file_sha(checkpoint / "adapter_model.safetensors"),"strategy":args.strategy,"layers":args.layers})
         model.save_pretrained(args.output / "adapter", safe_serialization=True)
         tokenizer.save_pretrained(args.output / "adapter")
-        status = "FINISHED_REQUIRES_SEMANTIC_REVIEW"
+        write_json(args.output / "adapter" / "checkpoint-complete.json", {"completedSteps":completed,"adapterSha256":file_sha(args.output / "adapter" / "adapter_model.safetensors"),"strategy":args.strategy,"layers":args.layers})
+        if completed == args.steps:
+            status = "FINISHED_REQUIRES_SEMANTIC_REVIEW"
     except KeyboardInterrupt:
         status = "INTERRUPTED_NO_AUTOMATIC_RETRY"
         raise
@@ -360,9 +395,23 @@ if __name__ == "__main__":
         cmd = sub.add_parser(command); cmd.add_argument("--bundle", type=Path, required=True)
         if command in ("train", "evaluate"):
             cmd.add_argument("--output", type=Path, required=True)
+        if command == "evaluate":
+            cmd.add_argument("--plan-file")
+            cmd.add_argument("--split", choices=["VALIDATION", "TEST"], default="VALIDATION")
+            cmd.add_argument("--one-per-group", action="store_true")
+            cmd.add_argument("--batch-size", type=int, choices=[1,2,4], default=1)
+            cmd.add_argument("--adapter", type=Path)
+            cmd.add_argument("--adapter-sha256")
+            cmd.add_argument("--layers", type=int, choices=[1,4,16], default=1)
+            cmd.add_argument("--strategy", choices=["qv", "language-linear"], default="qv")
+            cmd.add_argument("--max-seconds", type=int, default=3000)
         if command == "train":
             cmd.add_argument("--steps", type=int, default=2)
-            cmd.add_argument("--layers", type=int, choices=[1, 4], default=1)
+            cmd.add_argument("--layers", type=int, choices=[1, 4, 16], default=1)
+            cmd.add_argument("--strategy", choices=["qv", "language-linear"], default="qv")
+            cmd.add_argument("--learning-rate", type=float, default=1e-5)
+            cmd.add_argument("--max-seconds", type=int, default=3000)
+            cmd.add_argument("--checkpoint-every", type=int, default=10)
     args = parser.parse_args()
     if args.command == "convert":
         convert_seed(args.source, args.output)

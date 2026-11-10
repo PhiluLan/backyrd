@@ -34,6 +34,20 @@ class GpuPreparationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'seed_shape_or_value_invalid'):
             gpu.transpose_seed(arrays)
 
+    def test_language_targets_exclude_vision_and_preserve_qv_architecture(self):
+        import sys
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        class Linear: pass
+        modules=[(f'model.language_model.layers.{i}.mlp.up_proj',Linear()) for i in range(200)]
+        modules.append(('model.visual.blocks.0.proj',Linear()))
+        with patch.dict(sys.modules,{'torch':SimpleNamespace(nn=SimpleNamespace(Linear=Linear))}):
+            self.assertEqual(len(gpu.select_targets(modules,1,'language-linear')),200)
+            attention=[(f'model.language_model.layers.{i}.self_attn.{q}',Linear()) for i in range(3,64,4) for q in ('q_proj','v_proj')]
+            self.assertEqual(len(gpu.select_targets(attention,4,'qv')),8)
+            self.assertEqual(len(gpu.select_targets(attention,16,'qv')),32)
+            with self.assertRaisesRegex(ValueError,'architecture_changed'):gpu.select_targets(attention[:-1],4,'qv')
+
     def test_nonfinite_seed_is_rejected(self):
         arrays = self.arrays(); arrays[next(iter(arrays))][0, 0] = np.nan
         with self.assertRaisesRegex(ValueError, 'seed_shape_or_value_invalid'):

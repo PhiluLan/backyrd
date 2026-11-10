@@ -7,28 +7,33 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {auditUnderstandingDataset,understandingSplitHash,exportUnderstandingDataset} from '../../packages/decision-vnext-core/dist/nuknuk-understanding-learning.js';
 
-const [sourceDirectory,parentAdapter,python,outputDirectory,parityPlanFile]=process.argv.slice(2);
+const [sourceDirectory,parentAdapter,python,outputDirectory,parityPlanFile,approvedSourceSha]=process.argv.slice(2);
 if(!sourceDirectory||!parentAdapter||!python||!outputDirectory)throw Error('nuknuk_gpu_bundle_arguments_required');
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const source=resolve(sourceDirectory),parent=resolve(parentAdapter),out=resolve(outputDirectory);
 const sourceManifest=await readFile(resolve(source,'manifest.json'));
-if(digest(sourceManifest)!=='ae9b4b4e4314205eb4509692548d23ec67f8be27a9034e35924463bd16244969')throw Error('nuknuk_gpu_source_manifest_changed');
+if(digest(sourceManifest)!==(approvedSourceSha??'ae9b4b4e4314205eb4509692548d23ec67f8be27a9034e35924463bd16244969'))throw Error('nuknuk_gpu_source_manifest_changed');
 const data=JSON.parse(await readFile(resolve(source,'reviewed-backyrd.json'),'utf8'));
 const audit=auditUnderstandingDataset(data,understandingSplitHash(data.splitPlan));
-if(!audit.exportReady||audit.counts.TRAIN!==6||audit.counts.VALIDATION!==2||audit.counts.TEST!==1)throw Error('nuknuk_gpu_cohort_invalid');
+const broad=JSON.parse(sourceManifest).round===4;
+if(!audit.exportReady||(!broad&&(audit.counts.TRAIN!==6||audit.counts.VALIDATION!==2||audit.counts.TEST!==1))||(broad&&(!approvedSourceSha||audit.counts.TRAIN!==2320||audit.counts.VALIDATION!==100||audit.counts.TEST!==300)))throw Error('nuknuk_gpu_cohort_invalid');
 const bundle=exportUnderstandingDataset(data,understandingSplitHash(data.splitPlan),'COMPACT_ADAPTER_V3');
 const files=JSON.parse(sourceManifest.toString()).fileByteHashes;
 for(const [split,rows] of Object.entries(bundle.files)){
   const old=await readFile(resolve(source,split+'.jsonl'));
-  if(digest(old)!==files[split+'.jsonl']||rows.map(JSON.stringify).join('\n')+'\n'!==old.toString())throw Error('nuknuk_gpu_export_changed');
+  if(digest(old)!==files[split+'.jsonl']||(!broad||split!=='train'?rows.map(JSON.stringify).join('\n')+'\n'!==old.toString():!old.toString().startsWith(rows.map(JSON.stringify).join('\n')+'\n')))throw Error('nuknuk_gpu_export_changed');
 }
 await mkdir(out,{mode:0o700});await mkdir(resolve(out,'data'),{mode:0o700});
-for(const [split,rows] of Object.entries(bundle.files))await writeFile(resolve(out,'data',split+'.jsonl'),rows.map(JSON.stringify).join('\n')+'\n',{flag:'wx',mode:0o600});
+for(const [split,rows] of Object.entries(bundle.files))await writeFile(resolve(out,'data',split+'.jsonl'),broad?await readFile(resolve(source,split+'.jsonl')):rows.map(JSON.stringify).join('\n')+'\n',{flag:'wx',mode:0o600});
+if(broad){
+  await copyFile(resolve(source,'manifest.json'),resolve(out,'curriculum-manifest.json'));
+  await copyFile(resolve(source,'evaluation-inputs.json'),resolve(out,'evaluation-inputs.json'));
+}
 const here=dirname(fileURLToPath(import.meta.url));
 await copyFile(resolve(here,'nuknuk-gpu.py'),resolve(out,'nuknuk-gpu.py'));
 await copyFile(resolve(here,'nuknuk-gpu-requirements.txt'),resolve(out,'requirements.txt'));
 execFileSync(python,['-B',resolve(here,'nuknuk-gpu.py'),'convert','--source',parent,'--output',resolve(out,'parent-seed.npz')],{stdio:'inherit'});
-if(parityPlanFile){
+if(parityPlanFile && parityPlanFile!=='-'){
   const bytes=await readFile(resolve(parityPlanFile));const plan=JSON.parse(bytes.toString());
   if(plan.parentAdapterSha256!=='cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3'
       ||plan.cases.length!==6||plan.trainingExecuted!==false||plan.llguidanceVersion!=='1.9.1'
@@ -69,10 +74,16 @@ GNU timeout stops the PROCESS, not the Pod's hourly billing. After copying all
 results back, stop/terminate the Pod in Runpod. Storage can remain billable.
 Do not treat a completed training run as semantic quality approval.
 `,{flag:'wx',mode:0o600});
-if(parityPlanFile)await writeFile(resolve(out,'START.txt'),`READ-ONLY PARENT PARITY: use nuknuk-gpu.py evaluate --bundle . --output /workspace/nuknuk-parity-results\nDo not invoke train. Six known cases, frozen parent, exact Mac-compiled grammar.\nInstall requirements.txt in the same pinned CUDA environment. External timeout <=1200 seconds; stop the Pod after securing results.\n`);
+if(broad)await writeFile(resolve(out,'START.txt'),`Commissioned broad synthetic curriculum. Original parent retained. No production access.
+2360 TRAIN rows including 40 licensed auxiliary exercises; 100 development and 300 sealed TEST requests.
+Train only data/train.jsonl. Select checkpoints only on VALIDATION. TEST is final evaluation only.
+Start only with active local budget watcher and verified stop path. Total ceiling including prior runs: USD 20.
+Copy checkpoints and results to the Mac before stopping the temporary container. Process timeout does not stop billing.
+`,{mode:0o600});
+if(parityPlanFile && parityPlanFile!=='-')await writeFile(resolve(out,'START.txt'),`READ-ONLY PARENT PARITY: use nuknuk-gpu.py evaluate --bundle . --output /workspace/nuknuk-parity-results\nDo not invoke train. Six known cases, frozen parent, exact Mac-compiled grammar.\nInstall requirements.txt in the same pinned CUDA environment. External timeout <=1200 seconds; stop the Pod after securing results.\n`);
 const hashes={};
 for(const name of await readdir(out))if(name!=='data')hashes[name]=digest(await readFile(resolve(out,name)));
 for(const name of await readdir(resolve(out,'data')))hashes['data/'+name]=digest(await readFile(resolve(out,'data',name)));
-const manifest={version:1,purpose:'PREPARED_GPU_PILOT_NOT_CUDA_VERIFIED',model:'Qwen/Qwen3.5-27B',revision:'fc05daec18b0a78c049392ed2e771dde82bdf654',parentAdapterSha256:'cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3',sourceDatasetHash:bundle.manifest.datasetHash,targetSerialization:bundle.manifest.targetSerialization,counts:bundle.manifest.counts,files:hashes,productionActivation:false,remoteUploadPerformed:false,costlyResourcesStarted:false};
+const manifest={version:1,purpose:broad?'APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED':'PREPARED_GPU_PILOT_NOT_CUDA_VERIFIED',model:'Qwen/Qwen3.5-27B',revision:'fc05daec18b0a78c049392ed2e771dde82bdf654',parentAdapterSha256:'cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3',sourceDatasetHash:bundle.manifest.datasetHash,targetSerialization:bundle.manifest.targetSerialization,counts:broad?JSON.parse(sourceManifest).counts:bundle.manifest.counts,files:hashes,productionActivation:false,remoteUploadPerformed:false,costlyResourcesStarted:false};
 await writeFile(resolve(out,'bundle.json'),JSON.stringify(manifest,null,2)+'\n',{flag:'wx',mode:0o600});
 console.log(JSON.stringify({directory:out,files:Object.keys(hashes).length,counts:manifest.counts,remoteUploadPerformed:false,costlyResourcesStarted:false}));

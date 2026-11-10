@@ -1698,3 +1698,67 @@ Gesamtbudget. CUDA benötigt eine ausdrücklich versionierte eigene Baseline.
 Der vorhandene Mac-Adapter und die bisherigen Lerndaten bleiben erhalten.
 Vor einem längeren Lauf getrennte unbekannte Prüffälle und wirksame Abschaltung
 festlegen; dieser Vergleich allein rechtfertigt keinen langen Trainingslauf.
+
+### Breites GPU-Verständnisprogramm, freigegeben am 10.11.2026
+
+Der Founder hat den beschriebenen breiten Ausbau und ein Gesamtkostendach von
+20 USD mit aktiver Überwachung genehmigt. Vorsichtshalber werden die bisherigen
+GPU-Läufe mitgerechnet (vor dem neuen Abschalttest konservativ 1,75 USD).
+Der zusätzliche temporäre Runpod-GraphQL-Schlüssel für Status und Stopp wurde
+separat ausdrücklich genehmigt. Er liegt ausschliesslich lokal, Git-ignoriert
+und mit Dateirechten 0600; keine Übertragung an den Trainingspod. Runpod kann
+seine Rechte nicht auf einen einzelnen Pod-Stopp begrenzen. Nach Abschluss
+widerrufen. Keine Backyrd-/Supabase-Berechtigungen und keine Produktaktivierung.
+
+Der geprüfte neue Bestand `training-20261110-v4-reviewed` enthält 2.360 TRAIN-
+Zeilen (320 bisherige Backyrd-TRAIN, 2.000 neue Interpretationen und 40 bisherige
+lizenzierte Zusatzübungen), 100 neue VALIDATION- und 300 neue TEST-Zeilen. Die
+neuen Interpretationen stammen aus 50 formulierten TRAIN-Szenariofamilien mit
+je 40 Variationen; VALIDATION aus zehn und TEST aus 30 getrennten zusammengesetzten
+Familien. Variationen einer Familie bleiben in derselben Partition. Die Anzahl
+ist kein Mass für unabhängige semantische Vielfalt oder menschliche Goldprüfung.
+Historische VALIDATION/TEST-Antworten bleiben im Elternbestand und werden weder
+zu TRAIN noch zu einer neuen unabhängigen Abschlussprüfung umetikettiert.
+
+Themen: Modalität/Negation, Anlass/Besonderheit, Und/Oder/Reihenfolge/gleicher Ort,
+Personen/Alter/Begleitung/Einzelbedarfe, Gesamt- und Pro-Person-Budget, Datum/Uhr/
+Dauer, Umgebung/Ausstattung, Wetterzweige, explizite Wunschkorrekturen innerhalb
+einer Anfrage, Alltagssprache/Sprachwechsel und Nicht-Erfinden. Wunschkorrekturen
+im Anfragetext sind noch kein echter mehrstufiger Dialogspeicher. Vorhandene
+ASSESS_CANDIDATES-Übungen bleiben erhalten; sie erteilen dem Modell weiterhin
+keine Befugnis, harte Eligibility-Grenzen oder die produktive Rangfolge aufzuheben.
+
+Manifest-SHA-256:
+`7e785bea94754ebc0fda698a948be15bddd3a8757c15796ecefedba42c36e9ba`.
+400 zusätzliche synthetische Präferenzpaare verwenden ausschliesslich TRAIN,
+mit gleicher Formatierung von richtiger und gezielt falscher Antwort. Damit
+soll nicht lediglich ein Leerzeichenunterschied die bevorzugte Antwort verraten.
+Eine tatsächliche Präferenz-Trainingsphase ist erst nach SFT-Auswertung und
+innerhalb des verbleibenden Budgets zu wählen, nicht als erfolgt zu behaupten.
+
+Der bestehende CUDA-Trainer wird erweitert, kein zweiter Trainingspfad angelegt:
+q/v an vier bzw. 16 Attention-Blöcken oder breitere lineare Module ausschliesslich
+im Sprachmodell. Vision bleibt unverändert. Der originale Parent wird hashgeprüft
+übernommen, neue LoRA-Erweiterungen beginnen ohne zusätzlichen Ausgangsdelta.
+Der bisherige Parent bleibt lokal erhalten. Echte CUDA-Kompatibilität, Speicher
+und Geschwindigkeit dieses breiteren Pfads müssen beim kurzen Start gemessen
+werden. Grössere Trainingsgrenzen gelten nur für das ausdrücklich gepinnte neue
+Curriculum. Alle Antworten bleiben durch denselben kanonischen Vertrag begrenzt.
+
+Der neue Auswerter unterstützt gebündelte Generierung mit getrennten Grammatik-
+zuständen pro Antwort. Die Inputs enthalten keine Musterantworten. Lokale
+Diskrepanzprüfung vergleicht Pflicht/Wunsch/Verbot, Budgetumfang, Alternativen,
+Wetterzweige und Bindungen; Abweichungen bleiben fachlich zu sichten. Weder
+Schemaerfolg noch sinkender Loss wird als korrektes Nutzerverständnis gemeldet.
+Checkpointwahl nur auf VALIDATION; TEST bleibt Abschlussprüfung.
+
+`nuknuk-runpod-watch.py` kann ausschliesslich Status lesen und einen explizit
+gebundenen Pod stoppen, keine Ressourcen erstellen oder starten. Ein separater
+lokaler Prozess mit `caffeinate` beobachtet Preis, Laufzeit, Stop-Datei und
+unerwartete weitere laufende Pods. Fehler beim Statusabruf lösen Stop-Versuche
+aus. Die Budgetberechnung umfasst Vorkosten und mindestens 1,50 USD Reserve.
+Das ist unabhängig vom Trainings- und Chatprozess, bleibt aber von Mac, Strom
+und Netzwerk abhängig; kein behaupteter anbieterunabhängiger Schutz gegen einen
+Ausfall des Macs. Aktive Bedieneraufsicht bleibt erforderlich. Ein echter Start-
+zu-Stopp-Test wird vor dem langen Training protokolliert. Fortschritte und
+fertig geschriebene Checkpoints werden vor dem Anbieter-Stopp lokal gesichert.
