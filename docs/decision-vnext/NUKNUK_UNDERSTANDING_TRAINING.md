@@ -1859,3 +1859,63 @@ Vorher-nachher-Vergleich. Weitere 270 prüfen zusätzliche Abdeckung. Das option
 Präferenztraining wurde wegen des verbleibenden Prüf-/Sicherungszeitfensters
 **nicht ausgeführt**. Vorbereitete Paare bleiben für einen späteren genehmigten
 Lauf verfügbar. Anbieterabschaltung und finale Qualitätsauswertung folgen noch.
+
+
+#### Abschluss 10.11.2026: Qualität, Sicherung und Abschaltung
+
+Alle 300 Antworten des festgelegten Adapters und 30 Vergleichsantworten des
+Ausgangsadapters sind vollständig lokal gesichert. Der SHA-geprüfte Adapter und
+alle abgeschlossenen Checkpoints bleiben lokal erhalten; der Ausgangsadapter wurde
+nicht überschrieben. Kein weiterer Optimizerlauf und keine neue Adapterauswahl
+nach Sichtung der TEST-Antworten. DPO wurde nicht durchgeführt.
+
+Die assistierte Bedeutungsprüfung der 30 gemeinsamen Repräsentanten findet einen
+Fehler in der Prüfvorlage: Familie 14 verlangt Rollstuhlzugang, obwohl dies in der
+Anfrage fehlt. Alle zehn Varianten dieser Familie werden als ungültiger Benchmark
+markiert; die eingefrorenen Rohdaten und Ziele bleiben unverändert. Das ist ein
+Fehler unserer Prüfvorlage und darf nicht dem Modell zugerechnet werden.
+
+Für die übrigen 29 gemeinsamen Fragen lautet die vorsichtige Bedeutungsbewertung:
+
+| Bewertung | Ausgangsadapter | trainierter Adapter |
+| --- | ---: | ---: |
+| Hauptbedeutung erhalten | 9 | 16 |
+| Zuordnung oder Mehrdeutigkeit noch prüfen | 6 | 6 |
+| Klarer Bedeutungsfehler | 14 | 7 |
+
+Dies ist keine unabhängig menschlich bestätigte Erfolgsquote und keine Aussage,
+dass 16 Fälle bereits durchgehend im Bibliothekar funktionieren. Die zusätzlichen
+270 Antworten wurden automatisch verglichen, nicht alle einzeln semantisch
+abgenommen. Automatische Literalabweichungen wie glutenfrei/glutenfree sowie
+Gesprächsmöglichkeit/Ruhe sind keine belastbare Modellfehlerquote. Der Testkorpus
+enthält 30 Familien mit je zehn Varianten; die TRAIN-Erweiterung enthält ebenfalls
+viele Vorlagenvarianten, nicht tausende unabhängige menschliche Beispiele.
+
+Verbessert sind insbesondere UND statt ODER, Reihenfolgen, Ortsbindung,
+personenbezogene Ernährung sowie Gesamtbudget gegenüber Budget pro Person.
+Verbleibende echte Fehler: mitgebrachtes Essen wird zu Lieferdienst, Hund erlaubt
+zu Tieraktivität, bevorzugt drinnen zu ruhig, Jahrestag zu zwingender Aktivität und
+keine Reservationspflicht zu Spontaneität nicht erforderlich. Teilweise fehlen
+weiterhin ausführbare Reihenfolge und Anzahl. Das Modell ist **nicht produktreif**.
+
+Zwei isolierte Aufrufe durch den kanonischen Bibliothekar wurden zusätzlich
+protokolliert. Die synthetischen Kandidaten blieben wegen unbestätigter Speisen-/
+Zeit-/Eigenschaftszuordnung im Fallback. Das beweist keinen erfolgreichen
+Ende-zu-Ende-Abgleich und isoliert die Reservationsregel noch nicht. Es ist ein
+weiterer Grund, Bedeutungsqualität und ausführbare Suchregeln getrennt zu prüfen.
+Keine Produktionsdaten oder Lernprofile wurden verändert.
+
+Runpod bestätigte am 10.11.2026 um 11:44:02 UTC den eigenen Pod als EXITED mit
+runtime=null; auch die beiden früheren bekannten Pods waren EXITED. Der temporäre
+Wächterschlüssel wurde über die reguläre Runpod-Oberfläche deaktiviert. Alle
+benötigten Ergebnisse lagen zuvor lokal vor. Konservative Gesamtkostenschätzung
+inklusive Vorläufen: höchstens etwa **17,68 USD**, keine Anbieterrechnung. Das
+20-USD-Dach wurde eingehalten. Keine Produktaktivierung und kein Modell auf dem
+Mac geladen; MLX-Kompatibilität des breiteren GPU-Adapters ist noch unbewiesen.
+
+Lokale Nachweise im Verzeichnis
+`.local/nuknuk-understanding/runpod-20261110-round4/`:
+`final-semantic-review.json`, `canonical-engine-probes.json`,
+`provider-stop-verification.json`, `secured-final-artifact-hashes.json`,
+`final-selection.json`, `final-evaluation/` und `checkpoints/long-sft/train/adapter/`.
+Für die nächste Auswahl braucht es frische, bisher nicht betrachtete Prüffragen.
