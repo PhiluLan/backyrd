@@ -2960,9 +2960,12 @@ Verbindliche Unterscheidung für die Weiterentwicklung:
 Abnahmereferenz A: Geburtstagsessen „mit Bedeutung statt einfach teuer“.
 NukNuk soll erkennen, dass persönliche Passung über einen blossen Preis- oder
 Luxusindikator hinausgeht. Wo die nötigen Anhaltspunkte fehlen, kann es mit
-höchstens einer hilfreichen Frage nach der gewünschten Wirkung unterscheiden:
-Zweisamkeit, neue gemeinsame Erfahrung oder persönlicher Bezug. Diese Richtungen
-sind Optionen, keine unterstellten Vorlieben. Explizit unbekannte Interessen
+höchstens einer hilfreichen Frage den Bedeutungswunsch konkretisieren:
+persönlicher Bezug zu den Beteiligten oder eine belegte Geschichte, Philosophie
+beziehungsweise kulturelle Besonderheit des Ortes. Beides kann zusammenkommen;
+die Richtungen sind Optionen, keine abschliessende Zweiteilung oder unterstellte
+Vorlieben. Romantik folgt nicht automatisch aus Geburtstag oder Ehe.
+Explizit unbekannte Interessen
 werden nicht mit derselben unbeantwortbaren Frage erneut abgefragt. Geeignete
 vorläufige Ideen brauchen eine verständliche Begründung; nicht jedes Restaurant
 wird allein durch den Anlass zu einem bedeutungsvollen Geburtstagsort.
@@ -2986,3 +2989,60 @@ nicht als Umsetzung persönlicher Erlebnisberatung. Die neuen Referenzen müssen
 an tatsächlicher Vorschlagsqualität und Begründung geprüft werden, nicht allein
 an Schema oder erhaltenen Schlüsselwörtern. Der eingefrorene @6-Snapshot wird
 für eine solche Revision nicht nachträglich verändert.
+
+### Ergänzung zu Referenz A: Begründung muss die Auswahl tatsächlich tragen
+
+Der Founder hat die folgenden zwei nachgereichten Antworten aus seinem externen
+Chat als Lern- und Abnahmereferenz zum Speichern übergeben. Es sind von ihm
+bereitgestellte Modell-Selbsterklärungen, keine verifizierten Restaurantdaten
+und kein unabhängiger Beweis für die internen Abläufe dieses fremden Chats.
+Die vorherige positive Referenz gilt dem Gesprächsverhalten; eine überzeugende
+Formulierung allein genügt ausdrücklich nicht als Qualitätsnachweis der Auswahl.
+
+Erste nachgereichte Antwort, wörtlich vom Founder übergeben:
+
+> Basel: Ich bin davon ausgegangen, dass ihr den Geburtstag in Basel feiern möchtet.
+> Aber bei meiner Auswahl gibt es einen entscheidenden Schwachpunkt:
+> Ich habe Restaurants ausgewählt, die meiner Vorstellung eines schönen Geburtstagsabends entsprechen. Ich habe nicht herausgefunden, welche Restaurants tatsächlich eine besondere Geschichte haben, was sie einzigartig macht oder warum gerade eines davon für deine Frau eine Bedeutung haben könnte.
+> Und genau das war eigentlich dein wichtigstes Kriterium: Bedeutung statt einfach teuer.
+> Ich würde die Suche deshalb anders angehen. Nicht zuerst fragen, wo man gut essen kann, sondern was einen Ort unvergesslich macht.
+> Dazu interessiert mich eine Sache:
+> Wenn du an deine Frau denkst: Ist sie eher jemand, der sich über einen romantischen, intimen Abend freut, oder jemand, den man mit einem aussergewöhnlichen Erlebnis überraschen kann?
+> Denn ich glaube, wir können etwas deutlich Persönlicheres finden als meine ersten drei Vorschläge.
+
+Zweite nachgereichte Antwort, wörtlich vom Founder übergeben:
+
+> Allerdings muss ich dabei etwas klarstellen: Ich habe diese Kriterien nicht systematisch anhand überprüfter Restaurantinformationen abgeglichen. Ich habe auch keine konkrete persönliche oder historische Bedeutung dieser drei Orte für euch festgestellt.
+> Das bedeutet: Die Auswahl beruhte hauptsächlich auf einer allgemeinen Vorstellung von Romantik und nicht auf einer fundierten Suche nach etwas wirklich Bedeutungsvollem.
+> Und rückblickend habe ich damit deinen Wunsch ziemlich oberflächlich interpretiert.
+> Denn «etwas mit Bedeutung statt einfach teuer» könnte auch etwas ganz anderes heissen: ein Restaurant mit einer aussergewöhnlichen Geschichte, ein Ort, an dem Menschen mit besonderer Leidenschaft kochen, ein kulinarisches Erlebnis mit kulturellem Hintergrund oder ein Ort, der eine Verbindung zu eurer eigenen Geschichte herstellt.
+> Mich würde deshalb interessieren: Wolltest du mit «Bedeutung» eher eine persönliche Bedeutung für euch beide ausdrücken oder einen aussergewöhnlichen Ort, hinter dem eine echte Geschichte oder Philosophie steckt?
+
+Abgeleitete verbindliche Kriterien für NukNuk:
+
+1. Das ausdrücklich priorisierte Erlebnisziel muss die Suche und Auswahl
+   beeinflussen. „Mit Bedeutung“ darf nicht durch ein generisches Bild eines
+   romantischen oder teuren Geburtstagsessens ersetzt werden.
+2. Persönliche Bedeutung braucht einen tatsächlich bekannten Bezug zu den
+   Beteiligten. Geschichte, Philosophie, kulinarische Leidenschaft oder
+   kulturelle Besonderheit eines Ortes brauchen passende Belege. Eine bekannte
+   Ortsgeschichte beweist noch keine persönliche Bedeutung für die Frau.
+3. Fehlt die entscheidende Bedeutungsrichtung, ist beispielsweise diese Frage
+   zielführend: „Meinst du einen Ort mit persönlicher Bedeutung für euch oder
+   einen Ort mit einer besonderen Geschichte oder Philosophie?“ Die Antwort
+   muss die anschliessende Auswahl verändern können. Weitere Bedeutungen und
+   Mischformen bleiben möglich.
+4. Eine konkrete Empfehlung muss sagen können, welche vorhandene Information
+   das wichtigste Kriterium stützt. Fehlt sie, bleibt der Vorschlag als
+   vorläufige Idee erkennbar. Keine nachträglich erfundene Begründung für eine
+   Auswahl, die dieses Kriterium tatsächlich nicht berücksichtigt hat.
+5. Ortsannahmen sind vom Nutzerwunsch zu unterscheiden. Die ursprüngliche
+   Geburtstagsanfrage nennt Basel nicht. Vorhandener App-/Suchkontext kann die
+   Stadt vorgeben; ohne solchen Kontext wird Basel nicht als ausdrückliche
+   Nutzeraussage ausgegeben.
+6. Die Abnahme prüft zuerst Passung und Belege der Auswahl, danach die Qualität
+   der Formulierung. Eine warme, persönliche Antwort mit passenden Fragen
+   kompensiert keine unbegründeten Spotbehauptungen.
+
+Diese Ergänzung ist ein gespeicherter Produkt- und Lernauftrag, noch kein neu
+abgenommenes SFT-Beispiel und keine bereits implementierte Beratungsfunktion.
