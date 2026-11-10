@@ -1919,3 +1919,76 @@ Lokale Nachweise im Verzeichnis
 `provider-stop-verification.json`, `secured-final-artifact-hashes.json`,
 `final-selection.json`, `final-evaluation/` und `checkpoints/long-sft/train/adapter/`.
 Für die nächste Auswahl braucht es frische, bisher nicht betrachtete Prüffragen.
+
+#### Nächste Korrekturrunde: Daten vorbereitet, noch nicht trainiert
+
+Am 10.11. hat der Founder die vorgeschlagene lokale Datenbereinigung und gezielte
+Ergänzung beauftragt. Dies ist FAST_PR / Datenvorbereitung, keine erneute GPU-,
+Budget- oder Produktfreigabe. Die Modelle des letzten Laufs bleiben unverändert.
+
+Im neuen Kindbestand wurden 40 TRAIN-Beispiele der Familie
+`r4-train-intent-3-*` korrigiert: „gut unterhalten können“ verlangt
+`atmosphere.conversation=conversation_possible`, nicht zwingend
+`atmosphere.noise=quiet`. Der Bibliothekar unterscheidet Gesprächsmöglichkeit und
+Geräuschpegel bereits; die vorherigen Sollantworten haben diese Unterscheidung
+verwischt. Das ist ein nachgewiesener Widerspruch unserer Trainingsvorgaben,
+kein Nachweis, dass genau er jede beobachtete Verwechslung verursacht hat.
+Die geänderten Inhalte erhalten neue Hashes und neue assistierte Prüfvermerke;
+alte Freigaben werden nicht auf geänderte Antworten übertragen. Alle übrigen
+2280 geerbten TRAIN-Datensätze sind unverändert. Der eingefrorene Elternbestand
+und seine Abschlussauswertung werden nicht nachträglich umgeschrieben.
+
+64 einzeln formulierte Gegenbeispiele in acht Themenfamilien ergänzen den Bestand:
+
+- Innen-/Aussenbereich, Ruhe, Gemütlichkeit und Gesprächsmöglichkeit trennen.
+- Mitgebrachtes Essen gegenüber Verpflegung vor Ort und Lieferdienst abgrenzen.
+- Hundezugang gegenüber Tieraktivität und tatsächlicher Teilnahme abgrenzen.
+- Keine Reservationspflicht, optionale Spontaneität und Reservationswunsch trennen.
+- Anlass gegenüber gesuchter Aktivität sowie Besonderheit gegenüber Preis trennen.
+- UND/ODER, zeitliche Reihenfolge und gemeinsame/verschiedene Orte erhalten.
+- Gesamtsumme, Pro-Person-Preis, Preisumfang und bevorzugte/harte Grenze trennen.
+- Korrekturen von Anzahl, Bereich, Hundeteilnahme und aufgehobenen Pflichten erhalten.
+
+Diese Beispiele sind keine unabhängigen menschlichen Goldantworten und keine
+64 unabhängigen Benchmarks. Es gibt keine automatische lexikalische Vervielfachung.
+Die Prüfung umfasst die bestehenden Round-4-Vorlagendefinitionen, gezielt die
+bekannten Verwechslungsdimensionen und strukturell alle Kinddatensätze. Sie ist
+keine unabhängige neue Bedeutungsannotation sämtlicher geerbter Beispiele.
+
+Der lokale Entwurf enthält 2384 Backyrd-TRAIN-Datensätze. Die bisherigen 100
+Entwicklungs- und 300 Abschlussfragen sind vollständig ausgeschlossen und dürfen
+nur bekannte Regressionen prüfen. Die 40 externen TRAIN-Übungen bleiben separat
+mit ihrer bisherigen Herkunft dokumentiert; sie wurden noch nicht neu exportiert.
+Die ungültige alte Testfamilie 14 bleibt im historischen Fehlerverzeichnis.
+
+Der kanonische Export verlangt weiterhin TRAIN, VALIDATION und TEST. Da für den
+nächsten Lauf noch frische Entwicklungs-/Abschlussfragen fehlen, erzeugt
+`nuknuk-training-bundle.mjs --round5` ausdrücklich nur den geprüften Entwurf und
+Nachweise, keine ausführbaren Trainings-JSONL-Dateien. Der Exportschutz wurde
+nicht abgeschwächt. Vorbereitung:
+
+```sh
+node scripts/decision-diagnostics/nuknuk-training-bundle.mjs \
+  .local/nuknuk-understanding/training-20261110-v4-audited/reviewed-backyrd.json \
+  .local/nuknuk-understanding/training-20261110-v4-audited/external-lineage.json \
+  .local/nuknuk-understanding/training-20261110-round5-prepared --round5
+node scripts/decision-diagnostics/test_nuknuk_curriculum.mjs
+```
+
+Im Entwurfsverzeichnis liegen `corrections.json`, `excluded-exposed-cases.json`,
+`reviewed-backyrd.json`, `manifest.json`, `review-audit.json` und
+`preparation-verification.json`. Letzteres bestätigt: genau 40 geerbte Fälle
+geändert, 64 ergänzt, kein alter Prüfdatensatz übernommen, keine Trainingsdateien
+exportiert. Der Datensatz-SHA-256 des Entwurfs lautet
+`c14ef53a5d1e5760836122ce52963a86d54089a84f67b4d44dde3fefc6364443`.
+
+Vor einem neuen Lauf: neue, bisher nicht ausgewertete Kompositionsfamilien für
+Entwicklung und Abschluss anlegen, thematisch verwandte Varianten zusammenhalten,
+neues Kostenlimit festlegen. Nach Training zuerst auf Entwicklungsfragen wählen,
+Adapter einfrieren, dann neue Abschlussfragen auswerten. Bedeutungsantwort,
+ausführbare Suchregeln und positive/negative Kandidaten müssen jeweils geprüft
+werden. Pflicht erfinden, Negation verkehren oder Bereich/Person/Reihenfolge
+verlieren sind echte Fehler; gleichwertige Formulierungen alleine nicht.
+
+Die Vorbereitung hat keine neuen GPU-Kosten verursacht. Ob diese Korrekturen
+das Modell verbessern, ist erst mit dem nächsten tatsächlichen Lauf messbar.
