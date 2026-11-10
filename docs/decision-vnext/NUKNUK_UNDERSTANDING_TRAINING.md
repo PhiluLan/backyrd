@@ -2170,3 +2170,80 @@ auf vollständige Übertragung, Modellrevision und frischen unabhängigen
 Serverwächter, bevor er ausschliesslich den24-Paare-Vergleich startet.
 Artefakte liegen separat unter `recovery-evidence/`; frühere Antworten,
 Auswahlbeleg und Bewertungen bleiben unverändert erhalten. Abschluss offen.
+
+#### Wiederaufnahme abgeschlossen: 24 vollständige Vergleichspaare geprüft
+
+Der Wiederherstellungs-Bootstrap bestätigte Archiv- und Adapterhash vor dem
+Start. Der letzte Adapter wurde unverändert ausgewertet, kein weiterer
+Optimizerlauf. Beide Modelle bearbeiteten sämtliche24 festgelegten TEST-Fragen.
+Je23 Antworten sind vollständig; Fall9 (Apéro zum Jubiläum) bleibt bei beiden
+mit2048Tokens/240Sekunden unvollständig und wird als Fehler gezählt. Es wurden
+alle48 Fallprotokolle einschliesslich beider Fehler und beide Ergebnisbelege
+lokal gesichert und deren Hashes erneut geprüft. Frühere Teilantworten bleiben
+separat; kein Best-of aus mehreren Versuchen.
+
+Die assistierte manuelle Prüfung aller24 Paare findet sechs sprachliche
+Verbesserungen (2,4,5,6,20,21), einen durch tatsächliches Matching belegten
+Rückschritt (10), weiterhin klare Fehler bei14,15,16 und den gemeinsamen
+Generierungsfehler9. Das sind Fallbewertungen dieses kleinen assistiert
+erstellten Korpus, keine unabhängig menschlich bestätigte Bevölkerungsquote.
+Die vollständige fallweise Begründung liegt in
+`recovery-final-semantic-review.json`. Die Auswahl wurde nicht nach TEST geändert.
+
+Verbesserungen: eigene Jause/Brotzeit wird zu Erlaubnis statt Lieferdienst oder
+Mahlzeitpflicht; eigene Getränke statt Essen-oder-Trinken; Gesprächsmöglichkeit
+als eigene Pflicht; keine Buchungspflicht in der korrekten Buchungsfamilie.
+Unverändert offen: erfundene Ruhe beim Kaffee nach Museum, Gespräch durch Ruhe
+ersetzt beim Jahrestag, Terrasse in einer Atmosphärenfamilie und fehlende
+Hundezulassung auch drinnen. Besonderheit bleibt im englischen Date-Fall nur
+Kontext; Kombinationspreise sind nicht durchgehend sauber gebunden.
+
+Vier synthetische Prüfungen verwenden den tatsächlichen kanonischen
+Bibliothekar-Abgleich mit unveränderten Modellantworten; Entwicklungsproben
+kommen ergänzend hinzu. Keine Produktions-/Lernprofil-Schreibzugriffe:
+
+- Eigene Snacks (Entwicklung2): neue Antwort lässt erlaubten Minigolf-Ort zu
+  und verwirft explizites Verbot; die alte Antwort bleibt wegen erfundener
+  Verpflegungspflichten ungeklärt.
+- Gespräch (Abschluss4): Modell verbessert die Bedeutung zu
+  `conversation_possible`; der aktuelle Matcher liefert für die gültige
+  Profileigenschaft „Unterhaltung gut möglich“ aber PROPERTY_VALUE_NOT_PROVEN.
+  Der alternative Wert `conversation` funktioniert in Entwicklungsprobe8.
+  Dies ist eine nachgewiesene Zuordnungslücke; keine Ende-zu-Ende-Freigabe.
+- Falafel vor Schach (Abschluss5): neue Buchungsregel bestätigt
+  BOOKING_NOT_MANDATORY und verwirft Pflichtreservation; beide vollständigen
+  Wünsche bleiben wegen MULTI_VISIT_SEQUENCE_NOT_SUPPORTED ungeklärt.
+- Kochkurs ODER Konzert mit Getränken (Abschluss10): bisheriger Plan findet
+  den belegten Kurs mit Getränken; neue Antwort verschiebt Getränke zu
+  `offer.feature`, wodurch PROPERTY_VALUE_NOT_PROVEN entsteht. Echter Rückschritt.
+- Konzert und vegane Snacks in getrennten Bereichen (Abschluss22): beide
+  Antworten bleiben trotz bestätigter Einzelfakten wegen
+  REQUIRED_FACTS_HAVE_NO_COMMON_SCOPED_WITNESS ungeklärt. Die neue fehlende
+  SAME_PLACE-Bindung ist damit kein allein bewiesener zusätzlicher Rückschritt.
+
+Der Vertrag kennt keine DIFFERENT_PLACE-Bindung; die Fälle8/14 sind daher
+separat hinsichtlich verständlicher Bedeutung und unterstützter Planung zu
+beurteilen. Ein vorangehender Versuch des vollständigen Product-HTTP-Wrappers
+mit synthetischen Profilen war inconclusive (product_evaluation_ranking_invalid).
+Die hier belegten Proben prüfen kanonisches Matching, keinen erfolgreichen
+kompletten App-Aufruf und keine reale Basler Trefferliste.
+
+Die unabhängige lokale Abschlussüberwachung bestätigte alle48 gesicherten
+Fallbelege und stoppte danach ausschliesslich `ezbnmwzvcalwrc`. Anbieterzustand
+EXITED/runtime=null für alle fünf bekannten Pods wurde am10.11. um15:43:23UTC
+bestätigt. Temporärer lokaler Schlüssel anschliessend über reguläre UI
+deaktiviert, Sync beendet, Monitor pausiert. Konservative Gesamtschätzung
+inklusive Vorreserve und auch überzählig mitgerechneter Stillstandszeit
+**12,86USD**, keine Rechnung; das bisherige20USD-Dach blieb gewahrt.
+
+Fazit: Training und fehlende Prüfung sind nun abgeschlossen und gesichert.
+Der neue Stand verbessert wichtige Bedeutungsunterschiede, ist aber wegen
+Modellfehlern, Generierungsfehler und bestätigten Ausführungslücken
+**nicht produktreif**. Keine Aktivierung, kein nachträgliches Nachtrainieren
+auf diesen TEST-Fragen. Beide Adapter bleiben erhalten.
+
+Nachweise im lokalen Round5-Verzeichnis: `recovery-final-semantic-review.json`,
+`recovery-final-canonical-validation.json`, `recovery-final-canonical-probes.json`,
+`development-canonical-probes.json`, `recovery-secured-answer-hashes.json`,
+`recovery-provider-stop-verification.json`, `recovery-watcher-disabled.png`
+und `recovery-evidence/recovery-final-evaluation/`.
