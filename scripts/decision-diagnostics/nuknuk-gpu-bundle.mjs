@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {auditUnderstandingDataset,understandingSplitHash,exportUnderstandingDataset} from '../../packages/decision-vnext-core/dist/nuknuk-understanding-learning.js';
 
-const [sourceDirectory,parentAdapter,python,outputDirectory]=process.argv.slice(2);
+const [sourceDirectory,parentAdapter,python,outputDirectory,parityPlanFile]=process.argv.slice(2);
 if(!sourceDirectory||!parentAdapter||!python||!outputDirectory)throw Error('nuknuk_gpu_bundle_arguments_required');
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
 const source=resolve(sourceDirectory),parent=resolve(parentAdapter),out=resolve(outputDirectory);
@@ -28,6 +28,14 @@ const here=dirname(fileURLToPath(import.meta.url));
 await copyFile(resolve(here,'nuknuk-gpu.py'),resolve(out,'nuknuk-gpu.py'));
 await copyFile(resolve(here,'nuknuk-gpu-requirements.txt'),resolve(out,'requirements.txt'));
 execFileSync(python,['-B',resolve(here,'nuknuk-gpu.py'),'convert','--source',parent,'--output',resolve(out,'parent-seed.npz')],{stdio:'inherit'});
+if(parityPlanFile){
+  const bytes=await readFile(resolve(parityPlanFile));const plan=JSON.parse(bytes.toString());
+  if(plan.parentAdapterSha256!=='cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3'
+      ||plan.cases.length!==6||plan.trainingExecuted!==false||plan.llguidanceVersion!=='1.9.1'
+      ||plan.cases.some(row=>row.messages.map(m=>m.role).join(',')!=='system,user'||typeof row.grammar!=='string'))
+    throw Error('nuknuk_gpu_parity_plan_invalid');
+  await writeFile(resolve(out,'parity-cases.json'),bytes,{flag:'wx',mode:0o600});
+}
 await writeFile(resolve(out,'START.txt'),`Backyrd Nuknuk GPU pilot — prepared, CUDA not yet tested\n
 This bundle contains six approved synthetic training cases, two validation cases,
 one previously exposed test case, and a converted parent adapter. No production
@@ -61,6 +69,7 @@ GNU timeout stops the PROCESS, not the Pod's hourly billing. After copying all
 results back, stop/terminate the Pod in Runpod. Storage can remain billable.
 Do not treat a completed training run as semantic quality approval.
 `,{flag:'wx',mode:0o600});
+if(parityPlanFile)await writeFile(resolve(out,'START.txt'),`READ-ONLY PARENT PARITY: use nuknuk-gpu.py evaluate --bundle . --output /workspace/nuknuk-parity-results\nDo not invoke train. Six known cases, frozen parent, exact Mac-compiled grammar.\nInstall requirements.txt in the same pinned CUDA environment. External timeout <=1200 seconds; stop the Pod after securing results.\n`);
 const hashes={};
 for(const name of await readdir(out))if(name!=='data')hashes[name]=digest(await readFile(resolve(out,name)));
 for(const name of await readdir(resolve(out,'data')))hashes['data/'+name]=digest(await readFile(resolve(out,'data',name)));

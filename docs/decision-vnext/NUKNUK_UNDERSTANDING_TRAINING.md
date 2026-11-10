@@ -1585,3 +1585,54 @@ Läufe muss zuerst eine unabhängig geprüfte Anbieter-Abschaltung eingerichtet
 werden. Prozess-timeout allein genügt dafür nicht. Beim Stoppen wurde ausschliesslich
 die bereits lokal gesicherte temporäre Testumgebung verworfen; der gestoppte Pod
 bleibt ohne laufende Speicher-/GPU-Kosten im Konto.
+
+### Übergabeprüfung Mac → CUDA: vorbereiteter Vergleich
+
+`nuknuk-gpu-parity.mjs` friert sechs bekannte Diagnosefälle aus demselben geprüften
+Datensatz ein. Baseline sind die tatsächlichen gespeicherten Mac-Antworten unter
+`comparison-20261109-tiny-fit-20/previous_adapter`, mit Parent-Hash `cd0735f6...`.
+Für jeden Fall werden identischer Anfragetext, Systemanweisung, Nutzereingabe,
+Parent-Adapter und vollständige beendete Mac-Antwort geprüft. Die Fingerprints
+aller sechs Prompts und Eingaben stimmen mit dem kanonischen aktuellen Request-
+Builder überein. Die Mac-Antworten werden nicht neu erzeugt; sie sind eine
+historische, nachvollziehbare Vergleichsbasis. Kein erneutes grosses Modell auf
+dem Mac laden, um diese vorhandenen Antworten bloss zu reproduzieren.
+
+Wichtig für einen fairen Vergleich: Auf dem Mac erzwingt LLGuidance bereits das
+Ausgabeschema. Deshalb gibt auch CUDA nicht einfach frei ohne diese Begrenzung
+aus. Die Grammatik wird mit derselben installierten Version `llguidance==1.9.1`
+und denselben Einstellungen (Komma-Leerzeichen, Doppelpunkt-Leerzeichen, keine
+flexiblen Leerzeichen) auf dem Mac kompiliert und als Bestandteil des geprüften
+Dateimanifests übertragen. Die CPU-Prüfung hat alle sechs tatsächlichen Mac-
+Antworten einschliesslich Endtoken durch diese Grammatik akzeptiert. Das prüft
+die Struktur, nicht die semantische Richtigkeit der Antworten.
+
+Der Modus `nuknuk-gpu.py evaluate` lädt nur den ursprünglichen Parent, deaktiviert
+Gradientenberechnung und Checkpointing, friert sämtliche Parameter ein und erzeugt
+mit Greedy-Decoding (`do_sample=False`), deaktiviertem Thinking und maximal 2.048
+Ausgabetokens die Antworten. Keine Musterantwort oder Mac-Antwort wird in den
+GPU-Prompt aufgenommen. Die Tokenmaske beginnt erst nach dem Prompt. Antwort,
+Laufzeit, Eingabetokenanzahl und Speicher werden pro Fall gespeichert; Endtoken,
+Grammatikfehler und abgeschnittene Antworten bleiben überprüfbare Fehler.
+Ein Gewichtsdigest vor und nach allen Fällen muss identisch bleiben. Kein
+Optimizer, keine Trainingsschritte, keine Aktivierung im Produkt.
+
+Lokaler Plan: `.local/nuknuk-understanding/runpod-20261110-parity/parity-cases.json`,
+SHA-256 `c35e90935212882e8eeae808273252dd87593d0d29fa0b7334206f13a26f4877`.
+Paket: `.local/nuknuk-understanding/runpod-parity-package-v2.tar.gz`, SHA-256
+`97b89c51dbab92d90a61aad9a207de4b07e976bd97dba45dd543b81215b57ded`.
+Es enthält nur die bisherige Allowlist plus eingefrorenen Vergleichsplan.
+Bekannte Einschränkung bleibt MLX-Affine-4bit gegenüber CUDA-NF4; gleiche
+Grammatik und Anfragen machen die beiden Modellrepräsentationen nicht identisch.
+Diese sechs bekannten Fälle sind kein unabhängiger Qualitätsnachweis.
+
+Anbieterzustand bei Vorbereitung: Neustart des bereits gestoppten Pods angefordert,
+aber nach erneutem Laden weiter `Not running`; die bisherige direkte SSH-Verbindung
+wurde abgewiesen. Safari zeigte anschliessend leere Pod-/Deployment-Ansichten.
+Eine unabhängige Browseransicht konnte den normalen Login laden, verlangt jedoch
+eine neue E-Mail-Bestätigung. Deshalb noch keine CUDA-Vergleichsergebnisse melden.
+Der zusätzliche Lauf bleibt auf höchstens 40 GPU-Minuten begrenzt; zusammen mit
+dem ersten Test weniger als eine bezahlte GPU-Stunde und höchstens 5 USD.
+Die genauen Start-/Stoppbelege und tatsächlichen Antworten müssen nach dem
+erneuten Zugang ergänzt werden. Ein Prozess-timeout ersetzt weiterhin keinen
+verifizierten Anbieter-Stopp.

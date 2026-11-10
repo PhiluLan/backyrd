@@ -78,6 +78,22 @@ class GpuPreparationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'bundle_file_changed'):
                 gpu.verify_bundle(folder)
 
+    def test_grammar_consumes_each_completion_token_once_and_never_prompt(self):
+        class Matcher:
+            def __init__(self): self.tokens = []
+            def consume_token(self, token): self.tokens.append(token); return token != 99
+            def get_error(self): return None
+        matcher = Matcher()
+        cursor = gpu.consume_generated(matcher, [], 0)
+        cursor = gpu.consume_generated(matcher, [10, 11], cursor)
+        cursor = gpu.consume_generated(matcher, [10, 11], cursor)
+        cursor = gpu.consume_generated(matcher, [10, 11, 12], cursor)
+        self.assertEqual(matcher.tokens, [10, 11, 12])
+        with self.assertRaisesRegex(ValueError, 'generation_rewound'):
+            gpu.consume_generated(matcher, [], cursor)
+        with self.assertRaisesRegex(ValueError, 'grammar_rejected_token'):
+            gpu.consume_generated(matcher, [99], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

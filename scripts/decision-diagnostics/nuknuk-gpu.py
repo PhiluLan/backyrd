@@ -171,6 +171,124 @@ def load_model(folder, layers):
         "quantizationDifference": "MLX affine4bit -> CUDA NF4. Weight-delta mapping checked; behavior parity unproven."}
 
 
+def consume_generated(matcher, tokens, cursor):
+    """Consume completion tokens only, including a final EOS not seen by a callback."""
+    if len(tokens) < cursor:
+        raise ValueError("nuknuk_gpu_generation_rewound")
+    for token in tokens[cursor:]:
+        if not matcher.consume_token(token) or matcher.get_error():
+            raise ValueError("nuknuk_gpu_grammar_rejected_token")
+    return len(tokens)
+
+
+def evaluate(args):
+    """Read-only, greedy, grammar-constrained parent-adapter comparison."""
+    folder = args.bundle.resolve(strict=True)
+    host = host_check(folder)
+    manifest = verify_bundle(folder)
+    if "parity-cases.json" not in manifest["files"]:
+        raise ValueError("nuknuk_gpu_parity_plan_missing")
+    plan = json.loads((folder / "parity-cases.json").read_text())
+    if (plan["parentAdapterSha256"] != PARENT_SHA or len(plan["cases"]) != 6
+            or plan["maxOutputTokens"] != 2048 or plan["llguidanceVersion"] != "1.9.1"):
+        raise ValueError("nuknuk_gpu_parity_plan_invalid")
+    if args.output.exists() or folder == args.output.resolve() or folder in args.output.resolve().parents:
+        raise ValueError("nuknuk_gpu_output_must_be_new_outside_bundle")
+    args.output.mkdir(parents=True, mode=0o700)
+    os.environ.setdefault("HF_HOME", "/workspace/hf-cache")
+    os.environ.update(HF_HUB_DISABLE_TELEMETRY="1", WANDB_DISABLED="true", TOKENIZERS_PARALLELISM="false")
+    import numpy as np
+    import torch
+    import llguidance
+    from llguidance.hf import from_tokenizer
+    from transformers import LogitsProcessor
+    if importlib.metadata.version("llguidance") != plan["llguidanceVersion"]:
+        raise ValueError("nuknuk_gpu_grammar_version_changed")
+    started = time.monotonic()
+    model, tokenizer, boundary = load_model(folder, 1)
+    model.gradient_checkpointing_disable()
+    model.requires_grad_(False)
+    model.eval()
+    model.config.use_cache = True
+    if any(p.requires_grad for p in model.parameters()):
+        raise ValueError("nuknuk_gpu_parity_requires_frozen_parameters")
+    ll_tokenizer = from_tokenizer(tokenizer)
+
+    class GrammarMask(LogitsProcessor):
+        def __init__(self, grammar, prefix_length):
+            self.matcher = llguidance.LLMatcher(ll_tokenizer, grammar)
+            self.prefix_length, self.cursor = prefix_length, 0
+            if self.matcher.get_error():
+                raise ValueError("nuknuk_gpu_grammar_invalid")
+
+        def __call__(self, input_ids, scores):
+            if input_ids.shape[0] != 1:
+                raise ValueError("nuknuk_gpu_parity_batch_invalid")
+            self.cursor = consume_generated(self.matcher, input_ids[0, self.prefix_length:].tolist(), self.cursor)
+            mask = np.frombuffer(self.matcher.compute_logit_bias(), dtype=np.uint8) == 200
+            if len(mask) > scores.shape[-1]:
+                raise ValueError("nuknuk_gpu_grammar_vocab_mismatch")
+            allowed = torch.zeros(scores.shape[-1], dtype=torch.bool, device=scores.device)
+            allowed[:len(mask)] = torch.as_tensor(mask.copy(), device=scores.device)
+            return scores.masked_fill(~allowed[None, :], float("-inf"))
+
+    def adapter_digest():
+        digest = hashlib.sha256()
+        for name, value in sorted(model.named_parameters()):
+            if ".lora_" in name:
+                digest.update(name.encode()); digest.update(value.detach().cpu().numpy().tobytes())
+        return digest.hexdigest()
+
+    before = adapter_digest()
+    write_json(args.output / "preflight.json", {**host, **boundary,
+        "mode": "READ_ONLY_PARENT_PARITY", "planSha256": file_sha(folder / "parity-cases.json"),
+        "allParametersFrozen": not any(p.requires_grad for p in model.parameters()),
+        "llguidanceVersion": plan["llguidanceVersion"], "optimizerCreated": False,
+        "trainingExecuted": False, "grammar": "Exact Mac-compiled grammar; comma-space and colon-space, no flexible whitespace"})
+    records = []
+    for row in plan["cases"]:
+        if time.monotonic() - started > 1500:
+            raise ValueError("nuknuk_gpu_parity_deadline")
+        prefix = tokenizer.apply_chat_template(row["messages"], tokenize=True, add_generation_prompt=True,
+            enable_thinking=False, return_dict=False)
+        if not isinstance(prefix, list) or len(prefix) > 4096:
+            raise ValueError("nuknuk_gpu_parity_prefix_invalid")
+        processor = GrammarMask(row["grammar"], len(prefix))
+        ids = torch.tensor([prefix], device="cuda")
+        call_started = time.monotonic()
+        record = {"id": row["id"], "query": row["query"], "promptHash": row["promptHash"],
+            "inputHash": row["inputHash"], "schemaHash": row["schemaHash"],
+            "inputTokens": len(prefix), "raw": None, "rawText": None, "status": "FAILED"}
+        try:
+            with torch.inference_mode():
+                output = model.generate(input_ids=ids, attention_mask=torch.ones_like(ids),
+                    max_new_tokens=2048, max_time=180, do_sample=False, use_cache=True,
+                    logits_processor=[processor], pad_token_id=tokenizer.eos_token_id,
+                    eos_token_id=tokenizer.eos_token_id)
+            tokens = output[0, len(prefix):].tolist()
+            record.update(outputTokens=len(tokens), rawText=tokenizer.decode(tokens, skip_special_tokens=True))
+            processor.cursor = consume_generated(processor.matcher, tokens, processor.cursor)
+            if not tokens or tokens[-1] != tokenizer.eos_token_id or not processor.matcher.is_accepting():
+                raise ValueError("nuknuk_gpu_parity_generation_incomplete")
+            record.update(raw=json.loads(record["rawText"]), status="GENERATED_REQUIRES_SEMANTIC_REVIEW")
+        except Exception as error:
+            record["error"] = str(error)
+        record.update(durationSeconds=time.monotonic() - call_started,
+            peakCudaAllocatedGiB=torch.cuda.max_memory_allocated() / 1024 ** 3)
+        if not re.fullmatch(r"[a-z0-9-]+", row["id"]):
+            raise ValueError("nuknuk_gpu_parity_case_id_invalid")
+        write_json(args.output / (row["id"] + ".json"), record)
+        records.append({key: record[key] for key in ("id", "status", "durationSeconds")})
+        print(json.dumps(records[-1]), flush=True)
+    after = adapter_digest()
+    if before != after:
+        raise ValueError("nuknuk_gpu_parity_changed_adapter")
+    write_json(args.output / "result.json", {"status": "PARITY_GENERATION_COMPLETE_REQUIRES_REVIEW",
+        "cases": records, "adapterUnchanged": True, "adapterParameterDigest": before,
+        "trainingExecuted": False, "productionActivation": False,
+        "elapsedSeconds": time.monotonic() - started, "providerBillingStopped": False})
+
+
 def run(args):
     folder = args.bundle.resolve(strict=True)
     host = host_check(folder)
@@ -238,14 +356,17 @@ if __name__ == "__main__":
     convert = sub.add_parser("convert")
     convert.add_argument("--source", type=Path, required=True)
     convert.add_argument("--output", type=Path, required=True)
-    for command in ("check", "train"):
+    for command in ("check", "train", "evaluate"):
         cmd = sub.add_parser(command); cmd.add_argument("--bundle", type=Path, required=True)
-        if command == "train":
+        if command in ("train", "evaluate"):
             cmd.add_argument("--output", type=Path, required=True)
+        if command == "train":
             cmd.add_argument("--steps", type=int, default=2)
             cmd.add_argument("--layers", type=int, choices=[1, 4], default=1)
     args = parser.parse_args()
     if args.command == "convert":
         convert_seed(args.source, args.output)
+    elif args.command == "evaluate":
+        evaluate(args)
     else:
         run(args)
