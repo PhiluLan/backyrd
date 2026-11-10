@@ -34,9 +34,11 @@ export function family(name,domain,phenomena,rows,split='TRAIN'){
 export function materialize(spec){
  const entityKinds={...spec.entityKinds};
  for(const f of spec.facts)if(f.key==='people.relationship'&&['Eltern','Kinder','Freunde','Freundinnen','Kollegen','Team'].includes(f.value.text))for(const id of f.subjectIds)entityKinds[id]='GROUP';
- const row=makeInterpretation({...spec,entityKinds},spec);
+ // Extensions must exist at initial validation too: an honest unsupported core
+ // need must not require a fabricated executable fact to survive authoring.
+ const meaningExtensions=(spec.extensions??[]).map((description,i)=>({id:'extra'+i,description:typeof description==='string'?description:description.description,modality:typeof description==='string'?'REQUIRED':description.modality,basis:'EXPLICIT',subjectIds:['a1']}));
+ const row=makeInterpretation({...spec,entityKinds,meaningExtensions},spec);
  if(spec.uncertainties)row.content.target.meaning.uncertainties=spec.uncertainties;
- if(spec.extensions)row.content.target.meaning.extensions=spec.extensions.map((description,i)=>({id:'extra'+i,description:typeof description==='string'?description:description.description,modality:typeof description==='string'?'REQUIRED':description.modality,basis:'EXPLICIT',subjectIds:['a1']}));
  if(spec.labels)for(const e of row.content.target.meaning.entities)e.label=spec.labels[e.id]??e.label;
  validateNuknukUnderstanding(row.content.target,row.content);
  row.contentHash=contentHash(row.content);return row;

@@ -12,10 +12,10 @@ const prepared=await assemble();
 const row=id=>prepared.fresh.find(r=>r.id===id);
 const facts=id=>row(id).content.target.meaning.facts;
 test('new corpus has fixed group-separated inventories, never historical evaluation queries',()=>{
- assert.equal(prepared.fresh.length,608);assert.deepEqual(prepared.report.counts.fresh,{TRAIN:416,VALIDATION:80,TEST:112});
- assert.equal(prepared.report.counts.newScenarioGroups,88);assert.deepEqual(prepared.report.exposedQueryCollisions,[]);
+ assert.equal(prepared.fresh.length,680);assert.deepEqual(prepared.report.counts.fresh,{TRAIN:464,VALIDATION:92,TEST:124});
+ assert.equal(prepared.report.counts.newScenarioGroups,100);assert.deepEqual(prepared.report.exposedQueryCollisions,[]);
  for(const group of new Set(prepared.full.cases.map(r=>r.scenarioGroup)))assert.equal(new Set(prepared.full.cases.filter(r=>r.scenarioGroup===group).map(r=>r.split)).size,1);
- assert.equal(prepared.report.counts.balanced.TRAIN,672);
+ assert.equal(prepared.report.counts.balanced.TRAIN,720);
  assert.equal(prepared.report.counts.legacySelected,256);
 });
 test('no absent child age, invented quietness, category from specialness or passed-exam claim',()=>{
@@ -54,7 +54,7 @@ test('changed snapshot cannot inherit approval; review is explicitly assisted an
  const altered=structuredClone(prepared);altered.full.cases[0].content.query+=' changed';
  assert.throws(()=>approveSnapshot(altered,signoff),/snapshot_mismatch/);
  const approved=approveSnapshot(prepared,signoff);
- assert.equal(approved.exportData.manifest.instructionProfile,'SPOT_GROUNDED_V6');assert.equal(approved.exportData.files.train.length,672);
+ assert.equal(approved.exportData.manifest.instructionProfile,'SPOT_GROUNDED_V6');assert.equal(approved.exportData.files.train.length,720);
  assert(approved.full.cases.every(r=>r.reviews.length===2));
  const pending=materialize(trainingSpecs[0]);assert.equal(pending.reviews.length,0);assert.equal(pending.content.trainingPermission,'PENDING');
 });
@@ -65,7 +65,7 @@ test('legacy selection rejects holdout promotion and retains family caps',()=>{
  assert(legacy.filter(r=>r.content.task==='ASSESS_CANDIDATES').length<=24);
 });
 test('counterfactual exercises demonstrate evidence and equal-candidate behavior, not UUID copies',()=>{
- assert.equal(prepared.evidenceNotes.length,96);
+ assert.equal(prepared.evidenceNotes.length,120);
  for(const note of prepared.evidenceNotes.filter(n=>n.counterfactualProof)){const proof=note.counterfactualProof;assert.equal(proof.httpStatus,200);assert(proof.ranked.every(c=>(c.preferenceState==='MET')===proof.expectedPreferenceMet));
   const target=row(note.id).content.target;assert(target.assessments.every(a=>a.fit===(proof.expectedPreferenceMet?'STRONG':'POSSIBLE')));
   if(proof.ranked.length===2)assert.equal(new Set(target.assessments.map(a=>a.fit)).size,1);}
@@ -104,7 +104,7 @@ test('calendar holdout varies local boundaries; exclusions and natural uncertain
  assert.equal(facts('solid-dates-6').find(f=>f.key==='time.date').value.date,'2026-11-20');
 });
 test('assessment contrasts include unequal fits, explicit negative evidence, unknowns and order variation',()=>{
- const rich=prepared.evidenceNotes.filter(n=>n.proofs);assert.equal(rich.length,32);
+ const rich=prepared.evidenceNotes.filter(n=>n.id.startsWith('solid-evidence-contrast-'));assert.equal(rich.length,32);
  for(const n of rich){assert.equal(n.httpStatus,200);assert(n.hardEligibilityUnchanged);assert.equal(new Set(n.proofs.map(p=>p.expectedFit)).size,2);}
  for(const split of ['TRAIN','VALIDATION','TEST'])assert(prepared.fresh.filter(r=>r.split===split&&r.content.task==='ASSESS_CANDIDATES').some(r=>r.content.target.assessments.some(a=>a.fit==='WEAK')));
 });
@@ -124,5 +124,33 @@ test('semantic selection requires reviewed complete DEV, rejects TEST, stale/con
  const bad=structuredClone(records);bad[0].errorClasses=['UNSAFE_ACCESS_ASSUMPTION'];assert.throws(()=>assessReviewedDevelopment(rubric,bad),/severity_mismatch/);
  const missing=structuredClone(records);delete missing[0].errorClasses;assert.throws(()=>assessReviewedDevelopment(rubric,missing),/classes_invalid/);
  bad[0].verdict='CRITICAL_ERROR';assert(!assessReviewedDevelopment(rubric,bad).eligibleForFrozenSelection);
- const failed=structuredClone(records);failed[0].verdict='FAILED_GENERATION';failed[0].errorClasses=['FAILED_GENERATION'];assert.equal(assessReviewedDevelopment(rubric,failed).material,1);assert.equal(assessReviewedDevelopment(rubric,failed).total,80);
+ const failed=structuredClone(records);failed[0].verdict='FAILED_GENERATION';failed[0].errorClasses=['FAILED_GENERATION'];assert.equal(assessReviewedDevelopment(rubric,failed).material,1);assert.equal(assessReviewedDevelopment(rubric,failed).total,92);
+});
+test('joint user review preserves delegation, person-specific needs and honest personal-history gaps',()=>{
+ for(const id of ['solid-user-delegation-1','solid-user-delegation-4','solid-user-test-life-1'])assert.equal(row(id).content.target.moment.clarification,null);
+ for(const id of ['solid-user-delegation-6','solid-user-dev-life-7','solid-user-test-life-8'])assert(row(id).content.target.moment.clarification);
+ const pizza=row('solid-user-personal-discovery-1').content.target.meaning;
+ assert(!pizza.extensions.some(e=>/Lieblingsort|vertrauter Ort/.test(e.description)));assert(pizza.uncertainties.length);
+ assert.deepEqual(facts('solid-user-energy-6').find(f=>f.value.text==='movement').subjectIds,['p1']);
+ const quiet=row('solid-user-atmosphere-family-8').content.target.meaning;
+ assert(!quiet.facts.some(f=>f.key==='atmosphere.noise'));assert(quiet.extensions.some(e=>e.modality==='PREFERRED'&&e.description.includes('Erwachsenen')));
+ for(const id of ['solid-user-energy-1','solid-user-energy-2'])assert(!facts(id).some(f=>f.key==='participation.accessibility'||f.key==='people.mobility_aid'));
+ const prices=facts('solid-user-atmosphere-family-5').filter(f=>f.key==='budget.maximum');assert.deepEqual(prices.map(f=>[f.value.amount,f.modality]),[[35,'PREFERRED'],[40,'REQUIRED']]);
+ const choice=row('solid-user-delegation-3').content.target.meaning;
+ assert.equal(choice.logic.kind,'ANY');assert.deepEqual(choice.facts.find(f=>f.value.text==='kreativ selbst gestalten').subjectIds,['a2']);assert.deepEqual(choice.facts.find(f=>f.value.text==='cozy').subjectIds,['a1']);
+ for(const id of ['solid-nature-water-7','solid-heat-and-cold-1','solid-dev-optional-offers-4'])assert(!facts(id).some(f=>f.value.text==='adult_accompanied'));
+ for(const [id,value] of [['solid-solitude-5','course'],['solid-sport-effort-7','Wettkampf'],['solid-dev-revisions-meaning-8','course']])assert(facts(id).some(f=>f.value.text===value&&f.modality==='EXCLUDED'));
+});
+test('extension-only explicit core survives initial validation without a fabricated activity',()=>{
+ const spec={id:'synthetic-extension-check',scenarioGroup:'synthetic-extension-check',split:'TRAIN',query:'Eine Tätigkeit ohne vorausgesetzte Sportlichkeit aller.',goal:'Eigene Teilnahmeanforderung erhalten.',facts:[],extensions:['Die Teilnahme darf keine Sportlichkeit aller voraussetzen']};
+ const result=materialize(spec);assert.equal(result.content.target.meaning.facts.length,0);assert.equal(result.content.target.meaning.extensions[0].modality,'REQUIRED');
+});
+test('broader advisory exercise never turns absent personal history into public evidence',()=>{
+ const notes=prepared.evidenceNotes.filter(n=>n.id.startsWith('solid-evidence-user-'));assert.equal(notes.length,24);
+ assert.equal(new Set(notes.map(n=>row(n.id).scenarioGroup)).size,6);
+ for(const n of notes){assert.equal(n.httpStatus,200);assert(n.hardEligibilityUnchanged);assert.equal(n.personalHistorySupplied,false);
+  if(n.id.includes('personal-')){assert(n.proofs.every(p=>p.preferenceStates[0]==='UNKNOWN'));assert(row(n.id).content.target.missingKnowledge.some(s=>s.includes('Historie')||s.includes('historie')));}
+  if(n.mode==='KNOWN_TIE')assert.equal(new Set(row(n.id).content.target.assessments.map(a=>a.fit)).size,1);
+ }
+ assert.equal(prepared.report.contentRevisions.length,13);assert.equal(prepared.report.parentVersion,'backyrd.nuknuk-solid-curriculum@4');
 });

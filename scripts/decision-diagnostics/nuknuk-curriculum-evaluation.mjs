@@ -13,7 +13,7 @@ if(!['COMPACT_ADAPTER_V3','COMPACT_ADAPTER_V4','SPOT_GROUNDED_V5','SPOT_GROUNDED
 const dataset=JSON.parse(await readFile(resolve(source,'reviewed-backyrd.json')));
 if(contentHash(dataset)!==manifest.datasetHash)throw Error('curriculum_dataset_changed');
 const round5=manifest.round===5;
-const solid=['backyrd.nuknuk-solid-curriculum@1','backyrd.nuknuk-solid-curriculum@2','backyrd.nuknuk-solid-curriculum@3','backyrd.nuknuk-solid-curriculum@4'].includes(manifest.curriculumVersion);
+const solid=['backyrd.nuknuk-solid-curriculum@1','backyrd.nuknuk-solid-curriculum@2','backyrd.nuknuk-solid-curriculum@3','backyrd.nuknuk-solid-curriculum@4','backyrd.nuknuk-solid-curriculum@5'].includes(manifest.curriculumVersion);
 const selected=dataset.cases.filter(r=>(solid||r.id.startsWith(round5?'r5-':'r4-'))&&r.split!=='TRAIN');
 if(selected.length!==(solid?manifest.counts.VALIDATION+manifest.counts.TEST:round5?40:400))throw Error('curriculum_eval_inventory_changed');
 const grammarCache=new Map();const cases=[];

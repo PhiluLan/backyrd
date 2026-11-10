@@ -1,11 +1,11 @@
 // Frozen semantic expectations, not an automatic judge of natural language.
 import {contentHash} from '../../../packages/decision-vnext-core/dist/canonical.js';
 export const selectionPolicy=Object.freeze({
- version:'backyrd.nuknuk-semantic-selection@1',selectionSplit:'VALIDATION',testCanSelect:false,
+ version:'backyrd.nuknuk-semantic-selection@2',selectionSplit:'VALIDATION',testCanSelect:false,
  requiredCaseCoverage:1,maximumCriticalErrors:0,maximumMaterialErrorFraction:0.05,minimumGroupSuccessFraction:0.75,
  unresolvedSemanticReviewsAllowed:0,
  criticalClasses:['UNSAFE_ACCESS_ASSUMPTION','HARD_CONSTRAINT_INVERTED','FABRICATED_CONFIRMED_EVIDENCE'],
- materialClasses:['LOST_DUTY','INVENTED_DUTY','WRONG_PERSON_OR_AREA','LOST_LOGIC_OR_SEQUENCE','CALENDAR_OR_CURRENCY_ERROR','UNJUSTIFIED_CLARIFICATION','FAILED_GENERATION'],
+ materialClasses:['LOST_DUTY','INVENTED_DUTY','LOST_PREFERENCE','INVENTED_CONTEXT','WRONG_PERSONAL_HISTORY','WRONG_PERSON_OR_AREA','LOST_LOGIC_OR_SEQUENCE','CALENDAR_OR_CURRENCY_ERROR','UNJUSTIFIED_CLARIFICATION','FAILED_GENERATION'],
  tieBreak:['FEWER_CRITICAL','FEWER_MATERIAL','HIGHER_WORST_GROUP_SUCCESS','FEWER_REVIEW_CORRECTIONS','EARLIER_FROZEN_CHECKPOINT'],
  independentReviewRequired:true,lossCannotSelect:true,productionApproval:false,
 });
@@ -19,13 +19,13 @@ export function buildSemanticRubric(dataset){
     softAndContext:t.meaning.facts.filter(f=>!['REQUIRED','EXCLUDED'].includes(f.modality)),
     entities:t.meaning.entities,logic:t.meaning.logic,bindings:t.meaning.bindings,extensions:t.meaning.extensions,weather:t.meaning.weatherConditions,
     uncertainties:t.meaning.uncertainties,goal:t.moment.goal.statement,hypotheses:t.moment.hypotheses,missing:t.moment.missing,clarification:t.moment.clarification,
-    forbiddenAdditions:['Unstated activity, venue type, meal, diet, visit time, date, price or currency','Unproven adult accompaniment or invented participant age','Extra room/offer binding or removal of an explicit order','Converting own consumption exclusions to a ban on all venue offers'],
+    forbiddenAdditions:['Unstated activity, venue type, meal, diet, visit time, date, price or currency','Unproven adult accompaniment or invented participant age','Extra room/offer binding or removal of an explicit order','Converting own consumption exclusions to a ban on all venue offers','Personal familiarity/novelty inferred from public venue age or popularity','Medical/access assumptions from low energy or fatigue','Forced direction question when the user explicitly delegates choice or asks for both alternatives','Extending a child-only activity or adult-only quiet-area wish to every participant'],
    }:{assessments:t.assessments,missingKnowledge:t.missingKnowledge,
-    forbiddenAdditions:['Claims absent from this candidate evidence and limitations','Personal taste or availability guarantees','Different fit based solely on candidate name/order','Using hard-rejected candidates or changing eligibility/ranking']}),
+    forbiddenAdditions:['Claims absent from this candidate evidence and limitations','Personal taste or availability guarantees','Different fit based solely on candidate name/order','Using hard-rejected candidates or changing eligibility/ranking','Personal visit history derived from public Spot evidence','Low effort, fatigue suitability or recipient delight guaranteed from a single amenity']}),
    equivalentsAllowed:['Arbitrary entity/fact ID renaming with preserved references','Canonical Spot vocabulary synonyms only when equally specific','Different goal/judgment prose conveying the same claims and uncertainty','Logically equivalent AND/OR trees; no changed scope or polarity'],
    scoringNote:'Compare actual meaning, then actual matching on relevant fixtures. Text/JSON equality alone cannot certify or reject equivalence. Parser EXECUTABLE is not proof of matchability.'};
  });
- return{version:'backyrd.nuknuk-semantic-rubric@1',datasetHash:contentHash(dataset),selectionPolicy,cases,
+ return{version:'backyrd.nuknuk-semantic-rubric@2',datasetHash:contentHash(dataset),selectionPolicy,cases,
  reviewReceipt:{required:['id','contentHash','rawOutputHash','reviewer','verdict','errorClasses','rationale'],verdicts:['PASS','MATERIAL_ERROR','CRITICAL_ERROR','FAILED_GENERATION','NEEDS_REVIEW']},
  evaluationLayers:['INTERPRETATION','MATCHING_WHEN_SUPPORTED','ADVISORY_ASSESSMENT'],
  failedGenerationsStayInDenominator:true,requiresActualOutputReview:true};

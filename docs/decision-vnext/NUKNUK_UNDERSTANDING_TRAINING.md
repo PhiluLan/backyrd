@@ -2704,3 +2704,117 @@ Preflighthashes. Die Bindungen wurden beim Speichern erneut geprüft. Die Abnahm
 ist eine unabhängige Assistenzprüfung, keine menschliche Gold-Abnahme und kein
 Nachweis trainierter Modellqualität. Es wurde kein Training gestartet und keine
 Produktaktivierung vorgenommen.
+
+## Gemeinsame Produkt-, Alltags- und Learning-Prüfung (@5, 10. November 2026)
+
+Der Founder hat einen weiteren Review-Zyklus mit drei Perspektiven beauftragt:
+Astra (`gpt-6-astra`) als Learning-Spezialist, Tobi als fiktiver täglicher
+Entdecker und die Hauptassistenz als Backyrd-Produkt-/Backendreviewer. Tobi ist
+keine reale Testperson; seine Rolle ersetzt keine Nutzerforschung. Die neue
+Prüfung hat trotz des früheren @4-GO weitere konkrete Zieldefekte gefunden.
+@4 bleibt als eingefrorener historischer Snapshot erhalten; für das nächste
+Experiment ist ausschliesslich die neu gebundene @5-Abnahme massgeblich.
+
+Der Zyklus ist bewusst begrenzt: bestätigte Bestandsfehler korrigieren,
+48 unterschiedliche Interpretationen und 24 breitere Evidenzvergleiche ergänzen,
+dann am konkreten Snapshot erneut prüfen. Eine absolute Vollständigkeit aller
+möglichen menschlichen Wünsche ist kein erreichbares Abnahmekriterium. Das
+Abschlusskriterium dieser Runde sind keine offenen wesentlichen Befunde in den
+vereinbarten Dimensionen. Eine Schemafreigabe oder diese Inhaltsabnahme ist
+weiterhin kein Nachweis trainierter Modellqualität.
+
+### Inhaltliche Entscheidungen
+
+- Eine Nichte/Tochter mit Spielplatzwunsch beweist keine Erwachsenenbegleitung.
+  Drei weitere unbelegte Begleitungslabels wurden entfernt. Die ausdrückliche
+  Produktregel für gemeinsame Familienausflüge bleibt bestehen.
+- „Ohne Kurs“ und „ohne Wettkampf“ schliessen das eigene Teilnahmeformat aus;
+  sie sind nicht bloss NOT_REQUIRED und verbieten nicht sämtliche zusätzlichen
+  Angebote eines Betriebs.
+- Kreatives Selbertun und leichte eigene Bewegung bleiben als breite Pflicht
+  erhalten, während Töpfern/Spazieren bevorzugte Richtungen bleiben. Wo der
+  Matcher den breiten Kern nicht zuverlässig trägt, bleibt eine explizite
+  REQUIRED-Extension mit Capability-Grenze statt einer erfundenen engen Pflicht.
+- „Ohne verpflichtendes Frühstück“ verbietet ein obligatorisches Paket, nicht
+  ein optional angebotenes Frühstück. Die Paketregel bleibt eine ehrliche
+  Capability-Grenze.
+- Unbekannte Interessen werden nicht erneut als vermeintlich beantwortbare
+  Geschmacksfrage abgefragt. Eine Frage zur gemeinsamen/alleinigen Teilnahme
+  kann helfen; ausdrücklich delegierte Auswahl erzwingt keine Richtungsfrage.
+- „Lieblingspizza“ ist kein Beweis für ein Lieblingslokal. Persönlich unbekannt
+  ist nicht dasselbe wie unbesucht; beides ist keine öffentliche Neueröffnung.
+- Müdigkeit ist keine Behinderung. Bewegung für das Kind verpflichtet nicht
+  die Erwachsenen zum Mitspielen. Ein ruhiger Erwachsenenplatz verpflichtet
+  nicht den gesamten Spielplatz zur Stille.
+
+### Abdeckung und fachliche Grenzen
+
+| Dimension | Konkrete zusätzliche Prüfung | Grenze |
+| --- | --- | --- |
+| Delegation und Entlastung | Such du, überrasch mich, offene Auswahl | Keine ungenannten Vorlieben/Tätigkeiten erfinden |
+| Gewünschte Klärung | Explizites „frag mich“ gegenüber Delegation | Keine pauschale Pflicht oder Abschaffung von Rückfragen |
+| Gleichwertige Alternativen | Essen oder Ausstellung zuerst beide zeigen | Kein gemeinsames Pflichtprogramm daraus machen |
+| Neuheit und Vertrautheit | Bekannte Küche/neuer Ort, Stammcafé/andere Tätigkeit | Autorisierte persönliche Historie ist nicht im aktuellen Input |
+| Energie und Aufwand | Müde, wenig gehen, auspowern, Sitzpause | Keine medizinische Folgerung oder unbelegte Eignungsgarantie |
+| Familienbedürfnisse | Kind bewegen, Erwachsene sitzen/ruhig verweilen | Personen-/Bereichsscope erhalten, kein Alter erfinden |
+| Ästhetik | Licht, Aussicht, Architektur | Weder Luxus noch Beliebtheit oder Engagement ableiten |
+| Preisflexibilität | Weicher Wunsch 35 CHF, explizite Grenze 40 CHF | Kein künstlicher Ausschluss bei 35 CHF |
+| Spotbelege | Verschiedene Eigenschaften, positiv/negativ/unbekannt, Reihenfolge | Persönliche Neuheit/Vertrautheit nicht aus öffentlichen Belegen bestätigen |
+
+Die Bewertungsrubrik @2 erfasst zusätzlich verlorene Präferenzen, erfundenen
+Kontext und falsche persönliche Historie ausdrücklich als materielle Fehler.
+TEST bleibt von Trainingsdaten und Adapterauswahl getrennt. Diese synthetischen
+Holdouts teilen fachliche Bausteine und sind kein unabhängiger Feldtest.
+
+Der Authoring-Helfer validiert explizite Extensions bereits bei der ersten
+Erzeugung und legt ihre referenzierten Entitäten an. Dadurch benötigt ein nur
+als Extension darstellbarer Kern keinen erfundenen ausführbaren Fakt, um die
+lokale Datenerstellung zu überstehen. Produktvertrag, Live-Retrieval und
+Eligibility werden durch diese Offline-Hilfsänderung nicht gelockert.
+
+### Eingefrorenes Paket und Prüfung dieser Runde
+
+Aktueller Export: `.local/nuknuk-understanding/solid-curriculum-20261110-v5/`.
+Die vollständige Datenbank umfasst 2.901 Fälle. Das ausgewählte Experiment
+enthält 720 TRAIN-, 92 DEV- und 124 TEST-Fälle (936 insgesamt). Gegenüber @4
+enthält es 13 konkret protokollierte Bestandsrevisionen und 72 zusätzliche
+Fälle: 48 Interpretationen und 24 Assessments. Der Parent-Manifesthash und die
+Revisionen sind Teil der neuen Anchor-Bindung; alte Reviews können die neue
+Fassung nicht versehentlich freigeben.
+
+Tobis letzte Gegenprüfung umfasst diese 85 Änderungen. Die übrigen @4-Inhalte
+wurden kritisch gesichtet, aber nicht als vollständig neu geprüfte menschliche
+Gold-Daten ausgegeben. Zwei weitere Präzisierungen aus Astras Schlussrunde:
+Gemütlichkeit des Essenszweigs bleibt bei einer Essen/Kreativ-Alternative allein
+am Essen; die synthetische Budgetanfrage nennt nun ausdrücklich „40, mehr aber
+nicht“, damit das verbindliche Maximum nicht aus einer blossen Bereitschaft
+herausgeraten wird.
+
+Der native Offline-Preflight akzeptiert 936/936 exportierte Zeilen mit dem
+originalen Tokenizer/Template, ohne Abschneiden und mit korrekter Antwortmaske:
+maximal 3.119 Gesamttokens, 670 Antworttokens, zwei Grammatiken. Spitzen-RSS:
+719.454.208 Bytes; keine Modellgewichte geladen und kein Netz verwendet. Der
+Evaluationsplan enthält 216 getrennte DEV/TEST-Anfragen ohne Sollantworten.
+Die lokalen Gegenbeispiele überprüfen ausserdem den tatsächlichen Matcher und
+die für die Modellbewertung sichtbaren Belege. Das ersetzt keinen echten
+Modelllauf und keine unabhängige Feldstudie.
+
+Die lokalen Nachweise sind `tobi-review.json`, `review-signoff.json`,
+`independent-review.json`, `preflight.json`, `semantic-rubric.json` und
+`evidence-proofs.json`. Die Rollen und eigene Autorenschaft bleiben ausgewiesen:
+Astra hat die 13 Bestandskorrekturen und 24 Assessments verfasst; Tobi und die
+Hauptassistenz haben diese gegengeprüft. Die Hauptassistenz hat die 48 neuen
+Interpretationen verfasst; Tobi und Astra haben sie korrigiert/gegengelesen.
+Die gemeinsame Freigabe gilt dem Inhalt und begrenzten Experiment, nicht einer
+universell perfekten Trainingsdatenbank oder einem produktionsreifen Modell.
+Es wurde kein Training gestartet und kein Produktstand veröffentlicht.
+
+Astra und Tobi haben die beschriebene Runde abschliessend mit begrenztem GO
+abgenommen; keine offenen wesentlichen Datasetbefunde in diesem Scope.
+Astras Abschlussprüfung rekonstruiert sämtliche 2.901 Ziele, alle 936 Exporte,
+Rubrik und 216 Evaluationsinputs und bindet sich an den tatsächlichen Preflight.
+Die Receipt-Bindungen wurden vor dem Speichern nochmals geprüft.
+Anchor: `59d3e9c456064c46739180993459cbd73a2e2f32fd250e96c9f738ba2ea3f853`.
+Dataset: `17be538656a3335cbd101e865b2d732a078f4d07f4b9de0fd2cf7e213972db1f`.
+Das GO erlaubt fachlich das begrenzte Experiment bis 100 USD; dieser Datenauftrag
+hat keine GPU gestartet und keine zusätzlichen Trainingskosten verursacht.

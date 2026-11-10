@@ -13,7 +13,7 @@ export const family = F('people.relationship', 'adult_accompanied', 'CONTEXT', [
 export function makeInterpretation(spec, group) {
   const caseReference = spec.reference ?? reference;
   const facts = spec.facts.map((f, i) => ({ id: 'f' + (i + 1), ...f }));
-  const ids = [...new Set(facts.flatMap(f => f.subjectIds))];
+  const ids = [...new Set([...facts.flatMap(f => f.subjectIds), ...(spec.meaningExtensions ?? []).flatMap(e => e.subjectIds)])];
   for (const f of facts) if (typeof f.value.referenceEntityId === 'string' && !ids.includes(f.value.referenceEntityId)) ids.push(f.value.referenceEntityId);
   for (const [groupId, members] of Object.entries(spec.members ?? {})) for (const id of [groupId, ...members]) if (!ids.includes(id)) ids.push(id);
   const entities = ids.map(id => ({ id, kind: spec.entityKinds?.[id] ?? (id.startsWith('a') ? 'ACTIVITY' : id.startsWith('g') ? 'GROUP' : 'PERSON'),
@@ -22,7 +22,7 @@ export function makeInterpretation(spec, group) {
     meaning: { entities, facts,
       logic: spec.logic ?? (spec.choice ? { kind: 'ANY', strength: 'REQUIRED', children: spec.choice.map(index => ({ kind: 'FACT', factId: 'f' + index })) } : null),
       bindings: [...(spec.bindings ?? []), ...(spec.sequence ? [{ kind: 'SEQUENCE', factIds: spec.sequence.map(index => 'f' + index) }] : [])],
-      extensions: [], uncertainties: [], weatherConditions: spec.weather ?? [] },
+      extensions: spec.meaningExtensions ?? [], uncertainties: [], weatherConditions: spec.weather ?? [] },
     moment: { goal: { statement: spec.goal, evidence: [{ quote: spec.query }] }, hypotheses: spec.hypotheses ?? [],
       missing: spec.missing ?? [], clarification: spec.question ?? null },
   };

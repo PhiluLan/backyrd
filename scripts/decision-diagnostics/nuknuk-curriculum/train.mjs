@@ -40,14 +40,14 @@ add('transitions','occasion',['achievement','companions','no-invention'],[
  W('Eine kleine Auszeit vor meinem ersten Arbeitstag, schwimmen wäre gut.','Schwimmen als bevorzugte Richtung, keine Uhrzeit erfunden.',[P('experience.activity','swimming'),C('experience.purpose','Auszeit vor erstem Arbeitstag')]),
  W('Nach dem Umzug möchten wir gemütlich Pizza essen und uns nicht schick machen müssen.','Pizza gemütlich und ungezwungen, kein Dresscodezwang ableiten.',[dish('Pizza'),P('atmosphere.character','cozy'),C('experience.purpose','nach dem Umzug ohne sich schick machen zu müssen')]),
  W('Ich möchte meinen Studienabschluss mit einem Kochkurs feiern.','Kochkurs als konkret gewünschtes Abschluss-Erlebnis.',[A('Kochkurs'),C('experience.occasion','Studienabschluss')]),
- W('Zum Abschied einer Freundin etwas Besonderes, aber ich kenne ihre Interessen nicht.','Abschied und Besonderheitswunsch; Richtung offen.',[person('Freundin'),C('experience.occasion','Abschied'),P('experience.character','besonders')],clarification('RECIPIENT_TASTE','Welche Richtung würde ihr Freude machen?',['Gemeinsam essen','Etwas gestalten','Etwas entdecken'],'Die Interessen der Freundin sind unbekannt.')),
+ W('Zum Abschied einer Freundin etwas Besonderes, aber ich kenne ihre Interessen nicht.','Abschied und Besonderheitswunsch; gemeinsame Teilnahme oder Geschenk noch offen.',[person('Freundin'),C('experience.occasion','Abschied'),P('experience.character','besonders')],{...clarification('OTHER','Möchtest du etwas mit ihr zusammen unternehmen oder ihr ein Erlebnis schenken?',['Gemeinsam unternehmen','Ein Erlebnis für sie allein'],'Unklar ist, ob eine gemeinsame Unternehmung oder ein Erlebnis für die Freundin allein gesucht wird.'),uncertainties:[{description:'Die Interessen der Freundin sind ausdrücklich unbekannt.',relatedIds:['p1']}]}),
 ]);
 add('solitude','atmosphere',['alone','quiet','modality'],[
  W('Allein frühstücken, WLAN wäre praktisch, muss aber nicht.','Frühstück allein, WLAN nur bevorzugt.',[M('breakfast'),C('people.relationship','alone'),P('offer.feature','WLAN')]),
  W('Ich brauche beim Kaffee unbedingt Ruhe; allein sein heisst nicht allein im Lokal.','Ruhe ist Pflicht, keine private Nutzung.',[D('coffee'),R('atmosphere.noise','quiet'),C('people.relationship','alone'),O('atmosphere.privacy','private Nutzung')]),
  W('Mit dem Laptop arbeiten und einen Tee trinken, einen Tisch zum Arbeiten brauche ich.','Arbeiten und Tee mit erforderlichem Arbeitsplatz.',[A('coworking'),D('Tee',['a2']),R('offer.feature','Arbeitsplatz')],{bindings:[same(1,2)]}),
  W('Zum Lesen ein Café, gemütlich reicht mir, es muss nicht ganz still sein.','Café mit Gemütlichkeit, keine zusätzliche Ruhepflicht.',[R('offer.kind','CAFE'),P('atmosphere.character','cozy'),C('experience.purpose','lesen'),O('atmosphere.noise','quiet')]),
- W('Nach Feierabend allein eine Runde Minigolf spielen, ohne Kurs.','Minigolf allein; Kurs nicht voraussetzen.',[A('Minigolf'),C('people.relationship','alone'),C('experience.occasion','nach Feierabend'),O('experience.activity','course')]),
+ W('Nach Feierabend allein eine Runde Minigolf spielen, ohne Kurs.','Minigolf allein; Kursformat für die eigene Teilnahme ausgeschlossen.',[A('Minigolf'),C('people.relationship','alone'),C('experience.occasion','nach Feierabend'),X('experience.activity','course')]),
  W('Ich will Kaffee und Menschen um mich haben, aber niemanden mitbringen müssen.','Kaffee mit geselliger Atmosphäre, keine Begleitperson voraussetzen.',[D('coffee'),P('atmosphere.character','gesellig'),C('people.relationship','alone')]),
  W('Eine halbe Stunde Zeit für Tee und abschalten.','Tee mit maximal dreissig Minuten Besuchszeit.',[D('Tee'),duration(30),C('experience.purpose','abschalten')]),
  W('In Ruhe etwas essen wäre schön, das Essen selbst ist Pflicht, die Stille nicht.','Essen Pflicht und Ruhe nur Wunsch.',[M(),P('atmosphere.noise','quiet')]),
@@ -193,7 +193,7 @@ add('rain-choice','weather',['context-vs-obligation','conditional','no-forecast'
  W('Ein wetterunabhängiger Workshop, ob draussen oder drinnen ist nicht vorgegeben.','Workshop und geforderte Wettertauglichkeit, kein Bereich erfinden.',[A('Workshop'),R('offer.weather_suitability','wetterunabhängig')]),
 ]);
 add('heat-and-cold','weather',['shade','temperature','no-invention'],[
- W('Bei der Hitze ein Spielplatz mit Schatten, meine Tochter ist sechs.','Spielplatz mit Schatten und genanntem Alter, keine Temperaturzahl.',[A('playground'),R('offer.shade','shade'),person('Tochter'),age(6),accompanied()]),
+ W('Bei der Hitze ein Spielplatz mit Schatten, meine Tochter ist sechs.','Spielplatz mit Schatten und genanntem Alter, keine Temperaturzahl oder ungenannte Begleitung.',[A('playground'),R('offer.shade','shade'),person('Tochter'),age(6)]),
  W('Es ist kalt, ich möchte einen Tee im Innenraum trinken.','Expliziter Innenbereich beim Tee.',[D('Tee'),R('offer.area','indoor')],{weather:[{id:'w1',role:'CONTEXT',state:'COLD',basis:'EXPLICIT',subjectIds:[],detail:null}]}),
  W('Wenn es sonnig ist will ich draussen essen, sonst ist der Bereich egal.','Outdoorpflicht nur im Sonnenzweig.',[M(),R('offer.area','outdoor')],{weather:[{id:'w1',role:'CONDITIONAL',state:'SUN',basis:'EXPLICIT',subjectIds:[],detail:null}],logic:all(1,{kind:'IF',conditionFactId:'w1',then:{kind:'FACT',factId:'f2'},else:null})}),
  W('Zum Schwimmen hätte ich gern warmes Wasser, eine Gradzahl weiss ich nicht.','Schwimmen mit qualitativer Temperaturpräferenz.',[A('swimming'),P('offer.temperature','warmes Wasser')]),
@@ -329,7 +329,7 @@ add('logic','logic',['and-or','optional','cross-binding'],[
  W('Kaffee und Kuchen müssen gehen, WLAN kann vorhanden sein, ist aber egal.','Beide Konsumbedarfe, WLAN nicht erforderlich.',[D('coffee'),dish('Kuchen'),O('offer.feature','WLAN')]),
  W('Für die Familie ein Spielplatz oder Minigolf, aber beides draussen.','Outdoorpflicht gilt für beide alternativen Familienaktivitäten.',[A('playground'),A('Minigolf'),R('offer.area','outdoor'),accompanied()],{logic:all(any(1,2),3)}),
  W('Eine Ausstellung und ein Snack am gleichen Ort; ein Kaffee wäre zusätzlich schön.','Ausstellung und Snacks Pflicht, Kaffee bevorzugt.',[A('Ausstellung besuchen'),M('snacks',['a2']),P('food.drink','coffee',['a2'])],{bindings:[same(1,2),same(1,3)]}),
- W('Tee oder Kaffee genügt, Kuchen ist ausdrücklich optional und nicht gewünscht.','Getränkealternative, kein positiver Kuchenbonus.',[D('Tee'),D('coffee'),O('food.dish','Kuchen')],{logic:any(1,2)}),
+ W('Tee oder Kaffee genügt, Kuchen wäre ein optionaler Bonus.','Getränkealternative mit optionalem Kuchenbonus.',[D('Tee'),D('coffee'),P('food.dish','Kuchen')],{logic:any(1,2)}),
  W('Bowling muss es sein, ob wir dort auch essen können ist egal.','Bowling Pflicht, kein Essensangebot voraussetzen.',[A('Bowling'),O('food.meal','meal',['a2'])]),
 ]);
 add('self-correction','revision',['revocation','latest-wish','negation'],[
@@ -356,7 +356,7 @@ add('culture','culture',['interest','visit-vs-course','no-profile-inference'],[
  W('Ein Kunstmuseum mit meiner Freundin, ihre Vorliebe ist ausdrücklich Kunst.','Kunstmuseum als konkretes Interesse, keine zusätzliche Romantik.',[R('offer.kind','MUSEUM'),R('offer.feature','Kunst'),person('Freundin')]),
  W('Eine Ausstellung anschauen, Führung wäre nett, muss aber nicht.','Ausstellung Pflicht, Führung nur bevorzugt.',[A('Ausstellung besuchen'),P('participation.format','guided')]),
  W('Ins Kino, Genre egal, wir sind drei Personen.','Kino für drei ohne Filmgenre erfinden.',[R('offer.kind','CINEMA'),count(3)]),
- W('Etwas Kreatives selber machen, am liebsten töpfern.','Kreatives Ziel mit bevorzugter konkreter Tätigkeit.',[P('experience.activity','Töpfern'),C('experience.purpose','selbst kreativ werden')]),
+ W('Etwas Kreatives selber machen, am liebsten töpfern.','Selbst kreativ tätig werden ist der Auftrag; Töpfern bleibt die bevorzugte konkrete Richtung.',[P('experience.activity','Töpfern'),C('experience.purpose','selbst kreativ werden')],{extensions:['Die eigene Teilnahme muss eine selbst ausgeübte kreative Tätigkeit sein'],capability:true}),
  W('Mit meinen Eltern ins Theater, den Stil haben sie nicht genannt.','Theater nach konkretem Wunsch, keine Geschmacksannahme.',[A('Theaterbesuch'),person('Eltern')]),
  W('Eine Lesung besuchen und dort einen Tee bekommen können.','Lesung und Tee als eigenständige Angebote am selben Ort.',[A('Lesung'),D('Tee',['a2'])],{bindings:[same(1,2)]}),
  W('Ein Museum für mich allein, der Eintritt darf höchstens 20 Franken kosten.','Museum mit Eintrittsgrenze, kein Exklusivbesuch.',[R('offer.kind','MUSEUM'),C('people.relationship','alone'),cash(20),C('budget.coverage','nur Eintritt')]),
@@ -366,10 +366,10 @@ add('sport-effort','sport',['activity','challenge','no-fitness-inference'],[
  W('Mit Freunden Badminton spielen, wir sind vier.','Badminton und explizite Vierergruppe.',[A('Badminton'),person('Freunde'),count(4)]),
  W('Heute bouldern, gern eine Herausforderung, nicht nur zuschauen.','Bouldern aktiv mit herausforderndem Wunsch.',[A('Bouldern'),date('2026-11-12'),P('experience.character','herausfordernd'),C('people.participation','aktiv')]),
  W('Mein Freund spielt Tennis, ich komme nur zum Zuschauen mit.','Tennis für Freund, eigene Rolle zuschauend.',[A('Tennis',['a1']),person('Freund','p1'),C('people.participation','aktiv',['p1']),C('people.role','self',['p2']),C('people.participation','zuschauend',['p2']),C('people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},['gVisit']),R('people.count',{amount:1,operator:'EQ',unit:'PEOPLE'},['gPlayers'])],{members:{gVisit:['p1','p2'],gPlayers:['p1']}}),
- W('Eine leichte Bewegung draussen, spazieren würde mir gefallen.','Leichter Bewegungswunsch und Spazierpräferenz, keine Fitnesszahl.',[P('experience.activity','walk'),R('offer.area','outdoor'),C('people.experience','leichte Bewegung gewünscht')]),
+ W('Eine leichte Bewegung draussen, spazieren würde mir gefallen.','Leichte eigene Bewegung draussen ist der Auftrag; Spazieren bleibt bevorzugt, keine Fitnesszahl.',[P('experience.activity','walk'),R('offer.area','outdoor'),C('people.experience','leichte Bewegung gewünscht')],{extensions:['Die eigene Tätigkeit muss leichte körperliche Bewegung sein'],capability:true}),
  W('Schwimmen zum Sport, keine Wellnessbehandlung gesucht.','Schwimmen, keine zusätzliche Behandlung voraussetzen.',[A('swimming'),O('offer.treatment','Wellnessbehandlung')]),
  W('Ein Tischtennisangebot drinnen, die Ausrüstung bringen wir selbst mit.','Indoor-Tischtennis ohne Ausleihebedarf.',[A('table_tennis'),R('offer.area','indoor'),O('offer.service','Ausrüstung ausleihen')]),
- W('Eine Runde Minigolf ohne Wettkampf, einfach gemeinsam spielen.','Minigolf, Wettbewerb nicht notwendig.',[A('Minigolf'),O('atmosphere.competition','Wettkampf'),C('experience.purpose','gemeinsam spielen')]),
+ W('Eine Runde Minigolf ohne Wettkampf, einfach gemeinsam spielen.','Gemeinsam Minigolf spielen; Wettkampf als eigenes Teilnahmeformat ausgeschlossen.',[A('Minigolf'),X('atmosphere.competition','Wettkampf'),C('experience.purpose','gemeinsam spielen')],{capability:true}),
  W('Ich will Klettern lernen, dafür brauche ich eine angeleitete Einführung.','Klettern mit verpflichtender Anleitung.',[A('Klettern'),R('participation.format','angeleitete Einführung'),C('people.experience','lernen')]),
 ]);
 add('nature-water','nature',['animals','bathing','season'],[
@@ -379,7 +379,7 @@ add('nature-water','nature',['animals','bathing','season'],[
  W('Im November ein Gartenbad zum Schwimmen, falls es dann tatsächlich geöffnet ist.','Saisonbedarf erhalten; Öffnung muss geprüft, nicht behauptet werden.',[A('swimming'),R('offer.kind','Gartenbad'),C('experience.purpose','im November nur bei bestätigter Öffnung')]),
  W('Am Rhein sitzen und ein mitgebrachtes Picknick essen dürfen.','Rheinlage und Erlaubnis eigener Speisen.',[R('location.waterbody','Rhein'),R('participation.permission','own_food'),C('experience.purpose','am Rhein sitzen und picknicken')]),
  W('Natur draussen erleben, aber bitte kein erfundener Wanderweg aus dem Modellgedächtnis.','Naturziel outdoor ohne erfundene konkrete Route.',[R('location.setting','Natur'),R('offer.area','outdoor'),C('experience.purpose','Natur erleben')]),
- W('Meine Nichte möchte auf einen Spielplatz, nicht einfach Tiere im Park anschauen.','Konkreter Spielplatz statt Ersatz durch Tieraktivität.',[A('playground'),person('Nichte'),accompanied(),O('experience.activity','animals')]),
+ W('Meine Nichte möchte auf einen Spielplatz, nicht einfach Tiere im Park anschauen.','Konkreter Spielplatz statt Ersatz durch Tieraktivität; Begleitung nicht genannt.',[A('playground'),person('Nichte'),O('experience.activity','animals')]),
  W('Ein Bad mit warmem Wasser wäre mir lieber als sportlich Bahnen zu ziehen.','Baden mit Wärmepräferenz, kein Sportschwimmzwang.',[A('bathing'),P('offer.temperature','warmes Wasser'),O('experience.activity','swimming')]),
 ]);
 add('group-taste','social',['individual-needs','group-size','unknown-taste'],[

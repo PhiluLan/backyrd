@@ -18,9 +18,11 @@ import {contrastSpecs} from './contrasts.mjs';
 import {varyReference} from './references.mjs';
 import {reviseLegacy} from './legacy-revisions.mjs';
 import {contrastEvidenceCases} from './evidence-contrasts.mjs';
+import {userReviewSpecs} from './user-review.mjs';
+import {userReviewEvidenceCases} from './evidence-user-review.mjs';
 import {buildSemanticRubric} from './rubric.mjs';
 
-export const VERSION='backyrd.nuknuk-solid-curriculum@4';
+export const VERSION='backyrd.nuknuk-solid-curriculum@5';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 const local=resolve(root,'.local/nuknuk-understanding');
 const readJson=async p=>JSON.parse(await readFile(p,'utf8'));
@@ -47,11 +49,17 @@ export async function assemble(){
  if(previous.cases.some(c=>c.blockers.length))throw Error('legacy_review_incomplete');
  const revised=reviseLegacy(legacy.cases);
  const revisedLegacy={...legacy,cases:revised.cases};
- const specs=[...[...trainingSpecs,...developmentSpecs,...holdoutSpecs].map(varyReference),...contrastSpecs];
- const evidence=[...await evidenceCases(),...await contrastEvidenceCases()];
+ const specs=[...[...trainingSpecs,...developmentSpecs,...holdoutSpecs].map(varyReference),...contrastSpecs,...userReviewSpecs];
+ const evidence=[...await evidenceCases(),...await contrastEvidenceCases(),...await userReviewEvidenceCases()];
  const fresh=[...specs.map(materialize),...evidence.map(e=>e.row)];
- if(fresh.length!==608)throw Error('fresh_inventory_changed');
+ if(fresh.length!==680)throw Error('fresh_inventory_changed');
  const full=dataset([...revised.cases,...fresh]);
+ const parent=await readJson(resolve(local,'solid-curriculum-20261110-v4/database.json'));
+ const parentManifest=await readJson(resolve(local,'solid-curriculum-20261110-v4/manifest.json'));
+ if(contentHash(parent)!==parentManifest.fullDatabaseHash)throw Error('frozen_parent_changed');
+ const semanticContent=row=>{const {trainingPermission,...content}=row.content;return contentHash(content);};
+ const previousById=new Map(parent.cases.map(row=>[row.id,row]));
+ const contentRevisions=full.cases.filter(row=>previousById.has(row.id)&&semanticContent(previousById.get(row.id))!==semanticContent(row)).map(row=>({id:row.id,split:row.split,previousContentHash:previousById.get(row.id).contentHash,proposedContentHash:row.contentHash}));
  const audit=auditUnderstandingDataset(full,understandingSplitHash(full.splitPlan));
  // Read only old evaluation queries for collision detection, never their targets.
  const historical=new Set(),historicalSources=[];
@@ -66,16 +74,16 @@ export async function assemble(){
  const selectedLegacy=selectLegacy(revised.cases);
  const balanced=dataset([...selectedLegacy,...fresh]);
  const probes=matchingProbes();
- const sources={};for(const file of ['authoring.mjs','train.mjs','development.mjs','holdout.mjs','evidence.mjs','probes.mjs','build.mjs','references.mjs','contrasts.mjs','legacy-revisions.mjs','evidence-contrasts.mjs','rubric.mjs','preflight.py','curriculum.test.mjs','../../../packages/decision-vnext-core/src/nuknuk-understanding.ts','../../../packages/decision-vnext-core/src/nuknuk-understanding-learning.ts','../nuknuk-pilot-authoring.mjs','../nuknuk-pilot-cohort.mjs','../nuknuk-curriculum-evaluation.mjs'])sources[file]=contentHash(await readFile(new URL(file,import.meta.url),'utf8'));
+ const sources={};for(const file of ['authoring.mjs','train.mjs','development.mjs','holdout.mjs','evidence.mjs','probes.mjs','build.mjs','references.mjs','contrasts.mjs','legacy-revisions.mjs','evidence-contrasts.mjs','user-review.mjs','evidence-user-review.mjs','rubric.mjs','preflight.py','curriculum.test.mjs','../../../packages/decision-vnext-core/src/nuknuk-understanding.ts','../../../packages/decision-vnext-core/src/nuknuk-understanding-learning.ts','../nuknuk-pilot-authoring.mjs','../nuknuk-pilot-cohort.mjs','../nuknuk-curriculum-evaluation.mjs'])sources[file]=contentHash(await readFile(new URL(file,import.meta.url),'utf8'));
  const anchor={version:VERSION,rawDatabaseHash:contentHash(full),splitPlanHash:understandingSplitHash(full.splitPlan),vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,
-  acceptedLegacyHash:contentHash(legacy),revisedLegacyHash:contentHash(revisedLegacy),revisionLedgerHash:contentHash(revised.ledger),selectedLegacyIdsHash:contentHash(selectedLegacy.map(r=>r.id)),sourcesHash:contentHash(sources),historicalSourcesHash:contentHash(historicalSources)};
+  acceptedLegacyHash:contentHash(legacy),revisedLegacyHash:contentHash(revisedLegacy),revisionLedgerHash:contentHash(revised.ledger),selectedLegacyIdsHash:contentHash(selectedLegacy.map(r=>r.id)),sourcesHash:contentHash(sources),historicalSourcesHash:contentHash(historicalSources),parentManifestHash:contentHash(parentManifest),contentRevisionsHash:contentHash(contentRevisions)};
  const coverage=specs.map(s=>{const row=fresh.find(r=>r.id===s.id),v=validateNuknukUnderstanding(row.content.target,row.content);return{id:s.id,split:s.split,domain:s.domain,phenomena:s.phenomena,
   modalityCounts:frequencies(row.content.target.meaning.facts.map(f=>f.modality)),declaredCapabilityBoundary:!!s.capability,requestState:v.requestState,capabilityGaps:v.capabilityGaps};});
  const report={version:VERSION,anchor,counts:{database:counts(full.cases),fresh:counts(fresh),balanced:counts(balanced.cases),legacySelected:selectedLegacy.length,
   interpretation:specs.length,assessment:evidence.length,newScenarioGroups:new Set(fresh.map(r=>r.scenarioGroup)).size},
   domains:frequencies(specs.map(s=>s.domain)),phenomena:frequencies(specs.flatMap(s=>s.phenomena)),capabilityBoundaries:coverage.filter(r=>r.declaredCapabilityBoundary||r.requestState==='UNSUPPORTED_CAPABILITY'),
-  legacyRevisions:revised.ledger,selectedLegacyIds:selectedLegacy.map(r=>r.id),historicalSources,exposedQueryCollisions:collisions,sources,
-  limitations:['SAME_AUTHOR_REVIEW_NOT_INDEPENDENT_GOLD','COMPOSITIONAL_HOLDOUT_SHARES_PRIMITIVES_WITH_TRAIN','NO_MODEL_OUTPUTS_EVALUATED','UNKNOWN_PHRASES_MAY_REQUIRE_NEW_SPOT_ALIASES','PROVIDER_LUNA_PREFERENCE_GUARD_NOT_TESTED_BY_INJECTED_UNDERSTANDING','NO_PRODUCTION_OR_GPU_OPERATIONS'],
+  legacyRevisions:revised.ledger,contentRevisions,parentVersion:parentManifest.curriculumVersion,selectedLegacyIds:selectedLegacy.map(r=>r.id),historicalSources,exposedQueryCollisions:collisions,sources,
+  limitations:['MULTI_ASSISTANT_SYNTHETIC_REVIEW_NOT_HUMAN_GOLD','COMPOSITIONAL_HOLDOUT_SHARES_PRIMITIVES_WITH_TRAIN','NO_MODEL_OUTPUTS_EVALUATED','UNKNOWN_PHRASES_MAY_REQUIRE_NEW_SPOT_ALIASES','PROVIDER_LUNA_PREFERENCE_GUARD_NOT_TESTED_BY_INJECTED_UNDERSTANDING','NO_PRODUCTION_OR_GPU_OPERATIONS'],
   structuralAuditBlockers:frequencies(audit.cases.flatMap(r=>r.blockers)),matchingProbes:probes,
   operationalFindings:[{code:'LUNA_SOFT_PREFERENCE_GUARD',status:'OPEN',detail:'The separate Luna provider rejects some faithfully soft wishes such as wäre mir lieb. Evidence exercises inject validated meaning and do not prove this provider path.'},
    {code:'PARSEABLE_IS_NOT_PROVEN_EXECUTABLE',status:'OPEN',detail:'Some explicit needs (assistance dogs, travel/return time and area-specific pet access) parse as EXECUTABLE but have not been proved against complete matching evidence. Declared capability boundaries remain separate from parser state.'},
@@ -96,7 +104,7 @@ export function approveSnapshot(prepared,signoff){
   return{...row,content,contentHash:hash,reviews:['SEMANTICS','PRIVACY_AND_SOURCE_USE'].map(kind=>({kind,verdict:'ACCEPT',contentHash:hash,
    reviewer:'codex-commissioned-solid-curriculum-20261110',reviewerKind:'DELEGATED_ASSISTANT',delegationHash,reviewedAt:signoff.reviewedAt,
    ...(kind==='SEMANTICS'?{vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH}:{}),
-   note:kind==='SEMANTICS'?'Commissioned assistant content review of the frozen authored sentence and target, modality, individual/activity scope, logic, time/budget, uncertainty and capability boundaries. Revision after independent Astra review; final recheck recorded separately, not human gold.':'Synthetic authored sentences and fictional evidence worlds only; no accounts, private profiles, keys or live spot records. Local data preparation commissioned by founder; no third-party transfer performed.'}))};
+   note:kind==='SEMANTICS'?'Commissioned assistant content review of the frozen authored sentence and target, modality, individual/activity scope, logic, time/budget, uncertainty and capability boundaries. Revision after collaborative Astra/Tobi/product review; scoped final rechecks recorded separately, not human gold.':'Synthetic authored sentences and fictional evidence worlds only; no accounts, private profiles, keys or live spot records. Local data preparation commissioned by founder; no third-party transfer performed.'}))};
  };
  const full=dataset(prepared.full.cases.map(approve)),balanced=dataset(prepared.balanced.cases.map(approve));
  const exportData=exportUnderstandingDataset(balanced,understandingSplitHash(balanced.splitPlan),'SPOT_GROUNDED_V6');
