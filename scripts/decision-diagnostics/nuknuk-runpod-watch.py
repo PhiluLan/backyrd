@@ -71,9 +71,38 @@ def budget_deadline(started, prior_usd, hourly_usd, ceiling_usd, reserve_usd):
         raise ValueError('runpod_budget_exhausted')
     return started + available / hourly_usd * 3600
 
+def validate_pod_snapshot(pod):
+    """Only explicit running or fully stopped snapshots are actionable evidence."""
+    if not isinstance(pod, dict) or not re.fullmatch('[a-z0-9]{8,30}', str(pod.get('id', ''))):
+        raise ValueError('runpod_status_identity_unknown')
+    if pod.get('desiredStatus') not in ('RUNNING', 'EXITED') or 'runtime' not in pod:
+        raise ValueError('runpod_status_unknown')
+    raw_rate = pod.get('costPerHr')
+    if isinstance(raw_rate, bool):
+        raise ValueError('runpod_status_rate_unknown')
+    try:
+        rate = float(raw_rate)
+    except (TypeError, ValueError):
+        raise ValueError('runpod_status_rate_unknown') from None
+    if not math.isfinite(rate) or rate <= 0:
+        raise ValueError('runpod_status_rate_unknown')
+    runtime = pod['runtime']
+    if pod['desiredStatus'] == 'EXITED':
+        if runtime is not None:
+            raise ValueError('runpod_stopped_runtime_unconfirmed')
+        return False, rate
+    if not isinstance(runtime, dict):
+        raise ValueError('runpod_running_runtime_unknown')
+    uptime = runtime.get('uptimeInSeconds')
+    if isinstance(uptime, bool) or not isinstance(uptime, (int, float)) or not math.isfinite(uptime) or uptime < 0:
+        raise ValueError('runpod_running_uptime_unknown')
+    return True, rate
+
 def watch(args):
     if not re.fullmatch('[a-z0-9]{8,30}', args.pod):
         raise ValueError('runpod_pod_id_invalid')
+    if not math.isfinite(args.deadline):
+        raise ValueError('runpod_deadline_invalid')
     deadline = min(args.deadline, budget_deadline(args.started, args.prior_usd, args.hourly_usd, args.ceiling_usd, args.reserve_usd))
     if args.log.exists():
         raise ValueError('runpod_watch_log_exists')
@@ -91,14 +120,16 @@ def watch(args):
                 pods = status(args.key_file)
                 pod = next((p for p in pods if p['id']==args.pod),None)
                 if not pod:
-                    record('POD_ABSENT_REQUIRES_BILLING_REVIEW');return
-                running = pod['desiredStatus']=='RUNNING'
-                rate = float(pod.get('costPerHr') or 0)
-                if not running and not pod.get('runtime'):
+                    raise ValueError('runpod_pod_absent_stop_unconfirmed')
+                running, rate = validate_pod_snapshot(pod)
+                if not running:
                     record('STOP_CONFIRMED',desiredStatus=pod['desiredStatus'],quotedHourlyUsd=rate);return
                 # Unexpected running Pods consume the same account budget; stop
                 # our allowlisted training Pod, never somebody else's resource.
-                other_running=[p['id'] for p in pods if p['id']!=args.pod and p['desiredStatus']=='RUNNING']
+                other_running=[]
+                for other in pods:
+                    if other['id'] != args.pod and validate_pod_snapshot(other)[0]:
+                        other_running.append(other['id'])
                 if other_running or rate > args.hourly_usd or time.time() >= deadline or args.stop_file.exists():
                     stopping=True
                 if stopping:

@@ -3210,3 +3210,53 @@ stattdessen einen technischen Ausfall. Echte Modelloutputs wurden nicht bewertet
 Verbleibende synthetische Überschneidungen und teilweise beschreibende
 Astra-Lernortnamen sind im unabhängigen Receipt ausdrücklich festgehalten;
 Namens-/Reihenfolgeinvarianz der neuen Vorschlagsaufgabe ist noch nicht bewiesen.
+
+#### Explizit beauftragter erster @7-Lernpilot
+
+Der Founder hat anschliessend den Learning-Start innerhalb der insgesamt
+200 USD beauftragt und den bestehenden Trainingswächterschlüssel für diesen
+Lauf ausdrücklich vorübergehend reaktiviert. Der erste Pilot bleibt auf
+20 USD einschliesslich Start, Transfer, eventueller Migration, Modellladen,
+Training, Auswertung, Sicherung und Abschaltung begrenzt. Die Obergrenze
+des Gesamtrahmens wird dadurch nicht zum Ausgabenziel.
+
+`V7_TASK_BALANCED_PILOT_V1` ist ein ausdrücklicher Opt-in des vorhandenen
+GPU-Runners: frischer Zero-Delta-LoRA mit zufälligem A und nullwertigem B,
+210 Updates mit homogenen Zweierbatches, Lernrate 2e-5, Seed 7, Rank 8,
+Alpha 16, ohne Dropout. Der feste Taskzyklus gewichtet Interpretation,
+Kandidatenbewertung, Suchplanung und Vorschlag mit 40/20/20/20 Prozent
+der Updates. Es werden 420 unterschiedliche TRAIN-Zeilen präsentiert;
+DEV und TEST erhalten keine Gradienten. Normale HF-Completion-Loss bleibt
+aktiv. Der separate Zwei-Schritt-Smoke wird verworfen. Checkpoints bei
+70 und 140 dienen der Sicherung; das vorab festgelegte Pilotziel ist 210.
+
+Die neue SSH-stdin-Session benutzt denselben nativen Loader und dieselbe
+Grammatikgenerierung wie die Phasenprüfung. Sie öffnet keinen Inferenzport.
+Der tatsächliche Zero-Delta-Adapter wird gespeichert und gehasht; restaurierte
+Adapter benötigen einen exakten SHA. Die Auswertung führt tatsächliche
+Modellantworten durch den vorhandenen Bibliothekar weiter. Sie bindet alle
+Eingaben an das geprüfte @7-Manifest und den unabhängigen Review-Receipt.
+
+Für den frühen technischen Pilot sind vier einzelne DEV-Aufgaben und sechs
+DEV-Gesamtketten vorab festgelegt (höchstens 22 Aufrufe pro Arm). Dieselben
+Eingaben laufen mit frischem Ausgangsmodell, neuem Pilotadapter und dem
+unveränderten vorherigen Adapter. Diese Stichprobe ist ein Frühsignal,
+keine Qualitätsfreigabe. Eine solche verlangt weiterhin alle 146 DEV-Phasen,
+acht DEV-Kontrollen und 18 tatsächliche DEV-Gesamtketten. Explizites
+Delegieren ist unter den 18 neuen DEV-Gesamtketten nicht vertreten; diese
+Abdeckungslücke bleibt im Ergebnisbericht sichtbar. TEST bleibt geschlossen.
+
+Der Kostenwächter stoppt ausschliesslich den gebundenen eigenen Pod bei
+unbekanntem Status, fehlenden oder ungültigen Raten und Runtime-Daten,
+Verbindungsverlust oder Festdeadline. Nur EXITED mit runtime:null bestätigt
+den Shutdown. Zusätzlich repliziert der vorhandene Sync Antworten, Fehler
+und abgeschlossene Adapter laufend; Fehler setzen ein gemeinsames Stopfile,
+ein lokaler Supervisor prüft den frischen Erfolgs-Heartbeat. Der podweite
+GPU_JOB_LOCK verhindert konkurrierende Modellprozesse. Lokale und serverseitige
+Abschaltfristen beginnen vor dem ersten Startversuch und werden durch
+Migration nicht verlängert. Ein Prozess-Timeout allein stoppt keine Rechnung.
+
+Der aktuelle operative Zustand und der Fortsetzungsplan liegen lokal unter
+`.local/nuknuk-understanding/runpod-20261110-solid-v7-pilot/`. Dieser Abschnitt
+beschreibt das vorbereitete Verfahren und behauptet keinen erfolgreichen
+CUDA-Lauf, Lernfortschritt oder Produktstart.

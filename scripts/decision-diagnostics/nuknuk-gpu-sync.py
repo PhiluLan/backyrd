@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -105,6 +106,47 @@ def digest(path):
         for chunk in iter(lambda:f.read(8*1024*1024),b''):h.update(chunk)
     return h.hexdigest()
 
+def signal_stop(stop_file):
+    """Signal the separately armed Pod watcher; never call a provider here."""
+    if stop_file is not None:
+        with stop_file.open('x') as file:
+            file.write('Checkpoint/evidence replication failed; stop required.\n')
+            file.flush()
+            os.fsync(file.fileno())
+
+def sync_once(args):
+    receipt = {'at': datetime.now(timezone.utc).isoformat()}
+    try:
+        if args.evidence_output is not None:
+            args.evidence_output.mkdir(parents=True, exist_ok=True, mode=0o700)
+            receipt['evidenceFiles'] = sync_evidence(args)
+            if getattr(args, 'require_evidence', False) and not receipt['evidenceFiles']:
+                raise ValueError('nuknuk_sync_required_evidence_missing')
+        receipt.update(status='SYNC_CHECKED', copied=scan(args))
+        heartbeat = getattr(args, 'heartbeat_file', None)
+        if heartbeat is not None:
+            # An atomic local transport heartbeat; it does not attest model progress.
+            data = json.dumps({'verifiedEpoch': time.time(), 'status': 'SYNC_CHECKED',
+                               'evidenceFiles': receipt.get('evidenceFiles', 0)}) + '\n'
+            with tempfile.NamedTemporaryFile(dir=heartbeat.parent, delete=False, mode='w') as file:
+                file.write(data)
+                file.flush()
+                os.fsync(file.fileno())
+                tmp = Path(file.name)
+            tmp.replace(heartbeat)
+    except Exception as error:
+        receipt.update(status='SYNC_FAILED_REQUIRES_ATTENTION', errorType=type(error).__name__)
+        stop_file = getattr(args, 'stop_file', None)
+        if stop_file is not None:
+            try:
+                signal_stop(stop_file)
+                receipt['stopRequired'] = True
+            except FileExistsError:
+                receipt['stopRequired'] = True
+            except Exception as stop_error:
+                receipt.update(stopRequired=True, stopSignalFailed=True, stopErrorType=type(stop_error).__name__)
+    return receipt
+
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--ssh-key',type=Path,required=True);p.add_argument('--known-hosts',type=Path,required=True)
@@ -112,21 +154,24 @@ if __name__=='__main__':
     p.add_argument('--output',type=Path,required=True);p.add_argument('--log',type=Path,required=True)
     p.add_argument('--remote-root',default='/workspace/round4')
     p.add_argument('--evidence-output',type=Path)
+    p.add_argument('--stop-file',type=Path)
+    p.add_argument('--heartbeat-file',type=Path)
+    p.add_argument('--require-evidence',action='store_true')
     p.add_argument('--interval',type=int,default=60)
     p.add_argument('--deadline',type=float,required=True);p.add_argument('--once',action='store_true')
     a=p.parse_args()
     if not 5<=a.interval<=60:raise ValueError('nuknuk_sync_interval_invalid')
+    if a.require_evidence and a.evidence_output is None:p.error('--require-evidence requires --evidence-output')
+    if a.stop_file is not None and a.stop_file.exists():p.error('stop-file already exists; do not resume this run')
+    if a.heartbeat_file is not None and a.heartbeat_file.exists():p.error('heartbeat-file must be new for this run')
+    if any(file is not None and not file.parent.is_dir() for file in (a.stop_file, a.heartbeat_file)):p.error('stop/heartbeat parent directory must already exist')
     if not re.fullmatch(r'\d{1,3}(\.\d{1,3}){3}',a.host) or not 1<=a.port<=65535:raise ValueError('nuknuk_sync_host_invalid')
     a.output.mkdir(parents=True,exist_ok=True,mode=0o700)
     with a.log.open('x') as log:
         while time.time()<a.deadline:
-            receipt={'at':datetime.now(timezone.utc).isoformat()}
-            try:
-                if a.evidence_output is not None:
-                    a.evidence_output.mkdir(parents=True,exist_ok=True,mode=0o700)
-                    receipt['evidenceFiles']=sync_evidence(a)
-                receipt.update(status='SYNC_CHECKED',copied=scan(a))
-            except Exception as error:receipt.update(status='SYNC_FAILED_REQUIRES_ATTENTION',errorType=type(error).__name__)
+            if a.stop_file is not None and a.stop_file.exists():break
+            receipt=sync_once(a)
             log.write(json.dumps(receipt)+'\n');log.flush();print(json.dumps(receipt),flush=True)
+            if receipt.get('stopRequired'):break
             if a.once:break
             time.sleep(a.interval)

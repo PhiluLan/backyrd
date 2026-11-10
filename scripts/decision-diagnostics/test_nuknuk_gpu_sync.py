@@ -10,6 +10,43 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('sync',Path(__file__).with_name('nuknuk-gpu-sync.py'))
 sync=importlib.util.module_from_spec(spec);spec.loader.exec_module(sync)
 class SyncTests(unittest.TestCase):
+    def test_sync_failure_signals_watcher_and_does_not_refresh_heartbeat(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            args = SimpleNamespace(evidence_output=root/'evidence', require_evidence=True,
+                stop_file=root/'stop', heartbeat_file=root/'heartbeat.json')
+            with patch.object(sync, 'sync_evidence', side_effect=TimeoutError), patch.object(sync, 'scan') as scan:
+                receipt = sync.sync_once(args)
+            self.assertEqual(receipt['status'], 'SYNC_FAILED_REQUIRES_ATTENTION')
+            self.assertTrue(receipt['stopRequired'])
+            self.assertTrue(args.stop_file.exists())
+            self.assertFalse(args.heartbeat_file.exists())
+            scan.assert_not_called()
+    def test_required_empty_evidence_is_not_a_successful_sync(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            args = SimpleNamespace(evidence_output=root/'evidence', require_evidence=True,
+                stop_file=root/'stop', heartbeat_file=root/'heartbeat.json')
+            with patch.object(sync, 'sync_evidence', return_value=0), patch.object(sync, 'scan') as scan:
+                receipt = sync.sync_once(args)
+            self.assertTrue(receipt['stopRequired'])
+            scan.assert_not_called()
+    def test_successful_replication_updates_transport_heartbeat_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            args = SimpleNamespace(evidence_output=root/'evidence', require_evidence=True,
+                stop_file=root/'stop', heartbeat_file=root/'heartbeat.json')
+            with patch.object(sync, 'sync_evidence', return_value=2), patch.object(sync, 'scan', return_value=[]):
+                receipt = sync.sync_once(args)
+            self.assertEqual(receipt['status'], 'SYNC_CHECKED')
+            self.assertEqual(json.loads(args.heartbeat_file.read_text())['evidenceFiles'], 2)
+            self.assertFalse(args.stop_file.exists())
+    def test_legacy_sync_without_stop_or_heartbeat_options_remains_report_only(self):
+        args = SimpleNamespace(evidence_output=None)
+        with patch.object(sync, 'scan', side_effect=TimeoutError):
+            receipt = sync.sync_once(args)
+        self.assertEqual(receipt['status'], 'SYNC_FAILED_REQUIRES_ATTENTION')
+        self.assertNotIn('stopRequired', receipt)
     def test_evidence_rejects_traversal_and_hash_mismatch_without_writes(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);data=b'{}';sha=hashlib.sha256(data).hexdigest()

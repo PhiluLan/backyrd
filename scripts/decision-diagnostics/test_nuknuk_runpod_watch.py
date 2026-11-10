@@ -3,12 +3,47 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('watch',Path(__file__).with_name('nuknuk-runpod-watch.py'))
 watch=importlib.util.module_from_spec(spec);spec.loader.exec_module(watch)
 class WatchTests(unittest.TestCase):
+    def snapshot(self):
+        return {'id': 'approvedpod123', 'desiredStatus': 'RUNNING', 'costPerHr': 4.0,
+                'runtime': {'uptimeInSeconds': 12}}
+    def test_only_explicit_known_running_or_stopped_snapshots_are_valid(self):
+        self.assertEqual(watch.validate_pod_snapshot(self.snapshot()), (True, 4.0))
+        stopped = {**self.snapshot(), 'desiredStatus': 'EXITED', 'runtime': None}
+        self.assertEqual(watch.validate_pod_snapshot(stopped), (False, 4.0))
+        invalid = [None, {}, {**self.snapshot(), 'desiredStatus': 'UNKNOWN'},
+                   {**self.snapshot(), 'runtime': None}, {**stopped, 'runtime': {}},
+                   {k: v for k, v in stopped.items() if k != 'runtime'}]
+        invalid += [{**self.snapshot(), 'costPerHr': rate} for rate in (None, 0, -1, float('nan'), float('inf'), True, 'unknown')]
+        invalid += [{**self.snapshot(), 'runtime': runtime} for runtime in ({}, [], {'uptimeInSeconds': -1}, {'uptimeInSeconds': float('nan')}, {'uptimeInSeconds': True})]
+        for pod in invalid:
+            with self.subTest(pod=pod), self.assertRaises(ValueError):
+                watch.validate_pod_snapshot(pod)
+    def test_unknown_or_absent_pod_stops_only_bound_pod_until_stop_confirmed(self):
+        for first in ([], [{**self.snapshot(), 'costPerHr': None}],
+                      [self.snapshot(), {'id': 'otherpod123', 'desiredStatus': 'UNKNOWN'}]):
+            with self.subTest(first=first), tempfile.TemporaryDirectory() as tmp:
+                args = SimpleNamespace(pod='approvedpod123', started=1000, deadline=10000,
+                    prior_usd=0, hourly_usd=4, ceiling_usd=20, reserve_usd=2,
+                    log=Path(tmp)/'watch.jsonl', stop_file=Path(tmp)/'stop', key_file=None)
+                stopped = [{**self.snapshot(), 'desiredStatus': 'EXITED', 'runtime': None}]
+                with patch.object(watch, 'status', side_effect=[first, stopped]), patch.object(watch, 'stop') as stop, patch.object(watch.time, 'sleep'):
+                    watch.watch(args)
+                stop.assert_called_once_with(None, 'approvedpod123')
+                self.assertIn('STATUS_FAILURE_STOP_REQUIRED', args.log.read_text())
+                self.assertIn('STOP_CONFIRMED', args.log.read_text())
     def test_budget_includes_prior_use_and_shutdown_reserve(self):
         self.assertEqual(watch.budget_deadline(1000,2,4,20,2),15400)
+    def test_nonfinite_fixed_deadline_is_rejected_before_any_status_call(self):
+        for deadline in (float('nan'), float('inf')):
+            with patch.object(watch, 'status') as status:
+                with self.assertRaisesRegex(ValueError, 'deadline_invalid'):
+                    watch.watch(SimpleNamespace(pod='approvedpod123', deadline=deadline))
+                status.assert_not_called()
     def test_invalid_or_over_ceiling_budget_is_rejected(self):
         for args in [(0,0,4,21,2),(0,19,4,20,2),(0,1,0,20,2),(0,1,4,20,0),(float('nan'),1,4,20,2)]:
             with self.assertRaises(ValueError):watch.budget_deadline(*args)
