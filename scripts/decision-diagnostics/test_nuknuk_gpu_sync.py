@@ -2,6 +2,8 @@
 import importlib.util
 import hashlib
 import json
+import contextlib
+import io
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
@@ -10,6 +12,93 @@ from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('sync',Path(__file__).with_name('nuknuk-gpu-sync.py'))
 sync=importlib.util.module_from_spec(spec);spec.loader.exec_module(sync)
 class SyncTests(unittest.TestCase):
+    def evidence_row(self, name, text):
+        return {'path': name, 'text': text, 'sha256': hashlib.sha256(text.encode()).hexdigest()}
+    def test_incremental_empty_delta_reverifies_existing_evidence_without_rewriting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            row = self.evidence_row('phase/request.json', '{"request":1}')
+            sync.save_evidence([row], root)
+            known = sync.evidence_inventory(root)
+            before = (root/row['path']).stat().st_mtime_ns
+            payload = {'files': [], 'unchanged': [{'path': row['path'], 'sha256': row['sha256']}]}
+            self.assertEqual(sync.save_incremental_evidence(payload, root, known), 1)
+            self.assertEqual((root/row['path']).stat().st_mtime_ns, before)
+            self.assertEqual(sync.save_incremental_evidence({'files': [], 'unchanged': []}, root, known), 0)
+    def test_incremental_changed_bytes_update_hash_and_preserve_other_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            initial = self.evidence_row('phase/result.json', '{"status":"running"}')
+            retained = self.evidence_row('earlier.json', '{}')
+            sync.save_evidence([initial, retained], root)
+            known = sync.evidence_inventory(root)
+            changed = self.evidence_row(initial['path'], '{"status":"complete"}')
+            self.assertEqual(sync.save_incremental_evidence({'files': [changed], 'unchanged': []}, root, known), 1)
+            self.assertEqual((root/changed['path']).read_text(), changed['text'])
+            self.assertTrue((root/'earlier.json').exists())
+            self.assertEqual(sync.evidence_inventory(root)[changed['path']], changed['sha256'])
+    def test_incremental_rejects_forged_inventory_and_malformed_or_oversized_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            good = self.evidence_row('good.json', '{}')
+            sync.save_evidence([good], root)
+            known = sync.evidence_inventory(root)
+            bad_payloads = [
+                {'files': [], 'unchanged': [{'path': '../escape.json', 'sha256': good['sha256']}]},
+                {'files': [], 'unchanged': [{'path': 'good.json', 'sha256': 'a'*64}]},
+                {'files': [self.evidence_row('big.log', 'x'*(2*1024**2+1))], 'unchanged': []},
+                {'files': [self.evidence_row('phase//bad.json', '{}')], 'unchanged': []},
+                {'files': 'not-a-list', 'unchanged': []},
+            ]
+            for payload in bad_payloads:
+                with self.subTest(payload_type=type(payload['files'])), self.assertRaises(ValueError):
+                    sync.save_incremental_evidence(payload, root, known)
+            (root/'good.json').write_text('{"locally_changed":true}')
+            with self.assertRaisesRegex(ValueError, 'inventory_mismatch'):
+                sync.save_incremental_evidence({'files': [], 'unchanged': [{'path': 'good.json', 'sha256': good['sha256']}]}, root, known)
+    def test_full_remote_scan_initial_recovery_above_legacy_cap_then_changed_only(self):
+        with tempfile.TemporaryDirectory() as remote, tempfile.TemporaryDirectory() as local:
+            source, output = Path(remote), Path(local)
+            text = 'x'*(2*1024**2)
+            for i in range(11):
+                (source/f'part-{i}.log').write_text(text)
+            def capture(known, full):
+                stream = io.StringIO()
+                with contextlib.redirect_stdout(stream):
+                    exec(sync.REMOTE_EVIDENCE, {'REMOTE_ROOT': str(source), 'KNOWN_FILES': known, 'FULL_PROFILE': full})
+                return json.loads(stream.getvalue())
+            with self.assertRaisesRegex(ValueError, 'transfer_limit'):
+                capture({}, False)
+            first = capture({}, True)
+            self.assertEqual(len(first['files']), 11)
+            self.assertEqual(sync.save_incremental_evidence(first, output, {}), 11)
+            known = sync.evidence_inventory(output)
+            second = capture(known, True)
+            self.assertEqual(second['files'], [])
+            self.assertEqual(len(second['unchanged']), 11)
+            (source/'part-0.log').write_text('updated')
+            third = capture(known, True)
+            self.assertEqual([row['path'] for row in third['files']], ['part-0.log'])
+            self.assertEqual(len(third['unchanged']), 10)
+            self.assertEqual(sync.save_incremental_evidence(third, output, known), 11)
+    def test_local_inventory_rejects_symlinks_and_unsafe_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root/'unsafe name.json').write_text('{}')
+            with self.assertRaisesRegex(ValueError, 'untrusted_evidence'):
+                sync.evidence_inventory(root)
+            (root/'unsafe name.json').unlink()
+            (root/'link.json').symlink_to(root/'missing.json')
+            with self.assertRaisesRegex(ValueError, 'symlink'):
+                sync.evidence_inventory(root)
+    def test_full_recovery_rejects_aggregate_above_sixty_four_mib_before_any_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            text = 'x'*(2*1024**2)
+            rows = [self.evidence_row(f'part-{i}.log', text) for i in range(33)]
+            with self.assertRaisesRegex(ValueError, 'path_or_size'):
+                sync.save_incremental_evidence({'files': rows, 'unchanged': []}, root, {})
+            self.assertEqual(list(root.iterdir()), [])
     def test_sync_failure_signals_watcher_and_does_not_refresh_heartbeat(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

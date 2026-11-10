@@ -20,6 +20,9 @@ MODEL_REVISION = "fc05daec18b0a78c049392ed2e771dde82bdf654"
 PARENT_SHA = "cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3"
 V7_PURPOSE = "APPROVED_V7_FOUR_TASK_20_USD_PILOT"
 V7_RECIPE = "V7_TASK_BALANCED_PILOT_V1"
+V7_FULL_PURPOSE = "APPROVED_V7_FOUR_TASK_200_USD_FULL_LEARNING"
+V7_FULL_RECIPE = "V7_FULL_LEARNING_V1"
+V7_PURPOSES = (V7_PURPOSE, V7_FULL_PURPOSE)
 V7_TASK_CYCLE = ("INTERPRET_REQUEST", "ASSESS_CANDIDATES", "PLAN_SEARCH", "PROPOSE_EXPERIENCE", "INTERPRET_REQUEST")
 
 
@@ -64,6 +67,49 @@ def build_v7_schedule(cases, steps=210):
     return schedule
 
 
+def build_v7_full_schedule(cases, epochs=2):
+    """Complete epochs; explicitly weighted task objective, no oversampling."""
+    import random
+    counts = {'INTERPRET_REQUEST': 700, 'ASSESS_CANDIDATES': 104,
+              'PLAN_SEARCH': 84, 'PROPOSE_EXPERIENCE': 84}
+    weights = {'INTERPRET_REQUEST': 0.4, 'ASSESS_CANDIDATES': 0.2,
+               'PLAN_SEARCH': 0.2, 'PROPOSE_EXPERIENCE': 0.2}
+    if epochs != 2 or len(cases) != 972 or len({row['id'] for row in cases}) != 972:
+        raise ValueError('nuknuk_v7_full_inventory_invalid')
+    groups = {task: {} for task in counts}
+    for index, row in enumerate(cases):
+        if row.get('split') != 'TRAIN' or row.get('task') not in groups:
+            raise ValueError('nuknuk_v7_full_train_only')
+        groups[row['task']].setdefault(row['scenarioGroup'], []).append(index)
+    if any(sum(map(len, groups[task].values())) != count for task, count in counts.items()):
+        raise ValueError('nuknuk_v7_full_task_counts_changed')
+    schedule = []
+    for epoch in range(epochs):
+        rng = random.Random(7 + epoch)
+        batches = []
+        for task in sorted(groups):
+            buckets = [groups[task][key][:] for key in sorted(groups[task])]
+            rng.shuffle(buckets)
+            for bucket in buckets:
+                rng.shuffle(bucket)
+            queue = []
+            while any(buckets):
+                for bucket in buckets:
+                    if bucket:
+                        queue.append(bucket.pop())
+            task_steps = counts[task] // 2
+            for position in range(task_steps):
+                indices = queue[position * 2:position * 2 + 2]
+                batches.append(((position + 0.5) / task_steps, task, indices))
+        # Spread each task through the whole epoch, independent of answers/length.
+        batches.sort(key=lambda item: (item[0], item[1]))
+        for epoch_step, (_, task, indices) in enumerate(batches, 1):
+            schedule.append({'step': len(schedule) + 1, 'epoch': epoch + 1, 'epochStep': epoch_step,
+                'task': task, 'indices': indices, 'ids': [cases[index]['id'] for index in indices],
+                'lossScale': weights[task] * 486 / (counts[task] // 2)})
+    return schedule
+
+
 def evaluation_rows(plan, split, one_per_group=False, preserve_tasks=False):
     rows = [row for row in plan['cases'] if row['split'] == split]
     if not one_per_group:
@@ -86,12 +132,14 @@ def initialization_policy(initialization, adapter):
 
 
 def v7_recipe_check(folder, manifest, args):
-    if manifest.get('purpose') != V7_PURPOSE:
+    if manifest.get('purpose') not in V7_PURPOSES:
         if getattr(args, 'recipe', None) is not None:
             raise ValueError('nuknuk_v7_recipe_requires_v7_bundle')
         return None
     recipe = json.loads((folder / 'pilot-recipe.json').read_text())
-    if getattr(args, 'recipe', None) != V7_RECIPE or recipe.get('name') != V7_RECIPE:
+    full = manifest.get('purpose') == V7_FULL_PURPOSE
+    expected_recipe = V7_FULL_RECIPE if full else V7_RECIPE
+    if getattr(args, 'recipe', None) != expected_recipe or recipe.get('name') != expected_recipe:
         raise ValueError('nuknuk_v7_explicit_recipe_required')
     if getattr(args, 'initialization', 'legacy-seed') not in ('fresh', 'adapter'):
         raise ValueError('nuknuk_v7_explicit_initialization_required')
@@ -99,8 +147,9 @@ def v7_recipe_check(folder, manifest, args):
     if args.strategy != recipe['strategy'] or args.layers != recipe['layers']:
         raise ValueError('nuknuk_v7_recipe_architecture_changed')
     if getattr(args, 'command', None) == 'train' and (
-        args.steps not in (2, 210) or args.batch_size != 2 or args.learning_rate != recipe['learningRate']
+        args.steps not in ((972,) if full else (2, 210)) or args.batch_size != 2 or args.learning_rate != recipe['learningRate']
         or args.checkpoint_every != recipe['checkpointEvery'] or args.completion_head
+        or (full and args.initialization != 'fresh')
         or not 30 <= args.max_seconds <= recipe['maxTrainingSeconds']):
         raise ValueError('nuknuk_v7_recipe_training_changed')
     binding = {'recipeFileSha256': file_sha(folder / 'pilot-recipe.json'),
@@ -176,7 +225,7 @@ def convert_seed(source, output):
 def verify_bundle(folder):
     folder = folder.resolve(strict=True)
     manifest = json.loads((folder / "bundle.json").read_text())
-    v7 = manifest.get('purpose') == V7_PURPOSE
+    v7 = manifest.get('purpose') in V7_PURPOSES
     if manifest.get("model") != MODEL_ID or manifest.get("revision") != MODEL_REVISION or (not v7 and manifest.get("parentAdapterSha256") != PARENT_SHA):
         raise ValueError("nuknuk_gpu_bundle_identity_invalid")
     for name, expected in manifest["files"].items():
@@ -198,7 +247,8 @@ def verify_bundle(folder):
             or source['datasetHash'] != manifest.get('sourceDatasetHash')
             or source['instructionProfile'] != 'SPOT_GROUNDED_V6'
             or source['targetSerialization'] != 'schema-ordered-spaced-json@1'
-            or recipe['datasetHash'] != source['datasetHash'] or recipe['name'] != V7_RECIPE
+            or recipe['datasetHash'] != source['datasetHash']
+            or recipe['name'] != (V7_FULL_RECIPE if manifest.get('purpose') == V7_FULL_PURPOSE else V7_RECIPE)
             or manifest.get('recipeFileSha256') != file_sha(folder / 'pilot-recipe.json')):
             raise ValueError('nuknuk_v7_source_binding_invalid')
         for name, digest in preflight['tokenizerFilesSha256'].items():
@@ -304,6 +354,9 @@ def host_check(folder):
     cards = subprocess.check_output(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"], text=True, timeout=10).strip().splitlines()
     if len(cards) != 1 or int(cards[0].rsplit(",", 1)[1].strip()) < 78000:
         raise ValueError("nuknuk_gpu_single_80gb_card_required")
+    if manifest.get('purpose') == V7_FULL_PURPOSE and (
+        'H200' not in cards[0] or int(cards[0].rsplit(',', 1)[1].strip()) < 130000):
+        raise ValueError('nuknuk_v7_full_single_h200_required')
     if shutil.disk_usage(folder).free < 100 * 1024 ** 3:
         raise ValueError("nuknuk_gpu_disk_reserve_insufficient")
     return {"status": "HOST_AND_BUNDLE_CHECKED", "gpu": cards[0], "model": manifest["model"],
@@ -334,7 +387,7 @@ def load_model(folder, layers, strategy="qv", adapter=None, initialization="lega
     torch.manual_seed(7)
     seed_parent = initialization_policy(initialization, adapter)
     manifest = verify_bundle(folder)
-    v7 = manifest.get('purpose') == V7_PURPOSE
+    v7 = manifest.get('purpose') in V7_PURPOSES
     if v7 and initialization == 'legacy-seed':
         raise ValueError('nuknuk_v7_explicit_initialization_required')
     tokenizer = (AutoTokenizer.from_pretrained(folder / 'tokenizer', local_files_only=True, trust_remote_code=False)
@@ -525,11 +578,11 @@ def evaluate(args):
     if plan.get('llguidanceVersion') != '1.9.1' or plan.get('maxOutputTokens') != 2048:
         raise ValueError('nuknuk_gpu_evaluation_plan_invalid')
     if curriculum:
-        allowed_plans = ('FROZEN_CURRICULUM_EVALUATION_INPUTS_ONLY', 'DERIVED_METAMORPHIC_EVALUATION_INPUTS_ONLY') if manifest.get('purpose') == V7_PURPOSE else ('FROZEN_CURRICULUM_EVALUATION_INPUTS_ONLY',)
-        if manifest.get('purpose') not in ('APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED', V7_PURPOSE) or plan.get('purpose') not in allowed_plans:
+        allowed_plans = ('FROZEN_CURRICULUM_EVALUATION_INPUTS_ONLY', 'DERIVED_METAMORPHIC_EVALUATION_INPUTS_ONLY') if manifest.get('purpose') in V7_PURPOSES else ('FROZEN_CURRICULUM_EVALUATION_INPUTS_ONLY',)
+        if manifest.get('purpose') not in ('APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED', *V7_PURPOSES) or plan.get('purpose') not in allowed_plans:
             raise ValueError('nuknuk_gpu_curriculum_identity_invalid')
-        rows = evaluation_rows(plan, args.split, args.one_per_group, manifest.get('purpose') == V7_PURPOSE)
-        if manifest.get('purpose') == V7_PURPOSE and plan.get('datasetHash') != manifest['sourceDatasetHash']:
+        rows = evaluation_rows(plan, args.split, args.one_per_group, manifest.get('purpose') in V7_PURPOSES)
+        if manifest.get('purpose') in V7_PURPOSES and plan.get('datasetHash') != manifest['sourceDatasetHash']:
             raise ValueError('nuknuk_v7_evaluation_dataset_changed')
     else:
         if plan.get('parentAdapterSha256') != PARENT_SHA or len(plan['cases']) != 6 or args.adapter is not None or args.batch_size != 1:
@@ -652,10 +705,11 @@ def run(args):
     # Independent GNU timeout (see runbook) must also bound download/load time.
     manifest = verify_bundle(folder)
     recipe_binding = v7_recipe_check(folder, manifest, args)
-    broad = host.get("model") == MODEL_ID and manifest.get("purpose") in ("APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED", V7_PURPOSE)
+    full_learning = manifest.get('purpose') == V7_FULL_PURPOSE
+    broad = host.get("model") == MODEL_ID and manifest.get("purpose") in ("APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED", *V7_PURPOSES)
     if not 1 <= args.steps <= (5000 if broad else 20) or args.layers not in (1, 4, 16) or args.batch_size not in (1,2,4) or (not broad and (args.strategy != "qv" or args.layers == 16 or args.batch_size!=1)):
         raise ValueError("nuknuk_gpu_pilot_bounds_invalid")
-    if not 30 <= args.max_seconds <= (12600 if broad else 3000) or not 0 < args.learning_rate <= 0.0001 or not 1 <= args.checkpoint_every <= 250:
+    if not 30 <= args.max_seconds <= (32400 if full_learning else 12600 if broad else 3000) or not 0 < args.learning_rate <= 0.0001 or not 1 <= args.checkpoint_every <= 250:
         raise ValueError("nuknuk_gpu_pilot_bounds_invalid")
     if args.output.exists() or folder == args.output.resolve() or folder in args.output.resolve().parents:
         raise ValueError("nuknuk_gpu_output_must_be_new_outside_bundle")
@@ -678,15 +732,19 @@ def run(args):
         cases = json.loads((folder / 'training-cases.json').read_text())
         if len(cases) != len(lines) or any(hashlib.sha256(line.encode()).hexdigest() != case['rowSha256'] for line, case in zip(lines, cases)):
             raise ValueError('nuknuk_v7_training_row_identity_changed')
-        schedule = build_v7_schedule(cases, args.steps)
+        schedule = build_v7_full_schedule(cases) if full_learning else build_v7_schedule(cases, args.steps)
         exposure = {}
         for item in schedule:
-            entry = exposure.setdefault(item['task'], {'updates': 0, 'examples': 0, 'supervisedTokens': 0})
+            entry = exposure.setdefault(item['task'], {'updates': 0, 'examples': 0, 'supervisedTokens': 0, 'sumLossScale': 0})
             entry['updates'] += 1; entry['examples'] += len(item['indices'])
+            entry['sumLossScale'] += item.get('lossScale', 1)
             entry['supervisedTokens'] += sum(sum(label != -100 for label in encoded[index][1]) for index in item['indices'])
         write_json(args.output / 'training-schedule.json', {'schedule': schedule, 'scheduleHash': json_digest(schedule),
             'recipeBinding': recipe_binding, 'plannedExposure': exposure,
-            'lossAggregation': 'Token mean within a two-row single-task batch; one equally weighted optimizer update. No cross-task token-length weighting.'})
+            'lossAggregation': ('Token mean within each two-row single-task batch, multiplied by taskWeight * 486 / taskUpdatesPerEpoch. The epoch mean defines a 40/20/20/20 task objective; Adam, clipping and LR scheduling do not imply exact gradient-contribution shares.'
+                if full_learning else 'Token mean within a two-row single-task batch; one equally weighted optimizer update. No cross-task token-length weighting.'),
+            'uniqueTrainingRows': len({index for item in schedule for index in item['indices']}),
+            'epochs': 2 if full_learning else None})
     optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.learning_rate, weight_decay=0)
     import random, math
     order = list(range(len(encoded))); random.Random(7).shuffle(order)
@@ -721,11 +779,13 @@ def run(args):
                 batch={key:torch.tensor(value,device="cuda",dtype=torch.long)
                     for key,value in padded_training_rows(samples,tokenizer.eos_token_id).items()}
                 optimizer.zero_grad(set_to_none=True)
-                loss = completion_loss(model,batch) if args.completion_head else model(**batch, use_cache=False).loss
-                if not torch.isfinite(loss):
+                raw_loss = completion_loss(model,batch) if args.completion_head else model(**batch, use_cache=False).loss
+                loss = raw_loss * schedule[step]['lossScale'] if full_learning else raw_loss
+                if not torch.isfinite(raw_loss) or not torch.isfinite(loss):
                     raise ValueError("nuknuk_gpu_nonfinite_loss")
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], 1)
+                torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], 1,
+                                              **({'error_if_nonfinite': True} if full_learning else {}))
                 optimizer.step(); scheduler.step(); torch.cuda.synchronize(); completed = step + 1
                 receipt = {"step": completed, "loss": float(loss.detach()), "elapsedSeconds": time.monotonic() - started,
                            "peakCudaAllocatedGiB": torch.cuda.max_memory_allocated() / 1024 ** 3, "trainingRows": indices,"examplesProcessed": min((step+1)*args.batch_size, len(encoded)) if args.steps*args.batch_size<=len(encoded) else (step+1)*args.batch_size,
@@ -733,8 +793,11 @@ def run(args):
                 if schedule:
                     receipt.update(task=schedule[step]['task'], caseIds=schedule[step]['ids'],
                                    supervisedTokens=sum(sum(v != -100 for v in labels) for _, labels in samples))
+                if full_learning:
+                    receipt.update(epoch=schedule[step]['epoch'], epochStep=schedule[step]['epochStep'],
+                                   unweightedLoss=float(raw_loss.detach()), lossScale=schedule[step]['lossScale'])
                 log.write(json.dumps(receipt) + "\n"); log.flush(); print(json.dumps(receipt), flush=True)
-                del batch, loss
+                del batch, loss, raw_loss
                 if completed % args.checkpoint_every == 0:
                     checkpoint = args.output / ("step-" + str(completed))
                     model.save_pretrained(checkpoint, safe_serialization=True)
@@ -750,6 +813,9 @@ def run(args):
     finally:
         write_json(args.output / "result.json", {"status": status, "completedSteps": completed,
             "elapsedSeconds": time.monotonic() - started, "productionActivation": False,
+            **({'completedEpochs': completed // 486, 'requiredEpochs': 2,
+                'uniqueTrainingRowsProcessed': len({index for item in schedule[:completed] for index in item['indices']}),
+                'completeTrainingCoverage': completed == 972} if full_learning else {}),
             "providerBillingStopped": False})
 
 
@@ -840,7 +906,7 @@ if __name__ == "__main__":
         if command in ("train", "evaluate", "prefer"):
             cmd.add_argument("--output", type=Path, required=True)
         if command in ('train', 'evaluate'):
-            cmd.add_argument('--recipe', choices=[V7_RECIPE])
+            cmd.add_argument('--recipe', choices=[V7_RECIPE, V7_FULL_RECIPE])
             cmd.add_argument('--initialization', choices=['legacy-seed', 'fresh', 'adapter'], default='legacy-seed')
         if command == "prefer":
             cmd.add_argument("--adapter", type=Path, required=True)

@@ -3260,3 +3260,46 @@ Der aktuelle operative Zustand und der Fortsetzungsplan liegen lokal unter
 `.local/nuknuk-understanding/runpod-20261110-solid-v7-pilot/`. Dieser Abschnitt
 beschreibt das vorbereitete Verfahren und behauptet keinen erfolgreichen
 CUDA-Lauf, Lernfortschritt oder Produktstart.
+
+#### Founder ersetzt Pilot durch vollständiges Learning
+
+Der Founder hat die separate Pilotstufe anschliessend ausdrücklich abgelehnt
+und den H200 für das vollständige Trainingspaket und den vollständigen Testlauf
+beauftragt. Damit ersetzt `V7_FULL_LEARNING_V1` für diesen Auftrag den oben
+vorbereiteten Pilot. Das Gesamtlimit bleibt 200 USD; die genehmigte H200-Oberrate
+beträgt 5,40 USD pro Stunde (aktuelle UI-Quote 5,32 einschliesslich Containerdisk).
+Die automatische Prüfung hatte den höheren H200-Stundensatz zunächst gegen
+die frühere H100-Freigabe abgelehnt; die neue ausdrückliche Founder-Antwort
+enthält den H200 und den vollständigen Umfang. Bis zu diesem Umfangswechsel
+waren sämtliche bisherigen Pods nach Anbieterabfrage EXITED mit runtime:null.
+
+Der Full-Opt-in verwendet zwei vollständige Epochen mit jeweils allen 972
+TRAIN-Zeilen genau einmal: 972 homogene Zweier-Updates und 1.944 Präsentationen.
+Interpretation, Assessment, Suchplanung und Vorschlag erhalten explizite
+Loss-Koeffizienten für ein empirisches Aufgaben-Ziel von 40/20/20/20 Prozent.
+Das ist keine Behauptung gleicher Gradientenanteile nach Adam und Clipping.
+Es gibt kein Oversampling und keine ausgelassenen Trainingszeilen. Die
+Initialisierung ist fresh, die Lernrate 1e-5, Checkpoints liegen bei
+243/486/729/972. Native Tokenizer-/Grammatikprüfung sowie endliche Loss und
+Gradienten werden im vollständigen Lauf geprüft; ein separater Smoke- oder
+Pilotadapter entfällt. Neun Stunden sind eine harte Trainingsobergrenze,
+keine Laufzeit- oder Ausgabenzusage.
+
+Der vollständige Ablauf trainiert zuerst. Danach laufen jeweils alle 146
+DEV-Phasen, acht DEV-Kontrollen und 18 tatsächlichen Gesamtketten für frischen
+Ausgangsstand, bisherigen Adapter und die beiden vollständigen Epochenstände.
+Nur vollständige semantische DEV-Auswertung darf Kandidat und Vergleichsadapter
+einfrieren. Der TEST-Treiber prüft exakte Datei- und Inhaltshashes des
+DEV-Berichts, vollständige Abdeckung und tatsächliche Adapteridentität.
+Erst danach folgen je 178 TEST-Phasen, acht TEST-Kontrollen und 18 TEST-Ketten
+für eingefrorenen Kandidaten und Vergleichsadapter. TEST verändert weder
+Trainingsziele noch Adapterauswahl. Eine abgeschlossene Generierung bleibt
+ohne Bedeutungsprüfung kein Qualitätsergebnis.
+
+Der Kostenwächter erlaubt mehr als 20 USD nur über den ausdrücklichen
+`--budget-profile v7-full-200`-Opt-in und verlangt mindestens 20 USD Reserve.
+Ältere Aufrufe behalten ihre 20-USD-Grenze. Alle Phasen einschliesslich
+Providerstart, Transfers, Baselines, Training, DEV, TEST und Sicherung teilen
+denselben Kosten- und Zeitrahmen; Unterbrechungen setzen ihn nicht zurück.
+Der neue operative Zustand liegt unter
+`.local/nuknuk-understanding/runpod-20261110-solid-v7-full/`.

@@ -13,6 +13,58 @@ spec.loader.exec_module(gpu)
 
 
 class GpuPreparationTests(unittest.TestCase):
+    def test_full_recipe_covers_every_training_row_each_epoch_with_explicit_task_objective(self):
+        from collections import Counter
+        cases=[]
+        for task,count in [('INTERPRET_REQUEST',700),('ASSESS_CANDIDATES',104),('PLAN_SEARCH',84),('PROPOSE_EXPERIENCE',84)]:
+            cases.extend({'id':f'{task}-{i}','task':task,'split':'TRAIN','scenarioGroup':f'{task}-group-{i//3}'} for i in range(count))
+        schedule=gpu.build_v7_full_schedule(cases)
+        self.assertEqual(len(schedule),972)
+        self.assertEqual(schedule,gpu.build_v7_full_schedule([dict(row,answerTokens=999,fit='WEAK') for row in cases]))
+        for epoch in (1,2):
+            rows=[row for row in schedule if row['epoch']==epoch]
+            self.assertEqual(len(rows),486)
+            self.assertEqual(Counter(i for row in rows for i in row['indices']),Counter(range(972)))
+            self.assertTrue(all(len(row['indices'])==2 and all(cases[i]['task']==row['task'] for i in row['indices']) for row in rows))
+            for task,weight in [('INTERPRET_REQUEST',0.4),('ASSESS_CANDIDATES',0.2),('PLAN_SEARCH',0.2),('PROPOSE_EXPERIENCE',0.2)]:
+                self.assertAlmostEqual(sum(row['lossScale'] for row in rows if row['task']==task)/486,weight)
+        self.assertNotEqual([r['indices'] for r in schedule[:486]],[r['indices'] for r in schedule[486:]])
+        cases[0]['split']='TEST'
+        with self.assertRaisesRegex(ValueError,'train_only'):gpu.build_v7_full_schedule(cases)
+        cases[0]['split']='TRAIN';cases[0]['id']=cases[1]['id']
+        with self.assertRaisesRegex(ValueError,'inventory_invalid'):gpu.build_v7_full_schedule(cases)
+
+    def test_full_recipe_cannot_silently_use_pilot_subset_or_prior_adapter_for_training(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as tmp:
+            folder=Path(tmp)
+            (folder/'pilot-recipe.json').write_text(json.dumps({'name':gpu.V7_FULL_RECIPE,'strategy':'language-linear','layers':16,
+                'learningRate':0.00001,'checkpointEvery':243,'maxTrainingSeconds':32400}))
+            args=SimpleNamespace(command='train',recipe=gpu.V7_FULL_RECIPE,initialization='fresh',adapter=None,adapter_sha256=None,
+                strategy='language-linear',layers=16,steps=972,batch_size=2,learning_rate=0.00001,checkpoint_every=243,
+                completion_head=False,max_seconds=32400)
+            manifest={'purpose':gpu.V7_FULL_PURPOSE}
+            gpu.v7_recipe_check(folder,manifest,args)
+            for steps in (2,210,486,973):
+                args.steps=steps
+                with self.assertRaisesRegex(ValueError,'training_changed'):gpu.v7_recipe_check(folder,manifest,args)
+            args.steps=972;args.initialization='adapter';args.adapter=folder
+            with self.assertRaisesRegex(ValueError,'training_changed'):gpu.v7_recipe_check(folder,manifest,args)
+            args.command='evaluate'
+            gpu.v7_recipe_check(folder,manifest,args)
+            args.recipe=gpu.V7_RECIPE
+            with self.assertRaisesRegex(ValueError,'explicit_recipe_required'):gpu.v7_recipe_check(folder,manifest,args)
+
+    def test_full_recipe_requires_user_selected_h200_while_pilot_keeps_old_host_floor(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        with patch.object(gpu,'verify_bundle',return_value={'purpose':gpu.V7_FULL_PURPOSE,'model':gpu.MODEL_ID,'revision':gpu.MODEL_REVISION}), \
+             patch.object(gpu.sys,'platform','linux'),patch.object(gpu.shutil,'disk_usage',return_value=SimpleNamespace(free=200*1024**3)), \
+             patch.object(gpu.subprocess,'check_output',return_value='NVIDIA H100 80GB HBM3, 81559\n') as cards:
+            with self.assertRaisesRegex(ValueError,'single_h200_required'):gpu.host_check(Path('.'))
+            cards.return_value='NVIDIA H200, 143771\n'
+            self.assertEqual(gpu.host_check(Path('.'))['status'],'HOST_AND_BUNDLE_CHECKED')
+
     def test_v7_schedule_preserves_task_loss_shares_without_repeating_or_training_holdout(self):
         from collections import Counter
         cases=[]

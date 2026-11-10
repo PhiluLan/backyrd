@@ -62,9 +62,13 @@ def stop(key_file, pod_id):
         raise ValueError('runpod_container_stop_own_pod_only')
     return query(key_file, 'mutation($id: String!) { podStop(input: { podId: $id }) { id desiredStatus } }', {'id':pod_id})
 
-def budget_deadline(started, prior_usd, hourly_usd, ceiling_usd, reserve_usd):
+def budget_deadline(started, prior_usd, hourly_usd, ceiling_usd, reserve_usd, budget_profile='legacy-20'):
+    profiles = {'legacy-20': (20, 1), 'v7-full-200': (200, 20)}
+    if budget_profile not in profiles:
+        raise ValueError('runpod_budget_profile_invalid')
+    maximum, minimum_reserve = profiles[budget_profile]
     values = (started, prior_usd, hourly_usd, ceiling_usd, reserve_usd)
-    if not all(math.isfinite(v) for v in values) or hourly_usd <= 0 or prior_usd < 0 or reserve_usd < 1 or ceiling_usd > 20:
+    if not all(math.isfinite(v) for v in values) or hourly_usd <= 0 or prior_usd < 0 or reserve_usd < minimum_reserve or ceiling_usd > maximum:
         raise ValueError('runpod_budget_invalid')
     available = ceiling_usd - prior_usd - reserve_usd
     if available <= 0:
@@ -103,7 +107,8 @@ def watch(args):
         raise ValueError('runpod_pod_id_invalid')
     if not math.isfinite(args.deadline):
         raise ValueError('runpod_deadline_invalid')
-    deadline = min(args.deadline, budget_deadline(args.started, args.prior_usd, args.hourly_usd, args.ceiling_usd, args.reserve_usd))
+    profile = getattr(args, 'budget_profile', 'legacy-20')
+    deadline = min(args.deadline, budget_deadline(args.started, args.prior_usd, args.hourly_usd, args.ceiling_usd, args.reserve_usd, profile))
     if args.log.exists():
         raise ValueError('runpod_watch_log_exists')
     # An exclusive log and pinned Pod prevent accidentally attaching to a new run.
@@ -113,7 +118,7 @@ def watch(args):
             receipt = {'at':datetime.now(timezone.utc).isoformat(),'event':event,'podId':args.pod,**data}
             log.write(json.dumps(receipt)+'\n');log.flush();os.fsync(log.fileno())
             print(json.dumps(receipt),flush=True)
-        record('WATCH_ARMED',deadlineEpoch=deadline,ceilingUsd=args.ceiling_usd,priorUsd=args.prior_usd,reserveUsd=args.reserve_usd)
+        record('WATCH_ARMED',deadlineEpoch=deadline,ceilingUsd=args.ceiling_usd,priorUsd=args.prior_usd,reserveUsd=args.reserve_usd,budgetProfile=profile)
         stopping = False
         while True:
             try:
@@ -155,6 +160,7 @@ if __name__=='__main__':
     p.add_argument('--pod');p.add_argument('--started',type=float);p.add_argument('--deadline',type=float)
     p.add_argument('--prior-usd',type=float,default=1.75);p.add_argument('--hourly-usd',type=float,default=4.1)
     p.add_argument('--ceiling-usd',type=float,default=20);p.add_argument('--reserve-usd',type=float,default=1.5)
+    p.add_argument('--budget-profile',choices=['legacy-20','v7-full-200'],default='legacy-20')
     p.add_argument('--log',type=Path);p.add_argument('--stop-file',type=Path)
     a=p.parse_args()
     if a.command=='status':print(json.dumps(status(a.key_file)))

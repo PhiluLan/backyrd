@@ -14,8 +14,10 @@ const source=resolve(sourceDirectory),parent=resolve(parentAdapter),out=resolve(
 const sourceManifest=await readFile(resolve(source,'manifest.json'));
 if(digest(sourceManifest)!==(approvedSourceSha??'ae9b4b4e4314205eb4509692548d23ec67f8be27a9034e35924463bd16244969'))throw Error('nuknuk_gpu_source_manifest_changed');
 const V7_RECIPE='V7_TASK_BALANCED_PILOT_V1';
+const V7_FULL_RECIPE='V7_FULL_LEARNING_V1';
 if(recipeName){
-  if(recipeName!==V7_RECIPE||!tokenizerDirectory||!approvedSourceSha||parentAdapter!=='-'||parityPlanFile!=='-')throw Error('nuknuk_v7_bundle_arguments_invalid');
+  const full=recipeName===V7_FULL_RECIPE;
+  if(![V7_RECIPE,V7_FULL_RECIPE].includes(recipeName)||!tokenizerDirectory||!approvedSourceSha||parentAdapter!=='-'||parityPlanFile!=='-')throw Error('nuknuk_v7_bundle_arguments_invalid');
   const manifest=JSON.parse(sourceManifest);
   if(manifest.curriculumVersion!=='backyrd.nuknuk-solid-curriculum@7'||manifest.instructionProfile!=='SPOT_GROUNDED_V6'
     ||manifest.targetSerialization!=='schema-ordered-spaced-json@1'
@@ -70,10 +72,36 @@ if(recipeName){
     maxTotalTokens:4096,maxOutputTokens:2048,pilotBudgetUSD:20,totalBudgetUSD:200,closingReserveUSD:20,
     selection:'FULL_DEV_146_PLUS_8_CONTROLS_PLUS_18_ACTUAL_ROLLOUTS; NO_TEST_BEFORE_FROZEN_SELECTION',
     processTimeoutDoesNotStopBilling:true,launchAuthorizedByBundle:false};
+  if(full){
+    Object.assign(recipe,{name:V7_FULL_RECIPE,learningRate:0.00001,steps:972,epochs:2,stepsPerEpoch:486,
+      checkpointEvery:243,maxTrainingSeconds:32400,requiredGPU:'H200',minimumVRAMMiB:130000,
+      taskCycle:null,taskObjectiveWeights:{INTERPRET_REQUEST:0.4,ASSESS_CANDIDATES:0.2,PLAN_SEARCH:0.2,PROPOSE_EXPERIENCE:0.2},
+      taskLossScales:{INTERPRET_REQUEST:0.4*486/350,ASSESS_CANDIDATES:0.2*486/52,PLAN_SEARCH:0.2*486/42,PROPOSE_EXPERIENCE:0.2*486/42},
+      plannedPresentations:{INTERPRET_REQUEST:1400,ASSESS_CANDIDATES:208,PLAN_SEARCH:168,PROPOSE_EXPERIENCE:168},
+      uniqueRowsPerEpoch:972,oversampling:false,scheduler:'COMPLETE_GROUP_ROUND_ROBIN_TASK_BATCHES_INTERLEAVED_SEEDS_7_8',
+      loss:'HF_SINGLE_TASK_TOKEN_MEAN_TIMES_TASK_WEIGHT_DIVIDED_BY_TASK_UPDATE_FRACTION',
+      optimizer:'ADAMW_WEIGHT_DECAY_0_CLIP_NORM_1',learningRateSchedule:'48_STEP_WARMUP_COSINE_TO_0.1',
+      taskWeightLimitation:'The epoch-mean objective is weighted40/20/20/20; Adam, clipping and time-varyingLR do not imply exact gradient-contribution shares.',
+      initialization:'FRESH_ZERO_DELTA_TRAINING; SHA_PINNED_ADAPTER_ALLOWED_FOR_EVALUATION',
+      standalonePilotRequired:false,standaloneSmokeRequired:false,finiteLossAndGradientChecks:true,
+      finalCandidateStep:972,checkpoints:'SAFETY_ONLY; NO_TRAINING_LOSS_SELECTION',
+      evaluation:'FULL_FRESH_AND_PRIOR_BASELINES_PLUS_FINAL_146_DEV_8_CONTROLS_18_ACTUAL_ROLLOUTS; TEST_ONLY_AFTER_FROZEN_DEV_SELECTION'});
+    delete recipe.smokeSteps;delete recipe.pilotBudgetUSD;
+  }
   payload.set('pilot-recipe.json',Buffer.from(JSON.stringify(recipe,null,2)+'\n'));
   const here=dirname(fileURLToPath(import.meta.url));
   for(const [local,name] of [['nuknuk-gpu.py','nuknuk-gpu.py'],['nuknuk-gpu-session.py','nuknuk-gpu-session.py'],['nuknuk-gpu-requirements.txt','requirements.txt']])payload.set(name,await readFile(resolve(here,local)));
-  payload.set('START.txt',Buffer.from(`Explicit @7 pilot; no resources started. Original dataset bytes preserved: 972 TRAIN / 146 DEV / 178 TEST.
+  payload.set('START.txt',Buffer.from(full?`Explicit @7 full learning; no resources started. Dataset: 972 TRAIN / 146 DEV / 178 TEST.
+Recipe ${V7_FULL_RECIPE}: fresh zero-delta LoRA, two complete epochs, 972 batch-2 updates, LR0.00001, language-linear, layers16.
+Every TRAIN row appears exactly once per epoch. Task-homogeneous token-mean loss is multiplied by the recorded task coefficient.
+Checkpoint every243 steps; candidate is final972, never selected by training loss. No separate pilot or smoke run.
+Use --recipe ${V7_FULL_RECIPE} --initialization fresh --steps 972 --layers 16 --strategy language-linear --batch-size 2 --learning-rate 0.00001 --checkpoint-every 243 --max-seconds 32400.
+Native TRAIN tokenizer/template/grammar checks precede weights; nonfinite loss or gradients abort the run.
+One H200 with >=130000MiB VRAM. Total provider budget <=200USD, including baselines, training, complete DEV, final TEST and saving; reserve >=20USD for closing.
+The9hour training cap is not permission to spend it. Independent provider cost/shutdown controls remain mandatory.
+Fresh and prior baseline and final DEV must cover146phases+8controls+18actualrollouts. TEST only after frozen DEV selection.
+Save/hash the actual zero-delta adapter. Completion, process timeout and low training loss do not establish quality or stop provider billing.
+`: `Explicit @7 pilot; no resources started. Original dataset bytes preserved: 972 TRAIN / 146 DEV / 178 TEST.
 Recipe ${V7_RECIPE}: 210 task-homogeneous batch-2 updates, LR 0.00002, language-linear, layers 16, checkpoints 70.
 Specify --recipe ${V7_RECIPE} --initialization fresh (zero delta), or adapter plus an exact --adapter-sha256.
 Normal HF loss only; smoke is exactly 2 updates in a separate discarded output. No completion-head optimization.
@@ -86,13 +114,13 @@ Save and hash the actual zero-delta adapter for baseline identity. No model resu
   await mkdir(out,{mode:0o700});
   for(const directory of ['data','tokenizer'])await mkdir(resolve(out,directory),{mode:0o700});
   const hashes={};for(const [name,bytes] of payload){await writeFile(resolve(out,name),bytes,{flag:'wx',mode:0o600});hashes[name]=digest(bytes);}
-  const bundleManifest={version:2,purpose:'APPROVED_V7_FOUR_TASK_20_USD_PILOT',model:recipe.model,revision:recipe.revision,
+  const bundleManifest={version:2,purpose:full?'APPROVED_V7_FOUR_TASK_200_USD_FULL_LEARNING':'APPROVED_V7_FOUR_TASK_20_USD_PILOT',model:recipe.model,revision:recipe.revision,
     parentAdapterSha256:null,sourceDatasetHash:manifest.datasetHash,sourceManifestFileSha256:approvedSourceSha,
     sourceAnchorHash:manifest.anchorHash,counts:manifest.counts,instructionProfile:'SPOT_GROUNDED_V6',
-    targetSerialization:manifest.targetSerialization,recipeName:V7_RECIPE,recipeFileSha256:hashes['pilot-recipe.json'],
+    targetSerialization:manifest.targetSerialization,recipeName,recipeFileSha256:hashes['pilot-recipe.json'],
     files:hashes,productionActivation:false,remoteUploadPerformed:false,costlyResourcesStarted:false};
   await writeFile(resolve(out,'bundle.json'),JSON.stringify(bundleManifest,null,2)+'\n',{flag:'wx',mode:0o600});
-  console.log(JSON.stringify({directory:out,recipe:V7_RECIPE,counts:manifest.counts,recipeFileSha256:hashes['pilot-recipe.json'],remoteUploadPerformed:false,costlyResourcesStarted:false}));
+  console.log(JSON.stringify({directory:out,recipe:recipeName,counts:manifest.counts,recipeFileSha256:hashes['pilot-recipe.json'],remoteUploadPerformed:false,costlyResourcesStarted:false}));
   process.exit(0);
 }
 const data=JSON.parse(await readFile(resolve(source,'reviewed-backyrd.json'),'utf8'));

@@ -38,6 +38,21 @@ class WatchTests(unittest.TestCase):
                 self.assertIn('STOP_CONFIRMED', args.log.read_text())
     def test_budget_includes_prior_use_and_shutdown_reserve(self):
         self.assertEqual(watch.budget_deadline(1000,2,4,20,2),15400)
+    def test_full_budget_requires_explicit_profile_and_twenty_dollar_reserve(self):
+        self.assertEqual(watch.budget_deadline(1000, 2, 6, 200, 20, 'v7-full-200'), 107800)
+        self.assertEqual(watch.budget_deadline(1000, 2, 6, 80, 20, 'v7-full-200'), 35800)
+        for profile, ceiling, reserve in [('legacy-20', 200, 20), ('unknown', 20, 2),
+                                         ('v7-full-200', 201, 20), ('v7-full-200', 200, 19.99),
+                                         ('v7-full-200', 22, 20)]:
+            with self.subTest(profile=profile, ceiling=ceiling, reserve=reserve), self.assertRaises(ValueError):
+                watch.budget_deadline(1000, 2, 6, ceiling, reserve, profile)
+    def test_full_budget_rejects_nonfinite_cost_and_start_arguments(self):
+        for index in range(5):
+            for value in (float('nan'), float('inf'), -float('inf')):
+                args = [1000, 2, 6, 200, 20]
+                args[index] = value
+                with self.subTest(index=index, value=value), self.assertRaises(ValueError):
+                    watch.budget_deadline(*args, budget_profile='v7-full-200')
     def test_nonfinite_fixed_deadline_is_rejected_before_any_status_call(self):
         for deadline in (float('nan'), float('inf')):
             with patch.object(watch, 'status') as status:

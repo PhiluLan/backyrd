@@ -6,6 +6,7 @@ import {readFile,writeFile,mkdir,open} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
+import {contentHash} from '../../packages/decision-vnext-core/dist/canonical.js';
 import {evaluateAdviceRollouts} from './nuknuk-curriculum/advice-evaluation.mjs';
 
 const TASKS=new Set(['INTERPRET_REQUEST','ASSESS_CANDIDATES','PLAN_SEARCH','PROPOSE_EXPERIENCE']);
@@ -15,10 +16,13 @@ const safePath=value=>typeof value==='string'&&/^\/[a-zA-Z0-9_./-]+$/.test(value
 export function sessionArguments(config){
  if(!/^\d{1,3}(\.\d{1,3}){3}$/.test(config.host)||!Number.isInteger(config.port)||config.port<1||config.port>65535)throw Error('gpu_transport_host_invalid');
  for(const key of ['sshKey','knownHosts','remotePython','remoteSession','remoteBundle','remoteOutput'])if(!safePath(config[key]))throw Error('gpu_transport_path_invalid:'+key);
+ const full=config.runProfile==='V7_FULL_LEARNING_V1';
+ if(config.runProfile&&!full)throw Error('gpu_transport_run_profile_invalid');
  if(!/^[a-f0-9]{64}$/.test(config.datasetHash)||!Number.isInteger(config.maximumCalls)||config.maximumCalls<1||config.maximumCalls>240
-  ||!Number.isInteger(config.maxSeconds)||config.maxSeconds<60||config.maxSeconds>7200)throw Error('gpu_transport_bounds_invalid');
+  ||!Number.isInteger(config.maxSeconds)||config.maxSeconds<60||config.maxSeconds>(full?14400:7200))throw Error('gpu_transport_bounds_invalid');
  const remote=[config.remotePython,'-u','-B',config.remoteSession,'--bundle',config.remoteBundle,'--output',config.remoteOutput,
   '--dataset-hash',config.datasetHash,'--maximum-calls',String(config.maximumCalls),'--max-seconds',String(config.maxSeconds)];
+ if(full)remote.push('--run-profile','full-learning');
  if(config.adapterPath){
   if(!safePath(config.adapterPath)||!/^[a-f0-9]{64}$/.test(config.adapterHash))throw Error('gpu_transport_adapter_pin_required');
   remote.push('--adapter',config.adapterPath,'--adapter-sha256',config.adapterHash);
@@ -59,7 +63,7 @@ export async function connectGpuSession(config,{onStderr=()=>{},spawnProcess=spa
  return{
   ready:readyRecord,
   async call({id,task,instructions,input,outputSchema}){
-   if(closed||pending||calls>=config.maximumCalls||!TASKS.has(task)||!/^[a-z0-9-]{1,160}$/.test(id))throw Error('gpu_transport_call_invalid');
+   if(closed||pending||calls>=config.maximumCalls||!TASKS.has(task)||!/^[a-z0-9_-]{1,160}$/.test(id))throw Error('gpu_transport_call_invalid');
    calls++;
    return new Promise((accept,reject)=>{
     const timer=setTimeout(()=>{pending=null;reject(Error('gpu_transport_call_timeout'));child.kill('SIGTERM');},210_000);
@@ -90,7 +94,17 @@ export function verifyEvaluationInputs({manifestBytes,proof,signoff,inputs}){
  return manifest;
 }
 
-export async function evaluateGpuArm({source,output,connection,rolloutIds=null,phaseIds=null}){
+export function verifyFrozenTestSelection({selection,datasetHash,adapterHash,developmentReportBytes}){
+ const report=JSON.parse(developmentReportBytes);
+ if(selection?.datasetHash!==datasetHash||selection?.adapterHash!==adapterHash
+  ||!/^[a-f0-9]{64}$/.test(selection?.developmentReportHash??'')||!Number.isFinite(Date.parse(selection?.frozenAt))
+  ||hash(developmentReportBytes)!==selection.developmentReportFileSha256||contentHash(report)!==selection.developmentReportHash||report.datasetHash!==datasetHash
+  ||report.semanticReviewed!==true||report.coverage?.phases!==146||report.coverage?.controls!==8||report.coverage?.rollouts!==18
+  ||![report.selectedAdapterHash,report.baselineAdapterHash].includes(adapterHash))throw Error('gpu_arm_full_dev_selection_required_before_test');
+ return selection;
+}
+
+export async function evaluateGpuArm({source,output,connection,rolloutIds=null,phaseIds=null,split='VALIDATION',frozenSelection=null,developmentReportFile=null}){
  const folder=resolve(source),out=resolve(output);
  const manifestBytes=await readFile(resolve(folder,'manifest.json'));
  const manifest=JSON.parse(manifestBytes);
@@ -102,9 +116,14 @@ export async function evaluateGpuArm({source,output,connection,rolloutIds=null,p
   inputBytes[name]=bytes;files[name]=JSON.parse(bytes);
  }
  verifyEvaluationInputs({manifestBytes,proof,signoff:JSON.parse(await readFile(resolve(folder,'review-signoff.json'))),inputs:inputBytes});
- const phases=files['evaluation-inputs.json'].cases.filter(c=>c.split==='VALIDATION'&&(!phaseIds||phaseIds.includes(c.id)));
- const controls=phaseIds?[]:files['metamorphic-evaluation-inputs.json'].cases.filter(c=>c.split==='VALIDATION');
- const chains=files['chain-evaluation-inputs.json'].cases.filter(c=>c.split==='VALIDATION'&&(!rolloutIds||rolloutIds.includes(c.id)));
+ if(!['VALIDATION','TEST'].includes(split))throw Error('gpu_arm_holdout_only');
+ if(split==='TEST'){
+  if(phaseIds||rolloutIds||!developmentReportFile||!connection.adapterHash)throw Error('gpu_arm_full_dev_selection_required_before_test');
+  verifyFrozenTestSelection({selection:frozenSelection,datasetHash:manifest.datasetHash,adapterHash:connection.adapterHash,developmentReportBytes:await readFile(resolve(developmentReportFile))});
+ }
+ const phases=files['evaluation-inputs.json'].cases.filter(c=>c.split===split&&(!phaseIds||phaseIds.includes(c.id)));
+ const controls=phaseIds?[]:files['metamorphic-evaluation-inputs.json'].cases.filter(c=>c.split===split);
+ const chains=files['chain-evaluation-inputs.json'].cases.filter(c=>c.split===split&&(!rolloutIds||rolloutIds.includes(c.id)));
  if(phaseIds&&phases.length!==phaseIds.length||rolloutIds&&chains.length!==rolloutIds.length||!chains.length)throw Error('gpu_arm_inventory_invalid');
  const maximum=phases.length+controls.length+chains.length*3;
  if(connection.maximumCalls<maximum)throw Error('gpu_arm_calls_not_reserved');
@@ -123,7 +142,7 @@ export async function evaluateGpuArm({source,output,connection,rolloutIds=null,p
    console.log(JSON.stringify({event:'PHASE_SECURED',id:item.id,status:record.status}));
   }
   let sequence=0;
-  const rollouts=await evaluateAdviceRollouts({inputs:chains,datasetHash:manifest.datasetHash,modelIdentity:session.ready.modelIdentity,maximumModelCalls:chains.length*3,
+  const rollouts=await evaluateAdviceRollouts({inputs:chains,datasetHash:manifest.datasetHash,modelIdentity:session.ready.modelIdentity,frozenSelection,maximumModelCalls:chains.length*3,
    modelCall:async request=>{
     const record=await session.call({...request,id:'rollout-'+String(++sequence).padStart(3,'0')});
     if(record.status!=='GENERATED_REQUIRES_SEMANTIC_REVIEW')throw Error('gpu_arm_generation_failed:'+record.status+':'+(record.error??''));
@@ -136,7 +155,7 @@ export async function evaluateGpuArm({source,output,connection,rolloutIds=null,p
    }});
   await writeFile(resolve(out,'rollouts.json'),JSON.stringify(rollouts,null,2)+'\n',{flag:'wx',mode:0o600});
   await session.close();
-  const receipt={purpose:'ACTUAL_MODEL_DEV_OUTPUTS_REQUIRING_SEMANTIC_REVIEW',datasetHash:manifest.datasetHash,manifestFileSha256:hash(manifestBytes),
+  const receipt={purpose:'ACTUAL_MODEL_HOLDOUT_OUTPUTS_REQUIRING_SEMANTIC_REVIEW',split,datasetHash:manifest.datasetHash,manifestFileSha256:hash(manifestBytes),
    modelIdentity:session.ready.modelIdentity,phases:phaseRecords,rolloutCount:chains.length,rolloutFailed:rollouts.failed,
    pilotSubset:!!(phaseIds||rolloutIds),productionActivation:false,providerBillingStopped:false};
   await writeFile(resolve(out,'result.json'),JSON.stringify(receipt,null,2)+'\n',{flag:'wx',mode:0o600});return receipt;

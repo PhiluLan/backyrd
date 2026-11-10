@@ -21,6 +21,11 @@ class SessionBoundaryTests(unittest.TestCase):
         value = self.request()
         self.assertIs(session.checked_request(value, "a" * 64), value)
 
+    def test_approved_full_curriculum_phase_id_is_accepted(self):
+        value = self.request()
+        value["id"] = "advice-astra-citizenship-solo-archive-plan_search"
+        self.assertIs(session.checked_request(value, "a" * 64), value)
+
     def test_wrong_dataset_or_gold_message_rejected(self):
         value = self.request()
         with self.assertRaisesRegex(ValueError, "dataset_mismatch"):

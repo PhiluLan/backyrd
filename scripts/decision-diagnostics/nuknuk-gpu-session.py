@@ -31,7 +31,7 @@ def digest(path):
 def checked_request(value, dataset_hash):
     if not isinstance(value, dict) or value.get("datasetHash") != dataset_hash:
         raise ValueError("gpu_session_dataset_mismatch")
-    if not re.fullmatch(r"[a-z0-9-]{1,160}", value.get("id", "")) or value.get("task") not in TASKS:
+    if not re.fullmatch(r"[a-z0-9_-]{1,160}", value.get("id", "")) or value.get("task") not in TASKS:
         raise ValueError("gpu_session_request_identity_invalid")
     messages = value.get("messages")
     if not isinstance(messages, list) or [m.get("role") for m in messages] != ["system", "user"]:
@@ -66,7 +66,8 @@ def load_session_state(gpu, args):
 def main(args):
     if not re.fullmatch(r"[a-f0-9]{64}", args.dataset_hash):
         raise ValueError("gpu_session_dataset_hash_required")
-    if not 1 <= args.maximum_calls <= 240 or not 60 <= args.max_seconds <= 7200:
+    maximum_seconds = 14400 if args.run_profile == 'full-learning' else 7200
+    if not 1 <= args.maximum_calls <= 240 or not 60 <= args.max_seconds <= maximum_seconds:
         raise ValueError("gpu_session_bounds_invalid")
     if args.output.exists() or args.output.resolve() == args.bundle.resolve():
         raise ValueError("gpu_session_new_output_required")
@@ -154,4 +155,5 @@ if __name__ == "__main__":
     parser.add_argument("--adapter-sha256")
     parser.add_argument("--maximum-calls", type=int, default=208)
     parser.add_argument("--max-seconds", type=int, default=4500)
+    parser.add_argument("--run-profile", choices=['bounded-pilot', 'full-learning'], default='bounded-pilot')
     main(parser.parse_args())
