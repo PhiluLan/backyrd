@@ -8,6 +8,7 @@ import {trainingSpecs} from './train.mjs';
 import {buildSemanticRubric,assessReviewedDevelopment} from './rubric.mjs';
 import {buildNuknukUnderstandingRequest} from '../../../packages/decision-vnext-core/dist/nuknuk-understanding.js';
 import {materialize} from './authoring.mjs';
+import {buildMetamorphicControls} from './methodology.mjs';
 const prepared=await assemble();
 const row=id=>prepared.fresh.find(r=>r.id===id);
 const facts=id=>row(id).content.target.meaning.facts;
@@ -116,9 +117,10 @@ test('V6 is explicit, corrects currency and counts, preserves historical profile
  assert.equal(contentHash(buildNuknukUnderstandingRequest({...input,instructionProfile:'SPOT_GROUNDED_V5'})),contentHash(v5));
 });
 test('semantic selection requires reviewed complete DEV, rejects TEST, stale/contradictory reviews and counts failures',()=>{
- const rubric=buildSemanticRubric(prepared.balanced);const receipt=c=>({id:c.id,contentHash:c.contentHash,rawOutputHash:contentHash({synthetic:true,id:c.id}),reviewer:'synthetic-test-only',verdict:'PASS',errorClasses:[],rationale:'Synthetic unit fixture, no model assessment claimed.'});
+ const rubric=buildSemanticRubric(prepared.balanced,buildMetamorphicControls(prepared.balanced));const receipt=c=>({id:c.id,contentHash:c.contentHash,rawOutputHash:contentHash({synthetic:true,id:c.id}),reviewer:'synthetic-test-only',verdict:'PASS',errorClasses:[],rationale:'Synthetic unit fixture, no model assessment claimed.'});
  const records=rubric.cases.filter(c=>c.split==='VALIDATION').map(receipt);
- assert(assessReviewedDevelopment(rubric,records).eligibleForFrozenSelection);
+ const controlRecords=rubric.derivedControls.cases.filter(c=>c.split==='VALIDATION').map(receipt);
+ assert(assessReviewedDevelopment(rubric,records,controlRecords).eligibleForFrozenSelection);
  assert(!assessReviewedDevelopment(rubric,records.slice(1)).eligibleForFrozenSelection);
  assert.throws(()=>assessReviewedDevelopment(rubric,[receipt(rubric.cases.find(c=>c.split==='TEST'))]),/non_development/);
  const bad=structuredClone(records);bad[0].errorClasses=['UNSAFE_ACCESS_ASSUMPTION'];assert.throws(()=>assessReviewedDevelopment(rubric,bad),/severity_mismatch/);
@@ -152,5 +154,5 @@ test('broader advisory exercise never turns absent personal history into public 
   if(n.id.includes('personal-')){assert(n.proofs.every(p=>p.preferenceStates[0]==='UNKNOWN'));assert(row(n.id).content.target.missingKnowledge.some(s=>s.includes('Historie')||s.includes('historie')));}
   if(n.mode==='KNOWN_TIE')assert.equal(new Set(row(n.id).content.target.assessments.map(a=>a.fit)).size,1);
  }
- assert.equal(prepared.report.contentRevisions.length,13);assert.equal(prepared.report.parentVersion,'backyrd.nuknuk-solid-curriculum@4');
+ assert.equal(prepared.report.contentRevisions.length,56);assert.equal(prepared.report.parentVersion,'backyrd.nuknuk-solid-curriculum@5');
 });

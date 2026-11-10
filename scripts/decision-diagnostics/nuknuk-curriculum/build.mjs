@@ -21,8 +21,9 @@ import {contrastEvidenceCases} from './evidence-contrasts.mjs';
 import {userReviewSpecs} from './user-review.mjs';
 import {userReviewEvidenceCases} from './evidence-user-review.mjs';
 import {buildSemanticRubric} from './rubric.mjs';
+import {auditAssessmentIdentity,buildMetamorphicControls,summarizeTaskMixture} from './methodology.mjs';
 
-export const VERSION='backyrd.nuknuk-solid-curriculum@5';
+export const VERSION='backyrd.nuknuk-solid-curriculum@6';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 const local=resolve(root,'.local/nuknuk-understanding');
 const readJson=async p=>JSON.parse(await readFile(p,'utf8'));
@@ -54,8 +55,8 @@ export async function assemble(){
  const fresh=[...specs.map(materialize),...evidence.map(e=>e.row)];
  if(fresh.length!==680)throw Error('fresh_inventory_changed');
  const full=dataset([...revised.cases,...fresh]);
- const parent=await readJson(resolve(local,'solid-curriculum-20261110-v4/database.json'));
- const parentManifest=await readJson(resolve(local,'solid-curriculum-20261110-v4/manifest.json'));
+ const parent=await readJson(resolve(local,'solid-curriculum-20261110-v5/database.json'));
+ const parentManifest=await readJson(resolve(local,'solid-curriculum-20261110-v5/manifest.json'));
  if(contentHash(parent)!==parentManifest.fullDatabaseHash)throw Error('frozen_parent_changed');
  const semanticContent=row=>{const {trainingPermission,...content}=row.content;return contentHash(content);};
  const previousById=new Map(parent.cases.map(row=>[row.id,row]));
@@ -73,8 +74,10 @@ export async function assemble(){
  if(collisions.length)throw Error('exposed_historical_query_reused:'+collisions.join(','));
  const selectedLegacy=selectLegacy(revised.cases);
  const balanced=dataset([...selectedLegacy,...fresh]);
+ const identityAudit=auditAssessmentIdentity(balanced);
+ if(identityAudit.perfectGlobalWeakParityShortcut)throw Error('assessment_identity_shortcut');
  const probes=matchingProbes();
- const sources={};for(const file of ['authoring.mjs','train.mjs','development.mjs','holdout.mjs','evidence.mjs','probes.mjs','build.mjs','references.mjs','contrasts.mjs','legacy-revisions.mjs','evidence-contrasts.mjs','user-review.mjs','evidence-user-review.mjs','rubric.mjs','preflight.py','curriculum.test.mjs','../../../packages/decision-vnext-core/src/nuknuk-understanding.ts','../../../packages/decision-vnext-core/src/nuknuk-understanding-learning.ts','../nuknuk-pilot-authoring.mjs','../nuknuk-pilot-cohort.mjs','../nuknuk-curriculum-evaluation.mjs'])sources[file]=contentHash(await readFile(new URL(file,import.meta.url),'utf8'));
+ const sources={};for(const file of ['authoring.mjs','train.mjs','development.mjs','holdout.mjs','evidence.mjs','probes.mjs','build.mjs','references.mjs','contrasts.mjs','legacy-revisions.mjs','evidence-contrasts.mjs','user-review.mjs','evidence-user-review.mjs','assessment-identity.mjs','methodology.mjs','methodology.test.mjs','rubric.mjs','preflight.py','curriculum.test.mjs','../../../packages/decision-vnext-core/src/nuknuk-understanding.ts','../../../packages/decision-vnext-core/src/nuknuk-understanding-learning.ts','../nuknuk-pilot-authoring.mjs','../nuknuk-pilot-cohort.mjs','../nuknuk-curriculum-evaluation.mjs'])sources[file]=contentHash(await readFile(new URL(file,import.meta.url),'utf8'));
  const anchor={version:VERSION,rawDatabaseHash:contentHash(full),splitPlanHash:understandingSplitHash(full.splitPlan),vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,
   acceptedLegacyHash:contentHash(legacy),revisedLegacyHash:contentHash(revisedLegacy),revisionLedgerHash:contentHash(revised.ledger),selectedLegacyIdsHash:contentHash(selectedLegacy.map(r=>r.id)),sourcesHash:contentHash(sources),historicalSourcesHash:contentHash(historicalSources),parentManifestHash:contentHash(parentManifest),contentRevisionsHash:contentHash(contentRevisions)};
  const coverage=specs.map(s=>{const row=fresh.find(r=>r.id===s.id),v=validateNuknukUnderstanding(row.content.target,row.content);return{id:s.id,split:s.split,domain:s.domain,phenomena:s.phenomena,
@@ -82,6 +85,7 @@ export async function assemble(){
  const report={version:VERSION,anchor,counts:{database:counts(full.cases),fresh:counts(fresh),balanced:counts(balanced.cases),legacySelected:selectedLegacy.length,
   interpretation:specs.length,assessment:evidence.length,newScenarioGroups:new Set(fresh.map(r=>r.scenarioGroup)).size},
   domains:frequencies(specs.map(s=>s.domain)),phenomena:frequencies(specs.flatMap(s=>s.phenomena)),capabilityBoundaries:coverage.filter(r=>r.declaredCapabilityBoundary||r.requestState==='UNSUPPORTED_CAPABILITY'),
+  methodology:{identityAudit,taskMixture:summarizeTaskMixture(balanced),holdoutScope:'SYNTHETIC_COMPOSITION_NOT_INDEPENDENT_FIELD_QUALITY',controls:'DERIVED_DEV_AND_TEST_ONLY_NOT_SFT_OR_INDEPENDENT_SAMPLES'},
   legacyRevisions:revised.ledger,contentRevisions,parentVersion:parentManifest.curriculumVersion,selectedLegacyIds:selectedLegacy.map(r=>r.id),historicalSources,exposedQueryCollisions:collisions,sources,
   limitations:['MULTI_ASSISTANT_SYNTHETIC_REVIEW_NOT_HUMAN_GOLD','COMPOSITIONAL_HOLDOUT_SHARES_PRIMITIVES_WITH_TRAIN','NO_MODEL_OUTPUTS_EVALUATED','UNKNOWN_PHRASES_MAY_REQUIRE_NEW_SPOT_ALIASES','PROVIDER_LUNA_PREFERENCE_GUARD_NOT_TESTED_BY_INJECTED_UNDERSTANDING','NO_PRODUCTION_OR_GPU_OPERATIONS'],
   structuralAuditBlockers:frequencies(audit.cases.flatMap(r=>r.blockers)),matchingProbes:probes,
@@ -118,20 +122,26 @@ async function main(){
  const p=await assemble();await mkdir(resolve(out),{recursive:true,mode:0o700});
  if(command==='draft'){
   await save(out,'draft-database.json',p.full);await save(out,'coverage.json',p.report);await save(out,'coverage-cases.json',p.coverage);await save(out,'evidence-proofs.json',p.evidenceNotes);
+  await save(out,'methodology-audit.json',p.report.methodology);await save(out,'metamorphic-controls.json',buildMetamorphicControls(p.balanced));
   console.log(JSON.stringify({anchorHash:p.anchorHash,...p.report.counts}));return;
  }
  if(!signoffPath)throw Error('content_signoff_required');
  const signoff=await readJson(resolve(signoffPath)),approved=approveSnapshot(p,signoff);
+ const controls=buildMetamorphicControls(approved.balanced);
  await save(out,'database.json',approved.full);await save(out,'reviewed-backyrd.json',approved.balanced);
  for(const [key,rows]of Object.entries(approved.exportData.files))await save(out,key+'.jsonl',rows.map(r=>JSON.stringify(r)).join('\n')+'\n');
  await save(out,'manifest.json',{...approved.exportData.manifest,curriculumVersion:VERSION,anchor:p.anchor,anchorHash:p.anchorHash,signoffHash:contentHash(signoff),fullDatabaseHash:contentHash(approved.full),
-  futureTrainingBudgetUSD:100,trainingLaunchAuthorizedByThisExport:false,independentReviewAtExport:false,independentReviewRecord:'independent-review.json'});
+  futureTrainingBudgetUSD:100,trainingLaunchAuthorizedByThisExport:false,independentReviewAtExport:false,independentReviewRecord:'independent-review.json',
+  derivedControlsHash:contentHash(controls),derivedControlsCounts:controls.counts,derivedControlsAreIndependentSamples:false});
  await save(out,'coverage.json',p.report);await save(out,'coverage-cases.json',p.coverage);await save(out,'evidence-proofs.json',p.evidenceNotes);await save(out,'review-signoff.json',signoff);await save(out,'vocabulary.json',NUKNUK_TRAINING_VOCABULARY);
  // Target-free requests are separate from local gold labels. No model invoked.
  const evaluation=approved.balanced.cases.filter(r=>r.split!=='TRAIN').map(r=>{const request=r.content.task==='INTERPRET_REQUEST'?buildNuknukUnderstandingRequest({...r.content,instructionProfile:'SPOT_GROUNDED_V6'}):buildNuknukAssessmentRequest(r.content.context);
   return{id:r.id,query:r.content.query,task:r.content.task,split:r.split,scenarioGroup:r.scenarioGroup,messages:[{role:'system',content:request.instructions},{role:'user',content:request.input}],promptHash:contentHash(request.instructions),inputHash:contentHash(request.input),schemaHash:contentHash(request.outputSchema),outputSchema:request.outputSchema};});
- await save(out,'semantic-rubric.json',buildSemanticRubric(approved.balanced));
+ await save(out,'semantic-rubric.json',buildSemanticRubric(approved.balanced,controls));
  await save(out,'evaluation-inputs.json',{purpose:'FROZEN_INPUTS_ONLY_NO_TARGETS',datasetHash:contentHash(approved.balanced),cases:evaluation});
+ await save(out,'methodology-audit.json',p.report.methodology);
+ await save(out,'metamorphic-controls.json',controls);
+ await save(out,'metamorphic-evaluation-inputs.json',{purpose:'DERIVED_INPUTS_ONLY_NO_TARGETS',datasetHash:contentHash(approved.balanced),independentSamples:false,cases:controls.cases.map(({expected,proof,...request})=>request)});
  console.log(JSON.stringify({anchorHash:p.anchorHash,...p.report.counts,exported:approved.exportData.manifest.counts,independentReview:false,trainingStarted:false}));
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)await main();

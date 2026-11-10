@@ -2818,3 +2818,117 @@ Anchor: `59d3e9c456064c46739180993459cbd73a2e2f32fd250e96c9f738ba2ea3f853`.
 Dataset: `17be538656a3335cbd101e865b2d732a078f4d07f4b9de0fd2cf7e213972db1f`.
 Das GO erlaubt fachlich das begrenzte Experiment bis 100 USD; dieser Datenauftrag
 hat keine GPU gestartet und keine zusätzlichen Trainingskosten verursacht.
+
+## Unabhängige Trainingsmethodik-Prüfung (@6, 10. November 2026)
+
+Ein neuer Agent mit Schwerpunkt SFT/LoRA und Evaluationsmethodik hat @5 ohne
+vorheriges Backyrd-Wissen und ohne Lesen der bisherigen Reviewurteile geprüft.
+Er bestätigt die grundsätzliche Aufgabenzerlegung, Completion-Maskierung und
+semantische Auswahlmethodik als brauchbar für ein begrenztes Experiment. Er
+fand jedoch einen echten künstlichen Lernhinweis: In allen neun WEAK-Zielen
+hatte die Kandidaten-ID eine gerade Endziffer. Die beiden reicheren
+Assessmentgeneratoren hatten Kennnummern als gerade Basis plus Zustandsindex
+erzeugt; Namen und Reihenfolge zu mischen behob das nicht.
+
+### Korrektur ohne neue SFT-Fälle
+
+`assessment-identity.mjs` erzeugt synthetische UUIDs nur aus Szenario-Namespace
+und einer Identitätskennung. Weder Belegzustand noch Fit bestimmen die ID.
+Die gleichen Identitäten bleiben in gegenläufigen Belegwelten erhalten; die
+Zuweisung der Belege wird separat permutiert. Die neue Identität existiert
+bereits vor dem tatsächlichen lokalen HTTP-/Matcher-Durchlauf und bleibt daher
+in Response, Assessment-Input, Target und Proofs konsistent. Historische
+Snapshots bleiben unverändert.
+
+@6 übernimmt die bestehende Bank mit 2.901 Fällen und dieselben 720/92/124
+Train-/DEV-/TEST-Zeilen. 56 Assessmentzeilen erhalten neue Identitäten und
+entsprechend gebundene Referenzen; Interpretationsziele bleiben gleich. Die
+Identitätsstatistik wird separat gespeichert. Eine kleine zufällige Korrelation
+innerhalb eines kleinen Splits ist kein Nachweis einer systematischen
+Abhängigkeit; umgekehrt beweist ein ausgeglichener Zähler keine Modellinvarianz.
+
+### Eingefrorene abgeleitete Kontrollen
+
+Vier vorhandene DEV-/TEST-Situationen erhalten je vier getrennte Kontrollen:
+
+- gleiche Belege und Wünsche mit anderen Kandidaten-IDs;
+- gleiche IDs/Namen mit vertauschten Belegen, sodass die Bewertung den Belegen
+  zum jeweils richtigen Kandidaten folgen muss;
+- umgekehrte Kandidatenreihenfolge ohne Bedeutungsänderung;
+- bedeutungsgleiche Belegparaphrasen und konsistent ersetzte opake Belegcodes.
+
+Die 16 Kontrollen sind **keine neuen Trainingsdaten und keine unabhängigen
+Nutzersituationen**. Acht gehören zu DEV, acht zu TEST; sie erben die Partition
+ihrer Ausgangsfälle. `metamorphic-controls.json` enthält lokale Sollwerte;
+`metamorphic-evaluation-inputs.json` und der getrennte Kontroll-Evaluationsplan
+enthalten nur Modellinputs ohne Sollantworten. Die Formulierungsänderungen sind
+synthetische Transformationen bereits öffentlicher Fixture-Belege, keine neuen
+Spotbehauptungen und keine angeblichen zusätzlichen HTTP-Beobachtungen.
+
+Die Rubrik @3 verlangt für den aktuellen Export vollständige semantische
+DEV-Reviews der Basis **und** aller DEV-Kontrollen. Fehlende Kontrollreviews
+verhindern die Auswahl. TEST einschließlich seiner Kontrollen darf erst nach
+endgültiger Adapterauswahl ausgewertet werden. Eine lokal richtige Umbenennung
+beweist nicht, dass das trainierte Modell die Kontrollen bestehen wird. Erst
+wirkliche Antworten werden bewertet, einschließlich Fehlgenerierungen.
+
+Die Auswahlberichte trennen Tasks und Szenariogruppen. Der native Preflight
+berichtet zusätzlich Beispiele und Antworttokens je Task, getrennt von den
+Kontrollen. 124 TEST-Zeilen sind nicht 124 unabhängige Alltagssituationen:
+Interpretation hat 13 TEST-Gruppen, Assessment fünf. Der Holdout misst zunächst
+synthetische Komposition innerhalb gemeinsamer Autoren-/Fixture-Sprache und
+liefert keine Schätzung beliebiger realer Produktanfragen.
+
+### Vor einem späteren kostenpflichtigen Lauf
+
+Dieser Auftrag aktualisiert Daten und Evaluationsdesign, nicht den historischen
+GPU-Runner. Dessen alter 20-USD-Bundle-Purpose bleibt keine Startfreigabe für
+@6. Der kommende Launchplan muss Startadapter/Base-Pins, trainierbare Module,
+Lernrate, Batchgröße, Beispielexposition und wenige Checkpoints vorab bestimmen.
+Die unveränderte Ausgangsversion muss gegen vollständige DEV-Antworten
+verglichen werden; TEST selektiert niemals. Erfüllt kein Checkpoint die
+Bedeutungsanforderungen, wird keiner ausgewählt. Native Runtime-Parität,
+Budgetwächter und bestätigter Abschaltweg bleiben vor tatsächlichem Spend
+notwendig. Das ist kein Anlass, jetzt einen konkurrierenden Runner zu bauen.
+
+### Aktueller Export und Gegenprüfung
+
+Der aktuelle methodisch korrigierte Export liegt unter
+`.local/nuknuk-understanding/solid-curriculum-20261110-v6/`. Die neue Bindung ist
+`dc86409f4215c06503f04aa8fbf7e49d7bddf9f85160cef88e5c63ab1a036238`;
+die ausgewählte Datenbank hat Hash
+`52cb56b69c7ab49811a3ccd26fa3f565d765feefa5ee8392c8ad1e8f5c0eed74`.
+
+Astra hat nach seiner Spiegelung auch einen optionalen API-Pfad beanstandet:
+Eine Rubrik liess sich zunächst ohne Controls erzeugen. Das ist geschlossen.
+Builder und öffentliche Auswahlfunktion verlangen jetzt die zum Dataset
+gehörenden Controls; Basisreviews allein ergeben keine auswählbare Version.
+Tobi hat die unveränderte Bedeutung der Daten und Kontrollfälle bestätigt.
+Die anschliessende API-Härtung hat diese Inhalte nachweislich nicht verändert.
+
+Der native Offline-Preflight akzeptiert alle 936 Basiszeilen sowie separat alle
+16 Kontrollantworten mit den originalen Tokenizer-/Template-Dateien und echter
+Grammatikprüfung. Für die Basiszeilen bleiben die Maxima bei 3.119 Gesamttokens
+und 670 Antworttokens. Es wurden weder Gewichte geladen noch Netzanfragen
+gemacht; Spitzen-RSS betrug 702.611.456 Bytes. Die Basis- und Kontrollpläne haben
+216 beziehungsweise 16 reine Modellinputs. TRAIN bleibt unverändert 720 Zeilen;
+Kontrollen werden weder hinzugezählt noch hineinkopiert.
+
+Die TRAIN-Verteilung des aktuellen Exports ist 616 Interpretationen mit 174.097
+Antworttokens und 104 Assessments mit 39.078 Antworttokens. Beispielanteile und
+Tokenanteile bleiben getrennte Angaben; die Loss-Aggregation des späteren
+Rezepts bestimmt ihren tatsächlichen Optimierungsbeitrag.
+
+Der neue unabhängige Spezialist hat diese Fassung nach der Spiegelung mit
+Astra und Tobi erneut geprüft und mit **GO für Daten und Methodik des begrenzten
+Experiments** abgeschlossen. Er hat Quellen- und Artefakthashes, sämtliche
+unveränderten Bedeutungen, die getrennten Kontrollen und die zwingenden
+DEV-Reviews selbst nachvollzogen. Kein wesentlicher Trainingsdatenblocker
+bleibt in diesem Scope offen; ein grundlegender Neuaufbau ist nicht erforderlich.
+Der Receipt steht unter `independent-review.json` und separat unter
+`.local/nuknuk-understanding/solid-curriculum-20261110-v6-review/independent-methodology-final.json`.
+Vor dem Speichern wurden alle 14 gebundenen Artefakte nochmals verifiziert.
+Die Abnahme belegt Daten-/Methodikbereitschaft des begrenzten Versuchs, keine
+trainierte Modellqualität, menschliche Gold-Abnahme oder Produktionsreife.
+Dieser Auftrag hat keinen Trainingslauf und keine zusätzlichen GPU-Kosten
+verursacht.

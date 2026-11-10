@@ -42,32 +42,52 @@ for row in requests:
 grammars = {key: compiler.compile(json.dumps(schema)) for key, schema in schemas.items()}
 dataset = json.loads((folder / "reviewed-backyrd.json").read_text())
 tokens_report = []
+def inspect_messages(case_id, split, task, messages):
+    assert [m["role"] for m in messages] == ["system", "user", "assistant"]
+    prefix_text = template.render(messages=messages[:2], add_generation_prompt=True, enable_thinking=False, tools=None)
+    prefix = tokenizer.encode(prefix_text, add_special_tokens=False).ids
+    answer = tokenizer.encode(messages[2]["content"], add_special_tokens=False).ids
+    assert prefix and answer and len(prefix) + len(answer) + 1 <= 4096, (case_id, "would_truncate")
+    assert len(answer) + 1 <= 2048, (case_id, "completion_limit")
+    ids = prefix + answer + [eos]
+    labels = [-100] * len(prefix) + answer + [eos]
+    assert len(ids) == len(labels) and labels[:len(prefix)] == [-100] * len(prefix)
+    matcher = llguidance.LLMatcher(ll_tokenizer, grammars[task])
+    for token in answer + [eos]:
+        assert matcher.consume_token(token), (case_id, "grammar_token_rejected")
+    assert not matcher.get_error() and matcher.is_accepting(), (case_id, "grammar_incomplete")
+    return {"id": case_id, "split": split, "task": task, "prefixTokens": len(prefix), "answerTokens": len(answer), "totalTokens": len(ids), "grammarAccepted": True, "completionOnlyMaskVerified": True}
+
 for split, name in [("TRAIN", "train"), ("VALIDATION", "valid"), ("TEST", "test")]:
     cases = [r for r in dataset["cases"] if r["split"] == split]
     rows = [json.loads(line) for line in (folder / (name + ".jsonl")).read_text().splitlines()]
     assert len(cases) == len(rows)
     for case, row in zip(cases, rows):
-        messages = row["messages"]
-        assert [m["role"] for m in messages] == ["system", "user", "assistant"]
-        prefix_text = template.render(messages=messages[:2], add_generation_prompt=True, enable_thinking=False, tools=None)
-        prefix = tokenizer.encode(prefix_text, add_special_tokens=False).ids
-        answer = tokenizer.encode(messages[2]["content"], add_special_tokens=False).ids
-        assert prefix and answer and len(prefix) + len(answer) + 1 <= 4096, (case["id"], len(prefix), len(answer), "would_truncate")
-        assert len(answer) + 1 <= 2048, (case["id"], "completion_limit")
-        ids = prefix + answer + [eos]
-        labels = [-100] * len(prefix) + answer + [eos]
-        assert len(ids) == len(labels) and labels[:len(prefix)] == [-100] * len(prefix)
-        matcher = llguidance.LLMatcher(ll_tokenizer, grammars[case["content"]["task"]])
-        for token in answer + [eos]:
-            assert matcher.consume_token(token), (case["id"], "grammar_token_rejected")
-        assert not matcher.get_error() and matcher.is_accepting(), (case["id"], "grammar_incomplete")
-        tokens_report.append({"id": case["id"], "split": split, "prefixTokens": len(prefix), "answerTokens": len(answer), "totalTokens": len(ids), "grammarAccepted": True, "completionOnlyMaskVerified": True})
+        tokens_report.append(inspect_messages(case["id"], split, case["content"]["task"], row["messages"]))
+derived_report = []
+controls_file = folder / "metamorphic-controls.json"
+if controls_file.exists():
+    for control in json.loads(controls_file.read_text())["cases"]:
+        assert control["split"] in ("VALIDATION", "TEST")
+        answer = json.dumps(control["expected"], ensure_ascii=False, separators=(", ", ": "))
+        derived_report.append(inspect_messages(control["id"], control["split"], control["task"], control["messages"] + [{"role": "assistant", "content": answer}]))
+mixture = {}
+for case in dataset["cases"]:
+    key = case["split"] + ":" + case["content"]["task"]
+    entry = mixture.setdefault(key, {"examples": 0, "scenarioGroups": set(), "answerTokens": 0})
+    entry["examples"] += 1
+    entry["scenarioGroups"].add(case["scenarioGroup"])
+    entry["answerTokens"] += next(r["answerTokens"] for r in tokens_report if r["id"] == case["id"])
+for entry in mixture.values():
+    entry["scenarioGroups"] = len(entry["scenarioGroups"])
 assert "torch" not in sys.modules and "transformers" not in sys.modules
-report = {"version": "backyrd.nuknuk-offline-preflight@1", "datasetManifestFileSha256": sha(folder / "manifest.json"),
+report = {"version": "backyrd.nuknuk-offline-preflight@2", "datasetManifestFileSha256": sha(folder / "manifest.json"),
           "tokenizerFilesSha256": {name: sha(tokenizer_folder / name) for name in ["tokenizer.json", "tokenizer_config.json", "chat_template.jinja"]},
           "versions": {name: importlib.metadata.version(name) for name in ["tokenizers", "llguidance", "Jinja2"]},
           "cases": tokens_report, "caseCount": len(tokens_report), "maxTotalTokens": max(r["totalTokens"] for r in tokens_report),
           "maxAnswerTokens": max(r["answerTokens"] for r in tokens_report), "grammarCount": len(grammars),
+          "derivedControls": derived_report, "derivedControlCount": len(derived_report), "taskMixture": mixture,
+          "mixtureInterpretation": "Report examples, tokens and scenario groups separately. Grouped variants and derived controls are not independent user situations. Loss aggregation is a later recipe choice.",
           "peakRSSBytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss, "networkUsed": False, "modelLoaded": False, "trainingStarted": False,
           "limitations": ["Uses the locally saved Qwen tokenizer and exact Jinja template; GPU runner must verify the same file hashes and native runtime parity before training.", "Does not prove semantic correctness or adapter quality."]}
 with output.open("x") as file:

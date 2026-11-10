@@ -4,7 +4,8 @@ import {contentHash} from '../../../packages/decision-vnext-core/dist/canonical.
 import {validateNuknukUnderstanding,NUKNUK_UNDERSTANDING_VERSION} from '../../../packages/decision-vnext-core/dist/nuknuk-understanding.js';
 import {buildNuknukAssessmentRequest,validateNuknukAssessment} from '../../../packages/decision-vnext-core/dist/nuknuk-grounded-assessment.js';
 import {exercise} from '../../../packages/decision-vnext-core/test/librarian-active-route-fixtures.mjs';
-import {profile,offer,area,prop,binding} from '../../../packages/decision-vnext-core/test/librarian-matching-fixtures.mjs';
+import {profile,offer,area,prop} from '../../../packages/decision-vnext-core/test/librarian-matching-fixtures.mjs';
+import {bindAssessmentCandidate,identityKeys} from './assessment-identity.mjs';
 import {W,A,D,M,P,materialize} from './authoring.mjs';
 const scenarios=[
  ['coffee','TRAIN','Kaffee trinken',D('coffee'),'DRINKS','RESTAURANT'],
@@ -25,13 +26,13 @@ export async function contrastEvidenceCases(){
   const row=materialize({...W(query,'Hauptangebot und belegte Zusatzwünsche mit ausdrücklich genannter Priorität abwägen.',[hard,P('offer.shade','shade'),P('offer.feature','WC')]),id,scenarioGroup,split,reference:{now:'2026-10-14T08:00:00Z',timezone:'Europe/Zurich'}});
   const understood=validateNuknukUnderstanding(row.content.target,row.content);
   const states=mode==='DENIED_UNKNOWN'?[[false,false],[null,null]]:mode==='DISTRACTOR'?[[false,false],[true,true]]:[[true,false],[false,true]];
+  const identities=identityKeys(scenarioGroup,mode);
   const catalog=states.map(([shade,toilet],i)=>{
    const selectedProps=[...(shade===null?[]:[prop('offer.shade',shade)]),...(toilet===null?[]:[prop('amenity.toilet',toilet)]),...(name==='playground'?[prop('amenity.playground',true)]:[])];
    const a={...area('visit',selectedProps),kind:category==='RESTAURANT'?'TERRACE':'OUTDOOR'};
    const props=[...(hard.key==='food.drink'?[prop('food.drink',hard.value.text)]:[]),...(name==='snacks'?[prop('food.meal_extent','Snacks')]:[])];
    const p=profile([offer('visit',kind,['visit'],props)],mode==='DISTRACTOR'&&i===0?[a,{...area('unused',[prop('offer.shade',true),prop('amenity.toilet',true)]),kind:category==='RESTAURANT'?'TERRACE':'OUTDOOR'}]:[a],category);
-   const index=200000+parseInt(contentHash({name,mode}).slice(0,6),16)*2+i;
-   const b=binding(index,p);b.decisionProjection.facts.find(f=>f.key==='identity.name').value=['Lernort Linden','Lernort Ahorn'][(i+(parseInt(contentHash(id).slice(0,2),16)%2))%2];
+   const b=bindAssessmentCandidate(scenarioGroup,identities[i],p);b.decisionProjection.facts.find(f=>f.key==='identity.name').value=['Lernort Linden','Lernort Ahorn'][(i+(parseInt(contentHash(id).slice(0,2),16)%2))%2];
    if(category==='SPORT')b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['SPORTS_CENTRE'];
    return b;
   });

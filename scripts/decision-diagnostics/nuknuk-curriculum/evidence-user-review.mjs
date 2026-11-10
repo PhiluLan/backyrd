@@ -5,7 +5,8 @@ import {contentHash} from '../../../packages/decision-vnext-core/dist/canonical.
 import {validateNuknukUnderstanding,NUKNUK_UNDERSTANDING_VERSION} from '../../../packages/decision-vnext-core/dist/nuknuk-understanding.js';
 import {buildNuknukAssessmentRequest,validateNuknukAssessment} from '../../../packages/decision-vnext-core/dist/nuknuk-grounded-assessment.js';
 import {exercise} from '../../../packages/decision-vnext-core/test/librarian-active-route-fixtures.mjs';
-import {profile,offer,area,prop,binding} from '../../../packages/decision-vnext-core/test/librarian-matching-fixtures.mjs';
+import {profile,offer,area,prop} from '../../../packages/decision-vnext-core/test/librarian-matching-fixtures.mjs';
+import {bindAssessmentCandidate,identityKeys} from './assessment-identity.mjs';
 import {W,A,D,M,P,R,materialize} from './authoring.mjs';
 
 // Null negative evidence means this property has no reliable negative witness
@@ -75,9 +76,9 @@ export async function userReviewEvidenceCases(){
    [scenario.hard,...scenario.preferences.map(p=>P(p.key,p.value))]),id,scenarioGroup,split:scenario.split,reference});
   const understood=validateNuknukUnderstanding(interpreted.content.target,interpreted.content);
   const expectedById=new Map();
+  const identities=identityKeys(scenarioGroup,mode);
   const catalog=statesFor(scenario,mode).map((states,i)=>{
-   const index=100000000+parseInt(contentHash({scenario:scenario.name,mode}).slice(0,6),16)*2+i;
-   const p=candidateProfile(scenario,states),b=binding(index,p);
+   const p=candidateProfile(scenario,states),b=bindAssessmentCandidate(scenarioGroup,identities[i],p);
    b.decisionProjection.facts.find(f=>f.key==='identity.name').value=['Lernort Buche','Lernort Birke'][(i+parseInt(contentHash(id).slice(0,2),16))%2];
    if(scenario.category==='SPORT')b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['SPORTS_CENTRE'];
    if(scenario.category==='WELLNESS_RELAXATION')b.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=['SPA'];
