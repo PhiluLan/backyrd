@@ -1833,3 +1833,29 @@ Zwischenstände alle 50 Updates. Die Wahl ist ein weiter zu prüfender Lernversu
 keine Qualitätsfreigabe: V3-linear verbessert im kurzen Vergleich Alternativen,
 revidierte Datumsangaben und unnötige Rückfragen, enthält aber weiterhin Fehler.
 Die endgültig verarbeiteten Schritte und Ergebnisse werden nach Abschluss ergänzt.
+
+#### SFT-Abschluss und eingefrorene Abschlussauswertung
+
+Der V3-Lauf beendete tatsächlich alle 640 geplanten Updates mit 1280 eindeutigen
+TRAIN-Beispielen in 7068,495 Sekunden. Spitzenallokation 45,662 GiB CUDA. Der fertige
+Adapter ist lokal gesichert und SHA-256-geprüft:
+`63171f1565f50cdc9af0c19930384987964feb9b86c810c5b6dab5db5be6c464`.
+Das ist ein Teildurchlauf des 2360-Zeilen-Korpus, kein vollständiger Epochendurchlauf.
+
+Die assistierte Prüfung derselben zehn Entwicklungsfragen ergibt vier akzeptable
+primäre Bedeutungsaufträge und sechs materielle Fehler. Positiv: getrennte
+Gerichtsalternativen mit personenbezogener veganer Pflicht, tatsächliches Alter,
+kanonischer Rollstuhlzugang und einfaches günstiges Mittagessen. Offen: explizite
+Ortsbindung verloren, bevorzugtes Budget verhärtet und Ruhe hinzuerfunden,
+Gesprächsruhe als Sprachbedarf, Reservationsfreiheit falsch polarisiert,
+übergreifende Preisgrenze nur einem Wetterzweig zugeordnet und widerrufenes Datum
+beibehalten. Keine Produktfreigabe aus diesem Ergebnis ableiten.
+
+Vor der ersten TEST-Generierung wurde genau dieser SFT-Adapter unveränderlich für
+den Abschlussversuch festgelegt; keine weitere Auswahl oder Nachoptimierung aus
+TEST-Antworten. Der Vergleich generiert 30 Ausgangsantworten (eine pro Testfamilie)
+und 300 Antworten des ausgewählten Adapters. Nur die gemeinsamen 30 erlauben einen
+Vorher-nachher-Vergleich. Weitere 270 prüfen zusätzliche Abdeckung. Das optionale
+Präferenztraining wurde wegen des verbleibenden Prüf-/Sicherungszeitfensters
+**nicht ausgeführt**. Vorbereitete Paare bleiben für einen späteren genehmigten
+Lauf verfügbar. Anbieterabschaltung und finale Qualitätsauswertung folgen noch.
