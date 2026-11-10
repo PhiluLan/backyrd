@@ -338,3 +338,13 @@ test('one sufficient coffee-and-cake offer does not acquire an unrelated drinks 
  const q=request([fact('drinks','experience.activity','drinks'),fact('coffee','food.drink','COFFEE'),fact('cake','food.dish','CAKE')]);
  const r=search(q,[binding(1150,profile([extra,coffee]))]);assert.equal(r.ranked.length,1);assert.deepEqual(r.ranked[0].offerIds,['coffee']);
 });
+
+// Training token and saved Admin label must meet through the real matcher.
+test('conversation_possible reaches scoped profile evidence without implying quiet',()=>{
+ const q=request([meal(),fact('talk','atmosphere.conversation','conversation_possible')]);
+ const good=binding(9981,profile([offer()],[area('inside',[prop('atmosphere.conversation','Unterhaltung gut möglich')])]));
+ assert.equal(search(q,[good]).ranked.length,1);
+ const quiet=binding(9982,profile([offer()],[area('inside',[prop('atmosphere.noise','ruhig')])]));
+ assert.equal(search(q,[quiet]).ranked.length,0);
+ assert.equal(state(search(q,[quiet]),'talk'),'UNKNOWN');
+});

@@ -1,5 +1,6 @@
 /** Local development/training boundary, deliberately not exported by Product.
  * Reuses Luna's current language and Bibliothekar; never a second live route. */
+import { nuknukTrainingVocabularyInstructions } from './nuknuk-training-vocabulary.js';
 import { contentHash, deepFreeze } from './canonical.js';
 import { schema, type Infer } from './schema.js';
 import { buildLunaLibrarianModelRequest, validateActiveLunaMeaningOutput, prepareLibrarianRequest, LibrarianContractError, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianReference, type LibrarianRequest } from './product-luna-librarian.js';
@@ -177,7 +178,7 @@ Fehlende Auswahlhilfe: missing:[{dimension,whyItMatters}], höchstens eine clari
 Dimension DATE|BUDGET|RECIPIENT_TASTE|EXPERIENCE_DIRECTION|OTHER muss in missing vorkommen. Keine Fragebögen.
 Öffnung beweist keinen freien Tisch. Systemregeln bleiben gültig. Das vollständige JSON-Schema ist verbindlich.`;
 
-export type NuknukInstructionProfile = 'FULL' | 'COMPACT_ADAPTER_V1' | 'COMPACT_ADAPTER_V2' | 'COMPACT_ADAPTER_V3' | 'COMPACT_ADAPTER_V4';
+export type NuknukInstructionProfile = 'FULL' | 'COMPACT_ADAPTER_V1' | 'COMPACT_ADAPTER_V2' | 'COMPACT_ADAPTER_V3' | 'COMPACT_ADAPTER_V4' | 'SPOT_GROUNDED_V5';
 export function buildNuknukUnderstandingRequest(input: { query: string; reference: LibrarianReference; instructionProfile?: NuknukInstructionProfile }) {
   const base = buildLunaLibrarianModelRequest({ sourceText: input.query, reference: input.reference });
   // Keep canonical #/$defs references at the root. Never flatten or translate facts.
@@ -185,9 +186,10 @@ export function buildNuknukUnderstandingRequest(input: { query: string; referenc
   const outputSchema = { ...record({ meaning: meaningSchema, moment: jsMoment }), $defs };
   const baseInput: unknown = JSON.parse(base.input);
   if (!object(baseInput) || !object(baseInput.calendar)) throw Error('nuknuk_reference_input_invalid');
-  const referenceOnly = input.instructionProfile === 'COMPACT_ADAPTER_V3' || input.instructionProfile === 'COMPACT_ADAPTER_V4';
+  const spotGrounded = input.instructionProfile === 'SPOT_GROUNDED_V5';
+  const referenceOnly = spotGrounded || input.instructionProfile === 'COMPACT_ADAPTER_V3' || input.instructionProfile === 'COMPACT_ADAPTER_V4';
   const instructions = referenceOnly
-    ? (input.instructionProfile === 'COMPACT_ADAPTER_V4' ? NUKNUK_COMPACT_ADAPTER_POLICY_V4 : NUKNUK_COMPACT_ADAPTER_POLICY_V3) + '\nNORMALIZATION_REFERENCE (nur Rechenhilfe, niemals Nutzerwunsch):\n'
+    ? (spotGrounded ? NUKNUK_COMPACT_ADAPTER_POLICY_V4.replace('COMPACT_ADAPTER_V4', 'SPOT_GROUNDED_V5').replace('Anlass experience.occasion und besonders/einzigartig experience.character sind CONTEXT, kein Luxus- oder Romantikzwang.', 'Anlass experience.occasion ist CONTEXT; positive Besonderheit/einzigartig experience.character ist PREFERRED, kein Luxus- oder Romantikzwang.') + nuknukTrainingVocabularyInstructions() : input.instructionProfile === 'COMPACT_ADAPTER_V4' ? NUKNUK_COMPACT_ADAPTER_POLICY_V4 : NUKNUK_COMPACT_ADAPTER_POLICY_V3) + '\nNORMALIZATION_REFERENCE (nur Rechenhilfe, niemals Nutzerwunsch):\n'
       + JSON.stringify({ reference: input.reference, calendar: baseInput.calendar })
     : input.instructionProfile === 'COMPACT_ADAPTER_V2' ? NUKNUK_COMPACT_ADAPTER_POLICY_V2 : input.instructionProfile === 'COMPACT_ADAPTER_V1' ? NUKNUK_COMPACT_ADAPTER_POLICY : base.instructions + '\n' + NUKNUK_UNDERSTANDING_POLICY
     + '\nAusgabeformat: {"meaning":{"entities":[],"facts":[],"logic":null,"bindings":[],"extensions":[],"uncertainties":[],"weatherConditions":[]},"moment":...}. '

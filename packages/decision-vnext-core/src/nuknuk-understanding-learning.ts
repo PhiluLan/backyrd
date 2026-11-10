@@ -1,5 +1,6 @@
 /** Understanding examples are distinct from venue-research evidence and User learning.
  * Local review attribution is explicit; it never grants authenticated Admin authority. */
+import { inspectNuknukTrainingVocabulary, NUKNUK_TRAINING_VOCABULARY_HASH } from './nuknuk-training-vocabulary.js';
 import { contentHash, deepFreeze } from './canonical.js';
 import { schema, type Infer } from './schema.js';
 import { buildNuknukUnderstandingRequest, validateNuknukUnderstanding, NuknukMomentSchema, NUKNUK_UNDERSTANDING_VERSION, type NuknukInstructionProfile } from './nuknuk-understanding.js';
@@ -31,6 +32,7 @@ const reviewSchema = schema.object({
   note: schema.string({ min: 1, max: 2000, pattern: /\S/u }),
   reviewerKind: schema.optional(schema.enum(['HUMAN', 'DELEGATED_ASSISTANT'] as const)),
   delegationHash: schema.optional(hash),
+  vocabularyHash: schema.optional(hash),
 });
 const caseSchema = schema.object({ id, scenarioGroup: id, split, content: contentSchema, contentHash: hash, reviews: schema.array(reviewSchema, { max: 2 }) });
 const datasetSchema = schema.object({
@@ -73,12 +75,12 @@ export function reviseUnderstandingCase(raw: unknown, change: { id: string; expe
 
 export function recordUnderstandingReview(raw: unknown, input: { id: string; expectedContentHash: string; kind: 'SEMANTICS' | 'PRIVACY_AND_SOURCE_USE';
   verdict: 'ACCEPT' | 'REJECT'; reviewer: string; reviewedAt: string; note: string;
-  reviewerKind?: 'HUMAN' | 'DELEGATED_ASSISTANT'; delegationHash?: string }) {
+  reviewerKind?: 'HUMAN' | 'DELEGATED_ASSISTANT'; delegationHash?: string; vocabularyHash?: string }) {
   const dataset = datasetSchema.parse(raw);
   const existing = dataset.cases.find(c => c.id === input.id);
   if (!existing || existing.contentHash !== input.expectedContentHash) throw Error('nuknuk_review_content_mismatch');
   const review = reviewSchema.parse({ kind: input.kind, verdict: input.verdict, contentHash: existing.contentHash, reviewer: input.reviewer, reviewedAt: input.reviewedAt, note: input.note,
-    ...(input.reviewerKind ? {reviewerKind:input.reviewerKind}:{}), ...(input.delegationHash ? {delegationHash:input.delegationHash}:{}) });
+    ...(input.reviewerKind ? {reviewerKind:input.reviewerKind}:{}), ...(input.delegationHash ? {delegationHash:input.delegationHash}:{}), ...(input.vocabularyHash ? {vocabularyHash:input.vocabularyHash}:{}) });
   const updated = { ...dataset, cases: dataset.cases.map(c => c.id === input.id ? { ...c, reviews: [...c.reviews.filter(r => r.kind !== review.kind), review] } : c) };
   auditUnderstandingDataset(updated, understandingSplitHash(dataset.splitPlan));
   return updated;
@@ -120,7 +122,7 @@ export function auditUnderstandingDataset(raw: unknown, expectedSplitHash: strin
     taskQueries.add(taskQuery);
     seen.set(fingerprint, row.split);
     const kinds = new Set<string>();
-    const blockers: string[] = [];
+    const blockers: string[] = inspectNuknukTrainingVocabulary(row.content.target).map(issue => issue.code + ':' + issue.factId);
     for (const review of row.reviews) {
       if (review.reviewerKind === 'DELEGATED_ASSISTANT' && !review.delegationHash) throw Error('nuknuk_review_delegation_required');
       if (review.delegationHash && review.reviewerKind !== 'DELEGATED_ASSISTANT') throw Error('nuknuk_review_delegation_misattributed');
@@ -155,6 +157,11 @@ function serverTargetJson(value: unknown): string {
 export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: string, instructionProfile: NuknukInstructionProfile = 'FULL') {
   const audit = auditUnderstandingDataset(raw, expectedSplitHash);
   if (!audit.exportReady) throw Error('nuknuk_dataset_not_reviewed');
+  if (instructionProfile === 'SPOT_GROUNDED_V5' && audit.dataset.cases.some(row =>
+    !row.reviews.some(review => review.kind === 'SEMANTICS' && review.verdict === 'ACCEPT'
+      && review.vocabularyHash === NUKNUK_TRAINING_VOCABULARY_HASH))) {
+    throw Error('nuknuk_vocabulary_review_required');
+  }
   const rows = (splitName: 'TRAIN' | 'VALIDATION' | 'TEST') => audit.dataset.cases.filter(c => c.split === splitName).map(row => {
     const { request, target } = taskPair(row.content,instructionProfile);
     return { messages: [{ role: 'system', content: request.instructions }, { role: 'user', content: request.input },
@@ -166,6 +173,7 @@ export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: stri
     counts: audit.counts, filesHash: contentHash(files),
     purpose: 'SUPERVISED_UNDERSTANDING_ADAPTER_DATA_ONLY',
     productionEnabled: false, weightsTrained: false, instructionProfile,
+    trainingVocabularyHash: NUKNUK_TRAINING_VOCABULARY_HASH,
     targetSerialization: 'mlx-llguidance-spaced-json@1' as const,
     cases: audit.cases.map(({ id, contentHash, split }) => ({ id, contentHash, split })),
   } };

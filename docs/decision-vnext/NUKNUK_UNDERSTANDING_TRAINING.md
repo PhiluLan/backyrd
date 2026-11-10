@@ -2247,3 +2247,147 @@ Nachweise im lokalen Round5-Verzeichnis: `recovery-final-semantic-review.json`,
 `development-canonical-probes.json`, `recovery-secured-answer-hashes.json`,
 `recovery-provider-stop-verification.json`, `recovery-watcher-disabled.png`
 und `recovery-evidence/recovery-final-evaluation/`.
+
+## 10.11.2026: Spot vocabulary as the training reference (local preparation)
+
+The Founder commissioned using the canonical Spot concepts for understanding:
+“gemütlich” is atmosphere, not a Spot category. This work does not start a GPU,
+change production data, activate NukNuk or certify the existing adapters.
+
+`src/nuknuk-training-vocabulary.ts` in decision-vnext-core derives a versioned,
+hashed reference from world-knowledge-core's actual experience language,
+questions, choices, place/offer/area catalogues and the Bibliothekar's property
+aliases. The local `SPOT_GROUNDED_V5` profile explicitly adds a bounded projection
+of this reference. Historical V1–V4 instruction strings remain unchanged.
+The full catalogue stays in the review artifact rather than inflating every
+model input with every venue type. Prompt/context size still needs measurement
+before another training run.
+
+The distinctions include atmosphere versus area/category, conversation versus
+quiet, diet versus venue identity, own-food permission versus catering/delivery,
+booking recommendation versus obligation, and occasion/specialness versus
+invented luxury or romance. Context determines polysemous words such as Café.
+Mapping a dimension does not decide modality: an explicit atmosphere duty stays
+a duty. Finite role conflicts now block dataset approval/export; unknown words
+are not automatically errors. This is not a complete natural-language audit.
+
+The shared language adds `conversation_possible` as an exact alias for the
+existing conversation concept (experience-language@22, matching@54). Real
+canonical matching now accepts saved “Unterhaltung gut möglich” for that request;
+a profile with only “ruhig” does not prove conversational suitability. No live
+request is silently rewritten or relaxed.
+
+A reproducible local preparation was run on all **2,384 TRAIN rows** from
+`training-20261110-round5-prepared/reviewed-backyrd.json` (2,312 interpretation,
+72 candidate assessment). Output is under the ignored local directory
+`corpus-20261110-spot-vocabulary-v2/`: `review-draft.json`, `vocabulary.json`,
+`review-report.json`. The report records every row, parent/content hashes,
+concept inventory, modifications and focused review reasons.
+
+**45 concrete edits across 44 cases:** 40 “wäre gut” dish duties become
+preferences; four `glutenfree` spellings become canonical `gluten_free`; one
+“keine Tieraktivität gesucht” animal exclusion becomes NOT_REQUIRED rather than
+banning a venue's additional offer. Original source files and historical
+VALIDATION/TEST artifacts remain intact. The tool never promotes evaluation
+rows into TRAIN, including when given a mixed-partition parent.
+
+**119 rows need focused further review:** 72 candidate-evidence exercises,
+44 different-venue requests whose relation is not executable in the current
+contract, two dog permissions with area scope requiring actual matching proof,
+and one dietary exclusion needing consumption-versus-whole-venue clarification.
+These are training review queues, not new user-facing exclusion rules.
+
+Important: the tool did **not** read and independently approve 2,384 intentions.
+Every child row remains PENDING, with old content-bound approvals removed.
+Automated checks and these concrete corrections are not a substitute for full
+semantic review. The child contains no training JSONL and is **not export-ready**.
+V5 export additionally requires a SEMANTICS review explicitly bound to the
+current vocabulary hash. Old generic ACCEPT notes cannot satisfy that review;
+changing the vocabulary requires a new review. No new gold labels were invented.
+
+Reproduce locally after building decision-vnext-core:
+
+```sh
+node scripts/decision-diagnostics/nuknuk-corpus-vocabulary-audit.mjs \
+  .local/nuknuk-understanding/training-20261110-round5-prepared/reviewed-backyrd.json \
+  .local/nuknuk-understanding/NEW_REVIEW_DIRECTORY
+```
+
+The output directory must not already exist. Tests exercise role distinctions,
+polysemy, explicit duties, real positive/negative conversation matching, version-
+bound export review, exact template corrections and frozen-parent/partition
+preservation. Next work is semantic review of the draft and executable matching
+proof for the marked cases; only then can a new, separately authorized training
+run and fresh evaluation demonstrate a model improvement.
+
+## 10.11.2026: Commissioned content acceptance completed
+
+Founder instruction: **“Dann nehme sie jetzt inhaltlich ab.”** This is the
+assistant's substantive review, not independent human gold or a perfect-model
+claim. It supersedes the preceding PENDING draft for the reviewed TRAIN corpus.
+
+All **2,384 rows** received an explicit disposition: **2,221 accepted**
+(2,155 interpretations, 66 candidate-evidence exercises), **163 quarantined**,
+**zero without a review decision**. The method was content review of the
+312 individual interpretations, 50 authored template families and 72 evidence
+exercises. Every one of the 2,000 lexical/numeric template expansions was also
+regenerated and compared with the actual parent content; a matching scenario
+name alone does not authorize acceptance. Dates, amounts, subject references,
+Boolean logic, moment goals, uncertainties and provided evidence were included.
+No evaluation/holdout partition was used to choose these corrections.
+
+**492 target records changed in this acceptance**, relative to the vocabulary
+review draft. This includes distinct activity/catering scopes, pairwise active
+alternative bindings, soft positive specialness instead of inert context,
+optional bread versus a positive preference, food-only price coverage, a single
+vegan participant versus the whole group, active subgroup versus total party,
+and explicit inference boundaries for weather/atmosphere. Some changed targets
+remain quarantined: improving a record does not itself certify that its full
+meaning is executable. Together with the prior preparation, 535 target records
+differ from the original pre-review 2,384-case source (one record was revised in
+both stages).
+
+The new V5 instructions and training vocabulary now consistently teach positive
+specialness as **PREFERRED** and occasion as **CONTEXT**. Historical V1–V4
+policies remain untouched. Explicit negation/indifference remains distinct;
+explicit hard access, diet, location, activity, numeric and quiet obligations
+are not globally softened. In particular Bouldern remains a duty when requested.
+
+The 163 holds have per-case reasons; reason categories overlap. They cover
+personal consumption versus venue-wide exclusions, omitted different-venue
+relations, sequence execution limitations, area-specific dog permissions,
+missing/overstated semantics, and six Apéro evidence exercises whose visible
+meal-only summaries do not sufficiently prove the more specific experience.
+**46 held rows are semantically accepted but retained outside training solely
+because current sequence execution is unsupported.** The ledger distinguishes
+semantic verdict from training disposition; these rows are not described as
+wrong language understanding. Held data remains available for repair/capability
+work, never silently erased or included in the approved partition.
+
+Current local acceptance artifacts:
+`.local/nuknuk-understanding/semantic-acceptance-20261110-reviewed/` contains
+`approved-train.json`, `quarantined.json`, `semantic-acceptance.json`,
+`vocabulary.json` and `matching-probes.json`. Every review binds exact parent and
+reviewed content hashes, the vocabulary hash, the explicit commission, reviewer
+attribution and timestamp. Old generic review notes are not reused.
+
+Reproduction uses `scripts/decision-diagnostics/nuknuk-semantic-acceptance.mjs`
+with the preceding vocabulary draft and a new output directory. It refuses any
+other input snapshot or vocabulary. This is a dated acceptance of these exact
+examples, **not an automatic reviewer for new data**. The separate verifier
+checks coverage, partition membership, all template expansions and real
+canonical matching against synthetic fixtures.
+
+The matching probes demonstrate an actual corrected behavior: the previous
+“Pizza essen und Bouldern im gleichen Betrieb” target rejected a synthetic venue
+with bouldering and pizza in different areas although both individual facts
+were MET. The corrected scopes admit that same venue. A venue lacking pizza
+still fails. Further positive/negative probes check conversation versus quiet,
+recommended versus mandatory reservation, own-food permission versus catering,
+and specialness without mandatory luxury evidence. These probes do not claim
+new model quality, a production request, or real Basel spot results.
+
+The accepted TRAIN partition passes its content-bound review checks. It is not
+a complete runnable training bundle: fresh separate VALIDATION/TEST examples
+and an appropriately bounded experiment are still required. No GPU, new model
+call, training, production data change, deployment or activation was performed.
