@@ -1814,3 +1814,22 @@ Ein breiter `language-linear`-GPU-Adapter enthält zusätzliche Projektionsmatri
 Er ist nicht ohne geprüfte Konvertierung mit dem bisherigen vier-Matrizen-MLX-
 Adapter gleichzusetzen. GPU-Auswertung, Mac-Laufzeitkompatibilität und Freigabe für
 den Produktbetrieb sind drei getrennte Nachweise; das Training ersetzt sie nicht.
+
+#### Auswahl für den längeren Lauf
+
+Die kürzere V4-Instruktion wurde nach dem 80-Beispiele-Piloten **verworfen**:
+Snacks wurden als Getränk, Reservierung als Zugänglichkeit und tatsächliches Alter
+als Zutrittsgrenze dargestellt; ein widerrufenes Datum blieb erhalten. Der höhere
+Durchsatz rechtfertigt diese Bedeutungsverluste nicht. V4 bleibt ein dokumentierter
+Versuch, nicht das ausgewählte Trainings- oder Produktprofil.
+
+Am 10.11. um 08:43 UTC startet deshalb ein längerer SFT-Lauf mit dem unveränderten
+V3-Auftrag, dem Original-Ausgangsadapter und `language-linear`, Batch 2,
+Lernrate 0.00005, 640 geplanten Updates. Das sind höchstens 1280 eindeutige Beispiele
+des durchmischten TRAIN-Korpus; 2360 verfügbare Zeilen bedeuten nicht, dass alle in
+diesem Budget verarbeitet werden. Laufzeitgrenze 7336 Sekunden mit separater
+3900-Sekunden-Reserve für Entwicklungsprüfung, Abschlussfragen und Sicherung.
+Zwischenstände alle 50 Updates. Die Wahl ist ein weiter zu prüfender Lernversuch,
+keine Qualitätsfreigabe: V3-linear verbessert im kurzen Vergleich Alternativen,
+revidierte Datumsangaben und unnötige Rückfragen, enthält aber weiterhin Fehler.
+Die endgültig verarbeiteten Schritte und Ergebnisse werden nach Abschluss ergänzt.
