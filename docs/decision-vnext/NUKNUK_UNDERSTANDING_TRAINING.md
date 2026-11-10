@@ -2086,3 +2086,13 @@ anschliessend folgen die geplanten 592 SFT-Updates und die Entwicklungsprüfung.
 Der tatsächliche Abschluss, Qualität, Kosten und Abschaltung sind noch offen und
 werden nicht aus dem Start abgeleitet. Das bestehende Heartbeat-Monitoring wurde
 auf genau diesen Lauf, dessen Budget und die neuen festen Fristen umgestellt.
+
+Die Baseline erzeugte anschliessend alle 16 Entwicklungsantworten vollständig;
+Rohantworten und `result.json` sind lokal unter `runpod-20261110-round5/` gesichert.
+Das ist technische Vollständigkeit, keine Bedeutungsabnahme. Der SFT-Ablauf hat
+danach tatsächlich begonnen: zuletzt überprüfter Schritt 6 von 592, 12
+Beispielpräsentationen, endlicher Loss und 44,34 GiB Spitzenallokation. Das Gerät
+meldete 65281 MiB belegten GPU-Speicher und volle Rechenauslastung. Keine Fehler-
+Datei vorhanden. Beide Kostenwächter und die Checkpoint-Sicherung waren aktiv;
+die konservative Gesamtschätzung inklusive Vorreserve lag bei etwa 1,70 USD.
+Der neue Lauf arbeitet weiter; Qualität und vollständiger Abschluss bleiben offen.
