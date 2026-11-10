@@ -3071,3 +3071,142 @@ Für Backyrd festgehaltene Präzisierungen:
 
 Die Referenz erweitert die Beratungsanforderungen, ohne den eingefrorenen
 Trainingsstand oder die Engine zu verändern.
+
+### Vollständige Lehrketten: 120 Situationen und 200-USD-Obergrenze (@7)
+
+Auftrag vom 10. November 2026: 120 hochwertige, realistische Lernsituationen
+ausarbeiten. Das vorgesehene maximale Trainingsbudget beträgt **200 USD**;
+es ist eine Obergrenze, kein Ausgabenziel. Dieser Arbeitsschritt erstellt und
+prüft Daten und den Evaluationsweg. Er startet keine GPU und aktiviert kein
+Modell im Produkt. Klasse: `FAST_PR`, Offline-Learning-Code und Dokumentation;
+Mobile, Web, Admin, Produktionsroute, Auth und Datenbank bleiben unverändert.
+
+Die Situationen sind sorgfältig verfasste **synthetische Alltagsszenarien** mit
+fiktiven Spotprofilen, keine beobachteten Nutzeranfragen und keine belegten
+Tatsachen über reale Basler Betriebe. Die beiden reproduzierbaren Quellen sind
+`scripts/decision-diagnostics/nuknuk-curriculum/advice-astra.mjs` und
+`advice-tobi.mjs`. Jeder Fall enthält Bedürfnis, kanonische Bedeutung, begründete
+Suchrichtungen, explizite Testprofile, hilfreiche Zielantwort sowie eine falsche
+Alternative mit konkreter Fehlerbegründung. Falsche Alternativen bleiben
+Review-/Evaluationsmaterial; sie werden nicht als unmarkierte SFT-Antworten
+exportiert.
+
+Die 120 Situationen umfassen Familie, Bewegung, Natur, Tiere, Wasser,
+Freunde und Gruppen, allein entdecken, vertraute Orte, spontane Delegation,
+Essen und Trinken, besondere Anlässe, Kultur, Erholung, Übernachtung und
+mehrsprachige Wünsche. **84 Situationen sind TRAIN, 18 DEV und 18 TEST.**
+Alle Phasen und verwandten Situationen bleiben im selben Split. Daraus
+entstehen 360 Phasenbeispiele, keine 360 unabhängigen Alltagssituationen.
+Der bisherige, ausgewogen ausgewählte Bestand bleibt enthalten: insgesamt
+1.296 Exportzeilen, davon 972 TRAIN, 146 DEV und 178 TEST. Der vollständige
+Quellenbestand umfasst 3.261 Zeilen; er ist nicht identisch mit dem SFT-Export.
+
+#### Was erstmals trainierbar wird
+
+`INTERPRET_REQUEST` erhält die ursprünglichen Nutzerwünsche. Der bekannte
+Fehler im Delegationsbeispiel ist korrigiert: Aus «keine Energie für grosse
+Pläne» wird keine ausdrücklich genannte Eigenschaft «unkompliziert» mehr.
+
+`PLAN_SEARCH` nimmt dieses Verständnis und schlägt eine bis drei begründete
+Suchrichtungen vor. Bereits klare Wünsche brauchen keine künstliche Vielfalt.
+Zusätzliche Erfahrungseigenschaften bleiben weiche Suchideen. Bei einem
+offenen Kernangebot kann `activityIdea` eine hypothetische Aktivität wählen.
+Sie ist getrennt von der Nutzerinterpretation und im Ausführungsnachweis als
+`HYPOTHETICAL_SELECTION` gekennzeichnet. Nur die begrenzten Kernangebotsschlüssel
+dürfen eine Auswahlbedingung für diesen Suchbranch erzeugen. Eine bestehende
+erforderliche Kernaktivität verhindert eine konkurrierende solche Auswahl.
+Ursprüngliche Fakten, Ausschlüsse, Personenbezüge, Logik, Bindungen und
+Extensions bleiben unverändert. Belegte Öffnung oder Eignung in einem solchen
+Branch bestätigt die vorgeschlagene Richtung, keine erfundene Nutzerpräferenz.
+
+Die Branches laufen durch die vorhandene kanonische HTTP-Komposition und
+den Bibliothekar. Es gibt keinen zweiten Matcher. Szenariozeit und Runtime-Zeit
+sind konsistent; Quellen-, Branch- und Antworthashes binden die Ausführung.
+Vorschlagszweige, die nur offene Belegfragen enthalten, werden nicht als
+ausgeführte Recherche nach Ortsgeschichte oder persönlicher Bedeutung ausgegeben.
+Diese Recherchefähigkeit ist dadurch noch nicht implementiert.
+
+`PROPOSE_EXPERIENCE` liest nur die öffentliche, begrenzte Bibliothekarantwort.
+Eine Empfehlung darf nur einen bestätigten Kandidaten nennen und zitiert dessen
+tatsächlich sichtbare Belegpaare. Öffentliche Negativ-/Unbekanntbefunde können
+eine fehlende Bestätigung erklären, geben aber keinen Kandidaten zur Empfehlung
+frei. Mehrere Vorschläge behalten ihren jeweiligen Suchbranch. Freie Formulierungen
+und persönliche Abwägungen brauchen weiterhin semantische Prüfung: korrekte
+Belegreferenzen allein beweisen keine gute Antwort.
+
+Der Bestand enthält bewusst nützliche Vorschläge mit begrenzten Belegen,
+Auswahlfragen, fehlende Daten, echte Fähigkeitsgrenzen und drei simulierte
+`TOOL_ERROR`-Kontexte in getrennten Splits. Ein technischer Fehler wird niemals
+zu «keine passenden Angebote». Fehlende persönliche Orts-/Gerichtsreferenzen
+führen zu einer konkreten hilfreichen Frage statt zu einer Sackgasse. Persönliche
+Wirkung, freie Plätze und Begeisterung werden nicht als gesichert behauptet.
+
+#### Prüfung und spätere Modellmessung
+
+Astra und der fiktive Alltagsprüfer Tobi erstellen je 60 Situationen und lesen
+die jeweils andere Hälfte gegen. Die unabhängige Methodikprüfung bewertet
+zusätzlich Verträge, Splittrennung, Quellenbindung und Evaluationsweg. Dies ist
+eine mehrfache KI-gestützte Abnahme, kein menschliches Goldlabel und keine
+Feldstudie. Inhalte und Artefakte werden mit exakten Hashes gebunden.
+
+Der Autoren-Replay beweist ausführbare, konsistente Lehrziele mit lokalen
+Testprofilen. Er ist **kein NukNuk-Modellergebnis**. Die neue targetfreie
+`advice-evaluation.mjs` reicht beim späteren Modelllauf dagegen echte Outputs
+sequenziell weiter: Interpretation, Suchplanung, reale kanonische Suche,
+Vorschlag. Ungültige Zwischenantworten bleiben Fehler der gesamten Situation;
+kein Goldziel wird nachgeschoben. TEST verlangt vorher eingefrorene DEV-Auswahl
+und übereinstimmende Adapteridentität. Die Rubrik verlangt zusätzlich zu den
+Phasen- und Invarianzprüfungen alle tatsächlichen DEV-Gesamtkettenreviews.
+Erfolgreiches JSON oder niedriger Loss reichen nicht zur Auswahl.
+
+Der Export liegt unter
+`.local/nuknuk-understanding/solid-curriculum-20261110-v7/`:
+`reviewed-backyrd.json`, TRAIN/DEV/TEST-JSONL, `teaching-situations.json`,
+`semantic-rubric.json`, targetfreie Phasen- und Gesamtketteninputs, Manifest,
+Belegnachweise, Tokenizer-Preflight und getrennte Review-Receipts. Generierte
+Artefakte und spätere Gewichte bleiben ausserhalb von Git; Quellen und Verfahren
+sind versioniert. @6 wird nicht überschrieben.
+
+Vor dem späteren bezahlten Lauf bleiben nötig: native GPU-/Tokenizerparität,
+konkretes Rezept mit Aufgaben- und Tokengewichtung, Ausgangsmodellvergleich,
+SHA-geprüfte Modell-/Adapteridentität und unabhängige Kosten-/Abschaltwächter.
+Zuerst ein kleiner, auf höchstens 20 USD begrenzter Pilot innerhalb der insgesamt
+200 USD. Weitere Ausgaben nur bei einem inhaltlich besseren DEV-Ergebnis;
+mindestens 20 USD des Gesamtbudgets für Abschlussprüfung, Sicherung und
+Abschaltung reservieren. TEST wird erst nach Auswahl verwendet. Nachweislich
+ungelöste Bibliothekarfähigkeiten werden nicht durch falsche Sprachziele oder
+eine gelockerte Pflicht verdeckt.
+
+#### Abschluss dieses Datenauftrags
+
+Der finale @7-Anchor lautet
+`65a0e7c34703b5b2fb5d020bd8b402b388f6ac6973c662e0b662eae2c81721dc`.
+Astra-/Tobi-Quellen und ihre jeweils 180 Rohzeilen wurden exakt gegen die
+gemeldeten Reviewhashes geprüft. Der unabhängige Methodikprüfer gibt
+`GO_FOR_DATA_AND_METHODOLOGY_OF_BOUNDED_EXPERIMENT`; sein Receipt bindet
+24 Artefakte per Datei-SHA256. Die Root-Prüfung bestätigt alle 24 Bindungen.
+Der ursprüngliche Receipt bleibt als `independent-initial-review.json` erhalten,
+Datei-SHA256 `fea1b460728538539e9aec979f2bc1f0df4717f819b661b4e4103ec5c74dddc6`.
+Ein anschliessender reiner Formatnachlauf entfernt ein überzähliges Newlinebyte
+am Ende des Orchestrators. TRAIN/DEV/TEST, vollständige Datenbank, Lehrziele und
+alle modellseitigen Inputs sind bytegleich zum zuvor geprüften Stand; nur
+Quellenanker und abhängige Metadaten werden neu gebunden. Der aktuelle
+Delta-Receipt liegt im Export als `independent-review.json`.
+Der lesbare Katalog liegt daneben als `teaching-catalog.md`.
+
+Der manifestgebundene native Preflight akzeptiert 1.296 Basiszeilen und
+16 getrennte Kontrollen in vier Aufgabenformaten, ohne Abschneiden:
+maximal 3.119 Gesamttokens und 670 Antworttokens. Peak-RSS im final gebundenen Lauf: 748.732.416 Bytes;
+keine Modellgewichte, kein Docker, keine GPU. Die Prüfung bezieht sich auf
+Tokenizer, Template, Grammatik und Completion-Maske, nicht auf Modellverständnis.
+324 targetfreie Phaseninputs, 16 abgeleitete Kontrollinputs und 36 targetfreie
+Gesamtkettensituationen sind eingefroren.
+
+Die konstruierten Lehrziele umfassen 55 Vorschläge, 49 Teilantworten,
+11 konkrete Rückfragen und 5 Fälle ohne belegbaren Treffer. Das ist die
+absichtlich unterschiedliche Beleglage des Katalogs, **keine Modell-Erfolgsquote**.
+117 kanonische lokale Suchaufrufe sind nachgewiesen; drei Situationen simulieren
+stattdessen einen technischen Ausfall. Echte Modelloutputs wurden nicht bewertet.
+Verbleibende synthetische Überschneidungen und teilweise beschreibende
+Astra-Lernortnamen sind im unabhängigen Receipt ausdrücklich festgehalten;
+Namens-/Reihenfolgeinvarianz der neuen Vorschlagsaufgabe ist noch nicht bewiesen.

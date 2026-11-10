@@ -5,6 +5,7 @@ import { contentHash, deepFreeze } from './canonical.js';
 import { schema, type Infer } from './schema.js';
 import { buildNuknukUnderstandingRequest, validateNuknukUnderstanding, NuknukMomentSchema, NUKNUK_UNDERSTANDING_VERSION, type NuknukInstructionProfile } from './nuknuk-understanding.js';
 import { buildNuknukAssessmentRequest, validateNuknukAssessment } from './nuknuk-grounded-assessment.js';
+import { buildNuknukSearchPlanRequest, validateNuknukSearchPlan, buildNuknukExperienceProposalRequest, validateNuknukExperienceProposal } from './nuknuk-experience-advice.js';
 
 export const NUKNUK_UNDERSTANDING_DATASET_VERSION = 'backyrd.nuknuk-understanding-dataset@1' as const;
 const id = schema.string({ min: 1, max: 100, pattern: /^[A-Za-z][A-Za-z0-9_.:-]*$/ });
@@ -15,7 +16,7 @@ const date = schema.string({ pattern: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.
 const opaque = { parse(value: unknown): unknown { return structuredClone(value); } };
 const contentSchema = schema.object({
   version: schema.literal(NUKNUK_UNDERSTANDING_VERSION),
-  task: schema.enum(['INTERPRET_REQUEST', 'ASSESS_CANDIDATES'] as const),
+  task: schema.enum(['INTERPRET_REQUEST', 'ASSESS_CANDIDATES', 'PLAN_SEARCH', 'PROPOSE_EXPERIENCE'] as const),
   query: text,
   reference: schema.object({ now: date, timezone: schema.literal('Europe/Zurich') }),
   target: opaque,
@@ -43,10 +44,23 @@ const datasetSchema = schema.object({
 export type NuknukUnderstandingDataset = Infer<typeof datasetSchema>;
 export type NuknukUnderstandingCaseContent = Infer<typeof contentSchema>;
 
-function taskPair(content: NuknukUnderstandingCaseContent, instructionProfile?: NuknukInstructionProfile) {
+export function buildUnderstandingCasePair(content: NuknukUnderstandingCaseContent, instructionProfile?: NuknukInstructionProfile) {
   if (content.task === 'INTERPRET_REQUEST') {
     if (content.context !== null) throw Error('nuknuk_interpretation_context_must_be_null');
     return { request: buildNuknukUnderstandingRequest({...content,...(instructionProfile ? {instructionProfile}:{})}), target: validateNuknukUnderstanding(content.target, content).output };
+  }
+  if (content.task === 'PLAN_SEARCH') {
+    const context = schema.object({ understanding: opaque }).parse(content.context);
+    const input = { ...content, ...context };
+    return { request: buildNuknukSearchPlanRequest(input), target: validateNuknukSearchPlan(content.target, input).output };
+  }
+  if (content.task === 'PROPOSE_EXPERIENCE') {
+    const context = schema.object({ understanding: opaque, plan: opaque,
+      runs: schema.array(schema.object({ directionId: id, state: schema.enum(['OK', 'TOOL_ERROR', 'UNSUPPORTED', 'NEEDS_CLARIFICATION'] as const), response: opaque,
+        execution: schema.object({ originalMeaningHash: hash, branchRequestHash: hash, responseHash: hash }) }), { min: 1, max: 3 }),
+    }).parse(content.context);
+    const request = buildNuknukExperienceProposalRequest({ ...content, ...context });
+    return { request, target: validateNuknukExperienceProposal(content.target, request).output };
   }
   const context = schema.object({ response: opaque, moment: opaque }).parse(content.context);
   const request = buildNuknukAssessmentRequest(context);
@@ -55,6 +69,7 @@ function taskPair(content: NuknukUnderstandingCaseContent, instructionProfile?: 
   if ([moment.goal, ...moment.hypotheses].some(item => item.evidence.some(e => !content.query.includes(e.quote)))) throw Error('nuknuk_quote_not_in_query');
   return { request, target: validateNuknukAssessment(content.target, request).output };
 }
+const taskPair = buildUnderstandingCasePair;
 
 export function understandingSplitHash(value: NuknukUnderstandingDataset['splitPlan']) {
   return contentHash([...value].sort((a, b) => a.scenarioGroup.localeCompare(b.scenarioGroup)));
@@ -105,6 +120,11 @@ export function auditUnderstandingDataset(raw: unknown, expectedSplitHash: strin
     if (!Number.isFinite(Date.parse(row.content.reference.now))) throw Error('nuknuk_reference_date_invalid');
     const pair = taskPair(row.content);
     if ('candidates' in pair.request) for (const candidate of pair.request.candidates) {
+      const prior = candidateSplits.get(candidate.candidateId);
+      if (prior !== undefined && prior !== row.split) throw Error('nuknuk_candidate_split_leakage');
+      candidateSplits.set(candidate.candidateId, row.split);
+    }
+    if ('runs' in pair.request) for (const run of pair.request.runs) for (const candidate of run.candidates) {
       const prior = candidateSplits.get(candidate.candidateId);
       if (prior !== undefined && prior !== row.split) throw Error('nuknuk_candidate_split_leakage');
       candidateSplits.set(candidate.candidateId, row.split);

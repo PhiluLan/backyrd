@@ -13,10 +13,10 @@ const prepared=await assemble();
 const row=id=>prepared.fresh.find(r=>r.id===id);
 const facts=id=>row(id).content.target.meaning.facts;
 test('new corpus has fixed group-separated inventories, never historical evaluation queries',()=>{
- assert.equal(prepared.fresh.length,680);assert.deepEqual(prepared.report.counts.fresh,{TRAIN:464,VALIDATION:92,TEST:124});
- assert.equal(prepared.report.counts.newScenarioGroups,100);assert.deepEqual(prepared.report.exposedQueryCollisions,[]);
+ assert.equal(prepared.fresh.length,1040);assert.deepEqual(prepared.report.counts.fresh,{TRAIN:716,VALIDATION:146,TEST:178});
+ assert(prepared.report.counts.newScenarioGroups>=215&&prepared.report.counts.newScenarioGroups<=220);assert.deepEqual(prepared.report.exposedQueryCollisions,[]);
  for(const group of new Set(prepared.full.cases.map(r=>r.scenarioGroup)))assert.equal(new Set(prepared.full.cases.filter(r=>r.scenarioGroup===group).map(r=>r.split)).size,1);
- assert.equal(prepared.report.counts.balanced.TRAIN,720);
+ assert.equal(prepared.report.counts.balanced.TRAIN,972);
  assert.equal(prepared.report.counts.legacySelected,256);
 });
 test('no absent child age, invented quietness, category from specialness or passed-exam claim',()=>{
@@ -55,13 +55,13 @@ test('changed snapshot cannot inherit approval; review is explicitly assisted an
  const altered=structuredClone(prepared);altered.full.cases[0].content.query+=' changed';
  assert.throws(()=>approveSnapshot(altered,signoff),/snapshot_mismatch/);
  const approved=approveSnapshot(prepared,signoff);
- assert.equal(approved.exportData.manifest.instructionProfile,'SPOT_GROUNDED_V6');assert.equal(approved.exportData.files.train.length,720);
+ assert.equal(approved.exportData.manifest.instructionProfile,'SPOT_GROUNDED_V6');assert.equal(approved.exportData.files.train.length,972);
  assert(approved.full.cases.every(r=>r.reviews.length===2));
  const pending=materialize(trainingSpecs[0]);assert.equal(pending.reviews.length,0);assert.equal(pending.content.trainingPermission,'PENDING');
 });
 test('legacy selection rejects holdout promotion and retains family caps',()=>{
  assert.throws(()=>selectLegacy([row('solid-test-open-boundaries-1')]),/train_only/);
- const legacy=prepared.balanced.cases.filter(r=>!r.id.startsWith('solid-'));
+ const legacy=prepared.balanced.cases.filter(r=>!r.id.startsWith('solid-')&&!r.id.startsWith('advice-'));
  for(const r of legacy)assert(legacy.filter(x=>x.scenarioGroup===r.scenarioGroup).length<=(r.id.startsWith('r4-train-')?2:4));
  assert(legacy.filter(r=>r.content.task==='ASSESS_CANDIDATES').length<=24);
 });
@@ -120,13 +120,15 @@ test('semantic selection requires reviewed complete DEV, rejects TEST, stale/con
  const rubric=buildSemanticRubric(prepared.balanced,buildMetamorphicControls(prepared.balanced));const receipt=c=>({id:c.id,contentHash:c.contentHash,rawOutputHash:contentHash({synthetic:true,id:c.id}),reviewer:'synthetic-test-only',verdict:'PASS',errorClasses:[],rationale:'Synthetic unit fixture, no model assessment claimed.'});
  const records=rubric.cases.filter(c=>c.split==='VALIDATION').map(receipt);
  const controlRecords=rubric.derivedControls.cases.filter(c=>c.split==='VALIDATION').map(receipt);
- assert(assessReviewedDevelopment(rubric,records,controlRecords).eligibleForFrozenSelection);
+ const chainRecords=rubric.chains.filter(c=>c.split==='VALIDATION').map(receipt);
+ assert(assessReviewedDevelopment(rubric,records,controlRecords,chainRecords).eligibleForFrozenSelection);
+ assert(!assessReviewedDevelopment(rubric,records,controlRecords).eligibleForFrozenSelection,'actual sequential rollout reviews are required');
  assert(!assessReviewedDevelopment(rubric,records.slice(1)).eligibleForFrozenSelection);
  assert.throws(()=>assessReviewedDevelopment(rubric,[receipt(rubric.cases.find(c=>c.split==='TEST'))]),/non_development/);
  const bad=structuredClone(records);bad[0].errorClasses=['UNSAFE_ACCESS_ASSUMPTION'];assert.throws(()=>assessReviewedDevelopment(rubric,bad),/severity_mismatch/);
  const missing=structuredClone(records);delete missing[0].errorClasses;assert.throws(()=>assessReviewedDevelopment(rubric,missing),/classes_invalid/);
  bad[0].verdict='CRITICAL_ERROR';assert(!assessReviewedDevelopment(rubric,bad).eligibleForFrozenSelection);
- const failed=structuredClone(records);failed[0].verdict='FAILED_GENERATION';failed[0].errorClasses=['FAILED_GENERATION'];assert.equal(assessReviewedDevelopment(rubric,failed).material,1);assert.equal(assessReviewedDevelopment(rubric,failed).total,92);
+ const failed=structuredClone(records);failed[0].verdict='FAILED_GENERATION';failed[0].errorClasses=['FAILED_GENERATION'];assert.equal(assessReviewedDevelopment(rubric,failed).material,1);assert.equal(assessReviewedDevelopment(rubric,failed).total,146);
 });
 test('joint user review preserves delegation, person-specific needs and honest personal-history gaps',()=>{
  for(const id of ['solid-user-delegation-1','solid-user-delegation-4','solid-user-test-life-1'])assert.equal(row(id).content.target.moment.clarification,null);
@@ -154,5 +156,5 @@ test('broader advisory exercise never turns absent personal history into public 
   if(n.id.includes('personal-')){assert(n.proofs.every(p=>p.preferenceStates[0]==='UNKNOWN'));assert(row(n.id).content.target.missingKnowledge.some(s=>s.includes('Historie')||s.includes('historie')));}
   if(n.mode==='KNOWN_TIE')assert.equal(new Set(row(n.id).content.target.assessments.map(a=>a.fit)).size,1);
  }
- assert.equal(prepared.report.contentRevisions.length,56);assert.equal(prepared.report.parentVersion,'backyrd.nuknuk-solid-curriculum@5');
+ assert.equal(prepared.report.contentRevisions.length,1);assert.equal(prepared.report.parentVersion,'backyrd.nuknuk-solid-curriculum@6');
 });

@@ -53,7 +53,8 @@ test('frozen selection requires actual DEV reviews for base and all derived cont
  const receipt=c=>({id:c.id,contentHash:c.contentHash,rawOutputHash:contentHash({syntheticOnly:c.id}),reviewer:'synthetic-unit-test-only',verdict:'PASS',errorClasses:[],rationale:'Protocol fixture only; no actual model run or review.'});
  const base=rubric.cases.filter(c=>c.split==='VALIDATION').map(receipt),derived=rubric.derivedControls.cases.filter(c=>c.split==='VALIDATION').map(receipt);
  assert(!assessReviewedDevelopment(rubric,base).eligibleForFrozenSelection);
- const result=assessReviewedDevelopment(rubric,base,derived);assert(result.eligibleForFrozenSelection);assert.equal(result.derivedControls.total,8);assert.equal(result.byTask.length,2);
+ const chain=rubric.chains.filter(c=>c.split==='VALIDATION').map(receipt);
+ const result=assessReviewedDevelopment(rubric,base,derived,chain);assert(result.eligibleForFrozenSelection);assert.equal(result.derivedControls.total,8);assert.equal(result.byTask.length,4);
  assert(!assessReviewedDevelopment(rubric,base,derived.slice(1)).eligibleForFrozenSelection);
  assert.throws(()=>assessReviewedDevelopment(rubric,base,[receipt(rubric.derivedControls.cases.find(c=>c.split==='TEST'))]),/non_development/);
  const failed=structuredClone(derived);failed[0].verdict='MATERIAL_ERROR';failed[0].errorClasses=['WRONG_PERSON_OR_AREA'];assert(!assessReviewedDevelopment(rubric,base,failed).eligibleForFrozenSelection);
@@ -61,7 +62,7 @@ test('frozen selection requires actual DEV reviews for base and all derived cont
 });
 test('group counts and examples are reported independently of token mass and are not field samples',()=>{
  const summary=summarizeTaskMixture(prepared.balanced);
- assert.deepEqual(summary['TRAIN:INTERPRET_REQUEST'],{examples:616,scenarioGroups:144,answerTokens:null});
+ assert.deepEqual(summary['TRAIN:INTERPRET_REQUEST'],{examples:700,scenarioGroups:228,answerTokens:null});
  assert.deepEqual(summary['TRAIN:ASSESS_CANDIDATES'],{examples:104,scenarioGroups:44,answerTokens:null});
- assert.equal(summary['TEST:INTERPRET_REQUEST'].scenarioGroups,13);assert.equal(summary['TEST:ASSESS_CANDIDATES'].scenarioGroups,5);
+ assert(summary['TEST:INTERPRET_REQUEST'].scenarioGroups>=30);assert.equal(summary['TRAIN:PLAN_SEARCH'].examples,84);assert.equal(summary['TRAIN:PROPOSE_EXPERIENCE'].examples,84);assert.equal(summary['TEST:ASSESS_CANDIDATES'].scenarioGroups,5);
 });

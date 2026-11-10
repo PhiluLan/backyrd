@@ -22,22 +22,33 @@ export function buildSemanticRubric(dataset,controls){
     entities:t.meaning.entities,logic:t.meaning.logic,bindings:t.meaning.bindings,extensions:t.meaning.extensions,weather:t.meaning.weatherConditions,
     uncertainties:t.meaning.uncertainties,goal:t.moment.goal.statement,hypotheses:t.moment.hypotheses,missing:t.moment.missing,clarification:t.moment.clarification,
     forbiddenAdditions:['Unstated activity, venue type, meal, diet, visit time, date, price or currency','Unproven adult accompaniment or invented participant age','Extra room/offer binding or removal of an explicit order','Converting own consumption exclusions to a ban on all venue offers','Personal familiarity/novelty inferred from public venue age or popularity','Medical/access assumptions from low energy or fatigue','Forced direction question when the user explicitly delegates choice or asks for both alternatives','Extending a child-only activity or adult-only quiet-area wish to every participant'],
+   }:r.content.task==='PLAN_SEARCH'?{
+    originalMeaningHash:contentHash(r.content.context.understanding.meaning),directions:t.directions,clarification:t.clarification,
+    forbiddenAdditions:['Treating a proposed search direction as an explicit user duty','Changing original facts, exclusions, people, scope, bindings or logic','Pretending evidenceQuestions were executed research','Competing hypothetical core selection despite an explicit required core','Duplicate searches presented as different researched meanings'],
+   }:r.content.task==='PROPOSE_EXPERIENCE'?{
+    proposal:t,
+    forbiddenAdditions:['Candidate or property absent from the public evidence','Presenting a hypothetical activity selection as a user requirement','Asserting venue history or personal meaning from generic atmosphere','Recommending a hard-ineligible candidate','Treating a tool failure as no available experiences','Guaranteed availability, recipient delight, history or personal taste','Unnecessary clarification instead of a useful grounded suggestion'],
    }:{assessments:t.assessments,missingKnowledge:t.missingKnowledge,
     forbiddenAdditions:['Claims absent from this candidate evidence and limitations','Personal taste or availability guarantees','Different fit based solely on candidate name/order','Using hard-rejected candidates or changing eligibility/ranking','Personal visit history derived from public Spot evidence','Low effort, fatigue suitability or recipient delight guaranteed from a single amenity']}),
    equivalentsAllowed:['Arbitrary entity/fact ID renaming with preserved references','Canonical Spot vocabulary synonyms only when equally specific','Different goal/judgment prose conveying the same claims and uncertainty','Logically equivalent AND/OR trees; no changed scope or polarity'],
    scoringNote:'Compare actual meaning, then actual matching on relevant fixtures. Text/JSON equality alone cannot certify or reject equivalence. Parser EXECUTABLE is not proof of matchability.'};
  });
- return{version:'backyrd.nuknuk-semantic-rubric@3',datasetHash:contentHash(dataset),selectionPolicy,cases,
+ const chains=dataset.cases.filter(r=>r.content.task==='PROPOSE_EXPERIENCE').map(r=>({id:r.id.replace(/-propose_experience$/,''),task:'END_TO_END',split:r.split,scenarioGroup:r.scenarioGroup,
+  contentHash:contentHash(dataset.cases.filter(c=>c.scenarioGroup===r.scenarioGroup)),
+  scoringNote:'Review the actual sequential model rollout: interpreted meaning -> proposed search -> actual canonical HTTP evidence -> actual proposal. No downstream gold injection; failures at any phase remain failures of this situation. Multiple grounded suggestions and equivalent questions are allowed.'}));
+ return{version:'backyrd.nuknuk-semantic-rubric@4',datasetHash:contentHash(dataset),selectionPolicy,cases,chains,
  derivedControls:{datasetHash:controls.datasetHash,hash:contentHash(controls),independentSamples:false,selectionPolicy:controls.selectionPolicy,cases:controls.cases.map(c=>({id:c.id,task:c.task,split:c.split,scenarioGroup:c.scenarioGroup,baseCaseId:c.baseCaseId,variant:c.variant,contentHash:contentHash({task:c.task,messages:c.messages,expected:c.expected}),expected:c.expected,scoringNote:'Review semantics and pairing with the base output; identities/order/codes are nuisance variables, evidence changes must change the appropriate candidate assessment.'}))},
  reviewReceipt:{required:['id','contentHash','rawOutputHash','reviewer','verdict','errorClasses','rationale'],verdicts:['PASS','MATERIAL_ERROR','CRITICAL_ERROR','FAILED_GENERATION','NEEDS_REVIEW']},
- evaluationLayers:['INTERPRETATION','MATCHING_WHEN_SUPPORTED','ADVISORY_ASSESSMENT'],
+ evaluationLayers:['INTERPRETATION','SEARCH_PLANNING','MATCHING_WHEN_SUPPORTED','ADVISORY_ASSESSMENT','GROUNDED_PROPOSAL','SEQUENTIAL_MODEL_ROLLOUT'],
  failedGenerationsStayInDenominator:true,requiresActualOutputReview:true};
 }
 /** Called only after semantic review of a full DEV run. No TEST-based selection. */
-export function assessReviewedDevelopment(rubric,receipts,controlReceipts=[]){
- if(rubric.version!=='backyrd.nuknuk-semantic-rubric@3'||rubric.derivedControls?.datasetHash!==rubric.datasetHash||!rubric.derivedControls?.cases?.length)throw Error('selection_controls_required');
+export function assessReviewedDevelopment(rubric,receipts,controlReceipts=[],chainReceipts=[]){
+ if(!['backyrd.nuknuk-semantic-rubric@3','backyrd.nuknuk-semantic-rubric@4'].includes(rubric.version)||rubric.derivedControls?.datasetHash!==rubric.datasetHash||!rubric.derivedControls?.cases?.length)throw Error('selection_controls_required');
  const base=assessCases(rubric.cases,receipts),derived=assessCases(rubric.derivedControls.cases,controlReceipts);
- return{...base,eligibleForFrozenSelection:base.eligibleForFrozenSelection&&derived.eligibleForFrozenSelection,derivedControls:derived};
+ const chains=rubric.version==='backyrd.nuknuk-semantic-rubric@4'&&rubric.chains?.length?assessCases(rubric.chains,chainReceipts):null;
+ if(rubric.cases.some(c=>c.task==='PROPOSE_EXPERIENCE')&&!chains)throw Error('selection_actual_chains_required');
+ return{...base,eligibleForFrozenSelection:base.eligibleForFrozenSelection&&derived.eligibleForFrozenSelection&&(!chains||chains.eligibleForFrozenSelection),derivedControls:derived,actualChains:chains};
 }
 function assessCases(cases,receipts){
  const dev=cases.filter(c=>c.split==='VALIDATION'),index=new Map();

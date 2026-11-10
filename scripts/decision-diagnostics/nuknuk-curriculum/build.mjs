@@ -4,9 +4,8 @@ import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {contentHash} from '../../../packages/decision-vnext-core/dist/canonical.js';
-import {auditUnderstandingDataset,understandingSplitHash,exportUnderstandingDataset} from '../../../packages/decision-vnext-core/dist/nuknuk-understanding-learning.js';
-import {validateNuknukUnderstanding,buildNuknukUnderstandingRequest} from '../../../packages/decision-vnext-core/dist/nuknuk-understanding.js';
-import {buildNuknukAssessmentRequest} from '../../../packages/decision-vnext-core/dist/nuknuk-grounded-assessment.js';
+import {auditUnderstandingDataset,understandingSplitHash,exportUnderstandingDataset,buildUnderstandingCasePair} from '../../../packages/decision-vnext-core/dist/nuknuk-understanding-learning.js';
+import {validateNuknukUnderstanding} from '../../../packages/decision-vnext-core/dist/nuknuk-understanding.js';
 import {NUKNUK_TRAINING_VOCABULARY_HASH,NUKNUK_TRAINING_VOCABULARY} from '../../../packages/decision-vnext-core/dist/nuknuk-training-vocabulary.js';
 import {trainingSpecs} from './train.mjs';
 import {developmentSpecs} from './development.mjs';
@@ -22,8 +21,9 @@ import {userReviewSpecs} from './user-review.mjs';
 import {userReviewEvidenceCases} from './evidence-user-review.mjs';
 import {buildSemanticRubric} from './rubric.mjs';
 import {auditAssessmentIdentity,buildMetamorphicControls,summarizeTaskMixture} from './methodology.mjs';
+import {adviceCases,adviceSpecs,adviceCatalog} from './advice.mjs';
 
-export const VERSION='backyrd.nuknuk-solid-curriculum@6';
+export const VERSION='backyrd.nuknuk-solid-curriculum@7';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../../..');
 const local=resolve(root,'.local/nuknuk-understanding');
 const readJson=async p=>JSON.parse(await readFile(p,'utf8'));
@@ -54,9 +54,13 @@ export async function assemble(){
  const evidence=[...await evidenceCases(),...await contrastEvidenceCases(),...await userReviewEvidenceCases()];
  const fresh=[...specs.map(materialize),...evidence.map(e=>e.row)];
  if(fresh.length!==680)throw Error('fresh_inventory_changed');
+ const teaching=await adviceCases();
+ if(teaching.length!==120||new Set(teaching.map(t=>t.spec.id)).size!==120)throw Error('advice_requires_120_distinct_situations');
+ for(const [split,n]of [['TRAIN',84],['VALIDATION',18],['TEST',18]])if(teaching.filter(t=>t.spec.split===split).length!==n)throw Error('advice_split_changed');
+ fresh.push(...teaching.flatMap(t=>t.rows));
  const full=dataset([...revised.cases,...fresh]);
- const parent=await readJson(resolve(local,'solid-curriculum-20261110-v5/database.json'));
- const parentManifest=await readJson(resolve(local,'solid-curriculum-20261110-v5/manifest.json'));
+ const parent=await readJson(resolve(local,'solid-curriculum-20261110-v6/database.json'));
+ const parentManifest=await readJson(resolve(local,'solid-curriculum-20261110-v6/manifest.json'));
  if(contentHash(parent)!==parentManifest.fullDatabaseHash)throw Error('frozen_parent_changed');
  const semanticContent=row=>{const {trainingPermission,...content}=row.content;return contentHash(content);};
  const previousById=new Map(parent.cases.map(row=>[row.id,row]));
@@ -77,13 +81,17 @@ export async function assemble(){
  const identityAudit=auditAssessmentIdentity(balanced);
  if(identityAudit.perfectGlobalWeakParityShortcut)throw Error('assessment_identity_shortcut');
  const probes=matchingProbes();
- const sources={};for(const file of ['authoring.mjs','train.mjs','development.mjs','holdout.mjs','evidence.mjs','probes.mjs','build.mjs','references.mjs','contrasts.mjs','legacy-revisions.mjs','evidence-contrasts.mjs','user-review.mjs','evidence-user-review.mjs','assessment-identity.mjs','methodology.mjs','methodology.test.mjs','rubric.mjs','preflight.py','curriculum.test.mjs','../../../packages/decision-vnext-core/src/nuknuk-understanding.ts','../../../packages/decision-vnext-core/src/nuknuk-understanding-learning.ts','../nuknuk-pilot-authoring.mjs','../nuknuk-pilot-cohort.mjs','../nuknuk-curriculum-evaluation.mjs'])sources[file]=contentHash(await readFile(new URL(file,import.meta.url),'utf8'));
+ const sources={};for(const file of ['authoring.mjs','train.mjs','development.mjs','holdout.mjs','evidence.mjs','probes.mjs','build.mjs','references.mjs','contrasts.mjs','legacy-revisions.mjs','evidence-contrasts.mjs','user-review.mjs','evidence-user-review.mjs','assessment-identity.mjs','methodology.mjs','methodology.test.mjs','rubric.mjs','preflight.py','curriculum.test.mjs','advice.mjs','advice-execution.mjs','advice-evaluation.mjs','advice-astra.mjs','advice-tobi.mjs','advice.test.mjs','../../../packages/decision-vnext-core/src/nuknuk-experience-advice.ts','../../../packages/decision-vnext-core/src/nuknuk-understanding.ts','../../../packages/decision-vnext-core/src/nuknuk-understanding-learning.ts','../nuknuk-pilot-authoring.mjs','../nuknuk-pilot-cohort.mjs','../nuknuk-curriculum-evaluation.mjs'])sources[file]=contentHash(await readFile(new URL(file,import.meta.url),'utf8'));
+ for(const directory of ['../../../packages/decision-vnext-core/src/','../../../packages/world-knowledge-core/src/'])for(const entry of (await readdir(new URL(directory,import.meta.url),{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name))){
+  if(entry.isFile()&&entry.name.endsWith('.ts')){const file=directory+entry.name;sources[file]=contentHash(await readFile(new URL(file,import.meta.url),'utf8'));}
+ }
+ for(const file of ['../../../packages/decision-vnext-core/test/librarian-active-route-fixtures.mjs','../../../packages/decision-vnext-core/test/librarian-matching-fixtures.mjs'])sources[file]=contentHash(await readFile(new URL(file,import.meta.url),'utf8'));
  const anchor={version:VERSION,rawDatabaseHash:contentHash(full),splitPlanHash:understandingSplitHash(full.splitPlan),vocabularyHash:NUKNUK_TRAINING_VOCABULARY_HASH,
-  acceptedLegacyHash:contentHash(legacy),revisedLegacyHash:contentHash(revisedLegacy),revisionLedgerHash:contentHash(revised.ledger),selectedLegacyIdsHash:contentHash(selectedLegacy.map(r=>r.id)),sourcesHash:contentHash(sources),historicalSourcesHash:contentHash(historicalSources),parentManifestHash:contentHash(parentManifest),contentRevisionsHash:contentHash(contentRevisions)};
+  acceptedLegacyHash:contentHash(legacy),revisedLegacyHash:contentHash(revisedLegacy),revisionLedgerHash:contentHash(revised.ledger),selectedLegacyIdsHash:contentHash(selectedLegacy.map(r=>r.id)),sourcesHash:contentHash(sources),historicalSourcesHash:contentHash(historicalSources),parentManifestHash:contentHash(parentManifest),contentRevisionsHash:contentHash(contentRevisions),teachingProofsHash:contentHash(teaching.map(t=>t.note))};
  const coverage=specs.map(s=>{const row=fresh.find(r=>r.id===s.id),v=validateNuknukUnderstanding(row.content.target,row.content);return{id:s.id,split:s.split,domain:s.domain,phenomena:s.phenomena,
   modalityCounts:frequencies(row.content.target.meaning.facts.map(f=>f.modality)),declaredCapabilityBoundary:!!s.capability,requestState:v.requestState,capabilityGaps:v.capabilityGaps};});
  const report={version:VERSION,anchor,counts:{database:counts(full.cases),fresh:counts(fresh),balanced:counts(balanced.cases),legacySelected:selectedLegacy.length,
-  interpretation:specs.length,assessment:evidence.length,newScenarioGroups:new Set(fresh.map(r=>r.scenarioGroup)).size},
+  interpretation:specs.length+120,assessment:evidence.length,teachingSituations:120,teachingRows:360,teachingSplit:{TRAIN:84,VALIDATION:18,TEST:18},newScenarioGroups:new Set(fresh.map(r=>r.scenarioGroup)).size},
   domains:frequencies(specs.map(s=>s.domain)),phenomena:frequencies(specs.flatMap(s=>s.phenomena)),capabilityBoundaries:coverage.filter(r=>r.declaredCapabilityBoundary||r.requestState==='UNSUPPORTED_CAPABILITY'),
   methodology:{identityAudit,taskMixture:summarizeTaskMixture(balanced),holdoutScope:'SYNTHETIC_COMPOSITION_NOT_INDEPENDENT_FIELD_QUALITY',controls:'DERIVED_DEV_AND_TEST_ONLY_NOT_SFT_OR_INDEPENDENT_SAMPLES'},
   legacyRevisions:revised.ledger,contentRevisions,parentVersion:parentManifest.curriculumVersion,selectedLegacyIds:selectedLegacy.map(r=>r.id),historicalSources,exposedQueryCollisions:collisions,sources,
@@ -93,17 +101,20 @@ export async function assemble(){
    {code:'PARSEABLE_IS_NOT_PROVEN_EXECUTABLE',status:'OPEN',detail:'Some explicit needs (assistance dogs, travel/return time and area-specific pet access) parse as EXECUTABLE but have not been proved against complete matching evidence. Declared capability boundaries remain separate from parser state.'},
    {code:'REMOTE_RUNNER_PREFLIGHT',status:'REQUIRED_BEFORE_SPEND',detail:'Compile schemas with pinned llguidance, tokenize every row without truncation, verify exact model/adapter and arm new budget watchers before launching. No environment or GPU launch in this task.'}],
   independentAcceptance:'ASTRA_RECHECK_REQUIRED_AFTER_REVISION',trainingStarted:false,productionEnabled:false};
- return{full,balanced,fresh,revisionLedger:revised.ledger,report,coverage,evidenceNotes:evidence.map(e=>e.note),anchor,anchorHash:contentHash(anchor)};
+ report.teaching={situations:120,rows:360,domains:frequencies(teaching.map(t=>t.spec.domain)),modes:frequencies(teaching.map(t=>t.note.response.mode)),
+  declaredIssues:frequencies(teaching.map(t=>t.spec.expectedIssue)),canonicalCalls:teaching.flatMap(t=>t.note.proofs).filter(p=>p.httpStatus===200).length,
+  modelCalls:0,source:'SYNTHETIC_AUTHORED_SITUATIONS_NOT_USER_LOGS',evidenceResearch:'QUESTIONS_ONLY_NOT_A_NEW_HISTORY_RESEARCH_TOOL'};
+ return{full,balanced,fresh,revisionLedger:revised.ledger,report,coverage,evidenceNotes:evidence.map(e=>e.note),teachingNotes:teaching.map(t=>t.note),anchor,anchorHash:contentHash(anchor)};
 }
 export function approveSnapshot(prepared,signoff){
  if(contentHash(prepared.anchor)!==prepared.anchorHash||contentHash(prepared.full)!==prepared.anchor.rawDatabaseHash)throw Error('curriculum_signoff_snapshot_mismatch');
  const indexed=new Map(prepared.full.cases.map(r=>[r.id,contentHash(r)]));
  if(prepared.balanced.cases.some(r=>indexed.get(r.id)!==contentHash(r)))throw Error('curriculum_signoff_snapshot_mismatch');
- if(contentHash(prepared.balanced.cases.filter(r=>!r.id.startsWith('solid-')).map(r=>r.id))!==prepared.anchor.selectedLegacyIdsHash)throw Error('curriculum_signoff_snapshot_mismatch');
+ if(contentHash(prepared.balanced.cases.filter(r=>!r.id.startsWith('solid-')&&!r.id.startsWith('advice-')).map(r=>r.id))!==prepared.anchor.selectedLegacyIdsHash)throw Error('curriculum_signoff_snapshot_mismatch');
  if(signoff.anchorHash!==prepared.anchorHash||signoff.verdict!=='ACCEPT_FOR_BOUNDED_TRAINING_EXPERIMENT'||signoff.independentReview!==false||signoff.reviewerKind!=='DELEGATED_ASSISTANT'||!signoff.commission||!signoff.reviewedAt)throw Error('curriculum_signoff_snapshot_mismatch');
  const delegationHash=contentHash(signoff.commission);
  const approve=row=>{
-  if(!row.id.startsWith('solid-')&&!prepared.revisionLedger.some(r=>r.id===row.id))return row;
+  if(!row.id.startsWith('solid-')&&!row.id.startsWith('advice-')&&!prepared.revisionLedger.some(r=>r.id===row.id))return row;
   const content={...row.content,trainingPermission:'APPROVED'},hash=contentHash(content);
   return{...row,content,contentHash:hash,reviews:['SEMANTICS','PRIVACY_AND_SOURCE_USE'].map(kind=>({kind,verdict:'ACCEPT',contentHash:hash,
    reviewer:'codex-commissioned-solid-curriculum-20261110',reviewerKind:'DELEGATED_ASSISTANT',delegationHash,reviewedAt:signoff.reviewedAt,
@@ -123,6 +134,7 @@ async function main(){
  if(command==='draft'){
   await save(out,'draft-database.json',p.full);await save(out,'coverage.json',p.report);await save(out,'coverage-cases.json',p.coverage);await save(out,'evidence-proofs.json',p.evidenceNotes);
   await save(out,'methodology-audit.json',p.report.methodology);await save(out,'metamorphic-controls.json',buildMetamorphicControls(p.balanced));
+  await save(out,'teaching-situations.json',p.teachingNotes);
   console.log(JSON.stringify({anchorHash:p.anchorHash,...p.report.counts}));return;
  }
  if(!signoffPath)throw Error('content_signoff_required');
@@ -131,13 +143,17 @@ async function main(){
  await save(out,'database.json',approved.full);await save(out,'reviewed-backyrd.json',approved.balanced);
  for(const [key,rows]of Object.entries(approved.exportData.files))await save(out,key+'.jsonl',rows.map(r=>JSON.stringify(r)).join('\n')+'\n');
  await save(out,'manifest.json',{...approved.exportData.manifest,curriculumVersion:VERSION,anchor:p.anchor,anchorHash:p.anchorHash,signoffHash:contentHash(signoff),fullDatabaseHash:contentHash(approved.full),
-  futureTrainingBudgetUSD:100,trainingLaunchAuthorizedByThisExport:false,independentReviewAtExport:false,independentReviewRecord:'independent-review.json',
+  futureTrainingBudgetUSD:200,budgetPolicy:'UPPER_LIMIT_ONLY_USE_WHEN_NEEDED',trainingLaunchAuthorizedByThisExport:false,independentReviewAtExport:false,independentReviewRecord:'independent-review.json',
   derivedControlsHash:contentHash(controls),derivedControlsCounts:controls.counts,derivedControlsAreIndependentSamples:false});
  await save(out,'coverage.json',p.report);await save(out,'coverage-cases.json',p.coverage);await save(out,'evidence-proofs.json',p.evidenceNotes);await save(out,'review-signoff.json',signoff);await save(out,'vocabulary.json',NUKNUK_TRAINING_VOCABULARY);
+ await save(out,'teaching-situations.json',p.teachingNotes);
  // Target-free requests are separate from local gold labels. No model invoked.
- const evaluation=approved.balanced.cases.filter(r=>r.split!=='TRAIN').map(r=>{const request=r.content.task==='INTERPRET_REQUEST'?buildNuknukUnderstandingRequest({...r.content,instructionProfile:'SPOT_GROUNDED_V6'}):buildNuknukAssessmentRequest(r.content.context);
+ const evaluation=approved.balanced.cases.filter(r=>r.split!=='TRAIN').map(r=>{const {request}=buildUnderstandingCasePair(r.content,'SPOT_GROUNDED_V6');
   return{id:r.id,query:r.content.query,task:r.content.task,split:r.split,scenarioGroup:r.scenarioGroup,messages:[{role:'system',content:request.instructions},{role:'user',content:request.input}],promptHash:contentHash(request.instructions),inputHash:contentHash(request.input),schemaHash:contentHash(request.outputSchema),outputSchema:request.outputSchema};});
  await save(out,'semantic-rubric.json',buildSemanticRubric(approved.balanced,controls));
+ await save(out,'chain-evaluation-inputs.json',{purpose:'SEQUENTIAL_MODEL_OUTPUT_ROLLOUT_NO_GOLD_TARGETS',datasetHash:contentHash(approved.balanced),
+  protocol:'Call INTERPRET_REQUEST, then PLAN_SEARCH using that actual output, then canonical HTTP matching, then PROPOSE_EXPERIENCE using actual public results. A failed intermediate generation fails the whole situation; never inject gold downstream.',
+  cases:adviceSpecs.filter(s=>s.split!=='TRAIN').map(s=>({id:s.id,scenarioGroup:'advice-'+s.family,split:s.split,query:s.query,reference:s.reference??{now:'2026-11-12T09:00:00Z',timezone:'Europe/Zurich'},catalog:adviceCatalog(s),toolState:s.toolState??null}))});
  await save(out,'evaluation-inputs.json',{purpose:'FROZEN_INPUTS_ONLY_NO_TARGETS',datasetHash:contentHash(approved.balanced),cases:evaluation});
  await save(out,'methodology-audit.json',p.report.methodology);
  await save(out,'metamorphic-controls.json',controls);

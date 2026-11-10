@@ -4,9 +4,8 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {contentHash} from '../../packages/decision-vnext-core/dist/canonical.js';
-import {buildNuknukUnderstandingRequest} from '../../packages/decision-vnext-core/dist/nuknuk-understanding.js';
-import {buildNuknukAssessmentRequest} from '../../packages/decision-vnext-core/dist/nuknuk-grounded-assessment.js';
 import {buildMetamorphicControls} from './nuknuk-curriculum/methodology.mjs';
+import {buildUnderstandingCasePair} from '../../packages/decision-vnext-core/dist/nuknuk-understanding-learning.js';
 const [source,python,output,scope='base']=process.argv.slice(2);if(!output||!['base','controls'].includes(scope))throw Error('curriculum_eval_arguments_required');
 const manifest=JSON.parse(await readFile(resolve(source,'manifest.json')));
 const instructionProfile=manifest.instructionProfile??'COMPACT_ADAPTER_V3';
@@ -14,11 +13,11 @@ if(!['COMPACT_ADAPTER_V3','COMPACT_ADAPTER_V4','SPOT_GROUNDED_V5','SPOT_GROUNDED
 const dataset=JSON.parse(await readFile(resolve(source,'reviewed-backyrd.json')));
 if(contentHash(dataset)!==manifest.datasetHash)throw Error('curriculum_dataset_changed');
 const round5=manifest.round===5;
-const solid=['backyrd.nuknuk-solid-curriculum@1','backyrd.nuknuk-solid-curriculum@2','backyrd.nuknuk-solid-curriculum@3','backyrd.nuknuk-solid-curriculum@4','backyrd.nuknuk-solid-curriculum@5','backyrd.nuknuk-solid-curriculum@6'].includes(manifest.curriculumVersion);
+const solid=['backyrd.nuknuk-solid-curriculum@1','backyrd.nuknuk-solid-curriculum@2','backyrd.nuknuk-solid-curriculum@3','backyrd.nuknuk-solid-curriculum@4','backyrd.nuknuk-solid-curriculum@5','backyrd.nuknuk-solid-curriculum@6','backyrd.nuknuk-solid-curriculum@7'].includes(manifest.curriculumVersion);
 const selected=dataset.cases.filter(r=>(solid||r.id.startsWith(round5?'r5-':'r4-'))&&r.split!=='TRAIN');
 if(selected.length!==(solid?manifest.counts.VALIDATION+manifest.counts.TEST:round5?40:400))throw Error('curriculum_eval_inventory_changed');
 const grammarCache=new Map();const cases=[];
-if(scope==='base')for(const row of selected){const request=row.content.task==='ASSESS_CANDIDATES'?buildNuknukAssessmentRequest(row.content.context):buildNuknukUnderstandingRequest({...row.content,instructionProfile});const schemaHash=contentHash(request.outputSchema);if(!grammarCache.has(schemaHash))grammarCache.set(schemaHash,request.outputSchema);cases.push({id:row.id,task:row.content.task,query:row.content.query,split:row.split,scenarioGroup:row.scenarioGroup,messages:[{role:'system',content:request.instructions},{role:'user',content:request.input}],promptHash:contentHash(request.instructions),inputHash:contentHash(request.input),schemaHash});}
+if(scope==='base')for(const row of selected){const {request}=buildUnderstandingCasePair(row.content,instructionProfile);const schemaHash=contentHash(request.outputSchema);if(!grammarCache.has(schemaHash))grammarCache.set(schemaHash,request.outputSchema);cases.push({id:row.id,task:row.content.task,query:row.content.query,split:row.split,scenarioGroup:row.scenarioGroup,messages:[{role:'system',content:request.instructions},{role:'user',content:request.input}],promptHash:contentHash(request.instructions),inputHash:contentHash(request.input),schemaHash});}
 else{
  const controls=buildMetamorphicControls(dataset);
  if(contentHash(controls)!==manifest.derivedControlsHash)throw Error('curriculum_controls_changed');
