@@ -3046,3 +3046,28 @@ Abgeleitete verbindliche Kriterien für NukNuk:
 
 Diese Ergänzung ist ein gespeicherter Produkt- und Lernauftrag, noch kein neu
 abgenommenes SFT-Beispiel und keine bereits implementierte Beratungsfunktion.
+
+### Technische Referenz: offene Bedeutung und Suchrichtungen
+
+Der Founder ergänzt den [geteilten Chat](https://chatgpt.com/share/6af37cf1-c02c-83eb-837b-ebee6f929c1e).
+Die letzte Antwort beschreibt ein Vorgehensmodell: explizite Angaben von
+Interpretationen und Unbekanntem trennen, mehrere Bedeutungsrichtungen erkunden
+und Kandidaten anhand passender Belege beurteilen. Das ist kein belegter Trace
+der dort zuvor durchgeführten Recherche.
+
+Für Backyrd festgehaltene Präzisierungen:
+
+- Der Bedeutungswunsch ist sicher geäussert; offen ist seine Konkretisierung.
+  Diese Unsicherheit mindert nicht automatisch seine Wichtigkeit.
+- Erkundete Suchrichtungen sind keine zusätzlichen Nutzerpflichten. Geschichte,
+  Philosophie und persönliche Erinnerung müssen nicht gleichzeitig zutreffen.
+- Persönliche Bedeutung braucht Nutzerbezug; Ortsbesonderheiten brauchen
+  Spotbelege. Beides darf nicht gegenseitig als Nachweis dienen.
+- Basel und eine genaue Zweiergruppe sind im Original nicht ausdrücklich
+  angegeben. Eigene frühere Modellvorschläge bestätigen keine Nutzerangaben.
+- Geburtstage erzeugen keine automatische Reservierungs-, Romantik- oder
+  Arrangementpflicht. Die genannten Prozentgewichte sind illustrativ und
+  werden nicht als Backyrd-Rankingregel übernommen.
+
+Die Referenz erweitert die Beratungsanforderungen, ohne den eingefrorenen
+Trainingsstand oder die Engine zu verändern.
