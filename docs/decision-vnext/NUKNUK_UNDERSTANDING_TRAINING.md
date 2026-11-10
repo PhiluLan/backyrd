@@ -1636,3 +1636,65 @@ dem ersten Test weniger als eine bezahlte GPU-Stunde und höchstens 5 USD.
 Die genauen Start-/Stoppbelege und tatsächlichen Antworten müssen nach dem
 erneuten Zugang ergänzt werden. Ein Prozess-timeout ersetzt weiterhin keinen
 verifizierten Anbieter-Stopp.
+
+### Übergabeprüfung Mac → CUDA: tatsächliches Ergebnis vom 10.11.2026
+
+Der Vergleich ist abgeschlossen. Der alte Pod konnte wegen einer inzwischen
+anderweitig vergebenen GPU nicht starten. Ein neuer H100-SXM-Pod führte denselben
+eingefrorenen Plan aus. Kein Training, kein Optimizer und keine Produktaktivierung.
+Der ursprüngliche Parent-Adapter blieb unverändert; sein Parameterdigest vor und
+nach der Auswertung ist identisch:
+`4f5373a49e80c185ebff92eaa7e617da93945d2bd0048c43765616cd7e9a8ac5`.
+Anfrage-/Prompt-Hashes und Eingabetokenzahlen stimmen für alle sechs Fälle mit
+der historischen Mac-Baseline überein. Alle Antworten sind vollständig und bestehen
+die kanonische Strukturprüfung. Diese Prüfung erkennt die folgenden inhaltlichen
+Fehler jedoch nicht.
+
+| Bekannte Diagnoseanfrage | Mac | CUDA | Inhaltliche Bewertung von CUDA |
+| --- | --- | --- | --- |
+| Dart; Abendessen brauche ich nicht; Getränke müssen vorhanden sein | Fehler | Fehler | Abendessen fälschlich ausgeschlossen statt nicht erforderlich; allgemeine Getränke auf Kaffee verengt. |
+| Dart; Abendessen ausgeschlossen; Getränke müssen vorhanden sein | Fehler | Fehler | Ausschluss korrekt, aber allgemeine Getränke durch eine nicht verlangte Liste `coffee/beer/craft beer` ersetzt. |
+| Schach spielen, dazu Getränke | Korrekt | Korrekt | Schach und allgemeine Getränke verpflichtend erhalten. |
+| Schach spielen, dazu Bier | Korrekt | Korrekt | Schach und ausdrücklich verlangtes Bier verpflichtend erhalten. |
+| Zuerst Museum, danach dort Mittagessen | Fehler | Fehler | Reihenfolge und gleicher Ort korrekt; erfundene geografische Pflicht „dort“ entfällt. Dafür verknüpft `ANY` Museum und Mittagessen als Oder statt beides zu verlangen. |
+| Samosa, möglichst unter 19 Franken für uns beide zusammen | Fehler | Fehler | Gericht, weiches Budget und Betrag korrekt; Gesamtbudget nur im Freitext statt `budget.scope=GROUP_TOTAL`. Zwei Personen nicht als `people.count=2`; „zusammen“ fälschlich als Beziehung. |
+
+Bewertung durch den beauftragten Codex-Assistenten, keine unabhängige menschliche
+Goldprüfung: auf beiden Systemen zwei von sechs Fällen inhaltlich akzeptabel.
+Vertretbare Formulierungs- und Bindungsvarianten werden akzeptiert; keine Forderung
+nach wortgleicher Ausgabe. Beim Museumsfall und Gesamtbudget beschreibt das Modell
+das Ziel im Klartext richtig, erzeugt aber falsche oder unvollständige strukturierte
+Suchregeln. Deshalb ist weder ein Qualitätsgewinn noch exakte Verhaltensparität
+nachgewiesen. Befund: `CUDA_RUNTIME_USABLE_BUT_EXACT_BEHAVIOR_PARITY_NOT_ESTABLISHED`.
+
+CUDA benötigte durchschnittlich 32,12 Sekunden pro Antwort; die historischen
+Mac-Antworten 48,43 Sekunden. Der gesamte Auswertungsprozess einschliesslich
+Modellbeschaffung und Laden dauerte 393,59 Sekunden. Spitzenspeicher laut PyTorch:
+23,81 GiB. Kein Speichermangel. Es wurden 2.557 Ausgabetokens auf CUDA gegenüber
+2.549 auf dem Mac erzeugt. Dies ist kein zeitgleich kontrollierter Hardwarebenchmark.
+MLX-Affine-4bit und CUDA-NF4 sowie numerische Kernel unterscheiden sich; die Ursache
+einzelner Antwortänderungen wurde nicht isoliert. Sechs bekannte Trainingsfälle
+sind zudem kein Nachweis für unbekannte Anfragen.
+
+Der neue Pod `f6k1wdmvfaazwq` wurde am 10.11.2026 um 07:09:30 UTC angefordert und
+war um 07:24:49 UTC nachweislich gestoppt: höchstens 919 Sekunden. Zusammen mit
+dem vorherigen Smoke-Test höchstens 1.559 Sekunden, knapp 26 Minuten. Bei
+4,018 USD/Stunde rechnerisch etwa 1,74 USD; die finale Anbieterabrechnung ist
+nicht geprüft. Beide Pods stehen auf `Not running` und 0 USD/Stunde. Der manuelle
+Anbieter-Stopp erfolgte innerhalb der genehmigten Stunde und 5-USD-Grenze.
+Eine automatische Anbieter-Abschaltung war weiterhin nicht eingerichtet; vor
+unbeaufsichtigtem Training bleibt deren praktische Verifikation erforderlich.
+
+Vollständige lokale Belege unter
+`.local/nuknuk-understanding/runpod-20261110-parity/`: `semantic-review.json`,
+`contract-comparison.json`, `deployment.json`, sechs Rohantworten unter
+`nuknuk-parity-results/` und Ausführungslogs. Das Ergebnisarchiv wurde vor dem
+Stopp kopiert; SHA-256 auf Pod und Mac identisch:
+`ae77747bb7c472158fc76835b3ee8b7eb992b4429f775c6745da987a529f7e07`.
+
+Nächster fachlicher Schritt ist ein gezielter Trainingsvergleich für Nichtbedarf
+gegen Ausschluss, allgemeine gegen erfundene spezifische Wünsche, Und/Oder und
+Gesamtbudget. CUDA benötigt eine ausdrücklich versionierte eigene Baseline.
+Der vorhandene Mac-Adapter und die bisherigen Lerndaten bleiben erhalten.
+Vor einem längeren Lauf getrennte unbekannte Prüffälle und wirksame Abschaltung
+festlegen; dieser Vergleich allein rechtfertigt keinen langen Trainingslauf.
