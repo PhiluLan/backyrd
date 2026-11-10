@@ -2096,3 +2096,77 @@ meldete 65281 MiB belegten GPU-Speicher und volle Rechenauslastung. Keine Fehler
 Datei vorhanden. Beide Kostenwächter und die Checkpoint-Sicherung waren aktiv;
 die konservative Gesamtschätzung inklusive Vorreserve lag bei etwa 1,70 USD.
 Der neue Lauf arbeitet weiter; Qualität und vollständiger Abschluss bleiben offen.
+
+#### Fünfter Lauf: Training fertig, Abschlussvergleich unterbrochen
+
+592 Updates mit Batch 2 wurden in 6566,57 Sekunden abgeschlossen: 1184
+Präsentationen der 296 TRAIN-Beispiele, vier Durchgänge. Der neue Adapter ist
+lokal gesichert und SHA-256-geprüft:
+`ae2c163733c3df9d9d077923df7bf9ff47c24d71c4761dabf96a0562ff740568`.
+Alle 16 Entwicklungsantworten beider Stände sind lokal vorhanden.
+
+Die assistierte Bedeutungsprüfung schliesst Fall12 aufgrund vorab dokumentierter
+Mehrdeutigkeit aus. Auf den übrigen15: bisher7 Bedeutung erhalten,2 teilweise/
+Zuordnung offen,6 klare Fehler; neu8 erhalten,3 teilweise/offen,4 klare Fehler.
+Verbessert: eigene Snacks und Hundezugang. Weiterhin falsch: englische
+Reservationsfreiheit, Pro-Person-Budget, erfundene Ruhe. Rückschritt: Zuordnung
+von Innen-/Aussenbereich zu einzelnen Aktivitäten. Dies ist keine unabhängige
+menschliche Erfolgsquote und kein bestätigter Ende-zu-Ende-Betrieb.
+
+Vor jeder Abschlussantwort wurde der neue Adapter allein anhand der Entwicklung
+für den experimentellen Vergleich eingefroren, ohne Produktfreigabe. Der
+Abschlussvergleich wurde unter eigenem exklusiven GPU-Lock gestartet. Am
+10.11.2026 um15:02:59UTC zeigt das Anbieter-Audit einen Pod-Stopp unter dem
+Kontonamen; um15:03:20UTC bestätigt der lokale Wächter EXITED. API bestätigt
+runtime=null für alle vier bekannten Pods. Der SSH-Zugang ist geschlossen.
+Der genaue Auslöser ist nicht belegt: Remote-Fehlerdatei und finales Prozesslog
+wurden vor dem Stopp nicht lokal gesichert. Timeout, OOM oder Anbieterfehler
+dürfen daraus nicht behauptet werden. Kein blinder Neustart.
+
+Lokal gesichert sind zwölf Abschlussantworten des bisherigen Adapters, keine
+Abschlussantworten des neuen Adapters. Der geplante24-Paare-Vergleich ist
+**nicht abgeschlossen**, daher keine abschliessende Qualitätsaussage. Die
+regelmässige Checkpoint-Sicherung erfasste Adapter, nicht automatisch die
+Abschluss-Rohantworten/Fehlerlogs; diese Sicherungslücke ist vor einem weiteren
+Lauf zu beheben. Der trainierte Adapter und die Entwicklungsdaten sind erhalten.
+
+Temporärer Trainingswächter über reguläre UI deaktiviert, lokale Sicherung
+beendet und Monitor pausiert. Konservative Kostenschätzung inklusive Vorreserve
+ca.10,13USD, keine Rechnung. Keine Produktaktivierung. Belege unter
+`runpod-20261110-round5/provider-stop-verification.json`, `final-selection.json`,
+`trained-development-semantic-review.json`, `baseline24/`, `checkpoints/` und
+`watcher-disabled.png` im lokalen NukNuk-Artefaktverzeichnis.
+
+#### Genehmigte Wiederaufnahme der fehlenden Abschlussprüfung
+
+Der Founder beauftragte die fehlende Prüfung, bestätigte erneut denselben
+temporären Wächterschlüssel und genehmigte die notwendige gleichwertige
+H100-Migration innerhalb des bisherigen20USD-Dachs. Der bisherige Pod war
+nicht mehr mit GPU verfügbar. Einziger laufender Ersatz ist `ezbnmwzvcalwrc`,
+Compute3,99USD/h, inklusive Speicher4,02USD/h. Die ursprünglichen Fristen
+und das Budget werden nicht verlängert; die lokale rechnerische Reserve
+kann sogar vor der angegebenen festen Stopfrist greifen. Kein neues Training.
+
+Die lokale Prüfung der zwölf alten Abschlussdateien ergibt elf vollständige
+Antworten und einen belegten Generierungsfehler: `r5-test-9` erreichte2048Tokens
+und `nuknuk_gpu_generation_incomplete`. Das ist kein semantischer Erfolg.
+Der alte Vergleichsrunner brach bei jedem FAILED-Fall nach der Phase ab;
+der genaue frühere Prozessauslöser bleibt ohne Remote-Endlog unbestätigt.
+Der Wiederholungsrunner behält FAILED-Fälle als Fehler in der Auswertung bei,
+setzt aber die übrigen Fälle und den zweiten Adapter fort. Prozessfehler,
+Identitätsfehler und Budgetüberschreitungen bleiben Abbruchgründe. Grenzen für
+Tokens, Modell, Grammatik und Prompts bleiben unverändert. Kein Best-of-Retry.
+
+Die bestehende kanonische Checkpoint-Sicherung wurde um begrenzte, SHA-geprüfte
+Spiegelung der JSON-Antworten und Logdateien ergänzt, alle10Sekunden.
+Remote-Pfade, Dateitypen, Gesamt-/Einzelgrössen und lokale Symlink-Ausbrüche
+werden geprüft; temporäre Dateien werden vor dem atomaren Ersetzen validiert.
+Sechs CPU-Prüfungen verifizieren diese Sicherungsgrenzen. Kein Modell auf dem Mac.
+
+Die Migration lieferte erneut ein leeres Workspace. Wiederherstellung von
+festgelegter Python-Umgebung, unveränderter Bundle-Archivprüfsumme sowie beiden
+Adapterprüfsummen erfolgt vor der Bewertung. Ein begrenzter Bootstrap wartet
+auf vollständige Übertragung, Modellrevision und frischen unabhängigen
+Serverwächter, bevor er ausschliesslich den24-Paare-Vergleich startet.
+Artefakte liegen separat unter `recovery-evidence/`; frühere Antworten,
+Auswahlbeleg und Bewertungen bleiben unverändert erhalten. Abschluss offen.
