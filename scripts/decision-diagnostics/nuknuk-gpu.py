@@ -193,6 +193,9 @@ def load_model(folder, layers, strategy="qv", adapter=None):
         if set(actual) != set(expected) or any(actual[k].shape != expected[k].shape for k in expected):
             raise ValueError("nuknuk_gpu_evaluation_adapter_architecture_mismatch")
         set_peft_model_state_dict(model, actual, adapter_name="default")
+        loaded = get_peft_model_state_dict(model)
+        if any(not torch.equal(actual[k].to(device=loaded[k].device, dtype=loaded[k].dtype), loaded[k]) for k in actual):
+            raise ValueError('nuknuk_gpu_adapter_restore_failed')
     return model, tokenizer, {"strategy": strategy, "targetModules": selected, "copiedParentMatrices": copied,
         "trainableParameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "quantizationDifference": "MLX affine4bit -> CUDA NF4. Weight-delta mapping checked; behavior parity unproven."}
@@ -364,6 +367,19 @@ def verify_completion_loss(model, batch, output):
         "limitation":"Numerical gradient equivalence on this input, not model understanding quality."})
 
 
+def training_adapter(args):
+    adapter=getattr(args,'adapter',None)
+    digest=getattr(args,'adapter_sha256',None)
+    if adapter is None:
+        if digest:raise ValueError('nuknuk_gpu_training_adapter_path_required')
+        return None
+    if not digest or file_sha(adapter/'adapter_model.safetensors')!=digest:
+        raise ValueError('nuknuk_gpu_training_adapter_pin_required')
+    if adapter.resolve()==args.output.resolve() or adapter.resolve() in args.output.resolve().parents:
+        raise ValueError('nuknuk_gpu_training_adapter_output_overlap')
+    return adapter
+
+
 def run(args):
     folder = args.bundle.resolve(strict=True)
     host = host_check(folder)
@@ -382,10 +398,13 @@ def run(args):
     args.output.mkdir(parents=True, mode=0o700)
     started = time.monotonic()
     import torch
-    model, tokenizer, boundary = load_model(folder, args.layers, args.strategy)
+    initial_adapter = training_adapter(args)
+    initial_sha = getattr(args, 'adapter_sha256', None)
+    model, tokenizer, boundary = load_model(folder, args.layers, args.strategy, initial_adapter)
     versions = {p: importlib.metadata.version(p) for p in ("torch", "transformers", "peft", "bitsandbytes")}
     write_json(args.output / "preflight.json", {**host, **boundary, "versions": versions, "steps": args.steps,
-        "layers": args.layers, "strategy": args.strategy, "learningRate": args.learning_rate, "seed": 7, "maxSeconds": args.max_seconds, "batchSize":args.batch_size,"localSmokeTested": False})
+        "layers": args.layers, "strategy": args.strategy, "learningRate": args.learning_rate, "seed": 7, "maxSeconds": args.max_seconds, "batchSize":args.batch_size,"localSmokeTested": False,
+        "initialAdapterSha256":initial_sha})
     raw = [json.loads(line) for line in (folder / "data/train.jsonl").read_text().splitlines()]
     encoded = [encode_row(row, tokenizer) for row in raw]
     optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.learning_rate, weight_decay=0)
@@ -556,6 +575,8 @@ if __name__ == "__main__":
             cmd.add_argument("--strategy", choices=["qv", "language-linear"], default="qv")
             cmd.add_argument("--max-seconds", type=int, default=3000)
         if command == "train":
+            cmd.add_argument("--adapter", type=Path)
+            cmd.add_argument("--adapter-sha256")
             cmd.add_argument("--steps", type=int, default=2)
             cmd.add_argument("--layers", type=int, choices=[1, 4, 16], default=1)
             cmd.add_argument("--strategy", choices=["qv", "language-linear"], default="qv")

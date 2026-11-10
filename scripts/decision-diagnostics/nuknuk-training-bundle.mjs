@@ -10,12 +10,15 @@ import {round2Train,round2Development,round2FreshTest} from './nuknuk-round2-cas
 import {round3Train,round3Development,round3FreshTest} from './nuknuk-round3-cases.mjs';
 import {round4Specs} from './nuknuk-round4-cases.mjs';
 import {cleanRound5Training,validateRound5Specs} from './nuknuk-round5-cases.mjs';
+import {round5EvaluationSpecs} from './nuknuk-round5-evaluation-cases.mjs';
 
 const [sourceFile,externalFile,outputDirectory]=process.argv.slice(2);
 const round2=process.argv.includes('--round2');
 const round3=process.argv.includes('--round3');
 const round4=process.argv.includes('--round4');
 const round5=process.argv.includes('--round5');
+const round5Run=process.argv.includes('--round5-run');
+if(round5Run&&!round5)throw Error('round5_run_requires_round5');
 const compact4=process.argv.includes('--compact4');
 if(compact4&&!round4)throw Error('compact4_requires_round4');
 if([round2,round3,round4,round5].filter(Boolean).length>1)throw Error('nuknuk_bundle_round_ambiguous');
@@ -26,8 +29,8 @@ const external=JSON.parse(await readFile(resolve(externalFile),'utf8'));
 if(external.version!=='backyrd.nuknuk-external-selection@1'||external.examples.length!==40||external.examples.some(r=>r.split!=='TRAIN'||r.sourceSplit!=='train')) throw Error('nuknuk_auxiliary_selection_invalid');
 const reviewedAt=new Date().toISOString();
 const commission={version:'backyrd.nuknuk-training-commission@1',source:'EXPLICIT_FOUNDER_MESSAGE_IN_THIS_CHAT',
-  instruction:round5?'Perfekt, dann mache das nun bitte: Trainingsdaten bereinigen und gezielte Gegenbeispiele lokal vorbereiten; kein neuer GPU-Lauf':round4?'Klingt gut, genauso machen; breites Verständnisprogramm, Runpod, insgesamt 20 USD; temporärer lokaler Trainingswächter ausdrücklich freigegeben':round3?'Perfekt, los gehts (gezielte Gegenbeispiele, eingefrorener Bestand, separater Adapter, neue Anfragen und Wiederholungen)':round2?'Perfekt, los gehts (zweite Trainingsrunde: 120 Kontraste, zwei lokale Adapter und frische Prüfaufgaben)':'Sehr gut, also dann bitte komplett machen Punkt 1-4',
-  scope:round5?['REVIEW_BACKYRD_CORPUS','PREPARE_TARGETED_CONTRASTS_LOCAL_ONLY']:['REVIEW_BACKYRD_CORPUS','PREPARE_MASSIVE_AND_PAWS_X','TRAIN_SEPARATE_LOCAL_ADAPTER','INTERNAL_BASELINE_COMPARISON'],
+  instruction:round5Run?'Ok, los gehts: nächster Runpod-Lauf mit neuem maximalem Kostendach20USD, getrennt vom abgeschlossenen Lauf; keine Produktaktivierung':round5?'Perfekt, dann mache das nun bitte: Trainingsdaten bereinigen und gezielte Gegenbeispiele lokal vorbereiten; kein neuer GPU-Lauf':round4?'Klingt gut, genauso machen; breites Verständnisprogramm, Runpod, insgesamt 20 USD; temporärer lokaler Trainingswächter ausdrücklich freigegeben':round3?'Perfekt, los gehts (gezielte Gegenbeispiele, eingefrorener Bestand, separater Adapter, neue Anfragen und Wiederholungen)':round2?'Perfekt, los gehts (zweite Trainingsrunde: 120 Kontraste, zwei lokale Adapter und frische Prüfaufgaben)':'Sehr gut, also dann bitte komplett machen Punkt 1-4',
+  scope:round5?(round5Run?['REVIEW_BACKYRD_CORPUS','TRAIN_SEPARATE_CLOUD_ADAPTER_20_USD','INTERNAL_BASELINE_COMPARISON']:['REVIEW_BACKYRD_CORPUS','PREPARE_TARGETED_CONTRASTS_LOCAL_ONLY']):['REVIEW_BACKYRD_CORPUS','PREPARE_MASSIVE_AND_PAWS_X','TRAIN_SEPARATE_LOCAL_ADAPTER','INTERNAL_BASELINE_COMPARISON'],
   perCaseFounderReviewWaived:true,independentHumanGold:false,reviewedAt};
 const delegationHash=contentHash(commission),corrections=[];
 let reviewed={...source,cases:source.cases.map(row=>{
@@ -82,7 +85,7 @@ if(round3){
   reviewed={...source,cases,splitPlan:source.splitPlan.filter(row=>scenarioGroups.has(row.scenarioGroup))};
 }
 if(round2||round3||round4||round5){
-  const additions=round5?validateRound5Specs():round4?round4Specs():round3?[...round3Train,...round3Development,...round3FreshTest]:[...round2Train,...round2Development,...round2FreshTest];
+  const additions=round5?[...validateRound5Specs(),...(round5Run?round5EvaluationSpecs():[])]:round4?round4Specs():round3?[...round3Train,...round3Development,...round3FreshTest]:[...round2Train,...round2Development,...round2FreshTest];
   if(round3&&(round3Train.length!==96||round3Development.length!==12||round3FreshTest.length!==12))throw Error('nuknuk_round3_inventory_invalid');
   if(round2Train.length!==120||round2Development.length!==12||round2FreshTest.length!==12)throw Error('nuknuk_round2_inventory_invalid');
   const cases=additions.map(spec=>{
@@ -102,12 +105,33 @@ if(round4){
   const used=new Set(reviewed.cases.map(r=>r.scenarioGroup));
   reviewed.splitPlan=reviewed.splitPlan.filter(r=>used.has(r.scenarioGroup));
 }
+if(round5Run){
+  const focused=reviewed.cases.filter(row=>row.id.startsWith('r5-train-')||/^r4-train-intent-3-/.test(row.id));
+  const focusedIds=new Set(focused.map(row=>row.id));
+  const groups=new Map();
+  for(const row of reviewed.cases.filter(row=>row.split==='TRAIN'&&row.content.task==='INTERPRET_REQUEST'&&!focusedIds.has(row.id))){
+    if(!groups.has(row.scenarioGroup))groups.set(row.scenarioGroup,[]);
+    groups.get(row.scenarioGroup).push(row);
+  }
+  const queues=[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([,rows])=>rows.sort((a,b)=>a.contentHash.localeCompare(b.contentHash)));
+  for(let index=0;retainedParentCaseIds.length<192;index++){
+    let found=false;
+    for(const rows of queues)if(rows[index]&&retainedParentCaseIds.length<192){retainedParentCaseIds.push(rows[index].id);found=true;}
+    if(!found)throw Error('round5_retention_insufficient');
+  }
+  const retained=new Set(retainedParentCaseIds);
+  const cases=reviewed.cases.filter(row=>row.split!=='TRAIN'||focusedIds.has(row.id)||retained.has(row.id));
+  const used=new Set(cases.map(row=>row.scenarioGroup));
+  reviewed={...reviewed,cases,splitPlan:reviewed.splitPlan.filter(row=>used.has(row.scenarioGroup))};
+}
 const splitHash=understandingSplitHash(reviewed.splitPlan);
 const audit=auditUnderstandingDataset(reviewed,splitHash);
 if(round5){
   const historicalQueries=new Set(source.cases.filter(r=>r.split!=='TRAIN').map(r=>r.content.query));
   if(reviewed.cases.some(r=>r.content.task==='INTERPRET_REQUEST'&&historicalQueries.has(r.content.query)))throw Error('round5_exposed_query_leakage');
   if(audit.cases.some(row=>row.blockers.length))throw Error('round5_preparation_review_incomplete');
+}
+if(round5&&!round5Run){
   // The canonical exporter correctly requires all three partitions. This is
   // preparation only: do not weaken that invariant or invent a fresh benchmark.
   const folder=resolve(outputDirectory);await mkdir(folder,{mode:0o700});
@@ -129,8 +153,8 @@ if(round5){
   console.log(JSON.stringify({directory:folder,counts:audit.counts,corrections:corrections.length,newCases:64,weightsTrained:false,exportReady:false,reason:'FRESH_VALIDATION_AND_TEST_REQUIRED'}));
   process.exit(0);
 }
-const bundle=exportUnderstandingDataset(reviewed,splitHash,round3?'COMPACT_ADAPTER_V3':round4?(compact4?'COMPACT_ADAPTER_V4':'COMPACT_ADAPTER_V3'):round2?'COMPACT_ADAPTER_V2':'COMPACT_ADAPTER_V1');
-const files={...bundle.files,train:[...bundle.files.train,...(round3?[]:external.examples.map(r=>({messages:r.messages})))]};
+const bundle=exportUnderstandingDataset(reviewed,splitHash,round3||round5?'COMPACT_ADAPTER_V3':round4?(compact4?'COMPACT_ADAPTER_V4':'COMPACT_ADAPTER_V3'):round2?'COMPACT_ADAPTER_V2':'COMPACT_ADAPTER_V1');
+const files={...bundle.files,train:[...bundle.files.train,...(round3||round5?[]:external.examples.map(r=>({messages:r.messages})))]};
 const folder=resolve(outputDirectory);await mkdir(folder,{mode:0o700});
 const byteHashes={};
 for(const [key,rows] of Object.entries(files)){
@@ -139,12 +163,13 @@ for(const [key,rows] of Object.entries(files)){
   byteHashes[filename]=createHash('sha256').update(bytes).digest('hex');
 }
 const manifest={...bundle.manifest,counts:{...bundle.manifest.counts,TRAIN:files.train.length},filesHash:contentHash(files),fileByteHashes:byteHashes,
-  backyrdTrainingCases:reviewed.cases.filter(r=>r.split==='TRAIN').length,auxiliaryTrainingCases:round3?0:40,delegationHash,reviewAttribution:'DELEGATED_ASSISTANT',
+  backyrdTrainingCases:reviewed.cases.filter(r=>r.split==='TRAIN').length,auxiliaryTrainingCases:round3||round5?0:40,delegationHash,reviewAttribution:'DELEGATED_ASSISTANT',
+  ...(round5?{round:5,status:'FROZEN_BEFORE_GPU',newTrainingCases:64,correctedTrainingCases:40,retainedParentCaseIds,retentionPolicy:'192 historical TRAIN only; deterministic group round-robin and content hash, not model outputs',excludedExposedCases:excludedExposedCases.length,cloudDestination:'Approved Runpod own training Pod',costCeilingUsd:20,independentHumanGold:false,syntheticTemplateExpansion:false,freshDevelopmentCases:16,freshTestCases:24}:{}),
   ...(round2?{round:2,newTrainingCases:120,developmentCaseIds:round2Development.map(s=>s.id),freshTestCaseIds:round2FreshTest.map(s=>s.id),knownTestCasesExcludedFromSelection:true}:{}),
   ...(round4?{round:4,newTrainingCases:2000,newDevelopmentCases:100,newSealedTestCases:300,scenarioFamilyCounts:{TRAIN:50,VALIDATION:10,TEST:30},historicalNonTrainExcluded:true,syntheticTemplateExpansion:true,independentHumanGold:false,cloudDestination:'Explicitly approved Runpod training',costCeilingUsd:20}:{}),
   ...(round3?{round:3,newTrainingCases:96,retainedParentCaseIds,retentionPolicy:'64 prior TRAIN interpretation cases, round-robin across scenario groups; no prior VALIDATION or TEST promoted',developmentCaseIds:round3Development.map(s=>s.id),freshTestCaseIds:round3FreshTest.map(s=>s.id),repeatTestCaseIds:['r3-fresh-1','r3-fresh-5','r3-fresh-6'],repeatCount:3,knownTestCasesExcludedFromTraining:true,auxiliaryPolicy:'External corpus retained in prior lineage, not mixed into this focused continuation'}:{}),
   sourceDatasetHash:contentHash(source),externalSelectionHash:contentHash(external),
-  auxiliaryCases:round3?[]:external.examples.map(({id,task,sourceId,sourceSplit,locale})=>({id,task,sourceId,sourceSplit,locale})),
+  auxiliaryCases:round3||round5?[]:external.examples.map(({id,task,sourceId,sourceSplit,locale})=>({id,task,sourceId,sourceSplit,locale})),
   limitations:['ASSISTANT_AUTHORED_AND_REVIEWED_NOT_INDEPENDENT_HUMAN_GOLD','RELATED_SCENARIOS_ARE_NOT_INDEPENDENT_BENCHMARKS','COMPACT_PROFILE_REQUIRES_MATCHED_BASELINE_AND_ADAPTER_EVALUATION']};
 for(const [name,data] of Object.entries({'manifest.json':manifest,'reviewed-backyrd.json':reviewed,'review-audit.json':audit,'commission.json':commission,'corrections.json':corrections,'external-lineage.json':external})) await writeFile(resolve(folder,name),JSON.stringify(data,null,2)+'\n',{flag:'wx',mode:0o600});
 const manifestHash=createHash('sha256').update(await readFile(resolve(folder,'manifest.json'))).digest('hex');

@@ -10,8 +10,9 @@ const manifest=JSON.parse(await readFile(resolve(source,'manifest.json')));
 const instructionProfile=manifest.instructionProfile??'COMPACT_ADAPTER_V3';
 if(!['COMPACT_ADAPTER_V3','COMPACT_ADAPTER_V4'].includes(instructionProfile))throw Error('curriculum_profile_invalid');
 const dataset=JSON.parse(await readFile(resolve(source,'reviewed-backyrd.json')));
-const selected=dataset.cases.filter(r=>r.id.startsWith('r4-')&&r.split!=='TRAIN');
-if(selected.length!==400)throw Error('curriculum_eval_inventory_changed');
+const round5=manifest.round===5;
+const selected=dataset.cases.filter(r=>r.id.startsWith(round5?'r5-':'r4-')&&r.split!=='TRAIN');
+if(selected.length!==(round5?40:400))throw Error('curriculum_eval_inventory_changed');
 const grammarCache=new Map();const cases=[];
 for(const row of selected){const request=buildNuknukUnderstandingRequest({...row.content,instructionProfile});const schemaHash=contentHash(request.outputSchema);if(!grammarCache.has(schemaHash))grammarCache.set(schemaHash,request.outputSchema);cases.push({id:row.id,query:row.content.query,split:row.split,scenarioGroup:row.scenarioGroup,messages:[{role:'system',content:request.instructions},{role:'user',content:request.input}],promptHash:contentHash(request.instructions),inputHash:contentHash(request.input),schemaHash});}
 const schemas=[...grammarCache.entries()];const grammars=JSON.parse(execFileSync(python,['-B','-c',`import json,sys,llguidance,importlib.metadata

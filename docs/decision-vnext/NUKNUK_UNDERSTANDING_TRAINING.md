@@ -1992,3 +1992,57 @@ verlieren sind echte Fehler; gleichwertige Formulierungen alleine nicht.
 
 Die Vorbereitung hat keine neuen GPU-Kosten verursacht. Ob diese Korrekturen
 das Modell verbessern, ist erst mit dem nächsten tatsächlichen Lauf messbar.
+
+#### Beauftragter fünfter GPU-Lauf: vorbereitet
+
+Der Founder hat anschliessend mit „Ok, los gehts“ den nächsten Lauf beim
+vorgeschlagenen **neuen Kostendach von 20 USD** beauftragt. Dieses Dach ist
+zusätzlich zum abgeschlossenen vierten Lauf und keine Verlängerung dessen
+abgelaufener Wächterfristen. Der bestehende Pod `r6b504qlfe7x8t` kostet laut
+Startansicht erneut 3,99 USD/Stunde. Geplant sind höchstens vier bezahlte Stunden,
+konservativ 4,10 USD/Stunde gerechnet, mit 3,60 USD Reserve zum Kostendach.
+Es wurde noch kein kostenpflichtiger Pod gestartet. Der frühere temporäre
+Wächterschlüssel ist deaktiviert; die gesonderte Browser-Bestätigung für sein
+erneutes vorübergehendes Aktivieren wurde angefragt und steht noch aus.
+
+Der neue eingefrorene Datensatz wurde mit `--round5 --round5-run` erstellt:
+296 TRAIN = 64 neue Kontraste, 40 korrigierte Gesprächsbeispiele und 192 bisherige
+TRAIN-Beispiele zur Erhaltung früherer Fähigkeiten. Die Auswahl der 192 erfolgt
+deterministisch reihum über Szenariogruppen, innerhalb der Gruppe nach Inhaltshash,
+nicht nach Modellantworten. Externe Übungen werden diesmal nicht hinzugemischt.
+Dazu 16 neue Entwicklungskompositionen und 24 neue Abschlusskompositionen, jeweils
+ohne lexikalische Vervielfachung. Die Gruppen sind getrennt; deren allgemeine
+Themen dürfen natürlich auch im Training vorkommen. Das ist assistierte
+Autorenschaft/Prüfung, keine unabhängig menschlich bestätigte Goldprüfung.
+
+Manifest-SHA-256:
+`b49b25dac7ed1741623093180a731aca7ec7b6117b12dcabacd6f107071d0368`.
+Lokaler Datensatz: `.local/nuknuk-understanding/training-20261110-round5-run/`.
+Die modellseitigen Prüfaufträge werden mit dem bestehenden Compiler ohne
+Sollantworten exportiert. Keine neue TEST-Antwort wurde erzeugt oder betrachtet.
+
+Geplanter Startadapter ist genau der gesicherte vierte GPU-Adapter
+`63171f1565f50cdc9af0c19930384987964feb9b86c810c5b6dab5db5be6c464`,
+nicht ein erneuter Start bei den historischen vier MLX-Matrizen. Der bestehende
+GPU-Trainer unterstützt dafür eine explizite, SHA-gebundene Fortsetzung;
+abweichender Hash oder überlappender Ausgabeordner wird abgewiesen. Nach dem Laden
+werden alle Adaptermatrizen gegen den eingelesenen Zustand geprüft. Geplant sind
+592 Updates mit Batch 2 und Lernrate 0,00001: vier Durchgänge der 296 Beispiele,
+also 1184 Beispielpräsentationen, nicht 1184 unterschiedliche Anfragen.
+
+Erst die 16 Entwicklungsfragen für den bisherigen Adapter, dann Training und
+die gleichen Entwicklungsfragen für den neuen Adapter. Auswahl/Verwerfung muss
+vor der ersten Abschlussantwort dokumentiert werden. Danach alle 24 neuen
+Abschlussfragen für beide festgelegten Adapter, mit Bedeutungsprüfung und
+repräsentativer Prüfung der ausführbaren Suchregeln. Das Budget darf keine
+erzwungene Aktivierung oder ungesicherte Ergebnisse rechtfertigen.
+
+Lokaler Ablaufplan und Zustand:
+`.local/nuknuk-understanding/runpod-20261110-round5/authorization.json`,
+`execution-state.json`, `run-training.py`. Der vorbereitete Ablauf hält einen
+exklusiven GPU-Job-Lock und liest keine Abschlussfragen vor der Auswahl.
+Bei Fehler wird der eigene Pod über den bereits genehmigten Containerzugang
+gestoppt. Vor dem Start müssen unabhängige lokale und serverseitige
+Abschaltwächter mit neuen festen Fristen sowie laufende Checkpoint-Sicherung
+aktiviert sein. Alte deaktivierte Schlüssel und abgelaufene Fristen gelten nicht
+als aktiver Schutz dieses Laufs. Keine Produktaktivierung.

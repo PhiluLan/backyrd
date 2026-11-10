@@ -13,6 +13,19 @@ spec.loader.exec_module(gpu)
 
 
 class GpuPreparationTests(unittest.TestCase):
+    def test_continuation_requires_exact_immutable_adapter_and_distinct_output(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);adapter=root/'previous';adapter.mkdir()
+            file=adapter/'adapter_model.safetensors';file.write_bytes(b'previous weights')
+            args=SimpleNamespace(adapter=adapter,adapter_sha256=hashlib.sha256(file.read_bytes()).hexdigest(),output=root/'new')
+            self.assertEqual(gpu.training_adapter(args),adapter)
+            args.output=adapter/'overwrite'
+            with self.assertRaisesRegex(ValueError,'output_overlap'):gpu.training_adapter(args)
+            args.output=root/'new';file.write_bytes(b'changed')
+            with self.assertRaisesRegex(ValueError,'pin_required'):gpu.training_adapter(args)
+            args.adapter=None
+            with self.assertRaisesRegex(ValueError,'path_required'):gpu.training_adapter(args)
     def arrays(self):
         rng = np.random.default_rng(7)
         prefix = 'language_model.model.layers.63.self_attn.'

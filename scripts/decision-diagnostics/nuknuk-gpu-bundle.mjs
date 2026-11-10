@@ -16,7 +16,8 @@ if(digest(sourceManifest)!==(approvedSourceSha??'ae9b4b4e4314205eb4509692548d23e
 const data=JSON.parse(await readFile(resolve(source,'reviewed-backyrd.json'),'utf8'));
 const audit=auditUnderstandingDataset(data,understandingSplitHash(data.splitPlan));
 const broad=JSON.parse(sourceManifest).round===4;
-if(!audit.exportReady||(!broad&&(audit.counts.TRAIN!==6||audit.counts.VALIDATION!==2||audit.counts.TEST!==1))||(broad&&(!approvedSourceSha||audit.counts.TRAIN!==2320||audit.counts.VALIDATION!==100||audit.counts.TEST!==300)))throw Error('nuknuk_gpu_cohort_invalid');
+const focused=JSON.parse(sourceManifest).round===5;
+if(!audit.exportReady||(!broad&&!focused&&(audit.counts.TRAIN!==6||audit.counts.VALIDATION!==2||audit.counts.TEST!==1))||(broad&&(!approvedSourceSha||audit.counts.TRAIN!==2320||audit.counts.VALIDATION!==100||audit.counts.TEST!==300))||(focused&&(!approvedSourceSha||audit.counts.TRAIN!==296||audit.counts.VALIDATION!==16||audit.counts.TEST!==24)))throw Error('nuknuk_gpu_cohort_invalid');
 const instructionProfile=JSON.parse(sourceManifest).instructionProfile ?? 'COMPACT_ADAPTER_V3';
 if(!['COMPACT_ADAPTER_V3','COMPACT_ADAPTER_V4'].includes(instructionProfile))throw Error('nuknuk_gpu_instruction_profile_invalid');
 const bundle=exportUnderstandingDataset(data,understandingSplitHash(data.splitPlan),instructionProfile);
@@ -27,10 +28,10 @@ for(const [split,rows] of Object.entries(bundle.files)){
 }
 await mkdir(out,{mode:0o700});await mkdir(resolve(out,'data'),{mode:0o700});
 for(const [split,rows] of Object.entries(bundle.files))await writeFile(resolve(out,'data',split+'.jsonl'),broad?await readFile(resolve(source,split+'.jsonl')):rows.map(JSON.stringify).join('\n')+'\n',{flag:'wx',mode:0o600});
-if(broad){
+if(broad||focused){
   await copyFile(resolve(source,'manifest.json'),resolve(out,'curriculum-manifest.json'));
   await copyFile(resolve(source,'evaluation-inputs.json'),resolve(out,'evaluation-inputs.json'));
-  await copyFile(resolve(source,'preference-reviewed.jsonl'),resolve(out,'preference-pairs.jsonl'));
+  if(broad)await copyFile(resolve(source,'preference-reviewed.jsonl'),resolve(out,'preference-pairs.jsonl'));
 }
 const here=dirname(fileURLToPath(import.meta.url));
 await copyFile(resolve(here,'nuknuk-gpu.py'),resolve(out,'nuknuk-gpu.py'));
@@ -87,6 +88,6 @@ if(parityPlanFile && parityPlanFile!=='-')await writeFile(resolve(out,'START.txt
 const hashes={};
 for(const name of await readdir(out))if(name!=='data')hashes[name]=digest(await readFile(resolve(out,name)));
 for(const name of await readdir(resolve(out,'data')))hashes['data/'+name]=digest(await readFile(resolve(out,'data',name)));
-const manifest={version:1,purpose:broad?'APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED':'PREPARED_GPU_PILOT_NOT_CUDA_VERIFIED',model:'Qwen/Qwen3.5-27B',revision:'fc05daec18b0a78c049392ed2e771dde82bdf654',parentAdapterSha256:'cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3',sourceDatasetHash:bundle.manifest.datasetHash,targetSerialization:bundle.manifest.targetSerialization,counts:broad?JSON.parse(sourceManifest).counts:bundle.manifest.counts,files:hashes,productionActivation:false,remoteUploadPerformed:false,costlyResourcesStarted:false};
+const manifest={version:1,purpose:broad||focused?'APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED':'PREPARED_GPU_PILOT_NOT_CUDA_VERIFIED',model:'Qwen/Qwen3.5-27B',revision:'fc05daec18b0a78c049392ed2e771dde82bdf654',parentAdapterSha256:'cd0735f6cc576df3386ca0254d08d3db7e976f0711a6fad7bf900777a0f180b3',sourceDatasetHash:bundle.manifest.datasetHash,targetSerialization:bundle.manifest.targetSerialization,counts:broad||focused?JSON.parse(sourceManifest).counts:bundle.manifest.counts,files:hashes,productionActivation:false,remoteUploadPerformed:false,costlyResourcesStarted:false};
 await writeFile(resolve(out,'bundle.json'),JSON.stringify(manifest,null,2)+'\n',{flag:'wx',mode:0o600});
 console.log(JSON.stringify({directory:out,files:Object.keys(hashes).length,counts:manifest.counts,remoteUploadPerformed:false,costlyResourcesStarted:false}));

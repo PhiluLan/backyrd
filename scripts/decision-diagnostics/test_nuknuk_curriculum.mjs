@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {round4Specs} from './nuknuk-round4-cases.mjs';
 import {makeInterpretation} from './nuknuk-pilot-authoring.mjs';
 import {cleanRound5Training,validateRound5Specs} from './nuknuk-round5-cases.mjs';
+import {round5EvaluationSpecs} from './nuknuk-round5-evaluation-cases.mjs';
 const rows=round4Specs(),groups=new Map(),queries=new Set();
 assert.deepEqual(Object.fromEntries(['TRAIN','VALIDATION','TEST'].map(split=>[split,rows.filter(r=>r.split===split).length])),{TRAIN:2000,VALIDATION:100,TEST:300});
 for(const row of rows){assert(!queries.has(row.query),row.id);queries.add(row.query);if(groups.has(row.scenarioGroup))assert.equal(groups.get(row.scenarioGroup),row.split);groups.set(row.scenarioGroup,row.split);makeInterpretation(row,row);}
@@ -54,3 +55,10 @@ assert.throws(()=>cleanRound5Training(invalidParent),/parent_mismatch/,'Unknown 
 const exposedQueries=new Set(rows.filter(r=>r.split!=='TRAIN').map(r=>r.query));
 assert(!contrasts.some(r=>exposedQueries.has(r.query)),'Old evaluation queries must not be copied to new training');
 console.log('Targeted contrast semantics, frozen-parent preservation, review invalidation and exposed-case exclusion verified.');
+const fresh=round5EvaluationSpecs();
+assert.equal(fresh.filter(r=>r.split==='VALIDATION').length,16);
+assert.equal(fresh.filter(r=>r.split==='TEST').length,24);
+const knownQueries=new Set([...rows,...contrasts].map(r=>r.query));
+for(const spec of fresh){assert(!knownQueries.has(spec.query));knownQueries.add(spec.query);makeInterpretation(spec,spec);}
+assert(fresh.filter(r=>r.split==='TEST').some(r=>r.sequence&&r.bindings));
+console.log('Fresh composition references validate; no evaluated old query copied, no model answers used.');

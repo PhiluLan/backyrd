@@ -11,6 +11,11 @@ sync=importlib.util.module_from_spec(spec);spec.loader.exec_module(sync)
 class SyncTests(unittest.TestCase):
     def args(self,root):
         return SimpleNamespace(ssh_key=Path('not-read'),known_hosts=Path('not-read'),host='127.0.0.1',port=22,output=root)
+    def test_remote_root_is_bounded_before_ssh(self):
+        a=self.args(Path('unused'));a.remote_root='/workspace/../../escape'
+        with patch.object(sync.subprocess,'run') as run:
+            with self.assertRaisesRegex(ValueError,'remote_root_invalid'):sync.scan(a)
+            run.assert_not_called()
     def test_remote_traversal_absolute_and_invalid_hash_are_rejected_before_copy(self):
         with tempfile.TemporaryDirectory() as tmp:
             for name,digest in [('../escape','a'*64),('/absolute','a'*64),('safe/path','not-a-hash')]:
