@@ -1809,3 +1809,8 @@ Referenzen und Aufteilungen wie das geprüfte Curriculum; Manifest-SHA
 Abschlussqualität, tatsächlich verarbeitete Beispiele und gesicherte Artefakte
 müssen nach dem Lauf ergänzt werden. Vorbereitete Präferenzpaare oder ein sinkender
 Loss dürfen nicht als durchgeführtes Präferenztraining bzw. Qualitätsbeweis gelten.
+
+Ein breiter `language-linear`-GPU-Adapter enthält zusätzliche Projektionsmatrizen.
+Er ist nicht ohne geprüfte Konvertierung mit dem bisherigen vier-Matrizen-MLX-
+Adapter gleichzusetzen. GPU-Auswertung, Mac-Laufzeitkompatibilität und Freigabe für
+den Produktbetrieb sind drei getrennte Nachweise; das Training ersetzt sie nicht.
