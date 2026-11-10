@@ -2932,3 +2932,57 @@ Die Abnahme belegt Daten-/Methodikbereitschaft des begrenzten Versuchs, keine
 trainierte Modellqualität, menschliche Gold-Abnahme oder Produktionsreife.
 Dieser Auftrag hat keinen Trainingslauf und keine zusätzlichen GPU-Kosten
 verursacht.
+
+## Präzisiertes Produktziel: Erlebnisberatung (Founder, 10. November 2026)
+
+Der Founder hat anhand zweier extern erzeugter Antworten die gewünschte
+Zielqualität präzisiert: NukNuk soll einen offenen Auftrag in eine hilfreiche
+Erlebnisidee übersetzen, bei Bedarf eine wertvolle Frage stellen und persönliche
+Bedeutung berücksichtigen. Die Referenzen sind als Interaktionsqualität
+bestätigt, nicht als verifizierte Restaurant-, Öffnungs- oder Preisangaben.
+Diese Qualität ist mehr als der bisher abgenommene Auftrag INTERPRET_REQUEST
+plus ASSESS_CANDIDATES; @6-GO ist kein Nachweis dieser erweiterten Fähigkeit.
+
+Verbindliche Unterscheidung für die Weiterentwicklung:
+
+- Nutzerangaben bleiben als solche erhalten und werden nach ihrer tatsächlichen
+  Verbindlichkeit ausgewertet.
+- Begründete Deutungen bleiben als Deutungen erkennbar. Insbesondere bedeutet
+  „keine Energie für grosse Pläne; such du etwas aus“ primär delegierte Planung;
+  körperliche Erschöpfung und ein Sportverbot sind damit nicht belegt.
+- Eigene Erlebnisideen sind zulässige Vorschläge. Wein, Gemütlichkeit oder ein
+  Spaziergang dürfen als mögliche Gestaltung angeboten werden, ohne daraus
+  behauptete Nutzerwünsche oder zusätzliche Suchpflichten zu erzeugen.
+- Konkrete Spotbehauptungen müssen auf übergebenen, passenden Belegen beruhen.
+  Ein Vorschlag darf kreativ sein; Öffnung, Preise, Zugang oder eine persönliche
+  Erinnerung dürfen nicht erfunden werden.
+
+Abnahmereferenz A: Geburtstagsessen „mit Bedeutung statt einfach teuer“.
+NukNuk soll erkennen, dass persönliche Passung über einen blossen Preis- oder
+Luxusindikator hinausgeht. Wo die nötigen Anhaltspunkte fehlen, kann es mit
+höchstens einer hilfreichen Frage nach der gewünschten Wirkung unterscheiden:
+Zweisamkeit, neue gemeinsame Erfahrung oder persönlicher Bezug. Diese Richtungen
+sind Optionen, keine unterstellten Vorlieben. Explizit unbekannte Interessen
+werden nicht mit derselben unbeantwortbaren Frage erneut abgefragt. Geeignete
+vorläufige Ideen brauchen eine verständliche Begründung; nicht jedes Restaurant
+wird allein durch den Anlass zu einem bedeutungsvollen Geburtstagsort.
+
+Abnahmereferenz B: Zwei Personen in Basel, heute keine Energie für grosse Pläne.
+NukNuk soll die Planungsarbeit übernehmen und einen überschaubaren Vorschlag
+machen können, gegebenenfalls mit freiwilliger Fortsetzung und einfacher
+Möglichkeit aufzuhören. „Uns zwei“ belegt weder Paarstatus noch zwei Erwachsene.
+Eine vorläufige Richtung muss als solche erkennbar bleiben; die Zusammensetzung
+kann mit einer kurzen Frage präzisiert werden. Tatsächliche Alters-/Zugangsregeln
+werden durch eine vorläufige Idee nicht aufgehoben.
+
+Konkreter offener Befund am bisherigen @6-Inhalt:
+`solid-user-delegation-1` bezeichnet „unkompliziert“ als EXPLICIT/PREFERRED,
+obwohl dieses Wort und eine entsprechende Ortsanforderung nicht genannt sind.
+Das ist ein Autorenfehler, kein beobachteter Modellfehler. Bei einer Revision
+muss die delegierte Planungsentlastung erhalten bleiben; der abgeleitete
+Ortswunsch darf nicht als ausdrückliche Nutzeraussage trainiert werden.
+„Mit Bedeutung“ als alleinige literal abgeglichene Präferenz genügt ebenso
+nicht als Umsetzung persönlicher Erlebnisberatung. Die neuen Referenzen müssen
+an tatsächlicher Vorschlagsqualität und Begründung geprüft werden, nicht allein
+an Schema oder erhaltenen Schlüsselwörtern. Der eingefrorene @6-Snapshot wird
+für eine solche Revision nicht nachträglich verändert.
