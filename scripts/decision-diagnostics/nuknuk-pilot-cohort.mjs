@@ -25,27 +25,43 @@ export async function worldCases(spec, byId) {
     if (!group) throw Error('nuknuk_pilot_case_not_planned:' + id);
     const source = makeInterpretation({ ...spec, id }, group);
     const understood = validateNuknukUnderstanding(source.content.target, source.content);
-    const hasFeature = !!spec.bothEvidence || index === 1;
+    const mode=spec.variantModes?.[index];
+    const hasFeature = mode ? mode.startsWith('PRESENT') : !!spec.bothEvidence || index === 1;
     const offerProperties = [...spec.facts.filter(f => f.key === 'food.drink').map(f => prop(f.key, f.value.text)),
       ...(spec.offerProperties ?? []).map(p => prop(p.key,p.value))];
-    const areaProperties = [];
+    const areaProperties = (spec.areaProperties ?? []).map(p=>prop(p.key,p.value));
     if (hasFeature && spec.feature) {
       const value = spec.feature === 'participation.booking' ? (index === 0 ? 'Empfohlen' : 'Nicht erforderlich') : spec.value;
-      (spec.feature.startsWith('atmosphere.') ? areaProperties : offerProperties).push(prop(spec.feature, value));
+      (spec.propertyScope === 'AREA' || spec.feature.startsWith('atmosphere.') ? areaProperties : offerProperties).push(prop(spec.feature, value));
     }
-    const venue = profile([offer('main', spec.kind ?? 'DINNER', ['inside'], offerProperties, [price(spec.prices?.[index] ?? 35)])], [area('inside', areaProperties)], spec.category ?? 'RESTAURANT');
+    const venue = profile([offer('main', spec.kind ?? 'DINNER', ['inside'], offerProperties, [price(spec.prices?.[index] ?? 35)])], [{...area('inside', areaProperties),...(spec.areaKind?{kind:spec.areaKind}:{})}], spec.category ?? 'RESTAURANT');
     const venueSeed = contentHash({ scenario: group.scenarioGroup });
     const venueIndex = parseInt(venueSeed.slice(0, 8), 16) * 2;
     const world = binding(venueIndex, venue);
     world.decisionProjection.facts.find(f => f.key === 'identity.name').value = 'Fiktiver Lernort ' + venueSeed.slice(0, 5);
-    const compareEqualCandidates = ((spec.bothEvidence && spec.feature !== 'participation.booking') || !!spec.prices) && index === 1;
+    if(spec.placeType)world.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=[spec.placeType];
+    const compareEqualCandidates = mode ? mode.endsWith('_TWO') : ((spec.bothEvidence && spec.feature !== 'participation.booking') || !!spec.prices) && index === 1;
     const worlds = [world];
     if (compareEqualCandidates) {
       const second = binding(venueIndex + 1, venue);
+      if(spec.placeType)second.decisionProjection.facts.find(f=>f.key==='classification.place_types').value=[spec.placeType];
       second.decisionProjection.facts.find(f => f.key === 'identity.name').value = 'Zweiter fiktiver Lernort ' + venueSeed.slice(0, 5);
       worlds.push(second);
     }
-    const evaluation = await evaluateNuknukAgainstCatalog({ ...understood, identity: { syntheticFixture: id } }, worlds, reference, { syntheticSeed: id });
+    let evaluation, counterfactualProof;
+    if(spec.useHttpFixture){
+      const {exercise}=await import('../../packages/decision-vnext-core/test/librarian-active-route-fixtures.mjs');
+      // Inject the validated synthetic understanding: these are evidence
+      // exercises for NukNuk, not tests of the separate Luna prose guard.
+      let captured;
+      const http=await exercise({text:spec.query,meaning:understood.plan,catalog:worlds,understandOverride:async()=>understood.plan,onSearch:s=>{captured=s;}});
+      if(!captured || captured.ranked.length!==worlds.length || captured.ranked.some(c=>(c.facts.find(f=>f.factId==='f2')?.state==='MET')!==hasFeature))
+        throw Error('nuknuk_counterfactual_not_proven:'+id);
+      if(http.status!==200)throw Error('nuknuk_synthetic_http_failed:'+id+':'+JSON.stringify(http.diagnostics));
+      counterfactualProof={catalogHash:contentHash(worlds),httpStatus:http.status,expectedPreferenceMet:hasFeature,
+        ranked:captured.ranked.map(c=>({spotId:c.spotId,preferenceState:c.facts.find(f=>f.factId==='f2')?.state}))};
+      evaluation={response:http.body};
+    }else evaluation = await evaluateNuknukAgainstCatalog({ ...understood, identity: { syntheticFixture: id } }, worlds, reference, { syntheticSeed: id });
     if (!evaluation.response) throw Error('nuknuk_pilot_evaluation_not_executable:' + id);
     const request = buildNuknukAssessmentRequest({ response: evaluation.response, moment: understood.moment });
     if (request.candidates.length !== worlds.length) throw Error('nuknuk_pilot_world_not_confirmed:' + id);
@@ -62,18 +78,18 @@ export async function worldCases(spec, byId) {
       const codes = candidate.evidence.filter(e => e.reasonCode.startsWith('LBR_EVIDENCE:')).map(e => e.reasonCode).slice(0, 8);
       if (!codes.length) throw Error('nuknuk_pilot_world_no_fact_evidence:' + id);
       return { candidateId: candidate.candidateId, fit: isBirthday || !knownSpecific ? 'POSSIBLE' : 'STRONG',
-        judgment: judgment + (compareEqualCandidates ? ' Für beide Kandidaten liegen gleich passende Belege vor; ein besserer persönlicher Treffer ist daraus nicht ableitbar.' : ''),
+        judgment: (knownSpecific ? spec.knownJudgment ?? judgment : spec.missingJudgment ?? judgment) + (compareEqualCandidates ? ' Für beide Kandidaten liegen gleich passende Belege vor; ein besserer persönlicher Treffer ist daraus nicht ableitbar.' : ''),
         reasonCodes: codes, uncertainty: isBirthday ? 'Die Vorlieben der Frau und eine besondere Geburtstagseignung sind nicht belegt. Freie Plätze sind ebenfalls nicht bestätigt.'
-          : !knownSpecific ? 'Die gewünschte Atmosphäre ist nicht bestätigt.' : 'Konkrete Plätze und persönliche Begeisterung sind nicht bestätigt.' };
+          : !knownSpecific ? spec.missingUncertainty ?? 'Die gewünschte Atmosphäre ist nicht bestätigt.' : 'Konkrete Plätze und persönliche Begeisterung sind nicht bestätigt.' };
     }),
-      missingKnowledge: isBirthday ? ['Was diesen Abend für die Frau besonders macht, bleibt offen.'] : !knownSpecific ? ['Ein Beleg für die gewünschte Atmosphäre fehlt.'] : ['Die tatsächliche Platzverfügbarkeit wurde nicht geprüft.'] };
+      missingKnowledge: isBirthday ? ['Was diesen Abend für die Frau besonders macht, bleibt offen.'] : !knownSpecific ? [spec.missingUncertainty ?? 'Ein Beleg für die gewünschte Atmosphäre fehlt.'] : ['Die tatsächliche Platzverfügbarkeit wurde nicht geprüft.'] };
     validateNuknukAssessment(target, request);
-    const content = { version: NUKNUK_UNDERSTANDING_VERSION, task: 'ASSESS_CANDIDATES', query: spec.query, reference,
+    const content = { version: NUKNUK_UNDERSTANDING_VERSION, task: 'ASSESS_CANDIDATES', query: spec.query, reference: spec.reference ?? reference,
       target, context: { response: evaluation.response, moment: understood.moment },
       provenance: { kind: 'SYNTHETIC', reference: id }, trainingPermission: 'PENDING' };
     result.push({ row: { id, scenarioGroup: group.scenarioGroup, split: group.split, content, contentHash: contentHash(content), reviews: [] },
       note: { id, query: spec.query, must: spec.must, avoid: spec.avoid + (compareEqualCandidates ? ' Keinen Sieger zwischen gleich belegten Kandidaten erfinden.' : ''),
-        suppliedEvidence: request.candidates.flatMap(candidate => candidate.evidence.map(e => `${candidate.name}: ${e.statement}`)), expectedJudgment: target.assessments.map(a => a.judgment).join(' ') } });
+        ...(counterfactualProof?{counterfactualProof}:{}), suppliedEvidence: request.candidates.flatMap(candidate => candidate.evidence.map(e => `${candidate.name}: ${e.statement}`)), expectedJudgment: target.assessments.map(a => a.judgment).join(' ') } });
   }
   return result;
 }

@@ -14,8 +14,10 @@ export function makeInterpretation(spec, group) {
   const caseReference = spec.reference ?? reference;
   const facts = spec.facts.map((f, i) => ({ id: 'f' + (i + 1), ...f }));
   const ids = [...new Set(facts.flatMap(f => f.subjectIds))];
-  const entities = ids.map(id => ({ id, kind: id.startsWith('a') ? 'ACTIVITY' : id.startsWith('g') ? 'GROUP' : 'PERSON',
-    label: spec.labels?.[id] ?? (id.startsWith('a') ? 'Besuch' : 'Genannte Person'), members: [] }));
+  for (const f of facts) if (typeof f.value.referenceEntityId === 'string' && !ids.includes(f.value.referenceEntityId)) ids.push(f.value.referenceEntityId);
+  for (const [groupId, members] of Object.entries(spec.members ?? {})) for (const id of [groupId, ...members]) if (!ids.includes(id)) ids.push(id);
+  const entities = ids.map(id => ({ id, kind: spec.entityKinds?.[id] ?? (id.startsWith('a') ? 'ACTIVITY' : id.startsWith('g') ? 'GROUP' : 'PERSON'),
+    label: spec.labels?.[id] ?? (id.startsWith('a') ? 'Besuch' : 'Genannte Person'), members: spec.members?.[id] ?? [] }));
   const target = {
     meaning: { entities, facts,
       logic: spec.logic ?? (spec.choice ? { kind: 'ANY', strength: 'REQUIRED', children: spec.choice.map(index => ({ kind: 'FACT', factId: 'f' + index })) } : null),

@@ -2391,3 +2391,155 @@ The accepted TRAIN partition passes its content-bound review checks. It is not
 a complete runnable training bundle: fresh separate VALIDATION/TEST examples
 and an appropriately bounded experiment are still required. No GPU, new model
 call, training, production data change, deployment or activation was performed.
+
+## Breiter Trainingszusatz vom 10. November 2026
+
+Auftrag: eine belastbare, breitere Datenbasis vor einem weiteren GPU-Lauf
+aufbauen. Der Founder nennt für das anschliessende Training 100 USD. In diesem
+Arbeitsschritt werden keine Ressourcen gestartet und keine Produktprovider
+umgestellt. Auf die Rückfrage zur zweiten KI-Prüfung lautet die Entscheidung:
+**„Nur deine Prüfung; unabhängige Abnahme später“**. Die Inhaltsprüfung ist daher
+als beauftragte Assistenzprüfung dokumentiert, ausdrücklich nicht als unabhängige
+oder menschliche Gold-Abnahme.
+
+Die reproduzierbaren Quellen liegen in
+`scripts/decision-diagnostics/nuknuk-curriculum/`. Der neue Bestand enthält
+512 Beispiele in 72 Szenariogruppen:
+
+| Aufgabe | TRAIN | Entwicklung | Abschlussprüfung |
+| --- | ---: | ---: | ---: |
+| Anfrage verstehen | 320 | 48 | 80 |
+| Belegte Kandidaten beurteilen | 48 | 8 | 8 |
+| Neu insgesamt | 368 | 56 | 88 |
+
+Die 448 Sprachbeispiele sind einzeln formuliert. Sie entstehen nicht durch
+kartesisches Austauschen von Städten, Preisen und Namen. 27 Themenfelder decken
+unter anderem Anlässe, emotionale Bedürfnisse, Begleitpersonen, erwachsene Kinder,
+Ernährung einzelner Personen, Barrierefreiheit, Mitbringerlaubnis, Essen am selben
+Ort, getrennte Bereiche, Budgets, Zeit, Wetterbedingungen, Sprache und
+Selbstkorrekturen ab. Der Holdout prüft neue Kombinationen bekannter Grundbegriffe;
+er ist kein Beleg für Generalisierung auf sämtliche unbekannten Lebenslagen.
+
+Die 64 Belegübungen variieren das tatsächlich übergebene Wissen: Zusatzwunsch
+unbekannt oder bestätigt, jeweils mit einem oder zwei gleich belegten Kandidaten.
+Ein fehlender weicher Beleg bedeutet POSSIBLE, nicht Ausschluss und auch keine
+erfundene Bestätigung. Gleich belegte Kandidaten erhalten keine erfundene
+Qualitätsdifferenz. Die Übungen laufen mit synthetischen Profilen durch die
+bestehende Product-HTTP-Teststrecke und den Bibliothekar. Die Bedeutung wird dabei
+explizit injiziert; es findet kein KI-Aufruf statt. Acht zusätzliche echte
+Matching-Proben prüfen positive und negative Fälle für Reservation,
+Gesprächsmöglichkeit, getrennte Räume und eigene Speisen.
+
+Die schon abgenommenen 2.221 TRAIN-Beispiele bleiben unverändert erhalten. Die
+163 zurückgestellten Fälle bleiben ausserhalb des Bestands. Zusammen ergibt dies
+2.733 Datensätze (2.589 TRAIN, 56 VALIDATION, 88 TEST). Für das nächste Experiment
+werden bewusst nur 256 vielfältige alte Fälle mit den 368 neuen TRAIN-Fällen
+kombiniert: **624 TRAIN, 56 VALIDATION, 88 TEST**. Alte r4-Vorlagen liefern höchstens
+zwei Beispiele pro Gruppe, andere alte Gruppen höchstens vier; alte
+Belegbeurteilungen höchstens 24 insgesamt. Die Auswahl erfolgt reproduzierbar nach
+Gruppen/ID-Hash, ohne Modellantworten oder Abschlussbewertungen zu berücksichtigen.
+Es werden weder alte Entwicklungs- noch alte Testziele als Training übernommen.
+Alte Evaluationsfragen werden nur per Text-Fingerprint auf Überschneidung geprüft.
+
+### Inhaltsprüfung und verbleibende Grenzen
+
+Die Prüfung behandelt Modalität, Person-/Aktivitätszuordnung, Negation,
+Alternativen, Reihenfolge, Kalenderreferenz, Budgetbezug, unbekannte Angaben und
+belegbare Begründungen. Korrigierte Details umfassen beispielsweise:
+
+- Nach einer Prüfung ist nicht automatisch eine Prüfung bestanden.
+- Zwei erwachsene Kinder sind zwei Personen, keine einzelne Kinderperson.
+- Bei vier Kollegen plus Anfrageperson und einem Zuschauer spielen vier von fünf;
+  welche Rolle die Anfrageperson hat, ist nicht behauptet.
+- Kunst anschauen erzwingt kein Museum; Jazz ohne Live-Pflicht erzeugt keinen
+  erfundenen Getränkewunsch.
+- Trocken zum Museum gelangen ist ein Wunsch an die Anreise, kein Beleg dafür,
+  dass das Museumsangebot wettergeschützt erreichbar ist.
+- Allergiespurenfreiheit und Assistenzhundzugang werden erhalten und nicht in
+  gewöhnliche Diät- oder Haustieretiketten umgedeutet.
+
+Ein strukturierbares Bedürfnis ist noch kein bewiesen ausführbarer Suchauftrag.
+Der Bericht führt deshalb `declaredCapabilityBoundary`, den tatsächlichen
+Validatorzustand und konkrete Capability-Gaps getrennt. Insbesondere Gesamtzeit
+inklusive Hin-/Rückweg, Assistenzhund und bereichsspezifische Hunderegeln sind noch
+nicht durch vollständige Matching-Belege nachgewiesen, auch wenn der Validator
+EXECUTABLE liefert. Distanzen zu benannten Bezugspunkten und nötige Erweiterungen
+können ausdrücklich UNSUPPORTED_CAPABILITY liefern. Diese korrekten Bedeutungen
+bleiben im Sprachlernen erhalten; sie erlauben keine Umgehung der Laufzeitregeln.
+
+Bei der Belegerstellung trat ausserdem eine bestehende Grenze des separaten
+Luna-Providers auf: Formulierungen wie „wäre mir lieb“ können trotz korrekter
+PREFERRED-Bedeutung an dessen Prosa-Guard scheitern. Die synthetisch injizierte
+Bedeutung beweist diesen separaten Providerpfad ausdrücklich nicht. Der Befund
+steht offen im Coverage-Bericht; in diesem Datenauftrag wird kein Live-Guard
+verändert oder abgeschwächt.
+
+Datenexport und abgenommenes Modell sind verschiedene Zustände. Mit diesem
+Bestand ist ein begrenztes neues Training fachlich begründbar. Ein Erfolg bei
+Nutzern oder eine perfekte Übersetzung wird daraus nicht behauptet.
+
+### Lokale Artefakte und Reproduktion
+
+Der materialisierte, nicht eingecheckte Stand liegt unter
+`.local/nuknuk-understanding/solid-curriculum-20261110/`:
+
+- `database.json`: vollständige Datenbank mit Herkunft und inhaltsgebundenen Reviews;
+- `reviewed-backyrd.json`: ausgewogenes Paket für das nächste Experiment;
+- `train.jsonl`, `valid.jsonl`, `test.jsonl`: getrennte SFT-/Gold-Dateien;
+- `evaluation-inputs.json`: eingefrorene Modellanfragen ohne Sollantworten;
+- `manifest.json`, `review-signoff.json`: Inhalts-, Split-, Quellen- und Vokabularhashes;
+- `coverage.json`, `coverage-cases.json`: Themen, Grenzen und Prüfzustand pro Fall;
+- `evidence-proofs.json`: tatsächlich verwendete Belege und Matching-Zustände.
+
+Ein Draft besitzt keine neue Freigabe. Erst ein ausdrückliches, zur exakten
+`anchorHash` passendes Inhaltsvotum erlaubt `finalize`. Inhalts-, Quellen-,
+Vokabular- oder Splitänderungen machen diese Freigabe unpassend. Das ist lokale
+Review-Zuordnung, keine signierte Adminfreigabe. Unabhängige Abnahme bleibt offen.
+
+```sh
+node scripts/decision-diagnostics/nuknuk-curriculum/build.mjs draft /tmp/nuknuk-curriculum-draft
+# Inhaltsprüfung durchführen; exakten Anchor separat bestätigen, nicht aus
+# Schemaerfolg ein ACCEPT erzeugen.
+node scripts/decision-diagnostics/nuknuk-curriculum/build.mjs finalize OUTPUT SIGNOFF_JSON
+node --test scripts/decision-diagnostics/nuknuk-curriculum/curriculum.test.mjs
+```
+
+Der bestehende `nuknuk-curriculum-evaluation.mjs` unterstützt jetzt V5 und beide
+Aufgabentypen, behält die bisherigen r4/r5-Inventare und gibt weiterhin keine
+Sollantworten an den Inferenzprozess. Für den nächsten Lauf sind zuvor sämtliche
+Zeilen mit dem echten Tokenizer ohne Abschneiden zu prüfen und die Grammatiken
+mit der festgelegten llguidance-Version zu kompilieren. Das ist noch kein in
+Runpod gestartetes oder tokenizer-verifiziertes Paket. Der historische
+`nuknuk-curriculum-score.mjs` bleibt auf seine V3/V4-Interpretationsläufe begrenzt;
+er ist **nicht** der Abnahmeprüfer dieses V5-Bestands.
+
+### Endlicher Plan für das anschliessende 100-USD-Experiment
+
+1. Vor GPU-Kosten Daten-/Quellhashes und Tokenlängen prüfen, Basismodell und Adapter
+   festlegen, Tarif verifizieren und zwei Abschaltwächter mit gemeinsamem
+   Gesamtkostendach von 100 USD inklusive Einrichtung, Auswertung und Vorläufen
+   scharfstellen. Keine automatische Budgetverlängerung. Die alte 20-USD-Frist
+   bzw. deren abgelaufene Wächter sind keine Freigabe für einen neuen Lauf.
+2. Eine unveränderte Baseline auf den Entwicklungsfällen erfassen. Zwei begrenzte
+   Trainingsarme vergleichen: frischer Adapter und Fortsetzung des eingefrorenen
+   bisherigen Adapters. So prüfen wir, ob alte widersprüchliche Lernziele bei
+   einer Fortsetzung nachwirken. Gleiche Daten, gleicher V5-Vertrag und explizite
+   Modellidentitäten; keine Änderung anhand von TEST-Antworten.
+3. Höchstens zwei Epochen pro Arm, zwei vorab bestimmte Kontrollpunkte je Arm.
+   Auswahl ausschliesslich anhand der 56 Entwicklungsfälle: erhaltene Pflichten,
+   keine zusätzlichen Ausschlüsse, richtige Personen/Bereiche, keine erfundenen
+   Fakten sowie sinnvolle offene Fragen. Loss und Schema sind Diagnosewerte,
+   keine Qualitätsentscheidung. Bei fehlendem Geld/Zeit für die Abschlussprüfung
+   keine weiteren Trainingsschritte; Artefakte sichern und abbrechen.
+4. Auswahl samt Hash einfrieren; dann dieselben 88 Abschlussfälle einmal paarweise
+   gegen die Baseline prüfen. Fehlgeschlagene/abgeschnittene Generierungen zählen
+   als Fehler, nicht als ausgelassene Fälle. Alle Rohantworten, Identitäten und
+   verwendeten Suchregeln sichern. Tatsächliche Bedeutungen prüfen, bei
+   repräsentativen Fällen auch Matching ausführen. Strukturelle Parserfreigabe
+   ersetzt keine fachliche Prüfung. Keine nachträgliche Adapterwahl anhand TEST.
+5. Daten und Adapter lokal sichern, GPU abschalten, Anbieterzustand bestätigen und
+   temporären Wächterschlüssel deaktivieren. Fazit mit konkreten Fehlerklassen,
+   Verbesserungen und Verschlechterungen. Bei überwiegenden grundlegenden Fehlern
+   kein Live-Einsatz. Unabhängige Abnahme separat nachholen. Neue Beta-Beispiele
+   sind später nur mit zulässiger Herkunft und Prüfung Lernmaterial, niemals
+   ungeprüftes automatisches Online-Training.
