@@ -103,10 +103,11 @@ def encode_row(row, tokenizer, maximum=4096):
         raise ValueError("nuknuk_gpu_messages_invalid")
     # Construct the exact non-thinking inference prefix, then supervise only the
     # approved answer and end-of-turn. No silent tokenizer/template truncation.
-    prefix = tokenizer.apply_chat_template(messages[:2], tokenize=True, add_generation_prompt=True, enable_thinking=False)
+    prefix = tokenizer.apply_chat_template(messages[:2], tokenize=True, add_generation_prompt=True,
+        enable_thinking=False, return_dict=False)
     answer = tokenizer.encode(messages[2]["content"], add_special_tokens=False)
     eos = tokenizer.eos_token_id
-    if not prefix or not answer or not isinstance(eos, int):
+    if not isinstance(prefix, list) or not prefix or not all(isinstance(token, int) for token in prefix) or not answer or not isinstance(eos, int):
         raise ValueError("nuknuk_gpu_completion_mask_invalid")
     ids = prefix + answer + [eos]
     if len(ids) > maximum:

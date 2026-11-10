@@ -43,7 +43,10 @@ class GpuPreparationTests(unittest.TestCase):
         class Tokenizer:
             eos_token_id = 14
             def apply_chat_template(self, messages, **kwargs):
-                self.messages = messages; self.kwargs = kwargs; return [10, 11]
+                self.messages = messages; self.kwargs = kwargs
+                # Transformers 5 defaults to a BatchEncoding. Explicitly request
+                # the unbatched token list required by the completion mask.
+                return [10, 11] if kwargs.get('return_dict') is False else {'input_ids': [10, 11]}
             def encode(self, text, **kwargs):
                 return [12, 13]
         tokenizer = Tokenizer()
@@ -52,6 +55,7 @@ class GpuPreparationTests(unittest.TestCase):
         self.assertEqual(ids, [10, 11, 12, 13, 14])
         self.assertEqual(labels, [-100, -100, 12, 13, 14])
         self.assertFalse(tokenizer.kwargs['enable_thinking'])
+        self.assertFalse(tokenizer.kwargs['return_dict'])
         self.assertEqual(len(tokenizer.messages), 2)
         with self.assertRaisesRegex(ValueError, 'would_truncate'):
             gpu.encode_row(row, tokenizer, maximum=4)

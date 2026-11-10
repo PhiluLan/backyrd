@@ -1422,7 +1422,8 @@ Build und 34 Verständnis-/Exporttests sowie vier Messausrichtungstests bestande
 
 ### Runpod-Vorbereitung: Konto und erste GPU-Prüfung
 
-Stand: lokal vorbereitet, keine GPU gemietet, keine Dateien hochgeladen, keine
+Vorbereitungsstand vom 09.11.2026 (Ergebnis des echten Versuchs siehe unten):
+lokal vorbereitet, keine GPU gemietet, keine Dateien hochgeladen, keine
 Zahlung ausgeführt. CUDA-Laden, Rückwärtslauf und semantische Parität sind noch
 nicht auf echter NVIDIA-Hardware geprüft. Der Paketstatus behauptet deshalb
 ausdrücklich keine getestete GPU-Laufzeit.
@@ -1519,3 +1520,68 @@ https://docs.runpod.io/pods/configuration/use-ssh,
 https://docs.runpod.io/pods/templates/overview,
 https://huggingface.co/docs/peft/developer_guides/checkpoint,
 https://pytorch.org/get-started/previous-versions/.
+
+### Echter Runpod-Funktionstest am 10.11.2026
+
+Der Nutzer genehmigte ausdrücklich einen H100-SXM-Pod für höchstens eine Stunde
+und insgesamt höchstens 5 USD. Tatsächlich verwendet: ein H100 SXM 80 GB,
+Secure Cloud US-MO-1, 200 GB temporärer Container-Datenträger, kein persistentes
+Volume, offizielles PyTorch-2.8.0/CUDA-12.8.1-Template. Angezeigte Rate inklusive
+Speicher: rund 4,02 USD/Stunde. Auto-pay blieb ausgeschaltet; der hinterlegte
+öffentliche SSH-Schlüssel wurde per Fingerprint abgeglichen.
+
+Start angefordert um 06:13:20 UTC; Stillstand spätestens um 06:24:00 UTC im
+Anbieter-UI verifiziert: `Not running`, Compute und Speicher `0.00/hr`.
+Damit höchstens 10 Minuten 40 Sekunden statt einer Stunde. Rechnerisch rund
+0,72 USD auf Basis der angezeigten Rate; keine Behauptung einer bereits
+abschliessend geprüften Rechnung. Installationszeit und Fehlerkorrektur sind
+in dieser Gesamtdauer enthalten. Keine neue GPU weiterlaufen lassen.
+
+Der erste Versuch scheiterte nach erfolgreichem Laden und Kopieren aller vier
+Parent-Matrizen: Transformers 5 liefert bei `apply_chat_template` standardmässig
+ein `BatchEncoding`, der Trainer erwartete eine Tokenliste. Behoben durch das
+explizite `return_dict=False` samt Prüfung der unverschachtelten Integerliste.
+Der Maskierungstest bildet nun genau diesen abweichenden Standard ab. Ursprüngliches
+Upload-Paket und erster Fehlerbericht bleiben erhalten; die Korrektur wurde als
+getrenntes Paket v2 mit unveränderten Daten und Parent-Gewichten übertragen.
+
+Der zweite Versuch belegt echtes CUDA-Training:
+
+| Messung | Ergebnis |
+| --- | --- |
+| Abschluss | Zwei von zwei Schritten, Exit 0, Adapter gespeichert |
+| Laufzeit des zweiten Prozesses | 27,52 Sekunden inklusive Laden aus lokalem Cache und Speichern |
+| PyTorch-Spitzenspeicher | 32,297 GiB auf der 80-GB-GPU |
+| Trainierbare Parameter | 188.416, nur q/v des letzten Full-Attention-Blocks |
+| Übernommene Parent-Matrizen | Vier, passende Formen und exaktes Kopieren geprüft |
+| Tatsächliche Gewichtsänderung | Bei allen vier Matrizen endlich und ungleich null nachgewiesen |
+| Loss Schritt 1 / 2 | 0,15243 / 0,14604; unterschiedliche Beispiele, kein Qualitätsvergleich |
+| Neuer Adapter SHA-256 | `f11902745686bb6a870c0b1541da6e1955537a185d104f540c3580a9701fa1bb` |
+
+Die q/v-Übertragung funktioniert somit auch mit der echten HF/PEFT-Architektur.
+Die Bibliothekskombination ist für diesen Zweischrittpfad praktisch geprüft.
+`causal_conv1d` und `flash-linear-attention` fehlen noch; Transformers verwendete
+die funktionale, langsamere PyTorch-Referenz. Keine ungeprüften Optimierungspakete
+während dieses Tests hinzugefügt.
+
+Die vollständigen Ergebnisdateien einschliesslich Adapter, Herkunft, Gewichtsvergleich
+und beider Versuchslogs wurden vor dem Stopp auf den Mac kopiert. Archiv-Hash auf
+Pod und Mac identisch: `887f9f830fdb3002cafa099f4bf972854abd3639837f8fc0b17786376d173527`.
+Lokale Belege: `.local/nuknuk-understanding/runpod-20261110-smoke/`, insbesondere
+`deployment.json`, `nuknuk-smoke-v2/result.json`, `preflight.json`,
+`steps.jsonl` und `weight-update-proof.json`.
+
+Wichtige Grenze: Das beweist den technischen Trainingspfad, keine besseren freien
+Antworten, keine MLX/NF4-Verhaltensparität und keine Verbesserung auf unbekannten
+Anfragen. Kein längerer Lauf, keine Freigabe für Product. Als Nächstes den
+unveränderten Parent auf CUDA gegen die bekannten Mac-Antworten vergleichen und
+danach erst einen gezielten Trainingsvergleich mit getrennten Prüfbeispielen wählen.
+
+Abschaltung: Der vorinstallierte `runpodctl` hatte entgegen der allgemeinen
+Anbieterbeschreibung keinen eingerichteten Pod-API-Schlüssel. Deshalb war keine
+automatische Anbieter-Abschaltung aktiv; der Operator überwachte diesen kurzen
+Versuch und stoppte ihn manuell im authentifizierten UI. Für unbeaufsichtigte
+Läufe muss zuerst eine unabhängig geprüfte Anbieter-Abschaltung eingerichtet
+werden. Prozess-timeout allein genügt dafür nicht. Beim Stoppen wurde ausschliesslich
+die bereits lokal gesicherte temporäre Testumgebung verworfen; der gestoppte Pod
+bleibt ohne laufende Speicher-/GPU-Kosten im Konto.
