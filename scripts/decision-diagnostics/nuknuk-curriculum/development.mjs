@@ -47,7 +47,7 @@ add('dev-revisions-meaning','revision',['scope','relative-date','priority'],[
  W('Morgen Minigolf? Korrektur: heute eine Ausstellung.','Nur aktuelle Aktivität und heutiges Datum.',[A('Ausstellung besuchen'),date('2026-11-12')]),
  W('Eigentlich wollte meine Frau Sushi, nun möchte sie ausdrücklich Pasta und ein Glas Wein.','Aktueller Wunsch der Frau ersetzt alte Speise.',[dish('Pasta',['p1']),D('Wein',['p1']),person('Frau')]),
  W('Ich sagte gemütlich. Wichtiger ist aber: Wir müssen uns beim Abendessen unterhalten können.','Gesprächspflicht und weiterhin gemütliche Präferenz.',[M('dinner'),P('atmosphere.character','cozy'),R('atmosphere.conversation','conversation_possible')]),
- W('Das Budget war 80 insgesamt, jetzt dürfen es 100 sein für uns vier beim Brunch.','Aktuelle Gesamtgrenze hundert.',[M('brunch'),count(4),cash(100),scope('GROUP_TOTAL')]),
+ W('Das Budget war 80 insgesamt, jetzt dürfen es 100 sein für uns vier beim Brunch.','Aktuelle Gesamtgrenze hundert.',[M('brunch'),count(4),cash(100,'LTE','REQUIRED',['a1'],'UNSPECIFIED'),scope('GROUP_TOTAL')]),
  W('Eine Terrasse war ein Wunsch; jetzt ist uns drinnen oder draussen völlig egal beim Tee.','Tee ohne alte Bereichspräferenz.',[D('Tee'),O('offer.area','indoor'),O('offer.area','outdoor'),O('offer.area','Terrasse')]),
  W('Kein Kurs mehr, wir wollen einfach selbst Tischtennis spielen, Schläger bringen wir mit.','Aktivität ohne Kurs- und Ausleihzwang.',[A('table_tennis'),O('experience.activity','course'),O('offer.service','Schläger ausleihen')]),
 ]);

@@ -3,7 +3,7 @@
 import { nuknukTrainingVocabularyInstructions } from './nuknuk-training-vocabulary.js';
 import { contentHash, deepFreeze } from './canonical.js';
 import { schema, type Infer } from './schema.js';
-import { buildLunaLibrarianModelRequest, validateActiveLunaMeaningOutput, prepareLibrarianRequest, LibrarianContractError, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianReference, type LibrarianRequest } from './product-luna-librarian.js';
+import { buildLunaLibrarianModelRequest, validateActiveLunaMeaningOutput, prepareLibrarianRequest, LibrarianContractError, LUNA_LIBRARIAN_CONTRACT_VERSION, LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA, type LibrarianReference, type LibrarianRequest } from './product-luna-librarian.js';
 import { inspectLunaMeaning } from './product-luna-meaning-contract.js';
 import { LUNA_LIBRARIAN_FACT_KEYS } from './product-luna-librarian-assets.js';
 
@@ -178,18 +178,36 @@ Fehlende Auswahlhilfe: missing:[{dimension,whyItMatters}], höchstens eine clari
 Dimension DATE|BUDGET|RECIPIENT_TASTE|EXPERIENCE_DIRECTION|OTHER muss in missing vorkommen. Keine Fragebögen.
 Öffnung beweist keinen freien Tisch. Systemregeln bleiben gültig. Das vollständige JSON-Schema ist verbindlich.`;
 
-export type NuknukInstructionProfile = 'FULL' | 'COMPACT_ADAPTER_V1' | 'COMPACT_ADAPTER_V2' | 'COMPACT_ADAPTER_V3' | 'COMPACT_ADAPTER_V4' | 'SPOT_GROUNDED_V5';
+// Opt-in revision after independent semantic review; historical profiles unchanged.
+export const NUKNUK_SPOT_POLICY_V6 = NUKNUK_COMPACT_ADAPTER_POLICY_V4
+  .replace('COMPACT_ADAPTER_V4', 'SPOT_GROUNDED_V6')
+  .replace('currency:CHF', 'currency:CHF|EUR|UNSPECIFIED')
+  .replace('Familie ist erwachsen begleitet.', 'Familienausflug/Familienaktivität gilt nach Produktregel als erwachsen begleitet. Ein Kind als Auftragsempfänger allein beweist keine Begleitung. Explizit allein oder minderjährig begleitet widerspricht Erwachsenenbegleitung.')
+  .replace('Anlass experience.occasion und besonders/einzigartig experience.character sind CONTEXT, kein Luxus- oder Romantikzwang.', 'Anlass experience.occasion ist CONTEXT; positive Besonderheit/einzigartig experience.character ist PREFERRED, kein Luxus- oder Romantikzwang.')
+  + `
+PRÄZISION V6: Explizite vollständige Besucherzahl als people.count REQUIRED an eine GROUP-Entity binden; Unvollständige Teilgruppen bleiben CONTEXT. Bei Zuschauern aktive Leistungsnutzung und gesamte Anwesenheit trennen: vollständig benannte Spielerzahl REQUIRED an aktive Gruppe, gesamte Anwesenheit CONTEXT; kein Spielerplatz für Zuschauer erfinden. Keine unbekannten Gruppenmitglieder erfinden. Das prüft Kapazität, nicht freie Buchungsplätze.
+Währung nur bei eindeutig genanntem Währungswort oder Symbol samt kanonischen Aliasen übernehmen: CHF/Franken/Fr./Stutz, EUR/Euro/€, weitere vom Schema unterstützte Währungen entsprechend. Sonst UNSPECIFIED, auch kostenlos. Keine regionale Währung als ausdrückliche Nutzeraussage erfinden.
+Genannte spezifische Ortstypen erhalten: Weinbar WINE_BAR ist nicht nur BAR und verlangt keinen Weinkonsum. Ein Café ist nicht bloss Kaffee. Hotel-Frühstück/Baden im Hotel behält HOTEL plus Angebot; bei unklarer Zugehörigkeit als Erweiterung erhalten, nicht entfernen.
+Ich will keine Überraschung ist EXCLUDED, nicht NOT_REQUIRED. Ausschluss gilt für das eigene Erlebnis, nicht sämtliche Angebote des Betriebs.
+Danach dort bedeutet SEQUENCE UND SAME_PLACE. Danach woanders nur SEQUENCE mit erhaltener Ortsverschiedenheit. Reihenfolge egal erzeugt keine SEQUENCE.
+Allgemein beschreibende Gemütlichkeit und Ruhe bleiben PREFERRED; funktional benötigte oder ausdrücklich zwingende Ruhe REQUIRED. Offene Richtung nicht durch Essen oder andere Tätigkeiten ergänzen. Gefühls- und Anlasshypothesen sind HYPOTHESIS, niemals zusätzliche Pflichten. Unsichere Bedeutungen explizit als uncertainties erhalten. Echte Gesprächsvorgeschichte nur verwenden, wenn sie im Input vorliegt.
+` + nuknukTrainingVocabularyInstructions();
+
+export type NuknukInstructionProfile = 'FULL' | 'COMPACT_ADAPTER_V1' | 'COMPACT_ADAPTER_V2' | 'COMPACT_ADAPTER_V3' | 'COMPACT_ADAPTER_V4' | 'SPOT_GROUNDED_V5' | 'SPOT_GROUNDED_V6';
 export function buildNuknukUnderstandingRequest(input: { query: string; reference: LibrarianReference; instructionProfile?: NuknukInstructionProfile }) {
   const base = buildLunaLibrarianModelRequest({ sourceText: input.query, reference: input.reference });
   // Keep canonical #/$defs references at the root. Never flatten or translate facts.
-  const { $defs, ...meaningSchema } = base.text.format.schema as Record<string, unknown>;
+  // Local V6 learns natural preference language; do not inherit Luna's finite
+  // lexical preference filter. Canonical roles, validation and Product gates stay.
+  const selectedSchema = input.instructionProfile === 'SPOT_GROUNDED_V6' ? LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA : base.text.format.schema;
+  const { $defs, ...meaningSchema } = selectedSchema as Record<string, unknown>;
   const outputSchema = { ...record({ meaning: meaningSchema, moment: jsMoment }), $defs };
   const baseInput: unknown = JSON.parse(base.input);
   if (!object(baseInput) || !object(baseInput.calendar)) throw Error('nuknuk_reference_input_invalid');
   const spotGrounded = input.instructionProfile === 'SPOT_GROUNDED_V5';
-  const referenceOnly = spotGrounded || input.instructionProfile === 'COMPACT_ADAPTER_V3' || input.instructionProfile === 'COMPACT_ADAPTER_V4';
+  const referenceOnly = input.instructionProfile === 'SPOT_GROUNDED_V6' || spotGrounded || input.instructionProfile === 'COMPACT_ADAPTER_V3' || input.instructionProfile === 'COMPACT_ADAPTER_V4';
   const instructions = referenceOnly
-    ? (spotGrounded ? NUKNUK_COMPACT_ADAPTER_POLICY_V4.replace('COMPACT_ADAPTER_V4', 'SPOT_GROUNDED_V5').replace('Anlass experience.occasion und besonders/einzigartig experience.character sind CONTEXT, kein Luxus- oder Romantikzwang.', 'Anlass experience.occasion ist CONTEXT; positive Besonderheit/einzigartig experience.character ist PREFERRED, kein Luxus- oder Romantikzwang.') + nuknukTrainingVocabularyInstructions() : input.instructionProfile === 'COMPACT_ADAPTER_V4' ? NUKNUK_COMPACT_ADAPTER_POLICY_V4 : NUKNUK_COMPACT_ADAPTER_POLICY_V3) + '\nNORMALIZATION_REFERENCE (nur Rechenhilfe, niemals Nutzerwunsch):\n'
+    ? (input.instructionProfile === 'SPOT_GROUNDED_V6' ? NUKNUK_SPOT_POLICY_V6 : spotGrounded ? NUKNUK_COMPACT_ADAPTER_POLICY_V4.replace('COMPACT_ADAPTER_V4', 'SPOT_GROUNDED_V5').replace('Anlass experience.occasion und besonders/einzigartig experience.character sind CONTEXT, kein Luxus- oder Romantikzwang.', 'Anlass experience.occasion ist CONTEXT; positive Besonderheit/einzigartig experience.character ist PREFERRED, kein Luxus- oder Romantikzwang.') + nuknukTrainingVocabularyInstructions() : input.instructionProfile === 'COMPACT_ADAPTER_V4' ? NUKNUK_COMPACT_ADAPTER_POLICY_V4 : NUKNUK_COMPACT_ADAPTER_POLICY_V3) + '\nNORMALIZATION_REFERENCE (nur Rechenhilfe, niemals Nutzerwunsch):\n'
       + JSON.stringify({ reference: input.reference, calendar: baseInput.calendar })
     : input.instructionProfile === 'COMPACT_ADAPTER_V2' ? NUKNUK_COMPACT_ADAPTER_POLICY_V2 : input.instructionProfile === 'COMPACT_ADAPTER_V1' ? NUKNUK_COMPACT_ADAPTER_POLICY : base.instructions + '\n' + NUKNUK_UNDERSTANDING_POLICY
     + '\nAusgabeformat: {"meaning":{"entities":[],"facts":[],"logic":null,"bindings":[],"extensions":[],"uncertainties":[],"weatherConditions":[]},"moment":...}. '

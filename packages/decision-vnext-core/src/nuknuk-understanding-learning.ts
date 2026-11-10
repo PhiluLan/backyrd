@@ -154,10 +154,54 @@ function serverTargetJson(value: unknown): string {
   return encoded;
 }
 
+/** llguidance's strict grammar uses schema property order. Reorder V6 wire
+ * objects only; never alter the reviewed meaning or historical serialization. */
+function orderForSchema(value: unknown, rawSchema: unknown, root: unknown): unknown {
+  const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
+  if (!object(rawSchema)) return value;
+  const resolve = (node: Record<string, unknown>): Record<string, unknown> => {
+    if (typeof node.$ref !== 'string') return node;
+    if (!node.$ref.startsWith('#/')) throw Error('nuknuk_wire_schema_external_ref');
+    let found: unknown = root;
+    for (const part of node.$ref.slice(2).split('/')) found = object(found) ? found[part.replaceAll('~1', '/').replaceAll('~0', '~')] : undefined;
+    if (!object(found)) throw Error('nuknuk_wire_schema_ref_invalid');
+    return found;
+  };
+  const accepts = (v: unknown, candidate: unknown): boolean => {
+    if (!object(candidate)) return true;
+    const node = resolve(candidate);
+    if (Array.isArray(node.anyOf)) return node.anyOf.some(branch => accepts(v, branch));
+    if (Array.isArray(node.enum) && !node.enum.some(entry => JSON.stringify(entry) === JSON.stringify(v))) return false;
+    const type = v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+    if (typeof node.type === 'string' && node.type !== type && !(node.type === 'integer' && typeof v === 'number' && Number.isInteger(v))) return false;
+    if (Array.isArray(node.type) && !node.type.includes(type)) return false;
+    if (Array.isArray(v)) return v.every(item => accepts(item, node.items));
+    if (object(v) && object(node.properties)) {
+      if (Array.isArray(node.required) && node.required.some(key => typeof key !== 'string' || !(key in v))) return false;
+      const properties = node.properties;
+      return Object.entries(v).every(([key, item]) => key in properties ? accepts(item, properties[key]) : node.additionalProperties !== false);
+    }
+    return true;
+  };
+  let node = resolve(rawSchema);
+  if (Array.isArray(node.anyOf)) {
+    const branch = node.anyOf.find(candidate => accepts(value, candidate));
+    if (!branch) throw Error('nuknuk_wire_schema_target_mismatch');
+    return orderForSchema(value, branch, root);
+  }
+  if (Array.isArray(value)) return value.map(item => orderForSchema(item, node.items, root));
+  if (object(value) && object(node.properties)) {
+    const properties = node.properties;
+    const keys = [...Object.keys(properties).filter(key => key in value), ...Object.keys(value).filter(key => !(key in properties))];
+    return Object.fromEntries(keys.map(key => [key, orderForSchema(value[key], properties[key], root)]));
+  }
+  return value;
+}
+
 export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: string, instructionProfile: NuknukInstructionProfile = 'FULL') {
   const audit = auditUnderstandingDataset(raw, expectedSplitHash);
   if (!audit.exportReady) throw Error('nuknuk_dataset_not_reviewed');
-  if (instructionProfile === 'SPOT_GROUNDED_V5' && audit.dataset.cases.some(row =>
+  if (['SPOT_GROUNDED_V5', 'SPOT_GROUNDED_V6'].includes(instructionProfile) && audit.dataset.cases.some(row =>
     !row.reviews.some(review => review.kind === 'SEMANTICS' && review.verdict === 'ACCEPT'
       && review.vocabularyHash === NUKNUK_TRAINING_VOCABULARY_HASH))) {
     throw Error('nuknuk_vocabulary_review_required');
@@ -165,7 +209,7 @@ export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: stri
   const rows = (splitName: 'TRAIN' | 'VALIDATION' | 'TEST') => audit.dataset.cases.filter(c => c.split === splitName).map(row => {
     const { request, target } = taskPair(row.content,instructionProfile);
     return { messages: [{ role: 'system', content: request.instructions }, { role: 'user', content: request.input },
-      { role: 'assistant', content: serverTargetJson(target) }] };
+      { role: 'assistant', content: serverTargetJson(instructionProfile === 'SPOT_GROUNDED_V6' ? orderForSchema(target, request.outputSchema, request.outputSchema) : target) }] };
   });
   const files = { train: rows('TRAIN'), valid: rows('VALIDATION'), test: rows('TEST') };
   return { files, manifest: {
@@ -174,7 +218,7 @@ export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: stri
     purpose: 'SUPERVISED_UNDERSTANDING_ADAPTER_DATA_ONLY',
     productionEnabled: false, weightsTrained: false, instructionProfile,
     trainingVocabularyHash: NUKNUK_TRAINING_VOCABULARY_HASH,
-    targetSerialization: 'mlx-llguidance-spaced-json@1' as const,
+    targetSerialization: instructionProfile === 'SPOT_GROUNDED_V6' ? 'schema-ordered-spaced-json@1' as const : 'mlx-llguidance-spaced-json@1' as const,
     cases: audit.cases.map(({ id, contentHash, split }) => ({ id, contentHash, split })),
   } };
 }

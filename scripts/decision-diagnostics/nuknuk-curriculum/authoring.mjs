@@ -15,8 +15,8 @@ export const dish=(v,s=['a1'])=>R('food.dish',v,s);
 export const person=(v,id='p1')=>C('people.relationship',v,[id]);
 export const accompanied=()=>F('people.relationship','adult_accompanied','CONTEXT',[],'INFERRED');
 export const age=(n,id='p1')=>C('people.age',{amount:n,operator:'EQ',unit:'YEARS'},[id]);
-export const count=n=>C('people.count',{amount:n,operator:'EQ',unit:'PEOPLE'});
-export const cash=(n,op='LTE',mod='REQUIRED',s=['a1'])=>F('budget.maximum',{amount:n,operator:op,currency:'CHF'},mod,s);
+export const count=n=>R('people.count',{amount:n,operator:'EQ',unit:'PEOPLE'},['gVisit']);
+export const cash=(n,op='LTE',mod='REQUIRED',s=['a1'],currency='CHF')=>F('budget.maximum',{amount:n,operator:op,currency},mod,s);
 export const scope=v=>C('budget.scope',{scope:v});
 export const date=v=>R('time.date',{date:v,operator:'EQ',timezone:'Europe/Zurich'},[]);
 export const phase=v=>R('time.day_phase',{phase:v,timezone:'Europe/Zurich'},[]);
@@ -29,12 +29,13 @@ export const same=(a,b)=>({kind:'SAME_PLACE',factIds:['f'+a,'f'+b]});
 export const W=(query,goal,facts,extra={})=>({query,goal,facts,...extra});
 export function family(name,domain,phenomena,rows,split='TRAIN'){
  if(rows.length!==8)throw Error('eight_distinct_authored_examples_required:'+name);
- return rows.map((spec,i)=>({...spec,id:`solid-${name}-${i+1}`,scenarioGroup:`solid-${name}`,domain,phenomena,split,reference}));
+ return rows.map((spec,i)=>({...spec,id:`solid-${name}-${i+1}`,scenarioGroup:`solid-${name}`,domain,phenomena,split,reference:spec.reference??reference}));
 }
 export function materialize(spec){
  const entityKinds={...spec.entityKinds};
  for(const f of spec.facts)if(f.key==='people.relationship'&&['Eltern','Kinder','Freunde','Freundinnen','Kollegen','Team'].includes(f.value.text))for(const id of f.subjectIds)entityKinds[id]='GROUP';
  const row=makeInterpretation({...spec,entityKinds},spec);
+ if(spec.uncertainties)row.content.target.meaning.uncertainties=spec.uncertainties;
  if(spec.extensions)row.content.target.meaning.extensions=spec.extensions.map((description,i)=>({id:'extra'+i,description:typeof description==='string'?description:description.description,modality:typeof description==='string'?'REQUIRED':description.modality,basis:'EXPLICIT',subjectIds:['a1']}));
  if(spec.labels)for(const e of row.content.target.meaning.entities)e.label=spec.labels[e.id]??e.label;
  validateNuknukUnderstanding(row.content.target,row.content);

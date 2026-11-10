@@ -2543,3 +2543,164 @@ er ist **nicht** der Abnahmeprüfer dieses V5-Bestands.
    kein Live-Einsatz. Unabhängige Abnahme separat nachholen. Neue Beta-Beispiele
    sind später nur mit zulässiger Herkunft und Prüfung Lernmaterial, niemals
    ungeprüftes automatisches Online-Training.
+
+## Astra-Korrektur und aktueller Trainingskatalog (10. November 2026)
+
+Der unveränderte erste Katalog erhielt von Astra **NO_GO**. Die vorherige eigene
+Inhaltsabnahme war zu optimistisch. Diese Bewertung wird nicht durch grüne Tests
+oder die spätere Korrektur rückwirkend ersetzt. Aktuell ist ausschließlich der
+Katalog `backyrd.nuknuk-solid-curriculum@4` unter
+`.local/nuknuk-understanding/solid-curriculum-20261110-v4/` vorgesehen. Die
+Zwischenmaterialisierungen v2/v3 sind historische technische Prüfstände, keine
+freigegebenen Trainingspakete.
+
+### Inhaltliche Revisionen
+
+Die belegten Fehler wurden korrigiert: unbelegte Erwachsenenbegleitung entfernt;
+Hotel, Weinbar und Café als Ortstypen erhalten; keine Essenspflicht aus einer
+Reservationsaussage ergänzt; echte Ausschlüsse von Gleichgültigkeit getrennt;
+Reihenfolge und gleicher Ort unabhängig erhalten; ungenannte Währung bleibt
+UNSPECIFIED. Eindeutige Währungsaliase wie Stutz, Franken und Euro bleiben erlaubt.
+Beschreibende Ruhe bleibt nach der aktuellen Produktregel PREFERRED; Astras erste
+abweichende Empfehlung zum italienischen „posto tranquillo“ wurde nach Prüfung
+von ihm zurückgezogen.
+
+Der gesamte akzeptierte Altbestand wurde auf die gefundenen Zahlen- und
+Währungsmuster geprüft. **220 alte Datensätze** erhalten konkrete, protokollierte
+Revisionen mit verworfenen alten Reviews. Dazu gehören 132 normale vollständige
+Anzahlfälle und zwei Fälle mit aktiver/gesamter Gruppe, 41 kostenlose Angebote
+mit nicht genannter Währung, 41 abgeleitete Zugangsanforderungen sowie einzelne
+Personen-, Negations-, Ablauf- und Buchungsaliasfälle. Kategorien können sich
+innerhalb eines Datensatzes überschneiden. Der unveränderte historische Elternstand
+bleibt erhalten; die Revisionen stehen in `coverage.json/legacyRevisions`.
+
+Vollständige Zahl der die Leistung Nutzenden ist REQUIRED mit GROUP-Bezug. Eine
+unvollständige Teilgruppe bleibt Kontext. Bei Zuschauern wird unterschieden:
+zwei Tischtennisspieler plus ein Zuschauer verlangen zwei Spielerplätze, nicht
+drei. Gesamte Anwesenheit mit Zuschauer bleibt hier CONTEXT; die vollständig
+bekannte aktive Gruppe ist REQUIRED. Eine belegte Kapazität ist keine Garantie
+für einen buchbaren Termin. Unbekannte Kapazität erfüllt eine ausdrücklich
+verlangte Kapazität nicht.
+
+Zusätzlich sind **64 natürliche Kontrastanfragen** und **32 differenzierte
+Belegvergleiche** aufgenommen. Ausschlüsse, fehlende Begleitung, minderjährige
+Begleitung, erwachsene Kinder, Ortstyp/Konsum, Währung, Reihenfolge, Unsicherheit
+und vorsichtige Hypothesen sind in Training und Prüfung vertreten. Absolute
+Datumswünsche bleiben absolut; relative Angaben verwenden unterschiedliche
+lokale Referenzen, unter anderem Jahres-/Monatswechsel, Schaltjahr, Sommerzeit
+und lokale Mitternacht. Insgesamt gibt es 24 Referenzzeitpunkte in den neuen
+Sprachfällen. Dialogkorrekturen innerhalb einer Anfrage sind weiterhin kein
+Nachweis echter Mehrturnqualität; der bestehende Inputvertrag hat keine echte
+Gesprächsvorgeschichte. Dafür werden weder versteckte Vorinformationen noch
+scheinbare Trainingsbelege erfunden.
+
+| Bestand | TRAIN | VALIDATION | TEST | Gesamt |
+| --- | ---: | ---: | ---: | ---: |
+| Neue Fälle | 416 | 80 | 112 | 608 |
+| Ausgewogenes nächstes Paket | 672 | 80 | 112 | 864 |
+| Vollständige Datenbank | 2.637 | 80 | 112 | 2.829 |
+
+Die neuen Fälle umfassen 512 Interpretationen und 96 Assessmentübungen. Der
+Auswahlmechanismus begrenzt weiterhin alte Vorlagenfamilien. Keine alten
+Evaluationsziele werden als Training wiederverwendet; die Quarantäne bleibt
+unverändert ausgeschlossen.
+
+### Belegvergleich und semantische Bewertung
+
+Neben gleichen Kandidaten und fehlendem Wissen gibt es nun unterschiedliche
+Passung (einschließlich WEAK), ausdrücklich negative weiche Belege, gegensätzliche
+Stärken, umgekehrte Priorität und positive Daten in einem nicht zur Nutzung
+gehörenden Bereich. Namen und Reihenfolge wechseln unabhängig vom Sollurteil.
+Die dargestellten Urteile folgen ausschließlich modell-sichtbaren Belegen und
+Einschränkungen. Widersprüchliche Bereiche können zu UNKNOWN führen; sie werden
+nicht zu positiven oder negativen Gewissheiten umgedeutet. Hart ungeeignete
+Kandidaten gelangen weiterhin nicht in die beratende Assessmentaufgabe.
+
+`semantic-rubric.json` friert für jeden Fall unverzichtbare Inhalte, Kontext und
+Präferenzen, Scope, Logik, Reihenfolge, Ungewissheit, unzulässige Ergänzungen und
+zulässige äquivalente Darstellungen ein. Ergebnisprüfung trennt Interpretation,
+tatsächliches Matching und beratende Beurteilung. Der Review braucht die echte
+Ausgabe, deren Hash, Fall-Inhaltshash, Reviewer, begründetes Urteil und
+Fehlerklassen; JSON-Gleichheit ersetzt keine Bedeutungsprüfung.
+
+Die vorab festgelegte Auswahl verwendet ausschließlich DEV: alle Fälle bewertet,
+keine offenen Reviews, **null kritische Fehler**, höchstens **5 % Materialfehler**
+und mindestens **75 % Erfolg je Szenariogruppe**. Damit wird nicht versehentlich
+jede Vierergruppe auf mathematisch 100 % gezwungen. Unzulässige Zugangsannahmen,
+umgekehrte harte Bedingungen und erfundene bestätigte Belege bleiben kritische
+Fehler. Ausfälle und abgeschnittene Antworten zählen im Nenner. Fehlende,
+unzulässige oder widersprüchliche Fehlerklassen werden zurückgewiesen. TEST kann
+keinen Adapter auswählen. Der Gruppenbericht ergänzt die Gesamtwerte; vier
+Varianten sind keine vier unabhängigen Grundsituationen.
+
+### Zwei zusätzliche technische Exportkorrekturen
+
+Der tatsächliche Preflight deckte Probleme auf, die ein reiner Datasettest nicht
+zeigt. Erstens kann der Luna-Builder das Schema anhand seiner endlichen
+Präferenzwortliste verengen. Das würde etwa ein korrektes „Duschen wären nett“ als
+PREFERRED verbieten. Das neue, ausschließlich opt-in gewählte Profil
+**SPOT_GROUNDED_V6** verwendet deshalb das vorhandene vollständige
+`LUNA_LIBRARIAN_ACTIVE_MODEL_SCHEMA`. Es führt keinen zweiten Bedeutungsvertrag
+ein. Kontextrollen, Validierung, Matching und Product/Luna bleiben unverändert.
+Die sprachliche Rechtfertigung einer Präferenz muss semantisch geprüft werden;
+das Schema allein beweist sie nicht. V1 bis V5 behalten ihre bisherigen Prompts,
+Schemaselektion und Serialisierung.
+
+Die erste lokale Grammatikprobe hatte zusätzlich irrtümlich ein beliebiges
+Interpretationsschema je Task wiederverwendet, obwohl die älteren Profile
+anfrageabhängige Schemata liefern. Der dabei angezeigte WLAN/„kein Muss“-Fall war
+kein Beleg für einen fehlenden Sprachmarker. Diese Fehlerursachen wurden getrennt
+geprüft. Für V6 ist das volle kanonische Schema tatsächlich anfrageunabhängig.
+
+Zweitens verlangt die strikte llguidance-Grammatik Schema-Feldreihenfolge. Der
+bisherige Export konnte zum Beispiel Wetterfelder in anderer Reihenfolge
+schreiben, obwohl der Bedeutungsvalidator sie akzeptiert. Nur V6 ordnet deshalb
+Wire-Objekte rekursiv nach dem vorhandenen Schema an; Werte und Arrayreihenfolgen
+werden nicht verändert. `targetSerialization` lautet
+`schema-ordered-spaced-json@1`. Der Serializer weist Schemawidersprüche zurück;
+er repariert oder lockert sie nicht. Die zusätzliche unabhängige AJV-Prüfung aller
+2.829 Ziele fand genau einen historischen Aliasfehler: `r2-language-8` wird bei
+unveränderter NOT_REQUIRED-Modalität auf den kanonischen Wert `spontaneous`
+normalisiert. „Reservieren wäre okay“ wird dadurch nicht zur Reservationspflicht.
+
+### Nachweise und Grenzen
+
+`preflight.py` prüft mit dem lokal gesicherten Qwen-Tokenizer und originalen
+Jinja-Template jede Paketzeile ohne Abschneiden, Completion-only-Maske,
+Sequenz-/Ausgabelimit und tokenweise Akzeptanz der tatsächlichen
+llguidance-1.9.1-Grammatik. Das Ergebnis liegt in `preflight.json`; es wird kein
+Modell geladen und keine GPU gestartet. Beim späteren GPU-Start müssen dieselben
+Tokenizer-/Templatehashes, echte Modell-/Adapteridentität und native Laufzeitparität
+noch einmal bestätigt werden. Alte 20-USD-Bundle-/Wächterkonfiguration ist keine
+Freigabe für ein neues 100-USD-Training.
+
+Astras endgültige Gegenprüfung bindet sich separat in `independent-review.json`
+an Anchor, Dataset-/Manifest-/Rubrichash. `independentReviewAtExport:false` im
+Manifest beschreibt den Erstellungszeitpunkt, nicht das spätere unabhängige
+Votum. Die Review-Blocker in `coverage.json` gehören ausdrücklich zum Roh-Draft
+vor den gebundenen Reviews; die abgenommenen Datenbanken werden separat vollständig
+geprüft. Diese lokale Assistenzprüfung ist keine menschliche Gold-Abnahme.
+
+Die Assessment-Abschlussprüfung bleibt eng: verschiedene Hauptangebote mit
+ähnlichen Schatten/WC-Vergleichen. Die Referenz- und Kontrastfälle verbessern die
+interne Kompositionsprüfung, beweisen keine allgemeine menschliche Qualität.
+Ein GO gilt deshalb nur dem begrenzten Trainingsexperiment, nicht Produktion.
+Bekannte Matchinggrenzen etwa bei Mehrbesuchsreihenfolge, Assistenzhund oder
+Gesamtwegezeit werden weiterhin als solche ausgewiesen und nicht durch falsche
+Sprachziele verdeckt.
+
+Der vollständige aktuelle Preflight ist bestanden: 864/864 Paketzeilen,
+maximal 3.119 Gesamttokens (Grenze 4.096), maximal 670 Antworttokens (Grenze 2.048),
+zwei tokenweise geprüfte Grammatiken. Die lokale Prüfung lud keine Gewichte;
+Spitzen-RSS betrug 722.026.496 Bytes. Der eingefrorene Evaluationsplan enthält
+192 Anfragen ohne Sollantworten. Die fachliche Grenze dieses Ergebnisses bleibt
+bestehen: Token-/Grammatikverträglichkeit beweist noch keine Modellqualität.
+
+Astra hat den endgültigen @4-Snapshot unabhängig mit **GO ausschließlich für das
+begrenzte Trainingsexperiment bis 100 USD** abgenommen. Gebundener Anchor:
+`8fc690e7e2f77229bc1b9e8315ae55f63a5bb239ece320a4c83e55087aee2b11`.
+`independent-review.json` enthält seine Dataset-, Manifest-, Rubric- und
+Preflighthashes. Die Bindungen wurden beim Speichern erneut geprüft. Die Abnahme
+ist eine unabhängige Assistenzprüfung, keine menschliche Gold-Abnahme und kein
+Nachweis trainierter Modellqualität. Es wurde kein Training gestartet und keine
+Produktaktivierung vorgenommen.
