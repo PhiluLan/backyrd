@@ -2046,3 +2046,43 @@ gestoppt. Vor dem Start müssen unabhängige lokale und serverseitige
 Abschaltwächter mit neuen festen Fristen sowie laufende Checkpoint-Sicherung
 aktiviert sein. Alte deaktivierte Schlüssel und abgelaufene Fristen gelten nicht
 als aktiver Schutz dieses Laufs. Keine Produktaktivierung.
+
+#### Fünfter Lauf: Migration genehmigt und Ablauf gestartet
+
+Der Founder hat die zeitweilige Wiederaktivierung desselben Trainingswächters
+ausdrücklich bestätigt. Die frühere GPU war anschliessend nicht mehr verfügbar;
+auch die automatische Migration wurde separat ausdrücklich freigegeben, weiterhin
+mit höchstens 20 USD inklusive Migration und Abbruch bei mehr als 4,10 USD/Stunde.
+Runpod bestätigte die erfolgreiche Migration von `r6b504qlfe7x8t` nach
+`prdubmurin3qg6`. Nur der Ersatz-Pod läuft; die drei früheren Pods sind EXITED.
+Der Anbieter zeigt 3,99 USD/Stunde Compute und 4,02 USD/Stunde inklusive Speicher.
+
+Die neue Kostenzeit beginnt konservativ bereits am 10.11. um 12:42:32 UTC vor
+der Migrationsaktion. Zusätzlich 0,50 USD Vorreserve; oberer Stundensatz 4,10 USD.
+Serverseitige feste Stopfrist 16:38:32 UTC, lokale Stopfrist 16:42:32 UTC. Der
+lokale Wächter wurde mit aktivem Status nachgewiesen; der zweite Wächter im
+Container ebenfalls. Sein bereits genehmigter eigener Providerzugang bleibt im
+Container. Der lokale Schlüssel wird nicht hochgeladen. Beide Wächter pinnen den
+Ersatz-Pod und können keine andere Trainingsressource starten.
+
+Die Migration übernahm die alte Containerumgebung nicht. Das offizielle bereits
+vorinstallierte PyTorch 2.8.0+cu128 wird in einer neuen dedizierten Umgebung mit
+den bestehenden festgelegten Paketen verwendet. Die öffentliche Modellrevision
+wurde ohne Zugangstoken erneut heruntergeladen. Sämtliche Vorbereitungszeit ist
+im Budget enthalten. Kein Modell wurde auf dem Mac geladen.
+
+Übertragen wurde ausschliesslich das erlaubte Trainingspaket mit Anfangsadapter.
+Der langsame SCP-Transfer wurde anhand des vorhandenen Präfix-Hashes fortgesetzt.
+Dabei entdeckte die Gesamtprüfung eine exakt lokalisierte 3072-Byte-Lücke durch
+Pufferung des lokalen Dateideskriptors. Diese wurde anhand geprüfter Präfix- und
+Suffix-Hashes ergänzt; erst nach erfolgreicher vollständiger SHA-256-Prüfung
+`40ca47553baae1585a22358528170775f2b20cabe2af4adf6346dda0bd60b9ba`
+wurde entpackt. Keine ungeprüften Gewichte wurden verwendet.
+
+Host-/Bundle-Prüfung besteht auf einer NVIDIA H100 80GB HBM3. Die laufende lokale
+Checkpoint-Sicherung ist auf `/workspace/round5` begrenzt. Der Ablauf wurde danach
+gestartet und lädt das Modell zunächst für die 16 Baseline-Entwicklungsfragen;
+anschliessend folgen die geplanten 592 SFT-Updates und die Entwicklungsprüfung.
+Der tatsächliche Abschluss, Qualität, Kosten und Abschaltung sind noch offen und
+werden nicht aus dem Start abgeleitet. Das bestehende Heartbeat-Monitoring wurde
+auf genau diesen Lauf, dessen Budget und die neuen festen Fristen umgestellt.
