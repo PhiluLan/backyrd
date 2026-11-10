@@ -74,6 +74,13 @@ class GpuPreparationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'would_truncate'):
             gpu.encode_row(row, tokenizer, maximum=4)
 
+    def test_variable_length_training_padding_never_supervises_padding(self):
+        rows=gpu.padded_training_rows([([1,2,3],[-100,2,3]),([4,5,6,7],[-100,-100,6,7])],99)
+        self.assertEqual(rows['input_ids'][0],[1,2,3,99])
+        self.assertEqual(rows['labels'][0],[-100,2,3,-100])
+        self.assertEqual(rows['attention_mask'],[[1,1,1,0],[1,1,1,1]])
+        with self.assertRaisesRegex(ValueError,'batch_invalid'):gpu.padded_training_rows([],99)
+
     def test_bundle_tampering_and_path_escape_are_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp) / 'bundle'; folder.mkdir()

@@ -115,6 +115,15 @@ def encode_row(row, tokenizer, maximum=4096):
     return ids, [-100] * len(prefix) + answer + [eos]
 
 
+def padded_training_rows(samples, pad_token):
+    if not samples or len(samples)>4 or any(len(ids)!=len(labels) or not ids for ids,labels in samples):
+        raise ValueError("nuknuk_gpu_training_batch_invalid")
+    width=max(len(ids) for ids,_ in samples)
+    return {"input_ids":[ids+[pad_token]*(width-len(ids)) for ids,_ in samples],
+        "labels":[labels+[-100]*(width-len(labels)) for _,labels in samples],
+        "attention_mask":[[1]*len(ids)+[0]*(width-len(ids)) for ids,_ in samples]}
+
+
 def host_check(folder):
     manifest = verify_bundle(folder)
     if sys.platform != "linux":
@@ -308,6 +317,53 @@ def evaluate(args):
     write_json(args.output/'result.json',{'status':'GENERATION_COMPLETE_REQUIRES_REVIEW','cases':records,'adapterUnchanged':True,'adapterParameterDigest':before,
         'trainingExecuted':False,'productionActivation':False,'elapsedSeconds':time.monotonic()-started,'providerBillingStopped':False})
 
+
+def completion_loss(model, batch):
+    """Same supervised tokens; avoid projecting ignored prompt positions to vocab."""
+    import torch
+    labels = batch["labels"]
+    if labels.shape[0] != 1:
+        raise ValueError("nuknuk_gpu_completion_batch_invalid")
+    positions = (labels[0] != -100).nonzero().flatten()
+    start = int(positions[0])
+    if start < 1 or len(positions) != labels.shape[1]-start:
+        raise ValueError("nuknuk_gpu_completion_mask_not_contiguous")
+    output = model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"], use_cache=False,
+                   logits_to_keep=labels.shape[1]-start+1)
+    logits = output.logits[:, :-1, :].float()
+    if logits.shape[1] != len(positions):
+        raise ValueError("nuknuk_gpu_completion_logits_not_supported")
+    return torch.nn.functional.cross_entropy(logits.reshape(-1, logits.shape[-1]), labels[:,start:].reshape(-1))
+
+
+def verify_completion_loss(model, batch, output):
+    import torch
+    model.train();model.zero_grad(set_to_none=True)
+    full = model(**batch,use_cache=False).loss
+    full_value = float(full.detach());full.backward()
+    expected = {name:p.grad.detach().cpu().clone() for name,p in model.named_parameters() if p.requires_grad and p.grad is not None}
+    del full;model.zero_grad(set_to_none=True);torch.cuda.empty_cache()
+    compact = completion_loss(model,batch);compact_value=float(compact.detach());compact.backward()
+    torch.testing.assert_close(torch.tensor(full_value),torch.tensor(compact_value),rtol=1e-5,atol=1e-5)
+    maximum=0.0;metrics=[]
+    for name,p in model.named_parameters():
+        if name in expected:
+            if p.grad is None:raise ValueError("nuknuk_gpu_completion_gradient_missing")
+            actual=p.grad.detach().cpu()
+            difference=actual-expected[name]
+            norm=float(torch.linalg.vector_norm(expected[name]));delta=float(torch.linalg.vector_norm(difference))
+            metrics.append({"name":name,"referenceNorm":norm,"differenceNorm":delta,"relativeL2":delta/max(norm,1e-12),
+                "maxAbsoluteDifference":float(difference.abs().max()),"cosine":float(torch.nn.functional.cosine_similarity(actual.flatten(),expected[name].flatten(),dim=0)) if norm>1e-12 else None})
+            maximum=max(maximum,float(difference.abs().max()))
+    model.zero_grad(set_to_none=True);torch.cuda.empty_cache()
+    write_json(output/"completion-gradient-diagnostics.json",{"tensors":metrics,"fullLoss":full_value,"completionLoss":compact_value,"weightsUpdated":False})
+    if any(m["relativeL2"]>0.001 or (m["cosine"] is not None and m["cosine"]<0.99999) for m in metrics):
+        raise ValueError("nuknuk_gpu_completion_gradient_aggregate_not_equivalent")
+    write_json(output/"completion-loss-equivalence.json",{"fullLoss":full_value,"completionLoss":compact_value,
+        "maxAbsoluteAdapterGradientDifference":maximum,"checkedAdapterGradients":len(expected),"maxRelativeGradientL2":max(m["relativeL2"] for m in metrics),"weightsUpdated":False,
+        "limitation":"Numerical gradient equivalence on this input, not model understanding quality."})
+
+
 def run(args):
     folder = args.bundle.resolve(strict=True)
     host = host_check(folder)
@@ -317,7 +373,7 @@ def run(args):
     os.environ.update(HF_HUB_DISABLE_TELEMETRY="1", WANDB_DISABLED="true", TOKENIZERS_PARALLELISM="false")
     # Independent GNU timeout (see runbook) must also bound download/load time.
     broad = host.get("model") == MODEL_ID and verify_bundle(folder).get("purpose") == "APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED"
-    if not 1 <= args.steps <= (5000 if broad else 20) or args.layers not in (1, 4, 16) or (not broad and (args.strategy != "qv" or args.layers == 16)):
+    if not 1 <= args.steps <= (5000 if broad else 20) or args.layers not in (1, 4, 16) or args.batch_size not in (1,2,4) or (not broad and (args.strategy != "qv" or args.layers == 16 or args.batch_size!=1)):
         raise ValueError("nuknuk_gpu_pilot_bounds_invalid")
     if not 30 <= args.max_seconds <= (12600 if broad else 3000) or not 0 < args.learning_rate <= 0.0001 or not 1 <= args.checkpoint_every <= 250:
         raise ValueError("nuknuk_gpu_pilot_bounds_invalid")
@@ -329,7 +385,7 @@ def run(args):
     model, tokenizer, boundary = load_model(folder, args.layers, args.strategy)
     versions = {p: importlib.metadata.version(p) for p in ("torch", "transformers", "peft", "bitsandbytes")}
     write_json(args.output / "preflight.json", {**host, **boundary, "versions": versions, "steps": args.steps,
-        "layers": args.layers, "strategy": args.strategy, "learningRate": args.learning_rate, "seed": 7, "maxSeconds": args.max_seconds, "localSmokeTested": False})
+        "layers": args.layers, "strategy": args.strategy, "learningRate": args.learning_rate, "seed": 7, "maxSeconds": args.max_seconds, "batchSize":args.batch_size,"localSmokeTested": False})
     raw = [json.loads(line) for line in (folder / "data/train.jsonl").read_text().splitlines()]
     encoded = [encode_row(row, tokenizer) for row in raw]
     optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.learning_rate, weight_decay=0)
@@ -341,6 +397,14 @@ def run(args):
         return 0.1 + 0.9 * (1 + math.cos(math.pi * (step-warmup) / max(1,args.steps-warmup))) / 2
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_factor)
     model.train()
+    if args.completion_head:
+        if args.batch_size!=1:raise ValueError("nuknuk_gpu_completion_single_sample_only")
+        if not broad: raise ValueError("nuknuk_gpu_completion_requires_broad_curriculum")
+        ids,labels=encoded[order[0]]
+        probe={"input_ids":torch.tensor([ids],device="cuda"),"labels":torch.tensor([labels],device="cuda"),
+               "attention_mask":torch.ones((1,len(ids)),device="cuda",dtype=torch.long)}
+        verify_completion_loss(model,probe,args.output)
+        del probe
     def interrupted(_signum, _frame):
         raise KeyboardInterrupt
     import signal
@@ -352,18 +416,20 @@ def run(args):
                 if time.monotonic() - started > args.max_seconds or shutil.disk_usage(args.output).free < 25 * 1024 ** 3:
                     status = "BUDGET_OR_DISK_BOUNDARY_CHECKPOINTED"
                     break
-                ids, labels = encoded[order[step % len(encoded)]]
-                batch = {"input_ids": torch.tensor([ids], device="cuda"), "labels": torch.tensor([labels], device="cuda"),
-                         "attention_mask": torch.ones((1, len(ids)), device="cuda", dtype=torch.long)}
+                start=(step*args.batch_size)%len(encoded)
+                indices=order[start:min(start+args.batch_size,len(encoded))]
+                samples=[encoded[index] for index in indices]
+                batch={key:torch.tensor(value,device="cuda",dtype=torch.long)
+                    for key,value in padded_training_rows(samples,tokenizer.eos_token_id).items()}
                 optimizer.zero_grad(set_to_none=True)
-                loss = model(**batch, use_cache=False).loss
+                loss = completion_loss(model,batch) if args.completion_head else model(**batch, use_cache=False).loss
                 if not torch.isfinite(loss):
                     raise ValueError("nuknuk_gpu_nonfinite_loss")
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad], 1)
                 optimizer.step(); scheduler.step(); torch.cuda.synchronize(); completed = step + 1
                 receipt = {"step": completed, "loss": float(loss.detach()), "elapsedSeconds": time.monotonic() - started,
-                           "peakCudaAllocatedGiB": torch.cuda.max_memory_allocated() / 1024 ** 3, "trainingRow": order[step % len(encoded)],
+                           "peakCudaAllocatedGiB": torch.cuda.max_memory_allocated() / 1024 ** 3, "trainingRows": indices,"examplesProcessed": min((step+1)*args.batch_size, len(encoded)) if args.steps*args.batch_size<=len(encoded) else (step+1)*args.batch_size,
                            "learningRate": scheduler.get_last_lr()[0]}
                 log.write(json.dumps(receipt) + "\n"); log.flush(); print(json.dumps(receipt), flush=True)
                 del batch, loss
@@ -385,16 +451,100 @@ def run(args):
             "providerBillingStopped": False})
 
 
+
+def prefer(args):
+    """Bounded offline DPO against the frozen SFT start, TRAIN pairs only."""
+    folder=args.bundle.resolve(strict=True);host_check(folder);manifest=verify_bundle(folder)
+    if manifest.get('purpose')!='APPROVED_BROAD_CURRICULUM_20_USD_BOUNDED' or 'preference-pairs.jsonl' not in manifest['files']:
+        raise ValueError('nuknuk_gpu_preference_bundle_required')
+    if not 1<=args.pair_limit<=400 or not 30<=args.max_seconds<=3600 or not 0<args.learning_rate<=1e-5:
+        raise ValueError('nuknuk_gpu_preference_bounds_invalid')
+    if not args.adapter_sha256 or file_sha(args.adapter/'adapter_model.safetensors')!=args.adapter_sha256:
+        raise ValueError('nuknuk_gpu_preference_adapter_pin_required')
+    if args.output.exists() or folder==args.output.resolve() or folder in args.output.resolve().parents:
+        raise ValueError('nuknuk_gpu_output_must_be_new_outside_bundle')
+    args.output.mkdir(parents=True,mode=0o700)
+    os.environ.setdefault('HF_HOME','/workspace/hf-cache')
+    os.environ.update(HF_HUB_DISABLE_TELEMETRY='1',WANDB_DISABLED='true',TOKENIZERS_PARALLELISM='false')
+    import torch,random
+    started=time.monotonic()
+    model,tokenizer,boundary=load_model(folder,args.layers,args.strategy,args.adapter)
+    source=[json.loads(line) for line in (folder/'preference-pairs.jsonl').read_text().splitlines()]
+    # Round-robin over the ten families rather than spend all steps on the first.
+    groups={}
+    for row in source:
+        if row.get('sourceSplit')!='TRAIN' or not row['id'].startswith('r4-train-'):
+            raise ValueError('nuknuk_gpu_preference_test_leakage')
+        groups.setdefault(row['id'].split('-')[2],[]).append(row)
+    if len(groups)!=10:raise ValueError('nuknuk_gpu_preference_balance_invalid')
+    rows=[group[i] for i in range(40) for _,group in sorted(groups.items())][:args.pair_limit]
+    encoded=[]
+    def batch(item):
+        ids,labels=item
+        return {'input_ids':torch.tensor([ids],device='cuda'),'labels':torch.tensor([labels],device='cuda'),
+                'attention_mask':torch.ones((1,len(ids)),device='cuda',dtype=torch.long)}
+    def logp(item):
+        count=sum(label!=-100 for label in item[1])
+        return -model(**batch(item),use_cache=False).loss*count
+    for row in rows:
+        pair=[encode_row({'messages':row['prompt']+row[key]},tokenizer) for key in ('chosen','rejected')]
+        if pair[0]==pair[1]:raise ValueError('nuknuk_gpu_preference_identical_pair')
+        encoded.append(pair)
+    model.eval();references=[]
+    with torch.no_grad():
+        for index,pair in enumerate(encoded):
+            if time.monotonic()-started>args.max_seconds/2:raise ValueError('nuknuk_gpu_preference_reference_deadline')
+            references.append([float(logp(item)) for item in pair])
+            print(json.dumps({'referencePair':index+1,'elapsedSeconds':time.monotonic()-started}),flush=True)
+    write_json(args.output/'reference-scores.json',{'adapterSha256':args.adapter_sha256,'pairIds':[r['id'] for r in rows],
+        'scores':references,'weightsUpdated':False,'beta':0.1})
+    write_json(args.output/'preflight.json',{**boundary,'mode':'DPO_TRAIN_ONLY','learningRate':args.learning_rate,
+        'referenceAdapterSha256':args.adapter_sha256,'pairCount':len(rows),'beta':0.1,'productionActivation':False})
+    optimizer=torch.optim.AdamW([p for p in model.parameters() if p.requires_grad],lr=args.learning_rate,weight_decay=0)
+    model.train();completed=0;status='FAILED'
+    with (args.output/'steps.jsonl').open('x') as log:
+        for index,pair in enumerate(encoded):
+            if time.monotonic()-started>args.max_seconds:
+                status='TIME_BOUNDARY_CHECKPOINTED';break
+            optimizer.zero_grad(set_to_none=True)
+            chosen,rejected=[logp(item) for item in pair]
+            margin=(chosen-rejected)-(references[index][0]-references[index][1])
+            loss=-torch.nn.functional.logsigmoid(0.1*margin)
+            if not torch.isfinite(loss):raise ValueError('nuknuk_gpu_preference_nonfinite_loss')
+            loss.backward();torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad],1)
+            optimizer.step();torch.cuda.synchronize();completed=index+1
+            receipt={'pair':completed,'id':rows[index]['id'],'loss':float(loss.detach()),'elapsedSeconds':time.monotonic()-started,
+                'peakCudaAllocatedGiB':torch.cuda.max_memory_allocated()/1024**3}
+            log.write(json.dumps(receipt)+'\n');log.flush();print(json.dumps(receipt),flush=True)
+            del chosen,rejected,margin,loss
+            if completed%10==0:
+                checkpoint=args.output/('pair-'+str(completed));model.save_pretrained(checkpoint,safe_serialization=True)
+                write_json(checkpoint/'checkpoint-complete.json',{'completedPairs':completed,'adapterSha256':file_sha(checkpoint/'adapter_model.safetensors'),'strategy':args.strategy,'layers':args.layers})
+    if completed==len(rows):status='PREFERENCE_TRAINING_FINISHED_REQUIRES_REVIEW'
+    model.save_pretrained(args.output/'adapter',safe_serialization=True)
+    write_json(args.output/'adapter'/'checkpoint-complete.json',{'completedPairs':completed,'adapterSha256':file_sha(args.output/'adapter'/'adapter_model.safetensors'),'strategy':args.strategy,'layers':args.layers})
+    write_json(args.output/'result.json',{'status':status,'completedPairs':completed,'elapsedSeconds':time.monotonic()-started,
+        'referenceAdapterUnchanged':file_sha(args.adapter/'adapter_model.safetensors')==args.adapter_sha256,'productionActivation':False,'providerBillingStopped':False})
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     convert = sub.add_parser("convert")
     convert.add_argument("--source", type=Path, required=True)
     convert.add_argument("--output", type=Path, required=True)
-    for command in ("check", "train", "evaluate"):
+    for command in ("check", "train", "evaluate", "prefer"):
         cmd = sub.add_parser(command); cmd.add_argument("--bundle", type=Path, required=True)
-        if command in ("train", "evaluate"):
+        if command in ("train", "evaluate", "prefer"):
             cmd.add_argument("--output", type=Path, required=True)
+        if command == "prefer":
+            cmd.add_argument("--adapter", type=Path, required=True)
+            cmd.add_argument("--adapter-sha256", required=True)
+            cmd.add_argument("--pair-limit", type=int, default=40)
+            cmd.add_argument("--learning-rate", type=float, default=1e-6)
+            cmd.add_argument("--max-seconds", type=int, default=1800)
+            cmd.add_argument("--layers", type=int, choices=[1,4,16], default=4)
+            cmd.add_argument("--strategy", choices=["qv", "language-linear"], default="language-linear")
         if command == "evaluate":
             cmd.add_argument("--plan-file")
             cmd.add_argument("--split", choices=["VALIDATION", "TEST"], default="VALIDATION")
@@ -412,9 +562,13 @@ if __name__ == "__main__":
             cmd.add_argument("--learning-rate", type=float, default=1e-5)
             cmd.add_argument("--max-seconds", type=int, default=3000)
             cmd.add_argument("--checkpoint-every", type=int, default=10)
+            cmd.add_argument("--completion-head", action="store_true")
+            cmd.add_argument("--batch-size", type=int, choices=[1,2,4], default=1)
     args = parser.parse_args()
     if args.command == "convert":
         convert_seed(args.source, args.output)
+    elif args.command == "prefer":
+        prefer(args)
     elif args.command == "evaluate":
         evaluate(args)
     else:

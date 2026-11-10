@@ -1762,3 +1762,50 @@ und Netzwerk abhängig; kein behaupteter anbieterunabhängiger Schutz gegen eine
 Ausfall des Macs. Aktive Bedieneraufsicht bleibt erforderlich. Ein echter Start-
 zu-Stopp-Test wird vor dem langen Training protokolliert. Fortschritte und
 fertig geschriebene Checkpoints werden vor dem Anbieter-Stopp lokal gesichert.
+
+### 10.11.2026: laufender breiter GPU-Lauf, Schutz und Vergleichsgrenzen
+
+Der aktuelle Runpod-Lauf bleibt lokal/experimentell, ohne Produktaktivierung. Das
+Gesamtkostendach beträgt USD 20 einschliesslich früherer GPU-Versuche. Ein lokaler
+Wächter und ein unabhängig im Container laufender Wächter begrenzen denselben Pod.
+Der zusätzliche Container-Zugang wurde ausdrücklich freigegeben; er liest den
+vorhandenen Provider-Schlüssel ausschliesslich im Container und kann nur dessen
+Pod stoppen. Der eigene lokale Watcher wurde durch tatsächliches Stoppen und
+bestätigten Zustand EXITED praktisch geprüft. Fertige Adapter werden mit
+Abschlussbeleg und SHA-256 automatisch auf den Mac kopiert; ein Prozess-Timeout
+allein beendet keine Pod-Kosten.
+
+Das überprüfte Curriculum umfasst 2360 TRAIN-Zeilen (2320 Backyrd-Fälle, 40
+lizenzierte Hilfsübungen), 100 Entwicklungsfälle und 300 abschliessende Testfälle.
+Die 2000 neuen TRAIN-Zeilen sind Varianten von 50 Familien, keine 2000 unabhängigen
+menschlich bestätigten Situationen. Drei fachliche Curriculum-Korrekturen wurden
+vor jeder TEST-Generierung dokumentiert: eine nicht belegte persönliche
+Rollstuhlbehauptung im Entwicklungssoll entfernt und zwei zu ähnliche Testfamilien
+ersetzt. TRAIN blieb dabei unverändert. Der geprüfte V3-Manifest-SHA lautet
+`91f3f3602adb27b4338c7bedced76af7f3df961bef94c3238e8362d61863a6ff`.
+
+Die ersten zwei V3-Piloten verarbeiten jeweils 40 Trainingsbeispiele in 20 Updates:
+q/v der letzten vier Attention-Blöcke sowie lineare Sprachmodellprojektionen.
+Gemessene Dauer etwa 222 bzw. 249 Sekunden, maximale CUDA-Allokation etwa 44,1 bzw.
+44,8 GiB. Das ist kein semantischer Qualitätsnachweis. Der Ausgangsadapter zeigte
+in zehn Entwicklungsanfragen sieben deutliche Bedeutungsfehler, zwei akzeptable
+Antworten und einen gesondert zu prüfenden Software-Zuordnungsfall. Diese Prüfung
+ist assistiert und kein unabhängiger menschlicher Goldstandard.
+
+Eine experimentelle Beschleunigung der Loss-Berechnung scheiterte vor jedem
+Optimizer-Update an der numerischen Gradientenvergleichsgrenze. Sie wird nicht im
+Training benutzt; der normale Hugging-Face-Loss bleibt massgeblich. Padding maskiert
+Prompt- und Auffülltokens mit -100. Nur TRAIN erreicht den Optimizer.
+
+`COMPACT_ADAPTER_V4` ist eine ausdrücklich wählbare **lokale** kürzere
+Instruktionsvariante mit unverändertem Schema, Validator und Nutzereingabe. Alte
+Profile bleiben reproduzierbar. Der Zweck ist, wiederholte Instruktionstokens zu
+reduzieren, ohne Regeln im Produkt zu lockern. Durchschnittliche gesamte
+TRAIN-Länge sinkt von etwa 2612 auf 1402 Tokens; keine Zeile wird abgeschnitten.
+V4 verlangt einen passenden Ausgangsadapter-Vergleich mit demselben Prompt.
+Datensatz `training-20261110-v4-short2` hat identische Fragen, Sollantworten,
+Referenzen und Aufteilungen wie das geprüfte Curriculum; Manifest-SHA
+`0d9dd34404d34eb31dbb6cd2638af90aa7f2d4cbdb6039144a2019d185978209`.
+Abschlussqualität, tatsächlich verarbeitete Beispiele und gesicherte Artefakte
+müssen nach dem Lauf ergänzt werden. Vorbereitete Präferenzpaare oder ein sinkender
+Loss dürfen nicht als durchgeführtes Präferenztraining bzw. Qualitätsbeweis gelten.

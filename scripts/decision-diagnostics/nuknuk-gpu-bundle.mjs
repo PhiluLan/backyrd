@@ -17,7 +17,9 @@ const data=JSON.parse(await readFile(resolve(source,'reviewed-backyrd.json'),'ut
 const audit=auditUnderstandingDataset(data,understandingSplitHash(data.splitPlan));
 const broad=JSON.parse(sourceManifest).round===4;
 if(!audit.exportReady||(!broad&&(audit.counts.TRAIN!==6||audit.counts.VALIDATION!==2||audit.counts.TEST!==1))||(broad&&(!approvedSourceSha||audit.counts.TRAIN!==2320||audit.counts.VALIDATION!==100||audit.counts.TEST!==300)))throw Error('nuknuk_gpu_cohort_invalid');
-const bundle=exportUnderstandingDataset(data,understandingSplitHash(data.splitPlan),'COMPACT_ADAPTER_V3');
+const instructionProfile=JSON.parse(sourceManifest).instructionProfile ?? 'COMPACT_ADAPTER_V3';
+if(!['COMPACT_ADAPTER_V3','COMPACT_ADAPTER_V4'].includes(instructionProfile))throw Error('nuknuk_gpu_instruction_profile_invalid');
+const bundle=exportUnderstandingDataset(data,understandingSplitHash(data.splitPlan),instructionProfile);
 const files=JSON.parse(sourceManifest.toString()).fileByteHashes;
 for(const [split,rows] of Object.entries(bundle.files)){
   const old=await readFile(resolve(source,split+'.jsonl'));
@@ -28,6 +30,7 @@ for(const [split,rows] of Object.entries(bundle.files))await writeFile(resolve(o
 if(broad){
   await copyFile(resolve(source,'manifest.json'),resolve(out,'curriculum-manifest.json'));
   await copyFile(resolve(source,'evaluation-inputs.json'),resolve(out,'evaluation-inputs.json'));
+  await copyFile(resolve(source,'preference-reviewed.jsonl'),resolve(out,'preference-pairs.jsonl'));
 }
 const here=dirname(fileURLToPath(import.meta.url));
 await copyFile(resolve(here,'nuknuk-gpu.py'),resolve(out,'nuknuk-gpu.py'));

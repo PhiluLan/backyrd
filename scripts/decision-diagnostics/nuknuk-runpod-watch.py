@@ -15,13 +15,29 @@ import urllib.request
 
 ENDPOINT = 'https://api.runpod.io/graphql'
 
+def container_identity():
+    # Explicitly approved existing provider credential. Never persist, emit or
+    # copy it, and never fall back to a different environment secret.
+    import sys
+    if sys.platform!='linux':raise ValueError('runpod_container_key_linux_only')
+    values=dict(item.split(b'=',1) for item in Path('/proc/1/environ').read_bytes().split(b'\0') if b'=' in item)
+    secret=values.get(b'RUNPOD_API_KEY',b'').decode()
+    pod=values.get(b'RUNPOD_POD_ID',b'').decode()
+    if not re.fullmatch(r'[A-Za-z0-9_-]{20,256}',secret) or not re.fullmatch('[a-z0-9]{8,30}',pod):
+        raise ValueError('runpod_container_identity_invalid')
+    return pod,secret
+
+
 def query(key_file, document, variables=None):
-    path = key_file.resolve(strict=True)
-    if path.stat().st_mode & 0o077:
-        raise ValueError('runpod_key_permissions_must_be_0600')
-    secret = path.read_text().strip()
-    if not re.fullmatch(r'rpa_[A-Za-z0-9_-]+', secret):
-        raise ValueError('runpod_key_format_invalid')
+    if key_file is None:
+        _,secret=container_identity()
+    else:
+        path = key_file.resolve(strict=True)
+        if path.stat().st_mode & 0o077:
+            raise ValueError('runpod_key_permissions_must_be_0600')
+        secret = path.read_text().strip()
+        if not re.fullmatch(r'rpa_[A-Za-z0-9_-]+', secret):
+            raise ValueError('runpod_key_format_invalid')
     request = urllib.request.Request(ENDPOINT, data=json.dumps({'query': document, 'variables': variables or {}}).encode(),
         headers={'Content-Type':'application/json','Authorization':'Bearer '+secret}, method='POST')
     # Exceptions expose the public endpoint, not the Authorization header.
@@ -32,12 +48,18 @@ def query(key_file, document, variables=None):
     return result['data']
 
 def status(key_file):
+    if key_file is None:
+        pod,_=container_identity()
+        result=query(None,'query($id: String!) { pod(input: {podId: $id}) { id name desiredStatus costPerHr runtime { uptimeInSeconds } } }',{'id':pod})
+        return [result['pod']] if result.get('pod') else []
     result = query(key_file, '{ myself { pods { id name desiredStatus costPerHr runtime { uptimeInSeconds } } } }')
     return result['myself']['pods']
 
 def stop(key_file, pod_id):
     if not re.fullmatch('[a-z0-9]{8,30}', pod_id):
         raise ValueError('runpod_pod_id_invalid')
+    if key_file is None and pod_id!=container_identity()[0]:
+        raise ValueError('runpod_container_stop_own_pod_only')
     return query(key_file, 'mutation($id: String!) { podStop(input: { podId: $id }) { id desiredStatus } }', {'id':pod_id})
 
 def budget_deadline(started, prior_usd, hourly_usd, ceiling_usd, reserve_usd):
@@ -95,7 +117,10 @@ def watch(args):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('command',choices=['status','stop','watch']);p.add_argument('--key-file',type=Path,required=True)
+    p.add_argument('command',choices=['status','stop','watch'])
+    credentials=p.add_mutually_exclusive_group(required=True)
+    credentials.add_argument('--key-file',type=Path)
+    credentials.add_argument('--container-key',action='store_true')
     p.add_argument('--pod');p.add_argument('--started',type=float);p.add_argument('--deadline',type=float)
     p.add_argument('--prior-usd',type=float,default=1.75);p.add_argument('--hourly-usd',type=float,default=4.1)
     p.add_argument('--ceiling-usd',type=float,default=20);p.add_argument('--reserve-usd',type=float,default=1.5)

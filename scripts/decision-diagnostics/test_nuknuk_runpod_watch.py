@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('watch',Path(__file__).with_name('nuknuk-runpod-watch.py'))
 watch=importlib.util.module_from_spec(spec);spec.loader.exec_module(watch)
 class WatchTests(unittest.TestCase):
@@ -19,4 +20,15 @@ class WatchTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'format'):watch.query(p,'{}')
     def test_stop_rejects_untrusted_pod_identifiers_before_network(self):
         with self.assertRaisesRegex(ValueError,'pod_id_invalid'):watch.stop(Path('/not-read'),'x"mutation')
+    def test_container_stop_cannot_target_another_pod(self):
+        with patch.object(watch,'container_identity',return_value=('approvedpod123','not-a-real-secret')),patch.object(watch,'query') as query:
+            with self.assertRaisesRegex(ValueError,'own_pod_only'):watch.stop(None,'otherpod123')
+            query.assert_not_called()
+            watch.stop(None,'approvedpod123')
+            self.assertEqual(query.call_args.args[2],{'id':'approvedpod123'})
+    def test_container_status_only_queries_own_pod(self):
+        with patch.object(watch,'container_identity',return_value=('approvedpod123','not-a-real-secret')),patch.object(watch,'query',return_value={'pod':{'id':'approvedpod123'}}) as query:
+            self.assertEqual(watch.status(None),[{'id':'approvedpod123'}])
+            self.assertEqual(query.call_args.args[2],{'id':'approvedpod123'})
+            self.assertNotIn('myself',query.call_args.args[1])
 if __name__=='__main__':unittest.main()

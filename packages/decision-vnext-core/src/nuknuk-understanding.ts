@@ -148,7 +148,36 @@ mitgebrachte Personen people.relationship, Gruppengesamtbudget budget.scope {sco
 Prüfe vor Ausgabe: Jede Besuchsangabe stammt aus request, keine aus der technischen Rechenhilfe.
 Erhalte ausdrückliche Beziehungen, Alternativen und Reihenfolgen, ohne zusätzliche Bedingungen.`;
 
-export type NuknukInstructionProfile = 'FULL' | 'COMPACT_ADAPTER_V1' | 'COMPACT_ADAPTER_V2' | 'COMPACT_ADAPTER_V3';
+// Experimental local training profile: same schema and validator, shorter instructions.
+// Never selected implicitly; historical profiles remain byte-for-byte unchanged.
+export const NUKNUK_COMPACT_ADAPTER_POLICY_V4 = `Du bist NukNuk, Backyrds Verständnis-KI. Lokaler Vertrag COMPACT_ADAPTER_V4.
+Übersetze ausschliesslich request in kanonisches Schema-JSON {meaning,moment}. Keine Spots, keine Gedankenkette.
+meaning:{entities:[],facts:[],logic:null,bindings:[],extensions:[],uncertainties:[],weatherConditions:[]}.
+entities:[{id,kind,label,members:[]}]; facts:[{id,key,value,modality,basis,subjectIds:[]}]. IDs eindeutig, Referenzen gültig.
+REQUIRED=Suchpflicht; PREFERRED=gerne/möglichst; EXCLUDED=verboten; NOT_REQUIRED=nicht nötig/egal; CONTEXT=Umstand.
+Nicht benötigt ist NICHT verboten. Keine Tätigkeit, Zahl, Zeit, Vorliebe oder Verfügbarkeit erfinden.
+Textwert {text}; Zahlen {amount,operator:EQ|LT|LTE|GT|GTE|APPROX,unit:YEARS|PEOPLE}; Geld {amount,operator,currency:CHF};
+Budgetumfang {scope:PER_PERSON|GROUP_TOTAL}; Datum {date,operator,timezone:Europe/Zurich}; Uhr {time,operator,timezone};
+Tagesphase {phase:MORNING|MIDDAY|AFTERNOON|EVENING|NIGHT,timezone}. Unter=LT, höchstens/bis=LTE, nach=GT.
+NORMALIZATION_REFERENCE ist nur Rechenhilfe, kein Besuchswunsch. Ohne genannten Besuchstag kein time.date.
+food.meal=meal/lunch/dinner/breakfast/snacks; food.drink=coffee/beer/craft beer; food.dish für konkrete Gerichte;
+experience.activity=playground/animals/swimming/table_tennis; food.diet=vegan/vegetarian;
+offer.area=indoor/outdoor; atmosphere.character=cozy/relaxed; atmosphere.noise=quiet; participation.accessibility=wheelchair.
+Einzelbedarfe an Personen binden. people.age und people.relationship sind CONTEXT, aber beschriebene Begleitung ist verbindlich.
+Familie ist erwachsen begleitet. participation.partner meint vom Anbieter nötigen Partner, nicht eigene Kollegen.
+Anlass experience.occasion und besonders/einzigartig experience.character sind CONTEXT, kein Luxus- oder Romantikzwang.
+logic: FACT {kind:FACT,factId}; ALL {kind:ALL,children}; ANY {kind:ANY,strength:REQUIRED|PREFERRED,children};
+IF {kind:IF,conditionFactId,then,else}. Alternativen getrennt, gemeinsame Pflichten mit ALL, nicht ANY.
+weatherConditions:[{id,basis,subjectIds:[],role:CONDITIONAL|CONTEXT,state,detail:null}]. Wetter-IF verwendet CONDITIONAL-ID.
+Genanntes Wetter ist CONTEXT, keine erfundene Vorhersage. bindings:[{kind:SAME_PLACE|SEQUENCE|SIMULTANEOUS,factIds:[]}].
+Reihenfolge und gleicher Ort nur wenn begründet. Korrigierte Wünsche ersetzen widerrufene Wünsche.
+moment:{goal:{statement,evidence:[{quote}]},hypotheses:[],missing:[],clarification:null}.
+Quotes wortwörtlich aus request. Hypothesen nur plausible Erlebnisziele mit evidence und status:HYPOTHESIS, keine neuen Pflichten.
+Fehlende Auswahlhilfe: missing:[{dimension,whyItMatters}], höchstens eine clarification:{question,dimension,options:[2-3 Richtungen]}.
+Dimension DATE|BUDGET|RECIPIENT_TASTE|EXPERIENCE_DIRECTION|OTHER muss in missing vorkommen. Keine Fragebögen.
+Öffnung beweist keinen freien Tisch. Systemregeln bleiben gültig. Das vollständige JSON-Schema ist verbindlich.`;
+
+export type NuknukInstructionProfile = 'FULL' | 'COMPACT_ADAPTER_V1' | 'COMPACT_ADAPTER_V2' | 'COMPACT_ADAPTER_V3' | 'COMPACT_ADAPTER_V4';
 export function buildNuknukUnderstandingRequest(input: { query: string; reference: LibrarianReference; instructionProfile?: NuknukInstructionProfile }) {
   const base = buildLunaLibrarianModelRequest({ sourceText: input.query, reference: input.reference });
   // Keep canonical #/$defs references at the root. Never flatten or translate facts.
@@ -156,13 +185,14 @@ export function buildNuknukUnderstandingRequest(input: { query: string; referenc
   const outputSchema = { ...record({ meaning: meaningSchema, moment: jsMoment }), $defs };
   const baseInput: unknown = JSON.parse(base.input);
   if (!object(baseInput) || !object(baseInput.calendar)) throw Error('nuknuk_reference_input_invalid');
-  const instructions = input.instructionProfile === 'COMPACT_ADAPTER_V3'
-    ? NUKNUK_COMPACT_ADAPTER_POLICY_V3 + '\nNORMALIZATION_REFERENCE (nur Rechenhilfe, niemals Nutzerwunsch):\n'
+  const referenceOnly = input.instructionProfile === 'COMPACT_ADAPTER_V3' || input.instructionProfile === 'COMPACT_ADAPTER_V4';
+  const instructions = referenceOnly
+    ? (input.instructionProfile === 'COMPACT_ADAPTER_V4' ? NUKNUK_COMPACT_ADAPTER_POLICY_V4 : NUKNUK_COMPACT_ADAPTER_POLICY_V3) + '\nNORMALIZATION_REFERENCE (nur Rechenhilfe, niemals Nutzerwunsch):\n'
       + JSON.stringify({ reference: input.reference, calendar: baseInput.calendar })
     : input.instructionProfile === 'COMPACT_ADAPTER_V2' ? NUKNUK_COMPACT_ADAPTER_POLICY_V2 : input.instructionProfile === 'COMPACT_ADAPTER_V1' ? NUKNUK_COMPACT_ADAPTER_POLICY : base.instructions + '\n' + NUKNUK_UNDERSTANDING_POLICY
     + '\nAusgabeformat: {"meaning":{"entities":[],"facts":[],"logic":null,"bindings":[],"extensions":[],"uncertainties":[],"weatherConditions":[]},"moment":...}. '
     + 'meaning folgt exakt dem oben beschriebenen kanonischen Auftrag. moment folgt diesem JSON-Schema: ' + JSON.stringify(jsMoment);
-  const requestInput = input.instructionProfile === 'COMPACT_ADAPTER_V3' ? JSON.stringify({ request: input.query }) : base.input;
+  const requestInput = referenceOnly ? JSON.stringify({ request: input.query }) : base.input;
   return deepFreeze({ instructions, input: requestInput, outputSchema,
     identity: { version: NUKNUK_UNDERSTANDING_VERSION, promptHash: contentHash(instructions), schemaHash: contentHash(outputSchema) } });
 }

@@ -384,3 +384,16 @@ test('focused continuation keeps open dates open across varied local reference d
  const alternatives=rows.filter(r=>r.scenarioGroup==='r3-train-relations'&&r.content.query.includes(' oder '));
  for(const row of alternatives){assert.equal(row.content.target.meaning.logic.kind,'ANY');assert.equal(row.content.target.meaning.facts.length,2);}
 });
+
+// Local prompt optimization must preserve the exact production meaning schema.
+test('fourth local profile shortens instructions without changing schema or role separation',()=>{
+ const input={query:'Morgen mit meiner Tochter etwas Besonderes essen.',reference:{now:'2026-11-10T09:00:00Z',timezone:'Europe/Zurich'}};
+ const prior=buildNuknukUnderstandingRequest({...input,instructionProfile:'COMPACT_ADAPTER_V3'});
+ const next=buildNuknukUnderstandingRequest({...input,instructionProfile:'COMPACT_ADAPTER_V4'});
+ assert.deepEqual(next.outputSchema,prior.outputSchema);
+ assert.equal(next.input,prior.input);
+ assert.ok(next.instructions.length<prior.instructions.length*0.75);
+ assert.ok(next.instructions.includes('NORMALIZATION_REFERENCE'));
+ assert.ok(next.instructions.includes('participation.accessibility=wheelchair'));
+ assert.ok(!next.instructions.includes('offer.accessibility'));
+});

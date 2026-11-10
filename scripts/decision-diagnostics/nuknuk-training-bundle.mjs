@@ -14,6 +14,8 @@ const [sourceFile,externalFile,outputDirectory]=process.argv.slice(2);
 const round2=process.argv.includes('--round2');
 const round3=process.argv.includes('--round3');
 const round4=process.argv.includes('--round4');
+const compact4=process.argv.includes('--compact4');
+if(compact4&&!round4)throw Error('compact4_requires_round4');
 if([round2,round3,round4].filter(Boolean).length>1)throw Error('nuknuk_bundle_round_ambiguous');
 if(!sourceFile||!externalFile||!outputDirectory) throw Error('nuknuk_bundle_arguments_required');
 const source=JSON.parse(await readFile(resolve(sourceFile),'utf8'));
@@ -90,7 +92,7 @@ if(round4){
 }
 const splitHash=understandingSplitHash(reviewed.splitPlan);
 const audit=auditUnderstandingDataset(reviewed,splitHash);
-const bundle=exportUnderstandingDataset(reviewed,splitHash,round3?'COMPACT_ADAPTER_V3':round4?'COMPACT_ADAPTER_V3':round2?'COMPACT_ADAPTER_V2':'COMPACT_ADAPTER_V1');
+const bundle=exportUnderstandingDataset(reviewed,splitHash,round3?'COMPACT_ADAPTER_V3':round4?(compact4?'COMPACT_ADAPTER_V4':'COMPACT_ADAPTER_V3'):round2?'COMPACT_ADAPTER_V2':'COMPACT_ADAPTER_V1');
 const files={...bundle.files,train:[...bundle.files.train,...(round3?[]:external.examples.map(r=>({messages:r.messages})))]};
 const folder=resolve(outputDirectory);await mkdir(folder,{mode:0o700});
 const byteHashes={};
