@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-special-service-hours-v1",
+  "previousEvidence": "booking-reservation-history-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "6abb690ad769026425396492116516c35d1bc89a3d00ccc269d54b2b40c3092d",
+    "applicationSchemaSha256": "fed1180ab9645f9ad25e09f08cf147a0ed8ebbd5b96decfe9747b62959c6f29c"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020213718_booking_special_service_hours_v1.sql",
+      "sha256": "3b351e02bb9d4c55c877edf67288e9fbc58f1918430f68c957121846e095eb56"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_special_service_hours_safety_v1.sql",
+      "sha256": "f671c9cd3448c2cf6e4cb238b4a0f76ed9adac693783b801819f0d73ddfc0640"
+    },
+    {
+      "path": "supabase/tests/booking_special_service_hours_v1.sql",
+      "sha256": "497463f98672e86876dbbca7fd4323fe10a7e320926aa7e9dd2255dedc264196"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "98fe2267d38cf817ab053e4f391f06a9d63de4df17bd817b5377bf2cc39322ad",
+    "applicationSchemaSha256": "a9a0c031ffde01277f6a2ce9a36ca36b70f582a37d5de0532fb32417c8af285b"
+  }
+}
