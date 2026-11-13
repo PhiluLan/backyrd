@@ -9,6 +9,8 @@ export function WalkIn({ spotId, snapshot, serviceId, areaId, onClose, onSaved, 
   spotId: string; snapshot: BookingSnapshot; serviceId: string; areaId: string;
   onClose: (uncertain: boolean) => void; onSaved: (date: string, slot: BookingSlot) => Promise<void>; onBusy: (busy: boolean) => void;
 }) {
+  const combinations = !!snapshot.capabilities?.table_combinations;
+  const choiceKey = (slot: BookingSlot) => slot.service_id + ":" + (slot.combination_id ?? slot.table_id);
   const initialParty = Math.min(2, snapshot.settings?.max_party_size ?? 8);
   const [party, setParty] = useState(String(initialParty));
   const [duration, setDuration] = useState(String(snapshot.settings?.duration_minutes ?? 120));
@@ -34,7 +36,7 @@ export function WalkIn({ spotId, snapshot, serviceId, areaId, onClose, onSaved, 
   const valid = party.trim() !== "" && duration.trim() !== "" && Number.isInteger(partySize) && partySize >= 1 && partySize <= maxParty
     && Number.isInteger(minutes) && minutes >= 30 && minutes <= 480;
   const available = preview?.slots.filter((slot) => (!service || slot.service_id === service) && (!area || slot.area_id === area)) ?? [];
-  const chosen = available.find((slot) => slot.service_id + ":" + slot.table_id === choice);
+  const chosen = available.find((slot) => choiceKey(slot) === choice);
   const areas = [...new Map(preview?.slots.map((slot) => [slot.area_id, slot.area_name]) ?? []).entries()];
   function clearPreview() { generation.current += 1; setPreview(null); setChoice(""); setSlotError(null); }
   const check = useCallback(async () => {
@@ -42,13 +44,13 @@ export function WalkIn({ spotId, snapshot, serviceId, areaId, onClose, onSaved, 
     const current = ++generation.current;
     setChecking(true); setSlotError(null); setPreview(null); setChoice("");
     try {
-      const result = await readWalkInSlots(spotId, partySize, minutes);
+      const result = await readWalkInSlots(spotId, partySize, minutes, combinations);
       if (current !== generation.current) return;
       setPreview(result);
       setService((value) => value && !result.services.some((service) => service.id === value) ? "" : value);
     } catch (error) { if (current === generation.current) setSlotError(bookingError(error)); }
     finally { if (current === generation.current) setChecking(false); }
-  }, [spotId, partySize, minutes, valid, uncertain]);
+  }, [spotId, partySize, minutes, valid, uncertain, combinations]);
   useEffect(() => {
     if (!valid || uncertain) { setChecking(false); return; }
     const timer = window.setTimeout(() => void check(), 250);
@@ -64,7 +66,7 @@ export function WalkIn({ spotId, snapshot, serviceId, areaId, onClose, onSaved, 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (inFlight.current || !valid || !chosen) return;
-    const payload = { serviceId: chosen.service_id, tableId: chosen.table_id, partySize, duration: minutes, name, contact, note };
+    const payload = { serviceId: chosen.service_id, tableId: chosen.table_id, ...(chosen.table_ids ? { tableIds: chosen.table_ids, combinationId: chosen.combination_id ?? null } : {}), partySize, duration: minutes, name, contact, note };
     // Preview time is not identity or a client-controlled admission time.
     const key = JSON.stringify(payload);
     if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
@@ -92,7 +94,7 @@ export function WalkIn({ spotId, snapshot, serviceId, areaId, onClose, onSaved, 
         {checking && <p className={styles.help} role="status">Aktuelle Zuteilungen werden geprüft …</p>}
         {slotError && <p className={styles.error} role="alert">{slotError} <button type="button" className={styles.secondary} onClick={() => setRefresh((value) => value + 1)}>Erneut prüfen</button></p>}
         {preview && !available.length && <div className={styles.emptyCompact}><h3>{preview.services.length ? "Gerade kein passender Tisch frei." : "Für diese Dauer läuft gerade kein Service."}</h3><p>Prüfe Personenzahl, Dauer und laufende Besuche. Es wurde niemand platziert.</p>{(service || area) && preview.slots.length > 0 && <button type="button" className={styles.secondary} onClick={() => { setService(""); setArea(""); setChoice(""); }}>Alle aktuellen Zuteilungen anzeigen</button>}</div>}
-        <div className={styles.walkInTables} role="group" aria-label="Verfügbare Tische">{available.map((slot) => { const key = slot.service_id + ":" + slot.table_id; return <button key={key} type="button" aria-label={"Tisch " + slot.table_label + " im Bereich " + slot.area_name + " für " + slot.service_name + " wählen"} aria-pressed={choice === key} onClick={() => { setChoice(key); setDirty(true); }}><strong>{slot.table_label}</strong><span>{slot.area_name} · {slot.seats} Plätze</span><small>{slot.service_name} · geplant bis {restaurantTime(slot.ends_at)}</small></button>; })}</div>
+        <div className={styles.walkInTables} role="group" aria-label="Verfügbare Tische">{available.map((slot) => { const key = choiceKey(slot); return <button key={key} type="button" aria-label={"Tisch " + slot.table_label + " im Bereich " + slot.area_name + " für " + slot.service_name + " wählen"} aria-pressed={choice === key} onClick={() => { setChoice(key); setDirty(true); }}><strong>{slot.table_label}</strong><span>{slot.area_name} · {slot.seats} Plätze</span><small>{slot.service_name} · geplant bis {restaurantTime(slot.ends_at)}</small></button>; })}</div>
         <details className={styles.editorDetails}><summary>Gastangaben ergänzen</summary><label>Gastname (optional)<input maxLength={120} value={name} autoComplete="off" onChange={(event) => setName(event.target.value)} /><span className={styles.help}>Ohne Namen wird der Besuch als «Walk-in» geführt.</span></label><label>Telefon oder E-Mail (optional)<input maxLength={320} value={contact} autoComplete="off" onChange={(event) => setContact(event.target.value)} /></label><label>Interner Hinweis (optional)<textarea maxLength={1000} rows={3} value={note} onChange={(event) => setNote(event.target.value)} /><span className={styles.help}>Nur notwendige organisatorische Angaben erfassen.</span></label></details>
         <p className={styles.help}>Vorschläge reservieren keinen Tisch. Beim Speichern wird die Zuteilung erneut geprüft. Es wird keine Nachricht versendet.</p>
       </fieldset></div><footer className={styles.editorFooter}><span>{chosen ? partySize + " Personen · " + chosen.table_label + " · " + minutes + " Minuten" : "Aktuellen Tisch wählen"}</span><button type="submit" className={styles.primary} disabled={busy || checking || !valid || !chosen}>{busy ? "Platziert …" : uncertain ? "Unverändert erneut versuchen" : "Walk-in platzieren"}</button></footer>

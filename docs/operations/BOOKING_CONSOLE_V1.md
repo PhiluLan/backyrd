@@ -548,3 +548,474 @@ an overlapping poll. Web typecheck, 42 contracts, lint (13 existing warnings)
 and the production build passed. No backend schema or grant was changed, so the
 preceding canonical 195-migration database evidence remains the backend basis;
 these browser cases prove client behavior, not a real multi-device pilot.
+
+## Weekly planning and restaurant booking blocks
+
+The capability-gated week view provides seven ordered Zurich civil dates, scoped
+to the selected service and room. It uses one owner/safety-protected weekly RPC
+with the restaurant shared lock, not seven unrelated daily reads. Counts are
+reservations whose start belongs to that civil day: pending/confirmed/arrived/
+seated are active; pending is also reported separately, and cancelled includes
+declined. Guest counts sum active party sizes and are not an occupancy quota.
+Guest identity/contact/note fields are absent from the summary; organizational
+block reasons retain the same private operator boundary. Opening a day preserves
+scope and immediately revalidates even when it is already the selected date.
+Incomplete/failed weeks do not become an apparently empty calendar. A weekly
+Safety/auth denial clears the whole private workspace and retires old callbacks.
+
+`booking_restaurant_closures` stores dated full-day or minute-aligned intervals,
+optionally limited to a service and/or room. A private civil-boundary CHECK also
+protects privileged writes. Partial blocks may end at 24:00; full days use the
+next local midnight and can be 23 or 25 actual hours. Nonexistent local block
+boundaries are rejected; ambiguous starts use the earliest occurrence and ends
+the latest, covering the continuous interval between those boundaries. The
+editor explains that behavior. Intervals are half-open at both booking/block
+boundaries. Existing setup clients leave these independent records intact.
+
+The closure RPC shares the restaurant FOR UPDATE lock with create, amendment,
+walk-in and configuration writes. It validates the complete scoped request,
+uses the settings revision, replays an already satisfied save/removal without
+another revision/audit entry, and never deletes or cancels a reservation. When
+active reserved intervals overlap a new/changed block, the write requires an
+explicit `keep_existing` acknowledgement. The affected count is computed again
+under the lock; changing scope resets the UI acknowledgement. Save/removal audit
+details retain the before/after rule, actor and affected count. A saved identical
+block can still replay after its date passes. Changing/creating blocks is limited
+to today and the next 365 days; removing an old rule remains safe with a revision.
+
+New booking suggestions, create and allocation-changing amendments use the same
+private block predicate; real-time walk-in allocation checks it too. Existing
+bookings can still receive guest corrections and normal attendance transitions,
+and replay of an original request remains valid after a block is introduced.
+The native editor preserves conflict drafts, freezes unknown saves/removals for
+an identical retry, and revalidates the possibly saved target date on explicit
+exit. Closure transport has a 15-second UI deadline; cancellation does not prove
+that the server transaction rolled back. A busy/uncertain block warns on unload.
+Full offline operation and durable recovery after a browser restart remain open.
+
+Planned slots now iterate actual instants rather than adding a duration to
+potentially nonexistent civil starts. Weekly service openings in a repeated hour
+use the earliest occurrence, closings the latest; missing weekly boundaries use
+PostgreSQL's forward shift. Walk-ins use the same service boundary rule. Real
+reservation duration and service end remain hard constraints. The time chooser
+labels duplicated autumn times with UTC offsets, and intervals crossing the
+clock change show both offsets. Table-time focus includes both valid occurrences
+of an ambiguous local time and none of a spring gap, with an explicit UI note.
+
+The two-connection closure/booking acceptance script observes a holder actually
+idle in its transaction and a second backend waiting on a PostgreSQL lock. It
+then commits the holder and tests both winners: a block rejects the waiting new
+booking; a booking forces the waiting block to request explicit preservation.
+The race runs only against an explicitly marked loopback test database and is
+part of the canonical database gate and its input receipt. All fixtures are
+synthetic; no production guest or signed-in reference account is mutated.
+
+This increment does not implement exceptional opening windows, overnight service
+adapters, room/service quotas, table combinations, guest checkout, notifications
+or staff invitations. These remain operating acceptance requirements. Backend
+activation requires the new cohort's migration-scoped recovery-risk approval and
+certified deployment. Merging code alone is not evidence of production delivery.
+
+Week-planning candidate validation on 2026-10-20: canonical 196-migration Supabase
+clean boot passed with all six Booking SQL suites, baseline authorization/race
+contracts, the observed two-connection closure race, ACL/schema snapshots and
+database lint. SQL acceptance includes original request replay after blocks,
+metadata correction, allocation rejection, scoped/half-open boundaries,
+explicit existing-booking preservation, revision conflicts, denied access,
+actual spring/autumn durations, a service opening in the repeated hour,
+nonexistent boundaries, 24:00 and saved-block replay after its date passes.
+The generated release record chains from table layout and is not a deployment.
+
+All 52 synthetic browser journeys passed, including week/day scope retention,
+seven desktop columns/320px layout, existing-reservation acknowledgement and
+removal, stale/incomplete/late weekly responses, Safety denial, ambiguous-time
+selection and table focus, midnight closing, unknown closure exit/replay and
+write timeout recovery. The week and native phone editor were visually inspected.
+Web typecheck, lint (13 existing warnings), 42 contracts, 25 CI receipt/delivery
+regression tests and the production build passed. Physical-device/restaurant
+acceptance and the new migration cohort's production activation remain open.
+
+## Restaurant team access
+
+Team roles are Booking-scoped and database-backed. The canonical Spot owner
+retains global Owner/profile authority; accepting a Booking invitation does not
+change `spots.owner_id` or the legacy `is_operator` predicate. Existing raw
+Booking-table SELECT policies remain Owner-only, and new team/invitation tables
+have RLS plus no authenticated/anonymous direct grants. Delegated access uses
+explicit checked RPCs, not editable user metadata or JWT role hints.
+
+| Booking role | Read book/availability | Reservations and attendance | Setup, plan, blocks | Team management |
+| --- | --- | --- | --- | --- |
+| Viewer / Nur lesen | Yes | No | No | No |
+| Host / Service | Yes | Yes | No | No |
+| Manager / Management | Yes | Yes | Yes | No |
+| Canonical owner | Yes | Yes | Yes | Yes |
+
+Each checked operation takes the restaurant lock before reading the live role:
+SHARE for reads, UPDATE for writes/management. Revocation uses the same lock.
+An already authorized write can finish before revocation; a request waiting
+behind a committed revocation must fail. Safety is checked for both acting user
+and canonical owner in deterministic UUID order, so staff cannot bypass a
+restricted owner through delegated work. The legacy Owner assertion stays
+Owner-only; all delegated RPC scopes are replaced explicitly. Ownership changes
+revoke memberships and invitations, including if the previous owner later
+returns. Role changes use per-member revisions; a revoked membership requires
+a fresh, explicitly accepted invitation rather than a role-edit resurrection.
+
+The new scoped Spot list discovers owned/delegated restaurants. Only a genuinely
+absent new RPC (`PGRST202`) may use the existing Owner-list fallback. Other access
+or transport errors do not fall back. A staff list paired with a snapshot lacking
+the new team capability fails closed instead of displaying legacy Owner actions.
+Snapshots return validated role/permission flags. Normal revalidation updates
+idle consoles; while a dialog/setup draft pauses guest-data refresh, a separate
+30-second permission-only check can retire the old callbacks, close inputs and
+reload after a role change, or clear private data after access/Safety denial.
+It is not instantaneous remote erasure, and offline clients still rely on the
+server check before every write.
+
+Only the owner issues an invitation. The browser creates a cryptographic
+32-byte token and request UUID, keeps the exact payload for uncertain retries,
+and receives the original invite ID/expiry on replay. The database stores only
+the SHA-256 token hash, target email, role and seven-day expiry. The private
+invite read model and audit never return/store the raw token. Invitation links
+use a URL fragment, which is removed from the address bar after handing off to
+tab-scoped session storage; token values are not put into login/registration
+query strings. The tab handoff is valid for one hour: stale records are discarded
+on entry and an active invitation expires on its timer/focus check. It also
+handles a link opened into an already-mounted Console. No guest payload is
+persisted by this mechanism.
+
+An invite preview requires authentication and the matching confirmed email;
+wrong/unverified accounts receive an unavailable result. The person reviews the
+restaurant and role before explicitly accepting. An accepted-token retry returns
+the current active membership role and cannot restore a downgrade, revocation
+or previous ownership. Pending, expired and revoked links cannot grant access.
+The owner can copy the newly confirmed link, revoke links and edit/revoke members
+with explicit confirmation. No invitation email is sent. Lost raw links cannot
+be read back from the database and must be revoked/recreated. Confirmed link
+creation resets the next invitation to the Service role. Separate role drafts
+retain their original member revision across roster reloads; they are never
+silently rebased onto another operator's change.
+
+Uncertain team writes freeze their operation for an identical retry and warn
+before exit. Unknown invitation acceptance retains the same link and cannot
+turn a replay into Owner controls. The private route remains no-store/noindex.
+The existing Owner login/profile system is reused; no second password store,
+service-role browser credential or automatic external message is introduced.
+
+Team candidate validation on 2026-10-20: canonical 197-migration Supabase clean
+boot passed with all eight Booking SQL suites, actual Owner/actor Safety measures,
+baseline authorization/races, ACL/schema snapshots and database lint. Permission
+acceptance includes a real stored reservation hidden from staff raw SELECT,
+Host booking/amendment/cancellation/admission, actual Manager layout/setup/block
+writes, Viewer write denial, email verification, cross-restaurant boundaries,
+spoofed user metadata, stale/replayed invitations, role/revocation replay and
+ownership transfer/back. Two live PostgreSQL connections prove both revocation
+lock orders in addition to the closure/reservation race.
+
+All 65 synthetic browser journeys passed, including the full previous Booking
+flows, role-specific actions, open-dialog downgrade/revocation, explicit member
+and link revocation, stale member drafts, uncertain link/acceptance replay,
+login handoff without token query strings, same-document links and one-hour
+expiry. The phone team panel was visually inspected. Web typecheck, production
+build, 42 contracts, lint (13 existing warnings) and 25 CI regression tests passed.
+The generated evidence is a development release chain, not production activation.
+A real restaurant/team/physical-device pilot, authenticated push updates, broader
+recovery rehearsal and guest communication remain required acceptance work.
+
+## Reservation history candidate (2026-10-20)
+
+Migration `20261020212626_booking_reservation_history_v1.sql` extends the existing
+reservation audit events, rather than introducing another booking write path or
+a second event ledger. Create, amendment, attendance/status and walk-in RPCs keep
+their signatures, existing authorization/locks, optimistic revisions and replay
+rules. Only their successful audit insert gains a versioned `details` object and
+an actual recording timestamp. No-op amendments, exact retries and rejected
+writes still produce no extra event.
+
+New events retain before/after operating facts: revision, status, party size,
+planned instants, table/service IDs and labels at recording time, and actual
+attendance/departure instants. They record the acting role at that time and use
+the canonical audit actor reference. Guest name, contact and internal note are
+represented only by changed-field markers, never by copies of their contents.
+Request IDs, creation fingerprints, invitation credentials and team contact
+lists are excluded. This is an operational audit trail, not a guest CRM or a
+claim that legal retention/deletion work is finished.
+
+`booking_console_history_v1(spot, reservation, before_id)` checks live scoped
+read access and owner/actor Safety using the same restaurant lock as delegated
+access. It verifies that both the reservation and optional cursor belong to the
+requested restaurant and reservation. A matching index supports descending
+`(created_at,id)` keyset reads, bounded to 50 events plus a one-row continuation
+probe. The response includes the current reservation revision and observation
+time. Existing audit grants/RLS remain unchanged; staff obtain only the scoped
+RPC projection. Private serialization helpers are not executable by clients.
+
+The Console advertises `reservation_history` only after the backend migration.
+The native reservation panel loads history on explicit expansion, appends older
+pages and offers a fresh reload. It shows actual before/after operating facts,
+privacy-preserving guest-field changes, time-zone offsets and account references;
+these references are not invented staff names. Older audit events have an honest
+missing-details explanation. No before/after data is reconstructed from today's
+reservation or configuration. An error never becomes an empty history, a failed
+page retains an explicit stale warning, denied access clears the entire private
+workspace, and cancelled or old-session responses cannot repopulate it. A newer
+history revision asks the operator to reload reservation data. Detailed history
+covers the upgraded RPC paths from activation onward; direct privileged/manual
+mutations are not claimed to have acquired a complete historical trigger audit.
+
+Acceptance: the canonical clean boot through 198 migrations passed all ten
+Booking SQL suites, baseline authorization checks, actual owner/actor Safety
+measures, existing two-connection allocation/revocation races and database lint.
+History SQL exercises real create/retry, status/retry, host amendment/retry,
+rescheduling, cancellation, walk-in/retry, guest-text minimization, raw audit RLS,
+legacy entries, tied-time multi-page reads, foreign reservation/cursor denial and
+revocation. The evidence receipt is
+`fb93525f935c07d5dde6d0117508c2319a7bf87dc69c8c9fd4046d5d73d71e36`;
+its release manifest is `booking-reservation-history-v1.json`.
+Production activation and a restaurant/team trial remain outstanding.
+
+Client acceptance: all 72 Booking browser journeys passed; the seven history
+journeys passed again after visual phone spacing and action-order adjustments.
+TypeScript, 42 Web contract tests, 16 database-evidence/coverage tests and lint
+passed (13 existing unrelated warnings). The production build uses synthetic
+local Supabase settings, not production credentials. History is a candidate on
+top of team access, not a production deployment or a resolution of the separate
+weekly-closure integration authorization.
+
+## Special hours and overnight service candidate (2026-10-20)
+
+Migration `20261020213718_booking_special_service_hours_v1.sql` adds explicit
+weekly overnight service endings and dated service windows. A weekday/date is
+the service's start day. A window may continue into the next calendar day and
+cover at most 24 civil hours, including 23/25-hour real days at DST transitions.
+Dated windows replace the weekly window for that service and start date; they
+may open an otherwise closed weekday or suppress that start-day service.
+A suppressed start-day service does not close carryover from the previous day;
+calendar-day closures remain the appropriate control for that case.
+
+One private service-window function drives planned availability, reservation
+amendments and actual walk-in admission. Calendar-day availability includes
+carryover from the previous service-start day but returns only slots beginning
+on the requested actual date. Generated instants use real elapsed duration and
+retain existing UTC-offset disambiguation. The common closure predicate checks
+every civil day touched by an occupied interval, so a post-midnight closure
+cannot be bypassed by starting a reservation the evening before.
+
+Dated-window writes require Manager/Owner access under the restaurant lock,
+current owner/actor Safety and the setup revision. Before/after eligibility is
+compared for active reservations in the affected two-day scope. Only newly
+ineligible reservations require explicit keep-existing acknowledgement;
+previously grandfathered reservations are not counted again. No reservation is
+cancelled or moved automatically. Reverting to weekly hours archives the dated
+record and retains its audit evidence. Identical saved/archived requests are
+no-ops. A private server clock captured after the write lock permits a still
+running or deliberately re-opened prior-day night service to be adjusted, while
+finished historical dates cannot be edited as new planning operations.
+
+The setup RPC retains the existing weekly-night flag when an older payload
+omits it. Its area/table/service upserts additionally check restaurant ownership
+at the unique-key conflict itself, closing the race between the initial foreign
+ID check and a concurrent insert. A real two-connection case holds another
+restaurant's resource insert uncommitted, observes the competing backend wait
+on PostgreSQL, then verifies that the loser cannot update the foreign resource
+and that its partial setup is rolled back. The same harness tests special-hours
+versus reservation writes in both lock orders. All fixtures require an explicitly
+isolated loopback database; none run against production data.
+
+The Console progressively exposes dated hours in day/week planning and weekly
+night endings in setup only with the backend capability. Native editors use
+editable numeric text drafts, explicit preservation/archive confirmation,
+immutable uncertain retries and the bounded RPC transport. Guest messages are
+not sent. Phone/desktop acceptance, canonical release evidence and production
+activation are tracked separately below; this candidate is not deployed merely
+because its source is implemented.
+
+Database acceptance: the canonical 199-migration clean boot passed all twelve
+Booking SQL suites, baseline authorization/Safety, the existing race suites and
+database lint. The receipt is
+`1b1e9647b58e8c11056697d49bdd17ea41e8118ef38477b7421cfe16788badb2`;
+release evidence is `booking-special-service-hours-v1.json`. SQL acceptance
+covers ordinary and weekly/dated night windows, actual calendar-day allocation,
+post-midnight closure overlap and exact touching boundaries, real post-midnight
+create/replay/admission, preservation acknowledgement and archive rollback,
+legacy omitted weekly-night keys, Manager/Host separation, owner/actor Safety,
+revocation, stale/cross-spot input, eleven/thirteen-hour DST nights, non-existent
+civil times and controlled prior-day planning-clock boundaries. A global
+schema-history rewrite or production schema operation was not performed.
+
+The UI indicates an end on a later civil day explicitly, for example
+`01:30 (+1 Tag)`, in the contextual editor, reservation book and details. Archive
+requests discard incomplete local time/interval drafts and carry only the
+selected resource plus explicit preservation acknowledgement. An archived entry
+is not silently recreated by an uncertain retry. A current read is always
+loaded after success; another operator may subsequently add a replacement dated
+window. None of these automated checks is a physical-phone or restaurant trial.
+
+Final client validation: all 82 Booking browser journeys passed on the final
+runtime code, including weekly night-service persistence, dated midnight
+carryover, explicit preservation, archival with an unfinished numeric draft,
+immutable uncertain/deadline retries, revision conflicts, read-only roles,
+management revocation and explicit next-day reservation endings. The 320px
+editor screenshot was visually inspected, with no horizontal overflow and a
+reachable save footer. TypeScript, 42 Web contract tests, 64 CI
+classification/evidence/coverage tests, lint (13 existing unrelated warnings)
+and the production build with synthetic local Supabase settings passed.
+This candidate depends on reservation history/team/week planning; all production
+activation and restaurant trials remain outstanding.
+
+## Multi-table allocation foundation (2026-10-21)
+
+Migration `20261020220109_booking_table_allocations_v1.sql` introduces the private
+physical-table allocation relation for each canonical reservation. It does not
+advertise a combinations capability or expose an incomplete public reservation
+API. The complete operator create/amend/walk-in workflow and client rendering
+remain the next increment; a private helper is not an Aleno parity claim.
+
+Existing single-table writes keep their RPC contracts. A pinned private trigger
+synchronizes active allocations when the canonical reservation's planned range,
+status or revision changes. The allocation relation has composite restaurant
+foreign keys, no client grants, RLS, a per-table occupied-range exclusion and
+one seated party per physical table. Completion releases all members, including
+secondary tables; cancelled/declined/no-show states no longer occupy planned
+inventory. Inactive former membership rows are retained. They are membership
+state, not an additional reservation history or guest-record ledger.
+
+Private `assign_reservation_tables_v1` is a building block for the following
+public contract. Under current operator/Safety access and the common restaurant
+lock it checks reservation revision, unique bounded membership (one to four),
+canonical primary retention, active resources in one area, total chair capacity,
+current service windows/closures and conflicting allocations. Identical target
+sets are no-ops even if their order differs. Changes are limited to future
+pending/confirmed reservations and audited without guest text. A legacy primary
+move cannot silently discard additional members. Later combined creation,
+full amendment, actual seated moves and configured combination eligibility must
+extend this path deliberately; they are not implemented by the private helper.
+
+Planned and amendment availability, current walk-in occupancy and closure impact
+reads now use all active allocations. The unchanged single-table primary pointer
+is a compatibility field. All user-facing table lists/plans and reservation
+history must show the complete member set before a combinations capability is
+enabled. Configuration checks that currently compare party size with a primary
+table must also be extended before real combined reservations can be operated.
+The next public contract must preserve full-payload creation/amendment replay,
+not infer that a matching membership set proves unrelated guest edits succeeded.
+
+Initialization explicitly starts one transaction because the pinned Supabase
+runner does not wrap whole migration files in a transaction. A reservation-table
+write lock spans trigger installation and the nonempty backfill. Chunks are
+bounded to 500 with progress notices; more than 5,000 existing reservations fails
+closed and requires a separately reviewed staged backfill. Under failure the
+transaction rolls back; do not manually continue half an initialization. The
+native PostgreSQL 16 supplement exercised a nonempty local backfill and compared
+its fields with the existing canonical record. Canonical PostgreSQL 17 clean
+boot/authorization/race execution is recorded separately when complete.
+
+Release-evidence boundary: the existing application-schema fingerprint v1
+explicitly covers `public` and `decision_lab`. Private Booking definitions and
+ACLs therefore need an additional scoped production-drift comparison before a
+new production activation; do not present that v1 hash as comprehensive private
+schema coverage. Migration hashes and isolated execution remain current source
+and test evidence. This follow-up does not authorize changing historic release
+fingerprints or applying unapproved production migrations.
+
+Final foundation acceptance: canonical PostgreSQL 17 clean boot through 200
+migrations passed all fourteen Booking SQL suites, baseline authorization and
+actual owner/actor Safety measures, the existing planning/revocation/resource
+races and the new secondary-table assignment race, plus database lint. Both
+competitors start with distinct primary tables; after an observed PostgreSQL
+lock wait exactly one adds the shared table and the loser's membership/revision
+remain unchanged. SQL also covers six guests across two four-chair tables,
+insufficient capacity, order-independent retry, membership retirement/reactivation,
+legacy-primary-move rollback, secondary physical seating after an overstay,
+all-member departure and raw/private access denial. The receipt is
+`73258147fd73803c9bf47a671f25bc6a19a74054b19e1d0a1934dbb4778d7e8c`;
+release evidence is `booking-table-allocations-v1.json`. Sixty-four CI
+classification/evidence/coverage tests passed. No Web runtime or public RPC
+contract changed in this foundation; the prior 82 mocked Web journeys are not
+represented as end-to-end multi-table acceptance.
+
+A separate native PostgreSQL 16 rollback probe inserted 5,001 synthetic records
+inside a transaction, ran the actual initialization, observed the staged-backfill
+exception before new DDL and verified unchanged reservation count plus the
+restored allocation schema after connection rollback. The guard now runs before
+the unique index build. No production data or production schema was used.
+
+## Configured table combinations (2026-10-21)
+
+Migration `20261020221656_booking_table_combinations_v1.sql` completes the
+operator workflow on the allocation foundation. Owner/Manager can configure
+up to 100 active, compatible groups of two to four active tables in one room,
+with an explicit party limit bounded by their summed chairs. An identical
+active physical footprint cannot be configured twice. Configuration changes
+and archival affect future choices; existing reservations keep their saved
+physical membership and continue to block every member.
+
+Capability-gated `slots_v2`, `create_v2`, `amend_v2`, `walk_in_slots_v2` and
+`walk_in_v2` return/accept the full table set plus configured group identity.
+Singles remain available. Restaurant/service/room eligibility, dated and
+night-service windows, interval grid, actual closure dates, party capacity and
+all-member collisions are checked under current access/Safety and the common
+restaurant lock. A client cannot invent a table set from arbitrary table IDs.
+Availability can be narrowed by service, room and minute; more than 10,000
+choices returns an explicit scope error instead of silently omitting inventory.
+Minute filtering retains both instants during a daylight-saving clock fold.
+
+The canonical reservation remains one record with one guest count. Its primary
+table is retained for compatibility; the physical allocation relation is the
+occupancy source. Create/amend/walk-in share a private membership writer. A
+combined amendment can replace the entire member set and primary in one
+transaction. Legacy inventory amendments cannot silently split a group;
+metadata corrections and service-status transitions continue to work. Setup
+changes cannot invalidate active definitions or the resources/capacity of
+future occupying reservations and seated parties, including overstays.
+
+A private request registry hashes the normalized complete operation, including
+operation kind, initial status and all selected members. It stores the original
+operational outcome, not another copy of guest contact/note fields. Replaying
+creation after amendment/group archival or walk-in after departure returns that
+original outcome without reapplying old guest text or seating another party.
+Amendment replays remain valid after a later correction. Current access and
+both acting-user/owner Safety are enforced before replay. Hashes are not a
+claim of anonymization; registry retention must be included in the planned
+Booking data-lifecycle work before public guest checkout.
+
+The Web Console shows every saved table in the book, details, amendment and
+change history. Current seating and table-plan occupancy appear on each member;
+summary metrics count the parent reservation once. The management drawer uses
+editable numeric drafts and an area-scoped table selection; its reference
+primary is assigned internally. Archival uses the saved definition, including
+when an unfinished numeric draft is invalid. Unknown writes freeze the exact
+operation; leaving asks for review of the current server state. Viewer/Host
+can read full membership but cannot configure groups. Legacy backends retain
+V1 calls and controls until the capability is actually returned.
+
+Canonical acceptance: PostgreSQL 17 clean boot through all 201 migrations,
+sixteen Booking SQL suites and actual two-connection races passed. The new
+public API tests cover configured compatibility, all-member create/reschedule,
+capacity/configuration rollback, archived definitions with retained occupancy,
+legacy split prevention, after-amendment creation replay, after-later-edit
+amendment replay, immediate walk-in and replay after departure. Authorization
+acceptance exercises Viewer/Host/Manager, forged metadata, cross-restaurant
+access, private ACLs/RLS, real Safety measures on both owner and actor, recovery
+and revoked-host replay. Concurrent public writes sharing one secondary table
+create exactly one party; simultaneous identical requests create one parent,
+one request record and one audit event. The race harness fixes one business
+date before starting either connection to avoid midnight-dependent payloads.
+Receipt: `7bb7d083aa2258092a4ff83acd6255ffbc327b9c0d68f442679a376fc9b722fd`.
+Release evidence: `booking-table-combinations-v1.json`.
+
+Production activation, scoped private-schema drift validation, physical phone
+checks and a restaurant/team trial remain outstanding. Moving an already
+seated party, service quotas, guest checkout/communication and durable recovery
+are separate open capabilities. This is no Aleno parity claim.
+
+Final client acceptance on this runtime: all 92 existing/combined browser
+journeys passed; four additional focused cases passed for archival with an
+unfinished numeric field, stale configuration, manager revocation during an
+open group draft and recovery from an oversized availability scope by minute
+filtering (96 total). The 320px combination editor was visually inspected:
+no horizontal overflow, readable choices and reachable save footer. TypeScript,
+42 Web contract tests, 69 CI classification/evidence/coverage tests, lint
+(13 existing unrelated warnings) and the production build passed. No production
+schema, guest records or external messages were changed by this acceptance.
