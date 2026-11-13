@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "booking-public-owner-cleanup-v1",
+  "previousEvidence": "booking-public-intake-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "49ee7eea0f56a7973db5d443cc7dabe02935fecd352e34885ad6b8f62871112f",
+    "applicationSchemaSha256": "54bdff61a2e5a86226919d30aa809e5b7c7cbe228cd27c3c1687c4c08d45d8b7"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20261020232712_booking_public_owner_cleanup_v1.sql",
+      "sha256": "2bd8e6e7cb397cde54a672410cafff71ed1c8e7ac8b0cb60dfae8fa97173b302"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/booking_public_owner_cleanup_v1.sql",
+      "sha256": "e27b48e6d74cdfafb589b74a413fce519e4592b1e1363c3c2472ff6cc42f1a73"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "49ee7eea0f56a7973db5d443cc7dabe02935fecd352e34885ad6b8f62871112f",
+    "applicationSchemaSha256": "3fde02d4bb42fabfcf389c7b2b7ffd729b3b724b4eba905e5646bf2d1adbd35c"
+  }
+}
