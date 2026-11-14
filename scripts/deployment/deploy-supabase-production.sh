@@ -33,7 +33,7 @@ supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json > deplo
 
 jq -e --slurpfile live deployment-audit/functions-before.json '
   (.codeOnlyDeliveryScope.existingFunctionReceipt.functions // []) | all(. as $bound |
-    any($live[0][]; .slug == $bound.slug and .version == $bound.version and .ezbr_sha256 == $bound.bundleHash)
+    any($live[0][]; .slug == $bound.slug and .status == "ACTIVE" and .verify_jwt == true and .version >= $bound.version and .ezbr_sha256 == $bound.bundleHash)
   )
 ' "$plan_path" >/dev/null
 
