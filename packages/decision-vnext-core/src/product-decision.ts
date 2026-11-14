@@ -126,6 +126,10 @@ function rankingChecks(left: CandidateForRanking, right: CandidateForRanking): r
   ];
 }
 
+export function decisionCandidateOrderReason(left: CandidateForRanking, right: CandidateForRanking): string | null {
+  return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[1] ?? null;
+}
+
 function compareCandidates(left: CandidateForRanking, right: CandidateForRanking): number {
   return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[0] ?? 0;
 }
@@ -173,7 +177,7 @@ function rankCandidateRows(rows: readonly RankedCandidate[], situationalIds: Rea
   return deepFreeze(rows.map((candidate) => {
     const ranked = rankable(candidate, situationalIds); if (ranked) position += 1;
     const next = ranked ? rankedRows[position] : undefined;
-    const decidingFactor = next ? rankingChecks(candidate, next).find(([difference]) => difference < 0)?.[1] : undefined;
+    const decidingFactor = next ? decisionCandidateOrderReason(candidate, next) : null;
     const comparativeReason: ProductReason | null = decidingFactor
       ? { code: "product-rank-versus-next-v1", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: `Vor dem nächsten Platz wegen ${decidingFactor}.`, confirmed: true } : null;
     return { ...candidate, rank: ranked ? position : null, comparativeReason };

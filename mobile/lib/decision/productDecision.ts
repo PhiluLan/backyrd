@@ -70,12 +70,32 @@ export async function recordDecisionProductInteraction({
   });
 }
 
+export type PersonalDecisionTrace = {
+  handoff: null | { facts: { id: string; key: string; modality: string; value: unknown }[] };
+  ranked: { spot: string; rank: number | null; tier: string; beforeNext: string | null;
+    facts: { factId: string; state: string; reason: string }[]; matchedPreferences: string[] }[];
+};
+
+function unpackPersonalTrace(value: unknown, onTrace?: (trace: PersonalDecisionTrace) => void): unknown {
+  if (onTrace && value && typeof value === "object" && "result" in value && "personalTrace" in value) {
+    const trace = value.personalTrace;
+    if (trace && typeof trace === "object" && "handoff" in trace && "ranked" in trace && Array.isArray(trace.ranked)
+      && (trace.handoff === null || typeof trace.handoff === "object" && trace.handoff && "facts" in trace.handoff && Array.isArray(trace.handoff.facts))) {
+      onTrace(trace as PersonalDecisionTrace);
+    }
+    return value.result;
+  }
+  return value;
+}
+
 export async function invokeDecisionProduct({
   supabase,
   request,
+  onTrace,
 }: {
   supabase: SupabaseClient;
   request: DecisionProductRequest;
+  onTrace?: (trace: PersonalDecisionTrace) => void;
 }): Promise<DecisionProductResponse> {
   const accessToken = await freshAccessToken(supabase);
   return executeDecisionProductSingleRoute({
@@ -86,14 +106,14 @@ export async function invokeDecisionProduct({
       const abort = new AbortController();
       const { data, error } = await withinDecisionDeadline(supabase.functions.invoke<unknown>(
         DECISION_PRODUCT_RELEASE_BINDING.transportFunction,
-        { body: request, headers: { Authorization: `Bearer ${accessToken}`, "x-region": "eu-central-2" }, signal: abort.signal },
+        { body: request, headers: { Authorization: `Bearer ${accessToken}`, "x-region": "eu-central-2", ...(onTrace ? { "x-backyrd-personal-trace": "1" } : {}) }, signal: abort.signal },
       ) as Promise<InvokeResult<unknown>>, 33_000, "decision_request_transport_timeout", () => abort.abort());
       if (error && typeof error === "object" && "context" in error && error.context instanceof Response && error.context.status === 422) {
-        const failure = decisionProductInputFailure(await error.context.json());
+        const failure = decisionProductInputFailure(unpackPersonalTrace(await error.context.json(), onTrace));
         if (failure) throw failure;
       }
       if (error || !data) throw error ?? new Error("decision_single_route_empty_response");
-      return data;
+      return unpackPersonalTrace(data, onTrace);
     },
   });
 }
