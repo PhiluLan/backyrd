@@ -118,6 +118,18 @@ try {
       return route.abort("blockedbyclient");
     }
     if (path === "/rest/v1/messages" && chatLoadFail) return route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"synthetic chat load outage"})});
+    if (path === "/rest/v1/rpc/distribution_trust_spot_catalog_v1") {
+      const term = request.postDataJSON()?.p_query;
+      const rows = term === "Club" ? [
+        { id: spots[1].spotId, name: "Testclub", category_name: "Nachtleben", city: "Bern" },
+        { id: spots[2].spotId, name: "Zoo mit Club im Namen", category_name: "Zoo", city: "Bern" },
+      ] : term === "Café" || term == null ? [
+        { id: spots[0].spotId, name: "Katalogort Bern", category_name: "Café", city: "Bern" },
+      ] : [];
+      return route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify(rows)});
+    }
+    if (path === "/rest/v1/spot_hours") return route.fulfill({status:200,contentType:"application/json",body:"[]"});
+    if (path === "/rest/v1/spots" && url.searchParams.get("select") === "id,lat,lng") return route.fulfill({status:200,contentType:"application/json",body:"[]"});
     if (path === "/rest/v1/rpc/get_my_direct_chats_v1") return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify([{chat_id:"55555555-5555-4555-a555-555555555555",other_user_id:"66666666-6666-4666-a666-666666666666",other_display_name:"Chat Test",unread_count:0}])});
     if (path === "/rest/v1/rpc/send_message_v2") {
       const body=JSON.parse(request.postData()??"{}");
@@ -293,7 +305,7 @@ try {
   const compactName=await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Café Vorher",{exact:true}).boundingBox();
   const compactDetails=await page.getByText("Details & Hinweise",{exact:true}).first().boundingBox();
   assert.ok(compactName && compactDetails && compactName.y+compactName.height<=compactDetails.y,"Spot name and details action remain readable on small screens");
-  await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Die Art des Angebots passt zu deinem Wunsch.",{exact:true}).waitFor();
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).waitFor();
   // Real touch swipe, not a rejection action or another model call.
   const cdp=await context.newCDPSession(page);
   await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:270,y:170}]});
@@ -306,12 +318,12 @@ try {
   await page.setViewportSize({width:390,height:844});
   await page.getByText("Details & Hinweise",{exact:true}).first().click();
   await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).waitFor();
-  await page.getByText("Die Art des Angebots passt zu deinem Wunsch.",{exact:true}).filter({visible:true}).last().waitFor();
+  await page.getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).filter({visible:true}).last().waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
   assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
-  await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Die Art des Angebots passt zu deinem Wunsch.",{exact:true}).waitFor();
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).waitFor();
   assert.equal(await page.getByText(/World-Version 1/).count(), 0, "internal evidence stays out of the consumer UI");
 
   assert.equal(state.decisions.every((item) => item.contractVersion === DECISION_PRODUCT_CONTRACT.request), true);
@@ -320,7 +332,7 @@ try {
   // A recommendation keeps its grounded context only when opened from this search.
   await page.getByRole("button", {name:"Café Vorher entdecken",exact:true}).click();
   await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).waitFor();
-  await page.getByText("Die Art des Angebots passt zu deinem Wunsch.",{exact:true}).filter({visible:true}).last().waitFor();
+  await page.getByText("Das Angebot hier passt zu deinem Plan.",{exact:true}).filter({visible:true}).last().waitFor();
   await page.getByRole("button",{name:"Zurück zu deinen Vorschlägen",exact:true}).click();
   await page.getByText("1 / 5",{exact:true}).waitFor();
 
@@ -346,7 +358,9 @@ try {
   await page.getByRole("button",{name:"Suche ändern",exact:true}).click();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByText(/Wohin kann gerade keine verlässlichen Vorschläge zeigen|Vorschläge nicht verfügbar/).waitFor();
-  assert.equal(await page.getByTestId("wohin-result-card").count(), 0, "unavailable search never retains a recommendation card");
+  await page.getByText("Orte zum Entdecken", {exact:true}).waitFor();
+  await page.getByRole("button", {name:/Katalogort Bern/}).waitFor();
+  assert.equal(await page.getByTestId("wohin-result-card").count(), 0, "a general catalog spot is never presented as a Decision match");
   const diagnostic = JSON.parse((await failureReport).postData());
   assert.equal(diagnostic.p_context.phase,"LOAD");
   assert.equal(diagnostic.p_context.http_status,503);
@@ -355,6 +369,20 @@ try {
   assert.equal(state.unexpectedRemote.length, 0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.equal(overflow, 0);
+
+  await page.getByRole("button", {name:"Anfrage ändern",exact:true}).click();
+  await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).fill("Teriyaki essen in Bern, es muss aber ein Club in der Nacht sein");
+  await page.getByText("Orte finden", {exact:true}).click();
+  await page.getByRole("button", {name:/Testclub/}).waitFor();
+  await page.getByRole("button", {name:"Asiatisch essen",exact:true}).waitFor();
+  assert.equal(await page.getByText("Zoo mit Club im Namen",{exact:true}).count(), 0);
+  await page.getByRole("button", {name:"Anfrage ändern",exact:true}).click();
+  await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).fill("XYZ");
+  await page.getByText("Orte finden", {exact:true}).click();
+  await page.getByRole("button", {name:"Kultur",exact:true}).waitFor();
+  assert.equal(await page.getByRole("button", {name:/Testclub|Katalogort Bern/}).count(), 0);
+  await page.getByRole("button", {name:"Kultur",exact:true}).click();
+  assert.match(await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).inputValue(), /Kulturelles/);
 
   state.unavailable = false;
   await page.goto(appUrl, {waitUntil:"domcontentloaded"});
@@ -539,7 +567,7 @@ try {
   assert.equal(await guestPage.getByText("Wohin", { exact: true }).count(), 0, "personalized Decision tab is unavailable to guests");
   await guestContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, guestDiscovery: true, cameraFirstDraft: true, manualPlaceWithoutLocation: true, moodsPreservedOnPlaceChoice: true, noAutomaticMomentPublishing: true, explicitMomentConfirmation: true, connectedMomentDiscovery: true, groundedPlaceContext: true, directPlaceHasNoPersonalClaim: true, homeSafetyVisibility: true, protectedDraftDiscard: true, favoriteWriteRecovery: true, placeSafetyFailClosed: true, unavailablePlaceRetry: true, forwardedPlaceSearch: true, passwordVisibility: true, safetyLockPreserved: true, passwordRecoverySmallLarge: true, cancelledEventActions: true, chatLoadRecovery: true, chatDraftFailureRecovery: true, chatRetryIdempotency: true, chatPendingEditPreserved: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, fullscreenCards: true, touchSwipe: true, compactViewport: true, offscreenImpressionsSuppressed: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableShowsCatalogWithoutDecisionMatch: true, productionActions: 0 })}\n`);
 } catch (error) {
   if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) {
     for (const ctx of browser.contexts()) for (const [index, tab] of ctx.pages().entries()) await tab.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/failure-${index}.png`}).catch(()=>undefined);

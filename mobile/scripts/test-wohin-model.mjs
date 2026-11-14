@@ -7,7 +7,7 @@ import { validateDecisionProductRequest } from "@backyrd/product-decision-contra
 
 const source = fs.readFileSync(new URL("../lib/decision/wohinModel.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
+const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinDiscoveryDirections, wohinDiscoveryCategories } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
 
 test("Wohin sends only the new free text and profile city", () => {
   const request = createWohinRequest({ query: "  Sonntag   gemütlich Kaffee trinken  ", city: "Basel", requestId: "test-request-1" });
@@ -86,8 +86,8 @@ test("Wohin offers a follow-up without turning unverified places into recommenda
   const candidate = { rank: null, contextualReject: false, failedHardConstraints: [], unknownHardConstraints: ["OPEN_ON_REQUESTED_DAY"] };
   const response = { primaryCandidateId: null, limitations: [], candidates: [candidate] };
   assert.deepEqual(visibleWohinCandidates(response), []);
-  assert.match(wohinFollowUp(response).message, /nicht bestätigen/);
-  assert.match(wohinFollowUp({ ...response, candidates: [{ ...candidate, failedHardConstraints: ["CLOSED"] }] }).message, /keinen ausreichend belegten Vorschlag/);
+  assert.match(wohinFollowUp(response).message, /noch unsicher/);
+  assert.match(wohinFollowUp({ ...response, candidates: [{ ...candidate, failedHardConstraints: ["CLOSED"] }] }).message, /keinen passenden Ort/);
   assert.match(wohinFollowUp({ ...response, limitations: ["CORE_INTENT_REQUIRES_CLARIFICATION"] }).message, /Was möchtest du/);
   assert.match(wohinFollowUp({ ...response, limitations: ["REQUEST_NEEDS_CLARIFICATION"] }).message, /Budget pro Person/);
   assert.match(wohinFollowUp({ ...response, limitations: ["MULTI_PLACE_SEARCH_UNSUPPORTED"] }).message, /Mit welchem/);
@@ -117,7 +117,7 @@ test("one sentence uses only confirmed World evidence and does not promote possi
   assert.match(wohinRecommendation({...base,reasons:[reason]}),/fehlen/);
  }
  assert.match(wohinRecommendation({...base,reasons:[{code:"LBR:drink",domain:"WORLD",confirmed:true,statement:"Bestätigt: die Getränkeauswahl."}]}),/Getränk/);
- assert.match(wohinRecommendation({...base,reasons:[{code:"core-intent-confirmed",domain:"WORLD",confirmed:true,statement:"internal"}]}),/passt zu deinem Wunsch/);
+ assert.match(wohinRecommendation({...base,reasons:[{code:"core-intent-confirmed",domain:"WORLD",confirmed:true,statement:"internal"}]}),/passt zu deinem Plan/);
 });
 
 test("birthday cards explain the confirmed meal, visit window and spot-specific atmosphere", () => {
@@ -127,7 +127,7 @@ test("birthday cards explain the confirmed meal, visit window and spot-specific 
  const dinner = { actualAvailability: "open", reasons: [meal, mood] };
  assert.equal(wohinRecommendation(dinner, interpretation), "Hier kannst du am gewünschten Abend gemütlich essen gehen.");
  assert.equal(wohinRecommendation({ ...dinner, reasons: [meal] }, interpretation), "Hier kannst du am gewünschten Abend essen gehen.");
- assert.equal(wohinRecommendation({ ...dinner, actualAvailability: "unknown" }, interpretation), "Hier kannst du gemütlich essen gehen.");
+ assert.equal(wohinRecommendation({ ...dinner, actualAvailability: "unknown" }, interpretation), "Hier kannst du gemütlich essen gehen. Schau vor dem Losgehen kurz nach, ob du zur gewünschten Zeit vorbeikannst.");
  assert.doesNotMatch(wohinRecommendation(dinner, { ...interpretation, moods: ["cozy", "romantic"] }), /gemütlich|romantisch|klein/);
 });
 
@@ -175,5 +175,44 @@ test("Wohin shows documented options with their unresolved condition", () => {
   assert.deepEqual(visibleWohinCandidates({primaryCandidateId:null,candidates:[nearby],clarification:"Was möchtet ihr machen?"}),[nearby]);
   assert.match(wohinRecommendation(weather),/bei Regen/);
   assert.deepEqual(visibleWohinCandidates({primaryCandidateId:null,candidates:[dinner]}),[dinner]);
-  assert.match(wohinRecommendation(dinner),/Küchenstil und Preisniveau sind noch offen/);
+  assert.match(wohinRecommendation(dinner),/Ob Küche und Preise zu deinem Plan passen/);
+});
+
+test("provisional visits accepted by the server remain visible and explicitly uncertain", () => {
+  const visit = { rank: null, tier: "UNCONFIRMED_FALLBACK", contextualReject: false, failedHardConstraints: [],
+    reasons: [{ code: "librarian-provisional-visit", statement: "Eine Bedingung bleibt offen." }] };
+  assert.deepEqual(visibleWohinCandidates({primaryCandidateId:null,candidates:[visit,{...visit,actualAvailability:"closed"},{...visit,failedHardConstraints:["ACCESS"]}]}),[visit]);
+  assert.match(wohinRecommendation(visit), /Ein Punkt ist noch offen/);
+});
+
+test("card copy shows the exact evidence and prioritizes a caveat about visiting", () => {
+ const fact = (label, confirmed) => ({code: confirmed ? "LBR_EVIDENCE:match" : "LBR:open",
+  domain: confirmed ? "WORLD" : "LIMITATION", confirmed,
+  statement: `${confirmed ? "Bestätigt" : "Noch nicht bestätigt"}: ${label}.`});
+ const context = { dateTime: {dayPhase: "EVENING"} };
+ const card = (confirmed, missing = [], actualAvailability = "open") => ({
+  reasons: [fact(confirmed, true), ...missing.map(label => fact(label, false))], actualAvailability,
+ });
+ assert.equal(wohinRecommendation(card("Cocktails"), context), "Hier bekommst du abends Cocktails.");
+ assert.equal(wohinRecommendation(card("Getränke vor Ort", ["Cocktails"]), context),
+  "Hier kannst du abends etwas trinken gehen. Ob es Cocktails gibt, ist noch offen.");
+ assert.equal(wohinRecommendation(card("Cocktails", ["die Grösse des Lokals"], "unknown"), context),
+  "Hier gibt’s Cocktails. Schau vor dem Losgehen kurz nach, ob du zur gewünschten Zeit vorbeikannst.");
+ assert.equal(wohinRecommendation(card("WLAN", ["eine ruhige Atmosphäre"])),
+  "Hier gibt’s WLAN. Wie ruhig es bei deinem Besuch ist, wissen wir noch nicht.");
+ assert.match(wohinRecommendation(card("die Essensmöglichkeit", ["die Grösse des Lokals"]), context), /Wie gross das Lokal ist/);
+});
+
+test("unmatched teriyaki and club request keeps nightlife first and Asian food as a separate direction", () => {
+  const directions = wohinDiscoveryDirections("Teryaki essen in Basel, es muss aber ein Club in der Nacht sein");
+  assert.deepEqual(directions.map(direction => direction.label), ["Clubs", "Asiatisch essen"]);
+  assert.equal(directions[0].category.test("Nachtleben"), true);
+  assert.equal(directions[0].category.test("Zoo"), false);
+  assert.deepEqual(wohinDiscoveryDirections("Teriyaki essen, kein Club").map(direction => direction.label), ["Asiatisch essen"]);
+});
+
+test("uninterpretable wishes offer category choices and ignore directions from NukNuk's questions", () => {
+  assert.deepEqual(wohinDiscoveryDirections("XYZ"), []);
+  assert.deepEqual(wohinDiscoveryDirections("XYZ Rückfrage: Suchst du einen Club? Antwort: keine Ahnung"), []);
+  assert.ok(wohinDiscoveryCategories().some(direction => direction.label === "Kultur"));
 });
