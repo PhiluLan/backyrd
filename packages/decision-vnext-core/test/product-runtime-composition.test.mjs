@@ -30,9 +30,16 @@ test("Product projection canonicalization works without a global Node Buffer in 
 const actor = { userId: "11111111-1111-4111-a111-111111111111", subjectBindingHash: hash("subject"), authenticationContextHash: hash("auth"), sessionBindingHash: hash("session-binding"), sessionId: "22222222-2222-4222-a222-222222222222" };
 
 test("decision-v13 composes canonical Product providers without unavailable, Founder or legacy fallbacks", () => {
-  assert.match(edge, /createDecisionProductRpcEvaluationProvider\(rpc, \{ meaningRequired: true \}\)/);
+  assert.match(edge, /createDecisionProductRpcEvaluationProvider\(rpc, \{\s*meaningRequired: true,/);
   assert.match(edge, /createDecisionProductRpcLearningPort\(rpc, config\.identity\)/);
   assert.doesNotMatch(edge, /unavailableEvaluationProvider|unavailableLearningPort|from .*founder|from .*legacy/i);
+});
+
+test("Wohin diagnostics require the verified personal account and stay outside recorded Product data", () => {
+  assert.match(edge, /mayReturnTrace = traceRequested && provider === "nuknuk-personal" && actor.userId === personalNuknukUser/);
+  assert.match(edge, /if \(!mayReturnTrace \|\| !\[200, 422\]\.includes\(response.status\)\) return withCors\(response, origin\)/);
+  assert.match(edge, /JSON\.stringify\(\{ result, personalTrace: trace \}\)/);
+  assert.doesNotMatch(edge, /meaning\.sourceText|meaning\.source\.sourceText/);
 });
 
 test("Product context RPC is service-only, area-bound and reads personal state only after consent", () => {
