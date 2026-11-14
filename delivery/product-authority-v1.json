@@ -204,6 +204,42 @@
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
       }
     ],
-    "source": "Founder approved the Decision-only backend and matching iOS OTA on 2026-11-14. Applied Social and Weather deployments retain their independent production receipts. Pending SQL stays deferred."
+    "source": "Founder approved the Decision-only backend and matching iOS OTA on 2026-11-14. Applied Social and Weather deployments retain their independent production receipts. Pending SQL stays deferred.",
+    "existingFunctionReceipt": {
+      "sourceSha": "422803e03b910db1770b7a44be1ea78f09a3e0bd",
+      "deploymentRunId": 42385325625,
+      "functions": [
+        {
+          "slug": "decision-engine-worker",
+          "version": 137,
+          "bundleHash": "673f6267fb941e1edc551062971e082797dc53f372b612c3ac113113aae25a61",
+          "sourceSetHash": "c1dd465cac38ecc288059242e5291cb93202726242d09a09c9bf4df8c3d0fd40"
+        },
+        {
+          "slug": "decision-north-star-internal",
+          "version": 124,
+          "bundleHash": "ac4ac51b808d058bac3fe752722e7e372299458fd422dfd0f18bc989afcf13ae",
+          "sourceSetHash": "4458bfacc04a503632ff7cdde68be72457add562a4df3b0dffaca7f347a0f59d"
+        },
+        {
+          "slug": "generate-data-export",
+          "version": 93,
+          "bundleHash": "dfe19bd411e7e21eb3e1edd60adb483253aa9462116f69fd09fbf49400dfc7f1",
+          "sourceSetHash": "9a6f0e96b0b03a62d23c0d2bab81c465e074faebbb65e9192d54448efa206c16"
+        },
+        {
+          "slug": "safety-evaluate",
+          "version": 103,
+          "bundleHash": "3b7b0cf62811ea1058226480a53855840581c9ebf10a9ca69c3ce1ce3054c336",
+          "sourceSetHash": "f4a019960a26c463c5fb1a2cdfdc55848bb6c5ab23f34492107217257580a4d3"
+        },
+        {
+          "slug": "weather-context",
+          "version": 1,
+          "bundleHash": "46e3d05a890d0dcdad797a9a6e2024839142173b0197ccb9650513a1166096be",
+          "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
+        }
+      ]
+    }
   }
 }

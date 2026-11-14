@@ -31,6 +31,12 @@ test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "SUPABASE_ACCESS_TOKEN required" 
 
 supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json > deployment-audit/functions-before.json
 
+jq -e --slurpfile live deployment-audit/functions-before.json '
+  (.codeOnlyDeliveryScope.existingFunctionReceipt.functions // []) | all(. as $bound |
+    any($live[0][]; .slug == $bound.slug and .version == $bound.version and .ezbr_sha256 == $bound.bundleHash)
+  )
+' "$plan_path" >/dev/null
+
 if test "$(jq -r '.authConfig.deploy // false' "$plan_path")" = "true"; then
   node scripts/deployment/apply-supabase-auth-config.mjs \
     --plan "$plan_path" \
