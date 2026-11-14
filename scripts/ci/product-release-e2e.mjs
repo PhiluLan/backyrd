@@ -254,9 +254,9 @@ try {
   await page.getByRole("button",{name:"Moment schließen",exact:true}).click();
   await page.getByRole("textbox",{name:"Was willst du machen?",exact:true}).waitFor();
   await page.getByText("Wohin", { exact: true }).last().click();
-  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).waitFor({ timeout: 30000 });
-  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("Sonntag gemütlich Kaffee trinken");
-  await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
+  await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor({ timeout: 30000 });
+  await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill("Sonntag gemütlich Kaffee trinken");
+  await page.getByText("Bern", { exact: true }).waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).first().waitFor();
   await page.getByText("1 / 5", { exact: true }).waitFor();
@@ -293,7 +293,7 @@ try {
   const compactName=await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Café Vorher",{exact:true}).boundingBox();
   const compactDetails=await page.getByText("Details & Hinweise",{exact:true}).first().boundingBox();
   assert.ok(compactName && compactDetails && compactName.y+compactName.height<=compactDetails.y,"Spot name and details action remain readable on small screens");
-  assert.equal(await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).filter({visible:true}).count(),0,"recommendation prose stays off the photo");
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Die Art des Angebots passt zu deinem Wunsch.",{exact:true}).waitFor();
   // Real touch swipe, not a rejection action or another model call.
   const cdp=await context.newCDPSession(page);
   await cdp.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:270,y:170}]});
@@ -306,12 +306,12 @@ try {
   await page.setViewportSize({width:390,height:844});
   await page.getByText("Details & Hinweise",{exact:true}).first().click();
   await page.getByText("Auswahl ohne persönliche Vorlieben",{exact:true}).waitFor();
-  await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).filter({visible:true}).waitFor();
+  await page.getByText("Die Art des Angebots passt zu deinem Wunsch.",{exact:true}).filter({visible:true}).last().waitFor();
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
   assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
-  await page.getByText("Eine passende Idee für das, was du gerade vorhast.", { exact: true }).filter({visible:true}).waitFor({state:"hidden"});
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).getByText("Die Art des Angebots passt zu deinem Wunsch.",{exact:true}).waitFor();
   assert.equal(await page.getByText(/World-Version 1/).count(), 0, "internal evidence stays out of the consumer UI");
 
   assert.equal(state.decisions.every((item) => item.contractVersion === DECISION_PRODUCT_CONTRACT.request), true);
@@ -320,7 +320,7 @@ try {
   // A recommendation keeps its grounded context only when opened from this search.
   await page.getByRole("button", {name:"Café Vorher entdecken",exact:true}).click();
   await page.getByText("FÜR DEINEN NÄCHSTEN MOMENT",{exact:true}).waitFor();
-  await page.getByText("Eine passende Idee für das, was du gerade vorhast.",{exact:true}).filter({visible:true}).waitFor();
+  await page.getByText("Die Art des Angebots passt zu deinem Wunsch.",{exact:true}).filter({visible:true}).last().waitFor();
   await page.getByRole("button",{name:"Zurück zu deinen Vorschlägen",exact:true}).click();
   await page.getByText("1 / 5",{exact:true}).waitFor();
 
@@ -336,9 +336,9 @@ try {
   await page.getByRole("button",{name:"Hinweise schließen",exact:true}).click();
   await page.reload({ waitUntil: "domcontentloaded" });
   // A refresh now preserves the current route instead of remounting Home.
-  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).waitFor();
-  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("ruhiges Café nach Reload");
-  await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
+  await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor();
+  await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill("ruhiges Café nach Reload");
+  await page.getByText("Bern", { exact: true }).waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   state.unavailable = true;
