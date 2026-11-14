@@ -256,7 +256,7 @@ try {
   await page.getByText("Wohin", { exact: true }).last().click();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor({ timeout: 30000 });
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill("Sonntag gemütlich Kaffee trinken");
-  await page.getByText("Bern", { exact: true }).waitFor();
+  await page.getByText("Bern", { exact: true }).filter({visible:true}).last().waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Vorher"}).first().waitFor();
   await page.getByText("1 / 5", { exact: true }).waitFor();
@@ -338,7 +338,7 @@ try {
   // A refresh now preserves the current route instead of remounting Home.
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).waitFor();
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill("ruhiges Café nach Reload");
-  await page.getByText("Bern", { exact: true }).waitFor();
+  await page.getByText("Bern", { exact: true }).filter({visible:true}).last().waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   state.unavailable = true;
