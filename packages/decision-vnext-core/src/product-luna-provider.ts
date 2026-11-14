@@ -21,7 +21,7 @@ function modelOutput(value: unknown): unknown {
 
 /** Typed UI inputs may not disappear during model interpretation. This only
  * compares already typed values; it never reads prose or invents participants. */
-function assertExplicitContext(request: DecisionProductRequest, meaning: LibrarianRequest): void {
+export function assertExplicitContext(request: DecisionProductRequest, meaning: LibrarianRequest): void {
   const facts = meaning.facts.filter(f => !["EXCLUDED", "PREFERRED", "NOT_REQUIRED"].includes(f.modality));
   const explicit = request.explicit;
   const count = explicit.group?.size, age = explicit.group?.minimumAge;

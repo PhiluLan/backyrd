@@ -1,7 +1,7 @@
 /** Offline advisory exercise: read the Bibliothekar's public-safe structured
  * evidence, never raw unrestricted World snapshots or a private User profile.
  * This does not replace final Product ranking or authorize recommendations. */
-import { contentHash } from './canonical.js';
+import { contentHash, deepFreeze } from './canonical.js';
 import { schema } from './schema.js';
 import { DecisionProductResponseSchema } from './product-v1-contracts.js';
 import { NuknukMomentSchema, callNuknukLocal, type NuknukLocalModelOptions } from './nuknuk-understanding.js';
@@ -62,7 +62,13 @@ export function validateNuknukAssessment(raw: unknown, request: ReturnType<typeo
     if (new Set(item.reasonCodes).size !== item.reasonCodes.length || item.reasonCodes.some(code => !candidate.evidence.some(e => e.reasonCode === code))) throw Error('nuknuk_assessment_evidence_not_authorized');
   }
   if (request.candidates.length && output.assessments.length === 0 && output.missingKnowledge.length === 0) throw Error('nuknuk_assessment_empty');
-  return { output, identity: request.identity, state: 'ADVISORY_REQUIRES_SEMANTIC_REVIEW',
+  const groundedOutput = deepFreeze(output.assessments.map(item => {
+    const candidate = request.candidates.find(row => row.candidateId === item.candidateId)!;
+    return { candidateId: candidate.candidateId, name: candidate.name,
+      evidence: candidate.evidence.filter(record => item.reasonCodes.includes(record.reasonCode)),
+      openConditions: candidate.limitations };
+  }));
+  return { output, groundedOutput, identity: request.identity, state: 'ADVISORY_REQUIRES_SEMANTIC_REVIEW',
     limitations: ['EVIDENCE_REFERENCES_DO_NOT_PROVE_GENERATED_JUDGMENT', 'NO_RANKING_OR_ELIGIBILITY_AUTHORITY'] };
 }
 

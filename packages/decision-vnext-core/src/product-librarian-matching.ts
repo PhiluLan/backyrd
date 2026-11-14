@@ -1,4 +1,4 @@
-import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
+import { BASEL_PROXIMITY_METERS, baselNeighborhoodAt, baselNeighborhoodNames, baselSearchAnchor, straightLineMeters, librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
 import { eventVisitAvailability, eventFactMatch } from "./product-event-candidates.js";
 import { compileLibrarianPlan, librarianDecisionProof, combineLibrarianDecisionProof, librarianFacilityIsVisit, librarianFacilityVisitAreaKinds, librarianDiagnosis, type LibrarianDiagnosis } from "./product-librarian-plan.js";
 import { bookingEvidence, takeawayEvidence, externalConsumptionEvidence, qualitativePriceEvidence, LIBRARIAN_KNOWLEDGE_POLICY, type DomainEvidence } from "./product-librarian-knowledge.js";
@@ -298,13 +298,55 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         return report("UNKNOWN", "REQUEST_PARAMETER_NOT_VERIFIABLE_AS_REQUIREMENT");
     if (world.eventOccurrence && eventFactMatch(world.eventOccurrence,fact))
         return report(fact.modality === "EXCLUDED" ? "FAILED" : "MET", "EXPLICIT_EVENT_FEATURE", [{evidenceHashes:[world.snapshotHash],offerIds:profile?.offers.map(o=>o.id)??[],areaIds:[],assignments:assignments(request,fact,profile?.offers[0]?.id??null,null),conditionUnresolved:false,chargeable:true}]);
+    if (fact.key === "location.area" || fact.key === "location.proximity" || fact.key === "location.distance") {
+        const witnessed = (matches: boolean, reason: string, evidenceHashes: readonly string[]) =>
+            report(matches !== (fact.modality === "EXCLUDED") ? "MET" : "FAILED", reason,
+                [{ evidenceHashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: false, chargeable: false }]);
+        const latitude = world.facts.find(row => row.key === "location.latitude");
+        const longitude = world.facts.find(row => row.key === "location.longitude");
+        if (fact.key === "location.area") {
+            const target = fact.value.kind === "TEXT" ? baselNeighborhoodNames(fact.value.text) : null;
+            const tag = world.facts.find(row => row.key === "location.neighborhood");
+            if (localityKey(world.spot.location.locality ?? "") !== "basel" || !target)
+                return report("UNKNOWN", "NEIGHBORHOOD_EVIDENCE_MISSING");
+            if (typeof latitude?.value === "number" && typeof longitude?.value === "number") {
+                const area = baselNeighborhoodAt(target, latitude.value, longitude.value);
+                if (area) return witnessed(area.matches, "VERIFIED_NEIGHBORHOOD_GEOMETRY", [latitude.entryHash, longitude.entryHash, ...area.evidenceHashes]);
+            }
+            if (typeof tag?.value !== "string" || !baselNeighborhoodNames(tag.value))
+                return report("UNKNOWN", "NEIGHBORHOOD_EVIDENCE_MISSING");
+            const tagName = localityKey(tag.value).replace(/[^a-z0-9]+/g, " ").trim();
+            return witnessed(target.includes(tagName), "VERIFIED_NEIGHBORHOOD", [tag.entryHash]);
+        }
+        const originName = fact.value.kind === "TEXT" && fact.key === "location.proximity" ? fact.value.text
+            : fact.value.kind === "LENGTH" && fact.key === "location.distance"
+                ? request.entities.find(entity => entity.id === fact.value.referenceEntityId && entity.kind === "PLACE")?.label : undefined;
+        const origin = originName && baselSearchAnchor(originName);
+        if (!origin) return report("UNKNOWN", "LOCATION_REFERENCE_UNRESOLVED");
+        if (typeof latitude?.value !== "number" || typeof longitude?.value !== "number")
+            return report("UNKNOWN", "LOCATION_COORDINATES_MISSING");
+        const metres = straightLineMeters(origin, {latitude: latitude.value, longitude: longitude.value});
+        const limit = fact.value.kind === "LENGTH" ? fact.value.amount : BASEL_PROXIMITY_METERS;
+        const operator = fact.value.kind === "LENGTH" ? fact.value.operator : "LTE";
+        if (operator !== "LTE" && operator !== "LT" && operator !== "GTE" && operator !== "GT")
+            return report("UNKNOWN", "LOCATION_DISTANCE_OPERATOR_UNSUPPORTED");
+        const matches = operator === "LTE" ? metres <= limit : operator === "LT" ? metres < limit
+            : operator === "GTE" ? metres >= limit : metres > limit;
+        return witnessed(matches, "VERIFIED_STRAIGHT_LINE_DISTANCE", [latitude.entryHash, longitude.entryHash, contentHash({origin, limit, operator})]);
+    }
     if (fact.key === "location.destination" || fact.key === "location.country") {
-        const key = fact.key === "location.destination" ? "location.locality" : "location.country_code", row = world.facts.find(r => r.key === key);
-        if (!row || typeof row.value !== "string" || fact.value.kind !== "TEXT")
-            return report("UNKNOWN", "LOCATION_EVIDENCE_MISSING");
+        if (fact.value.kind !== "TEXT") return report("UNKNOWN", "LOCATION_EVIDENCE_MISSING");
+        const anchor = fact.key === "location.destination" ? baselSearchAnchor(fact.value.text) : null;
+        const key = anchor ? "identity.name" : fact.key === "location.destination" ? "location.locality" : "location.country_code";
+        const row = world.facts.find(entry => entry.key === key);
+        if (!row || typeof row.value !== "string") return report("UNKNOWN", "LOCATION_EVIDENCE_MISSING");
         const locationTerm = (text: string) => librarianTerm(text).normalize("NFKD").replace(/\p{M}/gu, "");
-        const equal = locationTerm(row.value) === locationTerm(fact.value.text), state = equal ? "MET" : "FAILED";
-        return report(fact.modality === "EXCLUDED" ? (equal ? "FAILED" : "MET") : state, "VERIFIED_LOCATION", [{ evidenceHashes: [row.entryHash], offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: false, chargeable: false }]);
+        const equal = anchor
+            ? localityKey(world.spot.location.locality ?? "") === "basel" && baselSearchAnchor(row.value)?.id === anchor.id
+            : locationTerm(row.value) === locationTerm(fact.value.text);
+        return report(equal !== (fact.modality === "EXCLUDED") ? "MET" : "FAILED",
+            anchor ? "VERIFIED_PLACE_IDENTITY" : "VERIFIED_LOCATION",
+            [{ evidenceHashes: [row.entryHash], offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: false, chargeable: false }]);
     }
     const accessibility = assessLibrarianAccessibility(fact, world);
     if (accessibility) return report(accessibility.state, accessibility.reason, accessibility.hashes.length ? [{ evidenceHashes: accessibility.hashes, offerIds: [], areaIds: [], assignments: {}, conditionUnresolved: accessibility.state === "UNKNOWN", chargeable: false }] : []);
@@ -394,6 +436,16 @@ function atom(request: LibrarianRequest, fact: LibrarianFact, world: ProductWorl
         const place = classification?.value as readonly string[] | undefined;
         const categoryProof = desired === "zoo" ? place?.some(type=>spotTypeSupports(type,"ZOO")) : desired === "museum" ? place?.some(type=>spotTypeSupports(type,"MUSEUM")) : desired === "restaurant" ? (LIBRARIAN_PLACE_TYPE_LANGUAGE.children.RESTAURANT ?? []).some(type => place?.includes(type)) : desired === "bar" ? (LIBRARIAN_PLACE_TYPE_LANGUAGE.children.BAR ?? []).some(type => place?.includes(type)) : null;
         for (const offer of profile.offers) {
+            // A restaurant with a documented full pizza meal can support a
+            // pizzeria visit. A takeaway-only shop or incidental snack cannot.
+            if (fact.key === "offer.kind" && desired === "pizzeria"
+                && offer.kind === "FULL_MEAL"
+                && place?.includes("RESTAURANT")
+                && declaredExperienceConcepts(offer.name, "ITEM_LIST").includes("pizza")) {
+                for (const areaId of offer.areaIds.length ? offer.areaIds : [null])
+                    add("MET", offer, areaId, {kind:offer.kind, declaredPizzaMeal:offer.name, placeType:"RESTAURANT"},
+                        false, classification ? [classification.entryHash] : []);
+            }
             const offered = sorted([...(OFFER_CONCEPTS[offer.kind] ?? []), ...(offer.kind === "VISIT" && place?.some(type=>spotTypeSupports(type,"ZOO")) ? ["zoo"] : [])]);
             // Generic gastronomy is weaker than its recorded extent. A snack
             // counter must not become a full meal merely through that kind.

@@ -74,6 +74,7 @@ export type DecisionProductResponse = {
   rankingPolicyVersion: "backyrd.decision-vnext.product-ranking-policy@1.0";
   rankingPolicyHash: string;
   interpretation: { interpretationHash: string; targetCity: string | null; [key: string]: unknown };
+  clarification?: string;
   primaryCandidateId: string | null;
   candidates: DecisionProductCandidate[];
   limitations: string[];
@@ -102,6 +103,12 @@ export class DecisionProductUnavailableError extends Error {
   code: string;
   userMessage: string;
 }
+
+export class DecisionProductClarification extends Error {
+  constructor(question: string);
+  question: string;
+}
+export function decisionProductInputFailure(value: unknown): DecisionProductClarification | DecisionProductUnavailableError | null;
 
 export const DECISION_PRODUCT_CONTRACT: Readonly<{ request: DecisionProductRequest["contractVersion"]; response: DecisionProductResponse["contractVersion"]; learningPort: "backyrd.user-intelligence.product-decision-learning-port@1.0"; transportFunction: "decision-v13" }>;
 export function validateDecisionProductRequest<T extends DecisionProductRequest>(value: T): T;

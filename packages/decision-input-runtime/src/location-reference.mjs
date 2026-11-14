@@ -1,11 +1,12 @@
-import { BASEL_DECISION_LOCATIONS,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
+import { findBaselReferencePoint } from "../../canonical-semantics/src/basel-reference-points.mjs";
+import { BASEL_DECISION_LOCATIONS,BASEL_REFERENCE_POINTS,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
 export const LOCATION_REFERENCE_RESOLUTION_VERSION="backyrd-location-reference-resolution-v1";
 export const LOCATION_CONFIG_VERSION="backyrd-decision-location-config-v1";
 export const MIN_DEFAULT_NEAR_RADIUS_M=100;
 export const MAX_DEFAULT_NEAR_RADIUS_M=2000;
 const BASEL_CENTER=Object.freeze({latitude:47.5596,longitude:7.5886});
-const CITY_REFERENCE_ALIASES=Object.freeze({basel:Object.freeze({bahnhof:"BASEL_SBB",hauptbahnhof:"BASEL_SBB","basel bahnhof":"BASEL_SBB"})});
+const CITY_REFERENCE_ALIASES=Object.freeze({basel:Object.freeze({sbb:"BASEL_SBB",bahnhof:"BASEL_SBB",hauptbahnhof:"BASEL_SBB","basel bahnhof":"BASEL_SBB"})});
 const clean=(value)=>String(value??"").trim().replace(/\s+/g," ");
 const normalized=(value)=>clean(value).toLocaleLowerCase("de-CH").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/ß/g,"ss");
 const compact=(value)=>normalized(value).replace(/[^a-z0-9]/g,"");
@@ -27,15 +28,16 @@ export function configuredNearDistanceKm({locationReference,runtimeConfig}={}){
   return radiusM/1000;
 }
 const registryLocation=(key,maxDistanceKm)=>{
-  const row=BASEL_DECISION_LOCATIONS[key];
-  return row?{key,kind:row.kind,label:row.label,latitude:row.latitude,longitude:row.longitude,maxDistanceKm:Number(maxDistanceKm??row.defaultRadiusKm),resolutionSource:"CANONICAL_BASEL_REFERENCE",sourceIdentity:`${SEMANTIC_CONTRACT_VERSION}:${key}`}:null;
+  const row=BASEL_DECISION_LOCATIONS[key]??BASEL_REFERENCE_POINTS[key];
+  return row?{key,kind:row.kind,label:row.label,latitude:row.latitude,longitude:row.longitude,maxDistanceKm,resolutionSource:"CANONICAL_BASEL_REFERENCE",sourceIdentity:`${SEMANTIC_CONTRACT_VERSION}:${key}`}:null;
 };
 const deterministicResolution=(reference,city,maxDistanceKm)=>{
   const value=normalized(reference),cityKey=normalized(city);
   const aliasKey=CITY_REFERENCE_ALIASES[cityKey]?.[value];
   if(aliasKey)return registryLocation(aliasKey,maxDistanceKm);
   const entry=Object.entries(BASEL_DECISION_LOCATIONS).find(([,row])=>normalized(row.label)===value||row.aliases.some((alias)=>normalized(alias)===value));
-  return entry?registryLocation(entry[0],maxDistanceKm):null;
+  const key=entry?.[0]??findBaselReferencePoint(reference)?.id;
+  return key?registryLocation(key,maxDistanceKm):null;
 };
 const exactNameScore=(reference,name)=>{
   const left=compact(reference),right=compact(name);

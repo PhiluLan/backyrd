@@ -795,3 +795,74 @@ test('final output cannot rank incomplete duties even with a forged confirmed co
   assert.equal(built.response.primaryCandidateId,null);assert.ok(built.response.candidates.every(c=>c.rank===null));
  }
 });
+
+test("NukNuk beta route passes a usable plan and question through the authenticated Product handler", async () => {
+  const { createDecisionProductNuknukProvider } = await import("../dist/product-nuknuk-provider.js");
+  const request = productRequest("Ein Café in der Umgebung, das ich am Samstag besuchen kann.", "nuknuk-beta", {
+    explicit: { targetCity: "Zurich", targetCityRole: "SEARCH_CONTEXT" },
+  });
+  const evaluated = await fixture(request);
+  const question = "Möchtest du lieber draussen sitzen oder spielt das keine Rolle?";
+  let remote = {
+    meaning: { facts: [{ id: "cafe", key: "offer.kind", value: { text: "CAFE" }, modality: "REQUIRED", basis: "EXPLICIT", subjectIds: [] }] },
+    clarification: { question, dimension: "OTHER", options: ["Draussen", "Spielt keine Rolle"] },
+  };
+  let finishReason = "stop";
+  let calls = 0;
+  let evaluations = 0;
+  let commits = 0;
+  const handler = createDecisionProductHttpHandler({
+    auth: { async authenticate(token) { return token === "valid" ? ACTOR : null; } },
+    rateLimit: { async consume() { return true; } },
+    control: { timeoutMilliseconds: 2_000, maxRequestBytes: 16_384, assertBoundary() {} },
+    understand: createDecisionProductNuknukProvider({
+      endpoint: "https://nuknuk.example.test/v1/chat/completions", apiKey: "test-service-key", model: "nuknuk-test",
+      now: () => new Date(SERVER_TIME),
+      async fetchImpl(url, options) {
+        calls++;
+        assert.equal(new URL(url).pathname, "/v1/chat/completions");
+        assert.equal(options.redirect, "error");
+        assert.equal(options.headers.authorization, "Bearer test-service-key");
+        const payload = JSON.parse(options.body);
+        assert.deepEqual(JSON.parse(payload.messages[1].content), { request: request.naturalLanguage });
+        assert.doesNotMatch(options.body, /product-user|product-session/u);
+        assert.equal(payload.response_format.type, "json_schema");
+        return Response.json({ model: "nuknuk-test", choices: [{ finish_reason: finishReason, message: { content: JSON.stringify(remote) } }] });
+      },
+    }),
+    async evaluate(_request, _actor, _signal, meaning) {
+      evaluations++;
+      assert.equal(meaning.source.sourceText, request.naturalLanguage);
+      assert.equal(meaning.facts[0].key, "offer.kind");
+      return evaluated;
+    },
+    idempotency: { async commit() { commits++; return { status: "CREATED" }; } },
+    interaction: { async resolve() { throw new Error("unexpected_interaction"); } },
+    learning: {
+      contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0",
+      async record() { throw new Error("neutral_evaluation_must_not_write"); },
+    },
+  });
+  const invoke = (token = "valid") => handler(new Request("https://example.test/functions/v1/decision-v13", {
+    method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(request),
+  }));
+  const denied = await invoke("invalid");
+  assert.equal(denied.status, 401);
+  assert.equal(calls, 0);
+  const result = await invoke();
+  assert.equal(result.status, 200);
+  const available = await result.json();
+  assert.equal(available.clarification, question);
+  assert.ok(available.candidates.some(candidate => candidate.rank !== null));
+  assert.equal(evaluations, 1);
+  assert.equal(commits, 1);
+
+  remote = { meaning: { facts: [{ id: "size", key: "people.count", value: { amount: 2, operator: "EQ", unit: "PEOPLE" }, modality: "REQUIRED", basis: "EXPLICIT", subjectIds: [] }] }, clarification: remote.clarification };
+  const clarification = await invoke();
+  assert.equal(clarification.status, 422);
+  assert.deepEqual((await clarification.json()).error, { code: "DECISION_NEEDS_CLARIFICATION", message: question });
+  finishReason = "length";
+  assert.equal((await invoke()).status, 503);
+  assert.equal(evaluations, 1);
+  assert.equal(commits, 1);
+});

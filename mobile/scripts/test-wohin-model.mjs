@@ -7,7 +7,7 @@ import { validateDecisionProductRequest } from "@backyrd/product-decision-contra
 
 const source = fs.readFileSync(new URL("../lib/decision/wohinModel.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinLimitations, wohinPlaceMeta } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
+const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
 
 test("Wohin sends only the new free text and profile city", () => {
   const request = createWohinRequest({ query: "  Sonntag   gemütlich Kaffee trinken  ", city: "Basel", requestId: "test-request-1" });
@@ -82,6 +82,22 @@ test("response limitations remain visible in plain language", () => {
   assert.deepEqual(wohinLimitations([], 0), []);
 });
 
+test("Wohin offers a follow-up without turning unverified places into recommendations", () => {
+  const candidate = { rank: null, contextualReject: false, failedHardConstraints: [], unknownHardConstraints: ["OPEN_ON_REQUESTED_DAY"] };
+  const response = { primaryCandidateId: null, limitations: [], candidates: [candidate] };
+  assert.deepEqual(visibleWohinCandidates(response), []);
+  assert.match(wohinFollowUp(response).message, /nicht bestätigen/);
+  assert.match(wohinFollowUp({ ...response, candidates: [{ ...candidate, failedHardConstraints: ["CLOSED"] }] }).message, /keinen ausreichend belegten Vorschlag/);
+  assert.match(wohinFollowUp({ ...response, limitations: ["CORE_INTENT_REQUIRES_CLARIFICATION"] }).message, /Was möchtest du/);
+  assert.match(wohinFollowUp({ ...response, limitations: ["REQUEST_NEEDS_CLARIFICATION"] }).message, /Budget pro Person/);
+  assert.match(wohinFollowUp({ ...response, limitations: ["MULTI_PLACE_SEARCH_UNSUPPORTED"] }).message, /Mit welchem/);
+  const revised = createWohinRequest({ query: "Stufenloses Café, auch morgen möglich", city: "Basel", requestId: "follow-up-1" });
+  validateDecisionProductRequest(revised);
+  assert.equal(revised.naturalLanguage, "Stufenloses Café, auch morgen möglich");
+  assert.equal(revised.alternativeRequested, false);
+  assert.deepEqual(revised.rejectedCandidateIds, []);
+});
+
 test("current librarian facts produce useful copy without exposing policy or promoting uncertainty", () => {
  const candidate={presentation:{categoryLabel:"SPORT_MOVEMENT",locality:"Basel"},coreIntentCoverage:"CONFIRMED",unknownHardConstraints:["LBR:missing"],reasons:[
   {code:"LBR:activity",domain:"WORLD",confirmed:true,statement:"Bestätigt: die gewünschte Aktivität."},
@@ -118,4 +134,35 @@ test("non-blocking age uncertainty and consumption exceptions remain visible on 
  const food="Eigene Speisen: Nicht in den Restaurants.";
  const candidate={coreIntentCoverage:"CONFIRMED",unknownHardConstraints:[],reasons:[{code:"librarian-age-requirement",domain:"LIMITATION",confirmed:false,statement:minimum},{code:"librarian-age-rules-unconfirmed",domain:"LIMITATION",confirmed:false,statement:age},{code:"librarian-external-consumption-exceptions",domain:"LIMITATION",confirmed:false,statement:food}]};
  assert.deepEqual(wohinConsiderations(candidate,false),[minimum,age,food]);
+});
+
+test("A clarification answer extends the original wish while ranked candidates remain visible", () => {
+  const response = {clarification:"Woran erkennst du das Café?",primaryCandidateId:"spot-1",candidates:[{spotId:"spot-1",rank:1,contextualReject:false}]};
+  assert.equal(visibleWohinCandidates(response).length,1);
+  const query = wohinClarificationQuery("Das Café beim Park",response.clarification,"Eine Terrasse");
+  assert.match(query,/Das Café beim Park\nRückfrage: Woran erkennst du das Café\?\nAntwort: Eine Terrasse/);
+  assert.equal(wohinClarificationQuery("Das Café beim Park",response.clarification,"  "),null);
+  assert.equal(wohinClarificationQuery("x".repeat(2000),response.clarification,"Eine Terrasse"),null);
+});
+
+test('an empty local catalog offers an explicit location change', () => {
+ const result = wohinFollowUp({limitations:['NO_CATALOG_CANDIDATES'],candidates:[]});
+ assert.equal(result.actionLabel,'Ort ändern');
+ assert.match(result.message,/keine Spots oder Veranstaltungen erfasst/);
+});
+
+test("Wohin shows documented options with their unresolved condition", () => {
+  const provisional = (code, statement) => ({
+    rank:null, tier:"UNCONFIRMED_FALLBACK", contextualReject:false, failedHardConstraints:[],
+    reasons:[{code,statement}],
+  });
+  const weather = provisional("librarian-confirmed-weather-branch", "Passend bei Regen. Welcher Wetterfall eintritt, ist offen.");
+  const nearby = provisional("librarian-provisional-nearby", "In der Nähe. Ob der Ort zu eurer geplanten Aktivität passt, ist noch offen.");
+  const dinner = provisional("librarian-dinner-cuisine-unconfirmed", "Abendessen ist belegt. Küchenstil und Preisniveau sind noch offen.");
+  const closed = {...weather, failedHardConstraints:["CLOSED"]};
+  assert.deepEqual(visibleWohinCandidates({primaryCandidateId:null,candidates:[weather,nearby,closed]}),[weather]);
+  assert.deepEqual(visibleWohinCandidates({primaryCandidateId:null,candidates:[nearby],clarification:"Was möchtet ihr machen?"}),[nearby]);
+  assert.match(wohinRecommendation(weather),/bei Regen/);
+  assert.deepEqual(visibleWohinCandidates({primaryCandidateId:null,candidates:[dinner]}),[dinner]);
+  assert.match(wohinRecommendation(dinner),/Küchenstil und Preisniveau sind noch offen/);
 });

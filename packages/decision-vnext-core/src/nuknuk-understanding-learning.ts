@@ -218,6 +218,12 @@ function orderForSchema(value: unknown, rawSchema: unknown, root: unknown): unkn
   return value;
 }
 
+export function serializeUnderstandingTrainingExample(content: NuknukUnderstandingCaseContent, instructionProfile: NuknukInstructionProfile) {
+  const { request, target } = taskPair(content, instructionProfile);
+  return { messages: [{ role: 'system', content: request.instructions }, { role: 'user', content: request.input },
+    { role: 'assistant', content: serverTargetJson(instructionProfile === 'SPOT_GROUNDED_V6' ? orderForSchema(target, request.outputSchema, request.outputSchema) : target) }] };
+}
+
 export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: string, instructionProfile: NuknukInstructionProfile = 'FULL') {
   const audit = auditUnderstandingDataset(raw, expectedSplitHash);
   if (!audit.exportReady) throw Error('nuknuk_dataset_not_reviewed');
@@ -226,11 +232,8 @@ export function exportUnderstandingDataset(raw: unknown, expectedSplitHash: stri
       && review.vocabularyHash === NUKNUK_TRAINING_VOCABULARY_HASH))) {
     throw Error('nuknuk_vocabulary_review_required');
   }
-  const rows = (splitName: 'TRAIN' | 'VALIDATION' | 'TEST') => audit.dataset.cases.filter(c => c.split === splitName).map(row => {
-    const { request, target } = taskPair(row.content,instructionProfile);
-    return { messages: [{ role: 'system', content: request.instructions }, { role: 'user', content: request.input },
-      { role: 'assistant', content: serverTargetJson(instructionProfile === 'SPOT_GROUNDED_V6' ? orderForSchema(target, request.outputSchema, request.outputSchema) : target) }] };
-  });
+  const rows = (splitName: 'TRAIN' | 'VALIDATION' | 'TEST') => audit.dataset.cases.filter(c => c.split === splitName)
+    .map(row => serializeUnderstandingTrainingExample(row.content, instructionProfile));
   const files = { train: rows('TRAIN'), valid: rows('VALIDATION'), test: rows('TEST') };
   return { files, manifest: {
     version: NUKNUK_UNDERSTANDING_DATASET_VERSION, datasetHash: contentHash(audit.dataset), splitPlanHash: audit.splitPlanHash,

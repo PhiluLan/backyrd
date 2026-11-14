@@ -1,17 +1,109 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { contentHash } from '../dist/canonical.js';
-import { buildNuknukUnderstandingRequest, understandWithNuknuk, validateNuknukUnderstanding } from '../dist/nuknuk-understanding.js';
+import { buildNuknukCompactSearchRequest, validateNuknukCompactSearch, buildNuknukUnderstandingRequest, understandWithNuknuk, validateNuknukUnderstanding } from '../dist/nuknuk-understanding.js';
 import { auditUnderstandingDataset, exportUnderstandingDataset, understandingSplitHash, reviseUnderstandingCase, recordUnderstandingReview } from '../dist/nuknuk-understanding-learning.js';
 import { draftUnderstandingDataset, understandingDevelopmentCases } from '../../../scripts/decision-diagnostics/nuknuk-understanding-cases.mjs';
 import { evaluateNuknukAgainstCatalog } from '../../../scripts/decision-diagnostics/nuknuk-understanding.mjs';
-import { binding, profile } from './librarian-matching-fixtures.mjs';
+import { binding, offer, profile, prop, worldFact } from './librarian-matching-fixtures.mjs';
 import { buildNuknukAssessmentRequest, validateNuknukAssessment, assessWithNuknuk } from '../dist/nuknuk-grounded-assessment.js';
 import { buildPilotCohort, pilotReviewMarkdown, PILOT_PLAN_HASH } from '../../../scripts/decision-diagnostics/nuknuk-pilot-cohort.mjs';
 
 const example = understandingDevelopmentCases[0].content;
 const modelPath = '/models/45797d2985a12c55e6473686e9ea91b95e959553';
 const copy = () => structuredClone(example.target);
+
+test('a birthday dinner stays searchable alongside an optional clarification', () => {
+  const query = 'Geburtstag von meiner Frau, suche etwas besonderes für uns zwei zum Essen heute Abend in Basel';
+  const meaning = {facts: [
+    {id:'meal',key:'experience.activity',value:{text:'essen'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+    {id:'special',key:'experience.character',value:{text:'besonders'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+  ]};
+  const first = validateNuknukCompactSearch({meaning},{...example,query});
+  assert.equal(first.requestState,'EXECUTABLE');
+  assert.equal(first.plan.facts.find(f => f.id === 'meal').value.text,'dinner');
+  assert.equal(first.plan.facts.find(f => f.id === 'special').modality,'PREFERRED');
+  assert.match(first.clarification.question,/Atmosphäre, die Küche oder ein persönlicher Bezug/u);
+  const answered = query + ' Rückfrage: ' + first.clarification.question + ' Antwort: Wir haben uns im Restaurant Krafft kennen gelernt.';
+  const second = validateNuknukCompactSearch({meaning},{...example,query:answered});
+  assert.equal(second.clarification,null);
+  const withoutEvening = validateNuknukCompactSearch({meaning},{...example,query:'Zum Geburtstag möchten wir etwas Besonderes essen gehen.'});
+  assert.equal(withoutEvening.plan.facts.find(f => f.id === 'meal').key,'experience.activity');
+});
+
+test('a completed Wohin turn suppresses the repeated model question and keeps the search plan', () => {
+  const question = {question:'Was würde den Abend besonders machen?',dimension:'EXPERIENCE_DIRECTION',
+    options:['Ruhig essen','Etwas Neues probieren']};
+  const original = 'Wir suchen ein Abendessen in Basel.';
+  const meaning = {facts:[{id:'meal',key:'food.meal',value:{text:'dinner'},modality:'REQUIRED',
+    basis:'EXPLICIT',subjectIds:[]}]};
+  const query = [original,`Rückfrage: ${question.question}`,'Antwort: Wir würden gern etwas Neues probieren.'].join('\n');
+  for (const text of [query,query.replace(/\s+/gu,' ')]) {
+    const result = validateNuknukCompactSearch({meaning,clarification:question},{...example,query:text});
+    assert.equal(result.requestState,'EXECUTABLE');
+    assert.equal(result.clarification,null);
+    assert.equal(result.plan.facts[0].value.text,'dinner');
+  }
+  const first = validateNuknukCompactSearch({meaning,clarification:question},{...example,query:original});
+  assert.deepEqual(first.clarification,question);
+  const next = {...question,question:'Welche Küche möchtet ihr ausprobieren?',options:['Koreanisch','Libanesisch']};
+  const second = validateNuknukCompactSearch({meaning,clarification:next},{...example,query});
+  assert.deepEqual(second.clarification,next);
+});
+
+test('legacy children_activity keeps its scope and modality under the canonical suitability family', () => {
+  const fact = {id:'children',key:'experience.activity',value:{text:'children_activity'},
+    modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['visit']};
+  const meaning = {entities:[{id:'visit',kind:'ACTIVITY',label:'Besuch',members:[]}],facts:[fact]};
+  const result = validateNuknukCompactSearch({meaning}, {...example,query:'Was können wir mit den Kindern machen?'});
+  assert.equal(result.requestState,'EXECUTABLE');
+  assert.deepEqual(result.plan.facts.find(f=>f.id==='children'), {
+    ...fact,key:'condition.children',value:{...fact.value,kind:'TEXT'},
+  });
+  assert.equal(result.output.facts[0].key,'experience.activity');
+  assert.throws(()=>validateNuknukCompactSearch({meaning},{...example,query:'Was kann ich alleine machen?'}),
+    /nuknuk_meaning_contract_failed/u);
+});
+
+test('explicit walk-in survives a missing model fact, while a flexible booking wish stays open', () => {
+  const activity = {id:'piano',key:'experience.activity',value:{text:'Klavier üben'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:['visit']};
+  const meaning = {entities:[{id:'visit',kind:'ACTIVITY',label:'Klavier üben',members:[]}],facts:[activity]};
+  const query = 'Zum Klavierüben möchte ich einfach vorbeigehen können, ohne dafür ein Zeitfenster zu reservieren.';
+  for (const value of [null,'walk-in','walk_in']) {
+    const facts = value ? [...meaning.facts,{...activity,id:'booking',key:'participation.booking',value:{text:value}}] : meaning.facts;
+    const result = validateNuknukCompactSearch({meaning:{...meaning,facts}}, {...example,query});
+    const booking = result.plan.facts.filter(f=>f.key==='participation.booking');
+    assert.equal(booking.length,1);
+    assert.equal(booking[0].modality,'REQUIRED');
+    assert.deepEqual(booking[0].subjectIds,['visit']);
+  }
+  const optional = validateNuknukCompactSearch({meaning},{...example,query:'Zum Klavierüben ist für mich spontan oder mit Reservation gleich gut.'});
+  assert.equal(optional.plan.facts.some(f=>f.key==='participation.booking'),false);
+  const multi = validateNuknukCompactSearch({meaning:{...meaning,entities:[...meaning.entities,{id:'other',kind:'ACTIVITY',label:'Andere Aktivität',members:[]}]}},
+    {...example,query});
+  assert.equal(multi.requestState,'UNSUPPORTED_CAPABILITY');
+  assert.equal(multi.plan,null);
+  assert.match(multi.clarification.question,/Für welchen Teil/u);
+});
+
+test('an unsupported hard need offers a clarification without running a partial spot search', async () => {
+  const {createDecisionProductNuknukProvider} = await import('../dist/product-nuknuk-provider.js');
+  const {exercise} = await import('./librarian-active-route-fixtures.mjs');
+  const text = 'Ich suche einen Garten. Auf dem Weg dorthin brauche ich regelmässig Bänke.';
+  const raw = {meaning:{facts:[{id:'garden',key:'experience.activity',value:{text:'Garten besuchen'},
+    modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]}],extensions:[{id:'benches',
+    description:'Auf dem benutzten Weg sind regelmässig Bänke nötig.',modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]}]}};
+  const result = validateNuknukCompactSearch(raw,{query:text,reference:example.reference});
+  assert.equal(result.requestState,'UNSUPPORTED_CAPABILITY');
+  assert.equal(result.searchMeaning.extensions[0].modality,'REQUIRED');
+  assert.match(result.clarification.question,/Spotdaten reichen/u);
+  const provider = createDecisionProductNuknukProvider({endpoint:'https://example.test/v1/chat/completions',apiKey:'test-key',model:'synthetic',
+    fetchImpl:async()=>new Response(JSON.stringify({model:'synthetic',choices:[{finish_reason:'stop',message:{content:JSON.stringify(raw)}}]}))});
+  const reply = await exercise({text,catalog:[binding(1,profile())],understandOverride:provider});
+  assert.equal(reply.status,422);
+  assert.equal(reply.reads,0);
+  assert.match(JSON.stringify(reply.body),/DECISION_NEEDS_CLARIFICATION/u);
+});
 
 test('uses current canonical meaning without installing a new Product provider', () => {
   const body = buildNuknukUnderstandingRequest(example);
@@ -24,6 +116,143 @@ test('uses current canonical meaning without installing a new Product provider',
   assert.equal(result.plan.source.sourceText, example.query);
   assert.equal(result.plan.facts.find(f => f.key === 'food.meal').value.text, 'dinner');
 });
+test('compact search preserves canonical meaning, plan and clarification on development fixtures', () => {
+  for (const { content } of understandingDevelopmentCases) {
+    const full = validateNuknukUnderstanding(content.target, content);
+    const meaning = Object.fromEntries(Object.entries(content.target.meaning)
+      .filter(([key, value]) => key === 'facts' || (value !== null && (!Array.isArray(value) || value.length > 0))));
+    const question = content.target.moment.clarification;
+    const compact = validateNuknukCompactSearch({ meaning, ...(question ? { clarification: question } : {}) }, content);
+    assert.deepEqual(compact.plan, full.plan);
+    assert.deepEqual(compact.capabilityGaps, full.capabilityGaps);
+    assert.deepEqual(compact.clarification, full.moment.clarification);
+  }
+});
+
+test('compact single activity restores identifiers and keeps duration and proximity executable', async () => {
+  const query = 'Ich bin am Bahnhof SBB und habe 25 Minuten bis zum Zug. Irgendwo schnell etwas Warmes essen?';
+  const input = { query, reference: example.reference };
+  const request = buildNuknukCompactSearchRequest(input);
+  assert.equal(JSON.parse(request.input).request, query);
+  assert.deepEqual(request.outputSchema.required, ['meaning']);
+  assert.doesNotMatch(request.instructions, /moment:\{|Quotes wortwörtlich/u);
+  assert.match(request.instructions, /Mahlzeit als food\.meal/u);
+  assert.match(request.instructions, /Keine Rückfrage zu einem\s+anderen Termin/u);
+  const fact = (key, value) => ({ key, value, modality: 'REQUIRED', basis: 'EXPLICIT' });
+  const meaning = { facts: [
+    fact('location.proximity', { text: 'Bahnhof SBB' }),
+    fact('time.duration', { amount: 25, operator: 'LTE', unit: 'MINUTES', measurementScope: 'AVAILABLE_TOTAL', includes: [] }),
+    fact('food.meal', { text: 'meal' }),
+    fact('food.dish', { text: 'warm' }),
+  ] };
+  const result = validateNuknukCompactSearch({ meaning, singleActivity: true }, input);
+  assert.deepEqual(result.plan.facts.map(({ id, key, subjectIds }) => ({ id, key, subjectIds })),
+    meaning.facts.map(({ key }, index) => ({ id: `f${index + 1}`, key, subjectIds: ['a1'] })));
+  assert.throws(() => validateNuknukCompactSearch({ meaning }, input));
+  assert.throws(() => validateNuknukCompactSearch({
+    meaning: { ...meaning, bindings: [{ kind: 'SAME_PLACE', factIds: ['f1', 'f2'] }] }, singleActivity: true,
+  }, input), /nuknuk_compact_single_activity_has_references/);
+  const food = profile([offer('warm-meal', 'DINNER', ['inside'], [prop('food.dish', 'warm')])]);
+  const nearby = binding(101, food, [worldFact('location.latitude', 47.54757), worldFact('location.longitude', 7.58956)]);
+  const far = binding(102, food, [worldFact('location.latitude', 47.568243), worldFact('location.longitude', 7.58165)]);
+  const evaluation = await evaluateNuknukAgainstCatalog({ ...result, identity: { local: true } }, [nearby, far], input.reference);
+  const nearResult = evaluation.search.unresolved.find(candidate => candidate.spotId === nearby.decisionProjection.spotId);
+  const farResult = evaluation.search.excluded.find(candidate => candidate.spotId === far.decisionProjection.spotId);
+  assert.ok(nearResult);
+  assert.ok(farResult);
+  assert.equal(nearResult.facts.find(fact => fact.factId === 'f1').state, 'MET');
+  assert.equal(nearResult.facts.find(fact => fact.factId === 'f2').state, 'UNKNOWN');
+  assert.equal(nearResult.facts.find(fact => fact.factId === 'f3').state, 'MET');
+  assert.equal(nearResult.facts.find(fact => fact.factId === 'f4').state, 'MET');
+  assert.equal(farResult.facts.find(fact => fact.factId === 'f1').state, 'FAILED');
+  const redundantQuestion = {
+    question: 'Soll der Ort in der Nähe des genannten Ausgangspunkts sein?',
+    dimension: 'DATE', options: ['In der Nähe', 'Anderswo'],
+  };
+  const explicitMeaning = result.output;
+  const redundant = validateNuknukCompactSearch({
+    meaning: explicitMeaning, singleActivity: true, clarification: redundantQuestion,
+  }, input);
+  assert.deepEqual(redundant.plan, result.plan);
+  assert.equal(redundant.clarification, null);
+  const usefulQuestion = {
+    question: 'Möchtest du vor Ort essen oder etwas mitnehmen?',
+    dimension: 'OTHER', options: ['Vor Ort', 'Mitnehmen'],
+  };
+  assert.deepEqual(validateNuknukCompactSearch({
+    meaning, singleActivity: true, clarification: usefulQuestion,
+  }, input).clarification, usefulQuestion);
+  const restricted = validateNuknukCompactSearch({ meaning, singleActivity: true },
+    { ...input, query: query + ' Spuren von Sesam sind nicht erlaubt.' });
+  assert.equal(restricted.requestState, 'UNSUPPORTED_CAPABILITY');
+  assert.equal(restricted.plan, null);
+});
+
+test('a broken compact clarification leaves a valid search executable and never makes a broken search valid', () => {
+  const input = { query: 'Wo kann ich in Basel Rösti essen?', reference: example.reference };
+  const meal = { id: 'meal', key: 'food.dish', value: { text: 'Rösti' }, modality: 'REQUIRED', basis: 'EXPLICIT', subjectIds: [] };
+  const meaning = { facts: [meal] };
+  const valid = validateNuknukCompactSearch({ meaning }, input);
+  for (const badQuestion of [
+    { question: ',', dimension: 'OTHER', options: ['outdoor', 'outdoor'] },
+    { question: 'Möchtest du lieber drinnen oder draussen essen?', dimension: 'OTHER', options: ['Draussen', 'draussen '] },
+    { question: 'Möchtest du lieber drinnen oder draussen essen?', options: ['Drinnen', 'Draussen'] },
+  ]) {
+    const result = validateNuknukCompactSearch({ meaning, clarification: badQuestion }, input);
+    assert.deepEqual(result.plan, valid.plan);
+    assert.equal(result.clarification, null);
+    assert.equal(result.clarificationIssue, 'INVALID_MODEL_CLARIFICATION');
+    assert.throws(() => validateNuknukCompactSearch({
+      meaning: { facts: [{ ...meal, modality: 'UNKNOWN' }] }, clarification: badQuestion,
+    }, input));
+  }
+  const badQuestion = { question: ',', dimension: 'OTHER', options: ['A', 'B'] };
+  const budget = { ...meal, key: 'budget.maximum', value: { amount: 20, operator: 'LTE', currency: 'CHF' } };
+  assert.throws(() => validateNuknukCompactSearch({
+    meaning: { facts: [] }, clarification: badQuestion,
+  }, input), /librarian_contract_empty_meaning/u);
+  const result = validateNuknukCompactSearch({ meaning: { facts: [budget] }, clarification: badQuestion }, input);
+  assert.equal(result.requestState, 'NEEDS_CLARIFICATION');
+  assert.equal(result.plan, null);
+  assert.equal(result.clarification, null);
+});
+
+test('an explicit outdoor component filters indoor-only results and reports missing evidence', async () => {
+  const input = { query: 'Sonntag Bewegung mit meinem Kind. Bei Schauern gern kurz unter ein Dach, aber wir möchten auch draussen spielen.', reference: example.reference };
+  const fact = (id, key, text, modality) => ({ id, key, value: { text }, modality, basis: 'EXPLICIT', subjectIds: [] });
+  const activity = fact('movement', 'experience.activity', 'movement_play', 'REQUIRED');
+  const meaning = { facts: [activity, fact('out', 'offer.area', 'outdoor', 'CONTEXT')] };
+  const result = validateNuknukCompactSearch({ meaning }, input);
+  assert.equal(result.plan.facts.find(f => f.id === 'out').modality, 'REQUIRED');
+  const indoor = binding(1, profile([offer('play', 'MOVEMENT_PLAY', ['inside'])]));
+  const outside = { id: 'terrace', kind: 'TERRACE', name: 'Aussenteil', properties: [] };
+  const mixed = binding(2, profile([offer('play', 'MOVEMENT_PLAY', ['terrace'])], [outside]));
+  const run = catalog => evaluateNuknukAgainstCatalog({ ...result, identity: { local: true } }, catalog, input.reference);
+  const noMatch = await run([indoor]);
+  assert.equal(noMatch.response.primaryCandidateId, null);
+  assert.ok(noMatch.response.candidates.some(candidate => candidate.unknownHardConstraints.length > 0 || candidate.failedHardConstraints.length > 0));
+  assert.equal((await run([indoor, mixed])).response.primaryCandidateId, mixed.decisionProjection.spotId);
+
+  const indoorQuery = { ...input, query: 'Bei Dauerregen bitte den ganzen Nachmittag drinnen bleiben.' };
+  const indoorOnly = validateNuknukCompactSearch({ meaning: { facts: [activity, fact('inside', 'offer.area', 'indoor', 'REQUIRED')] } }, indoorQuery);
+  assert.equal(indoorOnly.plan.facts.some(f => f.value.text === 'outdoor'), false);
+});
+
+test('an unbound rain condition gets a scoped question and cannot reach spot selection', async () => {
+  const query = 'Wenn es immer wieder regnet, möchten wir nicht den ganzen Nachmittag drinnen sein.';
+  const meaning = {
+    facts: [{ id: 'inside', key: 'offer.area', value: { text: 'indoor' }, modality: 'CONTEXT', basis: 'EXPLICIT', subjectIds: [] }],
+    weatherConditions: [{ id: 'rain', role: 'CONDITIONAL', state: 'RAIN', basis: 'EXPLICIT', subjectIds: [], detail: null }],
+  };
+  const result = validateNuknukCompactSearch({ meaning }, { query, reference: example.reference });
+  assert.equal(result.requestState, 'NEEDS_CLARIFICATION');
+  assert.equal(result.plan, null);
+  const evaluation = await evaluateNuknukAgainstCatalog({ ...result, moment: { clarification: result.clarification } }, [], example.reference);
+  assert.equal(evaluation.response, null);
+  assert.match(evaluation.clarification.question, /draussen.*Regen/u);
+  assert.throws(() => validateNuknukCompactSearch({ meaning }, { query: 'Ich möchte heute etwas unternehmen.', reference: example.reference }), /condition_unbound/u);
+});
+
 for (const item of understandingDevelopmentCases) test(`development target is structurally valid, not semantically approved: ${item.id}`, () => {
   const result = validateNuknukUnderstanding(item.content.target, item.content);
   assert.ok(result.limitations.includes('STRUCTURAL_VALIDATION_IS_NOT_SEMANTIC_PROOF'));
@@ -35,6 +264,34 @@ test('a plausible emotional interpretation never creates a mandatory fact', () =
   const parsed = validateNuknukUnderstanding(raw, example);
   assert.deepEqual(parsed.output.meaning, example.target.meaning);
   assert.equal(parsed.plan.facts.some(f => f.key === 'budget.maximum' || f.key === 'time.date'), false);
+});
+test('explicit trace prohibitions stop the canonical search even when meaning omits them', async () => {
+  const variants = [
+    ['Pekannüsse als Zutat und Spuren von Pekannüssen dürfen keinesfalls vorkommen.', true],
+    ['Kreuzkontakt mit Erdnüssen muss ausgeschlossen sein.', false],
+    ['Spuren von Sesam sind nicht erlaubt.', false],
+  ];
+  for (const [restriction, excludesIngredient] of variants) {
+    const result = validateNuknukUnderstanding(copy(), { ...example, query: `${example.query} ${restriction}` });
+    assert.equal(result.boundary, 'UNSUPPORTED_FOOD_TRACE_VERIFICATION');
+    assert.equal(result.plan, null);
+    assert.equal(result.capabilityGaps.some(gap => gap.factId === 'source:food-ingredient-exclusion'), excludesIngredient);
+    const evaluation = await evaluateNuknukAgainstCatalog(result, [binding(1, profile())], example.reference);
+    assert.equal(evaluation.status, 'UNSUPPORTED_CAPABILITY');
+    assert.equal(evaluation.response, null);
+  }
+});
+test('optional and accepted traces do not create a hard requirement', () => {
+  for (const preference of [
+    'Am liebsten ohne Spuren von Mandeln, Spuren wären aber völlig okay.',
+    'Gerne ohne Spuren von Haselnüssen, falls das klappt.',
+    'Ohne Spuren von Walnüssen ist kein Muss.',
+    'Spuren von Pistazien sind für mich okay.',
+  ]) {
+    const result = validateNuknukUnderstanding(copy(), { ...example, query: `${example.query} ${preference}` });
+    assert.equal(result.requestState, 'EXECUTABLE');
+    assert.equal(result.boundary, null);
+  }
 });
 test('rejects made-up quotes, unexpected fields, invalid meanings and multiple questions', () => {
   const fabricated = copy(); fabricated.moment.goal.evidence[0].quote = 'sie liebt Fine Dining';
@@ -106,6 +363,11 @@ test('structured evidence exercise receives only eligible candidates and public-
 test('advisory assessment cannot cite another spot or invent an evidence code', async () => {
   const { request, target } = await assessmentFixture();
   assert.equal(validateNuknukAssessment(target, request).state, 'ADVISORY_REQUIRES_SEMANTIC_REVIEW');
+  const overclaim = structuredClone(target);
+  overclaim.assessments[0].judgment = 'Schattige Terrasse bestätigt.';
+  const checked = validateNuknukAssessment(overclaim, request);
+  assert.doesNotMatch(JSON.stringify(checked.groundedOutput), /Schattige Terrasse bestätigt/);
+  assert.deepEqual(checked.groundedOutput[0].evidence, [request.candidates[0].evidence[0]]);
   const wrongSpot = structuredClone(target); wrongSpot.assessments[0].candidateId = 'not-in-input';
   assert.throws(() => validateNuknukAssessment(wrongSpot, request), /candidate_not_authorized/);
   const falseProof = structuredClone(target); falseProof.assessments[0].reasonCodes = ['invented-romantic'];
@@ -396,4 +658,89 @@ test('fourth local profile shortens instructions without changing schema or role
  assert.ok(next.instructions.includes('NORMALIZATION_REFERENCE'));
  assert.ok(next.instructions.includes('participation.accessibility=wheelchair'));
  assert.ok(!next.instructions.includes('offer.accessibility'));
+});
+
+test('the direct handoff returns the Librarian ranking for the requested municipality', async () => {
+  const raw = copy();
+  raw.meaning.facts = raw.meaning.facts.filter(fact => fact.key !== 'location.destination');
+  raw.meaning.facts.push({
+    id: 'municipality', key: 'location.destination', modality: 'REQUIRED', basis: 'EXPLICIT',
+    subjectIds: [], value: { text: 'Riehen' },
+  });
+  const understood = validateNuknukUnderstanding(raw, example);
+  const basel = binding(1, profile());
+  const riehen = binding(2, profile());
+  riehen.decisionProjection.facts.find(fact => fact.key === 'location.locality').value = 'Riehen';
+  const evaluation = await evaluateNuknukAgainstCatalog(
+    {...understood, identity: { local: true }}, [basel, riehen], example.reference, null, [],
+  );
+  assert.equal(evaluation.response.primaryCandidateId, riehen.decisionProjection.spotId);
+  assert.deepEqual(evaluation.response.candidates.map(candidate => [candidate.rank, candidate.presentation.locality]), [[1, 'Riehen']]);
+});
+
+test('a verified nearby spot and a relevant clarification survive the same product handoff', async () => {
+  const query = 'Ich suche ein Abendessen beim Spalentor, vielleicht ist jemand dabei.';
+  const raw = copy();
+  raw.moment.goal.evidence = [{quote:query}];
+  raw.moment.hypotheses = [];
+  raw.moment.missing = [{dimension:'OTHER', whyItMatters:'Die Gruppengrösse kann die Auswahl verfeinern.'}];
+  raw.moment.clarification = {question:'Weisst du schon, ob du zu zweit bist?',dimension:'OTHER',options:['Allein','Zu zweit']};
+  raw.meaning.facts = raw.meaning.facts.filter(fact => !fact.key.startsWith('location.'));
+  raw.meaning.facts.push({id:'anchor', key:'location.destination', modality:'REQUIRED', basis:'EXPLICIT', subjectIds:[], value:{text:'Spalentor'}});
+  const understood = validateNuknukUnderstanding(raw,{query,reference:example.reference});
+  assert.ok(understood.plan.facts.some(fact=>fact.key==='location.proximity' && fact.value.text==='Spalentor'));
+  const point = (id, latitude, longitude) => binding(id, profile(), [
+    worldFact('location.latitude',latitude),worldFact('location.longitude',longitude),
+  ]);
+  const near = point(1,47.5583,7.5814);
+  const far = point(2,47.574,7.616);
+  const unknown = binding(3,profile());
+  const evaluation = await evaluateNuknukAgainstCatalog({...understood,identity:{local:true}},[near,far,unknown],example.reference);
+  assert.equal(evaluation.response.clarification,raw.moment.clarification.question);
+  assert.equal(evaluation.response.primaryCandidateId,near.decisionProjection.spotId);
+  assert.deepEqual(evaluation.response.candidates.filter(row=>row.rank!==null).map(row=>row.spotId),[near.decisionProjection.spotId]);
+});
+
+test('coordinates establish a Basel neighborhood without a stored neighborhood tag', async () => {
+  const query = 'Ein Abendessen im St. Johann.';
+  const raw = copy();
+  raw.moment.goal.evidence = [{quote:query}];
+  raw.moment.hypotheses = [];
+  raw.meaning.facts = raw.meaning.facts.filter(fact=>!fact.key.startsWith('location.'));
+  raw.meaning.facts.push({id:'quarter',key:'location.destination',modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[],value:{text:'St. Johann'}});
+  const understood = validateNuknukUnderstanding(raw,{query,reference:example.reference});
+  assert.ok(understood.plan.facts.some(fact=>fact.key==='location.area'));
+  const spot = binding(1,profile(),[worldFact('location.latitude',47.568243),worldFact('location.longitude',7.58165)]);
+  const evaluation = await evaluateNuknukAgainstCatalog({...understood,identity:{local:true}},[spot],example.reference);
+  assert.equal(evaluation.response.primaryCandidateId,spot.decisionProjection.spotId);
+});
+
+test('an explicit venue destination does not turn into a search around it', () => {
+  const query = 'Ich möchte ins Basler Münster.';
+  const raw = copy();
+  raw.moment.goal.evidence = [{quote:query}];
+  raw.moment.hypotheses = [];
+  raw.meaning.facts = raw.meaning.facts.filter(fact=>!fact.key.startsWith('location.'));
+  raw.meaning.facts.push({id:'venue',key:'location.destination',modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[],value:{text:'Basler Münster'}});
+  const understood = validateNuknukUnderstanding(raw,{query,reference:example.reference});
+  assert.ok(understood.plan.facts.some(fact=>fact.key==='location.destination' && fact.value.text==='Basler Münster'));
+  assert.ok(!understood.plan.facts.some(fact=>fact.key==='location.proximity'));
+});
+
+test('an explicitly forgotten cafe name yields one question alongside the existing search', async () => {
+  const query = 'Ich will wieder ins gleiche Café wie sonst. Ich weiss nicht, wie es heisst, aber es ist beim Kannenfeldpark.';
+  const raw = copy();
+  raw.moment = {goal:{statement:'Ein bekanntes Café finden.',evidence:[{quote:'gleiche Café'}]},hypotheses:[],missing:[],clarification:null};
+  raw.meaning.facts = [{id:'kind',key:'offer.kind',value:{text:'CAFE'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]},
+    {id:'near',key:'location.proximity',value:{text:'Kannenfeldpark'},modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]}];
+  const first = validateNuknukUnderstanding(raw, {query, reference:example.reference});
+  assert.equal(first.requestState, 'EXECUTABLE');
+  assert.match(first.moment.clarification.question, /Café wiedererkennen/);
+  assert.equal(first.output.moment.clarification, null);
+  const followup = query + ' Rückfrage: ' + first.moment.clarification.question + ' Antwort: An der Ecke mit der roten Tür.';
+  const second = validateNuknukUnderstanding(raw, {query:followup, reference:example.reference});
+  assert.equal(second.moment.clarification, null);
+  assert.equal(validateNuknukUnderstanding(raw, {
+    query:'Ich möchte ins gleiche Café. Ich weiss nicht, ob es geöffnet ist.',reference:example.reference,
+  }).moment.clarification, null);
 });

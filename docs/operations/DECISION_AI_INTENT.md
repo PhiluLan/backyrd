@@ -1,5 +1,146 @@
 # Decision Product intent interpretation
 
+## NukNuk in the existing Backyrd app
+
+Use the existing authenticated `decision-v13` Product route for the
+unpublished Backyrd app, including its initial test phase.
+Set `BACKYRD_DECISION_UNDERSTANDING_PROVIDER=nuknuk` on the target backend and
+enable the existing `BACKYRD_DECISION_AI_INTENT_ENABLED` switch there. An unset
+provider selects Luna. The route validates the NukNuk search instruction and
+the canonical Librarian applies the evidence, eligibility and ranking policy.
+App and Web can show a clarification alongside eligible spots or on its own
+when the route cannot safely begin the search. The existing release and
+Emergency-OFF controls apply.
+
+For a personal app test, select `nuknuk-personal` as the provider and set
+`BACKYRD_NUKNUK_PERSONAL_USER_ID` to the lowercase UUID of the verified Backyrd account. Other authenticated
+accounts continue to use Luna. Keep this setting server-side and remove
+the provider selection before taking a temporary inference host offline.
+
+Configure `BACKYRD_NUKNUK_ENDPOINT` with the HTTPS
+`/v1/chat/completions` URL, `BACKYRD_NUKNUK_API_KEY` as a server-only secret
+and `BACKYRD_NUKNUK_MODEL` with the exact alias returned by that endpoint.
+For the 35B app candidate, use the measured MLX base
+`mlx-community/Qwen3.6-35B-A3B-4bit` at revision
+`38740b847e4cb78f352aba30aa41c76e08e6eb46` with the selected step-175
+adapter. The SHA-256 of its MLX weights is
+`df9b4e7874a14260ab138038234e85df5cc2722040d35057c3646713f7ad6b73`.
+Pin the base and adapter together on the inference host. Configure
+the model alias returned by that host, then verify an authenticated
+structured completion and both turns of the birthday regression against
+the target Decision backend before publishing the app update.
+For vLLM, enable LoRA serving and JSON-schema constrained output, disable
+request payload logging, and provision context for the full prompt plus up to
+2,048 output tokens. Use TLS and authenticated access. Verify the endpoint with
+the actual provider request before enabling it. Requests default to a
+30-second server deadline for NukNuk. The service receives the search text,
+normalization reference and explicit structured search fields. User IDs,
+sessions, spot records and ranking history stay in the Product backend.
+
+For the first app verification, use an isolated backend with the canonical
+Decision schema and approved spot fixtures. With a signed-in test account, check a
+normal search, a search with both spots and a targeted question, a follow-up
+answer, a question without a usable search instruction, and a provider timeout.
+Capture the validated handoff, actual Librarian ordering and visible outcome
+with end-to-end latency. Use the existing authenticated release process for any
+later rollout.
+
+### Local MacBook inference check
+
+The 48 GiB M4 Pro ran the local 4-bit Qwen3.5-27B snapshot with a separate
+MLX conversion of the selected adapter. All 496 LoRA projection pairs were
+shape-checked against the local base weights. This used a different quantized
+base representation from the Blackwell run. The loopback server was ready
+in 5.7 s. Three sequential requests took 54.4, 82.9 and 77.7 s at the model,
+with up to 19.3 GiB of process footprint and no observed swap growth or memory
+warning. On these requests, the model spent about 24 s reading nearly 3,000
+input tokens before generation. The two executable plans reached the
+canonical Librarian against the saved test catalog. The third had an unbound
+weather condition and was rejected before search. Evidence is under
+`.local/nuknuk-understanding/mac-inference-xor5js`. The test server was stopped.
+
+The local configuration is suitable for manual checks. All three model
+requests exceeded the existing 30-second Product deadline.
+
+Retesting the same queries with a memory-only MLX prefix cache reused 2,560
+tokens in both warm requests at the same frozen calendar reference. Prompt
+processing fell from about 24 s to 3.5 s. A separate tokenization check with
+different reference times found a shared prefix of about 1,975 tokens, so the
+warm result cannot be assumed for live requests. Model times for SBB, café
+and play were 61.6, 66.2 and 58.0 s with the original instructions and cache.
+The cold SBB result dropped travel from its explicit time coverage. The play
+request reached search but made shelter mandatory even without rain.
+With shorter output instructions and the same cache, model times were 54.5,
+57.7 and 67.2 s. The café request lost its venue type and failed validation.
+The play request also demoted the requested day to context. Keep both
+experiments separate from the app configuration. Evidence is under
+`.local/nuknuk-understanding/mac-cache-fPZMqi` and
+`.local/nuknuk-understanding/mac-short-B8tSP7`.
+
+Two further local output-format trials used the same adapter, three requests
+and saved test catalog. A reversible short-key encoding preserved all fields
+and validation outcomes in 40 saved responses. Despite this, fresh generation
+with the encoded schema took 56.1, 48.4 and 44.2 s. The SBB response lacked
+required subject references, the café response made party size a hard rule and
+lost its ranked candidate, and the play response had an unbound rain rule.
+Keeping canonical keys and changing only the grammar's JSON separators took
+56.3, 42.4 and 63.6 s. Its SBB result lost explicit travel/visit coverage,
+its café result changed the venue into a coffee request, and its play result
+bound the rain branch but demoted the date and lost shelter as an offer
+feature. These are single measurements per case, with a cold SBB request
+followed by two warm requests. Both runs stayed below 19.2 GiB measured
+process footprint, with normal memory pressure and no swap growth. The local
+trials did not meet the existing 30 s deadline or preserve search semantics
+well enough to connect either format to the app. Evidence is under
+`.local/nuknuk-understanding/mac-wire-gKnz5t` and
+`.local/nuknuk-understanding/mac-json-MveLUF`.
+
+### Smaller model on the MacBook
+
+The pinned 4-bit 9B model completed the original SBB and café generations in
+12.4 and 15.1 s but omitted required fact references. The play request hit
+the 2,048-token limit after 55.4 s. Requiring explicit identifiers and
+subject references in the model schema brought all three cases to 15.6–22.6 s
+with the existing Librarian validator.
+
+A separate rank-8 adapter for the last two attention blocks completed 20
+updates on the Mac using a derived subset of the reviewed v7 curriculum.
+The three benchmark questions were excluded by exact text. Each adapter
+comparison used the same prompt, schema, calendar reference and saved test
+catalog. After training, model times were 17.9, 15.7 and 22.4 s, with a peak
+process footprint of 7.84 GiB and no observed swap growth during inference.
+The two executable searches each returned zero ranked candidates. SBB still
+invented an indoor requirement and omitted travel from the 45-minute
+coverage. The café request still invented a fixed start boundary and treated
+the venue type as optional. The play request still failed on a duplicate
+weather identifier and its generated date was wrong. Use the 9B model for
+further development, with a disjoint evaluation set before app activation.
+Evidence is under `.local/nuknuk-understanding/mac-9b-vECFJz`,
+`.local/nuknuk-understanding/mac-9b-explicit-SYczQ3` and
+`.local/nuknuk-understanding/mac-9b-trained-aO5M3D`.
+
+An eight-case local comparison used three regression queries and five new
+Swiss German requests with the same explicit model schema, date reference,
+Librarian and test catalog. The trained 9B took 12.3–25.2 s including
+validation and available search work, with three rejected handoffs and no
+ranked spots or useful questions. The trained 27B took 32.3–61.3 s, with
+seven executable handoffs and one clarification-only response. It preserved
+the SBB travel budget and the optional terrace in the Rhine case. The
+outdoor play request still lost Sunday and made shelter unconditional.
+The exact results and rubric are in
+`.local/nuknuk-understanding/mac-model-choice-psps9P`. Qwen3.6-35B-A3B
+completed the same benchmark on the Mac after all 15 model files were
+verified. The unadapted 4-bit model loaded in 4.1 s, peaked at 21.1 GiB
+and had a median local chain time of 8.6 s. Seven of eight responses
+finished within 30 s. Six search instructions were executable, and none
+ranked a spot in the saved catalog or asked a clarification. The outdoor
+play request failed because the rain condition was unbound. The Tierpark
+request hit the generation limit at 36.1 s. The Jazz request reversed the
+21:00 boundary and the open request invented a drinks requirement.
+The speed makes this the preferred local fine-tuning candidate. Keep the
+trained 27B for quality comparison and verify a trained 35B on fresh cases
+before activating it in the app.
+
 ## Current access policy — 2026-10-19
 
 The founder explicitly requested Decision for every authenticated Backyrd account

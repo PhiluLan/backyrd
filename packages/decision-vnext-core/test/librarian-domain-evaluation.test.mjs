@@ -5,6 +5,7 @@ import {parseProductWorldResolverBinding} from '../dist/product-world-resolver-b
 import {qualitativePriceEvidence} from '../dist/product-librarian-knowledge.js';
 import {createLibrarianVisitWindow,librarianOfferAvailability} from '../dist/product-librarian-time.js';
 import {exercise} from './librarian-active-route-fixtures.mjs';
+import {prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION} from '../dist/product-luna-librarian.js';
 const candidate=r=>[...r.ranked,...r.unresolved,...r.excluded][0];
 const assessment=(r,id)=>candidate(r).facts.find(f=>f.factId===id);
 const optional=()=>fact('booking','participation.booking','spontaneous','REQUIRED',[]);
@@ -58,6 +59,30 @@ test('the canonical reservation rule remains readable when a scoped experience p
  const result=search(request([meal(),optional()]),[b]);
  assert.equal(result.ranked.length,1);
  assert.ok(assessment(result,'booking').domainEvidence[0].sourceKeys.includes('rule.reservation'));
+});
+test('missing walk-in evidence asks once and confirmed walk-in can be ranked',async()=>{
+ const text='Ich möchte Abendessen ohne Voranmeldung.';
+ const base=request([meal(),optional()]);
+ const forText=sourceText=>prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,sourceText,reference:base.source.reference,output:base.raw});
+ const q=forText(text);
+ const unknown=binding(1090,p([]));
+ const known=binding(1091,p([prop('participation.booking','Nicht erforderlich')]));
+ const mandatory=binding(1092,p([prop('participation.booking','Erforderlich')]));
+ const fallback=await exercise({text,meaning:q,catalog:[unknown,mandatory]});
+ assert.equal(fallback.status,200);
+ assert.equal(fallback.body.primaryCandidateId,null);
+ assert.match(fallback.body.clarification,/Besuch mit Voranmeldung infrage/u);
+ const incompatible=await exercise({text,meaning:q,catalog:[mandatory]});
+ assert.equal(incompatible.body.primaryCandidateId,null);
+ assert.equal(incompatible.body.clarification,undefined);
+ const explicit=await exercise({text,meaning:q,catalog:[unknown,mandatory,known]});
+ assert.equal(explicit.status,200);
+ assert.ok(explicit.body.primaryCandidateId);
+ assert.equal(explicit.body.clarification,undefined);
+ const answeredText=text+' Rückfrage: '+fallback.body.clarification+' Antwort: Nein, ich möchte ohne Voranmeldung.';
+ const answered=await exercise({text:answeredText,meaning:forText(answeredText),catalog:[unknown]});
+ assert.equal(answered.status,200);
+ assert.equal(answered.body.clarification,undefined);
 });
 test('optional drinks and a recommended tour cannot qualify a mandatory-booked meal',()=>{
  const data=profile([offer('dinner','DINNER',['inside'],[prop('participation.booking','Erforderlich')]),offer('drink','DRINKS',['inside'],[prop('participation.booking','Nicht erforderlich')]),offer('tour','GUIDED_TOUR',['inside'],[prop('participation.booking','Empfohlen')])]);

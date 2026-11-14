@@ -8,8 +8,9 @@ import {
   type DecisionProductProductionConfiguration,
   type DecisionProductRpcClient,
 } from "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js";
-import { createDecisionProductHttpHandler } from "../../../packages/decision-vnext-core/dist/product-decision.js";
+import { createDecisionProductHttpHandler, type DecisionProductRuntimePorts } from "../../../packages/decision-vnext-core/dist/product-decision.js";
 import { createDecisionProductLunaProvider } from "../../../packages/decision-vnext-core/dist/product-luna-provider.js";
+import { createDecisionProductNuknukProvider } from "../../../packages/decision-vnext-core/dist/product-nuknuk-provider.js";
 
 export const DECISION_V13_VNEXT_ONLY_ENTRYPOINT = "backyrd.decision-vnext.single-route@1.0" as const;
 
@@ -36,7 +37,7 @@ function positiveInteger(name: string, fallback: number): number {
   return value;
 }
 
-function configuration(): DecisionProductProductionConfiguration {
+function configuration(nuknukEnabled: boolean): DecisionProductProductionConfiguration {
   return {
     identity: {
       releaseHash: required("BACKYRD_DECISION_VNEXT_RELEASE_HASH"),
@@ -57,7 +58,7 @@ function configuration(): DecisionProductProductionConfiguration {
     // exceed 12 seconds even when both stages complete successfully. Keep an
     // explicit bounded deadline; a late response must never masquerade as a
     // successful empty recommendation.
-    timeoutMilliseconds: positiveInteger("BACKYRD_DECISION_VNEXT_TIMEOUT_MS", 20_000),
+    timeoutMilliseconds: positiveInteger("BACKYRD_DECISION_VNEXT_TIMEOUT_MS", nuknukEnabled ? 30_000 : 20_000),
     maxRequestBytes: positiveInteger("BACKYRD_DECISION_VNEXT_MAX_REQUEST_BYTES", 16_384),
     idempotencyTtlSeconds: positiveInteger("BACKYRD_DECISION_VNEXT_IDEMPOTENCY_TTL_SECONDS", 86_400),
   };
@@ -124,11 +125,27 @@ Deno.serve(async (request: Request) => {
     const rpc = rpcClient(service);
     // Fresh ports per request: the authenticated actor is request-local and
     // can never leak across concurrent Edge requests.
-    const config = configuration();
+    const provider = Deno.env.get("BACKYRD_DECISION_UNDERSTANDING_PROVIDER") ?? "luna";
+    if (provider !== "luna" && provider !== "nuknuk" && provider !== "nuknuk-personal") {
+      throw new Error("decision_understanding_provider_invalid");
+    }
+    const personalNuknukUser = provider === "nuknuk-personal" ? required("BACKYRD_NUKNUK_PERSONAL_USER_ID") : undefined;
+    if (personalNuknukUser !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(personalNuknukUser)) {
+      throw new Error("decision_nuknuk_personal_user_invalid");
+    }
+    const config = configuration(provider !== "luna");
     const aiEnabled = Deno.env.get("BACKYRD_DECISION_AI_INTENT_ENABLED") === "true";
-    const understandingProvider = aiEnabled ? createDecisionProductLunaProvider({
-      apiKey: required("OPENAI_API_KEY"),
-    }) : async () => { throw new Error("product_luna_disabled"); };
+    const luna = () => createDecisionProductLunaProvider({ apiKey: required("OPENAI_API_KEY") });
+    const nuknuk = () => createDecisionProductNuknukProvider({
+      endpoint: required("BACKYRD_NUKNUK_ENDPOINT"),
+      apiKey: required("BACKYRD_NUKNUK_API_KEY"),
+      model: required("BACKYRD_NUKNUK_MODEL"),
+    });
+    const understandingProvider: NonNullable<DecisionProductRuntimePorts["understand"]> = async (input, actor, signal) => {
+      if (!aiEnabled) throw new Error("product_understanding_disabled");
+      const useNuknuk = provider === "nuknuk" || (provider === "nuknuk-personal" && actor.userId === personalNuknukUser);
+      return (useNuknuk ? nuknuk() : luna())(input, actor, signal);
+    };
     const ports = createDecisionProductProductionPorts({
       rpc,
       authClient: authClient(service),

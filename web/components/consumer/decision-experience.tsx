@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 import {
   AUDIENCE_OPTIONS,
   DIRECTION_OPTIONS,
+  DecisionWebClarification,
   MOOD_OPTIONS,
   recordDecisionInteraction,
   runWebDecision,
@@ -76,6 +77,9 @@ export function DecisionExperience() {
   const [run, setRun] = useState<DecisionRun | null>(null);
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
+  const [standaloneQuestion, setStandaloneQuestion] = useState<DecisionWebClarification | null>(null);
+  const [answer, setAnswer] = useState("");
+  const question = standaloneQuestion?.question ?? run?.clarification;
   const busy = useRef(false);
   const resultElement = useRef<HTMLElement | null>(null);
   const impressed = useRef(new Set<string>());
@@ -135,7 +139,7 @@ export function DecisionExperience() {
     setIndex(primaryIndex >= 0 ? primaryIndex : 0);
     setStatus(value.results.length && value.primaryCandidateId ? "results" : "empty");
   }, []);
-  const start = useCallback(async () => {
+  const start = useCallback(async (refinedText?: string) => {
     if (!userId) {
       setError(
         "Melde dich an, damit Backyrd dieselbe sichere Decision wie in der App nutzen kann.",
@@ -143,14 +147,34 @@ export function DecisionExperience() {
       setStatus("error");
       return;
     }
-    if (!canRun) return;
+    if (!canRun && !refinedText) return;
+    const input = decisionInput();
+    if (refinedText) {
+      setMode("free");
+      setFreeText(refinedText);
+      input.inputMode = "free";
+      input.rawFreeText = refinedText;
+      input.directions = [];
+      input.audiences = [];
+      input.moods = [];
+    }
+    setStandaloneQuestion(null);
+    setAnswer("");
+    setRun(null);
     setStatus("loading");
     setError("");
     try {
-      const value = await runWebDecision(decisionInput());
+      const value = await runWebDecision(input);
       acceptRun(value);
-    } catch {
-      setError("Deine Vorschläge konnten gerade nicht geladen werden.");
+    } catch (cause) {
+      if (cause instanceof DecisionWebClarification) {
+        setStandaloneQuestion(cause);
+        setStatus("empty");
+        return;
+      }
+      setError(cause instanceof Error && cause.message === "decision_nuknuk_unresolved"
+        ? "Deinen Suchwunsch konnten wir noch nicht sicher zuordnen. Ergänze kurz, was dir wichtig ist."
+        : "Deine Vorschläge konnten gerade nicht geladen werden.");
       setStatus("error");
     }
   }, [acceptRun, canRun, decisionInput, userId]);
@@ -191,6 +215,22 @@ export function DecisionExperience() {
       busy.current = false;
     }
   }
+  const original = standaloneQuestion?.submittedQuery ?? run?.submittedQuery ?? "";
+  const refined = question && answer.trim()
+    ? [original, `Rückfrage: ${question}`, `Antwort: ${answer.trim()}`].filter(Boolean).join("\n")
+    : null;
+  const questionForm = question && (status === "empty" || status === "results") ? (
+    <form className="b-input-group" onSubmit={(event) => {
+      event.preventDefault();
+      if (refined && refined.length <= 2000) void start(refined);
+    }}>
+      <label htmlFor="decision-clarification" className="b-label">{question}</label>
+      <input id="decision-clarification" value={answer} maxLength={Math.max(0, 2000 - original.length - question.length - 22)}
+        onChange={(event) => setAnswer(event.target.value)} />
+      <Button type="submit" disabled={!refined || refined.length > 2000}>Wunsch ergänzen</Button>
+    </form>
+  ) : null;
+
   return (
     <div className="b-decision-layout">
       <aside className="b-decision-form-panel">
@@ -333,6 +373,7 @@ export function DecisionExperience() {
         )}
       </aside>
       <section className="b-decision-stage">
+        {questionForm}
         {status === "input" ? (
           <div>
             <p className="b-kicker">Ruhig intelligent</p>
@@ -364,11 +405,11 @@ export function DecisionExperience() {
                 : router.push(`/login?next=${encodeURIComponent("/decision")}`)
             }
           />
-        ) : status === "empty" ? (
+        ) : status === "empty" && !question ? (
           <StateView
             title="Noch kein passender Treffer"
-            message={run?.limitations.includes("MULTI_PLACE_SEARCH_UNSUPPORTED") ? "Kaffee holen und einen Spaziergang können wir noch nicht als Ausflug mit mehreren Orten planen. Suche die beiden Schritte einzeln." : run?.limitations.includes("REQUEST_NEEDS_CLARIFICATION") ? "Ergänze bitte ein Budget pro Person, zum Beispiel bis 40 CHF. So können wir die Preise zu deinem Wunsch prüfen." : run?.limitations.includes("REQUEST_REQUIREMENT_UNSUPPORTED") ? "Einen Teil deines Wunsches können wir noch nicht zuverlässig prüfen. Das bedeutet nicht, dass es keinen passenden Ort gibt." : "Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Streiche wichtige Bedingungen nicht nur für einen Treffer."}
-            actionLabel="Auswahl anpassen"
+            message={run?.limitations.includes("NO_CATALOG_CANDIDATES") ? "Für den gewünschten Ort sind noch keine Spots oder Veranstaltungen erfasst. Wenn du örtlich flexibel bist, kannst du einen anderen Ort suchen." : run?.limitations.includes("MULTI_PLACE_SEARCH_UNSUPPORTED") ? "Kaffee holen und einen Spaziergang können wir noch nicht als Ausflug mit mehreren Orten planen. Suche die beiden Schritte einzeln." : run?.limitations.includes("REQUEST_NEEDS_CLARIFICATION") ? "Ergänze bitte ein Budget pro Person, zum Beispiel bis 40 CHF. So können wir die Preise zu deinem Wunsch prüfen." : run?.limitations.includes("REQUEST_REQUIREMENT_UNSUPPORTED") ? "Einen Teil deines Wunsches können wir noch nicht zuverlässig prüfen. Das bedeutet nicht, dass es keinen passenden Ort gibt." : "Für diesen Wunsch haben wir gerade keinen ausreichend belegten Ort. Streiche wichtige Bedingungen nicht nur für einen Treffer."}
+            actionLabel={run?.limitations.includes("NO_CATALOG_CANDIDATES") ? "Ort ändern" : "Auswahl anpassen"}
             onAction={() => setStatus("input")}
           />
         ) : current && run ? (

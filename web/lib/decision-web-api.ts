@@ -152,6 +152,7 @@ type DecisionProductResponse = {
   rankingPolicyVersion: typeof RANKING_POLICY_VERSION;
   rankingPolicyHash: string;
   interpretation: Record<string, unknown> & { interpretationHash: string; rawTextPersisted: false };
+  clarification?: string;
   primaryCandidateId: string | null;
   candidates: DecisionResult[];
   limitations: string[];
@@ -165,7 +166,13 @@ type DecisionProductResponse = {
   resultHash: string;
 };
 
+export class DecisionWebClarification extends Error {
+  constructor(readonly question: string, readonly submittedQuery: string) { super("decision_needs_clarification"); }
+}
+
 export type DecisionRun = {
+  clarification?: string;
+  submittedQuery: string;
   decisionId: string;
   personalized: boolean;
   primaryCandidateId: string | null;
@@ -264,7 +271,7 @@ export function buildCanonicalDecisionRequest(
 }
 
 const unavailable = () => new Error("Die aktuelle Decision ist gerade nicht verfügbar.");
-async function invokeDecision(body: unknown): Promise<unknown> {
+async function invokeDecision(body: unknown, submittedQuery = ""): Promise<unknown> {
   const response = await fetch("/api/decision", {
     method: "POST",
     credentials: "same-origin",
@@ -273,6 +280,13 @@ async function invokeDecision(body: unknown): Promise<unknown> {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 422) {
+      const failure = await response.json();
+      if (typeof failure?.clarification === "string" && /^[^?!<>\r\n]{9,239}\?$/u.test(failure.clarification)) {
+        throw new DecisionWebClarification(failure.clarification, submittedQuery);
+      }
+      if (failure?.error === "decision_nuknuk_unresolved") throw new Error("decision_nuknuk_unresolved");
+    }
     if (response.status === 401) throw new Error("Bitte melde dich an, um Für jetzt zu nutzen.");
     throw unavailable();
   }
@@ -385,7 +399,9 @@ async function validateCandidate(value: unknown, expectedRank: number | null): P
 
 async function validateResponse(value: unknown, request: DecisionProductRequest): Promise<DecisionProductResponse> {
   const item = record(value);
-  exactKeys(item, ["contractVersion", "status", "decisionId", "requestHash", "envelopeHash", "rankingPolicyVersion", "rankingPolicyHash", "interpretation", "primaryCandidateId", "candidates", "limitations", "alternative", "reject", "personalization", "learning", "productOutputAuthorized", "legacyEngineUsed", "fallbackUsed", "resultHash"]);
+  exactKeys(item, ["contractVersion", "status", "decisionId", "requestHash", "envelopeHash", "rankingPolicyVersion", "rankingPolicyHash", "interpretation", ...(Object.hasOwn(item, "clarification") ? ["clarification"] : []), "primaryCandidateId", "candidates", "limitations", "alternative", "reject", "personalization", "learning", "productOutputAuthorized", "legacyEngineUsed", "fallbackUsed", "resultHash"]);
+  if (Object.hasOwn(item, "clarification") && (typeof item.clarification !== "string" || item.clarification.length < 10
+    || item.clarification.length > 240 || !/^[^?!<>\r\n]+\?$/u.test(item.clarification))) throw unavailable();
   if (item.contractVersion !== RESPONSE_VERSION || item.status !== "AVAILABLE" || !identifier(item.decisionId) || !hash(item.envelopeHash) || item.rankingPolicyVersion !== RANKING_POLICY_VERSION || !hash(item.rankingPolicyHash)) throw unavailable();
   if (item.productOutputAuthorized !== true || item.legacyEngineUsed !== false || item.fallbackUsed !== false) throw unavailable();
   // The canonical interpreter may enrich the request with validated World
@@ -428,11 +444,13 @@ async function validateResponse(value: unknown, request: DecisionProductRequest)
 
 export async function runWebDecision(input: DecisionRequest, action?: DecisionAction): Promise<DecisionRun> {
   const request = buildCanonicalDecisionRequest(input, action);
-  const data = await invokeDecision(request);
+  const data = await invokeDecision(request, request.naturalLanguage);
   const response = await validateResponse(data, request);
   const results = response.candidates.filter((candidate) => candidate.rank !== null && !candidate.contextualReject);
   return {
     decisionId: response.decisionId,
+    clarification: response.clarification,
+    submittedQuery: request.naturalLanguage,
     personalized: response.personalization.state === "ACTIVE",
     primaryCandidateId: response.primaryCandidateId,
     limitations: response.limitations,

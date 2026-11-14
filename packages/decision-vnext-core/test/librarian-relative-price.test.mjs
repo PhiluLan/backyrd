@@ -2,11 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fact,request,profile,offer,area,prop,binding,search,meal,budget,worldFact} from './librarian-matching-fixtures.mjs';
 import {exercise} from './librarian-active-route-fixtures.mjs';
+import {LUNA_LIBRARIAN_CONTRACT_VERSION,prepareLibrarianRequest} from '../dist/product-luna-librarian.js';
 const relative=(value='nicht zu teuer',modality='REQUIRED')=>fact('relative','budget.qualitative',value,modality);
 const level=value=>worldFact('operation.price_level',value);
 const vegan=()=>fact('vegan','food.diet','vegan','REQUIRED',['p1']);
 const food=()=>profile([offer('dinner','DINNER',['inside'],[prop('food.diet','vegan')])],[area()]);
 const all=r=>[...r.ranked,...r.unresolved,...r.excluded];
+
+test('a documented dinner with unclear cuisine can appear as provisional without confirming price or excluded cuisine',async()=>{
+ const text='Abendessen in Basel, bitte keine klassische Küche und nicht zu teuer.';
+ const cuisine=fact('cuisine','food.cuisine','klassische Küche','EXCLUDED');
+ const plan=request([fact('meal','food.meal','dinner'),cuisine,relative('nicht zu teuer','PREFERRED')]);
+ const meaning=prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,sourceText:text,reference:plan.source.reference,output:plan.raw});
+ const unknown=binding(1820,food());
+ const expensive=binding(1821,food(),[level('HIGH')]);
+ const result=await exercise({text,meaning,catalog:[unknown,expensive],understandOverride:async()=>meaning});
+ assert.equal(result.status,200);
+ assert.equal(result.body.primaryCandidateId,null);
+ assert.deepEqual(result.body.candidates.map(c=>c.spotId),[unknown.decisionProjection.spotId]);
+ assert.equal(result.body.candidates[0].rank,null);
+ assert.ok(result.body.candidates[0].reasons.some(r=>r.code==='librarian-dinner-cuisine-unconfirmed'&&!r.confirmed&&r.statement.includes('Preisniveau')));
+});
 
 test('required relative price uses the defined level without asking for a cash ceiling or changing modality',()=>{
  for(const [value,accepted] of [['VERY_LOW',true],['LOW',true],['MEDIUM',true],['HIGH',false],['PREMIUM',false]]){

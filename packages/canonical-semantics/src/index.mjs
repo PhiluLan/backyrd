@@ -1,17 +1,9 @@
+import { BASEL_DECISION_LOCATIONS } from "./basel-reference-points.mjs";
+export { BASEL_DECISION_LOCATIONS, BASEL_REFERENCE_POINTS } from "./basel-reference-points.mjs";
+
 export const SEMANTIC_CONTRACT_VERSION = "backyrd-canonical-semantics-v1";
 export const CURRENT_MOMENT_VERSION = "backyrd-current-moment-schema-v2";
 export const CURRENT_INTENT_SEMANTIC_VERSION = "backyrd-current-intent-v2-founder-gate3";
-
-// Deliberately small Product registry for explicit Basel Decision language.
-// This is not a general geocoding platform: every entry is a reviewed,
-// deterministic request anchor and every candidate is checked against its
-// existing Product coordinates.
-export const BASEL_DECISION_LOCATIONS = Object.freeze({
-  GUNDELI:Object.freeze({kind:"QUARTER",label:"Gundeli",latitude:47.5414,longitude:7.5894,defaultRadiusKm:1.15,aliases:["gundeli","gundeldingen"]}),
-  KLEINBASEL:Object.freeze({kind:"QUARTER",label:"Kleinbasel",latitude:47.5652,longitude:7.5977,defaultRadiusKm:1.35,aliases:["kleinbasel","klein basel"]}),
-  BASEL_SBB:Object.freeze({kind:"LANDMARK",label:"Basel SBB",latitude:47.54757,longitude:7.58956,defaultRadiusKm:.8,aliases:["basel sbb","bahnhof sbb","beim sbb","nahe sbb"]}),
-  MARKTPLATZ:Object.freeze({kind:"LANDMARK",label:"Marktplatz",latitude:47.55839,longitude:7.58818,defaultRadiusKm:1,aliases:["marktplatz"]}),
-});
 
 export const FROZEN_TASTE_CONCEPTS = Object.freeze([
   "vibe.cozy","vibe.relaxed","vibe.romantic","vibe.lively","vibe.quiet","vibe.social","vibe.inspiring","vibe.playful","vibe.elegant","vibe.authentic","vibe.urban",
@@ -159,7 +151,7 @@ const normalize = (value) => String(value ?? "").trim().toLocaleLowerCase("de-CH
 const fold = (value) => normalize(value).normalize("NFKD").replace(/[\u0300-\u036f]/g,"");
 const uniqueValues = (values) => [...new Set(values.filter(Boolean))];
 const canonicalFact = (value,provenance,sourceRef) => ({value,provenance,sourceRef,semanticContractVersion:SEMANTIC_CONTRACT_VERSION});
-const NEAR_REFERENCE_PATTERN=/\b(?:in\s+(?:unmittelbarer\s+)?der\s+nahe\s+(?:von|vom|bei|beim|zum)\s+|nahe\s+(?:(?:bei|beim|von|vom|zum)\s+)?)([^,.;!?]+)/;
+const NEAR_REFERENCE_PATTERN=/\b(?:in\s+(?:unmittelbarer\s+)?der\s+nahe\s+(?:von|vom|bei|beim|zum)\s+|nahe\s+(?:(?:bei|beim|von|vom|zum)\s+)?)((?:\bst\.(?=\s)|[^,.;!?])+)/;
 const extractNearReference=(normalizedText)=>{
   const match=normalizedText.match(NEAR_REFERENCE_PATTERN);
   if(!match)return null;
