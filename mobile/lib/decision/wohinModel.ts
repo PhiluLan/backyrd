@@ -56,21 +56,64 @@ export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
   return [category, candidate.presentation.locality].filter(Boolean).join(" · ");
 }
 
-/** One grounded sentence, never an inference from the user's free text or ranking score. */
-export function wohinRecommendation(candidate: DecisionProductCandidate): string {
-  if (candidate.presentation?.event) return candidate.coreIntentCoverage === "CONFIRMED" ? "Das könnte dein nächster Moment werden – schau dir den Termin an." : "Vielleicht etwas für dich – schau dir die Details und den Termin an.";
-  const provisional = candidate.reasons.filter(reason => provisionalVisitReasons.has(reason.code) || reason.code === "librarian-provisional-nearby");
-  if (candidate.tier === "UNCONFIRMED_FALLBACK" && provisional.length) return provisional.map(reason => reason.statement).join(" ");
+const atmospherePhrases = new Map([
+  ["cozy", "gemütlich"],
+  ["relaxed", "entspannt"],
+  ["romantic", "romantisch"],
+]);
+
+/** Describe the match using public, confirmed evidence for this candidate. */
+export function wohinRecommendation(
+  candidate: DecisionProductCandidate,
+  interpretation?: DecisionProductResponse["interpretation"],
+): string {
+  const provisional = candidate.reasons.find(reason =>
+    provisionalVisitReasons.has(reason.code) || reason.code === "librarian-provisional-nearby");
+  if (candidate.tier === "UNCONFIRMED_FALLBACK" && provisional) return provisional.statement;
+
   const world = candidate.reasons.filter(reason => reason.confirmed && reason.domain === "WORLD");
+  const facts = new Set(world.filter(reason => /^LBR(?::|_EVIDENCE:)/.test(reason.code)).map(reason => reason.statement));
+  const hasAtmosphere = facts.has("Bestätigt: die gewünschte Atmosphäre.");
+  const moods = interpretation?.moods;
+  const atmosphere = hasAtmosphere && Array.isArray(moods) && moods.length === 1 && typeof moods[0] === "string"
+    ? atmospherePhrases.get(moods[0])
+    : undefined;
+  const dateTime = interpretation?.dateTime;
+  const evening = candidate.actualAvailability === "open" && typeof dateTime === "object" && dateTime !== null
+    && "dayPhase" in dateTime && dateTime.dayPhase === "EVENING";
+
   const offers = world.find(reason => reason.code === "librarian-selected-offers" && reason.statement.startsWith("Passende Angebote: "));
-  if (offers) return `Hier gibt’s ${offers.statement.slice("Passende Angebote: ".length).replace(/[.!?]+$/, "")} – passend zu dem, was du suchst.`;
-  const facts = new Set(world.filter(reason => reason.code.startsWith("LBR:")).map(reason => reason.statement));
-  if (facts.has("Bestätigt: die Essensmöglichkeit.")) return "Hier kannst du essen gehen, so wie du es dir gerade wünschst.";
-  if (facts.has("Bestätigt: die Getränkeauswahl.")) return "Für einen Drink nach deinem Geschmack bist du hier richtig.";
-  if (facts.has("Bestätigt: die gewünschte Aktivität.")) return "Hier kannst du das machen, worauf du gerade Lust hast.";
-  if (facts.has("Bestätigt: die gewünschte Atmosphäre.")) return "Die Stimmung hier passt zu dem, was du suchst.";
-  if (candidate.coreIntentCoverage === "CONFIRMED" && world.some(reason => ["core-intent-confirmed", "primary-purpose-confirmed"].includes(reason.code) || reason.statement === "Bestätigt: die gewünschte Art des Angebots.")) return "Eine passende Idee für das, was du gerade vorhast.";
-  return "Könnte etwas für dich sein – ein paar Infos zu deinem Wunsch fehlen uns hier noch.";
+  const offerNames = offers?.statement.slice("Passende Angebote: ".length).replace(/[.!?]+$/, "").trim();
+  const specificOffer = offerNames && offerNames.length <= 100 && !/^(Abendessen|Essen|Getränke|Restaurant)$/i.test(offerNames)
+    ? offerNames
+    : null;
+
+  if (specificOffer) {
+    const offer = `Hier gibt’s ${specificOffer}.`;
+    return atmosphere ? `${offer} Die Atmosphäre ist ${atmosphere}.` : offer;
+  }
+  if (facts.has("Bestätigt: die Essensmöglichkeit.") && evening) {
+    if (atmosphere) return `Hier kannst du am gewünschten Abend ${atmosphere} essen gehen.`;
+    return "Hier kannst du am gewünschten Abend essen gehen.";
+  }
+  if (world.some(reason => reason.code === "librarian-pizza-offer-confirmed")) return "Hier gibt’s Pizza, wie du sie gesucht hast.";
+  if (facts.has("Bestätigt: die Essensmöglichkeit.")) {
+    return atmosphere ? `Hier kannst du ${atmosphere} essen gehen.` : "Hier kannst du wie gewünscht essen gehen.";
+  }
+  if (facts.has("Bestätigt: die Getränkeauswahl.")) {
+    return "Hier gibt’s das Getränk, das du gesucht hast.";
+  }
+  if (hasAtmosphere) return atmosphere ? `Die Atmosphäre hier ist ${atmosphere} und passt zu deinem Wunsch.` : "Die Atmosphäre passt zu deinem Wunsch.";
+  if (facts.has("Bestätigt: die gewünschte Aktivität.")) return "Deine gewünschte Aktivität wird hier angeboten.";
+  if (candidate.presentation?.event) {
+    return candidate.coreIntentCoverage === "CONFIRMED"
+      ? "Die Veranstaltung passt zu dem, was du suchst. Den Termin findest du oben."
+      : "Schau dir den Termin und das Programm an. Ob es zu deinem Wunsch passt, ist noch offen.";
+  }
+  const clearlyMatched = candidate.coreIntentCoverage === "CONFIRMED" && world.some(reason =>
+    ["core-intent-confirmed", "primary-purpose-confirmed"].includes(reason.code) || reason.statement === "Bestätigt: die gewünschte Art des Angebots.");
+  if (clearlyMatched) return "Die Art des Angebots passt zu deinem Wunsch.";
+  return "Zu deinem Wunsch fehlen bei diesem Ort noch bestätigte Angaben.";
 }
 
 const librarianNotes: Record<string, string> = {

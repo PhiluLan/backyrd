@@ -111,20 +111,31 @@ test("current librarian facts produce useful copy without exposing policy or pro
 
 test("one sentence uses only confirmed World evidence and does not promote possible offers", () => {
  const base={coreIntentCoverage:"CONFIRMED",reasons:[]};
- const offer={code:"librarian-selected-offers",domain:"WORLD",confirmed:true,statement:"Passende Angebote: Getränke"};
- assert.equal(wohinRecommendation({...base,reasons:[offer]}),"Hier gibt’s Getränke – passend zu dem, was du suchst.");
- for(const reason of [{...offer,confirmed:false},{...offer,domain:"RANKING"},{...offer,statement:"Mögliche Angebote: Getränke"}]) {
-  assert.match(wohinRecommendation({...base,reasons:[reason]}),/fehlen uns/);
+ const offer={code:"librarian-selected-offers",domain:"WORLD",confirmed:true,statement:"Passende Angebote: Hausgemachte Limonade"};
+ assert.equal(wohinRecommendation({...base,reasons:[offer]}),"Hier gibt’s Hausgemachte Limonade.");
+ for(const reason of [{...offer,confirmed:false},{...offer,domain:"RANKING"},{...offer,statement:"Mögliche Angebote: Hausgemachte Limonade"}]) {
+  assert.match(wohinRecommendation({...base,reasons:[reason]}),/fehlen/);
  }
- assert.match(wohinRecommendation({...base,reasons:[{code:"LBR:drink",domain:"WORLD",confirmed:true,statement:"Bestätigt: die Getränkeauswahl."}]}),/Drink/);
- assert.match(wohinRecommendation({...base,reasons:[{code:"core-intent-confirmed",domain:"WORLD",confirmed:true,statement:"internal"}]}),/passende Idee/);
+ assert.match(wohinRecommendation({...base,reasons:[{code:"LBR:drink",domain:"WORLD",confirmed:true,statement:"Bestätigt: die Getränkeauswahl."}]}),/Getränk/);
+ assert.match(wohinRecommendation({...base,reasons:[{code:"core-intent-confirmed",domain:"WORLD",confirmed:true,statement:"internal"}]}),/passt zu deinem Wunsch/);
+});
+
+test("birthday cards explain the confirmed meal, visit window and spot-specific atmosphere", () => {
+ const meal = { code: "LBR_EVIDENCE:meal", domain: "WORLD", confirmed: true, statement: "Bestätigt: die Essensmöglichkeit." };
+ const mood = { code: "LBR_EVIDENCE:mood", domain: "WORLD", confirmed: true, statement: "Bestätigt: die gewünschte Atmosphäre." };
+ const interpretation = { moods: ["cozy"], dateTime: { dayPhase: "EVENING" } };
+ const dinner = { actualAvailability: "open", reasons: [meal, mood] };
+ assert.equal(wohinRecommendation(dinner, interpretation), "Hier kannst du am gewünschten Abend gemütlich essen gehen.");
+ assert.equal(wohinRecommendation({ ...dinner, reasons: [meal] }, interpretation), "Hier kannst du am gewünschten Abend essen gehen.");
+ assert.equal(wohinRecommendation({ ...dinner, actualAvailability: "unknown" }, interpretation), "Hier kannst du gemütlich essen gehen.");
+ assert.doesNotMatch(wohinRecommendation(dinner, { ...interpretation, moods: ["cozy", "romantic"] }), /gemütlich|romantisch|klein/);
 });
 
 test("an event card shows its real date and venue without a Spot-hours claim", () => {
  const candidate={presentation:{event:{startAt:"2026-10-15T18:00:00.000Z",venueName:"Musikraum"},locality:"Basel"},coreIntentCoverage:"UNKNOWN",reasons:[]};
  assert.match(wohinPlaceMeta(candidate),/Musikraum/);
  assert.match(wohinPlaceMeta(candidate),/20:00/);
- assert.match(wohinRecommendation(candidate),/Vielleicht/);
+ assert.match(wohinRecommendation(candidate),/noch offen/);
  assert.doesNotMatch(wohinRecommendation(candidate),/geöffnet/);
 });
 
