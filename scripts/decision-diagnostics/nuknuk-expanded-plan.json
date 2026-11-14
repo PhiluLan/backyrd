@@ -1,0 +1,413 @@
+{
+  "version": "backyrd.nuknuk-expansion-plan@1",
+  "cohortId": "understanding-200-20261107",
+  "parentPlanHash": "44bc38ea9861361e84c132ec9f196a90541f5d954e04b9ef00874c846955bdc9",
+  "status": "FROZEN_BEFORE_NEW_CASE_AUTHORING",
+  "counts": {
+    "TRAIN": 200,
+    "VALIDATION": 10,
+    "TEST": 14
+  },
+  "additions": [
+    {
+      "scenarioGroup": "expanded-special-meal",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-special-meal-01",
+        "expanded-special-meal-02",
+        "expanded-special-meal-03",
+        "expanded-special-meal-04",
+        "expanded-special-meal-05",
+        "expanded-special-meal-06",
+        "expanded-special-meal-07",
+        "expanded-special-meal-08",
+        "expanded-special-meal-09",
+        "expanded-special-meal-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-special-beyond-price",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-special-beyond-price-01",
+        "expanded-special-beyond-price-02",
+        "expanded-special-beyond-price-03",
+        "expanded-special-beyond-price-04",
+        "expanded-special-beyond-price-05",
+        "expanded-special-beyond-price-06",
+        "expanded-special-beyond-price-07",
+        "expanded-special-beyond-price-08",
+        "expanded-special-beyond-price-09",
+        "expanded-special-beyond-price-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-recipient-context",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-recipient-context-01",
+        "expanded-recipient-context-02",
+        "expanded-recipient-context-03",
+        "expanded-recipient-context-04",
+        "expanded-recipient-context-05",
+        "expanded-recipient-context-06",
+        "expanded-recipient-context-07",
+        "expanded-recipient-context-08",
+        "expanded-recipient-context-09",
+        "expanded-recipient-context-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-food-precision",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-food-precision-01",
+        "expanded-food-precision-02",
+        "expanded-food-precision-03",
+        "expanded-food-precision-04",
+        "expanded-food-precision-05",
+        "expanded-food-precision-06",
+        "expanded-food-precision-07",
+        "expanded-food-precision-08",
+        "expanded-food-precision-09",
+        "expanded-food-precision-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-family-precision",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-family-precision-01",
+        "expanded-family-precision-02",
+        "expanded-family-precision-03",
+        "expanded-family-precision-04",
+        "expanded-family-precision-05",
+        "expanded-family-precision-06",
+        "expanded-family-precision-07",
+        "expanded-family-precision-08",
+        "expanded-family-precision-09",
+        "expanded-family-precision-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-logical-binding",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-logical-binding-01",
+        "expanded-logical-binding-02",
+        "expanded-logical-binding-03",
+        "expanded-logical-binding-04",
+        "expanded-logical-binding-05",
+        "expanded-logical-binding-06",
+        "expanded-logical-binding-07",
+        "expanded-logical-binding-08",
+        "expanded-logical-binding-09",
+        "expanded-logical-binding-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-access-participation",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-access-participation-01",
+        "expanded-access-participation-02",
+        "expanded-access-participation-03",
+        "expanded-access-participation-04",
+        "expanded-access-participation-05",
+        "expanded-access-participation-06",
+        "expanded-access-participation-07",
+        "expanded-access-participation-08",
+        "expanded-access-participation-09",
+        "expanded-access-participation-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-budget-time",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-budget-time-01",
+        "expanded-budget-time-02",
+        "expanded-budget-time-03",
+        "expanded-budget-time-04",
+        "expanded-budget-time-05",
+        "expanded-budget-time-06",
+        "expanded-budget-time-07",
+        "expanded-budget-time-08",
+        "expanded-budget-time-09",
+        "expanded-budget-time-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-language-meaning",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-language-meaning-01",
+        "expanded-language-meaning-02",
+        "expanded-language-meaning-03",
+        "expanded-language-meaning-04",
+        "expanded-language-meaning-05",
+        "expanded-language-meaning-06",
+        "expanded-language-meaning-07",
+        "expanded-language-meaning-08",
+        "expanded-language-meaning-09",
+        "expanded-language-meaning-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-instruction-boundary",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-instruction-boundary-01",
+        "expanded-instruction-boundary-02",
+        "expanded-instruction-boundary-03",
+        "expanded-instruction-boundary-04",
+        "expanded-instruction-boundary-05",
+        "expanded-instruction-boundary-06",
+        "expanded-instruction-boundary-07",
+        "expanded-instruction-boundary-08",
+        "expanded-instruction-boundary-09",
+        "expanded-instruction-boundary-10"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-01",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-01-a",
+        "expanded-world-01-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-02",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-02-a",
+        "expanded-world-02-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-03",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-03-a",
+        "expanded-world-03-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-04",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-04-a",
+        "expanded-world-04-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-05",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-05-a",
+        "expanded-world-05-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-06",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-06-a",
+        "expanded-world-06-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-07",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-07-a",
+        "expanded-world-07-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-08",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-08-a",
+        "expanded-world-08-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-09",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-09-a",
+        "expanded-world-09-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-10",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-10-a",
+        "expanded-world-10-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-11",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-11-a",
+        "expanded-world-11-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-12",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-12-a",
+        "expanded-world-12-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-13",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-13-a",
+        "expanded-world-13-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-14",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-14-a",
+        "expanded-world-14-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-15",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-15-a",
+        "expanded-world-15-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-16",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-16-a",
+        "expanded-world-16-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-17",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-17-a",
+        "expanded-world-17-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-18",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-18-a",
+        "expanded-world-18-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-19",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-19-a",
+        "expanded-world-19-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-20",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-20-a",
+        "expanded-world-20-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-21",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-21-a",
+        "expanded-world-21-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-22",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-22-a",
+        "expanded-world-22-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-23",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-23-a",
+        "expanded-world-23-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-24",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-24-a",
+        "expanded-world-24-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-25",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-25-a",
+        "expanded-world-25-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-26",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-26-a",
+        "expanded-world-26-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-27",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-27-a",
+        "expanded-world-27-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-28",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-28-a",
+        "expanded-world-28-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-29",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-29-a",
+        "expanded-world-29-b"
+      ]
+    },
+    {
+      "scenarioGroup": "expanded-evidence-30",
+      "split": "TRAIN",
+      "caseIds": [
+        "expanded-world-30-a",
+        "expanded-world-30-b"
+      ]
+    }
+  ]
+}

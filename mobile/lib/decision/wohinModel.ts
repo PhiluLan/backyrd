@@ -23,6 +23,11 @@ export function createWohinRequest(input: { query: string; city: string; request
   };
 }
 
+const provisionalVisitReasons = new Set([
+  "librarian-dinner-cuisine-unconfirmed",
+  "librarian-confirmed-weather-branch", "librarian-departure-time-unconfirmed", "librarian-pizza-budget-unconfirmed",
+]);
+
 export function visibleWohinCandidates(response: DecisionProductResponse): DecisionProductCandidate[] {
   const ranked = response.candidates.filter((candidate) => candidate.rank !== null && !candidate.contextualReject);
   if (ranked.some((candidate, index) => index > 0 && candidate.rank! <= ranked[index - 1].rank!)) {
@@ -35,7 +40,11 @@ export function visibleWohinCandidates(response: DecisionProductResponse): Decis
     throw new Error("wohin_primary_binding_invalid");
   }
   // Slice the already-ranked server response; never re-rank in the client.
-  return ranked.slice(0, MAX_VISIBLE_CANDIDATES);
+  if (ranked.length) return ranked.slice(0, MAX_VISIBLE_CANDIDATES);
+  return response.candidates.filter(candidate => candidate.tier === "UNCONFIRMED_FALLBACK"
+    && !candidate.contextualReject && !candidate.failedHardConstraints.length
+    && candidate.reasons.some(reason => provisionalVisitReasons.has(reason.code)
+      || Boolean(response.clarification) && reason.code === "librarian-provisional-nearby"));
 }
 
 export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
@@ -50,6 +59,8 @@ export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
 /** One grounded sentence, never an inference from the user's free text or ranking score. */
 export function wohinRecommendation(candidate: DecisionProductCandidate): string {
   if (candidate.presentation?.event) return candidate.coreIntentCoverage === "CONFIRMED" ? "Das könnte dein nächster Moment werden – schau dir den Termin an." : "Vielleicht etwas für dich – schau dir die Details und den Termin an.";
+  const provisional = candidate.reasons.filter(reason => provisionalVisitReasons.has(reason.code) || reason.code === "librarian-provisional-nearby");
+  if (candidate.tier === "UNCONFIRMED_FALLBACK" && provisional.length) return provisional.map(reason => reason.statement).join(" ");
   const world = candidate.reasons.filter(reason => reason.confirmed && reason.domain === "WORLD");
   const offers = world.find(reason => reason.code === "librarian-selected-offers" && reason.statement.startsWith("Passende Angebote: "));
   if (offers) return `Hier gibt’s ${offers.statement.slice("Passende Angebote: ".length).replace(/[.!?]+$/, "")} – passend zu dem, was du suchst.`;
@@ -105,6 +116,7 @@ export function wohinConsiderations(candidate: DecisionProductCandidate, persona
 
 export function wohinLimitations(limitations: readonly string[], visibleCount: number): string[] {
   const labels: Record<string, string> = {
+    LIBRARIAN_WEATHER_CONDITION_OPEN: "Welche Wetteroption passt, hängt vom tatsächlichen Wetter ab.",
     SINGLE_CANDIDATE: visibleCount > 0
       ? "Für deinen Wunsch haben wir gerade einen Vorschlag."
       : "Der bisher gefundene Ort passt leider nicht zu deinem Wunsch.",
@@ -115,4 +127,55 @@ export function wohinLimitations(limitations: readonly string[], visibleCount: n
     CORE_INTENT_REQUIRES_CLARIFICATION: "Wir haben deinen Wunsch noch nicht ganz verstanden. Beschreibe kurz, was du machen möchtest.",
   };
   return [...new Set(limitations.map((code) => labels[code] ?? "Bei dieser Auswahl gibt es noch offene Fragen. Prüfe wichtige Details vor deinem Besuch."))];
+}
+
+export function wohinFollowUp(response: Pick<DecisionProductResponse, "limitations" | "candidates">) {
+  const limitations = response.limitations;
+  if (limitations.includes("NO_CATALOG_CANDIDATES")) {
+    return {
+      message: "Für den gewünschten Ort sind noch keine Spots oder Veranstaltungen erfasst. Wenn du örtlich flexibel bist, kannst du einen anderen Ort suchen.",
+      actionLabel: "Ort ändern",
+      explainedLimitation: "NO_CATALOG_CANDIDATES",
+    };
+  }
+  if (limitations.includes("MULTI_PLACE_SEARCH_UNSUPPORTED")) {
+    return {
+      message: "Wir können diese Schritte noch nicht als gemeinsamen Ausflug suchen. Mit welchem möchtest du anfangen?",
+      actionLabel: "Ersten Schritt eingeben",
+      explainedLimitation: "MULTI_PLACE_SEARCH_UNSUPPORTED",
+    };
+  }
+  if (limitations.includes("REQUEST_NEEDS_CLARIFICATION") || limitations.includes("CORE_INTENT_REQUIRES_CLARIFICATION")) {
+    const needsBudget = limitations.includes("REQUEST_NEEDS_CLARIFICATION");
+    return {
+      message: needsBudget
+        ? "Welches Budget pro Person passt für dich? Ergänze zum Beispiel «bis 40 CHF pro Person»."
+        : "Was möchtest du am liebsten machen? Ein kurzer Zusatz zu deinem Wunsch genügt.",
+      actionLabel: "Wunsch ergänzen",
+      explainedLimitation: needsBudget ? "REQUEST_NEEDS_CLARIFICATION" : "CORE_INTENT_REQUIRES_CLARIFICATION",
+    };
+  }
+  const unsupported = limitations.includes("REQUEST_REQUIREMENT_UNSUPPORTED");
+  const unverified = response.candidates.some((candidate) => !candidate.contextualReject
+    && candidate.failedHardConstraints.length === 0 && candidate.unknownHardConstraints.length > 0);
+  if (unsupported || unverified) {
+    return {
+      message: "Eine wichtige Bedingung können wir mit unseren Spotdaten nicht bestätigen. Du kannst die Suche bewusst auf Orte zum Abklären eingrenzen und die Bedingung dort direkt prüfen.",
+      actionLabel: "Suchwunsch bearbeiten",
+      explainedLimitation: unsupported ? "REQUEST_REQUIREMENT_UNSUPPORTED" : null,
+    };
+  }
+  return {
+    message: "Für diesen Wunsch gibt es gerade keinen ausreichend belegten Vorschlag. Wenn du beim Zeitpunkt oder Ort flexibel bist, ergänze das in deiner Suche.",
+    actionLabel: "Suche anpassen",
+    explainedLimitation: null,
+  };
+}
+
+
+export function wohinClarificationQuery(original: string, question: string, answer: string): string | null {
+  const reply = answer.trim();
+  if (!reply) return null;
+  const query = [original.trim(), `Rückfrage: ${question}`, `Antwort: ${reply}`].join("\n");
+  return query.length <= 2_000 ? query : null;
 }

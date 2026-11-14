@@ -1,21 +1,22 @@
+import { DecisionProductClarification } from "@backyrd/product-decision-contract";
 import { useAuth } from "@/hooks/useAuth";
 import { rememberRecentDecisionSearch } from "@/lib/decision/recentDecisionSearch";
 import { clearJourneySelection, rememberJourneySelection, canCarryPlaceRecommendation } from "@/lib/discovery-journey";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, FlatList, Keyboard, Linking, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View, type TextInput as NativeTextInput } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Crypto from "expo-crypto";
-import type { DecisionProductCandidate, DecisionProductResponse } from "@backyrd/product-decision-contract";
+import type { DecisionProductCandidate, DecisionProductRequest, DecisionProductResponse } from "@backyrd/product-decision-contract";
 
 import { AppText, ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
 import { eventImageUrl } from "@/lib/events-v1";
 import { Image } from "expo-image";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
-import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
+import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
 import { recordDecisionFailure, type DecisionFailurePhase } from "@/lib/decision/productDecisionDiagnostics";
 import { loadCanonicalSpotHeaders } from "@/lib/spot-images";
 import { supabase } from "@/lib/supabase";
@@ -75,6 +76,9 @@ function DecisionResultCard({ candidate, imageUrl, compact, onOpen, onDetails }:
         <ScrollView style={styles.cardSummary} contentContainerStyle={styles.cardSummaryContent}>
           <AppText role="displayM" style={styles.resultTitle}>{candidate.presentation.name}</AppText>
           <AppText role="meta" style={styles.resultMeta}>{wohinPlaceMeta(candidate)}</AppText>
+          {candidate.tier === "UNCONFIRMED_FALLBACK" && (
+            <AppText role="meta" style={styles.resultMeta}>{wohinRecommendation(candidate)}</AppText>
+          )}
         </ScrollView>
         <Pressable accessibilityRole="button" onPress={onDetails} style={styles.detailsToggle}>
           <AppText role="meta" style={styles.detailsText}>Details & Hinweise</AppText>
@@ -102,6 +106,7 @@ export default function WohinScreen() {
   const params = useLocalSearchParams<{ query?: string; auto?: string }>();
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
+  const [clarificationAnswer, setClarificationAnswer] = useState("");
   const [city, setCity] = useState<string | null>(null);
   const [identityReady, setIdentityReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
@@ -112,11 +117,15 @@ export default function WohinScreen() {
   const [response, setResponse] = useState<DecisionProductResponse | null>(null);
   const [candidates, setCandidates] = useState<DecisionProductCandidate[]>([]);
   const [coverImages, setCoverImages] = useState<Map<string, string | null>>(new Map());
+  const [standaloneQuestion, setStandaloneQuestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryRequest, setRetryRequest] = useState<DecisionProductRequest | null>(null);
+  const queryInput = useRef<NativeTextInput>(null);
   const autoRunKey = useRef<string | null>(null);
   const seenImpressions = useRef(new Set<string>());
   const responseRef = useRef<DecisionProductResponse | null>(null);
   const requestGeneration = useRef(0);
+  const requestInFlight = useRef(false);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 70, minimumViewTime: 250 }).current;
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: { item: DecisionProductCandidate; isViewable: boolean; index: number | null }[] }) => {
     const current = responseRef.current;
@@ -140,12 +149,16 @@ export default function WohinScreen() {
   useEffect(() => {
     let active = true;
     ++requestGeneration.current;
+    requestInFlight.current = false;
     autoRunKey.current = null;
     clearJourneySelection();
     responseRef.current = null;
+    setStandaloneQuestion(null);
     setResponse(null);
     setCandidates([]);
     setLoading(false);
+    setError(null);
+    setRetryRequest(null);
     setVerifiedActorId(null);
     setIdentityReady(false);
     setIdentityError(false);
@@ -190,23 +203,28 @@ export default function WohinScreen() {
     return () => { active = false; controller.abort(); clearTimeout(timer); };
   }, [candidates]);
 
-  const run = useCallback(async (text: string) => {
-    if (!identityReady || identityError || !authenticated || !city || loading || !verifiedActorId || verifiedActorId !== user?.id) return;
+  const run = useCallback(async (text: string, retry?: DecisionProductRequest) => {
+    if (!identityReady || identityError || !authenticated || !city || requestInFlight.current || !verifiedActorId || verifiedActorId !== user?.id) return;
+    requestInFlight.current = true;
     clearJourneySelection();
     const generation = ++requestGeneration.current;
     setSubmittedQuery(text.trim());
+    setClarificationAnswer("");
+    setStandaloneQuestion(null);
     Keyboard.dismiss();
     setEditing(false);
     setDetailsOpen(false);
     setActiveIndex(0);
     setLoading(true);
     setError(null);
+    setRetryRequest(null);
     responseRef.current = null;
     setResponse(null);
     setCandidates([]);
     let failurePhase: DecisionFailurePhase = "REQUEST";
+    let request: DecisionProductRequest | undefined;
     try {
-      const request = createWohinRequest({ query: text, city, requestId: Crypto.randomUUID() });
+      request = retry ?? createWohinRequest({ query: text, city, requestId: Crypto.randomUUID() });
       failurePhase = "LOAD";
       const result = await invokeDecisionProduct({ supabase, request });
       failurePhase = "DISPLAY";
@@ -217,12 +235,22 @@ export default function WohinScreen() {
       setCandidates(visible);
       void rememberRecentDecisionSearch(verifiedActorId, text, visible);
     } catch (cause) {
+      if (cause instanceof DecisionProductClarification) {
+        if (generation === requestGeneration.current) setStandaloneQuestion(cause.question);
+        return;
+      }
       void recordDecisionFailure(cause, failurePhase).catch(() => undefined);
-      if (generation === requestGeneration.current) setError(userFacingError(cause, "Wohin kann gerade keine verlässlichen Vorschläge zeigen."));
+      if (generation === requestGeneration.current) {
+        setError(userFacingError(cause, "Wohin kann gerade keine verlässlichen Vorschläge zeigen."));
+        if (request) setRetryRequest(request);
+      }
     } finally {
-      if (generation === requestGeneration.current) setLoading(false);
+      if (generation === requestGeneration.current) {
+        requestInFlight.current = false;
+        setLoading(false);
+      }
     }
-  }, [authenticated, city, identityError, identityReady, loading, user?.id, verifiedActorId]);
+  }, [authenticated, city, identityError, identityReady, user?.id, verifiedActorId]);
 
   useEffect(() => {
     const incoming = typeof params.query === "string" ? params.query.trim() : "";
@@ -249,7 +277,35 @@ export default function WohinScreen() {
     router.push((event ? `/events/${event.eventId}?occurrenceId=${event.occurrenceId}` : `/spot/${candidate.spotId}?entrySource=decision`) as never);
   };
 
-  const limitations = response ? wohinLimitations(response.limitations, candidates.length) : [];
+  const clarificationQuestion = response?.clarification ?? standaloneQuestion;
+  const refinedQuery = clarificationQuestion
+    ? wohinClarificationQuery(submittedQuery, clarificationQuestion, clarificationAnswer)
+    : null;
+  const clarificationCard = clarificationQuestion ? (
+    <View style={styles.clarificationCard} accessibilityLiveRegion="polite">
+      <AppText role="body">{clarificationQuestion}</AppText>
+      <View style={styles.clarificationReply}>
+        <TextInput
+          style={styles.clarificationInput}
+          accessibilityLabel="Antwort auf NukNuks Rückfrage"
+          placeholder="Deine Antwort"
+          placeholderTextColor={color.muted}
+          value={clarificationAnswer}
+          onChangeText={setClarificationAnswer}
+          maxLength={Math.max(0, 2000 - submittedQuery.length - clarificationQuestion.length - 22)}
+          onSubmitEditing={() => { if (refinedQuery) void run(refinedQuery); }}
+        />
+        <Pressable accessibilityRole="button" accessibilityLabel="Antwort senden" disabled={!refinedQuery || loading}
+          onPress={() => { if (refinedQuery) void run(refinedQuery); }} style={styles.followUpButton}>
+          <AppText role="label" tone={refinedQuery ? "pink" : "muted"}>Senden</AppText>
+        </Pressable>
+      </View>
+    </View>
+  ) : null;
+  const followUp = response && !candidates.length && !clarificationQuestion ? wohinFollowUp(response) : null;
+  const followUpNotes = response && followUp
+    ? wohinLimitations(response.limitations.filter(code => code !== followUp.explainedLimitation), 0)
+    : [];
 
   const showingResults = Boolean(response && candidates.length && !editing);
   const current = candidates[activeIndex];
@@ -272,6 +328,7 @@ export default function WohinScreen() {
           </Pressable>
         </View>
         <AppText role="sectionTitle" numberOfLines={3} style={styles.queryText}>{submittedQuery}</AppText>
+        {clarificationCard}
         <View style={styles.deck} onLayout={(event) => { setPageWidth(event.nativeEvent.layout.width); setPageHeight(event.nativeEvent.layout.height); }}>
           {pageWidth > 0 && pageHeight > 0 ? <FlatList
             key={`${response!.decisionId}:${pageWidth}:${pageHeight}`}
@@ -309,11 +366,12 @@ export default function WohinScreen() {
           <View style={{ marginTop: backyrdTheme.spacing.xl, padding: backyrdTheme.spacing.lg, borderRadius: backyrdTheme.radius.lg, backgroundColor: color.card, borderWidth: 1, borderColor: color.border }}>
             <Text style={{ color: color.pink, fontSize: 14, fontWeight: "900" }}>Was jetzt?</Text>
             <TextInput
+              ref={queryInput}
               accessibilityLabel="Was jetzt?"
               autoCapitalize="sentences"
               multiline
               maxLength={2000}
-              onChangeText={(value) => { setQuery(value); setError(null); }}
+              onChangeText={(value) => { setQuery(value); setError(null); setRetryRequest(null); }}
               placeholder="z. B. Sonntag gemütlich Kaffee trinken"
               placeholderTextColor="#77777C"
               style={{ color: color.text, fontSize: 21, minHeight: 110, marginTop: 16, textAlignVertical: "top", lineHeight: 29 }}
@@ -326,7 +384,7 @@ export default function WohinScreen() {
               onPress={() => void run(query)}
               style={{ marginTop: 22, minHeight: backyrdTheme.control.standard, paddingVertical: backyrdTheme.spacing.sm, paddingHorizontal: backyrdTheme.spacing.md, borderRadius: backyrdTheme.radius.pill, backgroundColor: !loading && authenticated && city && query.trim().length >= 3 ? color.pink : "#48484C", alignItems: "center", justifyContent: "center" }}
             >
-              {loading ? <ActivityIndicator color={color.background} /> : <Text style={{ color: color.background, fontWeight: "900", fontSize: 16 }}>Orte finden</Text>}
+              {loading ? <ActivityIndicator color={color.background} /> : <Text style={{ color: color.background, fontWeight: "900", fontSize: 16 }}>{followUp ? "Angepasste Suche starten" : "Orte finden"}</Text>}
             </Pressable>
             <Text style={{ color: color.muted, fontSize: 12, lineHeight: 18, marginTop: 14 }}>Für die KI-Suche senden wir deinen Suchwunsch und gewählte Suchangaben an OpenAI. Bitte keine vertraulichen Daten eingeben.</Text>
             <Pressable accessibilityRole="link" accessibilityLabel="Datenschutz zur KI-Suche öffnen" onPress={() => { void Linking.openURL("https://www.backyrd.ch/legal#decision").catch(() => setError("Die Datenschutzinformation konnte nicht geöffnet werden. Versuche es erneut.")); }} style={{ minHeight: 44, justifyContent: "center" }}><Text style={{ color: color.pink, fontSize: 12 }}>Datenschutz zur KI-Suche</Text></Pressable>
@@ -335,13 +393,24 @@ export default function WohinScreen() {
           {identityError ? <View style={{ marginTop: 20 }}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt((value) => value + 1)}><Text style={{ color: color.pink, marginTop: 12, fontWeight: "800" }}>Erneut prüfen</Text></Pressable></View> : null}
           {identityReady && !identityError && !authenticated ? <Text style={{ color: color.warning, marginTop: 20 }}>Bitte melde dich an, um Wohin zu nutzen.</Text> : null}
           {identityReady && !identityError && authenticated && !city ? <Text style={{ color: color.warning, marginTop: 20 }}>Deine Stadt fehlt noch im Profil. Ergänze sie, damit wir passende Orte in deiner Nähe finden können.</Text> : null}
-          {error ? <Text style={{ color: color.warning, marginTop: 20 }}>{error}</Text> : null}
+          {error ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
+            <Text style={{ color: color.warning }}>{error}</Text>
+            {retryRequest && identityReady && !identityError && authenticated && city ? (
+              <Pressable accessibilityRole="button" disabled={loading} onPress={() => void run(retryRequest.naturalLanguage, retryRequest)} style={styles.followUpButton}>
+                <AppText role="label" tone="pink">Dieselbe Suche erneut versuchen</AppText>
+              </Pressable>
+            ) : null}
+          </View> : null}
 
 
-          {response && !candidates.length ? <View style={styles.emptyState}>
+          {clarificationCard}
+          {followUp ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
             <AppText role="sectionTitle">Gerade kein passender Vorschlag</AppText>
-            <AppText role="body" tone="secondary">Für diesen Wunsch haben wir noch keinen ausreichend belegten Ort. Du kannst deine Suche ändern.</AppText>
-            {limitations.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
+            <AppText role="body" tone="secondary">{followUp.message}</AppText>
+            {followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
+            <Pressable accessibilityRole="button" onPress={() => queryInput.current?.focus()} style={styles.followUpButton}>
+              <AppText role="label" tone="pink">{followUp.actionLabel}</AppText>
+            </Pressable>
           </View> : null}
         </ScrollView>
       </KeyboardAvoidingView>}
@@ -370,6 +439,9 @@ export default function WohinScreen() {
 }
 
 const styles = StyleSheet.create({
+  clarificationCard: { marginVertical: 8, paddingHorizontal: 12, paddingTop: 10, borderWidth: 1, borderColor: color.border, borderRadius: 14, backgroundColor: color.card },
+  clarificationReply: { flexDirection: "row", alignItems: "center", gap: 8 },
+  clarificationInput: { flex: 1, minHeight: 44, color: color.text },
   screen: { flex: 1, backgroundColor: color.background },
   resultScreen: { flex: 1 },
   resultHeader: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12 },
@@ -396,6 +468,7 @@ const styles = StyleSheet.create({
   pagerLabel: { alignItems: "center", gap: 2, flex: 1 },
   backToResults: { minHeight: 44, justifyContent: "center", marginBottom: 16 },
   emptyState: { marginTop: 28, gap: 12 },
+  followUpButton: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" },
   detailSheet: { maxHeight: "88%", backgroundColor: color.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingTop: 18, paddingBottom: 20 },
   sheetHeader: { flexDirection: "row", alignItems: "center", gap: 16 },

@@ -179,15 +179,12 @@
     "guaranteedDatabaseRollback": false,
     "source": "Founder explicitly approved the exact two SQL migrations, bounded release path and breached-password flag on 2026-11-02, including the disclosed remaining recovery risk. Original AWS rows/schema/ACL and all 140 media files match; the exact 37-reference privacy correction passed only on the isolated copy. Production cutover remains untested; a fresh clean backup/restore is required after production correction."
   },
-  "betaSocialDeliveryScope": {
-    "contractVersion": "backyrd.beta-social-delivery-scope@1.0",
-    "baseSha": "018fd76c3c6b76c7e558fa5e6f84c89d421f05f9",
+  "codeOnlyDeliveryScope": {
+    "contractVersion": "backyrd.code-only-delivery-scope@1.0",
     "executionAuthorized": false,
-    "migrations": [
-      {
-        "path": "supabase/migrations/20261103182149_beta_social_contact_and_mentions_v1.sql",
-        "sha256": "79c28e5de8abe18ad8c2b6f332c1f7555c2627102f1a1e0eecd0a614d0297383"
-      }
+    "functions": [
+      "decision-admin-diagnostic",
+      "decision-v13"
     ],
     "deferredMigrations": [
       {
@@ -207,44 +204,42 @@
         "sha256": "7451adfe549f187623ab51be089d3ddc7554764b125903454d564acac4a1505d"
       }
     ],
-    "functions": [
-      {
-        "slug": "generate-data-export",
-        "sourceSetHash": "9a6f0e96b0b03a62d23c0d2bab81c465e074faebbb65e9192d54448efa206c16"
-      },
-      {
-        "slug": "safety-evaluate",
-        "sourceSetHash": "f4a019960a26c463c5fb1a2cdfdc55848bb6c5ab23f34492107217257580a4d3"
-      }
-    ],
-    "deferredFunctionChanges": [
-      {
-        "slug": "decision-admin-diagnostic",
-        "previousSourceSetHash": null,
-        "sourceSetHash": "a4774fa7fd339aa4b3fea058995af38340c98aabd825f51b106b91ee564310a9"
-      },
-      {
-        "slug": "decision-v13",
-        "previousSourceSetHash": "0317d2a74fac0849f7ec52d7b14c55af07aceb8b841f71eba44394e6c7ea8961",
-        "sourceSetHash": "61d39b6fa73456a085e81baaac79394c96dda517febda5c36f2be9491c7752dd"
-      }
-    ],
-    "unchangedRuntimeSourceSha": "ead2c0d7e0f4b1c7616f05c976c77fe64d584400",
-    "backupRunId": 41714621454,
-    "founderApproval": {
-      "status": "EXPLICIT_SCOPE_AND_RECOVERY_RISK_ACCEPTED",
-      "source": "Founder explicitly approved the exact Social migration, bounded release path, two Functions, Web and TestFlight Build 61 on 2026-11-04, accepting the disclosed untested productive recovery risk."
-    },
-    "source": "Founder exact-scope and recovery-risk approval in this release conversation on 2026-11-04. Four Booking migrations, Decision and Auth remain excluded; execution uses the canonical manual production workflow."
-  },
-  "weatherContextDeliveryScope": {
-    "contractVersion": "backyrd.weather-context-delivery-scope@1.0",
-    "executionAuthorized": false,
-    "appliedSocialSourceSha": "6093074366e21c1a4513e80b087e09dd2559c899",
-    "function": {
-      "slug": "weather-context",
-      "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
-    },
-    "source": "Founder explicitly requested WeatherKit integration in the app and live publication on 2026-11-07. Manual exact-Main deployment remains required; SQL, Auth, Decision and Booking remain excluded."
+    "source": "Founder approved the Decision-only backend and matching iOS OTA on 2026-11-14. Applied Social and Weather deployments retain their independent production receipts. Pending SQL stays deferred.",
+    "existingFunctionReceipt": {
+      "sourceSha": "422803e03b910db1770b7a44be1ea78f09a3e0bd",
+      "deploymentRunId": 42385325625,
+      "functions": [
+        {
+          "slug": "decision-engine-worker",
+          "version": 137,
+          "bundleHash": "673f6267fb941e1edc551062971e082797dc53f372b612c3ac113113aae25a61",
+          "sourceSetHash": "c1dd465cac38ecc288059242e5291cb93202726242d09a09c9bf4df8c3d0fd40"
+        },
+        {
+          "slug": "decision-north-star-internal",
+          "version": 124,
+          "bundleHash": "ac4ac51b808d058bac3fe752722e7e372299458fd422dfd0f18bc989afcf13ae",
+          "sourceSetHash": "4458bfacc04a503632ff7cdde68be72457add562a4df3b0dffaca7f347a0f59d"
+        },
+        {
+          "slug": "generate-data-export",
+          "version": 93,
+          "bundleHash": "dfe19bd411e7e21eb3e1edd60adb483253aa9462116f69fd09fbf49400dfc7f1",
+          "sourceSetHash": "9a6f0e96b0b03a62d23c0d2bab81c465e074faebbb65e9192d54448efa206c16"
+        },
+        {
+          "slug": "safety-evaluate",
+          "version": 103,
+          "bundleHash": "3b7b0cf62811ea1058226480a53855840581c9ebf10a9ca69c3ce1ce3054c336",
+          "sourceSetHash": "f4a019960a26c463c5fb1a2cdfdc55848bb6c5ab23f34492107217257580a4d3"
+        },
+        {
+          "slug": "weather-context",
+          "version": 1,
+          "bundleHash": "46e3d05a890d0dcdad797a9a6e2024839142173b0197ccb9650513a1166096be",
+          "sourceSetHash": "f832c85b99821d14075b3999c430145694854a8f8974b7e4dfceaa1401bdc904"
+        }
+      ]
+    }
   }
 }

@@ -306,3 +306,141 @@ test('an explicitly selected destination still reaches the model and explicit so
  assert.equal(overnight.status,200);assert.equal(overnight.body.candidates[0].rank,1);
  assert.ok(!overnight.body.candidates[0].reasons.some(x=>x.code==='librarian-external-admission-unconfirmed'));
  });
+
+test('offline resolved destinations query only the chosen municipality inside a regional search', async () => {
+ const basel = binding(1, profile());
+ const riehen = binding(2, profile());
+ riehen.decisionProjection.facts.find(row => row.key === 'location.locality').value = 'Riehen';
+ const result = await exercise({
+  text: 'In Riehen essen',
+  meaning: plan([meal(), fact('destination', 'location.destination', 'Riehen', 'REQUIRED', [])]),
+  catalog: [basel, riehen],
+  useResolvedTargetCity: true,
+ });
+ assert.equal(result.status, 200, JSON.stringify(result.diagnostics));
+ assert.equal(result.reads, 1);
+ assert.equal(result.body.primaryCandidateId, riehen.decisionProjection.spotId);
+ assert.ok(result.body.candidates.every(candidate => candidate.presentation.locality === 'Riehen'));
+});
+
+test('a known Basel landmark is bound as a place within the city, not as a municipality', async () => {
+ const text = 'Ich möchte ins Basler Münster.';
+ let search;
+ const spot = (id, name) => {
+  const item = binding(id, profile());
+  item.decisionProjection.facts.find(f => f.key === 'identity.name').value = name;
+  return item;
+ };
+ const r = await exercise({ text, meaning: plan([fact('venue', 'location.destination', 'Basler Münster')]),
+  catalog: [spot(1, 'Basler Münster'), spot(2, 'Münster-Fähre «Leu»')], useResolvedTargetCity: true, onSearch: result => { search = result; } });
+ assert.equal(r.status, 200, JSON.stringify(r.diagnostics));
+ assert.equal(r.body.interpretation.targetCity, 'Basel');
+ assert.equal(r.body.candidates.find(c => c.presentation.name.includes('Fähre'))?.rank ?? null, null);
+ const candidates = [...search.ranked, ...search.unresolved, ...search.excluded];
+ assert.ok(candidates.find(c => c.name === 'Basler Münster').facts.some(f => f.state === 'MET' && f.reason === 'VERIFIED_PLACE_IDENTITY'));
+});
+
+test('a successful catalog read with no spots for the requested city returns a typed empty result', async () => {
+ const text = 'Ich möchte in Liestal essen.';
+ const r = await exercise({ text, meaning: plan([meal(), fact('city', 'location.destination', 'Liestal')]),
+  catalog: [binding(1, profile())], useResolvedTargetCity: true });
+ assert.equal(r.status, 200, JSON.stringify(r.diagnostics));
+ assert.equal(r.reads, 1);
+ assert.equal(r.body.primaryCandidateId, null);
+ assert.deepEqual(r.body.candidates, []);
+ assert.ok(r.body.limitations.includes('NO_CATALOG_CANDIDATES'));
+});
+
+test('NukNuk beta route searches outdoors with a follow-up and stops for an unbound rain rule', async () => {
+ const { createDecisionProductNuknukProvider } = await import('../dist/product-nuknuk-provider.js');
+ const text = 'Bei Schauern gern kurz unter ein Dach, aber wir möchten auch draussen spielen.';
+ const outdoorArea = { ...area('playground'), kind: 'PLAYGROUND' };
+ const outdoor = binding(101, profile([offer('play', 'MOVEMENT_PLAY', ['playground'])], [outdoorArea], 'OUTDOOR_NATURE'));
+ const indoor = binding(102, profile([offer('play', 'MOVEMENT_PLAY', ['inside'])]));
+ let raw = {
+   meaning: { facts: [fact('move', 'experience.activity', 'movement_play', 'REQUIRED', []),
+     fact('out', 'offer.area', 'outdoor', 'CONTEXT', [])] },
+   clarification: { question: 'Soll der Regenschutz direkt beim Spielbereich sein?', dimension: 'OTHER', options: ['Direkt dort', 'In der Nähe genügt'] },
+ };
+ const understandOverride = createDecisionProductNuknukProvider({
+   endpoint: 'https://nuknuk.example.test/v1/chat/completions', apiKey: 'fixture-key', model: 'nuknuk-test',
+   now: () => new Date(reference.now),
+   fetchImpl: async () => Response.json({ model: 'nuknuk-test', choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(raw) } }] }),
+ });
+ const run = await exercise({ text, catalog: [indoor, outdoor], understandOverride });
+ assert.equal(run.status, 200, JSON.stringify(run.diagnostics));
+ assert.equal(run.body.primaryCandidateId, outdoor.decisionProjection.spotId);
+ assert.ok(run.body.candidates.every(candidate => candidate.spotId !== indoor.decisionProjection.spotId || candidate.rank === null));
+ assert.equal(run.body.clarification, raw.clarification.question);
+ assert.equal(run.reads, 1);
+
+ raw = { ...raw, meaning: { ...raw.meaning, weatherConditions: [
+   { id: 'rain', role: 'CONDITIONAL', state: 'RAIN', basis: 'EXPLICIT', subjectIds: [], detail: null },
+ ] } };
+ const needsQuestion = await exercise({ text, catalog: [indoor, outdoor], understandOverride });
+ assert.equal(needsQuestion.status, 422);
+ assert.equal(needsQuestion.body.error.code, 'DECISION_NEEDS_CLARIFICATION');
+ assert.match(needsQuestion.body.error.message, /draussen.*Regen/u);
+ assert.equal(needsQuestion.reads, 0);
+ assert.equal(needsQuestion.stored, undefined);
+});
+
+test('NukNuk preserves the previous search through an answer and accepts a sourced correction', async () => {
+ const {createDecisionProductNuknukProvider} = await import('../dist/product-nuknuk-provider.js');
+ const original = 'Abendessen für zwei heute Abend in Basel, gerne etwas Besonderes.';
+ const question = {question:'Was würde den Abend für euch besonders machen?',dimension:'EXPERIENCE_DIRECTION',options:['Die Atmosphäre','Die Küche']};
+ const originalMeaning = {
+   entities:[{id:'party',kind:'GROUP',label:'Besuchsgruppe',members:[]}],
+   facts:[fact('meal','food.meal','dinner','REQUIRED',[]),fact('city','location.destination','Basel','REQUIRED',[]),
+     {...date(),subjectIds:[]},{...evening(),subjectIds:[]},
+     fact('partySize','people.count',{amount:2,operator:'EQ',unit:'PEOPLE'},'CONTEXT',['party'])],
+ };
+ const town = binding(106,profile());
+ town.decisionProjection.facts.find(row=>row.key==='location.locality').value = 'Liestal';
+ for (const scenario of [
+   {answer:'Gemütlich wäre schön.',city:'Basel',removeFactIds:[],removalEvidence:[]},
+   {answer:'Gemütlich wäre schön. Doch lieber in Liestal.',city:'Liestal',removeFactIds:['city'],removalEvidence:[{id:'city',quote:'lieber in Liestal'}]},
+   {answer:'Gemütlich wäre schön.',city:null,removeFactIds:['city'],removalEvidence:[{id:'city',quote:'lieber in Liestal'}]},
+ ]) {
+   const text = [original,`Rückfrage: ${question.question}`,`Antwort: ${scenario.answer}`].join(' ');
+   const updateFacts = [originalMeaning.facts[0],fact('mood','atmosphere.character','cozy','PREFERRED',[])];
+   if (scenario.city==='Liestal') updateFacts.push(fact('city','location.destination','Liestal','REQUIRED',[]));
+   let calls = 0;
+   const provider = createDecisionProductNuknukProvider({
+     endpoint:'https://nuknuk.example.test/v1/chat/completions',apiKey:'fixture-key',model:'nuknuk-test',
+     now:()=>new Date(reference.now),
+     fetchImpl:async (_url,options)=>{
+       const payload = JSON.parse(JSON.parse(options.body).messages[1].content);
+       const output = ++calls===1 ? {meaning:originalMeaning,clarification:question}
+         : {meaning:{facts:updateFacts},removeFactIds:scenario.removeFactIds,removalEvidence:scenario.removalEvidence,clarification:question};
+       if (calls===1) assert.equal(payload.request,original);
+       else {
+         assert.equal(payload.turns[0].answer,scenario.answer);
+         assert.equal(payload.previousMeaning.facts.length,originalMeaning.facts.length);
+       }
+       return Response.json({model:'nuknuk-test',choices:[{finish_reason:'stop',message:{content:JSON.stringify(output)}}]});
+     },
+   });
+   let merged;
+   const result = await exercise({text,catalog:[binding(105,profile()),town],useResolvedTargetCity:true,
+     understandOverride:async (...args)=>{
+       const value = await provider(...args);
+       merged=value;
+       return value;
+     }});
+   assert.equal(calls,2);
+   if (!scenario.city) {
+     assert.equal(result.status,422);
+     assert.equal(result.reads,0);
+     continue;
+   }
+   assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+   assert.equal(result.body.clarification,undefined);
+   assert.equal(result.body.interpretation.targetCity,scenario.city);
+   assert.equal(merged.facts.find(row=>row.key==='people.count').value.amount,2);
+   assert.equal(merged.facts.filter(row=>row.key==='food.meal').length,1);
+   assert.equal(merged.facts.find(row=>row.key==='time.day_phase').value.phase,'EVENING');
+   assert.equal(merged.facts.find(row=>row.key==='time.date').value.date,date().value.date);
+   assert.equal(merged.facts.find(row=>row.key==='atmosphere.character').value.text,'cozy');
+ }
+});

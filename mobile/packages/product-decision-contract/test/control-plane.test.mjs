@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   executeDecisionProductSingleRoute,
   executeDecisionProductInteraction,
+  DecisionProductClarification,
   DecisionProductUnavailableError,
+  decisionProductInputFailure,
   validateDecisionProductRequest,
   validateDecisionProductResponse,
 } from "../src/index.mjs";
@@ -59,6 +61,22 @@ test("the Build-57 transport accepts only the vNext Product contract", async () 
 test("legacy, Founder and evaluation-only responses fail visibly without fallback", () => {
   assert.throws(() => validateDecisionProductResponse({ ok: true, north_star: { active: true }, candidates: [] }, request), /decision_response_shape_invalid/);
   assert.throws(() => validateDecisionProductResponse({ ...response(), contractVersion: "backyrd.decision-vnext.founder-live-response@1.1", status: "EVALUATION_ONLY" }, request), /decision_response_version_or_status_invalid/);
+});
+
+test("a verified clarification survives the transport with or without ranked spots", async () => {
+  const question = "Möchtest du lieber draussen sitzen?";
+  const error = {
+    contractVersion: "backyrd.decision-vnext.product-error@1.0",
+    status: "UNAVAILABLE",
+    legacyFallbackUsed: false,
+    error: { code: "DECISION_NEEDS_CLARIFICATION", message: question },
+  };
+  assert.equal(validateDecisionProductResponse({ ...response(), clarification: question }, request).clarification, question);
+  assert.equal(decisionProductInputFailure({ ...error, legacyFallbackUsed: true }), null);
+  assert.equal(decisionProductInputFailure({ ...error, error: { ...error.error, message: "<b>Unsicher?</b>" } }), null);
+  await assert.rejects(() => executeDecisionProductSingleRoute({
+    binding, request, invoke: async () => { throw decisionProductInputFailure(error); },
+  }), cause => cause instanceof DecisionProductClarification && cause.question === question);
 });
 
 test("ranking, presentation, reasons and limitations are strict", () => {

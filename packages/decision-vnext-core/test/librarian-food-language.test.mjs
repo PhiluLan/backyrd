@@ -14,6 +14,23 @@ const familyVenue = (food='meal') => profile([
   ...(food ? [offer('cafe','CAFE',['cafe'],[prop('food.meal_extent',food==='meal'?'Essen':food==='snacks'?'Snacks':food)])] : []),
 ],[area('playroom'),area('cafe')]);
 
+test('brunch in a food family reaches the same evidenced offer as the activity family without accepting ordinary breakfast',async()=>{
+ const catalog=[binding(1,profile([offer('brunch','BRUNCH')])),binding(2,profile([offer('breakfast','BREAKFAST')])),binding(3,profile([offer('dinner','DINNER')]))];
+ const ranked=[];
+ for(const key of ['experience.activity','food.meal','food.option']){
+  const q=request([fact('brunch',key,'brunch')]);
+  const result=search(q,catalog);
+  assert.deepEqual(result.ranked.map(r=>r.spotId),[catalog[0].decisionProjection.spotId],JSON.stringify(result));
+  assert.deepEqual(result.ranked[0].offerIds,['brunch']);
+  ranked.push(result.ranked.map(r=>r.spotId));
+  const live=await exercise({text:'Brunchen gehen',meaning:q,catalog});
+  assert.equal(live.status,200,JSON.stringify(live.body));
+  assert.equal(live.calls,1,'a valid food-family interpretation needs no correction call');
+ }
+ assert.deepEqual(ranked[0],ranked[1]);
+ assert.deepEqual(ranked[1],ranked[2]);
+});
+
 test('family activity plus either food option can use a separate cafe at the same venue',()=>{
  const q=foodAlternative();
  assert.equal(q.diagnostics.some(d=>d.code==='CROSS_BRANCH_BINDING'),false,'a shared anchor and an active ANY branch coexist');

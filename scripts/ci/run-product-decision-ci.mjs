@@ -14,6 +14,7 @@ const productTests = [
   "packages/decision-vnext-core/test/librarian-required-evidence.test.mjs",
   "packages/decision-vnext-core/test/librarian-semantic-improvements.test.mjs",
   "packages/decision-vnext-core/test/librarian-domain-evaluation.test.mjs",
+  "packages/decision-vnext-core/test/nuknuk-understanding.test.mjs",
 ];
 
 function run(label, command, args) {
@@ -32,6 +33,7 @@ try {
     run("build canonical World, User and Product Decision artifacts", "npm", ["run", "decision-vnext:build"]),
     run("Product Decision TypeScript boundary", "npm", ["exec", "tsc", "--", "-p", "packages/decision-vnext-core/tsconfig.json", "--noEmit"]),
     run("Product Decision contracts, runtime and isolation", process.execPath, ["--test", ...productTests]),
+    run("NukNuk local training export integrity", "python3", ["-B", "-m", "unittest", "scripts/decision-diagnostics/test_nuknuk_train.py"]),
     run("single-route repository invariant", process.execPath, ["scripts/ci/validate-single-route-repository.mjs"]),
     run("Mobile/Web Product release contracts", "npm", ["run", "product-release:test"]),
     run("Product release end-to-end", "npm", ["run", "product-release:e2e"]),

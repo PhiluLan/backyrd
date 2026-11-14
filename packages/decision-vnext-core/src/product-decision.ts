@@ -199,6 +199,7 @@ function materializeCandidate(candidate: RankedCandidate): RankableCandidate {
 export interface DecisionProductBuildInput {
   readonly request: unknown;
   readonly evaluation: unknown;
+  readonly clarification?: string;
   readonly projection: unknown;
   readonly presentations: readonly unknown[];
   readonly actor: { readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly sessionId: string };
@@ -256,12 +257,30 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
     if (!current || evidenceOrder < 0 || evidenceOrder === 0 && Date.parse(event.startAt) < Date.parse(current.presentation.event!.startAt)) series.set(event.eventId, candidate);
   }
   const available = rankCandidateRows(eligible.filter(candidate => !candidate.presentation.event || series.get(candidate.presentation.event.eventId)?.spotId === candidate.spotId), situationalIds);
+  const walkInQuestion = "Bei den passenden Orten fehlt uns die Angabe zur Voranmeldung. Kommt für dich auch ein Besuch mit Voranmeldung infrage?";
+  const clarification = input.clarification ?? (!available.length && evaluation.limitations.includes("LIBRARIAN_WALK_IN_EVIDENCE_MISSING")
+    && !request.naturalLanguage.includes(`Rückfrage: ${walkInQuestion}`) ? walkInQuestion : undefined);
   const occurrencesCollapsed = available.length < eligible.length;
+  const fallback = ranked.filter(candidate => candidate.tier === "UNCONFIRMED_FALLBACK");
+  const weatherBranches = fallback.filter(candidate => candidate.assessment.reasons.some(reason =>
+    reason.reasonCode === "librarian-confirmed-weather-branch"));
+  const hasOpenWeather = evaluation.limitations.includes("LIBRARIAN_WEATHER_CONDITION_OPEN");
+  const pizzaOffers = fallback.filter(candidate => candidate.assessment.reasons.some(reason =>
+    reason.reasonCode === "librarian-pizza-offer-confirmed"));
+  const dinnerWithOpenCuisine = fallback.filter(candidate => candidate.assessment.reasons.some(reason =>
+    reason.reasonCode === "librarian-dinner-cuisine-unconfirmed"));
+  const nearDeparture = fallback.filter(candidate => candidate.assessment.reasons.some(reason =>
+    reason.reasonCode === "librarian-departure-time-unconfirmed"));
+  const hasDepartureConstraint = nearDeparture.length > 0 || ranked.some(candidate =>
+    candidate.failedHardConstraints.includes("LIBRARIAN_TIME_BOUND_PROXIMITY_NOT_PROVEN"));
+  const fallbackChoices = hasOpenWeather ? weatherBranches : pizzaOffers.length ? pizzaOffers
+    : hasDepartureConstraint ? nearDeparture : dinnerWithOpenCuisine.length ? dinnerWithOpenCuisine
+      : ranked.filter(candidate => !rankable(candidate, situationalIds));
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
   for (let windowSize = maxWindowSize; windowSize >= (maxWindowSize === 0 ? 0 : 1); windowSize -= 1) {
-    const selected = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate, situationalIds)).slice(0, PRODUCT_PRESENTATION_WINDOW)
+    const selected = firstUnseenIndex < 0 ? fallbackChoices.slice(0, PRODUCT_PRESENTATION_WINDOW)
       : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize && !matchingEventVenues.size && !occurrencesCollapsed ? ranked
         : available.slice(firstUnseenIndex, firstUnseenIndex + windowSize);
     const candidates = selected.map(materializeCandidate);
@@ -269,7 +288,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
     const responseBody = {
       contractVersion: PRODUCT_DECISION_VERSIONS.response, status: "AVAILABLE" as const, decisionId, requestHash, envelopeHash: envelope.envelopeHash,
       rankingPolicyVersion: PRODUCT_DECISION_VERSIONS.rankingPolicy, rankingPolicyHash: DECISION_PRODUCT_RANKING_POLICY.policyHash,
-      interpretation: evaluation.interpretation, primaryCandidateId: primary?.spotId ?? null, candidates,
+      interpretation: evaluation.interpretation, ...(clarification ? { clarification } : {}), primaryCandidateId: primary?.spotId ?? null, candidates,
       limitations: candidates.filter((candidate) => rankable(candidate, situationalIds)).length < available.length ? [...evaluation.limitations, "CANDIDATE_WINDOW_LIMITED"] : evaluation.limitations,
       alternative: { requested: request.alternativeRequested, selectedCandidateId: request.alternativeRequested ? primary?.spotId ?? null : null, negativeSignalProduced: false as const },
       reject: { candidateIds: request.rejectedCandidateIds, contextualOnly: true as const, worldFactProduced: false as const },
@@ -385,11 +404,16 @@ export interface DecisionProductRuntimeTiming {
   readonly controlAfterMs: number;
 }
 export interface DecisionProductAuthenticatedActor { readonly userId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly sessionId: string }
+export type DecisionProductUnderstanding = LibrarianRequest | {
+  readonly meaning: LibrarianRequest | null;
+  readonly clarification: string;
+};
+
 export interface DecisionProductRuntimePorts {
   readonly auth: { authenticate(token: string, signal: AbortSignal): Promise<DecisionProductAuthenticatedActor | null> };
   readonly rateLimit: { consume(subjectBindingHash: string, signal: AbortSignal): Promise<boolean> };
   readonly control: { assertBoundary(boundary: DecisionProductRuntimeBoundary, signal: AbortSignal): Promise<void> | void; readonly timeoutMilliseconds: number; readonly maxRequestBytes: number };
-  readonly understand?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<LibrarianRequest>;
+  readonly understand?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<DecisionProductUnderstanding>;
   readonly interpret?: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<DecisionProductRequest>;
   readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal, meaning?: LibrarianRequest) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
   readonly idempotency: { commit(input: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal): Promise<{ status: "CREATED" } | { status: "REPLAYED"; execution: unknown } | { status: "CONFLICT" | "EXPIRED" }> };
@@ -484,8 +508,15 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         return new Response(JSON.stringify(response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
       }
       if (ports.understand && ports.interpret) throw new Error("product_interpretation_composition_ambiguous");
-      const meaningValue = ports.understand
+      const understanding = ports.understand
         ? await at("INTERPRETATION", signal => ports.understand!(parsedRequest, actor, signal)) : undefined;
+      const answer = understanding && 'meaning' in understanding ? understanding : undefined;
+      if (answer && !/^[^?!<>\r\n]{9,239}\?$/u.test(answer.clarification)) throw new Error("product_clarification_invalid");
+      if (answer && !answer.meaning) {
+        await at("FINAL_OUTPUT", async () => undefined);
+        throw new DecisionProductError("DECISION_NEEDS_CLARIFICATION", 422, answer.clarification);
+      }
+      const meaningValue = understanding && 'meaning' in understanding ? understanding.meaning : understanding;
       const meaning = meaningValue ? prepareLibrarianRequest({
         contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: meaningValue.raw,
         sourceText: meaningValue.source.sourceText, reference: meaningValue.source.reference,
@@ -522,7 +553,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       }
       const evaluated = await at("EVALUATION", (signal) => ports.evaluate(productRequest, actor, signal, meaning));
       stage = "RESPONSE_BUILD";
-      const expectedInput = { request: productRequest, actor, ...evaluated }; const execution = buildDecisionProductExecution(expectedInput);
+      const expectedInput = { request: productRequest, actor, ...evaluated, ...(answer ? { clarification: answer.clarification } : {}) }; const execution = buildDecisionProductExecution(expectedInput);
       const committed = await at("IDEMPOTENCY", (signal) => ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: productRequest.idempotencyKey, payloadHash: contentHash(productRequest), execution }, signal));
       if (committed.status === "CONFLICT" || committed.status === "EXPIRED") throw new DecisionProductError("IDEMPOTENCY_CONFLICT", 409, "Diese Anfrage-ID wurde bereits mit anderen Eingaben verwendet oder ist abgelaufen.");
       const resolved = committed.status === "REPLAYED" ? validateDecisionProductExecution(expectedInput, committed.execution) : execution;

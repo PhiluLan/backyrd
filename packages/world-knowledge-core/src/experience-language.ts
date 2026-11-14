@@ -6,7 +6,7 @@ export const librarianTerm = (text: string): string => text.normalize("NFKC").tr
  * and an obligation are different modes, not synonyms of spontaneous access. */
 export type ExperienceBookingMode = "NOT_REQUIRED" | "RECOMMENDED" | "REQUIRED" | "CONDITIONAL";
 const bookingLabels: Readonly<Record<ExperienceBookingMode, readonly string[]>> = {
-    NOT_REQUIRED: ["NOT_REQUIRED", "Nicht erforderlich", "Keine Reservation nötig", "Keine Reservierung nötig", "Ohne Reservation", "Ohne Reservierung", "Ohne Buchung", "Keine Reservation möglich", "not required", "no reservation required", "walk-in", "walk in", "spontaneous", "Spontan", "sans réservation"],
+    NOT_REQUIRED: ["NOT_REQUIRED", "Nicht erforderlich", "Keine Reservation nötig", "Keine Reservierung nötig", "Ohne Reservation", "Ohne Reservierung", "Ohne Buchung", "Keine Reservation möglich", "not required", "no reservation required", "walk-in", "walk in", "walk_in", "spontaneous", "Spontan", "sans réservation"],
     RECOMMENDED: ["RECOMMENDED", "Empfohlen", "Reservation empfohlen", "Reservierung empfohlen", "Buchung empfohlen", "reservation recommended", "booking recommended", "réservation conseillée"],
     REQUIRED: ["REQUIRED", "Erforderlich", "Reservation erforderlich", "Reservierung erforderlich", "Buchung erforderlich", "Anmeldung erforderlich", "booking_required", "reservation required", "booking required", "réservation obligatoire"],
     CONDITIONAL: ["CONDITIONAL", "Bedingt", "bedingt erforderlich", "conditional"],
@@ -29,6 +29,8 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "children_course", labels: ["kinderkurs", "children_course"] },
     { id: "snacks", labels: ["snacks", "snack", "kleinigkeit essen", "kleine Snacks", "kleiner Snack", "Häppchen", "small snacks", "light snacks"] },
     { id: "entry", labels: ["eintritt", "entry", "admission"] },
+    { id: "pizzeria", labels: ["pizzeria"] },
+    { id: "pizza", labels: ["pizza", "pizza am stück", "pizza am stück oder ganz zum teilen"] },
     { id: "meal", labels: ["essen", "essen gehen", "etwas essen", "vollständige mahlzeit", "vollstaendige mahlzeit", "full_meals", "full_meal"] },
     { id: "drinks", labels: ["trinken", "etwas trinken", "etwas trinken gehen", "trinken gehen", "getränke", "drinks"] },
     { id: "coffee", labels: ["café", "cafe", "kaffee", "coffee", "Kaffee trinken"] },
@@ -60,7 +62,7 @@ const concepts: readonly LibrarianConcept[] = [
     { id: "vegetarian", labels: ["vegetarisch", "vegetarische gerichte"] },
     { id: "jazz", labels: ["Jazz", "Jazz hören", "jazz music"] },
     { id: "live_jazz", labels: ["Live-Jazz", "Live Jazz", "Live-Jazz hören", "live_jazz"] },
-    { id: "conversation", labels: ["Unterhaltung gut möglich", "sich gut unterhalten können", "gut unterhalten können", "gut unterhalten", "conversation"] },
+    { id: "conversation", labels: ["Unterhaltung gut möglich", "sich gut unterhalten können", "gut unterhalten können", "gut unterhalten", "conversation", "conversation_possible"] },
     { id: "children_activity", labels: ["Kinderaktivität", "Kinderangebote", "children_activity", "Familienaktivität", "Familienaktivitäten", "Familienunternehmung", "family activity", "family activities", "activité en famille"] },
     { id: "public_day_access", labels: ["Öffentlicher Tageszugang", "Tagesgäste willkommen", "ohne Hotelübernachtung", "public_day_access"] },
     { id: "spontaneous", labels: ["Spontan", "spontaneous", "Ohne Reservation", "Ohne Buchung", "Keine Reservation nötig", "Keine Reservation möglich"] },
@@ -141,7 +143,7 @@ export const EXPERIENCE_ACTIVITY_RELATIONS = Object.freeze([
 ]);
 export const experienceActivitySupports = (offered: string, requested: string): boolean => offered === requested
     || EXPERIENCE_ACTIVITY_RELATIONS.some(relation => relation.offered === offered && relation.requested === requested);
-export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@21" as const;
+export const EXPERIENCE_LANGUAGE_VERSION = "backyrd.world-knowledge.experience-language@22" as const;
 export const EXPERIENCE_LANGUAGE_CONCEPTS = concepts;
 const legacyOfferConcepts: Readonly<Record<string, readonly string[]>> = {
     ...Object.fromEntries(OFFER_CATALOG.map(o=>[o.kind,[o.concept]])),

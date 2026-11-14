@@ -1,9 +1,9 @@
-import { librarianDiscoveryLocalities } from "./product-librarian-geography.js";
+import { baselSearchAnchor, librarianDiscoveryLocalities } from "./product-librarian-geography.js";
 import { requiredRequestIssue } from "./product-librarian-plan.js";
 import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
 import { PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION, librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
 import { projectDecisionEventOccurrences } from "./product-event-candidates.js";
-import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, librarianConcept, parseExperienceProfile } from "@backyrd/world-knowledge-core";
+import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, experienceBookingMode, librarianConcept, parseExperienceProfile } from "@backyrd/world-knowledge-core";
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
 import { contentHash, deepFreeze, withContentHash } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LibrarianFact, type LunaExpression } from "./product-luna-librarian.js";
@@ -26,12 +26,15 @@ export function canonicalLibrarianCity(city: string): string {
 export function librarianTargetCity(request: DecisionProductRequest, meaning: LibrarianRequest): string {
   const destinations = meaning.facts.filter(f => f.key === "location.destination" && f.modality === "REQUIRED" && f.value.kind === "TEXT")
     .map(f => f.value.kind === "TEXT" ? f.value.text : "");
-  const choices = [...new Map(destinations.map(c => [cityKey(c), c])).values()];
+  const municipalities = destinations.filter(destination => !baselSearchAnchor(destination));
+  const choices = [...new Map(municipalities.map(c => [cityKey(c), c])).values()];
+  const anchorCity = destinations.length > municipalities.length ? "Basel" : undefined;
   // The deployed context RPC currently authorizes one city per request. A
   // cross-city alternative is not flattened into the first city in its list.
   if (choices.length > 1) throw new Error("product_librarian_multiple_cities_unavailable");
   const contextualCity = request.explicit.targetCityRole === "SEARCH_CONTEXT";
-  const city = contextualCity ? choices[0] ?? request.explicit.targetCity : request.explicit.targetCity ?? choices[0];
+  const city = contextualCity ? choices[0] ?? request.explicit.targetCity ?? anchorCity
+    : request.explicit.targetCity ?? choices[0] ?? anchorCity;
   if (!city) throw new Error("product_target_area_required");
   if (!contextualCity && choices.length && cityKey(city) !== cityKey(choices[0]!)) throw new Error("product_librarian_explicit_city_mismatch");
   return canonicalLibrarianCity(city);
@@ -81,6 +84,13 @@ const factCode = (f: LibrarianFactAssessment) => `LBR:${contentHash({ id: f.fact
 
 function assessment(candidate: LibrarianCandidate, world: ProductWorldView, context: DecisionProductContext, request: DecisionProductRequest, projection: RelevantUserProjection, hasVisitEvidence: boolean, meaning: LibrarianRequest) {
   const hard = candidate.facts.filter(duty);
+  const mustBeNearBeforeDeparture = meaning.facts.some(f => f.key === "location.return" && f.value.kind === "TEXT"
+    && requiredInEveryAlternative(meaning.logic, meaning, near => near.key === "location.proximity" && near.value.kind === "TEXT"
+      && baselSearchAnchor(near.value.text)?.id === baselSearchAnchor(f.value.text)?.id && !!baselSearchAnchor(near.value.text)))
+    && requiredInEveryAlternative(meaning.logic, meaning, f => f.key === "time.duration" && f.value.kind === "DURATION"
+      && f.value.measurementScope === "AVAILABLE_TOTAL" && f.value.includes.includes("TRAVEL"));
+  const lacksTimeBoundProximity = mustBeNearBeforeDeparture
+    && !hard.some(f => f.family === "location.proximity" && f.state === "MET" && f.reason === "VERIFIED_STRAIGHT_LINE_DISTANCE");
   const rejected = request.rejectedCandidateIds.includes(candidate.spotId);
   const codeForId = (id: string) => {
     const fact = candidate.facts.find(f => f.factId === id);
@@ -124,7 +134,50 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       statementDe: ageRequirementText ?? (f.reason === "QUALITATIVE_PRICE_SCOPE_UNBOUND" ? "Das Preisniveau des gesamten Ortes belegt nicht die Kosten dieses Essensangebots." : f.reason === "QUALITATIVE_PRICE_EVIDENCE_MISSING" ? "Für dieses Angebot ist kein auswertbares Preisniveau hinterlegt." : f.reason === "QUALITATIVE_PRICE_EVIDENCE_CONFLICT" ? "Die hinterlegten Preisangaben widersprechen sich." : f.reason === "QUALITATIVE_PRICE_LEVEL_COMPARED" ? proven ? "Das hinterlegte Preisniveau passt zu deinem Preiswunsch. Konkrete Preise können abweichen." : "Das hinterlegte Preisniveau liegt über deinem Preiswunsch. Konkrete Preise bitte prüfen." : f.reason === "PARTICIPANT_AGES_MEET_VERIFIED_MINIMUM" ? "Die hinterlegte Altersgrenze wird von den berücksichtigten Personen erfüllt." : ageNotice ? "Die konkrete Alterseignung ist hier nicht vollständig dokumentiert. Bekannte Alters- und Begleitregeln werden berücksichtigt." : f.reason === "ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED" ? "Die nötige erwachsene Begleitung wird aus deinem Besuchskontext berücksichtigt." : f.reason === "REQUIRED_ADULT_ACCOMPANIMENT_EXPLICITLY_ABSENT" ? "Für das genannte Kinderalter ist erwachsene Begleitung erforderlich; die Kinder sollen aber allein teilnehmen." : f.reason === "OFFER_OCCASION_CONTEXT_NOT_PROVEN" ? "Dieses Angebot ist für einen besonderen Anlass vorgesehen. Dass dieser Anlass zu deiner Suche passt, ist nicht bestätigt." : f.reason === "OFFER_OCCASION_EXCLUDED" ? "Dieses Angebot gehört zu einem Anlass, den du ausgeschlossen hast." : proven ? f.reason === "BOOKING_RECOMMENDED_NOT_MANDATORY" ? "Eine Reservation ist empfohlen, aber nicht vorgeschrieben. Freie Plätze sind nicht bestätigt." : f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : f.diagnosis === "UNSUPPORTED_REQUIREMENT" ? `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.` : f.diagnosis === "REQUEST_NEEDS_CLARIFICATION" ? "Welches Budget pro Person passt für dich?" : `Noch nicht bestätigt: ${label}.`),
       confirmed: proven };
   }).filter((reason, index, rows) => reason.reasonCode !== "librarian-age-rules-unconfirmed" || rows.findIndex(row => row.reasonCode === reason.reasonCode) === index);
+  // Branch evidence is conditional, even if the visit is fully supported in that branch.
+  for (const branch of candidate.conditionalPlans.filter(plan => plan.status === "CONFIRMED" && librarianMandatoryEvidenceSatisfied(plan.facts))) {
+    const conditions = branch.conditions.map(condition => {
+      const state = meaning.weatherConditions.find(entry => entry.id === condition.conditionId)?.state;
+      const weather: Readonly<Record<string, string>> = {RAIN:"Regen", DRY:"trockenem Wetter", SUN:"Sonnenschein", SNOW:"Schnee", HEAT:"Hitze", COLD:"Kälte", WIND:"Wind", THUNDERSTORM:"Gewitter"};
+      const label = weather[state ?? ""];
+      return label ? condition.truth ? `bei ${label}` : `ohne ${({DRY:"trockenes Wetter"} as Readonly<Record<string, string>>)[state ?? ""] ?? label}` : null;
+    });
+    if (conditions.length && conditions.every(Boolean))
+      reasons.unshift({reasonCode:"librarian-confirmed-weather-branch",domain:"LIMITATION",sourceHash:contentHash(branch),
+        statementDe:`Passend ${conditions.join(" und ")}. Welcher Wetterfall eintritt, ist offen.`,confirmed:false});
+  }
+  if (!mustBeNearBeforeDeparture && !hard.some(f => f.state === "FAILED")
+    && hard.some(f => f.family === "location.proximity" && f.state === "MET" && f.reason === "VERIFIED_STRAIGHT_LINE_DISTANCE")
+    && !meaning.facts.some(f => f.modality === "REQUIRED" && ["experience.activity", "offer.kind", "food.meal", "food.dish"].includes(f.key)))
+    reasons.push({reasonCode:"librarian-provisional-nearby",domain:"LIMITATION",sourceHash:candidate.candidateHash,
+      statementDe:"In der Nähe. Ob der Ort zu eurer geplanten Aktivität passt, ist noch offen.",confirmed:false});
+  if (lacksTimeBoundProximity) failed.push("LIBRARIAN_TIME_BOUND_PROXIMITY_NOT_PROVEN");
+  else if (mustBeNearBeforeDeparture) {
+    const warmMealUnconfirmed = hard.some(f => f.family === "food.dish" && f.state === "UNKNOWN");
+    reasons.unshift({reasonCode:"librarian-departure-time-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,
+      statementDe:`In der Nähe des Ausgangspunkts. Gehweg, Essensdauer und rechtzeitige Rückkehr bitte prüfen.${warmMealUnconfirmed ? " Die gewünschte Speise ist noch nicht bestätigt." : ""}`,confirmed:false});
+  }
+  const pizzaDuty = requiredInEveryAlternative(meaning.logic, meaning, f =>
+    f.key === "food.dish" && f.value.kind === "TEXT" && librarianConcept(f.value.text) === "pizza");
+  if (pizzaDuty && hard.some(f => f.family === "food.dish" && f.state === "MET"))
+    reasons.push({reasonCode:"librarian-pizza-offer-confirmed",domain:"WORLD",sourceHash:candidate.candidateHash,
+      statementDe:"Ein Pizza-Angebot ist belegt.",confirmed:true});
+  if (pizzaDuty && hard.some(f => f.family === "food.dish" && f.state === "MET")
+    && hard.some(f => f.family === "budget.maximum" && f.state === "UNKNOWN"))
+    reasons.unshift({reasonCode:"librarian-pizza-budget-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,
+      statementDe:"Pizza ist belegt. Ob der Gesamtpreis für eure Gruppe im Budget liegt, ist noch offen.",confirmed:false});
   const unconfirmedMood = candidate.facts.filter(f => ["atmosphere.character","atmosphere.noise"].includes(f.family) && f.modality === "PREFERRED" && f.state !== "MET");
+  const openCuisine = hard.filter(f => f.family === "food.cuisine" && f.modality === "EXCLUDED" && f.state === "UNKNOWN");
+  const openPrice = candidate.facts.some(f => f.family === "budget.qualitative" && f.state === "UNKNOWN");
+  if (openCuisine.length && hard.every(f => f.state === "MET" || openCuisine.includes(f))
+      && hard.some(f => f.family === "food.meal" && f.state === "MET")
+      && !candidate.failedFactIds.length
+      && requiredInEveryAlternative(meaning.logic, meaning, f =>
+        f.key === "food.meal" && f.value.kind === "TEXT" && librarianConcept(f.value.text) === "dinner")
+      && !candidate.facts.some(f => f.family === "budget.qualitative" && f.state === "FAILED")) {
+    reasons.unshift({reasonCode:"librarian-dinner-cuisine-unconfirmed",domain:"LIMITATION",sourceHash:candidate.candidateHash,
+      statementDe:openPrice ? "Abendessen ist belegt. Küchenstil und Preisniveau sind noch offen." : "Abendessen ist belegt. Ob der Küchenstil zu deinem Wunsch passt, ist noch offen.",confirmed:false});
+  }
   if (unconfirmedMood.length) reasons.push({reasonCode:"librarian-atmosphere-unconfirmed",domain:"LIMITATION",sourceHash:contentHash(unconfirmedMood),
     statementDe:"Das Angebot passt. Ob die Atmosphäre deinem Wunsch entspricht, ist noch nicht bestätigt.",confirmed:false});
   if (candidate.facts.some(f => f.reason === "DOCUMENTED_WHEELCHAIR_ACCESS_DETAILS")) {
@@ -190,7 +243,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   // different primary venue. Positive classification evidence affects order
   // only, never proves meals, access or availability and never excludes a café
   // inside a museum. A requested non-food activity disables this preference.
-  const foodConcepts = new Set(["meal","lunch","dinner","breakfast","brunch","snacks","aperitif","drinks","coffee"]);
+  const foodConcepts = new Set(["pizzeria","meal","lunch","dinner","breakfast","brunch","snacks","aperitif","drinks","coffee"]);
   const activeDuties = meaning.facts.filter(f => f.modality === "REQUIRED");
   const foodCore = activeDuties.some(f => ["experience.activity","offer.kind","food.meal","food.drink","food.dish"].includes(f.key));
   const otherCore = activeDuties.some(f => ["experience.activity","offer.kind","condition.children"].includes(f.key)
@@ -240,14 +293,13 @@ export function evaluateLibrarianProduct(input: {
   input.onSearch?.(result);
   const byId = new Map(worlds.map(w => [w.spot.spotId, w]));
   const ids = [...byId.keys()].sort();
-  if (!ids.length) throw new Error("product_world_candidate_set_invalid");
   const candidateSetHash = contentHash(ids), context = contextFor(input.request, meaning, input.authority.authorizedCity);
   const cohort = DecisionProductWorldCohortSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.cohort, cohortId: `product-world-${candidateSetHash.slice(0, 24)}`, source: "CANONICAL_WORLD_KNOWLEDGE_READER", generatedAt: input.authority.serverTime,
     authorizedCity: input.authority.authorizedCity, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH,
     sourcePolicyVersion: ACCEPTED_SOURCE_POLICY.policyVersion, sourcePolicyHash: ACCEPTED_SOURCE_POLICY.policyHash,
     ...(eventViews.length ? { eventBindings: eventViews.map(w => ({occurrenceId: w.eventOccurrence!.occurrenceId, snapshotHash:w.snapshotHash})) } : {}),
-    spotBindings: worlds.filter(w => !w.eventOccurrence).map(w => ({ spotId: w.spot.spotId, snapshotHash: w.snapshotHash })).sort((a,b) => a.spotId.localeCompare(b.spotId)), candidateSetHash, limitations: [], commercialSignalsPresent: false, fixtureSourceUsed: false,
+    spotBindings: worlds.filter(w => !w.eventOccurrence).map(w => ({ spotId: w.spot.spotId, snapshotHash: w.snapshotHash })).sort((a,b) => a.spotId.localeCompare(b.spotId)), candidateSetHash, limitations: ids.length ? [] : ["NO_CATALOG_CANDIDATES"], commercialSignalsPresent: false, fixtureSourceUsed: false,
   }, "cohortHash"));
   const admitted = new Set(result.ranked.map(c => c.spotId));
   let candidates = [...result.ranked, ...result.excluded, ...result.unresolved].map(c => assessment(c, byId.get(c.spotId)!, context, input.request, input.projection, admitted.has(c.spotId), input.meaning));
@@ -290,16 +342,37 @@ export function evaluateLibrarianProduct(input: {
     && !meaning.bindings.some(b => b.kind === "SAME_PLACE" && b.factIds.some(id=>meaning.facts.some(f=>f.id===id && f.subjectIds.some(s=>route.subjectIds.includes(s)))) && b.factIds.some(id=>meaning.facts.some(f=>f.id===id && f.subjectIds.some(s=>takeaway.subjectIds.includes(s)))))))
     && requiredInEveryAlternative(meaning.logic,meaning,f=>routeFacts.some(r=>r.id===f.id))
     && requiredInEveryAlternative(meaning.logic,meaning,f=>takeawayFacts.some(r=>r.id===f.id));
+  const walkInIds = new Set(meaning.facts.filter(f => ["participation.booking", "participation.entry_mode"].includes(f.key)
+    && f.value.kind === "TEXT" && experienceBookingMode(f.value.text) === "NOT_REQUIRED").map(f => f.id));
+  const walkInEvidenceMissing = requiredInEveryAlternative(meaning.logic, meaning, f => walkInIds.has(f.id))
+    && result.unresolved.some(candidate => candidate.decisionProof.experience === "SUPPORTED"
+      && !candidate.failedFactIds.length
+      && candidate.facts.some(f => walkInIds.has(f.factId) && f.state === "UNKNOWN"));
+  const limitations = [...new Set([...cohort.limitations,
+    ...(result.conditionUnknownIds.length ? ["LIBRARIAN_WEATHER_CONDITION_OPEN"] : []),
+    ...(separateTakeawayRoute ? ["MULTI_PLACE_SEARCH_UNSUPPORTED"] : []),
+    ...(walkInEvidenceMissing ? ["LIBRARIAN_WALK_IN_EVIDENCE_MISSING"] : []),
+    ...result.evaluationPlan.requirements.filter(r => requiredRequestIssue(r, r.support))
+      .map(r => r.support === "NEEDS_POLICY" ? "REQUEST_NEEDS_CLARIFICATION" : "REQUEST_REQUIREMENT_UNSUPPORTED"),
+  ])];
   const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.evaluation, evaluationId: `product-evaluation-${contentHash({ requestId: input.request.requestId, cohortHash: cohort.cohortHash }).slice(0,24)}`,
     createdAt: input.authority.serverTime, requestHash: contentHash(input.request), interpretation: context, worldCohort: cohort,
-    userProjectionHash: input.projection.projectionHash, candidates, limitations: [...new Set([...(separateTakeawayRoute ? ["MULTI_PLACE_SEARCH_UNSUPPORTED"] : []), ...result.evaluationPlan.requirements.filter(r => requiredRequestIssue(r, r.support)).map(r => r.support === "NEEDS_POLICY" ? "REQUEST_NEEDS_CLARIFICATION" : "REQUEST_REQUIREMENT_UNSUPPORTED")])], evaluatorVersion: input.request.includeEvents === true ? PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION : PRODUCT_LIBRARIAN_EVALUATOR_VERSION,
+    userProjectionHash: input.projection.projectionHash, candidates, limitations, evaluatorVersion: input.request.includeEvents === true ? PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION : PRODUCT_LIBRARIAN_EVALUATOR_VERSION,
     evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash, evaluationReleaseHash: DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash, intentPolicyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash,
     sourceKind: "CANONICAL_PRODUCT_PORTS", productSemanticsApproved: true, productRankingAuthorized: true, fixtureSourceUsed: false,
   }, "evaluationHash"));
-  const presentations = worlds.map(w => DecisionProductPresentationSchema.parse(withContentHash({
-    contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: w.spot.spotId, ...(w.eventOccurrence ? {event:{kind:"EVENT",eventId:w.eventOccurrence.eventId,occurrenceId:w.eventOccurrence.occurrenceId,venueSpotId:w.eventOccurrence.matchedSpotId,venueName:w.eventOccurrence.venueName,address:w.eventOccurrence.address,startAt:w.eventOccurrence.startAt,endAt:w.eventOccurrence.endAt,ticketUrl:w.eventOccurrence.ticketUrl,imageStoragePath:w.eventOccurrence.imageStoragePath??null}} : {}), name: (w.spot.identity.name ?? "Unbenannter Ort").slice(0,160), locality: w.spot.location.locality,
-    categoryLabel: w.eventOccurrence ? "Veranstaltung" : w.spot.classification.primaryCategory, imageUrl: w.eventOccurrence?.imageUrl ?? null, sourceHash: w.snapshotHash,
-  }, "presentationHash")));
+  const matches = new Map(result.ranked.map(candidate => [candidate.spotId, candidate]));
+  const presentations = worlds.map(w => {
+    const profile = w.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"));
+    const selectedOffers = matches.get(w.spot.spotId)?.offerIds ?? [];
+    const hotelDining = w.spot.classification.primaryCategory === "STAY" && profile && selectedOffers.length === 1
+      ? parseExperienceProfile(profile.value).offers.find(offer => selectedOffers[0] === offer.id
+        && ["LUNCH","DINNER","FULL_MEAL","BREAKFAST","CAFE","DRINKS"].includes(offer.kind)) : undefined;
+    return DecisionProductPresentationSchema.parse(withContentHash({
+    contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: w.spot.spotId, ...(w.eventOccurrence ? {event:{kind:"EVENT",eventId:w.eventOccurrence.eventId,occurrenceId:w.eventOccurrence.occurrenceId,venueSpotId:w.eventOccurrence.matchedSpotId,venueName:w.eventOccurrence.venueName,address:w.eventOccurrence.address,startAt:w.eventOccurrence.startAt,endAt:w.eventOccurrence.endAt,ticketUrl:w.eventOccurrence.ticketUrl,imageStoragePath:w.eventOccurrence.imageStoragePath??null}} : {}), name: (hotelDining?.name ?? w.spot.identity.name ?? "Unbenannter Ort").slice(0,160), locality: w.spot.location.locality,
+    categoryLabel: w.eventOccurrence ? "Veranstaltung" : hotelDining ? "EAT" : w.spot.classification.primaryCategory, imageUrl: w.eventOccurrence?.imageUrl ?? null, sourceHash: w.snapshotHash,
+    }, "presentationHash"));
+  });
   return deepFreeze({ evaluation, presentations });
 }

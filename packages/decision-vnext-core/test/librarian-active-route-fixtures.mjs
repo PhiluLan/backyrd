@@ -1,4 +1,4 @@
-import { BASEL_DISCOVERY_LOCALITIES } from "../dist/product-librarian-geography.js";
+import { BASEL_DISCOVERY_LOCALITIES, librarianDiscoveryLocalities, localityKey } from "../dist/product-librarian-geography.js";
 import assert from "node:assert/strict";
 import { createDecisionProductHttpHandler } from "../dist/product-decision.js";
 import { createDecisionProductLunaProvider } from "../dist/product-luna-provider.js";
@@ -7,16 +7,30 @@ import { contentHash } from "../dist/canonical.js";
 import { reference, authority } from "./librarian-matching-fixtures.mjs";
 const baseActor = {userId:'11111111-1111-4111-a111-111111111111',subjectBindingHash:contentHash('subject'),authenticationContextHash:contentHash('auth'),sessionBindingHash:contentHash('session'),sessionId:'22222222-2222-4222-a222-222222222222'};
 const identity = {releaseHash:contentHash('release'),artifactHash:contentHash('artifact'),sourceSetHash:contentHash('source'),controlGeneration:1};
-export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[],userId=baseActor.userId,onSearch}) {
+export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel',targetCityRole:'SEARCH_CONTEXT'},fetchImpl,auth=true,understandOverride,requestOverride,prefetch=false,eventOccurrences=[],userId=baseActor.userId,onSearch,runtimeReference=reference,runtimeAuthority=authority,useResolvedTargetCity=false}) {
   const actor={...baseActor,userId};
   let calls=0,reads=0,stored,diagnostics=[];
-  const provider=createDecisionProductLunaProvider({apiKey:'synthetic-key',now:()=>new Date(reference.now),fetchImpl:fetchImpl??(async(_url,options)=>{
+  const provider=createDecisionProductLunaProvider({apiKey:'synthetic-key',now:()=>new Date(runtimeReference.now),fetchImpl:fetchImpl??(async(_url,options)=>{
     calls++; const body=JSON.parse(options.body); assert.equal(body.store,false);
     assert.equal(JSON.parse(body.input).request,text);
     return new Response(JSON.stringify({status:'completed',output:[{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(meaning.raw)}]}]}));
   })});
-  const rpc={async rpc(name,parameters){reads++;assert.equal(name,request.explicit.targetCityRole==='SEARCH_CONTEXT' ? 'backyrd_decision_vnext_product_context_v7' : request.includeEvents===true ? 'backyrd_decision_vnext_product_context_v6' : 'backyrd_decision_vnext_product_context_v5');assert.equal(parameters.p_auth_user_id,actor.userId);assert.equal(JSON.stringify(parameters).includes(text),false);
-    return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:'Basel',authorizedLocalities:BASEL_DISCOVERY_LOCALITIES,serverTime:authority.now,worldSnapshots:catalog,...(request.includeEvents === true ? {eventOccurrences} : {})}};
+  const rpc={async rpc(name,parameters){
+    reads++;
+    const city = useResolvedTargetCity ? parameters.p_target_city : runtimeAuthority.city;
+    const regional = request.explicit.targetCityRole === 'SEARCH_CONTEXT'
+      && (!useResolvedTargetCity || localityKey(city) === 'basel');
+    const authorizedLocalities = useResolvedTargetCity ? librarianDiscoveryLocalities(city) : BASEL_DISCOVERY_LOCALITIES;
+    const localitySet = new Set(authorizedLocalities.map(localityKey));
+    const worldSnapshots = useResolvedTargetCity ? catalog.filter(binding => {
+      const locality = binding.decisionProjection.facts.find(fact => fact.key === 'location.locality')?.value;
+      return typeof locality === 'string' && localitySet.has(localityKey(locality));
+    }) : catalog;
+    const scopedEvents = useResolvedTargetCity ? eventOccurrences.filter(event => typeof event.city === 'string' && localitySet.has(localityKey(event.city))) : eventOccurrences;
+    assert.equal(name,regional ? 'backyrd_decision_vnext_product_context_v7' : request.includeEvents===true ? 'backyrd_decision_vnext_product_context_v6' : 'backyrd_decision_vnext_product_context_v5');
+    assert.equal(parameters.p_auth_user_id,actor.userId);
+    assert.equal(JSON.stringify(parameters).includes(text),false);
+    return {error:null,data:{contractVersion:'backyrd.decision-vnext.product-runtime-context@1.0',status:'NO_CONSENT',consent:null,snapshot:null,authorizedCity:city,authorizedLocalities,serverTime:runtimeAuthority.now,worldSnapshots,...(request.includeEvents === true ? {eventOccurrences:scopedEvents} : {})}};
   }};
   const evaluation=createDecisionProductRpcEvaluationProvider(rpc,{meaningRequired:true,...(onSearch?{onSearch}:{})});
   const handler=createDecisionProductHttpHandler({
@@ -32,6 +46,6 @@ export async function exercise({text,meaning,catalog,explicit={targetCity:'Basel
   });
   const request=requestOverride??{contractVersion:'backyrd.decision-vnext.product-request@1.0',requestId:'case-request',idempotencyKey:'case-idempotency',naturalLanguage:text,explicit,alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]};
   const response=await handler(new Request('https://example.test/functions/v1/decision-v13',{method:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify(request)}));
-  return {status:response.status,body:await response.json(),calls,reads,stored,diagnostics,request};
+  return {status:response.status,body:await response.json(),calls,reads,stored,diagnostics,request,runtimeReference,runtimeAuthority};
 }
 

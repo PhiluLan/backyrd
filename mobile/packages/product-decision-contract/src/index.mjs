@@ -30,6 +30,25 @@ export class DecisionProductUnavailableError extends Error {
   }
 }
 
+export class DecisionProductClarification extends Error {
+  constructor(question) {
+    super("decision_needs_clarification");
+    this.name = "DecisionProductClarification";
+    this.question = question;
+  }
+}
+
+export function decisionProductInputFailure(value) {
+  if (value?.contractVersion !== "backyrd.decision-vnext.product-error@1.0"
+    || value.status !== "UNAVAILABLE" || value.legacyFallbackUsed !== false) return null;
+  const { code, message } = value.error ?? {};
+  if (code === "DECISION_NEEDS_CLARIFICATION" && typeof message === "string" && /^[^?!<>\r\n]{9,239}\?$/u.test(message)) {
+    return new DecisionProductClarification(message);
+  }
+  if (code === "DECISION_NUKNUK_UNRESOLVED") return new DecisionProductUnavailableError("decision_nuknuk_unresolved");
+  return null;
+}
+
 export const DECISION_PRODUCT_CONTRACT = Object.freeze({
   request: REQUEST_VERSION,
   response: RESPONSE_VERSION,
@@ -97,7 +116,8 @@ function validateCandidate(candidate, seen) {
 }
 
 export function validateDecisionProductResponse(value, request) {
-  exactKeys(value, ["contractVersion", "status", "decisionId", "requestHash", "envelopeHash", "rankingPolicyVersion", "rankingPolicyHash", "interpretation", "primaryCandidateId", "candidates", "limitations", "alternative", "reject", "personalization", "learning", "productOutputAuthorized", "legacyEngineUsed", "fallbackUsed", "resultHash"], "decision_response_shape_invalid");
+  exactKeys(value, ["contractVersion", "status", "decisionId", "requestHash", "envelopeHash", "rankingPolicyVersion", "rankingPolicyHash", "interpretation", "primaryCandidateId", "candidates", "limitations", "alternative", "reject", "personalization", "learning", "productOutputAuthorized", "legacyEngineUsed", "fallbackUsed", "resultHash", ...(Object.hasOwn(value ?? {}, "clarification") ? ["clarification"] : [])], "decision_response_shape_invalid");
+  if (Object.hasOwn(value, "clarification")) requireValue(typeof value.clarification === "string" && /^[^?!<>\r\n]{9,239}\?$/u.test(value.clarification), "decision_clarification_invalid");
   requireValue(value.contractVersion === RESPONSE_VERSION && value.status === "AVAILABLE", "decision_response_version_or_status_invalid");
   requireValue(ID.test(value.decisionId) && HASH.test(value.requestHash) && HASH.test(value.envelopeHash) && HASH.test(value.resultHash), "decision_response_identity_invalid");
   requireValue(value.rankingPolicyVersion === RANKING_VERSION && HASH.test(value.rankingPolicyHash), "decision_ranking_authority_invalid");
@@ -127,7 +147,10 @@ export async function executeDecisionProductSingleRoute({ binding, request, invo
   requireValue(binding.requestContract === REQUEST_VERSION && binding.responseContract === RESPONSE_VERSION, "decision_transport_contract_drift");
   let raw;
   try { raw = await invoke(request); }
-  catch (error) { throw new DecisionProductUnavailableError("decision_single_route_unavailable", error); }
+  catch (error) {
+    if (error instanceof DecisionProductClarification || error instanceof DecisionProductUnavailableError && error.code === "decision_nuknuk_unresolved") throw error;
+    throw new DecisionProductUnavailableError("decision_single_route_unavailable", error);
+  }
   return Object.freeze(validateDecisionProductResponse(raw, request));
 }
 

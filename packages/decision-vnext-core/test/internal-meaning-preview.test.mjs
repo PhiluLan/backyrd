@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { LIBRARIAN_MATCHING_VERSION } from '../dist/product-librarian-matching.js';
 import {createInternalMeaningPreviewHandler} from '../dist/internal-meaning-preview.js';
 import {runLocalDiagnostic} from '../../../scripts/decision-diagnostics/run-local-diagnostic.mjs';
 import {fact,request,profile,offer,area,prop,binding} from './librarian-matching-fixtures.mjs';
@@ -43,7 +44,7 @@ test('local full chain reuses canonical evaluation and clearly labels injected p
  const r=await runLocalDiagnostic({query,catalog:[binding(1,p)],apiKey:'provider-secret',fetchImpl:async()=>providerResponse()});
  assert.equal(r.providerMode,'INJECTED_PROVIDER_TEST');assert.equal(r.modelCalls,1);
  assert.equal(r.meaning.configuration.promptRevision,'backyrd.luna-prompt@29');
- assert.equal(r.runtime.matchingVersion,'backyrd.decision-vnext.librarian-matching@53');
+ assert.equal(r.runtime.matchingVersion,LIBRARIAN_MATCHING_VERSION);
  assert.equal(r.response.candidates.filter(c=>c.rank!==null).length,1);
  assert.equal(r.boundaries.productionDataChanged,false);
  assert.ok(!JSON.stringify(r).includes('provider-secret'));

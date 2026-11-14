@@ -1,0 +1,10 @@
+# Candidate GPU environment. Real CUDA compatibility is checked on the Pod.
+# Install torch==2.8.0 separately from the official cu128 index (see runbook).
+transformers==5.22.2
+peft==0.21.2
+bitsandbytes==0.50.2
+accelerate==1.15.0
+safetensors==0.8.0
+huggingface-hub==2.4.0
+numpy==2.2.6
+llguidance==1.9.1

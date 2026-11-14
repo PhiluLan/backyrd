@@ -40,3 +40,14 @@ export declare function categoryToPlaceType(value:unknown):{status:"KNOWN"|"UNKN
 export declare function canonicalizeProductMood(value:unknown):{status:string;moodId:string|null;canonicalLabel?:string;concept:string|null;direction:number;contractVersion:string};
 export declare function reviewOriginPair(value:{reviewOrigin?:string|null;productEvidenceOrigin?:string|null}):{reviewOrigin:string;productEvidenceOrigin:string|null}|null;
 export declare function assertRegistryIntegrity():true;
+
+export declare const BASEL_REFERENCE_POINTS: Readonly<Record<string, {
+  readonly kind: "LANDMARK";
+  readonly category: "BRIDGE" | "CITY_GATE" | "FERRY" | "LANDMARK" | "PARK" | "SQUARE" | "STATION" | "VIEWPOINT" | "WAYPOINT";
+  readonly municipality: "Basel";
+  readonly label: string;
+  readonly latitude: number;
+  readonly longitude: number;
+  readonly aliases: readonly string[];
+  readonly source: Readonly<{ dataset: string; reference: string; url: string }>;
+}>>;

@@ -30,6 +30,9 @@ export function userFacingError(
   if (technical.includes("decision_session_timeout")) {
     return "Deine Anmeldung konnte nicht rechtzeitig erneuert werden. Schließe Backyrd vollständig und öffne es erneut.";
   }
+  if (technical.includes("decision_nuknuk_unresolved")) {
+    return "Deinen Suchwunsch konnten wir noch nicht sicher zuordnen. Ergänze kurz, was dir wichtig ist.";
+  }
   if (technical.includes("review_same_day_limit")) {
     return "Du hast diesen Ort heute bereits bewertet.";
   }
