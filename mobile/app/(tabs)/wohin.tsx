@@ -18,9 +18,9 @@ import { eventImageUrl } from "@/lib/events-v1";
 import { Image } from "expo-image";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction, type PersonalDecisionTrace } from "@/lib/decision/productDecision";
-import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
+import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinDiscoveryCategories, wohinDiscoveryDirections, wohinFollowUp, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
 import { recordDecisionFailure, type DecisionFailurePhase } from "@/lib/decision/productDecisionDiagnostics";
-import { loadCanonicalSpotHeaders } from "@/lib/spot-images";
+import { loadCanonicalSpotHeaders, loadDiscoverySpots, type DiscoverySpot } from "@/lib/spot-images";
 import { supabase } from "@/lib/supabase";
 import { userFacingError } from "@/lib/userFacingError";
 import { backyrdTheme } from "@/theme/backyrd";
@@ -128,6 +128,8 @@ export default function WohinScreen() {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<DecisionProductResponse | null>(null);
   const [candidates, setCandidates] = useState<DecisionProductCandidate[]>([]);
+  const [discovery, setDiscovery] = useState<DiscoverySpot[]>([]);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [coverImages, setCoverImages] = useState<Map<string, string | null>>(new Map());
   const [standaloneQuestion, setStandaloneQuestion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -174,6 +176,7 @@ export default function WohinScreen() {
     setEditing(false);
     setResponse(null);
     setCandidates([]);
+    setDiscovery([]);
     setLoading(false);
     setError(null);
     setRetryRequest(null);
@@ -243,6 +246,7 @@ export default function WohinScreen() {
     responseRef.current = null;
     setResponse(null);
     setCandidates([]);
+    setDiscovery([]);
     let failurePhase: DecisionFailurePhase = "REQUEST";
     let request: DecisionProductRequest | undefined;
     try {
@@ -361,6 +365,34 @@ export default function WohinScreen() {
       ))}
     </View>
   ) : null;
+  const needsDiscovery = Boolean(city && authenticated && conversation && !editing && !loading
+    && !candidates.length && (response || standaloneQuestion || error));
+  const discoveryDirections = React.useMemo(() => wohinDiscoveryDirections(submittedQuery), [submittedQuery]);
+  useEffect(() => {
+    setDiscovery([]);
+    if (!needsDiscovery || !city || !discoveryDirections.length) {
+      setDiscoveryLoading(false);
+      return;
+    }
+    let active = true;
+    const excluded = new Set(response?.candidates.filter(candidate => candidate.contextualReject
+      || candidate.failedHardConstraints.length || candidate.actualAvailability === "closed").map(candidate => candidate.spotId));
+    const discoveryCity = response?.interpretation.targetCity ?? city;
+    setDiscoveryLoading(true);
+    void (async () => {
+      // Use one direction for catalog cards. Other directions need a fresh search.
+      const [direction] = discoveryDirections;
+      const results = await Promise.allSettled(direction.terms.map(term => loadDiscoverySpots(discoveryCity, 12, term)));
+      const matches = results.flatMap(result => result.status === "fulfilled" ? result.value : [])
+        .filter(spot => !excluded.has(spot.id) && direction.category.test(spot.category_name ?? ""));
+      const spots = new Map(matches.map(spot => [spot.id, spot]));
+      if (active) setDiscovery([...spots.values()].slice(0, 3));
+    })().finally(() => {
+      if (active) setDiscoveryLoading(false);
+    });
+    return () => { active = false; };
+  }, [city, discoveryDirections, needsDiscovery, response]);
+
   const followUp = response && !candidates.length && !clarificationQuestion ? wohinFollowUp(response) : null;
   const followUpNotes = response && followUp
     ? wohinLimitations(response.limitations.filter(code => code !== followUp.explainedLimitation), 0)
@@ -401,7 +433,7 @@ export default function WohinScreen() {
       {showingResults ? <View style={[styles.resultScreen, { paddingBottom: Math.max(8, insets.bottom - 2) + backyrdTheme.control.tabBarVisual + 10 }]}>
         <View style={styles.resultHeader}>
           <View style={styles.querySummary}>
-            <AppText role="displayM" accessibilityRole="header">Vorschläge</AppText>
+            <AppText role="displayM" accessibilityRole="header">{current?.tier === "UNCONFIRMED_FALLBACK" ? "Orte zum Abklären" : "Vorschläge"}</AppText>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Suche ändern" onPress={editQuery} style={styles.editSearch}>
             <Ionicons name="create-outline" size={18} color={color.text} />
@@ -511,9 +543,35 @@ export default function WohinScreen() {
           </View> : null}
 
           {followUp ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
-            <AppText role="sectionTitle">Gerade kein passender Vorschlag</AppText>
+            <AppText role="sectionTitle">So können wir weitersuchen</AppText>
             <AppText role="body" tone="secondary">{followUp.message}</AppText>
             {followUpNotes.map(note => <AppText key={note} role="meta" tone="secondary">{note}</AppText>)}
+          </View> : null}
+          {needsDiscovery ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
+            <AppText role="sectionTitle">{discovery.length ? "Orte zum Entdecken" : "Worauf hast du Lust?"}</AppText>
+            {discovery.length ? <AppText role="body" tone="secondary">Vielleicht ist hier etwas für dich dabei. Ob dein ganzer Plan dort klappt, ist noch offen.</AppText> : null}
+            {discovery.map(spot => (
+              <Pressable key={spot.id} accessibilityRole="button" onPress={() => router.push(`/spot/${spot.id}` as never)}
+                style={styles.discoverySpot}>
+                <View style={styles.querySummary}>
+                  <AppText role="bodyStrong">{spot.name}</AppText>
+                  <AppText role="caption" tone="secondary">{[spot.category_name, spot.city].filter(Boolean).join(" · ")}</AppText>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={color.muted} />
+              </Pressable>
+            ))}
+            {discoveryLoading ? <ActivityIndicator color={color.pink} /> : null}
+            {!discoveryLoading ? <View style={styles.searchActions}>
+              {(discovery.length ? discoveryDirections.slice(1)
+                : discoveryDirections.length ? discoveryDirections : wohinDiscoveryCategories()).map(direction => (
+                <Pressable key={direction.label} accessibilityRole="button" onPress={() => {
+                  setQuery(direction.query);
+                  setEditing(true);
+                }} style={styles.editSearch}>
+                  <AppText role="label">{direction.label}</AppText>
+                </Pressable>
+              ))}
+            </View> : null}
           </View> : null}
           {showConversation && !loading ? <>
             <View style={styles.searchActions}>
@@ -656,6 +714,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.3 },
   pagerLabel: { alignItems: "center", gap: 2, flex: 1 },
   backToResults: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
+  discoverySpot: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, minHeight: 52, borderRadius: 16, backgroundColor: color.card },
   emptyState: { marginTop: 28, gap: 12 },
   followUpButton: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
   modalBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" },

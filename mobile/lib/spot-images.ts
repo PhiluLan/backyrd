@@ -97,15 +97,17 @@ export async function loadCanonicalSpotHeaders(spotIds: readonly string[], signa
   return headers;
 }
 
-export async function loadDiscoverySpots(city: string, limit = 120) {
+export async function loadDiscoverySpots(city: string, limit = 120, query?: string) {
   const { data, error } = await supabase.rpc("distribution_trust_spot_catalog_v1", {
-    p_query: null,
+    p_query: query?.trim() || null,
     p_city: city.trim() || null,
     p_limit: Math.min(Math.max(limit, 1), 200),
     p_surface: "discovery",
   });
   if (error) throw error;
   const spots = (data ?? []) as DiscoverySpot[];
+  if (!spots.length) return [];
+  if (query) return spots.map(spot => ({ ...spot, city: spot.city ?? (city || null), header_photo_url: null, hours: [] }));
   const ids = spots.map((spot) => spot.id).filter(Boolean);
   const [headerBySpotId, { data: locationRows }, { data: hoursRows }] = await Promise.all([
     loadCanonicalSpotHeaders(ids),

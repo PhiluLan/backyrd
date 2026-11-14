@@ -2,6 +2,42 @@ import type { DecisionProductCandidate, DecisionProductRequest, DecisionProductR
 
 const MAX_VISIBLE_CANDIDATES = 5;
 
+const discoveryDirections = [
+  { label: "Clubs", query: "Ich möchte nachts in einen Club",
+    request: /\b(?:club|clubs|nachtclub|disco|diskothek)\b|tanzen gehen/iu,
+    category: /\b(?:club|clubs|nachtclub|disco|diskothek|nightlife|nachtleben)\b/iu, terms: ["Club", "Disco", "Nachtleben"] },
+  { label: "Asiatisch essen", query: "Ich möchte asiatisch essen gehen",
+    request: /\b(?:teriyaki|teryaki|sushi|ramen|asiatisch(?:es)?|japanisch(?:es)?|thailändisch(?:es)?|vietnamesisch(?:es)?|koreanisch(?:es)?|chinesisch(?:es)?)\b/iu,
+    category: /asiatisch|japan|sushi|ramen|thai|vietnam|korea|chinesisch|chinese|asian/iu, terms: ["Asiatisch", "Japan", "Sushi", "Ramen", "Thai", "Vietnam", "Korea", "Chinesisch", "Asian"] },
+  { label: "Cafés", query: "Ich möchte in ein Café gehen",
+    request: /caf[eé]|\bkaffee\b/iu, category: /caf[eé]|coffee.daytime|kaffee/iu, terms: ["Café", "Kaffee"] },
+  { label: "Bars", query: "Ich möchte etwas trinken gehen",
+    request: /\b(?:bar|bars|cocktails?|bier|wein|pub|drinks?|trinken)\b/iu, category: /\b(?:bar|bars|pub|drinks|cocktailbar|weinbar|biergarten)\b/iu, terms: ["Bar", "Pub"] },
+  { label: "Essen", query: "Ich möchte etwas essen gehen",
+    request: /\b(?:essen|restaurant|pizzeria|pizza|mittagessen|abendessen|brunch)\b/iu, category: /restaurant|bistro|brasserie|pizzeria|\beat\b/iu, terms: ["Restaurant", "Bistro", "Pizzeria"] },
+  { label: "Kultur", query: "Ich möchte etwas Kulturelles unternehmen",
+    request: /museum|ausstellung|theater|kultur|galerie/iu, category: /museum|ausstellung|theater|kultur|galerie|culture/iu, terms: ["Museum", "Theater", "Galerie", "Kultur"] },
+  { label: "Familie", query: "Ich suche etwas für einen Familienausflug",
+    request: /spielplatz|\bzoo\b|familienausflug|familienaktivität/iu, category: /spielplatz|\bzoo\b|familie/iu, terms: ["Spielplatz", "Zoo", "Familie"] },
+  { label: "Draussen", query: "Ich möchte etwas draussen unternehmen",
+    request: /\b(?:park|wandern|spazieren|draussen|draußen)\b/iu, category: /\bpark\b|natur|outdoor|wandern/iu, terms: ["Park", "Natur", "Outdoor"] },
+  { label: "Sport", query: "Ich möchte Sport machen",
+    request: /\b(?:sport|bouldern|klettern|fitness|schwimmen)\b/iu, category: /sport|boulder|kletter|fitness|schwimm/iu, terms: ["Sport", "Boulder", "Klettern", "Schwimmen"] },
+] as const;
+
+export function wohinDiscoveryDirections(query: string) {
+  const terms = query.normalize("NFKC").split(/\s+Rückfrage:\s*/u);
+  const userText = [terms[0], ...terms.slice(1).map(turn => turn.split(/\s+Antwort:\s*/u)[1])].filter(Boolean).join(" ");
+  const matches = discoveryDirections.filter(direction => direction.request.test(userText)
+    && (direction.label !== "Clubs" || !/\b(?:kein(?:e[nmrs]?)?|ohne)\s+(?:einen?\s+)?(?:club|clubs|nachtclub|disco|diskothek)\b/iu.test(userText)));
+  return matches.some(direction => direction.label === "Asiatisch essen")
+    ? matches.filter(direction => direction.label !== "Essen") : matches;
+}
+
+export function wohinDiscoveryCategories() {
+  return discoveryDirections.filter(direction => ["Essen", "Cafés", "Clubs", "Kultur", "Draussen", "Sport"].includes(direction.label));
+}
+
 export function createWohinRequest(input: { query: string; city: string; requestId: string }): DecisionProductRequest {
   const naturalLanguage = input.query.trim().replace(/\s+/g, " ");
   const profileCity = input.city.trim();
@@ -24,7 +60,7 @@ export function createWohinRequest(input: { query: string; city: string; request
 }
 
 const provisionalVisitReasons = new Set([
-  "librarian-dinner-cuisine-unconfirmed",
+  "librarian-dinner-cuisine-unconfirmed", "librarian-provisional-visit",
   "librarian-confirmed-weather-branch", "librarian-departure-time-unconfirmed", "librarian-pizza-budget-unconfirmed",
 ]);
 
@@ -42,9 +78,9 @@ export function visibleWohinCandidates(response: DecisionProductResponse): Decis
   // Slice the already-ranked server response; never re-rank in the client.
   if (ranked.length) return ranked.slice(0, MAX_VISIBLE_CANDIDATES);
   return response.candidates.filter(candidate => candidate.tier === "UNCONFIRMED_FALLBACK"
-    && !candidate.contextualReject && !candidate.failedHardConstraints.length
+    && !candidate.contextualReject && candidate.actualAvailability !== "closed" && !candidate.failedHardConstraints.length
     && candidate.reasons.some(reason => provisionalVisitReasons.has(reason.code)
-      || Boolean(response.clarification) && reason.code === "librarian-provisional-nearby"));
+      || Boolean(response.clarification) && reason.code === "librarian-provisional-nearby")).slice(0, MAX_VISIBLE_CANDIDATES);
 }
 
 export function wohinPlaceMeta(candidate: DecisionProductCandidate): string {
@@ -62,6 +98,51 @@ const atmospherePhrases = new Map([
   ["romantic", "romantisch"],
 ]);
 
+const provisionalCopy = new Map<string, (statement: string) => string>([
+  ["librarian-dinner-cuisine-unconfirmed", statement => statement.includes("Preisniveau")
+    ? "Hier kannst du zu Abend essen. Ob Küche und Preise zu deinem Plan passen, ist noch offen."
+    : "Hier kannst du zu Abend essen. Ob dir die Küche zusagt, ist noch offen."],
+  ["librarian-pizza-budget-unconfirmed", () => "Hier gibt’s Pizza. Ob’s für euch alle im Budget bleibt, müsstest du kurz prüfen."],
+  ["librarian-departure-time-unconfirmed", statement => statement.includes("Speise")
+    ? "Der Ort ist in der Nähe. Schau kurz, ob der Weg in deine Zeit passt und es dort das gibt, was du essen möchtest."
+    : "Der Ort ist in der Nähe. Schau kurz, ob dir die Zeit für den Weg und den Besuch reicht."],
+  ["librarian-provisional-nearby", () => "Der Ort liegt in der Nähe. Ob ihr dort das machen könnt, was ihr vorhabt, ist noch offen."],
+]);
+const cardDetails = new Map([
+  ["Cocktails", "Hier gibt’s Cocktails."],
+  ["WLAN", "Hier gibt’s WLAN."],
+  ["ein stufenloser Zugang", "Hier kommst du stufenlos rein."],
+  ["eine ruhige Atmosphäre", "Hier ist es ruhig."],
+  ["ein Bereich drinnen", "Hier könnt ihr drinnen bleiben."],
+  ["ein Bereich draussen", "Hier könnt ihr draussen bleiben."],
+  ["eine Terrasse", "Hier kannst du auf der Terrasse sitzen."],
+  ["Kaffee", "Hier gibt’s Kaffee."],
+  ["ein Spielplatz", "Hier können die Kinder auf den Spielplatz."],
+  ["Regenschutz", "Hier findet ihr bei Regen Schutz."],
+  ["vegetarische Gerichte", "Hier gibt’s vegetarische Gerichte."],
+  ["vegane Gerichte", "Hier gibt’s vegane Gerichte."],
+]);
+const cardQuestions = new Map([
+  ["die gewünschte Besuchszeit", "Schau vor dem Losgehen kurz nach, ob du zur gewünschten Zeit vorbeikannst."],
+  ["die gewünschte Zugänglichkeit", "Frag am besten kurz nach, ob du dort gut reinkommst."],
+  ["ein stufenloser Zugang", "Ob du stufenlos reinkommst, ist noch offen."],
+  ["die gewünschte Ernährung", "Frag vor dem Besuch nach, ob es für dich etwas Passendes gibt."],
+  ["die gewünschte Reservationsregel", "Frag am besten kurz nach, ob du reservieren musst."],
+  ["die gewünschte Teilnahme ohne Voranmeldung", "Ob du einfach vorbeikommen kannst, ist noch offen."],
+  ["dein Budget", "Ob die Preise für dich passen, ist noch offen."],
+  ["der gewünschte Ort", "Schau kurz auf die Karte, ob dir die Lage passt."],
+  ["die gewünschte Weglänge", "Schau vor dem Losgehen kurz nach, ob die Strecke für dich passt."],
+  ["Regenschutz", "Ob ihr bei Regen Schutz findet, ist noch offen."],
+  ["die gewünschte Wettereignung", "Wie gut der Ort bei diesem Wetter passt, ist noch offen."],
+  ["die gewünschte Musiksituation", "Ob dann Musik läuft, wissen wir noch nicht."],
+  ["die Besuchsbedingungen", "Frag am besten kurz nach, ob ihr so vorbeikommen könnt."],
+  ["die Grösse des Lokals", "Wie gross das Lokal ist, wissen wir noch nicht."],
+  ["Cocktails", "Ob es Cocktails gibt, ist noch offen."],
+  ["eine ruhige Atmosphäre", "Wie ruhig es bei deinem Besuch ist, wissen wir noch nicht."],
+  ["WLAN", "Ob es WLAN gibt, wissen wir noch nicht."],
+  ["die gewünschte Atmosphäre", "Wie es sich vor Ort anfühlt, ist noch offen."],
+]);
+
 /** Describe the match using public, confirmed evidence for this candidate. */
 export function wohinRecommendation(
   candidate: DecisionProductCandidate,
@@ -69,7 +150,10 @@ export function wohinRecommendation(
 ): string {
   const provisional = candidate.reasons.find(reason =>
     provisionalVisitReasons.has(reason.code) || reason.code === "librarian-provisional-nearby");
-  if (candidate.tier === "UNCONFIRMED_FALLBACK" && provisional) return provisional.statement;
+  if (candidate.tier === "UNCONFIRMED_FALLBACK" && provisional && provisional.code !== "librarian-provisional-visit") {
+    const friendly = provisionalCopy.get(provisional.code);
+    return friendly?.(provisional.statement) ?? provisional.statement;
+  }
 
   const world = candidate.reasons.filter(reason => reason.confirmed && reason.domain === "WORLD");
   const facts = new Set(world.filter(reason => /^LBR(?::|_EVIDENCE:)/.test(reason.code)).map(reason => reason.statement));
@@ -88,23 +172,37 @@ export function wohinRecommendation(
     ? offerNames
     : null;
 
-  if (specificOffer) {
-    const offer = `Hier gibt’s ${specificOffer}.`;
-    return atmosphere ? `${offer} Die Atmosphäre ist ${atmosphere}.` : offer;
+  const confirmed = [...cardDetails].find(([label]) => facts.has(`Bestätigt: ${label}.`))?.[1];
+  const unanswered = candidate.reasons.filter(reason => !reason.confirmed && reason.domain === "LIMITATION");
+  const unknownTime = candidate.actualAvailability === "unknown" || unanswered.some(reason => reason.code === "librarian-visit-time-unconfirmed");
+  const openQuestion = unknownTime && !candidate.presentation?.event
+    ? cardQuestions.get("die gewünschte Besuchszeit")
+    : [...cardQuestions].find(([label]) => unanswered.some(reason =>
+      reason.statement === `Noch nicht bestätigt: ${label}.`
+      || reason.statement === `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.`))?.[1];
+  const caveat = openQuestion ?? (provisional?.code === "librarian-provisional-visit" || unanswered.some(reason =>
+    reason.statement.startsWith("Noch nicht bestätigt:") || reason.statement.startsWith("Diesen Wunsch können wir noch nicht zuverlässig prüfen:"))
+    ? "Ein Punkt ist noch offen. Frag vor dem Besuch am besten direkt nach." : undefined);
+  const withCaveat = (sentence: string) => caveat ? `${sentence} ${caveat}` : sentence;
+
+  if (confirmed) {
+    const drinks = confirmed === cardDetails.get("Cocktails");
+    return withCaveat(drinks && evening ? "Hier bekommst du abends Cocktails." : confirmed);
   }
-  if (facts.has("Bestätigt: die Essensmöglichkeit.") && evening) {
-    if (atmosphere) return `Hier kannst du am gewünschten Abend ${atmosphere} essen gehen.`;
-    return "Hier kannst du am gewünschten Abend essen gehen.";
-  }
-  if (world.some(reason => reason.code === "librarian-pizza-offer-confirmed")) return "Hier gibt’s Pizza, wie du sie gesucht hast.";
+  if (world.some(reason => reason.code === "librarian-pizza-offer-confirmed")) return withCaveat("Hier gibt’s Pizza, wie du sie gesucht hast.");
+  if (specificOffer) return withCaveat(`Hier gibt’s ${specificOffer}.`);
   if (facts.has("Bestätigt: die Essensmöglichkeit.")) {
-    return atmosphere ? `Hier kannst du ${atmosphere} essen gehen.` : "Hier kannst du wie gewünscht essen gehen.";
+    const smallVenue = facts.has("Bestätigt: ein kleines Lokal.");
+    const setting = smallVenue ? ` in einem kleinen${atmosphere ? `, ${atmosphere}en` : ""} Lokal` : atmosphere ? ` ${atmosphere}` : "";
+    return withCaveat(`Hier kannst du${evening ? " am gewünschten Abend" : ""}${setting} essen gehen.`);
   }
-  if (facts.has("Bestätigt: die Getränkeauswahl.")) {
-    return "Hier gibt’s das Getränk, das du gesucht hast.";
+  if (facts.has("Bestätigt: Getränke vor Ort.")) {
+    return withCaveat(evening ? "Hier kannst du abends etwas trinken gehen." : "Hier kannst du etwas trinken gehen.");
   }
-  if (hasAtmosphere) return atmosphere ? `Die Atmosphäre hier ist ${atmosphere} und passt zu deinem Wunsch.` : "Die Atmosphäre passt zu deinem Wunsch.";
-  if (facts.has("Bestätigt: die gewünschte Aktivität.")) return "Deine gewünschte Aktivität wird hier angeboten.";
+  if (facts.has("Bestätigt: die Getränkeauswahl.")) return withCaveat("Hier bekommst du ein Getränk, das zu deiner Suche passt.");
+  if (atmosphere) return withCaveat(`Die Atmosphäre hier ist ${atmosphere}.`);
+  if (hasAtmosphere) return withCaveat("Die Stimmung hier passt zu dem, was du suchst.");
+  if (facts.has("Bestätigt: die gewünschte Aktivität.")) return withCaveat("Das kannst du hier machen.");
   if (candidate.presentation?.event) {
     return candidate.coreIntentCoverage === "CONFIRMED"
       ? "Die Veranstaltung passt zu dem, was du suchst. Den Termin findest du oben."
@@ -112,8 +210,9 @@ export function wohinRecommendation(
   }
   const clearlyMatched = candidate.coreIntentCoverage === "CONFIRMED" && world.some(reason =>
     ["core-intent-confirmed", "primary-purpose-confirmed"].includes(reason.code) || reason.statement === "Bestätigt: die gewünschte Art des Angebots.");
-  if (clearlyMatched) return "Die Art des Angebots passt zu deinem Wunsch.";
-  return "Zu deinem Wunsch fehlen bei diesem Ort noch bestätigte Angaben.";
+  if (clearlyMatched) return withCaveat("Das Angebot hier passt zu deinem Plan.");
+  if (caveat) return caveat;
+  return "Zu diesem Ort fehlen uns noch Angaben für deinen Wunsch.";
 }
 
 const librarianNotes: Record<string, string> = {
@@ -139,7 +238,7 @@ export function wohinConsiderations(candidate: DecisionProductCandidate, persona
   const notes: string[] = candidate.reasons.flatMap(reason => {
     if (["librarian-atmosphere-unconfirmed", "event-ticket-availability", "librarian-inherited-spot-hours", "librarian-external-admission-unconfirmed", "librarian-free-admission", "librarian-age-rules-unconfirmed", "librarian-age-requirement", "librarian-external-consumption-exceptions", "librarian-relative-price-level"].includes(reason.code)) return [reason.statement];
     if (reason.confirmed || reason.domain !== "LIMITATION") return [];
-    if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt|Diesen Wunsch können wir|Welches Budget)/.test(reason.statement)) return [librarianNotes[reason.statement] ?? reason.statement];
+    if (reason.code.startsWith("LBR:") && /^(Noch nicht bestätigt:|Nicht passend:|Ein ausdrücklich ausgeschlossener Inhalt|Diesen Wunsch können wir|Welches Budget)/.test(reason.statement)) return [cardQuestions.get(reason.statement.replace(/^(?:Noch nicht bestätigt: |Diesen Wunsch können wir noch nicht zuverlässig prüfen: )(.+)\.$/u, "$1")) ?? librarianNotes[reason.statement] ?? reason.statement];
     if (reason.code === "librarian-access-details") return [librarianNotes[reason.statement] ?? reason.statement];
     return [];
   });
@@ -203,13 +302,13 @@ export function wohinFollowUp(response: Pick<DecisionProductResponse, "limitatio
     && candidate.failedHardConstraints.length === 0 && candidate.unknownHardConstraints.length > 0);
   if (unsupported || unverified) {
     return {
-      message: "Eine wichtige Bedingung können wir mit unseren Spotdaten nicht bestätigen. Du kannst die Suche bewusst auf Orte zum Abklären eingrenzen und die Bedingung dort direkt prüfen.",
+      message: "Bei einem wichtigen Punkt sind wir noch unsicher. Wenn du magst, sag uns, wo du flexibel bist.",
       actionLabel: "Suchwunsch bearbeiten",
       explainedLimitation: unsupported ? "REQUEST_REQUIREMENT_UNSUPPORTED" : null,
     };
   }
   return {
-    message: "Für diesen Wunsch gibt es gerade keinen ausreichend belegten Vorschlag. Wenn du beim Zeitpunkt oder Ort flexibel bist, ergänze das in deiner Suche.",
+    message: "Für deinen Plan haben wir gerade keinen passenden Ort gefunden. Ginge für dich auch ein anderer Ort oder eine andere Zeit?",
     actionLabel: "Suche anpassen",
     explainedLimitation: null,
   };
