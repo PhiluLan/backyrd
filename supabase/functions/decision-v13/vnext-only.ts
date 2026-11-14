@@ -8,9 +8,35 @@ import {
   type DecisionProductProductionConfiguration,
   type DecisionProductRpcClient,
 } from "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js";
-import { createDecisionProductHttpHandler, type DecisionProductRuntimePorts } from "../../../packages/decision-vnext-core/dist/product-decision.js";
+import { createDecisionProductHttpHandler, decisionCandidateOrderReason, type DecisionProductRuntimePorts } from "../../../packages/decision-vnext-core/dist/product-decision.js";
 import { createDecisionProductLunaProvider } from "../../../packages/decision-vnext-core/dist/product-luna-provider.js";
 import { createDecisionProductNuknukProvider } from "../../../packages/decision-vnext-core/dist/product-nuknuk-provider.js";
+
+import type { LibrarianRequest } from "../../../packages/decision-vnext-core/dist/product-luna-librarian.js";
+import type { LibrarianSearchResult } from "../../../packages/decision-vnext-core/dist/product-librarian-matching.js";
+import type { DecisionProductResponse } from "../../../packages/decision-vnext-core/dist/product-v1-contracts.js";
+
+function personalTrace(meaning: LibrarianRequest | undefined, search: LibrarianSearchResult | undefined, response: DecisionProductResponse) {
+  const bySpot = new Map([...(search?.ranked ?? []), ...(search?.unresolved ?? []), ...(search?.excluded ?? [])]
+    .map(candidate => [candidate.spotId, candidate]));
+  return {
+    handoff: meaning ? {
+      facts: meaning.facts, entities: meaning.entities, logic: meaning.logic, bindings: meaning.bindings,
+      weatherConditions: meaning.weatherConditions, extensions: meaning.extensions, uncertainties: meaning.raw.uncertainties,
+    } : null,
+    ranked: response.candidates.map((candidate, index) => {
+      const next = response.candidates[index + 1];
+      return {
+        spot: candidate.presentation.name,
+        rank: candidate.rank,
+        tier: candidate.tier,
+        beforeNext: next ? decisionCandidateOrderReason(candidate, next) : null,
+        facts: (bySpot.get(candidate.spotId)?.facts ?? []).map(({factId, state, reason}) => ({factId, state, reason})),
+        matchedPreferences: bySpot.get(candidate.spotId)?.matchedPreferences ?? [],
+      };
+    }),
+  };
+}
 
 export const DECISION_V13_VNEXT_ONLY_ENTRYPOINT = "backyrd.decision-vnext.single-route@1.0" as const;
 
@@ -109,7 +135,7 @@ function withCors(response: Response, origin: string | null): Response {
   const headers = new Headers(response.headers);
   headers.set("access-control-allow-origin", origin);
   headers.set("vary", "origin");
-  headers.set("access-control-allow-headers", "authorization, content-type, x-region");
+  headers.set("access-control-allow-headers", "authorization, content-type, x-region, x-backyrd-personal-trace");
   headers.set("access-control-allow-methods", "POST, OPTIONS");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
@@ -141,22 +167,33 @@ Deno.serve(async (request: Request) => {
       apiKey: required("BACKYRD_NUKNUK_API_KEY"),
       model: required("BACKYRD_NUKNUK_MODEL"),
     });
+    const traceRequested = request.headers.get("x-backyrd-personal-trace") === "1";
+    let mayReturnTrace = false;
+    let handoff: LibrarianRequest | undefined;
+    let search: LibrarianSearchResult | undefined;
     const understandingProvider: NonNullable<DecisionProductRuntimePorts["understand"]> = async (input, actor, signal) => {
       if (!aiEnabled) throw new Error("product_understanding_disabled");
       const useNuknuk = provider === "nuknuk" || (provider === "nuknuk-personal" && actor.userId === personalNuknukUser);
+      mayReturnTrace = traceRequested && provider === "nuknuk-personal" && actor.userId === personalNuknukUser;
       return (useNuknuk ? nuknuk() : luna())(input, actor, signal);
     };
     const ports = createDecisionProductProductionPorts({
       rpc,
       authClient: authClient(service),
-      evaluationProvider: createDecisionProductRpcEvaluationProvider(rpc, { meaningRequired: true }),
+      evaluationProvider: createDecisionProductRpcEvaluationProvider(rpc, {
+        meaningRequired: true, ...(traceRequested ? { onSearch(value) { if (mayReturnTrace) search = value; } } : {}),
+      }),
       interactionAuthority: createDecisionProductRpcInteractionAuthorityProvider(rpc),
       learningPort: createDecisionProductRpcLearningPort(rpc, config.identity),
       understandingProvider,
       configuration: config,
     });
-    return withCors(await createDecisionProductHttpHandler({
+    const response = await createDecisionProductHttpHandler({
       ...ports,
+      evaluate(input, actor, signal, meaning) {
+        if (mayReturnTrace) handoff = meaning;
+        return ports.evaluate(input, actor, signal, meaning);
+      },
       diagnostics: { reportFailure(stage, code) {
         // Fixed-shape operational signal only: no token, actor, query text, or SQL error detail.
         console.error(JSON.stringify({ event: "decision_vnext_failure", stage, code }));
@@ -165,7 +202,13 @@ Deno.serve(async (request: Request) => {
         // They never include a user, prompt, spot, credential, or model payload.
         console.info(JSON.stringify({ event: "decision_vnext_timing", outcome, stages }));
       } },
-    })(request), origin);
+    })(request);
+    if (!mayReturnTrace || ![200, 422].includes(response.status)) return withCors(response, origin);
+    const result: unknown = await response.json();
+    const trace = response.ok ? personalTrace(handoff, search, result as DecisionProductResponse) : { handoff: null, ranked: [] };
+    return withCors(new Response(JSON.stringify({ result, personalTrace: trace }), {
+      status: response.status, headers: response.headers,
+    }), origin);
   } catch {
     return withCors(unavailable(), origin);
   }

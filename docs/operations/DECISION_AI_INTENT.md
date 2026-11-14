@@ -17,6 +17,14 @@ For a personal app test, select `nuknuk-personal` as the provider and set
 accounts continue to use Luna. Keep this setting server-side and remove
 the provider selection before taking a temporary inference host offline.
 
+In the personal iOS test, open **Übergabe & Reihenfolge** after a Wohin
+request. The view shows the validated Librarian facts, scope and logic, the
+candidate evidence and the first differing criterion between adjacent
+candidates. The authenticated personal-mode account must opt in on the request.
+The trace is delivered outside the canonical response envelope and remains in
+screen state. The original prompt, account identifiers and model responses
+are excluded from the trace. Each follow-up receives its own trace.
+
 Configure `BACKYRD_NUKNUK_ENDPOINT` with the HTTPS
 `/v1/chat/completions` URL, `BACKYRD_NUKNUK_API_KEY` as a server-only secret
 and `BACKYRD_NUKNUK_MODEL` with the exact alias returned by that endpoint.

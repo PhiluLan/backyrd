@@ -15,7 +15,7 @@ import { AppText, ProductText as Text, ProductTextInput as TextInput } from "@/c
 import { eventImageUrl } from "@/lib/events-v1";
 import { Image } from "expo-image";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
-import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
+import { invokeDecisionProduct, recordDecisionProductInteraction, type PersonalDecisionTrace } from "@/lib/decision/productDecision";
 import { createWohinRequest, visibleWohinCandidates, wohinConsiderations, wohinRecommendation, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta } from "@/lib/decision/wohinModel";
 import { recordDecisionFailure, type DecisionFailurePhase } from "@/lib/decision/productDecisionDiagnostics";
 import { loadCanonicalSpotHeaders } from "@/lib/spot-images";
@@ -101,6 +101,8 @@ export default function WohinScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [pageWidth, setPageWidth] = useState(0);
   const [pageHeight, setPageHeight] = useState(0);
+  const [trace, setTrace] = useState<PersonalDecisionTrace | null>(null);
+  const [traceOpen, setTraceOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const listRef = useRef<FlatList<DecisionProductCandidate>>(null);
   const params = useLocalSearchParams<{ query?: string; auto?: string }>();
@@ -152,6 +154,8 @@ export default function WohinScreen() {
     requestInFlight.current = false;
     autoRunKey.current = null;
     clearJourneySelection();
+    setTrace(null);
+    setTraceOpen(false);
     responseRef.current = null;
     setStandaloneQuestion(null);
     setResponse(null);
@@ -218,6 +222,8 @@ export default function WohinScreen() {
     setLoading(true);
     setError(null);
     setRetryRequest(null);
+    setTrace(null);
+    setTraceOpen(false);
     responseRef.current = null;
     setResponse(null);
     setCandidates([]);
@@ -226,7 +232,9 @@ export default function WohinScreen() {
     try {
       request = retry ?? createWohinRequest({ query: text, city, requestId: Crypto.randomUUID() });
       failurePhase = "LOAD";
-      const result = await invokeDecisionProduct({ supabase, request });
+      const result = await invokeDecisionProduct({ supabase, request, onTrace(value) {
+        if (generation === requestGeneration.current) setTrace(value);
+      } });
       failurePhase = "DISPLAY";
       const visible = visibleWohinCandidates(result);
       if (generation !== requestGeneration.current) return;
@@ -313,6 +321,11 @@ export default function WohinScreen() {
     if (index < 0 || index >= candidates.length || !pageWidth) return;
     listRef.current?.scrollToOffset({ offset: index * pageWidth, animated: true });
   };
+  const traceButton = trace && verifiedActorId === user?.id ? (
+    <Pressable accessibilityRole="button" onPress={() => setTraceOpen(true)} style={styles.followUpButton}>
+      <AppText role="label" tone="pink">Übergabe &amp; Reihenfolge</AppText>
+    </Pressable>
+  ) : null;
   const personal = response?.personalization.state === "ACTIVE";
   return (
     <SafeAreaView style={styles.screen} edges={["top", "left", "right"]}>
@@ -329,6 +342,7 @@ export default function WohinScreen() {
         </View>
         <AppText role="sectionTitle" numberOfLines={3} style={styles.queryText}>{submittedQuery}</AppText>
         {clarificationCard}
+        {traceButton}
         <View style={styles.deck} onLayout={(event) => { setPageWidth(event.nativeEvent.layout.width); setPageHeight(event.nativeEvent.layout.height); }}>
           {pageWidth > 0 && pageHeight > 0 ? <FlatList
             key={`${response!.decisionId}:${pageWidth}:${pageHeight}`}
@@ -404,6 +418,7 @@ export default function WohinScreen() {
 
 
           {clarificationCard}
+          {traceButton}
           {followUp ? <View style={styles.emptyState} accessibilityLiveRegion="polite">
             <AppText role="sectionTitle">Gerade kein passender Vorschlag</AppText>
             <AppText role="body" tone="secondary">{followUp.message}</AppText>
@@ -414,6 +429,39 @@ export default function WohinScreen() {
           </View> : null}
         </ScrollView>
       </KeyboardAvoidingView>}
+      <Modal visible={traceOpen && trace !== null && verifiedActorId === user?.id} transparent animationType="slide" onRequestClose={() => setTraceOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <SafeAreaView style={styles.detailSheet} edges={["top", "bottom"]} accessibilityViewIsModal>
+            <View style={styles.sheetHeader}>
+              <AppText role="sectionTitle" style={{ flex: 1 }}>Übergabe &amp; Reihenfolge</AppText>
+              <Pressable accessibilityRole="button" accessibilityLabel="Übergabe schliessen" onPress={() => setTraceOpen(false)} style={styles.pagerButton}><Ionicons name="close" size={22} color={color.text} /></Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.sheetContent}>
+              <AppText role="sectionTitle">Suchauftrag</AppText>
+              {trace?.handoff ? trace.handoff.facts.map(fact => (
+                <View key={fact.id}>
+                  <AppText role="label">{fact.key} · {fact.modality}</AppText>
+                  <AppText role="body" tone="secondary">{JSON.stringify(fact.value)}</AppText>
+                </View>
+              )) : <AppText role="body">Für diese Antwort wurde keine Spot-Suche ausgeführt.</AppText>}
+              {trace?.handoff ? <AppText selectable role="caption" tone="secondary">{JSON.stringify(trace.handoff, null, 2)}</AppText> : null}
+              {trace?.ranked.length ? <AppText role="sectionTitle">Reihenfolge</AppText> : null}
+              {trace?.ranked.map((candidate, index) => (
+                <View key={index}>
+                  <AppText role="label">{candidate.spot} · {candidate.rank === null ? "Vorläufig" : `Rang ${candidate.rank}`}</AppText>
+                  {candidate.beforeNext ? <AppText role="body">Vor {trace.ranked[index + 1]?.spot} wegen {candidate.beforeNext}.</AppText> : null}
+                  {candidate.facts.map((fact, factIndex) => (
+                    <AppText key={factIndex} role="caption" tone="secondary">
+                      {trace.handoff?.facts.find(item => item.id === fact.factId)?.key ?? fact.factId} · {fact.state} · {fact.reason}
+                      {candidate.matchedPreferences.includes(fact.factId) ? " · erfüllte Präferenz" : ""}
+                    </AppText>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
       <Modal visible={detailsOpen && showingResults} transparent animationType="slide" onRequestClose={() => setDetailsOpen(false)}>
         <View style={styles.modalBackdrop}>
           <SafeAreaView style={styles.detailSheet} edges={["top", "bottom"]} accessibilityViewIsModal>
