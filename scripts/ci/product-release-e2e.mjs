@@ -232,12 +232,24 @@ try {
       await title.evaluate((node, scale) => { node.style.fontSize = `${31 * scale}px`; node.style.lineHeight = `${38 * scale}px`; }, scale);
       await page.waitForTimeout(100);
       const layout = await title.evaluate(node => {
-        const box = node.getBoundingClientRect(); const range = document.createRange(); range.selectNodeContents(node);
-        return { text: node.textContent, box: {left:box.left,right:box.right,bottom:box.bottom}, glyphs:[...range.getClientRects()].map(r=>({left:r.left,right:r.right,bottom:r.bottom})) };
+        const box = node.getBoundingClientRect();
+        const range = document.createRange();
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+        const glyphs = [];
+        for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+          // A wrap can leave a space with a layout rect beyond the line while
+          // painting no glyph. Keep the bounds check on every visible word.
+          for (const word of text.textContent.matchAll(/\S+/gu)) {
+            range.setStart(text, word.index);
+            range.setEnd(text, word.index + word[0].length);
+            for (const rect of range.getClientRects()) glyphs.push({left:rect.left,right:rect.right,bottom:rect.bottom});
+          }
+        }
+        return { text: node.textContent, box: {left:box.left,right:box.right,bottom:box.bottom}, glyphs };
       });
       assert.match(layout.text, /^Heute .+ schon was\s+vor\?$/);
       assert.ok(layout.box.left >= 0 && layout.box.right <= width, `heading stays on screen at ${width}/${scale}`);
-      assert.ok(layout.glyphs.every(r => r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1), `heading never clips horizontally at ${width}/${scale}: ${JSON.stringify(layout)}`);
+      assert.ok(layout.glyphs.length > 0 && layout.glyphs.every(r => r.left >= layout.box.left - 1 && r.right <= layout.box.right + 1), `heading never clips horizontally at ${width}/${scale}: ${JSON.stringify(layout)}`);
       const searchBounds = await page.getByRole("textbox", {name:"Was willst du machen?",exact:true}).boundingBox();
       assert.ok(searchBounds && layout.glyphs.every(r => r.bottom <= searchBounds.y), `heading glyphs never overlap the search field at ${width}/${scale}`);
       if (process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR) await page.screenshot({path:`${process.env.BACKYRD_PRODUCT_SCREENSHOT_DIR}/home-heading-${width}-${scale}.png`});
@@ -352,6 +364,41 @@ try {
   await page.getByRole("textbox", { name: "Dein Suchwunsch", exact: true }).fill("ruhiges Café nach Reload");
   await page.getByText("Bern", { exact: true }).filter({visible:true}).last().waitFor();
   await page.getByText("Orte finden", { exact: true }).click();
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
+  await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
+  await page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true}).fill("Lieber mit Terrasse");
+  const refinedWish = "ruhiges Café nach Reload Ergänzung: Lieber mit Terrasse";
+  const refinedResponse = page.waitForResponse(result => result.url().endsWith("/functions/v1/decision-v13")
+    && result.request().method() === "POST" && result.request().postDataJSON()?.naturalLanguage === refinedWish);
+  await page.getByRole("button", {name:"Nachricht senden",exact:true}).click();
+  assert.equal((await refinedResponse).status(), 200);
+  await page.getByRole("heading", {name:"Dein Gespräch mit NukNuk",exact:true}).waitFor({state:"hidden"});
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
+  assert.equal(state.decisions.at(-1).naturalLanguage, refinedWish);
+  await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
+  await page.getByText("Lieber mit Terrasse", {exact:true}).waitFor();
+  const countBeforeChatChoices = state.decisions.length;
+  const searchChatInput = page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true});
+  const sendSearchChat = page.getByRole("button", {name:"Nachricht senden",exact:true});
+  await searchChatInput.fill("Erklär mir Quantenphysik");
+  await sendSearchChat.click();
+  await page.getByText(/Quanten und Co. überlasse ich ChatGPT/).waitFor();
+  assert.equal(state.decisions.length, countBeforeChatChoices);
+  const tomorrow = "Morgen möchte ich mit meiner Tochter eine Aktivität haben";
+  await searchChatInput.fill(tomorrow);
+  await sendSearchChat.click();
+  await page.getByRole("button", {name:"Bei dieser Suche bleiben",exact:true}).click();
+  assert.equal(state.decisions.length, countBeforeChatChoices);
+  await searchChatInput.fill(tomorrow);
+  await sendSearchChat.click();
+  await page.getByRole("button", {name:"Für den neuen Plan suchen",exact:true}).click();
+  await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
+  assert.equal(state.decisions.at(-1).naturalLanguage, tomorrow);
+  await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
+  await page.getByRole("button", {name:"Gespräch schliessen",exact:true}).click();
+  await page.getByRole("button", {name:"Suche ändern",exact:true}).click();
+  await page.getByRole("textbox", {name:"Dein Suchwunsch",exact:true}).fill("ruhiges Café nach Reload");
+  await page.getByText("Orte finden", {exact:true}).click();
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   state.unavailable = true;
   const failureReport = page.waitForRequest(request => request.url().includes("/rpc/analytics_report_error_v1") && JSON.parse(request.postData() ?? "{}").p_error_type === "wohin_request_failed", {timeout:15000});

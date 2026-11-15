@@ -7,7 +7,7 @@ import { validateDecisionProductRequest } from "@backyrd/product-decision-contra
 
 const source = fs.readFileSync(new URL("../lib/decision/wohinModel.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinDiscoveryDirections, wohinDiscoveryCategories } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
+const { createWohinRequest, visibleWohinCandidates, wohinRecommendation, wohinConsiderations, wohinClarificationQuery, wohinFollowUp, wohinLimitations, wohinPlaceMeta, wohinDiscoveryDirections, wohinDiscoveryCategories, wohinMessageKind } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
 
 test("Wohin sends only the new free text and profile city", () => {
   const request = createWohinRequest({ query: "  Sonntag   gemütlich Kaffee trinken  ", city: "Basel", requestId: "test-request-1" });
@@ -215,4 +215,13 @@ test("uninterpretable wishes offer category choices and ignore directions from N
   assert.deepEqual(wohinDiscoveryDirections("XYZ"), []);
   assert.deepEqual(wohinDiscoveryDirections("XYZ Rückfrage: Suchst du einen Club? Antwort: keine Ahnung"), []);
   assert.ok(wohinDiscoveryCategories().some(direction => direction.label === "Kultur"));
+});
+
+test("Wohin distinguishes another plan from refinements and explicit corrections", () => {
+  const current = "Gemütlich was trinken heute Abend";
+  assert.equal(wohinMessageKind("Aber morgen möchte ich mit meiner Tochter etwas erleben", current), "NEW_PLAN");
+  assert.equal(wohinMessageKind("Lieber mit Terrasse", current), "REFINEMENT");
+  assert.equal(wohinMessageKind("Doch morgen möchte ich etwas trinken", current), "REFINEMENT");
+  assert.equal(wohinMessageKind("Erklär mir Quantenphysik", current), "OFF_TOPIC");
+  assert.equal(wohinMessageKind("Ich suche einen Workshop über Quantenphysik"), "REFINEMENT");
 });

@@ -277,9 +277,12 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
     reason.reasonCode === "librarian-departure-time-unconfirmed"));
   const hasDepartureConstraint = nearDeparture.length > 0 || ranked.some(candidate =>
     candidate.failedHardConstraints.includes("LIBRARIAN_TIME_BOUND_PROXIMITY_NOT_PROVEN"));
+  const provisionalVisits = fallback.filter(candidate => !candidate.contextualReject
+    && !candidate.failedHardConstraints.length && candidate.actualAvailability !== "closed"
+    && candidate.assessment.reasons.some(reason => reason.reasonCode === "librarian-provisional-visit"));
   const fallbackChoices = hasOpenWeather ? weatherBranches : pizzaOffers.length ? pizzaOffers
     : hasDepartureConstraint ? nearDeparture : dinnerWithOpenCuisine.length ? dinnerWithOpenCuisine
-      : ranked.filter(candidate => !rankable(candidate, situationalIds));
+      : provisionalVisits.length ? provisionalVisits : ranked.filter(candidate => !rankable(candidate, situationalIds));
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
   const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
   const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);

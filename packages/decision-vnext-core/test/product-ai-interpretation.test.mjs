@@ -414,3 +414,12 @@ test("rain suitability follows verified place type, not invented venue facts", (
   assert.deepEqual(decodeWorldPreference("WK:context.atmosphere:LIVELY"), { key: "context.atmosphere", value: "LIVELY" });
   assert.equal(decodeWorldPreference("WK:context.atmosphere:IMAGINARY"), null);
 });
+
+test("NukNuk reads free additions and replies as turns of the same search", async () => {
+  const { splitNuknukDialogue } = await import("../dist/nuknuk-dialogue.js");
+  assert.deepEqual(splitNuknukDialogue("Geburtstag meiner Frau heute Abend Ergänzung: Lieber gemütlich Rückfrage: Auch draussen? Antwort: Nein Ergänzung: Zu zweit"), {
+    original: "Geburtstag meiner Frau heute Abend",
+    turns: [{ question: null, answer: "Lieber gemütlich" }, { question: "Auch draussen?", answer: "Nein" }, { question: null, answer: "Zu zweit" }],
+  });
+  assert.equal(splitNuknukDialogue("Ein Café am Bahnhof"), null);
+});

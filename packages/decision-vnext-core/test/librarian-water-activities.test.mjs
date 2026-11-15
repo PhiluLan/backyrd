@@ -8,6 +8,20 @@ const pool=(kind='SWIMMING')=>profile([{...offer('pool',kind,['water']),name:'Ba
 const steam=(name='Im Hamam und Dampfbad entspannen',areaKind='SAUNA_AREA')=>profile([{...offer('steam','BATHING',['steam'],[prop('experience.activity','Baden')]),name}],[{...area('steam'),kind:areaKind,name:'Wellnessbereich'}]);
 const candidate=r=>[...r.ranked,...r.unresolved,...r.excluded][0];
 
+test('indoor bathing keeps the documented winter pool and excludes the outdoor summer offer',()=>{
+ const inside={...area('winter'),kind:'POOL_AREA',name:'Überdachtes Winterbecken'};
+ const outside={...area('summer'),kind:'POOL_AREA',name:'Sommerbecken'};
+ const p=profile([
+  {...offer('winter','SWIMMING',['winter']),name:'Im Winterhallenbad schwimmen'},
+  {...offer('summer','SWIMMING',['summer']),name:'Im Sommerbad schwimmen und baden'},
+ ],[inside,outside]);
+ const q=request([fact('bath','experience.activity','Badi'),fact('inside','offer.area','indoor')]);
+ const resolved=search(q,[binding(1730,p)]).ranked[0];
+ assert.ok(resolved);
+ assert.deepEqual(resolved.offerIds,['winter']);
+ assert.deepEqual(resolved.areaIds,['winter']);
+});
+
 test('a swimming offer supports ordinary bathing, but a thermal bathing offer does not prove sports swimming',()=>{
  assert.equal(search(request([bathing()]),[binding(1700,pool('SWIMMING'))]).ranked.length,1);
  assert.equal(search(request([bathing()]),[binding(1701,pool('BATHING'))]).ranked.length,1);
@@ -58,4 +72,31 @@ test('ordinary Product composition returns the water offer, not the steam treatm
  assert.ok(ranked[0].reasons.some(r=>r.code==='librarian-selected-offers'&&r.statement.includes('Badewelt')));
  assert.ok(!ranked[0].reasons.some(r=>r.code==='librarian-selected-offers'&&r.statement.includes('Hamam')));
  assert.equal(JSON.stringify(q),before);
+});
+
+test('a waterbody is verified for the crossing whose published offer names it',()=>{
+ const wish=request([fact('crossing','experience.activity','ferry_crossing'),fact('river','location.waterbody','Rhein')]);
+ const vessel=(name)=>profile([{...offer('ferry','EXCURSION_RIDE',['bank'],[
+   prop('experience.activity','Fährfahrt'),
+ ]),name}],[area('bank')]);
+ const crossing=search(wish,[binding(1771,vessel('Mit der Fähre den Rhein überqueren'))]).ranked[0];
+ assert.ok(crossing);
+ assert.deepEqual(crossing.facts.find(f=>f.factId==='river').offerIds,['ferry']);
+ for(const title of ['Fährfahrt auf dem See','Fährfahrt über den Rhein abgesagt']){
+   const unresolved=search(wish,[binding(1772,vessel(title))]);
+   assert.equal(unresolved.ranked.length,0);
+   assert.equal(candidate(unresolved).facts.find(f=>f.factId==='river').state,'UNKNOWN');
+ }
+});
+
+test('a scoped indefinite closure blocks that crossing even if no date was requested',()=>{
+ const wish=request([fact('crossing','experience.activity','ferry_crossing'),fact('river','location.waterbody','Rhein')]);
+ const vessel=(access)=>profile([{...offer('ferry','EXCURSION_RIDE',['bank'],[
+   prop('experience.activity','Fährfahrt'), prop('participation.permission',access),
+ ]),name:'Mit der Fähre den Rhein überqueren'}],[area('bank')]);
+ const closed=binding(1781,vessel('Derzeit bis auf Weiteres geschlossen wegen starkem Wind.'));
+ const open=binding(1782,vessel('Tagesgäste willkommen. Bei Hochwasser kann die Fähre geschlossen sein.'));
+ const result=search(wish,[closed,open]);
+ assert.deepEqual(result.ranked.map(row=>row.spotId),[open.decisionProjection.spotId]);
+ assert.ok(result.excluded.find(row=>row.spotId===closed.decisionProjection.spotId)?.facts.some(f=>f.reason==='VERIFIED_OFFER_CLOSURE'));
 });

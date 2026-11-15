@@ -12,8 +12,10 @@ function assign(concepts: readonly string[], families: readonly LunaFactKey[]) {
 }
 assign([...new Set(OFFER_CATALOG.map(offer => offer.concept)), 'fairground', 'table_tennis', 'bouldering', 'climbing', 'training', 'course', 'movement_play', 'children_course', 'guided', 'workshop', 'animals', 'exhibition', 'party', 'dancing', 'movement'], ['experience.activity', 'offer.kind']);
 assign(['self_barbecue'], ['experience.activity','offer.feature']);
+assign(['observe'], ['experience.activity']);
 assign(['wifi'],['offer.facility','offer.feature']);
 assign(['guided'], ['experience.activity', 'offer.kind', 'participation.format']);
+assign(['open_group_play'], ['participation.format']);
 assign(['meal', 'lunch', 'dinner', 'breakfast', 'brunch', 'snacks', 'aperitif'], ['experience.activity', 'offer.kind', 'food.meal', 'food.option']);
 assign(['drinks'], ['experience.activity', 'offer.kind', 'food.drink']);
 assign(['coffee'], ['experience.activity', 'offer.kind', 'food.drink']);
@@ -38,7 +40,7 @@ for (const [key, concept] of Object.entries(BOOLEAN_CONCEPTS)) {
   rules[concept] = families;
 }
 export const LUNA_CONTEXT_ONLY_FAMILIES: readonly LunaFactKey[] = Object.freeze(['budget.scope','time.original','time.reference','time.timezone','time.relation','experience.purpose','experience.occasion','people.identity','people.role','people.relationship','people.age','people.mobility_aid','people.pet','people.experience','people.capability']);
-export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@12', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
+export const LUNA_MEANING_ROLE_CONTRACT = deepFreeze({version:'backyrd.luna-meaning-roles@14', rules, contextOnlyFamilies:LUNA_CONTEXT_ONLY_FAMILIES});
 export type LunaMeaningIssue = {
   readonly factId: string;
   readonly code: 'CONCEPT_FAMILY_MISMATCH' | 'UNSUPPORTED_REQUIREMENT' | 'DIET_CONTEXT_NOT_EXECUTABLE' | 'FIELD_NAME_AS_VALUE' | 'UNKNOWN_AGE_PLACEHOLDER' | 'REDUNDANT_EXTENSION';
@@ -60,6 +62,10 @@ export function inspectLunaMeaning(output: LunaMeaningOutput, sourceText?: strin
     if (foodVisit && fact.key === 'food.diet' && fact.modality === 'CONTEXT')
       return [{factId:fact.id,code:'DIET_CONTEXT_NOT_EXECUTABLE',allowedFamilies:['food.diet'],allowedModalities:['REQUIRED','PREFERRED','EXCLUDED','NOT_REQUIRED']}];
     if (fact.modality === 'CONTEXT' || fact.modality === 'NOT_REQUIRED') return [];
+    // Baden is also a municipality. Use the explicitly anchored reading only
+    // for a place field; the ordinary activity retains its existing rules.
+    if (fact.key === 'location.destination' && 'text' in fact.value
+      && fact.value.text.trim() === 'Baden' && /\b(?:in|nach|bei|aus)\s+Baden\b/iu.test(sourceText ?? '')) return [];
     const concept = 'text' in fact.value ? librarianConcept(fact.value.text) : null;
     const allowed = concept ? rules[concept] : undefined;
     if (allowed && !allowed.includes(fact.key)) return [{factId:fact.id,code:'CONCEPT_FAMILY_MISMATCH' as const,allowedFamilies:allowed}];

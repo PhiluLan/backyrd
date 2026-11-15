@@ -347,3 +347,67 @@ test('a family room is matched from its actual scoped room type',()=>{
 test('booking minimum age never becomes a blanket guest entry limit',()=>{
  const p=profile([offer('room','OVERNIGHT_STAY',['inside'],[prop('stay.minimum_booking_age',18)],[])]);const r=search(request([fact('room','experience.activity','Übernachten')]),[binding(1,p)]);assert.equal(r.unresolved[0].status,'PARTIAL');assert.ok(r.unresolved[0].facts.some(f=>f.reason==='BOOKING_PERSON_AGE_NOT_VERIFIED'));assert.equal(r.excluded.length,0);
 });
+
+test('Basel city centre matches a verified historic quarter and keeps other boundaries open',()=>{
+  const wish = request([meal(),fact('centre','location.area','Basler Innenstadt','REQUIRED',[])]);
+  const oldTown = binding(1,profile(),[
+    worldFact('location.latitude',47.5582),worldFact('location.longitude',7.5879),
+  ]);
+  const outsideCore = binding(2,profile(),[
+    worldFact('location.latitude',47.5513),worldFact('location.longitude',7.5846),
+  ]);
+  const otherCity = binding(3,profile(),[
+    worldFact('location.latitude',47.5621),worldFact('location.longitude',7.5523),
+  ]);
+  otherCity.decisionProjection.facts.find(row=>row.key==='location.locality').value='Allschwil';
+  const result = search(wish,[oldTown,outsideCore,otherCity]);
+  const factsFor = candidate=>[...result.ranked,...result.unresolved,...result.excluded]
+    .find(row=>row.spotId===candidate.decisionProjection.spotId)?.facts
+    .find(row=>row.factId==='centre');
+  assert.equal(factsFor(oldTown)?.state,'MET');
+  assert.ok(factsFor(oldTown)?.evidenceHashes.length >= 4);
+  assert.equal(factsFor(outsideCore)?.reason,'BASEL_CITY_CENTRE_BOUNDARY_UNRESOLVED');
+  assert.equal(factsFor(otherCity)?.state,'UNKNOWN');
+});
+
+test('a self-guided exhibit satisfies a generic visit within the same documented offer',()=>{
+  const query = request([fact('visit','experience.activity','Besichtigung'),
+    fact('theme','experience.theme','historische Heilmittel')]);
+  const exhibition = binding(1,profile([offer('exhibit','SELF_GUIDED_VISIT',['inside'],[
+    prop('experience.theme','historische Heilmittel'),
+  ])],[area()],'MUSEUM'));
+  const wrongTheme = binding(2,profile([offer('exhibit','SELF_GUIDED_VISIT',['inside'],[
+    prop('experience.theme','Musikinstrumente'),
+  ])],[area()],'MUSEUM'));
+  const result = search(query,[exhibition,wrongTheme]);
+  assert.deepEqual(result.ranked.map(candidate=>candidate.spotId),[exhibition.decisionProjection.spotId]);
+  assert.deepEqual(result.ranked[0].offerIds,['exhibit']);
+});
+
+test('a generic request to look at something can match a documented exhibition without dropping its topic',()=>{
+  const query = request([fact('observe','experience.activity','etwas anschauen'),
+    fact('theme','experience.theme','historische Heilmittel')]);
+  const make = (id,kind,properties) => binding(id,profile([offer('visit',kind,['inside'],properties)],[area()],'MUSEUM'));
+  const exhibit = make(1,'PERMANENT_EXHIBITION',[prop('experience.theme','historische Heilmittel')]);
+  const unrelated = make(2,'PERMANENT_EXHIBITION',[prop('experience.theme','Musikinstrumente')]);
+  const cafe = make(3,'CAFE',[prop('experience.theme','historische Heilmittel')]);
+  const result = search(query,[exhibit,unrelated,cafe]);
+  assert.deepEqual(result.ranked.map(candidate=>candidate.spotId),[exhibit.decisionProjection.spotId]);
+});
+
+test('a preferred exhibition topic influences the selected offer only where it is documented',()=>{
+  const entities = [{id:'exhibition',kind:'OFFER',label:'Museumsbesuch',members:[]}];
+  const topic = fact('theme','experience.theme','kinetische Kunst','PREFERRED',['exhibition']);
+  const type = fact('museum','offer.kind','MUSEUM','REQUIRED',['exhibition']);
+  const generic = offer('generic','SELF_GUIDED_VISIT');
+  const collection = offer('collection','PERMANENT_EXHIBITION',['inside'],[prop('experience.theme','kinetische Kunst')]);
+  const source = [binding(1,profile([generic,collection],[area()],'MUSEUM'))];
+  const best = search(request([type,topic],{entities}),source).ranked[0];
+  assert.deepEqual(best.offerIds,['collection']);
+  assert.deepEqual(best.facts.find(f=>f.factId==='theme').offerIds,['collection']);
+  const ownPace = fact('ownPace','participation.format','self_guided','REQUIRED',['exhibition']);
+  const constrained = search(request([type,topic,ownPace],{entities}),source).ranked[0];
+  assert.deepEqual(constrained.offerIds,['generic']);
+  assert.equal(constrained.facts.find(f=>f.factId==='theme').state,'UNKNOWN');
+  assert.ok(!constrained.matchedPreferences.includes('theme'));
+});

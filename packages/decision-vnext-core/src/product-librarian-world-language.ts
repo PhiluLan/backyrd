@@ -4,7 +4,7 @@ import { librarianFacilityConcept } from "./product-librarian-language.js";
 import type { LibrarianFact } from "./product-luna-librarian.js";
 import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import { librarianConditions, type MatchTruth, type VisitWindow } from "./product-librarian-time.js";
-export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@8" as const;
+export const LIBRARIAN_WORLD_LANGUAGE_VERSION = "backyrd.decision-vnext.world-language@9" as const;
 export type LegacyLanguageAssessment = {
     readonly state: MatchTruth;
     readonly reason: string;
@@ -24,6 +24,7 @@ export function requestedLibrarianPlaceType(fact: LibrarianFact): string | null 
     if (fact.value.kind !== "TEXT" || !["offer.kind", "experience.activity"].includes(fact.key)) return null;
     const direct = placeTypesByTerm.get(librarianTerm(fact.value.text));
     if (direct) return direct;
+    if (["public_park", "öffentliche grünanlage", "öffentlicher park"].includes(librarianTerm(fact.value.text))) return "PARK";
     const concept = librarianConcept(fact.value.text);
     return concept && ["restaurant", "bar", "zoo", "museum"].includes(concept) ? concept.toUpperCase() : null;
 }

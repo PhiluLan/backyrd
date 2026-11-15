@@ -26,8 +26,9 @@ const discoveryDirections = [
 ] as const;
 
 export function wohinDiscoveryDirections(query: string) {
-  const terms = query.normalize("NFKC").split(/\s+Rückfrage:\s*/u);
-  const userText = [terms[0], ...terms.slice(1).map(turn => turn.split(/\s+Antwort:\s*/u)[1])].filter(Boolean).join(" ");
+  const userText = query.normalize("NFKC")
+    .replace(/\s+Rückfrage:\s*.*?\s+Antwort:\s*/gsu, " ")
+    .replace(/\s+Ergänzung:\s*/gu, " ");
   const matches = discoveryDirections.filter(direction => direction.request.test(userText)
     && (direction.label !== "Clubs" || !/\b(?:kein(?:e[nmrs]?)?|ohne)\s+(?:einen?\s+)?(?:club|clubs|nachtclub|disco|diskothek)\b/iu.test(userText)));
   return matches.some(direction => direction.label === "Asiatisch essen")
@@ -315,9 +316,39 @@ export function wohinFollowUp(response: Pick<DecisionProductResponse, "limitatio
 }
 
 
-export function wohinClarificationQuery(original: string, question: string, answer: string): string | null {
+export function wohinMessageKind(message: string, currentWish = ""): "OFF_TOPIC" | "NEW_PLAN" | "REFINEMENT" {
+  const text = message.normalize("NFKC").trim();
+  const explainer = /^(?:bitte\s+)?(?:erklär(?:e)?(?:\s+mir)?|was\s+(?:ist|sind)|wie\s+funktioniert)\s+/iu;
+  const unrelatedTopic = /(?:quantenphysik|relativitätstheorie|quantenmechanik|binomische formeln|photosynthese)/iu;
+  const placeContext = /(?:museum|ausstellung|workshop|führung|vortrag|veranstaltung|lernort|kurs)/iu;
+  const unrelatedTask = /\b(?:excel[- ]formel|ins? (?:französische|englische|italienische) übersetzen|auf (?:französisch|englisch|italienisch) übersetzen|betreff für ein(?:e)? (?:e-?mail|nachricht))\b/iu;
+  const generalKnowledge = /\b(?:unterschied zwischen brutto- und nettolohn)\b/iu;
+  if (!placeContext.test(text) && ((explainer.test(text) && unrelatedTopic.test(text))
+    || unrelatedTask.test(text) || generalKnowledge.test(text))) return "OFF_TOPIC";
+
+  if (!currentWish) return "REFINEMENT";
+  const newRequest = /^(?:(?:aber|und)\s+)?(?:eine neue suche|neuer plan|anderes thema|andere baustelle)\b/iu;
+  const switchesTopic = /\bfällt aus[.!?]\s+\S|\b(?:verschiebe|verschieben)\b[^.!?]*[.!?]\s+(?:am |für |morgen|heute)/iu;
+  if (newRequest.test(text) || switchesTopic.test(text)) return "NEW_PLAN";
+
+  const day = /\b(?:übermorgen|morgen|heute|montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|wochenende)\b/iu;
+  const newDay = text.match(day)?.[0].toLowerCase();
+  const existingDay = currentWish.match(day)?.[0].toLowerCase();
+  const separateWish = /\b(?:möchte(?:n)?|will|suche(?:n)?|hätte(?:n)? gerne|hast du ideen)\b/iu;
+  const ownActivity = /\b(?:essen|trinken|wandern|schwimmen|tanzen|erleben|unternehmen|aktivität(?:en)?|ausflug|museum|restaurant|café|kino|spielplatz|konzert)\b/iu;
+  const correction = /^(?:(?:aber|und)\s+)?(?:doch|lieber|stattdessen|ich meinte|eigentlich)\b|\bstatt (?:heute|morgen)\b/iu;
+  if (newDay && newDay !== existingDay && separateWish.test(text) && ownActivity.test(text) && !correction.test(text)) {
+    return "NEW_PLAN";
+  }
+  return "REFINEMENT";
+}
+
+export const wohinOffTopicMessage =
+  "Quanten und Co. überlasse ich ChatGPT. Wenn du Lust hast, rauszugehen, kenne ich ein paar gute Orte.";
+
+export function wohinClarificationQuery(original: string, question: string | null, answer: string): string | null {
   const reply = answer.trim();
   if (!reply) return null;
-  const query = [original.trim(), `Rückfrage: ${question}`, `Antwort: ${reply}`].join("\n");
+  const query = [original.trim(), question ? `Rückfrage: ${question}\nAntwort: ${reply}` : `Ergänzung: ${reply}`].join("\n");
   return query.length <= 2_000 ? query : null;
 }

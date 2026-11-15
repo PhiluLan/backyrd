@@ -213,9 +213,11 @@ assert.match(decision, /candidate\.reasons/, "Product rendering must present ser
 assert.match(decision, /response\.limitations/, "Product rendering must present server limitations");
 assert.match(decision, /<FlatList[\s\S]*data=\{candidates\}/, "Wohin must present the bounded server-ranked window");
 assert.match(decision, /onViewableItemsChanged/, "Candidate impressions must require actual visibility");
-assert.equal((decision.match(/<TextInput\b/g) ?? []).length, 2, "Wohin supports the initial wish and a conditional clarification reply");
-assert.match(decision, /const clarificationCard = clarificationQuestion \? \([\s\S]*?<TextInput[\s\S]*?accessibilityLabel="Antwort auf NukNuks Rückfrage"/,
-  "Wohin only renders the reply input when the server asks a clarification");
+assert.equal((decision.match(/<TextInput\b/g) ?? []).length, 2, "Wohin uses one initial composer and one shared dialogue composer");
+assert.match(decision, /accessibilityLabel={[^}]*"Antwort auf NukNuks Rückfrage"[^}]*"Nachricht an NukNuk"/,
+  "Wohin distinguishes answers to questions from free chat messages");
+assert.match(decision, /DecisionProductDialogueRoute[\s\S]*?setNewPlan\(userReply\)/,
+  "A server new-plan result opens a choice without submitting the user's reply");
 assert.match(decision, /createWohinRequest/, "Wohin must send only its fresh free-text request");
 assert.match(retiredDecision, /Redirect href="\/\(tabs\)\/wohin"/, "Old Decision deep links must redirect to Wohin");
 assert.match(decision, /eventType: "candidate_impression"/, "Visible Product candidates must use the same-route canonical impression event");

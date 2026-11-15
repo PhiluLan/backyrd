@@ -1,4 +1,4 @@
-import { baselSearchAnchor, librarianDiscoveryLocalities } from "./product-librarian-geography.js";
+import { baselSearchAnchor, librarianCityIdentifier, librarianDiscoveryLocalities } from "./product-librarian-geography.js";
 import { requiredRequestIssue } from "./product-librarian-plan.js";
 import { decodeWorldQueryConstraint } from "./product-query-semantics.js";
 import { PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_VERSION, librarianMandatoryEvidenceSatisfied } from "./product-librarian-language.js";
@@ -17,7 +17,7 @@ export { PRODUCT_LIBRARIAN_EVALUATOR_VERSION, PRODUCT_EVENT_LIBRARIAN_EVALUATOR_
 const cityKey = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").trim().toLowerCase();
 
 export function canonicalLibrarianCity(city: string): string {
-  const canonical = cityKey(city) === "zurich" ? "Zurich" : city;
+  const canonical = librarianCityIdentifier(city);
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(canonical)) throw new Error("product_target_area_invalid");
   return canonical;
 }
@@ -78,6 +78,27 @@ const familyLabels: Readonly<Record<string, string>> = {
   "participation.booking": "die gewünschte Reservationsregel", "participation.entry_mode": "die gewünschte Teilnahme ohne Voranmeldung",
   "eligibility": "die Besuchsbedingungen", "binding": "die Kombination deiner Wünsche",
 };
+// These labels describe the exact assessed value, so the card can distinguish
+// a confirmed drink service from the requested cocktail preference.
+const explanationLabels = new Map<string, string>([
+  ["food.drink:cocktails", "Cocktails"],
+  ["food.drink:cocktail", "Cocktails"],
+  ["food.drink:drinks", "Getränke vor Ort"],
+  ["food.drink:coffee", "Kaffee"],
+  ["food.diet:vegetarian", "vegetarische Gerichte"],
+  ["food.diet:vegan", "vegane Gerichte"],
+  ["condition.weather_protection:covered", "Regenschutz"],
+  ["experience.activity:playground", "ein Spielplatz"],
+  ["offer.facility:playground", "ein Spielplatz"],
+  ["offer.feature:wifi", "WLAN"],
+  ["offer.facility:wifi", "WLAN"],
+  ["atmosphere.noise:quiet", "eine ruhige Atmosphäre"],
+  ["atmosphere.character:quiet", "eine ruhige Atmosphäre"],
+  ["offer.area:indoor", "ein Bereich drinnen"],
+  ["offer.area:outdoor", "ein Bereich draussen"],
+  ["offer.area:terrace", "eine Terrasse"],
+  ["participation.accessibility:step_free", "ein stufenloser Zugang"],
+]);
 const duty = (f: LibrarianFactAssessment) => f.modality === "REQUIRED" || f.modality === "EXCLUDED";
 const codes = (values: readonly string[]) => values.length <= 30 ? values : [...values.slice(0, 29), "ADDITIONAL_LIBRARIAN_REQUIREMENTS"];
 const factCode = (f: LibrarianFactAssessment) => `LBR:${contentHash({ id: f.factId, family: f.family }).slice(0, 24)}`;
@@ -124,14 +145,22 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
       && ["meal", "lunch", "dinner", "breakfast", "snacks", "aperitif"].includes(String(value)) ? "meal" : f.key;
     return contentHash({ family, value, subjects: [...f.subjectIds].sort(), modality: f.modality });
   };
-  const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state) && !(["atmosphere.character","atmosphere.noise"].includes(f.family) && f.modality === "PREFERRED" && f.state !== "MET")).slice(0, 50).map(f => {
+  const factsById = new Map(meaning.facts.map(fact => [fact.id, fact]));
+  const reasons = candidate.facts.filter(f => !["CONTEXT", "NOT_REQUIRED"].includes(f.state)
+    && !(f.family === "atmosphere.character" && f.modality === "PREFERRED" && f.state !== "MET")).slice(0, 50).map(f => {
     const proven = f.state === "MET";
     const ageRequirement = f.reason === "AGE_REQUIREMENT_TO_CHECK" ? f.ageRequirement : undefined;
     const ageRequirementText = ageRequirement ? `${ageRequirement.scope === "OFFER" ? ageRequirement.label ?? "Dieses Angebot" : "Dieser Ort"}: ab ${ageRequirement.minimumAge} ${ageRequirement.minimumAge === 1 ? "Jahr" : "Jahren"}. Bitte prüfe die Altersgrenze vor dem Besuch.` : null;
     const ageNotice = ["CHILD_ENTRY_RULE_NOT_DOCUMENTED", "OFFER_MINIMUM_AGE_NOT_DOCUMENTED"].includes(f.reason);
-    const label = familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
+    const requested = factsById.get(f.factId);
+    const rawValue = requested?.value.kind === "TEXT" ? requested.value.text.trim().toLowerCase() : "";
+    const concept = librarianConcept(rawValue) ?? rawValue;
+    const smallVenue = f.family === "experience.character" && ["klein", "kleines lokal", "kleines restaurant"].includes(concept);
+    const detail = f.modality === "EXCLUDED" ? undefined
+      : explanationLabels.get(`${f.family}:${rawValue}`) ?? explanationLabels.get(`${f.family}:${concept}`);
+    const label = (smallVenue && f.modality !== "EXCLUDED" ? proven ? "ein kleines Lokal" : "die Grösse des Lokals" : detail) ?? familyLabels[f.family] ?? (f.family.startsWith("budget.") ? "dein Budget" : f.family.startsWith("time.") ? "die gewünschte Besuchszeit" : "dieser Teil deines Wunsches");
     return { reasonCode: ageRequirement ? "librarian-age-requirement" : ageNotice ? "librarian-age-rules-unconfirmed" : f.reason === "QUALITATIVE_PRICE_LEVEL_COMPARED" ? "librarian-relative-price-level" : proven ? `LBR_EVIDENCE:${semanticKey(f.factId)}` : factCode(f), domain: proven && f.family === "eligibility" ? "CONTEXT" : proven ? "WORLD" : "LIMITATION", sourceHash: contentHash({ candidateHash: candidate.candidateHash, fact: f }),
-      statementDe: ageRequirementText ?? (f.reason === "QUALITATIVE_PRICE_SCOPE_UNBOUND" ? "Das Preisniveau des gesamten Ortes belegt nicht die Kosten dieses Essensangebots." : f.reason === "QUALITATIVE_PRICE_EVIDENCE_MISSING" ? "Für dieses Angebot ist kein auswertbares Preisniveau hinterlegt." : f.reason === "QUALITATIVE_PRICE_EVIDENCE_CONFLICT" ? "Die hinterlegten Preisangaben widersprechen sich." : f.reason === "QUALITATIVE_PRICE_LEVEL_COMPARED" ? proven ? "Das hinterlegte Preisniveau passt zu deinem Preiswunsch. Konkrete Preise können abweichen." : "Das hinterlegte Preisniveau liegt über deinem Preiswunsch. Konkrete Preise bitte prüfen." : f.reason === "PARTICIPANT_AGES_MEET_VERIFIED_MINIMUM" ? "Die hinterlegte Altersgrenze wird von den berücksichtigten Personen erfüllt." : ageNotice ? "Die konkrete Alterseignung ist hier nicht vollständig dokumentiert. Bekannte Alters- und Begleitregeln werden berücksichtigt." : f.reason === "ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED" ? "Die nötige erwachsene Begleitung wird aus deinem Besuchskontext berücksichtigt." : f.reason === "REQUIRED_ADULT_ACCOMPANIMENT_EXPLICITLY_ABSENT" ? "Für das genannte Kinderalter ist erwachsene Begleitung erforderlich; die Kinder sollen aber allein teilnehmen." : f.reason === "OFFER_OCCASION_CONTEXT_NOT_PROVEN" ? "Dieses Angebot ist für einen besonderen Anlass vorgesehen. Dass dieser Anlass zu deiner Suche passt, ist nicht bestätigt." : f.reason === "OFFER_OCCASION_EXCLUDED" ? "Dieses Angebot gehört zu einem Anlass, den du ausgeschlossen hast." : proven ? f.reason === "BOOKING_RECOMMENDED_NOT_MANDATORY" ? "Eine Reservation ist empfohlen, aber nicht vorgeschrieben. Freie Plätze sind nicht bestätigt." : f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : f.diagnosis === "UNSUPPORTED_REQUIREMENT" ? `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.` : f.diagnosis === "REQUEST_NEEDS_CLARIFICATION" ? "Welches Budget pro Person passt für dich?" : `Noch nicht bestätigt: ${label}.`),
+      statementDe: ageRequirementText ?? (f.reason === "QUALITATIVE_PRICE_SCOPE_UNBOUND" ? "Das Preisniveau des gesamten Ortes belegt nicht die Kosten dieses Essensangebots." : f.reason === "QUALITATIVE_PRICE_EVIDENCE_MISSING" ? "Für dieses Angebot ist kein auswertbares Preisniveau hinterlegt." : f.reason === "QUALITATIVE_PRICE_EVIDENCE_CONFLICT" ? "Die hinterlegten Preisangaben widersprechen sich." : f.reason === "QUALITATIVE_PRICE_LEVEL_COMPARED" ? proven ? "Das hinterlegte Preisniveau passt zu deinem Preiswunsch. Konkrete Preise können abweichen." : "Das hinterlegte Preisniveau liegt über deinem Preiswunsch. Konkrete Preise bitte prüfen." : f.reason === "PARTICIPANT_AGES_MEET_VERIFIED_MINIMUM" ? "Die hinterlegte Altersgrenze wird von den berücksichtigten Personen erfüllt." : ageNotice ? "Die konkrete Alterseignung ist hier nicht vollständig dokumentiert. Bekannte Alters- und Begleitregeln werden berücksichtigt." : f.reason === "ADULT_ACCOMPANIMENT_CONTEXT_CONFIRMED" ? "Die nötige erwachsene Begleitung wird aus deinem Besuchskontext berücksichtigt." : f.reason === "REQUIRED_ADULT_ACCOMPANIMENT_EXPLICITLY_ABSENT" ? "Für das genannte Kinderalter ist erwachsene Begleitung erforderlich; die Kinder sollen aber allein teilnehmen." : f.reason === "OFFER_OCCASION_CONTEXT_NOT_PROVEN" ? "Dieses Angebot ist für einen besonderen Anlass vorgesehen. Dass dieser Anlass zu deiner Suche passt, ist nicht bestätigt." : f.reason === "OFFER_OCCASION_EXCLUDED" ? "Dieses Angebot gehört zu einem Anlass, den du ausgeschlossen hast." : proven ? f.reason === "BOOKING_RECOMMENDED_NOT_MANDATORY" ? "Eine Reservation ist empfohlen, aber nicht vorgeschrieben. Freie Plätze sind nicht bestätigt." : f.reason === "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" ? "Dein Budget passt zur hinterlegten Preisspanne." : f.modality === "EXCLUDED" ? "Dein Ausschluss ist berücksichtigt." : `Bestätigt: ${label}.` : f.state === "FAILED" ? f.modality === "EXCLUDED" ? "Ein ausdrücklich ausgeschlossener Inhalt ist hier vorhanden." : `Nicht passend: ${label}.` : f.diagnosis === "UNSUPPORTED_REQUIREMENT" ? `Diesen Wunsch können wir noch nicht zuverlässig prüfen: ${label}.` : f.diagnosis === "REQUEST_NEEDS_CLARIFICATION" ? "Welches Budget pro Person passt für dich?" : `Noch nicht bestätigt: ${label}.`),
       confirmed: proven };
   }).filter((reason, index, rows) => reason.reasonCode !== "librarian-age-rules-unconfirmed" || rows.findIndex(row => row.reasonCode === reason.reasonCode) === index);
   // Branch evidence is conditional, even if the visit is fully supported in that branch.
@@ -148,7 +177,7 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   }
   if (!mustBeNearBeforeDeparture && !hard.some(f => f.state === "FAILED")
     && hard.some(f => f.family === "location.proximity" && f.state === "MET" && f.reason === "VERIFIED_STRAIGHT_LINE_DISTANCE")
-    && !meaning.facts.some(f => f.modality === "REQUIRED" && ["experience.activity", "offer.kind", "food.meal", "food.dish"].includes(f.key)))
+    && !meaning.facts.some(f => f.modality === "REQUIRED" && ["experience.activity", "offer.kind", "food.meal", "food.drink", "food.dish"].includes(f.key)))
     reasons.push({reasonCode:"librarian-provisional-nearby",domain:"LIMITATION",sourceHash:candidate.candidateHash,
       statementDe:"In der Nähe. Ob der Ort zu eurer geplanten Aktivität passt, ist noch offen.",confirmed:false});
   if (lacksTimeBoundProximity) failed.push("LIBRARIAN_TIME_BOUND_PROXIMITY_NOT_PROVEN");
@@ -252,6 +281,27 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
   const primaryGastronomy = !event && foodCore && !otherCore && ["EAT","DRINKS","COFFEE_DAYTIME"].includes(world.spot.classification.primaryCategory ?? "");
   if (primaryGastronomy) reasons.push({reasonCode:"primary-purpose-gastronomy",domain:"WORLD",sourceHash:world.snapshotHash,
     statementDe:"Der Ort ist als Gastronomie eingeordnet und passt damit zum gewünschten Essens- oder Getränkebesuch.",confirmed:true});
+  // An indoor room is not proof of indoor swimming when its scope is a restaurant.
+  const hasUnresolvedMandatoryScope = hard.some(f => f.family === "binding"
+    && f.reason === "REQUIRED_FACTS_HAVE_NO_COMMON_SCOPED_WITNESS");
+  const hasUnresolvedRequiredPlace = hard.some(f => f.family.startsWith("location.")
+    && f.state !== "MET" && requiredInEveryAlternative(meaning.logic, meaning, fact => fact.id === f.factId));
+  const hasUnprovenRequiredCoreDetail = hard.some(f => ["experience.theme","food.cuisine"].includes(f.family) && f.modality === "REQUIRED"
+    && f.state !== "MET" && requiredInEveryAlternative(meaning.logic, meaning, fact => fact.id === f.factId));
+  // An evidenced experience can be shown as a provisional option when a
+  // condition remains open. It cannot become a confirmed recommendation.
+  if (candidate.status !== "INELIGIBLE" && !candidate.conditionalPlans.length
+      && experienceProven && !failed.length && !hasUnresolvedMandatoryScope && !hasUnresolvedRequiredPlace
+      && !hasUnprovenRequiredCoreDetail
+      && availability !== "closed" && (!hasVisitEvidence || unknown.length)) {
+    reasons.push({
+      reasonCode: "librarian-provisional-visit",
+      domain: "LIMITATION",
+      sourceHash: candidate.candidateHash,
+      statementDe: "Das Angebot passt zu deinem Vorhaben. Offene Bedingungen bitte vor dem Besuch direkt klären.",
+      confirmed: false,
+    });
+  }
   const tastes = event ? [] : userTasteMatches(world, context, projection);
   return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     ...(event?.matchedSpotId ? {relatedSpotId:event.matchedSpotId}:{}),

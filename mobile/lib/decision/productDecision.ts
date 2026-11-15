@@ -92,9 +92,11 @@ export async function invokeDecisionProduct({
   supabase,
   request,
   onTrace,
+  supportsDialogueChoice = false,
 }: {
   supabase: SupabaseClient;
   request: DecisionProductRequest;
+  supportsDialogueChoice?: boolean;
   onTrace?: (trace: PersonalDecisionTrace) => void;
 }): Promise<DecisionProductResponse> {
   const accessToken = await freshAccessToken(supabase);
@@ -106,7 +108,7 @@ export async function invokeDecisionProduct({
       const abort = new AbortController();
       const { data, error } = await withinDecisionDeadline(supabase.functions.invoke<unknown>(
         DECISION_PRODUCT_RELEASE_BINDING.transportFunction,
-        { body: request, headers: { Authorization: `Bearer ${accessToken}`, "x-region": "eu-central-2", ...(onTrace ? { "x-backyrd-personal-trace": "1" } : {}) }, signal: abort.signal },
+        { body: request, headers: { Authorization: `Bearer ${accessToken}`, "x-region": "eu-central-2", ...(onTrace ? { "x-backyrd-personal-trace": "1" } : {}), ...(supportsDialogueChoice ? { "x-backyrd-dialogue-choice": "1" } : {}) }, signal: abort.signal },
       ) as Promise<InvokeResult<unknown>>, 33_000, "decision_request_transport_timeout", () => abort.abort());
       if (error && typeof error === "object" && "context" in error && error.context instanceof Response && error.context.status === 422) {
         const failure = decisionProductInputFailure(unpackPersonalTrace(await error.context.json(), onTrace));

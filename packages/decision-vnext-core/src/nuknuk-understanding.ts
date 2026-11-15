@@ -7,6 +7,8 @@ import { buildLunaLibrarianModelRequest, validateActiveLunaMeaningOutput, prepar
 import { inspectLunaMeaning } from './product-luna-meaning-contract.js';
 import { LUNA_LIBRARIAN_FACT_KEYS } from './product-luna-librarian-assets.js';
 import { BASEL_DISCOVERY_LOCALITIES, baselNeighborhoodNames, baselSearchAnchor, localityKey } from './product-librarian-geography.js';
+import { librarianLocalDate, visitWeekday } from './product-librarian-time.js';
+import { documentedExhibitionTheme, exhibitionThemeLabels } from './product-librarian-matching.js';
 import { experienceBookingMode, librarianConcept } from '@backyrd/world-knowledge-core';
 
 export const NUKNUK_UNDERSTANDING_VERSION = 'backyrd.nuknuk-understanding@1' as const;
@@ -269,7 +271,8 @@ eine konkrete Mehrdeutigkeit oder ein tatsächlich fehlender, entscheidender Tei
 die Spotwahl verändert. Bekannte Kriterien schon zur Suche weitergeben. Keine Rückfrage zu einem
 anderen Termin, dessen Ziel oder dessen Richtung, wenn dieser nur das verfügbare Zeitbudget erklärt.
 Eine gewünschte Mahlzeit als food.meal codieren (etwas essen = meal), auch mit näher beschriebenem
-Essen. Keine doppelte experience.activity für dieselbe Mahlzeit. Spezifische Gerichte, Merkmale
+Essen. Keine doppelte experience.activity für dieselbe Mahlzeit. «Etwas trinken gehen, am liebsten
+Cocktails» braucht food.drink drinks REQUIRED und food.drink cocktails PREFERRED. Spezifische Gerichte, Merkmale
 und Ausschlüsse zusätzlich in den passenden Suchfamilien erhalten. Keine Zusammenfassung, Zitate
 oder Erklärungstexte wiederholen. Bei «X Minuten bis zum Zug» time.duration REQUIRED mit LTE und
 AVAILABLE_TOTAL. Ein «schnell» im selben Zusammenhang erzeugt keine zusätzliche Pflicht unter
@@ -369,7 +372,195 @@ function protectWalkIn(query: string, meaning: LunaMeaningOutput) {
   return { meaning: searchMeaning, blocked: false };
 }
 
-function protectPlaceAndTime(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+function normalizeSourcePlaceExtension(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+  if (!meaning.extensions.some(extension => extension.modality === 'REQUIRED')) return meaning;
+  const source = ` ${localityKey(query).replace(/[^a-z0-9]+/gu, ' ')} `;
+  const named = BASEL_DISCOVERY_LOCALITIES.filter(city => source.includes(` in ${localityKey(city)} `));
+  if (named.length !== 1 || /\b(?:oder|alternativ|allenfalls|notfalls|vielleicht|vorzugsweise|am liebsten in)\b/iu.test(query)) return meaning;
+  const city = named[0]!;
+  const term = localityKey(city);
+  const requested = query.split(/[.!?;]/u).some(clause => {
+    const normalized = ` ${localityKey(clause).replace(/[^a-z0-9]+/gu, ' ')} `;
+    return normalized.includes(` in ${term} `)
+      && /\b(?:wo|such\w*|möcht\w*|gibt es|kennst du|kannst du|können wir)\b/iu.test(clause)
+      && !/\b(?:wohne\w*|komme\w*|bin|sind)\s+(?:gerade\s+|heute\s+)?(?:in|aus|bei)\b/iu.test(clause)
+      && !/\b(?:vor|nach)\s+(?:einem|dem|meinem|unserem)\s+(?:\p{L}*(?:termin|konzert)|treffen|besuch)\s+in\b/iu.test(clause);
+  });
+  const locationKeys = new Set(['location.destination','location.area','location.proximity']);
+  if (!requested || meaning.facts.some(fact => fact.modality === 'REQUIRED' && locationKeys.has(fact.key)
+      && 'text' in fact.value && localityKey(fact.value.text) !== term)) return meaning;
+  const exact = meaning.extensions.filter(extension => extension.modality === 'REQUIRED'
+    && localityKey(extension.description.trim().replace(/^(?:stadt|standort|suchort|besuchsort|zielort|gemeinde)\s*:\s*/iu, '').replace(/[.!?]+$/u, '')) === term);
+  if (exact.length !== 1) return meaning;
+  const { description: _description, ...place } = exact[0]!;
+  return {...meaning, extensions:meaning.extensions.filter(extension => extension.id !== place.id),
+    facts:[...meaning.facts,{...place,key:'location.destination',value:{text:city}}]};
+}
+
+function normalizeOpenVenueRequest(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+  if (meaning.bindings.length || meaning.logic
+    || meaning.entities.filter(entity => entity.kind === 'ACTIVITY' || entity.kind === 'OFFER').length > 1) return meaning;
+  const venue = /\bwelche[rmn]?\s+(Spielort|Veranstaltungsort)\b/iu.exec(query)?.[1]?.toLowerCase();
+  if (!venue) return meaning;
+  const bare = meaning.extensions.filter(extension => extension.modality === 'REQUIRED'
+    && extension.description.trim().toLowerCase() === venue);
+  if (bare.length !== 1) return meaning;
+  const expectedUnknown = new RegExp(`^(?:(?:der|ein) )?(?:genaue[rs]? )?${venue}(?: ist)? (?:nicht bekannt|unbekannt)[.!]?$`, 'iu');
+  return { ...meaning,
+    extensions: meaning.extensions.map(extension => extension.id === bare[0]!.id
+      ? {...extension,modality:'CONTEXT' as const} : extension),
+    uncertainties: meaning.uncertainties.filter(uncertainty => !expectedUnknown.test(uncertainty.description.trim())
+      || uncertainty.relatedIds.some(id => !bare[0]!.subjectIds.includes(id))),
+  };
+}
+
+function normalizeMonthAndPlaceExtension(query: string, meaning: LunaMeaningOutput, reference: LibrarianReference): LunaMeaningOutput {
+  if (meaning.extensions.length !== 1 || meaning.logic || meaning.bindings.length
+    || meaning.weatherConditions.length || meaning.facts.some(fact=>fact.key.startsWith('time.date')
+      || fact.key.startsWith('location.') && fact.modality === 'REQUIRED')
+    || /\b(?:oder|alternativ|wenn|falls|letzten|übernächsten|am liebsten|vielleicht|vorzugsweise)\b|\d/iu.test(query)) return meaning;
+  const extension = meaning.extensions[0]!;
+  if (extension.modality !== 'REQUIRED') return meaning;
+  const match = /^(?:der )?besuch (?:muss |soll )?im (\p{L}+) (?:stattfinden und )?in ([\p{L}\p{M}-]+)(?: liegen)?[.!]?$/iu.exec(extension.description.trim());
+  if (!match) return meaning;
+  const monthNames = ['januar','februar','märz','april','mai','juni','juli','august','september','oktober','november','dezember'];
+  const month = monthNames.indexOf(match[1]!.toLowerCase());
+  const source = ` ${localityKey(query).replace(/[^\p{L}]+/gu,' ')} `;
+  const cities = BASEL_DISCOVERY_LOCALITIES.filter(value=>source.includes(` in ${localityKey(value)} `));
+  const city = cities[0];
+  if (month < 0 || cities.length !== 1 || !city || localityKey(city) !== localityKey(match[2]!)
+    || !source.includes(` im ${localityKey(monthNames[month]!)} `))
+    return meaning;
+  const ids = [...meaning.entities,...meaning.facts].map(row=>row.id);
+  if (ids.includes('sourceMonthStart') || ids.includes('sourceMonthEnd')) return meaning;
+  const today = librarianLocalDate(reference.now,reference.timezone);
+  const year = Number(today.slice(0,4)) + (month < Number(today.slice(5,7))-1 ? 1 : 0);
+  const {description:_description,...fact} = extension;
+  const dateValue = (date: Date, operator: 'GTE' | 'LTE') => ({date:date.toISOString().slice(0,10),operator,timezone:reference.timezone});
+  return {...meaning,extensions:[],facts:[
+    ...meaning.facts,{...fact,key:'location.destination',value:{text:city}},
+    {...fact,id:'sourceMonthStart',key:'time.date_start',value:dateValue(new Date(Date.UTC(year,month,1)),'GTE')},
+    {...fact,id:'sourceMonthEnd',key:'time.date_end',value:dateValue(new Date(Date.UTC(year,month+1,0)),'LTE')},
+  ]};
+}
+
+function protectWaterCrossing(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+  if (meaning.logic || meaning.bindings.length || meaning.extensions.length
+    || meaning.entities.filter(entity => entity.kind === 'ACTIVITY').length > 1
+    || /\b(?:oder|alternativ|wenn|falls|nicht mit (?:der|einer) Fähre)\b/iu.test(query)) return meaning;
+  const crossing = /(?:^|[^\p{L}\p{M}])über (?:den|die|das) ([\p{Lu}][\p{L}\p{M}-]+)(?![\p{L}\p{M}])/u.exec(query);
+  const byFerry = /\bmit (?:der|einer) Fähre\b/iu.test(query);
+  const shortWaterTrip = /\bvom Wasser aus\b/iu.test(query)
+    && /\b(?:Rundfahrt (?:brauchen wir|brauche ich|wollen wir|will ich) nicht|keine (?:ganze |eigentliche )?Rundfahrt)\b/iu.test(query)
+    && /\b(?:reicht|genügt)\b/iu.test(query);
+  if (!crossing || /^(?:wasser|fluss|meer|see|damm|steg|ufer|brücke)$/iu.test(crossing[1]!)
+    || (!byFerry && !shortWaterTrip)
+    || meaning.facts.some(fact => fact.key === 'location.waterbody')) return meaning;
+  const journeys = meaning.facts.filter(fact => fact.key === 'experience.activity' && fact.modality === 'REQUIRED'
+    && 'text' in fact.value && /(?:ausflug|rundfahrt|schifffahrt)$/iu.test(fact.value.text.trim()));
+  if (journeys.length !== 1) return meaning;
+  const journey = journeys[0]!;
+  return { ...meaning, facts: meaning.facts.map<LunaMeaningOutput['facts'][number]>(fact => {
+    if (fact.id === journey.id)
+      return {...journey,key:'experience.activity',value:{text:'ferry_crossing'},basis:byFerry ? 'EXPLICIT' : 'INFERRED'};
+    if (fact.key === 'offer.area' && fact.modality === 'REQUIRED' && 'text' in fact.value
+      && /^(?:water|wasser)$/iu.test(fact.value.text.trim())
+      && fact.subjectIds.join() === journey.subjectIds.join()) {
+      return {...fact,key:'location.waterbody',value:{text:crossing[1]!}};
+    }
+    return fact;
+  })};
+}
+
+function protectExhibitionSubject(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+  if (!/\b(?:anschauen|ansehen|betrachten)\b/iu.test(query)
+    || /\b(?:oder|alternativ|wenn|falls|und (?:dann|selber|selbst))\b/iu.test(query)
+    || /\b(?:selber|selbst)\b[^.!?]{0,45}\b(?:zeichn\w*|malen|herstell\w*|machen|bauen|ausprobier\w*)\b/iu.test(query)
+    || meaning.logic || meaning.bindings.length
+    || meaning.extensions.some(extension => extension.modality === 'REQUIRED' || extension.modality === 'EXCLUDED')
+    || meaning.entities.filter(entity => entity.kind === 'ACTIVITY' || entity.kind === 'OFFER').length > 1
+    || meaning.facts.some(fact => fact.key === 'experience.theme' && ['REQUIRED','PREFERRED'].includes(fact.modality))
+    || [...meaning.facts,...meaning.entities,...meaning.weatherConditions].some(row => row.id === 'sourceExhibitionTheme')) return meaning;
+  const activities = meaning.facts.filter(fact => fact.key === 'experience.activity' && fact.modality === 'REQUIRED');
+  const visit = activities[0];
+  if (activities.length !== 1 || !visit || !('text' in visit.value)) return meaning;
+  const label = localityKey(visit.value.text)
+    .replace(/\s+(?:anschauen|ansehen|betrachten)$/u, '').replace(/(?:-?museum)$/u, '').trim();
+  const group = exhibitionThemeLabels.find(labels => labels.some(entry => localityKey(entry) === label));
+  if (!group || !query.split(/[.!?;]/u).some(sentence => documentedExhibitionTheme(sentence,group[0]!))) return meaning;
+  const facts = meaning.facts.map<LunaMeaningOutput['facts'][number]>(fact => fact.id === visit.id
+    ? {...visit,key:'experience.activity',value:{text:'Ausstellung besuchen'},basis:'INFERRED'} : fact);
+  return {...meaning,facts:[...facts,{id:'sourceExhibitionTheme',key:'experience.theme',value:{text:group[0]!},
+    modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[...visit.subjectIds]}]};
+}
+
+function keepMildDisinterestAsContext(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+  if (meaning.logic || meaning.bindings.length
+    || /\b(?:ausgeschlossen|auf keinen Fall|darf kein|bitte kein\w*|nur ohne)\b/iu.test(query)) return meaning;
+  const mild = /\bbei ([\p{L}\p{M} -]{3,70}?)\s+(?:ist (?:er|sie|man|mein Partner|meine Partnerin) schnell durch|verliert (?:er|sie|man) schnell das Interesse)\b/iu.exec(query)?.[1];
+  if (!mild) return meaning;
+  const stems = (value: string) => localityKey(value).trim().split(/\s+/u)
+    .map(word => word.length > 4 ? word.replace(/(?:en|e|n)$/u,'') : word).join(' ');
+  const topic = stems(mild);
+  return {...meaning,facts:meaning.facts.map(fact => fact.key === 'experience.theme' && fact.modality === 'EXCLUDED'
+    && 'text' in fact.value && stems(fact.value.text) === topic ? {...fact,modality:'CONTEXT'} : fact)};
+}
+
+function protectSoftVisitChanges(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+  const directionNames = {osten:'ost',westen:'west',norden:'nord',süden:'sud'} as const;
+  const direction = /\b(?:am liebsten|vorzugsweise|wenn möglich) im (Osten|Westen|Norden|Süden) der Stadt\b/iu.exec(query)?.[1]?.toLowerCase();
+  const wanted = direction && directionNames[direction as keyof typeof directionNames];
+  const smallStage = /\bdoch lieber (?:eine |einen |ein )?klein(?:ere[nrms]?|e[nrms]?) (?:Bühne|Rahmen)\b/iu.test(query);
+  if ((!wanted && !smallStage) || /\b(?:zwingend|ausschliesslich|nur|oder)\b/iu.test(query)
+    || meaning.entities.filter(entity => entity.kind === 'ACTIVITY' || entity.kind === 'OFFER').length > 1
+    || meaning.logic && (meaning.logic.kind !== 'ALL' || !meaning.logic.children.every(node=>node.kind==='FACT'))
+    || meaning.bindings.some(binding=>binding.kind!=='SAME_PLACE')) return meaning;
+  const size = meaning.facts.filter(fact => ['experience.character','atmosphere.scale'].includes(fact.key) && 'text' in fact.value);
+  const small = smallStage && size.find(fact => 'text' in fact.value && /^klein(?:ere[nrms]?|e[nrms]?) (?:bühne|rahmen)$/iu.test(fact.value.text.trim()));
+  return {...meaning,facts:meaning.facts.map(fact=>{
+    if (wanted && fact.key==='location.area' && fact.modality==='REQUIRED' && 'text' in fact.value
+      && [wanted,`${wanted}lich`,localityKey(direction ?? '')].includes(localityKey(fact.value.text))) return {...fact,modality:'PREFERRED'};
+    if (!small || !('text' in fact.value) || !size.includes(fact)) return fact;
+    if (fact.id===small.id && ['REQUIRED','PREFERRED'].includes(fact.modality))
+      return {...fact,key:'atmosphere.scale',value:{text:fact.value.text},modality:'PREFERRED'};
+    if (fact.modality==='PREFERRED' && /^(?:gross|ganz grosses|grosse bühne|grosser rahmen)$/u.test(localityKey(fact.value.text))
+      && fact.subjectIds.join()===small.subjectIds.join()) return {...fact,modality:'NOT_REQUIRED'};
+    return fact;
+  })};
+}
+
+function protectGardenVisitWeek(query: string, meaning: LunaMeaningOutput, reference: LibrarianReference): LunaMeaningOutput {
+  if (!/\b(?:in welchem|welchen) (?:[\p{L}\p{M}-]+ )?Garten\b/iu.test(query)
+    || meaning.bindings.length || meaning.logic && (meaning.logic.kind !== 'ALL'
+      || !meaning.logic.children.every(node=>node.kind==='FACT'))
+    || /\b(?:oder|alternativ|vielleicht|wenn)\b/iu.test(query)) return meaning;
+  const garden = meaning.facts.filter(fact=>['offer.kind','offer.area'].includes(fact.key) && 'text' in fact.value
+    && librarianConcept(fact.value.text)==='walkable_garden' && ['PREFERRED','REQUIRED'].includes(fact.modality));
+  if (garden.length!==1) return meaning;
+  const visit = garden[0]!;
+  const facts = meaning.facts.map<LunaMeaningOutput['facts'][number]>(fact=>fact.id===visit.id && 'text' in fact.value
+    ? {...fact,key:'offer.kind',modality:'REQUIRED',value:{text:fact.value.text}} : fact);
+  const explicitDates = facts.filter(fact=>fact.key.startsWith('time.date'));
+  if (!/\bkommt nächste Woche zu Besuch\b/iu.test(query) || !/\bmit (?:ihr|ihm|ihnen)\b/iu.test(query)
+    || /\b(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)\b|\d/iu.test(query)
+    || explicitDates.some(fact=>fact.modality!=='CONTEXT' || meaning.logic
+      || meaning.uncertainties.some(uncertainty=>uncertainty.relatedIds.includes(fact.id)))) return {...meaning,facts};
+  const occupied = [...meaning.entities,...facts,...meaning.extensions,...meaning.weatherConditions].some(row=>['sourceWeekStart','sourceWeekEnd'].includes(row.id));
+  if (occupied) return {...meaning,facts};
+  const today = librarianLocalDate(reference.now,reference.timezone);
+  const monday = new Date(today+'T12:00:00Z');
+  monday.setUTCDate(monday.getUTCDate()+8-visitWeekday(today));
+  const sunday = new Date(monday);
+  sunday.setUTCDate(sunday.getUTCDate()+6);
+  const period = {modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[...garden[0]!.subjectIds]} as const;
+  const retainedFacts = facts.filter(fact=>!explicitDates.includes(fact));
+  return {...meaning,facts:[...retainedFacts,
+    {...period,id:'sourceWeekStart',key:'time.date_start',value:{date:monday.toISOString().slice(0,10),operator:'GTE',timezone:reference.timezone}},
+    {...period,id:'sourceWeekEnd',key:'time.date_end',value:{date:sunday.toISOString().slice(0,10),operator:'LTE',timezone:reference.timezone}},
+  ]};
+}
+
+function protectPlaceAndTime(query: string, meaning: LunaMeaningOutput, dialogue: string): LunaMeaningOutput {
   const minutes = /\b(\d{1,3})\s+Minuten\s+bis\s+(?:zum|zur|ich|wir)\b/iu.exec(query);
   const hour = /\bfür\s+die\s+nächste\s+Stunde\b/iu.test(query);
   const duration = minutes ? Number(minutes[1]) : hour ? 60 : null;
@@ -386,6 +577,29 @@ function protectPlaceAndTime(query: string, meaning: LunaMeaningOutput): LunaMea
     occupied.add(id);
     return id;
   }
+  // A specific drink preference does not replace the explicit drinking activity.
+  const activities = entities.filter(entity => entity.kind === 'ACTIVITY');
+  const drinksOut = /^(?:(?:ich (?:möchte|will)|wir (?:möchten|wollen))\s+)?(?:einfach\s+)?(?:etwas|was) trinken(?: gehen)?(?: heute Abend)?\s*,?\s*(?:am liebsten|vorzugsweise|idealerweise)\s+[^.!?;]+[.!?]?$/iu.test(query.trim());
+  const onlyDrinkPreference = meaning.facts.some(fact => fact.key === 'food.drink' && fact.modality === 'PREFERRED')
+    && meaning.facts.every(fact => fact.key.startsWith('time.') || fact.key.startsWith('location.')
+      || fact.key === 'food.drink' && fact.modality === 'PREFERRED');
+  if (drinksOut && onlyDrinkPreference && activities.length === 1 && !meaning.bindings.length
+      && !meaning.weatherConditions.length && !meaning.extensions.length
+      && (!meaning.logic || meaning.logic.kind === 'ALL' && meaning.logic.children.every(child => child.kind === 'FACT'))) {
+    additions.push({id:nextId('sourceDrinksVisit'),key:'food.drink',value:{text:'drinks'},
+      modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[activities[0]!.id]});
+  }
+  // A short birthday follow-up can add a venue preference without replacing
+  // the actual dinner. This records the wish even where size data is missing.
+  if (hasOpenBirthdayDinnerDirection(dialogue)
+      && /\bAntwort:\s*(?:gemütlich und klein|klein und gemütlich)[.!]?\s*$/iu.test(dialogue)
+      && activities.length <= 1 && !meaning.bindings.length && !meaning.weatherConditions.length
+      && (!meaning.logic || meaning.logic.kind === 'ALL' && meaning.logic.children.every(child => child.kind === 'FACT'))
+      && !meaning.facts.some(fact => fact.key === 'experience.character' && 'text' in fact.value
+        && /^(?:klein|kleines (?:Lokal|Restaurant))$/iu.test(fact.value.text.trim()))) {
+    additions.push({id:nextId('sourceSmallVenue'),key:'experience.character',value:{text:'klein'},
+      modality:'PREFERRED',basis:'EXPLICIT',subjectIds:activities.map(activity => activity.id)});
+  }
   if (duration !== null && !meaning.facts.some(fact => fact.key === 'time.duration' && fact.modality === 'REQUIRED'
     && 'measurementScope' in fact.value && fact.value.measurementScope === 'AVAILABLE_TOTAL'
     && fact.value.operator === 'LTE' && fact.value.amount === duration)) {
@@ -397,8 +611,18 @@ function protectPlaceAndTime(query: string, meaning: LunaMeaningOutput): LunaMea
     additions.push({id:nextId('sourceNearbyPlace'),key:'location.proximity',value:{text:nearby},
       modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]});
   }
-  const destination = staysLocal && place ? BASEL_DISCOVERY_LOCALITIES.find(city => localityKey(city) === localityKey(place)) : null;
-  if (destination && !meaning.facts.some(fact => fact.key === 'location.destination' && fact.modality === 'REQUIRED'
+  const directCities = !meaning.logic && !meaning.bindings.length
+    ? [...query.matchAll(/\bwo in ([\p{L}\p{M}-]+)\s+(?:gibt es|kann (?:ich|man)|können wir|finde ich|finden wir)\b/giu)]
+    : [];
+  const locative = ` ${localityKey(query).replace(/[^a-z0-9]+/gu, ' ')} `;
+  const explicitTowns = BASEL_DISCOVERY_LOCALITIES.filter(city => locative.includes(` in ${localityKey(city)} `));
+  const directCityQuery = directCities.length === 1 && explicitTowns.length === 1 ? directCities[0]![1] : null;
+  const destinationName = directCityQuery ?? (staysLocal && place ? place : null);
+  const destination = destinationName && BASEL_DISCOVERY_LOCALITIES.find(city => localityKey(city) === localityKey(destinationName));
+  const otherDestination = directCityQuery && meaning.facts.some(fact =>
+    fact.key === 'location.destination' && fact.modality === 'REQUIRED' && 'text' in fact.value
+    && localityKey(fact.value.text) !== localityKey(directCityQuery));
+  if (destination && !otherDestination && !meaning.facts.some(fact => fact.key === 'location.destination' && fact.modality === 'REQUIRED'
     && 'text' in fact.value && localityKey(fact.value.text) === localityKey(destination))) {
     additions.push({id:nextId('sourceLocalDestination'),key:'location.destination',value:{text:destination},
       modality:'REQUIRED',basis:'EXPLICIT',subjectIds:[]});
@@ -412,7 +636,58 @@ function protectPlaceAndTime(query: string, meaning: LunaMeaningOutput): LunaMea
     additions.push({id:nextId('sourcePartySize'),key:'people.count',value:{amount:2,operator:'EQ',unit:'PEOPLE'},
       modality:'CONTEXT',basis:'EXPLICIT',subjectIds:[group]});
   }
-  return additions.length ? {...meaning,entities,facts:[...meaning.facts,...additions]} : meaning;
+  if (!additions.length) return meaning;
+  const newCriteria = additions.filter(fact => fact.key === 'food.drink' || fact.key === 'experience.character');
+  const logic = newCriteria.length && meaning.logic?.kind === 'ALL'
+    ? {...meaning.logic, children:[...meaning.logic.children, ...newCriteria.map(fact => ({kind:'FACT' as const, factId:fact.id}))]}
+    : meaning.logic;
+  return {...meaning,entities,facts:[...meaning.facts,...additions],...(logic ? {logic} : {})};
+}
+
+function protectNamedWeekday(query: string, meaning: LunaMeaningOutput, reference: LibrarianReference): LunaMeaningOutput {
+  // Repair an incompatible date only for a single visit and one explicitly
+  // named upcoming day. Recurrence, alternatives and date changes stay with the dialogue.
+  if (meaning.logic || meaning.bindings.length || meaning.weatherConditions.length
+    || meaning.entities.filter(entity => entity.kind === 'ACTIVITY' || entity.kind === 'OFFER').length > 1
+    || /\b(?:oder|alternativ|jeden|immer|regelmässig|nicht|heute|morgen|übermorgen|gestern|übernächsten|letzten)\b|\b\d{1,2}\.\s*(?:\d|[A-ZÄÖÜ][a-zäöü]{2,})/iu.test(query)) return meaning;
+  const names = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag'];
+  const namedDays = [...query.matchAll(/\b(?:Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag)\b/giu)];
+  if (namedDays.length !== 1) return meaning;
+  const beforeDay = query.slice(0, namedDays[0]!.index);
+  if (!/\b(?:kommenden|nächsten)\s*$/iu.test(beforeDay)
+    && !/\b(?:(?:ich|wir)\s+(?:kann|können|möchte|möchten|würde|würden)|(?:kann|können|könnte|könnten)\s+(?:ich|wir))\s+am\s*$/iu.test(beforeDay)) return meaning;
+  const dates = meaning.facts.filter(fact => 'date' in fact.value);
+  if (dates.length !== 1) return meaning;
+  const date = dates[0]!;
+  if (date.key !== 'time.date' || date.modality !== 'REQUIRED' || !('date' in date.value)
+    || date.value.operator !== 'EQ' || date.value.timezone !== reference.timezone) return meaning;
+  const weekday = names.indexOf(namedDays[0]![0].toLowerCase()) + 1;
+  const today = librarianLocalDate(reference.now, reference.timezone);
+  const daysAhead = (weekday - visitWeekday(today) + 7) % 7;
+  if (!daysAhead || visitWeekday(date.value.date) === weekday) return meaning;
+  const next = new Date(today + 'T12:00:00Z');
+  next.setUTCDate(next.getUTCDate() + daysAhead);
+  const corrected = { ...date, value: { ...date.value, date: next.toISOString().slice(0, 10) } };
+  return { ...meaning, facts: meaning.facts.map(fact => fact.id === date.id ? corrected : fact) };
+}
+
+function discardUnstatedNumericAges(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+  const relative = /\b(?:neffe[ns]?|nichte[ns]?|enkel(?:kind(?:er[n]?)?)?|götti-?kind(?:er[n]?)?|patenkind(?:er[n]?)?|bruder[s]?|schwester[n]?|cousin(?:e|en|nen)?)\b/iu;
+  const ageCue = /\d|jahr|jähr|(?:^|[^\p{L}\p{M}])(?:alt|alter|älter|jünger|geworden)(?![\p{L}\p{M}])/iu;
+  const spokenAge = /(?:^|[^\p{L}\p{M}])(?:ist|sind|wird|werden|unter|über|zwischen|ab|bis|höchstens|mindestens)\s+(?:(?:schon|erst|gerade|ungefähr|etwa)\s+)*(?:null|eins|zwei|drei|vier|fünf|sechs|sieben|acht|neun|elf|zwölf|\p{L}*(?:zehn|zig|ssig|einhalb))(?![\p{L}\p{M}])/iu;
+  if (!relative.test(query) || ageCue.test(query) || spokenAge.test(query)) return meaning;
+  // Keep participant roles and let the librarian enforce an offer's own age
+  // evidence. A family relation alone gives no numeric age or age limit.
+  const removed = new Set(meaning.facts.filter(fact =>
+    (fact.key === 'people.age' || fact.key === 'people.age_bounds')
+      && 'unit' in fact.value && fact.value.unit === 'YEARS').map(fact => fact.id));
+  if (!removed.size || meaning.bindings.some(binding => binding.factIds.some(id => removed.has(id)))
+    || meaning.uncertainties.some(entry => entry.relatedIds.some(id => removed.has(id)))) return meaning;
+  const logic = meaning.logic;
+  if (logic && (logic.kind !== 'ALL' || !logic.children.every(child => child.kind === 'FACT'))) return meaning;
+  const children = logic?.children.filter(child => child.kind === 'FACT' && !removed.has(child.factId)) ?? [];
+  const nextLogic = children.length > 1 && logic ? {...logic,children} : children[0] ?? null;
+  return {...meaning, facts: meaning.facts.filter(fact => !removed.has(fact.id)), logic: nextLogic};
 }
 
 function hasExplicitProximity(query: string, label: string): boolean {
@@ -531,15 +806,198 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
       return fact;
     }),
   } : normalized;
-  const issues = inspectLunaMeaning(occasionMeaning, input.query);
   const { ingredient: excluded, trace: traceExclusion } = foodExclusions(input.query);
   const walkIn = protectWalkIn(userText, occasionMeaning);
   const outdoor = guardOutdoor ? protectOutdoorComponent(walkIn.meaning) : { meaning: walkIn.meaning, blocked: false };
-  const protectedMeaning = protectPlaceAndTime(userText, outdoor.meaning);
-  const searchMeaning = {...protectedMeaning, facts: protectedMeaning.facts.map(fact => {
-    if (fact.key !== "location.destination" || !("text" in fact.value)) return fact;
+  const userStatements = input.query.replace(/\bRückfrage:\s*[^?]+\?\s*Antwort:/gu, '');
+  const supportedAges = discardUnstatedNumericAges(userStatements, outdoor.meaning);
+  const monthAndPlace = normalizeMonthAndPlaceExtension(userText,supportedAges,input.reference);
+  const placeMeaning = protectExhibitionSubject(userText, protectWaterCrossing(userText,
+    normalizeOpenVenueRequest(userText, normalizeSourcePlaceExtension(userText, monthAndPlace))));
+  const groundedVisit = protectGardenVisitWeek(userText,protectSoftVisitChanges(userText,placeMeaning),input.reference);
+  const sourceMeaning = protectPlaceAndTime(userText,keepMildDisinterestAsContext(userText,groundedVisit),input.query);
+  const protectedMeaning = userText === input.query && !/\b(?:Rückfrage|Antwort):/iu.test(input.query)
+    ? protectNamedWeekday(userText, sourceMeaning, input.reference)
+    : sourceMeaning;
+  const halfHours: Readonly<Record<string,number>> = {eins:1,zwei:2,drei:3,vier:4,fünf:5,sechs:6,sieben:7,acht:8,neun:9,zehn:10,elf:11,zwölf:12};
+  const spokenHalf = [...userText.matchAll(/\b(?:ab|erst ab) halb (eins|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)\b/giu)];
+  const spokenHour = spokenHalf.length === 1 ? halfHours[spokenHalf[0]![1]!.toLocaleLowerCase("de-CH")] : undefined;
+  const eveningVisit = protectedMeaning.facts.some(fact => (fact.key === "food.meal" && fact.modality === "REQUIRED"
+      && "text" in fact.value && /^(?:dinner|abendessen)$/iu.test(fact.value.text))
+      || (fact.key === "time.day_phase" && "phase" in fact.value && fact.value.phase === "EVENING"));
+  const startClocks = protectedMeaning.facts.filter(fact => fact.key === "time.clock_start" && "time" in fact.value);
+  const locativeSource = ` ${localityKey(userText).replace(/[^a-z0-9]+/gu, " ")} `;
+  const currentPosition = /\b(?:ich bin|wir sind)\s+(?:gerade\s+)?(?:in der|in|im)\s+([^,;.!?]+?)(?=\s+und\s+|[,;.!?]|$)/iu.exec(userText)?.[1];
+  const explicitLocalStay = /\b(?:hier|dort|bleiben|um die Ecke|in der Nähe|im Quartier|Fussweg|Fahrzeit|Gehminuten)\b/iu.test(userText);
+  const openVisit = /\b(?:zeig(?:e)?|empfiehl|nenn(?:e)?)\s+(mir|uns)\s+etwas,?\s+das\s+(man|ich|wir)\s+((?:(?:in Ruhe|allein[e]?|unkompliziert|unaufgeregt|entspannt|gemütlich)\s+)+)besuchen\s+kann(?:en)?\b/iu.exec(userText);
+  const openDiscovery = Boolean(openVisit) || /\b(?:du kannst (?:gerne? )?eine Idee aussuchen|such(?:e)? (?:mir|uns) etwas aus|(?:die )?Tätigkeit kannst du (?:frei )?(?:auswählen|aussuchen)|überrasch (?:mich|uns)(?: mit einer Idee)?)\b/iu.test(userText);
+  const hasScopedLogic = protectedMeaning.logic || protectedMeaning.bindings.length
+    || protectedMeaning.extensions.length || protectedMeaning.weatherConditions.some(condition => condition.role === "CONDITIONAL");
+  const requestedHall = /\b(?:such\w*|gibt es|lieber|nehmen wir)\b[^.!?]{0,45}\b(?:ein(?:em|en)?|ins) (?:winter)?hallenbad\b/iu.test(userText);
+  const activityEntities = protectedMeaning.entities.filter(entity=>entity.kind==="ACTIVITY");
+  const mayNormalizeVenueScope = !hasScopedLogic && activityEntities.length <= 1;
+  const hardVisitActivities = activityEntities.filter(entity=>protectedMeaning.facts.some(fact=>
+    fact.modality === "REQUIRED" && fact.subjectIds.includes(entity.id)
+    && ["experience.activity","offer.kind","food.meal","food.drink"].includes(fact.key)));
+  const mentionedMunicipalities = BASEL_DISCOVERY_LOCALITIES.filter(city=>locativeSource.includes(` in ${localityKey(city)} `));
+  const logic = protectedMeaning.logic;
+  const conjunctiveVisit = !logic || logic.kind === "ALL" && logic.children.every(child => child.kind === "FACT");
+  const mayNormalizeGlobalTown = conjunctiveVisit && protectedMeaning.bindings.every(binding => binding.kind === "SAME_PLACE")
+    && !protectedMeaning.extensions.length && !protectedMeaning.weatherConditions.some(condition => condition.role === "CONDITIONAL")
+    && hardVisitActivities.length === 1 && mentionedMunicipalities.length === 1;
+  const datedSource = input.query.replace(/\bam morgen\b/giu, "");
+  const visitDateNamed = /(?:\b(?:heut\w*|morgen|übermorgen|jetzt|gleich|nachher|soeben|montag\w*|dienstag\w*|mittwoch\w*|donnerstag\w*|freitag\w*|samstag\w*|sonntag\w*|wochenende\w*|woche\w*|monat\w*|januar|februar|märz|april|mai|juni|juli|august|september|oktober|november|dezember|festtag\w*|feiertag\w*|weihnachten|silvester|ostern|auffahrt|pfingsten|spontan)\b|\b\d{1,4}[.\-/]\d{1,2}\b)/iu.test(datedSource);
+  const dateCandidates = protectedMeaning.facts.flatMap(fact=>fact.key==="time.date" && "date" in fact.value
+    && (fact.modality==="REQUIRED" || fact.modality==="CONTEXT") ? [{id:fact.id,value:fact.value}] : []);
+  const guessedDay = mayNormalizeVenueScope && !visitDateNamed && dateCandidates.length===1
+    && dateCandidates[0]!.value.operator==="EQ"
+    && protectedMeaning.facts.some(fact=>fact.key==="time.day_phase" && "phase" in fact.value
+      && /\b(?:am|zum|gegen)\s+(?:morgen|vormittag|mittag|nachmittag|abend)\b/iu.test(userText))
+    ? dateCandidates[0]!.id : null;
+  const openQualifiers = openVisit?.[3] ?? '';
+  const hasBindingWording = /\b(?:nur|zwingend|keinesfalls|muss|müssen)\b/iu.test(userText);
+  const soloVisit = openVisit?.[1]?.toLowerCase() === "mir" && openVisit[2]?.toLowerCase() !== "wir"
+    && mayNormalizeVenueScope && /\ballein[e]?\b/iu.test(openQualifiers) && !hasBindingWording
+    && !protectedMeaning.facts.some(fact => fact.key === 'people.count');
+  const normalizedFacts = openDiscovery && !hasScopedLogic ? protectedMeaning.facts.map(fact => {
+    if (!("text" in fact.value) || fact.modality !== "REQUIRED") return fact;
+    const value = fact.value.text.trim();
+    const openCityVisit = openVisit && /^stadterkundung$/iu.test(value)
+      && !/\b(?:stadterkundung|stadtführung|stadtrundgang|rundgang|spaziergang|führung)\b/iu.test(userText);
+    if (fact.key === "experience.activity" && (/^(?:etwas entdecken|etwas unternehmen|eine idee finden)$/iu.test(value) || openCityVisit))
+      return {...fact, value:{text:"offene Entdeckung"}};
+    if (soloVisit && ["people.participation","participation.accessibility"].includes(fact.key) && /^(?:allein[e]?|solo)$/iu.test(value))
+      return {...fact,key:"people.count" as const,value:{amount:1,operator:"EQ" as const,unit:"PEOPLE" as const},
+        modality:"CONTEXT" as const,subjectIds:[]};
+    if (/\bunaufgeregt\b/iu.test(openQualifiers) && mayNormalizeVenueScope && !hasBindingWording
+      && fact.key === "experience.character" && /^unaufgeregt$/iu.test(value)) {
+      return {...fact,modality:"PREFERRED" as const};
+    }
+    return fact;
+  }) : protectedMeaning.facts;
+  const hasActivity = normalizedFacts.some(fact => (fact.key === "experience.activity" || fact.key === "offer.kind")
+    && ["REQUIRED", "PREFERRED"].includes(fact.modality));
+  const occupied = new Set([...normalizedFacts,...protectedMeaning.entities,...protectedMeaning.weatherConditions].map(row => row.id));
+  const factsWithDiscovery = openDiscovery && !hasActivity && !hasScopedLogic && !occupied.has("sourceOpenDiscovery")
+    ? [...normalizedFacts,{id:"sourceOpenDiscovery",key:"experience.activity",modality:"REQUIRED",basis:"INFERRED",
+        value:{text:"offene Entdeckung"},subjectIds:[]} as const] : normalizedFacts;
+  const poolVisit = factsWithDiscovery.filter(fact =>
+    ['experience.activity','offer.kind'].includes(fact.key) && fact.modality === "REQUIRED" && "text" in fact.value
+    && ["swimming","bathing"].includes(librarianConcept(fact.value.text) ?? ""));
+  const canConstrainPoolArea = requestedHall && conjunctiveVisit && activityEntities.length <= 1
+    && !protectedMeaning.extensions.length && !protectedMeaning.weatherConditions.length
+    && protectedMeaning.bindings.every(binding => binding.kind === "SAME_PLACE")
+    && !/\b(?:vielleicht|wenn möglich|oder|am liebsten|offen)\b/iu.test(userText);
+  const hasAreaCriterion = factsWithDiscovery.some(fact =>
+    fact.key === "offer.area" && ["REQUIRED","PREFERRED","EXCLUDED"].includes(fact.modality)
+    || fact.key === "offer.kind" && fact.modality === "REQUIRED" && "text" in fact.value
+       && /^hallenbad$/iu.test(fact.value.text.trim()));
+  const needsIndoorArea = canConstrainPoolArea && poolVisit.length === 1 && !occupied.has("sourceIndoorPool")
+    && !hasAreaCriterion;
+  const factsForVisit = needsIndoorArea
+    ? [...factsWithDiscovery,{id:"sourceIndoorPool",key:"offer.area",modality:"REQUIRED",basis:"EXPLICIT",
+        value:{text:"indoor"},subjectIds:[...poolVisit[0]!.subjectIds]} as const] : factsWithDiscovery;
+  const searchMeaning = {...protectedMeaning, facts: factsForVisit.filter(fact=>fact.id!==guessedDay).map(fact => {
+    if (spokenHour !== undefined && eveningVisit && !hasScopedLogic && startClocks.length === 1 && startClocks[0]?.id === fact.id
+        && fact.key === "time.clock_start" && "time" in fact.value && ["GTE", "GT"].includes(fact.value.operator)
+        && spokenHour >= 6 && !/\b(?:morgens|vormittags|früh(?:stück)?)\b/iu.test(userText)) {
+      return {...fact, key:"time.clock_start" as const, value:{...fact.value, time:`${spokenHour + 11}:30`, operator:"GTE" as const}};
+    }
+    if (!("text" in fact.value)) return fact;
+    const locationText = fact.value.text;
+    const term = localityKey(locationText);
+    const asksForRhineView = /(?:\bauf den Rhein (?:schau\w*|blick\w*)|über den Rhein (?:schau\w*|blick\w*)|\bRheinblick\b|\bRheinaussicht\b)/iu.test(userText);
+    if (asksForRhineView && (fact.key==="experience.activity" && /^(?:rheinblick|rheinaussicht)$/u.test(term)
+        || fact.key==="offer.kind" && term==="river_view" && mayNormalizeVenueScope)) {
+      return {...fact,key:"location.view" as const,value:{text:"Rhein"}};
+    }
+    if (asksForRhineView && mayNormalizeVenueScope && fact.key==="offer.kind" && fact.modality==="EXCLUDED"
+      && /^(?:tower|turm)$/u.test(term) && /\bohne (?:auf einen|auf den) Turm zu steigen\b/iu.test(userText)) {
+      return {...fact,key:"experience.activity" as const,value:{text:"Turm besteigen"}};
+    }
+    if (mayNormalizeVenueScope && fact.key==="experience.theme" && librarianConcept(locationText)==="movement"
+      && /\b(?:Museum|Ausstellung|Sammlung)\b/iu.test(userText)
+      && /\b(?:bewegliche[nr]? (?:Figuren|Objekte)|(?:Figuren|Objekte)(?: und (?:Dinge|Werke))?,? die sich bewegen)\b/iu.test(userText)) {
+      return {...fact,value:{text:"bewegliche Figuren"}};
+    }
+    if (fact.key === "offer.kind" && fact.modality === "REQUIRED" && /^(?:jazz[ -]?club|jazzklub)$/u.test(term)
+        && !/\bjazz[ -]?(?:club|klub)\b/iu.test(userText)
+        && protectedMeaning.facts.some(row=>row.key==="experience.activity" && row.modality==="REQUIRED" && "text" in row.value
+          && ["jazz","live_jazz"].includes(librarianConcept(row.value.text)??"")
+          && row.subjectIds.join(" ")===fact.subjectIds.join(" "))
+        && mayNormalizeVenueScope) return {...fact,modality:"CONTEXT" as const,basis:"INFERRED" as const};
+    if (fact.key === "offer.area" && fact.modality === "PREFERRED" && librarianConcept(locationText) === "indoor"
+        && canConstrainPoolArea) {
+      return {...fact, modality:"REQUIRED" as const};
+    }
+    if (["participation.accessibility","participation.group_access","participation.entry_mode"].includes(fact.key)
+        && librarianConcept(locationText) === "self_guided"
+        && /\b(?:ohne Führung|auf eigene Faust|selbst(?:ständig|ändig) besichtigen)\b/iu.test(userText)) {
+      return {...fact,key:"participation.format" as const,value:{text:"self_guided"}};
+    }
+    if (fact.key === "participation.partner" && term === "other_people"
+        && ["REQUIRED", "PREFERRED"].includes(fact.modality) && mayNormalizeVenueScope
+        && /\bmit anderen (?:Leuten|Personen)\b[^.!?]{0,45}\bspielen\b/iu.test(userText)
+        && !/\b(?:nicht|keine)\b/iu.test(userText)) {
+      return {...fact,key:"participation.format" as const,value:{text:"open_group_play"}};
+    }
+    if (fact.key === "offer.area" && term === "park" && /\b(?:(?:im|durch (?:einen|den)|in (?:einem|einen)) Park|einen Park (?:suche\w*|finde\w*)|suche\w*[^.!?]{0,32}\b(?:einen|den) Park)\b/iu.test(userText)) {
+      return {...fact, key:"offer.kind" as const, value:{text:"PARK"}};
+    }
+    if (term === "hallenbad" && (fact.key === "offer.area" || fact.key === "offer.kind" &&
+        protectedMeaning.facts.some(item => item.key === "experience.activity" && item.modality === "REQUIRED"
+            && "text" in item.value && ["swimming", "bathing"].includes(librarianConcept(item.value.text) ?? "")))) {
+      return {...fact,key:"offer.area" as const,value:{text:"indoor"}};
+    }
+    if (fact.key === "offer.kind" && term === "halle"
+        && protectedMeaning.facts.some(item=>item.key==="experience.activity" && item.modality==="REQUIRED"
+          && 'text' in item.value && ["bouldering","climbing","skating","swimming"].includes(librarianConcept(item.value.text) ?? ""))) {
+      return {...fact,key:"offer.area" as const,value:{text:"indoor"}};
+    }
+    const isRegionalMunicipality = BASEL_DISCOVERY_LOCALITIES.some(city => localityKey(city) === term);
+    const knownNeighborhood = baselNeighborhoodNames(locationText);
+    if (fact.key!=="location.destination" && fact.key!=="location.area" && fact.key!=="location.proximity") return fact;
+    const areaTerms = ["in", "in der", "im"].map(prefix=>` ${prefix} ${term.replace(/[^a-z0-9]+/gu, " ")} `);
+    const statedArea = areaTerms.some(phrase=>locativeSource.includes(phrase));
+    const currentAreaOnly = currentPosition && localityKey(currentPosition) === term
+      && locativeSource.split(` ${term.replace(/[^a-z0-9]+/gu, " ")} `).length === 2
+      && !explicitLocalStay;
+    if (mayNormalizeVenueScope && currentAreaOnly && fact.modality === "REQUIRED"
+      && (knownNeighborhood || /^(?:innenstadt|stadtzentrum|zentrum)$/u.test(term))
+      && (fact.key === "location.area" || fact.key === "location.destination")) {
+      return {...fact, key:"location.area" as const, modality:"CONTEXT" as const};
+    }
+    const inRequestedClause = userText.split(/[!?;]|\.(?=\s+\p{Lu})(?!\s+Johann\b)/u).some(clause=>{
+      const normalized = ` ${localityKey(clause).replace(/[^a-z0-9]+/gu," ")} `;
+      return areaTerms.some(phrase=>normalized.includes(phrase))
+        && /\b(?:wo|suche[n]?|möchte[n]?|will|wollen|hätte[n]? Lust|würde[n]? gern|gibt es|kennst du)\b/iu.test(clause)
+        && !/\b(?:vielleicht|bei Bedarf|wenn möglich|vorzugsweise|am liebsten)\b/iu.test(clause)
+        && !/\b(?:vor|nach)\s+(?:einem|dem|meinem|unserem)\s+(?:\p{L}*(?:termin|konzert)|treffen|besuch)\s+(?:in|im|beim|am)\b/iu.test(clause);
+    });
+    const scopedByWish = (mayNormalizeVenueScope || mayNormalizeGlobalTown && !fact.subjectIds.length
+      && mentionedMunicipalities.some(city=>localityKey(city)===term))
+      && inRequestedClause && !hasExplicitProximity(userText, locationText)
+      && !/\b(?:oder|alternativ)\b/iu.test(userText)
+      && !/\b(?:wohne[nt]?|komme[nt]?)\s+(?:heute\s+)?(?:aus|in|im)\b/iu.test(userText)
+      && (isRegionalMunicipality || knownNeighborhood)
+      && fact.modality==="CONTEXT"
+      && fact.basis==="EXPLICIT"
+      && !protectedMeaning.facts.some(row=>row.id!==fact.id && row.modality==="REQUIRED"
+        && ["location.destination","location.area","location.proximity"].includes(row.key));
+    if (scopedByWish) {
+      return {...fact,key:knownNeighborhood ? "location.area" as const : "location.destination" as const,modality:"REQUIRED" as const};
+    }
+    if (fact.modality === "REQUIRED" && isRegionalMunicipality
+        && (fact.key === "location.area" || (fact.key === "location.proximity"
+          && locativeSource.includes(` in ${term} `)
+          && !hasExplicitProximity(userText, locationText)))) {
+      return {...fact, key:"location.destination" as const};
+    }
+    if (fact.key === "location.proximity" && fact.modality === "REQUIRED" && knownNeighborhood
+        && statedArea
+        && !hasExplicitProximity(userText, locationText)) return {...fact, key:"location.area" as const};
+    if (fact.key !== "location.destination") return fact;
     if (baselNeighborhoodNames(fact.value.text)) return {...fact, key:"location.area" as const};
-    const term = localityKey(fact.value.text);
     if (term === "stadt" && /\bin der Stadt\b/iu.test(input.query)) return {...fact, modality:"CONTEXT" as const};
     const anchor = baselSearchAnchor(fact.value.text);
     return anchor && hasExplicitProximity(input.query, fact.value.text) ? {...fact, key:"location.proximity" as const} : fact;
@@ -554,6 +1012,7 @@ function prepareNuknukSearch(value: unknown, input: { query: string; reference: 
   // A correctly expressed need beyond today's evaluator is a software
   // capability gap, not a target to mistranslate during language training.
   // Family/polarity/reference errors remain invalid. No Product gate changes.
+  const issues = inspectLunaMeaning(searchMeaning, input.query);
   const capabilityGaps = issues.filter(issue => issue.code === 'UNSUPPORTED_REQUIREMENT');
   const boundary = traceExclusion ? 'UNSUPPORTED_FOOD_TRACE_VERIFICATION'
     : excluded ? 'UNSUPPORTED_FOOD_INGREDIENT_VERIFICATION'
@@ -676,7 +1135,17 @@ export function validateCompactTurn(raw: unknown, input: { query: string; refere
       && 'text' in fact.value && /\bBahnhof\b/iu.test(fact.value.text));
   const redundantQuestion = anchoredTrainDeadline && suppliedQuestion
     && /^Soll der Ort (?:in der Nähe des genannten (?:Ausgangs|Bezugs)punkts sein|zusätzlich zum Bahnhof auch (?:in Richtung|in der Nähe) des Ziel(?:e)?s liegen)\?$/iu.test(suppliedQuestion.question);
-  return deepFreeze({ ...search, clarification: redundantQuestion || suppliedQuestion && !newQuestion(suppliedQuestion.question) ? null : suppliedQuestion,
+  const questionText = suppliedQuestion?.question;
+  const staleClockQuestion = questionText && search.requestState === 'EXECUTABLE'
+    && search.output.facts.some(original => {
+      if (original.key !== 'time.clock_start' || !('time' in original.value)) return false;
+      const originalTime = original.value.time;
+      return questionText.includes(originalTime) && !input.query.includes(originalTime)
+        && search.searchMeaning.facts.some(fact => fact.id === original.id && 'time' in fact.value
+          && fact.value.time !== originalTime);
+    });
+  return deepFreeze({ ...search, clarification: redundantQuestion || staleClockQuestion
+    || suppliedQuestion && !newQuestion(suppliedQuestion.question) ? null : suppliedQuestion,
     clarificationIssue: invalidModelQuestion ? 'INVALID_MODEL_CLARIFICATION' as const : null });
 }
 
