@@ -15,6 +15,17 @@ import { createDecisionProductNuknukProvider } from "../../../packages/decision-
 import type { LibrarianRequest } from "../../../packages/decision-vnext-core/dist/product-luna-librarian.js";
 import type { LibrarianSearchResult } from "../../../packages/decision-vnext-core/dist/product-librarian-matching.js";
 import type { DecisionProductResponse } from "../../../packages/decision-vnext-core/dist/product-v1-contracts.js";
+import { createLibrarianWeatherEvidence } from "../_shared/librarian-weather.ts";
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
+import { WeatherKitService } from "../_shared/weatherkit.ts";
+
+function createDecisionWeather() {
+  if (Deno.env.get("BACKYRD_DECISION_WEATHER_ENABLED") === "false" || Deno.env.get("WEATHERKIT_ENABLED") !== "true") return null;
+  const teamId = Deno.env.get("WEATHERKIT_TEAM_ID"), keyId = Deno.env.get("WEATHERKIT_KEY_ID");
+  const serviceId = Deno.env.get("WEATHERKIT_SERVICE_ID"), privateKey = Deno.env.get("WEATHERKIT_PRIVATE_KEY");
+  return teamId && keyId && serviceId && privateKey ? new WeatherKitService({ teamId, keyId, serviceId, privateKey }) : null;
+}
+const decisionWeather = createDecisionWeather();
 
 function personalTrace(meaning: LibrarianRequest | undefined, search: LibrarianSearchResult | undefined, response: DecisionProductResponse) {
   const bySpot = new Map([...(search?.ranked ?? []), ...(search?.unresolved ?? []), ...(search?.excluded ?? [])]
@@ -187,6 +198,13 @@ Deno.serve(async (request: Request) => {
       authClient: authClient(service),
       evaluationProvider: createDecisionProductRpcEvaluationProvider(rpc, {
         meaningRequired: true, ...(traceRequested ? { onSearch(value) { if (mayReturnTrace) search = value; } } : {}),
+        ...(decisionWeather ? { conditionEvidence: createLibrarianWeatherEvidence({
+          get: (city, at, now) => decisionWeather.get(city, at, now),
+          allowed: async actor => (await consumeLaunchCostBoundary(service, {
+            operation: "weather_context", subjectKey: actor,
+            subjectMinute: 10, subjectDay: 120, globalMinute: 120, globalDay: 6000,
+          })).allowed,
+        }) } : {}),
       }),
       interactionAuthority: createDecisionProductRpcInteractionAuthorityProvider(rpc),
       learningPort: createDecisionProductRpcLearningPort(rpc, config.identity),

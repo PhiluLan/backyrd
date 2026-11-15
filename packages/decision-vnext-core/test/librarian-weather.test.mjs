@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fact,request,profile,offer,area,prop,binding,search,date,conditions} from './librarian-matching-fixtures.mjs';
 import {validateActiveLunaMeaningOutput,buildLunaLibrarianModelRequest} from '../dist/product-luna-librarian.js';
+import {exercise} from './librarian-active-route-fixtures.mjs';
 const weather=(role='CONTEXT',state='RAIN')=>({id:'w1',basis:'EXPLICIT',subjectIds:['a1'],role,state,detail:null});
 const outing=(extra=[],weatherConditions=[weather()])=>request([
  fact('play','condition.children','children_activity'),fact('rain','offer.weather_suitability','rain_suitable'),...extra,
@@ -35,6 +36,39 @@ test('real weather alternatives remain unresolved without bound evidence, even b
  const r=search(q,[binding(1,venue())]);
  assert.equal(r.ranked.length,0);assert.deepEqual(r.conditionUnknownIds,['w1']);
  assert.equal(r.evaluationPlan.weather.find(w=>w.id==='w1').authority,'EXTERNAL_EVIDENCE_REQUIRED');
+});
+
+test('the installed search route uses weather evidence and offers both variants when it is missing', async () => {
+ const afternoon = fact('afternoon','time.day_phase',{phase:'AFTERNOON',timezone:'Europe/Zurich'},'REQUIRED',[]);
+ const ref = factId => ({kind:'FACT',factId});
+ const meaning = request([date(),afternoon,fact('zoo','offer.kind','Zoo'),fact('museum','offer.kind','Museum')],{
+  weatherConditions:[weather('CONDITIONAL')],
+  logic:{kind:'ALL',children:[ref('date'),ref('afternoon'),{kind:'IF',conditionFactId:'w1',then:ref('museum'),else:ref('zoo')}]},
+ });
+ const zoo = binding(1,profile([offer('visit','VISIT',['inside'],[],[])],[area()],'ZOO'));
+ const museum = binding(2,profile([offer('visit','PERMANENT_EXHIBITION',['inside'],[],[])],[area()],'MUSEUM'));
+ const catalog = [zoo,museum];
+ for (const [state, desired] of [['TRUE',museum],['FALSE',zoo],['UNKNOWN',null]]) {
+  let calls = 0;
+  const result = await exercise({
+   text:'Morgen Nachmittag in Basel in den Zoo, bei Regen ins Museum',
+   meaning,catalog,
+   async conditionEvidence({meaning:accepted,city,visit}) {
+    calls++;
+    assert.equal(city,'Basel');
+    assert.deepEqual([visit.dates,visit.start,visit.end],[['2026-10-15'],720,1080]);
+    return state === 'UNKNOWN' ? [] : [{requestHash:accepted.requestHash,conditionId:'w1',city,localDate:'2026-10-15',
+     state,sourceHash:'a'.repeat(64),validUntil:'2026-10-14T10:00:00Z'}];
+   },
+  });
+  assert.equal(calls,1);
+  assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+  assert.equal(result.body.primaryCandidateId,desired?.decisionProjection.spotId ?? null);
+  if (!desired) {
+   assert.ok(result.body.limitations.includes('LIBRARIAN_WEATHER_CONDITION_OPEN'));
+   assert.deepEqual(new Set(result.body.candidates.map(candidate => candidate.spotId)),new Set(catalog.map(row => row.decisionProjection.spotId)));
+  }
+ }
 });
 
 test('rain suitability allows covered outdoors without changing an explicit outdoor requirement',()=>{

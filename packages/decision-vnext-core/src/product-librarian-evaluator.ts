@@ -7,7 +7,8 @@ import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, experienceBook
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
 import { contentHash, deepFreeze, withContentHash } from "./canonical.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest, type LibrarianFact, type LunaExpression } from "./product-luna-librarian.js";
-import { searchLibrarianCatalogWithWorlds, type LibrarianCandidate, type LibrarianFactAssessment } from "./product-librarian-matching.js";
+import { searchLibrarianCatalogWithWorlds, type LibrarianCandidate, type LibrarianConditionEvidence, type LibrarianFactAssessment } from "./product-librarian-matching.js";
+import { createLibrarianVisitWindow } from "./product-librarian-time.js";
 import { type ProductWorldView } from "./product-world-resolver-binding.js";
 import { evaluateProductWorldViews, userTasteMatches } from "./product-v1-evaluator.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY } from "./product-v1-authority.js";
@@ -329,17 +330,28 @@ function requiredInEveryAlternative(node: LunaExpression, meaning: LibrarianRequ
   return (node.kind === "FALLBACK" ? node.options : node.children).every(child => requiredInEveryAlternative(child, meaning, predicate));
 }
 
+/** Weather may only resolve an IF for the same visit window in every alternative. */
+export function librarianWeatherVisitWindow(meaning: LibrarianRequest, serverTime: string) {
+  const temporal = meaning.facts.filter(f => ["DATE", "CLOCK", "DAY_PHASE"].includes(f.value.kind) || f.key === "time.weekday");
+  const dates = temporal.filter(f => f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED");
+  if (dates.length !== 1 || !temporal.some(f => f.value.kind === "CLOCK" || f.value.kind === "DAY_PHASE")
+    || temporal.some(f => !requiredInEveryAlternative(meaning.logic, meaning, candidate => candidate.id === f.id))) return null;
+  const visit = createLibrarianVisitWindow(temporal, meaning.source.reference.timezone, serverTime);
+  return visit.complete && !visit.expired && visit.dates.length === 1 ? visit : null;
+}
+
 export function evaluateLibrarianProduct(input: {
   readonly request: DecisionProductRequest; readonly meaning: LibrarianRequest;
   readonly catalog: readonly unknown[]; readonly eventOccurrences?: unknown; readonly authority: { readonly authorizedCity: string; readonly serverTime: string; readonly authorizedLocalities?: readonly string[] };
   readonly projection: RelevantUserProjection;
+  readonly conditionEvidence?: readonly LibrarianConditionEvidence[];
   readonly onSearch?: (result: ReturnType<typeof searchLibrarianCatalogWithWorlds>["result"]) => void;
 }) {
   const meaning = prepareLibrarianRequest({ contractVersion: LUNA_LIBRARIAN_CONTRACT_VERSION, output: input.meaning.raw, sourceText: input.meaning.source.sourceText, reference: input.meaning.source.reference });
   if (meaning.source.sourceText !== input.request.naturalLanguage || meaning.requestHash !== input.meaning.requestHash) throw new Error("product_librarian_source_binding_invalid");
   if (librarianTargetCity(input.request, meaning) !== input.authority.authorizedCity) throw new Error("product_librarian_city_binding_invalid");
   const eventViews = input.request.includeEvents === true ? projectDecisionEventOccurrences(input.eventOccurrences, input.authority.authorizedCity, input.authority.serverTime, input.authority.authorizedLocalities ?? librarianDiscoveryLocalities(input.authority.authorizedCity)) : [];
-  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime, ...(input.authority.authorizedLocalities ? {authorizedLocalities: input.authority.authorizedLocalities} : {}) }, limit: 1500 });
+  const { result, worlds } = searchLibrarianCatalogWithWorlds({ request: meaning, catalog: input.catalog, eventViews, authority: { city: input.authority.authorizedCity, now: input.authority.serverTime, ...(input.authority.authorizedLocalities ? {authorizedLocalities: input.authority.authorizedLocalities} : {}) }, ...(input.conditionEvidence ? { conditionEvidence: input.conditionEvidence } : {}), limit: 1500 });
   input.onSearch?.(result);
   const byId = new Map(worlds.map(w => [w.spot.spotId, w]));
   const ids = [...byId.keys()].sort();
