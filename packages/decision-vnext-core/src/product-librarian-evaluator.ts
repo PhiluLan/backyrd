@@ -229,7 +229,9 @@ function assessment(candidate: LibrarianCandidate, world: ProductWorldView, cont
     .flatMap(f => f.domainEvidence ?? []).filter(row => typeof row.details.exceptions === "string" && row.details.exceptions.length > 0);
   if (consumptionExceptions.length) reasons.push({ reasonCode: "librarian-external-consumption-exceptions", domain: "LIMITATION", sourceHash: contentHash(consumptionExceptions),
     statementDe: [...new Set(consumptionExceptions.map(row => `${row.details.consumption === "DRINK" ? "Eigene Getränke" : "Eigene Speisen"}: ${row.details.exceptions}`))].join(" ").slice(0,500), confirmed: false });
-  const profileEntry = world.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"));
+  const profileEntry = candidate.offerIds.length
+    ? world.facts.find(f => f.key === "experience.profile" && f.authorizedUseCases?.includes("EXPLANATION"))
+    : undefined;
   const explanatoryProfile = profileEntry ? parseExperienceProfile(profileEntry.value) : null;
   if (profileEntry && candidate.offerIds.length) {
     const activityIds = new Set(candidate.facts.filter(f => f.state === "MET" && (["experience.activity", "offer.kind", "condition.children"].includes(f.family) || f.family.startsWith("food."))).flatMap(f => f.offerIds));
