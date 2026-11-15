@@ -388,6 +388,52 @@ test('a successful catalog read with no spots for the requested city returns a t
  assert.ok(r.body.limitations.includes('NO_CATALOG_CANDIDATES'));
 });
 
+test('NukNuk short searches preserve the full criteria before using the same Librarian route', async () => {
+ const {createDecisionProductNuknukProvider} = await import('../dist/product-nuknuk-provider.js');
+ const text = 'Gemütlich was trinken gehen';
+ const compactFact = (key,text,modality) => ({key,value:{text},modality,basis:'EXPLICIT'});
+ const drinks = compactFact('food.drink','drinks','REQUIRED');
+ const cozy = compactFact('atmosphere.character','gemütlich','PREFERRED');
+ const compact = (facts,rest={}) => ({singleActivity:true,meaning:{facts,...rest}});
+ const spot = binding(111,profile([offer('bar','DRINKS')],[area('inside',[prop('atmosphere.character','gemütlich')])],'BAR'));
+ const full = compact([drinks,cozy]);
+ for (const scenario of [
+  {input:text,short:full,modes:['short']},
+  {input:text,short:compact([drinks]),modes:['short','full']},
+  {input:text,short:compact([drinks,compactFact('atmosphere.character','gemütlich','REQUIRED')]),modes:['short','full']},
+  {input:text,short:compact([drinks,cozy,compactFact('location.destination','Bern','REQUIRED')]),modes:['short','full']},
+  {input:'Heute Abend gemütlich was trinken gehen',modes:['full']},
+  {input:'Gemütlich was trinken gehen, bei Regen lieber ins Museum.',modes:['full']},
+  {input:'Gemütlich was trinken gehen. Rückfrage: Drinnen oder draussen? Antwort: Draussen.',dialogue:true,modes:['dialogue','full','full']},
+ ]) {
+  const modes = [];
+  const understand = createDecisionProductNuknukProvider({
+   endpoint:'https://nuknuk.example.test/v1/chat/completions',apiKey:'fixture-key',model:'nuknuk-test',fastSimpleSearch:true,
+   routeDialogue:scenario.dialogue,now:()=>new Date(reference.now),
+   async fetchImpl(_url,init) {
+    const body = JSON.parse(init.body);
+    const prompt = body.messages[0].content;
+    const mode = body.max_tokens === 96 ? 'dialogue' : prompt.length < 1000 ? 'short' : 'full';
+    modes.push(mode);
+    const changes = {meaning:{facts:[]},removeFactIds:[],removalEvidence:[]};
+    const result = mode === 'dialogue' ? {route:'UPDATE_SEARCH'} : mode === 'short' ? scenario.short
+     : scenario.dialogue && modes.length === 3 ? changes : full;
+    return Response.json({model:'nuknuk-test',choices:[{finish_reason:'stop',message:{content:JSON.stringify(result)}}]});
+   },
+  });
+  let accepted;
+  const result = await exercise({text:scenario.input,catalog:[spot],understandOverride:async (...args) => {
+   accepted = await understand(...args);
+   return accepted;
+  }});
+  assert.deepEqual(modes,scenario.modes,scenario.input);
+  if (scenario.input !== text) continue;
+  assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+  assert.equal(result.body.primaryCandidateId,spot.decisionProjection.spotId);
+  assert.deepEqual(accepted.facts.map(f=>[f.key,f.modality]),[['food.drink','REQUIRED'],['atmosphere.character','PREFERRED']]);
+ }
+});
+
 test('NukNuk beta route searches outdoors with a follow-up and stops for an unbound rain rule', async () => {
  const { createDecisionProductNuknukProvider } = await import('../dist/product-nuknuk-provider.js');
  const text = 'Bei Schauern gern kurz unter ein Dach, aber wir möchten auch draussen spielen.';
