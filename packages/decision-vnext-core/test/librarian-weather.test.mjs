@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {fact,request,profile,offer,area,prop,binding,search,date,conditions} from './librarian-matching-fixtures.mjs';
+import {fact,request,profile,offer,area,prop,binding,search,date,conditions,reference,authority} from './librarian-matching-fixtures.mjs';
 import {validateActiveLunaMeaningOutput,buildLunaLibrarianModelRequest} from '../dist/product-luna-librarian.js';
 import {exercise} from './librarian-active-route-fixtures.mjs';
+import {validateNuknukCompactSearch} from '../dist/nuknuk-understanding.js';
+import {librarianWeatherVisitWindow} from '../dist/product-librarian-evaluator.js';
 const weather=(role='CONTEXT',state='RAIN')=>({id:'w1',basis:'EXPLICIT',subjectIds:['a1'],role,state,detail:null});
 const outing=(extra=[],weatherConditions=[weather()])=>request([
  fact('play','condition.children','children_activity'),fact('rain','offer.weather_suitability','rain_suitable'),...extra,
@@ -67,6 +69,61 @@ test('the installed search route uses weather evidence and offers both variants 
   if (!desired) {
    assert.ok(result.body.limitations.includes('LIBRARIAN_WEATHER_CONDITION_OPEN'));
    assert.deepEqual(new Set(result.body.candidates.map(candidate => candidate.spotId)),new Set(catalog.map(row => row.decisionProjection.spotId)));
+  }
+ }
+});
+
+test('regression: the captured live handoff repairs the rain branch and fetches the shared afternoon', async () => {
+ const text = 'Morgen Nachmittag in Basel in den Zoo, bei Regen lieber ins Museum.';
+ const ref = factId => ({kind:'FACT',factId});
+ const afternoon = {phase:'AFTERNOON',timezone:'Europe/Zurich'};
+ const handoff = { meaning: {
+  entities: [{id:'a1',kind:'ACTIVITY',label:'Zoo-Besuch'},{id:'a2',kind:'ACTIVITY',label:'Museumsbesuch'}],
+  facts: [
+   fact('f1','experience.activity','Zoo besuchen'),
+   fact('f2','location.destination','Basel'),
+   {...date(),id:'f3'},
+   fact('f4','time.day_phase',afternoon),
+   fact('f5','offer.kind','MUSEUM','PREFERRED',['a2']),
+   fact('f6','location.destination','Basel','PREFERRED',['a2']),
+   fact('f7','time.day_phase',afternoon,'PREFERRED',['a2']),
+  ],
+  logic: {kind:'ALL',children:[ref('f2'),ref('f3'),ref('f4'),ref('f6'),ref('f7'),
+   {kind:'IF',conditionFactId:'w1',then:ref('f1'),else:ref('f5')}]},
+  weatherConditions: [{...weather('CONDITIONAL'),subjectIds:[]}],
+ }};
+ const {plan} = validateNuknukCompactSearch(handoff,{query:text,reference});
+ assert.ok(plan);
+ assert.deepEqual(plan.logic.children.at(-1),{kind:'IF',conditionFactId:'w1',then:ref('f5'),else:ref('f1')});
+ assert.equal(plan.facts.find(f => f.id === 'f5').modality,'REQUIRED');
+ const reverseWish = 'Morgen Nachmittag in Basel ins Museum, bei Regen lieber in den Zoo.';
+ const reversePlan = validateNuknukCompactSearch(handoff,{query:reverseWish,reference}).plan;
+ assert.deepEqual(reversePlan.logic.children.at(-1),{kind:'IF',conditionFactId:'w1',then:ref('f1'),else:ref('f5')});
+ const differentTime = structuredClone(plan.raw);
+ differentTime.facts.find(f => f.id === 'f7').value.phase = 'EVENING';
+ const differentTimePlan = request(differentTime.facts,differentTime);
+ assert.equal(librarianWeatherVisitWindow(differentTimePlan,authority.now),null);
+ const zoo = binding(1,profile([offer('visit','VISIT',['inside'],[],[])],[area()],'ZOO'));
+ const museum = binding(2,profile([offer('visit','PERMANENT_EXHIBITION',['inside'],[],[])],[area()],'MUSEUM'));
+ for (const [state, expected] of [['TRUE',museum],['FALSE',zoo],['UNKNOWN',null]]) {
+  let forecasts = 0;
+  const result = await exercise({text,meaning:plan,catalog:[zoo,museum],understandOverride:async () => plan,
+   async conditionEvidence({meaning,city,visit}) {
+    forecasts++;
+    assert.equal(city,'Basel');
+    assert.deepEqual([visit.dates,visit.start,visit.end],[['2026-10-15'],720,1080]);
+    return state === 'UNKNOWN' ? [] : [{requestHash:meaning.requestHash,conditionId:'w1',city,localDate:'2026-10-15',
+     state,sourceHash:'a'.repeat(64),validUntil:'2026-10-14T10:00:00Z'}];
+   },
+  });
+  assert.equal(forecasts,1);
+  assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+  assert.equal(result.body.primaryCandidateId,expected?.decisionProjection.spotId ?? null);
+  if (!expected) {
+   const conditionalCopy = spot => result.body.candidates.find(c => c.spotId === spot.decisionProjection.spotId)
+    ?.reasons.find(r => r.code === 'librarian-confirmed-weather-branch')?.statement ?? '';
+   assert.match(conditionalCopy(museum),/bei Regen/u);
+   assert.match(conditionalCopy(zoo),/ohne Regen/u);
   }
  }
 });

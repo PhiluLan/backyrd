@@ -266,6 +266,8 @@ Wetterbedingungen, Referenzen oder verknüpfte Unsicherheiten darfst du singleAc
 Dann id und subjectIds in facts weglassen. Sonst id und subjectIds ausdrücklich angeben.
 members nur ausgeben, wenn Mitglieder vorhanden sind. Behalte Modalität, Herkunft, Geltungsbereich
 und alle relevanten Kriterien. Behalte Unsicherheiten, die für die Suche wichtig sind.
+«A, bei Regen lieber B»: IF mit RAIN, then B, else A. Beide Aktivitäten sind innerhalb ihres Zweigs REQUIRED.
+Gemeinsamer Ort und gemeinsame Besuchszeit stehen einmal ausserhalb des IF.
 Eine clarification mit question, dimension und zwei bis drei options nur ausgeben, wenn
 eine konkrete Mehrdeutigkeit oder ein tatsächlich fehlender, entscheidender Teil des Wunsches
 die Spotwahl verändert. Bekannte Kriterien schon zur Suche weitergeben. Keine Rückfrage zu einem
@@ -782,8 +784,48 @@ function hasOpenBirthdayDinnerDirection(query: string): boolean {
     && /\b(?:zum essen|essen gehen|abendessen)\b/iu.test(query);
 }
 
+/** Ground a simple trailing rain alternative in the two activities explicitly named in the source. */
+function protectTrailingRainAlternative(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
+  const logic = meaning.logic;
+  if (!logic || meaning.weatherConditions.length !== 1 || meaning.bindings.length
+    || /\b(?:nicht|kein\w*|weder|ohne|oder|wenn|falls|ausser|außer|sonst|trotz)\b/iu.test(query)) return meaning;
+  const source = /^([^,;.!?\n]+),\s*bei regen\s+(?:lieber|stattdessen)\s+([^,;.!?\n]+)[.!?]?$/iu.exec(query);
+  if (!source) return meaning;
+  const branches = logic.kind === 'ALL' ? logic.children : [logic];
+  const conditionals = branches.filter(branch => branch.kind === 'IF');
+  const [conditional] = conditionals;
+  const [condition] = meaning.weatherConditions;
+  if (conditionals.length !== 1 || !conditional || !condition || condition.id !== conditional.conditionFactId
+    || condition.role !== 'CONDITIONAL' || condition.state !== 'RAIN' || condition.detail !== null
+    || conditional.then.kind !== 'FACT' || conditional.else?.kind !== 'FACT') return meaning;
+  const thenId = conditional.then.factId, elseId = conditional.else.factId;
+  if (branches.some(branch => branch !== conditional
+    && (branch.kind !== 'FACT' || branch.factId === thenId || branch.factId === elseId))) return meaning;
+  const tokens = (text: string) => localityKey(text).match(/[\p{L}\p{N}]+/gu) ?? [];
+  const mainWords = new Set(tokens(source[1]!)), rainyWords = new Set(tokens(source[2]!));
+  const generic = new Set(['den', 'ins', 'das', 'der', 'die', 'einen', 'eine', 'etwas', 'gehen', 'machen', 'besuchen', 'besuch', 'anschauen', 'schauen']);
+  const namedIn = (id: string) => {
+    const fact = meaning.facts.find(f => f.id === id);
+    if (!fact || (fact.key !== 'experience.activity' && fact.key !== 'offer.kind')
+      || (fact.modality !== 'REQUIRED' && fact.modality !== 'PREFERRED')) return null;
+    const words = tokens(fact.value.text).filter(word => word.length >= 3 && !generic.has(word));
+    const inMain = words.some(word => mainWords.has(word));
+    const inRain = words.some(word => rainyWords.has(word));
+    return inMain === inRain ? null : inRain ? 'RAIN' : 'MAIN';
+  };
+  const thenSource = namedIn(thenId), elseSource = namedIn(elseId);
+  if (!thenSource || !elseSource || thenSource === elseSource) return meaning;
+  const corrected = thenSource === 'RAIN' ? conditional : { ...conditional, then: conditional.else, else: conditional.then };
+  return {
+    ...meaning,
+    facts: meaning.facts.map(fact => fact.id === thenId || fact.id === elseId ? { ...fact, modality: 'REQUIRED' } : fact),
+    logic: logic.kind === 'ALL' ? { ...logic, children: branches.map(branch => branch === conditional ? corrected : branch) } : corrected,
+  };
+}
+
 function prepareNuknukSearch(value: unknown, input: { query: string; reference: LibrarianReference }, needsClarification: boolean, guardOutdoor = false, userText = input.query) {
-  const output = validateActiveLunaMeaningOutput(value);
+  const accepted = validateActiveLunaMeaningOutput(value);
+  const output = userText === input.query ? protectTrailingRainAlternative(userText, accepted) : accepted;
   // This exact legacy value has one canonical family. Keep its modality,
   // references and scope, and leave all other concept errors to the validator.
   const mentionsChildren = /\b(?:kind(?:er|ern)?|tochter|sohn)\b/iu.test(input.query);

@@ -335,10 +335,14 @@ function requiredInEveryAlternative(node: LunaExpression, meaning: LibrarianRequ
 /** Weather may only resolve an IF for the same visit window in every alternative. */
 export function librarianWeatherVisitWindow(meaning: LibrarianRequest, serverTime: string) {
   const temporal = meaning.facts.filter(f => ["DATE", "CLOCK", "DAY_PHASE"].includes(f.value.kind) || f.key === "time.weekday");
-  const dates = temporal.filter(f => f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED");
-  if (dates.length !== 1 || !temporal.some(f => f.value.kind === "CLOCK" || f.value.kind === "DAY_PHASE")
-    || temporal.some(f => !requiredInEveryAlternative(meaning.logic, meaning, candidate => candidate.id === f.id))) return null;
-  const visit = createLibrarianVisitWindow(temporal, meaning.source.reference.timezone, serverTime);
+  const common = temporal.filter(f => requiredInEveryAlternative(meaning.logic, meaning, candidate => candidate.id === f.id));
+  const commonValues = new Set(common.map(f => contentHash({ key: f.key, value: f.value })));
+  // An identical softer copy adds no constraint to the mandatory visit window.
+  const relevant = temporal.filter(f => f.modality !== "PREFERRED" || !commonValues.has(contentHash({ key: f.key, value: f.value })));
+  const dates = relevant.filter(f => f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED");
+  if (dates.length !== 1 || !relevant.some(f => f.value.kind === "CLOCK" || f.value.kind === "DAY_PHASE")
+    || relevant.length !== common.length) return null;
+  const visit = createLibrarianVisitWindow(common, meaning.source.reference.timezone, serverTime);
   return visit.complete && !visit.expired && visit.dates.length === 1 ? visit : null;
 }
 
