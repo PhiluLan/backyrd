@@ -301,7 +301,7 @@ function propertyTruth(property: ExperienceProperty, fact: LibrarianFact): Match
     const result = compare(property.value, fact.value.amount, fact.value.operator);
     return result === null ? "UNKNOWN" : result ? "MET" : "FAILED";
 }
-function profileFor(world: ProductWorldView, visit: VisitWindow, now: string): {
+function profileFor(world: ProductWorldView, visit: VisitWindow, now: string, profiles: Map<string, ExperienceProfile>): {
     profile: ExperienceProfile;
     hash: string;
 } | null {
@@ -312,7 +312,12 @@ function profileFor(world: ProductWorldView, visit: VisitWindow, now: string): {
         return null;
     if (visit.dates.some(day => row.validFrom !== null && day < librarianLocalDate(row.validFrom!, visit.timezone ?? "Europe/Zurich") || row.validUntil !== null && day >= librarianLocalDate(row.validUntil!, visit.timezone ?? "Europe/Zurich")))
         return null;
-    return { profile: parseExperienceProfile(row.value), hash: row.entryHash };
+    let profile = profiles.get(row.entryHash);
+    if (!profile) {
+        profile = parseExperienceProfile(row.value);
+        profiles.set(row.entryHash, profile);
+    }
+    return { profile, hash: row.entryHash };
 }
 /** A broad legacy BATHING tag does not turn a steam/sauna treatment into
  * immersion bathing. Interpret declared offer/linked-area captions only; a
@@ -947,13 +952,24 @@ function jointPrice(fact: LibrarianFact, facts: readonly LibrarianFact[], reques
         truth = minimumPass === null ? "UNKNOWN" : minimumPass ? "MET" : "FAILED";
     return result(fact.modality === "EXCLUDED" ? (truth === "MET" ? "FAILED" : truth === "FAILED" ? "MET" : "UNKNOWN") : truth, truth === "MET" ? "SCOPED_PRICE_RANGE_BUDGET_CONFIRMED" : "BUDGET_NOT_PROVEN_OR_EXCEEDED", hashes);
 }
-function assessScenario(request: LibrarianRequest, world: ProductWorldView, scenario: Scenario, preferenceIds: ReadonlySet<string>, now: string, semantics: LibrarianSemanticIndex | null): Omit<LibrarianCandidate, "candidateHash"> {
+function prepareScenario(request: LibrarianRequest, scenario: Scenario, timezone: string | null, now: string) {
+    const preferenceIds = new Set(scenario.preferredIds);
     const referenced = new Set(collectFacts(request.logic));
     const branchEntities = new Set(request.facts.filter(f => scenario.ids.includes(f.id)).flatMap(f => f.subjectIds));
     const selected = request.facts.filter(f => scenario.ids.includes(f.id) || f.modality === "CONTEXT" && !referenced.has(f.id) && (!f.subjectIds.some(id => ["ACTIVITY", "OFFER", "AREA"].includes(request.entities.find(e => e.id === id)?.kind ?? "")) || f.subjectIds.some(id => branchEntities.has(id))));
     const activeRequest = { ...request, facts: selected.map(f => preferenceIds.has(f.id) ? { ...f, modality: "PREFERRED" as const } : f) };
-    const visit = createLibrarianVisitWindow(selected.filter(f => f.modality !== "PREFERRED" && !preferenceIds.has(f.id)), world.spot.location.timezone, now);
-    const source = profileFor(world, visit, now), profile = source?.profile ?? null;
+    const visitFacts = selected.filter(f => f.modality !== "PREFERRED" && !preferenceIds.has(f.id));
+    const visit = createLibrarianVisitWindow(visitFacts, timezone, now);
+    const temporalVisits = new Map(selected.filter(f => LIBRARIAN_FAMILY_STRATEGIES[f.key] === "TEMPORAL").map(f => [f.id,
+        f.modality === "PREFERRED" || preferenceIds.has(f.id)
+            ? createLibrarianVisitWindow([...visitFacts, { ...f, modality: "REQUIRED" }], timezone, now)
+            : visit]));
+    return { scenario, selected, activeRequest, preferenceIds, visit, temporalVisits };
+}
+
+function assessScenario(request: LibrarianRequest, world: ProductWorldView, prepared: ReturnType<typeof prepareScenario>, now: string, semantics: LibrarianSemanticIndex | null, profiles: Map<string, ExperienceProfile>): Omit<LibrarianCandidate, "candidateHash"> {
+    const { scenario, selected, activeRequest, preferenceIds, visit, temporalVisits } = prepared;
+    const source = profileFor(world, visit, now, profiles), profile = source?.profile ?? null;
     // Availability is pure for this immutable world and visit window. Reuse
     // its proof across witnesses/states instead of rebuilding calendar data.
     const availabilityByVisit = new WeakMap<VisitWindow, Map<string, ReturnType<typeof librarianOfferAvailability>>>();
@@ -964,10 +980,6 @@ function assessScenario(request: LibrarianRequest, world: ProductWorldView, scen
         if (!value) { value = snapshot.eventOccurrence ? eventVisitAvailability(snapshot.eventOccurrence, window) : librarianOfferAvailability(offer, snapshot, window); cache.set(offer.id, value); }
         return value;
     };
-    const temporalVisits = new Map(selected.filter(f => LIBRARIAN_FAMILY_STRATEGIES[f.key] === "TEMPORAL").map(f => [f.id,
-        f.modality === "PREFERRED" || preferenceIds.has(f.id)
-            ? createLibrarianVisitWindow([...selected.filter(s => s.modality !== "PREFERRED" && !preferenceIds.has(s.id)), { ...f, modality: "REQUIRED" }], world.spot.location.timezone, now)
-            : visit]));
     let states: readonly State[] = [emptyState()], limited = false;
     const reports: LibrarianFactAssessment[] = [], allAtoms: Atom[] = [];
     for (const id of scenario.ids) {
@@ -1130,22 +1142,27 @@ function runLibrarianCatalogSearch(input: {
     if (new Set(worlds.map(w => w.spot.spotId)).size !== worlds.length)
         failure("duplicate_spot");
     const conditionIds = sorted(request.weatherConditions.filter(c => c.role !== "CONTEXT").map(c => c.id)), unknownConditions = new Set<string>();
+    const dateFacts = request.facts.filter(f => f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED");
+    const date = dateFacts.length === 1 && dateFacts[0]!.value.kind === "DATE" ? dateFacts[0]!.value.date : null;
+    const evaluationTime = Date.parse(input.authority.now);
+    const evidenceForRequest = (input.conditionEvidence ?? []).filter(e =>
+        e.requestHash === request.requestHash && e.localDate === date
+        && /^[a-f0-9]{64}$/.test(e.sourceHash) && Date.parse(e.validUntil) > evaluationTime);
+    const matchingCity = localityKey(input.authority.city);
+    const scenariosByWeather = new Map<string, readonly Scenario[]>();
+    const preparation = new WeakMap<Scenario, Map<string | null, ReturnType<typeof prepareScenario>>>();
     const candidates: readonly LibrarianCandidate[] = worlds.map(world => {
         if (world.eventOccurrence && (!["PUBLISHED","SCHEDULED"].includes(world.eventOccurrence.eventStatus) || world.eventOccurrence.occurrenceStatus !== "SCHEDULED" || world.eventOccurrence.ticketStatus === "SOLD_OUT")) {
             const body = {spotId:world.spot.spotId,name:world.spot.identity.name,status:"INELIGIBLE" as const,facts:[],selectedFactIds:[],inactiveFactIds:[],matchedPreferences:[],unknownFactIds:[],failedFactIds:["EVENT_NOT_SCHEDULED"],offerIds:[],areaIds:[],limitations:["EVENT_NOT_SCHEDULED"],snapshotHash:world.snapshotHash,alternativeOrder:[],conditionalPlans:[]};
             const assessed = {...body, decisionProof: librarianDecisionProof(request, body.facts, body.selectedFactIds)};
             return {...assessed,candidateHash:contentHash(assessed)};
         }
-        const dateFacts = request.facts.filter(f => f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED");
-        const date = dateFacts.length === 1 && dateFacts[0]!.value.kind === "DATE" ? dateFacts[0]!.value.date : null;
         const truths = new Map<string, boolean>();
         const unknown: string[] = [];
+        const spotLocality = localityKey(world.spot.location.locality ?? "");
         for (const id of conditionIds) {
-            const evidence = input.conditionEvidence?.filter(e =>
-                e.requestHash === request.requestHash && e.conditionId === id && e.localDate === date
-                && ("spotId" in e ? e.spotId === world.spot.spotId : localityKey(e.city) === localityKey(input.authority.city)
-                    && localityKey(e.city) === localityKey(world.spot.location.locality ?? ""))
-                && /^[a-f0-9]{64}$/.test(e.sourceHash) && Date.parse(e.validUntil) > Date.parse(input.authority.now)) ?? [];
+            const evidence = evidenceForRequest.filter(e => e.conditionId === id
+                && ("spotId" in e ? e.spotId === world.spot.spotId : localityKey(e.city) === matchingCity && matchingCity === spotLocality));
             const values = new Set(evidence.map(e => e.state));
             if (values.size === 1 && !values.has("UNKNOWN"))
                 truths.set(id, evidence[0]!.state === "TRUE");
@@ -1160,6 +1177,8 @@ function runLibrarianCatalogSearch(input: {
             return { ...assessed, candidateHash: contentHash(assessed) };
         }
         const outcomes: Omit<LibrarianCandidate, "candidateHash">[] = [];
+        const profiles = new Map<string, ExperienceProfile>();
+        const timezone = world.spot.location.timezone;
         const conditionsByOutcome: {
             conditionId: string;
             truth: boolean;
@@ -1167,14 +1186,24 @@ function runLibrarianCatalogSearch(input: {
         for (let mask = 0; mask < 2 ** unknown.length; mask++) {
             const assignment = new Map(truths);
             unknown.forEach((id, i) => assignment.set(id, !!(mask & (1 << i))));
-            let choices: readonly Scenario[];
-            try {
-                choices = scenarios(request.logic, assignment);
+            const weatherKey = conditionIds.map(id => assignment.get(id) ? "1" : "0").join("");
+            let choices = scenariosByWeather.get(weatherKey);
+            if (!choices) {
+                try { choices = scenarios(request.logic, assignment); }
+                catch { choices = []; }
+                // Bound reuse for requests with spot-specific evidence and many conditions.
+                if (scenariosByWeather.size < 64) scenariosByWeather.set(weatherKey, choices);
             }
-            catch {
-                choices = [];
-            }
-            const scored = choices.map(s => assessScenario(request, world, s, new Set(s.preferredIds), input.authority.now, semantics)).sort((a, b) => compareCandidates(a, b) || a.alternativeOrder.join(".").localeCompare(b.alternativeOrder.join(".")));
+            const scored = choices.map(s => {
+                let byTimezone = preparation.get(s);
+                if (!byTimezone) { byTimezone = new Map(); preparation.set(s, byTimezone); }
+                let prepared = byTimezone.get(timezone);
+                if (!prepared) {
+                    prepared = prepareScenario(request, s, timezone, input.authority.now);
+                    byTimezone.set(timezone, prepared);
+                }
+                return assessScenario(request, world, prepared, input.authority.now, semantics, profiles);
+            }).sort((a, b) => compareCandidates(a, b) || a.alternativeOrder.join(".").localeCompare(b.alternativeOrder.join(".")));
             if (!scored.length)
                 failure("scenario_limit");
             outcomes.push(scored[0]!);
