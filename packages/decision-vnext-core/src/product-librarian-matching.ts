@@ -1142,8 +1142,9 @@ function runLibrarianCatalogSearch(input: {
     if (new Set(worlds.map(w => w.spot.spotId)).size !== worlds.length)
         failure("duplicate_spot");
     const conditionIds = sorted(request.weatherConditions.filter(c => c.role !== "CONTEXT").map(c => c.id)), unknownConditions = new Set<string>();
-    const dateFacts = request.facts.filter(f => f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED");
-    const date = dateFacts.length === 1 && dateFacts[0]!.value.kind === "DATE" ? dateFacts[0]!.value.date : null;
+    const dates = new Set(request.facts.flatMap(f =>
+        f.value.kind === "DATE" && f.value.operator === "EQ" && f.modality !== "EXCLUDED" ? [f.value.date] : []));
+    const date = dates.size === 1 ? [...dates][0] : null;
     const evaluationTime = Date.parse(input.authority.now);
     const evidenceForRequest = (input.conditionEvidence ?? []).filter(e =>
         e.requestHash === request.requestHash && e.localDate === date

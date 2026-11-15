@@ -70,6 +70,11 @@ muss übereinstimmen. Gemischte, fehlende, veraltete oder nicht eindeutig
 zuordenbare Werte lassen die Wettervarianten offen. Spot-Merkmale, Öffnungszeiten
 und Sicherheitsregeln werden weiterhin separat geprüft.
 
+Bei «A, bei Regen lieber B» ist B die Regenvariante. Die Suchübergabe lässt
+eine vertauschte Zuordnung nur korrigieren, wenn beide Aktivitäten im
+jeweiligen Textteil eindeutig wiedergefunden werden. Ein identisches weicheres
+Duplikat einer gemeinsamen Pflichtzeit blockiert den Wetterabruf nicht.
+
 Eine zusätzliche Prognose-Abfrage verbraucht dieselbe Konten- und globale
 Wetterquote wie die Wetteranzeige. «Wohin?» wartet dafür höchstens 1,5 Sekunden.
 Wetter dient serverseitig als Suchkontext. Die bestehende Wetteranzeige bleibt
