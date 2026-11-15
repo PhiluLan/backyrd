@@ -51,8 +51,31 @@ Die Wetteranzeige auf dem echten iPhone ist durch den Founder-Screenshot bestät
 - Aktualisierung bei erneutem Öffnen und Rückkehr in die App sowie nach Ablauf.
   Unbekannte Orte, abgelaufene Daten, fehlende Konfiguration oder Ausfälle bleiben
   unbekannt. Die Suche bleibt weiterhin benutzbar.
-- Noch keine automatische Wetter-Gewichtung der Decision. Ausdrückliche Wünsche
-  dürfen später nicht von einer Wetterprognose überschrieben werden.
+- Für die Anbindung an «Wohin?» gilt der unten beschriebene Umfang. Ausdrückliche
+  Wünsche bleiben bei jeder Wetterlage massgebend.
+
+## Wetterabhängige Anfragen in «Wohin?»
+
+Der Bibliothekar kann Regen- und Trockenbedingungen in ausdrücklich
+wetterabhängigen Anfragen anhand der stündlichen WeatherKit-Prognose auflösen.
+NukNuk liefert Bedingung und Alternativen. Das Backend ruft die Prognose für
+die autorisierte Suchstadt und das gemeinsame Besuchsfenster ab. Ein Wetterwert
+für Basel wird nur auf Spots in Basel angewendet.
+
+Für Version 1 gelten eine einzelne datierte Besuchszeit und maximal acht lokale
+Stunden. Stunden mit einem Regen-Code und mindestens 60 Prozent
+Niederschlagswahrscheinlichkeit zählen als Regen. Stunden mit einem trockenen
+Wetter-Code und höchstens 20 Prozent zählen als trocken. Das gesamte Fenster
+muss übereinstimmen. Gemischte, fehlende, veraltete oder nicht eindeutig
+zuordenbare Werte lassen die Wettervarianten offen. Spot-Merkmale, Öffnungszeiten
+und Sicherheitsregeln werden weiterhin separat geprüft.
+
+Eine zusätzliche Prognose-Abfrage verbraucht dieselbe Konten- und globale
+Wetterquote wie die Wetteranzeige. «Wohin?» wartet dafür höchstens 1,5 Sekunden.
+Wetter dient serverseitig als Suchkontext. Die bestehende Wetteranzeige bleibt
+die Oberfläche für die Apple-Prognose und ihre Quellenangabe.
+`BACKYRD_DECISION_WEATHER_ENABLED=false` schaltet diese Verwendung in
+`decision-v13` separat ab. Die Backend-Änderung ist separat zu veröffentlichen.
 
 ## Betrieb
 

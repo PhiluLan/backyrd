@@ -19,6 +19,7 @@ async function loadTs(path) {
 }
 const { WeatherKitService, signWeatherKitToken } = (await loadTs('../../supabase/functions/_shared/weatherkit.ts')).module;
 const { createWeatherHandler } = (await loadTs('../../supabase/functions/_shared/weather-handler.ts')).module;
+const { createLibrarianWeatherEvidence } = (await loadTs('../../supabase/functions/_shared/librarian-weather.ts')).module;
 const { parseWeatherContext, weatherConditionLabel, appleWeatherUrl } = (await loadTs('../../packages/shared/src/weather-context.ts')).module;
 const { cityCenterFor } = (await loadTs('../../packages/shared/src/city-centers.ts')).module;
 
@@ -41,6 +42,88 @@ function provider(data = fixture()) {
   };
   return { service: new WeatherKitService(credentials, fetcher), requests };
 }
+
+const librarianInput = {
+  meaning: { requestHash: 'a'.repeat(64), weatherConditions: [
+    { id: 'rain', role: 'CONDITIONAL', state: 'RAIN', detail: null },
+    { id: 'dry', role: 'CONDITIONAL', state: 'DRY', detail: null },
+    { id: 'user-mentioned-rain', role: 'CONTEXT', state: 'RAIN', detail: null },
+    { id: 'rain-earlier', role: 'CONDITIONAL', state: 'RAIN', detail: 'morgens vor dem Besuch' },
+  ] },
+  city: 'Basel', actorId: 'synthetic-user', signal: new AbortController().signal,
+  visit: { dates: ['2026-11-06'], start: 12 * 60, end: 18 * 60, timezone: 'Europe/Zurich' },
+};
+
+test('Librarian uses the complete local visit window and the existing metered WeatherKit cache', async () => {
+  for (const [conditionCode, precipitationChance, expected] of [['Rain', 0.8, 'TRUE'], ['Clear', 0.1, 'FALSE']]) {
+    const apple = fixture();
+    for (const hour of apple.forecastHourly.hours) Object.assign(hour, { conditionCode, precipitationChance });
+    const { service, requests } = provider(apple);
+    const hours = [], actors = [];
+    const resolve = createLibrarianWeatherEvidence({
+      now: () => now,
+      allowed: async actor => { actors.push(actor); return true; },
+      get: (city, at, clock) => { hours.push(at); return service.get(city, at, clock); },
+    });
+    const evidence = await resolve(librarianInput);
+    assert.deepEqual(hours, [11, 12, 13, 14, 15, 16].map(hour => `2026-11-06T${hour}:00:00.000Z`));
+    assert.deepEqual(actors, ['synthetic-user']);
+    assert.equal(requests.length, 2, 'one forecast and one attribution fetch for the complete visit');
+    assert.deepEqual(evidence.map(item => [item.city, item.localDate, item.conditionId, item.state]),
+      [['Basel', '2026-11-06', 'rain', expected], ['Basel', '2026-11-06', 'dry', expected === 'TRUE' ? 'FALSE' : 'TRUE']]);
+  }
+});
+
+test('Librarian leaves the condition open for mixed weather, provider failure, missing hours or denied budget', async () => {
+  for (const failure of ['mixed', 'unavailable', 'missing', 'budget']) {
+    const apple = fixture();
+    if (failure === 'mixed') Object.assign(apple.forecastHourly.hours.find(h => h.forecastStart === '2026-11-06T12:00:00.000Z'),
+      { conditionCode: 'Clear', precipitationChance: 0.1 });
+    if (failure === 'missing') apple.forecastHourly.hours = apple.forecastHourly.hours.filter(h => h.forecastStart !== '2026-11-06T12:00:00.000Z');
+    const { service, requests } = provider(apple);
+    const resolve = createLibrarianWeatherEvidence({
+      now: () => now,
+      allowed: async () => failure !== 'budget',
+      get: (city, at, clock) => failure === 'unavailable' ? Promise.reject(new Error('fixture outage')) : service.get(city, at, clock),
+    });
+    assert.deepEqual(await resolve(librarianInput), [], failure);
+    if (failure === 'budget') assert.equal(requests.length, 0);
+  }
+});
+
+test('Librarian skips the provider for unsupported cities and unbounded dates or times', async () => {
+  let requests = 0;
+  const resolve = createLibrarianWeatherEvidence({
+    now: () => now,
+    allowed: async () => { requests++; return false; },
+    get: async () => { throw new Error('unexpected forecast request'); },
+  });
+  await resolve({ ...librarianInput, city: 'Unbekannter Ort' });
+  await resolve({ ...librarianInput, visit: { ...librarianInput.visit, dates: ['2026-11-25'] } });
+  await resolve({ ...librarianInput, visit: { ...librarianInput.visit, start: 0, end: 24 * 60 } });
+  assert.equal(requests, 0);
+});
+
+test('Librarian continues with an open condition if the metering RPC outlasts the weather deadline', async () => {
+  let fetches = 0;
+  let metering;
+  const resolve = createLibrarianWeatherEvidence({
+    now: () => now,
+    timeoutMs: 5,
+    allowed: () => new Promise(complete => { metering = complete; }),
+    get: async () => { fetches++; throw new Error('unexpected forecast request'); },
+  });
+  // Keep the loop alive because AbortSignal.timeout uses an unreferenced timer.
+  const watchdog = setTimeout(() => metering(true), 300);
+  try {
+    assert.deepEqual(await resolve(librarianInput), []);
+    metering(true);
+    await new Promise(complete => setImmediate(complete));
+    assert.equal(fetches, 0);
+  } finally {
+    clearTimeout(watchdog);
+  }
+});
 
 test('WeatherKit token uses the exact Apple claims and a valid short-lived ES256 signature', async () => {
   const token = await signWeatherKitToken(credentials, now), [header, payload, signature] = token.split('.');

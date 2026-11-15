@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { emptyExperienceProfile, emptyExperienceConditions, REGISTRY_VERSION, REGISTRY_HASH, ACCEPTED_SOURCE_POLICY } from '@backyrd/world-knowledge-core';
 import { prepareLibrarianRequest,LUNA_LIBRARIAN_CONTRACT_VERSION } from '../dist/product-luna-librarian.js';
 import { searchLibrarianCatalog } from '../dist/product-librarian-matching.js';
+import { librarianWeatherVisitWindow } from '../dist/product-librarian-evaluator.js';
 import { contentHash } from '../dist/canonical.js';
 import { LIBRARIAN_FAMILY_STRATEGIES } from '../dist/product-librarian-language.js';
 import { LUNA_LIBRARIAN_FACT_KEYS } from '../dist/product-luna-librarian-assets.js';
@@ -51,6 +52,43 @@ const rainyRequest=()=>request([date(),fact('zoo','offer.kind','Zoo'),fact('muse
 const zoo=()=>{const p=profile([offer('visit','VISIT',['inside'],[],[])],[area()],'ZOO');return binding(1,p);};
 test('unknown rain does not make a weather branch unconditional',()=>{const r=search(rainyRequest(),[zoo()]);assert.equal(r.unresolved[0].status,'PARTIAL');assert.ok(r.unresolved[0].limitations.includes('WEATHER_CONDITION_UNKNOWN'));});
 test('bound trusted dry weather selects the correct alternative',()=>{const q=rainyRequest(),b=zoo();const evidence={requestHash:q.requestHash,conditionId:'rain',spotId:b.decisionProjection.spotId,localDate:'2026-10-15',state:'FALSE',sourceHash:'a'.repeat(64),validUntil:'2026-10-14T10:00:00Z'};const r=search(q,[b],{conditionEvidence:[evidence]});assert.equal(r.ranked[0].status,'CONFIRMED',JSON.stringify(summary(r)));assert.ok(r.ranked[0].selectedFactIds.includes('zoo'));assert.ok(r.ranked[0].inactiveFactIds.includes('museum'));});
+
+test('city weather selects the museum for rain and the zoo for dry weather', () => {
+ const q = rainyRequest();
+ const museum = binding(2, profile([offer('visit', 'PERMANENT_EXHIBITION', ['inside'], [], [])], [area()], 'MUSEUM'));
+ const catalog = [zoo(), museum];
+ const evidence = { requestHash: q.requestHash, conditionId: 'rain', city: 'Basel', localDate: '2026-10-15',
+  sourceHash: 'a'.repeat(64), validUntil: '2026-10-14T10:00:00Z' };
+ for (const [state, selected] of [['TRUE', museum], ['FALSE', catalog[0]]]) {
+  const result = search(q, catalog, { conditionEvidence: [{ ...evidence, state }] });
+  assert.deepEqual(result.ranked.map(spot => spot.spotId), [selected.decisionProjection.spotId]);
+  assert.deepEqual(result.conditionUnknownIds, []);
+ }
+ for (const conditionEvidence of [[], [{ ...evidence, city: 'Bern', state: 'TRUE' }]]) {
+  const result = search(q, catalog, { conditionEvidence });
+  assert.equal(result.ranked.length, 0);
+  assert.deepEqual(result.conditionUnknownIds, ['rain']);
+  assert.equal(result.unresolved.filter(spot => spot.conditionalPlans.some(plan => plan.status === 'CONFIRMED')).length, 2);
+ }
+});
+
+test('weather window requires the same date and time in each branch', () => {
+ const base = rainyRequest();
+ const time = fact('afternoon', 'time.day_phase', { phase: 'AFTERNOON', timezone: 'Europe/Zurich' }, 'REQUIRED', []);
+ const ref = factId => ({ kind: 'FACT', factId });
+ const sameVisit = request([date(), time, ...base.raw.facts.filter(f => f.id !== 'date')], {
+  weatherConditions: base.raw.weatherConditions,
+  logic: { kind: 'ALL', children: [ref('date'), ref('afternoon'), base.raw.logic] },
+ });
+ const branchVisit = request(sameVisit.raw.facts, {
+  weatherConditions: base.raw.weatherConditions,
+  logic: { kind: 'ALL', children: [ref('date'), { ...base.raw.logic, then: { kind: 'ALL', children: [ref('afternoon'), ref('museum')] } }] },
+ });
+ const window = librarianWeatherVisitWindow(sameVisit, authority.now);
+ assert.deepEqual([window.dates, window.start, window.end], [['2026-10-15'], 720, 1080]);
+ assert.equal(librarianWeatherVisitWindow(branchVisit, authority.now), null);
+ assert.equal(librarianWeatherVisitWindow(base, authority.now), null);
+});
 test('stale or differently bound weather is ignored',()=>{const q=rainyRequest(),b=zoo();for(const patch of [{requestHash:'f'.repeat(64)},{localDate:'2026-10-16'},{validUntil:'2026-10-14T07:59:00Z'}]){const r=search(q,[b],{conditionEvidence:[{requestHash:q.requestHash,conditionId:'rain',spotId:b.decisionProjection.spotId,localDate:'2026-10-15',state:'FALSE',sourceHash:'a'.repeat(64),validUntil:'2026-10-14T10:00:00Z',...patch}]});assert.equal(r.unresolved[0].status,'PARTIAL');}});
 test('inactive cross-weather binding cannot force mutually exclusive offers',()=>{const base=rainyRequest();const q=prepareLibrarianRequest({contractVersion:LUNA_LIBRARIAN_CONTRACT_VERSION,sourceText:base.source.sourceText,reference,output:{...base.raw,bindings:[{kind:'SAME_PLACE',factIds:['zoo','museum']}]}});const b=zoo();const r=search(q,[b],{conditionEvidence:[{requestHash:q.requestHash,conditionId:'rain',spotId:b.decisionProjection.spotId,localDate:'2026-10-15',state:'FALSE',sourceHash:'a'.repeat(64),validUntil:'2026-10-14T10:00:00Z'}]});assert.equal(r.ranked[0].status,'CONFIRMED',JSON.stringify(summary(r)));});
 test('single app recommendations never fabricate multi-stop or simultaneous capacity',()=>{for(const kind of ['SEQUENCE','SIMULTANEOUS']){const q=request([meal(),fact('drinks','experience.activity','etwas trinken','REQUIRED',['a2'])],{bindings:[{kind,factIds:['meal','drinks']}]});const p=profile([offer(),offer('drinks','OTHER',['inside'],[prop('experience.activity','etwas trinken')],[])]);const r=search(q,[binding(1,p)]);assert.equal(r.unresolved[0].status,'PARTIAL');assert.ok(r.unresolved[0].limitations.length===0||r.unresolved[0].unknownFactIds.some(id=>id.startsWith('binding:')));}});

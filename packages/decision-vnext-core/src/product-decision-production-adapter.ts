@@ -1,5 +1,5 @@
 import { librarianDiscoveryLocalities, localityKey } from "./product-librarian-geography.js";
-import { evaluateLibrarianProduct, librarianTargetCity, canonicalLibrarianCity } from "./product-librarian-evaluator.js";
+import { evaluateLibrarianProduct, librarianTargetCity, canonicalLibrarianCity, librarianWeatherVisitWindow } from "./product-librarian-evaluator.js";
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
@@ -33,7 +33,7 @@ import type {
 import { evaluateProductWorldViews, productRetrievalIntent, PRODUCT_V1_EVALUATOR_VERSION } from "./product-v1-evaluator.js";
 import { parseProductWorldResolverBinding } from "./product-world-resolver-binding.js";
 
-import { createLibrarianCatalogMatcher, searchLibrarianCatalog, type LibrarianSearchResult } from "./product-librarian-matching.js";
+import { createLibrarianCatalogMatcher, searchLibrarianCatalog, type LibrarianConditionEvidence, type LibrarianSearchResult } from "./product-librarian-matching.js";
 import { prepareLibrarianRequest, LUNA_LIBRARIAN_CONTRACT_VERSION, type LibrarianRequest } from "./product-luna-librarian.js";
 
 const HASH = /^[0-9a-f]{64}$/;
@@ -513,7 +513,15 @@ export function createDecisionProductLibrarianRpcEvaluationProvider(
 }
 
 /** Canonical Product composition over service-only World/User RPCs. */
-export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient, options: { readonly meaningRequired: boolean; readonly onSearch?: (result: LibrarianSearchResult) => void } = { meaningRequired: false }): DecisionProductCanonicalEvaluationProvider {
+export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient, options: {
+  readonly meaningRequired: boolean;
+  readonly onSearch?: (result: LibrarianSearchResult) => void;
+  readonly conditionEvidence?: (input: {
+    readonly meaning: LibrarianRequest; readonly city: string;
+    readonly visit: NonNullable<ReturnType<typeof librarianWeatherVisitWindow>>;
+    readonly actorId: string; readonly signal: AbortSignal;
+  }) => Promise<readonly LibrarianConditionEvidence[]>;
+} = { meaningRequired: false }): DecisionProductCanonicalEvaluationProvider {
   type Prepared = Awaited<ReturnType<typeof readDecisionProductRuntimeContext>>;
   const prepared = new WeakMap<DecisionProductRequest, {
     readonly bindingHash: string; readonly city: string; readonly signal: AbortSignal;
@@ -555,10 +563,15 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       }
       if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
       const { context, serverTime } = runtimeContext;
-      if (input.meaning) {
+      const meaning = input.meaning;
+      if (meaning) {
         if (!Array.isArray(context.worldSnapshots)) throw new Error("product_runtime_context_invalid");
+        const visit = options.conditionEvidence && meaning.weatherConditions.some(c => c.role !== "CONTEXT" && c.detail === null && (c.state === "RAIN" || c.state === "DRY"))
+          ? librarianWeatherVisitWindow(meaning, serverTime) : null;
+        const conditionEvidence = visit ? await options.conditionEvidence?.({ meaning, city: targetCity, visit, actorId: input.actor.userId, signal: input.signal }) : undefined;
+        if (input.signal.aborted) throw new Error("product_runtime_context_aborted");
         const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
-        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning: input.meaning!, catalog: context.worldSnapshots as readonly unknown[], eventOccurrences: context.eventOccurrences, authority: { authorizedCity: targetCity, serverTime, authorizedLocalities: runtimeContext.authorizedLocalities }, projection, ...(options.onSearch ? {onSearch: options.onSearch} : {}) }));
+        const evaluated = productEvaluationStage("ranking", () => evaluateLibrarianProduct({ request: input.request, meaning, catalog: context.worldSnapshots as readonly unknown[], eventOccurrences: context.eventOccurrences, authority: { authorizedCity: targetCity, serverTime, authorizedLocalities: runtimeContext.authorizedLocalities }, projection, ...(conditionEvidence ? { conditionEvidence } : {}), ...(options.onSearch ? {onSearch: options.onSearch} : {}) }));
         return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: evaluated.evaluation.worldCohort.candidateSetHash }) }, evaluatorContractVersion: evaluated.evaluation.evaluatorVersion };
       }
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];

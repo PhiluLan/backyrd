@@ -81,12 +81,11 @@ export type LibrarianSearchResult = {
 export type LibrarianConditionEvidence = {
     readonly requestHash: string;
     readonly conditionId: string;
-    readonly spotId: string;
     readonly localDate: string;
     readonly state: "TRUE" | "FALSE" | "UNKNOWN";
     readonly sourceHash: string;
     readonly validUntil: string;
-};
+} & ({ readonly spotId: string } | { readonly city: string });
 type Witness = {
     readonly evidenceHashes: readonly string[];
     readonly offerIds: readonly string[];
@@ -1142,7 +1141,11 @@ function runLibrarianCatalogSearch(input: {
         const truths = new Map<string, boolean>();
         const unknown: string[] = [];
         for (const id of conditionIds) {
-            const evidence = input.conditionEvidence?.filter(e => e.requestHash === request.requestHash && e.conditionId === id && e.spotId === world.spot.spotId && e.localDate === date && /^[a-f0-9]{64}$/.test(e.sourceHash) && Number.isFinite(Date.parse(e.validUntil)) && Date.parse(e.validUntil) > Date.parse(input.authority.now)) ?? [];
+            const evidence = input.conditionEvidence?.filter(e =>
+                e.requestHash === request.requestHash && e.conditionId === id && e.localDate === date
+                && ("spotId" in e ? e.spotId === world.spot.spotId : localityKey(e.city) === localityKey(input.authority.city)
+                    && localityKey(e.city) === localityKey(world.spot.location.locality ?? ""))
+                && /^[a-f0-9]{64}$/.test(e.sourceHash) && Date.parse(e.validUntil) > Date.parse(input.authority.now)) ?? [];
             const values = new Set(evidence.map(e => e.state));
             if (values.size === 1 && !values.has("UNKNOWN"))
                 truths.set(id, evidence[0]!.state === "TRUE");
