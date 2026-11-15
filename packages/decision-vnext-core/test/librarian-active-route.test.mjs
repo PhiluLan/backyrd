@@ -388,6 +388,27 @@ test('a successful catalog read with no spots for the requested city returns a t
  assert.ok(r.body.limitations.includes('NO_CATALOG_CANDIDATES'));
 });
 
+test('a bar that closed at midnight on Saturday cannot be recommended on Sunday evening', async () => {
+ const sunday = '2026-11-15';
+ const runtimeReference = {now:'2026-11-15T17:50:00+01:00',timezone:'Europe/Zurich'};
+ const runtimeAuthority = {city:'Basel',now:'2026-11-15T16:50:00Z'};
+ const meaning = plan([
+  fact('drink','food.drink','drinks'),fact('cozy','atmosphere.character','gemütlich','PREFERRED'),
+  {...date(),value:{...date().value,date:sunday}},evening(),
+ ]);
+ const bar = profile([{...offer('drinks','DRINKS'),schedule:[]}],[area('inside',[prop('atmosphere.character','gemütlich')])],'BAR');
+ const saturday = {day:'SATURDAY',intervals:[{start:'17:00',end:'00:00'}]};
+ const closed = binding(117,bar);
+ const open = binding(118,bar);
+ closed.decisionProjection.facts.find(row=>row.key==='hours.regular').value = [saturday,{day:'SUNDAY',intervals:[]}];
+ open.decisionProjection.facts.find(row=>row.key==='hours.regular').value = [saturday,{day:'SUNDAY',intervals:[{start:'18:00',end:'23:00'}]}];
+ const result = await exercise({text:'Heute Abend gemütlich was trinken',meaning,catalog:[closed,open],runtimeReference,runtimeAuthority});
+ assert.equal(result.status,200,JSON.stringify(result.diagnostics));
+ assert.equal(result.body.primaryCandidateId,open.decisionProjection.spotId);
+ const closedCard = result.body.candidates.find(row=>row.spotId===closed.decisionProjection.spotId);
+ assert.ok(!closedCard || (closedCard.rank === null && closedCard.tier === 'INELIGIBLE'),JSON.stringify(closedCard));
+});
+
 test('NukNuk short searches preserve the full criteria before using the same Librarian route', async () => {
  const {createDecisionProductNuknukProvider} = await import('../dist/product-nuknuk-provider.js');
  const text = 'Gemütlich was trinken gehen';

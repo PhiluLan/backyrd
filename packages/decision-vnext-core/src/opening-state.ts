@@ -152,7 +152,8 @@ export function evaluateOpeningDay(snapshot: ProductWorldView, localDate: string
   const priorRegular = regularRows.find((entry) => entry.day === weekdayForDate(priorDate));
   const priorIntervals = priorSpecial?.status === "OPEN" ? priorSpecial.intervals : priorSpecial?.status === "CLOSED" ? [] : priorRegular?.intervals ?? [];
   const carryOver = priorIntervals
-    .filter((interval) => minutes(interval.start) > minutes(interval.end))
+    // An end at midnight contributes no open minutes to the following day.
+    .filter((interval) => minutes(interval.end) > 0 && minutes(interval.start) > minutes(interval.end))
     .map((interval) => ({ start: "00:00", end: interval.end }));
   const today = regularRows.find((entry) => entry.day === weekday);
   if (!today && !carryOver.length) return result("unknown", [], [regular.entryHash, ...(special ? [special.entryHash] : [])], ["requested-weekday-unknown"]);
