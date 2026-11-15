@@ -270,6 +270,7 @@ export default function WohinScreen() {
         setSubmittedQuery(text.trim());
         setConversation(nextConversation);
         setStandaloneQuestion(null);
+        setConversationOpen(false);
       }
       responseRef.current = result;
       setResponse(result);
