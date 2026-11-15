@@ -367,9 +367,14 @@ try {
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
   await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
   await page.getByRole("textbox", {name:"Nachricht an NukNuk",exact:true}).fill("Lieber mit Terrasse");
+  const refinedWish = "ruhiges Café nach Reload Ergänzung: Lieber mit Terrasse";
+  const refinedResponse = page.waitForResponse(result => result.url().endsWith("/functions/v1/decision-v13")
+    && result.request().method() === "POST" && result.request().postDataJSON()?.naturalLanguage === refinedWish);
   await page.getByRole("button", {name:"Nachricht senden",exact:true}).click();
+  assert.equal((await refinedResponse).status(), 200);
+  await page.getByRole("heading", {name:"Dein Gespräch mit NukNuk",exact:true}).waitFor({state:"hidden"});
   await page.getByTestId("wohin-result-card").filter({hasText:"Café Aktualisiert"}).first().waitFor();
-  assert.equal(state.decisions.at(-1).naturalLanguage, "ruhiges Café nach Reload Ergänzung: Lieber mit Terrasse");
+  assert.equal(state.decisions.at(-1).naturalLanguage, refinedWish);
   await page.getByRole("button", {name:"Mit NukNuk chatten",exact:true}).click();
   await page.getByText("Lieber mit Terrasse", {exact:true}).waitFor();
   const countBeforeChatChoices = state.decisions.length;
