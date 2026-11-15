@@ -266,7 +266,8 @@ Wetterbedingungen, Referenzen oder verknüpfte Unsicherheiten darfst du singleAc
 Dann id und subjectIds in facts weglassen. Sonst id und subjectIds ausdrücklich angeben.
 members nur ausgeben, wenn Mitglieder vorhanden sind. Behalte Modalität, Herkunft, Geltungsbereich
 und alle relevanten Kriterien. Behalte Unsicherheiten, die für die Suche wichtig sind.
-«A, bei Regen lieber B»: IF mit RAIN, then B, else A. Beide Aktivitäten sind innerhalb ihres Zweigs REQUIRED.
+«A, bei Regen lieber B»: weatherConditions enthält id w1, state RAIN, role CONDITIONAL, detail null.
+IF verwendet conditionFactId w1, then B, else A. Beide Aktivitäten sind in ihrem Zweig REQUIRED.
 Gemeinsamer Ort und gemeinsame Besuchszeit stehen einmal ausserhalb des IF.
 Eine clarification mit question, dimension und zwei bis drei options nur ausgeben, wenn
 eine konkrete Mehrdeutigkeit oder ein tatsächlich fehlender, entscheidender Teil des Wunsches
@@ -784,12 +785,88 @@ function hasOpenBirthdayDinnerDirection(query: string): boolean {
     && /\b(?:zum essen|essen gehen|abendessen)\b/iu.test(query);
 }
 
+function trailingRainSource(query: string) {
+  if (/\b(?:nicht|kein\w*|weder|ohne|oder|wenn|falls|ausser|außer|sonst|trotz)\b/iu.test(query)) return null;
+  return /^([^,;.!?\n]+),\s*bei regen\s+(?:lieber|stattdessen)\s+([^,;.!?\n]+)[.!?]?$/iu.exec(query);
+}
+
+const rainActivityTokens = (text: string) => localityKey(text).match(/[\p{L}\p{N}]+/gu) ?? [];
+const genericRainActivityWords = new Set(['den', 'ins', 'das', 'der', 'die', 'einen', 'eine', 'etwas', 'gehen', 'machen', 'besuchen', 'besuch', 'anschauen', 'schauen']);
+function rainActivityClause(text: string, mainWords: ReadonlySet<string>, rainyWords: ReadonlySet<string>) {
+  const words = rainActivityTokens(text).filter(word => word.length >= 3 && !genericRainActivityWords.has(word));
+  const inMain = words.some(word => mainWords.has(word)), inRain = words.some(word => rainyWords.has(word));
+  return inMain === inRain ? null : inRain ? 'RAIN' : 'MAIN';
+}
+
+/** Ground the compact model's simple root IF in its two activities and their common visit facts. */
+function normalizeSimpleRainPlan(value: unknown, query: string) {
+  const source = trailingRainSource(query);
+  if (!source || /\b(?:heute|morgen|übermorgen|vormittags?|nachmittags?|abends?|uhr|zwischen|nach|vor)\b|\d/u.test(source[2]!.toLowerCase())
+    || !object(value) || !object(value.logic) || value.logic.kind !== 'IF'
+    || typeof value.logic.conditionFactId !== 'string' || !Array.isArray(value.weatherConditions)
+    || ![value.bindings, value.extensions, value.uncertainties].every(rows => Array.isArray(rows) && rows.length === 0)
+    || !Array.isArray(value.facts) || !Array.isArray(value.entities)) return null;
+  const conditionId = value.logic.conditionFactId;
+  const [weather] = value.weatherConditions;
+  const missing = value.weatherConditions.length === 0 && conditionId === 'RAIN';
+  if (!missing && (value.weatherConditions.length !== 1 || !object(weather) || weather.id !== conditionId
+    || weather.role !== 'CONDITIONAL' || weather.state !== 'RAIN' || weather.detail !== null)) return null;
+  const facts = value.facts.filter(object), entities = value.entities.filter(object);
+  if (facts.length !== value.facts.length || entities.length !== 2 || entities.length !== value.entities.length
+    || entities.some(entity => entity.kind !== 'ACTIVITY' || typeof entity.id !== 'string')) return null;
+  const isActivity = (fact: Record<string, unknown>) => fact.key === 'experience.activity' || fact.key === 'offer.kind';
+  const activities = facts.filter(isActivity), shared = facts.filter(fact => !isActivity(fact));
+  if (activities.length !== 2 || shared.some(fact => !['location.destination', 'time.date', 'time.day_phase', 'time.clock'].some(key => key === fact.key)
+    || fact.modality !== 'REQUIRED' || fact.basis !== 'EXPLICIT')
+    || facts.some(fact => typeof fact.id !== 'string' || fact.id === conditionId) || entities.some(entity => entity.id === conditionId)
+    || new Set(facts.map(fact => fact.id)).size !== facts.length) return null;
+  const ids = new Set(facts.map(fact => fact.id));
+  const simpleRefs = (branch: unknown): boolean => object(branch) && (branch.kind === 'FACT' && ids.has(branch.factId)
+    || branch.kind === 'ALL' && Array.isArray(branch.children) && branch.children.length > 0
+      && branch.children.every(child => object(child) && child.kind === 'FACT' && ids.has(child.factId)));
+  if (!simpleRefs(value.logic.then) || !simpleRefs(value.logic.else)) return null;
+  const mainWords = new Set(rainActivityTokens(source[1]!)), rainyWords = new Set(rainActivityTokens(source[2]!));
+  const identified = activities.map(fact => {
+    const subjects = fact.subjectIds;
+    if (!Array.isArray(subjects) || subjects.length !== 1 || !object(fact.value) || typeof fact.value.text !== 'string'
+      || (fact.modality !== 'REQUIRED' && fact.modality !== 'PREFERRED')) return null;
+    const entity = entities.find(entity => entity.id === subjects[0]);
+    if (!entity) return null;
+    // The model sometimes names a museum in the activity label but emits only a generic exhibition.
+    if (fact.key === 'experience.activity' && localityKey(fact.value.text) === 'ausstellung besuchen'
+      && typeof entity.label === 'string' && /^museum(?:s?[- ]?besuch)?$/iu.test(entity.label)) {
+      const clause = rainActivityClause('Museum', mainWords, rainyWords);
+      return clause ? {clause, entity, fact: {...fact, id: fact.id, key: 'offer.kind', value: {text: 'MUSEUM'}, modality: 'REQUIRED'}} : null;
+    }
+    const clause = rainActivityClause(fact.value.text, mainWords, rainyWords);
+    return clause ? {clause, entity, fact: {...fact, id: fact.id, modality: 'REQUIRED'}} : null;
+  });
+  const main = identified.find(item => item?.clause === 'MAIN'), rain = identified.find(item => item?.clause === 'RAIN');
+  if (!main || !rain || main.entity === rain.entity) return null;
+  const common = new Map<unknown, {fact: Record<string, unknown>; hash: string}>();
+  for (const fact of shared) {
+    if (!object(fact.value) || !Array.isArray(fact.subjectIds)
+      || fact.subjectIds.some(subject => subject !== main.entity.id && subject !== rain.entity.id)) return null;
+    const hash = contentHash(fact.value);
+    const previous = common.get(fact.key);
+    if (previous && previous.hash !== hash) return null;
+    if (!previous) common.set(fact.key,{fact,hash});
+  }
+  const commonFacts = [...common.values()].map(({fact}) => ({...fact,id:fact.id,subjectIds:[]}));
+  const ref = (factId: unknown) => ({kind:'FACT',factId});
+  const condition = {kind:'IF',conditionFactId:conditionId,then:ref(rain.fact.id),else:ref(main.fact.id)};
+  return {...value,
+    facts:[...commonFacts, main.fact, rain.fact],
+    logic:commonFacts.length ? {kind:'ALL',children:[...commonFacts.map(fact=>ref(fact.id)),condition]} : condition,
+    weatherConditions:missing ? [{id:conditionId,basis:'EXPLICIT',subjectIds:[],role:'CONDITIONAL',state:'RAIN',detail:null}] : value.weatherConditions,
+  };
+}
+
 /** Ground a simple trailing rain alternative in the two activities explicitly named in the source. */
 function protectTrailingRainAlternative(query: string, meaning: LunaMeaningOutput): LunaMeaningOutput {
   const logic = meaning.logic;
-  if (!logic || meaning.weatherConditions.length !== 1 || meaning.bindings.length
-    || /\b(?:nicht|kein\w*|weder|ohne|oder|wenn|falls|ausser|außer|sonst|trotz)\b/iu.test(query)) return meaning;
-  const source = /^([^,;.!?\n]+),\s*bei regen\s+(?:lieber|stattdessen)\s+([^,;.!?\n]+)[.!?]?$/iu.exec(query);
+  if (!logic || meaning.weatherConditions.length !== 1 || meaning.bindings.length) return meaning;
+  const source = trailingRainSource(query);
   if (!source) return meaning;
   const branches = logic.kind === 'ALL' ? logic.children : [logic];
   const conditionals = branches.filter(branch => branch.kind === 'IF');
@@ -801,17 +878,12 @@ function protectTrailingRainAlternative(query: string, meaning: LunaMeaningOutpu
   const thenId = conditional.then.factId, elseId = conditional.else.factId;
   if (branches.some(branch => branch !== conditional
     && (branch.kind !== 'FACT' || branch.factId === thenId || branch.factId === elseId))) return meaning;
-  const tokens = (text: string) => localityKey(text).match(/[\p{L}\p{N}]+/gu) ?? [];
-  const mainWords = new Set(tokens(source[1]!)), rainyWords = new Set(tokens(source[2]!));
-  const generic = new Set(['den', 'ins', 'das', 'der', 'die', 'einen', 'eine', 'etwas', 'gehen', 'machen', 'besuchen', 'besuch', 'anschauen', 'schauen']);
+  const mainWords = new Set(rainActivityTokens(source[1]!)), rainyWords = new Set(rainActivityTokens(source[2]!));
   const namedIn = (id: string) => {
     const fact = meaning.facts.find(f => f.id === id);
     if (!fact || (fact.key !== 'experience.activity' && fact.key !== 'offer.kind')
       || (fact.modality !== 'REQUIRED' && fact.modality !== 'PREFERRED')) return null;
-    const words = tokens(fact.value.text).filter(word => word.length >= 3 && !generic.has(word));
-    const inMain = words.some(word => mainWords.has(word));
-    const inRain = words.some(word => rainyWords.has(word));
-    return inMain === inRain ? null : inRain ? 'RAIN' : 'MAIN';
+    return rainActivityClause(fact.value.text, mainWords, rainyWords);
   };
   const thenSource = namedIn(thenId), elseSource = namedIn(elseId);
   if (!thenSource || !elseSource || thenSource === elseSource) return meaning;
@@ -823,8 +895,18 @@ function protectTrailingRainAlternative(query: string, meaning: LunaMeaningOutpu
   };
 }
 
-function prepareNuknukSearch(value: unknown, input: { query: string; reference: LibrarianReference }, needsClarification: boolean, guardOutdoor = false, userText = input.query) {
-  const accepted = validateActiveLunaMeaningOutput(value);
+function prepareNuknukSearch(value: unknown, input: { query: string; reference: LibrarianReference }, needsClarification: boolean, guardOutdoor = false, userText = input.query, repairCompactWeather = false) {
+  let accepted;
+  try {
+    accepted = validateActiveLunaMeaningOutput(value);
+  } catch (error) {
+    if (!repairCompactWeather || userText !== input.query || !(error instanceof LibrarianContractError) || error.code !== 'condition_invalid') throw error;
+    const repaired = normalizeSimpleRainPlan(value, userText);
+    if (!repaired) throw error;
+    accepted = validateActiveLunaMeaningOutput(repaired);
+  }
+  const grounded = repairCompactWeather && userText === input.query ? normalizeSimpleRainPlan(accepted,userText) : null;
+  if (grounded) accepted = validateActiveLunaMeaningOutput(grounded);
   const output = userText === input.query ? protectTrailingRainAlternative(userText, accepted) : accepted;
   // This exact legacy value has one canonical family. Keep its modality,
   // references and scope, and leave all other concept errors to the validator.
@@ -1145,7 +1227,7 @@ export function validateCompactTurn(raw: unknown, input: { query: string; refere
   const guardOutdoor = requestsOutdoorComponent(userText);
   let search;
   try {
-    search = prepareNuknukSearch({ ...meaning, entities, facts }, input, Boolean(suppliedQuestion) || invalidModelQuestion, guardOutdoor, userText);
+    search = prepareNuknukSearch({ ...meaning, entities, facts }, input, Boolean(suppliedQuestion) || invalidModelQuestion, guardOutdoor, userText, true);
   } catch (error) {
     if (!(guardOutdoor && error instanceof LibrarianContractError && error.code === 'condition_unbound')) throw error;
     // An incomplete weather branch cannot establish which outdoor criteria

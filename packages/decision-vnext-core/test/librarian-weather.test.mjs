@@ -137,6 +137,44 @@ test('rain suitability allows covered outdoors without changing an explicit outd
   assert.equal(search(q,[binding(1,venue('OUTDOOR',props))]).ranked.length,0);
 });
 
+test('regression: live NukNuk literal RAIN with a missing weather record is grounded before validation', () => {
+ const query = 'Morgen Nachmittag in Basel in den Zoo, bei Regen lieber ins Museum.';
+ const ref = factId => ({kind:'FACT',factId});
+ const all = (...ids) => ({kind:'ALL',children:ids.map(ref)});
+ const facts = [
+  fact('f1','experience.activity','Zoo besuchen'),
+  fact('f2','location.destination','Basel'),
+  {...date(),id:'f3',value:{...date().value,date:'2026-11-16'}},
+  fact('f4','time.day_phase',{phase:'AFTERNOON',timezone:'Europe/Zurich'}),
+  fact('f5','experience.activity','Ausstellung besuchen','REQUIRED',['a2']),
+ ];
+ const ctx = {query,reference:{now:'2026-11-15T10:49:30Z',timezone:'Europe/Zurich'}};
+ const entities = [{id:'a1',kind:'ACTIVITY',label:'Zoo-Besuch'},{id:'a2',kind:'ACTIVITY',label:'Museumsbesuch'}];
+ for (const [then, otherwise] of [[all('f2','f3','f4','f5'),all('f1','f2','f3','f4')],[ref('f2'),ref('f1')]]) {
+  const raw = {meaning:{facts,entities,logic:{kind:'IF',conditionFactId:'RAIN',then,else:otherwise}}};
+  const accepted = validateNuknukCompactSearch(raw,ctx);
+  assert.equal(accepted.requestState,'EXECUTABLE');
+  assert.deepEqual(accepted.plan.logic.children.at(-1),{kind:'IF',conditionFactId:'RAIN',then:ref('f5'),else:ref('f1')});
+  assert.deepEqual(accepted.plan.weatherConditions.map(w => [w.id,w.state,w.role]),[['RAIN','RAIN','CONDITIONAL']]);
+  assert.equal(accepted.plan.facts.find(f => f.id === 'f5').key,'offer.kind');
+  const visit = librarianWeatherVisitWindow(accepted.plan,ctx.reference.now);
+  assert.deepEqual([visit.dates,visit.start,visit.end],[['2026-11-16'],720,1080]);
+  assert.throws(() => validateNuknukCompactSearch(raw,{...ctx,query:query.replace('lieber ins Museum','lieber ins Kino')}),/condition_invalid/);
+  assert.throws(() => validateNuknukCompactSearch(raw,{...ctx,query:query.replace('bei Regen','trotz Regen')}),/condition_invalid/);
+ }
+ const duplicated = {meaning:{
+  facts:[...facts,...facts.slice(1,4).map((f,index) => ({...f,id:`f${index+6}`,subjectIds:['a2']}))],
+  entities,
+  logic:{kind:'IF',conditionFactId:'w1',then:ref('f1'),else:ref('f5')},
+  weatherConditions:[{...weather('CONDITIONAL'),subjectIds:[]}],
+ }};
+ const repaired = validateNuknukCompactSearch(duplicated,ctx).plan;
+ assert.deepEqual(repaired.logic.children.at(-1),{kind:'IF',conditionFactId:'w1',then:ref('f5'),else:ref('f1')});
+ assert.equal(repaired.facts.filter(f => f.key === 'time.date').length,1);
+ assert.equal(repaired.facts.filter(f => f.key === 'time.day_phase').length,1);
+ assert.deepEqual(librarianWeatherVisitWindow(repaired,ctx.reference.now).dates,['2026-11-16']);
+});
+
 test('indoor setting proves rain suitability but an unknown setting or unsupported type does not',()=>{
  assert.equal(search(outing(),[binding(1,venue('PLAYGROUND',[prop('location.setting','drinnen')]))]).ranked.length,1);
  for(const p of [venue('PLAYGROUND'),venue('INDOOR',[prop('location.setting',null,{state:'UNKNOWN'})])])
